@@ -1,8 +1,3 @@
----
-trigger: model_decision
-description: Use when defining or modifying DB tables, fields, relationships, or any data access logic.
----
-
 Build migrations in this order. Never raw SQL — always Eloquent.
 users                   id, name, email, password, role, timestamps
 patients                id, name, dob, sex, religion, address, contact, physician, admission_date, medical_diagnosis, ward, status, timestamps
