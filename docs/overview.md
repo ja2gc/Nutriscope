@@ -24,4 +24,4 @@ ai-policy/ → AI usage rules
 database-schema/ → data structure
 security/ → access control
 integrations/ → api integrations    
-architecture/ → folder structure and stack
+architecture/ → folder structure, role navigation, and stack

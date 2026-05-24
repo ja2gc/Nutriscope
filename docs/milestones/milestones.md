@@ -16,17 +16,17 @@ Phase 0: Already Completed (Foundation)
 Phase 1: Laravel Foundation & Route Setup
 *Ensure the base backend is ready to accept API requests and enforce roles.*
 
-- [ ] Run `php artisan install:api` to generate `routes/api.php`
-- [ ] Configure `.env` for Redis (queue, session, cache)
-- [ ] Set up route groups in `api.php` (`auth:sanctum`, `role:RND`, `role:FSS`, `role:Admin`)
-- [ ] Implement `RoleMiddleware` for role-based route guarding
+- [x] Run `php artisan install:api` to generate `routes/api.php`
+- [x] Configure `.env` for Redis (queue, session, cache)
+- [x] Set up route groups in `api.php` (`auth:sanctum`, `role:RND`, `role:FSS`, `role:Admin`)
+- [x] Implement `RoleMiddleware` for role-based route guarding
 - [ ] Implement `AuditMiddleware` using `spatie/laravel-activitylog` for sensitive routes
 
 Milestone 1: Authentication Endpoints & UI
 *Get users logging in and interacting with a protected UI.*
 
-- [ ] Backend: Create `LoginRequest` and `UserResource`
-- [ ] Backend: Implement login, logout, and me logic in `AuthController`
+- [x] Backend: Create `LoginRequest` and `UserResource`
+- [x] Backend: Implement login, logout, and me logic in `AuthController`
 - [ ] Frontend: Scaffold Next.js auth context and HTTP-only cookie token storage
 - [ ] Frontend: Create `middleware.ts` for route protection and role redirection
 - [ ] Frontend: Build Login Page UI (`/login`)
@@ -35,8 +35,8 @@ Milestone 1: Authentication Endpoints & UI
 Milestone 2: Patient Management
 *RNDs need to be able to list, add, and view patients.*
 
-- [ ] Backend: Create `StorePatientRequest`, `UpdatePatientRequest`, and `PatientResource`
-- [ ] Backend: Implement Patient CRUD endpoints in `PatientController`
+- [x] Backend: Create `StorePatientRequest`, `UpdatePatientRequest`, and `PatientResource`
+- [x] Backend: Implement Patient CRUD endpoints in `PatientController`
 - [ ] Frontend: Build Patient List Page with sortable table
 - [ ] Frontend: Build Add Patient Modal
 - [ ] Frontend: Build Patient Profile shell (header and empty tabs)
