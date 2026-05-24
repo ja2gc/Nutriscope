@@ -1,4 +1,4 @@
-MEAL PLAN ALGORITHM (NO AI)
+MEAL PLAN ALGORITHM 
 1. Read from assessment: allergies(hard exclude), religious restrictions(hard exclude)
 2. Read nutrition prescription from intervention
 3. Query recipe library — filter out allergens/restricted ingredients, score by nutrient fit

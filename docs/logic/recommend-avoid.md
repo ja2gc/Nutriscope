@@ -12,4 +12,4 @@ biochemical_data → lab value refinement (high potassium lab → stricter even 
 food_items.allergens + food_items.micronutrients → match against all filters above
 
 food_items.allergens tags (14 standard + Filipino context):
-gluten, dairy, eggs, fish, shellfish, tree_nuts, peanuts, soy, sesame, seafood, chicken
+Beef Products,Cereal Grains and Pasta, Dairy and Egg Products, Finfish and Shellfish Products, Fruits and Fruit Juices, Lamb, Veal, and Game Products, Nut and Seed Products, Pork Products, Poultry Products, 
