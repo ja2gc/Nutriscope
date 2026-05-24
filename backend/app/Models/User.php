@@ -1,0 +1,36 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
+use Laravel\Sanctum\HasApiTokens;
+
+class User extends Authenticatable
+{
+    use HasApiTokens, Notifiable;
+
+    protected $fillable = ['name', 'email', 'password', 'role', 'is_active'];
+
+    protected $hidden = ['password', 'remember_token'];
+
+    protected $casts = [
+        'email_verified_at' => 'datetime',
+        'password' => 'hashed',
+        'is_active' => 'boolean',
+    ];
+
+    public function ncpRecords()
+    {
+        return $this->hasMany(NcpRecord::class, 'rnd_user_id');
+    }
+
+    public function recipes()
+    {
+        return $this->hasMany(Recipe::class, 'rnd_user_id');
+    }
+
+    public function isRnd(): bool    { return $this->role === 'RND'; }
+    public function isFss(): bool    { return $this->role === 'FSS'; }
+    public function isAdmin(): bool  { return $this->role === 'Admin'; }
+}
