@@ -118,22 +118,22 @@ export default function RndDashboardPage() {
               14 Active
             </span>
           </div>
-          <div className="p-2.5 rounded-xl bg-brand-green-50 text-brand-green-700 border border-brand-green-100">
+          <div className="p-2.5 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-100">
             <HeartHandshake className="h-5 w-5" />
           </div>
         </div>
 
         {/* KPI 2 */}
-        <div className="bg-white border border-brand-orange-100 p-4.5 rounded-2xl flex items-center justify-between shadow-sm">
+        <div className="bg-white border border-orange-100 p-4.5 rounded-2xl flex items-center justify-between shadow-sm">
           <div>
-            <span className="text-[10px] font-extrabold text-brand-orange-500 uppercase tracking-wider block select-none">
+            <span className="text-[10px] font-extrabold text-orange-500 uppercase tracking-wider block select-none">
               High Risk Cases
             </span>
-            <span className="text-lg font-extrabold text-brand-orange-700 mt-1 block">
+            <span className="text-lg font-extrabold text-orange-700 mt-1 block">
               3 Cases
             </span>
           </div>
-          <div className="p-2.5 rounded-xl bg-brand-orange-50 text-brand-orange-700 border border-brand-orange-100 animate-pulse">
+          <div className="p-2.5 rounded-xl bg-orange-50 text-orange-700 border border-orange-100 animate-pulse">
             <ShieldAlert className="h-5 w-5" />
           </div>
         </div>
@@ -148,7 +148,7 @@ export default function RndDashboardPage() {
               Week 2 - Day 2
             </span>
           </div>
-          <div className="p-2.5 rounded-xl bg-brand-green-50 text-brand-green-700 border border-brand-green-100">
+          <div className="p-2.5 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-100">
             <Salad className="h-5 w-5" />
           </div>
         </div>
@@ -159,11 +159,11 @@ export default function RndDashboardPage() {
             <span className="text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider block select-none">
               FSS Prep Readiness
             </span>
-            <span className="text-lg font-extrabold text-brand-green-700 mt-1 block">
+            <span className="text-lg font-extrabold text-emerald-700 mt-1 block">
               94.8% Done
             </span>
           </div>
-          <div className="p-2.5 rounded-xl bg-brand-green-50 text-brand-green-700 border border-brand-green-100">
+          <div className="p-2.5 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-100">
             <TrendingUp className="h-5 w-5" />
           </div>
         </div>
@@ -208,14 +208,14 @@ export default function RndDashboardPage() {
                       <span className={`inline-flex px-2.5 py-0.5 rounded-lg text-[9px] font-extrabold uppercase tracking-wider border ${
                         pat.risk === "High" 
                           ? "bg-red-50 text-red-700 border-red-100" 
-                          : "bg-brand-orange-50 text-brand-orange-700 border-brand-orange-100"
+                          : "bg-orange-50 text-orange-700 border-orange-100"
                       }`}>
                         {pat.risk} Risk
                       </span>
                     </td>
                     <td className="px-5 py-4.5">
                       <span className="inline-flex items-center gap-2 text-xs font-semibold text-zinc-700">
-                        <span className="h-2 w-2 rounded-full bg-brand-green-600" />
+                        <span className="h-2 w-2 rounded-full bg-emerald-600" />
                         {pat.status}
                       </span>
                     </td>
@@ -239,7 +239,7 @@ export default function RndDashboardPage() {
             </div>
             <button
               onClick={() => setShowAnnounceForm(!showAnnounceForm)}
-              className="p-1.5 text-brand-green-700 hover:bg-brand-green-50 rounded-lg cursor-pointer transition-colors border border-transparent hover:border-brand-green-100"
+              className="p-1.5 text-emerald-700 hover:bg-emerald-50 rounded-lg cursor-pointer transition-colors border border-transparent hover:border-emerald-100"
               title="Post announcement"
             >
               <Plus className="h-4 w-4" />
@@ -255,14 +255,14 @@ export default function RndDashboardPage() {
                   placeholder="Broadcast Title"
                   value={newTitle}
                   onChange={(e) => setNewTitle(e.target.value)}
-                  className="w-full px-3 py-1.5 text-xs bg-white border border-zinc-300 rounded-lg font-semibold text-zinc-950 focus:outline-none focus:ring-2 focus:ring-brand-green-500/20 focus:border-brand-green-600 transition-all"
+                  className="w-full px-3 py-1.5 text-xs bg-white border border-zinc-300 rounded-lg font-semibold text-zinc-950 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 transition-all"
                   required
                 />
                 <textarea
                   placeholder="Post content message..."
                   value={newAnnouncement}
                   onChange={(e) => setNewAnnouncement(e.target.value)}
-                  className="w-full px-3 py-2 text-xs bg-white border border-zinc-300 rounded-lg text-zinc-950 focus:outline-none focus:ring-2 focus:ring-brand-green-500/20 focus:border-brand-green-600 transition-all h-20"
+                  className="w-full px-3 py-2 text-xs bg-white border border-zinc-300 rounded-lg text-zinc-950 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 transition-all h-20"
                   required
                 />
                 <div className="flex justify-end gap-2 pt-1">
@@ -275,7 +275,7 @@ export default function RndDashboardPage() {
                   </button>
                   <button
                     type="submit"
-                    className="px-3 py-1.5 text-[10px] font-bold bg-brand-green-600 hover:bg-brand-green-700 active:bg-brand-green-800 text-white rounded-lg uppercase tracking-wider cursor-pointer transition-all duration-150"
+                    className="px-3 py-1.5 text-[10px] font-bold bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-lg uppercase tracking-wider cursor-pointer transition-all duration-150"
                   >
                     Broadcast
                   </button>
@@ -290,7 +290,7 @@ export default function RndDashboardPage() {
                   key={ann.id} 
                   className={`p-4 border rounded-xl transition-all duration-200 ${
                     ann.pinned 
-                      ? "bg-brand-orange-50/15 border-brand-orange-100" 
+                      ? "bg-orange-50/15 border-orange-100" 
                       : "bg-white border-zinc-200"
                   }`}
                 >
@@ -299,7 +299,7 @@ export default function RndDashboardPage() {
                       {ann.date}
                     </span>
                     {ann.pinned && (
-                      <span className="inline-flex items-center gap-0.5 px-2 py-0.5 bg-brand-orange-100 text-brand-orange-800 text-[8px] font-extrabold uppercase rounded-lg">
+                      <span className="inline-flex items-center gap-0.5 px-2 py-0.5 bg-orange-100 text-orange-850 text-[8px] font-extrabold uppercase rounded-lg">
                         <Sparkles className="h-2 w-2 shrink-0" />
                         Pinned
                       </span>
@@ -309,7 +309,7 @@ export default function RndDashboardPage() {
                   <p className="text-xs text-zinc-650 mt-1.5 leading-relaxed">{ann.content}</p>
                   <div className="mt-4 pt-2.5 border-t border-zinc-100 flex items-center justify-between text-[9px] font-bold text-zinc-400 uppercase tracking-wider">
                     <span>By: {ann.author}</span>
-                    <span className="text-brand-green-700">{ann.role}</span>
+                    <span className="text-emerald-700">{ann.role}</span>
                   </div>
                 </div>
               ))}

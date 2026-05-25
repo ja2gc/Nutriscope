@@ -46,7 +46,7 @@ export function TopBar() {
           title="System notifications"
         >
           <Bell className="h-4.5 w-4.5" />
-          <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-brand-orange-500 ring-2 ring-white animate-pulse" />
+          <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-orange-500 ring-2 ring-white animate-pulse" />
         </button>
 
         {/* User Card */}
@@ -56,12 +56,12 @@ export function TopBar() {
               <span className="text-xs font-bold text-zinc-800 leading-tight">
                 {user.name}
               </span>
-              <span className="text-[9px] font-extrabold text-brand-orange-600 uppercase tracking-widest leading-tight mt-0.5">
+              <span className="text-[9px] font-extrabold text-orange-600 uppercase tracking-widest leading-tight mt-0.5">
                 {user.role}
               </span>
             </div>
             
-            <div className="h-8 w-8 rounded-full bg-brand-green-50 border border-brand-green-200 flex items-center justify-center text-brand-green-700">
+            <div className="h-8 w-8 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700">
               <UserIcon className="h-4 w-4" />
             </div>
           </div>
@@ -70,7 +70,7 @@ export function TopBar() {
         {/* Log Out */}
         <button
           onClick={handleLogout}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-zinc-500 hover:text-brand-orange-600 rounded-lg hover:bg-brand-orange-50 transition-all duration-150 cursor-pointer tracking-wide"
+          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-zinc-500 hover:text-orange-600 rounded-lg hover:bg-orange-50 transition-all duration-150 cursor-pointer tracking-wide"
           title="Sign out of system"
         >
           <LogOut className="h-4 w-4" />
