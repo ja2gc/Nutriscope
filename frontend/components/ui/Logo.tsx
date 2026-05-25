@@ -67,11 +67,11 @@ export function Logo({ variant = "light", collapsed = false }: LogoProps) {
       {/* Wordmark (Nutri + Scope) */}
       {!collapsed && (
         <div className="flex items-baseline">
-          <span className="text-base font-extrabold tracking-tight text-brand-green-600">
+          <span className="text-base font-extrabold tracking-tight text-emerald-600">
             Nutri
           </span>
           <span className={`text-base font-extrabold tracking-tight ${
-            isDark ? "text-slate-100" : "text-brand-orange-600"
+            isDark ? "text-zinc-100" : "text-orange-600"
           }`}>
             Scope
           </span>

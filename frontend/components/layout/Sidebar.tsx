@@ -42,17 +42,17 @@ export function Sidebar() {
 
   return (
     <aside 
-      className={`bg-sidebar-bg border-r border-sidebar-border min-h-screen flex flex-col transition-all duration-200 ease-in-out shrink-0 select-none ${
+      className={`bg-zinc-950 border-r border-zinc-900 min-h-screen flex flex-col transition-all duration-200 ease-in-out shrink-0 select-none ${
         collapsed ? "w-16" : "w-64"
       }`}
     >
       {/* Brand Header */}
-      <div className="h-14 border-b border-sidebar-border flex items-center justify-between px-4.5">
+      <div className="h-14 border-b border-zinc-900 flex items-center justify-between px-4.5">
         <Logo variant="dark" collapsed={collapsed} />
         
         <button 
           onClick={() => setCollapsed(!collapsed)}
-          className="p-1 hover:bg-sidebar-active rounded text-zinc-500 hover:text-zinc-300 cursor-pointer"
+          className="p-1 hover:bg-zinc-900 rounded text-zinc-500 hover:text-zinc-300 cursor-pointer"
           title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
           {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
@@ -72,12 +72,12 @@ export function Sidebar() {
               href={item.href}
               className={`flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all duration-150 ${
                 isActive
-                  ? "bg-sidebar-active text-zinc-100 border-l-2 border-brand-green-600"
-                  : "text-zinc-400 hover:bg-sidebar-active/60 hover:text-zinc-200"
+                  ? "bg-zinc-900 text-zinc-100 border-l-2 border-emerald-600"
+                  : "text-zinc-400 hover:bg-zinc-900/60 hover:text-zinc-200"
               }`}
               title={collapsed ? item.name : undefined}
             >
-              <Icon className={`h-4.5 w-4.5 shrink-0 ${isActive ? "text-brand-green-500" : "text-zinc-400"}`} />
+              <Icon className={`h-4.5 w-4.5 shrink-0 ${isActive ? "text-emerald-500" : "text-zinc-450"}`} />
               {!collapsed && <span>{item.name}</span>}
             </Link>
           );
@@ -86,14 +86,14 @@ export function Sidebar() {
 
       {/* Active User Session Footer */}
       {!collapsed && user && (
-        <div className="p-4 border-t border-sidebar-border bg-sidebar-active/20 text-center shrink-0">
+        <div className="p-4 border-t border-zinc-900 bg-zinc-900/20 text-center shrink-0">
           <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block">
             Active Session
           </span>
           <span className="text-xs font-semibold text-zinc-300 mt-1 block truncate" title={user.name}>
             {user.name}
           </span>
-          <span className="text-[9px] font-extrabold text-brand-orange-500 uppercase tracking-widest block mt-0.5">
+          <span className="text-[9px] font-extrabold text-orange-500 uppercase tracking-widest block mt-0.5">
             {user.role}
           </span>
         </div>
