@@ -12,12 +12,16 @@ NutriScope is a clinical and operational system, not a consumer application. The
 - Contextual Panels: Slide-out side drawers used for secondary actions (e.g., AI review, OCR verification, patient history peeks) to maintain primary workflow context.
 
 ### 1.3 Design System Tokens
-- Typography: Clean, sans-serif (Inter or Roboto). High-contrast weights for data readability. Tabular lining and monospace for lab values, IDs, and financial data to ensure vertical alignment.
+- Typography: Clean, modern sans-serif (Inter with Plus Jakarta Sans styling). High-contrast weights for clinical reading. Monospace fonts utilized exclusively for patient IDs, biochemical lab parameters, and numbers.
 - Color Palette:
-  - Primary: Trustworthy clinical blue/teal (Actionable).
-  - Backgrounds: Pure white for content cards, very light gray for canvas background to separate sections.
-  - Semantic Status: Red (Critical/Low/Allergy), Amber/Yellow (Warning/Expiring/Pending), Green (Normal/Ready/Completed), Slate/Gray (Draft/Inactive).
-- Spacing Framework: Dense, strict 4px/8px baseline grid to allow maximum data visibility without clutter.
+  - Brand Primary Green ("Nutri"): Clinical Emerald Green (`#059669` / `brand-green-600`) for success metrics, primary buttons, active link outlines, and core actions.
+  - Brand Secondary Orange ("Scope"): Tangerine Orange (`#EA580C` / `brand-orange-600`) for warning indicators, alert badges, and select brand visual accents.
+  - Shell Backgrounds: Premium dark contrast Sidebar (`#09090b` / `zinc-950`), warm off-white main content Canvas Background (`#fafafa` / `zinc-50`), and pure white cards with soft zinc borders.
+  - Corner Radii: Standardized 8px modern rounded borders (`rounded-lg` / `rounded-xl`) across cards, inputs, and action buttons.
+  - Semantic Status: Red (Critical/Low/Allergy), Orange/Amber (Warning/Expiring), Green (Normal/Completed), Zinc/Slate (Draft/Inactive).
+- Iconography System: Pure SVG iconography rejecting generic AI indicators. Built using highly descriptive specific indicators (`Compass` for dashboards, `CookingPot` for recipes, `HeartHandshake` for NCP care, `Salad` for food oversight, `TrendingUp` for reports).
+- Copy & Writing Tone: Warm, humanized, and highly encouraging professional copywriting, avoiding bureaucratic, intimidating, or military intranet phrasing.
+- Spacing Framework: Dense, strict 4px/8px baseline grid to allow maximum data visibility without visual clutter.
 
 ## 2. User Flow Mapping
 

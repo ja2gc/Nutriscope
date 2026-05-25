@@ -11,15 +11,15 @@ export function TopBar() {
   const { user, logout } = useAuth();
 
   const getModuleTitle = () => {
-    if (pathname === "/dashboard") return "Clinical Overview Dashboard";
-    if (pathname.startsWith("/recipes")) return "USDA & Custom Recipes Database";
-    if (pathname.startsWith("/ncp")) return "Nutrition Care Process (NCP)";
-    if (pathname.startsWith("/food-service")) return "Food Service & Kitchen Oversight";
-    if (pathname.startsWith("/reports")) return "Clinical Reports & Document Center";
-    if (pathname.startsWith("/calendar")) return "Care Calendar & Follow-ups";
-    if (pathname.startsWith("/notifications")) return "System Alerts";
-    if (pathname.startsWith("/settings")) return "Preferences & System Variables";
-    return "Clinical Operations Console";
+    if (pathname === "/dashboard") return "Overview & Operations Center";
+    if (pathname.startsWith("/recipes")) return "Recipes & Ingredient Database";
+    if (pathname.startsWith("/ncp")) return "Patient Nutrition Care Center";
+    if (pathname.startsWith("/food-service")) return "Food Service & Kitchen Operations";
+    if (pathname.startsWith("/reports")) return "Clinical & Operational Reports";
+    if (pathname.startsWith("/calendar")) return "Care Calendar & Schedules";
+    if (pathname.startsWith("/notifications")) return "Activity Notifications";
+    if (pathname.startsWith("/settings")) return "System Settings & Preferences";
+    return "Nutrition Operations Console";
   };
 
   const handleLogout = async () => {
@@ -32,36 +32,36 @@ export function TopBar() {
   };
 
   return (
-    <header className="h-14 bg-white border-b border-gray-200 flex items-center justify-between px-6 select-none shrink-0 z-10">
+    <header className="h-14 bg-white border-b border-zinc-200 flex items-center justify-between px-6 select-none shrink-0 z-10 font-sans">
       {/* Module Title */}
-      <h1 className="text-sm font-bold text-gray-800 uppercase tracking-wider">
+      <h1 className="text-sm font-bold text-zinc-800 tracking-wide uppercase">
         {getModuleTitle()}
       </h1>
 
       {/* User Actions */}
-      <div className="flex items-center gap-6">
+      <div className="flex items-center gap-5">
         {/* Alerts Bell */}
         <button 
-          className="relative p-1.5 text-gray-400 hover:text-gray-600 rounded hover:bg-gray-50 cursor-pointer"
+          className="relative p-1.5 text-zinc-400 hover:text-zinc-600 rounded-lg hover:bg-zinc-50 cursor-pointer transition-colors"
           title="System notifications"
         >
           <Bell className="h-4.5 w-4.5" />
-          <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-red-600 ring-2 ring-white" />
+          <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-brand-orange-500 ring-2 ring-white animate-pulse" />
         </button>
 
         {/* User Card */}
         {user && (
-          <div className="flex items-center gap-3 border-l border-gray-200 pl-6">
+          <div className="flex items-center gap-3 border-l border-zinc-200 pl-5">
             <div className="flex flex-col text-right">
-              <span className="text-xs font-bold text-gray-900 leading-tight">
+              <span className="text-xs font-bold text-zinc-800 leading-tight">
                 {user.name}
               </span>
-              <span className="text-[10px] font-extrabold text-blue-700 uppercase tracking-widest leading-tight">
+              <span className="text-[9px] font-extrabold text-brand-orange-600 uppercase tracking-widest leading-tight mt-0.5">
                 {user.role}
               </span>
             </div>
             
-            <div className="h-8 w-8 rounded-full bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-700">
+            <div className="h-8 w-8 rounded-full bg-brand-green-50 border border-brand-green-200 flex items-center justify-center text-brand-green-700">
               <UserIcon className="h-4 w-4" />
             </div>
           </div>
@@ -70,13 +70,14 @@ export function TopBar() {
         {/* Log Out */}
         <button
           onClick={handleLogout}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-gray-500 hover:text-red-700 rounded hover:bg-red-50 transition-colors cursor-pointer uppercase tracking-wider"
+          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-zinc-500 hover:text-brand-orange-600 rounded-lg hover:bg-brand-orange-50 transition-all duration-150 cursor-pointer tracking-wide"
           title="Sign out of system"
         >
           <LogOut className="h-4 w-4" />
-          <span>Exit</span>
+          <span>Sign Out</span>
         </button>
       </div>
     </header>
   );
 }
+

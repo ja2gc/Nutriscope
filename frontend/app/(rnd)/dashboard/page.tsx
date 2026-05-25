@@ -3,13 +3,13 @@
 import React, { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { 
-  Users, 
-  AlertTriangle, 
-  Activity, 
-  ChefHat, 
-  MessageSquare,
+  HeartHandshake, 
+  ShieldAlert, 
+  Salad, 
+  TrendingUp, 
   Megaphone,
-  Plus
+  Plus,
+  Sparkles
 } from "lucide-react";
 
 interface Patient {
@@ -90,81 +90,81 @@ export default function RndDashboardPage() {
   return (
     <div className="space-y-6 font-sans">
       {/* Breadcrumb Trail */}
-      <div className="flex items-center gap-2 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+      <div className="flex items-center gap-2 text-xs font-semibold text-zinc-400 select-none">
         <span>Home</span>
-        <span>/</span>
-        <span className="text-gray-600">Clinical Dashboard</span>
+        <span className="text-zinc-300">/</span>
+        <span className="text-zinc-600 font-bold">Overview & Operations</span>
       </div>
 
       {/* Welcome Header */}
-      <div className="border-b border-gray-200 pb-4">
-        <h2 className="text-xl font-extrabold text-gray-900 uppercase tracking-wide">
-          Operational Overview
+      <div className="border-b border-zinc-200 pb-5">
+        <h2 className="text-xl font-extrabold text-zinc-900 tracking-tight">
+          {user ? `Good morning, ${user.name}` : "Overview & Operations Center"}
         </h2>
-        <p className="text-xs text-gray-500 mt-0.5">
-          Real-time patient assessments, food service logs, and department alerts.
+        <p className="text-xs text-zinc-500 mt-1 select-none">
+          Real-time patient assessments, kitchen readiness logs, and department directives.
         </p>
       </div>
 
       {/* KPI Cards Row (Grid baseline) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4.5">
         {/* KPI 1 */}
-        <div className="bg-white border border-gray-200 p-4 rounded flex items-center justify-between shadow-sm">
+        <div className="bg-white border border-zinc-200 p-4.5 rounded-2xl flex items-center justify-between shadow-sm">
           <div>
-            <span className="text-[10px] font-extrabold text-gray-400 uppercase tracking-wider block">
-              Active NCP Cycles
+            <span className="text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider block select-none">
+              NCP Patients
             </span>
-            <span className="text-xl font-extrabold text-gray-900 mt-1 block">
-              14 Patients
+            <span className="text-lg font-extrabold text-zinc-950 mt-1 block">
+              14 Active
             </span>
           </div>
-          <div className="p-2.5 rounded bg-blue-50 text-blue-600">
-            <Users className="h-5 w-5" />
+          <div className="p-2.5 rounded-xl bg-brand-green-50 text-brand-green-700 border border-brand-green-100">
+            <HeartHandshake className="h-5 w-5" />
           </div>
         </div>
 
         {/* KPI 2 */}
-        <div className="bg-white border border-red-100 p-4 rounded flex items-center justify-between shadow-sm">
+        <div className="bg-white border border-brand-orange-100 p-4.5 rounded-2xl flex items-center justify-between shadow-sm">
           <div>
-            <span className="text-[10px] font-extrabold text-red-500 uppercase tracking-wider block">
+            <span className="text-[10px] font-extrabold text-brand-orange-500 uppercase tracking-wider block select-none">
               High Risk Cases
             </span>
-            <span className="text-xl font-extrabold text-red-700 mt-1 block">
+            <span className="text-lg font-extrabold text-brand-orange-700 mt-1 block">
               3 Cases
             </span>
           </div>
-          <div className="p-2.5 rounded bg-red-50 text-red-600">
-            <AlertTriangle className="h-5 w-5" />
+          <div className="p-2.5 rounded-xl bg-brand-orange-50 text-brand-orange-700 border border-brand-orange-100 animate-pulse">
+            <ShieldAlert className="h-5 w-5" />
           </div>
         </div>
 
         {/* KPI 3 */}
-        <div className="bg-white border border-gray-200 p-4 rounded flex items-center justify-between shadow-sm">
+        <div className="bg-white border border-zinc-200 p-4.5 rounded-2xl flex items-center justify-between shadow-sm">
           <div>
-            <span className="text-[10px] font-extrabold text-gray-400 uppercase tracking-wider block">
+            <span className="text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider block select-none">
               Today's Menu Cycle
             </span>
-            <span className="text-xl font-extrabold text-gray-900 mt-1 block">
+            <span className="text-lg font-extrabold text-zinc-950 mt-1 block">
               Week 2 - Day 2
             </span>
           </div>
-          <div className="p-2.5 rounded bg-teal-50 text-teal-700">
-            <ChefHat className="h-5 w-5" />
+          <div className="p-2.5 rounded-xl bg-brand-green-50 text-brand-green-700 border border-brand-green-100">
+            <Salad className="h-5 w-5" />
           </div>
         </div>
 
         {/* KPI 4 */}
-        <div className="bg-white border border-green-100 p-4 rounded flex items-center justify-between shadow-sm">
+        <div className="bg-white border border-zinc-250 p-4.5 rounded-2xl flex items-center justify-between shadow-sm">
           <div>
-            <span className="text-[10px] font-extrabold text-green-600 uppercase tracking-wider block">
+            <span className="text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider block select-none">
               FSS Prep Readiness
             </span>
-            <span className="text-xl font-extrabold text-green-700 mt-1 block">
+            <span className="text-lg font-extrabold text-brand-green-700 mt-1 block">
               94.8% Done
             </span>
           </div>
-          <div className="p-2.5 rounded bg-green-50 text-green-600">
-            <Activity className="h-5 w-5" />
+          <div className="p-2.5 rounded-xl bg-brand-green-50 text-brand-green-700 border border-brand-green-100">
+            <TrendingUp className="h-5 w-5" />
           </div>
         </div>
       </div>
@@ -172,14 +172,14 @@ export default function RndDashboardPage() {
       {/* Split Workflows Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left 2 Columns: Active Patients Table */}
-        <div className="lg:col-span-2 bg-white border border-gray-200 rounded shadow-sm">
-          <div className="px-5 py-4 border-b border-gray-150 flex items-center justify-between">
+        <div className="lg:col-span-2 bg-white border border-zinc-200 rounded-2xl shadow-sm overflow-hidden">
+          <div className="px-5 py-4 border-b border-zinc-100 flex items-center justify-between">
             <div>
-              <h3 className="text-xs font-bold text-gray-900 uppercase tracking-wider">
-                Active Patients Needing Assessment
+              <h3 className="text-xs font-bold text-zinc-900 uppercase tracking-wider">
+                Patients Awaiting Nutrition Care
               </h3>
-              <p className="text-[10px] text-gray-500 mt-0.5">
-                Prioritized by clinical severity and nutritional risk indices.
+              <p className="text-[10px] text-zinc-500 mt-1">
+                Prioritized by clinical severity and nutritional risk indicators.
               </p>
             </div>
           </div>
@@ -187,35 +187,35 @@ export default function RndDashboardPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-gray-50 border-b border-gray-200">
-                  <th className="px-5 py-3 text-[10px] font-extrabold text-gray-500 uppercase tracking-wider">Patient / ID</th>
-                  <th className="px-5 py-3 text-[10px] font-extrabold text-gray-500 uppercase tracking-wider">Location</th>
-                  <th className="px-5 py-3 text-[10px] font-extrabold text-gray-500 uppercase tracking-wider">Risk Level</th>
-                  <th className="px-5 py-3 text-[10px] font-extrabold text-gray-500 uppercase tracking-wider">Current Phase</th>
+                <tr className="bg-zinc-50 border-b border-zinc-150">
+                  <th className="px-5 py-3.5 text-[10px] font-extrabold text-zinc-500 uppercase tracking-wider">Patient / ID</th>
+                  <th className="px-5 py-3.5 text-[10px] font-extrabold text-zinc-500 uppercase tracking-wider">Location</th>
+                  <th className="px-5 py-3.5 text-[10px] font-extrabold text-zinc-500 uppercase tracking-wider">Risk Level</th>
+                  <th className="px-5 py-3.5 text-[10px] font-extrabold text-zinc-500 uppercase tracking-wider">Current Phase</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="divide-y divide-zinc-100">
                 {patients.map((pat, idx) => (
-                  <tr key={pat.id} className={idx % 2 === 0 ? "bg-white" : "bg-gray-50/30"}>
-                    <td className="px-5 py-3.5">
-                      <div className="text-xs font-bold text-gray-900">{pat.name}</div>
-                      <div className="text-[10px] font-mono text-gray-400 mt-0.5">{pat.id}</div>
+                  <tr key={pat.id} className={idx % 2 === 0 ? "bg-white" : "bg-zinc-50/20"}>
+                    <td className="px-5 py-4.5">
+                      <div className="text-xs font-bold text-zinc-800">{pat.name}</div>
+                      <div className="text-[10px] font-mono text-zinc-400 mt-0.5">{pat.id}</div>
                     </td>
-                    <td className="px-5 py-3.5 text-xs text-gray-600">
+                    <td className="px-5 py-4.5 text-xs text-zinc-600">
                       {pat.ward}
                     </td>
-                    <td className="px-5 py-3.5">
-                      <span className={`inline-flex px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${
+                    <td className="px-5 py-4.5">
+                      <span className={`inline-flex px-2.5 py-0.5 rounded-lg text-[9px] font-extrabold uppercase tracking-wider border ${
                         pat.risk === "High" 
-                          ? "bg-red-50 text-red-700 border border-red-100" 
-                          : "bg-amber-50 text-amber-700 border border-amber-100"
+                          ? "bg-red-50 text-red-700 border-red-100" 
+                          : "bg-brand-orange-50 text-brand-orange-700 border-brand-orange-100"
                       }`}>
                         {pat.risk} Risk
                       </span>
                     </td>
-                    <td className="px-5 py-3.5">
-                      <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-700">
-                        <span className="h-1.5 w-1.5 rounded-full bg-blue-600" />
+                    <td className="px-5 py-4.5">
+                      <span className="inline-flex items-center gap-2 text-xs font-semibold text-zinc-700">
+                        <span className="h-2 w-2 rounded-full bg-brand-green-600" />
                         {pat.status}
                       </span>
                     </td>
@@ -227,55 +227,55 @@ export default function RndDashboardPage() {
         </div>
 
         {/* Right 1 Column: Announcements Panel */}
-        <div className="bg-white border border-gray-200 rounded shadow-sm flex flex-col">
-          <div className="px-5 py-4 border-b border-gray-150 flex items-center justify-between shrink-0">
+        <div className="bg-white border border-zinc-200 rounded-2xl shadow-sm flex flex-col overflow-hidden">
+          <div className="px-5 py-4 border-b border-zinc-100 flex items-center justify-between shrink-0">
             <div>
-              <h3 className="text-xs font-bold text-gray-900 uppercase tracking-wider">
-                Internal Broadcasts
+              <h3 className="text-xs font-bold text-zinc-900 uppercase tracking-wider">
+                Announcements & Directives
               </h3>
-              <p className="text-[10px] text-gray-500 mt-0.5">
-                Departmental directives and audit notices.
+              <p className="text-[10px] text-zinc-500 mt-1">
+                Hospital notifications and clinical updates.
               </p>
             </div>
             <button
               onClick={() => setShowAnnounceForm(!showAnnounceForm)}
-              className="p-1 text-blue-600 hover:bg-blue-50 rounded cursor-pointer transition-colors"
+              className="p-1.5 text-brand-green-700 hover:bg-brand-green-50 rounded-lg cursor-pointer transition-colors border border-transparent hover:border-brand-green-100"
               title="Post announcement"
             >
-              <Plus className="h-4.5 w-4.5" />
+              <Plus className="h-4 w-4" />
             </button>
           </div>
 
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
             {/* Quick Announcement Post Form */}
             {showAnnounceForm && (
-              <form onSubmit={handlePostAnnouncement} className="p-3 bg-gray-50 border border-gray-250 rounded space-y-2">
+              <form onSubmit={handlePostAnnouncement} className="p-3.5 bg-zinc-50 border border-zinc-200 rounded-xl space-y-3">
                 <input
                   type="text"
                   placeholder="Broadcast Title"
                   value={newTitle}
                   onChange={(e) => setNewTitle(e.target.value)}
-                  className="w-full px-2 py-1 text-xs bg-white border border-gray-300 rounded font-semibold text-gray-900 focus:outline-none focus:border-blue-600"
+                  className="w-full px-3 py-1.5 text-xs bg-white border border-zinc-300 rounded-lg font-semibold text-zinc-950 focus:outline-none focus:ring-2 focus:ring-brand-green-500/20 focus:border-brand-green-600 transition-all"
                   required
                 />
                 <textarea
                   placeholder="Post content message..."
                   value={newAnnouncement}
                   onChange={(e) => setNewAnnouncement(e.target.value)}
-                  className="w-full px-2 py-1.5 text-xs bg-white border border-gray-300 rounded text-gray-900 focus:outline-none focus:border-blue-600 h-16"
+                  className="w-full px-3 py-2 text-xs bg-white border border-zinc-300 rounded-lg text-zinc-950 focus:outline-none focus:ring-2 focus:ring-brand-green-500/20 focus:border-brand-green-600 transition-all h-20"
                   required
                 />
-                <div className="flex justify-end gap-2">
+                <div className="flex justify-end gap-2 pt-1">
                   <button
                     type="button"
                     onClick={() => setShowAnnounceForm(false)}
-                    className="px-2.5 py-1 text-[10px] font-bold text-gray-500 hover:bg-gray-100 rounded uppercase tracking-wider cursor-pointer"
+                    className="px-3 py-1.5 text-[10px] font-bold text-zinc-500 hover:bg-zinc-100 rounded-lg uppercase tracking-wider cursor-pointer transition-colors"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="px-2.5 py-1 text-[10px] font-bold bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded uppercase tracking-wider cursor-pointer"
+                    className="px-3 py-1.5 text-[10px] font-bold bg-brand-green-600 hover:bg-brand-green-700 active:bg-brand-green-800 text-white rounded-lg uppercase tracking-wider cursor-pointer transition-all duration-150"
                   >
                     Broadcast
                   </button>
@@ -284,31 +284,32 @@ export default function RndDashboardPage() {
             )}
 
             {/* Announcement Feed */}
-            <div className="space-y-3">
+            <div className="space-y-3.5">
               {announcements.map((ann) => (
                 <div 
                   key={ann.id} 
-                  className={`p-3.5 border rounded ${
+                  className={`p-4 border rounded-xl transition-all duration-200 ${
                     ann.pinned 
-                      ? "bg-blue-50/30 border-blue-150" 
-                      : "bg-white border-gray-200"
+                      ? "bg-brand-orange-50/15 border-brand-orange-100" 
+                      : "bg-white border-zinc-200"
                   }`}
                 >
                   <div className="flex justify-between items-start">
-                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                    <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">
                       {ann.date}
                     </span>
                     {ann.pinned && (
-                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 bg-blue-100 text-blue-700 text-[8px] font-extrabold uppercase rounded-sm">
+                      <span className="inline-flex items-center gap-0.5 px-2 py-0.5 bg-brand-orange-100 text-brand-orange-800 text-[8px] font-extrabold uppercase rounded-lg">
+                        <Sparkles className="h-2 w-2 shrink-0" />
                         Pinned
                       </span>
                     )}
                   </div>
-                  <h4 className="text-xs font-bold text-gray-800 mt-1">{ann.title}</h4>
-                  <p className="text-xs text-gray-600 mt-1.5 leading-relaxed">{ann.content}</p>
-                  <div className="mt-3 pt-2 border-t border-gray-150 flex items-center justify-between text-[9px] font-bold text-gray-400 uppercase tracking-wider">
+                  <h4 className="text-xs font-bold text-zinc-800 mt-1.5">{ann.title}</h4>
+                  <p className="text-xs text-zinc-650 mt-1.5 leading-relaxed">{ann.content}</p>
+                  <div className="mt-4 pt-2.5 border-t border-zinc-100 flex items-center justify-between text-[9px] font-bold text-zinc-400 uppercase tracking-wider">
                     <span>By: {ann.author}</span>
-                    <span className="text-blue-600/75">{ann.role}</span>
+                    <span className="text-brand-green-700">{ann.role}</span>
                   </div>
                 </div>
               ))}
@@ -319,3 +320,4 @@ export default function RndDashboardPage() {
     </div>
   );
 }
+

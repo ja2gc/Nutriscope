@@ -23,7 +23,7 @@ export default function RootLayout({
       lang="en"
       className={`${inter.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col font-sans bg-gray-50 text-gray-900">
+      <body className="min-h-full flex flex-col font-sans bg-zinc-50 text-zinc-900">
         <AuthProvider>{children}</AuthProvider>
       </body>
     </html>

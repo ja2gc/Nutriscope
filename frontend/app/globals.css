@@ -1,29 +1,41 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f8fafc;
-  --foreground: #0f172a;
+  --background: #fafafa;
+  --foreground: #09090b;
 }
 
 @theme {
   --font-sans: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
   
-  /* Clinical color scheme */
-  --color-brand-50: #eff6ff;
-  --color-brand-100: #dbeafe;
-  --color-brand-500: #3b82f6;
-  --color-brand-600: #2563eb;
-  --color-brand-700: #1d4ed8;
-  --color-brand-900: #1e3a8a;
+  /* Brand Green (Nutri) */
+  --color-brand-green-50: #ecfdf5;
+  --color-brand-green-100: #d1fae5;
+  --color-brand-green-200: #a7f3d0;
+  --color-brand-green-500: #10b981;
+  --color-brand-green-600: #059669;
+  --color-brand-green-700: #047857;
+  --color-brand-green-900: #064e3b;
   
-  --color-clinical-teal: #0f766e;
-  --color-clinical-blue: #1d4ed8;
-  
+  /* Brand Orange (Scope) */
+  --color-brand-orange-50: #fff7ed;
+  --color-brand-orange-100: #ffedd5;
+  --color-brand-orange-500: #f97316;
+  --color-brand-orange-600: #ea580c;
+  --color-brand-orange-700: #c2410c;
+
+  /* Premium Dark Sidebar */
+  --color-sidebar-bg: #09090b;
+  --color-sidebar-border: #1f1f23;
+  --color-sidebar-text: #a1a1aa;
+  --color-sidebar-text-hover: #f4f4f5;
+  --color-sidebar-active: #18181b;
+
   /* Semantic Status Colors */
-  --color-status-critical: #dc2626;
-  --color-status-warning: #d97706;
-  --color-status-normal: #16a34a;
-  --color-status-neutral: #475569;
+  --color-status-critical: #ef4444;
+  --color-status-warning: #f59e0b;
+  --color-status-normal: #10b981;
+  --color-status-neutral: #64748b;
 }
 
 body {
@@ -31,3 +43,4 @@ body {
   color: var(--foreground);
   font-feature-settings: "cv02", "cv03", "cv04", "cv11";
 }
+
