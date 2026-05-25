@@ -30,10 +30,10 @@
 - [x] Configure `.env` for Redis (queue, session, cache)
 - [x] Set up route groups in `api.php` (`auth:sanctum`, `role:RND`, `role:FSS`, `role:Admin`)
 - [x] Implement `RoleMiddleware` for role-based route guarding
-- [ ] **Iteration: Audit Middleware**
-  - [ ] Plan (`/superpowers-write-plan`): `AuditMiddleware` using `spatie/laravel-activitylog`.
-  - [ ] Execute Backend (`/superpowers-tdd`): Implement middleware and verify with PHPUnit.
-  - [ ] Review (`/superpowers-review`): Ensure security and performance.
+- [x] **Iteration: Audit Middleware**
+  - [x] Plan (`/superpowers-write-plan`): `AuditMiddleware` using `spatie/laravel-activitylog`.
+  - [x] Execute Backend (`/superpowers-tdd`): Implement middleware and verify with PHPUnit.
+  - [x] Review (`/superpowers-review`): Ensure security and performance.
 
 ---
 
