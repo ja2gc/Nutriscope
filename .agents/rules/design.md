@@ -31,11 +31,8 @@ ROLE CONSISTENCY
 RND, FSS, and Admin interfaces must feel like one unified system while supporting different workflows.
 
 UI CONSTRAINTS
-Avoid decorative or marketing-style UI patterns, including unnecessary gradients, glassmorphism, blobs, illustrations, or celebratory effects.
 
-Avoid low-value visual treatments such as oversized decorative icons, pill-style primary actions, or overly stylized stat cards, emojis.
-
-Avoid disruptive or noisy UX patterns such as full-page loading screens, unnecessary greeting headers, or optional dark mode toggles.
+Avoid disruptive or noisy UX patterns such as full-page loading screens, unnecessary greeting headers.
 
 Avoid implementation inconsistency such as inline styles, arbitrary styling outside system patterns, excessive layering/z-index misuse, or missing tooltips for truncated content.
 
