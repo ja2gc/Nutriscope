@@ -13,7 +13,7 @@ Route::prefix('auth')->group(function () {
     });
 });
 
-Route::middleware(['auth:sanctum', 'role:RND'])->prefix('rnd')->group(function () {
+Route::middleware(['auth:sanctum', 'role:RND', 'audit'])->prefix('rnd')->group(function () {
     Route::apiResource('patients', PatientController::class);
     Route::get('patients/{patient}/ncp-records', [PatientController::class, 'ncpRecords']);
 });
