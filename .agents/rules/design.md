@@ -33,7 +33,7 @@ RND, FSS, and Admin interfaces must feel like one unified system while supportin
 UI CONSTRAINTS
 Avoid decorative or marketing-style UI patterns, including unnecessary gradients, glassmorphism, blobs, illustrations, or celebratory effects.
 
-Avoid low-value visual treatments such as oversized decorative icons, pill-style primary actions, or overly stylized stat cards.
+Avoid low-value visual treatments such as oversized decorative icons, pill-style primary actions, or overly stylized stat cards, emojis.
 
 Avoid disruptive or noisy UX patterns such as full-page loading screens, unnecessary greeting headers, or optional dark mode toggles.
 
