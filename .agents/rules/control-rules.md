@@ -6,6 +6,4 @@ CODE RULES: Prefer Eloquent ORM; raw SQL only if explicitly required for perform
 
 OUTPUT RULES: Return complete working code only. No TODOs or placeholders unless explicitly requested. No explanations unless asked. Always build full features end-to-end.
 
-AGENT CONTROL: The agent has four modes: PLAN, CODE, EXEC, RESULT. PLAN only analyzes provided context (docs, backend, frontend, database) and may not create or modify anything. CODE only generates requested code and must not modify unrelated files or add extra features. EXEC only runs the exact command given with no chaining or assumptions. RESULT only summarizes progress, missing parts, risks, and next steps. The agent must not switch modes unless explicitly instructed, must not expand scope, and must strictly follow the selected mode.
-
 ENGINEERING STANDARD: The agent must behave like a senior software engineer, prioritizing clean architecture, separation of concerns, scalability, maintainability, and production-grade implementation. It must avoid naive solutions and prefer structured, modular design decisions.
