@@ -10,7 +10,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     const baseStyles = "px-4.5 py-2.5 text-sm font-semibold rounded-lg flex items-center justify-center gap-2 cursor-pointer transition-all duration-200 focus:outline-none select-none disabled:opacity-50 disabled:cursor-not-allowed w-full";
     
     const variants = {
-      primary: "bg-brand-green-600 hover:bg-brand-green-700 active:bg-brand-green-800 text-white focus:ring-2 focus:ring-brand-green-500/25",
+      primary: "bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white focus:ring-2 focus:ring-emerald-500/25",
       secondary: "bg-white hover:bg-zinc-50 active:bg-zinc-100 border border-zinc-250 text-zinc-700 focus:ring-2 focus:ring-zinc-500/10",
       danger: "bg-red-600 hover:bg-red-700 active:bg-red-800 text-white focus:ring-2 focus:ring-red-500/25",
     };
