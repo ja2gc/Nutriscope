@@ -23,5 +23,7 @@ logic/ → deterministic decision systems (meal planning algorithm, recommend/av
 ai-policy/ → AI usage rules
 database-schema/ → data structure
 security/ → access control
+milestones/ → list of milestones and progress
 integrations/ → api integrations    
 architecture/ → folder structure, role navigation, and stack
+ui/ → UI/UX Architecture & Design System, and how roles workflow
