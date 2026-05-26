@@ -355,3 +355,21 @@ Never mark a milestone `[x]` unless:
 4. `/superpowers-review` found no blockers
 5. `/superpowers-finish` was run
 ```
+
+## Notes
+run this to enable mcp server in antigravity
+go to your .gemini folder then search mcp_config.json
+
+{
+  "mcpServers": {
+    "laravel-boost": {
+      "command": "php",
+      "args": [
+        "C:\\path\\to\\theproject\\Nutriscope\\backend\\artisan",
+        "boost:mcp"
+      ]
+    }
+  }
+}
+
+then check if antigravity considers it as an mcp server click the three dotted line in the upper right corner and click mcp server then manage mcp server then check if laravel mcp is present then click the reload button. 
