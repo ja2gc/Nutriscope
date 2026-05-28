@@ -1,76 +1,53 @@
-# UI/UX Pro Max Overhaul Walkthrough
+# Finish Summary — Milestone 1 Auth Review Fixes
 
-We have successfully executed the comprehensive UI/UX overhaul for NutriScope's Milestone 1 Frontend interface. The platform has transitioned from a cold, legacy hospital intranet design to a high-density, visually engaging clinical SaaS console.
-
-## Changes Made
-
-### 1. Brand Tokens & Global Styles
-- **File**: [globals.css](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/frontend/app/globals.css)
-- **Modifications**: Added custom theme tokens under Tailwind v4 `@theme`:
-  - Brand Primary Green ("Nutri"): Emerald-600 (`#059669`) / hover (`#047857`) for core actions, success indicators, and highlights.
-  - Brand Secondary Orange ("Scope"): Tangerine Orange (`#EA580C`) for alarms, warnings, and accents.
-  - Premium Dark Sidebar: Zinc-950 (`#09090b`) to create a high-contrast layout.
-  - Corner Radii: Upgraded standard layout to modern 8px rounded corners (`rounded-lg`).
-
-### 2. Custom Brand Logo & Wordmark
-- **File**: [Logo.tsx](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/frontend/components/ui/Logo.tsx) [NEW]
-- **Details**: Created a custom brand logo component displaying "Nutri" in bold green and "Scope" in bold orange/light slate. Features an inline SVG combining a green nutrition leaf and an orange diagnostic scope lens. Supports both light and dark variations.
-
-### 3. Modernized Core Components
-- **Files**: [Input.tsx](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/frontend/components/ui/Input.tsx), [Button.tsx](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/frontend/components/ui/Button.tsx)
-- **Modifications**:
-  - `Input`: Upgraded borders to `rounded-lg`, switched default label copy to warm semibold zinc-600 (non-uppercase), and set active focus states to brand-green highlights.
-  - `Button`: Upgraded borders to `rounded-lg` and overhauled primary CTA to use Emerald Green branding with smooth active/hover transitions.
-
-### 4. Premium Collapsible Dark Sidebar
-- **File**: [Sidebar.tsx](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/frontend/components/layout/Sidebar.tsx)
-- **Modifications**: Overhauled colors to a premium dark theme (`bg-zinc-950`), integrated the split-color `Logo`, applied dynamic session details in the footer using the `useAuth` context, and introduced custom non-boilerplate Lucide iconography:
-  - Dashboard -> `Compass` (Overview & Navigation Hub)
-  - Recipes Database -> `CookingPot` (Culinary operations)
-  - NCP Patients -> `HeartHandshake` (Therapeutic alliance)
-  - Food Service -> `Salad` (Kitchen operations)
-  - Reports Center -> `TrendingUp` (Metrics & reporting)
-  - Calendar -> `CalendarDays` (Scheduling)
-  - Notifications -> `BellDot` (Alarms)
-  - Settings -> `Sliders` (Preferences)
-
-### 5. Warm Operations Console Header
-- **File**: [TopBar.tsx](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/frontend/components/layout/TopBar.tsx)
-- **Modifications**: Humanized module titles (e.g. "Overview & Operations Center"), styled user avatar badge using soft brand-green tones, and replaced the cold uppercase "EXIT" with a friendly "Sign Out" action using brand-orange hover selectors.
-
-### 6. Welcoming Login Interface
-- **File**: [login/page.tsx](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/frontend/app/login/page.tsx)
-- **Modifications**: Integrated the custom brand `Logo`, introduced welcoming professional copywriting, updated email input placeholders to local seeded accounts (e.g. `rnd@nutriscope.local`), and smoothed out inputs and the submit card with `rounded-2xl` corners.
-
-### 7. Aligned RND Action Hub & Dashboard
-- **File**: [dashboard/page.tsx](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/frontend/app/%28rnd%29/dashboard/page.tsx)
-- **Modifications**: Introduced a dynamic user greeting ("Good morning, [Name]"), refined KPI cards with modern zinc rounded outlines and distinctive brand green/orange badges, applied distinctive icons, humanized table columns ("Patients Awaiting Nutrition Care"), and styled pinned announcements in amber/orange visual blocks.
-
-### 8. Layout & Documentation Refinements
-- **Files**: [layout.tsx](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/frontend/app/layout.tsx), [design-system.md](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/docs/ui/design-system.md)
-- **Modifications**: Updated layout styles to zinc-based defaults. Synced the project's design system documentation to match the primary green/orange colors, high-contrast dark sidebar, custom iconography, 8px layout grid, and warm clinical copy.
+**Date:** 2026-05-27  
+**Scope:** 5 fixes from review.md applied (B-1, B-2, M-3, m-1, m-3) + 2 bonus nits (N-2, N-3)
 
 ---
 
-## Verification & Build Results
+## Changes Applied
 
-### Next.js Production Build
-- Ran a complete production build using `npm run build` inside `frontend`.
-- **Result**: **SUCCESS** with zero errors or warnings.
-```bash
-✓ Compiled successfully in 2.8s
-  Running TypeScript ...
-  Finished TypeScript in 2.1s ...
-  Collecting page data using 10 workers ...
-  Generating static pages using 10 workers (9/9) ...
-✓ Generating static pages using 10 workers (9/9) in 621ms
-  Finalizing page optimization ...
-```
+| ID | Severity | Description | Files Changed |
+|----|----------|-------------|---------------|
+| B-1 | Blocker | Logout always clears cookie; redirect on error | `logout/route.ts`, `TopBar.tsx` |
+| B-2 | Blocker | Root `/` no longer bypasses middleware auth | `middleware.ts` |
+| M-3 | Major | Removed unused `NEXT_PUBLIC_API_URL` | `.env.local` |
+| m-1 | Minor | Split `initializing` vs `loading` in AuthContext | `AuthContext.tsx`, `(rnd)/layout.tsx` |
+| m-3 | Minor | Added `id` attributes to login form elements | `login/page.tsx` |
+| N-2 | Nit | `catch(err: any)` → `catch(err: unknown)` | `AuthContext.tsx` |
+| N-3 | Nit | `refreshUser` wrapped in `useCallback` | `AuthContext.tsx` |
 
----
+## Verification
 
-## Visual Summary of Branding
-- **"Nutri"** Green: `#059669` (Emerald 600)
-- **"Scope"** Orange: `#EA580C` (Orange 600)
-- **Dark Surface**: `#09090b` (Zinc 950)
-- **Canvas Base**: `#fafafa` (Zinc 50)
+| Check | Result |
+|-------|--------|
+| `npx next build` | ✅ Compiled 9.0s, TypeScript passed, all pages generated |
+| Logout route structure | ✅ Cookie deleted before backend call, try/catch on fetch |
+| Middleware `/` bypass removed | ✅ Only `_next`, `/api`, `.` extensions excluded |
+| AuthContext state split | ✅ `initializing` for mount, `loading` for actions only |
+| Login form IDs | ✅ `login-form`, `login-error`, `login-submit` present |
+
+## Review Pass (Post-Fix)
+
+| Severity | Remaining | Notes |
+|----------|-----------|-------|
+| **Blocker** | 0 | Both fixed |
+| **Major** | 2 | M-1 (accepted risk, inherent limitation), M-2 (deferred to Milestone 9/10) |
+| **Minor** | 1 | m-2 (accepted risk, low impact) |
+| **Nit** | 1 | N-1 (route constants — optional future polish) |
+
+## Manual Validation Steps
+
+1. Start backend: `cd backend && php artisan serve`
+2. Start frontend: `cd frontend && npm run dev`
+3. **Login flow**: Navigate to `/login`, enter credentials, verify redirect to `/dashboard`
+4. **Initial load**: Confirm login form is NOT disabled/showing "Processing..." on page load
+5. **Root redirect**: Visit `/` unauthenticated → should go directly to `/login` (single redirect)
+6. **Logout flow**: Click "Sign Out" in TopBar → should redirect to `/login` with cookie cleared
+7. **Logout resilience**: Stop backend, click logout → should still redirect to `/login`
+8. **Back button**: After logout, press browser Back → should not show dashboard shell
+
+## Follow-ups
+
+- **M-2**: Add role-based redirect before Milestone 9 (FSS) and 10 (Admin)
+- **N-1**: Consider extracting route constants when adding more routes
