@@ -11,16 +11,16 @@ export default function RndLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { user, loading } = useAuth();
+  const { user, initializing } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (!loading && !user) {
+    if (!initializing && !user) {
       router.replace("/login");
     }
-  }, [user, loading, router]);
+  }, [user, initializing, router]);
 
-  if (loading) {
+  if (initializing) {
     return (
       <div className="flex h-screen w-screen items-center justify-center bg-gray-50 font-sans select-none">
         <div className="text-center space-y-3">

@@ -12,8 +12,7 @@ export function middleware(request: NextRequest) {
   const isInternalOrStatic = 
     pathname.startsWith("/_next") || 
     pathname.startsWith("/api") || 
-    pathname.includes(".") || // files like favicon.ico, images
-    pathname === "/"; // landing page or initial load redirect
+    pathname.includes("."); // files like favicon.ico, images
 
   if (isInternalOrStatic) {
     return NextResponse.next();

@@ -25,9 +25,10 @@ export function TopBar() {
   const handleLogout = async () => {
     try {
       await logout();
-      router.push("/login");
-    } catch (err) {
-      console.error("Failed to log out:", err);
+      router.replace("/login");
+    } catch {
+      // Force redirect even on failure — cookie is cleared server-side
+      router.replace("/login");
     }
   };
 

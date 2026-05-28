@@ -62,10 +62,10 @@ export default function LoginPage() {
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form id="login-form" onSubmit={handleSubmit} className="space-y-4">
             {/* Display Error Message */}
             {(error || validationError) && (
-              <div className="p-3.5 bg-red-50 border border-red-100 rounded-lg">
+              <div id="login-error" className="p-3.5 bg-red-50 border border-red-100 rounded-lg">
                 <div className="flex gap-2.5">
                   <svg 
                     className="h-4.5 w-4.5 text-red-600 shrink-0 mt-0.5" 
@@ -116,7 +116,7 @@ export default function LoginPage() {
             />
 
             <div className="pt-2">
-              <Button type="submit" loading={loading}>
+              <Button id="login-submit" type="submit" loading={loading}>
                 Sign In to Console
               </Button>
             </div>
