@@ -1,10 +1,11 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react";
 import { User, loginUser, logoutUser, fetchCurrentUser } from "@/services/authService";
 
 interface AuthContextType {
   user: User | null;
+  initializing: boolean;
   loading: boolean;
   error: string | null;
   login: (email: string, password: string) => Promise<void>;
@@ -16,29 +17,30 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [initializing, setInitializing] = useState<boolean>(true);
+  const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  const refreshUser = async () => {
+  const refreshUser = useCallback(async () => {
     try {
-      setLoading(true);
       setError(null);
       const currentUser = await fetchCurrentUser();
       setUser(currentUser);
-    } catch (err: any) {
+    } catch (err: unknown) {
       setUser(null);
       // We don't want to set error for an unauthenticated user on initial load
-      if (err.message && err.message !== "Failed to fetch user context." && !err.message.includes("Unauthenticated")) {
-        setError(err.message);
+      const message = err instanceof Error ? err.message : "";
+      if (message && message !== "Failed to fetch user context." && !message.includes("Unauthenticated")) {
+        setError(message);
       }
     } finally {
-      setLoading(false);
+      setInitializing(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     refreshUser();
-  }, []);
+  }, [refreshUser]);
 
   const login = async (email: string, password: string) => {
     try {
@@ -46,8 +48,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setError(null);
       const res = await loginUser(email, password);
       setUser(res.user);
-    } catch (err: any) {
-      setError(err.message || "Invalid credentials.");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Invalid credentials.";
+      setError(message);
       throw err;
     } finally {
       setLoading(false);
@@ -60,8 +63,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setError(null);
       await logoutUser();
       setUser(null);
-    } catch (err: any) {
-      setError(err.message || "Failed to log out.");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to log out.";
+      setError(message);
       throw err;
     } finally {
       setLoading(false);
@@ -69,7 +73,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, error, login, logout, refreshUser }}>
+    <AuthContext.Provider value={{ user, initializing, loading, error, login, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

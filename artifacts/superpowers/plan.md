@@ -1,48 +1,42 @@
 ## Goal
-Update `docs/ui/design-system.md` to completely and accurately document the implemented design system from Milestone 1. The documentation must serve as a high-fidelity reference guide for future clinical frontend modules (Milestones 2-6), specifying exact Tailwind CSS classes, color codes, component standards, and copy style rules to guarantee absolute visual and operational consistency.
-
-## Assumptions
-- The design system documentation is located at [design-system.md](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/docs/ui/design-system.md).
-- The current implementation uses native, built-in Tailwind CSS utility classes (zinc, emerald, orange) instead of hot-reload-dependent custom variables.
+Apply all required fixes from the Milestone 1 auth UI review (review.md) in order: B-1, B-2, M-3, m-1, m-3. Verify login/logout flows work correctly after all changes.
 
 ## Plan
 
-1. **Document Brand Assets & Logo Layout**
-   - **Files**: `docs/ui/design-system.md`
-   - **Change**: 
-     - Add detailed guidelines for the custom `<Logo />` component.
-     - Document raw SVG specifications (leaf path values, orange concentric lens circles, crosshair ticks) to preserve brand asset integrity.
-     - Detail split wordmark color applications: "Nutri" in `text-emerald-600` (Emerald Green) and "Scope" in `text-orange-600` (Tangerine Orange) / `text-zinc-100` (in dark contexts).
-   - **Verify**: View edited file to ensure brand assets are correctly documented.
+### Step 1: Fix B-1 — Logout cookie + redirect hardening
+- **Files**: `frontend/app/api/auth/logout/route.ts`, `frontend/components/layout/TopBar.tsx`
+- **Change**: Logout API route always deletes cookie before calling Laravel (try/catch around backend call). TopBar uses `router.replace` and redirects on error too.
+- **Verify**: Read both files to confirm correct structure.
 
-2. **Document Sidebar & Layout Canvas Styling**
-   - **Files**: `docs/ui/design-system.md`
-   - **Change**: 
-     - Outline standard canvas base styles (`bg-zinc-50 text-zinc-900`).
-     - Detail dark Sidebar shell properties (`bg-zinc-950 border-r border-zinc-900`).
-     - Specify active navigation states (`bg-zinc-900 text-zinc-100 border-l-2 border-emerald-600`) and hover states (`text-zinc-400 hover:bg-zinc-900/60 hover:text-zinc-200`).
-     - Outline exact non-boilerplate icon classes (using Lucide `Compass`, `CookingPot`, `HeartHandshake`, `Salad`, `TrendingUp`, `CalendarDays`, `BellDot`, `Sliders`).
-   - **Verify**: Check layout specifications in markdown file.
+### Step 2: Fix B-2 — Remove root `/` middleware bypass
+- **Files**: `frontend/middleware.ts`
+- **Change**: Remove `pathname === "/"` from `isInternalOrStatic` check.
+- **Verify**: Read middleware.ts to confirm only `_next`, `/api`, and file extensions are excluded.
 
-3. **Document Form Inputs & Reusable Action Buttons**
-   - **Files**: `docs/ui/design-system.md`
-   - **Change**: 
-     - Document exact classes for forms: Labels in semibold zinc-600 (not uppercase). Inputs styled as `rounded-lg border-zinc-300 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 transition-all`.
-     - Document button classes: Primary (`bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800`), Secondary (`bg-white border-zinc-250 hover:bg-zinc-50 text-zinc-700`), and Danger states with rounded-lg structures and custom transition speeds.
-   - **Verify**: Read the form components section of the document.
+### Step 3: Fix M-3 — Remove unused `NEXT_PUBLIC_API_URL`
+- **Files**: `frontend/.env.local`
+- **Change**: Delete the `NEXT_PUBLIC_API_URL` line.
+- **Verify**: Read .env.local to confirm only `LARAVEL_API_URL` remains.
 
-4. **Document Copywriting & Session Context Rules**
-   - **Files**: `docs/ui/design-system.md`
-   - **Change**: 
-     - Define dynamic top bar module title casing rules.
-     - Document dynamic, auth-aware sidebar footer schemas (`Active Session: [Name] ([Role])` using standard zinc highlights).
-     - Standardize clinical status colors: High Risk (`bg-red-50 text-red-700 border-red-100`), Warning/Pending (`bg-orange-50 text-orange-700 border-orange-100`), Normal/Success (`bg-emerald-50 text-emerald-700 border-emerald-100`).
-   - **Verify**: Confirm all copy schemas are clearly tabulated.
+### Step 4: Fix m-1 — Split loading vs initializing in AuthContext
+- **Files**: `frontend/contexts/AuthContext.tsx`, `frontend/app/(rnd)/layout.tsx`, `frontend/app/login/page.tsx`
+- **Change**: Add `initializing` state (starts true, set false after first `refreshUser`). `loading` starts false, only set during login/logout actions. Export `initializing`. RND layout uses `initializing` for loading screen. Login page uses only `loading` for button state.
+- **Verify**: Read all three files to confirm correct state usage.
+
+### Step 5: Fix m-3 — Add unique IDs to login form elements
+- **Files**: `frontend/app/login/page.tsx`
+- **Change**: Add `id="login-form"` to form, `id="login-submit"` to submit button, `id="login-error"` to error container.
+- **Verify**: Read login page to confirm IDs present.
+
+### Step 6: Verify — Build check
+- **Command**: `cd frontend && npx next build` (or `npm run build`)
+- **Verify**: Build succeeds with no errors.
 
 ## Risks & mitigations
-- **Risk**: Inconsistent styling in future milestones due to obscure or ambiguous documentation guidelines.
-- **Mitigation**: Write highly granular, copy-pasteable class tables for all key visual sections (Layout, Buttons, Inputs, Indicators).
+- **Risk**: Splitting `loading`/`initializing` could break the RND layout loading guard.
+- **Mitigation**: RND layout switches from `loading` to `initializing` for its conditional render.
 
 ## Rollback plan
-- Discard documentation changes:
-  `git checkout -- docs/ui/design-system.md`
+```bash
+git checkout -- frontend/app/api/auth/logout/route.ts frontend/components/layout/TopBar.tsx frontend/middleware.ts frontend/contexts/AuthContext.tsx frontend/app/login/page.tsx frontend/app/\(rnd\)/layout.tsx
+```
