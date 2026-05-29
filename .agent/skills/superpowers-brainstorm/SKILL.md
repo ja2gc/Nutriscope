@@ -35,3 +35,5 @@ For each option include:
 
 ### Acceptance criteria
 - Bullet list of verifiable outcomes
+
+refer to laravel boost for guides on how we can brainstorm efficiently
