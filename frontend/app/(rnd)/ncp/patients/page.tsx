@@ -4,14 +4,10 @@ import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  createNcpRecord,
-  createPatient,
   fetchPatients,
   Patient,
-  PatientStoreData,
 } from "@/services/patientService";
 import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
 import { HeartHandshake } from "lucide-react";
 
 function calculateAge(dob?: string) {
@@ -104,22 +100,6 @@ export default function NcpPatientsPage() {
   const [status, setStatus] = useState("All");
   const [page, setPage] = useState(1);
   const [meta, setMeta] = useState<any>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
-  const [formData, setFormData] = useState<PatientStoreData>({
-    name: "",
-    dob: "",
-    sex: "Male",
-    religion: "",
-    address: "",
-    contact: "",
-    physician: "",
-    admission_date: new Date().toISOString().split("T")[0],
-    medical_diagnosis: "",
-    ward: "",
-    status: "Active",
-  });
 
   const loadPatients = useCallback(async () => {
     try {
@@ -143,73 +123,6 @@ export default function NcpPatientsPage() {
 
     return () => window.clearTimeout(timer);
   }, [loadPatients]);
-
-  function handleFormChange(
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
-  ) {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-
-    if (formErrors[name]) {
-      setFormErrors((prev) => {
-        const next = { ...prev };
-        delete next[name];
-        return next;
-      });
-    }
-  }
-
-  async function handleFormSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setFormErrors({});
-    setIsSubmitting(true);
-
-    const errors: Record<string, string> = {};
-    if (!formData.name.trim()) errors.name = "Patient name is required.";
-    if (!formData.dob) errors.dob = "Date of birth is required.";
-    if (!formData.sex) errors.sex = "Sex is required.";
-    if (!formData.admission_date) errors.admission_date = "Admission date is required.";
-
-    if (Object.keys(errors).length > 0) {
-      setFormErrors(errors);
-      setIsSubmitting(false);
-      return;
-    }
-
-    try {
-      const createdPatient = await createPatient(formData);
-
-      if (!createdPatient?.id) {
-        throw new Error("Patient was created, but no ID was returned.");
-      }
-
-      const createdRecord = await createNcpRecord(createdPatient.id);
-      if (!createdRecord?.id) {
-        throw new Error("Patient was created, but the assessment cycle could not be initialized.");
-      }
-
-      setIsModalOpen(false);
-      setFormData({
-        name: "",
-        dob: "",
-        sex: "Male",
-        religion: "",
-        address: "",
-        contact: "",
-        physician: "",
-        admission_date: new Date().toISOString().split("T")[0],
-        medical_diagnosis: "",
-        ward: "",
-        status: "Active",
-      });
-
-      router.push(`/ncp/${createdPatient.id}/assessment/${createdRecord.id}`);
-    } catch (err: any) {
-      setError(err.message || "Failed to create patient.");
-    } finally {
-      setIsSubmitting(false);
-    }
-  }
 
   function handlePageChange(nextPage: number) {
     if (nextPage >= 1 && (!meta || nextPage <= meta.last_page)) {
@@ -240,7 +153,7 @@ export default function NcpPatientsPage() {
 
         <Button
           variant="primary"
-          onClick={() => setIsModalOpen(true)}
+          onClick={() => router.push("/ncp/select-patient/assessment/select-ncp")}
           className="md:w-auto px-4.5 py-2.5 shrink-0 flex items-center justify-center gap-2"
         >
           Create Patient & Start Assessment
@@ -421,171 +334,6 @@ export default function NcpPatientsPage() {
           </div>
         )}
       </div>
-
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/40 select-none">
-          <div className="w-full max-w-2xl bg-white border border-zinc-200 rounded-2xl shadow-xl overflow-hidden flex flex-col max-h-[90vh]">
-            <div className="px-5 py-4.5 border-b border-zinc-150 flex items-center justify-between bg-zinc-50">
-              <div>
-                <h3 className="text-xs font-bold text-zinc-900 uppercase tracking-wider">
-                  Create New Patient
-                </h3>
-                <p className="text-[9px] text-zinc-500 mt-0.5">
-                  The patient record is created first, then the assessment page opens immediately.
-                </p>
-              </div>
-              <button
-                onClick={() => setIsModalOpen(false)}
-                className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors"
-              >
-                Close
-              </button>
-            </div>
-
-            <form onSubmit={handleFormSubmit} className="flex-1 overflow-y-auto p-5.5 space-y-5">
-              <Input
-                label="Full Patient Name *"
-                name="name"
-                value={formData.name}
-                onChange={handleFormChange}
-                error={formErrors.name}
-                placeholder="Jane Doe"
-                required
-              />
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Input
-                  label="Date of Birth *"
-                  name="dob"
-                  type="date"
-                  value={formData.dob}
-                  onChange={handleFormChange}
-                  error={formErrors.dob}
-                  required
-                />
-
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-semibold text-zinc-600 tracking-wide">
-                    Sex *
-                  </label>
-                  <select
-                    name="sex"
-                    value={formData.sex}
-                    onChange={handleFormChange}
-                    className="w-full px-3.5 py-2 text-sm bg-white border border-zinc-300 rounded-lg text-zinc-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 transition-all cursor-pointer"
-                  >
-                    <option value="Male">Male</option>
-                    <option value="Female">Female</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Input
-                  label="Admission Date *"
-                  name="admission_date"
-                  type="date"
-                  value={formData.admission_date}
-                  onChange={handleFormChange}
-                  error={formErrors.admission_date}
-                  required
-                />
-
-                <Input
-                  label="Ward"
-                  name="ward"
-                  value={formData.ward || ""}
-                  onChange={handleFormChange}
-                  placeholder="Ward 4B - Bed 12"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Input
-                  label="Physician"
-                  name="physician"
-                  value={formData.physician || ""}
-                  onChange={handleFormChange}
-                  placeholder="Dr. Sarah Jenkins"
-                />
-
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-semibold text-zinc-600 tracking-wide">
-                    Status
-                  </label>
-                  <select
-                    name="status"
-                    value={formData.status}
-                    onChange={handleFormChange}
-                    className="w-full px-3.5 py-2 text-sm bg-white border border-zinc-300 rounded-lg text-zinc-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 transition-all cursor-pointer"
-                  >
-                    <option value="Active">Active Care</option>
-                    <option value="Discharged">Discharged</option>
-                    <option value="Transferred">Transferred</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-semibold text-zinc-600 tracking-wide">
-                  Primary Medical Diagnosis
-                </label>
-                <textarea
-                  name="medical_diagnosis"
-                  value={formData.medical_diagnosis || ""}
-                  onChange={handleFormChange}
-                  placeholder="Type 2 Diabetes Mellitus, CKD stage 4"
-                  className="w-full px-3.5 py-2 text-sm bg-white border border-zinc-300 rounded-lg text-zinc-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 transition-all placeholder:text-zinc-400 min-h-18 h-18"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Input
-                  label="Contact Number"
-                  name="contact"
-                  value={formData.contact || ""}
-                  onChange={handleFormChange}
-                  placeholder="+63 912 345 6789"
-                />
-
-                <Input
-                  label="Religion"
-                  name="religion"
-                  value={formData.religion || ""}
-                  onChange={handleFormChange}
-                  placeholder="Roman Catholic"
-                />
-              </div>
-
-              <Input
-                label="Home Address"
-                name="address"
-                value={formData.address || ""}
-                onChange={handleFormChange}
-                placeholder="Brgy. San Jose, Rizal"
-              />
-            </form>
-
-            <div className="px-5 py-4 border-t border-zinc-150 bg-zinc-50 flex items-center justify-end gap-3 shrink-0">
-              <Button
-                variant="secondary"
-                onClick={() => setIsModalOpen(false)}
-                className="w-auto px-4.5 py-2 cursor-pointer font-bold uppercase tracking-wider text-zinc-650 hover:bg-zinc-100 rounded-lg text-[10px]"
-              >
-                Cancel
-              </Button>
-              <Button
-                variant="primary"
-                onClick={handleFormSubmit}
-                loading={isSubmitting}
-                className="w-auto px-4.5 py-2 cursor-pointer font-bold uppercase tracking-wider rounded-lg text-[10px]"
-              >
-                Create & Start Assessment
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

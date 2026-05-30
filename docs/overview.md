@@ -4,7 +4,7 @@
 
 NutriScope is a clinical nutrition system for hospital workflows that manages patient nutrition care, meal planning, and food service operations.
 
-It combines deterministic algorithms with limited AI assistance for clinical reasoning support. The system features an OCR-based document extraction pipeline for screening forms, lab results, and procurement documents, plus a modular report generation engine for clinical, operational, and financial reporting.
+It combines deterministic algorithms, including system-calculated nutrition risk scoring, with limited AI assistance for clinical reasoning support. The system features an OCR-based document extraction pipeline for screening forms, lab results, and procurement documents, plus a modular report generation engine for clinical, operational, and financial reporting.
 
 ### 2. Core Users
 - RND — clinical nutrition care and NCP workflow
@@ -13,6 +13,7 @@ It combines deterministic algorithms with limited AI assistance for clinical rea
 
 ### 3. Main Modules
 - RND Clinical System (NCP, patients, interventions, monitoring)
+- Communication System (database-backed announcements with role visibility)
 - Document Extraction Pipeline (screening forms, lab results, procurement docs → auto-populate)
 - Report Generation Engine (ADIME, census, inventory, budget, procurement, menu cycle, patient menu plan)
 - Food Service System (inventory, menu cycles, meal prep)

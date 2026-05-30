@@ -58,12 +58,21 @@
 **Backend** ✅:
 - [x] Create `StorePatientRequest`, `UpdatePatientRequest`, and `PatientResource`
 - [x] Implement Patient CRUD endpoints in `PatientController`
+- [x] Fix `PatientResource` risk score output to use `risk_score`
+- [x] Add `PatientFeatureTest` coverage for `risk_score` and NCP workflow behavior
 
 **Frontend** ✅:
 - [x] **Iteration: Patient UI**
-  - [x] Plan: Patient List Page, Add Patient Modal, Patient Profile shell
+  - [x] Plan: Patient List Page, workflow-first assessment entry, Patient Profile shell
   - [x] Execute Frontend: Build UI components, wire to API, verify browser rendering
-  - [] Review: UX and API integration check
+  - [x] Review: UX and API integration check
+
+**M2B Cleanup**:
+- [x] Sidebar dropdowns remain expanded while users are inside NCP and Food Service child pages
+- [x] Remove patient creation modal from the NCP patient directory
+- [x] `Create Patient & Start Assessment` navigates directly to the assessment workflow
+- [x] Existing patient profiles use workflow navigation actions instead of `Start NCP Cycle`
+- [x] Announcement backend, model, resource, routes, tests, seeder, and runtime migration are completed
 
 ---
 
@@ -82,7 +91,7 @@
 - [ ] Migration: `inspection_reports` + `inspection_report_items` tables
 - [ ] Migration: `marketing_statements` + `marketing_statement_items` + `marketing_summaries` tables
 - [ ] Migration: `reports` + `report_templates` tables
-- [ ] Migration: `announcements` table
+- [x] Migration: `announcements` table
 - [ ] Migration: `calendar_events` table
 - [ ] Migration: `notifications` table
 - [ ] Migration: `ai_usage_logs` table
@@ -244,7 +253,7 @@
 ## Milestone 10: Admin Module + Census Reports + Final Polish
 
 ### 10A — Admin Backend
-- [ ] `UserController`, `AuditLogController`, `AnnouncementController`
+- [ ] `UserController`, `AuditLogController`
 - [ ] `Admin\ReportController` — access to all reports
 
 ### 10B — NCP Census Report (Report Track)
@@ -254,7 +263,7 @@
 - [ ] ADIME completion metrics
 
 ### 10C — Frontend
-- [ ] Admin Dashboard, Users, Audit Logs, Announcements pages
+- [ ] Admin Dashboard, Users, Audit Logs pages
 - [ ] Report hub with all 9 report types
 
 ### 10D — Documentation Final Sweep
