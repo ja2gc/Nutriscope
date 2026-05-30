@@ -25,6 +25,11 @@ class User extends Authenticatable
         return $this->hasMany(NcpRecord::class, 'rnd_user_id');
     }
 
+    public function announcements()
+    {
+        return $this->hasMany(Announcement::class);
+    }
+
     public function recipes()
     {
         return $this->hasMany(Recipe::class, 'rnd_user_id');

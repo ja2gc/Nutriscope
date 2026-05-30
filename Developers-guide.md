@@ -13,34 +13,41 @@ Before cloning or running anything, make sure you have these installed.
 
 ### Required
 
-**PHP 8.3+**
+PHP 8.3+
 https://www.php.net/downloads.php
 Verify: `php --version`
 
-**Composer**
+Composer
 https://getcomposer.org/download/
 Verify: `composer --version`
 
-**Node.js 20+**
+Node.js 20+
 https://nodejs.org/en/download
 Verify: `node --version`
 
-**Docker Desktop**
+Docker Desktop
 https://www.docker.com/products/docker-desktop/
 Required for MySQL and Redis containers. Must be open and running before `docker-compose up -d`.
 Verify: `docker --version`
 
-**Git**
+Git
 https://git-scm.com/downloads
 Verify: `git --version`
 
 ### For Development Agent
 
-**Antigravity IDE**
+Antigravity IDE
 https://antigravity.dev
 This is the AI coding agent we use for all development. After installing, open the NutriScope project folder inside it.
 
-**Superpowers Framework**
+### Model Selection by Task Type
+
+- Planning: Flash High — worth the extra tokens to get the plan right
+- Frontend execution: Flash High
+- Simple backend (migrations, seeders, form requests, resources): Flash High
+- Complex backend (algorithms, OCR pipeline, report generators): Gemini Pro High or Opus
+- Never use Flash for multi-layer backend logic — cost of fixing mistakes exceeds what you saved
+Superpowers Framework
 Run once after cloning to set up the workflow framework:
 ```bash
 npx antigravity-superpowers init
@@ -48,11 +55,11 @@ npx antigravity-superpowers init
 
 ### Optional but Recommended
 
-**TablePlus or DBeaver** — view and manage MySQL database visually
+TablePlus or DBeaver — view and manage MySQL database visually
 - TablePlus: https://tableplus.com
 - DBeaver: https://dbeaver.io
 
-**Postman or Bruno** — test Laravel API endpoints directly
+Postman or Bruno — test Laravel API endpoints directly
 - Postman: https://www.postman.com
 - Bruno: https://www.usebruno.com
 
@@ -133,11 +140,11 @@ Every task must follow this exact order. Do not skip steps.
 ```
 
 ### When to Use Each Command
-
+Or just ask agent whats the next best step if it didnt tell whichs the best next step yet or ask your browser claude ai to help you prompt
 | Command | When |
 |---------|------|
 | `/superpowers-brainstorm` | Unclear requirements, new feature design |
-| `/superpowers-write-plan` | Before every implementation |
+| `/superpowers-plan` | Before every implementation |
 | `/superpowers-execute-plan` | After plan is approved |
 | `/superpowers-review` | After execution, before finishing |
 | `/superpowers-finish` | End of every task |
@@ -156,12 +163,12 @@ Every task must follow this exact order. Do not skip steps.
 
 Paste these into any AI chat when planning outside Antigravity so the AI understands the workflow.
 
-**Full workflow order:**
+Full workflow order:
 ```
 brainstorm → write-plan → APPROVED → execute-plan → review → finish
 ```
 
-**superpowers-workflow** (paste this always):
+superpowers-workflow:
 ```
 Default workflow for every task:
 1. Brainstorm: clarify goal, constraints, risks, acceptance criteria
@@ -171,43 +178,43 @@ Default workflow for every task:
 5. Finish: run verification, summarize changes, commit, update docs
 ```
 
-**superpowers-brainstorm:**
+superpowers-brainstorm:
 ```
 Use before any creative or unclear work.
 Explores intent, requirements, design before implementation.
 Hard gate: no code until design is approved.
 ```
 
-**superpowers-write-plan:**
+superpowers-plan:
 ```
 Use before any multi-file or behavior-changing task.
 Output: Goal, Assumptions, Plan (small steps with files + verify), Risks, Rollback.
 ```
 
-**superpowers-tdd:**
+superpowers-tdd (aka test driven development):
 ```
 Use for backend features.
 Red → green → refactor.
 Write test first, implement minimal change to pass, then refactor.
 Run php artisan test. All must pass.
+is a must to avoid any bugs later in production
 ```
 
-**superpowers-review:**
+superpowers-review:
 ```
 Use after execution, before finishing.
 Severity: Blocker / Major / Minor / Nit
 Checks: correctness, edge cases, tests, security, performance, readability.
 ```
 
-**superpowers-debug:**
+superpowers-debug:
 ```
 Use when something is broken.
 Reproduce → isolate → hypothesize → instrument → fix → regression test.
 ```
 
-**superpowers-finish:**
+superpowers-finish:
 ```
-Use at end of every task.
 Runs verification, summarizes changes, notes follow-ups, commits, updates milestones.
 ```
 
@@ -220,8 +227,8 @@ Skill location: `.agents/skills/.agent/skills/ui-ux-pro-max/SKILL.md`
 Always apply this skill when building or modifying any frontend UI.
 
 ### Brand
-- **"Nutri"** = Emerald Green `#059669` / Tailwind `emerald-600`
-- **"Scope"** = Tangerine Orange `#EA580C` / Tailwind `orange-600`
+- "Nutri" = Emerald Green `#059669` / Tailwind `emerald-600`
+- "Scope" = Tangerine Orange `#EA580C` / Tailwind `orange-600`
 - Dark sidebar (`bg-zinc-950`), bright content canvas
 - Modern clinical SaaS — not legacy, not generic AI
 
@@ -356,7 +363,7 @@ Never mark a milestone `[x]` unless:
 5. `/superpowers-finish` was run
 ```
 
-## Notes
+## Milestone Tracker
 run this to enable mcp server in antigravity
 go to your .gemini folder then search mcp_config.json
 
@@ -373,3 +380,7 @@ go to your .gemini folder then search mcp_config.json
 }
 
 then check if antigravity considers it as an mcp server click the three dotted line in the upper right corner and click mcp server then manage mcp server then check if laravel mcp is present then click the reload button. 
+
+
+
+

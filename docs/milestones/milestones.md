@@ -2,7 +2,7 @@
 
 ## Rules & Workflow (Superpowers Mode)
 - **Mark already done**: Existing completed items (`[x]`) must remain marked as completed.
-- **Never mark done without testing**:
+- **Never mark done without testing and getting approved by user**:
   - **Backend**: Write PHPUnit feature tests. Run `php artisan test`. All tests must pass.
   - **Frontend**: Confirm components render correctly in the browser.
 - **Test verification**: Follow the Superpowers workflow for all remaining tasks:
@@ -63,7 +63,7 @@
 - [x] **Iteration: Patient UI**
   - [x] Plan: Patient List Page, Add Patient Modal, Patient Profile shell
   - [x] Execute Frontend: Build UI components, wire to API, verify browser rendering
-  - [x] Review: UX and API integration check
+  - [] Review: UX and API integration check
 
 ---
 

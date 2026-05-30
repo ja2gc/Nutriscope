@@ -70,8 +70,12 @@ export function Sidebar() {
   };
 
   // Check active states
-  const isNcpGroupActive = pathname.startsWith("/ncp");
-  const isFoodServiceGroupActive = pathname.startsWith("/food-service");
+  const isNcpRouteActive = pathname.startsWith("/ncp");
+  const isFoodServiceRouteActive = pathname.startsWith("/food-service");
+  const isNcpGroupActive = isNcpRouteActive;
+  const isFoodServiceGroupActive = isFoodServiceRouteActive;
+  const isNcpMenuOpen = ncpExpanded || isNcpRouteActive;
+  const isFoodServiceMenuOpen = foodServiceExpanded || isFoodServiceRouteActive;
 
   return (
     <aside 
@@ -218,7 +222,7 @@ export function Sidebar() {
               {/* Submenu container with micro-animations */}
               <div 
                 className={`transition-all duration-200 ease-in-out overflow-hidden pl-7.5 space-y-1 ${
-                  ncpExpanded && !collapsed ? "max-h-60 opacity-100 py-1" : "max-h-0 opacity-0 pointer-events-none"
+                  isNcpMenuOpen && !collapsed ? "max-h-60 opacity-100 py-1" : "max-h-0 opacity-0 pointer-events-none"
                 }`}
               >
                 <Link
@@ -306,7 +310,7 @@ export function Sidebar() {
               {/* Submenu container */}
               <div 
                 className={`transition-all duration-200 ease-in-out overflow-hidden pl-7.5 space-y-1 ${
-                  foodServiceExpanded && !collapsed ? "max-h-48 opacity-100 py-1" : "max-h-0 opacity-0 pointer-events-none"
+                  isFoodServiceMenuOpen && !collapsed ? "max-h-48 opacity-100 py-1" : "max-h-0 opacity-0 pointer-events-none"
                 }`}
               >
                 <Link
@@ -428,5 +432,4 @@ export function Sidebar() {
     </aside>
   );
 }
-
 

@@ -10,11 +10,11 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class NcpRecord extends Model
 {
     protected $fillable = [
-        'patient_id', 'rnd_user_id', 'type', 'status', 'ai_risk_score',
+        'patient_id', 'rnd_user_id', 'type', 'status', 'risk_score',
     ];
 
     protected $casts = [
-        'ai_risk_score' => 'decimal:2',
+        'risk_score' => 'decimal:2',
     ];
 
     public function patient(): BelongsTo
