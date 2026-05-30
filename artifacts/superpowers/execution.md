@@ -1,33 +1,34 @@
-# Execution Log — Milestone 1 Auth Review Fixes
+# Execution Log — Milestone 2B: UI Scaffold & Navigation Refactor
 
-## Step 1: Fix B-1 — Logout cookie + redirect hardening
-- **Files changed**: `frontend/app/api/auth/logout/route.ts`, `frontend/components/layout/TopBar.tsx`
-- Cookie deletion moved before backend call with try/catch around Laravel fetch
-- TopBar: `router.push` → `router.replace`, redirect added in catch block
-- **Verify**: Files read — correct structure confirmed ✅
+## Step 1: Document Milestone 2B Specifications
+- **Files changed**: `docs/milestones/milestones.md`
+- **Changes**: Added the scope of Milestone 2B (sidebar collapsible navigation, dynamic scaffolding shells, revamped patient directories and profile command center summaries, Facebook-style announcement modals) and the frontend-only mock boundary rules.
+- **Verification**: Verified milestones.md reads cleanly. ✅
 
-## Step 2: Fix B-2 — Remove root `/` middleware bypass
-- **Files changed**: `frontend/middleware.ts`
-- Removed `pathname === "/"` from `isInternalOrStatic` check
-- **Verify**: File read — only `_next`, `/api`, and `.` (file extensions) remain ✅
+## Step 2: Collapsible Navigation & Sidebar Layouts
+- **Files changed**: `frontend/components/layout/Sidebar.tsx`
+- **Changes**:
+  - Implemented collapsible sub-menu accordion groups for NCP and Food Service.
+  - Added smooth CSS scale-down height and opacity transitions for dropdown expansion.
+  - Added chevron rotation animations.
+  - Incorporated user-role check to isolate Admin tabs from standard RND clinical menus.
+  - Configured pathname-parsing regex to extract current patient ID and NCP cycle parameters to preserve context during ADIME clicks.
+- **Verification**: Verified TypeScript compilation passes and states are reactive. ✅
 
-## Step 3: Fix M-3 — Remove unused `NEXT_PUBLIC_API_URL`
-- **Files changed**: `frontend/.env.local`
-- Removed `NEXT_PUBLIC_API_URL` line; only `LARAVEL_API_URL` remains
-- **Verify**: File read — single env var confirmed ✅
-
-## Step 4: Fix m-1 — Split loading vs initializing in AuthContext
-- **Files changed**: `frontend/contexts/AuthContext.tsx`, `frontend/app/(rnd)/layout.tsx`
-- AuthContext: added `initializing` state (starts true, set false after first `refreshUser`); `loading` starts false, only set during login/logout. Also fixed `catch(err: any)` → `catch(err: unknown)` with type narrowing (N-2) and wrapped `refreshUser` in `useCallback` (N-3).
-- RND layout: `loading` → `initializing` for loading screen guard and redirect check
-- Login page: already uses `loading` for button state — no change needed
-- **Verify**: All three files read — correct state usage confirmed ✅
-
-## Step 5: Fix m-3 — Add unique IDs to login form elements
-- **Files changed**: `frontend/app/login/page.tsx`
-- Added `id="login-form"` to `<form>`, `id="login-error"` to error div, `id="login-submit"` to submit button
-- **Verify**: File read — IDs present ✅
-
-## Step 6: Build verification
-- **Command**: `npx next build` in `frontend/`
-- **Result**: ✅ Compiled successfully in 9.0s. TypeScript passed. All pages generated (/, /_not-found, /api/auth/*, /dashboard, /login).
+## Step 3: Implement RND Scaffolding Route Shells
+- **Files changed**:
+  - `frontend/app/(rnd)/recipes/page.tsx`
+  - `frontend/app/(rnd)/ncp/[patientId]/assessment/[ncpId]/page.tsx`
+  - `frontend/app/(rnd)/ncp/[patientId]/diagnosis/[ncpId]/page.tsx`
+  - `frontend/app/(rnd)/ncp/[patientId]/intervention/[ncpId]/page.tsx`
+  - `frontend/app/(rnd)/ncp/[patientId]/monitoring/[ncpId]/page.tsx`
+  - `frontend/app/(rnd)/food-service/inventory/page.tsx`
+  - `frontend/app/(rnd)/food-service/menu-cycle/page.tsx`
+  - `frontend/app/(rnd)/food-service/budget/page.tsx`
+  - `frontend/app/(rnd)/food-service/procurement/page.tsx`
+  - `frontend/app/(rnd)/reports/page.tsx`
+  - `frontend/app/(rnd)/calendar/page.tsx`
+  - `frontend/app/(rnd)/notifications/page.tsx`
+  - `frontend/app/(rnd)/settings/page.tsx`
+- **Changes**: Created 13 highly clinical, visually polished page templates with dynamic parameters parsing, breadcrumb flows, custom Lucide icons, and premium styled instructions explaining future integrations (OCR, USDA, DomPDF, and trend calculations).
+- **Verification**: Verified Next.js routing maps the folders correctly. ✅

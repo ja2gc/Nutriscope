@@ -6,7 +6,7 @@
   - **Backend**: Write PHPUnit feature tests. Run `php artisan test`. All tests must pass.
   - **Frontend**: Confirm components render correctly in the browser.
 - **Test verification**: Follow the Superpowers workflow for all remaining tasks:
-  1. `/superpowers-write-plan` (Plan step)
+  1. `/superpowers-plan` (Plan step)
   2. `/superpowers-tdd` (Backend step)
   3. `/superpowers-execute-plan` (Frontend step)
   4. `/superpowers-review` (Review step)
@@ -59,11 +59,11 @@
 - [x] Create `StorePatientRequest`, `UpdatePatientRequest`, and `PatientResource`
 - [x] Implement Patient CRUD endpoints in `PatientController`
 
-**Frontend** (pending):
-- [ ] **Iteration: Patient UI**
-  - [ ] Plan: Patient List Page, Add Patient Modal, Patient Profile shell
-  - [ ] Execute Frontend: Build UI components, wire to API, verify browser rendering
-  - [ ] Review: UX and API integration check
+**Frontend** ✅:
+- [x] **Iteration: Patient UI**
+  - [x] Plan: Patient List Page, Add Patient Modal, Patient Profile shell
+  - [x] Execute Frontend: Build UI components, wire to API, verify browser rendering
+  - [x] Review: UX and API integration check
 
 ---
 
