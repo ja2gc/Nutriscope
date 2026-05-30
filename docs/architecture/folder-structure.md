@@ -14,6 +14,7 @@ app/
         AuthController.php
       RND/
         PatientController.php
+        AnnouncementController.php
         NcpRecordController.php
         AssessmentController.php
         DiagnosisController.php
@@ -46,6 +47,7 @@ app/
     Requests/                   one per endpoint that accepts input
     Resources/                  one per model for JSON formatting
   Models/                       one per table
+    Announcement.php
   Services/
     AIService.php               all Anthropic calls (both models), token tracking
     FoodService.php             all USDA calls + local food_items queries
@@ -74,6 +76,11 @@ app/
 
 routes/
   api.php                       all API routes grouped by role
+
+database/
+  seeders/
+    AdminUserSeeder.php
+    AnnouncementSeeder.php
 
 resources/
   views/
@@ -131,6 +138,10 @@ components/
   rnd/
   fss/
   admin/
+services/
+  announcementService.ts        dashboard announcement API client
+  authService.ts
+  patientService.ts
 lib/
   api.ts                        axios instance with auth token
   auth.ts

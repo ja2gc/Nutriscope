@@ -42,11 +42,13 @@ export function Sidebar() {
 
   // Automatically expand relevant dropdown groups on mount if we are on their routes
   useEffect(() => {
-    if (pathname.includes("/ncp/")) {
+    if (pathname.startsWith("/ncp")) {
       setNcpExpanded(true);
+      setCollapsed(false);
     }
-    if (pathname.includes("/food-service/")) {
+    if (pathname.startsWith("/food-service")) {
       setFoodServiceExpanded(true);
+      setCollapsed(false);
     }
   }, [pathname]);
 
@@ -213,7 +215,7 @@ export function Sidebar() {
                 {!collapsed && (
                   <ChevronDown 
                     className={`h-3.5 w-3.5 text-zinc-500 transition-transform duration-250 ease-in-out shrink-0 ${
-                      ncpExpanded ? "transform rotate-180" : ""
+                      isNcpMenuOpen ? "transform rotate-180" : ""
                     }`} 
                   />
                 )}
@@ -301,7 +303,7 @@ export function Sidebar() {
                 {!collapsed && (
                   <ChevronDown 
                     className={`h-3.5 w-3.5 text-zinc-500 transition-transform duration-250 ease-in-out shrink-0 ${
-                      foodServiceExpanded ? "transform rotate-180" : ""
+                      isFoodServiceMenuOpen ? "transform rotate-180" : ""
                     }`} 
                   />
                 )}

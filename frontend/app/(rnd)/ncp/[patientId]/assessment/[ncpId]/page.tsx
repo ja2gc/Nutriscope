@@ -43,16 +43,16 @@ export default function NcpAssessmentPage({
           <div className="p-3.5 bg-zinc-50 border border-zinc-200 rounded-2xl w-fit mx-auto text-zinc-400">
             <User className="h-8 w-8" />
           </div>
-          <h3 className="text-sm font-bold text-zinc-800 mt-4 uppercase tracking-wider">No Patient Selected</h3>
+          <h3 className="text-sm font-bold text-zinc-800 mt-4 uppercase tracking-wider">Assessment Intake</h3>
           <p className="text-xs text-zinc-500 mt-2 leading-relaxed">
-            Please navigate to the NCP Patients directory and select a patient to start or continue their Nutrition Care Process.
+            Begin the assessment workflow from intake. OCR screening will populate patient details when the extraction flow is available, so manual demographics are not required before assessment entry.
           </p>
           <div className="mt-6">
             <Link
               href="/ncp/patients"
               className="inline-flex px-4 py-2.5 bg-zinc-950 hover:bg-zinc-900 active:bg-black text-white text-xs font-bold uppercase tracking-wider rounded-lg transition-colors cursor-pointer select-none"
             >
-              Go to Patients Directory
+              Select Existing Patient
             </Link>
           </div>
         </div>

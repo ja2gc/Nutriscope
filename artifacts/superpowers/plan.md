@@ -1,50 +1,71 @@
-# Milestone 2B — UI Scaffold, Navigation Refactor & Feature Additions (Frontend Focus)
+# M2B Regression Cleanup Implementation Plan
 
-## Goal
-Implement Milestone 2B on the frontend: Sidebar accordion collapsible NCP submenus, simplified Master Patients list with a single 'View Profile' link, Patient Profile page displaying ADIME cycle summaries and direct edit/view links to dyn shells, a RND dashboard with upcoming follow-ups and budget KPIs, Facebook-style announcement feed modal, and dynamic placeholder shells. No database tables or schema extensions will be scaffolded, and all advanced metrics use rich frontend clinical mocks.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:test-driven-development for backend behavior changes and superpowers:verification-before-completion before claiming completion.
 
-## Plan
+**Goal:** Resolve M2B regressions in announcements, navigation persistence, patient workflow entry, patient profile actions, risk-score terminology, and documentation sync.
 
-### Step 1: Document Milestone 2B Specifications
-- **Files**: `docs/milestones/milestones.md`
-- **Change**: Document the scope of Milestone 2B including UI improvements, RND/Admin scaffolding, and the mock-data boundary rule.
-- **Verify**: Confirm milestones.md contains Milestone 2B description and checklist.
+**Architecture:** Keep the existing Laravel announcement backend and Next.js route structure. Fix schema drift by applying existing migrations, tighten the current sidebar state logic, and route patient workflow entry through existing NCP assessment shells without forcing demographic creation. Documentation in `docs/` and execution notes in `artifacts/superpowers/` must match the final code.
 
-### Step 2: Collapsible Navigation & Sidebar Layouts
-- **Files**: `frontend/components/layout/Sidebar.tsx`
-- **Change**: Implement collapsible sub-menus, smooth transitions, active status highlighting, and user-role-based sidebar lists (RND items vs. Admin items).
-- **Verify**: Compile TypeScript and test sidebar expansion/role changes.
+**Tech Stack:** Laravel 13, Sanctum, PHPUnit 12, MySQL runtime schema, SQLite in-memory tests, Next.js 16, React 19, Tailwind CSS, Lucide React.
 
-### Step 3: Implement RND Scaffolding Route Shells
-- **Files**: Create dynamic route placeholder pages for Recipes, Assessment, Diagnosis, Intervention, Monitoring, Food Service, Reports, Calendar, Notifications, and Settings under `frontend/app/(rnd)/...`.
-- **Change**: Scaffold pages with breadcrumb paths, headings, and clean empty state messaging.
-- **Verify**: Test routing to `/recipes` and `/ncp/123/assessment/456` in the dev server.
+---
 
-### Step 4: Implement Admin Scaffolding Route Shells & Layout
-- **Files**: Create layout and five admin shells under `frontend/app/admin/...`.
-- **Change**: Build persistent admin sidebar structure, roles authorization protection, and empty states.
-- **Verify**: Verify admin routes load correctly when authenticated.
+## File Map
 
-### Step 5: Relocate & Overhaul Master Patient Listing
-- **Files**: `frontend/app/(rnd)/ncp/patients/page.tsx` [NEW], `frontend/app/(rnd)/ncp/page.tsx` [DELETE]
-- **Change**: Relocate the patient listing. Incorporate revamped clinical columns (`Name/ID | Age/Sex | Physician | Last Assessment | Next Follow-up | Risk Status | Actions`). In the Actions column, render only the single "View Profile" action link. Configure form submissions to redirect to `/ncp/patients/[id]`.
-- **Verify**: Access `/ncp/patients`, verify columns, confirm the only action is "View Profile", and verify registration redirects to the profile.
+- `backend/database/migrations/2024_01_01_000003_create_ncp_records_table.php`: create the canonical `risk_score` column for fresh installs.
+- `backend/database/migrations/2026_05_31_000001_rename_ai_risk_score_to_risk_score_on_ncp_records_table.php`: keep compatibility migration for databases that still have `ai_risk_score`.
+- `backend/tests/Feature/PatientFeatureTest.php`: protect `risk_score` resource output and NCP workflow behavior.
+- `frontend/components/layout/Sidebar.tsx`: preserve expanded section visibility on child routes.
+- `frontend/app/(rnd)/ncp/patients/page.tsx`: remove the patient creation modal and navigate directly into the assessment workflow.
+- `frontend/app/(rnd)/ncp/patients/[patientId]/page.tsx`: replace start-cycle creation actions with workflow navigation actions for existing NCP records.
+- `frontend/app/(rnd)/ncp/[patientId]/assessment/[ncpId]/page.tsx`: make placeholder assessment route usable as the OCR-first intake entry surface.
+- `docs/database-schema.md`, `docs/milestones/milestones.md`, `docs/modules/rnd.md`, `docs/modules/admin.md`, `docs/overview.md`, `docs/Nutriscope Forms/implementation_plan.md`: align docs with implementation.
+- `artifacts/superpowers/execution.md`: record what was changed and verified.
 
-### Step 6: Patient Profile ADIME Records Tab with Summary & Workflow Actions
-- **Files**: `frontend/app/(rnd)/ncp/patients/[id]/page.tsx` [NEW], `frontend/app/(rnd)/ncp/[id]/page.tsx` [DELETE]
-- **Change**: Relocate profile views and add persistent banners, restricted indicators, and the ADIME Records tab. Implement the NCP Summary Box (summarizing Assessment findings, active Diagnoses, Interventions, and Monitoring dates) for each cycle in the list. Under each summary, render the "Manage ADIME Workflow" buttons (Edit Assessment, Edit Diagnosis, Edit Intervention, Edit Monitoring & Eval) linking to the dynamic placeholder routes.
-- **Verify**: Open `/ncp/patients/[id]`, verify the NCP summary box displays properly under the ADIME Records tab, and click the direct step links to verify they route to the correct scaffolds.
+## Tasks
 
-### Step 7: Dashboard Metrics & Announcements Modal
-- **Files**: `frontend/app/(rnd)/dashboard/page.tsx`
-- **Change**: Remove old table. Implement "Upcoming Follow-ups" widget and "Budget Per Person" KPI. Implement dynamic announcements feed and the Facebook-style click modal view.
-- **Verify**: Check the dashboard rendering, KPI cards, and trigger the Facebook-style announcement modal.
+### Task 1: Backend Schema and Risk Score Safety
 
-## Risks & Mitigations
-- **Risk**: Overlapping pages resolving to identical URLs between the dynamic role scopes.
-- **Mitigation**: Admin actions and sections are strictly isolated inside the `/admin/...` subdirectory, completely avoiding path clashes.
+- [x] Add/adjust a Patient feature test proving `risk_score` is exposed from the latest NCP record and no `ai_risk_score` field is needed.
+- [x] Run the targeted backend test and verify the current schema/resource state.
+- [x] Update the base NCP records migration to create `risk_score` for clean installs while preserving the later rename migration for existing databases.
+- [x] Run targeted backend tests for patients.
 
-## Rollback Plan
-- Revert Git changes and remove new layout templates:
-  `git reset --hard HEAD`
-  `git clean -fd`
+### Task 2: Announcements Runtime Schema
+
+- [x] Confirm the runtime MySQL schema is missing `announcements` through Laravel Boost.
+- [x] Run `php artisan migrate` in `backend` to apply the existing announcement and risk-score migrations.
+- [x] Re-check Laravel Boost schema for `announcements` and `ncp_records.risk_score`.
+- [x] Verify announcement feature tests pass.
+
+### Task 3: Navigation Persistence
+
+- [x] Refactor `Sidebar.tsx` so NCP and Food Service groups are considered open whenever the current route belongs to that group.
+- [x] Keep manual toggles working when users are outside those route groups.
+- [x] Ensure submenu active states use `startsWith` for child pages so links do not disappear when navigating deeper.
+
+### Task 4: Patient Workflow Entry
+
+- [x] Remove modal state, form state, patient creation imports, and modal JSX from `frontend/app/(rnd)/ncp/patients/page.tsx`.
+- [x] Change `Create Patient & Start Assessment` to navigate to `/ncp/select-patient/assessment/select-ncp`.
+- [x] Update placeholder assessment copy so it behaves like the OCR-first assessment intake entry point instead of sending the user back to the patient directory.
+
+### Task 5: Existing Patient Profile Actions
+
+- [x] Remove `createNcpRecord`, `handleStartCycle`, and `startingCycle` from the patient profile page.
+- [x] If a latest record exists, show direct workflow management links for assessment, diagnosis, intervention, and monitoring.
+- [x] If no record exists, show a neutral workflow status message instead of a create-cycle action.
+
+### Task 6: Documentation Sync
+
+- [x] Update `docs/database-schema.md` to confirm `announcements` exists and `ncp_records.risk_score` is system-calculated.
+- [x] Update `docs/milestones/milestones.md` so implemented M2B work is marked complete, announcement backend is not left in M10 future work, risk-score rename is complete, and PatientResource/PatientFeatureTest fixes are complete.
+- [x] Update module and overview docs to remove stale `ai_risk_score` and AI-risk wording where the system-calculated score is intended.
+- [x] Update `docs/Nutriscope Forms/implementation_plan.md` where it still contains old `ai_risk_score` mapping.
+
+### Task 7: Verification
+
+- [x] Run `php artisan test` in `backend`.
+- [x] Run `npm run build` in `frontend`.
+- [x] Use Laravel Boost schema inspection to verify `announcements` exists and `ncp_records` has `risk_score`.
+- [x] Record final verification output in `artifacts/superpowers/execution.md`.
