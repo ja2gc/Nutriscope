@@ -6,19 +6,13 @@
 > Before using anything from this document, note the following corrections:
 >
 > **Risk Score Field:**
-> - Any reference to `ai_risk_score` in this document is WRONG
-> - Any reference to "AI risk score" is WRONG  
-> - The correct field name is `risk_score` on the `ncp_records` table
-> - Risk scoring is PURELY DETERMINISTIC — calculated from the screening 
->   checklist checkboxes (Appendix B.06 pediatric, B.07 adult)
-> - There is no AI involvement in risk scoring at any stage
-> - The NCP Census mapping table reference to `ai_risk_score` should be 
->   read as `risk_score`
+> - The implemented field name is `risk_score` on the `ncp_records` table.
+> - Risk scoring is system-calculated from screening checklist data, not AI-generated.
+> - NCP Census mappings use `risk_score`.
 >
 > **Announcements:**
-> - AnnouncementController is listed under M10 in this document
-> - This is WRONG — announcements backend was completed during M2 cleanup
-> - Do not reschedule or recreate announcements work
+> - Announcements backend support was completed during M2 cleanup.
+> - Announcement work is not scheduled as future M10 backend scope.
 >
 > **All other content** in this document remains valid as architectural 
 > reference. The extraction templates, report architecture, and milestone 
@@ -338,7 +332,7 @@ Add relationships to `extraction_template`, `extraction_logs`. Add `document_typ
 }
 ```
 
-**Risk Scoring** (from NCP reference — matches existing `ai_risk_score` on `ncp_records`):
+**Risk Scoring** (from NCP reference - stored as `risk_score` on `ncp_records`):
 ```
 Total Points = sum of checked risk factors:
   - Screening criteria for potential nutritional risk (1 point)
@@ -355,7 +349,7 @@ Score → Status:
   >3    = High Risk     → Severe Malnutrition
 ```
 
-This scoring replaces/supplements the AI risk score with a deterministic calculation from extracted screening data.
+This scoring is a deterministic system calculation from extracted screening data.
 
 ---
 
@@ -442,7 +436,7 @@ resources/views/reports/          — Blade templates for each report type
 | B.08 Metric | System Data Source |
 |---|---|
 | Number of patients admitted | `patients` WHERE `admission_date` in range |
-| Number of nutritionally-at-risk (NAR) patients | `ncp_records` WHERE `ai_risk_score > 0` OR screening risk > 0 |
+| Number of nutritionally-at-risk (NAR) patients | `ncp_records` WHERE `risk_score > 0` OR screening risk > 0 |
 | (1) Wasting | `assessments.bmi` < threshold per age |
 | (2) Moderate acute malnutrition | `ncp_records` risk score = 2-3 |
 | (3) Severe acute malnutrition | `ncp_records` risk score > 3 |
@@ -478,10 +472,10 @@ resources/views/reports/          — Blade templates for each report type
 - [x] `StorePatientRequest`, `UpdatePatientRequest`, `PatientResource`
 - [x] `PatientController` CRUD
 
-**Frontend** (pending):
-- [ ] Patient List Page with search/filter/pagination
-- [ ] Add Patient Modal
-- [ ] Patient Profile shell with NCP tabs placeholder
+**Frontend** (implemented in M2B cleanup):
+- [x] Patient List Page with search/filter/pagination
+- [x] Workflow-first assessment entry without patient creation modal
+- [x] Patient Profile shell with NCP tabs and workflow navigation actions
 
 ---
 
@@ -501,7 +495,7 @@ resources/views/reports/          — Blade templates for each report type
 - [ ] Migration: `inspection_reports` + `inspection_report_items` tables
 - [ ] Migration: `marketing_statements` + `marketing_statement_items` + `marketing_summaries` tables
 - [ ] Migration: `reports` + `report_templates` tables
-- [ ] Migration: `announcements` table
+- [x] Migration: `announcements` table
 - [ ] Migration: `calendar_events` table
 - [ ] Migration: `notifications` table
 - [ ] Migration: `ai_usage_logs` table
@@ -541,7 +535,7 @@ resources/views/reports/          — Blade templates for each report type
 - [ ] Upload endpoint: accepts PDF/image → dispatches `ProcessDocumentExtraction` (type=screening_adult or screening_pediatric)
 - [ ] Auto-populate matching assessment fields from extraction results
 - [ ] UI: Review panel showing extracted values with confidence indicators + manual override
-- [ ] Deterministic risk score calculation from screening checklist (replaces/supplements AI risk score)
+- [ ] Deterministic risk score calculation from screening checklist
 
 **4C — Frontend: Assessment UI**
 - [ ] Assessment form with tabs: Dietary, Anthropometric, Client History, Biochemical, Referral, RND Summary
@@ -658,7 +652,7 @@ resources/views/reports/          — Blade templates for each report type
 #### Milestone 10: Admin Module + Census Reports + Final Polish
 
 **10A — Admin Backend**
-- [ ] `UserController`, `AuditLogController`, `AnnouncementController`
+- [ ] `UserController`, `AuditLogController`
 - [ ] `Admin\ReportController` — access to all reports
 
 **10B — NCP Census Report**
@@ -669,7 +663,7 @@ resources/views/reports/          — Blade templates for each report type
 - [ ] Flexible date range (not just bi-annual)
 
 **10C — Frontend**
-- [ ] Admin Dashboard, Users, Audit Logs, Announcements pages
+- [ ] Admin Dashboard, Users, Audit Logs pages
 - [ ] Report hub with all 7 report types
 
 **10D — Documentation Final Sweep**

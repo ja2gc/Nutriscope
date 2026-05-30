@@ -20,7 +20,8 @@ patients                id, name, dob, sex, religion, address, contact,
 ```
 ncp_records             id, patient_id, rnd_user_id, type(new/followup/reassessment),
                         status, risk_score(nullable deterministic score from
-                        screening checklist, calculated in M4), timestamps
+                        screening checklist; system-calculated, not AI-generated),
+                        timestamps
 assessments             id, ncp_record_id, dietary_intake, appetite_changes,
                         dietary_restrictions, supplements, knowledge_notes,
                         weight, height, bmi, body_composition,
@@ -173,3 +174,8 @@ audit_logs              id, user_id, action, model_type, model_id,
 ai_usage_logs           id, user_id, model, tokens_input, tokens_output,
                         tokens_total, endpoint, timestamps
 ```
+
+### Confirmed Implemented Tables
+
+- `announcements` is implemented by migration, model, seeder, RND/Admin API routes, and dashboard integration.
+- `ncp_records.risk_score` is the canonical system-calculated risk score column. The legacy `ai_risk_score` name is not used by current code.

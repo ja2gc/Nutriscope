@@ -2,17 +2,13 @@
 
 import React, { use, useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import {
-  createNcpRecord,
   fetchPatientById,
   fetchPatientNcpRecords,
   NcpRecord,
   Patient,
 } from "@/services/patientService";
-import { Button } from "@/components/ui/Button";
 import {
-  Activity,
   HeartHandshake,
 } from "lucide-react";
 
@@ -146,7 +142,6 @@ export default function PatientProfilePage({
 }: {
   params: Promise<{ patientId: string }>;
 }) {
-  const router = useRouter();
   const { patientId } = use(params);
 
   const [patient, setPatient] = useState<Patient | null>(null);
@@ -154,7 +149,6 @@ export default function PatientProfilePage({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabKey>("overview");
-  const [startingCycle, setStartingCycle] = useState(false);
 
   useEffect(() => {
     async function loadData() {
@@ -186,26 +180,6 @@ export default function PatientProfilePage({
   const latestDiagnosis = latestRecord?.diagnoses?.[0]?.pes_statement?.trim();
   const latestIntervention = latestRecord?.intervention?.goal_type?.trim();
   const latestMonitoring = latestRecord?.intervention?.next_followup_date;
-
-  const handleStartCycle = async () => {
-    if (!patient) {
-      return;
-    }
-
-    try {
-      setStartingCycle(true);
-      const created = await createNcpRecord(patient.id);
-      if (!created?.id) {
-        throw new Error("The new NCP cycle did not return an ID.");
-      }
-
-      router.push(`/ncp/${patient.id}/assessment/${created.id}`);
-    } catch (err: any) {
-      setError(err.message || "Failed to start NCP cycle.");
-    } finally {
-      setStartingCycle(false);
-    }
-  };
 
   if (loading) {
     return (
@@ -317,15 +291,38 @@ export default function PatientProfilePage({
               </div>
             )}
 
-              <Button
-                variant="primary"
-                onClick={() => void handleStartCycle()}
-                loading={startingCycle}
-                className="w-full px-4 py-2.5 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer transition-all duration-150"
-              >
-                <Activity className="h-4 w-4" />
-                Start NCP Cycle
-              </Button>
+              {latestRecord ? (
+                <div className="grid grid-cols-2 gap-2 pt-1">
+                  <Link
+                    href={`/ncp/${patient.id}/assessment/${latestRecord.id}`}
+                    className="inline-flex items-center justify-center px-3 py-2 text-[10px] font-bold uppercase tracking-wider rounded-lg bg-zinc-950 text-white hover:bg-zinc-800 transition-colors"
+                  >
+                    Assessment
+                  </Link>
+                  <Link
+                    href={`/ncp/${patient.id}/diagnosis/${latestRecord.id}`}
+                    className="inline-flex items-center justify-center px-3 py-2 text-[10px] font-bold uppercase tracking-wider rounded-lg border border-zinc-200 text-zinc-700 hover:bg-zinc-50 transition-colors"
+                  >
+                    Diagnosis
+                  </Link>
+                  <Link
+                    href={`/ncp/${patient.id}/intervention/${latestRecord.id}`}
+                    className="inline-flex items-center justify-center px-3 py-2 text-[10px] font-bold uppercase tracking-wider rounded-lg border border-zinc-200 text-zinc-700 hover:bg-zinc-50 transition-colors"
+                  >
+                    Intervention
+                  </Link>
+                  <Link
+                    href={`/ncp/${patient.id}/monitoring/${latestRecord.id}`}
+                    className="inline-flex items-center justify-center px-3 py-2 text-[10px] font-bold uppercase tracking-wider rounded-lg border border-zinc-200 text-zinc-700 hover:bg-zinc-50 transition-colors"
+                  >
+                    Monitoring
+                  </Link>
+                </div>
+              ) : (
+                <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-zinc-500">
+                  No active NCP workflow
+                </div>
+              )}
           </div>
         </div>
       </div>
@@ -494,16 +491,8 @@ export default function PatientProfilePage({
               </div>
               <h3 className="text-sm font-bold text-zinc-800 mt-4">No NCP cycles initiated</h3>
               <p className="text-xs text-zinc-500 mt-1 max-w-sm mx-auto leading-relaxed">
-                Start the first cycle from the patient header to begin assessment, diagnosis, intervention, and monitoring.
+                This patient does not have an NCP workflow record yet. Existing patients are managed from their active NCP record once backend workflow assignment is available.
               </p>
-              <Button
-                variant="primary"
-                onClick={() => void handleStartCycle()}
-                loading={startingCycle}
-                className="mt-6 w-auto px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 cursor-pointer rounded-lg mx-auto"
-              >
-                Initialize First NCP Cycle
-              </Button>
             </div>
           ) : (
             <div className="space-y-4">

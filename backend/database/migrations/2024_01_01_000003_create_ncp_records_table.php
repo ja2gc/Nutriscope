@@ -14,7 +14,7 @@ return new class extends Migration
             $table->foreignId('rnd_user_id')->constrained('users');
             $table->enum('type', ['new', 'followup', 'reassessment'])->default('new');
             $table->enum('status', ['draft', 'active', 'completed', 'discharged'])->default('draft');
-            $table->decimal('ai_risk_score', 5, 2)->nullable();
+            $table->decimal('risk_score', 5, 2)->nullable();
             $table->timestamps();
         });
     }

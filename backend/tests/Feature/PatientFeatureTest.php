@@ -3,9 +3,11 @@
 namespace Tests\Feature;
 
 use App\Models\Patient;
+use App\Models\NcpRecord;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
 class PatientFeatureTest extends TestCase
@@ -90,5 +92,37 @@ class PatientFeatureTest extends TestCase
             'rnd_user_id' => $rnd->id,
             'status' => 'draft',
         ]);
+    }
+
+    public function test_patient_resource_exposes_system_calculated_risk_score()
+    {
+        $rnd = User::forceCreate(['name' => 'Test', 'email' => 'test5@example.com', 'password' => Hash::make('pass'), 'role' => 'RND', 'is_active' => true]);
+
+        $patient = Patient::forceCreate([
+            'name' => 'Jane Doe',
+            'dob' => '1995-05-05',
+            'sex' => 'Female',
+            'admission_date' => '2024-01-01',
+        ]);
+
+        NcpRecord::forceCreate([
+            'patient_id' => $patient->id,
+            'rnd_user_id' => $rnd->id,
+            'type' => 'new',
+            'status' => 'active',
+            'risk_score' => 3.5,
+        ]);
+
+        $response = $this->actingAs($rnd, 'sanctum')->getJson("/api/rnd/patients/{$patient->id}");
+
+        $response->assertOk()
+            ->assertJsonPath('risk_score', '3.50')
+            ->assertJsonMissingPath('ai_risk_score');
+    }
+
+    public function test_ncp_records_schema_uses_risk_score_column()
+    {
+        $this->assertTrue(Schema::hasColumn('ncp_records', 'risk_score'));
+        $this->assertFalse(Schema::hasColumn('ncp_records', 'ai_risk_score'));
     }
 }
