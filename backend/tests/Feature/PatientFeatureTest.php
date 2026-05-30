@@ -12,16 +12,6 @@ class PatientFeatureTest extends TestCase
 {
     use RefreshDatabase;
 
-    protected function setUp(): void
-    {
-        parent::setUp();
-        
-        \Illuminate\Support\Facades\Route::middleware(['api', 'auth:sanctum', 'role:RND'])->group(function () {
-            \Illuminate\Support\Facades\Route::apiResource('/api/rnd/patients', \App\Http\Controllers\RND\PatientController::class);
-            \Illuminate\Support\Facades\Route::get('/api/rnd/patients/{patient}/ncp-records', [\App\Http\Controllers\RND\PatientController::class, 'ncpRecords']);
-        });
-    }
-
     public function test_rnd_can_list_patients()
     {
         $rnd = User::forceCreate(['name' => 'Test', 'email' => 'test1@example.com', 'password' => Hash::make('pass'), 'role' => 'RND', 'is_active' => true]);
@@ -75,5 +65,30 @@ class PatientFeatureTest extends TestCase
                  ->assertJsonPath('ward', 'ICU');
 
         $this->assertDatabaseHas('patients', ['id' => $patient->id, 'ward' => 'ICU']);
+    }
+
+    public function test_rnd_can_start_ncp_cycle()
+    {
+        $rnd = User::forceCreate(['name' => 'Test', 'email' => 'test4@example.com', 'password' => Hash::make('pass'), 'role' => 'RND', 'is_active' => true]);
+
+        $patient = Patient::forceCreate([
+            'name' => 'John Doe',
+            'dob' => '1990-01-01',
+            'sex' => 'Male',
+            'admission_date' => '2024-01-01',
+        ]);
+
+        $response = $this->actingAs($rnd, 'sanctum')->postJson("/api/rnd/patients/{$patient->id}/ncp-records");
+
+        $response->assertStatus(201)
+            ->assertJsonPath('data.patient_id', $patient->id)
+            ->assertJsonPath('data.rnd_user_id', $rnd->id)
+            ->assertJsonPath('data.status', 'draft');
+
+        $this->assertDatabaseHas('ncp_records', [
+            'patient_id' => $patient->id,
+            'rnd_user_id' => $rnd->id,
+            'status' => 'draft',
+        ]);
     }
 }

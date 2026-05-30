@@ -1,6 +1,6 @@
 ## RND Module (Website)
 
-Dashboard: announcements, active NCPs, food service snapshot, reports, KPIs, budget chart
+Dashboard: database-backed announcements, active NCPs, food service snapshot, reports, KPIs, budget chart
 Recipes & Ingredients: recipe builder (multi-ingredient, auto-calculates nutrients+cost), foods library (USDA data, macros on card, click for micros). Cost in recipe builder only — never in NCP meal planning
 
 ### NCP Workflow
@@ -11,7 +11,7 @@ NCP Assessment: Dietary(D), Anthropometric(A), Client History(C), Biochemical/La
   - Screening forms: Upload adult or pediatric screening form → OCR extraction → auto-populate clinical conditions, intake/weight history, referral type → review panel with confidence scores → manual override
   - Biochemical: Upload lab results → OCR extraction → auto-populate biochemical_data fields (Albumin through URR) → review panel → manual override
   - Dietary, Anthropometric, and Clinical data entered manually (no OCR)
-  - Deterministic risk scoring from screening checklist (supplements AI risk score)
+  - Deterministic risk scoring from screening checklist stored as `ncp_records.risk_score` in M4
   - Client history stores: allergies(json), medications(json), religious restrictions
 
 NCP Diagnosis: tabs: Diagnosis Table→P→E→S→PES→AI Review. Domains: NI/NC/NB. PES: "[Problem] related to [Etiology] as evidenced by [S&S]". AI tab(Sonnet): draft PES, risk analysis, accept/reject/edit

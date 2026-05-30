@@ -49,7 +49,7 @@ errors: array                          // any parsing errors
   - Intake/weight history (checkbox array)
   - Referral type (Per Orem / Tube Feeding / NPO/TPN)
   - Patient demographics (name, age, sex, height, weight)
-- **Risk score calculation**: Deterministic from checked items → stored in `ncp_records.deterministic_risk_score`
+- **Risk score calculation**: Deterministic from checked items -> stored in nullable `ncp_records.risk_score`
 
 ### Lab Results (Biochemical Data)
 - **Source**: NCP form — Biochemical Data section

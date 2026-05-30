@@ -19,7 +19,8 @@ patients                id, name, dob, sex, religion, address, contact,
 
 ```
 ncp_records             id, patient_id, rnd_user_id, type(new/followup/reassessment),
-                        status, ai_risk_score, deterministic_risk_score, timestamps
+                        status, risk_score(nullable deterministic score from
+                        screening checklist, calculated in M4), timestamps
 assessments             id, ncp_record_id, dietary_intake, appetite_changes,
                         dietary_restrictions, supplements, knowledge_notes,
                         weight, height, bmi, body_composition,
@@ -158,7 +159,9 @@ report_templates        id, type(matches report types above), name,
 ### Communication & System
 
 ```
-announcements           id, user_id, title, body, attachment, pinned(bool),
+announcements           id, user_id, title, body,
+                        category(General/Event/Operational/Urgent),
+                        attachment(nullable), pinned(bool),
                         visibility(FSS/Admin/All), timestamps
 calendar_events         id, user_id, title, type(manual/system), source_module,
                         source_id, event_date, status(pending/completed/overdue),

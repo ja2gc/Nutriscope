@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\RND\StorePatientRequest;
 use App\Http\Requests\RND\UpdatePatientRequest;
 use App\Http\Resources\PatientResource;
+use App\Models\NcpRecord;
 use App\Models\Patient;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -25,7 +26,7 @@ class PatientController extends Controller
                   ->orWhere('ward', 'like', "%{$s}%")
             )
             ->when($request->status, fn($q, $s) => $q->where('status', $s))
-            ->with(['ncpRecords' => fn($q) => $q->latest()->limit(1)])
+            ->with(['ncpRecords' => fn($q) => $q->latest()->with(['assessment', 'intervention'])])
             ->orderByDesc('created_at')
             ->paginate(20);
 
@@ -46,7 +47,9 @@ class PatientController extends Controller
      */
     public function show(Patient $patient): JsonResponse
     {
-        $patient->load(['ncpRecords.assessment', 'ncpRecords.diagnoses', 'ncpRecords.intervention']);
+        $patient->load([
+            'ncpRecords' => fn($q) => $q->latest()->with(['assessment', 'diagnoses', 'intervention']),
+        ]);
         return response()->json(new PatientResource($patient));
     }
 
@@ -56,6 +59,9 @@ class PatientController extends Controller
     public function update(UpdatePatientRequest $request, Patient $patient): JsonResponse
     {
         $patient->update($request->validated());
+        $patient->load([
+            'ncpRecords' => fn($q) => $q->latest()->with(['assessment', 'intervention']),
+        ]);
         return response()->json(new PatientResource($patient));
     }
 
@@ -70,5 +76,20 @@ class PatientController extends Controller
             ->get();
 
         return response()->json(['data' => $records]);
+    }
+
+    /**
+     * POST /api/rnd/patients/{patient}/ncp-records
+     */
+    public function startNcpCycle(Request $request, Patient $patient): JsonResponse
+    {
+        $record = NcpRecord::create([
+            'patient_id' => $patient->id,
+            'rnd_user_id' => $request->user()->id,
+            'type' => 'new',
+            'status' => 'draft',
+        ]);
+
+        return response()->json(['data' => $record], 201);
     }
 }
