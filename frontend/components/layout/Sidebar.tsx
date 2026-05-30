@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
@@ -15,30 +15,63 @@ import {
   BellDot, 
   Sliders,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  ChevronDown,
+  Users,
+  FileText,
+  History
 } from "lucide-react";
-
-interface SidebarItem {
-  name: string;
-  href: string;
-  icon: React.ComponentType<any>;
-}
-
-const navItems: SidebarItem[] = [
-  { name: "Dashboard", href: "/dashboard", icon: Compass },
-  { name: "Recipes Database", href: "/recipes", icon: CookingPot },
-  { name: "NCP Patients", href: "/ncp", icon: HeartHandshake },
-  { name: "Food Service", href: "/food-service", icon: Salad },
-  { name: "Reports Center", href: "/reports", icon: TrendingUp },
-  { name: "Calendar", href: "/calendar", icon: CalendarDays },
-  { name: "Notifications", href: "/notifications", icon: BellDot },
-  { name: "System Settings", href: "/settings", icon: Sliders },
-];
 
 export function Sidebar() {
   const pathname = usePathname();
   const { user } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
+
+  // States for collapsible groups
+  const [ncpExpanded, setNcpExpanded] = useState(false);
+  const [foodServiceExpanded, setFoodServiceExpanded] = useState(false);
+
+  // Parse patientId and ncpId from current URL if on an NCP child step
+  const ncpMatch = pathname.match(/^\/ncp\/([^\/]+)\/(assessment|diagnosis|intervention|monitoring)\/([^\/]+)/);
+  const activePatientId = ncpMatch ? ncpMatch[1] : null;
+  const activeNcpId = ncpMatch ? ncpMatch[3] : null;
+
+  // Determine actual target paths for the NCP menu items
+  const pId = activePatientId || "select-patient";
+  const nId = activeNcpId || "select-ncp";
+
+  // Automatically expand relevant dropdown groups on mount if we are on their routes
+  useEffect(() => {
+    if (pathname.includes("/ncp/")) {
+      setNcpExpanded(true);
+    }
+    if (pathname.includes("/food-service/")) {
+      setFoodServiceExpanded(true);
+    }
+  }, [pathname]);
+
+  // Expand parent sidebar automatically if user opens a dropdown group
+  const toggleNcp = () => {
+    if (collapsed) {
+      setCollapsed(false);
+      setNcpExpanded(true);
+    } else {
+      setNcpExpanded(!ncpExpanded);
+    }
+  };
+
+  const toggleFoodService = () => {
+    if (collapsed) {
+      setCollapsed(false);
+      setFoodServiceExpanded(true);
+    } else {
+      setFoodServiceExpanded(!foodServiceExpanded);
+    }
+  };
+
+  // Check active states
+  const isNcpGroupActive = pathname.startsWith("/ncp");
+  const isFoodServiceGroupActive = pathname.startsWith("/food-service");
 
   return (
     <aside 
@@ -60,28 +93,322 @@ export function Sidebar() {
       </div>
 
       {/* Nav List */}
-      <nav className="flex-1 py-4.5 space-y-1.5 px-3">
-        {navItems.map((item) => {
-          // Check if active: exact match or starting with href
-          const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
-          const Icon = item.icon;
-
-          return (
+      <nav className="flex-1 py-4.5 space-y-1.5 px-3 overflow-y-auto">
+        {user?.role === "Admin" ? (
+          /* ================= ADMIN SIDENAV ================= */
+          <>
             <Link
-              key={item.name}
-              href={item.href}
+              href="/admin/dashboard"
               className={`flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all duration-150 ${
-                isActive
+                pathname === "/admin/dashboard"
                   ? "bg-zinc-900 text-zinc-100 border-l-2 border-emerald-600"
                   : "text-zinc-400 hover:bg-zinc-900/60 hover:text-zinc-200"
               }`}
-              title={collapsed ? item.name : undefined}
+              title={collapsed ? "Admin Dashboard" : undefined}
             >
-              <Icon className={`h-4.5 w-4.5 shrink-0 ${isActive ? "text-emerald-500" : "text-zinc-450"}`} />
-              {!collapsed && <span>{item.name}</span>}
+              <Compass className={`h-4.5 w-4.5 shrink-0 ${pathname === "/admin/dashboard" ? "text-emerald-500" : "text-zinc-400"}`} />
+              {!collapsed && <span>Admin Dashboard</span>}
             </Link>
-          );
-        })}
+
+            <Link
+              href="/admin/users"
+              className={`flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all duration-150 ${
+                pathname.startsWith("/admin/users")
+                  ? "bg-zinc-900 text-zinc-100 border-l-2 border-emerald-600"
+                  : "text-zinc-400 hover:bg-zinc-900/60 hover:text-zinc-200"
+              }`}
+              title={collapsed ? "Manage Users" : undefined}
+            >
+              <Users className={`h-4.5 w-4.5 shrink-0 ${pathname.startsWith("/admin/users") ? "text-emerald-500" : "text-zinc-400"}`} />
+              {!collapsed && <span>Manage Users</span>}
+            </Link>
+
+            <Link
+              href="/admin/reports"
+              className={`flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all duration-150 ${
+                pathname.startsWith("/admin/reports")
+                  ? "bg-zinc-900 text-zinc-100 border-l-2 border-emerald-600"
+                  : "text-zinc-400 hover:bg-zinc-900/60 hover:text-zinc-200"
+              }`}
+              title={collapsed ? "All Reports" : undefined}
+            >
+              <TrendingUp className={`h-4.5 w-4.5 shrink-0 ${pathname.startsWith("/admin/reports") ? "text-emerald-500" : "text-zinc-400"}`} />
+              {!collapsed && <span>All Reports</span>}
+            </Link>
+
+            <Link
+              href="/admin/audit-logs"
+              className={`flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all duration-150 ${
+                pathname.startsWith("/admin/audit-logs")
+                  ? "bg-zinc-900 text-zinc-100 border-l-2 border-emerald-600"
+                  : "text-zinc-400 hover:bg-zinc-900/60 hover:text-zinc-200"
+              }`}
+              title={collapsed ? "System Audit Logs" : undefined}
+            >
+              <History className={`h-4.5 w-4.5 shrink-0 ${pathname.startsWith("/admin/audit-logs") ? "text-emerald-500" : "text-zinc-400"}`} />
+              {!collapsed && <span>Audit Logs</span>}
+            </Link>
+
+            <Link
+              href="/admin/settings"
+              className={`flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all duration-150 ${
+                pathname.startsWith("/admin/settings")
+                  ? "bg-zinc-900 text-zinc-100 border-l-2 border-emerald-600"
+                  : "text-zinc-400 hover:bg-zinc-900/60 hover:text-zinc-200"
+              }`}
+              title={collapsed ? "System Settings" : undefined}
+            >
+              <Sliders className={`h-4.5 w-4.5 shrink-0 ${pathname.startsWith("/admin/settings") ? "text-emerald-500" : "text-zinc-400"}`} />
+              {!collapsed && <span>System Settings</span>}
+            </Link>
+          </>
+        ) : (
+          /* ================= RND CLINICAL SIDENAV ================= */
+          <>
+            <Link
+              href="/dashboard"
+              className={`flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all duration-150 ${
+                pathname === "/dashboard"
+                  ? "bg-zinc-900 text-zinc-100 border-l-2 border-emerald-600"
+                  : "text-zinc-400 hover:bg-zinc-900/60 hover:text-zinc-200"
+              }`}
+              title={collapsed ? "Dashboard" : undefined}
+            >
+              <Compass className={`h-4.5 w-4.5 shrink-0 ${pathname === "/dashboard" ? "text-emerald-500" : "text-zinc-400"}`} />
+              {!collapsed && <span>Dashboard</span>}
+            </Link>
+
+            <Link
+              href="/recipes"
+              className={`flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all duration-150 ${
+                pathname.startsWith("/recipes")
+                  ? "bg-zinc-900 text-zinc-100 border-l-2 border-emerald-600"
+                  : "text-zinc-400 hover:bg-zinc-900/60 hover:text-zinc-200"
+              }`}
+              title={collapsed ? "Recipes Database" : undefined}
+            >
+              <CookingPot className={`h-4.5 w-4.5 shrink-0 ${pathname.startsWith("/recipes") ? "text-emerald-500" : "text-zinc-400"}`} />
+              {!collapsed && <span>Recipes Database</span>}
+            </Link>
+
+            {/* NCP Collapsible Accordion Dropdown Group */}
+            <div className="space-y-1">
+              <button
+                onClick={toggleNcp}
+                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all duration-150 cursor-pointer ${
+                  isNcpGroupActive
+                    ? "bg-zinc-900/40 text-zinc-250 font-bold border-l-2 border-emerald-650"
+                    : "text-zinc-400 hover:bg-zinc-900/60 hover:text-zinc-200"
+                }`}
+                title={collapsed ? "Nutrition Care Process" : undefined}
+              >
+                <div className="flex items-center gap-3">
+                  <HeartHandshake className={`h-4.5 w-4.5 shrink-0 ${isNcpGroupActive ? "text-emerald-555" : "text-zinc-400"}`} />
+                  {!collapsed && <span>Nutrition Care</span>}
+                </div>
+                {!collapsed && (
+                  <ChevronDown 
+                    className={`h-3.5 w-3.5 text-zinc-500 transition-transform duration-250 ease-in-out shrink-0 ${
+                      ncpExpanded ? "transform rotate-180" : ""
+                    }`} 
+                  />
+                )}
+              </button>
+
+              {/* Submenu container with micro-animations */}
+              <div 
+                className={`transition-all duration-200 ease-in-out overflow-hidden pl-7.5 space-y-1 ${
+                  ncpExpanded && !collapsed ? "max-h-60 opacity-100 py-1" : "max-h-0 opacity-0 pointer-events-none"
+                }`}
+              >
+                <Link
+                  href="/ncp/patients"
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all duration-150 ${
+                    pathname === "/ncp/patients" || pathname.startsWith("/ncp/patients/")
+                      ? "text-emerald-500 font-extrabold"
+                      : "text-zinc-500 hover:text-zinc-300"
+                  }`}
+                >
+                  <span className={`h-1.5 w-1.5 rounded-full ${pathname.startsWith("/ncp/patients") ? "bg-emerald-500" : "bg-zinc-700"}`} />
+                  Patients
+                </Link>
+                <Link
+                  href={`/ncp/${pId}/assessment/${nId}`}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all duration-150 ${
+                    pathname.includes("/assessment/")
+                      ? "text-emerald-500 font-extrabold"
+                      : "text-zinc-500 hover:text-zinc-300"
+                  }`}
+                >
+                  <span className={`h-1.5 w-1.5 rounded-full ${pathname.includes("/assessment/") ? "bg-emerald-500" : "bg-zinc-700"}`} />
+                  Assessment
+                </Link>
+                <Link
+                  href={`/ncp/${pId}/diagnosis/${nId}`}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all duration-150 ${
+                    pathname.includes("/diagnosis/")
+                      ? "text-emerald-500 font-extrabold"
+                      : "text-zinc-500 hover:text-zinc-300"
+                  }`}
+                >
+                  <span className={`h-1.5 w-1.5 rounded-full ${pathname.includes("/diagnosis/") ? "bg-emerald-500" : "bg-zinc-700"}`} />
+                  Diagnosis
+                </Link>
+                <Link
+                  href={`/ncp/${pId}/intervention/${nId}`}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all duration-150 ${
+                    pathname.includes("/intervention/")
+                      ? "text-emerald-500 font-extrabold"
+                      : "text-zinc-500 hover:text-zinc-300"
+                  }`}
+                >
+                  <span className={`h-1.5 w-1.5 rounded-full ${pathname.includes("/intervention/") ? "bg-emerald-500" : "bg-zinc-700"}`} />
+                  Intervention
+                </Link>
+                <Link
+                  href={`/ncp/${pId}/monitoring/${nId}`}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all duration-150 ${
+                    pathname.includes("/monitoring/")
+                      ? "text-emerald-500 font-extrabold"
+                      : "text-zinc-500 hover:text-zinc-300"
+                  }`}
+                >
+                  <span className={`h-1.5 w-1.5 rounded-full ${pathname.includes("/monitoring/") ? "bg-emerald-500" : "bg-zinc-700"}`} />
+                  Monitoring
+                </Link>
+              </div>
+            </div>
+
+            {/* Food Service Collapsible Accordion Dropdown Group */}
+            <div className="space-y-1">
+              <button
+                onClick={toggleFoodService}
+                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all duration-150 cursor-pointer ${
+                  isFoodServiceGroupActive
+                    ? "bg-zinc-900/40 text-zinc-250 font-bold border-l-2 border-emerald-650"
+                    : "text-zinc-400 hover:bg-zinc-900/60 hover:text-zinc-200"
+                }`}
+                title={collapsed ? "Food Service" : undefined}
+              >
+                <div className="flex items-center gap-3">
+                  <Salad className={`h-4.5 w-4.5 shrink-0 ${isFoodServiceGroupActive ? "text-emerald-555" : "text-zinc-400"}`} />
+                  {!collapsed && <span>Food Service</span>}
+                </div>
+                {!collapsed && (
+                  <ChevronDown 
+                    className={`h-3.5 w-3.5 text-zinc-500 transition-transform duration-250 ease-in-out shrink-0 ${
+                      foodServiceExpanded ? "transform rotate-180" : ""
+                    }`} 
+                  />
+                )}
+              </button>
+
+              {/* Submenu container */}
+              <div 
+                className={`transition-all duration-200 ease-in-out overflow-hidden pl-7.5 space-y-1 ${
+                  foodServiceExpanded && !collapsed ? "max-h-48 opacity-100 py-1" : "max-h-0 opacity-0 pointer-events-none"
+                }`}
+              >
+                <Link
+                  href="/food-service/inventory"
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all duration-150 ${
+                    pathname === "/food-service/inventory"
+                      ? "text-emerald-500 font-extrabold"
+                      : "text-zinc-500 hover:text-zinc-300"
+                  }`}
+                >
+                  <span className={`h-1.5 w-1.5 rounded-full ${pathname === "/food-service/inventory" ? "bg-emerald-500" : "bg-zinc-700"}`} />
+                  Inventory
+                </Link>
+                <Link
+                  href="/food-service/menu-cycle"
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all duration-150 ${
+                    pathname === "/food-service/menu-cycle"
+                      ? "text-emerald-500 font-extrabold"
+                      : "text-zinc-500 hover:text-zinc-300"
+                  }`}
+                >
+                  <span className={`h-1.5 w-1.5 rounded-full ${pathname === "/food-service/menu-cycle" ? "bg-emerald-500" : "bg-zinc-700"}`} />
+                  Menu Cycle
+                </Link>
+                <Link
+                  href="/food-service/budget"
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all duration-150 ${
+                    pathname === "/food-service/budget"
+                      ? "text-emerald-500 font-extrabold"
+                      : "text-zinc-500 hover:text-zinc-300"
+                  }`}
+                >
+                  <span className={`h-1.5 w-1.5 rounded-full ${pathname === "/food-service/budget" ? "bg-emerald-500" : "bg-zinc-700"}`} />
+                  Budget
+                </Link>
+                <Link
+                  href="/food-service/procurement"
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all duration-150 ${
+                    pathname === "/food-service/procurement"
+                      ? "text-emerald-500 font-extrabold"
+                      : "text-zinc-500 hover:text-zinc-300"
+                  }`}
+                >
+                  <span className={`h-1.5 w-1.5 rounded-full ${pathname === "/food-service/procurement" ? "bg-emerald-500" : "bg-zinc-700"}`} />
+                  Procurement
+                </Link>
+              </div>
+            </div>
+
+            <Link
+              href="/reports"
+              className={`flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all duration-150 ${
+                pathname.startsWith("/reports")
+                  ? "bg-zinc-900 text-zinc-100 border-l-2 border-emerald-600"
+                  : "text-zinc-400 hover:bg-zinc-900/60 hover:text-zinc-200"
+              }`}
+              title={collapsed ? "Reports Center" : undefined}
+            >
+              <TrendingUp className={`h-4.5 w-4.5 shrink-0 ${pathname.startsWith("/reports") ? "text-emerald-500" : "text-zinc-400"}`} />
+              {!collapsed && <span>Reports Center</span>}
+            </Link>
+
+            <Link
+              href="/calendar"
+              className={`flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all duration-150 ${
+                pathname.startsWith("/calendar")
+                  ? "bg-zinc-900 text-zinc-100 border-l-2 border-emerald-600"
+                  : "text-zinc-400 hover:bg-zinc-900/60 hover:text-zinc-200"
+              }`}
+              title={collapsed ? "Calendar" : undefined}
+            >
+              <CalendarDays className={`h-4.5 w-4.5 shrink-0 ${pathname.startsWith("/calendar") ? "text-emerald-500" : "text-zinc-400"}`} />
+              {!collapsed && <span>Calendar</span>}
+            </Link>
+
+            <Link
+              href="/notifications"
+              className={`flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all duration-150 ${
+                pathname.startsWith("/notifications")
+                  ? "bg-zinc-900 text-zinc-100 border-l-2 border-emerald-600"
+                  : "text-zinc-400 hover:bg-zinc-900/60 hover:text-zinc-200"
+              }`}
+              title={collapsed ? "Notifications" : undefined}
+            >
+              <BellDot className={`h-4.5 w-4.5 shrink-0 ${pathname.startsWith("/notifications") ? "text-emerald-500" : "text-zinc-400"}`} />
+              {!collapsed && <span>Notifications</span>}
+            </Link>
+
+            <Link
+              href="/settings"
+              className={`flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all duration-150 ${
+                pathname.startsWith("/settings")
+                  ? "bg-zinc-900 text-zinc-100 border-l-2 border-emerald-600"
+                  : "text-zinc-400 hover:bg-zinc-900/60 hover:text-zinc-200"
+              }`}
+              title={collapsed ? "System Settings" : undefined}
+            >
+              <Sliders className={`h-4.5 w-4.5 shrink-0 ${pathname.startsWith("/settings") ? "text-emerald-500" : "text-zinc-400"}`} />
+              {!collapsed && <span>System Settings</span>}
+            </Link>
+          </>
+        )}
       </nav>
 
       {/* Active User Session Footer */}
@@ -101,4 +428,5 @@ export function Sidebar() {
     </aside>
   );
 }
+
 
