@@ -14,6 +14,10 @@ export interface Patient {
   created_at: string;
   updated_at: string;
   ncp_records?: NcpRecord[];
+  last_assessment_date?: string | null;
+  next_followup_date?: string | null;
+  risk_score?: number | string | null;
+  latest_ncp_id?: number | null;
 }
 
 export interface NcpRecord {
@@ -22,16 +26,23 @@ export interface NcpRecord {
   rnd_user_id: number;
   type?: string;
   status: string;
-  ai_risk_score?: number;
   created_at: string;
   updated_at: string;
   rnd?: {
     id: number;
     name: string;
   };
-  assessment?: any;
-  diagnoses?: any[];
-  intervention?: any;
+  assessment?: {
+    rnd_summary?: string | null;
+    allergies?: string[] | null;
+  } | null;
+  diagnoses?: Array<{
+    pes_statement?: string | null;
+  }> | null;
+  intervention?: {
+    goal_type?: string | null;
+    next_followup_date?: string | null;
+  } | null;
 }
 
 export interface PatientStoreData {
@@ -107,8 +118,8 @@ export async function fetchPatientById(id: number | string): Promise<Patient> {
     throw new Error(errorData.message || "Failed to fetch patient details.");
   }
 
-  const data = await res.json();
-  return data.data || data;
+  const responseData = await res.json();
+  return responseData.data || responseData;
 }
 
 export async function createPatient(data: PatientStoreData): Promise<Patient> {
@@ -126,7 +137,8 @@ export async function createPatient(data: PatientStoreData): Promise<Patient> {
     throw new Error(errorData.message || "Failed to create patient.");
   }
 
-  return res.json();
+  const responseData = await res.json();
+  return responseData.data || responseData;
 }
 
 export async function updatePatient(
@@ -147,7 +159,8 @@ export async function updatePatient(
     throw new Error(errorData.message || "Failed to update patient.");
   }
 
-  return res.json();
+  const responseData = await res.json();
+  return responseData.data || responseData;
 }
 
 export async function fetchPatientNcpRecords(
@@ -165,6 +178,23 @@ export async function fetchPatientNcpRecords(
     throw new Error(errorData.message || "Failed to fetch patient NCP history.");
   }
 
-  const data = await res.json();
-  return data.data || [];
+  const responseData = await res.json();
+  return responseData.data || [];
+}
+
+export async function createNcpRecord(id: number | string): Promise<NcpRecord> {
+  const res = await fetch(`/api/patients/${id}/ncp-records`, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+    },
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.message || "Failed to create NCP record.");
+  }
+
+  const responseData = await res.json();
+  return responseData.data || responseData;
 }

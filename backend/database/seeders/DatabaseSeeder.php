@@ -13,6 +13,7 @@ class DatabaseSeeder extends Seeder
             FoodItemsSeeder::class,    // food_items (recipes depend on this)
             ClinicalRulesSeeder::class,// clinical_rules (RecommendService depends on this)
             RecipeSeeder::class,       // recipes + recipe_ingredients (MealPlanService depends on >=15)
+            AnnouncementSeeder::class, // dashboard announcement feed seed posts
         ]);
     }
 }
