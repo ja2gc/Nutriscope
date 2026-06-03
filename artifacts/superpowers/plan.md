@@ -1,373 +1,261 @@
-# Complete Backend Implementation Plan (Milestone 3 to 10)
+# Implementation Plan - Nutriscope Clinical & Operations Workflows
 
-This document details the complete step-by-step backend implementation plan for the NutriScope clinical nutrition management system. It covers all schema migrations, models, services, seeders, controllers, form requests, resources, and API routes.
-
----
-
-## Goal
-Implement a robust, production-grade backend for NutriScope that complies with Romana Pangan District Hospital clinical workflows, supporting deterministic risk scoring, regex-based OCR document extraction, clinical recommendation rules, meal planning algorithms, private file storage, and PDF report generation.
+This plan outlines the complete restructuring and implementation of high-fidelity clinical (NCP) workflows and operational (Food Service) portals in the Next.js frontend to align exactly with the specifications in [system-requirements](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/docs/milestones/system-requirements).
 
 ---
 
-## Assumptions
-- Laravel 13 with PHP 8.3.
-- Database is MySQL for local/production, SQLite in-memory for testing.
-- Redis is configured and active for queues, caching, and sessions.
-- No frontend components are to be touched. All endpoints will return Laravel API Resources and follow standard RESTful routing.
-- High code quality is achieved through strict test-driven development (TDD).
+## 1. UI Navigation & Page Layout Structure (Visual Map)
+
+The hierarchy below visualizes the application's pages, views, sub-tabs, modals, and sliding panels as a user traverses the interface (separate from the project's codebase file structure):
+
+```text
+Sidebar Navigation Menu (RND & FSS Views)
+├── [Nutrition Care Process (NCP)]
+│   ├── NCP Patients Directory
+│   │   ├── Active Patients Table (Search, Filters, Risk Score badges)
+│   │   └── Action: [Create Patient & Start Assessment] button
+│   │       └── (Triggers quick temp patient creation + redirects to Assessment)
+│   │
+│   └── Patient Clinical Workspace (scoped to active Patient)
+│       ├── Persistent Patient Header (Name, Ward, Diagnosis, Allergies Red Badges, Risk Status Badge, Lab Alerts)
+│       │
+│       ├── NCP Page 1: Assessment (6-Tab Sub-Layout)
+│       │   ├── Tab A: Dietary History (Intake, Appetite, Restrictions, Supplements, Drug Interactions)
+│       │   ├── Tab B: Anthropometrics (Weight, Height, Auto BMI, % IBW, Physical Assessment)
+│       │   ├── Tab C: Client History (Medical, Social, Lifestyle, Allergies, Dislikes, Medications)
+│       │   ├── Tab D: Biochemical / Labs
+│       │   │   ├── Drag-and-drop Lab PDF/Image Upload Zone (OCR trigger)
+│       │   │   ├── Lab input fields grid with confidence colored borders (Green, Yellow, Red)
+│       │   │   └── Save & Sync Lab values
+│       │   ├── Tab E: Referral / Screening Form
+│       │   │   ├── Screening Form Selector (Adult B.07 vs Pediatric B.06 layout)
+│       │   │   ├── Drag-and-drop Scan PDF/Image Upload Zone (OCR scanner beam animation)
+│       │   │   ├── Demographic inputs (Editable on OCR complete: Name, Age, Ward, Physician, Diagnosis)
+│       │   │   ├── Section A Checklist (15 adult or 18 pediatric conditions checkboxes)
+│       │   │   ├── Section B Checklist (Intake & weight history)
+│       │   │   └── Referral details (Diet prescription, referred by, date/time)
+│       │   ├── Tab F: RND Summary (Clinical summary notes, reassessment needs)
+│       │   │
+│       │   └── Risk Score Section (Rendered below Tab E, above Tab F)
+│       │       ├── 7 points scoring factors checklist
+│       │       └── Action: [Verify, Save & Sync to RND] (Calculates score & saves Patient/Assessment)
+│       │
+│       ├── NCP Page 2: Diagnosis (6-Tab Sub-Layout)
+│       │   ├── Tab 1: Diagnoses Table (Active diagnosis list, Edit/Delete, "AI Suggested" badges)
+│       │   ├── Tab 2: Problem (P) Builder (Select Domain: NI, NC, NB -> Lists direction & macros/micros)
+│       │   ├── Tab 3: Etiology (E) Builder (Pick etiology categories & add notes)
+│       │   ├── Tab 4: Signs & Symptoms (S) Builder (Pick clinical symptoms & add notes)
+│       │   ├── Tab 5: PES Statement (View auto-generated PES string, manual text overrides, Save)
+│       │   └── Tab 6: AI Review (Claude Haiku suggestion list, Accept/Reject controls)
+│       │
+│       ├── NCP Page 3: Intervention (5-Tab Sub-Layout)
+│       │   ├── Tab 1: Food / Nutrient Delivery
+│       │   │   ├── Action: [Open Goal Selection Modal] (Diabetic, Renal, Cardiac, Custom targets)
+│       │   │   ├── Nutrition Prescription targets & real-time current vs target macro charts
+│       │   │   ├── Algorithm Recommendations (Include / Avoid lists with clinical reasons, hard allergen excludes)
+│       │   │   ├── Weekly Meal Plan Grid (7 Days × 5 Meals)
+│       │   │   └── Action: [Auto-Generate Plan] (15-recipe gate check, Claude fallback if < 5)
+│       │   ├── Tab 2: Nutrition Education (Materials, handouts, patient instructions)
+│       │   ├── Tab 3: Nutrition Counseling (Counseling goals, behavioral strategies, barriers)
+│       │   ├── Tab 4: Goal Planning (Timeline outcomes linked to counselor goals)
+│       │   └── Tab 5: Encounter Context (Session type, Next follow-up. NO encounter location)
+│       │
+│       └── NCP Page 4: Monitoring (Single page layout)
+│           ├── Weight Progression Chart (Historical weights)
+│           ├── BMI Trend Line Tracker
+│           ├── Biochemical Lab Comparison Grid (Lab values across dates)
+│           └── Goal Achievement checklist (Target outcomes status tracker)
+│
+└── [Food Service Operations]
+    ├── Page 1: Inventory Management
+    │   ├── Stock Dashboard Card metrics (Total items, Low stock alerts, Expiring warnings)
+    │   ├── Stock Levels Directory Table (Name, category, qty, unit, expiry, threshold)
+    │   └── Action: [Restock Item Modal] (Input restock qty, updates stock levels)
+    │
+    ├── Page 2: Menu Cycle (Weekly Kitchen Planner)
+    │   ├── Roster list of cycle periods (Week start date, active status badges)
+    │   ├── Action: [Create Menu Cycle] button (Triggers modal setup)
+    │   ├── Main Scheduler Grid (7 Days × 5 Meals)
+    │   ├── Real-time Cost Calculation Panel (Calculates cost/person, compares against 150 pesos budget)
+    │   │   └── Colors: Green (<=150), Yellow (140-150), Red (>150)
+    │   ├── Actions: [Save as Template] / [Load Template]
+    │   └── Action: [Activate Cycle] (Double-confirmation dialog -> sets active status & activation date)
+    │
+    ├── Page 3: Budget Tracking
+    │   ├── Spending Summary Cards (Planned budget [150 * patients * days] vs actual PO costs)
+    │   ├── Monthly Spending Graph (Variance between planned and actual)
+    │   └── Daily Log Variance breakdown grid
+    │
+    ├── Page 4: Procurement Portal (3-Tab Sub-Layout)
+    │   ├── Tab 1: Suggested Shopping Lists
+    │   │   ├── Left Alerts Panel (Low stock & expired inventory lists, [Add All Flagged] shortfall button)
+    │   │   ├── Right List Builder (Add manual/search ingredients, calculate shortfall, estimated total cost)
+    │   │   └── Actions: [Save Draft] / [Create Purchase Order]
+    │   ├── Tab 2: Purchase Orders Registry
+    │   │   ├── PO Table Registry (PO#, Supplier, Date, Total, Status: Draft/Ordered/Received)
+    │   │   └── PO Detail Slide-out Drawer
+    │   │       ├── Invoice/Receipt Dropzone (Upload vendor invoice image & preview)
+    │   │       └── Action: [Mark Received] button (DB Transaction restocks physical inventory)
+    │   └── Tab 3: Suppliers Directory
+    │       └── Suppliers Table (Name, category, phone contact, payment terms)
+```
 
 ---
 
-## Plan
+## 2. NCP Step 1: Assessment Updates & Entry Flow
 
-### Phase 1: Database Scaffolding (Migrations & Models)
-
-1. **Step 1: NCP Tables Migration & Model Updates**
-   - **Files**:
-     - [NEW] [2026_06_03_000001_add_ncp_columns_to_assessments_table.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/database/migrations/2026_06_03_000001_add_ncp_columns_to_assessments_table.php)
-     - [NEW] [2026_06_03_000002_add_ncp_columns_to_patients_table.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/database/migrations/2026_06_03_000002_add_ncp_columns_to_patients_table.php)
-     - [NEW] [2026_06_03_000003_create_monitorings_table.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/database/migrations/2026_06_03_000003_create_monitorings_table.php)
-     - [NEW] [Monitoring.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Models/Monitoring.php)
-     - [MODIFY] [Patient.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Models/Patient.php)
-     - [MODIFY] [Assessment.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Models/Assessment.php)
-   - **Change**: Alter `assessments` and `patients` tables with new clinical attributes. Create the `monitorings` table. Define Eloquent casts, fillable attributes, and relations.
-   - **Verify**: `php artisan migrate:fresh` runs successfully. Models load correctly in Tinker.
-
-2. **Step 2: OCR and Extraction Tables**
-   - **Files**:
-     - [NEW] [2026_06_03_000004_create_ocr_documents_table.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/database/migrations/2026_06_03_000004_create_ocr_documents_table.php)
-     - [NEW] [2026_06_03_000005_create_screening_documents_table.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/database/migrations/2026_06_03_000005_create_screening_documents_table.php)
-     - [NEW] [2026_06_03_000006_create_extraction_templates_table.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/database/migrations/2026_06_03_000006_create_extraction_templates_table.php)
-     - [NEW] [2026_06_03_000007_create_extraction_logs_table.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/database/migrations/2026_06_03_000007_create_extraction_logs_table.php)
-     - [NEW] [OcrDocument.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Models/OcrDocument.php)
-     - [NEW] [ScreeningDocument.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Models/ScreeningDocument.php)
-     - [NEW] [ExtractionTemplate.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Models/ExtractionTemplate.php)
-     - [NEW] [ExtractionLog.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Models/ExtractionLog.php)
-   - **Change**: Setup schemas and models for template-driven document extraction pipeline.
-   - **Verify**: `php artisan migrate:fresh` runs successfully.
-
-3. **Step 3: Meal Plan Templates**
-   - **Files**:
-     - [NEW] [2026_06_03_000008_create_meal_plan_templates_table.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/database/migrations/2026_06_03_000008_create_meal_plan_templates_table.php)
-     - [NEW] [2026_06_03_000009_create_meal_plan_template_days_table.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/database/migrations/2026_06_03_000009_create_meal_plan_template_days_table.php)
-     - [NEW] [MealPlanTemplate.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Models/MealPlanTemplate.php)
-     - [NEW] [MealPlanTemplateDay.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Models/MealPlanTemplateDay.php)
-   - **Change**: Define tables for saving/loading meal plan configurations.
-   - **Verify**: Schema constraints load correctly.
-
-4. **Step 4: Food Service & Inventory**
-   - **Files**:
-     - [NEW] [2026_06_03_000010_create_inventory_table.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/database/migrations/2026_06_03_000010_create_inventory_table.php)
-     - [NEW] [2026_06_03_000011_create_suppliers_table.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/database/migrations/2026_06_03_000011_create_suppliers_table.php)
-     - [NEW] [2026_06_03_000012_create_shopping_lists_table.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/database/migrations/2026_06_03_000012_create_shopping_lists_table.php)
-     - [NEW] [2026_06_03_000013_create_shopping_list_items_table.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/database/migrations/2026_06_03_000013_create_shopping_list_items_table.php)
-     - [NEW] [2026_06_03_000014_create_purchase_orders_table.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/database/migrations/2026_06_03_000014_create_purchase_orders_table.php)
-     - [NEW] [2026_06_03_000015_create_purchase_order_items_table.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/database/migrations/2026_06_03_000015_create_purchase_order_items_table.php)
-     - [NEW] [2026_06_03_000016_create_menu_cycles_table.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/database/migrations/2026_06_03_000016_create_menu_cycles_table.php)
-     - [NEW] [2026_06_03_000017_create_menu_cycle_days_table.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/database/migrations/2026_06_03_000017_create_menu_cycle_days_table.php)
-     - [NEW] [2026_06_03_000018_create_meal_prep_logs_table.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/database/migrations/2026_06_03_000018_create_meal_prep_logs_table.php)
-     - [NEW] [2026_06_03_000019_create_budgets_table.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/database/migrations/2026_06_03_000019_create_budgets_table.php)
-     - [NEW] [2026_06_03_000020_create_budget_daily_logs_table.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/database/migrations/2026_06_03_000020_create_budget_daily_logs_table.php)
-     - [NEW] [Inventory.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Models/Inventory.php)
-     - [NEW] [Supplier.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Models/Supplier.php)
-     - [NEW] [ShoppingList.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Models/ShoppingList.php)
-     - [NEW] [ShoppingListItem.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Models/ShoppingListItem.php)
-     - [NEW] [PurchaseOrder.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Models/PurchaseOrder.php)
-     - [NEW] [PurchaseOrderItem.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Models/PurchaseOrderItem.php)
-     - [NEW] [MenuCycle.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Models/MenuCycle.php)
-     - [NEW] [MenuCycleDay.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Models/MenuCycleDay.php)
-     - [NEW] [MealPrepLog.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Models/MealPrepLog.php)
-     - [NEW] [Budget.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Models/Budget.php)
-     - [NEW] [BudgetDailyLog.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Models/BudgetDailyLog.php)
-   - **Change**: Define tables for food service operations. Implement unique indexes and foreign keys.
-   - **Verify**: fresh migration script runs successfully.
-
-5. **Step 5: Operational PDFs & System Tables**
-   - **Files**:
-     - [NEW] [2026_06_03_000021_create_inspection_reports_table.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/database/migrations/2026_06_03_000021_create_inspection_reports_table.php)
-     - [NEW] [2026_06_03_000022_create_inspection_report_items_table.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/database/migrations/2026_06_03_000022_create_inspection_report_items_table.php)
-     - [NEW] [2026_06_03_000023_create_marketing_statements_table.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/database/migrations/2026_06_03_000023_create_marketing_statements_table.php)
-     - [NEW] [2026_06_03_000024_create_marketing_statement_items_table.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/database/migrations/2026_06_03_000024_create_marketing_statement_items_table.php)
-     - [NEW] [2026_06_03_000025_create_marketing_summaries_table.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/database/migrations/2026_06_03_000025_create_marketing_summaries_table.php)
-     - [NEW] [2026_06_03_000026_create_reports_table.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/database/migrations/2026_06_03_000026_create_reports_table.php)
-     - [NEW] [2026_06_03_000027_create_report_templates_table.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/database/migrations/2026_06_03_000027_create_report_templates_table.php)
-     - [NEW] [2026_06_03_000028_create_calendar_events_table.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/database/migrations/2026_06_03_000028_create_calendar_events_table.php)
-     - [NEW] [2026_06_03_000029_create_notifications_table.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/database/migrations/2026_06_03_000029_create_notifications_table.php)
-     - [NEW] [2026_06_03_000030_create_ai_usage_logs_table.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/database/migrations/2026_06_03_000030_create_ai_usage_logs_table.php)
-     - [NEW] [InspectionReport.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Models/InspectionReport.php)
-     - [NEW] [InspectionReportItem.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Models/InspectionReportItem.php)
-     - [NEW] [MarketingStatement.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Models/MarketingStatement.php)
-     - [NEW] [MarketingStatementItem.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Models/MarketingStatementItem.php)
-     - [NEW] [MarketingSummary.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Models/MarketingSummary.php)
-     - [NEW] [Report.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Models/Report.php)
-     - [NEW] [ReportTemplate.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Models/ReportTemplate.php)
-     - [NEW] [CalendarEvent.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Models/CalendarEvent.php)
-     - [NEW] [Notification.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Models/Notification.php)
-     - [NEW] [AiUsageLog.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Models/AiUsageLog.php)
-   - **Change**: Define tables for PDF outputs, user reports, and system tables.
-   - **Verify**: `php artisan migrate:fresh` runs and builds the full database schema.
-
-6. **Step 6: Database Scaffold Tests**
-   - **Files**:
-     - [NEW] [DatabaseScaffoldTest.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/tests/Feature/DatabaseScaffoldTest.php)
-   - **Change**: Assert that all tables exist and all Eloquent models have working relationships.
-   - **Verify**: `php artisan test --filter=DatabaseScaffoldTest` passes successfully.
-
-### Phase 2: Seeders
-
-7. **Step 7: Seeders Implementation**
-   - **Files**:
-     - [NEW] [ExtractionTemplateSeeder.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/database/seeders/ExtractionTemplateSeeder.php)
-     - [NEW] [ReportTemplateSeeder.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/database/seeders/ReportTemplateSeeder.php)
-     - [NEW] [FoodItemsSeeder.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/database/seeders/FoodItemsSeeder.php)
-     - [NEW] [InventorySeeder.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/database/seeders/InventorySeeder.php)
-     - [MODIFY] [ClinicalRulesSeeder.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/database/seeders/ClinicalRulesSeeder.php)
-     - [MODIFY] [DatabaseSeeder.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/database/seeders/DatabaseSeeder.php)
-   - **Change**: Seed 3 active extraction templates, 10 report templates, Philippine food items, corresponding stock levels, and clinical rules.
-   - **Verify**: `php artisan db:seed` executes completely.
-
-### Phase 3: OCR & Extraction Pipeline
-
-8. **Step 8: OCR Service, DTO, and Extraction Service**
-   - **Files**:
-     - [NEW] [OCRService.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Services/OCRService.php)
-     - [NEW] [ParsedDocument.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/DTOs/ParsedDocument.php)
-     - [NEW] [ExtractionService.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Services/ExtractionService.php)
-   - **Change**: Implement OCR client with exponential backoff retries and local mock fallback. Implement regex parsing engine and log to `extraction_logs`.
-   - **Verify**: Unit tests for services.
-
-9. **Step 9: Background Jobs & Events**
-   - **Files**:
-     - [NEW] [ProcessDocumentExtraction.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Jobs/ProcessDocumentExtraction.php)
-     - [NEW] [DocumentExtractionCompleted.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Events/DocumentExtractionCompleted.php)
-   - **Change**: Implement queue job running OCRService -> ExtractionService -> updates model -> fires event.
-   - **Verify**: Unit and integration tests verify job execution.
-
-10. **Step 10: OCR Pipeline Tests**
-    - **Files**:
-      - [NEW] [OCRExtractionTest.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/tests/Feature/OCRExtractionTest.php)
-    - **Change**: Verify OCR mock returns text, extraction templates compile and parse fields correctly, job executes asynchronously, and event is fired.
-    - **Verify**: `php artisan test --filter=OCRExtractionTest` passes.
-
-### Phase 4: Risk Score & Assessment API
-
-11. **Step 11: Risk Scoring Service**
-    - **Files**:
-      - [NEW] [RiskScoreService.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Services/RiskScoreService.php)
-    - **Change**: Calculate deterministic risk score (0-7) and assign nutritional status (Normal, Moderate, Severe).
-    - **Verify**: Unit tests on various checkbox configurations.
-
-12. **Step 12: Assessment & Screening Controllers**
-    - **Files**:
-      - [NEW] [NcpRecordController.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Http/Controllers/RND/NcpRecordController.php)
-      - [NEW] [AssessmentController.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Http/Controllers/RND/AssessmentController.php)
-      - [NEW] [ScreeningDocumentController.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Http/Controllers/RND/ScreeningDocumentController.php)
-      - [NEW] [StoreNcpRecordRequest.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Http/Requests/StoreNcpRecordRequest.php)
-      - [NEW] [StoreAssessmentRequest.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Http/Requests/StoreAssessmentRequest.php)
-      - [NEW] [ApproveScreeningDocumentRequest.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Http/Requests/ApproveScreeningDocumentRequest.php)
-      - [NEW] [NcpRecordResource.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Http/Resources/NcpRecordResource.php)
-      - [NEW] [AssessmentResource.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Http/Resources/AssessmentResource.php)
-      - [NEW] [ScreeningDocumentResource.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Http/Resources/ScreeningDocumentResource.php)
-    - **Change**: Add validation, controllers, and JSON resources for NCP assessments and screening form review/approval.
-    - **Verify**: Test endpoints.
-
-13. **Step 13: Assessment API Routes & Tests**
-    - **Files**:
-      - [MODIFY] [api.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/routes/api.php)
-      - [NEW] [AssessmentAPITest.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/tests/Feature/AssessmentAPITest.php)
-    - **Change**: Define API routes for assessment and screening operations. Test that endpoints are role-guarded and successfully record assessment data.
-    - **Verify**: `php artisan test --filter=AssessmentAPITest` passes.
-
-### Phase 5: Diagnosis Backend & AI Draft
-
-14. **Step 14: Diagnosis CRUD & PES builder**
-    - **Files**:
-      - [NEW] [DiagnosisController.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Http/Controllers/RND/DiagnosisController.php)
-      - [NEW] [StoreDiagnosisRequest.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Http/Requests/StoreDiagnosisRequest.php)
-      - [NEW] [UpdateDiagnosisRequest.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Http/Requests/UpdateDiagnosisRequest.php)
-      - [NEW] [DiagnosisResource.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Http/Resources/DiagnosisResource.php)
-    - **Change**: Implement controller and requests for PES statement builder (Problem, Etiology, Signs & Symptoms).
-    - **Verify**: Endpoints functional.
-
-15. **Step 15: AI Diagnosis suggestions (AIService)**
-    - **Files**:
-      - [NEW] [AIService.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Services/AIService.php)
-    - **Change**: Setup Anthropic API connection to retrieve structured PES statements and record usage in `ai_usage_logs`.
-    - **Verify**: Mocked AI responses return clean JSON structures.
-
-16. **Step 16: Diagnosis API Routes & Tests**
-    - **Files**:
-      - [MODIFY] [api.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/routes/api.php)
-      - [NEW] [DiagnosisAPITest.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/tests/Feature/DiagnosisAPITest.php)
-    - **Change**: Implement routes and tests for diagnosis operations and AI recommendations.
-    - **Verify**: `php artisan test --filter=DiagnosisAPITest` passes.
-
-### Phase 6: Intervention Backend & Meal Planning Algorithms
-
-17. **Step 17: Recommend/Avoid Logic**
-    - **Files**:
-      - [NEW] [RecommendService.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Services/RecommendService.php)
-    - **Change**: Algorithmic rules matching clinical criteria (CKD, DM, Hypertension, Cardiac, Liver, etc.), allergies, and lab value deviations.
-    - **Verify**: Unit tests assert expected items are recommended or avoided based on patient state.
-
-18. **Step 18: Meal Plan Generation Algorithm**
-    - **Files**:
-      - [NEW] [MealPlanService.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Services/MealPlanService.php)
-    - **Change**: Create auto-generation service scoring recipes and food items, adjusting quantities mathematically to be within 10% tolerance, and adding an AI fallback for low recipe count (<5).
-    - **Verify**: Service tests prove nutritional alignment.
-
-19. **Step 19: Intervention & Meal Plan CRUD Controllers**
-    - **Files**:
-      - [NEW] [InterventionController.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Http/Controllers/RND/InterventionController.php)
-      - [NEW] [MealPlanController.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Http/Controllers/RND/MealPlanController.php)
-      - [NEW] [StoreInterventionRequest.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Http/Requests/StoreInterventionRequest.php)
-      - [NEW] [StoreMealPlanRequest.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Http/Requests/StoreMealPlanRequest.php)
-      - [NEW] [InterventionResource.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Http/Resources/InterventionResource.php)
-      - [NEW] [MealPlanResource.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Http/Resources/MealPlanResource.php)
-    - **Change**: Standard CRUD endpoints for interventions, meal plans, custom nutrient limits, and saving templates.
-    - **Verify**: Integration tests.
-
-20. **Step 20: Intervention & Meal Plan API Routes & Tests**
-    - **Files**:
-      - [MODIFY] [api.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/routes/api.php)
-      - [NEW] [InterventionAPITest.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/tests/Feature/InterventionAPITest.php)
-    - **Change**: Wire routes and test RecommendService and MealPlanService via API.
-    - **Verify**: `php artisan test --filter=InterventionAPITest` passes.
-
-### Phase 7: Monitoring Backend
-
-21. **Step 21: Monitoring Controller & AI Decision Panel**
-    - **Files**:
-      - [NEW] [MonitoringController.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Http/Controllers/RND/MonitoringController.php)
-      - [NEW] [StoreMonitoringRequest.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Http/Requests/StoreMonitoringRequest.php)
-      - [NEW] [MonitoringResource.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Http/Resources/MonitoringResource.php)
-    - **Change**: Implement monitoring endpoint storing versioned weight, BMI, lab value JSON trends, and fetching Claude Sonnet suggestions for ESCALATE/MODIFY/DISCHARGE.
-    - **Verify**: Routes and features are functional.
-
-22. **Step 22: Monitoring API Routes & Tests**
-    - **Files**:
-      - [MODIFY] [api.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/routes/api.php)
-      - [NEW] [MonitoringAPITest.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/tests/Feature/MonitoringAPITest.php)
-    - **Change**: Routes and test coverage for monitoring trends and AI suggestions.
-    - **Verify**: `php artisan test --filter=MonitoringAPITest` passes.
-
-### Phase 8: Food Service Operations Backend
-
-23. **Step 23: Inventory & Restocking**
-    - **Files**:
-      - [NEW] [InventoryController.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Http/Controllers/RND/InventoryController.php)
-      - [NEW] [StoreInventoryRequest.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Http/Requests/StoreInventoryRequest.php)
-      - [NEW] [UpdateInventoryRequest.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Http/Requests/UpdateInventoryRequest.php)
-      - [NEW] [InventoryResource.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Http/Resources/InventoryResource.php)
-    - **Change**: CRUD endpoints for physical inventory tracking, stock thresholds, low stock flagging, and restock actions.
-    - **Verify**: Integration tests.
-
-24. **Step 24: Menu Cycle Planning**
-    - **Files**:
-      - [NEW] [MenuCycleController.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Http/Controllers/RND/MenuCycleController.php)
-      - [NEW] [StoreMenuCycleRequest.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Http/Requests/StoreMenuCycleRequest.php)
-      - [NEW] [MenuCycleResource.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Http/Resources/MenuCycleResource.php)
-    - **Change**: Implement weekly grid planning, cost-per-person validation against 150 pesos budget, templates saving, and cycle activation.
-    - **Verify**: API resources populate relations correctly.
-
-25. **Step 25: Budgets planned/actual/daily logs**
-    - **Files**:
-      - [NEW] [BudgetController.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Http/Controllers/RND/BudgetController.php)
-      - [NEW] [StoreBudgetRequest.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Http/Requests/StoreBudgetRequest.php)
-      - [NEW] [BudgetResource.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Http/Resources/BudgetResource.php)
-    - **Change**: Implement budget configuration controllers with daily planned vs actual cost tracking and variance logging.
-    - **Verify**: Endpoints functional.
-
-26. **Step 26: Procurement (Shopping Lists, Purchase Orders & Suppliers)**
-    - **Files**:
-      - [NEW] [ShoppingListController.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Http/Controllers/RND/ShoppingListController.php)
-      - [NEW] [PurchaseOrderController.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Http/Controllers/RND/PurchaseOrderController.php)
-      - [NEW] [SupplierController.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Http/Controllers/RND/SupplierController.php)
-      - [NEW] [StoreShoppingListRequest.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Http/Requests/StoreShoppingListRequest.php)
-      - [NEW] [StorePurchaseOrderRequest.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Http/Requests/StorePurchaseOrderRequest.php)
-      - [NEW] [UpdatePurchaseOrderStatusRequest.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Http/Requests/UpdatePurchaseOrderStatusRequest.php)
-      - [NEW] [StoreSupplierRequest.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Http/Requests/StoreSupplierRequest.php)
-      - [NEW] [ShoppingListResource.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Http/Resources/ShoppingListResource.php)
-      - [NEW] [PurchaseOrderResource.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Http/Resources/PurchaseOrderResource.php)
-      - [NEW] [SupplierResource.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Http/Resources/SupplierResource.php)
-    - **Change**: Auto-suggest shopping lists based on active menus and stock levels. Track PO status transitions (Draft -> Ordered -> Received). Restock inventory on Received.
-    - **Verify**: Supplier records increment PO count.
-
-27. **Step 27: Food Service API Routes & Tests**
-    - **Files**:
-      - [MODIFY] [api.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/routes/api.php)
-      - [NEW] [FoodServiceAPITest.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/tests/Feature/FoodServiceAPITest.php)
-    - **Change**: Define routes and tests for inventory, menus, shopping lists, PO transitions, and budget alerts.
-    - **Verify**: `php artisan test --filter=FoodServiceAPITest` passes.
-
-### Phase 9: PDF Report Generation Pipeline
-
-28. **Step 28: PDF Orchestration Structure**
-    - **Files**:
-      - [NEW] [ReportService.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Services/ReportService.php)
-      - [NEW] [ReportGeneratorInterface.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Contracts/ReportGeneratorInterface.php)
-      - [NEW] [GenerateReport.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Jobs/GenerateReport.php)
-      - [NEW] [ReportController.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Http/Controllers/RND/ReportController.php)
-      - [NEW] [StoreReportRequest.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Http/Requests/StoreReportRequest.php)
-      - [NEW] [ReportResource.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Http/Resources/ReportResource.php)
-    - **Change**: Configure `dompdf` rendering pipeline, report status transitions (`queued` -> `generating` -> `completed`/`failed`), background queue processing, and downloads.
-    - **Verify**: API resources and files generated correctly.
-
-29. **Step 29: Report Generators & PDF Templates**
-    - **Files**:
-      - [NEW] [AdimeIndividualGenerator.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Reports/AdimeIndividualGenerator.php)
-      - [NEW] [AdimeAggregateGenerator.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Reports/AdimeAggregateGenerator.php)
-      - [NEW] [NcpCensusGenerator.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Reports/NcpCensusGenerator.php)
-      - [NEW] [InventoryReportGenerator.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Reports/InventoryReportGenerator.php)
-      - [NEW] [BudgetReportGenerator.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Reports/BudgetReportGenerator.php)
-      - [NEW] [MenuCycleReportGenerator.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Reports/MenuCycleReportGenerator.php)
-      - [NEW] [PatientMenuPlanGenerator.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Reports/PatientMenuPlanGenerator.php)
-      - [NEW] [InspectionReportGenerator.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Reports/InspectionReportGenerator.php)
-      - [NEW] [MarketingStatementGenerator.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Reports/MarketingStatementGenerator.php)
-      - [NEW] [MarketingSummaryGenerator.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Reports/MarketingSummaryGenerator.php)
-      - Create Blades: [adime_individual.blade.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/resources/views/reports/adime_individual.blade.php), [adime_aggregate.blade.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/resources/views/reports/adime_aggregate.blade.php), [ncp_census.blade.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/resources/views/reports/ncp_census.blade.php), [inventory.blade.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/resources/views/reports/inventory.blade.php), [budget.blade.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/resources/views/reports/budget.blade.php), [menu_cycle.blade.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/resources/views/reports/menu_cycle.blade.php), [patient_menu_plan.blade.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/resources/views/reports/patient_menu_plan.blade.php), [inspection_report.blade.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/resources/views/reports/inspection_report.blade.php), [marketing_statement.blade.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/resources/views/reports/marketing_statement.blade.php), [marketing_summary.blade.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/resources/views/reports/marketing_summary.blade.php)
-   - **Change**: Build data collection and Blade HTML layouts for 10 report types, compiling with exact visual structures (e.g. Romana Pangan District Hospital titles, certification statements, and signatory blocks).
-   - **Verify**: Generators return structured array arrays.
-
-30. **Step 30: Report API Routes & Tests**
-    - **Files**:
-      - [MODIFY] [api.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/routes/api.php)
-      - [NEW] [ReportAPITest.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/tests/Feature/ReportAPITest.php)
-    - **Change**: Wire routes and test PDF generation jobs, downloading signed URLs, and role-guarded permissions (RND sees own, Admin sees all).
-    - **Verify**: `php artisan test --filter=ReportAPITest` passes.
-
-### Phase 10: Admin & System Integrations
-
-31. **Step 31: Admin Controllers**
-    - **Files**:
-      - [NEW] [UserController.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Http/Controllers/Admin/UserController.php)
-      - [NEW] [AuditLogController.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Http/Controllers/Admin/AuditLogController.php)
-   - **Change**: CRUD for user account management, password resets, role assignment, and audit trail query/filtering.
-   - **Verify**: Routes Guarded.
-
-32. **Step 32: Notifications & Calendar Subscriptions**
-    - **Files**:
-      - [NEW] [CalendarEventController.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Http/Controllers/System/CalendarEventController.php)
-      - [NEW] [NotificationController.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Http/Controllers/System/NotificationController.php)
-   - **Change**: Fetch auto-events (monitoring rechecks, recipe/food expiry warnings, budget deadlines) and manage read receipts for bell alerts.
-   - **Verify**: Integration tests.
-
-33. **Step 33: System API Routes & Final Verification Tests**
-    - **Files**:
-      - [MODIFY] [api.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/routes/api.php)
-      - [NEW] [SystemAPITest.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/tests/Feature/SystemAPITest.php)
-    - **Change**: Define final endpoints and verify full system integrations. Run complete test coverage.
-    - **Verify**: `php artisan test` returns all passing tests.
+### Workflow Enhancements:
+- **Quick Draft Patient Creation**:
+  - In `ncp/patients/page.tsx`, the **Create Patient & Start Assessment** button will no longer redirect to `select-patient` placeholder routes.
+  - Instead, it will call `createPatient` with default placeholder values (`name: "New Admission (Scanning)", dob: "1990-01-01", sex: "Male", admission_date: today, status: "Active"`), call `createNcpRecord`, and redirect the user directly to `/ncp/[tempPatientId]/assessment/[tempNcpId]`.
+- **Editable Demographics on Tab E**:
+  - Demographic fields on Tab E (Patient Name, Age, Ward, Physician, Medical Diagnosis) will be converted to editable input fields.
+  - Demographics will be bound to state and updated by OCR text parsing.
+  - Saving the form updates the Patient profile demographics on the backend.
+- **Cross-Tab Data Propagation**:
+  - Completing Tab E OCR automatically updates the state values for Tab B (Anthropometric weight/height) and Tab A.
+  - Height and weight changes dynamically recalculate BMI and ideal body weight % in real-time.
+- **Tab D Biochemical OCR Upload**:
+  - Implement a drag-and-drop file upload on Tab D (Biochemical Data).
+  - Triggers the OCR pipeline (`document_type = lab_result`) and populates standard lab input fields (Albumin, Hemoglobin, Glucose, Calcium, Sodium, Potassium, etc.).
+  - Implements field confidence indicator colors (Green > 0.8, Yellow 0.5-0.8, Red < 0.5) around fields.
+  - High-risk out-of-range lab results (e.g., Albumin < 3.0 g/dL) will appear as amber badges in the header.
 
 ---
 
-## Risks & mitigations
-- **PaddleOCR Timeout**: OCRService requests could block queue workers. Mitigation: Set strict curl timeout (30 seconds) and retry with exponential backoff on background queues.
-- **Large PDF sizes in DomPDF**: Memory exhaustion on rendering huge lists. Mitigation: Implement chunked database loading inside Report generators and limit page size.
+## 3. NCP Step 2: Diagnosis Page Workflow
+
+### Layout & PES Builder:
+- **Strict 3-Domain filter**: Domain options are limited strictly to NI (Intake), NC (Clinical), and NB (Behavioral-Environmental) with no other domain options.
+- **Tab 1: Diagnosis Table**:
+  - Renders all diagnoses for the active NCP record.
+  - Displays an "AI Suggested" badge if `ai_generated = true`.
+- **PES Builder (Tabs 2-5)**:
+  - **Tab 2 (Problem)**: Select Domain (NI, NC, NB). NI lists direction (Inadequate/Excessive) and macro/micro nutrient dropdowns. NC and NB display checkboxes for clinical/behavioral issues.
+  - **Tab 3 (Etiology)**: Option checkboxes (e.g., poor appetite, chronic illness, lack of education).
+  - **Tab 4 (Signs & Symptoms)**: Option checkboxes (e.g., % meal intake below target, abnormal labs).
+  - **Tab 5 (PES Statement)**: Compiles `[Problem] related to [Etiology] as evidenced by [Signs and Symptoms]`, allowing manual text overrides before saving.
+- **Tab 6: AI Review**:
+  - Calls `AIService` using the `claude-haiku-4-5` model, sending patient context and returning draft suggestions. RND can accept, reject, or edit-and-accept these suggestions.
 
 ---
 
-## Rollback plan
-- Keep git tags prior to executing each Phase.
-- Revert schema modifications using rollback migrations (`php artisan migrate:rollback`).
-- Restore the local Git index using `git checkout -f` if a test run introduces regressions.
+## 4. NCP Step 3: Intervention Page Workflow
+
+### Prescription & Meal Planning:
+- **Tab 1: Food / Nutrient Delivery**:
+  - Goal selection modal (Renal Diet, Diabetic Control, Cardiac, Weight Loss/Gain, High Protein, Fluid, Custom) which auto-adjusts daily targets (kcal, protein, carbs, fat, fluid, micronutrient limits).
+  - Shows real-time current vs target macro trackers (e.g., current kcal / target kcal), color-coded by fit (green if within 10%, red otherwise).
+- **Algorithm-Driven Recommendations Panel**:
+  - Powered by the backend `RecommendService` (reading `clinical_rules`).
+  - **Hard Exclusions**: Never suggests foods containing allergens listed in `assessments.allergies` or religious exclusions (e.g., no pork for Muslim patients).
+  - **Soft Exclusions**: Highlights food dislikes (`assessments.food_dislikes`) as warning notes in meal slots, but lets the RND override them.
+  - Lists foods to **RECOMMEND** and foods to **AVOID** with corresponding clinical reasons.
+- **Weekly Meal Plan Grid**:
+  - 7 Days (Mon-Sun) × 5 Meals (Breakfast, AM Snack, Lunch, PM Snack, Dinner) grid.
+  - Support adding food items or recipes.
+- **Auto-Generation Algorithm**:
+  - Requires minimum 15 recipes in the database. Warns user if below threshold.
+  - Auto-selects best-scoring recipes based on nutrient fit.
+  - Falls back to AI generation (Claude Sonnet 4.6) ONLY if less than 5 recipes pass allergy/religious filters.
+- **Encounter Context (Tab 5)**:
+  - Select session type (Initial or Follow-up) and next date.
+  - Remove all occurrences of `encounter_location` in the UI and database model.
+
+---
+
+## 5. NCP Step 4: Monitoring Page Workflow
+
+### Progression Tracking:
+- Create a dedicated monitoring view showing:
+  - Weight progression over time (tabular/graphical).
+  - BMI trend lines.
+  - Lab value comparison grids showing changes across dates.
+  - Goal achievement checklist and clinical summaries.
+
+---
+
+## 6. Food Service Operational Pages
+
+- **Inventory Page**:
+  - Show stock levels, units, expiry dates, and minimum thresholds.
+  - Quick summary cards for low stock and expiring items.
+  - Quick action to restock quantities.
+- **Menu Cycle Page (Weekly Planner)**:
+  - 7-day × 5-meal grid representing the general hospital kitchen plan.
+  - Auto-calculate daily cost per person.
+  - Budget status indicator lights (Green <= 150 Php, Yellow 140-150, Red > 150 Php).
+  - Template loading and saving workflows.
+  - Double-confirmation activation flow. FSS role gets read-only view.
+- **Budget Page**:
+  - View planned budget (150 pesos × patient count × period days) vs actual procurement spending.
+  - Monthly graph showing daily logs variance.
+- **Procurement Page**:
+  - **Tab 1: Suggested Shopping Lists**: Left inventory panel showing LOW/EXPIRED alerts, and "Add All Flagged" button. Right panel list builder compiles shopping list.
+    - **Suggested Shopping List Logic**:
+      1. Fetch the active menu_cycle for the upcoming week.
+      2. Calculate total ingredient quantities needed for all scheduled meals.
+      3. Compare the required quantities with current `inventory.quantity_in_stock`.
+      4. For each ingredient where stock < needed + minimum_stock_threshold:
+         suggest purchase quantity = `(needed + minimum_stock_threshold) - current_stock`.
+      5. Only list items with a shortfall (do not include items with sufficient stock).
+  - **Tab 2: Purchase Orders**: Table tracking Draft -> Ordered -> Received. Upload vendor invoice PDF/image dropzone. Transitioning to "Received" triggers inventory restocking update in database.
+  - **Tab 3: Suppliers**: Category, contact detail, payment terms.
+
+---
+
+## Proposed File Changes
+
+### NCP Demographics & Quick Start:
+#### [MODIFY] [page.tsx](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/frontend/app/%28rnd%29/ncp/patients/page.tsx)
+- Re-bind "Create Patient & Start Assessment" button to create a placeholder patient record in the database, instantiate an NCP record, and navigate to the assessment page immediately.
+
+#### [MODIFY] [page.tsx](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/frontend/app/%28rnd%29/ncp/%5BpatientId%5D/assessment/%5BncpId%5D/page.tsx)
+- Change demographic input fields on Tab E to be editable.
+- Populate state demographics from OCR extraction.
+- Update `handleSave` to call `updatePatient` to save verified demographics.
+- Implement Tab D (Biochemical) file upload, OCR, and confidence colored borders.
+- Implement Risk Score point calculation checkbox grid.
+
+### NCP Diagnosis:
+#### [NEW] [page.tsx](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/frontend/app/%28rnd%29/ncp/%5BpatientId%5D/diagnosis/%5BncpId%5D/page.tsx)
+- Create high-fidelity PES statement builder (Problem, Etiology, Signs/Symptoms tabs) with 3 domains (NI, NC, NB) and AI suggestions review.
+
+### NCP Intervention:
+#### [NEW] [page.tsx](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/frontend/app/%28rnd%29/ncp/%5BpatientId%5D/intervention/%5BncpId%5D/page.tsx)
+- Create Goal selection, nutrient target calculator, algorithm recommendations panel (hard/soft exclusions), weekly meal plan grid, auto-generator trigger, and encounter context tab.
+
+### NCP Monitoring:
+#### [NEW] [page.tsx](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/frontend/app/%28rnd%29/ncp/%5BpatientId%5D/monitoring/%5BncpId%5D/page.tsx)
+- Implement weight progression, BMI trends, biochemical lab comparison tables, and goal status checklist.
+
+### Food Service:
+#### [NEW] [page.tsx](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/frontend/app/%28rnd%29/food-service/inventory/page.tsx)
+- Implement inventory stock tables, restock action modal, alert cards.
+
+#### [NEW] [page.tsx](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/frontend/app/%28rnd%29/food-service/budget/page.tsx)
+- Implement planned vs actual summary, configurable cost-per-person, daily log variance grids.
+
+#### [MODIFY] [page.tsx](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/frontend/app/%28rnd%29/food-service/procurement/page.tsx)
+- Restructure Shopping Lists tab with left alert panel ("Add All Flagged"), PO status transitions (Draft -> Ordered -> Received), invoice preview dropzone, and Suppliers contact listing.
+
+---
+
+## Verification Plan
+
+### Automated Verification:
+- Run backend tests to verify model schema changes:
+  ```powershell
+  php artisan test
+  ```
+- Build frontend to ensure static types and compilation pass:
+  ```powershell
+  npm run build
+  ```
+
+### Manual Verification Grid:
+1. Navigate to Patients page, click "Create Patient & Start Assessment". Verify immediate transition to Tab E Assessment without select-patient blocks.
+2. Select Adult B.07, upload test scan file. Inspect OCR confidence colors, edit demographics inline, check risk points checklist, and hit save. Verify patient profile name is updated in the header.
+3. Test Diagnosis PES builder: compile a PES statement and verify domains.
+4. Test Intervention meal grid and recommendation filters.
+5. Test Procurement Suggested Shopping List: click "Add All Flagged" and verify shortfall calculations.
