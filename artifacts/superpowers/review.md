@@ -1,6 +1,6 @@
-# Superpowers Review — Milestone: Complete Backend System Requirements
+# Superpowers Review - Frontend Workflows & System Requirements Alignment
 
-**Scope:** Models, Migrations, Seeders, Requests, Resources, Controllers, Services, Jobs, and Feature Tests for NCP core (Assessment, Diagnosis, Intervention, Monitoring), Food Service (Inventory, Suppliers, Purchase Orders, Shopping Lists, Menu Cycles, Budgets), OCR extraction pipeline, and PDF report orchestration.  
+**Milestone:** Complete Frontend UI/UX Premium Features & Clinical Workflows  
 **Date:** 2026-06-03  
 **Reviewer:** Antigravity AI Partner  
 
@@ -8,131 +8,62 @@
 
 ## Blockers
 
-*None found.* All 117 PHPUnit feature and unit tests passed successfully. The database migrations run without issues, and endpoint authorization/roles are correctly structured.
+### B-1 · Entry Flow Broken for "Create Patient & Start Assessment"
+- **Files:** [page.tsx](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/frontend/app/%28rnd%29/ncp/patients/page.tsx#L159), [page.tsx](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/frontend/app/%28rnd%29/ncp/%5BpatientId%5D/assessment/%5BncpId%5D/page.tsx#L74)
+- **Problem:** Clicking "Create Patient & Start Assessment" routes the user to a placeholder view (`/ncp/select-patient/assessment/select-ncp`) showing *"Please pick a patient from the patient directory to commence screening"*. This completely blocks the intended clinical workflow.
+- **Requirement:** RNDs must be able to go straight to the assessment page, upload a screening form/lab result, let OCR extract and auto-fill demographics, and only save/persist the patient profile and NCP record in the database at the end of the assessment session.
 
 ---
 
 ## Majors
 
-### M-1 · Shopping List Suggestion ignores Active Menu Cycle requirements
+### M-1 · Tab demographics fields are disabled/read-only
+- **Files:** [page.tsx](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/frontend/app/%28rnd%29/ncp/%5BpatientId%5D/assessment/%5BncpId%5D/page.tsx#L535-L572)
+- **Problem:** Demographic input fields (Patient Name, Age, Ward, Physician, Diagnosis) are marked `disabled` on Tab E. If OCR extracts them incorrectly, or when starting a temporary scanning session, the user cannot edit or correct them.
+- **Requirement:** Demographics must be editable in the UI so the user can verify, correct, and save the patient profile fields alongside the clinical fields.
 
-| Detail | |
-|---|---|
-| **Files** | [ShoppingListController.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Http/Controllers/FSS/ShoppingListController.php#L50-L89) |
-| **Severity** | **Major** — Suggested shopping lists will under-procure ingredients required for the upcoming week's menu. |
+### M-2 · Missing automatic data flow across assessment tabs
+- **Files:** [page.tsx](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/frontend/app/%28rnd%29/ncp/%5BpatientId%5D/assessment/%5BncpId%5D/page.tsx)
+- **Problem:** Successfully extracted values from OCR remain local to Tab E and do not propagate to Tab B (Anthropometric Measurements) or Tab D (Biochemical Data), requiring double entry.
+- **Requirement:** Extracted values (such as weight, height, and lab values) must automatically pre-populate the fields in other tabs (Tab B, Tab D), trigger derived calculations (like BMI, % IBW, risk score total), and update headers.
 
-**Problem:**  
-The `generate()` method in `ShoppingListController.php` only checks for ingredients in the `inventory` table where `quantity_in_stock < minimum_stock_threshold`. It calculates suggestion quantity based *solely* on `minimum_stock_threshold - quantity_in_stock`. It does **not** retrieve the active menu cycle for the upcoming week nor calculate the total ingredient quantities needed for those meals, as explicitly required in the system requirements:
-> 1. Get active menu_cycle for the upcoming week
-> 2. Calculate total ingredient quantities needed for all meals
-> 3. Compare with current inventory.quantity_in_stock
-> 4. For each ingredient where stock < needed + minimum_stock_threshold: suggest purchase quantity = (needed + minimum_stock_threshold) - current_stock
+### M-3 · Non-Compliant NCP Diagnosis, Intervention & Monitoring UI/UX
+- **Files:** [page.tsx](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/frontend/app/%28rnd%29/ncp/%5BpatientId%5D/diagnosis/%5BncpId%5D/page.tsx), [page.tsx](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/frontend/app/%28rnd%29/ncp/%5BpatientId%5D/intervention/%5BncpId%5D/page.tsx), [page.tsx](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/frontend/app/%28rnd%29/ncp/%5BpatientId%5D/monitoring/%5BncpId%5D/page.tsx)
+- **Problem:** The downstream NCP pages do not support the strict layouts described in the system requirements:
+  - **Diagnosis:** Needs a 3-domain filter (Intake NI, Clinical NC, Behavioral-Environmental NB) with absolutely no "Other/NO" domain. It must feature a structured PES builder (Problem -> Etiology -> Signs/Symptoms) and an AI review suggestion grid.
+  - **Intervention:** The recommendation panel must be strictly algorithm-driven (using rules from the `clinical_rules` table), applying hard exclusions for patient allergies/religion and soft exclusions for dislikes. Auto-generation requires a 15-recipe gate and a Claude fallback. The encounter context should have no `encounter_location`.
+  - **Monitoring:** Lacks clean tracking for weight progression, BMI trends, goal achievements, and inline biochemical comparisons.
 
-**Proposed Fix:**  
-Fetch the active menu cycle for the selected period, iterate through the days/meals to aggregate ingredient requirements, and add them to the shortfall calculation.
-
----
-
-### M-2 · Purchase Order status transition to 'Received' does not update inventory
-
-| Detail | |
-|---|---|
-| **Files** | [PurchaseOrderController.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Http/Controllers/FSS/PurchaseOrderController.php#L69-L73) |
-| **Severity** | **Major** — Transitioning PO to 'Received' status does not restock the physical inventory. |
-
-**Problem:**  
-In `PurchaseOrderController.php::update`, the status is updated to `'received'` in the database via `$purchaseOrder->update($request->validated())`. However, there is no side-effect logic to find or update the corresponding `inventory` records for the PO items. The system requirements specify:
-> When Received: quantity_in_stock updated for each item in the PO.
-
-**Proposed Fix:**  
-In the controller update method (or via a database transaction listener/observer on `PurchaseOrder`), check if the status is transitionally updated to `'received'`. If so, iterate over the PO's items and increase `quantity_in_stock` in the `inventory` table.
-
----
-
-### M-3 · Menu Cycle activation does not update status or activation date
-
-| Detail | |
-|---|---|
-| **Files** | [MenuCycleController.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Http/Controllers/FSS/MenuCycleController.php#L47-L51) |
-| **Severity** | **Major** — Activated menu cycles remain in `'draft'` or other statuses and lack activation dates. |
-
-**Problem:**  
-In `MenuCycleController.php::activate`, the controller only updates `is_active => true`. It does not update the `status` field to `'active'` or set the `activation_date` to `now()`, which are fields defined in the database and required by the system requirements:
-> Activate a menu cycle: sets status to active, sets activation_date.
-
-**Proposed Fix:**  
-Update the `activate()` method:
-```php
-$menuCycle->update([
-    'is_active' => true,
-    'status' => 'active',
-    'activation_date' => now()->toDateString(),
-]);
-```
+### M-4 · Kitchen Procurement dashboard doesn't match inventory-linkage and alerts
+- **Files:** [page.tsx](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/frontend/app/%28rnd%29/food-service/procurement/page.tsx)
+- **Problem:** The suggested shopping list shortfall calculation and the purchase order "Mark Received" triggers are not tightly integrated into the UI. Low-stock and expired inventory alerts are missing from the shopping list left panel.
+- **Requirement:** The procurement page must feature a 3-tab layout containing:
+  - **Tab 1:** A left panel showing inventory items with low stock or expiry warnings, and an "Add All Flagged" button to calculate shortfall based on active menu cycles + thresholds.
+  - **Tab 2:** A PO tracker supporting status transitions (Draft -> Ordered -> Received) and receipt image upload. Receiving a PO must update physical stock level in the backend.
 
 ---
 
 ## Minors
 
-### m-1 · Hardcoded fallback User ID in ProcessDocumentExtraction Job
-
-| Detail | |
-|---|---|
-| **Files** | [ProcessDocumentExtraction.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Jobs/ProcessDocumentExtraction.php#L62) |
-| **Severity** | **Minor** — Risk of database integrity constraint exception if user ID 1 does not exist. |
-
-**Problem:**  
-When saving the created `OcrDocument` record, the job falls back to a hardcoded `user_id = 1` if `reviewed_by` is not set. Since `user_id` has a foreign key constraint on the `users` table, this will crash if no user exists with ID 1.
-
-**Proposed Fix:**  
-Ensure a system user or default admin user is safely retrieved (e.g., `User::where('role', 'Admin')->first()?->id` or allow the column to be nullable if appropriate).
+### m-1 · Missing styling for confidence scoring indicators
+- **Files:** [page.tsx](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/frontend/app/%28rnd%29/ncp/%5BpatientId%5D/assessment/%5BncpId%5D/page.tsx#L588-L602)
+- **Problem:** Field confidence outlines are hardcoded to simple checks or missing dynamic colors based on the actual OCR confidence score.
+- **Requirement:** Border colors should reflect the actual parsing confidence: Green (confidence > 0.8), Yellow (0.5 to 0.8), and Red (< 0.5) to draw the RND's attention to fields that need validation.
 
 ---
 
-### m-2 · RecommendService inputs are request-driven rather than patient-driven
+## Summary & Next Actions
 
-| Detail | |
-|---|---|
-| **Files** | [MealPlanController.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/Http/Controllers/RND/MealPlanController.php#L96-L104) |
-| **Severity** | **Minor** — The RND has to pass raw conditions in the API request body instead of the endpoint automatically reading from the patient record. |
+There are major workflow discrepancies between the current implementation and the clinical requirements under `docs/milestones/system-requirements`. The entry flow blocks RND intake, demographics are un-editable, tabs do not autofill from OCR outputs, and procurement is disconnected from inventory stock calculations.
 
-**Problem:**  
-In `MealPlanController.php::recommend`, the endpoint `POST /api/rnd/ncp-records/{ncpRecord}/intervention/recommend` passes `$request->conditions` and `$request->stages` directly to `RecommendService::getRecommendations`. Ideally, the backend should extract these from the patient's existing `Diagnosis` list, `Assessment` profile, and biochemical values.
-
----
-
-## Nits
-
-### N-1 · Unused ParsedDocument DTO
-
-| Detail | |
-|---|---|
-| **Files** | [ParsedDocument.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/app/DTO/ParsedDocument.php) |
-| **Severity** | **Nit** — Dead code / unused file. |
-
-**Problem:**  
-The DTO `App\DTO\ParsedDocument` is defined but never imported or used in the extraction services or jobs.
-
----
-
-### N-2 · AI Suggestion fallback model configuration
-
-| Detail | |
-|---|---|
-| **Files** | [services.php](file:///c:/Users/User/Documents/Nutriscope/Nutriscope/backend/config/services.php#L40) |
-| **Severity** | **Nit** — Model mismatch. |
-
-**Problem:**  
-The Anthropic config falls back to `claude-haiku-20240307` instead of the requested `claude-haiku-4-5` model. This is easily corrected in the `.env` file (`ANTHROPIC_MODEL`).
-
----
-
-## Summary
-
-The backend implementation covers almost all database schemas, controllers, and feature tests specified under the milestones. However, several critical operational side-effects (e.g., updating stock upon PO receipt, calculating shopping list requirements based on menu cycle, and menu cycle status updates) are missing or stubbed in a way that passes simple tests but fails operational requirements.
-
-### Next Actions
-1. **Fix M-1**: Implement menu-cycle aggregation inside `ShoppingListController::generate`.
-2. **Fix M-2**: Implement inventory restocking trigger in `PurchaseOrderController::update` upon transition to `'received'`.
-3. **Fix M-3**: Update status and activation date in `MenuCycleController::activate`.
-4. **Fix m-1**: Make fallback `user_id` retrieval robust.
+### Action Plan
+1. **Fix Entry Flow (B-1)**:
+   - Modify the "Create Patient & Start Assessment" click handler in `ncp/patients/page.tsx`.
+   - Implement a temporary/draft initialization that creates a placeholder patient and NCP record in the database, and redirects the user to the assessment page.
+   - Make demographics editable in Tab E.
+   - Enhance the saving routine to update the patient profile demographics in the database using the verified fields.
+2. **Propagate OCR Data (M-2)**:
+   - When OCR completes, copy extracted demographics, anthropometrics, and labs directly into the active state variables of other tabs.
+   - Recalculate BMI, ideal body weight percentages, and risk scores dynamically in the frontend and save them.
+3. **Restructure NCP & Food Service Tasks (M-3, M-4)**:
+   - Divide the task checklist into clear, granular sub-tasks for all steps of NCP (Assessment, Diagnosis, Intervention, Monitoring) and Food Service (Inventory, Menu Cycle, Budget, Procurement).
