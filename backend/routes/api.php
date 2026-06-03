@@ -9,6 +9,7 @@ use App\Http\Controllers\RND\AnnouncementController as RndAnnouncementController
 use App\Http\Controllers\RND\AssessmentController;
 use App\Http\Controllers\RND\DiagnosisController;
 use App\Http\Controllers\RND\InterventionController;
+use App\Http\Controllers\RND\ScreeningDocumentController;
 use App\Http\Controllers\RND\MonitoringController;
 use App\Http\Controllers\RND\PatientController;
 use App\Http\Controllers\RND\AiDiagnosisController;
@@ -42,6 +43,12 @@ Route::middleware(['auth:sanctum', 'role:RND', 'audit'])->prefix('rnd')->group(f
     Route::post('ncp-records/{ncpRecord}/assessment', [AssessmentController::class, 'store']);
     Route::get('ncp-records/{ncpRecord}/assessment', [AssessmentController::class, 'show']);
     Route::patch('ncp-records/{ncpRecord}/assessment', [AssessmentController::class, 'update']);
+    Route::post('ncp-records/{ncpRecord}/upload-screening', [AssessmentController::class, 'uploadScreening']);
+    Route::post('ncp-records/{ncpRecord}/upload-labs', [AssessmentController::class, 'uploadLabs']);
+    Route::get('ncp-records/{ncpRecord}/screening-document', [AssessmentController::class, 'showScreeningDocument']);
+    Route::get('ncp-records/{ncpRecord}/ocr-documents', [AssessmentController::class, 'showOcrDocuments']);
+    Route::get('screening-documents/{screeningDocument}', [ScreeningDocumentController::class, 'show']);
+    Route::patch('screening-documents/{screeningDocument}/approve', [ScreeningDocumentController::class, 'approve']);
 
     // Diagnoses routes
     Route::get('ncp-records/{ncpRecord}/diagnoses', [DiagnosisController::class, 'index']);

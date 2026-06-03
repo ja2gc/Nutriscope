@@ -64,3 +64,15 @@
   - `php artisan db:seed --class=AnnouncementSeeder` populated 5 runtime announcement posts.
   - Laravel Boost query confirmed `announcements` row count is 5.
   - `git diff --check` completed with no whitespace errors.
+
+## M3A-M4C Execution (Clinical & Operations Workflows)
+
+### Step A-1: Quick Start Intake Redirect
+- Status: Complete
+- Files changed:
+  - `frontend/app/(rnd)/ncp/patients/page.tsx`
+- Notes:
+  - Bound the "Create Patient & Start Assessment" button to invoke `createPatient` service function using default placeholder details and current date.
+  - Generates an NCP record for the new patient and redirects the router straight to the assessment page `/ncp/[patientId]/assessment/[ncpId]`.
+  - Added loading indicator (`creating` state) to prevent double submissions.
+- Verification: NextJS type-checks and compilation. Result: pass.
