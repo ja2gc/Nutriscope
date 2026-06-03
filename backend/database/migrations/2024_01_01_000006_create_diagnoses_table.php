@@ -11,8 +11,9 @@ return new class extends Migration
         Schema::create('diagnoses', function (Blueprint $table) {
             $table->id();
             $table->foreignId('ncp_record_id')->constrained()->cascadeOnDelete();
-            $table->enum('domain', ['NI', 'NC', 'NB', 'NO']);
+            $table->enum('domain', ['NI', 'NC', 'NB']);
             $table->string('problem');
+            $table->string('label')->nullable();
             $table->text('etiology');
             $table->text('signs_symptoms');
             $table->text('pes_statement');

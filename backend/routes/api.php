@@ -3,8 +3,25 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Admin\AnnouncementController as AdminAnnouncementController;
+use App\Http\Controllers\Admin\UserController as AdminUserController;
+use App\Http\Controllers\Admin\AuditLogController as AdminAuditLogController;
 use App\Http\Controllers\RND\AnnouncementController as RndAnnouncementController;
+use App\Http\Controllers\RND\AssessmentController;
+use App\Http\Controllers\RND\DiagnosisController;
+use App\Http\Controllers\RND\InterventionController;
+use App\Http\Controllers\RND\MonitoringController;
 use App\Http\Controllers\RND\PatientController;
+use App\Http\Controllers\RND\AiDiagnosisController;
+use App\Http\Controllers\RND\MealPlanController;
+use App\Http\Controllers\RND\CalendarEventController;
+use App\Http\Controllers\RND\NotificationController;
+use App\Http\Controllers\FSS\InventoryController;
+use App\Http\Controllers\FSS\SupplierController;
+use App\Http\Controllers\FSS\PurchaseOrderController;
+use App\Http\Controllers\FSS\ShoppingListController;
+use App\Http\Controllers\FSS\MenuCycleController;
+use App\Http\Controllers\FSS\BudgetController;
+use App\Http\Controllers\ReportController;
 
 Route::prefix('auth')->group(function () {
     Route::post('login', [AuthController::class, 'login']);
@@ -20,12 +37,83 @@ Route::middleware(['auth:sanctum', 'role:RND', 'audit'])->prefix('rnd')->group(f
     Route::get('patients/{patient}/ncp-records', [PatientController::class, 'ncpRecords']);
     Route::post('patients/{patient}/ncp-records', [PatientController::class, 'startNcpCycle']);
     Route::apiResource('announcements', RndAnnouncementController::class)->only(['index', 'store', 'update', 'destroy']);
+
+    // Assessment routes
+    Route::post('ncp-records/{ncpRecord}/assessment', [AssessmentController::class, 'store']);
+    Route::get('ncp-records/{ncpRecord}/assessment', [AssessmentController::class, 'show']);
+    Route::patch('ncp-records/{ncpRecord}/assessment', [AssessmentController::class, 'update']);
+
+    // Diagnoses routes
+    Route::get('ncp-records/{ncpRecord}/diagnoses', [DiagnosisController::class, 'index']);
+    Route::post('ncp-records/{ncpRecord}/diagnoses', [DiagnosisController::class, 'store']);
+    Route::patch('ncp-records/{ncpRecord}/diagnoses/{diagnosis}', [DiagnosisController::class, 'update']);
+    Route::delete('ncp-records/{ncpRecord}/diagnoses/{diagnosis}', [DiagnosisController::class, 'destroy']);
+
+    // AI Diagnoses routes
+    Route::post('ncp-records/{ncpRecord}/diagnoses/ai-suggest', [AiDiagnosisController::class, 'aiSuggest']);
+    Route::post('ncp-records/{ncpRecord}/diagnoses/ai-approve', [AiDiagnosisController::class, 'aiApprove']);
+
+    // Intervention routes
+    Route::post('ncp-records/{ncpRecord}/intervention', [InterventionController::class, 'store']);
+    Route::get('ncp-records/{ncpRecord}/intervention', [InterventionController::class, 'show']);
+    Route::patch('ncp-records/{ncpRecord}/intervention', [InterventionController::class, 'update']);
+    Route::post('ncp-records/{ncpRecord}/intervention/recommend', [MealPlanController::class, 'recommend']);
+
+    // Meal Plan routes
+    Route::get('ncp-records/{ncpRecord}/meal-plans', [MealPlanController::class, 'index']);
+    Route::post('ncp-records/{ncpRecord}/meal-plans', [MealPlanController::class, 'store']);
+    Route::get('ncp-records/{ncpRecord}/meal-plans/{mealPlan}', [MealPlanController::class, 'show']);
+    Route::patch('ncp-records/{ncpRecord}/meal-plans/{mealPlan}', [MealPlanController::class, 'update']);
+    Route::post('ncp-records/{ncpRecord}/meal-plans/generate', [MealPlanController::class, 'generate']);
+
+    // Monitoring routes
+    Route::get('ncp-records/{ncpRecord}/monitorings', [MonitoringController::class, 'index']);
+    Route::post('ncp-records/{ncpRecord}/monitorings', [MonitoringController::class, 'store']);
+    Route::patch('ncp-records/{ncpRecord}/monitorings/{monitoring}', [MonitoringController::class, 'update']);
+    Route::delete('ncp-records/{ncpRecord}/monitorings/{monitoring}', [MonitoringController::class, 'destroy']);
+
+    // Calendar Events routes
+    Route::post('calendar-events', [CalendarEventController::class, 'store']);
+    Route::get('calendar-events', [CalendarEventController::class, 'index']);
+
+    // Notifications routes
+    Route::get('notifications', [NotificationController::class, 'index']);
+    Route::patch('notifications/read-all', [NotificationController::class, 'readAll']);
+    Route::patch('notifications/{notification}/read', [NotificationController::class, 'read']);
+
+    // Reports routes
+    Route::apiResource('reports', ReportController::class)->only(['index', 'store', 'show']);
 });
 
 Route::middleware(['auth:sanctum', 'role:FSS'])->prefix('fss')->group(function () {
-    // FSS routes here
+    // Inventory routes
+    Route::apiResource('inventory', InventoryController::class);
+    Route::post('inventory/{inventory}/restock', [InventoryController::class, 'restock']);
+
+    // Suppliers routes
+    Route::apiResource('suppliers', SupplierController::class);
+
+    // Purchase Orders routes
+    Route::apiResource('purchase-orders', PurchaseOrderController::class);
+
+    // Shopping Lists routes
+    Route::post('shopping-lists/generate', [ShoppingListController::class, 'generate']);
+    Route::apiResource('shopping-lists', ShoppingListController::class);
+
+    // Menu Cycles routes
+    Route::patch('menu-cycles/{menu_cycle}/activate', [MenuCycleController::class, 'activate']);
+    Route::apiResource('menu-cycles', MenuCycleController::class);
+
+    // Budgets routes
+    Route::post('budgets/{budget}/daily-logs', [BudgetController::class, 'storeDailyLog']);
+    Route::apiResource('budgets', BudgetController::class);
+
+    // Reports routes
+    Route::apiResource('reports', ReportController::class)->only(['index', 'store', 'show']);
 });
 
 Route::middleware(['auth:sanctum', 'role:Admin'])->prefix('admin')->group(function () {
     Route::apiResource('announcements', AdminAnnouncementController::class)->only(['index', 'store', 'update', 'destroy']);
+    Route::apiResource('users', AdminUserController::class);
+    Route::get('audit-logs', [AdminAuditLogController::class, 'index']);
 });

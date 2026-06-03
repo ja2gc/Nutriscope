@@ -24,7 +24,7 @@ return new class extends Migration
             $table->text('counseling_goals')->nullable();
             $table->text('barriers')->nullable();
             $table->text('strategies')->nullable();
-            $table->string('encounter_location')->nullable();
+
             $table->string('session_type')->nullable();
             $table->date('next_followup_date')->nullable();
             $table->timestamps();

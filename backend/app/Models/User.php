@@ -2,13 +2,15 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
 {
-    use HasApiTokens, Notifiable;
+    use HasApiTokens, HasFactory, Notifiable, SoftDeletes;
 
     protected $fillable = ['name', 'email', 'password', 'role', 'is_active'];
 
@@ -16,8 +18,8 @@ class User extends Authenticatable
 
     protected $casts = [
         'email_verified_at' => 'datetime',
-        'password' => 'hashed',
-        'is_active' => 'boolean',
+        'password'          => 'hashed',
+        'is_active'         => 'boolean',
     ];
 
     public function ncpRecords()
@@ -35,7 +37,22 @@ class User extends Authenticatable
         return $this->hasMany(Recipe::class, 'rnd_user_id');
     }
 
-    public function isRnd(): bool    { return $this->role === 'RND'; }
-    public function isFss(): bool    { return $this->role === 'FSS'; }
-    public function isAdmin(): bool  { return $this->role === 'Admin'; }
+    public function calendarEvents()
+    {
+        return $this->hasMany(CalendarEvent::class);
+    }
+
+    public function notifications()
+    {
+        return $this->hasMany(Notification::class);
+    }
+
+    public function reports()
+    {
+        return $this->hasMany(Report::class);
+    }
+
+    public function isRnd(): bool   { return $this->role === 'RND'; }
+    public function isFss(): bool   { return $this->role === 'FSS'; }
+    public function isAdmin(): bool { return $this->role === 'Admin'; }
 }

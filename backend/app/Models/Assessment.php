@@ -2,12 +2,14 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Assessment extends Model
 {
+    use HasFactory;
     protected $fillable = [
         'ncp_record_id',
         'dietary_intake', 'appetite_changes', 'dietary_restrictions', 'supplements', 'knowledge_notes',
@@ -15,6 +17,10 @@ class Assessment extends Model
         'medical_history', 'social_history', 'lifestyle',
         'allergies', 'food_dislikes', 'medications',
         'rnd_summary',
+        'usual_weight', 'nutritional_status', 'weight_loss_percentage', 'weight_loss_period',
+        'functional_assessment', 'energy_intake_status', 'ibw_percentage', 'present_diet',
+        'physical_assessment', 'chewing_swallowing_difficulties', 'constipation', 'diarrhea_notes',
+        'food_intolerance', 'nutrient_drug_interaction', 'dietary_intake_method', 'dietary_record_file',
     ];
 
     protected $casts = [
@@ -48,3 +54,4 @@ class Assessment extends Model
         return null;
     }
 }
+

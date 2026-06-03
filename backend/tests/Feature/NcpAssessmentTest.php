@@ -1,0 +1,195 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Models\Assessment;
+use App\Models\NcpRecord;
+use App\Models\Patient;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Hash;
+use Tests\TestCase;
+
+class NcpAssessmentTest extends TestCase
+{
+    use RefreshDatabase;
+
+    private function rnd(): User
+    {
+        return User::forceCreate([
+            'name'      => 'RND User',
+            'email'     => 'rnd' . uniqid() . '@example.com',
+            'password'  => Hash::make('password'),
+            'role'      => 'RND',
+            'is_active' => true,
+        ]);
+    }
+
+    private function patient(): Patient
+    {
+        return Patient::forceCreate([
+            'name'           => 'Test Patient',
+            'dob'            => '1990-01-01',
+            'sex'            => 'Male',
+            'admission_date' => now()->toDateString(),
+        ]);
+    }
+
+    private function ncpRecord(Patient $patient, User $rnd): NcpRecord
+    {
+        return NcpRecord::forceCreate([
+            'patient_id'  => $patient->id,
+            'rnd_user_id' => $rnd->id,
+            'type'        => 'new',
+            'status'      => 'draft',
+        ]);
+    }
+
+    // ──────────────────────────────────────────────────
+    // Assessment
+    // ──────────────────────────────────────────────────
+
+    public function test_rnd_can_create_assessment_for_ncp_record(): void
+    {
+        $rnd     = $this->rnd();
+        $patient = $this->patient();
+        $ncp     = $this->ncpRecord($patient, $rnd);
+
+        $response = $this->actingAs($rnd, 'sanctum')
+            ->postJson("/api/rnd/ncp-records/{$ncp->id}/assessment", [
+                'weight'      => 70.5,
+                'height'      => 170.0,
+                'dietary_intake'  => 'Normal diet',
+                'allergies'   => ['peanuts', 'shellfish'],
+                'medications' => [],
+            ]);
+
+        $response->assertStatus(201)
+            ->assertJsonPath('data.ncp_record_id', $ncp->id)
+            ->assertJsonPath('data.weight', '70.50')
+            ->assertJsonPath('data.bmi', '24.39');
+
+        $this->assertDatabaseHas('assessments', [
+            'ncp_record_id' => $ncp->id,
+            'weight'        => 70.5,
+        ]);
+    }
+
+    public function test_assessment_bmi_is_calculated_automatically(): void
+    {
+        $rnd     = $this->rnd();
+        $patient = $this->patient();
+        $ncp     = $this->ncpRecord($patient, $rnd);
+
+        $response = $this->actingAs($rnd, 'sanctum')
+            ->postJson("/api/rnd/ncp-records/{$ncp->id}/assessment", [
+                'weight' => 60.0,
+                'height' => 160.0,
+            ]);
+
+        $response->assertStatus(201)
+            ->assertJsonPath('data.bmi', '23.44');
+    }
+
+    public function test_assessment_validates_required_fields(): void
+    {
+        $rnd     = $this->rnd();
+        $patient = $this->patient();
+        $ncp     = $this->ncpRecord($patient, $rnd);
+
+        $response = $this->actingAs($rnd, 'sanctum')
+            ->postJson("/api/rnd/ncp-records/{$ncp->id}/assessment", [
+                'weight' => 'not-a-number',
+            ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['weight']);
+    }
+
+    public function test_rnd_can_get_assessment_for_ncp_record(): void
+    {
+        $rnd     = $this->rnd();
+        $patient = $this->patient();
+        $ncp     = $this->ncpRecord($patient, $rnd);
+
+        Assessment::forceCreate([
+            'ncp_record_id' => $ncp->id,
+            'weight'        => 80.0,
+            'height'        => 175.0,
+            'bmi'           => 26.12,
+        ]);
+
+        $response = $this->actingAs($rnd, 'sanctum')
+            ->getJson("/api/rnd/ncp-records/{$ncp->id}/assessment");
+
+        $response->assertOk()
+            ->assertJsonPath('data.ncp_record_id', $ncp->id);
+    }
+
+    public function test_rnd_can_update_assessment(): void
+    {
+        $rnd     = $this->rnd();
+        $patient = $this->patient();
+        $ncp     = $this->ncpRecord($patient, $rnd);
+
+        $assessment = Assessment::forceCreate([
+            'ncp_record_id' => $ncp->id,
+            'weight'        => 80.0,
+            'height'        => 175.0,
+            'bmi'           => 26.12,
+        ]);
+
+        $response = $this->actingAs($rnd, 'sanctum')
+            ->patchJson("/api/rnd/ncp-records/{$ncp->id}/assessment", [
+                'weight' => 78.0,
+                'height' => 175.0,
+            ]);
+
+        $response->assertOk()
+            ->assertJsonPath('data.weight', '78.00')
+            ->assertJsonPath('data.bmi', '25.47');
+
+        $this->assertDatabaseHas('assessments', ['id' => $assessment->id, 'weight' => 78.0]);
+    }
+
+    public function test_assessment_stores_allergies_as_json(): void
+    {
+        $rnd     = $this->rnd();
+        $patient = $this->patient();
+        $ncp     = $this->ncpRecord($patient, $rnd);
+
+        $this->actingAs($rnd, 'sanctum')
+            ->postJson("/api/rnd/ncp-records/{$ncp->id}/assessment", [
+                'allergies' => ['gluten', 'dairy'],
+            ]);
+
+        $assessment = Assessment::where('ncp_record_id', $ncp->id)->firstOrFail();
+        $this->assertIsArray($assessment->allergies);
+        $this->assertContains('gluten', $assessment->allergies);
+    }
+
+    public function test_guest_cannot_access_assessment(): void
+    {
+        $patient = $this->patient();
+        $ncp     = $this->ncpRecord($patient, $this->rnd());
+
+        $this->getJson("/api/rnd/ncp-records/{$ncp->id}/assessment")
+            ->assertStatus(401);
+    }
+
+    public function test_duplicate_assessment_returns_conflict(): void
+    {
+        $rnd     = $this->rnd();
+        $patient = $this->patient();
+        $ncp     = $this->ncpRecord($patient, $rnd);
+
+        Assessment::forceCreate(['ncp_record_id' => $ncp->id, 'weight' => 70.0]);
+
+        $response = $this->actingAs($rnd, 'sanctum')
+            ->postJson("/api/rnd/ncp-records/{$ncp->id}/assessment", [
+                'weight' => 75.0,
+            ]);
+
+        $response->assertStatus(409);
+    }
+}

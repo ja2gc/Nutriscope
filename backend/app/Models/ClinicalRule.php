@@ -2,10 +2,12 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class ClinicalRule extends Model
 {
+    use HasFactory;
     protected $fillable = [
         'condition', 'stage', 'nutrient_or_food_tag', 'rule_type', 'threshold', 'unit', 'reason',
     ];
@@ -16,7 +18,7 @@ class ClinicalRule extends Model
 
     /**
      * Get all rules matching given conditions and stages.
-     * Used exclusively by RecommendService — never hardcode logic in PHP.
+     * Used exclusively by RecommendService â€” never hardcode logic in PHP.
      */
     public static function forConditions(array $conditions, ?array $stages = null): \Illuminate\Database\Eloquent\Collection
     {
@@ -30,3 +32,4 @@ class ClinicalRule extends Model
             ->get();
     }
 }
+

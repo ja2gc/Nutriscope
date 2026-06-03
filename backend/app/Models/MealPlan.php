@@ -2,12 +2,14 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class MealPlan extends Model
 {
+    use HasFactory;
     protected $fillable = [
         'intervention_id', 'patient_id', 'week_start_date', 'generation_type', 'status',
     ];
@@ -31,3 +33,4 @@ class MealPlan extends Model
         return $this->hasMany(MealPlanDay::class);
     }
 }
+

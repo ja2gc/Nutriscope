@@ -2,12 +2,14 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Recipe extends Model
 {
+    use HasFactory;
     protected $fillable = [
         'rnd_user_id', 'name', 'category', 'prep_notes', 'cost',
         'total_calories', 'total_protein', 'total_carbs', 'total_fat',
@@ -59,3 +61,4 @@ class Recipe extends Model
         ]);
     }
 }
+
