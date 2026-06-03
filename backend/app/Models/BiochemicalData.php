@@ -2,11 +2,13 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class BiochemicalData extends Model
 {
+    use HasFactory;
     protected $table = 'biochemical_data';
 
     protected $fillable = [
@@ -41,3 +43,4 @@ class BiochemicalData extends Model
         return $this->belongsTo(Assessment::class);
     }
 }
+

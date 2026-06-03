@@ -2,11 +2,13 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class FoodItem extends Model
 {
+    use HasFactory;
     protected $fillable = [
         'name', 'category', 'usda_fdc_id', 'calories', 'protein', 'carbs', 'fat',
         'micronutrients', 'allergens', 'unit_price', 'serving_unit', 'serving_size',
@@ -24,8 +26,8 @@ class FoodItem extends Model
     ];
 
     /**
-     * ALWAYS use these scope methods — never raw JSON queries.
-     * Enforces: food_items.allergens is JSON — always whereJsonContains / whereJsonDoesntContain
+     * ALWAYS use these scope methods â€” never raw JSON queries.
+     * Enforces: food_items.allergens is JSON â€” always whereJsonContains / whereJsonDoesntContain
      */
     public function scopeWithoutAllergens($query, array $allergens)
     {
@@ -45,3 +47,4 @@ class FoodItem extends Model
         return $this->hasMany(RecipeIngredient::class);
     }
 }
+

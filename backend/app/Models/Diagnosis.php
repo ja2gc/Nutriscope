@@ -2,13 +2,15 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Diagnosis extends Model
 {
+    use HasFactory;
     protected $fillable = [
-        'ncp_record_id', 'domain', 'problem', 'etiology',
+        'ncp_record_id', 'domain', 'problem', 'label', 'etiology',
         'signs_symptoms', 'pes_statement', 'extra_notes', 'ai_generated',
     ];
 
@@ -29,3 +31,4 @@ class Diagnosis extends Model
         return "{$problem} related to {$etiology} as evidenced by {$signSymptoms}";
     }
 }
+

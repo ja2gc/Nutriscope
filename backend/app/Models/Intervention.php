@@ -2,17 +2,19 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Intervention extends Model
 {
+    use HasFactory;
     protected $fillable = [
         'ncp_record_id', 'goal_type', 'disease_stage', 'displayed_nutrients',
         'energy_kcal', 'protein_g', 'carbs_g', 'fat_g', 'fluid_ml',
         'micronutrient_limits', 'education_notes', 'counseling_goals',
-        'barriers', 'strategies', 'encounter_location', 'session_type',
+        'barriers', 'strategies', 'session_type',
         'next_followup_date',
     ];
 
@@ -54,3 +56,4 @@ class Intervention extends Model
         return abs($actual - $target) / $target <= 0.10;
     }
 }
+

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
@@ -9,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class NcpRecord extends Model
 {
+    use HasFactory;
     protected $fillable = [
         'patient_id', 'rnd_user_id', 'type', 'status', 'risk_score',
     ];
@@ -47,3 +49,4 @@ class NcpRecord extends Model
         return $this->hasMany(Monitoring::class);
     }
 }
+

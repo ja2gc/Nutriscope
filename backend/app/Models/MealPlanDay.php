@@ -2,12 +2,14 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class MealPlanDay extends Model
 {
+    use HasFactory;
     public $timestamps = false;
 
     protected $fillable = ['meal_plan_id', 'day_of_week', 'meal_type', 'flagged'];
@@ -39,3 +41,4 @@ class MealPlanDay extends Model
         }, ['calories' => 0, 'protein' => 0, 'carbs' => 0, 'fat' => 0]);
     }
 }
+
