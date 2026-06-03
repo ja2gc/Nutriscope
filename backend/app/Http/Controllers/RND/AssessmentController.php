@@ -8,6 +8,10 @@ use App\Http\Requests\RND\UpdateAssessmentRequest;
 use App\Http\Resources\AssessmentResource;
 use App\Models\Assessment;
 use App\Models\NcpRecord;
+use App\Models\ScreeningDocument;
+use App\Models\OcrDocument;
+use App\Jobs\ProcessDocumentExtraction;
+use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 
 class AssessmentController extends Controller
@@ -66,6 +70,99 @@ class AssessmentController extends Controller
         $ncpRecord->update(['risk_score' => $riskResult['score']]);
 
         return new AssessmentResource($assessment->fresh());
+    }
+
+    /**
+     * POST /api/rnd/ncp-records/{ncpRecord}/upload-screening
+     */
+    public function uploadScreening(Request $request, NcpRecord $ncpRecord): JsonResponse
+    {
+        $request->validate([
+            'file' => 'required|file|mimes:pdf,jpeg,png,jpg|max:10240',
+        ]);
+
+        $assessment = $ncpRecord->assessment()->firstOrCreate([
+            'ncp_record_id' => $ncpRecord->id,
+        ]);
+
+        $path = $request->file('file')->store('documents/screening');
+        $absolutePath = storage_path('app/' . $path);
+
+        $screeningDocument = ScreeningDocument::create([
+            'patient_id' => $ncpRecord->patient_id,
+            'assessment_id' => $assessment->id,
+            'type' => $ncpRecord->patient->screening_type === 'pediatric' ? 'pediatric' : 'adult',
+            'file_path' => $absolutePath,
+            'status' => 'pending',
+            'reviewed_by' => $request->user()->id,
+        ]);
+
+        ProcessDocumentExtraction::dispatch($screeningDocument);
+
+        return response()->json([
+            'message' => 'Screening document uploaded successfully and extraction queued.',
+            'data' => $screeningDocument,
+        ], 202);
+    }
+
+    /**
+     * POST /api/rnd/ncp-records/{ncpRecord}/upload-labs
+     */
+    public function uploadLabs(Request $request, NcpRecord $ncpRecord): JsonResponse
+    {
+        $request->validate([
+            'file' => 'required|file|mimes:pdf,jpeg,png,jpg|max:10240',
+        ]);
+
+        $assessment = $ncpRecord->assessment()->firstOrCreate([
+            'ncp_record_id' => $ncpRecord->id,
+        ]);
+
+        $path = $request->file('file')->store('documents/labs');
+        $absolutePath = storage_path('app/' . $path);
+
+        $ocrDocument = OcrDocument::create([
+            'user_id' => $request->user()->id,
+            'assessment_id' => $assessment->id,
+            'file_path' => $absolutePath,
+            'document_type' => 'lab',
+            'status' => 'pending',
+        ]);
+
+        ProcessDocumentExtraction::dispatch($ocrDocument, 'lab_result');
+
+        return response()->json([
+            'message' => 'Lab document uploaded successfully and extraction queued.',
+            'data' => $ocrDocument,
+        ], 202);
+    }
+
+    /**
+     * GET /api/rnd/ncp-records/{ncpRecord}/screening-document
+     */
+    public function showScreeningDocument(NcpRecord $ncpRecord): JsonResponse
+    {
+        $assessment = $ncpRecord->assessment;
+        if (!$assessment) {
+            return response()->json(['data' => null]);
+        }
+
+        $doc = ScreeningDocument::where('assessment_id', $assessment->id)->latest()->first();
+        return response()->json(['data' => $doc]);
+    }
+
+    /**
+     * GET /api/rnd/ncp-records/{ncpRecord}/ocr-documents
+     */
+    public function showOcrDocuments(NcpRecord $ncpRecord): JsonResponse
+    {
+        $assessment = $ncpRecord->assessment;
+        if (!$assessment) {
+            return response()->json(['data' => []]);
+        }
+
+        $docs = OcrDocument::where('assessment_id', $assessment->id)->get();
+        return response()->json(['data' => $docs]);
     }
 }
 

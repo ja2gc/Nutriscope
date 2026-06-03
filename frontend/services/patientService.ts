@@ -11,6 +11,9 @@ export interface Patient {
   medical_diagnosis?: string;
   ward?: string;
   status: "Active" | "Discharged" | "Transferred";
+  screening_type?: "adult" | "pediatric";
+  hospital_number?: string;
+  age_group_category?: string;
   created_at: string;
   updated_at: string;
   ncp_records?: NcpRecord[];
@@ -57,9 +60,12 @@ export interface PatientStoreData {
   medical_diagnosis?: string;
   ward?: string;
   status?: "Active" | "Discharged" | "Transferred";
+  screening_type?: "adult" | "pediatric";
+  hospital_number?: string;
+  age_group_category?: string;
 }
 
-export interface PatientUpdateData extends Partial<PatientStoreData> {}
+export type PatientUpdateData = Partial<PatientStoreData>;
 
 export interface PatientListResponse {
   data: Patient[];

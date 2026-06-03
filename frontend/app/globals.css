@@ -6,7 +6,7 @@
 }
 
 @theme {
-  --font-sans: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: ui-sans-serif, system-ui, sans-serif;
   
   /* Brand Green (Nutri) */
   --color-brand-green-50: #ecfdf5;

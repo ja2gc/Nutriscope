@@ -69,6 +69,36 @@ class PatientFeatureTest extends TestCase
         $this->assertDatabaseHas('patients', ['id' => $patient->id, 'ward' => 'ICU']);
     }
 
+    public function test_rnd_can_update_patient_screening_workflow_fields()
+    {
+        $rnd = User::forceCreate(['name' => 'Test', 'email' => 'test3b@example.com', 'password' => Hash::make('pass'), 'role' => 'RND', 'is_active' => true]);
+
+        $patient = Patient::forceCreate([
+            'name' => 'John Doe',
+            'dob' => '1990-01-01',
+            'sex' => 'Male',
+            'admission_date' => '2024-01-01',
+        ]);
+
+        $response = $this->actingAs($rnd, 'sanctum')->patchJson("/api/rnd/patients/{$patient->id}", [
+            'screening_type' => 'pediatric',
+            'hospital_number' => 'HOSP-2026-0001',
+            'age_group_category' => 'Adolescent',
+        ]);
+
+        $response->assertStatus(200)
+            ->assertJsonPath('screening_type', 'pediatric')
+            ->assertJsonPath('hospital_number', 'HOSP-2026-0001')
+            ->assertJsonPath('age_group_category', 'Adolescent');
+
+        $this->assertDatabaseHas('patients', [
+            'id' => $patient->id,
+            'screening_type' => 'pediatric',
+            'hospital_number' => 'HOSP-2026-0001',
+            'age_group_category' => 'Adolescent',
+        ]);
+    }
+
     public function test_rnd_can_start_ncp_cycle()
     {
         $rnd = User::forceCreate(['name' => 'Test', 'email' => 'test4@example.com', 'password' => Hash::make('pass'), 'role' => 'RND', 'is_active' => true]);

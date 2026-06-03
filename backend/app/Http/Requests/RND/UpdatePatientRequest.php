@@ -25,6 +25,9 @@ class UpdatePatientRequest extends FormRequest
             'medical_diagnosis' => ['nullable', 'string', 'max:255'],
             'ward' => ['nullable', 'string', 'max:255'],
             'status' => ['nullable', 'string', 'in:Active,Discharged,Transferred'],
+            'screening_type' => ['nullable', 'string', 'in:adult,pediatric'],
+            'hospital_number' => ['nullable', 'string', 'max:255'],
+            'age_group_category' => ['nullable', 'string', 'max:255'],
         ];
     }
 }

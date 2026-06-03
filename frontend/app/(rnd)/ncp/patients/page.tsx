@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import {
   fetchPatients,
   Patient,
+  createPatient,
+  createNcpRecord,
 } from "@/services/patientService";
 import { Button } from "@/components/ui/Button";
 import { HeartHandshake } from "lucide-react";
@@ -100,6 +102,7 @@ export default function NcpPatientsPage() {
   const [status, setStatus] = useState("All");
   const [page, setPage] = useState(1);
   const [meta, setMeta] = useState<any>(null);
+  const [creating, setCreating] = useState(false);
 
   const loadPatients = useCallback(async () => {
     try {
@@ -130,6 +133,28 @@ export default function NcpPatientsPage() {
     }
   }
 
+  const handleCreateAndAssess = async () => {
+    try {
+      setCreating(true);
+      setError(null);
+      const today = new Date().toISOString().split("T")[0];
+      const newPatient = await createPatient({
+        name: "New Admission (Scanning)",
+        dob: "1990-01-01",
+        sex: "Male",
+        admission_date: today,
+        status: "Active",
+      });
+
+      const newNcp = await createNcpRecord(newPatient.id);
+      router.push(`/ncp/${newPatient.id}/assessment/${newNcp.id}`);
+    } catch (err: any) {
+      setError(err.message || "Failed to initialize assessment workflow.");
+    } finally {
+      setCreating(false);
+    }
+  };
+
   return (
     <div className="space-y-6 font-sans">
       <div className="flex items-center gap-2 text-xs font-semibold text-zinc-400 select-none">
@@ -153,10 +178,11 @@ export default function NcpPatientsPage() {
 
         <Button
           variant="primary"
-          onClick={() => router.push("/ncp/select-patient/assessment/select-ncp")}
+          onClick={handleCreateAndAssess}
+          disabled={creating}
           className="md:w-auto px-4.5 py-2.5 shrink-0 flex items-center justify-center gap-2"
         >
-          Create Patient & Start Assessment
+          {creating ? "Creating..." : "Create Patient & Start Assessment"}
         </Button>
       </div>
 

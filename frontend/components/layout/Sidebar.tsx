@@ -203,13 +203,13 @@ export function Sidebar() {
                 onClick={toggleNcp}
                 className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all duration-150 cursor-pointer ${
                   isNcpGroupActive
-                    ? "bg-zinc-900/40 text-zinc-250 font-bold border-l-2 border-emerald-650"
+                    ? "bg-zinc-900/40 text-zinc-200 font-bold border-l-2 border-emerald-600"
                     : "text-zinc-400 hover:bg-zinc-900/60 hover:text-zinc-200"
                 }`}
                 title={collapsed ? "Nutrition Care Process" : undefined}
               >
                 <div className="flex items-center gap-3">
-                  <HeartHandshake className={`h-4.5 w-4.5 shrink-0 ${isNcpGroupActive ? "text-emerald-555" : "text-zinc-400"}`} />
+                  <HeartHandshake className={`h-4.5 w-4.5 shrink-0 ${isNcpGroupActive ? "text-emerald-500" : "text-zinc-400"}`} />
                   {!collapsed && <span>Nutrition Care</span>}
                 </div>
                 {!collapsed && (
@@ -291,13 +291,13 @@ export function Sidebar() {
                 onClick={toggleFoodService}
                 className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all duration-150 cursor-pointer ${
                   isFoodServiceGroupActive
-                    ? "bg-zinc-900/40 text-zinc-250 font-bold border-l-2 border-emerald-650"
+                    ? "bg-zinc-900/40 text-zinc-200 font-bold border-l-2 border-emerald-600"
                     : "text-zinc-400 hover:bg-zinc-900/60 hover:text-zinc-200"
                 }`}
                 title={collapsed ? "Food Service" : undefined}
               >
                 <div className="flex items-center gap-3">
-                  <Salad className={`h-4.5 w-4.5 shrink-0 ${isFoodServiceGroupActive ? "text-emerald-555" : "text-zinc-400"}`} />
+                  <Salad className={`h-4.5 w-4.5 shrink-0 ${isFoodServiceGroupActive ? "text-emerald-500" : "text-zinc-400"}`} />
                   {!collapsed && <span>Food Service</span>}
                 </div>
                 {!collapsed && (
