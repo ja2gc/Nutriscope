@@ -8,6 +8,7 @@ use App\Models\ScreeningDocument;
 use App\Services\RiskScoreCalculator;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class ScreeningDocumentController extends Controller
 {
@@ -53,6 +54,20 @@ class ScreeningDocumentController extends Controller
         return response()->json([
             'data' => new ScreeningDocumentResource($screeningDocument->fresh()),
         ]);
+    }
+
+    public function file(ScreeningDocument $screeningDocument): BinaryFileResponse
+    {
+        $absolutePath = $screeningDocument->file_path;
+
+        // Support both absolute paths stored in DB and relative paths
+        if (!file_exists($absolutePath)) {
+            $absolutePath = storage_path('app/' . ltrim($absolutePath, '/\\'));
+        }
+
+        abort_unless(file_exists($absolutePath), 404, 'File not found.');
+
+        return response()->file($absolutePath);
     }
 
     private function normalizeDecimal(mixed $value): ?float

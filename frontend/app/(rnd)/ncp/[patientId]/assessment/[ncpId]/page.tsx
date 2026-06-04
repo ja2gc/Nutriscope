@@ -13,8 +13,11 @@ import {
   fetchScreeningDocument,
   fetchOcrDocuments,
   ScreeningDocumentRecord,
+  OcrDocumentRecord,
   uploadScreeningDocument, uploadLabsDocument,
   approveScreeningDocument,
+  getScreeningDocumentFileUrl,
+  getOcrDocumentFileUrl,
 } from "@/services/assessmentService";
 
 // ─── Constants ───────────────────────────────────────────────────────────
@@ -480,8 +483,13 @@ export default function NcpAssessmentPage({
   const [saving, setSaving] = useState(false);
   const [uploadingScreening, setUploadingScreening] = useState(false);
   const [uploadingLabs, setUploadingLabs] = useState(false);
+  const [pollingScreening, setPollingScreening] = useState(false);
+  const [pollingLabs, setPollingLabs] = useState(false);
+  const [latestLabDocument, setLatestLabDocument] = useState<OcrDocumentRecord | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const pollingScreeningRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pollingLabsRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const isPlaceholder = patientId === "select-patient" || ncpId === "select-ncp";
 
@@ -561,11 +569,12 @@ export default function NcpAssessmentPage({
         setScreeningDraft(buildScreeningDraft(loadedPatient, loadedScreeningDocument, loadedAssessment));
       }
       if (ocrDocs.status === "fulfilled" && ocrDocs.value.length > 0) {
-        const latestLabDocument = ocrDocs.value[ocrDocs.value.length - 1];
-        const parsedFields = latestLabDocument?.parsed_fields ?? {};
-        const confidenceScore = typeof latestLabDocument?.confidence_score === "number"
-          ? latestLabDocument.confidence_score
-          : Number(latestLabDocument?.confidence_score ?? 0);
+        const latestDoc = ocrDocs.value[ocrDocs.value.length - 1];
+        setLatestLabDocument(latestDoc);
+        const parsedFields = latestDoc?.parsed_fields ?? {};
+        const confidenceScore = typeof latestDoc?.confidence_score === "number"
+          ? latestDoc.confidence_score
+          : Number(latestDoc?.confidence_score ?? 0);
         setLabValues((current) => ({
           ...current,
           ...Object.fromEntries(
@@ -615,6 +624,108 @@ export default function NcpAssessmentPage({
       return { ...next, [key]: value };
     });
   };
+
+  // ─── Polling Helpers ────────────────────────────────────────────────
+  const startScreeningPolling = useCallback((docId: number | string) => {
+    if (pollingScreeningRef.current) clearInterval(pollingScreeningRef.current);
+    setPollingScreening(true);
+    let attempts = 0;
+    const maxAttempts = 24; // 24 × 2.5s = 60s timeout
+
+    pollingScreeningRef.current = setInterval(async () => {
+      attempts++;
+      try {
+        const refreshed = await fetchScreeningDocument(ncpId);
+        if (refreshed?.status === "completed" || refreshed?.status === "failed") {
+          clearInterval(pollingScreeningRef.current!);
+          pollingScreeningRef.current = null;
+          setPollingScreening(false);
+          setScreeningDocument(refreshed);
+
+          if (refreshed?.status === "completed" && patient) {
+            const extracted = refreshed.mapped_fields ?? refreshed.extracted_data ?? {};
+            const screeningTypeValue = getScreeningType(patient, refreshed);
+            setSectionAChecks(resolveChecklistState(getScreeningConditions(screeningTypeValue), extracted.clinical_conditions ?? extracted.section_a ?? extracted.section_a_checks));
+            setSectionBChecks(resolveChecklistState(getScreeningIntakeHistory(screeningTypeValue), extracted.intake_weight_history ?? extracted.section_b ?? extracted.section_b_checks));
+            setScreeningDraft(buildScreeningDraft(patient, refreshed, assessment));
+            // Hydrate weight/height into assessment if blank
+            setAssessment((prev) => ({
+              ...prev,
+              weight: prev.weight ?? (extracted.weight ? Number(extracted.weight) : null),
+              height: prev.height ?? (extracted.height ? Number(extracted.height) : null),
+            }));
+            setSuccess("Screening form extracted and fields auto-filled.");
+            setTimeout(() => setSuccess(null), 5000);
+          } else if (refreshed?.status === "failed") {
+            setError("OCR extraction failed. Please try uploading again.");
+          }
+        } else if (attempts >= maxAttempts) {
+          clearInterval(pollingScreeningRef.current!);
+          pollingScreeningRef.current = null;
+          setPollingScreening(false);
+          setError("OCR extraction timed out. The document was saved but fields were not auto-filled.");
+        }
+      } catch {
+        // Keep polling silently on transient errors
+      }
+    }, 2500);
+  }, [ncpId, patient, assessment, buildScreeningDraft]);
+
+  const startLabsPolling = useCallback((docId: number | string) => {
+    if (pollingLabsRef.current) clearInterval(pollingLabsRef.current);
+    setPollingLabs(true);
+    let attempts = 0;
+    const maxAttempts = 24;
+
+    pollingLabsRef.current = setInterval(async () => {
+      attempts++;
+      try {
+        const allDocs = await fetchOcrDocuments(ncpId);
+        const target = allDocs.find((d) => d.id === docId) ?? allDocs[allDocs.length - 1];
+        if (target?.status === "completed" || target?.status === "failed") {
+          clearInterval(pollingLabsRef.current!);
+          pollingLabsRef.current = null;
+          setPollingLabs(false);
+          if (target.status === "completed") {
+            setLatestLabDocument(target);
+            const parsedFields = target.parsed_fields ?? {};
+            const confidenceScore = typeof target.confidence_score === "number"
+              ? target.confidence_score
+              : Number(target.confidence_score ?? 0);
+            setLabValues((prev) => ({
+              ...prev,
+              ...Object.fromEntries(
+                Object.entries(parsedFields).map(([k, v]) => [k, v === null || v === undefined ? "" : String(v)]),
+              ),
+            }));
+            setLabConfidence((prev) => ({
+              ...prev,
+              ...Object.fromEntries(Object.keys(parsedFields).map((k) => [k, confidenceScore || 0.85])),
+            }));
+            setSuccess("Lab results extracted and fields auto-filled.");
+            setTimeout(() => setSuccess(null), 5000);
+          } else {
+            setError("Lab OCR extraction failed. Please try uploading again.");
+          }
+        } else if (attempts >= maxAttempts) {
+          clearInterval(pollingLabsRef.current!);
+          pollingLabsRef.current = null;
+          setPollingLabs(false);
+          setError("Lab OCR extraction timed out.");
+        }
+      } catch {
+        // Keep polling silently
+      }
+    }, 2500);
+  }, [ncpId]);
+
+  // Clean up intervals on unmount
+  useEffect(() => {
+    return () => {
+      if (pollingScreeningRef.current) clearInterval(pollingScreeningRef.current);
+      if (pollingLabsRef.current) clearInterval(pollingLabsRef.current);
+    };
+  }, []);
 
   // ─── Save ───────────────────────────────────────────────────────────
   const handleSave = async () => {
@@ -677,14 +788,17 @@ export default function NcpAssessmentPage({
     try {
       setUploadingScreening(true);
       setError(null);
-      await uploadScreeningDocument(ncpId, file);
-      const refreshedScreeningDocument = await fetchScreeningDocument(ncpId);
-      setScreeningDocument(refreshedScreeningDocument);
-      setSuccess("Screening document uploaded. OCR extraction is processing.");
-      setTimeout(() => setSuccess(null), 4000);
+      const uploaded = await uploadScreeningDocument(ncpId, file);
+      // Immediately set a pending document so the preview renders
+      const pending = await fetchScreeningDocument(ncpId);
+      setScreeningDocument(pending);
+      setUploadingScreening(false);
+      setSuccess("Screening document uploaded. Extracting fields...");
+      // Start polling for OCR completion
+      const docId = uploaded?.id ?? pending?.id;
+      if (docId) startScreeningPolling(docId);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to upload screening document.");
-    } finally {
       setUploadingScreening(false);
     }
   };
@@ -693,32 +807,15 @@ export default function NcpAssessmentPage({
     try {
       setUploadingLabs(true);
       setError(null);
-      await uploadLabsDocument(ncpId, file);
-      const refreshedLabDocuments = await fetchOcrDocuments(ncpId);
-      if (refreshedLabDocuments.length > 0) {
-        const latestLabDocument = refreshedLabDocuments[refreshedLabDocuments.length - 1];
-        const parsedFields = latestLabDocument?.parsed_fields ?? {};
-        const confidenceScore = typeof latestLabDocument?.confidence_score === "number"
-          ? latestLabDocument.confidence_score
-          : Number(latestLabDocument?.confidence_score ?? 0);
-        setLabValues((current) => ({
-          ...current,
-          ...Object.fromEntries(
-            Object.entries(parsedFields).map(([key, value]) => [key, value === null || value === undefined ? "" : String(value)]),
-          ),
-        }));
-        setLabConfidence((current) => ({
-          ...current,
-          ...Object.fromEntries(
-            Object.keys(parsedFields).map((key) => [key, confidenceScore || 0.85]),
-          ),
-        }));
-      }
-      setSuccess("Lab document uploaded. OCR extraction is processing.");
-      setTimeout(() => setSuccess(null), 4000);
+      const uploaded = await uploadLabsDocument(ncpId, file);
+      setLatestLabDocument(uploaded);
+      setUploadingLabs(false);
+      setSuccess("Lab document uploaded. Extracting fields...");
+      // Start polling for OCR completion
+      const docId = uploaded?.id;
+      if (docId) startLabsPolling(docId);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to upload lab document.");
-    } finally {
       setUploadingLabs(false);
     }
   };
@@ -885,7 +982,39 @@ export default function NcpAssessmentPage({
 
   const renderBiochemicalTab = () => (
     <div className="space-y-5">
-      <DropZone label="Upload Lab Results (PDF or Image) for OCR Extraction" onUpload={handleLabsUpload} uploading={uploadingLabs} />
+      <div className="grid gap-4 lg:grid-cols-[1fr_auto]">
+        <DropZone label="Upload Lab Results (PDF or Image) for OCR Extraction" onUpload={handleLabsUpload} uploading={uploadingLabs} />
+        {latestLabDocument?.id && (
+          <div className="flex flex-col items-center justify-center gap-2">
+            <span className="text-[9px] font-bold uppercase tracking-wider text-zinc-500">Lab Sheet Preview</span>
+            <div className={`relative rounded-xl border-2 overflow-hidden bg-zinc-50 flex items-center justify-center ${
+              pollingLabs ? "border-amber-300 animate-pulse" : "border-zinc-200"
+            }`} style={{ width: 160, height: 200 }}>
+              {pollingLabs && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-white/80 z-10">
+                  <div className="h-1 w-24 bg-zinc-200 rounded-full overflow-hidden">
+                    <div className="h-full bg-amber-400 rounded-full animate-pulse" style={{ width: "70%" }} />
+                  </div>
+                  <span className="text-[9px] text-amber-700 font-bold uppercase">Extracting...</span>
+                </div>
+              )}
+              <img
+                src={getOcrDocumentFileUrl(latestLabDocument.id!)}
+                alt="Lab result scan"
+                className="w-full h-full object-contain"
+                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+              />
+            </div>
+            <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${
+              latestLabDocument.status === "completed" ? "bg-emerald-50 text-emerald-700" :
+              latestLabDocument.status === "failed" ? "bg-red-50 text-red-700" :
+              "bg-amber-50 text-amber-700"
+            }`}>
+              {latestLabDocument.status ?? "pending"}
+            </span>
+          </div>
+        )}
+      </div>
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
         {LAB_FIELDS.map(lf => (
           <div key={lf.key} className={`p-3 bg-white border-2 rounded-xl transition-colors ${confidenceBorder(labConfidence[lf.key])}`}>
@@ -1041,7 +1170,56 @@ export default function NcpAssessmentPage({
                 onUpload={handleScreeningUpload}
                 uploading={uploadingScreening}
               />
+              {/* OCR status indicator while polling */}
+              {pollingScreening && (
+                <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg">
+                  <div className="h-1.5 w-1.5 bg-amber-500 rounded-full animate-ping" />
+                  <span className="text-[10px] font-bold text-amber-700 uppercase tracking-wider">OCR Extraction in progress...</span>
+                </div>
+              )}
             </div>
+
+            {/* Uploaded document preview */}
+            {screeningDocument?.id && (
+              <div className="rounded-xl border border-zinc-200 overflow-hidden bg-zinc-50">
+                <div className="flex items-center justify-between px-3 py-2 bg-white border-b border-zinc-100">
+                  <span className="text-[9px] font-bold uppercase tracking-wider text-zinc-500">Uploaded Document Preview</span>
+                  <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${
+                    screeningDocument.status === "completed" ? "bg-emerald-50 text-emerald-700" :
+                    screeningDocument.status === "failed" ? "bg-red-50 text-red-700" :
+                    "bg-amber-50 text-amber-700"
+                  }`}>
+                    {pollingScreening ? "Extracting..." : (screeningDocument.status ?? "pending")}
+                  </span>
+                </div>
+                <div className="relative flex items-center justify-center p-2" style={{ minHeight: 240 }}>
+                  {pollingScreening && (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-white/80 z-10">
+                      <div className="h-1.5 w-32 bg-zinc-200 rounded-full overflow-hidden">
+                        <div className="h-full bg-emerald-500 rounded-full animate-pulse" style={{ width: "60%" }} />
+                      </div>
+                      <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">Processing OCR...</span>
+                    </div>
+                  )}
+                  <img
+                    src={getScreeningDocumentFileUrl(screeningDocument.id!)}
+                    alt="Uploaded screening form"
+                    className="max-w-full max-h-64 object-contain rounded"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      target.style.display = 'none';
+                      const parent = target.parentElement;
+                      if (parent && !parent.querySelector('.pdf-fallback')) {
+                        const fallback = document.createElement('div');
+                        fallback.className = 'pdf-fallback text-center text-xs text-zinc-500 py-8';
+                        fallback.innerHTML = '<p class="font-bold">PDF Document</p><p class="text-[10px] mt-1">Preview not available for PDF files</p>';
+                        parent.appendChild(fallback);
+                      }
+                    }}
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="space-y-4">
