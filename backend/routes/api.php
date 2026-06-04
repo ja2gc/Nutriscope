@@ -16,6 +16,9 @@ use App\Http\Controllers\RND\AiDiagnosisController;
 use App\Http\Controllers\RND\MealPlanController;
 use App\Http\Controllers\RND\CalendarEventController;
 use App\Http\Controllers\RND\NotificationController;
+use App\Http\Controllers\RND\FoodItemController;
+use App\Http\Controllers\RND\RecipeController;
+use App\Http\Controllers\RND\UsdaController;
 use App\Http\Controllers\FSS\InventoryController;
 use App\Http\Controllers\FSS\SupplierController;
 use App\Http\Controllers\FSS\PurchaseOrderController;
@@ -92,6 +95,12 @@ Route::middleware(['auth:sanctum', 'role:RND', 'audit'])->prefix('rnd')->group(f
 
     // Reports routes
     Route::apiResource('reports', ReportController::class)->only(['index', 'store', 'show']);
+
+    // Food Database routes
+    Route::apiResource('food-items', FoodItemController::class);
+    Route::apiResource('recipes', RecipeController::class);
+    Route::get('usda/search', [UsdaController::class, 'search']);
+    Route::post('usda/import/{fdcId}', [UsdaController::class, 'import']);
 });
 
 Route::middleware(['auth:sanctum', 'role:FSS'])->prefix('fss')->group(function () {

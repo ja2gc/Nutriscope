@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
 
-export default function RecipesRedirect() {
+export default function FoodDatabaseRedirect() {
   redirect("/food-library");
 }
