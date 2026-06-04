@@ -49,6 +49,8 @@ Route::middleware(['auth:sanctum', 'role:RND', 'audit'])->prefix('rnd')->group(f
     Route::get('ncp-records/{ncpRecord}/ocr-documents', [AssessmentController::class, 'showOcrDocuments']);
     Route::get('screening-documents/{screeningDocument}', [ScreeningDocumentController::class, 'show']);
     Route::patch('screening-documents/{screeningDocument}/approve', [ScreeningDocumentController::class, 'approve']);
+    Route::get('screening-documents/{screeningDocument}/file', [ScreeningDocumentController::class, 'file']);
+    Route::get('ocr-documents/{ocrDocument}/file', [AssessmentController::class, 'showOcrDocumentFile']);
 
     // Diagnoses routes
     Route::get('ncp-records/{ncpRecord}/diagnoses', [DiagnosisController::class, 'index']);

@@ -211,3 +211,14 @@ export async function approveScreeningDocument(
   const responseData = await res.json();
   return responseData.data || responseData;
 }
+
+// ─── File Preview URL Helpers ───────────────────────────────────────────────
+// These return relative Next.js proxy URLs — auth token is forwarded server-side.
+
+export function getScreeningDocumentFileUrl(id: number | string): string {
+  return `/api/rnd/screening-documents/${id}/file`;
+}
+
+export function getOcrDocumentFileUrl(id: number | string): string {
+  return `/api/rnd/ocr-documents/${id}/file`;
+}

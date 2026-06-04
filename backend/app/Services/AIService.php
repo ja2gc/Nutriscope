@@ -15,20 +15,29 @@ class AIService
     public function suggestDiagnoses(array $data): array
     {
         $apiKey = config('services.anthropic.key');
-        $model = config('services.anthropic.model', 'claude-haiku-20240307');
+        $model = config('services.anthropic.model', 'claude-haiku-4-5-20251001');
 
         try {
+            $userPrompt = "Given these patient conditions and clinical data: " . json_encode($data) . "\n\n"
+                . "Respond with ONLY this JSON (no prose, no markdown):\n"
+                . "{\"suggestions\":[{\"domain\":\"NI\",\"label\":\"Problem statement\",\"etiology\":\"etiology text\","
+                . "\"signs\":\"signs and symptoms text\",\"confidence\":0.85,\"reasoning\":\"brief clinical reasoning\",\"priority\":1}]}\n\n"
+                . "Provide 2-4 G-NCP standardized nutrition diagnoses. "
+                . "domain must be exactly one of: NI (Intake), NC (Clinical), NB (Behavioral-Environmental). "
+                . "confidence is a float 0.0-1.0. priority starts at 1 for highest priority.";
+
             $response = Http::withHeaders([
                 'x-api-key' => $apiKey,
                 'anthropic-version' => '2023-06-01',
                 'content-type' => 'application/json',
             ])->post('https://api.anthropic.com/v1/messages', [
                 'model' => $model,
-                'max_tokens' => 1000,
+                'max_tokens' => 1024,
+                'system' => 'You are a clinical nutrition AI specializing in G-NCP (Nutrition Care Process). Always respond with valid JSON only. No prose, no markdown fences, only a raw JSON object.',
                 'messages' => [
                     [
                         'role' => 'user',
-                        'content' => 'Based on the following conditions and clinical data, please suggest PES nutrition diagnoses: ' . json_encode($data),
+                        'content' => $userPrompt,
                     ]
                 ],
             ]);

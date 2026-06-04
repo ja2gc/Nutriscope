@@ -13,6 +13,7 @@ use App\Models\OcrDocument;
 use App\Jobs\ProcessDocumentExtraction;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class AssessmentController extends Controller
 {
@@ -163,6 +164,22 @@ class AssessmentController extends Controller
 
         $docs = OcrDocument::where('assessment_id', $assessment->id)->get();
         return response()->json(['data' => $docs]);
+    }
+
+    /**
+     * GET /api/rnd/ocr-documents/{ocrDocument}/file
+     */
+    public function showOcrDocumentFile(OcrDocument $ocrDocument): BinaryFileResponse
+    {
+        $absolutePath = $ocrDocument->file_path;
+
+        if (!file_exists($absolutePath)) {
+            $absolutePath = storage_path('app/' . ltrim($absolutePath, '/\\'));
+        }
+
+        abort_unless(file_exists($absolutePath), 404, 'File not found.');
+
+        return response()->file($absolutePath);
     }
 }
 

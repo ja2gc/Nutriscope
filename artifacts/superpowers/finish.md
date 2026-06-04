@@ -1,53 +1,29 @@
-# Finish Summary — Milestone 1 Auth Review Fixes
+# Finish Notes — NCP Diagnosis Page
 
-**Date:** 2026-05-27  
-**Scope:** 5 fixes from review.md applied (B-1, B-2, M-3, m-1, m-3) + 2 bonus nits (N-2, N-3)
+## Completed
+- `diagnosisService.ts` created with full typed API surface (CRUD + AI)
+- Diagnosis page replaced with 6-tab working implementation
+- TypeScript passes clean (`tsc --noEmit --skipLibCheck` → no errors)
 
----
+## What Was Built
+| Feature | Status |
+|---|---|
+| Tab 1: Diagnosis table with domain filter, edit/delete, AI badge | ✅ |
+| Tab 2: P builder (NI direction+nutrient, NC/NB multi-select checklists) | ✅ |
+| Tab 3: E builder with domain-specific etiology checklists + free text | ✅ |
+| Tab 4: S builder with domain-specific S&S checklists + free text | ✅ |
+| Tab 5: PES auto-assembly + manual override + save | ✅ |
+| Tab 6: AI suggest → suggestion cards → Accept/Edit/Reject | ✅ |
+| Patient header (same pattern as assessment page) | ✅ |
+| Placeholder state for select-patient / select-ncp | ✅ |
 
-## Changes Applied
+## Known Issues / Follow-up
+- `AIService` model: still uses `claude-haiku-20240307`. Should be updated to `claude-haiku-4-5-20251001` in backend `config/services.php` or `.env`.
+- `AIService` prompt is bare JSON dump. For reliable JSON output in Tab 6, the backend prompt should request a structured JSON response with `suggestions` array. Current implementation may return 0 suggestions if the model outputs freeform text rather than the expected `{suggestions:[...]}` wrapper.
 
-| ID | Severity | Description | Files Changed |
-|----|----------|-------------|---------------|
-| B-1 | Blocker | Logout always clears cookie; redirect on error | `logout/route.ts`, `TopBar.tsx` |
-| B-2 | Blocker | Root `/` no longer bypasses middleware auth | `middleware.ts` |
-| M-3 | Major | Removed unused `NEXT_PUBLIC_API_URL` | `.env.local` |
-| m-1 | Minor | Split `initializing` vs `loading` in AuthContext | `AuthContext.tsx`, `(rnd)/layout.tsx` |
-| m-3 | Minor | Added `id` attributes to login form elements | `login/page.tsx` |
-| N-2 | Nit | `catch(err: any)` → `catch(err: unknown)` | `AuthContext.tsx` |
-| N-3 | Nit | `refreshUser` wrapped in `useCallback` | `AuthContext.tsx` |
-
-## Verification
-
-| Check | Result |
-|-------|--------|
-| `npx next build` | ✅ Compiled 9.0s, TypeScript passed, all pages generated |
-| Logout route structure | ✅ Cookie deleted before backend call, try/catch on fetch |
-| Middleware `/` bypass removed | ✅ Only `_next`, `/api`, `.` extensions excluded |
-| AuthContext state split | ✅ `initializing` for mount, `loading` for actions only |
-| Login form IDs | ✅ `login-form`, `login-error`, `login-submit` present |
-
-## Review Pass (Post-Fix)
-
-| Severity | Remaining | Notes |
-|----------|-----------|-------|
-| **Blocker** | 0 | Both fixed |
-| **Major** | 2 | M-1 (accepted risk, inherent limitation), M-2 (deferred to Milestone 9/10) |
-| **Minor** | 1 | m-2 (accepted risk, low impact) |
-| **Nit** | 1 | N-1 (route constants — optional future polish) |
-
-## Manual Validation Steps
-
-1. Start backend: `cd backend && php artisan serve`
-2. Start frontend: `cd frontend && npm run dev`
-3. **Login flow**: Navigate to `/login`, enter credentials, verify redirect to `/dashboard`
-4. **Initial load**: Confirm login form is NOT disabled/showing "Processing..." on page load
-5. **Root redirect**: Visit `/` unauthenticated → should go directly to `/login` (single redirect)
-6. **Logout flow**: Click "Sign Out" in TopBar → should redirect to `/login` with cookie cleared
-7. **Logout resilience**: Stop backend, click logout → should still redirect to `/login`
-8. **Back button**: After logout, press browser Back → should not show dashboard shell
-
-## Follow-ups
-
-- **M-2**: Add role-based redirect before Milestone 9 (FSS) and 10 (Admin)
-- **N-1**: Consider extracting route constants when adding more routes
+## Verification Needed
+- [ ] Browser: Tab 1 renders diagnosis list with domain filter working
+- [ ] Browser: Tab 2→3→4→5 builder flow saves a new diagnosis to API
+- [ ] Browser: Edit existing diagnosis loads correctly into builder
+- [ ] Browser: Delete with confirm prompt works
+- [ ] Browser: Tab 6 AI suggest generates and accept/reject/edit work
