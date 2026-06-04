@@ -185,16 +185,16 @@ export function Sidebar() {
             </Link>
 
             <Link
-              href="/recipes"
+              href="/food-library"
               className={`flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all duration-150 ${
-                pathname.startsWith("/recipes")
+                pathname.startsWith("/food-library")
                   ? "bg-zinc-900 text-zinc-100 border-l-2 border-emerald-600"
                   : "text-zinc-400 hover:bg-zinc-900/60 hover:text-zinc-200"
               }`}
-              title={collapsed ? "Recipes Database" : undefined}
+              title={collapsed ? "Food Library" : undefined}
             >
-              <CookingPot className={`h-4.5 w-4.5 shrink-0 ${pathname.startsWith("/recipes") ? "text-emerald-500" : "text-zinc-400"}`} />
-              {!collapsed && <span>Recipes Database</span>}
+              <CookingPot className={`h-4.5 w-4.5 shrink-0 ${pathname.startsWith("/food-library") ? "text-emerald-500" : "text-zinc-400"}`} />
+              {!collapsed && <span>Food Library</span>}
             </Link>
 
             {/* NCP Collapsible Accordion Dropdown Group */}
