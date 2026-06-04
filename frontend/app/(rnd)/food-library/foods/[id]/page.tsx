@@ -11,6 +11,20 @@ const CATEGORIES = ["protein", "carbs", "vegetable", "fat", "dairy", "fruit"];
 const SERVING_UNITS = ["g", "ml", "piece", "cup", "oz", "tbsp", "tsp"];
 const COMMON_ALLERGENS = ["milk", "eggs", "fish", "shellfish", "tree nuts", "peanuts", "wheat", "soybeans"];
 
+const NUTRIENT_GROUPS = {
+  Minerals: ['sodium','potassium','phosphate','calcium','iron','magnesium','zinc','copper','manganese','selenium','iodine'],
+  Vitamins: ['vitamin_a','vitamin_c','vitamin_d','vitamin_e','vitamin_k','vitamin_b1','vitamin_b2','vitamin_b3','vitamin_b6','vitamin_b12','folate'],
+  'Fatty Acids & Other': ['fiber','cholesterol','omega3'],
+} as const;
+
+const NUTRIENT_UNITS: Record<string, string> = {
+  sodium:'mg', potassium:'mg', phosphate:'mg', calcium:'mg', iron:'mg',
+  magnesium:'mg', zinc:'mg', copper:'mg', manganese:'mg', selenium:'mcg', iodine:'mcg',
+  vitamin_a:'mcg', vitamin_c:'mg', vitamin_d:'mcg', vitamin_e:'mg', vitamin_k:'mcg',
+  vitamin_b1:'mg', vitamin_b2:'mg', vitamin_b3:'mg', vitamin_b6:'mg', vitamin_b12:'mcg', folate:'mcg',
+  fiber:'g', cholesterol:'mg', omega3:'g',
+};
+
 export default function EditFoodPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
@@ -30,6 +44,7 @@ export default function EditFoodPage({ params }: { params: Promise<{ id: string 
   const [servingUnit, setServingUnit] = useState("g");
   const [allergens, setAllergens] = useState<string[]>([]);
   const [allergenInput, setAllergenInput] = useState("");
+  const [micros, setMicros] = useState<Record<string, string>>({});
 
   useEffect(() => {
     fetchFoodItemById(id)
@@ -44,6 +59,11 @@ export default function EditFoodPage({ params }: { params: Promise<{ id: string 
         setServingSize(f.serving_size ?? "100");
         setServingUnit(f.serving_unit ?? "g");
         setAllergens(f.allergens ?? []);
+        const microMap: Record<string, string> = {};
+        Object.values(NUTRIENT_GROUPS).flat().forEach((key) => {
+          microMap[key] = f.micronutrients?.[key] != null ? String(f.micronutrients[key]) : '';
+        });
+        setMicros(microMap);
       })
       .catch((e: unknown) => setError(e instanceof Error ? e.message : "Failed to load."))
       .finally(() => setLoading(false));
@@ -63,6 +83,13 @@ export default function EditFoodPage({ params }: { params: Promise<{ id: string 
     try {
       setSaving(true);
       setError(null);
+      const micronutrients: Record<string, number> = {};
+      if (!food?.usda_fdc_id) {
+        Object.entries(micros).forEach(([k, v]) => {
+          const n = parseFloat(v);
+          if (!isNaN(n) && n >= 0) micronutrients[k] = n;
+        });
+      }
       await updateFoodItem(id, {
         name: name.trim(),
         calories: parseFloat(calories),
@@ -73,6 +100,7 @@ export default function EditFoodPage({ params }: { params: Promise<{ id: string 
         serving_size: servingSize ? parseFloat(servingSize) : null,
         serving_unit: servingUnit || null,
         allergens,
+        ...(!food?.usda_fdc_id && { micronutrients }),
       });
       router.push("/food-library");
     } catch (e: unknown) {
@@ -142,27 +170,50 @@ export default function EditFoodPage({ params }: { params: Promise<{ id: string 
           </div>
         </div>
 
-        <div className="bg-white border border-zinc-200 rounded-2xl p-6 space-y-4 shadow-sm">
-          <h3 className="text-xs font-extrabold text-zinc-700 uppercase tracking-wider">Nutritional Values (per serving)</h3>
+        <div className="bg-white border border-zinc-200 rounded-2xl p-6 space-y-5 shadow-sm">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-extrabold text-zinc-700 uppercase tracking-wider">Nutritional Values (per serving)</h3>
+            {food?.usda_fdc_id && (
+              <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full uppercase tracking-wider">USDA-sourced</span>
+            )}
+          </div>
+
+          {/* Macros — always editable */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <div><Label>Calories (kcal) <Required /></Label><input type="number" value={calories} onChange={(e) => setCalories(e.target.value)} min="0" step="0.01" className={inputCls} required /></div>
             <div><Label>Protein (g)</Label><input type="number" value={protein} onChange={(e) => setProtein(e.target.value)} min="0" step="0.01" className={inputCls} /></div>
             <div><Label>Carbs (g)</Label><input type="number" value={carbs} onChange={(e) => setCarbs(e.target.value)} min="0" step="0.01" className={inputCls} /></div>
             <div><Label>Fat (g)</Label><input type="number" value={fat} onChange={(e) => setFat(e.target.value)} min="0" step="0.01" className={inputCls} /></div>
           </div>
-          {food?.usda_fdc_id && (
-            <div className="mt-2 p-3 bg-emerald-50 border border-emerald-100 rounded-xl">
-              <p className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider mb-1">Micronutrients (USDA-sourced)</p>
-              <div className="flex flex-wrap gap-x-4 gap-y-1">
-                {Object.entries(food.micronutrients ?? {}).map(([key, val]) => (
-                  <span key={key} className="text-[10px] text-emerald-600 font-mono">{key}: {val}</span>
+
+          {/* Micronutrients — grouped */}
+          {Object.entries(NUTRIENT_GROUPS).map(([group, keys]) => (
+            <div key={group}>
+              <p className="text-[9px] font-extrabold text-zinc-400 uppercase tracking-widest mb-2">{group}</p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                {(keys as readonly string[]).map((key) => (
+                  <div key={key}>
+                    <label className="block text-[9px] font-bold text-zinc-400 uppercase tracking-wider mb-1">
+                      {key.replace(/_/g, ' ')} <span className="normal-case font-normal">({NUTRIENT_UNITS[key]})</span>
+                    </label>
+                    {food?.usda_fdc_id ? (
+                      <p className="text-sm font-semibold text-zinc-700 px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-lg">
+                        {micros[key] !== '' ? micros[key] : <span className="text-zinc-300">—</span>}
+                      </p>
+                    ) : (
+                      <input
+                        type="number" min="0" step="0.001"
+                        value={micros[key] ?? ''}
+                        onChange={(e) => setMicros((prev) => ({ ...prev, [key]: e.target.value }))}
+                        className={inputCls}
+                        placeholder="—"
+                      />
+                    )}
+                  </div>
                 ))}
-                {Object.keys(food.micronutrients ?? {}).length === 0 && (
-                  <span className="text-[10px] text-zinc-400">No micronutrient data</span>
-                )}
               </div>
             </div>
-          )}
+          ))}
         </div>
 
         <div className="bg-white border border-zinc-200 rounded-2xl p-6 space-y-4 shadow-sm">
