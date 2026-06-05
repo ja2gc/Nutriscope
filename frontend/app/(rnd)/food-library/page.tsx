@@ -207,6 +207,70 @@ function UsdaImportModal({ onClose, onImported }: {
   );
 }
 
+// ─── Food Micronutrient Popup ─────────────────────────────────────────────────
+
+function FoodMicrosPopup({ food, onClose }: { food: FoodItem; onClose: () => void }) {
+  const micros = food.micronutrients ?? {};
+  const hasMicros = Object.keys(micros).length > 0;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl border border-zinc-200 overflow-hidden"
+        onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-100 bg-zinc-50/60">
+          <div>
+            <h3 className="text-sm font-extrabold text-zinc-900 truncate max-w-xs">{food.name}</h3>
+            <p className="text-[10px] text-zinc-400 mt-0.5">
+              Full nutrient profile · per {food.serving_size ?? 100}{food.serving_unit ?? 'g'} serving
+              {food.usda_fdc_id && <span className="ml-2 text-emerald-600 font-semibold">· USDA FDC #{food.usda_fdc_id}</span>}
+            </p>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-zinc-200 text-zinc-400 cursor-pointer transition-colors">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* Macros bar */}
+        <div className="flex gap-6 px-6 py-4 bg-gradient-to-r from-zinc-50 to-white border-b border-zinc-100">
+          <MacroStat label="Calories" value={food.calories}        unit="kcal" color="text-emerald-700" />
+          <MacroStat label="Protein"  value={food.protein ?? "—"}  unit="g"    color="text-rose-700" />
+          <MacroStat label="Carbs"    value={food.carbs ?? "—"}    unit="g"    color="text-amber-700" />
+          <MacroStat label="Fat"      value={food.fat ?? "—"}      unit="g"    color="text-violet-700" />
+        </div>
+
+        {/* Micronutrients */}
+        <div className="px-6 py-4 max-h-72 overflow-y-auto space-y-4">
+          {!hasMicros ? (
+            <p className="text-xs text-zinc-400 text-center py-6">
+              No micronutrient data — import from USDA to auto-populate all micros.
+            </p>
+          ) : (
+            Object.entries(NUTRIENT_GROUPS).map(([group, keys]) => {
+              const groupKeys = (keys as readonly string[]).filter((k) => micros[k] != null);
+              if (groupKeys.length === 0) return null;
+              return (
+                <div key={group}>
+                  <p className="text-[9px] font-extrabold text-zinc-400 uppercase tracking-widest mb-2">{group}</p>
+                  <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                    {groupKeys.map((key) => (
+                      <div key={key} className="flex flex-col px-2.5 py-2 bg-zinc-50 border border-zinc-100 rounded-lg">
+                        <span className="text-[9px] text-zinc-400 uppercase tracking-wide">{key.replace(/_/g, " ")}</span>
+                        <span className="text-xs font-bold text-zinc-800 mt-0.5">
+                          {micros[key]} <span className="text-[9px] font-normal text-zinc-400">{NUTRIENT_UNITS[key]}</span>
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Recipe Micronutrient Popup ───────────────────────────────────────────────
 
 function RecipeMicrosPopup({ recipe, onClose }: { recipe: Recipe; onClose: () => void }) {
@@ -286,6 +350,7 @@ export default function FoodLibraryPage() {
   const [recipeError, setRecipeError]       = useState<string | null>(null);
 
   const [showUsda, setShowUsda]           = useState(false);
+  const [microsFood, setMicrosFood]       = useState<FoodItem | null>(null);
   const [microsRecipe, setMicrosRecipe]   = useState<Recipe | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ type: "food" | "recipe"; id: number; name: string } | null>(null);
   const [deleting, setDeleting]           = useState(false);
@@ -453,6 +518,7 @@ export default function FoodLibraryPage() {
                       <Th>Food</Th>
                       <Th>Category</Th>
                       <Th>Macros</Th>
+                      <Th>Micros</Th>
                       <Th>Allergens</Th>
                       <Th right>Actions</Th>
                     </tr>
@@ -483,6 +549,24 @@ export default function FoodLibraryPage() {
                             {food.carbs   && <MacroChip label="C" value={parseFloat(food.carbs)}   unit="g" color="text-amber-700 bg-amber-50 border-amber-200" />}
                             {food.fat     && <MacroChip label="F" value={parseFloat(food.fat)}     unit="g" color="text-violet-700 bg-violet-50 border-violet-200" />}
                           </div>
+                        </td>
+                        <td className="px-5 py-3.5">
+                          {(() => {
+                            const hasMicros = Object.keys(food.micronutrients ?? {}).length > 0;
+                            return (
+                              <button
+                                onClick={() => setMicrosFood(food)}
+                                className={`flex items-center gap-1 px-2.5 py-1 rounded-lg border text-[10px] font-bold transition-all cursor-pointer ${
+                                  hasMicros
+                                    ? "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"
+                                    : "bg-zinc-50 text-zinc-400 border-zinc-200 hover:bg-zinc-100"
+                                }`}
+                              >
+                                <FlaskConical className="h-3 w-3" />
+                                Micros
+                              </button>
+                            );
+                          })()}
                         </td>
                         <td className="px-5 py-3.5">
                           {food.allergens.length > 0 ? (
@@ -633,6 +717,10 @@ export default function FoodLibraryPage() {
           onClose={() => setShowUsda(false)}
           onImported={() => { void loadFoods(); }}
         />
+      )}
+
+      {microsFood && (
+        <FoodMicrosPopup food={microsFood} onClose={() => setMicrosFood(null)} />
       )}
 
       {microsRecipe && (

@@ -15,11 +15,10 @@ class InventorySeeder extends Seeder
         foreach ($foodItems as $food) {
             // Determine a reasonable unit and amount
             $unit = match ($food->category) {
-                'Poultry', 'Fish', 'Vegetables', 'Grains', 'Legumes' => 'kg',
-                'Eggs' => 'pieces',
-                'Breads', 'Snacks' => 'packs',
-                'Dairy' => 'liters',
-                default => 'kg',
+                'protein', 'vegetable', 'carbs', 'fat' => 'kg',
+                'dairy'                                 => 'liters',
+                'fruit'                                 => 'kg',
+                default                                 => 'kg',
             };
 
             // Set stock quantities and usage rates
