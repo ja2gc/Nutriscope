@@ -66,7 +66,7 @@ export default function NutritionPrescriptionForm({ values, onChange, onSave, sa
             <div className="flex items-center border border-zinc-200 rounded-lg overflow-hidden focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-500/20">
               <input
                 type="number" min="0" step="0.1"
-                value={(values as Record<string, string>)[key] ?? ""}
+                value={(values as unknown as Record<string, string>)[key] ?? ""}
                 onChange={(e) => setMacro(key, e.target.value)}
                 className="w-full px-2.5 py-2 text-sm font-mono text-zinc-900 bg-transparent focus:outline-none"
               />
