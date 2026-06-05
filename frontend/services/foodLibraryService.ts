@@ -54,7 +54,8 @@ export interface Recipe {
 export interface UsdaSearchResult {
   fdc_id: number;
   name: string;
-  category: string | null;
+  data_type: string | null;
+  food_category: string | null;
   calories: number;
   protein: number;
   carbs: number;
