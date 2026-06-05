@@ -9,8 +9,8 @@ import { Button } from "@/components/ui/Button";
 import {
   fetchMealPlans, createMealPlan, fetchMealPlanItems, addMealPlanItem,
   removeMealPlanItem, deleteMealPlan, generateMealPlan, fetchMealPlanTemplates,
-  saveMealPlanAsTemplate, createPlanFromTemplate,
-  MealPlan, MealPlanItem, MealPlanTemplate,
+  fetchMealPlanTemplate, deleteMealPlanTemplate, saveMealPlanAsTemplate, createPlanFromTemplate,
+  MealPlan, MealPlanItem, MealPlanTemplate, MealPlanTemplateDetail,
 } from "@/services/mealPlanService";
 import {
   fetchFoodItems, fetchRecipes, searchUsda, importUsdaFood,
@@ -47,11 +47,15 @@ export default function MealPlanSection({ ncpId, prescriptionTargets, foodDislik
   const [generateError, setGenerateError] = useState<string | null>(null);
 
   // Templates
-  const [templates, setTemplates]                 = useState<MealPlanTemplate[]>([]);
-  const [saveTemplateOpen, setSaveTemplateOpen]   = useState(false);
-  const [templateName, setTemplateName]           = useState('');
-  const [savingTemplate, setSavingTemplate]       = useState(false);
-  const [fromTemplateOpen, setFromTemplateOpen]   = useState(false);
+  const [templates, setTemplates]                     = useState<MealPlanTemplate[]>([]);
+  const [saveTemplateOpen, setSaveTemplateOpen]       = useState(false);
+  const [templateName, setTemplateName]               = useState('');
+  const [savingTemplate, setSavingTemplate]           = useState(false);
+  const [fromTemplateOpen, setFromTemplateOpen]       = useState(false);
+  const [viewingTemplate, setViewingTemplate]         = useState<MealPlanTemplateDetail | null>(null);
+  const [loadingTemplate, setLoadingTemplate]         = useState<number | null>(null);
+  const [confirmDeleteTemplateId, setConfirmDeleteTemplateId] = useState<number | null>(null);
+  const [deletingTemplate, setDeletingTemplate]       = useState(false);
 
   // Food picker
   const [pickerOpen, setPickerOpen]           = useState(false);
@@ -119,7 +123,9 @@ export default function MealPlanSection({ ncpId, prescriptionTargets, foodDislik
         );
         return;
       }
-      await loadPlans();
+      // result is the new MealPlan — add it to the list and select it directly
+      setPlans((prev) => [...prev, result]);
+      setActivePlan(result);
     } finally { setGenerating(false); }
   };
 
@@ -136,6 +142,7 @@ export default function MealPlanSection({ ncpId, prescriptionTargets, foodDislik
 
   const handleFromTemplate = async (templateId: number) => {
     setFromTemplateOpen(false);
+    setViewingTemplate(null);
     setCreatingPlan(true);
     try {
       const d = new Date(); d.setDate(d.getDate() + (d.getDay() === 0 ? -6 : 1 - d.getDay()));
@@ -143,9 +150,30 @@ export default function MealPlanSection({ ncpId, prescriptionTargets, foodDislik
         template_id: templateId,
         week_start_date: d.toISOString().split('T')[0],
       });
-      setPlans((p) => [plan, ...p]);
+      setPlans((p) => [...p, plan]);
       setActivePlan(plan);
     } finally { setCreatingPlan(false); }
+  };
+
+  const handleViewTemplate = async (templateId: number) => {
+    setLoadingTemplate(templateId);
+    try {
+      const detail = await fetchMealPlanTemplate(templateId);
+      setViewingTemplate(detail);
+    } finally { setLoadingTemplate(null); }
+  };
+
+  const handleDeleteTemplate = async () => {
+    if (!confirmDeleteTemplateId) return;
+    setDeletingTemplate(true);
+    try {
+      await deleteMealPlanTemplate(confirmDeleteTemplateId);
+      setTemplates((prev) => prev.filter((t) => t.id !== confirmDeleteTemplateId));
+      if (viewingTemplate?.id === confirmDeleteTemplateId) setViewingTemplate(null);
+    } finally {
+      setDeletingTemplate(false);
+      setConfirmDeleteTemplateId(null);
+    }
   };
 
   const handleDeletePlan = async () => {
@@ -508,22 +536,113 @@ export default function MealPlanSection({ ncpId, prescriptionTargets, foodDislik
         </div>
       )}
 
-      {/* Load Template Modal */}
+      {/* Template Manager Modal */}
       {fromTemplateOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-extrabold text-zinc-900">Load Template</h3>
-              <button onClick={() => setFromTemplateOpen(false)} className="text-zinc-400 hover:text-zinc-700 cursor-pointer"><X className="h-4 w-4" /></button>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 flex flex-col max-h-[80vh]">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-100">
+              {viewingTemplate ? (
+                <div className="flex items-center gap-2">
+                  <button onClick={() => setViewingTemplate(null)} className="text-zinc-400 hover:text-zinc-700 cursor-pointer">
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                  </button>
+                  <h3 className="text-sm font-extrabold text-zinc-900">{viewingTemplate.name}</h3>
+                </div>
+              ) : (
+                <h3 className="text-sm font-extrabold text-zinc-900">Meal Plan Templates</h3>
+              )}
+              <button onClick={() => { setFromTemplateOpen(false); setViewingTemplate(null); }} className="text-zinc-400 hover:text-zinc-700 cursor-pointer">
+                <X className="h-4 w-4" />
+              </button>
             </div>
-            <div className="space-y-2 max-h-72 overflow-y-auto">
-              {templates.map((tmpl) => (
-                <button key={tmpl.id} onClick={() => handleFromTemplate(tmpl.id)}
-                  className="w-full text-left p-3 border border-zinc-200 rounded-xl hover:border-emerald-400 hover:bg-emerald-50 transition-colors cursor-pointer">
-                  <p className="text-xs font-semibold text-zinc-800">{tmpl.name}</p>
-                  {tmpl.goal_type && <p className="text-[10px] text-zinc-400 capitalize">{tmpl.goal_type.replace(/_/g, ' ')}</p>}
-                </button>
-              ))}
+
+            <div className="overflow-y-auto flex-1 p-4">
+              {/* Template list */}
+              {!viewingTemplate && (
+                templates.length === 0 ? (
+                  <p className="text-xs text-zinc-400 text-center py-8">No templates saved yet. Create a meal plan and save it as a template.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {templates.map((tmpl) => (
+                      <div key={tmpl.id} className="flex items-center gap-2 p-3 border border-zinc-200 rounded-xl hover:border-zinc-300 transition-colors">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-semibold text-zinc-800 truncate">{tmpl.name}</p>
+                          {tmpl.goal_type && <p className="text-[10px] text-zinc-400 capitalize">{tmpl.goal_type.replace(/_/g, ' ')}</p>}
+                        </div>
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          <button onClick={() => handleViewTemplate(tmpl.id)} disabled={loadingTemplate === tmpl.id}
+                            className="px-2.5 py-1.5 text-[10px] font-bold text-zinc-500 border border-zinc-200 rounded-lg hover:border-zinc-400 hover:text-zinc-700 transition-colors cursor-pointer disabled:opacity-40">
+                            {loadingTemplate === tmpl.id ? <Loader2 className="h-3 w-3 animate-spin" /> : 'View'}
+                          </button>
+                          <button onClick={() => handleFromTemplate(tmpl.id)}
+                            className="px-2.5 py-1.5 text-[10px] font-bold text-emerald-700 border border-emerald-300 rounded-lg hover:bg-emerald-50 transition-colors cursor-pointer">
+                            Use
+                          </button>
+                          <button onClick={() => setConfirmDeleteTemplateId(tmpl.id)} title="Delete template"
+                            className="p-1.5 text-zinc-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors cursor-pointer">
+                            <Trash2 className="h-3 w-3" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )
+              )}
+
+              {/* Template detail view */}
+              {viewingTemplate && (
+                <div className="space-y-3">
+                  {viewingTemplate.goal_type && (
+                    <p className="text-[10px] text-zinc-400 capitalize">{viewingTemplate.goal_type.replace(/_/g, ' ')}</p>
+                  )}
+                  {(['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'] as const).map((day) => {
+                    const daySlots = viewingTemplate.days.filter((d) => d.day_of_week === day);
+                    if (daySlots.length === 0) return null;
+                    return (
+                      <div key={day} className="border border-zinc-100 rounded-xl overflow-hidden">
+                        <div className="px-3 py-2 bg-zinc-50 border-b border-zinc-100">
+                          <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">{day}</p>
+                        </div>
+                        <div className="divide-y divide-zinc-50">
+                          {daySlots.map((slot) => (
+                            <div key={slot.id} className="flex items-center justify-between px-3 py-2">
+                              <div>
+                                <p className="text-[10px] font-semibold text-zinc-500 capitalize">{slot.meal_type.replace('_', ' ')}</p>
+                                <p className="text-xs text-zinc-800">{slot.food_name ?? '—'}</p>
+                              </div>
+                              {slot.calories != null && (
+                                <p className="text-[10px] text-zinc-400">{Math.round(slot.calories)} kcal</p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                  <button onClick={() => handleFromTemplate(viewingTemplate.id)}
+                    className="w-full py-2.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition-colors cursor-pointer mt-2">
+                    Use This Template
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Template Confirm */}
+      {confirmDeleteTemplateId && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6 space-y-4">
+            <h3 className="text-sm font-extrabold text-zinc-900">Delete Template?</h3>
+            <p className="text-xs text-zinc-500">This template will be permanently deleted. Plans already created from it are not affected.</p>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setConfirmDeleteTemplateId(null)} className="px-4 py-2 text-xs font-bold text-zinc-500 hover:text-zinc-700 cursor-pointer">Cancel</button>
+              <button onClick={handleDeleteTemplate} disabled={deletingTemplate}
+                className="px-4 py-2 text-xs font-bold bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors disabled:opacity-50 cursor-pointer">
+                {deletingTemplate ? 'Deleting…' : 'Delete Template'}
+              </button>
             </div>
           </div>
         </div>

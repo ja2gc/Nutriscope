@@ -80,14 +80,18 @@ class MealPlanController extends Controller
             ], 422);
         }
 
-        $mealPlan = $this->mealPlanService->generate(
+        $result = $this->mealPlanService->generate(
             $ncpRecord,
             $request->week_start_date,
             $request->conditions ?? [],
             $request->allergens ?? [],
         );
 
-        return response()->json(['data' => new MealPlanResource($mealPlan)], 201);
+        if (is_array($result)) {
+            return response()->json($result, 422);
+        }
+
+        return response()->json(['data' => new MealPlanResource($result)], 201);
     }
 
     /**
@@ -145,6 +149,42 @@ class MealPlanController extends Controller
             ->get(['id', 'name', 'description', 'goal_type', 'created_at']);
 
         return response()->json(['data' => $templates]);
+    }
+
+    /**
+     * GET /api/rnd/meal-plan-templates/{template}
+     */
+    public function showTemplate(\App\Models\MealPlanTemplate $template): JsonResponse
+    {
+        $template->load(['days.foodItem', 'days.recipe']);
+
+        $days = $template->days->map(fn($d) => [
+            'id'          => $d->id,
+            'day_of_week' => $d->day_of_week,
+            'meal_type'   => $d->meal_type,
+            'quantity'    => $d->quantity,
+            'unit'        => $d->unit,
+            'food_name'   => $d->foodItem?->name ?? $d->recipe?->name ?? null,
+            'calories'    => $d->foodItem?->calories ?? $d->recipe?->total_calories ?? null,
+        ]);
+
+        return response()->json(['data' => [
+            'id'         => $template->id,
+            'name'       => $template->name,
+            'description'=> $template->description,
+            'goal_type'  => $template->goal_type,
+            'created_at' => $template->created_at,
+            'days'       => $days,
+        ]]);
+    }
+
+    /**
+     * DELETE /api/rnd/meal-plan-templates/{template}
+     */
+    public function destroyTemplate(\App\Models\MealPlanTemplate $template): JsonResponse
+    {
+        $template->delete();
+        return response()->json(null, 204);
     }
 
     /**
