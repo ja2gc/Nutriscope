@@ -3,7 +3,7 @@
 import React, { use, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CookingPot, ArrowLeft, Search, Plus, X, Loader2 } from "lucide-react";
+import { CookingPot, ArrowLeft, Search, Plus, X, Loader2, FlaskConical } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { fetchRecipeById, updateRecipe, fetchFoodItems, Recipe, FoodItem, RecipeIngredientPayload } from "@/services/foodLibraryService";
 
@@ -19,6 +19,20 @@ interface IngredientRow {
   unit: string;
 }
 
+const NUTRIENT_GROUPS = {
+  Minerals: ["sodium","potassium","phosphate","calcium","iron","magnesium","zinc","copper","manganese","selenium","iodine"],
+  Vitamins: ["vitamin_a","vitamin_c","vitamin_d","vitamin_e","vitamin_k","vitamin_b1","vitamin_b2","vitamin_b3","vitamin_b6","vitamin_b12","folate"],
+  "Fatty Acids & Other": ["fiber","cholesterol","omega3"],
+} as const;
+
+const NUTRIENT_UNITS: Record<string, string> = {
+  sodium:"mg", potassium:"mg", phosphate:"mg", calcium:"mg", iron:"mg",
+  magnesium:"mg", zinc:"mg", copper:"mg", manganese:"mg", selenium:"mcg", iodine:"mcg",
+  vitamin_a:"mcg", vitamin_c:"mg", vitamin_d:"mcg", vitamin_e:"mg", vitamin_k:"mcg",
+  vitamin_b1:"mg", vitamin_b2:"mg", vitamin_b3:"mg", vitamin_b6:"mg", vitamin_b12:"mcg", folate:"mcg",
+  fiber:"g", cholesterol:"mg", omega3:"g",
+};
+
 function calcMacros(rows: IngredientRow[]) {
   let cal = 0, pro = 0, carb = 0, fat = 0;
   for (const row of rows) {
@@ -32,6 +46,20 @@ function calcMacros(rows: IngredientRow[]) {
     fat  += parseFloat(row.food.fat      ?? "0") * factor;
   }
   return { cal: cal.toFixed(1), pro: pro.toFixed(1), carb: carb.toFixed(1), fat: fat.toFixed(1) };
+}
+
+function calcMicros(rows: IngredientRow[]): Record<string, number> {
+  const micros: Record<string, number> = {};
+  for (const row of rows) {
+    if (!row.food || !row.quantity) continue;
+    const qty = parseFloat(row.quantity);
+    const size = parseFloat(row.food.serving_size ?? "100") || 100;
+    const factor = qty / size;
+    for (const [key, val] of Object.entries(row.food.micronutrients ?? {})) {
+      micros[key] = (micros[key] ?? 0) + (val * factor);
+    }
+  }
+  return Object.fromEntries(Object.entries(micros).map(([k, v]) => [k, Math.round(v * 1000) / 1000]));
 }
 
 let rowKey = 2000;
@@ -50,6 +78,7 @@ export default function EditRecipePage({ params }: { params: Promise<{ id: strin
   const [servings, setServings] = useState("1");
   const [prepNotes, setPrepNotes] = useState("");
   const [ingredients, setIngredients] = useState<IngredientRow[]>([]);
+  const [showMicros, setShowMicros] = useState(false);
 
   useEffect(() => {
     fetchRecipeById(id)
@@ -156,13 +185,27 @@ export default function EditRecipePage({ params }: { params: Promise<{ id: strin
         </div>
 
         <div className="grid grid-cols-4 gap-3">
-          {[{ label: "Calories", value: macros.cal, unit: "kcal", color: "emerald" }, { label: "Protein", value: macros.pro, unit: "g", color: "blue" }, { label: "Carbs", value: macros.carb, unit: "g", color: "amber" }, { label: "Fat", value: macros.fat, unit: "g", color: "rose" }].map(({ label, value, unit, color }) => (
+          {[
+            { label: "Calories", value: macros.cal,  unit: "kcal", color: "text-emerald-600" },
+            { label: "Protein",  value: macros.pro,  unit: "g",    color: "text-rose-600" },
+            { label: "Carbs",    value: macros.carb, unit: "g",    color: "text-amber-600" },
+            { label: "Fat",      value: macros.fat,  unit: "g",    color: "text-violet-600" },
+          ].map(({ label, value, unit, color }) => (
             <div key={label} className="bg-white border border-zinc-200 rounded-xl p-3 text-center shadow-sm">
               <div className="text-[10px] font-extrabold text-zinc-500 uppercase tracking-wider">{label}</div>
-              <div className={`text-lg font-extrabold mt-1 text-${color}-600`}>{value}</div>
+              <div className={`text-lg font-extrabold mt-1 ${color}`}>{value}</div>
               <div className="text-[9px] text-zinc-400 font-semibold">{unit}</div>
             </div>
           ))}
+        </div>
+
+        {/* Micros preview button */}
+        <div className="flex justify-end">
+          <button type="button" onClick={() => setShowMicros(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 text-xs font-bold rounded-xl transition-colors cursor-pointer">
+            <FlaskConical className="h-3.5 w-3.5" />
+            View Micronutrient Profile
+          </button>
         </div>
 
         <div className="bg-white border border-zinc-200 rounded-2xl p-6 space-y-4 shadow-sm">
@@ -221,6 +264,61 @@ export default function EditRecipePage({ params }: { params: Promise<{ id: strin
           <Button type="submit" variant="primary" loading={saving} className="w-auto px-6 py-2.5">Save Changes</Button>
         </div>
       </form>
+
+      {/* Micronutrient popup — calculated live from current ingredients */}
+      {showMicros && (() => {
+        const micros = calcMicros(ingredients);
+        const hasMicros = Object.keys(micros).length > 0;
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
+            onClick={() => setShowMicros(false)}>
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl border border-zinc-200 overflow-hidden"
+              onClick={(e) => e.stopPropagation()}>
+
+              <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-100 bg-zinc-50/60">
+                <div>
+                  <h3 className="text-sm font-extrabold text-zinc-900">{name || "Recipe"} — Micronutrients</h3>
+                  <p className="text-[10px] text-zinc-400 mt-0.5">Aggregated from current ingredients · updates when you change quantities</p>
+                </div>
+                <button onClick={() => setShowMicros(false)}
+                  className="p-1.5 rounded-lg hover:bg-zinc-200 text-zinc-400 cursor-pointer transition-colors">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="px-6 py-4 max-h-[60vh] overflow-y-auto space-y-4">
+                {!hasMicros ? (
+                  <div className="text-center py-10">
+                    <FlaskConical className="h-8 w-8 text-zinc-200 mx-auto mb-3" />
+                    <p className="text-xs text-zinc-400">No micronutrient data available.</p>
+                    <p className="text-[10px] text-zinc-300 mt-1">Add ingredients imported from USDA — they carry full micro profiles.</p>
+                  </div>
+                ) : (
+                  Object.entries(NUTRIENT_GROUPS).map(([group, keys]) => {
+                    const present = (keys as readonly string[]).filter((k) => micros[k] != null && micros[k] > 0);
+                    if (present.length === 0) return null;
+                    return (
+                      <div key={group}>
+                        <p className="text-[9px] font-extrabold text-zinc-400 uppercase tracking-widest mb-2">{group}</p>
+                        <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                          {present.map((key) => (
+                            <div key={key} className="flex flex-col px-2.5 py-2 bg-zinc-50 border border-zinc-100 rounded-lg">
+                              <span className="text-[9px] text-zinc-400 uppercase tracking-wide">{key.replace(/_/g, " ")}</span>
+                              <span className="text-xs font-bold text-zinc-800 mt-0.5">
+                                {micros[key]} <span className="text-[9px] font-normal text-zinc-400">{NUTRIENT_UNITS[key]}</span>
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
