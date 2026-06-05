@@ -101,6 +101,8 @@ Route::middleware(['auth:sanctum', 'role:RND', 'audit'])->prefix('rnd')->group(f
     Route::apiResource('recipes', RecipeController::class);
     Route::get('usda/search', [UsdaController::class, 'search']);
     Route::post('usda/import/{fdcId}', [UsdaController::class, 'import']);
+    Route::get('usda/preview/{fdcId}', [UsdaController::class, 'preview'])
+        ->where('fdcId', '[0-9]+');
 });
 
 Route::middleware(['auth:sanctum', 'role:FSS'])->prefix('fss')->group(function () {
