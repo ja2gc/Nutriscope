@@ -9,7 +9,7 @@ export interface FoodItem {
   protein: string | null;
   carbs: string | null;
   fat: string | null;
-  micronutrients: Record<string, number>;
+  micronutrients: Record<string, number> | null;
   allergens: string[];
   serving_unit: string | null;
   serving_size: string | null;

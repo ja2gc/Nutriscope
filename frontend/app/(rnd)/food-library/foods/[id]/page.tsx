@@ -100,7 +100,7 @@ export default function EditFoodPage({ params }: { params: Promise<{ id: string 
         serving_size: servingSize ? parseFloat(servingSize) : null,
         serving_unit: servingUnit || null,
         allergens,
-        ...(!food?.usda_fdc_id && { micronutrients }),
+        ...(!food?.usda_fdc_id && Object.keys(micronutrients).length > 0 && { micronutrients }),
       });
       router.push("/food-library");
     } catch (e: unknown) {
@@ -198,7 +198,7 @@ export default function EditFoodPage({ params }: { params: Promise<{ id: string 
                     </label>
                     {food?.usda_fdc_id ? (
                       <p className="text-sm font-semibold text-zinc-700 px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-lg">
-                        {micros[key] !== '' ? micros[key] : <span className="text-zinc-300">—</span>}
+                        {micros[key] !== '' ? `${micros[key]} ${NUTRIENT_UNITS[key]}` : <span className="text-zinc-300">—</span>}
                       </p>
                     ) : (
                       <input
