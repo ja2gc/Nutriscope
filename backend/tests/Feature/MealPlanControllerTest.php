@@ -187,4 +187,53 @@ class MealPlanControllerTest extends TestCase
 
         $response->assertUnprocessable();
     }
+
+    // ─── Template tests ────────────────────────────────────────────────────────
+
+    public function test_rnd_can_save_meal_plan_as_template(): void
+    {
+        [$ncpRecord, $intervention, $patient] = $this->makeInterventionWithNcpRecord();
+        $plan = MealPlan::factory()->create([
+            'intervention_id' => $intervention->id,
+            'patient_id'      => $patient->id,
+        ]);
+
+        $this->actingAs($this->rnd)
+            ->postJson("/api/rnd/ncp-records/{$ncpRecord->id}/meal-plans/{$plan->id}/save-template", [
+                'name'      => 'CKD Stage 4 — Week A',
+                'goal_type' => 'renal_diet',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.name', 'CKD Stage 4 — Week A');
+
+        $this->assertDatabaseHas('meal_plan_templates', ['name' => 'CKD Stage 4 — Week A']);
+    }
+
+    public function test_rnd_can_list_templates(): void
+    {
+        \App\Models\MealPlanTemplate::forceCreate([
+            'rnd_user_id' => $this->rnd->id, 'name' => 'Template A', 'goal_type' => 'renal_diet',
+        ]);
+
+        $this->actingAs($this->rnd)
+            ->getJson('/api/rnd/meal-plan-templates')
+            ->assertOk()
+            ->assertJsonCount(1, 'data');
+    }
+
+    public function test_rnd_can_create_plan_from_template(): void
+    {
+        [$ncpRecord, $intervention, $patient] = $this->makeInterventionWithNcpRecord();
+        $template = \App\Models\MealPlanTemplate::forceCreate([
+            'rnd_user_id' => $this->rnd->id, 'name' => 'Template A',
+        ]);
+
+        $this->actingAs($this->rnd)
+            ->postJson("/api/rnd/ncp-records/{$ncpRecord->id}/meal-plans/from-template", [
+                'template_id'     => $template->id,
+                'week_start_date' => now()->addWeek()->startOfWeek()->toDateString(),
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.generation_type', 'manual');
+    }
 }
