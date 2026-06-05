@@ -10,7 +10,7 @@ class MealPlanItem extends Model
 {
     use HasFactory;
     protected $fillable = [
-        'meal_plan_day_id', 'food_item_id', 'recipe_id',
+        'meal_plan_day_id', 'food_item_id', 'recipe_id', 'fdc_id',
         'quantity', 'unit', 'nutrient_snapshot', 'ai_suggested',
     ];
 
