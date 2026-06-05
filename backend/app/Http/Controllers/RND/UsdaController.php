@@ -25,6 +25,16 @@ class UsdaController extends Controller
         }
     }
 
+    /**
+     * GET /api/rnd/usda/preview/{fdcId}
+     * Returns full nutrient data for a USDA food without saving it to food_items.
+     */
+    public function preview(int $fdcId): JsonResponse
+    {
+        $data = $this->usda->fetch($fdcId);
+        return response()->json(['data' => $data]);
+    }
+
     public function import(Request $request, int $fdcId): JsonResponse
     {
         try {
