@@ -74,7 +74,7 @@ class UsdaService
             'query'    => $query,
             'pageSize' => $pageSize,
             'api_key'  => $this->apiKey,
-            'dataType' => ['SR Legacy', 'Foundation', 'Survey (FNDDS)'],
+            'dataType' => 'SR Legacy,Foundation,Survey (FNDDS)',
         ]);
 
         if (! $response->successful()) {
