@@ -31,6 +31,7 @@ export interface RecipeIngredient {
     fat: string | null;
     serving_size: string | null;
     serving_unit: string | null;
+    micronutrients: Record<string, number> | null;
   } | null;
 }
 
