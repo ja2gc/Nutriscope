@@ -71,6 +71,7 @@ Route::middleware(['auth:sanctum', 'role:RND', 'audit'])->prefix('rnd')->group(f
     Route::get('ncp-records/{ncpRecord}/intervention', [InterventionController::class, 'show']);
     Route::patch('ncp-records/{ncpRecord}/intervention', [InterventionController::class, 'update']);
     Route::post('ncp-records/{ncpRecord}/intervention/recommend', [MealPlanController::class, 'recommend']);
+    Route::get('ncp-records/{ncpRecord}/intervention/recommendations', [InterventionController::class, 'recommendations']);
 
     // Meal Plan routes
     Route::get('ncp-records/{ncpRecord}/meal-plans', [MealPlanController::class, 'index']);

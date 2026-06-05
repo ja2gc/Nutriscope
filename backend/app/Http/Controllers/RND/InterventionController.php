@@ -44,11 +44,43 @@ class InterventionController extends Controller
     public function update(UpdateInterventionRequest $request, NcpRecord $ncpRecord): InterventionResource
     {
         $intervention = $ncpRecord->intervention()->firstOrFail();
-        
+
         $data = $request->validated();
         $intervention->fill($data);
         $intervention->save();
 
         return new InterventionResource($intervention);
+    }
+
+    /**
+     * GET /api/rnd/ncp-records/{ncpRecord}/intervention/recommendations
+     * Auto-derives clinical rule conditions from the intervention's goal_type.
+     */
+    public function recommendations(NcpRecord $ncpRecord): JsonResponse
+    {
+        $intervention = $ncpRecord->intervention()->firstOrFail();
+
+        $conditions = $this->mapGoalTypeToConditions($intervention->goal_type ?? '');
+        $stages     = $intervention->disease_stage ? [$intervention->disease_stage] : null;
+
+        $result = app(\App\Services\RecommendService::class)
+            ->getRecommendations($conditions, $stages);
+
+        return response()->json(['data' => $result]);
+    }
+
+    private function mapGoalTypeToConditions(string $goalType): array
+    {
+        return match ($goalType) {
+            'renal_diet'        => ['CKD', 'Renal disease'],
+            'diabetic_control'  => ['DM', 'High glucose'],
+            'cardiac_diet'      => ['Cardiac', 'Hypertension'],
+            'weight_gain'       => ['Malnutrition'],
+            'high_protein'      => ['Low albumin', 'Malnutrition'],
+            'fluid_restriction' => ['CKD', 'Renal disease'],
+            'liver_disease'     => ['Liver disease'],
+            'malnutrition'      => ['Malnutrition'],
+            default             => [],
+        };
     }
 }
