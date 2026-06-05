@@ -19,6 +19,7 @@ use App\Http\Controllers\RND\NotificationController;
 use App\Http\Controllers\RND\FoodItemController;
 use App\Http\Controllers\RND\RecipeController;
 use App\Http\Controllers\RND\UsdaController;
+use App\Http\Controllers\RND\MealPlanItemController;
 use App\Http\Controllers\FSS\InventoryController;
 use App\Http\Controllers\FSS\SupplierController;
 use App\Http\Controllers\FSS\PurchaseOrderController;
@@ -77,6 +78,11 @@ Route::middleware(['auth:sanctum', 'role:RND', 'audit'])->prefix('rnd')->group(f
     Route::get('ncp-records/{ncpRecord}/meal-plans/{mealPlan}', [MealPlanController::class, 'show']);
     Route::patch('ncp-records/{ncpRecord}/meal-plans/{mealPlan}', [MealPlanController::class, 'update']);
     Route::post('ncp-records/{ncpRecord}/meal-plans/generate', [MealPlanController::class, 'generate']);
+
+    // Meal Plan Item routes
+    Route::get('ncp-records/{ncpRecord}/meal-plans/{mealPlan}/days/{day}/items', [MealPlanItemController::class, 'index']);
+    Route::post('ncp-records/{ncpRecord}/meal-plans/{mealPlan}/days/{day}/items', [MealPlanItemController::class, 'store']);
+    Route::delete('ncp-records/{ncpRecord}/meal-plans/{mealPlan}/days/{day}/items/{item}', [MealPlanItemController::class, 'destroy']);
 
     // Monitoring routes
     Route::get('ncp-records/{ncpRecord}/monitorings', [MonitoringController::class, 'index']);
