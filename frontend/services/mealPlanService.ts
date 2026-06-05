@@ -227,6 +227,25 @@ export async function createPlanFromTemplate(
   return (await res.json()).data;
 }
 
+export async function updateMealPlanItem(
+  ncpId: string,
+  planId: number,
+  dayId: number,
+  itemId: number,
+  payload: { quantity?: number; nutrient_snapshot?: NutrientSnapshot }
+): Promise<MealPlanItem> {
+  const res = await fetch(
+    `/api/rnd/ncp-records/${ncpId}/meal-plans/${planId}/days/${dayId}/items/${itemId}`,
+    {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify(payload),
+    }
+  );
+  if (!res.ok) throw new Error('Failed to update meal plan item.');
+  return (await res.json()).data;
+}
+
 export async function removeMealPlanItem(
   ncpId: string,
   planId: number,

@@ -73,6 +73,7 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
   const [saving, setSaving]                     = useState(false);
   const [patientMetrics, setPatientMetrics]     = useState<PatientMetrics | null>(null);
   const [foodDislikes, setFoodDislikes]         = useState<string[]>([]);
+  const [allergens, setAllergens]               = useState<string[]>([]);
 
   const [educationNotes, setEducationNotes]   = useState("");
   const [counselingGoals, setCounselingGoals] = useState("");
@@ -121,6 +122,9 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
       }
       if (assessment?.food_dislikes && Array.isArray(assessment.food_dislikes)) {
         setFoodDislikes(assessment.food_dislikes.map((d: string) => d.toLowerCase()));
+      }
+      if (assessment?.allergies && Array.isArray(assessment.allergies)) {
+        setAllergens(assessment.allergies.map((a: string) => a.toLowerCase()));
       }
     } catch { /* assessment may not exist yet */ }
   }, [ncpId]);
@@ -306,6 +310,9 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
                 fat:     parseFloat(prescription.fat_g)       || 0,
               }}
               foodDislikes={foodDislikes}
+              allergens={allergens}
+              displayedMicros={prescription.displayed_nutrients}
+              micronutrientLimits={prescription.micronutrient_limits}
             />
           </div>
         )}
