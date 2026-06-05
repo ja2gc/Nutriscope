@@ -61,6 +61,18 @@ export interface UsdaSearchResult {
   fat: number;
 }
 
+export interface UsdaPreviewResult {
+  fdc_id: number;
+  name: string;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  micronutrients: Record<string, number>;
+  serving_size: number;
+  serving_unit: string;
+}
+
 export interface PaginatedResponse<T> {
   data: T[];
   links?: { first: string; last: string; prev: string | null; next: string | null };
@@ -298,6 +310,20 @@ export async function importUsdaFood(fdcId: number): Promise<FoodItem> {
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.message || "Import failed.");
+  }
+
+  const data = await res.json();
+  return data.data ?? data;
+}
+
+export async function previewUsdaFood(fdcId: number): Promise<UsdaPreviewResult> {
+  const res = await fetch(`/api/rnd/usda/preview/${fdcId}`, {
+    headers: { Accept: "application/json" },
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || "USDA preview failed.");
   }
 
   const data = await res.json();
