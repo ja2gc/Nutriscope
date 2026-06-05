@@ -49,11 +49,16 @@ class MealPlanService
             return ['insufficient_recipes' => true, 'count' => $recipes->count()];
         }
 
-        // Daily targets from the intervention prescription
-        $dailyKcal    = (float) ($intervention->energy_kcal ?? 2000);
-        $dailyProtein = (float) ($intervention->protein_g   ?? 70);
-        $dailyCarbs   = (float) ($intervention->carbs_g     ?? 250);
-        $dailyFat     = (float) ($intervention->fat_g       ?? 60);
+        // Daily targets
+        $dailyKcal    = max((float) ($intervention->energy_kcal ?? 2000), 1);
+        $dailyProtein = (float) ($intervention->protein_g ?? 70);
+        $dailyCarbs   = (float) ($intervention->carbs_g   ?? 250);
+        $dailyFat     = (float) ($intervention->fat_g     ?? 60);
+
+        // Target macro ratios (fraction of total kcal): protein 4kcal/g, carbs 4kcal/g, fat 9kcal/g
+        $targetProteinRatio = ($dailyProtein * 4)  / $dailyKcal;
+        $targetCarbsRatio   = ($dailyCarbs   * 4)  / $dailyKcal;
+        $targetFatRatio     = ($dailyFat     * 9)  / $dailyKcal;
 
         $mealPlan = MealPlan::create([
             'intervention_id' => $intervention->id,
@@ -92,21 +97,32 @@ class MealPlanService
                 $slotPct    = self::SLOT_DISTRIBUTION[$mealType] ?? 0.20;
                 $targetKcal = $dailyKcal * $slotPct;
 
-                // Pick best recipe for this slot: closest to target kcal, not used today yet
+                // Score recipes by macro-ratio distance from prescription targets
+                // (ignoring absolute kcal — quantity scaling handles that)
                 $best      = null;
-                $bestDelta = PHP_INT_MAX;
+                $bestScore = PHP_INT_MAX;
                 foreach ($dayPool as $r) {
                     if (in_array($r->id, $usedThisDay)) continue;
-                    $delta = abs((float) $r->total_calories - $targetKcal);
-                    if ($delta < $bestDelta) { $bestDelta = $delta; $best = $r; }
+                    $rKcal = max((float) $r->total_calories, 1);
+                    $rProteinRatio = ((float) $r->total_protein * 4) / $rKcal;
+                    $rCarbsRatio   = ((float) $r->total_carbs   * 4) / $rKcal;
+                    $rFatRatio     = ((float) $r->total_fat     * 9) / $rKcal;
+
+                    // Euclidean distance in macro-ratio space (lower = better match)
+                    $score = sqrt(
+                        pow($rProteinRatio - $targetProteinRatio, 2) +
+                        pow($rCarbsRatio   - $targetCarbsRatio,   2) +
+                        pow($rFatRatio     - $targetFatRatio,     2)
+                    );
+                    if ($score < $bestScore) { $bestScore = $score; $best = $r; }
                 }
                 // Fallback: allow repeats if pool exhausted
                 if (!$best) $best = $dayPool[$slotIndex % $dayPool->count()];
                 $usedThisDay[] = $best->id;
 
-                // Scale quantity so displayed calories ≈ target
+                // Scale quantity to hit slot calorie target (clamped to ±50% of 1 serving)
                 $recipeKcal = max((float) $best->total_calories, 1);
-                $quantity   = round(min(max($targetKcal / $recipeKcal, 0.5), 3.0), 2);
+                $quantity   = round(min(max($targetKcal / $recipeKcal, 0.5), 2.0), 2);
 
                 $itemRows[] = [
                     'meal_plan_day_id'  => $dayRecord->id,
