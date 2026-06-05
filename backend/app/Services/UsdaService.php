@@ -23,33 +23,30 @@ class UsdaService
      * The clinical-rule engine matches nutrient_or_food_tag values against these keys.
      */
     private const MICRO_IDS = [
-        // Minerals — plain names, no _mg suffix
-        1093 => 'sodium',       // mg
-        1092 => 'potassium',    // mg
-        1091 => 'phosphate',    // mg  (USDA label: Phosphorus — stored as 'phosphate' per project)
-        1087 => 'calcium',      // mg
-        1089 => 'iron',         // mg
-        1090 => 'magnesium',    // mg
-        1095 => 'zinc',         // mg
-        1098 => 'copper',       // mg
-        1101 => 'manganese',    // mg
-        1103 => 'selenium',     // mcg
-        1134 => 'iodine',       // mcg
-        // Other clinically tracked nutrients
-        1079 => 'fiber',        // g
-        1253 => 'cholesterol',  // mg
-        // Vitamins
-        1106 => 'vitamin_a',    // mcg RAE
-        1162 => 'vitamin_c',    // mg
-        1114 => 'vitamin_d',    // mcg
-        1109 => 'vitamin_e',    // mg alpha-tocopherol
-        1185 => 'vitamin_k',    // mcg phylloquinone
-        1165 => 'vitamin_b1',   // mg thiamin
-        1166 => 'vitamin_b2',   // mg riboflavin
-        1167 => 'vitamin_b3',   // mg niacin
-        1175 => 'vitamin_b6',   // mg
-        1178 => 'vitamin_b12',  // mcg
-        1190 => 'folate',       // mcg DFE
+        1093 => 'sodium',
+        1092 => 'potassium',
+        1091 => 'phosphate',  // USDA: Phosphorus — stored as 'phosphate' per project convention
+        1087 => 'calcium',
+        1089 => 'iron',
+        1090 => 'magnesium',
+        1095 => 'zinc',
+        1098 => 'copper',
+        1101 => 'manganese',
+        1103 => 'selenium',
+        1134 => 'iodine',
+        1079 => 'fiber',
+        1253 => 'cholesterol',
+        1106 => 'vitamin_a',
+        1162 => 'vitamin_c',
+        1114 => 'vitamin_d',
+        1109 => 'vitamin_e',
+        1185 => 'vitamin_k',
+        1165 => 'vitamin_b1',
+        1166 => 'vitamin_b2',
+        1167 => 'vitamin_b3',
+        1175 => 'vitamin_b6',
+        1178 => 'vitamin_b12',
+        1190 => 'folate',
     ];
 
     // EPA (1278) + DHA (1272) + ALA (1404) — summed into 'omega3' (g)
@@ -58,6 +55,46 @@ class UsdaService
 
     private const CACHE_TTL_DAYS = 7;
 
+    /**
+     * Maps USDA foodCategory.description → our internal category values.
+     * Categories not listed here return null (manual input required).
+     */
+    private const CATEGORY_MAP = [
+        'Poultry Products'                    => 'protein',
+        'Beef Products'                       => 'protein',
+        'Pork Products'                       => 'protein',
+        'Lamb, Veal, and Game Products'       => 'protein',
+        'Finfish and Shellfish Products'      => 'protein',
+        'Legumes and Legume Products'         => 'protein',
+        'Sausages and Luncheon Meats'         => 'protein',
+        'Dairy and Egg Products'              => 'dairy',
+        'Vegetables and Vegetable Products'   => 'vegetable',
+        'Fruits and Fruit Juices'             => 'fruit',
+        'Fats and Oils'                       => 'fat',
+        'Nut and Seed Products'               => 'fat',
+        'Grain and Cereal Products'           => 'carbs',
+        'Breakfast Cereals'                   => 'carbs',
+        'Baked Products'                      => 'carbs',
+        'Sweets'                              => 'carbs',
+        'Snacks'                              => 'carbs',
+    ];
+
+    /**
+     * USDA categories that always carry specific Big 9 allergens, regardless of food name.
+     */
+    private const CATEGORY_ALLERGENS = [
+        'Dairy and Egg Products' => ['milk', 'eggs'],
+    ];
+
+    /**
+     * Shellfish keywords — used to distinguish shellfish from fish within
+     * 'Finfish and Shellfish Products' since USDA lumps them together.
+     */
+    private const SHELLFISH_TERMS = [
+        'shrimp', 'crab', 'lobster', 'prawn', 'squid', 'clam',
+        'oyster', 'scallop', 'mussel', 'crawfish', 'crayfish', 'abalone',
+    ];
+
     public function __construct()
     {
         $this->apiKey  = config('services.usda.key', '');
@@ -65,8 +102,7 @@ class UsdaService
     }
 
     /**
-     * Search USDA FoodData Central. Returns macro preview data only (for the import modal).
-     * Full micronutrient data is fetched on import via fetch().
+     * Search USDA FoodData Central. Returns macro preview + food category for display.
      */
     public function search(string $query, int $pageSize = 20): array
     {
@@ -82,23 +118,23 @@ class UsdaService
         }
 
         return collect($response->json('foods', []))->map(function ($food) {
-            // Search response uses flat structure: nutrientId + value
             $nutrients = collect($food['foodNutrients'] ?? []);
             return [
-                'fdc_id'   => $food['fdcId'],
-                'name'     => $food['description'],
-                'category' => $food['dataType'] ?? null,
-                'calories' => $this->findInSearch($nutrients, self::ENERGY_ID),
-                'protein'  => $this->findInSearch($nutrients, self::PROTEIN_ID),
-                'carbs'    => $this->findInSearch($nutrients, self::CARBS_ID),
-                'fat'      => $this->findInSearch($nutrients, self::FAT_ID),
+                'fdc_id'        => $food['fdcId'],
+                'name'          => $food['description'],
+                'data_type'     => $food['dataType'] ?? null,
+                'food_category' => $food['foodCategory'] ?? null,
+                'calories'      => $this->findInSearch($nutrients, self::ENERGY_ID),
+                'protein'       => $this->findInSearch($nutrients, self::PROTEIN_ID),
+                'carbs'         => $this->findInSearch($nutrients, self::CARBS_ID),
+                'fat'           => $this->findInSearch($nutrients, self::FAT_ID),
             ];
         })->values()->all();
     }
 
     /**
      * Fetch full nutrient detail for one food. Results cached in Redis for 7 days.
-     * Detail response uses nested structure: nutrient.id + amount.
+     * Also extracts food category from the API response.
      */
     public function fetch(int $fdcId): array
     {
@@ -114,9 +150,15 @@ class UsdaService
             $data      = $response->json();
             $nutrients = collect($data['foodNutrients'] ?? []);
 
+            // foodCategory is nested as object on detail endpoint, string on search endpoint
+            $foodCategory = $data['foodCategory']['description']
+                ?? $data['foodCategory']
+                ?? null;
+
             return [
                 'fdc_id'         => $data['fdcId'],
                 'name'           => $data['description'],
+                'food_category'  => $foodCategory,
                 'calories'       => $this->findInDetail($nutrients, self::ENERGY_ID),
                 'protein'        => $this->findInDetail($nutrients, self::PROTEIN_ID),
                 'carbs'          => $this->findInDetail($nutrients, self::CARBS_ID),
@@ -127,8 +169,8 @@ class UsdaService
     }
 
     /**
-     * Import a USDA food into the local food_items table.
-     * Throws if the FDC ID already exists to prevent duplicates.
+     * Import a USDA food into food_items.
+     * Auto-populates category and allergens from USDA data — RND should review after import.
      */
     public function import(int $fdcId): FoodItem
     {
@@ -136,7 +178,8 @@ class UsdaService
             throw new RuntimeException("Food item with USDA FDC ID {$fdcId} already exists.");
         }
 
-        $data = $this->fetch($fdcId);
+        $data         = $this->fetch($fdcId);
+        $foodCategory = $data['food_category'] ?? null;
 
         return FoodItem::create([
             'name'           => $data['name'],
@@ -146,13 +189,81 @@ class UsdaService
             'carbs'          => $data['carbs'],
             'fat'            => $data['fat'],
             'micronutrients' => $data['micronutrients'],
-            'allergens'      => [],
+            'category'       => $this->mapCategory($foodCategory),
+            'allergens'      => $this->detectAllergens($data['name'], $foodCategory ?? ''),
             'serving_size'   => 100,
             'serving_unit'   => 'g',
         ]);
     }
 
     // ── Private helpers ───────────────────────────────────────────────────────
+
+    private function mapCategory(?string $usdaCategory): ?string
+    {
+        if ($usdaCategory === null) return null;
+        return self::CATEGORY_MAP[$usdaCategory] ?? null;
+    }
+
+    /**
+     * Auto-detect Big 9 allergens from USDA category + food name.
+     * Returns suggestions — RND must review on the edit page.
+     */
+    private function detectAllergens(string $name, string $usdaCategory): array
+    {
+        $allergens = self::CATEGORY_ALLERGENS[$usdaCategory] ?? [];
+        $lower     = strtolower($name);
+
+        // Fish vs shellfish — USDA lumps them in one category
+        if ($usdaCategory === 'Finfish and Shellfish Products') {
+            $isShellfish = false;
+            foreach (self::SHELLFISH_TERMS as $term) {
+                if (str_contains($lower, $term)) {
+                    $isShellfish = true;
+                    break;
+                }
+            }
+            $allergens[] = $isShellfish ? 'shellfish' : 'fish';
+        }
+
+        // Wheat from grain/baked products — not all grains contain wheat
+        if (in_array($usdaCategory, ['Grain and Cereal Products', 'Baked Products', 'Breakfast Cereals'])) {
+            $wheatTerms = ['wheat', 'flour', 'bread', 'pasta', 'barley', 'rye', 'semolina', 'bulgur', 'spelt'];
+            foreach ($wheatTerms as $term) {
+                if (str_contains($lower, $term)) {
+                    $allergens[] = 'wheat';
+                    break;
+                }
+            }
+        }
+
+        // Soy + peanuts from legumes — most legumes are NOT allergens
+        if ($usdaCategory === 'Legumes and Legume Products') {
+            if (str_contains($lower, 'soy') || str_contains($lower, 'tofu') || str_contains($lower, 'edamame') || str_contains($lower, 'miso')) {
+                $allergens[] = 'soybeans';
+            }
+            if (str_contains($lower, 'peanut')) {
+                $allergens[] = 'peanuts';
+            }
+        }
+
+        // Nut and seed products — distinguish peanuts, sesame, and tree nuts
+        if ($usdaCategory === 'Nut and Seed Products') {
+            if (str_contains($lower, 'peanut')) {
+                $allergens[] = 'peanuts';
+            } elseif (str_contains($lower, 'sesame') || str_contains($lower, 'tahini')) {
+                $allergens[] = 'sesame';
+            } else {
+                $allergens[] = 'tree nuts';
+            }
+        }
+
+        // Sesame can appear anywhere — scan name regardless of category
+        if (! in_array('sesame', $allergens) && (str_contains($lower, 'sesame') || str_contains($lower, 'tahini'))) {
+            $allergens[] = 'sesame';
+        }
+
+        return array_values(array_unique($allergens));
+    }
 
     /** Search response: flat structure — nutrientId + value */
     private function findInSearch($nutrients, int $id): float
@@ -178,7 +289,6 @@ class UsdaService
             }
         }
 
-        // Omega-3: EPA + DHA + ALA summed into a single 'omega3' (g) key
         $omega3 = 0.0;
         foreach (self::OMEGA3_IDS as $id) {
             $found = $nutrients->first(fn($n) => ($n['nutrient']['id'] ?? null) === $id);

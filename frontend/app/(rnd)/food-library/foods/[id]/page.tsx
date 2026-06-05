@@ -3,7 +3,7 @@
 import React, { use, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Database, ArrowLeft, Plus, X, Loader2 } from "lucide-react";
+import { Database, ArrowLeft, Plus, X, Loader2, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { fetchFoodItemById, updateFoodItem, FoodItem } from "@/services/foodLibraryService";
 
@@ -137,6 +137,15 @@ export default function EditFoodPage({ params }: { params: Promise<{ id: string 
           )}
         </div>
       </div>
+
+      {food?.usda_fdc_id && (
+        <div className="flex items-start gap-2.5 px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl">
+          <TriangleAlert className="h-3.5 w-3.5 text-amber-600 shrink-0 mt-0.5" />
+          <p className="text-[11px] text-amber-800 leading-relaxed">
+            Category and allergens below were <span className="font-bold">auto-detected from USDA data</span> — please review and correct them before saving.
+          </p>
+        </div>
+      )}
 
       {error && <div className="bg-red-50 border border-red-100 p-4 rounded-xl text-xs text-red-700 font-bold">{error}</div>}
 
