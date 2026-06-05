@@ -87,6 +87,7 @@ Route::middleware(['auth:sanctum', 'role:RND', 'audit'])->prefix('rnd')->group(f
     Route::delete('meal-plan-templates/{template}', [MealPlanController::class, 'destroyTemplate']);
 
     // Meal Plan Item routes
+    Route::get('ncp-records/{ncpRecord}/meal-plans/{mealPlan}/items', [MealPlanItemController::class, 'allItems']);
     Route::get('ncp-records/{ncpRecord}/meal-plans/{mealPlan}/days/{day}/items', [MealPlanItemController::class, 'index']);
     Route::post('ncp-records/{ncpRecord}/meal-plans/{mealPlan}/days/{day}/items', [MealPlanItemController::class, 'store']);
     Route::delete('ncp-records/{ncpRecord}/meal-plans/{mealPlan}/days/{day}/items/{item}', [MealPlanItemController::class, 'destroy']);

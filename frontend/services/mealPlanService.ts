@@ -82,6 +82,18 @@ export async function createMealPlan(
 
 // ─── Meal Plan Items API ──────────────────────────────────────────────────────
 
+/** Fetch all items for a plan in one request — replaces 35 individual calls. */
+export async function fetchAllMealPlanItems(
+  ncpId: string,
+  planId: number
+): Promise<MealPlanItem[]> {
+  const res = await fetch(`/api/rnd/ncp-records/${ncpId}/meal-plans/${planId}/items`, {
+    headers: { Accept: 'application/json' },
+  });
+  if (!res.ok) throw new Error('Failed to fetch meal plan items.');
+  return (await res.json()).data ?? [];
+}
+
 export async function fetchMealPlanItems(
   ncpId: string,
   planId: number,

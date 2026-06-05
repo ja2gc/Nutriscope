@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import {
-  fetchMealPlans, createMealPlan, fetchMealPlanItems, addMealPlanItem,
+  fetchMealPlans, createMealPlan, fetchAllMealPlanItems, addMealPlanItem,
   removeMealPlanItem, deleteMealPlan, generateMealPlan, fetchMealPlanTemplates,
   fetchMealPlanTemplate, deleteMealPlanTemplate, saveMealPlanAsTemplate, createPlanFromTemplate,
   MealPlan, MealPlanItem, MealPlanTemplate, MealPlanTemplateDetail,
@@ -88,11 +88,17 @@ export default function MealPlanSection({ ncpId, prescriptionTargets, foodDislik
   }, [loadPlans]);
 
   const loadItems = useCallback(async (plan: MealPlan) => {
+    const allItems = await fetchAllMealPlanItems(ncpId, plan.id);
+    // Build dayId → {day_of_week, meal_type} lookup from plan.days
+    const dayLookup = new Map((plan.days ?? []).map(d => [d.id, d]));
     const map: Record<string, MealPlanItem[]> = {};
-    await Promise.all((plan.days ?? []).map(async (day) => {
-      const items = await fetchMealPlanItems(ncpId, plan.id, day.id);
-      map[slotKey(day.day_of_week, day.meal_type)] = items;
-    }));
+    for (const item of allItems) {
+      const day = dayLookup.get(item.meal_plan_day_id);
+      if (!day) continue;
+      const key = slotKey(day.day_of_week, day.meal_type);
+      if (!map[key]) map[key] = [];
+      map[key].push(item);
+    }
     setItemsByKey(map);
   }, [ncpId]);
 
