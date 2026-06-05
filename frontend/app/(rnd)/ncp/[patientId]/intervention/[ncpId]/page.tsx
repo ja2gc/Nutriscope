@@ -13,7 +13,6 @@ import {
 } from "@/lib/nutritionCalculations";
 import GoalSelectorModal, { GOALS } from "./_components/GoalSelectorModal";
 import NutritionPrescriptionForm from "./_components/NutritionPrescriptionForm";
-import MacroTrackerBar from "./_components/MacroTrackerBar";
 import RecommendAvoidPanel from "./_components/RecommendAvoidPanel";
 import EducationTab from "./_components/EducationTab";
 import CounselingTab from "./_components/CounselingTab";
@@ -73,6 +72,7 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
   const [recommendLoading, setRecommendLoading] = useState(false);
   const [saving, setSaving]                     = useState(false);
   const [patientMetrics, setPatientMetrics]     = useState<PatientMetrics | null>(null);
+  const [foodDislikes, setFoodDislikes]         = useState<string[]>([]);
 
   const [educationNotes, setEducationNotes]   = useState("");
   const [counselingGoals, setCounselingGoals] = useState("");
@@ -118,6 +118,9 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
           sex: "Male",    // TODO: wire from patient context (patient.sex)
           isAdult: true,
         });
+      }
+      if (assessment?.food_dislikes && Array.isArray(assessment.food_dislikes)) {
+        setFoodDislikes(assessment.food_dislikes.map((d: string) => d.toLowerCase()));
       }
     } catch { /* assessment may not exist yet */ }
   }, [ncpId]);
@@ -246,16 +249,6 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
         ))}
       </div>
 
-      {/* Sticky macro tracker — Tab 1 only */}
-      {tab === "nd" && (
-        <MacroTrackerBar targets={[
-          { label: "Energy",  current: 0, target: parseFloat(prescription.energy_kcal) || 0, unit: "kcal" },
-          { label: "Protein", current: 0, target: parseFloat(prescription.protein_g)   || 0, unit: "g"    },
-          { label: "Carbs",   current: 0, target: parseFloat(prescription.carbs_g)     || 0, unit: "g"    },
-          { label: "Fat",     current: 0, target: parseFloat(prescription.fat_g)       || 0, unit: "g"    },
-        ]} />
-      )}
-
       {/* Tab content */}
       <div className="pt-5 space-y-6">
 
@@ -304,12 +297,16 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
             )}
 
             {/* [D] Meal Plan */}
-            <MealPlanSection ncpId={ncpId} prescriptionTargets={{
-              energy:  parseFloat(prescription.energy_kcal) || 0,
-              protein: parseFloat(prescription.protein_g)   || 0,
-              carbs:   parseFloat(prescription.carbs_g)     || 0,
-              fat:     parseFloat(prescription.fat_g)       || 0,
-            }} />
+            <MealPlanSection
+              ncpId={ncpId}
+              prescriptionTargets={{
+                energy:  parseFloat(prescription.energy_kcal) || 0,
+                protein: parseFloat(prescription.protein_g)   || 0,
+                carbs:   parseFloat(prescription.carbs_g)     || 0,
+                fat:     parseFloat(prescription.fat_g)       || 0,
+              }}
+              foodDislikes={foodDislikes}
+            />
           </div>
         )}
 

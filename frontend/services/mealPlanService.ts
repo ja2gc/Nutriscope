@@ -124,6 +124,61 @@ export async function addMealPlanItem(
   return data.data ?? data;
 }
 
+export async function generateMealPlan(
+  ncpId: string,
+  payload: { week_start_date: string; conditions?: string[]; allergens?: string[] }
+): Promise<MealPlan | { insufficient_recipes: true; count: number }> {
+  const res = await fetch(`/api/rnd/ncp-records/${ncpId}/meal-plans/generate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) return data;
+  return data.data ?? data;
+}
+
+export interface MealPlanTemplate {
+  id: number;
+  name: string;
+  description: string | null;
+  goal_type: string | null;
+  created_at: string;
+}
+
+export async function fetchMealPlanTemplates(): Promise<MealPlanTemplate[]> {
+  const res = await fetch('/api/rnd/meal-plan-templates', { headers: { Accept: 'application/json' } });
+  if (!res.ok) return [];
+  return (await res.json()).data ?? [];
+}
+
+export async function saveMealPlanAsTemplate(
+  ncpId: string,
+  planId: number,
+  payload: { name: string; description?: string; goal_type?: string }
+): Promise<MealPlanTemplate> {
+  const res = await fetch(`/api/rnd/ncp-records/${ncpId}/meal-plans/${planId}/save-template`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error('Failed to save template.');
+  return (await res.json()).data;
+}
+
+export async function createPlanFromTemplate(
+  ncpId: string,
+  payload: { template_id: number; week_start_date: string }
+): Promise<MealPlan> {
+  const res = await fetch(`/api/rnd/ncp-records/${ncpId}/meal-plans/from-template`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error('Failed to create plan from template.');
+  return (await res.json()).data;
+}
+
 export async function removeMealPlanItem(
   ncpId: string,
   planId: number,
