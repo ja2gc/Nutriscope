@@ -79,12 +79,11 @@ class UsdaService
         'Snacks'                              => 'carbs',
     ];
 
-    /**
-     * USDA categories that always carry specific Big 9 allergens, regardless of food name.
-     */
-    private const CATEGORY_ALLERGENS = [
-        'Dairy and Egg Products' => ['milk', 'eggs'],
-    ];
+    /** Egg-specific name terms — used to distinguish eggs from dairy within "Dairy and Egg Products" */
+    private const EGG_TERMS  = ['egg', 'eggs'];
+
+    /** Milk/dairy name terms — catches dairy foods even when the USDA category is non-standard (e.g. FNDDS) */
+    private const MILK_TERMS = ['milk', 'cream', 'cheese', 'butter', 'yogurt', 'dairy', 'whey', 'lactose', 'kefir', 'custard', 'pudding'];
 
     /**
      * Shellfish keywords — used to distinguish shellfish from fish within
@@ -210,8 +209,21 @@ class UsdaService
      */
     private function detectAllergens(string $name, string $usdaCategory): array
     {
-        $allergens = self::CATEGORY_ALLERGENS[$usdaCategory] ?? [];
+        $allergens = [];
         $lower     = strtolower($name);
+
+        // "Dairy and Egg Products" — distinguish by food name since USDA lumps both together
+        if ($usdaCategory === 'Dairy and Egg Products') {
+            $isEgg   = collect(self::EGG_TERMS)->contains(fn($t) => str_contains($lower, $t));
+            $isDairy = collect(self::MILK_TERMS)->contains(fn($t) => str_contains($lower, $t));
+
+            if ($isEgg)   $allergens[] = 'eggs';
+            if ($isDairy) $allergens[] = 'milk';
+            // If neither keyword matches, flag both — better to over-flag for RND review
+            if (! $isEgg && ! $isDairy) {
+                $allergens = ['milk', 'eggs'];
+            }
+        }
 
         // Fish vs shellfish — USDA lumps them in one category
         if ($usdaCategory === 'Finfish and Shellfish Products') {
@@ -254,6 +266,16 @@ class UsdaService
                 $allergens[] = 'sesame';
             } else {
                 $allergens[] = 'tree nuts';
+            }
+        }
+
+        // Milk/dairy — catch FNDDS and other non-standard categories by name scan
+        if (! in_array('milk', $allergens)) {
+            foreach (self::MILK_TERMS as $term) {
+                if (str_contains($lower, $term)) {
+                    $allergens[] = 'milk';
+                    break;
+                }
             }
         }
 
