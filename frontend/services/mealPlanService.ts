@@ -124,6 +124,14 @@ export async function addMealPlanItem(
   return data.data ?? data;
 }
 
+export async function deleteMealPlan(ncpId: string, planId: number): Promise<void> {
+  const res = await fetch(`/api/rnd/ncp-records/${ncpId}/meal-plans/${planId}`, {
+    method: 'DELETE',
+    headers: { Accept: 'application/json' },
+  });
+  if (!res.ok && res.status !== 204) throw new Error('Failed to delete meal plan.');
+}
+
 export async function generateMealPlan(
   ncpId: string,
   payload: { week_start_date: string; conditions?: string[]; allergens?: string[] }

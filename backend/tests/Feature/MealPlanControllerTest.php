@@ -188,6 +188,21 @@ class MealPlanControllerTest extends TestCase
         $response->assertUnprocessable();
     }
 
+    public function test_rnd_can_delete_meal_plan(): void
+    {
+        [$ncpRecord, $intervention, $patient] = $this->makeInterventionWithNcpRecord();
+        $plan = MealPlan::factory()->create([
+            'intervention_id' => $intervention->id,
+            'patient_id'      => $patient->id,
+        ]);
+
+        $this->actingAs($this->rnd)
+            ->deleteJson("/api/rnd/ncp-records/{$ncpRecord->id}/meal-plans/{$plan->id}")
+            ->assertNoContent();
+
+        $this->assertDatabaseMissing('meal_plans', ['id' => $plan->id]);
+    }
+
     // ─── Template tests ────────────────────────────────────────────────────────
 
     public function test_rnd_can_save_meal_plan_as_template(): void

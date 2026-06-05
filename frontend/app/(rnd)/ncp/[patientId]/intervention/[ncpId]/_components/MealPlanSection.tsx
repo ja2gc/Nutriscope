@@ -8,7 +8,7 @@ import {
 import { Button } from "@/components/ui/Button";
 import {
   fetchMealPlans, createMealPlan, fetchMealPlanItems, addMealPlanItem,
-  removeMealPlanItem, generateMealPlan, fetchMealPlanTemplates,
+  removeMealPlanItem, deleteMealPlan, generateMealPlan, fetchMealPlanTemplates,
   saveMealPlanAsTemplate, createPlanFromTemplate,
   MealPlan, MealPlanItem, MealPlanTemplate,
 } from "@/services/mealPlanService";
@@ -37,6 +37,10 @@ export default function MealPlanSection({ ncpId, prescriptionTargets, foodDislik
   const [itemsByKey, setItemsByKey]     = useState<Record<string, MealPlanItem[]>>({});
   const [loadingPlans, setLoadingPlans] = useState(false);
   const [creatingPlan, setCreatingPlan] = useState(false);
+
+  // Delete plan
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
+  const [deleting, setDeleting]               = useState(false);
 
   // Auto-generate
   const [generating, setGenerating]       = useState(false);
@@ -144,6 +148,21 @@ export default function MealPlanSection({ ncpId, prescriptionTargets, foodDislik
     } finally { setCreatingPlan(false); }
   };
 
+  const handleDeletePlan = async () => {
+    if (!confirmDeleteId) return;
+    setDeleting(true);
+    try {
+      await deleteMealPlan(ncpId, confirmDeleteId);
+      const remaining = plans.filter((p) => p.id !== confirmDeleteId);
+      setPlans(remaining);
+      setActivePlan(remaining.length > 0 ? remaining[0] : null);
+      setItemsByKey({});
+    } finally {
+      setDeleting(false);
+      setConfirmDeleteId(null);
+    }
+  };
+
   const openPicker = (dayId: number, mealType: string) => {
     setPickerTarget({ dayId, mealType }); setPickerOpen(true); setPickerTab('library');
     setLibraryQuery(''); setLibraryResults([]); setRecipeQuery(''); setRecipeResults([]);
@@ -238,12 +257,22 @@ export default function MealPlanSection({ ncpId, prescriptionTargets, foodDislik
 
       {/* Plan selector pills */}
       {plans.length > 0 && (
-        <div className="flex gap-1.5 flex-wrap">
+        <div className="flex gap-1.5 flex-wrap items-center">
           {plans.map((p) => (
-            <button key={p.id} onClick={() => setActivePlan(p)}
-              className={`px-3 py-1.5 rounded-lg text-[10px] font-bold border transition-colors cursor-pointer ${
-                activePlan?.id === p.id ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-zinc-600 border-zinc-200 hover:border-emerald-400'
-              }`}>Week of {p.week_start_date}</button>
+            <div key={p.id} className="flex items-center gap-0.5">
+              <button onClick={() => setActivePlan(p)}
+                className={`px-3 py-1.5 rounded-l-lg text-[10px] font-bold border-y border-l transition-colors cursor-pointer ${
+                  activePlan?.id === p.id ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-zinc-600 border-zinc-200 hover:border-emerald-400'
+                }`}>
+                Week of {p.week_start_date}
+              </button>
+              <button onClick={() => setConfirmDeleteId(p.id)} title="Delete plan"
+                className={`px-1.5 py-1.5 rounded-r-lg border-y border-r transition-colors cursor-pointer ${
+                  activePlan?.id === p.id ? 'bg-emerald-600 text-white border-emerald-600 hover:bg-red-600 hover:border-red-600' : 'bg-white text-zinc-400 border-zinc-200 hover:text-red-500 hover:border-red-300'
+                }`}>
+                <Trash2 className="h-3 w-3" />
+              </button>
+            </div>
           ))}
           {loadingPlans && <Loader2 className="h-3.5 w-3.5 animate-spin text-zinc-400" />}
         </div>
@@ -342,6 +371,28 @@ export default function MealPlanSection({ ncpId, prescriptionTargets, foodDislik
             })}
           </div>
         </>
+      )}
+
+      {/* Delete Confirm Modal */}
+      {confirmDeleteId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6 space-y-4">
+            <h3 className="text-sm font-extrabold text-zinc-900">Delete Meal Plan?</h3>
+            <p className="text-xs text-zinc-500 leading-relaxed">
+              This will permanently delete the plan and all its food entries. This cannot be undone.
+            </p>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setConfirmDeleteId(null)}
+                className="px-4 py-2 text-xs font-bold text-zinc-500 hover:text-zinc-700 cursor-pointer">
+                Cancel
+              </button>
+              <button onClick={handleDeletePlan} disabled={deleting}
+                className="px-4 py-2 text-xs font-bold bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors disabled:opacity-50 cursor-pointer">
+                {deleting ? 'Deleting…' : 'Delete Plan'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Food Picker Modal */}

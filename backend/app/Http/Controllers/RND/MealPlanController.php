@@ -91,6 +91,15 @@ class MealPlanController extends Controller
     }
 
     /**
+     * DELETE /api/rnd/ncp-records/{ncpRecord}/meal-plans/{mealPlan}
+     */
+    public function destroy(NcpRecord $ncpRecord, MealPlan $mealPlan): JsonResponse
+    {
+        $mealPlan->delete();
+        return response()->json(null, 204);
+    }
+
+    /**
      * POST /api/rnd/ncp-records/{ncpRecord}/meal-plans/{mealPlan}/save-template
      */
     public function saveTemplate(\Illuminate\Http\Request $request, NcpRecord $ncpRecord, MealPlan $mealPlan): JsonResponse
