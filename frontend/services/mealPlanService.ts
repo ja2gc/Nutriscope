@@ -154,10 +154,38 @@ export interface MealPlanTemplate {
   created_at: string;
 }
 
+export interface MealPlanTemplateDay {
+  id: number;
+  day_of_week: string;
+  meal_type: string;
+  quantity: string;
+  unit: string;
+  food_name: string | null;
+  calories: number | null;
+}
+
+export interface MealPlanTemplateDetail extends MealPlanTemplate {
+  days: MealPlanTemplateDay[];
+}
+
 export async function fetchMealPlanTemplates(): Promise<MealPlanTemplate[]> {
   const res = await fetch('/api/rnd/meal-plan-templates', { headers: { Accept: 'application/json' } });
   if (!res.ok) return [];
   return (await res.json()).data ?? [];
+}
+
+export async function fetchMealPlanTemplate(templateId: number): Promise<MealPlanTemplateDetail | null> {
+  const res = await fetch(`/api/rnd/meal-plan-templates/${templateId}`, { headers: { Accept: 'application/json' } });
+  if (!res.ok) return null;
+  return (await res.json()).data ?? null;
+}
+
+export async function deleteMealPlanTemplate(templateId: number): Promise<void> {
+  const res = await fetch(`/api/rnd/meal-plan-templates/${templateId}`, {
+    method: 'DELETE',
+    headers: { Accept: 'application/json' },
+  });
+  if (!res.ok && res.status !== 204) throw new Error('Failed to delete template.');
 }
 
 export async function saveMealPlanAsTemplate(
