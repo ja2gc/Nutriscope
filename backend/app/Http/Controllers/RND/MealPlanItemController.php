@@ -18,6 +18,14 @@ class MealPlanItemController extends Controller
 {
     public function __construct(private UsdaService $usdaService) {}
 
+    /** GET all items for a plan in one request */
+    public function allItems(NcpRecord $ncpRecord, MealPlan $mealPlan): JsonResponse
+    {
+        $dayIds = $mealPlan->days()->pluck('id');
+        $items  = MealPlanItem::whereIn('meal_plan_day_id', $dayIds)->get();
+        return response()->json(['data' => MealPlanItemResource::collection($items)]);
+    }
+
     public function index(NcpRecord $ncpRecord, MealPlan $mealPlan, MealPlanDay $day): JsonResponse
     {
         $items = MealPlanItem::where('meal_plan_day_id', $day->id)->get();
