@@ -127,4 +127,269 @@ NutriScope is a clinical and operational system, not a consumer application. The
 - Workflow Optimization: Minimize clicks for repetitive tasks. Support keyboard navigation and bulk actions within tables. Ensure all truncated data is accessible via fast, native tooltips.
 - Absolute Consistency: Implementation must be uniform. Inline styles or arbitrary CSS outside the defined system patterns are prohibited. A form or button in the Admin module must behave and look identical to its counterpart in the RND module.
 
-Apply UI UX Pro max skill
+---
+
+## 6. Interaction Design Principles
+
+These principles govern ALL interactive patterns across every module. Implementation must follow them without exception.
+
+### 6.1 Progressive Disclosure
+
+Never present all options to the user at once. Reveal complexity only when the user has indicated they need it.
+
+**Rules:**
+- Show the primary decision first. Show dependent decisions only after the primary is made.
+- A secondary control (e.g., Stage selector) must not be visible until its parent decision (e.g., Goal selection) is made.
+- Optional data (micronutrients, barriers, counseling strategies) is hidden behind an explicit toggle. The toggle label describes what will appear: "Show Micronutrients", "Add Barriers", not generic "More Options".
+- Completed multi-step sections collapse to a summary badge. The user can re-expand to edit.
+
+**Example — Intervention Goal Selector:**
+```
+Step 1: Goal card grid (all goals visible)
+  → User selects one card → card highlights
+Step 2: IF goal has stages → Stage dropdown appears inline below selected card
+  → No stage dropdown shown before a goal is picked
+  → No stage dropdown shown for goals without stages (diabetic_control, custom)
+Step 3: Confirm → prescription auto-fills → selector collapses to summary badge
+```
+
+**Example — Micronutrient Display:**
+```
+Default: micronutrient rows hidden
+"Display Micros" button → checkbox popover appears
+  → All micros listed with checkboxes (unchecked by default)
+  → Goal-relevant micros are pre-checked automatically (e.g., renal_diet pre-checks potassium, phosphorus, sodium)
+  → RND checks/unchecks freely
+  → Checked micros appear as editable rows in the prescription form
+  → State stored in interventions.displayed_nutrients (json)
+```
+
+### 6.2 Conditional Reveal
+
+When one field controls the visibility of another, the reveal must be:
+- **Instant** — no loading spinner for field appearance
+- **Animated** — `transition-all duration-150` for height expansion, never jarring snap
+- **Reversible** — changing the parent choice collapses the child and resets its value
+- **Labeled** — the revealed field has a clear label explaining why it appeared
+
+Implementation: use CSS max-height transition or Radix UI Collapsible. Never use `display:none` toggled by JS without transition.
+
+### 6.3 Collapsible Completed Sections
+
+For long multi-section pages (e.g., Intervention Tab 1):
+- After a section is saved/confirmed, it collapses to a one-line summary chip showing key values
+- An "Edit" link on the chip re-expands the section
+- This keeps the page scannable without removing data
+
+```
+[✓ Renal Diet — Stage 4 — 1800 kcal · P 54g · C 270g · F 50g]  [Edit]
+```
+
+### 6.4 Sticky Clinical Summary Bar
+
+For any page where the user is building toward a target (Intervention Tab 1, Meal Plan):
+- A sticky bar is fixed at the top of the content canvas (below the tab strip)
+- Shows: current accumulated value vs target value for each active macro
+- Color coding: Green = within 10% of target, Amber = within 20%, Red = >20% off or below floor
+- Updates in real time as meal plan items are added/removed
+- Never hides behind scrolled content — `position: sticky; top: 0; z-index: 10`
+
+### 6.5 Feedback on Every Action
+
+Every user-triggered state change must produce immediate feedback:
+- Button loading state (spinner replaces icon, text dims) while awaiting API
+- Toast notification (bottom-right, 3s auto-dismiss) on success or error
+- Inline field-level error messages (red, below field) for validation failures
+- No silent failures — if an API call fails, show an error state, never silently reset
+
+### 6.6 Keyboard and Focus
+
+- All modals trap focus inside while open. Escape closes. First focusable element receives focus on open.
+- All dropdowns and selects are keyboard-navigable (arrow keys, Enter to select, Escape to close).
+- Tab order must follow visual reading order (left-to-right, top-to-bottom).
+- Focus ring: `focus-visible:ring-2 focus-visible:ring-emerald-500/50 focus-visible:outline-none` on all interactive elements.
+
+---
+
+## 7. Component Pattern Library
+
+Canonical implementations for recurring UI patterns. Every developer must use these — never invent alternatives.
+
+### 7.1 Goal Selector Modal
+
+**Trigger:** "Set Intervention Goal" button or empty state CTA on Intervention Tab 1.
+**Container:** Full-screen modal overlay (`fixed inset-0 z-50 bg-black/40 backdrop-blur-sm`). Inner panel: `max-w-2xl`, `rounded-2xl`, `bg-white`, `shadow-2xl`.
+**Goal grid:** 3-column card grid. Each card: icon + goal name + 1-line description. Selected state: `border-emerald-600 bg-emerald-50 ring-2 ring-emerald-500/20`.
+**Stage reveal:** After goal selection, a `<select>` or shadcn `<Select>` component slides in below the selected card using `transition-all duration-150`. Label: "Disease Stage / Severity". Never shown before goal selection.
+**Goals with stages:** `renal_diet`, `cardiac_diet`, `weight_loss`, `weight_gain`, `high_protein`, `fluid_restriction`, `liver_disease`, `malnutrition`.
+**Goals without stages:** `diabetic_control`, `custom` — stage row hidden entirely.
+**Confirm:** Primary button "Apply Goal". Disabled until goal is selected.
+**Cancel:** Secondary or X button. Resets selections.
+
+### 7.2 Micronutrient Display Toggle
+
+**Trigger:** "Display Micros" button (secondary style, small, with `FlaskConical` icon) in the Nutrition Prescription section.
+**Popover:** shadcn `<Popover>` component. Content: scrollable checklist of all 19+ tracked micronutrients.
+**Auto-flagging:** When `goal_type` is set, relevant micros are pre-checked:
+
+| goal_type | Pre-checked micros |
+|---|---|
+| `renal_diet` | Potassium, Phosphorus, Sodium, Fluid |
+| `diabetic_control` | (none — carb targets handled in macro section) |
+| `cardiac_diet` | Sodium, Cholesterol |
+| `weight_loss` | Fiber |
+| `weight_gain` | (none) |
+| `high_protein` | (none) |
+| `fluid_restriction` | Fluid |
+| `liver_disease` | Sodium |
+| `malnutrition` | (none — energy/protein priority) |
+| `custom` | (none — RND selects manually) |
+
+**Persistence:** Checked state written to `interventions.displayed_nutrients` (json array of micro names). Loaded on page mount.
+**Display:** Each checked micro appears as an editable number input row in the Prescription section, below the macro inputs. Label, input, unit, and (if applicable) limit type (max/min).
+
+### 7.3 Prescription Number Input Row
+
+Used for macros and micros in the Nutrition Prescription form.
+
+```
+[Label]          [______] [unit]   [min/max badge if applicable]
+Energy           [1800  ] kcal
+Protein          [  54  ] g
+Potassium        [ 2000 ] mg       [max]
+```
+
+- Input: right-aligned number, monospace font, `w-24`
+- Unit: muted zinc text, `text-xs`
+- Limit badge: `rounded-full text-[9px] font-bold px-1.5` — amber for "max", blue for "min"
+- Out-of-range value: red border + red text on the input
+- All inputs editable by RND regardless of auto-filled value
+
+### 7.4 Sticky Macro Tracker Bar
+
+Position: `sticky top-0 z-10` inside the tab content area, below the tab strip.
+Background: `bg-emerald-50 border-b border-emerald-100` — visually distinct but not disruptive.
+Content: current vs target for each displayed nutrient (macros always shown; micros shown if checked).
+
+```
+Energy  1420 / 1800 kcal  ●  Protein  42 / 54g  ●  Carbs  190 / 270g  ●  Fat  38 / 50g
+```
+
+Color logic per nutrient pill:
+- Green (`text-emerald-700`): current within ±10% of target
+- Amber (`text-amber-600`): current within ±20% of target
+- Red (`text-red-600`): current off by >20% OR below absolute floor
+
+### 7.5 Recommend / Avoid Panel
+
+Two-column layout within the page (not a modal). Appears below Nutrition Prescription, above Meal Plan.
+Left column: "Recommend" — green left border cards. Each card: food/nutrient name + reason chip.
+Right column: "Avoid" — red left border cards. Same structure.
+Source: algorithm-driven only (RecommendService). Never AI-generated content here.
+Empty state per column: muted text "No specific recommendations for this goal."
+If no goal set: entire panel hidden behind placeholder "Set an intervention goal to see recommendations."
+
+### 7.6 Section Collapse / Summary Chip
+
+After confirming a multi-step section (Goal Selector, Prescription):
+```tsx
+<div className="flex items-center justify-between px-4 py-3 bg-emerald-50 border border-emerald-200 rounded-xl">
+  <div className="flex items-center gap-2">
+    <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+    <span className="text-xs font-bold text-emerald-800">{summary}</span>
+  </div>
+  <button className="text-xs font-semibold text-emerald-700 hover:underline">Edit</button>
+</div>
+```
+
+### 7.7 Empty / Placeholder States
+
+Consistent structure for all empty states:
+```tsx
+<div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-10 text-center">
+  <Icon className="h-8 w-8 text-zinc-300 mx-auto mb-3" />
+  <p className="text-sm font-bold text-zinc-700">[Primary message]</p>
+  <p className="text-xs text-zinc-400 mt-1">[Secondary guidance]</p>
+  <Button className="mt-5">CTA if applicable</Button>
+</div>
+```
+
+### 7.8 Toast Notifications
+
+Use a toast library (e.g., `sonner` or shadcn toast). Standard durations:
+- Success: 3 seconds, auto-dismiss
+- Error: 6 seconds, manual dismiss required
+- Info: 4 seconds, auto-dismiss
+
+Position: bottom-right (`fixed bottom-4 right-4`). Stack vertically if multiple.
+
+---
+
+## 8. Accessibility Standards
+
+All components must meet WCAG 2.1 AA. Built on Radix UI primitives (via shadcn/ui) which handle most accessibility automatically.
+
+### 8.1 Semantic HTML
+
+- Use `<button>` for actions, `<a>` for navigation. Never `<div onClick>`.
+- Use `<table>` for tabular data (lab values, macro tables). Never CSS grids pretending to be tables.
+- Use `<label>` explicitly associated with every `<input>` via `htmlFor` / `id`.
+- Use landmark roles: `<main>`, `<nav>`, `<header>`, `<section aria-label>`.
+
+### 8.2 Color Contrast
+
+- All text on white/zinc-50 backgrounds: minimum 4.5:1 contrast ratio (AA).
+- Emerald-600 (`#059669`) on white passes AA for large text; pair with dark text for small labels.
+- Status colors (red/amber/green) must never be the ONLY indicator — always pair with text or icon.
+
+### 8.3 Focus Management
+
+- Modals: on open, focus moves to first interactive element. On close, focus returns to trigger element.
+- Dropdowns: Escape closes and returns focus to trigger.
+- Keyboard shortcut: `Tab` navigates forward, `Shift+Tab` backward, through all interactive elements in logical order.
+
+### 8.4 Screen Reader Support
+
+- Icons without visible text label must have `aria-label` or `title` on the parent button.
+- Loading states: `aria-busy="true"` on the loading container.
+- Dynamic content updates: use `aria-live="polite"` for non-critical updates (toast success), `aria-live="assertive"` for errors.
+- Status badges and colored indicators: include `aria-label` describing the status in words.
+
+---
+
+## 9. Component Stack Reference
+
+### 9.1 Approved Libraries
+
+| Purpose | Library | Installation |
+|---|---|---|
+| UI primitives | shadcn/ui (Radix UI) | `npx shadcn@latest add [component]` |
+| Styling | Tailwind CSS v4 | Already installed |
+| Icons | Lucide React | Already installed |
+| Forms | react-hook-form + zod | Already installed |
+| Toast notifications | sonner | `pnpm add sonner` |
+| Date picker | shadcn Calendar + Popover | `npx shadcn@latest add calendar popover` |
+
+### 9.2 shadcn/ui Components in Use
+
+Install on demand. Add to `frontend/components/ui/`. Current approved list:
+
+```bash
+npx shadcn@latest add button card dialog select checkbox popover
+npx shadcn@latest add form input label badge tabs separator
+npx shadcn@latest add collapsible tooltip sheet
+```
+
+Never install a new UI library without updating this list.
+
+### 9.3 Tailwind Class Conventions
+
+- Interactive base: `cursor-pointer transition-colors`
+- Focus ring: `focus-visible:ring-2 focus-visible:ring-emerald-500/20 focus-visible:outline-none`
+- Disabled: `disabled:opacity-50 disabled:cursor-not-allowed`
+- Card: `bg-white border border-zinc-200 rounded-2xl shadow-sm`
+- Section header: `text-xs font-bold text-zinc-500 uppercase tracking-wider`
+- Primary action: `bg-emerald-600 hover:bg-emerald-700 text-white`
+- Danger action: `text-red-600 hover:bg-red-50`
+- Muted text: `text-zinc-400 text-xs`
+- Monospace data: `font-mono text-zinc-900`

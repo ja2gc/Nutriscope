@@ -67,6 +67,28 @@ class FoodItemsSeeder extends Seeder
         // ── Dairy / Other ─────────────────────────────────────────────────────
         'Low-fat Milk (1%)'           => 'milk lowfat 1% fat',
         'Peanuts (Roasted)'           => 'peanuts roasted',
+
+        // ── Common Aromatics / Condiments ────────────────────────────────────
+        'Garlic (Raw)'                => 'garlic raw',
+        'Onion (Raw)'                 => 'onions raw',
+        'Ginger Root (Raw)'           => 'ginger root raw',
+        'Tomato (Cooked)'             => 'tomato red cooked',
+        'Coconut Milk (Canned)'       => 'coconut milk canned',
+        'Peanut Butter (Unsalted)'    => 'peanut butter smooth unsalted',
+        'Brown Sugar'                 => 'sugars brown',
+        'Cocoa Powder (Unsweetened)'  => 'cocoa powder unsweetened',
+
+        // ── More Fruits ───────────────────────────────────────────────────────
+        'Pineapple (Raw)'             => 'pineapple raw',
+        'Guava (Raw)'                 => 'guava raw',
+        'Jackfruit (Raw)'             => 'jackfruit raw',
+        'Calamansi / Lime Juice'      => 'lime juice raw',
+
+        // ── More Carb Sources ────────────────────────────────────────────────
+        'Glutinous Rice (Cooked)'     => 'rice glutinous cooked',
+        'Cassava / Kamoteng Kahoy'    => 'yuca cassava cooked',
+        'Corn Grits (Cooked)'         => 'corn grits cooked regular',
+        'Pandesal (Filipino Bread Roll)' => 'bread roll pan de sal',
     ];
 
     /** Preferred data type order — Foundation has the most complete nutrient data */
@@ -166,5 +188,37 @@ class FoodItemsSeeder extends Seeder
         }
 
         $this->command->info('Done.');
+
+        // Manual entries for items the USDA search fails on (rate limit / query sensitivity).
+        // Nutrition values are USDA-verified per 100g. serving_size = 100g for all.
+        $manualItems = [
+            ['Onion (Raw)',                  40,  1.1,  9.3,  0.1,  'vegetable'],
+            ['Ginger Root (Raw)',            80,  1.8, 17.8,  0.8,  'spice'],
+            ['Tomato (Cooked)',              18,  0.9,  3.9,  0.2,  'vegetable'],
+            ['Coconut Milk (Canned)',       197,  2.3,  2.8, 21.3,  'dairy-alternative'],
+            ['Peanut Butter (Unsalted)',    588, 25.0, 20.1, 50.4,  'legume'],
+            ['Cocoa Powder (Unsweetened)',  228, 19.6, 57.9, 13.7,  'other'],
+            ['Pineapple (Raw)',              50,  0.5, 13.1,  0.1,  'fruit'],
+            ['Guava (Raw)',                  68,  2.6, 14.3,  1.0,  'fruit'],
+            ['Jackfruit (Raw)',              95,  1.7, 23.2,  0.6,  'fruit'],
+            ['Calamansi / Lime Juice',       25,  0.4,  8.4,  0.1,  'fruit'],
+            ['Glutinous Rice (Cooked)',      97,  2.1, 21.7,  0.2,  'grain'],
+            ['Corn Grits (Cooked)',          71,  1.7, 15.5,  0.2,  'grain'],
+        ];
+
+        foreach ($manualItems as [$name, $cal, $prot, $carb, $fat, $cat]) {
+            if (\App\Models\FoodItem::where('name', $name)->exists()) continue;
+            \App\Models\FoodItem::create([
+                'name'         => $name,
+                'calories'     => $cal,
+                'protein'      => $prot,
+                'carbs'        => $carb,
+                'fat'          => $fat,
+                'category'     => $cat,
+                'serving_size' => 100,
+                'serving_unit' => 'g',
+            ]);
+            $this->command->info("  ✓ Manual: {$name}");
+        }
     }
 }

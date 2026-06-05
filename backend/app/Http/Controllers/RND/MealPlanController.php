@@ -47,6 +47,15 @@ class MealPlanController extends Controller
             'status'          => $request->status ?? 'draft',
         ]);
 
+        // Pre-create all 35 empty day slots so the frontend can render the grid immediately
+        $dayRows = [];
+        foreach (['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'] as $day) {
+            foreach (['breakfast','am_snack','lunch','pm_snack','dinner'] as $mealType) {
+                $dayRows[] = ['meal_plan_id' => $mealPlan->id, 'day_of_week' => $day, 'meal_type' => $mealType, 'flagged' => false];
+            }
+        }
+        \App\Models\MealPlanDay::insert($dayRows);
+
         return response()->json(['data' => new MealPlanResource($mealPlan->load('days'))], 201);
     }
 

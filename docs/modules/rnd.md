@@ -1,7 +1,8 @@
 ## RND Module (Website)
 
 Dashboard: database-backed announcements, active NCPs, food service snapshot, reports, KPIs, budget chart
-Recipes & Ingredients: recipe builder (multi-ingredient, auto-calculates nutrients+cost), foods library (USDA data, macros on card, click for micros). Cost in recipe builder only — never in NCP meal planning
+Recipes & Ingredients: recipe builder (multi-ingredient, auto-calculates nutrients+cost), foods library (USDA data, macros on card, click for micros). Cost in recipe builder only — never in NCP meal planning.
+  - **AI Recipe Generator** (Food Library): RND selects ingredients + optional style prompt ("Filipino soup", "low sodium") → Haiku (`claude-haiku-4-5-20251001`) returns recipe name + prep instructions. Macros always calculated deterministically from ingredients — AI never touches numbers. ~$0.001/generation. Logged to `ai_usage_logs`.
 
 ### NCP Workflow
 

@@ -1,218 +1,166 @@
 # NutriScope Milestones
 
-## Rules & Workflow (Superpowers Mode)
-- **Mark already done**: Existing completed items (`[x]`) must remain marked as completed.
-- **Never mark done without testing and getting approved by user**:
-  - **Backend**: Write PHPUnit feature tests. Run `php artisan test`. All tests must pass.
-  - **Frontend**: Confirm components render correctly in the browser.
-- **Test verification**: Follow the Superpowers workflow for all remaining tasks:
-  1. `/superpowers-plan` (Plan step)
-  2. `/superpowers-tdd` (Backend step)
-  3. `/superpowers-execute-plan` (Frontend step)
-  4. `/superpowers-review` (Review step)
-
-## Development Tracks (5 Parallel Tracks)
-
-| Track | Focus | Milestones |
-|-------|-------|------------|
-| **Backend Core** | Models, Controllers, APIs, Algorithms | M0→M1→M2→M3→M4→M5→M6→M7→M8→M9→M10 |
-| **Extraction Pipeline** | OCR, ExtractionService, Document parsing | M3→M4→M5→M9 |
-| **Reports** | ReportService, Generators, Blade templates, DomPDF | M6→M8→M9→M10 |
-| **Frontend** | Next.js pages, components, API integration | M2→M4→M5→M7→M9→M10 |
-| **Documentation** | Schema, architecture, module docs | M3→M6→M10 |
+## Workflow Rules
+- **Mark done only after testing and user approval.**
+- **Backend**: Run `php artisan test` — all tests must pass before marking done.
+- **Frontend**: Confirm renders correctly in browser via `/verify` or `/run`.
+- Use `/plan` before implementing anything non-trivial. Wait for approval.
+- Use `/code-review` after completing a feature block.
 
 ---
 
-## Milestone 0: Planning & Architecture ✅
+## Completed ✅
 
-- [x] Models: `User`, `Patient`, `NcpRecord`, `Assessment`, `BiochemicalData`, `Diagnosis`, `Intervention`, `FoodItem`, `Recipe`, `RecipeIngredient`, `MealPlan`, `MealPlanDay`, `MealPlanItem`, `ClinicalRule`
-- [x] Controllers: `AuthController` (Auth), `PatientController` (RND)
-- [x] Migrations: 11 core migrations (Users, Patients, NCP, Assessments, Biochemical Data, Diagnoses, Interventions, Food Items, Recipes, Clinical Rules, Meal Plans) + Activity Log + Personal Access Tokens
-- [x] Seeders: `DatabaseSeeder`, `AdminUserSeeder`, `ClinicalRulesSeeder`, `FoodItemsSeeder`, `RecipeSeeder`
-- [x] System enhancement planning: extraction pipeline, report architecture, schema additions, milestone restructure
-- [x] Reference document analysis: NCP forms, screening forms, bi-annual report, procurement documents
-- [x] Documentation updates: all docs aligned with new system direction
+### Planning & Architecture
+- [x] Models, migrations, seeders, and system architecture defined
+- [x] Reference document analysis (NCP forms, screening forms, reports)
+- [x] All documentation aligned with system direction
 
----
+### Laravel Foundation
+- [x] Laravel setup, Docker (MySQL + Redis), Sanctum, API routes scaffold
+- [x] Role middleware (RND / FSS / Admin) + audit middleware
+- [x] Auth endpoints (login, logout, me) with tests
 
-## Phase 1: Laravel Foundation & Route Setup ✅
+### Patient Management
+- [x] Patient CRUD API + NCP record initialization
+- [x] Risk score output, patient test coverage
+- [x] Announcements backend (model, API, tests)
 
-- [x] Run `php artisan install:api` to generate `routes/api.php`
-- [x] Configure `.env` for Redis (queue, session, cache)
-- [x] Set up route groups in `api.php` (`auth:sanctum`, `role:RND`, `role:FSS`, `role:Admin`)
-- [x] Implement `RoleMiddleware` for role-based route guarding
-- [x] **Audit Middleware**: `AuditMiddleware` using `spatie/laravel-activitylog` — implemented and verified with PHPUnit
+### Database Scaffold
+- [x] All supporting table migrations (20+ tables across NCP, inventory, budgets, reports, etc.)
+- [x] Extraction template seeder (adult, pediatric, lab)
+- [x] Report template seeder (9 types)
 
----
+### OCR & Extraction Pipeline
+- [x] OCR service (HTTP client + mock fallback)
+- [x] Extraction engine (template-based regex parser + confidence scoring)
+- [x] Document processing job + event
+- [ ] PHPUnit: OCR and extraction tests
 
-## Milestone 1: Authentication Endpoints & UI ✅
+### NCP Assessment
+- [x] Assessment CRUD API + biochemical data upsert
+- [x] Risk score calculator (7 factors → score + nutritional status)
+- [x] Screening document upload and approval endpoints
+- [x] Assessment test coverage
 
-- [x] Backend: Create `LoginRequest` and `UserResource`
-- [x] Backend: Implement login, logout, and me logic in `AuthController`
-- [x] Frontend: Auth context, `middleware.ts`, Login Page, RND shell layout — scaffolded and verified
+### Diagnosis & AI Review
+- [x] Diagnosis CRUD API + PES statement builder
+- [x] AI suggestion service (Claude Haiku) + approve/reject endpoints
 
----
+### Intervention & Meal Planning
+- [x] Intervention CRUD API
+- [x] Meal plan generation service (7-step algorithm: allergen filter, nutrient scoring, 10% tolerance)
+- [x] RecommendService (clinical rules-driven recommend/avoid engine)
+- [ ] PHPUnit: MealPlanService and intervention tests
 
-## Milestone 2: Patient Management
+### Food Library & Recipes
+- [x] Food item CRUD with full micronutrient tracking (19+ nutrients)
+- [x] USDA food search, import, auto-category mapping, and Big 9 allergen detection
+- [x] Filipino food library seeder (35 USDA-sourced ingredients)
+- [x] Recipe CRUD with auto-calculated macros, micros, and cost
+- [x] USDA preview endpoint (nutrients without importing)
 
-**Backend** ✅:
-- [x] Create `StorePatientRequest`, `UpdatePatientRequest`, and `PatientResource`
-- [x] Implement Patient CRUD endpoints in `PatientController`
-- [x] Fix `PatientResource` risk score output to use `risk_score`
-- [x] Add `PatientFeatureTest` coverage for `risk_score` and NCP workflow behavior
+### Clinical Rules Engine
+- [x] RecommendService: allergen, religion, medication, and biochemical rules
+- [x] Intervention within-target tolerance check (10%)
+- [x] FoodItem allergen scope methods
+- [ ] ClinicalRulesSeeder: full 9-condition, 30+ rule coverage
+- [ ] MealPlanService AI fallback (Claude Sonnet, < 5 recipes gate)
 
-**Frontend** ✅:
-- [x] **Iteration: Patient UI**
-  - [x] Plan: Patient List Page, workflow-first assessment entry, Patient Profile shell
-  - [x] Execute Frontend: Build UI components, wire to API, verify browser rendering
-  - [x] Review: UX and API integration check
+### Monitoring
+- [x] Monitoring CRUD API + resource
+- [ ] Trend calculation and goal achievement algorithm
+- [ ] AI decision panel (Continue / Modify / Escalate / Discharge)
 
-**M2B Cleanup**:
-- [x] Sidebar dropdowns remain expanded while users are inside NCP and Food Service child pages
-- [x] Remove patient creation modal from the NCP patient directory
-- [x] `Create Patient & Start Assessment` navigates directly to the assessment workflow
-- [x] Existing patient profiles use workflow navigation actions instead of `Start NCP Cycle`
-- [x] Announcement backend, model, resource, routes, tests, seeder, and runtime migration are completed
+### Food Service Operations
+- [x] Inventory, menu cycle, budget CRUD
+- [x] Shopping list generation (menu vs stock shortfall)
+- [x] Purchase order workflow (Draft → Ordered → Received, auto-restock)
+- [x] Supplier management
+- [ ] PHPUnit: food service feature tests
 
----
+### Admin Module
+- [x] User management CRUD + role assignment + soft delete
+- [x] Audit log controller with filtering
+- [x] Admin announcement controller
+- [x] Admin test coverage
 
-## Milestone 3: Database Scaffold (All Tables)
+### Auth & Shell (Frontend)
+- [x] Login page, AuthContext, middleware, logout route
+- [x] Sidebar (collapsible, role-aware, dropdown persistence), global shell
 
-### 3A — Database Scaffold
-- [ ] Migration: `monitorings` table
-- [ ] Migration: `ocr_documents` table (with `document_type`, `extraction_template_id`, `parsed_fields`, `confidence_score`, `processing_time_ms`)
-- [ ] Migration: `screening_documents` table
-- [ ] Migration: `extraction_templates` + `extraction_logs` tables
-- [ ] Migration: `meal_plan_templates` + `meal_plan_template_days` tables
-- [ ] Migration: `inventory` table
-- [ ] Migration: `suppliers` table
-- [ ] Migration: `shopping_lists` + `shopping_list_items` tables
-- [ ] Migration: `purchase_orders` + `purchase_order_items` tables
-- [ ] Migration: `menu_cycles` + `menu_cycle_days` tables
-- [ ] Migration: `meal_prep_logs` table
-- [ ] Migration: `budgets` + `budget_daily_logs` tables
-- [ ] Migration: `inspection_reports` + `inspection_report_items` tables
-- [ ] Migration: `marketing_statements` + `marketing_statement_items` + `marketing_summaries` tables
-- [ ] Migration: `reports` + `report_templates` tables
-- [ ] Migration: `calendar_events` table
-- [ ] Migration: `notifications` table
-- [ ] Migration: `ai_usage_logs` table
-- [ ] Migration: Alter `patients` — add `screening_type`, `hospital_number`, `age_group_category`
-- [ ] Migration: Alter `assessments` — add clinical, weight-history, and dietary fields
-- [ ] Create all new Models with relationships and casts
-- [ ] Base Scaffold verification feature tests
+### RND Dashboard (Frontend)
+- [x] KPI cards, patient snapshot widget
+- [x] Announcements feed with composer (create/edit, image upload)
 
----
+### Patient List & Profile (Frontend)
+- [x] Patient list (search, filter, pagination), create patient CTA
+- [x] Patient profile (demographics, risk badge, allergy badges, NCP tabs)
 
-## Milestone 4: NCP (Nutrition Care Process) Core & OCR
+### NCP Assessment UI (Frontend)
+- [x] Persistent patient header (allergies, risk badges)
+- [x] Assessment tabs: Dietary History, Anthropometrics (auto-BMI/IBW), Client History, Biochemical/Labs grid, RND Summary
+- [ ] Lab OCR upload + extraction review panel
+- [ ] Screening form renderer (adult B.07 / pediatric B.06) + OCR pre-fill
 
-### 4A — OCR & Screening Form Extraction
-- [ ] Create `OCRService` (HTTP client with exponential backoff & mock fallback)
-- [ ] Create `ExtractionService` (template-based parsing engine)
-- [ ] Create `ParsedDocument` DTO, `ProcessDocumentExtraction` Job, and `DocumentExtractionCompleted` Event
-- [ ] Seeder: `ExtractionTemplateSeeder` (seeding screening_adult, screening_pediatric, and lab_result templates)
-- [ ] Unit and Feature tests for OCR mock, templates, and jobs
-- [ ] Implement deterministic risk score calculation and update `ncp_records.risk_score` and `assessments.nutritional_status`
+### Diagnosis UI (Frontend)
+- [x] Diagnosis table, Problem/Etiology/Signs builder tabs
+- [x] PES auto-build, AI review tab (Accept / Reject / Edit)
 
-### 4B — NCP Assessment Backend
-- [ ] Implement `NcpRecordController` (create, show, update)
-- [ ] Implement `AssessmentController` (create/update with nested `BiochemicalData` upsert)
-- [ ] Implement `ScreeningDocumentController` (upload, show, approve mapping)
-- [ ] Form Requests: `StoreNcpRecordRequest`, `StoreAssessmentRequest`, `ApproveScreeningDocumentRequest`
-- [ ] Resources: `NcpRecordResource`, `AssessmentResource`, `ScreeningDocumentResource`
+### Intervention & Meal Plan Builder (Frontend)
+- [x] Full meal plan builder (Library / USDA / Recipe food picker, 7 days × 5 meals)
+- [ ] Nutrition prescription form (editable macros/micros) + macro tracker
+- [ ] Recommend/Avoid panel display
+- [ ] Education, Counseling, Goal Planning forms
+- [ ] Encounter context (session type, next follow-up date)
 
-### 4C — NCP Diagnosis Backend
-- [ ] Implement `DiagnosisController` (CRUD)
-- [ ] Form Requests: `StoreDiagnosisRequest`, `UpdateDiagnosisRequest`
-- [ ] Resource: `DiagnosisResource`
-- [ ] Create `AIService` wrapping Anthropic client (Claude Haiku) for draft PES statements
-- [ ] Connect AI Review endpoint to AIService and save approved statements
-
-### 4D — NCP Intervention & Monitoring Backend
-- [ ] Implement `InterventionController` (CRUD)
-- [ ] Implement `MonitoringController` (CRUD with trends and AI decision support)
-- [ ] Form Requests: `StoreInterventionRequest`, `StoreMonitoringRequest`
-- [ ] Resources: `InterventionResource`, `MonitoringResource`
-
----
-
-## Milestone 5: Recipes & Food Library
-
-### 5A — Food Library Backend
-- [ ] Seeder: `FoodItemsSeeder` ( Philippine hospital ingredients )
-- [ ] Seeder: `ClinicalRulesSeeder` (CKD, DM, Hypertension, Cardiac, Liver, Malnutrition, etc.)
-- [ ] Seeder: `InventorySeeder` (seed initial stock levels for food items)
-- [ ] Implement `RecipeController` (CRUD with auto-calculation of calories, protein, carbs, fat, cost)
-- [ ] Implement `FoodItemController` (CRUD)
-- [ ] Implement `RecommendService` algorithm (avoid/limit/recommend rules based on allergies, religion, medications, conditions, rules)
-
-### 5B — Meal Plan Generation
-- [ ] Implement `MealPlanService` weekly auto-generation algorithm (recipe nutrient fit scoring, portion adjustment, 10% daily tolerance validation)
-- [ ] Setup Claude Sonnet fallback generator for low recipe match count (<5)
-- [ ] Implement `MealPlanController` (store, update, show, generate, templates)
-- [ ] Form Request: `StoreMealPlanRequest`
-- [ ] Resource: `MealPlanResource`
+### Food Library & Recipes UI (Frontend)
+- [x] Food library page (USDA search, macro cards, micronutrient popup, import)
+- [x] Recipe builder (multi-ingredient, auto-macro/cost/micros)
+- [x] Recipe list with category filter and macro summary
 
 ---
 
-## Milestone 6: Food Service Operations
+## In Progress / Up Next
 
-### 6A — Inventory restock & menu cycles
-- [ ] Implement `InventoryController` (index, store, update, destroy, restock)
-- [ ] Implement `MenuCycleController` (index, store, show, update, activate with daily cost limit check against 150 pesos)
-- [ ] Form Requests & Resources
+### Report Generation
+- [ ] Install DomPDF, ReportService orchestrator + interface
+- [ ] GenerateReport background job
+- [ ] All 10 report generators + Blade templates (ADIME Individual/Aggregate, NCP Census, Inventory, Budget, Menu Cycle, Patient Menu Plan, Inspection, Marketing Statement x2)
+- [ ] PDF signed URL download endpoint
 
-### 6B — Budgets, Procurement & Shopping Lists
-- [ ] Implement `BudgetController` (index, store, show, update, daily logs)
-- [ ] Implement `ShoppingListController` (suggest list by comparing menu cycles vs inventory stock shortfall)
-- [ ] Implement `PurchaseOrderController` (Draft -> Ordered -> Received status transitions, upload receipt, auto restock inventory)
-- [ ] Implement `SupplierController` (index, store, update)
-- [ ] Form Requests & Resources
+### Monitoring (Frontend)
+- [ ] Monitoring entry form
+- [ ] Trend graphs (weight, labs over time)
+- [ ] Goal achievement display + AI decision panel
 
----
+### Food Service UI (Frontend)
+- [ ] Inventory table (stock levels, alerts, restock modal)
+- [ ] Menu cycle planner (7-day × 5-meal grid, daily cost tracker)
+- [ ] Budget summary (planned vs actual, daily log view)
+- [ ] Procurement (shopping lists, purchase orders, suppliers)
 
-## Milestone 7: PDF Report Generation Pipeline
+### Calendar & Notifications (Frontend)
+- [ ] Calendar (system events + manual events)
+- [ ] Notification bell + notifications page
 
-### 7A — Report Orchestration
-- [ ] Setup `barryvdh/laravel-dompdf` configuration
-- [ ] Create `ReportService` orchestrator
-- [ ] Create `ReportGeneratorInterface` contract
-- [ ] Create `GenerateReport` background Job (Redis queue)
-- [ ] Implement `ReportController` (generate, index, show, download)
-- [ ] Form Request: `StoreReportRequest` and `ReportResource`
+### Reports Center (Frontend)
+- [ ] Report type picker, status tracking, PDF download
+- [ ] ADIME Individual and NCP Census report pages
 
-### 7B — Report Generators & Templates (10 types)
-- [ ] Create generators and Blade layouts for all 10 report types under `resources/views/reports/`:
-  - `AdimeIndividualGenerator`
-  - `AdimeAggregateGenerator`
-  - `NcpCensusGenerator` (Appendix B.08 format)
-  - `InventoryReportGenerator`
-  - `BudgetReportGenerator`
-  - `MenuCycleReportGenerator`
-  - `PatientMenuPlanGenerator`
-  - `InspectionReportGenerator`
-  - `MarketingStatementGenerator`
-  - `MarketingSummaryGenerator`
+### Settings & Admin UI (Frontend)
+- [ ] User profile + system settings pages
+- [ ] Admin dashboard (KPIs, activity feed)
+- [ ] Users page + audit log viewer
 
 ---
 
-## Milestone 8: Calendar & Notifications
+## Phase 2 (Post-Capstone)
 
-### 8A — Calendar events
-- [ ] Implement `CalendarEventController` (list, complete system events, edit manual events)
-- [ ] Register automated events (monitoring rechecks, menu activations, expiry warnings, budget deadlines)
-
-### 8B — Bell Alerts & Notifications
-- [ ] Implement `NotificationController` (fetch alerts, mark read, badges)
-
----
-
-## Milestone 9: Admin Module & Final verification
-
-### 9A — Admin Backend
-- [ ] Implement `UserController` (CRUD, password reset)
-- [ ] Implement `AuditLogController` (activity feed filtering, audit trails)
-
-### 9B — Final Verification
-- [ ] Verify full test suite passes: `php artisan test`
-
+### FSS Mobile App (React Native / Expo)
+- [ ] Login + token storage
+- [ ] Dashboard (today's meals, inventory alerts, announcements)
+- [ ] Inventory view + stock update
+- [ ] Menu cycle read-only view
+- [ ] Meal prep log (checklist, real-time updates)
+- [ ] Notifications
