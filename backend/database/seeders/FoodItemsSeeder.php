@@ -2,51 +2,169 @@
 
 namespace Database\Seeders;
 
+use App\Services\UsdaService;
 use Illuminate\Database\Seeder;
-use App\Models\FoodItem;
+use Illuminate\Support\Facades\DB;
 
 class FoodItemsSeeder extends Seeder
 {
+    /**
+     * Filipino-relevant ingredients mapped to USDA search queries.
+     * Search prefers Foundation > SR Legacy > Survey (FNDDS).
+     * Friendly name is used in the DB; USDA provides all nutrients automatically.
+     */
+    /**
+     * Direct FDC ID fallbacks for foods that consistently hit the rate limit on search.
+     * Used only when search fails — avoids burning a search call for a known ID.
+     */
+    private const FALLBACK_FDC_IDS = [
+        'Pork Loin (Cooked)'   => 174480, // SR Legacy — confirmed from previous run
+        'Sweet Potato / Kamote' => 168482, // SR Legacy — sweet potato cooked baked
+    ];
+
+    private const INGREDIENTS = [
+        // ── Grains / Carbs ────────────────────────────────────────────────────
+        'Steamed White Rice'          => 'rice white long-grain cooked enriched',
+        'Steamed Brown Rice'          => 'rice brown long-grain cooked',
+        'Rice Porridge (Lugaw)'       => 'rice congee',
+        'Oatmeal (Plain, Cooked)'     => 'oatmeal cooked water',
+        'White Bread'                 => 'bread white commercially prepared',
+        'Wheat Crackers'              => 'crackers',
+        'Sweet Corn (Cooked)'         => 'corn yellow cooked boiled',
+
+        // ── Proteins ──────────────────────────────────────────────────────────
+        'Chicken Breast (Cooked)'     => 'chicken breast meat cooked roasted',
+        'Chicken Thigh (Cooked)'      => 'chicken thigh meat cooked roasted',
+        'Pork Loin (Cooked)'          => 'pork loin',
+        'Pork Belly (Cooked)'         => 'pork belly',
+        'Milkfish / Bangus (Cooked)'  => 'milkfish cooked',
+        'Tilapia (Cooked)'            => 'tilapia cooked',
+        'Mackerel (Cooked)'           => 'mackerel cooked',
+        'Sardines (Canned in Water)'  => 'sardines canned',
+        'Egg (Hard Boiled)'           => 'egg whole cooked hard boiled',
+        'Firm Tofu (Tokwa)'           => 'tofu firm raw',
+        'Mung Beans (Cooked)'         => 'mung beans cooked boiled',
+
+        // ── Vegetables ────────────────────────────────────────────────────────
+        'Water Spinach (Kangkong)'    => 'water spinach cooked',
+        'Bok Choy / Pechay (Cooked)'  => 'bok choy cooked boiled',
+        'Eggplant / Talong (Cooked)'  => 'eggplant cooked boiled',
+        'Bitter Melon (Ampalaya)'     => 'balsam pear bitter melon cooked',
+        'Chayote / Sayote (Cooked)'   => 'chayote vegetable pear',
+        'Carrots (Cooked)'            => 'carrots cooked',
+        'Cabbage / Repolyo (Cooked)'  => 'cabbage cooked',
+        'String Beans / Sitaw'        => 'green beans cooked',
+        'Sweet Potato / Kamote'       => 'sweet potato',
+        'Squash / Kalabasa (Cooked)'  => 'squash butternut cooked',
+        'Tomato (Raw)'                => 'tomato raw',
+
+        // ── Fruits ────────────────────────────────────────────────────────────
+        'Banana (Raw)'                => 'banana raw',
+        'Papaya (Raw)'                => 'papaya raw',
+        'Mango (Raw)'                 => 'mango raw',
+        'Watermelon (Raw)'            => 'watermelon raw',
+
+        // ── Dairy / Other ─────────────────────────────────────────────────────
+        'Low-fat Milk (1%)'           => 'milk lowfat 1% fat',
+        'Peanuts (Roasted)'           => 'peanuts roasted',
+    ];
+
+    /** Preferred data type order — Foundation has the most complete nutrient data */
+    private const DATA_TYPE_PRIORITY = ['Foundation', 'SR Legacy', 'Survey (FNDDS)'];
+
     public function run(): void
     {
-        $foods = [
-            // ── Staples / Grains → carbs ──────────────────────────────────────
-            ['name' => 'Steamed White Rice',    'category' => 'carbs',     'calories' => 130, 'protein' => 2.7,  'carbs' => 28.2, 'fat' => 0.3,  'allergens' => [],                         'unit_price' => 2.50,  'serving_unit' => 'g',     'serving_size' => 100, 'micronutrients' => ['sodium' => 1,   'potassium' => 35,  'phosphate' => 43]],
-            ['name' => 'Steamed Brown Rice',    'category' => 'carbs',     'calories' => 112, 'protein' => 2.6,  'carbs' => 23.5, 'fat' => 0.9,  'allergens' => [],                         'unit_price' => 3.00,  'serving_unit' => 'g',     'serving_size' => 100, 'micronutrients' => ['sodium' => 1,   'potassium' => 79,  'phosphate' => 83, 'fiber' => 1.8]],
-            ['name' => 'Pandesal',              'category' => 'carbs',     'calories' => 290, 'protein' => 8.5,  'carbs' => 55.0, 'fat' => 4.0,  'allergens' => ['wheat', 'eggs', 'milk'],  'unit_price' => 5.00,  'serving_unit' => 'piece', 'serving_size' => 60,  'micronutrients' => ['sodium' => 350, 'potassium' => 80]],
-            ['name' => 'Lugaw (Rice Porridge)', 'category' => 'carbs',     'calories' => 65,  'protein' => 1.5,  'carbs' => 13.5, 'fat' => 0.3,  'allergens' => [],                         'unit_price' => 1.50,  'serving_unit' => 'g',     'serving_size' => 100, 'micronutrients' => ['sodium' => 180, 'potassium' => 20]],
-            ['name' => 'Unsweetened Oatmeal',   'category' => 'carbs',     'calories' => 71,  'protein' => 2.5,  'carbs' => 12.0, 'fat' => 1.5,  'allergens' => ['wheat'],                  'unit_price' => 6.00,  'serving_unit' => 'g',     'serving_size' => 100, 'micronutrients' => ['sodium' => 49,  'potassium' => 61,  'fiber' => 1.7]],
-            ['name' => 'Skyflakes Crackers',    'category' => 'carbs',     'calories' => 130, 'protein' => 2.5,  'carbs' => 22.0, 'fat' => 3.5,  'allergens' => ['wheat'],                  'unit_price' => 8.00,  'serving_unit' => 'pack',  'serving_size' => 33,  'micronutrients' => ['sodium' => 200, 'potassium' => 30]],
+        $usda = app(UsdaService::class);
 
-            // ── Proteins ──────────────────────────────────────────────────────
-            ['name' => 'Chicken Breast (Boiled)',       'category' => 'protein',   'calories' => 165, 'protein' => 31.0, 'carbs' => 0.0,  'fat' => 3.6,  'allergens' => [],                'unit_price' => 18.00, 'serving_unit' => 'g',     'serving_size' => 100, 'micronutrients' => ['sodium' => 74,  'potassium' => 256, 'phosphate' => 220]],
-            ['name' => 'Chicken Breast (Adobo)',        'category' => 'protein',   'calories' => 185, 'protein' => 28.0, 'carbs' => 2.0,  'fat' => 7.0,  'allergens' => ['soybeans'],      'unit_price' => 22.00, 'serving_unit' => 'g',     'serving_size' => 100, 'micronutrients' => ['sodium' => 580, 'potassium' => 240, 'phosphate' => 210]],
-            ['name' => 'Bangus (Milkfish, Steamed)',    'category' => 'protein',   'calories' => 148, 'protein' => 20.5, 'carbs' => 0.0,  'fat' => 7.0,  'allergens' => ['fish'],          'unit_price' => 20.00, 'serving_unit' => 'g',     'serving_size' => 100, 'micronutrients' => ['sodium' => 65,  'potassium' => 300, 'phosphate' => 190, 'omega3' => 1.2]],
-            ['name' => 'Tinola (Chicken Ginger Soup)', 'category' => null,        'calories' => 95,  'protein' => 12.0, 'carbs' => 4.5,  'fat' => 3.5,  'allergens' => [],                'unit_price' => 25.00, 'serving_unit' => 'g',     'serving_size' => 250, 'micronutrients' => ['sodium' => 320, 'potassium' => 280, 'phosphate' => 150]],
-            ['name' => 'Scrambled Egg',                'category' => 'protein',   'calories' => 149, 'protein' => 10.0, 'carbs' => 1.6,  'fat' => 11.5, 'allergens' => ['eggs'],          'unit_price' => 8.00,  'serving_unit' => 'piece', 'serving_size' => 70,  'micronutrients' => ['sodium' => 180, 'potassium' => 120, 'phosphate' => 150, 'cholesterol' => 210]],
-            ['name' => 'Tokwa (Firm Tofu)',             'category' => 'protein',   'calories' => 76,  'protein' => 8.1,  'carbs' => 1.9,  'fat' => 4.2,  'allergens' => ['soybeans'],      'unit_price' => 10.00, 'serving_unit' => 'g',     'serving_size' => 100, 'micronutrients' => ['sodium' => 7,   'potassium' => 121, 'phosphate' => 97,  'calcium' => 350]],
-            ['name' => 'Monggo (Mung Bean Soup)',       'category' => 'protein',   'calories' => 105, 'protein' => 7.0,  'carbs' => 19.0, 'fat' => 0.4,  'allergens' => [],                'unit_price' => 8.00,  'serving_unit' => 'g',     'serving_size' => 200, 'micronutrients' => ['sodium' => 240, 'potassium' => 266, 'phosphate' => 99,  'fiber' => 3.5]],
-
-            // ── Vegetables ────────────────────────────────────────────────────
-            ['name' => 'Kangkong (Water Spinach, Sauteed)', 'category' => 'vegetable', 'calories' => 35, 'protein' => 2.6, 'carbs' => 5.4, 'fat' => 0.5, 'allergens' => [], 'unit_price' => 5.00, 'serving_unit' => 'g', 'serving_size' => 100, 'micronutrients' => ['sodium' => 45,  'potassium' => 312, 'calcium' => 67,  'fiber' => 2.1]],
-            ['name' => 'Ampalaya (Bitter Gourd, Sauteed)', 'category' => 'vegetable', 'calories' => 25, 'protein' => 1.0, 'carbs' => 4.3, 'fat' => 0.4, 'allergens' => [], 'unit_price' => 6.00, 'serving_unit' => 'g', 'serving_size' => 100, 'micronutrients' => ['sodium' => 30,  'potassium' => 290, 'fiber' => 2.6]],
-            ['name' => 'Sayote (Chayote, Boiled)',         'category' => 'vegetable', 'calories' => 19, 'protein' => 0.8, 'carbs' => 4.5, 'fat' => 0.1, 'allergens' => [], 'unit_price' => 4.00, 'serving_unit' => 'g', 'serving_size' => 100, 'micronutrients' => ['sodium' => 2,   'potassium' => 125, 'phosphate' => 18, 'fiber' => 1.7]],
-            ['name' => 'Pechay (Bok Choy, Boiled)',        'category' => 'vegetable', 'calories' => 13, 'protein' => 1.5, 'carbs' => 2.2, 'fat' => 0.2, 'allergens' => [], 'unit_price' => 5.00, 'serving_unit' => 'g', 'serving_size' => 100, 'micronutrients' => ['sodium' => 65,  'potassium' => 252, 'calcium' => 105, 'fiber' => 1.0]],
-            ['name' => 'Carrots (Boiled)',                 'category' => 'vegetable', 'calories' => 35, 'protein' => 0.8, 'carbs' => 8.2, 'fat' => 0.2, 'allergens' => [], 'unit_price' => 5.00, 'serving_unit' => 'g', 'serving_size' => 100, 'micronutrients' => ['sodium' => 58,  'potassium' => 235, 'fiber' => 2.4]],
-
-            // ── Fruits ────────────────────────────────────────────────────────
-            ['name' => 'Banana (Lakatan)', 'category' => 'fruit', 'calories' => 89, 'protein' => 1.1, 'carbs' => 23.0, 'fat' => 0.3, 'allergens' => [], 'unit_price' => 7.00, 'serving_unit' => 'piece', 'serving_size' => 100, 'micronutrients' => ['sodium' => 1, 'potassium' => 358, 'fiber' => 2.6]],
-            ['name' => 'Papaya (Ripe)',    'category' => 'fruit', 'calories' => 43, 'protein' => 0.5, 'carbs' => 11.0, 'fat' => 0.3, 'allergens' => [], 'unit_price' => 5.00, 'serving_unit' => 'g',     'serving_size' => 100, 'micronutrients' => ['sodium' => 8, 'potassium' => 182, 'fiber' => 1.7]],
-
-            // ── Dairy ─────────────────────────────────────────────────────────
-            ['name' => 'Low-fat Milk', 'category' => 'dairy', 'calories' => 42, 'protein' => 3.4, 'carbs' => 5.0, 'fat' => 1.0, 'allergens' => ['milk'], 'unit_price' => 12.00, 'serving_unit' => 'ml', 'serving_size' => 100, 'micronutrients' => ['sodium' => 44, 'potassium' => 150, 'calcium' => 120, 'phosphate' => 95]],
-        ];
-
-        foreach ($foods as $food) {
-            FoodItem::updateOrCreate(
-                ['name' => $food['name']],
-                $food
-            );
+        // Remove manually-seeded foods (no USDA ID) and their dependents.
+        // USDA-imported foods are kept so re-runs can resume without re-fetching.
+        $manualIds = \App\Models\FoodItem::whereNull('usda_fdc_id')->pluck('id');
+        if ($manualIds->isNotEmpty()) {
+            DB::table('recipe_ingredients')->whereIn('food_item_id', $manualIds)->delete();
+            DB::table('inventory')->whereIn('food_item_id', $manualIds)->delete();
+            \App\Models\FoodItem::whereNull('usda_fdc_id')->delete();
+            $this->command->info('Cleared ' . $manualIds->count() . ' manually-seeded food items.');
         }
+
+        $this->command->info('Importing ' . count(self::INGREDIENTS) . ' Filipino ingredients from USDA...');
+
+        foreach (self::INGREDIENTS as $friendlyName => $query) {
+            // Skip if already in DB — avoids burning API calls on re-runs
+            if (\App\Models\FoodItem::where('name', $friendlyName)->exists()) {
+                $this->command->line("  – Already imported: {$friendlyName}");
+                continue;
+            }
+
+            try {
+                $results = $usda->search($query, 10);
+
+                if (empty($results)) {
+                    $this->command->warn("  ✗ No results for: {$friendlyName}");
+                    continue;
+                }
+
+                // Pick best result by data type priority
+                $best = null;
+                foreach (self::DATA_TYPE_PRIORITY as $preferred) {
+                    foreach ($results as $r) {
+                        if ($r['data_type'] === $preferred) {
+                            $best = $r;
+                            break 2;
+                        }
+                    }
+                }
+                $best ??= $results[0];
+
+                // Try each result until one imports successfully (some FDC IDs return 404 on fetch)
+                $imported = false;
+                foreach ($results as $candidate) {
+                    try {
+                        $food = $usda->import($candidate['fdc_id']);
+                        $food->update(['name' => $friendlyName]);
+                        $this->command->info("  ✓ {$friendlyName} [{$candidate['data_type']} #{$candidate['fdc_id']}]");
+                        $imported = true;
+                        break;
+                    } catch (\RuntimeException $e) {
+                        if (str_contains($e->getMessage(), 'already exists')) {
+                            // A previous partial run imported this FDC ID under a different name — rename it
+                            $existing = \App\Models\FoodItem::where('usda_fdc_id', $candidate['fdc_id'])->first();
+                            if ($existing) {
+                                $existing->update(['name' => $friendlyName]);
+                                $this->command->info("  ✓ {$friendlyName} [renamed from existing #{$candidate['fdc_id']}]");
+                                $imported = true;
+                                break;
+                            }
+                        }
+                        // fetch failed (404 etc.) — try next candidate
+                        usleep(300000);
+                        continue;
+                    }
+                }
+
+                if (! $imported) {
+                    $this->command->warn("  ✗ All candidates failed for: {$friendlyName}");
+                }
+
+            } catch (\Exception $e) {
+                // Try direct FDC ID fallback before giving up
+                if (isset(self::FALLBACK_FDC_IDS[$friendlyName])) {
+                    $fallbackId = self::FALLBACK_FDC_IDS[$friendlyName];
+                    try {
+                        $food = $usda->import($fallbackId);
+                        $food->update(['name' => $friendlyName]);
+                        $this->command->info("  ✓ {$friendlyName} [fallback FDC #{$fallbackId}]");
+                    } catch (\Exception $fe) {
+                        $this->command->warn("  ✗ Fallback also failed for {$friendlyName}: {$fe->getMessage()}");
+                    }
+                } else {
+                    $this->command->warn("  ✗ Skipped {$friendlyName}: {$e->getMessage()}");
+                }
+                usleep(1000000);
+            }
+
+            usleep(1000000); // 1s between foods — stays within USDA rate limit
+        }
+
+        $this->command->info('Done.');
     }
 }
