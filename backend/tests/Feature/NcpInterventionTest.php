@@ -183,4 +183,59 @@ class NcpInterventionTest extends TestCase
         $this->assertIsArray($intervention->micronutrient_limits);
         $this->assertEquals(2000, $intervention->micronutrient_limits['sodium']);
     }
+
+    // ──────────────────────────────────────────────────
+    // Recommendations endpoint
+    // ──────────────────────────────────────────────────
+
+    public function test_recommendations_returns_recommend_avoid_for_renal_diet(): void
+    {
+        $rnd     = $this->rnd();
+        $patient = $this->patient();
+        $ncp     = $this->ncpRecord($patient, $rnd);
+
+        Intervention::forceCreate([
+            'ncp_record_id' => $ncp->id,
+            'goal_type'     => 'renal_diet',
+            'disease_stage' => 'stage_4',
+        ]);
+
+        $response = $this->actingAs($rnd, 'sanctum')
+            ->getJson("/api/rnd/ncp-records/{$ncp->id}/intervention/recommendations");
+
+        $response->assertOk()
+            ->assertJsonStructure([
+                'data' => ['recommend', 'avoid', 'limits'],
+            ]);
+    }
+
+    public function test_recommendations_returns_empty_for_custom_goal(): void
+    {
+        $rnd     = $this->rnd();
+        $patient = $this->patient();
+        $ncp     = $this->ncpRecord($patient, $rnd);
+
+        Intervention::forceCreate([
+            'ncp_record_id' => $ncp->id,
+            'goal_type'     => 'custom',
+        ]);
+
+        $response = $this->actingAs($rnd, 'sanctum')
+            ->getJson("/api/rnd/ncp-records/{$ncp->id}/intervention/recommendations");
+
+        $response->assertOk()
+            ->assertJsonPath('data.recommend', [])
+            ->assertJsonPath('data.avoid', []);
+    }
+
+    public function test_recommendations_returns_404_when_no_intervention(): void
+    {
+        $rnd     = $this->rnd();
+        $patient = $this->patient();
+        $ncp     = $this->ncpRecord($patient, $rnd);
+
+        $this->actingAs($rnd, 'sanctum')
+            ->getJson("/api/rnd/ncp-records/{$ncp->id}/intervention/recommendations")
+            ->assertNotFound();
+    }
 }
