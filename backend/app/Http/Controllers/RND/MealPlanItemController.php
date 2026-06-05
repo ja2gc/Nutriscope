@@ -47,6 +47,20 @@ class MealPlanItemController extends Controller
         return response()->json(['data' => new MealPlanItemResource($item)], 201);
     }
 
+    public function update(\Illuminate\Http\Request $request, NcpRecord $ncpRecord, MealPlan $mealPlan, MealPlanDay $day, MealPlanItem $item): JsonResponse
+    {
+        $validated = $request->validate([
+            'quantity'          => 'sometimes|numeric|min:0.01',
+            'unit'              => 'sometimes|string|max:50',
+            'nutrient_snapshot' => 'sometimes|array',
+        ]);
+
+        $item->fill($validated);
+        $item->save();
+
+        return response()->json(['data' => new MealPlanItemResource($item)]);
+    }
+
     public function destroy(NcpRecord $ncpRecord, MealPlan $mealPlan, MealPlanDay $day, MealPlanItem $item): JsonResponse
     {
         $item->delete();
