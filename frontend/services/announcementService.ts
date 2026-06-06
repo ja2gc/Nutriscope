@@ -1,3 +1,4 @@
+﻿import { apiFetch } from "@/lib/apiFetch";
 export type AnnouncementCategory = "General" | "Event" | "Operational" | "Urgent";
 export type AnnouncementVisibility = "FSS" | "Admin" | "All";
 
@@ -28,7 +29,7 @@ export interface AnnouncementPayload {
 }
 
 export async function fetchAnnouncements(): Promise<Announcement[]> {
-  const res = await fetch("/api/announcements", {
+  const res = await apiFetch("/api/announcements", {
     method: "GET",
     headers: {
       Accept: "application/json",
@@ -45,7 +46,7 @@ export async function fetchAnnouncements(): Promise<Announcement[]> {
 }
 
 export async function createAnnouncement(data: AnnouncementPayload): Promise<Announcement> {
-  const res = await fetch("/api/announcements", {
+  const res = await apiFetch("/api/announcements", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -67,7 +68,7 @@ export async function updateAnnouncement(
   id: number | string,
   data: Partial<AnnouncementPayload>
 ): Promise<Announcement> {
-  const res = await fetch(`/api/announcements/${id}`, {
+  const res = await apiFetch(`/api/announcements/${id}`, {
     method: "PATCH",
     headers: {
       "Content-Type": "application/json",
@@ -86,7 +87,7 @@ export async function updateAnnouncement(
 }
 
 export async function deleteAnnouncement(id: number | string): Promise<void> {
-  const res = await fetch(`/api/announcements/${id}`, {
+  const res = await apiFetch(`/api/announcements/${id}`, {
     method: "DELETE",
     headers: {
       Accept: "application/json",

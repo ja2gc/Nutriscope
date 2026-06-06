@@ -1,3 +1,4 @@
+﻿import { apiFetch } from "@/lib/apiFetch";
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 export interface NutrientSnapshot {
@@ -52,7 +53,7 @@ const itemsBase = (ncpId: string, planId: number, dayId: number) =>
 // ─── Meal Plan API ────────────────────────────────────────────────────────────
 
 export async function fetchMealPlans(ncpId: string): Promise<MealPlan[]> {
-  const res = await fetch(`/api/rnd/ncp-records/${ncpId}/meal-plans`, {
+  const res = await apiFetch(`/api/rnd/ncp-records/${ncpId}/meal-plans`, {
     headers: { Accept: "application/json" },
   });
 
@@ -66,7 +67,7 @@ export async function createMealPlan(
   ncpId: string,
   payload: { week_start_date: string; generation_type?: string }
 ): Promise<MealPlan> {
-  const res = await fetch(`/api/rnd/ncp-records/${ncpId}/meal-plans`, {
+  const res = await apiFetch(`/api/rnd/ncp-records/${ncpId}/meal-plans`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "application/json" },
     body: JSON.stringify(payload),
@@ -88,7 +89,7 @@ export async function fetchAllMealPlanItems(
   ncpId: string,
   planId: number
 ): Promise<MealPlanItem[]> {
-  const res = await fetch(`/api/rnd/ncp-records/${ncpId}/meal-plans/${planId}/items`, {
+  const res = await apiFetch(`/api/rnd/ncp-records/${ncpId}/meal-plans/${planId}/items`, {
     headers: { Accept: 'application/json' },
   });
   if (!res.ok) throw new Error('Failed to fetch meal plan items.');
@@ -100,7 +101,7 @@ export async function fetchMealPlanItems(
   planId: number,
   dayId: number
 ): Promise<MealPlanItem[]> {
-  const res = await fetch(itemsBase(ncpId, planId, dayId), {
+  const res = await apiFetch(itemsBase(ncpId, planId, dayId), {
     headers: { Accept: "application/json" },
   });
 
@@ -122,7 +123,7 @@ export async function addMealPlanItem(
     unit: string;
   }
 ): Promise<MealPlanItem> {
-  const res = await fetch(itemsBase(ncpId, planId, dayId), {
+  const res = await apiFetch(itemsBase(ncpId, planId, dayId), {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "application/json" },
     body: JSON.stringify(payload),
@@ -138,7 +139,7 @@ export async function addMealPlanItem(
 }
 
 export async function deleteMealPlan(ncpId: string, planId: number): Promise<void> {
-  const res = await fetch(`/api/rnd/ncp-records/${ncpId}/meal-plans/${planId}`, {
+  const res = await apiFetch(`/api/rnd/ncp-records/${ncpId}/meal-plans/${planId}`, {
     method: 'DELETE',
     headers: { Accept: 'application/json' },
   });
@@ -149,7 +150,7 @@ export async function generateMealPlan(
   ncpId: string,
   payload: { week_start_date: string; conditions?: string[]; allergens?: string[] }
 ): Promise<MealPlan | { insufficient_recipes: true; count: number }> {
-  const res = await fetch(`/api/rnd/ncp-records/${ncpId}/meal-plans/generate`, {
+  const res = await apiFetch(`/api/rnd/ncp-records/${ncpId}/meal-plans/generate`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
     body: JSON.stringify(payload),
@@ -182,19 +183,19 @@ export interface MealPlanTemplateDetail extends MealPlanTemplate {
 }
 
 export async function fetchMealPlanTemplates(): Promise<MealPlanTemplate[]> {
-  const res = await fetch('/api/rnd/meal-plan-templates', { headers: { Accept: 'application/json' } });
+  const res = await apiFetch('/api/rnd/meal-plan-templates', { headers: { Accept: 'application/json' } });
   if (!res.ok) return [];
   return (await res.json()).data ?? [];
 }
 
 export async function fetchMealPlanTemplate(templateId: number): Promise<MealPlanTemplateDetail | null> {
-  const res = await fetch(`/api/rnd/meal-plan-templates/${templateId}`, { headers: { Accept: 'application/json' } });
+  const res = await apiFetch(`/api/rnd/meal-plan-templates/${templateId}`, { headers: { Accept: 'application/json' } });
   if (!res.ok) return null;
   return (await res.json()).data ?? null;
 }
 
 export async function deleteMealPlanTemplate(templateId: number): Promise<void> {
-  const res = await fetch(`/api/rnd/meal-plan-templates/${templateId}`, {
+  const res = await apiFetch(`/api/rnd/meal-plan-templates/${templateId}`, {
     method: 'DELETE',
     headers: { Accept: 'application/json' },
   });
@@ -206,7 +207,7 @@ export async function saveMealPlanAsTemplate(
   planId: number,
   payload: { name: string; description?: string; goal_type?: string }
 ): Promise<MealPlanTemplate> {
-  const res = await fetch(`/api/rnd/ncp-records/${ncpId}/meal-plans/${planId}/save-template`, {
+  const res = await apiFetch(`/api/rnd/ncp-records/${ncpId}/meal-plans/${planId}/save-template`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
     body: JSON.stringify(payload),
@@ -219,7 +220,7 @@ export async function createPlanFromTemplate(
   ncpId: string,
   payload: { template_id: number; week_start_date: string }
 ): Promise<MealPlan> {
-  const res = await fetch(`/api/rnd/ncp-records/${ncpId}/meal-plans/from-template`, {
+  const res = await apiFetch(`/api/rnd/ncp-records/${ncpId}/meal-plans/from-template`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
     body: JSON.stringify(payload),
@@ -235,7 +236,7 @@ export async function updateMealPlanItem(
   itemId: number,
   payload: { quantity?: number; nutrient_snapshot?: NutrientSnapshot }
 ): Promise<MealPlanItem> {
-  const res = await fetch(
+  const res = await apiFetch(
     `/api/rnd/ncp-records/${ncpId}/meal-plans/${planId}/days/${dayId}/items/${itemId}`,
     {
       method: 'PATCH',
@@ -253,7 +254,7 @@ export async function removeMealPlanItem(
   dayId: number,
   itemId: number
 ): Promise<void> {
-  const res = await fetch(`${itemsBase(ncpId, planId, dayId)}/${itemId}`, {
+  const res = await apiFetch(`${itemsBase(ncpId, planId, dayId)}/${itemId}`, {
     method: "DELETE",
     headers: { Accept: "application/json" },
   });

@@ -1,3 +1,4 @@
+﻿import { apiFetch } from "@/lib/apiFetch";
 export interface Diagnosis {
   id?: number;
   ncp_record_id?: number;
@@ -46,7 +47,7 @@ export interface AiApprovePayload {
 }
 
 export async function fetchDiagnoses(ncpRecordId: number | string): Promise<Diagnosis[]> {
-  const res = await fetch(`/api/rnd/ncp-records/${ncpRecordId}/diagnoses`, {
+  const res = await apiFetch(`/api/rnd/ncp-records/${ncpRecordId}/diagnoses`, {
     headers: { Accept: "application/json" },
   });
   if (!res.ok) {
@@ -58,7 +59,7 @@ export async function fetchDiagnoses(ncpRecordId: number | string): Promise<Diag
 }
 
 export async function storeDiagnosis(ncpRecordId: number | string, payload: StoreDiagnosisPayload): Promise<Diagnosis> {
-  const res = await fetch(`/api/rnd/ncp-records/${ncpRecordId}/diagnoses`, {
+  const res = await apiFetch(`/api/rnd/ncp-records/${ncpRecordId}/diagnoses`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "application/json" },
     body: JSON.stringify(payload),
@@ -76,7 +77,7 @@ export async function updateDiagnosis(
   diagnosisId: number | string,
   payload: Partial<StoreDiagnosisPayload>
 ): Promise<Diagnosis> {
-  const res = await fetch(`/api/rnd/ncp-records/${ncpRecordId}/diagnoses/${diagnosisId}`, {
+  const res = await apiFetch(`/api/rnd/ncp-records/${ncpRecordId}/diagnoses/${diagnosisId}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json", Accept: "application/json" },
     body: JSON.stringify(payload),
@@ -90,7 +91,7 @@ export async function updateDiagnosis(
 }
 
 export async function deleteDiagnosis(ncpRecordId: number | string, diagnosisId: number | string): Promise<void> {
-  const res = await fetch(`/api/rnd/ncp-records/${ncpRecordId}/diagnoses/${diagnosisId}`, {
+  const res = await apiFetch(`/api/rnd/ncp-records/${ncpRecordId}/diagnoses/${diagnosisId}`, {
     method: "DELETE",
     headers: { Accept: "application/json" },
   });
@@ -101,7 +102,7 @@ export async function deleteDiagnosis(ncpRecordId: number | string, diagnosisId:
 }
 
 export async function aiSuggestDiagnoses(ncpRecordId: number | string, payload: AiSuggestPayload): Promise<AiSuggestion[]> {
-  const res = await fetch(`/api/rnd/ncp-records/${ncpRecordId}/diagnoses/ai-suggest`, {
+  const res = await apiFetch(`/api/rnd/ncp-records/${ncpRecordId}/diagnoses/ai-suggest`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "application/json" },
     body: JSON.stringify(payload),
@@ -115,7 +116,7 @@ export async function aiSuggestDiagnoses(ncpRecordId: number | string, payload: 
 }
 
 export async function aiApproveDiagnosis(ncpRecordId: number | string, payload: AiApprovePayload): Promise<Diagnosis> {
-  const res = await fetch(`/api/rnd/ncp-records/${ncpRecordId}/diagnoses/ai-approve`, {
+  const res = await apiFetch(`/api/rnd/ncp-records/${ncpRecordId}/diagnoses/ai-approve`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "application/json" },
     body: JSON.stringify(payload),

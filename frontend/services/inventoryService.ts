@@ -1,3 +1,4 @@
+﻿import { apiFetch } from "@/lib/apiFetch";
 export type ItemType = "food_item" | "recipe";
 export type StockStatus = "low" | "expiring" | "ok" | "untracked";
 
@@ -210,7 +211,7 @@ export async function listInventoryRows(params: ListInventoryRowsParams = {}): P
   if (params.type && params.type !== "all")     qs.set("type", params.type);
   if (params.status && params.status !== "all") qs.set("status", params.status);
 
-  const res = await fetch(`/api/fss/inventory/rows?${qs}`);
+  const res = await apiFetch(`/api/fss/inventory/rows?${qs}`);
   if (!res.ok) throw new Error("Failed to fetch inventory.");
   const json = await res.json();
 
@@ -237,7 +238,7 @@ export async function listInventoryRows(params: ListInventoryRowsParams = {}): P
 }
 
 export async function listInventory(): Promise<InventoryRecord[]> {
-  const res = await fetch("/api/fss/inventory");
+  const res = await apiFetch("/api/fss/inventory");
   if (!res.ok) throw new Error("Failed to fetch inventory.");
   const json = await res.json();
   return json.data;
@@ -248,7 +249,7 @@ export async function upsertInventory(
   payload: UpsertInventoryPayload
 ): Promise<InventoryRecord> {
   if (inventoryId) {
-    const res = await fetch(`/api/fss/inventory/${inventoryId}`, {
+    const res = await apiFetch(`/api/fss/inventory/${inventoryId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
@@ -257,7 +258,7 @@ export async function upsertInventory(
     if (!res.ok) throw new Error(json.message ?? "Failed to update.");
     return json.data;
   } else {
-    const res = await fetch("/api/fss/inventory", {
+    const res = await apiFetch("/api/fss/inventory", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
@@ -269,7 +270,7 @@ export async function upsertInventory(
 }
 
 export async function deleteInventory(id: number): Promise<void> {
-  const res = await fetch(`/api/fss/inventory/${id}`, { method: "DELETE" });
+  const res = await apiFetch(`/api/fss/inventory/${id}`, { method: "DELETE" });
   if (!res.ok && res.status !== 204) {
     const json = await res.json().catch(() => ({}));
     throw new Error(json.message ?? "Failed to delete.");
@@ -280,7 +281,7 @@ export async function restockInventory(
   id: number,
   quantity: number
 ): Promise<InventoryRecord> {
-  const res = await fetch(`/api/fss/inventory/${id}/restock`, {
+  const res = await apiFetch(`/api/fss/inventory/${id}/restock`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ quantity }),

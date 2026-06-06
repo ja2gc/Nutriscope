@@ -1,3 +1,4 @@
+﻿import { apiFetch } from "@/lib/apiFetch";
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 export interface FoodItem {
@@ -118,7 +119,7 @@ export async function fetchFoodItems(
   if (category && category !== "all") params.append("category", category);
   params.append("page", page.toString());
 
-  const res = await fetch(`/api/rnd/food-items?${params}`, {
+  const res = await apiFetch(`/api/rnd/food-items?${params}`, {
     headers: { Accept: "application/json" },
   });
 
@@ -131,7 +132,7 @@ export async function fetchFoodItems(
 }
 
 export async function fetchFoodItemById(id: number | string): Promise<FoodItem> {
-  const res = await fetch(`/api/rnd/food-items/${id}`, {
+  const res = await apiFetch(`/api/rnd/food-items/${id}`, {
     headers: { Accept: "application/json" },
   });
 
@@ -145,7 +146,7 @@ export async function fetchFoodItemById(id: number | string): Promise<FoodItem> 
 }
 
 export async function createFoodItem(payload: FoodItemPayload): Promise<FoodItem> {
-  const res = await fetch("/api/rnd/food-items", {
+  const res = await apiFetch("/api/rnd/food-items", {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "application/json" },
     body: JSON.stringify(payload),
@@ -164,7 +165,7 @@ export async function updateFoodItem(
   id: number | string,
   payload: Partial<FoodItemPayload>
 ): Promise<FoodItem> {
-  const res = await fetch(`/api/rnd/food-items/${id}`, {
+  const res = await apiFetch(`/api/rnd/food-items/${id}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json", Accept: "application/json" },
     body: JSON.stringify(payload),
@@ -180,7 +181,7 @@ export async function updateFoodItem(
 }
 
 export async function deleteFoodItem(id: number | string): Promise<void> {
-  const res = await fetch(`/api/rnd/food-items/${id}`, {
+  const res = await apiFetch(`/api/rnd/food-items/${id}`, {
     method: "DELETE",
     headers: { Accept: "application/json" },
   });
@@ -203,7 +204,7 @@ export async function fetchRecipes(
   if (category && category !== "all") params.append("category", category);
   params.append("page", page.toString());
 
-  const res = await fetch(`/api/rnd/recipes?${params}`, {
+  const res = await apiFetch(`/api/rnd/recipes?${params}`, {
     headers: { Accept: "application/json" },
   });
 
@@ -216,7 +217,7 @@ export async function fetchRecipes(
 }
 
 export async function fetchRecipeById(id: number | string): Promise<Recipe> {
-  const res = await fetch(`/api/rnd/recipes/${id}`, {
+  const res = await apiFetch(`/api/rnd/recipes/${id}`, {
     headers: { Accept: "application/json" },
   });
 
@@ -230,7 +231,7 @@ export async function fetchRecipeById(id: number | string): Promise<Recipe> {
 }
 
 export async function createRecipe(payload: RecipePayload): Promise<Recipe> {
-  const res = await fetch("/api/rnd/recipes", {
+  const res = await apiFetch("/api/rnd/recipes", {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "application/json" },
     body: JSON.stringify(payload),
@@ -249,7 +250,7 @@ export async function updateRecipe(
   id: number | string,
   payload: Partial<RecipePayload>
 ): Promise<Recipe> {
-  const res = await fetch(`/api/rnd/recipes/${id}`, {
+  const res = await apiFetch(`/api/rnd/recipes/${id}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json", Accept: "application/json" },
     body: JSON.stringify(payload),
@@ -265,7 +266,7 @@ export async function updateRecipe(
 }
 
 export async function deleteRecipe(id: number | string): Promise<void> {
-  const res = await fetch(`/api/rnd/recipes/${id}`, {
+  const res = await apiFetch(`/api/rnd/recipes/${id}`, {
     method: "DELETE",
     headers: { Accept: "application/json" },
   });
@@ -279,7 +280,7 @@ export async function deleteRecipe(id: number | string): Promise<void> {
 // ─── USDA API ─────────────────────────────────────────────────────────────────
 
 export async function searchUsda(query: string): Promise<UsdaSearchResult[]> {
-  const res = await fetch(`/api/rnd/usda/search?query=${encodeURIComponent(query)}`, {
+  const res = await apiFetch(`/api/rnd/usda/search?query=${encodeURIComponent(query)}`, {
     headers: { Accept: "application/json" },
   });
 
@@ -293,7 +294,7 @@ export async function searchUsda(query: string): Promise<UsdaSearchResult[]> {
 }
 
 export async function importUsdaFood(fdcId: number): Promise<FoodItem> {
-  const res = await fetch(`/api/rnd/usda/import/${fdcId}`, {
+  const res = await apiFetch(`/api/rnd/usda/import/${fdcId}`, {
     method: "POST",
     headers: { Accept: "application/json" },
   });

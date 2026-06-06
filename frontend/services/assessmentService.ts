@@ -1,3 +1,4 @@
+﻿import { apiFetch } from "@/lib/apiFetch";
 export interface Assessment {
   id?: number;
   ncp_record_id?: number;
@@ -74,7 +75,7 @@ export interface OcrDocumentRecord {
 }
 
 export async function fetchAssessment(ncpRecordId: number | string): Promise<Assessment> {
-  const res = await fetch(`/api/rnd/ncp-records/${ncpRecordId}/assessment`, {
+  const res = await apiFetch(`/api/rnd/ncp-records/${ncpRecordId}/assessment`, {
     method: "GET",
     headers: {
       Accept: "application/json",
@@ -96,7 +97,7 @@ export async function saveAssessment(
   exists: boolean
 ): Promise<Assessment> {
   const method = exists ? "PATCH" : "POST";
-  const res = await fetch(`/api/rnd/ncp-records/${ncpRecordId}/assessment`, {
+  const res = await apiFetch(`/api/rnd/ncp-records/${ncpRecordId}/assessment`, {
     method,
     headers: {
       "Content-Type": "application/json",
@@ -121,7 +122,7 @@ export async function uploadScreeningDocument(
   const formData = new FormData();
   formData.append("file", file);
 
-  const res = await fetch(`/api/rnd/ncp-records/${ncpRecordId}/upload-screening`, {
+  const res = await apiFetch(`/api/rnd/ncp-records/${ncpRecordId}/upload-screening`, {
     method: "POST",
     body: formData,
   });
@@ -142,7 +143,7 @@ export async function uploadLabsDocument(
   const formData = new FormData();
   formData.append("file", file);
 
-  const res = await fetch(`/api/rnd/ncp-records/${ncpRecordId}/upload-labs`, {
+  const res = await apiFetch(`/api/rnd/ncp-records/${ncpRecordId}/upload-labs`, {
     method: "POST",
     body: formData,
   });
@@ -157,7 +158,7 @@ export async function uploadLabsDocument(
 }
 
 export async function fetchScreeningDocument(ncpRecordId: number | string): Promise<ScreeningDocumentRecord | null> {
-  const res = await fetch(`/api/rnd/ncp-records/${ncpRecordId}/screening-document`, {
+  const res = await apiFetch(`/api/rnd/ncp-records/${ncpRecordId}/screening-document`, {
     method: "GET",
     headers: {
       Accept: "application/json",
@@ -174,7 +175,7 @@ export async function fetchScreeningDocument(ncpRecordId: number | string): Prom
 }
 
 export async function fetchOcrDocuments(ncpRecordId: number | string): Promise<OcrDocumentRecord[]> {
-  const res = await fetch(`/api/rnd/ncp-records/${ncpRecordId}/ocr-documents`, {
+  const res = await apiFetch(`/api/rnd/ncp-records/${ncpRecordId}/ocr-documents`, {
     method: "GET",
     headers: {
       Accept: "application/json",
@@ -194,7 +195,7 @@ export async function approveScreeningDocument(
   screeningDocumentId: number | string,
   payload: ScreeningDocumentApprovalPayload
 ): Promise<ScreeningDocumentRecord> {
-  const res = await fetch(`/api/rnd/screening-documents/${screeningDocumentId}/approve`, {
+  const res = await apiFetch(`/api/rnd/screening-documents/${screeningDocumentId}/approve`, {
     method: "PATCH",
     headers: {
       "Content-Type": "application/json",
