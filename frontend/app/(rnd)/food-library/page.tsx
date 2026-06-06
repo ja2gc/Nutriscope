@@ -160,10 +160,10 @@ function UsdaImportModal({ onClose, onImported }: {
                     )}
                   </div>
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    <MacroChip label="kcal" value={item.calories} color="text-emerald-700 bg-emerald-50 border-emerald-200" />
-                    <MacroChip label="P" value={item.protein} unit="g" color="text-rose-700 bg-rose-50 border-rose-200" />
-                    <MacroChip label="C" value={item.carbs} unit="g" color="text-amber-700 bg-amber-50 border-amber-200" />
-                    <MacroChip label="F" value={item.fat} unit="g" color="text-violet-700 bg-violet-50 border-violet-200" />
+                    <MacroChip label="kcal" value={item.calories} />
+                    <MacroChip label="P" value={item.protein} unit="g" />
+                    <MacroChip label="C" value={item.carbs} unit="g" />
+                    <MacroChip label="F" value={item.fat} unit="g" />
                     {item.food_category && (
                       <span className="text-[9px] text-zinc-400 font-medium ml-1">· {item.food_category}</span>
                     )}
@@ -529,10 +529,10 @@ export default function FoodLibraryPage() {
                         </td>
                         <td className="px-5 py-3.5">
                           <div className="flex items-center gap-1 flex-wrap">
-                            <MacroChip label="kcal" value={parseFloat(food.calories)} color="text-emerald-700 bg-emerald-50 border-emerald-200" />
-                            {food.protein && <MacroChip label="P" value={parseFloat(food.protein)} unit="g" color="text-rose-700 bg-rose-50 border-rose-200" />}
-                            {food.carbs   && <MacroChip label="C" value={parseFloat(food.carbs)}   unit="g" color="text-amber-700 bg-amber-50 border-amber-200" />}
-                            {food.fat     && <MacroChip label="F" value={parseFloat(food.fat)}     unit="g" color="text-violet-700 bg-violet-50 border-violet-200" />}
+                            <MacroChip label="kcal" value={parseFloat(food.calories)} />
+                            {food.protein && <MacroChip label="P" value={parseFloat(food.protein)} unit="g" />}
+                            {food.carbs   && <MacroChip label="C" value={parseFloat(food.carbs)}   unit="g" />}
+                            {food.fat     && <MacroChip label="F" value={parseFloat(food.fat)}     unit="g" />}
                           </div>
                         </td>
                         <td className="px-5 py-3.5">
@@ -651,10 +651,10 @@ export default function FoodLibraryPage() {
                           </td>
                           <td className="px-5 py-3.5">
                             <div className="flex items-center gap-1 flex-wrap">
-                              {recipe.total_calories && <MacroChip label="kcal" value={parseFloat(recipe.total_calories)} color="text-emerald-700 bg-emerald-50 border-emerald-200" />}
-                              {recipe.total_protein  && <MacroChip label="P" value={parseFloat(recipe.total_protein)}  unit="g" color="text-rose-700 bg-rose-50 border-rose-200" />}
-                              {recipe.total_carbs    && <MacroChip label="C" value={parseFloat(recipe.total_carbs)}    unit="g" color="text-amber-700 bg-amber-50 border-amber-200" />}
-                              {recipe.total_fat      && <MacroChip label="F" value={parseFloat(recipe.total_fat)}      unit="g" color="text-violet-700 bg-violet-50 border-violet-200" />}
+                              {recipe.total_calories && <MacroChip label="kcal" value={parseFloat(recipe.total_calories)} />}
+                              {recipe.total_protein  && <MacroChip label="P" value={parseFloat(recipe.total_protein)}  unit="g" />}
+                              {recipe.total_carbs    && <MacroChip label="C" value={parseFloat(recipe.total_carbs)}    unit="g" />}
+                              {recipe.total_fat      && <MacroChip label="F" value={parseFloat(recipe.total_fat)}      unit="g" />}
                             </div>
                           </td>
                           <td className="px-5 py-3.5">
@@ -733,9 +733,9 @@ export default function FoodLibraryPage() {
 
 // ─── Shared sub-components ────────────────────────────────────────────────────
 
-function MacroChip({ label, value, unit = "", color }: { label: string; value: number; unit?: string; color: string }) {
+function MacroChip({ label, value, unit = "" }: { label: string; value: number; unit?: string }) {
   return (
-    <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[9px] font-bold rounded-md border ${color}`}>
+    <span className="inline-flex items-center justify-center min-w-[52px] px-1.5 py-0.5 text-[9px] font-bold rounded-md border bg-zinc-100 text-zinc-600 border-zinc-200">
       {label} {Math.round(value * 10) / 10}{unit}
     </span>
   );
