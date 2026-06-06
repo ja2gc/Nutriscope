@@ -13,24 +13,24 @@ class InventoryController extends Controller
 {
     public function index(): JsonResponse
     {
-        return response()->json(['data' => InventoryResource::collection(Inventory::with('foodItem')->get())]);
+        return response()->json(['data' => InventoryResource::collection(Inventory::with(['foodItem', 'recipe'])->get())]);
     }
 
     public function store(StoreInventoryRequest $request): JsonResponse
     {
         $inventory = Inventory::create($request->validated());
-        return response()->json(['data' => new InventoryResource($inventory->load('foodItem'))], 201);
+        return response()->json(['data' => new InventoryResource($inventory->load(['foodItem', 'recipe']))], 201);
     }
 
     public function show(Inventory $inventory): JsonResponse
     {
-        return response()->json(['data' => new InventoryResource($inventory->load('foodItem'))]);
+        return response()->json(['data' => new InventoryResource($inventory->load(['foodItem', 'recipe']))]);
     }
 
     public function update(UpdateInventoryRequest $request, Inventory $inventory): JsonResponse
     {
         $inventory->update($request->validated());
-        return response()->json(['data' => new InventoryResource($inventory->load('foodItem'))]);
+        return response()->json(['data' => new InventoryResource($inventory->load(['foodItem', 'recipe']))]);
     }
 
     public function destroy(Inventory $inventory): JsonResponse
