@@ -1,7 +1,6 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react";
-import { useRouter, usePathname } from "next/navigation";
 import { User, loginUser, logoutUser, fetchCurrentUser } from "@/services/authService";
 
 interface AuthContextType {
@@ -21,8 +20,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [initializing, setInitializing] = useState<boolean>(true);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const router = useRouter();
-  const pathname = usePathname();
 
   const refreshUser = useCallback(async () => {
     try {
@@ -54,13 +51,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     window.addEventListener("pageshow", handlePageShow);
     return () => window.removeEventListener("pageshow", handlePageShow);
   }, [refreshUser]);
-
-  // Redirect to login whenever auth check completes with no user
-  useEffect(() => {
-    if (!initializing && !user && pathname !== "/login") {
-      router.replace("/login");
-    }
-  }, [initializing, user, pathname, router]);
 
   const login = async (email: string, password: string) => {
     try {
