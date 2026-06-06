@@ -557,7 +557,7 @@ export default function FoodLibraryPage() {
                           {food.allergens.length > 0 ? (
                             <div className="flex flex-wrap gap-1">
                               {food.allergens.slice(0, 3).map((a) => (
-                                <span key={a} className="px-1.5 py-0.5 bg-amber-50 border border-amber-200 text-amber-700 text-[9px] font-bold uppercase rounded-md">{a}</span>
+                                <span key={a} className="inline-flex items-center justify-center min-w-[52px] px-1.5 py-0.5 bg-amber-50 border border-amber-200 text-amber-700 text-[9px] font-bold uppercase rounded-md">{a}</span>
                               ))}
                               {food.allergens.length > 3 && (
                                 <span className="text-[9px] text-zinc-400 font-semibold self-center">+{food.allergens.length - 3}</span>
