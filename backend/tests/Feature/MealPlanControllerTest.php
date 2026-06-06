@@ -154,6 +154,10 @@ class MealPlanControllerTest extends TestCase
             ->assertJsonPath('data.generation_type', 'auto')
             ->assertJsonStructure(['data' => ['id', 'days']]);
 
+        $days = $response->json('data.days');
+        $this->assertIsArray($days);
+        $this->assertCount(35, $days); // 7 days × 5 meal types
+
         $mealPlan = MealPlan::where('intervention_id', '!=', null)->first();
         $this->assertNotNull($mealPlan);
     }
