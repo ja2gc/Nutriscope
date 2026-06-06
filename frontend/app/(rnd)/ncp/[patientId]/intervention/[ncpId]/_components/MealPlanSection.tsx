@@ -388,23 +388,23 @@ export default function MealPlanSection({
         <h3 className="text-xs font-extrabold text-zinc-700 uppercase tracking-wider flex items-center gap-2">
           <Salad className="h-4 w-4 text-emerald-600" /> Weekly Meal Plan
         </h3>
-        <div className="flex items-center gap-1.5 flex-wrap">
+        <div className="flex items-center gap-1 shrink-0">
           {templates.length > 0 && (
-            <Button variant="secondary" onClick={() => setFromTemplateOpen(true)} className="w-auto px-3 py-1.5 text-[10px]">
+            <button onClick={() => setFromTemplateOpen(true)} className="flex items-center gap-1.5 px-2.5 py-1.5 text-[10px] font-semibold text-zinc-600 border border-zinc-200 rounded-lg hover:bg-zinc-50 transition-colors cursor-pointer whitespace-nowrap">
               <LayoutTemplate className="h-3 w-3" /> From Template
-            </Button>
+            </button>
           )}
           {activePlan && (
-            <Button variant="secondary" onClick={() => setSaveTemplateOpen(true)} className="w-auto px-3 py-1.5 text-[10px]">
+            <button onClick={() => setSaveTemplateOpen(true)} className="flex items-center gap-1.5 px-2.5 py-1.5 text-[10px] font-semibold text-zinc-600 border border-zinc-200 rounded-lg hover:bg-zinc-50 transition-colors cursor-pointer whitespace-nowrap">
               <BookmarkPlus className="h-3 w-3" /> Save Template
-            </Button>
+            </button>
           )}
-          <Button variant="secondary" onClick={handleGenerate} loading={generating} className="w-auto px-3 py-1.5 text-[10px]">
-            {!generating && <Wand2 className="h-3 w-3" />} Auto-Generate
-          </Button>
-          <Button variant="secondary" loading={creatingPlan} onClick={handleCreatePlan} className="w-auto px-3 py-1.5 text-[10px]">
-            <Plus className="h-3 w-3" /> New Week
-          </Button>
+          <button onClick={handleGenerate} disabled={generating} className="flex items-center gap-1.5 px-2.5 py-1.5 text-[10px] font-semibold text-zinc-600 border border-zinc-200 rounded-lg hover:bg-zinc-50 transition-colors cursor-pointer whitespace-nowrap disabled:opacity-50">
+            {generating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wand2 className="h-3 w-3" />} Auto-Generate
+          </button>
+          <button onClick={handleCreatePlan} disabled={creatingPlan} className="flex items-center gap-1.5 px-2.5 py-1.5 text-[10px] font-semibold text-zinc-600 border border-zinc-200 rounded-lg hover:bg-zinc-50 transition-colors cursor-pointer whitespace-nowrap disabled:opacity-50">
+            {creatingPlan ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />} New Week
+          </button>
         </div>
       </div>
 
