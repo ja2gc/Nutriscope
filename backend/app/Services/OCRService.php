@@ -50,6 +50,59 @@ class OCRService
         return $this->getFallbackMockOcrText($filePath);
     }
 
+    /**
+     * Text-based checkbox detection — passes raw OCR text to the OMR /parse endpoint.
+     * Works for any hospital form layout (no pixel positions required).
+     */
+    public function parseCheckboxesFromText(string $rawText, string $formType = 'adult'): array
+    {
+        $omrUrl = config('services.omr.url') ?: 'http://omr:5001';
+
+        try {
+            $response = Http::timeout(5)->post("{$omrUrl}/parse", [
+                'text'      => $rawText,
+                'form_type' => $formType,
+            ]);
+
+            if ($response->successful()) {
+                return [
+                    'clinical_conditions'   => $response->json('clinical_conditions')   ?? [],
+                    'intake_weight_history' => $response->json('intake_weight_history') ?? [],
+                ];
+            }
+        } catch (Exception $e) {
+            Log::warning("OMR /parse unavailable: " . $e->getMessage());
+        }
+
+        return [];
+    }
+
+    public function detectCheckboxes(string $filePath, string $formType = 'adult'): array
+    {
+        $omrUrl = config('services.omr.url') ?: 'http://omr:5001';
+
+        try {
+            $response = Http::timeout(10);
+
+            if (file_exists($filePath)) {
+                $response = $response->attach('file', file_get_contents($filePath), basename($filePath));
+            }
+
+            $response = $response->post("{$omrUrl}/omr", ['form_type' => $formType]);
+
+            if ($response->successful()) {
+                return [
+                    'clinical_conditions'  => $response->json('clinical_conditions')  ?? [],
+                    'intake_weight_history' => $response->json('intake_weight_history') ?? [],
+                ];
+            }
+        } catch (Exception $e) {
+            Log::warning("OMR service unavailable: " . $e->getMessage());
+        }
+
+        return [];
+    }
+
     protected function getFallbackMockOcrText(string $filePath): string
     {
         if (str_contains($filePath, 'pediatric')) {

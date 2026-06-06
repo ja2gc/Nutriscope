@@ -19,7 +19,7 @@ NCP Diagnosis: tabs: Diagnosis Table→P→E→S→PES→AI Review. Domains: NI/
 
 NCP Intervention: tabs: Food/Nutrient Delivery, Education, Counseling, Goal Planning, Encounter Context. Nutrients customizable per goal. Disease stage UI stub only — logic TBD. Weekly meal plan, auto-generate via algorithm, real-time macro tracker
 
-NCP Monitoring: versioned updates. Trend graphs. Goal achievement (algorithm). AI decision panel(Sonnet): Continue/Modify/Escalate/Discharge. System-calculated risk trend and forecasting support.
+NCP Monitoring: versioned updates. Trend graphs. Goal achievement (algorithm). AI decision panel(Haiku): Continue/Modify/Escalate/Discharge. System-calculated risk trend and forecasting support.
 
 ### Food Service
 

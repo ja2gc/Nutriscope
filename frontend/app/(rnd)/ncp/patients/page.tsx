@@ -10,7 +10,7 @@ import {
   createNcpRecord,
 } from "@/services/patientService";
 import { Button } from "@/components/ui/Button";
-import { HeartHandshake } from "lucide-react";
+import { HeartHandshake, X } from "lucide-react";
 
 function calculateAge(dob?: string) {
   if (!dob) {
@@ -104,6 +104,13 @@ export default function NcpPatientsPage() {
   const [meta, setMeta] = useState<any>(null);
   const [creating, setCreating] = useState(false);
 
+  // Create patient modal
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newSex, setNewSex] = useState<"Male" | "Female">("Female");
+  const [newDob, setNewDob] = useState("");
+  const [createError, setCreateError] = useState<string | null>(null);
+
   const loadPatients = useCallback(async () => {
     try {
       setLoading(true);
@@ -134,26 +141,36 @@ export default function NcpPatientsPage() {
   }
 
   const handleCreateAndAssess = async () => {
+    if (!newName.trim() || !newDob) {
+      setCreateError("Please fill in the patient's name and date of birth.");
+      return;
+    }
+    setCreateError(null);
+    setCreating(true);
     try {
-      setCreating(true);
-      setError(null);
       const today = new Date().toISOString().split("T")[0];
       const newPatient = await createPatient({
-        name: "New Admission (Scanning)",
-        dob: "1990-01-01",
-        sex: "Male",
+        name: newName.trim(),
+        dob: newDob,
+        sex: newSex,
         admission_date: today,
         status: "Active",
       });
-
       const newNcp = await createNcpRecord(newPatient.id);
       router.push(`/ncp/${newPatient.id}/assessment/${newNcp.id}`);
     } catch (err: any) {
-      setError(err.message || "Failed to initialize assessment workflow.");
-    } finally {
+      setCreateError(err.message || "Failed to initialize assessment workflow.");
       setCreating(false);
     }
   };
+
+  function openCreateModal() {
+    setNewName("");
+    setNewSex("Female");
+    setNewDob("");
+    setCreateError(null);
+    setShowCreateModal(true);
+  }
 
   return (
     <div className="space-y-6 font-sans">
@@ -178,11 +195,11 @@ export default function NcpPatientsPage() {
 
         <Button
           variant="primary"
-          onClick={handleCreateAndAssess}
+          onClick={openCreateModal}
           disabled={creating}
           className="md:w-auto px-4.5 py-2.5 shrink-0 flex items-center justify-center gap-2"
         >
-          {creating ? "Creating..." : "Create Patient & Start Assessment"}
+          Create Patient & Start Assessment
         </Button>
       </div>
 
@@ -334,7 +351,87 @@ export default function NcpPatientsPage() {
           </div>
         )}
 
-        {meta && meta.last_page > 1 && (
+        {/* ── Create patient modal ─────────────────────────────────────────────── */}
+      {showCreateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm mx-4 p-6 space-y-5">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-extrabold text-zinc-900 tracking-tight">New Patient Details</h3>
+              <button
+                onClick={() => setShowCreateModal(false)}
+                className="p-1.5 text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 rounded-lg transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block">Full Name</label>
+              <input
+                type="text"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder="Patient full name"
+                autoFocus
+                className="w-full px-3 py-2 text-sm bg-white border border-zinc-300 rounded-lg text-zinc-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 transition-all placeholder:text-zinc-400"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block">Sex</label>
+              <div className="flex gap-2">
+                {(["Female", "Male"] as const).map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => setNewSex(s)}
+                    className={`flex-1 py-2 text-xs font-bold rounded-lg border transition-colors ${
+                      newSex === s
+                        ? "bg-emerald-600 text-white border-emerald-600"
+                        : "bg-white text-zinc-600 border-zinc-300 hover:bg-zinc-50"
+                    }`}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block">Date of Birth</label>
+              <input
+                type="date"
+                value={newDob}
+                onChange={(e) => setNewDob(e.target.value)}
+                max={new Date().toISOString().split("T")[0]}
+                className="w-full px-3 py-2 text-sm bg-white border border-zinc-300 rounded-lg text-zinc-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 transition-all"
+              />
+            </div>
+
+            {createError && (
+              <p className="text-xs text-rose-600 font-semibold">{createError}</p>
+            )}
+
+            <div className="flex gap-2 pt-1">
+              <button
+                onClick={() => setShowCreateModal(false)}
+                disabled={creating}
+                className="flex-1 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl border border-zinc-300 text-zinc-600 hover:bg-zinc-50 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreateAndAssess}
+                disabled={creating || !newName.trim() || !newDob}
+                className="flex-1 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {creating ? "Creating…" : "Create & Assess"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {meta && meta.last_page > 1 && (
           <div className="px-5 py-4 border-t border-zinc-100 bg-zinc-50 flex items-center justify-between select-none">
             <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
               Showing Page {meta.current_page} of {meta.last_page} ({meta.total} Total)

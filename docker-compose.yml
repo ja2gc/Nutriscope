@@ -28,6 +28,28 @@ services:
       - nutriscope_net
     restart: unless-stopped
 
+  paddleocr:
+    build:
+      context: ./paddleocr
+      dockerfile: Dockerfile
+    container_name: 'nutriscope_paddleocr'
+    ports:
+      - '5000:5000'
+    networks:
+      - nutriscope_net
+    restart: unless-stopped
+
+  omr:
+    build:
+      context: ./omr
+      dockerfile: Dockerfile
+    container_name: 'nutriscope_omr'
+    ports:
+      - '5001:5001'
+    networks:
+      - nutriscope_net
+    restart: unless-stopped
+
 volumes:
   nutriscope_mysql:
     driver: local

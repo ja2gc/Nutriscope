@@ -79,6 +79,29 @@ class PatientController extends Controller
     }
 
     /**
+     * DELETE /api/rnd/patients/{patient}
+     * Blocked when any NCP record has gone through Assessment → Diagnosis → Intervention.
+     */
+    public function destroy(Patient $patient): JsonResponse
+    {
+        $hasOfficialCycle = $patient->ncpRecords()
+            ->whereHas('assessment')
+            ->whereHas('diagnoses')
+            ->whereHas('intervention')
+            ->exists();
+
+        if ($hasOfficialCycle) {
+            return response()->json([
+                'message' => 'This patient has clinical records with completed assessment, diagnosis, and intervention and cannot be deleted.',
+            ], 422);
+        }
+
+        $patient->delete();
+
+        return response()->json(null, 204);
+    }
+
+    /**
      * POST /api/rnd/patients/{patient}/ncp-records
      */
     public function startNcpCycle(Request $request, Patient $patient): JsonResponse

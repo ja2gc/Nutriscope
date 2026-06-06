@@ -188,6 +188,30 @@ export async function fetchPatientNcpRecords(
   return responseData.data || [];
 }
 
+export async function deletePatient(id: number | string): Promise<void> {
+  const res = await fetch(`/api/patients/${id}`, {
+    method: "DELETE",
+    headers: { Accept: "application/json" },
+  });
+
+  if (res.status === 204) return;
+
+  const errorData = await res.json().catch(() => ({}));
+  throw new Error(errorData.message || "Failed to delete patient.");
+}
+
+export async function deleteNcpRecord(ncpRecordId: number | string): Promise<void> {
+  const res = await fetch(`/api/rnd/ncp-records/${ncpRecordId}`, {
+    method: "DELETE",
+    headers: { Accept: "application/json" },
+  });
+
+  if (res.status === 204) return;
+
+  const errorData = await res.json().catch(() => ({}));
+  throw new Error(errorData.message || "Failed to delete NCP record.");
+}
+
 export async function createNcpRecord(id: number | string): Promise<NcpRecord> {
   const res = await fetch(`/api/patients/${id}/ncp-records`, {
     method: "POST",

@@ -13,63 +13,72 @@ import {
   ComplianceStatus,
   GiToleranceStatus,
   ContinuationDecision,
+  GOAL_LAB_FLAGS,
+  CLINICAL_LAB_META,
+  type ClinicalLabKey,
   calculateBmi,
 } from "@/services/monitoringService";
+import type { Intervention } from "@/services/interventionService";
+import { GOAL_MICRO_FLAGS, ALL_MICROS } from "@/lib/nutritionCalculations";
+
+// ─── Props ────────────────────────────────────────────────────────────────────
 
 interface LogVisitFormProps {
   heightCm: number | null;
+  intervention: Intervention | null;
   onSubmit: (payload: MonitoringPayload) => Promise<void>;
   onCancel: () => void;
 }
 
-// ─── Toggle option configs ────────────────────────────────────────────────────
+// ─── Toggle option configs ─────────────────────────────────────────────────
 
 const COMPLIANCE_OPTIONS: { value: ComplianceStatus; label: string; active: string }[] = [
-  { value: 'compliant',     label: 'Compliant',  active: 'bg-emerald-600 text-white border-emerald-600' },
-  { value: 'partial',       label: 'Partial',    active: 'bg-amber-500 text-white border-amber-500' },
-  { value: 'non_compliant', label: 'Non-compl.', active: 'bg-rose-500 text-white border-rose-500' },
+  { value: "compliant",     label: "Compliant",   active: "bg-emerald-600 text-white border-emerald-600" },
+  { value: "partial",       label: "Partial",     active: "bg-amber-500 text-white border-amber-500" },
+  { value: "non_compliant", label: "Non-compl.",  active: "bg-rose-500 text-white border-rose-500" },
 ];
 
 const GI_OPTIONS: { value: GiToleranceStatus; label: string; active: string }[] = [
-  { value: 'tolerating',     label: 'Tolerating',  active: 'bg-emerald-600 text-white border-emerald-600' },
-  { value: 'not_tolerating', label: 'Not Tolerating', active: 'bg-rose-500 text-white border-rose-500' },
+  { value: "tolerating",     label: "Tolerating",     active: "bg-emerald-600 text-white border-emerald-600" },
+  { value: "not_tolerating", label: "Not Tolerating", active: "bg-rose-500 text-white border-rose-500" },
 ];
 
 type NonNullDecision = NonNullable<ContinuationDecision>;
 
 const DECISION_OPTIONS: { value: NonNullDecision; label: string; active: string }[] = [
-  { value: 'continue',    label: 'Continue',    active: 'bg-emerald-600 text-white border-emerald-600' },
-  { value: 'modify',      label: 'Modify',      active: 'bg-amber-500 text-white border-amber-500' },
-  { value: 'discontinue', label: 'Discontinue', active: 'bg-zinc-700 text-white border-zinc-700' },
+  { value: "continue",    label: "Continue",    active: "bg-emerald-600 text-white border-emerald-600" },
+  { value: "modify",      label: "Modify",      active: "bg-amber-500 text-white border-amber-500" },
+  { value: "discontinue", label: "Discontinue", active: "bg-zinc-700 text-white border-zinc-700" },
 ];
 
-const LAB_FIELDS = [
-  { key: 'albumin',     label: 'Albumin',     unit: 'g/dL',    type: 'number' },
-  { key: 'hba1c',       label: 'HbA1c',       unit: '%',       type: 'number' },
-  { key: 'ldl',         label: 'LDL',         unit: 'mg/dL',   type: 'number' },
-  { key: 'cholesterol', label: 'Cholesterol', unit: 'mg/dL',   type: 'number' },
-  { key: 'creatinine',  label: 'Creatinine',  unit: 'mg/dL',   type: 'number' },
-  { key: 'potassium',   label: 'Potassium',   unit: 'mEq/L',   type: 'number' },
-  { key: 'hemoglobin',  label: 'Hemoglobin',  unit: 'g/dL',    type: 'number' },
-  { key: 'glucose',     label: 'Glucose',     unit: 'mg/dL',   type: 'number' },
-  { key: 'bp',          label: 'Blood Pressure', unit: 'mmHg', type: 'text'   },
+// ─── Macro fields metadata ────────────────────────────────────────────────────
+
+const MACRO_FIELDS = [
+  { key: "energy_kcal", label: "Energy",   unit: "kcal", targetKey: "energy_kcal" },
+  { key: "protein_g",   label: "Protein",  unit: "g",    targetKey: "protein_g" },
+  { key: "carbs_g",     label: "Carbs",    unit: "g",    targetKey: "carbs_g" },
+  { key: "fat_g",       label: "Fat",      unit: "g",    targetKey: "fat_g" },
+  { key: "fluid_ml",    label: "Fluid",    unit: "mL",   targetKey: "fluid_ml" },
 ] as const;
 
-type LabKey = typeof LAB_FIELDS[number]['key'];
+type MacroKey = typeof MACRO_FIELDS[number]["key"];
 
-// ─── Shared input class — matches existing project form style ─────────────────
+// ─── Input class ──────────────────────────────────────────────────────────────
+
 const inputCls =
-  'w-full px-3.5 py-2.5 text-sm border border-zinc-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 bg-white transition-all placeholder:text-zinc-400';
+  "w-full px-3.5 py-2.5 text-sm border border-zinc-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 bg-white transition-all placeholder:text-zinc-400";
 
-// ─── Unit input wrapper — matches NutritionPrescriptionForm style ─────────────
+// ─── UnitInput — with optional target hint ────────────────────────────────────
+
 function UnitInput({
   label,
   unit,
   value,
   onChange,
-  type = 'number',
-  placeholder = '',
+  type = "number",
+  placeholder = "",
   disabled = false,
+  target,
 }: {
   label: string;
   unit: string;
@@ -78,12 +87,20 @@ function UnitInput({
   type?: string;
   placeholder?: string;
   disabled?: boolean;
+  target?: string | null;
 }) {
   return (
     <div>
-      <label className="block text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-1.5">
-        {label}
-      </label>
+      <div className="flex items-end justify-between mb-1.5">
+        <label className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest">
+          {label}
+        </label>
+        {target && target !== "" && (
+          <span className="text-[9px] font-mono font-semibold text-emerald-600 tabular-nums">
+            target: {target} {unit}
+          </span>
+        )}
+      </div>
       <div className="flex items-center border border-zinc-200 rounded-xl overflow-hidden focus-within:border-emerald-600 focus-within:ring-2 focus-within:ring-emerald-500/20 transition-all">
         <input
           type={type}
@@ -103,7 +120,8 @@ function UnitInput({
   );
 }
 
-// ─── Toggle group — used for compliance, GI, decision ─────────────────────────
+// ─── ToggleGroup ──────────────────────────────────────────────────────────────
+
 function ToggleGroup<T extends string>({
   label,
   options,
@@ -127,7 +145,7 @@ function ToggleGroup<T extends string>({
             className={`flex-1 min-w-[80px] py-2.5 text-xs font-semibold rounded-xl border transition-all ${
               value === opt.value
                 ? opt.active
-                : 'bg-white text-zinc-500 border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50'
+                : "bg-white text-zinc-500 border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50"
             }`}
           >
             {opt.label}
@@ -138,23 +156,104 @@ function ToggleGroup<T extends string>({
   );
 }
 
+// ─── Collapsible section wrapper ──────────────────────────────────────────────
+
+function CollapsibleSection({
+  title,
+  subtitle,
+  open,
+  onOpenChange,
+  children,
+}: {
+  title: string;
+  subtitle?: string;
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <Collapsible open={open} onOpenChange={onOpenChange}>
+      <div className="border border-zinc-200 rounded-xl overflow-hidden">
+        <CollapsibleTrigger asChild>
+          <button
+            type="button"
+            className="w-full flex items-center justify-between px-4 py-3 text-[9px] font-bold text-zinc-400 uppercase tracking-widest hover:bg-zinc-50 transition-colors"
+          >
+            <span>
+              {title}{" "}
+              {subtitle && (
+                <span className="normal-case font-normal text-zinc-300">({subtitle})</span>
+              )}
+            </span>
+            {open
+              ? <ChevronUp className="h-3.5 w-3.5 text-zinc-400" />
+              : <ChevronDown className="h-3.5 w-3.5 text-zinc-400" />
+            }
+          </button>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <div className="px-4 pb-4 border-t border-zinc-100 pt-4">
+            {children}
+          </div>
+        </CollapsibleContent>
+      </div>
+    </Collapsible>
+  );
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export default function LogVisitForm({ heightCm, onSubmit, onCancel }: LogVisitFormProps) {
-  const todayStr = new Date().toISOString().split('T')[0];
+export default function LogVisitForm({
+  heightCm,
+  intervention,
+  onSubmit,
+  onCancel,
+}: LogVisitFormProps) {
+  const todayStr = new Date().toISOString().split("T")[0];
 
-  const [weight, setWeight]         = useState('');
-  const [bmi, setBmi]               = useState('');
+  // Derive which lab keys to show from goal type
+  const goalType = intervention?.goal_type ?? null;
+  const labKeys: ClinicalLabKey[] = goalType
+    ? (GOAL_LAB_FLAGS[goalType] ?? [])
+    : (Object.keys(CLINICAL_LAB_META) as ClinicalLabKey[]);
+
+  // Derive which micro keys to show (deduped union of displayed_nutrients + flagged)
+  const flaggedMicros: string[] = goalType ? (GOAL_MICRO_FLAGS[goalType] ?? []) : [];
+  const displayedMicros: string[] = intervention?.displayed_nutrients ?? [];
+  const microKeys = Array.from(new Set([...displayedMicros, ...flaggedMicros]));
+  const microMeta = Object.fromEntries(ALL_MICROS.map((m) => [m.key, m]));
+
+  // ─ Form state ───────────────────────────────────────────────────────────────
+  const [weight, setWeight]         = useState("");
+  const [bmi, setBmi]               = useState("");
   const [compliance, setCompliance] = useState<ComplianceStatus | null>(null);
   const [giTolerance, setGiTolerance] = useState<GiToleranceStatus | null>(null);
   const [decision, setDecision]     = useState<ContinuationDecision>(null);
-  const [clinicalSummary, setClinicalSummary] = useState('');
-  const [nextDate, setNextDate]     = useState('');
+  const [clinicalSummary, setClinicalSummary] = useState("");
+  const [nextDate, setNextDate]     = useState("");
+
+  const [macrosOpen, setMacrosOpen] = useState(true);
   const [labsOpen, setLabsOpen]     = useState(false);
-  const [labs, setLabs]             = useState<Record<LabKey, string>>({
-    albumin: '', hba1c: '', ldl: '', cholesterol: '',
-    creatinine: '', potassium: '', hemoglobin: '', glucose: '', bp: '',
+  const [microsOpen, setMicrosOpen] = useState(false);
+
+  const [macros, setMacros] = useState<Record<MacroKey, string>>({
+    energy_kcal: "",
+    protein_g: "",
+    carbs_g: "",
+    fat_g: "",
+    fluid_ml: "",
   });
+
+  const [labs, setLabs] = useState<Record<ClinicalLabKey, string>>(
+    Object.fromEntries(
+      (Object.keys(CLINICAL_LAB_META) as ClinicalLabKey[]).map((k) => [k, ""])
+    ) as Record<ClinicalLabKey, string>
+  );
+
+  const [micros, setMicros] = useState<Record<string, string>>(
+    Object.fromEntries(microKeys.map((k) => [k, ""]))
+  );
+
   const [submitting, setSubmitting] = useState(false);
   const [error, setError]           = useState<string | null>(null);
 
@@ -164,17 +263,32 @@ export default function LogVisitForm({ heightCm, onSubmit, onCancel }: LogVisitF
     if (!isNaN(w) && w > 0 && heightCm && heightCm > 0) {
       setBmi(String(calculateBmi(w, heightCm)));
     } else {
-      setBmi('');
+      setBmi("");
     }
   }
 
   function buildPayload(): MonitoringPayload {
+    // Merge all numeric values into lab_values
     const labValues: Record<string, number | string | null> = {};
-    LAB_FIELDS.forEach(({ key }) => {
-      const v = labs[key].trim();
-      if (v !== '') {
-        labValues[key] = key === 'bp' ? v : parseFloat(v);
+
+    // Clinical labs
+    labKeys.forEach((key) => {
+      const v = labs[key]?.trim() ?? "";
+      if (v !== "") {
+        labValues[key] = key === "bp" ? v : parseFloat(v);
       }
+    });
+
+    // Macro intake
+    MACRO_FIELDS.forEach(({ key }) => {
+      const v = macros[key].trim();
+      if (v !== "") labValues[key] = parseFloat(v);
+    });
+
+    // Micro intake — stored as micro_{key} to avoid conflicts with clinical labs
+    microKeys.forEach((key) => {
+      const v = (micros[key] ?? "").trim();
+      if (v !== "") labValues[`micro_${key}`] = parseFloat(v);
     });
 
     const goalAchievement: Record<string, string> = {};
@@ -186,7 +300,7 @@ export default function LogVisitForm({ heightCm, onSubmit, onCancel }: LogVisitF
       weight:               weight ? parseFloat(weight) : null,
       bmi:                  bmi ? parseFloat(bmi) : null,
       lab_values:           Object.keys(labValues).length > 0
-                              ? labValues as MonitoringPayload['lab_values']
+                              ? (labValues as MonitoringPayload["lab_values"])
                               : null,
       clinical_summary:     clinicalSummary.trim() || null,
       goal_achievement:     Object.keys(goalAchievement).length > 0 ? goalAchievement : null,
@@ -201,7 +315,7 @@ export default function LogVisitForm({ heightCm, onSubmit, onCancel }: LogVisitF
     try {
       await onSubmit(buildPayload());
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save visit.');
+      setError(err instanceof Error ? err.message : "Failed to save visit.");
     } finally {
       setSubmitting(false);
     }
@@ -211,7 +325,9 @@ export default function LogVisitForm({ heightCm, onSubmit, onCancel }: LogVisitF
     <div className="bg-white border border-zinc-200 rounded-2xl shadow-sm overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-100">
-        <h3 className="text-xs font-extrabold text-zinc-700 uppercase tracking-wider">Log New Visit</h3>
+        <h3 className="text-xs font-extrabold text-zinc-700 uppercase tracking-wider">
+          Log New Visit
+        </h3>
         <button
           onClick={onCancel}
           type="button"
@@ -222,7 +338,8 @@ export default function LogVisitForm({ heightCm, onSubmit, onCancel }: LogVisitF
       </div>
 
       <form onSubmit={handleSubmit} className="px-5 py-5 space-y-5">
-        {/* Weight + BMI — 2-col on sm+, stacked on xs */}
+
+        {/* ── Weight + BMI ─────────────────────────────────────────────────── */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <UnitInput
             label="Weight"
@@ -232,16 +349,16 @@ export default function LogVisitForm({ heightCm, onSubmit, onCancel }: LogVisitF
             placeholder="e.g. 68.5"
           />
           <UnitInput
-            label={heightCm ? 'BMI (auto-calculated)' : 'BMI'}
+            label={heightCm ? "BMI (auto-calculated)" : "BMI"}
             unit="kg/m²"
             value={bmi}
             onChange={setBmi}
-            placeholder={heightCm ? 'Auto from weight' : 'Enter manually'}
+            placeholder={heightCm ? "Auto from weight" : "Enter manually"}
             disabled={!!heightCm && !!weight}
           />
         </div>
 
-        {/* Diet Compliance */}
+        {/* ── Diet Compliance ──────────────────────────────────────────────── */}
         <ToggleGroup
           label="Diet Compliance"
           options={COMPLIANCE_OPTIONS}
@@ -249,7 +366,7 @@ export default function LogVisitForm({ heightCm, onSubmit, onCancel }: LogVisitF
           onChange={setCompliance}
         />
 
-        {/* GI Tolerance */}
+        {/* ── GI Tolerance ─────────────────────────────────────────────────── */}
         <ToggleGroup
           label="GI Tolerance"
           options={GI_OPTIONS}
@@ -257,7 +374,7 @@ export default function LogVisitForm({ heightCm, onSubmit, onCancel }: LogVisitF
           onChange={(v) => setGiTolerance(v as GiToleranceStatus | null)}
         />
 
-        {/* Care Decision */}
+        {/* ── Care Decision ────────────────────────────────────────────────── */}
         <ToggleGroup<NonNullDecision>
           label="Care Decision"
           options={DECISION_OPTIONS}
@@ -265,44 +382,98 @@ export default function LogVisitForm({ heightCm, onSubmit, onCancel }: LogVisitF
           onChange={(v) => setDecision(v)}
         />
 
-        {/* Lab Values — collapsible, 2-col on sm+ */}
-        <Collapsible open={labsOpen} onOpenChange={setLabsOpen}>
-          <div className="border border-zinc-200 rounded-xl overflow-hidden">
-            <CollapsibleTrigger asChild>
-              <button
-                type="button"
-                className="w-full flex items-center justify-between px-4 py-3 text-[9px] font-bold text-zinc-400 uppercase tracking-widest hover:bg-zinc-50 transition-colors"
-              >
-                <span>
-                  Lab Values{' '}
-                  <span className="normal-case font-normal text-zinc-300">(optional)</span>
-                </span>
-                {labsOpen
-                  ? <ChevronUp className="h-3.5 w-3.5 text-zinc-400" />
-                  : <ChevronDown className="h-3.5 w-3.5 text-zinc-400" />
-                }
-              </button>
-            </CollapsibleTrigger>
+        {/* ── Macronutrient Intake ─────────────────────────────────────────── */}
+        <CollapsibleSection
+          title="Actual Intake"
+          subtitle="macronutrients"
+          open={macrosOpen}
+          onOpenChange={setMacrosOpen}
+        >
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {MACRO_FIELDS.map(({ key, label, unit, targetKey }) => {
+              const target = intervention
+                ? (intervention[targetKey as keyof Intervention] as string | null)
+                : null;
+              return (
+                <UnitInput
+                  key={key}
+                  label={label}
+                  unit={unit}
+                  value={macros[key]}
+                  onChange={(v) => setMacros((prev) => ({ ...prev, [key]: v }))}
+                  placeholder="—"
+                  target={target}
+                />
+              );
+            })}
+          </div>
+        </CollapsibleSection>
 
-            <CollapsibleContent>
-              <div className="px-4 pb-4 border-t border-zinc-100 pt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {LAB_FIELDS.map(({ key, label, unit, type }) => (
+        {/* ── Clinical Labs ────────────────────────────────────────────────── */}
+        {labKeys.length > 0 && (
+          <CollapsibleSection
+            title="Lab Results"
+            subtitle="optional"
+            open={labsOpen}
+            onOpenChange={setLabsOpen}
+          >
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {labKeys.map((key) => {
+                const meta = CLINICAL_LAB_META[key];
+                return (
                   <UnitInput
                     key={key}
-                    label={label}
-                    unit={unit}
-                    type={type}
+                    label={meta.label}
+                    unit={meta.unit}
+                    type={meta.type}
                     value={labs[key]}
                     onChange={(v) => setLabs((prev) => ({ ...prev, [key]: v }))}
                     placeholder="—"
                   />
-                ))}
-              </div>
-            </CollapsibleContent>
-          </div>
-        </Collapsible>
+                );
+              })}
+            </div>
+          </CollapsibleSection>
+        )}
 
-        {/* Clinical Notes */}
+        {/* ── Micronutrient Intake ─────────────────────────────────────────── */}
+        {microKeys.length > 0 && (
+          <CollapsibleSection
+            title="Micronutrient Intake"
+            subtitle="optional"
+            open={microsOpen}
+            onOpenChange={setMicrosOpen}
+          >
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {microKeys.map((key) => {
+                const meta = microMeta[key];
+                const limits = intervention?.micronutrient_limits?.[key];
+                // Show target as max if available, min otherwise
+                const limitStr = limits?.max != null
+                  ? `≤ ${limits.max}`
+                  : limits?.min != null
+                    ? `≥ ${limits.min}`
+                    : null;
+                return (
+                  <UnitInput
+                    key={key}
+                    label={meta?.label ?? key}
+                    unit={meta?.unit ?? ""}
+                    value={micros[key] ?? ""}
+                    onChange={(v) => setMicros((prev) => ({ ...prev, [key]: v }))}
+                    placeholder="—"
+                    target={limitStr}
+                  />
+                );
+              })}
+            </div>
+            <p className="text-[9px] text-zinc-300 mt-3">
+              Target values from the nutrition prescription.
+            </p>
+          </CollapsibleSection>
+        )}
+
+        {/* ── Clinical Notes ───────────────────────────────────────────────── */}
         <div>
           <label className="block text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-1.5">
             Clinical Notes
@@ -316,10 +487,10 @@ export default function LogVisitForm({ heightCm, onSubmit, onCancel }: LogVisitF
           />
         </div>
 
-        {/* Next Visit Date */}
+        {/* ── Next Follow-up Date ──────────────────────────────────────────── */}
         <div>
           <label className="block text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-1.5">
-            Next Visit Date
+            Next Follow-up Date
           </label>
           <input
             type="date"
@@ -330,14 +501,14 @@ export default function LogVisitForm({ heightCm, onSubmit, onCancel }: LogVisitF
           />
         </div>
 
-        {/* Error */}
+        {/* ── Error ────────────────────────────────────────────────────────── */}
         {error && (
           <div className="flex items-start gap-2 p-3 bg-rose-50 border border-rose-200 rounded-xl">
             <p className="text-xs text-rose-700">{error}</p>
           </div>
         )}
 
-        {/* Actions */}
+        {/* ── Actions ──────────────────────────────────────────────────────── */}
         <div className="flex flex-col sm:flex-row gap-3 pt-1">
           <Button type="submit" variant="primary" loading={submitting} className="sm:flex-1">
             Save Visit

@@ -16,6 +16,7 @@ class UpdateInventoryRequest extends FormRequest
             'expiry_date'              => ['nullable', 'date'],
             'usage_rate'               => ['nullable', 'numeric', 'min:0'],
             'minimum_stock_threshold'  => ['nullable', 'numeric', 'min:0'],
+            'unit_price'               => ['nullable', 'numeric', 'min:0'],
             'notes'                    => ['nullable', 'string'],
         ];
     }

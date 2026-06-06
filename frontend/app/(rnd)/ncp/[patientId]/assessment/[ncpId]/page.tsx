@@ -21,6 +21,8 @@ import {
 } from "@/services/assessmentService";
 
 // ─── Constants ───────────────────────────────────────────────────────────
+const COMMON_ALLERGENS = ["milk", "eggs", "fish", "shellfish", "tree nuts", "peanuts", "wheat", "soybeans"];
+
 const TABS = [
   { key: "dietary", label: "A: Dietary History", icon: Utensils },
   { key: "anthropometric", label: "B: Anthropometrics", icon: Ruler },
@@ -783,6 +785,18 @@ export default function NcpAssessmentPage({
     }
   };
 
+  // ─── Clear OCR Document Handlers ────────────────────────────────────
+  const handleClearLabDocument = () => {
+    setLatestLabDocument(null);
+    setLabValues({});
+    setLabConfidence({});
+  };
+
+  const handleClearScreeningDocument = () => {
+    setScreeningDocument(null);
+    setScreeningDraft(patient ? buildScreeningDraft(patient, null, assessment) : null);
+  };
+
   // ─── Upload Handlers ────────────────────────────────────────────────
   const handleScreeningUpload = async (file: File) => {
     try {
@@ -966,7 +980,22 @@ export default function NcpAssessmentPage({
         <TextArea value={s("lifestyle")} onChange={v => updateField("lifestyle", v)} placeholder="Lifestyle factors..." rows={3} />
       </Field>
       <Field label="Allergies (Hard Filter for meal plans)">
-        <TagInput tags={allergies} onChange={v => updateField("allergies", v)} placeholder="Type allergy and press Enter..." />
+        <div className="flex flex-wrap gap-1.5 py-1">
+          {COMMON_ALLERGENS.map(a => (
+            <button
+              key={a}
+              type="button"
+              onClick={() => updateField("allergies", allergies.includes(a) ? allergies.filter(x => x !== a) : [...allergies, a])}
+              className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide border transition-all cursor-pointer ${
+                allergies.includes(a)
+                  ? "bg-red-100 border-red-300 text-red-800"
+                  : "bg-zinc-50 border-zinc-200 text-zinc-500 hover:border-red-200 hover:text-red-700"
+              }`}
+            >
+              {a}
+            </button>
+          ))}
+        </div>
         {allergies.length > 0 && (
           <p className="text-[9px] text-red-500 mt-1 font-bold">⚠ These allergens will be hard-excluded from meal plan recommendations.</p>
         )}
@@ -986,7 +1015,10 @@ export default function NcpAssessmentPage({
         <DropZone label="Upload Lab Results (PDF or Image) for OCR Extraction" onUpload={handleLabsUpload} uploading={uploadingLabs} />
         {latestLabDocument?.id && (
           <div className="flex flex-col items-center justify-center gap-2">
-            <span className="text-[9px] font-bold uppercase tracking-wider text-zinc-500">Lab Sheet Preview</span>
+            <div className="flex items-center gap-2">
+              <span className="text-[9px] font-bold uppercase tracking-wider text-zinc-500">Lab Sheet Preview</span>
+              <button type="button" onClick={handleClearLabDocument} className="text-[9px] text-zinc-400 hover:text-red-500 font-bold cursor-pointer transition-colors">✕ Remove</button>
+            </div>
             <div className={`relative rounded-xl border-2 overflow-hidden bg-zinc-50 flex items-center justify-center ${
               pollingLabs ? "border-amber-300 animate-pulse" : "border-zinc-200"
             }`} style={{ width: 160, height: 200 }}>
@@ -1184,13 +1216,16 @@ export default function NcpAssessmentPage({
               <div className="rounded-xl border border-zinc-200 overflow-hidden bg-zinc-50">
                 <div className="flex items-center justify-between px-3 py-2 bg-white border-b border-zinc-100">
                   <span className="text-[9px] font-bold uppercase tracking-wider text-zinc-500">Uploaded Document Preview</span>
-                  <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${
-                    screeningDocument.status === "completed" ? "bg-emerald-50 text-emerald-700" :
-                    screeningDocument.status === "failed" ? "bg-red-50 text-red-700" :
-                    "bg-amber-50 text-amber-700"
-                  }`}>
-                    {pollingScreening ? "Extracting..." : (screeningDocument.status ?? "pending")}
-                  </span>
+                  <div className="flex items-center gap-3">
+                    <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${
+                      screeningDocument.status === "completed" ? "bg-emerald-50 text-emerald-700" :
+                      screeningDocument.status === "failed" ? "bg-red-50 text-red-700" :
+                      "bg-amber-50 text-amber-700"
+                    }`}>
+                      {pollingScreening ? "Extracting..." : (screeningDocument.status ?? "pending")}
+                    </span>
+                    <button type="button" onClick={handleClearScreeningDocument} className="text-[9px] text-zinc-400 hover:text-red-500 font-bold cursor-pointer transition-colors">✕ Remove</button>
+                  </div>
                 </div>
                 <div className="relative flex items-center justify-center p-2" style={{ minHeight: 240 }}>
                   {pollingScreening && (
