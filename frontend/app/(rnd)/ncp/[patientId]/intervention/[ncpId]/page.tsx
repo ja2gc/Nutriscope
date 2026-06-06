@@ -12,6 +12,7 @@ import {
   autofillPrescription, GOAL_MICRO_FLAGS, Prescription, PatientMetrics,
 } from "@/lib/nutritionCalculations";
 import GoalSelectorModal, { GOALS } from "./_components/GoalSelectorModal";
+import { Button } from "@/components/ui/Button";
 import NutritionPrescriptionForm from "./_components/NutritionPrescriptionForm";
 import RecommendAvoidPanel from "./_components/RecommendAvoidPanel";
 import EducationTab from "./_components/EducationTab";
@@ -263,11 +264,10 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
             <div className="bg-white border border-zinc-200 rounded-2xl p-5 shadow-sm">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-xs font-extrabold text-zinc-700 uppercase tracking-wider">Intervention Goal</h3>
-                <button onClick={() => setGoalModalOpen(true)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold text-emerald-700 border border-emerald-300 rounded-lg hover:bg-emerald-50 transition-colors cursor-pointer">
+                <Button variant="ghost" onClick={() => setGoalModalOpen(true)} className="px-3 py-1.5 text-[10px] gap-1.5">
                   <Settings2 className="h-3 w-3" />
                   {intervention?.goal_type ? "Change Goal" : "Set Goal"}
-                </button>
+                </Button>
               </div>
               {intervention?.goal_type ? (
                 <div className="flex items-center gap-2 px-4 py-3 bg-emerald-50 border border-emerald-200 rounded-xl">
