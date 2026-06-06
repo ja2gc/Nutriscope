@@ -243,7 +243,7 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
       </div>
 
       {/* Tab bar */}
-      <div className="flex gap-0.5 border-b border-zinc-200 overflow-x-auto">
+      <div className="flex flex-wrap border-b border-zinc-200 sticky top-0 z-20 bg-white -mx-6 px-6 lg:-mx-8 lg:px-8">
         {TABS.map(({ key, label }) => (
           <button key={key} onClick={() => setTab(key)}
             className={`px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider border-b-2 whitespace-nowrap transition-colors cursor-pointer ${
