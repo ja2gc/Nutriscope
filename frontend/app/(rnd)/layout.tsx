@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { Sidebar } from "@/components/layout/Sidebar";
@@ -13,6 +13,7 @@ export default function RndLayout({
 }) {
   const { user, initializing } = useAuth();
   const router = useRouter();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     if (!initializing && !user) {
@@ -58,12 +59,12 @@ export default function RndLayout({
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50 font-sans">
       {/* Persistent Left Sidebar */}
-      <Sidebar />
+      <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       {/* Main Layout Area */}
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
         {/* Global Context Header */}
-        <TopBar />
+        <TopBar onMenuClick={() => setSidebarOpen(true)} />
 
         {/* Scrollable Content Canvas */}
         <main className="flex-1 overflow-y-auto p-6 lg:p-8">
