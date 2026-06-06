@@ -15,11 +15,30 @@ export default function RndLayout({
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  // Runs on every mount and whenever auth state changes
   useEffect(() => {
     if (!initializing && !user) {
       router.replace("/login");
     }
   }, [user, initializing, router]);
+
+  // Fallback: if still initializing after 6 s (e.g. hung fetch), force redirect
+  useEffect(() => {
+    if (!initializing) return;
+    const t = setTimeout(() => router.replace("/login"), 6000);
+    return () => clearTimeout(t);
+  }, [initializing, router]);
+
+  // Handle bfcache restore — redirect immediately if user is null
+  useEffect(() => {
+    const handlePageShow = (e: PageTransitionEvent) => {
+      if (e.persisted && !user) {
+        router.replace("/login");
+      }
+    };
+    window.addEventListener("pageshow", handlePageShow);
+    return () => window.removeEventListener("pageshow", handlePageShow);
+  }, [user, router]);
 
   if (initializing) {
     return (
