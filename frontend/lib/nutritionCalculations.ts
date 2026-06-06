@@ -135,9 +135,14 @@ export function autofillPrescription(
         hemodialysis: 1.2, peritoneal: 1.35,
       };
       const protein_g = Math.round(ibw * (proteinPerKg[stage ?? 'stage_1'] ?? 0.8));
-      const fluid_ml  = stage === 'hemodialysis' ? 750 : std_fluid;
+      const fluidMap: Record<string, number> = { hemodialysis: 750, peritoneal: 1000 };
+      const fluid_ml  = fluidMap[stage ?? ''] ?? std_fluid;
+      const noteMap: Record<string, string> = {
+        hemodialysis: 'Add prior-day urine output to 750 mL fluid base.',
+        peritoneal:   'Conservative 1000 mL base; adjust to residual renal function + peritoneal losses.',
+      };
       return { energy_kcal: energy, protein_g, ...macrosFromEnergyProtein(energy, protein_g), fluid_ml,
-        note: stage === 'hemodialysis' ? 'Add prior-day urine output to 750 mL fluid base.' : undefined };
+        note: noteMap[stage ?? ''] };
     }
 
     case 'diabetic_control': {
@@ -150,7 +155,9 @@ export function autofillPrescription(
       const energy    = Math.round(tee);
       const protein_g = Math.round(ibw * 0.8);
       const fatPct    = stage === 'severe' ? 0.24 : stage === 'moderate' ? 0.26 : 0.28;
-      return { energy_kcal: energy, protein_g, ...macrosFromEnergyProtein(energy, protein_g, fatPct), fluid_ml: std_fluid };
+      const cardiacFluid: Record<string, number> = { moderate: 2000, severe: 1500 };
+      const fluid_ml  = cardiacFluid[stage ?? ''] ?? std_fluid;
+      return { energy_kcal: energy, protein_g, ...macrosFromEnergyProtein(energy, protein_g, fatPct), fluid_ml };
     }
 
     case 'weight_loss': {
@@ -184,22 +191,6 @@ export function autofillPrescription(
       };
       const protein_g = Math.round(ibw * (protPerKg[stage ?? 'mild_stress'] ?? 1.1));
       return { energy_kcal: energy, protein_g, ...macrosFromEnergyProtein(energy, protein_g), fluid_ml: std_fluid };
-    }
-
-    case 'fluid_restriction': {
-      const energy    = Math.round(tee);
-      const protein_g = Math.round(ibw * 0.8);
-      const fluidMap: Record<string, number> = {
-        ckd_predialysis: std_fluid,
-        ckd_hemodialysis: 750,
-        ckd_peritoneal: std_fluid,
-        heart_failure_mild: 2000,
-        heart_failure_severe: 1250,
-        siadh: 750,
-      };
-      const fluid_ml = fluidMap[stage ?? 'ckd_predialysis'] ?? std_fluid;
-      return { energy_kcal: energy, protein_g, ...macrosFromEnergyProtein(energy, protein_g), fluid_ml,
-        note: stage === 'ckd_hemodialysis' ? 'Add prior-day urine output to 750 mL fluid base.' : undefined };
     }
 
     case 'liver_disease': {
@@ -257,7 +248,6 @@ export const GOAL_MICRO_FLAGS: Record<string, string[]> = {
   diabetic_control:  ['fiber'],
   cardiac_diet:      ['sodium', 'cholesterol'],
   weight_loss:       ['fiber'],
-  fluid_restriction: ['sodium'],
   liver_disease:     ['sodium'],
   malnutrition:      [],
   weight_gain:       [],
