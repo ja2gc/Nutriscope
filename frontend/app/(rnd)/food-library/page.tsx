@@ -512,7 +512,7 @@ export default function FoodLibraryPage() {
                 message="Add foods manually or import from the USDA FoodData Central database." />
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
+                <table className="w-full text-left border-collapse min-w-[480px]">
                   <thead>
                     <tr className="border-b border-zinc-100 select-none">
                       <Th>Food</Th>
@@ -636,7 +636,7 @@ export default function FoodLibraryPage() {
                 message="Build clinical recipes from the foods in your library." />
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
+                <table className="w-full text-left border-collapse min-w-[480px]">
                   <thead>
                     <tr className="border-b border-zinc-100 select-none">
                       <Th>Recipe</Th>

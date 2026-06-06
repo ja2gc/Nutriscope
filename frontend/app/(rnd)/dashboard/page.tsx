@@ -717,7 +717,7 @@ export default function RndDashboardPage() {
                 </div>
 
                 <div className="overflow-x-auto rounded-2xl border border-zinc-200">
-                  <table className="w-full text-left border-collapse">
+                  <table className="w-full text-left border-collapse min-w-[480px]">
                     <thead>
                       <tr className="bg-zinc-50 border-b border-zinc-200">
                         <th className="px-4 py-3 text-[10px] font-extrabold text-zinc-500 uppercase tracking-wider">
