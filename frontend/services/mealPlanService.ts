@@ -7,6 +7,7 @@ export interface NutrientSnapshot {
   protein: number;
   carbs: number;
   fat: number;
+  water_g?: number | null;
   micronutrients: Record<string, number>;
   serving_size: number;
   serving_unit: string;

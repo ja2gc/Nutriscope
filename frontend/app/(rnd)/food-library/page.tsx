@@ -17,20 +17,7 @@ import {
 const FOOD_CATEGORIES = ["all", "protein", "carbs", "vegetable", "fat", "dairy", "fruit"];
 const RECIPE_CATEGORIES = ["all", "breakfast", "lunch", "dinner", "snack"];
 
-const CATEGORY_COLORS: Record<string, string> = {
-  protein:   "bg-rose-50 text-rose-700 border-rose-200",
-  carbs:     "bg-amber-50 text-amber-700 border-amber-200",
-  fat:       "bg-violet-50 text-violet-700 border-violet-200",
-  dairy:     "bg-sky-50 text-sky-700 border-sky-200",
-  vegetable: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  fruit:     "bg-orange-50 text-orange-700 border-orange-200",
-};
-
-const DATA_TYPE_COLORS: Record<string, string> = {
-  "Foundation":      "bg-emerald-50 text-emerald-700 border-emerald-200",
-  "SR Legacy":       "bg-blue-50 text-blue-700 border-blue-200",
-  "Survey (FNDDS)":  "bg-violet-50 text-violet-700 border-violet-200",
-};
+const TAG_STYLE = "bg-zinc-100 text-zinc-600 border-zinc-200";
 
 const NUTRIENT_GROUPS = {
   Minerals: ["sodium","potassium","phosphate","calcium","iron","magnesium","zinc","copper","manganese","selenium","iodine"],
@@ -159,7 +146,7 @@ function UsdaImportModal({ onClose, onImported }: {
           )}
 
           {results.map((item) => {
-            const dtColor = DATA_TYPE_COLORS[item.data_type ?? ""] ?? "bg-zinc-100 text-zinc-500 border-zinc-200";
+            const dtColor = TAG_STYLE;
             return (
               <div key={item.fdc_id}
                 className="flex items-center gap-4 p-3.5 rounded-xl border border-zinc-100 hover:border-emerald-200 hover:bg-emerald-50/30 transition-all group">
@@ -491,11 +478,9 @@ export default function FoodLibraryPage() {
             <div className="flex gap-1.5 flex-wrap">
               {FOOD_CATEGORIES.map((c) => (
                 <button key={c} onClick={() => { setFoodCategory(c); setFoodPage(1); }}
-                  className={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide rounded-lg border transition-all cursor-pointer ${
+                  className={`min-w-[64px] px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide rounded-lg border transition-all cursor-pointer text-center ${
                     foodCategory === c
-                      ? c === "all"
-                        ? "bg-zinc-900 text-white border-zinc-900"
-                        : `border ${CATEGORY_COLORS[c]} font-extrabold`
+                      ? "bg-zinc-900 text-white border-zinc-900"
                       : "bg-white text-zinc-500 border-zinc-200 hover:border-zinc-300"
                   }`}>
                   {c === "all" ? "All" : c}
@@ -537,7 +522,7 @@ export default function FoodLibraryPage() {
                         </td>
                         <td className="px-5 py-3.5">
                           {food.category ? (
-                            <span className={`inline-flex px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide rounded-full border ${CATEGORY_COLORS[food.category] ?? "bg-zinc-100 text-zinc-600 border-zinc-200"}`}>
+                            <span className={`inline-flex min-w-[72px] justify-center px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide rounded-full border ${TAG_STYLE}`}>
                               {food.category}
                             </span>
                           ) : <span className="text-zinc-300 text-[10px]">—</span>}
@@ -617,7 +602,7 @@ export default function FoodLibraryPage() {
             <div className="flex gap-1.5 flex-wrap">
               {RECIPE_CATEGORIES.map((c) => (
                 <button key={c} onClick={() => { setRecipeCategory(c); setRecipePage(1); }}
-                  className={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide rounded-lg border transition-all cursor-pointer ${
+                  className={`min-w-[64px] px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide rounded-lg border transition-all cursor-pointer text-center ${
                     recipeCategory === c
                       ? "bg-zinc-900 text-white border-zinc-900"
                       : "bg-white text-zinc-500 border-zinc-200 hover:border-zinc-300"
@@ -659,7 +644,7 @@ export default function FoodLibraryPage() {
                           </td>
                           <td className="px-5 py-3.5">
                             {recipe.category ? (
-                              <span className="inline-flex px-2 py-0.5 bg-emerald-50 text-emerald-700 text-[10px] font-bold uppercase tracking-wide rounded-full border border-emerald-200">
+                              <span className={`inline-flex min-w-[72px] justify-center px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide rounded-full border ${TAG_STYLE}`}>
                                 {recipe.category}
                               </span>
                             ) : <span className="text-zinc-300 text-[10px]">—</span>}

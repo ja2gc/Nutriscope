@@ -28,7 +28,7 @@ const MEAL_LABELS: Record<string, string> = {
 
 interface Props {
   ncpId: string;
-  prescriptionTargets: { energy: number; protein: number; carbs: number; fat: number };
+  prescriptionTargets: { energy: number; protein: number; carbs: number; fat: number; fluid_ml?: number };
   foodDislikes?: string[];
   allergens?: string[];
   displayedMicros?: string[];
@@ -335,15 +335,16 @@ export default function MealPlanSection({
   // ── Totals ──────────────────────────────────────────────────────────────────
 
   const dayTotals = (day: string) => {
-    let cal=0, prot=0, carb=0, fat=0;
+    let cal=0, prot=0, carb=0, fat=0, water=0;
     MEAL_TYPES.forEach((mt) => {
       (itemsByKey[slotKey(day, mt)] ?? []).forEach((item) => {
         const s = item.nutrient_snapshot; if (!s) return;
         const scale = s.serving_size > 0 ? parseFloat(item.quantity) / s.serving_size : 1;
         cal += s.calories*scale; prot += s.protein*scale; carb += s.carbs*scale; fat += s.fat*scale;
+        water += (s.water_g ?? 0) * scale;
       });
     });
-    return { cal: Math.round(cal), prot: Math.round(prot), carb: Math.round(carb), fat: Math.round(fat) };
+    return { cal: Math.round(cal), prot: Math.round(prot), carb: Math.round(carb), fat: Math.round(fat), water: Math.round(water) };
   };
 
   const dayMicroTotals = (day: string): Record<string, number> => {
@@ -364,10 +365,11 @@ export default function MealPlanSection({
   const selectedTotals = dayTotals(selectedDay);
   const selectedMicroTotals = dayMicroTotals(selectedDay);
   const trackerTargets = [
-    { label: 'Energy',  current: selectedTotals.cal,  target: t.energy,  unit: 'kcal' },
-    { label: 'Protein', current: selectedTotals.prot, target: t.protein, unit: 'g'    },
-    { label: 'Carbs',   current: selectedTotals.carb, target: t.carbs,   unit: 'g'    },
-    { label: 'Fat',     current: selectedTotals.fat,  target: t.fat,     unit: 'g'    },
+    { label: 'Energy',  current: selectedTotals.cal,   target: t.energy,        unit: 'kcal' },
+    { label: 'Protein', current: selectedTotals.prot,  target: t.protein,       unit: 'g'    },
+    { label: 'Carbs',   current: selectedTotals.carb,  target: t.carbs,         unit: 'g'    },
+    { label: 'Fat',     current: selectedTotals.fat,   target: t.fat,           unit: 'g'    },
+    { label: 'Fluid',   current: selectedTotals.water, target: t.fluid_ml ?? 0, unit: 'ml'   },
   ];
 
   // Preview scaled nutrition in edit modal
