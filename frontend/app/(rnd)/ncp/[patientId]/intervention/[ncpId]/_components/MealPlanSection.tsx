@@ -394,23 +394,20 @@ export default function MealPlanSection({
             </button>
           )}
           {templates.length > 0 && (
-            <button onClick={() => setFromTemplateOpen(true)}
-              className="flex items-center gap-1 px-3 py-1.5 text-[10px] font-bold border border-zinc-200 text-zinc-500 rounded-lg hover:border-emerald-400 hover:text-emerald-700 transition-colors cursor-pointer">
+            <Button variant="secondary" onClick={() => setFromTemplateOpen(true)} className="w-auto px-3 py-1.5 text-[10px]">
               <LayoutTemplate className="h-3 w-3" /> From Template
-            </button>
+            </Button>
           )}
           {activePlan && (
-            <button onClick={() => setSaveTemplateOpen(true)}
-              className="flex items-center gap-1 px-3 py-1.5 text-[10px] font-bold border border-zinc-200 text-zinc-500 rounded-lg hover:border-emerald-400 hover:text-emerald-700 transition-colors cursor-pointer">
+            <Button variant="secondary" onClick={() => setSaveTemplateOpen(true)} className="w-auto px-3 py-1.5 text-[10px]">
               <BookmarkPlus className="h-3 w-3" /> Save Template
-            </button>
+            </Button>
           )}
-          <button onClick={handleGenerate} disabled={generating}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold border border-emerald-300 text-emerald-700 rounded-lg hover:bg-emerald-50 transition-colors cursor-pointer disabled:opacity-40">
-            {generating ? <><Loader2 className="h-3 w-3 animate-spin" /> Generating…</> : <><Wand2 className="h-3 w-3" /> Auto-Generate</>}
-          </button>
-          <Button variant="primary" loading={creatingPlan} onClick={handleCreatePlan} className="w-auto px-3 py-1.5 text-[10px]">
-            <Plus className="h-3 w-3 mr-1" /> New Week
+          <Button variant="secondary" onClick={handleGenerate} loading={generating} className="w-auto px-3 py-1.5 text-[10px]">
+            {!generating && <Wand2 className="h-3 w-3" />} Auto-Generate
+          </Button>
+          <Button variant="secondary" loading={creatingPlan} onClick={handleCreatePlan} className="w-auto px-3 py-1.5 text-[10px]">
+            <Plus className="h-3 w-3" /> New Week
           </Button>
         </div>
       </div>
@@ -437,10 +434,10 @@ export default function MealPlanSection({
                 className={`px-3 py-1.5 rounded-l-lg text-[10px] font-bold border-y border-l transition-colors cursor-pointer ${activePlan?.id === p.id ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-zinc-600 border-zinc-200 hover:border-emerald-400'}`}>
                 Week of {p.week_start_date}
               </button>
-              <button onClick={() => setConfirmDeleteId(p.id)} title="Delete plan"
-                className={`px-1.5 py-1.5 rounded-r-lg border-y border-r transition-colors cursor-pointer ${activePlan?.id === p.id ? 'bg-emerald-600 text-white border-emerald-600 hover:bg-red-600 hover:border-red-600' : 'bg-white text-zinc-400 border-zinc-200 hover:text-red-500 hover:border-red-300'}`}>
+              <Button variant="icon" onClick={() => setConfirmDeleteId(p.id)} title="Delete plan"
+                className={`rounded-l-none rounded-r-lg border-y border-r ${activePlan?.id === p.id ? 'bg-emerald-600 text-white border-emerald-600 hover:!bg-red-600 hover:!border-red-600' : 'border-zinc-200 hover:text-red-500 hover:border-red-300'}`}>
                 <Trash2 className="h-3 w-3" />
-              </button>
+              </Button>
             </div>
           ))}
           {loadingPlans && <Loader2 className="h-3.5 w-3.5 animate-spin text-zinc-400" />}
@@ -542,21 +539,22 @@ export default function MealPlanSection({
                             {s && <p className="text-[10px] text-zinc-400">{item.quantity}{item.unit} · {Math.round(s.calories*scale)}kcal · P{Math.round(s.protein*scale)}g · C{Math.round(s.carbs*scale)}g · F{Math.round(s.fat*scale)}g</p>}
                           </div>
                           <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button onClick={() => openEdit(item, day.id, key)} title="Edit"
-                              className="p-1.5 rounded text-zinc-400 hover:text-violet-600 hover:bg-violet-50 cursor-pointer transition-colors">
+                            <Button variant="icon" onClick={() => openEdit(item, day.id, key)} title="Edit"
+                              className="hover:text-violet-600 hover:bg-violet-50">
                               <Edit2 className="h-3 w-3" />
-                            </button>
+                            </Button>
                             {item.source === 'usda' && (
-                              <button onClick={() => { if (item.fdc_id) { setSavingToLibrary(item.fdc_id); importUsdaFood(parseInt(item.fdc_id)).finally(() => setSavingToLibrary(null)); } }}
+                              <Button variant="icon"
+                                onClick={() => { if (item.fdc_id) { setSavingToLibrary(item.fdc_id); importUsdaFood(parseInt(item.fdc_id)).finally(() => setSavingToLibrary(null)); } }}
                                 disabled={savingToLibrary === item.fdc_id} title="Save to Library"
-                                className="p-1.5 rounded text-zinc-400 hover:text-emerald-600 hover:bg-emerald-50 cursor-pointer transition-colors">
+                                className="hover:text-emerald-600 hover:bg-emerald-50">
                                 {savingToLibrary === item.fdc_id ? <Loader2 className="h-3 w-3 animate-spin" /> : <BookmarkPlus className="h-3 w-3" />}
-                              </button>
+                              </Button>
                             )}
-                            <button onClick={() => removeItem(key, day.id, item.id)}
-                              className="p-1.5 rounded text-zinc-400 hover:text-red-600 hover:bg-red-50 cursor-pointer transition-colors">
+                            <Button variant="icon" onClick={() => removeItem(key, day.id, item.id)}
+                              className="hover:text-red-600 hover:bg-red-50">
                               <Trash2 className="h-3 w-3" />
-                            </button>
+                            </Button>
                           </div>
                         </div>
                         {isDisliked && (
@@ -685,7 +683,7 @@ export default function MealPlanSection({
             </div>
 
             <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-zinc-100">
-              <button onClick={() => setEditTarget(null)} className="px-4 py-2 text-xs font-bold text-zinc-500 hover:text-zinc-700 cursor-pointer">Cancel</button>
+              <Button variant="ghost" onClick={() => setEditTarget(null)}>Cancel</Button>
               <button onClick={handleSaveEdit} disabled={editSaving}
                 className="px-5 py-2 text-xs font-bold bg-violet-600 hover:bg-violet-700 text-white rounded-lg transition-colors disabled:opacity-50 cursor-pointer">
                 {editSaving ? 'Saving…' : 'Save Changes'}
@@ -702,11 +700,10 @@ export default function MealPlanSection({
             <h3 className="text-sm font-extrabold text-zinc-900">Delete Meal Plan?</h3>
             <p className="text-xs text-zinc-500">This will permanently delete the plan and all its food entries.</p>
             <div className="flex gap-2 justify-end">
-              <button onClick={() => setConfirmDeleteId(null)} className="px-4 py-2 text-xs font-bold text-zinc-500 hover:text-zinc-700 cursor-pointer">Cancel</button>
-              <button onClick={handleDeletePlan} disabled={deleting}
-                className="px-4 py-2 text-xs font-bold bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors disabled:opacity-50 cursor-pointer">
-                {deleting ? 'Deleting…' : 'Delete Plan'}
-              </button>
+              <Button variant="ghost" onClick={() => setConfirmDeleteId(null)}>Cancel</Button>
+              <Button variant="danger" onClick={handleDeletePlan} loading={deleting} className="w-auto px-4 py-2 text-xs">
+                Delete Plan
+              </Button>
             </div>
           </div>
         </div>
@@ -797,11 +794,11 @@ export default function MealPlanSection({
                 className="w-full px-3.5 py-2.5 text-sm border border-zinc-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600" />
             </div>
             <div className="flex gap-2 justify-end">
-              <button onClick={() => setSaveTemplateOpen(false)} className="px-4 py-2 text-xs font-bold text-zinc-500 hover:text-zinc-700 cursor-pointer">Cancel</button>
-              <button onClick={handleSaveTemplate} disabled={savingTemplate || !templateName.trim()}
-                className="px-4 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors disabled:opacity-40 cursor-pointer">
-                {savingTemplate ? 'Saving…' : 'Save Template'}
-              </button>
+              <Button variant="ghost" onClick={() => setSaveTemplateOpen(false)}>Cancel</Button>
+              <Button variant="primary" onClick={handleSaveTemplate} loading={savingTemplate}
+                disabled={savingTemplate || !templateName.trim()} className="w-auto px-4 py-2 text-xs">
+                Save Template
+              </Button>
             </div>
           </div>
         </div>
@@ -888,11 +885,10 @@ export default function MealPlanSection({
             <h3 className="text-sm font-extrabold text-zinc-900">Delete Template?</h3>
             <p className="text-xs text-zinc-500">This template will be permanently deleted. Plans already created from it are not affected.</p>
             <div className="flex gap-2 justify-end">
-              <button onClick={() => setConfirmDeleteTemplateId(null)} className="px-4 py-2 text-xs font-bold text-zinc-500 hover:text-zinc-700 cursor-pointer">Cancel</button>
-              <button onClick={handleDeleteTemplate} disabled={deletingTemplate}
-                className="px-4 py-2 text-xs font-bold bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors disabled:opacity-50 cursor-pointer">
-                {deletingTemplate ? 'Deleting…' : 'Delete Template'}
-              </button>
+              <Button variant="ghost" onClick={() => setConfirmDeleteTemplateId(null)}>Cancel</Button>
+              <Button variant="danger" onClick={handleDeleteTemplate} loading={deletingTemplate} className="w-auto px-4 py-2 text-xs">
+                Delete Template
+              </Button>
             </div>
           </div>
         </div>
