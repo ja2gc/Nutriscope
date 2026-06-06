@@ -10,7 +10,7 @@ class FoodItem extends Model
 {
     use HasFactory;
     protected $fillable = [
-        'name', 'category', 'usda_fdc_id', 'calories', 'protein', 'carbs', 'fat',
+        'name', 'category', 'usda_fdc_id', 'calories', 'protein', 'carbs', 'fat', 'water_g',
         'micronutrients', 'allergens', 'unit_price', 'serving_unit', 'serving_size',
     ];
 
@@ -21,6 +21,7 @@ class FoodItem extends Model
         'protein'        => 'decimal:2',
         'carbs'          => 'decimal:2',
         'fat'            => 'decimal:2',
+        'water_g'        => 'float',
         'unit_price'     => 'decimal:2',
         'serving_size'   => 'decimal:2',
     ];

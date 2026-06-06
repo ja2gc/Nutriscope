@@ -16,6 +16,7 @@ class UsdaService
     private const PROTEIN_ID = 1003;
     private const CARBS_ID   = 1005;
     private const FAT_ID     = 1004;
+    private const WATER_ID   = 1051;
 
     /**
      * Keys intentionally match the project's seeder and clinical-rule convention.
@@ -154,6 +155,7 @@ class UsdaService
                 ?? $data['foodCategory']
                 ?? null;
 
+            $waterAmount = $this->findInDetail($nutrients, self::WATER_ID);
             return [
                 'fdc_id'         => $data['fdcId'],
                 'name'           => $data['description'],
@@ -162,6 +164,7 @@ class UsdaService
                 'protein'        => $this->findInDetail($nutrients, self::PROTEIN_ID),
                 'carbs'          => $this->findInDetail($nutrients, self::CARBS_ID),
                 'fat'            => $this->findInDetail($nutrients, self::FAT_ID),
+                'water_g'        => $waterAmount > 0 ? round($waterAmount, 2) : null,
                 'micronutrients' => $this->extractMicros($nutrients),
             ];
         });
@@ -187,6 +190,7 @@ class UsdaService
             'protein'        => $data['protein'],
             'carbs'          => $data['carbs'],
             'fat'            => $data['fat'],
+            'water_g'        => $data['water_g'] ?? null,
             'micronutrients' => $data['micronutrients'],
             'category'       => $this->mapCategory($foodCategory),
             'allergens'      => $this->detectAllergens($data['name'], $foodCategory ?? ''),

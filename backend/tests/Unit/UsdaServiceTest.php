@@ -173,6 +173,48 @@ class UsdaServiceTest extends TestCase
         $this->assertEquals(0.1, $micros['vitamin_d']);
     }
 
+    // ── Water content ─────────────────────────────────────────────────────────
+
+    public function test_fetch_extracts_water_g_from_nutrient_1051(): void
+    {
+        $responseWithWater = $this->detailResponse;
+        $responseWithWater['foodNutrients'][] = [
+            'nutrient' => ['id' => 1051, 'name' => 'Water', 'unitName' => 'g'],
+            'amount'   => 65.46,
+        ];
+
+        Http::fake([self::DETAIL_URL => Http::response($responseWithWater, 200)]);
+
+        $result = $this->service->fetch(12345);
+
+        $this->assertEquals(65.46, $result['water_g']);
+    }
+
+    public function test_fetch_sets_water_g_null_when_nutrient_1051_absent(): void
+    {
+        Http::fake([self::DETAIL_URL => Http::response($this->detailResponse, 200)]);
+
+        $result = $this->service->fetch(12345);
+
+        $this->assertNull($result['water_g']);
+    }
+
+    public function test_import_persists_water_g_on_food_item(): void
+    {
+        $responseWithWater = $this->detailResponse;
+        $responseWithWater['foodNutrients'][] = [
+            'nutrient' => ['id' => 1051, 'name' => 'Water', 'unitName' => 'g'],
+            'amount'   => 65.46,
+        ];
+
+        Http::fake([self::DETAIL_URL => Http::response($responseWithWater, 200)]);
+
+        $foodItem = $this->service->import(12345);
+
+        $this->assertEquals(65.46, $foodItem->water_g);
+        $this->assertDatabaseHas('food_items', ['usda_fdc_id' => 12345, 'water_g' => 65.46]);
+    }
+
     // ── Import ────────────────────────────────────────────────────────────────
 
     public function test_import_creates_food_item_from_usda_data(): void
