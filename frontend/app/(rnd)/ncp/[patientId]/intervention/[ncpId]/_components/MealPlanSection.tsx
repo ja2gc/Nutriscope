@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useCallback } from "react";
 import {
   Plus, X, Search, Loader2, Database, Leaf, Trash2, BookmarkPlus,
-  Salad, Wand2, AlertTriangle, LayoutTemplate, Edit2, FlaskConical,
+  Salad, Wand2, AlertTriangle, LayoutTemplate, Edit2,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import {
@@ -387,12 +387,6 @@ export default function MealPlanSection({
           <Salad className="h-4 w-4 text-emerald-600" /> Weekly Meal Plan
         </h3>
         <div className="flex items-center gap-1.5 flex-wrap">
-          {displayedMicros.length > 0 && (
-            <button onClick={() => setShowMicros((v) => !v)}
-              className={`flex items-center gap-1 px-3 py-1.5 text-[10px] font-bold border rounded-lg transition-colors cursor-pointer ${showMicros ? 'bg-violet-600 text-white border-violet-600' : 'border-zinc-200 text-zinc-500 hover:border-violet-400 hover:text-violet-700'}`}>
-              <FlaskConical className="h-3 w-3" /> Micros
-            </button>
-          )}
           {templates.length > 0 && (
             <Button variant="secondary" onClick={() => setFromTemplateOpen(true)} className="w-auto px-3 py-1.5 text-[10px]">
               <LayoutTemplate className="h-3 w-3" /> From Template
@@ -459,7 +453,12 @@ export default function MealPlanSection({
 
       {activePlan && (
         <>
-          <MacroTrackerBar targets={trackerTargets} className="sticky top-0 z-10 rounded-xl" />
+          <MacroTrackerBar
+            targets={trackerTargets}
+            showMicros={showMicros}
+            onToggleMicros={() => setShowMicros((v) => !v)}
+            hasMicros={displayedMicros.length > 0}
+          />
 
           {/* Micro totals row */}
           {showMicros && displayedMicros.length > 0 && (
