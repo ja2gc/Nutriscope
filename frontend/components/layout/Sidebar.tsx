@@ -22,7 +22,7 @@ import {
   History
 } from "lucide-react";
 
-export function Sidebar() {
+export function Sidebar({ open = false, onClose }: { open?: boolean; onClose?: () => void }) {
   const pathname = usePathname();
   const { user } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
@@ -80,10 +80,21 @@ export function Sidebar() {
   const isFoodServiceMenuOpen = foodServiceExpanded || isFoodServiceRouteActive;
 
   return (
-    <aside 
-      className={`bg-zinc-950 border-r border-zinc-900 min-h-screen flex flex-col transition-all duration-200 ease-in-out shrink-0 select-none ${
-        collapsed ? "w-16" : "w-64"
-      }`}
+    <>
+      {/* Mobile backdrop */}
+      <div
+        className={`md:hidden fixed inset-0 z-40 bg-black/50 transition-opacity duration-200 ${
+          open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+        }`}
+        onClick={onClose}
+      />
+    <aside
+      className={`bg-zinc-950 border-r border-zinc-900 flex flex-col transition-all duration-200 ease-in-out select-none
+        fixed inset-y-0 left-0 z-50 w-64
+        md:relative md:inset-auto md:z-auto md:min-h-screen md:shrink-0
+        ${collapsed ? "md:w-16" : "md:w-64"}
+        ${open ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
+      `}
     >
       {/* Brand Header */}
       <div className="h-14 border-b border-zinc-900 flex items-center justify-between px-4.5">
@@ -432,6 +443,7 @@ export function Sidebar() {
         </div>
       )}
     </aside>
+    </>
   );
 }
 

@@ -3,9 +3,9 @@
 import React from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
-import { Bell, LogOut, User as UserIcon } from "lucide-react";
+import { Bell, LogOut, Menu, User as UserIcon } from "lucide-react";
 
-export function TopBar() {
+export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
   const pathname = usePathname();
   const router = useRouter();
   const { user, logout } = useAuth();
@@ -34,10 +34,20 @@ export function TopBar() {
 
   return (
     <header className="h-14 bg-white border-b border-zinc-200 flex items-center justify-between px-6 select-none shrink-0 z-10 font-sans">
-      {/* Module Title */}
-      <h1 className="text-sm font-bold text-zinc-800 tracking-wide uppercase">
-        {getModuleTitle()}
-      </h1>
+      <div className="flex items-center gap-3">
+        {/* Hamburger — mobile only */}
+        <button
+          onClick={onMenuClick}
+          className="md:hidden p-1.5 text-zinc-500 hover:text-zinc-800 hover:bg-zinc-100 rounded-lg cursor-pointer transition-colors"
+          aria-label="Open navigation"
+        >
+          <Menu className="h-5 w-5" />
+        </button>
+        {/* Module Title */}
+        <h1 className="text-sm font-bold text-zinc-800 tracking-wide uppercase">
+          {getModuleTitle()}
+        </h1>
+      </div>
 
       {/* User Actions */}
       <div className="flex items-center gap-5">
