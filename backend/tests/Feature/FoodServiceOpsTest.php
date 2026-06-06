@@ -98,15 +98,15 @@ class FoodServiceOpsTest extends TestCase
             ->assertJsonValidationErrors(['quantity']);
     }
 
-    public function test_rnd_cannot_access_fss_inventory_routes(): void
+    public function test_rnd_can_access_fss_inventory_routes(): void
     {
         $food      = $this->makeFoodItem();
-        $inventory = Inventory::factory()->create(['food_item_id' => $food->id]);
+        Inventory::factory()->create(['food_item_id' => $food->id]);
 
         $response = $this->actingAs($this->rnd)
             ->getJson('/api/fss/inventory');
 
-        $response->assertForbidden();
+        $response->assertOk();
     }
 
     // ===== SUPPLIERS =====
