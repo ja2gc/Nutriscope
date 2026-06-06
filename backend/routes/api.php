@@ -124,6 +124,7 @@ Route::middleware(['auth:sanctum', 'role:RND', 'audit'])->prefix('rnd')->group(f
 
 Route::middleware(['auth:sanctum', 'role:FSS,RND'])->prefix('fss')->group(function () {
     // Inventory routes
+    Route::get('inventory/rows', [InventoryController::class, 'rows']);
     Route::apiResource('inventory', InventoryController::class);
     Route::post('inventory/{inventory}/restock', [InventoryController::class, 'restock']);
 

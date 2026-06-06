@@ -171,7 +171,7 @@ export default function EncounterLog({ entries, onLogNew, onDelete }: EncounterL
                           {/* Next date */}
                           {entry.next_monitoring_date && (
                             <p className="text-[10px] text-zinc-400">
-                              Next visit:{' '}
+                              Next follow-up:{' '}
                               <span className="font-semibold text-zinc-600">
                                 {formatDate(entry.next_monitoring_date)}
                               </span>

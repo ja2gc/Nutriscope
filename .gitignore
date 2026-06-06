@@ -1,0 +1,6 @@
+# SSL certs — never commit these
+nginx/certbot/
+
+# OS
+.DS_Store
+Thumbs.db

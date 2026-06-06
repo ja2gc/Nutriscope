@@ -76,7 +76,23 @@ class ProcessDocumentExtraction implements ShouldQueue
                     ?? 1;
             }
 
-            // 4. Handle ScreeningDocument
+            // 4. For screening docs, detect checked checkboxes.
+            //    Primary: text-based (works for any hospital layout).
+            //    Fallback: pixel OMR (tuned to B.06/B.07 template).
+            if ($this->document instanceof ScreeningDocument) {
+                $screeningType = $this->document->type ?? 'adult';
+
+                $checkboxData = $ocrService->parseCheckboxesFromText($rawText, $screeningType);
+
+                if (empty($checkboxData['clinical_conditions']) && empty($checkboxData['intake_weight_history'])) {
+                    Log::info("OCR text found no checkboxes; falling back to pixel OMR.");
+                    $checkboxData = $ocrService->detectCheckboxes($this->document->file_path, $screeningType);
+                }
+
+                $extractedData = array_merge($extractedData, $checkboxData);
+            }
+
+            // 5. Handle ScreeningDocument
             if ($this->document instanceof ScreeningDocument) {
                 $ocrDoc = OcrDocument::create([
                     'user_id' => $userId,
@@ -178,4 +194,5 @@ class ProcessDocumentExtraction implements ShouldQueue
             throw $e;
         }
     }
+
 }

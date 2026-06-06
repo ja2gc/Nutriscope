@@ -6,6 +6,7 @@ import { Activity, User, Calendar } from "lucide-react";
 import EncounterLog from "./_components/EncounterLog";
 import GoalProgressTracker from "./_components/GoalProgressTracker";
 import LogVisitForm from "./_components/LogVisitForm";
+import VisitTrendsChart from "./_components/VisitTrendsChart";
 import {
   MonitoringEntry,
   MonitoringPayload,
@@ -14,6 +15,9 @@ import {
   deleteMonitoring,
 } from "@/services/monitoringService";
 import { fetchAssessment, Assessment } from "@/services/assessmentService";
+import { fetchIntervention, Intervention } from "@/services/interventionService";
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface BiochemicalData {
   albumin?: number | null;
@@ -26,8 +30,10 @@ interface BiochemicalData {
   glucose?: number | null;
 }
 
-// AssessmentResource now includes biochemical_data when eager-loaded
 type AssessmentWithLabs = Assessment & { biochemical_data?: BiochemicalData };
+type Tab = "log" | "progress";
+
+// ─── Breadcrumb ───────────────────────────────────────────────────────────────
 
 function Breadcrumb() {
   return (
@@ -43,6 +49,8 @@ function Breadcrumb() {
   );
 }
 
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
 export default function NcpMonitoringPage({
   params,
 }: {
@@ -51,28 +59,32 @@ export default function NcpMonitoringPage({
   const { patientId, ncpId } = use(params);
   const isPlaceholder = patientId === "select-patient" || ncpId === "select-ncp";
 
-  const [entries, setEntries]           = useState<MonitoringEntry[]>([]);
-  const [assessment, setAssessment]     = useState<AssessmentWithLabs | null>(null);
+  const [entries, setEntries]               = useState<MonitoringEntry[]>([]);
+  const [assessment, setAssessment]         = useState<AssessmentWithLabs | null>(null);
+  const [intervention, setIntervention]     = useState<Intervention | null>(null);
   const [biochemicalData, setBiochemicalData] = useState<BiochemicalData | null>(null);
-  const [loading, setLoading]           = useState(true);
-  const [showForm, setShowForm]         = useState(false);
-  const [error, setError]               = useState<string | null>(null);
+  const [loading, setLoading]               = useState(true);
+  const [showForm, setShowForm]             = useState(false);
+  const [activeTab, setActiveTab]           = useState<Tab>("log");
+  const [error, setError]                   = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
     if (isPlaceholder) { setLoading(false); return; }
     setLoading(true);
     setError(null);
     try {
-      const [monitoringData, assessmentData] = await Promise.all([
+      const [monitoringData, assessmentData, interventionData] = await Promise.all([
         fetchMonitorings(ncpId),
         fetchAssessment(ncpId),
+        fetchIntervention(ncpId),
       ]);
       setEntries(monitoringData);
       const a = assessmentData as AssessmentWithLabs;
       setAssessment(a);
       setBiochemicalData(a.biochemical_data ?? null);
+      setIntervention(interventionData);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load monitoring data.');
+      setError(err instanceof Error ? err.message : "Failed to load monitoring data.");
     } finally {
       setLoading(false);
     }
@@ -120,16 +132,24 @@ export default function NcpMonitoringPage({
     );
   }
 
-  // Latest next monitoring date (from most recent visit)
+  // Latest next follow-up date (from most recent visit)
   const latestNextDate = [...entries]
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0]
     ?.next_monitoring_date ?? null;
+
+  // Tab button class helper
+  const tabCls = (tab: Tab) =>
+    `px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider border-b-2 whitespace-nowrap transition-colors cursor-pointer ${
+      activeTab === tab
+        ? "border-emerald-600 text-emerald-700"
+        : "border-transparent text-zinc-400 hover:text-zinc-600"
+    }`;
 
   return (
     <div className="space-y-6 font-sans">
       <Breadcrumb />
 
-      {/* Page header */}
+      {/* ── Page header ─────────────────────────────────────────────────────── */}
       <div className="border-b border-zinc-200 pb-5">
         <h2 className="text-xl font-extrabold text-zinc-950 tracking-tight flex items-center gap-2.5">
           <Activity className="h-5 w-5 text-emerald-600 shrink-0" />
@@ -140,17 +160,18 @@ export default function NcpMonitoringPage({
         </p>
       </div>
 
-      {/* Error banner */}
+      {/* ── Error banner ────────────────────────────────────────────────────── */}
       {error && (
         <div className="bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-xl px-4 py-3">
           {error}
         </div>
       )}
 
-      {/* Loading skeleton */}
+      {/* ── Loading skeleton ─────────────────────────────────────────────────── */}
       {loading ? (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
+            <div className="h-10 bg-zinc-100 rounded-xl animate-pulse" />
             <div className="h-48 bg-zinc-100 rounded-2xl animate-pulse" />
             <div className="h-64 bg-zinc-100 rounded-2xl animate-pulse" />
           </div>
@@ -163,28 +184,51 @@ export default function NcpMonitoringPage({
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
           {/* ── Main column (2/3 on lg+) ───────────────────────────────────── */}
-          <div className="lg:col-span-2 space-y-6">
-            <EncounterLog
-              entries={entries}
-              onLogNew={() => setShowForm(true)}
-              onDelete={handleDeleteEntry}
-            />
+          <div className="lg:col-span-2 space-y-0">
 
-            {showForm && (
-              <LogVisitForm
-                heightCm={assessment?.height ? Number(assessment.height) : null}
-                onSubmit={handleLogVisit}
-                onCancel={() => setShowForm(false)}
-              />
+            {/* ── Sticky tab bar ─────────────────────────────────────────── */}
+            <div className="flex border-b border-zinc-200 sticky top-0 z-20 bg-white -mx-6 px-6 lg:-mx-8 lg:px-8 mb-6">
+              <button className={tabCls("log")} onClick={() => setActiveTab("log")}>
+                Visit Log
+              </button>
+              <button className={tabCls("progress")} onClick={() => setActiveTab("progress")}>
+                Progress Trends
+              </button>
+            </div>
+
+            {/* ── Visit Log tab ─────────────────────────────────────────── */}
+            {activeTab === "log" && (
+              <div className="space-y-6">
+                <EncounterLog
+                  entries={entries}
+                  onLogNew={() => setShowForm(true)}
+                  onDelete={handleDeleteEntry}
+                />
+
+                {showForm && (
+                  <LogVisitForm
+                    heightCm={assessment?.height ? Number(assessment.height) : null}
+                    intervention={intervention}
+                    onSubmit={handleLogVisit}
+                    onCancel={() => setShowForm(false)}
+                  />
+                )}
+              </div>
             )}
 
-            <GoalProgressTracker
-              entries={entries}
-              baselineWeight={assessment?.weight ? Number(assessment.weight) : null}
-              baselineBmi={assessment?.bmi ? Number(assessment.bmi) : null}
-              baselineLabs={biochemicalData}
-              nutritionalStatus={assessment?.nutritional_status ?? null}
-            />
+            {/* ── Progress Trends tab ───────────────────────────────────── */}
+            {activeTab === "progress" && (
+              <div className="space-y-6">
+                <GoalProgressTracker
+                  entries={entries}
+                  baselineWeight={assessment?.weight ? Number(assessment.weight) : null}
+                  baselineBmi={assessment?.bmi ? Number(assessment.bmi) : null}
+                  baselineLabs={biochemicalData}
+                  nutritionalStatus={assessment?.nutritional_status ?? null}
+                />
+                <VisitTrendsChart entries={entries} intervention={intervention} />
+              </div>
+            )}
           </div>
 
           {/* ── Sidebar (1/3 on lg+, full-width below lg) ─────────────────── */}
@@ -207,6 +251,14 @@ export default function NcpMonitoringPage({
                   <span className="font-semibold text-zinc-400">Total Visits</span>
                   <span className="font-mono font-bold text-zinc-900">{entries.length}</span>
                 </div>
+                {intervention?.goal_type && (
+                  <div className="flex justify-between py-2.5 gap-3">
+                    <span className="font-semibold text-zinc-400 shrink-0">Goal</span>
+                    <span className="font-semibold text-zinc-700 text-right capitalize leading-tight">
+                      {intervention.goal_type.replace(/_/g, " ")}
+                    </span>
+                  </div>
+                )}
                 {assessment?.nutritional_status && (
                   <div className="flex justify-between py-2.5 gap-3">
                     <span className="font-semibold text-zinc-400 shrink-0">Baseline Status</span>
@@ -232,22 +284,73 @@ export default function NcpMonitoringPage({
               </div>
             </div>
 
-            {/* Next visit card — only shown when a next date has been set */}
+            {/* Next follow-up card — only shown when a next date has been set */}
             {latestNextDate && (
               <div className="bg-white border border-zinc-200 rounded-2xl p-5 shadow-sm">
                 <h3 className="text-xs font-extrabold text-zinc-700 uppercase tracking-wider mb-3 flex items-center gap-2">
                   <Calendar className="h-3.5 w-3.5 text-emerald-600" />
-                  Next Visit
+                  Next Follow-up
                 </h3>
                 <p className="text-sm font-mono font-bold text-zinc-900">
-                  {new Date(latestNextDate).toLocaleDateString('en-PH', {
-                    weekday: 'short',
-                    month: 'short',
-                    day: 'numeric',
-                    year: 'numeric',
+                  {new Date(latestNextDate).toLocaleDateString("en-PH", {
+                    weekday: "short",
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
                   })}
                 </p>
                 <p className="text-[10px] text-zinc-400 mt-1">Scheduled from last visit log.</p>
+              </div>
+            )}
+
+            {/* Prescription summary card — only shown if intervention exists */}
+            {intervention && (intervention.energy_kcal || intervention.protein_g) && (
+              <div className="bg-white border border-zinc-200 rounded-2xl p-5 shadow-sm">
+                <h3 className="text-xs font-extrabold text-zinc-700 uppercase tracking-wider mb-4">
+                  Prescription Targets
+                </h3>
+                <div className="space-y-0 text-xs divide-y divide-zinc-100">
+                  {intervention.energy_kcal && (
+                    <div className="flex justify-between py-2.5">
+                      <span className="font-semibold text-zinc-400">Energy</span>
+                      <span className="font-mono font-bold text-zinc-900">
+                        {intervention.energy_kcal} kcal
+                      </span>
+                    </div>
+                  )}
+                  {intervention.protein_g && (
+                    <div className="flex justify-between py-2.5">
+                      <span className="font-semibold text-zinc-400">Protein</span>
+                      <span className="font-mono font-bold text-zinc-900">
+                        {intervention.protein_g} g
+                      </span>
+                    </div>
+                  )}
+                  {intervention.carbs_g && (
+                    <div className="flex justify-between py-2.5">
+                      <span className="font-semibold text-zinc-400">Carbs</span>
+                      <span className="font-mono font-bold text-zinc-900">
+                        {intervention.carbs_g} g
+                      </span>
+                    </div>
+                  )}
+                  {intervention.fat_g && (
+                    <div className="flex justify-between py-2.5">
+                      <span className="font-semibold text-zinc-400">Fat</span>
+                      <span className="font-mono font-bold text-zinc-900">
+                        {intervention.fat_g} g
+                      </span>
+                    </div>
+                  )}
+                  {intervention.fluid_ml && (
+                    <div className="flex justify-between py-2.5">
+                      <span className="font-semibold text-zinc-400">Fluid</span>
+                      <span className="font-mono font-bold text-zinc-900">
+                        {intervention.fluid_ml} mL
+                      </span>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>

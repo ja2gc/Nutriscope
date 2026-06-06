@@ -31,6 +31,7 @@ class InventoryResource extends JsonResource
             'expiry_date'              => $this->expiry_date?->toDateString(),
             'usage_rate'               => $this->usage_rate,
             'minimum_stock_threshold'  => $this->minimum_stock_threshold,
+            'unit_price'               => $this->unit_price,
             'notes'                    => $this->notes,
             'created_at'               => $this->created_at,
             'updated_at'               => $this->updated_at,

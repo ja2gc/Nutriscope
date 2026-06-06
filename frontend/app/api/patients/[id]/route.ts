@@ -35,6 +35,38 @@ export async function GET(
   return NextResponse.json(data, { status: 200 });
 }
 
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const cookieStore = await cookies();
+  const token = cookieStore.get("nutriscope_token")?.value;
+
+  if (!token) {
+    return NextResponse.json({ message: "Unauthenticated." }, { status: 401 });
+  }
+
+  const { id } = await params;
+
+  const laravelRes = await fetch(`${LARAVEL_API}/rnd/patients/${id}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: "application/json",
+    },
+  });
+
+  if (laravelRes.status === 204) {
+    return new NextResponse(null, { status: 204 });
+  }
+
+  const data = await laravelRes.json().catch(() => ({}));
+  return NextResponse.json(
+    { message: (data as { message?: string }).message ?? "Failed to delete patient." },
+    { status: laravelRes.status }
+  );
+}
+
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }

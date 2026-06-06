@@ -1,365 +1,1125 @@
-# UI/UX Overhaul + Bug Fixes Implementation Plan
+# Food Service — Inventory Page Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Fix 3 active bugs (delete plan, auto-generate runtime error, food picker CRUD), unify the button design system, make the entire app responsive with no horizontal scroll, clean up the intervention page layout, remove the fluid_restriction standalone goal, and add water tracking to the food pipeline.
+**Goal:** Build fully functional Inventory management page for the Food Service module (list, add, edit, restock, delete stock entries with color-coded status).
 
-**Architecture:** All UI changes are frontend-only (Tailwind + React). Backend changes are limited to: (1) a migration for `water_g` on `food_items`, (2) UsdaService nutrient extraction update, (3) removing `fluid_restriction` from `InterventionController::mapGoalTypeToConditions()`, and (4) wiring `fluid_ml` autofill into renal/cardiac goals in `nutritionCalculations.ts`. No new tables or routes needed. Responsive layout is handled entirely via Tailwind breakpoints — sidebar gets a mobile drawer, no overflow-x anywhere.
+**Architecture:** Backend already complete (InventoryController, model, resource, requests, routes). This plan opens FSS routes to RND role, creates Next.js proxy routes, a service layer, and replaces the inventory page scaffold with a working UI. No backend controller/model changes needed.
 
-**Tech Stack:** Laravel 13.8, Next.js 16, TypeScript, Tailwind CSS v4, shadcn/ui (Radix), Lucide React, PHPUnit
+**Tech Stack:** Laravel (route middleware tweak only), Next.js 16 App Router proxy routes, React 19, TypeScript, Tailwind CSS v4, Lucide React.
 
 ---
 
 ## File Map
 
-**Backend — modified:**
-- `backend/app/Services/UsdaService.php` — add water_g extraction (nutrient ID 1051)
-- `backend/database/migrations/xxxx_add_water_g_to_food_items.php` — new column
-- `backend/app/Models/FoodItem.php` — add water_g to fillable
-- `backend/app/Http/Controllers/RND/InterventionController.php` — remove fluid_restriction from mapGoalTypeToConditions
-- `backend/tests/Feature/RND/MealPlanTest.php` — add delete test, generate test
-
-**Frontend — modified:**
-- `frontend/components/ui/Button.tsx` — add `ghost` + `icon` variants
-- `frontend/components/layout/Sidebar.tsx` — mobile drawer
-- `frontend/components/layout/TopBar.tsx` — hamburger toggle on mobile
-- `frontend/lib/nutritionCalculations.ts` — remove fluid_restriction, wire fluid_ml for renal/cardiac
-- `frontend/app/(rnd)/ncp/[patientId]/intervention/[ncpId]/page.tsx` — sticky tabs
-- `frontend/app/(rnd)/ncp/[patientId]/intervention/[ncpId]/_components/GoalSelectorModal.tsx` — remove fluid_restriction goal
-- `frontend/app/(rnd)/ncp/[patientId]/intervention/[ncpId]/_components/MealPlanSection.tsx` — fix delete/generate/picker bugs, move micros button, redesign macro bar, fix manual plan button placement
-- `frontend/app/(rnd)/ncp/[patientId]/intervention/[ncpId]/_components/MacroTrackerBar.tsx` — white bg, inline micros toggle
+| File | Action | Responsibility |
+|---|---|---|
+| `backend/routes/api.php` | Modify | Add `RND` to FSS middleware group so web users can hit `/fss/inventory` |
+| `frontend/app/api/fss/inventory/route.ts` | Create | Proxy GET (list) + POST (create) → `LARAVEL_API/fss/inventory` |
+| `frontend/app/api/fss/inventory/[id]/route.ts` | Create | Proxy GET (show) + PATCH (update) + DELETE → `LARAVEL_API/fss/inventory/{id}` |
+| `frontend/app/api/fss/inventory/[id]/restock/route.ts` | Create | Proxy POST → `LARAVEL_API/fss/inventory/{id}/restock` |
+| `frontend/services/inventoryService.ts` | Create | TypeScript types, fetch functions, stock-status helper |
+| `frontend/app/(rnd)/food-service/inventory/page.tsx` | Modify | Full inventory page: table, modals, restock, delete |
 
 ---
 
-## Task 1: Fix Delete Plan Bug
-
-**Problem:** `handleDeletePlan` has no `catch` — errors are silently swallowed by `finally`. User sees modal close but plan stays.
+## Task 1: Open FSS Routes to RND Role
 
 **Files:**
-- Modify: `backend/tests/Feature/RND/MealPlanTest.php`
-- Modify: `frontend/app/(rnd)/ncp/[patientId]/intervention/[ncpId]/_components/MealPlanSection.tsx`
+- Modify: `backend/routes/api.php` line 125
 
-- [ ] **Step 1: Write failing PHPUnit test** — Add a test in `MealPlanTest.php` that verifies `DELETE /api/rnd/ncp-records/{ncp}/meal-plans/{plan}` returns 204 and the plan no longer exists in the DB. Confirm it passes (route and controller already exist).
+- [ ] **Step 1: Change role middleware**
 
-- [ ] **Step 2: Run tests**
-  ```
-  cd backend && php artisan test --filter=MealPlanTest
-  ```
-  Expected: all pass.
+In `backend/routes/api.php`, change:
+```php
+Route::middleware(['auth:sanctum', 'role:FSS'])->prefix('fss')->group(function () {
+```
+to:
+```php
+Route::middleware(['auth:sanctum', 'role:FSS,RND'])->prefix('fss')->group(function () {
+```
 
-- [ ] **Step 3: Add error state to MealPlanSection** — In `MealPlanSection.tsx`, add a `deleteError` state (`string | null`). In `handleDeletePlan`, wrap in try/catch; on catch set `deleteError` to the error message. Render a small red error note below the plan pills when `deleteError` is set.
+- [ ] **Step 2: Verify tests still pass**
 
-- [ ] **Step 4: Verify manually** — Open a plan, click delete, confirm dialog, verify plan disappears from list and no console errors.
+```bash
+cd backend && php artisan test --filter=InventoryControllerTest
+```
 
-- [ ] **Step 5: Commit**
-  ```
-  git commit -m "fix: surface delete plan errors + add PHPUnit coverage"
-  ```
+If no InventoryControllerTest exists, run:
+```bash
+cd backend && php artisan test
+```
+Expected: All existing tests pass (172 passing, 1 pre-existing failure in OcrExtractionServiceTest).
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add backend/routes/api.php
+git commit -m "feat(fss): open FSS routes to RND role for web access"
+```
 
 ---
 
-## Task 2: Fix Auto-Generate Runtime Error
-
-**Problem:** After generate, `handleGenerate` calls `setActivePlan(result)` then `loadItems` runs. The exact runtime error needs investigation — most likely: (a) `result.days` is undefined/null causing crash in `dayLookup`, or (b) `generateMealPlan` proxy uses `NEXT_PUBLIC_API_URL` while other proxies use `LARAVEL_API_URL`, causing a mismatch in Docker.
+## Task 2: Next.js Proxy — List + Create
 
 **Files:**
-- Modify: `frontend/app/api/rnd/ncp-records/[ncpRecordId]/meal-plans/generate/route.ts`
-- Modify: `frontend/app/(rnd)/ncp/[patientId]/intervention/[ncpId]/_components/MealPlanSection.tsx`
-- Modify: `backend/tests/Feature/RND/MealPlanTest.php`
+- Create: `frontend/app/api/fss/inventory/route.ts`
 
-- [ ] **Step 1: Add backend generate test** — In `MealPlanTest.php` add a test: POST generate with valid data returns 201 and `data.days` is an array of 35 items. Run to confirm passes.
+- [ ] **Step 1: Create proxy route**
 
-- [ ] **Step 2: Normalize generate proxy env var** — In `generate/route.ts`, change `NEXT_PUBLIC_API_URL` to `LARAVEL_API_URL ?? "http://127.0.0.1:8000/api"` (drop the `/api` duplication — check the URL construction so it doesn't double-append `/api`). Match exact pattern used in `[mealPlanId]/route.ts`.
+```typescript
+// frontend/app/api/fss/inventory/route.ts
+import { NextRequest, NextResponse } from "next/server";
+import { cookies } from "next/headers";
 
-- [ ] **Step 3: Guard `plan.days` in loadItems** — In `loadItems`, the line `const dayLookup = new Map((plan.days ?? []).map(...))` already has `?? []` guard. Confirm `result` from `generateMealPlan` returns `data.data` which includes `days`. Add a console.error in the catch block of `loadItems` so errors surface in dev tools.
+const LARAVEL_API = process.env.LARAVEL_API_URL ?? "http://127.0.0.1:8000/api";
 
-- [ ] **Step 4: Add generate error display** — In `handleGenerate`, wrap `loadItems` call in try/catch after generate; set `generateError` with the message if it throws. The existing `generateError` display box already renders in JSX.
+export async function GET(req: NextRequest) {
+  const cookieStore = await cookies();
+  const token = cookieStore.get("nutriscope_token")?.value;
 
-- [ ] **Step 5: Run tests + manual verify**
-  ```
-  cd backend && php artisan test --filter=MealPlanTest
-  ```
-  Then generate a plan in the UI and verify it loads correctly.
+  if (!token) {
+    return NextResponse.json({ message: "Unauthenticated." }, { status: 401 });
+  }
 
-- [ ] **Step 6: Commit**
-  ```
-  git commit -m "fix: normalize generate proxy env var, surface loadItems errors post-generate"
-  ```
+  const { searchParams } = new URL(req.url);
+  const targetUrl = new URL(`${LARAVEL_API}/fss/inventory`);
+  searchParams.forEach((value, key) => targetUrl.searchParams.append(key, value));
+
+  const laravelRes = await fetch(targetUrl.toString(), {
+    headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+  });
+
+  if (!laravelRes.ok) {
+    const data = await laravelRes.json().catch(() => ({}));
+    return NextResponse.json(
+      { message: data.message ?? "Failed to fetch inventory." },
+      { status: laravelRes.status }
+    );
+  }
+
+  return NextResponse.json(await laravelRes.json(), { status: 200 });
+}
+
+export async function POST(req: NextRequest) {
+  const cookieStore = await cookies();
+  const token = cookieStore.get("nutriscope_token")?.value;
+
+  if (!token) {
+    return NextResponse.json({ message: "Unauthenticated." }, { status: 401 });
+  }
+
+  const body = await req.json();
+  const laravelRes = await fetch(`${LARAVEL_API}/fss/inventory`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+
+  const data = await laravelRes.json();
+  if (!laravelRes.ok) {
+    return NextResponse.json(
+      { message: data.message ?? "Failed to create inventory entry.", errors: data.errors },
+      { status: laravelRes.status }
+    );
+  }
+
+  return NextResponse.json(data, { status: 201 });
+}
+```
+
+- [ ] **Step 2: Commit**
+
+```bash
+git add frontend/app/api/fss/inventory/route.ts
+git commit -m "feat(fss): add Next.js proxy for inventory list + create"
+```
 
 ---
 
-## Task 3: Fix Food Picker CRUD (Add Food to Meal Slot)
-
-**Problem:** `addFromLibrary`, `addFromRecipe`, `addFromUsda` all have no `catch` block — errors silently swallowed. User clicks "Add", spinner shows, nothing happens.
+## Task 3: Next.js Proxy — Show + Update + Delete
 
 **Files:**
-- Modify: `frontend/app/(rnd)/ncp/[patientId]/intervention/[ncpId]/_components/MealPlanSection.tsx`
-- Modify: `backend/tests/Feature/RND/MealPlanTest.php`
+- Create: `frontend/app/api/fss/inventory/[id]/route.ts`
 
-- [ ] **Step 1: Add backend item store test** — In `MealPlanTest.php`, add a test: POST to `meal-plans/{plan}/days/{day}/items` with `food_item_id` returns 201 and item appears in the day. Run to confirm passes.
+- [ ] **Step 1: Create proxy route**
 
-- [ ] **Step 2: Add `pickerError` state** — In `MealPlanSection.tsx` add `pickerError: string | null` state. In all three `addFrom*` functions, add a catch block that sets `pickerError`. Reset `pickerError` when picker opens. Display it inside the picker modal as a small red message.
+```typescript
+// frontend/app/api/fss/inventory/[id]/route.ts
+import { NextRequest, NextResponse } from "next/server";
+import { cookies } from "next/headers";
 
-- [ ] **Step 3: Verify fdc_id flow** — `addFromUsda` passes `fdc_id: String(food.fdc_id)` to `addMealPlanItem`. Check that `MealPlanItemController::store()` handles `fdc_id` — it should call `UsdaService::import()` and create a food item on the fly. If this path is broken, add the fix in the controller.
+const LARAVEL_API = process.env.LARAVEL_API_URL ?? "http://127.0.0.1:8000/api";
 
-- [ ] **Step 4: Manual test all three tabs** — Add food from Library, Recipes, and USDA. Verify items appear in the meal slot and macro totals update.
+async function getToken() {
+  const cookieStore = await cookies();
+  return cookieStore.get("nutriscope_token")?.value;
+}
 
-- [ ] **Step 5: Commit**
-  ```
-  git commit -m "fix: surface food picker errors in all three add-from paths"
-  ```
+export async function GET(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const token = await getToken();
+  if (!token) return NextResponse.json({ message: "Unauthenticated." }, { status: 401 });
+
+  const { id } = await params;
+  const laravelRes = await fetch(`${LARAVEL_API}/fss/inventory/${id}`, {
+    headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+  });
+
+  if (!laravelRes.ok) {
+    const data = await laravelRes.json().catch(() => ({}));
+    return NextResponse.json({ message: data.message ?? "Not found." }, { status: laravelRes.status });
+  }
+
+  return NextResponse.json(await laravelRes.json(), { status: 200 });
+}
+
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const token = await getToken();
+  if (!token) return NextResponse.json({ message: "Unauthenticated." }, { status: 401 });
+
+  const { id } = await params;
+  const body = await req.json();
+  const laravelRes = await fetch(`${LARAVEL_API}/fss/inventory/${id}`, {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+
+  const data = await laravelRes.json();
+  if (!laravelRes.ok) {
+    return NextResponse.json(
+      { message: data.message ?? "Failed to update.", errors: data.errors },
+      { status: laravelRes.status }
+    );
+  }
+
+  return NextResponse.json(data, { status: 200 });
+}
+
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const token = await getToken();
+  if (!token) return NextResponse.json({ message: "Unauthenticated." }, { status: 401 });
+
+  const { id } = await params;
+  const laravelRes = await fetch(`${LARAVEL_API}/fss/inventory/${id}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+  });
+
+  if (laravelRes.status === 204) {
+    return new NextResponse(null, { status: 204 });
+  }
+
+  const data = await laravelRes.json().catch(() => ({}));
+  return NextResponse.json({ message: data.message ?? "Failed to delete." }, { status: laravelRes.status });
+}
+```
+
+- [ ] **Step 2: Commit**
+
+```bash
+git add frontend/app/api/fss/inventory/[id]/route.ts
+git commit -m "feat(fss): add Next.js proxy for inventory show + update + delete"
+```
 
 ---
 
-## Task 4: Remove Fluid Restriction Goal + Wire Fluid to Renal/Cardiac
-
-**Problem:** `fluid_restriction` is a standalone goal but should be a modifier within CKD and Cardiac. Also `fluid_ml` is never autofilled for hemodialysis or severe cardiac despite the spec saying it should.
+## Task 4: Next.js Proxy — Restock
 
 **Files:**
-- Modify: `frontend/app/(rnd)/ncp/[patientId]/intervention/[ncpId]/_components/GoalSelectorModal.tsx`
-- Modify: `frontend/lib/nutritionCalculations.ts`
-- Modify: `backend/app/Http/Controllers/RND/InterventionController.php`
-- Modify: `backend/tests/Feature/RND/InterventionTest.php` (if exists, else create)
+- Create: `frontend/app/api/fss/inventory/[id]/restock/route.ts`
 
-- [ ] **Step 1: Remove from GoalSelectorModal** — Delete the `fluid_restriction` entry from the `GOALS` array in `GoalSelectorModal.tsx`. Verify the modal shows 9 goals (was 10).
+- [ ] **Step 1: Create proxy route**
 
-- [ ] **Step 2: Update nutritionCalculations.ts** — Remove the `fluid_restriction` case from `autofillPrescription()` and `GOAL_MICRO_FLAGS`. Add `fluid_ml` to the autofill output for:
-  - `renal_diet` + `hemodialysis` → `fluid_ml: 750`
-  - `renal_diet` + `peritoneal` → `fluid_ml: 1000` (conservative default; clinician adjusts)
-  - `cardiac_diet` + `moderate` → `fluid_ml: 2000`
-  - `cardiac_diet` + `severe` → `fluid_ml: 1500`
-  All other goal/stage combos → `fluid_ml: 0` (unrestricted; 0 = "not set").
+```typescript
+// frontend/app/api/fss/inventory/[id]/restock/route.ts
+import { NextRequest, NextResponse } from "next/server";
+import { cookies } from "next/headers";
 
-- [ ] **Step 3: Update InterventionController backend** — In `mapGoalTypeToConditions()`, remove the `'fluid_restriction'` case. Run tests.
-  ```
-  cd backend && php artisan test
-  ```
-  Expected: all 166+ tests pass.
+const LARAVEL_API = process.env.LARAVEL_API_URL ?? "http://127.0.0.1:8000/api";
 
-- [ ] **Step 4: Commit**
-  ```
-  git commit -m "feat: remove fluid_restriction goal, wire fluid_ml autofill for renal/cardiac"
-  ```
+export async function POST(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const cookieStore = await cookies();
+  const token = cookieStore.get("nutriscope_token")?.value;
+  if (!token) return NextResponse.json({ message: "Unauthenticated." }, { status: 401 });
+
+  const { id } = await params;
+  const body = await req.json();
+  const laravelRes = await fetch(`${LARAVEL_API}/fss/inventory/${id}/restock`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+
+  const data = await laravelRes.json();
+  if (!laravelRes.ok) {
+    return NextResponse.json(
+      { message: data.message ?? "Restock failed.", errors: data.errors },
+      { status: laravelRes.status }
+    );
+  }
+
+  return NextResponse.json(data, { status: 200 });
+}
+```
+
+- [ ] **Step 2: Commit**
+
+```bash
+git add frontend/app/api/fss/inventory/[id]/restock/route.ts
+git commit -m "feat(fss): add Next.js proxy for inventory restock"
+```
 
 ---
 
-## Task 5: Water Tracking — Backend
-
-**Goal:** Extract water content (USDA nutrient ID 1051) from USDA imports and store in `food_items.water_g`. This enables fluid tracking in meal plans for renal/cardiac patients.
+## Task 5: Service Layer
 
 **Files:**
-- Create: `backend/database/migrations/xxxx_add_water_g_to_food_items.php`
-- Modify: `backend/app/Models/FoodItem.php`
-- Modify: `backend/app/Services/UsdaService.php`
-- Modify: `backend/tests/Unit/UsdaServiceTest.php` (if exists)
+- Create: `frontend/services/inventoryService.ts`
 
-- [ ] **Step 1: Write migration** — Add nullable `water_g` float column to `food_items`. Run migration.
-  ```
-  cd backend && php artisan migrate
-  ```
+- [ ] **Step 1: Create service**
 
-- [ ] **Step 2: Add to FoodItem fillable** — Add `'water_g'` to the `$fillable` array in `FoodItem.php`.
+```typescript
+// frontend/services/inventoryService.ts
 
-- [ ] **Step 3: Update UsdaService** — In `UsdaService::import()`, where nutrients are mapped, add extraction of nutrient ID 1051 → `water_g`. Pattern matches how existing nutrients (protein/fat/carbs) are already extracted. No code needed in plan — follow existing pattern in the service.
+export interface FoodItemRef {
+  id: number;
+  name: string;
+}
 
-- [ ] **Step 4: Write unit test** — Assert that after importing a food item that has USDA nutrient 1051, the resulting FoodItem has a non-null `water_g`. Use a mock/fake response or a known FDC ID.
+export interface InventoryItem {
+  id: number;
+  food_item_id: number;
+  food_item: FoodItemRef;
+  quantity_in_stock: string; // decimal string from Laravel
+  unit: string;
+  expiry_date: string | null; // "YYYY-MM-DD"
+  usage_rate: string | null;
+  minimum_stock_threshold: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
 
-- [ ] **Step 5: Re-seed** — Run `FoodItemsSeeder` again to backfill water_g for already-imported items (seeder skips existing by name, so no duplicates). Water will be null for items without USDA ID (manual entries).
-  ```
-  cd backend && php artisan db:seed --class=FoodItemsSeeder
-  ```
+export interface CreateInventoryPayload {
+  food_item_id: number;
+  quantity_in_stock: number;
+  unit: string;
+  expiry_date?: string | null;
+  usage_rate?: number | null;
+  minimum_stock_threshold?: number | null;
+  notes?: string | null;
+}
 
-- [ ] **Step 6: Run all tests**
-  ```
-  cd backend && php artisan test
-  ```
+export interface UpdateInventoryPayload {
+  quantity_in_stock?: number;
+  unit?: string;
+  expiry_date?: string | null;
+  usage_rate?: number | null;
+  minimum_stock_threshold?: number | null;
+  notes?: string | null;
+}
 
-- [ ] **Step 7: Commit**
-  ```
-  git commit -m "feat: add water_g to food_items, extract USDA nutrient 1051 on import"
-  ```
+export type StockStatus = "low" | "expiring" | "ok";
+
+export function getStockStatus(item: InventoryItem): StockStatus {
+  const qty = parseFloat(item.quantity_in_stock);
+  const threshold = item.minimum_stock_threshold
+    ? parseFloat(item.minimum_stock_threshold)
+    : null;
+
+  if (threshold !== null && qty < threshold) return "low";
+
+  if (item.expiry_date) {
+    const expiry = new Date(item.expiry_date);
+    const now = new Date();
+    const diffDays = (expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
+    if (diffDays <= 7) return "expiring";
+  }
+
+  return "ok";
+}
+
+export async function listInventory(): Promise<InventoryItem[]> {
+  const res = await fetch("/api/fss/inventory");
+  if (!res.ok) throw new Error("Failed to fetch inventory.");
+  const json = await res.json();
+  return json.data;
+}
+
+export async function createInventory(
+  payload: CreateInventoryPayload
+): Promise<InventoryItem> {
+  const res = await fetch("/api/fss/inventory", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.message ?? "Failed to create.");
+  return json.data;
+}
+
+export async function updateInventory(
+  id: number,
+  payload: UpdateInventoryPayload
+): Promise<InventoryItem> {
+  const res = await fetch(`/api/fss/inventory/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.message ?? "Failed to update.");
+  return json.data;
+}
+
+export async function deleteInventory(id: number): Promise<void> {
+  const res = await fetch(`/api/fss/inventory/${id}`, { method: "DELETE" });
+  if (!res.ok && res.status !== 204) {
+    const json = await res.json().catch(() => ({}));
+    throw new Error(json.message ?? "Failed to delete.");
+  }
+}
+
+export async function restockInventory(
+  id: number,
+  quantity: number
+): Promise<InventoryItem> {
+  const res = await fetch(`/api/fss/inventory/${id}/restock`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ quantity }),
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.message ?? "Restock failed.");
+  return json.data;
+}
+```
+
+- [ ] **Step 2: Commit**
+
+```bash
+git add frontend/services/inventoryService.ts
+git commit -m "feat(fss): add inventory service layer with types and stock-status helper"
+```
 
 ---
 
-## Task 6: Button Design System
-
-**Goal:** Consolidate all interactive buttons to use `Button.tsx` variants. Eliminate ad-hoc `className` button soup. Add `ghost` (text-only, no border) and `icon` (square, icon-only) variants.
+## Task 6: Inventory Page UI
 
 **Files:**
-- Modify: `frontend/components/ui/Button.tsx`
-- Modify: `frontend/app/(rnd)/ncp/[patientId]/intervention/[ncpId]/_components/MealPlanSection.tsx` (biggest offender)
-- Modify: `frontend/app/(rnd)/ncp/[patientId]/intervention/[ncpId]/page.tsx`
+- Modify: `frontend/app/(rnd)/food-service/inventory/page.tsx`
 
-**Variant rules (document at top of Button.tsx):**
-- `primary` — main positive action (Save, Apply, Generate, Add)
-- `secondary` — neutral action (New Week, From Template, Save Template, Auto-Generate when not primary)
-- `ghost` — cancel / text links / "Change Goal"
-- `danger` — destructive (Delete Plan, Delete Template)
-- `icon` — icon-only square button (trash icon on plan pills, edit pencil on meal items)
+**Dependency note:** Food item select uses existing `/api/rnd/food-items` GET. The InventoryResource returns `food_item.id + food_item.name`. The `inventory` table has a unique constraint on `food_item_id` — one entry per food item.
 
-- [ ] **Step 1: Add `ghost` and `icon` variants** — In `Button.tsx`, add to the variants object:
-  - `ghost`: no background, no border, zinc text, hover underline or zinc-100 bg
-  - `icon`: `p-1.5 w-auto` override, no padding changes from className, same base focus ring
+**UI structure:**
+- Breadcrumb → Header row (title + "Add Stock Entry" button)
+- Stat chips: Total Items / Low Stock count / Expiring Soon count
+- Search input (filter by food item name, client-side) + Status tabs (All / Low Stock / Expiring)
+- Table: Food Item | Qty | Unit | Min Threshold | Expiry Date | Status | Actions
+- Status badge colors: low=red, expiring=amber, ok=emerald
+- Row actions: Restock (inline expand) | Edit (modal) | Delete (inline confirm)
+- Add/Edit modal fields: food item select (disabled on edit) | qty | unit | min threshold | usage rate | expiry | notes
 
-- [ ] **Step 2: Replace inline buttons in MealPlanSection** — Convert:
-  - Cancel buttons → `Button variant="ghost"`
-  - "Delete Plan" confirm → `Button variant="danger"`
-  - "New Week" → `Button variant="secondary"`
-  - "Auto-Generate" → `Button variant="secondary"` (visually matches New Week — same row, same weight)
-  - "Save Template", "From Template" → `Button variant="secondary"`
-  - Trash icons on plan pills → `Button variant="icon"` with red hover class override
-  - Edit pencil, remove item → `Button variant="icon"`
-  - "Add" inside picker → already uses `Button variant="primary"` ✓
+- [ ] **Step 1: Replace inventory page**
 
-- [ ] **Step 3: Replace inline buttons in intervention page.tsx** — "Set Goal" / "Change Goal" button → `Button variant="ghost"`. Save prescription button → `Button variant="primary"`.
+```tsx
+"use client";
 
-- [ ] **Step 4: Visual check** — Open intervention page, verify all buttons follow the variant system. No raw `<button>` with long `className` chains remain in these two files.
+import React, { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
+import {
+  Salad, Plus, Search, RefreshCw, Pencil, Trash2, ChevronDown, X, AlertTriangle,
+} from "lucide-react";
+import { Button } from "@/components/ui/Button";
+import {
+  InventoryItem,
+  CreateInventoryPayload,
+  UpdateInventoryPayload,
+  StockStatus,
+  getStockStatus,
+  listInventory,
+  createInventory,
+  updateInventory,
+  deleteInventory,
+  restockInventory,
+} from "@/services/inventoryService";
 
-- [ ] **Step 5: Commit**
-  ```
-  git commit -m "refactor: unify button variants (ghost + icon added), replace inline buttons in intervention page"
-  ```
+// ─── Types ────────────────────────────────────────────────────────────────────
 
----
+interface FoodItemOption {
+  id: number;
+  name: string;
+  serving_unit?: string;
+}
 
-## Task 7: MacroTrackerBar + Micros Button Redesign
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
-**Goal:** Remove green background from MacroTrackerBar. Move micros toggle to sit inline with the macro values (right side). Rename to `PlanStatsBar`. Manual "New Week" button sits visually level with "Auto-Generate".
+const STATUS_META: Record<StockStatus, { label: string; cls: string }> = {
+  low: { label: "Low Stock", cls: "bg-red-50 text-red-700 border border-red-200" },
+  expiring: { label: "Expiring Soon", cls: "bg-amber-50 text-amber-700 border border-amber-200" },
+  ok: { label: "OK", cls: "bg-emerald-50 text-emerald-700 border border-emerald-200" },
+};
 
-**Files:**
-- Modify: `frontend/app/(rnd)/ncp/[patientId]/intervention/[ncpId]/_components/MacroTrackerBar.tsx`
-- Modify: `frontend/app/(rnd)/ncp/[patientId]/intervention/[ncpId]/_components/MealPlanSection.tsx`
+function StatusBadge({ status }: { status: StockStatus }) {
+  const { label, cls } = STATUS_META[status];
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${cls}`}>
+      {label}
+    </span>
+  );
+}
 
-- [ ] **Step 1: Redesign MacroTrackerBar** — Change `bg-emerald-50 border-b border-emerald-100` to `bg-white border border-zinc-200 rounded-xl`. Remove `sticky top-0 z-10` — macro bar should NOT be sticky (plan grid is long; sticky macro bar blocks content). Remove `border-b` (it was a full-width bar style; now it's a card).
+function formatDate(dateStr: string | null): string {
+  if (!dateStr) return "—";
+  return new Date(dateStr).toLocaleDateString("en-PH", {
+    month: "short", day: "numeric", year: "numeric",
+  });
+}
 
-- [ ] **Step 2: Add `showMicros` and `onToggleMicros` props to MacroTrackerBar** — Accept `showMicros: boolean`, `onToggleMicros: () => void`, `hasMicros: boolean`. Render the `FlaskConical` micros toggle button inline at the right end of the bar. This is the ONE canonical micros button — remove the duplicate from the MealPlanSection header row.
+// ─── Modal ────────────────────────────────────────────────────────────────────
 
-- [ ] **Step 3: Update MealPlanSection** — Remove the standalone micros button from the header toolbar. Pass `showMicros`, `onToggleMicros`, `hasMicros={displayedMicros.length > 0}` into `MacroTrackerBar`. Verify only one micros button exists.
+interface ModalProps {
+  mode: "add" | "edit";
+  item?: InventoryItem;
+  foodItems: FoodItemOption[];
+  onClose: () => void;
+  onSaved: (updated: InventoryItem) => void;
+}
 
-- [ ] **Step 4: Level "New Week" with "Auto-Generate"** — Both buttons in the header toolbar should be `Button variant="secondary"` with identical sizing. "Auto-Generate" is NOT primary (it's not more important than manual creation). Move them into a consistent button group at the right side of the header.
+function InventoryModal({ mode, item, foodItems, onClose, onSaved }: ModalProps) {
+  const [foodItemId, setFoodItemId] = useState<number | "">(item?.food_item_id ?? "");
+  const [qty, setQty] = useState(item ? parseFloat(item.quantity_in_stock).toString() : "");
+  const [unit, setUnit] = useState(item?.unit ?? "");
+  const [threshold, setThreshold] = useState(item?.minimum_stock_threshold ?? "");
+  const [usageRate, setUsageRate] = useState(item?.usage_rate ?? "");
+  const [expiry, setExpiry] = useState(item?.expiry_date ?? "");
+  const [notes, setNotes] = useState(item?.notes ?? "");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
-- [ ] **Step 5: Visual check** — Macro bar is white/zinc, numbers colored by status, micros toggle at far right of the bar. Header toolbar has consistent buttons.
+  // Auto-fill unit from selected food item
+  useEffect(() => {
+    if (mode === "add" && foodItemId) {
+      const found = foodItems.find((f) => f.id === foodItemId);
+      if (found?.serving_unit && !unit) setUnit(found.serving_unit);
+    }
+  }, [foodItemId, foodItems, mode, unit]);
 
-- [ ] **Step 6: Commit**
-  ```
-  git commit -m "refactor: MacroTrackerBar white bg, inline micros toggle, level New Week vs Auto-Generate"
-  ```
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!foodItemId || !qty || !unit) {
+      setError("Food item, quantity, and unit are required.");
+      return;
+    }
+    setSaving(true);
+    setError("");
+    try {
+      let result: InventoryItem;
+      if (mode === "add") {
+        const payload: CreateInventoryPayload = {
+          food_item_id: foodItemId as number,
+          quantity_in_stock: parseFloat(qty),
+          unit,
+          expiry_date: expiry || null,
+          usage_rate: usageRate ? parseFloat(usageRate as string) : null,
+          minimum_stock_threshold: threshold ? parseFloat(threshold as string) : null,
+          notes: notes || null,
+        };
+        result = await createInventory(payload);
+      } else {
+        const payload: UpdateInventoryPayload = {
+          quantity_in_stock: parseFloat(qty),
+          unit,
+          expiry_date: expiry || null,
+          usage_rate: usageRate ? parseFloat(usageRate as string) : null,
+          minimum_stock_threshold: threshold ? parseFloat(threshold as string) : null,
+          notes: notes || null,
+        };
+        result = await updateInventory(item!.id, payload);
+      }
+      onSaved(result);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "An error occurred.");
+    } finally {
+      setSaving(false);
+    }
+  }
 
----
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-100">
+          <h3 className="text-sm font-bold text-zinc-900">
+            {mode === "add" ? "Add Stock Entry" : "Edit Stock Entry"}
+          </h3>
+          <button onClick={onClose} className="text-zinc-400 hover:text-zinc-600 transition-colors">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
 
-## Task 8: Intervention Tabs — Sticky + Overflow Fix
+        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
+          {error && (
+            <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700">
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+              {error}
+            </div>
+          )}
 
-**Goal:** Make intervention tabs sticky so they stay visible while scrolling through the Food/Nutrient Delivery tab content. Fix tab bar from causing horizontal overflow on small screens.
+          {/* Food Item */}
+          <div>
+            <label className="block text-xs font-semibold text-zinc-700 mb-1.5">
+              Food Item <span className="text-red-500">*</span>
+            </label>
+            {mode === "edit" ? (
+              <div className="px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-xs text-zinc-600 font-medium">
+                {item?.food_item.name}
+              </div>
+            ) : (
+              <select
+                value={foodItemId}
+                onChange={(e) => setFoodItemId(e.target.value ? parseInt(e.target.value) : "")}
+                className="w-full px-3 py-2 text-xs border border-zinc-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                required
+              >
+                <option value="">Select food item...</option>
+                {foodItems.map((f) => (
+                  <option key={f.id} value={f.id}>{f.name}</option>
+                ))}
+              </select>
+            )}
+          </div>
 
-**Files:**
-- Modify: `frontend/app/(rnd)/ncp/[patientId]/intervention/[ncpId]/page.tsx`
+          {/* Qty + Unit row */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-zinc-700 mb-1.5">
+                Qty in Stock <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={qty}
+                onChange={(e) => setQty(e.target.value)}
+                className="w-full px-3 py-2 text-xs border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-zinc-700 mb-1.5">
+                Unit <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={unit}
+                onChange={(e) => setUnit(e.target.value)}
+                placeholder="kg, pcs, L..."
+                className="w-full px-3 py-2 text-xs border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                required
+              />
+            </div>
+          </div>
 
-- [ ] **Step 1: Make tab bar sticky** — On the tab `<div>`, add `sticky top-0 z-20 bg-white`. The scrollable container is `<main className="flex-1 overflow-y-auto">` in `layout.tsx` — `sticky` works within this scroll context. Add `-mx-6 px-6 lg:-mx-8 lg:px-8` to stretch the bar edge-to-edge within the padded main.
+          {/* Threshold + Usage Rate row */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-zinc-700 mb-1.5">Min Threshold</label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={threshold}
+                onChange={(e) => setThreshold(e.target.value)}
+                placeholder="e.g. 5"
+                className="w-full px-3 py-2 text-xs border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-zinc-700 mb-1.5">Usage Rate / day</label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={usageRate}
+                onChange={(e) => setUsageRate(e.target.value)}
+                placeholder="e.g. 2.5"
+                className="w-full px-3 py-2 text-xs border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+              />
+            </div>
+          </div>
 
-- [ ] **Step 2: Fix tab overflow** — The tab bar currently has `overflow-x-auto`. On smaller screens this causes a horizontal scrollbar. Replace with `flex-wrap gap-0` so tabs wrap to a second line rather than scroll. `whitespace-nowrap` stays on individual tab buttons.
+          {/* Expiry Date */}
+          <div>
+            <label className="block text-xs font-semibold text-zinc-700 mb-1.5">Expiry Date</label>
+            <input
+              type="date"
+              value={expiry}
+              onChange={(e) => setExpiry(e.target.value)}
+              className="w-full px-3 py-2 text-xs border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+            />
+          </div>
 
-- [ ] **Step 3: Verify** — Scroll down in the Food/Nutrient Delivery tab. Confirm tabs stay visible at top. Resize to mobile — tabs wrap, no horizontal scrollbar appears.
+          {/* Notes */}
+          <div>
+            <label className="block text-xs font-semibold text-zinc-700 mb-1.5">Notes</label>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={2}
+              placeholder="Optional notes..."
+              className="w-full px-3 py-2 text-xs border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none"
+            />
+          </div>
 
-- [ ] **Step 4: Commit**
-  ```
-  git commit -m "feat: sticky intervention tabs, wrap instead of h-scroll on small screens"
-  ```
+          <div className="flex gap-2 pt-1">
+            <Button type="button" variant="secondary" onClick={onClose} className="flex-1">
+              Cancel
+            </Button>
+            <Button type="submit" variant="primary" disabled={saving} className="flex-1">
+              {saving ? "Saving..." : mode === "add" ? "Add Entry" : "Save Changes"}
+            </Button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
 
----
+// ─── Restock Row ──────────────────────────────────────────────────────────────
 
-## Task 9: Responsive Layout — Sidebar Mobile Drawer
+function RestockRow({
+  item,
+  onRestocked,
+  onClose,
+}: {
+  item: InventoryItem;
+  onRestocked: (updated: InventoryItem) => void;
+  onClose: () => void;
+}) {
+  const [qty, setQty] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
-**Goal:** On mobile (< `md` breakpoint), sidebar becomes a slide-in overlay drawer triggered by a hamburger button in TopBar. On desktop (≥ `md`), behavior unchanged.
+  async function handleRestock() {
+    const amount = parseFloat(qty);
+    if (!amount || amount <= 0) { setError("Enter valid quantity."); return; }
+    setSaving(true);
+    setError("");
+    try {
+      const updated = await restockInventory(item.id, amount);
+      onRestocked(updated);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Restock failed.");
+    } finally {
+      setSaving(false);
+    }
+  }
 
-**Files:**
-- Modify: `frontend/components/layout/Sidebar.tsx`
-- Modify: `frontend/components/layout/TopBar.tsx`
-- Modify: `frontend/app/(rnd)/layout.tsx`
+  return (
+    <tr className="bg-emerald-50/60 border-t border-emerald-100">
+      <td colSpan={7} className="px-4 py-3">
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-zinc-600 font-medium">
+            Add stock for <strong>{item.food_item.name}</strong>:
+          </span>
+          <input
+            type="number"
+            min="0.01"
+            step="0.01"
+            value={qty}
+            onChange={(e) => setQty(e.target.value)}
+            placeholder="Qty to add"
+            className="w-32 px-2.5 py-1.5 text-xs border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            autoFocus
+          />
+          <span className="text-xs text-zinc-500">{item.unit}</span>
+          {error && <span className="text-xs text-red-600">{error}</span>}
+          <Button
+            variant="primary"
+            onClick={handleRestock}
+            disabled={saving}
+            className="!py-1.5 !px-3 text-xs"
+          >
+            {saving ? "..." : "Confirm"}
+          </Button>
+          <button onClick={onClose} className="text-zinc-400 hover:text-zinc-600">
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      </td>
+    </tr>
+  );
+}
 
-- [ ] **Step 1: Add sidebar open state to layout** — In `layout.tsx`, add `const [sidebarOpen, setSidebarOpen] = useState(false)`. Pass `open={sidebarOpen}` and `onClose={() => setSidebarOpen(false)}` to `Sidebar`. Pass `onMenuClick={() => setSidebarOpen(true)}` to `TopBar`.
+// ─── Main Page ────────────────────────────────────────────────────────────────
 
-- [ ] **Step 2: Sidebar mobile behavior** — In `Sidebar.tsx`, accept `open` and `onClose` props. On `md+`, render normally (no change). On `< md`: render as `fixed inset-0 z-50` overlay — backdrop + slide-in panel from left. Use `translate-x-0` when open, `-translate-x-full` when closed. Backdrop is semi-transparent black that closes sidebar on click.
+type FilterTab = "all" | StockStatus;
 
-- [ ] **Step 3: TopBar hamburger** — In `TopBar.tsx`, accept `onMenuClick` prop. Render a `Menu` icon button (Lucide) that is only visible on `md:hidden`. Clicking fires `onMenuClick`.
+export default function InventoryPage() {
+  const [items, setItems] = useState<InventoryItem[]>([]);
+  const [foodItems, setFoodItems] = useState<FoodItemOption[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [search, setSearch] = useState("");
+  const [tab, setTab] = useState<FilterTab>("all");
+  const [modal, setModal] = useState<null | { mode: "add" } | { mode: "edit"; item: InventoryItem }>(null);
+  const [restockId, setRestockId] = useState<number | null>(null);
+  const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
-- [ ] **Step 4: Verify no overflow** — On mobile viewport: no horizontal scroll on any page. Sidebar drawer slides in and out. On desktop: no change to existing behavior.
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const data = await listInventory();
+      setItems(data);
+    } catch {
+      setError("Failed to load inventory.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-- [ ] **Step 5: Commit**
-  ```
-  git commit -m "feat: sidebar mobile drawer, TopBar hamburger toggle"
-  ```
+  useEffect(() => { load(); }, [load]);
 
----
+  useEffect(() => {
+    fetch("/api/rnd/food-items")
+      .then((r) => r.json())
+      .then((json) => setFoodItems(json.data ?? []))
+      .catch(() => {});
+  }, []);
 
-## Task 10: Responsive Layout — Content + Tables
+  // Derived stats
+  const lowCount = items.filter((i) => getStockStatus(i) === "low").length;
+  const expiringCount = items.filter((i) => getStockStatus(i) === "expiring").length;
 
-**Goal:** No horizontal scroll on any page. Tables scroll within their container, not the full page. All flex/grid layouts reflow correctly on small screens.
+  const filtered = items.filter((item) => {
+    const matchSearch = item.food_item.name.toLowerCase().includes(search.toLowerCase());
+    const matchTab = tab === "all" || getStockStatus(item) === tab;
+    return matchSearch && matchTab;
+  });
 
-**Files:**
-- Modify: `frontend/app/(rnd)/layout.tsx`
-- Modify: Any page with tables: `food-library/page.tsx`, `food-library/foods/[id]/page.tsx`, `food-library/recipes/[id]/page.tsx`, `ncp/patients/page.tsx` — check for `<table>` elements and wrap them.
+  function handleSaved(updated: InventoryItem) {
+    setItems((prev) => {
+      const idx = prev.findIndex((i) => i.id === updated.id);
+      if (idx >= 0) {
+        const next = [...prev];
+        next[idx] = updated;
+        return next;
+      }
+      return [updated, ...prev];
+    });
+    setModal(null);
+  }
 
-- [ ] **Step 1: Add overflow guard to main** — In `layout.tsx`, on the `<main>` element, ensure `overflow-x-hidden` is set (it currently only has `overflow-y-auto`). Add `min-w-0` to the flex child wrapper.
+  function handleRestocked(updated: InventoryItem) {
+    setItems((prev) => prev.map((i) => (i.id === updated.id ? updated : i)));
+    setRestockId(null);
+  }
 
-- [ ] **Step 2: Audit tables** — Search for `<table` in the frontend. For each table found, wrap in `<div className="overflow-x-auto">` and add `min-w-[480px]` to the `<table>` itself so it scrolls within the container but doesn't overflow the page.
-  ```
-  grep -r "<table" frontend/app --include="*.tsx" -l
-  ```
+  async function handleDelete() {
+    if (!deleteId) return;
+    setDeleting(true);
+    try {
+      await deleteInventory(deleteId);
+      setItems((prev) => prev.filter((i) => i.id !== deleteId));
+      setDeleteId(null);
+    } catch {
+      // keep modal open on error
+    } finally {
+      setDeleting(false);
+    }
+  }
 
-- [ ] **Step 3: Audit fixed widths** — Search for `w-[` or hardcoded pixel widths on layout-level elements. Replace any that exceed viewport width on mobile with responsive equivalents (`max-w-full`, `min-w-0`).
+  const TABS: { key: FilterTab; label: string }[] = [
+    { key: "all", label: "All" },
+    { key: "low", label: `Low Stock${lowCount ? ` (${lowCount})` : ""}` },
+    { key: "expiring", label: `Expiring${expiringCount ? ` (${expiringCount})` : ""}` },
+  ];
 
-- [ ] **Step 4: Test on narrow viewport** — Resize browser to 375px wide. Scroll through: Dashboard, Patients list, Food Library, Intervention page. Confirm no horizontal scrollbar appears anywhere.
+  return (
+    <div className="space-y-6 font-sans">
+      {/* Breadcrumb */}
+      <div className="flex items-center gap-2 text-xs font-semibold text-zinc-400 select-none">
+        <Link href="/dashboard" className="hover:text-emerald-700 transition-colors">Home</Link>
+        <span className="text-zinc-300">/</span>
+        <span className="text-zinc-400">Food Service</span>
+        <span className="text-zinc-300">/</span>
+        <span className="text-zinc-650 font-bold">Inventory Logs</span>
+      </div>
 
-- [ ] **Step 5: Commit**
-  ```
-  git commit -m "fix: no horizontal overflow — table wrappers, overflow-x-hidden on main, min-w-0 guards"
-  ```
+      {/* Header */}
+      <div className="border-b border-zinc-200 pb-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-extrabold text-zinc-950 tracking-tight flex items-center gap-2.5">
+            <Salad className="h-5 w-5 text-emerald-600" />
+            Kitchen &amp; Food Service Inventory
+          </h2>
+          <p className="text-xs text-zinc-500 mt-1 select-none">
+            Monitor raw ingredient stock, capture unit pricing, and track expiration milestones.
+          </p>
+        </div>
+        <Button
+          variant="primary"
+          onClick={() => setModal({ mode: "add" })}
+          className="sm:w-auto px-4 py-2.5 shrink-0 flex items-center justify-center gap-2"
+        >
+          <Plus className="h-4 w-4" />
+          Add Stock Entry
+        </Button>
+      </div>
 
----
+      {/* Stat chips */}
+      <div className="flex flex-wrap gap-3">
+        {[
+          { label: "Total Items", value: items.length, cls: "bg-zinc-50 border-zinc-200 text-zinc-700" },
+          { label: "Low Stock", value: lowCount, cls: lowCount > 0 ? "bg-red-50 border-red-200 text-red-700" : "bg-zinc-50 border-zinc-200 text-zinc-400" },
+          { label: "Expiring Soon", value: expiringCount, cls: expiringCount > 0 ? "bg-amber-50 border-amber-200 text-amber-700" : "bg-zinc-50 border-zinc-200 text-zinc-400" },
+        ].map(({ label, value, cls }) => (
+          <div key={label} className={`px-4 py-2.5 rounded-xl border text-xs font-semibold flex items-center gap-2 ${cls}`}>
+            <span className="text-lg font-extrabold">{value}</span>
+            <span className="opacity-70">{label}</span>
+          </div>
+        ))}
+      </div>
 
-## Task 11: Final Check + Tests
+      {/* Search + Tabs */}
+      <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+        <div className="relative flex-1 max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search food item..."
+            className="w-full pl-9 pr-3 py-2 text-xs border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+          />
+        </div>
+        <div className="flex gap-1 bg-zinc-100 rounded-lg p-1">
+          {TABS.map(({ key, label }) => (
+            <button
+              key={key}
+              onClick={() => setTab(key)}
+              className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${
+                tab === key
+                  ? "bg-white text-zinc-900 shadow-sm"
+                  : "text-zinc-500 hover:text-zinc-700"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <button
+          onClick={load}
+          className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-700 transition-colors"
+        >
+          <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+          Refresh
+        </button>
+      </div>
 
-- [ ] **Step 1: Run full test suite**
-  ```
-  cd backend && php artisan test
-  ```
-  Expected: all tests pass (166+).
+      {/* Table */}
+      <div className="bg-white border border-zinc-200 rounded-2xl shadow-sm overflow-hidden">
+        {loading ? (
+          <div className="py-16 text-center text-xs text-zinc-400">Loading inventory...</div>
+        ) : error ? (
+          <div className="py-16 text-center text-xs text-red-500">{error}</div>
+        ) : filtered.length === 0 ? (
+          <div className="py-16 text-center">
+            <Salad className="h-8 w-8 text-zinc-300 mx-auto mb-3" />
+            <p className="text-xs text-zinc-400 font-medium">
+              {search || tab !== "all" ? "No items match your filter." : "No inventory entries yet."}
+            </p>
+            {!search && tab === "all" && (
+              <button
+                onClick={() => setModal({ mode: "add" })}
+                className="mt-3 text-xs text-emerald-600 font-semibold hover:underline"
+              >
+                Add first stock entry
+              </button>
+            )}
+          </div>
+        ) : (
+          <table className="w-full text-xs">
+            <thead className="bg-zinc-50 border-b border-zinc-100">
+              <tr>
+                {["Food Item", "Qty in Stock", "Unit", "Min Threshold", "Expiry Date", "Status", "Actions"].map(
+                  (h) => (
+                    <th
+                      key={h}
+                      className="px-4 py-3 text-left text-[10px] font-bold text-zinc-500 uppercase tracking-wider"
+                    >
+                      {h}
+                    </th>
+                  )
+                )}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-zinc-100">
+              {filtered.map((item) => {
+                const status = getStockStatus(item);
+                const isRestocking = restockId === item.id;
+                const isDeleting = deleteId === item.id;
 
-- [ ] **Step 2: Check for TypeScript errors**
-  ```
-  cd frontend && npx tsc --noEmit
-  ```
-  Fix any new type errors introduced by Task 6 (button prop changes).
+                return (
+                  <React.Fragment key={item.id}>
+                    <tr className={`hover:bg-zinc-50 transition-colors ${isRestocking ? "bg-emerald-50/40" : ""}`}>
+                      <td className="px-4 py-3 font-semibold text-zinc-800">{item.food_item.name}</td>
+                      <td className="px-4 py-3 font-mono text-zinc-700">
+                        {parseFloat(item.quantity_in_stock).toFixed(2)}
+                      </td>
+                      <td className="px-4 py-3 text-zinc-500">{item.unit}</td>
+                      <td className="px-4 py-3 text-zinc-500">
+                        {item.minimum_stock_threshold
+                          ? parseFloat(item.minimum_stock_threshold).toFixed(2)
+                          : "—"}
+                      </td>
+                      <td className="px-4 py-3 text-zinc-500">{formatDate(item.expiry_date)}</td>
+                      <td className="px-4 py-3">
+                        <StatusBadge status={status} />
+                      </td>
+                      <td className="px-4 py-3">
+                        {isDeleting ? (
+                          <div className="flex items-center gap-2">
+                            <span className="text-red-600 text-[10px] font-semibold">Delete?</span>
+                            <button
+                              onClick={handleDelete}
+                              disabled={deleting}
+                              className="text-[10px] font-bold text-red-600 hover:underline disabled:opacity-50"
+                            >
+                              {deleting ? "..." : "Yes"}
+                            </button>
+                            <button
+                              onClick={() => setDeleteId(null)}
+                              className="text-[10px] font-bold text-zinc-500 hover:underline"
+                            >
+                              No
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() =>
+                                setRestockId(isRestocking ? null : item.id)
+                              }
+                              title="Restock"
+                              className={`p-1.5 rounded-lg transition-colors ${
+                                isRestocking
+                                  ? "bg-emerald-100 text-emerald-700"
+                                  : "hover:bg-zinc-100 text-zinc-500"
+                              }`}
+                            >
+                              <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isRestocking ? "rotate-180" : ""}`} />
+                            </button>
+                            <button
+                              onClick={() => setModal({ mode: "edit", item })}
+                              title="Edit"
+                              className="p-1.5 rounded-lg hover:bg-zinc-100 text-zinc-500 transition-colors"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              onClick={() => setDeleteId(item.id)}
+                              title="Delete"
+                              className="p-1.5 rounded-lg hover:bg-red-50 text-zinc-500 hover:text-red-600 transition-colors"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                    {isRestocking && (
+                      <RestockRow
+                        item={item}
+                        onRestocked={handleRestocked}
+                        onClose={() => setRestockId(null)}
+                      />
+                    )}
+                  </React.Fragment>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+      </div>
 
-- [ ] **Step 3: Update session handoff** — Update `memory/session-handoff.md` to mark all tasks complete and note water_g seeding needs a re-run of FoodItemsSeeder.
+      {/* Add/Edit Modal */}
+      {modal && (
+        <InventoryModal
+          mode={modal.mode}
+          item={modal.mode === "edit" ? modal.item : undefined}
+          foodItems={foodItems}
+          onClose={() => setModal(null)}
+          onSaved={handleSaved}
+        />
+      )}
+    </div>
+  );
+}
+```
 
-- [ ] **Step 4: Final commit**
-  ```
-  git commit -m "chore: UI/UX overhaul + bug fixes complete — tests passing"
-  ```
+- [ ] **Step 2: TypeScript check**
+
+```bash
+cd frontend && npx tsc --noEmit
+```
+Expected: 0 errors.
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add frontend/app/\(rnd\)/food-service/inventory/page.tsx
+git commit -m "feat(fss): implement inventory management page"
+```
 
 ---
 
 ## Self-Review
 
-**Spec coverage check:**
-- ✓ Delete plan bug → Task 1
-- ✓ Auto-generate runtime error → Task 2
-- ✓ Food picker CRUD → Task 3
-- ✓ Remove fluid_restriction goal → Task 4
-- ✓ Wire fluid_ml to renal/cardiac → Task 4
-- ✓ Water tracking (USDA + food_items) → Task 5
-- ✓ Button consistency / universal design → Task 6
-- ✓ MacroTrackerBar redesign (no green bg) → Task 7
-- ✓ Micros button beside macros → Task 7
-- ✓ Two different micros buttons → Task 7 (removes duplicate)
-- ✓ Sticky tabs → Task 8
-- ✓ No horizontal scroll → Tasks 9 + 10
-- ✓ Sidebar mobile → Task 9
-- ✓ Tables on small screens → Task 10
-- ✓ New Week vs Auto-Generate visual parity → Task 7
-- ✓ TDD throughout → PHPUnit tests in Tasks 1, 2, 3, 5
+**Spec coverage:**
+- ✓ Color-coded status (red/yellow/green) → StatusBadge
+- ✓ View stock — table with all fields
+- ✓ Update stock — Edit modal
+- ✓ Restock (quick qty add) — RestockRow inline expand
+- ✓ Delete — inline confirm
+- ✓ Add new entry — modal with food item select
+- ✓ Search + filter tabs
+- ✓ Backend RND access — Task 1
+- ✓ All proxy routes — Tasks 2/3/4
+- ✓ Service layer with types — Task 5
 
-**Not in scope (deferred):**
-- Full button system rollout to Food Library / Food Service pages (Task 6 scoped to intervention page only; document the rules so future pages follow)
-- Wiring patient age/sex from patient context into prescription autofill (separate task)
+**Placeholder scan:** None found. All code blocks complete.
+
+**Type consistency:**
+- `InventoryItem` used across service + page — consistent
+- `getStockStatus` returns `StockStatus` union — consistent with `FilterTab` usage
+- `CreateInventoryPayload` / `UpdateInventoryPayload` match backend request rules
+- `food_item_id` unique constraint → select disabled on edit ✓

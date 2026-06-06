@@ -45,4 +45,12 @@ return [
         'base_url' => 'https://api.nal.usda.gov/fdc/v1',
     ],
 
+    'paddleocr' => [
+        'url' => env('PADDLEOCR_URL', 'http://paddleocr:5000'),
+    ],
+
+    'omr' => [
+        'url' => env('OMR_URL', 'http://omr:5001'),
+    ],
+
 ];

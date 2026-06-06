@@ -1,6 +1,7 @@
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface MonitoringLabValues {
+  // Clinical lab results
   albumin?: number | null;
   hba1c?: number | null;
   ldl?: number | null;
@@ -10,6 +11,14 @@ export interface MonitoringLabValues {
   hemoglobin?: number | null;
   glucose?: number | null;
   bp?: string | null;
+  // Macro actual intake (logged per visit)
+  energy_kcal?: number | null;
+  protein_g?: number | null;
+  carbs_g?: number | null;
+  fat_g?: number | null;
+  fluid_ml?: number | null;
+  // Micro nutrient intake — dynamic keys (sodium, phosphate, fiber, etc.)
+  [key: string]: number | string | null | undefined;
 }
 
 export type ComplianceStatus = 'compliant' | 'partial' | 'non_compliant';
@@ -184,3 +193,35 @@ export function getWeightStatus(
   if (currentWeight === baselineWeight) return 'in_progress';
   return 'not_met';
 }
+
+// ─── Goal → Clinical Lab mapping ──────────────────────────────────────────────
+// Determines which lab fields to show in the monitoring form based on goal_type.
+// Keys must match MonitoringLabValues clinical fields.
+
+export type ClinicalLabKey = 'albumin' | 'hba1c' | 'ldl' | 'cholesterol' |
+  'creatinine' | 'potassium' | 'hemoglobin' | 'glucose' | 'bp';
+
+export const GOAL_LAB_FLAGS: Record<string, ClinicalLabKey[]> = {
+  renal_diet:       ['albumin', 'creatinine', 'potassium', 'hemoglobin'],
+  diabetic_control: ['hba1c', 'glucose', 'albumin'],
+  cardiac_diet:     ['bp', 'ldl', 'cholesterol'],
+  weight_loss:      [],
+  weight_gain:      ['albumin', 'hemoglobin'],
+  high_protein:     ['albumin', 'creatinine'],
+  liver_disease:    ['albumin'],
+  malnutrition:     ['albumin', 'hemoglobin'],
+  custom:           ['albumin', 'hba1c', 'ldl', 'cholesterol', 'creatinine', 'potassium', 'hemoglobin', 'glucose', 'bp'],
+};
+
+// Clinical lab display metadata (label + unit) for the form and tracker
+export const CLINICAL_LAB_META: Record<ClinicalLabKey, { label: string; unit: string; type: 'number' | 'text' }> = {
+  albumin:     { label: 'Albumin',       unit: 'g/dL',   type: 'number' },
+  hba1c:       { label: 'HbA1c',         unit: '%',      type: 'number' },
+  ldl:         { label: 'LDL',           unit: 'mg/dL',  type: 'number' },
+  cholesterol: { label: 'Cholesterol',   unit: 'mg/dL',  type: 'number' },
+  creatinine:  { label: 'Creatinine',    unit: 'mg/dL',  type: 'number' },
+  potassium:   { label: 'Potassium',     unit: 'mEq/L',  type: 'number' },
+  hemoglobin:  { label: 'Hemoglobin',    unit: 'g/dL',   type: 'number' },
+  glucose:     { label: 'Glucose',       unit: 'mg/dL',  type: 'number' },
+  bp:          { label: 'Blood Pressure', unit: 'mmHg',  type: 'text'   },
+};
