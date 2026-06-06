@@ -17,10 +17,11 @@
 5. [Weight Loss](#5-weight-loss)
 6. [Weight Gain](#6-weight-gain)
 7. [High Protein](#7-high-protein)
-8. [Fluid Restriction](#8-fluid-restriction)
-9. [Liver Disease](#9-liver-disease)
-10. [Malnutrition](#10-malnutrition)
-11. [Appendix — disease_stage Quick Reference](#appendix--disease_stage-quick-reference)
+8. [Liver Disease](#8-liver-disease)
+9. [Malnutrition](#9-malnutrition)
+10. [Appendix — disease_stage Quick Reference](#appendix--disease_stage-quick-reference)
+
+> **Design decision (2026-06-06):** Fluid restriction is **not a standalone intervention goal**. It is a clinical modifier applied within CKD (`renal_diet`) and Cardiac (`cardiac_diet`) goals. See the `fluid_ml` column in Sections 2 and 4 for stage-specific fluid targets. The `fluid_restriction` goal_type has been removed from the system.
 
 ---
 
@@ -271,15 +272,19 @@ Disease stage drives all nutrient targets. GFR staging follows KDOQI/KDIGO class
 
 **Energy for all CKD stages:** 30–35 kcal/kg IBW/day
 
-| Stage | disease_stage value | GFR (mL/min/1.73m²) | Protein (g/kg IBW) | Sodium | Potassium | Phosphorus | Fluid |
+| Stage | disease_stage value | GFR (mL/min/1.73m²) | Protein (g/kg IBW) | Sodium | Potassium | Phosphorus | Fluid (mL/day) |
 |---|---|---|---|---|---|---|---|
 | Stage 1 | `stage_1` | ≥ 90 | 0.8 | < 2300 mg | Unrestricted | Unrestricted | Unrestricted |
 | Stage 2 | `stage_2` | 60–89 | 0.8 | < 2300 mg | Unrestricted | Unrestricted | Unrestricted |
 | Stage 3 | `stage_3` | 30–59 | 0.6–0.8 | < 2000 mg | Monitor; restrict if K > 5.0 mmol/L | 800–1000 mg/day if elevated | Unrestricted |
 | Stage 4 | `stage_4` | 15–29 | 0.6 | < 2000 mg | < 2000 mg/day | 800–1000 mg/day | Unrestricted unless edema |
-| Stage 5 pre-dialysis | `stage_5_predialysis` | < 15 | 0.6 | < 1500 mg | < 2000 mg/day | 800–1000 mg/day | Individualized |
-| Hemodialysis | `hemodialysis` | — | 1.2 | < 1500 mg | 2000–3000 mg/day | 800–1000 mg/day | 500–750 mL + prior day urine output |
-| Peritoneal Dialysis | `peritoneal` | — | 1.2–1.5 | < 2000 mg | Generally unrestricted | 800–1000 mg/day | Individualized |
+| Stage 5 pre-dialysis | `stage_5_predialysis` | < 15 | 0.6 | < 1500 mg | < 2000 mg/day | 800–1000 mg/day | Individualized (~1000–1500) |
+| Hemodialysis | `hemodialysis` | — | 1.2 | < 1500 mg | 2000–3000 mg/day | 800–1000 mg/day | **750 mL + prior day urine output** |
+| Peritoneal Dialysis | `peritoneal` | — | 1.2–1.5 | < 2000 mg | Generally unrestricted | 800–1000 mg/day | **Individualized per dialysis Rx** |
+
+> **Fluid note for CKD:** Fluid restriction is required for hemodialysis and peritoneal dialysis stages. The system autofills `fluid_ml = 750` for hemodialysis (baseline conservative target; clinician adjusts based on urine output). Fluid counts include all beverages and high-water-content foods (soup, gelatin, ice cream, watermelon, grapes).
+
+**Water intake tracking:** The USDA nutrient ID for water is **1051**. NutriScope extracts this as `water_g` on `food_items`. This allows the system to estimate daily water intake from the meal plan and compare against the `fluid_ml` prescription target. Food items with `water_g` populated will contribute to the fluid total shown in the micro display when `fluid_ml` is set.
 
 > **Peritoneal note:** Subtract ~500–800 kcal/day from energy target to account for glucose absorbed from dialysate.
 
@@ -378,7 +383,9 @@ GFR staging uses eGFR corrected for body surface area (BSA).
 | Trans fat | < 1% total kcal (minimize) | Minimize | Minimize |
 | Cholesterol | < 300 mg/day | < 200 mg/day | < 200 mg/day |
 | Fiber | ≥ 25–30 g/day | ≥ 30 g/day | ≥ 30 g/day |
-| Fluid | Unrestricted | Unrestricted | May restrict — see Section 8 |
+| Fluid (`fluid_ml`) | Unrestricted | **≤ 2000 mL/day** | **1000–1500 mL/day** |
+
+> **Fluid note for Cardiac:** Fluid restriction applies from moderate severity onward. Heart failure decompensation (severe stage) typically requires ≤ 1500 mL/day. The system autofills `fluid_ml = 2000` for moderate and `fluid_ml = 1500` for severe cardiac stages.
 
 **DASH Diet Targets** (all severity levels):
 
@@ -594,53 +601,7 @@ Used for: post-surgery, trauma, sepsis, burns, pressure injuries, low albumin.
 
 ---
 
-## 8. Fluid Restriction
-
-**goal_type:** `fluid_restriction`
-
-**disease_stage values:** `ckd_predialysis` | `ckd_hemodialysis` | `ckd_peritoneal` | `heart_failure_mild` | `heart_failure_severe` | `siadh`
-
----
-
-### [ADULT]
-
-| disease_stage | Condition | Daily Fluid Limit |
-|---|---|---|
-| `ckd_predialysis` | CKD Stage 1–5 without dialysis | Unrestricted unless oliguria or edema present |
-| `ckd_hemodialysis` | CKD on hemodialysis | 500–750 mL + **previous day's urine output** |
-| `ckd_peritoneal` | CKD on peritoneal dialysis | Individualized per dialysis prescription |
-| `heart_failure_mild` | Heart failure, compensated | ≤ 2000 mL/day |
-| `heart_failure_severe` | Heart failure, decompensated | 1000–1500 mL/day |
-| `siadh` | Syndrome of Inappropriate ADH | 500–1000 mL/day |
-
-**What counts as fluid:**
-- All beverages (water, juice, milk, broth, coffee, tea)
-- High-water-content foods: soup, gelatin, ice cream, ice chips, watermelon (> 90% water), grapes
-
-**Sources:**
-- KDOQI 2020 Nutrition in CKD — https://www.ajkd.org/article/S0272-6386(20)30726-5/fulltext
-- ACC/AHA Guideline for Heart Failure 2022. *J Am Coll Cardiol.* https://www.jacc.org/doi/10.1016/j.jacc.2021.12.012
-
----
-
-### [PEDIATRIC]
-
-Base maintenance calculated via **Holliday-Segar** (see Section 1). Restriction expressed as percentage of calculated maintenance.
-
-| disease_stage | Restriction Level | Daily Fluid Target |
-|---|---|---|
-| `ckd_predialysis` | No restriction unless oliguric/edematous | Per Holliday-Segar |
-| `ckd_hemodialysis` | Restrict to dialysis prescription | 500 mL/m² BSA + prior day urine output |
-| `ckd_peritoneal` | Per dialysis prescription | Individualized |
-| `heart_failure_mild` | 75% of maintenance | Holliday-Segar × 0.75 |
-| `heart_failure_severe` | 50–60% of maintenance | Holliday-Segar × 0.50–0.60 |
-| `siadh` | 40–50% of maintenance | Holliday-Segar × 0.40–0.50 |
-
-**Source:** KDIGO Pediatric CKD Guidelines — https://kdigo.org/guidelines/ckd-in-children/
-
----
-
-## 9. Liver Disease
+## 8. Liver Disease
 
 **goal_type:** `liver_disease`
 
@@ -686,7 +647,7 @@ Pediatric liver disease (biliary atresia, PFIC, cholestatic disease) has signifi
 
 ---
 
-## 10. Malnutrition
+## 9. Malnutrition
 
 **goal_type:** `malnutrition`
 
@@ -768,20 +729,21 @@ WHO F-75 formula used in Phase 1 stabilization; F-100 or Ready-to-Use Therapeuti
 
 Full mapping of `goal_type` → `disease_stage` values → which section defines the targets.
 
-| goal_type | disease_stage values | Reference Section |
-|---|---|---|
-| `renal_diet` | `stage_1`, `stage_2`, `stage_3`, `stage_4`, `stage_5_predialysis`, `hemodialysis`, `peritoneal` | Section 2 |
-| `diabetic_control` | `null` | Section 3 |
-| `cardiac_diet` | `mild`, `moderate`, `severe` | Section 4 |
-| `weight_loss` | `overweight`, `class_1`, `class_2`, `class_3` | Section 5 |
-| `weight_gain` | `mild`, `moderate`, `severe` | Section 6 |
-| `high_protein` | `mild_stress`, `moderate_stress`, `severe_stress`, `burns` | Section 7 |
-| `fluid_restriction` | `ckd_predialysis`, `ckd_hemodialysis`, `ckd_peritoneal`, `heart_failure_mild`, `heart_failure_severe`, `siadh` | Section 8 |
-| `liver_disease` | `compensated`, `decompensated`, `encephalopathy_grade_1_2`, `encephalopathy_grade_3_4` | Section 9 |
-| `malnutrition` | `moderate`, `severe` | Section 10 |
-| `custom` | `null` | Manual RND entry — no formula applied |
+| goal_type | disease_stage values | fluid_ml autofill | Reference Section |
+|---|---|---|---|
+| `renal_diet` | `stage_1`, `stage_2`, `stage_3`, `stage_4`, `stage_5_predialysis`, `hemodialysis`, `peritoneal` | 750 mL for `hemodialysis`; individualized for `peritoneal` | Section 2 |
+| `diabetic_control` | `null` | Not restricted | Section 3 |
+| `cardiac_diet` | `mild`, `moderate`, `severe` | 2000 mL for `moderate`; 1500 mL for `severe` | Section 4 |
+| `weight_loss` | `overweight`, `class_1`, `class_2`, `class_3` | Not restricted | Section 5 |
+| `weight_gain` | `mild`, `moderate`, `severe` | Not restricted | Section 6 |
+| `high_protein` | `mild_stress`, `moderate_stress`, `severe_stress`, `burns` | Not restricted | Section 7 |
+| `liver_disease` | `compensated`, `decompensated`, `encephalopathy_grade_1_2`, `encephalopathy_grade_3_4` | Not restricted | Section 8 |
+| `malnutrition` | `moderate`, `severe` | Not restricted | Section 9 |
+| `custom` | `null` | Manual RND entry | Manual RND entry — no formula applied |
+
+> **Removed goal:** `fluid_restriction` was a standalone goal type up to 2026-06-05. It was removed because fluid restriction is a clinical modifier embedded within CKD and Cardiac goals, not an independent nutritional intervention category. Any existing records with `goal_type = 'fluid_restriction'` should be migrated to `renal_diet` or `cardiac_diet` as appropriate.
 
 ---
 
-*Last updated: 2026-06-05*
+*Last updated: 2026-06-06*
 *System requirements supersede any conflict with this document.*
