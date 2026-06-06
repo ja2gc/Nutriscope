@@ -304,10 +304,11 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
             <MealPlanSection
               ncpId={ncpId}
               prescriptionTargets={{
-                energy:  parseFloat(prescription.energy_kcal) || 0,
-                protein: parseFloat(prescription.protein_g)   || 0,
-                carbs:   parseFloat(prescription.carbs_g)     || 0,
-                fat:     parseFloat(prescription.fat_g)       || 0,
+                energy:   parseFloat(prescription.energy_kcal) || 0,
+                protein:  parseFloat(prescription.protein_g)   || 0,
+                carbs:    parseFloat(prescription.carbs_g)     || 0,
+                fat:      parseFloat(prescription.fat_g)       || 0,
+                fluid_ml: parseFloat(prescription.fluid_ml)   || 0,
               }}
               foodDislikes={foodDislikes}
               allergens={allergens}
