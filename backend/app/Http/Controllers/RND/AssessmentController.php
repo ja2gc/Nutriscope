@@ -47,7 +47,7 @@ class AssessmentController extends Controller
      */
     public function show(NcpRecord $ncpRecord): AssessmentResource
     {
-        $assessment = $ncpRecord->assessment()->firstOrFail();
+        $assessment = $ncpRecord->assessment()->with('biochemicalData')->firstOrFail();
         return new AssessmentResource($assessment);
     }
 

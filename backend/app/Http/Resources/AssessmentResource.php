@@ -46,6 +46,20 @@ class AssessmentResource extends JsonResource
             'dietary_record_file'  => $this->dietary_record_file,
             'created_at'           => $this->created_at,
             'updated_at'           => $this->updated_at,
+            'biochemical_data'     => $this->whenLoaded('biochemicalData', function () {
+                $bd = $this->biochemicalData;
+                return [
+                    'albumin'      => $bd->albumin,
+                    'hba1c'        => $bd->hba1c,
+                    'ldl'          => $bd->ldl,
+                    'cholesterol'  => $bd->cholesterol,
+                    'creatinine'   => $bd->creatinine,
+                    'potassium'    => $bd->potassium,
+                    'hemoglobin'   => $bd->hemoglobin,
+                    'glucose'      => $bd->glucose,
+                    'bp'           => $bd->bp,
+                ];
+            }),
         ];
     }
 }
