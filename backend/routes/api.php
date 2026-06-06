@@ -20,6 +20,7 @@ use App\Http\Controllers\RND\FoodItemController;
 use App\Http\Controllers\RND\RecipeController;
 use App\Http\Controllers\RND\UsdaController;
 use App\Http\Controllers\RND\MealPlanItemController;
+use App\Http\Controllers\RND\NcpRecordController;
 use App\Http\Controllers\FSS\InventoryController;
 use App\Http\Controllers\FSS\SupplierController;
 use App\Http\Controllers\FSS\PurchaseOrderController;
@@ -41,6 +42,7 @@ Route::middleware(['auth:sanctum', 'role:RND', 'audit'])->prefix('rnd')->group(f
     Route::apiResource('patients', PatientController::class);
     Route::get('patients/{patient}/ncp-records', [PatientController::class, 'ncpRecords']);
     Route::post('patients/{patient}/ncp-records', [PatientController::class, 'startNcpCycle']);
+    Route::delete('ncp-records/{ncpRecord}', [NcpRecordController::class, 'destroy']);
     Route::apiResource('announcements', RndAnnouncementController::class)->only(['index', 'store', 'update', 'destroy']);
 
     // Assessment routes
@@ -120,7 +122,7 @@ Route::middleware(['auth:sanctum', 'role:RND', 'audit'])->prefix('rnd')->group(f
         ->where('fdcId', '[0-9]+');
 });
 
-Route::middleware(['auth:sanctum', 'role:FSS'])->prefix('fss')->group(function () {
+Route::middleware(['auth:sanctum', 'role:FSS,RND'])->prefix('fss')->group(function () {
     // Inventory routes
     Route::apiResource('inventory', InventoryController::class);
     Route::post('inventory/{inventory}/restock', [InventoryController::class, 'restock']);
