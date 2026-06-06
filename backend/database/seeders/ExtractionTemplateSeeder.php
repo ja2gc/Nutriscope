@@ -21,7 +21,7 @@ class ExtractionTemplateSeeder extends Seeder
                     'weight' => 'required|numeric',
                     'height' => 'required|numeric',
                 ],
-                'version' => '1.0.0',
+                'version' => 1,
                 'is_active' => true,
             ],
             [
@@ -35,7 +35,7 @@ class ExtractionTemplateSeeder extends Seeder
                     'weight' => 'required|numeric',
                     'height' => 'required|numeric',
                 ],
-                'version' => '1.0.0',
+                'version' => 1,
                 'is_active' => true,
             ],
             [
@@ -49,7 +49,7 @@ class ExtractionTemplateSeeder extends Seeder
                     'albumin' => 'numeric',
                     'hemoglobin' => 'numeric',
                 ],
-                'version' => '1.0.0',
+                'version' => 1,
                 'is_active' => true,
             ],
         ];

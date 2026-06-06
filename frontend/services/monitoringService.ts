@@ -1,3 +1,4 @@
+﻿import { apiFetch } from "@/lib/apiFetch";
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface MonitoringLabValues {
@@ -56,7 +57,7 @@ export interface MonitoringPayload {
 // ─── API Functions ─────────────────────────────────────────────────────────────
 
 export async function fetchMonitorings(ncpRecordId: number | string): Promise<MonitoringEntry[]> {
-  const res = await fetch(`/api/rnd/ncp-records/${ncpRecordId}/monitorings`, {
+  const res = await apiFetch(`/api/rnd/ncp-records/${ncpRecordId}/monitorings`, {
     headers: { Accept: 'application/json' },
   });
   if (!res.ok) {
@@ -71,7 +72,7 @@ export async function createMonitoring(
   ncpRecordId: number | string,
   payload: MonitoringPayload
 ): Promise<MonitoringEntry> {
-  const res = await fetch(`/api/rnd/ncp-records/${ncpRecordId}/monitorings`, {
+  const res = await apiFetch(`/api/rnd/ncp-records/${ncpRecordId}/monitorings`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
     body: JSON.stringify(payload),
@@ -89,7 +90,7 @@ export async function updateMonitoring(
   monitoringId: number | string,
   payload: Partial<MonitoringPayload>
 ): Promise<MonitoringEntry> {
-  const res = await fetch(`/api/rnd/ncp-records/${ncpRecordId}/monitorings/${monitoringId}`, {
+  const res = await apiFetch(`/api/rnd/ncp-records/${ncpRecordId}/monitorings/${monitoringId}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
     body: JSON.stringify(payload),
@@ -106,7 +107,7 @@ export async function deleteMonitoring(
   ncpRecordId: number | string,
   monitoringId: number | string
 ): Promise<void> {
-  const res = await fetch(`/api/rnd/ncp-records/${ncpRecordId}/monitorings/${monitoringId}`, {
+  const res = await apiFetch(`/api/rnd/ncp-records/${ncpRecordId}/monitorings/${monitoringId}`, {
     method: 'DELETE',
     headers: { Accept: 'application/json' },
   });

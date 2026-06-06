@@ -1,3 +1,4 @@
+﻿import { apiFetch } from "@/lib/apiFetch";
 export interface Patient {
   id: number;
   name: string;
@@ -96,7 +97,7 @@ export async function fetchPatients(
   if (status && status !== "All") queryParams.append("status", status);
   queryParams.append("page", page.toString());
 
-  const res = await fetch(`/api/patients?${queryParams.toString()}`, {
+  const res = await apiFetch(`/api/patients?${queryParams.toString()}`, {
     method: "GET",
     headers: {
       Accept: "application/json",
@@ -112,7 +113,7 @@ export async function fetchPatients(
 }
 
 export async function fetchPatientById(id: number | string): Promise<Patient> {
-  const res = await fetch(`/api/patients/${id}`, {
+  const res = await apiFetch(`/api/patients/${id}`, {
     method: "GET",
     headers: {
       Accept: "application/json",
@@ -129,7 +130,7 @@ export async function fetchPatientById(id: number | string): Promise<Patient> {
 }
 
 export async function createPatient(data: PatientStoreData): Promise<Patient> {
-  const res = await fetch("/api/patients", {
+  const res = await apiFetch("/api/patients", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -151,7 +152,7 @@ export async function updatePatient(
   id: number | string,
   data: PatientUpdateData
 ): Promise<Patient> {
-  const res = await fetch(`/api/patients/${id}`, {
+  const res = await apiFetch(`/api/patients/${id}`, {
     method: "PATCH",
     headers: {
       "Content-Type": "application/json",
@@ -172,7 +173,7 @@ export async function updatePatient(
 export async function fetchPatientNcpRecords(
   id: number | string
 ): Promise<NcpRecord[]> {
-  const res = await fetch(`/api/patients/${id}/ncp-records`, {
+  const res = await apiFetch(`/api/patients/${id}/ncp-records`, {
     method: "GET",
     headers: {
       Accept: "application/json",
@@ -189,7 +190,7 @@ export async function fetchPatientNcpRecords(
 }
 
 export async function deletePatient(id: number | string): Promise<void> {
-  const res = await fetch(`/api/patients/${id}`, {
+  const res = await apiFetch(`/api/patients/${id}`, {
     method: "DELETE",
     headers: { Accept: "application/json" },
   });
@@ -201,7 +202,7 @@ export async function deletePatient(id: number | string): Promise<void> {
 }
 
 export async function deleteNcpRecord(ncpRecordId: number | string): Promise<void> {
-  const res = await fetch(`/api/rnd/ncp-records/${ncpRecordId}`, {
+  const res = await apiFetch(`/api/rnd/ncp-records/${ncpRecordId}`, {
     method: "DELETE",
     headers: { Accept: "application/json" },
   });
@@ -213,7 +214,7 @@ export async function deleteNcpRecord(ncpRecordId: number | string): Promise<voi
 }
 
 export async function createNcpRecord(id: number | string): Promise<NcpRecord> {
-  const res = await fetch(`/api/patients/${id}/ncp-records`, {
+  const res = await apiFetch(`/api/patients/${id}/ncp-records`, {
     method: "POST",
     headers: {
       Accept: "application/json",

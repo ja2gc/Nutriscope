@@ -1,3 +1,4 @@
+﻿import { apiFetch } from "@/lib/apiFetch";
 export interface MicronutrientLimit {
   max?: number;
   min?: number;
@@ -33,7 +34,7 @@ export interface RecommendResult {
 const base = (ncpId: string) => `/api/rnd/ncp-records/${ncpId}/intervention`;
 
 export async function fetchIntervention(ncpId: string): Promise<Intervention | null> {
-  const res = await fetch(base(ncpId), { headers: { Accept: 'application/json' } });
+  const res = await apiFetch(base(ncpId), { headers: { Accept: 'application/json' } });
   if (res.status === 404) return null;
   if (!res.ok) throw new Error('Failed to fetch intervention.');
   const data = await res.json();
@@ -41,7 +42,7 @@ export async function fetchIntervention(ncpId: string): Promise<Intervention | n
 }
 
 export async function createIntervention(ncpId: string, payload: Partial<Intervention>): Promise<Intervention> {
-  const res = await fetch(base(ncpId), {
+  const res = await apiFetch(base(ncpId), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
     body: JSON.stringify(payload),
@@ -54,7 +55,7 @@ export async function createIntervention(ncpId: string, payload: Partial<Interve
 }
 
 export async function updateIntervention(ncpId: string, payload: Partial<Intervention>): Promise<Intervention> {
-  const res = await fetch(base(ncpId), {
+  const res = await apiFetch(base(ncpId), {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
     body: JSON.stringify(payload),
@@ -67,7 +68,7 @@ export async function updateIntervention(ncpId: string, payload: Partial<Interve
 }
 
 export async function fetchRecommendations(ncpId: string): Promise<RecommendResult> {
-  const res = await fetch(`${base(ncpId)}/recommendations`, { headers: { Accept: 'application/json' } });
+  const res = await apiFetch(`${base(ncpId)}/recommendations`, { headers: { Accept: 'application/json' } });
   if (!res.ok) return { recommend: [], avoid: [], limits: [] };
   return (await res.json()).data ?? { recommend: [], avoid: [], limits: [] };
 }
