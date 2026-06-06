@@ -96,6 +96,7 @@ export default function MealPlanSection({
   const [usdaResults, setUsdaResults]         = useState<UsdaSearchResult[]>([]);
   const [pickerLoading, setPickerLoading]     = useState(false);
   const [adding, setAdding]                   = useState<number | string | null>(null);
+  const [pickerError, setPickerError]         = useState<string | null>(null);
   const [savingToLibrary, setSavingToLibrary] = useState<string | null>(null);
 
   const slotKey = (day: string, mt: string) => `${day}-${mt}`;
@@ -289,7 +290,7 @@ export default function MealPlanSection({
   const openPicker = (dayId: number, mealType: string) => {
     setPickerTarget({ dayId, mealType }); setPickerOpen(true); setPickerTab('library');
     setLibraryQuery(''); setLibraryResults([]); setRecipeQuery(''); setRecipeResults([]);
-    setUsdaQuery(''); setUsdaResults([]);
+    setUsdaQuery(''); setUsdaResults([]); setPickerError(null);
   };
 
   const appendItem = (item: MealPlanItem, plan: MealPlan, dayId: number) => {
@@ -299,19 +300,31 @@ export default function MealPlanSection({
   };
 
   const addFromLibrary = async (food: FoodItem) => {
-    if (!pickerTarget || !activePlan) return; setAdding(food.id);
-    try { appendItem(await addMealPlanItem(ncpId, activePlan.id, pickerTarget.dayId, { food_item_id: food.id, quantity: 1, unit: 'serving' }), activePlan, pickerTarget.dayId); }
-    finally { setAdding(null); }
+    if (!pickerTarget || !activePlan) return;
+    setAdding(food.id); setPickerError(null);
+    try {
+      appendItem(await addMealPlanItem(ncpId, activePlan.id, pickerTarget.dayId, { food_item_id: food.id, quantity: 1, unit: 'serving' }), activePlan, pickerTarget.dayId);
+    } catch (err) {
+      setPickerError(err instanceof Error ? err.message : 'Failed to add food. Please try again.');
+    } finally { setAdding(null); }
   };
   const addFromRecipe = async (recipe: Recipe) => {
-    if (!pickerTarget || !activePlan) return; setAdding(`recipe-${recipe.id}`);
-    try { appendItem(await addMealPlanItem(ncpId, activePlan.id, pickerTarget.dayId, { recipe_id: recipe.id, quantity: 1, unit: 'serving' }), activePlan, pickerTarget.dayId); }
-    finally { setAdding(null); }
+    if (!pickerTarget || !activePlan) return;
+    setAdding(`recipe-${recipe.id}`); setPickerError(null);
+    try {
+      appendItem(await addMealPlanItem(ncpId, activePlan.id, pickerTarget.dayId, { recipe_id: recipe.id, quantity: 1, unit: 'serving' }), activePlan, pickerTarget.dayId);
+    } catch (err) {
+      setPickerError(err instanceof Error ? err.message : 'Failed to add recipe. Please try again.');
+    } finally { setAdding(null); }
   };
   const addFromUsda = async (food: UsdaSearchResult) => {
-    if (!pickerTarget || !activePlan) return; setAdding(food.fdc_id);
-    try { appendItem(await addMealPlanItem(ncpId, activePlan.id, pickerTarget.dayId, { fdc_id: String(food.fdc_id), quantity: 100, unit: 'g' }), activePlan, pickerTarget.dayId); }
-    finally { setAdding(null); }
+    if (!pickerTarget || !activePlan) return;
+    setAdding(food.fdc_id); setPickerError(null);
+    try {
+      appendItem(await addMealPlanItem(ncpId, activePlan.id, pickerTarget.dayId, { fdc_id: String(food.fdc_id), quantity: 100, unit: 'g' }), activePlan, pickerTarget.dayId);
+    } catch (err) {
+      setPickerError(err instanceof Error ? err.message : 'Failed to add USDA food. Please try again.');
+    } finally { setAdding(null); }
   };
   const removeItem = async (key: string, dayId: number, itemId: number) => {
     if (!activePlan) return;
@@ -715,6 +728,12 @@ export default function MealPlanSection({
                 </button>
               ))}
             </div>
+            {pickerError && (
+              <div className="mx-4 mt-2 flex items-start gap-2 p-2.5 bg-red-50 border border-red-200 rounded-lg">
+                <AlertTriangle className="h-3.5 w-3.5 text-red-600 flex-shrink-0 mt-0.5" />
+                <p className="text-[10px] text-red-800">{pickerError}</p>
+              </div>
+            )}
             <div className="p-4 space-y-3 overflow-y-auto flex-1">
               {pickerTab === 'library' && (
                 <>
