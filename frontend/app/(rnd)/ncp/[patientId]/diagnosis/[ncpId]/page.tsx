@@ -555,7 +555,8 @@ export default function NcpDiagnosisPage({
         </div>
       ) : (
         <div className="bg-white border border-zinc-200 rounded-2xl overflow-hidden shadow-sm">
-          <table className="w-full text-xs">
+          <div className="overflow-x-auto">
+          <table className="w-full text-xs min-w-[480px]">
             <thead>
               <tr className="border-b border-zinc-100 bg-zinc-50/80">
                 <th className="text-left px-4 py-3 text-[10px] font-extrabold text-zinc-500 uppercase tracking-wider w-8">#</th>
@@ -619,6 +620,7 @@ export default function NcpDiagnosisPage({
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>

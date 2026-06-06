@@ -252,7 +252,7 @@ export default function NcpPatientsPage() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+            <table className="w-full text-left border-collapse min-w-[480px]">
               <thead>
                 <tr className="bg-zinc-50 border-b border-zinc-200 select-none">
                   <th className="px-5 py-4 text-[10px] font-extrabold text-zinc-500 uppercase tracking-wider">Name / ID</th>
