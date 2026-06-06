@@ -55,6 +55,7 @@ export default function MealPlanSection({
   // Delete plan
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
   const [deleting, setDeleting]               = useState(false);
+  const [deleteError, setDeleteError]         = useState<string | null>(null);
 
   // Auto-generate
   const [generating, setGenerating]       = useState(false);
@@ -114,17 +115,22 @@ export default function MealPlanSection({
   }, [loadPlans]);
 
   const loadItems = useCallback(async (plan: MealPlan) => {
-    const allItems = await fetchAllMealPlanItems(ncpId, plan.id);
-    const dayLookup = new Map((plan.days ?? []).map(d => [d.id, d]));
-    const map: Record<string, MealPlanItem[]> = {};
-    for (const item of allItems) {
-      const day = dayLookup.get(item.meal_plan_day_id);
-      if (!day) continue;
-      const key = slotKey(day.day_of_week, day.meal_type);
-      if (!map[key]) map[key] = [];
-      map[key].push(item);
+    try {
+      const allItems = await fetchAllMealPlanItems(ncpId, plan.id);
+      const dayLookup = new Map((plan.days ?? []).map(d => [d.id, d]));
+      const map: Record<string, MealPlanItem[]> = {};
+      for (const item of allItems) {
+        const day = dayLookup.get(item.meal_plan_day_id);
+        if (!day) continue;
+        const key = slotKey(day.day_of_week, day.meal_type);
+        if (!map[key]) map[key] = [];
+        map[key].push(item);
+      }
+      setItemsByKey(map);
+    } catch (err) {
+      console.error('loadItems failed:', err);
+      setGenerateError(err instanceof Error ? err.message : 'Failed to load meal items. Please refresh.');
     }
-    setItemsByKey(map);
   }, [ncpId]);
 
   useEffect(() => { if (activePlan) loadItems(activePlan); }, [activePlan, loadItems]);
@@ -200,11 +206,15 @@ export default function MealPlanSection({
   const handleDeletePlan = async () => {
     if (!confirmDeleteId) return;
     setDeleting(true);
+    setDeleteError(null);
     try {
       await deleteMealPlan(ncpId, confirmDeleteId);
       const remaining = plans.filter((p) => p.id !== confirmDeleteId);
       setPlans(remaining); setActivePlan(remaining.length > 0 ? remaining[0] : null); setItemsByKey({});
-    } finally { setDeleting(false); setConfirmDeleteId(null); }
+      setConfirmDeleteId(null);
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : 'Failed to delete plan. Please try again.');
+    } finally { setDeleting(false); }
   };
 
   // ── Edit modal ─────────────────────────────────────────────────────────────
@@ -421,6 +431,13 @@ export default function MealPlanSection({
             </div>
           ))}
           {loadingPlans && <Loader2 className="h-3.5 w-3.5 animate-spin text-zinc-400" />}
+        </div>
+      )}
+
+      {deleteError && (
+        <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-xl">
+          <AlertTriangle className="h-3.5 w-3.5 text-red-600 flex-shrink-0 mt-0.5" />
+          <p className="text-[10px] text-red-800">{deleteError}</p>
         </div>
       )}
 
