@@ -191,4 +191,53 @@ class MealPlanItemControllerTest extends TestCase
         $ctx = $this->setupPlan();
         $this->getJson($this->url($ctx))->assertUnauthorized();
     }
+
+    public function test_snapshot_includes_water_g_for_library_food(): void
+    {
+        $ctx  = $this->setupPlan();
+        $food = FoodItem::factory()->create([
+            'calories' => 165.0, 'protein' => 31.0, 'carbs' => 0.0, 'fat' => 3.6,
+            'water_g'  => 65.5,
+            'serving_size' => 100, 'serving_unit' => 'g',
+        ]);
+
+        $this->actingAs($ctx['rnd'])
+            ->postJson($this->url($ctx), ['food_item_id' => $food->id, 'quantity' => 100, 'unit' => 'g'])
+            ->assertCreated();
+
+        $this->assertEquals(65.5, MealPlanItem::first()->nutrient_snapshot['water_g']);
+    }
+
+    public function test_snapshot_sets_water_g_null_for_recipe(): void
+    {
+        $ctx    = $this->setupPlan();
+        $recipe = Recipe::factory()->create([
+            'total_calories' => 400.0, 'total_protein' => 20.0,
+            'total_carbs' => 40.0, 'total_fat' => 15.0, 'servings' => 2,
+        ]);
+
+        $this->actingAs($ctx['rnd'])
+            ->postJson($this->url($ctx), ['recipe_id' => $recipe->id, 'quantity' => 1, 'unit' => 'serving'])
+            ->assertCreated();
+
+        $snap = MealPlanItem::first()->nutrient_snapshot;
+        $this->assertArrayHasKey('water_g', $snap);
+        $this->assertNull($snap['water_g']);
+    }
+
+    public function test_backfill_command_patches_snapshot_water_g(): void
+    {
+        $food = FoodItem::factory()->create(['water_g' => 72.3, 'usda_fdc_id' => null]);
+        $item = MealPlanItem::factory()->create([
+            'food_item_id'       => $food->id,
+            'nutrient_snapshot'  => ['name' => 'Test', 'calories' => 100, 'protein' => 5,
+                                      'carbs' => 20, 'fat' => 2, 'micronutrients' => [],
+                                      'serving_size' => 100, 'serving_unit' => 'g'],
+        ]);
+
+        $this->artisan('food:backfill-water')->assertSuccessful();
+
+        $item->refresh();
+        $this->assertEquals(72.3, $item->nutrient_snapshot['water_g']);
+    }
 }

@@ -191,29 +191,35 @@ class FoodItemsSeeder extends Seeder
 
         // Manual entries for items the USDA search fails on (rate limit / query sensitivity).
         // Nutrition values are USDA-verified per 100g. serving_size = 100g for all.
+        // [name, kcal, protein, carbs, fat, water_g, category] — values per 100g, USDA-verified
         $manualItems = [
-            ['Onion (Raw)',                  40,  1.1,  9.3,  0.1,  'vegetable'],
-            ['Ginger Root (Raw)',            80,  1.8, 17.8,  0.8,  'spice'],
-            ['Tomato (Cooked)',              18,  0.9,  3.9,  0.2,  'vegetable'],
-            ['Coconut Milk (Canned)',       197,  2.3,  2.8, 21.3,  'dairy-alternative'],
-            ['Peanut Butter (Unsalted)',    588, 25.0, 20.1, 50.4,  'legume'],
-            ['Cocoa Powder (Unsweetened)',  228, 19.6, 57.9, 13.7,  'other'],
-            ['Pineapple (Raw)',              50,  0.5, 13.1,  0.1,  'fruit'],
-            ['Guava (Raw)',                  68,  2.6, 14.3,  1.0,  'fruit'],
-            ['Jackfruit (Raw)',              95,  1.7, 23.2,  0.6,  'fruit'],
-            ['Calamansi / Lime Juice',       25,  0.4,  8.4,  0.1,  'fruit'],
-            ['Glutinous Rice (Cooked)',      97,  2.1, 21.7,  0.2,  'grain'],
-            ['Corn Grits (Cooked)',          71,  1.7, 15.5,  0.2,  'grain'],
+            ['Onion (Raw)',                  40,  1.1,  9.3,  0.1,  89.1, 'vegetable'],
+            ['Ginger Root (Raw)',            80,  1.8, 17.8,  0.8,  78.9, 'spice'],
+            ['Tomato (Cooked)',              18,  0.9,  3.9,  0.2,  94.0, 'vegetable'],
+            ['Coconut Milk (Canned)',       197,  2.3,  2.8, 21.3,  67.6, 'dairy-alternative'],
+            ['Peanut Butter (Unsalted)',    588, 25.0, 20.1, 50.4,   1.8, 'legume'],
+            ['Cocoa Powder (Unsweetened)',  228, 19.6, 57.9, 13.7,   3.0, 'other'],
+            ['Pineapple (Raw)',              50,  0.5, 13.1,  0.1,  86.0, 'fruit'],
+            ['Guava (Raw)',                  68,  2.6, 14.3,  1.0,  80.8, 'fruit'],
+            ['Jackfruit (Raw)',              95,  1.7, 23.2,  0.6,  73.5, 'fruit'],
+            ['Calamansi / Lime Juice',       25,  0.4,  8.4,  0.1,  91.5, 'fruit'],
+            ['Glutinous Rice (Cooked)',      97,  2.1, 21.7,  0.2,  72.0, 'grain'],
+            ['Corn Grits (Cooked)',          71,  1.7, 15.5,  0.2,  82.5, 'grain'],
         ];
 
-        foreach ($manualItems as [$name, $cal, $prot, $carb, $fat, $cat]) {
-            if (\App\Models\FoodItem::where('name', $name)->exists()) continue;
+        foreach ($manualItems as [$name, $cal, $prot, $carb, $fat, $water, $cat]) {
+            if (\App\Models\FoodItem::where('name', $name)->exists()) {
+                // Backfill water_g on existing manual items that predate this field
+                \App\Models\FoodItem::where('name', $name)->whereNull('water_g')->update(['water_g' => $water]);
+                continue;
+            }
             \App\Models\FoodItem::create([
                 'name'         => $name,
                 'calories'     => $cal,
                 'protein'      => $prot,
                 'carbs'        => $carb,
                 'fat'          => $fat,
+                'water_g'      => $water,
                 'category'     => $cat,
                 'serving_size' => 100,
                 'serving_unit' => 'g',
