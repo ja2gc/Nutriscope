@@ -81,19 +81,6 @@ export const GOALS: GoalOption[] = [
     ],
   },
   {
-    value: "fluid_restriction",
-    label: "Fluid Restriction",
-    description: "CKD dialysis, heart failure, SIADH",
-    stages: [
-      { value: "ckd_predialysis", label: "CKD Pre-dialysis" },
-      { value: "ckd_hemodialysis", label: "CKD Hemodialysis" },
-      { value: "ckd_peritoneal", label: "CKD Peritoneal" },
-      { value: "heart_failure_mild", label: "Heart Failure — Mild (≤2000 mL)" },
-      { value: "heart_failure_severe", label: "Heart Failure — Severe (≤1500 mL)" },
-      { value: "siadh", label: "SIADH (500–1000 mL)" },
-    ],
-  },
-  {
     value: "liver_disease",
     label: "Liver Disease",
     description: "Cirrhosis stages, hepatic encephalopathy",

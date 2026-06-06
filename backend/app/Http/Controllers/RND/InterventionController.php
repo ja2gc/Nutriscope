@@ -77,7 +77,6 @@ class InterventionController extends Controller
             'cardiac_diet'      => ['Cardiac', 'Hypertension'],
             'weight_gain'       => ['Malnutrition'],
             'high_protein'      => ['Low albumin', 'Malnutrition'],
-            'fluid_restriction' => ['CKD', 'Renal disease'],
             'liver_disease'     => ['Liver disease'],
             'malnutrition'      => ['Malnutrition'],
             default             => [],
