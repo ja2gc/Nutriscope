@@ -10,6 +10,14 @@ use App\Models\Recipe;
 
 class MealPlanService
 {
+    /**
+     * Flat penalty added to macro-distance score for each micronutrient
+     * that exceeds its 'max' limit in the intervention's micronutrient_limits.
+     * Using 1.0 ensures any single limit violation pushes a recipe below
+     * a perfectly-matched macro recipe (macro-ratio distance is 0–√3 ≈ 1.73).
+     */
+    private const MICRO_PENALTY_PER_EXCESS = 1.0;
+
     // Approximate % of daily energy per meal slot
     private const SLOT_DISTRIBUTION = [
         'breakfast' => 0.25,
@@ -54,6 +62,9 @@ class MealPlanService
         $dailyProtein = (float) ($intervention->protein_g ?? 70);
         $dailyCarbs   = (float) ($intervention->carbs_g   ?? 250);
         $dailyFat     = (float) ($intervention->fat_g     ?? 60);
+
+        // Micronutrient limits (e.g. ['sodium_mg' => ['max' => 1500, 'unit' => 'mg']])
+        $microLimits = $intervention->micronutrient_limits ?? [];
 
         // Target macro ratios (fraction of total kcal): protein 4kcal/g, carbs 4kcal/g, fat 9kcal/g
         $targetProteinRatio = ($dailyProtein * 4)  / $dailyKcal;
@@ -114,6 +125,11 @@ class MealPlanService
                         pow($rCarbsRatio   - $targetCarbsRatio,   2) +
                         pow($rFatRatio     - $targetFatRatio,     2)
                     );
+                    // Add flat penalty for each micronutrient that exceeds its max limit
+                    if (!empty($microLimits)) {
+                        $recipeMicros = is_array($r->micronutrients) ? $r->micronutrients : [];
+                        $score += $this->calcMicroPenalty($recipeMicros, $microLimits);
+                    }
                     if ($score < $bestScore) { $bestScore = $score; $best = $r; }
                 }
                 // Fallback: allow repeats if pool exhausted
@@ -148,5 +164,31 @@ class MealPlanService
         MealPlanItem::insert($itemRows);
 
         return $mealPlan->load('days');
+    }
+
+    /**
+     * Calculate a scoring penalty based on micronutrient limit violations.
+     *
+     * @param  array<string, float>  $recipeMicros  Micronutrient values from the recipe
+     * @param  array<string, array{max?: int|float, min?: int|float, unit: string}>  $limits
+     * @return float  Additive penalty to append to the macro-distance score
+     */
+    private function calcMicroPenalty(array $recipeMicros, array $limits): float
+    {
+        $penalty = 0.0;
+        foreach ($limits as $nutrientKey => $limit) {
+            // Only penalise for 'max' violations; 'min' is a target, not an exclusion
+            if (!isset($limit['max'])) {
+                continue;
+            }
+            // If the recipe doesn't report this nutrient, we cannot penalise it
+            if (!array_key_exists($nutrientKey, $recipeMicros)) {
+                continue;
+            }
+            if ((float) $recipeMicros[$nutrientKey] > (float) $limit['max']) {
+                $penalty += self::MICRO_PENALTY_PER_EXCESS;
+            }
+        }
+        return $penalty;
     }
 }

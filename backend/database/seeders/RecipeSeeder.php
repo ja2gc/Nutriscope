@@ -515,28 +515,35 @@ class RecipeSeeder extends Seeder
 
             if (empty($ingredientRows)) continue;
 
-            $recipe = Recipe::create([
-                'rnd_user_id'    => $rnd->id,
-                'name'           => $recipeData['name'],
-                'category'       => $recipeData['category'],
-                'prep_notes'     => $recipeData['prep_notes'],
-                'servings'       => $recipeData['servings'] ?? 1,
-                'total_calories' => round($totalCalories, 2),
-                'total_protein'  => round($totalProtein, 2),
-                'total_carbs'    => round($totalCarbs, 2),
-                'total_fat'      => round($totalFat, 2),
-            ]);
+            // firstOrCreate by name — idempotent: re-running seeder never duplicates recipes
+            $recipe = Recipe::firstOrCreate(
+                ['name' => $recipeData['name']],
+                [
+                    'rnd_user_id'    => $rnd->id,
+                    'category'       => $recipeData['category'],
+                    'prep_notes'     => $recipeData['prep_notes'],
+                    'servings'       => $recipeData['servings'] ?? 1,
+                    'total_calories' => round($totalCalories, 2),
+                    'total_protein'  => round($totalProtein, 2),
+                    'total_carbs'    => round($totalCarbs, 2),
+                    'total_fat'      => round($totalFat, 2),
+                ]
+            );
 
-            foreach ($ingredientRows as $row) {
-                RecipeIngredient::create([
-                    'recipe_id'    => $recipe->id,
-                    'food_item_id' => $row['food']->id,
-                    'quantity'     => $row['qty'],
-                    'unit'         => $row['unit'],
-                ]);
+            // Only insert ingredients for newly created recipes
+            if ($recipe->wasRecentlyCreated) {
+                foreach ($ingredientRows as $row) {
+                    RecipeIngredient::create([
+                        'recipe_id'    => $recipe->id,
+                        'food_item_id' => $row['food']->id,
+                        'quantity'     => $row['qty'],
+                        'unit'         => $row['unit'],
+                    ]);
+                }
+                $this->command->info("  ✓ Recipe: {$recipeData['name']}");
+            } else {
+                $this->command->line("  – Already seeded: {$recipeData['name']}");
             }
-
-            $this->command->info("  ✓ Recipe: {$recipeData['name']}");
         }
     }
 }

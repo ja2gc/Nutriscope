@@ -21,6 +21,8 @@ class Assessment extends Model
         'functional_assessment', 'energy_intake_status', 'ibw_percentage', 'present_diet',
         'physical_assessment', 'chewing_swallowing_difficulties', 'constipation', 'diarrhea_notes',
         'food_intolerance', 'nutrient_drug_interaction', 'dietary_intake_method', 'dietary_record_file',
+        // Clinical measurement fields (activity level + body measurements)
+        'physical_activity_level', 'muac_mm', 'waist_cm', 'hip_cm',
     ];
 
     protected $casts = [
@@ -30,6 +32,9 @@ class Assessment extends Model
         'weight'       => 'decimal:2',
         'height'       => 'decimal:2',
         'bmi'          => 'decimal:2',
+        'muac_mm'      => 'float',
+        'waist_cm'     => 'float',
+        'hip_cm'       => 'float',
     ];
 
     public function ncpRecord(): BelongsTo
