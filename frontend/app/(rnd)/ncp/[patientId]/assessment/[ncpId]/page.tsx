@@ -648,6 +648,29 @@ export default function NcpAssessmentPage({
         : (computedWHR < 0.90 ? "Low Risk" : "High Risk"))
     : null;
 
+  // ─── Weight Loss % Auto-Calc ────────────────────────────────────────
+  const usualWeight = Number(assessment.usual_weight) || 0;
+  const computedWeightLossPct = usualWeight > 0 && weight > 0 && usualWeight > weight
+    ? Math.round(((usualWeight - weight) / usualWeight) * 1000) / 10  // 1 decimal place
+    : null;
+
+  // ─── MUAC Classification ────────────────────────────────────────────
+  const muacValue = Number(assessment.muac_mm) || 0;
+  const isAdultPatient = patientAgeYears >= 18;
+  const muacClassification = muacValue > 0
+    ? (() => {
+        if (isAdultPatient) {
+          if (muacValue >= 210) return { label: "Normal", color: "text-emerald-600" };
+          if (muacValue >= 190) return { label: "Moderate Malnutrition", color: "text-amber-600" };
+          return { label: "Severe Malnutrition", color: "text-red-600" };
+        }
+        // Pediatric 6–59 months
+        if (muacValue >= 125) return { label: "Normal", color: "text-emerald-600" };
+        if (muacValue >= 115) return { label: "MAM", color: "text-amber-600" };
+        return { label: "SAM", color: "text-red-600" };
+      })()
+    : null;
+
   // ─── Risk Score Calc ────────────────────────────────────────────────
   const riskScore = riskChecks.reduce((sum, checked, i) => checked ? sum + RISK_FACTORS[i].points : sum, 0);
   const riskInfo = riskBadge(riskScore);
@@ -781,6 +804,8 @@ export default function NcpAssessmentPage({
       const toSave: Partial<Assessment> = {
         ...assessment,
         bmi: computedBmi,
+        // Auto-computed fields — override whatever manual value may have been stored
+        weight_loss_percentage: computedWeightLossPct ?? assessment.weight_loss_percentage,
         nutritional_status: riskScore > 3 ? "Severe Malnutrition" : riskScore >= 2 ? "Moderate Malnutrition" : "Normal",
       };
       // Remove read-only fields
@@ -974,7 +999,53 @@ export default function NcpAssessmentPage({
 
   const renderAnthropometricTab = () => (
     <div className="space-y-6">
-      {/* ── Measurements ─────────────────────────────────────────────── */}
+
+      {/* ── Always-visible calculated summary strip ───────────────────── */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {/* BMI */}
+        <div className={`rounded-xl p-3 border ${computedBmi !== null ? "bg-white border-zinc-200" : "bg-zinc-50 border-zinc-100"}`}>
+          <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">BMI</p>
+          <p className={`text-xl font-black font-mono mt-0.5 ${computedBmi !== null ? "text-zinc-900" : "text-zinc-300"}`}>
+            {computedBmi !== null ? computedBmi.toFixed(1) : "—"}
+          </p>
+          <p className="text-[9px] text-zinc-400 mt-0.5">
+            {computedBmi !== null ? "kg/m² · enter wt + ht" : "Enter weight & height"}
+          </p>
+        </div>
+        {/* BMR */}
+        <div className={`rounded-xl p-3 border ${computedBMR !== null ? "bg-white border-zinc-200" : "bg-zinc-50 border-zinc-100"}`}>
+          <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">BMR</p>
+          <p className={`text-xl font-black font-mono mt-0.5 ${computedBMR !== null ? "text-zinc-900" : "text-zinc-300"}`}>
+            {computedBMR !== null ? Math.round(computedBMR) : "—"}
+          </p>
+          <p className="text-[9px] text-zinc-400 mt-0.5">
+            {computedBMR !== null ? "kcal/day (Mifflin-St Jeor)" : "Enter wt, ht, age, sex"}
+          </p>
+        </div>
+        {/* Weight Loss % */}
+        <div className={`rounded-xl p-3 border ${computedWeightLossPct !== null ? "bg-white border-zinc-200" : "bg-zinc-50 border-zinc-100"}`}>
+          <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">Weight Loss</p>
+          <p className={`text-xl font-black font-mono mt-0.5 ${computedWeightLossPct !== null ? "text-amber-700" : "text-zinc-300"}`}>
+            {computedWeightLossPct !== null ? `${computedWeightLossPct}%` : "—"}
+          </p>
+          <p className="text-[9px] text-zinc-400 mt-0.5">
+            {computedWeightLossPct !== null ? "from usual weight" : "Enter wt & usual wt"}
+          </p>
+        </div>
+        {/* MUAC classification */}
+        <div className={`rounded-xl p-3 border ${muacClassification !== null ? "bg-white border-zinc-200" : "bg-zinc-50 border-zinc-100"}`}>
+          <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">MUAC</p>
+          <p className={`text-xl font-black font-mono mt-0.5 ${muacClassification !== null ? "text-zinc-900" : "text-zinc-300"}`}>
+            {muacValue > 0 ? `${muacValue} mm` : "—"}
+          </p>
+          {muacClassification !== null
+            ? <p className={`text-[9px] font-bold mt-0.5 ${muacClassification.color}`}>{muacClassification.label}</p>
+            : <p className="text-[9px] text-zinc-400 mt-0.5">Enter MUAC measurement</p>
+          }
+        </div>
+      </div>
+
+      {/* ── Measurement inputs ───────────────────────────────────────── */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Field label="Weight (kg)">
           <TextInput type="number" value={String(assessment.weight ?? "")} onChange={v => updateField("weight", v ? Number(v) : null)} placeholder="e.g. 70.5" />
@@ -994,9 +1065,6 @@ export default function NcpAssessmentPage({
         <Field label="Hip Circumference (cm)">
           <TextInput type="number" value={String(assessment.hip_cm ?? "")} onChange={v => updateField("hip_cm", v ? Number(v) : null)} placeholder="e.g. 100" />
         </Field>
-        <Field label="Weight Loss %">
-          <TextInput type="number" value={String(assessment.weight_loss_percentage ?? "")} onChange={v => updateField("weight_loss_percentage", v ? Number(v) : null)} placeholder="e.g. 5.0" />
-        </Field>
         <Field label="Weight Loss Period">
           <TextInput value={s("weight_loss_period")} onChange={v => updateField("weight_loss_period", v)} placeholder="e.g. 3 months" />
         </Field>
@@ -1010,21 +1078,13 @@ export default function NcpAssessmentPage({
         </Field>
       </div>
 
-      {/* ── Auto-Calculated Panel ────────────────────────────────────── */}
+      {/* ── Full Auto-Calculated Panel (shown once weight+height entered) */}
       {weight > 0 && height > 0 && (
         <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-4">
           <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
-            <Activity className="h-3 w-3" /> Calculated Values
+            <Activity className="h-3 w-3" /> Detailed Calculations
           </p>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {/* BMI */}
-            <div className="bg-white border border-zinc-200 rounded-lg p-3">
-              <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">BMI</p>
-              <p className="text-lg font-black text-zinc-900 font-mono mt-0.5">
-                {computedBmi !== null ? computedBmi.toFixed(1) : "—"}
-              </p>
-              <p className="text-[9px] text-zinc-500">kg/m²</p>
-            </div>
             {/* IBW */}
             <div className="bg-white border border-zinc-200 rounded-lg p-3">
               <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">IBW</p>
@@ -1041,37 +1101,29 @@ export default function NcpAssessmentPage({
               </p>
               <p className="text-[9px] text-zinc-500">%</p>
             </div>
-            {/* AjBW — only if >120% IBW */}
+            {/* AjBW */}
             {computedAjBW !== null ? (
               <div className="bg-white border border-amber-200 rounded-lg p-3">
                 <p className="text-[9px] font-bold text-amber-500 uppercase tracking-wider">AjBW</p>
                 <p className="text-lg font-black text-zinc-900 font-mono mt-0.5">
                   {computedAjBW.toFixed(1)}
                 </p>
-                <p className="text-[9px] text-zinc-500">kg (used for BMR)</p>
+                <p className="text-[9px] text-zinc-500">kg · used for BMR</p>
               </div>
             ) : (
               <div className="bg-white border border-zinc-200 rounded-lg p-3">
                 <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">AjBW</p>
                 <p className="text-lg font-black text-zinc-400 font-mono mt-0.5">N/A</p>
-                <p className="text-[9px] text-zinc-400">not needed</p>
+                <p className="text-[9px] text-zinc-400">{'<'}120% IBW</p>
               </div>
             )}
-            {/* BMR */}
-            <div className="bg-white border border-zinc-200 rounded-lg p-3">
-              <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">BMR</p>
-              <p className="text-lg font-black text-zinc-900 font-mono mt-0.5">
-                {computedBMR !== null ? Math.round(computedBMR) : "—"}
-              </p>
-              <p className="text-[9px] text-zinc-500">kcal/day</p>
-            </div>
-            {/* TEE */}
+            {/* Est. TEE */}
             <div className="bg-white border border-emerald-200 rounded-lg p-3">
               <p className="text-[9px] font-bold text-emerald-600 uppercase tracking-wider">Est. TEE</p>
               <p className="text-lg font-black text-zinc-900 font-mono mt-0.5">
                 {computedTEE !== null ? computedTEE : "—"}
               </p>
-              <p className="text-[9px] text-zinc-500">kcal/day (PAL ×{palFactor})</p>
+              <p className="text-[9px] text-zinc-500">kcal/day · PAL ×{palFactor}</p>
             </div>
             {/* WHR */}
             {computedWHR !== null && (
