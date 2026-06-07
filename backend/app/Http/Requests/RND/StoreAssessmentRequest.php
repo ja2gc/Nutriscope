@@ -45,6 +45,11 @@ class StoreAssessmentRequest extends FormRequest
             'nutrient_drug_interaction' => ['nullable', 'string'],
             'dietary_intake_method'=> ['nullable', 'string', 'in:24_hour_recall,food_frequency,3_day_record,other'],
             'dietary_record_file'  => ['nullable', 'string'],
+            // Clinical measurement fields
+            'physical_activity_level' => ['nullable', 'string', 'in:sedentary,light,moderate,very_active,extra_active'],
+            'muac_mm'                 => ['nullable', 'numeric', 'min:0'],
+            'waist_cm'                => ['nullable', 'numeric', 'min:0'],
+            'hip_cm'                  => ['nullable', 'numeric', 'min:0'],
         ];
     }
 }

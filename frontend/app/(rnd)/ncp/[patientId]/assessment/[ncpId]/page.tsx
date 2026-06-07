@@ -9,6 +9,10 @@ import {
 } from "lucide-react";
 import { fetchPatientById, Patient } from "@/services/patientService";
 import {
+  calcIBW, calcAjBW, calcPercentIBW, calcBMR, calcTEE, calcBmrWeight,
+  classifyNutritionalStatus, ACTIVITY_FACTORS,
+} from "@/lib/nutritionCalculations";
+import {
   Assessment, fetchAssessment, saveAssessment,
   fetchScreeningDocument,
   fetchOcrDocuments,
@@ -458,6 +462,7 @@ function defaultAssessment(): Assessment {
     chewing_swallowing_difficulties: null, constipation: null, diarrhea_notes: null,
     food_intolerance: null, nutrient_drug_interaction: null,
     dietary_intake_method: null, dietary_record_file: null,
+    physical_activity_level: null, muac_mm: null, waist_cm: null, hip_cm: null,
   };
 }
 
@@ -604,6 +609,44 @@ export default function NcpAssessmentPage({
   const weight = Number(assessment.weight) || 0;
   const height = Number(assessment.height) || 0;
   const computedBmi = calcBmi(weight || null, height || null);
+
+  // ─── Auto-Calc Panel Derived Values ────────────────────────────────
+  const patientSex = (patient?.sex as "Male" | "Female") ?? "Male";
+  const patientDobStr = patient?.dob ?? null;
+  const patientAgeYears = patientDobStr
+    ? (() => {
+        const b = new Date(patientDobStr);
+        const now = new Date();
+        let age = now.getFullYear() - b.getFullYear();
+        const m = now.getMonth() - b.getMonth();
+        if (m < 0 || (m === 0 && now.getDate() < b.getDate())) age -= 1;
+        return age;
+      })()
+    : 30;
+
+  const computedIBW = weight > 0 && height > 0 ? calcIBW(height, patientSex) : null;
+  const computedPercentIBW = computedIBW !== null && weight > 0 ? calcPercentIBW(weight, computedIBW) : null;
+  const computedAjBW = computedIBW !== null && computedPercentIBW !== null && computedPercentIBW > 120
+    ? calcAjBW(weight, computedIBW)
+    : null;
+  const palKey = assessment.physical_activity_level ?? "sedentary";
+  const palFactor = ACTIVITY_FACTORS[palKey]?.factor ?? 1.2;
+  const computedBmrWt = computedIBW !== null && weight > 0 ? calcBmrWeight(weight, computedIBW) : null;
+  const computedBMR = computedBmrWt !== null
+    ? calcBMR(computedBmrWt, height, patientAgeYears, patientSex)
+    : null;
+  const computedTEE = computedBMR !== null ? Math.round(calcTEE(computedBMR, palFactor)) : null;
+  const computedNutritionalStatus = computedBmi !== null && computedPercentIBW !== null
+    ? classifyNutritionalStatus(computedBmi, computedPercentIBW)
+    : null;
+  const computedWHR = assessment.waist_cm && assessment.hip_cm
+    ? Math.round((Number(assessment.waist_cm) / Number(assessment.hip_cm)) * 100) / 100
+    : null;
+  const whrRisk = computedWHR !== null
+    ? (patientSex === "Female"
+        ? (computedWHR < 0.85 ? "Low Risk" : "High Risk")
+        : (computedWHR < 0.90 ? "Low Risk" : "High Risk"))
+    : null;
 
   // ─── Risk Score Calc ────────────────────────────────────────────────
   const riskScore = riskChecks.reduce((sum, checked, i) => checked ? sum + RISK_FACTORS[i].points : sum, 0);
@@ -902,9 +945,6 @@ export default function NcpAssessmentPage({
       <Field label="Dietary Restrictions">
         <TextArea value={s("dietary_restrictions")} onChange={v => updateField("dietary_restrictions", v)} placeholder="Restrictions and intolerances..." rows={2} />
       </Field>
-      <Field label="Food Intolerance">
-        <TextArea value={s("food_intolerance")} onChange={v => updateField("food_intolerance", v)} placeholder="Separate from allergies..." rows={2} />
-      </Field>
       <Field label="Supplements">
         <TextInput value={s("supplements")} onChange={v => updateField("supplements", v)} placeholder="Current supplements..." />
       </Field>
@@ -914,57 +954,161 @@ export default function NcpAssessmentPage({
       <Field label="Nutrient-Drug Interaction" span={2}>
         <TextArea value={s("nutrient_drug_interaction")} onChange={v => updateField("nutrient_drug_interaction", v)} placeholder="Known nutrient-drug interactions..." rows={2} />
       </Field>
+      {/* GI / Tolerance — moved from Anthropometrics tab */}
+      <div className="col-span-1 md:col-span-2 mt-2">
+        <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-3">GI / Tolerance</p>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Field label="Chewing / Swallowing Difficulties">
+            <TextArea value={s("chewing_swallowing_difficulties")} onChange={v => updateField("chewing_swallowing_difficulties", v)} placeholder="Any chewing or swallowing difficulties..." rows={2} />
+          </Field>
+          <Field label="Constipation">
+            <TextArea value={s("constipation")} onChange={v => updateField("constipation", v)} placeholder="Constipation notes..." rows={2} />
+          </Field>
+          <Field label="Diarrhea Notes">
+            <TextArea value={s("diarrhea_notes")} onChange={v => updateField("diarrhea_notes", v)} placeholder="Diarrhea notes..." rows={2} />
+          </Field>
+        </div>
+      </div>
     </div>
   );
 
   const renderAnthropometricTab = () => (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-      <Field label="Weight (kg)">
-        <TextInput type="number" value={String(assessment.weight ?? "")} onChange={v => updateField("weight", v ? Number(v) : null)} placeholder="e.g. 70.5" />
-      </Field>
-      <Field label="Usual Weight (kg)">
-        <TextInput type="number" value={String(assessment.usual_weight ?? "")} onChange={v => updateField("usual_weight", v ? Number(v) : null)} placeholder="e.g. 72.0" />
-      </Field>
-      <Field label="Height (cm)">
-        <TextInput type="number" value={String(assessment.height ?? "")} onChange={v => updateField("height", v ? Number(v) : null)} placeholder="e.g. 170" />
-      </Field>
-      <Field label="BMI (Auto-Calculated)">
-        <div className="px-3 py-2 text-xs bg-zinc-50 border border-zinc-200 rounded-lg text-zinc-800 font-mono font-bold">
-          {computedBmi !== null ? computedBmi.toFixed(2) : "—"}
+    <div className="space-y-6">
+      {/* ── Measurements ─────────────────────────────────────────────── */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Field label="Weight (kg)">
+          <TextInput type="number" value={String(assessment.weight ?? "")} onChange={v => updateField("weight", v ? Number(v) : null)} placeholder="e.g. 70.5" />
+        </Field>
+        <Field label="Usual Weight (kg)">
+          <TextInput type="number" value={String(assessment.usual_weight ?? "")} onChange={v => updateField("usual_weight", v ? Number(v) : null)} placeholder="e.g. 72.0" />
+        </Field>
+        <Field label="Height (cm)">
+          <TextInput type="number" value={String(assessment.height ?? "")} onChange={v => updateField("height", v ? Number(v) : null)} placeholder="e.g. 170" />
+        </Field>
+        <Field label="MUAC (mm)">
+          <TextInput type="number" value={String(assessment.muac_mm ?? "")} onChange={v => updateField("muac_mm", v ? Number(v) : null)} placeholder="e.g. 250" />
+        </Field>
+        <Field label="Waist Circumference (cm)">
+          <TextInput type="number" value={String(assessment.waist_cm ?? "")} onChange={v => updateField("waist_cm", v ? Number(v) : null)} placeholder="e.g. 90" />
+        </Field>
+        <Field label="Hip Circumference (cm)">
+          <TextInput type="number" value={String(assessment.hip_cm ?? "")} onChange={v => updateField("hip_cm", v ? Number(v) : null)} placeholder="e.g. 100" />
+        </Field>
+        <Field label="Weight Loss %">
+          <TextInput type="number" value={String(assessment.weight_loss_percentage ?? "")} onChange={v => updateField("weight_loss_percentage", v ? Number(v) : null)} placeholder="e.g. 5.0" />
+        </Field>
+        <Field label="Weight Loss Period">
+          <TextInput value={s("weight_loss_period")} onChange={v => updateField("weight_loss_period", v)} placeholder="e.g. 3 months" />
+        </Field>
+        <Field label="Functional Assessment">
+          <SelectInput
+            value={s("functional_assessment")}
+            onChange={v => updateField("functional_assessment", v || null)}
+            options={FUNCTIONAL_OPTIONS.map(o => ({ value: o, label: o }))}
+            placeholder="Select functional status..."
+          />
+        </Field>
+      </div>
+
+      {/* ── Auto-Calculated Panel ────────────────────────────────────── */}
+      {weight > 0 && height > 0 && (
+        <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-4">
+          <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+            <Activity className="h-3 w-3" /> Calculated Values
+          </p>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {/* BMI */}
+            <div className="bg-white border border-zinc-200 rounded-lg p-3">
+              <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">BMI</p>
+              <p className="text-lg font-black text-zinc-900 font-mono mt-0.5">
+                {computedBmi !== null ? computedBmi.toFixed(1) : "—"}
+              </p>
+              <p className="text-[9px] text-zinc-500">kg/m²</p>
+            </div>
+            {/* IBW */}
+            <div className="bg-white border border-zinc-200 rounded-lg p-3">
+              <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">IBW</p>
+              <p className="text-lg font-black text-zinc-900 font-mono mt-0.5">
+                {computedIBW !== null ? computedIBW.toFixed(1) : "—"}
+              </p>
+              <p className="text-[9px] text-zinc-500">kg (Hamwi)</p>
+            </div>
+            {/* %IBW */}
+            <div className="bg-white border border-zinc-200 rounded-lg p-3">
+              <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">% IBW</p>
+              <p className="text-lg font-black text-zinc-900 font-mono mt-0.5">
+                {computedPercentIBW !== null ? computedPercentIBW.toFixed(0) : "—"}
+              </p>
+              <p className="text-[9px] text-zinc-500">%</p>
+            </div>
+            {/* AjBW — only if >120% IBW */}
+            {computedAjBW !== null ? (
+              <div className="bg-white border border-amber-200 rounded-lg p-3">
+                <p className="text-[9px] font-bold text-amber-500 uppercase tracking-wider">AjBW</p>
+                <p className="text-lg font-black text-zinc-900 font-mono mt-0.5">
+                  {computedAjBW.toFixed(1)}
+                </p>
+                <p className="text-[9px] text-zinc-500">kg (used for BMR)</p>
+              </div>
+            ) : (
+              <div className="bg-white border border-zinc-200 rounded-lg p-3">
+                <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">AjBW</p>
+                <p className="text-lg font-black text-zinc-400 font-mono mt-0.5">N/A</p>
+                <p className="text-[9px] text-zinc-400">not needed</p>
+              </div>
+            )}
+            {/* BMR */}
+            <div className="bg-white border border-zinc-200 rounded-lg p-3">
+              <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">BMR</p>
+              <p className="text-lg font-black text-zinc-900 font-mono mt-0.5">
+                {computedBMR !== null ? Math.round(computedBMR) : "—"}
+              </p>
+              <p className="text-[9px] text-zinc-500">kcal/day</p>
+            </div>
+            {/* TEE */}
+            <div className="bg-white border border-emerald-200 rounded-lg p-3">
+              <p className="text-[9px] font-bold text-emerald-600 uppercase tracking-wider">Est. TEE</p>
+              <p className="text-lg font-black text-zinc-900 font-mono mt-0.5">
+                {computedTEE !== null ? computedTEE : "—"}
+              </p>
+              <p className="text-[9px] text-zinc-500">kcal/day (PAL ×{palFactor})</p>
+            </div>
+            {/* WHR */}
+            {computedWHR !== null && (
+              <div className={`bg-white border rounded-lg p-3 ${whrRisk === "High Risk" ? "border-red-200" : "border-zinc-200"}`}>
+                <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">WHR</p>
+                <p className="text-lg font-black text-zinc-900 font-mono mt-0.5">
+                  {computedWHR.toFixed(2)}
+                </p>
+                <p className={`text-[9px] font-bold ${whrRisk === "High Risk" ? "text-red-500" : "text-emerald-600"}`}>
+                  {whrRisk}
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Nutritional Status Badge */}
+          {computedNutritionalStatus !== null && (
+            <div className={`mt-3 p-3 rounded-lg border ${computedNutritionalStatus.colorClass}`}>
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div>
+                  <p className="text-[9px] font-bold uppercase tracking-wider opacity-70">Nutritional Status</p>
+                  <p className="text-sm font-black mt-0.5">{computedNutritionalStatus.label}</p>
+                </div>
+                {computedNutritionalStatus.suggestedGoal && (
+                  <div className="text-right">
+                    <p className="text-[9px] font-bold uppercase tracking-wider opacity-70">Suggested Goal</p>
+                    <p className="text-[10px] font-bold mt-0.5 capitalize">
+                      {computedNutritionalStatus.suggestedGoal.replace(/_/g, " ")}
+                      {computedNutritionalStatus.suggestedStage ? ` → ${computedNutritionalStatus.suggestedStage.replace(/_/g, " ")}` : ""}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
-      </Field>
-      <Field label="% Ideal Body Weight">
-        <TextInput type="number" value={String(assessment.ibw_percentage ?? "")} onChange={v => updateField("ibw_percentage", v ? Number(v) : null)} placeholder="e.g. 95" />
-      </Field>
-      <Field label="Body Composition">
-        <TextInput value={s("body_composition")} onChange={v => updateField("body_composition", v)} placeholder="Body composition notes..." />
-      </Field>
-      <Field label="Weight Loss %">
-        <TextInput type="number" value={String(assessment.weight_loss_percentage ?? "")} onChange={v => updateField("weight_loss_percentage", v ? Number(v) : null)} placeholder="e.g. 5.0" />
-      </Field>
-      <Field label="Weight Loss Period">
-        <TextInput value={s("weight_loss_period")} onChange={v => updateField("weight_loss_period", v)} placeholder="e.g. 3 months" />
-      </Field>
-      <Field label="Functional Assessment">
-        <SelectInput
-          value={s("functional_assessment")}
-          onChange={v => updateField("functional_assessment", v || null)}
-          options={FUNCTIONAL_OPTIONS.map(o => ({ value: o, label: o }))}
-          placeholder="Select functional status..."
-        />
-      </Field>
-      <Field label="Physical Assessment" span={3}>
-        <TextArea value={s("physical_assessment")} onChange={v => updateField("physical_assessment", v)} placeholder="Physical assessment findings..." />
-      </Field>
-      <Field label="Chewing / Swallowing Difficulties">
-        <TextArea value={s("chewing_swallowing_difficulties")} onChange={v => updateField("chewing_swallowing_difficulties", v)} placeholder="Any chewing or swallowing difficulties..." rows={2} />
-      </Field>
-      <Field label="Constipation">
-        <TextArea value={s("constipation")} onChange={v => updateField("constipation", v)} placeholder="Constipation notes..." rows={2} />
-      </Field>
-      <Field label="Diarrhea Notes">
-        <TextArea value={s("diarrhea_notes")} onChange={v => updateField("diarrhea_notes", v)} placeholder="Diarrhea notes..." rows={2} />
-      </Field>
+      )}
     </div>
   );
 
@@ -976,8 +1120,16 @@ export default function NcpAssessmentPage({
       <Field label="Social History">
         <TextArea value={s("social_history")} onChange={v => updateField("social_history", v)} placeholder="Social history..." rows={3} />
       </Field>
-      <Field label="Lifestyle">
-        <TextArea value={s("lifestyle")} onChange={v => updateField("lifestyle", v)} placeholder="Lifestyle factors..." rows={3} />
+      <Field label="Physical Activity Level (PAL)">
+        <SelectInput
+          value={s("physical_activity_level")}
+          onChange={v => updateField("physical_activity_level", v || null)}
+          options={Object.entries(ACTIVITY_FACTORS).map(([key, { label, factor }]) => ({
+            value: key,
+            label: `${label} (×${factor})`,
+          }))}
+          placeholder="Select activity level..."
+        />
       </Field>
       <Field label="Allergies (Hard Filter for meal plans)">
         <div className="flex flex-wrap gap-1.5 py-1">

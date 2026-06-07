@@ -10,10 +10,12 @@ export interface FoodItem {
   protein: string | null;
   carbs: string | null;
   fat: string | null;
+  water_g: number | null;
   micronutrients: Record<string, number> | null;
   allergens: string[];
   serving_unit: string | null;
   serving_size: string | null;
+  food_category?: string | null;
   created_at: string;
   updated_at: string;
 }

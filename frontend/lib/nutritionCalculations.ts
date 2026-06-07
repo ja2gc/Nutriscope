@@ -21,7 +21,7 @@ export function calcPercentIBW(actualKg: number, ibwKg: number): number {
 }
 
 /**
- * Working weight selection:
+ * Working weight selection for protein/energy kcal/kg prescriptions:
  * - >120% IBW → AjBW
  * - 90–120% IBW → IBW
  * - <90% IBW → actual
@@ -33,16 +33,40 @@ export function calcWorkingWeight(actualKg: number, ibwKg: number): number {
   return actualKg;
 }
 
+/**
+ * BMR weight selection (differs from calcWorkingWeight):
+ * Per docs/logic/intervention-goals.md:
+ * - >120% IBW → AjBW (same as working weight)
+ * - ≤120% IBW → actual weight (NOT IBW — Mifflin uses real body weight for BMR)
+ */
+export function calcBmrWeight(actualKg: number, ibwKg: number): number {
+  const pct = calcPercentIBW(actualKg, ibwKg);
+  if (pct > 120) return calcAjBW(actualKg, ibwKg);
+  return actualKg;
+}
+
 /** Mifflin-St Jeor BMR. Returns kcal/day. */
 export function calcBMR(weightKg: number, heightCm: number, ageYears: number, sex: Sex): number {
   const base = 10 * weightKg + 6.25 * heightCm - 5 * ageYears;
   return sex === 'Male' ? base + 5 : base - 161;
 }
 
-/** TEE for hospitalized patients (sedentary = 1.2 default). */
+/** TEE = BMR × activity factor (default 1.2 = sedentary/bed-bound). */
 export function calcTEE(bmr: number, activityFactor = 1.2): number {
   return bmr * activityFactor;
 }
+
+/**
+ * Physical Activity Level → TEE multiplier.
+ * Used in assessment PAL dropdown and intervention prescription autofill.
+ */
+export const ACTIVITY_FACTORS: Record<string, { label: string; factor: number }> = {
+  sedentary:    { label: 'Sedentary / Bed-bound (ICU)',          factor: 1.2   },
+  light:        { label: 'Lightly Active (Ambulatory inpatient)', factor: 1.375 },
+  moderate:     { label: 'Moderately Active (Outpatient)',        factor: 1.55  },
+  very_active:  { label: 'Very Active (Regular exercise)',        factor: 1.725 },
+  extra_active: { label: 'Extra Active (Heavy labor)',            factor: 1.9   },
+};
 
 // ── Pediatric ──────────────────────────────────────────────────────────────
 
@@ -75,6 +99,17 @@ export function pediatricProteinPerKg(ageYears: number): number {
   return 0.85;
 }
 
+/**
+ * Age-banded pediatric growth energy allowance (kcal/day added to TEE).
+ * Sourced from DRI age-band midpoints.
+ */
+function growthAllowance(ageYears: number): number {
+  if (ageYears < 0.5) return 70;
+  if (ageYears < 1)   return 45;
+  if (ageYears < 4)   return 20;
+  return 15; // 4–18 yrs (midpoint of 10–25 kcal/day range)
+}
+
 // ── Macro distribution helpers ─────────────────────────────────────────────
 
 function macrosFromEnergyProtein(
@@ -104,6 +139,10 @@ export interface PatientMetrics {
   ageYears: number;
   sex: Sex;
   isAdult: boolean;
+  /** Activity factor from assessment PAL dropdown. Default 1.2 (sedentary). */
+  activityFactor?: number;
+  /** Stress/injury factor for high_protein goal. Default 1.0. */
+  stressFactor?: number;
 }
 
 /**
@@ -117,13 +156,16 @@ export function autofillPrescription(
   metrics: PatientMetrics,
 ): Prescription {
   const { weightKg, heightCm, ageYears, sex, isAdult } = metrics;
+  const palFactor = metrics.activityFactor ?? 1.2;
 
   if (!isAdult) return autofillPediatric(goalType, stage, metrics);
 
-  const ibw     = calcIBW(heightCm, sex);
-  const working = calcWorkingWeight(weightKg, ibw);
-  const bmr     = calcBMR(working, heightCm, ageYears, sex);
-  const tee     = calcTEE(bmr);
+  const ibw      = calcIBW(heightCm, sex);
+  const working  = calcWorkingWeight(weightKg, ibw);
+  // BMR uses actual weight (or AjBW if obese) — not IBW per docs
+  const bmrWt    = calcBmrWeight(weightKg, ibw);
+  const bmr      = calcBMR(bmrWt, heightCm, ageYears, sex);
+  const tee      = calcTEE(bmr, palFactor);
   const std_fluid = Math.round(working * 32.5);
 
   switch (goalType) {
@@ -185,7 +227,9 @@ export function autofillPrescription(
     }
 
     case 'high_protein': {
-      const energy    = Math.round(working * 27.5);
+      // Burns energy: 30–35 kcal/kg (use midpoint 32.5); other stress: 25–30 (use midpoint 27.5)
+      const kcalPerKg = stage === 'burns' ? 32.5 : 27.5;
+      const energy    = Math.round(working * kcalPerKg);
       const protPerKg: Record<string, number> = {
         mild_stress: 1.1, moderate_stress: 1.35, severe_stress: 1.75, burns: 1.75,
       };
@@ -224,11 +268,12 @@ export function autofillPrescription(
 function autofillPediatric(
   goalType: string,
   stage: string | null,
-  { weightKg, ageYears, sex }: PatientMetrics,
+  { weightKg, ageYears, sex, activityFactor }: PatientMetrics,
 ): Prescription {
   void goalType; void stage;
+  const palFactor = activityFactor ?? 1.2;
   const bmr      = calcSchofield(weightKg, ageYears, sex);
-  const tee      = calcTEE(bmr) + 20;
+  const tee      = calcTEE(bmr, palFactor) + growthAllowance(ageYears);
   const fluid_ml = calcHollidaySegar(weightKg);
   const dri_prot = pediatricProteinPerKg(ageYears);
 
@@ -238,6 +283,101 @@ function autofillPediatric(
   const carbs_g   = Math.max(Math.round((energy - protein_g * 4 - fat_g * 9) / 4), 0);
 
   return { energy_kcal: energy, protein_g, carbs_g, fat_g, fluid_ml };
+}
+
+// ── Nutritional Status Classification ─────────────────────────────────────────
+
+export interface NutritionalStatusResult {
+  label: string;
+  severity: string;
+  colorClass: string;         // Tailwind color class for badge
+  suggestedGoal?: string;     // Advisory only — RND sets goal manually
+  suggestedStage?: string;
+}
+
+/**
+ * Classifies nutritional status from BMI and %IBW.
+ * Uses the more severe classification of the two (clinical convention).
+ * Covers full spectrum: Severe Malnutrition → Obese Class III.
+ *
+ * Per docs/logic/intervention-goals.md thresholds.
+ */
+export function classifyNutritionalStatus(
+  bmi: number,
+  percentIBW: number,
+): NutritionalStatusResult {
+  // Malnutrition — %IBW is primary driver; BMI confirms
+  if (percentIBW < 70 || bmi < 16.0) {
+    return {
+      label: 'Severe Malnutrition',
+      severity: 'severe_malnutrition',
+      colorClass: 'bg-red-100 text-red-800 border-red-200',
+      suggestedGoal: 'malnutrition',
+      suggestedStage: 'severe',
+    };
+  }
+  if (percentIBW < 85 || bmi < 17.0) {
+    return {
+      label: 'Moderate Malnutrition',
+      severity: 'moderate_malnutrition',
+      colorClass: 'bg-red-50 text-red-700 border-red-100',
+      suggestedGoal: 'malnutrition',
+      suggestedStage: 'moderate',
+    };
+  }
+  if (percentIBW < 90 || bmi < 18.5) {
+    return {
+      label: 'Mild Malnutrition / Underweight',
+      severity: 'mild_malnutrition',
+      colorClass: 'bg-amber-50 text-amber-700 border-amber-100',
+      suggestedGoal: 'weight_gain',
+      suggestedStage: 'mild',
+    };
+  }
+  // Normal range
+  if (bmi < 25.0 && percentIBW <= 120) {
+    return {
+      label: 'Normal',
+      severity: 'normal',
+      colorClass: 'bg-green-50 text-green-700 border-green-100',
+    };
+  }
+  // Overweight
+  if (bmi < 30.0) {
+    return {
+      label: 'Overweight',
+      severity: 'overweight',
+      colorClass: 'bg-amber-50 text-amber-700 border-amber-100',
+      suggestedGoal: 'weight_loss',
+      suggestedStage: 'overweight',
+    };
+  }
+  // Obesity classes
+  if (bmi < 35.0) {
+    return {
+      label: 'Obese Class I',
+      severity: 'obese_1',
+      colorClass: 'bg-orange-50 text-orange-700 border-orange-100',
+      suggestedGoal: 'weight_loss',
+      suggestedStage: 'class_1',
+    };
+  }
+  if (bmi < 40.0) {
+    return {
+      label: 'Obese Class II',
+      severity: 'obese_2',
+      colorClass: 'bg-orange-100 text-orange-800 border-orange-200',
+      suggestedGoal: 'weight_loss',
+      suggestedStage: 'class_2',
+    };
+  }
+  return {
+    label: 'Obese Class III (Severe)',
+    severity: 'obese_3',
+    colorClass: 'bg-red-100 text-red-800 border-red-200',
+    suggestedGoal: 'weight_loss',
+    suggestedStage: 'class_3',
+  };
 }
 
 // ── Micronutrient auto-flag ────────────────────────────────────────────────

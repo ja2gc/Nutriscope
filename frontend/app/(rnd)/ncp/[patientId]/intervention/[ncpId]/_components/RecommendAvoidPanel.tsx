@@ -1,80 +1,146 @@
-import { ThumbsUp, ThumbsDown, AlertCircle } from "lucide-react";
-import { RecommendResult } from "@/services/interventionService";
+import { ThumbsUp, ThumbsDown, BookOpen } from "lucide-react";
 
-interface Props { data: RecommendResult | null; loading: boolean }
+interface GoalFoodGuide {
+  recommend: string[];
+  avoid: string[];
+  generalRecommend: string;
+  generalAvoid: string;
+}
 
-export default function RecommendAvoidPanel({ data, loading }: Props) {
-  if (loading) return (
-    <div className="h-20 flex items-center justify-center text-xs text-zinc-400">
-      Loading recommendations…
-    </div>
-  );
-  if (!data) return null;
+const GOAL_FOOD_GUIDES: Record<string, GoalFoodGuide> = {
+  renal_diet: {
+    recommend: ["Egg whites", "Chicken breast", "Apple", "Cabbage", "White rice"],
+    avoid: ["Bananas", "Orange juice", "Milk / dairy", "Processed meats", "Dark colas"],
+    generalRecommend:
+      "Focus on high-quality low-phosphate protein sources. Distribute protein evenly across meals.",
+    generalAvoid:
+      "Avoid high-potassium and high-phosphate foods. Limit all dairy and whole grains in advanced CKD stages.",
+  },
+  diabetic_control: {
+    recommend: ["Brown rice", "Oatmeal", "Bitter melon (ampalaya)", "Fish", "Leafy greens"],
+    avoid: ["White bread", "Sugary drinks", "Fried foods", "Large white rice portions", "Sweetened condensed milk"],
+    generalRecommend:
+      "Prioritize low-glycemic index foods. Distribute carbohydrates evenly across 3 meals and 1–2 snacks.",
+    generalAvoid:
+      "Avoid refined sugars and high-GI carbohydrates. Limit saturated fats.",
+  },
+  cardiac_diet: {
+    recommend: ["Oily fish (mackerel / sardines)", "Oatmeal", "Banana", "Kangkong", "Canola / olive oil"],
+    avoid: ["Processed meats", "Salty dried fish (tuyo / daing)", "Canned goods", "Coconut milk (gata)", "Organ meats"],
+    generalRecommend:
+      "Follow DASH eating principles. Prioritize potassium-rich vegetables and omega-3 sources.",
+    generalAvoid:
+      "Strictly limit sodium intake. Avoid trans fats and saturated fats from processed foods.",
+  },
+  weight_loss: {
+    recommend: ["Skinless chicken breast", "Tilapia", "Kangkong", "Papaya", "Brown rice (small portions)"],
+    avoid: ["Fried foods", "Pork belly (liempo)", "Full-fat coconut milk", "White sugar", "Sweetened beverages"],
+    generalRecommend:
+      "Increase dietary fiber for satiety. Choose lean protein at every meal to preserve muscle mass.",
+    generalAvoid:
+      "Avoid calorie-dense, nutrient-poor foods. Limit portion sizes — especially starchy carbs.",
+  },
+  weight_gain: {
+    recommend: ["Peanut butter", "Brown rice", "Eggs", "Chicken thigh", "Avocado"],
+    avoid: [],
+    generalRecommend:
+      "Add energy-dense nutrient-rich foods between meals. Prioritize protein to support lean mass gain, not just fat.",
+    generalAvoid:
+      "Avoid filling up on low-calorie foods and fluids before meals. Do not skip meals.",
+  },
+  high_protein: {
+    recommend: ["Chicken breast", "Eggs", "Tofu / tokwa", "Low-fat milk", "Fish"],
+    avoid: ["Alcohol", "High-fat fried foods", "Empty-calorie snacks", "Excessive simple sugars"],
+    generalRecommend:
+      "Distribute protein evenly across all meals and snacks. Ensure adequate energy to prevent protein being used as fuel.",
+    generalAvoid:
+      "Avoid anything that increases metabolic stress. Do not under-eat energy — protein cannot do its repair work without adequate kcal.",
+  },
+  liver_disease: {
+    recommend: ["Eggs", "Chicken breast", "Oatmeal", "Papaya", "Soft cooked vegetables"],
+    avoid: ["Alcohol (absolute)", "Processed meats", "Salty condiments", "Raw shellfish"],
+    generalRecommend:
+      "Eat small frequent meals including a late-evening snack to prevent overnight catabolism. BCAA-rich foods preferred in encephalopathy.",
+    generalAvoid:
+      "Strictly avoid all alcohol. Limit sodium to control ascites. Never restrict protein long-term except during active severe encephalopathy.",
+  },
+  malnutrition: {
+    recommend: ["Eggs", "Mung beans (monggo)", "Chicken lugaw (congee)", "Peanuts", "Evaporated milk"],
+    avoid: [],
+    generalRecommend:
+      "Prioritize energy-dense foods in small frequent portions. Ensure thiamine-rich foods before refeeding protocol.",
+    generalAvoid:
+      "Avoid skipping meals or long fasting periods. Do not over-restrict any macronutrient.",
+  },
+};
 
-  const { recommend, avoid, limits } = data;
-  const hasContent = recommend.length > 0 || avoid.length > 0 || limits.length > 0;
-  if (!hasContent) return (
+interface Props {
+  goalType: string | null;
+}
+
+export default function RecommendAvoidPanel({ goalType }: Props) {
+  if (!goalType) return null;
+
+  const guide = GOAL_FOOD_GUIDES[goalType];
+  if (!guide) return (
     <div className="p-4 bg-zinc-50 border border-zinc-200 rounded-xl text-xs text-zinc-400 text-center">
-      No specific dietary restrictions for this goal. Clinical rules will apply to individual food items.
+      No specific food guidance for this goal.
     </div>
   );
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      {/* Recommend */}
-      <div className="space-y-2">
-        <p className="flex items-center gap-1.5 text-[9px] font-bold text-emerald-600 uppercase tracking-widest">
-          <ThumbsUp className="h-3 w-3" /> Recommend
-        </p>
-        {recommend.length === 0
-          ? <p className="text-[10px] text-zinc-300 italic">No specific recommendations.</p>
-          : recommend.map((r, i) => (
-            <div key={i} className="flex items-start gap-2 p-2.5 border-l-2 border-emerald-400 bg-emerald-50 rounded-r-xl">
-              <div>
-                <p className="text-xs font-semibold text-zinc-800">{r.tag}</p>
-                <p className="text-[10px] text-zinc-500">{r.reason}</p>
-              </div>
-            </div>
-          ))}
-      </div>
-
-      {/* Avoid */}
-      <div className="space-y-2">
-        <p className="flex items-center gap-1.5 text-[9px] font-bold text-red-500 uppercase tracking-widest">
-          <ThumbsDown className="h-3 w-3" /> Avoid
-        </p>
-        {avoid.length === 0
-          ? <p className="text-[10px] text-zinc-300 italic">No specific restrictions.</p>
-          : avoid.map((r, i) => (
-            <div key={i} className="flex items-start gap-2 p-2.5 border-l-2 border-red-400 bg-red-50 rounded-r-xl">
-              <div>
-                <p className="text-xs font-semibold text-zinc-800">{r.tag}</p>
-                <p className="text-[10px] text-zinc-500">{r.reason}</p>
-              </div>
-            </div>
-          ))}
-      </div>
-
-      {/* Limits */}
-      {limits.length > 0 && (
-        <div className="md:col-span-2 space-y-2">
-          <p className="flex items-center gap-1.5 text-[9px] font-bold text-amber-600 uppercase tracking-widest">
-            <AlertCircle className="h-3 w-3" /> Limits
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Recommend */}
+        <div className="space-y-2">
+          <p className="flex items-center gap-1.5 text-[9px] font-bold text-emerald-600 uppercase tracking-widest">
+            <ThumbsUp className="h-3 w-3" /> Recommended Foods
           </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {limits.map((r, i) => (
-              <div key={i} className="flex items-start gap-2 p-2.5 border-l-2 border-amber-400 bg-amber-50 rounded-r-xl">
-                <div>
-                  <p className="text-xs font-semibold text-zinc-800">{r.tag}
-                    <span className="ml-1 text-[9px] font-normal text-zinc-500">≤ {r.threshold} {r.unit}</span>
-                  </p>
-                  <p className="text-[10px] text-zinc-500">{r.reason}</p>
+          {guide.recommend.length === 0 ? (
+            <p className="text-[10px] text-zinc-400 italic">Focus on maximizing intake of all foods.</p>
+          ) : (
+            <div className="space-y-1.5">
+              {guide.recommend.map((food, i) => (
+                <div key={i} className="flex items-center gap-2 px-3 py-2 border-l-2 border-emerald-400 bg-emerald-50 rounded-r-lg">
+                  <p className="text-[11px] font-semibold text-zinc-800">{food}</p>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
+          )}
+          <div className="mt-2 p-2.5 bg-zinc-50 border border-zinc-200 rounded-lg">
+            <p className="flex items-center gap-1 text-[9px] font-bold text-zinc-500 uppercase tracking-widest mb-1">
+              <BookOpen className="h-2.5 w-2.5" /> General Recommendation
+            </p>
+            <p className="text-[10px] text-zinc-600 leading-relaxed">{guide.generalRecommend}</p>
           </div>
         </div>
-      )}
+
+        {/* Avoid */}
+        <div className="space-y-2">
+          <p className="flex items-center gap-1.5 text-[9px] font-bold text-red-500 uppercase tracking-widest">
+            <ThumbsDown className="h-3 w-3" /> Foods to Limit / Avoid
+          </p>
+          {guide.avoid.length === 0 ? (
+            <p className="text-[10px] text-zinc-400 italic">No strict food restrictions for this goal.</p>
+          ) : (
+            <div className="space-y-1.5">
+              {guide.avoid.map((food, i) => (
+                <div key={i} className="flex items-center gap-2 px-3 py-2 border-l-2 border-red-400 bg-red-50 rounded-r-lg">
+                  <p className="text-[11px] font-semibold text-zinc-800">{food}</p>
+                </div>
+              ))}
+            </div>
+          )}
+          {guide.generalAvoid && (
+            <div className="mt-2 p-2.5 bg-zinc-50 border border-zinc-200 rounded-lg">
+              <p className="flex items-center gap-1 text-[9px] font-bold text-zinc-500 uppercase tracking-widest mb-1">
+                <BookOpen className="h-2.5 w-2.5" /> General Avoidance
+              </p>
+              <p className="text-[10px] text-zinc-600 leading-relaxed">{guide.generalAvoid}</p>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
