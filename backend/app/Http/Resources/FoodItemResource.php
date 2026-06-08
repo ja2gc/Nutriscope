@@ -18,6 +18,7 @@ class FoodItemResource extends JsonResource
             'protein'        => $this->protein,
             'carbs'          => $this->carbs,
             'fat'            => $this->fat,
+            'water_g'        => $this->water_g,
             'micronutrients' => $this->micronutrients ?? [],
             'allergens'      => $this->allergens ?? [],
             'serving_unit'   => $this->serving_unit,
