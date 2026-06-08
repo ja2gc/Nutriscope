@@ -53,18 +53,6 @@ Run once after cloning to set up the workflow framework:
 npx antigravity-superpowers init
 ```
 
-### Optional but Recommended
-
-TablePlus or DBeaver — view and manage MySQL database visually
-- TablePlus: https://tableplus.com
-- DBeaver: https://dbeaver.io
-
-Postman or Bruno — test Laravel API endpoints directly
-- Postman: https://www.postman.com
-- Bruno: https://www.usebruno.com
-
----
-
 ## Initial Setup
 
 ### 1. Clone the repo
@@ -95,11 +83,6 @@ cd frontend
 npm install
 ```
 
-Create `.env.local` inside `frontend/`:
-```
-NEXT_PUBLIC_API_URL=http://127.0.0.1:8000/api
-LARAVEL_API_URL=http://127.0.0.1:8000/api
-```
 
 Then run:
 ```bash
@@ -132,11 +115,10 @@ Every task must follow this exact order. Do not skip steps.
 ### Standard Flow
 ```
 1. /superpowers-brainstorm   → only if task is unclear or complex
-2. /superpowers-write-plan   → always before touching any code
+2. /superpowers-write-plan   → always before touching any code, always include to plan in a tdd environment (skill ng superpowers to para gumawa sya ng mga unit test at itest kung gumagana ba)
 3. APPROVED                  → review the plan, then type APPROVED
 4. /superpowers-execute-plan → agent builds step by step with tests
 5. /superpowers-review       → check for blockers, bugs, security
-6. /superpowers-finish       → wrap up, commit, update docs
 ```
 
 ### When to Use Each Command
@@ -147,9 +129,7 @@ Or just ask agent whats the next best step if it didnt tell whichs the best next
 | `/superpowers-plan` | Before every implementation |
 | `/superpowers-execute-plan` | After plan is approved |
 | `/superpowers-review` | After execution, before finishing |
-| `/superpowers-finish` | End of every task |
-| `/superpowers-debug` | Something is broken |
-| `/superpowers-tdd` | Backend features needing tests first |
+| `/superpowers-tdd` | for a test driven development |
 
 ### Rules
 - Never mark a milestone done without tests passing
@@ -300,10 +280,11 @@ No context is lost — everything is saved to disk in `artifacts/superpowers/`.
 
 - Keep prompts short — agent reads `docs/` automatically
 - Never repeat what is already in `docs/` in your prompt
+- this is only for antigravity, use sonnet medium for claude code
 - Use cheap models (Flash, Haiku) for planning
 - Use strong models (Pro, Sonnet) for coding
-- Skip brainstorm for simple obvious tasks, go straight to write-plan
-- Always brainstorm first for risky tasks (auth, database, migrations)
+- Skip brainstorm for simple obvious tasks if you already know how the flow is gonna be and just explain that to the prompt, go straight to write-plan
+- Always brainstorm first for risky tasks (auth, database, migrations, api, things that needs resesarch and you have little idea about)
 
 ---
 
@@ -351,7 +332,7 @@ git push
 
 ---
 
-## Milestone Tracker
+## Milestone Tracker (di ko na to nagamit since mejo gulo gulo, by page nalang ung pag gawa natin kahit wag nyo na pansinin to)
 
 See `docs/milestones.md` for full list of milestones and current status.
 
