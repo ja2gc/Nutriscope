@@ -321,9 +321,9 @@ export function Sidebar({ open = false, onClose }: { open?: boolean; onClose?: (
               </button>
 
               {/* Submenu container */}
-              <div 
+              <div
                 className={`transition-all duration-200 ease-in-out overflow-hidden pl-7.5 space-y-1 ${
-                  isFoodServiceMenuOpen && !collapsed ? "max-h-48 opacity-100 py-1" : "max-h-0 opacity-0 pointer-events-none"
+                  isFoodServiceMenuOpen && !collapsed ? "max-h-64 opacity-100 py-1" : "max-h-0 opacity-0 pointer-events-none"
                 }`}
               >
                 <Link
@@ -369,6 +369,17 @@ export function Sidebar({ open = false, onClose }: { open?: boolean; onClose?: (
                 >
                   <span className={`h-1.5 w-1.5 rounded-full ${pathname === "/food-service/procurement" ? "bg-emerald-500" : "bg-zinc-700"}`} />
                   Procurement
+                </Link>
+                <Link
+                  href="/food-service/recipes"
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all duration-150 ${
+                    pathname.startsWith("/food-service/recipes")
+                      ? "text-emerald-500 font-extrabold"
+                      : "text-zinc-500 hover:text-zinc-300"
+                  }`}
+                >
+                  <span className={`h-1.5 w-1.5 rounded-full ${pathname.startsWith("/food-service/recipes") ? "bg-emerald-500" : "bg-zinc-700"}`} />
+                  Recipes
                 </Link>
               </div>
             </div>

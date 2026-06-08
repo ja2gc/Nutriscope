@@ -1,0 +1,183 @@
+"use client";
+
+import React, { useEffect, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { CookingPot, Plus, Pencil, Trash2, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/Button";
+
+interface FSSRecipe {
+  id: number;
+  name: string;
+  category: string | null;
+  servings: number;
+}
+
+async function listRecipes(): Promise<FSSRecipe[]> {
+  const res = await fetch("/api/fss/food-service-recipes");
+  if (!res.ok) throw new Error("Failed to load recipes.");
+  const json = await res.json();
+  return json.data ?? [];
+}
+
+async function deleteRecipe(id: number): Promise<void> {
+  const res = await fetch(`/api/fss/food-service-recipes/${id}`, { method: "DELETE" });
+  if (!res.ok && res.status !== 204) throw new Error("Failed to delete.");
+}
+
+const FSS_CATEGORIES = [
+  "All", "Regular Diet", "Vegetable", "Vegetarian", "High Fiber",
+  "Staple", "Diabetic-Friendly", "Soft Diet", "Breakfast", "Snack",
+];
+
+export default function FSSRecipeListPage() {
+  const router = useRouter();
+  const [recipes, setRecipes]     = useState<FSSRecipe[]>([]);
+  const [loading, setLoading]     = useState(true);
+  const [error, setError]         = useState<string | null>(null);
+  const [filterCat, setFilterCat] = useState("All");
+  const [deleteId, setDeleteId]   = useState<number | null>(null);
+  const [deleting, setDeleting]   = useState(false);
+
+  useEffect(() => {
+    listRecipes()
+      .then(setRecipes)
+      .catch((e: unknown) => setError(e instanceof Error ? e.message : "Error."))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const filtered = filterCat === "All"
+    ? recipes
+    : recipes.filter((r) => r.category === filterCat);
+
+  const handleDelete = async () => {
+    if (!deleteId) return;
+    setDeleting(true);
+    try {
+      await deleteRecipe(deleteId);
+      setRecipes((prev) => prev.filter((r) => r.id !== deleteId));
+      setDeleteId(null);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Delete failed.");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6 font-sans">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-5 border-b border-zinc-200">
+        <div>
+          <h2 className="text-xl font-extrabold text-zinc-950 tracking-tight flex items-center gap-2.5">
+            <CookingPot className="h-5 w-5 text-emerald-600" />
+            Food Service Recipes
+          </h2>
+          <p className="text-xs text-zinc-500 mt-1 select-none">
+            Managed recipes for hospital food service. Cost is calculated live per recipe.
+          </p>
+        </div>
+        <Button variant="primary" onClick={() => router.push("/food-service/recipes/new")}
+          className="w-auto flex items-center gap-2 px-4">
+          <Plus className="h-3.5 w-3.5" /> New Recipe
+        </Button>
+      </div>
+
+      {error && (
+        <div className="bg-red-50 border border-red-100 p-4 rounded-xl text-xs text-red-700 font-bold">{error}</div>
+      )}
+
+      {/* Category filter */}
+      <div className="flex flex-wrap gap-2">
+        {FSS_CATEGORIES.map((cat) => (
+          <button key={cat} onClick={() => setFilterCat(cat)}
+            className={`px-3 py-1.5 rounded-full text-[10px] font-bold border transition-colors cursor-pointer ${
+              filterCat === cat
+                ? "bg-emerald-600 text-white border-emerald-600"
+                : "bg-white text-zinc-600 border-zinc-200 hover:border-emerald-400"
+            }`}>
+            {cat}
+          </button>
+        ))}
+      </div>
+
+      {/* Table */}
+      {loading ? (
+        <div className="flex items-center justify-center h-40">
+          <Loader2 className="h-6 w-6 animate-spin text-emerald-600" />
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="text-center py-16 border border-dashed border-zinc-200 rounded-2xl">
+          <CookingPot className="h-8 w-8 text-zinc-200 mx-auto mb-3" />
+          <p className="text-sm font-bold text-zinc-400">No recipes found.</p>
+          <p className="text-xs text-zinc-300 mt-1">Add a recipe to get started.</p>
+        </div>
+      ) : (
+        <div className="bg-white border border-zinc-200 rounded-2xl overflow-hidden shadow-sm">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="border-b border-zinc-100 bg-zinc-50/60">
+                <th className="text-left px-5 py-3 font-extrabold text-zinc-500 uppercase tracking-wider">Recipe Name</th>
+                <th className="text-left px-4 py-3 font-extrabold text-zinc-500 uppercase tracking-wider">Category</th>
+                <th className="px-4 py-3 text-right font-extrabold text-zinc-500 uppercase tracking-wider">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-zinc-100">
+              {filtered.map((recipe) => (
+                <tr key={recipe.id} className="hover:bg-zinc-50 transition-colors">
+                  <td className="px-5 py-3.5">
+                    <Link href={`/food-service/recipes/${recipe.id}`}
+                      className="font-bold text-zinc-900 hover:text-emerald-700 transition-colors">
+                      {recipe.name}
+                    </Link>
+                  </td>
+                  <td className="px-4 py-3.5">
+                    {recipe.category ? (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        {recipe.category}
+                      </span>
+                    ) : (
+                      <span className="text-zinc-300">—</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3.5 text-right">
+                    <div className="flex items-center justify-end gap-2">
+                      <Link href={`/food-service/recipes/${recipe.id}`}
+                        className="p-1.5 rounded-lg text-zinc-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors">
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Link>
+                      <button onClick={() => setDeleteId(recipe.id)}
+                        className="p-1.5 rounded-lg text-zinc-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer">
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Delete confirm */}
+      {deleteId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
+          onClick={() => setDeleteId(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm border border-zinc-200 overflow-hidden"
+            onClick={(e) => e.stopPropagation()}>
+            <div className="p-6 space-y-4">
+              <h3 className="text-sm font-extrabold text-zinc-900">Delete Recipe?</h3>
+              <p className="text-xs text-zinc-500">
+                This will permanently delete the recipe and all its ingredients. This cannot be undone.
+              </p>
+              <div className="flex gap-3 justify-end">
+                <Button variant="secondary" onClick={() => setDeleteId(null)} className="w-auto px-4">Cancel</Button>
+                <Button variant="danger" onClick={handleDelete} loading={deleting} className="w-auto px-4">Delete</Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
