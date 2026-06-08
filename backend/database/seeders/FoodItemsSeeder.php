@@ -38,6 +38,7 @@ class FoodItemsSeeder extends Seeder
         'Calamansi / Lime Juice'      => 167951, // SR Legacy — lime juice raw
         'Glutinous Rice (Cooked)'     => 168879, // SR Legacy — rice white glutinous cooked
         'Corn Grits (Cooked)'         => 170293, // SR Legacy — cornmeal white cooked regular
+        'Rice Porridge (Lugaw)'       => 2708418, // Survey (FNDDS) — rice congee
     ];
 
     private const INGREDIENTS = [
