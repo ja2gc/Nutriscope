@@ -14,7 +14,7 @@ class Assessment extends Model
         'ncp_record_id',
         'dietary_intake', 'appetite_changes', 'dietary_restrictions', 'supplements', 'knowledge_notes',
         'weight', 'height', 'bmi', 'body_composition',
-        'medical_history', 'social_history', 'lifestyle',
+        'medical_history', 'social_history', 'religion', 'lifestyle',
         'allergies', 'food_dislikes', 'medications',
         'rnd_summary',
         'usual_weight', 'nutritional_status', 'weight_loss_percentage', 'weight_loss_period',

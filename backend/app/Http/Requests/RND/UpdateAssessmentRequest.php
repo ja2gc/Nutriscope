@@ -24,6 +24,7 @@ class UpdateAssessmentRequest extends FormRequest
             'body_composition'     => ['nullable', 'string'],
             'medical_history'      => ['nullable', 'string'],
             'social_history'       => ['nullable', 'string'],
+            'religion'             => ['nullable', 'string', 'max:100'],
             'lifestyle'            => ['nullable', 'string'],
             'allergies'            => ['nullable', 'array'],
             'food_dislikes'        => ['nullable', 'array'],
