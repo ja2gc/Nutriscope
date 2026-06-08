@@ -108,10 +108,8 @@ class MealPlanService
                 $slotPct    = self::SLOT_DISTRIBUTION[$mealType] ?? 0.20;
                 $targetKcal = $dailyKcal * $slotPct;
 
-                // Score recipes by macro-ratio distance from prescription targets
-                // (ignoring absolute kcal — quantity scaling handles that)
-                $best      = null;
-                $bestScore = PHP_INT_MAX;
+                // Score all candidates, pick randomly from top 3 for daily variety
+                $scored = [];
                 foreach ($dayPool as $r) {
                     if (in_array($r->id, $usedThisDay)) continue;
                     $rKcal = max((float) $r->total_calories, 1);
@@ -119,26 +117,29 @@ class MealPlanService
                     $rCarbsRatio   = ((float) $r->total_carbs   * 4) / $rKcal;
                     $rFatRatio     = ((float) $r->total_fat     * 9) / $rKcal;
 
-                    // Euclidean distance in macro-ratio space (lower = better match)
                     $score = sqrt(
                         pow($rProteinRatio - $targetProteinRatio, 2) +
                         pow($rCarbsRatio   - $targetCarbsRatio,   2) +
                         pow($rFatRatio     - $targetFatRatio,     2)
                     );
-                    // Add flat penalty for each micronutrient that exceeds its max limit
                     if (!empty($microLimits)) {
                         $recipeMicros = is_array($r->micronutrients) ? $r->micronutrients : [];
                         $score += $this->calcMicroPenalty($recipeMicros, $microLimits);
                     }
-                    if ($score < $bestScore) { $bestScore = $score; $best = $r; }
+                    $scored[] = ['recipe' => $r, 'score' => $score];
                 }
-                // Fallback: allow repeats if pool exhausted
-                if (!$best) $best = $dayPool[$slotIndex % $dayPool->count()];
+                usort($scored, fn($a, $b) => $a['score'] <=> $b['score']);
+                $topN = array_slice($scored, 0, min(3, count($scored)));
+                if (empty($topN)) {
+                    $best = $dayPool[$slotIndex % $dayPool->count()];
+                } else {
+                    $best = $topN[array_rand($topN)]['recipe'];
+                }
                 $usedThisDay[] = $best->id;
 
                 // Scale quantity to hit slot calorie target (clamped to ±50% of 1 serving)
                 $recipeKcal = max((float) $best->total_calories, 1);
-                $quantity   = round(min(max($targetKcal / $recipeKcal, 0.5), 2.0), 2);
+                $quantity   = round(min(max($targetKcal / $recipeKcal, 1.0), 2.0), 2);
 
                 $itemRows[] = [
                     'meal_plan_day_id'  => $dayRecord->id,
