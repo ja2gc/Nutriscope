@@ -22,7 +22,7 @@ export default function MenuCyclePage() {
         <div>
           <h2 className="text-xl font-extrabold text-zinc-950 tracking-tight flex items-center gap-2.5">
             <Salad className="h-5 w-5 text-emerald-600 animate-pulse" />
-            Therapeutic Menu Cycle Scheduler
+            Menu Cycle
           </h2>
           <p className="text-xs text-zinc-500 mt-1 select-none">
             Schedule recurring multi-week menu cycles for patient ward feedings.
