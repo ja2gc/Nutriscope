@@ -164,6 +164,9 @@ function UsdaImportModal({ onClose, onImported }: {
                     <MacroChip label="P" value={item.protein} unit="g" />
                     <MacroChip label="C" value={item.carbs} unit="g" />
                     <MacroChip label="F" value={item.fat} unit="g" />
+                    {('water_g' in item) && (item as { water_g?: number | null }).water_g != null && (
+                      <MacroChip label="W" value={Number((item as { water_g: number }).water_g)} unit="g" />
+                    )}
                     {item.food_category && (
                       <span className="text-[9px] text-zinc-400 font-medium ml-1">· {item.food_category}</span>
                     )}
@@ -223,6 +226,9 @@ function FoodMicrosPopup({ food, onClose }: { food: FoodItem; onClose: () => voi
           <MacroStat label="Protein"  value={food.protein ?? "—"}  unit="g"    color="text-rose-700" />
           <MacroStat label="Carbs"    value={food.carbs ?? "—"}    unit="g"    color="text-amber-700" />
           <MacroStat label="Fat"      value={food.fat ?? "—"}      unit="g"    color="text-violet-700" />
+          {food.water_g != null && (
+            <MacroStat label="Water" value={String(food.water_g)} unit="g" color="text-sky-700" />
+          )}
         </div>
 
         {/* Micronutrients */}
@@ -533,6 +539,9 @@ export default function FoodLibraryPage() {
                             {food.protein && <MacroChip label="P" value={parseFloat(food.protein)} unit="g" />}
                             {food.carbs   && <MacroChip label="C" value={parseFloat(food.carbs)}   unit="g" />}
                             {food.fat     && <MacroChip label="F" value={parseFloat(food.fat)}     unit="g" />}
+                            {food.water_g != null && (
+                              <MacroChip label="W" value={Number(food.water_g)} unit="g" />
+                            )}
                           </div>
                         </td>
                         <td className="px-5 py-3.5">

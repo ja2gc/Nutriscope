@@ -397,56 +397,7 @@ class RecipeSeeder extends Seeder
                 ],
             ],
 
-            // ── Pampanga Specialties (Hospital-Adapted) ───────────────────────
-            [
-                'name'        => 'Kare-Kare Vegetables (No Bagoong)',
-                'category'    => 'Pampanga',
-                'prep_notes'  => 'Pampanga peanut stew — hospital version using vegetables only (no oxtail), no bagoong (reduced sodium). Rich in niacin from peanuts.',
-                'servings'    => 1,
-                'ingredients' => [
-                    ['Squash / Kalabasa (Cooked)', 100, 'g'], ['String Beans / Sitaw', 80, 'g'],
-                    ['Eggplant / Talong (Cooked)', 80, 'g'], ['Peanut Butter (Unsalted)', 30, 'g'],
-                    ['Steamed White Rice', 150, 'g'],
-                ],
-            ],
-            [
-                'name'        => 'Sisig Tofu (Hospital Low-Fat)',
-                'category'    => 'Pampanga',
-                'prep_notes'  => 'Pampanga sisig adapted with tofu instead of pork face/ears. Low fat, plant protein. Seasoned with calamansi and onion.',
-                'servings'    => 1,
-                'ingredients' => [
-                    ['Firm Tofu (Tokwa)', 150, 'g'], ['Onion (Raw)', 40, 'g'],
-                    ['Calamansi / Lime Juice', 15, 'ml'], ['Steamed White Rice', 160, 'g'],
-                ],
-            ],
-            [
-                'name'        => 'Caldereta-Style Vegetable Stew',
-                'category'    => 'Pampanga',
-                'prep_notes'  => 'Pampanga-style tomato-based vegetable stew. Hospital version using vegetables. Tomato-rich, moderate calorie.',
-                'servings'    => 1,
-                'ingredients' => [
-                    ['Carrots (Cooked)', 100, 'g'], ['Cabbage / Repolyo (Cooked)', 80, 'g'],
-                    ['Tomato (Cooked)', 100, 'g'], ['Squash / Kalabasa (Cooked)', 80, 'g'],
-                    ['Steamed White Rice', 150, 'g'],
-                ],
-            ],
-            [
-                'name'        => 'Bringhe (Glutinous Rice in Coconut)',
-                'category'    => 'Pampanga',
-                'prep_notes'  => 'Traditional Pampanga festival dish — glutinous rice cooked in coconut milk. High energy, moderate fat from coconut. Not suitable for strict cardiac/fat-restricted diets.',
-                'servings'    => 1,
-                'ingredients' => [['Glutinous Rice (Cooked)', 180, 'g'], ['Coconut Milk (Canned)', 60, 'ml']],
-            ],
-            [
-                'name'        => 'Chicken Adobo with Rice',
-                'category'    => 'Pampanga',
-                'prep_notes'  => 'Filipino adobo — chicken braised in vinegar and garlic. Moderate sodium. Very common hospital request. Suitable for general diet with sodium monitoring.',
-                'servings'    => 1,
-                'ingredients' => [
-                    ['Chicken Thigh (Cooked)', 100, 'g'], ['Garlic (Raw)', 8, 'g'],
-                    ['Steamed White Rice', 180, 'g'],
-                ],
-            ],
+            // ── Regular Diet Mains ────────────────────────────────────────────
             [
                 'name'        => 'Mackerel Adobo Flakes with Rice',
                 'category'    => 'Regular Diet',
@@ -515,28 +466,35 @@ class RecipeSeeder extends Seeder
 
             if (empty($ingredientRows)) continue;
 
-            $recipe = Recipe::create([
-                'rnd_user_id'    => $rnd->id,
-                'name'           => $recipeData['name'],
-                'category'       => $recipeData['category'],
-                'prep_notes'     => $recipeData['prep_notes'],
-                'servings'       => $recipeData['servings'] ?? 1,
-                'total_calories' => round($totalCalories, 2),
-                'total_protein'  => round($totalProtein, 2),
-                'total_carbs'    => round($totalCarbs, 2),
-                'total_fat'      => round($totalFat, 2),
-            ]);
+            // firstOrCreate by name — idempotent: re-running seeder never duplicates recipes
+            $recipe = Recipe::firstOrCreate(
+                ['name' => $recipeData['name']],
+                [
+                    'rnd_user_id'    => $rnd->id,
+                    'category'       => $recipeData['category'],
+                    'prep_notes'     => $recipeData['prep_notes'],
+                    'servings'       => $recipeData['servings'] ?? 1,
+                    'total_calories' => round($totalCalories, 2),
+                    'total_protein'  => round($totalProtein, 2),
+                    'total_carbs'    => round($totalCarbs, 2),
+                    'total_fat'      => round($totalFat, 2),
+                ]
+            );
 
-            foreach ($ingredientRows as $row) {
-                RecipeIngredient::create([
-                    'recipe_id'    => $recipe->id,
-                    'food_item_id' => $row['food']->id,
-                    'quantity'     => $row['qty'],
-                    'unit'         => $row['unit'],
-                ]);
+            // Only insert ingredients for newly created recipes
+            if ($recipe->wasRecentlyCreated) {
+                foreach ($ingredientRows as $row) {
+                    RecipeIngredient::create([
+                        'recipe_id'    => $recipe->id,
+                        'food_item_id' => $row['food']->id,
+                        'quantity'     => $row['qty'],
+                        'unit'         => $row['unit'],
+                    ]);
+                }
+                $this->command->info("  ✓ Recipe: {$recipeData['name']}");
+            } else {
+                $this->command->line("  – Already seeded: {$recipeData['name']}");
             }
-
-            $this->command->info("  ✓ Recipe: {$recipeData['name']}");
         }
     }
 }

@@ -13,6 +13,7 @@ export interface Assessment {
   body_composition: string | null;
   medical_history: string | null;
   social_history: string | null;
+  religion: string | null;
   lifestyle: string | null;
   allergies: string[] | null;
   food_dislikes: string[] | null;
@@ -34,6 +35,10 @@ export interface Assessment {
   nutrient_drug_interaction: string | null;
   dietary_intake_method: "24_hour_recall" | "food_frequency" | "3_day_record" | "other" | null;
   dietary_record_file: string | null;
+  physical_activity_level: "sedentary" | "light" | "moderate" | "very_active" | "extra_active" | null;
+  muac_mm: number | string | null;
+  waist_cm: number | string | null;
+  hip_cm: number | string | null;
   created_at?: string;
   updated_at?: string;
 }

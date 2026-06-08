@@ -52,7 +52,52 @@ BMI = weight (kg) / height (m)²
 
 ---
 
-#### Ideal Body Weight (IBW) — Hamwi Formula
+#### Ideal Body Weight (IBW)
+
+> **NutriScope uses the Hamwi formula** (see rationale below). The other formulas are documented here for clinical reference.
+
+##### Formula Comparison by Demographic
+
+| Formula | Male (base at 5 ft) | Female (base at 5 ft) | Per-inch increment M / F | Notes |
+|---|---|---|---|---|
+| **Hamwi (1964)** | 48.0 kg | 45.5 kg | +2.7 / +2.2 kg | Used in clinical nutrition (AND Manual). Most common in hospital dietetics. ✅ Used by NutriScope |
+| Devine (1974) | 50.0 kg | 45.5 kg | +2.3 / +2.3 kg | Most cited in pharmacokinetics and drug dosing (e.g., renal dosing). Produces similar results to Hamwi for females |
+| Robinson (1983) | 52.0 kg | 49.0 kg | +1.9 / +1.7 kg | Derived from actuarial data. Produces lower IBW than Hamwi for males. Less commonly used in dietetics |
+| Miller (1983) | 56.2 kg | 53.1 kg | +1.41 / +1.36 kg | Produces the highest IBW estimates. Rarely used clinically |
+| Peterson (2016) | height (m)² × 22 | Same | — | Simple BMI-based approach. Avoids the 5-foot lower-bound issue of frame formulas. Useful for stature < 152 cm |
+
+**For patients shorter than 5 feet (152 cm):** Hamwi/Devine/Robinson allow subtraction of the same per-inch value for each inch below 5 feet. If result is ≤ 0, use Peterson formula instead (target BMI × height²).
+
+---
+
+##### Asian / Filipino Population Note
+
+Standard IBW formulas (Hamwi, Devine) were derived from Western/American reference populations. For Filipino and Southeast Asian patients, consider:
+
+- **WHO Asia-Pacific BMI Cutoffs:** Overweight begins at BMI 23 (not 25), Obese at 27.5 (not 30). Filipino patients may be metabolically obese at lower weights than Western BMI tables suggest.
+- **Practical implication:** IBW calculated via Hamwi may slightly overestimate ideal weight for shorter Filipino patients (avg male height ~163 cm, female ~152 cm — near the 5-foot baseline).
+- **IBW using Asian BMI target:** `IBW (Asian) = 22.5 × height (m)²` for males, `21.0 × height (m)²` for females. This maps to the middle of the WHO Asia-Pacific normal BMI range.
+- **NutriScope decision:** Hamwi is retained for consistency with AND clinical nutrition guidelines used in Philippine hospital dietetics training. RNDs should apply clinical judgment for patients at the shorter end of the height range.
+
+**Source:** WHO Western Pacific Region (2000). *The Asia-Pacific Perspective: Redefining Obesity and its Treatment.* International Diabetes Institute — https://apps.who.int/iris/handle/10665/206936
+
+---
+
+##### Pediatric IBW
+
+Adult IBW formulas (Hamwi, Devine, etc.) **do not apply to patients under 18 years old**. Use weight-for-height/age-based reference values:
+
+| Method | Age Range | How Used |
+|---|---|---|
+| WHO Weight-for-Height (WHZ) | 0–5 years | Median WHZ = 0 is the reference "IBW" for that height |
+| WHO BMI-for-Age (BAZ) | 5–19 years | Target BMI at BAZ = 0 (50th percentile for age/sex) |
+| McLaren / %WFH | Any pediatric | `%WFH = (actual weight / median weight for height) × 100` |
+
+Until z-score tables are implemented in NutriScope, the `%IBW` classification uses the Hamwi-derived IBW as a proxy for pediatric patients. This is a known approximation — flag pediatric results for manual review.
+
+---
+
+##### NutriScope Implementation
 
 ```
 Male:   IBW = 48.0 kg + 2.7 kg per inch over 5 feet
@@ -60,6 +105,7 @@ Female: IBW = 45.5 kg + 2.2 kg per inch over 5 feet
 ```
 
 For patients shorter than 5 feet: subtract the per-inch value for each inch under 5 feet.
+Minimum floor: IBW cannot be < 30 kg (prevents negative/near-zero results in very short stature cases).
 
 **Adjusted Body Weight (AjBW)** — used when actual weight > 120% IBW:
 
@@ -82,7 +128,7 @@ AjBW = IBW + 0.25 × (actual weight − IBW)
 | 70–84% | Moderately underweight |
 | < 70% | Severely underweight |
 
-**Source:** Hamwi GJ (1964). Referenced in: AND Nutrition Care Manual. Accessed via Academy of Nutrition and Dietetics — https://www.andeal.org/
+**Source:** Hamwi GJ (1964). *Therapy: Changing dietary concepts.* In: Danowski TS (ed). Diabetes Mellitus: Diagnosis and Treatment. Vol 1. New York: American Diabetes Association; 1964:73–78. Referenced in: AND Nutrition Care Manual — https://www.andeal.org/
 
 ---
 

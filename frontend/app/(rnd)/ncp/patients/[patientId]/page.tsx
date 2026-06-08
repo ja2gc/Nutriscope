@@ -278,14 +278,14 @@ export default function PatientProfilePage({
             </div>
 
             <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-zinc-500 font-semibold">
-              <span>{age} years / {patient.sex}</span>
-              <span>{patient.ward || "No ward assigned"}</span>
-              <span>{patient.physician || "Unassigned physician"}</span>
+              <span>{age !== "N/A" ? `${age} yrs` : "Age N/A"} · {patient.sex ?? "Sex N/A"}</span>
+              <span>{patient.ward ?? "Ward N/A"}</span>
+              <span>{patient.physician ?? "Physician N/A"}</span>
             </div>
 
             <div className="text-xs text-zinc-700 font-medium">
               <span className="text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider block mb-1">Primary medical diagnosis</span>
-              <span className="text-zinc-800 leading-relaxed font-semibold">{patient.medical_diagnosis || "Not recorded"}</span>
+              <span className="text-zinc-800 leading-relaxed font-semibold">{patient.medical_diagnosis ?? "N/A"}</span>
             </div>
           </div>
 
@@ -415,15 +415,15 @@ export default function PatientProfilePage({
                 </div>
                 <div className="space-y-1">
                   <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block">Contact Number</span>
-                  <span className="text-zinc-800 font-mono font-semibold">{patient.contact || "Not documented"}</span>
+                  <span className={`font-mono font-semibold ${patient.contact ? "text-zinc-800" : "text-zinc-400"}`}>{patient.contact ?? "N/A"}</span>
                 </div>
                 <div className="space-y-1">
                   <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block">Religion</span>
-                  <span className="text-zinc-800 font-semibold">{patient.religion || "Not documented"}</span>
+                  <span className={`font-semibold ${patient.religion ? "text-zinc-800" : "text-zinc-400"}`}>{patient.religion ?? "N/A"}</span>
                 </div>
                 <div className="sm:col-span-2 space-y-1">
                   <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block">Home Address</span>
-                  <span className="text-zinc-700 font-semibold leading-relaxed">{patient.address || "Not documented"}</span>
+                  <span className={`font-semibold leading-relaxed ${patient.address ? "text-zinc-700" : "text-zinc-400"}`}>{patient.address ?? "N/A"}</span>
                 </div>
               </div>
             </div>

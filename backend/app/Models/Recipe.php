@@ -40,7 +40,7 @@ class Recipe extends Model
      */
     public function recalculateTotals(): void
     {
-        $totals = ['calories' => 0, 'protein' => 0, 'carbs' => 0, 'fat' => 0, 'cost' => 0];
+        $totals = ['calories' => 0, 'protein' => 0, 'carbs' => 0, 'fat' => 0];
         $micros = [];
 
         foreach ($this->ingredients()->with('foodItem')->get() as $ing) {
@@ -51,7 +51,6 @@ class Recipe extends Model
             $totals['protein']  += (float) $food->protein  * $factor;
             $totals['carbs']    += (float) $food->carbs    * $factor;
             $totals['fat']      += (float) $food->fat      * $factor;
-            $totals['cost']     += (float) $food->unit_price * ($ing->quantity / 100);
 
             // Aggregate micronutrients weighted by ingredient proportion
             foreach ($food->micronutrients ?? [] as $key => $value) {
@@ -64,7 +63,6 @@ class Recipe extends Model
             'total_protein'  => round($totals['protein'], 2),
             'total_carbs'    => round($totals['carbs'], 2),
             'total_fat'      => round($totals['fat'], 2),
-            'cost'           => round($totals['cost'], 2),
             'micronutrients' => array_map(fn($v) => round($v, 3), $micros),
         ]);
     }
