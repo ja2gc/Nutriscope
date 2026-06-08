@@ -13,6 +13,7 @@ export interface Assessment {
   body_composition: string | null;
   medical_history: string | null;
   social_history: string | null;
+  religion: string | null;
   lifestyle: string | null;
   allergies: string[] | null;
   food_dislikes: string[] | null;

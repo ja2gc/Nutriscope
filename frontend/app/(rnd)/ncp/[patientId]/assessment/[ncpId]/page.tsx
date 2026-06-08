@@ -320,10 +320,13 @@ function buildMappedFields(
 }
 
 // ─── Field Components ────────────────────────────────────────────────────
-function Field({ label, children, span }: { label: string; children: React.ReactNode; span?: number }) {
+function Field({ label, children, span, hint }: { label: string; children: React.ReactNode; span?: number; hint?: string }) {
   return (
     <div className={span ? `col-span-${span}` : ""} style={span ? { gridColumn: `span ${span}` } : undefined}>
-      <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1.5">{label}</label>
+      <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1.5">
+        {label}
+        {hint && <span className="ml-1.5 text-emerald-500 font-semibold normal-case tracking-normal">→ {hint}</span>}
+      </label>
       {children}
     </div>
   );
@@ -463,6 +466,7 @@ function defaultAssessment(): Assessment {
     food_intolerance: null, nutrient_drug_interaction: null,
     dietary_intake_method: null, dietary_record_file: null,
     physical_activity_level: null, muac_mm: null, waist_cm: null, hip_cm: null,
+    religion: null,
   };
 }
 
@@ -965,7 +969,20 @@ export default function NcpAssessmentPage({
         <TextArea value={s("dietary_intake")} onChange={v => updateField("dietary_intake", v)} placeholder="24-hour recall narrative or food frequency notes..." />
       </Field>
       <Field label="Appetite Changes">
-        <TextArea value={s("appetite_changes")} onChange={v => updateField("appetite_changes", v)} placeholder="Changes in appetite..." rows={2} />
+        <SelectInput
+          value={s("appetite_changes") ?? ""}
+          onChange={v => updateField("appetite_changes", v || null)}
+          placeholder="Select..."
+          options={[
+            { value: "normal",         label: "Normal appetite" },
+            { value: "decreased",      label: "Decreased — eating less than usual" },
+            { value: "increased",      label: "Increased — eating more than usual" },
+            { value: "variable",       label: "Variable / Inconsistent" },
+            { value: "absent",         label: "Absent / Anorexia" },
+            { value: "early_satiety",  label: "Early satiety" },
+            { value: "nausea_vomiting",label: "Nausea / Vomiting affecting intake" },
+          ]}
+        />
       </Field>
       <Field label="Dietary Restrictions">
         <TextArea value={s("dietary_restrictions")} onChange={v => updateField("dietary_restrictions", v)} placeholder="Restrictions and intolerances..." rows={2} />
@@ -1001,38 +1018,54 @@ export default function NcpAssessmentPage({
     <div className="space-y-6">
 
       {/* ── Always-visible calculated summary strip ───────────────────── */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {/* BMI */}
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+        {/* IBW — from weight + height (Hamwi) */}
+        <div className={`rounded-xl p-3 border ${computedIBW !== null ? "bg-white border-zinc-200" : "bg-zinc-50 border-zinc-100"}`}>
+          <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">IBW</p>
+          <p className={`text-xl font-black font-mono mt-0.5 ${computedIBW !== null ? "text-zinc-900" : "text-zinc-300"}`}>
+            {computedIBW !== null ? `${computedIBW.toFixed(1)} kg` : "—"}
+          </p>
+          <p className="text-[9px] text-zinc-400 mt-0.5">
+            {computedIBW !== null
+              ? computedPercentIBW !== null
+                ? `${computedPercentIBW.toFixed(0)}% IBW · Hamwi`
+                : "Hamwi formula"
+              : "Enter weight & height"}
+          </p>
+        </div>
+        {/* BMI — from weight + height */}
         <div className={`rounded-xl p-3 border ${computedBmi !== null ? "bg-white border-zinc-200" : "bg-zinc-50 border-zinc-100"}`}>
           <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">BMI</p>
           <p className={`text-xl font-black font-mono mt-0.5 ${computedBmi !== null ? "text-zinc-900" : "text-zinc-300"}`}>
             {computedBmi !== null ? computedBmi.toFixed(1) : "—"}
           </p>
           <p className="text-[9px] text-zinc-400 mt-0.5">
-            {computedBmi !== null ? "kg/m² · enter wt + ht" : "Enter weight & height"}
+            {computedBmi !== null ? "kg/m²" : "Enter weight & height"}
           </p>
         </div>
-        {/* BMR */}
+        {/* BMR — from weight + height + age + sex (+ PAL for TEE) */}
         <div className={`rounded-xl p-3 border ${computedBMR !== null ? "bg-white border-zinc-200" : "bg-zinc-50 border-zinc-100"}`}>
-          <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">BMR</p>
+          <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">BMR / TEE</p>
           <p className={`text-xl font-black font-mono mt-0.5 ${computedBMR !== null ? "text-zinc-900" : "text-zinc-300"}`}>
             {computedBMR !== null ? Math.round(computedBMR) : "—"}
           </p>
           <p className="text-[9px] text-zinc-400 mt-0.5">
-            {computedBMR !== null ? "kcal/day (Mifflin-St Jeor)" : "Enter wt, ht, age, sex"}
+            {computedBMR !== null
+              ? `BMR · TEE ${computedTEE ?? "—"} kcal (×${palFactor})`
+              : "Enter wt, ht · set age & sex in profile"}
           </p>
         </div>
-        {/* Weight Loss % */}
+        {/* Weight Loss % — from weight + usual weight */}
         <div className={`rounded-xl p-3 border ${computedWeightLossPct !== null ? "bg-white border-zinc-200" : "bg-zinc-50 border-zinc-100"}`}>
           <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">Weight Loss</p>
           <p className={`text-xl font-black font-mono mt-0.5 ${computedWeightLossPct !== null ? "text-amber-700" : "text-zinc-300"}`}>
             {computedWeightLossPct !== null ? `${computedWeightLossPct}%` : "—"}
           </p>
           <p className="text-[9px] text-zinc-400 mt-0.5">
-            {computedWeightLossPct !== null ? "from usual weight" : "Enter wt & usual wt"}
+            {computedWeightLossPct !== null ? "from usual weight" : "Enter weight & usual weight"}
           </p>
         </div>
-        {/* MUAC classification */}
+        {/* MUAC — from muac_mm */}
         <div className={`rounded-xl p-3 border ${muacClassification !== null ? "bg-white border-zinc-200" : "bg-zinc-50 border-zinc-100"}`}>
           <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">MUAC</p>
           <p className={`text-xl font-black font-mono mt-0.5 ${muacClassification !== null ? "text-zinc-900" : "text-zinc-300"}`}>
@@ -1040,29 +1073,63 @@ export default function NcpAssessmentPage({
           </p>
           {muacClassification !== null
             ? <p className={`text-[9px] font-bold mt-0.5 ${muacClassification.color}`}>{muacClassification.label}</p>
-            : <p className="text-[9px] text-zinc-400 mt-0.5">Enter MUAC measurement</p>
+            : <p className="text-[9px] text-zinc-400 mt-0.5">Enter MUAC (mm)</p>
+          }
+        </div>
+        {/* WHR — from waist_cm ÷ hip_cm */}
+        <div className={`rounded-xl p-3 border ${computedWHR !== null ? (whrRisk === "High Risk" ? "bg-white border-red-200" : "bg-white border-zinc-200") : "bg-zinc-50 border-zinc-100"}`}>
+          <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">WHR</p>
+          <p className={`text-xl font-black font-mono mt-0.5 ${computedWHR !== null ? "text-zinc-900" : "text-zinc-300"}`}>
+            {computedWHR !== null ? computedWHR.toFixed(2) : "—"}
+          </p>
+          {computedWHR !== null
+            ? <p className={`text-[9px] font-bold mt-0.5 ${whrRisk === "High Risk" ? "text-red-500" : "text-emerald-600"}`}>
+                {whrRisk} · {patientSex === "Female" ? "cut-off 0.85" : "cut-off 0.90"}
+              </p>
+            : <p className="text-[9px] text-zinc-400 mt-0.5">Enter waist & hip cm</p>
           }
         </div>
       </div>
 
+      {/* ── Nutritional Status Badge (auto, no manual entry needed) ───── */}
+      {computedNutritionalStatus !== null && (
+        <div className={`p-3 rounded-xl border ${computedNutritionalStatus.colorClass}`}>
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div>
+              <p className="text-[9px] font-bold uppercase tracking-wider opacity-70">Nutritional Status</p>
+              <p className="text-sm font-black mt-0.5">{computedNutritionalStatus.label}</p>
+            </div>
+            {computedNutritionalStatus.suggestedGoal && (
+              <div className="text-right">
+                <p className="text-[9px] font-bold uppercase tracking-wider opacity-70">Suggested Goal</p>
+                <p className="text-[10px] font-bold mt-0.5 capitalize">
+                  {computedNutritionalStatus.suggestedGoal.replace(/_/g, " ")}
+                  {computedNutritionalStatus.suggestedStage ? ` → ${computedNutritionalStatus.suggestedStage.replace(/_/g, " ")}` : ""}
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* ── Measurement inputs ───────────────────────────────────────── */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Field label="Weight (kg)">
+        <Field label="Weight (kg)" hint="IBW% · BMI · BMR · Weight Loss%">
           <TextInput type="number" value={String(assessment.weight ?? "")} onChange={v => updateField("weight", v ? Number(v) : null)} placeholder="e.g. 70.5" />
         </Field>
-        <Field label="Usual Weight (kg)">
+        <Field label="Usual Weight (kg)" hint="Weight Loss%">
           <TextInput type="number" value={String(assessment.usual_weight ?? "")} onChange={v => updateField("usual_weight", v ? Number(v) : null)} placeholder="e.g. 72.0" />
         </Field>
-        <Field label="Height (cm)">
+        <Field label="Height (cm)" hint="IBW · BMI · BMR">
           <TextInput type="number" value={String(assessment.height ?? "")} onChange={v => updateField("height", v ? Number(v) : null)} placeholder="e.g. 170" />
         </Field>
-        <Field label="MUAC (mm)">
+        <Field label="MUAC (mm)" hint="MUAC card">
           <TextInput type="number" value={String(assessment.muac_mm ?? "")} onChange={v => updateField("muac_mm", v ? Number(v) : null)} placeholder="e.g. 250" />
         </Field>
-        <Field label="Waist Circumference (cm)">
+        <Field label="Waist Circumference (cm)" hint="WHR card">
           <TextInput type="number" value={String(assessment.waist_cm ?? "")} onChange={v => updateField("waist_cm", v ? Number(v) : null)} placeholder="e.g. 90" />
         </Field>
-        <Field label="Hip Circumference (cm)">
+        <Field label="Hip Circumference (cm)" hint="WHR card">
           <TextInput type="number" value={String(assessment.hip_cm ?? "")} onChange={v => updateField("hip_cm", v ? Number(v) : null)} placeholder="e.g. 100" />
         </Field>
         <Field label="Weight Loss Period">
@@ -1078,89 +1145,6 @@ export default function NcpAssessmentPage({
         </Field>
       </div>
 
-      {/* ── Full Auto-Calculated Panel (shown once weight+height entered) */}
-      {weight > 0 && height > 0 && (
-        <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-4">
-          <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
-            <Activity className="h-3 w-3" /> Detailed Calculations
-          </p>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {/* IBW */}
-            <div className="bg-white border border-zinc-200 rounded-lg p-3">
-              <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">IBW</p>
-              <p className="text-lg font-black text-zinc-900 font-mono mt-0.5">
-                {computedIBW !== null ? computedIBW.toFixed(1) : "—"}
-              </p>
-              <p className="text-[9px] text-zinc-500">kg (Hamwi)</p>
-            </div>
-            {/* %IBW */}
-            <div className="bg-white border border-zinc-200 rounded-lg p-3">
-              <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">% IBW</p>
-              <p className="text-lg font-black text-zinc-900 font-mono mt-0.5">
-                {computedPercentIBW !== null ? computedPercentIBW.toFixed(0) : "—"}
-              </p>
-              <p className="text-[9px] text-zinc-500">%</p>
-            </div>
-            {/* AjBW */}
-            {computedAjBW !== null ? (
-              <div className="bg-white border border-amber-200 rounded-lg p-3">
-                <p className="text-[9px] font-bold text-amber-500 uppercase tracking-wider">AjBW</p>
-                <p className="text-lg font-black text-zinc-900 font-mono mt-0.5">
-                  {computedAjBW.toFixed(1)}
-                </p>
-                <p className="text-[9px] text-zinc-500">kg · used for BMR</p>
-              </div>
-            ) : (
-              <div className="bg-white border border-zinc-200 rounded-lg p-3">
-                <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">AjBW</p>
-                <p className="text-lg font-black text-zinc-400 font-mono mt-0.5">N/A</p>
-                <p className="text-[9px] text-zinc-400">{'<'}120% IBW</p>
-              </div>
-            )}
-            {/* Est. TEE */}
-            <div className="bg-white border border-emerald-200 rounded-lg p-3">
-              <p className="text-[9px] font-bold text-emerald-600 uppercase tracking-wider">Est. TEE</p>
-              <p className="text-lg font-black text-zinc-900 font-mono mt-0.5">
-                {computedTEE !== null ? computedTEE : "—"}
-              </p>
-              <p className="text-[9px] text-zinc-500">kcal/day · PAL ×{palFactor}</p>
-            </div>
-            {/* WHR */}
-            {computedWHR !== null && (
-              <div className={`bg-white border rounded-lg p-3 ${whrRisk === "High Risk" ? "border-red-200" : "border-zinc-200"}`}>
-                <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">WHR</p>
-                <p className="text-lg font-black text-zinc-900 font-mono mt-0.5">
-                  {computedWHR.toFixed(2)}
-                </p>
-                <p className={`text-[9px] font-bold ${whrRisk === "High Risk" ? "text-red-500" : "text-emerald-600"}`}>
-                  {whrRisk}
-                </p>
-              </div>
-            )}
-          </div>
-
-          {/* Nutritional Status Badge */}
-          {computedNutritionalStatus !== null && (
-            <div className={`mt-3 p-3 rounded-lg border ${computedNutritionalStatus.colorClass}`}>
-              <div className="flex items-center justify-between flex-wrap gap-2">
-                <div>
-                  <p className="text-[9px] font-bold uppercase tracking-wider opacity-70">Nutritional Status</p>
-                  <p className="text-sm font-black mt-0.5">{computedNutritionalStatus.label}</p>
-                </div>
-                {computedNutritionalStatus.suggestedGoal && (
-                  <div className="text-right">
-                    <p className="text-[9px] font-bold uppercase tracking-wider opacity-70">Suggested Goal</p>
-                    <p className="text-[10px] font-bold mt-0.5 capitalize">
-                      {computedNutritionalStatus.suggestedGoal.replace(/_/g, " ")}
-                      {computedNutritionalStatus.suggestedStage ? ` → ${computedNutritionalStatus.suggestedStage.replace(/_/g, " ")}` : ""}
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
     </div>
   );
 
@@ -1171,6 +1155,13 @@ export default function NcpAssessmentPage({
       </Field>
       <Field label="Social History">
         <TextArea value={s("social_history")} onChange={v => updateField("social_history", v)} placeholder="Social history..." rows={3} />
+      </Field>
+      <Field label="Religion / Dietary Practices" hint="Helps identify dietary restrictions">
+        <TextInput
+          value={s("religion") ?? ""}
+          onChange={v => updateField("religion", v || null)}
+          placeholder="e.g. Roman Catholic, Muslim, Seventh-Day Adventist"
+        />
       </Field>
       <Field label="Physical Activity Level (PAL)">
         <SelectInput
