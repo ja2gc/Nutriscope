@@ -26,6 +26,18 @@ class InterventionController extends Controller
         $intervention->ncp_record_id = $ncpRecord->id;
         $intervention->save();
 
+        // Auto-advance NCP record status:
+        // First session (type=new) is considered complete once A + D + I are all recorded.
+        // Monitoring & Evaluation is only for follow-up sessions (type=followup).
+        // Move draft → active so the patient shows as actively managed in the dashboard.
+        if ($ncpRecord->type === 'new'
+            && $ncpRecord->status === 'draft'
+            && $ncpRecord->assessment()->exists()
+            && $ncpRecord->diagnoses()->exists()
+        ) {
+            $ncpRecord->update(['status' => 'active']);
+        }
+
         return (new InterventionResource($intervention))->response()->setStatusCode(201);
     }
 

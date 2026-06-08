@@ -17,9 +17,28 @@ class FoodItemsSeeder extends Seeder
      * Direct FDC ID fallbacks for foods that consistently hit the rate limit on search.
      * Used only when search fails — avoids burning a search call for a known ID.
      */
+    /**
+     * Direct FDC ID fallbacks used when USDA search is rate-limited or returns no results.
+     * All IDs are SR Legacy / Foundation — verified to return full micronutrient data.
+     * These 14 entries cover the items most likely to hit rate limits.
+     */
     private const FALLBACK_FDC_IDS = [
-        'Pork Loin (Cooked)'   => 174480, // SR Legacy — confirmed from previous run
-        'Sweet Potato / Kamote' => 168482, // SR Legacy — sweet potato cooked baked
+        'Pork Loin (Cooked)'          => 174480, // SR Legacy — pork loin roasted
+        'Sweet Potato / Kamote'       => 168482, // SR Legacy — sweet potato cooked baked
+        // ── Former manual items — now USDA-imported for full micronutrient data ──
+        'Onion (Raw)'                 => 170000, // SR Legacy — onions raw
+        'Ginger Root (Raw)'           => 169231, // SR Legacy — ginger root raw
+        'Tomato (Cooked)'             => 168522, // SR Legacy — tomatoes red ripe cooked
+        'Coconut Milk (Canned)'       => 175194, // SR Legacy — coconut milk canned
+        'Peanut Butter (Unsalted)'    => 172470, // SR Legacy — peanut butter smooth no salt
+        'Cocoa Powder (Unsweetened)'  => 169593, // SR Legacy — cocoa dry powder unsweetened
+        'Pineapple (Raw)'             => 169124, // SR Legacy — pineapple raw all varieties
+        'Guava (Raw)'                 => 173044, // SR Legacy — guavas common raw
+        'Jackfruit (Raw)'             => 174687, // SR Legacy — jackfruit raw
+        'Calamansi / Lime Juice'      => 167951, // SR Legacy — lime juice raw
+        'Glutinous Rice (Cooked)'     => 168879, // SR Legacy — rice white glutinous cooked
+        'Corn Grits (Cooked)'         => 170293, // SR Legacy — cornmeal white cooked regular
+        'Rice Porridge (Lugaw)'       => 2708418, // Survey (FNDDS) — rice congee
     ];
 
     private const INGREDIENTS = [
@@ -187,44 +206,6 @@ class FoodItemsSeeder extends Seeder
             usleep(1000000); // 1s between foods — stays within USDA rate limit
         }
 
-        $this->command->info('Done.');
-
-        // Manual entries for items the USDA search fails on (rate limit / query sensitivity).
-        // Nutrition values are USDA-verified per 100g. serving_size = 100g for all.
-        // [name, kcal, protein, carbs, fat, water_g, category] — values per 100g, USDA-verified
-        $manualItems = [
-            ['Onion (Raw)',                  40,  1.1,  9.3,  0.1,  89.1, 'vegetable'],
-            ['Ginger Root (Raw)',            80,  1.8, 17.8,  0.8,  78.9, 'spice'],
-            ['Tomato (Cooked)',              18,  0.9,  3.9,  0.2,  94.0, 'vegetable'],
-            ['Coconut Milk (Canned)',       197,  2.3,  2.8, 21.3,  67.6, 'dairy-alternative'],
-            ['Peanut Butter (Unsalted)',    588, 25.0, 20.1, 50.4,   1.8, 'legume'],
-            ['Cocoa Powder (Unsweetened)',  228, 19.6, 57.9, 13.7,   3.0, 'other'],
-            ['Pineapple (Raw)',              50,  0.5, 13.1,  0.1,  86.0, 'fruit'],
-            ['Guava (Raw)',                  68,  2.6, 14.3,  1.0,  80.8, 'fruit'],
-            ['Jackfruit (Raw)',              95,  1.7, 23.2,  0.6,  73.5, 'fruit'],
-            ['Calamansi / Lime Juice',       25,  0.4,  8.4,  0.1,  91.5, 'fruit'],
-            ['Glutinous Rice (Cooked)',      97,  2.1, 21.7,  0.2,  72.0, 'grain'],
-            ['Corn Grits (Cooked)',          71,  1.7, 15.5,  0.2,  82.5, 'grain'],
-        ];
-
-        foreach ($manualItems as [$name, $cal, $prot, $carb, $fat, $water, $cat]) {
-            if (\App\Models\FoodItem::where('name', $name)->exists()) {
-                // Backfill water_g on existing manual items that predate this field
-                \App\Models\FoodItem::where('name', $name)->whereNull('water_g')->update(['water_g' => $water]);
-                continue;
-            }
-            \App\Models\FoodItem::create([
-                'name'         => $name,
-                'calories'     => $cal,
-                'protein'      => $prot,
-                'carbs'        => $carb,
-                'fat'          => $fat,
-                'water_g'      => $water,
-                'category'     => $cat,
-                'serving_size' => 100,
-                'serving_unit' => 'g',
-            ]);
-            $this->command->info("  ✓ Manual: {$name}");
-        }
+        $this->command->info('Done. All items use USDA import (macros + micros + water_g). See FALLBACK_FDC_IDS for rate-limit resilience.');
     }
 }

@@ -11,7 +11,7 @@ class Inventory extends Model
     
     protected $table = 'inventory';
     protected $fillable = [
-        'item_type', 'food_item_id', 'recipe_id',
+        'item_type', 'food_item_id',
         'quantity_in_stock', 'unit', 'expiry_date',
         'usage_rate', 'minimum_stock_threshold', 'unit_price', 'notes',
     ];
@@ -29,10 +29,6 @@ class Inventory extends Model
         return $this->belongsTo(FoodItem::class);
     }
 
-    public function recipe()
-    {
-        return $this->belongsTo(Recipe::class);
-    }
-
 }
+
 

@@ -5,11 +5,13 @@ import Link from "next/link";
 import { Salad, User, Settings2, CheckCircle2 } from "lucide-react";
 import {
   fetchIntervention, createIntervention, updateIntervention,
-  fetchRecommendations, Intervention, RecommendResult,
+  Intervention,
 } from "@/services/interventionService";
+import { EDUCATION_TEMPLATES } from "@/lib/educationTemplates";
 import { fetchAssessment } from "@/services/assessmentService";
+import { fetchPatientById } from "@/services/patientService";
 import {
-  autofillPrescription, GOAL_MICRO_FLAGS, Prescription, PatientMetrics,
+  autofillPrescription, GOAL_MICRO_FLAGS, Prescription, PatientMetrics, ACTIVITY_FACTORS,
 } from "@/lib/nutritionCalculations";
 import GoalSelectorModal, { GOALS } from "./_components/GoalSelectorModal";
 import { Button } from "@/components/ui/Button";
@@ -69,8 +71,6 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
   const [goalModalOpen, setGoalModalOpen]       = useState(false);
   const [prescription, setPrescription]         = useState<PrescriptionForm>(emptyPrescription());
   const [prescNote, setPrescNote]               = useState<string | undefined>(undefined);
-  const [recommend, setRecommend]               = useState<RecommendResult | null>(null);
-  const [recommendLoading, setRecommendLoading] = useState(false);
   const [saving, setSaving]                     = useState(false);
   const [patientMetrics, setPatientMetrics]     = useState<PatientMetrics | null>(null);
   const [foodDislikes, setFoodDislikes]         = useState<string[]>([]);
@@ -82,14 +82,6 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
   const [strategies, setStrategies]           = useState("");
   const [sessionType, setSessionType]         = useState("");
   const [nextFollowup, setNextFollowup]       = useState("");
-
-  const loadRecommendations = useCallback(async () => {
-    setRecommendLoading(true);
-    try {
-      const data = await fetchRecommendations(ncpId);
-      setRecommend(data);
-    } finally { setRecommendLoading(false); }
-  }, [ncpId]);
 
   const loadIntervention = useCallback(async () => {
     setLoading(true);
@@ -104,31 +96,52 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
         setStrategies(iv.strategies ?? "");
         setSessionType(iv.session_type ?? "");
         setNextFollowup(iv.next_followup_date ?? "");
-        if (iv.goal_type) loadRecommendations();
       }
     } finally { setLoading(false); }
-  }, [ncpId, loadRecommendations]);
+  }, [ncpId]);
 
   const loadMetrics = useCallback(async () => {
     try {
-      const assessment = await fetchAssessment(ncpId);
-      if (assessment?.weight && assessment?.height) {
+      const [assessment, patient] = await Promise.allSettled([
+        fetchAssessment(ncpId),
+        fetchPatientById(patientId),
+      ]);
+
+      const a = assessment.status === "fulfilled" ? assessment.value : null;
+      const p = patient.status === "fulfilled" ? patient.value : null;
+
+      // Derive age from patient DOB
+      let ageYears = 30;
+      if (p?.dob) {
+        const b = new Date(p.dob);
+        const now = new Date();
+        let age = now.getFullYear() - b.getFullYear();
+        const m = now.getMonth() - b.getMonth();
+        if (m < 0 || (m === 0 && now.getDate() < b.getDate())) age -= 1;
+        ageYears = Math.max(0, age);
+      }
+      const sex = (p?.sex as "Male" | "Female") ?? "Male";
+
+      if (a?.weight && a?.height) {
+        const palKey = a.physical_activity_level ?? "sedentary";
+        const activityFactor = ACTIVITY_FACTORS[palKey]?.factor ?? 1.2;
         setPatientMetrics({
-          weightKg: parseFloat(String(assessment.weight)),
-          heightCm: parseFloat(String(assessment.height)),
-          ageYears: 40,   // TODO: wire from patient context (patient.dob)
-          sex: "Male",    // TODO: wire from patient context (patient.sex)
-          isAdult: true,
+          weightKg: parseFloat(String(a.weight)),
+          heightCm: parseFloat(String(a.height)),
+          ageYears,
+          sex,
+          isAdult: ageYears >= 18,
+          activityFactor,
         });
       }
-      if (assessment?.food_dislikes && Array.isArray(assessment.food_dislikes)) {
-        setFoodDislikes(assessment.food_dislikes.map((d: string) => d.toLowerCase()));
+      if (a?.food_dislikes && Array.isArray(a.food_dislikes)) {
+        setFoodDislikes(a.food_dislikes.map((d: string) => d.toLowerCase()));
       }
-      if (assessment?.allergies && Array.isArray(assessment.allergies)) {
-        setAllergens(assessment.allergies.map((a: string) => a.toLowerCase()));
+      if (a?.allergies && Array.isArray(a.allergies)) {
+        setAllergens(a.allergies.map((al: string) => al.toLowerCase()));
       }
     } catch { /* assessment may not exist yet */ }
-  }, [ncpId]);
+  }, [ncpId, patientId]);
 
   useEffect(() => {
     if (!isPlaceholder) {
@@ -170,6 +183,11 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
     };
     setPrescription(newPresc);
 
+    // Auto-populate education template if notes currently empty
+    if (!educationNotes.trim() && EDUCATION_TEMPLATES[goalType]) {
+      setEducationNotes(EDUCATION_TEMPLATES[goalType]);
+    }
+
     setSaving(true);
     try {
       const updated = await updateIntervention(ncpId, {
@@ -185,7 +203,6 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
         } : {}),
       } as Partial<Intervention>);
       setIntervention(updated);
-      await loadRecommendations();
     } finally { setSaving(false); }
   };
 
@@ -243,7 +260,7 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
       </div>
 
       {/* Tab bar */}
-      <div className="flex flex-wrap border-b border-zinc-200 sticky top-0 z-20 bg-white -mx-6 px-6 lg:-mx-8 lg:px-8">
+      <div className="flex flex-wrap border-b border-zinc-200 mb-5">
         {TABS.map(({ key, label }) => (
           <button key={key} onClick={() => setTab(key)}
             className={`px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider border-b-2 whitespace-nowrap transition-colors cursor-pointer ${
@@ -295,8 +312,8 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
             {intervention?.goal_type && (
               <div className="bg-white border border-zinc-200 rounded-2xl p-5 shadow-sm space-y-3">
                 <h3 className="text-xs font-extrabold text-zinc-700 uppercase tracking-wider">Food Recommendations</h3>
-                <p className="text-[9px] text-zinc-400">Algorithm-driven based on goal and clinical rules. Not AI-generated.</p>
-                <RecommendAvoidPanel data={recommend} loading={recommendLoading} />
+                <p className="text-[9px] text-zinc-400">Goal-specific food guidance. RND to individualise based on patient tolerance.</p>
+                <RecommendAvoidPanel goalType={intervention.goal_type} />
               </div>
             )}
 

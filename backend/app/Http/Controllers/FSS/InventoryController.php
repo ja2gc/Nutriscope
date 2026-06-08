@@ -38,29 +38,14 @@ class InventoryController extends Controller
         $bindings = [];
         $parts    = [];
 
-        if ($type !== 'recipe') {
+        {
             $sql = "SELECT fi.id AS item_id, fi.name, fi.category, 'food_item' AS item_type,
-                           NULL AS recipe_cost, NULL AS recipe_servings,
                            inv.id AS inventory_id, inv.quantity_in_stock, inv.unit, inv.expiry_date,
                            inv.minimum_stock_threshold, inv.unit_price, inv.notes, inv.usage_rate
                     FROM food_items fi
-                    LEFT JOIN inventory inv ON inv.food_item_id = fi.id AND inv.item_type = 'food_item'";
+                    LEFT JOIN inventory inv ON inv.food_item_id = fi.id";
             if ($search !== '') {
                 $sql .= ' WHERE fi.name LIKE ?';
-                $bindings[] = "%{$search}%";
-            }
-            $parts[] = $sql;
-        }
-
-        if ($type !== 'food_item') {
-            $sql = "SELECT r.id AS item_id, r.name, r.category, 'recipe' AS item_type,
-                           r.cost AS recipe_cost, r.servings AS recipe_servings,
-                           inv.id AS inventory_id, inv.quantity_in_stock, inv.unit, inv.expiry_date,
-                           inv.minimum_stock_threshold, inv.unit_price, inv.notes, inv.usage_rate
-                    FROM recipes r
-                    LEFT JOIN inventory inv ON inv.recipe_id = r.id AND inv.item_type = 'recipe'";
-            if ($search !== '') {
-                $sql .= ' WHERE r.name LIKE ?';
                 $bindings[] = "%{$search}%";
             }
             $parts[] = $sql;
@@ -135,8 +120,7 @@ class InventoryController extends Controller
             'expiry_date'             => $r->expiry_date,
             'minimum_stock_threshold' => $r->minimum_stock_threshold,
             'unit_price'              => $r->unit_price,
-            'recipe_cost'             => $r->recipe_cost,
-            'recipe_servings'         => $r->recipe_servings,
+
             'notes'                   => $r->notes,
             'usage_rate'              => $r->usage_rate,
             'status'                  => $status,
@@ -149,11 +133,7 @@ class InventoryController extends Controller
         $union = "(
             SELECT inv.id AS inventory_id, inv.quantity_in_stock, inv.minimum_stock_threshold, inv.expiry_date
             FROM food_items fi
-            LEFT JOIN inventory inv ON inv.food_item_id = fi.id AND inv.item_type = 'food_item'
-            UNION ALL
-            SELECT inv.id AS inventory_id, inv.quantity_in_stock, inv.minimum_stock_threshold, inv.expiry_date
-            FROM recipes r
-            LEFT JOIN inventory inv ON inv.recipe_id = r.id AND inv.item_type = 'recipe'
+            LEFT JOIN inventory inv ON inv.food_item_id = fi.id
         ) AS s";
 
         $row = DB::selectOne("
@@ -177,26 +157,26 @@ class InventoryController extends Controller
 
     public function index(): JsonResponse
     {
-        return response()->json(['data' => InventoryResource::collection(Inventory::with(['foodItem', 'recipe'])->get())]);
+        return response()->json(['data' => InventoryResource::collection(Inventory::with(['foodItem'])->get())]);
     }
 
     public function store(StoreInventoryRequest $request): JsonResponse
     {
         $inventory = Inventory::create($request->validated());
         Cache::flush();
-        return response()->json(['data' => new InventoryResource($inventory->load(['foodItem', 'recipe']))], 201);
+        return response()->json(['data' => new InventoryResource($inventory->load(['foodItem']))], 201);
     }
 
     public function show(Inventory $inventory): JsonResponse
     {
-        return response()->json(['data' => new InventoryResource($inventory->load(['foodItem', 'recipe']))]);
+        return response()->json(['data' => new InventoryResource($inventory->load(['foodItem']))]);
     }
 
     public function update(UpdateInventoryRequest $request, Inventory $inventory): JsonResponse
     {
         $inventory->update($request->validated());
         Cache::flush();
-        return response()->json(['data' => new InventoryResource($inventory->load(['foodItem', 'recipe']))]);
+        return response()->json(['data' => new InventoryResource($inventory->load(['foodItem']))]);
     }
 
     public function destroy(Inventory $inventory): JsonResponse
@@ -215,6 +195,6 @@ class InventoryController extends Controller
         $inventory->increment('quantity_in_stock', $data['quantity']);
         Cache::flush();
 
-        return response()->json(['data' => new InventoryResource($inventory->fresh()->load(['foodItem', 'recipe']))]);
+        return response()->json(['data' => new InventoryResource($inventory->fresh()->load(['foodItem']))]);
     }
 }

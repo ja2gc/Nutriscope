@@ -414,6 +414,15 @@ export default function MealPlanSection({
         </p>
       )}
 
+      {foodDislikes.length > 0 && (
+        <div className="flex items-start gap-2 p-2.5 bg-blue-50 border border-blue-200 rounded-lg">
+          <AlertTriangle className="h-3 w-3 text-blue-500 flex-shrink-0 mt-0.5" />
+          <p className="text-[9px] text-blue-700">
+            <span className="font-bold">Patient dislikes:</span> {foodDislikes.join(', ')} — these are <em>not</em> excluded from the plan but are flagged per item for RND review.
+          </p>
+        </div>
+      )}
+
       {generateError && (
         <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-xl">
           <AlertTriangle className="h-3.5 w-3.5 text-amber-600 flex-shrink-0 mt-0.5" />

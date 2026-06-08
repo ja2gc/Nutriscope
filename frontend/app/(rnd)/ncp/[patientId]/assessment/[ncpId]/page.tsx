@@ -9,6 +9,10 @@ import {
 } from "lucide-react";
 import { fetchPatientById, Patient } from "@/services/patientService";
 import {
+  calcIBW, calcAjBW, calcPercentIBW, calcBMR, calcTEE, calcBmrWeight,
+  classifyNutritionalStatus, ACTIVITY_FACTORS,
+} from "@/lib/nutritionCalculations";
+import {
   Assessment, fetchAssessment, saveAssessment,
   fetchScreeningDocument,
   fetchOcrDocuments,
@@ -316,10 +320,13 @@ function buildMappedFields(
 }
 
 // ─── Field Components ────────────────────────────────────────────────────
-function Field({ label, children, span }: { label: string; children: React.ReactNode; span?: number }) {
+function Field({ label, children, span, hint }: { label: string; children: React.ReactNode; span?: number; hint?: string }) {
   return (
     <div className={span ? `col-span-${span}` : ""} style={span ? { gridColumn: `span ${span}` } : undefined}>
-      <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1.5">{label}</label>
+      <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1.5">
+        {label}
+        {hint && <span className="ml-1.5 text-emerald-500 font-semibold normal-case tracking-normal">→ {hint}</span>}
+      </label>
       {children}
     </div>
   );
@@ -458,6 +465,8 @@ function defaultAssessment(): Assessment {
     chewing_swallowing_difficulties: null, constipation: null, diarrhea_notes: null,
     food_intolerance: null, nutrient_drug_interaction: null,
     dietary_intake_method: null, dietary_record_file: null,
+    physical_activity_level: null, muac_mm: null, waist_cm: null, hip_cm: null,
+    religion: null,
   };
 }
 
@@ -605,6 +614,67 @@ export default function NcpAssessmentPage({
   const height = Number(assessment.height) || 0;
   const computedBmi = calcBmi(weight || null, height || null);
 
+  // ─── Auto-Calc Panel Derived Values ────────────────────────────────
+  const patientSex = (patient?.sex as "Male" | "Female") ?? "Male";
+  const patientDobStr = patient?.dob ?? null;
+  const patientAgeYears = patientDobStr
+    ? (() => {
+        const b = new Date(patientDobStr);
+        const now = new Date();
+        let age = now.getFullYear() - b.getFullYear();
+        const m = now.getMonth() - b.getMonth();
+        if (m < 0 || (m === 0 && now.getDate() < b.getDate())) age -= 1;
+        return age;
+      })()
+    : 30;
+
+  const computedIBW = weight > 0 && height > 0 ? calcIBW(height, patientSex) : null;
+  const computedPercentIBW = computedIBW !== null && weight > 0 ? calcPercentIBW(weight, computedIBW) : null;
+  const computedAjBW = computedIBW !== null && computedPercentIBW !== null && computedPercentIBW > 120
+    ? calcAjBW(weight, computedIBW)
+    : null;
+  const palKey = assessment.physical_activity_level ?? "sedentary";
+  const palFactor = ACTIVITY_FACTORS[palKey]?.factor ?? 1.2;
+  const computedBmrWt = computedIBW !== null && weight > 0 ? calcBmrWeight(weight, computedIBW) : null;
+  const computedBMR = computedBmrWt !== null
+    ? calcBMR(computedBmrWt, height, patientAgeYears, patientSex)
+    : null;
+  const computedTEE = computedBMR !== null ? Math.round(calcTEE(computedBMR, palFactor)) : null;
+  const computedNutritionalStatus = computedBmi !== null && computedPercentIBW !== null
+    ? classifyNutritionalStatus(computedBmi, computedPercentIBW)
+    : null;
+  const computedWHR = assessment.waist_cm && assessment.hip_cm
+    ? Math.round((Number(assessment.waist_cm) / Number(assessment.hip_cm)) * 100) / 100
+    : null;
+  const whrRisk = computedWHR !== null
+    ? (patientSex === "Female"
+        ? (computedWHR < 0.85 ? "Low Risk" : "High Risk")
+        : (computedWHR < 0.90 ? "Low Risk" : "High Risk"))
+    : null;
+
+  // ─── Weight Loss % Auto-Calc ────────────────────────────────────────
+  const usualWeight = Number(assessment.usual_weight) || 0;
+  const computedWeightLossPct = usualWeight > 0 && weight > 0 && usualWeight > weight
+    ? Math.round(((usualWeight - weight) / usualWeight) * 1000) / 10  // 1 decimal place
+    : null;
+
+  // ─── MUAC Classification ────────────────────────────────────────────
+  const muacValue = Number(assessment.muac_mm) || 0;
+  const isAdultPatient = patientAgeYears >= 18;
+  const muacClassification = muacValue > 0
+    ? (() => {
+        if (isAdultPatient) {
+          if (muacValue >= 210) return { label: "Normal", color: "text-emerald-600" };
+          if (muacValue >= 190) return { label: "Moderate Malnutrition", color: "text-amber-600" };
+          return { label: "Severe Malnutrition", color: "text-red-600" };
+        }
+        // Pediatric 6–59 months
+        if (muacValue >= 125) return { label: "Normal", color: "text-emerald-600" };
+        if (muacValue >= 115) return { label: "MAM", color: "text-amber-600" };
+        return { label: "SAM", color: "text-red-600" };
+      })()
+    : null;
+
   // ─── Risk Score Calc ────────────────────────────────────────────────
   const riskScore = riskChecks.reduce((sum, checked, i) => checked ? sum + RISK_FACTORS[i].points : sum, 0);
   const riskInfo = riskBadge(riskScore);
@@ -738,6 +808,8 @@ export default function NcpAssessmentPage({
       const toSave: Partial<Assessment> = {
         ...assessment,
         bmi: computedBmi,
+        // Auto-computed fields — override whatever manual value may have been stored
+        weight_loss_percentage: computedWeightLossPct ?? assessment.weight_loss_percentage,
         nutritional_status: riskScore > 3 ? "Severe Malnutrition" : riskScore >= 2 ? "Moderate Malnutrition" : "Normal",
       };
       // Remove read-only fields
@@ -897,13 +969,23 @@ export default function NcpAssessmentPage({
         <TextArea value={s("dietary_intake")} onChange={v => updateField("dietary_intake", v)} placeholder="24-hour recall narrative or food frequency notes..." />
       </Field>
       <Field label="Appetite Changes">
-        <TextArea value={s("appetite_changes")} onChange={v => updateField("appetite_changes", v)} placeholder="Changes in appetite..." rows={2} />
+        <SelectInput
+          value={s("appetite_changes") ?? ""}
+          onChange={v => updateField("appetite_changes", v || null)}
+          placeholder="Select..."
+          options={[
+            { value: "normal",         label: "Normal appetite" },
+            { value: "decreased",      label: "Decreased — eating less than usual" },
+            { value: "increased",      label: "Increased — eating more than usual" },
+            { value: "variable",       label: "Variable / Inconsistent" },
+            { value: "absent",         label: "Absent / Anorexia" },
+            { value: "early_satiety",  label: "Early satiety" },
+            { value: "nausea_vomiting",label: "Nausea / Vomiting affecting intake" },
+          ]}
+        />
       </Field>
       <Field label="Dietary Restrictions">
         <TextArea value={s("dietary_restrictions")} onChange={v => updateField("dietary_restrictions", v)} placeholder="Restrictions and intolerances..." rows={2} />
-      </Field>
-      <Field label="Food Intolerance">
-        <TextArea value={s("food_intolerance")} onChange={v => updateField("food_intolerance", v)} placeholder="Separate from allergies..." rows={2} />
       </Field>
       <Field label="Supplements">
         <TextInput value={s("supplements")} onChange={v => updateField("supplements", v)} placeholder="Current supplements..." />
@@ -914,57 +996,155 @@ export default function NcpAssessmentPage({
       <Field label="Nutrient-Drug Interaction" span={2}>
         <TextArea value={s("nutrient_drug_interaction")} onChange={v => updateField("nutrient_drug_interaction", v)} placeholder="Known nutrient-drug interactions..." rows={2} />
       </Field>
+      {/* GI / Tolerance — moved from Anthropometrics tab */}
+      <div className="col-span-1 md:col-span-2 mt-2">
+        <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-3">GI / Tolerance</p>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Field label="Chewing / Swallowing Difficulties">
+            <TextArea value={s("chewing_swallowing_difficulties")} onChange={v => updateField("chewing_swallowing_difficulties", v)} placeholder="Any chewing or swallowing difficulties..." rows={2} />
+          </Field>
+          <Field label="Constipation">
+            <TextArea value={s("constipation")} onChange={v => updateField("constipation", v)} placeholder="Constipation notes..." rows={2} />
+          </Field>
+          <Field label="Diarrhea Notes">
+            <TextArea value={s("diarrhea_notes")} onChange={v => updateField("diarrhea_notes", v)} placeholder="Diarrhea notes..." rows={2} />
+          </Field>
+        </div>
+      </div>
     </div>
   );
 
   const renderAnthropometricTab = () => (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-      <Field label="Weight (kg)">
-        <TextInput type="number" value={String(assessment.weight ?? "")} onChange={v => updateField("weight", v ? Number(v) : null)} placeholder="e.g. 70.5" />
-      </Field>
-      <Field label="Usual Weight (kg)">
-        <TextInput type="number" value={String(assessment.usual_weight ?? "")} onChange={v => updateField("usual_weight", v ? Number(v) : null)} placeholder="e.g. 72.0" />
-      </Field>
-      <Field label="Height (cm)">
-        <TextInput type="number" value={String(assessment.height ?? "")} onChange={v => updateField("height", v ? Number(v) : null)} placeholder="e.g. 170" />
-      </Field>
-      <Field label="BMI (Auto-Calculated)">
-        <div className="px-3 py-2 text-xs bg-zinc-50 border border-zinc-200 rounded-lg text-zinc-800 font-mono font-bold">
-          {computedBmi !== null ? computedBmi.toFixed(2) : "—"}
+    <div className="space-y-6">
+
+      {/* ── Always-visible calculated summary strip ───────────────────── */}
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+        {/* IBW — from weight + height (Hamwi) */}
+        <div className={`rounded-xl p-3 border ${computedIBW !== null ? "bg-white border-zinc-200" : "bg-zinc-50 border-zinc-100"}`}>
+          <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">IBW</p>
+          <p className={`text-xl font-black font-mono mt-0.5 ${computedIBW !== null ? "text-zinc-900" : "text-zinc-300"}`}>
+            {computedIBW !== null ? `${computedIBW.toFixed(1)} kg` : "—"}
+          </p>
+          <p className="text-[9px] text-zinc-400 mt-0.5">
+            {computedIBW !== null
+              ? computedPercentIBW !== null
+                ? `${computedPercentIBW.toFixed(0)}% IBW · Hamwi`
+                : "Hamwi formula"
+              : "Enter weight & height"}
+          </p>
         </div>
-      </Field>
-      <Field label="% Ideal Body Weight">
-        <TextInput type="number" value={String(assessment.ibw_percentage ?? "")} onChange={v => updateField("ibw_percentage", v ? Number(v) : null)} placeholder="e.g. 95" />
-      </Field>
-      <Field label="Body Composition">
-        <TextInput value={s("body_composition")} onChange={v => updateField("body_composition", v)} placeholder="Body composition notes..." />
-      </Field>
-      <Field label="Weight Loss %">
-        <TextInput type="number" value={String(assessment.weight_loss_percentage ?? "")} onChange={v => updateField("weight_loss_percentage", v ? Number(v) : null)} placeholder="e.g. 5.0" />
-      </Field>
-      <Field label="Weight Loss Period">
-        <TextInput value={s("weight_loss_period")} onChange={v => updateField("weight_loss_period", v)} placeholder="e.g. 3 months" />
-      </Field>
-      <Field label="Functional Assessment">
-        <SelectInput
-          value={s("functional_assessment")}
-          onChange={v => updateField("functional_assessment", v || null)}
-          options={FUNCTIONAL_OPTIONS.map(o => ({ value: o, label: o }))}
-          placeholder="Select functional status..."
-        />
-      </Field>
-      <Field label="Physical Assessment" span={3}>
-        <TextArea value={s("physical_assessment")} onChange={v => updateField("physical_assessment", v)} placeholder="Physical assessment findings..." />
-      </Field>
-      <Field label="Chewing / Swallowing Difficulties">
-        <TextArea value={s("chewing_swallowing_difficulties")} onChange={v => updateField("chewing_swallowing_difficulties", v)} placeholder="Any chewing or swallowing difficulties..." rows={2} />
-      </Field>
-      <Field label="Constipation">
-        <TextArea value={s("constipation")} onChange={v => updateField("constipation", v)} placeholder="Constipation notes..." rows={2} />
-      </Field>
-      <Field label="Diarrhea Notes">
-        <TextArea value={s("diarrhea_notes")} onChange={v => updateField("diarrhea_notes", v)} placeholder="Diarrhea notes..." rows={2} />
-      </Field>
+        {/* BMI — from weight + height */}
+        <div className={`rounded-xl p-3 border ${computedBmi !== null ? "bg-white border-zinc-200" : "bg-zinc-50 border-zinc-100"}`}>
+          <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">BMI</p>
+          <p className={`text-xl font-black font-mono mt-0.5 ${computedBmi !== null ? "text-zinc-900" : "text-zinc-300"}`}>
+            {computedBmi !== null ? computedBmi.toFixed(1) : "—"}
+          </p>
+          <p className="text-[9px] text-zinc-400 mt-0.5">
+            {computedBmi !== null ? "kg/m²" : "Enter weight & height"}
+          </p>
+        </div>
+        {/* BMR — from weight + height + age + sex (+ PAL for TEE) */}
+        <div className={`rounded-xl p-3 border ${computedBMR !== null ? "bg-white border-zinc-200" : "bg-zinc-50 border-zinc-100"}`}>
+          <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">BMR / TEE</p>
+          <p className={`text-xl font-black font-mono mt-0.5 ${computedBMR !== null ? "text-zinc-900" : "text-zinc-300"}`}>
+            {computedBMR !== null ? Math.round(computedBMR) : "—"}
+          </p>
+          <p className="text-[9px] text-zinc-400 mt-0.5">
+            {computedBMR !== null
+              ? `BMR · TEE ${computedTEE ?? "—"} kcal (×${palFactor})`
+              : "Enter wt, ht · set age & sex in profile"}
+          </p>
+        </div>
+        {/* Weight Loss % — from weight + usual weight */}
+        <div className={`rounded-xl p-3 border ${computedWeightLossPct !== null ? "bg-white border-zinc-200" : "bg-zinc-50 border-zinc-100"}`}>
+          <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">Weight Loss</p>
+          <p className={`text-xl font-black font-mono mt-0.5 ${computedWeightLossPct !== null ? "text-amber-700" : "text-zinc-300"}`}>
+            {computedWeightLossPct !== null ? `${computedWeightLossPct}%` : "—"}
+          </p>
+          <p className="text-[9px] text-zinc-400 mt-0.5">
+            {computedWeightLossPct !== null ? "from usual weight" : "Enter weight & usual weight"}
+          </p>
+        </div>
+        {/* MUAC — from muac_mm */}
+        <div className={`rounded-xl p-3 border ${muacClassification !== null ? "bg-white border-zinc-200" : "bg-zinc-50 border-zinc-100"}`}>
+          <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">MUAC</p>
+          <p className={`text-xl font-black font-mono mt-0.5 ${muacClassification !== null ? "text-zinc-900" : "text-zinc-300"}`}>
+            {muacValue > 0 ? `${muacValue} mm` : "—"}
+          </p>
+          {muacClassification !== null
+            ? <p className={`text-[9px] font-bold mt-0.5 ${muacClassification.color}`}>{muacClassification.label}</p>
+            : <p className="text-[9px] text-zinc-400 mt-0.5">Enter MUAC (mm)</p>
+          }
+        </div>
+        {/* WHR — from waist_cm ÷ hip_cm */}
+        <div className={`rounded-xl p-3 border ${computedWHR !== null ? (whrRisk === "High Risk" ? "bg-white border-red-200" : "bg-white border-zinc-200") : "bg-zinc-50 border-zinc-100"}`}>
+          <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">WHR</p>
+          <p className={`text-xl font-black font-mono mt-0.5 ${computedWHR !== null ? "text-zinc-900" : "text-zinc-300"}`}>
+            {computedWHR !== null ? computedWHR.toFixed(2) : "—"}
+          </p>
+          {computedWHR !== null
+            ? <p className={`text-[9px] font-bold mt-0.5 ${whrRisk === "High Risk" ? "text-red-500" : "text-emerald-600"}`}>
+                {whrRisk} · {patientSex === "Female" ? "cut-off 0.85" : "cut-off 0.90"}
+              </p>
+            : <p className="text-[9px] text-zinc-400 mt-0.5">Enter waist & hip cm</p>
+          }
+        </div>
+      </div>
+
+      {/* ── Nutritional Status Badge (auto, no manual entry needed) ───── */}
+      {computedNutritionalStatus !== null && (
+        <div className={`p-3 rounded-xl border ${computedNutritionalStatus.colorClass}`}>
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div>
+              <p className="text-[9px] font-bold uppercase tracking-wider opacity-70">Nutritional Status</p>
+              <p className="text-sm font-black mt-0.5">{computedNutritionalStatus.label}</p>
+            </div>
+            {computedNutritionalStatus.suggestedGoal && (
+              <div className="text-right">
+                <p className="text-[9px] font-bold uppercase tracking-wider opacity-70">Suggested Goal</p>
+                <p className="text-[10px] font-bold mt-0.5 capitalize">
+                  {computedNutritionalStatus.suggestedGoal.replace(/_/g, " ")}
+                  {computedNutritionalStatus.suggestedStage ? ` → ${computedNutritionalStatus.suggestedStage.replace(/_/g, " ")}` : ""}
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Measurement inputs ───────────────────────────────────────── */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Field label="Weight (kg)" hint="IBW% · BMI · BMR · Weight Loss%">
+          <TextInput type="number" value={String(assessment.weight ?? "")} onChange={v => updateField("weight", v ? Number(v) : null)} placeholder="e.g. 70.5" />
+        </Field>
+        <Field label="Usual Weight (kg)" hint="Weight Loss%">
+          <TextInput type="number" value={String(assessment.usual_weight ?? "")} onChange={v => updateField("usual_weight", v ? Number(v) : null)} placeholder="e.g. 72.0" />
+        </Field>
+        <Field label="Height (cm)" hint="IBW · BMI · BMR">
+          <TextInput type="number" value={String(assessment.height ?? "")} onChange={v => updateField("height", v ? Number(v) : null)} placeholder="e.g. 170" />
+        </Field>
+        <Field label="MUAC (mm)" hint="MUAC card">
+          <TextInput type="number" value={String(assessment.muac_mm ?? "")} onChange={v => updateField("muac_mm", v ? Number(v) : null)} placeholder="e.g. 250" />
+        </Field>
+        <Field label="Waist Circumference (cm)" hint="WHR card">
+          <TextInput type="number" value={String(assessment.waist_cm ?? "")} onChange={v => updateField("waist_cm", v ? Number(v) : null)} placeholder="e.g. 90" />
+        </Field>
+        <Field label="Hip Circumference (cm)" hint="WHR card">
+          <TextInput type="number" value={String(assessment.hip_cm ?? "")} onChange={v => updateField("hip_cm", v ? Number(v) : null)} placeholder="e.g. 100" />
+        </Field>
+        <Field label="Weight Loss Period">
+          <TextInput value={s("weight_loss_period")} onChange={v => updateField("weight_loss_period", v)} placeholder="e.g. 3 months" />
+        </Field>
+        <Field label="Functional Assessment">
+          <SelectInput
+            value={s("functional_assessment")}
+            onChange={v => updateField("functional_assessment", v || null)}
+            options={FUNCTIONAL_OPTIONS.map(o => ({ value: o, label: o }))}
+            placeholder="Select functional status..."
+          />
+        </Field>
+      </div>
+
     </div>
   );
 
@@ -976,8 +1156,23 @@ export default function NcpAssessmentPage({
       <Field label="Social History">
         <TextArea value={s("social_history")} onChange={v => updateField("social_history", v)} placeholder="Social history..." rows={3} />
       </Field>
-      <Field label="Lifestyle">
-        <TextArea value={s("lifestyle")} onChange={v => updateField("lifestyle", v)} placeholder="Lifestyle factors..." rows={3} />
+      <Field label="Religion / Dietary Practices" hint="Helps identify dietary restrictions">
+        <TextInput
+          value={s("religion") ?? ""}
+          onChange={v => updateField("religion", v || null)}
+          placeholder="e.g. Roman Catholic, Muslim, Seventh-Day Adventist"
+        />
+      </Field>
+      <Field label="Physical Activity Level (PAL)">
+        <SelectInput
+          value={s("physical_activity_level")}
+          onChange={v => updateField("physical_activity_level", v || null)}
+          options={Object.entries(ACTIVITY_FACTORS).map(([key, { label, factor }]) => ({
+            value: key,
+            label: `${label} (×${factor})`,
+          }))}
+          placeholder="Select activity level..."
+        />
       </Field>
       <Field label="Allergies (Hard Filter for meal plans)">
         <div className="flex flex-wrap gap-1.5 py-1">

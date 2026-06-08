@@ -27,6 +27,7 @@ use App\Http\Controllers\FSS\PurchaseOrderController;
 use App\Http\Controllers\FSS\ShoppingListController;
 use App\Http\Controllers\FSS\MenuCycleController;
 use App\Http\Controllers\FSS\BudgetController;
+use App\Http\Controllers\FSS\FoodServiceRecipeController;
 use App\Http\Controllers\ReportController;
 
 Route::prefix('auth')->group(function () {
@@ -141,6 +142,9 @@ Route::middleware(['auth:sanctum', 'role:FSS,RND'])->prefix('fss')->group(functi
     // Menu Cycles routes
     Route::patch('menu-cycles/{menu_cycle}/activate', [MenuCycleController::class, 'activate']);
     Route::apiResource('menu-cycles', MenuCycleController::class);
+
+    // Food Service Recipes routes
+    Route::apiResource('food-service-recipes', FoodServiceRecipeController::class);
 
     // Budgets routes
     Route::post('budgets/{budget}/daily-logs', [BudgetController::class, 'storeDailyLog']);
