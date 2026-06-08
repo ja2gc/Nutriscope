@@ -15,18 +15,14 @@ export async function GET(req: NextRequest) {
   const targetUrl = new URL(`${LARAVEL_API}/fss/inventory/rows`);
   searchParams.forEach((value, key) => targetUrl.searchParams.append(key, value));
 
-  const laravelRes = await fetch(targetUrl.toString(), {
+  const res = await fetch(targetUrl.toString(), {
     headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
-    next: { revalidate: 0 },
   });
 
-  if (!laravelRes.ok) {
-    const data = await laravelRes.json().catch(() => ({}));
-    return NextResponse.json(
-      { message: data.message ?? "Failed to fetch inventory rows." },
-      { status: laravelRes.status }
-    );
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    return NextResponse.json({ message: data.message ?? "Failed." }, { status: res.status });
   }
 
-  return NextResponse.json(await laravelRes.json(), { status: 200 });
+  return NextResponse.json(await res.json(), { status: 200 });
 }

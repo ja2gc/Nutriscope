@@ -11,9 +11,8 @@ class StoreInventoryRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'item_type'               => ['required', 'in:food_item,recipe'],
+            'item_type'               => ['required', 'in:food_item'],
             'food_item_id'            => ['nullable', 'exists:food_items,id', 'required_if:item_type,food_item'],
-            'recipe_id'               => ['nullable', 'exists:recipes,id', 'required_if:item_type,recipe'],
             'quantity_in_stock'       => ['required', 'numeric', 'min:0'],
             'unit'                    => ['required', 'string'],
             'expiry_date'             => ['nullable', 'date'],
