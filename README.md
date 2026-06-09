@@ -300,5 +300,13 @@ If everything is set up correctly, you should have:
 
 ---
 
+Seeded Accounts
+See backend/database/seeders/AdminUserSeeder.php for full list.
+
+Role	Email	Password
+Admin	admin@nutriscope.local	nutriscope2024!
+RND	rnd@nutriscope.local	nutriscope2024!
+FSS	fss@nutriscope.local	nutriscope2024!
+
 ```
 ```
