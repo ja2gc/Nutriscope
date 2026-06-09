@@ -194,6 +194,7 @@ class FoodItemsSeeder extends Seeder
                         $food = $usda->import($fallbackId);
                         $food->update(['name' => $friendlyName]);
                         $this->command->info("  ✓ {$friendlyName} [fallback FDC #{$fallbackId}]");
+                        $imported = true;
                     } catch (\Exception $fe) {
                         $this->command->warn("  ✗ Fallback also failed for {$friendlyName}: {$fe->getMessage()}");
                     }
