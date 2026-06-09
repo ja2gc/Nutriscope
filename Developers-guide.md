@@ -1,367 +1,415 @@
-Here's the complete `DEVELOPER_GUIDE.md`:
+# NutriScope — AI Multi-Agent Engineering & Workflow Guide
 
-```markdown
-# NutriScope — Developer Guide
+This document defines how AI tools, agents, and workflows are used across the project.
 
-NutriScope is a hospital-based clinical nutrition management system built for Romana Pangan District Hospital. Read the `/docs` folder first before doing anything. It gives full context on what we're building.
-
----
-
-## Prerequisites (Install These First)
-
-Before cloning or running anything, make sure you have these installed.
-
-### Required
-
-PHP 8.3+
-https://www.php.net/downloads.php
-Verify: `php --version`
-
-Composer
-https://getcomposer.org/download/
-Verify: `composer --version`
-
-Node.js 20+
-https://nodejs.org/en/download
-Verify: `node --version`
-
-Docker Desktop
-https://www.docker.com/products/docker-desktop/
-Required for MySQL and Redis containers. Must be open and running before `docker-compose up -d`.
-Verify: `docker --version`
-
-Git
-https://git-scm.com/downloads
-Verify: `git --version`
-
-### For Development Agent
-
-Antigravity IDE
-https://antigravity.dev
-This is the AI coding agent we use for all development. After installing, open the NutriScope project folder inside it.
-
-### Model Selection by Task Type
-
-- Planning: Flash High — worth the extra tokens to get the plan right
-- Frontend execution: Flash High
-- Simple backend (migrations, seeders, form requests, resources): Flash High
-- Complex backend (algorithms, OCR pipeline, report generators): Gemini Pro High or Opus
-- Never use Flash for multi-layer backend logic — cost of fixing mistakes exceeds what you saved
-Superpowers Framework
-Run once after cloning to set up the workflow framework:
-```bash
-npx antigravity-superpowers init
-```
-
-## Initial Setup
-
-### 1. Clone the repo
-```bash
-git clone <repo-url>
-cd Nutriscope
-```
-
-### 2. Start Docker (MySQL + Redis)
-Make sure Docker Desktop is open and running, then:
-```bash
-docker-compose up -d
-```
-
-### 3. Backend setup
-```bash
-cd backend
-cp .env.example .env
-composer install
-php artisan key:generate
-php artisan migrate:fresh --seed
-php artisan serve
-```
-
-### 4. Frontend setup
-```bash
-cd frontend
-npm install
-```
-
-
-Then run:
-```bash
-npm run dev
-```
-
-### 5. Open in browser
-```
-http://localhost:3000
-```
+It ensures:
+- consistent architecture decisions
+- reproducible development flow
+- capstone-level engineering discipline
+- safe multi-agent collaboration
+- no lost work between sessions
 
 ---
 
-## Seeded Accounts
+# 1. CORE PRINCIPLE: AI IS A TOOLSET, NOT A DEVELOPER
 
-See `backend/database/seeders/AdminUserSeeder.php` for full list.
+We do not depend on a single AI model.
 
-| Role  | Email                  | Password        |
-|-------|------------------------|-----------------|
-| Admin | admin@nutriscope.local | nutriscope2024! |
-| RND   | rnd@nutriscope.local   | nutriscope2024! |
-| FSS   | fss@nutriscope.local   | nutriscope2024! |
+We treat AI as specialized tools:
 
----
+- Claude Code → deep reasoning, architecture, complex debugging
+- Codex / lightweight agents → fast implementation, boilerplate, quick fixes
+- Antigravity → structured planning and Superpowers workflow execution
+- Other chat models → fallback for debugging, explanation, brainstorming
 
-## Development Workflow (Superpowers)
-
-Every task must follow this exact order. Do not skip steps.
-
-### Standard Flow
-```
-1. /superpowers-brainstorm   → only if task is unclear or complex
-2. /superpowers-write-plan   → always before touching any code, always include to plan in a tdd environment (skill ng superpowers to para gumawa sya ng mga unit test at itest kung gumagana ba)
-3. APPROVED                  → review the plan, then type APPROVED
-4. /superpowers-execute-plan → agent builds step by step with tests
-5. /superpowers-review       → check for blockers, bugs, security
-```
-
-### When to Use Each Command
-Or just ask agent whats the next best step if it didnt tell whichs the best next step yet or ask your browser claude ai to help you prompt
-| Command | When |
-|---------|------|
-| `/superpowers-brainstorm` | Unclear requirements, new feature design |
-| `/superpowers-plan` | Before every implementation |
-| `/superpowers-execute-plan` | After plan is approved |
-| `/superpowers-review` | After execution, before finishing |
-| `/superpowers-tdd` | for a test driven development |
-
-### Rules
-- Never mark a milestone done without tests passing
-- Backend = PHPUnit tests written + `php artisan test` all green
-- Frontend = confirmed renders in browser
-- Agent must go through Superpowers workflow before marking `[x]`
+No AI output is trusted without validation.
 
 ---
 
-## Superpowers Skill Reference
+# 2. MCP BOOST SERVER REQUIREMENT (MANDATORY)
 
-Paste these into any AI chat when planning outside Antigravity so the AI understands the workflow.
+Before any AI-assisted development:
 
-Full workflow order:
-```
-brainstorm → write-plan → APPROVED → execute-plan → review → finish
-```
+- MCP Boost Server must be active
+- Laravel Boost MCP must be connected
+- Agent must confirm MCP availability before execution
 
-superpowers-workflow:
-```
-Default workflow for every task:
-1. Brainstorm: clarify goal, constraints, risks, acceptance criteria
-2. Write a plan: small steps (2-10 min each) with files + verification
-3. Implement: smallest correct change, tests-first when possible
-4. Review: correctness, edge cases, security, style, maintainability
-5. Finish: run verification, summarize changes, commit, update docs
-```
-
-superpowers-brainstorm:
-```
-Use before any creative or unclear work.
-Explores intent, requirements, design before implementation.
-Hard gate: no code until design is approved.
-```
-
-superpowers-plan:
-```
-Use before any multi-file or behavior-changing task.
-Output: Goal, Assumptions, Plan (small steps with files + verify), Risks, Rollback.
-```
-
-superpowers-tdd (aka test driven development):
-```
-Use for backend features.
-Red → green → refactor.
-Write test first, implement minimal change to pass, then refactor.
-Run php artisan test. All must pass.
-is a must to avoid any bugs later in production
-```
-
-superpowers-review:
-```
-Use after execution, before finishing.
-Severity: Blocker / Major / Minor / Nit
-Checks: correctness, edge cases, tests, security, performance, readability.
-```
-
-superpowers-debug:
-```
-Use when something is broken.
-Reproduce → isolate → hypothesize → instrument → fix → regression test.
-```
-
-superpowers-finish:
-```
-Runs verification, summarizes changes, notes follow-ups, commits, updates milestones.
-```
+If MCP is not active:
+- stop workflow
+- do not proceed with implementation
 
 ---
 
-## UI/UX Standards (ui-ux-pro-max skill)
+# 3. SUPERPOWERS WORKFLOW (STRICT ENFORCEMENT)
 
-Skill location: `.agents/skills/.agent/skills/ui-ux-pro-max/SKILL.md`
+Every AI-driven task must follow this sequence:
 
-Always apply this skill when building or modifying any frontend UI.
+1. Brainstorm
+   - clarify requirements
+   - define constraints
+   - identify risks
 
-### Brand
-- "Nutri" = Emerald Green `#059669` / Tailwind `emerald-600`
-- "Scope" = Tangerine Orange `#EA580C` / Tailwind `orange-600`
-- Dark sidebar (`bg-zinc-950`), bright content canvas
-- Modern clinical SaaS — not legacy, not generic AI
+2. Write Plan
+   - step-by-step breakdown
+   - files affected
+   - expected outputs
 
-### Rules
-- No generic AI icons
-- Use clinical icons: `Compass`, `HeartHandshake`, `Salad`, `CookingPot`, `TrendingUp`
-- Professional but visually engaging
-- 4px/8px grid spacing strictly
-- All design tokens in `frontend/app/globals.css`
-- Design system docs in `docs/ui/design-system.md`
-- Use native Tailwind utility classes, not custom `@theme` variables
+3. Approval Gate
+   - human must approve plan before execution
 
----
+4. Execute Plan
+   - incremental implementation
+   - small verifiable steps
 
-## Planning with AI Chat (Outside Antigravity)
+5. Review
+   - correctness
+   - security
+   - performance
+   - architecture consistency
 
-When you need to plan or figure out next steps without burning agent credits, use an AI chat (Claude, ChatGPT, Gemini).
-
-### How to Feed Context
-
-Always paste these into the chat first:
-
-1. Contents of `docs/milestones.md`
-2. Contents of `docs/overview.md`
-3. Contents of `docs/architecture/stack.md`
-4. Current status — tell the AI what milestone you just finished
-
-Example opener:
-```
-Here is our project context:
-[paste milestones.md]
-[paste overview.md]
-[paste stack.md]
-
-Current status: Just finished Milestone 1 frontend.
-Starting Milestone 2. What should my next Antigravity prompt be?
-```
+No code generation is allowed before a plan exists.
 
 ---
 
-## When You Run Out of Credits
+# 4. ARTIFACT CONTINUITY SYSTEM (CRITICAL)
 
-### Switch model first
-Antigravity lets you change model in settings. Try switching before making a new account.
+All AI work must be saved in:
 
-### Continue after switching
-```
-/superpowers-execute-plan
-Continue from last checkpoint. Read artifacts/superpowers/execution.md.
-```
+artifacts/superpowers/
 
-### If you accidentally cancelled or rejected changes
-```
-/superpowers-execute-plan
-Restart from Step X. Read artifacts/superpowers/execution.md and plan.md.
-```
+## Required files:
 
-### When all models on your account are exhausted
-1. Create a new Antigravity account
-2. Open the same NutriScope project folder
-3. Run `/superpowers-reload` to load skills
-4. Continue with the prompt above
+### plan.md
+- task breakdown
+- assumptions
+- risks
+- architecture notes
+- step-by-step plan
 
-No context is lost — everything is saved to disk in `artifacts/superpowers/`.
+### execution.md
+- progress tracking
+- completed steps
+- partial work checkpoints
+- current state of implementation
 
----
-
-## Token Efficiency Tips
-
-- Keep prompts short — agent reads `docs/` automatically
-- Never repeat what is already in `docs/` in your prompt
-- this is only for antigravity, use sonnet medium for claude code
-- Use cheap models (Flash, Haiku) for planning
-- Use strong models (Pro, Sonnet) for coding
-- Skip brainstorm for simple obvious tasks if you already know how the flow is gonna be and just explain that to the prompt, go straight to write-plan
-- Always brainstorm first for risky tasks (auth, database, migrations, api, things that needs resesarch and you have little idea about)
+### notes.md
+- debugging logs
+- design decisions
+- API behavior notes
+- known issues
 
 ---
 
-## Context for Agents
+## Purpose:
 
-Always tell the agent to read docs before starting:
-```
-Read docs/ folder and .agents/rules/ for full project context.
-```
-
-Key docs:
-- `docs/milestones.md` — current progress and task list
-- `docs/architecture/` — system design and folder structure
-- `docs/ui/design-system.md` — UI/UX standards
-- `artifacts/superpowers/` — previous plans and execution logs
+This system ensures:
+- work is resumable across AI tools
+- no dependency on session memory
+- safe model switching
+- no loss of progress
 
 ---
 
-## Useful Terminal Commands
+# 5. MULTI-AGENT CONTINUITY SYSTEM
 
-```bash
-# Start everything
-docker-compose up -d
-cd backend && php artisan serve
-cd frontend && npm run dev
+AI sessions are temporary and interchangeable.
 
-# Reset database
-php artisan migrate:fresh --seed
+Any agent must be able to resume work using:
 
-# Run backend tests
-php artisan test
-
-# Check routes
-php artisan route:list
-
-# Check seeded users
-php artisan tinker
-User::all()
-
-# Commit and push work
-git add .
-git commit -m "feat: <milestone name>"
-git push
-```
+- artifacts/superpowers/plan.md
+- artifacts/superpowers/execution.md
+- project /docs directory
 
 ---
 
-## Milestone Tracker (di ko na to nagamit since mejo gulo gulo, by page nalang ung pag gawa natin kahit wag nyo na pansinin to)
+## Resume protocol:
 
-See `docs/milestones.md` for full list of milestones and current status.
+When switching AI tools or models:
 
-Never mark a milestone `[x]` unless:
-1. Superpowers workflow was followed
-2. Tests pass (`php artisan test` for backend)
-3. Renders correctly in browser (frontend)
-4. `/superpowers-review` found no blockers
-5. `/superpowers-finish` was run
+1. Load plan.md
+2. Load execution.md
+3. Identify last completed checkpoint
+4. Continue from that point
+5. Do not restart from scratch
+
+---
+
+# 6. AI TOOL RESPONSIBILITY MODEL
+
+## Claude Code
+Use for:
+- architecture design
+- complex backend logic
+- multi-file refactoring
+- debugging systemic issues
+
+Avoid for:
+- trivial edits
+- simple UI adjustments
+
+---
+
+## Codex / lightweight agents
+Use for:
+- boilerplate generation
+- repetitive code
+- fast implementation tasks
+
+Risk:
+- may ignore architecture constraints
+- requires review
+
+---
+
+## Antigravity workflow system
+Use for:
+- structured planning
+- Superpowers execution
+- task tracking
+- milestone control
+
+Required for all multi-step features.
+
+---
+
+# 7. AI FAILURE RECOVERY SYSTEM
+
+If any AI tool:
+- runs out of quota
+- becomes unavailable
+- stops mid-task
+
+Then:
+
+1. Stop execution immediately
+2. Save current progress to execution.md
+3. Update plan.md with completed steps
+4. Switch AI tool or model
+5. Resume using execution.md checkpoint
+
+---
+
+## Resume command pattern:
+
+Continue from artifacts/superpowers/execution.md
+
+---
+
+# 8. AI PROMPTING STANDARD (ANTI-SLOP RULE)
+
+## Bad prompts:
+- fix this
+- make it better
+- optimize this code
+
+## Good prompts:
+- clearly define goal
+- include constraints
+- specify expected behavior
+- include file context
+
+Example:
+Identify why this Laravel validation fails and propose a minimal fix without changing architecture.
+
+---
+
+# 9. SECURITY-FIRST AI THINKING
+
+Every AI-generated solution must be validated for:
+
+- input validation
+- authentication bypass risks
+- exposed secrets
+- unsafe database writes
+- trust boundary violations
+
+If security is not explicitly addressed → reject output.
+
+---
+
+# 10. PERFORMANCE & SCALABILITY RULES
+
+AI-generated solutions must consider:
+
+- database indexing strategy
+- query optimization (avoid N+1 problems)
+- caching (Redis for expensive operations)
+- minimizing API payload size
+- avoiding redundant computation
+
+---
+
+# 11. ARCHITECTURE DISCIPLINE RULE
+
+AI must not:
+
+- introduce new architecture layers without approval
+- modify system structure without justification
+- add unnecessary services or abstractions
+
+All changes must respect:
+
+- Laravel backend structure
+- Next.js frontend structure
+- Docker service boundaries
+
+---
+
+# 12. CAPSTONE-LEVEL THINKING STANDARD
+
+Before approving any solution, verify:
+
+- Does it scale beyond demo level?
+- Is it maintainable by another developer?
+- Is it secure under real usage?
+- Is it consistent with existing architecture?
+
+If any answer is no → reject or revise AI output.
+
+---
+
+# 13. GOLD STANDARD RULE
+
+If all AI tools disappear tomorrow:
+
+The system must still be:
+- understandable
+- debuggable
+- maintainable
+- extendable
+
+AI is an accelerator, not a dependency.
+
+---
+
+# 14. SYSTEM CONSISTENCY & REUSE RULES
+
+## 14.1 REUSE BEFORE CREATE RULE
+
+Before creating anything new:
+- check if it already exists
+- reuse existing logic
+- extend instead of duplicating
+
+---
+
+## 14.2 BACKEND VARIABLE CONSISTENCY
+
+Never duplicate variables:
+- use existing names
+- do not create alternate naming systems
+
+---
+
+## 14.3 SINGLE SOURCE OF TRUTH RULE
+
+Every data must have one canonical source:
+- database OR API OR service
+
+Never multiple conflicting sources.
+
+---
+
+## 14.4 DATA AVAILABILITY RULE
+
+If data does not exist:
+- do not hallucinate
+- define where it should come from
+- propose valid injection point
+
+---
+
+## 14.5 QUESTION-FIRST RULE
+
+If unclear:
+- ask questions first
+- do not guess system behavior
+
+---
+
+## 14.6 SHORT SESSION RULE
+
+After completing a task:
+- write to artifacts
+- end session
+- start fresh next task
+
+---
+
+## 14.7 COMPONENT INTEGRATION RULE
+
+All features must integrate with:
+- existing backend structure
+- existing frontend components
+- existing APIs
+
+No isolated features.
+
+---
+
+## 14.8 CONSISTENCY OVER INNOVATION RULE
+
+Consistency is higher priority than clever solutions.
+
+---
+
+# FINAL RULE (REUSE)
+
+If something already exists:
+
+Use it.
+
+Do not recreate it.
+
+Do not duplicate it.
+
+Do not override it.
+
+---
+
+# 15. RESPONSIVE DESIGN RULE
+
+## 15.1 MOBILE-FIRST THINKING
+
+Design starts from mobile, then scales upward.
+
+---
+
+## 15.2 RESPONSIVENESS VALIDATION
+
+Must work on:
+- mobile
+- tablet
+- desktop
+
+No horizontal overflow allowed.
+
+---
+
+## 15.3 TAILWIND RESPONSIVENESS
+
+Use:
+- sm:
+- md:
+- lg:
+- xl:
+
+Avoid fixed layouts.
+
+---
+
+## 15.4 FLEXIBILITY RULE
+
+Prefer:
+- flexbox
+- grid
+- responsive widths
+
+Avoid rigid pixel layouts.
+
+---
+
+## FINAL RULE
+
+If it is not responsive, it is not complete.
 ```
-
-## Milestone Tracker
-run this to enable mcp server in antigravity
-go to your .gemini folder then search mcp_config.json
-
-{
-  "mcpServers": {
-    "laravel-boost": {
-      "command": "php",
-      "args": [
-        "C:\\path\\to\\theproject\\Nutriscope\\backend\\artisan",
-        "boost:mcp"
-      ]
-    }
-  }
-}
-
-then check if antigravity considers it as an mcp server click the three dotted line in the upper right corner and click mcp server then manage mcp server then check if laravel mcp is present then click the reload button. 
-
-
-
-
