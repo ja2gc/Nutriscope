@@ -92,12 +92,6 @@ artifacts/superpowers/
 - partial work checkpoints
 - current state of implementation
 
-### notes.md
-- debugging logs
-- design decisions
-- API behavior notes
-- known issues
-
 ---
 
 ## Purpose:
