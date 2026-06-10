@@ -76,19 +76,24 @@ Step 7: Apply goal-specific modifier (see each section)
 BMI = weight_kg / height_m²
 ```
 
-> **System decision:** NutriScope uses WHO Western BMI cutoffs for classification consistency with AND clinical nutrition guidelines used in Philippine hospital dietetics training. RNDs should apply clinical judgment for Filipino patients — the WHO Asia-Pacific thresholds (overweight at BMI ≥ 23, obese at BMI ≥ 27.5) may be more clinically appropriate for shorter patients. This is a known limitation.
+> **System decision (updated 2026-06-11):** NutriScope uses **WHO Asia-Pacific BMI cut-points as the
+> system default** (decision D1) for its Filipino patient population, who develop cardiometabolic disease
+> at lower BMI than European-ancestry populations. WHO Western cut-points are retained only as a labeled
+> reference. See [`intervention-goals-asia-pacific-research.md`](intervention-goals-asia-pacific-research.md) §2.
 
-| BMI Range | WHO Classification |
-|---|---|
-| < 18.5 | Underweight |
-| 18.5 – 24.9 | Normal |
-| 25.0 – 29.9 | Overweight |
-| 30.0 – 34.9 | Obese Class I |
-| 35.0 – 39.9 | Obese Class II |
-| ≥ 40.0 | Obese Class III |
+| BMI Range | Asia-Pacific Classification (default) | WHO Western (reference only) |
+|---|---|---|
+| < 18.5 | Underweight | Underweight |
+| 18.5 – 22.9 | Normal | Normal (to 24.9) |
+| 23.0 – 24.9 | Overweight | Normal |
+| 25.0 – 29.9 | Obese Class I | Overweight |
+| ≥ 30.0 | Obese Class II | Obese I–III |
 
-**Source:** WHO BMI Classification — https://www.who.int/news-room/fact-sheets/detail/obesity-and-overweight
-**Asia-Pacific reference:** WHO Western Pacific Region (2000). *The Asia-Pacific Perspective: Redefining Obesity and its Treatment.* — https://apps.who.int/iris/handle/10665/206936
+> 23.0 = "increased risk" action point; 27.5 = "high risk" action point (within Obese I). Weight-loss
+> `disease_stage` maps to AP (D2): `overweight` 23–24.9 · `class_1` 25–29.9 · `class_2` 30–34.9 · `class_3` ≥35.
+
+**Source:** WHO Western Pacific Region / IASO / IOTF (2000). *The Asia-Pacific Perspective: Redefining Obesity and its Treatment.* — https://apps.who.int/iris/handle/10665/206936
+**Western reference:** WHO BMI Classification — https://www.who.int/news-room/fact-sheets/detail/obesity-and-overweight
 
 ---
 
@@ -117,6 +122,15 @@ AjBW = IBW + 0.25 × (actual weight − IBW)
 ```
 %IBW = (actual weight / IBW) × 100
 ```
+
+> **Weight-basis rule (M2, decided 2026-06-11) — used by the engine:**
+> - **Energy (flat kcal/kg) and fluid (mL/kg):** use **working weight** = `%IBW > 120 ? AjBW : actual`.
+> - **BMR (Mifflin):** use **`%IBW > 120 ? AjBW : actual`** (actual body weight, adjusted only if obese).
+> - **Protein (g/kg):** use **IBW** for all adult goals (doc tables specify g/kg IBW).
+>
+> This resolves the prior `calcWorkingWeight` ambiguity (which used IBW for the 90–120% band). The
+> machine-readable encoding lives in [`prescription-targets.json`](prescription-targets.json) →
+> `weight_basis`, which is the single source of truth for both the backend and frontend engines.
 
 | %IBW | Nutritional Status |
 |---|---|
@@ -894,6 +908,10 @@ Both goal types can involve underweight patients and caloric surpluses. They are
 
 | Date | Change |
 |---|---|
+| 2026-06-11 | **Asia-Pacific localization (D1):** BMI default switched to WHO Asia-Pacific cut-points (Western kept as reference); weight-loss `disease_stage` re-cut to AP (D2); diabetic `stage_2` trigger BMI ≥ 23 (D3) |
+| 2026-06-11 | **Weight-basis rule pinned (M2):** energy/fluid use working weight (>120%→AjBW else actual); BMR same; protein uses IBW. Resolves `calcWorkingWeight` ambiguity |
+| 2026-06-11 | **Machine-readable spec added:** `prescription-targets.json` is now the canonical engine contract (PHP authoritative, TS mirror); golden cases freeze expected outputs |
+| 2026-06-11 | **PDRI baselines:** fiber 20–25 g, sodium < 2000 mg, free-sugars < 10% E, macro split carb 55–75% / fat 15–30% (research §5); pediatric goal-specific logic deferred (M4) |
 | 2026-06-08 | Fixed liver disease encephalopathy protein — updated grade 1–2 and grade 3–4 to target 1.2–1.5 g/kg per ESPEN/EASL; protein restriction now labeled contraindicated; BCAA and vegetable/dairy protein as primary interventions |
 | 2026-06-08 | Fixed albumin goal statement — removed "goal albumin ≥ 3.5 g/dL over 2–4 weeks"; replaced with monitoring language; added note that albumin is a negative acute phase reactant (ASPEN 2011) |
 | 2026-06-08 | Fixed CKD energy — updated from flat 30–35 kcal/kg to individualized 25–35 kcal/kg per KDOQI 2020; added age-specific guidance; system default 30 kcal/kg |
