@@ -1,0 +1,1508 @@
+{
+  "version": "1.0.0",
+  "description": "Canonical, machine-readable prescription target spec. Single source of truth for the nutrition engine in BOTH runtimes (PHP backend = authoritative; TS frontend = mirror for live preview). Derived from docs/logic/intervention-goals.md + intervention-goals-asia-pacific-research.md. Golden cases at the end are frozen expected outputs that both engines must reproduce exactly.",
+  "generated": "2026-06-11",
+  "rounding": "All g/kcal/ml outputs are Math.round (half-up) to whole numbers. %IBW and intermediate weights are NOT rounded before use.",
+  "decisions": {
+    "D1_bmi_default": "asia_pacific",
+    "D2_weight_loss_stage_bmi": "4 enum values kept, re-cut to AP",
+    "D3_diabetic_stage2_trigger_bmi": 23,
+    "D5_liver_protein": "1.2-1.5 g/kg all stages; restriction contraindicated",
+    "weight_basis_rule": "M2 resolved (see weight_basis)",
+    "pediatric_scope": "M4: goal-specific pediatric branching DEFERRED. Pediatric uses generic Schofield + growth + PDRI-aligned protein baseline regardless of goal. Documented limitation pending pediatric-dietitian review."
+  },
+  "weight_basis": {
+    "comment": "Resolves the calcWorkingWeight ambiguity. %IBW = actual/IBW*100.",
+    "energy_working_weight": "percentIBW > 120 ? AjBW : actual",
+    "bmr_weight": "percentIBW > 120 ? AjBW : actual",
+    "protein_basis": "IBW (all adult goals; doc tables specify g/kg IBW)",
+    "ajbw_formula": "IBW + 0.25 * (actual - IBW)",
+    "ibw_formula_hamwi": "Male: 48.0 + 2.7*((cm/2.54)-60); Female: 45.5 + 2.2*((cm/2.54)-60); floor 30",
+    "fluid_std_factor_ml_per_kg": 32.5
+  },
+  "bmi_classification_asia_pacific": [
+    {
+      "max": 18.5,
+      "label": "Underweight",
+      "key": "underweight"
+    },
+    {
+      "max": 23.0,
+      "label": "Normal",
+      "key": "normal"
+    },
+    {
+      "max": 25.0,
+      "label": "Overweight",
+      "key": "overweight"
+    },
+    {
+      "max": 30.0,
+      "label": "Obese Class I",
+      "key": "obese_1"
+    },
+    {
+      "max": null,
+      "label": "Obese Class II",
+      "key": "obese_2"
+    }
+  ],
+  "glim_low_bmi_asian": {
+    "low_under70": 18.5,
+    "low_70plus": 20.0,
+    "severe_under70": 17.0,
+    "severe_70plus": 17.8
+  },
+  "activity_factors": {
+    "sedentary": 1.2,
+    "light": 1.375,
+    "moderate": 1.55,
+    "very_active": 1.725,
+    "extra_active": 1.9
+  },
+  "bmr_mifflin": {
+    "male": "10*w + 6.25*h - 5*age + 5",
+    "female": "10*w + 6.25*h - 5*age - 161"
+  },
+  "baseline_pdri": {
+    "fat_pct_default": 0.25,
+    "carb_pct_range": [
+      0.55,
+      0.75
+    ],
+    "fat_pct_range": [
+      0.15,
+      0.3
+    ],
+    "protein_floor_g_per_kg_ibw": 0.8,
+    "fiber_g_default": 22,
+    "sodium_max_mg_default": 2000,
+    "free_sugar_max_pct_energy": 0.1,
+    "caloric_floor": {
+      "Female": 1200,
+      "Male": 1500
+    }
+  },
+  "adult_goals": {
+    "renal_diet": {
+      "energy_method": "flat",
+      "energy_kcal_per_kg": 30,
+      "energy_kcal_per_kg_range": [
+        25,
+        35
+      ],
+      "fat_pct": 0.25,
+      "micros": [
+        "potassium",
+        "phosphate",
+        "sodium"
+      ],
+      "stages": {
+        "stage_1": {
+          "protein_g_per_kg_ibw": 0.8,
+          "sodium_max_mg": 2300,
+          "fluid": "std"
+        },
+        "stage_2": {
+          "protein_g_per_kg_ibw": 0.8,
+          "sodium_max_mg": 2300,
+          "fluid": "std"
+        },
+        "stage_3": {
+          "protein_g_per_kg_ibw": 0.7,
+          "sodium_max_mg": 2000,
+          "fluid": "std"
+        },
+        "stage_4": {
+          "protein_g_per_kg_ibw": 0.6,
+          "sodium_max_mg": 2000,
+          "fluid": "std"
+        },
+        "stage_5_predialysis": {
+          "protein_g_per_kg_ibw": 0.6,
+          "sodium_max_mg": 1500,
+          "fluid": "std"
+        },
+        "hemodialysis": {
+          "protein_g_per_kg_ibw": 1.2,
+          "sodium_max_mg": 1500,
+          "fluid": 750,
+          "note": "Add prior-day urine output to 750 mL base."
+        },
+        "peritoneal": {
+          "protein_g_per_kg_ibw": 1.35,
+          "sodium_max_mg": 2000,
+          "fluid": 1000,
+          "note": "Subtract ~500-800 kcal/day for dialysate glucose; individualize fluid."
+        }
+      }
+    },
+    "diabetic_control": {
+      "energy_method": "tee",
+      "fat_pct": 0.28,
+      "fiber_g": 25,
+      "free_sugar_max_pct": 0.1,
+      "micros": [
+        "fiber",
+        "sodium",
+        "free_sugars"
+      ],
+      "stages": {
+        "stage_1": {
+          "protein_g_per_kg_ibw": 0.9,
+          "sodium_max_mg": 2000,
+          "carb_min_g": 130
+        },
+        "stage_2": {
+          "protein_g_per_kg_ibw": 0.9,
+          "sodium_max_mg": 2000,
+          "energy_deficit": 500,
+          "apply_floor": true,
+          "carb_min_g": 130
+        },
+        "stage_3": {
+          "protein_g_per_kg_ibw": 0.8,
+          "sodium_max_mg": 2000,
+          "carb_min_g": 130,
+          "note": "Coexisting CKD: protein ~0.8 g/kg, avoid routinely >1.3."
+        }
+      }
+    },
+    "cardiac_diet": {
+      "energy_method": "tee",
+      "protein_g_per_kg_ibw": 0.8,
+      "micros": [
+        "sodium",
+        "cholesterol",
+        "potassium"
+      ],
+      "dash_targets": {
+        "potassium_mg": 4700,
+        "calcium_mg": 1250,
+        "magnesium_mg": 500
+      },
+      "stages": {
+        "mild": {
+          "fat_pct": 0.28,
+          "sodium_max_mg": 2300,
+          "cholesterol_max_mg": 300,
+          "fluid": "std"
+        },
+        "moderate": {
+          "fat_pct": 0.26,
+          "sodium_max_mg": 2000,
+          "cholesterol_max_mg": 200,
+          "fluid": 2000
+        },
+        "severe": {
+          "fat_pct": 0.24,
+          "sodium_max_mg": 1500,
+          "cholesterol_max_mg": 200,
+          "fluid": 1500
+        }
+      }
+    },
+    "weight_loss": {
+      "energy_method": "tee_deficit",
+      "protein_g_per_kg_ibw": 1.4,
+      "fat_pct": 0.275,
+      "fiber_g": 25,
+      "apply_floor": true,
+      "micros": [
+        "fiber"
+      ],
+      "stages": {
+        "overweight": {
+          "energy_deficit": 375,
+          "bmi_range": [
+            23.0,
+            24.9
+          ]
+        },
+        "class_1": {
+          "energy_deficit": 500,
+          "bmi_range": [
+            25.0,
+            29.9
+          ]
+        },
+        "class_2": {
+          "energy_deficit": 625,
+          "bmi_range": [
+            30.0,
+            34.9
+          ]
+        },
+        "class_3": {
+          "energy_deficit": 875,
+          "bmi_range": [
+            35.0,
+            null
+          ]
+        }
+      }
+    },
+    "weight_gain": {
+      "energy_method": "tee_surplus",
+      "fat_pct": 0.275,
+      "micros": [],
+      "stages": {
+        "mild": {
+          "energy_surplus": 400,
+          "protein_g_per_kg_ibw": 1.6,
+          "ibw_pct_range": [
+            85,
+            90
+          ]
+        },
+        "moderate": {
+          "energy_surplus": 625,
+          "protein_g_per_kg_ibw": 1.6,
+          "ibw_pct_range": [
+            70,
+            84
+          ]
+        },
+        "severe": {
+          "energy_method": "refeeding",
+          "refeeding_kcal_per_kg": 7.5,
+          "protein_g_per_kg_ibw": 1.0,
+          "ibw_pct_range": [
+            null,
+            70
+          ],
+          "note": "Refeeding: start 5-10 kcal/kg/day -> target 30-35 kcal/kg, reach full needs by day 4-7. Monitor phosphate/K/Mg daily for 72h. Thiamine 200-300 mg/day before feeding."
+        }
+      }
+    },
+    "high_protein": {
+      "energy_method": "flat",
+      "fat_pct": 0.275,
+      "note": "Flat kcal/kg already incorporates stress; do NOT add a separate stress factor.",
+      "stages": {
+        "mild_stress": {
+          "energy_kcal_per_kg": 27.5,
+          "protein_g_per_kg_ibw": 1.1,
+          "micros": []
+        },
+        "moderate_stress": {
+          "energy_kcal_per_kg": 27.5,
+          "protein_g_per_kg_ibw": 1.35,
+          "micros": []
+        },
+        "severe_stress": {
+          "energy_kcal_per_kg": 27.5,
+          "protein_g_per_kg_ibw": 1.75,
+          "micros": [
+            "zinc",
+            "vitamin_c"
+          ]
+        },
+        "burns": {
+          "energy_kcal_per_kg": 32.5,
+          "protein_g_per_kg_ibw": 1.75,
+          "micros": [
+            "zinc",
+            "vitamin_c",
+            "vitamin_a"
+          ],
+          "note": "Fluid by Parkland (not computed here)."
+        }
+      }
+    },
+    "liver_disease": {
+      "energy_method": "flat",
+      "energy_kcal_per_kg": 37.5,
+      "energy_kcal_per_kg_range": [
+        35,
+        40
+      ],
+      "fat_pct": 0.275,
+      "sodium_max_mg": 2000,
+      "micros": [
+        "sodium"
+      ],
+      "note": "Protein restriction contraindicated. BCAA 0.25 g/kg/day if encephalopathy; prefer vegetable/dairy protein; late-evening snack.",
+      "stages": {
+        "compensated": {
+          "protein_g_per_kg_ibw": 1.35,
+          "fluid": "std"
+        },
+        "decompensated": {
+          "protein_g_per_kg_ibw": 1.35,
+          "fluid": "std",
+          "fluid_note": "Restrict if edema/ascites; clinician-determined.",
+          "micros": [
+            "sodium",
+            "fluid"
+          ]
+        },
+        "encephalopathy_grade_1_2": {
+          "protein_g_per_kg_ibw": 1.35,
+          "fluid": "std"
+        },
+        "encephalopathy_grade_3_4": {
+          "protein_g_per_kg_ibw": 1.35,
+          "fluid": "std",
+          "note": "Target 1.2-1.5; temporary reduction to 1.0 ONLY if protein-intolerant and unresponsive to all other therapy."
+        }
+      }
+    },
+    "malnutrition": {
+      "fat_pct": 0.275,
+      "micros": [],
+      "stages": {
+        "moderate": {
+          "energy_method": "flat",
+          "energy_kcal_per_kg": 32.5,
+          "protein_g_per_kg_ibw": 1.35
+        },
+        "severe": {
+          "energy_method": "refeeding",
+          "refeeding_kcal_per_kg": 7.5,
+          "protein_g_per_kg_ibw": 1.0,
+          "note": "Refeeding protocol (identical to weight_gain severe). Thiamine 200-300 mg/day before feeding; continue 10 days. Daily electrolytes 72h."
+        }
+      }
+    },
+    "custom": {
+      "energy_method": "manual",
+      "note": "RND enters all values manually; no formula."
+    }
+  },
+  "default_goal": {
+    "energy_method": "tee",
+    "protein_g_per_kg_ibw": 0.8,
+    "fat_pct": 0.25,
+    "fiber_g": 22,
+    "sodium_max_mg": 2000,
+    "micros": []
+  },
+  "pediatric": {
+    "scope": "DEFERRED goal-specific logic (M4). Generic maintenance estimate only.",
+    "bmr": "Schofield (weight-based, age/sex-banded)",
+    "energy_method": "Schofield * PAL + growth_allowance",
+    "growth_allowance_kcal": {
+      "under_0.5y": 70,
+      "0.5_1y": 45,
+      "1_4y": 20,
+      "4y_plus": 15
+    },
+    "protein_g_per_kg": {
+      "under_0.5y": 1.52,
+      "0.5_1y": 1.2,
+      "1_4y": 1.05,
+      "4_14y": 0.95,
+      "14y_plus": 0.85
+    },
+    "protein_note": "Per-kg values retained from IOM; cross-check against PDRI g/day (research §5b) at handover.",
+    "fat_pct": 0.3,
+    "fluid": "Holliday-Segar",
+    "fiber_rule": "age + 5 g/day"
+  },
+  "golden_cases": [
+    {
+      "patient": "A_m40_170_80",
+      "goal": "renal_diet",
+      "stage": "stage_1",
+      "expected": {
+        "energy_kcal": 2400,
+        "protein_g": 53,
+        "carbs_g": 396,
+        "fat_g": 67,
+        "fluid_ml": 2600
+      }
+    },
+    {
+      "patient": "A_m40_170_80",
+      "goal": "renal_diet",
+      "stage": "stage_2",
+      "expected": {
+        "energy_kcal": 2400,
+        "protein_g": 53,
+        "carbs_g": 396,
+        "fat_g": 67,
+        "fluid_ml": 2600
+      }
+    },
+    {
+      "patient": "A_m40_170_80",
+      "goal": "renal_diet",
+      "stage": "stage_3",
+      "expected": {
+        "energy_kcal": 2400,
+        "protein_g": 47,
+        "carbs_g": 402,
+        "fat_g": 67,
+        "fluid_ml": 2600
+      }
+    },
+    {
+      "patient": "A_m40_170_80",
+      "goal": "renal_diet",
+      "stage": "stage_4",
+      "expected": {
+        "energy_kcal": 2400,
+        "protein_g": 40,
+        "carbs_g": 409,
+        "fat_g": 67,
+        "fluid_ml": 2600
+      }
+    },
+    {
+      "patient": "A_m40_170_80",
+      "goal": "renal_diet",
+      "stage": "stage_5_predialysis",
+      "expected": {
+        "energy_kcal": 2400,
+        "protein_g": 40,
+        "carbs_g": 409,
+        "fat_g": 67,
+        "fluid_ml": 2600
+      }
+    },
+    {
+      "patient": "A_m40_170_80",
+      "goal": "renal_diet",
+      "stage": "hemodialysis",
+      "expected": {
+        "energy_kcal": 2400,
+        "protein_g": 80,
+        "carbs_g": 369,
+        "fat_g": 67,
+        "fluid_ml": 750
+      }
+    },
+    {
+      "patient": "A_m40_170_80",
+      "goal": "renal_diet",
+      "stage": "peritoneal",
+      "expected": {
+        "energy_kcal": 2400,
+        "protein_g": 90,
+        "carbs_g": 359,
+        "fat_g": 67,
+        "fluid_ml": 1000
+      }
+    },
+    {
+      "patient": "A_m40_170_80",
+      "goal": "diabetic_control",
+      "stage": "stage_1",
+      "expected": {
+        "energy_kcal": 2001,
+        "protein_g": 60,
+        "carbs_g": 301,
+        "fat_g": 62,
+        "fluid_ml": 2600
+      }
+    },
+    {
+      "patient": "A_m40_170_80",
+      "goal": "diabetic_control",
+      "stage": "stage_2",
+      "expected": {
+        "energy_kcal": 1501,
+        "protein_g": 60,
+        "carbs_g": 210,
+        "fat_g": 47,
+        "fluid_ml": 2600
+      }
+    },
+    {
+      "patient": "A_m40_170_80",
+      "goal": "diabetic_control",
+      "stage": "stage_3",
+      "expected": {
+        "energy_kcal": 2001,
+        "protein_g": 53,
+        "carbs_g": 308,
+        "fat_g": 62,
+        "fluid_ml": 2600
+      }
+    },
+    {
+      "patient": "A_m40_170_80",
+      "goal": "cardiac_diet",
+      "stage": "mild",
+      "expected": {
+        "energy_kcal": 2001,
+        "protein_g": 53,
+        "carbs_g": 308,
+        "fat_g": 62,
+        "fluid_ml": 2600
+      }
+    },
+    {
+      "patient": "A_m40_170_80",
+      "goal": "cardiac_diet",
+      "stage": "moderate",
+      "expected": {
+        "energy_kcal": 2001,
+        "protein_g": 53,
+        "carbs_g": 317,
+        "fat_g": 58,
+        "fluid_ml": 2000
+      }
+    },
+    {
+      "patient": "A_m40_170_80",
+      "goal": "cardiac_diet",
+      "stage": "severe",
+      "expected": {
+        "energy_kcal": 2001,
+        "protein_g": 53,
+        "carbs_g": 328,
+        "fat_g": 53,
+        "fluid_ml": 1500
+      }
+    },
+    {
+      "patient": "A_m40_170_80",
+      "goal": "weight_loss",
+      "stage": "overweight",
+      "expected": {
+        "energy_kcal": 1626,
+        "protein_g": 93,
+        "carbs_g": 201,
+        "fat_g": 50,
+        "fluid_ml": 2600
+      }
+    },
+    {
+      "patient": "A_m40_170_80",
+      "goal": "weight_loss",
+      "stage": "class_1",
+      "expected": {
+        "energy_kcal": 1501,
+        "protein_g": 93,
+        "carbs_g": 179,
+        "fat_g": 46,
+        "fluid_ml": 2600
+      }
+    },
+    {
+      "patient": "A_m40_170_80",
+      "goal": "weight_loss",
+      "stage": "class_2",
+      "expected": {
+        "energy_kcal": 1500,
+        "protein_g": 93,
+        "carbs_g": 179,
+        "fat_g": 46,
+        "fluid_ml": 2600
+      }
+    },
+    {
+      "patient": "A_m40_170_80",
+      "goal": "weight_loss",
+      "stage": "class_3",
+      "expected": {
+        "energy_kcal": 1500,
+        "protein_g": 93,
+        "carbs_g": 179,
+        "fat_g": 46,
+        "fluid_ml": 2600
+      }
+    },
+    {
+      "patient": "A_m40_170_80",
+      "goal": "weight_gain",
+      "stage": "mild",
+      "expected": {
+        "energy_kcal": 2401,
+        "protein_g": 107,
+        "carbs_g": 329,
+        "fat_g": 73,
+        "fluid_ml": 2600
+      }
+    },
+    {
+      "patient": "A_m40_170_80",
+      "goal": "weight_gain",
+      "stage": "moderate",
+      "expected": {
+        "energy_kcal": 2626,
+        "protein_g": 107,
+        "carbs_g": 370,
+        "fat_g": 80,
+        "fluid_ml": 2600
+      }
+    },
+    {
+      "patient": "A_m40_170_80",
+      "goal": "weight_gain",
+      "stage": "severe",
+      "expected": {
+        "energy_kcal": 600,
+        "protein_g": 67,
+        "carbs_g": 43,
+        "fat_g": 18,
+        "fluid_ml": 2600
+      }
+    },
+    {
+      "patient": "A_m40_170_80",
+      "goal": "high_protein",
+      "stage": "mild_stress",
+      "expected": {
+        "energy_kcal": 2200,
+        "protein_g": 73,
+        "carbs_g": 326,
+        "fat_g": 67,
+        "fluid_ml": 2600
+      }
+    },
+    {
+      "patient": "A_m40_170_80",
+      "goal": "high_protein",
+      "stage": "moderate_stress",
+      "expected": {
+        "energy_kcal": 2200,
+        "protein_g": 90,
+        "carbs_g": 309,
+        "fat_g": 67,
+        "fluid_ml": 2600
+      }
+    },
+    {
+      "patient": "A_m40_170_80",
+      "goal": "high_protein",
+      "stage": "severe_stress",
+      "expected": {
+        "energy_kcal": 2200,
+        "protein_g": 117,
+        "carbs_g": 282,
+        "fat_g": 67,
+        "fluid_ml": 2600
+      }
+    },
+    {
+      "patient": "A_m40_170_80",
+      "goal": "high_protein",
+      "stage": "burns",
+      "expected": {
+        "energy_kcal": 2600,
+        "protein_g": 117,
+        "carbs_g": 355,
+        "fat_g": 79,
+        "fluid_ml": 2600
+      }
+    },
+    {
+      "patient": "A_m40_170_80",
+      "goal": "liver_disease",
+      "stage": "compensated",
+      "expected": {
+        "energy_kcal": 3000,
+        "protein_g": 90,
+        "carbs_g": 453,
+        "fat_g": 92,
+        "fluid_ml": 2600
+      }
+    },
+    {
+      "patient": "A_m40_170_80",
+      "goal": "liver_disease",
+      "stage": "decompensated",
+      "expected": {
+        "energy_kcal": 3000,
+        "protein_g": 90,
+        "carbs_g": 453,
+        "fat_g": 92,
+        "fluid_ml": 2600
+      }
+    },
+    {
+      "patient": "A_m40_170_80",
+      "goal": "liver_disease",
+      "stage": "encephalopathy_grade_1_2",
+      "expected": {
+        "energy_kcal": 3000,
+        "protein_g": 90,
+        "carbs_g": 453,
+        "fat_g": 92,
+        "fluid_ml": 2600
+      }
+    },
+    {
+      "patient": "A_m40_170_80",
+      "goal": "liver_disease",
+      "stage": "encephalopathy_grade_3_4",
+      "expected": {
+        "energy_kcal": 3000,
+        "protein_g": 90,
+        "carbs_g": 453,
+        "fat_g": 92,
+        "fluid_ml": 2600
+      }
+    },
+    {
+      "patient": "A_m40_170_80",
+      "goal": "malnutrition",
+      "stage": "moderate",
+      "expected": {
+        "energy_kcal": 2600,
+        "protein_g": 90,
+        "carbs_g": 382,
+        "fat_g": 79,
+        "fluid_ml": 2600
+      }
+    },
+    {
+      "patient": "A_m40_170_80",
+      "goal": "malnutrition",
+      "stage": "severe",
+      "expected": {
+        "energy_kcal": 600,
+        "protein_g": 67,
+        "carbs_g": 43,
+        "fat_g": 18,
+        "fluid_ml": 2600
+      }
+    },
+    {
+      "patient": "B_f55_155_70",
+      "goal": "renal_diet",
+      "stage": "stage_1",
+      "expected": {
+        "energy_kcal": 1599,
+        "protein_g": 38,
+        "carbs_g": 263,
+        "fat_g": 44,
+        "fluid_ml": 1733
+      }
+    },
+    {
+      "patient": "B_f55_155_70",
+      "goal": "renal_diet",
+      "stage": "stage_2",
+      "expected": {
+        "energy_kcal": 1599,
+        "protein_g": 38,
+        "carbs_g": 263,
+        "fat_g": 44,
+        "fluid_ml": 1733
+      }
+    },
+    {
+      "patient": "B_f55_155_70",
+      "goal": "renal_diet",
+      "stage": "stage_3",
+      "expected": {
+        "energy_kcal": 1599,
+        "protein_g": 33,
+        "carbs_g": 268,
+        "fat_g": 44,
+        "fluid_ml": 1733
+      }
+    },
+    {
+      "patient": "B_f55_155_70",
+      "goal": "renal_diet",
+      "stage": "stage_4",
+      "expected": {
+        "energy_kcal": 1599,
+        "protein_g": 29,
+        "carbs_g": 272,
+        "fat_g": 44,
+        "fluid_ml": 1733
+      }
+    },
+    {
+      "patient": "B_f55_155_70",
+      "goal": "renal_diet",
+      "stage": "stage_5_predialysis",
+      "expected": {
+        "energy_kcal": 1599,
+        "protein_g": 29,
+        "carbs_g": 272,
+        "fat_g": 44,
+        "fluid_ml": 1733
+      }
+    },
+    {
+      "patient": "B_f55_155_70",
+      "goal": "renal_diet",
+      "stage": "hemodialysis",
+      "expected": {
+        "energy_kcal": 1599,
+        "protein_g": 57,
+        "carbs_g": 244,
+        "fat_g": 44,
+        "fluid_ml": 750
+      }
+    },
+    {
+      "patient": "B_f55_155_70",
+      "goal": "renal_diet",
+      "stage": "peritoneal",
+      "expected": {
+        "energy_kcal": 1599,
+        "protein_g": 64,
+        "carbs_g": 237,
+        "fat_g": 44,
+        "fluid_ml": 1000
+      }
+    },
+    {
+      "patient": "B_f55_155_70",
+      "goal": "diabetic_control",
+      "stage": "stage_1",
+      "expected": {
+        "energy_kcal": 1279,
+        "protein_g": 43,
+        "carbs_g": 187,
+        "fat_g": 40,
+        "fluid_ml": 1733
+      }
+    },
+    {
+      "patient": "B_f55_155_70",
+      "goal": "diabetic_control",
+      "stage": "stage_2",
+      "expected": {
+        "energy_kcal": 1200,
+        "protein_g": 43,
+        "carbs_g": 174,
+        "fat_g": 37,
+        "fluid_ml": 1733
+      }
+    },
+    {
+      "patient": "B_f55_155_70",
+      "goal": "diabetic_control",
+      "stage": "stage_3",
+      "expected": {
+        "energy_kcal": 1279,
+        "protein_g": 38,
+        "carbs_g": 192,
+        "fat_g": 40,
+        "fluid_ml": 1733
+      }
+    },
+    {
+      "patient": "B_f55_155_70",
+      "goal": "cardiac_diet",
+      "stage": "mild",
+      "expected": {
+        "energy_kcal": 1279,
+        "protein_g": 38,
+        "carbs_g": 192,
+        "fat_g": 40,
+        "fluid_ml": 1733
+      }
+    },
+    {
+      "patient": "B_f55_155_70",
+      "goal": "cardiac_diet",
+      "stage": "moderate",
+      "expected": {
+        "energy_kcal": 1279,
+        "protein_g": 38,
+        "carbs_g": 199,
+        "fat_g": 37,
+        "fluid_ml": 2000
+      }
+    },
+    {
+      "patient": "B_f55_155_70",
+      "goal": "cardiac_diet",
+      "stage": "severe",
+      "expected": {
+        "energy_kcal": 1279,
+        "protein_g": 38,
+        "carbs_g": 205,
+        "fat_g": 34,
+        "fluid_ml": 1500
+      }
+    },
+    {
+      "patient": "B_f55_155_70",
+      "goal": "weight_loss",
+      "stage": "overweight",
+      "expected": {
+        "energy_kcal": 1200,
+        "protein_g": 67,
+        "carbs_g": 150,
+        "fat_g": 37,
+        "fluid_ml": 1733
+      }
+    },
+    {
+      "patient": "B_f55_155_70",
+      "goal": "weight_loss",
+      "stage": "class_1",
+      "expected": {
+        "energy_kcal": 1200,
+        "protein_g": 67,
+        "carbs_g": 150,
+        "fat_g": 37,
+        "fluid_ml": 1733
+      }
+    },
+    {
+      "patient": "B_f55_155_70",
+      "goal": "weight_loss",
+      "stage": "class_2",
+      "expected": {
+        "energy_kcal": 1200,
+        "protein_g": 67,
+        "carbs_g": 150,
+        "fat_g": 37,
+        "fluid_ml": 1733
+      }
+    },
+    {
+      "patient": "B_f55_155_70",
+      "goal": "weight_loss",
+      "stage": "class_3",
+      "expected": {
+        "energy_kcal": 1200,
+        "protein_g": 67,
+        "carbs_g": 150,
+        "fat_g": 37,
+        "fluid_ml": 1733
+      }
+    },
+    {
+      "patient": "B_f55_155_70",
+      "goal": "weight_gain",
+      "stage": "mild",
+      "expected": {
+        "energy_kcal": 1679,
+        "protein_g": 76,
+        "carbs_g": 229,
+        "fat_g": 51,
+        "fluid_ml": 1733
+      }
+    },
+    {
+      "patient": "B_f55_155_70",
+      "goal": "weight_gain",
+      "stage": "moderate",
+      "expected": {
+        "energy_kcal": 1904,
+        "protein_g": 76,
+        "carbs_g": 270,
+        "fat_g": 58,
+        "fluid_ml": 1733
+      }
+    },
+    {
+      "patient": "B_f55_155_70",
+      "goal": "weight_gain",
+      "stage": "severe",
+      "expected": {
+        "energy_kcal": 400,
+        "protein_g": 48,
+        "carbs_g": 25,
+        "fat_g": 12,
+        "fluid_ml": 1733
+      }
+    },
+    {
+      "patient": "B_f55_155_70",
+      "goal": "high_protein",
+      "stage": "mild_stress",
+      "expected": {
+        "energy_kcal": 1466,
+        "protein_g": 53,
+        "carbs_g": 212,
+        "fat_g": 45,
+        "fluid_ml": 1733
+      }
+    },
+    {
+      "patient": "B_f55_155_70",
+      "goal": "high_protein",
+      "stage": "moderate_stress",
+      "expected": {
+        "energy_kcal": 1466,
+        "protein_g": 64,
+        "carbs_g": 201,
+        "fat_g": 45,
+        "fluid_ml": 1733
+      }
+    },
+    {
+      "patient": "B_f55_155_70",
+      "goal": "high_protein",
+      "stage": "severe_stress",
+      "expected": {
+        "energy_kcal": 1466,
+        "protein_g": 84,
+        "carbs_g": 181,
+        "fat_g": 45,
+        "fluid_ml": 1733
+      }
+    },
+    {
+      "patient": "B_f55_155_70",
+      "goal": "high_protein",
+      "stage": "burns",
+      "expected": {
+        "energy_kcal": 1733,
+        "protein_g": 84,
+        "carbs_g": 230,
+        "fat_g": 53,
+        "fluid_ml": 1733
+      }
+    },
+    {
+      "patient": "B_f55_155_70",
+      "goal": "liver_disease",
+      "stage": "compensated",
+      "expected": {
+        "energy_kcal": 1999,
+        "protein_g": 64,
+        "carbs_g": 299,
+        "fat_g": 61,
+        "fluid_ml": 1733
+      }
+    },
+    {
+      "patient": "B_f55_155_70",
+      "goal": "liver_disease",
+      "stage": "decompensated",
+      "expected": {
+        "energy_kcal": 1999,
+        "protein_g": 64,
+        "carbs_g": 299,
+        "fat_g": 61,
+        "fluid_ml": 1733
+      }
+    },
+    {
+      "patient": "B_f55_155_70",
+      "goal": "liver_disease",
+      "stage": "encephalopathy_grade_1_2",
+      "expected": {
+        "energy_kcal": 1999,
+        "protein_g": 64,
+        "carbs_g": 299,
+        "fat_g": 61,
+        "fluid_ml": 1733
+      }
+    },
+    {
+      "patient": "B_f55_155_70",
+      "goal": "liver_disease",
+      "stage": "encephalopathy_grade_3_4",
+      "expected": {
+        "energy_kcal": 1999,
+        "protein_g": 64,
+        "carbs_g": 299,
+        "fat_g": 61,
+        "fluid_ml": 1733
+      }
+    },
+    {
+      "patient": "B_f55_155_70",
+      "goal": "malnutrition",
+      "stage": "moderate",
+      "expected": {
+        "energy_kcal": 1733,
+        "protein_g": 64,
+        "carbs_g": 250,
+        "fat_g": 53,
+        "fluid_ml": 1733
+      }
+    },
+    {
+      "patient": "B_f55_155_70",
+      "goal": "malnutrition",
+      "stage": "severe",
+      "expected": {
+        "energy_kcal": 400,
+        "protein_g": 48,
+        "carbs_g": 25,
+        "fat_g": 12,
+        "fluid_ml": 1733
+      }
+    },
+    {
+      "patient": "C_m30_175_60",
+      "goal": "renal_diet",
+      "stage": "stage_1",
+      "expected": {
+        "energy_kcal": 1800,
+        "protein_g": 58,
+        "carbs_g": 280,
+        "fat_g": 50,
+        "fluid_ml": 1950
+      }
+    },
+    {
+      "patient": "C_m30_175_60",
+      "goal": "renal_diet",
+      "stage": "stage_2",
+      "expected": {
+        "energy_kcal": 1800,
+        "protein_g": 58,
+        "carbs_g": 280,
+        "fat_g": 50,
+        "fluid_ml": 1950
+      }
+    },
+    {
+      "patient": "C_m30_175_60",
+      "goal": "renal_diet",
+      "stage": "stage_3",
+      "expected": {
+        "energy_kcal": 1800,
+        "protein_g": 50,
+        "carbs_g": 288,
+        "fat_g": 50,
+        "fluid_ml": 1950
+      }
+    },
+    {
+      "patient": "C_m30_175_60",
+      "goal": "renal_diet",
+      "stage": "stage_4",
+      "expected": {
+        "energy_kcal": 1800,
+        "protein_g": 43,
+        "carbs_g": 295,
+        "fat_g": 50,
+        "fluid_ml": 1950
+      }
+    },
+    {
+      "patient": "C_m30_175_60",
+      "goal": "renal_diet",
+      "stage": "stage_5_predialysis",
+      "expected": {
+        "energy_kcal": 1800,
+        "protein_g": 43,
+        "carbs_g": 295,
+        "fat_g": 50,
+        "fluid_ml": 1950
+      }
+    },
+    {
+      "patient": "C_m30_175_60",
+      "goal": "renal_diet",
+      "stage": "hemodialysis",
+      "expected": {
+        "energy_kcal": 1800,
+        "protein_g": 86,
+        "carbs_g": 252,
+        "fat_g": 50,
+        "fluid_ml": 750
+      }
+    },
+    {
+      "patient": "C_m30_175_60",
+      "goal": "renal_diet",
+      "stage": "peritoneal",
+      "expected": {
+        "energy_kcal": 1800,
+        "protein_g": 97,
+        "carbs_g": 241,
+        "fat_g": 50,
+        "fluid_ml": 1000
+      }
+    },
+    {
+      "patient": "C_m30_175_60",
+      "goal": "diabetic_control",
+      "stage": "stage_1",
+      "expected": {
+        "energy_kcal": 2130,
+        "protein_g": 65,
+        "carbs_g": 319,
+        "fat_g": 66,
+        "fluid_ml": 1950
+      }
+    },
+    {
+      "patient": "C_m30_175_60",
+      "goal": "diabetic_control",
+      "stage": "stage_2",
+      "expected": {
+        "energy_kcal": 1630,
+        "protein_g": 65,
+        "carbs_g": 228,
+        "fat_g": 51,
+        "fluid_ml": 1950
+      }
+    },
+    {
+      "patient": "C_m30_175_60",
+      "goal": "diabetic_control",
+      "stage": "stage_3",
+      "expected": {
+        "energy_kcal": 2130,
+        "protein_g": 58,
+        "carbs_g": 326,
+        "fat_g": 66,
+        "fluid_ml": 1950
+      }
+    },
+    {
+      "patient": "C_m30_175_60",
+      "goal": "cardiac_diet",
+      "stage": "mild",
+      "expected": {
+        "energy_kcal": 2130,
+        "protein_g": 58,
+        "carbs_g": 326,
+        "fat_g": 66,
+        "fluid_ml": 1950
+      }
+    },
+    {
+      "patient": "C_m30_175_60",
+      "goal": "cardiac_diet",
+      "stage": "moderate",
+      "expected": {
+        "energy_kcal": 2130,
+        "protein_g": 58,
+        "carbs_g": 335,
+        "fat_g": 62,
+        "fluid_ml": 2000
+      }
+    },
+    {
+      "patient": "C_m30_175_60",
+      "goal": "cardiac_diet",
+      "stage": "severe",
+      "expected": {
+        "energy_kcal": 2130,
+        "protein_g": 58,
+        "carbs_g": 346,
+        "fat_g": 57,
+        "fluid_ml": 1500
+      }
+    },
+    {
+      "patient": "C_m30_175_60",
+      "goal": "weight_loss",
+      "stage": "overweight",
+      "expected": {
+        "energy_kcal": 1755,
+        "protein_g": 101,
+        "carbs_g": 216,
+        "fat_g": 54,
+        "fluid_ml": 1950
+      }
+    },
+    {
+      "patient": "C_m30_175_60",
+      "goal": "weight_loss",
+      "stage": "class_1",
+      "expected": {
+        "energy_kcal": 1630,
+        "protein_g": 101,
+        "carbs_g": 194,
+        "fat_g": 50,
+        "fluid_ml": 1950
+      }
+    },
+    {
+      "patient": "C_m30_175_60",
+      "goal": "weight_loss",
+      "stage": "class_2",
+      "expected": {
+        "energy_kcal": 1505,
+        "protein_g": 101,
+        "carbs_g": 172,
+        "fat_g": 46,
+        "fluid_ml": 1950
+      }
+    },
+    {
+      "patient": "C_m30_175_60",
+      "goal": "weight_loss",
+      "stage": "class_3",
+      "expected": {
+        "energy_kcal": 1500,
+        "protein_g": 101,
+        "carbs_g": 171,
+        "fat_g": 46,
+        "fluid_ml": 1950
+      }
+    },
+    {
+      "patient": "C_m30_175_60",
+      "goal": "weight_gain",
+      "stage": "mild",
+      "expected": {
+        "energy_kcal": 2530,
+        "protein_g": 115,
+        "carbs_g": 344,
+        "fat_g": 77,
+        "fluid_ml": 1950
+      }
+    },
+    {
+      "patient": "C_m30_175_60",
+      "goal": "weight_gain",
+      "stage": "moderate",
+      "expected": {
+        "energy_kcal": 2755,
+        "protein_g": 115,
+        "carbs_g": 385,
+        "fat_g": 84,
+        "fluid_ml": 1950
+      }
+    },
+    {
+      "patient": "C_m30_175_60",
+      "goal": "weight_gain",
+      "stage": "severe",
+      "expected": {
+        "energy_kcal": 450,
+        "protein_g": 72,
+        "carbs_g": 9,
+        "fat_g": 14,
+        "fluid_ml": 1950
+      }
+    },
+    {
+      "patient": "C_m30_175_60",
+      "goal": "high_protein",
+      "stage": "mild_stress",
+      "expected": {
+        "energy_kcal": 1650,
+        "protein_g": 79,
+        "carbs_g": 221,
+        "fat_g": 50,
+        "fluid_ml": 1950
+      }
+    },
+    {
+      "patient": "C_m30_175_60",
+      "goal": "high_protein",
+      "stage": "moderate_stress",
+      "expected": {
+        "energy_kcal": 1650,
+        "protein_g": 97,
+        "carbs_g": 203,
+        "fat_g": 50,
+        "fluid_ml": 1950
+      }
+    },
+    {
+      "patient": "C_m30_175_60",
+      "goal": "high_protein",
+      "stage": "severe_stress",
+      "expected": {
+        "energy_kcal": 1650,
+        "protein_g": 126,
+        "carbs_g": 174,
+        "fat_g": 50,
+        "fluid_ml": 1950
+      }
+    },
+    {
+      "patient": "C_m30_175_60",
+      "goal": "high_protein",
+      "stage": "burns",
+      "expected": {
+        "energy_kcal": 1950,
+        "protein_g": 126,
+        "carbs_g": 227,
+        "fat_g": 60,
+        "fluid_ml": 1950
+      }
+    },
+    {
+      "patient": "C_m30_175_60",
+      "goal": "liver_disease",
+      "stage": "compensated",
+      "expected": {
+        "energy_kcal": 2250,
+        "protein_g": 97,
+        "carbs_g": 310,
+        "fat_g": 69,
+        "fluid_ml": 1950
+      }
+    },
+    {
+      "patient": "C_m30_175_60",
+      "goal": "liver_disease",
+      "stage": "decompensated",
+      "expected": {
+        "energy_kcal": 2250,
+        "protein_g": 97,
+        "carbs_g": 310,
+        "fat_g": 69,
+        "fluid_ml": 1950
+      }
+    },
+    {
+      "patient": "C_m30_175_60",
+      "goal": "liver_disease",
+      "stage": "encephalopathy_grade_1_2",
+      "expected": {
+        "energy_kcal": 2250,
+        "protein_g": 97,
+        "carbs_g": 310,
+        "fat_g": 69,
+        "fluid_ml": 1950
+      }
+    },
+    {
+      "patient": "C_m30_175_60",
+      "goal": "liver_disease",
+      "stage": "encephalopathy_grade_3_4",
+      "expected": {
+        "energy_kcal": 2250,
+        "protein_g": 97,
+        "carbs_g": 310,
+        "fat_g": 69,
+        "fluid_ml": 1950
+      }
+    },
+    {
+      "patient": "C_m30_175_60",
+      "goal": "malnutrition",
+      "stage": "moderate",
+      "expected": {
+        "energy_kcal": 1950,
+        "protein_g": 97,
+        "carbs_g": 256,
+        "fat_g": 60,
+        "fluid_ml": 1950
+      }
+    },
+    {
+      "patient": "C_m30_175_60",
+      "goal": "malnutrition",
+      "stage": "severe",
+      "expected": {
+        "energy_kcal": 450,
+        "protein_g": 72,
+        "carbs_g": 9,
+        "fat_g": 14,
+        "fluid_ml": 1950
+      }
+    }
+  ],
+  "golden_patients": {
+    "A_m40_170_80": {
+      "sex": "Male",
+      "ageYears": 40,
+      "heightCm": 170,
+      "weightKg": 80,
+      "activity": "sedentary"
+    },
+    "B_f55_155_70": {
+      "sex": "Female",
+      "ageYears": 55,
+      "heightCm": 155,
+      "weightKg": 70,
+      "activity": "sedentary"
+    },
+    "C_m30_175_60": {
+      "sex": "Male",
+      "ageYears": 30,
+      "heightCm": 175,
+      "weightKg": 60,
+      "activity": "light"
+    }
+  }
+}
