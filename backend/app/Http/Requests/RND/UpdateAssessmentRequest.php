@@ -51,6 +51,11 @@ class UpdateAssessmentRequest extends FormRequest
             'muac_mm'                 => ['nullable', 'numeric', 'min:0'],
             'waist_cm'                => ['nullable', 'numeric', 'min:0'],
             'hip_cm'                  => ['nullable', 'numeric', 'min:0'],
+            // Phase 5 — engine inputs
+            'stress_factor'               => ['nullable', 'numeric', 'min:0.5', 'max:3.0'],
+            'edema_present'               => ['nullable', 'boolean'],
+            'pregnancy_lactation_status'  => ['nullable', 'string', 'in:none,pregnant,lactating'],
+            'calf_circumference_cm'       => ['nullable', 'numeric', 'min:0'],
         ];
      }
 }

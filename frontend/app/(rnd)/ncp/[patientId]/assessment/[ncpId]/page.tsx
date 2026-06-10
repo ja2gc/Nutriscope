@@ -466,6 +466,8 @@ function defaultAssessment(): Assessment {
     food_intolerance: null, nutrient_drug_interaction: null,
     dietary_intake_method: null, dietary_record_file: null,
     physical_activity_level: null, muac_mm: null, waist_cm: null, hip_cm: null,
+    stress_factor: null, edema_present: false, pregnancy_lactation_status: "none",
+    calf_circumference_cm: null,
     religion: null,
   };
 }
@@ -1132,6 +1134,9 @@ export default function NcpAssessmentPage({
         <Field label="Hip Circumference (cm)" hint="WHR card">
           <TextInput type="number" value={String(assessment.hip_cm ?? "")} onChange={v => updateField("hip_cm", v ? Number(v) : null)} placeholder="e.g. 100" />
         </Field>
+        <Field label="Calf Circumference (cm)" hint="Muscle mass (AWGS: <34 M / <33 F)">
+          <TextInput type="number" value={String(assessment.calf_circumference_cm ?? "")} onChange={v => updateField("calf_circumference_cm", v ? Number(v) : null)} placeholder="e.g. 32" />
+        </Field>
         <Field label="Weight Loss Period">
           <TextInput value={s("weight_loss_period")} onChange={v => updateField("weight_loss_period", v)} placeholder="e.g. 3 months" />
         </Field>
@@ -1172,6 +1177,32 @@ export default function NcpAssessmentPage({
             label: `${label} (×${factor})`,
           }))}
           placeholder="Select activity level..."
+        />
+      </Field>
+      <Field label="Stress Factor" hint="High-protein / acute illness (e.g. 1.2 sepsis)">
+        <TextInput type="number" value={String(assessment.stress_factor ?? "")} onChange={v => updateField("stress_factor", v ? Number(v) : null)} placeholder="e.g. 1.2" />
+      </Field>
+      <Field label="Pregnancy / Lactation" hint="PDRI energy & protein add-on">
+        <SelectInput
+          value={(assessment.pregnancy_lactation_status as string) || "none"}
+          onChange={v => updateField("pregnancy_lactation_status", v || "none")}
+          options={[
+            { value: "none", label: "None" },
+            { value: "pregnant", label: "Pregnant (2nd/3rd trimester)" },
+            { value: "lactating", label: "Lactating" },
+          ]}
+          placeholder="None"
+        />
+      </Field>
+      <Field label="Edema Present" hint="Flags weight as unreliable">
+        <SelectInput
+          value={assessment.edema_present ? "yes" : "no"}
+          onChange={v => updateField("edema_present", v === "yes")}
+          options={[
+            { value: "no", label: "No" },
+            { value: "yes", label: "Yes — weight may be unreliable" },
+          ]}
+          placeholder="No"
         />
       </Field>
       <Field label="Allergies (Hard Filter for meal plans)">
