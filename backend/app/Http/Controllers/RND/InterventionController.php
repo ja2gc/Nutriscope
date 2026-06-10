@@ -44,17 +44,32 @@ class InterventionController extends Controller
         }
 
         $age = (int) \Illuminate\Support\Carbon::parse($patient->dob)->age;
-        $activityFactor = NutritionPrescriptionService::ACTIVITY_FACTORS[$assessment->physical_activity_level ?? '']
-            ?? 1.2;
 
-        $rx = $svc->autofill($goalType, $stage, [
+        // Phase 5.2: use normalised PAL key so any UI spelling maps to ACTIVITY_FACTORS
+        $activityKey    = $assessment->normalizedActivityLevel();
+        $activityFactor = NutritionPrescriptionService::ACTIVITY_FACTORS[$activityKey] ?? 1.2;
+
+        // Phase 5.3: pass pregnancy/lactation status when present (gate inside service)
+        $metrics = [
             'weightKg'       => (float) $assessment->weight,
             'heightCm'       => (float) $assessment->height,
             'ageYears'       => $age,
             'sex'            => $patient->sex,
             'isAdult'        => $age >= 18,
             'activityFactor' => $activityFactor,
-        ]);
+        ];
+
+        $pregnancyStatus = $assessment->pregnancy_lactation_status;
+        if ($pregnancyStatus && $pregnancyStatus !== 'none') {
+            $metrics['pregnancyLactationStatus'] = $pregnancyStatus;
+        }
+
+        // edema: flag in response for FE warning; no formula change (weight unreliable)
+        $rx = $svc->autofill($goalType, $stage, $metrics);
+
+        if ($assessment->edema_present) {
+            $rx['edema_warning'] = 'Weight may be unreliable due to edema. Verify anthropometrics before confirming prescription.';
+        }
 
         return response()->json(['data' => $rx]);
     }
