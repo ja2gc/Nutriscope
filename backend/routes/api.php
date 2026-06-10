@@ -70,6 +70,7 @@ Route::middleware(['auth:sanctum', 'role:RND', 'audit'])->prefix('rnd')->group(f
     Route::post('ncp-records/{ncpRecord}/diagnoses/ai-approve', [AiDiagnosisController::class, 'aiApprove']);
 
     // Intervention routes
+    Route::post('ncp-records/{ncpRecord}/intervention/autofill', [InterventionController::class, 'autofill']);
     Route::post('ncp-records/{ncpRecord}/intervention', [InterventionController::class, 'store']);
     Route::get('ncp-records/{ncpRecord}/intervention', [InterventionController::class, 'show']);
     Route::patch('ncp-records/{ncpRecord}/intervention', [InterventionController::class, 'update']);
