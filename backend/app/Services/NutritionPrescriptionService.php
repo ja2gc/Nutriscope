@@ -109,7 +109,24 @@ class NutritionPrescriptionService
     // ── Autofill ─────────────────────────────────────────────────────────────
 
     /**
-     * @param  array{weightKg:float,heightCm:float,ageYears:int,sex:string,isAdult:bool,activityFactor?:float}  $m
+     * @param  array{
+     *   weightKg: float,
+     *   heightCm: float,
+     *   ageYears: int,
+     *   sex: string,
+     *   isAdult: bool,
+     *   activityFactor?: float,
+     *   pregnancyLactationStatus?: string,
+     * }  $m
+     *
+     * pregnancyLactationStatus (optional, Phase 5.3):
+     *   'pregnant'  — 2nd/3rd trimester: +300 kcal/day, +27 g protein (PDRI)
+     *   'lactating' — +500 kcal/day, +27 g protein (PDRI)
+     *   null / 'none' / missing — no adjustment (default; all 90 golden cases use this path)
+     *
+     * The pregnancy gate is checked ONLY when the key is explicitly set AND non-null/non-empty.
+     * This guarantees the 90 frozen golden cases (none set pregnancyLactationStatus) are unaffected.
+     *
      * @return array{energy_kcal:int,protein_g:int,carbs_g:int,fat_g:int,fluid_ml:int,fiber_g?:int,sodium_max_mg?:int,free_sugar_max_pct?:float,cholesterol_max_mg?:int,note?:string}
      */
     public function autofill(string $goalType, ?string $stage, array $m): array
@@ -126,6 +143,48 @@ class NutritionPrescriptionService
         $stdFluid = (int) round($working * self::FLUID_FACTOR_ML_PER_KG);
         $floor    = self::CALORIC_FLOOR[$m['sex']];
 
+        $result = $this->computeGoal($goalType, $stage, $m, $pal, $ibw, $working, $bmrWt, $tee, $stdFluid, $floor);
+
+        // ── Phase 5.3: Pregnancy / lactation PDRI adjustment ──────────────────
+        // GATED: only applied when the key is explicitly present and non-null/non-'none'.
+        // Golden cases do NOT set this key → they are unaffected.
+        $pregnancyStatus = $m['pregnancyLactationStatus'] ?? null;
+        if ($pregnancyStatus && $pregnancyStatus !== 'none') {
+            [$energyAdj, $proteinAdj] = match ($pregnancyStatus) {
+                'pregnant'  => [300, 27],
+                'lactating' => [500, 27],
+                default     => [0, 0],
+            };
+            if ($energyAdj > 0 || $proteinAdj > 0) {
+                $newEnergy  = $result['energy_kcal'] + $energyAdj;
+                $newProtein = $result['protein_g']   + $proteinAdj;
+                $result['energy_kcal'] = $newEnergy;
+                $result['protein_g']   = $newProtein;
+                // Recompute macros to keep fat/carb consistent with the new energy
+                $currentFatPct = $result['fat_g'] > 0
+                    ? ($result['fat_g'] * 9) / max($result['energy_kcal'] - $energyAdj, 1)
+                    : 0.25;
+                $recalc = $this->macros($newEnergy, $newProtein, $currentFatPct);
+                $result['carbs_g'] = $recalc['carbs_g'];
+                $result['fat_g']   = $recalc['fat_g'];
+                $existingNote = $result['note'] ?? '';
+                $adjNote = ucfirst($pregnancyStatus) . " adjustment applied: +{$energyAdj} kcal, +{$proteinAdj} g protein (PDRI).";
+                $result['note'] = $existingNote ? $existingNote . ' ' . $adjNote : $adjNote;
+            }
+        }
+
+        return $result;
+    }
+
+    /**
+     * Core goal computation — extracted from autofill() so the pregnancy gate
+     * can be applied uniformly after the switch without duplicating every case.
+     */
+    private function computeGoal(
+        string $goalType, ?string $stage, array $m,
+        float $pal, float $ibw, float $working, float $bmrWt,
+        float $tee, int $stdFluid, int $floor
+    ): array {
         switch ($goalType) {
             case 'renal_diet': {
                 $energy = (int) round($working * 30);

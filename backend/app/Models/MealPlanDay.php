@@ -12,9 +12,12 @@ class MealPlanDay extends Model
     use HasFactory;
     public $timestamps = false;
 
-    protected $fillable = ['meal_plan_id', 'day_of_week', 'meal_type', 'flagged'];
+    protected $fillable = ['meal_plan_id', 'day_of_week', 'meal_type', 'flagged', 'variance'];
 
-    protected $casts = ['flagged' => 'boolean'];
+    protected $casts = [
+        'flagged'  => 'boolean',
+        'variance' => 'array',
+    ];
 
     public function mealPlan(): BelongsTo
     {
