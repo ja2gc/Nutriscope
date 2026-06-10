@@ -15,15 +15,17 @@
 ## Status banner (update this line as work proceeds)
 
 ```
-PHASE 0 (docs/decisions): NOT STARTED
-PHASE 1 (calc accuracy + AP/PDRI): NOT STARTED
-PHASE 2 (backend source of truth): NOT STARTED
-PHASE 3 (micro display UX 3/5/6/7): NOT STARTED
-PHASE 4 (meal plan algo 4/8): NOT STARTED
-PHASE 5 (assessment data 9): NOT STARTED
-PHASE 6 (monitoring + AI review 10): NOT STARTED
-PHASE 7 (inventory 11/12): NOT STARTED
+PHASE 0 (docs/decisions): ✅ DONE (commit: Phase 0 spec)
+PHASE 1 (calc accuracy + AP/PDRI): ✅ DONE — 90/90 golden + lint (commit: Phase 1)
+PHASE 2 (backend source of truth): ✅ DONE (core) — 90/90 PHP golden; endpoint added; FE wiring 2.4 deferred to subagents
+PHASE 3 (micro display UX 3/5/6/7): ⬜ NOT STARTED → SUBAGENT B (app-surface)
+PHASE 4 (meal plan algo 4/8): ⬜ NOT STARTED → SUBAGENT B
+PHASE 5 (assessment data 9): ⬜ NOT STARTED → SUBAGENT B
+PHASE 6 (monitoring + AI review 10): ⬜ NOT STARTED → SUBAGENT B
+PHASE 7 (inventory 11/12): ⬜ NOT STARTED → SUBAGENT B
 ```
+> Heavy/clinical phases (0–2) complete on branch `feat/nutri-engine-overhaul`. App-surface phases
+> (3–7) + the FE save-from-backend wiring (2.4) are queued for subagents pending user approval.
 
 ---
 

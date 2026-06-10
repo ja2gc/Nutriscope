@@ -79,4 +79,27 @@ app-surface phases (3–7) deferred to subagents pending user approval.
   - `node artifacts/verify_ts_golden.mjs` → **GOLDEN: 90 pass / 0 fail (of 90)**.
   - `npx eslint lib/nutritionCalculations.ts` → clean (exit 0).
 
+## Phase 2 — Backend source of truth (DONE, core)
+- **Files:** `backend/app/Services/NutritionPrescriptionService.php` (new, authoritative engine),
+  `backend/tests/Unit/NutritionPrescriptionServiceTest.php` (new, golden guard),
+  `backend/app/Http/Controllers/RND/InterventionController.php` (+autofill endpoint),
+  `backend/routes/api.php` (+route), `backend/tests/Feature/NcpInterventionTest.php` (+2 endpoint tests).
+- **What changed:**
+  - Ported the engine to PHP exactly (pure, no DB). ACTIVITY_FACTORS exposed as const.
+  - `POST /api/rnd/ncp-records/{ncp}/intervention/autofill` derives metrics (age from patient dob,
+    sex, weight/height/PAL from assessment) and returns the authoritative prescription.
+  - Golden test loads the SAME prescription-targets.json and asserts all 90 cases (data-provider path
+    uses `dirname(__DIR__,3)` because base_path() is unavailable before app boot).
+- **Verify:**
+  - `php artisan test --filter=NutritionPrescriptionServiceTest` → **90 passed / 450 assertions**.
+  - Direct PHP loop over all 90 cases → 90 pass / 0 fail.
+  - `php -l` clean on service, controller, both test files. `route:list` shows the autofill route.
+  - Parity guard: TS verify (90/90) + PHP golden (90/90) both read the same fixture → no drift possible.
+- **KNOWN LIMITATION:** DB-backed Feature tests (incl. the 2 new endpoint tests) can't execute in this
+  CLI — `could not find driver (sqlite :memory:)` is a pre-existing environment issue (sqlite PDO not
+  enabled), affecting ALL Feature tests, not these changes. They will run in CI/where sqlite exists.
+- **DEFERRED to app-surface (subagents):** Phase 2.4 (FE prescription form: live TS preview + save the
+  backend value) touches `NutritionPrescriptionForm.tsx` — handed off, not done here.
+
+
 

@@ -8,10 +8,57 @@ use App\Http\Requests\RND\UpdateInterventionRequest;
 use App\Http\Resources\InterventionResource;
 use App\Models\Intervention;
 use App\Models\NcpRecord;
+use App\Services\NutritionPrescriptionService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class InterventionController extends Controller
 {
+    /**
+     * POST /api/rnd/ncp-records/{ncpRecord}/intervention/autofill
+     *
+     * AUTHORITATIVE prescription calculation. Derives patient metrics from the
+     * assessment + patient record and returns the spec-correct prescription.
+     * The frontend mirror is for live preview only; persisted values should come
+     * from here. Body: { goal_type, disease_stage? }.
+     */
+    public function autofill(Request $request, NcpRecord $ncpRecord, NutritionPrescriptionService $svc): JsonResponse
+    {
+        $goalType = $request->input('goal_type') ?? $ncpRecord->intervention?->goal_type;
+        $stage    = $request->input('disease_stage') ?? $ncpRecord->intervention?->disease_stage;
+
+        if (! $goalType) {
+            return response()->json(['message' => 'goal_type is required.'], 422);
+        }
+
+        $assessment = $ncpRecord->assessment()->first();
+        $patient    = $ncpRecord->patient;
+
+        if (! $assessment || $assessment->weight === null || $assessment->height === null) {
+            return response()->json([
+                'message' => 'Assessment with weight and height is required before autofill.',
+            ], 422);
+        }
+        if (! $patient || ! $patient->dob || ! $patient->sex) {
+            return response()->json(['message' => 'Patient date of birth and sex are required.'], 422);
+        }
+
+        $age = (int) \Illuminate\Support\Carbon::parse($patient->dob)->age;
+        $activityFactor = NutritionPrescriptionService::ACTIVITY_FACTORS[$assessment->physical_activity_level ?? '']
+            ?? 1.2;
+
+        $rx = $svc->autofill($goalType, $stage, [
+            'weightKg'       => (float) $assessment->weight,
+            'heightCm'       => (float) $assessment->height,
+            'ageYears'       => $age,
+            'sex'            => $patient->sex,
+            'isAdult'        => $age >= 18,
+            'activityFactor' => $activityFactor,
+        ]);
+
+        return response()->json(['data' => $rx]);
+    }
+
     /**
      * POST /api/rnd/ncp-records/{ncpRecord}/intervention
      */
