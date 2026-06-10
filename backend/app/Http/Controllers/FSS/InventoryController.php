@@ -83,9 +83,9 @@ class InventoryController extends Controller
     {
         return match ($status) {
             'untracked' => 'inventory_id IS NULL',
-            'low'       => 'inventory_id IS NOT NULL AND minimum_stock_threshold IS NOT NULL AND quantity_in_stock < minimum_stock_threshold',
-            'expiring'  => 'inventory_id IS NOT NULL AND expiry_date IS NOT NULL AND expiry_date > NOW() AND expiry_date <= DATE_ADD(NOW(), INTERVAL 7 DAY)',
-            'ok'        => 'inventory_id IS NOT NULL AND (minimum_stock_threshold IS NULL OR quantity_in_stock >= minimum_stock_threshold) AND (expiry_date IS NULL OR expiry_date > DATE_ADD(NOW(), INTERVAL 7 DAY))',
+            'no_stock'  => 'inventory_id IS NOT NULL AND quantity_in_stock = 0',
+            'low'       => 'inventory_id IS NOT NULL AND quantity_in_stock > 0 AND minimum_stock_threshold IS NOT NULL AND quantity_in_stock < minimum_stock_threshold',
+            'ok'        => 'inventory_id IS NOT NULL AND quantity_in_stock > 0 AND (minimum_stock_threshold IS NULL OR quantity_in_stock >= minimum_stock_threshold)',
             default     => '',
         };
     }
@@ -95,16 +95,13 @@ class InventoryController extends Controller
         $hasRecord = $r->inventory_id !== null;
         $qty       = (float) ($r->quantity_in_stock ?? 0);
         $threshold = $r->minimum_stock_threshold !== null ? (float) $r->minimum_stock_threshold : null;
-        $expiry    = $r->expiry_date ? Carbon::parse($r->expiry_date) : null;
 
         if (!$hasRecord) {
             $status = 'untracked'; $highlight = 'none';
         } elseif ($qty === 0.0) {
-            $status = 'low'; $highlight = 'red';
+            $status = 'no_stock'; $highlight = 'red';
         } elseif ($threshold !== null && $qty < $threshold) {
             $status = 'low'; $highlight = 'yellow';
-        } elseif ($expiry && $expiry->isFuture() && $now->diffInDays($expiry) <= 7) {
-            $status = 'expiring'; $highlight = 'yellow';
         } else {
             $status = 'ok'; $highlight = 'none';
         }
@@ -140,8 +137,8 @@ class InventoryController extends Controller
             SELECT
                 COUNT(*)                                                                                                                AS total,
                 SUM(inventory_id IS NOT NULL)                                                                                           AS tracked,
-                SUM(inventory_id IS NOT NULL AND minimum_stock_threshold IS NOT NULL AND quantity_in_stock < minimum_stock_threshold)   AS low,
-                SUM(inventory_id IS NOT NULL AND expiry_date IS NOT NULL AND expiry_date > NOW() AND expiry_date <= DATE_ADD(NOW(), INTERVAL 7 DAY)) AS expiring,
+                SUM(inventory_id IS NOT NULL AND quantity_in_stock > 0 AND minimum_stock_threshold IS NOT NULL AND quantity_in_stock < minimum_stock_threshold)   AS low,
+                SUM(inventory_id IS NOT NULL AND quantity_in_stock = 0)                                                                 AS no_stock,
                 SUM(inventory_id IS NULL)                                                                                               AS untracked
             FROM {$union}
         ");
@@ -150,7 +147,7 @@ class InventoryController extends Controller
             'total'     => (int) $row->total,
             'tracked'   => (int) $row->tracked,
             'low'       => (int) $row->low,
-            'expiring'  => (int) $row->expiring,
+            'no_stock'  => (int) $row->no_stock,
             'untracked' => (int) $row->untracked,
         ];
     }

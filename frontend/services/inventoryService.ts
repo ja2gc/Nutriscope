@@ -1,6 +1,6 @@
 ﻿import { apiFetch } from "@/lib/apiFetch";
 export type ItemType = "food_item" | "recipe";
-export type StockStatus = "low" | "expiring" | "ok" | "untracked";
+export type StockStatus = "low" | "no_stock" | "ok" | "untracked";
 
 export interface FoodItemRef {
   id: number;
@@ -72,27 +72,19 @@ export interface UpsertInventoryPayload {
 
 export function getStockStatus(
   qty: string,
-  threshold: string | null,
-  expiry: string | null
+  threshold: string | null
 ): StockStatus {
   const qtyNum = parseFloat(qty);
   const threshNum = threshold ? parseFloat(threshold) : null;
 
+  if (qtyNum === 0) return "no_stock";
   if (threshNum !== null && qtyNum < threshNum) return "low";
-
-  if (expiry) {
-    const diffDays =
-      (new Date(expiry).getTime() - Date.now()) / (1000 * 60 * 60 * 24);
-    if (diffDays <= 7) return "expiring";
-  }
-
   return "ok";
 }
 
 export function getRowHighlight(
   qty: string,
   threshold: string | null,
-  expiry: string | null,
   hasRecord: boolean
 ): RowHighlight {
   if (!hasRecord) return "none";
@@ -100,10 +92,6 @@ export function getRowHighlight(
   if (qtyNum === 0) return "red";
   const threshNum = threshold ? parseFloat(threshold) : null;
   if (threshNum !== null && qtyNum < threshNum) return "yellow";
-  if (expiry) {
-    const diffDays = (new Date(expiry).getTime() - Date.now()) / (1000 * 60 * 60 * 24);
-    if (diffDays <= 7) return "yellow";
-  }
   return "none";
 }
 
@@ -142,8 +130,8 @@ export function buildInventoryRows(
       recipe_cost:              null,
       recipe_servings:          null,
       notes:                    rec?.notes ?? null,
-      status:                   hasRecord ? getStockStatus(qty, threshold, expiry) : "untracked",
-      highlight:                getRowHighlight(qty, threshold, expiry, hasRecord),
+      status:                   hasRecord ? getStockStatus(qty, threshold) : "untracked",
+      highlight:                getRowHighlight(qty, threshold, hasRecord),
     });
   }
 
@@ -168,8 +156,8 @@ export function buildInventoryRows(
       recipe_cost:              null,
       recipe_servings:          null,
       notes:                    rec?.notes ?? null,
-      status:                   hasRecord ? getStockStatus(qty, threshold, expiry) : "untracked",
-      highlight:                getRowHighlight(qty, threshold, expiry, hasRecord),
+      status:                   hasRecord ? getStockStatus(qty, threshold) : "untracked",
+      highlight:                getRowHighlight(qty, threshold, hasRecord),
     });
   }
 
@@ -187,7 +175,7 @@ export interface InventoryStats {
   total: number;
   tracked: number;
   low: number;
-  expiring: number;
+  no_stock: number;
   untracked: number;
 }
 
