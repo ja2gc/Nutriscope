@@ -101,5 +101,19 @@ app-surface phases (3–7) deferred to subagents pending user approval.
 - **DEFERRED to app-surface (subagents):** Phase 2.4 (FE prescription form: live TS preview + save the
   backend value) touches `NutritionPrescriptionForm.tsx` — handed off, not done here.
 
+## Phase 7 — Inventory (Issues 11 & 12) — DONE inline (no subagent)
+- **Files:** `frontend/app/(rnd)/food-service/inventory/page.tsx`, `frontend/services/inventoryService.ts`,
+  `backend/app/Http/Controllers/FSS/InventoryController.php`.
+- **What changed:**
+  - Removed the **Expiry** column; columns are now **Qty · Unit · Unit/Cost · Status · Actions** (issue 11).
+  - Status model: dropped `expiring`, added `no_stock` (qty 0) → statuses are no_stock/low/ok/untracked,
+    computed identically in FE (`getStockStatus`) and BE (`statusWhere`/`decorateRow`/`getStats`).
+  - Edit form (issue 12): **Unit is now a curated dropdown** (pc, pack, bundle, serving, g, kg, mL, L —
+    no bloat); Qty/Unit-Cost stay numeric; removed the Expiry field; Status is not editable (auto-derived).
+  - `expiry_date` column kept in DB (soft-removed, reversible) to avoid data loss.
+- **Verify:** `php -l` clean (controller); `npx eslint` on both FE files shows only 2 PRE-EXISTING errors
+  (`react-hooks/set-state-in-effect` on the untouched `setPage`/`load` effects) + 2 pre-existing `_r`
+  warnings — none in the edited regions. My changes are lint-clean.
+
 
 
