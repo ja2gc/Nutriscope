@@ -61,3 +61,22 @@ app-surface phases (3–7) deferred to subagents pending user approval.
 - **Verify:** `python artifacts/oracle_golden.py` → "wrote 90 golden cases"; JSON validates (linter
   pretty-printed it). PASS.
 
+## Phase 1 — Frontend engine accuracy + AP/PDRI (DONE)
+- **Files:** `frontend/lib/nutritionCalculations.ts` (rewritten, signatures additive/backward-compatible),
+  `artifacts/verify_ts_golden.mjs` + `artifacts/tsconfig.verify.json` (verification tooling).
+- **What changed:**
+  - Fixed `calcWorkingWeight` to the M2 rule (>120%→AjBW else actual; removed 90–120%→IBW band).
+  - `classifyNutritionalStatus` → Asia-Pacific cut-points (Normal <23, OW <25, Obese I <30, Obese II ≥30)
+    with D2 weight-loss stage suggestions (overweight/class_1/class_2/class_3 split at 35).
+  - `diabetic_control` now honors stage: stage_2 −500 kcal + floor; stage_3 protein 0.8; +fiber/sodium/free-sugar.
+  - `liver_disease` protein fixed to 1.35 g/kg ALL stages (was 0.9/0.65 — clinically wrong); updated notes.
+  - `renal_diet` energy default 30 kcal/kg (was 32.5); per-stage sodium added.
+  - Refeeding notes (weight_gain/malnutrition severe) → corrected day-4–7 wording (D12).
+  - Added fiber_g/sodium_max_mg/free_sugar_max_pct/cholesterol_max_mg to Prescription; fat% per spec.
+  - GOAL_MICRO_FLAGS extended (diabetic +sodium+free_sugars; cardiac +potassium); ALL_MICROS +free_sugars.
+- **Verify:**
+  - `tsc -p artifacts/tsconfig.verify.json` → clean compile.
+  - `node artifacts/verify_ts_golden.mjs` → **GOLDEN: 90 pass / 0 fail (of 90)**.
+  - `npx eslint lib/nutritionCalculations.ts` → clean (exit 0).
+
+
