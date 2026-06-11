@@ -132,6 +132,11 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
           sex,
           isAdult: ageYears >= 18,
           activityFactor,
+          // PDRI pregnancy/lactation add-on — keeps the live preview in step with
+          // the backend engine (which reads the same assessment field).
+          pregnancyLactationStatus:
+            (a.pregnancy_lactation_status as "none" | "pregnant" | "lactating") ?? "none",
+          stressFactor: a.stress_factor != null ? parseFloat(String(a.stress_factor)) : undefined,
         });
       }
       if (a?.food_dislikes && Array.isArray(a.food_dislikes)) {
