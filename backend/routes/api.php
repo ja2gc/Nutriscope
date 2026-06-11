@@ -99,6 +99,10 @@ Route::middleware(['auth:sanctum', 'role:RND', 'audit'])->prefix('rnd')->group(f
 
     // Monitoring routes
     Route::get('ncp-records/{ncpRecord}/monitorings', [MonitoringController::class, 'index']);
+    // Phase 6 — evaluation summary (free) + optional AI narrative (declared before
+    // the {monitoring} routes so the literal segments win the match).
+    Route::get('ncp-records/{ncpRecord}/monitorings/summary', [MonitoringController::class, 'summary']);
+    Route::post('ncp-records/{ncpRecord}/monitorings/ai-review', [MonitoringController::class, 'aiReview']);
     Route::post('ncp-records/{ncpRecord}/monitorings', [MonitoringController::class, 'store']);
     Route::patch('ncp-records/{ncpRecord}/monitorings/{monitoring}', [MonitoringController::class, 'update']);
     Route::delete('ncp-records/{ncpRecord}/monitorings/{monitoring}', [MonitoringController::class, 'destroy']);
