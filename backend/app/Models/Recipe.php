@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\UnitConverter;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -38,6 +39,24 @@ class Recipe extends Model
     }
 
     /**
+     * Unit-correct scaling factor for one ingredient against its food's serving.
+     * A missing ingredient unit defaults to the food's serving unit (legacy data).
+     * Throws on an unrecognised unit so totals are never silently wrong.
+     */
+    private function ingredientFactor(RecipeIngredient $ing, FoodItem $food): float
+    {
+        $servingUnit    = $food->serving_unit ?: 'g';
+        $ingredientUnit = $ing->unit ?: $servingUnit;
+
+        return UnitConverter::scalingFactor(
+            (float) $ing->quantity,
+            $ingredientUnit,
+            (float) $food->serving_size,
+            $servingUnit,
+        );
+    }
+
+    /**
      * Computed water accessor: sum water_g from all ingredients using the same
      * factor logic as other nutrients. Falls back to the persisted total_water_g
      * column if ingredients are not loaded.
@@ -51,8 +70,7 @@ class Recipe extends Model
             foreach ($this->ingredients as $ing) {
                 $food = $ing->foodItem;
                 if (!$food) continue;
-                $factor = (float) $ing->quantity / ($food->serving_size ?: 100);
-                $total += (float) ($food->water_g ?? 0) * $factor;
+                $total += (float) ($food->water_g ?? 0) * $this->ingredientFactor($ing, $food);
             }
             return round($total, 2);
         }
@@ -69,7 +87,8 @@ class Recipe extends Model
 
         foreach ($this->ingredients()->with('foodItem')->get() as $ing) {
             $food   = $ing->foodItem;
-            $factor = $ing->quantity / ($food->serving_size ?: 100);
+            if (! $food) continue;
+            $factor = $this->ingredientFactor($ing, $food);
 
             $totals['calories'] += (float) $food->calories * $factor;
             $totals['protein']  += (float) $food->protein  * $factor;

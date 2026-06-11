@@ -32,16 +32,30 @@ class RecalculateRecipeTotals extends Command
         }
 
         $updated = 0;
-        $this->withProgressBar($recipes, function (Recipe $recipe) use (&$updated) {
+        $failures = [];
+        $this->withProgressBar($recipes, function (Recipe $recipe) use (&$updated, &$failures) {
             if ($recipe->ingredients->isEmpty()) {
                 return; // nothing to aggregate
             }
-            $recipe->recalculateTotals();
-            $updated++;
+            try {
+                $recipe->recalculateTotals();
+                $updated++;
+            } catch (\InvalidArgumentException $e) {
+                // Unrecognised ingredient unit — surface it rather than corrupt totals.
+                $failures[] = "#{$recipe->id} {$recipe->name}: {$e->getMessage()}";
+            }
         });
         $this->newLine(2);
 
         $this->info("Recalculated totals for {$updated} of {$recipes->count()} recipe(s).");
+
+        if (! empty($failures)) {
+            $this->warn('Skipped (fix the ingredient/serving units, then re-run):');
+            foreach ($failures as $f) {
+                $this->line("  • {$f}");
+            }
+            return self::FAILURE;
+        }
 
         return self::SUCCESS;
     }
