@@ -89,6 +89,54 @@ class MealPlanServiceTest extends TestCase
         }
     }
 
+    public function test_ready_to_eat_resolution_uses_flag_then_category(): void
+    {
+        // Category allowlist default
+        $this->assertTrue((new FoodItem(['category' => 'fruit']))->isReadyToEat());
+        $this->assertTrue((new FoodItem(['category' => 'vegetable']))->isReadyToEat());
+        $this->assertFalse((new FoodItem(['category' => 'protein']))->isReadyToEat());
+        $this->assertFalse((new FoodItem(['category' => null]))->isReadyToEat());
+
+        // Explicit flag overrides the category in both directions
+        $this->assertTrue((new FoodItem(['category' => 'protein', 'ready_to_eat' => true]))->isReadyToEat());
+        $this->assertFalse((new FoodItem(['category' => 'fruit', 'ready_to_eat' => false]))->isReadyToEat());
+    }
+
+    public function test_ready_to_eat_food_items_fill_snack_slots(): void
+    {
+        // Recipes are seeded untyped (no meal_types) → not snack-eligible, so snacks
+        // must be filled by standalone ready-to-eat food items.
+        $this->seedRecipes(15);
+        foreach (['Apple', 'Banana', 'Orange', 'Pear', 'Mango'] as $name) {
+            FoodItem::forceCreate([
+                'name' => $name, 'category' => 'fruit', 'calories' => 80,
+                'protein' => 1, 'carbs' => 20, 'fat' => 0.3, 'serving_size' => 100,
+            ]);
+        }
+        $ncp = $this->makeNcpWithIntervention();
+
+        $service = new MealPlanService();
+        $service->setRngSeed(7);
+        $plan = $service->generate($ncp, now()->startOfWeek()->toDateString());
+
+        $snackDayIds = \App\Models\MealPlanDay::where('meal_plan_id', $plan->id)
+            ->whereIn('meal_type', ['am_snack', 'pm_snack'])->pluck('id');
+        $snackItems = MealPlanItem::whereIn('meal_plan_day_id', $snackDayIds)->get();
+
+        $this->assertGreaterThan(0, $snackItems->count());
+        foreach ($snackItems as $item) {
+            $this->assertNotNull($item->food_item_id, 'Snack slot should hold a ready-to-eat food item');
+            $this->assertNull($item->recipe_id);
+        }
+
+        // A food item must never leak into a main-meal slot
+        $mainDayIds = \App\Models\MealPlanDay::where('meal_plan_id', $plan->id)
+            ->whereIn('meal_type', ['breakfast', 'lunch', 'dinner'])->pluck('id');
+        $mainFood = MealPlanItem::whereIn('meal_plan_day_id', $mainDayIds)
+            ->whereNotNull('food_item_id')->count();
+        $this->assertEquals(0, $mainFood, 'Food items must only appear in snack slots');
+    }
+
     public function test_generated_plan_has_variety_across_days(): void
     {
         $this->seedRecipes(20);
