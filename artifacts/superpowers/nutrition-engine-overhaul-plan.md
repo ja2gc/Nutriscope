@@ -8,7 +8,7 @@
 > changes, a new agent can read this top-to-bottom and continue from the **Verification Checklist**
 > (Part F) — each issue has a status marker and per-step checkboxes.
 
-**Created:** 2026-06-11 · **Owner:** RND + dev · **Status:** 🟡 PLAN — awaiting approval
+**Created:** 2026-06-11 · **Owner:** RND + dev · **Status:** 🟢 IMPLEMENTED — all phases landed on `feat/nutri-engine-overhaul` (only 3.3 deferred by decision; run migrations in a real env)
 
 ---
 
@@ -21,7 +21,7 @@ PHASE 2 (backend source of truth): ✅ DONE (core) — 90/90 PHP golden; endpoin
 PHASE 4 (meal plan algo 4/8): ✅ BACKEND DONE (subagent A, commit 7c7bc19) — verified 31 new tests + golden 90/90
 PHASE 5 (assessment data 9): ✅ DONE — BE (subagent A) + FE fields (commit 9e40735) + UpdateAssessmentRequest PATCH fix
 PHASE 3 (micro display UX 3/5/6/7): 🟡 MOSTLY DONE — 3.1 empty-prompt ✅ · 3.2 water-with-macros ✅ (already in place) · 3.4 removable+locked-required rows ✅ · 3.5 GOAL_MICRO_FLAGS ✅. ⬜ 3.3 recipe-view goal-relevant default DEFERRED — needs M3 decision (food-library/recipes/[id] is patient-agnostic; no NCP goal context to thread). Awaiting decision on target screen.
-PHASE 6 (monitoring + AI review 10): ⬜ NOT STARTED
+PHASE 6 (monitoring + AI review 10): ✅ DONE — rule-based delta engine (zero-token) + goal eval + optional Haiku narrative (cached/rate-limited/logged) + MonitoringSummaryCard. Unit test 6/6. DB feature tests blocked locally (no sqlite driver).
 PHASE 7 (inventory 11/12): ✅ DONE (commit cd78f1a)
 PHASE 2.4 (FE save-from-backend): ✅ DONE — TS preview + BE-authoritative persist + dev drift guard + edema warning
 NOTE: migrations 2026_06_11_000001..04 NOT run locally (no sqlite driver) — run `php artisan migrate` in a real env before frontend work relies on the new columns.
