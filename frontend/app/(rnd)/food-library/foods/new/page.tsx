@@ -18,6 +18,8 @@ export default function NewFoodPage() {
 
   const [name, setName] = useState("");
   const [category, setCategory] = useState("");
+  // "" = auto (by category) · "true"/"false" = explicit snack-eligibility override
+  const [readyToEat, setReadyToEat] = useState<"" | "true" | "false">("");
   const [calories, setCalories] = useState("");
   const [protein, setProtein] = useState("");
   const [carbs, setCarbs] = useState("");
@@ -46,6 +48,7 @@ export default function NewFoodPage() {
         name: name.trim(),
         calories: parseFloat(calories),
         category: category || null,
+        ready_to_eat: readyToEat === "" ? null : readyToEat === "true",
         protein: protein ? parseFloat(protein) : null,
         carbs: carbs ? parseFloat(carbs) : null,
         fat: fat ? parseFloat(fat) : null,
@@ -101,6 +104,20 @@ export default function NewFoodPage() {
                 <option value="">Select category</option>
                 {CATEGORIES.map((c) => <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>)}
               </select>
+            </div>
+            <div>
+              <Label>Ready-to-Eat Snack</Label>
+              <select value={readyToEat} onChange={(e) => setReadyToEat(e.target.value as "" | "true" | "false")} className={inputCls}>
+                <option value="">Auto (by category)</option>
+                <option value="true">Yes — eligible as snack</option>
+                <option value="false">No — never a snack</option>
+              </select>
+              <p className="text-[10px] text-zinc-400 mt-1 leading-snug">
+                Controls whether meal-plan auto-generation may place this item as a single snack.
+                {readyToEat === "" && (
+                  <> Auto = {["fruit", "vegetable"].includes(category) ? "eligible" : "not eligible"} for “{category || "no category"}”.</>
+                )}
+              </p>
             </div>
             <div className="flex gap-2">
               <div className="flex-1">
