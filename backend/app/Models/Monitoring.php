@@ -12,7 +12,7 @@ class Monitoring extends Model
     protected $fillable = [
         'ncp_record_id', 'weight', 'bmi', 'lab_values', 'intake_notes',
         'symptoms', 'goal_achievement', 'clinical_summary', 'ai_decision',
-        'next_monitoring_date'
+        'ai_review', 'ai_review_key', 'next_monitoring_date'
     ];
 
     protected $casts = [

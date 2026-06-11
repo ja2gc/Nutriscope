@@ -117,6 +117,65 @@ export async function deleteMonitoring(
   }
 }
 
+// ─── Phase 6 — Monitoring summary (rule-based delta + optional AI review) ──────
+
+export interface MonitoringChange {
+  metric: string;
+  label: string;
+  unit: string;
+  previous: number | null;
+  current: number;
+  delta: number | null;
+  delta_pct: number | null;
+  direction: 'up' | 'down' | 'flat';
+  status: GoalStatus;
+}
+
+export interface MonitoringIntake {
+  metric: string;
+  label: string;
+  unit: string;
+  actual: number;
+  target: number;
+  pct: number;
+  flag: 'under' | 'over' | 'on_target';
+}
+
+export interface MonitoringSummary {
+  has_data: boolean;
+  has_previous: boolean;
+  previous_date: string | null;
+  current_date: string | null;
+  changes: MonitoringChange[];
+  intake: MonitoringIntake[];
+  goal_evaluation: { status: GoalStatus | 'partial'; reasons: string[] };
+}
+
+export async function fetchMonitoringSummary(ncpRecordId: number | string): Promise<MonitoringSummary> {
+  const res = await apiFetch(`/api/rnd/ncp-records/${ncpRecordId}/monitorings/summary`, {
+    headers: { Accept: 'application/json' },
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { message?: string }).message || 'Failed to load monitoring summary.');
+  }
+  return (await res.json()).data;
+}
+
+export interface AiReviewResult { narrative: string; cached: boolean; }
+
+export async function requestMonitoringAiReview(ncpRecordId: number | string): Promise<AiReviewResult> {
+  const res = await apiFetch(`/api/rnd/ncp-records/${ncpRecordId}/monitorings/ai-review`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { message?: string }).message || 'AI review failed.');
+  }
+  return (await res.json()).data;
+}
+
 // ─── BMI Helper ───────────────────────────────────────────────────────────────
 
 export function calculateBmi(weightKg: number, heightCm: number): number {
