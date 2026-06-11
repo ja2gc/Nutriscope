@@ -19,11 +19,11 @@ PHASE 0 (docs/decisions): ✅ DONE (commit: Phase 0 spec)
 PHASE 1 (calc accuracy + AP/PDRI): ✅ DONE — 90/90 golden + lint (commit: Phase 1)
 PHASE 2 (backend source of truth): ✅ DONE (core) — 90/90 PHP golden; endpoint added; FE wiring 2.4 deferred to subagents
 PHASE 4 (meal plan algo 4/8): ✅ BACKEND DONE (subagent A, commit 7c7bc19) — verified 31 new tests + golden 90/90
-PHASE 5 (assessment data 9): ✅ BACKEND DONE (subagent A) — migration + fields + PAL norm + gated pregnancy. FRONTEND fields pending → SUBAGENT B
-PHASE 3 (micro display UX 3/5/6/7): ⬜ NOT STARTED → SUBAGENT B (needs Recipe.total_water from A — done)
-PHASE 6 (monitoring + AI review 10): ⬜ NOT STARTED → SUBAGENT B
-PHASE 7 (inventory 11/12): ⬜ NOT STARTED → SUBAGENT B
-PHASE 2.4 (FE save-from-backend): ⬜ NOT STARTED → SUBAGENT B
+PHASE 5 (assessment data 9): ✅ DONE — BE (subagent A) + FE fields (commit 9e40735) + UpdateAssessmentRequest PATCH fix
+PHASE 3 (micro display UX 3/5/6/7): 🟡 MOSTLY DONE — 3.1 empty-prompt ✅ · 3.2 water-with-macros ✅ (already in place) · 3.4 removable+locked-required rows ✅ · 3.5 GOAL_MICRO_FLAGS ✅. ⬜ 3.3 recipe-view goal-relevant default DEFERRED — needs M3 decision (food-library/recipes/[id] is patient-agnostic; no NCP goal context to thread). Awaiting decision on target screen.
+PHASE 6 (monitoring + AI review 10): ⬜ NOT STARTED
+PHASE 7 (inventory 11/12): ✅ DONE (commit cd78f1a)
+PHASE 2.4 (FE save-from-backend): ✅ DONE — TS preview + BE-authoritative persist + dev drift guard + edema warning
 NOTE: migrations 2026_06_11_000001..04 NOT run locally (no sqlite driver) — run `php artisan migrate` in a real env before frontend work relies on the new columns.
 ```
 > Heavy/clinical phases (0–2) complete on branch `feat/nutri-engine-overhaul`. App-surface phases
