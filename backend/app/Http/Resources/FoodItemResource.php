@@ -13,6 +13,7 @@ class FoodItemResource extends JsonResource
             'id'             => $this->id,
             'name'           => $this->name,
             'category'       => $this->category,
+            'ready_to_eat'   => $this->ready_to_eat,
             'usda_fdc_id'    => $this->usda_fdc_id,
             'calories'       => $this->calories,
             'protein'        => $this->protein,
