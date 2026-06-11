@@ -152,14 +152,58 @@ export interface PatientMetrics {
   activityFactor?: number;
   /** Stress/injury factor (reserved; high_protein flat rate already embeds stress). */
   stressFactor?: number;
+  /** PDRI pregnancy/lactation add-on (mirrors backend NutritionPrescriptionService). */
+  pregnancyLactationStatus?: 'none' | 'pregnant' | 'lactating';
 }
 
 /**
  * Auto-fills a nutrition prescription based on goal_type + disease_stage.
  * Mirrors docs/logic/prescription-targets.json. RND can override any value.
  * AUTHORITATIVE values come from the backend; this is the live-preview mirror.
+ *
+ * Applies the PDRI pregnancy/lactation modifier on top of the goal result, in
+ * lockstep with the PHP NutritionPrescriptionService so the live preview never
+ * drifts from the persisted backend value.
  */
 export function autofillPrescription(
+  goalType: string,
+  stage: string | null,
+  metrics: PatientMetrics,
+): Prescription {
+  return applyPregnancyLactation(autofillBase(goalType, stage, metrics), metrics);
+}
+
+/**
+ * PDRI pregnancy / lactation add-on (mirrors backend exactly):
+ *   pregnant  → +300 kcal, +27 g protein
+ *   lactating → +500 kcal, +27 g protein
+ * Macros are recomputed at the original fat fraction to keep carb/fat consistent.
+ */
+function applyPregnancyLactation(rx: Prescription, metrics: PatientMetrics): Prescription {
+  const status = metrics.pregnancyLactationStatus;
+  if (!status || status === 'none') return rx;
+
+  const [energyAdj, proteinAdj] = status === 'pregnant' ? [300, 27]
+    : status === 'lactating' ? [500, 27] : [0, 0];
+  if (energyAdj === 0 && proteinAdj === 0) return rx;
+
+  const newEnergy  = rx.energy_kcal + energyAdj;
+  const newProtein = rx.protein_g + proteinAdj;
+  const fatPct     = rx.fat_g > 0 ? (rx.fat_g * 9) / Math.max(rx.energy_kcal, 1) : 0.25;
+  const recalc     = macrosFromEnergyProtein(newEnergy, newProtein, fatPct);
+  const adjNote    = `${status.charAt(0).toUpperCase()}${status.slice(1)} adjustment applied: +${energyAdj} kcal, +${proteinAdj} g protein (PDRI).`;
+
+  return {
+    ...rx,
+    energy_kcal: newEnergy,
+    protein_g:   newProtein,
+    carbs_g:     recalc.carbs_g,
+    fat_g:       recalc.fat_g,
+    note: rx.note ? `${rx.note} ${adjNote}` : adjNote,
+  };
+}
+
+function autofillBase(
   goalType: string,
   stage: string | null,
   metrics: PatientMetrics,
