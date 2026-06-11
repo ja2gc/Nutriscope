@@ -4,7 +4,7 @@ import React, { use, useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { Salad, User, Settings2, CheckCircle2 } from "lucide-react";
 import {
-  fetchIntervention, createIntervention, updateIntervention,
+  fetchIntervention, createIntervention, updateIntervention, autofillIntervention,
   Intervention,
 } from "@/services/interventionService";
 import { EDUCATION_TEMPLATES } from "@/lib/educationTemplates";
@@ -164,43 +164,78 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
     const flagged = GOAL_MICRO_FLAGS[goalType] ?? [];
     const newDisplayed = Array.from(new Set([...prescription.displayed_nutrients, ...flagged]));
 
-    let autofilled: Prescription | null = null;
+    // [1] Instant TS preview (frontend mirror — for responsiveness only).
+    let preview: Prescription | null = null;
     if (patientMetrics) {
-      autofilled = autofillPrescription(goalType, stage, patientMetrics);
-      setPrescNote(autofilled.note);
+      preview = autofillPrescription(goalType, stage, patientMetrics);
+      setPrescNote(preview.note);
+      setPrescription({
+        ...prescription,
+        displayed_nutrients: newDisplayed,
+        energy_kcal: String(preview.energy_kcal),
+        protein_g:   String(preview.protein_g),
+        carbs_g:     String(preview.carbs_g),
+        fat_g:       String(preview.fat_g),
+        fluid_ml:    String(preview.fluid_ml),
+      });
+    } else {
+      setPrescription({ ...prescription, displayed_nutrients: newDisplayed });
     }
-
-    const newPresc: PrescriptionForm = {
-      ...prescription,
-      displayed_nutrients: newDisplayed,
-      ...(autofilled ? {
-        energy_kcal: String(autofilled.energy_kcal),
-        protein_g:   String(autofilled.protein_g),
-        carbs_g:     String(autofilled.carbs_g),
-        fat_g:       String(autofilled.fat_g),
-        fluid_ml:    String(autofilled.fluid_ml),
-      } : {}),
-    };
-    setPrescription(newPresc);
 
     // Auto-populate education template if notes currently empty
     if (!educationNotes.trim() && EDUCATION_TEMPLATES[goalType]) {
       setEducationNotes(EDUCATION_TEMPLATES[goalType]);
     }
 
+    // [2] Authoritative values come from the backend engine (Phase 2.4 source of
+    //     truth). If it succeeds, persist & display the BE numbers; the TS preview
+    //     above just avoids a flash of empty fields. If it fails (e.g. no assessment
+    //     yet), fall back to persisting the TS preview so the goal still saves.
     setSaving(true);
     try {
+      let authoritative: {
+        energy_kcal: number; protein_g: number; carbs_g: number; fat_g: number; fluid_ml: number;
+      } | null = preview
+        ? { energy_kcal: preview.energy_kcal, protein_g: preview.protein_g, carbs_g: preview.carbs_g, fat_g: preview.fat_g, fluid_ml: preview.fluid_ml }
+        : null;
+
+      try {
+        const be = await autofillIntervention(ncpId, goalType, stage);
+        authoritative = { energy_kcal: be.energy_kcal, protein_g: be.protein_g, carbs_g: be.carbs_g, fat_g: be.fat_g, fluid_ml: be.fluid_ml };
+        setPrescNote(be.edema_warning ? `${be.note ?? ""} ${be.edema_warning}`.trim() : be.note);
+        setPrescription((prev) => ({
+          ...prev,
+          displayed_nutrients: newDisplayed,
+          energy_kcal: String(be.energy_kcal),
+          protein_g:   String(be.protein_g),
+          carbs_g:     String(be.carbs_g),
+          fat_g:       String(be.fat_g),
+          fluid_ml:    String(be.fluid_ml),
+        }));
+        // Dev-only drift guard: FE preview must match the authoritative BE value.
+        if (process.env.NODE_ENV !== "production" && preview) {
+          for (const [k, fe, beVal] of [
+            ["energy_kcal", preview.energy_kcal, be.energy_kcal],
+            ["protein_g",   preview.protein_g,   be.protein_g],
+            ["carbs_g",     preview.carbs_g,     be.carbs_g],
+            ["fat_g",       preview.fat_g,       be.fat_g],
+            ["fluid_ml",    preview.fluid_ml,    be.fluid_ml],
+          ] as const) {
+            if (Math.abs(Number(fe) - Number(beVal)) > 1) {
+              console.warn(`[prescription drift] ${k}: FE=${fe} BE=${beVal} — frontend mirror is out of sync with the backend engine.`);
+            }
+          }
+        }
+      } catch (err) {
+        // Backend autofill unavailable — keep the TS preview values (already shown).
+        console.warn("Backend autofill failed; using frontend preview values.", err);
+      }
+
       const updated = await updateIntervention(ncpId, {
         goal_type: goalType,
         disease_stage: stage,
         displayed_nutrients: newDisplayed,
-        ...(autofilled ? {
-          energy_kcal: autofilled.energy_kcal,
-          protein_g:   autofilled.protein_g,
-          carbs_g:     autofilled.carbs_g,
-          fat_g:       autofilled.fat_g,
-          fluid_ml:    autofilled.fluid_ml,
-        } : {}),
+        ...(authoritative ?? {}),
       } as Partial<Intervention>);
       setIntervention(updated);
     } finally { setSaving(false); }
@@ -306,6 +341,8 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
               onSave={savePrescription}
               saving={saving}
               note={prescNote}
+              requiredMicros={GOAL_MICRO_FLAGS[intervention?.goal_type ?? ""] ?? []}
+              goalLabel={goalLabel}
             />
 
             {/* [C] Recommend / Avoid */}

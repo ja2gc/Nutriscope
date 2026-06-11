@@ -2,7 +2,7 @@
 
 import { ALL_MICROS } from "@/lib/nutritionCalculations";
 import MicronutrientToggle from "./MicronutrientToggle";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, X, Lock, FlaskConical } from "lucide-react";
 
 interface PrescriptionValues {
   energy_kcal: string;
@@ -20,6 +20,10 @@ interface Props {
   onSave: () => void;
   saving: boolean;
   note?: string;
+  /** Micros required by the active intervention goal — rendered locked (can't be removed). */
+  requiredMicros?: string[];
+  /** Label of the active goal, for the "required by …" tooltip. */
+  goalLabel?: string;
 }
 
 const MACROS = [
@@ -30,9 +34,20 @@ const MACROS = [
   { key: "fluid_ml",    label: "Fluid",          unit: "mL"  },
 ] as const;
 
-export default function NutritionPrescriptionForm({ values, onChange, onSave, saving, note }: Props) {
+export default function NutritionPrescriptionForm({
+  values, onChange, onSave, saving, note, requiredMicros = [], goalLabel,
+}: Props) {
   const setMacro = (key: string, val: string) => onChange({ ...values, [key]: val });
   const setMicros = (keys: string[]) => onChange({ ...values, displayed_nutrients: keys });
+  const removeMicro = (key: string) => {
+    const { [key]: _removed, ...rest } = values.micronutrient_limits;
+    void _removed;
+    onChange({
+      ...values,
+      displayed_nutrients: values.displayed_nutrients.filter((k) => k !== key),
+      micronutrient_limits: rest,
+    });
+  };
   const setMicroLimit = (key: string, field: "max" | "min", val: string) => {
     const micro = ALL_MICROS.find((m) => m.key === key);
     onChange({
@@ -48,7 +63,7 @@ export default function NutritionPrescriptionForm({ values, onChange, onSave, sa
     <div className="bg-white border border-zinc-200 rounded-2xl p-5 shadow-sm space-y-5">
       <div className="flex items-center justify-between">
         <h3 className="text-xs font-extrabold text-zinc-700 uppercase tracking-wider">Nutrition Prescription</h3>
-        <MicronutrientToggle selected={values.displayed_nutrients} onChange={setMicros} />
+        <MicronutrientToggle selected={values.displayed_nutrients} onChange={setMicros} required={requiredMicros} />
       </div>
 
       {note && (
@@ -77,16 +92,19 @@ export default function NutritionPrescriptionForm({ values, onChange, onSave, sa
       </div>
 
       {/* Micronutrient limit rows */}
-      {values.displayed_nutrients.length > 0 && (
+      {values.displayed_nutrients.length > 0 ? (
         <div className="space-y-2 pt-2 border-t border-zinc-100">
           <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest">Micronutrient Limits</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {values.displayed_nutrients.map((key) => {
-              const micro  = ALL_MICROS.find((m) => m.key === key);
-              const limits = values.micronutrient_limits[key] ?? {};
+              const micro    = ALL_MICROS.find((m) => m.key === key);
+              const limits   = values.micronutrient_limits[key] ?? {};
+              const required = requiredMicros.includes(key);
               return (
                 <div key={key} className="flex items-center gap-2 p-2.5 bg-zinc-50 border border-zinc-200 rounded-xl">
-                  <span className="text-[10px] font-semibold text-zinc-700 w-24 flex-shrink-0">{micro?.label ?? key}</span>
+                  <span className="text-[10px] font-semibold text-zinc-700 w-24 flex-shrink-0 flex items-center gap-1">
+                    {micro?.label ?? key}
+                  </span>
                   <div className="flex items-center gap-1 flex-1">
                     <span className="text-[9px] text-zinc-400">max</span>
                     <input type="number" min="0" step="0.1"
@@ -97,10 +115,28 @@ export default function NutritionPrescriptionForm({ values, onChange, onSave, sa
                     />
                     <span className="text-[9px] text-zinc-400">{micro?.unit}</span>
                   </div>
+                  {required ? (
+                    <span className="p-1 text-zinc-300 cursor-not-allowed" title={`Required by the ${goalLabel ?? "intervention"} goal.`}>
+                      <Lock className="h-3 w-3" />
+                    </span>
+                  ) : (
+                    <button type="button" onClick={() => removeMicro(key)} title="Remove micronutrient"
+                      className="p-1 text-zinc-300 hover:text-red-500 transition-colors cursor-pointer">
+                      <X className="h-3 w-3" />
+                    </button>
+                  )}
                 </div>
               );
             })}
           </div>
+        </div>
+      ) : (
+        <div className="flex items-start gap-2 p-3 bg-zinc-50 border border-zinc-200 border-dashed rounded-xl">
+          <FlaskConical className="h-3.5 w-3.5 text-zinc-400 flex-shrink-0 mt-0.5" />
+          <p className="text-[10px] text-zinc-500 leading-relaxed">
+            No micronutrients selected. Use <span className="font-semibold text-zinc-700">Display Micros</span> above to add
+            goal-relevant micronutrients (e.g. potassium &amp; phosphorus for renal) — they&apos;ll show limits here and track in the meal plan.
+          </p>
         </div>
       )}
 
