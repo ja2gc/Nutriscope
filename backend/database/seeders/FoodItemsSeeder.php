@@ -113,6 +113,29 @@ class FoodItemsSeeder extends Seeder
     /** Preferred data type order — Foundation has the most complete nutrient data */
     private const DATA_TYPE_PRIORITY = ['Foundation', 'SR Legacy', 'Survey (FNDDS)'];
 
+    /**
+     * Snack-suitability curation for meal-plan auto-generation.
+     *
+     * `FoodItem::isReadyToEat()` treats every fruit/vegetable as a standalone snack by
+     * default, but aromatics, condiments and cooked side-dish vegetables are not sensible
+     * on their own — they only belong inside a composed recipe. Pin those to false here.
+     * (Map value is the explicit `ready_to_eat` flag; true would force-include an item
+     * whose category wouldn't otherwise qualify.)
+     */
+    private const SNACK_CURATION = [
+        'Onion (Raw)'                => false, // aromatic
+        'Ginger Root (Raw)'          => false, // aromatic
+        'Calamansi / Lime Juice'     => false, // condiment / juice
+        'Tomato (Cooked)'            => false, // cooked side dish
+        'Water Spinach (Kangkong)'   => false, // leafy side dish
+        'Eggplant / Talong (Cooked)' => false, // cooked side dish
+        'Bok Choy / Pechay (Cooked)' => false, // cooked side dish
+        'Chayote / Sayote (Cooked)'  => false, // cooked side dish
+        'Squash / Kalabasa (Cooked)' => false, // cooked side dish
+        // Left eligible by category default: Guava, Jackfruit, Papaya, Pineapple,
+        // Sweet Corn — sensible single ready-to-eat snacks.
+    ];
+
     public function run(): void
     {
         $usda = app(UsdaService::class);
@@ -208,5 +231,12 @@ class FoodItemsSeeder extends Seeder
         }
 
         $this->command->info('Done. All items use USDA import (macros + micros + water_g). See FALLBACK_FDC_IDS for rate-limit resilience.');
+
+        // Snack-suitability curation (idempotent — safe on re-runs).
+        $curated = 0;
+        foreach (self::SNACK_CURATION as $name => $readyToEat) {
+            $curated += \App\Models\FoodItem::where('name', $name)->update(['ready_to_eat' => $readyToEat]);
+        }
+        $this->command->info("Snack curation: pinned ready_to_eat on {$curated} item(s).");
     }
 }
