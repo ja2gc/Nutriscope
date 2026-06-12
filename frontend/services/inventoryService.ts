@@ -30,7 +30,6 @@ export interface InventoryRecord {
   recipe?: RecipeRef;
   quantity_in_stock: string;
   unit: string;
-  expiry_date: string | null;
   usage_rate: string | null;
   minimum_stock_threshold: string | null;
   unit_price: string | null;
@@ -50,8 +49,6 @@ export interface InventoryRow {
   category: string;
   quantity_in_stock: string;
   unit: string;
-  expiry_date: string | null;
-  usage_rate: string | null;
   minimum_stock_threshold: string | null;
   /** Catalog buy price (per purchase_unit). Null for recipes. */
   unit_price: string | null;
@@ -62,7 +59,6 @@ export interface InventoryRow {
   /** Auto-calculated cost per recipe from ingredients (recipes only). */
   recipe_cost: string | null;
   recipe_servings: number | null;
-  notes: string | null;
   status: StockStatus;
   highlight: RowHighlight;
 }
@@ -73,11 +69,8 @@ export interface UpsertInventoryPayload {
   recipe_id?: number | null;
   quantity_in_stock: number;
   unit: string;
-  expiry_date?: string | null;
-  usage_rate?: number | null;
   minimum_stock_threshold?: number | null;
   unit_price?: number | null;
-  notes?: string | null;
 }
 
 export interface PaginationMeta {
@@ -127,8 +120,6 @@ export async function listInventoryRows(params: ListInventoryRowsParams = {}): P
     category:                 (r.category as string) ?? "",
     quantity_in_stock:        (r.quantity_in_stock as string) ?? "0",
     unit:                     (r.unit as string) ?? "",
-    expiry_date:              (r.expiry_date as string | null) ?? null,
-    usage_rate:               (r.usage_rate as string | null) ?? null,
     minimum_stock_threshold:  (r.minimum_stock_threshold as string | null) ?? null,
     unit_price:               (r.unit_price as string | null) ?? null,
     unit_cost:                (r.unit_cost as string | null) ?? null,
@@ -136,7 +127,6 @@ export async function listInventoryRows(params: ListInventoryRowsParams = {}): P
     purchase_unit:            (r.purchase_unit as string | null) ?? null,
     recipe_cost:              (r.recipe_cost as string | null) ?? null,
     recipe_servings:          (r.recipe_servings as number | null) ?? null,
-    notes:                    (r.notes as string | null) ?? null,
     status:                   r.status as StockStatus,
     highlight:                r.highlight as RowHighlight,
   }));
@@ -174,6 +164,30 @@ export async function deleteInventory(id: number): Promise<void> {
   if (!res.ok && res.status !== 204) {
     const json = await res.json().catch(() => ({}));
     throw new Error(json.message ?? "Failed to delete.");
+  }
+}
+
+export async function patchFsItemCategory(fsItemId: number, category: string | null): Promise<void> {
+  const res = await apiFetch(`/api/fss/fs-items/${fsItemId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ category }),
+  });
+  if (!res.ok) {
+    const json = await res.json().catch(() => ({}));
+    throw new Error(json.message ?? "Failed to update category.");
+  }
+}
+
+export async function patchRecipeCategory(recipeId: number, category: string | null): Promise<void> {
+  const res = await apiFetch(`/api/fss/food-service-recipes/${recipeId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ category }),
+  });
+  if (!res.ok) {
+    const json = await res.json().catch(() => ({}));
+    throw new Error(json.message ?? "Failed to update category.");
   }
 }
 
