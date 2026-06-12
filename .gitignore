@@ -5,3 +5,10 @@ nginx/certbot/
 .DS_Store
 Thumbs.db
 artifacts/tsbuild/
+
+# Local agent / skill tooling (per-machine installs, not project code)
+.agents/skills/
+.claude/skills/
+.mcp.json
+skills-lock.json
+e2e_demo/
