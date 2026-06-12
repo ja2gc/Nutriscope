@@ -7,6 +7,7 @@ use App\Support\UnitConverter;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Log;
 
 class FoodServiceRecipe extends Model
 {
@@ -56,6 +57,32 @@ class FoodServiceRecipe extends Model
             $cost += $qty * $item->unit_cost;
         }
         $this->update(['cost' => round($cost, 2)]);
+    }
+
+    /**
+     * Recompute the cached cost of every recipe that uses any of the given
+     * fs_items. One bad recipe is logged, not allowed to abort the batch.
+     *
+     * @param array<int,int> $fsItemIds
+     */
+    public static function recalculateForItems(array $fsItemIds): void
+    {
+        if (! $fsItemIds) {
+            return;
+        }
+
+        $recipeIds = FoodServiceRecipeIngredient::whereIn('fs_item_id', $fsItemIds)
+            ->pluck('food_service_recipe_id')->unique();
+
+        foreach (static::whereIn('id', $recipeIds)->get() as $recipe) {
+            try {
+                $recipe->recalculateCost();
+            } catch (\Throwable $e) {
+                Log::warning('recalculateForItems: recipe recompute failed', [
+                    'recipe' => $recipe->id, 'error' => $e->getMessage(),
+                ]);
+            }
+        }
     }
 
     /** Baseline → target scale factor for this recipe (target servings ÷ this recipe's yield). */
