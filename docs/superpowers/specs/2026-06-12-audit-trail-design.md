@@ -1,7 +1,7 @@
 # Spec 5 — App-Wide Audit Trail (change history + per-record UI)
 
 - **Date:** 2026-06-12
-- **Status:** Draft for brainstorming — **open decisions in §8 must be resolved before a plan**
+- **Status:** Brainstormed — privacy & scope decisions locked (§8); retention/surfacing remain minor opens
 - **Scope:** whole app (clinical + food-service), not just FS
 - **Roadmap:** Spec 5 of 5 (see [Spec 1](2026-06-12-fs-costing-immutability-design.md))
 
@@ -68,8 +68,12 @@ No new tables (activity_log exists). Add a config/const list of audited models +
 4. **Causer gaps:** background jobs/AI without the sentinel will write null-causer rows that look like "nobody did it."
 5. **Not tamper-proof:** anyone with DB/admin write access can alter `activity_log`. Fine for an internal trail; don't oversell it as forensic in `security.md`.
 
-## 8. Open decisions (brainstorm these)
-- **Decision A — PHI handling:** log clinical field **values** (richer trail, PHI exposure) vs log **"changed, no values"** for sensitive fields vs encrypt the audit payload. (Lean: no-values for flagged sensitive clinical fields; full values for operational/FS data.)
-- **Decision B — access-log scope:** mutations-only [recommended] vs keep reads for sensitive endpoints vs status quo (all requests).
-- **Decision C — retention:** how long to keep audit rows, and prune vs archive.
-- **Decision D — surfacing breadth:** history panel on *all* listed models now, or start with the highest-value few (Patient, PurchaseOrder, Inventory) and expand.
+## 8. Decisions
+
+**Locked:**
+- **Decision A — PHI handling: FIELDS-ONLY FOR CLINICAL.** Clinical/patient models (`Patient`, `NcpRecord`, `Assessment`, `Diagnosis`, `Intervention`, `Monitoring`, `MealPlan`) log **which fields changed + who + when, but NOT the before/after values**. Operational/food-service models log **full values**. This keeps PHI out of `activity_log` while preserving "who did what." Implementation: a per-model "redacted attributes" set; for redacted fields, record the attribute name in the change set with values stripped.
+- **Decision B — access-log scope: MUTATIONS ONLY.** Log `POST/PUT/PATCH/DELETE` by default; drop routine GET noise. (Sensitive-read logging can be added later per-endpoint if a HIPAA-style access trail is required.)
+
+**Still open (minor, non-blocking):**
+- **Decision C — retention:** keep-window + prune vs archive for `activity_log` (propose: documented retention window with a scheduled prune job).
+- **Decision D — surfacing breadth:** start the per-record history UI on the highest-value models (`Patient`, `PurchaseOrder`, `Inventory`) and expand, vs all at once.

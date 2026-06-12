@@ -1,7 +1,8 @@
 # Spec 2 — Food-Service Consumption (stock-OUT)
 
 - **Date:** 2026-06-12
-- **Status:** Draft for brainstorming — **open decisions in §9 must be resolved before a plan**
+- **Status:** Brainstormed — key decisions locked (§9); ready for an implementation plan
+- **Domain rule (from user):** procurement is built *from* the menu plan, and the kitchen uses **all** the planned ingredients for each day. So consumption deducts the **planned** day quantity (deterministic), and bought-then-received stock should net out. A shortfall is therefore **not** a normal scenario — it means an upstream problem (PO not yet received, headcount changed vs. what was procured, or rounding residue), and is handled as a hard guardrail (§4.2/§9-B).
 - **Depends on:** Spec 1 (needs correct `inventory.unit_price` per base unit before deduction cost means anything)
 - **Roadmap:** Spec 2 of 5 (see [Spec 1](2026-06-12-fs-costing-immutability-design.md))
 
@@ -51,12 +52,9 @@ In one DB transaction:
 3. Build the required base-unit usage:
    - **Recipe day:** scale each ingredient by `RecipeScaler::factor(recipe.servings, target)`, convert to base unit (reuse the exact logic in `MenuCycleCostService::aggregate`/`recalculateCost` — factor this into a shared helper so consumption and costing can't diverge).
    - **Ready item day (`fs_item_id`, no recipe):** `quantity × target` of the catalog item in its base unit.
-4. For each required `(fs_item_id, qtyBase)`:
-   - Load/lock the inventory row. `available = quantity_in_stock`.
-   - `deduct = min(qtyBase, available)`; `shortfall = qtyBase - deduct` (D-B: clamp-at-zero policy — see §9).
-   - `quantity_in_stock -= deduct`. Write a `meal_prep_log_line` with `qty_base = deduct`, `unit_cost = inventory.unit_price` (fallback catalog `unit_cost`), `line_value = deduct × unit_cost`, `shortfall_qty = shortfall`.
-   - If `shortfall > 0`, mark `has_shortfall` and include in the warning.
-5. Sum `total_value`; persist the log. Return `{ log, warnings: [...] }`.
+4. **Pre-flight cover check (block-on-shortfall, §9-B):** compute every required `(fs_item_id, qtyBase)` and compare to `quantity_in_stock` **before** deducting anything. If any item is short, **abort with a 422** listing each short item, the gap, and a likely-cause hint ("receive PO #X" / "headcount changed"). Nothing is deducted. This matches the domain rule: a shortfall is an upstream error to fix, not something to absorb.
+5. If everything is covered, deduct each `(fs_item_id, qtyBase)`: lock the inventory row, `quantity_in_stock -= qtyBase`, and write a `meal_prep_log_line` snapshot `{ qty_base, unit, unit_cost = inventory.unit_price (fallback catalog unit_cost), line_value = qty_base × unit_cost }`. (`shortfall_qty` retained on the line schema only for the override path, §9-B; normally 0.)
+6. Sum `total_value`; persist the log. Return `{ log }`.
 
 ### 4.3 Reversal `ConsumptionService::reverseDay(MealPrepLog $log)`
 
@@ -95,8 +93,10 @@ In one transaction: for each line, `inventory.quantity_in_stock += line.qty_base
 3. **Clamp-at-zero hides reality:** clamping shortfalls at zero keeps stock non-negative but means "stock says 0" can mask that you actually used more than recorded. The shortfall column preserves the truth, but only if reports surface it.
 4. **No FEFO/lots:** we deduct from a single pooled quantity at last-cost. Fine for a kitchen, wrong for strict lot accounting. Out of scope by decision.
 
-## 9. Open decisions (brainstorm these)
+## 9. Decisions (locked)
 
-- **Decision A — service-date binding:** (a) `(menu_cycle_day_id, service_date)` pair on the prep log [proposed, simplest]; (b) a separate "service calendar" that instantiates cycle days to real dates first, then complete against calendar entries [heavier, but cleaner if you later want a dated meal calendar/scheduling view].
-- **Decision B — short-stock behavior:** clamp-at-zero + record shortfall [proposed], vs allow-negative stock [more honest, uglier reports], vs deduct-only-available-and-block-the-rest.
-- **Decision C — completion granularity:** per day×meal slot (one `MenuCycleDay`) vs "complete the whole day" (all meal slots for that day_of_week at once). Affects the UI action and the idempotency key.
+- **Decision A — service-date binding: SERVICE CALENDAR.** Instantiate menu-cycle days into real **dated** meal entries; consumption completes against a specific dated meal, not an abstract "Monday." Removes the recurring-week ambiguity and gives Spec 3 a real plan-vs-actual calendar. (The prep log references the dated calendar entry; idempotency is per dated entry.)
+- **Decision B — shortfall behavior: BLOCK + SPECIFIC ALERT.** Pre-flight cover check; if short, refuse and name the short items + likely cause. A shortfall means an upstream problem, never a silent absorb. (`shortfall_qty` stays on the line schema to support a possible future "override-to-proceed" escape hatch, but the default is block.)
+- **Decision C — completion granularity: WHOLE SERVICE DAY.** Completing a calendar day deducts all of that day's meal slots together; the idempotency key is the dated calendar day. (A per-meal variant can come later if needed.)
+
+**Still open (minor, non-blocking):** whether un-completing is allowed only same-day vs anytime; how the service calendar is generated (auto on cycle activation vs on demand).
