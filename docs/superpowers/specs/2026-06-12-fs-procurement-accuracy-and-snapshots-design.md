@@ -56,6 +56,7 @@ net_need = max(0, planned_need − on_hand_base − in_transit_base)
 - POs remain the **Dietary Cash Book** disbursements (cash out), and an optional cash-flow view — but they stop driving the daily budget-vs-plan variance.
 - Keeps the double-count guard (Spec 1 §5.8) meaningful: consumption (food used) and cash logs (money out) are now clearly different axes.
 - **Dependency:** requires Spec 2 consumption data to exist; until then budget actual falls back to received-PO totals (current behavior) with a clear "estimated from purchases" label.
+- **Schema cleanup (review finding — split-brain `budget_daily_logs`).** The table carries **two parallel column sets** for the same concept — `date` + `planned/actual/variance` **and** `log_date` + `spent` — used inconsistently (seeder writes `date`/`actual`; `storeDailyLog` + `summary` use `log_date`/`spent`). Effect: **seeded daily logs are invisible** to the dashboard (summary filters on `log_date`, which is null in seeded rows). Consolidate to **one** set (`log_date` + `spent`), migrate existing rows, and fix the seeder. Do this as part of the budget rework so there's a single source of truth.
 
 ## 4. Data model
 - `purchase_order_items` / `shopping_list_items`: add `purchase_qty`, `purchase_unit`, `purchase_price` (keep existing base fields for stock math).
