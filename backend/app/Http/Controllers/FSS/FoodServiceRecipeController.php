@@ -5,7 +5,9 @@ namespace App\Http\Controllers\FSS;
 use App\Http\Controllers\Controller;
 use App\Models\FoodServiceRecipe;
 use App\Models\FoodServiceRecipeIngredient;
+use App\Models\FsItem;
 use App\Models\Inventory;
+use App\Support\UnitConverter;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -17,6 +19,32 @@ class FoodServiceRecipeController extends Controller
     {
         $recipes = FoodServiceRecipe::orderBy('name')->get(['id', 'name', 'category', 'servings', 'created_at']);
         return response()->json(['data' => $recipes]);
+    }
+
+    /**
+     * An ingredient quantity can only be costed if its unit is the same dimension
+     * as the item's base_unit (mass↔mass, volume↔volume) or exactly equal. Count
+     * units (pc/pack) must match a count base exactly — never cross to mass/volume.
+     */
+    public static function unitCompatible(string $ingredientUnit, string $baseUnit): bool
+    {
+        $a = UnitConverter::normalize($ingredientUnit);
+        $b = UnitConverter::normalize($baseUnit);
+        if ($a === '' || $b === '' || $a === $b) {
+            return true;
+        }
+        return UnitConverter::isKnown($a) && UnitConverter::isKnown($b);
+    }
+
+    /** Reject any ingredient whose unit can't be costed against its item's base_unit. */
+    private function assertIngredientUnits(array $ingredients): void
+    {
+        foreach ($ingredients as $ing) {
+            $base = FsItem::whereKey($ing['fs_item_id'])->value('base_unit');
+            if ($base && ! self::unitCompatible($ing['unit'] ?? $base, $base)) {
+                abort(422, "Ingredient unit '" . ($ing['unit'] ?? '') . "' is not compatible with base unit '{$base}' for item #{$ing['fs_item_id']}.");
+            }
+        }
     }
 
     public function store(Request $request): JsonResponse
@@ -31,6 +59,8 @@ class FoodServiceRecipeController extends Controller
             'ingredients.*.quantity'   => ['required', 'numeric', 'min:0.01'],
             'ingredients.*.unit'       => ['nullable', 'string'],
         ]);
+
+        $this->assertIngredientUnits($data['ingredients']);
 
         $recipe = DB::transaction(function () use ($data) {
             $recipe = FoodServiceRecipe::create([
@@ -75,6 +105,10 @@ class FoodServiceRecipeController extends Controller
             'ingredients.*.unit'       => ['nullable', 'string'],
         ]);
 
+        if (isset($data['ingredients'])) {
+            $this->assertIngredientUnits($data['ingredients']);
+        }
+
         DB::transaction(function () use ($data, $foodServiceRecipe) {
             $foodServiceRecipe->update(array_filter([
                 'name'       => $data['name'] ?? null,
@@ -103,6 +137,11 @@ class FoodServiceRecipeController extends Controller
 
     public function destroy(FoodServiceRecipe $foodServiceRecipe): JsonResponse
     {
+        $usedBy = \App\Models\MenuCycleDay::where('recipe_id', $foodServiceRecipe->id)->count();
+        if ($usedBy > 0) {
+            abort(409, "Can't delete: this recipe is used by {$usedBy} menu-cycle slot(s). Remove it from the cycle(s) first.");
+        }
+
         $foodServiceRecipe->delete();
         return response()->json(null, 204);
     }
