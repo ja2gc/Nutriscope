@@ -182,7 +182,7 @@ class FoodServiceDemoSeeder extends Seeder
                 'item_type' => 'ingredient', 'fs_item_id' => $fsId,
                 'quantity_in_stock' => $qty, 'unit' => $item->base_unit,
                 'minimum_stock_threshold' => $min, 'unit_price' => $item->purchase_price,
-                'expiry_date' => $exp !== null ? $today->copy()->addDays($exp) : null, 'notes' => $notes,
+                'notes' => $notes,
             ]);
         }
 
