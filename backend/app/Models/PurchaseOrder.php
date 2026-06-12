@@ -11,13 +11,21 @@ class PurchaseOrder extends Model
 
     protected $fillable = [
         'fss_user_id', 'shopping_list_id', 'supplier_id', 'po_number', 'or_number',
-        'order_date', 'total_amount', 'status', 'receipt_image', 'notes',
+        'order_date', 'received_date', 'total_amount', 'status', 'receipt_image', 'notes',
     ];
 
     protected $casts = [
-        'total_amount' => 'decimal:2',
-        'order_date'   => 'date',
+        'total_amount'  => 'decimal:2',
+        'order_date'    => 'date',
+        'received_date' => 'date',
     ];
+
+    /** Single source of truth: total_amount is always the sum of its line items. */
+    public function recalcTotal(): void
+    {
+        $this->total_amount = (float) $this->items()->sum('total_value');
+        $this->save();
+    }
 
     public function fss()
     {
