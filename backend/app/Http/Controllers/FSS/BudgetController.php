@@ -50,9 +50,9 @@ class BudgetController extends Controller
         $gran  = $data['granularity'] ?? 'day';
 
         $poByDay = PurchaseOrder::where('status', 'received')
-            ->whereBetween('order_date', [$start->toDateString(), $end->toDateString()])
-            ->selectRaw('order_date as d, SUM(total_amount) as t')
-            ->groupBy('order_date')->pluck('t', 'd');
+            ->whereRaw('COALESCE(received_date, order_date) BETWEEN ? AND ?', [$start->toDateString(), $end->toDateString()])
+            ->selectRaw('COALESCE(received_date, order_date) as d, SUM(total_amount) as t')
+            ->groupBy('d')->pluck('t', 'd');
 
         $logByDay = $budget->dailyLogs()
             ->whereBetween('log_date', [$start->toDateString(), $end->toDateString()])
@@ -117,6 +117,15 @@ class BudgetController extends Controller
             'variance'  => 0,
         ]);
 
+        // Received POs are already counted as spend on their date — warn so the user
+        // doesn't double-count by also logging the same cash by hand.
+        $poCount = PurchaseOrder::where('status', 'received')
+            ->whereRaw('COALESCE(received_date, order_date) = ?', [$data['log_date']])
+            ->count();
+        $warning = $poCount > 0
+            ? "{$poCount} received purchase order(s) are already counted on {$data['log_date']}. Manual logs are for non-PO cash spends only."
+            : null;
+
         return response()->json([
             'data' => [
                 'id'         => $dailyLog->id,
@@ -124,6 +133,7 @@ class BudgetController extends Controller
                 'log_date'   => $dailyLog->log_date?->toDateString(),
                 'spent'      => $dailyLog->spent,
                 'notes'      => $dailyLog->notes,
+                'warning'    => $warning,
                 'created_at' => $dailyLog->created_at,
                 'updated_at' => $dailyLog->updated_at,
             ]
