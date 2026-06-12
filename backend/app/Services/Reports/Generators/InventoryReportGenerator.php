@@ -38,7 +38,8 @@ class InventoryReportGenerator implements ReportGenerator
                 $name = $inv->fsItem?->name ?? $inv->recipe?->name ?? '—';
                 $qty  = (float) $inv->quantity_in_stock;
                 $min  = (float) $inv->minimum_stock_threshold;
-                $cost = $inv->fsItem?->unit_cost ?? (float) $inv->unit_price;
+                // stored last-cost (₱/base) first; fall back to live catalog only for never-received items
+                $cost = $inv->unit_price !== null ? (float) $inv->unit_price : ($inv->fsItem?->unit_cost ?? 0.0);
 
                 return [
                     'name'      => $name,

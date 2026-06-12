@@ -81,8 +81,8 @@ class InventoryController extends Controller
 
         $catalogCols = "f.id AS item_id, f.name, f.category, f.kind AS item_type,
                         f.base_unit, f.purchase_unit, f.purchase_price, f.units_per_purchase,
-                        inv.id AS inventory_id, inv.quantity_in_stock, inv.unit, inv.expiry_date,
-                        inv.minimum_stock_threshold, inv.usage_rate, inv.notes,
+                        inv.id AS inventory_id, inv.quantity_in_stock, inv.unit,
+                        inv.minimum_stock_threshold,
                         NULL AS recipe_cost, NULL AS recipe_servings";
 
         if (in_array($type, ['all', 'ingredient', 'supply'], true)) {
@@ -104,8 +104,8 @@ class InventoryController extends Controller
         if (in_array($type, ['all', 'recipe'], true)) {
             $sql = "SELECT r.id AS item_id, r.name, r.category, 'recipe' AS item_type,
                            NULL AS base_unit, NULL AS purchase_unit, NULL AS purchase_price, NULL AS units_per_purchase,
-                           inv.id AS inventory_id, inv.quantity_in_stock, inv.unit, inv.expiry_date,
-                           inv.minimum_stock_threshold, inv.usage_rate, inv.notes,
+                           inv.id AS inventory_id, inv.quantity_in_stock, inv.unit,
+                           inv.minimum_stock_threshold,
                            r.cost AS recipe_cost, r.servings AS recipe_servings
                     FROM food_service_recipes r
                     LEFT JOIN inventory inv ON inv.recipe_id = r.id";
@@ -117,7 +117,7 @@ class InventoryController extends Controller
         }
 
         // Guard against an empty IN-set (unknown type) → return nothing rather than error.
-        $union = $parts ? implode(' UNION ALL ', $parts) : 'SELECT NULL AS item_id, NULL AS name, NULL AS category, NULL AS item_type, NULL AS base_unit, NULL AS purchase_unit, NULL AS purchase_price, NULL AS units_per_purchase, NULL AS inventory_id, NULL AS quantity_in_stock, NULL AS unit, NULL AS expiry_date, NULL AS minimum_stock_threshold, NULL AS usage_rate, NULL AS notes, NULL AS recipe_cost, NULL AS recipe_servings WHERE 1=0';
+        $union = $parts ? implode(' UNION ALL ', $parts) : 'SELECT NULL AS item_id, NULL AS name, NULL AS category, NULL AS item_type, NULL AS base_unit, NULL AS purchase_unit, NULL AS purchase_price, NULL AS units_per_purchase, NULL AS inventory_id, NULL AS quantity_in_stock, NULL AS unit, NULL AS minimum_stock_threshold, NULL AS recipe_cost, NULL AS recipe_servings WHERE 1=0';
 
         return [$union, $bindings];
     }
@@ -170,7 +170,6 @@ class InventoryController extends Controller
             'category'                => $r->category ?? '',
             'quantity_in_stock'       => $r->quantity_in_stock,
             'unit'                    => $r->unit ?? '',
-            'expiry_date'             => $r->expiry_date,
             'minimum_stock_threshold' => $r->minimum_stock_threshold,
             // Catalog "price" shown in the table = the buy price; unit_cost is the derived ₱/base-unit.
             'unit_price'              => $isRecipe ? null : $r->purchase_price,
@@ -179,8 +178,6 @@ class InventoryController extends Controller
             'purchase_unit'           => $r->purchase_unit,
             'recipe_cost'             => $r->recipe_cost,
             'recipe_servings'         => $r->recipe_servings !== null ? (int) $r->recipe_servings : null,
-            'notes'                   => $r->notes,
-            'usage_rate'              => $r->usage_rate,
             'status'                  => $status,
             'highlight'               => $highlight,
         ];
@@ -222,8 +219,29 @@ class InventoryController extends Controller
 
     public function store(StoreInventoryRequest $request): JsonResponse
     {
-        $inventory = Inventory::create($request->validated());
+        $data = $request->validated();
+
+        // Force base-unit storage for catalog items (ingredient/supply) so a manual
+        // entry can never mix units with a received-PO row in the same stock total.
+        if (($data['item_type'] ?? null) !== 'recipe' && ! empty($data['fs_item_id'])) {
+            $fs = FsItem::find($data['fs_item_id']);
+            if ($fs) {
+                [$qtyBase] = \App\Services\FSS\ReceivingService::normalizeLine(
+                    (float) $data['quantity_in_stock'], (string) ($data['unit'] ?? ''), 0.0, (string) $fs->base_unit
+                );
+                $data['quantity_in_stock'] = $qtyBase;
+                $data['unit'] = $fs->base_unit;
+            }
+        }
+
+        // inventory has UNIQUE(fs_item_id)/UNIQUE(recipe_id) → upsert, never a dup-row 500.
+        $key = ! empty($data['fs_item_id'])
+            ? ['fs_item_id' => $data['fs_item_id']]
+            : ['recipe_id' => $data['recipe_id']];
+
+        $inventory = Inventory::updateOrCreate($key, $data);
         Cache::flush();
+
         return response()->json(['data' => new InventoryResource($inventory->load(self::RELATIONS))], 201);
     }
 
