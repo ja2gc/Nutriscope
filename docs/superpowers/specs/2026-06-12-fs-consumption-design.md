@@ -17,7 +17,7 @@ Inventory is currently **one-way**: PO receipt and manual restock add stock; not
 **Goals**
 1. A "complete day" action that deducts each meal's scaled ingredients from inventory.
 2. Deductions valued at **stored last-cost** (`inventory.unit_price`) and **snapshotted** on the prep log, so consumption value is immutable and reversal is exact.
-3. **Warn-but-allow** on short stock (D7 from Spec 1).
+3. **Block-on-shortfall** with a specific alert (pre-flight cover check; see §9-B) — a shortfall is an upstream error, never silently absorbed.
 4. **Idempotent** (a day can't be deducted twice) and **reversible** (un-completing restores the exact deducted quantities).
 5. A consumption/usage record that Spec 3 can chart (plan vs actual).
 
@@ -33,6 +33,14 @@ Inventory is currently **one-way**: PO receipt and manual restock add stock; not
 **Proposed model:** a prep/service event is keyed by **(`menu_cycle_day_id`, `service_date`)**. Completing "Monday lunch" requires choosing the actual date it was served. The unique pair gives us idempotency for free.
 
 This is the central design question — see §9 Decision A for alternatives.
+
+## 3b. Procurement accuracy fix (rides on the service calendar)
+
+**Current flaw:** the "smart" shopping list ([ShoppingListController::generate](../../../backend/app/Http/Controllers/FSS/ShoppingListController.php#L61) → [ProcurementService::suggestedItems](../../../backend/app/Services/ProcurementService.php#L15)) takes the **whole cycle's** total ingredient usage and scales it by a **proportion** `days_span / cycle_days`. So "3 days of a 7-day cycle" = 3/7 of *everything*, an average — it does **not** sum the actual days' menus, and there's no way to pick a real range like **Tue–Thu**. For a varied menu this is inaccurate.
+
+**Fix:** drive the suggested list off **actual selected days**, not a proportional count. With the service calendar (Decision A), a list for a date range = the **sum of those dated days' planned ingredients** (each day → its recipes → `fs_item` ingredients, scaled to servings, unit-converted), exact and un-smeared. Spans longer than the cycle simply walk more calendar days (the cycle repeats by date). The UI lets the user **pick the menu cycle + a day/date range** and produce a **suggested** list (editable) or commit it as a **normal** list. This supersedes the proportional `days_span` factor.
+
+> Sequencing note: this fix needs day-level granularity. It can ship with Spec 2 (cleanest, uses the calendar) or as a smaller standalone procurement enhancement that sums cycle days by `day_of_week` for the selected range without the full calendar. Recommend bundling with Spec 2.
 
 ## 4. Design
 
