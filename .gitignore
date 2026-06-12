@@ -4,3 +4,4 @@ nginx/certbot/
 # OS
 .DS_Store
 Thumbs.db
+artifacts/tsbuild/

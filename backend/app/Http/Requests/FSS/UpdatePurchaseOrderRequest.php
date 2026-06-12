@@ -13,10 +13,11 @@ class UpdatePurchaseOrderRequest extends FormRequest
         return [
             'shopping_list_id' => ['nullable', 'exists:shopping_lists,id'],
             'supplier_id'      => ['nullable', 'exists:suppliers,id'],
+            'po_number'        => ['nullable', 'string'],
+            'or_number'        => ['nullable', 'string'],
             'order_date'       => ['nullable', 'date'],
             'total_amount'     => ['nullable', 'numeric', 'min:0'],
             'status'           => ['nullable', 'string', 'in:draft,ordered,received'],
-            'receipt_image'    => ['nullable', 'string'],
             'notes'            => ['nullable', 'string'],
         ];
     }

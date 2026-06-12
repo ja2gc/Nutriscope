@@ -39,6 +39,11 @@ export interface Assessment {
   muac_mm: number | string | null;
   waist_cm: number | string | null;
   hip_cm: number | string | null;
+  // Phase 5 — nutrition engine inputs
+  stress_factor: number | string | null;
+  edema_present: boolean | null;
+  pregnancy_lactation_status: "none" | "pregnant" | "lactating" | null;
+  calf_circumference_cm: number | string | null;
   created_at?: string;
   updated_at?: string;
 }

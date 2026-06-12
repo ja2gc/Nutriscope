@@ -27,9 +27,9 @@ class FoodServiceRecipeController extends Controller
             'prep_notes'  => ['nullable', 'string'],
             'servings'    => ['nullable', 'integer', 'min:1'],
             'ingredients' => ['required', 'array', 'min:1'],
-            'ingredients.*.inventory_id' => ['required', 'integer', 'exists:inventory,id'],
-            'ingredients.*.quantity'     => ['required', 'numeric', 'min:0.01'],
-            'ingredients.*.unit'         => ['nullable', 'string'],
+            'ingredients.*.fs_item_id' => ['required', 'integer', 'exists:fs_items,id'],
+            'ingredients.*.quantity'   => ['required', 'numeric', 'min:0.01'],
+            'ingredients.*.unit'       => ['nullable', 'string'],
         ]);
 
         $recipe = DB::transaction(function () use ($data) {
@@ -44,7 +44,7 @@ class FoodServiceRecipeController extends Controller
             foreach ($data['ingredients'] as $ing) {
                 FoodServiceRecipeIngredient::create([
                     'food_service_recipe_id' => $recipe->id,
-                    'inventory_id'           => $ing['inventory_id'],
+                    'fs_item_id'             => $ing['fs_item_id'],
                     'quantity'               => $ing['quantity'],
                     'unit'                   => $ing['unit'] ?? 'g',
                 ]);
@@ -70,9 +70,9 @@ class FoodServiceRecipeController extends Controller
             'prep_notes'  => ['nullable', 'string'],
             'servings'    => ['nullable', 'integer', 'min:1'],
             'ingredients' => ['sometimes', 'array', 'min:1'],
-            'ingredients.*.inventory_id' => ['required_with:ingredients', 'integer', 'exists:inventory,id'],
-            'ingredients.*.quantity'     => ['required_with:ingredients', 'numeric', 'min:0.01'],
-            'ingredients.*.unit'         => ['nullable', 'string'],
+            'ingredients.*.fs_item_id' => ['required_with:ingredients', 'integer', 'exists:fs_items,id'],
+            'ingredients.*.quantity'   => ['required_with:ingredients', 'numeric', 'min:0.01'],
+            'ingredients.*.unit'       => ['nullable', 'string'],
         ]);
 
         DB::transaction(function () use ($data, $foodServiceRecipe) {
@@ -88,7 +88,7 @@ class FoodServiceRecipeController extends Controller
                 foreach ($data['ingredients'] as $ing) {
                     FoodServiceRecipeIngredient::create([
                         'food_service_recipe_id' => $foodServiceRecipe->id,
-                        'inventory_id'           => $ing['inventory_id'],
+                        'fs_item_id'             => $ing['fs_item_id'],
                         'quantity'               => $ing['quantity'],
                         'unit'                   => $ing['unit'] ?? 'g',
                     ]);
@@ -109,7 +109,7 @@ class FoodServiceRecipeController extends Controller
 
     private function formatRecipe(FoodServiceRecipe $recipe): array
     {
-        $recipe->loadMissing('ingredients.inventoryItem.foodItem');
+        $recipe->loadMissing('ingredients.fsItem');
 
         return [
             'id'          => $recipe->id,
@@ -118,16 +118,16 @@ class FoodServiceRecipeController extends Controller
             'prep_notes'  => $recipe->prep_notes,
             'servings'    => $recipe->servings,
             'cost'        => (float) $recipe->cost,
-            'ingredients' => $recipe->ingredients->map(fn($ing) => [
-                'id'           => $ing->id,
-                'inventory_id' => $ing->inventory_id,
-                'quantity'     => (float) $ing->quantity,
-                'unit'         => $ing->unit,
-                'inventory'    => $ing->inventoryItem ? [
-                    'id'         => $ing->inventoryItem->id,
-                    'name'       => $ing->inventoryItem->foodItem?->name ?? 'Unknown',
-                    'unit_price' => (float) ($ing->inventoryItem->unit_price ?? 0),
-                    'unit'       => $ing->inventoryItem->unit,
+            'ingredients' => $recipe->ingredients->map(fn ($ing) => [
+                'id'         => $ing->id,
+                'fs_item_id' => $ing->fs_item_id,
+                'quantity'   => (float) $ing->quantity,
+                'unit'       => $ing->unit,
+                'fs_item'    => $ing->fsItem ? [
+                    'id'        => $ing->fsItem->id,
+                    'name'      => $ing->fsItem->name,
+                    'unit_cost' => $ing->fsItem->unit_cost,
+                    'base_unit' => $ing->fsItem->base_unit,
                 ] : null,
             ])->values(),
             'created_at'  => $recipe->created_at,

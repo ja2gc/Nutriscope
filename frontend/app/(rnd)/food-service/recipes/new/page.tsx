@@ -9,10 +9,10 @@ import { Button } from "@/components/ui/Button";
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface InventoryItem {
-  id: number;
+  id: number;        // fs_item_id
   name: string;
-  unit_price: number;
-  unit: string;
+  unit_cost: number; // ₱ per base_unit (derived from catalog)
+  base_unit: string;
 }
 
 interface IngredientRow {
@@ -32,11 +32,11 @@ async function searchInventory(q: string): Promise<InventoryItem[]> {
   if (!res.ok) return [];
   const json = await res.json();
   const rows = (json.data ?? []) as Array<{
-    item_id: number; name: string; unit_price: string | null; unit: string; item_type: string; inventory_id: number | null;
+    item_id: number; name: string; unit_cost: string | null; base_unit: string | null; item_type: string;
   }>;
   return rows
-    .filter((r) => r.item_type === "food_item" && r.inventory_id !== null)
-    .map((r) => ({ id: r.inventory_id!, name: r.name, unit_price: parseFloat(r.unit_price ?? "0"), unit: r.unit }));
+    .filter((r) => r.item_type === "ingredient")
+    .map((r) => ({ id: r.item_id, name: r.name, unit_cost: parseFloat(r.unit_cost ?? "0"), base_unit: r.base_unit ?? "g" }));
 }
 
 const FSS_CATEGORIES = [
@@ -58,7 +58,8 @@ function costPerIngredient(row: IngredientRow): number {
   if (!row.invItem || !row.quantity) return 0;
   const qty = parseFloat(row.quantity);
   if (isNaN(qty) || qty <= 0) return 0;
-  return (qty / 100) * row.invItem.unit_price;
+  // qty is in the item's base_unit; unit_cost is ₱ per base_unit.
+  return qty * row.invItem.unit_cost;
 }
 
 let rowKey = 5000;
@@ -72,6 +73,7 @@ export default function NewFSSRecipePage() {
   const [category, setCategory]   = useState("");
   const [servings, setServings]   = useState("1");
   const [prepNotes, setPrepNotes] = useState("");
+  const [previewServings, setPreviewServings] = useState(""); // blank = baseline; read-only scale preview
   const [ingredients, setIngredients] = useState<IngredientRow[]>([
     { key: rowKey++, invItem: null, search: "", results: [], showDropdown: false, quantity: "", unit: "g" },
   ]);
@@ -91,10 +93,12 @@ export default function NewFSSRecipePage() {
     setIngredients((prev) => prev.map((r, i) => i === idx ? { ...r, ...patch } : r));
 
   const selectItem = (idx: number, item: InventoryItem) =>
-    updateRow(idx, { invItem: item, search: item.name, showDropdown: false, results: [] });
+    updateRow(idx, { invItem: item, search: item.name, showDropdown: false, results: [], unit: item.base_unit });
 
   const totalCost = ingredients.reduce((sum, row) => sum + costPerIngredient(row), 0);
   const servingsNum = parseInt(servings) || 1;
+  const previewNum = parseInt(previewServings) || servingsNum;
+  const previewFactor = servingsNum > 0 ? previewNum / servingsNum : 1;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -102,7 +106,7 @@ export default function NewFSSRecipePage() {
 
     const valid = ingredients
       .filter((r) => r.invItem && r.quantity && parseFloat(r.quantity) > 0)
-      .map((r) => ({ inventory_id: r.invItem!.id, quantity: parseFloat(r.quantity), unit: r.unit }));
+      .map((r) => ({ fs_item_id: r.invItem!.id, quantity: parseFloat(r.quantity), unit: r.unit }));
 
     if (valid.length === 0) { setError("Add at least one ingredient."); return; }
 
@@ -209,8 +213,38 @@ export default function NewFSSRecipePage() {
           </div>
           <div className="text-xs text-zinc-400 text-right max-w-48">
             <span className="font-bold text-zinc-500">Cost formula:</span><br />
-            Σ (qty ÷ 100) × ₱/100g
+            Σ qty × ₱/unit
           </div>
+        </div>
+
+        {/* Serving scaler — read-only preview, does NOT change the saved baseline */}
+        <div className="bg-white border border-zinc-200 rounded-2xl p-5 shadow-sm space-y-3">
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-extrabold text-zinc-500 uppercase tracking-wider">Preview at</span>
+              <input type="number" min="1" value={previewServings} onChange={(e) => setPreviewServings(e.target.value)}
+                placeholder={String(servingsNum)}
+                className="w-20 px-2.5 py-1.5 text-sm border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+              <span className="text-xs text-zinc-500">servings</span>
+            </div>
+            <div className="text-right">
+              <div className="text-[10px] font-extrabold text-zinc-500 uppercase tracking-wider">Scaled total</div>
+              <div className="text-xl font-extrabold text-emerald-600">₱{(totalCost * previewFactor).toFixed(2)}</div>
+              <div className="text-[10px] text-zinc-400 font-semibold">
+                ×{previewFactor.toFixed(2)} from {servingsNum}-serving baseline · preview only
+              </div>
+            </div>
+          </div>
+          {Math.abs(previewFactor - 1) > 1e-9 && (
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 pt-2 border-t border-zinc-100">
+              {ingredients.filter((r) => r.invItem && r.quantity && parseFloat(r.quantity) > 0).map((r) => (
+                <div key={r.key} className="text-[10px] text-zinc-500 truncate">
+                  <span className="text-zinc-700 font-semibold">{r.invItem!.name}:</span>{" "}
+                  {(parseFloat(r.quantity) * previewFactor).toFixed(1)} {r.unit}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Ingredients */}
@@ -258,7 +292,7 @@ export default function NewFSSRecipePage() {
                         <button key={item.id} type="button" onClick={() => selectItem(idx, item)}
                           className="w-full text-left px-3 py-2 hover:bg-zinc-50 transition-colors border-b border-zinc-100 last:border-0 cursor-pointer">
                           <div className="text-xs font-bold text-zinc-900">{item.name}</div>
-                          <div className="text-[10px] text-zinc-400">₱{item.unit_price.toFixed(2)}/100g</div>
+                          <div className="text-[10px] text-zinc-400">₱{item.unit_cost.toFixed(2)}/{item.base_unit}</div>
                         </button>
                       ))}
                     </div>

@@ -67,6 +67,42 @@ export async function updateIntervention(ncpId: string, payload: Partial<Interve
   return (await res.json()).data;
 }
 
+/** Authoritative prescription from the backend engine (Phase 2/2.4 — source of truth). */
+export interface AutofillResult {
+  energy_kcal: number;
+  protein_g: number;
+  carbs_g: number;
+  fat_g: number;
+  fluid_ml: number;
+  fiber_g?: number;
+  sodium_max_mg?: number;
+  free_sugar_max_pct?: number;
+  note?: string;
+  edema_warning?: string;
+}
+
+/**
+ * POST /intervention/autofill — returns the spec-correct prescription computed
+ * by the PHP engine. The TS mirror is for instant preview only; persisted values
+ * should come from here so the frontend can never drift from the backend.
+ */
+export async function autofillIntervention(
+  ncpId: string,
+  goalType: string,
+  diseaseStage: string | null,
+): Promise<AutofillResult> {
+  const res = await apiFetch(`${base(ncpId)}/autofill`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify({ goal_type: goalType, disease_stage: diseaseStage }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { message?: string }).message || 'Failed to autofill prescription.');
+  }
+  return (await res.json()).data;
+}
+
 export async function fetchRecommendations(ncpId: string): Promise<RecommendResult> {
   const res = await apiFetch(`${base(ncpId)}/recommendations`, { headers: { Accept: 'application/json' } });
   if (!res.ok) return { recommend: [], avoid: [], limits: [] };

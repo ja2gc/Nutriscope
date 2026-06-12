@@ -105,6 +105,35 @@ describe('PatientMetrics activityFactor', () => {
   });
 });
 
+// ── Pregnancy / lactation PDRI add-on (FE↔BE parity) ──────────────────────────
+
+describe('pregnancy / lactation modifier', () => {
+  const base: PatientMetrics = {
+    weightKg: 60, heightCm: 160, ageYears: 30, sex: 'Female', isAdult: true, activityFactor: 1.3,
+  };
+
+  test('pregnant adds +300 kcal and +27 g protein over baseline', () => {
+    const none = autofillPrescription('diabetic_control', null, base);
+    const preg = autofillPrescription('diabetic_control', null, { ...base, pregnancyLactationStatus: 'pregnant' });
+    assert.equal(preg.energy_kcal - none.energy_kcal, 300);
+    assert.equal(preg.protein_g - none.protein_g, 27);
+    assert.match(preg.note ?? '', /Pregnant adjustment applied/);
+  });
+
+  test('lactating adds +500 kcal and +27 g protein', () => {
+    const none = autofillPrescription('diabetic_control', null, base);
+    const lact = autofillPrescription('diabetic_control', null, { ...base, pregnancyLactationStatus: 'lactating' });
+    assert.equal(lact.energy_kcal - none.energy_kcal, 500);
+    assert.equal(lact.protein_g - none.protein_g, 27);
+  });
+
+  test("status 'none' leaves the prescription unchanged", () => {
+    const none = autofillPrescription('diabetic_control', null, base);
+    const explicitNone = autofillPrescription('diabetic_control', null, { ...base, pregnancyLactationStatus: 'none' });
+    assert.deepEqual(explicitNone, none);
+  });
+});
+
 // ── Burns energy formula ──────────────────────────────────────────────────────
 
 describe('high_protein burns energy', () => {
@@ -252,25 +281,30 @@ describe('classifyNutritionalStatus', () => {
     assert.equal(result.severity, 'normal');
   });
 
-  test('returns Overweight for BMI 25-29.9', () => {
-    const result = classifyNutritionalStatus(27.0, 112);
+  // Asia-Pacific cut-points (D1): Overweight 23–24.9 · Obese I 25–29.9 ·
+  // Obese II ≥30 (split at 35 for weight_loss staging, D2).
+  test('returns Overweight for AP BMI 23-24.9', () => {
+    const result = classifyNutritionalStatus(24.0, 110);
     assert.equal(result.label, 'Overweight');
+    assert.equal(result.suggestedStage, 'overweight');
   });
 
-  test('returns Obese Class I for BMI 30-34.9', () => {
-    const result = classifyNutritionalStatus(32.0, 125);
+  test('returns Obese Class I for AP BMI 25-29.9', () => {
+    const result = classifyNutritionalStatus(27.0, 112);
     assert.equal(result.label, 'Obese Class I');
     assert.equal(result.suggestedGoal, 'weight_loss');
+    assert.equal(result.suggestedStage, 'class_1');
   });
 
-  test('returns Obese Class II for BMI 35-39.9', () => {
-    const result = classifyNutritionalStatus(37.0, 130);
+  test('returns Obese Class II for AP BMI 30-34.9', () => {
+    const result = classifyNutritionalStatus(32.0, 125);
     assert.equal(result.label, 'Obese Class II');
+    assert.equal(result.suggestedStage, 'class_2');
   });
 
-  test('returns Obese Class III for BMI >= 40', () => {
-    const result = classifyNutritionalStatus(42.0, 140);
-    assert.equal(result.label, 'Obese Class III (Severe)');
+  test('returns Obese Class II (Severe) for AP BMI >= 35', () => {
+    const result = classifyNutritionalStatus(37.0, 140);
+    assert.equal(result.label, 'Obese Class II (Severe)');
     assert.equal(result.suggestedStage, 'class_3');
   });
 

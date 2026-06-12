@@ -7,6 +7,7 @@ import EncounterLog from "./_components/EncounterLog";
 import GoalProgressTracker from "./_components/GoalProgressTracker";
 import LogVisitForm from "./_components/LogVisitForm";
 import VisitTrendsChart from "./_components/VisitTrendsChart";
+import MonitoringSummaryCard from "./_components/MonitoringSummaryCard";
 import {
   MonitoringEntry,
   MonitoringPayload,
@@ -219,6 +220,7 @@ export default function NcpMonitoringPage({
             {/* ── Progress Trends tab ───────────────────────────────────── */}
             {activeTab === "progress" && (
               <div className="space-y-6">
+                <MonitoringSummaryCard ncpId={ncpId} visitCount={entries.length} />
                 <GoalProgressTracker
                   entries={entries}
                   baselineWeight={assessment?.weight ? Number(assessment.weight) : null}

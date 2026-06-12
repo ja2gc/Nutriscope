@@ -4,34 +4,36 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class MenuCycleDay extends Model
 {
     use HasFactory;
-    
+
     protected $fillable = [
-        'menu_cycle_id', 'day_of_week', 'meal_type', 'recipe_id',
-        'food_item_id', 'quantity'
+        'menu_cycle_id', 'day_of_week', 'meal_type',
+        'recipe_id', 'fs_item_id', 'quantity', 'servings_override',
     ];
 
     protected $casts = [
-        'quantity' => 'decimal:2',
+        'quantity'          => 'decimal:2',
+        'servings_override' => 'integer',
     ];
 
-    public function menuCycle()
+    public function menuCycle(): BelongsTo
     {
         return $this->belongsTo(MenuCycle::class);
     }
 
-    public function recipe()
+    /** Food-service recipe (NOT the NCP recipe). */
+    public function recipe(): BelongsTo
     {
-        return $this->belongsTo(Recipe::class);
+        return $this->belongsTo(FoodServiceRecipe::class, 'recipe_id');
     }
 
-    public function foodItem()
+    /** Single ready-to-serve catalog item (alternative to a recipe). */
+    public function fsItem(): BelongsTo
     {
-        return $this->belongsTo(FoodItem::class);
+        return $this->belongsTo(FsItem::class, 'fs_item_id');
     }
-
 }
-

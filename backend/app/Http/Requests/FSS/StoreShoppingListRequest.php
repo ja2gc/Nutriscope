@@ -11,12 +11,14 @@ class StoreShoppingListRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'name'         => ['required', 'string', 'max:255'],
-            'list_date'    => ['required', 'date'],
-            'list_type'    => ['nullable', 'string', 'in:manual,suggested'],
-            'status'       => ['nullable', 'string', 'in:draft,finalized'],
-            'period_start' => ['nullable', 'date'],
-            'period_end'   => ['nullable', 'date', 'after_or_equal:period_start'],
+            'name'          => ['required', 'string', 'max:255'],
+            'menu_cycle_id' => ['nullable', 'integer', 'exists:menu_cycles,id'],
+            'list_date'     => ['nullable', 'date'],
+            'list_type'     => ['nullable', 'string', 'in:manual,suggested'],
+            'status'        => ['nullable', 'string', 'in:draft,finalized'],
+            'period_start'  => ['nullable', 'date'],
+            'period_end'    => ['nullable', 'date', 'after_or_equal:period_start'],
+            'days_span'     => ['nullable', 'integer', 'min:1', 'max:60'],
         ];
     }
 }

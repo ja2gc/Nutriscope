@@ -1,11 +1,16 @@
-﻿import { apiFetch } from "@/lib/apiFetch";
-export type ItemType = "food_item" | "recipe";
-export type StockStatus = "low" | "expiring" | "ok" | "untracked";
+import { apiFetch } from "@/lib/apiFetch";
 
-export interface FoodItemRef {
+/** Food-service inventory item kinds. Catalog items split into ingredient/supply; recipes are prepared dishes. */
+export type ItemType = "ingredient" | "supply" | "recipe";
+export type StockStatus = "low" | "no_stock" | "ok" | "untracked";
+
+export interface FsItemRef {
   id: number;
   name: string;
+  kind?: ItemType;
   category?: string;
+  base_unit?: string;
+  unit_cost?: number;
 }
 
 export interface RecipeRef {
@@ -19,9 +24,9 @@ export interface RecipeRef {
 export interface InventoryRecord {
   id: number;
   item_type: ItemType;
-  food_item_id: number | null;
+  fs_item_id: number | null;
   recipe_id: number | null;
-  food_item?: FoodItemRef;
+  fs_item?: FsItemRef;
   recipe?: RecipeRef;
   quantity_in_stock: string;
   unit: string;
@@ -36,11 +41,11 @@ export interface InventoryRecord {
 
 export type RowHighlight = "none" | "yellow" | "red";
 
-/** A merged row in the unified inventory table */
+/** A merged row in the unified inventory table (catalog item or recipe + optional stock). */
 export interface InventoryRow {
   inventoryId: number | null;   // null = no stock record yet
   itemType: ItemType;
-  itemId: number;               // food_item_id or recipe_id
+  itemId: number;               // fs_item_id or recipe_id
   name: string;
   category: string;
   quantity_in_stock: string;
@@ -48,8 +53,13 @@ export interface InventoryRow {
   expiry_date: string | null;
   usage_rate: string | null;
   minimum_stock_threshold: string | null;
+  /** Catalog buy price (per purchase_unit). Null for recipes. */
   unit_price: string | null;
-  /** Auto-calculated cost per serving from recipe ingredients (recipes only) */
+  /** Derived ₱ per base_unit (catalog items only). */
+  unit_cost: string | null;
+  base_unit: string | null;
+  purchase_unit: string | null;
+  /** Auto-calculated cost per recipe from ingredients (recipes only). */
   recipe_cost: string | null;
   recipe_servings: number | null;
   notes: string | null;
@@ -59,7 +69,7 @@ export interface InventoryRow {
 
 export interface UpsertInventoryPayload {
   item_type: ItemType;
-  food_item_id?: number | null;
+  fs_item_id?: number | null;
   recipe_id?: number | null;
   quantity_in_stock: number;
   unit: string;
@@ -68,112 +78,6 @@ export interface UpsertInventoryPayload {
   minimum_stock_threshold?: number | null;
   unit_price?: number | null;
   notes?: string | null;
-}
-
-export function getStockStatus(
-  qty: string,
-  threshold: string | null,
-  expiry: string | null
-): StockStatus {
-  const qtyNum = parseFloat(qty);
-  const threshNum = threshold ? parseFloat(threshold) : null;
-
-  if (threshNum !== null && qtyNum < threshNum) return "low";
-
-  if (expiry) {
-    const diffDays =
-      (new Date(expiry).getTime() - Date.now()) / (1000 * 60 * 60 * 24);
-    if (diffDays <= 7) return "expiring";
-  }
-
-  return "ok";
-}
-
-export function getRowHighlight(
-  qty: string,
-  threshold: string | null,
-  expiry: string | null,
-  hasRecord: boolean
-): RowHighlight {
-  if (!hasRecord) return "none";
-  const qtyNum = parseFloat(qty);
-  if (qtyNum === 0) return "red";
-  const threshNum = threshold ? parseFloat(threshold) : null;
-  if (threshNum !== null && qtyNum < threshNum) return "yellow";
-  if (expiry) {
-    const diffDays = (new Date(expiry).getTime() - Date.now()) / (1000 * 60 * 60 * 24);
-    if (diffDays <= 7) return "yellow";
-  }
-  return "none";
-}
-
-export function buildInventoryRows(
-  foodItems: FoodItemRef[],
-  recipes: RecipeRef[],
-  records: InventoryRecord[]
-): InventoryRow[] {
-  const byFoodItem = new Map<number, InventoryRecord>();
-  const byRecipe = new Map<number, InventoryRecord>();
-  for (const r of records) {
-    if (r.food_item_id) byFoodItem.set(r.food_item_id, r);
-    if (r.recipe_id) byRecipe.set(r.recipe_id, r);
-  }
-
-  const rows: InventoryRow[] = [];
-
-  for (const fi of foodItems) {
-    const rec = byFoodItem.get(fi.id);
-    const hasRecord = !!rec;
-    const qty = rec?.quantity_in_stock ?? "0";
-    const threshold = rec?.minimum_stock_threshold ?? null;
-    const expiry = rec?.expiry_date ?? null;
-    rows.push({
-      inventoryId:              rec?.id ?? null,
-      itemType:                 "food_item",
-      itemId:                   fi.id,
-      name:                     fi.name,
-      category:                 fi.category ?? "",
-      quantity_in_stock:        qty,
-      unit:                     rec?.unit ?? "",
-      expiry_date:              expiry,
-      usage_rate:               rec?.usage_rate ?? null,
-      minimum_stock_threshold:  threshold,
-      unit_price:               rec?.unit_price ?? null,
-      recipe_cost:              null,
-      recipe_servings:          null,
-      notes:                    rec?.notes ?? null,
-      status:                   hasRecord ? getStockStatus(qty, threshold, expiry) : "untracked",
-      highlight:                getRowHighlight(qty, threshold, expiry, hasRecord),
-    });
-  }
-
-  for (const rcp of recipes) {
-    const rec = byRecipe.get(rcp.id);
-    const hasRecord = !!rec;
-    const qty = rec?.quantity_in_stock ?? "0";
-    const threshold = rec?.minimum_stock_threshold ?? null;
-    const expiry = rec?.expiry_date ?? null;
-    rows.push({
-      inventoryId:              rec?.id ?? null,
-      itemType:                 "recipe",
-      itemId:                   rcp.id,
-      name:                     rcp.name,
-      category:                 rcp.category ?? "",
-      quantity_in_stock:        qty,
-      unit:                     rec?.unit ?? "servings",
-      expiry_date:              expiry,
-      usage_rate:               rec?.usage_rate ?? null,
-      minimum_stock_threshold:  threshold,
-      unit_price:               rec?.unit_price ?? null,
-      recipe_cost:              null,
-      recipe_servings:          null,
-      notes:                    rec?.notes ?? null,
-      status:                   hasRecord ? getStockStatus(qty, threshold, expiry) : "untracked",
-      highlight:                getRowHighlight(qty, threshold, expiry, hasRecord),
-    });
-  }
-
-  return rows;
 }
 
 export interface PaginationMeta {
@@ -187,7 +91,7 @@ export interface InventoryStats {
   total: number;
   tracked: number;
   low: number;
-  expiring: number;
+  no_stock: number;
   untracked: number;
 }
 
@@ -195,7 +99,7 @@ export interface ListInventoryRowsParams {
   page?: number;
   per_page?: number;
   search?: string;
-  type?: "all" | "food_item" | "recipe";
+  type?: "all" | ItemType;
   status?: "all" | StockStatus;
 }
 
@@ -227,6 +131,9 @@ export async function listInventoryRows(params: ListInventoryRowsParams = {}): P
     usage_rate:               (r.usage_rate as string | null) ?? null,
     minimum_stock_threshold:  (r.minimum_stock_threshold as string | null) ?? null,
     unit_price:               (r.unit_price as string | null) ?? null,
+    unit_cost:                (r.unit_cost as string | null) ?? null,
+    base_unit:                (r.base_unit as string | null) ?? null,
+    purchase_unit:            (r.purchase_unit as string | null) ?? null,
     recipe_cost:              (r.recipe_cost as string | null) ?? null,
     recipe_servings:          (r.recipe_servings as number | null) ?? null,
     notes:                    (r.notes as string | null) ?? null,
@@ -235,13 +142,6 @@ export async function listInventoryRows(params: ListInventoryRowsParams = {}): P
   }));
 
   return { data, meta: json.meta, stats: json.stats };
-}
-
-export async function listInventory(): Promise<InventoryRecord[]> {
-  const res = await apiFetch("/api/fss/inventory");
-  if (!res.ok) throw new Error("Failed to fetch inventory.");
-  const json = await res.json();
-  return json.data;
 }
 
 export async function upsertInventory(
