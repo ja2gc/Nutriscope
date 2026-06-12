@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Assessment;
 use App\Models\Intervention;
 use App\Models\NcpRecord;
 use App\Models\Patient;
@@ -48,6 +49,49 @@ class NcpInterventionTest extends TestCase
     // ──────────────────────────────────────────────────
     // Interventions
     // ──────────────────────────────────────────────────
+
+    public function test_autofill_returns_authoritative_prescription(): void
+    {
+        $rnd     = $this->rnd();
+        $patient = $this->patient(); // Male
+        $ncp     = $this->ncpRecord($patient, $rnd);
+
+        Assessment::forceCreate([
+            'ncp_record_id'           => $ncp->id,
+            'weight'                  => 80.0,
+            'height'                  => 170.0,
+            'physical_activity_level' => 'sedentary',
+        ]);
+
+        // renal_diet/stage_1 is flat-rate (age-independent): matches frozen golden case A.
+        $response = $this->actingAs($rnd, 'sanctum')
+            ->postJson("/api/rnd/ncp-records/{$ncp->id}/intervention/autofill", [
+                'goal_type'     => 'renal_diet',
+                'disease_stage' => 'stage_1',
+            ]);
+
+        $response->assertOk()
+            ->assertJsonPath('data.energy_kcal', 2400)
+            ->assertJsonPath('data.protein_g', 53)
+            ->assertJsonPath('data.fat_g', 67)
+            ->assertJsonPath('data.carbs_g', 396)
+            ->assertJsonPath('data.fluid_ml', 2600)
+            ->assertJsonPath('data.sodium_max_mg', 2300);
+    }
+
+    public function test_autofill_requires_assessment_weight_height(): void
+    {
+        $rnd     = $this->rnd();
+        $patient = $this->patient();
+        $ncp     = $this->ncpRecord($patient, $rnd);
+
+        $response = $this->actingAs($rnd, 'sanctum')
+            ->postJson("/api/rnd/ncp-records/{$ncp->id}/intervention/autofill", [
+                'goal_type' => 'renal_diet', 'disease_stage' => 'stage_1',
+            ]);
+
+        $response->assertStatus(422);
+    }
 
     public function test_rnd_can_create_intervention(): void
     {

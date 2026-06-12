@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
   Salad, Search, RefreshCw, Pencil, Trash2, ChevronDown, X,
-  AlertTriangle, Package, BookOpen, ChevronLeft, ChevronRight, Sparkles,
+  AlertTriangle, Package, Boxes, BookOpen, ChevronLeft, ChevronRight, Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import {
@@ -23,16 +23,26 @@ import {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-type ActiveTab    = "food_item" | "recipe";
+type ActiveTab    = "ingredient" | "supply" | "recipe";
 type StatusFilter = "all" | StockStatus;
+
+/** Per-tab labels + accent so the table reuses one render path for all three kinds. */
+const TAB_META: Record<ActiveTab, { noun: string; nounPlural: string }> = {
+  ingredient: { noun: "ingredient", nounPlural: "ingredients" },
+  supply:     { noun: "supply",     nounPlural: "supplies" },
+  recipe:     { noun: "recipe",     nounPlural: "recipes" },
+};
 
 const PER_PAGE = 25;
 
+/** Curated unit list — kept small to avoid bloat. */
+const UNIT_OPTIONS = ["pc", "pack", "bundle", "serving", "g", "kg", "mL", "L"] as const;
+
 const STATUS_META: Record<StockStatus, { label: string; cls: string }> = {
-  low:       { label: "Low Stock",     cls: "bg-red-50 text-red-700 border border-red-200" },
-  expiring:  { label: "Expiring Soon", cls: "bg-amber-50 text-amber-700 border border-amber-200" },
-  ok:        { label: "OK",            cls: "bg-emerald-50 text-emerald-700 border border-emerald-200" },
-  untracked: { label: "Untracked",     cls: "bg-zinc-100 text-zinc-500 border border-zinc-200" },
+  no_stock:  { label: "No Stock",  cls: "bg-red-50 text-red-700 border border-red-200" },
+  low:       { label: "Low Stock", cls: "bg-amber-50 text-amber-700 border border-amber-200" },
+  ok:        { label: "OK",        cls: "bg-emerald-50 text-emerald-700 border border-emerald-200" },
+  untracked: { label: "Untracked", cls: "bg-zinc-100 text-zinc-500 border border-zinc-200" },
 };
 
 const HIGHLIGHT_ROW: Record<RowHighlight, string> = {
@@ -52,11 +62,6 @@ function StatusBadge({ status }: { status: StockStatus }) {
   );
 }
 
-function formatDate(d: string | null) {
-  if (!d) return "—";
-  return new Date(d).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" });
-}
-
 function formatPrice(p: string | null, prefix = "₱") {
   if (!p || parseFloat(p) === 0) return "—";
   return `${prefix}${parseFloat(p).toFixed(2)}`;
@@ -71,11 +76,9 @@ function EditRow({ row, colSpan, onSaved, onClose }: {
   onClose: () => void;
 }) {
   const [qty, setQty]             = useState(row.inventoryId ? parseFloat(row.quantity_in_stock).toString() : "");
-  const [unit, setUnit]           = useState(row.unit || (row.itemType === "recipe" ? "servings" : ""));
-  const [unitPrice, setUnitPrice] = useState(row.unit_price ? parseFloat(row.unit_price).toString() : "");
+  const [unit, setUnit]           = useState(row.unit || (row.itemType === "recipe" ? "serving" : row.base_unit ?? ""));
   const [threshold, setThreshold] = useState(row.minimum_stock_threshold ?? "");
   const [usageRate, setUsageRate] = useState(row.usage_rate ?? "");
-  const [expiry, setExpiry]       = useState(row.expiry_date ?? "");
   const [notes, setNotes]         = useState(row.notes ?? "");
   const [saving, setSaving]       = useState(false);
   const [error, setError]         = useState("");
@@ -86,14 +89,13 @@ function EditRow({ row, colSpan, onSaved, onClose }: {
     try {
       const result = await upsertInventory(row.inventoryId, {
         item_type:               row.itemType,
-        food_item_id:            row.itemType === "food_item" ? row.itemId : null,
-        recipe_id:               row.itemType === "recipe"    ? row.itemId : null,
+        fs_item_id:              row.itemType !== "recipe" ? row.itemId : null,
+        recipe_id:               row.itemType === "recipe" ? row.itemId : null,
         quantity_in_stock:       parseFloat(qty),
         unit,
-        expiry_date:             expiry || null,
+        expiry_date:             row.expiry_date ?? null,
         usage_rate:              usageRate ? parseFloat(usageRate) : null,
         minimum_stock_threshold: threshold ? parseFloat(threshold) : null,
-        unit_price:              unitPrice ? parseFloat(unitPrice) : null,
         notes:                   notes || null,
       });
       onSaved(result);
@@ -135,18 +137,12 @@ function EditRow({ row, colSpan, onSaved, onClose }: {
             </div>
             <div>
               <label className="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Unit *</label>
-              <input type="text" value={unit} onChange={e => setUnit(e.target.value)}
-                placeholder={isRecipe ? "servings" : "kg, pcs, L…"}
-                className="w-full px-2.5 py-1.5 text-xs border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+              <select value={unit} onChange={e => setUnit(e.target.value)}
+                className="w-full px-2.5 py-1.5 text-xs border border-zinc-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                <option value="" disabled>Select unit…</option>
+                {UNIT_OPTIONS.map(u => <option key={u} value={u}>{u}</option>)}
+              </select>
             </div>
-            {!isRecipe && (
-              <div>
-                <label className="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Purchase Price (₱)</label>
-                <input type="number" min="0" step="0.01" value={unitPrice} onChange={e => setUnitPrice(e.target.value)}
-                  placeholder="e.g. 280.00"
-                  className="w-full px-2.5 py-1.5 text-xs border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500" />
-              </div>
-            )}
             <div>
               <label className="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Min Threshold</label>
               <input type="number" min="0" step="0.01" value={threshold} onChange={e => setThreshold(e.target.value)}
@@ -157,11 +153,6 @@ function EditRow({ row, colSpan, onSaved, onClose }: {
               <label className="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Usage / day</label>
               <input type="number" min="0" step="0.01" value={usageRate} onChange={e => setUsageRate(e.target.value)}
                 placeholder="e.g. 2.5"
-                className="w-full px-2.5 py-1.5 text-xs border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500" />
-            </div>
-            <div>
-              <label className="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Expiry Date</label>
-              <input type="date" value={expiry} onChange={e => setExpiry(e.target.value)}
                 className="w-full px-2.5 py-1.5 text-xs border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500" />
             </div>
             <div>
@@ -275,7 +266,7 @@ function Pagination({ meta, onPageChange }: { meta: PaginationMeta; onPageChange
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 
-const DEFAULT_STATS: InventoryStats = { total: 0, tracked: 0, low: 0, expiring: 0, untracked: 0 };
+const DEFAULT_STATS: InventoryStats = { total: 0, tracked: 0, low: 0, no_stock: 0, untracked: 0 };
 
 export default function InventoryPage() {
   const [rows, setRows]   = useState<InventoryRow[]>([]);
@@ -285,7 +276,7 @@ export default function InventoryPage() {
   const [error, setError]     = useState("");
 
   // Primary tab
-  const [activeTab, setActiveTab]     = useState<ActiveTab>("food_item");
+  const [activeTab, setActiveTab]     = useState<ActiveTab>("ingredient");
   // Status sub-filter
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   // Search
@@ -346,14 +337,10 @@ export default function InventoryPage() {
     } catch { } finally { setDeleting(false); }
   }
 
-  // Per-tab stats
-  const isRecipeTab = activeTab === "recipe";
-  const colSpan     = isRecipeTab ? 6 : 6; // same count, different columns
-
   const statusTabs: { key: StatusFilter; label: string }[] = [
     { key: "all",       label: "All" },
     { key: "low",       label: `Low Stock${stats.low ? ` (${stats.low})` : ""}` },
-    { key: "expiring",  label: `Expiring${stats.expiring ? ` (${stats.expiring})` : ""}` },
+    { key: "no_stock",  label: `No Stock${stats.no_stock ? ` (${stats.no_stock})` : ""}` },
     { key: "untracked", label: `Untracked${stats.untracked ? ` (${stats.untracked})` : ""}` },
   ];
 
@@ -376,7 +363,7 @@ export default function InventoryPage() {
             Kitchen &amp; Food Service Inventory
           </h2>
           <p className="text-xs text-zinc-500 mt-1">
-            Track stock levels for ingredients and prepared recipes. Recipe costs are auto-calculated from the food library.
+            Track stock for ingredients, supplies, and prepared recipes. Recipe costs auto-calculate from catalog prices.
           </p>
         </div>
         <button onClick={load}
@@ -391,8 +378,8 @@ export default function InventoryPage() {
         {[
           { label: "Total Items",   value: stats.total,     cls: "bg-zinc-50 border-zinc-200 text-zinc-700" },
           { label: "Tracked",       value: stats.tracked,   cls: "bg-emerald-50 border-emerald-200 text-emerald-700" },
-          { label: "Low Stock",     value: stats.low,       cls: stats.low > 0 ? "bg-red-50 border-red-200 text-red-700" : "bg-zinc-50 border-zinc-200 text-zinc-400" },
-          { label: "Expiring Soon", value: stats.expiring,  cls: stats.expiring > 0 ? "bg-amber-50 border-amber-200 text-amber-700" : "bg-zinc-50 border-zinc-200 text-zinc-400" },
+          { label: "Low Stock",     value: stats.low,       cls: stats.low > 0 ? "bg-amber-50 border-amber-200 text-amber-700" : "bg-zinc-50 border-zinc-200 text-zinc-400" },
+          { label: "No Stock",      value: stats.no_stock,  cls: stats.no_stock > 0 ? "bg-red-50 border-red-200 text-red-700" : "bg-zinc-50 border-zinc-200 text-zinc-400" },
           { label: "Untracked",     value: stats.untracked, cls: stats.untracked > 0 ? "bg-zinc-100 border-zinc-300 text-zinc-600" : "bg-zinc-50 border-zinc-200 text-zinc-400" },
         ].map(({ label, value, cls }) => (
           <div key={label} className={`px-4 py-2.5 rounded-xl border text-xs font-semibold flex items-center gap-2 ${cls}`}>
@@ -402,35 +389,29 @@ export default function InventoryPage() {
         ))}
       </div>
 
-      {/* Primary tabs: Ingredients | Recipes */}
+      {/* Primary tabs: Ingredients | Supplies | Recipes */}
       <div className="flex border-b border-zinc-200">
-        <button
-          onClick={() => setActiveTab("food_item")}
-          className={`flex items-center gap-2 px-5 py-3 text-sm font-semibold border-b-2 transition-colors ${
-            activeTab === "food_item"
-              ? "border-emerald-600 text-emerald-700"
-              : "border-transparent text-zinc-500 hover:text-zinc-800"
-          }`}
-        >
-          <Package className="h-4 w-4" />
-          Ingredients
-        </button>
-        <button
-          onClick={() => setActiveTab("recipe")}
-          className={`flex items-center gap-2 px-5 py-3 text-sm font-semibold border-b-2 transition-colors ${
-            activeTab === "recipe"
-              ? "border-violet-600 text-violet-700"
-              : "border-transparent text-zinc-500 hover:text-zinc-800"
-          }`}
-        >
-          <BookOpen className="h-4 w-4" />
-          Recipes
-          {activeTab === "recipe" && (
-            <span className="ml-1 text-[10px] text-violet-500 font-normal flex items-center gap-0.5">
-              <Sparkles className="h-2.5 w-2.5" /> cost auto-calculated
-            </span>
-          )}
-        </button>
+        {([
+          { key: "ingredient", label: "Ingredients", Icon: Package, active: "border-emerald-600 text-emerald-700" },
+          { key: "supply",     label: "Supplies",    Icon: Boxes,   active: "border-sky-600 text-sky-700" },
+          { key: "recipe",     label: "Recipes",     Icon: BookOpen, active: "border-violet-600 text-violet-700" },
+        ] as const).map(({ key, label, Icon, active }) => (
+          <button
+            key={key}
+            onClick={() => setActiveTab(key)}
+            className={`flex items-center gap-2 px-5 py-3 text-sm font-semibold border-b-2 transition-colors cursor-pointer ${
+              activeTab === key ? active : "border-transparent text-zinc-500 hover:text-zinc-800"
+            }`}
+          >
+            <Icon className="h-4 w-4" />
+            {label}
+            {key === "recipe" && activeTab === "recipe" && (
+              <span className="ml-1 text-[10px] text-violet-500 font-normal flex items-center gap-0.5">
+                <Sparkles className="h-2.5 w-2.5" /> cost auto-calculated
+              </span>
+            )}
+          </button>
+        ))}
       </div>
 
       {/* Sub-filters */}
@@ -438,7 +419,7 @@ export default function InventoryPage() {
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400" />
           <input type="text" value={search} onChange={e => setSearch(e.target.value)}
-            placeholder={`Search ${activeTab === "food_item" ? "ingredients" : "recipes"}…`}
+            placeholder={`Search ${TAB_META[activeTab].nounPlural}…`}
             className="w-full pl-9 pr-3 py-2 text-xs border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
         </div>
         <div className="flex gap-1 bg-zinc-100 rounded-lg p-1">
@@ -461,10 +442,12 @@ export default function InventoryPage() {
           <div className="py-16 text-center text-xs text-red-500">{error}</div>
         ) : rows.length === 0 ? (
           <div className="py-16 text-center">
-            {activeTab === "food_item"
+            {activeTab === "ingredient"
               ? <Package className="h-8 w-8 text-zinc-300 mx-auto mb-3" />
-              : <BookOpen className="h-8 w-8 text-zinc-300 mx-auto mb-3" />}
-            <p className="text-xs text-zinc-400 font-medium">No {activeTab === "food_item" ? "ingredients" : "recipes"} match your filter.</p>
+              : activeTab === "supply"
+                ? <Boxes className="h-8 w-8 text-zinc-300 mx-auto mb-3" />
+                : <BookOpen className="h-8 w-8 text-zinc-300 mx-auto mb-3" />}
+            <p className="text-xs text-zinc-400 font-medium">No {TAB_META[activeTab].nounPlural} match your filter.</p>
           </div>
         ) : (
           <>
@@ -472,18 +455,17 @@ export default function InventoryPage() {
               <thead className="bg-zinc-50 border-b border-zinc-100">
                 <tr>
                   <th className="px-4 py-3 text-left text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
-                    {activeTab === "food_item" ? "Ingredient" : "Recipe"}
+                    {activeTab === "recipe" ? "Recipe" : activeTab === "supply" ? "Supply" : "Ingredient"}
                   </th>
                   <th className="px-4 py-3 text-left text-[10px] font-bold text-zinc-500 uppercase tracking-wider whitespace-nowrap">Qty</th>
                   <th className="hidden sm:table-cell px-4 py-3 text-left text-[10px] font-bold text-zinc-500 uppercase tracking-wider whitespace-nowrap">Unit</th>
-                  {activeTab === "food_item" ? (
-                    <th className="hidden sm:table-cell px-4 py-3 text-left text-[10px] font-bold text-zinc-500 uppercase tracking-wider whitespace-nowrap">Purchase Price</th>
-                  ) : (
-                    <th className="hidden sm:table-cell px-4 py-3 text-left text-[10px] font-bold text-zinc-500 uppercase tracking-wider whitespace-nowrap">
-                      <span className="flex items-center gap-1"><Sparkles className="h-2.5 w-2.5 text-violet-500" /> Cost / Serving</span>
-                    </th>
-                  )}
-                  <th className="hidden md:table-cell px-4 py-3 text-left text-[10px] font-bold text-zinc-500 uppercase tracking-wider whitespace-nowrap">Expiry</th>
+                  <th className="hidden sm:table-cell px-4 py-3 text-left text-[10px] font-bold text-zinc-500 uppercase tracking-wider whitespace-nowrap">
+                    {activeTab !== "recipe" ? (
+                      "Unit / Cost"
+                    ) : (
+                      <span className="flex items-center gap-1"><Sparkles className="h-2.5 w-2.5 text-violet-500" /> Unit / Cost</span>
+                    )}
+                  </th>
                   <th className="px-4 py-3 text-left text-[10px] font-bold text-zinc-500 uppercase tracking-wider whitespace-nowrap">Status</th>
                   <th className="px-4 py-3 text-left text-[10px] font-bold text-zinc-500 uppercase tracking-wider whitespace-nowrap">Actions</th>
                 </tr>
@@ -522,8 +504,11 @@ export default function InventoryPage() {
 
                         {/* Price / Cost per serving */}
                         <td className="hidden sm:table-cell px-4 py-3 whitespace-nowrap font-mono">
-                          {activeTab === "food_item" ? (
-                            <span className="text-zinc-600">{formatPrice(row.unit_price)}</span>
+                          {activeTab !== "recipe" ? (
+                            <span className="text-zinc-600">
+                              {formatPrice(row.unit_price)}
+                              {row.purchase_unit && <span className="text-zinc-400">{` / ${row.purchase_unit}`}</span>}
+                            </span>
                           ) : row.recipe_cost ? (
                             <span className="text-violet-700 flex items-center gap-1">
                               <Sparkles className="h-3 w-3" />
@@ -532,11 +517,6 @@ export default function InventoryPage() {
                           ) : (
                             <span className="text-zinc-400 text-[10px]">no ingredients</span>
                           )}
-                        </td>
-
-                        {/* Expiry */}
-                        <td className="hidden md:table-cell px-4 py-3 text-zinc-500 whitespace-nowrap">
-                          {formatDate(row.expiry_date)}
                         </td>
 
                         {/* Status */}
@@ -581,10 +561,10 @@ export default function InventoryPage() {
                       </tr>
 
                       {isEditing && (
-                        <EditRow row={row} colSpan={7} onSaved={handleSaved} onClose={() => setEditId(null)} />
+                        <EditRow row={row} colSpan={6} onSaved={handleSaved} onClose={() => setEditId(null)} />
                       )}
                       {isRestocking && hasRecord && (
-                        <RestockRow row={row} colSpan={7} onRestocked={handleRestocked} onClose={() => setRestockId(null)} />
+                        <RestockRow row={row} colSpan={6} onRestocked={handleRestocked} onClose={() => setRestockId(null)} />
                       )}
                     </React.Fragment>
                   );

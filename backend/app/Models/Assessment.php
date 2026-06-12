@@ -23,19 +23,70 @@ class Assessment extends Model
         'food_intolerance', 'nutrient_drug_interaction', 'dietary_intake_method', 'dietary_record_file',
         // Clinical measurement fields (activity level + body measurements)
         'physical_activity_level', 'muac_mm', 'waist_cm', 'hip_cm',
+        // Phase 5 — engine inputs
+        'stress_factor', 'edema_present', 'pregnancy_lactation_status', 'calf_circumference_cm',
     ];
 
     protected $casts = [
-        'allergies'    => 'array',
-        'food_dislikes'=> 'array',
-        'medications'  => 'array',
-        'weight'       => 'decimal:2',
-        'height'       => 'decimal:2',
-        'bmi'          => 'decimal:2',
-        'muac_mm'      => 'float',
-        'waist_cm'     => 'float',
-        'hip_cm'       => 'float',
+        'allergies'                    => 'array',
+        'food_dislikes'                => 'array',
+        'medications'                  => 'array',
+        'weight'                       => 'decimal:2',
+        'height'                       => 'decimal:2',
+        'bmi'                          => 'decimal:2',
+        'muac_mm'                      => 'float',
+        'waist_cm'                     => 'float',
+        'hip_cm'                       => 'float',
+        'stress_factor'                => 'float',
+        'edema_present'                => 'boolean',
+        'calf_circumference_cm'        => 'float',
     ];
+
+    /**
+     * Normalise physical_activity_level free-text / legacy values to the keys
+     * that NutritionPrescriptionService::ACTIVITY_FACTORS expects.
+     *
+     * The assessment UI may store human-readable or alternate spellings;
+     * this map canonicalises them before they reach the engine.
+     *
+     * Phase 5.2 — ensures the PAL dropdown actually drives TEE.
+     */
+    public const ACTIVITY_LEVEL_MAP = [
+        // canonical keys (pass-through)
+        'sedentary'    => 'sedentary',
+        'light'        => 'light',
+        'moderate'     => 'moderate',
+        'very_active'  => 'very_active',
+        'extra_active' => 'extra_active',
+        // common UI/legacy variants
+        'lightly_active'       => 'light',
+        'lightly active'       => 'light',
+        'light activity'       => 'light',
+        'moderately_active'    => 'moderate',
+        'moderately active'    => 'moderate',
+        'moderate activity'    => 'moderate',
+        'active'               => 'moderate',
+        'very active'          => 'very_active',
+        'very_active_activity' => 'very_active',
+        'extra active'         => 'extra_active',
+        'extremely active'     => 'extra_active',
+        'extra_active_activity'=> 'extra_active',
+        'bedridden'            => 'sedentary',
+        'bed-ridden'           => 'sedentary',
+        'bed ridden'           => 'sedentary',
+        'desk job'             => 'sedentary',
+        'office work'          => 'sedentary',
+    ];
+
+    /**
+     * Return the canonical ACTIVITY_FACTORS key for this assessment's PAL,
+     * or 'sedentary' as a safe default if unknown.
+     */
+    public function normalizedActivityLevel(): string
+    {
+        $raw = strtolower(trim((string) $this->physical_activity_level));
+        return self::ACTIVITY_LEVEL_MAP[$raw] ?? 'sedentary';
+    }
 
     public function ncpRecord(): BelongsTo
     {

@@ -1,29 +1,50 @@
-# Finish Notes — NCP Diagnosis Page
+# Finish Notes — Nutrition Engine Overhaul (Heavy Phases 0–2)
 
-## Completed
-- `diagnosisService.ts` created with full typed API surface (CRUD + AI)
-- Diagnosis page replaced with 6-tab working implementation
-- TypeScript passes clean (`tsc --noEmit --skipLibCheck` → no errors)
+**Branch:** `feat/nutri-engine-overhaul` · **Date:** 2026-06-11 · **Scope:** clinical/heavy phases only.
+App-surface phases 3–7 (+ FE wiring 2.4) intentionally deferred to subagents pending approval.
 
-## What Was Built
-| Feature | Status |
+## Verification commands run + results
+| Command | Result |
 |---|---|
-| Tab 1: Diagnosis table with domain filter, edit/delete, AI badge | ✅ |
-| Tab 2: P builder (NI direction+nutrient, NC/NB multi-select checklists) | ✅ |
-| Tab 3: E builder with domain-specific etiology checklists + free text | ✅ |
-| Tab 4: S builder with domain-specific S&S checklists + free text | ✅ |
-| Tab 5: PES auto-assembly + manual override + save | ✅ |
-| Tab 6: AI suggest → suggestion cards → Accept/Edit/Reject | ✅ |
-| Patient header (same pattern as assessment page) | ✅ |
-| Placeholder state for select-patient / select-ncp | ✅ |
+| `python artifacts/oracle_golden.py` | wrote 90 golden cases (independent oracle) |
+| `tsc -p artifacts/tsconfig.verify.json` | clean compile (no errors) |
+| `node artifacts/verify_ts_golden.mjs` | **GOLDEN: 90 pass / 0 fail** (frontend engine) |
+| `npx eslint lib/nutritionCalculations.ts` | clean (exit 0) |
+| `php artisan test --filter=NutritionPrescriptionServiceTest` | **90 passed / 450 assertions** (backend engine) |
+| direct PHP 90-case loop | 90 pass / 0 fail |
+| `php -l` (service, controller, tests) | no syntax errors |
+| `php artisan route:list` | autofill route registered |
 
-## Known Issues / Follow-up
-- `AIService` model: still uses `claude-haiku-20240307`. Should be updated to `claude-haiku-4-5-20251001` in backend `config/services.php` or `.env`.
-- `AIService` prompt is bare JSON dump. For reliable JSON output in Tab 6, the backend prompt should request a structured JSON response with `suggestions` array. Current implementation may return 0 suggestions if the model outputs freeform text rather than the expected `{suggestions:[...]}` wrapper.
+## Summary of changes
+- **Phase 0:** `docs/logic/prescription-targets.json` — canonical spec + 90 frozen golden cases (the
+  contract both engines must match). AP BMI default, weight-basis rule (M2), D1–D3 decisions, pediatric
+  deferral (M4) recorded in `intervention-goals.md` (+changelog) and the spec.
+- **Phase 1:** `frontend/lib/nutritionCalculations.ts` rewritten to match spec — AP classification,
+  weight-basis fix, diabetic stage handling, **liver protein corrected 0.9/0.65 → 1.35** (was clinically
+  wrong), renal default 30, PDRI fiber/sodium/free-sugar, corrected refeeding wording. Backward-compatible
+  signatures.
+- **Phase 2:** `NutritionPrescriptionService.php` (authoritative PHP engine) + golden test + `autofill`
+  endpoint (`POST /api/rnd/ncp-records/{ncp}/intervention/autofill`). Both runtimes assert the same
+  fixture → drift-proof.
 
-## Verification Needed
-- [ ] Browser: Tab 1 renders diagnosis list with domain filter working
-- [ ] Browser: Tab 2→3→4→5 builder flow saves a new diagnosis to API
-- [ ] Browser: Edit existing diagnosis loads correctly into builder
-- [ ] Browser: Delete with confirm prompt works
-- [ ] Browser: Tab 6 AI suggest generates and accept/reject/edit work
+## Review pass (Blocker/Major/Minor/Nit)
+- **Blocker:** none.
+- **Major:** none open in delivered scope. (Pediatric goal-specific logic deferred by decision M4 — not a
+  silent gap; documented.)
+- **Minor:** the JSON spec was pretty-printed by the editor's linter (cosmetic). The `note`/`fiber_g`/
+  `sodium_max_mg` fields are computed but not yet surfaced in UI (that's Phase 3).
+- **Nit:** `artifacts/tsbuild/` is generated; gitignored.
+
+## Known limitations / follow-ups
+1. **DB-backed Feature tests can't run in this CLI** — `could not find driver (sqlite :memory:)` is a
+   pre-existing environment issue affecting ALL Feature tests. The 2 new autofill endpoint tests are
+   written and lint-clean; run them in CI / an env with the sqlite PDO driver enabled.
+2. **Phase 2.4 (FE save-from-backend)** not done — `NutritionPrescriptionForm.tsx` still uses the TS
+   value on save. Subagent task: call the autofill endpoint and persist the backend result; keep TS for
+   live preview.
+3. App-surface phases 3–7 unstarted (micro/fluid UX, meal-plan ±10%/multi-category, assessment fields,
+   monitoring AI, inventory) — queued for subagents.
+
+## Manual validation (when a full env is available)
+- [ ] `php artisan test` (full) in an env with sqlite → new endpoint tests green.
+- [ ] Open intervention page → autofill calls backend → values match the TS preview.

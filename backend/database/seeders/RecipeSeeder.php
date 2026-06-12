@@ -491,6 +491,9 @@ class RecipeSeeder extends Seeder
                         'unit'         => $row['unit'],
                     ]);
                 }
+                // Aggregate macros + water + micronutrients from the ingredients so
+                // meal-plan micro validation and the water display work out of the box.
+                $recipe->recalculateTotals();
                 $this->command->info("  ✓ Recipe: {$recipeData['name']}");
             } else {
                 $this->command->line("  – Already seeded: {$recipeData['name']}");

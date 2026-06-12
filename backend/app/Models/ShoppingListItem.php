@@ -10,7 +10,7 @@ class ShoppingListItem extends Model
     use HasFactory;
     
     protected $fillable = [
-        'shopping_list_id', 'food_item_id', 'ingredient_name',
+        'shopping_list_id', 'fs_item_id', 'ingredient_name',
         'qty', 'unit', 'supplier_id', 'unit_price', 'total'
     ];
 
@@ -25,9 +25,9 @@ class ShoppingListItem extends Model
         return $this->belongsTo(ShoppingList::class);
     }
 
-    public function foodItem()
+    public function fsItem()
     {
-        return $this->belongsTo(FoodItem::class);
+        return $this->belongsTo(FsItem::class, 'fs_item_id');
     }
 
     public function supplier()
