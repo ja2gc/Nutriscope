@@ -6,9 +6,12 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\FSS\StoreShoppingListRequest;
 use App\Http\Requests\FSS\UpdateShoppingListRequest;
 use App\Http\Resources\ShoppingListResource;
+use App\Models\FsItem;
+use App\Models\MenuCycle;
 use App\Models\ShoppingList;
 use App\Models\ShoppingListItem;
-use App\Models\Inventory;
+use App\Services\MenuCycleCostService;
+use App\Services\ProcurementService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -18,13 +21,16 @@ class ShoppingListController extends Controller
 {
     public function index(): JsonResponse
     {
-        return response()->json(['data' => ShoppingListResource::collection(ShoppingList::with('items')->get())]);
+        return response()->json(['data' => ShoppingListResource::collection(ShoppingList::with('items')->orderByDesc('created_at')->get())]);
     }
 
     public function store(StoreShoppingListRequest $request): JsonResponse
     {
         $data = $request->validated();
         $data['fss_user_id'] = Auth::id();
+        $data['list_type'] = $data['list_type'] ?? 'manual';
+        $data['status'] = $data['status'] ?? 'draft';
+        $data['list_date'] = $data['list_date'] ?? now()->toDateString();
 
         $shoppingList = ShoppingList::create($data);
         return response()->json(['data' => new ShoppingListResource($shoppingList->load('items'))], 201);
@@ -47,65 +53,88 @@ class ShoppingListController extends Controller
         return response()->json(null, 204);
     }
 
+    /**
+     * Auto-build a suggested list from a menu cycle scaled to a purchasing day span.
+     * Quantities + costs come from the menu engine; the default vendor for each item
+     * is the one remembered on the catalog (fs_items.default_supplier_id).
+     */
     public function generate(Request $request): JsonResponse
     {
-        $request->validate([
-            'period_start' => ['required', 'date'],
-            'period_end'   => ['required', 'date', 'after_or_equal:period_start'],
+        $data = $request->validate([
+            'menu_cycle_id' => ['required', 'integer', 'exists:menu_cycles,id'],
+            'days_span'     => ['required', 'integer', 'min:1', 'max:60'],
+            'name'          => ['nullable', 'string', 'max:255'],
         ]);
 
-        return DB::transaction(function () use ($request) {
-            $shoppingList = ShoppingList::create([
-                'fss_user_id'  => Auth::id(),
-                'name'         => 'Suggested Shopping List ' . now()->toDateString(),
-                'list_date'    => now()->toDateString(),
-                'list_type'    => 'suggested',
-                'status'       => 'draft',
-                'period_start' => $request->period_start,
-                'period_end'   => $request->period_end,
+        $cycle  = MenuCycle::findOrFail($data['menu_cycle_id']);
+        $result = MenuCycleCostService::forCycle($cycle);
+        $items  = ProcurementService::suggestedItems($result['ingredient_usage'], (int) $cycle->cycle_days, (int) $data['days_span']);
+
+        $fsItems = FsItem::whereIn('id', array_column($items, 'fs_item_id'))->get()->keyBy('id');
+
+        $list = DB::transaction(function () use ($data, $cycle, $items, $fsItems) {
+            $list = ShoppingList::create([
+                'fss_user_id'   => Auth::id(),
+                'menu_cycle_id' => $cycle->id,
+                'name'          => $data['name'] ?? "Suggested — {$cycle->name} ({$data['days_span']}d)",
+                'list_date'     => now()->toDateString(),
+                'days_span'     => $data['days_span'],
+                'list_type'     => 'suggested',
+                'status'        => 'draft',
             ]);
 
-            // Retrieve active menu cycle and aggregate ingredient needs
-            $activeMenuCycle = \App\Models\MenuCycle::with(['days.recipe.ingredients', 'days.foodItem'])
-                ->where('is_active', true)
-                ->first();
-
-            $menuCycleIngredients = [];
-            if ($activeMenuCycle) {
-                foreach ($activeMenuCycle->days as $day) {
-                    if ($day->food_item_id) {
-                        $menuCycleIngredients[$day->food_item_id] = ($menuCycleIngredients[$day->food_item_id] ?? 0) + $day->quantity;
-                    } elseif ($day->recipe_id && $day->recipe) {
-                        foreach ($day->recipe->ingredients as $ingredient) {
-                            if ($ingredient->food_item_id) {
-                                $menuCycleIngredients[$ingredient->food_item_id] = ($menuCycleIngredients[$ingredient->food_item_id] ?? 0) + ($ingredient->quantity * $day->quantity);
-                            }
-                        }
-                    }
-                }
+            foreach ($items as $it) {
+                $fs        = $fsItems[$it['fs_item_id']] ?? null;
+                $unitPrice = $it['qty'] > 0 ? round($it['total'] / $it['qty'], 4) : 0;
+                $list->items()->create([
+                    'fs_item_id'      => $it['fs_item_id'],
+                    'ingredient_name' => $it['name'],
+                    'qty'             => $it['qty'],
+                    'unit'            => $it['unit'],
+                    'supplier_id'     => $fs?->default_supplier_id,
+                    'unit_price'      => $unitPrice,
+                    'total'           => $it['total'],
+                ]);
             }
 
-            // Find shortfall across all items in physical inventory
-            $inventories = Inventory::with('foodItem')->get();
-
-            foreach ($inventories as $inventory) {
-                $neededFromMenuCycle = $menuCycleIngredients[$inventory->food_item_id] ?? 0;
-                $shortfall = ($neededFromMenuCycle + $inventory->minimum_stock_threshold) - $inventory->quantity_in_stock;
-
-                if ($shortfall > 0) {
-                    ShoppingListItem::create([
-                        'shopping_list_id' => $shoppingList->id,
-                        'food_item_id'     => $inventory->food_item_id,
-                        'ingredient_name'  => $inventory->foodItem->name,
-                        'qty'              => $shortfall,
-                        'unit'             => $inventory->unit,
-                        'unit_price'       => 0,
-                        'total'            => 0,
-                    ]);
-                }
-            }
-
-            return response()->json(['data' => new ShoppingListResource($shoppingList->load('items'))], 201);
+            return $list;
         });
+
+        return response()->json(['data' => new ShoppingListResource($list->load('items'))], 201);
+    }
+
+    /**
+     * Edit one line: vendor / qty / price. Picking a vendor remembers it on the
+     * catalog item so it's the default on the next suggested list.
+     */
+    public function updateItem(Request $request, ShoppingListItem $shoppingListItem): JsonResponse
+    {
+        $data = $request->validate([
+            'supplier_id' => ['nullable', 'integer', 'exists:suppliers,id'],
+            'qty'         => ['nullable', 'numeric', 'min:0'],
+            'unit_price'  => ['nullable', 'numeric', 'min:0'],
+        ]);
+
+        $shoppingListItem->fill($data);
+        $shoppingListItem->total = round((float) $shoppingListItem->qty * (float) $shoppingListItem->unit_price, 2);
+        $shoppingListItem->save();
+
+        if (array_key_exists('supplier_id', $data) && $data['supplier_id'] && $shoppingListItem->fs_item_id) {
+            FsItem::whereKey($shoppingListItem->fs_item_id)->update(['default_supplier_id' => $data['supplier_id']]);
+        }
+
+        return response()->json(['data' => [
+            'id'          => $shoppingListItem->id,
+            'supplier_id' => $shoppingListItem->supplier_id,
+            'qty'         => $shoppingListItem->qty,
+            'unit_price'  => $shoppingListItem->unit_price,
+            'total'       => $shoppingListItem->total,
+        ]]);
+    }
+
+    public function destroyItem(ShoppingListItem $shoppingListItem): JsonResponse
+    {
+        $shoppingListItem->delete();
+        return response()->json(null, 204);
     }
 }

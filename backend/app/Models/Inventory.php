@@ -4,14 +4,16 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Inventory extends Model
 {
     use HasFactory;
-    
+
     protected $table = 'inventory';
+
     protected $fillable = [
-        'item_type', 'food_item_id',
+        'item_type', 'fs_item_id', 'recipe_id',
         'quantity_in_stock', 'unit', 'expiry_date',
         'usage_rate', 'minimum_stock_threshold', 'unit_price', 'notes',
     ];
@@ -24,11 +26,15 @@ class Inventory extends Model
         'expiry_date'             => 'date',
     ];
 
-    public function foodItem()
+    /** Stock of a catalog item (ingredient or supply). */
+    public function fsItem(): BelongsTo
     {
-        return $this->belongsTo(FoodItem::class);
+        return $this->belongsTo(FsItem::class, 'fs_item_id');
     }
 
+    /** Stock of a prepared food-service recipe. */
+    public function recipe(): BelongsTo
+    {
+        return $this->belongsTo(FoodServiceRecipe::class, 'recipe_id');
+    }
 }
-
-

@@ -12,11 +12,22 @@ class InventoryResource extends JsonResource
         return [
             'id'                       => $this->id,
             'item_type'                => $this->item_type,
-            'food_item_id'             => $this->food_item_id,
-            'food_item'                => $this->whenLoaded('foodItem', fn() => [
-                'id'       => $this->foodItem->id,
-                'name'     => $this->foodItem->name,
-                'category' => $this->foodItem->category,
+            'fs_item_id'               => $this->fs_item_id,
+            'recipe_id'                => $this->recipe_id,
+            'fs_item'                  => $this->whenLoaded('fsItem', fn () => [
+                'id'        => $this->fsItem->id,
+                'name'      => $this->fsItem->name,
+                'kind'      => $this->fsItem->kind,
+                'category'  => $this->fsItem->category,
+                'base_unit' => $this->fsItem->base_unit,
+                'unit_cost' => $this->fsItem->unit_cost,
+            ]),
+            'recipe'                   => $this->whenLoaded('recipe', fn () => [
+                'id'       => $this->recipe->id,
+                'name'     => $this->recipe->name,
+                'category' => $this->recipe->category,
+                'cost'     => $this->recipe->cost,
+                'servings' => $this->recipe->servings,
             ]),
             'quantity_in_stock'        => $this->quantity_in_stock,
             'unit'                     => $this->unit,
