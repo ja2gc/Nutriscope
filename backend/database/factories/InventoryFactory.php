@@ -16,7 +16,6 @@ class InventoryFactory extends Factory
             'food_item_id'            => FoodItem::factory(),
             'quantity_in_stock'       => fake()->randomFloat(2, 0, 500),
             'unit'                    => fake()->randomElement(['kg', 'g', 'L', 'ml', 'piece']),
-            'expiry_date'             => fake()->dateTimeBetween('+1 month', '+1 year')->format('Y-m-d'),
             'usage_rate'              => fake()->randomFloat(2, 0.1, 10),
             'minimum_stock_threshold' => fake()->randomFloat(2, 5, 50),
             'notes'                   => null,
