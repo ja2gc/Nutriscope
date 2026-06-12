@@ -6,11 +6,10 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\FSS\StorePurchaseOrderRequest;
 use App\Http\Requests\FSS\UpdatePurchaseOrderRequest;
 use App\Http\Resources\PurchaseOrderResource;
-use App\Models\FsItem;
-use App\Models\Inventory;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderAttachment;
 use App\Models\ShoppingList;
+use App\Services\FSS\ReceivingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -54,6 +53,7 @@ class PurchaseOrderController extends Controller
                     'total_value' => $item['qty'] * $item['unit_price'],
                 ]);
             }
+            $po->recalcTotal();
 
             return response()->json(['data' => new PurchaseOrderResource($po->load(self::RELATIONS))], 201);
         });
@@ -64,16 +64,18 @@ class PurchaseOrderController extends Controller
         return response()->json(['data' => new PurchaseOrderResource($purchaseOrder->load(self::RELATIONS))]);
     }
 
-    public function update(UpdatePurchaseOrderRequest $request, PurchaseOrder $purchaseOrder): JsonResponse
+    public function update(UpdatePurchaseOrderRequest $request, PurchaseOrder $purchaseOrder, ReceivingService $receiving): JsonResponse
     {
         $validated = $request->validated();
         $previousStatus = $purchaseOrder->status;
 
-        DB::transaction(function () use ($purchaseOrder, $validated, $previousStatus) {
+        DB::transaction(function () use ($purchaseOrder, $validated, $previousStatus, $receiving) {
             $purchaseOrder->update($validated);
 
             if (($validated['status'] ?? null) === 'received' && $previousStatus !== 'received') {
-                $this->restockFrom($purchaseOrder);
+                $purchaseOrder->received_date = now()->toDateString();
+                $purchaseOrder->save();
+                $receiving->receive($purchaseOrder->load('items'));
             }
         });
 
@@ -119,6 +121,7 @@ class PurchaseOrderController extends Controller
                         'total_value' => $it->total,
                     ]);
                 }
+                $po->recalcTotal();
                 $created[] = $po->id;
             }
             $shoppingList->update(['status' => 'finalized']);
@@ -150,24 +153,5 @@ class PurchaseOrderController extends Controller
         Storage::disk('public')->delete($attachment->path);
         $attachment->delete();
         return response()->json(null, 204);
-    }
-
-    /** Receiving a PO adds its quantities back into inventory (by catalog item). */
-    private function restockFrom(PurchaseOrder $purchaseOrder): void
-    {
-        foreach ($purchaseOrder->items as $item) {
-            if (! $item->fs_item_id) {
-                continue;
-            }
-            $fs  = FsItem::find($item->fs_item_id);
-            $inv = Inventory::firstOrNew(['fs_item_id' => $item->fs_item_id]);
-            if (! $inv->exists) {
-                $inv->item_type         = $fs?->kind ?? 'ingredient';
-                $inv->unit              = $fs?->base_unit ?? $item->unit;
-                $inv->quantity_in_stock = 0;
-            }
-            $inv->quantity_in_stock = (float) $inv->quantity_in_stock + (float) $item->qty;
-            $inv->save();
-        }
     }
 }
