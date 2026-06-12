@@ -26,9 +26,12 @@ use App\Http\Controllers\FSS\SupplierController;
 use App\Http\Controllers\FSS\PurchaseOrderController;
 use App\Http\Controllers\FSS\ShoppingListController;
 use App\Http\Controllers\FSS\MenuCycleController;
+use App\Http\Controllers\FSS\MenuCycleTemplateController;
 use App\Http\Controllers\FSS\BudgetController;
 use App\Http\Controllers\FSS\FoodServiceRecipeController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\ReportBrandingController;
+use App\Http\Controllers\ReportTemplateController;
 
 Route::prefix('auth')->group(function () {
     Route::post('login', [AuthController::class, 'login']);
@@ -117,7 +120,13 @@ Route::middleware(['auth:sanctum', 'role:RND', 'audit'])->prefix('rnd')->group(f
     Route::patch('notifications/{notification}/read', [NotificationController::class, 'read']);
 
     // Reports routes
-    Route::apiResource('reports', ReportController::class)->only(['index', 'store', 'show']);
+    Route::post('reports/generate-all', [ReportController::class, 'generateAll']);
+    Route::get('reports/{report}/download', [ReportController::class, 'download']);
+    Route::apiResource('reports', ReportController::class)->only(['index', 'store', 'show', 'destroy']);
+    Route::get('report-branding', [ReportBrandingController::class, 'show']);
+    Route::post('report-branding', [ReportBrandingController::class, 'update']);
+    Route::get('report-templates', [ReportTemplateController::class, 'index']);
+    Route::patch('report-templates/{reportTemplate}', [ReportTemplateController::class, 'update']);
 
     // Food Database routes
     Route::apiResource('food-items', FoodItemController::class);
@@ -138,25 +147,43 @@ Route::middleware(['auth:sanctum', 'role:FSS,RND'])->prefix('fss')->group(functi
     Route::apiResource('suppliers', SupplierController::class);
 
     // Purchase Orders routes
+    Route::post('purchase-orders/{purchase_order}/attachments', [PurchaseOrderController::class, 'uploadAttachment']);
+    Route::delete('purchase-order-attachments/{attachment}', [PurchaseOrderController::class, 'destroyAttachment']);
     Route::apiResource('purchase-orders', PurchaseOrderController::class);
 
     // Shopping Lists routes
     Route::post('shopping-lists/generate', [ShoppingListController::class, 'generate']);
+    Route::post('shopping-lists/{shopping_list}/generate-pos', [PurchaseOrderController::class, 'generatePos']);
+    Route::patch('shopping-list-items/{shopping_list_item}', [ShoppingListController::class, 'updateItem']);
+    Route::delete('shopping-list-items/{shopping_list_item}', [ShoppingListController::class, 'destroyItem']);
     Route::apiResource('shopping-lists', ShoppingListController::class);
 
     // Menu Cycles routes
     Route::patch('menu-cycles/{menu_cycle}/activate', [MenuCycleController::class, 'activate']);
+    Route::get('menu-cycles/{menu_cycle}/compute', [MenuCycleController::class, 'compute']);
+    Route::post('menu-cycles/{menu_cycle}/save-template', [MenuCycleTemplateController::class, 'fromCycle']);
     Route::apiResource('menu-cycles', MenuCycleController::class);
+
+    // Menu Cycle Templates routes
+    Route::post('menu-cycle-templates/{menu_cycle_template}/instantiate', [MenuCycleTemplateController::class, 'instantiate']);
+    Route::apiResource('menu-cycle-templates', MenuCycleTemplateController::class);
 
     // Food Service Recipes routes
     Route::apiResource('food-service-recipes', FoodServiceRecipeController::class);
 
     // Budgets routes
+    Route::get('budgets/{budget}/summary', [BudgetController::class, 'summary']);
     Route::post('budgets/{budget}/daily-logs', [BudgetController::class, 'storeDailyLog']);
     Route::apiResource('budgets', BudgetController::class);
 
     // Reports routes
-    Route::apiResource('reports', ReportController::class)->only(['index', 'store', 'show']);
+    Route::post('reports/generate-all', [ReportController::class, 'generateAll']);
+    Route::get('reports/{report}/download', [ReportController::class, 'download']);
+    Route::apiResource('reports', ReportController::class)->only(['index', 'store', 'show', 'destroy']);
+    Route::get('report-branding', [ReportBrandingController::class, 'show']);
+    Route::post('report-branding', [ReportBrandingController::class, 'update']);
+    Route::get('report-templates', [ReportTemplateController::class, 'index']);
+    Route::patch('report-templates/{reportTemplate}', [ReportTemplateController::class, 'update']);
 });
 
 Route::middleware(['auth:sanctum', 'role:Admin'])->prefix('admin')->group(function () {

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\FSS\StoreInventoryRequest;
 use App\Http\Requests\FSS\UpdateInventoryRequest;
 use App\Http\Resources\InventoryResource;
+use App\Models\FsItem;
 use App\Models\Inventory;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
@@ -15,11 +16,15 @@ use Illuminate\Support\Facades\DB;
 
 class InventoryController extends Controller
 {
+    private const RELATIONS = ['fsItem', 'recipe'];
+
     /** Merged, paginated inventory rows for the UI table (single query, no N+1). */
     public function rows(Request $request): JsonResponse
     {
         $search  = trim($request->get('search', ''));
         $type    = $request->get('type', 'all');
+        // Back-compat: the old UI called ingredients "food_item".
+        $type    = $type === 'food_item' ? 'ingredient' : $type;
         $status  = $request->get('status', 'all');
         $perPage = (int) min($request->get('per_page', 25), 100);
         $page    = max(1, (int) $request->get('page', 1));
@@ -35,37 +40,21 @@ class InventoryController extends Controller
 
     private function buildRows(string $search, string $type, string $status, int $perPage, int $page): array
     {
-        $bindings = [];
-        $parts    = [];
-
-        {
-            $sql = "SELECT fi.id AS item_id, fi.name, fi.category, 'food_item' AS item_type,
-                           inv.id AS inventory_id, inv.quantity_in_stock, inv.unit, inv.expiry_date,
-                           inv.minimum_stock_threshold, inv.unit_price, inv.notes, inv.usage_rate
-                    FROM food_items fi
-                    LEFT JOIN inventory inv ON inv.food_item_id = fi.id";
-            if ($search !== '') {
-                $sql .= ' WHERE fi.name LIKE ?';
-                $bindings[] = "%{$search}%";
-            }
-            $parts[] = $sql;
-        }
-
-        $union = '(' . implode(' UNION ALL ', $parts) . ') AS t';
+        [$union, $bindings] = $this->unionFor($type, $search);
 
         $statusWhere = $this->statusWhere($status);
         $where       = $statusWhere ? "WHERE {$statusWhere}" : '';
 
-        $total = DB::selectOne("SELECT COUNT(*) AS cnt FROM {$union} {$where}", $bindings)->cnt;
+        $total = DB::selectOne("SELECT COUNT(*) AS cnt FROM ({$union}) AS t {$where}", $bindings)->cnt;
 
         $offset = ($page - 1) * $perPage;
         $rows   = DB::select(
-            "SELECT * FROM {$union} {$where} ORDER BY name ASC LIMIT ? OFFSET ?",
+            "SELECT * FROM ({$union}) AS t {$where} ORDER BY name ASC LIMIT ? OFFSET ?",
             [...$bindings, $perPage, $offset]
         );
 
         $now  = Carbon::now();
-        $data = array_map(fn($r) => $this->decorateRow($r, $now), $rows);
+        $data = array_map(fn ($r) => $this->decorateRow($r, $now), $rows);
 
         return [
             'data'  => $data,
@@ -77,6 +66,60 @@ class InventoryController extends Controller
             ],
             'stats' => Cache::remember('inv_stats', 30, fn () => $this->getStats()),
         ];
+    }
+
+    /**
+     * Build the UNION of catalog rows (fs_items by kind) and recipe rows, both
+     * LEFT JOINed to their inventory stock. Columns are identical across selects.
+     *
+     * @return array{0:string,1:array<int,mixed>}
+     */
+    private function unionFor(string $type, string $search): array
+    {
+        $parts    = [];
+        $bindings = [];
+
+        $catalogCols = "f.id AS item_id, f.name, f.category, f.kind AS item_type,
+                        f.base_unit, f.purchase_unit, f.purchase_price, f.units_per_purchase,
+                        inv.id AS inventory_id, inv.quantity_in_stock, inv.unit, inv.expiry_date,
+                        inv.minimum_stock_threshold, inv.usage_rate, inv.notes,
+                        NULL AS recipe_cost, NULL AS recipe_servings";
+
+        if (in_array($type, ['all', 'ingredient', 'supply'], true)) {
+            $sql = "SELECT {$catalogCols}
+                    FROM fs_items f
+                    LEFT JOIN inventory inv ON inv.fs_item_id = f.id
+                    WHERE f.is_active = 1";
+            if ($type !== 'all') {
+                $sql .= ' AND f.kind = ?';
+                $bindings[] = $type;
+            }
+            if ($search !== '') {
+                $sql .= ' AND f.name LIKE ?';
+                $bindings[] = "%{$search}%";
+            }
+            $parts[] = $sql;
+        }
+
+        if (in_array($type, ['all', 'recipe'], true)) {
+            $sql = "SELECT r.id AS item_id, r.name, r.category, 'recipe' AS item_type,
+                           NULL AS base_unit, NULL AS purchase_unit, NULL AS purchase_price, NULL AS units_per_purchase,
+                           inv.id AS inventory_id, inv.quantity_in_stock, inv.unit, inv.expiry_date,
+                           inv.minimum_stock_threshold, inv.usage_rate, inv.notes,
+                           r.cost AS recipe_cost, r.servings AS recipe_servings
+                    FROM food_service_recipes r
+                    LEFT JOIN inventory inv ON inv.recipe_id = r.id";
+            if ($search !== '') {
+                $sql .= ' WHERE r.name LIKE ?';
+                $bindings[] = "%{$search}%";
+            }
+            $parts[] = $sql;
+        }
+
+        // Guard against an empty IN-set (unknown type) → return nothing rather than error.
+        $union = $parts ? implode(' UNION ALL ', $parts) : 'SELECT NULL AS item_id, NULL AS name, NULL AS category, NULL AS item_type, NULL AS base_unit, NULL AS purchase_unit, NULL AS purchase_price, NULL AS units_per_purchase, NULL AS inventory_id, NULL AS quantity_in_stock, NULL AS unit, NULL AS expiry_date, NULL AS minimum_stock_threshold, NULL AS usage_rate, NULL AS notes, NULL AS recipe_cost, NULL AS recipe_servings WHERE 1=0';
+
+        return [$union, $bindings];
     }
 
     private function statusWhere(string $status): string
@@ -96,7 +139,7 @@ class InventoryController extends Controller
         $qty       = (float) ($r->quantity_in_stock ?? 0);
         $threshold = $r->minimum_stock_threshold !== null ? (float) $r->minimum_stock_threshold : null;
 
-        if (!$hasRecord) {
+        if (! $hasRecord) {
             $status = 'untracked'; $highlight = 'none';
         } elseif ($qty === 0.0) {
             $status = 'no_stock'; $highlight = 'red';
@@ -104,6 +147,19 @@ class InventoryController extends Controller
             $status = 'low'; $highlight = 'yellow';
         } else {
             $status = 'ok'; $highlight = 'none';
+        }
+
+        $isRecipe = $r->item_type === 'recipe';
+
+        // Catalog rows: derive ₱/base-unit via the tested FsItem accessor (DRY).
+        $unitCost = null;
+        if (! $isRecipe) {
+            $unitCost = (new FsItem([
+                'purchase_price'     => $r->purchase_price,
+                'purchase_unit'      => $r->purchase_unit,
+                'base_unit'          => $r->base_unit,
+                'units_per_purchase' => $r->units_per_purchase,
+            ]))->unit_cost;
         }
 
         return [
@@ -116,8 +172,13 @@ class InventoryController extends Controller
             'unit'                    => $r->unit ?? '',
             'expiry_date'             => $r->expiry_date,
             'minimum_stock_threshold' => $r->minimum_stock_threshold,
-            'unit_price'              => $r->unit_price,
-
+            // Catalog "price" shown in the table = the buy price; unit_cost is the derived ₱/base-unit.
+            'unit_price'              => $isRecipe ? null : $r->purchase_price,
+            'unit_cost'               => $unitCost,
+            'base_unit'               => $r->base_unit,
+            'purchase_unit'           => $r->purchase_unit,
+            'recipe_cost'             => $r->recipe_cost,
+            'recipe_servings'         => $r->recipe_servings !== null ? (int) $r->recipe_servings : null,
             'notes'                   => $r->notes,
             'usage_rate'              => $r->usage_rate,
             'status'                  => $status,
@@ -127,20 +188,22 @@ class InventoryController extends Controller
 
     private function getStats(): array
     {
-        $union = "(
-            SELECT inv.id AS inventory_id, inv.quantity_in_stock, inv.minimum_stock_threshold, inv.expiry_date
-            FROM food_items fi
-            LEFT JOIN inventory inv ON inv.food_item_id = fi.id
-        ) AS s";
+        $union = "
+            SELECT inv.id AS inventory_id, inv.quantity_in_stock, inv.minimum_stock_threshold
+            FROM fs_items f LEFT JOIN inventory inv ON inv.fs_item_id = f.id WHERE f.is_active = 1
+            UNION ALL
+            SELECT inv.id AS inventory_id, inv.quantity_in_stock, inv.minimum_stock_threshold
+            FROM food_service_recipes r LEFT JOIN inventory inv ON inv.recipe_id = r.id
+        ";
 
         $row = DB::selectOne("
             SELECT
-                COUNT(*)                                                                                                                AS total,
-                SUM(inventory_id IS NOT NULL)                                                                                           AS tracked,
-                SUM(inventory_id IS NOT NULL AND quantity_in_stock > 0 AND minimum_stock_threshold IS NOT NULL AND quantity_in_stock < minimum_stock_threshold)   AS low,
-                SUM(inventory_id IS NOT NULL AND quantity_in_stock = 0)                                                                 AS no_stock,
-                SUM(inventory_id IS NULL)                                                                                               AS untracked
-            FROM {$union}
+                COUNT(*)                                                                                                                   AS total,
+                SUM(inventory_id IS NOT NULL)                                                                                              AS tracked,
+                SUM(inventory_id IS NOT NULL AND quantity_in_stock > 0 AND minimum_stock_threshold IS NOT NULL AND quantity_in_stock < minimum_stock_threshold) AS low,
+                SUM(inventory_id IS NOT NULL AND quantity_in_stock = 0)                                                                    AS no_stock,
+                SUM(inventory_id IS NULL)                                                                                                  AS untracked
+            FROM ({$union}) AS s
         ");
 
         return [
@@ -154,26 +217,26 @@ class InventoryController extends Controller
 
     public function index(): JsonResponse
     {
-        return response()->json(['data' => InventoryResource::collection(Inventory::with(['foodItem'])->get())]);
+        return response()->json(['data' => InventoryResource::collection(Inventory::with(self::RELATIONS)->get())]);
     }
 
     public function store(StoreInventoryRequest $request): JsonResponse
     {
         $inventory = Inventory::create($request->validated());
         Cache::flush();
-        return response()->json(['data' => new InventoryResource($inventory->load(['foodItem']))], 201);
+        return response()->json(['data' => new InventoryResource($inventory->load(self::RELATIONS))], 201);
     }
 
     public function show(Inventory $inventory): JsonResponse
     {
-        return response()->json(['data' => new InventoryResource($inventory->load(['foodItem']))]);
+        return response()->json(['data' => new InventoryResource($inventory->load(self::RELATIONS))]);
     }
 
     public function update(UpdateInventoryRequest $request, Inventory $inventory): JsonResponse
     {
         $inventory->update($request->validated());
         Cache::flush();
-        return response()->json(['data' => new InventoryResource($inventory->load(['foodItem']))]);
+        return response()->json(['data' => new InventoryResource($inventory->load(self::RELATIONS))]);
     }
 
     public function destroy(Inventory $inventory): JsonResponse
@@ -192,6 +255,6 @@ class InventoryController extends Controller
         $inventory->increment('quantity_in_stock', $data['quantity']);
         Cache::flush();
 
-        return response()->json(['data' => new InventoryResource($inventory->fresh()->load(['foodItem']))]);
+        return response()->json(['data' => new InventoryResource($inventory->fresh()->load(self::RELATIONS))]);
     }
 }

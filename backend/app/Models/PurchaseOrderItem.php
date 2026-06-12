@@ -10,7 +10,7 @@ class PurchaseOrderItem extends Model
     use HasFactory;
     
     protected $fillable = [
-        'purchase_order_id', 'food_item_id', 'description',
+        'purchase_order_id', 'fs_item_id', 'description',
         'qty', 'unit', 'unit_price', 'total_value'
     ];
 
@@ -25,9 +25,9 @@ class PurchaseOrderItem extends Model
         return $this->belongsTo(PurchaseOrder::class);
     }
 
-    public function foodItem()
+    public function fsItem()
     {
-        return $this->belongsTo(FoodItem::class);
+        return $this->belongsTo(FsItem::class, 'fs_item_id');
     }
 
 }

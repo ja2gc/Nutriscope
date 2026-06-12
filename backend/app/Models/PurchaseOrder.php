@@ -10,7 +10,7 @@ class PurchaseOrder extends Model
     use HasFactory;
 
     protected $fillable = [
-        'fss_user_id', 'shopping_list_id', 'supplier_id', 'po_number',
+        'fss_user_id', 'shopping_list_id', 'supplier_id', 'po_number', 'or_number',
         'order_date', 'total_amount', 'status', 'receipt_image', 'notes',
     ];
 
@@ -29,8 +29,18 @@ class PurchaseOrder extends Model
         return $this->belongsTo(Supplier::class);
     }
 
+    public function shoppingList()
+    {
+        return $this->belongsTo(ShoppingList::class);
+    }
+
     public function items()
     {
         return $this->hasMany(PurchaseOrderItem::class);
+    }
+
+    public function attachments()
+    {
+        return $this->hasMany(PurchaseOrderAttachment::class);
     }
 }

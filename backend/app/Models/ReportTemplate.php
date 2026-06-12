@@ -11,12 +11,13 @@ class ReportTemplate extends Model
     
     protected $fillable = [
         'type', 'name', 'blade_view', 'default_filters',
-        'available_filters', 'description', 'is_active'
+        'available_filters', 'signatories', 'description', 'is_active'
     ];
 
     protected $casts = [
         'default_filters' => 'array',
         'available_filters' => 'array',
+        'signatories' => 'array',
         'is_active' => 'boolean',
     ];
 

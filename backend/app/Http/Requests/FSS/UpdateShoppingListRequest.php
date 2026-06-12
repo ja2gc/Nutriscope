@@ -17,6 +17,7 @@ class UpdateShoppingListRequest extends FormRequest
             'status'       => ['nullable', 'string', 'in:draft,finalized'],
             'period_start' => ['nullable', 'date'],
             'period_end'   => ['nullable', 'date', 'after_or_equal:period_start'],
+            'days_span'    => ['nullable', 'integer', 'min:1', 'max:60'],
         ];
     }
 }
