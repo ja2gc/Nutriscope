@@ -2,7 +2,9 @@
 
 - **Date:** 2026-06-12
 - **Status:** Brainstormed — key decisions locked (§9); ready for an implementation plan
-- **Domain rule (from user):** procurement is built *from* the menu plan, and the kitchen uses **all** the planned ingredients for each day. So consumption deducts the **planned** day quantity (deterministic), and bought-then-received stock should net out. A shortfall is therefore **not** a normal scenario — it means an upstream problem (PO not yet received, headcount changed vs. what was procured, or rounding residue), and is handled as a hard guardrail (§4.2/§9-B).
+- **Domain rule (from user):** procurement is built *from* the menu plan, and the kitchen uses **all** the planned ingredients for each day. So consumption deducts the **planned** day quantity (deterministic). A shortfall is **not** a normal scenario — it means an upstream problem (PO not yet received, headcount changed, or rounding residue) — and is a hard guardrail (§4.2/§9-B).
+- ⚠️ **Premise correction (review finding #3):** "stock nets to zero" only holds **once Spec 6 lands** (procurement net-of-on-hand-stock + whole-pack purchase-unit rounding). Until then, procurement over-buys (ignores stock on hand) and whole-pack rounding leaves overage, so **positive leftover drift is the normal state, not zero.** Block-on-shortfall is still correct; the "nets to zero" intuition is not — it requires Spec 6. This spec must not assume zero-netting for its math (it deducts the planned amount regardless of leftover).
+- ⚠️ **Supplies gap (review finding #10):** `fs_items.kind = supply` (gloves, detergent…) are stocked but never consumed by recipes/menus, so even after this spec their stock only grows. Out of scope here; either a manual supply-usage log or a separate depletion model is needed — flagged for Spec 6 / a later cycle.
 - **Depends on:** Spec 1 (needs correct `inventory.unit_price` per base unit before deduction cost means anything)
 - **Roadmap:** Spec 2 of 5 (see [Spec 1](2026-06-12-fs-costing-immutability-design.md))
 

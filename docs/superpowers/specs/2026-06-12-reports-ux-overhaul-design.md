@@ -11,7 +11,9 @@
 
 Today reports are **manufactured**: you set parameters, click **Generate**, the backend renders a PDF, stores it, and writes a `Report` row; every click drops another file into one **flat "Recent Reports" list** ([reports/page.tsx](../../../frontend/app/(rnd)/reports/page.tsx)). The user's mental model — and a better one — is the opposite: reports should **always already exist** as views over the data, browsable and **filterable by year/month**, downloaded on demand. No manual generation step.
 
-Because reports are built from **frozen snapshots** (Spec 1), rendering on demand yields the same numbers as a stored copy — immutability holds. The only thing that differs on re-render is **branding/signatories** (the editable header), which is why we keep an explicit **Archive** action for officially filed copies.
+Because **PO-derived** reports are built from frozen snapshots (Spec 1), rendering those on demand yields the same numbers as a stored copy — immutability holds, and only branding/signatories differ on re-render (hence the **Archive** action).
+
+> ⚠️ **Critical exception (review finding #1):** **menu-derived reports** (Program/Project/Activity, Menu Calendar, Budget *planned* line) are computed **live** and are **not** frozen. Re-rendering an old PPA on demand shows **today's** prices/cycle — wrong for a historical/filed document. This makes naive on-demand rendering *unsafe* for those reports. Resolution depends on **Spec 6** giving menu reports a period snapshot; until then, for menu-derived types the browser must render **from the archived snapshot by default** (not a live re-render), or refuse on-demand render of a past period. PO-derived types are safe to live-render.
 
 ## 2. Goals / Non-goals
 
