@@ -14,7 +14,7 @@ class Inventory extends Model
 
     protected $fillable = [
         'item_type', 'fs_item_id', 'recipe_id',
-        'quantity_in_stock', 'unit', 'expiry_date',
+        'quantity_in_stock', 'unit',
         'usage_rate', 'minimum_stock_threshold', 'unit_price', 'notes',
     ];
 
@@ -23,7 +23,6 @@ class Inventory extends Model
         'usage_rate'              => 'decimal:2',
         'minimum_stock_threshold' => 'decimal:2',
         'unit_price'              => 'decimal:2',
-        'expiry_date'             => 'date',
     ];
 
     /** Stock of a catalog item (ingredient or supply). */
