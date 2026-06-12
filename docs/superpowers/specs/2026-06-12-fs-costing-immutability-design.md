@@ -3,10 +3,11 @@
 - **Date:** 2026-06-12
 - **Status:** Approved design, pending implementation plan
 - **Branch context:** `feat/nutri-engine-overhaul`
-- **Part of:** the food-service loop overhaul. This is **Spec 1 of 3**:
+- **Part of:** the food-service loop overhaul. This is **Spec 1 of 4**:
   - **Spec 1 (this doc)** — Costing & immutability: receiving a PO updates stock cost correctly; reports stay frozen.
-  - **Spec 2 (future)** — Consumption: completing a menu-cycle day deducts ingredients from inventory.
+  - **Spec 2 (future)** — Consumption: completing a menu-cycle day deducts ingredients from inventory (warn-but-allow on short stock; idempotent; reversible).
   - **Spec 3 (future)** — Insights/analytics: Recharts dashboards distinct from the compliance PDFs.
+  - **Spec 4 (future)** — Reports-UX overhaul: hybrid model — browse by type → drill into real records (PO history, menu-cycle weeks, budget periods) → download rendered on demand, plus an optional "Archive this copy" that freezes the as-submitted PDF (data + branding + signatories) for officially filed forms.
 
 ---
 
