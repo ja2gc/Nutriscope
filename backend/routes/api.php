@@ -29,6 +29,7 @@ use App\Http\Controllers\FSS\MenuCycleController;
 use App\Http\Controllers\FSS\MenuCycleTemplateController;
 use App\Http\Controllers\FSS\BudgetController;
 use App\Http\Controllers\FSS\FoodServiceRecipeController;
+use App\Http\Controllers\FSS\FsItemController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\ReportBrandingController;
 use App\Http\Controllers\ReportTemplateController;
@@ -170,6 +171,10 @@ Route::middleware(['auth:sanctum', 'role:FSS,RND'])->prefix('fss')->group(functi
 
     // Food Service Recipes routes
     Route::apiResource('food-service-recipes', FoodServiceRecipeController::class);
+
+    // FS Items (catalog) routes
+    Route::get('fs-items/{fsItem}/price-trend', [FsItemController::class, 'priceTrend']);
+    Route::patch('fs-items/{fsItem}', [FsItemController::class, 'update']);
 
     // Budgets routes
     Route::get('budgets/{budget}/summary', [BudgetController::class, 'summary']);

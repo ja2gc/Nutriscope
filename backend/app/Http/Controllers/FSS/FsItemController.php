@@ -4,9 +4,11 @@ namespace App\Http\Controllers\FSS;
 
 use App\Http\Controllers\Controller;
 use App\Models\FsItem;
+use App\Models\PurchaseOrder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 
 class FsItemController extends Controller
 {
@@ -30,5 +32,48 @@ class FsItemController extends Controller
         Cache::flush();
 
         return response()->json(['data' => $fsItem->fresh()]);
+    }
+
+    /** @param array<int,array{date:string,unit_price:float}> $points */
+    public static function summarizeTrend(array $points): array
+    {
+        if (! $points) {
+            return ['min' => 0.0, 'max' => 0.0, 'latest' => 0.0, 'avg' => 0.0];
+        }
+        $last   = $points[array_key_last($points)];
+        $prices = array_map(fn ($p) => (float) $p['unit_price'], $points);
+
+        return [
+            'min'    => min($prices),
+            'max'    => max($prices),
+            'latest' => (float) $last['unit_price'],
+            'avg'    => round(array_sum($prices) / count($prices), 6),
+        ];
+    }
+
+    /** Purchase-price trend for one catalog item, derived from frozen received-PO lines. */
+    public function priceTrend(Request $request, FsItem $fsItem): JsonResponse
+    {
+        $data = $request->validate([
+            'start' => ['nullable', 'date'],
+            'end'   => ['nullable', 'date', 'after_or_equal:start'],
+        ]);
+        $start = $data['start'] ?? now()->subMonths(6)->toDateString();
+        $end   = $data['end'] ?? now()->toDateString();
+
+        $rows = PurchaseOrder::query()
+            ->join('purchase_order_items', 'purchase_order_items.purchase_order_id', '=', 'purchase_orders.id')
+            ->where('purchase_orders.status', 'received')
+            ->where('purchase_order_items.fs_item_id', $fsItem->id)
+            ->whereRaw('COALESCE(purchase_orders.received_date, purchase_orders.order_date) BETWEEN ? AND ?', [$start, $end])
+            ->orderByRaw('COALESCE(purchase_orders.received_date, purchase_orders.order_date)')
+            ->get([
+                DB::raw('COALESCE(purchase_orders.received_date, purchase_orders.order_date) as date'),
+                'purchase_order_items.unit_price as unit_price',
+            ])
+            ->map(fn ($r) => ['date' => (string) $r->date, 'unit_price' => (float) $r->unit_price])
+            ->all();
+
+        return response()->json(['data' => ['points' => $rows] + self::summarizeTrend($rows)]);
     }
 }
