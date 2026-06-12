@@ -35,30 +35,36 @@ class FsItem extends Model
     ];
 
     /**
-     * Cost of ONE base_unit (e.g. ₱ per gram), derived from how the item is bought.
+     * Base units contained in ONE purchase unit (e.g. 1000 g per kg, or
+     * units_per_purchase for count packs).
      *
-     *  - same unit (pc→pc)          → the purchase price itself
-     *  - physical units (kg→g, L→mL)→ price ÷ UnitConverter factor (exact, DRY)
-     *  - count packs (pack→pc)      → price ÷ units_per_purchase
+     *  - same/empty unit (pc→pc)    → 1.0
+     *  - physical units (kg→g, L→mL)→ UnitConverter factor (exact, DRY)
+     *  - count packs (pack→pc)      → units_per_purchase
      *  - misconfigured              → 0.0 (degrade, never throw inside a list view)
+     */
+    public function basePerPurchase(): float
+    {
+        $from = (string) $this->purchase_unit;
+        $to   = (string) $this->base_unit;
+
+        if ($from === '' || $to === '' || UnitConverter::normalize($from) === UnitConverter::normalize($to)) {
+            return 1.0;
+        }
+        if (UnitConverter::isKnown($from) && UnitConverter::isKnown($to)) {
+            return UnitConverter::convert(1, $from, $to); // e.g. 1 kg = 1000 g
+        }
+        return (float) ($this->units_per_purchase ?? 0);
+    }
+
+    /**
+     * Cost of ONE base_unit (e.g. ₱ per gram), derived from how the item is bought.
+     * = purchase_price ÷ basePerPurchase(); 0.0 when misconfigured.
      */
     public function getUnitCostAttribute(): float
     {
-        $price = (float) $this->purchase_price;
-        $from  = (string) $this->purchase_unit;
-        $to    = (string) $this->base_unit;
-
-        if ($from === '' || $to === '' || UnitConverter::normalize($from) === UnitConverter::normalize($to)) {
-            return round($price, 6);
-        }
-
-        if (UnitConverter::isKnown($from) && UnitConverter::isKnown($to)) {
-            $basePerPurchase = UnitConverter::convert(1, $from, $to); // e.g. 1 kg = 1000 g
-            return $basePerPurchase > 0 ? round($price / $basePerPurchase, 6) : 0.0;
-        }
-
-        $n = (float) ($this->units_per_purchase ?? 0);
-        return $n > 0 ? round($price / $n, 6) : 0.0;
+        $n = $this->basePerPurchase();
+        return $n > 0 ? round((float) $this->purchase_price / $n, 6) : 0.0;
     }
 
     public function defaultSupplier(): BelongsTo
