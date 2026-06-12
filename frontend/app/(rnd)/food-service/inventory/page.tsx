@@ -123,7 +123,7 @@ export default function InventoryPage() {
   const [page, setPage] = useState(1);
 
   const [editId, setEditId]             = useState<string | null>(null);
-  const [editValues, setEditValues]     = useState<EditValues>({ qty: "", unit: "", cost: "" });
+  const [editValues, setEditValues]     = useState<EditValues>({ qty: "", unit: "", cost: "", threshold: "", category: "" });
   const [editSaving, setEditSaving]     = useState(false);
   const [editError, setEditError]       = useState("");
   const [deleteRowKey, setDeleteRowKey] = useState<string | null>(null);
