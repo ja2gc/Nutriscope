@@ -10,7 +10,7 @@ File uploads: PDF/JPG/PNG only, max 5MB
 Anthropic API key: Laravel backend only, never in frontend
 USDA API key: Laravel backend only
 APP_DEBUG=false in production
-Audit logging on all sensitive models via spatie/laravel-activitylog
+Audit logging: change-level history via spatie/laravel-activitylog on sensitive clinical and food-service models (created/updated/deleted with causer + dirty field diffs). Clinical models log changed field NAMES only — PHI before/after values are redacted; operational/food-service models log full values. Access logging records mutating requests only (POST/PUT/PATCH/DELETE), not routine GET reads. NOTE: activity_log is an app-level trail, not a tamper-proof forensic store. Retention: prune with `php artisan activitylog:clean` (configure `activitylog.delete_records_older_than_days`).
 Rate limiting: login (5/min), AI endpoints (10/min), OCR endpoints (10/min)
 Daily AI token limit: 100,000 tokens enforced in AIService
 Monthly spend cap: $10 set in Anthropic console
