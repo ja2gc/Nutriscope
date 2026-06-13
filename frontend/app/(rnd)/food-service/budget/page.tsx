@@ -181,10 +181,15 @@ export default function BudgetPage() {
 
                 <div className="flex flex-wrap items-center gap-2 text-[11px]">
                   <span className={`font-bold px-2.5 py-1 rounded-lg border ${summary.source === "consumption" ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-amber-50 text-amber-700 border-amber-200"}`}>
-                    {summary.source === "consumption" ? "Actual from meals served" : "Estimated from purchases"}
+                    {summary.source === "consumption"
+                      ? `Actual from meals served · ${summary.days_served} day${summary.days_served === 1 ? "" : "s"} in range`
+                      : "Estimated from purchases · no day served in range"}
                   </span>
-                  <span className="font-semibold px-2.5 py-1 rounded-lg border bg-zinc-50 text-zinc-600 border-zinc-200">
-                    Cash disbursed (POs): {peso(summary.cash_flow)}
+                  {/* Cash guardrail: actual (above) is food-served value; this tracks money out
+                      against the allocation — a separate axis the headline variance no longer guards. */}
+                  <span className={`font-semibold px-2.5 py-1 rounded-lg border ${summary.allocated > 0 && summary.cash_flow > summary.allocated ? "bg-red-50 text-red-700 border-red-200" : "bg-zinc-50 text-zinc-600 border-zinc-200"}`}>
+                    Cash disbursed (POs): {peso(summary.cash_flow)}{summary.allocated > 0 ? ` / ${peso(summary.allocated)} allocated` : ""}
+                    {summary.allocated > 0 && summary.cash_flow > summary.allocated ? " · over allocation" : ""}
                   </span>
                 </div>
 

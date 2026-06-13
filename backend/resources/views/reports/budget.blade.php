@@ -10,17 +10,24 @@
         <tr>
             @foreach([
                 ['Allocated', '₱ ' . number_format($allocated, 2)],
-                ['Actual Spent', '₱ ' . number_format($summary['actual'], 2)],
-                ['Remaining', '₱ ' . number_format($remaining, 2)],
+                [$source === 'consumption' ? 'Actual (Food Served)' : 'Actual (Est. Purchases)', '₱ ' . number_format($summary['actual'], 2)],
+                ['Cash Disbursed (POs)', '₱ ' . number_format($cash_flow, 2)],
+                ['Remaining (Cash)', '₱ ' . number_format($remaining, 2)],
                 ['Variance %', $summary['variance_pct'] . '%'],
             ] as $kpi)
-                <td style="border:1px solid #333; padding:8px; width:25%;" class="center">
+                <td style="border:1px solid #333; padding:8px; width:20%;" class="center">
                     <div class="muted upper" style="font-size:9px;">{{ $kpi[0] }}</div>
                     <div class="bold" style="font-size:14px;">{{ $kpi[1] }}</div>
                 </td>
             @endforeach
         </tr>
     </table>
+
+    <div class="muted" style="font-size:9px; margin-top:4px;">
+        Actual basis: {{ $source === 'consumption' ? 'consumption (value of food served)' : 'estimated from received purchases' }}
+        — {{ $days_served }} service day(s) recorded in this period.
+        "Remaining" compares the allocation against cash disbursed via purchase orders, a separate axis from food-served value.
+    </div>
 
     <div class="bold" style="margin-top:12px;">Planned vs Actual</div>
     <table class="grid" style="margin-top:4px;">

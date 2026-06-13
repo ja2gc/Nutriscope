@@ -21,11 +21,17 @@ use Carbon\Carbon;
  *
  * Consumed by BudgetController::summary and BudgetReportGenerator so the live
  * dashboard and the printed report can never drift apart.
+ *
+ * SCOPING NOTE: consumption is read FACILITY-WIDE (every completed MealPrepLog in
+ * the range, across all menu cycles) — it is NOT scoped to this budget's cycle or
+ * population. This is correct for a single-facility / one-active-budget-per-period
+ * model. If budgets can ever overlap in time, two budgets would report the same
+ * consumption "actual"; scope by menu_cycle_id/period before relying on that.
  */
 class BudgetActualService
 {
     /**
-     * @return array{days: array<int,array{date:string,planned:float,actual:float}>, source: string, cash_flow: float}
+     * @return array{days: array<int,array{date:string,planned:float,actual:float}>, source: string, cash_flow: float, days_served: int}
      */
     public static function dailySeries(Budget $budget, Carbon $start, Carbon $end): array
     {
@@ -70,6 +76,11 @@ class BudgetActualService
             $days[] = ['date' => $ds, 'planned' => $cap, 'actual' => $actual];
         }
 
-        return ['days' => $days, 'source' => $source, 'cash_flow' => round($cashFlow, 2)];
+        return [
+            'days'        => $days,
+            'source'      => $source,
+            'cash_flow'   => round($cashFlow, 2),
+            'days_served' => $consumptionByDay->count(), // distinct served service_dates in range
+        ];
     }
 }
