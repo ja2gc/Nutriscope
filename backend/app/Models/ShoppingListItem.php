@@ -11,13 +11,16 @@ class ShoppingListItem extends Model
     
     protected $fillable = [
         'shopping_list_id', 'fs_item_id', 'ingredient_name',
-        'qty', 'unit', 'supplier_id', 'unit_price', 'total'
+        'qty', 'unit', 'supplier_id', 'unit_price', 'total',
+        'purchase_qty', 'purchase_unit', 'purchase_price',
     ];
 
     protected $casts = [
         'qty' => 'decimal:2',
         'unit_price' => 'decimal:2',
         'total' => 'decimal:2',
+        'purchase_qty' => 'decimal:2',
+        'purchase_price' => 'decimal:2',
     ];
 
     public function shoppingList()
