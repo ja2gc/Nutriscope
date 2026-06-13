@@ -640,4 +640,25 @@ class FoodServiceOpsTest extends TestCase
             'description' => 'Rice', 'purchase_qty' => 2, 'purchase_unit' => 'kg', 'purchase_price' => 50,
         ]);
     }
+
+    public function test_receiving_uses_purchase_qty_times_base_per_purchase(): void
+    {
+        $fs = FsItem::factory()->create([
+            'name' => 'Rice', 'base_unit' => 'g', 'purchase_unit' => 'kg', 'purchase_price' => 50,
+        ]);
+        Inventory::factory()->create(['fs_item_id' => $fs->id, 'quantity_in_stock' => 0, 'unit' => 'g']);
+
+        $po = PurchaseOrder::factory()->create(['fss_user_id' => $this->fss->id, 'status' => 'draft']);
+        $po->items()->create([
+            'fs_item_id' => $fs->id, 'description' => 'Rice',
+            'qty' => 2000, 'unit' => 'g', 'unit_price' => 0.05, 'total_value' => 100,
+            'purchase_qty' => 2, 'purchase_unit' => 'kg', 'purchase_price' => 50,
+        ]);
+
+        $this->actingAs($this->fss)->patchJson("/api/fss/purchase-orders/{$po->id}", ['status' => 'received'])
+            ->assertOk();
+
+        // 2 kg × 1000 g/kg = 2000 g added to stock.
+        $this->assertDatabaseHas('inventory', ['fs_item_id' => $fs->id, 'quantity_in_stock' => 2000]);
+    }
 }
