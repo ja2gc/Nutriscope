@@ -9,6 +9,9 @@ export interface ShoppingListItem {
   supplier_id: number | null;
   unit_price: string | null;
   total: string | null;
+  purchase_qty: string | null;
+  purchase_unit: string | null;
+  purchase_price: string | null;
 }
 export interface ShoppingList {
   id: number;
@@ -23,7 +26,7 @@ export interface ShoppingList {
   items: ShoppingListItem[];
 }
 
-export interface POItem { id: number; fs_item_id: number | null; description: string; qty: string; unit: string; unit_price: string; total_value: string }
+export interface POItem { id: number; fs_item_id: number | null; description: string; qty: string; unit: string; unit_price: string; total_value: string; purchase_qty: string | null; purchase_unit: string | null; purchase_price: string | null }
 export interface POAttachment { id: number; type: "receipt" | "proof"; path: string; caption: string | null }
 export interface PurchaseOrder {
   id: number;

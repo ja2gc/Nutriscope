@@ -85,7 +85,7 @@ function ListDetail({ id, suppliers, onBack, onPosGenerated }: {
       <div className="bg-white border border-zinc-200 rounded-2xl shadow-sm overflow-x-auto">
         <table className="w-full text-xs">
           <thead className="bg-zinc-50 border-b border-zinc-100">
-            <tr>{["Item", "Qty", "Unit", "Vendor", "Unit ₱", "Total", ""].map((h) => (
+            <tr>{["Item", "Buy", "Base qty", "Base unit", "Vendor", "Unit ₱", "Total", ""].map((h) => (
               <th key={h} className="px-3 py-3 text-left text-[10px] font-bold text-zinc-500 uppercase tracking-wider">{h}</th>
             ))}</tr>
           </thead>
@@ -93,6 +93,9 @@ function ListDetail({ id, suppliers, onBack, onPosGenerated }: {
             {list.items.map((it) => (
               <tr key={it.id} className="hover:bg-zinc-50/60">
                 <td className="px-3 py-2 font-semibold text-zinc-800">{it.ingredient_name}</td>
+                <td className="px-3 py-2 font-semibold text-zinc-700">
+                  {it.purchase_qty ? `${num(it.purchase_qty)} ${it.purchase_unit ?? ""}` : <span className="text-zinc-300">—</span>}
+                </td>
                 <td className="px-3 py-2">
                   <input type="number" defaultValue={num(it.qty)} onBlur={(e) => patchItem(it.id, { qty: parseFloat(e.target.value) })}
                     className="w-20 px-2 py-1 border border-zinc-200 rounded focus:outline-none focus:ring-1 focus:ring-emerald-400" />
@@ -181,13 +184,14 @@ function PoDetail({ id, onBack }: { id: number; onBack: () => void }) {
       {/* Items */}
       <div className="bg-white border border-zinc-200 rounded-2xl shadow-sm overflow-x-auto">
         <table className="w-full text-xs">
-          <thead className="bg-zinc-50 border-b border-zinc-100"><tr>{["Item", "Qty", "Unit", "Unit ₱", "Total"].map((h) => (
+          <thead className="bg-zinc-50 border-b border-zinc-100"><tr>{["Item", "Buy", "Base qty", "Base unit", "Unit ₱", "Total"].map((h) => (
             <th key={h} className="px-3 py-3 text-left text-[10px] font-bold text-zinc-500 uppercase tracking-wider">{h}</th>
           ))}</tr></thead>
           <tbody className="divide-y divide-zinc-100">
             {(po.items ?? []).map((i) => (
               <tr key={i.id}>
                 <td className="px-3 py-2 font-semibold text-zinc-800">{i.description}</td>
+                <td className="px-3 py-2 font-semibold text-zinc-700">{i.purchase_qty ? `${num(i.purchase_qty)} ${i.purchase_unit ?? ""}` : <span className="text-zinc-300">—</span>}</td>
                 <td className="px-3 py-2">{num(i.qty)}</td>
                 <td className="px-3 py-2 text-zinc-500">{i.unit}</td>
                 <td className="px-3 py-2 font-mono">{peso(num(i.unit_price))}</td>
