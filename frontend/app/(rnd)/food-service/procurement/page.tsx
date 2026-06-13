@@ -15,6 +15,7 @@ import {
 } from "@/services/procurementService";
 import { listSuppliers, Supplier } from "@/services/supplierService";
 import { listCycles, CycleListItem } from "@/services/menuCycleService";
+import { HistoryPanel } from "@/components/HistoryPanel";
 
 const STORAGE_BASE = process.env.NEXT_PUBLIC_LARAVEL_URL ?? "http://127.0.0.1:8000";
 const peso = (n: number) => `₱${n.toFixed(2)}`;
@@ -236,6 +237,9 @@ function PoDetail({ id, onBack }: { id: number; onBack: () => void }) {
           </div>
         )}
       </div>
+
+      {/* Audit history (Spec 5) */}
+      <HistoryPanel path={`/api/fss/purchase-orders/${po.id}/activity`} title="Purchase order history" />
     </div>
   );
 }

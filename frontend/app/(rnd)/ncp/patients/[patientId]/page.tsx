@@ -4,6 +4,7 @@ import React, { use, useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { HeartHandshake, Plus, Trash2, AlertTriangle, Lock } from "lucide-react";
+import { HistoryPanel } from "@/components/HistoryPanel";
 import {
   fetchPatientById,
   fetchPatientNcpRecords,
@@ -475,6 +476,8 @@ export default function PatientProfilePage({
               )}
             </div>
           </div>
+
+          <HistoryPanel path={`/api/rnd/patients/${patientId}/activity`} title="Patient change history" />
         </div>
       )}
 
