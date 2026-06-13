@@ -39,13 +39,15 @@ return new class extends Migration
         ]);
 
         // Extend the reports.type enum with the Phase-5 generators (additive).
-        DB::statement("ALTER TABLE reports MODIFY COLUMN type ENUM(
-            'adime_individual', 'adime_aggregate', 'ncp_census', 'inventory', 'inventory_report',
-            'budget', 'budget_report', 'procurement', 'menu_cycle', 'menu_cycle_report',
-            'patient_menu_plan', 'inspection_report', 'marketing_statement', 'marketing_summary',
-            'program_project_activity', 'menu_calendar', 'dietary_cash_book',
-            'procurement_pack', 'demographic_census'
-        ) NOT NULL");
+        if (DB::getDriverName() !== 'sqlite') {
+            DB::statement("ALTER TABLE reports MODIFY COLUMN type ENUM(
+                'adime_individual', 'adime_aggregate', 'ncp_census', 'inventory', 'inventory_report',
+                'budget', 'budget_report', 'procurement', 'menu_cycle', 'menu_cycle_report',
+                'patient_menu_plan', 'inspection_report', 'marketing_statement', 'marketing_summary',
+                'program_project_activity', 'menu_calendar', 'dietary_cash_book',
+                'procurement_pack', 'demographic_census'
+            ) NOT NULL");
+        }
 
         Schema::table('report_templates', function (Blueprint $table) {
             $table->json('signatories')->nullable()->after('available_filters');
@@ -58,11 +60,13 @@ return new class extends Migration
             $table->dropColumn('signatories');
         });
 
-        DB::statement("ALTER TABLE reports MODIFY COLUMN type ENUM(
-            'adime_individual', 'adime_aggregate', 'ncp_census', 'inventory', 'inventory_report',
-            'budget', 'budget_report', 'procurement', 'menu_cycle', 'menu_cycle_report',
-            'patient_menu_plan', 'inspection_report', 'marketing_statement', 'marketing_summary'
-        ) NOT NULL");
+        if (DB::getDriverName() !== 'sqlite') {
+            DB::statement("ALTER TABLE reports MODIFY COLUMN type ENUM(
+                'adime_individual', 'adime_aggregate', 'ncp_census', 'inventory', 'inventory_report',
+                'budget', 'budget_report', 'procurement', 'menu_cycle', 'menu_cycle_report',
+                'patient_menu_plan', 'inspection_report', 'marketing_statement', 'marketing_summary'
+            ) NOT NULL");
+        }
 
         Schema::dropIfExists('report_branding');
     }

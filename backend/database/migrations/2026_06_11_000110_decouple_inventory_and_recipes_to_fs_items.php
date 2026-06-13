@@ -38,7 +38,9 @@ return new class extends Migration
         });
 
         // enum change isn't expressible via Blueprint without doctrine/dbal
-        DB::statement("ALTER TABLE inventory MODIFY COLUMN item_type ENUM('ingredient','supply','recipe') NOT NULL DEFAULT 'ingredient'");
+        if (DB::getDriverName() !== 'sqlite') {
+            DB::statement("ALTER TABLE inventory MODIFY COLUMN item_type ENUM('ingredient','supply','recipe') NOT NULL DEFAULT 'ingredient'");
+        }
 
         Schema::table('food_service_recipe_ingredients', function (Blueprint $table) {
             $table->dropForeign(['inventory_id']);
@@ -77,6 +79,8 @@ return new class extends Migration
             $table->unique('food_item_id');
         });
 
-        DB::statement("ALTER TABLE inventory MODIFY COLUMN item_type ENUM('food_item','recipe') NOT NULL DEFAULT 'food_item'");
+        if (DB::getDriverName() !== 'sqlite') {
+            DB::statement("ALTER TABLE inventory MODIFY COLUMN item_type ENUM('food_item','recipe') NOT NULL DEFAULT 'food_item'");
+        }
     }
 };

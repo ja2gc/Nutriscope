@@ -18,7 +18,7 @@ class MenuCycleFactory extends Factory
     public function definition(): array
     {
         return [
-            'fss_user_id'     => \App\Models\User::factory()->fss(),
+            'rnd_user_id'     => \App\Models\User::factory()->rnd(),
             'name'            => $this->faker->words(3, true),
             'cycle_days'      => 7,
             'is_active'       => false,

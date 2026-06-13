@@ -100,11 +100,11 @@ describe('Auto-calc panel: TEE from PAL selection', () => {
 // ── Nutritional status chip ───────────────────────────────────────────────────
 
 describe('Auto-calc panel: nutritional status chip (classifyNutritionalStatus)', () => {
-  test('BMI 38 → Obese Class II with weight_loss goal hint', () => {
+  test('BMI 38 → Obese Class II (Severe) with weight_loss goal hint', () => {
     const result = classifyNutritionalStatus(38, 130);
-    assert.equal(result.label, 'Obese Class II');
+    assert.equal(result.label, 'Obese Class II (Severe)');
     assert.equal(result.suggestedGoal, 'weight_loss');
-    assert.equal(result.suggestedStage, 'class_2');
+    assert.equal(result.suggestedStage, 'class_3');
   });
 
   test('BMI 22, %IBW 100 → Normal with no goal hint', () => {
