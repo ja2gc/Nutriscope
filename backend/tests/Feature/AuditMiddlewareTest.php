@@ -12,7 +12,7 @@ class AuditMiddlewareTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_audit_middleware_logs_request()
+    public function test_audit_middleware_logs_mutations_not_reads()
     {
         $user = User::create([
             'name' => 'Test RND',
@@ -24,26 +24,22 @@ class AuditMiddlewareTest extends TestCase
 
         $this->actingAs($user);
 
-        // Before request, no activity log
-        $this->assertEquals(0, Activity::count());
+        // Decision B (Spec 5): routine GET reads are NOT access-logged.
+        $this->getJson('/api/rnd/patients')->assertStatus(200);
+        $accessLogs = fn () => Activity::where('description', 'like', 'Accessed%')->count();
+        $this->assertSame(0, $accessLogs());
 
-        // We use patients endpoint since it is covered by audit
-        $response = $this->getJson('/api/rnd/patients');
+        // A mutation IS access-logged (even if it fails validation — middleware runs after).
+        $this->postJson('/api/rnd/patients', []);
 
-        $response->assertStatus(200);
-
-        // After request, activity log should exist
-        $this->assertEquals(1, Activity::count());
-        $activity = Activity::first();
-        
+        $this->assertSame(1, $accessLogs());
+        $activity = Activity::where('description', 'like', 'Accessed%')->first();
         $this->assertEquals('audit', $activity->log_name);
         $this->assertEquals($user->id, $activity->causer_id);
-        
-        // Assert properties
         $this->assertArrayHasKey('url', $activity->properties);
         $this->assertArrayHasKey('method', $activity->properties);
         $this->assertArrayHasKey('ip', $activity->properties);
-        $this->assertEquals('GET', $activity->properties['method']);
+        $this->assertEquals('POST', $activity->properties['method']);
     }
 
     public function test_audit_middleware_does_not_log_unauthenticated()
