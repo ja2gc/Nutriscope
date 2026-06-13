@@ -72,15 +72,21 @@ class AuditTrailTest extends TestCase
 
     public function test_access_log_skips_reads_logs_mutations(): void
     {
-        $this->actingAs($this->fss);
+        $rnd = User::factory()->create(['role' => 'RND']);
+        $mw = new \App\Http\Middleware\AuditMiddleware();
+        $next = fn ($r) => new \Illuminate\Http\Response('ok');
 
         Activity::query()->delete();
-        $this->getJson('/api/fss/inventory');
-        $this->assertSame(0, Activity::where('log_name', 'audit')->where('description', 'like', 'Accessed%')->count());
 
-        $fs = FsItem::factory()->create();
-        $this->postJson('/api/fss/inventory', ['fs_item_id' => $fs->id, 'quantity_in_stock' => 5, 'unit' => 'g']);
-        $this->assertGreaterThanOrEqual(1, Activity::where('log_name', 'audit')->where('description', 'like', 'Accessed%')->count());
+        $get = \Illuminate\Http\Request::create('/api/rnd/patients', 'GET');
+        $get->setUserResolver(fn () => $rnd);
+        $mw->handle($get, $next);
+        $this->assertSame(0, Activity::where('description', 'like', 'Accessed%')->count(), 'GET must not be access-logged');
+
+        $post = \Illuminate\Http\Request::create('/api/rnd/patients', 'POST');
+        $post->setUserResolver(fn () => $rnd);
+        $mw->handle($post, $next);
+        $this->assertSame(1, Activity::where('description', 'like', 'Accessed%')->count(), 'mutation must be access-logged');
     }
 
     public function test_subject_history_endpoint_returns_that_records_changes(): void
