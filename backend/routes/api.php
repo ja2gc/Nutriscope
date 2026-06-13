@@ -31,6 +31,7 @@ use App\Http\Controllers\FSS\BudgetController;
 use App\Http\Controllers\FSS\FoodServiceRecipeController;
 use App\Http\Controllers\FSS\FsItemController;
 use App\Http\Controllers\FSS\InsightsController;
+use App\Http\Controllers\ActivityController;
 use App\Http\Controllers\FSS\MealPrepLogController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\ReportBrandingController;
@@ -47,6 +48,7 @@ Route::prefix('auth')->group(function () {
 
 Route::middleware(['auth:sanctum', 'role:RND', 'audit'])->prefix('rnd')->group(function () {
     Route::apiResource('patients', PatientController::class);
+    Route::get('patients/{patient}/activity', [ActivityController::class, 'patient']);
     Route::get('patients/{patient}/ncp-records', [PatientController::class, 'ncpRecords']);
     Route::post('patients/{patient}/ncp-records', [PatientController::class, 'startNcpCycle']);
     Route::delete('ncp-records/{ncpRecord}', [NcpRecordController::class, 'destroy']);
@@ -187,6 +189,10 @@ Route::middleware(['auth:sanctum', 'role:FSS,RND'])->prefix('fss')->group(functi
     Route::get('insights/spend-by-supplier', [InsightsController::class, 'spendBySupplier']);
     Route::get('insights/cost-per-head', [InsightsController::class, 'costPerHead']);
     Route::get('insights/consumption', [InsightsController::class, 'consumption']);
+
+    // Per-record audit history (Spec 5)
+    Route::get('inventory/{inventory}/activity', [ActivityController::class, 'inventory']);
+    Route::get('purchase-orders/{purchase_order}/activity', [ActivityController::class, 'purchaseOrder']);
 
     // Consumption (meal prep / service-day completion)
     Route::get('meal-prep-logs', [MealPrepLogController::class, 'index']);
