@@ -7,6 +7,7 @@ import {
   LayoutTemplate, ChevronLeft, AlertTriangle, CheckCircle2, RefreshCw,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import ServiceLogPanel from "./_components/ServiceLogPanel";
 import {
   DAYS, MEALS, MEAL_LABELS, Day, Meal,
   CycleListItem, MenuCycle, ComputeResult, RecipeOption, TemplateListItem,
@@ -310,6 +311,9 @@ function CycleEditor({ cycleId, onBack }: { cycleId: number | "new"; onBack: () 
           </select>
         </div>
       </div>
+
+      {/* Service log (consumption) — only for a saved, active cycle */}
+      {savedId && isActive && <ServiceLogPanel cycleId={savedId} population={parseInt(population) || 0} />}
 
       {/* Summary */}
       {compute && (
