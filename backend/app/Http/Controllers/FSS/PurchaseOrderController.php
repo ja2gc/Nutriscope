@@ -51,6 +51,9 @@ class PurchaseOrderController extends Controller
                     'unit'        => $item['unit'] ?? 'unit',
                     'unit_price'  => $item['unit_price'],
                     'total_value' => $item['qty'] * $item['unit_price'],
+                    'purchase_qty'   => $item['purchase_qty'] ?? null,
+                    'purchase_unit'  => $item['purchase_unit'] ?? null,
+                    'purchase_price' => $item['purchase_price'] ?? null,
                 ]);
             }
             $po->recalcTotal();
@@ -119,6 +122,9 @@ class PurchaseOrderController extends Controller
                         'unit'        => $it->unit,
                         'unit_price'  => $it->unit_price,
                         'total_value' => $it->total,
+                        'purchase_qty'   => $it->purchase_qty,
+                        'purchase_unit'  => $it->purchase_unit,
+                        'purchase_price' => $it->purchase_price,
                     ]);
                 }
                 $po->recalcTotal();
