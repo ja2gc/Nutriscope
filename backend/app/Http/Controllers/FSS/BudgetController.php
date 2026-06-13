@@ -9,6 +9,7 @@ use App\Http\Resources\BudgetResource;
 use App\Models\Budget;
 use App\Models\BudgetDailyLog;
 use App\Models\PurchaseOrder;
+use App\Services\BudgetActualService;
 use App\Services\BudgetService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
@@ -34,8 +35,10 @@ class BudgetController extends Controller
 
     /**
      * Dashboard summary over any range: daily budget cap (per-head/day × population,
-     * the "planned" target line) vs real spend (received POs + manual logs), rolled
-     * up at the requested granularity. Powers the trend + variance charts.
+     * the "planned" target line) vs consumption-actual (value of food served) — or a
+     * purchases fallback when no day has been served yet. Received POs are surfaced
+     * separately as cash_flow. Rolled up at the requested granularity via the shared
+     * {@see BudgetActualService} so the dashboard and the printed report never diverge.
      */
     public function summary(Request $request, Budget $budget): JsonResponse
     {
@@ -49,32 +52,12 @@ class BudgetController extends Controller
         $end   = Carbon::parse($data['end'] ?? $budget->period_end ?? now()->endOfMonth());
         $gran  = $data['granularity'] ?? 'day';
 
-        $poByDay = PurchaseOrder::where('status', 'received')
-            ->whereRaw('COALESCE(received_date, order_date) BETWEEN ? AND ?', [$start->toDateString(), $end->toDateString()])
-            ->selectRaw('COALESCE(received_date, order_date) as d, SUM(total_amount) as t')
-            ->groupBy('d')->pluck('t', 'd');
+        $series = BudgetActualService::dailySeries($budget, $start, $end);
 
-        $logByDay = $budget->dailyLogs()
-            ->whereBetween('log_date', [$start->toDateString(), $end->toDateString()])
-            ->selectRaw('log_date as d, SUM(spent) as t')
-            ->groupBy('log_date')->pluck('t', 'd');
-
-        $cap = ($budget->budget_per_head_day && $budget->population)
-            ? (float) $budget->budget_per_head_day * (int) $budget->population
-            : ((float) ($budget->allocated_amount ?? 0) / max(1, $start->diffInDays($end) + 1));
-
-        $days = [];
-        for ($d = $start->copy(); $d->lte($end); $d->addDay()) {
-            $ds = $d->toDateString();
-            $days[] = [
-                'date'    => $ds,
-                'planned' => $cap,
-                'actual'  => (float) ($poByDay[$ds] ?? 0) + (float) ($logByDay[$ds] ?? 0),
-            ];
-        }
-
-        $summary = BudgetService::summarize($days, $gran);
+        $summary = BudgetService::summarize($series['days'], $gran);
         $summary['range']               = ['start' => $start->toDateString(), 'end' => $end->toDateString(), 'granularity' => $gran];
+        $summary['source']              = $series['source'];
+        $summary['cash_flow']           = $series['cash_flow'];
         $summary['allocated']           = (float) ($budget->allocated_amount ?? 0);
         $summary['budget_per_head_day'] = $budget->budget_per_head_day ? (float) $budget->budget_per_head_day : null;
         $summary['population']          = $budget->population;

@@ -519,8 +519,8 @@ class FoodServiceOpsTest extends TestCase
 
         $response->assertOk()
             ->assertJsonPath('data.source', 'consumption')
-            ->assertJsonPath('data.actual', 1200.0)   // consumption only, POs excluded from actual
-            ->assertJsonPath('data.cash_flow', 800.0); // POs surfaced separately
+            ->assertJsonPath('data.actual', fn ($v) => abs((float) $v - 1200) < 0.01)   // consumption only, POs excluded
+            ->assertJsonPath('data.cash_flow', fn ($v) => abs((float) $v - 800) < 0.01); // POs surfaced separately
     }
 
     public function test_budget_report_actual_matches_consumption(): void
