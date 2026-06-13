@@ -9,13 +9,9 @@ class BudgetDailyLog extends Model
 {
     use HasFactory;
     
-    protected $fillable = ['budget_id', 'date', 'planned', 'actual', 'variance', 'log_date', 'spent', 'notes'];
+    protected $fillable = ['budget_id', 'log_date', 'spent', 'notes'];
 
     protected $casts = [
-        'planned'  => 'decimal:2',
-        'actual'   => 'decimal:2',
-        'variance' => 'decimal:2',
-        'date'     => 'date',
         'log_date' => 'date',
         'spent'    => 'decimal:2',
     ];

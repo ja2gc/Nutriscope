@@ -95,9 +95,6 @@ class BudgetController extends Controller
             'log_date'  => $data['log_date'],
             'spent'     => $data['spent'],
             'notes'     => $data['notes'] ?? null,
-            'planned'   => 0,
-            'actual'    => $data['spent'],
-            'variance'  => 0,
         ]);
 
         // Received POs are already counted as spend on their date — warn so the user
