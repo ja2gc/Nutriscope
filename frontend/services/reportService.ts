@@ -14,10 +14,30 @@ export interface ReportItem {
   id: number;
   title: string;
   type: string;
-  status: "pending" | "generating" | "completed" | "failed" | "queued";
+  status: "pending" | "generating" | "completed" | "failed" | "queued" | "archived";
   file_path: string | null;
+  snapshot: ReportSnapshot | null;
   generated_at: string | null;
   created_at: string;
+}
+
+/** The frozen as-filed metadata captured when a report is archived (Spec 4). */
+export interface ReportSnapshot {
+  branding?: Record<string, string | null>;
+  signatories?: Array<{ role: string; label: string; name: string | null; title: string | null }>;
+  params?: Record<string, string | number>;
+  archived_at?: string;
+}
+
+/** How a report type is browsed: dated buckets, a record, or a single "now". */
+export type ReportAxis = "period" | "entity" | "singleton";
+
+/** A renderable instance of a report type (one month, one PO, one patient, …). */
+export interface ReportInstance {
+  key: string;
+  label: string;
+  params: Record<string, string | number>;
+  date: string | null;
 }
 
 export interface Signatory {
@@ -88,6 +108,40 @@ export async function deleteReport(id: number): Promise<void> {
 }
 
 export const reportDownloadUrl = (id: number) => `/api/rnd/reports/${id}/download`;
+
+// ── Browse / on-demand render / archive (Spec 4) ──────────────────────────
+function toQuery(params: ReportParams): string {
+  const qs = new URLSearchParams();
+  for (const [k, v] of Object.entries(clean(params))) qs.set(k, String(v));
+  const s = qs.toString();
+  return s ? `?${s}` : "";
+}
+
+/** Enumerate the renderable instances of a type (only those with data). */
+export async function listInstances(
+  type: ReportType | string,
+  filters: ReportParams = {},
+): Promise<{ axis: ReportAxis; instances: ReportInstance[] }> {
+  return unwrap(
+    await apiFetch(`/api/rnd/reports/${type}/instances${toQuery(filters)}`),
+    "Failed to load report instances.",
+  );
+}
+
+/** URL that streams a freshly rendered (live) PDF — open in a new tab. */
+export const reportRenderUrl = (type: ReportType | string, params: ReportParams) =>
+  `/api/rnd/reports/${type}/render${toQuery(params)}`;
+
+/** Freeze an as-filed copy: render, store, and persist a snapshot. */
+export async function archiveReport(
+  type: ReportType | string,
+  params: ReportParams,
+): Promise<ReportItem> {
+  return unwrap(
+    await apiFetch(`/api/rnd/reports/${type}/archive${toQuery(params)}`, { method: "POST" }),
+    "Failed to archive report.",
+  );
+}
 
 // ── Branding + templates (Template Edit tab) ──────────────────────────────
 export async function getBranding(): Promise<Branding> {
