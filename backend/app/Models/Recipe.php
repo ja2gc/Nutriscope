@@ -41,17 +41,30 @@ class Recipe extends Model
     /**
      * Unit-correct scaling factor for one ingredient against its food's serving.
      * A missing ingredient unit defaults to the food's serving unit (legacy data).
-     * Throws on an unrecognised unit so totals are never silently wrong.
+     *
+     * Physical units (mass/volume) are converted exactly. When either side is a
+     * non-convertible COUNT unit (e.g. 'piece', 'serving', 'slice') — or the units
+     * already match — we use a direct numeric ratio quantity/serving_size: there is
+     * no defined gram-per-piece, so the recorded numbers are taken as comparable
+     * rather than throwing. (Mass↔volume crossings still convert via density.)
      */
     private function ingredientFactor(RecipeIngredient $ing, FoodItem $food): float
     {
         $servingUnit    = $food->serving_unit ?: 'g';
         $ingredientUnit = $ing->unit ?: $servingUnit;
+        $size           = (float) $food->serving_size ?: 100.0;
+
+        $bothConvertible = UnitConverter::isKnown($ingredientUnit) && UnitConverter::isKnown($servingUnit);
+        $sameUnit        = UnitConverter::normalize($ingredientUnit) === UnitConverter::normalize($servingUnit);
+
+        if (! $bothConvertible || $sameUnit) {
+            return (float) $ing->quantity / $size;
+        }
 
         return UnitConverter::scalingFactor(
             (float) $ing->quantity,
             $ingredientUnit,
-            (float) $food->serving_size,
+            $size,
             $servingUnit,
         );
     }
