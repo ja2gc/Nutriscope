@@ -1,7 +1,7 @@
 # Spec 5 — App-Wide Audit Trail (change history + per-record UI)
 
 - **Date:** 2026-06-12
-- **Status:** ✅ BACKEND IMPLEMENTED 2026-06-14 (Part 1). Frontend History panel = Part 2 (pending). Plan: `docs/superpowers/plans/2026-06-14-audit-trail-backend.md`
+- **Status:** ✅ IMPLEMENTED 2026-06-14 — Part 1 (backend) + Part 2 (frontend History panel on PO + patient). Plan: `docs/superpowers/plans/2026-06-14-audit-trail-backend.md`. Remaining: extend the History panel to more records (inventory etc.) + system-sentinel causer for jobs/AI.
 - **Scope:** whole app (clinical + food-service), not just FS
 - **Roadmap:** Spec 5 of 5 (see [Spec 1](2026-06-12-fs-costing-immutability-design.md))
 
