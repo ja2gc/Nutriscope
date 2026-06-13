@@ -120,7 +120,20 @@ class MenuCycleCostService
     {
         $cycle->loadMissing('days.recipe.ingredients.fsItem', 'days.fsItem');
 
-        $entries = $cycle->days
+        return self::aggregate(self::entriesForDays($cycle->days), $population ?? (int) $cycle->population);
+    }
+
+    /**
+     * Map a collection of MenuCycleDay models into the plain-array entries that
+     * aggregate() consumes. Shared by the planner (forCycle), consumption
+     * (ConsumptionService), and procurement so their math can never diverge.
+     * Requires days.recipe.ingredients.fsItem and days.fsItem to be loaded.
+     *
+     * @param  \Illuminate\Support\Collection $days
+     */
+    public static function entriesForDays($days): array
+    {
+        return $days
             ->filter(fn ($day) => $day->recipe !== null || $day->fsItem !== null)
             ->map(function ($day) {
                 $base = [
@@ -147,7 +160,6 @@ class MenuCycleCostService
                     ];
                 }
 
-                // Ready single item (no recipe): cost one per head.
                 return $base + [
                     'item' => [
                         'fs_item_id' => $day->fs_item_id,
@@ -158,7 +170,11 @@ class MenuCycleCostService
                     ],
                 ];
             })->values()->all();
+    }
 
-        return self::aggregate($entries, $population ?? (int) $cycle->population);
+    /** Required base-unit ingredient usage for a subset of days at a target headcount. */
+    public static function usageForDays($days, int $target): array
+    {
+        return self::aggregate(self::entriesForDays($days), $target)['ingredient_usage'];
     }
 }

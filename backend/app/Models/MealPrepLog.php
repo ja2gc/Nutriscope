@@ -4,26 +4,37 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class MealPrepLog extends Model
 {
     use HasFactory;
-    
-    protected $fillable = ['fss_user_id', 'menu_cycle_day_id', 'prepared_quantity', 'status', 'notes'];
 
-    protected $casts = [
-        'prepared_quantity' => 'decimal:2',
+    protected $fillable = [
+        'menu_cycle_id', 'service_date', 'status',
+        'completed_by', 'completed_at', 'total_value', 'has_shortfall',
     ];
 
-    public function fssUser()
+    protected $casts = [
+        'service_date'  => 'date',
+        'completed_at'  => 'datetime',
+        'total_value'   => 'decimal:2',
+        'has_shortfall' => 'boolean',
+    ];
+
+    public function menuCycle(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'fss_user_id');
+        return $this->belongsTo(MenuCycle::class);
     }
 
-    public function menuCycleDay()
+    public function completedBy(): BelongsTo
     {
-        return $this->belongsTo(MenuCycleDay::class);
+        return $this->belongsTo(User::class, 'completed_by');
     }
 
+    public function lines(): HasMany
+    {
+        return $this->hasMany(MealPrepLogLine::class);
+    }
 }
-

@@ -11,7 +11,6 @@ use App\Models\MenuCycle;
 use App\Models\ShoppingList;
 use App\Models\ShoppingListItem;
 use App\Services\MenuCycleCostService;
-use App\Services\ProcurementService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -54,46 +53,66 @@ class ShoppingListController extends Controller
     }
 
     /**
-     * Auto-build a suggested list from a menu cycle scaled to a purchasing day span.
-     * Quantities + costs come from the menu engine; the default vendor for each item
-     * is the one remembered on the catalog (fs_items.default_supplier_id).
+     * Auto-build a suggested list from a menu cycle for a specific date range.
+     * Quantities + costs come from the menu engine summing actual planned weekdays
+     * across the range (not a proportional average); the default vendor for each
+     * item is the one remembered on the catalog (fs_items.default_supplier_id).
      */
     public function generate(Request $request): JsonResponse
     {
         $data = $request->validate([
             'menu_cycle_id' => ['required', 'integer', 'exists:menu_cycles,id'],
-            'days_span'     => ['required', 'integer', 'min:1', 'max:60'],
+            'start_date'    => ['required', 'date'],
+            'end_date'      => ['required', 'date', 'after_or_equal:start_date'],
             'name'          => ['nullable', 'string', 'max:255'],
         ]);
 
-        $cycle  = MenuCycle::findOrFail($data['menu_cycle_id']);
-        $result = MenuCycleCostService::forCycle($cycle);
-        $items  = ProcurementService::suggestedItems($result['ingredient_usage'], (int) $cycle->cycle_days, (int) $data['days_span']);
+        $cycle = MenuCycle::with('days.recipe.ingredients.fsItem', 'days.fsItem')->findOrFail($data['menu_cycle_id']);
 
-        $fsItems = FsItem::whereIn('id', array_column($items, 'fs_item_id'))->get()->keyBy('id');
+        // Sum the ACTUAL planned days across the range (not a proportional average).
+        $acc = []; // fs_item_id => ['name','unit','qty','total']
+        $cursor = \Carbon\Carbon::parse($data['start_date']);
+        $end    = \Carbon\Carbon::parse($data['end_date']);
+        $spanDays = $cursor->diffInDays($end) + 1;
 
-        $list = DB::transaction(function () use ($data, $cycle, $items, $fsItems) {
+        for (; $cursor->lte($end); $cursor->addDay()) {
+            $days = $cycle->days->where('day_of_week', $cursor->format('l'));
+            if ($days->isEmpty()) {
+                continue;
+            }
+            foreach (MenuCycleCostService::usageForDays($days, (int) $cycle->population) as $u) {
+                $id = $u['fs_item_id'];
+                $acc[$id] ??= ['name' => $u['name'], 'unit' => $u['unit'], 'qty' => 0.0, 'total' => 0.0];
+                $acc[$id]['qty']   += (float) $u['quantity'];
+                $acc[$id]['total'] += (float) $u['cost'];
+            }
+        }
+
+        $fsItems = FsItem::whereIn('id', array_keys($acc))->get()->keyBy('id');
+
+        $list = DB::transaction(function () use ($data, $cycle, $acc, $fsItems, $spanDays) {
             $list = ShoppingList::create([
                 'fss_user_id'   => Auth::id(),
                 'menu_cycle_id' => $cycle->id,
-                'name'          => $data['name'] ?? "Suggested — {$cycle->name} ({$data['days_span']}d)",
+                'name'          => $data['name'] ?? "Suggested — {$cycle->name} ({$data['start_date']}→{$data['end_date']})",
                 'list_date'     => now()->toDateString(),
-                'days_span'     => $data['days_span'],
+                'period_start'  => $data['start_date'],
+                'period_end'    => $data['end_date'],
+                'days_span'     => $spanDays,
                 'list_type'     => 'suggested',
                 'status'        => 'draft',
             ]);
 
-            foreach ($items as $it) {
-                $fs        = $fsItems[$it['fs_item_id']] ?? null;
-                $unitPrice = $it['qty'] > 0 ? round($it['total'] / $it['qty'], 4) : 0;
+            foreach ($acc as $id => $row) {
+                $unitPrice = $row['qty'] > 0 ? round($row['total'] / $row['qty'], 4) : 0;
                 $list->items()->create([
-                    'fs_item_id'      => $it['fs_item_id'],
-                    'ingredient_name' => $it['name'],
-                    'qty'             => $it['qty'],
-                    'unit'            => $it['unit'],
-                    'supplier_id'     => $fs?->default_supplier_id,
+                    'fs_item_id'      => $id,
+                    'ingredient_name' => $row['name'],
+                    'qty'             => round($row['qty'], 2),
+                    'unit'            => $row['unit'],
+                    'supplier_id'     => ($fsItems[$id] ?? null)?->default_supplier_id,
                     'unit_price'      => $unitPrice,
-                    'total'           => $it['total'],
+                    'total'           => round($row['total'], 2),
                 ]);
             }
 
