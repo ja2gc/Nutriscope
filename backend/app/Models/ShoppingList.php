@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 class ShoppingList extends Model
 {
     use HasFactory;
+    use \App\Models\Concerns\AuditsChanges;
 
     protected $fillable = [
         'fss_user_id', 'menu_cycle_id', 'name', 'list_date', 'period_start', 'period_end',

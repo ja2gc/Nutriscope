@@ -19,6 +19,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class FsItem extends Model
 {
     use HasFactory;
+    use \App\Models\Concerns\AuditsChanges;
 
     protected $table = 'fs_items';
 

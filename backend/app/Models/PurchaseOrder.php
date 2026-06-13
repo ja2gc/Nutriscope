@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 class PurchaseOrder extends Model
 {
     use HasFactory;
+    use \App\Models\Concerns\AuditsChanges;
 
     protected $fillable = [
         'fss_user_id', 'shopping_list_id', 'supplier_id', 'po_number', 'or_number',
