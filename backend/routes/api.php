@@ -30,6 +30,7 @@ use App\Http\Controllers\FSS\MenuCycleTemplateController;
 use App\Http\Controllers\FSS\BudgetController;
 use App\Http\Controllers\FSS\FoodServiceRecipeController;
 use App\Http\Controllers\FSS\FsItemController;
+use App\Http\Controllers\FSS\InsightsController;
 use App\Http\Controllers\FSS\MealPrepLogController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\ReportBrandingController;
@@ -181,6 +182,11 @@ Route::middleware(['auth:sanctum', 'role:FSS,RND'])->prefix('fss')->group(functi
     Route::get('budgets/{budget}/summary', [BudgetController::class, 'summary']);
     Route::post('budgets/{budget}/daily-logs', [BudgetController::class, 'storeDailyLog']);
     Route::apiResource('budgets', BudgetController::class);
+
+    // Insights / analytics (read-only, graphs — never in compliance PDFs)
+    Route::get('insights/spend-by-supplier', [InsightsController::class, 'spendBySupplier']);
+    Route::get('insights/cost-per-head', [InsightsController::class, 'costPerHead']);
+    Route::get('insights/consumption', [InsightsController::class, 'consumption']);
 
     // Consumption (meal prep / service-day completion)
     Route::get('meal-prep-logs', [MealPrepLogController::class, 'index']);
