@@ -105,6 +105,8 @@ class OcrExtractionServiceTest extends TestCase
             'is_active' => true,
         ]);
 
+        config(['services.paddleocr.url' => 'http://localhost:8000/ocr']);
+
         Http::fake([
             'http://localhost:8000/*' => Http::response(['text' => 'weight: 80.0, height: 180.0'], 200),
         ]);
@@ -154,6 +156,8 @@ class OcrExtractionServiceTest extends TestCase
             'version' => '1.0.0',
             'is_active' => true,
         ]);
+
+        config(['services.paddleocr.url' => 'http://localhost:8000/ocr']);
 
         Http::fake([
             'http://localhost:8000/*' => Http::response(['text' => 'weight: 80.0, height: 180.0'], 200),

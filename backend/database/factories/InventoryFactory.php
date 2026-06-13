@@ -2,7 +2,7 @@
 
 namespace Database\Factories;
 
-use App\Models\FoodItem;
+use App\Models\FsItem;
 use App\Models\Inventory;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -13,7 +13,8 @@ class InventoryFactory extends Factory
     public function definition(): array
     {
         return [
-            'food_item_id'            => FoodItem::factory(),
+            'item_type'               => 'ingredient',
+            'fs_item_id'              => FsItem::factory(),
             'quantity_in_stock'       => fake()->randomFloat(2, 0, 500),
             'unit'                    => fake()->randomElement(['kg', 'g', 'L', 'ml', 'piece']),
             'usage_rate'              => fake()->randomFloat(2, 0.1, 10),
