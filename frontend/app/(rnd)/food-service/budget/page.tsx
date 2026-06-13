@@ -133,7 +133,7 @@ export default function BudgetPage() {
       <div className="border-b border-zinc-200 pb-5 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div>
           <h2 className="text-xl font-extrabold text-zinc-950 tracking-tight flex items-center gap-2.5"><TrendingUp className="h-5 w-5 text-emerald-600" /> Budget</h2>
-          <p className="text-xs text-zinc-500 mt-1">Set yearly / per-head budgets and track real spend (from received purchase orders) against them over any range.</p>
+          <p className="text-xs text-zinc-500 mt-1">Set yearly / per-head budgets and track real spend — from meals actually served (or estimated from purchases until a day is served) — against them over any range.</p>
         </div>
         <button onClick={() => { load(); loadSummary(); }} className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-700 shrink-0"><RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} /> Refresh</button>
       </div>
@@ -177,6 +177,15 @@ export default function BudgetPage() {
                   <KpiCard label="Actual spend" value={peso(summary.actual)} />
                   <KpiCard label="Variance" value={`${overBudget ? "+" : ""}${peso(summary.variance)}`} tone={overBudget ? "red" : "emerald"} />
                   <KpiCard label="Variance %" value={`${summary.variance_pct}%`} tone={overBudget ? "amber" : "zinc"} />
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 text-[11px]">
+                  <span className={`font-bold px-2.5 py-1 rounded-lg border ${summary.source === "consumption" ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-amber-50 text-amber-700 border-amber-200"}`}>
+                    {summary.source === "consumption" ? "Actual from meals served" : "Estimated from purchases"}
+                  </span>
+                  <span className="font-semibold px-2.5 py-1 rounded-lg border bg-zinc-50 text-zinc-600 border-zinc-200">
+                    Cash disbursed (POs): {peso(summary.cash_flow)}
+                  </span>
                 </div>
 
                 <div className={`flex items-center gap-2 text-xs font-bold px-3 py-2 rounded-xl border w-fit ${overBudget ? "bg-red-50 text-red-700 border-red-200" : "bg-emerald-50 text-emerald-700 border-emerald-200"}`}>
