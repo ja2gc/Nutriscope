@@ -661,4 +661,23 @@ class FoodServiceOpsTest extends TestCase
         // 2 kg × 1000 g/kg = 2000 g added to stock.
         $this->assertDatabaseHas('inventory', ['fs_item_id' => $fs->id, 'quantity_in_stock' => 2000]);
     }
+
+    public function test_procurement_pack_prints_purchase_units(): void
+    {
+        $fs = FsItem::factory()->create(['name' => 'Rice', 'base_unit' => 'g', 'purchase_unit' => 'kg', 'purchase_price' => 50]);
+        $po = PurchaseOrder::factory()->create(['fss_user_id' => $this->fss->id, 'status' => 'received', 'order_date' => '2026-06-08']);
+        $po->items()->create([
+            'fs_item_id' => $fs->id, 'description' => 'Rice',
+            'qty' => 2000, 'unit' => 'g', 'unit_price' => 0.05, 'total_value' => 100,
+            'purchase_qty' => 2, 'purchase_unit' => 'kg', 'purchase_price' => 50,
+        ]);
+
+        $report = new \App\Models\Report(['type' => 'procurement_pack', 'parameters' => ['purchase_order_id' => $po->id]]);
+        $data = (new \App\Services\Reports\Generators\ProcurementPackGenerator())->data($report);
+
+        $pack = $data['packs'][0];
+        $this->assertEqualsWithDelta(2, (float) $pack['air_items'][0]['quantity'], 0.01); // packs, not 2000 g
+        $this->assertSame('kg', $pack['air_items'][0]['unit']);
+        $this->assertEqualsWithDelta(50, (float) $pack['statement_items'][0]['unit_price'], 0.01); // ₱/pack
+    }
 }

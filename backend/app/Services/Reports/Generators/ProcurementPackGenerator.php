@@ -93,18 +93,20 @@ class ProcurementPackGenerator implements ReportGenerator
 
     private function buildPack(PurchaseOrder $po): array
     {
+        // Vendor docs show whole purchase units (kg/sacks), not base grams (Spec 6 #4).
+        // total_value unchanged: purchase_qty × purchase_price == qty × unit_price.
         $airItems = $po->items->values()->map(fn ($it, $i) => [
             'item_no'     => $i + 1,
-            'unit'        => $it->unit,
+            'unit'        => $it->purchase_unit ?? $it->unit,
             'description' => $it->description ?? $it->fsItem?->name,
-            'quantity'    => $it->qty,
+            'quantity'    => $it->purchase_qty ?? $it->qty,
         ])->all();
 
         $statementItems = $po->items->map(fn ($it) => [
-            'qty'         => $it->qty,
-            'unit'        => $it->unit,
+            'qty'         => $it->purchase_qty ?? $it->qty,
+            'unit'        => $it->purchase_unit ?? $it->unit,
             'item'        => $it->description ?? $it->fsItem?->name,
-            'unit_price'  => $it->unit_price,
+            'unit_price'  => $it->purchase_price ?? $it->unit_price,
             'total_value' => $it->total_value,
         ])->all();
 
