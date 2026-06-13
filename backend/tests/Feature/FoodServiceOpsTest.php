@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Budget;
 use App\Models\FsItem;
 use App\Models\Inventory;
+use App\Models\MealPrepLog;
 use App\Models\MenuCycle;
 use App\Models\MenuCycleDay;
 use App\Models\PurchaseOrder;
@@ -13,6 +14,8 @@ use App\Models\Supplier;
 use App\Models\User;
 use App\Models\FoodServiceRecipe;
 use App\Models\FoodServiceRecipeIngredient;
+use App\Services\BudgetActualService;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
@@ -452,5 +455,92 @@ class FoodServiceOpsTest extends TestCase
 
         $response->assertUnprocessable()
             ->assertJsonValidationErrors(['allocated_amount']);
+    }
+
+    public function test_budget_actual_uses_consumption_when_a_day_is_served(): void
+    {
+        $budget = Budget::factory()->create([
+            'fss_user_id' => $this->fss->id,
+            'budget_per_head_day' => 100, 'population' => 10, // cap = 1000/day
+        ]);
+        $cycle = MenuCycle::factory()->create();
+        MealPrepLog::create([
+            'menu_cycle_id' => $cycle->id, 'service_date' => '2026-06-10',
+            'status' => 'completed', 'total_value' => 1200, 'has_shortfall' => false,
+        ]);
+
+        $result = BudgetActualService::dailySeries($budget, Carbon::parse('2026-06-09'), Carbon::parse('2026-06-11'));
+
+        $this->assertSame('consumption', $result['source']);
+        $byDate = collect($result['days'])->keyBy('date');
+        $this->assertEqualsWithDelta(1200, $byDate['2026-06-10']['actual'], 0.01);
+        $this->assertEqualsWithDelta(0, $byDate['2026-06-09']['actual'], 0.01);
+        $this->assertEqualsWithDelta(1000, $byDate['2026-06-10']['planned'], 0.01); // cap
+    }
+
+    public function test_budget_actual_falls_back_to_purchases_when_nothing_served(): void
+    {
+        $budget = Budget::factory()->create([
+            'fss_user_id' => $this->fss->id,
+            'budget_per_head_day' => 100, 'population' => 10,
+        ]);
+        PurchaseOrder::factory()->create([
+            'fss_user_id' => $this->fss->id,
+            'status' => 'received', 'received_date' => '2026-06-10', 'total_amount' => 800,
+        ]);
+
+        $result = BudgetActualService::dailySeries($budget, Carbon::parse('2026-06-09'), Carbon::parse('2026-06-11'));
+
+        $this->assertSame('purchases', $result['source']);
+        $byDate = collect($result['days'])->keyBy('date');
+        $this->assertEqualsWithDelta(800, $byDate['2026-06-10']['actual'], 0.01);
+        $this->assertEqualsWithDelta(800, $result['cash_flow'], 0.01);
+    }
+
+    public function test_summary_endpoint_reports_consumption_source_and_cash_flow(): void
+    {
+        $budget = Budget::factory()->create([
+            'fss_user_id' => $this->fss->id,
+            'budget_per_head_day' => 100, 'population' => 10,
+            'period_start' => '2026-06-09', 'period_end' => '2026-06-11',
+        ]);
+        $cycle = MenuCycle::factory()->create();
+        MealPrepLog::create([
+            'menu_cycle_id' => $cycle->id, 'service_date' => '2026-06-10',
+            'status' => 'completed', 'total_value' => 1200, 'has_shortfall' => false,
+        ]);
+        PurchaseOrder::factory()->create([
+            'fss_user_id' => $this->fss->id,
+            'status' => 'received', 'received_date' => '2026-06-10', 'total_amount' => 800,
+        ]);
+
+        $response = $this->actingAs($this->fss)
+            ->getJson("/api/fss/budgets/{$budget->id}/summary?start=2026-06-09&end=2026-06-11&granularity=day");
+
+        $response->assertOk()
+            ->assertJsonPath('data.source', 'consumption')
+            ->assertJsonPath('data.actual', 1200.0)   // consumption only, POs excluded from actual
+            ->assertJsonPath('data.cash_flow', 800.0); // POs surfaced separately
+    }
+
+    public function test_budget_report_actual_matches_consumption(): void
+    {
+        $budget = Budget::factory()->create([
+            'fss_user_id' => $this->fss->id,
+            'budget_per_head_day' => 100, 'population' => 10,
+            'period_start' => '2026-06-09', 'period_end' => '2026-06-11',
+        ]);
+        $cycle = MenuCycle::factory()->create();
+        MealPrepLog::create([
+            'menu_cycle_id' => $cycle->id, 'service_date' => '2026-06-10',
+            'status' => 'completed', 'total_value' => 1200, 'has_shortfall' => false,
+        ]);
+
+        $report = new \App\Models\Report(['type' => 'budget_report', 'parameters' => [
+            'budget_id' => $budget->id, 'granularity' => 'day',
+        ]]);
+        $data = (new \App\Services\Reports\Generators\BudgetReportGenerator())->data($report);
+
+        $this->assertEqualsWithDelta(1200, $data['summary']['actual'], 0.01);
     }
 }
