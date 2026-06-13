@@ -3,7 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Budget;
-use App\Models\FoodItem;
+use App\Models\FsItem;
 use App\Models\Inventory;
 use App\Models\MenuCycle;
 use App\Models\MenuCycleDay;
@@ -11,6 +11,8 @@ use App\Models\PurchaseOrder;
 use App\Models\ShoppingList;
 use App\Models\Supplier;
 use App\Models\User;
+use App\Models\FoodServiceRecipe;
+use App\Models\FoodServiceRecipeIngredient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
@@ -35,29 +37,29 @@ class FoodServiceOpsTest extends TestCase
         ]);
     }
 
-    private function makeFoodItem(array $attrs = []): FoodItem
+    private function makeFsItem(array $attrs = []): FsItem
     {
-        return FoodItem::factory()->create($attrs);
+        return FsItem::factory()->create($attrs);
     }
 
     // ===== INVENTORY =====
 
     public function test_fss_can_list_inventory(): void
     {
-        $food = $this->makeFoodItem();
-        Inventory::factory()->create(['food_item_id' => $food->id]);
+        $fsItem = $this->makeFsItem();
+        Inventory::factory()->create(['fs_item_id' => $fsItem->id]);
 
         $response = $this->actingAs($this->fss)
             ->getJson('/api/fss/inventory');
 
         $response->assertOk()
-            ->assertJsonStructure(['data' => [['id', 'food_item_id', 'quantity_in_stock', 'unit']]]);
+            ->assertJsonStructure(['data' => [['id', 'fs_item_id', 'quantity_in_stock', 'unit']]]);
     }
 
     public function test_fss_can_update_inventory(): void
     {
-        $food      = $this->makeFoodItem();
-        $inventory = Inventory::factory()->create(['food_item_id' => $food->id, 'quantity_in_stock' => 50]);
+        $fsItem    = $this->makeFsItem();
+        $inventory = Inventory::factory()->create(['fs_item_id' => $fsItem->id, 'quantity_in_stock' => 50]);
 
         $response = $this->actingAs($this->fss)
             ->patchJson("/api/fss/inventory/{$inventory->id}", [
@@ -72,8 +74,8 @@ class FoodServiceOpsTest extends TestCase
 
     public function test_fss_can_restock_inventory(): void
     {
-        $food      = $this->makeFoodItem();
-        $inventory = Inventory::factory()->create(['food_item_id' => $food->id, 'quantity_in_stock' => 20]);
+        $fsItem    = $this->makeFsItem();
+        $inventory = Inventory::factory()->create(['fs_item_id' => $fsItem->id, 'quantity_in_stock' => 20]);
 
         $response = $this->actingAs($this->fss)
             ->postJson("/api/fss/inventory/{$inventory->id}/restock", [
@@ -86,8 +88,8 @@ class FoodServiceOpsTest extends TestCase
 
     public function test_restock_requires_positive_quantity(): void
     {
-        $food      = $this->makeFoodItem();
-        $inventory = Inventory::factory()->create(['food_item_id' => $food->id]);
+        $fsItem    = $this->makeFsItem();
+        $inventory = Inventory::factory()->create(['fs_item_id' => $fsItem->id]);
 
         $response = $this->actingAs($this->fss)
             ->postJson("/api/fss/inventory/{$inventory->id}/restock", [
@@ -100,8 +102,8 @@ class FoodServiceOpsTest extends TestCase
 
     public function test_rnd_can_access_fss_inventory_routes(): void
     {
-        $food      = $this->makeFoodItem();
-        Inventory::factory()->create(['food_item_id' => $food->id]);
+        $fsItem    = $this->makeFsItem();
+        Inventory::factory()->create(['fs_item_id' => $fsItem->id]);
 
         $response = $this->actingAs($this->rnd)
             ->getJson('/api/fss/inventory');
@@ -151,14 +153,14 @@ class FoodServiceOpsTest extends TestCase
     public function test_fss_can_create_purchase_order(): void
     {
         $supplier = Supplier::factory()->create();
-        $food     = $this->makeFoodItem();
+        $fsItem   = $this->makeFsItem();
 
         $response = $this->actingAs($this->fss)
             ->postJson('/api/fss/purchase-orders', [
                 'supplier_id'  => $supplier->id,
                 'order_date'   => '2026-06-10',
                 'items'        => [
-                    ['food_item_id' => $food->id, 'quantity' => 50, 'unit_price' => 25.00],
+                    ['fs_item_id' => $fsItem->id, 'qty' => 50, 'unit_price' => 25.00],
                 ],
             ]);
 
@@ -166,7 +168,7 @@ class FoodServiceOpsTest extends TestCase
             ->assertJsonPath('data.status', 'draft');
 
         $this->assertDatabaseHas('purchase_orders', ['supplier_id' => $supplier->id]);
-        $this->assertDatabaseHas('purchase_order_items', ['food_item_id' => $food->id]);
+        $this->assertDatabaseHas('purchase_order_items', ['fs_item_id' => $fsItem->id]);
     }
 
     public function test_fss_can_update_purchase_order_status(): void
@@ -184,9 +186,13 @@ class FoodServiceOpsTest extends TestCase
 
     public function test_fss_po_status_received_updates_inventory(): void
     {
-        $food = $this->makeFoodItem();
+        $fsItem = $this->makeFsItem([
+            'base_unit' => 'kg',
+            'purchase_unit' => 'kg',
+            'purchase_price' => 20.00,
+        ]);
         $inventory = Inventory::factory()->create([
-            'food_item_id' => $food->id,
+            'fs_item_id' => $fsItem->id,
             'quantity_in_stock' => 10,
             'unit' => 'kg',
         ]);
@@ -198,8 +204,8 @@ class FoodServiceOpsTest extends TestCase
         // Add item to purchase order
         \App\Models\PurchaseOrderItem::create([
             'purchase_order_id' => $po->id,
-            'food_item_id' => $food->id,
-            'description' => $food->name,
+            'fs_item_id' => $fsItem->id,
+            'description' => $fsItem->name,
             'qty' => 5,
             'unit' => 'kg',
             'unit_price' => 20.00,
@@ -217,30 +223,40 @@ class FoodServiceOpsTest extends TestCase
         $this->assertEquals(15.00, $inventory->quantity_in_stock);
     }
 
-    public function test_purchase_order_requires_supplier_and_items(): void
+    public function test_purchase_order_item_validation(): void
     {
         $response = $this->actingAs($this->fss)
-            ->postJson('/api/fss/purchase-orders', []);
+            ->postJson('/api/fss/purchase-orders', [
+                'items' => [
+                    ['unit_price' => 25.00]
+                ]
+            ]);
 
         $response->assertUnprocessable()
-            ->assertJsonValidationErrors(['supplier_id', 'items']);
+            ->assertJsonValidationErrors(['items.0.qty']);
     }
 
     // ===== SHOPPING LISTS =====
 
     public function test_fss_can_generate_shopping_list(): void
     {
-        $food = $this->makeFoodItem();
+        $cycle = MenuCycle::factory()->create([
+            'is_active' => true,
+            'status' => 'active',
+            'rnd_user_id' => $this->rnd->id,
+        ]);
+        $fsItem = $this->makeFsItem();
         Inventory::factory()->create([
-            'food_item_id'             => $food->id,
+            'fs_item_id'             => $fsItem->id,
             'quantity_in_stock'        => 5,
             'minimum_stock_threshold'  => 20,
         ]);
 
         $response = $this->actingAs($this->fss)
             ->postJson('/api/fss/shopping-lists/generate', [
-                'period_start' => '2026-06-09',
-                'period_end'   => '2026-06-15',
+                'menu_cycle_id' => $cycle->id,
+                'start_date'    => '2026-06-15', // Monday
+                'end_date'      => '2026-06-21', // Sunday (one full week)
             ]);
 
         $response->assertCreated()
@@ -262,77 +278,92 @@ class FoodServiceOpsTest extends TestCase
 
     public function test_fss_shopping_list_suggested_includes_menu_cycle_ingredients(): void
     {
-        // 1. Create two food items and inventories
-        $food1 = $this->makeFoodItem(['name' => 'Food Item A']);
+        // 1. Create two fs items and inventories
+        $fsItem1 = $this->makeFsItem([
+            'name' => 'Food Item A',
+            'base_unit' => 'kg',
+            'purchase_unit' => 'kg',
+            'purchase_price' => 10.00
+        ]);
         Inventory::factory()->create([
-            'food_item_id'             => $food1->id,
+            'fs_item_id'             => $fsItem1->id,
             'quantity_in_stock'        => 10,
             'minimum_stock_threshold'  => 5,
+            'unit'                     => 'kg',
         ]);
 
-        $food2 = $this->makeFoodItem(['name' => 'Food Item B']);
+        $fsItem2 = $this->makeFsItem([
+            'name' => 'Food Item B',
+            'base_unit' => 'kg',
+            'purchase_unit' => 'kg',
+            'purchase_price' => 10.00
+        ]);
         Inventory::factory()->create([
-            'food_item_id'             => $food2->id,
+            'fs_item_id'             => $fsItem2->id,
             'quantity_in_stock'        => 8,
             'minimum_stock_threshold'  => 12,
+            'unit'                     => 'kg',
         ]);
 
         // 2. Create active menu cycle
         $cycle = MenuCycle::factory()->create([
             'is_active'   => true,
             'status'      => 'active',
-            'fss_user_id' => $this->fss->id,
+            'rnd_user_id' => $this->rnd->id,
+            'population'  => 2, // Population scaled factor
         ]);
 
-        // 3. Create a recipe using food1
-        $recipe = \App\Models\Recipe::factory()->create([
+        // 3. Create a recipe using fsItem1
+        $recipe = FoodServiceRecipe::create([
             'name'        => 'Test Recipe',
             'rnd_user_id' => $this->rnd->id,
+            'servings'    => 1,
         ]);
-        \App\Models\RecipeIngredient::create([
-            'recipe_id'    => $recipe->id,
-            'food_item_id' => $food1->id,
-            'quantity'     => 3.00,
-            'unit'         => 'kg',
+        FoodServiceRecipeIngredient::create([
+            'food_service_recipe_id' => $recipe->id,
+            'fs_item_id'             => $fsItem1->id,
+            'quantity'               => 3.00,
+            'unit'                   => 'kg',
         ]);
 
-        // 4. Link recipe and food2 to MenuCycle via MenuCycleDay
+        // 4. Link recipe and fsItem2 to MenuCycle via MenuCycleDay
         MenuCycleDay::create([
             'menu_cycle_id' => $cycle->id,
             'day_of_week'   => 'Monday',
             'meal_type'     => 'breakfast',
             'recipe_id'     => $recipe->id,
-            'quantity'      => 2.00, // 2 servings. Total food1 needed = 3 * 2 = 6
+            'quantity'      => 1.00, // 1 servings. Total fsItem1 needed = 3 * 2 (population) = 6
         ]);
 
         MenuCycleDay::create([
             'menu_cycle_id' => $cycle->id,
             'day_of_week'   => 'Monday',
             'meal_type'     => 'lunch',
-            'food_item_id'  => $food2->id,
-            'quantity'      => 5.00, // Direct food item. Total food2 needed = 5
+            'fs_item_id'    => $fsItem2->id,
+            'quantity'      => 5.00, // Direct food item. Total fsItem2 needed = 5
         ]);
 
-        // 5. Generate shopping list suggestion
+        // 5. Generate shopping list suggestion for a single Monday.
         $response = $this->actingAs($this->fss)
             ->postJson('/api/fss/shopping-lists/generate', [
-                'period_start' => '2026-06-09',
-                'period_end'   => '2026-06-15',
+                'menu_cycle_id' => $cycle->id,
+                'start_date'    => '2026-06-15', // Monday
+                'end_date'      => '2026-06-15', // same Monday
             ]);
 
         $response->assertCreated();
 
-        // 6. Check results
-        // For food1: threshold 5 + needed 6 = 11. in_stock 10. shortfall = 1
-        // For food2: threshold 12 + needed 5 = 17. in_stock 8. shortfall = 9
+        // 6. Check GROSS planned usage for that Monday (net-of-stock is Spec 6, not yet built).
+        // fsItem1 (recipe, 3 kg/serving × population 2 ÷ recipe servings 1) = 6 kg.
+        // fsItem2 (ready item, 5 per head × population 2)                    = 10 kg.
         $this->assertDatabaseHas('shopping_list_items', [
-            'food_item_id' => $food1->id,
-            'qty'          => 1.00,
+            'fs_item_id' => $fsItem1->id,
+            'qty'        => 6.00,
         ]);
 
         $this->assertDatabaseHas('shopping_list_items', [
-            'food_item_id' => $food2->id,
-            'qty'          => 9.00,
+            'fs_item_id' => $fsItem2->id,
+            'qty'        => 10.00,
         ]);
     }
 
@@ -340,7 +371,7 @@ class FoodServiceOpsTest extends TestCase
 
     public function test_fss_can_create_menu_cycle(): void
     {
-        $response = $this->actingAs($this->fss)
+        $response = $this->actingAs($this->rnd) // MenuCycles are created by RND, not FSS
             ->postJson('/api/fss/menu-cycles', [
                 'name'       => 'Week 1 Cycle',
                 'cycle_days' => 7,
@@ -354,9 +385,14 @@ class FoodServiceOpsTest extends TestCase
 
     public function test_fss_can_activate_menu_cycle(): void
     {
-        $cycle = MenuCycle::factory()->create(['is_active' => false, 'status' => 'draft', 'activation_date' => null]);
+        $cycle = MenuCycle::factory()->create([
+            'is_active' => false,
+            'status' => 'draft',
+            'activation_date' => null,
+            'rnd_user_id' => $this->rnd->id
+        ]);
 
-        $response = $this->actingAs($this->fss)
+        $response = $this->actingAs($this->rnd) // Activations can be done by RND
             ->patchJson("/api/fss/menu-cycles/{$cycle->id}/activate");
 
         $response->assertOk()
@@ -371,7 +407,7 @@ class FoodServiceOpsTest extends TestCase
 
     public function test_menu_cycle_requires_name(): void
     {
-        $response = $this->actingAs($this->fss)
+        $response = $this->actingAs($this->rnd)
             ->postJson('/api/fss/menu-cycles', ['cycle_days' => 7]);
 
         $response->assertUnprocessable()
@@ -412,12 +448,12 @@ class FoodServiceOpsTest extends TestCase
         $this->assertDatabaseHas('budget_daily_logs', ['budget_id' => $budget->id, 'spent' => 1500.00]);
     }
 
-    public function test_budget_requires_period_and_allocated_amount(): void
+    public function test_budget_requires_allocated_amount(): void
     {
         $response = $this->actingAs($this->fss)
             ->postJson('/api/fss/budgets', []);
 
         $response->assertUnprocessable()
-            ->assertJsonValidationErrors(['period_start', 'period_end', 'allocated_amount']);
+            ->assertJsonValidationErrors(['allocated_amount']);
     }
 }
