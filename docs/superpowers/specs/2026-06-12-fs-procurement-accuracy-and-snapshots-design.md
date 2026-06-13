@@ -68,10 +68,10 @@ net_need = max(0, planned_need − on_hand_base − in_transit_base)
 - No change to `inventory` (base-unit qty stays the source of truth).
 
 ## 5. Open decisions
-- **A — in-transit definition:** which PO statuses count as "already committed" stock for net-requirement (draft? only sent? exclude drafts?).
+- **A — in-transit definition:** which PO statuses count as "already committed" stock for net-requirement (draft? only sent? exclude drafts?). **RESOLVED (#2, 2026-06-13):** `status = 'ordered'`.
 - **B — overage handling:** carry whole-pack overage purely as leftover stock [recommended], vs surface it as an explicit "buffer" line.
 - **C — snapshot trigger:** snapshot menu reports on **archive only**, vs an explicit **period-close** action that snapshots the whole report set at once.
-- **D — budget fallback labeling:** how to present budget actual before Spec 2 exists (purchase-estimated) vs after (consumption-actual).
+- **D — budget fallback labeling:** how to present budget actual before Spec 2 exists (purchase-estimated) vs after (consumption-actual). **RESOLVED (#7, 2026-06-13): range-level switch.** If ≥1 completed `MealPrepLog` exists in the requested range → `source = 'consumption'`: per-day actual = Σ completed `MealPrepLog.total_value` by `service_date` + manual `budget_daily_logs.spent`; received POs excluded from actual and exposed separately as a `cash_flow` total (Dietary Cash Book). If no completed days in range → `source = 'purchases'` (current behavior: received-PO totals by date + manual logs), surfaced with an "Estimated from purchases" label. The switch is per-range (whole range one way or the other), never mixing the two axes on one view.
 
 ## 6. Flaws / risks
 1. **Sequencing:** #7 needs Spec 2; #1-snapshots need Spec 4's archive; #2/#4 need Spec 1's unit helpers. So Spec 6 is genuinely *last* and partly interleaves — call out the cross-dependencies in the plan.
