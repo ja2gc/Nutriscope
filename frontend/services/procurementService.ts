@@ -18,6 +18,8 @@ export interface ShoppingList {
   list_type: "manual" | "suggested";
   status: "draft" | "finalized";
   days_span: number | null;
+  period_start: string | null;
+  period_end: string | null;
   items: ShoppingListItem[];
 }
 
@@ -51,10 +53,10 @@ export async function listShoppingLists(): Promise<ShoppingList[]> {
 export async function getShoppingList(id: number): Promise<ShoppingList> {
   return unwrap(await apiFetch(`/api/fss/shopping-lists/${id}`), "Failed to load list.");
 }
-export async function generateFromCycle(menu_cycle_id: number, days_span: number, name?: string): Promise<ShoppingList> {
+export async function generateFromCycle(menu_cycle_id: number, start_date: string, end_date: string, name?: string): Promise<ShoppingList> {
   return unwrap(await apiFetch("/api/fss/shopping-lists/generate", {
     method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ menu_cycle_id, days_span, name }),
+    body: JSON.stringify({ menu_cycle_id, start_date, end_date, name }),
   }), "Failed to generate list.");
 }
 export async function deleteShoppingList(id: number): Promise<void> {
