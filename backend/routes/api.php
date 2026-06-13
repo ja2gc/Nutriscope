@@ -37,6 +37,26 @@ use App\Http\Controllers\ReportController;
 use App\Http\Controllers\ReportBrandingController;
 use App\Http\Controllers\ReportTemplateController;
 
+/**
+ * Reports routes — identical for the RND and FSS role groups, so defined once here
+ * and invoked in both. Spec 4 adds browse ({type}/instances), on-demand render
+ * ({type}/render), and archive ({type}/archive) alongside the deprecated generate
+ * endpoints. Literal/typed segments are declared before the {report} apiResource so
+ * they win the match; {type} is constrained to lowercase so it can't shadow numeric ids.
+ */
+$reportRoutes = function () {
+    Route::post('reports/generate-all', [ReportController::class, 'generateAll']); // deprecated (Spec 4)
+    Route::get('reports/{type}/instances', [ReportController::class, 'instances'])->where('type', '[a-z_]+');
+    Route::get('reports/{type}/render', [ReportController::class, 'render'])->where('type', '[a-z_]+');
+    Route::post('reports/{type}/archive', [ReportController::class, 'archive'])->where('type', '[a-z_]+');
+    Route::get('reports/{report}/download', [ReportController::class, 'download']);
+    Route::apiResource('reports', ReportController::class)->only(['index', 'store', 'show', 'destroy']);
+    Route::get('report-branding', [ReportBrandingController::class, 'show']);
+    Route::post('report-branding', [ReportBrandingController::class, 'update']);
+    Route::get('report-templates', [ReportTemplateController::class, 'index']);
+    Route::patch('report-templates/{reportTemplate}', [ReportTemplateController::class, 'update']);
+};
+
 Route::prefix('auth')->group(function () {
     Route::post('login', [AuthController::class, 'login']);
     
@@ -46,7 +66,7 @@ Route::prefix('auth')->group(function () {
     });
 });
 
-Route::middleware(['auth:sanctum', 'role:RND', 'audit'])->prefix('rnd')->group(function () {
+Route::middleware(['auth:sanctum', 'role:RND', 'audit'])->prefix('rnd')->group(function () use ($reportRoutes) {
     Route::apiResource('patients', PatientController::class);
     Route::get('patients/{patient}/activity', [ActivityController::class, 'patient']);
     Route::get('patients/{patient}/ncp-records', [PatientController::class, 'ncpRecords']);
@@ -124,14 +144,8 @@ Route::middleware(['auth:sanctum', 'role:RND', 'audit'])->prefix('rnd')->group(f
     Route::patch('notifications/read-all', [NotificationController::class, 'readAll']);
     Route::patch('notifications/{notification}/read', [NotificationController::class, 'read']);
 
-    // Reports routes
-    Route::post('reports/generate-all', [ReportController::class, 'generateAll']);
-    Route::get('reports/{report}/download', [ReportController::class, 'download']);
-    Route::apiResource('reports', ReportController::class)->only(['index', 'store', 'show', 'destroy']);
-    Route::get('report-branding', [ReportBrandingController::class, 'show']);
-    Route::post('report-branding', [ReportBrandingController::class, 'update']);
-    Route::get('report-templates', [ReportTemplateController::class, 'index']);
-    Route::patch('report-templates/{reportTemplate}', [ReportTemplateController::class, 'update']);
+    // Reports routes (shared with FSS — see $reportRoutes above)
+    $reportRoutes();
 
     // Food Database routes
     Route::apiResource('food-items', FoodItemController::class);
@@ -142,7 +156,7 @@ Route::middleware(['auth:sanctum', 'role:RND', 'audit'])->prefix('rnd')->group(f
         ->where('fdcId', '[0-9]+');
 });
 
-Route::middleware(['auth:sanctum', 'role:FSS,RND'])->prefix('fss')->group(function () {
+Route::middleware(['auth:sanctum', 'role:FSS,RND'])->prefix('fss')->group(function () use ($reportRoutes) {
     // Inventory routes
     Route::get('inventory/rows', [InventoryController::class, 'rows']);
     Route::apiResource('inventory', InventoryController::class);
@@ -199,14 +213,8 @@ Route::middleware(['auth:sanctum', 'role:FSS,RND'])->prefix('fss')->group(functi
     Route::post('menu-cycles/{menuCycle}/complete-day', [MealPrepLogController::class, 'complete']);
     Route::post('meal-prep-logs/{mealPrepLog}/reverse', [MealPrepLogController::class, 'reverse']);
 
-    // Reports routes
-    Route::post('reports/generate-all', [ReportController::class, 'generateAll']);
-    Route::get('reports/{report}/download', [ReportController::class, 'download']);
-    Route::apiResource('reports', ReportController::class)->only(['index', 'store', 'show', 'destroy']);
-    Route::get('report-branding', [ReportBrandingController::class, 'show']);
-    Route::post('report-branding', [ReportBrandingController::class, 'update']);
-    Route::get('report-templates', [ReportTemplateController::class, 'index']);
-    Route::patch('report-templates/{reportTemplate}', [ReportTemplateController::class, 'update']);
+    // Reports routes (shared with RND — see $reportRoutes above)
+    $reportRoutes();
 });
 
 Route::middleware(['auth:sanctum', 'role:Admin'])->prefix('admin')->group(function () {

@@ -6,10 +6,13 @@ use App\Http\Requests\StoreReportRequest;
 use App\Http\Resources\ReportResource;
 use App\Jobs\GenerateReport;
 use App\Models\Report;
+use App\Models\ReportBranding;
 use App\Models\ReportTemplate;
+use App\Services\Reports\ReportBrowser;
 use App\Services\Reports\ReportService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -31,6 +34,10 @@ class ReportController extends Controller
         return response()->json(['data' => ReportResource::collection($reports)]);
     }
 
+    /**
+     * @deprecated Spec 4 — reports are now browsed/rendered on demand and only the
+     * deliberate {@see archive()} action persists. Kept working for one release.
+     */
     public function store(StoreReportRequest $request, ReportService $reports): JsonResponse
     {
         $template = ReportTemplate::where('type', $request->template_code)->firstOrFail();
@@ -43,6 +50,8 @@ class ReportController extends Controller
 
     /**
      * Generate-All: produce the full Food-Service set for a chosen period in one go.
+     *
+     * @deprecated Spec 4 — superseded by browse + on-demand render. Kept for one release.
      */
     public function generateAll(Request $request, ReportService $reports): JsonResponse
     {
@@ -67,6 +76,83 @@ class ReportController extends Controller
         }
 
         return response()->json(['data' => ReportResource::collection(collect($created))], 201);
+    }
+
+    /**
+     * Browse: enumerate the renderable instances of a type for the requested
+     * period/entity, from real records (Spec 4 §4.1). Only instances with data.
+     */
+    public function instances(Request $request, string $type, ReportBrowser $browser): JsonResponse
+    {
+        abort_unless($browser->supports($type), 404, 'Unknown report type.');
+
+        $source  = $browser->sourceFor($type);
+        $filters = $request->only(['year', 'month']);
+
+        return response()->json([
+            'data' => [
+                'axis'      => $source->axis(),
+                'instances' => $source->instances($filters),
+            ],
+        ]);
+    }
+
+    /**
+     * On-demand render: stream a freshly rendered PDF from current frozen data,
+     * WITHOUT persisting a Report row. 404 when the params hold no data (§6, #3).
+     */
+    public function render(Request $request, string $type, ReportService $reports, ReportBrowser $browser): Response
+    {
+        abort_unless($reports->supports($type) && $browser->supports($type), 404, 'Unknown report type.');
+
+        $params = $this->renderParams($request);
+        abort_unless($browser->sourceFor($type)->hasData($params), 404, 'No data for this report period.');
+
+        $bytes = $reports->streamBytes($type, $params);
+
+        return response($bytes, 200, [
+            'Content-Type'        => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="' . $type . '.pdf"',
+        ]);
+    }
+
+    /**
+     * Archive: render once, store the PDF, and freeze a snapshot of the branding /
+     * signatories / period used — the only path that persists a Report (§4.1).
+     */
+    public function archive(Request $request, string $type, ReportService $reports, ReportBrowser $browser): JsonResponse
+    {
+        abort_unless($reports->supports($type) && $browser->supports($type), 404, 'Unknown report type.');
+
+        $params = $this->renderParams($request);
+        abort_unless($browser->sourceFor($type)->hasData($params), 404, 'No data for this report period.');
+
+        $template = ReportTemplate::where('type', $type)->first();
+        $report   = $this->createReport($type, $template?->name ?? $type, $params, 'archived');
+
+        $path = $reports->generate($report);
+
+        $report->update([
+            'file_path'    => $path,
+            'generated_at' => now(),
+            'snapshot'     => [
+                'branding'     => ReportBranding::singleton()->only([
+                    'hospital_name', 'address', 'accreditation', 'service_name',
+                    'province', 'lgu', 'logo_left_path', 'logo_right_path',
+                ]),
+                'signatories'  => $reports->signatoriesFor($report),
+                'params'       => $report->parameters,
+                'archived_at'  => now()->toIso8601String(),
+            ],
+        ]);
+
+        return response()->json(['data' => new ReportResource($report->fresh())], 201);
+    }
+
+    /** On-demand render/archive params: everything except framework noise. */
+    private function renderParams(Request $request): array
+    {
+        return $request->except(['year', 'month']);
     }
 
     public function show(Report $report): JsonResponse
@@ -100,7 +186,7 @@ class ReportController extends Controller
     }
 
     /** Snapshot the requesting user's name so generators can fill "prepared by". */
-    private function createReport(string $type, string $title, array $params): Report
+    private function createReport(string $type, string $title, array $params, string $status = 'pending'): Report
     {
         $params['prepared_by_name'] ??= Auth::user()?->name;
 
@@ -109,7 +195,7 @@ class ReportController extends Controller
             'title'      => $title,
             'type'       => $type,
             'parameters' => $params,
-            'status'     => 'pending',
+            'status'     => $status,
         ]);
     }
 
