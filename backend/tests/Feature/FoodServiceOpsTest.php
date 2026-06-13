@@ -620,4 +620,24 @@ class FoodServiceOpsTest extends TestCase
         $this->assertEqualsWithDelta(2000, (float) $item['qty'], 0.01);          // 2 sacks × 1000 g base
         $this->assertEqualsWithDelta(100,  (float) $item['total'], 0.01);        // 2 × ₱50
     }
+
+    public function test_generate_pos_carries_purchase_units(): void
+    {
+        $supplier = Supplier::factory()->create();
+        $list = ShoppingList::create([
+            'fss_user_id' => $this->fss->id, 'name' => 'L', 'list_date' => '2026-06-08',
+            'list_type' => 'suggested', 'status' => 'draft',
+        ]);
+        $list->items()->create([
+            'ingredient_name' => 'Rice', 'qty' => 2000, 'unit' => 'g', 'supplier_id' => $supplier->id,
+            'unit_price' => 0.05, 'total' => 100, 'purchase_qty' => 2, 'purchase_unit' => 'kg', 'purchase_price' => 50,
+        ]);
+
+        $response = $this->actingAs($this->fss)->postJson("/api/fss/shopping-lists/{$list->id}/generate-pos");
+        $response->assertCreated();
+
+        $this->assertDatabaseHas('purchase_order_items', [
+            'description' => 'Rice', 'purchase_qty' => 2, 'purchase_unit' => 'kg', 'purchase_price' => 50,
+        ]);
+    }
 }
