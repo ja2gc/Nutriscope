@@ -32,7 +32,11 @@ These interlock: #2 + #4 are *why* Spec 2's "stock nets to zero" premise fails, 
 
 ## 3. Design
 
-### 3.1 Net-requirement procurement (#2)
+### 3.1 Net-requirement procurement (#2) — ✅ IMPLEMENTED 2026-06-13
+
+**Decision (was §5-A open):** in-transit = PO lines whose PO `status = 'ordered'` (committed but not yet received); drafts excluded (tentative), received excluded (already on hand). Fully-covered items (net ≤ 0) are **omitted** from the suggested list (it becomes a true buy-list). Implemented in `ShoppingListController::generate`: `net = max(0, planned − inventory.quantity_in_stock − Σ ordered-PO qty)`. Verified by the two `FoodServiceOpsTest` shopping-list tests (fsItem fully covered by stock drops off the list; partially covered nets down).
+
+
 In `ShoppingListController::generate` / `ProcurementService`, after computing planned need per `fs_item`:
 ```
 net_need = max(0, planned_need − on_hand_base − in_transit_base)

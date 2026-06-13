@@ -7,7 +7,9 @@ use App\Http\Requests\FSS\StoreShoppingListRequest;
 use App\Http\Requests\FSS\UpdateShoppingListRequest;
 use App\Http\Resources\ShoppingListResource;
 use App\Models\FsItem;
+use App\Models\Inventory;
 use App\Models\MenuCycle;
+use App\Models\PurchaseOrderItem;
 use App\Models\ShoppingList;
 use App\Models\ShoppingListItem;
 use App\Services\MenuCycleCostService;
@@ -88,9 +90,19 @@ class ShoppingListController extends Controller
             }
         }
 
-        $fsItems = FsItem::whereIn('id', array_keys($acc))->get()->keyBy('id');
+        $ids     = array_keys($acc);
+        $fsItems = FsItem::whereIn('id', $ids)->get()->keyBy('id');
 
-        $list = DB::transaction(function () use ($data, $cycle, $acc, $fsItems, $spanDays) {
+        // Net of stock (Spec 6 #2): don't re-buy what's already on hand or already
+        // on an open (status='ordered', not-yet-received) purchase order.
+        $onHand    = $ids ? Inventory::whereIn('fs_item_id', $ids)->pluck('quantity_in_stock', 'fs_item_id') : collect();
+        $inTransit = $ids
+            ? PurchaseOrderItem::whereIn('fs_item_id', $ids)
+                ->whereHas('purchaseOrder', fn ($q) => $q->where('status', 'ordered'))
+                ->selectRaw('fs_item_id, SUM(qty) as q')->groupBy('fs_item_id')->pluck('q', 'fs_item_id')
+            : collect();
+
+        $list = DB::transaction(function () use ($data, $cycle, $acc, $fsItems, $spanDays, $onHand, $inTransit) {
             $list = ShoppingList::create([
                 'fss_user_id'   => Auth::id(),
                 'menu_cycle_id' => $cycle->id,
@@ -104,15 +116,20 @@ class ShoppingListController extends Controller
             ]);
 
             foreach ($acc as $id => $row) {
+                $covered = (float) ($onHand[$id] ?? 0) + (float) ($inTransit[$id] ?? 0);
+                $net     = max(0.0, (float) $row['qty'] - $covered);
+                if ($net <= 0) {
+                    continue; // fully covered by stock on hand + open orders → nothing to buy
+                }
                 $unitPrice = $row['qty'] > 0 ? round($row['total'] / $row['qty'], 4) : 0;
                 $list->items()->create([
                     'fs_item_id'      => $id,
                     'ingredient_name' => $row['name'],
-                    'qty'             => round($row['qty'], 2),
+                    'qty'             => round($net, 2),
                     'unit'            => $row['unit'],
                     'supplier_id'     => ($fsItems[$id] ?? null)?->default_supplier_id,
                     'unit_price'      => $unitPrice,
-                    'total'           => round($row['total'], 2),
+                    'total'           => round($net * $unitPrice, 2),
                 ]);
             }
 

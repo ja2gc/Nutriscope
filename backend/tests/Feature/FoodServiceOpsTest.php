@@ -353,17 +353,14 @@ class FoodServiceOpsTest extends TestCase
 
         $response->assertCreated();
 
-        // 6. Check GROSS planned usage for that Monday (net-of-stock is Spec 6, not yet built).
-        // fsItem1 (recipe, 3 kg/serving × population 2 ÷ recipe servings 1) = 6 kg.
-        // fsItem2 (ready item, 5 per head × population 2)                    = 10 kg.
-        $this->assertDatabaseHas('shopping_list_items', [
-            'fs_item_id' => $fsItem1->id,
-            'qty'        => 6.00,
-        ]);
+        // 6. NET-of-stock buy quantities (Spec 6 #2): planned − on-hand − open orders.
+        // fsItem1: planned 6 kg (recipe 3 kg/serving × pop 2 ÷ servings 1), on-hand 10 → fully covered, NOT on the list.
+        // fsItem2: planned 10 kg (ready item 5/head × pop 2),               on-hand 8  → buy 2.
+        $this->assertDatabaseMissing('shopping_list_items', ['fs_item_id' => $fsItem1->id]);
 
         $this->assertDatabaseHas('shopping_list_items', [
             'fs_item_id' => $fsItem2->id,
-            'qty'        => 10.00,
+            'qty'        => 2.00,
         ]);
     }
 
