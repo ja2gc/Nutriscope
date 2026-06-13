@@ -60,9 +60,17 @@ class ReceivingService
                 continue;
             }
 
-            [$qtyBase, $perBaseCost] = self::normalizeLine(
-                (float) $item->qty, (string) $item->unit, (float) $item->unit_price, (string) $fs->base_unit
-            );
+            $bpp = $fs->basePerPurchase();
+            if ($item->purchase_qty !== null && $bpp > 0) {
+                // Vendor-unit line (Spec 6 #4): exact base = packs × base-per-pack.
+                $qtyBase     = (float) $item->purchase_qty * $bpp;
+                $perBaseCost = (float) $item->purchase_price / $bpp;
+            } else {
+                // Legacy / free-text line: normalise the base-unit fields.
+                [$qtyBase, $perBaseCost] = self::normalizeLine(
+                    (float) $item->qty, (string) $item->unit, (float) $item->unit_price, (string) $fs->base_unit
+                );
+            }
 
             $inv = Inventory::firstOrNew(['fs_item_id' => $fs->id]);
             if (! $inv->exists) {
@@ -74,9 +82,8 @@ class ReceivingService
             $inv->unit_price = round($perBaseCost, 2); // ₱ per base unit (last cost)
             $inv->save();
 
-            $basePerPurchase = $fs->basePerPurchase();
-            if ($basePerPurchase > 0) {
-                $fs->purchase_price = round($perBaseCost * $basePerPurchase, 2);
+            if ($bpp > 0) {
+                $fs->purchase_price = round($perBaseCost * $bpp, 2);
                 $fs->save();
             }
 
