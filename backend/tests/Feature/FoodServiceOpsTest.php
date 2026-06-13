@@ -591,4 +591,33 @@ class FoodServiceOpsTest extends TestCase
 
         $response->assertOk()->assertJsonPath('data.days_served', 2);
     }
+
+    public function test_generate_rounds_to_whole_purchase_units(): void
+    {
+        // 1 kg sack = 1000 g base; planned need 1300 g → must buy 2 sacks (2000 g).
+        $fs = FsItem::factory()->create([
+            'name' => 'Rice', 'base_unit' => 'g', 'purchase_unit' => 'kg',
+            'purchase_price' => 50, 'units_per_purchase' => null,
+        ]);
+        Inventory::factory()->create(['fs_item_id' => $fs->id, 'quantity_in_stock' => 0, 'unit' => 'g']);
+
+        $cycle = MenuCycle::factory()->create(['rnd_user_id' => $this->rnd->id, 'population' => 1]);
+        MenuCycleDay::create([
+            'menu_cycle_id' => $cycle->id, 'day_of_week' => 'Monday',
+            'meal_type' => 'lunch', 'fs_item_id' => $fs->id, 'quantity' => 1300,
+        ]);
+
+        $response = $this->actingAs($this->fss)->postJson('/api/fss/shopping-lists/generate', [
+            'menu_cycle_id' => $cycle->id, 'start_date' => '2026-06-15', 'end_date' => '2026-06-15', // a Monday
+        ]);
+
+        $response->assertCreated();
+        $item = collect($response->json('data.items'))->firstWhere('fs_item_id', $fs->id);
+        $this->assertNotNull($item, 'Rice line should be present');
+        $this->assertEqualsWithDelta(2,    (float) $item['purchase_qty'], 0.01); // ceil(1300/1000)
+        $this->assertSame('kg', $item['purchase_unit']);
+        $this->assertEqualsWithDelta(50,   (float) $item['purchase_price'], 0.01);
+        $this->assertEqualsWithDelta(2000, (float) $item['qty'], 0.01);          // 2 sacks × 1000 g base
+        $this->assertEqualsWithDelta(100,  (float) $item['total'], 0.01);        // 2 × ₱50
+    }
 }
