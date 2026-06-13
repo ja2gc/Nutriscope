@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class MenuCycle extends Model
 {
     use HasFactory;
+    use \App\Models\Concerns\AuditsChanges;
 
     protected $fillable = [
         'rnd_user_id', 'name', 'population', 'budget_per_head_per_day',

@@ -11,6 +11,8 @@ use Illuminate\Support\Facades\Log;
 
 class FoodServiceRecipe extends Model
 {
+    use \App\Models\Concerns\AuditsChanges;
+
     protected $table = 'food_service_recipes';
 
     protected $fillable = [

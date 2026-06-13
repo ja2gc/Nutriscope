@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 class Budget extends Model
 {
     use HasFactory;
+    use \App\Models\Concerns\AuditsChanges;
 
     protected $fillable = [
         'fss_user_id', 'scope', 'name', 'allocated_amount', 'actual_amount',
