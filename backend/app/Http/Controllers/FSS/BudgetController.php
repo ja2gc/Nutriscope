@@ -58,6 +58,7 @@ class BudgetController extends Controller
         $summary['range']               = ['start' => $start->toDateString(), 'end' => $end->toDateString(), 'granularity' => $gran];
         $summary['source']              = $series['source'];
         $summary['cash_flow']           = $series['cash_flow'];
+        $summary['days_served']         = $series['days_served'];
         $summary['allocated']           = (float) ($budget->allocated_amount ?? 0);
         $summary['budget_per_head_day'] = $budget->budget_per_head_day ? (float) $budget->budget_per_head_day : null;
         $summary['population']          = $budget->population;

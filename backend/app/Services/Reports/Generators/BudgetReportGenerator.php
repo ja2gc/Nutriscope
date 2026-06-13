@@ -47,8 +47,11 @@ class BudgetReportGenerator implements ReportGenerator
             'summary'   => $summary,
             'source'    => $series['source'],
             'cash_flow' => $series['cash_flow'],
+            'days_served' => $series['days_served'],
             'allocated' => $allocated,
-            'remaining' => round($allocated - $summary['actual'], 2),
+            // Remaining is a CASH question: allocation minus money disbursed (POs),
+            // not allocation minus food-served value (different axis — see §5-D).
+            'remaining' => round($allocated - $series['cash_flow'], 2),
             'period_label' => $budget->period_start
                 ? Carbon::parse($budget->period_start)->format('M j, Y') . ' – ' .
                   optional($budget->period_end ? Carbon::parse($budget->period_end) : null)?->format('M j, Y')

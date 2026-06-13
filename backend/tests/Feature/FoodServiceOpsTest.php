@@ -543,4 +543,52 @@ class FoodServiceOpsTest extends TestCase
 
         $this->assertEqualsWithDelta(1200, $data['summary']['actual'], 0.01);
     }
+
+    public function test_budget_report_remaining_uses_cash_axis_not_food_served(): void
+    {
+        $budget = Budget::factory()->create([
+            'fss_user_id' => $this->fss->id, 'allocated_amount' => 5000,
+            'budget_per_head_day' => 100, 'population' => 10,
+            'period_start' => '2026-06-09', 'period_end' => '2026-06-11',
+        ]);
+        $cycle = MenuCycle::factory()->create();
+        MealPrepLog::create([ // food served worth 1200 — must NOT drive "remaining"
+            'menu_cycle_id' => $cycle->id, 'service_date' => '2026-06-10',
+            'status' => 'completed', 'total_value' => 1200, 'has_shortfall' => false,
+        ]);
+        PurchaseOrder::factory()->create([ // cash out 800 — this is what "remaining" subtracts
+            'fss_user_id' => $this->fss->id,
+            'status' => 'received', 'received_date' => '2026-06-10', 'total_amount' => 800,
+        ]);
+
+        $report = new \App\Models\Report(['type' => 'budget_report', 'parameters' => [
+            'budget_id' => $budget->id, 'granularity' => 'day',
+        ]]);
+        $data = (new \App\Services\Reports\Generators\BudgetReportGenerator())->data($report);
+
+        $this->assertEqualsWithDelta(4200, $data['remaining'], 0.01);  // 5000 allocated − 800 cash, NOT − 1200 food
+        $this->assertEqualsWithDelta(800, $data['cash_flow'], 0.01);
+        $this->assertSame(1, $data['days_served']);
+    }
+
+    public function test_summary_reports_days_served_count(): void
+    {
+        $budget = Budget::factory()->create([
+            'fss_user_id' => $this->fss->id,
+            'budget_per_head_day' => 100, 'population' => 10,
+            'period_start' => '2026-06-09', 'period_end' => '2026-06-12',
+        ]);
+        $cycle = MenuCycle::factory()->create();
+        foreach (['2026-06-10', '2026-06-11'] as $d) {
+            MealPrepLog::create([
+                'menu_cycle_id' => $cycle->id, 'service_date' => $d,
+                'status' => 'completed', 'total_value' => 500, 'has_shortfall' => false,
+            ]);
+        }
+
+        $response = $this->actingAs($this->fss)
+            ->getJson("/api/fss/budgets/{$budget->id}/summary?start=2026-06-09&end=2026-06-12&granularity=day");
+
+        $response->assertOk()->assertJsonPath('data.days_served', 2);
+    }
 }
