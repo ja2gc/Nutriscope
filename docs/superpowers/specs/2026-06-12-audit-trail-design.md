@@ -1,7 +1,7 @@
 # Spec 5 — App-Wide Audit Trail (change history + per-record UI)
 
 - **Date:** 2026-06-12
-- **Status:** Brainstormed — privacy & scope decisions locked (§8); retention/surfacing remain minor opens
+- **Status:** ✅ BACKEND IMPLEMENTED 2026-06-14 (Part 1). Frontend History panel = Part 2 (pending). Plan: `docs/superpowers/plans/2026-06-14-audit-trail-backend.md`
 - **Scope:** whole app (clinical + food-service), not just FS
 - **Roadmap:** Spec 5 of 5 (see [Spec 1](2026-06-12-fs-costing-immutability-design.md))
 
