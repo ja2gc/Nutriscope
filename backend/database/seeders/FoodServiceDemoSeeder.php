@@ -275,13 +275,15 @@ class FoodServiceDemoSeeder extends Seeder
             'period_start' => $start->toDateString(), 'period_end' => $end->toDateString(),
         ]);
 
-        // Log every day from the 1st up to today.
+        // Log every day from the 1st up to today. Manual cash logs use spent/log_date;
+        // the dashboard's "actual" now comes from consumption (served days), so these
+        // sit on top as hand-entered non-PO spends.
         for ($d = $start->copy(); $d->lte(Carbon::now()); $d->addDay()) {
-            $planned = round($avgDay, 2);
-            $actual  = round($avgDay * (mt_rand(88, 109) / 100), 2);
+            $spent = round($avgDay * (mt_rand(88, 109) / 100), 2);
             BudgetDailyLog::create([
-                'budget_id' => $budget->id, 'date' => $d->toDateString(),
-                'planned' => $planned, 'actual' => $actual, 'variance' => round($actual - $planned, 2),
+                'budget_id' => $budget->id,
+                'log_date'  => $d->toDateString(),
+                'spent'     => $spent,
             ]);
         }
     }
