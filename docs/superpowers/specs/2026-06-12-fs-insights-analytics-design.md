@@ -64,5 +64,5 @@ Every series is derived from **frozen snapshots** (PO lines, prep-log lines) —
 3. **Performance:** naive per-day aggregation over long ranges can be slow; needs the rollup + cache discipline from day one.
 
 ## 8. Open decisions
-- Which 3–4 charts are the MVP for Wave 1? (Recommend: budget trend, price trend, spend-by-supplier.)
-- One combined Insights page vs charts embedded on each existing page (budget chart already lives on the budget page).
+- Which 3–4 charts are the MVP for Wave 1? (Recommend: budget trend, price trend, spend-by-supplier.) **RESOLVED 2026-06-14:** ship **3 new aggregation charts** — spend-by-supplier, cost-per-head (per menu cycle), and consumption (actual value/day + shortfall marker, now that Spec 2 is done) — plus **reuse** the existing per-item price-trend endpoint as a 4th card. Budget trend already lives on the budget page; not duplicated. **Inventory-value-over-time DEFERRED** — needs point-in-time valuation history we don't store (only a live single value exists); revisit with a snapshot table later.
+- One combined Insights page vs charts embedded on each existing page. **RESOLVED:** one combined `food-service/insights/page.tsx` with a shared date-range control + a grid of cards; add a sidebar link under Food Service.
