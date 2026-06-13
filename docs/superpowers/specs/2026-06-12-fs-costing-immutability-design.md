@@ -3,11 +3,11 @@
 - **Date:** 2026-06-12
 - **Status:** Approved design, pending implementation plan
 - **Branch context:** `feat/nutri-engine-overhaul`
-- **Part of:** the food-service loop overhaul. This is **Spec 1 of 6**:
+- **Part of:** the food-service loop overhaul (**Spec 1 of 6**). As of 2026-06-13 the 6-spec roadmap is **complete** — Specs 1–5 implemented, and Spec 6's flow-level fixes landed (#1 report snapshots closed via Spec 4's archive mechanism; #2/#4 procurement accuracy; #7 budget-from-consumption).
   - **Spec 1 (this doc)** — Costing & immutability: receiving a PO updates stock cost correctly; reports stay frozen.
   - **Spec 2 (future)** — Consumption: completing a menu-cycle day deducts ingredients from inventory (warn-but-allow on short stock; idempotent; reversible).
   - **Spec 3 (future)** — Insights/analytics: Recharts dashboards distinct from the compliance PDFs.
-  - **Spec 4 (future)** — Reports-UX overhaul: reports are **always-present, period-filtered views** (browse by type → year → month), rendered on demand from frozen snapshots — no manual "generate" step. Optional "Archive this copy" freezes the as-submitted PDF (data + branding + signatories) for officially filed forms.
+  - **Spec 4 (done)** — Reports-UX overhaul: reports are **always-present, period/entity-filtered views** (browse by type → period/record), rendered on demand — no manual "generate" step. **Archive** freezes the as-submitted PDF + a branding/signatories/period snapshot for officially filed forms (this also closes Spec 6 #1). See [Spec 4](2026-06-12-reports-ux-overhaul-design.md).
   - **Spec 5 (future, app-wide)** — Audit trail: add subject-centric **change** auditing (created-by / edited-by / field-level diffs with actor) to sensitive models via the already-installed `spatie/laravel-activitylog` `LogsActivity` trait, surfaced per-record in the UI. Complements the existing route-level *access* logging. NOTE: corrects `docs/security/security.md:13`, which currently overclaims model-level auditing that is not yet implemented.
   - **Spec 6 (future)** — Procurement accuracy, report snapshots & budget-from-consumption: fixes the **flow-level** flaws the end-to-end review surfaced — net-of-stock + whole-pack purchase-unit procurement (#2/#4), period snapshots that freeze menu-derived reports (#1), and budget daily "actual" sourced from consumption instead of lumpy PO dates (#7). See [Spec 6](2026-06-12-fs-procurement-accuracy-and-snapshots-design.md).
 
