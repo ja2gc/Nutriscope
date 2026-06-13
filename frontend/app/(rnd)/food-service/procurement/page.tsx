@@ -249,7 +249,9 @@ export default function ProcurementPage() {
   const [loading, setLoading] = useState(true);
   const [genOpen, setGenOpen] = useState(false);
   const [genCycle, setGenCycle] = useState("");
-  const [genSpan, setGenSpan] = useState("7");
+  const [genStart, setGenStart] = useState(() => new Date().toISOString().slice(0, 10));
+  const [genEnd, setGenEnd] = useState(() => { const d = new Date(); d.setDate(d.getDate() + 6); return d.toISOString().slice(0, 10); });
+  const [genError, setGenError] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -262,8 +264,14 @@ export default function ProcurementPage() {
 
   async function doGenerate() {
     if (!genCycle) return;
-    const list = await generateFromCycle(parseInt(genCycle), parseInt(genSpan) || 7);
-    setGenOpen(false); await load(); setTab("lists"); setListDetail(list.id);
+    if (!genStart || !genEnd || genEnd < genStart) { setGenError("Pick a valid date range (end on or after start)."); return; }
+    setGenError("");
+    try {
+      const list = await generateFromCycle(parseInt(genCycle), genStart, genEnd);
+      setGenOpen(false); await load(); setTab("lists"); setListDetail(list.id);
+    } catch (e) {
+      setGenError(e instanceof Error ? e.message : "Failed to generate list.");
+    }
   }
 
   if (listDetail) return (
@@ -291,7 +299,7 @@ export default function ProcurementPage() {
       {genOpen && (
         <div className="bg-emerald-50/40 border border-emerald-100 rounded-2xl p-5 shadow-sm">
           <h3 className="text-xs font-extrabold text-emerald-700 uppercase tracking-wider mb-3 flex items-center gap-1.5"><Sparkles className="h-3.5 w-3.5" /> Suggested shopping list</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
             <div>
               <label className="block text-[10px] font-extrabold text-zinc-500 uppercase mb-1">Menu cycle</label>
               <select value={genCycle} onChange={(e) => setGenCycle(e.target.value)} className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500">
@@ -300,15 +308,20 @@ export default function ProcurementPage() {
               </select>
             </div>
             <div>
-              <label className="block text-[10px] font-extrabold text-zinc-500 uppercase mb-1">Day span</label>
-              <input type="number" min="1" value={genSpan} onChange={(e) => setGenSpan(e.target.value)} className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+              <label className="block text-[10px] font-extrabold text-zinc-500 uppercase mb-1">From</label>
+              <input type="date" value={genStart} onChange={(e) => setGenStart(e.target.value)} className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+            </div>
+            <div>
+              <label className="block text-[10px] font-extrabold text-zinc-500 uppercase mb-1">To</label>
+              <input type="date" value={genEnd} min={genStart} onChange={(e) => setGenEnd(e.target.value)} className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500" />
             </div>
             <div className="flex items-end gap-2">
               <Button variant="primary" onClick={doGenerate} className="px-4 py-2">Generate</Button>
               <button onClick={() => setGenOpen(false)} className="text-xs text-zinc-500 hover:text-zinc-700 cursor-pointer">Cancel</button>
             </div>
           </div>
-          <p className="text-[10px] text-zinc-400 mt-2">Aggregates every ingredient the menu needs over the chosen number of days, with each item&apos;s default vendor pre-filled.</p>
+          {genError && <p className="text-[10px] text-red-600 mt-2 font-semibold">{genError}</p>}
+          <p className="text-[10px] text-zinc-400 mt-2">Sums exactly the ingredients the menu plans for each day in the date range (e.g. Tue–Thu), with each item&apos;s default vendor pre-filled.</p>
         </div>
       )}
 
