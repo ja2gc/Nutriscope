@@ -1,7 +1,7 @@
 # Spec 3 — Food-Service Insights / Analytics
 
 - **Date:** 2026-06-12
-- **Status:** Draft design, pending review
+- **Status:** ✅ IMPLEMENTED 2026-06-14 (MVP: spend-by-supplier, cost-per-head, consumption; price-trend + inventory-value deferred). Plan: `docs/superpowers/plans/2026-06-14-fs-insights-analytics.md`
 - **Depends on:** Spec 1 (real spend + price trend), Spec 2 (real consumption) for the richest charts; several charts ship without them
 - **Roadmap:** Spec 3 of 5 (see [Spec 1](2026-06-12-fs-costing-immutability-design.md))
 
