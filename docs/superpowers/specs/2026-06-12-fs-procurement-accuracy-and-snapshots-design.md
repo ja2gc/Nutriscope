@@ -54,6 +54,7 @@ net_need = max(0, planned_need − on_hand_base − in_transit_base)
 - When a menu-derived report is **archived** (Spec 4) — or at an explicit "close period" — persist a **frozen snapshot** of its computed data (menu listing + per-day costs + population + prices used) onto the `Report` row (`parameters`/a `snapshot` JSON column), not just the PDF.
 - Menu-derived report rendering: if a snapshot exists, render from it; only live-compute when no snapshot (i.e. a current/draft view). This is what makes Spec 4 on-demand rendering safe for these types.
 - Narrows the gap Spec 1 §1 flagged: after this, *all* report families are reproducible.
+- **#1 MUST also cover the BUDGET report (review finding, 2026-06-13).** After #7, `BudgetReportGenerator` computes actual live from `BudgetActualService` at render time, and the consumption/purchases switch means the **same range returns different actuals** as days get served. So an archived budget report is *not* frozen today — re-rendering it later changes the numbers. When #1 lands, snapshot the budget report's `dailySeries` output (days + source + cash_flow) onto the `Report` row alongside the menu-derived ones.
 
 ### 3.4 Budget actual from consumption (#7)
 - Budget `summary()` per-day **actual** = Σ `meal_prep_log_lines.line_value` for that **service_date** (Spec 2), not PO totals.
@@ -61,6 +62,14 @@ net_need = max(0, planned_need − on_hand_base − in_transit_base)
 - Keeps the double-count guard (Spec 1 §5.8) meaningful: consumption (food used) and cash logs (money out) are now clearly different axes.
 - **Dependency:** requires Spec 2 consumption data to exist; until then budget actual falls back to received-PO totals (current behavior) with a clear "estimated from purchases" label.
 - **Schema cleanup (review finding — split-brain `budget_daily_logs`).** The table carries **two parallel column sets** for the same concept — `date` + `planned/actual/variance` **and** `log_date` + `spent` — used inconsistently (seeder writes `date`/`actual`; `storeDailyLog` + `summary` use `log_date`/`spent`). Effect: **seeded daily logs are invisible** to the dashboard (summary filters on `log_date`, which is null in seeded rows). Consolidate to **one** set (`log_date` + `spent`), migrate existing rows, and fix the seeder. Do this as part of the budget rework so there's a single source of truth.
+
+#### #7 implemented — known limitations / accepted trade-offs (2026-06-13)
+Done in `BudgetActualService` + `BudgetController::summary` + `BudgetReportGenerator` + FE badges. Post-implementation review surfaced these, fixed-or-accepted:
+- **FIXED — cash guardrail.** In consumption mode the headline variance compares cap vs food-served only, so cash overspend (money tied up in unserved inventory) was no longer guarded. Dashboard now shows a `cash_flow` vs `allocated` chip (red when over); the report's `remaining` was corrected to the **cash axis** (`allocated − cash_flow`), not `allocated − food-served`.
+- **FIXED — served-day visibility.** `dailySeries` returns `days_served`; FE/PDF show "N day(s) served in range" so a logging gap (which silently reads as under-budget — planned is charged per calendar day, actual only for served days) is visible.
+- **ACCEPTED — facility-wide consumption scope.** Consumption is read across ALL menu cycles in the range, not scoped to the budget's cycle/population. Correct for single-facility / one-active-budget-per-period; documented in `BudgetActualService` docblock. Revisit if budgets can overlap in time.
+- **ACCEPTED — manual-log vs consumption double-count.** Consumption-mode actual = consumption + manual `spent`; the `storeDailyLog` double-count warning only covers POs, so a hand-logged spend for food that also flows through consumption is counted twice. Manual logs are meant for non-PO, non-inventory cash only; left as documented behaviour.
+- **DEFERRED to #1** — budget report not yet frozen (see §3.3).
 
 ## 4. Data model
 - `purchase_order_items` / `shopping_list_items`: add `purchase_qty`, `purchase_unit`, `purchase_price` (keep existing base fields for stock math).
