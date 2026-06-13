@@ -17,7 +17,8 @@ class AuditMiddleware
     {
         $response = $next($request);
 
-        if ($request->user()) {
+        // Decision B (Spec 5): log mutations only — routine GET reads are noise.
+        if ($request->user() && ! $request->isMethodSafe()) {
             activity($logName)
                 ->causedBy($request->user())
                 ->withProperties([
