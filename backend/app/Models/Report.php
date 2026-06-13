@@ -10,13 +10,14 @@ class Report extends Model
     use HasFactory;
     
     protected $fillable = [
-        'user_id', 'title', 'type', 'filters', 'parameters',
+        'user_id', 'title', 'type', 'filters', 'parameters', 'snapshot',
         'file_path', 'status', 'generated_at', 'expires_at'
     ];
 
     protected $casts = [
         'filters' => 'array',
         'parameters' => 'array',
+        'snapshot' => 'array',
         'generated_at' => 'datetime',
         'expires_at' => 'datetime',
     ];

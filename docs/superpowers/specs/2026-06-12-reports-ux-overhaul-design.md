@@ -74,3 +74,19 @@ Replace the generate-cards + flat list with a browser: pick type → pick year/m
 2. **Enumerating instances can be heavy** (e.g. every month with a received PO across years) — needs indexed queries + maybe lazy year/month facets.
 3. **Empty periods:** do we list a month with no data at all, or hide it? (Recommend: only list periods that have data.)
 4. **Open decision:** retire the old generate endpoints outright, or keep them deprecated for one release?
+
+## 9. Resolutions (2026-06-13)
+
+Resolved in brainstorming; **Part 1 (backend) is implemented** (commit set; full PHP suite 426/426). Part 2 (frontend browser rewrite) is a separate `ui-ux-pro-max` → `writing-plans` cycle.
+
+- **Snapshot mechanism — store PDF bytes (light), not a full data snapshot.** The `Archive` action renders the PDF **once**, stores it, and writes a `Report` row (`status='archived'`) plus a small `snapshot` JSON holding the **branding + signatories + params** actually used. Re-download serves the **frozen stored bytes** — it never re-renders — so the as-filed copy is frozen with zero per-generator/per-Blade-view rewrite. This **closes Spec 6 #1** for the filed-document case (the §16 critical exception): a menu-derived report you archived is frozen as bytes; a *live* render of a past menu period still shows current prices and the UI must label it "live preview." You can only recover a frozen menu-derived doc if you archived it — inherent to not auto-snapshotting at period close (deferred).
+- **#3 (no-data render): 404 with a clear message.** The browser only ever lists real instances, so this is the edge guard. Implemented via `InstanceSource::hasData()`.
+- **#3 (empty periods): only enumerate periods/entities that have data.** Driven by per-type `InstanceSource`s (period / entity / singleton axes — see §3).
+- **#4 (old endpoints): keep `generate`/`generate-all` working but `@deprecated` for one release;** new `instances` / `render` / `archive` endpoints added alongside.
+
+**Implementation notes (Part 1):**
+- New: `GET reports/{type}/instances`, `GET reports/{type}/render` (no DB row), `POST reports/{type}/archive`.
+- `ReportService::buildPdf()` extracted so render can stream from a **transient** (un-saved) `Report`; `generate()` still stores for archives.
+- Browse axis lives in `App\Services\Reports\Instances\*` + `ReportBrowser` (parallel to the generator registry; generators stay render-only).
+- Migration converts `reports.type`/`reports.status` from `enum` to plain `string` (the enum CHECK had to be patched per-driver each time the type list grew and was never updated on sqlite) and adds the `snapshot` JSON column.
+- Report routes de-duplicated into a single shared closure used by both the `rnd` and `fss` route groups.
