@@ -32,21 +32,21 @@ class BudgetReportGenerator implements ReportGenerator
     public function data(Report $report): array
     {
         $params = $report->parameters ?? [];
-        $budget = Budget::with('dailyLogs')->findOrFail($params['budget_id']);
+        $budget = Budget::findOrFail($params['budget_id']);
 
         $granularity = $params['granularity'] ?? 'month';
-        $days = $budget->dailyLogs->map(fn ($log) => [
-            'date'    => optional($log->date ?? $log->log_date)->toDateString() ?? '',
-            'planned' => (float) ($log->planned ?? 0),
-            'actual'  => (float) ($log->actual ?? $log->spent ?? 0),
-        ])->filter(fn ($d) => $d['date'] !== '')->values()->all();
+        $start = Carbon::parse($params['start'] ?? $budget->period_start ?? now()->startOfMonth());
+        $end   = Carbon::parse($params['end'] ?? $budget->period_end ?? now()->endOfMonth());
 
-        $summary   = BudgetService::summarize($days, $granularity);
+        $series    = \App\Services\BudgetActualService::dailySeries($budget, $start, $end);
+        $summary   = BudgetService::summarize($series['days'], $granularity);
         $allocated = (float) $budget->allocated_amount;
 
         return [
             'budget'    => $budget,
             'summary'   => $summary,
+            'source'    => $series['source'],
+            'cash_flow' => $series['cash_flow'],
             'allocated' => $allocated,
             'remaining' => round($allocated - $summary['actual'], 2),
             'period_label' => $budget->period_start
