@@ -42,6 +42,7 @@ class ReportBrowser
                 fn () => PurchaseOrder::query()->where('status', 'received')->with('supplier'),
                 'purchase_order_id',
                 fn (PurchaseOrder $po) => trim(($po->po_number ?: "PO #{$po->id}")
+                    . (optional($po->order_date)?->format('M j, Y') ? ' — ' . $po->order_date->format('M j, Y') : '')
                     . ($po->supplier ? " — {$po->supplier->name}" : '')),
                 'order_date',
             ),
