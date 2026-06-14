@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   FileText, RefreshCw, CalendarRange, CalendarDays, BookText, PackageCheck,
   Wallet, Boxes, Download, Trash2, Users, ClipboardList, Building2, Save,
-  Archive, Loader2, CheckCircle2, AlertTriangle, FolderArchive, Eye,
+  Archive, Loader2, CheckCircle2, AlertTriangle, FolderArchive, Eye, Stethoscope,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -42,6 +42,7 @@ const CATALOG: CatalogEntry[] = [
   { type: "inventory_report", name: "Inventory Report", desc: "Current stock levels, value & low-stock.", icon: Boxes, group: "Food Service" },
   { type: "demographic_census", name: "Demographic Census", desc: "Patient counts by age, sex, ward, diagnosis.", icon: ClipboardList, group: "Clinical" },
   { type: "patient_menu_plan", name: "Patient Menu Plan", desc: "A patient's ADIME meal plan as a calendar.", icon: Users, group: "Clinical" },
+  { type: "ncp_summary", name: "NCP Summary", desc: "Patient Nutrition Care Plan (ADIME) — assessment, diagnosis, intervention, monitoring.", icon: Stethoscope, group: "Clinical" },
 ];
 
 type Flash = { ok: boolean; msg: string } | null;
