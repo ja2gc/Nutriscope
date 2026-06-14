@@ -81,6 +81,15 @@ class MonitoringController extends Controller
      */
     public function store(StoreMonitoringRequest $request, NcpRecord $ncpRecord)
     {
+        // Monitoring & Evaluation is a FOLLOW-UP activity: the initial encounter
+        // produces the care plan (assessment → diagnosis → intervention). Block
+        // monitoring on the first encounter, before that plan exists.
+        if (! $ncpRecord->intervention()->exists()) {
+            return response()->json([
+                'message' => 'Monitoring is for follow-up visits. Complete the assessment, diagnosis, and intervention first.',
+            ], 422);
+        }
+
         $data = $request->validated();
         $monitoring = new Monitoring($data);
         $monitoring->ncp_record_id = $ncpRecord->id;

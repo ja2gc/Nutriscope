@@ -6,7 +6,10 @@ Observations gathered while writing the role workflow docs. **These are notes fo
 
 ## A. NCP (clinical) — highest priority
 
-### A1. Monitoring is not gated to follow-up visits — HIGH (logical)
+### A1. Monitoring is not gated to follow-up visits — ✅ FIXED 2026-06-14 (logical)
+**Resolved:** `MonitoringController::store` now returns 422 unless the NCP record has an Intervention (the initial assessment→diagnosis→intervention plan), so monitoring is follow-up-only and can't be logged on the first encounter. Test: `NcpMonitoringTest::test_monitoring_blocked_on_first_encounter_without_care_plan`.
+
+_Original finding:_
 The workflow intends monitoring for the **2nd visit onward**, and `InterventionController` even has a comment to that effect, but **no code enforces it**: `MonitoringController::store` has no guard, so a monitoring row can be created on the first encounter. Related: `NcpRecord.type` (`new|followup|reassessment`) is set to `new` at `startNcpCycle` and **never updated**, so the type-based gate is effectively dead. *Fix idea:* require ≥1 completed A/D/I (or `status='active'`) before allowing monitoring, and/or drive a real `type`/visit-count.
 
 ### A2. NCP steps can be done out of order / skipped — MEDIUM (logical)
