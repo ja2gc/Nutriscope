@@ -80,34 +80,15 @@ export async function listReports(): Promise<ReportItem[]> {
   return unwrap(await apiFetch("/api/rnd/reports"), "Failed to load reports.");
 }
 
-export async function generateReport(type: ReportType | string, parameters: ReportParams): Promise<ReportItem> {
-  return unwrap(
-    await apiFetch("/api/rnd/reports", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ template_code: type, parameters: clean(parameters) }),
-    }),
-    "Failed to generate report.",
-  );
-}
-
-export async function generateAll(parameters: ReportParams): Promise<ReportItem[]> {
-  return unwrap(
-    await apiFetch("/api/rnd/reports/generate-all", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ parameters: clean(parameters) }),
-    }),
-    "Failed to generate report set.",
-  );
-}
-
 export async function deleteReport(id: number): Promise<void> {
   const res = await apiFetch(`/api/rnd/reports/${id}`, { method: "DELETE" });
   if (!res.ok && res.status !== 204) throw new Error("Failed to delete report.");
 }
 
 export const reportDownloadUrl = (id: number) => `/api/rnd/reports/${id}/download`;
+
+/** Inline (viewable) URL for an archived copy's frozen PDF — for the preview pane. */
+export const reportViewUrl = (id: number) => `/api/rnd/reports/${id}/view`;
 
 // ── Browse / on-demand render / archive (Spec 4) ──────────────────────────
 function toQuery(params: ReportParams): string {
@@ -168,33 +149,6 @@ export async function saveTemplate(id: number, payload: { name?: string; signato
     }),
     "Failed to save template.",
   );
-}
-
-// ── Selector sources (reused FS/NCP endpoints) ────────────────────────────
-export interface Option { id: number; label: string }
-
-export async function listMenuCycleOptions(): Promise<Option[]> {
-  const data = await unwrap<Array<{ id: number; name: string }>>(await apiFetch("/api/fss/menu-cycles"), "Failed to load menu cycles.");
-  return data.map((c) => ({ id: c.id, label: c.name || `Cycle #${c.id}` }));
-}
-
-export async function listBudgetOptions(): Promise<Option[]> {
-  const data = await unwrap<Array<{ id: number; name: string | null; scope: string }>>(await apiFetch("/api/fss/budgets"), "Failed to load budgets.");
-  return data.map((b) => ({ id: b.id, label: `${b.name || `Budget #${b.id}`} (${b.scope})` }));
-}
-
-export async function listShoppingListOptions(): Promise<Option[]> {
-  const data = await unwrap<Array<{ id: number; name?: string | null }>>(await apiFetch("/api/fss/shopping-lists"), "Failed to load shopping lists.");
-  return data.map((s) => ({ id: s.id, label: s.name || `List #${s.id}` }));
-}
-
-export async function listPatientOptions(): Promise<Option[]> {
-  const res = await apiFetch("/api/patients");
-  const json = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error((json as { message?: string }).message ?? "Failed to load patients.");
-  // /api/patients returns a Laravel paginator: { data: [...] }.
-  const list: Array<{ id: number; name: string }> = Array.isArray(json) ? json : json.data ?? [];
-  return list.map((p) => ({ id: p.id, label: p.name }));
 }
 
 function clean(p: ReportParams): ReportParams {

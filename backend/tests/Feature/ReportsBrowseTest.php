@@ -129,6 +129,42 @@ class ReportsBrowseTest extends TestCase
             ->assertNotFound();
     }
 
+    // ── Clinical reports are RND-only (PHI guard) ───────────────────────────
+
+    public function test_fss_cannot_browse_clinical_reports(): void
+    {
+        $fss = User::factory()->create(['role' => 'FSS']);
+
+        $this->actingAs($fss)
+            ->getJson('/api/fss/reports/patient_menu_plan/instances')
+            ->assertForbidden();
+        $this->actingAs($fss)
+            ->get('/api/fss/reports/demographic_census/render?start=2026-05-01&end=2026-05-31')
+            ->assertForbidden();
+    }
+
+    public function test_rnd_can_browse_clinical_reports(): void
+    {
+        $this->actingAs($this->rnd)
+            ->getJson('/api/rnd/reports/patient_menu_plan/instances')
+            ->assertOk()
+            ->assertJsonPath('data.axis', 'entity');
+    }
+
+    public function test_archive_prepared_by_is_the_authenticated_user_not_client_supplied(): void
+    {
+        Storage::fake('public');
+        $this->receivedPo('2026-05-10');
+
+        // A client tries to spoof the filer via query params.
+        $id = $this->actingAs($this->rnd)
+            ->postJson('/api/rnd/reports/dietary_cash_book/archive?start=2026-05-01&end=2026-05-31&prepared_by_name=Someone%20Else')
+            ->json('data.id');
+
+        $report = Report::findOrFail($id);
+        $this->assertSame($this->rnd->name, $report->parameters['prepared_by_name']);
+    }
+
     // ── On-demand render ────────────────────────────────────────────────────
 
     public function test_render_streams_pdf_without_persisting(): void
@@ -204,6 +240,40 @@ class ReportsBrowseTest extends TestCase
         $download->assertOk();
         $this->assertSame($frozenBytes, $download->streamedContent());
         $this->assertNotSame('COMPLETELY NEW HOSPITAL NAME', $snapshotName);
+    }
+
+    /** Seed an archived report with a stored (fake) PDF — no DomPDF render needed. */
+    private function archivedReport(): Report
+    {
+        Storage::disk('public')->put('reports/seeded.pdf', '%PDF-1.4 seeded');
+
+        return Report::factory()->create([
+            'user_id'   => $this->rnd->id,
+            'type'      => 'dietary_cash_book',
+            'status'    => 'archived',
+            'file_path' => 'reports/seeded.pdf',
+        ]);
+    }
+
+    public function test_view_streams_archived_copy_inline(): void
+    {
+        Storage::fake('public');
+        $report = $this->archivedReport();
+
+        $res = $this->actingAs($this->rnd)->get("/api/rnd/reports/{$report->id}/view");
+
+        $res->assertOk();
+        $this->assertSame('application/pdf', $res->headers->get('Content-Type'));
+        $this->assertStringContainsString('inline', (string) $res->headers->get('Content-Disposition'));
+    }
+
+    public function test_view_is_owner_scoped(): void
+    {
+        Storage::fake('public');
+        $report = $this->archivedReport();
+
+        $other = User::factory()->create(['role' => 'RND']);
+        $this->actingAs($other)->get("/api/rnd/reports/{$report->id}/view")->assertForbidden();
     }
 
     // ── Spec-1 immutability through the new path ────────────────────────────

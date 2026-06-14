@@ -28,6 +28,12 @@ class ReportController extends Controller
         'inventory_report',
     ];
 
+    /** Reports that expose patient/clinical data — RND-only, never food-service. */
+    private const CLINICAL_TYPES = [
+        'patient_menu_plan',
+        'demographic_census',
+    ];
+
     public function index(): JsonResponse
     {
         $reports = Report::where('user_id', Auth::id())->latest()->get();
@@ -41,6 +47,7 @@ class ReportController extends Controller
     public function store(StoreReportRequest $request, ReportService $reports): JsonResponse
     {
         $template = ReportTemplate::where('type', $request->template_code)->firstOrFail();
+        $this->guardClinical($template->type);
         $report   = $this->createReport($template->type, $template->name, $request->parameters ?? []);
 
         $this->run($report, $reports);
@@ -85,6 +92,7 @@ class ReportController extends Controller
     public function instances(Request $request, string $type, ReportBrowser $browser): JsonResponse
     {
         abort_unless($browser->supports($type), 404, 'Unknown report type.');
+        $this->guardClinical($type);
 
         $source  = $browser->sourceFor($type);
         $filters = $request->only(['year', 'month']);
@@ -104,6 +112,7 @@ class ReportController extends Controller
     public function render(Request $request, string $type, ReportService $reports, ReportBrowser $browser): Response
     {
         abort_unless($reports->supports($type) && $browser->supports($type), 404, 'Unknown report type.');
+        $this->guardClinical($type);
 
         $params = $this->renderParams($request);
         abort_unless($browser->sourceFor($type)->hasData($params), 404, 'No data for this report period.');
@@ -123,6 +132,7 @@ class ReportController extends Controller
     public function archive(Request $request, string $type, ReportService $reports, ReportBrowser $browser): JsonResponse
     {
         abort_unless($reports->supports($type) && $browser->supports($type), 404, 'Unknown report type.');
+        $this->guardClinical($type);
 
         $params = $this->renderParams($request);
         abort_unless($browser->sourceFor($type)->hasData($params), 404, 'No data for this report period.');
@@ -173,6 +183,24 @@ class ReportController extends Controller
         return Storage::disk('public')->download($report->file_path, $name);
     }
 
+    /**
+     * Stream an archived copy INLINE (for the in-app preview) — frozen stored
+     * bytes, never re-rendered, same owner check as {@see download()}.
+     */
+    public function view(Report $report): StreamedResponse|JsonResponse
+    {
+        $this->authorizeOwner($report);
+
+        if (! $report->file_path || ! Storage::disk('public')->exists($report->file_path)) {
+            return response()->json(['message' => 'Report file not available.'], 404);
+        }
+
+        return Storage::disk('public')->response($report->file_path, str($report->title)->slug() . '.pdf', [
+            'Content-Type'        => 'application/pdf',
+            'Content-Disposition' => 'inline',
+        ]);
+    }
+
     public function destroy(Report $report): JsonResponse
     {
         $this->authorizeOwner($report);
@@ -185,10 +213,23 @@ class ReportController extends Controller
         return response()->json(null, 204);
     }
 
-    /** Snapshot the requesting user's name so generators can fill "prepared by". */
+    /** Clinical reports carry PHI — only RND may browse/render/file them. */
+    private function guardClinical(string $type): void
+    {
+        if (in_array($type, self::CLINICAL_TYPES, true) && Auth::user()?->role !== 'RND') {
+            abort(403, 'This report contains patient data and is restricted to the RND role.');
+        }
+    }
+
+    /**
+     * Snapshot the "prepared by" name so generators can fill it. Always the
+     * authenticated filer — never a client-supplied value (compliance integrity).
+     */
     private function createReport(string $type, string $title, array $params, string $status = 'pending'): Report
     {
-        $params['prepared_by_name'] ??= Auth::user()?->name;
+        if ($name = Auth::user()?->name) {
+            $params['prepared_by_name'] = $name;
+        }
 
         return Report::create([
             'user_id'    => Auth::id(),
