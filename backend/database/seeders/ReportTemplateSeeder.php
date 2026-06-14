@@ -109,6 +109,15 @@ class ReportTemplateSeeder extends Seeder
                 ],
             ],
             [
+                'type' => 'ncp_summary', 'name' => 'NCP Summary (Nutrition Care Plan)',
+                'blade_view' => 'reports.ncp-summary',
+                'description' => 'Per-patient ADIME care plan — assessment, diagnosis, intervention, monitoring.',
+                'signatories' => [
+                    ['role' => 'prepared_by', 'label' => 'Prepared by:', 'name' => $rnd[0], 'title' => $rnd[1]],
+                    ['role' => 'conforme', 'label' => 'Conforme (Attending Physician):', 'name' => '', 'title' => 'Attending Physician'],
+                ],
+            ],
+            [
                 'type' => 'budget_report', 'name' => 'Budget Report',
                 'blade_view' => 'reports.budget',
                 'description' => 'Planned vs actual, variance, any range.',

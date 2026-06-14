@@ -32,6 +32,7 @@ class ReportController extends Controller
     private const CLINICAL_TYPES = [
         'patient_menu_plan',
         'demographic_census',
+        'ncp_summary',
     ];
 
     public function index(): JsonResponse

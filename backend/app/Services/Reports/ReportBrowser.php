@@ -5,6 +5,7 @@ namespace App\Services\Reports;
 use App\Models\Budget;
 use App\Models\MealPlan;
 use App\Models\MenuCycle;
+use App\Models\NcpRecord;
 use App\Models\Patient;
 use App\Models\PurchaseOrder;
 use App\Services\Reports\Contracts\InstanceSource;
@@ -57,6 +58,14 @@ class ReportBrowser
                 fn () => Patient::query()->whereIn('id', MealPlan::query()->select('patient_id')),
                 'patient_id',
                 fn (Patient $p) => $p->name ?? "Patient #{$p->id}",
+            ),
+            'ncp_summary' => fn () => new EntityInstanceSource(
+                fn () => NcpRecord::query()->with('patient'),
+                'ncp_record_id',
+                fn (NcpRecord $r) => trim(($r->patient?->name ?? "Patient #{$r->patient_id}")
+                    . ' — ' . optional($r->created_at)->format('M j, Y')
+                    . ($r->status ? " ({$r->status})" : '')),
+                'created_at',
             ),
 
             // ── singleton axis (point-in-time) ───────────────────────────────

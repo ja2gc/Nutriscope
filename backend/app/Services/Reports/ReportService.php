@@ -11,6 +11,7 @@ use App\Services\Reports\Generators\DemographicCensusGenerator;
 use App\Services\Reports\Generators\DietaryCashBookGenerator;
 use App\Services\Reports\Generators\InventoryReportGenerator;
 use App\Services\Reports\Generators\MenuCalendarGenerator;
+use App\Services\Reports\Generators\NcpSummaryGenerator;
 use App\Services\Reports\Generators\PatientMenuPlanGenerator;
 use App\Services\Reports\Generators\ProcurementPackGenerator;
 use App\Services\Reports\Generators\ProgramProjectActivityGenerator;
@@ -34,6 +35,7 @@ class ReportService
         'procurement_pack'         => ProcurementPackGenerator::class,
         'demographic_census'       => DemographicCensusGenerator::class,
         'patient_menu_plan'        => PatientMenuPlanGenerator::class,
+        'ncp_summary'              => NcpSummaryGenerator::class,
         'budget_report'            => BudgetReportGenerator::class,
         'budget'                   => BudgetReportGenerator::class,
         'inventory_report'         => InventoryReportGenerator::class,
