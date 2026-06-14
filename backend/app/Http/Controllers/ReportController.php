@@ -159,10 +159,19 @@ class ReportController extends Controller
         return response()->json(['data' => new ReportResource($report->fresh())], 201);
     }
 
-    /** On-demand render/archive params: everything except framework noise. */
+    /**
+     * On-demand render/archive params: everything except framework noise, with the
+     * "prepared by" forced to the authenticated user so the signatory is always the
+     * real filer (never the template default, never a client-supplied value).
+     */
     private function renderParams(Request $request): array
     {
-        return $request->except(['year', 'month']);
+        $params = $request->except(['year', 'month']);
+        if ($name = Auth::user()?->name) {
+            $params['prepared_by_name'] = $name;
+        }
+
+        return $params;
     }
 
     public function show(Report $report): JsonResponse
