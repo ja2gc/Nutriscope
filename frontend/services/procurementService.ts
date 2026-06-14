@@ -99,6 +99,15 @@ export async function uploadAttachment(poId: number, file: File, type: "receipt"
   const res = await apiFetch(`/api/fss/purchase-orders/${poId}/attachments`, { method: "POST", body: fd });
   return unwrap(res, "Failed to upload.");
 }
+/** Upload several receipt/proof photos at once. */
+export async function uploadAttachments(poId: number, files: File[], type: "receipt" | "proof", caption?: string): Promise<POAttachment[]> {
+  const fd = new FormData();
+  files.forEach((f) => fd.append("files[]", f));
+  fd.append("type", type);
+  if (caption) fd.append("caption", caption);
+  const res = await apiFetch(`/api/fss/purchase-orders/${poId}/attachments`, { method: "POST", body: fd });
+  return unwrap(res, "Failed to upload.");
+}
 export async function deleteAttachment(attachmentId: number): Promise<void> {
   const res = await apiFetch(`/api/fss/purchase-order-attachments/${attachmentId}`, { method: "DELETE" });
   if (!res.ok && res.status !== 204) throw new Error("Failed to delete attachment.");

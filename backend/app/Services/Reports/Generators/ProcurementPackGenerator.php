@@ -73,7 +73,7 @@ class ProcurementPackGenerator implements ReportGenerator
 
     private function resolveOrders(array $params): Collection
     {
-        $query = PurchaseOrder::with(['items.fsItem', 'supplier']);
+        $query = PurchaseOrder::with(['items.fsItem', 'supplier', 'attachments']);
 
         if (! empty($params['purchase_order_id'])) {
             return $query->whereKey($params['purchase_order_id'])->get();
@@ -120,6 +120,12 @@ class ProcurementPackGenerator implements ReportGenerator
             'statement_items' => $statementItems,
             'grand_total'     => round($grandTotal, 2),
             'order_date'      => $date,
+            // Uploaded receipt / proof-of-purchase photos, embedded as an appendix.
+            'attachments'     => $po->attachments->map(fn ($a) => [
+                'type'    => $a->type,
+                'caption' => $a->caption,
+                'src'     => storage_path('app/public/' . $a->path),
+            ])->values()->all(),
             'summary'         => [
                 'date_purchased' => $date,
                 'inclusive'      => $date,

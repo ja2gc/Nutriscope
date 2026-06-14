@@ -48,8 +48,9 @@ class MonitoringController extends Controller
             return response()->json(['data' => ['narrative' => $latest->ai_review, 'cached' => true]]);
         }
 
-        // Rate-limit: 5 AI reviews per user per minute.
-        $rlKey = 'ai-review:' . (auth()->id() ?? 'guest') . ':' . $ncpRecord->id;
+        // Rate-limit: 5 AI reviews per user per minute (per-user, not per-NCP —
+        // keying on the record let a user bypass the cap by switching NCPs).
+        $rlKey = 'ai-review:' . (auth()->id() ?? 'guest');
         if (RateLimiter::tooManyAttempts($rlKey, 5)) {
             return response()->json(['message' => 'Too many AI reviews. Try again shortly.'], 429);
         }

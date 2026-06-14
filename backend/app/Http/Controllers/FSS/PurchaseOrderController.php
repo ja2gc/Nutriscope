@@ -138,20 +138,32 @@ class PurchaseOrderController extends Controller
 
     public function uploadAttachment(Request $request, PurchaseOrder $purchaseOrder): JsonResponse
     {
-        $data = $request->validate([
-            'file'    => ['required', 'file', 'image', 'max:8192'],
+        $request->validate([
             'type'    => ['required', 'in:receipt,proof'],
             'caption' => ['nullable', 'string', 'max:255'],
+            'file'    => ['sometimes', 'file', 'image', 'max:8192'],       // single (back-compat)
+            'files'   => ['sometimes', 'array', 'max:20'],                 // multiple
+            'files.*' => ['file', 'image', 'max:8192'],
         ]);
 
-        $path = $request->file('file')->store('po-attachments', 'public');
-        $att  = $purchaseOrder->attachments()->create([
-            'type'    => $data['type'],
-            'path'    => $path,
-            'caption' => $data['caption'] ?? null,
-        ]);
+        $multi = $request->hasFile('files');
+        $files = $multi ? $request->file('files') : array_values(array_filter([$request->file('file')]));
 
-        return response()->json(['data' => ['id' => $att->id, 'type' => $att->type, 'path' => $att->path, 'caption' => $att->caption]], 201);
+        if (empty($files)) {
+            return response()->json(['message' => 'At least one image file is required.'], 422);
+        }
+
+        $created = collect($files)->map(function ($f) use ($purchaseOrder, $request) {
+            $att = $purchaseOrder->attachments()->create([
+                'type'    => $request->input('type'),
+                'path'    => $f->store('po-attachments', 'public'),
+                'caption' => $request->input('caption'),
+            ]);
+            return ['id' => $att->id, 'type' => $att->type, 'path' => $att->path, 'caption' => $att->caption];
+        })->all();
+
+        // Single-file callers still get a single object; multi-file callers get an array.
+        return response()->json(['data' => $multi ? $created : $created[0]], 201);
     }
 
     public function destroyAttachment(PurchaseOrderAttachment $attachment): JsonResponse
