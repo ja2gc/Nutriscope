@@ -12,13 +12,20 @@ class DiagnosisFactory extends Factory
 
     public function definition(): array
     {
+        $problem        = fake()->sentence(3);
+        $etiology       = fake()->sentence(4);
+        $signsSymptoms  = fake()->sentence(4);
+
         return [
-            'ncp_record_id' => \App\Models\NcpRecord::factory(),
-            'domain'        => fake()->randomElement(['NI', 'NC', 'NB']),
-            'label'         => fake()->sentence(4),
-            'etiology'      => 'related to ' . fake()->sentence(4),
-            'signs'         => 'evidenced by ' . fake()->sentence(4),
-            'priority'      => fake()->numberBetween(1, 5),
+            'ncp_record_id'  => \App\Models\NcpRecord::factory(),
+            'domain'         => fake()->randomElement(['NI', 'NC', 'NB']),
+            'problem'        => $problem,
+            'label'          => fake()->sentence(4),
+            'etiology'       => $etiology,
+            'signs_symptoms' => $signsSymptoms,
+            'pes_statement'  => Diagnosis::buildPes($problem, $etiology, $signsSymptoms),
+            'extra_notes'    => fake()->optional()->sentence(),
+            'ai_generated'   => fake()->boolean(),
         ];
     }
 }
