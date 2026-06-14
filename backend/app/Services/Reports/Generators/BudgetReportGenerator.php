@@ -48,6 +48,10 @@ class BudgetReportGenerator implements ReportGenerator
             'source'    => $series['source'],
             'cash_flow' => $series['cash_flow'],
             'days_served' => $series['days_served'],
+            // Per-day series for the cost-per-head vs population chart (only served days
+            // carry a population/per_head). Limit = the settable per-head cap.
+            'daily'         => $series['days'],
+            'limit_per_head' => $budget->budget_per_head_day !== null ? (float) $budget->budget_per_head_day : null,
             'allocated' => $allocated,
             // Remaining is a CASH question: allocation minus money disbursed (POs),
             // not allocation minus food-served value (different axis — see §5-D).

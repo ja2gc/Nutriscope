@@ -99,5 +99,45 @@
         </tbody>
     </table>
 
+    @php
+        // Per-head vs population, per recorded service day across the chosen span.
+        $served = collect($daily ?? [])->filter(fn ($d) => ($d['population'] ?? null) !== null)->values();
+        $cw = 520; $cTop = 10; $cBottom = 140; $cLeft = 38; $cRight = 512;
+        $maxPH = 1.0;
+        foreach ($served as $d) { $maxPH = max($maxPH, (float) ($d['per_head'] ?? 0)); }
+        if (! empty($limit_per_head)) { $maxPH = max($maxPH, (float) $limit_per_head); }
+        $sn = max(1, $served->count());
+        $sSlot = ($cRight - $cLeft) / $sn;
+        $sBarW = min(22, $sSlot * 0.5);
+        $phY = fn ($v) => $cBottom - ($v / $maxPH) * ($cBottom - $cTop);
+    @endphp
+
+    @if($served->count() > 0)
+        <div class="bold" style="margin-top:12px;">Cost per Head vs Population (daily)</div>
+        <div class="muted" style="font-size:9px;">Realized cost per head (food served ÷ that day's headcount) for each recorded service day in the period; population (n) shown under each bar.</div>
+        <svg width="{{ $cw }}" height="{{ $cBottom + 40 }}" viewBox="0 0 {{ $cw }} {{ $cBottom + 40 }}" style="margin-top:4px;">
+            <line x1="{{ $cLeft }}" y1="{{ $cBottom }}" x2="{{ $cRight }}" y2="{{ $cBottom }}" stroke="#999" stroke-width="0.8" />
+            <line x1="{{ $cLeft }}" y1="{{ $cTop }}" x2="{{ $cLeft }}" y2="{{ $cBottom }}" stroke="#999" stroke-width="0.8" />
+            <text x="{{ $cLeft - 4 }}" y="{{ $cBottom }}" text-anchor="end" font-size="7" fill="#666">0</text>
+            <text x="{{ $cLeft - 4 }}" y="{{ $cTop + 6 }}" text-anchor="end" font-size="7" fill="#666">{{ number_format($maxPH, 0) }}</text>
+            @if(!empty($limit_per_head))
+                <line x1="{{ $cLeft }}" y1="{{ $phY((float) $limit_per_head) }}" x2="{{ $cRight }}" y2="{{ $phY((float) $limit_per_head) }}" stroke="#dc2626" stroke-width="0.7" stroke-dasharray="3,2" />
+                <text x="{{ $cRight }}" y="{{ $phY((float) $limit_per_head) - 2 }}" text-anchor="end" font-size="6" fill="#dc2626">limit ₱{{ number_format((float) $limit_per_head, 0) }}</text>
+            @endif
+            @foreach($served as $i => $d)
+                @php
+                    $ph = (float) ($d['per_head'] ?? 0);
+                    $x = $cLeft + $i * $sSlot + ($sSlot - $sBarW) / 2;
+                    $h = $cBottom - $phY($ph);
+                    $over = ! empty($limit_per_head) && $ph > (float) $limit_per_head;
+                @endphp
+                <rect x="{{ $x }}" y="{{ $phY($ph) }}" width="{{ $sBarW }}" height="{{ max(0, $h) }}" fill="{{ $over ? '#dc2626' : '#059669' }}" />
+                <text x="{{ $x + $sBarW / 2 }}" y="{{ $phY($ph) - 2 }}" text-anchor="middle" font-size="5.5" fill="#333">{{ number_format($ph, 0) }}</text>
+                <text x="{{ $x + $sBarW / 2 }}" y="{{ $cBottom + 9 }}" text-anchor="middle" font-size="5.5" fill="#666">{{ \Illuminate\Support\Str::substr((string) $d['date'], 5) }}</text>
+                <text x="{{ $x + $sBarW / 2 }}" y="{{ $cBottom + 17 }}" text-anchor="middle" font-size="5.5" fill="#0ea5e9">n={{ (int) $d['population'] }}</text>
+            @endforeach
+        </svg>
+    @endif
+
     @include('reports.partials.signatories')
 @endsection

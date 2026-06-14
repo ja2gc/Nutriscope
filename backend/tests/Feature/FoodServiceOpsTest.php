@@ -615,6 +615,29 @@ class FoodServiceOpsTest extends TestCase
         ]);
     }
 
+    public function test_cost_today_returns_active_cycle_per_head_from_menu(): void
+    {
+        $weekday = now()->format('l');
+        // kg→g: 1000 base per purchase → ₱0.10/g; 100 g/head × 10 heads = 1000 g = ₱100/day; ÷10 = ₱10/head
+        $fs = FsItem::factory()->create([
+            'base_unit' => 'g', 'purchase_unit' => 'kg', 'purchase_price' => 100, 'units_per_purchase' => null,
+        ]);
+        $cycle = MenuCycle::factory()->create([
+            'rnd_user_id' => $this->rnd->id, 'is_active' => true, 'status' => 'active',
+            'population' => 10, 'budget_per_head_per_day' => 50,
+        ]);
+        MenuCycleDay::create([
+            'menu_cycle_id' => $cycle->id, 'day_of_week' => $weekday,
+            'meal_type' => 'lunch', 'fs_item_id' => $fs->id, 'quantity' => 100,
+        ]);
+
+        $res = $this->actingAs($this->fss)->getJson('/api/fss/menu-cycles/cost-today')->assertOk();
+        $this->assertEqualsWithDelta(10, $res->json('data.cost_per_head'), 0.01);
+        $this->assertEqualsWithDelta(50, $res->json('data.limit_per_head'), 0.01);
+        $this->assertTrue($res->json('data.within_budget'));
+        $this->assertSame($weekday, $res->json('data.weekday'));
+    }
+
     public function test_daily_series_exposes_population_and_per_head_actual(): void
     {
         $budget = Budget::factory()->create([

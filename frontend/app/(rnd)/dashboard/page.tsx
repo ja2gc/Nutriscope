@@ -13,7 +13,7 @@ import {
   fetchAnnouncements,
   updateAnnouncement,
 } from "@/services/announcementService";
-import { Budget, listBudgets } from "@/services/budgetService";
+import { CostToday, getCostToday } from "@/services/menuCycleService";
 import { BellDot, Calendar, Compass, HeartHandshake, PencilLine, TrendingUp, X } from "lucide-react";
 
 type AnnouncementDraft = {
@@ -103,48 +103,29 @@ function buildFollowUps(patients: Patient[]): FollowUpRow[] {
     .slice(0, 8);
 }
 
-// Pick the budget most relevant to "today": one whose period covers today, else the
-// yearly budget, else the first available.
-function pickCurrentBudget(budgets: Budget[]): Budget | null {
-  if (budgets.length === 0) {
-    return null;
-  }
-
-  const today = new Date().toISOString().slice(0, 10);
-  const inPeriod = budgets.find(
-    (b) => b.period_start && b.period_end && b.period_start <= today && today <= b.period_end
-  );
-
-  return inPeriod ?? budgets.find((b) => b.scope === "yearly") ?? budgets[0];
-}
-
 function pesoAmount(n: number) {
   return `₱${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-// Budget-per-head headline for the dashboard KPI: prefer ₱/head/day, then ₱/head/year,
-// then derive from allocation ÷ population.
-function budgetPerHeadKpi(b: Budget | null): { value: string; sub: string } {
-  if (!b) {
-    return { value: "--", sub: "No budget set yet" };
+// Cost-per-head headline for the dashboard KPI: the REAL cost to make today's menu
+// (computed from the active cycle), with the settable per-head limit as context.
+function costPerHeadKpi(c: CostToday | null): { value: string; sub: string } {
+  if (!c) {
+    return { value: "--", sub: "No active menu cycle" };
+  }
+  if (!c.has_menu_today || c.cost_per_head === null) {
+    return { value: "--", sub: `${c.cycle} · no menu planned for ${c.weekday}` };
   }
 
-  const perDay = b.budget_per_head_day ? parseFloat(b.budget_per_head_day) : null;
-  const perYear = b.budget_per_head_year ? parseFloat(b.budget_per_head_year) : null;
-  const alloc = b.allocated_amount ? parseFloat(b.allocated_amount) : 0;
-  const label = b.name || b.scope;
+  const limitNote =
+    c.limit_per_head !== null
+      ? ` · limit ${pesoAmount(c.limit_per_head)}${c.within_budget === false ? " (over)" : ""}`
+      : "";
 
-  if (perDay) {
-    return { value: `${pesoAmount(perDay)}/day`, sub: `${label} · per head` };
-  }
-  if (perYear) {
-    return { value: `${pesoAmount(perYear)}/yr`, sub: `${label} · per head` };
-  }
-  if (alloc && b.population) {
-    return { value: pesoAmount(alloc / b.population), sub: `${label} · allocation ÷ population` };
-  }
-
-  return { value: "--", sub: "Set ₱/head on the budget" };
+  return {
+    value: `${pesoAmount(c.cost_per_head)}/head`,
+    sub: `${c.cycle} · ${c.weekday} menu cost${limitNote}`,
+  };
 }
 
 function sortAnnouncements(posts: Announcement[]) {
@@ -164,7 +145,7 @@ function isAnnouncementEditable(post: Announcement, userId?: number | null) {
 export default function RndDashboardPage() {
   const { user } = useAuth();
   const [patients, setPatients] = useState<Patient[]>([]);
-  const [budgets, setBudgets] = useState<Budget[]>([]);
+  const [costToday, setCostToday] = useState<CostToday | null>(null);
   const [loading, setLoading] = useState(true);
   const [announcementsLoading, setAnnouncementsLoading] = useState(true);
   const [announcementsSaving, setAnnouncementsSaving] = useState(false);
@@ -201,10 +182,10 @@ export default function RndDashboardPage() {
   }, []);
 
   useEffect(() => {
-    // Budgets are best-effort for the KPI card — a failure here must not block the dashboard.
-    listBudgets()
-      .then(setBudgets)
-      .catch(() => setBudgets([]));
+    // Best-effort for the KPI card — a failure here must not block the dashboard.
+    getCostToday()
+      .then(setCostToday)
+      .catch(() => setCostToday(null));
   }, []);
 
   useEffect(() => {
@@ -252,8 +233,7 @@ export default function RndDashboardPage() {
   const activePatients = patients.filter((patient) => patient.status === "Active").length;
   const patientCountLabel = loading ? "--" : activePatients.toString();
   const upcomingFollowUpLabel = loading ? "--" : followUps.length.toString();
-  const currentBudget = useMemo(() => pickCurrentBudget(budgets), [budgets]);
-  const budgetKpi = useMemo(() => budgetPerHeadKpi(currentBudget), [currentBudget]);
+  const budgetKpi = useMemo(() => costPerHeadKpi(costToday), [costToday]);
   const orderedPosts = useMemo(() => sortAnnouncements(posts), [posts]);
   const selectedPost = useMemo(
     () => orderedPosts.find((post) => post.id === viewingPostId) || null,
@@ -691,8 +671,8 @@ export default function RndDashboardPage() {
 
         <div className="bg-white border border-zinc-200 rounded-2xl p-4 flex items-center justify-between shadow-sm">
           <div>
-            <Link href="/food-service/budget" className="text-[10px] font-extrabold text-[#EA580C] uppercase tracking-wider block hover:underline">
-              Budget Per Person
+            <Link href="/food-service/menu-cycle" className="text-[10px] font-extrabold text-[#EA580C] uppercase tracking-wider block hover:underline">
+              Cost / Head Today
             </Link>
             <span className="text-lg font-extrabold text-zinc-950 mt-1 block">{budgetKpi.value}</span>
             <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block mt-1">
