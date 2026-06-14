@@ -18,14 +18,14 @@ No prerequisite checks: Diagnosis doesn't require an Assessment, Intervention do
 ### A3. No per-patient scoping on NCP data — HIGH (security/authorization)
 Records are resolved by route-model binding with **only `role:RND`** as the gate. Any RND user can read/edit **any** patient's NCP, diagnoses, intervention, or meal plans by guessing/iterating IDs. The `Store*Request::authorize()` methods all `return true`. *Fix idea:* scope to the patient's assigned RND (or an explicit care-team), at least on clinical records.
 
-### A4. AI diagnoses accepted without validation — MEDIUM (logical/integrity)
-`AiDiagnosisController::aiApprove` stores AI-suggested PES directly (`ai_generated=true`) with no clinical-review guard, confidences not persisted, and no audit link back to the suggestion call. *Fix idea:* require explicit field confirmation + keep the confidence/reasoning provenance.
+### A4. AI diagnoses — ⚠️ RE-VERIFIED: not a code bug (logical/process)
+On review, `AiApproveDiagnosisRequest` **does** validate the payload (`domain ∈ NI/NC/NB`, required `label`/`etiology`/`signs`), and approval is an explicit RND action. The remaining points are *enhancements*, not defects: AI confidence/reasoning aren't persisted and there's no provenance link to the suggestion call. Optional future: store confidence + provenance.
 
-### A5. Monitoring AI rate-limit is bypassable — LOW (cost/security)
-The limiter key includes the NCP id (`ai-review:{user}:{ncp}`), so a user can exceed the intended cap by switching NCPs. *Fix idea:* per-user (and/or per-hour) global limit.
+### A5. Monitoring AI rate-limit is bypassable — ✅ FIXED 2026-06-14 (cost/security)
+The limiter key included the NCP id, so a user could exceed the cap by switching NCPs. **Resolved:** key is now per-user (`ai-review:{user}`).
 
-### A6. `upload-labs` may clobber the Assessment — LOW (data integrity)
-`firstOrCreate(['ncp_record_id' => …])` can create a second/blank Assessment path if ordering differs from the screening upload. *Fix idea:* reuse the existing Assessment or error clearly.
+### A6. `upload-labs` may clobber the Assessment — ⚠️ RE-VERIFIED: not a bug (data integrity)
+`firstOrCreate(['ncp_record_id' => …])` **reuses** the existing assessment (Assessment is hasOne per NCP) and only creates a blank one when none exists yet — no clobber. No change needed.
 
 ### A7. Hardcoded lab reference ranges — LOW (clinical correctness)
 `MonitoringSummaryService::LAB_RANGES` are fixed (not patient-specific: pediatric, CKD stage, etc.), so delta flags can be clinically wrong at the edges. *Fix idea:* parameterize by patient context.
@@ -33,8 +33,8 @@ The limiter key includes the NCP id (`ai-review:{user}:{ncp}`), so a user can ex
 ### A8. OCR file paths stored absolute with relative fallback — LOW (portability)
 Screening/OCR file paths are stored as absolute paths with a `storage_path('app/'…)` fallback; brittle if the app root moves. *Fix idea:* store disk-relative paths consistently.
 
-### A9. Meal-plan item validation — LOW (integrity)
-`MealPlanItemController` doesn't validate `day ∈ Mon–Sun` / `meal_type ∈ {breakfast,am_snack,lunch,pm_snack,dinner}`. *Fix idea:* validate against the enums.
+### A9. Meal-plan item validation — ⚠️ RE-VERIFIED: not a bug (integrity)
+`StoreMealPlanItemRequest` already validates exactly-one-of `food_item_id`/`fdc_id`/`recipe_id` + required `quantity`/`unit`, and the day is route-model-bound (already a valid persisted day). No change needed.
 
 ---
 

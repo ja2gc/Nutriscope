@@ -11,7 +11,7 @@ import {
   ShoppingList, PurchaseOrder,
   listShoppingLists, getShoppingList, generateFromCycle, deleteShoppingList,
   updateListItem, generatePos, listPurchaseOrders, getPurchaseOrder,
-  updatePurchaseOrder, deletePurchaseOrder, uploadAttachment, deleteAttachment,
+  updatePurchaseOrder, deletePurchaseOrder, uploadAttachments, deleteAttachment,
 } from "@/services/procurementService";
 import { listSuppliers, Supplier } from "@/services/supplierService";
 import { listCycles, CycleListItem } from "@/services/menuCycleService";
@@ -139,10 +139,10 @@ function PoDetail({ id, onBack }: { id: number; onBack: () => void }) {
     await updatePurchaseOrder(id, patch); load();
   }
   async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = Array.from(e.target.files ?? []);
+    if (!files.length) return;
     setBusy(true);
-    try { await uploadAttachment(id, file, uploadType); load(); } finally { setBusy(false); e.target.value = ""; }
+    try { await uploadAttachments(id, files, uploadType); load(); } finally { setBusy(false); e.target.value = ""; }
   }
   async function removeAttachment(attId: number) { await deleteAttachment(attId); load(); }
 
@@ -217,8 +217,8 @@ function PoDetail({ id, onBack }: { id: number; onBack: () => void }) {
               ))}
             </div>
             <label className={`flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-emerald-700 border border-emerald-200 rounded-lg px-3 py-1.5 cursor-pointer hover:bg-emerald-50 ${busy ? "opacity-50" : ""}`}>
-              <Upload className="h-3 w-3" /> Upload {uploadType}
-              <input type="file" accept="image/*" onChange={onFile} disabled={busy} className="hidden" />
+              <Upload className="h-3 w-3" /> Upload {uploadType}s
+              <input type="file" accept="image/*" multiple onChange={onFile} disabled={busy} className="hidden" />
             </label>
           </div>
         </div>
