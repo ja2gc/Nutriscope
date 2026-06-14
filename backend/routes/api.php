@@ -179,6 +179,7 @@ Route::middleware(['auth:sanctum', 'role:FSS,RND'])->prefix('fss')->group(functi
     Route::apiResource('shopping-lists', ShoppingListController::class);
 
     // Menu Cycles routes
+    Route::get('menu-cycles/cost-today', [MenuCycleController::class, 'costToday']);
     Route::patch('menu-cycles/{menu_cycle}/activate', [MenuCycleController::class, 'activate']);
     Route::get('menu-cycles/{menu_cycle}/compute', [MenuCycleController::class, 'compute']);
     Route::post('menu-cycles/{menu_cycle}/save-template', [MenuCycleTemplateController::class, 'fromCycle']);

@@ -83,6 +83,42 @@ class MenuCycleController extends Controller
     }
 
     /**
+     * Cost-to-make per head for the active cycle on a given day (default today).
+     * This is the REAL menu cost (recipes × ingredient prices ÷ population) for that
+     * weekday — not a stored figure — alongside the settable per-head limit.
+     */
+    public function costToday(Request $request): JsonResponse
+    {
+        $date    = $request->filled('date') ? \Carbon\Carbon::parse($request->get('date')) : now();
+        $weekday = $date->format('l');
+
+        $cycle = MenuCycle::with('days.recipe.ingredients.fsItem', 'days.fsItem')
+            ->where('is_active', true)
+            ->orderByDesc('activation_date')
+            ->first();
+
+        if (! $cycle) {
+            return response()->json(['data' => null]);
+        }
+
+        $cost    = MenuCycleCostService::forCycle($cycle);
+        $dayCost = $cost['days'][$weekday] ?? null;
+        $perHead = $dayCost ? (float) $dayCost['cost_per_head'] : null;
+        $limit   = $cycle->budget_per_head_per_day !== null ? (float) $cycle->budget_per_head_per_day : null;
+
+        return response()->json(['data' => [
+            'cycle'          => $cycle->name,
+            'date'           => $date->toDateString(),
+            'weekday'        => $weekday,
+            'cost_per_head'  => $perHead,         // actual cost to make today's menu, per head
+            'limit_per_head' => $limit,           // settable cap (budget_per_head_per_day)
+            'within_budget'  => ($limit !== null && $perHead !== null) ? $perHead <= $limit : null,
+            'population'     => (int) $cycle->population,
+            'has_menu_today' => $dayCost !== null,
+        ]]);
+    }
+
+    /**
      * Costing summary for the planner: per-day cost + cost/head, week total, and
      * the per-day budget status (the red/amber/green chip) vs budget_per_head_per_day.
      */

@@ -113,6 +113,23 @@ export async function deleteCycle(id: number): Promise<void> {
   if (!res.ok && res.status !== 204) throw new Error("Failed to delete menu cycle.");
 }
 
+export interface CostToday {
+  cycle: string;
+  date: string;
+  weekday: string;
+  cost_per_head: number | null; // actual cost to make today's menu, per head
+  limit_per_head: number | null; // settable cap
+  within_budget: boolean | null;
+  population: number;
+  has_menu_today: boolean;
+}
+
+export async function getCostToday(): Promise<CostToday | null> {
+  const res = await apiFetch("/api/fss/menu-cycles/cost-today");
+  if (!res.ok) return null;
+  return (await res.json()).data ?? null;
+}
+
 export async function computeCycle(id: number, population?: number): Promise<ComputeResult> {
   const qs = population != null ? `?population=${population}` : "";
   const res = await apiFetch(`/api/fss/menu-cycles/${id}/compute${qs}`);

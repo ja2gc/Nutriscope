@@ -85,13 +85,16 @@ class BudgetActualService
                 : (float) ($poByDay[$ds] ?? 0) + (float) ($logByDay[$ds] ?? 0);
 
             $pop = isset($populationByDay[$ds]) ? (int) $populationByDay[$ds] : null;
+            $dayConsumption = (float) ($consumptionByDay[$ds] ?? 0);
             if ($pop !== null && $pop > 0) {
                 $popSum += $pop;
                 $popDays++;
-                $servedValue += (float) ($consumptionByDay[$ds] ?? 0);
+                $servedValue += $dayConsumption;
             }
+            // Realized cost per head that day = value of food served ÷ that day's headcount.
+            $perHead = ($pop !== null && $pop > 0) ? round($dayConsumption / $pop, 2) : null;
 
-            $days[] = ['date' => $ds, 'planned' => $cap, 'actual' => $actual, 'population' => $pop];
+            $days[] = ['date' => $ds, 'planned' => $cap, 'actual' => $actual, 'population' => $pop, 'per_head' => $perHead];
         }
 
         return [
