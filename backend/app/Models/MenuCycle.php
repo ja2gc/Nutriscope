@@ -15,6 +15,7 @@ class MenuCycle extends Model
     protected $fillable = [
         'rnd_user_id', 'name', 'population', 'budget_per_head_per_day',
         'cycle_days', 'is_active', 'week_start_date', 'status', 'activation_date',
+        'cost_snapshot', 'cost_snapshot_at',
     ];
 
     protected $casts = [
@@ -23,6 +24,8 @@ class MenuCycle extends Model
         'week_start_date'         => 'date',
         'activation_date'         => 'date',
         'is_active'               => 'boolean',
+        'cost_snapshot'           => 'array',
+        'cost_snapshot_at'        => 'datetime',
     ];
 
     public function rnd(): BelongsTo

@@ -72,9 +72,12 @@ class MenuCycleController extends Controller
     public function activate(MenuCycle $menuCycle): JsonResponse
     {
         $menuCycle->update([
-            'is_active'       => true,
-            'status'          => 'active',
-            'activation_date' => now()->toDateString(),
+            'is_active'        => true,
+            'status'           => 'active',
+            'activation_date'  => now()->toDateString(),
+            // Freeze the plan's cost at the lock moment so past reports keep it (Spec 6 #1).
+            'cost_snapshot'    => MenuCycleCostService::forCycle($menuCycle),
+            'cost_snapshot_at' => now(),
         ]);
         return response()->json(['data' => new MenuCycleResource($menuCycle)]);
     }

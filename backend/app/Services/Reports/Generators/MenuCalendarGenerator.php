@@ -65,7 +65,7 @@ class MenuCalendarGenerator implements ReportGenerator
             }
         }
 
-        $cost = MenuCycleCostService::forCycle($cycle);
+        $cost = MenuCycleCostService::forReport($cycle);
 
         return [
             'cycle'  => $cycle,
