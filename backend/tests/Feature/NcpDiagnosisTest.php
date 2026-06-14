@@ -46,15 +46,43 @@ class NcpDiagnosisTest extends TestCase
         ]);
     }
 
+    private function assessment(NcpRecord $ncp): \App\Models\Assessment
+    {
+        return \App\Models\Assessment::forceCreate([
+            'ncp_record_id' => $ncp->id,
+            'weight'        => 70.0,
+            'height'        => 170.0,
+        ]);
+    }
+
     // ──────────────────────────────────────────────────
     // Diagnoses
     // ──────────────────────────────────────────────────
+
+    public function test_diagnosis_requires_assessment_first(): void
+    {
+        $rnd     = $this->rnd();
+        $patient = $this->patient();
+        $ncp     = $this->ncpRecord($patient, $rnd); // no assessment yet
+
+        $response = $this->actingAs($rnd, 'sanctum')
+            ->postJson("/api/rnd/ncp-records/{$ncp->id}/diagnoses", [
+                'domain'         => 'NI',
+                'problem'        => 'Inadequate oral food intake',
+                'etiology'       => 'anorexia',
+                'signs_symptoms' => 'low intake',
+            ]);
+
+        $response->assertStatus(422);
+        $this->assertDatabaseMissing('diagnoses', ['ncp_record_id' => $ncp->id]);
+    }
 
     public function test_rnd_can_add_diagnosis_to_ncp_record(): void
     {
         $rnd     = $this->rnd();
         $patient = $this->patient();
         $ncp     = $this->ncpRecord($patient, $rnd);
+        $this->assessment($ncp);
 
         $response = $this->actingAs($rnd, 'sanctum')
             ->postJson("/api/rnd/ncp-records/{$ncp->id}/diagnoses", [
@@ -79,6 +107,7 @@ class NcpDiagnosisTest extends TestCase
         $rnd     = $this->rnd();
         $patient = $this->patient();
         $ncp     = $this->ncpRecord($patient, $rnd);
+        $this->assessment($ncp);
 
         $response = $this->actingAs($rnd, 'sanctum')
             ->postJson("/api/rnd/ncp-records/{$ncp->id}/diagnoses", [
@@ -195,6 +224,7 @@ class NcpDiagnosisTest extends TestCase
         $rnd     = $this->rnd();
         $patient = $this->patient();
         $ncp     = $this->ncpRecord($patient, $rnd);
+        $this->assessment($ncp);
 
         $response = $this->actingAs($rnd, 'sanctum')
             ->postJson("/api/rnd/ncp-records/{$ncp->id}/diagnoses", [

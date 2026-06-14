@@ -29,6 +29,14 @@ class AiDiagnosisController extends Controller
      */
     public function aiApprove(AiApproveDiagnosisRequest $request, NcpRecord $ncpRecord): \Illuminate\Http\JsonResponse
     {
+        // ADIME step order: the assessment must precede the diagnosis (same gate as the
+        // manual create path, so AI-approve can't bypass it).
+        if (! $ncpRecord->assessment()->exists()) {
+            return response()->json([
+                'message' => 'Record the nutrition assessment before adding a diagnosis.',
+            ], 422);
+        }
+
         $data = $request->validated();
 
         $diagnosis = Diagnosis::create([

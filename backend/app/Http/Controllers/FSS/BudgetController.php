@@ -62,6 +62,9 @@ class BudgetController extends Controller
         $summary['allocated']           = (float) ($budget->allocated_amount ?? 0);
         $summary['budget_per_head_day'] = $budget->budget_per_head_day ? (float) $budget->budget_per_head_day : null;
         $summary['population']          = $budget->population;
+        // Daily-headcount actuals (null until a served day records a population — A8).
+        $summary['avg_population']      = $series['avg_population'];
+        $summary['per_head_actual']     = $series['per_head_actual'];
 
         return response()->json(['data' => $summary]);
     }

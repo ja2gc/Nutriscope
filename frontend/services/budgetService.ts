@@ -43,6 +43,8 @@ export interface BudgetSummary {
   allocated: number;
   budget_per_head_day: number | null;
   population: number | null;
+  avg_population: number | null;
+  per_head_actual: number | null;
 }
 
 async function unwrap<T>(res: Response, fallback: string): Promise<T> {

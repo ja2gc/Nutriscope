@@ -15,7 +15,10 @@ The workflow intends monitoring for the **2nd visit onward**, and `InterventionC
 ### A2. NCP steps can be done out of order / skipped — MEDIUM (logical)
 No prerequisite checks: Diagnosis doesn't require an Assessment, Intervention doesn't require a Diagnosis, Monitoring doesn't require an Intervention. Only **deletion** is guarded (can't delete an NCP once A+D+I exist). `MealPlanController::store` (manual) doesn't require an Intervention while `generate` does — inconsistent. *Fix idea:* enforce stage prerequisites on create.
 
-### A3. No per-patient scoping on NCP data — HIGH (security/authorization)
+### A3. No per-patient scoping on NCP data — ✅ DECISION 2026-06-15: ACCEPT AS-IS (single-tenant)
+**Decision (jared, 2026-06-15):** accepted as-is under a **trusted single-tenant / single-clinic** model — every RND is a trusted member of the one care team, so cross-patient access is intended, not a leak. No code change. Route access stays gated by `role:RND` + `is_active`; the audit log (Spec 5) records who touched what for accountability. **Revisit if** the deployment ever becomes multi-clinic / multi-tenant, at which point scope clinical records to the patient's assigned RND (or an explicit care-team) and tighten the `Store*Request::authorize()` methods.
+
+_Original finding:_
 Records are resolved by route-model binding with **only `role:RND`** as the gate. Any RND user can read/edit **any** patient's NCP, diagnoses, intervention, or meal plans by guessing/iterating IDs. The `Store*Request::authorize()` methods all `return true`. *Fix idea:* scope to the patient's assigned RND (or an explicit care-team), at least on clinical records.
 
 ### A4. AI diagnoses — ⚠️ RE-VERIFIED: not a code bug (logical/process)

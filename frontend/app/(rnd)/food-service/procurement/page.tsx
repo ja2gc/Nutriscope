@@ -16,6 +16,7 @@ import {
 import { listSuppliers, Supplier } from "@/services/supplierService";
 import { listCycles, CycleListItem } from "@/services/menuCycleService";
 import { HistoryPanel } from "@/components/HistoryPanel";
+import { SuppliersPanel } from "@/components/foodservice/SuppliersPanel";
 
 const STORAGE_BASE = process.env.NEXT_PUBLIC_LARAVEL_URL ?? "http://127.0.0.1:8000";
 const peso = (n: number) => `₱${n.toFixed(2)}`;
@@ -246,7 +247,7 @@ function PoDetail({ id, onBack }: { id: number; onBack: () => void }) {
 
 // ═══ ROOT ════════════════════════════════════════════════════════════════════════
 export default function ProcurementPage() {
-  const [tab, setTab] = useState<"lists" | "pos">("lists");
+  const [tab, setTab] = useState<"lists" | "pos" | "suppliers">("lists");
   const [listDetail, setListDetail] = useState<number | null>(null);
   const [poDetail, setPoDetail] = useState<number | null>(null);
 
@@ -335,7 +336,7 @@ export default function ProcurementPage() {
 
       {/* Tabs */}
       <div className="flex border-b border-zinc-200">
-        {([["lists", "Shopping Lists"], ["pos", "Purchase Orders"]] as const).map(([k, label]) => (
+        {([["lists", "Shopping Lists"], ["pos", "Purchase Orders"], ["suppliers", "Suppliers"]] as const).map(([k, label]) => (
           <button key={k} onClick={() => setTab(k)}
             className={`px-5 py-3 text-sm font-semibold border-b-2 transition-colors cursor-pointer ${tab === k ? "border-emerald-600 text-emerald-700" : "border-transparent text-zinc-500 hover:text-zinc-800"}`}>
             {label}
@@ -343,6 +344,7 @@ export default function ProcurementPage() {
         ))}
       </div>
 
+      {tab === "suppliers" ? <SuppliersPanel /> : (
       <div className="bg-white border border-zinc-200 rounded-2xl shadow-sm overflow-x-auto">
         {loading ? <div className="py-16 text-center text-xs text-zinc-400">Loading…</div> : tab === "lists" ? (
           lists.length === 0 ? <div className="py-16 text-center"><ShoppingBag className="h-8 w-8 text-zinc-300 mx-auto mb-3" /><p className="text-xs text-zinc-400 font-medium">No shopping lists yet. Suggest one from a menu.</p></div> : (
@@ -382,6 +384,7 @@ export default function ProcurementPage() {
           )
         )}
       </div>
+      )}
     </div>
   );
 }

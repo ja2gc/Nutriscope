@@ -86,14 +86,15 @@ class AssessmentController extends Controller
             'ncp_record_id' => $ncpRecord->id,
         ]);
 
+        // Store the disk-relative path (portable) — readers resolve it to an absolute
+        // path at access time. Storing an absolute path breaks if the app root moves (A8).
         $path = $request->file('file')->store('documents/screening');
-        $absolutePath = storage_path('app/' . $path);
 
         $screeningDocument = ScreeningDocument::create([
             'patient_id' => $ncpRecord->patient_id,
             'assessment_id' => $assessment->id,
             'type' => $ncpRecord->patient->screening_type === 'pediatric' ? 'pediatric' : 'adult',
-            'file_path' => $absolutePath,
+            'file_path' => $path,
             'status' => 'pending',
             'reviewed_by' => $request->user()->id,
         ]);
@@ -119,13 +120,13 @@ class AssessmentController extends Controller
             'ncp_record_id' => $ncpRecord->id,
         ]);
 
+        // Disk-relative path (portable) — see uploadScreening note (A8).
         $path = $request->file('file')->store('documents/labs');
-        $absolutePath = storage_path('app/' . $path);
 
         $ocrDocument = OcrDocument::create([
             'user_id' => $request->user()->id,
             'assessment_id' => $assessment->id,
-            'file_path' => $absolutePath,
+            'file_path' => $path,
             'document_type' => 'lab',
             'status' => 'pending',
         ]);

@@ -7,6 +7,14 @@
             <td style="border:0;"><span class="bold">{{ $branding->hospital_name }}</span> <span class="muted">(Agency)</span></td>
             <td style="border:0;" class="right">Period: <span class="bold">{{ $period_label }}</span></td>
         </tr>
+        @if($annual_budget)
+            <tr>
+                <td style="border:0;" colspan="2" class="muted">
+                    Annual Budget ({{ $annual_budget['label'] }}):
+                    <span class="bold">₱ {{ number_format($annual_budget['allocated'], 2) }}</span>{{ $annual_budget['per_head_year'] ? ' · ₱ ' . number_format($annual_budget['per_head_year'], 2) . '/head/year' : '' }}
+                </td>
+            </tr>
+        @endif
     </table>
 
     <table class="grid">

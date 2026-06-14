@@ -1,8 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
-import { BarChart3, RefreshCw, AlertTriangle } from "lucide-react";
+import { RefreshCw, AlertTriangle } from "lucide-react";
 import {
   ResponsiveContainer, BarChart, Bar, LineChart, Line, XAxis, YAxis,
   CartesianGrid, Tooltip,
@@ -29,7 +28,11 @@ function Empty({ msg }: { msg: string }) {
   return <div className="h-[220px] flex items-center justify-center text-xs text-zinc-400">{msg}</div>;
 }
 
-export default function InsightsPage() {
+/**
+ * Analytics charts (spend/cost-per-head/consumption), rendered as a tab inside the
+ * Budget page (A3 — merged from the former standalone /food-service/insights route).
+ */
+export function InsightsPanel() {
   const [start, setStart] = useState(monthStartISO());
   const [end, setEnd] = useState(todayISO());
   const [spend, setSpend] = useState<SpendBySupplier | null>(null);
@@ -54,17 +57,9 @@ export default function InsightsPage() {
   useEffect(() => { load(); }, [load]);
 
   return (
-    <div className="space-y-6 font-sans">
-      <div className="flex items-center gap-2 text-xs font-semibold text-zinc-400 select-none">
-        <Link href="/dashboard" className="hover:text-emerald-700">Home</Link><span>/</span>
-        <span>Food Service</span><span>/</span><span className="font-bold text-zinc-600">Insights</span>
-      </div>
-
-      <div className="border-b border-zinc-200 pb-5 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-extrabold text-zinc-950 tracking-tight flex items-center gap-2.5"><BarChart3 className="h-5 w-5 text-emerald-600" /> Insights</h2>
-          <p className="text-xs text-zinc-500 mt-1">Interactive analytics over real spend, menu cost, and consumption. Separate from the compliance PDFs.</p>
-        </div>
+    <div className="space-y-5">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <p className="text-xs text-zinc-500">Interactive analytics over real spend, menu cost, and consumption. Separate from the compliance PDFs.</p>
         <button onClick={load} className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-700 shrink-0"><RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} /> Refresh</button>
       </div>
 

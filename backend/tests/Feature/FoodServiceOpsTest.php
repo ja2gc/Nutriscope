@@ -592,6 +592,49 @@ class FoodServiceOpsTest extends TestCase
         $response->assertOk()->assertJsonPath('data.days_served', 2);
     }
 
+    public function test_complete_day_persists_served_population(): void
+    {
+        $fs = FsItem::factory()->create(['name' => 'Rice', 'base_unit' => 'g']);
+        Inventory::factory()->create(['fs_item_id' => $fs->id, 'quantity_in_stock' => 10000, 'unit' => 'g', 'unit_price' => 0.05]);
+
+        $cycle = MenuCycle::factory()->create(['rnd_user_id' => $this->rnd->id, 'population' => 5]);
+        MenuCycleDay::create([
+            'menu_cycle_id' => $cycle->id, 'day_of_week' => 'Monday',
+            'meal_type' => 'lunch', 'fs_item_id' => $fs->id, 'quantity' => 100,
+        ]);
+
+        // Serve the day to 8 heads (override the cycle's default 5) — that headcount must be stored.
+        $this->actingAs($this->fss)->postJson("/api/fss/menu-cycles/{$cycle->id}/complete-day", [
+            'service_date' => '2026-06-15', // a Monday
+            'population'   => 8,
+        ])->assertCreated();
+
+        $this->assertDatabaseHas('meal_prep_logs', [
+            'menu_cycle_id' => $cycle->id,
+            'population'    => 8,
+        ]);
+    }
+
+    public function test_daily_series_exposes_population_and_per_head_actual(): void
+    {
+        $budget = Budget::factory()->create([
+            'fss_user_id' => $this->fss->id,
+            'budget_per_head_day' => 100, 'population' => 10,
+        ]);
+        $cycle = MenuCycle::factory()->create();
+        MealPrepLog::create([
+            'menu_cycle_id' => $cycle->id, 'service_date' => '2026-06-10',
+            'status' => 'completed', 'total_value' => 800, 'population' => 8, 'has_shortfall' => false,
+        ]);
+
+        $result = BudgetActualService::dailySeries($budget, Carbon::parse('2026-06-09'), Carbon::parse('2026-06-11'));
+
+        $this->assertEqualsWithDelta(8, $result['avg_population'], 0.01);
+        $this->assertEqualsWithDelta(100, $result['per_head_actual'], 0.01); // ₱800 served ÷ 8 heads
+        $served = collect($result['days'])->firstWhere('date', '2026-06-10');
+        $this->assertEquals(8, $served['population']);
+    }
+
     public function test_generate_rounds_to_whole_purchase_units(): void
     {
         // 1 kg sack = 1000 g base; planned need 1300 g → must buy 2 sacks (2000 g).
