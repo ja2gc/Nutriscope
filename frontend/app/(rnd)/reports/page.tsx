@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   FileText, RefreshCw, CalendarRange, CalendarDays, BookText, PackageCheck,
   Wallet, Boxes, Download, Trash2, Users, ClipboardList, Building2, Save,
-  Archive, Loader2, CheckCircle2, AlertTriangle, FolderArchive,
+  Archive, Loader2, CheckCircle2, AlertTriangle, FolderArchive, Eye,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -14,10 +14,11 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
 import {
   ReportItem, ReportTemplate, Branding, ReportAxis, ReportInstance,
-  listReports, deleteReport, reportDownloadUrl,
+  listReports, deleteReport, reportDownloadUrl, reportViewUrl,
   listInstances, reportRenderUrl, archiveReport,
   getBranding, saveBranding, listTemplates, saveTemplate,
 } from "@/services/reportService";
+import { ReportPreview } from "@/components/ReportPreview";
 
 const inp = "w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500";
 const lbl = "block text-[10px] font-extrabold text-zinc-500 uppercase tracking-wider mb-1";
@@ -146,6 +147,7 @@ function InstancesPanel({ entry, onFlash }: { entry: CatalogEntry; onFlash: (ok:
   const [instances, setInstances] = useState<ReportInstance[]>([]);
   const [year, setYear] = useState<string>("all");
   const [busy, setBusy] = useState<string | null>(null);
+  const [preview, setPreview] = useState<ReportInstance | null>(null);
   const Icon = entry.icon;
 
   useEffect(() => {
@@ -204,8 +206,8 @@ function InstancesPanel({ entry, onFlash }: { entry: CatalogEntry; onFlash: (ok:
 
       {/* Live vs archived disclosure (spec §8.1) */}
       <div className="px-5 py-2.5 bg-zinc-50/70 border-b border-zinc-100 text-[11px] text-zinc-500 flex items-center gap-1.5">
-        <Download className="h-3.5 w-3.5 text-zinc-400" />
-        <span><span className="font-semibold text-zinc-600">Download</span> renders live from current data. Use <span className="font-semibold text-zinc-600">Archive</span> to freeze an as-filed copy.</span>
+        <Eye className="h-3.5 w-3.5 text-zinc-400" />
+        <span><span className="font-semibold text-zinc-600">Click a report to view it.</span> The preview renders live from current data — use <span className="font-semibold text-zinc-600">Archive</span> to freeze an as-filed copy.</span>
       </div>
 
       {loading ? (
@@ -223,20 +225,18 @@ function InstancesPanel({ entry, onFlash }: { entry: CatalogEntry; onFlash: (ok:
       ) : (
         <ul className="divide-y divide-zinc-100">
           {shown.map((i) => (
-            <li key={i.key} className="flex items-center justify-between gap-3 px-5 py-3 hover:bg-zinc-50/60">
-              <div className="min-w-0">
-                <div className="text-sm font-semibold text-zinc-800 truncate">{i.label}</div>
-                {i.date && <div className="text-[11px] text-zinc-400 tabular-nums">{new Date(i.date).toLocaleDateString()}</div>}
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <a
-                  href={reportRenderUrl(entry.type, i.params)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-zinc-200 text-zinc-700 bg-white hover:bg-zinc-50 transition-colors"
-                >
-                  <Download className="h-3.5 w-3.5" /> Download
-                </a>
+            <li key={i.key} className="flex items-center justify-between gap-3 hover:bg-zinc-50/60">
+              <button
+                onClick={() => setPreview(i)}
+                className="flex-1 min-w-0 text-left px-5 py-3 cursor-pointer flex items-center gap-2.5 group focus:outline-none focus-visible:bg-emerald-50/40"
+              >
+                <Eye className="h-4 w-4 text-zinc-300 group-hover:text-emerald-500 shrink-0" />
+                <span className="min-w-0">
+                  <span className="block text-sm font-semibold text-zinc-800 truncate">{i.label}</span>
+                  {i.date && <span className="block text-[11px] text-zinc-400 tabular-nums">{new Date(i.date).toLocaleDateString()}</span>}
+                </span>
+              </button>
+              <div className="px-5 shrink-0">
                 <Button
                   variant="secondary"
                   onClick={() => onArchive(i)}
@@ -250,6 +250,17 @@ function InstancesPanel({ entry, onFlash }: { entry: CatalogEntry; onFlash: (ok:
           ))}
         </ul>
       )}
+
+      {preview && (
+        <ReportPreview
+          title={`${entry.name} — ${preview.label}`}
+          src={reportRenderUrl(entry.type, preview.params)}
+          downloadUrl={reportRenderUrl(entry.type, preview.params)}
+          onArchive={() => onArchive(preview)}
+          archiving={busy === preview.key}
+          onClose={() => setPreview(null)}
+        />
+      )}
     </Card>
   );
 }
@@ -258,6 +269,7 @@ function InstancesPanel({ entry, onFlash }: { entry: CatalogEntry; onFlash: (ok:
 function ArchivedTab({ onFlash }: { onFlash: (ok: boolean, msg: string) => void }) {
   const [reports, setReports] = useState<ReportItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [preview, setPreview] = useState<ReportItem | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -313,19 +325,27 @@ function ArchivedTab({ onFlash }: { onFlash: (ok: boolean, msg: string) => void 
           </thead>
           <tbody className="divide-y divide-zinc-100">
             {reports.map((r) => (
-              <tr key={r.id} className="hover:bg-zinc-50/60">
-                <td className="px-4 py-3 font-semibold text-zinc-800">{r.title}</td>
+              <tr
+                key={r.id}
+                onClick={() => r.file_path && setPreview(r)}
+                className={`hover:bg-zinc-50/60 ${r.file_path ? "cursor-pointer" : ""}`}
+              >
+                <td className="px-4 py-3 font-semibold text-zinc-800">
+                  <span className="flex items-center gap-2">
+                    {r.file_path && <Eye className="h-3.5 w-3.5 text-zinc-300" />}{r.title}
+                  </span>
+                </td>
                 <td className="px-4 py-3 text-zinc-500">{label(r.type)}</td>
                 <td className="px-4 py-3 text-zinc-500 tabular-nums">{r.generated_at ? new Date(r.generated_at).toLocaleString() : "—"}</td>
                 <td className="px-4 py-3"><Badge tone={STATUS_TONE[r.status] ?? "zinc"}>{r.status}</Badge></td>
                 <td className="px-4 py-3">
                   <div className="flex items-center justify-end gap-1">
                     {r.file_path && (
-                      <a href={reportDownloadUrl(r.id)} className="p-1.5 rounded-lg hover:bg-emerald-50 text-zinc-500 hover:text-emerald-600" aria-label={`Download ${r.title}`} title="Download frozen copy">
+                      <a href={reportDownloadUrl(r.id)} download onClick={(e) => e.stopPropagation()} className="p-1.5 rounded-lg hover:bg-emerald-50 text-zinc-500 hover:text-emerald-600" aria-label={`Download ${r.title}`} title="Download frozen copy">
                         <Download className="h-3.5 w-3.5" />
                       </a>
                     )}
-                    <button onClick={() => onDelete(r.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-zinc-500 hover:text-red-600 cursor-pointer" aria-label={`Delete ${r.title}`} title="Delete">
+                    <button onClick={(e) => { e.stopPropagation(); onDelete(r.id); }} className="p-1.5 rounded-lg hover:bg-red-50 text-zinc-500 hover:text-red-600 cursor-pointer" aria-label={`Delete ${r.title}`} title="Delete">
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
                   </div>
@@ -334,6 +354,15 @@ function ArchivedTab({ onFlash }: { onFlash: (ok: boolean, msg: string) => void 
             ))}
           </tbody>
         </table>
+      )}
+
+      {preview && (
+        <ReportPreview
+          title={preview.title}
+          src={reportViewUrl(preview.id)}
+          downloadUrl={reportDownloadUrl(preview.id)}
+          onClose={() => setPreview(null)}
+        />
       )}
     </Card>
   );
