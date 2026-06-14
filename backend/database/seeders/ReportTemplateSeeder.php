@@ -17,11 +17,14 @@ class ReportTemplateSeeder extends Seeder
 {
     public function run(): void
     {
-        $rnd      = ['ELAINE JUSTINA L. ABRIOL, RND', 'Nutritionist-Dietitian II'];
-        $chief    = ['RACHELL P. GUTIERREZ, MD, MHM', 'Chief of Hospital II'];
-        $oicChief = ['ETHEL REYES, MD, CFP', 'OIC-Chief of Hospital II'];
-        $admin    = ['MA. CONCEPCION D. LUGTU, MPA', 'Administrative Officer V'];
-        $pgso     = ['FRANCIS V. MASLOG', 'OIC-PGSO'];
+        // Names are intentionally BLANK — they are filled per-hospital in the
+        // Template Edit tab (and "prepared by"/buyer auto-fills the logged-in user).
+        // Only the position/title is seeded so the signature block keeps its shape.
+        $rnd      = ['', 'Nutritionist-Dietitian II'];
+        $chief    = ['', 'Chief of Hospital II'];
+        $oicChief = ['', 'OIC-Chief of Hospital II'];
+        $admin    = ['', 'Administrative Officer V'];
+        $pgso     = ['', 'OIC-PGSO'];
 
         $templates = [
             [
@@ -48,6 +51,8 @@ class ReportTemplateSeeder extends Seeder
                 'description' => 'Cash disbursement record (running ledger).',
                 'signatories' => [
                     ['role' => 'prepared_by', 'label' => 'Accountable Officer:', 'name' => $rnd[0], 'title' => $rnd[1]],
+                    ['role' => 'certified_correct', 'label' => 'Certified Correct:', 'name' => $admin[0], 'title' => $admin[1]],
+                    ['role' => 'approved_by', 'label' => 'Approved:', 'name' => $chief[0], 'title' => $chief[1]],
                 ],
             ],
             [
@@ -100,6 +105,7 @@ class ReportTemplateSeeder extends Seeder
                 'description' => 'A patient ADIME meal plan as a weekly calendar.',
                 'signatories' => [
                     ['role' => 'prepared_by', 'label' => 'Prepared by:', 'name' => $rnd[0], 'title' => $rnd[1]],
+                    ['role' => 'noted_by', 'label' => 'Noted by:', 'name' => '', 'title' => 'Attending Physician'],
                 ],
             ],
             [
@@ -117,6 +123,7 @@ class ReportTemplateSeeder extends Seeder
                 'description' => 'Stock levels, value, low/no-stock.',
                 'signatories' => [
                     ['role' => 'prepared_by', 'label' => 'Prepared by:', 'name' => $rnd[0], 'title' => $rnd[1]],
+                    ['role' => 'approved_by', 'label' => 'Approved:', 'name' => $chief[0], 'title' => $chief[1]],
                 ],
             ],
         ];
