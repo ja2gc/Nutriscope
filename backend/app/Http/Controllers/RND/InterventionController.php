@@ -83,6 +83,13 @@ class InterventionController extends Controller
             return response()->json(['message' => 'Intervention already exists for this NCP record.'], 409);
         }
 
+        // ADIME step order: at least one diagnosis must precede the intervention.
+        if (! $ncpRecord->diagnoses()->exists()) {
+            return response()->json([
+                'message' => 'Add at least one diagnosis before recording the intervention.',
+            ], 422);
+        }
+
         $data = $request->validated();
         $intervention = new Intervention($data);
         $intervention->ncp_record_id = $ncpRecord->id;

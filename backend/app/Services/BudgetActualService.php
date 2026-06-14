@@ -46,6 +46,14 @@ class BudgetActualService
             ->selectRaw('DATE(service_date) as d, SUM(total_value) as t')
             ->groupByRaw('DATE(service_date)')->pluck('t', 'd');
 
+        // Headcount actually served per day (population changes daily). Used to derive
+        // the real budget-per-head-per-day instead of the cycle's static population.
+        $populationByDay = MealPrepLog::where('status', 'completed')
+            ->whereBetween('service_date', [$startStr, $endStr])
+            ->whereNotNull('population')
+            ->selectRaw('DATE(service_date) as d, SUM(population) as p')
+            ->groupByRaw('DATE(service_date)')->pluck('p', 'd');
+
         // Manual non-PO cash logs entered by hand.
         $logByDay = $budget->dailyLogs()
             ->whereBetween('log_date', [$startStr, $endStr])
@@ -67,20 +75,33 @@ class BudgetActualService
             : ((float) ($budget->allocated_amount ?? 0) / max(1, $start->diffInDays($end) + 1));
 
         $days = [];
+        $popSum = 0;       // Σ headcount over served days (with a recorded population)
+        $popDays = 0;      // count of served days that recorded a population
+        $servedValue = 0.0; // Σ food-served value on those same days (per-head numerator)
         for ($d = $start->copy(); $d->lte($end); $d->addDay()) {
             $ds = $d->toDateString();
             $actual = $source === 'consumption'
                 ? (float) ($consumptionByDay[$ds] ?? 0) + (float) ($logByDay[$ds] ?? 0)
                 : (float) ($poByDay[$ds] ?? 0) + (float) ($logByDay[$ds] ?? 0);
 
-            $days[] = ['date' => $ds, 'planned' => $cap, 'actual' => $actual];
+            $pop = isset($populationByDay[$ds]) ? (int) $populationByDay[$ds] : null;
+            if ($pop !== null && $pop > 0) {
+                $popSum += $pop;
+                $popDays++;
+                $servedValue += (float) ($consumptionByDay[$ds] ?? 0);
+            }
+
+            $days[] = ['date' => $ds, 'planned' => $cap, 'actual' => $actual, 'population' => $pop];
         }
 
         return [
-            'days'        => $days,
-            'source'      => $source,
-            'cash_flow'   => round($cashFlow, 2),
-            'days_served' => $consumptionByDay->count(), // distinct served service_dates in range
+            'days'           => $days,
+            'source'         => $source,
+            'cash_flow'      => round($cashFlow, 2),
+            'days_served'    => $consumptionByDay->count(), // distinct served service_dates in range
+            // Daily-headcount roll-ups (null when no served day recorded a population):
+            'avg_population' => $popDays > 0 ? round($popSum / $popDays, 2) : null,
+            'per_head_actual' => $popSum > 0 ? round($servedValue / $popSum, 2) : null,
         ];
     }
 }

@@ -13,6 +13,7 @@ import {
   fetchAnnouncements,
   updateAnnouncement,
 } from "@/services/announcementService";
+import { Budget, listBudgets } from "@/services/budgetService";
 import { BellDot, Calendar, Compass, HeartHandshake, PencilLine, TrendingUp, X } from "lucide-react";
 
 type AnnouncementDraft = {
@@ -102,6 +103,50 @@ function buildFollowUps(patients: Patient[]): FollowUpRow[] {
     .slice(0, 8);
 }
 
+// Pick the budget most relevant to "today": one whose period covers today, else the
+// yearly budget, else the first available.
+function pickCurrentBudget(budgets: Budget[]): Budget | null {
+  if (budgets.length === 0) {
+    return null;
+  }
+
+  const today = new Date().toISOString().slice(0, 10);
+  const inPeriod = budgets.find(
+    (b) => b.period_start && b.period_end && b.period_start <= today && today <= b.period_end
+  );
+
+  return inPeriod ?? budgets.find((b) => b.scope === "yearly") ?? budgets[0];
+}
+
+function pesoAmount(n: number) {
+  return `₱${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+// Budget-per-head headline for the dashboard KPI: prefer ₱/head/day, then ₱/head/year,
+// then derive from allocation ÷ population.
+function budgetPerHeadKpi(b: Budget | null): { value: string; sub: string } {
+  if (!b) {
+    return { value: "--", sub: "No budget set yet" };
+  }
+
+  const perDay = b.budget_per_head_day ? parseFloat(b.budget_per_head_day) : null;
+  const perYear = b.budget_per_head_year ? parseFloat(b.budget_per_head_year) : null;
+  const alloc = b.allocated_amount ? parseFloat(b.allocated_amount) : 0;
+  const label = b.name || b.scope;
+
+  if (perDay) {
+    return { value: `${pesoAmount(perDay)}/day`, sub: `${label} · per head` };
+  }
+  if (perYear) {
+    return { value: `${pesoAmount(perYear)}/yr`, sub: `${label} · per head` };
+  }
+  if (alloc && b.population) {
+    return { value: pesoAmount(alloc / b.population), sub: `${label} · allocation ÷ population` };
+  }
+
+  return { value: "--", sub: "Set ₱/head on the budget" };
+}
+
 function sortAnnouncements(posts: Announcement[]) {
   return [...posts].sort((left, right) => {
     if (Boolean(left.pinned) !== Boolean(right.pinned)) {
@@ -119,6 +164,7 @@ function isAnnouncementEditable(post: Announcement, userId?: number | null) {
 export default function RndDashboardPage() {
   const { user } = useAuth();
   const [patients, setPatients] = useState<Patient[]>([]);
+  const [budgets, setBudgets] = useState<Budget[]>([]);
   const [loading, setLoading] = useState(true);
   const [announcementsLoading, setAnnouncementsLoading] = useState(true);
   const [announcementsSaving, setAnnouncementsSaving] = useState(false);
@@ -152,6 +198,13 @@ export default function RndDashboardPage() {
     }
 
     void loadDashboard();
+  }, []);
+
+  useEffect(() => {
+    // Budgets are best-effort for the KPI card — a failure here must not block the dashboard.
+    listBudgets()
+      .then(setBudgets)
+      .catch(() => setBudgets([]));
   }, []);
 
   useEffect(() => {
@@ -199,6 +252,8 @@ export default function RndDashboardPage() {
   const activePatients = patients.filter((patient) => patient.status === "Active").length;
   const patientCountLabel = loading ? "--" : activePatients.toString();
   const upcomingFollowUpLabel = loading ? "--" : followUps.length.toString();
+  const currentBudget = useMemo(() => pickCurrentBudget(budgets), [budgets]);
+  const budgetKpi = useMemo(() => budgetPerHeadKpi(currentBudget), [currentBudget]);
   const orderedPosts = useMemo(() => sortAnnouncements(posts), [posts]);
   const selectedPost = useMemo(
     () => orderedPosts.find((post) => post.id === viewingPostId) || null,
@@ -636,12 +691,12 @@ export default function RndDashboardPage() {
 
         <div className="bg-white border border-zinc-200 rounded-2xl p-4 flex items-center justify-between shadow-sm">
           <div>
-            <span className="text-[10px] font-extrabold text-[#EA580C] uppercase tracking-wider block">
+            <Link href="/food-service/budget" className="text-[10px] font-extrabold text-[#EA580C] uppercase tracking-wider block hover:underline">
               Budget Per Person
-            </span>
-            <span className="text-lg font-extrabold text-zinc-950 mt-1 block">--</span>
+            </Link>
+            <span className="text-lg font-extrabold text-zinc-950 mt-1 block">{budgetKpi.value}</span>
             <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block mt-1">
-              Budget tracking available in M9
+              {budgetKpi.sub}
             </span>
           </div>
           <div className="p-2.5 rounded-xl bg-orange-50 text-[#EA580C] border border-orange-100">

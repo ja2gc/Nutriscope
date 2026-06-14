@@ -46,9 +46,36 @@ class NcpInterventionTest extends TestCase
         ]);
     }
 
+    private function diagnosis(NcpRecord $ncp): \App\Models\Diagnosis
+    {
+        return \App\Models\Diagnosis::forceCreate([
+            'ncp_record_id'  => $ncp->id,
+            'domain'         => 'NI',
+            'problem'        => 'Inadequate intake',
+            'etiology'       => 'cause',
+            'signs_symptoms' => 'signs',
+            'pes_statement'  => 'PES',
+        ]);
+    }
+
     // ──────────────────────────────────────────────────
     // Interventions
     // ──────────────────────────────────────────────────
+
+    public function test_intervention_requires_diagnosis_first(): void
+    {
+        $rnd     = $this->rnd();
+        $patient = $this->patient();
+        $ncp     = $this->ncpRecord($patient, $rnd); // no diagnosis yet
+
+        $response = $this->actingAs($rnd, 'sanctum')
+            ->postJson("/api/rnd/ncp-records/{$ncp->id}/intervention", [
+                'energy_kcal' => 1800.0,
+            ]);
+
+        $response->assertStatus(422);
+        $this->assertDatabaseMissing('interventions', ['ncp_record_id' => $ncp->id]);
+    }
 
     public function test_autofill_returns_authoritative_prescription(): void
     {
@@ -98,6 +125,7 @@ class NcpInterventionTest extends TestCase
         $rnd     = $this->rnd();
         $patient = $this->patient();
         $ncp     = $this->ncpRecord($patient, $rnd);
+        $this->diagnosis($ncp);
 
         $response = $this->actingAs($rnd, 'sanctum')
             ->postJson("/api/rnd/ncp-records/{$ncp->id}/intervention", [
@@ -217,6 +245,7 @@ class NcpInterventionTest extends TestCase
         $rnd     = $this->rnd();
         $patient = $this->patient();
         $ncp     = $this->ncpRecord($patient, $rnd);
+        $this->diagnosis($ncp);
 
         $this->actingAs($rnd, 'sanctum')
             ->postJson("/api/rnd/ncp-records/{$ncp->id}/intervention", [

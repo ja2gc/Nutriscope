@@ -13,12 +13,13 @@ class MealPrepLog extends Model
     use \App\Models\Concerns\AuditsChanges;
 
     protected $fillable = [
-        'menu_cycle_id', 'service_date', 'status',
+        'menu_cycle_id', 'service_date', 'population', 'status',
         'completed_by', 'completed_at', 'total_value', 'has_shortfall',
     ];
 
     protected $casts = [
         'service_date'  => 'date',
+        'population'    => 'integer',
         'completed_at'  => 'datetime',
         'total_value'   => 'decimal:2',
         'has_shortfall' => 'boolean',

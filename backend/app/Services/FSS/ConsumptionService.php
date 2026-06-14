@@ -57,6 +57,7 @@ class ConsumptionService
             $log = MealPrepLog::create([
                 'menu_cycle_id' => $cycle->id,
                 'service_date'  => $serviceDate,
+                'population'    => $target, // headcount actually served this day
                 'status'        => 'completed',
                 'completed_by'  => Auth::id(),
                 'completed_at'  => now(),

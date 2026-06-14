@@ -151,6 +151,9 @@ class AiServiceTest extends TestCase
     public function test_ai_approve_diagnosis_stores_to_database(): void
     {
         $ncpRecord = $this->makeNcpRecord();
+        \App\Models\Assessment::forceCreate([
+            'ncp_record_id' => $ncpRecord->id, 'weight' => 70.0, 'height' => 170.0,
+        ]);
 
         $response = $this->actingAs($this->rnd)
             ->postJson("/api/rnd/ncp-records/{$ncpRecord->id}/diagnoses/ai-approve", [

@@ -14,6 +14,7 @@ import {
   Budget, BudgetPayload, BudgetSummary, BudgetScope,
   listBudgets, saveBudget, deleteBudget, getBudgetSummary,
 } from "@/services/budgetService";
+import { InsightsPanel } from "@/components/foodservice/InsightsPanel";
 
 const peso = (n: number) => `₱${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const num = (s: string | null) => (s ? parseFloat(s) : 0);
@@ -91,7 +92,7 @@ function KpiCard({ label, value, tone = "zinc" }: { label: string; value: string
 }
 
 export default function BudgetPage() {
-  const [tab, setTab] = useState<"dashboard" | "records">("dashboard");
+  const [tab, setTab] = useState<"dashboard" | "records" | "insights">("dashboard");
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -127,6 +128,19 @@ export default function BudgetPage() {
   const selected = budgets.find((b) => b.id === selectedId) ?? null;
   const overBudget = summary ? summary.variance > 0 : false;
 
+  // A2a — burn-rate forecast: project the range's daily spend across the budget's full
+  // period and compare to the allocation (spend-to-date → projected end).
+  const dayCount = (a: string, b: string) => Math.max(1, Math.round((Date.parse(b) - Date.parse(a)) / 86400000) + 1);
+  const forecast = summary && summary.allocated > 0 ? (() => {
+    const rangeDays = dayCount(summary.range.start, summary.range.end);
+    const perDay = summary.actual / rangeDays;
+    const pStart = selected?.period_start ?? summary.range.start;
+    const pEnd = selected?.period_end ?? summary.range.end;
+    const periodDays = dayCount(pStart, pEnd);
+    const projected = perDay * periodDays;
+    return { perDay, projected, periodDays, allocated: summary.allocated, over: projected > summary.allocated };
+  })() : null;
+
   return (
     <div className="space-y-6 font-sans">
       <Crumbs />
@@ -139,12 +153,14 @@ export default function BudgetPage() {
       </div>
 
       <div className="flex border-b border-zinc-200">
-        {([["dashboard", "Dashboard"], ["records", "Budget Records"]] as const).map(([k, label]) => (
+        {([["dashboard", "Dashboard"], ["records", "Budget Records"], ["insights", "Insights"]] as const).map(([k, label]) => (
           <button key={k} onClick={() => setTab(k)} className={`px-5 py-3 text-sm font-semibold border-b-2 cursor-pointer ${tab === k ? "border-emerald-600 text-emerald-700" : "border-transparent text-zinc-500 hover:text-zinc-800"}`}>{label}</button>
         ))}
       </div>
 
-      {tab === "dashboard" ? (
+      {tab === "insights" ? (
+        <InsightsPanel />
+      ) : tab === "dashboard" ? (
         budgets.length === 0 ? (
           <div className="bg-white border border-zinc-200 rounded-2xl p-12 text-center max-w-xl mx-auto shadow-sm">
             <Wallet className="h-8 w-8 text-emerald-600 mx-auto mb-3" />
@@ -175,9 +191,36 @@ export default function BudgetPage() {
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   <KpiCard label="Budget (range)" value={peso(summary.planned)} tone="emerald" />
                   <KpiCard label="Actual spend" value={peso(summary.actual)} />
-                  <KpiCard label="Variance" value={`${overBudget ? "+" : ""}${peso(summary.variance)}`} tone={overBudget ? "red" : "emerald"} />
-                  <KpiCard label="Variance %" value={`${summary.variance_pct}%`} tone={overBudget ? "amber" : "zinc"} />
+                  {/* Variance = actual − planned. Show it as an absolute amount with an
+                      explicit over/under label so a negative number never reads as a deficit. */}
+                  <KpiCard
+                    label={summary.variance > 0 ? "Over budget by" : summary.variance < 0 ? "Under budget by" : "On budget"}
+                    value={peso(Math.abs(summary.variance))}
+                    tone={overBudget ? "red" : "emerald"}
+                  />
+                  <KpiCard label="Variance %" value={`${Math.abs(summary.variance_pct)}% ${overBudget ? "over" : "under"}`} tone={overBudget ? "amber" : "zinc"} />
                 </div>
+
+                {/* A2a — daily budget forecast (burn-rate projection over the budget period) */}
+                {forecast && (
+                  <div className="bg-white border border-zinc-200 rounded-2xl p-5 shadow-sm">
+                    <h3 className="text-xs font-extrabold text-zinc-700 uppercase tracking-wider mb-4">Daily Budget Forecast</h3>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      <KpiCard label="Spend / day (range)" value={peso(forecast.perDay)} />
+                      <KpiCard label={`Projected (${forecast.periodDays}d period)`} value={peso(forecast.projected)} tone={forecast.over ? "red" : "emerald"} />
+                      <KpiCard label="Allocated" value={peso(forecast.allocated)} tone="emerald" />
+                      <KpiCard
+                        label={forecast.over ? "Projected overrun" : "Projected headroom"}
+                        value={peso(Math.abs(forecast.allocated - forecast.projected))}
+                        tone={forecast.over ? "red" : "emerald"}
+                      />
+                    </div>
+                    <p className="text-[10px] text-zinc-400 mt-3">
+                      Projects the selected range&apos;s average daily spend ({peso(forecast.perDay)}/day) across the budget&apos;s {forecast.periodDays}-day period.
+                      {forecast.over ? " On the current burn rate, the allocation is exceeded before period end." : " On the current burn rate, spend stays within the allocation."}
+                    </p>
+                  </div>
+                )}
 
                 <div className="flex flex-wrap items-center gap-2 text-[11px]">
                   <span className={`font-bold px-2.5 py-1 rounded-lg border ${summary.source === "consumption" ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-amber-50 text-amber-700 border-amber-200"}`}>
@@ -192,6 +235,23 @@ export default function BudgetPage() {
                     {summary.allocated > 0 && summary.cash_flow > summary.allocated ? " · over allocation" : ""}
                   </span>
                 </div>
+
+                {/* Daily-headcount actuals (A8): real ₱/head/day from served days vs the planned cap. */}
+                {(summary.per_head_actual !== null || selected?.budget_per_head_day) && (
+                  <div className="flex flex-wrap items-center gap-2 text-[11px]">
+                    {selected?.budget_per_head_day && (
+                      <span className="font-semibold px-2.5 py-1 rounded-lg border bg-zinc-50 text-zinc-600 border-zinc-200">
+                        Planned: {peso(num(selected.budget_per_head_day))}/head/day
+                      </span>
+                    )}
+                    {summary.per_head_actual !== null && (
+                      <span className={`font-bold px-2.5 py-1 rounded-lg border ${selected?.budget_per_head_day && summary.per_head_actual > num(selected.budget_per_head_day) ? "bg-red-50 text-red-700 border-red-200" : "bg-emerald-50 text-emerald-700 border-emerald-200"}`}>
+                        Actual: {peso(summary.per_head_actual)}/head/day
+                        {summary.avg_population !== null ? ` · avg ${summary.avg_population} heads/day` : ""}
+                      </span>
+                    )}
+                  </div>
+                )}
 
                 <div className={`flex items-center gap-2 text-xs font-bold px-3 py-2 rounded-xl border w-fit ${overBudget ? "bg-red-50 text-red-700 border-red-200" : "bg-emerald-50 text-emerald-700 border-emerald-200"}`}>
                   {overBudget ? <AlertTriangle className="h-3.5 w-3.5" /> : <CheckCircle2 className="h-3.5 w-3.5" />}

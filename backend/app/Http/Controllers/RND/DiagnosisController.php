@@ -26,6 +26,13 @@ class DiagnosisController extends Controller
      */
     public function store(StoreDiagnosisRequest $request, NcpRecord $ncpRecord)
     {
+        // ADIME step order: the assessment must precede the diagnosis.
+        if (! $ncpRecord->assessment()->exists()) {
+            return response()->json([
+                'message' => 'Record the nutrition assessment before adding a diagnosis.',
+            ], 422);
+        }
+
         $data = $request->validated();
         $diagnosis = new Diagnosis($data);
         $diagnosis->ncp_record_id = $ncpRecord->id;
