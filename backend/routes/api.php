@@ -227,6 +227,9 @@ Route::middleware(['auth:sanctum', 'role:FSS,RND'])->prefix('fss')->group(functi
     // Cleaning log (FSS daily sanitation checklist)
     Route::apiResource('cleaning-logs', CleaningLogController::class);
 
+    // Announcements — FSS reads its feed (visibility FSS|All); RND/Admin own writes
+    Route::get('announcements', [RndAnnouncementController::class, 'index']);
+
     // Reports routes (shared with RND — see $reportRoutes above)
     $reportRoutes();
 });
