@@ -93,14 +93,16 @@
 - **Algorithm Fixes**: Add AI fallback to `MealPlanService.php` when <5 recipes match. Ensure PHI is stripped from AI payloads.
   - **Procurement — CLAIM RETRACTED (verified 2026-06-15)**: the live path `ShoppingListController::generate` **already** nets `qty − (on_hand + in_transit_POs)`, skips fully-covered items, rounds up to whole purchase units (Spec 6 #2/#4). `ProcurementService::suggestedItems()` is unused dead code (span-scaler only), not the procurement list — no fix needed; candidate for deletion.
 
-#### §7 sub-task tracker (verify each before building — review accuracy has been mixed)
-- [ ] Dynamic `clinical_rules` in `RND/InterventionController::mapGoalTypeToConditions` — CONFIRMED hardcoded (line 153). Valid.
-- [ ] MealPlan AI fallback (<5 recipes) — CONFIRMED missing. Valid.
-- [ ] AI diagnosis → background job (return 202) — sync today; **changes API contract → frontend impact, confirm before shipping**.
-- [ ] Monitoring AI-review caching — verify it's actually missing first.
-- [ ] N+1 eager-loads in `NcpRecordController` list — verify first.
-- [ ] `prescription-targets.json` sync (free_sugar, bmi_range) — verify gap first; clinical-correctness risk.
-- [x] ~~ProcurementService on-hand~~ — retracted (already done in live path).
-- [~] Report `dispatchSync` — intentional/documented; left as-is (see rnd-review §1).
+#### §7 sub-task tracker (verified 2026-06-15 — most review claims were FALSE)
+- [x] Dynamic `clinical_rules` (`RND/InterventionController::mapGoalTypeToConditions` → `config/clinical.php`) — was hardcoded AND broken; FIXED + tested.
+- [ ] MealPlan AI fallback (<5 recipes) — CONFIRMED missing. **VALID, todo** (additive AI call → should be queued).
+- [ ] AI diagnosis → background job (202) — sync today. **VALID, todo, but changes the API contract → needs a product decision (frontend impact).**
+- [x] ~~Monitoring AI-review caching~~ — FALSE. `MonitoringController::aiReview` already caches via DB (`ai_review` + `ai_review_key` signature, returns `cached:true`) + rate-limits. No change.
+- [x] ~~N+1 eager-loads~~ — FALSE. `PatientController::index` already `->with(['ncpRecords'=>...['assessment','intervention']])->paginate(20)`; show/others eager-load too. `NcpRecordController` only has `destroy`. No change.
+- [~] `prescription-targets.json` sync — PARTLY FALSE. `free_sugar_max_pct` IS set (diabetic_control). Universal free-sugar baseline + server-side `bmi_range` stage-validation are **clinical-spec judgment calls**, not clear bugs — defer to a clinical decision; don't speculatively change the frozen engine (golden cases in `prescription-targets.json`).
+- [x] ~~ProcurementService on-hand~~ — FALSE; live path already nets stock.
+- [~] Report `dispatchSync` — intentional/documented; left as-is.
+
+**Net remaining Phase A work = the two AI items only** (MealPlan fallback, AI-diagnosis async). Both need product decisions before building.
 
 *Refer to the respective Sprint Plans for the long-term UI roadmap.*

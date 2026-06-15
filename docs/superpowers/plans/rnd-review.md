@@ -35,8 +35,8 @@
 
 *   **Engine Desync with `prescription-targets.json`:**
     *   *Flaw:* The `docs/logic/prescription-targets.json` file is perfectly localized for the Philippines. It dictates Asia-Pacific BMI cut-points, Asian GLIM limits, and PDRI baselines (like free sugars `< 10%`). **However, the PHP `NutritionPrescriptionService` fails to fully implement this JSON spec.**
-    *   *Missing Baselines:* The PHP engine's default fallback completely ignores the `free_sugar_max_pct_energy: 0.1` rule defined in the JSON `baseline_pdri`. 
-    *   *Vulnerable Staging:* The PHP engine blindly accepts the `stage` string (e.g., `class_1`) without independently validating it against the patient's actual BMI using the Asia-Pacific `bmi_range` thresholds defined in the JSON. If the frontend sends the wrong string, the backend engine calculates the wrong deficit, breaking the Single Source of Truth architecture.
+    *   *Partly corrected (verified 2026-06-15):* `free_sugar_max_pct => 0.10` **is** emitted (e.g. `diabetic_control`, NutritionPrescriptionService:221). Whether it should be a **universal** PDRI baseline on every goal's output is a clinical-spec judgment call, not a clear bug — the per-goal sections of `intervention-goals.md` don't all carry it. Defer to a clinical decision; don't change the frozen engine speculatively (golden cases freeze expected outputs).
+    *   *Vulnerable Staging (open, but debatable):* the engine accepts the `stage` string without re-deriving/validating it from BMI via the JSON `bmi_range`. This is arguably by-design (pure calculator given goal+stage+measurements). Add server-side stage↔BMI validation only if the team wants the backend to be authoritative over the frontend-sent stage — clinical decision, not an obvious defect.
 
 ## 4. Algorithms Review (Meal Plan, Procurement)
 
@@ -54,11 +54,10 @@
 
 ## 6. Cache & Loading Speed
 
-*   **Missing Redis Caching:**
-    *   *Flaw:* A codebase scan for `Cache::` shows it is heavily utilized in FSS endpoints but entirely absent from the clinical NCP controllers. `rnd.md` specifies that `monitorings/ai-review` should be "cached per visit-pair" to save costs and loading speed. This caching is currently missing.
-    *   *Fix Required:* Implement `Cache::remember()` in `MonitoringController` using Redis to store AI-generated reviews.
-*   **N+1 Query Risks:**
-    *   *Flaw:* While `NcpRecordController` performs adequate relational checks for single records, endpoints returning lists of patients (like the RND Dashboard) do not explicitly eager-load (`with('assessment', 'intervention')`). This will cause the dashboard to slow down significantly as patient volume grows.
+*   **Missing Redis Caching — CLAIM RETRACTED (verified 2026-06-15):**
+    *   *Correction:* `MonitoringController::aiReview` already caches the AI review — it persists `ai_review` + an `ai_review_key` content signature on the latest monitoring row and returns `{cached:true}` when the signature matches, plus a per-user rate-limit (5/min). This is a content-keyed persistent cache (survives restarts) — arguably better than `Cache::remember`. No change needed.
+*   **N+1 Query Risks — CLAIM RETRACTED (verified 2026-06-15):**
+    *   *Correction:* The patient-list endpoint `PatientController::index` already eager-loads and paginates: `Patient::query()->with(['ncpRecords' => fn($q) => $q->latest()->with(['assessment','intervention'])])->paginate(20)`. `show` and the NCP-list also eager-load. `NcpRecordController` only exposes `destroy` (single record). No N+1.
 
 ## 7. Security & Data Privacy
 

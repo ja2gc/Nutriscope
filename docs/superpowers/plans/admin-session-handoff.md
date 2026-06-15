@@ -25,15 +25,17 @@
 | 3 | FSS announcements feed | ✅ done + committed |
 | 7 | RND clinical/algorithm fixes | 🔧 IN PROGRESS — see below |
 
-### §7 sub-checklist (remaining Phase A work)
-- [x] **Dynamic clinical_rules** — `RND/InterventionController::mapGoalTypeToConditions` now reads `config/clinical.php` (`goal_type_conditions`). Fixed a real bug (old hardcoded strings like `'Hypertension'`/`'Malnutrition'` never matched the lowercase `clinical_rules.condition` values, so most goals returned zero rules). **Open:** the `cardiac_diet → [hypertension, dyslipidemia]` mapping needs dietitian confirmation.
-- [ ] **MealPlan AI fallback** — `MealPlanService.php` returns `['insufficient_recipes'=>true]` when <5 recipes match; controller never calls AI. Wire the Sonnet fallback per `docs/logic/meal-algorithm.md`. CONFIRMED missing.
-- [ ] **AI diagnosis → background job (202)** — `RND/AiDiagnosisController` calls `AIService::suggestDiagnoses` synchronously. Moving to a queued job **changes the API contract** (202 + poll/listen) → coordinate with frontend before shipping. `AIService` already writes `AiUsageLog`; keep that write inside the job.
-- [ ] **Monitoring AI-review caching** — verify it's actually missing in `MonitoringController`, then `Cache::remember()` per visit-pair.
-- [ ] **N+1 eager-loads** — verify the RND list endpoints (e.g. `NcpRecordController` index / dashboard) don't eager-load `assessment`/`intervention`; add `with(...)` if confirmed.
-- [ ] **prescription-targets.json sync** — verify `NutritionPrescriptionService` implements `free_sugar_max_pct_energy` (0.1) and validates `stage` against Asia-Pacific `bmi_range`. Clinical-correctness risk — test against the golden cases in `docs/logic/prescription-targets.json`.
-- [x] ~~ProcurementService on-hand~~ — RETRACTED; live path already nets stock.
+### §7 sub-checklist (VERIFIED 2026-06-15 — most claims were FALSE)
+- [x] **Dynamic clinical_rules** — DONE. `RND/InterventionController::mapGoalTypeToConditions` now reads `config/clinical.php`. Fixed a real bug (old hardcoded strings like `'Hypertension'`/`'Malnutrition'` never matched lowercase `clinical_rules.condition`, so most goals returned zero rules). **Open:** `cardiac_diet → [hypertension, dyslipidemia]` needs dietitian confirmation.
+- [ ] **MealPlan AI fallback** — VALID, TODO. `MealPlanService.php` returns `['insufficient_recipes'=>true]` when <5 recipes; controller never calls AI. Wire Sonnet fallback per `docs/logic/meal-algorithm.md` (queue it — AI calls should be background per hard rule).
+- [ ] **AI diagnosis → background job (202)** — VALID, TODO, **needs product decision**. `RND/AiDiagnosisController` is sync; queuing it changes the API contract (202 + poll/listen) → frontend impact. `AIService` already writes `AiUsageLog`; keep that inside the job.
+- [x] ~~Monitoring AI-review caching~~ — FALSE. Already cached: `MonitoringController::aiReview` persists `ai_review` + `ai_review_key` signature, returns `cached:true`, rate-limited. No change.
+- [x] ~~N+1 eager-loads~~ — FALSE. `PatientController::index` already `->with(['ncpRecords'=>...['assessment','intervention']])->paginate(20)`. No N+1.
+- [~] **prescription-targets.json sync** — PARTLY FALSE. `free_sugar_max_pct` is emitted (diabetic). Universal free-sugar baseline + server-side `bmi_range` stage-validation are clinical-spec judgment calls — defer to clinical decision; don't change the frozen engine speculatively.
+- [x] ~~ProcurementService on-hand~~ — FALSE; live path already nets stock.
 - [~] Report `dispatchSync` — intentional/documented; leave as-is.
+
+**Net: Phase A is one decision away from done.** Only the two AI items remain, both needing a product call (see "AI decisions" below).
 
 ## Phase B — Admin (start only after Phase A done)
 
