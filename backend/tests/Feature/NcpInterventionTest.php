@@ -282,6 +282,36 @@ class NcpInterventionTest extends TestCase
             ]);
     }
 
+    public function test_recommendations_resolve_real_conditions_per_goal_type(): void
+    {
+        $rnd = $this->rnd();
+
+        \App\Models\ClinicalRule::insert([
+            ['condition' => 'CKD',          'stage' => 'all', 'nutrient_or_food_tag' => 'potassium',     'rule_type' => 'limit',     'threshold' => 2000, 'unit' => 'mg', 'reason' => 'x', 'created_at' => now(), 'updated_at' => now()],
+            ['condition' => 'hypertension', 'stage' => 'all', 'nutrient_or_food_tag' => 'sodium',        'rule_type' => 'limit',     'threshold' => 1500, 'unit' => 'mg', 'reason' => 'x', 'created_at' => now(), 'updated_at' => now()],
+            ['condition' => 'dyslipidemia', 'stage' => 'all', 'nutrient_or_food_tag' => 'saturated_fat', 'rule_type' => 'limit',     'threshold' => 7,    'unit' => '%',  'reason' => 'x', 'created_at' => now(), 'updated_at' => now()],
+            ['condition' => 'malnutrition', 'stage' => 'all', 'nutrient_or_food_tag' => 'protein',       'rule_type' => 'recommend', 'threshold' => 0,    'unit' => '',   'reason' => 'x', 'created_at' => now(), 'updated_at' => now()],
+        ]);
+
+        $recs = function (string $goalType) use ($rnd) {
+            $ncp = $this->ncpRecord($this->patient(), $rnd);
+            Intervention::forceCreate(['ncp_record_id' => $ncp->id, 'goal_type' => $goalType, 'disease_stage' => 'all']);
+            return $this->actingAs($rnd, 'sanctum')
+                ->getJson("/api/rnd/ncp-records/{$ncp->id}/intervention/recommendations");
+        };
+
+        // renal_diet -> CKD
+        $this->assertContains('potassium', array_column($recs('renal_diet')->json('data.limits'), 'tag'));
+
+        // cardiac_diet -> hypertension + dyslipidemia (both conditions resolved)
+        $cardiacTags = array_column($recs('cardiac_diet')->json('data.limits'), 'tag');
+        $this->assertContains('sodium', $cardiacTags);
+        $this->assertContains('saturated_fat', $cardiacTags);
+
+        // malnutrition -> malnutrition (previously broken: 'Malnutrition' vs 'malnutrition')
+        $this->assertContains('protein', array_column($recs('malnutrition')->json('data.recommend'), 'tag'));
+    }
+
     public function test_recommendations_returns_empty_for_custom_goal(): void
     {
         $rnd     = $this->rnd();
