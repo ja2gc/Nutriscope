@@ -11,6 +11,7 @@ use App\Services\Reports\Generators\DemographicCensusGenerator;
 use App\Services\Reports\Generators\DietaryCashBookGenerator;
 use App\Services\Reports\Generators\InventoryReportGenerator;
 use App\Services\Reports\Generators\MenuCalendarGenerator;
+use App\Services\Reports\Generators\NcpSummaryGenerator;
 use App\Services\Reports\Generators\PatientMenuPlanGenerator;
 use App\Services\Reports\Generators\ProcurementPackGenerator;
 use App\Services\Reports\Generators\ProgramProjectActivityGenerator;
@@ -34,28 +35,55 @@ class ReportService
         'procurement_pack'         => ProcurementPackGenerator::class,
         'demographic_census'       => DemographicCensusGenerator::class,
         'patient_menu_plan'        => PatientMenuPlanGenerator::class,
+        'ncp_summary'              => NcpSummaryGenerator::class,
         'budget_report'            => BudgetReportGenerator::class,
         'budget'                   => BudgetReportGenerator::class,
         'inventory_report'         => InventoryReportGenerator::class,
         'inventory'                => InventoryReportGenerator::class,
     ];
 
-    public function generate(Report $report): string
+    /**
+     * Render a report to PDF bytes WITHOUT persisting anything. Used by on-demand
+     * render (browse-don't-generate) and reused by {@see generate()} for archives.
+     *
+     * @return array{bytes:string,meta:array{branding:ReportBranding,signatories:array,generated_at:\Illuminate\Support\Carbon}}
+     */
+    public function buildPdf(Report $report): array
     {
         $generator = $this->resolve($report->type);
 
-        $data = array_merge($generator->data($report), [
+        $meta = [
             'branding'     => ReportBranding::singleton(),
-            'signatories'  => $this->signatories($report),
-            'report'       => $report,
+            'signatories'  => $this->signatoriesFor($report),
             'generated_at' => now(),
-        ]);
+        ];
+
+        $data = array_merge($generator->data($report), $meta, ['report' => $report]);
 
         [$size, $orientation] = $generator->paper();
 
-        $pdf  = Pdf::loadView($generator->view(), $data)->setPaper($size, $orientation);
+        $pdf = Pdf::loadView($generator->view(), $data)->setPaper($size, $orientation);
+
+        return ['bytes' => $pdf->output(), 'meta' => $meta];
+    }
+
+    /**
+     * Render bytes for an on-demand request, building a transient (un-saved) Report
+     * from the type + params. Nothing is written to the database.
+     */
+    public function streamBytes(string $type, array $params): string
+    {
+        $report = new Report(['type' => $type, 'parameters' => $params]);
+
+        return $this->buildPdf($report)['bytes'];
+    }
+
+    public function generate(Report $report): string
+    {
+        $bytes = $this->buildPdf($report)['bytes'];
+
         $path = "reports/{$report->id}.pdf";
-        Storage::disk('public')->put($path, $pdf->output());
+        Storage::disk('public')->put($path, $bytes);
 
         return $path;
     }
@@ -81,7 +109,7 @@ class ReportService
      *
      * @return array<int,array{role:string,label:string,name:string,title:string}>
      */
-    private function signatories(Report $report): array
+    public function signatoriesFor(Report $report): array
     {
         $template    = ReportTemplate::where('type', $report->type)->first();
         $defaults    = $template?->signatories ?? [];

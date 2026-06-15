@@ -27,6 +27,8 @@
         .totals td { font-weight: bold; background: #f6f6f6; }
         .meta { font-size: 10px; }
         .meta td { padding: 2px 4px; }
+        .section { font-weight: bold; text-transform: uppercase; font-size: 10px; letter-spacing: .3px;
+                   background: #e7edf5; border: 1px solid #c9d4e2; padding: 3px 6px; margin: 10px 0 4px; }
     </style>
 </head>
 <body>

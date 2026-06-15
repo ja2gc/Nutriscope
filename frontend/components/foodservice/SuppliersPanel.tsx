@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useEffect, useState, useCallback } from "react";
-import Link from "next/link";
 import { Truck, Plus, Pencil, Trash2, X, RefreshCw, Search, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import {
@@ -108,7 +107,11 @@ function SupplierForm({ initial, editingId, onSaved, onCancel }: {
   );
 }
 
-export default function SuppliersPage() {
+/**
+ * Suppliers/Vendors CRUD, rendered as a tab inside the Procurement page
+ * (A3 — merged from the former standalone /food-service/suppliers route).
+ */
+export function SuppliersPanel() {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -152,27 +155,11 @@ export default function SuppliersPage() {
   );
 
   return (
-    <div className="space-y-6 font-sans">
-      {/* Breadcrumb */}
-      <div className="flex items-center gap-2 text-xs font-semibold text-zinc-400 select-none">
-        <Link href="/dashboard" className="hover:text-emerald-700 transition-colors">Home</Link>
-        <span>/</span>
-        <span>Food Service</span>
-        <span>/</span>
-        <span className="font-bold text-zinc-600">Suppliers</span>
-      </div>
-
-      {/* Header */}
-      <div className="border-b border-zinc-200 pb-5 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-extrabold text-zinc-950 tracking-tight flex items-center gap-2.5">
-            <Truck className="h-5 w-5 text-emerald-600" />
-            Suppliers &amp; Vendors
-          </h2>
-          <p className="text-xs text-zinc-500 mt-1">
-            Vendors used across procurement. Set a description (vegetables, meats…) and contact for reports.
-          </p>
-        </div>
+    <div className="space-y-5">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <p className="text-xs text-zinc-500">
+          Vendors used across procurement. Set a description (vegetables, meats…) and contact for reports.
+        </p>
         <div className="flex items-center gap-3 shrink-0">
           <button onClick={load} className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-700 transition-colors">
             <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />

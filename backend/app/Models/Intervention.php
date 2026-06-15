@@ -10,6 +10,10 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Intervention extends Model
 {
     use HasFactory;
+    use \App\Models\Concerns\AuditsChanges;
+
+    /** Clinical — log field names only, redact PHI values (Spec 5 Decision A). */
+    protected bool $auditRedactValues = true;
     protected $fillable = [
         'ncp_record_id', 'goal_type', 'disease_stage', 'displayed_nutrients',
         'energy_kcal', 'protein_g', 'carbs_g', 'fat_g', 'fluid_ml',

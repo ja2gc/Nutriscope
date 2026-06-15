@@ -37,9 +37,14 @@ export interface BudgetSummary {
   variance_pct: number;
   trend: TrendPoint[];
   range: { start: string; end: string; granularity: string };
+  source: "consumption" | "purchases";
+  cash_flow: number;
+  days_served: number;
   allocated: number;
   budget_per_head_day: number | null;
   population: number | null;
+  avg_population: number | null;
+  per_head_actual: number | null;
 }
 
 async function unwrap<T>(res: Response, fallback: string): Promise<T> {

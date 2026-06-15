@@ -84,7 +84,14 @@ class MealPlanService
         })->values();
 
         if ($recipeModels->count() < 5) {
-            return ['insufficient_recipes' => true, 'count' => $recipeModels->count()];
+            // Product decision (2026-06-15): no AI fallback for meal generation. When too
+            // few recipes match, return an actionable message so the RND adds/loosens
+            // recipes rather than silently producing a thin plan.
+            return [
+                'insufficient_recipes' => true,
+                'count'                => $recipeModels->count(),
+                'message'              => "Only {$recipeModels->count()} matching recipe(s) found (need at least 5). Add more recipes for this condition/allergen profile, then regenerate.",
+            ];
         }
 
         // Load ready-to-eat food items (fruits/ready veg/overridden) for standalone snack

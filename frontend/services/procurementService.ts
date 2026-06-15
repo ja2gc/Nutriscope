@@ -9,6 +9,9 @@ export interface ShoppingListItem {
   supplier_id: number | null;
   unit_price: string | null;
   total: string | null;
+  purchase_qty: string | null;
+  purchase_unit: string | null;
+  purchase_price: string | null;
 }
 export interface ShoppingList {
   id: number;
@@ -23,7 +26,7 @@ export interface ShoppingList {
   items: ShoppingListItem[];
 }
 
-export interface POItem { id: number; fs_item_id: number | null; description: string; qty: string; unit: string; unit_price: string; total_value: string }
+export interface POItem { id: number; fs_item_id: number | null; description: string; qty: string; unit: string; unit_price: string; total_value: string; purchase_qty: string | null; purchase_unit: string | null; purchase_price: string | null }
 export interface POAttachment { id: number; type: "receipt" | "proof"; path: string; caption: string | null }
 export interface PurchaseOrder {
   id: number;
@@ -92,6 +95,15 @@ export async function deletePurchaseOrder(id: number): Promise<void> {
 export async function uploadAttachment(poId: number, file: File, type: "receipt" | "proof", caption?: string): Promise<POAttachment> {
   const fd = new FormData();
   fd.append("file", file); fd.append("type", type);
+  if (caption) fd.append("caption", caption);
+  const res = await apiFetch(`/api/fss/purchase-orders/${poId}/attachments`, { method: "POST", body: fd });
+  return unwrap(res, "Failed to upload.");
+}
+/** Upload several receipt/proof photos at once. */
+export async function uploadAttachments(poId: number, files: File[], type: "receipt" | "proof", caption?: string): Promise<POAttachment[]> {
+  const fd = new FormData();
+  files.forEach((f) => fd.append("files[]", f));
+  fd.append("type", type);
   if (caption) fd.append("caption", caption);
   const res = await apiFetch(`/api/fss/purchase-orders/${poId}/attachments`, { method: "POST", body: fd });
   return unwrap(res, "Failed to upload.");

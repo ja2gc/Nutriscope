@@ -13,6 +13,7 @@ import {
   fetchAnnouncements,
   updateAnnouncement,
 } from "@/services/announcementService";
+import { CostToday, getCostToday } from "@/services/menuCycleService";
 import { BellDot, Calendar, Compass, HeartHandshake, PencilLine, TrendingUp, X } from "lucide-react";
 
 type AnnouncementDraft = {
@@ -102,6 +103,31 @@ function buildFollowUps(patients: Patient[]): FollowUpRow[] {
     .slice(0, 8);
 }
 
+function pesoAmount(n: number) {
+  return `₱${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+// Cost-per-head headline for the dashboard KPI: the REAL cost to make today's menu
+// (computed from the active cycle), with the settable per-head limit as context.
+function costPerHeadKpi(c: CostToday | null): { value: string; sub: string } {
+  if (!c) {
+    return { value: "--", sub: "No active menu cycle" };
+  }
+  if (!c.has_menu_today || c.cost_per_head === null) {
+    return { value: "--", sub: `${c.cycle} · no menu planned for ${c.weekday}` };
+  }
+
+  const limitNote =
+    c.limit_per_head !== null
+      ? ` · limit ${pesoAmount(c.limit_per_head)}${c.within_budget === false ? " (over)" : ""}`
+      : "";
+
+  return {
+    value: `${pesoAmount(c.cost_per_head)}/head`,
+    sub: `${c.cycle} · ${c.weekday} menu cost${limitNote}`,
+  };
+}
+
 function sortAnnouncements(posts: Announcement[]) {
   return [...posts].sort((left, right) => {
     if (Boolean(left.pinned) !== Boolean(right.pinned)) {
@@ -119,6 +145,7 @@ function isAnnouncementEditable(post: Announcement, userId?: number | null) {
 export default function RndDashboardPage() {
   const { user } = useAuth();
   const [patients, setPatients] = useState<Patient[]>([]);
+  const [costToday, setCostToday] = useState<CostToday | null>(null);
   const [loading, setLoading] = useState(true);
   const [announcementsLoading, setAnnouncementsLoading] = useState(true);
   const [announcementsSaving, setAnnouncementsSaving] = useState(false);
@@ -152,6 +179,13 @@ export default function RndDashboardPage() {
     }
 
     void loadDashboard();
+  }, []);
+
+  useEffect(() => {
+    // Best-effort for the KPI card — a failure here must not block the dashboard.
+    getCostToday()
+      .then(setCostToday)
+      .catch(() => setCostToday(null));
   }, []);
 
   useEffect(() => {
@@ -199,6 +233,7 @@ export default function RndDashboardPage() {
   const activePatients = patients.filter((patient) => patient.status === "Active").length;
   const patientCountLabel = loading ? "--" : activePatients.toString();
   const upcomingFollowUpLabel = loading ? "--" : followUps.length.toString();
+  const budgetKpi = useMemo(() => costPerHeadKpi(costToday), [costToday]);
   const orderedPosts = useMemo(() => sortAnnouncements(posts), [posts]);
   const selectedPost = useMemo(
     () => orderedPosts.find((post) => post.id === viewingPostId) || null,
@@ -636,12 +671,12 @@ export default function RndDashboardPage() {
 
         <div className="bg-white border border-zinc-200 rounded-2xl p-4 flex items-center justify-between shadow-sm">
           <div>
-            <span className="text-[10px] font-extrabold text-[#EA580C] uppercase tracking-wider block">
-              Budget Per Person
-            </span>
-            <span className="text-lg font-extrabold text-zinc-950 mt-1 block">--</span>
+            <Link href="/food-service/menu-cycle" className="text-[10px] font-extrabold text-[#EA580C] uppercase tracking-wider block hover:underline">
+              Cost / Head Today
+            </Link>
+            <span className="text-lg font-extrabold text-zinc-950 mt-1 block">{budgetKpi.value}</span>
             <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block mt-1">
-              Budget tracking available in M9
+              {budgetKpi.sub}
             </span>
           </div>
           <div className="p-2.5 rounded-xl bg-orange-50 text-[#EA580C] border border-orange-100">

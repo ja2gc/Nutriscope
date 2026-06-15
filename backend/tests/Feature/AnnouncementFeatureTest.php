@@ -74,6 +74,33 @@ class AnnouncementFeatureTest extends TestCase
             ->assertJsonMissing(['title' => 'FSS only prep reminder']);
     }
 
+    public function test_fss_lists_fss_and_all_announcements_only(): void
+    {
+        $admin = $this->user('Admin', 'admin-fss-feed@example.com');
+        $rnd   = $this->user('RND', 'rnd-fss-feed@example.com');
+        $fss   = $this->user('FSS', 'fss-feed@example.com');
+
+        Announcement::forceCreate([
+            'user_id' => $admin->id, 'title' => 'All hands',
+            'body' => 'x', 'category' => 'General', 'visibility' => 'All',
+        ]);
+        Announcement::forceCreate([
+            'user_id' => $rnd->id, 'title' => 'Kitchen prep reminder',
+            'body' => 'x', 'category' => 'Operational', 'visibility' => 'FSS',
+        ]);
+        Announcement::forceCreate([
+            'user_id' => $admin->id, 'title' => 'Admin only memo',
+            'body' => 'x', 'category' => 'General', 'visibility' => 'Admin',
+        ]);
+
+        $response = $this->actingAs($fss, 'sanctum')->getJson('/api/fss/announcements');
+
+        $response->assertOk()
+            ->assertJsonFragment(['title' => 'All hands'])
+            ->assertJsonFragment(['title' => 'Kitchen prep reminder'])
+            ->assertJsonMissing(['title' => 'Admin only memo']);
+    }
+
     public function test_admin_can_pin_announcement(): void
     {
         $admin = $this->user('Admin', 'admin-pin@example.com');

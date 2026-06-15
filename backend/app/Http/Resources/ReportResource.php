@@ -16,6 +16,7 @@ class ReportResource extends JsonResource
             'type'         => $this->type,
             'filters'      => $this->filters,
             'parameters'   => $this->parameters,
+            'snapshot'     => $this->snapshot,
             'file_path'    => $this->file_path,
             'status'       => $this->status,
             'generated_at' => $this->generated_at?->toIso8601String(),

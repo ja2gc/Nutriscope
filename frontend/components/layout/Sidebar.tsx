@@ -36,9 +36,11 @@ export function Sidebar({ open = false, onClose }: { open?: boolean; onClose?: (
   const activePatientId = ncpMatch ? ncpMatch[1] : null;
   const activeNcpId = ncpMatch ? ncpMatch[3] : null;
 
-  // Determine actual target paths for the NCP menu items
-  const pId = activePatientId || "select-patient";
-  const nId = activeNcpId || "select-ncp";
+  // NCP step links only resolve to a real step page when we're already inside an
+  // NCP cycle; otherwise they'd point at /ncp/select-patient/... (a dead end), so
+  // send the user to the patient picker to choose a patient + cycle first.
+  const inNcp = Boolean(activePatientId && activeNcpId);
+  const stepHref = (step: string) => inNcp ? `/ncp/${activePatientId}/${step}/${activeNcpId}` : "/ncp/patients";
 
   // Automatically expand relevant dropdown groups on mount if we are on their routes
   useEffect(() => {
@@ -250,7 +252,7 @@ export function Sidebar({ open = false, onClose }: { open?: boolean; onClose?: (
                   Patients
                 </Link>
                 <Link
-                  href={`/ncp/${pId}/assessment/${nId}`}
+                  href={stepHref("assessment")}
                   className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all duration-150 ${
                     pathname.includes("/assessment/")
                       ? "text-emerald-500 font-extrabold"
@@ -261,7 +263,7 @@ export function Sidebar({ open = false, onClose }: { open?: boolean; onClose?: (
                   Assessment
                 </Link>
                 <Link
-                  href={`/ncp/${pId}/diagnosis/${nId}`}
+                  href={stepHref("diagnosis")}
                   className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all duration-150 ${
                     pathname.includes("/diagnosis/")
                       ? "text-emerald-500 font-extrabold"
@@ -272,7 +274,7 @@ export function Sidebar({ open = false, onClose }: { open?: boolean; onClose?: (
                   Diagnosis
                 </Link>
                 <Link
-                  href={`/ncp/${pId}/intervention/${nId}`}
+                  href={stepHref("intervention")}
                   className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all duration-150 ${
                     pathname.includes("/intervention/")
                       ? "text-emerald-500 font-extrabold"
@@ -283,7 +285,7 @@ export function Sidebar({ open = false, onClose }: { open?: boolean; onClose?: (
                   Intervention
                 </Link>
                 <Link
-                  href={`/ncp/${pId}/monitoring/${nId}`}
+                  href={stepHref("monitoring")}
                   className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all duration-150 ${
                     pathname.includes("/monitoring/")
                       ? "text-emerald-500 font-extrabold"
@@ -369,17 +371,6 @@ export function Sidebar({ open = false, onClose }: { open?: boolean; onClose?: (
                 >
                   <span className={`h-1.5 w-1.5 rounded-full ${pathname === "/food-service/procurement" ? "bg-emerald-500" : "bg-zinc-700"}`} />
                   Procurement
-                </Link>
-                <Link
-                  href="/food-service/suppliers"
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all duration-150 ${
-                    pathname === "/food-service/suppliers"
-                      ? "text-emerald-500 font-extrabold"
-                      : "text-zinc-500 hover:text-zinc-300"
-                  }`}
-                >
-                  <span className={`h-1.5 w-1.5 rounded-full ${pathname === "/food-service/suppliers" ? "bg-emerald-500" : "bg-zinc-700"}`} />
-                  Suppliers
                 </Link>
                 <Link
                   href="/food-service/recipes"
