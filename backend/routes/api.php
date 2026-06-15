@@ -33,6 +33,7 @@ use App\Http\Controllers\FSS\FsItemController;
 use App\Http\Controllers\FSS\InsightsController;
 use App\Http\Controllers\ActivityController;
 use App\Http\Controllers\FSS\MealPrepLogController;
+use App\Http\Controllers\FSS\CleaningLogController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\ReportBrandingController;
 use App\Http\Controllers\ReportTemplateController;
@@ -214,6 +215,9 @@ Route::middleware(['auth:sanctum', 'role:FSS,RND'])->prefix('fss')->group(functi
     Route::get('meal-prep-logs', [MealPrepLogController::class, 'index']);
     Route::post('menu-cycles/{menuCycle}/complete-day', [MealPrepLogController::class, 'complete']);
     Route::post('meal-prep-logs/{mealPrepLog}/reverse', [MealPrepLogController::class, 'reverse']);
+
+    // Cleaning log (FSS daily sanitation checklist)
+    Route::apiResource('cleaning-logs', CleaningLogController::class);
 
     // Reports routes (shared with RND — see $reportRoutes above)
     $reportRoutes();
