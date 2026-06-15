@@ -150,17 +150,14 @@ class InterventionController extends Controller
         return response()->json(['data' => $result]);
     }
 
+    /**
+     * Translate an intervention goal_type to the clinical_rules condition(s) whose
+     * food rules apply. Data-driven via config/clinical.php (condition strings must
+     * match clinical_rules.condition) — not hardcoded here. Unknown goal_types and
+     * purely calculation-based goals resolve to no conditions.
+     */
     private function mapGoalTypeToConditions(string $goalType): array
     {
-        return match ($goalType) {
-            'renal_diet'        => ['CKD', 'Renal disease'],
-            'diabetic_control'  => ['DM', 'High glucose'],
-            'cardiac_diet'      => ['Cardiac', 'Hypertension'],
-            'weight_gain'       => ['Malnutrition'],
-            'high_protein'      => ['Low albumin', 'Malnutrition'],
-            'liver_disease'     => ['Liver disease'],
-            'malnutrition'      => ['Malnutrition'],
-            default             => [],
-        };
+        return config("clinical.goal_type_conditions.{$goalType}", []);
     }
 }
