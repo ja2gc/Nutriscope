@@ -31,6 +31,9 @@ class PurchaseOrderResource extends JsonResource
                 'unit'        => $i->unit,
                 'unit_price'  => $i->unit_price,
                 'total_value' => $i->total_value,
+                'purchase_qty'    => $i->purchase_qty,
+                'purchase_unit'   => $i->purchase_unit,
+                'purchase_price'  => $i->purchase_price,
             ])),
             'attachments'      => $this->whenLoaded('attachments', fn () => $this->attachments->map(fn ($a) => [
                 'id' => $a->id, 'type' => $a->type, 'path' => $a->path, 'caption' => $a->caption,

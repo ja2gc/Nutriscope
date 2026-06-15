@@ -11,13 +11,16 @@ class PurchaseOrderItem extends Model
     
     protected $fillable = [
         'purchase_order_id', 'fs_item_id', 'description',
-        'qty', 'unit', 'unit_price', 'total_value'
+        'qty', 'unit', 'unit_price', 'total_value',
+        'purchase_qty', 'purchase_unit', 'purchase_price',
     ];
 
     protected $casts = [
         'qty' => 'decimal:2',
         'unit_price' => 'decimal:2',
         'total_value' => 'decimal:2',
+        'purchase_qty' => 'decimal:2',
+        'purchase_price' => 'decimal:2',
     ];
 
     public function purchaseOrder()

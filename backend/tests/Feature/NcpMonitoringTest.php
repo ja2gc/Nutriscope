@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Intervention;
 use App\Models\Monitoring;
 use App\Models\NcpRecord;
 use App\Models\Patient;
@@ -37,12 +38,18 @@ class NcpMonitoringTest extends TestCase
 
     private function ncpRecord(Patient $patient, User $rnd): NcpRecord
     {
-        return NcpRecord::forceCreate([
+        $ncp = NcpRecord::forceCreate([
             'patient_id'  => $patient->id,
             'rnd_user_id' => $rnd->id,
             'type'        => 'new',
             'status'      => 'active',
         ]);
+
+        // Monitoring is follow-up only — give the record a care plan (intervention)
+        // so it represents a patient already past the first encounter.
+        Intervention::forceCreate(['ncp_record_id' => $ncp->id, 'energy_kcal' => 1800.0]);
+
+        return $ncp;
     }
 
     // ──────────────────────────────────────────────────
@@ -70,6 +77,25 @@ class NcpMonitoringTest extends TestCase
             'ncp_record_id' => $ncp->id,
             'weight'        => 72.0,
         ]);
+    }
+
+    public function test_monitoring_blocked_on_first_encounter_without_care_plan(): void
+    {
+        $rnd     = $this->rnd();
+        $patient = $this->patient();
+        // Bare record with NO intervention (first encounter, plan not done yet).
+        $ncp     = NcpRecord::forceCreate([
+            'patient_id'  => $patient->id,
+            'rnd_user_id' => $rnd->id,
+            'type'        => 'new',
+            'status'      => 'draft',
+        ]);
+
+        $this->actingAs($rnd, 'sanctum')
+            ->postJson("/api/rnd/ncp-records/{$ncp->id}/monitorings", ['weight' => 70.0])
+            ->assertStatus(422);
+
+        $this->assertDatabaseMissing('monitorings', ['ncp_record_id' => $ncp->id]);
     }
 
     public function test_rnd_can_list_monitoring_entries(): void

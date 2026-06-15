@@ -121,16 +121,40 @@ class ShoppingListController extends Controller
                 if ($net <= 0) {
                     continue; // fully covered by stock on hand + open orders → nothing to buy
                 }
-                $unitPrice = $row['qty'] > 0 ? round($row['total'] / $row['qty'], 4) : 0;
-                $list->items()->create([
-                    'fs_item_id'      => $id,
-                    'ingredient_name' => $row['name'],
-                    'qty'             => round($net, 2),
-                    'unit'            => $row['unit'],
-                    'supplier_id'     => ($fsItems[$id] ?? null)?->default_supplier_id,
-                    'unit_price'      => $unitPrice,
-                    'total'           => round($net * $unitPrice, 2),
-                ]);
+                $fs  = $fsItems[$id] ?? null;
+                $bpp = $fs ? $fs->basePerPurchase() : 0.0;
+
+                if ($fs && $bpp > 0) {
+                    // Round UP to whole purchase units (Spec 6 #4). Overage is carried
+                    // as leftover stock (Decision B) and netted out next cycle by #2.
+                    $packs         = (int) ceil($net / $bpp);
+                    $baseBought    = $packs * $bpp;
+                    $purchasePrice = (float) $fs->purchase_price;
+                    $list->items()->create([
+                        'fs_item_id'      => $id,
+                        'ingredient_name' => $row['name'],
+                        'qty'             => round($baseBought, 2),
+                        'unit'            => $fs->base_unit ?? $row['unit'],
+                        'supplier_id'     => $fs->default_supplier_id,
+                        'unit_price'      => round($purchasePrice / $bpp, 4), // ₱/base
+                        'total'           => round($packs * $purchasePrice, 2),
+                        'purchase_qty'    => $packs,
+                        'purchase_unit'   => $fs->purchase_unit,
+                        'purchase_price'  => round($purchasePrice, 2),
+                    ]);
+                } else {
+                    // Degrade: no valid pack conversion — keep base-unit netting.
+                    $unitPrice = $row['qty'] > 0 ? round($row['total'] / $row['qty'], 4) : 0;
+                    $list->items()->create([
+                        'fs_item_id'      => $id,
+                        'ingredient_name' => $row['name'],
+                        'qty'             => round($net, 2),
+                        'unit'            => $row['unit'],
+                        'supplier_id'     => $fs?->default_supplier_id,
+                        'unit_price'      => $unitPrice,
+                        'total'           => round($net * $unitPrice, 2),
+                    ]);
+                }
             }
 
             return $list;

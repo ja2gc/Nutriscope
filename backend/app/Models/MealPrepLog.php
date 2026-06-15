@@ -10,17 +10,22 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class MealPrepLog extends Model
 {
     use HasFactory;
+    use \App\Models\Concerns\AuditsChanges;
 
     protected $fillable = [
-        'menu_cycle_id', 'service_date', 'status',
-        'completed_by', 'completed_at', 'total_value', 'has_shortfall',
+        'menu_cycle_id', 'service_date', 'population', 'served_population',
+        'population_variance', 'status', 'completed_by', 'completed_at',
+        'total_value', 'has_shortfall',
     ];
 
     protected $casts = [
-        'service_date'  => 'date',
-        'completed_at'  => 'datetime',
-        'total_value'   => 'decimal:2',
-        'has_shortfall' => 'boolean',
+        'service_date'        => 'date',
+        'population'          => 'integer',
+        'served_population'   => 'integer',
+        'population_variance' => 'integer',
+        'completed_at'        => 'datetime',
+        'total_value'         => 'decimal:2',
+        'has_shortfall'       => 'boolean',
     ];
 
     public function menuCycle(): BelongsTo

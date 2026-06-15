@@ -82,6 +82,27 @@ class MonitoringSummaryServiceTest extends TestCase
         $this->assertSame('met', $out['goal_evaluation']['status']);
     }
 
+    public function test_ranges_for_adjusts_hemoglobin_and_creatinine_by_sex(): void
+    {
+        $male   = MonitoringSummaryService::rangesFor('Male');
+        $female = MonitoringSummaryService::rangesFor('Female');
+
+        $this->assertSame(13.5, $male['hemoglobin']['min']);
+        $this->assertSame(12.0, $female['hemoglobin']['min']);
+        $this->assertSame(1.3, $male['creatinine']['max']);
+        $this->assertSame(1.1, $female['creatinine']['max']);
+    }
+
+    public function test_summarize_pair_uses_supplied_ranges_for_status(): void
+    {
+        // Hemoglobin 13.0: met for a female (min 12.0), not met for a male (min 13.5).
+        $female = $this->svc->summarizePair(null, ['date' => 'x', 'hemoglobin' => 13.0], [], null, MonitoringSummaryService::rangesFor('Female'));
+        $male   = $this->svc->summarizePair(null, ['date' => 'x', 'hemoglobin' => 13.0], [], null, MonitoringSummaryService::rangesFor('Male'));
+
+        $this->assertSame('met', collect($female['changes'])->firstWhere('metric', 'hemoglobin')['status']);
+        $this->assertSame('not_met', collect($male['changes'])->firstWhere('metric', 'hemoglobin')['status']);
+    }
+
     public function test_goal_evaluation_partial_with_under_intake(): void
     {
         $prev = ['albumin' => 3.2];

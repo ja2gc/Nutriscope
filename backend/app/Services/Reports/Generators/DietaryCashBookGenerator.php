@@ -43,6 +43,7 @@ class DietaryCashBookGenerator implements ReportGenerator
         $entries = [];
 
         if (! empty($params['replenishment'])) {
+            // Explicit param still wins (back-compat / manual override).
             $entries[] = [
                 'date'           => $start->toDateString(),
                 'ref'            => $params['replenishment_ref'] ?? '',
@@ -51,6 +52,13 @@ class DietaryCashBookGenerator implements ReportGenerator
                 'replenishment'  => (float) $params['replenishment'],
                 'disbursement'   => 0.0,
             ];
+        } else {
+            // A5: derive replenishments from Budget allocations overlapping the period,
+            // so the cash book is reproducible from stored records (no report-only params).
+            $officer = $params['accountable_officer'] ?? 'Accountable Officer';
+            foreach (self::replenishmentsFromBudgets($start, $end, $officer) as $entry) {
+                $entries[] = $entry;
+            }
         }
 
         PurchaseOrder::with('supplier')
@@ -75,8 +83,68 @@ class DietaryCashBookGenerator implements ReportGenerator
                 'inclusive_start' => $start->toDateString(),
                 'inclusive_end'   => $end->toDateString(),
                 'period_label'    => $start->format('F j, Y') . ' – ' . $end->format('F j, Y'),
+                // A7: surface the year's allocation as context (the cashbook is read against
+                // an annual subsistence budget). Null when no yearly budget covers the period.
+                'annual_budget'   => self::annualBudget($start->year),
             ],
         );
+    }
+
+    /**
+     * Derive replenishment ledger entries from Budget allocations whose period overlaps
+     * the cash-book window (A5). Each budget's allocation is one replenishment row, dated
+     * at the later of its period start and the window start.
+     *
+     * @return array<int,array{date:string,ref:string,payee:string,nature:string,replenishment:float,disbursement:float}>
+     */
+    private static function replenishmentsFromBudgets(Carbon $start, Carbon $end, string $officer): array
+    {
+        $budgets = \App\Models\Budget::query()
+            ->where('allocated_amount', '>', 0)
+            ->whereDate('period_start', '<=', $end->toDateString())
+            ->whereDate('period_end', '>=', $start->toDateString())
+            ->orderBy('period_start')
+            ->get();
+
+        return $budgets->map(function (\App\Models\Budget $b) use ($start, $officer) {
+            $date = $b->period_start && Carbon::parse($b->period_start)->gt($start)
+                ? Carbon::parse($b->period_start)
+                : $start;
+
+            return [
+                'date'          => $date->toDateString(),
+                'ref'           => $b->name ?: ucfirst((string) $b->scope) . ' budget',
+                'payee'         => $officer,
+                'nature'        => 'Budget allocation / replenishment',
+                'replenishment' => (float) $b->allocated_amount,
+                'disbursement'  => 0.0,
+            ];
+        })->all();
+    }
+
+    /**
+     * Resolve the yearly subsistence budget overlapping a calendar year, as context
+     * for the cashbook header. Returns null when no yearly budget covers the year.
+     *
+     * @return array{label:string,allocated:float,per_head_year:?float}|null
+     */
+    private static function annualBudget(int $year): ?array
+    {
+        $budget = \App\Models\Budget::query()
+            ->where('scope', 'yearly')
+            ->where(fn ($q) => $q->whereYear('period_start', $year)->orWhereYear('period_end', $year))
+            ->orderByDesc('period_start')
+            ->first();
+
+        if (! $budget) {
+            return null;
+        }
+
+        return [
+            'label'         => $budget->name ?: ('FY ' . $year),
+            'allocated'     => (float) $budget->allocated_amount,
+            'per_head_year' => $budget->budget_per_head_year ? (float) $budget->budget_per_head_year : null,
+        ];
     }
 
     /**

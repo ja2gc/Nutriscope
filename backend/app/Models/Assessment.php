@@ -10,6 +10,10 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 class Assessment extends Model
 {
     use HasFactory;
+    use \App\Models\Concerns\AuditsChanges;
+
+    /** Clinical — log field names only, redact PHI values (Spec 5 Decision A). */
+    protected bool $auditRedactValues = true;
     protected $fillable = [
         'ncp_record_id',
         'dietary_intake', 'appetite_changes', 'dietary_restrictions', 'supplements', 'knowledge_notes',

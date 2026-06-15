@@ -25,6 +25,9 @@ class AnnouncementController extends Controller
                         ->orWhere('user_id', $user->id);
                 });
             })
+            ->when($user->role === 'FSS', function ($query) {
+                $query->whereIn('visibility', ['FSS', 'All']);
+            })
             ->when($user->role === 'Admin', fn($query) => $query)
             ->orderByDesc('pinned')
             ->orderByDesc('created_at')

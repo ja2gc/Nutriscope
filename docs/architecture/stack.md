@@ -1,5 +1,5 @@
 Frontend: Next.js (App Router, TypeScript, Tailwind CSS)
-Backend: Laravel (PHP 8.3+, REST API, Sanctum auth)
+Backend: Laravel 13 (v13.11.2, PHP 8.3+, REST API, Sanctum auth)
 Database: MySQL
 Cache / Queue: Redis
 OCR: PaddleOCR 3.0 (Python FastAPI microservice at http://paddleocr:5000)

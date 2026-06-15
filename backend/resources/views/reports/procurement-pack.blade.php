@@ -99,6 +99,32 @@
 
         @include('reports.partials.signatories', ['signatories' => $summary_signatories])
 
+        {{-- ===== Appendix: uploaded receipts & proof-of-purchase photos ===== --}}
+        @if(! empty($pack['attachments']))
+            <div class="page-break"></div>
+            @include('reports.partials.letterhead', [
+                'title'    => 'RECEIPTS & PROOF OF PURCHASE',
+                'subtitle' => 'P.O. No: ' . $pack['po']->po_number . ($pack['order_date'] ? ' — ' . $pack['order_date'] : ''),
+            ])
+            <table class="grid" style="margin-top:8px;">
+                @foreach(array_chunk($pack['attachments'], 2) as $row)
+                    <tr>
+                        @foreach($row as $att)
+                            <td style="width:50%; height:260px; vertical-align:top;" class="center">
+                                <div class="bold upper" style="font-size:9px; margin-bottom:4px;">{{ $att['type'] }}{{ $att['caption'] ? ' — ' . $att['caption'] : '' }}</div>
+                                @if(file_exists($att['src']))
+                                    <img src="{{ $att['src'] }}" style="max-width:100%; max-height:230px;">
+                                @else
+                                    <span class="muted">[image unavailable]</span>
+                                @endif
+                            </td>
+                        @endforeach
+                        @if(count($row) === 1)<td style="width:50%;"></td>@endif
+                    </tr>
+                @endforeach
+            </table>
+        @endif
+
         @if(! $loop->last)<div class="page-break"></div>@endif
     @empty
         @include('reports.partials.letterhead', ['title' => 'PROCUREMENT PACK'])

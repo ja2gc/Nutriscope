@@ -36,6 +36,30 @@ class MonitoringSummaryService
         'glucose'     => ['label' => 'Glucose',     'unit' => 'mg/dL', 'max' => 100,  'lowerIsBetter' => true],
     ];
 
+    /**
+     * Patient-context-adjusted reference ranges (A7). The base {@see LAB_RANGES} are
+     * adult, sex-neutral; this overrides the labs with well-established sex differences
+     * (hemoglobin and creatinine) so delta flags aren't clinically wrong at the edges.
+     * Falls back to the base ranges when sex is unknown.
+     *
+     * @return array<string, array{label:string, unit:string, min?:float, max?:float, lowerIsBetter?:bool}>
+     */
+    public static function rangesFor(?string $sex = null, ?int $age = null): array
+    {
+        $ranges = self::LAB_RANGES;
+        $s = strtoupper(substr(trim((string) $sex), 0, 1));
+
+        if ($s === 'M') {
+            $ranges['hemoglobin']['min'] = 13.5; // adult male
+            $ranges['creatinine']['max'] = 1.3;
+        } elseif ($s === 'F') {
+            $ranges['hemoglobin']['min'] = 12.0; // adult female
+            $ranges['creatinine']['max'] = 1.1;
+        }
+
+        return $ranges;
+    }
+
     /** Macro intake keys logged per visit inside lab_values, compared against the Rx. */
     public const INTAKE_KEYS = [
         'energy_kcal' => ['label' => 'Energy intake', 'unit' => 'kcal', 'rx' => 'energy_kcal'],
@@ -70,7 +94,12 @@ class MonitoringSummaryService
 
         $nutritionalStatus = $ncpRecord->assessment()->first()?->nutritional_status;
 
-        return $this->summarizePair($previous, $current, $rxTargets, $nutritionalStatus);
+        // A7: pick patient-context-adjusted lab ranges (sex-specific where it matters).
+        $patient = $ncpRecord->patient;
+        $age     = $patient?->dob ? (int) \Illuminate\Support\Carbon::parse($patient->dob)->age : null;
+        $ranges  = self::rangesFor($patient?->sex, $age);
+
+        return $this->summarizePair($previous, $current, $rxTargets, $nutritionalStatus, $ranges);
     }
 
     /**
@@ -106,21 +135,22 @@ class MonitoringSummaryService
      * @param  array<string,float|null> $rxTargets
      * @return array<string, mixed>
      */
-    public function summarizePair(?array $previous, array $current, array $rxTargets = [], ?string $nutritionalStatus = null): array
+    public function summarizePair(?array $previous, array $current, array $rxTargets = [], ?string $nutritionalStatus = null, ?array $ranges = null): array
     {
+        $ranges ??= self::LAB_RANGES;
         $changes = [];
 
         // Anthropometrics
         foreach (['weight' => ['Weight', 'kg'], 'bmi' => ['BMI', '']] as $key => [$label, $unit]) {
-            $change = $this->buildChange($key, $label, $unit, $previous[$key] ?? null, $current[$key] ?? null, $nutritionalStatus);
+            $change = $this->buildChange($key, $label, $unit, $previous[$key] ?? null, $current[$key] ?? null, $nutritionalStatus, $ranges);
             if ($change) {
                 $changes[] = $change;
             }
         }
 
         // Labs
-        foreach (self::LAB_RANGES as $key => $ref) {
-            $change = $this->buildChange($key, $ref['label'], $ref['unit'], $previous[$key] ?? null, $current[$key] ?? null, $nutritionalStatus);
+        foreach ($ranges as $key => $ref) {
+            $change = $this->buildChange($key, $ref['label'], $ref['unit'], $previous[$key] ?? null, $current[$key] ?? null, $nutritionalStatus, $ranges);
             if ($change) {
                 $changes[] = $change;
             }
@@ -163,7 +193,7 @@ class MonitoringSummaryService
      *
      * @return array<string, mixed>|null
      */
-    private function buildChange(string $key, string $label, string $unit, $prev, $curr, ?string $nutritionalStatus): ?array
+    private function buildChange(string $key, string $label, string $unit, $prev, $curr, ?string $nutritionalStatus, ?array $ranges = null): ?array
     {
         if ($curr === null) {
             return null;
@@ -182,7 +212,7 @@ class MonitoringSummaryService
             'delta'     => $delta,
             'delta_pct' => $deltaPct,
             'direction' => $direction,
-            'status'    => $this->metricStatus($key, $curr, $prev, $nutritionalStatus),
+            'status'    => $this->metricStatus($key, $curr, $prev, $nutritionalStatus, $ranges),
         ];
     }
 
@@ -190,8 +220,10 @@ class MonitoringSummaryService
      * Goal status for one metric: met (in normal range) / in_progress (improving
      * from previous but not yet normal) / not_met / no_data.
      */
-    private function metricStatus(string $key, float $curr, ?float $prev, ?string $nutritionalStatus): string
+    private function metricStatus(string $key, float $curr, ?float $prev, ?string $nutritionalStatus, ?array $ranges = null): string
     {
+        $ranges ??= self::LAB_RANGES;
+
         // Weight: direction of "good" depends on the nutritional goal.
         if ($key === 'weight') {
             if ($prev === null) {
@@ -209,7 +241,7 @@ class MonitoringSummaryService
             return 'no_data'; // tracked as a trend; evaluated via weight + labs
         }
 
-        $ref = self::LAB_RANGES[$key] ?? null;
+        $ref = $ranges[$key] ?? null;
         if ($ref === null) {
             return 'no_data';
         }

@@ -38,14 +38,29 @@ class ProcessDocumentExtraction implements ShouldQueue
         }
     }
 
+    /**
+     * Resolve a stored file_path to an absolute filesystem path. Supports both the
+     * new disk-relative paths (A8) and any legacy absolute paths already in the DB.
+     */
+    private function resolveFilePath(string $storedPath): string
+    {
+        if (file_exists($storedPath)) {
+            return $storedPath; // legacy absolute path
+        }
+
+        return storage_path('app/' . ltrim($storedPath, '/\\'));
+    }
+
     public function handle(OCRService $ocrService, ExtractionService $extractionService): void
     {
         $startTime = microtime(true);
         $this->document->update(['status' => 'processing']);
 
         try {
-            // 1. Run OCR
-            $rawText = $ocrService->extractText($this->document->file_path);
+            // 1. Run OCR. file_path is stored disk-relative (A8); resolve to an absolute
+            // filesystem path here since OCRService reads the file directly.
+            $absolutePath = $this->resolveFilePath($this->document->file_path);
+            $rawText = $ocrService->extractText($absolutePath);
             $endTime = microtime(true);
             $processingTimeMs = (int) (($endTime - $startTime) * 1000);
 
@@ -86,7 +101,7 @@ class ProcessDocumentExtraction implements ShouldQueue
 
                 if (empty($checkboxData['clinical_conditions']) && empty($checkboxData['intake_weight_history'])) {
                     Log::info("OCR text found no checkboxes; falling back to pixel OMR.");
-                    $checkboxData = $ocrService->detectCheckboxes($this->document->file_path, $screeningType);
+                    $checkboxData = $ocrService->detectCheckboxes($absolutePath, $screeningType);
                 }
 
                 $extractedData = array_merge($extractedData, $checkboxData);

@@ -74,7 +74,7 @@ class ProgramProjectActivityGenerator implements ReportGenerator
         $entries       = self::groupEntries($cycle);
         $menuDays      = self::buildMenuDays($entries, $calendar);
 
-        $cost     = MenuCycleCostService::forCycle($cycle);
+        $cost     = MenuCycleCostService::forReport($cycle);
         $dayCosts = $cost['days'];
         $total    = 0.0;
         foreach ($calendar as $c) {

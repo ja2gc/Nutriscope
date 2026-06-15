@@ -115,12 +115,23 @@ class MenuCycleCostService
     /**
      * Load a persisted menu cycle into the shape aggregate() expects, then cost it.
      * Population defaults to the cycle's own; pass an override for "what-if" / spans.
+     * Always LIVE (current catalog price) — used by the planner, insights, procurement.
      */
     public static function forCycle(MenuCycle $cycle, ?int $population = null): array
     {
         $cycle->loadMissing('days.recipe.ingredients.fsItem', 'days.fsItem');
 
         return self::aggregate(self::entriesForDays($cycle->days), $population ?? (int) $cycle->population);
+    }
+
+    /**
+     * Cost for a FILED REPORT (PPA / Menu Calendar): the frozen snapshot taken when
+     * the cycle was activated, so a past report keeps its original cost even if catalog
+     * prices change later (Spec 6 #1). Falls back to live for un-activated (draft) cycles.
+     */
+    public static function forReport(MenuCycle $cycle): array
+    {
+        return $cycle->cost_snapshot ?: self::forCycle($cycle);
     }
 
     /**

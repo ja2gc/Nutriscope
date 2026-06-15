@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Budget;
 use App\Models\FsItem;
 use App\Models\Inventory;
+use App\Models\MealPrepLog;
 use App\Models\MenuCycle;
 use App\Models\MenuCycleDay;
 use App\Models\PurchaseOrder;
@@ -13,6 +14,8 @@ use App\Models\Supplier;
 use App\Models\User;
 use App\Models\FoodServiceRecipe;
 use App\Models\FoodServiceRecipeIngredient;
+use App\Services\BudgetActualService;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
@@ -413,9 +416,9 @@ class FoodServiceOpsTest extends TestCase
 
     // ===== BUDGETS =====
 
-    public function test_fss_can_create_budget(): void
+    public function test_rnd_can_create_budget(): void
     {
-        $response = $this->actingAs($this->fss)
+        $response = $this->actingAs($this->rnd)
             ->postJson('/api/fss/budgets', [
                 'period_start'    => '2026-06-01',
                 'period_end'      => '2026-06-30',
@@ -428,11 +431,11 @@ class FoodServiceOpsTest extends TestCase
         $this->assertDatabaseHas('budgets', ['allocated_amount' => 50000.00]);
     }
 
-    public function test_fss_can_log_daily_budget_expense(): void
+    public function test_rnd_can_log_daily_budget_expense(): void
     {
-        $budget = Budget::factory()->create(['fss_user_id' => $this->fss->id, 'allocated_amount' => 50000]);
+        $budget = Budget::factory()->create(['rnd_user_id' => $this->rnd->id, 'allocated_amount' => 50000]);
 
-        $response = $this->actingAs($this->fss)
+        $response = $this->actingAs($this->rnd)
             ->postJson("/api/fss/budgets/{$budget->id}/daily-logs", [
                 'log_date'   => '2026-06-10',
                 'spent'      => 1500.00,
@@ -447,10 +450,300 @@ class FoodServiceOpsTest extends TestCase
 
     public function test_budget_requires_allocated_amount(): void
     {
-        $response = $this->actingAs($this->fss)
+        $response = $this->actingAs($this->rnd)
             ->postJson('/api/fss/budgets', []);
 
         $response->assertUnprocessable()
             ->assertJsonValidationErrors(['allocated_amount']);
+    }
+
+    public function test_budget_actual_uses_consumption_when_a_day_is_served(): void
+    {
+        $budget = Budget::factory()->create([
+            'rnd_user_id' => $this->rnd->id,
+            'budget_per_head_day' => 100, 'population' => 10, // cap = 1000/day
+        ]);
+        $cycle = MenuCycle::factory()->create();
+        MealPrepLog::create([
+            'menu_cycle_id' => $cycle->id, 'service_date' => '2026-06-10',
+            'status' => 'completed', 'total_value' => 1200, 'has_shortfall' => false,
+        ]);
+
+        $result = BudgetActualService::dailySeries($budget, Carbon::parse('2026-06-09'), Carbon::parse('2026-06-11'));
+
+        $this->assertSame('consumption', $result['source']);
+        $byDate = collect($result['days'])->keyBy('date');
+        $this->assertEqualsWithDelta(1200, $byDate['2026-06-10']['actual'], 0.01);
+        $this->assertEqualsWithDelta(0, $byDate['2026-06-09']['actual'], 0.01);
+        $this->assertEqualsWithDelta(1000, $byDate['2026-06-10']['planned'], 0.01); // cap
+    }
+
+    public function test_budget_actual_falls_back_to_purchases_when_nothing_served(): void
+    {
+        $budget = Budget::factory()->create([
+            'rnd_user_id' => $this->rnd->id,
+            'budget_per_head_day' => 100, 'population' => 10,
+        ]);
+        PurchaseOrder::factory()->create([
+            'fss_user_id' => $this->fss->id,
+            'status' => 'received', 'received_date' => '2026-06-10', 'total_amount' => 800,
+        ]);
+
+        $result = BudgetActualService::dailySeries($budget, Carbon::parse('2026-06-09'), Carbon::parse('2026-06-11'));
+
+        $this->assertSame('purchases', $result['source']);
+        $byDate = collect($result['days'])->keyBy('date');
+        $this->assertEqualsWithDelta(800, $byDate['2026-06-10']['actual'], 0.01);
+        $this->assertEqualsWithDelta(800, $result['cash_flow'], 0.01);
+    }
+
+    public function test_summary_endpoint_reports_consumption_source_and_cash_flow(): void
+    {
+        $budget = Budget::factory()->create([
+            'rnd_user_id' => $this->rnd->id,
+            'budget_per_head_day' => 100, 'population' => 10,
+            'period_start' => '2026-06-09', 'period_end' => '2026-06-11',
+        ]);
+        $cycle = MenuCycle::factory()->create();
+        MealPrepLog::create([
+            'menu_cycle_id' => $cycle->id, 'service_date' => '2026-06-10',
+            'status' => 'completed', 'total_value' => 1200, 'has_shortfall' => false,
+        ]);
+        PurchaseOrder::factory()->create([
+            'fss_user_id' => $this->fss->id,
+            'status' => 'received', 'received_date' => '2026-06-10', 'total_amount' => 800,
+        ]);
+
+        $response = $this->actingAs($this->fss)
+            ->getJson("/api/fss/budgets/{$budget->id}/summary?start=2026-06-09&end=2026-06-11&granularity=day");
+
+        $response->assertOk()
+            ->assertJsonPath('data.source', 'consumption')
+            ->assertJsonPath('data.actual', fn ($v) => abs((float) $v - 1200) < 0.01)   // consumption only, POs excluded
+            ->assertJsonPath('data.cash_flow', fn ($v) => abs((float) $v - 800) < 0.01); // POs surfaced separately
+    }
+
+    public function test_budget_report_actual_matches_consumption(): void
+    {
+        $budget = Budget::factory()->create([
+            'rnd_user_id' => $this->rnd->id,
+            'budget_per_head_day' => 100, 'population' => 10,
+            'period_start' => '2026-06-09', 'period_end' => '2026-06-11',
+        ]);
+        $cycle = MenuCycle::factory()->create();
+        MealPrepLog::create([
+            'menu_cycle_id' => $cycle->id, 'service_date' => '2026-06-10',
+            'status' => 'completed', 'total_value' => 1200, 'has_shortfall' => false,
+        ]);
+
+        $report = new \App\Models\Report(['type' => 'budget_report', 'parameters' => [
+            'budget_id' => $budget->id, 'granularity' => 'day',
+        ]]);
+        $data = (new \App\Services\Reports\Generators\BudgetReportGenerator())->data($report);
+
+        $this->assertEqualsWithDelta(1200, $data['summary']['actual'], 0.01);
+    }
+
+    public function test_budget_report_remaining_uses_cash_axis_not_food_served(): void
+    {
+        $budget = Budget::factory()->create([
+            'rnd_user_id' => $this->rnd->id, 'allocated_amount' => 5000,
+            'budget_per_head_day' => 100, 'population' => 10,
+            'period_start' => '2026-06-09', 'period_end' => '2026-06-11',
+        ]);
+        $cycle = MenuCycle::factory()->create();
+        MealPrepLog::create([ // food served worth 1200 — must NOT drive "remaining"
+            'menu_cycle_id' => $cycle->id, 'service_date' => '2026-06-10',
+            'status' => 'completed', 'total_value' => 1200, 'has_shortfall' => false,
+        ]);
+        PurchaseOrder::factory()->create([ // cash out 800 — this is what "remaining" subtracts
+            'fss_user_id' => $this->fss->id,
+            'status' => 'received', 'received_date' => '2026-06-10', 'total_amount' => 800,
+        ]);
+
+        $report = new \App\Models\Report(['type' => 'budget_report', 'parameters' => [
+            'budget_id' => $budget->id, 'granularity' => 'day',
+        ]]);
+        $data = (new \App\Services\Reports\Generators\BudgetReportGenerator())->data($report);
+
+        $this->assertEqualsWithDelta(4200, $data['remaining'], 0.01);  // 5000 allocated − 800 cash, NOT − 1200 food
+        $this->assertEqualsWithDelta(800, $data['cash_flow'], 0.01);
+        $this->assertSame(1, $data['days_served']);
+    }
+
+    public function test_summary_reports_days_served_count(): void
+    {
+        $budget = Budget::factory()->create([
+            'rnd_user_id' => $this->rnd->id,
+            'budget_per_head_day' => 100, 'population' => 10,
+            'period_start' => '2026-06-09', 'period_end' => '2026-06-12',
+        ]);
+        $cycle = MenuCycle::factory()->create();
+        foreach (['2026-06-10', '2026-06-11'] as $d) {
+            MealPrepLog::create([
+                'menu_cycle_id' => $cycle->id, 'service_date' => $d,
+                'status' => 'completed', 'total_value' => 500, 'has_shortfall' => false,
+            ]);
+        }
+
+        $response = $this->actingAs($this->fss)
+            ->getJson("/api/fss/budgets/{$budget->id}/summary?start=2026-06-09&end=2026-06-12&granularity=day");
+
+        $response->assertOk()->assertJsonPath('data.days_served', 2);
+    }
+
+    public function test_complete_day_persists_served_population(): void
+    {
+        $fs = FsItem::factory()->create(['name' => 'Rice', 'base_unit' => 'g']);
+        Inventory::factory()->create(['fs_item_id' => $fs->id, 'quantity_in_stock' => 10000, 'unit' => 'g', 'unit_price' => 0.05]);
+
+        $cycle = MenuCycle::factory()->create(['rnd_user_id' => $this->rnd->id, 'population' => 5]);
+        MenuCycleDay::create([
+            'menu_cycle_id' => $cycle->id, 'day_of_week' => 'Monday',
+            'meal_type' => 'lunch', 'fs_item_id' => $fs->id, 'quantity' => 100,
+        ]);
+
+        // Serve the day to 8 heads (override the cycle's default 5) — that headcount must be stored.
+        $this->actingAs($this->fss)->postJson("/api/fss/menu-cycles/{$cycle->id}/complete-day", [
+            'service_date' => '2026-06-15', // a Monday
+            'population'   => 8,
+        ])->assertCreated();
+
+        $this->assertDatabaseHas('meal_prep_logs', [
+            'menu_cycle_id' => $cycle->id,
+            'population'    => 8,
+        ]);
+    }
+
+    public function test_cost_today_returns_active_cycle_per_head_from_menu(): void
+    {
+        $weekday = now()->format('l');
+        // kg→g: 1000 base per purchase → ₱0.10/g; 100 g/head × 10 heads = 1000 g = ₱100/day; ÷10 = ₱10/head
+        $fs = FsItem::factory()->create([
+            'base_unit' => 'g', 'purchase_unit' => 'kg', 'purchase_price' => 100, 'units_per_purchase' => null,
+        ]);
+        $cycle = MenuCycle::factory()->create([
+            'rnd_user_id' => $this->rnd->id, 'is_active' => true, 'status' => 'active',
+            'population' => 10, 'budget_per_head_per_day' => 50,
+        ]);
+        MenuCycleDay::create([
+            'menu_cycle_id' => $cycle->id, 'day_of_week' => $weekday,
+            'meal_type' => 'lunch', 'fs_item_id' => $fs->id, 'quantity' => 100,
+        ]);
+
+        $res = $this->actingAs($this->fss)->getJson('/api/fss/menu-cycles/cost-today')->assertOk();
+        $this->assertEqualsWithDelta(10, $res->json('data.cost_per_head'), 0.01);
+        $this->assertEqualsWithDelta(50, $res->json('data.limit_per_head'), 0.01);
+        $this->assertTrue($res->json('data.within_budget'));
+        $this->assertSame($weekday, $res->json('data.weekday'));
+    }
+
+    public function test_daily_series_exposes_population_and_per_head_actual(): void
+    {
+        $budget = Budget::factory()->create([
+            'rnd_user_id' => $this->rnd->id,
+            'budget_per_head_day' => 100, 'population' => 10,
+        ]);
+        $cycle = MenuCycle::factory()->create();
+        MealPrepLog::create([
+            'menu_cycle_id' => $cycle->id, 'service_date' => '2026-06-10',
+            'status' => 'completed', 'total_value' => 800, 'population' => 8, 'has_shortfall' => false,
+        ]);
+
+        $result = BudgetActualService::dailySeries($budget, Carbon::parse('2026-06-09'), Carbon::parse('2026-06-11'));
+
+        $this->assertEqualsWithDelta(8, $result['avg_population'], 0.01);
+        $this->assertEqualsWithDelta(100, $result['per_head_actual'], 0.01); // ₱800 served ÷ 8 heads
+        $served = collect($result['days'])->firstWhere('date', '2026-06-10');
+        $this->assertEquals(8, $served['population']);
+    }
+
+    public function test_generate_rounds_to_whole_purchase_units(): void
+    {
+        // 1 kg sack = 1000 g base; planned need 1300 g → must buy 2 sacks (2000 g).
+        $fs = FsItem::factory()->create([
+            'name' => 'Rice', 'base_unit' => 'g', 'purchase_unit' => 'kg',
+            'purchase_price' => 50, 'units_per_purchase' => null,
+        ]);
+        Inventory::factory()->create(['fs_item_id' => $fs->id, 'quantity_in_stock' => 0, 'unit' => 'g']);
+
+        $cycle = MenuCycle::factory()->create(['rnd_user_id' => $this->rnd->id, 'population' => 1]);
+        MenuCycleDay::create([
+            'menu_cycle_id' => $cycle->id, 'day_of_week' => 'Monday',
+            'meal_type' => 'lunch', 'fs_item_id' => $fs->id, 'quantity' => 1300,
+        ]);
+
+        $response = $this->actingAs($this->fss)->postJson('/api/fss/shopping-lists/generate', [
+            'menu_cycle_id' => $cycle->id, 'start_date' => '2026-06-15', 'end_date' => '2026-06-15', // a Monday
+        ]);
+
+        $response->assertCreated();
+        $item = collect($response->json('data.items'))->firstWhere('fs_item_id', $fs->id);
+        $this->assertNotNull($item, 'Rice line should be present');
+        $this->assertEqualsWithDelta(2,    (float) $item['purchase_qty'], 0.01); // ceil(1300/1000)
+        $this->assertSame('kg', $item['purchase_unit']);
+        $this->assertEqualsWithDelta(50,   (float) $item['purchase_price'], 0.01);
+        $this->assertEqualsWithDelta(2000, (float) $item['qty'], 0.01);          // 2 sacks × 1000 g base
+        $this->assertEqualsWithDelta(100,  (float) $item['total'], 0.01);        // 2 × ₱50
+    }
+
+    public function test_generate_pos_carries_purchase_units(): void
+    {
+        $supplier = Supplier::factory()->create();
+        $list = ShoppingList::create([
+            'fss_user_id' => $this->fss->id, 'name' => 'L', 'list_date' => '2026-06-08',
+            'list_type' => 'suggested', 'status' => 'draft',
+        ]);
+        $list->items()->create([
+            'ingredient_name' => 'Rice', 'qty' => 2000, 'unit' => 'g', 'supplier_id' => $supplier->id,
+            'unit_price' => 0.05, 'total' => 100, 'purchase_qty' => 2, 'purchase_unit' => 'kg', 'purchase_price' => 50,
+        ]);
+
+        $response = $this->actingAs($this->fss)->postJson("/api/fss/shopping-lists/{$list->id}/generate-pos");
+        $response->assertCreated();
+
+        $this->assertDatabaseHas('purchase_order_items', [
+            'description' => 'Rice', 'purchase_qty' => 2, 'purchase_unit' => 'kg', 'purchase_price' => 50,
+        ]);
+    }
+
+    public function test_receiving_uses_purchase_qty_times_base_per_purchase(): void
+    {
+        $fs = FsItem::factory()->create([
+            'name' => 'Rice', 'base_unit' => 'g', 'purchase_unit' => 'kg', 'purchase_price' => 50,
+        ]);
+        Inventory::factory()->create(['fs_item_id' => $fs->id, 'quantity_in_stock' => 0, 'unit' => 'g']);
+
+        $po = PurchaseOrder::factory()->create(['fss_user_id' => $this->fss->id, 'status' => 'draft']);
+        $po->items()->create([
+            'fs_item_id' => $fs->id, 'description' => 'Rice',
+            'qty' => 2000, 'unit' => 'g', 'unit_price' => 0.05, 'total_value' => 100,
+            'purchase_qty' => 2, 'purchase_unit' => 'kg', 'purchase_price' => 50,
+        ]);
+
+        $this->actingAs($this->fss)->patchJson("/api/fss/purchase-orders/{$po->id}", ['status' => 'received'])
+            ->assertOk();
+
+        // 2 kg × 1000 g/kg = 2000 g added to stock.
+        $this->assertDatabaseHas('inventory', ['fs_item_id' => $fs->id, 'quantity_in_stock' => 2000]);
+    }
+
+    public function test_procurement_pack_prints_purchase_units(): void
+    {
+        $fs = FsItem::factory()->create(['name' => 'Rice', 'base_unit' => 'g', 'purchase_unit' => 'kg', 'purchase_price' => 50]);
+        $po = PurchaseOrder::factory()->create(['fss_user_id' => $this->fss->id, 'status' => 'received', 'order_date' => '2026-06-08']);
+        $po->items()->create([
+            'fs_item_id' => $fs->id, 'description' => 'Rice',
+            'qty' => 2000, 'unit' => 'g', 'unit_price' => 0.05, 'total_value' => 100,
+            'purchase_qty' => 2, 'purchase_unit' => 'kg', 'purchase_price' => 50,
+        ]);
+
+        $report = new \App\Models\Report(['type' => 'procurement_pack', 'parameters' => ['purchase_order_id' => $po->id]]);
+        $data = (new \App\Services\Reports\Generators\ProcurementPackGenerator())->data($report);
+
+        $pack = $data['packs'][0];
+        $this->assertEqualsWithDelta(2, (float) $pack['air_items'][0]['quantity'], 0.01); // packs, not 2000 g
+        $this->assertSame('kg', $pack['air_items'][0]['unit']);
+        $this->assertEqualsWithDelta(50, (float) $pack['statement_items'][0]['unit_price'], 0.01); // ₱/pack
     }
 }

@@ -18,7 +18,7 @@ class BudgetFactory extends Factory
     public function definition(): array
     {
         return [
-            'fss_user_id'      => \App\Models\User::factory()->fss(),
+            'rnd_user_id'      => \App\Models\User::factory()->rnd(),
             'allocated_amount' => $this->faker->randomFloat(2, 5000, 20000),
             'actual_amount'    => $this->faker->randomFloat(2, 4000, 19000),
             'period_start'     => $this->faker->dateTimeBetween('-1 month', 'now')->format('Y-m-d'),

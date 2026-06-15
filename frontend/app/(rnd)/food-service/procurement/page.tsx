@@ -11,10 +11,12 @@ import {
   ShoppingList, PurchaseOrder,
   listShoppingLists, getShoppingList, generateFromCycle, deleteShoppingList,
   updateListItem, generatePos, listPurchaseOrders, getPurchaseOrder,
-  updatePurchaseOrder, deletePurchaseOrder, uploadAttachment, deleteAttachment,
+  updatePurchaseOrder, deletePurchaseOrder, uploadAttachments, deleteAttachment,
 } from "@/services/procurementService";
 import { listSuppliers, Supplier } from "@/services/supplierService";
 import { listCycles, CycleListItem } from "@/services/menuCycleService";
+import { HistoryPanel } from "@/components/HistoryPanel";
+import { SuppliersPanel } from "@/components/foodservice/SuppliersPanel";
 
 const STORAGE_BASE = process.env.NEXT_PUBLIC_LARAVEL_URL ?? "http://127.0.0.1:8000";
 const peso = (n: number) => `₱${n.toFixed(2)}`;
@@ -85,7 +87,7 @@ function ListDetail({ id, suppliers, onBack, onPosGenerated }: {
       <div className="bg-white border border-zinc-200 rounded-2xl shadow-sm overflow-x-auto">
         <table className="w-full text-xs">
           <thead className="bg-zinc-50 border-b border-zinc-100">
-            <tr>{["Item", "Qty", "Unit", "Vendor", "Unit ₱", "Total", ""].map((h) => (
+            <tr>{["Item", "Buy", "Base qty", "Base unit", "Vendor", "Unit ₱", "Total", ""].map((h) => (
               <th key={h} className="px-3 py-3 text-left text-[10px] font-bold text-zinc-500 uppercase tracking-wider">{h}</th>
             ))}</tr>
           </thead>
@@ -93,6 +95,9 @@ function ListDetail({ id, suppliers, onBack, onPosGenerated }: {
             {list.items.map((it) => (
               <tr key={it.id} className="hover:bg-zinc-50/60">
                 <td className="px-3 py-2 font-semibold text-zinc-800">{it.ingredient_name}</td>
+                <td className="px-3 py-2 font-semibold text-zinc-700">
+                  {it.purchase_qty ? `${num(it.purchase_qty)} ${it.purchase_unit ?? ""}` : <span className="text-zinc-300">—</span>}
+                </td>
                 <td className="px-3 py-2">
                   <input type="number" defaultValue={num(it.qty)} onBlur={(e) => patchItem(it.id, { qty: parseFloat(e.target.value) })}
                     className="w-20 px-2 py-1 border border-zinc-200 rounded focus:outline-none focus:ring-1 focus:ring-emerald-400" />
@@ -135,10 +140,10 @@ function PoDetail({ id, onBack }: { id: number; onBack: () => void }) {
     await updatePurchaseOrder(id, patch); load();
   }
   async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = Array.from(e.target.files ?? []);
+    if (!files.length) return;
     setBusy(true);
-    try { await uploadAttachment(id, file, uploadType); load(); } finally { setBusy(false); e.target.value = ""; }
+    try { await uploadAttachments(id, files, uploadType); load(); } finally { setBusy(false); e.target.value = ""; }
   }
   async function removeAttachment(attId: number) { await deleteAttachment(attId); load(); }
 
@@ -181,13 +186,14 @@ function PoDetail({ id, onBack }: { id: number; onBack: () => void }) {
       {/* Items */}
       <div className="bg-white border border-zinc-200 rounded-2xl shadow-sm overflow-x-auto">
         <table className="w-full text-xs">
-          <thead className="bg-zinc-50 border-b border-zinc-100"><tr>{["Item", "Qty", "Unit", "Unit ₱", "Total"].map((h) => (
+          <thead className="bg-zinc-50 border-b border-zinc-100"><tr>{["Item", "Buy", "Base qty", "Base unit", "Unit ₱", "Total"].map((h) => (
             <th key={h} className="px-3 py-3 text-left text-[10px] font-bold text-zinc-500 uppercase tracking-wider">{h}</th>
           ))}</tr></thead>
           <tbody className="divide-y divide-zinc-100">
             {(po.items ?? []).map((i) => (
               <tr key={i.id}>
                 <td className="px-3 py-2 font-semibold text-zinc-800">{i.description}</td>
+                <td className="px-3 py-2 font-semibold text-zinc-700">{i.purchase_qty ? `${num(i.purchase_qty)} ${i.purchase_unit ?? ""}` : <span className="text-zinc-300">—</span>}</td>
                 <td className="px-3 py-2">{num(i.qty)}</td>
                 <td className="px-3 py-2 text-zinc-500">{i.unit}</td>
                 <td className="px-3 py-2 font-mono">{peso(num(i.unit_price))}</td>
@@ -212,8 +218,8 @@ function PoDetail({ id, onBack }: { id: number; onBack: () => void }) {
               ))}
             </div>
             <label className={`flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-emerald-700 border border-emerald-200 rounded-lg px-3 py-1.5 cursor-pointer hover:bg-emerald-50 ${busy ? "opacity-50" : ""}`}>
-              <Upload className="h-3 w-3" /> Upload {uploadType}
-              <input type="file" accept="image/*" onChange={onFile} disabled={busy} className="hidden" />
+              <Upload className="h-3 w-3" /> Upload {uploadType}s
+              <input type="file" accept="image/*" multiple onChange={onFile} disabled={busy} className="hidden" />
             </label>
           </div>
         </div>
@@ -232,13 +238,16 @@ function PoDetail({ id, onBack }: { id: number; onBack: () => void }) {
           </div>
         )}
       </div>
+
+      {/* Audit history (Spec 5) */}
+      <HistoryPanel path={`/api/fss/purchase-orders/${po.id}/activity`} title="Purchase order history" />
     </div>
   );
 }
 
 // ═══ ROOT ════════════════════════════════════════════════════════════════════════
 export default function ProcurementPage() {
-  const [tab, setTab] = useState<"lists" | "pos">("lists");
+  const [tab, setTab] = useState<"lists" | "pos" | "suppliers">("lists");
   const [listDetail, setListDetail] = useState<number | null>(null);
   const [poDetail, setPoDetail] = useState<number | null>(null);
 
@@ -327,7 +336,7 @@ export default function ProcurementPage() {
 
       {/* Tabs */}
       <div className="flex border-b border-zinc-200">
-        {([["lists", "Shopping Lists"], ["pos", "Purchase Orders"]] as const).map(([k, label]) => (
+        {([["lists", "Shopping Lists"], ["pos", "Purchase Orders"], ["suppliers", "Suppliers"]] as const).map(([k, label]) => (
           <button key={k} onClick={() => setTab(k)}
             className={`px-5 py-3 text-sm font-semibold border-b-2 transition-colors cursor-pointer ${tab === k ? "border-emerald-600 text-emerald-700" : "border-transparent text-zinc-500 hover:text-zinc-800"}`}>
             {label}
@@ -335,6 +344,7 @@ export default function ProcurementPage() {
         ))}
       </div>
 
+      {tab === "suppliers" ? <SuppliersPanel /> : (
       <div className="bg-white border border-zinc-200 rounded-2xl shadow-sm overflow-x-auto">
         {loading ? <div className="py-16 text-center text-xs text-zinc-400">Loading…</div> : tab === "lists" ? (
           lists.length === 0 ? <div className="py-16 text-center"><ShoppingBag className="h-8 w-8 text-zinc-300 mx-auto mb-3" /><p className="text-xs text-zinc-400 font-medium">No shopping lists yet. Suggest one from a menu.</p></div> : (
@@ -374,6 +384,7 @@ export default function ProcurementPage() {
           )
         )}
       </div>
+      )}
     </div>
   );
 }

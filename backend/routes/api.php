@@ -30,10 +30,34 @@ use App\Http\Controllers\FSS\MenuCycleTemplateController;
 use App\Http\Controllers\FSS\BudgetController;
 use App\Http\Controllers\FSS\FoodServiceRecipeController;
 use App\Http\Controllers\FSS\FsItemController;
+use App\Http\Controllers\FSS\InsightsController;
+use App\Http\Controllers\ActivityController;
 use App\Http\Controllers\FSS\MealPrepLogController;
+use App\Http\Controllers\FSS\CleaningLogController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\ReportBrandingController;
 use App\Http\Controllers\ReportTemplateController;
+
+/**
+ * Reports routes — identical for the RND and FSS role groups, so defined once here
+ * and invoked in both. Spec 4 adds browse ({type}/instances), on-demand render
+ * ({type}/render), and archive ({type}/archive) alongside the deprecated generate
+ * endpoints. Literal/typed segments are declared before the {report} apiResource so
+ * they win the match; {type} is constrained to lowercase so it can't shadow numeric ids.
+ */
+$reportRoutes = function () {
+    Route::post('reports/generate-all', [ReportController::class, 'generateAll']); // deprecated (Spec 4)
+    Route::get('reports/{type}/instances', [ReportController::class, 'instances'])->where('type', '[a-z_]+');
+    Route::get('reports/{type}/render', [ReportController::class, 'render'])->where('type', '[a-z_]+');
+    Route::post('reports/{type}/archive', [ReportController::class, 'archive'])->where('type', '[a-z_]+');
+    Route::get('reports/{report}/download', [ReportController::class, 'download']);
+    Route::get('reports/{report}/view', [ReportController::class, 'view']);
+    Route::apiResource('reports', ReportController::class)->only(['index', 'store', 'show', 'destroy']);
+    Route::get('report-branding', [ReportBrandingController::class, 'show']);
+    Route::post('report-branding', [ReportBrandingController::class, 'update']);
+    Route::get('report-templates', [ReportTemplateController::class, 'index']);
+    Route::patch('report-templates/{reportTemplate}', [ReportTemplateController::class, 'update']);
+};
 
 Route::prefix('auth')->group(function () {
     Route::post('login', [AuthController::class, 'login']);
@@ -44,8 +68,9 @@ Route::prefix('auth')->group(function () {
     });
 });
 
-Route::middleware(['auth:sanctum', 'role:RND', 'audit'])->prefix('rnd')->group(function () {
+Route::middleware(['auth:sanctum', 'role:RND', 'audit'])->prefix('rnd')->group(function () use ($reportRoutes) {
     Route::apiResource('patients', PatientController::class);
+    Route::get('patients/{patient}/activity', [ActivityController::class, 'patient']);
     Route::get('patients/{patient}/ncp-records', [PatientController::class, 'ncpRecords']);
     Route::post('patients/{patient}/ncp-records', [PatientController::class, 'startNcpCycle']);
     Route::delete('ncp-records/{ncpRecord}', [NcpRecordController::class, 'destroy']);
@@ -121,14 +146,8 @@ Route::middleware(['auth:sanctum', 'role:RND', 'audit'])->prefix('rnd')->group(f
     Route::patch('notifications/read-all', [NotificationController::class, 'readAll']);
     Route::patch('notifications/{notification}/read', [NotificationController::class, 'read']);
 
-    // Reports routes
-    Route::post('reports/generate-all', [ReportController::class, 'generateAll']);
-    Route::get('reports/{report}/download', [ReportController::class, 'download']);
-    Route::apiResource('reports', ReportController::class)->only(['index', 'store', 'show', 'destroy']);
-    Route::get('report-branding', [ReportBrandingController::class, 'show']);
-    Route::post('report-branding', [ReportBrandingController::class, 'update']);
-    Route::get('report-templates', [ReportTemplateController::class, 'index']);
-    Route::patch('report-templates/{reportTemplate}', [ReportTemplateController::class, 'update']);
+    // Reports routes (shared with FSS — see $reportRoutes above)
+    $reportRoutes();
 
     // Food Database routes
     Route::apiResource('food-items', FoodItemController::class);
@@ -139,7 +158,7 @@ Route::middleware(['auth:sanctum', 'role:RND', 'audit'])->prefix('rnd')->group(f
         ->where('fdcId', '[0-9]+');
 });
 
-Route::middleware(['auth:sanctum', 'role:FSS,RND'])->prefix('fss')->group(function () {
+Route::middleware(['auth:sanctum', 'role:FSS,RND'])->prefix('fss')->group(function () use ($reportRoutes) {
     // Inventory routes
     Route::get('inventory/rows', [InventoryController::class, 'rows']);
     Route::apiResource('inventory', InventoryController::class);
@@ -160,41 +179,59 @@ Route::middleware(['auth:sanctum', 'role:FSS,RND'])->prefix('fss')->group(functi
     Route::delete('shopping-list-items/{shopping_list_item}', [ShoppingListController::class, 'destroyItem']);
     Route::apiResource('shopping-lists', ShoppingListController::class);
 
-    // Menu Cycles routes
-    Route::patch('menu-cycles/{menu_cycle}/activate', [MenuCycleController::class, 'activate']);
+    // Menu Cycles — FSS read-only (RND owns writes, see RND-only group below)
+    Route::get('menu-cycles/cost-today', [MenuCycleController::class, 'costToday']);
     Route::get('menu-cycles/{menu_cycle}/compute', [MenuCycleController::class, 'compute']);
-    Route::post('menu-cycles/{menu_cycle}/save-template', [MenuCycleTemplateController::class, 'fromCycle']);
-    Route::apiResource('menu-cycles', MenuCycleController::class);
+    Route::apiResource('menu-cycles', MenuCycleController::class)->only(['index', 'show']);
 
-    // Menu Cycle Templates routes
-    Route::post('menu-cycle-templates/{menu_cycle_template}/instantiate', [MenuCycleTemplateController::class, 'instantiate']);
-    Route::apiResource('menu-cycle-templates', MenuCycleTemplateController::class);
-
-    // Food Service Recipes routes
-    Route::apiResource('food-service-recipes', FoodServiceRecipeController::class);
+    // Food Service Recipes — FSS read-only (RND owns writes)
+    Route::apiResource('food-service-recipes', FoodServiceRecipeController::class)->only(['index', 'show']);
 
     // FS Items (catalog) routes
     Route::get('fs-items/{fsItem}/price-trend', [FsItemController::class, 'priceTrend']);
     Route::patch('fs-items/{fsItem}', [FsItemController::class, 'update']);
 
-    // Budgets routes
+    // Budgets — FSS read-only (RND owns writes)
     Route::get('budgets/{budget}/summary', [BudgetController::class, 'summary']);
-    Route::post('budgets/{budget}/daily-logs', [BudgetController::class, 'storeDailyLog']);
-    Route::apiResource('budgets', BudgetController::class);
+    Route::apiResource('budgets', BudgetController::class)->only(['index', 'show']);
+
+    // ===== RND-only planning writes (FSS receives 403) =====
+    Route::middleware('role:RND')->group(function () {
+        Route::patch('menu-cycles/{menu_cycle}/activate', [MenuCycleController::class, 'activate']);
+        Route::post('menu-cycles/{menu_cycle}/save-template', [MenuCycleTemplateController::class, 'fromCycle']);
+        Route::apiResource('menu-cycles', MenuCycleController::class)->only(['store', 'update', 'destroy']);
+
+        Route::post('menu-cycle-templates/{menu_cycle_template}/instantiate', [MenuCycleTemplateController::class, 'instantiate']);
+        Route::apiResource('menu-cycle-templates', MenuCycleTemplateController::class);
+
+        Route::apiResource('food-service-recipes', FoodServiceRecipeController::class)->only(['store', 'update', 'destroy']);
+
+        Route::post('budgets/{budget}/daily-logs', [BudgetController::class, 'storeDailyLog']);
+        Route::apiResource('budgets', BudgetController::class)->only(['store', 'update', 'destroy']);
+    });
+
+    // Insights / analytics (read-only, graphs — never in compliance PDFs)
+    Route::get('insights/spend-by-supplier', [InsightsController::class, 'spendBySupplier']);
+    Route::get('insights/cost-per-head', [InsightsController::class, 'costPerHead']);
+    Route::get('insights/consumption', [InsightsController::class, 'consumption']);
+
+    // Per-record audit history (Spec 5)
+    Route::get('inventory/{inventory}/activity', [ActivityController::class, 'inventory']);
+    Route::get('purchase-orders/{purchase_order}/activity', [ActivityController::class, 'purchaseOrder']);
 
     // Consumption (meal prep / service-day completion)
     Route::get('meal-prep-logs', [MealPrepLogController::class, 'index']);
     Route::post('menu-cycles/{menuCycle}/complete-day', [MealPrepLogController::class, 'complete']);
     Route::post('meal-prep-logs/{mealPrepLog}/reverse', [MealPrepLogController::class, 'reverse']);
 
-    // Reports routes
-    Route::post('reports/generate-all', [ReportController::class, 'generateAll']);
-    Route::get('reports/{report}/download', [ReportController::class, 'download']);
-    Route::apiResource('reports', ReportController::class)->only(['index', 'store', 'show', 'destroy']);
-    Route::get('report-branding', [ReportBrandingController::class, 'show']);
-    Route::post('report-branding', [ReportBrandingController::class, 'update']);
-    Route::get('report-templates', [ReportTemplateController::class, 'index']);
-    Route::patch('report-templates/{reportTemplate}', [ReportTemplateController::class, 'update']);
+    // Cleaning log (FSS daily sanitation checklist)
+    Route::apiResource('cleaning-logs', CleaningLogController::class);
+
+    // Announcements — FSS reads its feed (visibility FSS|All); RND/Admin own writes
+    Route::get('announcements', [RndAnnouncementController::class, 'index']);
+
+    // Reports routes (shared with RND — see $reportRoutes above)
+    $reportRoutes();
 });
 
 Route::middleware(['auth:sanctum', 'role:Admin'])->prefix('admin')->group(function () {
