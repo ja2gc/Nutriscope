@@ -62,10 +62,12 @@
 - **Ownership correction**: `budgets` were `fss_user_id`-owned in code (contradicting "RND sets budgets"). Per decision, migrated `budgets.fss_user_id → rnd_user_id` (migration `2026_06_15_020000`), updated `Budget` model/`rnd()` relation/`BudgetController@store`/`BudgetResource`/`BudgetFactory`, and fixed budget-owner references in `FoodServiceOpsTest` + `ReportsBrowseTest`.
 - **TDD**: `FssPermissionTest.php` (FSS 403 on writes, FSS 200 on reads, RND not locked out). Green.
 
-### 2.5. FSS Meal Prep Shortfall Feedback Loop
-- **Problem**: RND is never notified when FSS logs a prep shortfall.
-- **Correction (verified 2026-06-15)**: The `complete-day` endpoint **already exists** — `routes/api.php:215` maps `POST menu-cycles/{menuCycle}/complete-day` → `FSS\MealPrepLogController@complete` (logs `meal_prep_log_lines.shortfall_qty`). Do **not** create a new `FSS/MealPrepController@store`; that would duplicate it.
-- **Fix**: Extend the existing `MealPrepLogController@complete`. When any line has `shortfall_qty > 0`, dispatch a system `Notification` to the RND who owns the active menu cycle. Add coverage to `MealPrepLogTest`.
+### 2.5. FSS Meal Prep Variance Feedback Loop — DONE (2026-06-15)
+- **Correction**: `complete-day` already existed (`MealPrepLogController@complete`). Reused it, did not create a duplicate controller.
+- **Premise fix**: `ConsumptionService::completeDay` previously **hard-blocked (422)** on short stock, so a shortfall could never be recorded. Added an opt-in `allow_shortfall` path: serves what stock covers, records `shortfall_qty` per line, sets `has_shortfall`. Default stays hard-block.
+- **Both-directions variance (client input)**: kitchen sometimes prepares too much or too little vs who shows up. `population` = prepared-for headcount; new `served_population` = actually fed; `population_variance = population − served_population` (+ surplus / − under-prep). Migration `2026_06_15_021000`.
+- **RND notification**: `completeDay` writes a `notifications` row to the cycle's `rnd_user_id` when there's an ingredient shortfall (`type=meal_prep_shortfall`) and/or a population variance (`type=meal_prep_variance`). On-plan days create none. (First backend code path that writes `notifications`.)
+- **TDD**: `MealPrepShortfallTest.php` (5 tests: hard-block default, allow_shortfall partial+notify, over-prep surplus, under-prep, on-plan no-notify). Green.
 
 ### 3. FSS Announcements Support
 - **Fix**: Adjust `AnnouncementController@index` to ensure FSS users can fetch announcements where `visibility` is `FSS` or `All`.
