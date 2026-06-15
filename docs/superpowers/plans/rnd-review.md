@@ -42,8 +42,9 @@
 
 *   **Meal Plan Generator — Missing AI Fallback:**
     *   *Flaw:* The `meal-algorithm.md` states: "AI fallback (Sonnet) — ONLY if <5 recipes match." However, `MealPlanService.php` simply returns `['insufficient_recipes' => true]` when the recipe count is low. A codebase search reveals that the controller never intercepts this to call the AI service. The AI fallback feature is completely missing.
-*   **Suggested Procurement List — Ignores Inventory (CRITICAL):**
-    *   *Flaw:* The `ProcurementService::suggestedItems()` algorithm calculates the procurement list by simply scaling the menu cycle usage mathematically (`qty = usage * span/cycle`). It completely ignores current inventory levels (`quantity_on_hand`). If the hospital needs 100kg of rice and has 90kg in the warehouse, the system will suggest buying 100kg instead of 10kg, leading to massive over-purchasing and waste.
+*   **Suggested Procurement List — CLAIM RETRACTED (verified 2026-06-15):**
+    *   *Correction:* The **live** procurement path is `ShoppingListController::generate`, which already nets stock: `net = max(0, qty − (on_hand + in_transit_POs))`, skips fully-covered items, and rounds UP to whole purchase units (documented "Spec 6 #2/#4"). It even accounts for open (status=`ordered`) purchase orders, which the review didn't credit.
+    *   *Root of the mistake:* `ProcurementService::suggestedItems()` is an **unused** pure span-scaler (no app callers — only `tests/Unit/ProcurementServiceTest.php`), not the procurement-list generator. The review read the wrong class. Candidate for deletion as dead code; not a correctness bug.
 
 ## 5. AI Tokens & Dynamic Data Generation
 

@@ -90,6 +90,17 @@
 - **Problem**: Hardcoded clinical rules, synchronous AI/Reports, missing caching, N+1 queries.
 - **Fix**: Update `RND/InterventionController.php` (`mapGoalTypeToConditions`, ~line 153) to query the `clinical_rules` table via the `ClinicalRule` model instead of the hardcoded `match`. Note `NutritionPrescriptionService.php:189` also branches on `goal_type` — confirm whether that path likewise needs to consult `clinical_rules`. Switch AI diagnosis/reports to background jobs (return 202). Implement `Cache::remember()` in `MonitoringController` for AI-reviews. Eager load relations in `NcpRecordController`.
 - **Logic Sync**: Update `NutritionPrescriptionService` to fully implement `prescription-targets.json` (e.g. `free_sugar_max_pct_energy` and `bmi_range` thresholds).
-- **Algorithm Fixes**: Add AI fallback to `MealPlanService.php` when <5 recipes match. Update `ProcurementService` to subtract `quantity_on_hand` from suggested purchases. Ensure PHI is stripped from AI payloads.
+- **Algorithm Fixes**: Add AI fallback to `MealPlanService.php` when <5 recipes match. Ensure PHI is stripped from AI payloads.
+  - **Procurement — CLAIM RETRACTED (verified 2026-06-15)**: the live path `ShoppingListController::generate` **already** nets `qty − (on_hand + in_transit_POs)`, skips fully-covered items, rounds up to whole purchase units (Spec 6 #2/#4). `ProcurementService::suggestedItems()` is unused dead code (span-scaler only), not the procurement list — no fix needed; candidate for deletion.
+
+#### §7 sub-task tracker (verify each before building — review accuracy has been mixed)
+- [ ] Dynamic `clinical_rules` in `RND/InterventionController::mapGoalTypeToConditions` — CONFIRMED hardcoded (line 153). Valid.
+- [ ] MealPlan AI fallback (<5 recipes) — CONFIRMED missing. Valid.
+- [ ] AI diagnosis → background job (return 202) — sync today; **changes API contract → frontend impact, confirm before shipping**.
+- [ ] Monitoring AI-review caching — verify it's actually missing first.
+- [ ] N+1 eager-loads in `NcpRecordController` list — verify first.
+- [ ] `prescription-targets.json` sync (free_sugar, bmi_range) — verify gap first; clinical-correctness risk.
+- [x] ~~ProcurementService on-hand~~ — retracted (already done in live path).
+- [~] Report `dispatchSync` — intentional/documented; left as-is (see rnd-review §1).
 
 *Refer to the respective Sprint Plans for the long-term UI roadmap.*
