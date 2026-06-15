@@ -31,11 +31,19 @@ class MealPrepLogController extends Controller
     public function complete(Request $request, MenuCycle $menuCycle, ConsumptionService $consumption): JsonResponse
     {
         $data = $request->validate([
-            'service_date' => ['required', 'date'],
-            'population'   => ['nullable', 'integer', 'min:1'],
+            'service_date'      => ['required', 'date'],
+            'population'        => ['nullable', 'integer', 'min:1'],
+            'served_population' => ['nullable', 'integer', 'min:0'],
+            'allow_shortfall'   => ['nullable', 'boolean'],
         ]);
 
-        $log = $consumption->completeDay($menuCycle, $data['service_date'], $data['population'] ?? null);
+        $log = $consumption->completeDay(
+            $menuCycle,
+            $data['service_date'],
+            $data['population'] ?? null,
+            $data['served_population'] ?? null,
+            (bool) ($data['allow_shortfall'] ?? false),
+        );
 
         return response()->json(['data' => $log], 201);
     }

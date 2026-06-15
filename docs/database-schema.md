@@ -119,8 +119,12 @@ menu_cycle_days         id, menu_cycle_id, day_of_week, meal_type,
                         food_service_recipe_id, fs_item_id, quantity
 menu_cycle_templates    id, name, description, timestamps
 menu_cycle_template_days id, menu_cycle_template_id, day_of_week, meal_type, food_service_recipe_id, fs_item_id, quantity
-meal_prep_logs          id, fss_user_id, menu_cycle_id, service_date, target_population, status(done/pending), notes, timestamps
-meal_prep_log_lines     id, meal_prep_log_id, menu_cycle_day_id, prepared_quantity, shortfall_qty, timestamps
+meal_prep_logs          id, menu_cycle_id, service_date, population(prepared-for),
+                        served_population, population_variance(prepared−served),
+                        status, completed_by, completed_at, total_value(decimal),
+                        has_shortfall(bool), timestamps
+meal_prep_log_lines     id, meal_prep_log_id, fs_item_id, qty_base, unit,
+                        unit_cost(decimal), line_value(decimal), shortfall_qty, timestamps
 cleaning_logs           id, fss_user_id, item_name, category, status, notes, cleaned_at, timestamps
 ```
 
