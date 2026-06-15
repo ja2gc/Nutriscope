@@ -152,85 +152,119 @@ class FoodItemsSeeder extends Seeder
 
         $this->command->info('Importing ' . count(self::INGREDIENTS) . ' Filipino ingredients from USDA...');
 
-        foreach (self::INGREDIENTS as $friendlyName => $query) {
-            // Skip if already in DB — avoids burning API calls on re-runs
-            if (\App\Models\FoodItem::where('name', $friendlyName)->exists()) {
-                $this->command->line("  – Already imported: {$friendlyName}");
-                continue;
+        $pending = self::INGREDIENTS;
+        $maxRetries = 3;
+        $retryCount = 0;
+
+        // Loop until all items are successfully seeded or max retries exhausted
+        while (!empty($pending) && $retryCount < $maxRetries) {
+            if ($retryCount > 0) {
+                $this->command->info("\n✓ Retry #{$retryCount} — retrying " . count($pending) . " pending items...");
+                usleep(2000000); // 2s between retry loops — let rate limit cool down
             }
 
-            try {
-                $results = $usda->search($query, 10);
+            $stillPending = [];
 
-                if (empty($results)) {
-                    $this->command->warn("  ✗ No results for: {$friendlyName}");
+            foreach ($pending as $friendlyName => $query) {
+                // Skip if already in DB — avoids burning API calls on re-runs
+                if (\App\Models\FoodItem::where('name', $friendlyName)->exists()) {
+                    $this->command->line("  – Already imported: {$friendlyName}");
                     continue;
                 }
 
-                // Pick best result by data type priority
-                $best = null;
-                foreach (self::DATA_TYPE_PRIORITY as $preferred) {
-                    foreach ($results as $r) {
-                        if ($r['data_type'] === $preferred) {
-                            $best = $r;
-                            break 2;
-                        }
-                    }
-                }
-                $best ??= $results[0];
+                try {
+                    $results = $usda->search($query, 10);
 
-                // Try each result until one imports successfully (some FDC IDs return 404 on fetch)
-                $imported = false;
-                foreach ($results as $candidate) {
-                    try {
-                        $food = $usda->import($candidate['fdc_id']);
-                        $food->update(['name' => $friendlyName]);
-                        $this->command->info("  ✓ {$friendlyName} [{$candidate['data_type']} #{$candidate['fdc_id']}]");
-                        $imported = true;
-                        break;
-                    } catch (\RuntimeException $e) {
-                        if (str_contains($e->getMessage(), 'already exists')) {
-                            // A previous partial run imported this FDC ID under a different name — rename it
-                            $existing = \App\Models\FoodItem::where('usda_fdc_id', $candidate['fdc_id'])->first();
-                            if ($existing) {
-                                $existing->update(['name' => $friendlyName]);
-                                $this->command->info("  ✓ {$friendlyName} [renamed from existing #{$candidate['fdc_id']}]");
-                                $imported = true;
-                                break;
-                            }
-                        }
-                        // fetch failed (404 etc.) — try next candidate
-                        usleep(300000);
+                    if (empty($results)) {
+                        $this->command->warn("  ✗ No results for: {$friendlyName}");
+                        $stillPending[$friendlyName] = $query; // Mark for retry
                         continue;
                     }
-                }
 
-                if (! $imported) {
-                    $this->command->warn("  ✗ All candidates failed for: {$friendlyName}");
-                }
-
-            } catch (\Exception $e) {
-                // Try direct FDC ID fallback before giving up
-                if (isset(self::FALLBACK_FDC_IDS[$friendlyName])) {
-                    $fallbackId = self::FALLBACK_FDC_IDS[$friendlyName];
-                    try {
-                        $food = $usda->import($fallbackId);
-                        $food->update(['name' => $friendlyName]);
-                        $this->command->info("  ✓ {$friendlyName} [fallback FDC #{$fallbackId}]");
-                        $imported = true;
-                    } catch (\Exception $fe) {
-                        $this->command->warn("  ✗ Fallback also failed for {$friendlyName}: {$fe->getMessage()}");
+                    // Pick best result by data type priority
+                    $best = null;
+                    foreach (self::DATA_TYPE_PRIORITY as $preferred) {
+                        foreach ($results as $r) {
+                            if ($r['data_type'] === $preferred) {
+                                $best = $r;
+                                break 2;
+                            }
+                        }
                     }
-                } else {
-                    $this->command->warn("  ✗ Skipped {$friendlyName}: {$e->getMessage()}");
+                    $best ??= $results[0];
+
+                    // Try each result until one imports successfully (some FDC IDs return 404 on fetch)
+                    $imported = false;
+                    foreach ($results as $candidate) {
+                        try {
+                            $food = $usda->import($candidate['fdc_id']);
+                            $food->update(['name' => $friendlyName]);
+                            $this->command->info("  ✓ {$friendlyName} [{$candidate['data_type']} #{$candidate['fdc_id']}]");
+                            $imported = true;
+                            break;
+                        } catch (\RuntimeException $e) {
+                            if (str_contains($e->getMessage(), 'already exists')) {
+                                // A previous partial run imported this FDC ID under a different name — rename it
+                                $existing = \App\Models\FoodItem::where('usda_fdc_id', $candidate['fdc_id'])->first();
+                                if ($existing) {
+                                    $existing->update(['name' => $friendlyName]);
+                                    $this->command->info("  ✓ {$friendlyName} [renamed from existing #{$candidate['fdc_id']}]");
+                                    $imported = true;
+                                    break;
+                                }
+                            }
+                            // fetch failed (404 etc.) — try next candidate
+                            usleep(300000);
+                            continue;
+                        }
+                    }
+
+                    if (! $imported) {
+                        $this->command->warn("  ✗ All candidates failed for: {$friendlyName}");
+                        $stillPending[$friendlyName] = $query; // Mark for retry
+                    }
+
+                } catch (\Exception $e) {
+                    // Check if it's a rate limit error (429 or similar)
+                    if (str_contains($e->getMessage(), 'rate') || str_contains($e->getMessage(), '429')) {
+                        $this->command->warn("  ⏱ Rate limited: {$friendlyName} — will retry");
+                        $stillPending[$friendlyName] = $query;
+                        continue;
+                    }
+
+                    // Try direct FDC ID fallback
+                    if (isset(self::FALLBACK_FDC_IDS[$friendlyName])) {
+                        $fallbackId = self::FALLBACK_FDC_IDS[$friendlyName];
+                        try {
+                            $food = $usda->import($fallbackId);
+                            $food->update(['name' => $friendlyName]);
+                            $this->command->info("  ✓ {$friendlyName} [fallback FDC #{$fallbackId}]");
+                        } catch (\Exception $fe) {
+                            $this->command->warn("  ✗ Fallback failed for {$friendlyName}: {$fe->getMessage()}");
+                            $stillPending[$friendlyName] = $query; // Mark for retry
+                        }
+                    } else {
+                        $this->command->warn("  ✗ {$friendlyName}: {$e->getMessage()}");
+                        $stillPending[$friendlyName] = $query; // Mark for retry
+                    }
                 }
-                usleep(1000000);
+
+                usleep(1000000); // 1s between foods — stays within USDA rate limit
             }
 
-            usleep(1000000); // 1s between foods — stays within USDA rate limit
+            $pending = $stillPending;
+            $retryCount++;
         }
 
-        $this->command->info('Done. All items use USDA import (macros + micros + water_g). See FALLBACK_FDC_IDS for rate-limit resilience.');
+        // Final status
+        if (empty($pending)) {
+            $this->command->info('✓ All items successfully imported. All items use USDA import (macros + micros + water_g).');
+        } else {
+            $this->command->error('⚠ Max retries exhausted. ' . count($pending) . ' item(s) still pending:');
+            foreach ($pending as $name => $query) {
+                $this->command->line("  - {$name}");
+            }
+        }
 
         // Snack-suitability curation (idempotent — safe on re-runs).
         $curated = 0;
