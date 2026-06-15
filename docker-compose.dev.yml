@@ -1,0 +1,111 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: nutriscope_mysql
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: ""
+      MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+      MYSQL_DATABASE: nutriscope
+    volumes:
+      - nutriscope_mysql:/var/lib/mysql
+    networks:
+      - nutriscope_net
+    restart: unless-stopped
+    command: --default-authentication-plugin=mysql_native_password
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+  redis:
+    image: redis:7-alpine
+    container_name: nutriscope_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - nutriscope_redis:/data
+    networks:
+      - nutriscope_net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 128M
+
+  paddleocr:
+    build:
+      context: ./paddleocr
+      dockerfile: Dockerfile
+    container_name: nutriscope_paddleocr
+    ports:
+      - "5000:5000"
+    networks:
+      - nutriscope_net
+    restart: unless-stopped
+    environment:
+      PYTHONUNBUFFERED: "1"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 1G
+
+  omr:
+    build:
+      context: ./omr
+      dockerfile: Dockerfile
+    container_name: nutriscope_omr
+    ports:
+      - "5001:5001"
+    networks:
+      - nutriscope_net
+    restart: unless-stopped
+    environment:
+      PYTHONUNBUFFERED: "1"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 512M
+
+volumes:
+  nutriscope_mysql:
+    driver: local
+  nutriscope_redis:
+    driver: local
+
+networks:
+  nutriscope_net:
+    driver: bridge

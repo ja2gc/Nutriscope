@@ -43,7 +43,7 @@ brew install git
 brew install php@8.3
 brew install composer
 brew install node
-````
+```
 
 Install Docker Desktop manually:
 [https://www.docker.com/products/docker-desktop/](https://www.docker.com/products/docker-desktop/)
@@ -84,6 +84,14 @@ Expected services:
 
 ```bash
 cd backend
+```
+
+---
+
+## 📦 Install Node dependencies (for Vite)
+
+```bash
+npm install
 ```
 
 ---
@@ -235,11 +243,30 @@ lsof -i :8000
 kill -9 <PID>
 ```
 
-Frontend:
+Frontend (Mac/Linux):
 
 ```bash
 lsof -i :3000
 kill -9 <PID>
+```
+
+Frontend (Windows):
+
+```bash
+netstat -ano | findstr :3000
+taskkill /PID <PID> /F
+```
+
+---
+
+## ❌ npm install fails
+
+Clear cache and retry:
+
+```bash
+npm cache clean --force
+rm -rf node_modules package-lock.json
+npm install
 ```
 
 ---
@@ -248,21 +275,23 @@ kill -9 <PID>
 
 Always follow this order:
 
+1. **Docker Services:**
 ```bash
 docker compose up -d
 ```
 
-Then:
-
+2. **Backend (Terminal 1):**
 ```bash
 cd backend
+npm install
+php artisan migrate
 php artisan serve
 ```
 
-Then:
-
+3. **Frontend (Terminal 2):**
 ```bash
 cd frontend
+npm install
 npm run dev
 ```
 
@@ -286,7 +315,9 @@ WARNING: This deletes all data.
 * Always create `.env` locally
 * Always start Docker first
 * Always use PHP 8.3+
-* Always install frontend dependencies before running dev server
+* Always use Node.js LTS
+* Always install dependencies (`npm install`) before running dev servers
+* Use `npm` for package management (not pnpm or yarn)
 
 ---
 
@@ -300,13 +331,12 @@ If everything is set up correctly, you should have:
 
 ---
 
-Seeded Accounts
-See backend/database/seeders/AdminUserSeeder.php for full list.
+# 👤 SEEDED ACCOUNTS
 
-Role	Email	Password
-Admin	admin@nutriscope.local	nutriscope2024!
-RND	rnd@nutriscope.local	nutriscope2024!
-FSS	fss@nutriscope.local	nutriscope2024!
+See `backend/database/seeders/AdminUserSeeder.php` for full list.
 
-```
-```
+| Role | Email | Password |
+|------|-------|----------|
+| Admin | admin@nutriscope.local | nutriscope2024! |
+| RND | rnd@nutriscope.local | nutriscope2024! |
+| FSS | fss@nutriscope.local | nutriscope2024! |
