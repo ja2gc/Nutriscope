@@ -26,7 +26,7 @@ class AIService
                 . "domain must be exactly one of: NI (Intake), NC (Clinical), NB (Behavioral-Environmental). "
                 . "confidence is a float 0.0-1.0. priority starts at 1 for highest priority.";
 
-            $response = Http::withHeaders([
+            $response = Http::timeout(20)->connectTimeout(5)->withHeaders([
                 'x-api-key' => $apiKey,
                 'anthropic-version' => '2023-06-01',
                 'content-type' => 'application/json',
@@ -96,7 +96,7 @@ class AIService
                 . "State the key change(s), whether the patient is trending toward the intervention goal, "
                 . "and one concrete suggested next action. Plain prose, no JSON, no markdown, no preamble.";
 
-            $response = Http::withHeaders([
+            $response = Http::timeout(20)->connectTimeout(5)->withHeaders([
                 'x-api-key'         => $apiKey,
                 'anthropic-version' => '2023-06-01',
                 'content-type'      => 'application/json',

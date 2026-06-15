@@ -95,14 +95,14 @@
 
 #### §7 sub-task tracker (verified 2026-06-15 — most review claims were FALSE)
 - [x] Dynamic `clinical_rules` (`RND/InterventionController::mapGoalTypeToConditions` → `config/clinical.php`) — was hardcoded AND broken; FIXED + tested.
-- [ ] MealPlan AI fallback (<5 recipes) — CONFIRMED missing. **VALID, todo** (additive AI call → should be queued).
-- [ ] AI diagnosis → background job (202) — sync today. **VALID, todo, but changes the API contract → needs a product decision (frontend impact).**
+- [x] MealPlan AI fallback (<5 recipes) — **DECISION: no AI in meal generation.** Returns 422 `{insufficient_recipes, count, message}` prompting the RND to add recipes. `meal-algorithm.md` step 7 updated.
+- [x] AI diagnosis → background job (202) — **DEFERRED (safest): kept sync** to avoid breaking the RND frontend contract; hardened the sync call with `Http::timeout(20)->connectTimeout(5)` + existing graceful `[]` degradation (tested). Full async = a later coordinated FE+BE change.
 - [x] ~~Monitoring AI-review caching~~ — FALSE. `MonitoringController::aiReview` already caches via DB (`ai_review` + `ai_review_key` signature, returns `cached:true`) + rate-limits. No change.
 - [x] ~~N+1 eager-loads~~ — FALSE. `PatientController::index` already `->with(['ncpRecords'=>...['assessment','intervention']])->paginate(20)`; show/others eager-load too. `NcpRecordController` only has `destroy`. No change.
 - [~] `prescription-targets.json` sync — PARTLY FALSE. `free_sugar_max_pct` IS set (diabetic_control). Universal free-sugar baseline + server-side `bmi_range` stage-validation are **clinical-spec judgment calls**, not clear bugs — defer to a clinical decision; don't speculatively change the frozen engine (golden cases in `prescription-targets.json`).
 - [x] ~~ProcurementService on-hand~~ — FALSE; live path already nets stock.
 - [~] Report `dispatchSync` — intentional/documented; left as-is.
 
-**Net remaining Phase A work = the two AI items only** (MealPlan fallback, AI-diagnosis async). Both need product decisions before building.
+**PHASE A COMPLETE (2026-06-15).** All §7 items are fixed, decided, or verified-false. Both AI items resolved by decision (no AI meal-gen; AI-diagnosis kept sync-but-hardened, full async deferred). Ready for Phase B (Admin §4–§6 + admin-sprint-plan UI).
 
 *Refer to the respective Sprint Plans for the long-term UI roadmap.*

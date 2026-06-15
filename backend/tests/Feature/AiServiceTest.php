@@ -38,6 +38,26 @@ class AiServiceTest extends TestCase
 
     // --- AIService unit tests ---
 
+    public function test_ai_service_degrades_to_empty_on_api_failure(): void
+    {
+        Http::fake(['api.anthropic.com/*' => Http::response('upstream error', 500)]);
+
+        $result = app(AIService::class)->suggestDiagnoses(['conditions' => ['CKD']]);
+
+        $this->assertSame([], $result);
+    }
+
+    public function test_ai_service_degrades_to_empty_on_connection_timeout(): void
+    {
+        Http::fake([
+            'api.anthropic.com/*' => fn () => throw new \Illuminate\Http\Client\ConnectionException('Connection timed out'),
+        ]);
+
+        $result = app(AIService::class)->suggestDiagnoses(['conditions' => ['CKD']]);
+
+        $this->assertSame([], $result);
+    }
+
     public function test_ai_service_returns_array_of_suggestions(): void
     {
         Http::fake([
