@@ -1,7 +1,7 @@
 # FSS Mobile App — Sprint Plan & Architecture
 
 > Target: React Native (Expo) Mobile App for Food Service Staff (FSS).
-> Role Scope: Operational Execution (CRUD Inventory, Procurement, Suppliers, Meal-Prep. Read-Only: Menu Cycles, Budgets. No Access: Recipes).
+> Role Scope: Operational Execution (CRUD Inventory, Procurement, Suppliers, Meal-Prep, Cleaning Logs. Read-Only: Menu Cycles, Budgets, Food Service Recipes). Enforced by route-group split: RND-only writes nested under `role:RND` inside the `/api/fss/*` group; FSS gets 403 on those writes.
 
 ## 1. App Architecture & Navigation
 

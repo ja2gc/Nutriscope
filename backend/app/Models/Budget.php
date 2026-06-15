@@ -11,7 +11,7 @@ class Budget extends Model
     use \App\Models\Concerns\AuditsChanges;
 
     protected $fillable = [
-        'fss_user_id', 'scope', 'name', 'allocated_amount', 'actual_amount',
+        'rnd_user_id', 'scope', 'name', 'allocated_amount', 'actual_amount',
         'period_start', 'period_end', 'cost_per_person', 'population',
         'budget_per_head_day', 'budget_per_head_month', 'budget_per_head_year',
     ];
@@ -28,9 +28,9 @@ class Budget extends Model
         'period_end'            => 'date',
     ];
 
-    public function fss()
+    public function rnd()
     {
-        return $this->belongsTo(User::class, 'fss_user_id');
+        return $this->belongsTo(User::class, 'rnd_user_id');
     }
 
     public function dailyLogs()

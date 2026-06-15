@@ -26,7 +26,7 @@ class BudgetController extends Controller
     public function store(StoreBudgetRequest $request): JsonResponse
     {
         $data = $request->validated();
-        $data['fss_user_id'] = Auth::id();
+        $data['rnd_user_id'] = Auth::id();
         $data['scope'] = $data['scope'] ?? 'custom';
 
         $budget = Budget::create($data);
