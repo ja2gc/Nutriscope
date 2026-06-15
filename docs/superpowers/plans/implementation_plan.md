@@ -69,8 +69,9 @@
 - **RND notification**: `completeDay` writes a `notifications` row to the cycle's `rnd_user_id` when there's an ingredient shortfall (`type=meal_prep_shortfall`) and/or a population variance (`type=meal_prep_variance`). On-plan days create none. (First backend code path that writes `notifications`.)
 - **TDD**: `MealPrepShortfallTest.php` (5 tests: hard-block default, allow_shortfall partial+notify, over-prep surplus, under-prep, on-plan no-notify). Green.
 
-### 3. FSS Announcements Support
-- **Fix**: Adjust `AnnouncementController@index` to ensure FSS users can fetch announcements where `visibility` is `FSS` or `All`.
+### 3. FSS Announcements Support — DONE (2026-06-15)
+- **Fix**: `AnnouncementController@index` now branches on `role === 'FSS'` → `whereIn('visibility', ['FSS','All'])`. Added read-only `GET /api/fss/announcements` (reuses `RND\AnnouncementController@index`; FSS has no write routes). `visibility` enum is `FSS|Admin|All`.
+- **TDD**: `AnnouncementFeatureTest::test_fss_lists_fss_and_all_announcements_only` (FSS sees FSS+All, not Admin-only). Green.
 
 ### 4. Admin Audit Log Fixes
 - **Problem**: Unpaginated audit log endpoint will crash browser at scale. PHI exposure.
