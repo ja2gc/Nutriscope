@@ -416,9 +416,9 @@ class FoodServiceOpsTest extends TestCase
 
     // ===== BUDGETS =====
 
-    public function test_fss_can_create_budget(): void
+    public function test_rnd_can_create_budget(): void
     {
-        $response = $this->actingAs($this->fss)
+        $response = $this->actingAs($this->rnd)
             ->postJson('/api/fss/budgets', [
                 'period_start'    => '2026-06-01',
                 'period_end'      => '2026-06-30',
@@ -431,11 +431,11 @@ class FoodServiceOpsTest extends TestCase
         $this->assertDatabaseHas('budgets', ['allocated_amount' => 50000.00]);
     }
 
-    public function test_fss_can_log_daily_budget_expense(): void
+    public function test_rnd_can_log_daily_budget_expense(): void
     {
-        $budget = Budget::factory()->create(['fss_user_id' => $this->fss->id, 'allocated_amount' => 50000]);
+        $budget = Budget::factory()->create(['rnd_user_id' => $this->rnd->id, 'allocated_amount' => 50000]);
 
-        $response = $this->actingAs($this->fss)
+        $response = $this->actingAs($this->rnd)
             ->postJson("/api/fss/budgets/{$budget->id}/daily-logs", [
                 'log_date'   => '2026-06-10',
                 'spent'      => 1500.00,
@@ -450,7 +450,7 @@ class FoodServiceOpsTest extends TestCase
 
     public function test_budget_requires_allocated_amount(): void
     {
-        $response = $this->actingAs($this->fss)
+        $response = $this->actingAs($this->rnd)
             ->postJson('/api/fss/budgets', []);
 
         $response->assertUnprocessable()
@@ -460,7 +460,7 @@ class FoodServiceOpsTest extends TestCase
     public function test_budget_actual_uses_consumption_when_a_day_is_served(): void
     {
         $budget = Budget::factory()->create([
-            'fss_user_id' => $this->fss->id,
+            'rnd_user_id' => $this->rnd->id,
             'budget_per_head_day' => 100, 'population' => 10, // cap = 1000/day
         ]);
         $cycle = MenuCycle::factory()->create();
@@ -481,7 +481,7 @@ class FoodServiceOpsTest extends TestCase
     public function test_budget_actual_falls_back_to_purchases_when_nothing_served(): void
     {
         $budget = Budget::factory()->create([
-            'fss_user_id' => $this->fss->id,
+            'rnd_user_id' => $this->rnd->id,
             'budget_per_head_day' => 100, 'population' => 10,
         ]);
         PurchaseOrder::factory()->create([
@@ -500,7 +500,7 @@ class FoodServiceOpsTest extends TestCase
     public function test_summary_endpoint_reports_consumption_source_and_cash_flow(): void
     {
         $budget = Budget::factory()->create([
-            'fss_user_id' => $this->fss->id,
+            'rnd_user_id' => $this->rnd->id,
             'budget_per_head_day' => 100, 'population' => 10,
             'period_start' => '2026-06-09', 'period_end' => '2026-06-11',
         ]);
@@ -526,7 +526,7 @@ class FoodServiceOpsTest extends TestCase
     public function test_budget_report_actual_matches_consumption(): void
     {
         $budget = Budget::factory()->create([
-            'fss_user_id' => $this->fss->id,
+            'rnd_user_id' => $this->rnd->id,
             'budget_per_head_day' => 100, 'population' => 10,
             'period_start' => '2026-06-09', 'period_end' => '2026-06-11',
         ]);
@@ -547,7 +547,7 @@ class FoodServiceOpsTest extends TestCase
     public function test_budget_report_remaining_uses_cash_axis_not_food_served(): void
     {
         $budget = Budget::factory()->create([
-            'fss_user_id' => $this->fss->id, 'allocated_amount' => 5000,
+            'rnd_user_id' => $this->rnd->id, 'allocated_amount' => 5000,
             'budget_per_head_day' => 100, 'population' => 10,
             'period_start' => '2026-06-09', 'period_end' => '2026-06-11',
         ]);
@@ -574,7 +574,7 @@ class FoodServiceOpsTest extends TestCase
     public function test_summary_reports_days_served_count(): void
     {
         $budget = Budget::factory()->create([
-            'fss_user_id' => $this->fss->id,
+            'rnd_user_id' => $this->rnd->id,
             'budget_per_head_day' => 100, 'population' => 10,
             'period_start' => '2026-06-09', 'period_end' => '2026-06-12',
         ]);
@@ -641,7 +641,7 @@ class FoodServiceOpsTest extends TestCase
     public function test_daily_series_exposes_population_and_per_head_actual(): void
     {
         $budget = Budget::factory()->create([
-            'fss_user_id' => $this->fss->id,
+            'rnd_user_id' => $this->rnd->id,
             'budget_per_head_day' => 100, 'population' => 10,
         ]);
         $cycle = MenuCycle::factory()->create();

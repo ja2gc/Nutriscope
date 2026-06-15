@@ -104,7 +104,7 @@ clinical_rules          id, condition, stage, nutrient_or_food_tag,
 
 ```
 fs_items                id, name, category, unit_price, purchase_unit, inventory_unit, conversion_factor, timestamps
-food_service_recipes    id, fss_user_id, name, category, prep_notes, cost, servings, timestamps
+food_service_recipes    id, rnd_user_id, name, category, prep_notes, cost, servings, timestamps
 food_service_recipe_ingredients id, food_service_recipe_id, fs_item_id, quantity, unit
 ```
 
@@ -127,9 +127,11 @@ cleaning_logs           id, fss_user_id, item_name, category, status, notes, cle
 ### Budget & Procurement
 
 ```
-budgets                 id, rnd_user_id, scope(global/per_head), planned_amount, actual_amount,
-                        period_start, period_end, timestamps
-budget_daily_logs       id, budget_id, date, planned, actual, variance, timestamps
+budgets                 id, rnd_user_id, scope(monthly/quarterly/yearly/custom), name,
+                        allocated_amount, actual_amount, period_start, period_end,
+                        cost_per_person, population, budget_per_head_day,
+                        budget_per_head_month, budget_per_head_year, timestamps
+budget_daily_logs       id, budget_id, log_date, spent, notes, timestamps
 suppliers               id, name, contact_name, email, phone, address, timestamps
 shopping_lists          id, rnd_user_id, menu_cycle_id, status, generated_at, timestamps
 shopping_list_items     id, shopping_list_id, fs_item_id, quantity_needed, unit, timestamps
@@ -193,6 +195,7 @@ ai_usage_logs           id, user_id, model, tokens_input, tokens_output,
 
 ### Confirmed Implemented Tables
 
-- This schema is auto-verified against `database/migrations` through June 15, 2026.
+- Hand-verified against `database/migrations` on 2026-06-15 (the earlier "auto-verified" claim was not accurate — `budgets` and `food_service_recipes` owner columns and `budgets`/`budget_daily_logs` columns were corrected after checking the migrations).
+- `budgets.rnd_user_id`: budgets are RND-owned planning artifacts (migration `2026_06_15_020000` renamed `fss_user_id` → `rnd_user_id`); FSS has read-only access via `/api/fss/budgets`.
 - `ncp_records.risk_score` is the canonical system-calculated risk score column.
 - Inventory/Recipes decoupled into clinical `food_items` / `recipes` and operational `fs_items` / `food_service_recipes`.

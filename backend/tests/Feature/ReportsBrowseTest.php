@@ -186,7 +186,7 @@ class ReportsBrowseTest extends TestCase
         // A2b — budget report includes a server-side SVG trend chart; this guards the
         // blade + SVG actually render through DomPDF (no JS).
         $budget = Budget::factory()->create([
-            'fss_user_id' => $this->rnd->id, 'allocated_amount' => 5000,
+            'rnd_user_id' => $this->rnd->id, 'allocated_amount' => 5000,
             'budget_per_head_day' => 100, 'population' => 10,
             'period_start' => '2026-05-01', 'period_end' => '2026-05-31',
         ]);
@@ -209,7 +209,7 @@ class ReportsBrowseTest extends TestCase
         // A5 — the Dietary Cash Book is now reproducible: replenishment is derived from
         // Budget allocations overlapping the period, not from a report parameter.
         Budget::factory()->create([
-            'fss_user_id' => $this->rnd->id, 'scope' => 'monthly',
+            'rnd_user_id' => $this->rnd->id, 'scope' => 'monthly',
             'allocated_amount' => 8000, 'period_start' => '2026-05-01', 'period_end' => '2026-05-31',
         ]);
         $this->receivedPo('2026-05-10', 2000);
@@ -229,7 +229,7 @@ class ReportsBrowseTest extends TestCase
     {
         // Back-compat: an explicit replenishment param still wins over budget derivation.
         Budget::factory()->create([
-            'fss_user_id' => $this->rnd->id, 'scope' => 'monthly',
+            'rnd_user_id' => $this->rnd->id, 'scope' => 'monthly',
             'allocated_amount' => 8000, 'period_start' => '2026-05-01', 'period_end' => '2026-05-31',
         ]);
 

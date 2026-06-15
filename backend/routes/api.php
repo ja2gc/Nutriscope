@@ -179,28 +179,36 @@ Route::middleware(['auth:sanctum', 'role:FSS,RND'])->prefix('fss')->group(functi
     Route::delete('shopping-list-items/{shopping_list_item}', [ShoppingListController::class, 'destroyItem']);
     Route::apiResource('shopping-lists', ShoppingListController::class);
 
-    // Menu Cycles routes
+    // Menu Cycles — FSS read-only (RND owns writes, see RND-only group below)
     Route::get('menu-cycles/cost-today', [MenuCycleController::class, 'costToday']);
-    Route::patch('menu-cycles/{menu_cycle}/activate', [MenuCycleController::class, 'activate']);
     Route::get('menu-cycles/{menu_cycle}/compute', [MenuCycleController::class, 'compute']);
-    Route::post('menu-cycles/{menu_cycle}/save-template', [MenuCycleTemplateController::class, 'fromCycle']);
-    Route::apiResource('menu-cycles', MenuCycleController::class);
+    Route::apiResource('menu-cycles', MenuCycleController::class)->only(['index', 'show']);
 
-    // Menu Cycle Templates routes
-    Route::post('menu-cycle-templates/{menu_cycle_template}/instantiate', [MenuCycleTemplateController::class, 'instantiate']);
-    Route::apiResource('menu-cycle-templates', MenuCycleTemplateController::class);
-
-    // Food Service Recipes routes
-    Route::apiResource('food-service-recipes', FoodServiceRecipeController::class);
+    // Food Service Recipes — FSS read-only (RND owns writes)
+    Route::apiResource('food-service-recipes', FoodServiceRecipeController::class)->only(['index', 'show']);
 
     // FS Items (catalog) routes
     Route::get('fs-items/{fsItem}/price-trend', [FsItemController::class, 'priceTrend']);
     Route::patch('fs-items/{fsItem}', [FsItemController::class, 'update']);
 
-    // Budgets routes
+    // Budgets — FSS read-only (RND owns writes)
     Route::get('budgets/{budget}/summary', [BudgetController::class, 'summary']);
-    Route::post('budgets/{budget}/daily-logs', [BudgetController::class, 'storeDailyLog']);
-    Route::apiResource('budgets', BudgetController::class);
+    Route::apiResource('budgets', BudgetController::class)->only(['index', 'show']);
+
+    // ===== RND-only planning writes (FSS receives 403) =====
+    Route::middleware('role:RND')->group(function () {
+        Route::patch('menu-cycles/{menu_cycle}/activate', [MenuCycleController::class, 'activate']);
+        Route::post('menu-cycles/{menu_cycle}/save-template', [MenuCycleTemplateController::class, 'fromCycle']);
+        Route::apiResource('menu-cycles', MenuCycleController::class)->only(['store', 'update', 'destroy']);
+
+        Route::post('menu-cycle-templates/{menu_cycle_template}/instantiate', [MenuCycleTemplateController::class, 'instantiate']);
+        Route::apiResource('menu-cycle-templates', MenuCycleTemplateController::class);
+
+        Route::apiResource('food-service-recipes', FoodServiceRecipeController::class)->only(['store', 'update', 'destroy']);
+
+        Route::post('budgets/{budget}/daily-logs', [BudgetController::class, 'storeDailyLog']);
+        Route::apiResource('budgets', BudgetController::class)->only(['store', 'update', 'destroy']);
+    });
 
     // Insights / analytics (read-only, graphs — never in compliance PDFs)
     Route::get('insights/spend-by-supplier', [InsightsController::class, 'spendBySupplier']);

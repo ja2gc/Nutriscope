@@ -49,16 +49,18 @@
 
 ## Technical Execution Steps
 
-### 1. FSS CleaningLog Schema & API
-- **Schema**: Add `fss_user_id` (FK), `item_name`, `category`, `status`, `notes`, `cleaned_at` to the `cleaning_logs` migration.
-- **Model**: Fix namespace and location for `CleaningLog`, add `$fillable`, relationships (`user()`).
-- **Controller**: Add full CRUD to `CleaningLogController` mapped to `/api/fss/cleaning-logs`.
-- **TDD**: Write `CleaningLogTest.php`.
+### 1. FSS CleaningLog Schema & API — DONE (2026-06-15)
+- **Schema**: `cleaning_logs` migration now has `fss_user_id` (FK), `item_name`, `category`, `status`, `notes`, `cleaned_at`.
+- **Model**: `App\Models\CleaningLog` (flat, matches `Supplier` convention — scaffold's `App\Models\FSS\` was wrong), `$fillable`, `cleaned_at` cast, `user()` relation.
+- **Controller**: `FSS\CleaningLogController` full CRUD at `/api/fss/cleaning-logs` (`role:FSS,RND`), Store/Update requests in `FSS\`, `CleaningLogResource`, factory.
+- **TDD**: `CleaningLogTest.php` (6 tests). Green.
+- **Note**: orphan scaffold stubs (`app/Models/FSS/`, `app/Policies/`, flat `CleaningLogController`/requests, `database/factories/FSS/`, `CleaningLogSeeder`) are dead and pending removal.
 
-### 2. FSS Read-Only Permissions Enforcement
-- **Problem**: `/api/fss/*` currently allows both RND and FSS full CRUD.
-- **Fix**: Apply role-check guards to `store`, `update`, `destroy` methods in `MenuCycleController`, `BudgetController`, and `FoodServiceRecipeController`. FSS receives `403 Forbidden` on write attempts.
-- **TDD**: Write `FssPermissionTest.php`.
+### 2. FSS Read-Only Permissions Enforcement — DONE (2026-06-15)
+- **Problem**: `/api/fss/*` allowed both RND and FSS full CRUD.
+- **Fix (implemented)**: Route-group split, not controller guards. A nested `Route::middleware('role:RND')` group inside the `/api/fss/*` group holds the writes for `menu-cycles` (store/update/destroy + activate + save-template), `menu-cycle-templates` (all), `food-service-recipes` (store/update/destroy), and `budgets` (store/update/destroy + daily-logs). FSS gets `403`; reads (index/show/summary/compute/cost-today) stay in the shared group.
+- **Ownership correction**: `budgets` were `fss_user_id`-owned in code (contradicting "RND sets budgets"). Per decision, migrated `budgets.fss_user_id → rnd_user_id` (migration `2026_06_15_020000`), updated `Budget` model/`rnd()` relation/`BudgetController@store`/`BudgetResource`/`BudgetFactory`, and fixed budget-owner references in `FoodServiceOpsTest` + `ReportsBrowseTest`.
+- **TDD**: `FssPermissionTest.php` (FSS 403 on writes, FSS 200 on reads, RND not locked out). Green.
 
 ### 2.5. FSS Meal Prep Shortfall Feedback Loop
 - **Problem**: RND is never notified when FSS logs a prep shortfall.
