@@ -6,7 +6,7 @@
 
 **Architecture:** Backend already exposes `/api/admin/{users,announcements,audit-logs}` behind `auth:sanctum, role:Admin`. This sprint (1) hardens the audit-log endpoint with pagination + filters, (2) adds an admin password-reset action, then (3) scaffolds a new Next.js `(admin)` route group mirroring the existing `(rnd)` layout, with a Users/RBAC page and an Audit-Log browser. Settings + token-usage are stretch goals deferred to a follow-up.
 
-**Tech Stack:** Laravel 11 + Sanctum + Spatie activitylog (backend); Next.js (App Router, see `frontend/AGENTS.md` — read `node_modules/next/dist/docs/` before writing FE code), Tailwind, lucide-react, the shared `Button`/service patterns under `frontend/services/`.
+**Tech Stack:** Laravel 13 (v13.11.2) + Sanctum + Spatie activitylog (backend); Next.js (App Router, see `frontend/AGENTS.md` — read `node_modules/next/dist/docs/` before writing FE code), Tailwind, lucide-react, the shared `Button`/service patterns under `frontend/services/`.
 
 **Reference docs:** [`docs/modules/admin.md`](../../modules/admin.md) (intended scope), [`docs/reviews/2026-06-14-system-review.md`](../../reviews/2026-06-14-system-review.md) §B5/B6/B8.
 
