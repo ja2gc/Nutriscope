@@ -5,6 +5,6 @@ MEAL PLAN ALGORITHM
 4. Query food library for snacks — same filters
 5. Build 7-day plan — assign best-fit recipes, adjust quantities mathematically, ensure variety
 6. Validate each day — within 10% of targets = green, miss by >10% = flag for RND review
-7. AI fallback (Sonnet) — ONLY if <5 recipes match. Label: "AI Suggested — Pending RND Review"
+7. ~~AI fallback (Sonnet) — ONLY if <5 recipes match.~~ **REMOVED (decision 2026-06-15): no AI in meal generation.** When <5 recipes match, the generate endpoint returns 422 `{insufficient_recipes:true, count, message}` prompting the RND to add/loosen recipes — no AI-generated plan.
 Patient food dislikes: NOT filtered. Displayed as warning note to RND only: "Patient dislikes: [list]"
 Require min 15 recipes in library before auto-generation. Show prompt to RND if below threshold.
