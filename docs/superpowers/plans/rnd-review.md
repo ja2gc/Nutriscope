@@ -74,3 +74,10 @@
 *   **Role Bleed:**
     *   *Flaw:* Shared `/api/fss/*` routes allow both RND and FSS to perform CRUD. This is dangerous if FSS modifies an RND's menu cycle.
     *   *Status:* Addressed by the upcoming `fss-admin-implementation-plan` which adds `abort(403)` read-only guards for FSS.
+
+## 9. OCR / OMR Microservices (TODO — not working)
+
+*   **paddleocr & omr services are non-functional (pre-existing, flagged 2026-06-17):**
+    *   *Flaw:* The OCR (`paddleocr`, port 5000) and OMR (`omr`, port 5001) microservices do not work end-to-end. They were also missing from the production stack entirely until the 2026-06-17 compose refactor added them back to the deploy (`docker-compose.prod.yml` overlay).
+    *   *Related test failures:* Three `OcrExtractionServiceTest` cases fail on `main` with `SQLSTATE[01000] 1265 Data truncated for column 'version'` (inserting semver `1.0.0` into `extraction_templates.version`) — see the spun-off task for the column-type fix. This is separate from the microservices themselves not functioning.
+    *   *Fix Required (future):* Verify the paddleocr/omr containers actually serve their `/health` and extraction endpoints, confirm the backend's `PADDLEOCR_URL`/`OMR_URL` calls succeed, and get the document-extraction pipeline working against real images. Fix the `extraction_templates.version` schema bug so the extraction tests pass.
