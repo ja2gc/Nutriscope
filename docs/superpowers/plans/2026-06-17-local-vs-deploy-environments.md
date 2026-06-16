@@ -44,7 +44,7 @@ services:
       retries: 5
 
   redis:
-    image: redis:7-alpine
+    image: redis:8-alpine  # pinned to 8 to match existing RDB data (local + VPS volumes)
     container_name: nutriscope_redis
     ports:
       - "127.0.0.1:6379:6379"
