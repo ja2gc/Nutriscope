@@ -1,8 +1,10 @@
 FROM php:8.5-apache
 
+# Install system dependencies including Node.js and Python
 RUN apt-get update && apt-get install -y \
     git curl zip unzip \
     libpng-dev libonig-dev libxml2-dev libzip-dev \
+    nodejs npm python3 python3-pip \
     && docker-php-ext-install \
         pdo_mysql mbstring exif pcntl bcmath gd zip \
     && a2enmod rewrite \
