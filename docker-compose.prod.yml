@@ -1,36 +1,13 @@
-version: '3.8'
-
+# Production overlay. Run merged with the base file:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+# The base file provides mysql, redis, paddleocr, and omr; this overlay adds the
+# application containers and publishes the frontend port for the host nginx.
 services:
-
-  mysql:
-    image: mysql:8.0
-    restart: unless-stopped
-    environment:
-      MYSQL_DATABASE: nutriscope
-      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
-    volumes:
-      - mysql_data:/var/lib/mysql
-    networks:
-      - nutriscope_net
-    command: --default-authentication-plugin=mysql_native_password
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-
-  redis:
-    image: redis:alpine
-    restart: unless-stopped
-    volumes:
-      - redis_data:/data
-    networks:
-      - nutriscope_net
-
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
+    container_name: nutriscope_backend
     restart: unless-stopped
     env_file:
       - ./backend/.env.production
@@ -48,18 +25,13 @@ services:
       dockerfile: Dockerfile
       args:
         LARAVEL_API_URL: http://backend/api
+    container_name: nutriscope_frontend
     restart: unless-stopped
     environment:
       LARAVEL_API_URL: http://backend/api
+    ports:
+      - "127.0.0.1:3000:3000"
     depends_on:
       - backend
     networks:
       - nutriscope_net
-
-volumes:
-  mysql_data:
-  redis_data:
-
-networks:
-  nutriscope_net:
-    driver: bridge
