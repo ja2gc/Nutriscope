@@ -206,6 +206,47 @@ class MenuCycleCostService
     }
 
     /**
+     * Cost profile for a single recipe scaled to a target headcount — the per-ingredient
+     * breakdown (scaled quantity + cost) plus recipe total and cost-per-head shown when a
+     * planner clicks a menu cell. Reuses aggregate() so scaling + unit conversion match
+     * the rest of the system exactly.
+     */
+    public static function recipeProfile(\App\Models\FoodServiceRecipe $recipe, int $population): array
+    {
+        $recipe->loadMissing('ingredients.fsItem');
+
+        $entry = [
+            'day_of_week'         => 'Profile',
+            'estimate_population' => $population,
+            'recipe' => [
+                'servings'    => (int) $recipe->servings,
+                'ingredients' => $recipe->ingredients
+                    ->filter(fn ($ing) => $ing->fsItem !== null)
+                    ->map(fn ($ing) => [
+                        'fs_item_id' => $ing->fs_item_id,
+                        'name'       => $ing->fsItem->name,
+                        'quantity'   => (float) $ing->quantity,
+                        'unit'       => $ing->unit,
+                        'base_unit'  => $ing->fsItem->base_unit,
+                        'unit_cost'  => $ing->fsItem->unit_cost,
+                    ])->values()->all(),
+            ],
+        ];
+
+        $out = self::aggregate([$entry]);
+
+        return [
+            'recipe_id'        => $recipe->id,
+            'name'             => $recipe->name,
+            'servings'         => (int) $recipe->servings,
+            'population'       => $population,
+            'total_cost'       => $out['total_cost'],
+            'cost_per_head'    => $out['cost_per_head'],
+            'ingredient_usage' => $out['ingredient_usage'],
+        ];
+    }
+
+    /**
      * Required base-unit ingredient usage for a subset of days. Population is read
      * per-day from each MenuCycleDay (estimate_population); $fallback covers days that
      * don't carry their own.

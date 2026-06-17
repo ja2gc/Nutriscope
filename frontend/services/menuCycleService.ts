@@ -63,6 +63,22 @@ export interface ComputeResult {
 
 export interface RecipeOption { id: number; name: string; category: string | null; servings: number; cost?: string }
 
+export interface RecipeProfile {
+  recipe_id: number;
+  name: string;
+  servings: number;
+  population: number;
+  total_cost: number;
+  cost_per_head: number;
+  ingredient_usage: { fs_item_id: number; name: string; unit: string; quantity: number; cost: number }[];
+}
+
+/** Per-ingredient cost breakdown for a recipe scaled to a day's headcount. */
+export async function getRecipeProfile(recipeId: number, population: number): Promise<RecipeProfile> {
+  const res = await apiFetch(`/api/fss/food-service-recipes/${recipeId}/profile?population=${population}`);
+  return json<RecipeProfile>(res, "Failed to load recipe profile.");
+}
+
 export interface SaveCyclePayload {
   name: string;
   population?: number; // vestigial cycle-level figure (NOT NULL); derived from per-day
