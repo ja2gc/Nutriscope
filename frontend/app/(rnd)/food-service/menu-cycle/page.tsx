@@ -18,8 +18,10 @@ import {
 const peso = (n: number) => `₱${n.toFixed(2)}`;
 const cellKey = (d: Day, m: Meal) => `${d}|${m}`;
 
-interface Cell { recipe_id: number; recipe_name: string; servings: number; servings_override: number | null }
+interface Cell { recipe_id: number; recipe_name: string; servings: number }
 type Grid = Record<string, Cell>;
+// Per-day headcount (drives scaling). Keyed by Day.
+type DayPop = Record<string, string>;
 
 const BUDGET_CHIP: Record<string, string> = {
   ok:      "bg-emerald-50 text-emerald-700 border-emerald-200",
@@ -163,7 +165,7 @@ function CycleList({ onOpen, onNew }: { onOpen: (id: number) => void; onNew: () 
 // ═══ EDITOR VIEW ═══════════════════════════════════════════════════════════════════
 function CycleEditor({ cycleId, onBack }: { cycleId: number | "new"; onBack: () => void }) {
   const [name, setName] = useState("New Menu Cycle");
-  const [population, setPopulation] = useState("100");
+  const [dayPop, setDayPop] = useState<DayPop>({});
   const [budget, setBudget] = useState("");
   const [weekStart, setWeekStart] = useState("");
   const [cycleDays, setCycleDays] = useState(7);
@@ -185,30 +187,33 @@ function CycleEditor({ cycleId, onBack }: { cycleId: number | "new"; onBack: () 
   useEffect(() => {
     if (cycleId === "new") return;
     getCycle(cycleId).then((c: MenuCycle) => {
-      setName(c.name); setPopulation(String(c.population));
+      setName(c.name);
       setBudget(c.budget_per_head_per_day ? String(parseFloat(c.budget_per_head_per_day)) : "");
       setWeekStart(c.week_start_date ?? ""); setCycleDays(c.cycle_days || 7); setIsActive(c.is_active);
       const g: Grid = {};
+      const dp: DayPop = {};
       (c.days ?? []).forEach((d) => {
         if (d.recipe_id && d.recipe) g[cellKey(d.day_of_week, d.meal_type)] = {
-          recipe_id: d.recipe_id, recipe_name: d.recipe.name, servings: d.recipe.servings, servings_override: d.servings_override,
+          recipe_id: d.recipe_id, recipe_name: d.recipe.name, servings: d.recipe.servings,
         };
+        // Each day carries one population; first seen wins (they're equal across meals).
+        if (d.estimate_population != null && dp[d.day_of_week] == null) dp[d.day_of_week] = String(d.estimate_population);
       });
-      setGrid(g);
+      setGrid(g); setDayPop(dp);
     }).catch(() => setErr("Failed to load cycle.")).finally(() => setLoading(false));
   }, [cycleId]);
 
   const visibleDays = useMemo(() => DAYS.slice(0, cycleDays), [cycleDays]);
-  const popNum = parseInt(population) || 0;
+  // Cycle-level population is vestigial (NOT NULL) — derive it from the per-day estimates.
+  const dayPops = visibleDays.map((d) => parseInt(dayPop[d]) || 0);
+  const cyclePop = dayPops.length ? Math.round(dayPops.reduce((a, b) => a + b, 0) / dayPops.length) : 0;
 
   function assign(key: string, r: RecipeOption) {
-    setGrid((g) => ({ ...g, [key]: { recipe_id: r.id, recipe_name: r.name, servings: r.servings, servings_override: null } }));
+    setGrid((g) => ({ ...g, [key]: { recipe_id: r.id, recipe_name: r.name, servings: r.servings } }));
     setActiveCell(null); setPickerSearch("");
   }
   function clearCell(key: string) { setGrid((g) => { const n = { ...g }; delete n[key]; return n; }); }
-  function setOverride(key: string, v: string) {
-    setGrid((g) => ({ ...g, [key]: { ...g[key], servings_override: v ? parseInt(v) : null } }));
-  }
+  function setPop(day: Day, v: string) { setDayPop((p) => ({ ...p, [day]: v })); }
   function duplicateWeek(from: Day) {
     setGrid((g) => {
       const n = { ...g };
@@ -225,7 +230,11 @@ function CycleEditor({ cycleId, onBack }: { cycleId: number | "new"; onBack: () 
   function daysPayload() {
     return Object.entries(grid).map(([key, c]) => {
       const [day_of_week, meal_type] = key.split("|") as [Day, Meal];
-      return { day_of_week, meal_type, recipe_id: c.recipe_id, fs_item_id: null, quantity: 1, servings_override: c.servings_override };
+      return {
+        day_of_week, meal_type, recipe_id: c.recipe_id, fs_item_id: null, quantity: 1,
+        estimate_population: parseInt(dayPop[day_of_week]) || 0,
+        is_event: false, event_allocation: null,
+      };
     });
   }
 
@@ -235,14 +244,14 @@ function CycleEditor({ cycleId, onBack }: { cycleId: number | "new"; onBack: () 
     try {
       const saved = await saveCycle(savedId, {
         name: name.trim(),
-        population: popNum,
+        population: cyclePop,
         budget_per_head_per_day: budget ? parseFloat(budget) : null,
         cycle_days: cycleDays,
         week_start_date: weekStart || null,
         days: daysPayload(),
       });
       setSavedId(saved.id);
-      if (thenCompute) setCompute(await computeCycle(saved.id, popNum));
+      if (thenCompute) setCompute(await computeCycle(saved.id)); // population is per-day now
       return saved.id;
     } catch (e: unknown) {
       setErr(e instanceof Error ? e.message : "Save failed."); return null;
@@ -293,9 +302,8 @@ function CycleEditor({ cycleId, onBack }: { cycleId: number | "new"; onBack: () 
       {/* Settings */}
       <div className="bg-white border border-zinc-200 rounded-2xl p-5 shadow-sm grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
-          { label: "Population (heads)", value: population, set: setPopulation, type: "number", ph: "100" },
-          { label: "Budget / head / day (₱)", value: budget, set: setBudget, type: "number", ph: "e.g. 75" },
-          { label: "Week start", value: weekStart, set: setWeekStart, type: "date", ph: "" },
+          { label: "Budget / head / day (₱)", value: budget, set: setBudget, type: "number", ph: "e.g. 150" },
+          { label: "Week start (Mon)", value: weekStart, set: setWeekStart, type: "date", ph: "" },
         ].map((f) => (
           <div key={f.label}>
             <label className="block text-[10px] font-extrabold text-zinc-500 uppercase tracking-wider mb-1">{f.label}</label>
@@ -313,7 +321,7 @@ function CycleEditor({ cycleId, onBack }: { cycleId: number | "new"; onBack: () 
       </div>
 
       {/* Service log (consumption) — only for a saved, active cycle */}
-      {savedId && isActive && <ServiceLogPanel cycleId={savedId} population={parseInt(population) || 0} />}
+      {savedId && isActive && <ServiceLogPanel cycleId={savedId} population={cyclePop} />}
 
       {/* Summary */}
       {compute && (
@@ -326,10 +334,10 @@ function CycleEditor({ cycleId, onBack }: { cycleId: number | "new"; onBack: () 
             <div className="text-[10px] font-extrabold text-zinc-500 uppercase tracking-wider">Cost / head (period)</div>
             <div className="text-2xl font-extrabold text-zinc-800">{peso(compute.cost_per_head)}</div>
           </div>
-          {compute.budget_per_head_per_day != null && (
+          {compute.budget_per_head_day != null && (
             <div className={`px-3 py-2 rounded-xl border text-xs font-bold flex items-center gap-1.5 ${compute.within_budget ? BUDGET_CHIP.ok : BUDGET_CHIP.over}`}>
               {compute.within_budget ? <CheckCircle2 className="h-3.5 w-3.5" /> : <AlertTriangle className="h-3.5 w-3.5" />}
-              {compute.within_budget ? "Within budget" : "Over budget"} · cap {peso(compute.budget_per_head_per_day)}/head/day
+              {compute.within_budget ? "Within budget" : "Over budget"} · cap {peso(compute.budget_per_head_day)}/head/day
             </div>
           )}
         </div>
@@ -348,6 +356,13 @@ function CycleEditor({ cycleId, onBack }: { cycleId: number | "new"; onBack: () 
                     <div className="flex items-center justify-between gap-1">
                       <span>{d.slice(0, 3)}</span>
                       <button onClick={() => duplicateWeek(d)} title={`Copy ${d} to all days`} className="text-zinc-300 hover:text-emerald-600 cursor-pointer"><Copy className="h-3 w-3" /></button>
+                    </div>
+                    {/* Per-day headcount — drives scaling for this day's recipes. */}
+                    <div className="mt-1 flex items-center gap-1">
+                      <input type="number" min={0} value={dayPop[d] ?? ""} placeholder="pop"
+                        onChange={(e) => setPop(d, e.target.value)} title={`${d} estimated population`}
+                        className="w-14 px-1.5 py-0.5 text-[10px] font-semibold border border-zinc-200 rounded focus:outline-none focus:ring-1 focus:ring-emerald-400 normal-case" />
+                      <span className="text-[8px] text-zinc-400 normal-case">heads</span>
                     </div>
                     {dc && (
                       <div className={`mt-1 inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold border ${BUDGET_CHIP[dc.budget_status ?? "ok"] ?? ""}`}>
@@ -375,12 +390,7 @@ function CycleEditor({ cycleId, onBack }: { cycleId: number | "new"; onBack: () 
                             <span className="text-[11px] font-semibold text-emerald-800 leading-tight">{cell.recipe_name}</span>
                             <button onClick={() => clearCell(key)} className="text-emerald-400 hover:text-red-500 cursor-pointer shrink-0"><X className="h-3 w-3" /></button>
                           </div>
-                          <div className="flex items-center gap-1 mt-1.5">
-                            <input type="number" value={cell.servings_override ?? ""} placeholder={String(popNum || cell.servings)}
-                              onChange={(e) => setOverride(key, e.target.value)} title="Servings override (defaults to population)"
-                              className="w-14 px-1.5 py-0.5 text-[10px] border border-emerald-200 rounded focus:outline-none focus:ring-1 focus:ring-emerald-400" />
-                            <span className="text-[9px] text-emerald-500">servings</span>
-                          </div>
+                          <div className="text-[9px] text-emerald-500 mt-1">scales to day pop</div>
                         </div>
                       ) : (
                         <button onClick={() => { setActiveCell(isPicking ? null : key); setPickerSearch(""); }}

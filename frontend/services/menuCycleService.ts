@@ -21,6 +21,9 @@ export interface MenuDay {
   fs_item_id: number | null;
   quantity: number;
   servings_override: number | null;
+  estimate_population: number | null; // headcount for this day (drives scaling)
+  is_event: boolean;
+  event_allocation: number | null;
   recipe?: { id: number; name: string; servings: number; cost: string } | null;
   fs_item?: { id: number; name: string } | null;
 }
@@ -49,10 +52,10 @@ export interface CycleListItem {
 
 export interface ComputeDay { cost: number; cost_per_head: number; budget_status?: "ok" | "warning" | "over" }
 export interface ComputeResult {
-  population: number;
+  population: number; // total head-days across the cycle
   total_cost: number;
   cost_per_head: number;
-  budget_per_head_per_day: number | null;
+  budget_per_head_day: number | null; // cap from the Budget covering this cycle's week
   within_budget: boolean | null;
   days: Record<string, ComputeDay>;
   ingredient_usage: { fs_item_id: number; name: string; unit: string; quantity: number; cost: number }[];
@@ -62,11 +65,11 @@ export interface RecipeOption { id: number; name: string; category: string | nul
 
 export interface SaveCyclePayload {
   name: string;
-  population?: number;
+  population?: number; // vestigial cycle-level figure (NOT NULL); derived from per-day
   budget_per_head_per_day?: number | null;
   cycle_days?: number;
   week_start_date?: string | null;
-  days?: Array<Pick<MenuDay, "day_of_week" | "meal_type" | "recipe_id" | "fs_item_id" | "quantity" | "servings_override">>;
+  days?: Array<Pick<MenuDay, "day_of_week" | "meal_type" | "recipe_id" | "fs_item_id" | "quantity" | "estimate_population" | "is_event" | "event_allocation">>;
 }
 
 export interface TemplateListItem { id: number; name: string; description: string | null; cycle_days: number; days_count: number; updated_at: string }
