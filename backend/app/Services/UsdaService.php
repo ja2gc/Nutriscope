@@ -106,7 +106,7 @@ class UsdaService
      */
     public function search(string $query, int $pageSize = 20): array
     {
-        $response = Http::get("{$this->baseUrl}/foods/search", [
+        $response = Http::withoutVerifying()->get("{$this->baseUrl}/foods/search", [
             'query'    => $query,
             'pageSize' => $pageSize,
             'api_key'  => $this->apiKey,
@@ -139,7 +139,7 @@ class UsdaService
     public function fetch(int $fdcId): array
     {
         return Cache::remember("usda_food_{$fdcId}", now()->addDays(self::CACHE_TTL_DAYS), function () use ($fdcId) {
-            $response = Http::get("{$this->baseUrl}/food/{$fdcId}", [
+            $response = Http::withoutVerifying()->get("{$this->baseUrl}/food/{$fdcId}", [
                 'api_key' => $this->apiKey,
             ]);
 
