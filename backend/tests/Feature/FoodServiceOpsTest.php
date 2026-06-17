@@ -624,12 +624,17 @@ class FoodServiceOpsTest extends TestCase
         ]);
         $cycle = MenuCycle::factory()->create([
             'rnd_user_id' => $this->rnd->id, 'is_active' => true, 'status' => 'active',
-            'population' => 10, 'budget_per_head_per_day' => 50,
         ]);
         MenuCycleDay::create([
             'menu_cycle_id' => $cycle->id, 'day_of_week' => $weekday,
             'meal_type' => 'lunch', 'fs_item_id' => $fs->id, 'quantity' => 100,
             'estimate_population' => 10,
+        ]);
+        // Per-head cap is owned by the Budget covering today.
+        Budget::factory()->create([
+            'rnd_user_id' => $this->rnd->id, 'budget_per_head_day' => 50,
+            'period_start' => now()->startOfMonth()->toDateString(),
+            'period_end'   => now()->endOfMonth()->toDateString(),
         ]);
 
         $res = $this->actingAs($this->fss)->getJson('/api/fss/menu-cycles/cost-today')->assertOk();

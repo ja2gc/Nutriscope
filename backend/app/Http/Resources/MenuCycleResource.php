@@ -29,6 +29,8 @@ class MenuCycleResource extends JsonResource
                 'quantity'          => $d->quantity,
                 'servings_override' => $d->servings_override,
                 'estimate_population' => $d->estimate_population,
+                'is_event'          => (bool) $d->is_event,
+                'event_allocation'  => $d->event_allocation,
                 'recipe'            => $d->relationLoaded('recipe') && $d->recipe ? [
                     'id' => $d->recipe->id, 'name' => $d->recipe->name, 'servings' => $d->recipe->servings, 'cost' => $d->recipe->cost,
                 ] : null,
