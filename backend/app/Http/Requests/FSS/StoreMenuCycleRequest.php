@@ -25,6 +25,7 @@ class StoreMenuCycleRequest extends FormRequest
             'days.*.fs_item_id'          => ['nullable', 'integer', 'exists:fs_items,id'],
             'days.*.quantity'            => ['nullable', 'numeric', 'min:0'],
             'days.*.servings_override'   => ['nullable', 'integer', 'min:1'],
+            'days.*.estimate_population' => ['nullable', 'integer', 'min:0'],
         ];
     }
 }

@@ -126,4 +126,50 @@ class MenuCycleCostServiceTest extends TestCase
         $this->assertSame(0.0, $out['total_cost']);
         $this->assertSame(0.0, $out['cost_per_head']);
     }
+
+    public function test_per_day_estimate_population_scales_each_day(): void
+    {
+        // Population now lives on the day. No shared population passed.
+        // Monday 100 heads → factor 2.0 → ₱520; Tuesday 50 heads → factor 1.0 → ₱260.
+        $out = MenuCycleCostService::aggregate([
+            ['day_of_week' => 'Monday',  'meal_type' => 'lunch', 'estimate_population' => 100, 'recipe' => $this->riceRecipe()],
+            ['day_of_week' => 'Tuesday', 'meal_type' => 'lunch', 'estimate_population' => 50,  'recipe' => $this->riceRecipe()],
+        ]);
+
+        $this->assertEqualsWithDelta(780.0, $out['total_cost'], 1e-6);
+        $this->assertEqualsWithDelta(520.0, $out['days']['Monday']['cost'], 1e-6);
+        $this->assertEqualsWithDelta(260.0, $out['days']['Tuesday']['cost'], 1e-6);
+        // per-day cost_per_head uses that day's own population
+        $this->assertEqualsWithDelta(5.20, $out['days']['Monday']['cost_per_head'], 1e-6);
+        $this->assertEqualsWithDelta(5.20, $out['days']['Tuesday']['cost_per_head'], 1e-6);
+        // overall cost_per_head = total ÷ head-days (100 + 50 = 150) = 780/150 = 5.20
+        $this->assertEqualsWithDelta(5.20, $out['cost_per_head'], 1e-6);
+        // ingredient usage sums across days: 10000 g + 5000 g = 15000 g
+        $this->assertEqualsWithDelta(15000.0, $out['ingredient_usage'][0]['quantity'], 1e-6);
+    }
+
+    public function test_per_day_population_shares_across_meals_in_a_day(): void
+    {
+        // Two meals on Monday share Monday's headcount (no double-count in head-days).
+        $out = MenuCycleCostService::aggregate([
+            ['day_of_week' => 'Monday', 'meal_type' => 'lunch',    'estimate_population' => 100, 'recipe' => $this->riceRecipe()],
+            ['day_of_week' => 'Monday', 'meal_type' => 'am_snack', 'estimate_population' => 100, 'item' => [
+                'fs_item_id' => 30, 'name' => 'Yakult', 'unit' => 'pc', 'unit_cost' => 11.0, 'quantity' => 1,
+            ]],
+        ]);
+
+        // rice ₱520 + yakult ₱1100 = ₱1620 total; head-days = 100 (one day) → 16.20/head
+        $this->assertEqualsWithDelta(1620.0, $out['total_cost'], 1e-6);
+        $this->assertEqualsWithDelta(16.20, $out['cost_per_head'], 1e-6);
+    }
+
+    public function test_servings_override_still_beats_day_population(): void
+    {
+        $out = MenuCycleCostService::aggregate([
+            ['day_of_week' => 'Monday', 'meal_type' => 'lunch', 'estimate_population' => 100, 'servings_override' => 25, 'recipe' => $this->riceRecipe()],
+        ]);
+
+        // factor 25/50 = 0.5 → ₱130, ignoring day population 100
+        $this->assertEqualsWithDelta(130.0, $out['total_cost'], 1e-6);
+    }
 }

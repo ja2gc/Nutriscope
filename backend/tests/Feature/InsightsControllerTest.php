@@ -50,6 +50,7 @@ class InsightsControllerTest extends TestCase
         MenuCycleDay::create([
             'menu_cycle_id' => $cycle->id, 'day_of_week' => 'Monday',
             'meal_type' => 'lunch', 'fs_item_id' => $fs->id, 'quantity' => 1000,
+            'estimate_population' => 10,
         ]);
 
         $res = $this->actingAs($this->fss)->getJson('/api/fss/insights/cost-per-head');

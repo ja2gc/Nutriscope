@@ -33,6 +33,7 @@ class MealPrepShortfallTest extends TestCase
         MenuCycleDay::create([
             'menu_cycle_id' => $this->cycle->id, 'day_of_week' => 'Monday',
             'meal_type' => 'lunch', 'fs_item_id' => $this->item->id, 'quantity' => 100,
+            'estimate_population' => 5,
         ]);
     }
 

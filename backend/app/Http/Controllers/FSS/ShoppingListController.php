@@ -82,7 +82,8 @@ class ShoppingListController extends Controller
             if ($days->isEmpty()) {
                 continue;
             }
-            foreach (MenuCycleCostService::usageForDays($days, (int) $cycle->population) as $u) {
+            // Population is read per-day from each MenuCycleDay (estimate_population).
+            foreach (MenuCycleCostService::usageForDays($days) as $u) {
                 $id = $u['fs_item_id'];
                 $acc[$id] ??= ['name' => $u['name'], 'unit' => $u['unit'], 'qty' => 0.0, 'total' => 0.0];
                 $acc[$id]['qty']   += (float) $u['quantity'];

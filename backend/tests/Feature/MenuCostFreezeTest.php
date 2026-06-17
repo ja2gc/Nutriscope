@@ -28,7 +28,7 @@ class MenuCostFreezeTest extends TestCase
         $this->rnd = User::factory()->create(['role' => 'RND']);
     }
 
-    /** A 1-day cycle costing ₱100 (100 g × ₱1/g, pop 1, servings 1). */
+    /** A 1-day cycle costing ₱100 (100 g × ₱1/g, day population 1, servings 1). */
     private function makeCycle(): MenuCycle
     {
         $fsItem = FsItem::factory()->create([
@@ -46,7 +46,7 @@ class MenuCostFreezeTest extends TestCase
         ]);
         MenuCycleDay::create([
             'menu_cycle_id' => $cycle->id, 'day_of_week' => 'Monday', 'meal_type' => 'lunch',
-            'recipe_id' => $recipe->id, 'quantity' => 1,
+            'recipe_id' => $recipe->id, 'quantity' => 1, 'estimate_population' => 1,
         ]);
 
         return $cycle->fresh();

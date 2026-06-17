@@ -336,6 +336,7 @@ class FoodServiceOpsTest extends TestCase
             'meal_type'     => 'breakfast',
             'recipe_id'     => $recipe->id,
             'quantity'      => 1.00, // 1 servings. Total fsItem1 needed = 3 * 2 (population) = 6
+            'estimate_population' => 2,
         ]);
 
         MenuCycleDay::create([
@@ -344,6 +345,7 @@ class FoodServiceOpsTest extends TestCase
             'meal_type'     => 'lunch',
             'fs_item_id'    => $fsItem2->id,
             'quantity'      => 5.00, // Direct food item. Total fsItem2 needed = 5
+            'estimate_population' => 2,
         ]);
 
         // 5. Generate shopping list suggestion for a single Monday.
@@ -601,6 +603,7 @@ class FoodServiceOpsTest extends TestCase
         MenuCycleDay::create([
             'menu_cycle_id' => $cycle->id, 'day_of_week' => 'Monday',
             'meal_type' => 'lunch', 'fs_item_id' => $fs->id, 'quantity' => 100,
+            'estimate_population' => 5,
         ]);
 
         // Serve the day to 8 heads (override the cycle's default 5) — that headcount must be stored.
@@ -629,6 +632,7 @@ class FoodServiceOpsTest extends TestCase
         MenuCycleDay::create([
             'menu_cycle_id' => $cycle->id, 'day_of_week' => $weekday,
             'meal_type' => 'lunch', 'fs_item_id' => $fs->id, 'quantity' => 100,
+            'estimate_population' => 10,
         ]);
 
         $res = $this->actingAs($this->fss)->getJson('/api/fss/menu-cycles/cost-today')->assertOk();
@@ -671,6 +675,7 @@ class FoodServiceOpsTest extends TestCase
         MenuCycleDay::create([
             'menu_cycle_id' => $cycle->id, 'day_of_week' => 'Monday',
             'meal_type' => 'lunch', 'fs_item_id' => $fs->id, 'quantity' => 1300,
+            'estimate_population' => 1,
         ]);
 
         $response = $this->actingAs($this->fss)->postJson('/api/fss/shopping-lists/generate', [

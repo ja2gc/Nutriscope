@@ -18,16 +18,26 @@ use App\Support\UnitConverter;
 class MenuCycleCostService
 {
     /**
-     * @param array<int,array{day_of_week?:string,meal_type?:string,servings_override?:int|null,recipe:array{servings?:int,ingredients?:array<int,array{fs_item_id:int,name:string,quantity:float,unit?:string,base_unit?:string,unit_cost:float}>}}> $entries
+     * Cost a set of menu entries. Population lives on the DAY (each entry carries
+     * `estimate_population`); the optional `$population` arg is a fallback for entries
+     * that don't carry their own (legacy callers / what-if overrides).
+     *
+     * Per-entry headcount = servings_override ?? entry.estimate_population ?? $population.
+     * Head-days (the per-head denominator) sum each DAY's population ONCE, so two meals
+     * on the same day don't double-count the ward.
+     *
+     * @param array<int,array{day_of_week?:string,meal_type?:string,servings_override?:int|null,estimate_population?:int|null,recipe?:array{servings?:int,ingredients?:array<int,array{fs_item_id:int,name:string,quantity:float,unit?:string,base_unit?:string,unit_cost:float}>}}> $entries
      */
-    public static function aggregate(array $entries, int $population): array
+    public static function aggregate(array $entries, ?int $population = null): array
     {
-        $days  = [];
-        $usage = [];
-        $total = 0.0;
+        $days    = [];
+        $usage   = [];
+        $total   = 0.0;
+        $dayPop  = []; // day_of_week => that day's headcount (recorded once per day)
 
         foreach ($entries as $entry) {
-            $target    = $entry['servings_override'] ?? $population;
+            $dayPopulation = $entry['estimate_population'] ?? $population;
+            $target    = $entry['servings_override'] ?? $dayPopulation ?? 0;
             $entryCost = 0.0;
 
             if ($recipe = $entry['recipe'] ?? null) {
@@ -88,14 +98,23 @@ class MenuCycleCostService
             $day = $entry['day_of_week'] ?? 'Unknown';
             $days[$day] ??= ['cost' => 0.0];
             $days[$day]['cost'] += $entryCost;
+            // Record each day's headcount once (first non-null wins) for per-head math.
+            if (! isset($dayPop[$day]) && $dayPopulation !== null) {
+                $dayPop[$day] = (int) $dayPopulation;
+            }
             $total += $entryCost;
         }
 
-        foreach ($days as &$d) {
+        foreach ($days as $day => &$d) {
+            $pop                = $dayPop[$day] ?? 0;
             $d['cost']          = round($d['cost'], 2);
-            $d['cost_per_head'] = $population > 0 ? round($d['cost'] / $population, 2) : 0.0;
+            $d['cost_per_head'] = $pop > 0 ? round($d['cost'] / $pop, 2) : 0.0;
         }
         unset($d);
+
+        // Head-days = Σ each day's population. The overall cost-per-head is total food
+        // cost ÷ total head-days served (= average ₱/head/day across the span).
+        $headDays = array_sum($dayPop);
 
         foreach ($usage as &$u) {
             $u['quantity'] = round($u['quantity'], 2);
@@ -104,9 +123,9 @@ class MenuCycleCostService
         unset($u);
 
         return [
-            'population'       => $population,
+            'population'       => $headDays,
             'total_cost'      => round($total, 2),
-            'cost_per_head'   => $population > 0 ? round($total / $population, 2) : 0.0,
+            'cost_per_head'   => $headDays > 0 ? round($total / $headDays, 2) : 0.0,
             'days'            => $days,
             'ingredient_usage' => array_values($usage),
         ];
@@ -121,7 +140,9 @@ class MenuCycleCostService
     {
         $cycle->loadMissing('days.recipe.ingredients.fsItem', 'days.fsItem');
 
-        return self::aggregate(self::entriesForDays($cycle->days), $population ?? (int) $cycle->population);
+        // Population lives per-day on each MenuCycleDay (carried in the entries).
+        // $population is an optional what-if override applied to days lacking their own.
+        return self::aggregate(self::entriesForDays($cycle->days), $population);
     }
 
     /**
@@ -148,9 +169,10 @@ class MenuCycleCostService
             ->filter(fn ($day) => $day->recipe !== null || $day->fsItem !== null)
             ->map(function ($day) {
                 $base = [
-                    'day_of_week'       => $day->day_of_week,
-                    'meal_type'         => $day->meal_type,
-                    'servings_override' => $day->servings_override,
+                    'day_of_week'         => $day->day_of_week,
+                    'meal_type'           => $day->meal_type,
+                    'servings_override'   => $day->servings_override,
+                    'estimate_population' => $day->estimate_population,
                 ];
 
                 if ($day->recipe !== null) {
@@ -183,9 +205,13 @@ class MenuCycleCostService
             })->values()->all();
     }
 
-    /** Required base-unit ingredient usage for a subset of days at a target headcount. */
-    public static function usageForDays($days, int $target): array
+    /**
+     * Required base-unit ingredient usage for a subset of days. Population is read
+     * per-day from each MenuCycleDay (estimate_population); $fallback covers days that
+     * don't carry their own.
+     */
+    public static function usageForDays($days, ?int $fallback = null): array
     {
-        return self::aggregate(self::entriesForDays($days), $target)['ingredient_usage'];
+        return self::aggregate(self::entriesForDays($days), $fallback)['ingredient_usage'];
     }
 }

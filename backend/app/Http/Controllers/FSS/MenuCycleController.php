@@ -160,12 +160,13 @@ class MenuCycleController extends Controller
                 continue;
             }
             $cycle->days()->create([
-                'day_of_week'       => $d['day_of_week'],
-                'meal_type'         => $d['meal_type'],
-                'recipe_id'         => $d['recipe_id'] ?? null,
-                'fs_item_id'        => $d['fs_item_id'] ?? null,
-                'quantity'          => $d['quantity'] ?? 1,
-                'servings_override' => $d['servings_override'] ?? null,
+                'day_of_week'         => $d['day_of_week'],
+                'meal_type'           => $d['meal_type'],
+                'recipe_id'           => $d['recipe_id'] ?? null,
+                'fs_item_id'          => $d['fs_item_id'] ?? null,
+                'quantity'            => $d['quantity'] ?? 1,
+                'servings_override'   => $d['servings_override'] ?? null,
+                'estimate_population' => $d['estimate_population'] ?? null,
             ]);
         }
     }
