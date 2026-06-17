@@ -52,8 +52,13 @@ class ConsumptionService
                 abort(422, "No menu slots planned for {$weekday}.");
             }
 
-            $target = $populationOverride ?? (int) $cycle->population;
-            $usage  = MenuCycleCostService::usageForDays($days, $target); // [{fs_item_id,name,unit,quantity,cost}]
+            // Ingredient usage is driven by each day's planned estimate_population — the
+            // headcount that drove the purchase. Actual/served (recorded below) never
+            // rescale the math (they're only known after the fact). $populationOverride
+            // records the prepared-for headcount; it defaults to the day's estimate.
+            $dayEstimate = (int) ($days->first()->estimate_population ?? 0);
+            $target = $populationOverride ?? $dayEstimate;
+            $usage  = MenuCycleCostService::usageForDays($days); // [{fs_item_id,name,unit,quantity,cost}]
 
             $invByItem = Inventory::whereIn('fs_item_id', array_column($usage, 'fs_item_id'))
                 ->lockForUpdate()->get()->keyBy('fs_item_id');
