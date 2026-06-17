@@ -2,7 +2,8 @@ import { apiFetch } from "@/lib/apiFetch";
 
 /** Food-service inventory item kinds. Catalog items split into ingredient/supply; recipes are prepared dishes. */
 export type ItemType = "ingredient" | "supply" | "recipe";
-export type StockStatus = "low" | "no_stock" | "ok" | "untracked";
+// Binary stock state: in stock (green) or out / untracked (red). No low-stock threshold.
+export type StockStatus = "no_stock" | "ok";
 
 export interface FsItemRef {
   id: number;
@@ -30,15 +31,14 @@ export interface InventoryRecord {
   recipe?: RecipeRef;
   quantity_in_stock: string;
   unit: string;
-  usage_rate: string | null;
-  minimum_stock_threshold: string | null;
+  in_stock: boolean;
   unit_price: string | null;
   notes: string | null;
   created_at: string;
   updated_at: string;
 }
 
-export type RowHighlight = "none" | "yellow" | "red";
+export type RowHighlight = "green" | "red";
 
 /** A merged row in the unified inventory table (catalog item or recipe + optional stock). */
 export interface InventoryRow {
@@ -49,7 +49,6 @@ export interface InventoryRow {
   category: string;
   quantity_in_stock: string;
   unit: string;
-  minimum_stock_threshold: string | null;
   /** Catalog buy price (per purchase_unit). Null for recipes. */
   unit_price: string | null;
   /** Derived ₱ per base_unit (catalog items only). */
@@ -69,7 +68,6 @@ export interface UpsertInventoryPayload {
   recipe_id?: number | null;
   quantity_in_stock: number;
   unit: string;
-  minimum_stock_threshold?: number | null;
   unit_price?: number | null;
 }
 
@@ -82,10 +80,8 @@ export interface PaginationMeta {
 
 export interface InventoryStats {
   total: number;
-  tracked: number;
-  low: number;
+  in_stock: number;
   no_stock: number;
-  untracked: number;
 }
 
 export interface ListInventoryRowsParams {
@@ -120,7 +116,6 @@ export async function listInventoryRows(params: ListInventoryRowsParams = {}): P
     category:                 (r.category as string) ?? "",
     quantity_in_stock:        (r.quantity_in_stock as string) ?? "0",
     unit:                     (r.unit as string) ?? "",
-    minimum_stock_threshold:  (r.minimum_stock_threshold as string | null) ?? null,
     unit_price:               (r.unit_price as string | null) ?? null,
     unit_cost:                (r.unit_cost as string | null) ?? null,
     base_unit:                (r.base_unit as string | null) ?? null,
