@@ -37,9 +37,8 @@ const PER_PAGE = 25;
 const UNIT_OPTIONS = ["pc", "pack", "bundle", "serving", "g", "kg", "mL", "L"] as const;
 
 const HIGHLIGHT_ROW: Record<RowHighlight, string> = {
-  none:   "",
-  yellow: "bg-amber-50",
-  red:    "bg-red-50",
+  green: "",
+  red:   "bg-red-50",
 };
 
 // ─── Small helpers ────────────────────────────────────────────────────────────
@@ -50,7 +49,7 @@ function StockDot({ status }: { status: StockStatus }) {
     <div className="flex items-center gap-1.5">
       <span className={`h-2 w-2 rounded-full shrink-0 ${isOk ? "bg-emerald-500" : "bg-red-500"}`} />
       <span className={`text-[11px] font-semibold ${isOk ? "text-emerald-700" : "text-red-600"}`}>
-        {status === "ok" ? "OK" : status === "no_stock" ? "No Stock" : status === "low" ? "Low" : "—"}
+        {isOk ? "In stock" : "Out"}
       </span>
     </div>
   );
@@ -105,9 +104,9 @@ function Pagination({ meta, onPageChange }: { meta: PaginationMeta; onPageChange
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 
-const DEFAULT_STATS: InventoryStats = { total: 0, tracked: 0, low: 0, no_stock: 0, untracked: 0 };
+const DEFAULT_STATS: InventoryStats = { total: 0, in_stock: 0, no_stock: 0 };
 
-type EditValues = { qty: string; unit: string; cost: string; threshold: string; category: string };
+type EditValues = { qty: string; unit: string; cost: string; category: string };
 
 export default function InventoryPage() {
   const [rows, setRows]   = useState<InventoryRow[]>([]);
@@ -123,7 +122,7 @@ export default function InventoryPage() {
   const [page, setPage] = useState(1);
 
   const [editId, setEditId]             = useState<string | null>(null);
-  const [editValues, setEditValues]     = useState<EditValues>({ qty: "", unit: "", cost: "", threshold: "", category: "" });
+  const [editValues, setEditValues]     = useState<EditValues>({ qty: "", unit: "", cost: "", category: "" });
   const [editSaving, setEditSaving]     = useState(false);
   const [editError, setEditError]       = useState("");
   const [deleteRowKey, setDeleteRowKey] = useState<string | null>(null);
@@ -167,7 +166,6 @@ export default function InventoryPage() {
       qty:       row.inventoryId ? parseFloat(row.quantity_in_stock).toString() : "",
       unit:      row.unit || (row.itemType === "recipe" ? "serving" : row.base_unit ?? ""),
       cost:      row.unit_price ?? "",
-      threshold: row.minimum_stock_threshold ?? "",
       category:  row.category ?? "",
     });
     setEditError("");
@@ -181,12 +179,8 @@ export default function InventoryPage() {
     }
     if (!editValues.unit) { setEditError("Unit is required."); return; }
     const costNum      = editValues.cost      ? parseFloat(editValues.cost)      : null;
-    const threshNum    = editValues.threshold ? parseFloat(editValues.threshold) : null;
     if (costNum !== null && (isNaN(costNum) || costNum < 0)) {
       setEditError("Enter a valid cost."); return;
-    }
-    if (threshNum !== null && (isNaN(threshNum) || threshNum < 0)) {
-      setEditError("Enter a valid min qty."); return;
     }
     setEditSaving(true); setEditError("");
     try {
@@ -199,7 +193,6 @@ export default function InventoryPage() {
           quantity_in_stock:       qtyNum,
           unit:                    editValues.unit,
           unit_price:              costNum,
-          minimum_stock_threshold: threshNum,
         }),
         row.itemType === "recipe"
           ? patchRecipeCategory(row.itemId, categoryVal)
@@ -225,10 +218,9 @@ export default function InventoryPage() {
   }
 
   const statusTabs: { key: StatusFilter; label: string }[] = [
-    { key: "all",       label: "All" },
-    { key: "low",       label: `Low Stock${stats.low ? ` (${stats.low})` : ""}` },
-    { key: "no_stock",  label: `No Stock${stats.no_stock ? ` (${stats.no_stock})` : ""}` },
-    { key: "untracked", label: `Untracked${stats.untracked ? ` (${stats.untracked})` : ""}` },
+    { key: "all",      label: "All" },
+    { key: "ok",       label: `In Stock${stats.in_stock ? ` (${stats.in_stock})` : ""}` },
+    { key: "no_stock", label: `Out${stats.no_stock ? ` (${stats.no_stock})` : ""}` },
   ];
 
   return (
@@ -263,11 +255,9 @@ export default function InventoryPage() {
       {/* Stats */}
       <div className="flex flex-wrap gap-3">
         {[
-          { label: "Total Items", value: stats.total,     cls: "bg-zinc-50 border-zinc-200 text-zinc-700" },
-          { label: "Tracked",     value: stats.tracked,   cls: "bg-emerald-50 border-emerald-200 text-emerald-700" },
-          { label: "Low Stock",   value: stats.low,       cls: stats.low > 0 ? "bg-red-50 border-red-200 text-red-700" : "bg-zinc-50 border-zinc-200 text-zinc-400" },
-          { label: "No Stock",    value: stats.no_stock,  cls: stats.no_stock > 0 ? "bg-red-50 border-red-200 text-red-700" : "bg-zinc-50 border-zinc-200 text-zinc-400" },
-          { label: "Untracked",   value: stats.untracked, cls: stats.untracked > 0 ? "bg-zinc-100 border-zinc-300 text-zinc-600" : "bg-zinc-50 border-zinc-200 text-zinc-400" },
+          { label: "Total Items", value: stats.total,    cls: "bg-zinc-50 border-zinc-200 text-zinc-700" },
+          { label: "In Stock",    value: stats.in_stock, cls: "bg-emerald-50 border-emerald-200 text-emerald-700" },
+          { label: "Out",         value: stats.no_stock, cls: stats.no_stock > 0 ? "bg-red-50 border-red-200 text-red-700" : "bg-zinc-50 border-zinc-200 text-zinc-400" },
         ].map(({ label, value, cls }) => (
           <div key={label} className={`px-4 py-2.5 rounded-xl border text-xs font-semibold flex items-center gap-2 ${cls}`}>
             <span className="text-lg font-extrabold">{value}</span>
@@ -452,22 +442,9 @@ export default function InventoryPage() {
                         )}
                       </td>
 
-                      {/* Stock / Min threshold when editing */}
+                      {/* Stock indicator — binary in/out dot */}
                       <td className="px-4 py-3">
-                        {isEditing ? (
-                          <div className="flex flex-col gap-0.5">
-                            <label className="text-[9px] font-bold text-zinc-400 uppercase tracking-wide">Min Qty</label>
-                            <input
-                              type="number" min="0" step="1"
-                              value={editValues.threshold}
-                              onChange={e => setEditValues(v => ({ ...v, threshold: e.target.value }))}
-                              placeholder="0"
-                              className="w-16 px-2 py-1 text-xs border border-emerald-300 rounded-md focus:outline-none focus:ring-1 focus:ring-emerald-500 font-mono"
-                            />
-                          </div>
-                        ) : (
-                          <StockDot status={row.status} />
-                        )}
+                        <StockDot status={row.status} />
                       </td>
 
                       {/* Actions */}
