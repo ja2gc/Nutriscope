@@ -11,7 +11,7 @@ class ShoppingListResource extends JsonResource
     {
         return [
             'id'            => $this->id,
-            'fss_user_id'   => $this->fss_user_id,
+            'rnd_user_id'   => $this->rnd_user_id,
             'menu_cycle_id' => $this->menu_cycle_id,
             'name'          => $this->name,
             'list_date'     => $this->list_date?->toDateString(),

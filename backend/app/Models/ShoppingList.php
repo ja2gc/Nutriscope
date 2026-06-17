@@ -11,7 +11,7 @@ class ShoppingList extends Model
     use \App\Models\Concerns\AuditsChanges;
 
     protected $fillable = [
-        'fss_user_id', 'menu_cycle_id', 'name', 'list_date', 'period_start', 'period_end',
+        'rnd_user_id', 'menu_cycle_id', 'name', 'list_date', 'period_start', 'period_end',
         'days_span', 'list_type', 'status',
     ];
 
@@ -24,7 +24,7 @@ class ShoppingList extends Model
 
     public function fss()
     {
-        return $this->belongsTo(User::class, 'fss_user_id');
+        return $this->belongsTo(User::class, 'rnd_user_id');
     }
 
     public function menuCycle()

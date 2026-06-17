@@ -29,10 +29,10 @@ class InsightsControllerTest extends TestCase
     {
         $a = Supplier::factory()->create(['name' => 'Veg Co']);
         $b = Supplier::factory()->create(['name' => 'Meat Co']);
-        PurchaseOrder::factory()->create(['fss_user_id' => $this->fss->id, 'supplier_id' => $a->id, 'status' => 'received', 'received_date' => '2026-06-10', 'total_amount' => 300]);
-        PurchaseOrder::factory()->create(['fss_user_id' => $this->fss->id, 'supplier_id' => $a->id, 'status' => 'received', 'received_date' => '2026-06-11', 'total_amount' => 200]);
-        PurchaseOrder::factory()->create(['fss_user_id' => $this->fss->id, 'supplier_id' => $b->id, 'status' => 'received', 'received_date' => '2026-06-11', 'total_amount' => 500]);
-        PurchaseOrder::factory()->create(['fss_user_id' => $this->fss->id, 'supplier_id' => $b->id, 'status' => 'draft', 'order_date' => '2026-06-11', 'total_amount' => 999]);
+        PurchaseOrder::factory()->create(['rnd_user_id' => $this->fss->id, 'supplier_id' => $a->id, 'status' => 'received', 'received_date' => '2026-06-10', 'total_amount' => 300]);
+        PurchaseOrder::factory()->create(['rnd_user_id' => $this->fss->id, 'supplier_id' => $a->id, 'status' => 'received', 'received_date' => '2026-06-11', 'total_amount' => 200]);
+        PurchaseOrder::factory()->create(['rnd_user_id' => $this->fss->id, 'supplier_id' => $b->id, 'status' => 'received', 'received_date' => '2026-06-11', 'total_amount' => 500]);
+        PurchaseOrder::factory()->create(['rnd_user_id' => $this->fss->id, 'supplier_id' => $b->id, 'status' => 'draft', 'order_date' => '2026-06-11', 'total_amount' => 999]);
 
         $res = $this->actingAs($this->fss)->getJson('/api/fss/insights/spend-by-supplier?start=2026-06-01&end=2026-06-30');
         $res->assertOk();
