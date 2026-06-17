@@ -99,7 +99,7 @@ export default function BudgetPage() {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [start, setStart] = useState(monthStartISO());
   const [end, setEnd] = useState(todayISO());
-  const [gran, setGran] = useState("day");
+  const [gran, setGran] = useState("month"); // default monthly view; user can switch to week/day
   const [summary, setSummary] = useState<BudgetSummary | null>(null);
 
   const [formOpen, setFormOpen] = useState(false);
