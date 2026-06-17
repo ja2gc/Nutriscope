@@ -10,9 +10,10 @@ import { Button } from "@/components/ui/Button";
 import ServiceLogPanel from "./_components/ServiceLogPanel";
 import {
   DAYS, MEALS, MEAL_LABELS, Day, Meal,
-  CycleListItem, MenuCycle, ComputeResult, RecipeOption, TemplateListItem,
+  CycleListItem, MenuCycle, ComputeResult, RecipeOption, TemplateListItem, RecipeProfile,
   listCycles, getCycle, saveCycle, deleteCycle, computeCycle, activateCycle,
   saveCycleAsTemplate, listRecipeOptions, listTemplates, instantiateTemplate, deleteTemplate,
+  getRecipeProfile,
 } from "@/services/menuCycleService";
 
 const peso = (n: number) => `₱${n.toFixed(2)}`;
@@ -28,6 +29,89 @@ const BUDGET_CHIP: Record<string, string> = {
   warning: "bg-amber-50 text-amber-700 border-amber-200",
   over:    "bg-red-50 text-red-700 border-red-200",
 };
+
+// ─── Recipe profile panel (ingredients + cost scaled to a day's headcount) ──────
+function RecipeProfilePanel(
+  { recipeId, day, population, name, onClose }:
+  { recipeId: number; day: Day; population: number; name: string; onClose: () => void },
+) {
+  const [data, setData] = useState<RecipeProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState("");
+
+  useEffect(() => {
+    let live = true;
+    setLoading(true); setErr("");
+    getRecipeProfile(recipeId, population)
+      .then((d) => { if (live) setData(d); })
+      .catch(() => { if (live) setErr("Failed to load recipe profile."); })
+      .finally(() => { if (live) setLoading(false); });
+    return () => { live = false; };
+  }, [recipeId, population]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-start justify-between gap-3 p-5 border-b border-zinc-100">
+          <div>
+            <div className="text-sm font-extrabold text-zinc-900">{name}</div>
+            <div className="text-[11px] text-zinc-500 mt-0.5">{day} · scaled to {population} heads</div>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-zinc-100 text-zinc-500 cursor-pointer"><X className="h-4 w-4" /></button>
+        </div>
+
+        {loading ? (
+          <div className="py-16 text-center text-xs text-zinc-400">Loading…</div>
+        ) : err ? (
+          <div className="py-16 text-center text-xs text-red-500">{err}</div>
+        ) : data ? (
+          <div className="p-5 space-y-4">
+            <div className="flex flex-wrap gap-5">
+              <div>
+                <div className="text-[10px] font-extrabold text-zinc-500 uppercase tracking-wider">Total (this day)</div>
+                <div className="text-xl font-extrabold text-emerald-600">{peso(data.total_cost)}</div>
+              </div>
+              <div>
+                <div className="text-[10px] font-extrabold text-zinc-500 uppercase tracking-wider">Cost / head</div>
+                <div className="text-xl font-extrabold text-zinc-800">{peso(data.cost_per_head)}</div>
+              </div>
+              <div>
+                <div className="text-[10px] font-extrabold text-zinc-500 uppercase tracking-wider">Baseline</div>
+                <div className="text-xl font-extrabold text-zinc-400">serves {data.servings}</div>
+              </div>
+            </div>
+
+            <div>
+              <div className="text-[10px] font-extrabold text-zinc-500 uppercase tracking-wider mb-2">Ingredients (scaled)</div>
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="text-[10px] text-zinc-400 uppercase">
+                    <th className="text-left font-bold py-1">Item</th>
+                    <th className="text-right font-bold py-1">Qty</th>
+                    <th className="text-right font-bold py-1">Cost</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-50">
+                  {data.ingredient_usage.map((u) => (
+                    <tr key={u.fs_item_id}>
+                      <td className="py-1.5 text-zinc-700 font-medium">{u.name}</td>
+                      <td className="py-1.5 text-right text-zinc-500 font-mono">{u.quantity.toFixed(2)} {u.unit}</td>
+                      <td className="py-1.5 text-right text-zinc-700 font-mono">{peso(u.cost)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {data.ingredient_usage.length === 0 && (
+                <div className="text-[11px] text-zinc-400 py-4 text-center">No costable ingredients.</div>
+              )}
+            </div>
+            <p className="text-[10px] text-zinc-400">Quantities and cost scale live with this day&apos;s estimated population ({population}). Editing this recipe is done under Foods / Recipes.</p>
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
 
 // ─── Breadcrumb + header shell ──────────────────────────────────────────────────
 function Shell({ children }: { children: React.ReactNode }) {
@@ -177,6 +261,7 @@ function CycleEditor({ cycleId, onBack }: { cycleId: number | "new"; onBack: () 
 
   const [compute, setCompute] = useState<ComputeResult | null>(null);
   const [activeCell, setActiveCell] = useState<string | null>(null);
+  const [profileFor, setProfileFor] = useState<{ recipeId: number; day: Day; name: string } | null>(null);
   const [pickerSearch, setPickerSearch] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
@@ -387,10 +472,15 @@ function CycleEditor({ cycleId, onBack }: { cycleId: number | "new"; onBack: () 
                       {cell ? (
                         <div className="bg-emerald-50/60 border border-emerald-100 rounded-lg p-2 group">
                           <div className="flex items-start justify-between gap-1">
-                            <span className="text-[11px] font-semibold text-emerald-800 leading-tight">{cell.recipe_name}</span>
+                            <button
+                              onClick={() => setProfileFor({ recipeId: cell.recipe_id, day: d, name: cell.recipe_name })}
+                              title="View ingredients & cost for this day"
+                              className="text-[11px] font-semibold text-emerald-800 leading-tight text-left hover:underline cursor-pointer">
+                              {cell.recipe_name}
+                            </button>
                             <button onClick={() => clearCell(key)} className="text-emerald-400 hover:text-red-500 cursor-pointer shrink-0"><X className="h-3 w-3" /></button>
                           </div>
-                          <div className="text-[9px] text-emerald-500 mt-1">scales to day pop</div>
+                          <div className="text-[9px] text-emerald-500 mt-1">click to see cost · scales to day pop</div>
                         </div>
                       ) : (
                         <button onClick={() => { setActiveCell(isPicking ? null : key); setPickerSearch(""); }}
@@ -443,6 +533,16 @@ function CycleEditor({ cycleId, onBack }: { cycleId: number | "new"; onBack: () 
           </div>
           <p className="text-[10px] text-zinc-400 mt-3">This feeds the procurement suggested shopping list (Phase 3).</p>
         </div>
+      )}
+
+      {profileFor && (
+        <RecipeProfilePanel
+          recipeId={profileFor.recipeId}
+          day={profileFor.day}
+          name={profileFor.name}
+          population={parseInt(dayPop[profileFor.day]) || 0}
+          onClose={() => setProfileFor(null)}
+        />
       )}
     </Shell>
   );

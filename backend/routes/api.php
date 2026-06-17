@@ -185,6 +185,7 @@ Route::middleware(['auth:sanctum', 'role:FSS,RND'])->prefix('fss')->group(functi
     Route::apiResource('menu-cycles', MenuCycleController::class)->only(['index', 'show']);
 
     // Food Service Recipes — FSS read-only (RND owns writes)
+    Route::get('food-service-recipes/{foodServiceRecipe}/profile', [FoodServiceRecipeController::class, 'profile']);
     Route::apiResource('food-service-recipes', FoodServiceRecipeController::class)->only(['index', 'show']);
 
     // FS Items (catalog) routes

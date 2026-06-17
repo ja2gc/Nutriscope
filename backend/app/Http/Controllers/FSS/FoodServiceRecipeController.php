@@ -92,6 +92,20 @@ class FoodServiceRecipeController extends Controller
         return response()->json(['data' => $this->formatRecipe($foodServiceRecipe)]);
     }
 
+    /**
+     * Cost profile scaled to a headcount — per-ingredient scaled quantity + cost,
+     * recipe total, and cost-per-head. Shown when a planner clicks a menu cell to see
+     * what that recipe costs for that day's estimated population.
+     */
+    public function profile(Request $request, FoodServiceRecipe $foodServiceRecipe): JsonResponse
+    {
+        $population = max(0, (int) $request->query('population', 0));
+
+        return response()->json([
+            'data' => \App\Services\MenuCycleCostService::recipeProfile($foodServiceRecipe, $population),
+        ]);
+    }
+
     public function update(Request $request, FoodServiceRecipe $foodServiceRecipe): JsonResponse
     {
         $data = $request->validate([
