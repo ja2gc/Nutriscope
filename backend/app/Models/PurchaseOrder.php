@@ -11,7 +11,7 @@ class PurchaseOrder extends Model
     use \App\Models\Concerns\AuditsChanges;
 
     protected $fillable = [
-        'fss_user_id', 'shopping_list_id', 'supplier_id', 'po_number', 'or_number',
+        'rnd_user_id', 'shopping_list_id', 'supplier_id', 'po_number', 'or_number',
         'order_date', 'received_date', 'total_amount', 'status', 'receipt_image', 'notes',
     ];
 
@@ -30,7 +30,7 @@ class PurchaseOrder extends Model
 
     public function fss()
     {
-        return $this->belongsTo(User::class, 'fss_user_id');
+        return $this->belongsTo(User::class, 'rnd_user_id');
     }
 
     public function supplier()

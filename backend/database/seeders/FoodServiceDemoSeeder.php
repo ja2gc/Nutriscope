@@ -269,7 +269,7 @@ class FoodServiceDemoSeeder extends Seeder
         $end   = Carbon::now()->endOfMonth();
 
         $budget = Budget::create([
-            'fss_user_id' => $fss, 'scope' => 'monthly', 'name' => $start->format('F Y') . ' Food Subsistence',
+            'rnd_user_id' => $fss, 'scope' => 'monthly', 'name' => $start->format('F Y') . ' Food Subsistence',
             'allocated_amount' => round($avgDay * 30, -2), 'population' => $cycle->population,
             'cost_per_person' => $cycle->budget_per_head_per_day, 'budget_per_head_day' => $cycle->budget_per_head_per_day,
             'period_start' => $start->toDateString(), 'period_end' => $end->toDateString(),
@@ -294,7 +294,7 @@ class FoodServiceDemoSeeder extends Seeder
         $orderDate = Carbon::now()->startOfWeek(Carbon::MONDAY);
 
         $list = ShoppingList::create([
-            'fss_user_id' => $fss, 'menu_cycle_id' => $cycle->id,
+            'rnd_user_id' => $fss, 'menu_cycle_id' => $cycle->id,
             'name' => 'Marketing — ' . $orderDate->format('M j') . ' (Tue→Fri)',
             'list_date' => $orderDate->toDateString(),
             'period_start' => $orderDate->toDateString(), 'period_end' => $orderDate->copy()->addDays(3)->toDateString(),
@@ -326,7 +326,7 @@ class FoodServiceDemoSeeder extends Seeder
             $total  = array_sum(array_map(fn ($i) => $i[1] * $i[3], $items));
 
             $po = PurchaseOrder::create([
-                'fss_user_id' => $fss, 'shopping_list_id' => $list->id, 'supplier_id' => $vendor?->id,
+                'rnd_user_id' => $fss, 'shopping_list_id' => $list->id, 'supplier_id' => $vendor?->id,
                 'po_number' => 'PO-2026-' . str_pad((string) $poSeq++, 4, '0', STR_PAD_LEFT),
                 'or_number' => $orNo, 'order_date' => $orderDate->toDateString(),
                 'total_amount' => round($total, 2), 'status' => 'received',

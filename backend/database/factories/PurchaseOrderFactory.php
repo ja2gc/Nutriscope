@@ -18,7 +18,7 @@ class PurchaseOrderFactory extends Factory
     public function definition(): array
     {
         return [
-            'fss_user_id'      => \App\Models\User::factory()->fss(),
+            'rnd_user_id'      => \App\Models\User::factory()->fss(),
             'shopping_list_id' => null,
             'supplier_id'      => \App\Models\Supplier::factory(),
             'po_number'        => $this->faker->unique()->bothify('PO-#####'),

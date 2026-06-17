@@ -12,3 +12,4 @@ artifacts/tsbuild/
 .mcp.json
 skills-lock.json
 e2e_demo/
+compose-run.log

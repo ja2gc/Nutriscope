@@ -270,7 +270,7 @@ class FoodServiceOpsTest extends TestCase
 
     public function test_fss_can_list_shopping_lists(): void
     {
-        ShoppingList::factory(2)->create(['fss_user_id' => $this->fss->id]);
+        ShoppingList::factory(2)->create(['rnd_user_id' => $this->fss->id]);
 
         $response = $this->actingAs($this->fss)
             ->getJson('/api/fss/shopping-lists');
@@ -485,7 +485,7 @@ class FoodServiceOpsTest extends TestCase
             'budget_per_head_day' => 100, 'population' => 10,
         ]);
         PurchaseOrder::factory()->create([
-            'fss_user_id' => $this->fss->id,
+            'rnd_user_id' => $this->fss->id,
             'status' => 'received', 'received_date' => '2026-06-10', 'total_amount' => 800,
         ]);
 
@@ -510,7 +510,7 @@ class FoodServiceOpsTest extends TestCase
             'status' => 'completed', 'total_value' => 1200, 'has_shortfall' => false,
         ]);
         PurchaseOrder::factory()->create([
-            'fss_user_id' => $this->fss->id,
+            'rnd_user_id' => $this->fss->id,
             'status' => 'received', 'received_date' => '2026-06-10', 'total_amount' => 800,
         ]);
 
@@ -557,7 +557,7 @@ class FoodServiceOpsTest extends TestCase
             'status' => 'completed', 'total_value' => 1200, 'has_shortfall' => false,
         ]);
         PurchaseOrder::factory()->create([ // cash out 800 — this is what "remaining" subtracts
-            'fss_user_id' => $this->fss->id,
+            'rnd_user_id' => $this->fss->id,
             'status' => 'received', 'received_date' => '2026-06-10', 'total_amount' => 800,
         ]);
 
@@ -691,7 +691,7 @@ class FoodServiceOpsTest extends TestCase
     {
         $supplier = Supplier::factory()->create();
         $list = ShoppingList::create([
-            'fss_user_id' => $this->fss->id, 'name' => 'L', 'list_date' => '2026-06-08',
+            'rnd_user_id' => $this->fss->id, 'name' => 'L', 'list_date' => '2026-06-08',
             'list_type' => 'suggested', 'status' => 'draft',
         ]);
         $list->items()->create([
@@ -714,7 +714,7 @@ class FoodServiceOpsTest extends TestCase
         ]);
         Inventory::factory()->create(['fs_item_id' => $fs->id, 'quantity_in_stock' => 0, 'unit' => 'g']);
 
-        $po = PurchaseOrder::factory()->create(['fss_user_id' => $this->fss->id, 'status' => 'draft']);
+        $po = PurchaseOrder::factory()->create(['rnd_user_id' => $this->fss->id, 'status' => 'draft']);
         $po->items()->create([
             'fs_item_id' => $fs->id, 'description' => 'Rice',
             'qty' => 2000, 'unit' => 'g', 'unit_price' => 0.05, 'total_value' => 100,
@@ -731,7 +731,7 @@ class FoodServiceOpsTest extends TestCase
     public function test_procurement_pack_prints_purchase_units(): void
     {
         $fs = FsItem::factory()->create(['name' => 'Rice', 'base_unit' => 'g', 'purchase_unit' => 'kg', 'purchase_price' => 50]);
-        $po = PurchaseOrder::factory()->create(['fss_user_id' => $this->fss->id, 'status' => 'received', 'order_date' => '2026-06-08']);
+        $po = PurchaseOrder::factory()->create(['rnd_user_id' => $this->fss->id, 'status' => 'received', 'order_date' => '2026-06-08']);
         $po->items()->create([
             'fs_item_id' => $fs->id, 'description' => 'Rice',
             'qty' => 2000, 'unit' => 'g', 'unit_price' => 0.05, 'total_value' => 100,

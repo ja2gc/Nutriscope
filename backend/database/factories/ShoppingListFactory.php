@@ -18,7 +18,7 @@ class ShoppingListFactory extends Factory
     public function definition(): array
     {
         return [
-            'fss_user_id'  => \App\Models\User::factory()->fss(),
+            'rnd_user_id'  => \App\Models\User::factory()->fss(),
             'name'         => $this->faker->words(3, true) . ' List',
             'list_date'    => $this->faker->dateTimeBetween('-1 week', 'now')->format('Y-m-d'),
             'period_start' => $this->faker->dateTimeBetween('-1 week', 'now')->format('Y-m-d'),

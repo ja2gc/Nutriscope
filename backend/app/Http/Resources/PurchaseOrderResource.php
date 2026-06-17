@@ -11,7 +11,7 @@ class PurchaseOrderResource extends JsonResource
     {
         return [
             'id'               => $this->id,
-            'fss_user_id'      => $this->fss_user_id,
+            'rnd_user_id'      => $this->rnd_user_id,
             'shopping_list_id' => $this->shopping_list_id,
             'supplier_id'      => $this->supplier_id,
             'supplier'         => $this->whenLoaded('supplier', fn () => $this->supplier ? [

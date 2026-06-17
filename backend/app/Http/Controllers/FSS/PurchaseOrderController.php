@@ -37,7 +37,7 @@ class PurchaseOrderController extends Controller
             $items = $data['items'] ?? [];
             unset($data['items']);
 
-            $data['fss_user_id'] = Auth::id();
+            $data['rnd_user_id'] = Auth::id();
             $data['po_number']   = $data['po_number'] ?? ('PO-' . strtoupper(Str::random(8)) . '-' . time());
             $data['status']      = $data['status'] ?? 'draft';
             $data['total_amount'] = $data['total_amount'] ?? collect($items)->sum(fn ($i) => $i['qty'] * $i['unit_price']);
@@ -106,7 +106,7 @@ class PurchaseOrderController extends Controller
         DB::transaction(function () use ($shoppingList, &$created) {
             foreach ($shoppingList->items->groupBy('supplier_id') as $supplierId => $items) {
                 $po = PurchaseOrder::create([
-                    'fss_user_id'      => Auth::id(),
+                    'rnd_user_id'      => Auth::id(),
                     'shopping_list_id' => $shoppingList->id,
                     'supplier_id'      => $supplierId !== '' ? (int) $supplierId : null,
                     'po_number'        => 'PO-' . strtoupper(Str::random(6)) . '-' . time() . '-' . ($supplierId ?: 'NA'),

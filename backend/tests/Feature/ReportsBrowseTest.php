@@ -37,7 +37,7 @@ class ReportsBrowseTest extends TestCase
     private function receivedPo(string $date, float $amount = 1000): PurchaseOrder
     {
         return PurchaseOrder::factory()->create([
-            'fss_user_id' => $this->rnd->id,
+            'rnd_user_id' => $this->rnd->id,
             'supplier_id' => Supplier::factory(),
             'status'      => 'received',
             'order_date'  => $date,

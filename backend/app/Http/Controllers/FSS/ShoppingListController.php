@@ -28,7 +28,7 @@ class ShoppingListController extends Controller
     public function store(StoreShoppingListRequest $request): JsonResponse
     {
         $data = $request->validated();
-        $data['fss_user_id'] = Auth::id();
+        $data['rnd_user_id'] = Auth::id();
         $data['list_type'] = $data['list_type'] ?? 'manual';
         $data['status'] = $data['status'] ?? 'draft';
         $data['list_date'] = $data['list_date'] ?? now()->toDateString();
@@ -104,7 +104,7 @@ class ShoppingListController extends Controller
 
         $list = DB::transaction(function () use ($data, $cycle, $acc, $fsItems, $spanDays, $onHand, $inTransit) {
             $list = ShoppingList::create([
-                'fss_user_id'   => Auth::id(),
+                'rnd_user_id'   => Auth::id(),
                 'menu_cycle_id' => $cycle->id,
                 'name'          => $data['name'] ?? "Suggested — {$cycle->name} ({$data['start_date']}→{$data['end_date']})",
                 'list_date'     => now()->toDateString(),
