@@ -79,8 +79,9 @@ class MealPrepShortfallTest extends TestCase
         ]);
         // Stock drawn down to zero (served what was available).
         $this->assertEqualsWithDelta(0, $this->inventory->fresh()->quantity_in_stock, 0.01);
+        $logId = \App\Models\MealPrepLog::latest('id')->value('id');
         $this->assertDatabaseHas('notifications', [
-            'user_id' => $this->rnd->id, 'type' => 'meal_prep_shortfall', 'source_id' => 1,
+            'user_id' => $this->rnd->id, 'type' => 'meal_prep_shortfall', 'source_id' => $logId,
         ]);
     }
 

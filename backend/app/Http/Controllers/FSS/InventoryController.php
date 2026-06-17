@@ -82,7 +82,6 @@ class InventoryController extends Controller
         $catalogCols = "f.id AS item_id, f.name, f.category, f.kind AS item_type,
                         f.base_unit, f.purchase_unit, f.purchase_price, f.units_per_purchase,
                         inv.id AS inventory_id, inv.quantity_in_stock, inv.unit,
-                        inv.minimum_stock_threshold,
                         NULL AS recipe_cost, NULL AS recipe_servings";
 
         if (in_array($type, ['all', 'ingredient', 'supply'], true)) {
@@ -105,7 +104,6 @@ class InventoryController extends Controller
             $sql = "SELECT r.id AS item_id, r.name, r.category, 'recipe' AS item_type,
                            NULL AS base_unit, NULL AS purchase_unit, NULL AS purchase_price, NULL AS units_per_purchase,
                            inv.id AS inventory_id, inv.quantity_in_stock, inv.unit,
-                           inv.minimum_stock_threshold,
                            r.cost AS recipe_cost, r.servings AS recipe_servings
                     FROM food_service_recipes r
                     LEFT JOIN inventory inv ON inv.recipe_id = r.id";
@@ -117,36 +115,30 @@ class InventoryController extends Controller
         }
 
         // Guard against an empty IN-set (unknown type) → return nothing rather than error.
-        $union = $parts ? implode(' UNION ALL ', $parts) : 'SELECT NULL AS item_id, NULL AS name, NULL AS category, NULL AS item_type, NULL AS base_unit, NULL AS purchase_unit, NULL AS purchase_price, NULL AS units_per_purchase, NULL AS inventory_id, NULL AS quantity_in_stock, NULL AS unit, NULL AS minimum_stock_threshold, NULL AS recipe_cost, NULL AS recipe_servings WHERE 1=0';
+        $union = $parts ? implode(' UNION ALL ', $parts) : 'SELECT NULL AS item_id, NULL AS name, NULL AS category, NULL AS item_type, NULL AS base_unit, NULL AS purchase_unit, NULL AS purchase_price, NULL AS units_per_purchase, NULL AS inventory_id, NULL AS quantity_in_stock, NULL AS unit, NULL AS recipe_cost, NULL AS recipe_servings WHERE 1=0';
 
         return [$union, $bindings];
     }
 
     private function statusWhere(string $status): string
     {
+        // Binary stock state: in stock (green) vs out — qty 0 or no inventory row (red).
         return match ($status) {
-            'untracked' => 'inventory_id IS NULL',
-            'no_stock'  => 'inventory_id IS NOT NULL AND quantity_in_stock = 0',
-            'low'       => 'inventory_id IS NOT NULL AND quantity_in_stock > 0 AND minimum_stock_threshold IS NOT NULL AND quantity_in_stock < minimum_stock_threshold',
-            'ok'        => 'inventory_id IS NOT NULL AND quantity_in_stock > 0 AND (minimum_stock_threshold IS NULL OR quantity_in_stock >= minimum_stock_threshold)',
-            default     => '',
+            'no_stock' => 'inventory_id IS NULL OR quantity_in_stock = 0',
+            'ok'       => 'inventory_id IS NOT NULL AND quantity_in_stock > 0',
+            default    => '',
         };
     }
 
     private function decorateRow(object $r, Carbon $now): array
     {
-        $hasRecord = $r->inventory_id !== null;
-        $qty       = (float) ($r->quantity_in_stock ?? 0);
-        $threshold = $r->minimum_stock_threshold !== null ? (float) $r->minimum_stock_threshold : null;
+        $qty = (float) ($r->quantity_in_stock ?? 0);
 
-        if (! $hasRecord) {
-            $status = 'untracked'; $highlight = 'none';
-        } elseif ($qty === 0.0) {
-            $status = 'no_stock'; $highlight = 'red';
-        } elseif ($threshold !== null && $qty < $threshold) {
-            $status = 'low'; $highlight = 'yellow';
+        // Binary indicator: green when in stock, red when out (or untracked).
+        if ($qty > 0.0) {
+            $status = 'ok'; $highlight = 'green';
         } else {
-            $status = 'ok'; $highlight = 'none';
+            $status = 'no_stock'; $highlight = 'red';
         }
 
         $isRecipe = $r->item_type === 'recipe';
@@ -170,7 +162,6 @@ class InventoryController extends Controller
             'category'                => $r->category ?? '',
             'quantity_in_stock'       => $r->quantity_in_stock,
             'unit'                    => $r->unit ?? '',
-            'minimum_stock_threshold' => $r->minimum_stock_threshold,
             // Catalog "price" shown in the table = the buy price; unit_cost is the derived ₱/base-unit.
             'unit_price'              => $isRecipe ? null : $r->purchase_price,
             'unit_cost'               => $unitCost,
@@ -186,29 +177,25 @@ class InventoryController extends Controller
     private function getStats(): array
     {
         $union = "
-            SELECT inv.id AS inventory_id, inv.quantity_in_stock, inv.minimum_stock_threshold
+            SELECT inv.id AS inventory_id, inv.quantity_in_stock
             FROM fs_items f LEFT JOIN inventory inv ON inv.fs_item_id = f.id WHERE f.is_active = 1
             UNION ALL
-            SELECT inv.id AS inventory_id, inv.quantity_in_stock, inv.minimum_stock_threshold
+            SELECT inv.id AS inventory_id, inv.quantity_in_stock
             FROM food_service_recipes r LEFT JOIN inventory inv ON inv.recipe_id = r.id
         ";
 
         $row = DB::selectOne("
             SELECT
-                COUNT(*)                                                                                                                   AS total,
-                SUM(inventory_id IS NOT NULL)                                                                                              AS tracked,
-                SUM(inventory_id IS NOT NULL AND quantity_in_stock > 0 AND minimum_stock_threshold IS NOT NULL AND quantity_in_stock < minimum_stock_threshold) AS low,
-                SUM(inventory_id IS NOT NULL AND quantity_in_stock = 0)                                                                    AS no_stock,
-                SUM(inventory_id IS NULL)                                                                                                  AS untracked
+                COUNT(*)                                                          AS total,
+                SUM(inventory_id IS NOT NULL AND quantity_in_stock > 0)           AS in_stock,
+                SUM(inventory_id IS NULL OR quantity_in_stock = 0)               AS no_stock
             FROM ({$union}) AS s
         ");
 
         return [
-            'total'     => (int) $row->total,
-            'tracked'   => (int) $row->tracked,
-            'low'       => (int) $row->low,
-            'no_stock'  => (int) $row->no_stock,
-            'untracked' => (int) $row->untracked,
+            'total'    => (int) $row->total,
+            'in_stock' => (int) $row->in_stock,
+            'no_stock' => (int) $row->no_stock,
         ];
     }
 

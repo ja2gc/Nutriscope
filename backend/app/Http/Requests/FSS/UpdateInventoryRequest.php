@@ -13,8 +13,6 @@ class UpdateInventoryRequest extends FormRequest
         return [
             'quantity_in_stock'        => ['nullable', 'numeric', 'min:0'],
             'unit'                     => ['nullable', 'string'],
-            'usage_rate'               => ['nullable', 'numeric', 'min:0'],
-            'minimum_stock_threshold'  => ['nullable', 'numeric', 'min:0'],
             'unit_price'               => ['nullable', 'numeric', 'min:0'],
             'notes'                    => ['nullable', 'string'],
         ];

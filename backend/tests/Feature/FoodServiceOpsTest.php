@@ -252,7 +252,6 @@ class FoodServiceOpsTest extends TestCase
         Inventory::factory()->create([
             'fs_item_id'             => $fsItem->id,
             'quantity_in_stock'        => 5,
-            'minimum_stock_threshold'  => 20,
         ]);
 
         $response = $this->actingAs($this->fss)
@@ -291,7 +290,6 @@ class FoodServiceOpsTest extends TestCase
         Inventory::factory()->create([
             'fs_item_id'             => $fsItem1->id,
             'quantity_in_stock'        => 10,
-            'minimum_stock_threshold'  => 5,
             'unit'                     => 'kg',
         ]);
 
@@ -304,7 +302,6 @@ class FoodServiceOpsTest extends TestCase
         Inventory::factory()->create([
             'fs_item_id'             => $fsItem2->id,
             'quantity_in_stock'        => 8,
-            'minimum_stock_threshold'  => 12,
             'unit'                     => 'kg',
         ]);
 

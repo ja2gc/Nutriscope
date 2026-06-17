@@ -31,8 +31,8 @@ class InventoryResource extends JsonResource
             ]),
             'quantity_in_stock'        => $this->quantity_in_stock,
             'unit'                     => $this->unit,
-            'usage_rate'               => $this->usage_rate,
-            'minimum_stock_threshold'  => $this->minimum_stock_threshold,
+            // Binary stock indicator: green = in stock, red = out (or untracked).
+            'in_stock'                 => (float) $this->quantity_in_stock > 0,
             'unit_price'               => $this->unit_price,
             'notes'                    => $this->notes,
             'created_at'               => $this->created_at,

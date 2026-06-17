@@ -37,7 +37,6 @@ class InventoryReportGenerator implements ReportGenerator
             ->map(function (Inventory $inv) {
                 $name = $inv->fsItem?->name ?? $inv->recipe?->name ?? '—';
                 $qty  = (float) $inv->quantity_in_stock;
-                $min  = (float) $inv->minimum_stock_threshold;
                 // stored last-cost (₱/base) first; fall back to live catalog only for never-received items
                 $cost = $inv->unit_price !== null ? (float) $inv->unit_price : ($inv->fsItem?->unit_cost ?? 0.0);
 
@@ -47,8 +46,8 @@ class InventoryReportGenerator implements ReportGenerator
                     'category'  => $inv->fsItem?->category,
                     'quantity'  => $qty,
                     'unit'      => $inv->unit,
-                    'threshold' => $min,
-                    'status'    => $qty <= 0 ? 'no_stock' : ($min > 0 && $qty <= $min ? 'low' : 'ok'),
+                    // Binary stock state (no threshold): in stock vs out.
+                    'status'    => $qty > 0 ? 'ok' : 'no_stock',
                     'value'     => round($qty * $cost, 2),
                 ];
             });
@@ -56,7 +55,6 @@ class InventoryReportGenerator implements ReportGenerator
         return [
             'rows'        => $rows->all(),
             'total_value' => round($rows->sum('value'), 2),
-            'low_count'   => $rows->where('status', 'low')->count(),
             'no_count'    => $rows->where('status', 'no_stock')->count(),
         ];
     }

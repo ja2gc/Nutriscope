@@ -17,8 +17,6 @@ class InventoryFactory extends Factory
             'fs_item_id'              => FsItem::factory(),
             'quantity_in_stock'       => fake()->randomFloat(2, 0, 500),
             'unit'                    => fake()->randomElement(['kg', 'g', 'L', 'ml', 'piece']),
-            'usage_rate'              => fake()->randomFloat(2, 0.1, 10),
-            'minimum_stock_threshold' => fake()->randomFloat(2, 5, 50),
             'notes'                   => null,
         ];
     }

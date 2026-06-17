@@ -61,14 +61,16 @@ class DietaryCashBookGenerator implements ReportGenerator
             }
         }
 
+        // Cash is disbursed on RECEIPT — use received_date (fall back to order_date) so the
+        // cashbook agrees with BudgetActualService on which period a PO lands in (F4).
         PurchaseOrder::with('supplier')
             ->where('status', 'received')
-            ->whereBetween('order_date', [$start->toDateString(), $end->toDateString()])
-            ->orderBy('order_date')
+            ->whereRaw('COALESCE(received_date, order_date) BETWEEN ? AND ?', [$start->toDateString(), $end->toDateString()])
+            ->orderByRaw('COALESCE(received_date, order_date)')
             ->get()
             ->each(function (PurchaseOrder $po) use (&$entries) {
                 $entries[] = [
-                    'date'          => optional($po->order_date)->toDateString() ?? '',
+                    'date'          => optional($po->received_date ?? $po->order_date)->toDateString() ?? '',
                     'ref'           => $po->or_number ?: $po->po_number,
                     'payee'         => $po->supplier?->name ?? '',
                     'nature'        => $po->notes ?: 'Food / supplies',
