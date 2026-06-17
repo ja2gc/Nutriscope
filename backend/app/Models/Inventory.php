@@ -16,14 +16,12 @@ class Inventory extends Model
     protected $fillable = [
         'item_type', 'fs_item_id', 'recipe_id',
         'quantity_in_stock', 'unit',
-        'usage_rate', 'minimum_stock_threshold', 'unit_price', 'notes',
+        'unit_price', 'notes',
     ];
 
     protected $casts = [
-        'quantity_in_stock'       => 'decimal:2',
-        'usage_rate'              => 'decimal:2',
-        'minimum_stock_threshold' => 'decimal:2',
-        'unit_price'              => 'decimal:2',
+        'quantity_in_stock' => 'decimal:2',
+        'unit_price'        => 'decimal:2',
     ];
 
     /** Stock of a catalog item (ingredient or supply). */
