@@ -152,68 +152,71 @@ class FoodServiceDemoSeeder extends Seeder
     // ── Inventory: ingredient + supply stock + a couple prepared recipes ────
     private function seedInventory(): void
     {
-        $today = Carbon::today();
-        // [fs_item name, qty in base_unit, threshold, expiry offset days|null, notes]
+        // Curated stock levels (base unit). [fs_item name => qty, notes].
+        // Low stock is now a binary in/out indicator — no thresholds. One item is
+        // deliberately out of stock (qty 0) to exercise the red/green dot.
         $stock = [
-            ['Rice', 80000, 20000, 60, null],
-            ['Pork (kasim)', 12000, 5000, 4, null],
-            ['Ground pork', 3000, 5000, 3, 'Low — reorder'],
-            ['Chicken (whole)', 18000, 6000, 5, null],
-            ['Chicken fillet', 2000, 5000, 4, 'Low stock'],
-            ['Beef (cubes)', 0, 4000, null, 'Out of stock'],
-            ['Bangus (milkfish)', 9000, 4000, 2, 'Use soon'],
-            ['Egg', 600, 200, 14, null],
-            ['Assorted vegetables', 15000, 5000, 5, null],
-            ['Pinakbet vegetables', 8000, 4000, 3, null],
-            ['Potato', 10000, 3000, 20, null],
-            ['Carrot', 7000, 2000, 20, null],
-            ['Onion', 6000, 2000, 30, null],
-            ['Garlic', 3000, 1000, 30, null],
-            ['Latundan banana', 200, 80, 5, null],
-            ['Macaroni', 5000, 2000, 120, null],
-            ['Fresh milk', 8000, 3000, 7, null],
-            ['Cooking oil', 6000, 2000, 120, null],
+            'Rice' => [80000, null],
+            'Pork (kasim)' => [12000, null],
+            'Ground pork' => [3000, null],
+            'Chicken (whole)' => [18000, null],
+            'Chicken fillet' => [2000, null],
+            'Beef (cubes)' => [0, 'Out of stock'],
+            'Bangus (milkfish)' => [9000, 'Use soon'],
+            'Egg' => [600, null],
+            'Assorted vegetables' => [15000, null],
+            'Pinakbet vegetables' => [8000, null],
+            'Potato' => [10000, null],
+            'Carrot' => [7000, null],
+            'Onion' => [6000, null],
+            'Garlic' => [3000, null],
+            'Latundan banana' => [200, null],
+            'Macaroni' => [5000, null],
+            'Fresh milk' => [8000, null],
+            'Cooking oil' => [6000, null],
+            // Supplies
+            'LPG (cooking gas)' => [33, null],
+            'Paper meal box' => [600, null],
+            'Roll bag (garbage)' => [100, null],
+            'Dishwashing liquid' => [4000, null],
+            'Disposable spoon' => [800, null],
+            'Plastic cup' => [50, null],
         ];
-        foreach ($stock as [$name, $qty, $min, $exp, $notes]) {
-            $fsId = $this->id($name);
-            if (! $fsId) continue;
-            $item = FsItem::find($fsId);
-            Inventory::create([
-                'item_type' => 'ingredient', 'fs_item_id' => $fsId,
-                'quantity_in_stock' => $qty, 'unit' => $item->base_unit,
-                'minimum_stock_threshold' => $min, 'unit_price' => $item->purchase_price,
-                'notes' => $notes,
-            ]);
-        }
 
-        $supplies = [
-            ['LPG (cooking gas)', 33, 11, null],            // kg in stock
-            ['Paper meal box', 600, 100, null],
-            ['Roll bag (garbage)', 100, 50, 'Low'],
-            ['Dishwashing liquid', 4000, 1000, null],
-            ['Disposable spoon', 800, 200, null],
-            ['Plastic cup', 50, 100, 'Reorder'],
-        ];
-        foreach ($supplies as [$name, $qty, $min, $notes]) {
-            $fsId = $this->id($name);
-            if (! $fsId) continue;
-            $item = FsItem::find($fsId);
+        // Every catalog item gets a real inventory row — "untracked" is not a state.
+        // Items not curated above get a sensible default quantity by base unit.
+        foreach (FsItem::all() as $item) {
+            [$qty, $notes] = $stock[$item->name] ?? [$this->defaultQty($item->base_unit), null];
             Inventory::create([
-                'item_type' => 'supply', 'fs_item_id' => $fsId,
-                'quantity_in_stock' => $qty, 'unit' => $item->base_unit,
-                'minimum_stock_threshold' => $min, 'unit_price' => $item->purchase_price, 'notes' => $notes,
+                'item_type'         => $item->kind, // 'ingredient' | 'supply'
+                'fs_item_id'        => $item->id,
+                'quantity_in_stock' => $qty,
+                'unit'              => $item->base_unit,
+                'unit_price'        => $item->purchase_price,
+                'notes'             => $notes,
             ]);
         }
 
         // A couple of prepared-recipe stock rows.
-        foreach (['Sopas' => [40, 10], 'Pork Pinakbet' => [25, 10]] as $rname => [$qty, $min]) {
+        foreach (['Sopas' => 40, 'Pork Pinakbet' => 25] as $rname => $qty) {
             if (isset($this->recipes[$rname])) {
                 Inventory::create([
                     'item_type' => 'recipe', 'recipe_id' => $this->recipes[$rname]->id,
-                    'quantity_in_stock' => $qty, 'unit' => 'servings', 'minimum_stock_threshold' => $min,
+                    'quantity_in_stock' => $qty, 'unit' => 'servings',
                 ]);
             }
         }
+    }
+
+    /** Reasonable default stock for an un-curated catalog item, by base unit. */
+    private function defaultQty(string $baseUnit): float
+    {
+        return match ($baseUnit) {
+            'g', 'mL' => 5000,
+            'kg'      => 20,
+            'pc'      => 100,
+            default   => 50,
+        };
     }
 
     // ── Active weekly menu cycle ────────────────────────────────────────────
@@ -221,9 +224,17 @@ class FoodServiceDemoSeeder extends Seeder
     {
         $weekStart = Carbon::now()->startOfWeek(Carbon::MONDAY);
 
+        // Population now lives per-day on each menu_cycle_day (150–200, distinct per day).
+        // The cycle-level population/budget_per_head_per_day columns are vestigial (the
+        // cap is owned by Budget) but still NOT NULL, so seed representative values.
+        $dayPop = [
+            'Monday' => 175, 'Tuesday' => 168, 'Wednesday' => 182, 'Thursday' => 160,
+            'Friday' => 190, 'Saturday' => 155, 'Sunday' => 172,
+        ];
+
         $cycle = MenuCycle::create([
             'rnd_user_id' => $rnd, 'name' => 'June Subsistence Cycle — Week 1',
-            'population' => 549, 'budget_per_head_per_day' => 130, 'cycle_days' => 7,
+            'population' => (int) round(array_sum($dayPop) / count($dayPop)), 'budget_per_head_per_day' => 150, 'cycle_days' => 7,
             'is_active' => true, 'status' => 'active',
             'week_start_date' => $weekStart->toDateString(), 'activation_date' => $weekStart->toDateString(),
         ]);
@@ -243,7 +254,10 @@ class FoodServiceDemoSeeder extends Seeder
         foreach ($plan as $day => $items) {
             foreach ($slots as $i => $slot) {
                 $name = $items[$i];
-                $row = ['menu_cycle_id' => $cycle->id, 'day_of_week' => $day, 'meal_type' => $slot];
+                $row = [
+                    'menu_cycle_id' => $cycle->id, 'day_of_week' => $day, 'meal_type' => $slot,
+                    'estimate_population' => $dayPop[$day],
+                ];
                 if (isset($this->recipes[$name])) {
                     $row['recipe_id'] = $this->recipes[$name]->id;
                 } elseif ($this->id($name)) {
@@ -268,10 +282,13 @@ class FoodServiceDemoSeeder extends Seeder
         $start = Carbon::now()->startOfMonth();
         $end   = Carbon::now()->endOfMonth();
 
+        // Budget owns the per-head/day cap (₱150). Allocation reconciles with the
+        // cycle's own daily cost so seeded variance is never negative.
+        $perHeadCap = 150;
         $budget = Budget::create([
             'rnd_user_id' => $fss, 'scope' => 'monthly', 'name' => $start->format('F Y') . ' Food Subsistence',
             'allocated_amount' => round($avgDay * 30, -2), 'population' => $cycle->population,
-            'cost_per_person' => $cycle->budget_per_head_per_day, 'budget_per_head_day' => $cycle->budget_per_head_per_day,
+            'cost_per_person' => $perHeadCap, 'budget_per_head_day' => $perHeadCap,
             'period_start' => $start->toDateString(), 'period_end' => $end->toDateString(),
         ]);
 
