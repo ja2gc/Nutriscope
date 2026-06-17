@@ -104,16 +104,21 @@ class MenuCycleController extends Controller
         $cost    = MenuCycleCostService::forCycle($cycle);
         $dayCost = $cost['days'][$weekday] ?? null;
         $perHead = $dayCost ? (float) $dayCost['cost_per_head'] : null;
-        $limit   = $cycle->budget_per_head_per_day !== null ? (float) $cycle->budget_per_head_per_day : null;
+        // Per-head cap is owned by the Budget covering this date (not the cycle).
+        $budget  = \App\Models\Budget::coveringDate($date);
+        $limit   = $budget && $budget->budget_per_head_day !== null ? (float) $budget->budget_per_head_day : null;
+
+        // Representative headcount for the weekday = that day's estimate_population.
+        $dayPop  = (int) ($cycle->days->where('day_of_week', $weekday)->max('estimate_population') ?? 0);
 
         return response()->json(['data' => [
             'cycle'          => $cycle->name,
             'date'           => $date->toDateString(),
             'weekday'        => $weekday,
             'cost_per_head'  => $perHead,         // actual cost to make today's menu, per head
-            'limit_per_head' => $limit,           // settable cap (budget_per_head_per_day)
+            'limit_per_head' => $limit,           // cap from the Budget covering this date
             'within_budget'  => ($limit !== null && $perHead !== null) ? $perHead <= $limit : null,
-            'population'     => (int) $cycle->population,
+            'population'     => $dayPop,
             'has_menu_today' => $dayCost !== null,
         ]]);
     }
@@ -127,7 +132,10 @@ class MenuCycleController extends Controller
         $population = $request->filled('population') ? (int) $request->get('population') : null;
         $result     = MenuCycleCostService::forCycle($menuCycle, $population);
 
-        $budget = $menuCycle->budget_per_head_per_day !== null ? (float) $menuCycle->budget_per_head_per_day : null;
+        // Per-head cap is owned by the Budget covering this cycle's anchored week.
+        $capDate    = $menuCycle->week_start_date ?? now();
+        $budgetRow  = \App\Models\Budget::coveringDate($capDate);
+        $budget     = $budgetRow && $budgetRow->budget_per_head_day !== null ? (float) $budgetRow->budget_per_head_day : null;
         if ($budget !== null) {
             foreach ($result['days'] as $day => &$d) {
                 $d['budget_status'] = $this->budgetStatus($d['cost_per_head'], $budget);
@@ -135,7 +143,7 @@ class MenuCycleController extends Controller
             unset($d);
         }
 
-        $result['budget_per_head_per_day'] = $budget;
+        $result['budget_per_head_day'] = $budget;
         $result['within_budget'] = $budget === null ? null : ($result['cost_per_head'] <= $budget);
 
         return response()->json(['data' => $result]);
@@ -167,6 +175,8 @@ class MenuCycleController extends Controller
                 'quantity'            => $d['quantity'] ?? 1,
                 'servings_override'   => $d['servings_override'] ?? null,
                 'estimate_population' => $d['estimate_population'] ?? null,
+                'is_event'            => $d['is_event'] ?? false,
+                'event_allocation'    => $d['event_allocation'] ?? null,
             ]);
         }
     }

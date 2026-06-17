@@ -72,7 +72,8 @@ class InsightsController extends Controller
                 'cycle_id'      => $cycle->id,
                 'cycle'         => $cycle->name,
                 'cost_per_head' => $avg,
-                'population'    => (int) $cycle->population,
+                // Representative daily headcount = average of the days' estimate_population.
+                'population'    => (int) round($cycle->days->whereNotNull('estimate_population')->avg('estimate_population') ?? 0),
             ];
         })->values();
 
