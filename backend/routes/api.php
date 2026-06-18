@@ -5,6 +5,7 @@ use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Admin\AnnouncementController as AdminAnnouncementController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Admin\AuditLogController as AdminAuditLogController;
+use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\RND\AnnouncementController as RndAnnouncementController;
 use App\Http\Controllers\RND\AssessmentController;
 use App\Http\Controllers\RND\DiagnosisController;
@@ -238,6 +239,9 @@ Route::middleware(['auth:sanctum', 'role:FSS,RND'])->prefix('fss')->group(functi
 
 Route::middleware(['auth:sanctum', 'role:Admin'])->prefix('admin')->group(function () {
     Route::apiResource('announcements', AdminAnnouncementController::class)->only(['index', 'store', 'update', 'destroy']);
+    Route::post('users/{user}/reset-password', [AdminUserController::class, 'resetPassword'])
+        ->middleware('throttle:6,1');
     Route::apiResource('users', AdminUserController::class);
     Route::get('audit-logs', [AdminAuditLogController::class, 'index']);
+    Route::get('dashboard', AdminDashboardController::class);
 });
