@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\ResetPasswordRequest;
 use App\Http\Requests\Admin\StoreUserRequest;
 use App\Http\Requests\Admin\UpdateUserRequest;
 use App\Http\Resources\UserResource;
@@ -50,5 +51,14 @@ class UserController extends Controller
     {
         $user->delete();
         return response()->json(null, 204);
+    }
+
+    public function resetPassword(ResetPasswordRequest $request, User $user): JsonResponse
+    {
+        $user->update([
+            'password' => Hash::make($request->validated('password')),
+        ]);
+
+        return response()->json(['message' => 'Password reset.']);
     }
 }

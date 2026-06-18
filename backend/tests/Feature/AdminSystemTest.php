@@ -109,6 +109,39 @@ class AdminSystemTest extends TestCase
         $response->assertForbidden();
     }
 
+    public function test_admin_can_reset_user_password(): void
+    {
+        $user = User::factory()->create([
+            'role' => 'RND',
+            'password' => Hash::make('old-password'),
+        ]);
+
+        $response = $this->actingAs($this->admin, 'sanctum')
+            ->postJson("/api/admin/users/{$user->id}/reset-password", [
+                'password' => 'NewPass2026!',
+                'password_confirmation' => 'NewPass2026!',
+            ]);
+
+        $response->assertOk()
+            ->assertJsonPath('message', 'Password reset.');
+
+        $this->assertTrue(Hash::check('NewPass2026!', $user->fresh()->password));
+    }
+
+    public function test_admin_password_reset_requires_valid_confirmation(): void
+    {
+        $user = User::factory()->create(['role' => 'RND']);
+
+        $response = $this->actingAs($this->admin, 'sanctum')
+            ->postJson("/api/admin/users/{$user->id}/reset-password", [
+                'password' => 'short',
+                'password_confirmation' => 'different',
+            ]);
+
+        $response->assertUnprocessable()
+            ->assertJsonValidationErrors(['password']);
+    }
+
     // ===== AUDIT LOGS =====
 
     public function test_admin_can_list_audit_logs(): void
