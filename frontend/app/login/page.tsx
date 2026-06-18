@@ -15,10 +15,14 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [validationError, setValidationError] = useState<string | null>(null);
 
-  // If user is already logged in, redirect them to dashboard
+  // If user is already logged in, redirect them to appropriate dashboard
   useEffect(() => {
     if (user) {
-      router.replace("/dashboard");
+      if (user.role === "Admin") {
+        router.replace("/admin/dashboard");
+      } else {
+        router.replace("/dashboard");
+      }
     }
   }, [user, router]);
 
@@ -34,7 +38,6 @@ export default function LoginPage() {
 
     try {
       await login(email, password);
-      router.replace("/dashboard");
     } catch (err) {
       // Error is already set and displayed via AuthContext
     }

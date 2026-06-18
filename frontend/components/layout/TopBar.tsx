@@ -12,6 +12,12 @@ export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
 
   const getModuleTitle = () => {
     if (pathname === "/dashboard") return "Overview & Operations Center";
+    if (pathname.startsWith("/admin/dashboard")) return "System Administration Overview";
+    if (pathname.startsWith("/admin/users")) return "RBAC & User Access Manager";
+    if (pathname.startsWith("/admin/audit-logs")) return "System Activity & Audit Logs";
+    if (pathname.startsWith("/admin/announcements")) return "Publish System Announcements";
+    if (pathname.startsWith("/admin/reports")) return "Operations & Census Reports";
+    if (pathname.startsWith("/admin/settings")) return "Global Hospital Settings";
     if (pathname.startsWith("/recipes")) return "Recipes & Ingredient Database";
     if (pathname.startsWith("/ncp")) return "Patient Nutrition Care Center";
     if (pathname.startsWith("/food-service")) return "Food Service & Kitchen Operations";
@@ -32,19 +38,29 @@ export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
     }
   };
 
+  const isAdminPath = pathname.startsWith("/admin");
+
   return (
-    <header className="h-14 bg-white border-b border-zinc-200 flex items-center justify-between px-6 select-none shrink-0 z-10 font-sans">
+    <header className={`h-14 border-b flex items-center justify-between px-6 select-none shrink-0 z-10 font-sans transition-colors duration-150 ${
+      isAdminPath
+        ? "bg-zinc-950 border-zinc-900 text-zinc-100"
+        : "bg-white border-zinc-200 text-zinc-800"
+    }`}>
       <div className="flex items-center gap-3">
         {/* Hamburger — mobile only */}
         <button
           onClick={onMenuClick}
-          className="md:hidden p-1.5 text-zinc-500 hover:text-zinc-800 hover:bg-zinc-100 rounded-lg cursor-pointer transition-colors"
+          className={`md:hidden p-1.5 rounded-lg cursor-pointer transition-colors ${
+            isAdminPath ? "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900" : "text-zinc-500 hover:text-zinc-800 hover:bg-zinc-100"
+          }`}
           aria-label="Open navigation"
         >
           <Menu className="h-5 w-5" />
         </button>
         {/* Module Title */}
-        <h1 className="text-sm font-bold text-zinc-800 tracking-wide uppercase">
+        <h1 className={`text-sm font-bold tracking-wide uppercase ${
+          isAdminPath ? "text-zinc-100" : "text-zinc-800"
+        }`}>
           {getModuleTitle()}
         </h1>
       </div>
@@ -53,7 +69,9 @@ export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
       <div className="flex items-center gap-5">
         {/* Alerts Bell */}
         <button 
-          className="relative p-1.5 text-zinc-400 hover:text-zinc-600 rounded-lg hover:bg-zinc-50 cursor-pointer transition-colors"
+          className={`relative p-1.5 rounded-lg cursor-pointer transition-colors ${
+            isAdminPath ? "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900" : "text-zinc-400 hover:text-zinc-600 hover:bg-zinc-50"
+          }`}
           title="System notifications"
         >
           <Bell className="h-4.5 w-4.5" />
@@ -62,9 +80,13 @@ export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
 
         {/* User Card */}
         {user && (
-          <div className="flex items-center gap-3 border-l border-zinc-200 pl-5">
+          <div className={`flex items-center gap-3 border-l pl-5 ${
+            isAdminPath ? "border-zinc-850" : "border-zinc-200"
+          }`}>
             <div className="flex flex-col text-right">
-              <span className="text-xs font-bold text-zinc-800 leading-tight">
+              <span className={`text-xs font-bold leading-tight ${
+                isAdminPath ? "text-zinc-100" : "text-zinc-800"
+              }`}>
                 {user.name}
               </span>
               <span className="text-[9px] font-extrabold text-orange-600 uppercase tracking-widest leading-tight mt-0.5">
@@ -81,7 +103,11 @@ export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
         {/* Log Out */}
         <button
           onClick={handleLogout}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-zinc-500 hover:text-orange-600 rounded-lg hover:bg-orange-50 transition-all duration-150 cursor-pointer tracking-wide"
+          className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all duration-150 cursor-pointer tracking-wide ${
+            isAdminPath
+              ? "text-zinc-400 hover:text-orange-500 hover:bg-zinc-900"
+              : "text-zinc-500 hover:text-orange-600 hover:bg-orange-50"
+          }`}
           title="Sign out of system"
         >
           <LogOut className="h-4 w-4" />
