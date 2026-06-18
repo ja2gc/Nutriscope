@@ -50,11 +50,12 @@ class BudgetActualService
             ->selectRaw('DATE(service_date) as d, SUM(total_value) as t')
             ->groupByRaw('DATE(service_date)')->pluck('t', 'd');
 
-        // Headcount actually served per day (population changes daily). Used to derive
-        // the real budget-per-head-per-day instead of the cycle's static population.
+        // Headcount actually served per day (FSS-reported; actual fed, not prepared-for).
+        // Excludes days where served_population hasn't been reported yet — no fallback to
+        // prepared estimates, as per population-redesign doc.
         $populationByDay = (clone $mealPrepQuery)
-            ->whereNotNull('population')
-            ->selectRaw('DATE(service_date) as d, SUM(population) as p')
+            ->whereNotNull('served_population')
+            ->selectRaw('DATE(service_date) as d, SUM(served_population) as p')
             ->groupByRaw('DATE(service_date)')->pluck('p', 'd');
 
         // Manual non-PO cash logs entered by hand.

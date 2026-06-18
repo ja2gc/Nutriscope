@@ -1,8 +1,10 @@
 # Admin Role — Workflow (current state + intended scope)
 
-Admin owns access control and system oversight. Admin routes live under `/api/admin/*` (middleware `auth:sanctum, role:Admin`). Frontend admin pages are **not built yet** — the endpoints exist but there is no `(admin)` UI; this doc states the intended flow.
+Admin owns access control and system oversight. Admin routes live under `/api/admin/*` (middleware `auth:sanctum, role:Admin`). The Admin **backend** is built (users, audit-log w/ pagination, dashboard aggregates, announcements, password-reset). An Admin **frontend** was built by codex/antigravity (`baf8fbf`→HEAD) **but strayed from this spec** and must be rebuilt — see the Reconciliation note below. This doc states the intended flow and is the **source of truth**.
 
-> Scope note: known gaps/risks live in [`docs/reviews/2026-06-14-system-review.md`](../reviews/2026-06-14-system-review.md).
+> Scope note: known gaps/risks live in [`docs/reviews/2026-06-14-system-review.md`](../reviews/2026-06-14-system-review.md). Execution plan (tasks + file refs): [`admin-sprint-plan.md`](../superpowers/plans/admin-sprint-plan.md).
+
+> **Reconciliation (2026-06-18) — codex/antigravity Admin frontend strayed:** the build under `frontend/app/admin/` (and the committed `frontend/app/(admin)/`) does not match the rest of the app and is to be **rebuilt**, not patched on top of. Specific deviations: (1) **theme inverted** — the whole app is **light** (`bg-zinc-100`, RND dashboard `categoryStyles`), the codex admin console is **dark** (`bg-zinc-950`); (2) **no component reuse** — bespoke pages instead of reusing the shared `Sidebar`/`TopBar`/`Badge`/`Button` and, for §4, the RND announcement composer; (3) **announcement diverged** — a bespoke dark "Bulletin/Broadcast Manager" card grid with base64 `FileReader` upload, instead of mirroring how RND composes/announces (shared `announcementService`). The **backend** Admin work in that same range is fine and stays. Build direction is in [`admin-sprint-plan.md`](../superpowers/plans/admin-sprint-plan.md).
 
 > **CHANGE OF MIND (this revision):** Admin's scope is now defined as system administration only — RBAC, accounts, audit oversight, system/operational health (including budget and procurement, which are financial/operational data, not clinical) — modeled on RPDH's IT department. Admin has **no standing path to clinical content** (NCP Summary, Menu Plan, or any patient-identified report). This replaces an earlier draft of this doc that gave Admin "full access to all report types across all users." That draft is preserved below, struck through, rather than deleted, so the reasoning is traceable. The underlying legal basis — DPA 2012 (RA 10173) legitimate-purpose and proportionality principles, and the DOH Health Privacy Code's need-to-know standard — is why the original wording was the problem to begin with: a role grant with no declared purpose and no proportionality limit is hard to defend regardless of phrasing. Narrowing what Admin *is* (an IT-department function with no clinical job to do) resolves that more cleanly than trying to police a broader grant after the fact.
 
@@ -36,6 +38,7 @@ RPDH produces three report types under the NCP umbrella, with different sensitiv
 
 ## 4. Announcements
 - `apiResource /admin/announcements` — create / edit / delete / pin posts with visibility `FSS | Admin | All`. Admin sees all announcements (no role filter) and is the only role that can pin.
+- **UI:** mirror RND's announcement presentation and **reuse the shared announcement component / `announcementService`** — do not build a bespoke "broadcast manager". The codex build's standalone dark card grid is a deviation (see Reconciliation note). FSS gets a read-only feed (FSS|All); Admin gets the authoring/pin controls.
 
 ## 5. Intended admin extras
 - **Dashboard:** system KPIs + charts (admissions count, NCP completion rate, budget, inventory) + an activity feed. KPI aggregates should stay count/rate-level, not patient-identifying detail — same constraint as the census report in §3.
@@ -54,11 +57,12 @@ Admin maps to RPDH's IT department, not an administrative officer — confirmed 
 ## Build status summary
 | Capability | Backend | Frontend |
 |---|---|---|
-| User management / RBAC | ✅ endpoints | ❌ no UI |
-| Audit logs | ✅ endpoint (unpaginated; redaction already correct, at write-time) | ❌ no UI |
-| Announcements | ✅ endpoints | partial (shared) |
+| User management / RBAC | ✅ endpoints + password-reset (`throttle:6,1`) | ⚠ codex build off-spec — **rebuild** |
+| Audit logs | ✅ endpoint (now **paginated + filtered**, `AuditLogResource`; redaction is write-time via `AuditsChanges`) | ⚠ codex build off-spec — **rebuild** |
+| Announcements | ✅ endpoints | ⚠ codex bespoke "broadcast manager" — **rebuild to reuse shared component** |
+| Dashboard (KPIs) | ✅ `AdminDashboardController` (cached aggregates) | ⚠ codex build off-spec — **rebuild** |
 | Reports (census + budget/procurement only) | ✅ via shared browser, scope-check needed (§3) | scope not yet distinct — currently shares the same browser as RND/FSS; needs Admin's view restricted to non-clinical report types only |
 | Clinical-rules config | — | **moved out of Admin scope, not yet placed under RND** (follow-up task needed) |
-| Dashboard / Settings / Token usage | ❌ | ❌ |
+| Settings (branding) / Token usage | ❌ | ❌ |
 
-The first build priority for Admin is a frontend: a user/RBAC manager and an audit-log browser, then settings + token-usage. Before the Reports browser's Admin view is built, confirm it restricts to census/budget/procurement only — do not implement an Admin-wide view across all report types (see §3).
+Admin's **backend** is essentially done (the codex/antigravity range built the audit pagination, password-reset, dashboard aggregates, and announcements endpoints — all aligned). The build priority is now the **frontend rebuild**: discard the off-spec codex pages and rebuild a `(admin)`-style route group that matches the app's light theme and reuses shared components (see Reconciliation note + [`admin-sprint-plan.md`](../superpowers/plans/admin-sprint-plan.md)). Before the Reports browser's Admin view is built, confirm it restricts to census/budget/procurement only — do not implement an Admin-wide view across all report types (see §3).

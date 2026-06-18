@@ -1,5 +1,13 @@
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 
-export default function Home() {
-  redirect("/dashboard");
+export default async function Home() {
+  const cookieStore = await cookies();
+  const role = cookieStore.get("nutriscope_role")?.value;
+  
+  if (role === "Admin") {
+    redirect("/admin/dashboard");
+  } else {
+    redirect("/dashboard");
+  }
 }
