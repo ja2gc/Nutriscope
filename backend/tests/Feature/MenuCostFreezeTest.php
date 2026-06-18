@@ -36,7 +36,7 @@ class MenuCostFreezeTest extends TestCase
         ]); // unit_cost = 1000 / 1000 g = ₱1.00/g
 
         $cycle = MenuCycle::factory()->create([
-            'rnd_user_id' => $this->rnd->id, 'population' => 1,
+            'rnd_user_id' => $this->rnd->id,
             'is_active' => false, 'status' => 'draft', 'activation_date' => null,
         ]);
 

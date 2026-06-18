@@ -57,7 +57,7 @@ class OcrExtractionServiceTest extends TestCase
                 'height' => 'Height:\s*([\d\.]+)',
             ],
             'validation_rules' => [],
-            'version' => '1.0.0',
+            'version' => 1,
             'is_active' => true,
         ]);
 
@@ -101,7 +101,7 @@ class OcrExtractionServiceTest extends TestCase
                 'height' => 'height\s*:\s*([\d\.]+)',
             ],
             'validation_rules' => [],
-            'version' => '1.0.0',
+            'version' => 1,
             'is_active' => true,
         ]);
 
@@ -153,7 +153,7 @@ class OcrExtractionServiceTest extends TestCase
                 'height' => 'height\s*:\s*([\d\.]+)',
             ],
             'validation_rules' => [],
-            'version' => '1.0.0',
+            'version' => 1,
             'is_active' => true,
         ]);
 
