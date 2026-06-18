@@ -64,12 +64,29 @@ class ShoppingListController extends Controller
     {
         $data = $request->validate([
             'menu_cycle_id' => ['required', 'integer', 'exists:menu_cycles,id'],
-            'start_date'    => ['required', 'date'],
-            'end_date'      => ['required', 'date', 'after_or_equal:start_date'],
+            'start_date'    => ['required_without:start_weekday', 'date'],
+            'end_date'      => ['required_with:start_date', 'date', 'after_or_equal:start_date'],
+            'start_weekday' => ['required_without:start_date', 'string', 'in:Monday,Tuesday,Wednesday,Thursday,Friday,Saturday,Sunday'],
+            'end_weekday'   => ['required_with:start_weekday', 'string', 'in:Monday,Tuesday,Wednesday,Thursday,Friday,Saturday,Sunday'],
             'name'          => ['nullable', 'string', 'max:255'],
         ]);
 
         $cycle = MenuCycle::with('days.recipe.ingredients.fsItem', 'days.fsItem')->findOrFail($data['menu_cycle_id']);
+        $weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+        if (isset($data['start_weekday'])) {
+            $fromIndex = array_search($data['start_weekday'], $weekdays, true);
+            $toIndex = array_search($data['end_weekday'], $weekdays, true);
+            if ($toIndex < $fromIndex) {
+                return response()->json(['message' => 'End weekday must be on or after start weekday.'], 422);
+            }
+            if (! $cycle->week_start_date) {
+                return response()->json(['message' => 'Menu cycle must have a Monday week_start_date.'], 422);
+            }
+            $startDate = $cycle->week_start_date->copy()->addDays($fromIndex);
+            $endDate = $cycle->week_start_date->copy()->addDays($toIndex);
+            $data['start_date'] = $startDate->toDateString();
+            $data['end_date'] = $endDate->toDateString();
+        }
 
         // Sum the ACTUAL planned days across the range (not a proportional average).
         $acc = []; // fs_item_id => ['name','unit','qty','total']
@@ -191,6 +208,52 @@ class ShoppingListController extends Controller
             'unit_price'  => $shoppingListItem->unit_price,
             'total'       => $shoppingListItem->total,
         ]]);
+    }
+
+    public function storeItem(Request $request, ShoppingList $shoppingList): JsonResponse
+    {
+        $data = $request->validate([
+            'fs_item_id'      => ['nullable', 'integer', 'exists:fs_items,id'],
+            'ingredient_name' => ['nullable', 'string', 'max:255'],
+            'qty'             => ['required', 'numeric', 'min:0'],
+            'unit'            => ['required', 'string', 'max:50'],
+            'supplier_id'     => ['nullable', 'integer', 'exists:suppliers,id'],
+            'unit_price'      => ['nullable', 'numeric', 'min:0'],
+            'purchase_qty'    => ['nullable', 'numeric', 'min:0'],
+            'purchase_unit'   => ['nullable', 'string', 'max:50'],
+            'purchase_price'  => ['nullable', 'numeric', 'min:0'],
+        ]);
+
+        $fsItem = isset($data['fs_item_id']) ? FsItem::find($data['fs_item_id']) : null;
+        $qty = (float) $data['qty'];
+        $unitPrice = (float) ($data['unit_price'] ?? 0);
+
+        $item = $shoppingList->items()->create([
+            'fs_item_id'      => $data['fs_item_id'] ?? null,
+            'ingredient_name' => $data['ingredient_name'] ?? $fsItem?->name ?? 'Item',
+            'qty'             => $qty,
+            'unit'            => $data['unit'],
+            'supplier_id'     => $data['supplier_id'] ?? $fsItem?->default_supplier_id,
+            'unit_price'      => $unitPrice,
+            'total'           => round($qty * $unitPrice, 2),
+            'purchase_qty'    => $data['purchase_qty'] ?? null,
+            'purchase_unit'   => $data['purchase_unit'] ?? null,
+            'purchase_price'  => $data['purchase_price'] ?? null,
+        ]);
+
+        return response()->json(['data' => [
+            'id'              => $item->id,
+            'fs_item_id'      => $item->fs_item_id,
+            'ingredient_name' => $item->ingredient_name,
+            'qty'             => $item->qty,
+            'unit'            => $item->unit,
+            'supplier_id'     => $item->supplier_id,
+            'unit_price'      => $item->unit_price,
+            'total'           => $item->total,
+            'purchase_qty'    => $item->purchase_qty,
+            'purchase_unit'   => $item->purchase_unit,
+            'purchase_price'  => $item->purchase_price,
+        ]], 201);
     }
 
     public function destroyItem(ShoppingListItem $shoppingListItem): JsonResponse

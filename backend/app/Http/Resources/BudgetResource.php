@@ -12,6 +12,7 @@ class BudgetResource extends JsonResource
         return [
             'id'                    => $this->id,
             'rnd_user_id'           => $this->rnd_user_id,
+            'menu_cycle_id'         => $this->menu_cycle_id,
             'scope'                 => $this->scope,
             'name'                  => $this->name,
             'allocated_amount'      => $this->allocated_amount,

@@ -13,8 +13,6 @@ class MenuCycleResource extends JsonResource
             'id'                      => $this->id,
             'rnd_user_id'             => $this->rnd_user_id,
             'name'                    => $this->name,
-            'population'              => (int) $this->population,
-            'budget_per_head_per_day' => $this->budget_per_head_per_day,
             'cycle_days'              => $this->cycle_days,
             'is_active'               => (bool) $this->is_active,
             'week_start_date'         => $this->week_start_date?->toDateString(),

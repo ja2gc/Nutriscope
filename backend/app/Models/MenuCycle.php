@@ -13,14 +13,12 @@ class MenuCycle extends Model
     use \App\Models\Concerns\AuditsChanges;
 
     protected $fillable = [
-        'rnd_user_id', 'name', 'population', 'budget_per_head_per_day',
+        'rnd_user_id', 'name',
         'cycle_days', 'is_active', 'week_start_date', 'status', 'activation_date',
         'cost_snapshot', 'cost_snapshot_at',
     ];
 
     protected $casts = [
-        'population'              => 'integer',
-        'budget_per_head_per_day' => 'decimal:2',
         'week_start_date'         => 'date',
         'activation_date'         => 'date',
         'is_active'               => 'boolean',
