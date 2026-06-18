@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Budget;
 use App\Models\MealPrepLog;
+use App\Models\MenuCycleDay;
 use App\Models\PurchaseOrder;
 use Carbon\Carbon;
 
@@ -41,15 +42,17 @@ class BudgetActualService
         // Consumption: facility-wide food served per day (completed logs only).
         // DATE(...) normalises keys to Y-m-d across sqlite (which stores datetimes
         // on date columns) and MySQL, so per-day lookups below always match.
-        $consumptionByDay = MealPrepLog::where('status', 'completed')
+        $mealPrepQuery = MealPrepLog::where('status', 'completed')
             ->whereBetween('service_date', [$startStr, $endStr])
+            ->when($budget->menu_cycle_id, fn ($query) => $query->where('menu_cycle_id', $budget->menu_cycle_id));
+
+        $consumptionByDay = (clone $mealPrepQuery)
             ->selectRaw('DATE(service_date) as d, SUM(total_value) as t')
             ->groupByRaw('DATE(service_date)')->pluck('t', 'd');
 
         // Headcount actually served per day (population changes daily). Used to derive
         // the real budget-per-head-per-day instead of the cycle's static population.
-        $populationByDay = MealPrepLog::where('status', 'completed')
-            ->whereBetween('service_date', [$startStr, $endStr])
+        $populationByDay = (clone $mealPrepQuery)
             ->whereNotNull('population')
             ->selectRaw('DATE(service_date) as d, SUM(population) as p')
             ->groupByRaw('DATE(service_date)')->pluck('p', 'd');
@@ -74,6 +77,20 @@ class BudgetActualService
             ? (float) $budget->budget_per_head_day * (int) $budget->population
             : ((float) ($budget->allocated_amount ?? 0) / max(1, $start->diffInDays($end) + 1));
 
+        $eventCapsByDate = collect();
+        if ($budget->menu_cycle_id && $budget->menuCycle?->week_start_date) {
+            $weekStart = $budget->menuCycle->week_start_date;
+            $dayOffsets = ['Monday' => 0, 'Tuesday' => 1, 'Wednesday' => 2, 'Thursday' => 3, 'Friday' => 4, 'Saturday' => 5, 'Sunday' => 6];
+            $eventCapsByDate = MenuCycleDay::query()
+                ->where('menu_cycle_id', $budget->menu_cycle_id)
+                ->where('is_event', true)
+                ->whereNotNull('event_allocation')
+                ->get(['day_of_week', 'event_allocation'])
+                ->mapWithKeys(fn (MenuCycleDay $day) => [
+                    $weekStart->copy()->addDays($dayOffsets[$day->day_of_week] ?? 0)->toDateString() => (float) $day->event_allocation,
+                ]);
+        }
+
         $days = [];
         $popSum = 0;       // Σ headcount over served days (with a recorded population)
         $popDays = 0;      // count of served days that recorded a population
@@ -94,7 +111,15 @@ class BudgetActualService
             // Realized cost per head that day = value of food served ÷ that day's headcount.
             $perHead = ($pop !== null && $pop > 0) ? round($dayConsumption / $pop, 2) : null;
 
-            $days[] = ['date' => $ds, 'planned' => $cap, 'actual' => $actual, 'population' => $pop, 'per_head' => $perHead];
+            $isEvent = $eventCapsByDate->has($ds);
+            $days[] = [
+                'date' => $ds,
+                'planned' => $isEvent ? (float) $eventCapsByDate[$ds] : $cap,
+                'actual' => $actual,
+                'population' => $pop,
+                'per_head' => $perHead,
+                'event' => $isEvent,
+            ];
         }
 
         return [

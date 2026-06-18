@@ -14,7 +14,7 @@
   2. **Prep & Clean** (Daily Execution)
   3. **Inventory** (Stock Management)
   4. **Procurement** (Receiving & Proofs)
-- **Modals/Stacks:** Scanner/Camera (for receipts), Settings/Profile.
+- **Modals/Stacks:** camera/upload (should be the same design with how rnd upload receipts, so FSS and RND use the same upload component to upload receipts) (for receipts), Settings/Profile.
 
 ---
 
@@ -38,7 +38,7 @@
 
 ### Tab 3: Inventory & Suppliers
 **Layout:** Top material top-tab navigator (Ingredients | Supplies | Suppliers).
-- [ ] **UI (Ingredients & Supplies):** `FlashList` for high-performance scrolling. Show stock level, unit, and status badge (Red/Amber/Green).
+- [ ] **UI (Ingredients & Supplies):** `FlashList` for high-performance scrolling. Show stock level, unit, and status badge (Red//Green).
 - [ ] **UI (Suppliers):** List of vendors with contact info.
 - [ ] **Task:** Implement inline stock adjustment modal (Add/Deduct stock).
 - [ ] **Task:** Implement Search/Filter bar for quick lookups.

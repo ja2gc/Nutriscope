@@ -267,6 +267,62 @@ class FoodServiceOpsTest extends TestCase
         $this->assertDatabaseHas('shopping_lists', ['status' => 'draft']);
     }
 
+    public function test_generate_shopping_list_accepts_weekday_span_from_cycle_anchor(): void
+    {
+        $fsItem = $this->makeFsItem([
+            'name' => 'Banana',
+            'base_unit' => 'piece',
+            'purchase_unit' => 'piece',
+            'purchase_price' => 5,
+            'units_per_purchase' => 1,
+        ]);
+        Inventory::factory()->create(['fs_item_id' => $fsItem->id, 'quantity_in_stock' => 0, 'unit' => 'piece']);
+        $cycle = MenuCycle::factory()->create([
+            'rnd_user_id' => $this->rnd->id,
+            'week_start_date' => '2026-06-15', // Monday
+        ]);
+        foreach (['Tuesday', 'Wednesday', 'Thursday'] as $day) {
+            MenuCycleDay::create([
+                'menu_cycle_id' => $cycle->id,
+                'day_of_week' => $day,
+                'meal_type' => 'am_snack',
+                'fs_item_id' => $fsItem->id,
+                'quantity' => 1,
+                'estimate_population' => 10,
+            ]);
+        }
+
+        $response = $this->actingAs($this->fss)->postJson('/api/fss/shopping-lists/generate', [
+            'menu_cycle_id' => $cycle->id,
+            'start_weekday' => 'Tuesday',
+            'end_weekday' => 'Thursday',
+        ]);
+
+        $response->assertCreated()
+            ->assertJsonPath('data.period_start', '2026-06-16')
+            ->assertJsonPath('data.period_end', '2026-06-18')
+            ->assertJsonPath('data.days_span', 3);
+
+        $item = collect($response->json('data.items'))->firstWhere('fs_item_id', $fsItem->id);
+        $this->assertEqualsWithDelta(30, (float) $item['qty'], 0.01);
+    }
+
+    public function test_generate_shopping_list_rejects_weekday_span_that_runs_backwards(): void
+    {
+        $cycle = MenuCycle::factory()->create([
+            'rnd_user_id' => $this->rnd->id,
+            'week_start_date' => '2026-06-15',
+        ]);
+
+        $response = $this->actingAs($this->fss)->postJson('/api/fss/shopping-lists/generate', [
+            'menu_cycle_id' => $cycle->id,
+            'start_weekday' => 'Thursday',
+            'end_weekday' => 'Tuesday',
+        ]);
+
+        $response->assertStatus(422);
+    }
+
     public function test_fss_can_list_shopping_lists(): void
     {
         ShoppingList::factory(2)->create(['rnd_user_id' => $this->fss->id]);
@@ -310,7 +366,6 @@ class FoodServiceOpsTest extends TestCase
             'is_active'   => true,
             'status'      => 'active',
             'rnd_user_id' => $this->rnd->id,
-            'population'  => 2, // Population scaled factor
         ]);
 
         // 3. Create a recipe using fsItem1
@@ -477,6 +532,65 @@ class FoodServiceOpsTest extends TestCase
         $this->assertEqualsWithDelta(1000, $byDate['2026-06-10']['planned'], 0.01); // cap
     }
 
+    public function test_budget_actual_scopes_consumption_to_budget_menu_cycle(): void
+    {
+        $cycle = MenuCycle::factory()->create();
+        $otherCycle = MenuCycle::factory()->create();
+        $budget = Budget::factory()->create([
+            'rnd_user_id' => $this->rnd->id,
+            'menu_cycle_id' => $cycle->id,
+            'budget_per_head_day' => 100,
+            'population' => 10,
+        ]);
+        MealPrepLog::create([
+            'menu_cycle_id' => $cycle->id,
+            'service_date' => '2026-06-10',
+            'status' => 'completed',
+            'total_value' => 500,
+            'population' => 5,
+            'has_shortfall' => false,
+        ]);
+        MealPrepLog::create([
+            'menu_cycle_id' => $otherCycle->id,
+            'service_date' => '2026-06-10',
+            'status' => 'completed',
+            'total_value' => 900,
+            'population' => 9,
+            'has_shortfall' => false,
+        ]);
+
+        $result = BudgetActualService::dailySeries($budget, Carbon::parse('2026-06-10'), Carbon::parse('2026-06-10'));
+
+        $this->assertSame('consumption', $result['source']);
+        $this->assertEqualsWithDelta(500, $result['days'][0]['actual'], 0.01);
+        $this->assertSame(5, $result['days'][0]['population']);
+    }
+
+    public function test_budget_actual_uses_event_allocation_as_event_day_cap(): void
+    {
+        $cycle = MenuCycle::factory()->create(['week_start_date' => '2026-06-15']);
+        MenuCycleDay::create([
+            'menu_cycle_id' => $cycle->id,
+            'day_of_week' => 'Wednesday',
+            'meal_type' => 'lunch',
+            'quantity' => 1,
+            'estimate_population' => 10,
+            'is_event' => true,
+            'event_allocation' => 2500,
+        ]);
+        $budget = Budget::factory()->create([
+            'rnd_user_id' => $this->rnd->id,
+            'menu_cycle_id' => $cycle->id,
+            'budget_per_head_day' => 100,
+            'population' => 10,
+        ]);
+
+        $result = BudgetActualService::dailySeries($budget, Carbon::parse('2026-06-17'), Carbon::parse('2026-06-17'));
+
+        $this->assertEqualsWithDelta(2500, $result['days'][0]['planned'], 0.01);
+        $this->assertTrue($result['days'][0]['event']);
+    }
+
     public function test_budget_actual_falls_back_to_purchases_when_nothing_served(): void
     {
         $budget = Budget::factory()->create([
@@ -596,7 +710,7 @@ class FoodServiceOpsTest extends TestCase
         $fs = FsItem::factory()->create(['name' => 'Rice', 'base_unit' => 'g']);
         Inventory::factory()->create(['fs_item_id' => $fs->id, 'quantity_in_stock' => 10000, 'unit' => 'g', 'unit_price' => 0.05]);
 
-        $cycle = MenuCycle::factory()->create(['rnd_user_id' => $this->rnd->id, 'population' => 5]);
+        $cycle = MenuCycle::factory()->create(['rnd_user_id' => $this->rnd->id]);
         MenuCycleDay::create([
             'menu_cycle_id' => $cycle->id, 'day_of_week' => 'Monday',
             'meal_type' => 'lunch', 'fs_item_id' => $fs->id, 'quantity' => 100,
@@ -673,7 +787,7 @@ class FoodServiceOpsTest extends TestCase
         ]);
         Inventory::factory()->create(['fs_item_id' => $fs->id, 'quantity_in_stock' => 0, 'unit' => 'g']);
 
-        $cycle = MenuCycle::factory()->create(['rnd_user_id' => $this->rnd->id, 'population' => 1]);
+        $cycle = MenuCycle::factory()->create(['rnd_user_id' => $this->rnd->id]);
         MenuCycleDay::create([
             'menu_cycle_id' => $cycle->id, 'day_of_week' => 'Monday',
             'meal_type' => 'lunch', 'fs_item_id' => $fs->id, 'quantity' => 1300,
@@ -711,6 +825,47 @@ class FoodServiceOpsTest extends TestCase
 
         $this->assertDatabaseHas('purchase_order_items', [
             'description' => 'Rice', 'purchase_qty' => 2, 'purchase_unit' => 'kg', 'purchase_price' => 50,
+        ]);
+    }
+
+    public function test_fss_can_manually_add_item_to_shopping_list(): void
+    {
+        $supplier = Supplier::factory()->create();
+        $fs = FsItem::factory()->create([
+            'name' => 'Banana',
+            'base_unit' => 'piece',
+            'purchase_unit' => 'piece',
+            'purchase_price' => 6,
+            'units_per_purchase' => 1,
+            'default_supplier_id' => $supplier->id,
+        ]);
+        $list = ShoppingList::create([
+            'rnd_user_id' => $this->fss->id,
+            'name' => 'Manual list',
+            'list_date' => '2026-06-08',
+            'list_type' => 'manual',
+            'status' => 'draft',
+        ]);
+
+        $response = $this->actingAs($this->fss)->postJson("/api/fss/shopping-lists/{$list->id}/items", [
+            'fs_item_id' => $fs->id,
+            'qty' => 12,
+            'unit' => 'piece',
+            'supplier_id' => $supplier->id,
+            'unit_price' => 6,
+        ]);
+
+        $response->assertCreated()
+            ->assertJsonPath('data.ingredient_name', 'Banana')
+            ->assertJsonPath('data.total', '72.00');
+
+        $this->assertDatabaseHas('shopping_list_items', [
+            'shopping_list_id' => $list->id,
+            'fs_item_id' => $fs->id,
+            'ingredient_name' => 'Banana',
+            'qty' => 12,
+            'unit_price' => 6,
+            'total' => 72,
         ]);
     }
 

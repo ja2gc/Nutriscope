@@ -2,7 +2,7 @@
 
 import React, { useCallback, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { CookingPot, ArrowLeft, Search, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 
@@ -40,8 +40,7 @@ async function searchInventory(q: string): Promise<InventoryItem[]> {
 }
 
 const FSS_CATEGORIES = [
-  "Regular Diet", "Vegetable", "Vegetarian", "High Fiber",
-  "Staple", "Diabetic-Friendly", "Soft Diet", "Breakfast", "Snack",
+  "beverage", "breakfast", "lunch", "snack", "dinner",
 ];
 
 const inputCls = "w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg text-zinc-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all";
@@ -68,6 +67,8 @@ let rowKey = 5000;
 
 export default function NewFSSRecipePage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const singleItemMode = searchParams.get("single") === "1";
 
   const [name, setName]           = useState("");
   const [category, setCategory]   = useState("");
@@ -109,6 +110,7 @@ export default function NewFSSRecipePage() {
       .map((r) => ({ fs_item_id: r.invItem!.id, quantity: parseFloat(r.quantity), unit: r.unit }));
 
     if (valid.length === 0) { setError("Add at least one ingredient."); return; }
+    if (singleItemMode && valid.length !== 1) { setError("Single item foods must have exactly one ingredient."); return; }
 
     try {
       setSaving(true);
@@ -128,7 +130,7 @@ export default function NewFSSRecipePage() {
         const d = await res.json().catch(() => ({}));
         throw new Error(d.message ?? "Failed to save.");
       }
-      router.push("/food-service/recipes");
+      router.push("/food-service/foods");
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Failed to save.");
     } finally {
@@ -142,24 +144,24 @@ export default function NewFSSRecipePage() {
       <div className="flex items-center gap-2 text-xs font-semibold text-zinc-400 select-none">
         <Link href="/dashboard" className="hover:text-emerald-700 transition-colors">Home</Link>
         <span>/</span>
-        <Link href="/food-service/recipes" className="hover:text-emerald-700 transition-colors">FSS Recipes</Link>
+        <Link href="/food-service/foods" className="hover:text-emerald-700 transition-colors">Foods</Link>
         <span>/</span>
-        <span className="text-zinc-650 font-bold">New Recipe</span>
+        <span className="text-zinc-650 font-bold">{singleItemMode ? "Single Item" : "New Recipe"}</span>
       </div>
 
       {/* Page header */}
       <div className="border-b border-zinc-200 pb-5 flex items-center gap-4">
-        <Link href="/food-service/recipes"
+        <Link href="/food-service/foods"
           className="p-2 rounded-lg border border-zinc-200 hover:bg-zinc-50 text-zinc-500 transition-colors">
           <ArrowLeft className="h-4 w-4" />
         </Link>
         <div>
           <h2 className="text-xl font-extrabold text-zinc-950 tracking-tight flex items-center gap-2.5">
             <CookingPot className="h-5 w-5 text-emerald-600" />
-            New FSS Recipe
+            {singleItemMode ? "New Single Item" : "New Food"}
           </h2>
           <p className="text-xs text-zinc-500 mt-1 select-none">
-            Ingredients sourced from inventory. Cost calculates live.
+            {singleItemMode ? "Use one inventory ingredient with a one-serving baseline." : "Ingredients sourced from inventory. Cost calculates live."}
           </p>
         </div>
       </div>
@@ -251,11 +253,13 @@ export default function NewFSSRecipePage() {
         <div className="bg-white border border-zinc-200 rounded-2xl p-6 space-y-4 shadow-sm">
           <div className="flex items-center justify-between">
             <h3 className="text-xs font-extrabold text-zinc-700 uppercase tracking-wider">Ingredients</h3>
-            <button type="button"
-              onClick={() => setIngredients((prev) => [...prev, { key: rowKey++, invItem: null, search: "", results: [], showDropdown: false, quantity: "", unit: "g" }])}
-              className="flex items-center gap-1.5 px-3 py-1.5 border border-zinc-300 rounded-lg text-zinc-600 hover:bg-zinc-50 cursor-pointer transition-colors text-[10px] font-bold uppercase tracking-wider">
-              <Plus className="h-3 w-3" /> Add Row
-            </button>
+            {!singleItemMode && (
+              <button type="button"
+                onClick={() => setIngredients((prev) => [...prev, { key: rowKey++, invItem: null, search: "", results: [], showDropdown: false, quantity: "", unit: "g" }])}
+                className="flex items-center gap-1.5 px-3 py-1.5 border border-zinc-300 rounded-lg text-zinc-600 hover:bg-zinc-50 cursor-pointer transition-colors text-[10px] font-bold uppercase tracking-wider">
+                <Plus className="h-3 w-3" /> Add Row
+              </button>
+            )}
           </div>
 
           {/* Column headers */}
@@ -331,11 +335,11 @@ export default function NewFSSRecipePage() {
 
         {/* Actions */}
         <div className="flex gap-3 justify-end pb-4">
-          <Link href="/food-service/recipes">
+          <Link href="/food-service/foods">
             <Button variant="secondary" className="w-auto px-6 py-2.5">Cancel</Button>
           </Link>
           <Button type="submit" variant="primary" loading={saving} className="w-auto px-6 py-2.5">
-            Create Recipe
+            {singleItemMode ? "Create Single Item" : "Create Recipe"}
           </Button>
         </div>
       </form>

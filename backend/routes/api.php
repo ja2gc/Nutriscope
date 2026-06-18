@@ -175,6 +175,7 @@ Route::middleware(['auth:sanctum', 'role:FSS,RND'])->prefix('fss')->group(functi
     // Shopping Lists routes
     Route::post('shopping-lists/generate', [ShoppingListController::class, 'generate']);
     Route::post('shopping-lists/{shopping_list}/generate-pos', [PurchaseOrderController::class, 'generatePos']);
+    Route::post('shopping-lists/{shopping_list}/items', [ShoppingListController::class, 'storeItem']);
     Route::patch('shopping-list-items/{shopping_list_item}', [ShoppingListController::class, 'updateItem']);
     Route::delete('shopping-list-items/{shopping_list_item}', [ShoppingListController::class, 'destroyItem']);
     Route::apiResource('shopping-lists', ShoppingListController::class);

@@ -31,8 +31,6 @@ export interface MenuDay {
 export interface MenuCycle {
   id: number;
   name: string;
-  population: number;
-  budget_per_head_per_day: string | null;
   cycle_days: number;
   status: string;
   is_active: boolean;
@@ -43,10 +41,8 @@ export interface MenuCycle {
 export interface CycleListItem {
   id: number;
   name: string;
-  population: number;
   status: string;
   is_active: boolean;
-  budget_per_head_per_day: string | null;
   updated_at: string;
 }
 
@@ -81,8 +77,6 @@ export async function getRecipeProfile(recipeId: number, population: number): Pr
 
 export interface SaveCyclePayload {
   name: string;
-  population?: number; // vestigial cycle-level figure (NOT NULL); derived from per-day
-  budget_per_head_per_day?: number | null;
   cycle_days?: number;
   week_start_date?: string | null;
   days?: Array<Pick<MenuDay, "day_of_week" | "meal_type" | "recipe_id" | "fs_item_id" | "quantity" | "estimate_population" | "is_event" | "event_allocation">>;
@@ -149,9 +143,8 @@ export async function getCostToday(): Promise<CostToday | null> {
   return (await res.json()).data ?? null;
 }
 
-export async function computeCycle(id: number, population?: number): Promise<ComputeResult> {
-  const qs = population != null ? `?population=${population}` : "";
-  const res = await apiFetch(`/api/fss/menu-cycles/${id}/compute${qs}`);
+export async function computeCycle(id: number): Promise<ComputeResult> {
+  const res = await apiFetch(`/api/fss/menu-cycles/${id}/compute`);
   return json<ComputeResult>(res, "Failed to compute cycle.");
 }
 
@@ -180,7 +173,7 @@ export async function getTemplate(id: number): Promise<TemplateDetail> {
   return json<TemplateDetail>(res, "Failed to load template.");
 }
 
-export async function instantiateTemplate(id: number, payload: { name?: string; population?: number; budget_per_head_per_day?: number | null; week_start_date?: string | null }): Promise<{ id: number; name: string }> {
+export async function instantiateTemplate(id: number, payload: { name?: string; week_start_date?: string | null }): Promise<{ id: number; name: string }> {
   const res = await apiFetch(`/api/fss/menu-cycle-templates/${id}/instantiate`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
