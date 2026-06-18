@@ -1,0 +1,10 @@
+[mcp_servers.laravel-boost]
+command = "C:/Users/jared/php/php.exe"
+args = [
+    "C:/Users/jared/Documents/Nutriscope/backend/artisan",
+    "boost:mcp",
+]
+
+[mcp_servers.laravel-boost.env]
+DB_HOST = "127.0.0.1"
+REDIS_HOST = "127.0.0.1"
