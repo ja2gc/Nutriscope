@@ -1,6 +1,7 @@
 # Backend API Implementation Plan (FSS & Admin)
 
 > This document defines the immediate technical execution steps for the backend architecture connecting RND, FSS, and Admin.
+> **Updated 2026-06-18:** the Admin box in the diagram below has been corrected — see the inline note. Original diagram text otherwise unchanged.
 
 ## RND ↔ FSS ↔ Admin Data Flow
 ```
@@ -40,12 +41,19 @@
 │                                     │
 │  1. Provision RND/FSS accounts      │
 │  2. Monitor audit logs              │
-│  3. View ALL reports (cross-role)   │
+│  3. View reports — CORRECTED:       │
+│     census/budget/procurement only, │
+│     NOT NCP Summary or Menu Plan    │
+│     (those stay RND-only — Admin    │
+│     has no clinical-content path)   │
 │  4. Configure hospital branding     │
 │  5. Track AI token usage            │
 │  6. Post announcements              │
 └─────────────────────────────────────┘
 ```
+> **Note on item 3 (2026-06-18):** originally read "View ALL reports (cross-role)." Narrowed after a role-scope decision: Admin was scoped down to a pure system-administration function (modeled on RPDH's IT department), which has no clinical authority to view patient-identified clinical reports. See `admin.md` §3 for the full three-report-type breakdown (NCP Summary, Menu Plan, census) and the DPA legitimate-purpose/proportionality reasoning behind the narrowing. This is a genuine scope change from what the diagram originally specified, not a typo fix.
+>
+> **Note on item 4 (unchanged, flagging for clarity):** "Configure hospital branding" remains correctly scoped to Admin — branding/letterhead is non-clinical metadata. What's been pulled *out* of Admin's settings scope is **clinical_rules CRUD**, which was never explicitly listed in this diagram to begin with but was bundled into "Settings" in the Admin sprint plan's Task 8. That piece moves to RND. See `architectural-review.md` §3 (now updated) for the full reasoning.
 
 ## Technical Execution Steps
 
@@ -75,7 +83,7 @@
 
 ### 4. Admin Audit Log Fixes
 - **Problem**: Unpaginated audit log endpoint will crash browser at scale. PHI exposure.
-- **Fix**: Update `Admin\AuditLogController` to use server-side pagination (`->paginate(25)`). Ensure PHI is redacted from payload before returning to the frontend.
+- **Fix**: Update `Admin\AuditLogController` to use server-side pagination (`->paginate(25)`). ~~Ensure PHI is redacted from payload before returning to the frontend.~~ **CORRECTED (2026-06-18):** PHI redaction is not a step to add here — it already happens at write-time via the `AuditsChanges` trait (`$auditRedactValues` on clinical models), before the activity row is ever persisted. This task's actual PHI-related work is a regression test confirming that's true, not a redaction implementation. See `admin-sprint-plan.md` Task 1 for the corrected version of this step.
 
 ### 5. Admin Password Reset Fix
 - **Problem**: Admin cannot manually reset passwords for RND/FSS. Missing rate limit.
@@ -83,7 +91,7 @@
 
 ### 6. Admin Dashboard Aggregates & Token Tracking
 - **Problem**: Dashboard requires KPIs. Live calculations cause N+1 and tank server speed. Missing real AI token data.
-- **Fix**: Create `AdminDashboardController` returning aggregated KPIs using `Cache::remember()`.
+- **Fix**: Create `AdminDashboardController` returning aggregated KPIs using `Cache::remember()`. **Note (2026-06-18):** KPI aggregates here should stay at count/rate level, consistent with the same non-patient-identifying constraint applied to the census report in `admin.md` §3 — this dashboard is system-health oversight, not a window into clinical detail.
 - **Correction (verified 2026-06-15)**: `ai_usage_logs` is **already** populated — `AIService` writes `AiUsageLog::create([...])` (token in/out) at lines 53 & 115, and `RND\AiDiagnosisController` calls AI through `AIService`. Do **not** build a redundant `AiTokenObserver`. Residual task is narrower: audit that **every** AI entry point routes through `AIService` (so none bypass logging), and when AI calls move to background jobs (§7), ensure the job still records `AiUsageLog`.
 
 ### 7. RND Clinical Logic & Algorithms Fixes
@@ -94,7 +102,7 @@
   - **Procurement — CLAIM RETRACTED (verified 2026-06-15)**: the live path `ShoppingListController::generate` **already** nets `qty − (on_hand + in_transit_POs)`, skips fully-covered items, rounds up to whole purchase units (Spec 6 #2/#4). `ProcurementService::suggestedItems()` is unused dead code (span-scaler only), not the procurement list — no fix needed; candidate for deletion.
 
 #### §7 sub-task tracker (verified 2026-06-15 — most review claims were FALSE)
-- [x] Dynamic `clinical_rules` (`RND/InterventionController::mapGoalTypeToConditions` → `config/clinical.php`) — was hardcoded AND broken; FIXED + tested.
+- [x] Dynamic `clinical_rules` (`RND/InterventionController::mapGoalTypeToConditions` → `config/clinical.php`) — was hardcoded AND broken; FIXED + tested. **Relevant note (2026-06-18):** a future Admin-sprint task originally planned a `clinical_rules`-table CRUD page; that page has since been re-scoped to RND (not Admin — see diagram note above) and whoever builds it must confirm whether it should write to the `clinical_rules` table or to `config/clinical.php`, since this fix made the config file the live read path.
 - [x] MealPlan AI fallback (<5 recipes) — **DECISION: no AI in meal generation.** Returns 422 `{insufficient_recipes, count, message}` prompting the RND to add recipes. `meal-algorithm.md` step 7 updated.
 - [x] AI diagnosis → background job (202) — **DEFERRED (safest): kept sync** to avoid breaking the RND frontend contract; hardened the sync call with `Http::timeout(20)->connectTimeout(5)` + existing graceful `[]` degradation (tested). Full async = a later coordinated FE+BE change.
 - [x] ~~Monitoring AI-review caching~~ — FALSE. `MonitoringController::aiReview` already caches via DB (`ai_review` + `ai_review_key` signature, returns `cached:true`) + rate-limits. No change.
