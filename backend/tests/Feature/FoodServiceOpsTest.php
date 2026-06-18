@@ -548,6 +548,7 @@ class FoodServiceOpsTest extends TestCase
             'status' => 'completed',
             'total_value' => 500,
             'population' => 5,
+            'served_population' => 5,
             'has_shortfall' => false,
         ]);
         MealPrepLog::create([
@@ -556,6 +557,7 @@ class FoodServiceOpsTest extends TestCase
             'status' => 'completed',
             'total_value' => 900,
             'population' => 9,
+            'served_population' => 9,
             'has_shortfall' => false,
         ]);
 
@@ -767,7 +769,7 @@ class FoodServiceOpsTest extends TestCase
         $cycle = MenuCycle::factory()->create();
         MealPrepLog::create([
             'menu_cycle_id' => $cycle->id, 'service_date' => '2026-06-10',
-            'status' => 'completed', 'total_value' => 800, 'population' => 8, 'has_shortfall' => false,
+            'status' => 'completed', 'total_value' => 800, 'population' => 8, 'served_population' => 8, 'has_shortfall' => false,
         ]);
 
         $result = BudgetActualService::dailySeries($budget, Carbon::parse('2026-06-09'), Carbon::parse('2026-06-11'));
