@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
   Salad, Search, RefreshCw, Pencil, Trash2, X, Check,
-  AlertTriangle, Package, Boxes, BookOpen, ChevronLeft, ChevronRight, Sparkles,
+  AlertTriangle, Package, Boxes, ChevronLeft, ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import {
@@ -18,18 +18,16 @@ import {
   upsertInventory,
   deleteInventory,
   patchFsItemCategory,
-  patchRecipeCategory,
 } from "@/services/inventoryService";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-type ActiveTab    = "ingredient" | "supply" | "recipe";
+type ActiveTab    = "ingredient" | "supply";
 type StatusFilter = "all" | StockStatus;
 
 const TAB_META: Record<ActiveTab, { noun: string; nounPlural: string }> = {
   ingredient: { noun: "ingredient", nounPlural: "ingredients" },
   supply:     { noun: "supply",     nounPlural: "supplies" },
-  recipe:     { noun: "recipe",     nounPlural: "recipes" },
 };
 
 const PER_PAGE = 25;
@@ -164,7 +162,7 @@ export default function InventoryPage() {
     setEditId(rowKey(row));
     setEditValues({
       qty:       row.inventoryId ? parseFloat(row.quantity_in_stock).toString() : "",
-      unit:      row.unit || (row.itemType === "recipe" ? "serving" : row.base_unit ?? ""),
+      unit:      row.unit || (row.base_unit ?? ""),
       cost:      row.unit_price ?? "",
       category:  row.category ?? "",
     });
@@ -188,15 +186,13 @@ export default function InventoryPage() {
       await Promise.all([
         upsertInventory(row.inventoryId, {
           item_type:               row.itemType,
-          fs_item_id:              row.itemType !== "recipe" ? row.itemId : null,
-          recipe_id:               row.itemType === "recipe" ? row.itemId : null,
+          fs_item_id:              row.itemId,
+          recipe_id:               null,
           quantity_in_stock:       qtyNum,
           unit:                    editValues.unit,
           unit_price:              costNum,
         }),
-        row.itemType === "recipe"
-          ? patchRecipeCategory(row.itemId, categoryVal)
-          : patchFsItemCategory(row.itemId, categoryVal),
+        patchFsItemCategory(row.itemId, categoryVal),
       ]);
       setEditId(null);
       await load();
@@ -242,7 +238,7 @@ export default function InventoryPage() {
             Kitchen &amp; Food Service Inventory
           </h2>
           <p className="text-xs text-zinc-500 mt-1">
-            Track stock for ingredients, supplies, and prepared recipes. Recipe costs auto-calculate from catalog prices.
+            Track stock for ingredients and supplies. Costs auto-calculate from catalog prices.
           </p>
         </div>
         <button onClick={load}
@@ -271,7 +267,6 @@ export default function InventoryPage() {
         {([
           { key: "ingredient", label: "Ingredients", Icon: Package,  active: "border-emerald-600 text-emerald-700" },
           { key: "supply",     label: "Supplies",    Icon: Boxes,    active: "border-sky-600 text-sky-700" },
-          { key: "recipe",     label: "Recipes",     Icon: BookOpen, active: "border-violet-600 text-violet-700" },
         ] as const).map(({ key, label, Icon, active }) => (
           <button
             key={key}
@@ -282,11 +277,6 @@ export default function InventoryPage() {
           >
             <Icon className="h-4 w-4" />
             {label}
-            {key === "recipe" && activeTab === "recipe" && (
-              <span className="ml-1 text-[10px] text-violet-500 font-normal flex items-center gap-0.5">
-                <Sparkles className="h-2.5 w-2.5" /> cost auto-calculated
-              </span>
-            )}
           </button>
         ))}
       </div>
@@ -321,9 +311,7 @@ export default function InventoryPage() {
           <div className="py-16 text-center">
             {activeTab === "ingredient"
               ? <Package className="h-8 w-8 text-zinc-300 mx-auto mb-3" />
-              : activeTab === "supply"
-                ? <Boxes className="h-8 w-8 text-zinc-300 mx-auto mb-3" />
-                : <BookOpen className="h-8 w-8 text-zinc-300 mx-auto mb-3" />}
+              : <Boxes className="h-8 w-8 text-zinc-300 mx-auto mb-3" />}
             <p className="text-xs text-zinc-400 font-medium">No {TAB_META[activeTab].nounPlural} match your filter.</p>
           </div>
         ) : (
@@ -332,15 +320,11 @@ export default function InventoryPage() {
               <thead className="bg-zinc-50 border-b border-zinc-100">
                 <tr>
                   <th className="px-4 py-3 text-left text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
-                    {activeTab === "recipe" ? "Recipe" : activeTab === "supply" ? "Supply" : "Ingredient"}
+                    {activeTab === "supply" ? "Supply" : "Ingredient"}
                   </th>
                   <th className="px-4 py-3 text-left text-[10px] font-bold text-zinc-500 uppercase tracking-wider whitespace-nowrap">Qty</th>
                   <th className="hidden sm:table-cell px-4 py-3 text-left text-[10px] font-bold text-zinc-500 uppercase tracking-wider whitespace-nowrap">Unit</th>
-                  <th className="hidden sm:table-cell px-4 py-3 text-left text-[10px] font-bold text-zinc-500 uppercase tracking-wider whitespace-nowrap">
-                    {activeTab !== "recipe"
-                      ? "Cost / Unit"
-                      : <span className="flex items-center gap-1"><Sparkles className="h-2.5 w-2.5 text-violet-500" /> Cost / Serving</span>}
-                  </th>
+                  <th className="hidden sm:table-cell px-4 py-3 text-left text-[10px] font-bold text-zinc-500 uppercase tracking-wider whitespace-nowrap">Cost / Unit</th>
                   <th className="px-4 py-3 text-left text-[10px] font-bold text-zinc-500 uppercase tracking-wider whitespace-nowrap">Stock</th>
                   <th className="px-4 py-3 text-left text-[10px] font-bold text-zinc-500 uppercase tracking-wider whitespace-nowrap">Actions</th>
                 </tr>
@@ -411,7 +395,7 @@ export default function InventoryPage() {
 
                       {/* Cost */}
                       <td className="hidden sm:table-cell px-4 py-3 whitespace-nowrap font-mono">
-                        {isEditing && activeTab !== "recipe" ? (
+                        {isEditing ? (
                           <div className="flex items-center gap-1">
                             <span className="text-zinc-400 text-[10px]">₱</span>
                             <input
@@ -425,20 +409,13 @@ export default function InventoryPage() {
                               <span className="text-zinc-400 text-[10px]">/ {editValues.unit}</span>
                             )}
                           </div>
-                        ) : activeTab !== "recipe" ? (
+                        ) : (
                           <span className="text-zinc-600">
                             {formatPrice(row.unit_price)}
                             {row.unit && row.unit_price && parseFloat(row.unit_price) > 0 && (
                               <span className="text-zinc-400">{` / ${row.unit}`}</span>
                             )}
                           </span>
-                        ) : row.recipe_cost ? (
-                          <span className="text-violet-700 flex items-center gap-1">
-                            <Sparkles className="h-3 w-3" />
-                            ₱{parseFloat(row.recipe_cost).toFixed(2)}
-                          </span>
-                        ) : (
-                          <span className="text-zinc-400 text-[10px]">no ingredients</span>
                         )}
                       </td>
 

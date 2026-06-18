@@ -373,15 +373,15 @@ export function Sidebar({ open = false, onClose }: { open?: boolean; onClose?: (
                   Procurement
                 </Link>
                 <Link
-                  href="/food-service/recipes"
+                  href="/food-service/foods"
                   className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all duration-150 ${
-                    pathname.startsWith("/food-service/recipes")
+                    pathname.startsWith("/food-service/foods") || pathname.startsWith("/food-service/recipes")
                       ? "text-emerald-500 font-extrabold"
                       : "text-zinc-500 hover:text-zinc-300"
                   }`}
                 >
-                  <span className={`h-1.5 w-1.5 rounded-full ${pathname.startsWith("/food-service/recipes") ? "bg-emerald-500" : "bg-zinc-700"}`} />
-                  Recipes
+                  <span className={`h-1.5 w-1.5 rounded-full ${pathname.startsWith("/food-service/foods") || pathname.startsWith("/food-service/recipes") ? "bg-emerald-500" : "bg-zinc-700"}`} />
+                  Foods
                 </Link>
               </div>
             </div>
