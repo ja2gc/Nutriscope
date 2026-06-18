@@ -17,6 +17,7 @@ class UpdateUserRequest extends FormRequest
             'email'    => ['nullable', 'string', 'email', 'max:255', 'unique:users,email,' . $userId],
             'password' => ['nullable', 'string', 'min:8', 'confirmed'],
             'role'     => ['nullable', 'string', 'in:Admin,RND,FSS'],
+            'is_active' => ['nullable', 'boolean'],
         ];
     }
 }
