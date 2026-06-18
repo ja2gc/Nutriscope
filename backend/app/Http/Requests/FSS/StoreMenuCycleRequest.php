@@ -12,8 +12,6 @@ class StoreMenuCycleRequest extends FormRequest
     {
         return [
             'name'                    => ['required', 'string', 'max:255'],
-            'population'              => ['nullable', 'integer', 'min:0'],
-            'budget_per_head_per_day' => ['nullable', 'numeric', 'min:0'],
             'cycle_days'              => ['nullable', 'integer', 'min:1', 'max:28'],
             'week_start_date'         => ['nullable', 'date'],
             'is_active'               => ['nullable', 'boolean'],

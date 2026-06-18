@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   CalendarDays, Plus, Search, X, Trash2, Save, Zap, Copy, BookmarkPlus,
-  LayoutTemplate, ChevronLeft, AlertTriangle, CheckCircle2, RefreshCw,
+  LayoutTemplate, ChevronLeft, AlertTriangle, CheckCircle2, RefreshCw, Pencil,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import ServiceLogPanel from "./_components/ServiceLogPanel";
@@ -57,7 +57,13 @@ function RecipeProfilePanel(
             <div className="text-sm font-extrabold text-zinc-900">{name}</div>
             <div className="text-[11px] text-zinc-500 mt-0.5">{day} · scaled to {population} heads</div>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-zinc-100 text-zinc-500 cursor-pointer"><X className="h-4 w-4" /></button>
+          <div className="flex items-center gap-2">
+            <Link href={`/food-service/foods/${recipeId}`}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-emerald-200 text-[10px] font-bold uppercase tracking-wider text-emerald-700 hover:bg-emerald-50">
+              <Pencil className="h-3 w-3" /> Edit
+            </Link>
+            <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-zinc-100 text-zinc-500 cursor-pointer"><X className="h-4 w-4" /></button>
+          </div>
         </div>
 
         {loading ? (
@@ -105,7 +111,7 @@ function RecipeProfilePanel(
                 <div className="text-[11px] text-zinc-400 py-4 text-center">No costable ingredients.</div>
               )}
             </div>
-            <p className="text-[10px] text-zinc-400">Quantities and cost scale live with this day&apos;s estimated population ({population}). Editing this recipe is done under Foods / Recipes.</p>
+            <p className="text-[10px] text-zinc-400">Quantities and cost scale live with this day&apos;s estimated population ({population}).</p>
           </div>
         ) : null}
       </div>
@@ -145,9 +151,7 @@ function CycleList({ onOpen, onNew }: { onOpen: (id: number) => void; onNew: () 
 
   async function remove(id: number) { await deleteCycle(id); load(); }
   async function useTemplate(t: TemplateListItem) {
-    const pop = prompt(`Population for the new cycle from "${t.name}"?`, "100");
-    if (pop === null) return;
-    const res = await instantiateTemplate(t.id, { population: parseInt(pop) || 0 });
+    const res = await instantiateTemplate(t.id, {});
     onOpen(res.id);
   }
   async function removeTemplate(id: number) { await deleteTemplate(id); load(); }
@@ -184,7 +188,7 @@ function CycleList({ onOpen, onNew }: { onOpen: (id: number) => void; onNew: () 
           ) : (
             <table className="w-full text-xs">
               <thead className="bg-zinc-50 border-b border-zinc-100">
-                <tr>{["Cycle", "Population", "Budget/head/day", "Status", "Actions"].map((h) => (
+                <tr>{["Cycle", "Status", "Actions"].map((h) => (
                   <th key={h} className="px-4 py-3 text-left text-[10px] font-bold text-zinc-500 uppercase tracking-wider">{h}</th>
                 ))}</tr>
               </thead>
@@ -194,8 +198,6 @@ function CycleList({ onOpen, onNew }: { onOpen: (id: number) => void; onNew: () 
                     <td className="px-4 py-3">
                       <button onClick={() => onOpen(c.id)} className="font-semibold text-emerald-700 hover:underline cursor-pointer">{c.name}</button>
                     </td>
-                    <td className="px-4 py-3 text-zinc-600">{c.population}</td>
-                    <td className="px-4 py-3 text-zinc-600">{c.budget_per_head_per_day ? peso(parseFloat(c.budget_per_head_per_day)) : "—"}</td>
                     <td className="px-4 py-3">
                       <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${c.is_active ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-zinc-100 text-zinc-500 border-zinc-200"}`}>
                         {c.is_active ? "Active" : c.status}
@@ -250,7 +252,6 @@ function CycleList({ onOpen, onNew }: { onOpen: (id: number) => void; onNew: () 
 function CycleEditor({ cycleId, onBack }: { cycleId: number | "new"; onBack: () => void }) {
   const [name, setName] = useState("New Menu Cycle");
   const [dayPop, setDayPop] = useState<DayPop>({});
-  const [budget, setBudget] = useState("");
   const [weekStart, setWeekStart] = useState("");
   const [cycleDays, setCycleDays] = useState(7);
   const [isActive, setIsActive] = useState(false);
@@ -273,7 +274,6 @@ function CycleEditor({ cycleId, onBack }: { cycleId: number | "new"; onBack: () 
     if (cycleId === "new") return;
     getCycle(cycleId).then((c: MenuCycle) => {
       setName(c.name);
-      setBudget(c.budget_per_head_per_day ? String(parseFloat(c.budget_per_head_per_day)) : "");
       setWeekStart(c.week_start_date ?? ""); setCycleDays(c.cycle_days || 7); setIsActive(c.is_active);
       const g: Grid = {};
       const dp: DayPop = {};
@@ -289,7 +289,6 @@ function CycleEditor({ cycleId, onBack }: { cycleId: number | "new"; onBack: () 
   }, [cycleId]);
 
   const visibleDays = useMemo(() => DAYS.slice(0, cycleDays), [cycleDays]);
-  // Cycle-level population is vestigial (NOT NULL) — derive it from the per-day estimates.
   const dayPops = visibleDays.map((d) => parseInt(dayPop[d]) || 0);
   const cyclePop = dayPops.length ? Math.round(dayPops.reduce((a, b) => a + b, 0) / dayPops.length) : 0;
 
@@ -329,14 +328,12 @@ function CycleEditor({ cycleId, onBack }: { cycleId: number | "new"; onBack: () 
     try {
       const saved = await saveCycle(savedId, {
         name: name.trim(),
-        population: cyclePop,
-        budget_per_head_per_day: budget ? parseFloat(budget) : null,
         cycle_days: cycleDays,
         week_start_date: weekStart || null,
         days: daysPayload(),
       });
       setSavedId(saved.id);
-      if (thenCompute) setCompute(await computeCycle(saved.id)); // population is per-day now
+      if (thenCompute) setCompute(await computeCycle(saved.id));
       return saved.id;
     } catch (e: unknown) {
       setErr(e instanceof Error ? e.message : "Save failed."); return null;
@@ -385,9 +382,8 @@ function CycleEditor({ cycleId, onBack }: { cycleId: number | "new"; onBack: () 
       {err && <div className="bg-red-50 border border-red-100 p-3 rounded-xl text-xs text-red-700 font-bold flex items-center gap-2"><AlertTriangle className="h-3.5 w-3.5" /> {err}</div>}
 
       {/* Settings */}
-      <div className="bg-white border border-zinc-200 rounded-2xl p-5 shadow-sm grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div className="bg-white border border-zinc-200 rounded-2xl p-5 shadow-sm grid grid-cols-1 sm:grid-cols-3 gap-4">
         {[
-          { label: "Budget / head / day (₱)", value: budget, set: setBudget, type: "number", ph: "e.g. 150" },
           { label: "Week start (Mon)", value: weekStart, set: setWeekStart, type: "date", ph: "" },
         ].map((f) => (
           <div key={f.label}>

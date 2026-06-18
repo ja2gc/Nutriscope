@@ -79,6 +79,10 @@ class DietaryCashBookGenerator implements ReportGenerator
                 ];
             });
 
+        foreach (self::manualDisbursementsFromBudgetLogs($start, $end) as $entry) {
+            $entries[] = $entry;
+        }
+
         return array_merge(
             self::ledger($entries, $beginning),
             [
@@ -122,6 +126,29 @@ class DietaryCashBookGenerator implements ReportGenerator
                 'disbursement'  => 0.0,
             ];
         })->all();
+    }
+
+    /**
+     * Manual budget daily logs represent non-PO cash spending (petty cash/direct buys).
+     *
+     * @return array<int,array{date:string,ref:string,payee:string,nature:string,replenishment:float,disbursement:float}>
+     */
+    private static function manualDisbursementsFromBudgetLogs(Carbon $start, Carbon $end): array
+    {
+        return \App\Models\BudgetDailyLog::query()
+            ->with('budget')
+            ->whereBetween('log_date', [$start->toDateString(), $end->toDateString()])
+            ->where('spent', '>', 0)
+            ->orderBy('log_date')
+            ->get()
+            ->map(fn (\App\Models\BudgetDailyLog $log) => [
+                'date'          => $log->log_date?->toDateString() ?? '',
+                'ref'           => $log->budget?->name ?: 'Manual spend',
+                'payee'         => '',
+                'nature'        => $log->notes ?: 'Manual non-PO spend',
+                'replenishment' => 0.0,
+                'disbursement'  => (float) $log->spent,
+            ])->all();
     }
 
     /**

@@ -2,33 +2,42 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **For ALL backend tasks (Tasks 0, 1, 2 — anything touching PHP/Laravel code):** consult `backend/.agents/skills/laravel-best-practices/skills.md` before writing or editing backend code. Follow that file's own "How to Apply" routing (map the file type you're touching — controller, Form Request, etc. — to its listed sections; delegate reading the actual rule files under `rules/` to a sub-agent, per the skill's instruction). Don't duplicate that routing logic here; this note only adds project-specific context the skill can't know on its own:
+> - **Consistency First (the skill's own first principle, not this plan's addition) matters more than usual on this codebase given its size and history.** If you find an established pattern (e.g. how validation, redaction, or auth checks are already done elsewhere in `Admin/*` or `RND/*` controllers), that pattern wins over the skill's generic default — don't "fix" deliberate, consistent codebase conventions into matching a rule file. Only flag genuine gaps (a practice that's simply missing, not a different-but-consistent approach) as mismatches to apply best-practice fixes for, and note what changed and why in the commit message.
+> - **Task 1 (audit-log) and Task 2 (password reset) are both security/PHI-adjacent** — weight the security section accordingly even where the skill's generic controller-routing might not emphasize it as heavily as this project needs.
+> - **Task 0 doesn't write application PHP code** (it's a seeder check + manual verification) — this skill likely doesn't apply to it; don't force a consultation where there's no code being written or reviewed.
+
 **Goal:** Build the Admin role's frontend (RBAC user manager, audit-log browser, settings, announcements, dashboard), and fix the backend gaps that block it (unpaginated/unfiltered audit log, missing password-reset).
 
 **Architecture:** Backend exposes `/api/admin/*` behind `auth:sanctum, role:Admin`. This sprint hardens the audit-log endpoint with pagination + filters, adds an admin password-reset action, then scaffolds a Next.js `(admin)` route group mirroring the existing `(rnd)` layout, with a Dashboard, Users/RBAC page, Audit-Log browser, Settings, and Announcements.
 
+> **CHANGE OF MIND — role scope (decided in conversation, not yet reflected in code):** Admin is now scoped as a pure system-administration role (RBAC, accounts, audit, system health) — the IT-department function at RPDH, not a clinical-operations function. Clinical-rules configuration and report-branding settings (originally Task 8, Steps 1–2 below) are being pulled out of Admin's scope; they belong with RND, who holds the clinical authority to govern them. This sprint plan still contains those steps under Task 8 — **do not implement Task 8 Steps 1–2 under the Admin role.** They're left in place below with a note, not deleted, so the file matches what was actually decided rather than silently erasing the original design. See the companion `admin.md` for the full rationale.
+
 **Tech Stack:** Laravel 13 + Sanctum + Spatie activitylog (backend); Next.js 16 (App Router), Tailwind, lucide-react (frontend).
 
-**Conventions (project):** work on `main`; **NO `Co-Authored-By`** (author = jared). Verify: `cd backend && php artisan test` (sqlite, 442 baseline) + `cd frontend && npx tsc --noEmit`. Dev login `rnd@nutriscope.local` / `nutriscope2024!`.
+**Conventions (project):** work on `main`; **NO `Co-Authored-By`** (author = jared). Verify: `cd backend && php artisan test` (MySQL — baseline count **NOT YET CONFIRMED** — see open item below; do not trust 442 or 473 until `php artisan test` is actually run once and the real number is recorded) + `cd frontend && npx tsc --noEmit`. Dev login `rnd@nutriscope.local` / `nutriscope2024!`.
+
+**Prereq:** Phase A (`implementation_plan.md` §1–§3, §7) is complete per the handoff doc — this sprint (Phase B) starts clean. Several findings in earlier review docs (Gemini/Opus) were verified false during Phase A closeout; don't re-litigate `complete-day missing`, `ai_usage_logs never written`, or `procurement ignores inventory` — these are retracted, not open.
 
 ---
 
 ## File Structure
 
 **Backend**
-- `backend/app/Http/Controllers/Admin/AuditLogController.php` — add pagination + filters (currently returns `Activity::...->get()` raw — no Resource, no pagination, no redaction).
+- `backend/app/Http/Controllers/Admin/AuditLogController.php` — add pagination + filters. ~~currently returns `Activity::...->get()` raw — no Resource, no pagination, no redaction~~ **CORRECTED:** returns raw + unpaginated, but redaction already happened at write-time via `AuditsChanges` trait — see Task 1.
 - `backend/app/Http/Resources/Admin/AuditLogResource.php` (create) — shapes each activity row; does **not** exist yet but Task 1 returns `AuditLogResource::collection(...)`.
-- `backend/app/Http/Controllers/Admin/UserController.php` — add `resetPassword` (class is `UserController`, **not** `AdminUserController`).
+- `backend/app/Http/Controllers/Admin/UserController.php` — add `resetPassword` (class is `UserController`; routes alias it as `AdminUserController`).
 - `backend/app/Http/Requests/AdminResetPasswordRequest.php` (create) — password rules for the reset action.
 - `backend/routes/api.php` — register the password-reset route.
-- `backend/tests/Feature/Admin/AuditLogTest.php` (create) — pagination/filter coverage.
-- `backend/tests/Feature/Admin/UserManagementTest.php` (create/extend) — RBAC + password reset.
+- `backend/tests/Feature/Admin/AuditLogTest.php` (create) — pagination/filter coverage **+ PHI-redaction regression test (see Task 1, Step 0)**. *Note: a draft `AdminAuditLogTest` was started earlier and removed as premature per the handoff doc — this is the rewrite, not a duplicate.*
+- `backend/tests/Feature/Admin/UserManagementTest.php` (create/extend) — RBAC + password reset. *Note: `AdminSystemTest::test_admin_can_list_audit_logs` already exists and only asserts `['data']` — it stays green through this task and doesn't need touching.*
 
 **Frontend** (new `(admin)` route group)
 - `frontend/app/(admin)/layout.tsx` — admin shell (clone `(rnd)/layout.tsx`, admin nav).
 - `frontend/app/(admin)/dashboard/page.tsx` — Dashboard (KPIs, token usage chart).
 - `frontend/app/(admin)/users/page.tsx` — user/RBAC manager.
 - `frontend/app/(admin)/audit-logs/page.tsx` — audit browser.
-- `frontend/app/(admin)/settings/page.tsx` — hospital branding settings.
+- `frontend/app/(admin)/settings/page.tsx` — hospital branding settings. **Scope note: branding/letterhead fields only (Task 8 Step 1) — see change-of-mind note above re: clinical-rules.**
 - `frontend/app/(admin)/announcements/page.tsx` — system announcements manager.
 - `frontend/services/adminUserService.ts` — users CRUD + reset password.
 - `frontend/services/auditLogService.ts` — paginated/filtered fetch.
@@ -43,11 +52,14 @@
 
 ---
 
-## Task 1: Paginate + filter the audit-log endpoint (Backend)
+## Task 1: Paginate + filter the audit-log endpoint, verify redaction (Backend)
+
+> **CHANGE OF MIND:** the original Step 3 below implemented controller-level PHI redaction with a placeholder field list (`phi_fields_to_redact`). That redaction layer was **wrong, not just incomplete** — PHI is already redacted at write-time by the `AuditsChanges` trait (`tapActivity`, `$auditRedactValues` on clinical models), before it ever reaches the activity table. Adding controller-level redaction on top would be redundant at best and, with a placeholder key that matches nothing real, could have created false confidence that redaction was happening when it wasn't. **Do not implement controller-level redaction.** Step 3 below is corrected to remove it; Step 0 adds the regression test the handoff doc asks for instead.
 
 **Files:** `backend/app/Http/Controllers/Admin/AuditLogController.php`, `backend/tests/Feature/Admin/AuditLogTest.php`
 
-- [ ] **Step 1: Write the failing test**
+- [ ] **Step 0 (new): Write the PHI-redaction regression test, before touching pagination.** Confirm `AuditsChanges` is actually redacting clinical models at write-time — write a test that creates/updates an `Assessment` (or `Intervention`/`Monitoring`), hits `/api/admin/audit-logs`, and asserts the known-PHI fields (per `$auditRedactValues` on that model) are absent from the response `properties`. This is the test the handoff doc calls for; it did not exist before this task.
+- [ ] **Step 1: Write the failing pagination/filter test**
 ```php
 <?php
 namespace Tests\Feature\Admin;
@@ -75,8 +87,8 @@ class AuditLogTest extends TestCase
 }
 ```
 
-- [ ] **Step 2: Run, verify it fails** (`php artisan test --filter=AuditLogTest`).
-- [ ] **Step 3: Implement pagination + filters**
+- [ ] **Step 2: Run, verify both new tests fail** (`php artisan test --filter=AuditLogTest`).
+- [ ] **Step 3: Implement pagination + filters — NO controller-level redaction**
 ```php
 public function index(\Illuminate\Http\Request $request): \Illuminate\Http\Resources\Json\AnonymousResourceCollection
 {
@@ -97,23 +109,16 @@ public function index(\Illuminate\Http\Request $request): \Illuminate\Http\Resou
 
     $page = $query->paginate($data['per_page'] ?? 25);
 
-    // CRITICAL: Redact PHI here (backend) before sending to the frontend.
-    // NOTE: 'phi_fields_to_redact' below is a PLACEHOLDER — replace with the real
-    // per-model field list (e.g. patient name, contact, address, medical_diagnosis,
-    // lab values). Prefer an allow-list of safe keys over a deny-list so a new PHI
-    // column added later isn't leaked by default.
-    $page->getCollection()->transform(function ($activity) {
-        if (in_array($activity->subject_type, [\App\Models\Assessment::class, \App\Models\Intervention::class, \App\Models\Monitoring::class])) {
-            $activity->properties = collect($activity->properties)->except(['phi_fields_to_redact'])->toArray();
-        }
-        return $activity;
-    });
+    // PHI redaction is NOT done here. It already happened at write-time via the
+    // AuditsChanges trait ($auditRedactValues) when the activity row was created.
+    // If Step 0's regression test fails, the bug is in AuditsChanges / the model's
+    // $auditRedactValues list — fix it there, not by adding redaction in this controller.
 
     return \App\Http\Resources\Admin\AuditLogResource::collection($page);
 }
 ```
 
-- [ ] **Step 4: Run, verify it passes**, then commit `feat(admin): paginate + filter audit-log endpoint`.
+- [ ] **Step 4: Run, verify all three tests (Step 0 + Step 1 + existing `AdminSystemTest::test_admin_can_list_audit_logs`) pass**, then commit `feat(admin): paginate + filter audit-log endpoint`.
 
 ---
 
@@ -184,8 +189,8 @@ public function resetPassword(\App\Http\Requests\AdminResetPasswordRequest $requ
 
 **Files:** `frontend/app/(admin)/dashboard/page.tsx`
 
-- [ ] **Step 1: KPI Cards:** Active Users, Total Logins, Error Rates. (Backend aggregate endpoints required).
-- [ ] **Step 2: Token Usage Chart:** Use Recharts mapping AI API costs over time from `ai_usage_logs`.
+- [ ] **Step 1: KPI Cards:** Active Users, Total Logins, Error Rates. (Backend aggregate endpoints required — see `AdminDashboardController` per handoff §6, `Cache::remember()` aggregates).
+- [ ] **Step 2: Token Usage Chart:** Use Recharts mapping AI API costs over time from `ai_usage_logs`. *Note: `ai_usage_logs` is already populated — no `AiTokenObserver` needs to be added, per handoff.*
 - [ ] **Step 3: Activity Feed:** Recent system actions feed from audit logs.
 - [ ] **Step 4: Commit** `feat(admin): dashboard kpis and charts`.
 
@@ -208,23 +213,26 @@ public function resetPassword(\App\Http\Requests\AdminResetPasswordRequest $requ
 
 - [ ] **Step 1: Filter bar:** Date range, Actor, Model type dropdown.
 - [ ] **Step 2: Paginated Table:** UI driven by `meta.last_page`. Expandable rows for JSON payloads.
-- [ ] **Step 3: Security:** Ensure PHI (Protected Health Information) is redacted safely in the UI (description field only).
+- [ ] ~~**Step 3: Security:** Ensure PHI (Protected Health Information) is redacted safely in the UI (description field only).~~ **CHANGE OF MIND — corrected:** redaction is a backend (write-time) concern, already handled by `AuditsChanges` before Task 1 even runs its query. This step is **not** a frontend implementation task. Replace with a verification step: confirm the `properties` payload arriving from the API is already clean (per Task 1 Step 0's regression test) — if PHI appears in this UI, that's a bug in `AuditsChanges`/`$auditRedactValues`, to be fixed there, not patched over with client-side filtering here.
 - [ ] **Step 4: Commit** `feat(admin): audit log browser`.
 
 ---
 
 ## Task 8: Settings & Announcements
 
+> **CHANGE OF MIND — Steps 1 and 2 below stay in this file as a record of the original plan, but are out of scope for the Admin role.** See `admin.md` for the full reasoning: Admin is scoped to system administration (no clinical-content path). Clinical-rules configuration and report-branding both touch clinical-adjacent content and should sit under an RND-gated route instead. **Do not implement Steps 1–2 under `role:Admin` middleware.** This needs a follow-up task (not yet written) to relocate them — raise with whoever's tracking the RND route group before picking this up.
+
 **Files:** `frontend/app/(admin)/settings/page.tsx`, `frontend/app/(admin)/announcements/page.tsx`
 
-- [ ] **Step 1: Settings:** Hospital Info tab (Name, Logo upload, Address). Wire to `report-branding` endpoints so PDF headers update.
-- [ ] **Step 2: Clinical Rules Configuration:** CRUD page for `clinical_rules` table so chief dietitians can dynamically update disease-to-nutrient mappings.
-- [ ] **Step 3: Announcements:** List view of active/past announcements. Form: Title, Content, Visibility (FSS/Admin/All), Pin toggle.
+- [ ] ~~**Step 1: Settings:** Hospital Info tab (Name, Logo upload, Address). Wire to `report-branding` endpoints so PDF headers update.~~ **HOLD — re-route to RND, not Admin. See change-of-mind note above.**
+- [ ] ~~**Step 2: Clinical Rules Configuration:** CRUD page for `clinical_rules` table so chief dietitians can dynamically update disease-to-nutrient mappings.~~ **HOLD — re-route to RND, not Admin. See change-of-mind note above. Also note: `clinical_rules` already has a working consumer as of Phase A §7 (`RND/InterventionController::mapGoalTypeToConditions` now reads `config/clinical.php`) — confirm whether this CRUD page should write to `clinical_rules` table directly or to `config/clinical.php`, since Phase A's fix changed which one is actually live.**
+- [ ] **Step 3: Announcements:** List view of active/past announcements. Form: Title, Content, Visibility (FSS/Admin/All), Pin toggle. *(Unaffected by the above — announcements stay under Admin.)*
 - [ ] **Step 4: Type check:** `npx tsc --noEmit`.
-- [ ] **Step 5: Commit** `feat(admin): settings, clinical rules and announcements UI`.
+- [ ] **Step 5: Commit** `feat(admin): announcements UI` *(scope reduced from original `settings, clinical rules and announcements UI` — see holds above)*.
 
 ---
 
 ## Self-Review notes
 - **Next.js caveat:** `frontend/AGENTS.md` says this Next.js has breaking changes — read `node_modules/next/dist/docs/` before writing any FE routing/layout code.
 - **Verify gate every task:** backend tasks run `php artisan test`; frontend tasks run `npx tsc --noEmit` + a browser check.
+- **Review-doc caveat (from handoff):** the Gemini/Opus review docs were frequently wrong — verify every claim against actual code before building on it, the same way Task 1's redaction discovery overturned an assumption this plan was originally built on.

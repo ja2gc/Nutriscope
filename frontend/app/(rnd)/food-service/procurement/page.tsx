@@ -4,23 +4,26 @@ import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import {
   ShoppingBag, Plus, Trash2, RefreshCw, ChevronLeft, Sparkles, Split,
-  FileText, Upload, X, Receipt, Camera, Truck,
+  FileText, Upload, X, Receipt, Camera, Truck, Pencil, Check, Search,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import {
   ShoppingList, PurchaseOrder,
-  listShoppingLists, getShoppingList, generateFromCycle, deleteShoppingList,
+  listShoppingLists, getShoppingList, generateFromCycleWeekdays, deleteShoppingList,
   updateListItem, generatePos, listPurchaseOrders, getPurchaseOrder,
   updatePurchaseOrder, deletePurchaseOrder, uploadAttachments, deleteAttachment,
+  createShoppingList, updateShoppingList, addListItem, deleteListItem, createPurchaseOrder,
 } from "@/services/procurementService";
 import { listSuppliers, Supplier } from "@/services/supplierService";
 import { listCycles, CycleListItem } from "@/services/menuCycleService";
+import { InventoryRow, listInventoryRows } from "@/services/inventoryService";
 import { HistoryPanel } from "@/components/HistoryPanel";
 import { SuppliersPanel } from "@/components/foodservice/SuppliersPanel";
 
 const STORAGE_BASE = process.env.NEXT_PUBLIC_LARAVEL_URL ?? "http://127.0.0.1:8000";
 const peso = (n: number) => `₱${n.toFixed(2)}`;
 const num = (s: string | null) => (s ? parseFloat(s) : 0);
+const WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"] as const;
 
 function Crumbs({ children }: { children?: React.ReactNode }) {
   return (
@@ -38,12 +41,69 @@ function ListDetail({ id, suppliers, onBack, onPosGenerated }: {
 }) {
   const [list, setList] = useState<ShoppingList | null>(null);
   const [busy, setBusy] = useState(false);
+  const [itemSearch, setItemSearch] = useState("");
+  const [itemResults, setItemResults] = useState<InventoryRow[]>([]);
+  const [selectedItem, setSelectedItem] = useState<InventoryRow | null>(null);
+  const [addQty, setAddQty] = useState("1");
+  const [addUnit, setAddUnit] = useState("unit");
+  const [addUnitPrice, setAddUnitPrice] = useState("0");
+  const [addSupplier, setAddSupplier] = useState("");
+  const [itemError, setItemError] = useState("");
   const load = useCallback(() => { getShoppingList(id).then(setList); }, [id]);
   useEffect(() => { load(); }, [load]);
 
   async function patchItem(itemId: number, patch: { supplier_id?: number | null; qty?: number; unit_price?: number }) {
-    await updateListItem(itemId, patch);
-    load();
+    const updated = await updateListItem(itemId, patch);
+    setList((current) => current ? {
+      ...current,
+      items: current.items.map((item) => item.id === itemId ? { ...item, ...updated } : item),
+    } : current);
+  }
+  async function searchItems(q: string) {
+    setItemSearch(q);
+    setSelectedItem(null);
+    if (q.trim().length < 2) {
+      setItemResults([]);
+      return;
+    }
+    const result = await listInventoryRows({ search: q, type: "ingredient", per_page: 8 });
+    setItemResults(result.data);
+  }
+  function selectManualItem(item: InventoryRow) {
+    setSelectedItem(item);
+    setItemSearch(item.name);
+    setItemResults([]);
+    setAddUnit(item.base_unit ?? item.unit ?? "unit");
+    setAddUnitPrice(item.unit_cost ?? item.unit_price ?? "0");
+    setAddSupplier("");
+  }
+  async function addManualItem() {
+    if (!list) return;
+    const qty = parseFloat(addQty);
+    const unitPrice = parseFloat(addUnitPrice);
+    if (!selectedItem || !Number.isFinite(qty) || qty <= 0 || !addUnit.trim()) {
+      setItemError("Pick an item, quantity, and unit.");
+      return;
+    }
+    setItemError("");
+    const created = await addListItem(list.id, {
+      fs_item_id: selectedItem.itemId,
+      qty,
+      unit: addUnit.trim(),
+      unit_price: Number.isFinite(unitPrice) ? unitPrice : 0,
+      supplier_id: addSupplier ? parseInt(addSupplier) : null,
+    });
+    setList({ ...list, items: [...list.items, created] });
+    setItemSearch("");
+    setSelectedItem(null);
+    setAddQty("1");
+    setAddUnit("unit");
+    setAddUnitPrice("0");
+    setAddSupplier("");
+  }
+  async function removeItem(itemId: number) {
+    await deleteListItem(itemId);
+    setList((current) => current ? { ...current, items: current.items.filter((item) => item.id !== itemId) } : current);
   }
   async function doGeneratePos() {
     setBusy(true);
@@ -84,10 +144,61 @@ function ListDetail({ id, suppliers, onBack, onPosGenerated }: {
         )}
       </div>
 
+      <div className="bg-white border border-zinc-200 rounded-2xl p-4 shadow-sm">
+        <div className="grid grid-cols-1 md:grid-cols-[1.4fr_90px_90px_110px_150px_auto] gap-3 items-end">
+          <div className="relative">
+            <label className="block text-[10px] font-extrabold text-zinc-500 uppercase mb-1">Add item</label>
+            <div className="flex items-center gap-2 px-3 py-2 border border-zinc-200 rounded-lg">
+              <Search className="h-3.5 w-3.5 text-zinc-400" />
+              <input value={itemSearch} onChange={(e) => searchItems(e.target.value)}
+                placeholder="Search ingredients..." className="w-full text-sm outline-none" />
+            </div>
+            {itemResults.length > 0 && (
+              <div className="absolute z-20 mt-1 w-full bg-white border border-zinc-200 rounded-xl shadow-lg overflow-hidden">
+                {itemResults.map((item) => (
+                  <button key={item.itemId} type="button" onClick={() => selectManualItem(item)}
+                    className="w-full text-left px-3 py-2 hover:bg-zinc-50 border-b border-zinc-100 last:border-0 cursor-pointer">
+                    <span className="block text-xs font-bold text-zinc-900">{item.name}</span>
+                    <span className="text-[10px] text-zinc-400">{item.base_unit ?? item.unit} · {item.unit_cost ? peso(num(item.unit_cost)) : "no price"}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <div>
+            <label className="block text-[10px] font-extrabold text-zinc-500 uppercase mb-1">Quantity</label>
+            <input type="number" min="0" step="0.01" value={addQty} onChange={(e) => setAddQty(e.target.value)}
+              className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+          </div>
+          <div>
+            <label className="block text-[10px] font-extrabold text-zinc-500 uppercase mb-1">Unit</label>
+            <input value={addUnit} onChange={(e) => setAddUnit(e.target.value)}
+              className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+          </div>
+          <div>
+            <label className="block text-[10px] font-extrabold text-zinc-500 uppercase mb-1">Cost / unit</label>
+            <input type="number" min="0" step="0.01" value={addUnitPrice} onChange={(e) => setAddUnitPrice(e.target.value)}
+              className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+          </div>
+          <div>
+            <label className="block text-[10px] font-extrabold text-zinc-500 uppercase mb-1">Vendor</label>
+            <select value={addSupplier} onChange={(e) => setAddSupplier(e.target.value)}
+              className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer">
+              <option value="">Unassigned</option>
+              {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+          </div>
+          <Button variant="secondary" onClick={addManualItem} className="px-4 py-2 flex items-center gap-2">
+            <Plus className="h-4 w-4" /> Add
+          </Button>
+        </div>
+        {itemError && <p className="mt-2 text-[10px] font-semibold text-red-600">{itemError}</p>}
+      </div>
+
       <div className="bg-white border border-zinc-200 rounded-2xl shadow-sm overflow-x-auto">
         <table className="w-full text-xs">
           <thead className="bg-zinc-50 border-b border-zinc-100">
-            <tr>{["Item", "Buy", "Base qty", "Base unit", "Vendor", "Unit ₱", "Total", ""].map((h) => (
+            <tr>{["Item", "Quantity", "Unit", "Vendor", "Cost / unit", "Total", ""].map((h) => (
               <th key={h} className="px-3 py-3 text-left text-[10px] font-bold text-zinc-500 uppercase tracking-wider">{h}</th>
             ))}</tr>
           </thead>
@@ -95,9 +206,6 @@ function ListDetail({ id, suppliers, onBack, onPosGenerated }: {
             {list.items.map((it) => (
               <tr key={it.id} className="hover:bg-zinc-50/60">
                 <td className="px-3 py-2 font-semibold text-zinc-800">{it.ingredient_name}</td>
-                <td className="px-3 py-2 font-semibold text-zinc-700">
-                  {it.purchase_qty ? `${num(it.purchase_qty)} ${it.purchase_unit ?? ""}` : <span className="text-zinc-300">—</span>}
-                </td>
                 <td className="px-3 py-2">
                   <input type="number" defaultValue={num(it.qty)} onBlur={(e) => patchItem(it.id, { qty: parseFloat(e.target.value) })}
                     className="w-20 px-2 py-1 border border-zinc-200 rounded focus:outline-none focus:ring-1 focus:ring-emerald-400" />
@@ -115,7 +223,11 @@ function ListDetail({ id, suppliers, onBack, onPosGenerated }: {
                     className="w-20 px-2 py-1 border border-zinc-200 rounded focus:outline-none focus:ring-1 focus:ring-emerald-400" />
                 </td>
                 <td className="px-3 py-2 font-mono text-emerald-700">{peso(num(it.total))}</td>
-                <td className="px-3 py-2" />
+                <td className="px-3 py-2">
+                  <button onClick={() => removeItem(it.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-zinc-500 hover:text-red-600 cursor-pointer" aria-label={`Remove ${it.ingredient_name}`}>
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -137,7 +249,9 @@ function PoDetail({ id, onBack }: { id: number; onBack: () => void }) {
   useEffect(() => { load(); }, [load]);
 
   async function saveField(patch: { or_number?: string; status?: "draft" | "ordered" | "received" }) {
-    await updatePurchaseOrder(id, patch); load();
+    const updated = await updatePurchaseOrder(id, patch);
+    setPo(updated);
+    setOrNumber(updated.or_number ?? "");
   }
   async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []);
@@ -186,14 +300,13 @@ function PoDetail({ id, onBack }: { id: number; onBack: () => void }) {
       {/* Items */}
       <div className="bg-white border border-zinc-200 rounded-2xl shadow-sm overflow-x-auto">
         <table className="w-full text-xs">
-          <thead className="bg-zinc-50 border-b border-zinc-100"><tr>{["Item", "Buy", "Base qty", "Base unit", "Unit ₱", "Total"].map((h) => (
+          <thead className="bg-zinc-50 border-b border-zinc-100"><tr>{["Item", "Quantity", "Unit", "Cost / unit", "Total"].map((h) => (
             <th key={h} className="px-3 py-3 text-left text-[10px] font-bold text-zinc-500 uppercase tracking-wider">{h}</th>
           ))}</tr></thead>
           <tbody className="divide-y divide-zinc-100">
             {(po.items ?? []).map((i) => (
               <tr key={i.id}>
                 <td className="px-3 py-2 font-semibold text-zinc-800">{i.description}</td>
-                <td className="px-3 py-2 font-semibold text-zinc-700">{i.purchase_qty ? `${num(i.purchase_qty)} ${i.purchase_unit ?? ""}` : <span className="text-zinc-300">—</span>}</td>
                 <td className="px-3 py-2">{num(i.qty)}</td>
                 <td className="px-3 py-2 text-zinc-500">{i.unit}</td>
                 <td className="px-3 py-2 font-mono">{peso(num(i.unit_price))}</td>
@@ -258,9 +371,13 @@ export default function ProcurementPage() {
   const [loading, setLoading] = useState(true);
   const [genOpen, setGenOpen] = useState(false);
   const [genCycle, setGenCycle] = useState("");
-  const [genStart, setGenStart] = useState(() => new Date().toISOString().slice(0, 10));
-  const [genEnd, setGenEnd] = useState(() => { const d = new Date(); d.setDate(d.getDate() + 6); return d.toISOString().slice(0, 10); });
+  const [genStartWeekday, setGenStartWeekday] = useState<(typeof WEEKDAYS)[number]>("Monday");
+  const [genEndWeekday, setGenEndWeekday] = useState<(typeof WEEKDAYS)[number]>("Sunday");
   const [genError, setGenError] = useState("");
+  const [newListName, setNewListName] = useState("");
+  const [newPoSupplier, setNewPoSupplier] = useState("");
+  const [editingListId, setEditingListId] = useState<number | null>(null);
+  const [editingListName, setEditingListName] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -273,14 +390,68 @@ export default function ProcurementPage() {
 
   async function doGenerate() {
     if (!genCycle) return;
-    if (!genStart || !genEnd || genEnd < genStart) { setGenError("Pick a valid date range (end on or after start)."); return; }
+    if (WEEKDAYS.indexOf(genEndWeekday) < WEEKDAYS.indexOf(genStartWeekday)) {
+      setGenError("Pick a contiguous weekday span where To is on or after From.");
+      return;
+    }
     setGenError("");
     try {
-      const list = await generateFromCycle(parseInt(genCycle), genStart, genEnd);
-      setGenOpen(false); await load(); setTab("lists"); setListDetail(list.id);
+      const list = await generateFromCycleWeekdays(parseInt(genCycle), genStartWeekday, genEndWeekday);
+      setGenOpen(false); setLists((current) => [list, ...current]); setTab("lists"); setListDetail(list.id);
     } catch (e) {
       setGenError(e instanceof Error ? e.message : "Failed to generate list.");
     }
+  }
+
+  async function createManualList() {
+    if (!newListName.trim()) return;
+    const created = await createShoppingList({
+      name: newListName.trim(),
+      list_type: "manual",
+      status: "draft",
+      list_date: new Date().toISOString().slice(0, 10),
+    });
+    setLists((current) => [created, ...current]);
+    setNewListName("");
+    setTab("lists");
+    setListDetail(created.id);
+  }
+
+  async function createManualPo() {
+    const created = await createPurchaseOrder({
+      supplier_id: newPoSupplier ? parseInt(newPoSupplier) : null,
+      order_date: new Date().toISOString().slice(0, 10),
+      status: "draft",
+    });
+    setPos((current) => [created, ...current]);
+    setNewPoSupplier("");
+    setTab("pos");
+    setPoDetail(created.id);
+  }
+
+  async function saveListName(list: ShoppingList) {
+    if (!editingListName.trim()) {
+      setEditingListId(null);
+      return;
+    }
+    const updated = await updateShoppingList(list.id, { name: editingListName.trim() });
+    setLists((current) => current.map((item) => item.id === list.id ? updated : item));
+    setEditingListId(null);
+  }
+
+  async function removeList(id: number) {
+    await deleteShoppingList(id);
+    setLists((current) => current.filter((list) => list.id !== id));
+  }
+
+  async function removePo(id: number) {
+    await deletePurchaseOrder(id);
+    setPos((current) => current.filter((po) => po.id !== id));
+  }
+
+  async function patchPo(id: number, patch: Partial<Pick<PurchaseOrder, "or_number" | "status">>) {
+    const updated = await updatePurchaseOrder(id, patch);
+    setPos((current) => current.map((po) => po.id === id ? updated : po));
   }
 
   if (listDetail) return (
@@ -300,6 +471,27 @@ export default function ProcurementPage() {
         </div>
         <div className="flex items-center gap-3 shrink-0">
           <button onClick={load} className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-700"><RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} /> Refresh</button>
+          {tab === "lists" && (
+            <div className="flex items-center gap-2">
+              <input value={newListName} onChange={(e) => setNewListName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") void createManualList(); }}
+                placeholder="Manual list name" className="w-44 px-3 py-2 text-xs border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+              <Button variant="secondary" onClick={createManualList} className="px-3 py-2 flex items-center gap-1.5">
+                <Plus className="h-3.5 w-3.5" /> New list
+              </Button>
+            </div>
+          )}
+          {tab === "pos" && (
+            <div className="flex items-center gap-2">
+              <select value={newPoSupplier} onChange={(e) => setNewPoSupplier(e.target.value)}
+                className="w-44 px-3 py-2 text-xs border border-zinc-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer">
+                <option value="">Unassigned vendor</option>
+                {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+              <Button variant="secondary" onClick={createManualPo} className="px-3 py-2 flex items-center gap-1.5">
+                <Plus className="h-3.5 w-3.5" /> New PO
+              </Button>
+            </div>
+          )}
           {tab === "lists" && <Button variant="primary" onClick={() => setGenOpen(true)} className="px-4 py-2.5 flex items-center gap-2"><Plus className="h-4 w-4" /> Suggest from Menu</Button>}
         </div>
       </div>
@@ -317,12 +509,23 @@ export default function ProcurementPage() {
               </select>
             </div>
             <div>
-              <label className="block text-[10px] font-extrabold text-zinc-500 uppercase mb-1">From</label>
-              <input type="date" value={genStart} onChange={(e) => setGenStart(e.target.value)} className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+              <label className="block text-[10px] font-extrabold text-zinc-500 uppercase mb-1">From weekday</label>
+              <select value={genStartWeekday} onChange={(e) => {
+                const next = e.target.value as (typeof WEEKDAYS)[number];
+                setGenStartWeekday(next);
+                if (WEEKDAYS.indexOf(genEndWeekday) < WEEKDAYS.indexOf(next)) setGenEndWeekday(next);
+              }} className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                {WEEKDAYS.map((day) => <option key={day} value={day}>{day}</option>)}
+              </select>
             </div>
             <div>
-              <label className="block text-[10px] font-extrabold text-zinc-500 uppercase mb-1">To</label>
-              <input type="date" value={genEnd} min={genStart} onChange={(e) => setGenEnd(e.target.value)} className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+              <label className="block text-[10px] font-extrabold text-zinc-500 uppercase mb-1">To weekday</label>
+              <select value={genEndWeekday} onChange={(e) => setGenEndWeekday(e.target.value as (typeof WEEKDAYS)[number])}
+                className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                {WEEKDAYS.map((day, index) => (
+                  <option key={day} value={day} disabled={index < WEEKDAYS.indexOf(genStartWeekday)}>{day}</option>
+                ))}
+              </select>
             </div>
             <div className="flex items-end gap-2">
               <Button variant="primary" onClick={doGenerate} className="px-4 py-2">Generate</Button>
@@ -353,12 +556,37 @@ export default function ProcurementPage() {
               <tbody className="divide-y divide-zinc-100">
                 {lists.map((l) => (
                   <tr key={l.id} className="hover:bg-zinc-50/60">
-                    <td className="px-4 py-3"><button onClick={() => setListDetail(l.id)} className="font-semibold text-emerald-700 hover:underline cursor-pointer">{l.name}</button></td>
+                    <td className="px-4 py-3">
+                      {editingListId === l.id ? (
+                        <div className="flex items-center gap-2">
+                          <input value={editingListName} onChange={(e) => setEditingListName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") void saveListName(l); }}
+                            className="w-48 px-2 py-1 border border-zinc-200 rounded text-zinc-900 focus:outline-none focus:ring-1 focus:ring-emerald-400" />
+                          <button onClick={() => saveListName(l)} className="p-1.5 rounded-lg text-emerald-600 hover:bg-emerald-50 cursor-pointer" aria-label="Save list name">
+                            <Check className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <button onClick={() => setListDetail(l.id)} className="font-semibold text-emerald-700 hover:underline cursor-pointer">{l.name}</button>
+                          <button onClick={() => { setEditingListId(l.id); setEditingListName(l.name); }} className="p-1 rounded text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 cursor-pointer" aria-label={`Edit ${l.name}`}>
+                            <Pencil className="h-3 w-3" />
+                          </button>
+                        </div>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-zinc-500">{l.list_type}</td>
                     <td className="px-4 py-3 text-zinc-500">{l.days_span ? `${l.days_span}d` : "—"}</td>
                     <td className="px-4 py-3 text-zinc-500">{l.items.length}</td>
-                    <td className="px-4 py-3"><span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${l.status === "finalized" ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-zinc-100 text-zinc-500 border-zinc-200"}`}>{l.status}</span></td>
-                    <td className="px-4 py-3"><button onClick={() => deleteShoppingList(l.id).then(load)} className="p-1.5 rounded-lg hover:bg-red-50 text-zinc-500 hover:text-red-600 cursor-pointer"><Trash2 className="h-3.5 w-3.5" /></button></td>
+                    <td className="px-4 py-3">
+                      <select value={l.status} onChange={async (e) => {
+                        const updated = await updateShoppingList(l.id, { status: e.target.value as "draft" | "finalized" });
+                        setLists((current) => current.map((item) => item.id === l.id ? updated : item));
+                      }} className="px-2 py-1 border border-zinc-200 rounded bg-white text-zinc-700 focus:outline-none focus:ring-1 focus:ring-emerald-400 cursor-pointer">
+                        <option value="draft">draft</option>
+                        <option value="finalized">finalized</option>
+                      </select>
+                    </td>
+                    <td className="px-4 py-3"><button onClick={() => removeList(l.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-zinc-500 hover:text-red-600 cursor-pointer" aria-label={`Delete ${l.name}`}><Trash2 className="h-3.5 w-3.5" /></button></td>
                   </tr>
                 ))}
               </tbody>
@@ -373,10 +601,20 @@ export default function ProcurementPage() {
                   <tr key={p.id} className="hover:bg-zinc-50/60">
                     <td className="px-4 py-3"><button onClick={() => setPoDetail(p.id)} className="font-semibold text-emerald-700 hover:underline cursor-pointer font-mono">{p.po_number}</button></td>
                     <td className="px-4 py-3 text-zinc-600">{p.supplier?.name ?? "—"}</td>
-                    <td className="px-4 py-3 text-zinc-500">{p.or_number ?? "—"}</td>
+                    <td className="px-4 py-3">
+                      <input defaultValue={p.or_number ?? ""} onBlur={(e) => patchPo(p.id, { or_number: e.target.value || null })}
+                        placeholder="OR #" className="w-28 px-2 py-1 border border-zinc-200 rounded text-zinc-700 focus:outline-none focus:ring-1 focus:ring-emerald-400" />
+                    </td>
                     <td className="px-4 py-3 font-mono text-zinc-700">{peso(num(p.total_amount))}</td>
-                    <td className="px-4 py-3"><span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${p.status === "received" ? "bg-emerald-50 text-emerald-700 border-emerald-200" : p.status === "ordered" ? "bg-amber-50 text-amber-700 border-amber-200" : "bg-zinc-100 text-zinc-500 border-zinc-200"}`}>{p.status}</span></td>
-                    <td className="px-4 py-3"><button onClick={() => deletePurchaseOrder(p.id).then(load)} className="p-1.5 rounded-lg hover:bg-red-50 text-zinc-500 hover:text-red-600 cursor-pointer"><Trash2 className="h-3.5 w-3.5" /></button></td>
+                    <td className="px-4 py-3">
+                      <select value={p.status} onChange={(e) => patchPo(p.id, { status: e.target.value as "draft" | "ordered" | "received" })}
+                        className="px-2 py-1 border border-zinc-200 rounded bg-white text-zinc-700 focus:outline-none focus:ring-1 focus:ring-emerald-400 cursor-pointer">
+                        <option value="draft">draft</option>
+                        <option value="ordered">ordered</option>
+                        <option value="received">received</option>
+                      </select>
+                    </td>
+                    <td className="px-4 py-3"><button onClick={() => removePo(p.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-zinc-500 hover:text-red-600 cursor-pointer"><Trash2 className="h-3.5 w-3.5" /></button></td>
                   </tr>
                 ))}
               </tbody>

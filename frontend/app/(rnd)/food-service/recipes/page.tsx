@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CookingPot, Plus, Pencil, Trash2, Loader2 } from "lucide-react";
+import { CookingPot, Plus, Pencil, Trash2, Loader2, Banana } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 
 interface FSSRecipe {
@@ -26,8 +26,7 @@ async function deleteRecipe(id: number): Promise<void> {
 }
 
 const FSS_CATEGORIES = [
-  "All", "Regular Diet", "Vegetable", "Vegetarian", "High Fiber",
-  "Staple", "Diabetic-Friendly", "Soft Diet", "Breakfast", "Snack",
+  "All", "beverage", "breakfast", "lunch", "snack", "dinner",
 ];
 
 export default function FSSRecipeListPage() {
@@ -71,16 +70,22 @@ export default function FSSRecipeListPage() {
         <div>
           <h2 className="text-xl font-extrabold text-zinc-950 tracking-tight flex items-center gap-2.5">
             <CookingPot className="h-5 w-5 text-emerald-600" />
-            Food Service Recipes
+            Foods
           </h2>
           <p className="text-xs text-zinc-500 mt-1 select-none">
-            Managed recipes for hospital food service. Cost is calculated live per recipe.
+            Manage recipes and single-ingredient food items used by the menu cycle.
           </p>
         </div>
-        <Button variant="primary" onClick={() => router.push("/food-service/recipes/new")}
-          className="w-auto flex items-center gap-2 px-4">
-          <Plus className="h-3.5 w-3.5" /> New Recipe
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="secondary" onClick={() => router.push("/food-service/foods/new?single=1")}
+            className="w-auto flex items-center gap-2 px-4">
+            <Banana className="h-3.5 w-3.5" /> Single Item
+          </Button>
+          <Button variant="primary" onClick={() => router.push("/food-service/foods/new")}
+            className="w-auto flex items-center gap-2 px-4">
+            <Plus className="h-3.5 w-3.5" /> New Recipe
+          </Button>
+        </div>
       </div>
 
       {error && (
@@ -126,7 +131,7 @@ export default function FSSRecipeListPage() {
               {filtered.map((recipe) => (
                 <tr key={recipe.id} className="hover:bg-zinc-50 transition-colors">
                   <td className="px-5 py-3.5">
-                    <Link href={`/food-service/recipes/${recipe.id}`}
+                    <Link href={`/food-service/foods/${recipe.id}`}
                       className="font-bold text-zinc-900 hover:text-emerald-700 transition-colors">
                       {recipe.name}
                     </Link>
@@ -142,7 +147,7 @@ export default function FSSRecipeListPage() {
                   </td>
                   <td className="px-4 py-3.5 text-right">
                     <div className="flex items-center justify-end gap-2">
-                      <Link href={`/food-service/recipes/${recipe.id}`}
+                      <Link href={`/food-service/foods/${recipe.id}`}
                         className="p-1.5 rounded-lg text-zinc-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors">
                         <Pencil className="h-3.5 w-3.5" />
                       </Link>
