@@ -1,0 +1,108 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Models\Patient;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Hash;
+use Spatie\Activitylog\Models\Activity;
+use Tests\TestCase;
+
+class AdminAuditLogTest extends TestCase
+{
+    use RefreshDatabase;
+
+    private User $admin;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->admin = User::factory()->create([
+            'role' => 'Admin',
+            'password' => Hash::make('password'),
+        ]);
+    }
+
+    public function test_admin_can_filter_paginated_audit_logs(): void
+    {
+        $rnd = User::factory()->create(['role' => 'RND']);
+        $fss = User::factory()->create(['role' => 'FSS']);
+
+        Activity::create([
+            'log_name' => 'audit',
+            'event' => 'created',
+            'description' => 'Created patient',
+            'causer_type' => User::class,
+            'causer_id' => $rnd->id,
+            'subject_type' => Patient::class,
+            'subject_id' => 101,
+            'created_at' => '2026-06-10 08:00:00',
+        ]);
+        Activity::create([
+            'log_name' => 'audit',
+            'event' => 'updated',
+            'description' => 'Updated inventory',
+            'causer_type' => User::class,
+            'causer_id' => $fss->id,
+            'subject_type' => 'inventory',
+            'subject_id' => 202,
+            'created_at' => '2026-06-11 08:00:00',
+        ]);
+
+        $response = $this->actingAs($this->admin, 'sanctum')
+            ->getJson("/api/admin/audit-logs?causer_id={$rnd->id}&subject_type=".urlencode(Patient::class).'&event=created&start=2026-06-10&end=2026-06-10&per_page=5');
+
+        $response->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.event', 'created')
+            ->assertJsonPath('data.0.causer.id', $rnd->id)
+            ->assertJsonStructure([
+                'data' => [[
+                    'id',
+                    'log_name',
+                    'description',
+                    'event',
+                    'subject_type',
+                    'subject_id',
+                    'causer',
+                    'properties',
+                    'created_at',
+                ]],
+                'links',
+                'meta',
+            ]);
+    }
+
+    public function test_clinical_audit_values_are_redacted_before_admin_api_exposes_them(): void
+    {
+        $rnd = User::factory()->create(['role' => 'RND']);
+
+        $this->actingAs($rnd, 'sanctum');
+        $patient = Patient::factory()->create([
+            'name' => 'Jane Sensitive',
+            'contact' => '09171234567',
+            'medical_diagnosis' => 'Private diagnosis',
+        ]);
+
+        $patient->update([
+            'contact' => '09998887777',
+            'medical_diagnosis' => 'Updated private diagnosis',
+        ]);
+
+        $response = $this->actingAs($this->admin, 'sanctum')
+            ->getJson('/api/admin/audit-logs?subject_type='.urlencode(Patient::class));
+
+        $response->assertOk();
+
+        $payload = json_encode($response->json('data'), JSON_THROW_ON_ERROR);
+
+        $this->assertStringNotContainsString('Jane Sensitive', $payload);
+        $this->assertStringNotContainsString('09171234567', $payload);
+        $this->assertStringNotContainsString('09998887777', $payload);
+        $this->assertStringNotContainsString('Private diagnosis', $payload);
+        $this->assertStringNotContainsString('Updated private diagnosis', $payload);
+        $this->assertStringContainsString('redacted', $payload);
+    }
+}
