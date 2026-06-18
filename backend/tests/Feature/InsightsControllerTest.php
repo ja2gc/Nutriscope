@@ -46,7 +46,7 @@ class InsightsControllerTest extends TestCase
     public function test_cost_per_head_reports_average_daily_per_cycle(): void
     {
         $fs = FsItem::factory()->create(['name' => 'Rice', 'base_unit' => 'g', 'purchase_unit' => 'kg', 'purchase_price' => 50]); // unit_cost 0.05/g
-        $cycle = MenuCycle::factory()->create(['name' => 'Cycle A', 'population' => 10]);
+        $cycle = MenuCycle::factory()->create(['name' => 'Cycle A']);
         MenuCycleDay::create([
             'menu_cycle_id' => $cycle->id, 'day_of_week' => 'Monday',
             'meal_type' => 'lunch', 'fs_item_id' => $fs->id, 'quantity' => 1000,

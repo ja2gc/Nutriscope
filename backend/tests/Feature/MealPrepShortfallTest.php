@@ -28,7 +28,7 @@ class MealPrepShortfallTest extends TestCase
         $this->rnd = User::factory()->create(['role' => 'RND', 'password' => Hash::make('password')]);
 
         // Cycle owned by the RND; Monday lunch needs 100 g/head of one item.
-        $this->cycle = MenuCycle::factory()->create(['rnd_user_id' => $this->rnd->id, 'population' => 5]);
+        $this->cycle = MenuCycle::factory()->create(['rnd_user_id' => $this->rnd->id]);
         $this->item  = FsItem::factory()->create(['name' => 'Rice', 'base_unit' => 'g']);
         MenuCycleDay::create([
             'menu_cycle_id' => $this->cycle->id, 'day_of_week' => 'Monday',
