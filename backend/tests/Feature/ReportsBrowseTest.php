@@ -225,6 +225,35 @@ class ReportsBrowseTest extends TestCase
         $this->assertEqualsWithDelta(6000, $data['ending_balance'], 0.01); // 0 + 8000 − 2000
     }
 
+    public function test_cashbook_includes_manual_non_po_spend_from_budget_daily_logs(): void
+    {
+        $budget = Budget::factory()->create([
+            'rnd_user_id' => $this->rnd->id,
+            'scope' => 'monthly',
+            'allocated_amount' => 8000,
+            'period_start' => '2026-05-01',
+            'period_end' => '2026-05-31',
+        ]);
+        $budget->dailyLogs()->create([
+            'log_date' => '2026-05-12',
+            'spent' => 350,
+            'notes' => 'Petty cash vegetables',
+        ]);
+
+        $gen  = new \App\Services\Reports\Generators\DietaryCashBookGenerator();
+        $data = $gen->data(new Report([
+            'type' => 'dietary_cash_book',
+            'parameters' => ['start' => '2026-05-01', 'end' => '2026-05-31'],
+        ]));
+
+        $this->assertEqualsWithDelta(350, $data['total_disbursement'], 0.01);
+        $this->assertTrue(collect($data['rows'])->contains(fn ($row) =>
+            $row['date'] === '2026-05-12'
+            && $row['nature'] === 'Petty cash vegetables'
+            && (float) $row['disbursement'] === 350.0
+        ));
+    }
+
     public function test_explicit_replenishment_param_overrides_budget_derivation(): void
     {
         // Back-compat: an explicit replenishment param still wins over budget derivation.

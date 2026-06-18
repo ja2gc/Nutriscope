@@ -56,10 +56,31 @@ export async function listShoppingLists(): Promise<ShoppingList[]> {
 export async function getShoppingList(id: number): Promise<ShoppingList> {
   return unwrap(await apiFetch(`/api/fss/shopping-lists/${id}`), "Failed to load list.");
 }
+export async function createShoppingList(payload: {
+  name: string;
+  list_date?: string | null;
+  list_type?: "manual" | "suggested";
+  status?: "draft" | "finalized";
+}): Promise<ShoppingList> {
+  return unwrap(await apiFetch("/api/fss/shopping-lists", {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
+  }), "Failed to create list.");
+}
+export async function updateShoppingList(id: number, patch: Partial<Pick<ShoppingList, "name" | "list_date" | "status">>): Promise<ShoppingList> {
+  return unwrap(await apiFetch(`/api/fss/shopping-lists/${id}`, {
+    method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch),
+  }), "Failed to update list.");
+}
 export async function generateFromCycle(menu_cycle_id: number, start_date: string, end_date: string, name?: string): Promise<ShoppingList> {
   return unwrap(await apiFetch("/api/fss/shopping-lists/generate", {
     method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ menu_cycle_id, start_date, end_date, name }),
+  }), "Failed to generate list.");
+}
+export async function generateFromCycleWeekdays(menu_cycle_id: number, start_weekday: string, end_weekday: string, name?: string): Promise<ShoppingList> {
+  return unwrap(await apiFetch("/api/fss/shopping-lists/generate", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ menu_cycle_id, start_weekday, end_weekday, name }),
   }), "Failed to generate list.");
 }
 export async function deleteShoppingList(id: number): Promise<void> {
@@ -71,11 +92,42 @@ export async function updateListItem(itemId: number, patch: { supplier_id?: numb
     method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch),
   }), "Failed to update item.");
 }
+export async function addListItem(listId: number, payload: {
+  fs_item_id?: number | null;
+  ingredient_name?: string | null;
+  qty: number;
+  unit: string;
+  supplier_id?: number | null;
+  unit_price?: number | null;
+  purchase_qty?: number | null;
+  purchase_unit?: string | null;
+  purchase_price?: number | null;
+}): Promise<ShoppingListItem> {
+  return unwrap(await apiFetch(`/api/fss/shopping-lists/${listId}/items`, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
+  }), "Failed to add item.");
+}
+export async function deleteListItem(itemId: number): Promise<void> {
+  const res = await apiFetch(`/api/fss/shopping-list-items/${itemId}`, { method: "DELETE" });
+  if (!res.ok && res.status !== 204) throw new Error("Failed to delete item.");
+}
 export async function generatePos(listId: number): Promise<{ purchase_order_ids: number[] }> {
   return unwrap(await apiFetch(`/api/fss/shopping-lists/${listId}/generate-pos`, { method: "POST" }), "Failed to generate POs.");
 }
 
 // ─── Purchase orders ───────────────────────────────────────────────────────────
+export async function createPurchaseOrder(payload: {
+  shopping_list_id?: number | null;
+  supplier_id?: number | null;
+  or_number?: string | null;
+  order_date?: string | null;
+  status?: "draft" | "ordered" | "received";
+  notes?: string | null;
+}): Promise<PurchaseOrder> {
+  return unwrap(await apiFetch("/api/fss/purchase-orders", {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
+  }), "Failed to create PO.");
+}
 export async function listPurchaseOrders(shoppingListId?: number): Promise<PurchaseOrder[]> {
   const qs = shoppingListId ? `?shopping_list_id=${shoppingListId}` : "";
   return unwrap(await apiFetch(`/api/fss/purchase-orders${qs}`), "Failed to load purchase orders.");

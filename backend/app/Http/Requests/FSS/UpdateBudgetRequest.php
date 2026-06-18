@@ -12,6 +12,7 @@ class UpdateBudgetRequest extends FormRequest
     {
         return [
             'scope'                 => ['nullable', 'in:monthly,quarterly,yearly,custom'],
+            'menu_cycle_id'         => ['nullable', 'integer', 'exists:menu_cycles,id'],
             'name'                  => ['nullable', 'string', 'max:255'],
             'allocated_amount'      => ['nullable', 'numeric', 'min:0'],
             'actual_amount'         => ['nullable', 'numeric', 'min:0'],

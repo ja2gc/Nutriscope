@@ -11,7 +11,7 @@ class Budget extends Model
     use \App\Models\Concerns\AuditsChanges;
 
     protected $fillable = [
-        'rnd_user_id', 'scope', 'name', 'allocated_amount', 'actual_amount',
+        'rnd_user_id', 'menu_cycle_id', 'scope', 'name', 'allocated_amount', 'actual_amount',
         'period_start', 'period_end', 'cost_per_person', 'population',
         'budget_per_head_day', 'budget_per_head_month', 'budget_per_head_year',
     ];
@@ -31,6 +31,11 @@ class Budget extends Model
     public function rnd()
     {
         return $this->belongsTo(User::class, 'rnd_user_id');
+    }
+
+    public function menuCycle()
+    {
+        return $this->belongsTo(MenuCycle::class);
     }
 
     /**

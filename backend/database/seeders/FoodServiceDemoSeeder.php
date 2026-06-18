@@ -224,9 +224,8 @@ class FoodServiceDemoSeeder extends Seeder
     {
         $weekStart = Carbon::now()->startOfWeek(Carbon::MONDAY);
 
-        // Population now lives per-day on each menu_cycle_day (150–200, distinct per day).
-        // The cycle-level population/budget_per_head_per_day columns are vestigial (the
-        // cap is owned by Budget) but still NOT NULL, so seed representative values.
+        // Population now lives per-day on each menu_cycle_day (150-200, distinct per day).
+        // The cap is owned by Budget.
         $dayPop = [
             'Monday' => 175, 'Tuesday' => 168, 'Wednesday' => 182, 'Thursday' => 160,
             'Friday' => 190, 'Saturday' => 155, 'Sunday' => 172,
@@ -234,7 +233,7 @@ class FoodServiceDemoSeeder extends Seeder
 
         $cycle = MenuCycle::create([
             'rnd_user_id' => $rnd, 'name' => 'June Subsistence Cycle — Week 1',
-            'population' => (int) round(array_sum($dayPop) / count($dayPop)), 'budget_per_head_per_day' => 150, 'cycle_days' => 7,
+            'cycle_days' => 7,
             'is_active' => true, 'status' => 'active',
             'week_start_date' => $weekStart->toDateString(), 'activation_date' => $weekStart->toDateString(),
         ]);
@@ -277,7 +276,8 @@ class FoodServiceDemoSeeder extends Seeder
     {
         $cost      = MenuCycleCostService::forCycle($cycle);
         $dayCosts  = array_values(array_map(fn ($d) => $d['cost'], $cost['days']));
-        $avgDay    = $dayCosts ? array_sum($dayCosts) / count($dayCosts) : ($cycle->population * 110);
+        $avgPopulation = (int) round($cycle->days->whereNotNull('estimate_population')->avg('estimate_population') ?? 0);
+        $avgDay        = $dayCosts ? array_sum($dayCosts) / count($dayCosts) : ($avgPopulation * 110);
 
         $start = Carbon::now()->startOfMonth();
         $end   = Carbon::now()->endOfMonth();
@@ -287,7 +287,7 @@ class FoodServiceDemoSeeder extends Seeder
         $perHeadCap = 150;
         $budget = Budget::create([
             'rnd_user_id' => $fss, 'scope' => 'monthly', 'name' => $start->format('F Y') . ' Food Subsistence',
-            'allocated_amount' => round($avgDay * 30, -2), 'population' => $cycle->population,
+            'allocated_amount' => round($avgDay * 30, -2), 'population' => $avgPopulation,
             'cost_per_person' => $perHeadCap, 'budget_per_head_day' => $perHeadCap,
             'period_start' => $start->toDateString(), 'period_end' => $end->toDateString(),
         ]);

@@ -103,8 +103,6 @@ class MenuCycleTemplateController extends Controller
     {
         $data = $request->validate([
             'name'                    => ['nullable', 'string', 'max:255'],
-            'population'              => ['nullable', 'integer', 'min:0'],
-            'budget_per_head_per_day' => ['nullable', 'numeric', 'min:0'],
             'week_start_date'         => ['nullable', 'date'],
         ]);
 
@@ -112,8 +110,6 @@ class MenuCycleTemplateController extends Controller
             $cycle = MenuCycle::create([
                 'rnd_user_id'             => Auth::id(),
                 'name'                    => $data['name'] ?? ($menuCycleTemplate->name . ' — ' . now()->format('M j')),
-                'population'              => $data['population'] ?? 0,
-                'budget_per_head_per_day' => $data['budget_per_head_per_day'] ?? null,
                 'cycle_days'              => $menuCycleTemplate->cycle_days,
                 'week_start_date'         => $data['week_start_date'] ?? now()->toDateString(),
                 'status'                  => 'draft',

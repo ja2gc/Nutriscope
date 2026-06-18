@@ -125,12 +125,11 @@ class MenuCycleController extends Controller
 
     /**
      * Costing summary for the planner: per-day cost + cost/head, week total, and
-     * the per-day budget status (the red/amber/green chip) vs budget_per_head_per_day.
+     * the per-day budget status (the red/amber/green chip) vs the covering budget.
      */
-    public function compute(Request $request, MenuCycle $menuCycle): JsonResponse
+    public function compute(MenuCycle $menuCycle): JsonResponse
     {
-        $population = $request->filled('population') ? (int) $request->get('population') : null;
-        $result     = MenuCycleCostService::forCycle($menuCycle, $population);
+        $result = MenuCycleCostService::forCycle($menuCycle);
 
         // Per-head cap is owned by the Budget covering this cycle's anchored week.
         $capDate    = $menuCycle->week_start_date ?? now();
