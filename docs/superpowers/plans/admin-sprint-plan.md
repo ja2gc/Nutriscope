@@ -21,6 +21,11 @@ The antigravity/codex Admin UI shipped with little-to-no working backend connect
 - [ ] **Proven in-browser:** create/edit/delete persists across a reload; list reflects server state; an API error surfaces in the UI. Capture it (preview screenshot / network) — never claim done from a type-check alone.
 - [ ] Loading + empty + error states wired to real fetch state.
 
+## ⚠ Next.js PROXY LAYER (applies to EVERY admin page — discovered in S1/S2 browser verify)
+The frontend does **not** call Laravel directly. Each service calls a same-origin Next.js route handler under `frontend/app/api/**/route.ts`, which proxies to the backend via `frontend/lib/laravelProxy.ts` (`proxy(path, {method,body,search})`, forwards the `nutriscope_token` cookie as a Bearer). RND/FSS/auth handlers already exist; **Admin ones must be created or the page 404s at runtime even with a clean type-check.** A green `tsc` does NOT prove the page works — only the Functional Gate browser round-trip does.
+- **Already added (S1/S2):** `app/api/admin/users/route.ts`, `users/[id]/route.ts`, `users/[id]/reset-password/route.ts`, `audit-logs/route.ts`, `dashboard/route.ts`.
+- **Still needed per sprint:** S4 announcements (Admin pins → must proxy to `/admin/announcements`, not the shared `/api/announcements` handler that targets `/rnd/announcements`); S5 notifications (`/api/notifications*` after the route move); S6 profile reuses existing `/api/auth/*` handlers (no new proxy); S7 branding reuses existing `app/api/rnd/report-branding` or add `/api/admin/report-branding` pointing at the shared backend route. **Confirm/create the proxy handler as the FIRST frontend task of each sprint.**
+
 ## TDD discipline (applies to EVERY backend task)
 Per superpowers:test-driven-development: **write the failing test → run it, see it FAIL (RED) → minimal implementation → run it, see it PASS (GREEN) → commit.** Never write implementation before a failing test. Backend verify: `cd backend && php artisan test`. Frontend verify: `cd frontend && npx tsc --noEmit` **plus** the Functional Gate browser round-trip.
 
