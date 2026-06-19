@@ -1,6 +1,6 @@
 "use client";
 
-import { ALL_MICROS } from "@/lib/nutritionCalculations";
+import { ALL_MICROS, microKeys } from "@/lib/nutritionCalculations";
 import MicronutrientToggle from "./MicronutrientToggle";
 import { AlertTriangle, X, Lock, FlaskConical } from "lucide-react";
 
@@ -59,11 +59,15 @@ export default function NutritionPrescriptionForm({
     });
   };
 
+  // Only real micronutrient keys belong in the limits list — strip any macro keys
+  // that leaked into displayed_nutrients (legacy/seed data stored macros here).
+  const microList = microKeys(values.displayed_nutrients);
+
   return (
     <div className="bg-white border border-zinc-200 rounded-2xl p-5 shadow-sm space-y-5">
       <div className="flex items-center justify-between">
         <h3 className="text-xs font-extrabold text-zinc-700 uppercase tracking-wider">Nutrition Prescription</h3>
-        <MicronutrientToggle selected={values.displayed_nutrients} onChange={setMicros} required={requiredMicros} />
+        <MicronutrientToggle selected={microList} onChange={setMicros} required={requiredMicros} />
       </div>
 
       {note && (
@@ -92,11 +96,11 @@ export default function NutritionPrescriptionForm({
       </div>
 
       {/* Micronutrient limit rows */}
-      {values.displayed_nutrients.length > 0 ? (
+      {microList.length > 0 ? (
         <div className="space-y-2 pt-2 border-t border-zinc-100">
           <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest">Micronutrient Limits</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {values.displayed_nutrients.map((key) => {
+            {microList.map((key) => {
               const micro    = ALL_MICROS.find((m) => m.key === key);
               const limits   = values.micronutrient_limits[key] ?? {};
               const required = requiredMicros.includes(key);
