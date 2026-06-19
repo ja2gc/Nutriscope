@@ -811,8 +811,9 @@ export default function NcpAssessmentPage({
       setSuccess(null);
       const toSave: Partial<Assessment> = {
         ...assessment,
+        // Auto-computed fields — override stored value with live computation when available
         bmi: computedBmi,
-        // Auto-computed fields — override whatever manual value may have been stored
+        ibw_percentage: computedPercentIBW ?? assessment.ibw_percentage,
         weight_loss_percentage: computedWeightLossPct ?? assessment.weight_loss_percentage,
         nutritional_status: riskScore > 3 ? "Severe Malnutrition" : riskScore >= 2 ? "Moderate Malnutrition" : "Normal",
       };
