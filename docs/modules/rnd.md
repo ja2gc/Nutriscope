@@ -50,8 +50,20 @@ The Reports Center is a **browser**, not a generator. Pick a report type → see
 - **Prepared-by** is always the logged-in user; other signatory names are blank placeholders filled per-hospital in **Template Edit** (which also edits the letterhead text + logos).
 - RND-visible types: Program Project Activity, Menu Calendar, Dietary Cash Book, Procurement Pack, Budget Report, Inventory Report (food service); **Demographic Census, Patient Menu Plan, NCP Summary** (clinical — RND-only). Archives are owner-scoped (you see the ones you filed).
 
-## 6. Calendar (planned)
+## 6. Calendar (planned) 
+[2026-06-19] Pre-defense scope decision — calendar frontend hidden from RND nav (removed from sidebar). Backend (calendar_events table, controller, routes) preserved intact for post-defense wiring. Rationale: upcoming follow-up schedules are already surfaced on the RND dashboard, making the calendar view redundant for the current demo. Auto-event wiring (follow-up dates, monitoring rechecks, menu activation, stock expiry, budget deadlines) remains a post-defense task.
+
 Backend (`calendar_events`) exists; the frontend is currently a scaffold. Intended flow: FullCalendar renders events sourced from the `calendar_events` table. **Auto-events** would be created by system events — follow-up dates, monitoring rechecks, reassessment, menu activation, stock expiry, budget deadlines. System events are mark-complete only; manual events are editable/deletable.
 
 ## 7. Notifications (planned)
-Backend (`notifications`) + read/read-all endpoints exist; the frontend is a scaffold and **no event currently writes notifications**. Intended flow: a notification service creates entries on key events (PO received, low stock, budget exceeded, follow-up due) surfaced via a dashboard bell + notifications page + per-module badges.
+[2026-06-19] For defense: two notification triggers only — (1) announcement posted, fanned out to users matching the announcement's existing visibility setting; (2) upcoming follow-up, fires 1 day before the most recent scheduled follow-up date. Follow-up notification requires Laravel scheduler running in the backend container — verify cron is set up in Docker. No schema changes needed.
+
+Backend (`notifications`) + read/read-all endpoints exist; the frontend is a scaffold and **no event currently writes notifications**. Intended flow: a notification service creates entries on key events (announcements. upcoming follow-up 1 day before) surfaced via a dashboard bell + notifications page + per-module badges.
+
+## 8. Settings (planned)
+Basic settings stuff
+[2026-06-19] Check existing scaffold before building. Build frontend only against what the backend already supports. Do not add settings with no backend support.
+
+## 9. Profile (planned)
+basic profile stuff
+[2026-06-19] At minimum: User name (which should be the same variable for reports that are the ones that prepared it), email, password change. Check if profile photo upload is supported in the backend before adding it to the frontend.
