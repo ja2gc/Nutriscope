@@ -11,10 +11,10 @@ export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
   const router = useRouter();
   const { user, logout } = useAuth();
 
-  // Live unread count — notifications are RND-scoped on the backend.
+  // Live unread count — available to RND and Admin (shared backend route).
   const [unread, setUnread] = useState(0);
   const refreshUnread = useCallback(async () => {
-    if (user?.role !== "RND") return;
+    if (user?.role !== "RND" && user?.role !== "Admin") return;
     try {
       const items = await fetchNotifications();
       setUnread(items.filter((n) => !n.read).length);
@@ -31,6 +31,7 @@ export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
     if (pathname.startsWith("/admin/users")) return "RBAC & User Access Manager";
     if (pathname.startsWith("/admin/audit-logs")) return "System Activity & Audit Logs";
     if (pathname.startsWith("/admin/announcements")) return "Publish System Announcements";
+    if (pathname.startsWith("/admin/notifications")) return "Activity Notifications";
     if (pathname.startsWith("/admin/reports")) return "Operations & Census Reports";
     if (pathname.startsWith("/admin/settings")) return "Global Hospital Settings";
     if (pathname.startsWith("/recipes")) return "Recipes & Ingredient Database";
@@ -82,10 +83,10 @@ export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
 
       {/* User Actions */}
       <div className="flex items-center gap-5">
-        {/* Alerts Bell — links to the notifications center; badge shows live unread count (RND). */}
-        {user?.role === "RND" && (
+        {/* Alerts Bell — links to the notifications center; badge shows live unread count (RND + Admin). */}
+        {(user?.role === "RND" || user?.role === "Admin") && (
           <button
-            onClick={() => router.push("/notifications")}
+            onClick={() => router.push(user.role === "Admin" ? "/admin/notifications" : "/notifications")}
             className={`relative p-1.5 rounded-lg cursor-pointer transition-colors ${
               isAdminPath ? "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900" : "text-zinc-400 hover:text-zinc-600 hover:bg-zinc-50"
             }`}
