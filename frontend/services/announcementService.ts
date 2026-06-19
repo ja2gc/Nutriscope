@@ -99,3 +99,63 @@ export async function deleteAnnouncement(id: number | string): Promise<void> {
     throw new Error(errorData.message || "Failed to delete announcement.");
   }
 }
+
+// ---------------------------------------------------------------------------
+// Admin variants — route through /api/admin/announcements* so that the
+// Admin\AnnouncementController is hit and `pinned` is honoured.
+// ---------------------------------------------------------------------------
+
+export async function fetchAdminAnnouncements(): Promise<Announcement[]> {
+  const res = await apiFetch("/api/admin/announcements", {
+    method: "GET",
+    headers: { Accept: "application/json" },
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.message || "Failed to fetch announcements.");
+  }
+  const responseData = await res.json();
+  return responseData.data || [];
+}
+
+export async function createAdminAnnouncement(data: AnnouncementPayload): Promise<Announcement> {
+  const res = await apiFetch("/api/admin/announcements", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.message || "Failed to create announcement.");
+  }
+  const responseData = await res.json();
+  return responseData.data || responseData;
+}
+
+export async function updateAdminAnnouncement(
+  id: number | string,
+  data: Partial<AnnouncementPayload>
+): Promise<Announcement> {
+  const res = await apiFetch(`/api/admin/announcements/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.message || "Failed to update announcement.");
+  }
+  const responseData = await res.json();
+  return responseData.data || responseData;
+}
+
+export async function deleteAdminAnnouncement(id: number | string): Promise<void> {
+  const res = await apiFetch(`/api/admin/announcements/${id}`, {
+    method: "DELETE",
+    headers: { Accept: "application/json" },
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.message || "Failed to delete announcement.");
+  }
+}
