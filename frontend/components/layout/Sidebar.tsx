@@ -11,7 +11,6 @@ import {
   HeartHandshake, 
   Salad, 
   TrendingUp, 
-  CalendarDays, 
   BellDot, 
   Sliders,
   ChevronLeft,
@@ -399,18 +398,6 @@ export function Sidebar({ open = false, onClose }: { open?: boolean; onClose?: (
               {!collapsed && <span>Reports Center</span>}
             </Link>
 
-            <Link
-              href="/calendar"
-              className={`flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all duration-150 ${
-                pathname.startsWith("/calendar")
-                  ? "bg-zinc-900 text-zinc-100 border-l-2 border-emerald-600"
-                  : "text-zinc-400 hover:bg-zinc-900/60 hover:text-zinc-200"
-              }`}
-              title={collapsed ? "Calendar" : undefined}
-            >
-              <CalendarDays className={`h-4.5 w-4.5 shrink-0 ${pathname.startsWith("/calendar") ? "text-emerald-500" : "text-zinc-400"}`} />
-              {!collapsed && <span>Calendar</span>}
-            </Link>
 
             <Link
               href="/notifications"
