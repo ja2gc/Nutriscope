@@ -20,6 +20,16 @@ class MealPlanService
      */
     private const MICRO_PENALTY_PER_EXCESS = 1.0;
 
+    /**
+     * Per-day recency penalty weight. A recipe used N days ago receives
+     * (RECENCY_LOOK_BACK - N) * RECENCY_PENALTY added to its score.
+     * Macro distance is 0–√3 ≈ 1.73, so 0.40/day is enough to push
+     * a recently-used recipe out of the top-3 window without excluding
+     * it entirely when the pool is small.
+     */
+    private const RECENCY_LOOK_BACK  = 3;
+    private const RECENCY_PENALTY    = 0.40;
+
     // Approximate % of daily energy per meal slot
     private const SLOT_DISTRIBUTION = [
         'breakfast' => 0.25,
@@ -169,6 +179,7 @@ class MealPlanService
 
         $itemRows = [];
         $dayRecipeMap = []; // dayName => [slotType => chosen recipe id]
+        $crossDayUsed = []; // recipeUid => dayIndex of most-recent use (for recency penalty)
 
         foreach ($daysOfWeek as $dayIndex => $dayName) {
             $dayPool = $seededShuffle($recipes, $dayIndex);
@@ -206,9 +217,12 @@ class MealPlanService
                     $targetCarbsRatio,
                     $targetFatRatio,
                     $microLimits,
-                    $slotIndex
+                    $slotIndex,
+                    $crossDayUsed,
+                    $dayIndex
                 );
                 $usedThisDay[] = $best->uid;
+                $crossDayUsed[$best->uid] = $dayIndex;
                 $dayRecipeMap[$dayName][$mealType] = $best->uid;
 
                 // Scale quantity to hit slot calorie target (clamped to ±50% of 1 serving)
@@ -285,7 +299,9 @@ class MealPlanService
         float $targetCarbsRatio,
         float $targetFatRatio,
         array $microLimits,
-        int $fallbackIndex
+        int $fallbackIndex,
+        array $crossDayUsed = [],
+        int $currentDayIndex = 0
     ): object {
         $scored = [];
         foreach ($pool as $r) {
@@ -304,6 +320,16 @@ class MealPlanService
                 $recipeMicros = is_array($r->micronutrients) ? $r->micronutrients : [];
                 $score += $this->calcMicroPenalty($recipeMicros, $microLimits);
             }
+
+            // Cross-day recency penalty: push recently-used recipes down the ranking
+            // without hard-excluding them (important for small pools).
+            if (isset($crossDayUsed[$r->uid])) {
+                $daysSince = $currentDayIndex - $crossDayUsed[$r->uid];
+                if ($daysSince < self::RECENCY_LOOK_BACK) {
+                    $score += (self::RECENCY_LOOK_BACK - $daysSince) * self::RECENCY_PENALTY;
+                }
+            }
+
             $scored[] = ['recipe' => $r, 'score' => $score];
         }
 
