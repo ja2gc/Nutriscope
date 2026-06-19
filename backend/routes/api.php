@@ -247,4 +247,6 @@ Route::middleware(['auth:sanctum', 'role:Admin'])->prefix('admin')->group(functi
     Route::apiResource('users', AdminUserController::class);
     Route::get('audit-logs', [AdminAuditLogController::class, 'index']);
     Route::get('dashboard', AdminDashboardController::class);
+    Route::get('report-branding', [ReportBrandingController::class, 'show']);
+    Route::post('report-branding', [ReportBrandingController::class, 'update']);
 });
