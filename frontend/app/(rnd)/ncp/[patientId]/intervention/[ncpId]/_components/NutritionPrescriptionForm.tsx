@@ -2,6 +2,7 @@
 
 import { ALL_MICROS, microKeys } from "@/lib/nutritionCalculations";
 import MicronutrientToggle from "./MicronutrientToggle";
+import NumericInput from "@/components/ui/NumericInput";
 import { AlertTriangle, X, Lock, FlaskConical } from "lucide-react";
 
 interface PrescriptionValues {
@@ -80,18 +81,13 @@ export default function NutritionPrescriptionForm({
       {/* Macro inputs */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         {MACROS.map(({ key, label, unit }) => (
-          <div key={key}>
-            <label className="block text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-1">{label}</label>
-            <div className="flex items-center border border-zinc-200 rounded-lg overflow-hidden focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-500/20">
-              <input
-                type="number" min="0" step="0.1"
-                value={(values as unknown as Record<string, string>)[key] ?? ""}
-                onChange={(e) => setMacro(key, e.target.value)}
-                className="w-full px-2.5 py-2 text-sm font-mono text-zinc-900 bg-transparent focus:outline-none"
-              />
-              <span className="px-2 text-[9px] text-zinc-400 font-bold bg-zinc-50 border-l border-zinc-200 whitespace-nowrap">{unit}</span>
-            </div>
-          </div>
+          <NumericInput
+            key={key}
+            label={label}
+            value={(values as unknown as Record<string, string>)[key] ?? ""}
+            onChange={(val) => setMacro(key, val)}
+            unit={unit}
+          />
         ))}
       </div>
 

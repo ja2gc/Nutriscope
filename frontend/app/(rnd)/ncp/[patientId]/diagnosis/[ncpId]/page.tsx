@@ -5,8 +5,9 @@ import Link from "next/link";
 import {
   Stethoscope, Sparkles, User, ChevronRight, Heart,
   Plus, Trash2, Pencil, AlertTriangle, CheckCircle2,
-  RefreshCw, X, CheckCheck, Brain,
+  RefreshCw, X, CheckCheck,
 } from "lucide-react";
+import ButtonFilterGroup from "@/components/ui/ButtonFilterGroup";
 import { fetchPatientById, Patient } from "@/services/patientService";
 import {
   fetchDiagnoses, storeDiagnosis, updateDiagnosis, deleteDiagnosis,
@@ -518,23 +519,17 @@ export default function NcpDiagnosisPage({
   const renderTableTab = () => (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Filter:</span>
-          {(["ALL", "NI", "NC", "NB"] as const).map(f => (
-            <button
-              key={f}
-              type="button"
-              onClick={() => setDomainFilter(f)}
-              className={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-lg border transition-all cursor-pointer ${
-                domainFilter === f
-                  ? "bg-zinc-950 text-white border-zinc-950"
-                  : "bg-white text-zinc-500 border-zinc-200 hover:border-zinc-400"
-              }`}
-            >
-              {f}
-            </button>
-          ))}
-        </div>
+        <ButtonFilterGroup
+          options={[
+            { value: "ALL", label: "All" },
+            { value: "NI", label: "NI" },
+            { value: "NC", label: "NC" },
+            { value: "NB", label: "NB" },
+          ]}
+          value={domainFilter}
+          onChange={(val) => setDomainFilter(val as "ALL" | "NI" | "NC" | "NB")}
+          label="Filter:"
+        />
         <button
           type="button"
           onClick={startNew}
@@ -922,19 +917,19 @@ export default function NcpDiagnosisPage({
 
   const renderAiTab = () => (
     <div className="space-y-5">
-      <div className="bg-zinc-950 border border-zinc-800 rounded-2xl p-5 text-zinc-100">
-        <div className="flex items-center gap-2 text-orange-400 font-bold text-xs uppercase tracking-wider mb-2">
-          <Brain className="h-4 w-4" />
-          AI Clinical Reasoning Engine
+      <div className="bg-white border border-zinc-200 rounded-2xl p-5">
+        <div className="flex items-center gap-2 text-emerald-600 font-bold text-xs uppercase tracking-wider mb-2">
+          <Sparkles className="h-4 w-4" />
+          AI Suggestions
         </div>
-        <p className="text-[11px] text-zinc-400 leading-relaxed mb-4">
-          Analyzes patient medical diagnosis, existing assessments, and nutritional data to generate draft G-NCP PES statements for review. Using patient: <span className="text-zinc-200 font-semibold">{patient?.medical_diagnosis ?? "No diagnosis on file"}</span>
+        <p className="text-[11px] text-zinc-600 leading-relaxed mb-4">
+          Analyzes patient medical diagnosis and existing assessments to generate draft G-NCP PES statements for review. Using patient: <span className="font-semibold text-zinc-700">{patient?.medical_diagnosis ?? "No diagnosis on file"}</span>
         </p>
         <button
           type="button"
           onClick={handleAiSuggest}
           disabled={aiLoading}
-          className="inline-flex items-center gap-2 px-5 py-2.5 bg-orange-500 hover:bg-orange-600 disabled:bg-zinc-700 text-white text-[10px] font-extrabold uppercase tracking-wider rounded-lg transition-colors cursor-pointer disabled:cursor-not-allowed"
+          className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-zinc-300 text-white text-[10px] font-extrabold uppercase tracking-wider rounded-lg transition-colors cursor-pointer disabled:cursor-not-allowed"
         >
           {aiLoading ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
           {aiLoading ? "Generating suggestions..." : "Generate AI Suggestions"}
