@@ -1711,8 +1711,8 @@ export default function NcpAssessmentPage({
           {tabContent[activeTab]}
         </div>
 
-        {/* Risk Score (visible after Tab E, above Tab F) */}
-        {(activeTab === "referral" || activeTab === "summary") && (
+        {/* Risk Score — shown only on Tab F (Summary) so it appears once, not on Tab E */}
+        {activeTab === "summary" && (
           <div className="px-5 pb-5">
             {renderRiskScore()}
           </div>
