@@ -26,15 +26,39 @@ import {
   UserX,
   AlertTriangle,
   RefreshCw,
+  CheckCircle2,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Badge, BadgeTone } from "@/components/ui/Badge";
+
+// ─── helpers ────────────────────────────────────────────────────────────────
 
 const roleTones: Record<"Admin" | "RND" | "FSS", BadgeTone> = {
   Admin: "violet",
   RND: "emerald",
   FSS: "sky",
 };
+
+type FieldErrors = Record<string, string[]>;
+
+function FieldError({ errors, field }: { errors: FieldErrors; field: string }) {
+  const msgs = errors[field];
+  if (!msgs?.length) return null;
+  return (
+    <p className="text-[10px] text-red-600 font-semibold mt-1">{msgs[0]}</p>
+  );
+}
+
+function inputCls(errors: FieldErrors, field: string) {
+  const hasErr = !!errors[field]?.length;
+  return `w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/30 ${
+    hasErr
+      ? "border-red-400 bg-red-50/40"
+      : "border-zinc-200 bg-white focus:border-emerald-500"
+  } text-zinc-800 placeholder:text-zinc-400`;
+}
+
+// ─── page ───────────────────────────────────────────────────────────────────
 
 export default function UserManagementPage() {
   const { user: currentUser } = useAuth();
@@ -46,25 +70,29 @@ export default function UserManagementPage() {
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("All");
 
-  // Modals
+  // Create / Edit modal
   const [formOpen, setFormOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
-  const [resetOpen, setResetOpen] = useState(false);
-  const [resettingUser, setResettingUser] = useState<User | null>(null);
-
-  // Form states
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<"Admin" | "RND" | "FSS">("RND");
   const [password, setPassword] = useState("");
+  const [passwordConfirm, setPasswordConfirm] = useState("");
   const [isActive, setIsActive] = useState(true);
   const [formError, setFormError] = useState<string | null>(null);
+  const [formFieldErrors, setFormFieldErrors] = useState<FieldErrors>({});
   const [submitting, setSubmitting] = useState(false);
 
-  // Password reset states
+  // Reset-password modal
+  const [resetOpen, setResetOpen] = useState(false);
+  const [resettingUser, setResettingUser] = useState<User | null>(null);
   const [newPassword, setNewPassword] = useState("");
+  const [newPasswordConfirm, setNewPasswordConfirm] = useState("");
   const [resetError, setResetError] = useState<string | null>(null);
-  const [resetSuccess, setResetSuccess] = useState<boolean>(false);
+  const [resetFieldErrors, setResetFieldErrors] = useState<FieldErrors>({});
+  const [resetSuccess, setResetSuccess] = useState(false);
+
+  // ── data ──────────────────────────────────────────────────────────────────
 
   async function loadUsers() {
     try {
@@ -73,7 +101,7 @@ export default function UserManagementPage() {
       const data = await listUsers();
       setUsers(data);
     } catch (err: any) {
-      setError(err.message || "Failed to load directory.");
+      setError(err.message || "Failed to load users.");
     } finally {
       setLoading(false);
     }
@@ -93,14 +121,18 @@ export default function UserManagementPage() {
     });
   }, [users, search, roleFilter]);
 
+  // ── modal openers ─────────────────────────────────────────────────────────
+
   function openCreate() {
     setEditingUser(null);
     setName("");
     setEmail("");
     setRole("RND");
     setPassword("");
+    setPasswordConfirm("");
     setIsActive(true);
     setFormError(null);
+    setFormFieldErrors({});
     setFormOpen(true);
   }
 
@@ -110,25 +142,31 @@ export default function UserManagementPage() {
     setEmail(u.email);
     setRole(u.role);
     setPassword("");
+    setPasswordConfirm("");
     setIsActive(u.is_active);
     setFormError(null);
+    setFormFieldErrors({});
     setFormOpen(true);
   }
 
   function openReset(u: User) {
     setResettingUser(u);
     setNewPassword("");
+    setNewPasswordConfirm("");
     setResetError(null);
+    setResetFieldErrors({});
     setResetSuccess(false);
     setResetOpen(true);
   }
 
+  // ── handlers ──────────────────────────────────────────────────────────────
+
   async function handleToggleActive(u: User) {
+    if (u.id === currentUser?.id) {
+      alert("You cannot deactivate your own account.");
+      return;
+    }
     try {
-      if (u.id === currentUser?.id) {
-        alert("You cannot deactivate your own administrative account.");
-        return;
-      }
       const updated = await setActive(u.id, !u.is_active);
       setUsers((prev) => prev.map((item) => (item.id === u.id ? updated : item)));
     } catch (err: any) {
@@ -141,9 +179,7 @@ export default function UserManagementPage() {
       alert("You cannot delete your own account.");
       return;
     }
-    if (!confirm(`Are you sure you want to delete account: ${u.name}?`)) {
-      return;
-    }
+    if (!confirm(`Delete account for ${u.name}? This cannot be undone.`)) return;
     try {
       await deleteUser(u.id);
       setUsers((prev) => prev.filter((item) => item.id !== u.id));
@@ -155,18 +191,19 @@ export default function UserManagementPage() {
   async function handleSaveUser(e: React.FormEvent) {
     e.preventDefault();
     setFormError(null);
+    setFormFieldErrors({});
     setSubmitting(true);
-
     try {
       if (editingUser) {
-        const payload: UpdateUserPayload = {
-          name,
-          email,
-          role,
-          is_active: isActive,
-        };
+        const payload: UpdateUserPayload = { name, email, role, is_active: isActive };
+        if (password) {
+          payload.password = password;
+          payload.password_confirmation = passwordConfirm;
+        }
         const updated = await updateUser(editingUser.id, payload);
-        setUsers((prev) => prev.map((item) => (item.id === editingUser.id ? updated : item)));
+        setUsers((prev) =>
+          prev.map((item) => (item.id === editingUser.id ? updated : item))
+        );
         setFormOpen(false);
       } else {
         const payload: CreateUserPayload = {
@@ -174,7 +211,7 @@ export default function UserManagementPage() {
           email,
           role,
           password,
-          password_confirmation: password,
+          password_confirmation: passwordConfirm,
           is_active: isActive,
         };
         const created = await createUser(payload);
@@ -182,7 +219,12 @@ export default function UserManagementPage() {
         setFormOpen(false);
       }
     } catch (err: any) {
-      setFormError(err.message || "Failed to save user context.");
+      if (err.fieldErrors) {
+        setFormFieldErrors(err.fieldErrors);
+        setFormError(err.message || "Please fix the errors below.");
+      } else {
+        setFormError(err.message || "Failed to save user.");
+      }
     } finally {
       setSubmitting(false);
     }
@@ -192,43 +234,48 @@ export default function UserManagementPage() {
     e.preventDefault();
     if (!resettingUser) return;
     setResetError(null);
+    setResetFieldErrors({});
     setSubmitting(true);
-
     try {
-      await resetPassword(resettingUser.id, newPassword);
+      await resetPassword(resettingUser.id, newPassword, newPasswordConfirm);
       setResetSuccess(true);
-      setTimeout(() => {
-        setResetOpen(false);
-      }, 1500);
+      setTimeout(() => setResetOpen(false), 1500);
     } catch (err: any) {
-      setResetError(err.message || "Failed to reset password.");
+      if (err.fieldErrors) {
+        setResetFieldErrors(err.fieldErrors);
+        setResetError(err.message || "Please fix the errors below.");
+      } else {
+        setResetError(err.message || "Failed to reset password.");
+      }
     } finally {
       setSubmitting(false);
     }
   }
 
+  // ── render ────────────────────────────────────────────────────────────────
+
   return (
-    <div className="space-y-6 font-sans text-zinc-100">
-      {/* Breadcrumbs & Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 select-none">
+    <div className="space-y-6 font-sans">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 text-xs font-semibold text-zinc-500">
+          <div className="flex items-center gap-2 text-xs font-semibold text-zinc-400 select-none">
             <span>Admin</span>
-            <span className="text-zinc-700">/</span>
-            <span className="text-zinc-400 font-bold">Directory Management</span>
+            <span>/</span>
+            <span className="text-zinc-600 font-bold">User & RBAC Manager</span>
           </div>
-          <h1 className="text-xl font-extrabold text-white tracking-tight mt-1 flex items-center gap-2">
-            <Users className="h-5 w-5 text-purple-400" />
+          <h1 className="text-xl font-extrabold text-zinc-900 tracking-tight mt-1 flex items-center gap-2">
+            <Users className="h-5 w-5 text-emerald-600" />
             User & RBAC Manager
           </h1>
-          <p className="text-xs text-zinc-400 mt-0.5">
-            Administer accounts, role policies, active status, and password resets.
+          <p className="text-xs text-zinc-500 mt-0.5">
+            Manage accounts, roles, active status, and password resets.
           </p>
         </div>
 
         <button
           onClick={openCreate}
-          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-xs font-bold uppercase tracking-wider rounded-lg transition-colors cursor-pointer select-none"
+          className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-sm font-semibold rounded-lg transition-colors cursor-pointer select-none shrink-0"
         >
           <Plus className="h-4 w-4" />
           Create Account
@@ -236,36 +283,34 @@ export default function UserManagementPage() {
       </div>
 
       {/* Filters Bar */}
-      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 shadow-sm flex flex-col md:flex-row gap-4 items-center justify-between">
-        {/* Search */}
-        <div className="relative w-full md:max-w-md">
-          <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-zinc-500">
+      <div className="bg-white border border-zinc-200 rounded-2xl p-4 shadow-sm flex flex-col md:flex-row gap-4 items-center justify-between">
+        <div className="relative w-full md:max-w-sm">
+          <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-zinc-400">
             <Search className="h-4 w-4" />
           </span>
           <input
             type="text"
-            placeholder="Search by name or email address..."
+            placeholder="Search by name or email…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 text-xs bg-zinc-950 border border-zinc-850 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 placeholder:text-zinc-500 text-white"
+            className="w-full pl-9 pr-4 py-2 text-sm border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 bg-white placeholder:text-zinc-400 text-zinc-800"
           />
         </div>
 
-        {/* Filters */}
-        <div className="flex items-center gap-3 w-full md:w-auto shrink-0 select-none">
-          <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1.5 shrink-0">
+        <div className="flex items-center gap-3 shrink-0 select-none">
+          <span className="text-xs font-bold text-zinc-500 uppercase tracking-wider flex items-center gap-1.5">
             <Filter className="h-3.5 w-3.5" />
             Role:
           </span>
-          <div className="flex border border-zinc-850 bg-zinc-950 p-0.5 rounded-xl text-xs font-semibold">
+          <div className="flex border border-zinc-200 bg-zinc-50 p-0.5 rounded-lg text-xs font-semibold gap-0.5">
             {["All", "Admin", "RND", "FSS"].map((r) => (
               <button
                 key={r}
                 onClick={() => setRoleFilter(r)}
-                className={`px-3 py-1.5 rounded-lg cursor-pointer transition-colors ${
+                className={`px-3 py-1.5 rounded-md cursor-pointer transition-colors ${
                   roleFilter === r
-                    ? "bg-zinc-850 text-white font-bold"
-                    : "text-zinc-400 hover:text-white"
+                    ? "bg-white shadow-sm text-zinc-900 font-bold border border-zinc-200"
+                    : "text-zinc-500 hover:text-zinc-800"
                 }`}
               >
                 {r}
@@ -275,138 +320,134 @@ export default function UserManagementPage() {
         </div>
       </div>
 
-      {/* Directory Table */}
+      {/* Table / states */}
       {error ? (
-        <div className="bg-red-950/30 border border-red-900/50 p-4 rounded-xl flex items-start gap-3">
+        <div className="bg-red-50 border border-red-200 p-4 rounded-xl flex items-start gap-3">
           <AlertTriangle className="h-5 w-5 text-red-500 shrink-0 mt-0.5" />
           <div>
-            <div className="text-xs text-red-400 font-bold">Failed to load users</div>
-            <div className="text-xs text-red-500/80 mt-0.5">{error}</div>
+            <div className="text-xs text-red-700 font-bold">Failed to load users</div>
+            <div className="text-xs text-red-600 mt-0.5">{error}</div>
+            <button
+              onClick={loadUsers}
+              className="mt-2 text-xs text-red-700 underline hover:no-underline cursor-pointer"
+            >
+              Retry
+            </button>
           </div>
         </div>
       ) : loading ? (
-        <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-12 text-center flex flex-col items-center justify-center gap-3">
-          <RefreshCw className="h-6 w-6 text-zinc-500 animate-spin" />
-          <div className="text-xs text-zinc-400 font-semibold uppercase tracking-wider">
-            Loading user list...
+        <div className="bg-white border border-zinc-200 rounded-2xl p-12 text-center flex flex-col items-center justify-center gap-3 shadow-sm">
+          <RefreshCw className="h-6 w-6 text-emerald-600 animate-spin" />
+          <div className="text-xs text-zinc-500 font-semibold uppercase tracking-wider">
+            Loading users…
           </div>
         </div>
       ) : filteredUsers.length === 0 ? (
-        <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-16 text-center max-w-xl mx-auto shadow-sm">
-          <div className="p-3 bg-zinc-950 border border-zinc-850 rounded-2xl w-fit mx-auto text-zinc-600 mb-4">
+        <div className="bg-white border border-zinc-200 rounded-2xl p-16 text-center shadow-sm">
+          <div className="p-3 bg-zinc-50 border border-zinc-200 rounded-2xl w-fit mx-auto text-zinc-400 mb-4">
             <Users className="h-8 w-8" />
           </div>
-          <h3 className="text-sm font-bold text-zinc-300">No matching accounts found</h3>
-          <p className="text-xs text-zinc-500 mt-1 max-w-sm mx-auto leading-relaxed">
-            Try adjusting your filters or search criteria.
+          <h3 className="text-sm font-bold text-zinc-700">No accounts found</h3>
+          <p className="text-xs text-zinc-400 mt-1">
+            {search || roleFilter !== "All"
+              ? "Try adjusting your search or filter."
+              : "Create the first account using the button above."}
           </p>
         </div>
       ) : (
-        <div className="bg-zinc-900 border border-zinc-800 rounded-3xl shadow-md overflow-hidden">
+        <div className="bg-white border border-zinc-200 rounded-2xl shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse min-w-[700px]">
-              <thead>
-                <tr className="bg-zinc-950 border-b border-zinc-850">
-                  <th className="px-5 py-3.5 text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider">
-                    User Details
+            <table className="w-full text-left min-w-[640px]">
+              <thead className="bg-zinc-50 border-b border-zinc-100">
+                <tr>
+                  <th className="px-5 py-3.5 text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
+                    User
                   </th>
-                  <th className="px-5 py-3.5 text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider">
-                    Role Privilege
+                  <th className="px-5 py-3.5 text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
+                    Role
                   </th>
-                  <th className="px-5 py-3.5 text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider">
+                  <th className="px-5 py-3.5 text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
                     Status
                   </th>
-                  <th className="px-5 py-3.5 text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider text-right">
+                  <th className="px-5 py-3.5 text-[10px] font-bold text-zinc-500 uppercase tracking-wider text-right">
                     Actions
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-zinc-850 bg-zinc-900/40">
-                {filteredUsers.map((u, idx) => {
+              <tbody className="divide-y divide-zinc-100">
+                {filteredUsers.map((u) => {
                   const isSelf = u.id === currentUser?.id;
-                  
                   return (
-                    <tr
-                      key={u.id}
-                      className={`${
-                        idx % 2 === 0 ? "bg-zinc-900/20" : "bg-zinc-900/60"
-                      } hover:bg-zinc-850/30 transition-colors`}
-                    >
-                      {/* User details */}
+                    <tr key={u.id} className="hover:bg-zinc-50/60 transition-colors">
+                      {/* User */}
                       <td className="px-5 py-3.5">
-                        <div className="text-xs font-bold text-white flex items-center gap-1.5">
-                          {u.name}
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-sm font-semibold text-zinc-800">
+                            {u.name}
+                          </span>
                           {isSelf && (
-                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-400 border border-purple-500/20 font-bold uppercase tracking-wider">
-                              Self
+                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold uppercase tracking-wider">
+                              You
                             </span>
                           )}
                         </div>
-                        <div className="text-[10px] text-zinc-400 font-mono mt-0.5">{u.email}</div>
+                        <div className="text-xs text-zinc-400 font-mono mt-0.5">
+                          {u.email}
+                        </div>
                       </td>
 
                       {/* Role */}
                       <td className="px-5 py-3.5">
-                        <Badge tone={roleTones[u.role] || "zinc"}>{u.role}</Badge>
+                        <Badge tone={roleTones[u.role] ?? "zinc"}>{u.role}</Badge>
                       </td>
 
-                      {/* Status */}
+                      {/* Status toggle */}
                       <td className="px-5 py-3.5">
                         <button
                           onClick={() => handleToggleActive(u)}
                           disabled={isSelf}
+                          title={isSelf ? "Cannot change own status" : u.is_active ? "Deactivate" : "Activate"}
                           className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[10px] font-bold uppercase tracking-wider transition-colors select-none ${
                             isSelf ? "cursor-not-allowed opacity-50" : "cursor-pointer"
                           } ${
                             u.is_active
-                              ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20"
-                              : "bg-zinc-800 text-zinc-400 border-zinc-700 hover:bg-zinc-700 hover:text-white"
+                              ? "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100"
+                              : "bg-zinc-100 text-zinc-500 border-zinc-200 hover:bg-zinc-200 hover:text-zinc-700"
                           }`}
                         >
                           {u.is_active ? (
-                            <>
-                              <UserCheck className="h-3 w-3" />
-                              Active
-                            </>
+                            <><UserCheck className="h-3 w-3" /> Active</>
                           ) : (
-                            <>
-                              <UserX className="h-3 w-3" />
-                              Suspended
-                            </>
+                            <><UserX className="h-3 w-3" /> Suspended</>
                           )}
                         </button>
                       </td>
 
                       {/* Actions */}
-                      <td className="px-5 py-3.5 text-right">
+                      <td className="px-5 py-3.5">
                         <div className="flex items-center justify-end gap-1.5">
-                          {/* Reset password */}
                           <button
                             onClick={() => openReset(u)}
                             title="Reset password"
-                            className="p-1.5 rounded-lg border border-zinc-800 bg-zinc-950 text-zinc-400 hover:text-amber-400 hover:border-amber-500/20 transition-all cursor-pointer"
+                            className="p-1.5 rounded-lg border border-zinc-200 text-zinc-400 hover:text-amber-600 hover:border-amber-300 hover:bg-amber-50 transition-all cursor-pointer"
                           >
                             <KeyRound className="h-3.5 w-3.5" />
                           </button>
-
-                          {/* Edit details */}
                           <button
                             onClick={() => openEdit(u)}
-                            title="Edit details"
-                            className="p-1.5 rounded-lg border border-zinc-800 bg-zinc-950 text-zinc-400 hover:text-white hover:border-zinc-600 transition-all cursor-pointer"
+                            title="Edit account"
+                            className="p-1.5 rounded-lg border border-zinc-200 text-zinc-400 hover:text-zinc-700 hover:border-zinc-300 hover:bg-zinc-50 transition-all cursor-pointer"
                           >
                             <Edit2 className="h-3.5 w-3.5" />
                           </button>
-
-                          {/* Delete (only non-self) */}
                           <button
                             onClick={() => handleDeleteUser(u)}
                             disabled={isSelf}
-                            title={isSelf ? "Cannot delete self" : "Delete account"}
-                            className={`p-1.5 rounded-lg border border-zinc-800 bg-zinc-950 transition-all ${
+                            title={isSelf ? "Cannot delete own account" : "Delete account"}
+                            className={`p-1.5 rounded-lg border border-zinc-200 transition-all ${
                               isSelf
-                                ? "text-zinc-700 cursor-not-allowed opacity-55"
-                                : "text-zinc-500 hover:text-red-500 hover:border-red-500/20 cursor-pointer"
+                                ? "text-zinc-300 cursor-not-allowed"
+                                : "text-zinc-400 hover:text-red-600 hover:border-red-300 hover:bg-red-50 cursor-pointer"
                             }`}
                           >
                             <Trash2 className="h-3.5 w-3.5" />
@@ -422,47 +463,51 @@ export default function UserManagementPage() {
         </div>
       )}
 
-      {/* Form Dialog Modal (Create / Edit User) */}
+      {/* ── Create / Edit Modal ─────────────────────────────────────────────── */}
       {formOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/60 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/20 backdrop-blur-sm"
           onClick={() => setFormOpen(false)}
         >
           <div
-            className="w-full max-w-md bg-zinc-900 border border-zinc-850 rounded-3xl overflow-hidden shadow-2xl"
+            className="w-full max-w-md bg-white border border-zinc-200 rounded-2xl overflow-hidden shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-5 py-4 border-b border-zinc-850 bg-zinc-950 flex items-center justify-between gap-4 select-none">
+            {/* Modal header */}
+            <div className="px-5 py-4 border-b border-zinc-100 flex items-center justify-between gap-4">
               <div>
-                <h3 className="text-xs font-bold text-white uppercase tracking-[0.18em]">
-                  {editingUser ? "Edit User Account" : "Register New Account"}
+                <h3 className="text-sm font-bold text-zinc-900">
+                  {editingUser ? "Edit Account" : "Create Account"}
                 </h3>
-                <p className="text-[10px] text-zinc-500 mt-1">
-                  Specify details below. Password rules enforced on database level.
+                <p className="text-xs text-zinc-400 mt-0.5">
+                  {editingUser
+                    ? "Update details. Leave password blank to keep existing."
+                    : "Fill in all required fields."}
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setFormOpen(false)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-800 text-[10px] font-bold uppercase tracking-wider text-zinc-450 hover:text-white hover:bg-zinc-850 transition-all cursor-pointer"
+                className="p-1.5 rounded-lg border border-zinc-200 text-zinc-400 hover:text-zinc-700 hover:bg-zinc-50 transition-all cursor-pointer"
               >
-                <X className="h-3.5 w-3.5" />
-                Close
+                <X className="h-4 w-4" />
               </button>
             </div>
 
+            {/* Modal body */}
             <form onSubmit={handleSaveUser} className="p-5 space-y-4">
+              {/* General error banner */}
               {formError && (
-                <div className="text-xs font-semibold text-red-400 bg-red-950/20 border border-red-900/50 rounded-xl px-3 py-2 flex items-start gap-2">
+                <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded-xl px-3 py-2.5 flex items-start gap-2">
                   <AlertTriangle className="h-4 w-4 text-red-500 shrink-0 mt-0.5" />
                   <span>{formError}</span>
                 </div>
               )}
 
-              {/* Full Name */}
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block">
-                  Full Name
+              {/* Name */}
+              <div>
+                <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1">
+                  Full Name <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -470,83 +515,103 @@ export default function UserManagementPage() {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="e.g. Dr. Jane Doe"
-                  className="w-full px-3 py-2 text-xs bg-zinc-950 border border-zinc-850 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 placeholder:text-zinc-650"
+                  className={inputCls(formFieldErrors, "name")}
                 />
+                <FieldError errors={formFieldErrors} field="name" />
               </div>
 
-              {/* Email Address */}
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block">
-                  Email Address
+              {/* Email */}
+              <div>
+                <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1">
+                  Email Address <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="email"
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="name@hospital.local"
-                  className="w-full px-3 py-2 text-xs bg-zinc-950 border border-zinc-850 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 placeholder:text-zinc-650"
+                  placeholder="name@nutriscope.local"
+                  className={inputCls(formFieldErrors, "email")}
                 />
+                <FieldError errors={formFieldErrors} field="email" />
               </div>
 
-              {/* Privilege Role & Active Toggle Grid */}
+              {/* Role + Active grid */}
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block">
-                    Privilege Role
+                <div>
+                  <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1">
+                    Role <span className="text-red-500">*</span>
                   </label>
                   <select
                     value={role}
-                    onChange={(e) => setRole(e.target.value as any)}
-                    className="w-full px-3 py-2 text-xs bg-zinc-950 border border-zinc-850 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 cursor-pointer"
+                    onChange={(e) => setRole(e.target.value as "Admin" | "RND" | "FSS")}
+                    className={inputCls(formFieldErrors, "role")}
                   >
-                    <option value="RND">Registered Dietitian (RND)</option>
-                    <option value="FSS">Food Service Supervisor (FSS)</option>
-                    <option value="Admin">System Admin</option>
+                    <option value="RND">RND — Dietitian</option>
+                    <option value="FSS">FSS — Food Service</option>
+                    <option value="Admin">Admin</option>
                   </select>
+                  <FieldError errors={formFieldErrors} field="role" />
                 </div>
 
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block">
-                    Status State
+                <div>
+                  <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1">
+                    Status
                   </label>
                   <select
                     value={isActive ? "true" : "false"}
                     onChange={(e) => setIsActive(e.target.value === "true")}
                     disabled={editingUser?.id === currentUser?.id}
-                    className="w-full px-3 py-2 text-xs bg-zinc-950 border border-zinc-850 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    className={`${inputCls(formFieldErrors, "is_active")} disabled:opacity-50 disabled:cursor-not-allowed`}
                   >
-                    <option value="true">Active Access</option>
-                    <option value="false">Suspended Access</option>
+                    <option value="true">Active</option>
+                    <option value="false">Suspended</option>
                   </select>
                 </div>
               </div>
 
-              {/* Password (only for creation) */}
-              {!editingUser && (
-                <div className="space-y-1.5 border-t border-zinc-850/60 pt-3.5">
-                  <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block">
-                    Temporary Password
+              {/* Password section */}
+              <div className="border-t border-zinc-100 pt-4 space-y-4">
+                <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
+                  {editingUser ? "New Password (optional)" : "Password"}
+                  {!editingUser && <span className="text-red-500 ml-0.5">*</span>}
+                </p>
+
+                <div>
+                  <label className="block text-[10px] text-zinc-500 mb-1">
+                    {editingUser ? "New password" : "Password"}
                   </label>
                   <input
                     type="password"
-                    required
+                    required={!editingUser}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Min. 8 chars, numbers & specials"
-                    className="w-full px-3 py-2 text-xs bg-zinc-950 border border-zinc-850 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 placeholder:text-zinc-650"
+                    placeholder="Min. 8 characters"
+                    className={inputCls(formFieldErrors, "password")}
                   />
+                  <FieldError errors={formFieldErrors} field="password" />
                 </div>
-              )}
 
-              {/* Actions Footer */}
-              <div className="flex gap-2.5 pt-3 select-none">
-                <Button
-                  variant="primary"
-                  loading={submitting}
-                  className="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider w-full bg-purple-600 hover:bg-purple-700 active:bg-purple-800 text-white"
-                >
-                  {editingUser ? "Save Updates" : "Create User"}
+                <div>
+                  <label className="block text-[10px] text-zinc-500 mb-1">
+                    Confirm password
+                  </label>
+                  <input
+                    type="password"
+                    required={!editingUser || !!password}
+                    value={passwordConfirm}
+                    onChange={(e) => setPasswordConfirm(e.target.value)}
+                    placeholder="Repeat password"
+                    className={inputCls(formFieldErrors, "password_confirmation")}
+                  />
+                  <FieldError errors={formFieldErrors} field="password_confirmation" />
+                </div>
+              </div>
+
+              {/* Submit */}
+              <div className="pt-1">
+                <Button variant="primary" loading={submitting} type="submit">
+                  {editingUser ? "Save Changes" : "Create Account"}
                 </Button>
               </div>
             </form>
@@ -554,75 +619,94 @@ export default function UserManagementPage() {
         </div>
       )}
 
-      {/* Password Reset Modal */}
+      {/* ── Reset Password Modal ────────────────────────────────────────────── */}
       {resetOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/60 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/20 backdrop-blur-sm"
           onClick={() => setResetOpen(false)}
         >
           <div
-            className="w-full max-w-sm bg-zinc-900 border border-zinc-850 rounded-3xl overflow-hidden shadow-2xl"
+            className="w-full max-w-sm bg-white border border-zinc-200 rounded-2xl overflow-hidden shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-5 py-4 border-b border-zinc-850 bg-zinc-950 flex items-center justify-between gap-4 select-none">
+            {/* Modal header */}
+            <div className="px-5 py-4 border-b border-zinc-100 flex items-center justify-between gap-4">
               <div>
-                <h3 className="text-xs font-bold text-white uppercase tracking-[0.18em]">
-                  Reset User Password
-                </h3>
-                <p className="text-[10px] text-zinc-500 mt-1">
-                  Overwrite password credentials for: {resettingUser?.name}
+                <h3 className="text-sm font-bold text-zinc-900">Reset Password</h3>
+                <p className="text-xs text-zinc-400 mt-0.5">
+                  Set a new password for{" "}
+                  <span className="font-semibold text-zinc-600">{resettingUser?.name}</span>
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setResetOpen(false)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-800 text-[10px] font-bold uppercase tracking-wider text-zinc-450 hover:text-white hover:bg-zinc-850 transition-all cursor-pointer"
+                className="p-1.5 rounded-lg border border-zinc-200 text-zinc-400 hover:text-zinc-700 hover:bg-zinc-50 transition-all cursor-pointer"
               >
-                <X className="h-3.5 w-3.5" />
-                Close
+                <X className="h-4 w-4" />
               </button>
             </div>
 
+            {/* Modal body */}
             <form onSubmit={handleResetPassword} className="p-5 space-y-4">
-              {resetError && (
-                <div className="text-xs font-semibold text-red-400 bg-red-950/20 border border-red-900/50 rounded-xl px-3 py-2 flex items-start gap-2">
+              {resetError && !resetSuccess && (
+                <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded-xl px-3 py-2.5 flex items-start gap-2">
                   <AlertTriangle className="h-4 w-4 text-red-500 shrink-0 mt-0.5" />
                   <span>{resetError}</span>
                 </div>
               )}
 
               {resetSuccess && (
-                <div className="text-xs font-semibold text-emerald-400 bg-emerald-950/20 border border-emerald-900/50 rounded-xl px-3 py-2">
-                  Password has been reset successfully. Modal closing...
+                <div className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2.5 flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                  Password reset successfully. Closing…
                 </div>
               )}
 
-              {/* Password Input */}
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block">
-                  New Password
-                </label>
-                <input
-                  type="password"
-                  required
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="Min. 8 chars, numbers & specials"
-                  className="w-full px-3 py-2 text-xs bg-zinc-950 border border-zinc-850 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 placeholder:text-zinc-650"
-                />
-              </div>
+              {!resetSuccess && (
+                <>
+                  <div>
+                    <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1">
+                      New Password <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="password"
+                      required
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      placeholder="Min. 8 characters"
+                      className={inputCls(resetFieldErrors, "password")}
+                    />
+                    <FieldError errors={resetFieldErrors} field="password" />
+                  </div>
 
-              {/* Actions Footer */}
-              <div className="flex gap-2.5 pt-2 select-none">
-                <Button
-                  variant="primary"
-                  loading={submitting}
-                  disabled={resetSuccess}
-                  className="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider w-full bg-amber-600 hover:bg-amber-700 active:bg-amber-850 text-white"
-                >
-                  {submitting ? "Resetting..." : "Reset User Password"}
-                </Button>
-              </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1">
+                      Confirm Password <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="password"
+                      required
+                      value={newPasswordConfirm}
+                      onChange={(e) => setNewPasswordConfirm(e.target.value)}
+                      placeholder="Repeat new password"
+                      className={inputCls(resetFieldErrors, "password_confirmation")}
+                    />
+                    <FieldError errors={resetFieldErrors} field="password_confirmation" />
+                  </div>
+
+                  <div className="pt-1">
+                    <Button
+                      variant="primary"
+                      loading={submitting}
+                      type="submit"
+                      className="!bg-amber-600 hover:!bg-amber-700 active:!bg-amber-800"
+                    >
+                      Reset Password
+                    </Button>
+                  </div>
+                </>
+              )}
             </form>
           </div>
         </div>
