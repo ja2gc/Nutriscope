@@ -125,15 +125,36 @@ export async function archiveReport(
 }
 
 // ── Branding + templates (Template Edit tab) ──────────────────────────────
+
+/** Base helper — fetches branding from the given proxy path. */
+async function fetchBranding(path: string): Promise<Branding> {
+  return unwrap(await apiFetch(path), "Failed to load branding.");
+}
+
+/** Base helper — saves branding to the given proxy path. */
+async function postBranding(path: string, form: FormData): Promise<Branding> {
+  return unwrap(
+    await apiFetch(path, { method: "POST", body: form }),
+    "Failed to save branding.",
+  );
+}
+
+/** RND proxy path — used by the RND reports/template tab. */
 export async function getBranding(): Promise<Branding> {
-  return unwrap(await apiFetch("/api/rnd/report-branding"), "Failed to load branding.");
+  return fetchBranding("/api/rnd/report-branding");
 }
 
 export async function saveBranding(form: FormData): Promise<Branding> {
-  return unwrap(
-    await apiFetch("/api/rnd/report-branding", { method: "POST", body: form }),
-    "Failed to save branding.",
-  );
+  return postBranding("/api/rnd/report-branding", form);
+}
+
+/** Admin proxy path — used by the Admin settings page. */
+export async function getAdminBranding(): Promise<Branding> {
+  return fetchBranding("/api/admin/report-branding");
+}
+
+export async function saveAdminBranding(form: FormData): Promise<Branding> {
+  return postBranding("/api/admin/report-branding", form);
 }
 
 export async function listTemplates(): Promise<ReportTemplate[]> {

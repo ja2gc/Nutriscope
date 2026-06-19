@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\CalendarEvent;
 use App\Models\Notification;
+use App\Models\ReportBranding;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
@@ -255,5 +256,42 @@ class AdminSystemTest extends TestCase
             0,
             Notification::where('user_id', $this->rnd->id)->where('read', false)->count()
         );
+    }
+
+    // ===== REPORT BRANDING (Admin) =====
+
+    public function test_admin_can_get_report_branding(): void
+    {
+        // Ensure singleton row exists.
+        ReportBranding::singleton();
+
+        $response = $this->actingAs($this->admin)
+            ->getJson('/api/admin/report-branding');
+
+        $response->assertOk()
+            ->assertJsonStructure(['data' => ['id', 'hospital_name']]);
+    }
+
+    public function test_admin_can_update_report_branding(): void
+    {
+        ReportBranding::singleton();
+
+        $response = $this->actingAs($this->admin)
+            ->postJson('/api/admin/report-branding', [
+                'hospital_name' => 'X Hospital',
+            ]);
+
+        $response->assertOk()
+            ->assertJsonPath('data.hospital_name', 'X Hospital');
+
+        $this->assertDatabaseHas('report_branding', ['hospital_name' => 'X Hospital']);
+    }
+
+    public function test_rnd_cannot_access_admin_report_branding(): void
+    {
+        $response = $this->actingAs($this->rnd)
+            ->getJson('/api/admin/report-branding');
+
+        $response->assertForbidden();
     }
 }

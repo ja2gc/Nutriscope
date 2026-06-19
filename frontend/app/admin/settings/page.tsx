@@ -1,0 +1,367 @@
+"use client";
+
+import React, { useEffect, useRef, useState } from "react";
+import {
+  Bell,
+  Building2,
+  CheckCheck,
+  Palette,
+  Settings,
+  Zap,
+} from "lucide-react";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { Card } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import {
+  Density,
+  getDensity,
+  getReduceMotion,
+  setDensity as persistDensity,
+  setReduceMotion as persistReduceMotion,
+} from "@/lib/preferences";
+import { markAllNotificationsRead } from "@/services/notificationService";
+import {
+  Branding,
+  getAdminBranding,
+  saveAdminBranding,
+} from "@/services/reportService";
+
+export default function AdminSettingsPage() {
+  // ── Appearance ──────────────────────────────────────────────────
+  const [density, setDensityState] = useState<Density>("comfortable");
+  const [reduceMotion, setReduceMotionState] = useState(false);
+
+  useEffect(() => {
+    setDensityState(getDensity());
+    setReduceMotionState(getReduceMotion());
+  }, []);
+
+  function chooseDensity(value: Density) {
+    setDensityState(value);
+    persistDensity(value);
+  }
+
+  function toggleReduceMotion() {
+    const next = !reduceMotion;
+    setReduceMotionState(next);
+    persistReduceMotion(next);
+  }
+
+  // ── Notifications ────────────────────────────────────────────────
+  const [markingAll, setMarkingAll] = useState(false);
+  const [markedAll, setMarkedAll] = useState(false);
+
+  async function handleMarkAll() {
+    setMarkingAll(true);
+    setMarkedAll(false);
+    try {
+      await markAllNotificationsRead();
+      setMarkedAll(true);
+    } catch {
+      // Non-fatal.
+    } finally {
+      setMarkingAll(false);
+    }
+  }
+
+  // ── Branding ─────────────────────────────────────────────────────
+  const [branding, setBranding] = useState<Branding | null>(null);
+  const [brandingLoading, setBrandingLoading] = useState(true);
+  const [brandingError, setBrandingError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [savedOk, setSavedOk] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [validationErrors, setValidationErrors] = useState<
+    Record<string, string>
+  >({});
+
+  // Controlled text fields
+  const [hospitalName, setHospitalName] = useState("");
+  const [address, setAddress] = useState("");
+  const [accreditation, setAccreditation] = useState("");
+  const [serviceName, setServiceName] = useState("");
+  const [province, setProvince] = useState("");
+  const [lgu, setLgu] = useState("");
+
+  // File refs (uncontrolled — browser file input)
+  const logoLeftRef = useRef<HTMLInputElement>(null);
+  const logoRightRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setBrandingLoading(true);
+    getAdminBranding()
+      .then((b) => {
+        setBranding(b);
+        setHospitalName(b.hospital_name ?? "");
+        setAddress(b.address ?? "");
+        setAccreditation(b.accreditation ?? "");
+        setServiceName(b.service_name ?? "");
+        setProvince(b.province ?? "");
+        setLgu(b.lgu ?? "");
+      })
+      .catch((err) =>
+        setBrandingError(
+          err instanceof Error ? err.message : "Failed to load branding.",
+        ),
+      )
+      .finally(() => setBrandingLoading(false));
+  }, []);
+
+  async function handleBrandingSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    setSavedOk(false);
+    setSaveError(null);
+    setValidationErrors({});
+
+    const form = new FormData();
+    form.append("hospital_name", hospitalName);
+    form.append("address", address);
+    form.append("accreditation", accreditation);
+    form.append("service_name", serviceName);
+    form.append("province", province);
+    form.append("lgu", lgu);
+    const ll = logoLeftRef.current?.files?.[0];
+    const lr = logoRightRef.current?.files?.[0];
+    if (ll) form.append("logo_left", ll);
+    if (lr) form.append("logo_right", lr);
+
+    try {
+      const updated = await saveAdminBranding(form);
+      setBranding(updated);
+      setSavedOk(true);
+      // Clear file inputs after a successful save
+      if (logoLeftRef.current) logoLeftRef.current.value = "";
+      if (logoRightRef.current) logoRightRef.current.value = "";
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to save.";
+      // Try to parse Laravel validation errors embedded in the message
+      try {
+        const parsed = JSON.parse(msg);
+        if (parsed?.errors) {
+          const flat: Record<string, string> = {};
+          for (const [k, v] of Object.entries(parsed.errors as Record<string, string[]>)) {
+            flat[k] = Array.isArray(v) ? v[0] : String(v);
+          }
+          setValidationErrors(flat);
+          setSaveError("Please fix the errors below.");
+        } else {
+          setSaveError(msg);
+        }
+      } catch {
+        setSaveError(msg);
+      }
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="space-y-6 font-sans">
+      <PageHeader
+        crumbs={[["Admin", "/admin/dashboard"], ["System Settings"]]}
+        title="System Settings"
+        icon={<Settings className="h-5 w-5 text-emerald-600" />}
+        subtitle="Manage hospital branding and your display preferences."
+      />
+
+      {/* ── Branding card ────────────────────────────────────────── */}
+      <Card className="p-6">
+        <h3 className="text-xs font-bold text-zinc-900 uppercase tracking-wider flex items-center gap-2 mb-5">
+          <Building2 className="h-4 w-4 text-emerald-600" />
+          Hospital Branding
+        </h3>
+
+        {brandingLoading && (
+          <p className="text-xs text-zinc-400">Loading branding…</p>
+        )}
+
+        {brandingError && (
+          <p className="text-xs font-semibold text-rose-600">{brandingError}</p>
+        )}
+
+        {!brandingLoading && !brandingError && branding && (
+          <form onSubmit={handleBrandingSubmit} className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Input
+                label="Hospital Name"
+                value={hospitalName}
+                onChange={(e) => setHospitalName(e.target.value)}
+                error={validationErrors.hospital_name}
+              />
+              <Input
+                label="Service Name"
+                value={serviceName}
+                onChange={(e) => setServiceName(e.target.value)}
+                error={validationErrors.service_name}
+              />
+              <Input
+                label="Address"
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                error={validationErrors.address}
+              />
+              <Input
+                label="Accreditation"
+                value={accreditation}
+                onChange={(e) => setAccreditation(e.target.value)}
+                error={validationErrors.accreditation}
+              />
+              <Input
+                label="Province"
+                value={province}
+                onChange={(e) => setProvince(e.target.value)}
+                error={validationErrors.province}
+              />
+              <Input
+                label="LGU"
+                value={lgu}
+                onChange={(e) => setLgu(e.target.value)}
+                error={validationErrors.lgu}
+              />
+            </div>
+
+            {/* Logo uploads */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-semibold text-zinc-600 tracking-wide">
+                  Logo Left
+                </label>
+                {branding.logo_left_path && (
+                  <p className="text-[10px] text-zinc-400 truncate">
+                    Current: {branding.logo_left_path}
+                  </p>
+                )}
+                <input
+                  ref={logoLeftRef}
+                  type="file"
+                  accept="image/*"
+                  className="text-xs text-zinc-600 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-zinc-100 file:text-zinc-700 hover:file:bg-zinc-200"
+                />
+                {validationErrors.logo_left && (
+                  <span className="text-xs font-semibold text-rose-600">
+                    {validationErrors.logo_left}
+                  </span>
+                )}
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-semibold text-zinc-600 tracking-wide">
+                  Logo Right
+                </label>
+                {branding.logo_right_path && (
+                  <p className="text-[10px] text-zinc-400 truncate">
+                    Current: {branding.logo_right_path}
+                  </p>
+                )}
+                <input
+                  ref={logoRightRef}
+                  type="file"
+                  accept="image/*"
+                  className="text-xs text-zinc-600 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-zinc-100 file:text-zinc-700 hover:file:bg-zinc-200"
+                />
+                {validationErrors.logo_right && (
+                  <span className="text-xs font-semibold text-rose-600">
+                    {validationErrors.logo_right}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 pt-2">
+              <Button type="submit" loading={saving} className="w-auto">
+                Save Branding
+              </Button>
+              {savedOk && (
+                <span className="text-xs font-semibold text-emerald-600">
+                  Saved.
+                </span>
+              )}
+              {saveError && (
+                <span className="text-xs font-semibold text-rose-600">
+                  {saveError}
+                </span>
+              )}
+            </div>
+          </form>
+        )}
+      </Card>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+        {/* ── Appearance card ─────────────────────────────────────── */}
+        <Card className="p-6 space-y-5">
+          <h3 className="text-xs font-bold text-zinc-900 uppercase tracking-wider flex items-center gap-2">
+            <Palette className="h-4 w-4 text-emerald-600" />
+            Appearance
+          </h3>
+
+          <div className="space-y-2">
+            <span className="text-xs font-semibold text-zinc-600">Density</span>
+            <div className="grid grid-cols-2 gap-2">
+              {(["comfortable", "compact"] as Density[]).map((value) => (
+                <button
+                  key={value}
+                  onClick={() => chooseDensity(value)}
+                  className={`px-3 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider border transition-colors ${
+                    density === value
+                      ? "border-emerald-600 bg-emerald-50 text-emerald-800"
+                      : "border-zinc-200 text-zinc-500 hover:bg-zinc-50"
+                  }`}
+                >
+                  {value}
+                </button>
+              ))}
+            </div>
+            <p className="text-[10px] text-zinc-400">
+              Compact tightens spacing and text across the app.
+            </p>
+          </div>
+
+          <label className="flex items-center justify-between gap-3 pt-1 cursor-pointer">
+            <span className="flex items-center gap-2 text-xs font-semibold text-zinc-600">
+              <Zap className="h-4 w-4 text-zinc-400" />
+              Reduce motion
+            </span>
+            <button
+              role="switch"
+              aria-checked={reduceMotion}
+              onClick={toggleReduceMotion}
+              className={`relative h-5 w-9 rounded-full transition-colors ${reduceMotion ? "bg-emerald-600" : "bg-zinc-300"}`}
+            >
+              <span
+                className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform ${reduceMotion ? "translate-x-4" : "translate-x-0.5"}`}
+              />
+            </button>
+          </label>
+        </Card>
+
+        {/* ── Notifications card ───────────────────────────────────── */}
+        <Card className="p-6 space-y-5">
+          <h3 className="text-xs font-bold text-zinc-900 uppercase tracking-wider flex items-center gap-2">
+            <Bell className="h-4 w-4 text-emerald-600" />
+            Notifications
+          </h3>
+          <p className="text-xs text-zinc-500 leading-relaxed">
+            Mark all your notifications as read in one click.
+          </p>
+          <div className="flex flex-wrap items-center gap-3">
+            <Button
+              variant="secondary"
+              onClick={handleMarkAll}
+              loading={markingAll}
+              className="w-auto"
+            >
+              <CheckCheck className="h-4 w-4" />
+              Mark all as read
+            </Button>
+            {markedAll && (
+              <span className="text-xs font-semibold text-emerald-600">
+                Done.
+              </span>
+            )}
+          </div>
+        </Card>
+      </div>
+    </div>
+  );
+}
