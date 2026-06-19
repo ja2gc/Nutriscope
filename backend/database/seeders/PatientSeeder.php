@@ -110,7 +110,7 @@ class PatientSeeder extends Seeder
             'muac_mm'                        => 285.0,
             'waist_cm'                       => 92.0,
             'hip_cm'                         => 100.0,
-            'nutritional_status'             => 'Normal',  // per clinical judgment (T2DM overweight)
+            'nutritional_status'             => null,  // computed below by RiskScoreCalculator
             // Client history
             'medical_history'                => 'Type 2 Diabetes Mellitus (diagnosed 2019, HbA1c 8.4%). '
                                                . 'Hypertension Stage 1 (BP 138/88 mmHg on admission). '
@@ -136,6 +136,7 @@ class PatientSeeder extends Seeder
         $mariaAssessment->setRelation('ncpRecord', $record->setRelation('patient', $patient));
         $riskResult = resolve(RiskScoreCalculator::class)->calculate($mariaAssessment);
         $record->update(['risk_score' => $riskResult['score']]);
+        $mariaAssessment->update(['nutritional_status' => $riskResult['nutritional_status']]);
 
         // Diagnosis — NI-5.8.2 Carbohydrate intake inconsistency
         $pes = Diagnosis::buildPes(
@@ -270,7 +271,7 @@ class PatientSeeder extends Seeder
             'muac_mm'                        => 215.0,
             'waist_cm'                       => 74.0,
             'hip_cm'                         => 88.0,
-            'nutritional_status'             => 'Moderate Malnutrition',
+            'nutritional_status'             => null,  // computed below by RiskScoreCalculator
             'medical_history'                => 'No prior chronic illness. No hospitalizations. '
                                                . 'History of loose stools for past 2 weeks (3–4×/day, non-bloody). '
                                                . 'Reports 11 kg unintentional weight loss over 3 weeks.',
@@ -298,6 +299,7 @@ class PatientSeeder extends Seeder
         $robertoAssessment->setRelation('ncpRecord', $record->setRelation('patient', $patient));
         $riskResult = resolve(RiskScoreCalculator::class)->calculate($robertoAssessment);
         $record->update(['risk_score' => $riskResult['score']]);
+        $robertoAssessment->update(['nutritional_status' => $riskResult['nutritional_status']]);
 
         // Diagnosis — NC-3.1 Underweight / Malnutrition
         $pes = Diagnosis::buildPes(
