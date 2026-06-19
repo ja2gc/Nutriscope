@@ -48,6 +48,11 @@ export async function createUser(data: CreateUserPayload): Promise<User> {
 
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}));
+    if (res.status === 422 && errorData.errors) {
+      const err: any = new Error(errorData.message || "Validation failed.");
+      err.fieldErrors = errorData.errors as Record<string, string[]>;
+      throw err;
+    }
     throw new Error(errorData.message || "Failed to create user.");
   }
 
@@ -67,6 +72,11 @@ export async function updateUser(id: number | string, data: UpdateUserPayload): 
 
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}));
+    if (res.status === 422 && errorData.errors) {
+      const err: any = new Error(errorData.message || "Validation failed.");
+      err.fieldErrors = errorData.errors as Record<string, string[]>;
+      throw err;
+    }
     throw new Error(errorData.message || "Failed to update user.");
   }
 
@@ -88,7 +98,11 @@ export async function deleteUser(id: number | string): Promise<void> {
   }
 }
 
-export async function resetPassword(id: number | string, password: string): Promise<void> {
+export async function resetPassword(
+  id: number | string,
+  password: string,
+  passwordConfirmation: string
+): Promise<void> {
   const res = await apiFetch(`/api/admin/users/${id}/reset-password`, {
     method: "POST",
     headers: {
@@ -97,12 +111,19 @@ export async function resetPassword(id: number | string, password: string): Prom
     },
     body: JSON.stringify({
       password,
-      password_confirmation: password,
+      password_confirmation: passwordConfirmation,
     }),
   });
 
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}));
+    // Surface Laravel 422 field errors as a structured object so the UI can
+    // display them inline next to the relevant field.
+    if (res.status === 422 && errorData.errors) {
+      const err: any = new Error(errorData.message || "Validation failed.");
+      err.fieldErrors = errorData.errors as Record<string, string[]>;
+      throw err;
+    }
     throw new Error(errorData.message || "Failed to reset password.");
   }
 }
