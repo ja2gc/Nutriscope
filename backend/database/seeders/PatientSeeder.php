@@ -153,16 +153,17 @@ class PatientSeeder extends Seeder
         Intervention::create([
             'ncp_record_id'    => $record->id,
             'goal_type'        => 'diabetic_control',
-            'disease_stage'    => 'type2_controlled',
+            'disease_stage'    => 'stage_1',
             'energy_kcal'      => 1600.00,
             'protein_g'        => 70.00,
             'carbs_g'          => 200.00,
             'fat_g'            => 53.00,
             'fluid_ml'         => 1800.00,
             'micronutrient_limits' => [
-                'sodium_mg' => ['max' => 2000, 'unit' => 'mg'],
+                'sodium' => ['max' => 2000, 'unit' => 'mg'],
             ],
-            'displayed_nutrients' => ['energy_kcal', 'protein_g', 'carbs_g', 'fat_g', 'fluid_ml'],
+            // Micronutrient keys only (must match ALL_MICROS / GOAL_MICRO_FLAGS) — never macros.
+            'displayed_nutrients' => ['fiber', 'sodium', 'free_sugars'],
             'session_type'     => 'initial',
             'next_followup_date' => null,   // completed — no follow-up scheduled
             'education_notes'  => "NUTRITION EDUCATION — DIABETIC MEAL PLANNING\n\n"
@@ -319,7 +320,8 @@ class PatientSeeder extends Seeder
             'fat_g'            => 43.00,
             'fluid_ml'         => 2000.00,
             'micronutrient_limits' => null,
-            'displayed_nutrients' => ['energy_kcal', 'protein_g', 'carbs_g', 'fat_g', 'fluid_ml'],
+            // Malnutrition flags no micros by default (GOAL_MICRO_FLAGS.malnutrition = []).
+            'displayed_nutrients' => [],
             'session_type'     => 'initial',
             'next_followup_date' => Carbon::today()->addDays(14)->toDateString(),  // 2-week follow-up
             'education_notes'  => "NUTRITION EDUCATION — NUTRITIONAL REHABILITATION\n\n"
