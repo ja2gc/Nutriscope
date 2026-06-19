@@ -22,6 +22,9 @@ A patient has one or more **NCP records** (care cycles). Start a cycle: `POST /p
 - **OCR intake:** upload a screening form (`upload-screening`) or lab sheet (`upload-labs`) → background extraction job → review panel with confidence scores → on **approve** the mapped fields populate the Assessment and recompute BMI, nutritional status, and **risk score** (stored on the NCP record).
 - Dietary/anthropometric/clinical data can also be entered manually.
 
+[2026-06-19] Scope revision — OCR/OMR extraction pipeline removed entirely, any backend or frontend for this. This includes the background extraction job, confidence score storage, review panel, and all field-population-from-upload logic on both frontend and backend. Delete all related backend code. Assessment fields (anthropometrics, dietary, client history, labs) are manual entry only.
+File upload is retained but repurposed: lab results, screening forms, and referral documents can be attached at the bottom of the assessment page as supporting documents only — no extraction, no field population, just file storage linked to the NCP record. These attachments are included at the end of the printed NCP patient report. Upload placement is at the bottom of the assessment page (referral section is currently mid-page — move upload below it).
+
 ### 3.2 Diagnosis (D)
 - `POST /ncp-records/{id}/diagnoses` — PES statements ("[Problem] related to [Etiology] as evidenced by [Signs/Symptoms]"), domain ∈ NI / NC / NB.
 - **AI assist:** `diagnoses/ai-suggest` (Haiku) drafts 2–4 candidate PES statements with confidence + reasoning; the RND reviews and `ai-approve` stores the chosen ones (`ai_generated=true`). Every AI call is logged to `ai_usage_logs`.

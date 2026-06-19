@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import {
   TrendingUp, TrendingDown, Minus, Sparkles, Loader2, AlertTriangle, Target,
 } from "lucide-react";
+import StatusBadge from "@/components/ui/StatusBadge";
 import {
   fetchMonitoringSummary, requestMonitoringAiReview,
   MonitoringSummary, GoalStatus,
@@ -15,18 +16,21 @@ interface Props {
   visitCount: number;
 }
 
-const STATUS_STYLE: Record<string, { label: string; cls: string }> = {
-  met:         { label: "Goal Met",     cls: "bg-emerald-50 text-emerald-700 border-emerald-200" },
-  partial:     { label: "Partial",      cls: "bg-amber-50 text-amber-700 border-amber-200" },
-  in_progress: { label: "Improving",    cls: "bg-amber-50 text-amber-700 border-amber-200" },
-  not_met:     { label: "Not Met",      cls: "bg-rose-50 text-rose-700 border-rose-200" },
-  no_data:     { label: "No Data",      cls: "bg-zinc-50 text-zinc-500 border-zinc-200" },
+const STATUS_MAP: Record<string, { status: "success" | "warning" | "error" | "neutral"; label: string }> = {
+  met:         { status: "success", label: "Goal Met" },
+  partial:     { status: "warning", label: "Partial" },
+  in_progress: { status: "warning", label: "Improving" },
+  not_met:     { status: "error", label: "Not Met" },
+  no_data:     { status: "neutral", label: "No Data" },
 };
 
 function statusDot(status: GoalStatus | "partial") {
   const map: Record<string, string> = {
-    met: "bg-emerald-500", in_progress: "bg-amber-500", partial: "bg-amber-500",
-    not_met: "bg-rose-500", no_data: "bg-zinc-300",
+    met: "bg-emerald-500",
+    in_progress: "bg-amber-500",
+    partial: "bg-amber-500",
+    not_met: "bg-rose-500",
+    no_data: "bg-zinc-300",
   };
   return map[status] ?? "bg-zinc-300";
 }
@@ -94,7 +98,7 @@ export default function MonitoringSummaryCard({ ncpId, visitCount }: Props) {
     );
   }
 
-  const evalStyle = STATUS_STYLE[summary.goal_evaluation.status] ?? STATUS_STYLE.no_data;
+  const evalStatus = STATUS_MAP[summary.goal_evaluation.status] ?? STATUS_MAP.no_data;
 
   return (
     <div className="bg-white border border-zinc-200 rounded-2xl p-5 shadow-sm space-y-4">
@@ -103,9 +107,7 @@ export default function MonitoringSummaryCard({ ncpId, visitCount }: Props) {
         <h3 className="text-xs font-extrabold text-zinc-700 uppercase tracking-wider flex items-center gap-2">
           <Target className="h-4 w-4 text-emerald-600" /> Evaluation Summary
         </h3>
-        <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold border ${evalStyle.cls}`}>
-          {evalStyle.label}
-        </span>
+        <StatusBadge label={evalStatus.label} status={evalStatus.status} />
       </div>
 
       {summary.has_previous ? (
@@ -135,7 +137,7 @@ export default function MonitoringSummaryCard({ ncpId, visitCount }: Props) {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
             {summary.changes.map((c) => {
               const Icon = c.direction === "up" ? TrendingUp : c.direction === "down" ? TrendingDown : Minus;
-              const st = STATUS_STYLE[c.status] ?? STATUS_STYLE.no_data;
+              const cStatus = STATUS_MAP[c.status] ?? STATUS_MAP.no_data;
               return (
                 <div key={c.metric} className="flex items-center justify-between px-2.5 py-1.5 rounded-lg border border-zinc-100 bg-zinc-50/60">
                   <div className="min-w-0">
@@ -151,7 +153,7 @@ export default function MonitoringSummaryCard({ ncpId, visitCount }: Props) {
                         {c.delta > 0 ? "+" : ""}{c.delta}{c.delta_pct != null ? ` (${c.delta_pct > 0 ? "+" : ""}${c.delta_pct}%)` : ""}
                       </span>
                     )}
-                    <span className={`h-2 w-2 rounded-full ${statusDot(c.status)}`} title={st.label} />
+                    <span className={`h-2 w-2 rounded-full ${statusDot(c.status)}`} title={cStatus.label} />
                   </div>
                 </div>
               );
@@ -187,7 +189,7 @@ export default function MonitoringSummaryCard({ ncpId, visitCount }: Props) {
       <div className="pt-3 border-t border-zinc-100 space-y-2">
         {!aiNarrative && (
           <button onClick={runAiReview} disabled={aiLoading}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold text-violet-700 border border-violet-200 rounded-lg hover:bg-violet-50 transition-colors cursor-pointer disabled:opacity-50">
+            className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold text-emerald-700 border border-emerald-200 rounded-lg hover:bg-emerald-50 transition-colors cursor-pointer disabled:opacity-50">
             {aiLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
             {aiLoading ? "Reviewing…" : "AI Clinical Review"}
           </button>
@@ -201,13 +203,13 @@ export default function MonitoringSummaryCard({ ncpId, visitCount }: Props) {
           </p>
         )}
         {aiNarrative && (
-          <div className="p-3 bg-violet-50 border border-violet-100 rounded-xl">
-            <p className="text-[9px] font-bold text-violet-500 uppercase tracking-widest mb-1 flex items-center gap-1">
+          <div className="p-3 bg-emerald-50 border border-emerald-100 rounded-xl">
+            <p className="text-[9px] font-bold text-emerald-600 uppercase tracking-widest mb-1 flex items-center gap-1">
               <Sparkles className="h-3 w-3" /> AI Clinical Review {aiCached && <span className="text-zinc-400 font-normal normal-case">· cached</span>}
             </p>
             <p className="text-[11px] text-zinc-700 leading-relaxed">{aiNarrative}</p>
             <button onClick={runAiReview} disabled={aiLoading}
-              className="mt-2 text-[9px] font-bold text-violet-400 hover:text-violet-600 transition-colors cursor-pointer">
+              className="mt-2 text-[9px] font-bold text-emerald-600 hover:text-emerald-700 transition-colors cursor-pointer">
               Regenerate
             </button>
           </div>
