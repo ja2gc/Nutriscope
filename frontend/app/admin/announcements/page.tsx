@@ -1,529 +1,674 @@
 "use client";
 
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { Button } from "@/components/ui/Button";
 import {
-  fetchAnnouncements,
-  createAnnouncement,
-  updateAnnouncement,
-  deleteAnnouncement,
   Announcement,
-  AnnouncementPayload,
   AnnouncementCategory,
   AnnouncementVisibility,
+  fetchAdminAnnouncements,
+  createAdminAnnouncement,
+  updateAdminAnnouncement,
+  deleteAdminAnnouncement,
 } from "@/services/announcementService";
-import {
-  Megaphone,
-  Plus,
-  Pin,
-  Pencil,
-  Trash2,
-  X,
-  RefreshCw,
-  Eye,
-  Calendar,
-  AlertTriangle,
-  Upload,
-  Image as ImageIcon,
-} from "lucide-react";
-import { Button } from "@/components/ui/Button";
-import { Badge, BadgeTone } from "@/components/ui/Badge";
+import { Megaphone, PencilLine, Trash2, X } from "lucide-react";
 
-const categoryStyles: Record<AnnouncementCategory, BadgeTone> = {
-  General: "zinc",
-  Event: "amber",
-  Operational: "sky",
-  Urgent: "red",
+// Match light-theme category pill styles from the RND dashboard exactly.
+const categoryStyles: Record<AnnouncementCategory, string> = {
+  General: "bg-zinc-100 text-zinc-700 border-zinc-200",
+  Event: "bg-orange-50 text-[#EA580C] border-orange-200",
+  Operational: "bg-blue-50 text-blue-700 border-blue-100",
+  Urgent: "bg-red-50 text-red-700 border-red-100",
 };
 
-const visibilityTones: Record<AnnouncementVisibility, BadgeTone> = {
-  All: "emerald",
-  FSS: "sky",
-  Admin: "violet",
+type AnnouncementDraft = {
+  title: string;
+  body: string;
+  category: AnnouncementCategory;
+  visibility: AnnouncementVisibility;
+  pinned: boolean;
+  imageName: string;
+  imageDataUrl: string;
 };
 
-export default function AnnouncementsPage() {
-  const { user: currentUser } = useAuth();
+const EMPTY_DRAFT: AnnouncementDraft = {
+  title: "",
+  body: "",
+  category: "General",
+  visibility: "All",
+  pinned: false,
+  imageName: "",
+  imageDataUrl: "",
+};
+
+function getInitials(name: string) {
+  return name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("");
+}
+
+function formatTimeStamp(value: string) {
+  return new Date(value).toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function sortAnnouncements(posts: Announcement[]) {
+  return [...posts].sort((a, b) => {
+    if (Boolean(a.pinned) !== Boolean(b.pinned)) return a.pinned ? -1 : 1;
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+  });
+}
+
+export default function AdminAnnouncementsPage() {
+  const { user } = useAuth();
   const [posts, setPosts] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Form Modal States
-  const [formOpen, setFormOpen] = useState(false);
-  const [editingPost, setEditingPost] = useState<Announcement | null>(null);
-  
-  // Form values
-  const [title, setTitle] = useState("");
-  const [body, setBody] = useState("");
-  const [category, setCategory] = useState<AnnouncementCategory>("General");
-  const [visibility, setVisibility] = useState<AnnouncementVisibility>("All");
-  const [pinned, setPinned] = useState(false);
-  const [attachment, setAttachment] = useState<string | null>(null);
-  
-  const [submitting, setSubmitting] = useState(false);
-  const [formError, setFormError] = useState<string | null>(null);
+  const [composerOpen, setComposerOpen] = useState(false);
+  const [editingPostId, setEditingPostId] = useState<number | null>(null);
+  const [viewingPostId, setViewingPostId] = useState<number | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [draft, setDraft] = useState<AnnouncementDraft>(EMPTY_DRAFT);
 
-  async function loadAnnouncements() {
-    try {
-      setLoading(true);
-      setError(null);
-      const data = await fetchAnnouncements();
-      setPosts(data);
-    } catch (err: any) {
-      setError(err.message || "Failed to load announcements feed.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  // Use useEffect to handle loading
+  // Load on mount
   useEffect(() => {
-    // Avoid named function for select
-    const run = async () => {
+    async function load() {
       try {
         setLoading(true);
         setError(null);
-        const data = await fetchAnnouncements();
-        setPosts(data);
+        const data = await fetchAdminAnnouncements();
+        setPosts(sortAnnouncements(data));
       } catch (err: any) {
-        setError(err.message || "Failed to load announcements feed.");
+        setError(err.message || "Failed to load announcements.");
       } finally {
         setLoading(false);
       }
-    };
-    void run();
+    }
+    void load();
   }, []);
 
-  const orderedPosts = useMemo(() => {
-    return [...posts].sort((a, b) => {
-      if (a.pinned !== b.pinned) {
-        return a.pinned ? -1 : 1;
+  // Lock body scroll when modal is open
+  useEffect(() => {
+    if (!composerOpen && viewingPostId === null) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setComposerOpen(false);
+        setEditingPostId(null);
+        setViewingPostId(null);
       }
-      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-    });
-  }, [posts]);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = prev;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [composerOpen, viewingPostId]);
+
+  const orderedPosts = useMemo(() => sortAnnouncements(posts), [posts]);
+  const selectedPost = useMemo(
+    () => orderedPosts.find((p) => p.id === viewingPostId) ?? null,
+    [orderedPosts, viewingPostId]
+  );
+
+  function resetDraft() {
+    setDraft(EMPTY_DRAFT);
+  }
 
   function openCreate() {
-    setEditingPost(null);
-    setTitle("");
-    setBody("");
-    setCategory("General");
-    setVisibility("All");
-    setPinned(false);
-    setAttachment(null);
-    setFormError(null);
-    setFormOpen(true);
+    setEditingPostId(null);
+    resetDraft();
+    setSaveError(null);
+    setComposerOpen(true);
   }
 
   function openEdit(post: Announcement) {
-    setEditingPost(post);
-    setTitle(post.title);
-    setBody(post.body);
-    setCategory(post.category);
-    setVisibility(post.visibility);
-    setPinned(post.pinned);
-    setAttachment(post.attachment || null);
-    setFormError(null);
-    setFormOpen(true);
+    setViewingPostId(null);
+    setEditingPostId(post.id);
+    setDraft({
+      title: post.title,
+      body: post.body,
+      category: post.category,
+      visibility: post.visibility,
+      pinned: post.pinned,
+      imageName: post.attachment ? "Current attachment" : "",
+      imageDataUrl: post.attachment || "",
+    });
+    setSaveError(null);
+    setComposerOpen(true);
+  }
+
+  function openViewer(post: Announcement) {
+    setComposerOpen(false);
+    setEditingPostId(null);
+    setViewingPostId(post.id);
+  }
+
+  function closeComposer() {
+    setComposerOpen(false);
+    setEditingPostId(null);
+  }
+
+  function closeViewer() {
+    setViewingPostId(null);
+  }
+
+  function handleDraftChange(
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+  ) {
+    const { name, value } = e.target;
+    setDraft((prev) => ({ ...prev, [name]: value } as AnnouncementDraft));
+  }
+
+  function handlePinnedChange(e: React.ChangeEvent<HTMLInputElement>) {
+    setDraft((prev) => ({ ...prev, pinned: e.target.checked }));
   }
 
   function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) {
-      setAttachment(null);
+      setDraft((prev) => ({ ...prev, imageName: "", imageDataUrl: "" }));
       return;
     }
-
     const reader = new FileReader();
     reader.onload = () => {
-      setAttachment(typeof reader.result === "string" ? reader.result : null);
+      setDraft((prev) => ({
+        ...prev,
+        imageName: file.name,
+        imageDataUrl: typeof reader.result === "string" ? reader.result : "",
+      }));
     };
     reader.readAsDataURL(file);
   }
 
-  async function handleSave(e: React.FormEvent) {
+  async function saveAnnouncement(e: React.FormEvent) {
     e.preventDefault();
-    setFormError(null);
-    setSubmitting(true);
+    const hasContent = Boolean(draft.title.trim() || draft.body.trim() || draft.imageDataUrl);
+    if (!hasContent) return;
 
-    const payload: AnnouncementPayload = {
-      title: title.trim(),
-      body: body.trim(),
-      category,
-      visibility,
-      pinned,
-      attachment: attachment || null,
+    const payload = {
+      title: draft.title.trim() || "Announcement",
+      body: draft.body.trim(),
+      category: draft.category,
+      visibility: draft.visibility,
+      pinned: draft.pinned,
+      attachment: draft.imageDataUrl || null,
     };
 
     try {
-      if (editingPost) {
-        const updated = await updateAnnouncement(editingPost.id, payload);
-        setPosts((prev) => prev.map((p) => (p.id === editingPost.id ? updated : p)));
+      setSaving(true);
+      setSaveError(null);
+      if (editingPostId) {
+        const updated = await updateAdminAnnouncement(editingPostId, payload);
+        setPosts((prev) =>
+          sortAnnouncements(prev.map((p) => (p.id === updated.id ? updated : p)))
+        );
       } else {
-        const created = await createAnnouncement(payload);
-        setPosts((prev) => [created, ...prev]);
+        const created = await createAdminAnnouncement(payload);
+        setPosts((prev) => sortAnnouncements([created, ...prev]));
       }
-      setFormOpen(false);
+      closeComposer();
+      resetDraft();
     } catch (err: any) {
-      setFormError(err.message || "Failed to broadcast announcement.");
+      setSaveError(err.message || "Failed to save announcement.");
     } finally {
-      setSubmitting(false);
+      setSaving(false);
     }
   }
 
   async function handleDelete(post: Announcement) {
-    if (!confirm(`Are you sure you want to delete announcement: "${post.title}"?`)) {
-      return;
-    }
+    if (!confirm(`Delete announcement: "${post.title}"?`)) return;
     try {
-      await deleteAnnouncement(post.id);
+      await deleteAdminAnnouncement(post.id);
       setPosts((prev) => prev.filter((p) => p.id !== post.id));
     } catch (err: any) {
       alert(err.message || "Failed to delete announcement.");
     }
   }
 
-  return (
-    <div className="space-y-6 font-sans text-zinc-100">
-      {/* Breadcrumbs & Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 select-none">
-        <div>
-          <div className="flex items-center gap-2 text-xs font-semibold text-zinc-500">
-            <span>Admin</span>
-            <span className="text-zinc-700">/</span>
-            <span className="text-zinc-400 font-bold">Announcements</span>
-          </div>
-          <h1 className="text-xl font-extrabold text-white tracking-tight mt-1 flex items-center gap-2">
-            <Megaphone className="h-5 w-5 text-blue-400" />
-            Hospital Feed Manager
-          </h1>
-          <p className="text-xs text-zinc-400 mt-0.5">
-            Broadcast administrative notices, operational protocols, and event schedules to staff dashboards.
-          </p>
-        </div>
+  // ---------- Modals ----------
 
-        <button
-          onClick={openCreate}
-          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-xs font-bold uppercase tracking-wider rounded-lg transition-colors cursor-pointer select-none"
-        >
-          <Plus className="h-4 w-4" />
-          Publish Bulletin
-        </button>
-      </div>
-
-      {/* Main Bulletins Grid */}
-      {error ? (
-        <div className="bg-red-950/30 border border-red-900/50 p-4 rounded-xl flex items-start gap-3">
-          <AlertTriangle className="h-5 w-5 text-red-500 shrink-0 mt-0.5" />
-          <div>
-            <div className="text-xs text-red-400 font-bold">Failed to load bulletins</div>
-            <div className="text-xs text-red-500/80 mt-0.5">{error}</div>
-          </div>
-        </div>
-      ) : loading ? (
-        <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-16 text-center flex flex-col items-center justify-center gap-3">
-          <RefreshCw className="h-6 w-6 text-zinc-500 animate-spin" />
-          <div className="text-xs text-zinc-400 font-semibold uppercase tracking-wider">
-            Loading announcements...
-          </div>
-        </div>
-      ) : orderedPosts.length === 0 ? (
-        <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-16 text-center max-w-xl mx-auto shadow-sm">
-          <div className="p-3 bg-zinc-950 border border-zinc-850 rounded-2xl w-fit mx-auto text-zinc-650 mb-4">
-            <Megaphone className="h-8 w-8" />
-          </div>
-          <h3 className="text-sm font-bold text-zinc-300">Announcements feed is empty</h3>
-          <p className="text-xs text-zinc-500 mt-1 max-w-sm mx-auto leading-relaxed">
-            Create a new bulletin to share updates with the team.
-          </p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-          {orderedPosts.map((post) => {
-            const initials = post.author?.name
-              ? post.author.name
-                  .split(" ")
-                  .filter(Boolean)
-                  .slice(0, 2)
-                  .map((n) => n[0]?.toUpperCase())
-                  .join("")
-              : "SYS";
-            const dateStr = new Date(post.created_at).toLocaleString("en-US", {
-              month: "short",
-              day: "numeric",
-              hour: "numeric",
-              minute: "2-digit",
-            });
-
-            return (
-              <article
-                key={post.id}
-                className={`bg-zinc-900 border ${
-                  post.pinned ? "border-amber-500/30" : "border-zinc-850"
-                } rounded-3xl p-5 shadow-md flex flex-col justify-between hover:border-zinc-700 transition-all gap-4 relative overflow-hidden`}
-              >
-                {post.pinned && (
-                  <div className="absolute top-0 right-0 h-16 w-16 overflow-hidden select-none pointer-events-none">
-                    <div className="bg-amber-500/10 border border-amber-500/20 text-amber-500 text-[8px] font-black uppercase tracking-widest text-center py-1 absolute transform rotate-45 top-3 -right-4 w-20">
-                      Pinned
-                    </div>
-                  </div>
-                )}
-
-                <div className="space-y-3.5">
-                  {/* Meta Bar */}
-                  <div className="flex items-start gap-3">
-                    <div className="h-9 w-9 rounded-full bg-zinc-950 border border-zinc-800 text-zinc-300 font-bold text-xs flex items-center justify-center shrink-0">
-                      {initials}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="text-xs font-bold text-white leading-tight truncate">
-                        {post.author?.name || "System"}
-                      </div>
-                      <div className="text-[10px] text-zinc-500 mt-0.5 flex flex-wrap items-center gap-1.5 font-medium">
-                        <span>{post.author?.role || "Staff"}</span>
-                        <span>·</span>
-                        <span>{dateStr}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Header badges */}
-                  <div className="flex flex-wrap gap-2 select-none">
-                    <Badge tone={categoryStyles[post.category] || "zinc"}>{post.category}</Badge>
-                    <Badge tone={visibilityTones[post.visibility] || "zinc"}>
-                      Target: {post.visibility}
-                    </Badge>
-                  </div>
-
-                  {/* Content */}
-                  <div className="space-y-2">
-                    <h3 className="text-sm font-extrabold text-white tracking-tight leading-snug">
-                      {post.title}
-                    </h3>
-                    <p className="text-xs text-zinc-350 leading-relaxed whitespace-pre-wrap line-clamp-6">
-                      {post.body}
-                    </p>
-                  </div>
-
-                  {/* Attachment image */}
-                  {post.attachment && (
-                    <div className="rounded-xl border border-zinc-850 overflow-hidden bg-zinc-950/60 max-h-48 flex items-center justify-center">
-                      <img
-                        src={post.attachment}
-                        alt={post.title}
-                        className="block w-full object-cover max-h-48"
-                      />
-                    </div>
-                  )}
-                </div>
-
-                {/* Card controls */}
-                <div className="pt-3 border-t border-zinc-850/60 flex items-center justify-between gap-3 select-none">
-                  <span className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider">
-                    Bulletin ID: #{post.id}
-                  </span>
-                  
-                  <div className="flex gap-1.5">
-                    <button
-                      onClick={() => openEdit(post)}
-                      title="Edit announcement"
-                      className="p-1.5 rounded-lg border border-zinc-800 bg-zinc-950 text-zinc-400 hover:text-white hover:border-zinc-700 transition-all cursor-pointer"
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                    </button>
-                    <button
-                      onClick={() => void handleDelete(post)}
-                      title="Delete announcement"
-                      className="p-1.5 rounded-lg border border-zinc-800 bg-zinc-950 text-zinc-500 hover:text-red-500 hover:border-red-500/20 transition-all cursor-pointer"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                </div>
-              </article>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Editor Modal Form */}
-      {formOpen && (
+  function renderModal() {
+    if (composerOpen) {
+      return (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/60 backdrop-blur-sm"
-          onClick={() => setFormOpen(false)}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/45 backdrop-blur-sm"
+          onClick={() => { closeComposer(); closeViewer(); }}
         >
           <div
-            className="w-full max-w-2xl bg-zinc-900 border border-zinc-850 rounded-3xl overflow-hidden shadow-2xl"
+            className="w-full max-w-2xl bg-white border border-zinc-200 rounded-3xl overflow-hidden shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-5 py-4 border-b border-zinc-850 bg-zinc-950 flex items-center justify-between gap-4 select-none">
+            <div className="px-5 py-4 border-b border-zinc-100 bg-zinc-50 flex items-center justify-between gap-4">
               <div>
-                <h3 className="text-xs font-bold text-white uppercase tracking-[0.18em]">
-                  {editingPost ? "Edit Bulletin Post" : "Compose Bulletin Post"}
+                <h3 className="text-xs font-bold text-zinc-900 uppercase tracking-[0.18em]">
+                  {editingPostId ? "Edit Announcement" : "Create Announcement"}
                 </h3>
                 <p className="text-[10px] text-zinc-500 mt-1">
-                  Draft notices dynamically broadcast to patient care dashboards.
+                  Admin announcements support pinning and all-department visibility.
                 </p>
               </div>
               <button
                 type="button"
-                onClick={() => setFormOpen(false)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-800 text-[10px] font-bold uppercase tracking-wider text-zinc-455 hover:text-white hover:bg-zinc-850 transition-all cursor-pointer"
+                onClick={closeComposer}
+                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-zinc-200 text-[10px] font-bold uppercase tracking-wider text-zinc-600 hover:text-zinc-900 hover:bg-white transition-colors"
               >
                 <X className="h-3.5 w-3.5" />
                 Close
               </button>
             </div>
 
-            <form onSubmit={handleSave} className="p-5 space-y-4">
-              {formError && (
-                <div className="text-xs font-semibold text-red-400 bg-red-950/20 border border-red-900/50 rounded-xl px-3 py-2 flex items-start gap-2">
-                  <AlertTriangle className="h-4 w-4 text-red-500 shrink-0 mt-0.5" />
-                  <span>{formError}</span>
-                </div>
-              )}
-
-              {/* Title */}
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block">
-                  Post Title
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="e.g. Critical System Upgrade Schedule"
-                  className="w-full px-3 py-2 text-xs bg-zinc-950 border border-zinc-850 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 placeholder:text-zinc-650"
-                />
-              </div>
-
-              {/* Category, Target, Pinned grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <form onSubmit={(e) => void saveAnnouncement(e)} className="p-5 space-y-5">
+              {/* Row 1 — Category / Visibility / Title */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block">
-                    Category Theme
+                  <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">
+                    Category
                   </label>
                   <select
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value as AnnouncementCategory)}
-                    className="w-full px-3 py-2 text-xs bg-zinc-950 border border-zinc-850 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 cursor-pointer"
+                    name="category"
+                    value={draft.category}
+                    onChange={handleDraftChange}
+                    className="w-full px-3 py-2 text-sm bg-white border border-zinc-300 rounded-xl text-zinc-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
                   >
-                    <option value="General">General Notice</option>
-                    <option value="Event">Event Schedule</option>
-                    <option value="Operational">Operational Protocol</option>
-                    <option value="Urgent">Urgent / Alert</option>
+                    <option value="General">General</option>
+                    <option value="Event">Event</option>
+                    <option value="Operational">Operational</option>
+                    <option value="Urgent">Urgent</option>
                   </select>
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block">
-                    Department Visibility
+                  <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">
+                    Visibility
                   </label>
                   <select
-                    value={visibility}
-                    onChange={(e) => setVisibility(e.target.value as AnnouncementVisibility)}
-                    className="w-full px-3 py-2 text-xs bg-zinc-950 border border-zinc-850 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 cursor-pointer"
+                    name="visibility"
+                    value={draft.visibility}
+                    onChange={handleDraftChange}
+                    className="w-full px-3 py-2 text-sm bg-white border border-zinc-300 rounded-xl text-zinc-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
                   >
-                    <option value="All">All Departments (Public)</option>
-                    <option value="FSS">Food Service only</option>
-                    <option value="Admin">Administrators only</option>
+                    <option value="All">All</option>
+                    <option value="FSS">FSS</option>
+                    <option value="Admin">Admin</option>
                   </select>
                 </div>
 
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block select-none">
-                    Pin Priority
+                <div className="space-y-1.5 sm:col-span-2">
+                  <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">
+                    Title
                   </label>
-                  <div className="flex h-[34px] items-center">
-                    <label className="flex items-center gap-2 cursor-pointer text-xs text-zinc-350 select-none">
-                      <input
-                        type="checkbox"
-                        checked={pinned}
-                        onChange={(e) => setPinned(e.target.checked)}
-                        className="h-4 w-4 bg-zinc-950 border border-zinc-850 rounded-md focus:ring-purple-500/20 text-purple-600 focus:outline-none"
-                      />
-                      <span>Pin post to top of feed</span>
-                    </label>
-                  </div>
+                  <input
+                    name="title"
+                    value={draft.title}
+                    onChange={handleDraftChange}
+                    placeholder="Announcement title"
+                    className="w-full px-3 py-2 text-sm bg-white border border-zinc-300 rounded-xl text-zinc-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 placeholder:text-zinc-400"
+                  />
                 </div>
               </div>
 
-              {/* Body Text */}
+              {/* Body */}
               <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block">
-                  Body Bulletin text
+                <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">
+                  Body
                 </label>
                 <textarea
-                  required
-                  value={body}
-                  onChange={(e) => setBody(e.target.value)}
-                  placeholder="Detail the announcement bulletin here..."
-                  className="w-full px-3 py-2 text-xs bg-zinc-950 border border-zinc-850 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 placeholder:text-zinc-650 min-h-28 leading-5"
+                  name="body"
+                  value={draft.body}
+                  onChange={handleDraftChange}
+                  placeholder="Write the announcement"
+                  className="w-full px-3 py-2 text-sm bg-white border border-zinc-300 rounded-xl text-zinc-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 placeholder:text-zinc-400 min-h-32"
                 />
               </div>
 
-              {/* Image upload */}
-              <div className="space-y-2">
-                <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block">
-                  Attachment Banner Image
+              {/* Pin toggle */}
+              <div className="flex items-center gap-2.5">
+                <input
+                  id="pinned-toggle"
+                  type="checkbox"
+                  checked={draft.pinned}
+                  onChange={handlePinnedChange}
+                  className="h-4 w-4 rounded border-zinc-300 text-emerald-600 focus:ring-emerald-500/20"
+                />
+                <label
+                  htmlFor="pinned-toggle"
+                  className="text-xs font-semibold text-zinc-700 select-none cursor-pointer"
+                >
+                  Pin to top of feed
                 </label>
-                <div className="flex items-center gap-3">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageUpload}
-                    className="hidden"
-                    id="file-upload-input"
-                  />
-                  <label
-                    htmlFor="file-upload-input"
-                    className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl border border-zinc-850 bg-zinc-950 text-zinc-400 hover:text-white hover:border-zinc-750 transition-colors select-none cursor-pointer text-xs font-semibold"
-                  >
-                    <Upload className="h-4 w-4" />
-                    Upload Image
-                  </label>
-                  {attachment && (
-                    <button
-                      type="button"
-                      onClick={() => setAttachment(null)}
-                      className="text-xs text-red-400 hover:text-red-300 font-bold select-none cursor-pointer"
-                    >
-                      Remove attachment
-                    </button>
-                  )}
-                </div>
+                {draft.pinned && (
+                  <span className="inline-flex px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-wider border bg-orange-50 text-[#EA580C] border-orange-200">
+                    Pinned
+                  </span>
+                )}
+              </div>
 
-                {attachment ? (
-                  <div className="rounded-2xl border border-zinc-850 overflow-hidden bg-zinc-950/40 max-h-48 flex items-center justify-center select-none">
+              {/* Image */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">
+                  Image
+                </label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  className="block w-full text-xs text-zinc-600 file:mr-3 file:px-3 file:py-2 file:rounded-lg file:border-0 file:bg-zinc-950 file:text-white file:text-[10px] file:font-bold file:uppercase file:tracking-wider"
+                />
+                {draft.imageDataUrl ? (
+                  <div className="rounded-2xl border border-zinc-200 overflow-hidden bg-white">
                     <img
-                      src={attachment}
-                      alt="Attachment preview"
-                      className="block w-full object-cover max-h-48"
+                      src={draft.imageDataUrl}
+                      alt={draft.imageName || "Announcement preview"}
+                      className="block h-44 w-full object-cover"
                     />
                   </div>
                 ) : (
-                  <div className="rounded-2xl border border-dashed border-zinc-850 p-6 text-center text-xs text-zinc-555 bg-zinc-950/20 select-none">
-                    No image uploaded. (Optional banner)
+                  <div className="rounded-2xl border border-dashed border-zinc-200 p-6 text-center text-xs text-zinc-400 bg-white">
+                    Image preview appears here after upload.
                   </div>
                 )}
               </div>
 
-              {/* Action footer */}
-              <div className="flex gap-2.5 pt-2 select-none">
+              {/* Footer */}
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex flex-wrap gap-2">
+                  {Object.entries(categoryStyles).map(([label, cls]) => (
+                    <span
+                      key={label}
+                      className={`inline-flex px-2.5 py-1 rounded-full text-[9px] font-extrabold uppercase tracking-wider border ${cls}`}
+                    >
+                      {label}
+                    </span>
+                  ))}
+                </div>
                 <Button
                   variant="primary"
-                  loading={submitting}
-                  className="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider w-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white"
+                  loading={saving}
+                  className="w-auto px-4 py-2 text-[10px] font-bold uppercase tracking-wider"
                 >
-                  {editingPost ? "Publish Changes" : "Broadcast Announcement"}
+                  {editingPostId ? "Save Changes" : "Post Announcement"}
                 </Button>
               </div>
+
+              {saveError && (
+                <div className="text-xs font-semibold text-red-700 bg-red-50 border border-red-100 rounded-xl px-3 py-2">
+                  {saveError}
+                </div>
+              )}
             </form>
           </div>
         </div>
+      );
+    }
+
+    if (selectedPost) {
+      return (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/45 backdrop-blur-sm"
+          onClick={closeViewer}
+        >
+          <div
+            className="w-full max-w-3xl bg-white border border-zinc-200 rounded-3xl overflow-hidden shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-5 py-4 border-b border-zinc-100 bg-zinc-50 flex items-center justify-between gap-4">
+              <h3 className="text-xs font-bold text-zinc-900 uppercase tracking-[0.18em]">
+                Announcement
+              </h3>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => openEdit(selectedPost)}
+                  className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-zinc-200 text-[10px] font-bold uppercase tracking-wider text-zinc-600 hover:text-zinc-900 hover:bg-white transition-colors"
+                >
+                  <PencilLine className="h-3.5 w-3.5" />
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  onClick={closeViewer}
+                  className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-zinc-200 text-[10px] font-bold uppercase tracking-wider text-zinc-600 hover:text-zinc-900 hover:bg-white transition-colors"
+                >
+                  <X className="h-3.5 w-3.5" />
+                  Close
+                </button>
+              </div>
+            </div>
+
+            <div className="p-5 bg-zinc-50/50">
+              <article className="bg-white border border-zinc-200 rounded-3xl p-5 shadow-sm">
+                <div className="flex items-start gap-3">
+                  <div className="h-11 w-11 rounded-full bg-zinc-950 text-white flex items-center justify-center text-xs font-bold uppercase shrink-0">
+                    {getInitials(selectedPost.author?.name || "")}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <div className="text-sm font-bold text-zinc-950">{selectedPost.author?.name}</div>
+                        <div className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
+                          {selectedPost.author?.role} / {formatTimeStamp(selectedPost.created_at)}
+                          {selectedPost.updated_at !== selectedPost.created_at ? " / Edited" : ""}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {selectedPost.pinned && (
+                          <span className="inline-flex px-2.5 py-1 rounded-full text-[9px] font-extrabold uppercase tracking-wider border bg-orange-50 text-[#EA580C] border-orange-200">
+                            Pinned
+                          </span>
+                        )}
+                        <span
+                          className={`inline-flex px-2.5 py-1 rounded-full text-[9px] font-extrabold uppercase tracking-wider border ${categoryStyles[selectedPost.category]}`}
+                        >
+                          {selectedPost.category}
+                        </span>
+                        <span className="inline-flex px-2.5 py-1 rounded-full text-[9px] font-extrabold uppercase tracking-wider border bg-zinc-50 text-zinc-600 border-zinc-200">
+                          {selectedPost.visibility}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 space-y-3">
+                      <h4 className="text-base font-extrabold text-zinc-950 tracking-tight">
+                        {selectedPost.title}
+                      </h4>
+                      <p className="text-sm text-zinc-700 leading-7 whitespace-pre-wrap">
+                        {selectedPost.body}
+                      </p>
+                    </div>
+
+                    {selectedPost.attachment && (
+                      <div className="mt-4 overflow-hidden rounded-2xl border border-zinc-200 bg-zinc-50">
+                        <img
+                          src={selectedPost.attachment}
+                          alt={selectedPost.title}
+                          className="block w-full max-h-[520px] object-cover"
+                        />
+                      </div>
+                    )}
+
+                    <div className="mt-4 border-t border-zinc-100 pt-3 text-[10px] font-bold uppercase tracking-wider text-zinc-400">
+                      Posted to department announcements
+                    </div>
+                  </div>
+                </div>
+              </article>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    return null;
+  }
+
+  // ---------- Page ----------
+
+  return (
+    <div className="space-y-6 font-sans">
+      {/* Breadcrumb & header */}
+      <div className="flex items-center gap-2 text-xs font-semibold text-zinc-400 select-none">
+        <span>Admin</span>
+        <span className="text-zinc-300">/</span>
+        <span className="text-zinc-600 font-bold">Announcements</span>
+      </div>
+
+      <div className="border-b border-zinc-200 pb-5 flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-extrabold text-zinc-950 tracking-tight flex items-center gap-2.5">
+            <Megaphone className="h-5 w-5 text-emerald-600" />
+            Announcements
+          </h2>
+          <p className="text-xs text-zinc-500 mt-1 select-none">
+            Broadcast notices to FSS, Admin, or all departments. Admin announcements support pinning.
+          </p>
+        </div>
+        <Button
+          variant="primary"
+          onClick={openCreate}
+          className="w-auto px-4 py-2 text-[10px] font-bold uppercase tracking-wider shrink-0"
+        >
+          Create Announcement
+        </Button>
+      </div>
+
+      {/* Error */}
+      {error && (
+        <div className="bg-red-50 border border-red-100 p-4 rounded-xl flex items-start gap-3">
+          <span className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-red-200 text-[10px] font-black text-red-600 shrink-0 mt-0.5">!</span>
+          <div className="text-xs text-red-700 font-bold">{error}</div>
+        </div>
       )}
+
+      {/* Feed */}
+      <div className="bg-white border border-zinc-200 rounded-3xl overflow-hidden shadow-sm">
+        <div className="px-5 py-4 border-b border-zinc-100">
+          <h3 className="text-xs font-bold text-zinc-900 uppercase tracking-[0.18em]">
+            Announcements Feed
+          </h3>
+          <p className="text-[10px] text-zinc-500 mt-1">
+            Pinned posts float to the top. Click any post to view details or edit.
+          </p>
+        </div>
+
+        <div className="p-4 space-y-4">
+          {loading ? (
+            <div className="space-y-3">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="h-32 rounded-3xl bg-zinc-100 animate-pulse" />
+              ))}
+            </div>
+          ) : orderedPosts.length === 0 ? (
+            <div className="border border-dashed border-zinc-200 rounded-3xl p-8 text-center text-xs text-zinc-400 bg-zinc-50/40">
+              No announcements yet. Create the first one above.
+            </div>
+          ) : (
+            orderedPosts.map((post) => (
+              <article
+                key={post.id}
+                role="button"
+                tabIndex={0}
+                onClick={() => openViewer(post)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    openViewer(post);
+                  }
+                }}
+                className="cursor-pointer rounded-3xl border border-zinc-200 bg-white p-5 shadow-sm transition-all duration-150 hover:-translate-y-0.5 hover:border-zinc-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+              >
+                <div className="flex items-start gap-3">
+                  <div className="h-11 w-11 rounded-full bg-zinc-950 text-white flex items-center justify-center text-xs font-bold uppercase shrink-0">
+                    {getInitials(post.author?.name || "")}
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <div className="text-sm font-bold text-zinc-950">{post.author?.name}</div>
+                        <div className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
+                          {post.author?.role} / {formatTimeStamp(post.created_at)}
+                          {post.updated_at && post.updated_at !== post.created_at ? " / Edited" : ""}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        {post.pinned && (
+                          <span className="inline-flex px-2.5 py-1 rounded-full text-[9px] font-extrabold uppercase tracking-wider border bg-orange-50 text-[#EA580C] border-orange-200">
+                            Pinned
+                          </span>
+                        )}
+                        <span
+                          className={`inline-flex px-2.5 py-1 rounded-full text-[9px] font-extrabold uppercase tracking-wider border ${categoryStyles[post.category]}`}
+                        >
+                          {post.category}
+                        </span>
+                        <span className="inline-flex px-2.5 py-1 rounded-full text-[9px] font-extrabold uppercase tracking-wider border bg-zinc-50 text-zinc-500 border-zinc-200">
+                          {post.visibility}
+                        </span>
+
+                        {/* Edit / Delete — stop propagation so click doesn't open viewer */}
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); openEdit(post); }}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-zinc-200 text-[9px] font-extrabold uppercase tracking-wider text-zinc-600 hover:text-zinc-900 hover:bg-zinc-50 transition-colors"
+                          title="Edit"
+                        >
+                          <PencilLine className="h-3 w-3" />
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); void handleDelete(post); }}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-red-100 text-[9px] font-extrabold uppercase tracking-wider text-red-600 hover:bg-red-50 transition-colors"
+                          title="Delete"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="mt-3 space-y-2">
+                      <h4 className="text-sm font-bold text-zinc-950 tracking-tight">{post.title}</h4>
+                      <p className="text-xs text-zinc-600 leading-relaxed whitespace-pre-wrap line-clamp-4">
+                        {post.body}
+                      </p>
+                    </div>
+
+                    {post.attachment && (
+                      <div className="mt-4 overflow-hidden rounded-2xl border border-zinc-200 bg-zinc-50">
+                        <img
+                          src={post.attachment}
+                          alt={post.title}
+                          className="block w-full max-h-96 object-cover"
+                        />
+                      </div>
+                    )}
+
+                    <div className="mt-4 border-t border-zinc-100 pt-3 text-[10px] font-bold uppercase tracking-wider text-zinc-400">
+                      Posted to department announcements
+                    </div>
+                  </div>
+                </div>
+              </article>
+            ))
+          )}
+        </div>
+      </div>
+
+      {renderModal()}
     </div>
   );
 }
