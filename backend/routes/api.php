@@ -71,6 +71,14 @@ Route::prefix('auth')->group(function () {
     });
 });
 
+// Shared notification routes — accessible to any authenticated role (RND, FSS, Admin).
+// The controller already scopes strictly by Auth::id(), so each user sees only their own rows.
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('notifications', [NotificationController::class, 'index']);
+    Route::patch('notifications/read-all', [NotificationController::class, 'readAll']);
+    Route::patch('notifications/{notification}/read', [NotificationController::class, 'read']);
+});
+
 Route::middleware(['auth:sanctum', 'role:RND', 'audit'])->prefix('rnd')->group(function () use ($reportRoutes) {
     Route::apiResource('patients', PatientController::class);
     Route::get('patients/{patient}/activity', [ActivityController::class, 'patient']);
@@ -141,11 +149,6 @@ Route::middleware(['auth:sanctum', 'role:RND', 'audit'])->prefix('rnd')->group(f
     // Calendar Events routes
     Route::post('calendar-events', [CalendarEventController::class, 'store']);
     Route::get('calendar-events', [CalendarEventController::class, 'index']);
-
-    // Notifications routes
-    Route::get('notifications', [NotificationController::class, 'index']);
-    Route::patch('notifications/read-all', [NotificationController::class, 'readAll']);
-    Route::patch('notifications/{notification}/read', [NotificationController::class, 'read']);
 
     // Reports routes (shared with FSS — see $reportRoutes above)
     $reportRoutes();

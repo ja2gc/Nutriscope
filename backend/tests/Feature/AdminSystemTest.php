@@ -223,7 +223,7 @@ class AdminSystemTest extends TestCase
         Notification::factory(2)->create(['user_id' => $this->fss->id]);
 
         $response = $this->actingAs($this->rnd)
-            ->getJson('/api/rnd/notifications');
+            ->getJson('/api/notifications');
 
         $response->assertOk()
             ->assertJsonCount(4, 'data');
@@ -237,7 +237,7 @@ class AdminSystemTest extends TestCase
         ]);
 
         $response = $this->actingAs($this->rnd)
-            ->patchJson("/api/rnd/notifications/{$notification->id}/read");
+            ->patchJson("/api/notifications/{$notification->id}/read");
 
         $response->assertOk();
         $this->assertDatabaseHas('notifications', ['id' => $notification->id, 'read' => true]);
@@ -248,7 +248,7 @@ class AdminSystemTest extends TestCase
         Notification::factory(5)->create(['user_id' => $this->rnd->id, 'read' => false]);
 
         $response = $this->actingAs($this->rnd)
-            ->patchJson('/api/rnd/notifications/read-all');
+            ->patchJson('/api/notifications/read-all');
 
         $response->assertOk();
         $this->assertEquals(
