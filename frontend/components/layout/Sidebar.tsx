@@ -5,20 +5,22 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { Logo } from "@/components/ui/Logo";
-import { 
-  Compass, 
-  CookingPot, 
-  HeartHandshake, 
-  Salad, 
-  TrendingUp, 
-  BellDot, 
+import {
+  Compass,
+  CookingPot,
+  HeartHandshake,
+  Salad,
+  TrendingUp,
+  BellDot,
   Sliders,
   ChevronLeft,
   ChevronRight,
   ChevronDown,
   Users,
   FileText,
-  History
+  History,
+  Megaphone,
+  UserCircle
 } from "lucide-react";
 
 export function Sidebar({ open = false, onClose }: { open?: boolean; onClose?: () => void }) {
@@ -165,6 +167,45 @@ export function Sidebar({ open = false, onClose }: { open?: boolean; onClose?: (
             >
               <History className={`h-4.5 w-4.5 shrink-0 ${pathname.startsWith("/admin/audit-logs") ? "text-emerald-500" : "text-zinc-400"}`} />
               {!collapsed && <span>Audit Logs</span>}
+            </Link>
+
+            <Link
+              href="/admin/announcements"
+              className={`flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all duration-150 ${
+                pathname.startsWith("/admin/announcements")
+                  ? "bg-zinc-900 text-zinc-100 border-l-2 border-emerald-600"
+                  : "text-zinc-400 hover:bg-zinc-900/60 hover:text-zinc-200"
+              }`}
+              title={collapsed ? "Announcements" : undefined}
+            >
+              <Megaphone className={`h-4.5 w-4.5 shrink-0 ${pathname.startsWith("/admin/announcements") ? "text-emerald-500" : "text-zinc-400"}`} />
+              {!collapsed && <span>Announcements</span>}
+            </Link>
+
+            <Link
+              href="/admin/notifications"
+              className={`flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all duration-150 ${
+                pathname.startsWith("/admin/notifications")
+                  ? "bg-zinc-900 text-zinc-100 border-l-2 border-emerald-600"
+                  : "text-zinc-400 hover:bg-zinc-900/60 hover:text-zinc-200"
+              }`}
+              title={collapsed ? "Notifications" : undefined}
+            >
+              <BellDot className={`h-4.5 w-4.5 shrink-0 ${pathname.startsWith("/admin/notifications") ? "text-emerald-500" : "text-zinc-400"}`} />
+              {!collapsed && <span>Notifications</span>}
+            </Link>
+
+            <Link
+              href="/admin/profile"
+              className={`flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all duration-150 ${
+                pathname.startsWith("/admin/profile")
+                  ? "bg-zinc-900 text-zinc-100 border-l-2 border-emerald-600"
+                  : "text-zinc-400 hover:bg-zinc-900/60 hover:text-zinc-200"
+              }`}
+              title={collapsed ? "Profile" : undefined}
+            >
+              <UserCircle className={`h-4.5 w-4.5 shrink-0 ${pathname.startsWith("/admin/profile") ? "text-emerald-500" : "text-zinc-400"}`} />
+              {!collapsed && <span>Profile</span>}
             </Link>
 
             <Link
