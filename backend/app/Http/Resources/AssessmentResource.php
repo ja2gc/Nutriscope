@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Services\RiskScoreCalculator;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -9,6 +10,8 @@ class AssessmentResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
+        $riskResult = resolve(RiskScoreCalculator::class)->calculate($this->resource);
+
         return [
             'id'                   => $this->id,
             'ncp_record_id'        => $this->ncp_record_id,
@@ -44,6 +47,8 @@ class AssessmentResource extends JsonResource
             'nutrient_drug_interaction' => $this->nutrient_drug_interaction,
             'dietary_intake_method'=> $this->dietary_intake_method,
             'dietary_record_file'  => $this->dietary_record_file,
+            'risk_score'           => $this->ncpRecord?->risk_score,
+            'checked_factors'      => $riskResult['checked_factors'],
             'created_at'           => $this->created_at,
             'updated_at'           => $this->updated_at,
             'biochemical_data'     => $this->whenLoaded('biochemicalData', function () {

@@ -44,6 +44,8 @@ export interface Assessment {
   edema_present: boolean | null;
   pregnancy_lactation_status: "none" | "pregnant" | "lactating" | null;
   calf_circumference_cm: number | string | null;
+  risk_score?: number | null;
+  checked_factors?: string[] | null;
   created_at?: string;
   updated_at?: string;
 }

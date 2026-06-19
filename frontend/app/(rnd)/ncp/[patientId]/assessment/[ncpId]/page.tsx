@@ -67,13 +67,13 @@ const DIETARY_METHOD_OPTIONS = [
 ];
 const FUNCTIONAL_OPTIONS = ["Bed ridden", "Needs assistance", "Ambulatory"];
 const RISK_FACTORS = [
-  { label: "Screening criteria for potential nutritional risk", points: 1 },
-  { label: "Less than 85% or greater than 130% ideal body weight", points: 1 },
-  { label: "Unintentional weight loss over weeks/months", points: 2 },
-  { label: "Mechanical / digestive problem", points: 1 },
-  { label: "Low albumin", points: 1 },
-  { label: "Significant lab result", points: 1 },
-  { label: "Other/s", points: 1 },
+  { key: "screening_criteria",         label: "Screening criteria for potential nutritional risk", points: 1 },
+  { key: "ibw_limit",                  label: "Less than 85% or greater than 130% ideal body weight", points: 1 },
+  { key: "unintentional_weight_loss",  label: "Unintentional weight loss over weeks/months", points: 2 },
+  { key: "mechanical_digestive_problem", label: "Mechanical / digestive problem", points: 1 },
+  { key: "low_albumin",                label: "Low albumin", points: 1 },
+  { key: "significant_lab_result",     label: "Significant lab result", points: 1 },
+  { key: "others",                     label: "Other/s", points: 1 },
 ];
 
 const ADULT_CLINICAL_CONDITIONS = [
@@ -487,7 +487,7 @@ export default function NcpAssessmentPage({
   const [assessmentExists, setAssessmentExists] = useState(false);
   const [labValues, setLabValues] = useState<Record<string, string>>({});
   const [labConfidence, setLabConfidence] = useState<Record<string, number>>({});
-  const [riskChecks, setRiskChecks] = useState<boolean[]>(new Array(7).fill(false));
+  // riskChecks is derived from the backend — no local state, no manual override.
   const [sectionAChecks, setSectionAChecks] = useState<boolean[]>(new Array(ADULT_CLINICAL_CONDITIONS.length).fill(false));
   const [sectionBChecks, setSectionBChecks] = useState<boolean[]>(new Array(ADULT_INTAKE_WEIGHT_HISTORY.length).fill(false));
   const [screeningDocument, setScreeningDocument] = useState<ScreeningDocumentRecord | null>(null);
@@ -677,8 +677,10 @@ export default function NcpAssessmentPage({
       })()
     : null;
 
-  // ─── Risk Score Calc ────────────────────────────────────────────────
-  const riskScore = riskChecks.reduce((sum, checked, i) => checked ? sum + RISK_FACTORS[i].points : sum, 0);
+  // ─── Risk Score (backend-authoritative) ────────────────────────────
+  const checkedSet = new Set(assessment.checked_factors ?? []);
+  const riskChecks = RISK_FACTORS.map(f => checkedSet.has(f.key));
+  const riskScore = RISK_FACTORS.reduce((sum, f, i) => riskChecks[i] ? sum + f.points : sum, 0);
   const riskInfo = riskBadge(riskScore);
 
   // ─── Field Updater ──────────────────────────────────────────────────
@@ -1573,22 +1575,18 @@ export default function NcpAssessmentPage({
       </div>
       <div className="space-y-2">
         {RISK_FACTORS.map((factor, i) => (
-          <label key={i} className="flex items-center justify-between gap-3 text-[11px] text-zinc-700 cursor-pointer hover:bg-zinc-50 px-3 py-2 rounded-lg transition-colors border border-transparent hover:border-zinc-100">
+          <div key={i} className="flex items-center justify-between gap-3 text-[11px] text-zinc-700 px-3 py-2 rounded-lg border border-transparent">
             <div className="flex items-center gap-2">
               <input
                 type="checkbox"
                 checked={riskChecks[i]}
-                onChange={e => {
-                  const next = [...riskChecks];
-                  next[i] = e.target.checked;
-                  setRiskChecks(next);
-                }}
-                className="shrink-0 accent-emerald-600"
+                readOnly
+                className="shrink-0 accent-emerald-600 cursor-default"
               />
               <span className="leading-tight">{factor.label}</span>
             </div>
             <span className="text-[9px] font-bold text-zinc-400 shrink-0">{factor.points} pt{factor.points > 1 ? "s" : ""}</span>
-          </label>
+          </div>
         ))}
       </div>
       {riskChecks[2] && (

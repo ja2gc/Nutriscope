@@ -8,6 +8,7 @@ use App\Models\Intervention;
 use App\Models\NcpRecord;
 use App\Models\Patient;
 use App\Models\User;
+use App\Services\RiskScoreCalculator;
 use Carbon\Carbon;
 use Illuminate\Database\Seeder;
 
@@ -73,7 +74,6 @@ class PatientSeeder extends Seeder
             'rnd_user_id' => $rndId,
             'type'        => 'new',
             'status'      => 'completed',
-            'risk_score'  => 2.50,
         ]);
 
         // Assessment
@@ -130,6 +130,12 @@ class PatientSeeder extends Seeder
                                                . 'Diet assessment reveals excessive refined carbohydrate intake, high glycemic load, and inadequate fiber. '
                                                . 'She is motivated for change. Priority: carbohydrate distribution, fiber increase, and sodium reduction.',
         ]);
+
+        // Compute risk score from seeded assessment data so header badge and panel are consistent.
+        $mariaAssessment = Assessment::where('ncp_record_id', $record->id)->first();
+        $mariaAssessment->setRelation('ncpRecord', $record->setRelation('patient', $patient));
+        $riskResult = resolve(RiskScoreCalculator::class)->calculate($mariaAssessment);
+        $record->update(['risk_score' => $riskResult['score']]);
 
         // Diagnosis — NI-5.8.2 Carbohydrate intake inconsistency
         $pes = Diagnosis::buildPes(
@@ -230,7 +236,6 @@ class PatientSeeder extends Seeder
             'rnd_user_id' => $rndId,
             'type'        => 'new',
             'status'      => 'active',      // first session complete, follow-up pending
-            'risk_score'  => 4.50,
         ]);
 
         // Assessment
@@ -287,6 +292,12 @@ class PatientSeeder extends Seeder
                                                . 'Thiamine supplementation initiated pre-refeeding. Progressive caloric build-up plan required. '
                                                . 'High nutritional risk — priority admission. Follow-up in 2 weeks to assess weight gain and tolerance.',
         ]);
+
+        // Compute risk score from seeded assessment data so header badge and panel are consistent.
+        $robertoAssessment = Assessment::where('ncp_record_id', $record->id)->first();
+        $robertoAssessment->setRelation('ncpRecord', $record->setRelation('patient', $patient));
+        $riskResult = resolve(RiskScoreCalculator::class)->calculate($robertoAssessment);
+        $record->update(['risk_score' => $riskResult['score']]);
 
         // Diagnosis — NC-3.1 Underweight / Malnutrition
         $pes = Diagnosis::buildPes(
