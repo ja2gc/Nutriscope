@@ -159,4 +159,42 @@ class MealPlanServiceTest extends TestCase
         $this->assertGreaterThan(0, count($firstItems));
         $this->assertGreaterThan(0, count($secondItems));
     }
+
+    public function test_no_duplicate_recipe_within_a_single_day(): void
+    {
+        // Small pool + wildly varying calories forces the post-generation
+        // reconciliation pass to fire. Reconciliation must NOT reinsert a recipe
+        // already used in another slot the same day (intra-day duplicate bug).
+        $rnd = User::forceCreate([
+            'name' => 'RND', 'email' => 'rnd@test.com',
+            'password' => Hash::make('pw'), 'role' => 'RND', 'is_active' => true,
+        ]);
+        foreach ([200, 350, 500, 900, 1400, 1800] as $i => $kcal) {
+            Recipe::forceCreate([
+                'rnd_user_id'    => $rnd->id,
+                'name'           => "Vary Recipe {$i}",
+                'category'       => 'Test',
+                'servings'       => 1,
+                'total_calories' => $kcal,
+                'total_protein'  => 10 + $i,
+                'total_carbs'    => 30 + $i,
+                'total_fat'      => 5 + $i,
+                'meal_types'     => ['any'],
+            ]);
+        }
+        $ncp = $this->makeNcpWithIntervention();
+
+        $service = new MealPlanService();
+        $service->setRngSeed(3);
+        $plan = $service->generate($ncp, now()->startOfWeek()->toDateString());
+
+        $days = \App\Models\MealPlanDay::where('meal_plan_id', $plan->id)->get();
+        $byDayName = $days->groupBy('day_of_week');
+        foreach ($byDayName as $dayName => $slots) {
+            $recipeIds = MealPlanItem::whereIn('meal_plan_day_id', $slots->pluck('id'))
+                ->whereNotNull('recipe_id')->pluck('recipe_id')->toArray();
+            $this->assertSameSize($recipeIds, array_unique($recipeIds),
+                "Day {$dayName} has a duplicated recipe across its slots.");
+        }
+    }
 }

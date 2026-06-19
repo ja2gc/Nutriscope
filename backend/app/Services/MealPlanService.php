@@ -569,16 +569,20 @@ class MealPlanService
                 $residuals[$key] = $target * $slotPct;
             }
 
-            // Current items in this slot (to exclude their candidates from re-pick)
-            $currentIds = $worstSlot->items->map(function ($it) {
-                if ($it->recipe_id)    return 'recipe:' . $it->recipe_id;
-                if ($it->food_item_id) return 'food_item:' . $it->food_item_id;
-                return null;
-            })->filter()->values()->toArray();
+            // Exclude every candidate already used ANYWHERE in this day (not just the
+            // worst slot) so reconciliation never reintroduces an intra-day duplicate.
+            $dayUsedIds = [];
+            foreach ($slots as $slot) {
+                foreach ($slot->items as $it) {
+                    if ($it->recipe_id)    $dayUsedIds[] = 'recipe:' . $it->recipe_id;
+                    if ($it->food_item_id) $dayUsedIds[] = 'food_item:' . $it->food_item_id;
+                }
+            }
+            $dayUsedIds = array_values(array_unique($dayUsedIds));
 
             $replacement = $this->pickResidual(
                 $allRecipes,
-                $currentIds,
+                $dayUsedIds,
                 $residuals,
                 $worstSlot->meal_type,
                 $slotPct
