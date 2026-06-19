@@ -460,3 +460,37 @@ export const ALL_MICROS: { key: string; label: string; unit: string }[] = [
   { key: 'folate',      label: 'Folate',      unit: 'mcg' },
   { key: 'omega3',      label: 'Omega-3',     unit: 'g'   },
 ];
+
+/** Set of valid micronutrient keys, for fast membership checks. */
+const MICRO_KEY_SET = new Set(ALL_MICROS.map((m) => m.key));
+
+/**
+ * Keep only real micronutrient keys, dropping anything not in ALL_MICROS
+ * (e.g. macro keys like `energy_kcal`/`protein_g` that should never appear in
+ * the micronutrient-limits UI). Order is preserved.
+ */
+export function microKeys(keys: string[]): string[] {
+  return keys.filter((k) => MICRO_KEY_SET.has(k));
+}
+
+export type MicronutrientLimit = { max?: number; min?: number; unit: string };
+
+/**
+ * Map the prescription engine's micronutrient outputs (sodium_max_mg, fiber_g,
+ * cholesterol_max_mg, free_sugar_max_pct) into ALL_MICROS-keyed limit rows with
+ * actual values, so the displayed micros aren't shown with empty inputs.
+ * free_sugar_max_pct (% of energy) is converted to grams using the energy target.
+ */
+export function microLimitsFromRx(
+  rx: { sodium_max_mg?: number; fiber_g?: number; cholesterol_max_mg?: number; free_sugar_max_pct?: number },
+  energyKcal?: number,
+): Record<string, MicronutrientLimit> {
+  const limits: Record<string, MicronutrientLimit> = {};
+  if (rx.sodium_max_mg != null) limits.sodium = { max: rx.sodium_max_mg, unit: "mg" };
+  if (rx.cholesterol_max_mg != null) limits.cholesterol = { max: rx.cholesterol_max_mg, unit: "mg" };
+  if (rx.fiber_g != null) limits.fiber = { min: rx.fiber_g, unit: "g" };
+  if (rx.free_sugar_max_pct != null && energyKcal) {
+    limits.free_sugars = { max: Math.round((energyKcal * rx.free_sugar_max_pct) / 4), unit: "g" };
+  }
+  return limits;
+}

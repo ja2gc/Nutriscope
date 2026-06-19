@@ -11,7 +11,7 @@ import { EDUCATION_TEMPLATES } from "@/lib/educationTemplates";
 import { fetchAssessment } from "@/services/assessmentService";
 import { fetchPatientById } from "@/services/patientService";
 import {
-  autofillPrescription, GOAL_MICRO_FLAGS, Prescription, PatientMetrics, ACTIVITY_FACTORS,
+  autofillPrescription, GOAL_MICRO_FLAGS, Prescription, PatientMetrics, ACTIVITY_FACTORS, microKeys, microLimitsFromRx,
 } from "@/lib/nutritionCalculations";
 import GoalSelectorModal, { GOALS } from "./_components/GoalSelectorModal";
 import { Button } from "@/components/ui/Button";
@@ -72,6 +72,9 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
   const [prescription, setPrescription]         = useState<PrescriptionForm>(emptyPrescription());
   const [prescNote, setPrescNote]               = useState<string | undefined>(undefined);
   const [saving, setSaving]                     = useState(false);
+  // Unsaved-changes tracking: true once the RND edits a field, false after a
+  // successful save or a fresh load. Drives the "save before leaving?" guard.
+  const [dirty, setDirty]                       = useState(false);
   const [patientMetrics, setPatientMetrics]     = useState<PatientMetrics | null>(null);
   const [foodDislikes, setFoodDislikes]         = useState<string[]>([]);
   const [allergens, setAllergens]               = useState<string[]>([]);
@@ -97,8 +100,20 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
         setSessionType(iv.session_type ?? "");
         setNextFollowup(iv.next_followup_date ?? "");
       }
+      setDirty(false); // fresh server state = no unsaved changes
     } finally { setLoading(false); }
   }, [ncpId]);
+
+  // Warn on browser unload (refresh / close / hard nav) when there are unsaved edits.
+  useEffect(() => {
+    if (!dirty) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = ""; // required for the native "Leave site?" prompt
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [dirty]);
 
   const loadMetrics = useCallback(async () => {
     try {
@@ -182,6 +197,8 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
         carbs_g:     String(preview.carbs_g),
         fat_g:       String(preview.fat_g),
         fluid_ml:    String(preview.fluid_ml),
+        // Engine-derived micro limits fill blank values; existing user edits win.
+        micronutrient_limits: { ...microLimitsFromRx(preview, preview.energy_kcal), ...prescription.micronutrient_limits },
       });
     } else {
       setPrescription({ ...prescription, displayed_nutrients: newDisplayed });
@@ -203,10 +220,13 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
       } | null = preview
         ? { energy_kcal: preview.energy_kcal, protein_g: preview.protein_g, carbs_g: preview.carbs_g, fat_g: preview.fat_g, fluid_ml: preview.fluid_ml }
         : null;
+      // Engine-derived micro limits (sodium/fiber/etc.) — preview first, BE overrides below.
+      let rxLimits = preview ? microLimitsFromRx(preview, preview.energy_kcal) : {};
 
       try {
         const be = await autofillIntervention(ncpId, goalType, stage);
         authoritative = { energy_kcal: be.energy_kcal, protein_g: be.protein_g, carbs_g: be.carbs_g, fat_g: be.fat_g, fluid_ml: be.fluid_ml };
+        rxLimits = microLimitsFromRx(be, be.energy_kcal);
         setPrescNote(be.edema_warning ? `${be.note ?? ""} ${be.edema_warning}`.trim() : be.note);
         setPrescription((prev) => ({
           ...prev,
@@ -216,6 +236,7 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
           carbs_g:     String(be.carbs_g),
           fat_g:       String(be.fat_g),
           fluid_ml:    String(be.fluid_ml),
+          micronutrient_limits: { ...rxLimits, ...prev.micronutrient_limits },
         }));
         // Dev-only drift guard: FE preview must match the authoritative BE value.
         if (process.env.NODE_ENV !== "production" && preview) {
@@ -240,9 +261,11 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
         goal_type: goalType,
         disease_stage: stage,
         displayed_nutrients: newDisplayed,
+        micronutrient_limits: { ...rxLimits, ...prescription.micronutrient_limits },
         ...(authoritative ?? {}),
       } as Partial<Intervention>);
       setIntervention(updated);
+      setDirty(false);
     } finally { setSaving(false); }
   };
 
@@ -257,9 +280,10 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
         fat_g:       prescription.fat_g       ? parseFloat(prescription.fat_g)       : null,
         fluid_ml:    prescription.fluid_ml    ? parseFloat(prescription.fluid_ml)    : null,
         micronutrient_limits: prescription.micronutrient_limits,
-        displayed_nutrients:  prescription.displayed_nutrients,
+        displayed_nutrients:  microKeys(prescription.displayed_nutrients),
       } as Partial<Intervention>);
       setIntervention(updated);
+      setDirty(false);
     } finally { setSaving(false); }
   };
 
@@ -269,6 +293,7 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
       await ensureIntervention();
       const updated = await updateIntervention(ncpId, fields);
       setIntervention(updated);
+      setDirty(false);
     } finally { setSaving(false); }
   };
 
@@ -287,7 +312,10 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
       {/* Breadcrumb + header */}
       <div className="space-y-4 mb-4">
         <div className="flex items-center gap-2 text-xs font-semibold text-zinc-400 select-none">
-          <Link href="/ncp/patients" className="hover:text-emerald-700 transition-colors">Directory</Link>
+          <Link href="/ncp/patients" className="hover:text-emerald-700 transition-colors"
+            onClick={(e) => {
+              if (dirty && !window.confirm("You have unsaved changes. Leave without saving?")) e.preventDefault();
+            }}>Directory</Link>
           <span className="text-zinc-300">/</span>
           <span className="font-bold text-zinc-650">Nutrition Intervention</span>
         </div>
@@ -295,6 +323,11 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
           <h2 className="text-xl font-extrabold text-zinc-950 tracking-tight flex items-center gap-2.5">
             <Salad className="h-5 w-5 text-emerald-600" />
             Step 3: Nutrition Intervention
+            {dirty && (
+              <span className="ml-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-[10px] font-bold text-amber-700 uppercase tracking-wide">
+                Unsaved changes
+              </span>
+            )}
           </h2>
         </div>
       </div>
@@ -342,7 +375,7 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
             {/* [B] Prescription */}
             <NutritionPrescriptionForm
               values={prescription}
-              onChange={setPrescription}
+              onChange={(v) => { setPrescription(v); setDirty(true); }}
               onSave={savePrescription}
               saving={saving}
               note={prescNote}
@@ -371,7 +404,7 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
               }}
               foodDislikes={foodDislikes}
               allergens={allergens}
-              displayedMicros={prescription.displayed_nutrients}
+              displayedMicros={microKeys(prescription.displayed_nutrients)}
               micronutrientLimits={prescription.micronutrient_limits}
             />
           </div>
@@ -381,7 +414,7 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
         {tab === "education" && (
           <EducationTab
             value={educationNotes}
-            onChange={setEducationNotes}
+            onChange={(v) => { setEducationNotes(v); setDirty(true); }}
             onSave={() => saveTextField({ education_notes: educationNotes } as Partial<Intervention>)}
             saving={saving}
           />
@@ -392,6 +425,7 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
           <CounselingTab
             goals={counselingGoals} barriers={barriers} strategies={strategies}
             onChange={(field, val) => {
+              setDirty(true);
               if (field === 'counseling_goals') setCounselingGoals(val);
               if (field === 'barriers') setBarriers(val);
               if (field === 'strategies') setStrategies(val);
@@ -419,6 +453,7 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
           <EncounterContextTab
             sessionType={sessionType} nextFollowup={nextFollowup}
             onChange={(field, val) => {
+              setDirty(true);
               if (field === 'session_type') setSessionType(val);
               if (field === 'next_followup_date') setNextFollowup(val);
             }}
