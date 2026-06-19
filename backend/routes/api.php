@@ -66,6 +66,8 @@ Route::prefix('auth')->group(function () {
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('logout', [AuthController::class, 'logout']);
         Route::get('me', [AuthController::class, 'me']);
+        Route::patch('profile', [AuthController::class, 'updateProfile']);
+        Route::post('password', [AuthController::class, 'updatePassword']);
     });
 });
 
@@ -81,14 +83,12 @@ Route::middleware(['auth:sanctum', 'role:RND', 'audit'])->prefix('rnd')->group(f
     Route::post('ncp-records/{ncpRecord}/assessment', [AssessmentController::class, 'store']);
     Route::get('ncp-records/{ncpRecord}/assessment', [AssessmentController::class, 'show']);
     Route::patch('ncp-records/{ncpRecord}/assessment', [AssessmentController::class, 'update']);
-    Route::post('ncp-records/{ncpRecord}/upload-screening', [AssessmentController::class, 'uploadScreening']);
-    Route::post('ncp-records/{ncpRecord}/upload-labs', [AssessmentController::class, 'uploadLabs']);
-    Route::get('ncp-records/{ncpRecord}/screening-document', [AssessmentController::class, 'showScreeningDocument']);
-    Route::get('ncp-records/{ncpRecord}/ocr-documents', [AssessmentController::class, 'showOcrDocuments']);
+    // NCP supporting-document attachments (rnd.md §3.1) — plain storage, per-cycle scoped.
+    Route::post('ncp-records/{ncpRecord}/attachments', [AssessmentController::class, 'uploadAttachment']);
+    Route::get('ncp-records/{ncpRecord}/attachments', [AssessmentController::class, 'listAttachments']);
     Route::get('screening-documents/{screeningDocument}', [ScreeningDocumentController::class, 'show']);
-    Route::patch('screening-documents/{screeningDocument}/approve', [ScreeningDocumentController::class, 'approve']);
     Route::get('screening-documents/{screeningDocument}/file', [ScreeningDocumentController::class, 'file']);
-    Route::get('ocr-documents/{ocrDocument}/file', [AssessmentController::class, 'showOcrDocumentFile']);
+    Route::delete('screening-documents/{screeningDocument}', [ScreeningDocumentController::class, 'destroy']);
 
     // Diagnoses routes
     Route::get('ncp-records/{ncpRecord}/diagnoses', [DiagnosisController::class, 'index']);

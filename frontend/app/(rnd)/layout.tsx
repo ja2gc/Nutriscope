@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { TopBar } from "@/components/layout/TopBar";
+import { applyPreferences } from "@/lib/preferences";
 
 export default function RndLayout({
   children,
@@ -14,6 +15,9 @@ export default function RndLayout({
   const { user, initializing } = useAuth();
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Apply saved local UX preferences (density, reduced motion) on load.
+  useEffect(() => { applyPreferences(); }, []);
 
   // Runs on every mount and whenever auth state changes
   useEffect(() => {

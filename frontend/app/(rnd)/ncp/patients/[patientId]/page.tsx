@@ -3,7 +3,7 @@
 import React, { use, useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { HeartHandshake, Plus, Trash2, AlertTriangle, Lock } from "lucide-react";
+import { HeartHandshake, Plus, Trash2, AlertTriangle, Lock, Paperclip, FileText, Download } from "lucide-react";
 import { HistoryPanel } from "@/components/HistoryPanel";
 import {
   fetchPatientById,
@@ -14,9 +14,14 @@ import {
   NcpRecord,
   Patient,
 } from "@/services/patientService";
+import {
+  AttachmentRecord,
+  fetchAttachments,
+  getAttachmentFileUrl,
+} from "@/services/assessmentService";
 import { Button } from "@/components/ui/Button";
 
-type TabKey = "overview" | "adime-records";
+type TabKey = "overview" | "adime-records" | "attachments";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -119,6 +124,55 @@ function ConfirmBanner({
           {loading ? "Deleting…" : "Delete"}
         </button>
       </div>
+    </div>
+  );
+}
+
+// ─── Per-cycle attachments (rnd.md §3.1) ───────────────────────────────────────
+// Each NCP cycle shows only its own documents — scoped by ncp_record id, no mix-up.
+function CycleAttachments({ ncpId }: { ncpId: number }) {
+  const [items, setItems] = useState<AttachmentRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    fetchAttachments(ncpId)
+      .then((data) => { if (active) setItems(data); })
+      .catch(() => { if (active) setItems([]); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [ncpId]);
+
+  if (loading) {
+    return <div className="h-10 bg-zinc-100 rounded-lg animate-pulse" />;
+  }
+
+  if (items.length === 0) {
+    return (
+      <p className="text-[11px] text-zinc-400 font-semibold px-1 py-2">No documents attached to this cycle.</p>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      {items.map((doc) => (
+        <div key={doc.id} className="flex items-center gap-3 px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-xl">
+          <FileText className="h-4 w-4 text-zinc-400 shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-semibold text-zinc-800 truncate">{doc.original_name ?? "Document"}</p>
+            {doc.type && <p className="text-[10px] text-zinc-400">{doc.type}</p>}
+          </div>
+          <a
+            href={getAttachmentFileUrl(doc.id)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="p-1.5 text-zinc-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+            title="Open / download"
+          >
+            <Download className="h-3.5 w-3.5" />
+          </a>
+        </div>
+      ))}
     </div>
   );
 }
@@ -378,7 +432,7 @@ export default function PatientProfilePage({
       {/* ── Tabs ─────────────────────────────────────────────────────────────── */}
       <div className="border-b border-zinc-200 select-none">
         <nav className="flex space-x-6">
-          {(["overview", "adime-records"] as TabKey[]).map((tab) => (
+          {(["overview", "adime-records", "attachments"] as TabKey[]).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -388,7 +442,7 @@ export default function PatientProfilePage({
                   : "border-transparent text-zinc-400 hover:text-zinc-600"
               }`}
             >
-              {tab === "overview" ? "Overview" : "ADIME Records"}
+              {tab === "overview" ? "Overview" : tab === "adime-records" ? "ADIME Records" : "Attachments"}
             </button>
           ))}
         </nav>
@@ -637,6 +691,60 @@ export default function PatientProfilePage({
                           </Link>
                         ))}
                       </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Attachments tab — supporting documents per NCP cycle ──────────────── */}
+      {activeTab === "attachments" && (
+        <div className="space-y-5">
+          <div>
+            <h3 className="text-xs font-extrabold text-zinc-700 uppercase tracking-wider flex items-center gap-2">
+              <Paperclip className="h-4 w-4 text-emerald-600" />
+              Supporting Documents
+            </h3>
+            <p className="text-[10px] text-zinc-400 mt-0.5">
+              Referral forms, screening forms, and lab results — grouped by NCP cycle so records never mix. Upload from each cycle&apos;s assessment page.
+            </p>
+          </div>
+
+          {records.length === 0 ? (
+            <div className="bg-white border border-zinc-200 rounded-2xl p-12 text-center select-none">
+              <div className="p-3 bg-zinc-50 border border-zinc-200 rounded-2xl w-fit mx-auto text-zinc-400">
+                <Paperclip className="h-8 w-8" />
+              </div>
+              <h3 className="text-sm font-bold text-zinc-800 mt-4">No NCP cycles yet</h3>
+              <p className="text-xs text-zinc-500 mt-1 max-w-sm mx-auto leading-relaxed">
+                Start an NCP cycle to attach supporting documents.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {records.map((record) => {
+                const cycleStatus = formatStatus(record.status);
+                return (
+                  <div key={record.id} className="bg-white border border-zinc-200 rounded-2xl overflow-hidden">
+                    <div className="px-5 py-3.5 border-b border-zinc-100 flex items-center justify-between gap-3 bg-zinc-50">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-extrabold text-zinc-950 tracking-tight">{formatCycleId(record.id)}</span>
+                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-wider border ${cycleStatus.className}`}>
+                          {cycleStatus.label}
+                        </span>
+                      </div>
+                      <Link
+                        href={`/ncp/${patientId}/assessment/${record.id}`}
+                        className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 hover:text-emerald-800"
+                      >
+                        Manage →
+                      </Link>
+                    </div>
+                    <div className="p-5">
+                      <CycleAttachments ncpId={record.id} />
                     </div>
                   </div>
                 );

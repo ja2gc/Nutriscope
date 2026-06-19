@@ -110,6 +110,28 @@ class NcpSummaryReportTest extends TestCase
             ->assertNotFound();
     }
 
+    public function test_data_includes_supporting_document_attachments(): void
+    {
+        $ncp = $this->makeRecord();
+
+        \App\Models\ScreeningDocument::create([
+            'patient_id'    => $ncp->patient_id,
+            'assessment_id' => $ncp->assessment->id,
+            'type'          => 'referral',
+            'file_path'     => 'documents/ncp/ref.pdf',
+            'original_name' => 'ref.pdf',
+        ]);
+
+        $report = new Report();
+        $report->type = 'ncp_summary';
+        $report->parameters = ['ncp_record_id' => $ncp->id];
+
+        $data = (new NcpSummaryGenerator())->data($report);
+
+        $this->assertCount(1, $data['attachments']);
+        $this->assertSame('ref.pdf', $data['attachments']->first()->original_name);
+    }
+
     public function test_age_and_risk_helpers(): void
     {
         $dob = Carbon::parse('2000-01-01');

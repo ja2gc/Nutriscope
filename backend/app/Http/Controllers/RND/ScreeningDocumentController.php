@@ -5,9 +5,8 @@ namespace App\Http\Controllers\RND;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\ScreeningDocumentResource;
 use App\Models\ScreeningDocument;
-use App\Services\RiskScoreCalculator;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class ScreeningDocumentController extends Controller
@@ -15,45 +14,6 @@ class ScreeningDocumentController extends Controller
     public function show(ScreeningDocument $screeningDocument): ScreeningDocumentResource
     {
         return new ScreeningDocumentResource($screeningDocument);
-    }
-
-    public function approve(
-        Request $request,
-        ScreeningDocument $screeningDocument,
-        RiskScoreCalculator $riskScoreCalculator
-    ): JsonResponse {
-        $validated = $request->validate([
-            'mapped_fields' => ['required', 'array'],
-        ]);
-
-        $mappedFields = $validated['mapped_fields'];
-        $screeningDocument->mapped_fields = $mappedFields;
-        $screeningDocument->status = 'completed';
-        $screeningDocument->reviewed_by = $request->user()?->id;
-        $screeningDocument->reviewed_at = now();
-        $screeningDocument->save();
-
-        $assessment = $screeningDocument->assessment;
-        if ($assessment) {
-            if (is_null($assessment->height) && isset($mappedFields['height'])) {
-                $assessment->height = $this->normalizeDecimal($mappedFields['height']);
-            }
-
-            if (is_null($assessment->weight) && isset($mappedFields['weight'])) {
-                $assessment->weight = $this->normalizeDecimal($mappedFields['weight']);
-            }
-
-            $assessment->bmi = $assessment->calculateBmi();
-            $assessment->save();
-
-            $riskResult = $riskScoreCalculator->calculate($assessment->fresh(['ncpRecord.patient', 'biochemicalData']));
-            $assessment->update(['nutritional_status' => $riskResult['nutritional_status']]);
-            $assessment->ncpRecord?->update(['risk_score' => $riskResult['score']]);
-        }
-
-        return response()->json([
-            'data' => new ScreeningDocumentResource($screeningDocument->fresh()),
-        ]);
     }
 
     public function file(ScreeningDocument $screeningDocument): BinaryFileResponse
@@ -70,12 +30,14 @@ class ScreeningDocumentController extends Controller
         return response()->file($absolutePath);
     }
 
-    private function normalizeDecimal(mixed $value): ?float
+    /**
+     * DELETE /api/rnd/screening-documents/{screeningDocument}
+     */
+    public function destroy(ScreeningDocument $screeningDocument): JsonResponse
     {
-        if (is_numeric($value)) {
-            return (float) $value;
-        }
+        Storage::delete($screeningDocument->file_path);
+        $screeningDocument->delete();
 
-        return null;
+        return response()->json(['message' => 'Attachment deleted.']);
     }
 }

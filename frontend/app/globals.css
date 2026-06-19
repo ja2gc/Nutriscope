@@ -44,3 +44,17 @@ body {
   font-feature-settings: "cv02", "cv03", "cv04", "cv11";
 }
 
+/* Local UX preferences (rnd.md §8) — applied to <html> from lib/preferences.ts */
+:root[data-density="compact"] {
+  font-size: 93.75%; /* 15px base — tightens rem-based spacing/text app-wide */
+}
+
+.reduce-motion *,
+.reduce-motion *::before,
+.reduce-motion *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+  scroll-behavior: auto !important;
+}
+

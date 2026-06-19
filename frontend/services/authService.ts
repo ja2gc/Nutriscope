@@ -43,6 +43,45 @@ export async function logoutUser(): Promise<void> {
   }
 }
 
+export async function updateProfile(data: { name: string; email: string }): Promise<User> {
+  const res = await fetch("/api/auth/profile", {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify(data),
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.message || "Failed to update profile.");
+  }
+
+  const result = await res.json();
+  return result.data || result;
+}
+
+export async function changePassword(data: {
+  current_password: string;
+  password: string;
+  password_confirmation: string;
+}): Promise<void> {
+  const res = await fetch("/api/auth/password", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify(data),
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.message || "Failed to change password.");
+  }
+}
+
 export async function fetchCurrentUser(): Promise<User> {
   const res = await fetch("/api/auth/me", {
     method: "GET",

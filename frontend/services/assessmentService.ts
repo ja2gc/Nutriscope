@@ -50,38 +50,17 @@ export interface Assessment {
   updated_at?: string;
 }
 
-export interface ScreeningDocumentRecord {
-  id?: number;
+/**
+ * NCP supporting-document attachment (rnd.md §3.1) — plain file storage linked to
+ * an NCP cycle. No OCR/extraction.
+ */
+export interface AttachmentRecord {
+  id: number;
   patient_id?: number;
   assessment_id?: number;
-  type?: "adult" | "pediatric";
+  type?: string | null;
   file_path?: string;
-  extracted_data?: Record<string, unknown> | null;
-  mapped_fields?: Record<string, unknown> | null;
-  status?: "pending" | "processing" | "completed" | "failed";
-  confidence_score?: number | string | null;
-  reviewed_by?: number | null;
-  reviewed_at?: string | null;
-  created_at?: string;
-  updated_at?: string;
-}
-
-export interface ScreeningDocumentApprovalPayload {
-  mapped_fields: Record<string, unknown>;
-}
-
-export interface OcrDocumentRecord {
-  id?: number;
-  user_id?: number;
-  assessment_id?: number;
-  file_path?: string;
-  extracted_text?: string | null;
-  document_type?: "screening" | "lab" | string;
-  extraction_template_id?: number | null;
-  parsed_fields?: Record<string, unknown> | null;
-  confidence_score?: number | string | null;
-  processing_time_ms?: number | null;
-  status?: "pending" | "completed" | "failed" | "processing";
+  original_name?: string | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -127,50 +106,33 @@ export async function saveAssessment(
   return responseData.data || responseData;
 }
 
-export async function uploadScreeningDocument(
+// ─── NCP Attachments (rnd.md §3.1) ──────────────────────────────────────────
+
+export async function uploadAttachment(
   ncpRecordId: number | string,
-  file: File
-): Promise<ScreeningDocumentRecord> {
+  file: File,
+  type?: string
+): Promise<AttachmentRecord> {
   const formData = new FormData();
   formData.append("file", file);
+  if (type) formData.append("type", type);
 
-  const res = await apiFetch(`/api/rnd/ncp-records/${ncpRecordId}/upload-screening`, {
+  const res = await apiFetch(`/api/rnd/ncp-records/${ncpRecordId}/attachments`, {
     method: "POST",
     body: formData,
   });
 
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}));
-    throw new Error(errorData.message || "Failed to upload screening document.");
+    throw new Error(errorData.message || "Failed to upload attachment.");
   }
 
   const responseData = await res.json();
   return responseData.data || responseData;
 }
 
-export async function uploadLabsDocument(
-  ncpRecordId: number | string,
-  file: File
-): Promise<OcrDocumentRecord> {
-  const formData = new FormData();
-  formData.append("file", file);
-
-  const res = await apiFetch(`/api/rnd/ncp-records/${ncpRecordId}/upload-labs`, {
-    method: "POST",
-    body: formData,
-  });
-
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => ({}));
-    throw new Error(errorData.message || "Failed to upload labs document.");
-  }
-
-  const responseData = await res.json();
-  return responseData.data || responseData;
-}
-
-export async function fetchScreeningDocument(ncpRecordId: number | string): Promise<ScreeningDocumentRecord | null> {
-  const res = await apiFetch(`/api/rnd/ncp-records/${ncpRecordId}/screening-document`, {
+export async function fetchAttachments(ncpRecordId: number | string): Promise<AttachmentRecord[]> {
+  const res = await apiFetch(`/api/rnd/ncp-records/${ncpRecordId}/attachments`, {
     method: "GET",
     headers: {
       Accept: "application/json",
@@ -179,59 +141,30 @@ export async function fetchScreeningDocument(ncpRecordId: number | string): Prom
 
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}));
-    throw new Error(errorData.message || "Failed to fetch screening document.");
-  }
-
-  const responseData = await res.json();
-  return responseData.data || responseData || null;
-}
-
-export async function fetchOcrDocuments(ncpRecordId: number | string): Promise<OcrDocumentRecord[]> {
-  const res = await apiFetch(`/api/rnd/ncp-records/${ncpRecordId}/ocr-documents`, {
-    method: "GET",
-    headers: {
-      Accept: "application/json",
-    },
-  });
-
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => ({}));
-    throw new Error(errorData.message || "Failed to fetch OCR documents.");
+    throw new Error(errorData.message || "Failed to fetch attachments.");
   }
 
   const responseData = await res.json();
   return responseData.data || [];
 }
 
-export async function approveScreeningDocument(
-  screeningDocumentId: number | string,
-  payload: ScreeningDocumentApprovalPayload
-): Promise<ScreeningDocumentRecord> {
-  const res = await apiFetch(`/api/rnd/screening-documents/${screeningDocumentId}/approve`, {
-    method: "PATCH",
+export async function deleteAttachment(attachmentId: number | string): Promise<void> {
+  const res = await apiFetch(`/api/rnd/screening-documents/${attachmentId}`, {
+    method: "DELETE",
     headers: {
-      "Content-Type": "application/json",
       Accept: "application/json",
     },
-    body: JSON.stringify(payload),
   });
 
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}));
-    throw new Error(errorData.message || "Failed to approve screening document.");
+    throw new Error(errorData.message || "Failed to delete attachment.");
   }
-
-  const responseData = await res.json();
-  return responseData.data || responseData;
 }
 
-// ─── File Preview URL Helpers ───────────────────────────────────────────────
-// These return relative Next.js proxy URLs — auth token is forwarded server-side.
+// ─── File Preview URL Helper ────────────────────────────────────────────────
+// Returns a relative Next.js proxy URL — auth token is forwarded server-side.
 
-export function getScreeningDocumentFileUrl(id: number | string): string {
+export function getAttachmentFileUrl(id: number | string): string {
   return `/api/rnd/screening-documents/${id}/file`;
-}
-
-export function getOcrDocumentFileUrl(id: number | string): string {
-  return `/api/rnd/ocr-documents/${id}/file`;
 }

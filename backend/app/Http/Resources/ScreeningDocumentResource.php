@@ -15,12 +15,7 @@ class ScreeningDocumentResource extends JsonResource
             'assessment_id' => $this->assessment_id,
             'type' => $this->type,
             'file_path' => $this->file_path,
-            'extracted_data' => $this->extracted_data,
-            'mapped_fields' => $this->mapped_fields,
-            'status' => $this->status,
-            'confidence_score' => $this->confidence_score,
-            'reviewed_by' => $this->reviewed_by,
-            'reviewed_at' => $this->reviewed_at,
+            'original_name' => $this->original_name,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];

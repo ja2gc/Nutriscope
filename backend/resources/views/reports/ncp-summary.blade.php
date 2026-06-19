@@ -154,5 +154,28 @@
         </tbody>
     </table>
 
+    {{-- Supporting Documents — attachments filed against this NCP cycle (rnd.md §3.1) --}}
+    @if(($attachments ?? collect())->isNotEmpty())
+        <div class="section">Supporting Documents</div>
+        <table class="grid">
+            <thead>
+                <tr>
+                    <th>Document</th>
+                    <th style="width:90px;">Type</th>
+                    <th style="width:110px;">Date Filed</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach($attachments as $doc)
+                    <tr>
+                        <td>{{ $doc->original_name ?? basename($doc->file_path) }}</td>
+                        <td>{{ $doc->type ?? '—' }}</td>
+                        <td>{{ optional($doc->created_at)->format('M j, Y') }}</td>
+                    </tr>
+                @endforeach
+            </tbody>
+        </table>
+    @endif
+
     @include('reports.partials.signatories')
 @endsection
