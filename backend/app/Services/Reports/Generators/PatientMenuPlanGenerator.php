@@ -15,6 +15,15 @@ class PatientMenuPlanGenerator implements ReportGenerator
     private const WEEK = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
     private const MEALS = ['Breakfast', 'AM Snack', 'Lunch', 'PM Snack', 'Dinner'];
 
+    /** Raw meal_plan_days.meal_type → the display label used as the grid key. */
+    private const MEAL_TYPE_LABELS = [
+        'breakfast' => 'Breakfast',
+        'am_snack'  => 'AM Snack',
+        'lunch'     => 'Lunch',
+        'pm_snack'  => 'PM Snack',
+        'dinner'    => 'Dinner',
+    ];
+
     public function type(): string
     {
         return 'patient_menu_plan';
@@ -49,10 +58,13 @@ class PatientMenuPlanGenerator implements ReportGenerator
         }
 
         foreach ($plan->days as $day) {
+            // meal_type is stored raw ('breakfast'); the grid is keyed by display
+            // labels ('Breakfast'). Map before lookup or every item is dropped.
+            $label = self::MEAL_TYPE_LABELS[$day->meal_type] ?? $day->meal_type;
             foreach ($day->items as $item) {
                 $name = $item->foodItem?->name ?? $item->recipe?->name;
-                if ($name && isset($grid[$day->meal_type][$day->day_of_week])) {
-                    $grid[$day->meal_type][$day->day_of_week][] = [
+                if ($name && isset($grid[$label][$day->day_of_week])) {
+                    $grid[$label][$day->day_of_week][] = [
                         'name'     => $name,
                         'quantity' => $item->quantity,
                         'unit'     => $item->unit,
