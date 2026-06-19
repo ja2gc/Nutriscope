@@ -13,7 +13,7 @@ export interface Notification {
 }
 
 export async function fetchNotifications(): Promise<Notification[]> {
-  const res = await apiFetch("/api/rnd/notifications", {
+  const res = await apiFetch("/api/notifications", {
     method: "GET",
     headers: { Accept: "application/json" },
   });
@@ -28,7 +28,7 @@ export async function fetchNotifications(): Promise<Notification[]> {
 }
 
 export async function markNotificationRead(id: number | string): Promise<void> {
-  const res = await apiFetch(`/api/rnd/notifications/${id}/read`, {
+  const res = await apiFetch(`/api/notifications/${id}/read`, {
     method: "PATCH",
     headers: { Accept: "application/json" },
   });
@@ -40,7 +40,7 @@ export async function markNotificationRead(id: number | string): Promise<void> {
 }
 
 export async function markAllNotificationsRead(): Promise<void> {
-  const res = await apiFetch("/api/rnd/notifications/read-all", {
+  const res = await apiFetch("/api/notifications/read-all", {
     method: "PATCH",
     headers: { Accept: "application/json" },
   });
