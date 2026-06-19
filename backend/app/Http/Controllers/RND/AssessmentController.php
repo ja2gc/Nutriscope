@@ -6,14 +6,12 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\RND\StoreAssessmentRequest;
 use App\Http\Requests\RND\UpdateAssessmentRequest;
 use App\Http\Resources\AssessmentResource;
+use App\Http\Resources\ScreeningDocumentResource;
 use App\Models\Assessment;
 use App\Models\NcpRecord;
 use App\Models\ScreeningDocument;
-use App\Models\OcrDocument;
-use App\Jobs\ProcessDocumentExtraction;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
-use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class AssessmentController extends Controller
 {
@@ -74,113 +72,51 @@ class AssessmentController extends Controller
     }
 
     /**
-     * POST /api/rnd/ncp-records/{ncpRecord}/upload-screening
+     * POST /api/rnd/ncp-records/{ncpRecord}/attachments
+     *
+     * Plain supporting-document upload linked to this NCP cycle (rnd.md §3.1).
+     * No OCR/extraction — file storage only.
      */
-    public function uploadScreening(Request $request, NcpRecord $ncpRecord): JsonResponse
+    public function uploadAttachment(Request $request, NcpRecord $ncpRecord): JsonResponse
     {
-        $request->validate([
+        $validated = $request->validate([
             'file' => 'required|file|mimes:pdf,jpeg,png,jpg|max:10240',
+            'type' => 'nullable|string|max:50',
         ]);
 
         $assessment = $ncpRecord->assessment()->firstOrCreate([
             'ncp_record_id' => $ncpRecord->id,
         ]);
 
+        $file = $request->file('file');
         // Store the disk-relative path (portable) — readers resolve it to an absolute
         // path at access time. Storing an absolute path breaks if the app root moves (A8).
-        $path = $request->file('file')->store('documents/screening');
+        $path = $file->store('documents/ncp');
 
-        $screeningDocument = ScreeningDocument::create([
+        $document = ScreeningDocument::create([
             'patient_id' => $ncpRecord->patient_id,
             'assessment_id' => $assessment->id,
-            'type' => $ncpRecord->patient->screening_type === 'pediatric' ? 'pediatric' : 'adult',
+            'type' => $validated['type'] ?? null,
             'file_path' => $path,
-            'status' => 'pending',
-            'reviewed_by' => $request->user()->id,
+            'original_name' => $file->getClientOriginalName(),
         ]);
 
-        ProcessDocumentExtraction::dispatch($screeningDocument);
-
-        return response()->json([
-            'message' => 'Screening document uploaded successfully and extraction queued.',
-            'data' => $screeningDocument,
-        ], 202);
+        return (new ScreeningDocumentResource($document))->response()->setStatusCode(201);
     }
 
     /**
-     * POST /api/rnd/ncp-records/{ncpRecord}/upload-labs
+     * GET /api/rnd/ncp-records/{ncpRecord}/attachments
+     *
+     * Attachments scoped to this NCP cycle — never mixes across a patient's cycles.
      */
-    public function uploadLabs(Request $request, NcpRecord $ncpRecord): JsonResponse
-    {
-        $request->validate([
-            'file' => 'required|file|mimes:pdf,jpeg,png,jpg|max:10240',
-        ]);
-
-        $assessment = $ncpRecord->assessment()->firstOrCreate([
-            'ncp_record_id' => $ncpRecord->id,
-        ]);
-
-        // Disk-relative path (portable) — see uploadScreening note (A8).
-        $path = $request->file('file')->store('documents/labs');
-
-        $ocrDocument = OcrDocument::create([
-            'user_id' => $request->user()->id,
-            'assessment_id' => $assessment->id,
-            'file_path' => $path,
-            'document_type' => 'lab',
-            'status' => 'pending',
-        ]);
-
-        ProcessDocumentExtraction::dispatch($ocrDocument, 'lab_result');
-
-        return response()->json([
-            'message' => 'Lab document uploaded successfully and extraction queued.',
-            'data' => $ocrDocument,
-        ], 202);
-    }
-
-    /**
-     * GET /api/rnd/ncp-records/{ncpRecord}/screening-document
-     */
-    public function showScreeningDocument(NcpRecord $ncpRecord): JsonResponse
+    public function listAttachments(NcpRecord $ncpRecord): JsonResponse
     {
         $assessment = $ncpRecord->assessment;
-        if (!$assessment) {
-            return response()->json(['data' => null]);
-        }
+        $docs = $assessment
+            ? $assessment->screeningDocuments()->latest()->get()
+            : collect();
 
-        $doc = ScreeningDocument::where('assessment_id', $assessment->id)->latest()->first();
-        return response()->json(['data' => $doc]);
-    }
-
-    /**
-     * GET /api/rnd/ncp-records/{ncpRecord}/ocr-documents
-     */
-    public function showOcrDocuments(NcpRecord $ncpRecord): JsonResponse
-    {
-        $assessment = $ncpRecord->assessment;
-        if (!$assessment) {
-            return response()->json(['data' => []]);
-        }
-
-        $docs = OcrDocument::where('assessment_id', $assessment->id)->get();
-        return response()->json(['data' => $docs]);
-    }
-
-    /**
-     * GET /api/rnd/ocr-documents/{ocrDocument}/file
-     */
-    public function showOcrDocumentFile(OcrDocument $ocrDocument): BinaryFileResponse
-    {
-        $absolutePath = $ocrDocument->file_path;
-
-        if (!file_exists($absolutePath)) {
-            $absolutePath = storage_path('app/' . ltrim($absolutePath, '/\\'));
-        }
-
-        abort_unless(file_exists($absolutePath), 404, 'File not found.');
-
-        return response()->file($absolutePath);
+        return ScreeningDocumentResource::collection($docs)->response();
     }
 }
 

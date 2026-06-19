@@ -37,7 +37,8 @@ class NcpSummaryGenerator implements ReportGenerator
         $params = $report->parameters ?? [];
 
         $ncp = NcpRecord::with([
-            'patient', 'assessment.biochemicalData', 'diagnoses', 'intervention', 'monitorings',
+            'patient', 'assessment.biochemicalData', 'assessment.screeningDocuments',
+            'diagnoses', 'intervention', 'monitorings',
         ])->findOrFail($params['ncp_record_id']);
 
         $patient    = $ncp->patient;
@@ -66,6 +67,7 @@ class NcpSummaryGenerator implements ReportGenerator
             ])->all(),
             'intervention'       => $ncp->intervention,
             'monitorings'        => $ncp->monitorings->sortBy('created_at')->values(),
+            'attachments'        => $assessment?->screeningDocuments->sortByDesc('created_at')->values() ?? collect(),
             'record_status'      => $ncp->status,
         ];
     }

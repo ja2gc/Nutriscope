@@ -36,44 +36,6 @@ services:
       timeout: 5s
       retries: 5
 
-  paddleocr:
-    build:
-      context: ./paddleocr
-      dockerfile: Dockerfile
-    container_name: nutriscope_paddleocr
-    ports:
-      - "127.0.0.1:5000:5000"
-    environment:
-      PYTHONUNBUFFERED: "1"
-    networks:
-      - nutriscope_net
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
-
-  omr:
-    build:
-      context: ./omr
-      dockerfile: Dockerfile
-    container_name: nutriscope_omr
-    ports:
-      - "127.0.0.1:5001:5001"
-    environment:
-      PYTHONUNBUFFERED: "1"
-    networks:
-      - nutriscope_net
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5001/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
-
 volumes:
   nutriscope_mysql:
     driver: local

@@ -11,21 +11,16 @@ return new class extends Migration
      */
     public function up(): void
     {
+        // NCP supporting-document attachments (rnd.md §3.1) — plain file storage
+        // linked to an NCP cycle via its assessment. No OCR/extraction.
         Schema::create('screening_documents', function (Blueprint $table) {
-            
             $table->id();
             $table->foreignId('patient_id')->constrained();
             $table->foreignId('assessment_id')->nullable()->constrained();
-            $table->enum('type', ['adult', 'pediatric']);
+            $table->string('type')->nullable();           // free category: screening | labs | referral
             $table->string('file_path');
-            $table->json('extracted_data')->nullable();
-            $table->json('mapped_fields')->nullable();
-            $table->enum('status', ['pending', 'processing', 'completed', 'failed'])->default('pending');
-            $table->decimal('confidence_score', 5, 4)->nullable();
-            $table->foreignId('reviewed_by')->nullable()->references('id')->on('users');
-            $table->timestamp('reviewed_at')->nullable();
+            $table->string('original_name')->nullable();   // client filename for display
             $table->timestamps();
-        
         });
     }
 

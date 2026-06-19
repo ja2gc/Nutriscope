@@ -7,6 +7,7 @@ use App\Http\Requests\Announcement\StoreAnnouncementRequest;
 use App\Http\Requests\Announcement\UpdateAnnouncementRequest;
 use App\Http\Resources\AnnouncementResource;
 use App\Models\Announcement;
+use App\Services\NotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -36,7 +37,7 @@ class AnnouncementController extends Controller
         return AnnouncementResource::collection($announcements);
     }
 
-    public function store(StoreAnnouncementRequest $request): JsonResponse
+    public function store(StoreAnnouncementRequest $request, NotificationService $notifications): JsonResponse
     {
         $user = $request->user();
         $data = $request->validated();
@@ -45,10 +46,13 @@ class AnnouncementController extends Controller
             ...$data,
             'user_id' => $user->id,
             'pinned' => $user->role === 'Admin' ? (bool) ($data['pinned'] ?? false) : false,
-        ])->load('user:id,name,role');
+        ]);
+
+        // Trigger A (rnd.md §7) — fan out to users matching the announcement's visibility.
+        $notifications->fanOutAnnouncement($announcement);
 
         return response()->json([
-            'data' => new AnnouncementResource($announcement),
+            'data' => new AnnouncementResource($announcement->load('user:id,name,role')),
         ], 201);
     }
 

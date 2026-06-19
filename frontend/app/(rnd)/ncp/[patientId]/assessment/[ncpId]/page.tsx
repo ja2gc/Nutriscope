@@ -4,8 +4,8 @@ import React, { use, useCallback, useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import {
   ClipboardCheck, Utensils, Ruler, UserRound, FlaskConical,
-  FileText, Sparkles, Save, Upload, AlertTriangle, Shield,
-  ChevronRight, Activity, Scale, Heart
+  FileText, Sparkles, Save, Upload, AlertTriangle,
+  ChevronRight, Activity, Heart, Paperclip, Trash2, Download,
 } from "lucide-react";
 import { fetchPatientById, Patient } from "@/services/patientService";
 import {
@@ -14,14 +14,8 @@ import {
 } from "@/lib/nutritionCalculations";
 import {
   Assessment, fetchAssessment, saveAssessment,
-  fetchScreeningDocument,
-  fetchOcrDocuments,
-  ScreeningDocumentRecord,
-  OcrDocumentRecord,
-  uploadScreeningDocument, uploadLabsDocument,
-  approveScreeningDocument,
-  getScreeningDocumentFileUrl,
-  getOcrDocumentFileUrl,
+  AttachmentRecord, uploadAttachment, fetchAttachments, deleteAttachment,
+  getAttachmentFileUrl,
 } from "@/services/assessmentService";
 
 // ─── Constants ───────────────────────────────────────────────────────────
@@ -37,24 +31,6 @@ const TABS = [
 ] as const;
 
 type TabKey = (typeof TABS)[number]["key"];
-
-type ScreeningDraft = {
-  patientName: string;
-  age: string;
-  sex: string;
-  address: string;
-  height: string;
-  weight: string;
-  diagnosis: string;
-  dietPrescription: string;
-  referralType: string;
-  referredBy: string;
-  referralDatetime: string;
-  ward: string;
-  hospitalNumber: string;
-  ageGroupCategory: string;
-  screeningType: "adult" | "pediatric";
-};
 
 const ENERGY_INTAKE_OPTIONS = [
   "No change", "Mostly liquids", "Sub-optimal", "Starvation", "Poor intake prior to admission"
@@ -76,102 +52,7 @@ const RISK_FACTORS = [
   { key: "others",                     label: "Other/s", points: 1 },
 ];
 
-const ADULT_CLINICAL_CONDITIONS = [
-  "Admission to ICU",
-  "Anorexia Nervosa / Bulimia Nervosa",
-  "Cachexia (temporal wasting, muscle wasting, cancer, cardiac)",
-  "Cerebrovascular accident",
-  "Coma",
-  "Diabetes Mellitus / Gestational Diabetes Mellitus",
-  "Gastrointestinal disease or complication",
-  "Liver disease",
-  "Malabsorption (celiac sprue, ulcerative colitis, Crohn's disease, short bowel syndrome)",
-  "Multiple trauma (closed head injury, pressure injury)",
-  "Non-healing wounds",
-  "On tube feeding / parenteral nutrition",
-  "Renal disease (acute, chronic, undergoing dialysis)",
-  "Sepsis",
-  "Serum albumin <3.5 gm/L",
-];
-
-const PEDIATRIC_CLINICAL_CONDITIONS = [
-  "Admission to ICU",
-  "Anorexia Nervosa / Bulimia Nervosa",
-  "Cachexia (temporal wasting, muscle wasting, cancer, cardiac)",
-  "Cerebrovascular accident",
-  "Coma",
-  "Congenital anomalies (e.g. Down's Syndrome, Craniofacial anomalies, Spina bifida, Hydrocephalus, Chiari Malformation)",
-  "Diabetes Mellitus / Gestational Diabetes Mellitus",
-  "Gastrointestinal disease or complication / impending GI surgery (e.g. Pancreatitis, Inflammatory Bowel Disease, GERD, Malabsorption conditions, Crohn's Disease)",
-  "Inborn errors of metabolism",
-  "Inflammatory diseases (e.g. Sepsis, Encephalitis, Meningitis, Kawasaki Disease, Enterocolitis, Community-acquired pneumonia, Upper/Lower Respiratory Tract Infection)",
-  "Liver disease",
-  "Malabsorption (celiac sprue, ulcerative colitis, Crohn's disease, short bowel syndrome)",
-  "Multiple trauma (closed head injury, penetrating trauma, multiple fractures)",
-  "Neurologically challenged (e.g. ADHD, Cerebral palsy, seizure disorders, Infantile spasms)",
-  "On tube feeding / parenteral nutrition",
-  "Renal disease (acute, chronic, undergoing dialysis)",
-  "Sepsis",
-  "Serum albumin <3.5 gm/L",
-];
-
-const ADULT_INTAKE_WEIGHT_HISTORY = [
-  "Unintentional weight loss in the past 3 months",
-  "Reduced dietary intake in the past week",
-  "BMI below 18.5 and above 30 (to be computed by the RND)",
-  "Others",
-  "Pregnant patient is aged 18 years old or 35 years old",
-  "Pregnancy with Hyperemesis Gravidarum / Pregnancy-induced Hypertension",
-  "Multiple Pregnancy",
-  "Lactating Mother",
-];
-
-const PEDIATRIC_INTAKE_WEIGHT_HISTORY = [
-  "Unintentional weight loss in the past 3 months",
-  "Patient on breastmilk feeding",
-  "Reduced dietary intake in the past week",
-  "Reduction of dietary intake in the past week/s and/or during the hospital stay",
-  "For patients ages >5 years old to <18 years old, 364 days: BMI z-scores above +2 and below -2 (c/o RND)",
-  "For patients ages >2 to 5 years old: Weight for Height z-scores above +2 and below -2 (c/o RND)",
-  "For patients ages 1 month to 2 years old: Weight for Length z-scores above +2 and below -2 (c/o RND)",
-  "Others",
-];
-
-const REFERRAL_TYPE_OPTIONS = [
-  { value: "Per Orem", label: "Per Orem" },
-  { value: "Tube Feeding", label: "Tube Feeding" },
-  { value: "NPO / TPN", label: "NPO / TPN" },
-];
-
-const LAB_FIELDS: { key: string; label: string; unit: string }[] = [
-  { key: "albumin", label: "Albumin", unit: "g/dL" },
-  { key: "hematocrit", label: "Hematocrit", unit: "%" },
-  { key: "bun", label: "BUN", unit: "mg/dL" },
-  { key: "hemoglobin", label: "Hemoglobin", unit: "g/dL" },
-  { key: "calcium", label: "Calcium", unit: "mg/dL" },
-  { key: "ldl", label: "LDL", unit: "mg/dL" },
-  { key: "cholesterol", label: "Cholesterol", unit: "mg/dL" },
-  { key: "phosphate", label: "Phosphate", unit: "mg/dL" },
-  { key: "creatinine", label: "Creatinine", unit: "mg/dL" },
-  { key: "potassium", label: "Potassium", unit: "mmol/L" },
-  { key: "glucose", label: "Glucose", unit: "mg/dL" },
-  { key: "sodium", label: "Sodium", unit: "mmol/L" },
-  { key: "hba1c", label: "HbA1C", unit: "%" },
-  { key: "triglycerides", label: "Triglycerides", unit: "mg/dL" },
-  { key: "hdl", label: "HDL", unit: "mg/dL" },
-  { key: "urr", label: "URR", unit: "%" },
-  { key: "bp", label: "BP", unit: "mmHg" },
-  { key: "abg", label: "ABG", unit: "various" },
-];
-
 // ─── Helpers ─────────────────────────────────────────────────────────────
-function confidenceBorder(score: number | undefined | null): string {
-  if (score === undefined || score === null) return "border-zinc-200";
-  if (score > 0.8) return "border-emerald-400";
-  if (score >= 0.5) return "border-amber-400";
-  return "border-red-400";
-}
-
 function riskBadge(score: number) {
   if (score > 3) return { label: "High Risk", color: "bg-red-50 text-red-700 border-red-200" };
   if (score >= 2) return { label: "Moderate", color: "bg-amber-50 text-amber-700 border-amber-200" };
@@ -184,139 +65,14 @@ function calcBmi(w: number | null, h: number | null): number | null {
   return Math.round((w / (hm * hm)) * 100) / 100;
 }
 
-function calculateAgeFromDob(dob?: string | null) {
-  if (!dob) {
-    return "N/A";
-  }
-
-  const birthDate = new Date(dob);
-  if (Number.isNaN(birthDate.getTime())) {
-    return "N/A";
-  }
-
-  const today = new Date();
-  let age = today.getFullYear() - birthDate.getFullYear();
-  const monthDelta = today.getMonth() - birthDate.getMonth();
-
-  if (monthDelta < 0 || (monthDelta === 0 && today.getDate() < birthDate.getDate())) {
-    age -= 1;
-  }
-
-  return `${age}`;
+function formatDate(value?: string) {
+  if (!value) return "";
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? "" : d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
-function normalizeChecklistEntries(value: unknown): string[] {
-  if (!value) {
-    return [];
-  }
-
-  if (Array.isArray(value)) {
-    return value.filter((entry): entry is string => typeof entry === "string");
-  }
-
-  if (typeof value === "string") {
-    return value
-      .split(/[,;\n]/)
-      .map((entry) => entry.trim())
-      .filter(Boolean);
-  }
-
-  if (typeof value === "object") {
-    return Object.entries(value as Record<string, unknown>)
-      .filter(([, entry]) => Boolean(entry))
-      .map(([entry]) => entry);
-  }
-
-  return [];
-}
-
-function resolveChecklistState(labels: string[], value: unknown) {
-  const normalized = normalizeChecklistEntries(value).map((entry) => entry.toLowerCase());
-
-  if (normalized.length === 0) {
-    return new Array(labels.length).fill(false);
-  }
-
-  return labels.map((label) => {
-    const lowerLabel = label.toLowerCase();
-    return normalized.some((entry) => entry === lowerLabel || entry.includes(lowerLabel) || lowerLabel.includes(entry));
-  });
-}
-
-function toText(value: unknown, fallback = ""): string {
-  if (typeof value === "string") {
-    return value;
-  }
-
-  if (typeof value === "number" || typeof value === "boolean") {
-    return String(value);
-  }
-
-  return fallback;
-}
-
-function toNumber(value: unknown): number | null {
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return value;
-  }
-
-  if (typeof value === "string" && value.trim() !== "") {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : null;
-  }
-
-  return null;
-}
-
-function normalizeScreeningType(value: unknown): "adult" | "pediatric" {
-  return value === "pediatric" ? "pediatric" : "adult";
-}
-
-function getScreeningType(
-  patient: Patient | null,
-  documentData: ScreeningDocumentRecord | null
-): "adult" | "pediatric" {
-  if (documentData?.type === "adult" || documentData?.type === "pediatric") {
-    return documentData.type;
-  }
-
-  return normalizeScreeningType(patient?.screening_type);
-}
-
-function getScreeningConditions(type: "adult" | "pediatric") {
-  return type === "pediatric" ? PEDIATRIC_CLINICAL_CONDITIONS : ADULT_CLINICAL_CONDITIONS;
-}
-
-function getScreeningIntakeHistory(type: "adult" | "pediatric") {
-  return type === "pediatric" ? PEDIATRIC_INTAKE_WEIGHT_HISTORY : ADULT_INTAKE_WEIGHT_HISTORY;
-}
-
-function asChecklistItems(value: unknown): string[] {
-  return normalizeChecklistEntries(value);
-}
-
-function buildMappedFields(
-  draft: ScreeningDraft | null,
-  type: "adult" | "pediatric",
-  sectionAChecks: boolean[],
-  sectionBChecks: boolean[]
-) {
-  return {
-    screening_type: type,
-    patient_name: draft?.patientName ?? "",
-    age: draft?.age ?? "",
-    sex: draft?.sex ?? "",
-    address: draft?.address ?? "",
-    height: draft?.height ?? "",
-    weight: draft?.weight ?? "",
-    clinical_conditions: getScreeningConditions(type).filter((label, index) => sectionAChecks[index]),
-    intake_weight_history: getScreeningIntakeHistory(type).filter((label, index) => sectionBChecks[index]),
-    diagnosis: draft?.diagnosis ?? "",
-    diet_prescription: draft?.dietPrescription ?? "",
-    referral_type: draft?.referralType ?? "",
-    referred_by: draft?.referredBy ?? "",
-    referral_datetime: draft?.referralDatetime ?? "",
-  };
+function isImagePath(path?: string) {
+  return !!path && /\.(png|jpe?g|gif|webp)$/i.test(path);
 }
 
 // ─── Field Components ────────────────────────────────────────────────────
@@ -438,7 +194,7 @@ function DropZone({ label, onUpload, uploading }: {
           <div className="h-1 w-48 mx-auto bg-zinc-200 rounded-full overflow-hidden">
             <div className="h-full bg-emerald-500 rounded-full animate-pulse" style={{ width: "70%" }} />
           </div>
-          <p className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">Processing OCR extraction...</p>
+          <p className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">Uploading...</p>
         </div>
       ) : (
         <>
@@ -446,6 +202,123 @@ function DropZone({ label, onUpload, uploading }: {
           <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-wider">{label}</p>
           <p className="text-[9px] text-zinc-400 mt-1">Drag and drop or click to upload — PDF, JPEG, PNG (max 10MB)</p>
         </>
+      )}
+    </div>
+  );
+}
+
+// ─── Attachments Panel ─────────────────────────────────────────────────────
+// Plain supporting-document storage for this NCP cycle (rnd.md §3.1). No OCR.
+// Reused on the Labs and Referral/Screening tabs; both list the cycle's files.
+function AttachmentsPanel({ ncpId, uploadLabel, kind, blurb }: {
+  ncpId: string; uploadLabel: string; kind: string; blurb: string;
+}) {
+  const [items, setItems] = useState<AttachmentRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      setError(null);
+      setItems(await fetchAttachments(ncpId));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load attachments.");
+    } finally {
+      setLoading(false);
+    }
+  }, [ncpId]);
+
+  useEffect(() => { void load(); }, [load]);
+
+  async function handleUpload(file: File) {
+    setUploading(true);
+    setError(null);
+    try {
+      await uploadAttachment(ncpId, file, kind);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to upload attachment.");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function handleDelete(id: number) {
+    setDeletingId(id);
+    try {
+      await deleteAttachment(id);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete attachment.");
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-xl border border-zinc-200 bg-zinc-50/60 p-4 space-y-3">
+        <div className="flex items-center gap-2">
+          <Paperclip className="h-4 w-4 text-emerald-600" />
+          <h4 className="text-[10px] font-extrabold text-zinc-800 uppercase tracking-wider">Supporting Documents</h4>
+        </div>
+        <p className="text-[11px] text-zinc-500 leading-relaxed">{blurb}</p>
+        <DropZone label={uploadLabel} onUpload={handleUpload} uploading={uploading} />
+      </div>
+
+      {error && (
+        <div className="px-3 py-2 bg-rose-50 border border-rose-200 rounded-lg text-[11px] text-rose-700 font-semibold">{error}</div>
+      )}
+
+      {loading ? (
+        <div className="space-y-2">
+          {[0, 1].map(i => <div key={i} className="h-12 bg-zinc-100 rounded-xl animate-pulse" />)}
+        </div>
+      ) : items.length === 0 ? (
+        <div className="text-center py-8 text-[11px] text-zinc-400 font-semibold border border-dashed border-zinc-200 rounded-xl">
+          No documents attached to this cycle yet.
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {items.map(doc => (
+            <div key={doc.id} className="flex items-center gap-3 px-3 py-2.5 bg-white border border-zinc-200 rounded-xl">
+              <div className="h-9 w-9 shrink-0 rounded-lg bg-zinc-50 border border-zinc-200 flex items-center justify-center overflow-hidden text-zinc-400">
+                {isImagePath(doc.file_path) ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={getAttachmentFileUrl(doc.id)} alt={doc.original_name ?? "attachment"} className="h-full w-full object-cover" />
+                ) : (
+                  <FileText className="h-4 w-4" />
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-semibold text-zinc-800 truncate">{doc.original_name ?? "Document"}</p>
+                <p className="text-[10px] text-zinc-400">
+                  {doc.type ? `${doc.type} · ` : ""}{formatDate(doc.created_at)}
+                </p>
+              </div>
+              <a
+                href={getAttachmentFileUrl(doc.id)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="p-1.5 text-zinc-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                title="Open / download"
+              >
+                <Download className="h-3.5 w-3.5" />
+              </a>
+              <button
+                type="button"
+                onClick={() => handleDelete(doc.id)}
+                disabled={deletingId === doc.id}
+                className="p-1.5 text-zinc-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors disabled:opacity-50"
+                title="Remove"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );
@@ -485,68 +358,22 @@ export default function NcpAssessmentPage({
   const [patient, setPatient] = useState<Patient | null>(null);
   const [assessment, setAssessment] = useState<Assessment>(defaultAssessment());
   const [assessmentExists, setAssessmentExists] = useState(false);
-  const [labValues, setLabValues] = useState<Record<string, string>>({});
-  const [labConfidence, setLabConfidence] = useState<Record<string, number>>({});
-  // riskChecks is derived from the backend — no local state, no manual override.
-  const [sectionAChecks, setSectionAChecks] = useState<boolean[]>(new Array(ADULT_CLINICAL_CONDITIONS.length).fill(false));
-  const [sectionBChecks, setSectionBChecks] = useState<boolean[]>(new Array(ADULT_INTAKE_WEIGHT_HISTORY.length).fill(false));
-  const [screeningDocument, setScreeningDocument] = useState<ScreeningDocumentRecord | null>(null);
-  const [screeningDraft, setScreeningDraft] = useState<ScreeningDraft | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [uploadingScreening, setUploadingScreening] = useState(false);
-  const [uploadingLabs, setUploadingLabs] = useState(false);
-  const [pollingScreening, setPollingScreening] = useState(false);
-  const [pollingLabs, setPollingLabs] = useState(false);
-  const [latestLabDocument, setLatestLabDocument] = useState<OcrDocumentRecord | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const pollingScreeningRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const pollingLabsRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const isPlaceholder = patientId === "select-patient" || ncpId === "select-ncp";
-
-  const buildScreeningDraft = useCallback((
-    basePatient: Patient,
-    documentData?: ScreeningDocumentRecord | null,
-    baseAssessment?: Assessment | null
-  ): ScreeningDraft => {
-    const extracted = documentData?.mapped_fields ?? documentData?.extracted_data ?? {};
-
-    return {
-      patientName: toText(extracted.patient_name ?? extracted.name ?? basePatient.name),
-      age: toText(extracted.age ?? calculateAgeFromDob(basePatient.dob)),
-      sex: toText(extracted.sex ?? basePatient.sex),
-      address: toText(extracted.address ?? basePatient.address),
-      height: toText(extracted.height ?? baseAssessment?.height ?? ""),
-      weight: toText(extracted.weight ?? baseAssessment?.weight ?? ""),
-      diagnosis: toText(extracted.diagnosis ?? extracted.medical_diagnosis ?? basePatient.medical_diagnosis),
-      dietPrescription: toText(extracted.diet_prescription ?? extracted.dietPrescription ?? ""),
-      referralType: toText(extracted.referral_type ?? extracted.referralType ?? ""),
-      referredBy: toText(extracted.referred_by ?? extracted.physician ?? basePatient.physician),
-      referralDatetime: toText(extracted.referral_datetime ?? extracted.referralDateTime ?? ""),
-      ward: toText(extracted.ward ?? basePatient.ward ?? ""),
-      hospitalNumber: toText(extracted.hospital_number ?? basePatient.hospital_number ?? ""),
-      ageGroupCategory: toText(extracted.age_group_category ?? basePatient.age_group_category ?? ""),
-      screeningType: (extracted.screening_type ?? basePatient.screening_type ?? "adult") === "pediatric" ? "pediatric" : "adult",
-    };
-  }, []);
 
   // ─── Load Data ──────────────────────────────────────────────────────
   const loadData = useCallback(async () => {
     if (isPlaceholder) { setLoading(false); return; }
     try {
       setLoading(true);
-      const [p, a, sDoc, ocrDocs] = await Promise.allSettled([
+      const [p, a] = await Promise.allSettled([
         fetchPatientById(patientId),
         fetchAssessment(ncpId),
-        fetchScreeningDocument(ncpId),
-        fetchOcrDocuments(ncpId),
       ]);
-      const loadedPatient = p.status === "fulfilled" ? p.value : null;
-      const loadedAssessment = a.status === "fulfilled" ? a.value : null;
-      const loadedScreeningDocument = sDoc.status === "fulfilled" ? sDoc.value : null;
-
       if (p.status === "fulfilled") {
         setPatient(p.value);
       }
@@ -554,59 +381,12 @@ export default function NcpAssessmentPage({
         setAssessment(a.value);
         setAssessmentExists(true);
       }
-      if (sDoc.status === "fulfilled") {
-        setScreeningDocument(sDoc.value);
-        const screeningTypeValue = getScreeningType(loadedPatient, loadedScreeningDocument);
-        const extracted = sDoc.value?.mapped_fields ?? sDoc.value?.extracted_data ?? {};
-        setSectionAChecks(resolveChecklistState(getScreeningConditions(screeningTypeValue), extracted.clinical_conditions ?? extracted.section_a ?? extracted.section_a_checks));
-        setSectionBChecks(resolveChecklistState(getScreeningIntakeHistory(screeningTypeValue), extracted.intake_weight_history ?? extracted.section_b ?? extracted.section_b_checks));
-        if (Object.keys(extracted).length > 0) {
-          setAssessment((current) => ({
-            ...current,
-            weight: current.weight ?? toNumber(extracted.weight) ?? current.weight,
-            height: current.height ?? toNumber(extracted.height) ?? current.height,
-            usual_weight: toNumber(extracted.usual_weight) ?? current.usual_weight,
-            present_diet: toText(extracted.present_diet, current.present_diet ?? ""),
-            dietary_intake: toText(extracted.dietary_intake, current.dietary_intake ?? ""),
-            appetite_changes: toText(extracted.appetite_changes, current.appetite_changes ?? ""),
-            dietary_restrictions: toText(extracted.dietary_restrictions, current.dietary_restrictions ?? ""),
-            weight_loss_percentage: toNumber(extracted.weight_loss_percentage) ?? current.weight_loss_percentage,
-            weight_loss_period: toText(extracted.weight_loss_period, current.weight_loss_period ?? ""),
-            ibw_percentage: toNumber(extracted.ibw_percentage) ?? current.ibw_percentage,
-            food_intolerance: toText(extracted.food_intolerance, current.food_intolerance ?? ""),
-            nutrient_drug_interaction: toText(extracted.nutrient_drug_interaction, current.nutrient_drug_interaction ?? ""),
-          }));
-        }
-      }
-      if (loadedPatient) {
-        setScreeningDraft(buildScreeningDraft(loadedPatient, loadedScreeningDocument, loadedAssessment));
-      }
-      if (ocrDocs.status === "fulfilled" && ocrDocs.value.length > 0) {
-        const latestDoc = ocrDocs.value[ocrDocs.value.length - 1];
-        setLatestLabDocument(latestDoc);
-        const parsedFields = latestDoc?.parsed_fields ?? {};
-        const confidenceScore = typeof latestDoc?.confidence_score === "number"
-          ? latestDoc.confidence_score
-          : Number(latestDoc?.confidence_score ?? 0);
-        setLabValues((current) => ({
-          ...current,
-          ...Object.fromEntries(
-            Object.entries(parsedFields).map(([key, value]) => [key, value === null || value === undefined ? "" : String(value)]),
-          ),
-        }));
-        setLabConfidence((current) => ({
-          ...current,
-          ...Object.fromEntries(
-            Object.keys(parsedFields).map((key) => [key, confidenceScore || 0.85]),
-          ),
-        }));
-      }
     } catch {
       // Assessment may not exist yet for new patients, which is fine
     } finally {
       setLoading(false);
     }
-  }, [patientId, ncpId, isPlaceholder, buildScreeningDraft]);
+  }, [patientId, ncpId, isPlaceholder]);
 
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { void loadData(); }, [loadData]);
@@ -690,119 +470,6 @@ export default function NcpAssessmentPage({
 
   const s = (key: keyof Assessment): string => (assessment[key] as string) ?? "";
 
-  const updateScreeningDraftField = (key: keyof ScreeningDraft, value: string) => {
-    setScreeningDraft((current) => {
-      const next = current ?? (patient ? buildScreeningDraft(patient) : null);
-      if (!next) {
-        return current;
-      }
-
-      return { ...next, [key]: value };
-    });
-  };
-
-  // ─── Polling Helpers ────────────────────────────────────────────────
-  const startScreeningPolling = useCallback((docId: number | string) => {
-    if (pollingScreeningRef.current) clearInterval(pollingScreeningRef.current);
-    setPollingScreening(true);
-    let attempts = 0;
-    const maxAttempts = 24; // 24 × 2.5s = 60s timeout
-
-    pollingScreeningRef.current = setInterval(async () => {
-      attempts++;
-      try {
-        const refreshed = await fetchScreeningDocument(ncpId);
-        if (refreshed?.status === "completed" || refreshed?.status === "failed") {
-          clearInterval(pollingScreeningRef.current!);
-          pollingScreeningRef.current = null;
-          setPollingScreening(false);
-          setScreeningDocument(refreshed);
-
-          if (refreshed?.status === "completed" && patient) {
-            const extracted = refreshed.mapped_fields ?? refreshed.extracted_data ?? {};
-            const screeningTypeValue = getScreeningType(patient, refreshed);
-            setSectionAChecks(resolveChecklistState(getScreeningConditions(screeningTypeValue), extracted.clinical_conditions ?? extracted.section_a ?? extracted.section_a_checks));
-            setSectionBChecks(resolveChecklistState(getScreeningIntakeHistory(screeningTypeValue), extracted.intake_weight_history ?? extracted.section_b ?? extracted.section_b_checks));
-            setScreeningDraft(buildScreeningDraft(patient, refreshed, assessment));
-            // Hydrate weight/height into assessment if blank
-            setAssessment((prev) => ({
-              ...prev,
-              weight: prev.weight ?? (extracted.weight ? Number(extracted.weight) : null),
-              height: prev.height ?? (extracted.height ? Number(extracted.height) : null),
-            }));
-            setSuccess("Screening form extracted and fields auto-filled.");
-            setTimeout(() => setSuccess(null), 5000);
-          } else if (refreshed?.status === "failed") {
-            setError("OCR extraction failed. Please try uploading again.");
-          }
-        } else if (attempts >= maxAttempts) {
-          clearInterval(pollingScreeningRef.current!);
-          pollingScreeningRef.current = null;
-          setPollingScreening(false);
-          setError("OCR extraction timed out. The document was saved but fields were not auto-filled.");
-        }
-      } catch {
-        // Keep polling silently on transient errors
-      }
-    }, 2500);
-  }, [ncpId, patient, assessment, buildScreeningDraft]);
-
-  const startLabsPolling = useCallback((docId: number | string) => {
-    if (pollingLabsRef.current) clearInterval(pollingLabsRef.current);
-    setPollingLabs(true);
-    let attempts = 0;
-    const maxAttempts = 24;
-
-    pollingLabsRef.current = setInterval(async () => {
-      attempts++;
-      try {
-        const allDocs = await fetchOcrDocuments(ncpId);
-        const target = allDocs.find((d) => d.id === docId) ?? allDocs[allDocs.length - 1];
-        if (target?.status === "completed" || target?.status === "failed") {
-          clearInterval(pollingLabsRef.current!);
-          pollingLabsRef.current = null;
-          setPollingLabs(false);
-          if (target.status === "completed") {
-            setLatestLabDocument(target);
-            const parsedFields = target.parsed_fields ?? {};
-            const confidenceScore = typeof target.confidence_score === "number"
-              ? target.confidence_score
-              : Number(target.confidence_score ?? 0);
-            setLabValues((prev) => ({
-              ...prev,
-              ...Object.fromEntries(
-                Object.entries(parsedFields).map(([k, v]) => [k, v === null || v === undefined ? "" : String(v)]),
-              ),
-            }));
-            setLabConfidence((prev) => ({
-              ...prev,
-              ...Object.fromEntries(Object.keys(parsedFields).map((k) => [k, confidenceScore || 0.85])),
-            }));
-            setSuccess("Lab results extracted and fields auto-filled.");
-            setTimeout(() => setSuccess(null), 5000);
-          } else {
-            setError("Lab OCR extraction failed. Please try uploading again.");
-          }
-        } else if (attempts >= maxAttempts) {
-          clearInterval(pollingLabsRef.current!);
-          pollingLabsRef.current = null;
-          setPollingLabs(false);
-          setError("Lab OCR extraction timed out.");
-        }
-      } catch {
-        // Keep polling silently
-      }
-    }, 2500);
-  }, [ncpId]);
-
-  // Clean up intervals on unmount
-  useEffect(() => {
-    return () => {
-      if (pollingScreeningRef.current) clearInterval(pollingScreeningRef.current);
-      if (pollingLabsRef.current) clearInterval(pollingLabsRef.current);
-    };
-  }, []);
-
   // ─── Save ───────────────────────────────────────────────────────────
   const handleSave = async () => {
     try {
@@ -827,87 +494,12 @@ export default function NcpAssessmentPage({
       setAssessment(saved);
       setAssessmentExists(true);
 
-      if (activeTab === "referral") {
-        if (!screeningDocument?.id) {
-          throw new Error("No screening document is available to approve.");
-        }
-
-        const currentScreeningType = screeningDraft?.screeningType ?? getScreeningType(patient, screeningDocument);
-        const mappedFields = buildMappedFields(
-          screeningDraft ?? (patient ? buildScreeningDraft(patient, screeningDocument, saved) : null),
-          currentScreeningType,
-          sectionAChecks,
-          sectionBChecks
-        );
-
-        const approvedDocument = await approveScreeningDocument(screeningDocument.id, { mapped_fields: mappedFields });
-        setScreeningDocument(approvedDocument);
-
-        const [refreshedAssessment, refreshedPatient] = await Promise.all([
-          fetchAssessment(ncpId),
-          fetchPatientById(patientId),
-        ]);
-
-        setAssessment(refreshedAssessment);
-        setPatient(refreshedPatient);
-        setScreeningDraft(buildScreeningDraft(refreshedPatient, approvedDocument, refreshedAssessment));
-      }
-
-      setSuccess(activeTab === "referral" ? "Screening form approved successfully." : "Assessment saved successfully.");
+      setSuccess("Assessment saved successfully.");
       setTimeout(() => setSuccess(null), 3000);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to save assessment.");
     } finally {
       setSaving(false);
-    }
-  };
-
-  // ─── Clear OCR Document Handlers ────────────────────────────────────
-  const handleClearLabDocument = () => {
-    setLatestLabDocument(null);
-    setLabValues({});
-    setLabConfidence({});
-  };
-
-  const handleClearScreeningDocument = () => {
-    setScreeningDocument(null);
-    setScreeningDraft(patient ? buildScreeningDraft(patient, null, assessment) : null);
-  };
-
-  // ─── Upload Handlers ────────────────────────────────────────────────
-  const handleScreeningUpload = async (file: File) => {
-    try {
-      setUploadingScreening(true);
-      setError(null);
-      const uploaded = await uploadScreeningDocument(ncpId, file);
-      // Immediately set a pending document so the preview renders
-      const pending = await fetchScreeningDocument(ncpId);
-      setScreeningDocument(pending);
-      setUploadingScreening(false);
-      setSuccess("Screening document uploaded. Extracting fields...");
-      // Start polling for OCR completion
-      const docId = uploaded?.id ?? pending?.id;
-      if (docId) startScreeningPolling(docId);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to upload screening document.");
-      setUploadingScreening(false);
-    }
-  };
-
-  const handleLabsUpload = async (file: File) => {
-    try {
-      setUploadingLabs(true);
-      setError(null);
-      const uploaded = await uploadLabsDocument(ncpId, file);
-      setLatestLabDocument(uploaded);
-      setUploadingLabs(false);
-      setSuccess("Lab document uploaded. Extracting fields...");
-      // Start polling for OCR completion
-      const docId = uploaded?.id;
-      if (docId) startLabsPolling(docId);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to upload lab document.");
-      setUploadingLabs(false);
     }
   };
 
@@ -1239,330 +831,23 @@ export default function NcpAssessmentPage({
   );
 
   const renderBiochemicalTab = () => (
-    <div className="space-y-5">
-      <div className="grid gap-4 lg:grid-cols-[1fr_auto]">
-        <DropZone label="Upload Lab Results (PDF or Image) for OCR Extraction" onUpload={handleLabsUpload} uploading={uploadingLabs} />
-        {latestLabDocument?.id && (
-          <div className="flex flex-col items-center justify-center gap-2">
-            <div className="flex items-center gap-2">
-              <span className="text-[9px] font-bold uppercase tracking-wider text-zinc-500">Lab Sheet Preview</span>
-              <button type="button" onClick={handleClearLabDocument} className="text-[9px] text-zinc-400 hover:text-red-500 font-bold cursor-pointer transition-colors">✕ Remove</button>
-            </div>
-            <div className={`relative rounded-xl border-2 overflow-hidden bg-zinc-50 flex items-center justify-center ${
-              pollingLabs ? "border-amber-300 animate-pulse" : "border-zinc-200"
-            }`} style={{ width: 160, height: 200 }}>
-              {pollingLabs && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-white/80 z-10">
-                  <div className="h-1 w-24 bg-zinc-200 rounded-full overflow-hidden">
-                    <div className="h-full bg-amber-400 rounded-full animate-pulse" style={{ width: "70%" }} />
-                  </div>
-                  <span className="text-[9px] text-amber-700 font-bold uppercase">Extracting...</span>
-                </div>
-              )}
-              <img
-                src={getOcrDocumentFileUrl(latestLabDocument.id!)}
-                alt="Lab result scan"
-                className="w-full h-full object-contain"
-                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-              />
-            </div>
-            <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${
-              latestLabDocument.status === "completed" ? "bg-emerald-50 text-emerald-700" :
-              latestLabDocument.status === "failed" ? "bg-red-50 text-red-700" :
-              "bg-amber-50 text-amber-700"
-            }`}>
-              {latestLabDocument.status ?? "pending"}
-            </span>
-          </div>
-        )}
-      </div>
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-        {LAB_FIELDS.map(lf => (
-          <div key={lf.key} className={`p-3 bg-white border-2 rounded-xl transition-colors ${confidenceBorder(labConfidence[lf.key])}`}>
-            <label className="block text-[9px] font-bold text-zinc-500 uppercase tracking-wider mb-1">
-              {lf.label} <span className="text-zinc-400 normal-case">({lf.unit})</span>
-            </label>
-            <input
-              type="text"
-              value={labValues[lf.key] ?? ""}
-              onChange={e => setLabValues(prev => ({ ...prev, [lf.key]: e.target.value }))}
-              placeholder="—"
-              className="w-full text-xs bg-transparent outline-none text-zinc-900 font-mono font-semibold placeholder:text-zinc-300"
-            />
-          </div>
-        ))}
-      </div>
-    </div>
+    <AttachmentsPanel
+      ncpId={ncpId}
+      kind="labs"
+      uploadLabel="Upload Lab Results (PDF or Image)"
+      blurb="Attach lab sheets and biochemical results for this NCP cycle. Stored for record-keeping and appended to the printed NCP report."
+    />
   );
 
-  const renderReferralTab = () => {
-    const draft = screeningDraft ?? (patient ? buildScreeningDraft(patient) : null);
-    const extracted = screeningDocument?.mapped_fields ?? screeningDocument?.extracted_data ?? {};
-    const screeningConfidence = screeningDocument?.confidence_score !== undefined && screeningDocument?.confidence_score !== null
-      ? Number(screeningDocument.confidence_score)
-      : null;
+  const renderReferralTab = () => (
+    <AttachmentsPanel
+      ncpId={ncpId}
+      kind="referral"
+      uploadLabel="Upload Referral / Screening Form (PDF or Image)"
+      blurb="Attach referral and screening forms for this NCP cycle. Stored for record-keeping and appended to the printed NCP report."
+    />
+  );
 
-    const screeningType = draft?.screeningType ?? getScreeningType(patient, screeningDocument);
-
-    const snapshotFields = [
-      { label: "Patient Name", value: extracted.patient_name ?? extracted.name ?? draft?.patientName ?? "Not extracted yet" },
-      { label: "Ward", value: extracted.ward ?? draft?.ward ?? "Not extracted yet" },
-      { label: "Physician", value: extracted.physician ?? extracted.referred_by ?? draft?.referredBy ?? "Not extracted yet" },
-      { label: "Diagnosis", value: extracted.medical_diagnosis ?? extracted.diagnosis ?? draft?.diagnosis ?? "Not extracted yet" },
-    ];
-
-    return (
-      <div className="space-y-5">
-        <div className="grid gap-4 lg:grid-cols-[1.4fr_0.6fr]">
-          <div className="bg-white border border-zinc-200 rounded-2xl p-5 shadow-sm space-y-4">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <h4 className="text-sm font-extrabold text-zinc-950 uppercase tracking-wider flex items-center gap-2">
-                  <FileText className="h-4 w-4 text-emerald-600" />
-                  Referral / Screening Form
-                </h4>
-                <p className="text-[11px] text-zinc-500 mt-1 leading-relaxed">
-                  OCR hydration fills the screening form, and edits here persist back to the patient profile on save.
-                </p>
-              </div>
-              <span className={`inline-flex px-2.5 py-1 rounded-full text-[9px] font-extrabold uppercase tracking-wider border ${
-                screeningType === "pediatric"
-                  ? "bg-sky-50 text-sky-700 border-sky-200"
-                  : "bg-emerald-50 text-emerald-700 border-emerald-200"
-              }`}>
-                {screeningType === "pediatric" ? "Pediatric B.06" : "Adult B.07"}
-              </span>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Field label="Patient Name">
-                <TextInput value={draft?.patientName ?? ""} onChange={v => updateScreeningDraftField("patientName", v)} placeholder="Patient name" />
-              </Field>
-              <Field label="Age">
-                <TextInput value={draft?.age ?? ""} onChange={v => updateScreeningDraftField("age", v)} placeholder="Derived or OCR-hydrated age" />
-              </Field>
-              <Field label="Sex">
-                <SelectInput
-                  value={draft?.sex ?? ""}
-                  onChange={v => updateScreeningDraftField("sex", v)}
-                  options={[
-                    { value: "Male", label: "Male" },
-                    { value: "Female", label: "Female" },
-                  ]}
-                  placeholder="Select sex"
-                />
-              </Field>
-              <Field label="Address">
-                <TextInput value={draft?.address ?? ""} onChange={v => updateScreeningDraftField("address", v)} placeholder="Patient address" />
-              </Field>
-              <Field label="Ward / Bed No">
-                <TextInput value={draft?.ward ?? ""} onChange={v => updateScreeningDraftField("ward", v)} placeholder="Ward / unit" />
-              </Field>
-              <Field label="Attending Physician">
-                <TextInput value={draft?.referredBy ?? ""} onChange={v => updateScreeningDraftField("referredBy", v)} placeholder="Attending physician" />
-              </Field>
-              <Field label="Medical Diagnosis" span={2}>
-                <TextArea
-                  value={draft?.diagnosis ?? ""}
-                  onChange={v => updateScreeningDraftField("diagnosis", v)}
-                  placeholder="Medical diagnosis or admitting impression"
-                  rows={3}
-                />
-              </Field>
-              <Field label="Hospital Number">
-                <TextInput value={draft?.hospitalNumber ?? ""} onChange={v => updateScreeningDraftField("hospitalNumber", v)} placeholder="Hospital number" />
-              </Field>
-              <Field label="Age Group Category">
-                <TextInput
-                  value={draft?.ageGroupCategory ?? ""}
-                  onChange={v => updateScreeningDraftField("ageGroupCategory", v)}
-                  placeholder="Adult / adolescent / pediatric"
-                />
-              </Field>
-              <Field label="Diet Prescription">
-                <TextInput value={draft?.dietPrescription ?? ""} onChange={v => updateScreeningDraftField("dietPrescription", v)} placeholder="e.g. Low Sodium, Soft Diet" />
-              </Field>
-              <Field label="Referral Type">
-                <SelectInput
-                  value={draft?.referralType ?? ""}
-                  onChange={v => updateScreeningDraftField("referralType", v)}
-                  options={REFERRAL_TYPE_OPTIONS}
-                  placeholder="Select referral type..."
-                />
-              </Field>
-              <Field label="Referral Date & Time" span={2}>
-                <TextInput type="datetime-local" value={draft?.referralDatetime ?? ""} onChange={v => updateScreeningDraftField("referralDatetime", v)} />
-              </Field>
-            </div>
-
-            <div className="flex flex-col gap-3 rounded-xl border border-zinc-200 bg-zinc-50/60 p-3">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Screening Type:</span>
-                <div className="flex gap-2">
-                  {(["adult", "pediatric"] as const).map(t => (
-                    <button
-                      key={t}
-                      type="button"
-                      onClick={() => {
-                        updateScreeningDraftField("screeningType", t);
-                        const ext = screeningDocument?.mapped_fields ?? screeningDocument?.extracted_data ?? {};
-                        setSectionAChecks(resolveChecklistState(getScreeningConditions(t), ext.clinical_conditions ?? ext.section_a ?? ext.section_a_checks));
-                        setSectionBChecks(resolveChecklistState(getScreeningIntakeHistory(t), ext.intake_weight_history ?? ext.section_b ?? ext.section_b_checks));
-                      }}
-                      className={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-lg border transition-all cursor-pointer ${
-                        screeningType === t
-                          ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                          : "bg-white text-zinc-500 border-zinc-200 hover:border-zinc-300"
-                      }`}
-                    >
-                      {t === "adult" ? "Adult B.07" : "Pediatric B.06"}
-                    </button>
-                  ))}
-                </div>
-                <span className="text-[10px] text-zinc-500 font-semibold ml-auto">
-                  OCR confidence {screeningConfidence !== null && Number.isFinite(screeningConfidence)
-                    ? `${Math.round(screeningConfidence * 100)}%`
-                    : "pending"}
-                </span>
-              </div>
-
-              <DropZone
-                label="Upload Screening Form (PDF or Image) for OCR Extraction"
-                onUpload={handleScreeningUpload}
-                uploading={uploadingScreening}
-              />
-              {/* OCR status indicator while polling */}
-              {pollingScreening && (
-                <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg">
-                  <div className="h-1.5 w-1.5 bg-amber-500 rounded-full animate-ping" />
-                  <span className="text-[10px] font-bold text-amber-700 uppercase tracking-wider">OCR Extraction in progress...</span>
-                </div>
-              )}
-            </div>
-
-            {/* Uploaded document preview */}
-            {screeningDocument?.id && (
-              <div className="rounded-xl border border-zinc-200 overflow-hidden bg-zinc-50">
-                <div className="flex items-center justify-between px-3 py-2 bg-white border-b border-zinc-100">
-                  <span className="text-[9px] font-bold uppercase tracking-wider text-zinc-500">Uploaded Document Preview</span>
-                  <div className="flex items-center gap-3">
-                    <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${
-                      screeningDocument.status === "completed" ? "bg-emerald-50 text-emerald-700" :
-                      screeningDocument.status === "failed" ? "bg-red-50 text-red-700" :
-                      "bg-amber-50 text-amber-700"
-                    }`}>
-                      {pollingScreening ? "Extracting..." : (screeningDocument.status ?? "pending")}
-                    </span>
-                    <button type="button" onClick={handleClearScreeningDocument} className="text-[9px] text-zinc-400 hover:text-red-500 font-bold cursor-pointer transition-colors">✕ Remove</button>
-                  </div>
-                </div>
-                <div className="relative flex items-center justify-center p-2" style={{ minHeight: 240 }}>
-                  {pollingScreening && (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-white/80 z-10">
-                      <div className="h-1.5 w-32 bg-zinc-200 rounded-full overflow-hidden">
-                        <div className="h-full bg-emerald-500 rounded-full animate-pulse" style={{ width: "60%" }} />
-                      </div>
-                      <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">Processing OCR...</span>
-                    </div>
-                  )}
-                  <img
-                    src={getScreeningDocumentFileUrl(screeningDocument.id!)}
-                    alt="Uploaded screening form"
-                    className="max-w-full max-h-64 object-contain rounded"
-                    onError={(e) => {
-                      const target = e.target as HTMLImageElement;
-                      target.style.display = 'none';
-                      const parent = target.parentElement;
-                      if (parent && !parent.querySelector('.pdf-fallback')) {
-                        const fallback = document.createElement('div');
-                        fallback.className = 'pdf-fallback text-center text-xs text-zinc-500 py-8';
-                        fallback.innerHTML = '<p class="font-bold">PDF Document</p><p class="text-[10px] mt-1">Preview not available for PDF files</p>';
-                        parent.appendChild(fallback);
-                      }
-                    }}
-                  />
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div className="space-y-4">
-            <div className="bg-white border border-zinc-250 rounded-2xl p-5 shadow-sm">
-              <h4 className="text-[10px] font-extrabold text-zinc-800 uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                <Sparkles className="h-3.5 w-3.5 text-emerald-600" />
-                OCR Snapshot
-              </h4>
-              <div className="space-y-2">
-                {snapshotFields.map((field) => (
-                  <div key={field.label} className="rounded-lg border border-zinc-100 bg-zinc-50/80 px-3 py-2">
-                    <div className="text-[9px] font-bold uppercase tracking-wider text-zinc-400">{field.label}</div>
-                    <div className="text-xs font-semibold text-zinc-800 mt-0.5">{String(field.value)}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="bg-zinc-950 border border-zinc-900 rounded-2xl p-5 text-zinc-100 shadow-sm">
-              <h4 className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-300 mb-2">Workflow Note</h4>
-              <p className="text-[11px] leading-relaxed text-zinc-300">
-                Save after verifying the screening form. The patient profile updates with the editable demographics captured here, while the checklist remains the source of the risk score.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-          <div className="bg-white border border-zinc-200 rounded-2xl p-4 shadow-sm">
-            <h4 className="text-[10px] font-extrabold text-zinc-800 uppercase tracking-wider mb-3 flex items-center gap-1.5">
-              <Shield className="h-3.5 w-3.5 text-emerald-600" />
-              Section A - Clinical Conditions
-            </h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-              {getScreeningConditions(screeningType).map((cond, i) => (
-                <label key={i} className="flex items-start gap-2 text-[11px] text-zinc-700 cursor-pointer hover:bg-zinc-50 p-1.5 rounded-lg transition-colors">
-                  <input
-                    type="checkbox"
-                    checked={sectionAChecks[i] || false}
-                    onChange={e => {
-                      const next = [...sectionAChecks];
-                      next[i] = e.target.checked;
-                      setSectionAChecks(next);
-                    }}
-                    className="mt-0.5 shrink-0 accent-emerald-600"
-                  />
-                  <span className="leading-tight">{cond}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-
-          <div className="bg-white border border-zinc-200 rounded-2xl p-4 shadow-sm">
-            <h4 className="text-[10px] font-extrabold text-zinc-800 uppercase tracking-wider mb-3 flex items-center gap-1.5">
-              <Scale className="h-3.5 w-3.5 text-emerald-600" />
-              Section B - Intake / Weight History
-            </h4>
-            <div className="grid grid-cols-1 gap-2">
-              {getScreeningIntakeHistory(screeningType).map((item, i) => (
-                <label key={i} className="flex items-start gap-2 text-[11px] text-zinc-700 cursor-pointer hover:bg-zinc-50 p-1.5 rounded-lg transition-colors">
-                  <input
-                    type="checkbox"
-                    checked={sectionBChecks[i] || false}
-                    onChange={e => {
-                      const next = [...sectionBChecks];
-                      next[i] = e.target.checked;
-                      setSectionBChecks(next);
-                    }}
-                    className="mt-0.5 shrink-0 accent-emerald-600"
-                  />
-                  <span className="leading-tight">{item}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  };
   const renderRiskScore = () => (
     <div className="bg-white border border-zinc-200 rounded-xl p-5 space-y-4">
       <div className="flex items-center justify-between">

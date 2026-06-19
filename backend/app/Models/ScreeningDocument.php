@@ -10,16 +10,7 @@ class ScreeningDocument extends Model
     use HasFactory;
     
     protected $fillable = [
-        'patient_id', 'assessment_id', 'type', 'file_path',
-        'extracted_data', 'mapped_fields', 'status',
-        'confidence_score', 'reviewed_by', 'reviewed_at'
-    ];
-
-    protected $casts = [
-        'extracted_data' => 'array',
-        'mapped_fields' => 'array',
-        'confidence_score' => 'decimal:4',
-        'reviewed_at' => 'datetime',
+        'patient_id', 'assessment_id', 'type', 'file_path', 'original_name',
     ];
 
     public function patient()
@@ -31,11 +22,5 @@ class ScreeningDocument extends Model
     {
         return $this->belongsTo(Assessment::class);
     }
-
-    public function reviewer()
-    {
-        return $this->belongsTo(User::class, 'reviewed_by');
-    }
-
 }
 
