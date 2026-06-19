@@ -8,9 +8,7 @@ import { User } from "@/services/authService";
 import { PaginationMeta } from "@/services/inventoryService";
 import {
   Activity,
-  Search,
   Filter,
-  Calendar,
   ChevronLeft,
   ChevronRight,
   RefreshCw,
@@ -18,8 +16,6 @@ import {
   ChevronDown,
   ChevronUp,
   Shield,
-  Eye,
-  EyeOff,
 } from "lucide-react";
 import { Badge, BadgeTone } from "@/components/ui/Badge";
 
@@ -31,8 +27,14 @@ const eventTones: Record<string, BadgeTone> = {
   logout: "zinc",
 };
 
+const roleTones: Record<string, BadgeTone> = {
+  Admin: "violet",
+  RND: "emerald",
+  FSS: "sky",
+};
+
 export default function AuditLogsPage() {
-  const { user: currentUser } = useAuth();
+  const { user: _currentUser } = useAuth();
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [meta, setMeta] = useState<PaginationMeta>({
@@ -46,7 +48,6 @@ export default function AuditLogsPage() {
 
   // Filters
   const [page, setPage] = useState(1);
-  const [perPage, setPerPage] = useState(25);
   const [causerId, setCauserId] = useState<string>("All");
   const [subjectType, setSubjectType] = useState<string>("All");
   const [eventFilter, setEventFilter] = useState<string>("All");
@@ -61,7 +62,7 @@ export default function AuditLogsPage() {
       const u = await listUsers();
       setUsers(u);
     } catch {
-      // Best-effort for actor list dropdown
+      // best-effort for actor dropdown
     }
   }
 
@@ -70,11 +71,7 @@ export default function AuditLogsPage() {
       setLoading(true);
       setError(null);
 
-      const params: ListAuditLogsParams = {
-        page,
-        per_page: perPage,
-      };
-
+      const params: ListAuditLogsParams = { page, per_page: 25 };
       if (causerId !== "All") params.causer_id = parseInt(causerId);
       if (subjectType !== "All") params.subject_type = subjectType;
       if (eventFilter !== "All") params.event = eventFilter;
@@ -97,7 +94,8 @@ export default function AuditLogsPage() {
 
   useEffect(() => {
     void loadLogs();
-  }, [page, perPage, causerId, subjectType, eventFilter, startDate, endDate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, causerId, subjectType, eventFilter, startDate, endDate]);
 
   function handleResetFilters() {
     setCauserId("All");
@@ -108,82 +106,76 @@ export default function AuditLogsPage() {
     setPage(1);
   }
 
-  const uniqueSubjectTypes = useMemo(() => {
-    // Collect some common known model types for easier filtering
-    return [
-      { label: "Patient", value: "Patient" },
-      { label: "User Account", value: "User" },
-      { label: "NCP Assessment", value: "Assessment" },
-      { label: "NCP Diagnosis", value: "Diagnosis" },
-      { label: "NCP Intervention", value: "Intervention" },
-      { label: "NCP Monitoring", value: "Monitoring" },
-      { label: "Menu Cycle", value: "MenuCycle" },
-      { label: "Purchase Order", value: "PurchaseOrder" },
-      { label: "Budget", value: "Budget" },
-      { label: "Meal Prep Log", value: "MealPrepLog" },
-      { label: "FsItem", value: "FsItem" },
-    ];
-  }, []);
+  const uniqueSubjectTypes = useMemo(() => [
+    { label: "Patient", value: "Patient" },
+    { label: "User Account", value: "User" },
+    { label: "NCP Assessment", value: "Assessment" },
+    { label: "NCP Diagnosis", value: "Diagnosis" },
+    { label: "NCP Intervention", value: "Intervention" },
+    { label: "NCP Monitoring", value: "Monitoring" },
+    { label: "Menu Cycle", value: "MenuCycle" },
+    { label: "Purchase Order", value: "PurchaseOrder" },
+    { label: "Budget", value: "Budget" },
+    { label: "Meal Prep Log", value: "MealPrepLog" },
+    { label: "FsItem", value: "FsItem" },
+  ], []);
 
   function toggleRow(logId: number) {
-    if (expandedLogId === logId) {
-      setExpandedLogId(null);
-    } else {
-      setExpandedLogId(logId);
-    }
+    setExpandedLogId((prev) => (prev === logId ? null : logId));
   }
 
+  // shared input classes matching admin/users pattern
+  const selCls =
+    "w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 text-zinc-800";
+
   return (
-    <div className="space-y-6 font-sans text-zinc-100">
-      {/* Breadcrumbs & Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 select-none">
+    <div className="space-y-6 font-sans">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 text-xs font-semibold text-zinc-500">
+          <div className="flex items-center gap-2 text-xs font-semibold text-zinc-400 select-none">
             <span>Admin</span>
-            <span className="text-zinc-700">/</span>
-            <span className="text-zinc-400 font-bold">System Audit</span>
+            <span>/</span>
+            <span className="text-zinc-600 font-bold">Audit Logs</span>
           </div>
-          <h1 className="text-xl font-extrabold text-white tracking-tight mt-1 flex items-center gap-2">
-            <Shield className="h-5 w-5 text-amber-500" />
-            Security & System Audit logs
+          <h1 className="text-xl font-extrabold text-zinc-900 tracking-tight mt-1 flex items-center gap-2">
+            <Shield className="h-5 w-5 text-emerald-600" />
+            System Audit Log
           </h1>
-          <p className="text-xs text-zinc-400 mt-0.5">
-            Cryptographic ledger tracking administrative access, user logins, and database alterations.
+          <p className="text-xs text-zinc-500 mt-0.5">
+            Paginated ledger of all create, update, delete, and login events across the system.
           </p>
         </div>
 
         <button
           onClick={() => void loadLogs()}
           disabled={loading}
-          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-zinc-800 bg-zinc-900 text-xs font-bold uppercase tracking-wider text-zinc-300 hover:text-white hover:bg-zinc-850 active:bg-zinc-800 transition-colors disabled:opacity-50 select-none cursor-pointer"
+          className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-zinc-200 bg-white text-xs font-semibold text-zinc-600 hover:text-zinc-900 hover:bg-zinc-50 transition-colors disabled:opacity-50 select-none cursor-pointer shrink-0"
         >
           <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
-          Reload logs
+          Refresh
         </button>
       </div>
 
-      {/* Filters Bar */}
-      <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-5 shadow-sm space-y-4">
-        <div className="flex items-center gap-1.5 text-xs font-bold text-zinc-300 uppercase tracking-wider select-none">
-          <Filter className="h-4 w-4 text-purple-400" />
-          Filter Parameters
+      {/* Filter bar */}
+      <div className="bg-white border border-zinc-200 rounded-2xl p-4 shadow-sm">
+        <div className="flex items-center gap-1.5 text-xs font-bold text-zinc-500 uppercase tracking-wider mb-3 select-none">
+          <Filter className="h-3.5 w-3.5" />
+          Filters
         </div>
-        
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-          {/* Actor Filter */}
-          <div className="space-y-1">
-            <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider select-none">
-              Actor (Causer)
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+          {/* Actor */}
+          <div>
+            <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1">
+              Actor
             </label>
             <select
               value={causerId}
-              onChange={(e) => {
-                setCauserId(e.target.value);
-                setPage(1);
-              }}
-              className="w-full px-3 py-2 text-xs bg-zinc-950 border border-zinc-850 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 cursor-pointer"
+              onChange={(e) => { setCauserId(e.target.value); setPage(1); }}
+              className={selCls}
             >
-              <option value="All">All Actors</option>
+              <option value="All">All actors</option>
               {users.map((u) => (
                 <option key={u.id} value={u.id}>
                   {u.name} ({u.role})
@@ -192,42 +184,34 @@ export default function AuditLogsPage() {
             </select>
           </div>
 
-          {/* Subject Filter */}
-          <div className="space-y-1">
-            <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider select-none">
-              Subject Type
+          {/* Subject type */}
+          <div>
+            <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1">
+              Subject type
             </label>
             <select
               value={subjectType}
-              onChange={(e) => {
-                setSubjectType(e.target.value);
-                setPage(1);
-              }}
-              className="w-full px-3 py-2 text-xs bg-zinc-950 border border-zinc-850 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 cursor-pointer"
+              onChange={(e) => { setSubjectType(e.target.value); setPage(1); }}
+              className={selCls}
             >
-              <option value="All">All Subjects</option>
-              {uniqueSubjectTypes.map((type) => (
-                <option key={type.value} value={type.value}>
-                  {type.label}
-                </option>
+              <option value="All">All subjects</option>
+              {uniqueSubjectTypes.map((t) => (
+                <option key={t.value} value={t.value}>{t.label}</option>
               ))}
             </select>
           </div>
 
-          {/* Event Filter */}
-          <div className="space-y-1">
-            <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider select-none">
-              Action Event
+          {/* Event */}
+          <div>
+            <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1">
+              Event
             </label>
             <select
               value={eventFilter}
-              onChange={(e) => {
-                setEventFilter(e.target.value);
-                setPage(1);
-              }}
-              className="w-full px-3 py-2 text-xs bg-zinc-950 border border-zinc-850 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 cursor-pointer"
+              onChange={(e) => { setEventFilter(e.target.value); setPage(1); }}
+              className={selCls}
             >
-              <option value="All">All Events</option>
+              <option value="All">All events</option>
               <option value="created">Created</option>
               <option value="updated">Updated</option>
               <option value="deleted">Deleted</option>
@@ -236,151 +220,155 @@ export default function AuditLogsPage() {
             </select>
           </div>
 
-          {/* Date range start */}
-          <div className="space-y-1">
-            <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider select-none">
-              Start Date
+          {/* Start date */}
+          <div>
+            <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1">
+              From
             </label>
-            <div className="relative">
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => {
-                  setStartDate(e.target.value);
-                  setPage(1);
-                }}
-                className="w-full px-3 py-1.5 text-xs bg-zinc-950 border border-zinc-850 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 cursor-pointer"
-              />
-            </div>
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => { setStartDate(e.target.value); setPage(1); }}
+              className={selCls}
+            />
           </div>
 
-          {/* Date range end */}
-          <div className="space-y-1">
-            <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider select-none">
-              End Date
+          {/* End date */}
+          <div>
+            <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1">
+              To
             </label>
-            <div className="relative">
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => {
-                  setEndDate(e.target.value);
-                  setPage(1);
-                }}
-                className="w-full px-3 py-1.5 text-xs bg-zinc-950 border border-zinc-850 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 cursor-pointer"
-              />
-            </div>
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => { setEndDate(e.target.value); setPage(1); }}
+              className={selCls}
+            />
           </div>
         </div>
 
-        <div className="flex justify-between items-center select-none pt-2 border-t border-zinc-850/60">
+        <div className="flex justify-between items-center mt-3 pt-3 border-t border-zinc-100 select-none">
           <span className="text-[10px] text-zinc-400 font-medium">
-            Showing up to {perPage} entries per page. Total: {meta.total} matches.
+            {meta.total} total {meta.total === 1 ? "entry" : "entries"} &mdash; page {meta.current_page} of {meta.last_page}
           </span>
           <button
             onClick={handleResetFilters}
-            className="text-[10px] text-zinc-400 hover:text-white font-bold uppercase tracking-wider transition-colors cursor-pointer"
+            className="text-[10px] text-zinc-400 hover:text-zinc-700 font-semibold uppercase tracking-wider transition-colors cursor-pointer"
           >
             Clear filters
           </button>
         </div>
       </div>
 
-      {/* Audit Logs Table */}
+      {/* Table / states */}
       {error ? (
-        <div className="bg-red-950/30 border border-red-900/50 p-4 rounded-xl flex items-start gap-3">
+        <div className="bg-red-50 border border-red-200 p-4 rounded-xl flex items-start gap-3">
           <AlertTriangle className="h-5 w-5 text-red-500 shrink-0 mt-0.5" />
           <div>
-            <div className="text-xs text-red-400 font-bold">Failed to load audit logs</div>
-            <div className="text-xs text-red-500/80 mt-0.5">{error}</div>
+            <div className="text-xs text-red-700 font-bold">Failed to load audit logs</div>
+            <div className="text-xs text-red-600 mt-0.5">{error}</div>
+            <button
+              onClick={() => void loadLogs()}
+              className="mt-2 text-xs text-red-700 underline hover:no-underline cursor-pointer"
+            >
+              Retry
+            </button>
           </div>
         </div>
       ) : loading ? (
-        <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-16 text-center flex flex-col items-center justify-center gap-3">
-          <RefreshCw className="h-6 w-6 text-zinc-500 animate-spin" />
-          <div className="text-xs text-zinc-400 font-semibold uppercase tracking-wider">
-            Loading system activity logs...
+        <div className="bg-white border border-zinc-200 rounded-2xl p-12 text-center flex flex-col items-center justify-center gap-3 shadow-sm">
+          <RefreshCw className="h-6 w-6 text-emerald-600 animate-spin" />
+          <div className="text-xs text-zinc-500 font-semibold uppercase tracking-wider">
+            Loading audit logs…
           </div>
         </div>
       ) : logs.length === 0 ? (
-        <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-16 text-center max-w-xl mx-auto shadow-sm">
-          <div className="p-3 bg-zinc-950 border border-zinc-850 rounded-2xl w-fit mx-auto text-zinc-600 mb-4">
+        <div className="bg-white border border-zinc-200 rounded-2xl p-16 text-center shadow-sm">
+          <div className="p-3 bg-zinc-50 border border-zinc-200 rounded-2xl w-fit mx-auto text-zinc-400 mb-4">
             <Activity className="h-8 w-8" />
           </div>
-          <h3 className="text-sm font-bold text-zinc-300">No activity logs found</h3>
-          <p className="text-xs text-zinc-500 mt-1 max-w-sm mx-auto leading-relaxed">
-            No entries correspond to the active filter configuration.
+          <h3 className="text-sm font-bold text-zinc-700">No audit entries found</h3>
+          <p className="text-xs text-zinc-400 mt-1 max-w-sm mx-auto">
+            No entries match the active filter configuration. Try adjusting or clearing filters.
           </p>
         </div>
       ) : (
-        <div className="bg-zinc-900 border border-zinc-800 rounded-3xl shadow-md overflow-hidden">
+        <div className="bg-white border border-zinc-200 rounded-2xl shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse min-w-[900px]">
-              <thead>
-                <tr className="bg-zinc-950 border-b border-zinc-850">
-                  <th className="px-5 py-3.5 text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider">
-                    Timestamp
+            <table className="w-full text-left min-w-[900px]">
+              <thead className="bg-zinc-50 border-b border-zinc-100">
+                <tr>
+                  <th className="px-5 py-3.5 text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
+                    When
                   </th>
-                  <th className="px-5 py-3.5 text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider">
-                    Ledger Context
+                  <th className="px-5 py-3.5 text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
+                    Event
                   </th>
-                  <th className="px-5 py-3.5 text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider">
+                  <th className="px-5 py-3.5 text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
                     Actor
                   </th>
-                  <th className="px-5 py-3.5 text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider">
-                    Action / Description
+                  <th className="px-5 py-3.5 text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
+                    Subject
                   </th>
-                  <th className="px-5 py-3.5 text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider">
-                    Subject Entity
+                  <th className="px-5 py-3.5 text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
+                    Description
                   </th>
-                  <th className="px-5 py-3.5 text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider text-right">
-                    Payload
+                  <th className="px-5 py-3.5 text-[10px] font-bold text-zinc-500 uppercase tracking-wider text-right">
+                    Properties
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-zinc-850 bg-zinc-900/40">
-                {logs.map((log, idx) => {
+              <tbody className="divide-y divide-zinc-100">
+                {logs.map((log) => {
                   const isExpanded = expandedLogId === log.id;
                   const logDate = new Date(log.created_at);
-                  const formattedDate = logDate.toLocaleDateString("en-US", {
-                    year: "numeric",
-                    month: "short",
-                    day: "numeric",
-                  });
-                  const formattedTime = logDate.toLocaleTimeString("en-US", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                    second: "2-digit",
-                  });
+                  const hasProps =
+                    !!log.properties && Object.keys(log.properties).length > 0;
 
                   return (
                     <React.Fragment key={log.id}>
                       <tr
-                        className={`${
-                          idx % 2 === 0 ? "bg-zinc-900/20" : "bg-zinc-900/60"
-                        } hover:bg-zinc-850/30 transition-colors border-l-2 ${
+                        className={`hover:bg-zinc-50/60 transition-colors border-l-2 ${
                           log.event === "deleted"
-                            ? "border-l-red-500"
+                            ? "border-l-red-400"
                             : log.event === "created"
                             ? "border-l-emerald-500"
+                            : log.event === "updated"
+                            ? "border-l-sky-400"
                             : "border-l-transparent"
                         }`}
                       >
-                        {/* Timestamp */}
+                        {/* When */}
                         <td className="px-5 py-3.5 whitespace-nowrap">
-                          <div className="text-xs font-bold text-white">{formattedDate}</div>
-                          <div className="text-[9px] text-zinc-500 font-mono mt-0.5">{formattedTime}</div>
+                          <div className="text-xs font-semibold text-zinc-800">
+                            {logDate.toLocaleDateString("en-US", {
+                              year: "numeric",
+                              month: "short",
+                              day: "numeric",
+                            })}
+                          </div>
+                          <div className="text-[10px] text-zinc-400 font-mono mt-0.5">
+                            {logDate.toLocaleTimeString("en-US", {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                              second: "2-digit",
+                            })}
+                          </div>
                         </td>
 
-                        {/* Ledger Context */}
-                        <td className="px-5 py-3.5">
-                          <span className="text-[10px] font-mono text-zinc-450 uppercase font-extrabold block">
-                            {log.log_name}
-                          </span>
-                          {log.event && (
-                            <Badge tone={eventTones[log.event] || "zinc"} className="mt-1">
+                        {/* Event */}
+                        <td className="px-5 py-3.5 whitespace-nowrap">
+                          {log.event ? (
+                            <Badge tone={eventTones[log.event] ?? "zinc"}>
                               {log.event}
                             </Badge>
+                          ) : (
+                            <span className="text-zinc-300 text-xs">—</span>
+                          )}
+                          {log.log_name && (
+                            <div className="text-[9px] text-zinc-400 font-mono mt-1 uppercase">
+                              {log.log_name}
+                            </div>
                           )}
                         </td>
 
@@ -388,78 +376,144 @@ export default function AuditLogsPage() {
                         <td className="px-5 py-3.5">
                           {log.causer ? (
                             <>
-                              <div className="text-xs font-bold text-white">{log.causer.name}</div>
-                              <div className="text-[9px] text-zinc-500 font-mono mt-0.5">
-                                {log.causer.email} · {log.causer.role}
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-xs font-semibold text-zinc-800">
+                                  {log.causer.name}
+                                </span>
+                                <Badge tone={roleTones[log.causer.role] ?? "zinc"}>
+                                  {log.causer.role}
+                                </Badge>
+                              </div>
+                              <div className="text-[10px] text-zinc-400 font-mono mt-0.5">
+                                {log.causer.email}
                               </div>
                             </>
                           ) : (
-                            <div className="text-xs text-zinc-500 font-bold uppercase tracking-wider">
-                              System Process
-                            </div>
+                            <span className="text-xs text-zinc-400 italic">System</span>
+                          )}
+                        </td>
+
+                        {/* Subject */}
+                        <td className="px-5 py-3.5 whitespace-nowrap">
+                          {log.subject_type ? (
+                            <>
+                              <div className="text-xs font-semibold text-zinc-700 font-mono">
+                                {log.subject_type.split("\\").pop()}
+                              </div>
+                              {log.subject_id !== null && (
+                                <div className="text-[10px] text-zinc-400 font-mono mt-0.5">
+                                  #{log.subject_id}
+                                </div>
+                              )}
+                            </>
+                          ) : (
+                            <span className="text-zinc-300 text-xs">—</span>
                           )}
                         </td>
 
                         {/* Description */}
                         <td className="px-5 py-3.5 max-w-xs">
-                          <div className="text-xs text-zinc-200 line-clamp-2">{log.description}</div>
+                          <div className="text-xs text-zinc-600 line-clamp-2">
+                            {log.description || <span className="text-zinc-300">—</span>}
+                          </div>
                         </td>
 
-                        {/* Subject Entity */}
-                        <td className="px-5 py-3.5 whitespace-nowrap">
-                          {log.subject_type ? (
-                            <>
-                              <div className="text-xs font-semibold text-zinc-300 font-mono">
-                                {log.subject_type.split("\\").pop()}
-                              </div>
-                              {log.subject_id && (
-                                <div className="text-[9px] text-zinc-500 font-mono mt-0.5">
-                                  ID: {log.subject_id}
-                                </div>
-                              )}
-                            </>
-                          ) : (
-                            <span className="text-zinc-500 font-mono text-xs">—</span>
-                          )}
-                        </td>
-
-                        {/* Payload Action */}
+                        {/* Properties toggle */}
                         <td className="px-5 py-3.5 text-right whitespace-nowrap">
                           <button
                             onClick={() => toggleRow(log.id)}
-                            disabled={!log.properties || Object.keys(log.properties).length === 0}
-                            className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[10px] font-bold uppercase tracking-wider transition-colors select-none cursor-pointer ${
-                              log.properties && Object.keys(log.properties).length > 0
-                                ? "border-zinc-800 bg-zinc-950 text-zinc-400 hover:text-white hover:border-zinc-700"
-                                : "border-transparent bg-transparent text-zinc-700 cursor-not-allowed"
+                            disabled={!hasProps}
+                            aria-expanded={isExpanded}
+                            className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[10px] font-bold uppercase tracking-wider transition-colors select-none ${
+                              hasProps
+                                ? "border-zinc-200 bg-zinc-50 text-zinc-500 hover:text-zinc-800 hover:border-zinc-300 hover:bg-white cursor-pointer"
+                                : "border-transparent bg-transparent text-zinc-300 cursor-not-allowed"
                             }`}
                           >
                             {isExpanded ? (
                               <>
-                                <EyeOff className="h-3 w-3" />
-                                Hide Details
+                                <ChevronUp className="h-3 w-3" />
+                                Hide
                               </>
                             ) : (
                               <>
-                                <Eye className="h-3 w-3" />
-                                View Payload
+                                <ChevronDown className="h-3 w-3" />
+                                Show
                               </>
                             )}
                           </button>
                         </td>
                       </tr>
 
-                      {/* Expanded Panel */}
+                      {/* Expanded properties panel */}
                       {isExpanded && log.properties && (
-                        <tr className="bg-zinc-950/40">
-                          <td colSpan={6} className="px-6 py-4 border-b border-zinc-850">
-                            <div className="space-y-2.5 animate-fadeIn">
-                              <div className="text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider select-none">
-                                Payload Properties (Write-time sanitized, PHI protected)
+                        <tr className="bg-zinc-50/80">
+                          <td colSpan={6} className="px-6 py-4">
+                            <div className="space-y-2">
+                              <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
+                                Properties
+                                <span className="ml-2 font-normal normal-case text-zinc-400">
+                                  (redacted at write-time — no raw PHI stored)
+                                </span>
                               </div>
-                              <pre className="text-[10px] bg-zinc-950 p-4 rounded-xl border border-zinc-850 font-mono text-zinc-300 overflow-x-auto max-h-60 leading-5">
-                                {JSON.stringify(log.properties, null, 2)}
-                              </pre>
+
+                              {/* Structured old/new diff if present */}
+                              {(log.properties.old !== undefined ||
+                                log.properties.attributes !== undefined) ? (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                  {log.properties.old !== undefined && (
+                                    <div>
+                                      <div className="text-[10px] font-bold text-red-600 uppercase tracking-wider mb-1">
+                                        Before (old)
+                                      </div>
+                                      <pre className="text-[10px] bg-white border border-zinc-200 rounded-xl p-3 font-mono text-zinc-600 overflow-x-auto max-h-48 leading-5">
+                                        {JSON.stringify(log.properties.old, null, 2)}
+                                      </pre>
+                                    </div>
+                                  )}
+                                  {log.properties.attributes !== undefined && (
+                                    <div>
+                                      <div className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider mb-1">
+                                        After (new)
+                                      </div>
+                                      <pre className="text-[10px] bg-white border border-zinc-200 rounded-xl p-3 font-mono text-zinc-600 overflow-x-auto max-h-48 leading-5">
+                                        {JSON.stringify(log.properties.attributes, null, 2)}
+                                      </pre>
+                                    </div>
+                                  )}
+                                </div>
+                              ) : null}
+
+                              {/* Request metadata (url / method / ip) */}
+                              {(log.properties.url ||
+                                log.properties.method ||
+                                log.properties.ip) && (
+                                <div className="flex flex-wrap gap-3 text-[10px] font-mono text-zinc-500 mt-1">
+                                  {log.properties.method && (
+                                    <span className="px-2 py-0.5 rounded bg-white border border-zinc-200">
+                                      {log.properties.method}
+                                    </span>
+                                  )}
+                                  {log.properties.url && (
+                                    <span className="px-2 py-0.5 rounded bg-white border border-zinc-200 truncate max-w-xs">
+                                      {log.properties.url}
+                                    </span>
+                                  )}
+                                  {log.properties.ip && (
+                                    <span className="px-2 py-0.5 rounded bg-white border border-zinc-200">
+                                      IP: {log.properties.ip}
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+
+                              {/* Fallback: full JSON for any other structure */}
+                              {log.properties.old === undefined &&
+                                log.properties.attributes === undefined && (
+                                  <pre className="text-[10px] bg-white border border-zinc-200 rounded-xl p-3 font-mono text-zinc-600 overflow-x-auto max-h-48 leading-5">
+                                    {JSON.stringify(log.properties, null, 2)}
+                                  </pre>
+                                )}
                             </div>
                           </td>
                         </tr>
@@ -471,26 +525,26 @@ export default function AuditLogsPage() {
             </table>
           </div>
 
-          {/* Pagination Footer */}
+          {/* Pagination footer */}
           {meta.last_page > 1 && (
-            <div className="px-5 py-4 bg-zinc-950 border-t border-zinc-850 flex items-center justify-between gap-4 select-none">
+            <div className="px-5 py-4 bg-zinc-50 border-t border-zinc-100 flex items-center justify-between gap-4 select-none">
               <button
                 disabled={page <= 1}
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-800 text-[10px] font-bold uppercase tracking-wider text-zinc-450 hover:text-white hover:bg-zinc-850 transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-200 text-[10px] font-bold uppercase tracking-wider text-zinc-500 hover:text-zinc-800 hover:bg-white transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <ChevronLeft className="h-3.5 w-3.5" />
                 Previous
               </button>
 
-              <span className="text-xs font-semibold text-zinc-400">
-                Page {meta.current_page} of {meta.last_page}
+              <span className="text-xs font-semibold text-zinc-500">
+                Page {meta.current_page} of {meta.last_page} &mdash; {meta.total} entries
               </span>
 
               <button
                 disabled={page >= meta.last_page}
                 onClick={() => setPage((p) => Math.min(meta.last_page, p + 1))}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-800 text-[10px] font-bold uppercase tracking-wider text-zinc-450 hover:text-white hover:bg-zinc-850 transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-200 text-[10px] font-bold uppercase tracking-wider text-zinc-500 hover:text-zinc-800 hover:bg-white transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 Next
                 <ChevronRight className="h-3.5 w-3.5" />
