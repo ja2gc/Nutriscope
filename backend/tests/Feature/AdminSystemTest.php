@@ -42,7 +42,27 @@ class AdminSystemTest extends TestCase
             ->getJson('/api/admin/users');
 
         $response->assertOk()
-            ->assertJsonStructure(['data' => [['id', 'name', 'email', 'role']]]);
+            ->assertJsonStructure(['data' => [['id', 'name', 'email', 'role', 'is_active']]]);
+    }
+
+    public function test_user_index_payload_includes_is_active(): void
+    {
+        $response = $this->actingAs($this->admin)
+            ->getJson('/api/admin/users');
+
+        $response->assertOk();
+        $users = $response->json('data');
+        $this->assertNotEmpty($users);
+        $this->assertArrayHasKey('is_active', $users[0]);
+    }
+
+    public function test_user_show_payload_includes_is_active(): void
+    {
+        $response = $this->actingAs($this->admin)
+            ->getJson("/api/admin/users/{$this->rnd->id}");
+
+        $response->assertOk()
+            ->assertJsonStructure(['data' => ['id', 'name', 'email', 'role', 'is_active']]);
     }
 
     public function test_admin_can_create_user(): void
