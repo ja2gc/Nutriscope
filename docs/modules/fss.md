@@ -46,7 +46,19 @@ The seven task rows:
 6. Assumed duties as assistant cook
 7. Maintained cleanliness of kitchen, cabinets, refrigerators and freezers
 
-**Data model (decided — "per-staff tasks, day-level headcount" compromise).** Tasks are recorded **per staff per day** (the ✓ / off-duty marks). Headcount is **not** double-entered: each staff's diet-list row carries the ward count they collected, and the day's rows **sum into the single `meal_prep_logs.served_population`** for that service date (§3). So the report sheet shows each staff's tasks plus the day's shared served total, and the existing served-vs-estimate model stays the single source of the headcount. The report generator joins per-staff task flags with the day's summed headcount. Capture surface + API shape: see [`fss-sprint-plan.md`](../superpowers/plans/fss-sprint-plan.md) (Accomplishment Report tasks).
+**Data model (decided — "per-staff tasks, day-level headcount" compromise).** Tasks are recorded **per staff per day** (the ✓ / off-duty marks). Headcount is **not** double-entered: each staff's diet-list row (row 4) carries the count they apportioned/distributed that day, and the day's rows **sum into the single `meal_prep_logs.served_population`** for that service date (§3). So the report sheet shows each staff's tasks plus the day's shared served total, and the existing served-vs-estimate model stays the single source of the headcount. The report generator joins per-staff task flags with the day's summed headcount. Capture surface + API shape: see [`fss-sprint-plan.md`](../superpowers/plans/fss-sprint-plan.md) (Accomplishment Report tasks).
+
+**Form details (from the template image):** one sheet per staff, ~15-day pay-period span (e.g. *May 01–15*), columns = calendar days, seven fixed task rows, cells = ✓ (task done) / a number (row 4 — heads distributed) / "off-duty". Signature blocks: **Prepared by** (the staff), **Noted by** (RND / Section Head), **Approved by** (Administrative Officer).
+
+**Why this matters to the whole operation — the closed actual-cost loop.** The accomplishment report is not a side compliance form; it is the **data-entry vehicle for the actual served population**, which the entire budget-actual machinery depends on:
+1. RND plans a menu cycle + **estimates** population → freezes the budget cap (`budget_per_head_day × estimated population`).
+2. Procurement buys groceries sized to that estimate.
+3. Daily, FSS collects diet lists per ward (row 3) and apportions/distributes food (row 4 = **actual** count).
+4. Row-4 counts **sum → `meal_prep_logs.served_population`** (the actual headcount).
+5. `complete-day` deducts inventory at last-cost; shortfall/variance vs the estimate **notifies RND** (already wired).
+6. [`BudgetActualService`](../../backend/app/Services/BudgetActualService.php) computes **actual per-head = served value ÷ served_population**, and the planned-vs-actual variance becomes visible to RND.
+
+So the same numbers that satisfy the hospital's compliance form are the numbers that close the estimate→actual cost loop. Build the capture (§4) and the rest of the food-service cost machinery feeds itself.
 
 ## 5. Procurement — receipts/proof only (no PO authoring)
 - **FSS does NOT create or edit purchase orders or build procurement.** PO authoring and shopping-list construction are RND/planning actions. Any FSS-side PO/shopping-list-item *create* path is out of scope and must be removed or RND-gated (see Revision log: `ShoppingListController@storeItem`).
