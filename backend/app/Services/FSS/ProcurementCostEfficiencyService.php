@@ -1,6 +1,6 @@
-    <?php
+<?php
 
-    namespace App\Services\FSS;
+namespace App\Services\FSS;
 
     use App\Models\Budget;
     use App\Models\MealPrepLog;
