@@ -18,10 +18,10 @@ Landing page after login (`/admin/dashboard`). System KPIs + charts + an activit
 - **Source → backend → DB:** `GET /api/admin/dashboard` (`Admin/DashboardController`, cached 300s, key `admin_dashboard`) aggregates five groups, each from a real table populated by real user actions:
   - `users { total, by_role{Admin,RND,FSS} }` — from `users` (created by Admin in §2).
   - `patients { total }` — from `patients` (created by RND).
-  - `ai_usage { total_calls, total_tokens, tokens_input, tokens_output, by_endpoint{} }` — from `ai_usage_logs`, written every time RND triggers an AI call (diagnosis suggest, monitoring AI-review, recipe generator — see [`rnd.md`](rnd.md) §2–3).
+  - `ai_usage { total_calls, total_tokens, tokens_input, tokens_output, month_calls, month_tokens, by_endpoint{}, daily[] }` — from `ai_usage_logs`, written every time RND triggers an AI call (diagnosis suggest, monitoring AI-review, recipe generator — see [`rnd.md`](rnd.md) §2–3). `month_*` = month-to-date totals; `daily[]` = `{date,calls,tokens}` for the last 30 days.
   - `audit_logs { total, last_7_days }` — from Spatie `activity_log` (§3).
   - `reports { total }` — from `reports`.
-- **Frontend consumer:** `frontend/app/admin/dashboard/page.tsx` via `adminDashboardService.fetchDashboard()`. KPI cards reuse the shared `KpiCard`; the **token-usage chart** (Recharts) maps the `ai_usage.by_endpoint` series; the **activity feed** reuses the audit-log list (§3).
+- **Frontend consumer:** `frontend/app/admin/dashboard/page.tsx` via `adminDashboardService.fetchDashboard()`. KPI cards reuse the shared `KpiCard` with the **neutral** zinc tone (no per-card color tint); the **AI Usage** card headlines `month_calls`/`month_tokens`; the **token chart** (Recharts) plots the `ai_usage.daily` series (tokens per day, last 30 days); the **activity feed** reuses the audit-log list (§3).
 - **Constraint:** KPIs stay **count/rate-level only** — no patient-identifying detail (same boundary as the census report in §6). Aggregates are computed in SQL (`COUNT`/`SUM`/`groupBy`), never per-patient rows.
 - **Downstream:** none — read-only oversight surface.
 
@@ -42,7 +42,7 @@ The core IT-department function: who exists, what role they hold, whether they c
 
 ## 4. Announcements
 - **Source → backend → DB:** `apiResource /api/admin/announcements` (`Admin/AnnouncementController`, which **extends `RND/AnnouncementController`** — no logic fork) writes the `announcements` table: `title`, `body`, `category` (General|Event|Operational|Urgent), `attachment` (nullable longText), `pinned` (bool — Admin-only), `visibility` (FSS|Admin|All). Requests `StoreAnnouncementRequest`/`UpdateAnnouncementRequest`. Admin sees **all** announcements (no visibility filter) and is the only role that can pin.
-- **Reuse:** the **UI must mirror RND's composer and reuse the shared `announcementService`** (`fetchAnnouncements/createAnnouncement/updateAnnouncement/deleteAnnouncement`) — do not build a bespoke "broadcast manager" (the codex dark card grid is a deviation, see Reconciliation note). The `attachment` field is a `nullable|string` column (longText) — send the same shape RND sends; verify against `StoreAnnouncementRequest` before wiring.
+- **Reuse (built):** Admin and RND share **one** component — `frontend/components/announcements/AnnouncementsBoard.tsx` (`variant: "admin" | "rnd"`) over the shared `announcementService`. Both `frontend/app/admin/announcements/page.tsx` and `frontend/app/(rnd)/announcements/page.tsx` are thin wrappers; the pin toggle is gated to `variant="admin"`. The `categoryStyles` constant is defined once in that component and imported everywhere (incl. the RND dashboard feed). The `attachment` field is a `nullable|string` column (longText). No bespoke "broadcast manager".
 - **Cross-role / downstream:** on store, `NotificationService::fanOutAnnouncement()` (§5) creates one `notifications` row per recipient matching the announcement's `visibility` (excluding the author). FSS reads its feed (`visibility FSS|All`) via `GET /api/fss/announcements`; RND reads via its dashboard. So an Admin announcement with `visibility=All` lands on every active user's notification feed.
 
 ## 5. Notifications
@@ -52,7 +52,7 @@ Kept **simple and aligned with RND** ([`rnd.md`](rnd.md) §7) — same table, sa
 - **Source → backend → DB:** `notifications` table (`user_id`, `title`, `message`, `type`, `source_module`, `source_id`, `read`). Writes come only from real events via `NotificationService`:
   - **Trigger A — announcement posted** (`fanOutAnnouncement`): one row per active recipient matching visibility, `type='announcement'`, `source_module='announcements'`. This is Admin's realistic notification source (e.g. an RND posts a `visibility=All`/`Admin` announcement — fan-out excludes the author, so an Admin only sees announcements they didn't write).
   - **Trigger B — upcoming follow-up** (`SendFollowUpReminders` command, 1 day before `next_followup_date`, idempotent): targets the **RND owning the NCP** only. Admin owns no NCPs, so this trigger does not target Admin — documented for completeness, not an Admin path. Requires the Laravel scheduler running in the backend container.
-- **Frontend consumer:** reuse RND's `notificationService` (`fetchNotifications/markNotificationRead/markAllNotificationsRead`), the notifications page, and the **TopBar bell + unread badge** (currently RND-only — extend to render for Admin in the rebuilt shell). No new components.
+- **Frontend consumer (built):** reuse RND's `notificationService` (`fetchNotifications/markNotificationRead/markAllNotificationsRead`), the notifications page, and the **TopBar bell + unread badge** (now renders for both RND and Admin). Notifications are reached from the **TopBar bell** (→ `/admin/notifications`), not the sidebar — mirroring how RND surfaces them. No new components.
 - **Downstream:** marking read flips `read=true` (owner-only, 403 otherwise); the bell badge recomputes unread count.
 
 ## 6. Reports — **no Admin access to clinical reports**
@@ -67,7 +67,7 @@ RPDH produces three report types under the NCP umbrella, with different sensitiv
 
 **Budget and procurement reports are not PHI and are not subject to the above.** These are financial/operational data (spending, inventory, supplier terms) — Admin has full access. The one thing worth a one-time check: confirm no budget/procurement report line ever ties a cost figure to an individual patient (e.g., "spend per patient" rather than per-ward/per-period) — if one does, that line indirectly discloses something about that patient's care and should be treated as patient-identified, not financial, data. Based on the system's module structure (Procurement and Budget operate at inventory/supplier/threshold level), this is believed not to be the case, but hasn't been explicitly verified against the schema.
 
-- **Source → backend → frontend:** reports use the shared browser model (browse → view → download/archive) over the `reports` table and `$reportRoutes` (`ReportController`). Admin's view must be **restricted to census-aggregate + budget/procurement types only**; NCP Summary / Menu Plan must never be reachable. The Reports browser is currently shared with RND/FSS and not yet scoped for Admin — see [`admin-sprint-plan.md`](../superpowers/plans/admin-sprint-plan.md) S7.
+- **Source → backend → frontend (built):** reports use the shared browser model over the `reports` table and one `ReportController`. The restriction is **enforced server-side**, not just hidden in the UI: `ReportController::ADMIN_ALLOWED_TYPES = [demographic_census, budget_report, procurement_pack]` is the single source of truth, and every entry point (`index/instances/render/archive/store/show/download/view`) returns **403** for an Admin requesting any other type (NCP Summary, Menu Plan, inventory, etc.). Admin reaches it via `/api/admin/reports*`. Frontend: one shared `frontend/components/reports/ReportsBrowser.tsx` (`catalog` + `apiPrefix` props) — the RND page passes `FULL_CATALOG`/`apiPrefix="rnd"`, the Admin page (`frontend/app/admin/reports/page.tsx`) passes `ADMIN_CATALOG` (the 3 allowed types)/`apiPrefix="admin"`; Template-Edit tab suppressed for Admin (branding lives in §7 Settings).
 - **Analytics — token usage:** the daily/monthly token-usage chart (`ai_usage_logs`, AI cost oversight) is non-PHI operational analytics and lives on the Dashboard (§1).
 
 **Rationale for "no Admin access to clinical reports," not "Admin access requires a stated purpose":** an earlier draft handled clinical-report access by requiring Admin to declare a purpose per access (a "break-the-glass"-style log). That's a workable pattern in general, but it's unnecessary complexity here once Admin's job description is scoped to system administration — there's no administrative duty in that job description that requires reading a patient's NCP Summary or Menu Plan, so there's nothing to gate. If a future capability genuinely needs cross-role clinical-report access (e.g. a billing-dispute investigation), that should be designed as its own narrow, logged exception path when the need is concrete — not as a standing capability on the Admin role today.
@@ -83,7 +83,7 @@ Two distinct kinds, mirroring how RND's settings page is built ([`rnd.md`](rnd.m
 Self-service account management, **identical to RND** ([`rnd.md`](rnd.md) §9) — shared endpoints, no Admin fork.
 
 - **Source → backend → DB:** `GET /api/auth/me`, `PATCH /api/auth/profile` (`UpdateProfileRequest`: `name` required, `email` required + unique-ignoring-self), `POST /api/auth/password` (`UpdatePasswordRequest`: `current_password` validated against the hash, `password` confirmed min:8). `AuthController`, shared `auth:sanctum` group. Touches `users.name`/`users.email`/`users.password`.
-- **Frontend consumer:** reuse RND's `frontend/app/(rnd)/profile/page.tsx` layout and `authService` (`updateProfile`, `changePassword`, `refreshUser`). Two cards: Account Details (name/email) + Change Password.
+- **Frontend consumer:** reuse RND's `frontend/app/(rnd)/profile/page.tsx` layout and `authService` (`updateProfile`, `changePassword`, `refreshUser`). Two cards: Account Details (name/email) + Change Password. Reached from the **TopBar profile card** (→ `/admin/profile`), not the sidebar — mirroring RND.
 - **No profile photo** — verified: the `users` table has no photo/avatar column and there is no upload endpoint. Do not add a photo field to the frontend.
 - **Downstream:** `users.name` is the same identity rendered as the **"prepared-by"** signatory on reports — changing it here changes how this user appears on documents they file.
 
@@ -95,18 +95,20 @@ Admin maps to RPDH's IT department, not an administrative officer — confirmed 
 
 ---
 
-## Build status summary
+## Build status summary (shipped)
+The off-spec codex frontend was discarded and rebuilt as a light-theme `app/admin/*` group that reuses the shared `Sidebar`/`TopBar`/`KpiCard`/`Badge`/`Button` and shared feature components. All rows below are **built and browser-verified**.
+
 | Capability | Backend | Frontend |
 |---|---|---|
-| Dashboard (KPIs + token chart + activity feed) | ✅ `Admin/DashboardController` (cached aggregates) | ⚠ codex build off-spec — **rebuild** (light, reuse `KpiCard`/Recharts) |
-| User management / RBAC | ✅ endpoints + password-reset (`throttle:6,1`) | ⚠ codex build off-spec — **rebuild** |
-| Audit logs | ✅ paginated + filtered, `AuditLogResource` (redaction write-time via `AuditsChanges`) | ⚠ codex build off-spec — **rebuild** |
-| Announcements | ✅ endpoints (Admin extends RND ctrl) | ⚠ codex bespoke "broadcast manager" — **rebuild to reuse shared composer** |
-| Notifications | ✅ table/model/`NotificationService`/`NotificationController` (role-agnostic) — **needs route move to shared `auth:sanctum`** (one edit) | ❌ extend bell + reuse RND notifications page |
-| Profile | ✅ shared `/api/auth/*` (no photo) | ❌ reuse RND profile page |
-| Settings — branding | ✅ shared `/api/report-branding` (`report_branding` singleton) | ❌ build (branding form) |
-| Settings — appearance prefs | n/a (client-side `lib/preferences`) | ❌ mirror RND settings page |
-| Reports (census + budget/procurement only) | ✅ via shared browser, scope-check needed (§6) | ⚠ restrict Admin view to non-clinical types |
+| Dashboard (KPIs + AI chart + activity feed) | ✅ `Admin/DashboardController` (cached; now also `ai_usage.month_*` + `daily[]`) | ✅ light, neutral `KpiCard` tones; AI card = month-to-date, chart = tokens/day |
+| User management / RBAC | ✅ endpoints + password-reset (`throttle:6,1`); `UserResource` exposes `is_active` | ✅ `adminUserService` wired (CRUD/activate/reset, 422s surface) |
+| Audit logs | ✅ paginated + filtered (write-time redaction via `AuditsChanges`) | ✅ filters + pagination, expandable properties |
+| Announcements | ✅ Admin extends RND ctrl; fan-out on store | ✅ shared `AnnouncementsBoard` (admin + RND pages = thin wrappers) |
+| Notifications | ✅ routes moved to shared `auth:sanctum` (`/api/notifications*`) | ✅ shared `notificationService`; TopBar bell (RND + Admin); reached from topbar |
+| Profile | ✅ shared `/api/auth/*` (no photo) | ✅ reuses RND profile page; reached from TopBar profile card |
+| Settings — branding | ✅ `/api/admin/report-branding` (+ shared `report_branding` singleton) | ✅ branding form (multipart logos) |
+| Settings — appearance prefs | n/a (client-side `lib/preferences`) | ✅ mirrors RND settings page + mark-all-read |
+| Reports (census + budget/procurement only) | ✅ one `ReportController` + `ADMIN_ALLOWED_TYPES` allowlist **enforced server-side** (403 on clinical/other for Admin); `/api/admin/reports*` | ✅ shared `ReportsBrowser` (`catalog`+`apiPrefix`); Admin catalog = 3 types |
 | Clinical-rules config | — | **moved out of Admin scope, not yet placed under RND** (follow-up) |
 
-Admin's **backend** is essentially done. The one outstanding backend change is the **notification route move** (§5). The build priority is the **frontend rebuild**: discard the off-spec codex pages and rebuild a light-theme `app/admin/*` route group that reuses shared components and services. Before the Reports browser's Admin view is built, confirm it restricts to census/budget/procurement only — do not implement an Admin-wide view across all report types (see §6).
+**Frontend integration note:** every Admin page goes through a Next.js proxy route handler under `frontend/app/api/admin/**` (and shared `app/api/{auth,notifications}/**`) that forwards the `nutriscope_token` cookie to Laravel via `lib/laravelProxy.ts` — a backend route alone is not reachable without its proxy handler. Remaining follow-up: place clinical-rules CRUD under RND.
