@@ -76,19 +76,21 @@ async function unwrap<T>(res: Response, fallback: string): Promise<T> {
 }
 
 // ── Reports ───────────────────────────────────────────────────────────────
-export async function listReports(): Promise<ReportItem[]> {
-  return unwrap(await apiFetch("/api/rnd/reports"), "Failed to load reports.");
+export async function listReports(prefix: "rnd" | "admin" = "rnd"): Promise<ReportItem[]> {
+  return unwrap(await apiFetch(`/api/${prefix}/reports`), "Failed to load reports.");
 }
 
-export async function deleteReport(id: number): Promise<void> {
-  const res = await apiFetch(`/api/rnd/reports/${id}`, { method: "DELETE" });
+export async function deleteReport(id: number, prefix: "rnd" | "admin" = "rnd"): Promise<void> {
+  const res = await apiFetch(`/api/${prefix}/reports/${id}`, { method: "DELETE" });
   if (!res.ok && res.status !== 204) throw new Error("Failed to delete report.");
 }
 
-export const reportDownloadUrl = (id: number) => `/api/rnd/reports/${id}/download`;
+export const reportDownloadUrl = (id: number, prefix: "rnd" | "admin" = "rnd") =>
+  `/api/${prefix}/reports/${id}/download`;
 
 /** Inline (viewable) URL for an archived copy's frozen PDF — for the preview pane. */
-export const reportViewUrl = (id: number) => `/api/rnd/reports/${id}/view`;
+export const reportViewUrl = (id: number, prefix: "rnd" | "admin" = "rnd") =>
+  `/api/${prefix}/reports/${id}/view`;
 
 // ── Browse / on-demand render / archive (Spec 4) ──────────────────────────
 function toQuery(params: ReportParams): string {
@@ -102,24 +104,29 @@ function toQuery(params: ReportParams): string {
 export async function listInstances(
   type: ReportType | string,
   filters: ReportParams = {},
+  prefix: "rnd" | "admin" = "rnd",
 ): Promise<{ axis: ReportAxis; instances: ReportInstance[] }> {
   return unwrap(
-    await apiFetch(`/api/rnd/reports/${type}/instances${toQuery(filters)}`),
+    await apiFetch(`/api/${prefix}/reports/${type}/instances${toQuery(filters)}`),
     "Failed to load report instances.",
   );
 }
 
 /** URL that streams a freshly rendered (live) PDF — open in a new tab. */
-export const reportRenderUrl = (type: ReportType | string, params: ReportParams) =>
-  `/api/rnd/reports/${type}/render${toQuery(params)}`;
+export const reportRenderUrl = (
+  type: ReportType | string,
+  params: ReportParams,
+  prefix: "rnd" | "admin" = "rnd",
+) => `/api/${prefix}/reports/${type}/render${toQuery(params)}`;
 
 /** Freeze an as-filed copy: render, store, and persist a snapshot. */
 export async function archiveReport(
   type: ReportType | string,
   params: ReportParams,
+  prefix: "rnd" | "admin" = "rnd",
 ): Promise<ReportItem> {
   return unwrap(
-    await apiFetch(`/api/rnd/reports/${type}/archive${toQuery(params)}`, { method: "POST" }),
+    await apiFetch(`/api/${prefix}/reports/${type}/archive${toQuery(params)}`, { method: "POST" }),
     "Failed to archive report.",
   );
 }
