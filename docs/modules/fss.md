@@ -4,7 +4,7 @@ FSS (Food Service Staff) runs the **operational** side of food service — the k
 
 > **For agentic workers:** consult `backend/.agents/skills/laravel-best-practices/skills.md` before writing or editing backend code. Follow that file's own "How to Apply" routing (map the file type you're touching — controller, Form Request, etc. — to its listed sections; delegate reading the actual rule files under `rules/` to a sub-agent, per the skill's instruction).
 
-> **Doc status:** this file is the **source of truth** for the FSS role (for both agents and the client/reader). It supersedes the inline "change of mind" notes that previously lived here — those decisions are now folded into the body below, and the deltas they introduced are tracked in the **Revision log** at the end. The matching execution plan (tasks + file references) is [`fss-sprint-plan.md`](../superpowers/plans/fss-sprint-plan.md). Known gaps/risks: [`2026-06-14-system-review.md`](../reviews/2026-06-14-system-review.md).
+> **Doc status:** this file is the **source of truth** for the FSS role (for both agents and the client/reader). It supersedes the inline "change of mind" notes that previously lived here — those decisions are now folded into the body below, and the deltas they introduced are tracked in the **Revision log** at the end. The matching execution plan (tasks + file references) is [`fss-sprint-plan.md`](../superpowers/plans/fss-sprint-plan.md).
 
 > **⚠ Cross-role impact:** some decisions here (budget-per-head calculation, the population model) are **not FSS-only** — they change how the shared food-service module behaves and therefore affect **RND** too. Those points are flagged inline with **[cross-role]**.
 
@@ -15,7 +15,6 @@ FSS does not yet have a dedicated dashboard. Proposed widgets, tuned to the oper
 - **Today's service** — the active menu cycle's meals for today + readiness (prepped/served).
 - **Meal-prep to log** — days not yet marked served; one-tap "mark served".
 - **Accomplishment log** — today's per-staff duty checklist + diet-list counts (see §4).
-- **Inventory alerts** — out-of-stock items (red/green).
 - **Procurement to action** — POs awaiting a receipt / proof upload.
 
 ## 2. Menu cycle (view + execute)
@@ -69,7 +68,7 @@ So the same numbers that satisfy the hospital's compliance form are the numbers 
 - **Inventory** — view/update stock, restock, no-stock flags; valued at stored last-cost. **In scope.**
 - **Suppliers, Budget, Insights are NOT in FSS scope.** Supplier CRUD, budget planned-vs-actual views, and spend/cost-per-head analytics are RND-owned. Any FSS-exposed supplier/budget/insights surface is out of scope; remove if present (see Revision log).
 
-## 7. Announcements
+## 7. Announcements (put this below dashboard in the navigation)
 FSS sees announcements with visibility `FSS` or `All`, as a read-only **feed placed below** the dashboard content (not a manager — FSS cannot author or pin). Mirror RND's announcement feed presentation; reuse the shared announcement component rather than a bespoke one.
 
 ## 8. Reports — accomplishment report only
