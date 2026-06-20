@@ -31,6 +31,7 @@ export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
     if (pathname.startsWith("/admin/users")) return "RBAC & User Access Manager";
     if (pathname.startsWith("/admin/audit-logs")) return "System Activity & Audit Logs";
     if (pathname.startsWith("/admin/announcements")) return "Publish System Announcements";
+    if (pathname.startsWith("/announcements")) return "Department Announcements";
     if (pathname.startsWith("/admin/notifications")) return "Activity Notifications";
     if (pathname.startsWith("/admin/reports")) return "Operations & Census Reports";
     if (pathname.startsWith("/admin/settings")) return "Global Hospital Settings";

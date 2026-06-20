@@ -13,6 +13,7 @@ import {
   fetchAnnouncements,
   updateAnnouncement,
 } from "@/services/announcementService";
+import { categoryStyles } from "@/components/announcements/AnnouncementsBoard";
 import { CostToday, getCostToday } from "@/services/menuCycleService";
 import { BellDot, Calendar, Compass, HeartHandshake, PencilLine, TrendingUp, X } from "lucide-react";
 
@@ -32,13 +33,6 @@ type FollowUpRow = {
   goalType: string;
   nextFollowUpDate: string;
   daysRemaining: number;
-};
-
-const categoryStyles: Record<AnnouncementCategory, string> = {
-  General: "bg-zinc-100 text-zinc-700 border-zinc-200",
-  Event: "bg-orange-50 text-[#EA580C] border-orange-200",
-  Operational: "bg-blue-50 text-blue-700 border-blue-100",
-  Urgent: "bg-red-50 text-red-700 border-red-100",
 };
 
 function formatDaysRemaining(value: number) {
@@ -823,13 +817,12 @@ export default function RndDashboardPage() {
                 Social-feed layout on the right. Open a post to view it in a blurred modal.
               </p>
             </div>
-            <Button
-              variant="primary"
-              onClick={openCreateComposer}
-              className="w-auto px-4 py-2 text-[10px] font-bold uppercase tracking-wider"
+            <Link
+              href="/announcements"
+              className="inline-flex px-3 py-1.5 bg-zinc-950 hover:bg-zinc-800 text-white text-[10px] font-bold uppercase tracking-wider rounded-lg transition-colors"
             >
-              Create Announcement
-            </Button>
+              Manage announcements →
+            </Link>
           </div>
 
           <div className="p-4 space-y-4">
