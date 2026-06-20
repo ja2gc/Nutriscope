@@ -19,8 +19,7 @@ import {
   Users,
   FileText,
   History,
-  Megaphone,
-  UserCircle
+  Megaphone
 } from "lucide-react";
 
 export function Sidebar({ open = false, onClose }: { open?: boolean; onClose?: () => void }) {
@@ -103,9 +102,9 @@ export function Sidebar({ open = false, onClose }: { open?: boolean; onClose?: (
       <div className="h-14 border-b border-zinc-900 flex items-center justify-between px-4.5">
         <Logo variant="dark" collapsed={collapsed} />
         
-        <button 
+        <button
           onClick={() => setCollapsed(!collapsed)}
-          className="p-1 hover:bg-zinc-900 rounded text-zinc-500 hover:text-zinc-300 cursor-pointer"
+          className="hidden md:block p-1 hover:bg-zinc-900 rounded text-zinc-500 hover:text-zinc-300 cursor-pointer"
           title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
           {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
@@ -150,10 +149,10 @@ export function Sidebar({ open = false, onClose }: { open?: boolean; onClose?: (
                   ? "bg-zinc-900 text-zinc-100 border-l-2 border-emerald-600"
                   : "text-zinc-400 hover:bg-zinc-900/60 hover:text-zinc-200"
               }`}
-              title={collapsed ? "All Reports" : undefined}
+              title={collapsed ? "Reports" : undefined}
             >
               <TrendingUp className={`h-4.5 w-4.5 shrink-0 ${pathname.startsWith("/admin/reports") ? "text-emerald-500" : "text-zinc-400"}`} />
-              {!collapsed && <span>All Reports</span>}
+              {!collapsed && <span>Reports</span>}
             </Link>
 
             <Link
@@ -180,32 +179,6 @@ export function Sidebar({ open = false, onClose }: { open?: boolean; onClose?: (
             >
               <Megaphone className={`h-4.5 w-4.5 shrink-0 ${pathname.startsWith("/admin/announcements") ? "text-emerald-500" : "text-zinc-400"}`} />
               {!collapsed && <span>Announcements</span>}
-            </Link>
-
-            <Link
-              href="/admin/notifications"
-              className={`flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all duration-150 ${
-                pathname.startsWith("/admin/notifications")
-                  ? "bg-zinc-900 text-zinc-100 border-l-2 border-emerald-600"
-                  : "text-zinc-400 hover:bg-zinc-900/60 hover:text-zinc-200"
-              }`}
-              title={collapsed ? "Notifications" : undefined}
-            >
-              <BellDot className={`h-4.5 w-4.5 shrink-0 ${pathname.startsWith("/admin/notifications") ? "text-emerald-500" : "text-zinc-400"}`} />
-              {!collapsed && <span>Notifications</span>}
-            </Link>
-
-            <Link
-              href="/admin/profile"
-              className={`flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all duration-150 ${
-                pathname.startsWith("/admin/profile")
-                  ? "bg-zinc-900 text-zinc-100 border-l-2 border-emerald-600"
-                  : "text-zinc-400 hover:bg-zinc-900/60 hover:text-zinc-200"
-              }`}
-              title={collapsed ? "Profile" : undefined}
-            >
-              <UserCircle className={`h-4.5 w-4.5 shrink-0 ${pathname.startsWith("/admin/profile") ? "text-emerald-500" : "text-zinc-400"}`} />
-              {!collapsed && <span>Profile</span>}
             </Link>
 
             <Link
