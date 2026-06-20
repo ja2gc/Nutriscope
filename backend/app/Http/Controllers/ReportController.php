@@ -35,10 +35,27 @@ class ReportController extends Controller
         'ncp_summary',
     ];
 
+    /**
+     * Report types the Admin role may access.
+     * SINGLE source of truth — also enforced in index() filtering.
+     * Admin must NEVER reach ncp_summary or patient_menu_plan (PHI).
+     */
+    public const ADMIN_ALLOWED_TYPES = [
+        'demographic_census',
+        'budget_report',
+        'procurement_pack',
+    ];
+
     public function index(): JsonResponse
     {
-        $reports = Report::where('user_id', Auth::id())->latest()->get();
-        return response()->json(['data' => ReportResource::collection($reports)]);
+        $query = Report::where('user_id', Auth::id())->latest();
+
+        // Admin may only see their own allowed-type rows (PHI guard).
+        if (Auth::user()?->role === 'Admin') {
+            $query->whereIn('type', self::ADMIN_ALLOWED_TYPES);
+        }
+
+        return response()->json(['data' => ReportResource::collection($query->get())]);
     }
 
     /**
@@ -49,6 +66,7 @@ class ReportController extends Controller
     {
         $template = ReportTemplate::where('type', $request->template_code)->firstOrFail();
         $this->guardClinical($template->type);
+        $this->guardAdmin($template->type);
         $report   = $this->createReport($template->type, $template->name, $request->parameters ?? []);
 
         $this->run($report, $reports);
@@ -94,6 +112,7 @@ class ReportController extends Controller
     {
         abort_unless($browser->supports($type), 404, 'Unknown report type.');
         $this->guardClinical($type);
+        $this->guardAdmin($type);
 
         $source  = $browser->sourceFor($type);
         $filters = $request->only(['year', 'month']);
@@ -114,6 +133,7 @@ class ReportController extends Controller
     {
         abort_unless($reports->supports($type) && $browser->supports($type), 404, 'Unknown report type.');
         $this->guardClinical($type);
+        $this->guardAdmin($type);
 
         $params = $this->renderParams($request);
         abort_unless($browser->sourceFor($type)->hasData($params), 404, 'No data for this report period.');
@@ -134,6 +154,7 @@ class ReportController extends Controller
     {
         abort_unless($reports->supports($type) && $browser->supports($type), 404, 'Unknown report type.');
         $this->guardClinical($type);
+        $this->guardAdmin($type);
 
         $params = $this->renderParams($request);
         abort_unless($browser->sourceFor($type)->hasData($params), 404, 'No data for this report period.');
@@ -178,12 +199,14 @@ class ReportController extends Controller
     public function show(Report $report): JsonResponse
     {
         $this->authorizeOwner($report);
+        $this->guardAdmin($report->type);
         return response()->json(['data' => new ReportResource($report)]);
     }
 
     public function download(Report $report): StreamedResponse|JsonResponse
     {
         $this->authorizeOwner($report);
+        $this->guardAdmin($report->type);
 
         if (! $report->file_path || ! Storage::disk('public')->exists($report->file_path)) {
             return response()->json(['message' => 'Report file not available.'], 404);
@@ -200,6 +223,7 @@ class ReportController extends Controller
     public function view(Report $report): StreamedResponse|JsonResponse
     {
         $this->authorizeOwner($report);
+        $this->guardAdmin($report->type);
 
         if (! $report->file_path || ! Storage::disk('public')->exists($report->file_path)) {
             return response()->json(['message' => 'Report file not available.'], 404);
@@ -223,11 +247,40 @@ class ReportController extends Controller
         return response()->json(null, 204);
     }
 
-    /** Clinical reports carry PHI — only RND may browse/render/file them. */
+    /** Clinical reports carry PHI — only RND may browse/render/file them.
+     *  Exception: Admin may access clinical types that appear in ADMIN_ALLOWED_TYPES
+     *  (e.g. demographic_census — aggregate-only, no patient identifiers).
+     */
     private function guardClinical(string $type): void
     {
-        if (in_array($type, self::CLINICAL_TYPES, true) && Auth::user()?->role !== 'RND') {
-            abort(403, 'This report contains patient data and is restricted to the RND role.');
+        if (! in_array($type, self::CLINICAL_TYPES, true)) {
+            return; // not a clinical type — no restriction
+        }
+
+        $role = Auth::user()?->role;
+
+        // RND always allowed.
+        if ($role === 'RND') {
+            return;
+        }
+
+        // Admin allowed only for explicitly whitelisted clinical types.
+        if ($role === 'Admin' && in_array($type, self::ADMIN_ALLOWED_TYPES, true)) {
+            return;
+        }
+
+        abort(403, 'This report contains patient data and is restricted to the RND role.');
+    }
+
+    /**
+     * Admin role may only access explicitly allowed report types (PHI protection).
+     * Returns 403 for any type not in ADMIN_ALLOWED_TYPES when the caller is Admin.
+     * RND/FSS are not affected.
+     */
+    private function guardAdmin(string $type): void
+    {
+        if (Auth::user()?->role === 'Admin' && ! in_array($type, self::ADMIN_ALLOWED_TYPES, true)) {
+            abort(403, 'This report type is not available to the Admin role.');
         }
     }
 
