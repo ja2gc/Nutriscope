@@ -249,4 +249,13 @@ Route::middleware(['auth:sanctum', 'role:Admin'])->prefix('admin')->group(functi
     Route::get('dashboard', AdminDashboardController::class);
     Route::get('report-branding', [ReportBrandingController::class, 'show']);
     Route::post('report-branding', [ReportBrandingController::class, 'update']);
+
+    // Reports browse — Admin-scoped subset (demographic_census, budget_report, procurement_pack).
+    // ReportController::guardAdmin() enforces the allowlist; 403 for any other type.
+    Route::get('reports/{type}/instances', [ReportController::class, 'instances'])->where('type', '[a-z_]+');
+    Route::get('reports/{type}/render', [ReportController::class, 'render'])->where('type', '[a-z_]+');
+    Route::post('reports/{type}/archive', [ReportController::class, 'archive'])->where('type', '[a-z_]+');
+    Route::get('reports/{report}/download', [ReportController::class, 'download']);
+    Route::get('reports/{report}/view', [ReportController::class, 'view']);
+    Route::apiResource('reports', ReportController::class)->only(['index', 'show', 'destroy']);
 });
