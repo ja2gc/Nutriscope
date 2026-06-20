@@ -177,25 +177,25 @@ export default function AdminDashboardPage() {
             label="Total Users"
             value={formatNumber(dashboardData.users.total)}
             hint={`Admin: ${dashboardData.users.by_role.Admin} · RND: ${dashboardData.users.by_role.RND} · FSS: ${dashboardData.users.by_role.FSS}`}
-            tone="emerald"
+            tone="zinc"
           />
           <KpiCard
             label="Patients in Care"
             value={formatNumber(dashboardData.patients.total)}
             hint="Clinical records tracked"
-            tone="sky"
+            tone="zinc"
           />
           <KpiCard
-            label="AI API Calls"
+            label="AI Usage"
             value={formatNumber(dashboardData.ai_usage.total_calls)}
-            hint={`Tokens: ${formatTokens(dashboardData.ai_usage.total_tokens)}`}
+            hint={`${formatNumber(dashboardData.ai_usage.total_calls)} calls · ${formatTokens(dashboardData.ai_usage.total_tokens)} tokens`}
             tone="zinc"
           />
           <KpiCard
             label="Audit Events"
             value={formatNumber(dashboardData.audit_logs.total)}
             hint={`+${dashboardData.audit_logs.last_7_days} in last 7 days`}
-            tone="amber"
+            tone="zinc"
           />
         </div>
       )}
@@ -212,7 +212,7 @@ export default function AdminDashboardPage() {
                   AI Token Consumption
                 </h3>
                 <p className="text-[10px] text-zinc-500 mt-1">
-                  Aggregated token counts processed by internal AI endpoints.
+                  The "AI Usage" total above, broken down per AI endpoint.
                 </p>
               </div>
               <Badge tone="zinc">Live Stats</Badge>
@@ -224,7 +224,7 @@ export default function AdminDashboardPage() {
                   <div className="p-3 bg-zinc-50 border border-zinc-200 rounded-2xl text-zinc-400">
                     <Cpu className="h-8 w-8" />
                   </div>
-                  <h3 className="text-xs font-bold text-zinc-600 mt-3">No AI API logs recorded</h3>
+                  <h3 className="text-xs font-bold text-zinc-600 mt-3">No AI usage recorded yet</h3>
                   <p className="text-[10px] text-zinc-400 mt-1 max-w-xs leading-relaxed">
                     AI generation tokens will map here once RND clinicians trigger automated NCP processes.
                   </p>

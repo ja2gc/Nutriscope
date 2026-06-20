@@ -102,16 +102,22 @@ export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
           </button>
         )}
 
-        {/* User Card — RND can click through to their profile. */}
+        {/* User Card — RND and Admin click through to their profile. */}
         {user && (
           <button
             type="button"
-            onClick={user.role === "RND" ? () => router.push("/profile") : undefined}
-            disabled={user.role !== "RND"}
-            title={user.role === "RND" ? "Edit profile" : undefined}
+            onClick={
+              user.role === "Admin"
+                ? () => router.push("/admin/profile")
+                : user.role === "RND"
+                ? () => router.push("/profile")
+                : undefined
+            }
+            disabled={user.role !== "RND" && user.role !== "Admin"}
+            title={user.role === "RND" || user.role === "Admin" ? "Edit profile" : undefined}
             className={`flex items-center gap-3 border-l pl-5 rounded-lg transition-colors ${
               isAdminPath ? "border-zinc-850" : "border-zinc-200"
-            } ${user.role === "RND" ? "cursor-pointer hover:opacity-80" : "cursor-default"}`}
+            } ${user.role === "RND" || user.role === "Admin" ? "cursor-pointer hover:opacity-80" : "cursor-default"}`}
           >
             <div className="flex flex-col text-right">
               <span className={`text-xs font-bold leading-tight ${
