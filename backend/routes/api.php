@@ -35,6 +35,7 @@ use App\Http\Controllers\FSS\InsightsController;
 use App\Http\Controllers\ActivityController;
 use App\Http\Controllers\FSS\MealPrepLogController;
 use App\Http\Controllers\FSS\CleaningLogController;
+use App\Http\Controllers\FSS\DietListCountController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\ReportBrandingController;
 use App\Http\Controllers\ReportTemplateController;
@@ -232,6 +233,10 @@ Route::middleware(['auth:sanctum', 'role:FSS,RND'])->prefix('fss')->group(functi
 
     // Cleaning log (FSS daily sanitation checklist)
     Route::apiResource('cleaning-logs', CleaningLogController::class);
+
+    // Diet-list capture (per-staff ward headcount + task marks)
+    Route::post('diet-list-counts', [DietListCountController::class, 'store']);
+    Route::get('diet-list-counts', [DietListCountController::class, 'index']);
 
     // Announcements — FSS reads its feed (visibility FSS|All); RND/Admin own writes
     Route::get('announcements', [RndAnnouncementController::class, 'index']);

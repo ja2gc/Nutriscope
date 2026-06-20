@@ -1,0 +1,260 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Models\DietListCount;
+use App\Models\FsItem;
+use App\Models\Inventory;
+use App\Models\MealPrepLog;
+use App\Models\MenuCycle;
+use App\Models\MenuCycleDay;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Hash;
+use Tests\TestCase;
+
+class DietListCountTest extends TestCase
+{
+    use RefreshDatabase;
+
+    private User $fss;
+    private User $fss2;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->fss  = User::factory()->create(['role' => 'FSS', 'password' => Hash::make('password')]);
+        $this->fss2 = User::factory()->create(['role' => 'FSS', 'password' => Hash::make('password')]);
+    }
+
+    // -------------------------------------------------------------------------
+    // POST store
+    // -------------------------------------------------------------------------
+
+    public function test_three_wards_sum_into_served_population(): void
+    {
+        $date  = '2026-06-20';
+        $rnd   = User::factory()->create(['role' => 'RND']);
+        $cycle = MenuCycle::factory()->create(['rnd_user_id' => $rnd->id]);
+
+        // Create a meal_prep_log for the same date so we can assert it gets updated.
+        $log = MealPrepLog::create([
+            'service_date'        => $date,
+            'menu_cycle_id'       => $cycle->id,
+            'population'          => 100,
+            'served_population'   => null,
+            'population_variance' => null,
+            'status'              => 'completed',
+            'completed_by'        => $this->fss->id,
+            'completed_at'        => now(),
+            'total_value'         => 0,
+            'has_shortfall'       => false,
+        ]);
+
+        $wards = [
+            ['ward' => 'Ward A', 'population' => 30],
+            ['ward' => 'Ward B', 'population' => 25],
+            ['ward' => 'Ward C', 'population' => 20],
+        ];
+
+        foreach ($wards as $payload) {
+            $this->actingAs($this->fss)
+                ->postJson('/api/fss/diet-list-counts', array_merge([
+                    'service_date'  => $date,
+                    'menu_cycle_id' => $cycle->id,
+                ], $payload))
+                ->assertCreated();
+        }
+
+        // All three ward rows exist.
+        $this->assertDatabaseCount('diet_list_counts', 3);
+
+        // Served population on the log = 30 + 25 + 20 = 75.
+        $this->assertDatabaseHas('meal_prep_logs', [
+            'id'                => $log->id,
+            'served_population' => 75,
+        ]);
+    }
+
+    public function test_task_flag_booleans_persist_correctly(): void
+    {
+        $response = $this->actingAs($this->fss)->postJson('/api/fss/diet-list-counts', [
+            'service_date'        => '2026-06-20',
+            'ward'                => 'ICU',
+            'population'          => 10,
+            'helped_food_prep'    => true,
+            'collected_diet_list' => true,
+            'apportioned_food'    => true,
+            'off_duty'            => false,
+        ]);
+
+        $response->assertCreated();
+
+        $this->assertDatabaseHas('diet_list_counts', [
+            'ward'                => 'ICU',
+            'helped_food_prep'    => true,
+            'collected_diet_list' => true,
+            'apportioned_food'    => true,
+            'off_duty'            => false,
+            'stored_supplies'     => false,
+        ]);
+    }
+
+    public function test_fss_user_id_is_forced_to_authenticated_user(): void
+    {
+        $response = $this->actingAs($this->fss)->postJson('/api/fss/diet-list-counts', [
+            'service_date' => '2026-06-20',
+            'ward'         => 'Ward A',
+            'population'   => 15,
+            'fss_user_id'  => $this->fss2->id, // attacker tries to inject a different user
+        ]);
+
+        $response->assertCreated();
+
+        // Must be recorded under the authenticated user, not the injected one.
+        $this->assertDatabaseHas('diet_list_counts', [
+            'ward'        => 'Ward A',
+            'fss_user_id' => $this->fss->id,
+        ]);
+        $this->assertDatabaseMissing('diet_list_counts', [
+            'ward'        => 'Ward A',
+            'fss_user_id' => $this->fss2->id,
+        ]);
+    }
+
+    public function test_unauthenticated_cannot_post_diet_list_count(): void
+    {
+        $this->postJson('/api/fss/diet-list-counts', [
+            'service_date' => '2026-06-20',
+            'ward'         => 'Ward A',
+            'population'   => 15,
+        ])->assertUnauthorized();
+    }
+
+    public function test_non_fss_role_cannot_post_diet_list_count(): void
+    {
+        $rnd = User::factory()->create(['role' => 'RND']);
+
+        // The /fss group middleware requires FSS or RND — but let's check an Admin user is rejected.
+        $admin = User::factory()->create(['role' => 'Admin']);
+
+        $this->actingAs($admin)->postJson('/api/fss/diet-list-counts', [
+            'service_date' => '2026-06-20',
+            'ward'         => 'Ward A',
+            'population'   => 15,
+        ])->assertForbidden();
+    }
+
+    // -------------------------------------------------------------------------
+    // GET index
+    // -------------------------------------------------------------------------
+
+    public function test_index_returns_rows_in_date_range(): void
+    {
+        DietListCount::factory()->create(['service_date' => '2026-06-18', 'fss_user_id' => $this->fss->id]);
+        DietListCount::factory()->create(['service_date' => '2026-06-20', 'fss_user_id' => $this->fss->id]);
+        DietListCount::factory()->create(['service_date' => '2026-06-22', 'fss_user_id' => $this->fss->id]);
+
+        $response = $this->actingAs($this->fss)
+            ->getJson('/api/fss/diet-list-counts?from=2026-06-18&to=2026-06-20');
+
+        $response->assertOk();
+        $this->assertCount(2, $response->json('data'));
+    }
+
+    // -------------------------------------------------------------------------
+    // complete-day integration: diet-list rows drive served_population
+    // -------------------------------------------------------------------------
+
+    public function test_complete_day_uses_diet_list_sum_when_rows_exist(): void
+    {
+        $rnd = User::factory()->create(['role' => 'RND']);
+
+        // Create a cycle with Monday inventory.
+        $cycle = MenuCycle::factory()->create(['rnd_user_id' => $rnd->id]);
+        $item  = FsItem::factory()->create(['name' => 'Rice', 'base_unit' => 'g']);
+        MenuCycleDay::create([
+            'menu_cycle_id'       => $cycle->id,
+            'day_of_week'         => 'Monday',
+            'meal_type'           => 'lunch',
+            'fs_item_id'          => $item->id,
+            'quantity'            => 10,
+            'estimate_population' => 5,
+        ]);
+        Inventory::factory()->create([
+            'fs_item_id'       => $item->id,
+            'quantity_in_stock' => 10000,
+            'unit'             => 'g',
+            'unit_price'       => 0.05,
+        ]);
+
+        // Pre-submit two ward diet-list counts (total = 45) for the same cycle + date.
+        DietListCount::create([
+            'service_date'  => '2026-06-15', // Monday
+            'menu_cycle_id' => $cycle->id,
+            'ward'          => 'Ward A',
+            'fss_user_id'   => $this->fss->id,
+            'population'    => 25,
+        ]);
+        DietListCount::create([
+            'service_date'  => '2026-06-15',
+            'menu_cycle_id' => $cycle->id,
+            'ward'          => 'Ward B',
+            'fss_user_id'   => $this->fss2->id,
+            'population'    => 20,
+        ]);
+
+        // complete-day passes served_population = 99 (hand-typed); diet-list sum (45) must win.
+        $response = $this->actingAs($this->fss)
+            ->postJson("/api/fss/menu-cycles/{$cycle->id}/complete-day", [
+                'service_date'      => '2026-06-15',
+                'population'        => 5,
+                'served_population' => 99, // should be overridden
+            ]);
+
+        $response->assertCreated();
+
+        $this->assertDatabaseHas('meal_prep_logs', [
+            'menu_cycle_id'   => $cycle->id,
+            'service_date'    => '2026-06-15',
+            'served_population' => 45, // diet-list sum wins
+        ]);
+    }
+
+    public function test_complete_day_falls_back_to_hand_typed_when_no_diet_list_rows(): void
+    {
+        $rnd = User::factory()->create(['role' => 'RND']);
+
+        $cycle = MenuCycle::factory()->create(['rnd_user_id' => $rnd->id]);
+        $item  = FsItem::factory()->create(['name' => 'Bread', 'base_unit' => 'g']);
+        MenuCycleDay::create([
+            'menu_cycle_id'       => $cycle->id,
+            'day_of_week'         => 'Monday',
+            'meal_type'           => 'lunch',
+            'fs_item_id'          => $item->id,
+            'quantity'            => 10,
+            'estimate_population' => 5,
+        ]);
+        Inventory::factory()->create([
+            'fs_item_id'       => $item->id,
+            'quantity_in_stock' => 10000,
+            'unit'             => 'g',
+            'unit_price'       => 0.05,
+        ]);
+
+        // No diet-list rows — hand-typed value must be used.
+        $response = $this->actingAs($this->fss)
+            ->postJson("/api/fss/menu-cycles/{$cycle->id}/complete-day", [
+                'service_date'      => '2026-06-15',
+                'population'        => 5,
+                'served_population' => 42,
+            ]);
+
+        $response->assertCreated();
+
+        $this->assertDatabaseHas('meal_prep_logs', [
+            'menu_cycle_id'     => $cycle->id,
+            'served_population' => 42,
+        ]);
+    }
+}

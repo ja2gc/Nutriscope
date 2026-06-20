@@ -2,6 +2,7 @@
 
 namespace App\Services\FSS;
 
+use App\Models\DietListCount;
 use App\Models\Inventory;
 use App\Models\MealPrepLog;
 use App\Models\MenuCycle;
@@ -38,6 +39,17 @@ class ConsumptionService
         bool $allowShortfall = false
     ): MealPrepLog {
         $weekday = Carbon::parse($serviceDate)->format('l');
+
+        // Prefer diet-list summed population as served_population when rows exist for this date.
+        // Rows scoped to this cycle_id take precedence; fall back to unscoped rows for the date.
+        $dietQuery = DietListCount::where('service_date', $serviceDate)
+            ->where(function ($q) use ($cycle) {
+                $q->where('menu_cycle_id', $cycle->id)->orWhereNull('menu_cycle_id');
+            });
+
+        if ($dietQuery->exists()) {
+            $servedPopulation = (int) $dietQuery->sum('population');
+        }
 
         return DB::transaction(function () use ($cycle, $serviceDate, $populationOverride, $servedPopulation, $allowShortfall, $weekday) {
             if (MealPrepLog::where('menu_cycle_id', $cycle->id)
