@@ -9,7 +9,9 @@ use App\Http\Resources\PurchaseOrderResource;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderAttachment;
 use App\Models\ShoppingList;
+use App\Models\User;
 use App\Services\FSS\ReceivingService;
+use App\Services\NotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -57,6 +59,7 @@ class PurchaseOrderController extends Controller
                 ]);
             }
             $po->recalcTotal();
+            $this->notifyFssIfOrdered($po->id, $po->status);
 
             return response()->json(['data' => new PurchaseOrderResource($po->load(self::RELATIONS))], 201);
         });
@@ -79,6 +82,10 @@ class PurchaseOrderController extends Controller
                 $purchaseOrder->received_date = now()->toDateString();
                 $purchaseOrder->save();
                 $receiving->receive($purchaseOrder->load('items'));
+            }
+
+            if (($validated['status'] ?? null) === 'ordered' && $previousStatus !== 'ordered') {
+                $this->notifyFssIfOrdered($purchaseOrder->id, 'ordered');
             }
         });
 
@@ -171,5 +178,31 @@ class PurchaseOrderController extends Controller
         Storage::disk('public')->delete($attachment->path);
         $attachment->delete();
         return response()->json(null, 204);
+    }
+
+    /**
+     * Notify all FSS users that a PO is ordered and awaiting proof of purchase.
+     * Scheduled after the current DB transaction commits so a rollback sends nothing.
+     */
+    private function notifyFssIfOrdered(int $poId, string $status): void
+    {
+        if ($status !== 'ordered') {
+            return;
+        }
+
+        DB::afterCommit(function () use ($poId) {
+            $fssUsers = User::where('role', 'FSS')->get(['id']);
+            if ($fssUsers->isEmpty()) {
+                return;
+            }
+            app(NotificationService::class)->notify(
+                $fssUsers,
+                'PO Awaiting Receipt',
+                "PO #{$poId} is ordered — upload proof of purchase.",
+                'po_awaiting_receipt',
+                'food_service',
+                $poId,
+            );
+        });
     }
 }
