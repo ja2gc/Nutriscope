@@ -6,11 +6,10 @@ import { listAuditLogs, AuditLog, ListAuditLogsParams } from "@/services/auditLo
 import { listUsers } from "@/services/adminUserService";
 import { User } from "@/services/authService";
 import { PaginationMeta } from "@/services/inventoryService";
+import { Pagination } from "@/components/ui/Pagination";
 import {
   Activity,
   Filter,
-  ChevronLeft,
-  ChevronRight,
   RefreshCw,
   AlertTriangle,
   ChevronDown,
@@ -39,7 +38,7 @@ export default function AuditLogsPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [meta, setMeta] = useState<PaginationMeta>({
     current_page: 1,
-    per_page: 25,
+    per_page: 15,
     total: 0,
     last_page: 1,
   });
@@ -71,7 +70,7 @@ export default function AuditLogsPage() {
       setLoading(true);
       setError(null);
 
-      const params: ListAuditLogsParams = { page, per_page: 25 };
+      const params: ListAuditLogsParams = { page, per_page: 15 };
       if (causerId !== "All") params.causer_id = parseInt(causerId);
       if (subjectType !== "All") params.subject_type = subjectType;
       if (eventFilter !== "All") params.event = eventFilter;
@@ -525,32 +524,7 @@ export default function AuditLogsPage() {
             </table>
           </div>
 
-          {/* Pagination footer */}
-          {meta.last_page > 1 && (
-            <div className="px-5 py-4 bg-zinc-50 border-t border-zinc-100 flex items-center justify-between gap-4 select-none">
-              <button
-                disabled={page <= 1}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-200 text-[10px] font-bold uppercase tracking-wider text-zinc-500 hover:text-zinc-800 hover:bg-white transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                <ChevronLeft className="h-3.5 w-3.5" />
-                Previous
-              </button>
-
-              <span className="text-xs font-semibold text-zinc-500">
-                Page {meta.current_page} of {meta.last_page} &mdash; {meta.total} entries
-              </span>
-
-              <button
-                disabled={page >= meta.last_page}
-                onClick={() => setPage((p) => Math.min(meta.last_page, p + 1))}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-200 text-[10px] font-bold uppercase tracking-wider text-zinc-500 hover:text-zinc-800 hover:bg-white transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                Next
-                <ChevronRight className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          )}
+          <Pagination meta={meta} page={page} onPageChange={setPage} />
         </div>
       )}
     </div>

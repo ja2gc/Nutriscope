@@ -28,7 +28,7 @@ class FoodItemController extends Controller
             $query->withAllergen($request->allergen);
         }
 
-        $items = $query->orderBy('name')->paginate(20);
+        $items = $query->orderBy('name')->paginate((int) min($request->query('per_page', 15), 100));
 
         return FoodItemResource::collection($items);
     }

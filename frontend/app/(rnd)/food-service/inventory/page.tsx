@@ -4,9 +4,10 @@ import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
   Salad, Search, RefreshCw, Pencil, Trash2, X, Check,
-  AlertTriangle, Package, Boxes, ChevronLeft, ChevronRight,
+  AlertTriangle, Package, Boxes,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { Pagination } from "@/components/ui/Pagination";
 import {
   InventoryRow,
   StockStatus,
@@ -30,7 +31,7 @@ const TAB_META: Record<ActiveTab, { noun: string; nounPlural: string }> = {
   supply:     { noun: "supply",     nounPlural: "supplies" },
 };
 
-const PER_PAGE = 25;
+const PER_PAGE = 15;
 
 const UNIT_OPTIONS = ["pc", "pack", "bundle", "serving", "g", "kg", "mL", "L"] as const;
 
@@ -56,48 +57,6 @@ function StockDot({ status }: { status: StockStatus }) {
 function formatPrice(p: string | null, prefix = "₱") {
   if (!p || parseFloat(p) === 0) return "—";
   return `${prefix}${parseFloat(p).toFixed(2)}`;
-}
-
-// ─── Pagination ───────────────────────────────────────────────────────────────
-
-function Pagination({ meta, onPageChange }: { meta: PaginationMeta; onPageChange: (p: number) => void }) {
-  if (meta.last_page <= 1) return null;
-  const pages = Array.from({ length: meta.last_page }, (_, i) => i + 1);
-  const visible = pages.filter(p => p === 1 || p === meta.last_page || Math.abs(p - meta.current_page) <= 1);
-
-  return (
-    <div className="flex items-center justify-between px-4 py-3 border-t border-zinc-100">
-      <span className="text-[10px] text-zinc-400">
-        {((meta.current_page - 1) * meta.per_page) + 1}–{Math.min(meta.current_page * meta.per_page, meta.total)} of {meta.total}
-      </span>
-      <div className="flex items-center gap-1">
-        <button onClick={() => onPageChange(meta.current_page - 1)} disabled={meta.current_page === 1}
-          className="p-1.5 rounded-lg hover:bg-zinc-100 text-zinc-500 disabled:opacity-30 disabled:cursor-not-allowed">
-          <ChevronLeft className="h-3.5 w-3.5" />
-        </button>
-        {visible.reduce<(number | "…")[]>((acc, p, i, arr) => {
-          if (i > 0 && p - (arr[i - 1] as number) > 1) acc.push("…");
-          acc.push(p);
-          return acc;
-        }, []).map((p, i) =>
-          p === "…" ? (
-            <span key={`e${i}`} className="px-1.5 text-xs text-zinc-400">…</span>
-          ) : (
-            <button key={p} onClick={() => onPageChange(p as number)}
-              className={`min-w-[28px] h-7 rounded-lg text-xs font-semibold transition-colors ${
-                p === meta.current_page ? "bg-emerald-600 text-white" : "hover:bg-zinc-100 text-zinc-600"
-              }`}>
-              {p}
-            </button>
-          )
-        )}
-        <button onClick={() => onPageChange(meta.current_page + 1)} disabled={meta.current_page === meta.last_page}
-          className="p-1.5 rounded-lg hover:bg-zinc-100 text-zinc-500 disabled:opacity-30 disabled:cursor-not-allowed">
-          <ChevronRight className="h-3.5 w-3.5" />
-        </button>
-      </div>
-    </div>
-  );
 }
 
 // ─── Main page ────────────────────────────────────────────────────────────────
@@ -482,7 +441,7 @@ export default function InventoryPage() {
                 })}
               </tbody>
             </table>
-            {meta && <Pagination meta={meta} onPageChange={setPage} />}
+            {meta && <Pagination meta={meta} page={page} onPageChange={setPage} />}
           </>
         )}
       </div>

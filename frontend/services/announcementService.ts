@@ -1,4 +1,7 @@
-﻿import { apiFetch } from "@/lib/apiFetch";
+import { apiFetch } from "@/lib/apiFetch";
+import type { PaginationMeta } from "@/components/ui/Pagination";
+
+export type { PaginationMeta };
 export type AnnouncementCategory = "General" | "Event" | "Operational" | "Urgent";
 export type AnnouncementVisibility = "FSS" | "Admin" | "All";
 
@@ -28,12 +31,21 @@ export interface AnnouncementPayload {
   pinned?: boolean;
 }
 
-export async function fetchAnnouncements(): Promise<Announcement[]> {
-  const res = await apiFetch("/api/announcements", {
+export interface AnnouncementPage {
+  data: Announcement[];
+  meta: PaginationMeta;
+}
+
+const FALLBACK_META: PaginationMeta = { current_page: 1, per_page: 15, total: 0, last_page: 1 };
+
+export async function fetchAnnouncements(
+  page: number = 1,
+  perPage: number = 15
+): Promise<AnnouncementPage> {
+  const params = new URLSearchParams({ page: String(page), per_page: String(perPage) });
+  const res = await apiFetch(`/api/announcements?${params}`, {
     method: "GET",
-    headers: {
-      Accept: "application/json",
-    },
+    headers: { Accept: "application/json" },
   });
 
   if (!res.ok) {
@@ -42,7 +54,10 @@ export async function fetchAnnouncements(): Promise<Announcement[]> {
   }
 
   const responseData = await res.json();
-  return responseData.data || [];
+  return {
+    data: responseData.data || [],
+    meta: responseData.meta || FALLBACK_META,
+  };
 }
 
 export async function createAnnouncement(data: AnnouncementPayload): Promise<Announcement> {
@@ -89,9 +104,7 @@ export async function updateAnnouncement(
 export async function deleteAnnouncement(id: number | string): Promise<void> {
   const res = await apiFetch(`/api/announcements/${id}`, {
     method: "DELETE",
-    headers: {
-      Accept: "application/json",
-    },
+    headers: { Accept: "application/json" },
   });
 
   if (!res.ok) {
@@ -105,8 +118,12 @@ export async function deleteAnnouncement(id: number | string): Promise<void> {
 // Admin\AnnouncementController is hit and `pinned` is honoured.
 // ---------------------------------------------------------------------------
 
-export async function fetchAdminAnnouncements(): Promise<Announcement[]> {
-  const res = await apiFetch("/api/admin/announcements", {
+export async function fetchAdminAnnouncements(
+  page: number = 1,
+  perPage: number = 15
+): Promise<AnnouncementPage> {
+  const params = new URLSearchParams({ page: String(page), per_page: String(perPage) });
+  const res = await apiFetch(`/api/admin/announcements?${params}`, {
     method: "GET",
     headers: { Accept: "application/json" },
   });
@@ -115,7 +132,10 @@ export async function fetchAdminAnnouncements(): Promise<Announcement[]> {
     throw new Error(errorData.message || "Failed to fetch announcements.");
   }
   const responseData = await res.json();
-  return responseData.data || [];
+  return {
+    data: responseData.data || [],
+    meta: responseData.meta || FALLBACK_META,
+  };
 }
 
 export async function createAdminAnnouncement(data: AnnouncementPayload): Promise<Announcement> {

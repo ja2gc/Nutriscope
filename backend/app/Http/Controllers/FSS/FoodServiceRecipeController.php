@@ -15,10 +15,26 @@ use Illuminate\Support\Facades\DB;
 
 class FoodServiceRecipeController extends Controller
 {
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
-        $recipes = FoodServiceRecipe::orderBy('name')->get(['id', 'name', 'category', 'servings', 'created_at']);
-        return response()->json(['data' => $recipes]);
+        $perPage  = (int) min($request->query('per_page', 15), 100);
+        $search   = $request->query('search');
+        $category = $request->query('category');
+
+        $paginator = FoodServiceRecipe::orderBy('name')
+            ->when($search, fn ($q) => $q->where('name', 'like', "%{$search}%"))
+            ->when($category, fn ($q) => $q->where('category', $category))
+            ->paginate($perPage, ['id', 'name', 'category', 'servings', 'created_at']);
+
+        return response()->json([
+            'data' => $paginator->items(),
+            'meta' => [
+                'current_page' => $paginator->currentPage(),
+                'per_page'     => $paginator->perPage(),
+                'total'        => $paginator->total(),
+                'last_page'    => $paginator->lastPage(),
+            ],
+        ]);
     }
 
     /**

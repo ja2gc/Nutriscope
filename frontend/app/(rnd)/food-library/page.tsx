@@ -4,10 +4,11 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
   Database, Plus, Search, Download, Trash2, Pencil,
-  CookingPot, X, Loader2, ChevronLeft, ChevronRight,
+  CookingPot, X, Loader2,
   FlaskConical, TriangleAlert, ChevronDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { Pagination } from "@/components/ui/Pagination";
 import {
   fetchFoodItems, fetchRecipes, deleteFoodItem, deleteRecipe,
   searchUsda, importUsdaFood,
@@ -803,23 +804,3 @@ function LoadingSkeleton() {
   );
 }
 
-function Pagination({ meta, page, onPageChange }: { meta: any; page: number; onPageChange: (p: number) => void }) {
-  if (!meta || meta.last_page <= 1) return null;
-  return (
-    <div className="px-5 py-3.5 border-t border-zinc-100 flex items-center justify-between select-none">
-      <span className="text-[10px] font-semibold text-zinc-400">
-        Page {meta.current_page} of {meta.last_page} · {meta.total} items
-      </span>
-      <div className="flex gap-1">
-        <button onClick={() => onPageChange(page - 1)} disabled={page === 1}
-          className="p-1.5 border border-zinc-200 bg-white text-zinc-600 rounded-lg hover:bg-zinc-50 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors">
-          <ChevronLeft className="h-3.5 w-3.5" />
-        </button>
-        <button onClick={() => onPageChange(page + 1)} disabled={page === meta.last_page}
-          className="p-1.5 border border-zinc-200 bg-white text-zinc-600 rounded-lg hover:bg-zinc-50 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors">
-          <ChevronRight className="h-3.5 w-3.5" />
-        </button>
-      </div>
-    </div>
-  );
-}

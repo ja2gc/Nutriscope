@@ -90,12 +90,14 @@ export interface PatientListResponse {
 export async function fetchPatients(
   search?: string,
   status?: string,
-  page: number = 1
+  page: number = 1,
+  perPage: number = 15
 ): Promise<PatientListResponse> {
   const queryParams = new URLSearchParams();
   if (search) queryParams.append("search", search);
   if (status && status !== "All") queryParams.append("status", status);
   queryParams.append("page", page.toString());
+  queryParams.append("per_page", perPage.toString());
 
   const res = await apiFetch(`/api/patients?${queryParams.toString()}`, {
     method: "GET",

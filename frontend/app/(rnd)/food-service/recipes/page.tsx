@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CookingPot, Plus, Pencil, Trash2, Loader2, Banana } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { Pagination, PaginationMeta } from "@/components/ui/Pagination";
 
 interface FSSRecipe {
   id: number;
@@ -13,11 +14,21 @@ interface FSSRecipe {
   servings: number;
 }
 
-async function listRecipes(): Promise<FSSRecipe[]> {
-  const res = await fetch("/api/fss/food-service-recipes");
+interface RecipePage {
+  data: FSSRecipe[];
+  meta: PaginationMeta;
+}
+
+async function listRecipes(page: number, category: string): Promise<RecipePage> {
+  const params = new URLSearchParams({ page: String(page), per_page: "15" });
+  if (category !== "All") params.set("category", category);
+  const res = await fetch(`/api/fss/food-service-recipes?${params}`);
   if (!res.ok) throw new Error("Failed to load recipes.");
   const json = await res.json();
-  return json.data ?? [];
+  return {
+    data: json.data ?? [],
+    meta: json.meta ?? { current_page: page, per_page: 15, total: 0, last_page: 1 },
+  };
 }
 
 async function deleteRecipe(id: number): Promise<void> {
@@ -32,30 +43,42 @@ const FSS_CATEGORIES = [
 export default function FSSRecipeListPage() {
   const router = useRouter();
   const [recipes, setRecipes]     = useState<FSSRecipe[]>([]);
+  const [meta, setMeta]           = useState<PaginationMeta | null>(null);
   const [loading, setLoading]     = useState(true);
   const [error, setError]         = useState<string | null>(null);
   const [filterCat, setFilterCat] = useState("All");
+  const [page, setPage]           = useState(1);
   const [deleteId, setDeleteId]   = useState<number | null>(null);
   const [deleting, setDeleting]   = useState(false);
 
-  useEffect(() => {
-    listRecipes()
-      .then(setRecipes)
-      .catch((e: unknown) => setError(e instanceof Error ? e.message : "Error."))
-      .finally(() => setLoading(false));
-  }, []);
+  async function loadPage(p: number, cat: string) {
+    setPage(p);
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await listRecipes(p, cat);
+      setRecipes(result.data);
+      setMeta(result.meta);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Error.");
+    } finally {
+      setLoading(false);
+    }
+  }
 
-  const filtered = filterCat === "All"
-    ? recipes
-    : recipes.filter((r) => r.category === filterCat);
+  useEffect(() => {
+    void loadPage(1, filterCat);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleDelete = async () => {
     if (!deleteId) return;
     setDeleting(true);
     try {
       await deleteRecipe(deleteId);
-      setRecipes((prev) => prev.filter((r) => r.id !== deleteId));
       setDeleteId(null);
+      const newPage = recipes.length === 1 && page > 1 ? page - 1 : page;
+      void loadPage(newPage, filterCat);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Delete failed.");
     } finally {
@@ -95,7 +118,7 @@ export default function FSSRecipeListPage() {
       {/* Category filter */}
       <div className="flex flex-wrap gap-2">
         {FSS_CATEGORIES.map((cat) => (
-          <button key={cat} onClick={() => setFilterCat(cat)}
+          <button key={cat} onClick={() => { setFilterCat(cat); void loadPage(1, cat); }}
             className={`px-3 py-1.5 rounded-full text-[10px] font-bold border transition-colors cursor-pointer ${
               filterCat === cat
                 ? "bg-emerald-600 text-white border-emerald-600"
@@ -111,7 +134,7 @@ export default function FSSRecipeListPage() {
         <div className="flex items-center justify-center h-40">
           <Loader2 className="h-6 w-6 animate-spin text-emerald-600" />
         </div>
-      ) : filtered.length === 0 ? (
+      ) : recipes.length === 0 ? (
         <div className="text-center py-16 border border-dashed border-zinc-200 rounded-2xl">
           <CookingPot className="h-8 w-8 text-zinc-200 mx-auto mb-3" />
           <p className="text-sm font-bold text-zinc-400">No recipes found.</p>
@@ -128,7 +151,7 @@ export default function FSSRecipeListPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100">
-              {filtered.map((recipe) => (
+              {recipes.map((recipe) => (
                 <tr key={recipe.id} className="hover:bg-zinc-50 transition-colors">
                   <td className="px-5 py-3.5">
                     <Link href={`/food-service/foods/${recipe.id}`}
@@ -161,6 +184,7 @@ export default function FSSRecipeListPage() {
               ))}
             </tbody>
           </table>
+          {meta && <Pagination meta={meta} page={page} onPageChange={(p) => void loadPage(p, filterCat)} />}
         </div>
       )}
 
