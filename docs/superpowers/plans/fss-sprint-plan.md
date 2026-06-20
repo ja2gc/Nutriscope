@@ -102,6 +102,5 @@ Modals: camera/upload for receipts (UX mirrors RND's receipt-upload flow — sam
 
 ## Self-Review notes
 - Every backend task: `php artisan test` green before commit. Frontend/app: type-check + a device/sim check.
-- The review doc [`fss-admin-plan-review.md`](fss-admin-plan-review.md) §4 (shortfall feedback loop) is **resolved** — `completeDay` already notifies RND on shortfall/variance; don't rebuild it.
 - Don't re-litigate retracted findings (`complete-day missing`, `ai_usage_logs never written`) — verified false.
 </content>

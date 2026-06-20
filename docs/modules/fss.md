@@ -37,13 +37,13 @@ FSS does not yet have a dedicated dashboard. Proposed widgets, tuned to the oper
 Replaces the earlier standalone "supplies cleaning log". The hospital's **Accomplishment Report** form (`docs/Nutriscope Forms/accomplishment report for fss.jpg`) is a **per-staff weekly duty sheet**: one sheet per staff member, a grid of fixed task rows × days, each cell a ✓ / a number / "off-duty". It captures, in one form, **meal prep, supplies cleaning, AND food apportioned/distributed to in-patients across wards**.
 
 The seven task rows:
-1. Helped in food preparation work
-2. Stored food supplies properly
-3. Collected diet list from different wards
-4. Apportioned and distributed food to in-patients in different wards *(carries the ward headcount number)*
-5. Collected, cleaned and returned used utensils and dining equipment
-6. Assumed duties as assistant cook
-7. Maintained cleanliness of kitchen, cabinets, refrigerators and freezers
+1. Helped in food preparation work (checklist)
+2. Stored food supplies properly (checklist)
+3. Collected diet list from different wards (number)
+4. Apportioned and distributed food to in-patients in different wards *(carries the ward headcount number)* (number)
+5. Collected, cleaned and returned used utensils and dining equipment (checklist)
+6. Assumed duties as assistant cook (checklist)
+7. Maintained cleanliness of kitchen, cabinets, refrigerators and freezers (checklist)
 
 **Data model (decided — "per-staff tasks, day-level headcount" compromise).** Tasks are recorded **per staff per day** (the ✓ / off-duty marks). Headcount is **not** double-entered: each staff's diet-list row (row 4) carries the count they apportioned/distributed that day, and the day's rows **sum into the single `meal_prep_logs.served_population`** for that service date (§3). So the report sheet shows each staff's tasks plus the day's shared served total, and the existing served-vs-estimate model stays the single source of the headcount. The report generator joins per-staff task flags with the day's summed headcount. Capture surface + API shape: see [`fss-sprint-plan.md`](../superpowers/plans/fss-sprint-plan.md) (Accomplishment Report tasks).
 
@@ -74,7 +74,7 @@ FSS sees announcements with visibility `FSS` or `All`, as a read-only **feed pla
 ## 8. Reports — accomplishment report only
 FSS's only report is the **Accomplishment Report** (§4). All other operational/clinical report types (Program Project Activity, Menu Calendar, Dietary Cash Book, Procurement Pack, Budget, Inventory, and every clinical type) are **not** FSS reports. Any FSS-facing report-browser access or FSS-only report backend beyond the accomplishment report is out of scope; remove if present. *(Note: the frontend Reports browser is RND-only today — `(rnd)/reports` + `/api/rnd/reports/*`; no FSS report page exists, so there is nothing to trim on the FSS frontend. The cleanup, if any, is backend-side shared generators.)*
 
-## 9. Notifications (planned)
+## 9. Notifications (planned) 
 Same backend as RND ([`rnd.md`](rnd.md) §6–7). Useful FSS auto-events: no stock, PO received / awaiting receipt, service day not yet logged, menu activation, shortfall/variance (already wired — `ConsumptionService::completeDay` writes `meal_prep_shortfall` / `meal_prep_variance` notifications to the cycle's RND).
 
 ---
