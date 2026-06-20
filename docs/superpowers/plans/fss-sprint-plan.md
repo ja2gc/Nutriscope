@@ -85,14 +85,10 @@ Replaces the standalone cleaning log. Decided model: **per-staff tasks, day-leve
 
 No FSS dashboard controller or endpoint exists today, so the KPIs must be built from real queries — **never hardcoded or seeded**. Each card maps to a count/figure derived from existing tables.
 
-### D1 — Backend (`GET /fss/dashboard/summary`)
-- [ ] New controller `backend/app/Http/Controllers/FSS/DashboardController@summary`; register `Route::get('dashboard/summary', ...)` in the `/fss` group ([`backend/routes/api.php`](../../../backend/routes/api.php)). Read-only, available to `role:FSS,RND`.
-- [ ] Return these figures, each from a live query (keep the controller method <10 lines — push the query logic into a small `FssDashboardService` or model scopes per laravel-best-practices §10):
-  - **Meals to log today** — service days of the *active* `MenuCycle` whose date is today with **no** matching `meal_prep_logs` row.
-  - **POs awaiting receipt** — `purchase_orders` with status `ordered` and **no** attachment of type `receipt`/`proof`.
-  - **Inventory no-stock** — count of `inventory` rows at/under zero (or no-stock flag set).
-  - **Today's service readiness** — the active cycle's meals for today plus prepped/served state (reuse `ConsumptionService` / `MenuCycle` relations — do not duplicate cost logic).
-- [ ] **Tests:** each KPI reflects inserted rows, proving reproducibility without seeding — e.g. insert an `ordered` PO with no attachment → `pos_awaiting_receipt == 1`; attach a receipt → `0`. Same pattern for no-stock and meals-to-log.
+### D1 — Backend (`GET /fss/dashboard/summary`) — DONE (commit `8804495`)
+- [x] `App\Http\Controllers\FSS\DashboardController@summary` + `Route::get('dashboard/summary', ...)` in the `/fss` group; logic in `App\Services\FSS\FssDashboardService`.
+- [x] Live figures: `meals_to_log_today` (active cycle's `MenuCycleDay` for today's weekday with no completed `MealPrepLog`), `pos_awaiting_receipt` (`status=ordered` + `whereDoesntHave` receipt/proof attachment), `inventory_no_stock` (`quantity_in_stock <= 0`), `today_service` (today's meals + prepped/shortfall state). No active cycle → zeros, no error.
+- [x] **Tests:** 17 in `FssDashboardTest` (insert ordered PO → count 1; attach receipt → 0; no-stock increment; served vs unlogged day). Full suite green.
 
 ### D2 — App UI (Dashboard tab)
 - [ ] Consume `/fss/dashboard/summary` via TanStack Query with pull-to-refresh; render KPI cards (tabular figures, skeletons while loading).
@@ -104,10 +100,10 @@ No FSS dashboard controller or endpoint exists today, so the KPIs must be built 
 
 The notification backend is already role-agnostic and reused as-is: `Notification` model + `NotificationService::notify()` + shared endpoints `GET /api/notifications`, `PATCH /api/notifications/{id}/read`, `PATCH /api/notifications/read-all` ([`RND/NotificationController`](../../../backend/app/Http/Controllers/RND/NotificationController.php)), all scoped by `Auth::id()`. Announcement fan-out to FSS already works (`NotificationService::fanOutAnnouncement`, visibility `FSS|All`). **No new endpoints.**
 
-### N1 — Backend (new event only)
-- [ ] Add a **PO-awaiting-receipt** notification: when a purchase order is created with — or transitions to — status `ordered`, call `NotificationService::notify()` targeting all `role=FSS` users (type `po_awaiting_receipt`, source_module `food_service`, source_id = PO id). Fire it in the PO store/update path; dispatch after commit (`afterCommit` / `ShouldDispatchAfterCommit`, laravel-best-practices §12) so a rolled-back PO sends nothing.
-- [ ] Confirm (don't rebuild) that announcement fan-out already reaches FSS, and that the existing meal-prep shortfall/variance notifications still route to the cycle's RND (`ConsumptionService`).
-- [ ] **Tests:** creating an `ordered` PO inserts one notification row per FSS user; a draft PO inserts none; `read`/`read-all` flip the flag.
+### N1 — Backend (new event only) — DONE (commit `354e317`)
+- [x] PO-awaiting-receipt notification via `PurchaseOrderController::notifyFssIfOrdered()` (private helper) called from `store()` and `update()`; transition guard captures previous status so an already-`ordered` PO doesn't re-fire; wrapped in `DB::afterCommit`. Targets all `role=FSS` users (type `po_awaiting_receipt`, source_module `food_service`, source_id = PO id).
+- [x] Announcement fan-out to FSS + meal-prep shortfall/variance-to-RND confirmed unchanged.
+- [x] **Tests:** 4 in `PoAwaitingReceiptNotificationTest` (ordered create → 1/FSS user; draft → 0; transition → notifies; re-update ordered → 0). Full suite 561 green.
 
 ### N2 — App UI (Notifications screen + header bell)
 - [ ] Notifications screen mirroring the web [`(rnd)/notifications`](../../../frontend/app/(rnd)/notifications/page.tsx): list with unread dot, mark-read on tap (optimistic), "mark all read"; icon by `type`; relative time.
