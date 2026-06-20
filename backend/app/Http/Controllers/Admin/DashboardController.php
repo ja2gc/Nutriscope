@@ -74,6 +74,16 @@ class DashboardController extends Controller
             )
             ->first();
 
+        // Month-to-date totals — what the "AI Usage" KPI card headlines.
+        $month = AiUsageLog::query()
+            ->where('created_at', '>=', now()->startOfMonth())
+            ->select(
+                DB::raw('COUNT(*) as calls'),
+                DB::raw('COALESCE(SUM(tokens_total), 0) as tokens'),
+            )
+            ->first();
+
+        // Per-day series for the last 30 days — what the chart plots.
         $byEndpoint = AiUsageLog::query()
             ->select('endpoint', DB::raw('COUNT(*) as calls'), DB::raw('SUM(tokens_total) as tokens'))
             ->groupBy('endpoint')
@@ -85,12 +95,32 @@ class DashboardController extends Controller
             ])
             ->toArray();
 
+        $daily = AiUsageLog::query()
+            ->where('created_at', '>=', now()->subDays(29)->startOfDay())
+            ->select(
+                DB::raw('DATE(created_at) as date'),
+                DB::raw('COUNT(*) as calls'),
+                DB::raw('COALESCE(SUM(tokens_total), 0) as tokens'),
+            )
+            ->groupBy(DB::raw('DATE(created_at)'))
+            ->orderBy('date')
+            ->get()
+            ->map(fn ($row) => [
+                'date' => (string) $row->date,
+                'calls' => (int) $row->calls,
+                'tokens' => (int) $row->tokens,
+            ])
+            ->toArray();
+
         return [
             'total_calls' => (int) $totals->total_calls,
             'total_tokens' => (int) $totals->total_tokens,
             'tokens_input' => (int) $totals->tokens_input,
             'tokens_output' => (int) $totals->tokens_output,
+            'month_calls' => (int) $month->calls,
+            'month_tokens' => (int) $month->tokens,
             'by_endpoint' => $byEndpoint,
+            'daily' => $daily,
         ];
     }
 

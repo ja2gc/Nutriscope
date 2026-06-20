@@ -100,18 +100,12 @@ export default function AdminDashboardPage() {
   }, []);
 
   const chartData = useMemo(() => {
-    if (!dashboardData?.ai_usage?.by_endpoint) return [];
-    return Object.entries(dashboardData.ai_usage.by_endpoint).map(([endpoint, stats]) => {
-      const name = endpoint
-        .replace(/^\/api\/(v1\/)?/, "")
-        .replace(/\/+/g, " ")
-        .trim();
-      return {
-        name: name.charAt(0).toUpperCase() + name.slice(1),
-        tokens: stats.tokens,
-        calls: stats.calls,
-      };
-    });
+    if (!dashboardData?.ai_usage?.daily) return [];
+    return dashboardData.ai_usage.daily.map((point) => ({
+      name: new Date(point.date).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+      tokens: point.tokens,
+      calls: point.calls,
+    }));
   }, [dashboardData]);
 
   if (loading) {
@@ -186,9 +180,9 @@ export default function AdminDashboardPage() {
             tone="zinc"
           />
           <KpiCard
-            label="AI Usage"
-            value={formatNumber(dashboardData.ai_usage.total_calls)}
-            hint={`${formatNumber(dashboardData.ai_usage.total_calls)} calls · ${formatTokens(dashboardData.ai_usage.total_tokens)} tokens`}
+            label="AI Usage (Month)"
+            value={formatNumber(dashboardData.ai_usage.month_calls)}
+            hint={`${formatTokens(dashboardData.ai_usage.month_tokens)} tokens · month to date`}
             tone="zinc"
           />
           <KpiCard
@@ -212,10 +206,10 @@ export default function AdminDashboardPage() {
                   AI Token Consumption
                 </h3>
                 <p className="text-[10px] text-zinc-500 mt-1">
-                  The "AI Usage" total above, broken down per AI endpoint.
+                  Tokens per day · last 30 days.
                 </p>
               </div>
-              <Badge tone="zinc">Live Stats</Badge>
+              <Badge tone="zinc">Daily</Badge>
             </div>
 
             <div className="p-6">
@@ -234,24 +228,22 @@ export default function AdminDashboardPage() {
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart
                       data={chartData}
-                      layout="vertical"
-                      margin={{ top: 5, right: 30, left: 10, bottom: 5 }}
+                      margin={{ top: 5, right: 16, left: 0, bottom: 5 }}
                     >
-                      <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false} />
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
                       <XAxis
-                        type="number"
+                        dataKey="name"
                         tick={{ fontSize: 10, fill: "#94a3b8" }}
                         tickLine={false}
                         axisLine={false}
-                        tickFormatter={formatTokens}
+                        minTickGap={16}
                       />
                       <YAxis
-                        dataKey="name"
-                        type="category"
                         tick={{ fontSize: 10, fill: "#94a3b8" }}
-                        width={120}
                         tickLine={false}
                         axisLine={false}
+                        width={44}
+                        tickFormatter={formatTokens}
                       />
                       <Tooltip
                         cursor={{ fill: "rgba(0,0,0,0.03)" }}
@@ -262,7 +254,7 @@ export default function AdminDashboardPage() {
                         }}
                         formatter={(value) => [formatTokens(Number(value)), "Tokens"]}
                       />
-                      <Bar dataKey="tokens" name="Total Tokens" fill="#059669" radius={[0, 4, 4, 0]} />
+                      <Bar dataKey="tokens" name="Tokens" fill="#059669" radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
