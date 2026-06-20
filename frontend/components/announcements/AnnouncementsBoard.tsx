@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/Button";
+import { Pagination, PaginationMeta } from "@/components/ui/Pagination";
 import {
   Announcement,
   AnnouncementCategory,
@@ -65,13 +66,6 @@ function formatTimeStamp(value: string) {
   });
 }
 
-function sortAnnouncements(posts: Announcement[]) {
-  return [...posts].sort((a, b) => {
-    if (Boolean(a.pinned) !== Boolean(b.pinned)) return a.pinned ? -1 : 1;
-    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-  });
-}
-
 export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
   const isAdmin = variant === "admin";
 
@@ -89,6 +83,8 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
 
   const { user } = useAuth();
   const [posts, setPosts] = useState<Announcement[]>([]);
+  const [meta, setMeta] = useState<PaginationMeta | null>(null);
+  const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -99,22 +95,25 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [draft, setDraft] = useState<AnnouncementDraft>(EMPTY_DRAFT);
 
-  // Load on mount
-  useEffect(() => {
-    async function load() {
-      try {
-        setLoading(true);
-        setError(null);
-        const data = await apiFetch();
-        setPosts(sortAnnouncements(data));
-      } catch (err: any) {
-        setError(err.message || "Failed to load announcements.");
-      } finally {
-        setLoading(false);
-      }
+  async function loadPage(p: number) {
+    setPage(p);
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await apiFetch(p, 15);
+      setPosts(result.data);
+      setMeta(result.meta);
+    } catch (err: any) {
+      setError(err.message || "Failed to load announcements.");
+    } finally {
+      setLoading(false);
     }
-    void load();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }
+
+  // Load on mount / variant change
+  useEffect(() => {
+    void loadPage(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [variant]);
 
   // Lock body scroll when modal is open
@@ -136,10 +135,9 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
     };
   }, [composerOpen, viewingPostId]);
 
-  const orderedPosts = useMemo(() => sortAnnouncements(posts), [posts]);
   const selectedPost = useMemo(
-    () => orderedPosts.find((p) => p.id === viewingPostId) ?? null,
-    [orderedPosts, viewingPostId]
+    () => posts.find((p) => p.id === viewingPostId) ?? null,
+    [posts, viewingPostId]
   );
 
   function resetDraft() {
@@ -230,16 +228,16 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
       setSaving(true);
       setSaveError(null);
       if (editingPostId) {
-        const updated = await apiUpdate(editingPostId, payload);
-        setPosts((prev) =>
-          sortAnnouncements(prev.map((p) => (p.id === updated.id ? updated : p)))
-        );
+        await apiUpdate(editingPostId, payload);
+        closeComposer();
+        resetDraft();
+        void loadPage(page);
       } else {
-        const created = await apiCreate(payload);
-        setPosts((prev) => sortAnnouncements([created, ...prev]));
+        await apiCreate(payload);
+        closeComposer();
+        resetDraft();
+        void loadPage(1);
       }
-      closeComposer();
-      resetDraft();
     } catch (err: any) {
       setSaveError(err.message || "Failed to save announcement.");
     } finally {
@@ -251,7 +249,8 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
     if (!confirm(`Delete announcement: "${post.title}"?`)) return;
     try {
       await apiDelete(post.id);
-      setPosts((prev) => prev.filter((p) => p.id !== post.id));
+      const newPage = posts.length === 1 && page > 1 ? page - 1 : page;
+      void loadPage(newPage);
     } catch (err: any) {
       alert(err.message || "Failed to delete announcement.");
     }
@@ -593,12 +592,12 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
                 <div key={i} className="h-32 rounded-3xl bg-zinc-100 animate-pulse" />
               ))}
             </div>
-          ) : orderedPosts.length === 0 ? (
+          ) : posts.length === 0 ? (
             <div className="border border-dashed border-zinc-200 rounded-3xl p-8 text-center text-xs text-zinc-400 bg-zinc-50/40">
               No announcements yet. Create the first one above.
             </div>
           ) : (
-            orderedPosts.map((post) => (
+            posts.map((post) => (
               <article
                 key={post.id}
                 role="button"
@@ -690,6 +689,7 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
             ))
           )}
         </div>
+        {meta && <Pagination meta={meta} page={page} onPageChange={(p) => void loadPage(p)} />}
       </div>
 
       {renderModal()}

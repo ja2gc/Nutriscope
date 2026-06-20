@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Badge, BadgeTone } from "@/components/ui/Badge";
+import { Pagination } from "@/components/ui/Pagination";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -69,6 +70,7 @@ export default function UserManagementPage() {
   // Search & Filter
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("All");
+  const [page, setPage] = useState(1);
 
   // Create / Edit modal
   const [formOpen, setFormOpen] = useState(false);
@@ -112,6 +114,7 @@ export default function UserManagementPage() {
   }, []);
 
   const filteredUsers = useMemo(() => {
+    setPage(1);
     return users.filter((u) => {
       const matchesSearch =
         u.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -120,6 +123,18 @@ export default function UserManagementPage() {
       return matchesSearch && matchesRole;
     });
   }, [users, search, roleFilter]);
+
+  const pagedUsers = useMemo(
+    () => filteredUsers.slice((page - 1) * 15, page * 15),
+    [filteredUsers, page],
+  );
+
+  const usersMeta = useMemo(() => ({
+    current_page: page,
+    per_page: 15,
+    total: filteredUsers.length,
+    last_page: Math.max(1, Math.ceil(filteredUsers.length / 15)),
+  }), [filteredUsers.length, page]);
 
   // ── modal openers ─────────────────────────────────────────────────────────
 
@@ -375,7 +390,7 @@ export default function UserManagementPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-100">
-                {filteredUsers.map((u) => {
+                {pagedUsers.map((u) => {
                   const isSelf = u.id === currentUser?.id;
                   return (
                     <tr key={u.id} className="hover:bg-zinc-50/60 transition-colors">
@@ -460,6 +475,7 @@ export default function UserManagementPage() {
               </tbody>
             </table>
           </div>
+          <Pagination meta={usersMeta} page={page} onPageChange={setPage} />
         </div>
       )}
 

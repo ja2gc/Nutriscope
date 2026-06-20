@@ -28,7 +28,7 @@ class PatientController extends Controller
             ->when($request->status, fn($q, $s) => $q->where('status', $s))
             ->with(['ncpRecords' => fn($q) => $q->latest()->with(['assessment', 'intervention'])])
             ->orderByDesc('created_at')
-            ->paginate(20);
+            ->paginate((int) min($request->query('per_page', 15), 100));
 
         return PatientResource::collection($patients);
     }

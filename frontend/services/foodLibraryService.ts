@@ -128,12 +128,14 @@ export type RecipePayload = {
 export async function fetchFoodItems(
   search?: string,
   category?: string,
-  page: number = 1
+  page: number = 1,
+  perPage: number = 15
 ): Promise<PaginatedResponse<FoodItem>> {
   const params = new URLSearchParams();
   if (search) params.append("search", search);
   if (category && category !== "all") params.append("category", category);
   params.append("page", page.toString());
+  params.append("per_page", perPage.toString());
 
   const res = await apiFetch(`/api/rnd/food-items?${params}`, {
     headers: { Accept: "application/json" },
@@ -213,12 +215,14 @@ export async function deleteFoodItem(id: number | string): Promise<void> {
 export async function fetchRecipes(
   search?: string,
   category?: string,
-  page: number = 1
+  page: number = 1,
+  perPage: number = 15
 ): Promise<PaginatedResponse<Recipe>> {
   const params = new URLSearchParams();
   if (search) params.append("search", search);
   if (category && category !== "all") params.append("category", category);
   params.append("page", page.toString());
+  params.append("per_page", perPage.toString());
 
   const res = await apiFetch(`/api/rnd/recipes?${params}`, {
     headers: { Accept: "application/json" },

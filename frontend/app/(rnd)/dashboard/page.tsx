@@ -187,8 +187,8 @@ export default function RndDashboardPage() {
       try {
         setAnnouncementsLoading(true);
         setAnnouncementError(null);
-        const data = await fetchAnnouncements();
-        setPosts(sortAnnouncements(data));
+        const result = await fetchAnnouncements();
+        setPosts(sortAnnouncements(result.data));
       } catch (err: any) {
         setAnnouncementError(err.message || "Failed to load announcements.");
       } finally {

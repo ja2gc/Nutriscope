@@ -25,7 +25,7 @@ class RecipeController extends Controller
             $query->where('category', $request->category);
         }
 
-        $recipes = $query->orderBy('name')->paginate(20);
+        $recipes = $query->orderBy('name')->paginate((int) min($request->query('per_page', 15), 100));
 
         return RecipeResource::collection($recipes);
     }

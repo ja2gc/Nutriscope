@@ -10,6 +10,7 @@ import {
   createNcpRecord,
 } from "@/services/patientService";
 import { Button } from "@/components/ui/Button";
+import { Pagination } from "@/components/ui/Pagination";
 import { HeartHandshake, X } from "lucide-react";
 
 function calculateAge(dob?: string) {
@@ -133,12 +134,6 @@ export default function NcpPatientsPage() {
 
     return () => window.clearTimeout(timer);
   }, [loadPatients]);
-
-  function handlePageChange(nextPage: number) {
-    if (nextPage >= 1 && (!meta || nextPage <= meta.last_page)) {
-      setPage(nextPage);
-    }
-  }
 
   const handleCreateAndAssess = async () => {
     if (!newName.trim() || !newDob) {
@@ -431,31 +426,7 @@ export default function NcpPatientsPage() {
         </div>
       )}
 
-      {meta && meta.last_page > 1 && (
-          <div className="px-5 py-4 border-t border-zinc-100 bg-zinc-50 flex items-center justify-between select-none">
-            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
-              Showing Page {meta.current_page} of {meta.last_page} ({meta.total} Total)
-            </span>
-            <div className="flex gap-1.5">
-              <button
-                onClick={() => handlePageChange(page - 1)}
-                disabled={page === 1}
-                className="px-3 py-1.5 border border-zinc-300 bg-white text-zinc-600 rounded-lg hover:bg-zinc-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors text-[10px] font-bold uppercase tracking-wider"
-                title="Previous Page"
-              >
-                Prev
-              </button>
-              <button
-                onClick={() => handlePageChange(page + 1)}
-                disabled={page === meta.last_page}
-                className="px-3 py-1.5 border border-zinc-300 bg-white text-zinc-600 rounded-lg hover:bg-zinc-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors text-[10px] font-bold uppercase tracking-wider"
-                title="Next Page"
-              >
-                Next
-              </button>
-            </div>
-          </div>
-        )}
+      {meta && <Pagination meta={meta} page={page} onPageChange={setPage} />}
       </div>
     </div>
   );

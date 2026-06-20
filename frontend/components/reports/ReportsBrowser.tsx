@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Tabs } from "@/components/ui/Tabs";
 import { Badge, BadgeTone } from "@/components/ui/Badge";
+import { Pagination } from "@/components/ui/Pagination";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
 import {
@@ -193,6 +194,7 @@ function InstancesPanel({
   const [year, setYear] = useState<string>("all");
   const [busy, setBusy] = useState<string | null>(null);
   const [preview, setPreview] = useState<ReportInstance | null>(null);
+  const [page, setPage] = useState(1);
   const Icon = entry.icon;
 
   useEffect(() => {
@@ -215,6 +217,20 @@ function InstancesPanel({
     () => (year === "all" ? instances : instances.filter((i) => i.date?.startsWith(year))),
     [instances, year],
   );
+
+  useEffect(() => { setPage(1); }, [shown]);
+
+  const pagedShown = useMemo(
+    () => shown.slice((page - 1) * 15, page * 15),
+    [shown, page],
+  );
+
+  const instancesMeta = useMemo(() => ({
+    current_page: page,
+    per_page: 15,
+    total: shown.length,
+    last_page: Math.max(1, Math.ceil(shown.length / 15)),
+  }), [shown.length, page]);
 
   async function onArchive(i: ReportInstance) {
     setBusy(i.key);
@@ -268,8 +284,9 @@ function InstancesPanel({
           />
         </div>
       ) : (
+        <>
         <ul className="divide-y divide-zinc-100">
-          {shown.map((i) => (
+          {pagedShown.map((i) => (
             <li key={i.key} className="flex items-center justify-between gap-3 hover:bg-zinc-50/60">
               <button
                 onClick={() => setPreview(i)}
@@ -294,6 +311,8 @@ function InstancesPanel({
             </li>
           ))}
         </ul>
+        <Pagination meta={instancesMeta} page={page} onPageChange={setPage} />
+        </>
       )}
 
       {preview && (
@@ -323,6 +342,7 @@ function ArchivedTab({
   const [reports, setReports] = useState<ReportItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [preview, setPreview] = useState<ReportItem | null>(null);
+  const [page, setPage] = useState(1);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -337,6 +357,15 @@ function ArchivedTab({
   }, [apiPrefix, onFlash]);
 
   useEffect(() => { load(); }, [load]);
+  useEffect(() => { setPage(1); }, [reports]);
+
+  const pagedReports = useMemo(() => reports.slice((page - 1) * 15, page * 15), [reports, page]);
+  const archiveMeta = useMemo(() => ({
+    current_page: page,
+    per_page: 15,
+    total: reports.length,
+    last_page: Math.max(1, Math.ceil(reports.length / 15)),
+  }), [reports.length, page]);
 
   async function onDelete(id: number) {
     try {
@@ -377,7 +406,7 @@ function ArchivedTab({
             ))}</tr>
           </thead>
           <tbody className="divide-y divide-zinc-100">
-            {reports.map((r) => (
+            {pagedReports.map((r) => (
               <tr
                 key={r.id}
                 onClick={() => r.file_path && setPreview(r)}
@@ -407,6 +436,9 @@ function ArchivedTab({
             ))}
           </tbody>
         </table>
+      )}
+      {!loading && reports.length > 0 && (
+        <Pagination meta={archiveMeta} page={page} onPageChange={setPage} />
       )}
 
       {preview && (

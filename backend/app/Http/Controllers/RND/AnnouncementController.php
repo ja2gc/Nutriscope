@@ -32,7 +32,7 @@ class AnnouncementController extends Controller
             ->when($user->role === 'Admin', fn($query) => $query)
             ->orderByDesc('pinned')
             ->orderByDesc('created_at')
-            ->get();
+            ->paginate((int) min($request->query('per_page', 15), 100));
 
         return AnnouncementResource::collection($announcements);
     }
