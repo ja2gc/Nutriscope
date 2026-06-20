@@ -30,9 +30,10 @@ class AuthController extends Controller
             return response()->json(['message' => 'Account is deactivated.'], 403);
         }
 
-        // Revoke all existing tokens and issue a fresh one
-        $user->tokens()->delete();
-        $token = $user->createToken('nutriscope-token', [$user->role])->plainTextToken;
+        // Revoke only tokens for this device, then issue a fresh one
+        $tokenName = $request->validated()['device_name'] ?? 'nutriscope-token';
+        $user->tokens()->where('name', $tokenName)->delete();
+        $token = $user->createToken($tokenName, [$user->role])->plainTextToken;
 
         return response()->json([
             'token' => $token,
