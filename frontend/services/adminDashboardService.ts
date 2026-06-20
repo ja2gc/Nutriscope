@@ -9,12 +9,21 @@ export interface DashboardUserStats {
   };
 }
 
+export interface DashboardAiDailyPoint {
+  date: string;
+  calls: number;
+  tokens: number;
+}
+
 export interface DashboardAiUsage {
   total_calls: number;
   total_tokens: number;
   tokens_input: number;
   tokens_output: number;
+  month_calls: number;
+  month_tokens: number;
   by_endpoint: Record<string, { calls: number; tokens: number }>;
+  daily: DashboardAiDailyPoint[];
 }
 
 export interface DashboardAuditLogs {
