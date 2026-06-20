@@ -35,6 +35,7 @@ use App\Http\Controllers\FSS\InsightsController;
 use App\Http\Controllers\ActivityController;
 use App\Http\Controllers\FSS\MealPrepLogController;
 use App\Http\Controllers\FSS\CleaningLogController;
+use App\Http\Controllers\FSS\DashboardController as FssDashboardController;
 use App\Http\Controllers\FSS\DietListCountController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\ReportBrandingController;
@@ -164,6 +165,9 @@ Route::middleware(['auth:sanctum', 'role:RND', 'audit'])->prefix('rnd')->group(f
 });
 
 Route::middleware(['auth:sanctum', 'role:FSS,RND'])->prefix('fss')->group(function () use ($reportRoutes) {
+    // Dashboard
+    Route::get('dashboard/summary', [FssDashboardController::class, 'summary']);
+
     // Inventory routes
     Route::get('inventory/rows', [InventoryController::class, 'rows']);
     Route::apiResource('inventory', InventoryController::class);
