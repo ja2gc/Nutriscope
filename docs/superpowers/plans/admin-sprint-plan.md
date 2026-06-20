@@ -178,6 +178,17 @@ Per superpowers:test-driven-development: **write the failing test → run it, se
 ## Follow-up (out of this sprint, tracked here)
 - **Clinical-rules CRUD → RND route group** — pulled out of Admin; no RND task written yet. Confirm source of truth first: the *read* path is wired through `config/clinical.php`, not a `clinical_rules` table — a CRUD page must write where the engine reads (`admin.md` §7).
 
+## ✅ SHIPPED (S0–S8 complete + consistency pass)
+All sprints implemented and browser-verified on `main`. Key outcomes beyond the original task text:
+- **S1:** `UserResource` did not expose `is_active` (Active toggle had nothing to bind) — fixed via TDD.
+- **Proxy layer (discovered in S1/S2 browser verify):** every Admin page needs a Next.js proxy handler under `frontend/app/api/admin/**` (and shared `app/api/{auth,notifications}/**`) forwarding the `nutriscope_token` cookie via `lib/laravelProxy.ts`. A clean `tsc` does **not** prove a page works — only the Functional Gate browser round-trip does. Handlers added for users/audit-logs/dashboard/announcements/notifications/auth(profile,password)/report-branding/reports.
+- **S8 Reports (built):** one `ReportController` + `ADMIN_ALLOWED_TYPES = [demographic_census, budget_report, procurement_pack]` enforced **server-side** on every entry point (`index/instances/render/archive/store/show/download/view`) → 403 for Admin on any other type (verified via the admin proxy). Frontend: shared `components/reports/ReportsBrowser.tsx` (`catalog`+`apiPrefix`); RND and Admin pages are thin wrappers.
+
+### Consistency pass (post-build, per user review)
+- **Shared `AnnouncementsBoard`** (`components/announcements/AnnouncementsBoard.tsx`, `variant` admin|rnd): admin page **and** a new RND `/announcements` page are thin wrappers; `categoryStyles` defined once; RND dashboard imports it (no duplicate). RND nav gained an Announcements link.
+- **Nav/topbar mirror RND:** admin "All Reports"→"Reports"; Profile + Notifications removed from the admin sidebar and reached from the **TopBar** (profile card → `/admin/profile`, bell → `/admin/notifications`); desktop collapse button hidden on mobile (fixes the broken collapse/scroll).
+- **Dashboard:** neutral `KpiCard` tones (no per-card color); **AI Usage** card = month-to-date, chart = tokens/day (`ai_usage.month_*` + `daily[]` added to `DashboardController`/resource, real `ai_usage_logs` rows).
+
 ## Self-Review checklist (run after the plan is executed)
 - **No orphans:** every Admin page (S0–S7) ↔ a real route in `routes/api.php` ↔ a controller ↔ a migration column ↔ a frontend service. No table/API/UI without a consumer.
 - **No duplication:** notifications use one shared route + one service (not an admin-prefixed copy); announcements/profile/branding reuse shared controllers/components.
