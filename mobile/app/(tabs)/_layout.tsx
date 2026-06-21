@@ -1,5 +1,6 @@
 import { Tabs } from 'expo-router';
-import { BarChart3, Package, ShoppingCart, LayoutDashboard } from 'lucide-react-native';
+import { BarChart3, LayoutDashboard, Package, ShoppingCart } from 'lucide-react-native';
+import AppHeader from '../../components/AppHeader';
 
 export default function TabsLayout() {
   return (
@@ -9,8 +10,6 @@ export default function TabsLayout() {
         tabBarActiveTintColor: '#2563eb',
         tabBarInactiveTintColor: '#6b7280',
         tabBarStyle: { backgroundColor: '#ffffff' },
-        headerStyle: { backgroundColor: '#ffffff' },
-        headerTitleStyle: { fontWeight: '600', color: '#111827' },
       }}
     >
       <Tabs.Screen
@@ -20,6 +19,7 @@ export default function TabsLayout() {
           tabBarIcon: ({ color, size }) => (
             <LayoutDashboard color={color} size={size} />
           ),
+          header: () => <AppHeader title="Dashboard" />,
         }}
       />
       <Tabs.Screen
@@ -29,6 +29,7 @@ export default function TabsLayout() {
           tabBarIcon: ({ color, size }) => (
             <BarChart3 color={color} size={size} />
           ),
+          header: () => <AppHeader title="Prep" />,
         }}
       />
       <Tabs.Screen
@@ -38,6 +39,7 @@ export default function TabsLayout() {
           tabBarIcon: ({ color, size }) => (
             <Package color={color} size={size} />
           ),
+          header: () => <AppHeader title="Inventory" />,
         }}
       />
       <Tabs.Screen
@@ -47,6 +49,7 @@ export default function TabsLayout() {
           tabBarIcon: ({ color, size }) => (
             <ShoppingCart color={color} size={size} />
           ),
+          header: () => <AppHeader title="Procurement" />,
         }}
       />
     </Tabs>
