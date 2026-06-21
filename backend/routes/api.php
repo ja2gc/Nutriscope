@@ -31,10 +31,8 @@ use App\Http\Controllers\FSS\MenuCycleTemplateController;
 use App\Http\Controllers\FSS\BudgetController;
 use App\Http\Controllers\FSS\FoodServiceRecipeController;
 use App\Http\Controllers\FSS\FsItemController;
-use App\Http\Controllers\FSS\InsightsController;
 use App\Http\Controllers\ActivityController;
 use App\Http\Controllers\FSS\MealPrepLogController;
-use App\Http\Controllers\FSS\CleaningLogController;
 use App\Http\Controllers\FSS\DashboardController as FssDashboardController;
 use App\Http\Controllers\FSS\DietListCountController;
 use App\Http\Controllers\ReportController;
@@ -173,21 +171,18 @@ Route::middleware(['auth:sanctum', 'role:FSS,RND'])->prefix('fss')->group(functi
     Route::apiResource('inventory', InventoryController::class);
     Route::post('inventory/{inventory}/restock', [InventoryController::class, 'restock']);
 
-    // Suppliers routes
-    Route::apiResource('suppliers', SupplierController::class);
-
-    // Purchase Orders routes
+    // Purchase Orders — FSS reads + attachments; writes are RND-only (see below)
+    Route::get('purchase-orders/{purchase_order}/activity', [ActivityController::class, 'purchaseOrder']);
     Route::post('purchase-orders/{purchase_order}/attachments', [PurchaseOrderController::class, 'uploadAttachment']);
     Route::delete('purchase-order-attachments/{attachment}', [PurchaseOrderController::class, 'destroyAttachment']);
-    Route::apiResource('purchase-orders', PurchaseOrderController::class);
+    Route::apiResource('purchase-orders', PurchaseOrderController::class)->only(['index', 'show']);
 
-    // Shopping Lists routes
+    // Shopping Lists — FSS reads only; writes are RND-only (see below)
     Route::post('shopping-lists/generate', [ShoppingListController::class, 'generate']);
-    Route::post('shopping-lists/{shopping_list}/generate-pos', [PurchaseOrderController::class, 'generatePos']);
-    Route::post('shopping-lists/{shopping_list}/items', [ShoppingListController::class, 'storeItem']);
-    Route::patch('shopping-list-items/{shopping_list_item}', [ShoppingListController::class, 'updateItem']);
-    Route::delete('shopping-list-items/{shopping_list_item}', [ShoppingListController::class, 'destroyItem']);
-    Route::apiResource('shopping-lists', ShoppingListController::class);
+    Route::apiResource('shopping-lists', ShoppingListController::class)->only(['index', 'show']);
+
+    // FS Items — price-trend read for FSS; update is RND-only (see below)
+    Route::get('fs-items/{fsItem}/price-trend', [FsItemController::class, 'priceTrend']);
 
     // Menu Cycles — FSS read-only (RND owns writes, see RND-only group below)
     Route::get('menu-cycles/cost-today', [MenuCycleController::class, 'costToday']);
@@ -198,16 +193,41 @@ Route::middleware(['auth:sanctum', 'role:FSS,RND'])->prefix('fss')->group(functi
     Route::get('food-service-recipes/{foodServiceRecipe}/profile', [FoodServiceRecipeController::class, 'profile']);
     Route::apiResource('food-service-recipes', FoodServiceRecipeController::class)->only(['index', 'show']);
 
-    // FS Items (catalog) routes
-    Route::get('fs-items/{fsItem}/price-trend', [FsItemController::class, 'priceTrend']);
-    Route::patch('fs-items/{fsItem}', [FsItemController::class, 'update']);
-
     // Budgets — FSS read-only (RND owns writes)
     Route::get('budgets/{budget}/summary', [BudgetController::class, 'summary']);
     Route::apiResource('budgets', BudgetController::class)->only(['index', 'show']);
 
-    // ===== RND-only planning writes (FSS receives 403) =====
+    // Per-record audit history (Spec 5)
+    Route::get('inventory/{inventory}/activity', [ActivityController::class, 'inventory']);
+
+    // Consumption (meal prep / service-day completion)
+    Route::get('meal-prep-logs', [MealPrepLogController::class, 'index']);
+    Route::post('menu-cycles/{menuCycle}/complete-day', [MealPrepLogController::class, 'complete']);
+    Route::post('meal-prep-logs/{mealPrepLog}/reverse', [MealPrepLogController::class, 'reverse']);
+
+    // Diet-list capture (per-staff ward headcount + task marks)
+    Route::post('diet-list-counts', [DietListCountController::class, 'store']);
+    Route::get('diet-list-counts', [DietListCountController::class, 'index']);
+
+    // ===== RND-only planning/authoring writes (FSS receives 403) =====
     Route::middleware('role:RND')->group(function () {
+        // Suppliers — RND-only (FSS has no read scope either per §6)
+        Route::apiResource('suppliers', SupplierController::class);
+
+        // Purchase Orders — RND authors; FSS gets reads + attachments above
+        Route::apiResource('purchase-orders', PurchaseOrderController::class)->only(['store', 'update', 'destroy']);
+        Route::post('shopping-lists/{shopping_list}/generate-pos', [PurchaseOrderController::class, 'generatePos']);
+
+        // Shopping Lists — RND authors items; FSS generate (suggestion) stays above
+        Route::post('shopping-lists/{shopping_list}/items', [ShoppingListController::class, 'storeItem']);
+        Route::patch('shopping-list-items/{shopping_list_item}', [ShoppingListController::class, 'updateItem']);
+        Route::delete('shopping-list-items/{shopping_list_item}', [ShoppingListController::class, 'destroyItem']);
+        Route::apiResource('shopping-lists', ShoppingListController::class)->only(['store', 'update', 'destroy']);
+
+        // FS Item catalog edits
+        Route::patch('fs-items/{fsItem}', [FsItemController::class, 'update']);
+
+        // Menu Cycles
         Route::patch('menu-cycles/{menu_cycle}/activate', [MenuCycleController::class, 'activate']);
         Route::post('menu-cycles/{menu_cycle}/save-template', [MenuCycleTemplateController::class, 'fromCycle']);
         Route::apiResource('menu-cycles', MenuCycleController::class)->only(['store', 'update', 'destroy']);
@@ -220,27 +240,6 @@ Route::middleware(['auth:sanctum', 'role:FSS,RND'])->prefix('fss')->group(functi
         Route::post('budgets/{budget}/daily-logs', [BudgetController::class, 'storeDailyLog']);
         Route::apiResource('budgets', BudgetController::class)->only(['store', 'update', 'destroy']);
     });
-
-    // Insights / analytics (read-only, graphs — never in compliance PDFs)
-    Route::get('insights/spend-by-supplier', [InsightsController::class, 'spendBySupplier']);
-    Route::get('insights/cost-per-head', [InsightsController::class, 'costPerHead']);
-    Route::get('insights/consumption', [InsightsController::class, 'consumption']);
-
-    // Per-record audit history (Spec 5)
-    Route::get('inventory/{inventory}/activity', [ActivityController::class, 'inventory']);
-    Route::get('purchase-orders/{purchase_order}/activity', [ActivityController::class, 'purchaseOrder']);
-
-    // Consumption (meal prep / service-day completion)
-    Route::get('meal-prep-logs', [MealPrepLogController::class, 'index']);
-    Route::post('menu-cycles/{menuCycle}/complete-day', [MealPrepLogController::class, 'complete']);
-    Route::post('meal-prep-logs/{mealPrepLog}/reverse', [MealPrepLogController::class, 'reverse']);
-
-    // Cleaning log (FSS daily sanitation checklist)
-    Route::apiResource('cleaning-logs', CleaningLogController::class);
-
-    // Diet-list capture (per-staff ward headcount + task marks)
-    Route::post('diet-list-counts', [DietListCountController::class, 'store']);
-    Route::get('diet-list-counts', [DietListCountController::class, 'index']);
 
     // Announcements — FSS reads its feed (visibility FSS|All); RND/Admin own writes
     Route::get('announcements', [RndAnnouncementController::class, 'index']);

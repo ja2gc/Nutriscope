@@ -2,12 +2,16 @@
 
 namespace Tests\Feature;
 
-use App\Models\CleaningLog;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
+/**
+ * Cleaning-log routes were removed in R2 scope enforcement (replaced by diet-list /
+ * accomplishment capture built in commit 93920e6). These tests assert the endpoints
+ * are gone so a future route accident is caught immediately.
+ */
 class CleaningLogTest extends TestCase
 {
     use RefreshDatabase;
@@ -23,73 +27,31 @@ class CleaningLogTest extends TestCase
         ]);
     }
 
-    public function test_fss_can_list_cleaning_logs(): void
+    public function test_cleaning_log_list_route_is_gone(): void
     {
-        CleaningLog::factory()->count(3)->create(['fss_user_id' => $this->fss->id]);
-
-        $response = $this->actingAs($this->fss)->getJson('/api/fss/cleaning-logs');
-
-        $response->assertOk()
-            ->assertJsonStructure(['data' => [['id', 'item_name', 'category', 'status', 'cleaned_at']]]);
-        $this->assertCount(3, $response->json('data'));
-    }
-
-    public function test_fss_can_create_cleaning_log(): void
-    {
-        $response = $this->actingAs($this->fss)->postJson('/api/fss/cleaning-logs', [
-            'item_name'  => 'Walk-in chiller',
-            'category'   => 'equipment',
-            'status'     => 'done',
-            'notes'      => 'Sanitized shelves',
-            'cleaned_at' => '2026-06-15 08:00:00',
-        ]);
-
-        $response->assertCreated()
-            ->assertJsonPath('data.item_name', 'Walk-in chiller');
-
-        $this->assertDatabaseHas('cleaning_logs', [
-            'item_name'   => 'Walk-in chiller',
-            'fss_user_id' => $this->fss->id,
-        ]);
-    }
-
-    public function test_create_requires_item_name(): void
-    {
-        $response = $this->actingAs($this->fss)->postJson('/api/fss/cleaning-logs', [
-            'category' => 'equipment',
-        ]);
-
-        $response->assertStatus(422)->assertJsonValidationErrors('item_name');
-    }
-
-    public function test_fss_can_update_cleaning_log(): void
-    {
-        $log = CleaningLog::factory()->create([
-            'fss_user_id' => $this->fss->id,
-            'status'      => 'pending',
-        ]);
-
-        $response = $this->actingAs($this->fss)->patchJson("/api/fss/cleaning-logs/{$log->id}", [
-            'status' => 'done',
-        ]);
-
-        $response->assertOk()->assertJsonPath('data.status', 'done');
-        $this->assertDatabaseHas('cleaning_logs', ['id' => $log->id, 'status' => 'done']);
-    }
-
-    public function test_fss_can_delete_cleaning_log(): void
-    {
-        $log = CleaningLog::factory()->create(['fss_user_id' => $this->fss->id]);
-
         $this->actingAs($this->fss)
-            ->deleteJson("/api/fss/cleaning-logs/{$log->id}")
-            ->assertNoContent();
-
-        $this->assertDatabaseMissing('cleaning_logs', ['id' => $log->id]);
+            ->getJson('/api/fss/cleaning-logs')
+            ->assertNotFound();
     }
 
-    public function test_guest_cannot_access_cleaning_logs(): void
+    public function test_cleaning_log_create_route_is_gone(): void
     {
-        $this->getJson('/api/fss/cleaning-logs')->assertUnauthorized();
+        $this->actingAs($this->fss)
+            ->postJson('/api/fss/cleaning-logs', ['item_name' => 'Walk-in chiller'])
+            ->assertNotFound();
+    }
+
+    public function test_cleaning_log_update_route_is_gone(): void
+    {
+        $this->actingAs($this->fss)
+            ->patchJson('/api/fss/cleaning-logs/1', ['status' => 'done'])
+            ->assertNotFound();
+    }
+
+    public function test_cleaning_log_delete_route_is_gone(): void
+    {
+        $this->actingAs($this->fss)
+            ->deleteJson('/api/fss/cleaning-logs/1')
+            ->assertNotFound();
     }
 }

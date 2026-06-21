@@ -114,11 +114,23 @@ class FoodServiceOpsTest extends TestCase
         $response->assertOk();
     }
 
-    // ===== SUPPLIERS =====
+    // ===== SUPPLIERS (RND-only — FSS has no supplier scope per §6) =====
 
-    public function test_fss_can_create_supplier(): void
+    public function test_fss_cannot_create_supplier(): void
     {
         $response = $this->actingAs($this->fss)
+            ->postJson('/api/fss/suppliers', [
+                'name'    => 'Green Valley Farm',
+                'contact' => '0912-345-6789',
+                'address' => 'Quezon City, Philippines',
+            ]);
+
+        $response->assertForbidden();
+    }
+
+    public function test_rnd_can_create_supplier(): void
+    {
+        $response = $this->actingAs($this->rnd)
             ->postJson('/api/fss/suppliers', [
                 'name'    => 'Green Valley Farm',
                 'contact' => '0912-345-6789',
@@ -131,11 +143,21 @@ class FoodServiceOpsTest extends TestCase
         $this->assertDatabaseHas('suppliers', ['name' => 'Green Valley Farm']);
     }
 
-    public function test_fss_can_list_suppliers(): void
+    public function test_fss_cannot_list_suppliers(): void
     {
         Supplier::factory(3)->create();
 
         $response = $this->actingAs($this->fss)
+            ->getJson('/api/fss/suppliers');
+
+        $response->assertForbidden();
+    }
+
+    public function test_rnd_can_list_suppliers(): void
+    {
+        Supplier::factory(3)->create();
+
+        $response = $this->actingAs($this->rnd)
             ->getJson('/api/fss/suppliers');
 
         $response->assertOk()
@@ -144,7 +166,7 @@ class FoodServiceOpsTest extends TestCase
 
     public function test_supplier_creation_requires_name(): void
     {
-        $response = $this->actingAs($this->fss)
+        $response = $this->actingAs($this->rnd)
             ->postJson('/api/fss/suppliers', []);
 
         $response->assertUnprocessable()
@@ -153,12 +175,29 @@ class FoodServiceOpsTest extends TestCase
 
     // ===== PURCHASE ORDERS =====
 
-    public function test_fss_can_create_purchase_order(): void
+    public function test_fss_cannot_create_purchase_order(): void
     {
         $supplier = Supplier::factory()->create();
         $fsItem   = $this->makeFsItem();
 
         $response = $this->actingAs($this->fss)
+            ->postJson('/api/fss/purchase-orders', [
+                'supplier_id'  => $supplier->id,
+                'order_date'   => '2026-06-10',
+                'items'        => [
+                    ['fs_item_id' => $fsItem->id, 'qty' => 50, 'unit_price' => 25.00],
+                ],
+            ]);
+
+        $response->assertForbidden();
+    }
+
+    public function test_rnd_can_create_purchase_order(): void
+    {
+        $supplier = Supplier::factory()->create();
+        $fsItem   = $this->makeFsItem();
+
+        $response = $this->actingAs($this->rnd)
             ->postJson('/api/fss/purchase-orders', [
                 'supplier_id'  => $supplier->id,
                 'order_date'   => '2026-06-10',
@@ -174,11 +213,30 @@ class FoodServiceOpsTest extends TestCase
         $this->assertDatabaseHas('purchase_order_items', ['fs_item_id' => $fsItem->id]);
     }
 
-    public function test_fss_can_update_purchase_order_status(): void
+    public function test_fss_can_read_purchase_order(): void
     {
         $po = PurchaseOrder::factory()->create(['status' => 'draft']);
 
-        $response = $this->actingAs($this->fss)
+        $this->actingAs($this->fss)
+            ->getJson("/api/fss/purchase-orders/{$po->id}")
+            ->assertOk()
+            ->assertJsonPath('data.status', 'draft');
+    }
+
+    public function test_fss_cannot_update_purchase_order_status(): void
+    {
+        $po = PurchaseOrder::factory()->create(['status' => 'draft']);
+
+        $this->actingAs($this->fss)
+            ->patchJson("/api/fss/purchase-orders/{$po->id}", ['status' => 'received'])
+            ->assertForbidden();
+    }
+
+    public function test_rnd_can_update_purchase_order_status(): void
+    {
+        $po = PurchaseOrder::factory()->create(['status' => 'draft']);
+
+        $response = $this->actingAs($this->rnd)
             ->patchJson("/api/fss/purchase-orders/{$po->id}", [
                 'status' => 'received',
             ]);
@@ -187,7 +245,7 @@ class FoodServiceOpsTest extends TestCase
             ->assertJsonPath('data.status', 'received');
     }
 
-    public function test_fss_po_status_received_updates_inventory(): void
+    public function test_rnd_po_status_received_updates_inventory(): void
     {
         $fsItem = $this->makeFsItem([
             'base_unit' => 'kg',
@@ -215,20 +273,20 @@ class FoodServiceOpsTest extends TestCase
             'total_value' => 100.00,
         ]);
 
-        $response = $this->actingAs($this->fss)
+        $response = $this->actingAs($this->rnd)
             ->patchJson("/api/fss/purchase-orders/{$po->id}", [
                 'status' => 'received',
             ]);
 
         $response->assertOk();
-        
+
         $inventory->refresh();
         $this->assertEquals(15.00, $inventory->quantity_in_stock);
     }
 
     public function test_purchase_order_item_validation(): void
     {
-        $response = $this->actingAs($this->fss)
+        $response = $this->actingAs($this->rnd)
             ->postJson('/api/fss/purchase-orders', [
                 'items' => [
                     ['unit_price' => 25.00]
@@ -814,7 +872,7 @@ class FoodServiceOpsTest extends TestCase
     {
         $supplier = Supplier::factory()->create();
         $list = ShoppingList::create([
-            'rnd_user_id' => $this->fss->id, 'name' => 'L', 'list_date' => '2026-06-08',
+            'rnd_user_id' => $this->rnd->id, 'name' => 'L', 'list_date' => '2026-06-08',
             'list_type' => 'suggested', 'status' => 'draft',
         ]);
         $list->items()->create([
@@ -822,7 +880,13 @@ class FoodServiceOpsTest extends TestCase
             'unit_price' => 0.05, 'total' => 100, 'purchase_qty' => 2, 'purchase_unit' => 'kg', 'purchase_price' => 50,
         ]);
 
-        $response = $this->actingAs($this->fss)->postJson("/api/fss/shopping-lists/{$list->id}/generate-pos");
+        // generatePos is RND-only; FSS gets 403
+        $this->actingAs($this->fss)
+            ->postJson("/api/fss/shopping-lists/{$list->id}/generate-pos")
+            ->assertForbidden();
+
+        // RND gets 201
+        $response = $this->actingAs($this->rnd)->postJson("/api/fss/shopping-lists/{$list->id}/generate-pos");
         $response->assertCreated();
 
         $this->assertDatabaseHas('purchase_order_items', [
@@ -830,7 +894,7 @@ class FoodServiceOpsTest extends TestCase
         ]);
     }
 
-    public function test_fss_can_manually_add_item_to_shopping_list(): void
+    public function test_fss_cannot_manually_add_item_to_shopping_list(): void
     {
         $supplier = Supplier::factory()->create();
         $fs = FsItem::factory()->create([
@@ -842,14 +906,42 @@ class FoodServiceOpsTest extends TestCase
             'default_supplier_id' => $supplier->id,
         ]);
         $list = ShoppingList::create([
-            'rnd_user_id' => $this->fss->id,
+            'rnd_user_id' => $this->rnd->id,
             'name' => 'Manual list',
             'list_date' => '2026-06-08',
             'list_type' => 'manual',
             'status' => 'draft',
         ]);
 
-        $response = $this->actingAs($this->fss)->postJson("/api/fss/shopping-lists/{$list->id}/items", [
+        $this->actingAs($this->fss)->postJson("/api/fss/shopping-lists/{$list->id}/items", [
+            'fs_item_id' => $fs->id,
+            'qty' => 12,
+            'unit' => 'piece',
+            'supplier_id' => $supplier->id,
+            'unit_price' => 6,
+        ])->assertForbidden();
+    }
+
+    public function test_rnd_can_manually_add_item_to_shopping_list(): void
+    {
+        $supplier = Supplier::factory()->create();
+        $fs = FsItem::factory()->create([
+            'name' => 'Banana',
+            'base_unit' => 'piece',
+            'purchase_unit' => 'piece',
+            'purchase_price' => 6,
+            'units_per_purchase' => 1,
+            'default_supplier_id' => $supplier->id,
+        ]);
+        $list = ShoppingList::create([
+            'rnd_user_id' => $this->rnd->id,
+            'name' => 'Manual list',
+            'list_date' => '2026-06-08',
+            'list_type' => 'manual',
+            'status' => 'draft',
+        ]);
+
+        $response = $this->actingAs($this->rnd)->postJson("/api/fss/shopping-lists/{$list->id}/items", [
             'fs_item_id' => $fs->id,
             'qty' => 12,
             'unit' => 'piece',
@@ -878,24 +970,91 @@ class FoodServiceOpsTest extends TestCase
         ]);
         Inventory::factory()->create(['fs_item_id' => $fs->id, 'quantity_in_stock' => 0, 'unit' => 'g']);
 
-        $po = PurchaseOrder::factory()->create(['rnd_user_id' => $this->fss->id, 'status' => 'draft']);
+        $po = PurchaseOrder::factory()->create(['rnd_user_id' => $this->rnd->id, 'status' => 'draft']);
         $po->items()->create([
             'fs_item_id' => $fs->id, 'description' => 'Rice',
             'qty' => 2000, 'unit' => 'g', 'unit_price' => 0.05, 'total_value' => 100,
             'purchase_qty' => 2, 'purchase_unit' => 'kg', 'purchase_price' => 50,
         ]);
 
-        $this->actingAs($this->fss)->patchJson("/api/fss/purchase-orders/{$po->id}", ['status' => 'received'])
+        // PO update is RND-only
+        $this->actingAs($this->rnd)->patchJson("/api/fss/purchase-orders/{$po->id}", ['status' => 'received'])
             ->assertOk();
 
         // 2 kg × 1000 g/kg = 2000 g added to stock.
         $this->assertDatabaseHas('inventory', ['fs_item_id' => $fs->id, 'quantity_in_stock' => 2000]);
     }
 
+    // ===== R2.4 SCOPE ENFORCEMENT: gate assertions =====
+
+    public function test_fss_gets_403_on_fs_item_update(): void
+    {
+        $fsItem = $this->makeFsItem(['purchase_price' => 10.00]);
+
+        $this->actingAs($this->fss)
+            ->patchJson("/api/fss/fs-items/{$fsItem->id}", ['purchase_price' => 20.00])
+            ->assertForbidden();
+    }
+
+    public function test_rnd_can_update_fs_item(): void
+    {
+        $fsItem = $this->makeFsItem(['purchase_price' => 10.00]);
+
+        $this->actingAs($this->rnd)
+            ->patchJson("/api/fss/fs-items/{$fsItem->id}", ['purchase_price' => 20.00])
+            ->assertOk();
+    }
+
+    public function test_fss_gets_403_on_insights_routes(): void
+    {
+        // Insights routes removed entirely — FSS gets 404 (not just 403)
+        $this->actingAs($this->fss)->getJson('/api/fss/insights/spend-by-supplier')->assertNotFound();
+        $this->actingAs($this->fss)->getJson('/api/fss/insights/cost-per-head')->assertNotFound();
+        $this->actingAs($this->fss)->getJson('/api/fss/insights/consumption')->assertNotFound();
+    }
+
+    public function test_fss_gets_404_on_deleted_cleaning_log_routes(): void
+    {
+        $this->actingAs($this->fss)->getJson('/api/fss/cleaning-logs')->assertNotFound();
+        $this->actingAs($this->fss)->postJson('/api/fss/cleaning-logs', ['item_name' => 'x'])->assertNotFound();
+    }
+
+    public function test_rnd_can_create_po_and_shopping_list_item(): void
+    {
+        // PO create
+        $supplier = Supplier::factory()->create();
+        $fsItem   = $this->makeFsItem();
+
+        $this->actingAs($this->rnd)
+            ->postJson('/api/fss/purchase-orders', [
+                'supplier_id' => $supplier->id,
+                'order_date'  => '2026-06-10',
+                'items'       => [['fs_item_id' => $fsItem->id, 'qty' => 5, 'unit_price' => 10.00]],
+            ])
+            ->assertCreated();
+
+        // Shopping list item add
+        $list = ShoppingList::create([
+            'rnd_user_id' => $this->rnd->id, 'name' => 'L2', 'list_date' => '2026-06-08',
+            'list_type' => 'manual', 'status' => 'draft',
+        ]);
+
+        $this->actingAs($this->rnd)
+            ->postJson("/api/fss/shopping-lists/{$list->id}/items", [
+                'fs_item_id' => $fsItem->id,
+                'qty' => 5,
+                'unit' => $fsItem->base_unit,
+                'unit_price' => 10.00,
+            ])
+            ->assertCreated();
+    }
+
+    // ===== PROCUREMENT PACK (report generator — model-level, no HTTP auth) =====
+
     public function test_procurement_pack_prints_purchase_units(): void
     {
         $fs = FsItem::factory()->create(['name' => 'Rice', 'base_unit' => 'g', 'purchase_unit' => 'kg', 'purchase_price' => 50]);
-        $po = PurchaseOrder::factory()->create(['rnd_user_id' => $this->fss->id, 'status' => 'received', 'order_date' => '2026-06-08']);
+        $po = PurchaseOrder::factory()->create(['rnd_user_id' => $this->rnd->id, 'status' => 'received', 'order_date' => '2026-06-08']);
         $po->items()->create([
             'fs_item_id' => $fs->id, 'description' => 'Rice',
             'qty' => 2000, 'unit' => 'g', 'unit_price' => 0.05, 'total_value' => 100,
