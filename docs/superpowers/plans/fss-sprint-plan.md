@@ -71,9 +71,10 @@ Replaces the standalone cleaning log. Decided model: **per-staff tasks, day-leve
 - [x] **Aggregation:** `ConsumptionService::completeDay` prefers Σ of the date's `diet_list_counts.population`; hand-typed `served_population` is fallback when no rows exist. Controller also syncs the sum onto an existing `meal_prep_logs` row on submit.
 - [x] **Tests:** 8 in `DietListCountTest` (3-ward sum, flag persistence, self-scoped write, complete-day prefers sum) + 5 meal-prep regression — all green.
 
-### A2 — Report generator
-- [ ] Build the accomplishment-report generator to emit the per-staff weekly sheet (7 task rows × days, ✓/number/off-duty cells, signature blocks: Prepared/Noted/Approved) from `diet_list_counts` joined with the day's summed headcount. Match the form layout in `docs/Nutriscope Forms/accomplishment report for fss.jpg`. Slot into the existing report generator pattern (`backend/app/Services/.../Generators/`).
-- [ ] **Tests:** generator output for a seeded week.
+### A2 — Report generator — DONE (commit `7f4937e`)
+- [x] `AccomplishmentReportGenerator` implements `ReportGenerator`; per-staff sheet (7 task rows × days, ✓/number/off-duty, signature blocks) from `diet_list_counts` + daily summed headcount; landscape blade `resources/views/reports/accomplishment.blade.php`. Registered `accomplishment_report` in `ReportService::GENERATORS` + `ReportBrowser` (`PeriodInstanceSource` on `service_date`); reachable via existing `/api/fss/reports/*`. Real data only.
+- [x] **Tests:** 11 in `AccomplishmentReportTest` (task marks, off-duty, population row, daily sum, user filter, PDF render, instances axis, RND access). Full suite 581 green.
+- [ ] **Follow-up (scope):** the shared `/api/fss/reports/*` routes may expose report *types* beyond `accomplishment_report`. fss.md §8 limits FSS to accomplishment only — confirm the FSS report endpoints reject other types (gate by allowed-types for `role:FSS`).
 
 ### A3 — App UI (Accomplishment / Prep & Clean tab)
 - [ ] Daily entry: pick ward(s), enter diet-list count, tick the day's tasks / mark off-duty. Show the day's running summed headcount.
