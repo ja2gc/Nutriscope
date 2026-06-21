@@ -10,7 +10,7 @@ import { Logo } from "@/components/ui/Logo";
 export default function LoginPage() {
   const router = useRouter();
   const { user, login, loading, error } = useAuth();
-  
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [validationError, setValidationError] = useState<string | null>(null);
@@ -70,17 +70,17 @@ export default function LoginPage() {
             {(error || validationError) && (
               <div id="login-error" className="p-3.5 bg-red-50 border border-red-100 rounded-lg">
                 <div className="flex gap-2.5">
-                  <svg 
-                    className="h-4.5 w-4.5 text-red-600 shrink-0 mt-0.5" 
-                    fill="none" 
-                    viewBox="0 0 24 24" 
+                  <svg
+                    className="h-4.5 w-4.5 text-red-600 shrink-0 mt-0.5"
+                    fill="none"
+                    viewBox="0 0 24 24"
                     stroke="currentColor"
                   >
-                    <path 
-                      strokeLinecap="round" 
-                      strokeLinejoin="round" 
-                      strokeWidth="2" 
-                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" 
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
                     />
                   </svg>
                   <span className="text-xs font-semibold text-red-800">
@@ -93,7 +93,6 @@ export default function LoginPage() {
             <Input
               label="Email Address"
               type="email"
-              placeholder="e.g., rnd@nutriscope.local"
               value={email}
               onChange={(e) => {
                 setEmail(e.target.value);
@@ -107,7 +106,6 @@ export default function LoginPage() {
             <Input
               label="Password"
               type="password"
-              placeholder="••••••••"
               value={password}
               onChange={(e) => {
                 setPassword(e.target.value);
@@ -120,7 +118,7 @@ export default function LoginPage() {
 
             <div className="pt-2">
               <Button id="login-submit" type="submit" loading={loading}>
-                Sign In to Console
+                Sign In
               </Button>
             </div>
           </form>
