@@ -178,10 +178,12 @@ Modals: camera/upload for receipts (UX mirrors RND's receipt-upload flow — sam
 
 ## Page Checklists
 
+> **App scaffold DONE (commit `e30b098`):** `mobile/` Expo app — Expo Router, NativeWind v4, TanStack Query, axios (Bearer + 401→logout), expo-secure-store, lucide icons. Working login (`/api/login` with `device_name`) + 4-tab nav (Dashboard live; Prep/Inventory/Procurement stubs). `tsc` clean, `expo-doctor` 21/21. See `mobile/README.md` for Expo Go run steps.
+
 ### Tab 1: Dashboard
-- [ ] KPI cards fed by `GET /fss/dashboard/summary` (Task D) — meals left to prep, accomplishment/diet-list pending, POs awaiting receipt, inventory no-stock. **No hardcoded counts.**
-- [ ] **Announcements feed (read-only, `visibility=FSS|All`), placed BELOW the dashboard content** — mirror RND's feed; reuse the shared announcement component (`fss.md` §7).
-- [ ] React Query daily-summary fetch + pull-to-refresh.
+- [x] KPI cards fed by `GET /fss/dashboard/summary` (Task D) — meals to log, POs awaiting receipt, inventory no-stock, today's service. **No hardcoded counts.**
+- [ ] **Announcements feed (read-only, `visibility=FSS|All`), placed BELOW the dashboard content** — mirror RND's feed; reuse the shared announcement component (`fss.md` §7). *(not yet — next)*
+- [x] React Query daily-summary fetch + pull-to-refresh (loading + error/retry states).
 
 ### Tab 2: Prep & Accomplishment
 - [ ] **Meal Prep:** today's meals from the *active* menu cycle (read-only cycle); mark-served → `POST /menu-cycles/{id}/complete-day`; handle shortfall (`allow_shortfall`) with a clear modal.
