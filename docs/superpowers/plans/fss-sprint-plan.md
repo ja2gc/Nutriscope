@@ -44,17 +44,17 @@ The client's change-of-mind notes (now folded into `fss.md`) postdate both Phase
 
 All the controllers below live in `App\Http\Controllers\FSS\` but are registered **only** in the shared `/fss` group (middleware `role:FSS,RND`), so RND authors its planning artifacts through the same controllers. The rule: **shared-with-RND ⇒ RND-gate (do not delete); FSS-only-and-dead ⇒ delete.** Before deleting any class, grep the repo for remaining references. For table removal, add a new **drop migration** (never edit a migration that has run) with a reversible `down()` (laravel-best-practices §16). This supersedes/subsumes R0.1's "delete vs gate" question.
 
-### R2.1 — Delete (FSS-only and dead, replaced by Accomplishment Report — §4 / R0.3)
-- [ ] Remove [`CleaningLogController`](../../../backend/app/Http/Controllers/FSS/CleaningLogController.php) and its `apiResource('cleaning-logs', ...)` route, the `CleaningLog` model, and add a drop migration for `cleaning_logs`. Trim cleaning-log tests. **Sequence:** do this only after Task A capture exists, so there is no functional gap.
+### R2.1 — Delete (FSS-only and dead, replaced by Accomplishment Report — §4 / R0.3) — DONE (commit below)
+- [x] Removed `CleaningLogController` + `apiResource('cleaning-logs')` route, `CleaningLog` model + its Form Requests + Resource, added drop migration `2026_06_21_..._drop_cleaning_logs_table`. `CleaningLogTest` rewritten to assert the routes are 404.
 
-### R2.2 — RND-gate (shared; RND still needs these for planning — move writes under a `role:RND` group, strip FSS write access)
-- [ ] Suppliers `apiResource`; PO authoring `store`/`update`/`destroy` + `generatePos`; shopping-lists `apiResource` + `generate` + `storeItem`/`updateItem`/`destroyItem`; `FsItemController@update` (catalog edit). FSS retains **only**: PO `index`/`show` (read) + attachment upload/delete (receipts/proof), and `fs-items/{id}/price-trend` (read). Update `backend/tests/Feature/FoodServiceOpsTest.php`.
+### R2.2 — RND-gate (shared; RND still needs these for planning) — DONE
+- [x] Suppliers, PO `store`/`update`/`destroy` + `generatePos`, shopping-lists `apiResource` + `generate` + item add/update/delete, and `FsItemController@update` moved under `role:RND`. FSS retains PO `index`/`show`, attachment upload/delete, and `fs-items/{id}/price-trend` (read). `FoodServiceOpsTest` updated.
 
-### R2.3 — Remove FSS routes + delete if unreferenced (off-scope analytics — §6 / R0.2)
-- [ ] Remove the three FSS `insights/*` routes. Then grep for [`InsightsController`](../../../backend/app/Http/Controllers/FSS/InsightsController.php) and `ProcurementCostEfficiencyService` references: delete `InsightsController` if nothing else uses it; re-home the `ProcurementCostEfficiencyService` math to the budget/reporting path (R1) or drop it.
+### R2.3 — Remove FSS routes + delete if unreferenced (off-scope analytics — §6 / R0.2) — DONE
+- [x] Three FSS `insights/*` routes removed; `InsightsController` deleted (unreferenced). `ProcurementCostEfficiencyService` kept (still referenced by its own test); re-homing its math to budget/reporting (R1) remains open.
 
-### R2.4 — Tests (scope is enforced, not just documented)
-- [ ] An FSS-role token gets **403** on every RND-gated write (supplier create, PO create, shopping-list item add, fs-item update, any insights route); an RND token still gets **200**. Deleted cleaning-log routes return **404**.
+### R2.4 — Tests (scope is enforced, not just documented) — DONE
+- [x] FSS token → **403** on supplier/PO/shopping-list-item/fs-item writes + insights; RND token → **2xx** on authoring; cleaning-log routes → **404**. Full suite 570 green.
 
 ---
 

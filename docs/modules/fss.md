@@ -10,12 +10,16 @@ FSS (Food Service Staff) runs the **operational** side of food service — the k
 
 ---
 
-## 1. Dashboard (proposed contents)
-FSS does not yet have a dedicated dashboard. Proposed widgets, tuned to the operational role:
+## 1. Dashboard (in scope)
+FSS has a dedicated dashboard, tuned to the operational role. Every widget is fed by a **live endpoint** (`GET /fss/dashboard/summary`) computed from real tables — no seeded or hardcoded figures. Widgets:
 - **Today's service** — the active menu cycle's meals for today + readiness (prepped/served).
-- **Meal-prep to log** — days not yet marked served; one-tap "mark served".
+- **Meal-prep to log** — service days not yet marked served; one-tap "mark served".
 - **Accomplishment log** — today's per-staff duty checklist + diet-list counts (see §4).
 - **Procurement to action** — POs awaiting a receipt / proof upload.
+- **Inventory no-stock** — count of items at/under zero.
+- **Announcements feed** (`visibility=FSS|All`) below the widgets (see §7).
+
+Build steps + the exact query source for each figure: see [`fss-sprint-plan.md`](../superpowers/plans/fss-sprint-plan.md) Task D.
 
 ## 2. Menu cycle (view + execute)
 - View the active/saved menu cycles (`/menu-cycles`, `compute`) — the weekly plan, per-day meals, ingredients, prep, and cost/head.
@@ -74,8 +78,23 @@ FSS sees announcements with visibility `FSS` or `All`, as a read-only **feed pla
 ## 8. Reports — accomplishment report only
 FSS's only report is the **Accomplishment Report** (§4). All other operational/clinical report types (Program Project Activity, Menu Calendar, Dietary Cash Book, Procurement Pack, Budget, Inventory, and every clinical type) are **not** FSS reports. Any FSS-facing report-browser access or FSS-only report backend beyond the accomplishment report is out of scope; remove if present. *(Note: the frontend Reports browser is RND-only today — `(rnd)/reports` + `/api/rnd/reports/*`; no FSS report page exists, so there is nothing to trim on the FSS frontend. The cleanup, if any, is backend-side shared generators.)*
 
-## 9. Notifications (planned) 
-Same backend as RND ([`rnd.md`](rnd.md) §6–7). Useful FSS auto-events: no stock, PO received / awaiting receipt, service day not yet logged, menu activation, shortfall/variance (already wired — `ConsumptionService::completeDay` writes `meal_prep_shortfall` / `meal_prep_variance` notifications to the cycle's RND).
+## 9. Notifications (in scope — page + bell)
+Reuses RND's backend unchanged ([`rnd.md`](rnd.md) §6–7): the same `Notification` model and shared endpoints (`GET /api/notifications`, `PATCH /api/notifications/{id}/read`, `PATCH /api/notifications/read-all`), all scoped by the authenticated user. FSS sees a notifications page plus a bell + unread badge in the app header (see §12 navigation).
+
+FSS notification sources (this round):
+- **Announcements** — already wired: `NotificationService::fanOutAnnouncement` fans out to recipients by visibility (`FSS|All`).
+- **PO awaiting receipt** — new event: when RND creates or sets a PO to status `ordered`, all FSS users are notified to upload proof.
+
+Related (already wired, routes to RND not FSS): `ConsumptionService::completeDay` writes `meal_prep_shortfall` / `meal_prep_variance` to the cycle's RND. Other candidates from earlier drafts (no-stock, service-day-not-logged, menu activation) are **deferred** — not built this round. Build steps: see [`fss-sprint-plan.md`](../superpowers/plans/fss-sprint-plan.md) Task N.
+
+## 10. Profile (in scope)
+Name/email edit + change password, reusing the existing role-agnostic auth endpoints (`GET /api/auth/me`, `PATCH /api/auth/profile`, `POST /api/auth/password`). No avatar — matches RND/Admin. Reached from the app header account control, not a bottom tab. Build steps: [`fss-sprint-plan.md`](../superpowers/plans/fss-sprint-plan.md) Task P.
+
+## 11. Settings (in scope — device-only)
+Mirrors RND/Admin: appearance (display density, reduce-motion) stored **on-device only** (no settings backend), plus "mark all notifications read" and logout. Build steps: [`fss-sprint-plan.md`](../superpowers/plans/fss-sprint-plan.md) Task S.
+
+## 12. Navigation
+Four bottom tabs (Dashboard, Prep & Accomplishment, Inventory, Procurement). Notifications, Profile, and Settings are reached from a header/account menu that mirrors the web `TopBar` — a bell with an unread badge plus an account control — not via the bottom tab bar.
 
 ---
 
@@ -97,5 +116,8 @@ These are the decisions the client added as notes after the original draft. They
 - **Population model:** `population` / `budget_per_head_per_day` moved **off** `menu_cycles` onto **`budgets`** (codex migration `drop_population_and_budget_per_head_from_menu_cycles` + `add_menu_cycle_id_to_budgets`). This is **aligned** — keep. Actual headcount lives on `meal_prep_logs.served_population` (§3).
 - **Budget calc (§3) [cross-role]:** per-head actual = served value ÷ served heads; span cost/head = total cost ÷ total served over the PO/menu-plan span. Affects RND reporting too.
 - **Reports (§8):** accomplishment report only for FSS.
+- **New surfaces added (§1, §9–§12):** Dashboard promoted to in-scope with a live `GET /fss/dashboard/summary` endpoint; Notifications (page + bell, reusing RND's backend; FSS sources = announcement fan-out + new PO-awaiting-receipt event); Profile (existing `/api/auth/*`); Settings (device-only, mirrors RND). All defined for the React Native app — execution in `fss-sprint-plan.md` Tasks D/N/P/S.
+- **Dead/off-scope backend removal (R2):** standalone cleaning-log backend deleted (replaced by the accomplishment report); FSS write paths for suppliers / PO authoring / shopping-lists / fs-item edit RND-gated; FSS insights routes removed. Enforced with 403/404 tests.
+- **Reproducibility rule:** every displayed feature must be input-driven (no seeded/hardcoded displays) — see the sprint plan's "Reproducibility & Workflow Integrity" section.
 </content>
 </invoke>
