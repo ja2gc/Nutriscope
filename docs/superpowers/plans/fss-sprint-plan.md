@@ -35,7 +35,7 @@ The client's change-of-mind notes (now folded into `fss.md`) postdate both Phase
 **Files:** [`backend/app/Services/BudgetActualService.php`](../../../backend/app/Services/BudgetActualService.php), `backend/app/Services/FSS/ProcurementCostEfficiencyService.php`, tests.
 
 - [x] **Confirm** `BudgetActualService` matches spec: planned cap = `budget_per_head_day × population` (estimate); per-day `per_head` = `total_value ÷ served_population`; `per_head_actual` = Σserved-value ÷ Σserved-heads. (Confirmed unchanged — `dailySeries()` lines 77/113/133. Commit `384c992`.)
-- [ ] **Span cost/head (RND-facing):** ensure a span figure of **total food cost ÷ total patients served** over the PO/menu-plan span is exposed for RND cost-per-head reporting (the figure the client described). Decide whether this is `per_head_actual` (served-value basis) or the procurement-cash basis (`ProcurementCostEfficiencyService::forSpan`, which currently divides by **avg** served, not total) — reconcile the two definitions and pick one for the report. *(Still open — regression test asserts the served-value basis; procurement-cash reconciliation deferred to R2.3.)*
+- [x] **Span cost/head (RND-facing) DONE (commit `d4aebe3`):** `ProcurementCostEfficiencyService::forSpan` now divides by **total** (Σ) served heads, not average — matching the spec "total cost ÷ total served" and `BudgetActualService::per_head_actual`. Test with a fixture where avg≠total guards it.
 - [x] Regression test: a budget with a known cycle, served days, and POs returns the documented planned cap, daily per-head, and span cost/head. (`backend/tests/Feature/BudgetActualServiceTest.php`, commit `384c992`.)
 
 ---
@@ -74,11 +74,11 @@ Replaces the standalone cleaning log. Decided model: **per-staff tasks, day-leve
 ### A2 — Report generator — DONE (commit `7f4937e`)
 - [x] `AccomplishmentReportGenerator` implements `ReportGenerator`; per-staff sheet (7 task rows × days, ✓/number/off-duty, signature blocks) from `diet_list_counts` + daily summed headcount; landscape blade `resources/views/reports/accomplishment.blade.php`. Registered `accomplishment_report` in `ReportService::GENERATORS` + `ReportBrowser` (`PeriodInstanceSource` on `service_date`); reachable via existing `/api/fss/reports/*`. Real data only.
 - [x] **Tests:** 11 in `AccomplishmentReportTest` (task marks, off-duty, population row, daily sum, user filter, PDF render, instances axis, RND access). Full suite 581 green.
-- [ ] **Follow-up (scope):** the shared `/api/fss/reports/*` routes may expose report *types* beyond `accomplishment_report`. fss.md §8 limits FSS to accomplishment only — confirm the FSS report endpoints reject other types (gate by allowed-types for `role:FSS`).
+- [x] **Follow-up (scope) DONE (commit `d4aebe3`):** `ReportController` now gates FSS to `accomplishment_report` only (`guardFss` + `FSS_ALLOWED_TYPES` on `index`/`instances`/`render`/`archive`/`store`); non-accomplishment types → 403 for FSS, RND unaffected. Tests in `FssReportScopeTest` + updated `ReportControllerTest`.
 
-### A3 — App UI (Accomplishment / Prep & Clean tab)
-- [ ] Daily entry: pick ward(s), enter diet-list count, tick the day's tasks / mark off-duty. Show the day's running summed headcount.
-- [ ] Keep the meal-prep "mark served" action adjacent (the two anchor daily tasks).
+### A3 — App UI (Accomplishment / Prep & Clean tab) — DONE (commit `9941443`)
+- [x] `app/(tabs)/prep.tsx` accomplishment form: ward + diet-list count, seven task flags + off-duty toggle → `POST /api/fss/diet-list-counts`; shows the day's running summed headcount (`GET ...?from=today&to=today`).
+- [x] Meal-prep "mark served" (`POST .../complete-day` with shortfall modal → retry `allow_shortfall`) on the same tab — the two anchor daily actions.
 
 ---
 
@@ -91,9 +91,9 @@ No FSS dashboard controller or endpoint exists today, so the KPIs must be built 
 - [x] Live figures: `meals_to_log_today` (active cycle's `MenuCycleDay` for today's weekday with no completed `MealPrepLog`), `pos_awaiting_receipt` (`status=ordered` + `whereDoesntHave` receipt/proof attachment), `inventory_no_stock` (`quantity_in_stock <= 0`), `today_service` (today's meals + prepped/shortfall state). No active cycle → zeros, no error.
 - [x] **Tests:** 17 in `FssDashboardTest` (insert ordered PO → count 1; attach receipt → 0; no-stock increment; served vs unlogged day). Full suite green.
 
-### D2 — App UI (Dashboard tab)
-- [ ] Consume `/fss/dashboard/summary` via TanStack Query with pull-to-refresh; render KPI cards (tabular figures, skeletons while loading).
-- [ ] Announcements feed (`visibility=FSS|All`) **below** the cards — reuse the shared announcement presentation (mirror the web [`AnnouncementsBoard`](../../../frontend/components/announcements/AnnouncementsBoard.tsx) payload shape; read-only for FSS).
+### D2 — App UI (Dashboard tab) — DONE (commits `e30b098`, `0564586`)
+- [x] Consumes `/fss/dashboard/summary` via TanStack Query + pull-to-refresh; KPI cards + today's service (loading/error/retry).
+- [x] Announcements feed (`GET /api/fss/announcements`, `visibility=FSS|All`) read-only, below the cards; included in pull-to-refresh.
 
 ---
 
@@ -185,19 +185,19 @@ Modals: camera/upload for receipts (UX mirrors RND's receipt-upload flow — sam
 - [ ] **Announcements feed (read-only, `visibility=FSS|All`), placed BELOW the dashboard content** — mirror RND's feed; reuse the shared announcement component (`fss.md` §7). *(not yet — next)*
 - [x] React Query daily-summary fetch + pull-to-refresh (loading + error/retry states).
 
-### Tab 2: Prep & Accomplishment
-- [ ] **Meal Prep:** today's meals from the *active* menu cycle (read-only cycle); mark-served → `POST /menu-cycles/{id}/complete-day`; handle shortfall (`allow_shortfall`) with a clear modal.
-- [ ] **Accomplishment:** Task A3 entry UI.
-- [ ] **Note (Bulk vs Trays):** FSS cooks bulk; individual patient trays come from RND's `PatientMenuPlan` PDF. **Do not** build tray-level UI.
+### Tab 2: Prep & Accomplishment — DONE (commit `9941443`)
+- [x] **Meal Prep:** today's meals from the active cycle; mark-served → `POST /api/fss/menu-cycles/{id}/complete-day`; shortfall modal → retry `allow_shortfall`.
+- [x] **Accomplishment:** A3 entry UI (ward + count + 7 task flags + off-duty; running summed headcount).
+- [ ] **Note (Bulk vs Trays):** FSS cooks bulk; trays come from RND's `PatientMenuPlan` PDF — no tray-level UI built (correctly).
 
-### Tab 3: Inventory
-- [ ] `FlashList` of ingredients/supplies with stock level, unit, status badge (red/green).
-- [ ] Inline stock-adjust modal (add/deduct); search/filter. **No suppliers tab** (§6).
+### Tab 3: Inventory — DONE (commit `006cb15`)
+- [x] `FlashList` of ingredients/supplies with stock, unit, status badge (red no-stock / green ok); search (debounced) + type filter + stats.
+- [x] Inline stock-adjust modal: add → `POST /api/fss/inventory/{id}/restock`, deduct → `PATCH /api/fss/inventory/{id}`. **No suppliers tab** (§6).
 
-### Tab 4: Procurement (receiving)
-- [ ] `SectionList` of POs by status (Ordered, Received) — **read-only list**; FSS does **not** create/edit POs (§5).
-- [ ] Camera/upload to attach receipts/proof → `POST /purchase-orders/{id}/attachments` (multipart).
-- [ ] "Mark received" triggers backend restock (if that flow is RND-owned, surface as read-only status instead — confirm against R0.1/R2.2).
+### Tab 4: Procurement (receiving) — DONE (commit `0564586`)
+- [x] PO list sectioned by status — **read-only** (FSS cannot author POs; RND-gated in R2).
+- [x] Receipt/proof upload via `expo-image-picker` (library/camera, permission-handled) → `POST /api/fss/purchase-orders/{id}/attachments` (multipart `file`/`type`/`caption`); delete via `DELETE /api/fss/purchase-order-attachments/{id}`.
+- [x] PO status shown read-only (Ordered/Received/etc.); receiving/restock flow is RND-owned (R2.2).
 
 ### Header: Notifications / Profile / Settings — DONE (commit `ac5d10e`)
 - [x] Shared `components/AppHeader.tsx` (bell + "9+" unread badge polling `/api/notifications`, account icon) on all tabs; stack screens registered in root `_layout`.
