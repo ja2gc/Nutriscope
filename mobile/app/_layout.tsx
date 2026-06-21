@@ -8,18 +8,32 @@ import { getToken } from '../lib/auth';
 
 const queryClient = new QueryClient();
 
+function Redirector({ isAuthenticated }: { isAuthenticated: boolean }) {
+  useEffect(() => {
+    if (isAuthenticated) {
+      router.replace('/(tabs)');
+    } else {
+      router.replace('/login');
+    }
+  }, [isAuthenticated]);
+
+  return null;
+}
+
 export default function RootLayout() {
   const [ready, setReady] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
     async function bootstrap() {
-      const token = await getToken();
-      if (token) {
-        router.replace('/(tabs)');
-      } else {
-        router.replace('/login');
+      try {
+        const token = await getToken();
+        setIsAuthenticated(!!token);
+      } catch (err) {
+        console.error('Failed to retrieve token during bootstrap:', err);
+      } finally {
+        setReady(true);
       }
-      setReady(true);
     }
     bootstrap();
   }, []);
@@ -52,6 +66,7 @@ export default function RootLayout() {
             options={{ title: 'Settings' }}
           />
         </Stack>
+        <Redirector isAuthenticated={isAuthenticated} />
       </SafeAreaProvider>
     </QueryClientProvider>
   );
