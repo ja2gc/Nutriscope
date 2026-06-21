@@ -6,6 +6,7 @@ use App\Models\Report;
 use App\Models\ReportBranding;
 use App\Models\ReportTemplate;
 use App\Services\Reports\Contracts\ReportGenerator;
+use App\Services\Reports\Generators\AccomplishmentReportGenerator;
 use App\Services\Reports\Generators\BudgetReportGenerator;
 use App\Services\Reports\Generators\DemographicCensusGenerator;
 use App\Services\Reports\Generators\DietaryCashBookGenerator;
@@ -40,6 +41,7 @@ class ReportService
         'budget'                   => BudgetReportGenerator::class,
         'inventory_report'         => InventoryReportGenerator::class,
         'inventory'                => InventoryReportGenerator::class,
+        'accomplishment_report'    => AccomplishmentReportGenerator::class,
     ];
 
     /**

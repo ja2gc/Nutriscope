@@ -3,6 +3,7 @@
 namespace App\Services\Reports;
 
 use App\Models\Budget;
+use App\Models\DietListCount;
 use App\Models\MealPlan;
 use App\Models\MenuCycle;
 use App\Models\NcpRecord;
@@ -71,6 +72,12 @@ class ReportBrowser
 
             // ── singleton axis (point-in-time) ───────────────────────────────
             'inventory_report' => fn () => new SingletonInstanceSource('Current stock'),
+
+            // ── period axis: accomplishment report (FSS §4) ──────────────────
+            'accomplishment_report' => fn () => new PeriodInstanceSource(
+                fn () => DietListCount::query(),
+                'service_date',
+            ),
         ];
     }
 
