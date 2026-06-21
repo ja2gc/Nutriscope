@@ -9,7 +9,7 @@ use Carbon\Carbon;
 
 /**
  * Span-level procurement cost-efficiency: real cash paid to suppliers over a
- * budget span ÷ average headcount actually served across that span's days.
+ * budget span ÷ total headcount actually served across that span's days.
  *
  * NOT per_head_actual. That figure (BudgetActualService::dailySeries) divides
  * food-SERVED VALUE (MealPrepLog.total_value) by served heads — operational
@@ -18,6 +18,9 @@ use Carbon\Carbon;
  * computed once per span. They diverge on purpose: POs buy stock used outside
  * the span, and served value can draw on prior stock. Kept in a separate class
  * so the two are never folded together by proximity.
+ *
+ * Per fss.md §3 (cross-role): span cost/head = total food cost ÷ total patients
+ * served (Σ served heads), matching BudgetActualService::per_head_actual logic.
  */
 class ProcurementCostEfficiencyService
 {
@@ -25,14 +28,17 @@ class ProcurementCostEfficiencyService
      * Real cost per head for a procurement span. Null when no served day in the
      * span recorded a served_population — no silent estimate substitution (per
      * population-redesign: actuals are reporting-only, never back-filled).
+     *
+     * Denominator is the TOTAL (Σ) served population over the span, not the
+     * average — consistent with fss.md §3 and BudgetActualService::per_head_actual.
      */
     public static function forSpan(Budget $budget, Carbon $start, Carbon $end): ?float
     {
         $startStr = $start->toDateString();
         $endStr   = $end->toDateString();
 
-        // Average served headcount across the span. Explicit count/avg — never
-        // rely on the aggregate's empty-set behaviour (AVG of nothing is NULL in
+        // Total served headcount across the span. Explicit count check — never
+        // rely on the aggregate's empty-set behaviour (SUM of nothing is NULL in
         // SQL but 0 once cast to float). Scope to the budget's cycle when set.
         $servedQuery = MealPrepLog::where('status', 'completed')
             ->whereBetween('service_date', [$startStr, $endStr])
@@ -43,8 +49,8 @@ class ProcurementCostEfficiencyService
             return null;
         }
 
-        $avgServed = (float) (clone $servedQuery)->avg('served_population');
-        if ($avgServed <= 0) {
+        $totalServed = (float) (clone $servedQuery)->sum('served_population');
+        if ($totalServed <= 0) {
             return null;
         }
 
@@ -52,6 +58,6 @@ class ProcurementCostEfficiencyService
             ->whereRaw('COALESCE(received_date, order_date) BETWEEN ? AND ?', [$startStr, $endStr])
             ->sum('total_amount');
 
-        return round($totalProcurementCost / $avgServed, 2);
+        return round($totalProcurementCost / $totalServed, 2);
     }
 }
