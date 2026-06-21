@@ -106,9 +106,9 @@ The notification backend is already role-agnostic and reused as-is: `Notificatio
 - [x] Announcement fan-out to FSS + meal-prep shortfall/variance-to-RND confirmed unchanged.
 - [x] **Tests:** 4 in `PoAwaitingReceiptNotificationTest` (ordered create → 1/FSS user; draft → 0; transition → notifies; re-update ordered → 0). Full suite 561 green.
 
-### N2 — App UI (Notifications screen + header bell)
-- [ ] Notifications screen mirroring the web [`(rnd)/notifications`](../../../frontend/app/(rnd)/notifications/page.tsx): list with unread dot, mark-read on tap (optimistic), "mark all read"; icon by `type`; relative time.
-- [ ] Bell + unread badge in the app header mirroring [`TopBar`](../../../frontend/components/layout/TopBar.tsx) (count capped "9+", refresh on screen focus). Bearer token from SecureStore.
+### N2 — App UI (Notifications screen + header bell) — DONE (commit `ac5d10e`)
+- [x] `app/notifications.tsx` — list, unread dot, optimistic mark-read on tap, mark-all, icon by `type`, relative time.
+- [x] Bell + "9+" unread badge in `AppHeader` (polls `/api/notifications` every 60s). Bearer from SecureStore.
 
 ---
 
@@ -116,7 +116,7 @@ The notification backend is already role-agnostic and reused as-is: `Notificatio
 
 Reuses existing role-agnostic endpoints `GET /api/auth/me`, `PATCH /api/auth/profile`, `POST /api/auth/password` with their `UpdateProfileRequest` / `UpdatePasswordRequest`.
 
-- [ ] App screen mirroring the web [`(rnd)/profile`](../../../frontend/app/(rnd)/profile/page.tsx): account-details card (name/email → `PATCH /api/auth/profile`) and change-password card (current/new/confirm → `POST /api/auth/password`). Pre-fill from `GET /api/auth/me`.
+- [x] **DONE (commit `ac5d10e`)** — `app/profile.tsx`: account-details card (name/email → `PATCH /api/auth/profile`) and change-password card (current/new/confirm → `POST /api/auth/password`), show/hide + inline validation. Pre-fill from `GET /api/auth/me`.
 - [ ] UX: visible labels, inline validation on blur, password show/hide toggle, distinct submit→success/error states (ui-ux §8). No avatar (match RND/Admin).
 
 ---
@@ -125,8 +125,8 @@ Reuses existing role-agnostic endpoints `GET /api/auth/me`, `PATCH /api/auth/pro
 
 Mirrors RND/Admin, which persist appearance **on-device only** (no settings backend).
 
-- [ ] App screen mirroring the web [`(rnd)/settings`](../../../frontend/app/(rnd)/settings/page.tsx): appearance (density, reduce-motion) stored via `react-native-mmkv`; "mark all notifications read" (calls the existing read-all endpoint); logout (revoke token via `POST /api/auth/logout` + clear SecureStore).
-- [ ] Honor reduce-motion in screen animations (ui-ux §1/§7). No `user_preferences` table.
+- [x] **DONE (commit `ac5d10e`)** — `app/settings.tsx`: appearance (density, reduce-motion) stored via **AsyncStorage** (`lib/prefs.ts`, Expo-Go-safe — switched from MMKV which needs a custom dev build); "mark all notifications read"; logout (`POST /api/auth/logout` + clear SecureStore).
+- [x] Reduce-motion pref honored; no `user_preferences` table.
 
 ---
 
@@ -199,10 +199,11 @@ Modals: camera/upload for receipts (UX mirrors RND's receipt-upload flow — sam
 - [ ] Camera/upload to attach receipts/proof → `POST /purchase-orders/{id}/attachments` (multipart).
 - [ ] "Mark received" triggers backend restock (if that flow is RND-owned, surface as read-only status instead — confirm against R0.1/R2.2).
 
-### Header: Notifications / Profile / Settings
-- [ ] **Notifications** (Task N): list + unread badge on the header bell; mark-read / mark-all via the existing endpoints.
-- [ ] **Profile** (Task P): edit name/email + change password via `/api/auth/*`.
-- [ ] **Settings** (Task S): appearance (density, reduce-motion, device-only), mark-all-read, logout.
+### Header: Notifications / Profile / Settings — DONE (commit `ac5d10e`)
+- [x] Shared `components/AppHeader.tsx` (bell + "9+" unread badge polling `/api/notifications`, account icon) on all tabs; stack screens registered in root `_layout`.
+- [x] **Notifications** (Task N2): `app/notifications.tsx` — list, unread dot, lucide icon by type, relative time, optimistic mark-read, mark-all, empty/loading/error states.
+- [x] **Profile** (Task P): `app/profile.tsx` — name/email → `PATCH /api/auth/profile`, change password → `POST /api/auth/password`, inline validation + show/hide.
+- [x] **Settings** (Task S): `app/settings.tsx` — density + reduce-motion via AsyncStorage (`lib/prefs.ts`, Expo-Go-safe; not MMKV), mark-all-read, logout.
 
 ---
 
