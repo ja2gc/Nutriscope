@@ -74,8 +74,9 @@ class ReportControllerTest extends TestCase
         $this->assertDatabaseHas('reports', ['status' => 'pending']);
     }
 
-    public function test_fss_can_request_inventory_report(): void
+    public function test_fss_cannot_request_non_accomplishment_report(): void
     {
+        // Scope (fss.md §8): FSS's only report is accomplishment_report; other types are 403.
         Queue::fake();
 
         $response = $this->actingAs($this->fss)
@@ -84,10 +85,9 @@ class ReportControllerTest extends TestCase
                 'parameters'    => [],
             ]);
 
-        $response->assertCreated()
-            ->assertJsonPath('data.status', 'pending');
+        $response->assertForbidden();
 
-        Queue::assertPushed(GenerateReport::class);
+        Queue::assertNotPushed(GenerateReport::class);
     }
 
     public function test_report_request_requires_valid_template_code(): void
