@@ -1,7 +1,7 @@
 import '../global.css';
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { Slot, router } from 'expo-router';
+import { Stack, router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { getToken } from '../lib/auth';
@@ -29,7 +29,29 @@ export default function RootLayout() {
   return (
     <QueryClientProvider client={queryClient}>
       <SafeAreaProvider>
-        <Slot />
+        <Stack
+          screenOptions={{
+            headerShown: true,
+            headerStyle: { backgroundColor: '#ffffff' },
+            headerTitleStyle: { fontWeight: '600', color: '#111827' },
+            headerTintColor: '#2563eb',
+          }}
+        >
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="login" options={{ headerShown: false }} />
+          <Stack.Screen
+            name="notifications"
+            options={{ title: 'Notifications' }}
+          />
+          <Stack.Screen
+            name="profile"
+            options={{ title: 'Profile' }}
+          />
+          <Stack.Screen
+            name="settings"
+            options={{ title: 'Settings' }}
+          />
+        </Stack>
       </SafeAreaProvider>
     </QueryClientProvider>
   );
