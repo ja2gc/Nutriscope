@@ -55,6 +55,11 @@ class ReportController extends Controller
             $query->whereIn('type', self::ADMIN_ALLOWED_TYPES);
         }
 
+        // FSS may only see accomplishment_report rows (fss.md §8).
+        if (Auth::user()?->role === 'FSS') {
+            $query->whereIn('type', self::FSS_ALLOWED_TYPES);
+        }
+
         return response()->json(['data' => ReportResource::collection($query->get())]);
     }
 
@@ -67,6 +72,7 @@ class ReportController extends Controller
         $template = ReportTemplate::where('type', $request->template_code)->firstOrFail();
         $this->guardClinical($template->type);
         $this->guardAdmin($template->type);
+        $this->guardFss($template->type);
         $report   = $this->createReport($template->type, $template->name, $request->parameters ?? []);
 
         $this->run($report, $reports);
@@ -113,6 +119,7 @@ class ReportController extends Controller
         abort_unless($browser->supports($type), 404, 'Unknown report type.');
         $this->guardClinical($type);
         $this->guardAdmin($type);
+        $this->guardFss($type);
 
         $source  = $browser->sourceFor($type);
         $filters = $request->only(['year', 'month']);
@@ -134,6 +141,7 @@ class ReportController extends Controller
         abort_unless($reports->supports($type) && $browser->supports($type), 404, 'Unknown report type.');
         $this->guardClinical($type);
         $this->guardAdmin($type);
+        $this->guardFss($type);
 
         $params = $this->renderParams($request);
         abort_unless($browser->sourceFor($type)->hasData($params), 404, 'No data for this report period.');
@@ -155,6 +163,7 @@ class ReportController extends Controller
         abort_unless($reports->supports($type) && $browser->supports($type), 404, 'Unknown report type.');
         $this->guardClinical($type);
         $this->guardAdmin($type);
+        $this->guardFss($type);
 
         $params = $this->renderParams($request);
         abort_unless($browser->sourceFor($type)->hasData($params), 404, 'No data for this report period.');
@@ -273,6 +282,15 @@ class ReportController extends Controller
     }
 
     /**
+     * FSS role may only access the accomplishment_report type (fss.md §8).
+     * All other report types are out of scope for FSS; returns 403.
+     * RND and other roles are not affected.
+     */
+    public const FSS_ALLOWED_TYPES = [
+        'accomplishment_report',
+    ];
+
+    /**
      * Admin role may only access explicitly allowed report types (PHI protection).
      * Returns 403 for any type not in ADMIN_ALLOWED_TYPES when the caller is Admin.
      * RND/FSS are not affected.
@@ -281,6 +299,18 @@ class ReportController extends Controller
     {
         if (Auth::user()?->role === 'Admin' && ! in_array($type, self::ADMIN_ALLOWED_TYPES, true)) {
             abort(403, 'This report type is not available to the Admin role.');
+        }
+    }
+
+    /**
+     * FSS role may only access accomplishment_report (fss.md §8).
+     * Returns 403 for any other type when the caller is FSS.
+     * RND and Admin are not affected here (Admin has its own guard).
+     */
+    private function guardFss(string $type): void
+    {
+        if (Auth::user()?->role === 'FSS' && ! in_array($type, self::FSS_ALLOWED_TYPES, true)) {
+            abort(403, 'This report type is not available to the FSS role.');
         }
     }
 

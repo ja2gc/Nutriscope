@@ -47,7 +47,7 @@ class ProcurementCostEfficiencyServiceTest extends TestCase
         ]);
     }
 
-    public function test_happy_path_total_procurement_over_avg_served(): void
+    public function test_happy_path_total_procurement_over_total_served(): void
     {
         $cycle  = MenuCycle::factory()->create();
         $budget = Budget::factory()->create(['rnd_user_id' => $this->rnd->id, 'menu_cycle_id' => $cycle->id]);
@@ -56,7 +56,7 @@ class ProcurementCostEfficiencyServiceTest extends TestCase
         $this->receivedPo('2026-06-10', 1800);
         $this->receivedPo('2026-06-11', 1200);
 
-        // Served headcount: 10, 20 -> avg 15.
+        // Served headcount: 10, 20 -> total 30 (avg was 15 under old logic).
         $this->servedLog($cycle->id, '2026-06-10', 10);
         $this->servedLog($cycle->id, '2026-06-11', 20);
 
@@ -64,8 +64,33 @@ class ProcurementCostEfficiencyServiceTest extends TestCase
             $budget, Carbon::parse('2026-06-09'), Carbon::parse('2026-06-12')
         );
 
-        // 3000 / 15 = 200.
-        $this->assertEqualsWithDelta(200.0, $result, 0.01);
+        // 3000 / 30 = 100. (Old avg-based result would have been 3000/15 = 200.)
+        $this->assertEqualsWithDelta(100.0, $result, 0.01);
+    }
+
+    /**
+     * Explicitly asserts total-served denominator, using a fixture where avg != total
+     * so the test fails under the old average logic (avg=15 → 200) but passes with
+     * the correct total logic (total=30 → 100).
+     */
+    public function test_span_per_head_divides_by_total_served_not_average(): void
+    {
+        $cycle  = MenuCycle::factory()->create();
+        $budget = Budget::factory()->create(['rnd_user_id' => $this->rnd->id, 'menu_cycle_id' => $cycle->id]);
+
+        $this->receivedPo('2026-06-10', 3000);
+
+        // Day 1: 10 served, Day 2: 20 served. avg=15, total=30 — they differ.
+        $this->servedLog($cycle->id, '2026-06-10', 10);
+        $this->servedLog($cycle->id, '2026-06-11', 20);
+
+        $result = ProcurementCostEfficiencyService::forSpan(
+            $budget, Carbon::parse('2026-06-09'), Carbon::parse('2026-06-12')
+        );
+
+        // Must be total: 3000 / 30 = 100, not avg: 3000 / 15 = 200.
+        $this->assertEqualsWithDelta(100.0, $result, 0.01);
+        $this->assertNotEqualsWithDelta(200.0, $result, 0.01);
     }
 
     public function test_returns_null_when_no_served_population_recorded(): void
@@ -120,8 +145,8 @@ class ProcurementCostEfficiencyServiceTest extends TestCase
             $budget, Carbon::parse('2026-06-09'), Carbon::parse('2026-06-12')
         );
 
-        // efficiency = 3000 / avg(10,20)=15 -> 200.
-        $this->assertEqualsWithDelta(200.0, $efficiency, 0.01);
+        // efficiency = 3000 / total(10+20)=30 -> 100.
+        $this->assertEqualsWithDelta(100.0, $efficiency, 0.01);
         // per_head_actual = served value 1200 / served sum 30 -> 40.
         $this->assertEqualsWithDelta(40.0, $series['per_head_actual'], 0.01);
         // The two metrics are genuinely independent, not the same number.
