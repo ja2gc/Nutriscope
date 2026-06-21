@@ -8,12 +8,19 @@ use App\Models\RecipeIngredient;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 
+use Illuminate\Support\Facades\Schema;
+
 class RecipeSeeder extends Seeder
 {
     public function run(): void
     {
         $rnd = User::where('role', 'RND')->first();
         if (! $rnd) return;
+
+        Schema::disableForeignKeyConstraints();
+        RecipeIngredient::truncate();
+        Recipe::truncate();
+        Schema::enableForeignKeyConstraints();
 
         $recipes = [
             // ── Staples ───────────────────────────────────────────────────────
