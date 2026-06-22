@@ -140,6 +140,7 @@ Route::middleware(['auth:sanctum', 'role:RND', 'audit'])->prefix('rnd')->group(f
     Route::delete('ncp-records/{ncpRecord}/meal-plans/{mealPlan}/days/{day}/items/{item}', [MealPlanItemController::class, 'destroy']);
 
     // Monitoring routes
+    Route::get('ncp-records/{ncpRecord}/monitoring-plan', [MonitoringController::class, 'plan']);
     Route::get('ncp-records/{ncpRecord}/monitorings', [MonitoringController::class, 'index']);
     // Phase 6 — evaluation summary (free) + optional AI narrative (declared before
     // the {monitoring} routes so the literal segments win the match).
