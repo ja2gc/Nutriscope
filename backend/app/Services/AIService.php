@@ -114,16 +114,14 @@ class AIService
         $model  = config('services.anthropic.model', 'claude-haiku-4-5-20251001');
 
         try {
-            $visitContext = ($summary['has_previous'] ?? false)
-                ? 'Two-visit nutrition monitoring delta'
-                : 'First nutrition monitoring visit (no prior baseline)';
-
-            $userPrompt = "{$visitContext} (JSON): " . json_encode($summary) . "\n\n"
-                . "Write a concise clinical interpretation for the dietitian: 2-3 sentences max. "
-                . "State the key finding(s) from this visit"
-                . (($summary['has_previous'] ?? false) ? ", whether the patient is trending toward the intervention goal" : "")
-                . ", and one concrete suggested next action. "
-                . "If active_diagnoses are provided, reference the relevant PES problem being addressed. "
+            $userPrompt = "Patient monitoring trajectory across visits (JSON): " . json_encode($summary) . "\n\n"
+                . "Each indicator lists its values from Visit 1 (assessment baseline) through the latest follow-up, "
+                . "with its reference range/target and latest status. "
+                . "Based on the TRENDS across visits (not just the latest value), write a concise course of action for the dietitian: 2-4 sentences. "
+                . "Cite specific indicator trends by name and value. "
+                . "Reference the relevant PES problem(s) from pes_statements being addressed. "
+                . "End with one concrete next action. "
+                . "Use ONLY the indicators provided — never invent values or labs. "
                 . "Plain prose, no JSON, no markdown, no preamble.";
 
             $response = Http::timeout(20)->connectTimeout(5)->withHeaders([
@@ -132,7 +130,7 @@ class AIService
                 'content-type'      => 'application/json',
             ])->post('https://api.anthropic.com/v1/messages', [
                 'model'      => $model,
-                'max_tokens' => 256,
+                'max_tokens' => 320,
                 'system'     => 'You are a clinical nutrition assistant interpreting monitoring data in the G-NCP framework. Be precise, brief, and actionable. Never invent values not present in the data.',
                 'messages'   => [
                     ['role' => 'user', 'content' => $userPrompt],

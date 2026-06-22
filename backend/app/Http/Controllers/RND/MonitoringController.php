@@ -34,17 +34,36 @@ class MonitoringController extends Controller
      * per visit-pair (re-used while the compared values are unchanged) and
      * rate-limited so cost stays negligible.
      */
-    public function aiReview(NcpRecord $ncpRecord, MonitoringSummaryService $svc, AIService $ai): JsonResponse
+    public function aiReview(NcpRecord $ncpRecord, MonitoringPlanService $planSvc, AIService $ai): JsonResponse
     {
-        $summary = $svc->summarize($ncpRecord);
-        if (! ($summary['has_data'] ?? false)) {
-            return response()->json(['message' => 'No monitoring visits to review yet.'], 422);
+        $plan = $planSvc->build($ncpRecord);
+
+        $hasFollowup = collect($plan['visits'])->contains(fn ($v) => ($v['type'] ?? null) === 'monitoring');
+        if (! $hasFollowup) {
+            return response()->json(['message' => 'No follow-up visits to review yet.'], 422);
         }
 
-        $latest = $ncpRecord->monitorings()->orderBy('created_at', 'desc')->orderBy('id', 'desc')->first();
-        $signature = md5(json_encode([$summary['changes'], $summary['intake']]));
+        // Focused payload — tracked indicators' trajectory only (nothing else).
+        $payload = [
+            'pes_statements'     => $plan['pes_statements'],
+            'goal_type'          => $plan['goal_type'],
+            'nutritional_status' => $plan['nutritional_status'],
+            'visit_count'        => count($plan['visits']),
+            'indicators'         => array_map(fn ($i) => [
+                'label'         => $i['label'],
+                'unit'          => $i['unit'],
+                'category'      => $i['category'],
+                'target'        => $i['target'],
+                'reference'     => $i['reference'],
+                'latest_status' => $i['latest_status'],
+                'trajectory'    => array_map(fn ($s) => ['visit' => $s['visit'], 'value' => $s['value']], $i['series']),
+            ], $plan['indicators']),
+        ];
 
-        // Cache hit — same visit-pair already narrated.
+        $latest = $ncpRecord->monitorings()->orderBy('created_at', 'desc')->orderBy('id', 'desc')->first();
+        $signature = md5(json_encode($payload['indicators']));
+
+        // Cache hit — same trajectory already narrated.
         if ($latest && $latest->ai_review && $latest->ai_review_key === $signature) {
             return response()->json(['data' => ['narrative' => $latest->ai_review, 'cached' => true]]);
         }
@@ -57,7 +76,7 @@ class MonitoringController extends Controller
         }
         RateLimiter::hit($rlKey, 60);
 
-        $narrative = $ai->narrateMonitoring($summary);
+        $narrative = $ai->narrateMonitoring($payload);
         if ($narrative === null) {
             return response()->json(['message' => 'AI review is temporarily unavailable. The rule-based summary is still shown.'], 503);
         }
