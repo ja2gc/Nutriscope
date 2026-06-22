@@ -19,11 +19,13 @@ import {
   calculateBmi,
 } from "@/services/monitoringService";
 import type { Intervention } from "@/services/interventionService";
+import type { MonitoringPlan } from "@/services/monitoringPlan";
 import { GOAL_MICRO_FLAGS, ALL_MICROS } from "@/lib/nutritionCalculations";
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 interface LogVisitFormProps {
+  plan?: MonitoringPlan | null;
   heightCm: number | null;
   intervention: Intervention | null;
   onSubmit: (payload: MonitoringPayload) => Promise<void>;
@@ -204,6 +206,7 @@ function CollapsibleSection({
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function LogVisitForm({
+  plan,
   heightCm,
   intervention,
   onSubmit,
@@ -211,11 +214,19 @@ export default function LogVisitForm({
 }: LogVisitFormProps) {
   const todayStr = new Date().toISOString().split("T")[0];
 
-  // Derive which lab keys to show from goal type
+  // Lab fields: the patient's plan-tracked labs (intersected with fields the form
+  // can render); fall back to goal_type defaults when no plan is available.
   const goalType = intervention?.goal_type ?? null;
-  const labKeys: ClinicalLabKey[] = goalType
-    ? (GOAL_LAB_FLAGS[goalType] ?? [])
-    : (Object.keys(CLINICAL_LAB_META) as ClinicalLabKey[]);
+  const knownLabKeys = Object.keys(CLINICAL_LAB_META) as ClinicalLabKey[];
+  const planLabKeys = plan
+    ? (plan.indicators.filter((i) => i.category === "lab").map((i) => i.key) as ClinicalLabKey[])
+        .filter((k) => knownLabKeys.includes(k))
+    : null;
+  const labKeys: ClinicalLabKey[] = planLabKeys && planLabKeys.length > 0
+    ? planLabKeys
+    : goalType
+      ? (GOAL_LAB_FLAGS[goalType] ?? [])
+      : knownLabKeys;
 
   // Derive which micro keys to show (deduped union of displayed_nutrients + flagged)
   const flaggedMicros: string[] = goalType ? (GOAL_MICRO_FLAGS[goalType] ?? []) : [];

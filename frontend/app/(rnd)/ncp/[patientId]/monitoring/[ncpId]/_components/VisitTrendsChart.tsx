@@ -21,12 +21,92 @@ import {
 } from "@/services/monitoringService";
 import type { Intervention } from "@/services/interventionService";
 import { GOAL_MICRO_FLAGS, ALL_MICROS } from "@/lib/nutritionCalculations";
+import type { MonitoringPlan, PlanIndicator } from "@/services/monitoringPlan";
+import { planToChartSeries } from "@/services/monitoringPlan";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface VisitTrendsChartProps {
+  plan?: MonitoringPlan | null;
   entries: MonitoringEntry[];
   intervention: Intervention | null;
+}
+
+// ─── Plan-driven indicator chart (Visit 1 baseline → follow-ups) ───────────────
+
+const PLAN_COLORS: Record<string, string> = {
+  lab: "#059669",
+  anthro: "#2563eb",
+  intake: "#d97706",
+};
+
+function PlanIndicatorChart({ indicator }: { indicator: PlanIndicator }) {
+  const points = planToChartSeries(indicator);
+  const hasData = points.some((p) => p.value !== null);
+  if (!hasData) return null;
+
+  const color = PLAN_COLORS[indicator.category] ?? "#059669";
+  const ref = indicator.reference;
+
+  return (
+    <div>
+      <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-1.5">
+        {indicator.label}{" "}
+        <span className="normal-case font-normal text-zinc-300">({indicator.unit})</span>
+      </p>
+      <ResponsiveContainer width="100%" height={120}>
+        <LineChart data={points} margin={{ top: 4, right: 4, left: -28, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#f4f4f5" />
+          <XAxis dataKey="visit" tick={tickStyle} tickLine={false} axisLine={false} />
+          <YAxis tick={tickStyle} tickLine={false} axisLine={false} domain={["auto", "auto"]} />
+          <Tooltip content={<ChartTooltip />} />
+          {ref?.min != null && <ReferenceLine y={ref.min} stroke="#fbbf24" strokeDasharray="4 3" strokeWidth={1} />}
+          {ref?.max != null && <ReferenceLine y={ref.max} stroke="#fbbf24" strokeDasharray="4 3" strokeWidth={1} />}
+          {indicator.target != null && (
+            <ReferenceLine y={indicator.target} stroke="#059669" strokeDasharray="5 3" strokeWidth={1.5}
+              label={{ value: "Target", position: "right", style: { fontSize: 8, fill: "#6b7280" } }} />
+          )}
+          <Line type="monotone" dataKey="value" name={indicator.label} stroke={color} strokeWidth={2}
+            dot={{ r: 3, fill: color, strokeWidth: 0 }} activeDot={{ r: 5 }} connectNulls={false} />
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+function PlanTrendCharts({ plan }: { plan: MonitoringPlan }) {
+  const groups: Array<{ title: string; category: PlanIndicator["category"] }> = [
+    { title: "Anthropometric Trends", category: "anthro" },
+    { title: "Clinical Lab Trends", category: "lab" },
+    { title: "Intake vs Prescription", category: "intake" },
+  ];
+
+  const sections = groups
+    .map((g) => ({ ...g, items: plan.indicators.filter((i) => i.category === g.category) }))
+    .filter((g) => g.items.length > 0);
+
+  if (sections.length === 0) {
+    return (
+      <div className="bg-white border border-zinc-200 rounded-2xl p-8 text-center shadow-sm">
+        <p className="text-xs font-semibold text-zinc-400">No tracked indicators yet for this care plan.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {sections.map((s) => (
+        <ChartCard key={s.category} title={s.title}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            {s.items.map((i) => <PlanIndicatorChart key={i.key} indicator={i} />)}
+          </div>
+          <p className="text-[9px] text-zinc-300 mt-3 select-none">
+            Visit 1 = assessment baseline · amber = reference range · green dashed = prescription target.
+          </p>
+        </ChartCard>
+      ))}
+    </div>
+  );
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -523,9 +603,24 @@ function MicroTrendsChart({
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function VisitTrendsChart({
+  plan,
   entries,
   intervention,
 }: VisitTrendsChartProps) {
+  // Plan-driven rendering: patient-specific tracked set, seeded at Visit 1.
+  if (plan && plan.indicators.length > 0) {
+    return <PlanTrendCharts plan={plan} />;
+  }
+  return <LegacyVisitTrendsChart entries={entries} intervention={intervention} />;
+}
+
+function LegacyVisitTrendsChart({
+  entries,
+  intervention,
+}: {
+  entries: MonitoringEntry[];
+  intervention: Intervention | null;
+}) {
   // Sorted chronologically
   const sorted = useMemo(
     () =>
