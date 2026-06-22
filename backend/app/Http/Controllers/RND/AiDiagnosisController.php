@@ -9,10 +9,11 @@ use App\Http\Resources\DiagnosisResource;
 use App\Models\Diagnosis;
 use App\Models\NcpRecord;
 use App\Services\AIService;
+use App\Services\LabFlagService;
 
 class AiDiagnosisController extends Controller
 {
-    public function __construct(private AIService $aiService) {}
+    public function __construct(private AIService $aiService, private LabFlagService $labFlags) {}
 
     /**
      * GET AI-suggested diagnoses for an NCP record.
@@ -57,38 +58,10 @@ class AiDiagnosisController extends Controller
 
             $flagged = [];
             if ($assessment?->biochemicalData) {
-                $labs = $assessment->biochemicalData->toArray();
-                $sex = $patient?->sex ?? 'Male';
-
-                $ranges = [
-                    'albumin'       => ['low' => 3.5,  'high' => 5.5],
-                    'hemoglobin'    => $sex === 'Male' ? ['low' => 13.5, 'high' => 17.5] : ['low' => 12.0, 'high' => 15.5],
-                    'hematocrit'    => $sex === 'Male' ? ['low' => 41,   'high' => 53]   : ['low' => 36,   'high' => 46],
-                    'glucose'       => ['low' => 70,   'high' => 99],
-                    'hba1c'         => ['low' => null, 'high' => 5.6],
-                    'bun'           => ['low' => 7,    'high' => 18],
-                    'creatinine'    => $sex === 'Male' ? ['low' => 0.7,  'high' => 1.2]  : ['low' => 0.5,  'high' => 0.9],
-                    'sodium'        => ['low' => 136,  'high' => 145],
-                    'potassium'     => ['low' => 3.5,  'high' => 5.1],
-                    'calcium'       => ['low' => 8.7,  'high' => 10.3],
-                    'phosphate'     => ['low' => 2.5,  'high' => 4.5],
-                    'cholesterol'   => ['low' => null, 'high' => 200],
-                    'ldl'           => ['low' => null, 'high' => 100],
-                    'hdl'           => $sex === 'Male' ? ['low' => 40,   'high' => null] : ['low' => 50,   'high' => null],
-                    'triglycerides' => ['low' => null, 'high' => 150],
-                ];
-
-                foreach ($ranges as $key => $range) {
-                    $value = $labs[$key] ?? null;
-                    if ($value === null) continue;
-                    $value = (float) $value;
-                    $status = null;
-                    if ($range['low'] !== null && $value < $range['low']) $status = 'LOW';
-                    if ($range['high'] !== null && $value > $range['high']) $status = 'HIGH';
-                    if ($status) {
-                        $flagged[$key] = ['value' => $value, 'status' => $status];
-                    }
-                }
+                $flagged = $this->labFlags->flag(
+                    $assessment->biochemicalData->toArray(),
+                    $patient?->sex ?? 'Male'
+                );
             }
 
             if (!empty($flagged)) {
