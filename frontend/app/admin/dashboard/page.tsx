@@ -5,6 +5,11 @@ import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
 import { fetchDashboard, DashboardData } from "@/services/adminDashboardService";
 import { listAuditLogs, AuditLog } from "@/services/auditLogService";
+import {
+  getAiUsageLimits,
+  saveAiUsageLimits,
+  AiUsageLimits,
+} from "@/services/aiUsageLimitService";
 import { KpiCard } from "@/components/ui/KpiCard";
 import { Badge, BadgeTone } from "@/components/ui/Badge";
 import {
@@ -71,6 +76,44 @@ export default function AdminDashboardPage() {
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
+  // AI token cap state
+  const [aiLimits, setAiLimits] = useState<AiUsageLimits | null>(null);
+  const [capDailyInput, setCapDailyInput] = useState("");
+  const [capMonthlyInput, setCapMonthlyInput] = useState("");
+  const [capSaving, setCapSaving] = useState(false);
+  const [capSaveMsg, setCapSaveMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
+  async function loadAiLimits() {
+    try {
+      const limits = await getAiUsageLimits();
+      setAiLimits(limits);
+      setCapDailyInput(limits.daily_token_limit != null ? String(limits.daily_token_limit) : "");
+      setCapMonthlyInput(limits.monthly_token_limit != null ? String(limits.monthly_token_limit) : "");
+    } catch {
+      // non-fatal — card shows blank
+    }
+  }
+
+  async function handleSaveCaps() {
+    setCapSaving(true);
+    setCapSaveMsg(null);
+    try {
+      const payload = {
+        daily_token_limit: capDailyInput.trim() === "" ? null : parseInt(capDailyInput, 10),
+        monthly_token_limit: capMonthlyInput.trim() === "" ? null : parseInt(capMonthlyInput, 10),
+      };
+      const updated = await saveAiUsageLimits(payload);
+      setAiLimits(updated);
+      setCapDailyInput(updated.daily_token_limit != null ? String(updated.daily_token_limit) : "");
+      setCapMonthlyInput(updated.monthly_token_limit != null ? String(updated.monthly_token_limit) : "");
+      setCapSaveMsg({ ok: true, text: "Limits saved." });
+    } catch (err: any) {
+      setCapSaveMsg({ ok: false, text: err.message || "Failed to save limits." });
+    } finally {
+      setCapSaving(false);
+    }
+  }
+
   async function loadData(isRefresh = false) {
     try {
       if (isRefresh) {
@@ -97,6 +140,7 @@ export default function AdminDashboardPage() {
 
   useEffect(() => {
     void loadData();
+    void loadAiLimits();
   }, []);
 
   const chartData = useMemo(() => {
@@ -193,6 +237,118 @@ export default function AdminDashboardPage() {
           />
         </div>
       )}
+
+      {/* AI Token Cap Card */}
+      <div className="bg-white border border-zinc-200 rounded-3xl overflow-hidden shadow-sm">
+        <div className="px-5 py-4 border-b border-zinc-100 flex items-center gap-3">
+          <Cpu className="h-4 w-4 text-emerald-600 shrink-0" />
+          <div>
+            <h3 className="text-xs font-bold text-zinc-900 uppercase tracking-[0.18em]">
+              AI Token Caps
+            </h3>
+            <p className="text-[10px] text-zinc-500 mt-0.5">
+              Set daily and monthly limits. Leave blank for unlimited.
+            </p>
+          </div>
+        </div>
+
+        <div className="p-5 space-y-4">
+          {/* Usage rows */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {/* Daily */}
+            {(() => {
+              const used = aiLimits?.daily_used ?? 0;
+              const cap = aiLimits?.daily_token_limit ?? null;
+              const over = cap !== null && used >= cap;
+              return (
+                <div className={`rounded-2xl border px-4 py-3 ${over ? "border-amber-200 bg-amber-50" : "border-zinc-100 bg-zinc-50"}`}>
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 mb-1">Daily</div>
+                  <div className={`text-lg font-bold tabular-nums leading-none ${over ? "text-amber-700" : "text-zinc-900"}`}>
+                    {formatTokens(used)}
+                  </div>
+                  <div className="text-[10px] text-zinc-500 mt-0.5">
+                    of {cap !== null ? formatTokens(cap) : "Unlimited"}
+                    {over && <span className="ml-1.5 font-bold text-amber-600">· over cap</span>}
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Monthly */}
+            {(() => {
+              const used = aiLimits?.monthly_used ?? 0;
+              const cap = aiLimits?.monthly_token_limit ?? null;
+              const over = cap !== null && used >= cap;
+              return (
+                <div className={`rounded-2xl border px-4 py-3 ${over ? "border-amber-200 bg-amber-50" : "border-zinc-100 bg-zinc-50"}`}>
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 mb-1">Monthly</div>
+                  <div className={`text-lg font-bold tabular-nums leading-none ${over ? "text-amber-700" : "text-zinc-900"}`}>
+                    {formatTokens(used)}
+                  </div>
+                  <div className="text-[10px] text-zinc-500 mt-0.5">
+                    of {cap !== null ? formatTokens(cap) : "Unlimited"}
+                    {over && <span className="ml-1.5 font-bold text-amber-600">· over cap</span>}
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+
+          {/* Inline edit */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-zinc-500 mb-1">
+                Daily limit (tokens)
+              </label>
+              <input
+                type="number"
+                min={0}
+                placeholder="Unlimited"
+                value={capDailyInput}
+                onChange={(e) => { setCapDailyInput(e.target.value); setCapSaveMsg(null); }}
+                disabled={capSaving}
+                className="w-full text-xs font-semibold tabular-nums rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-zinc-800 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 disabled:opacity-50 transition"
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-zinc-500 mb-1">
+                Monthly limit (tokens)
+              </label>
+              <input
+                type="number"
+                min={0}
+                placeholder="Unlimited"
+                value={capMonthlyInput}
+                onChange={(e) => { setCapMonthlyInput(e.target.value); setCapSaveMsg(null); }}
+                disabled={capSaving}
+                className="w-full text-xs font-semibold tabular-nums rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-zinc-800 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 disabled:opacity-50 transition"
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => void handleSaveCaps()}
+              disabled={capSaving}
+              className="inline-flex items-center gap-2 px-4 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-bold uppercase tracking-wider hover:bg-emerald-700 active:bg-emerald-800 disabled:opacity-50 transition-colors shadow-sm"
+            >
+              {capSaving ? (
+                <>
+                  <RefreshCw className="h-3 w-3 animate-spin" />
+                  Saving…
+                </>
+              ) : (
+                "Save Limits"
+              )}
+            </button>
+            {capSaveMsg && (
+              <span className={`text-[10px] font-semibold ${capSaveMsg.ok ? "text-emerald-600" : "text-red-600"}`}>
+                {capSaveMsg.text}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
 
       {/* Main Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
