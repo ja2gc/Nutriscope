@@ -3,6 +3,7 @@
 use App\Http\Controllers\ActivityController;
 use App\Http\Controllers\Admin\AnnouncementController as AdminAnnouncementController;
 use App\Http\Controllers\Admin\AuditLogController as AdminAuditLogController;
+use App\Http\Controllers\Admin\AiUsageLimitController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Auth\AuthController;
@@ -261,6 +262,8 @@ Route::middleware(['auth:sanctum', 'role:Admin'])->prefix('admin')->group(functi
     Route::get('dashboard', AdminDashboardController::class);
     Route::get('report-branding', [ReportBrandingController::class, 'show']);
     Route::post('report-branding', [ReportBrandingController::class, 'update']);
+    Route::get('ai-usage-limits', [AiUsageLimitController::class, 'show']);
+    Route::put('ai-usage-limits', [AiUsageLimitController::class, 'update']);
 
     // Reports browse — Admin-scoped subset (demographic_census, budget_report, procurement_pack).
     // ReportController::guardAdmin() enforces the allowlist; 403 for any other type.
