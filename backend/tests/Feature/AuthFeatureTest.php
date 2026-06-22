@@ -2,22 +2,24 @@
 
 namespace Tests\Feature;
 
+use App\Http\Controllers\Auth\AuthController;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Route;
 use Tests\TestCase;
 
 class AuthFeatureTest extends TestCase
 {
     use RefreshDatabase;
-    
+
     protected function setUp(): void
     {
         parent::setUp();
 
-        \Illuminate\Support\Facades\Route::post('/api/auth/login', [\App\Http\Controllers\Auth\AuthController::class, 'login']);
-        \Illuminate\Support\Facades\Route::post('/api/auth/logout', [\App\Http\Controllers\Auth\AuthController::class, 'logout'])->middleware('auth:sanctum');
-        \Illuminate\Support\Facades\Route::get('/api/auth/me', [\App\Http\Controllers\Auth\AuthController::class, 'me'])->middleware('auth:sanctum');
+        Route::post('/api/auth/login', [AuthController::class, 'login'])->middleware('throttle:login');
+        Route::post('/api/auth/logout', [AuthController::class, 'logout'])->middleware('auth:sanctum');
+        Route::get('/api/auth/me', [AuthController::class, 'me'])->middleware('auth:sanctum');
     }
 
     public function test_user_can_login_with_valid_credentials()
@@ -36,7 +38,7 @@ class AuthFeatureTest extends TestCase
         ]);
 
         $response->assertStatus(200)
-                 ->assertJsonStructure(['token', 'user' => ['id', 'email']]);
+            ->assertJsonStructure(['token', 'user' => ['id', 'email']]);
     }
 
     public function test_user_cannot_login_with_invalid_credentials()
@@ -75,6 +77,106 @@ class AuthFeatureTest extends TestCase
         $response->assertStatus(403);
     }
 
+    public function test_fss_user_can_login_from_app()
+    {
+        User::forceCreate([
+            'name' => 'FSS Staff',
+            'email' => 'fss@example.com',
+            'password' => Hash::make('password123'),
+            'role' => 'FSS',
+            'is_active' => true,
+        ]);
+
+        $response = $this->postJson('/api/auth/login', [
+            'email' => 'fss@example.com',
+            'password' => 'password123',
+            'platform' => 'app',
+        ]);
+
+        $response->assertStatus(200)
+            ->assertJsonStructure(['token', 'user']);
+    }
+
+    public function test_fss_user_cannot_login_from_web()
+    {
+        User::forceCreate([
+            'name' => 'FSS Staff',
+            'email' => 'fss@example.com',
+            'password' => Hash::make('password123'),
+            'role' => 'FSS',
+            'is_active' => true,
+        ]);
+
+        $response = $this->postJson('/api/auth/login', [
+            'email' => 'fss@example.com',
+            'password' => 'password123',
+        ]);
+
+        $response->assertStatus(403);
+    }
+
+    public function test_rnd_user_cannot_login_from_app()
+    {
+        User::forceCreate([
+            'name' => 'RND Staff',
+            'email' => 'rnd@example.com',
+            'password' => Hash::make('password123'),
+            'role' => 'RND',
+            'is_active' => true,
+        ]);
+
+        $response = $this->postJson('/api/auth/login', [
+            'email' => 'rnd@example.com',
+            'password' => 'password123',
+            'platform' => 'app',
+        ]);
+
+        $response->assertStatus(403);
+    }
+
+    public function test_admin_user_cannot_login_from_app()
+    {
+        User::forceCreate([
+            'name' => 'Admin Staff',
+            'email' => 'admin@example.com',
+            'password' => Hash::make('password123'),
+            'role' => 'Admin',
+            'is_active' => true,
+        ]);
+
+        $response = $this->postJson('/api/auth/login', [
+            'email' => 'admin@example.com',
+            'password' => 'password123',
+            'platform' => 'app',
+        ]);
+
+        $response->assertStatus(403);
+    }
+
+    public function test_login_is_rate_limited_after_repeated_failures()
+    {
+        User::forceCreate([
+            'name' => 'Throttle',
+            'email' => 'throttle@example.com',
+            'password' => Hash::make('password123'),
+            'role' => 'RND',
+            'is_active' => true,
+        ]);
+
+        // 5 attempts/min allowed (per email+IP); the 6th must be blocked.
+        for ($i = 0; $i < 5; $i++) {
+            $this->postJson('/api/auth/login', [
+                'email' => 'throttle@example.com',
+                'password' => 'wrongpassword',
+            ])->assertStatus(401);
+        }
+
+        $this->postJson('/api/auth/login', [
+            'email' => 'throttle@example.com',
+            'password' => 'wrongpassword',
+        ])->assertStatus(429);
+    }
+
     public function test_user_can_fetch_their_profile()
     {
         $user = User::forceCreate([
@@ -88,7 +190,7 @@ class AuthFeatureTest extends TestCase
         $response = $this->actingAs($user, 'sanctum')->getJson('/api/auth/me');
 
         $response->assertStatus(200)
-                 ->assertJsonPath('email', $user->email);
+            ->assertJsonPath('email', $user->email);
     }
 
     public function test_user_can_logout()
@@ -102,8 +204,8 @@ class AuthFeatureTest extends TestCase
         ]);
         $token = $user->createToken('test-token')->plainTextToken;
 
-        $response = $this->withHeader('Authorization', 'Bearer ' . $token)
-                         ->postJson('/api/auth/logout');
+        $response = $this->withHeader('Authorization', 'Bearer '.$token)
+            ->postJson('/api/auth/logout');
 
         $response->assertStatus(200);
         $this->assertCount(0, $user->tokens);
@@ -120,16 +222,16 @@ class AuthFeatureTest extends TestCase
         ]);
 
         $phoneResponse = $this->postJson('/api/auth/login', [
-            'email'       => 'multi@example.com',
-            'password'    => 'password123',
+            'email' => 'multi@example.com',
+            'password' => 'password123',
             'device_name' => 'Phone',
         ]);
         $phoneResponse->assertStatus(200);
         $phoneToken = $phoneResponse->json('token');
 
         $webResponse = $this->postJson('/api/auth/login', [
-            'email'       => 'multi@example.com',
-            'password'    => 'password123',
+            'email' => 'multi@example.com',
+            'password' => 'password123',
             'device_name' => 'Web',
         ]);
         $webResponse->assertStatus(200);
@@ -137,13 +239,13 @@ class AuthFeatureTest extends TestCase
 
         $this->assertDatabaseCount('personal_access_tokens', 2);
 
-        $this->withHeader('Authorization', 'Bearer ' . $phoneToken)
-             ->getJson('/api/auth/me')
-             ->assertStatus(200);
+        $this->withHeader('Authorization', 'Bearer '.$phoneToken)
+            ->getJson('/api/auth/me')
+            ->assertStatus(200);
 
-        $this->withHeader('Authorization', 'Bearer ' . $webToken)
-             ->getJson('/api/auth/me')
-             ->assertStatus(200);
+        $this->withHeader('Authorization', 'Bearer '.$webToken)
+            ->getJson('/api/auth/me')
+            ->assertStatus(200);
     }
 
     public function test_same_device_name_login_revokes_previous_token()
@@ -157,16 +259,16 @@ class AuthFeatureTest extends TestCase
         ]);
 
         $first = $this->postJson('/api/auth/login', [
-            'email'       => 'samedevice@example.com',
-            'password'    => 'password123',
+            'email' => 'samedevice@example.com',
+            'password' => 'password123',
             'device_name' => 'MyPhone',
         ]);
         $first->assertStatus(200);
         $firstToken = $first->json('token');
 
         $second = $this->postJson('/api/auth/login', [
-            'email'       => 'samedevice@example.com',
-            'password'    => 'password123',
+            'email' => 'samedevice@example.com',
+            'password' => 'password123',
             'device_name' => 'MyPhone',
         ]);
         $second->assertStatus(200);
@@ -190,12 +292,12 @@ class AuthFeatureTest extends TestCase
         ]);
 
         $response = $this->postJson('/api/auth/login', [
-            'email'    => 'nodevice@example.com',
+            'email' => 'nodevice@example.com',
             'password' => 'password123',
         ]);
 
         $response->assertStatus(200)
-                 ->assertJsonStructure(['token', 'user']);
+            ->assertJsonStructure(['token', 'user']);
 
         $this->assertDatabaseHas('personal_access_tokens', ['name' => 'nutriscope-token']);
     }

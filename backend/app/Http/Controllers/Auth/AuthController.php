@@ -7,8 +7,10 @@ use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Requests\Auth\UpdatePasswordRequest;
 use App\Http\Requests\Auth\UpdateProfileRequest;
 use App\Http\Resources\UserResource;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 
 class AuthController extends Controller
@@ -20,14 +22,26 @@ class AuthController extends Controller
     {
         $credentials = $request->only('email', 'password');
 
-        if (!\Illuminate\Support\Facades\Auth::attempt($credentials)) {
+        if (! Auth::attempt($credentials)) {
             return response()->json(['message' => 'Invalid credentials.'], 401);
         }
 
-        $user = $request->user() ?? \App\Models\User::where('email', $request->email)->first();
+        $user = $request->user() ?? User::where('email', $request->email)->first();
 
-        if (!$user->is_active) {
+        if (! $user->is_active) {
             return response()->json(['message' => 'Account is deactivated.'], 403);
+        }
+
+        // Platform-based role gating: the FSS mobile app is for Food Service staff
+        // only; the web console is for RND and Admin only.
+        $isApp = $request->validated('platform') === 'app';
+
+        if ($isApp && ! $user->isFss()) {
+            return response()->json(['message' => 'This app is for Food Service staff only.'], 403);
+        }
+
+        if (! $isApp && $user->isFss()) {
+            return response()->json(['message' => 'Food Service staff must sign in through the mobile app.'], 403);
         }
 
         // Revoke only tokens for this device, then issue a fresh one
@@ -37,7 +51,7 @@ class AuthController extends Controller
 
         return response()->json([
             'token' => $token,
-            'user'  => new UserResource($user),
+            'user' => new UserResource($user),
         ]);
     }
 
@@ -47,6 +61,7 @@ class AuthController extends Controller
     public function logout(Request $request): JsonResponse
     {
         $request->user()->currentAccessToken()->delete();
+
         return response()->json(['message' => 'Logged out.']);
     }
 
