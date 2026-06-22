@@ -228,7 +228,7 @@ class MonitoringSummaryService
             'delta'     => $delta,
             'delta_pct' => $deltaPct,
             'direction' => $direction,
-            'status'    => $this->metricStatus($key, $curr, $prev, $nutritionalStatus, $ranges),
+            'status'    => self::metricStatus($key, $curr, $prev, $nutritionalStatus, $ranges),
         ];
     }
 
@@ -236,7 +236,7 @@ class MonitoringSummaryService
      * Goal status for one metric: met (in normal range) / in_progress (improving
      * from previous but not yet normal) / not_met / no_data.
      */
-    private function metricStatus(string $key, float $curr, ?float $prev, ?string $nutritionalStatus, ?array $ranges = null): string
+    public static function metricStatus(string $key, float $curr, ?float $prev, ?string $nutritionalStatus, ?array $ranges = null): string
     {
         $ranges ??= self::LAB_RANGES;
 
