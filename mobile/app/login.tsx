@@ -94,10 +94,11 @@ export default function LoginScreen() {
     setError(null);
     setSubmitting(true);
     try {
-      const res = await api.post('/api/login', {
+      const res = await api.post('/api/auth/login', {
         email: email.trim(),
         password,
         device_name: 'Expo App',
+        platform: 'app',
       });
       await setToken(res.data.token);
       router.replace('/(tabs)');

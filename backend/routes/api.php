@@ -1,43 +1,43 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\Auth\AuthController;
+use App\Http\Controllers\ActivityController;
 use App\Http\Controllers\Admin\AnnouncementController as AdminAnnouncementController;
-use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Admin\AuditLogController as AdminAuditLogController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
-use App\Http\Controllers\RND\AnnouncementController as RndAnnouncementController;
-use App\Http\Controllers\RND\AssessmentController;
-use App\Http\Controllers\RND\DiagnosisController;
-use App\Http\Controllers\RND\InterventionController;
-use App\Http\Controllers\RND\ScreeningDocumentController;
-use App\Http\Controllers\RND\MonitoringController;
-use App\Http\Controllers\RND\PatientController;
-use App\Http\Controllers\RND\AiDiagnosisController;
-use App\Http\Controllers\RND\MealPlanController;
-use App\Http\Controllers\RND\CalendarEventController;
-use App\Http\Controllers\RND\NotificationController;
-use App\Http\Controllers\RND\FoodItemController;
-use App\Http\Controllers\RND\RecipeController;
-use App\Http\Controllers\RND\UsdaController;
-use App\Http\Controllers\RND\MealPlanItemController;
-use App\Http\Controllers\RND\NcpRecordController;
-use App\Http\Controllers\FSS\InventoryController;
-use App\Http\Controllers\FSS\SupplierController;
-use App\Http\Controllers\FSS\PurchaseOrderController;
-use App\Http\Controllers\FSS\ShoppingListController;
-use App\Http\Controllers\FSS\MenuCycleController;
-use App\Http\Controllers\FSS\MenuCycleTemplateController;
+use App\Http\Controllers\Admin\UserController as AdminUserController;
+use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\FSS\BudgetController;
-use App\Http\Controllers\FSS\FoodServiceRecipeController;
-use App\Http\Controllers\FSS\FsItemController;
-use App\Http\Controllers\ActivityController;
-use App\Http\Controllers\FSS\MealPrepLogController;
 use App\Http\Controllers\FSS\DashboardController as FssDashboardController;
 use App\Http\Controllers\FSS\DietListCountController;
-use App\Http\Controllers\ReportController;
+use App\Http\Controllers\FSS\FoodServiceRecipeController;
+use App\Http\Controllers\FSS\FsItemController;
+use App\Http\Controllers\FSS\InventoryController;
+use App\Http\Controllers\FSS\MealPrepLogController;
+use App\Http\Controllers\FSS\MenuCycleController;
+use App\Http\Controllers\FSS\MenuCycleTemplateController;
+use App\Http\Controllers\FSS\PurchaseOrderController;
+use App\Http\Controllers\FSS\ShoppingListController;
+use App\Http\Controllers\FSS\SupplierController;
 use App\Http\Controllers\ReportBrandingController;
+use App\Http\Controllers\ReportController;
 use App\Http\Controllers\ReportTemplateController;
+use App\Http\Controllers\RND\AiDiagnosisController;
+use App\Http\Controllers\RND\AnnouncementController as RndAnnouncementController;
+use App\Http\Controllers\RND\AssessmentController;
+use App\Http\Controllers\RND\CalendarEventController;
+use App\Http\Controllers\RND\DiagnosisController;
+use App\Http\Controllers\RND\FoodItemController;
+use App\Http\Controllers\RND\InterventionController;
+use App\Http\Controllers\RND\MealPlanController;
+use App\Http\Controllers\RND\MealPlanItemController;
+use App\Http\Controllers\RND\MonitoringController;
+use App\Http\Controllers\RND\NcpRecordController;
+use App\Http\Controllers\RND\NotificationController;
+use App\Http\Controllers\RND\PatientController;
+use App\Http\Controllers\RND\RecipeController;
+use App\Http\Controllers\RND\ScreeningDocumentController;
+use App\Http\Controllers\RND\UsdaController;
+use Illuminate\Support\Facades\Route;
 
 /**
  * Reports routes — identical for the RND and FSS role groups, so defined once here
@@ -61,13 +61,13 @@ $reportRoutes = function () {
 };
 
 Route::prefix('auth')->group(function () {
-    Route::post('login', [AuthController::class, 'login']);
-    
+    Route::post('login', [AuthController::class, 'login'])->middleware('throttle:login');
+
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('logout', [AuthController::class, 'logout']);
         Route::get('me', [AuthController::class, 'me']);
         Route::patch('profile', [AuthController::class, 'updateProfile']);
-        Route::post('password', [AuthController::class, 'updatePassword']);
+        Route::post('password', [AuthController::class, 'updatePassword'])->middleware('throttle:password-change');
     });
 });
 
@@ -92,7 +92,7 @@ Route::middleware(['auth:sanctum', 'role:RND', 'audit'])->prefix('rnd')->group(f
     Route::get('ncp-records/{ncpRecord}/assessment', [AssessmentController::class, 'show']);
     Route::patch('ncp-records/{ncpRecord}/assessment', [AssessmentController::class, 'update']);
     // NCP supporting-document attachments (rnd.md §3.1) — plain storage, per-cycle scoped.
-    Route::post('ncp-records/{ncpRecord}/attachments', [AssessmentController::class, 'uploadAttachment']);
+    Route::post('ncp-records/{ncpRecord}/attachments', [AssessmentController::class, 'uploadAttachment'])->middleware('throttle:uploads');
     Route::get('ncp-records/{ncpRecord}/attachments', [AssessmentController::class, 'listAttachments']);
     Route::get('screening-documents/{screeningDocument}', [ScreeningDocumentController::class, 'show']);
     Route::get('screening-documents/{screeningDocument}/file', [ScreeningDocumentController::class, 'file']);
@@ -105,8 +105,10 @@ Route::middleware(['auth:sanctum', 'role:RND', 'audit'])->prefix('rnd')->group(f
     Route::delete('ncp-records/{ncpRecord}/diagnoses/{diagnosis}', [DiagnosisController::class, 'destroy']);
 
     // AI Diagnoses routes
-    Route::post('ncp-records/{ncpRecord}/diagnoses/ai-suggest', [AiDiagnosisController::class, 'aiSuggest']);
-    Route::post('ncp-records/{ncpRecord}/diagnoses/ai-approve', [AiDiagnosisController::class, 'aiApprove']);
+    Route::middleware('throttle:ai')->group(function () {
+        Route::post('ncp-records/{ncpRecord}/diagnoses/ai-suggest', [AiDiagnosisController::class, 'aiSuggest']);
+        Route::post('ncp-records/{ncpRecord}/diagnoses/ai-approve', [AiDiagnosisController::class, 'aiApprove']);
+    });
 
     // Intervention routes
     Route::post('ncp-records/{ncpRecord}/intervention/autofill', [InterventionController::class, 'autofill']);
@@ -141,7 +143,7 @@ Route::middleware(['auth:sanctum', 'role:RND', 'audit'])->prefix('rnd')->group(f
     // Phase 6 — evaluation summary (free) + optional AI narrative (declared before
     // the {monitoring} routes so the literal segments win the match).
     Route::get('ncp-records/{ncpRecord}/monitorings/summary', [MonitoringController::class, 'summary']);
-    Route::post('ncp-records/{ncpRecord}/monitorings/ai-review', [MonitoringController::class, 'aiReview']);
+    Route::post('ncp-records/{ncpRecord}/monitorings/ai-review', [MonitoringController::class, 'aiReview'])->middleware('throttle:ai');
     Route::post('ncp-records/{ncpRecord}/monitorings', [MonitoringController::class, 'store']);
     Route::patch('ncp-records/{ncpRecord}/monitorings/{monitoring}', [MonitoringController::class, 'update']);
     Route::delete('ncp-records/{ncpRecord}/monitorings/{monitoring}', [MonitoringController::class, 'destroy']);
@@ -156,10 +158,12 @@ Route::middleware(['auth:sanctum', 'role:RND', 'audit'])->prefix('rnd')->group(f
     // Food Database routes
     Route::apiResource('food-items', FoodItemController::class);
     Route::apiResource('recipes', RecipeController::class);
-    Route::get('usda/search', [UsdaController::class, 'search']);
-    Route::post('usda/import/{fdcId}', [UsdaController::class, 'import']);
-    Route::get('usda/preview/{fdcId}', [UsdaController::class, 'preview'])
-        ->where('fdcId', '[0-9]+');
+    Route::middleware('throttle:usda')->group(function () {
+        Route::get('usda/search', [UsdaController::class, 'search']);
+        Route::post('usda/import/{fdcId}', [UsdaController::class, 'import']);
+        Route::get('usda/preview/{fdcId}', [UsdaController::class, 'preview'])
+            ->where('fdcId', '[0-9]+');
+    });
 });
 
 Route::middleware(['auth:sanctum', 'role:FSS,RND'])->prefix('fss')->group(function () use ($reportRoutes) {
@@ -173,7 +177,7 @@ Route::middleware(['auth:sanctum', 'role:FSS,RND'])->prefix('fss')->group(functi
 
     // Purchase Orders — FSS reads + attachments; writes are RND-only (see below)
     Route::get('purchase-orders/{purchase_order}/activity', [ActivityController::class, 'purchaseOrder']);
-    Route::post('purchase-orders/{purchase_order}/attachments', [PurchaseOrderController::class, 'uploadAttachment']);
+    Route::post('purchase-orders/{purchase_order}/attachments', [PurchaseOrderController::class, 'uploadAttachment'])->middleware('throttle:uploads');
     Route::delete('purchase-order-attachments/{attachment}', [PurchaseOrderController::class, 'destroyAttachment']);
     Route::apiResource('purchase-orders', PurchaseOrderController::class)->only(['index', 'show']);
 
