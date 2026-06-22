@@ -94,12 +94,22 @@ class MonitoringSummaryService
 
         $nutritionalStatus = $ncpRecord->assessment()->first()?->nutritional_status;
 
+        $activeDiagnoses = $ncpRecord->diagnoses()
+            ->orderBy('id')
+            ->limit(3)
+            ->pluck('pes_statement')
+            ->all();
+
         // A7: pick patient-context-adjusted lab ranges (sex-specific where it matters).
         $patient = $ncpRecord->patient;
         $age     = $patient?->dob ? (int) \Illuminate\Support\Carbon::parse($patient->dob)->age : null;
         $ranges  = self::rangesFor($patient?->sex, $age);
 
-        return $this->summarizePair($previous, $current, $rxTargets, $nutritionalStatus, $ranges);
+        return $this->summarizePair($previous, $current, $rxTargets, $nutritionalStatus, $ranges, [
+            'intervention_goal'  => $intervention?->goal_type,
+            'active_diagnoses'   => $activeDiagnoses,
+            'nutritional_status' => $nutritionalStatus,
+        ]);
     }
 
     /**
@@ -112,9 +122,12 @@ class MonitoringSummaryService
         $labs = is_array($monitoring->lab_values) ? $monitoring->lab_values : [];
 
         $metrics = [
-            'date'   => $monitoring->created_at?->toDateString(),
-            'weight' => $monitoring->weight !== null ? (float) $monitoring->weight : null,
-            'bmi'    => $monitoring->bmi !== null ? (float) $monitoring->bmi : null,
+            'date'             => $monitoring->created_at?->toDateString(),
+            'weight'           => $monitoring->weight !== null ? (float) $monitoring->weight : null,
+            'bmi'              => $monitoring->bmi !== null ? (float) $monitoring->bmi : null,
+            'goal_achievement' => $monitoring->goal_achievement ?? null,
+            'symptoms'         => $monitoring->symptoms ?? null,
+            'clinical_summary' => $monitoring->clinical_summary ?? null,
         ];
 
         foreach (array_keys(self::LAB_RANGES) as $key) {
@@ -135,7 +148,7 @@ class MonitoringSummaryService
      * @param  array<string,float|null> $rxTargets
      * @return array<string, mixed>
      */
-    public function summarizePair(?array $previous, array $current, array $rxTargets = [], ?string $nutritionalStatus = null, ?array $ranges = null): array
+    public function summarizePair(?array $previous, array $current, array $rxTargets = [], ?string $nutritionalStatus = null, ?array $ranges = null, array $context = []): array
     {
         $ranges ??= self::LAB_RANGES;
         $changes = [];
@@ -177,13 +190,16 @@ class MonitoringSummaryService
         }
 
         return [
-            'has_data'        => true,
-            'has_previous'    => $previous !== null,
-            'previous_date'   => $previous['date'] ?? null,
-            'current_date'    => $current['date'] ?? null,
-            'changes'         => $changes,
-            'intake'          => $intake,
-            'goal_evaluation' => $this->evaluateGoal($changes, $intake),
+            'has_data'           => true,
+            'has_previous'       => $previous !== null,
+            'previous_date'      => $previous['date'] ?? null,
+            'current_date'       => $current['date'] ?? null,
+            'changes'            => $changes,
+            'intake'             => $intake,
+            'goal_evaluation'    => $this->evaluateGoal($changes, $intake),
+            'intervention_goal'  => $context['intervention_goal'] ?? null,
+            'active_diagnoses'   => $context['active_diagnoses'] ?? [],
+            'nutritional_status' => $context['nutritional_status'] ?? null,
         ];
     }
 
