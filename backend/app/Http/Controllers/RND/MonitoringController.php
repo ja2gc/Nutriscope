@@ -9,6 +9,7 @@ use App\Http\Resources\MonitoringResource;
 use App\Models\Monitoring;
 use App\Models\NcpRecord;
 use App\Services\AIService;
+use App\Services\MonitoringPlanService;
 use App\Services\MonitoringSummaryService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -66,6 +67,18 @@ class MonitoringController extends Controller
         }
 
         return response()->json(['data' => ['narrative' => $narrative, 'cached' => false]]);
+    }
+
+    /**
+     * GET /api/rnd/ncp-records/{ncpRecord}/monitoring-plan
+     *
+     * Patient-specific tracked-indicator set (flagged labs + prescription + goal +
+     * PES-implied + calculated anthropometrics), seeded from the assessment ("Visit 1").
+     * Single source of truth for the visit form, trend charts, and progress tracker.
+     */
+    public function plan(NcpRecord $ncpRecord, MonitoringPlanService $svc): JsonResponse
+    {
+        return response()->json(['data' => $svc->build($ncpRecord)]);
     }
 
     /**
