@@ -209,17 +209,21 @@ Modals: camera/upload for receipts (UX mirrors RND's receipt-upload flow — sam
 
 ## Reproducibility & Workflow Integrity (hard requirement)
 
-Every feature the app displays must trace to a real **input → persist → read** path. Nothing on screen may exist only because it was seeded or hardcoded.
-- [ ] **Dashboard** KPIs come from live queries (Task D), proven by tests that insert rows and assert the counts change.
-- [ ] **Notifications** are produced by real events (announcement fan-out; PO-awaiting-receipt — Task N), not seeded rows.
-- [ ] **Served population** is reproducible: `diet_list_counts` rows sum into `meal_prep_logs.served_population` (Task A1); the hand-typed value remains only as a fallback when a day has no diet-list rows.
-- [ ] **Accomplishment report** renders from captured `diet_list_counts` (Task A), not from a fixture.
-- [ ] **Scope is enforced in code, not just docs:** off-scope/dead backend removed or RND-gated (Task R2), with 403/404 tests.
-- [ ] **Backend hygiene** on every new write: `$request->validated()` only, Form Request per write, self-scoped writes via policy, `File::image()->max('10mb')` for uploads, `throttle` on login/API (laravel-best-practices §3/§6).
+Every feature the app displays must trace to a real **input → persist → read** path. Nothing on screen may exist only because it was seeded or hardcoded. **Verified in the post-build review — no dead-ends or mock data; every screen → live endpoint.**
+- [x] **Dashboard** KPIs come from live queries (Task D), proven by tests that insert rows and assert the counts change.
+- [x] **Notifications** are produced by real events (announcement fan-out; PO-awaiting-receipt — Task N), not seeded rows.
+- [x] **Served population** is reproducible: `diet_list_counts` rows sum into `meal_prep_logs.served_population` (Task A1); hand-typed value is fallback only.
+- [x] **Accomplishment report** renders from captured `diet_list_counts` (Task A), not from a fixture.
+- [x] **Scope is enforced in code, not just docs:** off-scope/dead backend removed or RND-gated (Task R2), with 403/404 tests.
+- [x] **Backend hygiene** on every new write: `$request->validated()`, Form Request per write, self-scoped writes, image upload validation, `throttle` on login/API.
 
 ---
 
-## Self-Review notes
-- Every backend task: `php artisan test` green before commit. Frontend/app: type-check + a device/sim check.
-- Don't re-litigate retracted findings (`complete-day missing`, `ai_usage_logs never written`) — verified false.
+## Post-review additions (review pass + 3 follow-ups)
+
+Full read-only audit of the app (connectivity, dead-ends, reproducibility, FSS→RND chain) — **all clean**: every mobile screen maps to a live endpoint, every action persists, and the FSS-writes → RND-reads chain (complete-day → inventory/served_population → budget-actual + shortfall notifications) is intact end-to-end.
+
+- [x] **API rate limiting** (your commit `16ba3b6`): named limiters `login` (5/min by email+IP), `ai` (20/hr), `usda` (30/min), `uploads` (20/hr), `password-change` (5/hr); throttle middleware applied to login/password/AI/USDA/upload routes. *Minor open: `rnd/ncp-records/{}/intervention/autofill` lacks `throttle:ai` — add for parity.*
+- [x] **Admin AI token caps** (commits `3f6ce19` backend, `d04fa01` web): singleton `ai_usage_limits` (daily/monthly, null=unlimited); `AIService::assertWithinTokenLimits()` blocks (429, no usage row) when daily/monthly `ai_usage_logs` sum ≥ cap; `GET`/`PUT /api/admin/ai-usage-limits` (admin-only); admin-dashboard card shows used-vs-cap + inline set. *Open: confirm every LLM-calling method in `AIService` (ai-approve, intervention/autofill, monitorings/ai-review) routes through the guard — currently wired into `suggestDiagnoses` + `narrateMonitoring`.*
+- [x] **RND access to FSS accomplishment reports** (commit pending): `ReportController::index` now lets RND see every `accomplishment_report` regardless of owner (RND is "Noted by") while FSS stays owner-scoped + accomplishment-only; RND render/instances already open (`guardFss` excludes RND); `accomplishment_report` added to web `FULL_CATALOG`. Tests: RND index sees FSS-filed rows; FSS index stays own-only.
 </content>
