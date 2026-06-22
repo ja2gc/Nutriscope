@@ -1,4 +1,6 @@
 ﻿import { apiFetch } from "@/lib/apiFetch";
+import type { MonitoringPlan } from "@/services/monitoringPlan";
+export type { MonitoringPlan, PlanIndicator, PlanVisit, PlanSeriesPoint, IndicatorStatus, IndicatorCategory } from "@/services/monitoringPlan";
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface MonitoringLabValues {
@@ -158,6 +160,17 @@ export async function fetchMonitoringSummary(ncpRecordId: number | string): Prom
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error((err as { message?: string }).message || 'Failed to load monitoring summary.');
+  }
+  return (await res.json()).data;
+}
+
+export async function fetchMonitoringPlan(ncpRecordId: number | string): Promise<MonitoringPlan> {
+  const res = await apiFetch(`/api/rnd/ncp-records/${ncpRecordId}/monitoring-plan`, {
+    headers: { Accept: 'application/json' },
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { message?: string }).message || 'Failed to load monitoring plan.');
   }
   return (await res.json()).data;
 }
