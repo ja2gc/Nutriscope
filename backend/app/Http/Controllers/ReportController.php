@@ -48,7 +48,16 @@ class ReportController extends Controller
 
     public function index(): JsonResponse
     {
-        $query = Report::where('user_id', Auth::id())->latest();
+        $query = Report::latest();
+
+        // RND supervises FSS: in addition to their own rows, RND sees every
+        // accomplishment_report filed by FSS staff (RND is the report's "Noted by").
+        if (Auth::user()?->role === 'RND') {
+            $query->where(fn ($q) => $q->where('user_id', Auth::id())
+                ->orWhere('type', 'accomplishment_report'));
+        } else {
+            $query->where('user_id', Auth::id());
+        }
 
         // Admin may only see their own allowed-type rows (PHI guard).
         if (Auth::user()?->role === 'Admin') {

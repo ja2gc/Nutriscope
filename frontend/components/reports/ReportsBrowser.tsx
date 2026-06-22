@@ -42,6 +42,7 @@ export const FULL_CATALOG: CatalogEntry[] = [
   { type: "procurement_pack", name: "Procurement Pack", desc: "AIR + Statement + Summary of Marketing.", icon: PackageCheck, group: "Food Service" },
   { type: "budget_report", name: "Budget Report", desc: "Planned vs actual spend with variance.", icon: Wallet, group: "Food Service" },
   { type: "inventory_report", name: "Inventory Report", desc: "Current stock levels, value & low-stock.", icon: Boxes, group: "Food Service" },
+  { type: "accomplishment_report", name: "Accomplishment Report", desc: "Per-staff weekly duty sheet + diet-list headcount logged by FSS.", icon: ClipboardList, group: "Food Service" },
   { type: "demographic_census", name: "Demographic Census", desc: "Patient counts by age, sex, ward, diagnosis.", icon: ClipboardList, group: "Clinical" },
   { type: "patient_menu_plan", name: "Patient Menu Plan", desc: "A patient's ADIME meal plan as a calendar.", icon: Users, group: "Clinical" },
   { type: "ncp_summary", name: "NCP Summary", desc: "Patient Nutrition Care Plan (ADIME) — assessment, diagnosis, intervention, monitoring.", icon: Stethoscope, group: "Clinical" },

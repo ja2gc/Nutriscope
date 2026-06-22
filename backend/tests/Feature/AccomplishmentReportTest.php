@@ -220,4 +220,49 @@ class AccomplishmentReportTest extends TestCase
             ->get('/api/rnd/reports/accomplishment_report/render?start=2026-06-10&end=2026-06-10')
             ->assertOk();
     }
+
+    public function test_rnd_index_sees_fss_filed_accomplishment_reports(): void
+    {
+        $rnd = User::factory()->create(['role' => 'RND']);
+
+        // An accomplishment report archived by FSS staff (owned by an FSS user).
+        $fssReport = Report::create([
+            'user_id' => $this->fss1->id,
+            'title'   => 'Accomplishment May 01-15',
+            'type'    => 'accomplishment_report',
+            'status'  => 'archived',
+        ]);
+
+        $ids = collect(
+            $this->actingAs($rnd)->getJson('/api/rnd/reports')->assertOk()->json('data')
+        )->pluck('id')->all();
+
+        $this->assertContains($fssReport->id, $ids,
+            'RND should see accomplishment reports filed by FSS staff');
+    }
+
+    public function test_fss_index_still_only_shows_own_accomplishment_reports(): void
+    {
+        // FSS staff sees their own accomplishment report...
+        $own = Report::create([
+            'user_id' => $this->fss1->id,
+            'title'   => 'Mine',
+            'type'    => 'accomplishment_report',
+            'status'  => 'archived',
+        ]);
+        // ...but not another FSS staff's row (index is owner-scoped for FSS).
+        $other = Report::create([
+            'user_id' => $this->fss2->id,
+            'title'   => 'Theirs',
+            'type'    => 'accomplishment_report',
+            'status'  => 'archived',
+        ]);
+
+        $ids = collect(
+            $this->actingAs($this->fss1)->getJson('/api/fss/reports')->assertOk()->json('data')
+        )->pluck('id')->all();
+
+        $this->assertContains($own->id, $ids);
+        $this->assertNotContains($other->id, $ids);
+    }
 }
