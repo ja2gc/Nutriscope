@@ -6,8 +6,9 @@ import {
   ClipboardCheck, Utensils, Ruler, UserRound, FlaskConical,
   FileText, Sparkles, Save, Upload, AlertTriangle,
   ChevronRight, Activity, Heart, Paperclip, Trash2, Download,
+  Shield, Scale,
 } from "lucide-react";
-import { fetchPatientById, Patient } from "@/services/patientService";
+import { fetchPatientById, Patient, updatePatient, PatientUpdateData } from "@/services/patientService";
 import {
   calcIBW, calcAjBW, calcPercentIBW, calcBMR, calcTEE, calcBmrWeight,
   classifyNutritionalStatus, ACTIVITY_FACTORS,
@@ -17,9 +18,131 @@ import {
   AttachmentRecord, uploadAttachment, fetchAttachments, deleteAttachment,
   getAttachmentFileUrl,
 } from "@/services/assessmentService";
+import { coerceBiochemicalValue } from "@/services/biochemical";
 
 // ─── Constants ───────────────────────────────────────────────────────────
 const COMMON_ALLERGENS = ["milk", "eggs", "fish", "shellfish", "tree nuts", "peanuts", "wheat", "soybeans"];
+
+export type ScreeningDraft = {
+  patientName: string;
+  age: string;
+  sex: string;
+  address: string;
+  height: string;
+  weight: string;
+  diagnosis: string;
+  dietPrescription: string;
+  referralType: string;
+  referredBy: string;
+  referralDatetime: string;
+  ward: string;
+  hospitalNumber: string;
+  ageGroupCategory: string;
+  screeningType: "adult" | "pediatric";
+};
+
+function getLabRange(field: typeof LAB_FIELDS[number], sex: "Male" | "Female") {
+  if (field.sexDiff) {
+    return sex === "Male"
+      ? { low: field.lowM ?? null, high: field.highM ?? null }
+      : { low: field.lowF ?? null, high: field.highF ?? null };
+  }
+  return { low: field.low ?? null, high: field.high ?? null };
+}
+
+function getLabStatus(value: number, field: typeof LAB_FIELDS[number], sex: "Male" | "Female"): "low" | "high" | "normal" {
+  const { low, high } = getLabRange(field, sex);
+  if (low !== null && value < low) return "low";
+  if (high !== null && value > high) return "high";
+  return "normal";
+}
+
+const LAB_FIELDS = [
+  { key: "albumin", label: "Albumin", unit: "g/dL", sexDiff: false, low: 3.5, high: 5.5, note: "< 3.5 hypoalbuminemia; < 2.5 severe. Elderly may trend lower." },
+  { key: "hemoglobin", label: "Hemoglobin", unit: "g/dL", sexDiff: true, lowM: 13.5, highM: 17.5, lowF: 12.0, highF: 15.5, note: "Below low = anemia. Elderly may have mild physiologic decline." },
+  { key: "hematocrit", label: "Hematocrit", unit: "%", sexDiff: true, lowM: 41, highM: 53, lowF: 36, highF: 46, note: null },
+  { key: "glucose", label: "Fasting Blood Sugar", unit: "mg/dL", sexDiff: false, low: 70, high: 99, note: "100–125 pre-DM; ≥ 126 DM" },
+  { key: "hba1c", label: "HbA1c", unit: "%", sexDiff: false, low: null, high: 5.6, note: "5.7–6.4 pre-DM; ≥ 6.5 DM" },
+  { key: "bun", label: "BUN", unit: "mg/dL", sexDiff: false, low: 7, high: 18, note: "7–18 adults; up to 23 normal in elderly (70+). High-normal in elderly may still signal renal decline." },
+  { key: "creatinine", label: "Creatinine", unit: "mg/dL", sexDiff: true, lowM: 0.7, highM: 1.2, lowF: 0.5, highF: 0.9, note: "Elderly (70+): M 0.9–1.3, F 0.7–1.1. High-normal with low muscle mass may mask renal dysfunction." },
+  { key: "sodium", label: "Sodium", unit: "mEq/L", sexDiff: false, low: 136, high: 145, note: "< 136 hyponatremia; > 145 hypernatremia" },
+  { key: "potassium", label: "Potassium", unit: "mEq/L", sexDiff: false, low: 3.5, high: 5.1, note: "< 3.0 critical low; > 6.0 critical high" },
+  { key: "calcium", label: "Calcium", unit: "mg/dL", sexDiff: false, low: 8.7, high: 10.3, note: "< 8.7 hypocalcemia; > 10.3 hypercalcemia" },
+  { key: "phosphate", label: "Phosphate", unit: "mg/dL", sexDiff: false, low: 2.5, high: 4.5, note: "< 2.5 hypophosphatemia" },
+  { key: "cholesterol", label: "Total Cholesterol", unit: "mg/dL", sexDiff: false, low: null, high: 200, note: "< 200 desirable; 200–239 borderline; ≥ 240 high" },
+  { key: "ldl", label: "LDL", unit: "mg/dL", sexDiff: false, low: null, high: 100, note: "< 100 optimal; 100–129 near optimal; ≥ 130 borderline high" },
+  { key: "hdl", label: "HDL", unit: "mg/dL", sexDiff: true, lowM: 40, highM: null, lowF: 50, highF: null, note: "< 40 (M) or < 50 (F) = risk factor; > 60 protective" },
+  { key: "triglycerides", label: "Triglycerides", unit: "mg/dL", sexDiff: false, low: null, high: 150, note: "150–199 borderline; 200–499 high; ≥ 500 very high" },
+  { key: "urr", label: "URR", unit: "%", sexDiff: false, low: 65, high: null, note: "≥ 65% indicates adequate dialysis" },
+  { key: "abg", label: "ABG (pH)", unit: "", sexDiff: false, low: 7.35, high: 7.45, note: "< 7.35 acidosis; > 7.45 alkalosis" },
+];
+
+const ADULT_CLINICAL_CONDITIONS = [
+  "Admission to ICU",
+  "Anorexia Nervosa / Bulimia Nervosa",
+  "Cachexia (temporal wasting, muscle wasting, cancer, cardiac)",
+  "Cerebrovascular accident",
+  "Coma",
+  "Diabetes Mellitus / Gestational Diabetes Mellitus",
+  "Gastrointestinal disease or complication",
+  "Liver disease",
+  "Malabsorption (celiac sprue, ulcerative colitis, Crohn's disease, short bowel syndrome)",
+  "Multiple trauma (closed head injury, pressure injury)",
+  "Non-healing wounds",
+  "On tube feeding / parenteral nutrition",
+  "Renal disease (acute, chronic, undergoing dialysis)",
+  "Sepsis",
+  "Serum albumin <3.5 gm/L",
+];
+
+const PEDIATRIC_CLINICAL_CONDITIONS = [
+  "Admission to ICU",
+  "Anorexia Nervosa / Bulimia Nervosa",
+  "Cachexia (temporal wasting, muscle wasting, cancer, cardiac)",
+  "Cerebrovascular accident",
+  "Coma",
+  "Congenital anomalies (e.g. Down's Syndrome, Craniofacial anomalies, Spina bifida, Hydrocephalus, Chiari Malformation)",
+  "Diabetes Mellitus / Gestational Diabetes Mellitus",
+  "Gastrointestinal disease or complication / impending GI surgery (e.g. Pancreatitis, Inflammatory Bowel Disease, GERD, Malabsorption conditions, Crohn's Disease)",
+  "Inborn errors of metabolism",
+  "Inflammatory diseases (e.g. Sepsis, Encephalitis, Meningitis, Kawasaki Disease, Enterocolitis, Community-acquired pneumonia, Upper/Lower Respiratory Tract Infection)",
+  "Liver disease",
+  "Malabsorption (celiac sprue, ulcerative colitis, Crohn's disease, short bowel syndrome)",
+  "Multiple trauma (closed head injury, penetrating trauma, multiple fractures)",
+  "Neurologically challenged (e.g. ADHD, Cerebral palsy, seizure disorders, Infantile spasms)",
+  "On tube feeding / parenteral nutrition",
+  "Renal disease (acute, chronic, undergoing dialysis)",
+  "Sepsis",
+  "Serum albumin <3.5 gm/L",
+];
+
+const ADULT_INTAKE_WEIGHT_HISTORY = [
+  "Unintentional weight loss in the past 3 months",
+  "Reduced dietary intake in the past week",
+  "BMI below 18.5 and above 30 (to be computed by the RND)",
+  "Others",
+  "Pregnant patient is aged 18 years old or 35 years old",
+  "Pregnancy with Hyperemesis Gravidarum / Pregnancy-induced Hypertension",
+  "Multiple Pregnancy",
+  "Lactating Mother",
+];
+
+const PEDIATRIC_INTAKE_WEIGHT_HISTORY = [
+  "Unintentional weight loss in the past 3 months",
+  "Patient on breastmilk feeding",
+  "Reduced dietary intake in the past week",
+  "Reduction of dietary intake in the past week/s and/or during the hospital stay",
+  "For patients ages >5 years old to <18 years old, 364 days: BMI z-scores above +2 and below -2 (c/o RND)",
+  "For patients ages >2 to 5 years old: Weight for Height z-scores above +2 and below -2 (c/o RND)",
+  "For patients ages 1 month to 2 years old: Weight for Length z-scores above +2 and below -2 (c/o RND)",
+  "Others",
+];
+
+const REFERRAL_TYPE_OPTIONS = [
+  { value: "Per Orem", label: "Per Orem" },
+  { value: "Tube Feeding", label: "Tube Feeding" },
+  { value: "NPO / TPN", label: "NPO / TPN" },
+];
 
 const TABS = [
   { key: "dietary", label: "A: Dietary History", icon: Utensils },
@@ -69,6 +192,27 @@ function formatDate(value?: string) {
   if (!value) return "";
   const d = new Date(value);
   return Number.isNaN(d.getTime()) ? "" : d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
+function calculateAgeFromDob(dob?: string | null) {
+  if (!dob) return "N/A";
+  const birthDate = new Date(dob);
+  if (Number.isNaN(birthDate.getTime())) return "N/A";
+  const today = new Date();
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const monthDelta = today.getMonth() - birthDate.getMonth();
+  if (monthDelta < 0 || (monthDelta === 0 && today.getDate() < birthDate.getDate())) {
+    age -= 1;
+  }
+  return `${age}`;
+}
+
+function getScreeningConditions(type: "adult" | "pediatric") {
+  return type === "pediatric" ? PEDIATRIC_CLINICAL_CONDITIONS : ADULT_CLINICAL_CONDITIONS;
+}
+
+function getScreeningIntakeHistory(type: "adult" | "pediatric") {
+  return type === "pediatric" ? PEDIATRIC_INTAKE_WEIGHT_HISTORY : ADULT_INTAKE_WEIGHT_HISTORY;
 }
 
 function isImagePath(path?: string) {
@@ -363,7 +507,38 @@ export default function NcpAssessmentPage({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
+  const [screeningDraft, setScreeningDraft] = useState<ScreeningDraft | null>(null);
+  const [sectionAChecks, setSectionAChecks] = useState<boolean[]>([]);
+  const [sectionBChecks, setSectionBChecks] = useState<boolean[]>([]);
+
   const isPlaceholder = patientId === "select-patient" || ncpId === "select-ncp";
+
+  const buildScreeningDraft = useCallback((basePatient: Patient, baseAssessment?: Assessment | null): ScreeningDraft => {
+    return {
+      patientName: basePatient.name,
+      age: calculateAgeFromDob(basePatient.dob),
+      sex: basePatient.sex,
+      address: basePatient.address ?? "",
+      height: String(baseAssessment?.height ?? ""),
+      weight: String(baseAssessment?.weight ?? ""),
+      diagnosis: basePatient.medical_diagnosis ?? "",
+      dietPrescription: "",
+      referralType: "",
+      referredBy: basePatient.physician ?? "",
+      referralDatetime: "",
+      ward: basePatient.ward ?? "",
+      hospitalNumber: basePatient.hospital_number ?? "",
+      ageGroupCategory: basePatient.age_group_category ?? "",
+      screeningType: basePatient.screening_type === "pediatric" ? "pediatric" : "adult",
+    };
+  }, []);
+
+  const updateScreeningDraftField = (key: keyof ScreeningDraft, value: string) => {
+    setScreeningDraft(current => {
+      if (!current) return null;
+      return { ...current, [key]: value };
+    });
+  };
 
   // ─── Load Data ──────────────────────────────────────────────────────
   const loadData = useCallback(async () => {
@@ -374,19 +549,31 @@ export default function NcpAssessmentPage({
         fetchPatientById(patientId),
         fetchAssessment(ncpId),
       ]);
+      let loadedPatient: Patient | null = null;
+      let loadedAssessment: Assessment | null = null;
+
       if (p.status === "fulfilled") {
         setPatient(p.value);
+        loadedPatient = p.value;
       }
       if (a.status === "fulfilled") {
         setAssessment(a.value);
         setAssessmentExists(true);
+        loadedAssessment = a.value;
+      }
+
+      if (loadedPatient) {
+        const draft = buildScreeningDraft(loadedPatient, loadedAssessment);
+        setScreeningDraft(draft);
+        setSectionAChecks(new Array(getScreeningConditions(draft.screeningType).length).fill(false));
+        setSectionBChecks(new Array(getScreeningIntakeHistory(draft.screeningType).length).fill(false));
       }
     } catch {
       // Assessment may not exist yet for new patients, which is fine
     } finally {
       setLoading(false);
     }
-  }, [patientId, ncpId, isPlaceholder]);
+  }, [patientId, ncpId, isPlaceholder, buildScreeningDraft]);
 
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { void loadData(); }, [loadData]);
@@ -476,6 +663,7 @@ export default function NcpAssessmentPage({
       setSaving(true);
       setError(null);
       setSuccess(null);
+
       const toSave: Partial<Assessment> = {
         ...assessment,
         // Auto-computed fields — override stored value with live computation when available
@@ -493,6 +681,23 @@ export default function NcpAssessmentPage({
       const saved = await saveAssessment(ncpId, toSave, assessmentExists);
       setAssessment(saved);
       setAssessmentExists(true);
+
+      // Save patient demographics if updated via screening form
+      if (patient && screeningDraft) {
+        const patientData: PatientUpdateData = {
+          name: screeningDraft.patientName,
+          sex: screeningDraft.sex as "Male" | "Female",
+          address: screeningDraft.address,
+          ward: screeningDraft.ward,
+          physician: screeningDraft.referredBy,
+          medical_diagnosis: screeningDraft.diagnosis,
+          hospital_number: screeningDraft.hospitalNumber,
+          age_group_category: screeningDraft.ageGroupCategory,
+          screening_type: screeningDraft.screeningType,
+        };
+        const updated = await updatePatient(patient.id, patientData);
+        setPatient(updated);
+      }
 
       setSuccess("Assessment saved successfully.");
       setTimeout(() => setSuccess(null), 3000);
@@ -831,22 +1036,266 @@ export default function NcpAssessmentPage({
   );
 
   const renderBiochemicalTab = () => (
-    <AttachmentsPanel
-      ncpId={ncpId}
-      kind="labs"
-      uploadLabel="Upload Lab Results (PDF or Image)"
-      blurb="Attach lab sheets and biochemical results for this NCP cycle. Stored for record-keeping and appended to the printed NCP report."
-    />
+    <div className="space-y-5">
+      <AttachmentsPanel
+        ncpId={ncpId}
+        kind="labs"
+        uploadLabel="Upload Lab Results (PDF or Image)"
+        blurb="Attach lab sheets and biochemical results for this NCP cycle. Stored for record-keeping and appended to the printed NCP report."
+      />
+      <div className="mt-6">
+        <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-3">Lab Values</p>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {LAB_FIELDS.map(field => {
+            const rawValue = (assessment.biochemical_data?.[field.key as keyof NonNullable<typeof assessment.biochemical_data>] ?? "") as string | number;
+            const numValue = rawValue !== "" ? Number(rawValue) : null;
+            const status = numValue !== null ? getLabStatus(numValue, field, patientSex) : "normal";
+            const { low, high } = getLabRange(field, patientSex);
+            const isAbnormal = status !== "normal";
+
+            return (
+              <div
+                key={field.key}
+                className={`rounded-xl border p-3 transition-colors ${
+                  isAbnormal
+                    ? "border-red-200 bg-red-50/40"
+                    : "border-zinc-200 bg-white"
+                }`}
+              >
+                <label className="block text-[10px] font-bold uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                  <span className={isAbnormal ? "text-red-700" : "text-zinc-500"}>
+                    {field.label}
+                  </span>
+                  {isAbnormal && (
+                    <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded ${
+                      status === "low"
+                        ? "bg-blue-100 text-blue-700"
+                        : "bg-red-100 text-red-700"
+                    }`}>
+                      {status === "low" ? "LOW" : "HIGH"}
+                    </span>
+                  )}
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    value={rawValue}
+                    onChange={e => updateField("biochemical_data", {
+                      ...assessment.biochemical_data,
+                      [field.key]: coerceBiochemicalValue(field.key, e.target.value),
+                    })}
+                    placeholder={`e.g. ${low ?? high}`}
+                    className={`w-full px-3 py-2 text-xs bg-white border rounded-lg text-zinc-900 focus:outline-none focus:ring-2 transition-all placeholder:text-zinc-400 ${
+                      isAbnormal
+                        ? "border-red-300 focus:ring-red-400/20 focus:border-red-400"
+                        : "border-zinc-200 focus:ring-emerald-500/20 focus:border-emerald-500"
+                    }`}
+                  />
+                  {field.unit && (
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-zinc-400 pointer-events-none">
+                      {field.unit}
+                    </span>
+                  )}
+                </div>
+                <div className="mt-1.5 space-y-0.5">
+                  <p className="text-[9px] text-zinc-400">
+                    Normal: {low !== null ? low : "—"} – {high !== null ? high : "—"}{field.unit ? ` ${field.unit}` : ""}
+                  </p>
+                  {field.note && (
+                    <p className="text-[9px] text-zinc-400 italic leading-relaxed">{field.note}</p>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
   );
 
-  const renderReferralTab = () => (
-    <AttachmentsPanel
-      ncpId={ncpId}
-      kind="referral"
-      uploadLabel="Upload Referral / Screening Form (PDF or Image)"
-      blurb="Attach referral and screening forms for this NCP cycle. Stored for record-keeping and appended to the printed NCP report."
-    />
-  );
+  const renderReferralTab = () => {
+    const draft = screeningDraft ?? (patient ? buildScreeningDraft(patient, assessment) : null);
+    const screeningType = draft?.screeningType ?? "adult";
+
+    return (
+      <div className="space-y-5">
+        <div className="grid gap-4 lg:grid-cols-[1.4fr_0.6fr]">
+          <div className="bg-white border border-zinc-200 rounded-2xl p-5 shadow-sm space-y-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h4 className="text-sm font-extrabold text-zinc-950 uppercase tracking-wider flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-emerald-600" />
+                  Referral / Screening Form
+                </h4>
+                <p className="text-[11px] text-zinc-500 mt-1 leading-relaxed">
+                  Enter screening demographics below manually. Edits to demographics will persist back to the patient profile on save.
+                </p>
+              </div>
+              <span className={`inline-flex px-2.5 py-1 rounded-full text-[9px] font-extrabold uppercase tracking-wider border ${
+                screeningType === "pediatric"
+                  ? "bg-sky-50 text-sky-700 border-sky-200"
+                  : "bg-emerald-50 text-emerald-700 border-emerald-200"
+              }`}>
+                {screeningType === "pediatric" ? "Pediatric B.06" : "Adult B.07"}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Field label="Patient Name">
+                <TextInput value={draft?.patientName ?? ""} onChange={v => updateScreeningDraftField("patientName", v)} placeholder="Patient name" />
+              </Field>
+              <Field label="Age">
+                <TextInput value={draft?.age ?? ""} onChange={v => updateScreeningDraftField("age", v)} placeholder="Derived age" disabled />
+              </Field>
+              <Field label="Sex">
+                <SelectInput
+                  value={draft?.sex ?? ""}
+                  onChange={v => updateScreeningDraftField("sex", v)}
+                  options={[
+                    { value: "Male", label: "Male" },
+                    { value: "Female", label: "Female" },
+                  ]}
+                  placeholder="Select sex"
+                />
+              </Field>
+              <Field label="Address">
+                <TextInput value={draft?.address ?? ""} onChange={v => updateScreeningDraftField("address", v)} placeholder="Patient address" />
+              </Field>
+              <Field label="Ward / Bed No">
+                <TextInput value={draft?.ward ?? ""} onChange={v => updateScreeningDraftField("ward", v)} placeholder="Ward / unit" />
+              </Field>
+              <Field label="Attending Physician">
+                <TextInput value={draft?.referredBy ?? ""} onChange={v => updateScreeningDraftField("referredBy", v)} placeholder="Attending physician" />
+              </Field>
+              <Field label="Medical Diagnosis" span={2}>
+                <TextArea
+                  value={draft?.diagnosis ?? ""}
+                  onChange={v => updateScreeningDraftField("diagnosis", v)}
+                  placeholder="Medical diagnosis or admitting impression"
+                  rows={3}
+                />
+              </Field>
+              <Field label="Hospital Number">
+                <TextInput value={draft?.hospitalNumber ?? ""} onChange={v => updateScreeningDraftField("hospitalNumber", v)} placeholder="Hospital number" />
+              </Field>
+              <Field label="Age Group Category">
+                <TextInput
+                  value={draft?.ageGroupCategory ?? ""}
+                  onChange={v => updateScreeningDraftField("ageGroupCategory", v)}
+                  placeholder="Adult / adolescent / pediatric"
+                />
+              </Field>
+              <Field label="Diet Prescription">
+                <TextInput value={draft?.dietPrescription ?? ""} onChange={v => updateScreeningDraftField("dietPrescription", v)} placeholder="e.g. Low Sodium, Soft Diet" />
+              </Field>
+              <Field label="Referral Type">
+                <SelectInput
+                  value={draft?.referralType ?? ""}
+                  onChange={v => updateScreeningDraftField("referralType", v)}
+                  options={REFERRAL_TYPE_OPTIONS}
+                  placeholder="Select referral type..."
+                />
+              </Field>
+              <Field label="Referral Date & Time" span={2}>
+                <TextInput type="datetime-local" value={draft?.referralDatetime ?? ""} onChange={v => updateScreeningDraftField("referralDatetime", v)} />
+              </Field>
+            </div>
+
+            <div className="flex flex-col gap-3 rounded-xl border border-zinc-200 bg-zinc-50/60 p-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Screening Type:</span>
+                <div className="flex gap-2">
+                  {(["adult", "pediatric"] as const).map(t => (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => {
+                        updateScreeningDraftField("screeningType", t);
+                        setSectionAChecks(new Array(getScreeningConditions(t).length).fill(false));
+                        setSectionBChecks(new Array(getScreeningIntakeHistory(t).length).fill(false));
+                      }}
+                      className={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-lg border transition-all cursor-pointer ${
+                        screeningType === t
+                          ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                          : "bg-white text-zinc-500 border-zinc-200 hover:border-zinc-300"
+                      }`}
+                    >
+                      {t === "adult" ? "Adult B.07" : "Pediatric B.06"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <AttachmentsPanel
+              ncpId={ncpId}
+              kind="referral"
+              uploadLabel="Upload Referral / Screening Form"
+              blurb="Attach referral and screening forms for this NCP cycle. Stored for record-keeping and appended to the printed NCP report."
+            />
+            <div className="bg-zinc-950 border border-zinc-900 rounded-2xl p-5 text-zinc-100 shadow-sm">
+              <h4 className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-300 mb-2">Workflow Note</h4>
+              <p className="text-[11px] leading-relaxed text-zinc-300">
+                Save after entering screening details. The patient profile updates with the editable demographics captured here. Risk scoring is calculated based on assessment and biochemical data.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+          <div className="bg-white border border-zinc-200 rounded-2xl p-4 shadow-sm">
+            <h4 className="text-[10px] font-extrabold text-zinc-800 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+              <Shield className="h-3.5 w-3.5 text-emerald-600" />
+              Section A - Clinical Conditions
+            </h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              {getScreeningConditions(screeningType).map((cond, i) => (
+                <label key={i} className="flex items-start gap-2 text-[11px] text-zinc-700 cursor-pointer hover:bg-zinc-50 p-1.5 rounded-lg transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={sectionAChecks[i] || false}
+                    onChange={e => {
+                      const next = [...sectionAChecks];
+                      next[i] = e.target.checked;
+                      setSectionAChecks(next);
+                    }}
+                    className="mt-0.5 shrink-0 accent-emerald-600"
+                  />
+                  <span className="leading-tight">{cond}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div className="bg-white border border-zinc-200 rounded-2xl p-4 shadow-sm">
+            <h4 className="text-[10px] font-extrabold text-zinc-800 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+              <Scale className="h-3.5 w-3.5 text-emerald-600" />
+              Section B - Intake / Weight History
+            </h4>
+            <div className="grid grid-cols-1 gap-2">
+              {getScreeningIntakeHistory(screeningType).map((item, i) => (
+                <label key={i} className="flex items-start gap-2 text-[11px] text-zinc-700 cursor-pointer hover:bg-zinc-50 p-1.5 rounded-lg transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={sectionBChecks[i] || false}
+                    onChange={e => {
+                      const next = [...sectionBChecks];
+                      next[i] = e.target.checked;
+                      setSectionBChecks(next);
+                    }}
+                    className="mt-0.5 shrink-0 accent-emerald-600"
+                  />
+                  <span className="leading-tight">{item}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   const renderRiskScore = () => (
     <div className="bg-white border border-zinc-200 rounded-xl p-5 space-y-4">

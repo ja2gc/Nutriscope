@@ -10,13 +10,13 @@ export interface PaginationMeta {
 }
 
 interface PaginationProps {
-  meta: PaginationMeta;
+  meta: PaginationMeta | null | undefined;
   page: number;
   onPageChange: (page: number) => void;
 }
 
 export function Pagination({ meta, page, onPageChange }: PaginationProps) {
-  if (meta.last_page <= 1) return null;
+  if (!meta || meta.last_page <= 1) return null;
 
   return (
     <div className="px-5 py-3.5 border-t border-zinc-100 flex items-center justify-between select-none">

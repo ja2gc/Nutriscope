@@ -1,4 +1,4 @@
-﻿import { apiFetch } from "@/lib/apiFetch";
+import { apiFetch } from "@/lib/apiFetch";
 export interface Assessment {
   id?: number;
   ncp_record_id?: number;
@@ -48,6 +48,27 @@ export interface Assessment {
   checked_factors?: string[] | null;
   created_at?: string;
   updated_at?: string;
+  biochemical_data?: {
+    albumin?: number | string | null;
+    hematocrit?: number | string | null;
+    bun?: number | string | null;
+    hemoglobin?: number | string | null;
+    calcium?: number | string | null;
+    ldl?: number | string | null;
+    cholesterol?: number | string | null;
+    phosphate?: number | string | null;
+    creatinine?: number | string | null;
+    potassium?: number | string | null;
+    glucose?: number | string | null;
+    sodium?: number | string | null;
+    hba1c?: number | string | null;
+    triglycerides?: number | string | null;
+    hdl?: number | string | null;
+    urr?: number | string | null;
+    bp?: string | null;
+    abg?: string | null;
+    others?: any[] | Record<string, any> | null;
+  } | null;
 }
 
 /**
