@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Exceptions\TokenLimitExceededException;
+use App\Models\AiUsageLimit;
 use App\Models\AiUsageLog;
 use App\Models\User;
 use Illuminate\Support\Facades\Http;
@@ -14,6 +16,8 @@ class AIService
      */
     public function suggestDiagnoses(array $data): array
     {
+        $this->assertWithinTokenLimits();
+
         $apiKey = config('services.anthropic.key');
         $model = config('services.anthropic.model', 'claude-haiku-4-5-20251001');
 
@@ -87,6 +91,8 @@ class AIService
      */
     public function narrateMonitoring(array $summary): ?string
     {
+        $this->assertWithinTokenLimits();
+
         $apiKey = config('services.anthropic.key');
         $model  = config('services.anthropic.model', 'claude-haiku-4-5-20251001');
 
@@ -133,5 +139,39 @@ class AIService
         }
 
         return null;
+    }
+
+    /**
+     * Throws TokenLimitExceededException (renders as 429) if either the
+     * daily or monthly token cap is set and current usage has reached it.
+     * Must be called before every LLM HTTP request.
+     */
+    private function assertWithinTokenLimits(): void
+    {
+        $limits = AiUsageLimit::current();
+
+        if ($limits->daily_token_limit !== null) {
+            $dailyUsed = (int) AiUsageLog::query()
+                ->where('created_at', '>=', now()->startOfDay())
+                ->sum('tokens_total');
+
+            if ($dailyUsed >= $limits->daily_token_limit) {
+                throw new TokenLimitExceededException(
+                    "Daily AI token limit of {$limits->daily_token_limit} has been reached (used: {$dailyUsed}). Try again tomorrow."
+                );
+            }
+        }
+
+        if ($limits->monthly_token_limit !== null) {
+            $monthlyUsed = (int) AiUsageLog::query()
+                ->where('created_at', '>=', now()->startOfMonth())
+                ->sum('tokens_total');
+
+            if ($monthlyUsed >= $limits->monthly_token_limit) {
+                throw new TokenLimitExceededException(
+                    "Monthly AI token limit of {$limits->monthly_token_limit} has been reached (used: {$monthlyUsed}). Try again next month."
+                );
+            }
+        }
     }
 }
