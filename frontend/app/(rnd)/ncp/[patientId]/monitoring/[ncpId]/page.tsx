@@ -8,10 +8,13 @@ import GoalProgressTracker from "./_components/GoalProgressTracker";
 import LogVisitForm from "./_components/LogVisitForm";
 import VisitTrendsChart from "./_components/VisitTrendsChart";
 import MonitoringSummaryCard from "./_components/MonitoringSummaryCard";
+import CarePlanHeader from "./_components/CarePlanHeader";
 import {
   MonitoringEntry,
   MonitoringPayload,
+  MonitoringPlan,
   fetchMonitorings,
+  fetchMonitoringPlan,
   createMonitoring,
   deleteMonitoring,
 } from "@/services/monitoringService";
@@ -64,6 +67,7 @@ export default function NcpMonitoringPage({
   const [assessment, setAssessment]         = useState<AssessmentWithLabs | null>(null);
   const [intervention, setIntervention]     = useState<Intervention | null>(null);
   const [biochemicalData, setBiochemicalData] = useState<BiochemicalData | null>(null);
+  const [plan, setPlan]                     = useState<MonitoringPlan | null>(null);
   const [loading, setLoading]               = useState(true);
   const [showForm, setShowForm]             = useState(false);
   const [activeTab, setActiveTab]           = useState<Tab>("log");
@@ -74,16 +78,18 @@ export default function NcpMonitoringPage({
     setLoading(true);
     setError(null);
     try {
-      const [monitoringData, assessmentData, interventionData] = await Promise.all([
+      const [monitoringData, assessmentData, interventionData, planData] = await Promise.all([
         fetchMonitorings(ncpId),
         fetchAssessment(ncpId),
         fetchIntervention(ncpId),
+        fetchMonitoringPlan(ncpId).catch(() => null),
       ]);
       setEntries(monitoringData);
       const a = assessmentData as AssessmentWithLabs;
       setAssessment(a);
       setBiochemicalData(a.biochemical_data ?? null);
       setIntervention(interventionData);
+      setPlan(planData);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load monitoring data.");
     } finally {
@@ -208,6 +214,7 @@ export default function NcpMonitoringPage({
 
                 {showForm && (
                   <LogVisitForm
+                    plan={plan}
                     heightCm={assessment?.height ? Number(assessment.height) : null}
                     intervention={intervention}
                     onSubmit={handleLogVisit}
@@ -220,15 +227,17 @@ export default function NcpMonitoringPage({
             {/* ── Progress Trends tab ───────────────────────────────────── */}
             {activeTab === "progress" && (
               <div className="space-y-6">
+                <CarePlanHeader plan={plan} />
                 <MonitoringSummaryCard ncpId={ncpId} visitCount={entries.length} />
                 <GoalProgressTracker
+                  plan={plan}
                   entries={entries}
                   baselineWeight={assessment?.weight ? Number(assessment.weight) : null}
                   baselineBmi={assessment?.bmi ? Number(assessment.bmi) : null}
                   baselineLabs={biochemicalData}
                   nutritionalStatus={assessment?.nutritional_status ?? null}
                 />
-                <VisitTrendsChart entries={entries} intervention={intervention} />
+                <VisitTrendsChart plan={plan} entries={entries} intervention={intervention} />
               </div>
             )}
           </div>

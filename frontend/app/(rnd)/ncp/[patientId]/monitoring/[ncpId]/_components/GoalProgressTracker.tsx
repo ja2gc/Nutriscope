@@ -10,6 +10,7 @@ import {
   getWeightStatus,
   GoalStatus,
 } from "@/services/monitoringService";
+import type { MonitoringPlan } from "@/services/monitoringPlan";
 
 interface BiochemicalBaseline {
   albumin?: number | null;
@@ -23,11 +24,68 @@ interface BiochemicalBaseline {
 }
 
 interface GoalProgressTrackerProps {
+  plan?: MonitoringPlan | null;
   entries: MonitoringEntry[];
   baselineWeight: number | null;
   baselineBmi: number | null;
   baselineLabs: BiochemicalBaseline | null;
   nutritionalStatus: string | null;
+}
+
+function referenceLabelFor(reference: { min?: number | null; max?: number | null } | null, target: number | null, unit: string): string {
+  if (target != null) return `target ${target}${unit ? ` ${unit}` : ""}`;
+  if (!reference) return "—";
+  const { min, max } = reference;
+  if (min != null && max != null) return `${min}–${max}`;
+  if (min != null) return `≥${min}`;
+  if (max != null) return `≤${max}`;
+  return "—";
+}
+
+/** Plan-driven tracker: one row per patient-specific tracked indicator (Visit 1 → latest). */
+function PlanProgressTable({ plan }: { plan: MonitoringPlan }) {
+  return (
+    <div className="bg-white border border-zinc-200 rounded-2xl shadow-sm overflow-hidden">
+      <div className="px-5 py-4 border-b border-zinc-100">
+        <h3 className="text-xs font-extrabold text-zinc-700 uppercase tracking-wider flex items-center gap-2">
+          <TrendingUp className="h-4 w-4 text-emerald-600" />
+          Goal Progress
+        </h3>
+        <p className="text-[10px] text-zinc-400 mt-0.5">
+          Visit 1 = assessment baseline · only this patient&apos;s tracked indicators
+        </p>
+      </div>
+      <div className="overflow-x-auto">
+        <div className="min-w-[560px]">
+          <div className="grid grid-cols-[1.4fr_72px_72px_90px_90px_80px] gap-2 px-5 py-2.5 bg-zinc-50 border-b border-zinc-100">
+            {["Indicator", "Baseline", "Current", "Reference", "Status", "Trend"].map((h) => (
+              <span key={h} className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest">{h}</span>
+            ))}
+          </div>
+          <div className="divide-y divide-zinc-100">
+            {plan.indicators.map((ind) => {
+              const values = ind.series.map((s) => s.value).filter((v): v is number => v !== null);
+              const baseline = ind.series[0]?.value ?? null;
+              const current = values.length > 0 ? values[values.length - 1] : null;
+              return (
+                <TrackerRow
+                  key={ind.key}
+                  label={ind.label}
+                  unit={ind.unit}
+                  baseline={baseline}
+                  current={current}
+                  referenceLabel={referenceLabelFor(ind.reference, ind.target, ind.unit)}
+                  status={ind.latest_status}
+                  sparkValues={values}
+                  lowerIsBetter={ind.reference?.lowerIsBetter ?? false}
+                />
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 const STATUS_STYLES: Record<GoalStatus, string> = {
@@ -51,12 +109,18 @@ const LAB_KEYS: LabKey[] = [
 ];
 
 export default function GoalProgressTracker({
+  plan,
   entries,
   baselineWeight,
   baselineBmi,
   baselineLabs,
   nutritionalStatus,
 }: GoalProgressTrackerProps) {
+  // Plan-driven: render the patient-specific tracked set when available.
+  if (plan && plan.indicators.length > 0) {
+    return <PlanProgressTable plan={plan} />;
+  }
+
   // Sort oldest-first for sparklines
   const sorted = [...entries].sort(
     (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
