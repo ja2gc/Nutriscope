@@ -25,10 +25,18 @@ class AssessmentController extends Controller
         }
 
         $data = $request->validated();
+        $biochemicalData = $data['biochemical_data'] ?? null;
+        unset($data['biochemical_data']);
+
         $assessment = new Assessment($data);
         $assessment->ncp_record_id = $ncpRecord->id;
         $assessment->bmi = $assessment->calculateBmi();
         $assessment->save();
+
+        if ($biochemicalData) {
+            $assessment->biochemicalData()->create($biochemicalData);
+            $assessment->load('biochemicalData');
+        }
 
         // Calculate and save risk score
         $calculator = resolve(\App\Services\RiskScoreCalculator::class);
@@ -37,7 +45,7 @@ class AssessmentController extends Controller
         $assessment->update(['nutritional_status' => $riskResult['nutritional_status']]);
         $ncpRecord->update(['risk_score' => $riskResult['score']]);
 
-        return (new AssessmentResource($assessment->fresh()))->response()->setStatusCode(201);
+        return (new AssessmentResource($assessment->fresh()->load('biochemicalData')))->response()->setStatusCode(201);
     }
 
     /**
@@ -57,9 +65,17 @@ class AssessmentController extends Controller
         $assessment = $ncpRecord->assessment()->firstOrFail();
         
         $data = $request->validated();
+        $biochemicalData = $data['biochemical_data'] ?? null;
+        unset($data['biochemical_data']);
+
         $assessment->fill($data);
         $assessment->bmi = $assessment->calculateBmi();
         $assessment->save();
+
+        if ($biochemicalData !== null) {
+            $assessment->biochemicalData()->updateOrCreate([], $biochemicalData);
+            $assessment->load('biochemicalData');
+        }
 
         // Calculate and save risk score
         $calculator = resolve(\App\Services\RiskScoreCalculator::class);
@@ -68,7 +84,7 @@ class AssessmentController extends Controller
         $assessment->update(['nutritional_status' => $riskResult['nutritional_status']]);
         $ncpRecord->update(['risk_score' => $riskResult['score']]);
 
-        return new AssessmentResource($assessment->fresh());
+        return new AssessmentResource($assessment->fresh()->load('biochemicalData'));
     }
 
     /**

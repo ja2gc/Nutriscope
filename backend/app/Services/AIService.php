@@ -5,7 +5,6 @@ namespace App\Services;
 use App\Exceptions\TokenLimitExceededException;
 use App\Models\AiUsageLimit;
 use App\Models\AiUsageLog;
-use App\Models\User;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -22,13 +21,23 @@ class AIService
         $model = config('services.anthropic.model', 'claude-haiku-4-5-20251001');
 
         try {
-            $userPrompt = "Given these patient conditions and clinical data: " . json_encode($data) . "\n\n"
-                . "Respond with ONLY this JSON (no prose, no markdown):\n"
+            $userPrompt = "Patient clinical data for G-NCP PES nutrition diagnosis:\n"
+                . json_encode($data, JSON_PRETTY_PRINT) . "\n\n"
+                . "Generate 1-3 new G-NCP standardized PES nutrition diagnoses.\n\n"
+                . "Rules:\n"
+                . "- If existing_diagnoses are present, do NOT suggest anything that duplicates or overlaps with them\n"
+                . "- If the clinical data does not support any new diagnoses beyond what is already documented, return an empty suggestions array\n"
+                . "- abnormal_labs contains only lab values outside normal range with their flag (LOW/HIGH) and actual value — use these as objective Signs & Symptoms evidence, citing the value and flag (e.g. 'albumin 2.8 g/dL [LOW]', 'HbA1c 9.1% [HIGH]')\n"
+                . "- If no abnormal_labs are present, rely on anthropometric and clinical data for Signs & Symptoms\n"
+                . "- Etiology must reference actual data points: medications, intake status, activity level, medical history\n"
+                . "- domain must be exactly one of: NI (Intake), NC (Clinical), NB (Behavioral-Environmental)\n"
+                . "- confidence is a float 0.0-1.0\n"
+                . "- priority starts at 1 for highest priority\n"
+                . "- Cover multiple domains where the data supports it\n\n"
+                . "Respond with ONLY this JSON, no prose, no markdown:\n"
                 . "{\"suggestions\":[{\"domain\":\"NI\",\"label\":\"Problem statement\",\"etiology\":\"etiology text\","
-                . "\"signs\":\"signs and symptoms text\",\"confidence\":0.85,\"reasoning\":\"brief clinical reasoning\",\"priority\":1}]}\n\n"
-                . "Provide 2-4 G-NCP standardized nutrition diagnoses. "
-                . "domain must be exactly one of: NI (Intake), NC (Clinical), NB (Behavioral-Environmental). "
-                . "confidence is a float 0.0-1.0. priority starts at 1 for highest priority.";
+                . "\"signs\":\"signs and symptoms citing abnormal lab values with flags\",\"confidence\":0.85,"
+                . "\"reasoning\":\"clinical reasoning citing data\",\"priority\":1}]}";
 
             $response = Http::timeout(20)->connectTimeout(5)->withHeaders([
                 'x-api-key' => $apiKey,
@@ -36,7 +45,7 @@ class AIService
                 'content-type' => 'application/json',
             ])->post('https://api.anthropic.com/v1/messages', [
                 'model' => $model,
-                'max_tokens' => 1024,
+                'max_tokens' => 1500,
                 'system' => 'You are a clinical nutrition AI specializing in G-NCP (Nutrition Care Process). Always respond with valid JSON only. No prose, no markdown fences, only a raw JSON object.',
                 'messages' => [
                     [
@@ -55,7 +64,7 @@ class AIService
                 $totalTokens = $inputTokens + $outputTokens;
 
                 AiUsageLog::create([
-                    'user_id' => auth()->id() ?? User::first()?->id ?? 1,
+                    'user_id' => auth()->id(),
                     'model' => $model,
                     'tokens_input' => $inputTokens,
                     'tokens_output' => $outputTokens,
@@ -65,7 +74,15 @@ class AIService
 
                 $text = $body['content'][0]['text'] ?? '';
                 $decoded = json_decode($text, true);
-                
+
+                if (json_last_error() !== JSON_ERROR_NONE) {
+                    Log::warning('AIService suggestDiagnoses: malformed JSON from model', [
+                        'error' => json_last_error_msg(),
+                        'text'  => substr($text, 0, 500),
+                    ]);
+                    return [];
+                }
+
                 return $decoded['suggestions'] ?? [];
             }
 
@@ -97,10 +114,17 @@ class AIService
         $model  = config('services.anthropic.model', 'claude-haiku-4-5-20251001');
 
         try {
-            $userPrompt = "Two-visit nutrition monitoring delta (JSON): " . json_encode($summary) . "\n\n"
+            $visitContext = ($summary['has_previous'] ?? false)
+                ? 'Two-visit nutrition monitoring delta'
+                : 'First nutrition monitoring visit (no prior baseline)';
+
+            $userPrompt = "{$visitContext} (JSON): " . json_encode($summary) . "\n\n"
                 . "Write a concise clinical interpretation for the dietitian: 2-3 sentences max. "
-                . "State the key change(s), whether the patient is trending toward the intervention goal, "
-                . "and one concrete suggested next action. Plain prose, no JSON, no markdown, no preamble.";
+                . "State the key finding(s) from this visit"
+                . (($summary['has_previous'] ?? false) ? ", whether the patient is trending toward the intervention goal" : "")
+                . ", and one concrete suggested next action. "
+                . "If active_diagnoses are provided, reference the relevant PES problem being addressed. "
+                . "Plain prose, no JSON, no markdown, no preamble.";
 
             $response = Http::timeout(20)->connectTimeout(5)->withHeaders([
                 'x-api-key'         => $apiKey,
@@ -119,7 +143,7 @@ class AIService
                 $body = $response->json();
 
                 AiUsageLog::create([
-                    'user_id'       => auth()->id() ?? User::first()?->id ?? 1,
+                    'user_id'       => auth()->id(),
                     'model'         => $model,
                     'tokens_input'  => $body['usage']['input_tokens']  ?? 0,
                     'tokens_output' => $body['usage']['output_tokens'] ?? 0,
