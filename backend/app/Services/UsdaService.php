@@ -106,11 +106,10 @@ class UsdaService
      */
     public function search(string $query, int $pageSize = 20): array
     {
-        $response = Http::withoutVerifying()->get("{$this->baseUrl}/foods/search", [
+        $response = Http::withoutVerifying()->post("{$this->baseUrl}/foods/search?api_key={$this->apiKey}", [
             'query'    => $query,
             'pageSize' => $pageSize,
-            'api_key'  => $this->apiKey,
-            'dataType' => 'SR Legacy,Foundation,Survey (FNDDS)',
+            'dataType' => ['SR Legacy', 'Foundation', 'Survey (FNDDS)'],
         ]);
 
         if (! $response->successful()) {
