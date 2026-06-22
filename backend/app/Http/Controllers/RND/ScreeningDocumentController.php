@@ -7,7 +7,6 @@ use App\Http\Resources\ScreeningDocumentResource;
 use App\Models\ScreeningDocument;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Storage;
-use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class ScreeningDocumentController extends Controller
 {
@@ -16,18 +15,19 @@ class ScreeningDocumentController extends Controller
         return new ScreeningDocumentResource($screeningDocument);
     }
 
-    public function file(ScreeningDocument $screeningDocument): BinaryFileResponse
+    public function file(ScreeningDocument $screeningDocument)
     {
-        $absolutePath = $screeningDocument->file_path;
+        $path = $screeningDocument->file_path;
 
-        // Support both absolute paths stored in DB and relative paths
-        if (!file_exists($absolutePath)) {
-            $absolutePath = storage_path('app/' . ltrim($absolutePath, '/\\'));
+        // Primary: disk-relative path on the configured disk (current upload format).
+        if (Storage::exists($path)) {
+            return Storage::response($path);
         }
 
-        abort_unless(file_exists($absolutePath), 404, 'File not found.');
+        // Fallback: legacy absolute paths stored before A8.
+        abort_unless(is_file($path), 404, 'File not found.');
 
-        return response()->file($absolutePath);
+        return response()->file($path);
     }
 
     /**

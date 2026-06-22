@@ -90,6 +90,24 @@ class AttachmentFeatureTest extends TestCase
         $this->assertNotContains('b.pdf', $names);
     }
 
+    public function test_uploaded_attachment_file_can_be_retrieved(): void
+    {
+        Storage::fake('local');
+        $rnd = $this->rnd();
+        $ncp = $this->ncp($rnd);
+
+        $this->actingAs($rnd, 'sanctum')->postJson(
+            "/api/rnd/ncp-records/{$ncp->id}/attachments",
+            ['file' => UploadedFile::fake()->create('labs.pdf', 10, 'application/pdf')]
+        )->assertStatus(201);
+
+        $doc = ScreeningDocument::firstOrFail();
+
+        $this->actingAs($rnd, 'sanctum')
+            ->get("/api/rnd/screening-documents/{$doc->id}/file")
+            ->assertOk();
+    }
+
     public function test_attachment_can_be_deleted(): void
     {
         Storage::fake('local');
