@@ -55,6 +55,7 @@ export interface InventoryRow {
   unit_cost: string | null;
   base_unit: string | null;
   purchase_unit: string | null;
+  units_per_purchase: number | null;
   /** Auto-calculated cost per recipe from ingredients (recipes only). */
   recipe_cost: string | null;
   recipe_servings: number | null;
@@ -120,6 +121,7 @@ export async function listInventoryRows(params: ListInventoryRowsParams = {}): P
     unit_cost:                (r.unit_cost as string | null) ?? null,
     base_unit:                (r.base_unit as string | null) ?? null,
     purchase_unit:            (r.purchase_unit as string | null) ?? null,
+    units_per_purchase:       (r.units_per_purchase as number | null) ?? null,
     recipe_cost:              (r.recipe_cost as string | null) ?? null,
     recipe_servings:          (r.recipe_servings as number | null) ?? null,
     status:                   r.status as StockStatus,
@@ -171,6 +173,26 @@ export async function patchFsItemCategory(fsItemId: number, category: string | n
   if (!res.ok) {
     const json = await res.json().catch(() => ({}));
     throw new Error(json.message ?? "Failed to update category.");
+  }
+}
+
+export interface PatchFsItemPayload {
+  category?: string | null;
+  purchase_price?: number | null;
+  purchase_unit?: string | null;
+  base_unit?: string | null;
+  units_per_purchase?: number | null;
+}
+
+export async function patchFsItem(fsItemId: number, payload: PatchFsItemPayload): Promise<void> {
+  const res = await apiFetch(`/api/fss/fs-items/${fsItemId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const json = await res.json().catch(() => ({}));
+    throw new Error(json.message ?? "Failed to update item.");
   }
 }
 

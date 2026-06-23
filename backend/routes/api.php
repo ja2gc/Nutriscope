@@ -38,6 +38,7 @@ use App\Http\Controllers\RND\PatientController;
 use App\Http\Controllers\RND\RecipeController;
 use App\Http\Controllers\RND\ScreeningDocumentController;
 use App\Http\Controllers\RND\UsdaController;
+use App\Http\Controllers\SopController;
 use Illuminate\Support\Facades\Route;
 
 /**
@@ -78,6 +79,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('notifications', [NotificationController::class, 'index']);
     Route::patch('notifications/read-all', [NotificationController::class, 'readAll']);
     Route::patch('notifications/{notification}/read', [NotificationController::class, 'read']);
+
+    // SOP — all roles read the current procedure + its history; RND/Admin author.
+    Route::get('sop', [SopController::class, 'current']);
+    Route::get('sop/history', [SopController::class, 'history']);
+    Route::middleware('role:RND,Admin')->post('sop', [SopController::class, 'store']);
 });
 
 Route::middleware(['auth:sanctum', 'role:RND', 'audit'])->prefix('rnd')->group(function () use ($reportRoutes) {
@@ -185,9 +191,16 @@ Route::middleware(['auth:sanctum', 'role:FSS,RND'])->prefix('fss')->group(functi
 
     // Shopping Lists — FSS reads only; writes are RND-only (see below)
     Route::post('shopping-lists/generate', [ShoppingListController::class, 'generate']);
+    // Calculated budget-per-head (derived from meal-prep) — readable by BOTH roles.
+    Route::get('shopping-lists/{shopping_list}/cost-efficiency', [ShoppingListController::class, 'costEfficiency']);
     Route::apiResource('shopping-lists', ShoppingListController::class)->only(['index', 'show']);
 
-    // FS Items — price-trend read for FSS; update is RND-only (see below)
+    // Per-day served population (backfill from menu cycle) — editable by FSS + RND.
+    Route::patch('menu-cycles/{menuCycle}/served-population', [MealPrepLogController::class, 'setServed']);
+
+    // FS Items — catalog list (ready-to-serve picker) + price-trend read for FSS;
+    // update is RND-only (see below)
+    Route::get('fs-items', [FsItemController::class, 'index']);
     Route::get('fs-items/{fsItem}/price-trend', [FsItemController::class, 'priceTrend']);
 
     // Menu Cycles — FSS read-only (RND owns writes, see RND-only group below)

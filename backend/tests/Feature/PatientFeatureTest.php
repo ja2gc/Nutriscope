@@ -155,4 +155,31 @@ class PatientFeatureTest extends TestCase
         $this->assertTrue(Schema::hasColumn('ncp_records', 'risk_score'));
         $this->assertFalse(Schema::hasColumn('ncp_records', 'ai_risk_score'));
     }
+
+    public function test_rnd_can_delete_patient_with_screening_document_and_incomplete_cycle()
+    {
+        $rnd = User::forceCreate(['name' => 'Test', 'email' => 'del@example.com', 'password' => Hash::make('pass'), 'role' => 'RND', 'is_active' => true]);
+
+        $patient = Patient::forceCreate([
+            'name' => 'Doc Patient',
+            'dob' => '1990-01-01',
+            'sex' => 'Male',
+            'admission_date' => '2024-01-01',
+        ]);
+
+        // Screening document with no full A→D→I cycle. screening_documents.patient_id has no DB
+        // cascade, so the controller must purge it first or the delete 500s on an FK violation.
+        \App\Models\ScreeningDocument::forceCreate([
+            'patient_id'    => $patient->id,
+            'type'          => 'labs',
+            'file_path'     => 'documents/ncp/missing-on-disk.pdf',
+            'original_name' => 'labs.pdf',
+        ]);
+
+        $response = $this->actingAs($rnd, 'sanctum')->deleteJson("/api/rnd/patients/{$patient->id}");
+
+        $response->assertNoContent();
+        $this->assertDatabaseMissing('patients', ['id' => $patient->id]);
+        $this->assertDatabaseMissing('screening_documents', ['patient_id' => $patient->id]);
+    }
 }

@@ -75,6 +75,31 @@ class MenuCostFreezeTest extends TestCase
         $this->assertEqualsWithDelta(200.0, MenuCycleCostService::forCycle($cycle)['total_cost'], 1e-6);
     }
 
+    public function test_reactivation_does_not_overwrite_the_frozen_snapshot(): void
+    {
+        $cycle  = $this->makeCycle();
+        $fsItem = FsItem::firstOrFail();
+
+        // First activation → snapshot frozen at ₱100.
+        $this->actingAs($this->rnd)
+            ->patchJson("/api/fss/menu-cycles/{$cycle->id}/activate")
+            ->assertOk();
+        $cycle->refresh();
+        $this->assertEqualsWithDelta(100.0, $cycle->cost_snapshot['total_cost'], 1e-6);
+        $firstSnapshotAt = $cycle->cost_snapshot_at;
+
+        // Price doubles, then the SAME cycle is activated again (re-promote after
+        // another cycle took over, or a double-click). History must NOT re-price.
+        $fsItem->update(['purchase_price' => 2000]);
+        $this->actingAs($this->rnd)
+            ->patchJson("/api/fss/menu-cycles/{$cycle->id}/activate")
+            ->assertOk();
+        $cycle->refresh();
+
+        $this->assertEqualsWithDelta(100.0, $cycle->cost_snapshot['total_cost'], 1e-6);
+        $this->assertEquals($firstSnapshotAt, $cycle->cost_snapshot_at);
+    }
+
     public function test_draft_cycle_without_snapshot_falls_back_to_live(): void
     {
         $cycle = $this->makeCycle(); // not activated → no snapshot

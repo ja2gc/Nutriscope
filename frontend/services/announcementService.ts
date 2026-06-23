@@ -2,7 +2,7 @@ import { apiFetch } from "@/lib/apiFetch";
 import type { PaginationMeta } from "@/components/ui/Pagination";
 
 export type { PaginationMeta };
-export type AnnouncementCategory = "General" | "Event" | "Operational" | "Urgent";
+export type AnnouncementCategory = "General" | "Event" | "Operational" | "Urgent" | "Memo";
 export type AnnouncementVisibility = "FSS" | "Admin" | "All";
 
 export interface Announcement {

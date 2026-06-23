@@ -29,6 +29,8 @@ class FsCatalogSeeder extends Seeder
     private function items(): array
     {
         // [name, kind, category, base_unit, purchase_unit, purchase_price, units_per_purchase]
+        // kind: 'ingredient' (needs a recipe) | 'ready_to_eat' (standalone snack, placeable
+        // directly in any meal slot) | 'supply' (non-food). Bought by kg / pack / bundle.
         $rows = [
             // ── Meat & fish ───────────────────────────────────────────────
             ['Pork (kasim)',          'ingredient', 'Meat',      'g',  'kg',   280, null],
@@ -43,7 +45,7 @@ class FsCatalogSeeder extends Seeder
             // ── Grains & staples ─────────────────────────────────────────
             ['Rice',                  'ingredient', 'Grain',     'g',  'kg',    52, null],
             ['Munggo (mung bean)',    'ingredient', 'Grain',     'g',  'kg',    90, null],
-            ['Macaroni',              'ingredient', 'Grain',     'g',  'kg',    85, null],
+            ['Macaroni',              'ingredient', 'Grain',     'g',  'pack',  85, 1000],
 
             // ── Vegetables ───────────────────────────────────────────────
             ['Assorted vegetables',   'ingredient', 'Vegetable', 'g',  'kg',    80, null],
@@ -57,24 +59,24 @@ class FsCatalogSeeder extends Seeder
             ['Sayote',                'ingredient', 'Vegetable', 'g',  'kg',    60, null],
             ['Corn kernel',           'ingredient', 'Vegetable', 'g',  'kg',    70, null],
 
-            // ── Fruit ────────────────────────────────────────────────────
-            ['Latundan banana',       'ingredient', 'Fruit',     'pc', 'pc',     5, null],
-            ['Saba banana',           'ingredient', 'Fruit',     'pc', 'pc',     6, null],
-            ['Ponkan',                'ingredient', 'Fruit',     'pc', 'pc',     8, null],
-            ['Ripe mango',            'ingredient', 'Fruit',     'g',  'kg',   120, null],
+            // ── Fruit (ready-to-eat, sold by the bundle) ─────────────────
+            ['Latundan banana',       'ready_to_eat', 'Fruit',   'pc', 'bundle', 50, 10],
+            ['Saba banana',           'ready_to_eat', 'Fruit',   'pc', 'bundle', 60, 10],
+            ['Ponkan',                'ready_to_eat', 'Fruit',   'pc', 'bundle', 96, 12],
+            ['Ripe mango',            'ready_to_eat', 'Fruit',   'pc', 'kg',     120, 4],
 
             // ── Dairy & beverages ────────────────────────────────────────
-            ['Fresh milk',            'ingredient', 'Beverage',  'mL', 'L',     90, null],
+            ['Fresh milk',            'ready_to_eat', 'Beverage', 'mL', 'pack',  90, 1000],
             ['Powdered milk',         'ingredient', 'Beverage',  'g',  'kg',   420, null],
-            ['Milo',                  'ingredient', 'Beverage',  'g',  'kg',   320, null],
-            ['Coffee',                'ingredient', 'Beverage',  'g',  'kg',   400, null],
-            ['Yakult',                'ingredient', 'Beverage',  'pc', 'pack',   55, 5],
+            ['Milo',                  'ready_to_eat', 'Beverage', 'g',  'pack', 320, 1000],
+            ['Coffee',                'ready_to_eat', 'Beverage', 'g',  'pack', 400, 1000],
+            ['Yakult',                'ready_to_eat', 'Beverage', 'pc', 'pack',  55, 5],
 
             // ── Bakery & snacks ──────────────────────────────────────────
-            ['Pandesal',              'ingredient', 'Bakery',    'pc', 'pc',     3, null],
+            ['Pandesal',              'ingredient', 'Bakery',    'pc', 'pack',  75, 25],
             ['Loaf bread',            'ingredient', 'Bakery',    'pc', 'pack',   65, 20],
-            ['Brownie bite',          'ingredient', 'Snack',     'pc', 'pack',  120, 24],
-            ['Chooey toffee',         'ingredient', 'Snack',     'pc', 'pack',   96, 24],
+            ['Brownie bite',          'ready_to_eat', 'Snack',   'pc', 'pack',  120, 24],
+            ['Chooey toffee',         'ready_to_eat', 'Snack',   'pc', 'pack',   96, 24],
 
             // ── Condiments & cooking ─────────────────────────────────────
             ['Cooking oil',           'ingredient', 'Condiment', 'mL', 'L',     75, null],

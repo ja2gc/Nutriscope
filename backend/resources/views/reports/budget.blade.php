@@ -32,6 +32,34 @@
     </div>
 
     @php
+        $php = $procurement_per_head ?? null;
+        $actualPH = $php['actual'] ?? null;
+    @endphp
+    <table style="border:0; margin-top:8px;">
+        <tr>
+            <td style="border:1px solid #333; padding:8px; width:50%;" class="center">
+                <div class="muted upper" style="font-size:9px;">Budget / Head / Day — Limit</div>
+                <div class="bold" style="font-size:14px;">{{ $limit_per_head !== null ? '₱ ' . number_format((float) $limit_per_head, 2) : '—' }}</div>
+            </td>
+            <td style="border:1px solid #333; padding:8px; width:50%;" class="center">
+                <div class="muted upper" style="font-size:9px;">Budget / Head / Day — Actual (Avg Meal Cost)</div>
+                @if($actualPH !== null)
+                    <div class="bold" style="font-size:14px; {{ ($limit_per_head !== null && $actualPH > (float) $limit_per_head) ? 'color:#dc2626;' : '' }}">
+                        ₱ {{ number_format((float) $actualPH, 2) }}
+                    </div>
+                    <div class="muted" style="font-size:8px;">{{ (int) ($php['served_population'] ?? 0) }} served · cash ₱{{ number_format((float) ($php['procurement_cost'] ?? 0), 0) }}</div>
+                @else
+                    <div class="bold" style="font-size:14px; color:#b45309;">Pending</div>
+                    <div class="muted" style="font-size:8px;">{{ $php['pending_reason'] ?? 'awaiting data' }}</div>
+                @endif
+            </td>
+        </tr>
+    </table>
+    <div class="muted" style="font-size:9px; margin-top:4px;">
+        Actual budget per head per day = average meal cost over the procurement span (received-PO cash ÷ total served population).
+    </div>
+
+    @php
         // A2b — server-side SVG bar chart (DomPDF can't run JS charts). Planned vs actual
         // per bucket, scaled to the largest value in the series.
         $trend = $summary['trend'] ?? [];

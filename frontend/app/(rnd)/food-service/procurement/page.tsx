@@ -8,11 +8,12 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import {
-  ShoppingList, PurchaseOrder,
+  ShoppingList, PurchaseOrder, CostEfficiency,
   listShoppingLists, getShoppingList, generateFromCycleWeekdays, deleteShoppingList,
   updateListItem, generatePos, listPurchaseOrders, getPurchaseOrder,
   updatePurchaseOrder, deletePurchaseOrder, uploadAttachments, deleteAttachment,
   createShoppingList, updateShoppingList, addListItem, deleteListItem, createPurchaseOrder,
+  getCostEfficiency,
 } from "@/services/procurementService";
 import { listSuppliers, Supplier } from "@/services/supplierService";
 import { listCycles, CycleListItem } from "@/services/menuCycleService";
@@ -49,7 +50,12 @@ function ListDetail({ id, suppliers, onBack, onPosGenerated }: {
   const [addUnitPrice, setAddUnitPrice] = useState("0");
   const [addSupplier, setAddSupplier] = useState("");
   const [itemError, setItemError] = useState("");
-  const load = useCallback(() => { getShoppingList(id).then(setList); }, [id]);
+  const [eff, setEff] = useState<CostEfficiency | null>(null);
+  const loadEff = useCallback(() => { getCostEfficiency(id).then(setEff).catch(() => setEff(null)); }, [id]);
+  const load = useCallback(() => {
+    getShoppingList(id).then(setList);
+    loadEff();
+  }, [id, loadEff]);
   useEffect(() => { load(); }, [load]);
 
   async function patchItem(itemId: number, patch: { supplier_id?: number | null; qty?: number; unit_price?: number }) {
@@ -142,6 +148,41 @@ function ListDetail({ id, suppliers, onBack, onPosGenerated }: {
             <span className="text-lg font-extrabold">{peso(perDay)}</span><span className="opacity-70">per day</span>
           </div>
         )}
+      </div>
+
+      {/* Calculated budget per head per day — estimated now; actual once the span closes */}
+      <div className="bg-white border border-zinc-200 rounded-2xl p-5 shadow-sm">
+        <h4 className="text-xs font-extrabold text-zinc-700 uppercase tracking-wider mb-3">Budget per head / day</h4>
+        <div className="flex flex-wrap items-end gap-6">
+          <div>
+            <div className="text-[10px] font-extrabold text-zinc-500 uppercase tracking-wider">Estimated</div>
+            <div className="text-2xl font-extrabold text-zinc-800">
+              {eff?.estimated != null ? peso(eff.estimated) : "—"}
+            </div>
+            <div className="text-[10px] text-zinc-400">planned menu cost ÷ estimated heads</div>
+          </div>
+          <div>
+            <div className="text-[10px] font-extrabold text-zinc-500 uppercase tracking-wider">Actual</div>
+            {eff && !eff.pending && eff.actual != null ? (
+              <>
+                <div className="text-2xl font-extrabold text-emerald-600">{peso(eff.actual)}</div>
+                <div className="text-[10px] text-zinc-400">procurement cash ÷ {eff.served_population} served</div>
+              </>
+            ) : (
+              <>
+                <div className="text-2xl font-extrabold text-amber-500">Pending</div>
+                <div className="text-[10px] text-amber-600">{eff?.pending_reason ?? "Awaiting data"}</div>
+              </>
+            )}
+          </div>
+          {eff && eff.service_days_expected > 0 && (
+            <div className="ml-auto text-right">
+              <div className="text-[10px] font-extrabold text-zinc-500 uppercase tracking-wider">Meal prep</div>
+              <div className="text-sm font-bold text-zinc-700">{eff.service_days_done}/{eff.service_days_expected} days served</div>
+              <div className="text-[10px] text-zinc-400">served pop sums from meal-prep days</div>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="bg-white border border-zinc-200 rounded-2xl p-4 shadow-sm">

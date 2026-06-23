@@ -66,6 +66,11 @@ class BudgetController extends Controller
         $summary['avg_population']      = $series['avg_population'];
         $summary['per_head_actual']     = $series['per_head_actual'];
 
+        // Actual budget-per-head-per-day = average meal cost over the procurement span
+        // (received-PO cash ÷ total served population of the cycle's lists). Drives the
+        // budget graph chip; pending until a served population is recorded.
+        $summary['procurement_per_head'] = \App\Services\FSS\ProcurementCostEfficiencyService::actualForBudget($budget, $start, $end);
+
         return response()->json(['data' => $summary]);
     }
 

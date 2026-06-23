@@ -18,6 +18,7 @@ import {
   deleteAnnouncement,
 } from "@/services/announcementService";
 import { Megaphone, PencilLine, Trash2, X } from "lucide-react";
+import { SopBanner } from "./SopBanner";
 
 // Shared category pill styles — exported so other files (e.g. the RND dashboard)
 // can import instead of redefining.
@@ -26,6 +27,7 @@ export const categoryStyles: Record<AnnouncementCategory, string> = {
   Event: "bg-orange-50 text-[#EA580C] border-orange-200",
   Operational: "bg-blue-50 text-blue-700 border-blue-100",
   Urgent: "bg-red-50 text-red-700 border-red-100",
+  Memo: "bg-violet-50 text-violet-700 border-violet-200",
 };
 
 type AnnouncementDraft = {
@@ -307,6 +309,7 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
                     <option value="Event">Event</option>
                     <option value="Operational">Operational</option>
                     <option value="Urgent">Urgent</option>
+                    <option value="Memo">Memo</option>
                   </select>
                 </div>
 
@@ -540,6 +543,9 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
 
   return (
     <div className="space-y-6 font-sans">
+      {/* Standard Operating Procedure — pinned at the very top, all roles */}
+      <SopBanner />
+
       {/* Breadcrumb & header */}
       <div className="flex items-center gap-2 text-xs font-semibold text-zinc-400 select-none">
         <span>{breadcrumbRoot}</span>

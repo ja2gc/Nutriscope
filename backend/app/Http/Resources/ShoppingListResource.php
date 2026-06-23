@@ -20,6 +20,7 @@ class ShoppingListResource extends JsonResource
             'period_start'  => $this->period_start?->toDateString(),
             'period_end'    => $this->period_end?->toDateString(),
             'days_span'     => $this->days_span,
+            'total_served_population' => $this->total_served_population,
             'items'         => $this->items->map(fn ($item) => [
                 'id'              => $item->id,
                 'fs_item_id'      => $item->fs_item_id,

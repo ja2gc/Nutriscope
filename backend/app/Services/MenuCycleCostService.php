@@ -238,6 +238,7 @@ class MenuCycleCostService
         return [
             'recipe_id'        => $recipe->id,
             'name'             => $recipe->name,
+            'prep_notes'       => $recipe->prep_notes,
             'servings'         => (int) $recipe->servings,
             'population'       => $population,
             'total_cost'       => $out['total_cost'],

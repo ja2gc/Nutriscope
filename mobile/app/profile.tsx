@@ -202,7 +202,7 @@ export default function ProfileScreen() {
   if (isLoading) {
     return (
       <View className="flex-1 items-center justify-center bg-gray-50">
-        <ActivityIndicator size="large" color="#2563eb" />
+        <ActivityIndicator size="large" color="#059669" />
       </View>
     );
   }
@@ -253,7 +253,7 @@ export default function ProfileScreen() {
           )}
 
           <TouchableOpacity
-            className={`rounded-lg h-12 items-center justify-center ${profileMutation.isPending ? 'bg-blue-300' : 'bg-blue-600'}`}
+            className={`rounded-lg h-12 items-center justify-center ${profileMutation.isPending ? 'bg-emerald-300' : 'bg-emerald-600'}`}
             onPress={submitProfile}
             disabled={profileMutation.isPending}
             activeOpacity={0.8}
@@ -318,7 +318,7 @@ export default function ProfileScreen() {
           )}
 
           <TouchableOpacity
-            className={`rounded-lg h-12 items-center justify-center ${passwordMutation.isPending ? 'bg-blue-300' : 'bg-blue-600'}`}
+            className={`rounded-lg h-12 items-center justify-center ${passwordMutation.isPending ? 'bg-emerald-300' : 'bg-emerald-600'}`}
             onPress={submitPassword}
             disabled={passwordMutation.isPending}
             activeOpacity={0.8}

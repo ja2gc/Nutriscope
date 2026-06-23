@@ -3,29 +3,31 @@
 namespace Database\Seeders;
 
 use App\Models\Assessment;
+use App\Models\BiochemicalData;
 use App\Models\Diagnosis;
 use App\Models\Intervention;
+use App\Models\Monitoring;
 use App\Models\NcpRecord;
 use App\Models\Patient;
+use App\Models\ScreeningDocument;
 use App\Models\User;
 use App\Services\RiskScoreCalculator;
 use Carbon\Carbon;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
 
 /**
- * Seeds 2 demo NCP patients for Nutriscope:
+ * Seeds 2 demo NCP patients for Nutriscope with full A + D + I + biochemical data.
  *
- * Patient 1 — Maria Santos (Completed first session)
- *   Type 2 Diabetes Mellitus + Hypertension
- *   Full A + D + I recorded. NCP record status = "completed".
- *   No follow-up pending — represents a patient who finished initial counseling.
+ * Patient 1 — Maria Santos (T2DM + Hypertension, Active/Monitored)
+ *   Full A + D + I, biochemical data with abnormal glucose/HbA1c/lipids.
+ *   2 monitoring follow-up visits showing glycemic improvement trend.
  *
- * Patient 2 — Roberto Reyes (Active, follow-up scheduled)
- *   Moderate Malnutrition secondary to poor oral intake
- *   Full A + D + I recorded. NCP record status = "active".
- *   next_followup_date is set 2 weeks out — follow-up session pending.
+ * Patient 2 — Roberto Reyes (Moderate Malnutrition, Active — first session done)
+ *   Full A + D + I, biochemical data with low albumin/hemoglobin/potassium.
+ *   No monitoring entries yet — follow-up scheduled in 2 weeks.
  *
- * Idempotent: skips creation if patient name already exists.
+ * Always deletes and re-seeds both patients for a clean, consistent demo state.
  */
 class PatientSeeder extends Seeder
 {
@@ -37,23 +39,49 @@ class PatientSeeder extends Seeder
             return;
         }
 
+        $this->cleanupPatient('Maria Santos');
+        $this->cleanupPatient('Roberto Reyes');
+
         $this->seedMariaSantos($rnd->id);
         $this->seedRobertoReyes($rnd->id);
     }
 
-    // ── Patient 1: Maria Santos — T2DM + Hypertension, Completed ─────────────
+    // ── Cleanup helper ────────────────────────────────────────────────────────
 
-    private function seedMariaSantos(int $rndId): void
+    private function cleanupPatient(string $name): void
     {
-        if (Patient::where('name', 'Maria Santos')->exists()) {
-            $this->command->line('  PatientSeeder: Maria Santos already exists — skipped.');
+        $patient = Patient::where('name', $name)->first();
+        if (! $patient) {
             return;
         }
 
+        // Delete screening documents (has nullable assessment_id FK)
+        ScreeningDocument::where('patient_id', $patient->id)->delete();
+
+        foreach ($patient->ncpRecords as $record) {
+            $record->monitorings()->delete();
+            $record->diagnoses()->delete();
+            $record->intervention?->delete();
+            if ($assessment = $record->assessment) {
+                $assessment->biochemicalData?->delete();
+                $assessment->delete();
+            }
+            $record->delete();
+        }
+
+        $patient->delete();
+
+        $this->command->line("  PatientSeeder: {$name} — existing record removed.");
+    }
+
+    // ── Patient 1: Maria Santos — T2DM + Hypertension, 2 follow-ups ──────────
+
+    private function seedMariaSantos(int $rndId): void
+    {
         // Patient demographics
         $patient = Patient::create([
             'name'              => 'Maria Santos',
-            'dob'               => '1975-03-15',        // 50 yrs old
+            'dob'               => '1975-03-15',        // 51 yrs old
             'sex'               => 'Female',
             'religion'          => 'Roman Catholic',
             'address'           => 'Brgy. San Nicolas, San Fernando, Pampanga',
@@ -68,26 +96,25 @@ class PatientSeeder extends Seeder
             'age_group_category'=> 'adult',
         ]);
 
-        // NCP Record — first session, completed
+        // NCP Record — active (2 monitoring follow-ups done, ongoing)
         $record = NcpRecord::create([
             'patient_id'  => $patient->id,
             'rnd_user_id' => $rndId,
             'type'        => 'new',
-            'status'      => 'completed',
+            'status'      => 'active',
         ]);
 
         // Assessment
         // Anthro: wt 68 kg, ht 155 cm → BMI 28.3 (Overweight)
-        // IBW (Hamwi female): 155 cm = 61.02 in; 45.5 + 2.2×1.02 ≈ 47.7 kg
-        // %IBW: 68/47.7 × 100 ≈ 142.6% → Obese
-        // BMR (Mifflin-St Jeor): 10×68 + 6.25×155 − 5×50 − 161 = 1238 kcal
-        // PAL: sedentary (1.2) → TEE ≈ 1485 kcal
-        Assessment::create([
+        // IBW (Hamwi female): 45.5 + 2.2×(155-152.4)/2.54 ≈ 47.7 kg → %IBW ≈ 142.6%
+        // BMR (Mifflin): 10×68 + 6.25×155 − 5×51 − 161 = 1221 kcal → TEE(sedentary) ≈ 1465 kcal
+        $assessment = Assessment::create([
             'ncp_record_id'                  => $record->id,
+            'religion'                       => 'Roman Catholic',
             // Dietary
             'dietary_intake_method'          => '24_hour_recall',
             'dietary_intake'                 => 'Breakfast: 2 cups steamed white rice, 1 fried egg, instant coffee with sugar. '
-                                               . 'Lunch: 2 cups white rice, pork adobo (150g), softdrink. '
+                                               . 'Lunch: 2 cups white rice, pork adobo (150 g), softdrink. '
                                                . 'Dinner: 1.5 cups rice, beef sinigang, rice crackers. '
                                                . 'Snacks: pandesal ×2, sweetened condensed milk beverage. '
                                                . 'Estimated total: ~2,400 kcal, ~280 g carbs, high glycemic load.',
@@ -110,7 +137,10 @@ class PatientSeeder extends Seeder
             'muac_mm'                        => 285.0,
             'waist_cm'                       => 92.0,
             'hip_cm'                         => 100.0,
-            'nutritional_status'             => null,  // computed below by RiskScoreCalculator
+            'stress_factor'                  => null,
+            'edema_present'                  => false,
+            'pregnancy_lactation_status'     => 'none',
+            'nutritional_status'             => null,  // computed below
             // Client history
             'medical_history'                => 'Type 2 Diabetes Mellitus (diagnosed 2019, HbA1c 8.4%). '
                                                . 'Hypertension Stage 1 (BP 138/88 mmHg on admission). '
@@ -126,17 +156,34 @@ class PatientSeeder extends Seeder
             'constipation'                   => 'Occasional — 1–2×/week hard stools. Likely low fiber intake.',
             'diarrhea_notes'                 => null,
             'present_diet'                   => 'Regular Filipino diet. High refined carbohydrate intake. Frequent sweet beverages. Limited vegetable and fiber intake.',
-            'rnd_summary'                    => 'Maria is a 50-year-old female with T2DM and hypertension, currently overweight with poor glycemic control (HbA1c 8.4%). '
+            'rnd_summary'                    => 'Maria is a 51-year-old female with T2DM and hypertension, currently overweight with poor glycemic control (HbA1c 8.4%). '
                                                . 'Diet assessment reveals excessive refined carbohydrate intake, high glycemic load, and inadequate fiber. '
                                                . 'She is motivated for change. Priority: carbohydrate distribution, fiber increase, and sodium reduction.',
         ]);
 
-        // Compute risk score from seeded assessment data so header badge and panel are consistent.
-        $mariaAssessment = Assessment::where('ncp_record_id', $record->id)->first();
-        $mariaAssessment->setRelation('ncpRecord', $record->setRelation('patient', $patient));
-        $riskResult = resolve(RiskScoreCalculator::class)->calculate($mariaAssessment);
+        // Biochemical data — T2DM profile: elevated glucose, HbA1c, LDL, cholesterol; BP string
+        // Flagged by LabFlagService: glucose HIGH (>99), hba1c HIGH (>5.6), cholesterol HIGH (>200), ldl HIGH (>100)
+        BiochemicalData::create([
+            'assessment_id' => $assessment->id,
+            'glucose'       => 145.00,   // HIGH (normal 70–99 mg/dL)
+            'hba1c'         => 8.40,     // HIGH (normal ≤5.6%)
+            'cholesterol'   => 218.00,   // HIGH (normal ≤200 mg/dL)
+            'ldl'           => 125.00,   // HIGH (normal ≤100 mg/dL)
+            'hdl'           => 48.00,    // LOW for female (normal ≥50 mg/dL)
+            'triglycerides' => 168.00,   // HIGH (normal ≤150 mg/dL)
+            'albumin'       => 3.80,     // normal (3.5–5.5 g/dL)
+            'hemoglobin'    => 13.20,    // normal female (12.0–15.5 g/dL)
+            'potassium'     => 4.20,     // normal (3.5–5.1 mEq/L)
+            'sodium'        => 140.00,   // normal (136–145 mEq/L)
+            'creatinine'    => 0.72,     // normal female (0.5–0.9 mg/dL)
+            'bp'            => '138/88', // string field — hypertension stage 1
+        ]);
+
+        // Compute risk score
+        $assessment->setRelation('ncpRecord', $record->setRelation('patient', $patient));
+        $riskResult = resolve(RiskScoreCalculator::class)->calculate($assessment);
         $record->update(['risk_score' => $riskResult['score']]);
-        $mariaAssessment->update(['nutritional_status' => $riskResult['nutritional_status']]);
+        $assessment->update(['nutritional_status' => $riskResult['nutritional_status']]);
 
         // Diagnosis — NI-5.8.2 Carbohydrate intake inconsistency
         $pes = Diagnosis::buildPes(
@@ -152,7 +199,7 @@ class PatientSeeder extends Seeder
             'etiology'      => 'Limited knowledge of glycemic index and carbohydrate counting',
             'signs_symptoms'=> 'HbA1c of 8.4%, dietary recall showing high refined carbohydrate and sugar-sweetened beverage intake (~280 g carbs/day vs target 150–165 g/day), and patient-reported difficulty avoiding sweet foods',
             'pes_statement' => $pes,
-            'extra_notes'   => 'Secondary diagnosis: Excess sodium intake (NI-5.10.2) related to frequent use of salty condiments (patis, toyo) as evidenced by BP 138/88 mmHg and reported high condiment use.',
+            'extra_notes'   => 'Secondary: Excess sodium intake (NI-5.10.2) related to frequent salty condiment use (patis, toyo) as evidenced by BP 138/88 mmHg. Secondary: Dyslipidemia — elevated LDL 125 and cholesterol 218 consistent with diabetic dyslipidemia.',
             'ai_generated'  => false,
         ]);
 
@@ -169,10 +216,9 @@ class PatientSeeder extends Seeder
             'micronutrient_limits' => [
                 'sodium' => ['max' => 2000, 'unit' => 'mg'],
             ],
-            // Micronutrient keys only (must match ALL_MICROS / GOAL_MICRO_FLAGS) — never macros.
             'displayed_nutrients' => ['fiber', 'sodium', 'free_sugars'],
             'session_type'     => 'initial',
-            'next_followup_date' => null,   // completed — no follow-up scheduled
+            'next_followup_date' => '2026-06-17',
             'education_notes'  => "NUTRITION EDUCATION — DIABETIC MEAL PLANNING\n\n"
                                 . "1. How Food Affects Blood Sugar\n"
                                 . "   Carbohydrates raise blood sugar most. The goal is consistent, controlled carb intake — not elimination.\n\n"
@@ -184,7 +230,7 @@ class PatientSeeder extends Seeder
                                 . "   ¼ plate: lean protein (fish, chicken, tofu)\n"
                                 . "   ¼ plate: complex carbs (brown rice, oatmeal)\n\n"
                                 . "4. Foods to Minimize\n"
-                                . "   Sugary drinks, white bread, white rice (large portions), sweets, fried foods, patis and toyo (high sodium).\n\n"
+                                . "   Sugary drinks, white rice (large portions), sweets, fried foods, patis and toyo (high sodium).\n\n"
                                 . "5. Timing Matters\n"
                                 . "   Eat at regular intervals. Never skip meals — this causes blood sugar swings.\n\n"
                                 . "Next session: Review blood glucose log, HbA1c trend, and medication timing with meals.",
@@ -203,18 +249,80 @@ class PatientSeeder extends Seeder
                                 . "5. Sodium reduction: replace patis with calamansi and herbs.",
         ]);
 
-        $this->command->info('  PatientSeeder: Maria Santos seeded (completed session).');
+        // ── Monitoring — Follow-up 1 (4 weeks after admission, 2026-06-17) ─────
+        // Labs trending down: glucose 145→128, HbA1c 8.4→8.0, cholesterol 218→205, LDL 125→112
+        $m1 = Monitoring::create([
+            'ncp_record_id'       => $record->id,
+            'weight'              => 67.20,   // -0.8 kg from baseline
+            'bmi'                 => 27.97,
+            'lab_values'          => [
+                'glucose'       => 128.0,    // improving but still HIGH
+                'hba1c'         => 8.0,      // improving but still HIGH
+                'cholesterol'   => 205.0,    // still slightly HIGH
+                'ldl'           => 112.0,    // still HIGH
+                'hdl'           => 49.0,     // still LOW female
+                'triglycerides' => 155.0,    // still slightly HIGH
+                'albumin'       => 3.9,      // normal, stable
+                'potassium'     => 4.1,
+                'sodium'        => 139.0,
+            ],
+            'intake_notes'        => 'Patient reports reducing rice portions by approx ¼. Eliminating softdrinks mostly successful — drinking more water and calamansi juice. Still having pandesal 1–2×/week. Vegetables added at lunch (pechay/kangkong). Eating 3 meals/day consistently.',
+            'symptoms'            => 'Mild afternoon fatigue — improving. No polyuria, polydipsia, or new complaints.',
+            'goal_achievement'    => [
+                'carb_reduction'            => 'partial',
+                'sweet_beverage_elimination'=> 'mostly_achieved',
+                'fiber_goal'                => 'not_achieved',
+                'sodium_reduction'          => 'partial',
+            ],
+            'clinical_summary'    => 'Glycemic control improving. Fasting glucose dropped 145→128 mg/dL. HbA1c reduced 8.4→8.0%. Weight loss 0.8 kg over 4 weeks (on track). Cholesterol and LDL still elevated but trending down. Continue current plan. Reinforce plate method and daily fiber targets (vegetables at every meal).',
+            'next_monitoring_date'=> '2026-07-15',
+        ]);
+        DB::table('monitorings')->where('id', $m1->id)->update([
+            'created_at' => '2026-06-17 09:00:00',
+            'updated_at' => '2026-06-17 09:00:00',
+        ]);
+
+        // ── Monitoring — Follow-up 2 (8 weeks after admission, 2026-07-15) ─────
+        // Labs trending toward normal: glucose 128→106, HbA1c 8.0→7.4, cholesterol 205→193, LDL 112→94
+        $m2 = Monitoring::create([
+            'ncp_record_id'       => $record->id,
+            'weight'              => 66.10,   // -1.9 kg total from baseline
+            'bmi'                 => 27.52,
+            'lab_values'          => [
+                'glucose'       => 106.0,    // still slightly HIGH (>99) but approaching normal
+                'hba1c'         => 7.4,      // HIGH but significantly improved
+                'cholesterol'   => 193.0,    // normalized (≤200)
+                'ldl'           => 94.0,     // normalized (≤100)
+                'hdl'           => 51.0,     // normalized female (≥50)
+                'triglycerides' => 142.0,    // normalized (≤150)
+                'albumin'       => 4.0,      // normal, stable
+                'potassium'     => 4.3,
+                'sodium'        => 138.0,
+            ],
+            'intake_notes'        => 'Consistent with plate method for 3 weeks. Brown rice mixed with white 4×/week. Vegetable intake improved to 2–3 servings/day. Sweet cravings managed with fresh papaya and mango. No sweetened beverages for past 3 weeks. Eating at regular intervals 3 meals + 1 snack.',
+            'symptoms'            => 'No symptoms. Energy levels significantly improved. Walking 20–30 minutes daily. Reports feeling less fatigued after meals.',
+            'goal_achievement'    => [
+                'carb_reduction'            => 'achieved',
+                'sweet_beverage_elimination'=> 'achieved',
+                'fiber_goal'                => 'partially_achieved',
+                'sodium_reduction'          => 'partially_achieved',
+                'weight_loss_target'        => 'on_track',
+            ],
+            'clinical_summary'    => 'Significant glycemic improvement. Glucose 106 mg/dL (near-normal range). HbA1c 7.4% — good progress toward target <7%. Total cholesterol and LDL normalized. HDL improved. Weight reduced 1.9 kg over 8 weeks. Patient highly adherent and motivated. Plan: continue current diet, add 5-min post-meal walks. Next HbA1c lab in 6 weeks.',
+            'next_monitoring_date'=> '2026-08-12',
+        ]);
+        DB::table('monitorings')->where('id', $m2->id)->update([
+            'created_at' => '2026-07-15 09:00:00',
+            'updated_at' => '2026-07-15 09:00:00',
+        ]);
+
+        $this->command->info('  PatientSeeder: Maria Santos seeded (active, 2 monitoring follow-ups).');
     }
 
-    // ── Patient 2: Roberto Reyes — Moderate Malnutrition, Active/Follow-up ───
+    // ── Patient 2: Roberto Reyes — Moderate Malnutrition, Active, first session ─
 
     private function seedRobertoReyes(int $rndId): void
     {
-        if (Patient::where('name', 'Roberto Reyes')->exists()) {
-            $this->command->line('  PatientSeeder: Roberto Reyes already exists — skipped.');
-            return;
-        }
-
         $patient = Patient::create([
             'name'              => 'Roberto Reyes',
             'dob'               => '1988-06-22',        // 37 yrs old
@@ -236,23 +344,22 @@ class PatientSeeder extends Seeder
             'patient_id'  => $patient->id,
             'rnd_user_id' => $rndId,
             'type'        => 'new',
-            'status'      => 'active',      // first session complete, follow-up pending
+            'status'      => 'active',
         ]);
 
         // Assessment
-        // Anthro: wt 52 kg, ht 170 cm → BMI 18.0 (Underweight / mild malnutrition borderline)
-        // IBW (Hamwi male): 170 cm = 66.93 in; 48 + 2.7×6.93 ≈ 66.7 kg
-        // %IBW: 52/66.7 × 100 ≈ 78.0% → Moderate malnutrition
-        // BMR: 10×52 + 6.25×170 − 5×37 + 5 = 1402.5 kcal
-        // PAL: light (1.375) ambulatory → TEE ≈ 1928 kcal
-        Assessment::create([
+        // Anthro: wt 52 kg, ht 170 cm → BMI 18.0 (Underweight)
+        // IBW (Hamwi male): 48 + 2.7×(170-152.4)/2.54 ≈ 66.7 kg → %IBW ≈ 78.0%
+        // BMR (Mifflin): 10×52 + 6.25×170 − 5×37 + 5 = 1402.5 kcal → TEE(light) ≈ 1928 kcal
+        $assessment = Assessment::create([
             'ncp_record_id'                  => $record->id,
+            'religion'                       => 'Roman Catholic',
             'dietary_intake_method'          => '24_hour_recall',
             'dietary_intake'                 => 'Breakfast: 1 cup lugaw (plain, no toppings). '
                                                . 'Lunch: ½ cup white rice, ½ cup monggo soup — patient reports nausea, ate only half. '
                                                . 'Dinner: Refused dinner — fatigue and decreased appetite. '
                                                . 'Estimated total: ~550 kcal, ~18 g protein. '
-                                               . 'Pre-admission: irregular meals, skipping lunch and dinner for past 3 weeks due to work stress.',
+                                               . 'Pre-admission: irregular meals, skipping lunch and dinner for 3 weeks due to work stress.',
             'appetite_changes'               => 'Markedly decreased appetite for 3 weeks prior to admission. Nausea present especially in the morning. Reports eating only 1–2 small meals per day.',
             'dietary_restrictions'           => 'No known food restrictions. Reports avoiding meat due to perceived expense. Diet predominantly rice and instant noodles.',
             'supplements'                    => 'None. Prescribed: Thiamine 100 mg OD (pre-refeeding protocol), Multivitamin OD.',
@@ -271,13 +378,16 @@ class PatientSeeder extends Seeder
             'muac_mm'                        => 215.0,
             'waist_cm'                       => 74.0,
             'hip_cm'                         => 88.0,
-            'nutritional_status'             => null,  // computed below by RiskScoreCalculator
+            'stress_factor'                  => null,
+            'edema_present'                  => false,
+            'pregnancy_lactation_status'     => 'none',
+            'nutritional_status'             => null,  // computed below
             'medical_history'                => 'No prior chronic illness. No hospitalizations. '
                                                . 'History of loose stools for past 2 weeks (3–4×/day, non-bloody). '
                                                . 'Reports 11 kg unintentional weight loss over 3 weeks.',
             'social_history'                 => 'Single, lives alone in rented room in Angeles City. '
                                                . 'Construction worker — currently unemployed due to project pause (3 weeks). '
-                                               . 'Non-smoker, social drinker (beer 2–3× per week). No illicit drug use.',
+                                               . 'Non-smoker, social drinker (beer 2–3×/week). No illicit drug use.',
             'lifestyle'                      => 'Physically active prior to current illness. Now ambulatory but weak. '
                                                . 'Limited cooking facilities — relies on turo-turo (carinderias) for food.',
             'allergies'                      => [],
@@ -285,7 +395,7 @@ class PatientSeeder extends Seeder
             'medications'                    => ['Thiamine 100 mg OD', 'Multivitamin OD', 'ORS PRN'],
             'chewing_swallowing_difficulties'=> null,
             'constipation'                   => null,
-            'diarrhea_notes'                 => 'Loose stools 3–4×/day for 2 weeks prior to admission. Now resolving on admission day 3. Monitor for electrolyte losses.',
+            'diarrhea_notes'                 => 'Loose stools 3–4×/day for 2 weeks prior to admission. Now resolving on Day 3. Monitor for electrolyte losses (K+, Mg2+, phosphate).',
             'present_diet'                   => 'Soft diet — progressing from lugaw to regular texture as tolerated. '
                                                . 'Start with 3–4 small frequent meals at 400–500 kcal each.',
             'rnd_summary'                    => 'Roberto is a 37-year-old male with moderate protein-energy malnutrition (BMI 18.0, %IBW 78%, 17.5% weight loss over 3 weeks). '
@@ -294,18 +404,33 @@ class PatientSeeder extends Seeder
                                                . 'High nutritional risk — priority admission. Follow-up in 2 weeks to assess weight gain and tolerance.',
         ]);
 
-        // Compute risk score from seeded assessment data so header badge and panel are consistent.
-        $robertoAssessment = Assessment::where('ncp_record_id', $record->id)->first();
-        $robertoAssessment->setRelation('ncpRecord', $record->setRelation('patient', $patient));
-        $riskResult = resolve(RiskScoreCalculator::class)->calculate($robertoAssessment);
+        // Biochemical data — Malnutrition profile: low albumin, hemoglobin, potassium, phosphate
+        // Flagged by LabFlagService: albumin LOW (<3.5), hemoglobin LOW (male <13.5), potassium LOW (<3.5), phosphate LOW (<2.5)
+        BiochemicalData::create([
+            'assessment_id' => $assessment->id,
+            'albumin'       => 2.80,    // LOW (normal 3.5–5.5 g/dL) — protein depletion
+            'hemoglobin'    => 10.50,   // LOW male (normal 13.5–17.5 g/dL) — nutritional anemia
+            'hematocrit'    => 32.00,   // LOW male (normal 41–53%) — corresponds to Hgb
+            'potassium'     => 3.10,    // LOW (normal 3.5–5.1 mEq/L) — from diarrheal losses
+            'phosphate'     => 2.20,    // LOW (normal 2.5–4.5 mg/dL) — refeeding syndrome risk
+            'sodium'        => 138.00,  // normal (136–145 mEq/L)
+            'glucose'       => 82.00,   // normal (70–99 mg/dL)
+            'creatinine'    => 0.85,    // normal male (0.7–1.2 mg/dL)
+            'bun'           => 14.00,   // normal (7–18 mg/dL)
+            'calcium'       => 8.50,    // borderline LOW (normal 8.7–10.3 mg/dL) — diarrhea losses
+        ]);
+
+        // Compute risk score
+        $assessment->setRelation('ncpRecord', $record->setRelation('patient', $patient));
+        $riskResult = resolve(RiskScoreCalculator::class)->calculate($assessment);
         $record->update(['risk_score' => $riskResult['score']]);
-        $robertoAssessment->update(['nutritional_status' => $riskResult['nutritional_status']]);
+        $assessment->update(['nutritional_status' => $riskResult['nutritional_status']]);
 
         // Diagnosis — NC-3.1 Underweight / Malnutrition
         $pes = Diagnosis::buildPes(
             'Moderate protein-energy malnutrition',
             'severely inadequate dietary intake secondary to food insecurity and diarrheal illness',
-            'BMI 18.0 kg/m², %IBW 78%, 17.5% unintentional weight loss over 3 weeks, MUAC 215 mm (borderline MAM), 24-hour recall estimated at ~550 kcal and ~18 g protein'
+            'BMI 18.0 kg/m², %IBW 78%, 17.5% unintentional weight loss over 3 weeks, MUAC 215 mm (borderline MAM), albumin 2.8 g/dL (low), hemoglobin 10.5 g/dL (low), 24-hour recall estimated at ~550 kcal and ~18 g protein'
         );
         Diagnosis::create([
             'ncp_record_id' => $record->id,
@@ -313,9 +438,9 @@ class PatientSeeder extends Seeder
             'problem'       => 'Moderate protein-energy malnutrition',
             'label'         => 'NC-3.1',
             'etiology'      => 'Severely inadequate dietary intake secondary to food insecurity and diarrheal illness',
-            'signs_symptoms'=> 'BMI 18.0 kg/m², %IBW 78%, 17.5% unintentional weight loss over 3 weeks, MUAC 215 mm (borderline MAM), 24-hour recall estimated at ~550 kcal and ~18 g protein',
+            'signs_symptoms'=> 'BMI 18.0 kg/m², %IBW 78%, 17.5% unintentional weight loss over 3 weeks, MUAC 215 mm (borderline MAM), albumin 2.8 g/dL (low), hemoglobin 10.5 g/dL (low), 24-hour recall estimated at ~550 kcal and ~18 g protein',
             'pes_statement' => $pes,
-            'extra_notes'   => 'Risk of refeeding syndrome — thiamine supplementation initiated. Gradual caloric increase per protocol. Monitor electrolytes (phosphate, potassium, magnesium) on Day 3–5.',
+            'extra_notes'   => 'Risk of refeeding syndrome — thiamine supplementation initiated. Gradual caloric increase per protocol. Monitor electrolytes (phosphate, K+, Mg2+) on Day 3 and Day 5 post-refeeding. Nutritional anemia confirmed — hemoglobin 10.5 g/dL, hematocrit 32%.',
             'ai_generated'  => false,
         ]);
 
@@ -327,20 +452,19 @@ class PatientSeeder extends Seeder
             'ncp_record_id'    => $record->id,
             'goal_type'        => 'malnutrition',
             'disease_stage'    => 'moderate',
-            'energy_kcal'      => 1300.00,   // progressive start — not full target yet
+            'energy_kcal'      => 1300.00,
             'protein_g'        => 78.00,
             'carbs_g'          => 178.00,
             'fat_g'            => 43.00,
             'fluid_ml'         => 2000.00,
             'micronutrient_limits' => null,
-            // Malnutrition flags no micros by default (GOAL_MICRO_FLAGS.malnutrition = []).
             'displayed_nutrients' => [],
             'session_type'     => 'initial',
-            'next_followup_date' => Carbon::today()->addDays(14)->toDateString(),  // 2-week follow-up
+            'next_followup_date' => Carbon::parse('2026-06-23')->addDays(14)->toDateString(),
             'education_notes'  => "NUTRITION EDUCATION — NUTRITIONAL REHABILITATION\n\n"
                                 . "1. Your Current Status\n"
                                 . "   You have moderate protein-energy malnutrition. "
-                                . "This means your body has not been getting enough food and protein to maintain muscle and immune function.\n\n"
+                                . "Your body has not been getting enough food and protein to maintain muscle and immune function.\n\n"
                                 . "2. Feeding Plan — Start Slowly\n"
                                 . "   Week 1: ~1,300 kcal/day in 4–5 small meals\n"
                                 . "   Week 2: Increase to ~1,800 kcal/day as tolerated\n"
@@ -349,8 +473,8 @@ class PatientSeeder extends Seeder
                                 . "   You are receiving Vitamin B1 (Thiamine) before increasing food intake. "
                                 . "This prevents a serious complication called refeeding syndrome.\n\n"
                                 . "4. Warning Signs — Tell your nurse or RND immediately\n"
-                                . "   Muscle cramps, numbness/tingling in hands or feet, fast heartbeat, unusual weakness, swelling in legs.\n"
-                                . "   These may signal dangerous electrolyte shifts.\n\n"
+                                . "   Muscle cramps, numbness/tingling in hands or feet, fast heartbeat, unusual weakness, swelling in legs. "
+                                . "These may signal dangerous electrolyte shifts.\n\n"
                                 . "5. Food Priorities\n"
                                 . "   Protein at every meal: eggs, chicken, fish, tokwa, monggo.\n"
                                 . "   Energy-dense foods: lugaw with egg, peanut butter pandesal, evaporated milk.\n\n"
@@ -359,7 +483,7 @@ class PatientSeeder extends Seeder
                                 . "2. Tolerate full soft diet (4 meals + 2 snacks) without nausea or diarrhea by Day 7.\n"
                                 . "3. Understand and report warning signs of refeeding syndrome.\n"
                                 . "4. Progress energy intake from 1,300 to 1,800 kcal/day by Week 2.",
-            'barriers'         => "1. Financial constraint — patient's primary barrier to adequate food intake.\n"
+            'barriers'         => "1. Financial constraint — primary barrier to adequate food intake.\n"
                                 . "2. Lives alone with no support system for meal preparation.\n"
                                 . "3. Nausea and early satiety limiting meal portion tolerance.\n"
                                 . "4. Prior diarrheal illness may have compromised nutrient absorption.",
@@ -370,6 +494,8 @@ class PatientSeeder extends Seeder
                                 . "5. Electrolyte monitoring (phosphate, K+, Mg2+) on Day 3 and Day 5 post-refeeding start.",
         ]);
 
-        $this->command->info('  PatientSeeder: Roberto Reyes seeded (active, follow-up in 2 weeks).');
+        // No monitoring entries — first session complete, follow-up pending in 2 weeks.
+
+        $this->command->info('  PatientSeeder: Roberto Reyes seeded (active, first session, no monitoring yet).');
     }
 }

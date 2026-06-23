@@ -107,7 +107,7 @@ export default function DashboardScreen() {
   if (isLoading) {
     return (
       <View className="flex-1 items-center justify-center bg-gray-50">
-        <ActivityIndicator size="large" color="#2563eb" />
+        <ActivityIndicator size="large" color="#059669" />
         <Text className="mt-3 text-gray-500 text-sm">Loading dashboard…</Text>
       </View>
     );
@@ -124,7 +124,7 @@ export default function DashboardScreen() {
           Check your connection and try again.
         </Text>
         <TouchableOpacity
-          className="mt-5 bg-blue-600 px-6 py-3 rounded-lg"
+          className="mt-5 bg-emerald-600 px-6 py-3 rounded-lg"
           onPress={() => refetch()}
         >
           <Text className="text-white font-semibold">Retry</Text>
@@ -147,7 +147,7 @@ export default function DashboardScreen() {
       {/* KPI Cards */}
       <View className="px-4 gap-3">
         <KpiCard
-          icon={<ClipboardList color="#2563eb" size={22} />}
+          icon={<ClipboardList color="#059669" size={22} />}
           label="Meals to log today"
           value={data?.meals_to_log_today ?? 0}
           accent="blue"
@@ -232,19 +232,19 @@ function KpiCard({
   accent: 'blue' | 'amber' | 'red';
 }) {
   const borderColor = {
-    blue: 'border-blue-200',
+    blue: 'border-emerald-200',
     amber: 'border-amber-200',
     red: 'border-red-200',
   }[accent];
 
   const bgColor = {
-    blue: 'bg-blue-50',
+    blue: 'bg-emerald-50',
     amber: 'bg-amber-50',
     red: 'bg-red-50',
   }[accent];
 
   const valueColor = {
-    blue: 'text-blue-700',
+    blue: 'text-emerald-700',
     amber: 'text-amber-700',
     red: 'text-red-700',
   }[accent];

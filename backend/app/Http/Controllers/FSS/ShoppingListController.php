@@ -55,6 +55,18 @@ class ShoppingListController extends Controller
     }
 
     /**
+     * Calculated budget-per-head for this procurement span: estimated (planning-time)
+     * and actual (procurement cash ÷ derived served population, pending until the span
+     * is closed — all POs received and every service day's meal prep completed).
+     */
+    public function costEfficiency(ShoppingList $shoppingList): JsonResponse
+    {
+        return response()->json([
+            'data' => \App\Services\FSS\ProcurementCostEfficiencyService::forShoppingList($shoppingList),
+        ]);
+    }
+
+    /**
      * Auto-build a suggested list from a menu cycle for a specific date range.
      * Quantities + costs come from the menu engine summing actual planned weekdays
      * across the range (not a proportional average); the default vendor for each

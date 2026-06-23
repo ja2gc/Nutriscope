@@ -236,18 +236,23 @@ export default function BudgetPage() {
                   </span>
                 </div>
 
-                {/* Daily-headcount actuals (A8): real ₱/head/day from served days vs the planned cap. */}
-                {(summary.per_head_actual !== null || selected?.budget_per_head_day) && (
+                {/* Budget per head per day: planned cap vs the actual average meal cost over
+                    the procurement span (received-PO cash ÷ total served population). */}
+                {(summary.procurement_per_head.actual !== null || summary.procurement_per_head.pending || selected?.budget_per_head_day) && (
                   <div className="flex flex-wrap items-center gap-2 text-[11px]">
                     {selected?.budget_per_head_day && (
                       <span className="font-semibold px-2.5 py-1 rounded-lg border bg-zinc-50 text-zinc-600 border-zinc-200">
                         Planned: {peso(num(selected.budget_per_head_day))}/head/day
                       </span>
                     )}
-                    {summary.per_head_actual !== null && (
-                      <span className={`font-bold px-2.5 py-1 rounded-lg border ${selected?.budget_per_head_day && summary.per_head_actual > num(selected.budget_per_head_day) ? "bg-red-50 text-red-700 border-red-200" : "bg-emerald-50 text-emerald-700 border-emerald-200"}`}>
-                        Actual: {peso(summary.per_head_actual)}/head/day
-                        {summary.avg_population !== null ? ` · avg ${summary.avg_population} heads/day` : ""}
+                    {summary.procurement_per_head.actual !== null ? (
+                      <span className={`font-bold px-2.5 py-1 rounded-lg border ${selected?.budget_per_head_day && summary.procurement_per_head.actual > num(selected.budget_per_head_day) ? "bg-red-50 text-red-700 border-red-200" : "bg-emerald-50 text-emerald-700 border-emerald-200"}`}>
+                        Actual: {peso(summary.procurement_per_head.actual)}/head/day
+                        {summary.procurement_per_head.served_population > 0 ? ` · ${summary.procurement_per_head.served_population} served` : ""}
+                      </span>
+                    ) : (
+                      <span className="font-bold px-2.5 py-1 rounded-lg border bg-amber-50 text-amber-700 border-amber-200">
+                        Actual: Pending · {summary.procurement_per_head.pending_reason ?? "awaiting data"}
                       </span>
                     )}
                   </div>

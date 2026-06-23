@@ -48,11 +48,15 @@ export default function RootLayout() {
             headerShown: true,
             headerStyle: { backgroundColor: '#ffffff' },
             headerTitleStyle: { fontWeight: '600', color: '#111827' },
-            headerTintColor: '#2563eb',
+            headerTintColor: '#059669',
           }}
         >
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="login" options={{ headerShown: false }} />
+          <Stack.Screen
+            name="announcements"
+            options={{ title: 'Announcements' }}
+          />
           <Stack.Screen
             name="notifications"
             options={{ title: 'Notifications' }}

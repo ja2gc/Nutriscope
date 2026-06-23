@@ -94,6 +94,36 @@ class AssessmentSaveTest extends TestCase
         ]);
     }
 
+    public function test_assessment_response_returns_clinical_measurement_fields(): void
+    {
+        // Regression: AssessmentResource previously omitted these 9 fields, so the edit page
+        // re-loaded them blank even though they were saved. The response must echo them back.
+        [$rnd, $ncp, $assessment] = $this->setup_assessment();
+
+        $response = $this->actingAs($rnd, 'sanctum')
+            ->patchJson("/api/rnd/ncp-records/{$ncp->id}/assessment", [
+                'religion'                   => 'Roman Catholic',
+                'physical_activity_level'    => 'sedentary',
+                'muac_mm'                    => 285.5,
+                'waist_cm'                   => 92.5,
+                'hip_cm'                     => 100.5,
+                'stress_factor'              => 1.2,
+                'edema_present'              => true,
+                'pregnancy_lactation_status' => 'none',
+                'calf_circumference_cm'      => 33.5,
+            ]);
+
+        $response->assertStatus(200)
+            ->assertJsonPath('data.religion', 'Roman Catholic')
+            ->assertJsonPath('data.physical_activity_level', 'sedentary')
+            ->assertJsonPath('data.muac_mm', 285.5)
+            ->assertJsonPath('data.waist_cm', 92.5)
+            ->assertJsonPath('data.hip_cm', 100.5)
+            ->assertJsonPath('data.edema_present', true)
+            ->assertJsonPath('data.pregnancy_lactation_status', 'none')
+            ->assertJsonPath('data.calf_circumference_cm', 33.5);
+    }
+
     public function test_all_new_columns_are_nullable(): void
     {
         [$rnd, $ncp, $assessment] = $this->setup_assessment();

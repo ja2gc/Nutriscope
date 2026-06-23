@@ -29,7 +29,8 @@
         <!-- Backend runs on the host; MySQL is the docker container published on 127.0.0.1:3306. -->
         <env name="DB_HOST" value="127.0.0.1"/>
         <env name="DB_PORT" value="3306"/>
-        <env name="DB_DATABASE" value="nutriscope"/>
+        <!-- Isolated test DB so `php artisan test` (RefreshDatabase) never wipes the seeded dev/demo data in `nutriscope`. -->
+        <env name="DB_DATABASE" value="nutriscope_test"/>
         <env name="DB_USERNAME" value="root"/>
         <env name="DB_PASSWORD" value=""/>
         <env name="DB_URL" value=""/>

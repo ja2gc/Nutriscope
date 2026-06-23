@@ -35,6 +35,10 @@ class AiUsageLimitTest extends TestCase
             'role'     => 'FSS',
             'password' => Hash::make('password'),
         ]);
+
+        // Default actor for direct AIService calls (production runs behind
+        // auth:sanctum); per-test actingAs() overrides this for endpoint tests.
+        $this->actingAs($this->rnd, 'sanctum');
     }
 
     // -------------------------------------------------------------------------

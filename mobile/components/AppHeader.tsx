@@ -1,9 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
-import { Bell, UserCircle } from 'lucide-react-native';
+import { Bell, Megaphone, UserCircle } from 'lucide-react-native';
 import { Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import api from '../lib/api';
+import BrandLogo from './BrandLogo';
 
 interface Notification {
   id: number;
@@ -38,9 +39,22 @@ export default function AppHeader({ title }: AppHeaderProps) {
       className="bg-white border-b border-gray-100"
     >
       <View className="flex-row items-center justify-between px-4 h-14">
-        <Text className="text-base font-semibold text-gray-900">{title}</Text>
+        <View className="flex-row items-center gap-2.5">
+          <BrandLogo size={24} showWordmark={false} />
+          <Text className="text-base font-semibold text-gray-900">{title}</Text>
+        </View>
 
         <View className="flex-row items-center gap-2">
+          {/* Announcements + SOP */}
+          <TouchableOpacity
+            onPress={() => router.push('/announcements')}
+            className="w-11 h-11 items-center justify-center"
+            accessibilityLabel="Announcements and SOP"
+            hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+          >
+            <Megaphone color="#374151" size={22} />
+          </TouchableOpacity>
+
           {/* Bell */}
           <TouchableOpacity
             onPress={() => router.push('/notifications')}

@@ -52,6 +52,8 @@ class BudgetReportGenerator implements ReportGenerator
             // carry a population/per_head). Limit = the settable per-head cap.
             'daily'         => $series['days'],
             'limit_per_head' => $budget->budget_per_head_day !== null ? (float) $budget->budget_per_head_day : null,
+            // Actual budget-per-head-per-day = average meal cost over the procurement span.
+            'procurement_per_head' => \App\Services\FSS\ProcurementCostEfficiencyService::actualForBudget($budget, $start, $end),
             'allocated' => $allocated,
             // Remaining is a CASH question: allocation minus money disbursed (POs),
             // not allocation minus food-served value (different axis — see §5-D).

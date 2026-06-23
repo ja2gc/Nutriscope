@@ -52,4 +52,33 @@ class MealPrepLogController extends Controller
     {
         return response()->json(['data' => $consumption->reverseDay($mealPrepLog->load('lines'))]);
     }
+
+    /**
+     * Set/backfill the served population for one service day of a cycle — for when FSS
+     * didn't record the headcount on the day itself. Editable by FSS and RND. Drives the
+     * derived budget-per-head once every day in the procurement span is filled.
+     */
+    public function setServed(Request $request, MenuCycle $menuCycle): JsonResponse
+    {
+        $data = $request->validate([
+            'service_date'      => ['required', 'date'],
+            'served_population' => ['required', 'integer', 'min:0'],
+        ]);
+
+        $log = MealPrepLog::where('menu_cycle_id', $menuCycle->id)
+            ->whereDate('service_date', $data['service_date'])
+            ->first();
+
+        if (! $log) {
+            return response()->json(['message' => 'No completed service day for that date — mark the day served first.'], 404);
+        }
+
+        $log->served_population = $data['served_population'];
+        if ($log->population !== null) {
+            $log->population_variance = $log->population - $data['served_population'];
+        }
+        $log->save();
+
+        return response()->json(['data' => $log]);
+    }
 }

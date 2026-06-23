@@ -47,6 +47,17 @@ class AssessmentResource extends JsonResource
             'nutrient_drug_interaction' => $this->nutrient_drug_interaction,
             'dietary_intake_method'=> $this->dietary_intake_method,
             'dietary_record_file'  => $this->dietary_record_file,
+            // Phase 5 — clinical measurements + engine inputs (fillable + validated;
+            // omitting these left Anthropometrics/Client-History tabs blank on edit reload).
+            'religion'                  => $this->religion,
+            'physical_activity_level'   => $this->physical_activity_level,
+            'muac_mm'                   => $this->muac_mm,
+            'waist_cm'                  => $this->waist_cm,
+            'hip_cm'                    => $this->hip_cm,
+            'stress_factor'             => $this->stress_factor,
+            'edema_present'             => $this->edema_present,
+            'pregnancy_lactation_status'=> $this->pregnancy_lactation_status,
+            'calf_circumference_cm'     => $this->calf_circumference_cm,
             'risk_score'           => $this->ncpRecord?->risk_score,
             'checked_factors'      => $riskResult['checked_factors'],
             'created_at'           => $this->created_at,

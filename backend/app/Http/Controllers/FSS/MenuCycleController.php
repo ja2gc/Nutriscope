@@ -71,15 +71,30 @@ class MenuCycleController extends Controller
 
     public function activate(MenuCycle $menuCycle): JsonResponse
     {
-        $menuCycle->update([
-            'is_active'        => true,
-            'status'           => 'active',
-            'activation_date'  => now()->toDateString(),
-            // Freeze the plan's cost at the lock moment so past reports keep it (Spec 6 #1).
-            'cost_snapshot'    => MenuCycleCostService::forCycle($menuCycle),
-            'cost_snapshot_at' => now(),
-        ]);
-        return response()->json(['data' => new MenuCycleResource($menuCycle)]);
+        DB::transaction(function () use ($menuCycle) {
+            // Retire any currently active cycle before promoting this one — only one
+            // cycle may be active at a time (callers do where('is_active', true)->first()).
+            MenuCycle::where('is_active', true)
+                ->where('id', '!=', $menuCycle->id)
+                ->update(['is_active' => false, 'status' => 'archived']);
+
+            $attrs = [
+                'is_active'       => true,
+                'status'          => 'active',
+                'activation_date' => now()->toDateString(),
+            ];
+
+            // Freeze the plan's cost the FIRST time it's activated so past reports keep it
+            // (Spec 6 #1). Re-activating (re-promote or double-click) must NOT re-price.
+            if ($menuCycle->cost_snapshot === null) {
+                $attrs['cost_snapshot']    = MenuCycleCostService::forCycle($menuCycle);
+                $attrs['cost_snapshot_at'] = now();
+            }
+
+            $menuCycle->update($attrs);
+        });
+
+        return response()->json(['data' => new MenuCycleResource($menuCycle->fresh())]);
     }
 
     /**

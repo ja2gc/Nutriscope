@@ -8,9 +8,11 @@ use App\Http\Requests\RND\UpdatePatientRequest;
 use App\Http\Resources\PatientResource;
 use App\Models\NcpRecord;
 use App\Models\Patient;
+use App\Models\ScreeningDocument;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Facades\Storage;
 
 class PatientController extends Controller
 {
@@ -95,6 +97,14 @@ class PatientController extends Controller
                 'message' => 'This patient has clinical records with completed assessment, diagnosis, and intervention and cannot be deleted.',
             ], 422);
         }
+
+        // screening_documents.patient_id has no DB cascade — purge the rows (and their stored
+        // files) first, otherwise the patient delete hits an unhandled FK constraint violation.
+        $documents = ScreeningDocument::where('patient_id', $patient->id)->get();
+        foreach ($documents as $document) {
+            Storage::delete($document->file_path);
+        }
+        ScreeningDocument::where('patient_id', $patient->id)->delete();
 
         $patient->delete();
 

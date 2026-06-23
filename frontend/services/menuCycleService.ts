@@ -59,9 +59,13 @@ export interface ComputeResult {
 
 export interface RecipeOption { id: number; name: string; category: string | null; servings: number; cost?: string }
 
+/** Ready-to-serve catalog item (e.g. banana/Yakult snack) placeable in any meal slot. */
+export interface FsItemOption { id: number; name: string; category: string | null; unit: string; unit_cost: number }
+
 export interface RecipeProfile {
   recipe_id: number;
   name: string;
+  prep_notes: string | null;
   servings: number;
   population: number;
   total_cost: number;
@@ -79,7 +83,7 @@ export interface SaveCyclePayload {
   name: string;
   cycle_days?: number;
   week_start_date?: string | null;
-  days?: Array<Pick<MenuDay, "day_of_week" | "meal_type" | "recipe_id" | "fs_item_id" | "quantity" | "estimate_population" | "is_event" | "event_allocation">>;
+  days?: Array<Pick<MenuDay, "day_of_week" | "meal_type" | "recipe_id" | "fs_item_id" | "quantity" | "servings_override" | "estimate_population" | "is_event" | "event_allocation">>;
 }
 
 export interface TemplateListItem { id: number; name: string; description: string | null; cycle_days: number; days_count: number; updated_at: string }
@@ -97,6 +101,13 @@ async function json<T>(res: Response, fallback: string): Promise<T> {
 // ─── Recipes (picker source) ──────────────────────────────────────────────────
 export async function listRecipeOptions(): Promise<RecipeOption[]> {
   const res = await apiFetch("/api/fss/food-service-recipes");
+  if (!res.ok) return [];
+  return (await res.json()).data ?? [];
+}
+
+// ─── Ready-to-serve catalog items (picker source) ───────────────────────────────
+export async function listFsItemOptions(): Promise<FsItemOption[]> {
+  const res = await apiFetch("/api/fss/fs-items");
   if (!res.ok) return [];
   return (await res.json()).data ?? [];
 }

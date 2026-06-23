@@ -6,6 +6,8 @@ use App\Models\Assessment;
 
 class RiskScoreCalculator
 {
+    public function __construct(private LabFlagService $labFlags) {}
+
     public function calculate(Assessment $assessment): array
     {
         $score = 0.0;
@@ -48,11 +50,18 @@ class RiskScoreCalculator
         }
 
         // 6. Significant lab result = 1 point
+        // Glucose/potassium/BUN use clinically-significant screening thresholds (looser than the
+        // normal-range flags so only clearly abnormal values score). Creatinine's upper bound is
+        // sex-aware and sourced from LabFlagService (M 1.2 / F 0.9) — never hardcoded here, so the
+        // female threshold can't drift from the diagnosis/monitoring flagging logic.
         $hasSignificantLab = false;
         if ($biochemical) {
+            $sex = $assessment->ncpRecord?->patient?->sex;
+            $creatinineHigh = $this->labFlags->ranges($sex)['creatinine']['high'] ?? 1.2;
+
             if ((!is_null($biochemical->glucose) && ($biochemical->glucose > 125.0 || $biochemical->glucose < 70.0)) ||
                 (!is_null($biochemical->potassium) && ($biochemical->potassium > 5.0 || $biochemical->potassium < 3.5)) ||
-                (!is_null($biochemical->creatinine) && $biochemical->creatinine > 1.2) ||
+                (!is_null($biochemical->creatinine) && $creatinineHigh !== null && $biochemical->creatinine > $creatinineHigh) ||
                 (!is_null($biochemical->bun) && $biochemical->bun > 20.0)) {
                 $hasSignificantLab = true;
             }

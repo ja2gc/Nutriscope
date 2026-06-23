@@ -273,7 +273,7 @@ function AdjustModal({ item, visible, onClose, onSuccess }: AdjustModalProps) {
               <TouchableOpacity
                 className={`flex-row items-center justify-center gap-2 py-3.5 rounded-xl ${
                   isPending
-                    ? 'bg-blue-400'
+                    ? 'bg-emerald-400'
                     : mode === 'add'
                     ? 'bg-green-600'
                     : 'bg-red-600'
@@ -517,7 +517,7 @@ export default function InventoryScreen() {
             Check your connection and try again.
           </Text>
           <TouchableOpacity
-            className="mt-5 bg-blue-600 px-6 py-3 rounded-lg flex-row items-center gap-2"
+            className="mt-5 bg-emerald-600 px-6 py-3 rounded-lg flex-row items-center gap-2"
             onPress={() => refetch()}
           >
             <RefreshCw color="#fff" size={16} />
@@ -576,7 +576,7 @@ export default function InventoryScreen() {
         ListFooterComponent={
           isLoadingMore ? (
             <View className="py-4 items-center">
-              <ActivityIndicator color="#2563eb" />
+              <ActivityIndicator color="#059669" />
             </View>
           ) : null
         }
@@ -648,7 +648,7 @@ function SearchAndFilter({
             onPress={() => onTypeChange(value)}
             className={`px-3 py-1.5 rounded-full border ${
               typeFilter === value
-                ? 'bg-blue-600 border-blue-600'
+                ? 'bg-emerald-600 border-emerald-600'
                 : 'bg-white border-gray-200'
             }`}
             accessibilityLabel={`Filter by ${label}`}

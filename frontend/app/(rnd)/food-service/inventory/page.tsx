@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import {
   Salad, Search, RefreshCw, Pencil, Trash2, X, Check,
@@ -18,7 +18,7 @@ import {
   listInventoryRows,
   upsertInventory,
   deleteInventory,
-  patchFsItemCategory,
+  patchFsItem,
 } from "@/services/inventoryService";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -33,7 +33,7 @@ const TAB_META: Record<ActiveTab, { noun: string; nounPlural: string }> = {
 
 const PER_PAGE = 15;
 
-const UNIT_OPTIONS = ["pc", "pack", "bundle", "serving", "g", "kg", "mL", "L"] as const;
+const UNIT_OPTIONS = ["pc", "pack", "bundle", "serving", "g", "kg", "mL", "L", "tray", "jar"] as const;
 
 const HIGHLIGHT_ROW: Record<RowHighlight, string> = {
   green: "",
@@ -59,11 +59,230 @@ function formatPrice(p: string | null, prefix = "₱") {
   return `${prefix}${parseFloat(p).toFixed(2)}`;
 }
 
+const inputCls = "w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg text-zinc-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all";
+
+function Label({ children }: { children: React.ReactNode }) {
+  return (
+    <label className="block text-[10px] font-extrabold text-zinc-500 uppercase tracking-wider mb-1">
+      {children}
+    </label>
+  );
+}
+
+// ─── Edit Item Modal ──────────────────────────────────────────────────────────
+
+interface EditModalProps {
+  row: InventoryRow | null;
+  onClose: () => void;
+  onSaved: () => void;
+}
+
+function EditItemModal({ row, onClose, onSaved }: EditModalProps) {
+  const [category,          setCategory]          = useState("");
+  const [purchasePrice,     setPurchasePrice]     = useState("");
+  const [purchaseUnit,      setPurchaseUnit]      = useState("");
+  const [unitsPerPurchase,  setUnitsPerPurchase]  = useState("");
+  const [baseUnit,          setBaseUnit]          = useState("");
+  const [qty,               setQty]               = useState("");
+  const [stockUnit,         setStockUnit]         = useState("");
+  const [saving,            setSaving]            = useState(false);
+  const [error,             setError]             = useState("");
+
+  useEffect(() => {
+    if (!row) return;
+    setCategory(row.category ?? "");
+    setPurchasePrice(row.unit_price ?? "");
+    setPurchaseUnit(row.purchase_unit ?? "");
+    setUnitsPerPurchase(row.units_per_purchase != null ? String(row.units_per_purchase) : "");
+    setBaseUnit(row.base_unit ?? "");
+    setQty(row.inventoryId != null ? parseFloat(row.quantity_in_stock).toString() : "");
+    setStockUnit(row.unit || row.base_unit || "");
+    setError("");
+  }, [row]);
+
+  // Live derived ₱/base-unit
+  const derivedUnitCost = (() => {
+    const pp  = parseFloat(purchasePrice);
+    const upp = parseFloat(unitsPerPurchase);
+    if (!isNaN(pp) && !isNaN(upp) && upp > 0) return pp / upp;
+    return null;
+  })();
+
+  async function handleSave() {
+    if (!row) return;
+    const qtyNum = parseFloat(qty);
+    if (qty !== "" && (isNaN(qtyNum) || qtyNum < 0)) { setError("Enter a valid quantity."); return; }
+    if (!stockUnit) { setError("Stock unit is required."); return; }
+
+    setSaving(true); setError("");
+    try {
+      // Catalog fields (fs_item)
+      await patchFsItem(row.itemId, {
+        category:           category.trim() || null,
+        purchase_price:     purchasePrice     !== "" ? parseFloat(purchasePrice)    : undefined,
+        purchase_unit:      purchaseUnit.trim()  || undefined,
+        base_unit:          baseUnit.trim()      || undefined,
+        units_per_purchase: unitsPerPurchase !== "" ? parseFloat(unitsPerPurchase) : undefined,
+      });
+
+      // Stock record
+      if (qty !== "") {
+        await upsertInventory(row.inventoryId, {
+          item_type:         row.itemType,
+          fs_item_id:        row.itemId,
+          recipe_id:         null,
+          quantity_in_stock: qtyNum,
+          unit:              stockUnit,
+          unit_price:        purchasePrice !== "" ? parseFloat(purchasePrice) : null,
+        });
+      }
+
+      onSaved();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Save failed.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (!row) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+      <div className="w-full max-w-lg bg-white rounded-2xl shadow-xl border border-zinc-200 overflow-hidden">
+        {/* Header */}
+        <div className="px-6 py-5 border-b border-zinc-100 flex items-start justify-between gap-4">
+          <div>
+            <p className="text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider mb-0.5 capitalize">
+              {row.itemType}
+            </p>
+            <h3 className="text-base font-extrabold text-zinc-900">{row.name}</h3>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-zinc-100 text-zinc-400 shrink-0 transition-colors">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="px-6 py-5 space-y-5 max-h-[70vh] overflow-y-auto">
+          {/* Catalog section */}
+          <div>
+            <h4 className="text-[10px] font-extrabold text-zinc-700 uppercase tracking-wider mb-3">
+              Catalog
+            </h4>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="col-span-2">
+                <Label>Category</Label>
+                <input
+                  type="text" value={category}
+                  onChange={e => setCategory(e.target.value)}
+                  placeholder="e.g. protein, carbs…"
+                  className={inputCls}
+                />
+              </div>
+              <div>
+                <Label>Purchase price (₱)</Label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 text-sm">₱</span>
+                  <input
+                    type="number" min="0" step="0.01" value={purchasePrice}
+                    onChange={e => setPurchasePrice(e.target.value)}
+                    placeholder="0.00"
+                    className={`${inputCls} pl-6`}
+                  />
+                </div>
+              </div>
+              <div>
+                <Label>Purchase unit</Label>
+                <select value={purchaseUnit} onChange={e => setPurchaseUnit(e.target.value)} className={`${inputCls} bg-white`}>
+                  <option value="">Select…</option>
+                  {UNIT_OPTIONS.map(u => <option key={u} value={u}>{u}</option>)}
+                </select>
+              </div>
+              <div>
+                <Label>Units per purchase</Label>
+                <input
+                  type="number" min="0" step="0.001" value={unitsPerPurchase}
+                  onChange={e => setUnitsPerPurchase(e.target.value)}
+                  placeholder="e.g. 1000"
+                  className={inputCls}
+                />
+              </div>
+              <div>
+                <Label>Base unit</Label>
+                <select value={baseUnit} onChange={e => setBaseUnit(e.target.value)} className={`${inputCls} bg-white`}>
+                  <option value="">Select…</option>
+                  {UNIT_OPTIONS.map(u => <option key={u} value={u}>{u}</option>)}
+                </select>
+              </div>
+            </div>
+
+            {/* Live unit cost readout */}
+            {derivedUnitCost !== null && baseUnit && (
+              <div className="mt-3 px-3 py-2 bg-emerald-50 border border-emerald-100 rounded-xl">
+                <span className="text-[10px] font-extrabold text-emerald-700 uppercase tracking-wider">
+                  Derived cost:
+                </span>{" "}
+                <span className="text-sm font-extrabold text-emerald-800">
+                  ₱{derivedUnitCost.toFixed(4)} / {baseUnit}
+                </span>
+                <span className="text-[10px] text-emerald-600 ml-2">
+                  (₱{parseFloat(purchasePrice || "0").toFixed(2)} ÷ {unitsPerPurchase} {baseUnit} per {purchaseUnit})
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Stock section */}
+          <div>
+            <h4 className="text-[10px] font-extrabold text-zinc-700 uppercase tracking-wider mb-3">
+              Stock
+            </h4>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Quantity in stock</Label>
+                <input
+                  type="number" min="0" step="0.01" value={qty}
+                  onChange={e => setQty(e.target.value)}
+                  placeholder="0"
+                  className={inputCls}
+                />
+              </div>
+              <div>
+                <Label>Stock unit</Label>
+                <select value={stockUnit} onChange={e => setStockUnit(e.target.value)} className={`${inputCls} bg-white`}>
+                  <option value="">Select…</option>
+                  {UNIT_OPTIONS.map(u => <option key={u} value={u}>{u}</option>)}
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Error */}
+          {error && (
+            <div className="flex items-center gap-2 text-xs text-red-700 bg-red-50 border border-red-100 rounded-xl px-3 py-2.5">
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+              {error}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 py-4 border-t border-zinc-100 flex gap-3 justify-end">
+          <Button variant="secondary" onClick={onClose} className="!py-2 !px-5 text-xs">
+            Cancel
+          </Button>
+          <Button variant="primary" onClick={handleSave} loading={saving} className="!py-2 !px-5 text-xs">
+            {saving ? "Saving…" : "Save Changes"}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 const DEFAULT_STATS: InventoryStats = { total: 0, in_stock: 0, no_stock: 0 };
-
-type EditValues = { qty: string; unit: string; cost: string; category: string };
 
 export default function InventoryPage() {
   const [rows, setRows]   = useState<InventoryRow[]>([]);
@@ -78,18 +297,18 @@ export default function InventoryPage() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [page, setPage] = useState(1);
 
-  const [editId, setEditId]             = useState<string | null>(null);
-  const [editValues, setEditValues]     = useState<EditValues>({ qty: "", unit: "", cost: "", category: "" });
-  const [editSaving, setEditSaving]     = useState(false);
-  const [editError, setEditError]       = useState("");
+  const [editRow,      setEditRow]      = useState<InventoryRow | null>(null);
   const [deleteRowKey, setDeleteRowKey] = useState<string | null>(null);
-  const [deleting, setDeleting]         = useState(false);
+  const [deleting,     setDeleting]     = useState(false);
+
+  const debRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   function rowKey(r: InventoryRow) { return `${r.itemType}_${r.itemId}`; }
 
   useEffect(() => {
-    const t = setTimeout(() => { setDebouncedSearch(search); setPage(1); }, 300);
-    return () => clearTimeout(t);
+    if (debRef.current) clearTimeout(debRef.current);
+    debRef.current = setTimeout(() => { setDebouncedSearch(search); setPage(1); }, 300);
+    return () => { if (debRef.current) clearTimeout(debRef.current); };
   }, [search]);
 
   useEffect(() => { setPage(1); }, [activeTab, statusFilter]);
@@ -116,51 +335,6 @@ export default function InventoryPage() {
   }, [page, activeTab, statusFilter, debouncedSearch]);
 
   useEffect(() => { load(); }, [load]);
-
-  function startEdit(row: InventoryRow) {
-    setEditId(rowKey(row));
-    setEditValues({
-      qty:       row.inventoryId ? parseFloat(row.quantity_in_stock).toString() : "",
-      unit:      row.unit || (row.base_unit ?? ""),
-      cost:      row.unit_price ?? "",
-      category:  row.category ?? "",
-    });
-    setEditError("");
-    setDeleteRowKey(null);
-  }
-
-  async function handleSave(row: InventoryRow) {
-    const qtyNum = parseFloat(editValues.qty);
-    if (!editValues.qty || isNaN(qtyNum) || qtyNum < 0) {
-      setEditError("Enter a valid qty."); return;
-    }
-    if (!editValues.unit) { setEditError("Unit is required."); return; }
-    const costNum      = editValues.cost      ? parseFloat(editValues.cost)      : null;
-    if (costNum !== null && (isNaN(costNum) || costNum < 0)) {
-      setEditError("Enter a valid cost."); return;
-    }
-    setEditSaving(true); setEditError("");
-    try {
-      const categoryVal = editValues.category.trim() || null;
-      await Promise.all([
-        upsertInventory(row.inventoryId, {
-          item_type:               row.itemType,
-          fs_item_id:              row.itemId,
-          recipe_id:               null,
-          quantity_in_stock:       qtyNum,
-          unit:                    editValues.unit,
-          unit_price:              costNum,
-        }),
-        patchFsItemCategory(row.itemId, categoryVal),
-      ]);
-      setEditId(null);
-      await load();
-    } catch (err: unknown) {
-      setEditError(err instanceof Error ? err.message : "Save failed.");
-    } finally {
-      setEditSaving(false);
-    }
-  }
 
   async function handleDelete(row: InventoryRow) {
     if (!row.inventoryId) { setDeleteRowKey(null); return; }
@@ -281,9 +455,9 @@ export default function InventoryPage() {
                   <th className="px-4 py-3 text-left text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
                     {activeTab === "supply" ? "Supply" : "Ingredient"}
                   </th>
+                  <th className="px-4 py-3 text-left text-[10px] font-bold text-zinc-500 uppercase tracking-wider whitespace-nowrap">Category</th>
                   <th className="px-4 py-3 text-left text-[10px] font-bold text-zinc-500 uppercase tracking-wider whitespace-nowrap">Qty</th>
-                  <th className="hidden sm:table-cell px-4 py-3 text-left text-[10px] font-bold text-zinc-500 uppercase tracking-wider whitespace-nowrap">Unit</th>
-                  <th className="hidden sm:table-cell px-4 py-3 text-left text-[10px] font-bold text-zinc-500 uppercase tracking-wider whitespace-nowrap">Cost / Unit</th>
+                  <th className="hidden sm:table-cell px-4 py-3 text-left text-[10px] font-bold text-zinc-500 uppercase tracking-wider whitespace-nowrap">₱ / base</th>
                   <th className="px-4 py-3 text-left text-[10px] font-bold text-zinc-500 uppercase tracking-wider whitespace-nowrap">Stock</th>
                   <th className="px-4 py-3 text-left text-[10px] font-bold text-zinc-500 uppercase tracking-wider whitespace-nowrap">Actions</th>
                 </tr>
@@ -291,123 +465,38 @@ export default function InventoryPage() {
               <tbody className="divide-y divide-zinc-100">
                 {rows.map((row) => {
                   const key             = rowKey(row);
-                  const isEditing       = editId === key;
                   const isConfirmDelete = deleteRowKey === key;
                   const hasRecord       = row.inventoryId !== null;
-                  const rowBg           = isEditing ? "bg-emerald-50/30" : HIGHLIGHT_ROW[row.highlight];
+                  const rowBg           = HIGHLIGHT_ROW[row.highlight];
 
                   return (
                     <tr key={key} className={`transition-colors hover:brightness-95 ${rowBg}`}>
+                      {/* Name */}
+                      <td className="px-4 py-3 font-semibold text-zinc-800 truncate max-w-[160px]">{row.name}</td>
 
-                      {/* Name + category */}
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <span className="font-semibold text-zinc-800 truncate shrink-0">{row.name}</span>
-                          {isEditing ? (
-                            <input
-                              type="text"
-                              value={editValues.category}
-                              onChange={e => setEditValues(v => ({ ...v, category: e.target.value }))}
-                              placeholder="Category…"
-                              className="min-w-0 w-28 px-2 py-0.5 text-[10px] border border-emerald-300 rounded-md focus:outline-none focus:ring-1 focus:ring-emerald-500 text-zinc-600"
-                            />
-                          ) : (
-                            row.category && (
-                              <span className="hidden lg:inline text-[10px] text-zinc-400 shrink-0">{row.category}</span>
-                            )
-                          )}
-                        </div>
-                      </td>
+                      {/* Category */}
+                      <td className="px-4 py-3 text-zinc-500">{row.category || "—"}</td>
 
                       {/* Qty */}
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        {isEditing ? (
-                          <input
-                            type="number" min="0" step="0.01"
-                            value={editValues.qty}
-                            onChange={e => setEditValues(v => ({ ...v, qty: e.target.value }))}
-                            autoFocus
-                            className="w-20 px-2 py-1 text-xs border border-emerald-300 rounded-md focus:outline-none focus:ring-1 focus:ring-emerald-500 font-mono"
-                          />
-                        ) : (
-                          <span className="font-mono text-zinc-700">
-                            {hasRecord ? parseFloat(row.quantity_in_stock).toFixed(2) : "—"}
-                          </span>
-                        )}
+                      <td className="px-4 py-3 whitespace-nowrap font-mono text-zinc-700">
+                        {hasRecord ? `${parseFloat(row.quantity_in_stock).toFixed(2)} ${row.unit}` : "—"}
                       </td>
 
-                      {/* Unit */}
-                      <td className="hidden sm:table-cell px-4 py-3 whitespace-nowrap">
-                        {isEditing ? (
-                          <select
-                            value={editValues.unit}
-                            onChange={e => setEditValues(v => ({ ...v, unit: e.target.value }))}
-                            className="px-2 py-1 text-xs border border-emerald-300 rounded-md bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                          >
-                            <option value="" disabled>Unit…</option>
-                            {UNIT_OPTIONS.map(u => <option key={u} value={u}>{u}</option>)}
-                          </select>
-                        ) : (
-                          <span className="text-zinc-500">{row.unit || "—"}</span>
-                        )}
+                      {/* Unit cost */}
+                      <td className="hidden sm:table-cell px-4 py-3 whitespace-nowrap font-mono text-zinc-600">
+                        {row.unit_cost && parseFloat(row.unit_cost) > 0
+                          ? `₱${parseFloat(row.unit_cost).toFixed(4)} / ${row.base_unit ?? ""}`
+                          : formatPrice(row.unit_price)}
                       </td>
 
-                      {/* Cost */}
-                      <td className="hidden sm:table-cell px-4 py-3 whitespace-nowrap font-mono">
-                        {isEditing ? (
-                          <div className="flex items-center gap-1">
-                            <span className="text-zinc-400 text-[10px]">₱</span>
-                            <input
-                              type="number" min="0" step="0.01"
-                              value={editValues.cost}
-                              onChange={e => setEditValues(v => ({ ...v, cost: e.target.value }))}
-                              placeholder="0.00"
-                              className="w-20 px-2 py-1 text-xs border border-emerald-300 rounded-md focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                            />
-                            {editValues.unit && (
-                              <span className="text-zinc-400 text-[10px]">/ {editValues.unit}</span>
-                            )}
-                          </div>
-                        ) : (
-                          <span className="text-zinc-600">
-                            {formatPrice(row.unit_price)}
-                            {row.unit && row.unit_price && parseFloat(row.unit_price) > 0 && (
-                              <span className="text-zinc-400">{` / ${row.unit}`}</span>
-                            )}
-                          </span>
-                        )}
-                      </td>
-
-                      {/* Stock indicator — binary in/out dot */}
+                      {/* Stock indicator */}
                       <td className="px-4 py-3">
                         <StockDot status={row.status} />
                       </td>
 
                       {/* Actions */}
                       <td className="px-4 py-3">
-                        {isEditing ? (
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <button
-                              onClick={() => handleSave(row)}
-                              disabled={editSaving}
-                              className="flex items-center gap-1 px-2.5 py-1 text-[10px] font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-md disabled:opacity-50 transition-colors"
-                            >
-                              <Check className="h-3 w-3" />
-                              {editSaving ? "…" : "Save"}
-                            </button>
-                            <button
-                              onClick={() => { setEditId(null); setEditError(""); }}
-                              className="p-1 text-zinc-400 hover:text-zinc-600"
-                            >
-                              <X className="h-3.5 w-3.5" />
-                            </button>
-                            {editError && (
-                              <span className="text-[10px] text-red-600 flex items-center gap-0.5">
-                                <AlertTriangle className="h-3 w-3" /> {editError}
-                              </span>
-                            )}
-                          </div>
-                        ) : isConfirmDelete ? (
+                        {isConfirmDelete ? (
                           <div className="flex items-center gap-2">
                             <span className="text-red-600 text-[10px] font-semibold">Clear stock?</span>
                             <button onClick={() => handleDelete(row)} disabled={deleting}
@@ -420,14 +509,14 @@ export default function InventoryPage() {
                         ) : (
                           <div className="flex items-center gap-1">
                             <button
-                              onClick={() => startEdit(row)}
-                              title={hasRecord ? "Edit stock" : "Set stock"}
+                              onClick={() => { setEditRow(row); setDeleteRowKey(null); }}
+                              title={hasRecord ? "Edit item" : "Set item"}
                               className="p-1.5 rounded-lg hover:bg-zinc-100 text-zinc-500 transition-colors"
                             >
                               <Pencil className="h-3.5 w-3.5" />
                             </button>
                             <button
-                              onClick={() => { setDeleteRowKey(key); setEditId(null); }}
+                              onClick={() => { setDeleteRowKey(key); }}
                               title="Delete"
                               className="p-1.5 rounded-lg hover:bg-red-50 text-zinc-500 hover:text-red-600 transition-colors"
                             >
@@ -445,6 +534,15 @@ export default function InventoryPage() {
           </>
         )}
       </div>
+
+      {/* Edit modal */}
+      {editRow && (
+        <EditItemModal
+          row={editRow}
+          onClose={() => setEditRow(null)}
+          onSaved={() => { setEditRow(null); load(); }}
+        />
+      )}
     </div>
   );
 }
