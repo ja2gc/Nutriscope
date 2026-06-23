@@ -136,6 +136,47 @@ class FoodItemsSeeder extends Seeder
         // Sweet Corn — sensible single ready-to-eat snacks.
     ];
 
+    /**
+     * Category overrides applied after USDA import.
+     *
+     * Reasons items need overrides:
+     *  - FNDDS (Survey) items return no foodCategory → mapCategory() returns null.
+     *  - USDA "Dairy and Egg Products" maps to 'dairy' but eggs belong in 'protein'.
+     *  - USDA "Vegetables and Vegetable Products" captures starchy roots (cassava, corn)
+     *    that belong in 'carbs' for NCP meal planning purposes.
+     *  - Condiments/aromatics may return null or unexpected categories.
+     *
+     * Applied idempotently after every import run (safe for re-runs).
+     */
+    private const CATEGORY_OVERRIDE = [
+        // ── Items with null category from FNDDS (no USDA foodCategory) ──────────
+        'Rice Porridge (Lugaw)'          => 'carbs',
+        'Pandesal (Filipino Bread Roll)' => 'carbs',
+
+        // ── Eggs misclassified as dairy (USDA lumps "Dairy and Egg Products") ───
+        'Egg (Hard Boiled)'              => 'protein',
+
+        // ── Starchy roots/grains misclassified as vegetable in USDA ─────────────
+        'Cassava / Kamoteng Kahoy'       => 'carbs',
+        'Sweet Corn (Cooked)'            => 'carbs',
+
+        // ── Ensure aromatics/condiments have correct category ────────────────────
+        'Garlic (Raw)'                   => 'vegetable',
+        'Onion (Raw)'                    => 'vegetable',
+        'Ginger Root (Raw)'              => 'vegetable',
+        'Tomato (Raw)'                   => 'vegetable',
+        'Tomato (Cooked)'                => 'vegetable',
+        'Coconut Milk (Canned)'          => 'fat',
+        'Peanut Butter (Unsalted)'       => 'fat',
+        'Peanuts (Roasted)'              => 'fat',
+        'Cocoa Powder (Unsweetened)'     => 'carbs',
+        'Brown Sugar'                    => 'carbs',
+        'Calamansi / Lime Juice'         => 'fruit',
+
+        // ── Dairy — confirm not overridden by Dairy-and-Egg→dairy mapping ────────
+        'Low-fat Milk (1%)'              => 'dairy',
+    ];
+
     public function run(): void
     {
         $usda = app(UsdaService::class);
@@ -272,5 +313,11 @@ class FoodItemsSeeder extends Seeder
             $curated += \App\Models\FoodItem::where('name', $name)->update(['ready_to_eat' => $readyToEat]);
         }
         $this->command->info("Snack curation: pinned ready_to_eat on {$curated} item(s).");
+
+        // Category overrides — correct null/wrong categories after USDA import (idempotent).
+        foreach (self::CATEGORY_OVERRIDE as $name => $category) {
+            \App\Models\FoodItem::where('name', $name)->update(['category' => $category]);
+        }
+        $this->command->info('Category overrides: corrected ' . count(self::CATEGORY_OVERRIDE) . ' item(s) — null/USDA-mismatch categories fixed.');
     }
 }

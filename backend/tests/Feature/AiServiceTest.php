@@ -25,6 +25,10 @@ class AiServiceTest extends TestCase
             'role'     => 'RND',
             'password' => Hash::make('password'),
         ]);
+
+        // AI routes always run behind auth:sanctum in production, so the service
+        // can rely on auth()->id() for the usage-log owner. Mirror that here.
+        $this->actingAs($this->rnd, 'sanctum');
     }
 
     private function makeNcpRecord(): NcpRecord

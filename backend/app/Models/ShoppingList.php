@@ -12,7 +12,7 @@ class ShoppingList extends Model
 
     protected $fillable = [
         'rnd_user_id', 'menu_cycle_id', 'name', 'list_date', 'period_start', 'period_end',
-        'days_span', 'list_type', 'status',
+        'days_span', 'list_type', 'status', 'total_served_population',
     ];
 
     protected $casts = [
@@ -20,6 +20,7 @@ class ShoppingList extends Model
         'period_start' => 'date',
         'period_end'   => 'date',
         'days_span'    => 'integer',
+        'total_served_population' => 'integer',
     ];
 
     public function fss()
@@ -35,5 +36,10 @@ class ShoppingList extends Model
     public function items()
     {
         return $this->hasMany(ShoppingListItem::class);
+    }
+
+    public function purchaseOrders()
+    {
+        return $this->hasMany(PurchaseOrder::class);
     }
 }

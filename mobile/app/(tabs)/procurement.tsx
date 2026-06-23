@@ -227,7 +227,7 @@ function UploadAttachmentModal({ po, visible, onClose }: UploadModalProps) {
                   >
                     <Text
                       className={`text-sm font-semibold capitalize ${
-                        attachType === t ? 'text-blue-700' : 'text-gray-400'
+                        attachType === t ? 'text-emerald-700' : 'text-gray-400'
                       }`}
                     >
                       {t}
@@ -260,7 +260,7 @@ function UploadAttachmentModal({ po, visible, onClose }: UploadModalProps) {
 
               {uploadMutation.isPending ? (
                 <View className="items-center py-4">
-                  <ActivityIndicator color="#2563eb" />
+                  <ActivityIndicator color="#059669" />
                   <Text className="mt-2 text-sm text-gray-500">Uploading…</Text>
                 </View>
               ) : (
@@ -276,7 +276,7 @@ function UploadAttachmentModal({ po, visible, onClose }: UploadModalProps) {
                     <Text className="text-sm font-medium text-gray-700">Library</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    className="flex-1 flex-row items-center justify-center gap-2 bg-blue-600 py-3.5 rounded-xl"
+                    className="flex-1 flex-row items-center justify-center gap-2 bg-emerald-600 py-3.5 rounded-xl"
                     onPress={() => pickWithPermission('camera')}
                     accessibilityLabel="Take a photo with camera"
                     accessibilityRole="button"
@@ -373,7 +373,7 @@ function PODetail({ po, onUpload }: PODetailProps) {
             Attachments ({po.attachments.length})
           </Text>
           <TouchableOpacity
-            className="flex-row items-center gap-1 px-3 py-1.5 bg-blue-600 rounded-lg"
+            className="flex-row items-center gap-1 px-3 py-1.5 bg-emerald-600 rounded-lg"
             onPress={onUpload}
             accessibilityLabel="Upload receipt or proof"
             accessibilityRole="button"
@@ -393,7 +393,7 @@ function PODetail({ po, onUpload }: PODetailProps) {
           <View className="bg-white rounded-xl border border-gray-100 overflow-hidden">
             {po.attachments.map((att, idx) => {
               const colorMap = att.type === 'receipt'
-                ? { badge: 'bg-blue-100', text: 'text-blue-700' }
+                ? { badge: 'bg-emerald-100', text: 'text-emerald-700' }
                 : { badge: 'bg-purple-100', text: 'text-purple-700' };
               return (
                 <View
@@ -578,7 +578,7 @@ export default function ProcurementScreen() {
   if (isLoading) {
     return (
       <View className="flex-1 items-center justify-center bg-gray-50">
-        <ActivityIndicator size="large" color="#2563eb" />
+        <ActivityIndicator size="large" color="#059669" />
         <Text className="mt-3 text-gray-500 text-sm">Loading purchase orders…</Text>
       </View>
     );
@@ -595,7 +595,7 @@ export default function ProcurementScreen() {
           Check your connection and try again.
         </Text>
         <TouchableOpacity
-          className="mt-5 bg-blue-600 px-6 py-3 rounded-lg"
+          className="mt-5 bg-emerald-600 px-6 py-3 rounded-lg"
           onPress={() => refetch()}
           accessibilityLabel="Retry loading purchase orders"
           style={{ minHeight: 44 }}
@@ -631,7 +631,7 @@ export default function ProcurementScreen() {
       >
         {/* Header summary */}
         <View className="px-4 mb-4 flex-row items-center gap-2">
-          <ShoppingBag color="#2563eb" size={20} />
+          <ShoppingBag color="#059669" size={20} />
           <Text className="text-base font-semibold text-gray-800">Purchase Orders</Text>
           <Text className="text-sm text-gray-400 tabular-nums">({data?.length ?? 0})</Text>
         </View>

@@ -77,7 +77,7 @@ function RowSwitch({
       <Switch
         value={value}
         onValueChange={onValueChange}
-        trackColor={{ false: '#d1d5db', true: '#2563eb' }}
+        trackColor={{ false: '#d1d5db', true: '#059669' }}
         thumbColor="#ffffff"
       />
     </View>
@@ -103,7 +103,7 @@ function DensitySelector({
           key={opt.key}
           onPress={() => onChange(opt.key)}
           className={`px-3 py-1.5 rounded-full border ${
-            value === opt.key ? 'bg-blue-600 border-blue-600' : 'bg-white border-gray-300'
+            value === opt.key ? 'bg-emerald-600 border-emerald-600' : 'bg-white border-gray-300'
           }`}
         >
           <Text className={`text-xs font-medium ${value === opt.key ? 'text-white' : 'text-gray-600'}`}>

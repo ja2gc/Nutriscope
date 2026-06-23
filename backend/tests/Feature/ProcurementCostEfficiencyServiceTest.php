@@ -2,14 +2,14 @@
 
 namespace Tests\Feature;
 
-use App\Models\Budget;
+use App\Models\FsItem;
 use App\Models\MealPrepLog;
 use App\Models\MenuCycle;
+use App\Models\MenuCycleDay;
 use App\Models\PurchaseOrder;
+use App\Models\ShoppingList;
 use App\Models\User;
-use App\Services\BudgetActualService;
 use App\Services\FSS\ProcurementCostEfficiencyService;
-use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -25,151 +25,147 @@ class ProcurementCostEfficiencyServiceTest extends TestCase
         $this->rnd = User::factory()->create(['role' => 'RND']);
     }
 
-    private function receivedPo(string $date, float $total): PurchaseOrder
+    /** Cycle that serves the given weekdays (one fs_item entry per weekday). */
+    private function cycle(array $weekdays, int $pop = 40): MenuCycle
     {
-        return PurchaseOrder::factory()->create([
-            'rnd_user_id'   => $this->rnd->id,
-            'status'        => 'received',
-            'received_date' => $date,
-            'total_amount'  => $total,
+        $cycle  = MenuCycle::factory()->create();
+        $fsItem = FsItem::factory()->create();
+        foreach ($weekdays as $wd) {
+            MenuCycleDay::factory()->create([
+                'menu_cycle_id'       => $cycle->id,
+                'day_of_week'         => $wd,
+                'meal_type'           => 'breakfast',
+                'fs_item_id'          => $fsItem->id,
+                'quantity'            => 1,
+                'estimate_population' => $pop,
+            ]);
+        }
+        return $cycle;
+    }
+
+    private function listForSpan(MenuCycle $cycle, string $start, string $end): ShoppingList
+    {
+        return ShoppingList::factory()->create([
+            'rnd_user_id'  => $this->rnd->id,
+            'menu_cycle_id' => $cycle->id,
+            'period_start' => $start,
+            'period_end'   => $end,
         ]);
     }
 
-    private function servedLog(int $cycleId, string $date, ?int $served, float $value = 0): MealPrepLog
+    private function po(ShoppingList $list, string $status, float $total): PurchaseOrder
+    {
+        return PurchaseOrder::factory()->create([
+            'rnd_user_id'      => $this->rnd->id,
+            'shopping_list_id' => $list->id,
+            'status'           => $status,
+            'total_amount'     => $total,
+        ]);
+    }
+
+    private function servedLog(MenuCycle $cycle, string $date, ?int $served): MealPrepLog
     {
         return MealPrepLog::create([
-            'menu_cycle_id'     => $cycleId,
+            'menu_cycle_id'     => $cycle->id,
             'service_date'      => $date,
             'status'            => 'completed',
             'served_population' => $served,
-            'total_value'       => $value,
+            'total_value'       => 0,
             'has_shortfall'     => false,
         ]);
     }
 
-    public function test_happy_path_total_procurement_over_total_served(): void
+    // ── ACTUAL: derived from meal prep, gated on full span closure ──────────────
+
+    public function test_actual_is_received_procurement_over_derived_served_when_span_closed(): void
     {
-        $cycle  = MenuCycle::factory()->create();
-        $budget = Budget::factory()->create(['rnd_user_id' => $this->rnd->id, 'menu_cycle_id' => $cycle->id]);
+        $cycle = $this->cycle(['Monday', 'Tuesday']);            // serves 2 weekdays
+        $list  = $this->listForSpan($cycle, '2026-06-22', '2026-06-23'); // Mon + Tue
+        $this->po($list, 'received', 1800);
+        $this->po($list, 'received', 1200);                      // cash 3000
+        $this->servedLog($cycle, '2026-06-22', 16);
+        $this->servedLog($cycle, '2026-06-23', 14);              // Σ served 30
 
-        // Procurement cash: 1800 + 1200 = 3000.
-        $this->receivedPo('2026-06-10', 1800);
-        $this->receivedPo('2026-06-11', 1200);
+        $r = ProcurementCostEfficiencyService::forShoppingList($list->fresh());
 
-        // Served headcount: 10, 20 -> total 30 (avg was 15 under old logic).
-        $this->servedLog($cycle->id, '2026-06-10', 10);
-        $this->servedLog($cycle->id, '2026-06-11', 20);
-
-        $result = ProcurementCostEfficiencyService::forSpan(
-            $budget, Carbon::parse('2026-06-09'), Carbon::parse('2026-06-12')
-        );
-
-        // 3000 / 30 = 100. (Old avg-based result would have been 3000/15 = 200.)
-        $this->assertEqualsWithDelta(100.0, $result, 0.01);
+        $this->assertFalse($r['pending']);
+        $this->assertEqualsWithDelta(100.0, $r['actual'], 0.01); // 3000 / 30
+        $this->assertSame(30, $r['served_population']);
+        $this->assertSame(2, $r['service_days_done']);
+        $this->assertSame(2, $r['service_days_expected']);
     }
 
-    /**
-     * Explicitly asserts total-served denominator, using a fixture where avg != total
-     * so the test fails under the old average logic (avg=15 → 200) but passes with
-     * the correct total logic (total=30 → 100).
-     */
-    public function test_span_per_head_divides_by_total_served_not_average(): void
+    public function test_actual_pending_until_every_service_day_completed(): void
     {
-        $cycle  = MenuCycle::factory()->create();
-        $budget = Budget::factory()->create(['rnd_user_id' => $this->rnd->id, 'menu_cycle_id' => $cycle->id]);
+        $cycle = $this->cycle(['Monday', 'Tuesday']);
+        $list  = $this->listForSpan($cycle, '2026-06-22', '2026-06-23');
+        $this->po($list, 'received', 3000);
+        $this->servedLog($cycle, '2026-06-22', 16);              // only Monday served
 
-        $this->receivedPo('2026-06-10', 3000);
+        $r = ProcurementCostEfficiencyService::forShoppingList($list->fresh());
 
-        // Day 1: 10 served, Day 2: 20 served. avg=15, total=30 — they differ.
-        $this->servedLog($cycle->id, '2026-06-10', 10);
-        $this->servedLog($cycle->id, '2026-06-11', 20);
-
-        $result = ProcurementCostEfficiencyService::forSpan(
-            $budget, Carbon::parse('2026-06-09'), Carbon::parse('2026-06-12')
-        );
-
-        // Must be total: 3000 / 30 = 100, not avg: 3000 / 15 = 200.
-        $this->assertEqualsWithDelta(100.0, $result, 0.01);
-        $this->assertNotEqualsWithDelta(200.0, $result, 0.01);
+        $this->assertTrue($r['pending']);
+        $this->assertNull($r['actual']);
+        $this->assertSame(1, $r['service_days_done']);
+        $this->assertSame(2, $r['service_days_expected']);
+        $this->assertStringContainsString('meal prep (1/2 days)', $r['pending_reason']);
     }
 
-    public function test_returns_null_when_no_served_population_recorded(): void
+    public function test_actual_pending_until_all_pos_received(): void
     {
-        $cycle  = MenuCycle::factory()->create();
-        $budget = Budget::factory()->create(['rnd_user_id' => $this->rnd->id, 'menu_cycle_id' => $cycle->id]);
+        $cycle = $this->cycle(['Monday']);
+        $list  = $this->listForSpan($cycle, '2026-06-22', '2026-06-22');
+        $this->po($list, 'received', 1800);
+        $this->po($list, 'ordered', 1200);                       // not received
+        $this->servedLog($cycle, '2026-06-22', 30);
 
-        $this->receivedPo('2026-06-10', 3000);
-        // Completed log but served_population is null (not yet reported).
-        $this->servedLog($cycle->id, '2026-06-10', null, 500);
+        $r = ProcurementCostEfficiencyService::forShoppingList($list->fresh());
 
-        $result = ProcurementCostEfficiencyService::forSpan(
-            $budget, Carbon::parse('2026-06-09'), Carbon::parse('2026-06-12')
-        );
-
-        $this->assertNull($result);
+        $this->assertTrue($r['pending']);
+        $this->assertStringContainsString('PO receipts', $r['pending_reason']);
     }
 
-    public function test_returns_null_when_avg_served_is_zero(): void
+    public function test_actual_pending_when_no_pos(): void
     {
-        // served_population is unsigned, so 0 is a valid non-null value. A served
-        // row of 0 passes the not-null count guard but makes the average 0 — the
-        // explicit avg<=0 guard must catch it rather than divide by zero.
-        $cycle  = MenuCycle::factory()->create();
-        $budget = Budget::factory()->create(['rnd_user_id' => $this->rnd->id, 'menu_cycle_id' => $cycle->id]);
+        $cycle = $this->cycle(['Monday']);
+        $list  = $this->listForSpan($cycle, '2026-06-22', '2026-06-22');
+        $this->servedLog($cycle, '2026-06-22', 30);
 
-        $this->receivedPo('2026-06-10', 3000);
-        $this->servedLog($cycle->id, '2026-06-10', 0, 500);
+        $r = ProcurementCostEfficiencyService::forShoppingList($list->fresh());
 
-        $result = ProcurementCostEfficiencyService::forSpan(
-            $budget, Carbon::parse('2026-06-09'), Carbon::parse('2026-06-12')
-        );
-
-        $this->assertNull($result);
+        $this->assertTrue($r['pending']);
+        $this->assertStringContainsString('PO receipts', $r['pending_reason']);
     }
 
-    public function test_diverges_from_per_head_actual(): void
+    // ── ESTIMATED ──────────────────────────────────────────────────────────────
+
+    public function test_estimated_uses_menu_cycle_span_cost_over_estimate_population(): void
     {
         $cycle  = MenuCycle::factory()->create();
-        $budget = Budget::factory()->create(['rnd_user_id' => $this->rnd->id, 'menu_cycle_id' => $cycle->id]);
+        $fsItem = FsItem::factory()->create();
+        MenuCycleDay::factory()->create([
+            'menu_cycle_id'       => $cycle->id,
+            'day_of_week'         => 'Monday',
+            'meal_type'           => 'breakfast',
+            'fs_item_id'          => $fsItem->id,
+            'quantity'            => 1,
+            'estimate_population' => 40,
+        ]);
+        $list = $this->listForSpan($cycle, '2026-06-22', '2026-06-22');
 
-        // Procurement cash (3000) deliberately != food-served value (1200): some
-        // procured stock unused this span, or service drew on prior stock.
-        $this->receivedPo('2026-06-10', 3000);
-        $this->servedLog($cycle->id, '2026-06-10', 10, 600);
-        $this->servedLog($cycle->id, '2026-06-11', 20, 600);
+        $estimated = ProcurementCostEfficiencyService::estimated($list->fresh());
 
-        $efficiency = ProcurementCostEfficiencyService::forSpan(
-            $budget, Carbon::parse('2026-06-09'), Carbon::parse('2026-06-12')
-        );
-        $series = BudgetActualService::dailySeries(
-            $budget, Carbon::parse('2026-06-09'), Carbon::parse('2026-06-12')
-        );
-
-        // efficiency = 3000 / total(10+20)=30 -> 100.
-        $this->assertEqualsWithDelta(100.0, $efficiency, 0.01);
-        // per_head_actual = served value 1200 / served sum 30 -> 40.
-        $this->assertEqualsWithDelta(40.0, $series['per_head_actual'], 0.01);
-        // The two metrics are genuinely independent, not the same number.
-        $this->assertNotEqualsWithDelta($efficiency, $series['per_head_actual'], 0.01);
+        // total = 40 × unit_cost, head-days = 40 → per-head == unit_cost.
+        $this->assertEqualsWithDelta((float) $fsItem->unit_cost, $estimated, 0.01);
     }
 
-    public function test_scopes_served_population_to_budget_menu_cycle(): void
+    public function test_estimated_null_when_no_menu_cycle(): void
     {
-        $cycle      = MenuCycle::factory()->create();
-        $otherCycle = MenuCycle::factory()->create();
-        $budget     = Budget::factory()->create(['rnd_user_id' => $this->rnd->id, 'menu_cycle_id' => $cycle->id]);
+        $list = ShoppingList::factory()->create([
+            'rnd_user_id' => $this->rnd->id, 'menu_cycle_id' => null,
+            'period_start' => '2026-06-22', 'period_end' => '2026-06-22',
+        ]);
 
-        $this->receivedPo('2026-06-10', 2000);
-        // This budget's cycle: served 10. Another cycle same day: served 90.
-        $this->servedLog($cycle->id, '2026-06-10', 10);
-        $this->servedLog($otherCycle->id, '2026-06-10', 90);
-
-        $result = ProcurementCostEfficiencyService::forSpan(
-            $budget, Carbon::parse('2026-06-09'), Carbon::parse('2026-06-12')
-        );
-
-        // Only cycle's served counts: 2000 / 10 = 200. If the other cycle leaked
-        // in, avg would be 50 and the result 40.
-        $this->assertEqualsWithDelta(200.0, $result, 0.01);
+        $this->assertNull(ProcurementCostEfficiencyService::estimated($list->fresh()));
     }
 }

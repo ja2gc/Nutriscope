@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router';
-import { BarChart3, LayoutDashboard, Package, ShoppingCart } from 'lucide-react-native';
+import { BarChart3, CalendarDays, LayoutDashboard, Package, ShoppingCart } from 'lucide-react-native';
 import AppHeader from '../../components/AppHeader';
 
 export default function TabsLayout() {
@@ -7,7 +7,7 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: true,
-        tabBarActiveTintColor: '#2563eb',
+        tabBarActiveTintColor: '#059669',
         tabBarInactiveTintColor: '#6b7280',
         tabBarStyle: { backgroundColor: '#ffffff' },
       }}
@@ -20,6 +20,16 @@ export default function TabsLayout() {
             <LayoutDashboard color={color} size={size} />
           ),
           header: () => <AppHeader title="Dashboard" />,
+        }}
+      />
+      <Tabs.Screen
+        name="menu"
+        options={{
+          title: 'Menu',
+          tabBarIcon: ({ color, size }) => (
+            <CalendarDays color={color} size={size} />
+          ),
+          header: () => <AppHeader title="Menu Cycle" />,
         }}
       />
       <Tabs.Screen

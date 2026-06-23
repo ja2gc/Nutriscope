@@ -146,20 +146,20 @@ function MealPrepSection() {
   return (
     <View className="px-4 mt-4">
       <View className="flex-row items-center gap-2 mb-3">
-        <ChefHat color="#2563eb" size={20} />
+        <ChefHat color="#059669" size={20} />
         <Text className="text-base font-semibold text-gray-800">Meal Prep — Today's Service</Text>
       </View>
 
       {isLoading ? (
         <View className="bg-white rounded-xl border border-gray-100 py-8 items-center">
-          <ActivityIndicator color="#2563eb" />
+          <ActivityIndicator color="#059669" />
         </View>
       ) : serviceError ? (
         <View className="bg-white rounded-xl border border-red-100 px-4 py-5 items-center">
           <AlertCircle color="#ef4444" size={24} />
           <Text className="mt-2 text-sm text-gray-600 text-center">Could not load today's service.</Text>
           <TouchableOpacity
-            className="mt-3 px-4 py-2 bg-blue-600 rounded-lg"
+            className="mt-3 px-4 py-2 bg-emerald-600 rounded-lg"
             onPress={() => refetchService()}
           >
             <Text className="text-white text-sm font-semibold">Retry</Text>
@@ -206,7 +206,7 @@ function MealPrepSection() {
           ) : (
             <TouchableOpacity
               className={`flex-row items-center justify-center gap-2 py-3.5 rounded-xl ${
-                markServedMutation.isPending ? 'bg-blue-400' : 'bg-blue-600'
+                markServedMutation.isPending ? 'bg-emerald-400' : 'bg-emerald-600'
               }`}
               onPress={handleMarkServed}
               disabled={markServedMutation.isPending}
@@ -448,7 +448,7 @@ function AccomplishmentSection({ activeCycleId }: { activeCycleId?: number }) {
               >
                 <View
                   className={`w-5 h-5 rounded border-2 items-center justify-center ${
-                    tasks[key] ? 'bg-blue-600 border-blue-600' : 'border-gray-300 bg-white'
+                    tasks[key] ? 'bg-emerald-600 border-emerald-600' : 'border-gray-300 bg-white'
                   }`}
                 >
                   {tasks[key] && (
@@ -468,7 +468,7 @@ function AccomplishmentSection({ activeCycleId }: { activeCycleId?: number }) {
             value={offDuty}
             onValueChange={setOffDuty}
             trackColor={{ false: '#d1d5db', true: '#bfdbfe' }}
-            thumbColor={offDuty ? '#2563eb' : '#6b7280'}
+            thumbColor={offDuty ? '#059669' : '#6b7280'}
             accessibilityLabel="Off duty toggle"
             accessibilityRole="switch"
           />

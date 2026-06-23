@@ -7,19 +7,24 @@ import {
   LayoutTemplate, ChevronLeft, AlertTriangle, CheckCircle2, RefreshCw, Pencil,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { useAuth } from "@/contexts/AuthContext";
 import ServiceLogPanel from "./_components/ServiceLogPanel";
 import {
   DAYS, MEALS, MEAL_LABELS, Day, Meal,
-  CycleListItem, MenuCycle, ComputeResult, RecipeOption, TemplateListItem, RecipeProfile,
+  CycleListItem, MenuCycle, ComputeResult, RecipeOption, FsItemOption, TemplateListItem, RecipeProfile,
   listCycles, getCycle, saveCycle, deleteCycle, computeCycle, activateCycle,
-  saveCycleAsTemplate, listRecipeOptions, listTemplates, instantiateTemplate, deleteTemplate,
+  saveCycleAsTemplate, listRecipeOptions, listFsItemOptions, listTemplates, instantiateTemplate, deleteTemplate,
   getRecipeProfile,
 } from "@/services/menuCycleService";
 
 const peso = (n: number) => `₱${n.toFixed(2)}`;
 const cellKey = (d: Day, m: Meal) => `${d}|${m}`;
 
-interface Cell { recipe_id: number; recipe_name: string; servings: number }
+// A cell holds EITHER a recipe or a ready-to-serve fs_item. recipe_name is the
+// display label for whichever one is set. servings_override is the ACTUAL servings
+// for this menu-cycle slot (set via the food panel) — overrides the day's headcount
+// for this dish only, and never touches the baseline recipe.
+interface Cell { recipe_id: number | null; fs_item_id: number | null; recipe_name: string; servings: number; servings_override: number | null }
 type Grid = Record<string, Cell>;
 // Per-day headcount (drives scaling). Keyed by Day.
 type DayPop = Record<string, string>;
@@ -30,24 +35,39 @@ const BUDGET_CHIP: Record<string, string> = {
   over:    "bg-red-50 text-red-700 border-red-200",
 };
 
-// ─── Recipe profile panel (ingredients + cost scaled to a day's headcount) ──────
+// ─── Recipe profile panel (ingredients + cost scaled from the recipe baseline) ──────
+// FSS: read-only — sees ingredients, prep notes, and cost at the day's headcount.
+// RND: can scale servings live (re-scales ingredients + cost) and jump to full edit.
 function RecipeProfilePanel(
-  { recipeId, day, population, name, onClose }:
-  { recipeId: number; day: Day; population: number; name: string; onClose: () => void },
+  { recipeId, day, population, name, initialServings, readOnly, onPersist, onClose }:
+  {
+    recipeId: number; day: Day; population: number; name: string;
+    initialServings: number | null; readOnly: boolean;
+    onPersist?: (servings: number) => void; onClose: () => void;
+  },
 ) {
   const [data, setData] = useState<RecipeProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
+  // Actual servings for THIS menu-cycle slot — defaults to a saved override, else the
+  // day's headcount. Changing it (RND) persists to the slot, never the baseline recipe.
+  const [scaleTo, setScaleTo] = useState(Math.max(1, initialServings || population || 1));
+
+  function changeScale(n: number) {
+    const v = Math.max(1, n || 1);
+    setScaleTo(v);
+    onPersist?.(v);
+  }
 
   useEffect(() => {
     let live = true;
     setLoading(true); setErr("");
-    getRecipeProfile(recipeId, population)
+    getRecipeProfile(recipeId, scaleTo)
       .then((d) => { if (live) setData(d); })
       .catch(() => { if (live) setErr("Failed to load recipe profile."); })
       .finally(() => { if (live) setLoading(false); });
     return () => { live = false; };
-  }, [recipeId, population]);
+  }, [recipeId, scaleTo]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
@@ -55,13 +75,17 @@ function RecipeProfilePanel(
         <div className="flex items-start justify-between gap-3 p-5 border-b border-zinc-100">
           <div>
             <div className="text-sm font-extrabold text-zinc-900">{name}</div>
-            <div className="text-[11px] text-zinc-500 mt-0.5">{day} · scaled to {population} heads</div>
+            <div className="text-[11px] text-zinc-500 mt-0.5">
+              {day} · scaled to {scaleTo} servings{readOnly ? " (view only)" : ""}
+            </div>
           </div>
           <div className="flex items-center gap-2">
-            <Link href={`/food-service/foods/${recipeId}`}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-emerald-200 text-[10px] font-bold uppercase tracking-wider text-emerald-700 hover:bg-emerald-50">
-              <Pencil className="h-3 w-3" /> Edit
-            </Link>
+            {!readOnly && (
+              <Link href={`/food-service/foods/${recipeId}`}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-emerald-200 text-[10px] font-bold uppercase tracking-wider text-emerald-700 hover:bg-emerald-50">
+                <Pencil className="h-3 w-3" /> Edit
+              </Link>
+            )}
             <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-zinc-100 text-zinc-500 cursor-pointer"><X className="h-4 w-4" /></button>
           </div>
         </div>
@@ -84,6 +108,16 @@ function RecipeProfilePanel(
               <div>
                 <div className="text-[10px] font-extrabold text-zinc-500 uppercase tracking-wider">Baseline</div>
                 <div className="text-xl font-extrabold text-zinc-400">serves {data.servings}</div>
+              </div>
+              <div>
+                <div className="text-[10px] font-extrabold text-zinc-500 uppercase tracking-wider">Scale to (servings)</div>
+                {readOnly ? (
+                  <div className="text-xl font-extrabold text-zinc-800">{scaleTo}</div>
+                ) : (
+                  <input type="number" min={1} value={scaleTo}
+                    onChange={(e) => changeScale(parseInt(e.target.value))}
+                    className="w-24 px-2 py-1 text-lg font-extrabold text-zinc-800 border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+                )}
               </div>
             </div>
 
@@ -111,7 +145,16 @@ function RecipeProfilePanel(
                 <div className="text-[11px] text-zinc-400 py-4 text-center">No costable ingredients.</div>
               )}
             </div>
-            <p className="text-[10px] text-zinc-400">Quantities and cost scale live with this day&apos;s estimated population ({population}).</p>
+
+            {data.prep_notes && (
+              <div>
+                <div className="text-[10px] font-extrabold text-zinc-500 uppercase tracking-wider mb-1">Preparation notes</div>
+                <p className="text-xs text-zinc-700 leading-6 whitespace-pre-wrap bg-zinc-50 border border-zinc-100 rounded-lg p-3">{data.prep_notes}</p>
+              </div>
+            )}
+            <p className="text-[10px] text-zinc-400">
+              Quantities and cost scale live from the recipe baseline (serves {data.servings}){readOnly ? "" : " — change “Scale to” to rescale"}.
+            </p>
           </div>
         ) : null}
       </div>
@@ -134,7 +177,7 @@ function Shell({ children }: { children: React.ReactNode }) {
 }
 
 // ═══ LIST VIEW ═══════════════════════════════════════════════════════════════════
-function CycleList({ onOpen, onNew }: { onOpen: (id: number) => void; onNew: () => void }) {
+function CycleList({ readOnly, onOpen, onNew }: { readOnly: boolean; onOpen: (id: number) => void; onNew: () => void }) {
   const [cycles, setCycles] = useState<CycleListItem[]>([]);
   const [templates, setTemplates] = useState<TemplateListItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -169,9 +212,11 @@ function CycleList({ onOpen, onNew }: { onOpen: (id: number) => void; onNew: () 
           <button onClick={load} className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-700">
             <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} /> Refresh
           </button>
-          <Button variant="primary" onClick={onNew} className="px-4 py-2.5 flex items-center gap-2">
-            <Plus className="h-4 w-4" /> New Cycle
-          </Button>
+          {!readOnly && (
+            <Button variant="primary" onClick={onNew} className="px-4 py-2.5 flex items-center gap-2">
+              <Plus className="h-4 w-4" /> New Cycle
+            </Button>
+          )}
         </div>
       </div>
 
@@ -208,9 +253,11 @@ function CycleList({ onOpen, onNew }: { onOpen: (id: number) => void; onNew: () 
                         <button onClick={() => onOpen(c.id)} className="p-1.5 rounded-lg hover:bg-zinc-100 text-zinc-500 cursor-pointer" title="Open">
                           <CalendarDays className="h-3.5 w-3.5" />
                         </button>
-                        <button onClick={() => remove(c.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-zinc-500 hover:text-red-600 cursor-pointer" title="Delete">
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
+                        {!readOnly && (
+                          <button onClick={() => remove(c.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-zinc-500 hover:text-red-600 cursor-pointer" title="Delete">
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -234,11 +281,15 @@ function CycleList({ onOpen, onNew }: { onOpen: (id: number) => void; onNew: () 
                     <div className="text-sm font-bold text-zinc-800 truncate">{t.name}</div>
                     <div className="text-[10px] text-zinc-400">{t.days_count} slots · {t.cycle_days} days</div>
                   </div>
-                  <button onClick={() => removeTemplate(t.id)} className="p-1 rounded text-zinc-400 hover:text-red-500 cursor-pointer"><Trash2 className="h-3.5 w-3.5" /></button>
+                  {!readOnly && (
+                    <button onClick={() => removeTemplate(t.id)} className="p-1 rounded text-zinc-400 hover:text-red-500 cursor-pointer"><Trash2 className="h-3.5 w-3.5" /></button>
+                  )}
                 </div>
-                <button onClick={() => useTemplate(t)} className="mt-3 w-full text-[10px] font-bold uppercase tracking-wider text-emerald-700 border border-emerald-200 rounded-lg py-1.5 hover:bg-emerald-50 cursor-pointer">
-                  Create cycle from this
-                </button>
+                {!readOnly && (
+                  <button onClick={() => useTemplate(t)} className="mt-3 w-full text-[10px] font-bold uppercase tracking-wider text-emerald-700 border border-emerald-200 rounded-lg py-1.5 hover:bg-emerald-50 cursor-pointer">
+                    Create cycle from this
+                  </button>
+                )}
               </div>
             ))}
           </div>
@@ -249,7 +300,7 @@ function CycleList({ onOpen, onNew }: { onOpen: (id: number) => void; onNew: () 
 }
 
 // ═══ EDITOR VIEW ═══════════════════════════════════════════════════════════════════
-function CycleEditor({ cycleId, onBack }: { cycleId: number | "new"; onBack: () => void }) {
+function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: number | "new"; readOnly: boolean; onBack: () => void }) {
   const [name, setName] = useState("New Menu Cycle");
   const [dayPop, setDayPop] = useState<DayPop>({});
   const [weekStart, setWeekStart] = useState("");
@@ -258,18 +309,20 @@ function CycleEditor({ cycleId, onBack }: { cycleId: number | "new"; onBack: () 
 
   const [grid, setGrid] = useState<Grid>({});
   const [recipes, setRecipes] = useState<RecipeOption[]>([]);
+  const [items, setItems] = useState<FsItemOption[]>([]);
   const [savedId, setSavedId] = useState<number | null>(cycleId === "new" ? null : cycleId);
 
   const [compute, setCompute] = useState<ComputeResult | null>(null);
   const [activeCell, setActiveCell] = useState<string | null>(null);
-  const [profileFor, setProfileFor] = useState<{ recipeId: number; day: Day; name: string } | null>(null);
+  const [profileFor, setProfileFor] = useState<{ recipeId: number; day: Day; meal: Meal; name: string; servingsOverride: number | null } | null>(null);
   const [pickerSearch, setPickerSearch] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(cycleId !== "new");
 
-  // Load recipes (picker) + existing cycle
+  // Load recipes + ready-to-serve catalog items (picker) + existing cycle
   useEffect(() => { listRecipeOptions().then(setRecipes); }, []);
+  useEffect(() => { listFsItemOptions().then(setItems); }, []);
   useEffect(() => {
     if (cycleId === "new") return;
     getCycle(cycleId).then((c: MenuCycle) => {
@@ -278,8 +331,14 @@ function CycleEditor({ cycleId, onBack }: { cycleId: number | "new"; onBack: () 
       const g: Grid = {};
       const dp: DayPop = {};
       (c.days ?? []).forEach((d) => {
-        if (d.recipe_id && d.recipe) g[cellKey(d.day_of_week, d.meal_type)] = {
-          recipe_id: d.recipe_id, recipe_name: d.recipe.name, servings: d.recipe.servings,
+        const k = cellKey(d.day_of_week, d.meal_type);
+        if (d.recipe_id && d.recipe) g[k] = {
+          recipe_id: d.recipe_id, fs_item_id: null, recipe_name: d.recipe.name, servings: d.recipe.servings,
+          servings_override: d.servings_override ?? null,
+        };
+        else if (d.fs_item_id && d.fs_item) g[k] = {
+          recipe_id: null, fs_item_id: d.fs_item_id, recipe_name: d.fs_item.name, servings: 0,
+          servings_override: d.servings_override ?? null,
         };
         // Each day carries one population; first seen wins (they're equal across meals).
         if (d.estimate_population != null && dp[d.day_of_week] == null) dp[d.day_of_week] = String(d.estimate_population);
@@ -293,8 +352,16 @@ function CycleEditor({ cycleId, onBack }: { cycleId: number | "new"; onBack: () 
   const cyclePop = dayPops.length ? Math.round(dayPops.reduce((a, b) => a + b, 0) / dayPops.length) : 0;
 
   function assign(key: string, r: RecipeOption) {
-    setGrid((g) => ({ ...g, [key]: { recipe_id: r.id, recipe_name: r.name, servings: r.servings } }));
+    setGrid((g) => ({ ...g, [key]: { recipe_id: r.id, fs_item_id: null, recipe_name: r.name, servings: r.servings, servings_override: null } }));
     setActiveCell(null); setPickerSearch("");
+  }
+  function assignItem(key: string, it: FsItemOption) {
+    setGrid((g) => ({ ...g, [key]: { recipe_id: null, fs_item_id: it.id, recipe_name: it.name, servings: 0, servings_override: null } }));
+    setActiveCell(null); setPickerSearch("");
+  }
+  // Persist the actual servings for a recipe slot (menu-cycle specific; baseline untouched).
+  function setCellServings(key: string, servings: number | null) {
+    setGrid((g) => (g[key] ? { ...g, [key]: { ...g[key], servings_override: servings } } : g));
   }
   function clearCell(key: string) { setGrid((g) => { const n = { ...g }; delete n[key]; return n; }); }
   function setPop(day: Day, v: string) { setDayPop((p) => ({ ...p, [day]: v })); }
@@ -315,7 +382,8 @@ function CycleEditor({ cycleId, onBack }: { cycleId: number | "new"; onBack: () 
     return Object.entries(grid).map(([key, c]) => {
       const [day_of_week, meal_type] = key.split("|") as [Day, Meal];
       return {
-        day_of_week, meal_type, recipe_id: c.recipe_id, fs_item_id: null, quantity: 1,
+        day_of_week, meal_type, recipe_id: c.recipe_id, fs_item_id: c.fs_item_id, quantity: 1,
+        servings_override: c.servings_override,
         estimate_population: parseInt(dayPop[day_of_week]) || 0,
         is_event: false, event_allocation: null,
       };
@@ -354,6 +422,7 @@ function CycleEditor({ cycleId, onBack }: { cycleId: number | "new"; onBack: () 
   }
 
   const filteredRecipes = recipes.filter((r) => !pickerSearch || r.name.toLowerCase().includes(pickerSearch.toLowerCase()));
+  const filteredItems = items.filter((i) => !pickerSearch || i.name.toLowerCase().includes(pickerSearch.toLowerCase()));
 
   if (loading) return <Shell><div className="py-16 text-center text-xs text-zinc-400">Loading…</div></Shell>;
 
@@ -364,19 +433,23 @@ function CycleEditor({ cycleId, onBack }: { cycleId: number | "new"; onBack: () 
         <div className="flex items-start gap-3">
           <button onClick={onBack} className="p-2 rounded-lg border border-zinc-200 hover:bg-zinc-50 text-zinc-500 cursor-pointer mt-0.5"><ChevronLeft className="h-4 w-4" /></button>
           <div>
-            <input value={name} onChange={(e) => setName(e.target.value)}
-              className="text-xl font-extrabold text-zinc-950 tracking-tight bg-transparent border-b border-dashed border-zinc-200 focus:border-emerald-500 focus:outline-none" />
+            <input value={name} onChange={(e) => setName(e.target.value)} readOnly={readOnly}
+              className="text-xl font-extrabold text-zinc-950 tracking-tight bg-transparent border-b border-dashed border-zinc-200 focus:border-emerald-500 focus:outline-none read-only:border-transparent" />
             <div className="flex items-center gap-2 mt-1">
               {isActive && <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">Active</span>}
               <span className="text-[10px] text-zinc-400">{savedId ? `Cycle #${savedId}` : "Unsaved draft"}</span>
             </div>
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2 shrink-0">
-          <button onClick={handleSaveTemplate} className="flex items-center gap-1.5 text-xs font-semibold text-zinc-600 border border-zinc-200 rounded-lg px-3 py-2 hover:bg-zinc-50 cursor-pointer"><BookmarkPlus className="h-3.5 w-3.5" /> Save as Template</button>
-          <button onClick={handleActivate} className="flex items-center gap-1.5 text-xs font-semibold text-emerald-700 border border-emerald-200 rounded-lg px-3 py-2 hover:bg-emerald-50 cursor-pointer"><Zap className="h-3.5 w-3.5" /> Activate</button>
-          <Button variant="primary" onClick={() => handleSave(true)} loading={busy} className="px-4 py-2 flex items-center gap-2"><Save className="h-4 w-4" /> Save &amp; Cost</Button>
-        </div>
+        {readOnly ? (
+          <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 border border-zinc-200 rounded-lg px-3 py-2 shrink-0">View only</span>
+        ) : (
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
+            <button onClick={handleSaveTemplate} className="flex items-center gap-1.5 text-xs font-semibold text-zinc-600 border border-zinc-200 rounded-lg px-3 py-2 hover:bg-zinc-50 cursor-pointer"><BookmarkPlus className="h-3.5 w-3.5" /> Save as Template</button>
+            <button onClick={handleActivate} className="flex items-center gap-1.5 text-xs font-semibold text-emerald-700 border border-emerald-200 rounded-lg px-3 py-2 hover:bg-emerald-50 cursor-pointer"><Zap className="h-3.5 w-3.5" /> Activate</button>
+            <Button variant="primary" onClick={() => handleSave(true)} loading={busy} className="px-4 py-2 flex items-center gap-2"><Save className="h-4 w-4" /> Save &amp; Cost</Button>
+          </div>
+        )}
       </div>
 
       {err && <div className="bg-red-50 border border-red-100 p-3 rounded-xl text-xs text-red-700 font-bold flex items-center gap-2"><AlertTriangle className="h-3.5 w-3.5" /> {err}</div>}
@@ -436,11 +509,13 @@ function CycleEditor({ cycleId, onBack }: { cycleId: number | "new"; onBack: () 
                   <th key={d} className="px-3 py-2 text-left text-[10px] font-bold text-zinc-500 uppercase min-w-[140px]">
                     <div className="flex items-center justify-between gap-1">
                       <span>{d.slice(0, 3)}</span>
-                      <button onClick={() => duplicateWeek(d)} title={`Copy ${d} to all days`} className="text-zinc-300 hover:text-emerald-600 cursor-pointer"><Copy className="h-3 w-3" /></button>
+                      {!readOnly && (
+                        <button onClick={() => duplicateWeek(d)} title={`Copy ${d} to all days`} className="text-zinc-300 hover:text-emerald-600 cursor-pointer"><Copy className="h-3 w-3" /></button>
+                      )}
                     </div>
                     {/* Per-day headcount — drives scaling for this day's recipes. */}
                     <div className="mt-1 flex items-center gap-1">
-                      <input type="number" min={0} value={dayPop[d] ?? ""} placeholder="pop"
+                      <input type="number" min={0} value={dayPop[d] ?? ""} placeholder="pop" readOnly={readOnly}
                         onChange={(e) => setPop(d, e.target.value)} title={`${d} estimated population`}
                         className="w-14 px-1.5 py-0.5 text-[10px] font-semibold border border-zinc-200 rounded focus:outline-none focus:ring-1 focus:ring-emerald-400 normal-case" />
                       <span className="text-[8px] text-zinc-400 normal-case">heads</span>
@@ -468,16 +543,28 @@ function CycleEditor({ cycleId, onBack }: { cycleId: number | "new"; onBack: () 
                       {cell ? (
                         <div className="bg-emerald-50/60 border border-emerald-100 rounded-lg p-2 group">
                           <div className="flex items-start justify-between gap-1">
-                            <button
-                              onClick={() => setProfileFor({ recipeId: cell.recipe_id, day: d, name: cell.recipe_name })}
-                              title="View ingredients & cost for this day"
-                              className="text-[11px] font-semibold text-emerald-800 leading-tight text-left hover:underline cursor-pointer">
-                              {cell.recipe_name}
-                            </button>
-                            <button onClick={() => clearCell(key)} className="text-emerald-400 hover:text-red-500 cursor-pointer shrink-0"><X className="h-3 w-3" /></button>
+                            {cell.recipe_id ? (
+                              <button
+                                onClick={() => setProfileFor({ recipeId: cell.recipe_id!, day: d, meal: m, name: cell.recipe_name, servingsOverride: cell.servings_override })}
+                                title="View ingredients & cost for this day"
+                                className="text-[11px] font-semibold text-emerald-800 leading-tight text-left hover:underline cursor-pointer">
+                                {cell.recipe_name}
+                              </button>
+                            ) : (
+                              <span className="text-[11px] font-semibold text-emerald-800 leading-tight">
+                                {cell.recipe_name}
+                              </span>
+                            )}
+                            {!readOnly && (
+                              <button onClick={() => clearCell(key)} className="text-emerald-400 hover:text-red-500 cursor-pointer shrink-0"><X className="h-3 w-3" /></button>
+                            )}
                           </div>
-                          <div className="text-[9px] text-emerald-500 mt-1">click to see cost · scales to day pop</div>
+                          <div className="text-[9px] text-emerald-500 mt-1">
+                            {cell.recipe_id ? "click to see cost · scales to day pop" : "ready-to-serve item"}
+                          </div>
                         </div>
+                      ) : readOnly ? (
+                        <div className="w-full text-center py-2 text-[10px] text-zinc-300">—</div>
                       ) : (
                         <button onClick={() => { setActiveCell(isPicking ? null : key); setPickerSearch(""); }}
                           className="w-full border border-dashed border-zinc-200 rounded-lg py-2 text-[10px] text-zinc-400 hover:border-emerald-300 hover:text-emerald-600 cursor-pointer flex items-center justify-center gap-1">
@@ -485,23 +572,37 @@ function CycleEditor({ cycleId, onBack }: { cycleId: number | "new"; onBack: () 
                         </button>
                       )}
 
-                      {isPicking && (
+                      {isPicking && !readOnly && (
                         <div className="absolute z-30 top-full left-0 mt-1 w-56 bg-white border border-zinc-200 rounded-xl shadow-lg p-2">
                           <div className="relative mb-1">
                             <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-zinc-400" />
-                            <input autoFocus value={pickerSearch} onChange={(e) => setPickerSearch(e.target.value)} placeholder="Search recipes…"
+                            <input autoFocus value={pickerSearch} onChange={(e) => setPickerSearch(e.target.value)} placeholder="Search recipes & items…"
                               className="w-full pl-7 pr-2 py-1.5 text-xs border border-zinc-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-400" />
                           </div>
                           <div className="max-h-48 overflow-y-auto">
-                            {filteredRecipes.length === 0 ? (
-                              <div className="text-[10px] text-zinc-400 px-2 py-3 text-center">No recipes. Build some under FSS Recipes.</div>
-                            ) : filteredRecipes.map((r) => (
-                              <button key={r.id} onClick={() => assign(key, r)}
-                                className="w-full text-left px-2 py-1.5 rounded-lg hover:bg-emerald-50 cursor-pointer">
-                                <div className="text-[11px] font-semibold text-zinc-800 truncate">{r.name}</div>
-                                <div className="text-[9px] text-zinc-400">serves {r.servings}{r.category ? ` · ${r.category}` : ""}</div>
-                              </button>
-                            ))}
+                            {filteredRecipes.length === 0 && filteredItems.length === 0 ? (
+                              <div className="text-[10px] text-zinc-400 px-2 py-3 text-center">No matches. Build recipes/items under FSS.</div>
+                            ) : (
+                              <>
+                                {filteredRecipes.map((r) => (
+                                  <button key={`r-${r.id}`} onClick={() => assign(key, r)}
+                                    className="w-full text-left px-2 py-1.5 rounded-lg hover:bg-emerald-50 cursor-pointer">
+                                    <div className="text-[11px] font-semibold text-zinc-800 truncate">{r.name}</div>
+                                    <div className="text-[9px] text-zinc-400">serves {r.servings}{r.category ? ` · ${r.category}` : ""}</div>
+                                  </button>
+                                ))}
+                                {filteredItems.length > 0 && (
+                                  <div className="px-2 pt-2 pb-1 text-[9px] font-bold uppercase tracking-wider text-zinc-400">Ready-to-serve</div>
+                                )}
+                                {filteredItems.map((it) => (
+                                  <button key={`i-${it.id}`} onClick={() => assignItem(key, it)}
+                                    className="w-full text-left px-2 py-1.5 rounded-lg hover:bg-amber-50 cursor-pointer">
+                                    <div className="text-[11px] font-semibold text-zinc-800 truncate">{it.name}</div>
+                                    <div className="text-[9px] text-zinc-400">item{it.category ? ` · ${it.category}` : ""}</div>
+                                  </button>
+                                ))}
+                              </>
+                            )}
                           </div>
                           <button onClick={() => setActiveCell(null)} className="w-full mt-1 text-[10px] text-zinc-400 hover:text-zinc-600 cursor-pointer">close</button>
                         </div>
@@ -537,6 +638,9 @@ function CycleEditor({ cycleId, onBack }: { cycleId: number | "new"; onBack: () 
           day={profileFor.day}
           name={profileFor.name}
           population={parseInt(dayPop[profileFor.day]) || 0}
+          initialServings={profileFor.servingsOverride}
+          readOnly={readOnly}
+          onPersist={readOnly ? undefined : (s) => setCellServings(cellKey(profileFor.day, profileFor.meal), s)}
           onClose={() => setProfileFor(null)}
         />
       )}
@@ -547,9 +651,13 @@ function CycleEditor({ cycleId, onBack }: { cycleId: number | "new"; onBack: () 
 // ═══ ROOT ═══════════════════════════════════════════════════════════════════════
 export default function MenuCyclePage() {
   const [view, setView] = useState<{ mode: "list" } | { mode: "edit"; id: number | "new" }>({ mode: "list" });
+  const { user } = useAuth();
+  // FSS may VIEW menu cycles but never author them (RND owns writes). Backend already
+  // enforces this; here we render a read-only editor so FSS sees no edit affordances.
+  const readOnly = user?.role === "FSS";
 
   if (view.mode === "edit") {
-    return <CycleEditor cycleId={view.id} onBack={() => setView({ mode: "list" })} />;
+    return <CycleEditor cycleId={view.id} readOnly={readOnly} onBack={() => setView({ mode: "list" })} />;
   }
-  return <CycleList onOpen={(id) => setView({ mode: "edit", id })} onNew={() => setView({ mode: "edit", id: "new" })} />;
+  return <CycleList readOnly={readOnly} onOpen={(id) => setView({ mode: "edit", id })} onNew={() => setView({ mode: "edit", id: "new" })} />;
 }

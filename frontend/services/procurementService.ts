@@ -23,7 +23,20 @@ export interface ShoppingList {
   days_span: number | null;
   period_start: string | null;
   period_end: string | null;
+  total_served_population: number | null;
   items: ShoppingListItem[];
+}
+
+/** Calculated budget-per-head for a procurement span. {@see ProcurementCostEfficiencyService} */
+export interface CostEfficiency {
+  estimated: number | null;
+  actual: number | null;
+  pending: boolean;
+  pending_reason: string | null;
+  procurement_cost: number;
+  served_population: number;
+  service_days_done: number;
+  service_days_expected: number;
 }
 
 export interface POItem { id: number; fs_item_id: number | null; description: string; qty: string; unit: string; unit_price: string; total_value: string; purchase_qty: string | null; purchase_unit: string | null; purchase_price: string | null }
@@ -86,6 +99,10 @@ export async function generateFromCycleWeekdays(menu_cycle_id: number, start_wee
 export async function deleteShoppingList(id: number): Promise<void> {
   const res = await apiFetch(`/api/fss/shopping-lists/${id}`, { method: "DELETE" });
   if (!res.ok && res.status !== 204) throw new Error("Failed to delete list.");
+}
+/** Calculated estimated + actual budget-per-head for the span. */
+export async function getCostEfficiency(id: number): Promise<CostEfficiency> {
+  return unwrap(await apiFetch(`/api/fss/shopping-lists/${id}/cost-efficiency`), "Failed to load cost efficiency.");
 }
 export async function updateListItem(itemId: number, patch: { supplier_id?: number | null; qty?: number; unit_price?: number }): Promise<{ id: number; supplier_id: number | null; qty: string; unit_price: string; total: string }> {
   return unwrap(await apiFetch(`/api/fss/shopping-list-items/${itemId}`, {

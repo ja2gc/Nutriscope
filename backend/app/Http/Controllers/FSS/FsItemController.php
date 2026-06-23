@@ -12,6 +12,29 @@ use Illuminate\Support\Facades\DB;
 
 class FsItemController extends Controller
 {
+    /**
+     * Ready-to-eat catalog items usable as standalone menu entries (e.g. a banana or
+     * Yakult snack placed directly in any meal slot). Raw ingredients and non-food
+     * supplies are excluded — those are only used inside recipes.
+     */
+    public function index(Request $request): JsonResponse
+    {
+        $items = FsItem::query()
+            ->where('is_active', true)
+            ->where('kind', 'ready_to_eat')
+            ->orderBy('name')
+            ->get(['id', 'name', 'category', 'base_unit', 'purchase_price', 'purchase_unit', 'units_per_purchase'])
+            ->map(fn (FsItem $i) => [
+                'id'        => $i->id,
+                'name'      => $i->name,
+                'category'  => $i->category,
+                'unit'      => $i->base_unit,
+                'unit_cost' => $i->unit_cost,
+            ]);
+
+        return response()->json(['data' => $items]);
+    }
+
     public function update(Request $request, FsItem $fsItem): JsonResponse
     {
         $data = $request->validate([

@@ -20,7 +20,7 @@ class UpdateAnnouncementRequest extends FormRequest
         return [
             'title' => ['sometimes', 'required', 'string', 'max:255'],
             'body' => ['sometimes', 'required', 'string'],
-            'category' => ['sometimes', 'required', Rule::in(['General', 'Event', 'Operational', 'Urgent'])],
+            'category' => ['sometimes', 'required', Rule::in(['General', 'Event', 'Operational', 'Urgent', 'Memo'])],
             'attachment' => ['sometimes', 'nullable', 'string'],
             'visibility' => ['sometimes', 'required', Rule::in(['FSS', 'Admin', 'All'])],
             'pinned' => ['sometimes', 'boolean'],

@@ -60,7 +60,7 @@ function NotifIcon({ type }: { type: string }) {
   if (lower.includes('success') || lower.includes('complete'))
     return <CheckCircle color="#16a34a" size={size} />;
   if (lower.includes('order') || lower.includes('procurement'))
-    return <ShoppingCart color="#2563eb" size={size} />;
+    return <ShoppingCart color="#059669" size={size} />;
   if (lower.includes('info'))
     return <Info color="#6b7280" size={size} />;
   return <Bell color="#6b7280" size={size} />;
@@ -121,11 +121,11 @@ export default function NotificationsScreen() {
         }}
         activeOpacity={0.7}
         className={`flex-row items-start px-4 py-4 border-b border-gray-100 ${
-          item.read ? 'bg-white' : 'bg-blue-50'
+          item.read ? 'bg-white' : 'bg-emerald-50'
         }`}
       >
         {/* Unread dot */}
-        <View className="mt-1 mr-3 w-2 h-2 rounded-full" style={{ backgroundColor: item.read ? 'transparent' : '#2563eb' }} />
+        <View className="mt-1 mr-3 w-2 h-2 rounded-full" style={{ backgroundColor: item.read ? 'transparent' : '#059669' }} />
 
         {/* Icon */}
         <View className="mt-0.5 mr-3">
@@ -152,7 +152,7 @@ export default function NotificationsScreen() {
   if (isLoading) {
     return (
       <View className="flex-1 items-center justify-center bg-gray-50">
-        <ActivityIndicator size="large" color="#2563eb" />
+        <ActivityIndicator size="large" color="#059669" />
         <Text className="mt-3 text-gray-500 text-sm">Loading…</Text>
       </View>
     );
@@ -164,7 +164,7 @@ export default function NotificationsScreen() {
         <AlertCircle color="#ef4444" size={40} />
         <Text className="mt-3 text-gray-700 text-base font-medium">Could not load notifications</Text>
         <TouchableOpacity
-          className="mt-5 bg-blue-600 px-6 py-3 rounded-lg"
+          className="mt-5 bg-emerald-600 px-6 py-3 rounded-lg"
           onPress={() => refetch()}
         >
           <Text className="text-white font-semibold">Retry</Text>
@@ -183,7 +183,7 @@ export default function NotificationsScreen() {
             disabled={readAllMutation.isPending}
             className="self-end"
           >
-            <Text className="text-blue-600 text-sm font-medium">
+            <Text className="text-emerald-600 text-sm font-medium">
               {readAllMutation.isPending ? 'Marking…' : `Mark all read (${unreadCount})`}
             </Text>
           </TouchableOpacity>

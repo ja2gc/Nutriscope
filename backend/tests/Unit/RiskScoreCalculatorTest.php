@@ -16,7 +16,7 @@ class RiskScoreCalculatorTest extends TestCase
 {
     use RefreshDatabase;
 
-    private function createAssessment(array $assessmentAttributes = [], array $biochemicalAttributes = []): Assessment
+    private function createAssessment(array $assessmentAttributes = [], array $biochemicalAttributes = [], string $sex = 'Male'): Assessment
     {
         $rnd = User::forceCreate([
             'name' => 'RND User',
@@ -29,7 +29,7 @@ class RiskScoreCalculatorTest extends TestCase
         $patient = Patient::forceCreate([
             'name' => 'Test Patient',
             'dob' => '1990-01-01',
-            'sex' => 'Male',
+            'sex' => $sex,
             'admission_date' => now()->toDateString(),
             'screening_type' => 'adult',
         ]);
@@ -61,7 +61,7 @@ class RiskScoreCalculatorTest extends TestCase
             'weight_loss_percentage' => 0.0,
         ]);
 
-        $calculator = new RiskScoreCalculator();
+        $calculator = app(RiskScoreCalculator::class);
         $result = $calculator->calculate($assessment);
 
         // Should have 1 point for screening_type = 'adult'
@@ -77,7 +77,7 @@ class RiskScoreCalculatorTest extends TestCase
             'chewing_swallowing_difficulties' => 'Cannot swallow solid food', // Checked -> 1 point
         ]);
 
-        $calculator = new RiskScoreCalculator();
+        $calculator = app(RiskScoreCalculator::class);
         $result = $calculator->calculate($assessment);
 
         // 1 point (screening_type) + 1 point (IBW) + 1 point (mechanical) = 3 points
@@ -95,11 +95,31 @@ class RiskScoreCalculatorTest extends TestCase
             'albumin' => 3.2, // Checked (< 3.5) -> 1 point
         ]);
 
-        $calculator = new RiskScoreCalculator();
+        $calculator = app(RiskScoreCalculator::class);
         $result = $calculator->calculate($assessment);
 
         // 1 point (screening_type) + 1 point (IBW) + 2 points (weight loss) + 1 point (mechanical) + 1 point (low albumin) = 6 points
         $this->assertEquals(6.0, $result['score']);
         $this->assertEquals('Severe Malnutrition', $result['nutritional_status']);
+    }
+
+    public function test_significant_lab_creatinine_is_sex_aware(): void
+    {
+        // Creatinine 1.0 mg/dL: normal for males (≤1.2), elevated for females (>0.9).
+        // The "significant lab result" point must fire for the female but not the male.
+        $female = $this->createAssessment([
+            'ibw_percentage' => 100.0,
+            'weight_loss_percentage' => 0.0,
+        ], ['creatinine' => 1.0], 'Female');
+
+        $male = $this->createAssessment([
+            'ibw_percentage' => 100.0,
+            'weight_loss_percentage' => 0.0,
+        ], ['creatinine' => 1.0], 'Male');
+
+        $calculator = app(RiskScoreCalculator::class);
+
+        $this->assertContains('significant_lab_result', $calculator->calculate($female)['checked_factors']);
+        $this->assertNotContains('significant_lab_result', $calculator->calculate($male)['checked_factors']);
     }
 }

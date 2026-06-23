@@ -4,10 +4,12 @@ namespace Database\Seeders;
 
 use App\Models\Budget;
 use App\Models\BudgetDailyLog;
+use App\Models\DietListCount;
 use App\Models\FoodServiceRecipe;
 use App\Models\FoodServiceRecipeIngredient;
 use App\Models\FsItem;
 use App\Models\Inventory;
+use App\Models\MealPrepLog;
 use App\Models\MenuCycle;
 use App\Models\MenuCycleDay;
 use App\Models\PurchaseOrder;
@@ -23,13 +25,17 @@ use Illuminate\Support\Facades\Schema;
 
 /**
  * Decouple-correct demo data for the whole food-service loop, themed to the real
- * RPDH PPA menu so every report tab has something to generate:
- *   suppliers → FS recipes (cost-only) → inventory stock → an active menu cycle
- *   → a monthly budget with daily logs → a suggested shopping list → received POs.
+ * RPDH PPA menu so every report tab + the calculated budget-per-head has data.
  *
- * Reads the live `fs_items` catalog (seeded by FsCatalogSeeder) by name. Builds on
- * the current schema — fs_item_id / item_type(ingredient|supply|recipe), lowercase
- * meal_type enum, or_number on POs, etc. — NOT the pre-decouple food_item_id shape.
+ * Produces a FULL MONTH of operations: three COMPLETED past weekly cycles plus the
+ * current active cycle. Each week carries its own menu cycle, suggested shopping list
+ * (with the manual total_served_population census), received vendor POs, completed
+ * meal-prep (served) logs, and diet-list counts — so estimated AND actual
+ * budget-per-head, the budget graph, accomplishment, dietary cash book, PPA and menu
+ * calendar reports all render real figures.
+ *
+ * Past weeks are fully closed (actual per-head computes); the current week is still
+ * running (served population not yet entered) so the "pending" state is demonstrable.
  *
  * Idempotent: truncates only the operational FS tables (never fs_items / food_items
  * / recipes / patients).
@@ -39,6 +45,31 @@ class FoodServiceDemoSeeder extends Seeder
     private array $fs = [];      // fs_item name => id
     private array $recipes = []; // recipe name => FoodServiceRecipe
     private array $suppliers = [];
+
+    /** Per-weekday plan: breakfast / am_snack / lunch / pm_snack / dinner. */
+    private array $plan = [
+        'Monday'    => ['Cheezwhiz Sandwich', 'Yakult', 'Pork Pinakbet', 'Latundan banana', 'Paksiw na Bangus'],
+        'Tuesday'   => ['Sopas', 'Coffee', 'Pork Picadillo', 'Latundan banana', 'Chicken Fillet w/ Mushroom Sauce'],
+        'Wednesday' => ['Mami Noodle Soup', 'Fresh milk', 'Pork Strips Oriental with Corn', 'Saba banana', 'Chicken Sisig'],
+        'Thursday'  => ['Pandesal with Boiled Egg', 'Milo', 'Beef Caldereta', 'Saba banana', 'Chicken with Lemongrass'],
+        'Friday'    => ['Cheezwhiz Sandwich', 'Yakult', 'Pork Picadillo', 'Ponkan', 'Paksiw na Bangus'],
+        'Saturday'  => ['Sopas', 'Coffee', 'Beef Caldereta', 'Brownie bite', 'Chicken Sisig'],
+        'Sunday'    => ['Pandesal with Boiled Egg', 'Milo', 'Pork Pinakbet', 'Chooey toffee', 'Chicken Fillet w/ Mushroom Sauce'],
+    ];
+
+    private array $dayPop = [
+        'Monday' => 175, 'Tuesday' => 168, 'Wednesday' => 182, 'Thursday' => 160,
+        'Friday' => 190, 'Saturday' => 155, 'Sunday' => 172,
+    ];
+
+    /**
+     * The base PO quantities below are written per-line as round vendor amounts; on their
+     * own they procure far too little food for a ~1,200 head-meal week (e.g. 25 kg pork),
+     * so the derived ACTUAL average meal cost would land at ~₱36/head. Scaling the whole
+     * week's purchase by this factor lifts procurement to realistic hospital volumes and
+     * brings actual cost into the ₱100–130/head band that matches RPDH subsistence rates.
+     */
+    private const PROCUREMENT_SCALE = 3.2;
 
     public function run(): void
     {
@@ -59,11 +90,23 @@ class FoodServiceDemoSeeder extends Seeder
         $this->seedSuppliers();
         $this->seedRecipes($rnd);
         $this->seedInventory();
-        $cycle = $this->seedMenuCycle($rnd);
-        $this->seedBudget($fss, $cycle);
-        $this->seedProcurement($fss, $cycle);
 
-        $this->command->info('FoodServiceDemoSeeder: FS demo data seeded.');
+        // Four weeks: 3 completed past cycles + the current active one. Week index 0 =
+        // current; 3/2/1 = oldest→newest past. All start Monday so spans are clean.
+        $currentWeekStart = Carbon::now()->startOfWeek(Carbon::MONDAY);
+        $cycles = [];
+        for ($w = 3; $w >= 0; $w--) {
+            $weekStart = $currentWeekStart->copy()->subWeeks($w);
+            $isCurrent = ($w === 0);
+            $cycle = $this->seedCycleForWeek($rnd, $weekStart, $isCurrent);
+            $served = $this->seedConsumptionForWeek($cycle, $fss, $weekStart, $isCurrent);
+            $this->seedProcurementForWeek($cycle, $fss, $weekStart, $isCurrent, $served);
+            $cycles[] = $cycle;
+        }
+
+        $this->seedBudget($fss, end($cycles));
+
+        $this->command->info('FoodServiceDemoSeeder: ' . count($cycles) . ' weekly cycles (3 past + current) seeded.');
     }
 
     private function reset(): void
@@ -73,6 +116,7 @@ class FoodServiceDemoSeeder extends Seeder
             'purchase_order_attachments', 'purchase_order_items', 'purchase_orders',
             'shopping_list_items', 'shopping_lists',
             'budget_daily_logs', 'budgets',
+            'meal_prep_log_lines', 'meal_prep_logs', 'diet_list_counts',
             'menu_cycle_days', 'menu_cycles',
             'food_service_recipe_ingredients', 'food_service_recipes',
             'inventory', 'suppliers',
@@ -111,25 +155,25 @@ class FoodServiceDemoSeeder extends Seeder
     // ── FS recipes (cost-only), themed to the PPA menu ──────────────────────
     private function seedRecipes(int $rnd): void
     {
-        // name => [category, servings, [[fs_item name, qty in base_unit], ...]]
+        // FS recipes carry no category — name => [servings, [[fs_item, qty], ...]].
         $defs = [
-            'Cheezwhiz Sandwich'             => ['Sandwich', 50, [['Loaf bread', 100], ['Cheez Whiz', 750]]],
-            'Pandesal with Boiled Egg'       => ['Breakfast', 50, [['Pandesal', 100], ['Egg', 50]]],
-            'Sopas'                          => ['Soup', 50, [['Macaroni', 2500], ['Chicken (whole)', 3000], ['Carrot', 1000], ['Assorted vegetables', 1500], ['Fresh milk', 2000]]],
-            'Mami Noodle Soup'               => ['Soup', 50, [['Macaroni', 3000], ['Chicken (whole)', 3000], ['Garlic', 200], ['Onion', 300]]],
-            'Pork Pinakbet'                  => ['Main', 50, [['Pork (kasim)', 3000], ['Pinakbet vegetables', 5000], ['Garlic', 200], ['Onion', 400], ['Tomato', 600]]],
-            'Pork Picadillo'                 => ['Main', 50, [['Ground pork', 3000], ['Potato', 2500], ['Carrot', 1500], ['Garlic', 200], ['Onion', 400]]],
-            'Pork Strips Oriental with Corn' => ['Main', 50, [['Pork (kasim)', 3000], ['Corn kernel', 2000], ['Soy sauce', 500], ['Garlic', 200]]],
-            'Beef Caldereta'                 => ['Main', 50, [['Beef (cubes)', 3500], ['Potato', 2500], ['Carrot', 1500], ['Tomato', 800], ['Garlic', 200], ['Onion', 400]]],
-            'Chicken Fillet w/ Mushroom Sauce' => ['Main', 50, [['Chicken fillet', 4000], ['Mushroom (canned)', 1600], ['Fresh milk', 2000], ['Onion', 400]]],
-            'Chicken Sisig'                  => ['Main', 50, [['Chicken fillet', 4000], ['Onion', 600], ['Soy sauce', 400], ['Cooking oil', 500]]],
-            'Chicken with Lemongrass'        => ['Main', 50, [['Chicken (whole)', 5000], ['Ginger', 300], ['Garlic', 250], ['Salt', 150]]],
-            'Paksiw na Bangus'               => ['Main', 50, [['Bangus (milkfish)', 5000], ['Vinegar', 800], ['Garlic', 250], ['Ginger', 300]]],
+            'Cheezwhiz Sandwich'             => [50, [['Loaf bread', 100], ['Cheez Whiz', 750]]],
+            'Pandesal with Boiled Egg'       => [50, [['Pandesal', 100], ['Egg', 50]]],
+            'Sopas'                          => [50, [['Macaroni', 2500], ['Chicken (whole)', 3000], ['Carrot', 1000], ['Assorted vegetables', 1500], ['Fresh milk', 2000]]],
+            'Mami Noodle Soup'               => [50, [['Macaroni', 3000], ['Chicken (whole)', 3000], ['Garlic', 200], ['Onion', 300]]],
+            'Pork Pinakbet'                  => [50, [['Pork (kasim)', 3000], ['Pinakbet vegetables', 5000], ['Garlic', 200], ['Onion', 400], ['Tomato', 600]]],
+            'Pork Picadillo'                 => [50, [['Ground pork', 3000], ['Potato', 2500], ['Carrot', 1500], ['Garlic', 200], ['Onion', 400]]],
+            'Pork Strips Oriental with Corn' => [50, [['Pork (kasim)', 3000], ['Corn kernel', 2000], ['Soy sauce', 500], ['Garlic', 200]]],
+            'Beef Caldereta'                 => [50, [['Beef (cubes)', 3500], ['Potato', 2500], ['Carrot', 1500], ['Tomato', 800], ['Garlic', 200], ['Onion', 400]]],
+            'Chicken Fillet w/ Mushroom Sauce' => [50, [['Chicken fillet', 4000], ['Mushroom (canned)', 1600], ['Fresh milk', 2000], ['Onion', 400]]],
+            'Chicken Sisig'                  => [50, [['Chicken fillet', 4000], ['Onion', 600], ['Soy sauce', 400], ['Cooking oil', 500]]],
+            'Chicken with Lemongrass'        => [50, [['Chicken (whole)', 5000], ['Ginger', 300], ['Garlic', 250], ['Salt', 150]]],
+            'Paksiw na Bangus'               => [50, [['Bangus (milkfish)', 5000], ['Vinegar', 800], ['Garlic', 250], ['Ginger', 300]]],
         ];
 
-        foreach ($defs as $name => [$category, $servings, $lines]) {
+        foreach ($defs as $name => [$servings, $lines]) {
             $recipe = FoodServiceRecipe::create([
-                'rnd_user_id' => $rnd, 'name' => $name, 'category' => $category, 'servings' => $servings,
+                'rnd_user_id' => $rnd, 'name' => $name, 'servings' => $servings,
             ]);
             foreach ($lines as [$itemName, $qty]) {
                 $fsId = $this->id($itemName);
@@ -152,9 +196,6 @@ class FoodServiceDemoSeeder extends Seeder
     // ── Inventory: ingredient + supply stock + a couple prepared recipes ────
     private function seedInventory(): void
     {
-        // Curated stock levels (base unit). [fs_item name => qty, notes].
-        // Low stock is now a binary in/out indicator — no thresholds. One item is
-        // deliberately out of stock (qty 0) to exercise the red/green dot.
         $stock = [
             'Rice' => [80000, null],
             'Pork (kasim)' => [12000, null],
@@ -174,7 +215,6 @@ class FoodServiceDemoSeeder extends Seeder
             'Macaroni' => [5000, null],
             'Fresh milk' => [8000, null],
             'Cooking oil' => [6000, null],
-            // Supplies
             'LPG (cooking gas)' => [33, null],
             'Paper meal box' => [600, null],
             'Roll bag (garbage)' => [100, null],
@@ -183,12 +223,10 @@ class FoodServiceDemoSeeder extends Seeder
             'Plastic cup' => [50, null],
         ];
 
-        // Every catalog item gets a real inventory row — "untracked" is not a state.
-        // Items not curated above get a sensible default quantity by base unit.
         foreach (FsItem::all() as $item) {
             [$qty, $notes] = $stock[$item->name] ?? [$this->defaultQty($item->base_unit), null];
             Inventory::create([
-                'item_type'         => $item->kind, // 'ingredient' | 'supply'
+                'item_type'         => $item->kind,
                 'fs_item_id'        => $item->id,
                 'quantity_in_stock' => $qty,
                 'unit'              => $item->base_unit,
@@ -197,7 +235,6 @@ class FoodServiceDemoSeeder extends Seeder
             ]);
         }
 
-        // A couple of prepared-recipe stock rows.
         foreach (['Sopas' => 40, 'Pork Pinakbet' => 25] as $rname => $qty) {
             if (isset($this->recipes[$rname])) {
                 Inventory::create([
@@ -208,7 +245,6 @@ class FoodServiceDemoSeeder extends Seeder
         }
     }
 
-    /** Reasonable default stock for an un-curated catalog item, by base unit. */
     private function defaultQty(string $baseUnit): float
     {
         return match ($baseUnit) {
@@ -219,43 +255,26 @@ class FoodServiceDemoSeeder extends Seeder
         };
     }
 
-    // ── Active weekly menu cycle ────────────────────────────────────────────
-    private function seedMenuCycle(int $rnd): MenuCycle
+    // ── One weekly menu cycle for the given week ────────────────────────────
+    private function seedCycleForWeek(int $rnd, Carbon $weekStart, bool $isCurrent): MenuCycle
     {
-        $weekStart = Carbon::now()->startOfWeek(Carbon::MONDAY);
-
-        // Population now lives per-day on each menu_cycle_day (150-200, distinct per day).
-        // The cap is owned by Budget.
-        $dayPop = [
-            'Monday' => 175, 'Tuesday' => 168, 'Wednesday' => 182, 'Thursday' => 160,
-            'Friday' => 190, 'Saturday' => 155, 'Sunday' => 172,
-        ];
-
         $cycle = MenuCycle::create([
-            'rnd_user_id' => $rnd, 'name' => 'June Subsistence Cycle — Week 1',
-            'cycle_days' => 7,
-            'is_active' => true, 'status' => 'active',
-            'week_start_date' => $weekStart->toDateString(), 'activation_date' => $weekStart->toDateString(),
+            'rnd_user_id'     => $rnd,
+            'name'            => 'Subsistence Cycle — Week of ' . $weekStart->format('M j'),
+            'cycle_days'      => 7,
+            'is_active'       => $isCurrent,
+            'status'          => $isCurrent ? 'active' : 'archived',
+            'week_start_date' => $weekStart->toDateString(),
+            'activation_date' => $weekStart->toDateString(),
         ]);
 
-        // Per weekday: breakfast/lunch/dinner = recipes; am_snack/pm_snack = ready fs_items.
-        $plan = [
-            'Monday'    => ['Cheezwhiz Sandwich', 'Yakult', 'Pork Pinakbet', 'Latundan banana', 'Paksiw na Bangus'],
-            'Tuesday'   => ['Sopas', 'Coffee', 'Pork Picadillo', 'Latundan banana', 'Chicken Fillet w/ Mushroom Sauce'],
-            'Wednesday' => ['Mami Noodle Soup', 'Fresh milk', 'Pork Strips Oriental with Corn', 'Saba banana', 'Chicken Sisig'],
-            'Thursday'  => ['Pandesal with Boiled Egg', 'Milo', 'Beef Caldereta', 'Saba banana', 'Chicken with Lemongrass'],
-            'Friday'    => ['Cheezwhiz Sandwich', 'Yakult', 'Pork Picadillo', 'Ponkan', 'Paksiw na Bangus'],
-            'Saturday'  => ['Sopas', 'Coffee', 'Beef Caldereta', 'Brownie bite', 'Chicken Sisig'],
-            'Sunday'    => ['Pandesal with Boiled Egg', 'Milo', 'Pork Pinakbet', 'Chooey toffee', 'Chicken Fillet w/ Mushroom Sauce'],
-        ];
         $slots = ['breakfast', 'am_snack', 'lunch', 'pm_snack', 'dinner'];
-
-        foreach ($plan as $day => $items) {
+        foreach ($this->plan as $day => $items) {
             foreach ($slots as $i => $slot) {
                 $name = $items[$i];
                 $row = [
                     'menu_cycle_id' => $cycle->id, 'day_of_week' => $day, 'meal_type' => $slot,
-                    'estimate_population' => $dayPop[$day],
+                    'estimate_population' => $this->dayPop[$day],
                 ];
                 if (isset($this->recipes[$name])) {
                     $row['recipe_id'] = $this->recipes[$name]->id;
@@ -268,86 +287,130 @@ class FoodServiceDemoSeeder extends Seeder
             }
         }
 
+        $cycle = $cycle->fresh();
+
+        // Freeze the cost snapshot so filed reports (PPA / menu calendar) keep their
+        // cost even if catalog prices change later — matches the activate() flow.
+        $cycle->update([
+            'cost_snapshot'    => MenuCycleCostService::forCycle($cycle),
+            'cost_snapshot_at' => $weekStart->copy()->addDay(),
+        ]);
+
         return $cycle->fresh();
     }
 
-    // ── Monthly budget + daily logs (planned from the cycle) ────────────────
-    private function seedBudget(int $fss, MenuCycle $cycle): void
+    /**
+     * Completed meal-prep (served) logs + diet-list counts for each day of the week.
+     * Past weeks are fully served; the current week only up to today. Returns the
+     * total served population across the week (census denominator for per-head).
+     */
+    private function seedConsumptionForWeek(MenuCycle $cycle, int $fss, Carbon $weekStart, bool $isCurrent): int
     {
-        $cost      = MenuCycleCostService::forCycle($cycle);
-        $dayCosts  = array_values(array_map(fn ($d) => $d['cost'], $cost['days']));
-        $avgPopulation = (int) round($cycle->days->whereNotNull('estimate_population')->avg('estimate_population') ?? 0);
-        $avgDay        = $dayCosts ? array_sum($dayCosts) / count($dayCosts) : ($avgPopulation * 110);
+        $cost     = MenuCycleCostService::forCycle($cycle);
+        $today    = Carbon::now();
+        $totalServed = 0;
 
-        $start = Carbon::now()->startOfMonth();
-        $end   = Carbon::now()->endOfMonth();
+        for ($i = 0; $i < 7; $i++) {
+            $date    = $weekStart->copy()->addDays($i);
+            $weekday = $date->format('l');
+            if ($isCurrent && $date->gt($today)) {
+                break; // current week: don't serve the future
+            }
 
-        // Budget owns the per-head/day cap (₱150). Allocation reconciles with the
-        // cycle's own daily cost so seeded variance is never negative.
-        $perHeadCap = 150;
-        $budget = Budget::create([
-            'rnd_user_id' => $fss, 'scope' => 'monthly', 'name' => $start->format('F Y') . ' Food Subsistence',
-            'allocated_amount' => round($avgDay * 30, -2), 'population' => $avgPopulation,
-            'cost_per_person' => $perHeadCap, 'budget_per_head_day' => $perHeadCap,
-            'period_start' => $start->toDateString(), 'period_end' => $end->toDateString(),
-        ]);
+            $planned  = $this->dayPop[$weekday];
+            $served   = max(0, $planned - mt_rand(0, 12)); // slight under-serve, realistic
+            $dayCost  = (float) ($cost['days'][$weekday]['cost'] ?? 0);
+            $totalServed += $served;
 
-        // Log every day from the 1st up to today. Manual cash logs use spent/log_date;
-        // the dashboard's "actual" now comes from consumption (served days), so these
-        // sit on top as hand-entered non-PO spends.
-        for ($d = $start->copy(); $d->lte(Carbon::now()); $d->addDay()) {
-            $spent = round($avgDay * (mt_rand(88, 109) / 100), 2);
-            BudgetDailyLog::create([
-                'budget_id' => $budget->id,
-                'log_date'  => $d->toDateString(),
-                'spent'     => $spent,
+            MealPrepLog::create([
+                'menu_cycle_id'       => $cycle->id,
+                'service_date'        => $date->toDateString(),
+                'population'          => $planned,
+                'served_population'   => $served,
+                'population_variance' => $planned - $served,
+                'status'              => 'completed',
+                'completed_by'        => $fss,
+                'completed_at'        => $date->copy()->setTime(13, 0),
+                'total_value'         => round($dayCost, 2),
+                'has_shortfall'       => false,
             ]);
+
+            // Diet-list counts (accomplishment report) — a couple of wards per day.
+            foreach (['Ward A' => 0.45, 'Ward B' => 0.35, 'ICU' => 0.20] as $ward => $share) {
+                DietListCount::create([
+                    'service_date'           => $date->toDateString(),
+                    'menu_cycle_id'          => $cycle->id,
+                    'ward'                   => $ward,
+                    'fss_user_id'            => $fss,
+                    'population'             => (int) round($served * $share),
+                    'helped_food_prep'       => true,
+                    'collected_diet_list'    => true,
+                    'apportioned_food'       => true,
+                    'cleaned_utensils'       => $ward !== 'ICU',
+                    'maintained_cleanliness' => true,
+                ]);
+            }
         }
+
+        return $totalServed;
     }
 
     // ── Suggested shopping list + received POs split by vendor ──────────────
-    private function seedProcurement(int $fss, MenuCycle $cycle): void
+    private function seedProcurementForWeek(MenuCycle $cycle, int $fss, Carbon $weekStart, bool $isCurrent, int $totalServed): void
     {
-        $orderDate = Carbon::now()->startOfWeek(Carbon::MONDAY);
-
         $list = ShoppingList::create([
-            'rnd_user_id' => $fss, 'menu_cycle_id' => $cycle->id,
-            'name' => 'Marketing — ' . $orderDate->format('M j') . ' (Tue→Fri)',
-            'list_date' => $orderDate->toDateString(),
-            'period_start' => $orderDate->toDateString(), 'period_end' => $orderDate->copy()->addDays(3)->toDateString(),
-            'days_span' => 3, 'list_type' => 'suggested', 'status' => 'finalized',
+            'rnd_user_id'  => $fss, 'menu_cycle_id' => $cycle->id,
+            'name'         => 'Marketing — week of ' . $weekStart->format('M j'),
+            'list_date'    => $weekStart->toDateString(),
+            'period_start' => $weekStart->toDateString(),
+            'period_end'   => $weekStart->copy()->addDays(6)->toDateString(),
+            'days_span'    => 7,
+            // Past weeks: the census headcount is in → actual budget-per-head computes.
+            // Current week is still running → left null so "pending" is demonstrable.
+            'total_served_population' => $isCurrent ? null : $totalServed,
+            'list_type'    => 'suggested',
+            'status'       => $isCurrent ? 'draft' : 'finalized',
         ]);
 
         // [vendor, or_no, [ [fs_item name, qty, unit, unit_price], ... ] ]
         $orders = [
-            ['MACMA Trading', 'OR-2026-0512', [
+            ['MACMA Trading', [
                 ['Pork (kasim)', 25, 'kg', 280], ['Ground pork', 12, 'kg', 290],
                 ['Chicken (whole)', 20, 'kg', 200], ['Chicken fillet', 15, 'kg', 260],
                 ['Beef (cubes)', 10, 'kg', 360], ['Bangus (milkfish)', 18, 'kg', 180],
             ]],
-            ['Gloria T.M. General Merchandise', 'OR-2026-0513', [
+            ['Gloria T.M. General Merchandise', [
                 ['Pinakbet vegetables', 20, 'kg', 90], ['Assorted vegetables', 15, 'kg', 80],
                 ['Potato', 12, 'kg', 90], ['Carrot', 8, 'kg', 90], ['Onion', 10, 'kg', 120],
                 ['Garlic', 5, 'kg', 140], ['Tomato', 6, 'kg', 80], ['Latundan banana', 200, 'pc', 5],
             ]],
-            ['RPDH-MPC', 'OR-2026-0514', [
+            ['RPDH-MPC', [
                 ['Cooking oil', 10, 'L', 75], ['Soy sauce', 6, 'L', 60], ['Vinegar', 6, 'L', 45],
                 ['Macaroni', 15, 'kg', 85], ['Fresh milk', 12, 'L', 90], ['Egg', 10, 'tray', 240],
                 ['Cheez Whiz', 12, 'jar', 85], ['Loaf bread', 20, 'pack', 65],
             ]],
         ];
 
-        $poSeq = 1;
-        foreach ($orders as [$vendorName, $orNo, $items]) {
+        // Current week: one PO still "ordered" (not received) so the all-received gate
+        // is visible; past weeks all received.
+        $orderDate = $weekStart->copy();
+        $weekTag   = $weekStart->format('mdy');
+        $seq = 1;
+        foreach ($orders as $idx => [$vendorName, $items]) {
             $vendor = $this->suppliers[$vendorName] ?? null;
+            // Scale every line to realistic weekly volume for the served headcount.
+            $items  = array_map(fn ($i) => [$i[0], round($i[1] * self::PROCUREMENT_SCALE), $i[2], $i[3]], $items);
             $total  = array_sum(array_map(fn ($i) => $i[1] * $i[3], $items));
+            $status = ($isCurrent && $idx === count($orders) - 1) ? 'ordered' : 'received';
 
             $po = PurchaseOrder::create([
-                'rnd_user_id' => $fss, 'shopping_list_id' => $list->id, 'supplier_id' => $vendor?->id,
-                'po_number' => 'PO-2026-' . str_pad((string) $poSeq++, 4, '0', STR_PAD_LEFT),
-                'or_number' => $orNo, 'order_date' => $orderDate->toDateString(),
-                'total_amount' => round($total, 2), 'status' => 'received',
-                'notes' => $vendor?->category,
+                'rnd_user_id'  => $fss, 'shopping_list_id' => $list->id, 'supplier_id' => $vendor?->id,
+                'po_number'    => 'PO-' . $weekTag . '-' . str_pad((string) $seq++, 2, '0', STR_PAD_LEFT),
+                'or_number'    => $status === 'received' ? 'OR-' . $weekTag . '-' . $idx : null,
+                'order_date'   => $orderDate->toDateString(),
+                'received_date' => $status === 'received' ? $orderDate->copy()->addDay()->toDateString() : null,
+                'total_amount' => round($total, 2), 'status' => $status,
+                'notes'        => $vendor?->category,
             ]);
 
             foreach ($items as [$itemName, $qty, $unit, $price]) {
@@ -356,13 +419,41 @@ class FoodServiceDemoSeeder extends Seeder
                     'description' => $itemName, 'qty' => $qty, 'unit' => $unit,
                     'unit_price' => $price, 'total_value' => round($qty * $price, 2),
                 ]);
-                // mirror onto the shopping list for the records view
                 ShoppingListItem::create([
                     'shopping_list_id' => $list->id, 'fs_item_id' => $this->id($itemName),
                     'ingredient_name' => $itemName, 'qty' => $qty, 'unit' => $unit,
                     'supplier_id' => $vendor?->id, 'unit_price' => $price, 'total' => round($qty * $price, 2),
                 ]);
             }
+        }
+    }
+
+    // ── Monthly budget covering the whole demo period ───────────────────────
+    private function seedBudget(int $fss, MenuCycle $currentCycle): void
+    {
+        $cost          = MenuCycleCostService::forCycle($currentCycle);
+        $dayCosts      = array_values(array_map(fn ($d) => $d['cost'], $cost['days']));
+        $avgPopulation = (int) round($currentCycle->days->whereNotNull('estimate_population')->avg('estimate_population') ?? 0);
+        $avgDay        = $dayCosts ? array_sum($dayCosts) / count($dayCosts) : ($avgPopulation * 110);
+
+        $start = Carbon::now()->startOfMonth();
+        $end   = Carbon::now()->endOfMonth();
+
+        $perHeadCap = 150;
+        $budget = Budget::create([
+            'rnd_user_id' => $fss, 'scope' => 'monthly', 'name' => $start->format('F Y') . ' Food Subsistence',
+            'menu_cycle_id' => $currentCycle->id,
+            'allocated_amount' => round($avgDay * 30, -2), 'population' => $avgPopulation,
+            'cost_per_person' => $perHeadCap, 'budget_per_head_day' => $perHeadCap,
+            'period_start' => $start->toDateString(), 'period_end' => $end->toDateString(),
+        ]);
+
+        for ($d = $start->copy(); $d->lte(Carbon::now()); $d->addDay()) {
+            BudgetDailyLog::create([
+                'budget_id' => $budget->id,
+                'log_date'  => $d->toDateString(),
+                'spent'     => round($avgDay * (mt_rand(88, 109) / 100), 2),
+            ]);
         }
     }
 }

@@ -12,6 +12,9 @@ Nutriscope is a full-stack system composed of:
   - PaddleOCR
   - OMR Service
 
+> 📖 **New to the app?** See the [Demo & Workflow Guide](DEMO_GUIDE.md) for the
+> RND / FSS / Admin roles, how their work hands off, and a ready-made demo script.
+
 ---
 
 # ⚠️ IMPORTANT RULE

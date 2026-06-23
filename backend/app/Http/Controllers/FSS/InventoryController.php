@@ -167,6 +167,7 @@ class InventoryController extends Controller
             'unit_cost'               => $unitCost,
             'base_unit'               => $r->base_unit,
             'purchase_unit'           => $r->purchase_unit,
+            'units_per_purchase'      => $r->units_per_purchase !== null ? (float) $r->units_per_purchase : null,
             'recipe_cost'             => $r->recipe_cost,
             'recipe_servings'         => $r->recipe_servings !== null ? (int) $r->recipe_servings : null,
             'status'                  => $status,

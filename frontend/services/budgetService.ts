@@ -45,6 +45,13 @@ export interface BudgetSummary {
   population: number | null;
   avg_population: number | null;
   per_head_actual: number | null;
+  procurement_per_head: {
+    actual: number | null;
+    pending: boolean;
+    pending_reason: string | null;
+    procurement_cost: number;
+    served_population: number;
+  };
 }
 
 async function unwrap<T>(res: Response, fallback: string): Promise<T> {
