@@ -12,11 +12,12 @@ class ShoppingListResource extends JsonResource
         return [
             'id'            => $this->id,
             'rnd_user_id'   => $this->rnd_user_id,
-            'menu_cycle_id' => $this->menu_cycle_id,
             'name'          => $this->name,
             'list_date'     => $this->list_date?->toDateString(),
             'list_type'     => $this->list_type,
             'status'        => $this->status,
+            'coverage_status' => $this->coverage_status,
+            'uncovered_dates' => $this->uncovered_dates ?? [],
             'period_start'  => $this->period_start?->toDateString(),
             'period_end'    => $this->period_end?->toDateString(),
             'days_span'     => $this->days_span,

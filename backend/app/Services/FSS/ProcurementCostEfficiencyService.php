@@ -44,26 +44,26 @@ class ProcurementCostEfficiencyService
     }
 
     /**
-     * Planned cost ÷ planned head-days over the span. Per-date aggregation so a span
-     * crossing multiple weeks counts each occurrence of a weekday once. Null when the
-     * span has no menu cycle or no day carries an estimate_population.
+     * Planned cost ÷ planned head-days over the span. The owning cycle is resolved
+     * per date (MenuCycle::coveringDate), so a span crossing multiple weeks costs each
+     * day against its correct weekly cycle. Null when no date in the span resolves to a
+     * cycle with a planned, populated day.
      */
     public static function estimated(ShoppingList $list): ?float
     {
-        if (! $list->menu_cycle_id || ! $list->period_start || ! $list->period_end) {
+        if (! $list->period_start || ! $list->period_end) {
             return null;
         }
-
-        $cycle = $list->menuCycle;
-        if (! $cycle) {
-            return null;
-        }
-        $cycle->loadMissing('days.recipe.ingredients.fsItem', 'days.fsItem');
 
         $totalCost = 0.0;
         $headDays  = 0;
+        $cache     = [];
 
         for ($d = Carbon::parse($list->period_start); $d->lte(Carbon::parse($list->period_end)); $d->addDay()) {
+            $cycle = self::resolveCycle($d, $cache);
+            if (! $cycle) {
+                continue;
+            }
             $daysForWeekday = $cycle->days->where('day_of_week', $d->format('l'));
             if ($daysForWeekday->isEmpty()) {
                 continue;
@@ -74,6 +74,25 @@ class ProcurementCostEfficiencyService
         }
 
         return $headDays > 0 ? round($totalCost / $headDays, 2) : null;
+    }
+
+    /**
+     * Resolve (and memoise) the menu cycle that owns a date, with its menu relations
+     * eager-loaded. Shared by estimated() and mealPrepProgress() so per-date cycle
+     * resolution stays consistent.
+     */
+    private static function resolveCycle(Carbon $date, array &$cache): ?MenuCycle
+    {
+        $cycle = MenuCycle::coveringDate($date);
+        if (! $cycle) {
+            return null;
+        }
+        if (! isset($cache[$cycle->id])) {
+            $cycle->loadMissing('days.recipe.ingredients.fsItem', 'days.fsItem');
+            $cache[$cycle->id] = $cycle;
+        }
+
+        return $cache[$cycle->id];
     }
 
     /**
@@ -89,7 +108,7 @@ class ProcurementCostEfficiencyService
         $procurementCost = (float) $orders->where('status', 'received')->sum('total_amount');
         $awaitingReceipts = $orders->isEmpty() || $orders->contains(fn ($po) => $po->status !== 'received');
 
-        $prep = self::mealPrepProgress($list->menuCycle, $list->period_start, $list->period_end);
+        $prep = self::mealPrepProgress($list->period_start?->toDateString(), $list->period_end?->toDateString());
 
         return self::compose(
             $procurementCost,
@@ -113,43 +132,55 @@ class ProcurementCostEfficiencyService
             ->whereRaw('COALESCE(received_date, order_date) BETWEEN ? AND ?', [$start->toDateString(), $end->toDateString()])
             ->sum('total_amount');
 
-        // POs received for the budget's cycle: gate on the cycle's lists being all received.
-        $awaitingReceipts = false;
-        if ($budget->menu_cycle_id) {
-            $awaitingReceipts = PurchaseOrder::whereHas('shoppingList', fn ($q) => $q->where('menu_cycle_id', $budget->menu_cycle_id))
-                ->where('status', '!=', 'received')
-                ->exists();
-        }
+        // POs for shopping lists whose span overlaps the budget period must all be
+        // received before "actual" closes (shopping lists are no longer keyed to a
+        // single cycle — they're gated by date overlap with the budget window).
+        $awaitingReceipts = PurchaseOrder::whereHas('shoppingList', function ($q) use ($start, $end) {
+            $q->where('period_start', '<=', $end->toDateString())
+                ->where('period_end', '>=', $start->toDateString());
+        })
+            ->where('status', '!=', 'received')
+            ->exists();
 
-        $prep = self::mealPrepProgress($budget->menuCycle, $start->toDateString(), $end->toDateString());
+        $prep = self::mealPrepProgress($start->toDateString(), $end->toDateString());
 
         return self::compose($procurementCost, $awaitingReceipts, $prep['done'], $prep['expected'], $prep['served']);
     }
 
     /**
-     * Service-day progress for a cycle over a span: how many days the cycle is meant to
-     * serve, how many have a completed meal-prep log, and the Σ served population of
-     * those completed days.
+     * Service-day progress over a span, resolving the owning cycle per date so a span
+     * that crosses week boundaries counts each day against its correct cycle: how many
+     * days a covering cycle is meant to serve, how many have a completed meal-prep log,
+     * and the Σ served population of those completed days.
      *
      * @return array{expected: int, done: int, served: int}
      */
-    private static function mealPrepProgress(?MenuCycle $cycle, ?string $start, ?string $end): array
+    private static function mealPrepProgress(?string $start, ?string $end): array
     {
-        if (! $cycle || ! $start || ! $end) {
+        if (! $start || ! $end) {
             return ['expected' => 0, 'done' => 0, 'served' => 0];
         }
 
-        $cycle->loadMissing('days');
-        $weekdaysServed = $cycle->days->pluck('day_of_week')->unique();
-
+        $cache    = [];
+        $cycleIds = [];
         $expected = 0;
+
         for ($d = Carbon::parse($start); $d->lte(Carbon::parse($end)); $d->addDay()) {
-            if ($weekdaysServed->contains($d->format('l'))) {
+            $cycle = self::resolveCycle($d, $cache);
+            if (! $cycle) {
+                continue;
+            }
+            $cycleIds[$cycle->id] = true;
+            if ($cycle->days->pluck('day_of_week')->unique()->contains($d->format('l'))) {
                 $expected++;
             }
         }
 
-        $logs = MealPrepLog::where('menu_cycle_id', $cycle->id)
+        if (empty($cycleIds)) {
+            return ['expected' => $expected, 'done' => 0, 'served' => 0];
+        }
+
+        $logs = MealPrepLog::whereIn('menu_cycle_id', array_keys($cycleIds))
             ->where('status', 'completed')
             ->whereBetween('service_date', [$start, $end])
             ->get(['service_date', 'served_population']);

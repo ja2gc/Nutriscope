@@ -43,6 +43,8 @@ export interface CycleListItem {
   name: string;
   status: string;
   is_active: boolean;
+  week_start_date: string | null;
+  days_count?: number;
   updated_at: string;
 }
 

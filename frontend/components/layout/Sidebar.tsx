@@ -406,10 +406,10 @@ export function Sidebar({ open = false, onClose }: { open?: boolean; onClose?: (
                   ? "bg-zinc-900 text-zinc-100 border-l-2 border-emerald-600"
                   : "text-zinc-400 hover:bg-zinc-900/60 hover:text-zinc-200"
               }`}
-              title={collapsed ? "Reports Center" : undefined}
+              title={collapsed ? "Reports" : undefined}
             >
               <TrendingUp className={`h-4.5 w-4.5 shrink-0 ${pathname.startsWith("/reports") ? "text-emerald-500" : "text-zinc-400"}`} />
-              {!collapsed && <span>Reports Center</span>}
+              {!collapsed && <span>Reports</span>}
             </Link>
 
             <Link

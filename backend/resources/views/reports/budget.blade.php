@@ -167,5 +167,30 @@
         </svg>
     @endif
 
+    @if(($adjustments ?? collect())->count() > 0)
+        <div class="bold" style="margin-top:12px;">Yearly Allocation Adjustments</div>
+        <div class="muted" style="font-size:9px;">
+            Base allocation ₱{{ number_format($allocated, 2) }} · net adjustments
+            {{ $adjustments_total >= 0 ? '+' : '−' }}₱{{ number_format(abs($adjustments_total), 2) }} ·
+            effective ₱{{ number_format($effective_allocation, 2) }}.
+        </div>
+        <table class="grid" style="margin-top:4px;">
+            <thead>
+                <tr><th>Date</th><th>Type</th><th class="right">Amount</th><th>Reason</th><th>By</th></tr>
+            </thead>
+            <tbody>
+                @foreach($adjustments as $a)
+                    <tr>
+                        <td>{{ optional($a->created_at)->format('M j, Y') }}</td>
+                        <td>{{ ucfirst($a->type) }}</td>
+                        <td class="right">{{ $a->type === 'deduction' ? '−' : '+' }}₱{{ number_format((float) $a->amount, 2) }}</td>
+                        <td>{{ $a->reason_category === 'Other' ? $a->reason : ($a->reason_category ?? '—') }}</td>
+                        <td>{{ optional($a->creator)->name ?? '—' }}</td>
+                    </tr>
+                @endforeach
+            </tbody>
+        </table>
+    @endif
+
     @include('reports.partials.signatories')
 @endsection

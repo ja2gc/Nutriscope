@@ -19,7 +19,11 @@ class MenuCycleController extends Controller
 
     public function index(): JsonResponse
     {
-        return response()->json(['data' => MenuCycleResource::collection(MenuCycle::orderByDesc('updated_at')->get())]);
+        // Chronological (newest week first) so current + upcoming plans sit on top and
+        // past ones below; days_count surfaces which weeks are still empty/unplanned.
+        $cycles = MenuCycle::withCount('days')->orderByDesc('week_start_date')->get();
+
+        return response()->json(['data' => MenuCycleResource::collection($cycles)]);
     }
 
     public function store(StoreMenuCycleRequest $request): JsonResponse

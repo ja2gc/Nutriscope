@@ -6,13 +6,14 @@ import {
   TrendingUp, Plus, Trash2, RefreshCw, Pencil, X, Wallet, AlertTriangle, CheckCircle2,
 } from "lucide-react";
 import {
-  ResponsiveContainer, LineChart, Line, BarChart, Bar, XAxis, YAxis,
-  CartesianGrid, Tooltip, Legend, Cell,
+  ResponsiveContainer, LineChart, Line, XAxis, YAxis,
+  CartesianGrid, Tooltip, Legend,
 } from "recharts";
 import { Button } from "@/components/ui/Button";
+import { useAuth } from "@/contexts/AuthContext";
 import {
-  Budget, BudgetPayload, BudgetSummary, BudgetScope,
-  listBudgets, saveBudget, deleteBudget, getBudgetSummary,
+  Budget, BudgetPayload, BudgetSummary, BudgetScope, ADJUSTMENT_REASONS,
+  listBudgets, saveBudget, deleteBudget, getBudgetSummary, addBudgetAdjustment,
 } from "@/services/budgetService";
 import { InsightsPanel } from "@/components/foodservice/InsightsPanel";
 
@@ -91,7 +92,99 @@ function KpiCard({ label, value, tone = "zinc" }: { label: string; value: string
   );
 }
 
+// ═══ Allocation adjustments (add/deduct ledger with audit trail) ═══════════════════
+function AdjustmentsCard({ budgetId, summary, canEdit, onChanged }: {
+  budgetId: number; summary: BudgetSummary; canEdit: boolean; onChanged: () => void;
+}) {
+  const [type, setType] = useState<"addition" | "deduction">("addition");
+  const [amount, setAmount] = useState("");
+  const [reasonCat, setReasonCat] = useState<string>(ADJUSTMENT_REASONS[0]);
+  const [otherReason, setOtherReason] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState("");
+
+  async function submit() {
+    const amt = parseFloat(amount);
+    if (!amt || amt <= 0) { setErr("Enter an amount greater than 0."); return; }
+    if (reasonCat === "Other" && !otherReason.trim()) { setErr("Enter a reason."); return; }
+    setSaving(true); setErr("");
+    try {
+      await addBudgetAdjustment(budgetId, {
+        type, amount: amt, reason_category: reasonCat,
+        reason: reasonCat === "Other" ? otherReason.trim() : null,
+      });
+      setAmount(""); setOtherReason(""); setReasonCat(ADJUSTMENT_REASONS[0]); setType("addition");
+      onChanged();
+    } catch (e) { setErr(e instanceof Error ? e.message : "Failed to add adjustment."); }
+    finally { setSaving(false); }
+  }
+
+  return (
+    <div className="bg-white border border-zinc-200 rounded-2xl p-5 shadow-sm space-y-4">
+      <h3 className="text-xs font-extrabold text-zinc-700 uppercase tracking-wider">Allocation adjustments · FY {summary.year.year}</h3>
+      <div className="flex flex-wrap gap-2 text-[11px]">
+        <span className="px-2.5 py-1 rounded-lg border bg-zinc-50 text-zinc-600 border-zinc-200">Base {peso(summary.year.base_allocated)}</span>
+        <span className={`px-2.5 py-1 rounded-lg border ${summary.year.adjustments_total >= 0 ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-red-50 text-red-700 border-red-200"}`}>
+          Adjustments {summary.year.adjustments_total >= 0 ? "+" : ""}{peso(summary.year.adjustments_total)}
+        </span>
+        <span className="px-2.5 py-1 rounded-lg border bg-emerald-50 text-emerald-700 border-emerald-200 font-bold">Effective {peso(summary.year.allocated)}</span>
+      </div>
+
+      {canEdit && (
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 items-end">
+          <div>
+            <label className="block text-[10px] font-extrabold text-zinc-500 uppercase mb-1">Type</label>
+            <select value={type} onChange={(e) => setType(e.target.value as "addition" | "deduction")} className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg bg-white">
+              <option value="addition">Addition</option>
+              <option value="deduction">Deduction</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-[10px] font-extrabold text-zinc-500 uppercase mb-1">Amount ₱</label>
+            <input type="number" min="0" value={amount} onChange={(e) => setAmount(e.target.value)} className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg" />
+          </div>
+          <div className={reasonCat === "Other" ? "" : "sm:col-span-2"}>
+            <label className="block text-[10px] font-extrabold text-zinc-500 uppercase mb-1">Reason</label>
+            <select value={reasonCat} onChange={(e) => setReasonCat(e.target.value)} className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg bg-white">
+              {ADJUSTMENT_REASONS.map((r) => <option key={r} value={r}>{r}</option>)}
+            </select>
+          </div>
+          {reasonCat === "Other" && (
+            <div>
+              <label className="block text-[10px] font-extrabold text-zinc-500 uppercase mb-1">Specify</label>
+              <input value={otherReason} onChange={(e) => setOtherReason(e.target.value)} placeholder="Reason" className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg" />
+            </div>
+          )}
+          <Button variant="primary" onClick={submit} disabled={saving} className="!py-2 !px-4 text-xs">{saving ? "Saving…" : "Log"}</Button>
+        </div>
+      )}
+      {err && <p className="text-[10px] text-red-600 font-semibold">{err}</p>}
+
+      {summary.adjustments.length > 0 ? (
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead className="bg-zinc-50 border-y border-zinc-100"><tr>{["When", "Type", "Amount", "Reason", "By"].map((h) => <th key={h} className="px-3 py-2 text-left text-[10px] font-bold text-zinc-500 uppercase tracking-wider">{h}</th>)}</tr></thead>
+            <tbody className="divide-y divide-zinc-100">
+              {summary.adjustments.map((a) => (
+                <tr key={a.id}>
+                  <td className="px-3 py-2 text-zinc-500">{a.created_at?.slice(0, 16).replace("T", " ")}</td>
+                  <td className="px-3 py-2"><span className={`font-bold ${a.type === "addition" ? "text-emerald-700" : "text-red-600"}`}>{a.type === "addition" ? "Addition" : "Deduction"}</span></td>
+                  <td className="px-3 py-2 font-mono">{a.signed_amount >= 0 ? "+" : ""}{peso(a.signed_amount)}</td>
+                  <td className="px-3 py-2 text-zinc-600">{a.reason_category === "Other" ? a.reason : (a.reason_category ?? "—")}</td>
+                  <td className="px-3 py-2 text-zinc-500">{a.created_by ?? "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : <p className="text-[10px] text-zinc-400">No adjustments logged yet.</p>}
+    </div>
+  );
+}
+
 export default function BudgetPage() {
+  const { user } = useAuth();
+  const canEditAdj = user?.role === "RND";
   const [tab, setTab] = useState<"dashboard" | "records" | "insights">("dashboard");
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [loading, setLoading] = useState(true);
@@ -126,20 +219,7 @@ export default function BudgetPage() {
   function onSaved() { setFormOpen(false); setEditing(null); load(); }
 
   const selected = budgets.find((b) => b.id === selectedId) ?? null;
-  const overBudget = summary ? summary.variance > 0 : false;
-
-  // A2a — burn-rate forecast: project the range's daily spend across the budget's full
-  // period and compare to the allocation (spend-to-date → projected end).
-  const dayCount = (a: string, b: string) => Math.max(1, Math.round((Date.parse(b) - Date.parse(a)) / 86400000) + 1);
-  const forecast = summary && summary.allocated > 0 ? (() => {
-    const rangeDays = dayCount(summary.range.start, summary.range.end);
-    const perDay = summary.actual / rangeDays;
-    const pStart = selected?.period_start ?? summary.range.start;
-    const pEnd = selected?.period_end ?? summary.range.end;
-    const periodDays = dayCount(pStart, pEnd);
-    const projected = perDay * periodDays;
-    return { perDay, projected, periodDays, allocated: summary.allocated, over: projected > summary.allocated };
-  })() : null;
+  const yearOver = summary ? summary.year.allocated > 0 && summary.year.spent > summary.year.allocated : false;
 
   return (
     <div className="space-y-6 font-sans">
@@ -153,7 +233,7 @@ export default function BudgetPage() {
       </div>
 
       <div className="flex border-b border-zinc-200">
-        {([["dashboard", "Dashboard"], ["records", "Budget Records"], ["insights", "Insights"]] as const).map(([k, label]) => (
+        {([["dashboard", "Dashboard"], ["records", "Settings"], ["insights", "Insights"]] as const).map(([k, label]) => (
           <button key={k} onClick={() => setTab(k)} className={`px-5 py-3 text-sm font-semibold border-b-2 cursor-pointer ${tab === k ? "border-emerald-600 text-emerald-700" : "border-transparent text-zinc-500 hover:text-zinc-800"}`}>{label}</button>
         ))}
       </div>
@@ -164,7 +244,7 @@ export default function BudgetPage() {
         budgets.length === 0 ? (
           <div className="bg-white border border-zinc-200 rounded-2xl p-12 text-center max-w-xl mx-auto shadow-sm">
             <Wallet className="h-8 w-8 text-emerald-600 mx-auto mb-3" />
-            <p className="text-xs text-zinc-500">No budgets yet. Create one in the <button onClick={() => setTab("records")} className="text-emerald-700 font-semibold hover:underline cursor-pointer">Budget Records</button> tab.</p>
+            <p className="text-xs text-zinc-500">No budget set up yet. Set your yearly allocation and ₱/head/day limit in <button onClick={() => setTab("records")} className="text-emerald-700 font-semibold hover:underline cursor-pointer">Settings</button>.</p>
           </div>
         ) : (
           <div className="space-y-5">
@@ -188,39 +268,32 @@ export default function BudgetPage() {
 
             {summary && (
               <>
+                {/* Yearly allocation: allocated pot for FY, auto-deducted by received POs. */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  <KpiCard label="Budget (range)" value={peso(summary.planned)} tone="emerald" />
-                  <KpiCard label="Actual spend" value={peso(summary.actual)} />
-                  {/* Variance = actual − planned. Show it as an absolute amount with an
-                      explicit over/under label so a negative number never reads as a deficit. */}
-                  <KpiCard
-                    label={summary.variance > 0 ? "Over budget by" : summary.variance < 0 ? "Under budget by" : "On budget"}
-                    value={peso(Math.abs(summary.variance))}
-                    tone={overBudget ? "red" : "emerald"}
-                  />
-                  <KpiCard label="Variance %" value={`${Math.abs(summary.variance_pct)}% ${overBudget ? "over" : "under"}`} tone={overBudget ? "amber" : "zinc"} />
+                  <KpiCard label="₱/head/day limit" value={selected?.budget_per_head_day ? peso(num(selected.budget_per_head_day)) : "—"} tone="zinc" />
+                  <KpiCard label={`Allocated (FY ${summary.year.year})`} value={peso(summary.year.allocated)} tone="emerald" />
+                  <KpiCard label="Spent (FY)" value={peso(summary.year.spent)} tone={yearOver ? "red" : "zinc"} />
+                  <KpiCard label={yearOver ? "Over allocation by" : "Remaining (FY)"} value={peso(Math.abs(summary.year.remaining))} tone={yearOver ? "red" : "emerald"} />
                 </div>
 
-                {/* A2a — daily budget forecast (burn-rate projection over the budget period) */}
-                {forecast && (
+                {/* Spent vs allocated for the year + remaining. */}
+                {summary.year.allocated > 0 && (
                   <div className="bg-white border border-zinc-200 rounded-2xl p-5 shadow-sm">
-                    <h3 className="text-xs font-extrabold text-zinc-700 uppercase tracking-wider mb-4">Daily Budget Forecast</h3>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                      <KpiCard label="Spend / day (range)" value={peso(forecast.perDay)} />
-                      <KpiCard label={`Projected (${forecast.periodDays}d period)`} value={peso(forecast.projected)} tone={forecast.over ? "red" : "emerald"} />
-                      <KpiCard label="Allocated" value={peso(forecast.allocated)} tone="emerald" />
-                      <KpiCard
-                        label={forecast.over ? "Projected overrun" : "Projected headroom"}
-                        value={peso(Math.abs(forecast.allocated - forecast.projected))}
-                        tone={forecast.over ? "red" : "emerald"}
+                    <h3 className="text-xs font-extrabold text-zinc-700 uppercase tracking-wider mb-4">Spent vs Allocated · FY {summary.year.year}</h3>
+                    <div className="h-3.5 w-full rounded-full bg-zinc-100 overflow-hidden">
+                      <div
+                        className={`h-full rounded-full ${yearOver ? "bg-red-500" : "bg-emerald-500"}`}
+                        style={{ width: `${Math.min(100, (summary.year.spent / summary.year.allocated) * 100).toFixed(1)}%` }}
                       />
                     </div>
-                    <p className="text-[10px] text-zinc-400 mt-3">
-                      Projects the selected range&apos;s average daily spend ({peso(forecast.perDay)}/day) across the budget&apos;s {forecast.periodDays}-day period.
-                      {forecast.over ? " On the current burn rate, the allocation is exceeded before period end." : " On the current burn rate, spend stays within the allocation."}
-                    </p>
+                    <div className="flex justify-between text-[11px] font-semibold text-zinc-500 mt-2">
+                      <span>Spent {peso(summary.year.spent)} ({((summary.year.spent / summary.year.allocated) * 100).toFixed(1)}%)</span>
+                      <span>{yearOver ? "Over by " : "Left "}{peso(Math.abs(summary.year.remaining))} of {peso(summary.year.allocated)}</span>
+                    </div>
                   </div>
                 )}
+
+                {selectedId && <AdjustmentsCard budgetId={selectedId} summary={summary} canEdit={canEditAdj} onChanged={loadSummary} />}
 
                 <div className="flex flex-wrap items-center gap-2 text-[11px]">
                   <span className={`font-bold px-2.5 py-1 rounded-lg border ${summary.source === "consumption" ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-amber-50 text-amber-700 border-amber-200"}`}>
@@ -258,9 +331,9 @@ export default function BudgetPage() {
                   </div>
                 )}
 
-                <div className={`flex items-center gap-2 text-xs font-bold px-3 py-2 rounded-xl border w-fit ${overBudget ? "bg-red-50 text-red-700 border-red-200" : "bg-emerald-50 text-emerald-700 border-emerald-200"}`}>
-                  {overBudget ? <AlertTriangle className="h-3.5 w-3.5" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
-                  {overBudget ? "Over budget for this range" : "Within budget for this range"}
+                <div className={`flex items-center gap-2 text-xs font-bold px-3 py-2 rounded-xl border w-fit ${yearOver ? "bg-red-50 text-red-700 border-red-200" : "bg-emerald-50 text-emerald-700 border-emerald-200"}`}>
+                  {yearOver ? <AlertTriangle className="h-3.5 w-3.5" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                  {yearOver ? `Over the FY ${summary.year.year} allocation` : `Within the FY ${summary.year.year} allocation`}
                 </div>
 
                 {/* Trend */}
@@ -279,22 +352,6 @@ export default function BudgetPage() {
                   </ResponsiveContainer>
                 </div>
 
-                {/* Variance bars */}
-                <div className="bg-white border border-zinc-200 rounded-2xl p-5 shadow-sm">
-                  <h3 className="text-xs font-extrabold text-zinc-700 uppercase tracking-wider mb-4">Variance per {gran}</h3>
-                  <ResponsiveContainer width="100%" height={200}>
-                    <BarChart data={summary.trend} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                      <XAxis dataKey="bucket" tick={{ fontSize: 10, fill: "#94a3b8" }} />
-                      <YAxis tick={{ fontSize: 10, fill: "#94a3b8" }} />
-                      <Tooltip formatter={(value) => peso(Number(value))} contentStyle={{ fontSize: 12, borderRadius: 8 }} />
-                      <Bar dataKey="variance" name="Variance" radius={[3, 3, 0, 0]}>
-                        {summary.trend.map((t, i) => <Cell key={i} fill={t.variance > 0 ? "#dc2626" : "#059669"} />)}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                  <p className="text-[10px] text-zinc-400 mt-2">Positive (red) = spent over the daily budget cap{selected?.budget_per_head_day ? ` (₱${num(selected.budget_per_head_day)}/head/day × ${selected.population ?? 0} heads)` : ""}.</p>
-                </div>
               </>
             )}
           </div>

@@ -67,50 +67,58 @@ class ShoppingListController extends Controller
     }
 
     /**
-     * Auto-build a suggested list from a menu cycle for a specific date range.
-     * Quantities + costs come from the menu engine summing actual planned weekdays
-     * across the range (not a proportional average); the default vendor for each
-     * item is the one remembered on the catalog (fs_items.default_supplier_id).
+     * Auto-build a suggested list for a date RANGE. The owning menu cycle is resolved
+     * per date (MenuCycle::coveringDate), so a span that crosses a week boundary —
+     * e.g. the client's Fri→Mon run — pulls each day from the correct weekly cycle.
+     * Quantities + costs come from the menu engine summing the actual planned weekdays
+     * across the range; the default vendor for each item is the one remembered on the
+     * catalog (fs_items.default_supplier_id).
+     *
+     * Dates with no covering cycle, no plan for that weekday, or no population are
+     * recorded as "uncovered": the list is still built for the covered dates and marked
+     * `partial` so the UI can warn about the gaps. Only a fully-uncovered span is a 422.
      */
     public function generate(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'menu_cycle_id' => ['required', 'integer', 'exists:menu_cycles,id'],
-            'start_date'    => ['required_without:start_weekday', 'date'],
-            'end_date'      => ['required_with:start_date', 'date', 'after_or_equal:start_date'],
-            'start_weekday' => ['required_without:start_date', 'string', 'in:Monday,Tuesday,Wednesday,Thursday,Friday,Saturday,Sunday'],
-            'end_weekday'   => ['required_with:start_weekday', 'string', 'in:Monday,Tuesday,Wednesday,Thursday,Friday,Saturday,Sunday'],
-            'name'          => ['nullable', 'string', 'max:255'],
+            'start_date' => ['required', 'date'],
+            'end_date'   => ['required', 'date', 'after_or_equal:start_date'],
+            'name'       => ['nullable', 'string', 'max:255'],
         ]);
 
-        $cycle = MenuCycle::with('days.recipe.ingredients.fsItem', 'days.fsItem')->findOrFail($data['menu_cycle_id']);
-        $weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-        if (isset($data['start_weekday'])) {
-            $fromIndex = array_search($data['start_weekday'], $weekdays, true);
-            $toIndex = array_search($data['end_weekday'], $weekdays, true);
-            if ($toIndex < $fromIndex) {
-                return response()->json(['message' => 'End weekday must be on or after start weekday.'], 422);
-            }
-            if (! $cycle->week_start_date) {
-                return response()->json(['message' => 'Menu cycle must have a Monday week_start_date.'], 422);
-            }
-            $startDate = $cycle->week_start_date->copy()->addDays($fromIndex);
-            $endDate = $cycle->week_start_date->copy()->addDays($toIndex);
-            $data['start_date'] = $startDate->toDateString();
-            $data['end_date'] = $endDate->toDateString();
-        }
-
-        // Sum the ACTUAL planned days across the range (not a proportional average).
-        $acc = []; // fs_item_id => ['name','unit','qty','total']
-        $cursor = \Carbon\Carbon::parse($data['start_date']);
-        $end    = \Carbon\Carbon::parse($data['end_date']);
+        $cursor = \Carbon\Carbon::parse($data['start_date'])->startOfDay();
+        $end    = \Carbon\Carbon::parse($data['end_date'])->startOfDay();
         $spanDays = $cursor->diffInDays($end) + 1;
 
-        for (; $cursor->lte($end); $cursor->addDay()) {
-            $days = $cycle->days->where('day_of_week', $cursor->format('l'));
-            if ($days->isEmpty()) {
+        // Sum the ACTUAL planned days across the range (not a proportional average),
+        // resolving the owning cycle per date so multi-week spans cost correctly.
+        $acc       = []; // fs_item_id => ['name','unit','qty','total']
+        $uncovered = []; // 'Y-m-d' dates with no buyable plan
+        $cycleCache = []; // menu_cycle_id => cycle with menu relations loaded
+
+        for ($d = $cursor->copy(); $d->lte($end); $d->addDay()) {
+            $cycle = MenuCycle::coveringDate($d);
+            if (! $cycle) {
+                $uncovered[] = $d->toDateString();
                 continue;
             }
+            if (! isset($cycleCache[$cycle->id])) {
+                $cycle->loadMissing('days.recipe.ingredients.fsItem', 'days.fsItem');
+                $cycleCache[$cycle->id] = $cycle;
+            }
+            $cycle = $cycleCache[$cycle->id];
+
+            $days = $cycle->days->where('day_of_week', $d->format('l'));
+            // Uncovered when the cycle serves nothing that weekday, or no day carries a
+            // usable population (servings_override / estimate_population) → would buy 0.
+            $hasPopulation = $days->contains(
+                fn ($day) => ($day->servings_override ?? $day->estimate_population ?? 0) > 0
+            );
+            if ($days->isEmpty() || ! $hasPopulation) {
+                $uncovered[] = $d->toDateString();
+                continue;
+            }
+
             // Population is read per-day from each MenuCycleDay (estimate_population).
             foreach (MenuCycleCostService::usageForDays($days) as $u) {
                 $id = $u['fs_item_id'];
@@ -119,6 +127,16 @@ class ShoppingListController extends Controller
                 $acc[$id]['total'] += (float) $u['cost'];
             }
         }
+
+        // Whole span unbuyable (no cycle / no plan anywhere) → hard block.
+        if (empty($acc)) {
+            return response()->json([
+                'message'         => 'No menu plan covers any date in this range.',
+                'uncovered_dates' => $uncovered,
+            ], 422);
+        }
+
+        $coverageStatus = empty($uncovered) ? 'full' : 'partial';
 
         $ids     = array_keys($acc);
         $fsItems = FsItem::whereIn('id', $ids)->get()->keyBy('id');
@@ -132,17 +150,18 @@ class ShoppingListController extends Controller
                 ->selectRaw('fs_item_id, SUM(qty) as q')->groupBy('fs_item_id')->pluck('q', 'fs_item_id')
             : collect();
 
-        $list = DB::transaction(function () use ($data, $cycle, $acc, $fsItems, $spanDays, $onHand, $inTransit) {
+        $list = DB::transaction(function () use ($data, $acc, $fsItems, $spanDays, $onHand, $inTransit, $coverageStatus, $uncovered) {
             $list = ShoppingList::create([
-                'rnd_user_id'   => Auth::id(),
-                'menu_cycle_id' => $cycle->id,
-                'name'          => $data['name'] ?? "Suggested — {$cycle->name} ({$data['start_date']}→{$data['end_date']})",
-                'list_date'     => now()->toDateString(),
-                'period_start'  => $data['start_date'],
-                'period_end'    => $data['end_date'],
-                'days_span'     => $spanDays,
-                'list_type'     => 'suggested',
-                'status'        => 'draft',
+                'rnd_user_id'     => Auth::id(),
+                'name'            => $data['name'] ?? "Suggested — {$data['start_date']}→{$data['end_date']}",
+                'list_date'       => now()->toDateString(),
+                'period_start'    => $data['start_date'],
+                'period_end'      => $data['end_date'],
+                'days_span'       => $spanDays,
+                'list_type'       => 'suggested',
+                'status'          => 'draft',
+                'coverage_status' => $coverageStatus,
+                'uncovered_dates' => $uncovered ?: null,
             ]);
 
             foreach ($acc as $id => $row) {

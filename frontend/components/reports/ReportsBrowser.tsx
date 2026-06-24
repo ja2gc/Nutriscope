@@ -103,9 +103,9 @@ export function ReportsBrowser({ catalog, apiPrefix }: ReportsBrowserProps) {
   return (
     <div className="space-y-6 font-sans">
       <PageHeader
-        crumbs={[["Home", apiPrefix === "admin" ? "/admin/dashboard" : "/dashboard"], ["Reports Center"]]}
+        crumbs={[["Home", apiPrefix === "admin" ? "/admin/dashboard" : "/dashboard"], ["Reports"]]}
         icon={<FileText className="h-5 w-5 text-emerald-600" />}
-        title="Reports Center"
+        title="Reports"
         subtitle="Browse any report by period or record and download it on demand. Archive the ones you formally file to freeze an as-submitted copy."
       />
 

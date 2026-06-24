@@ -58,4 +58,23 @@ class Budget extends Model
     {
         return $this->hasMany(BudgetDailyLog::class);
     }
+
+    public function adjustments()
+    {
+        return $this->hasMany(BudgetAdjustment::class)->orderByDesc('created_at');
+    }
+
+    /** Net of all logged additions/deductions (additions positive, deductions negative). */
+    public function adjustmentsTotal(): float
+    {
+        return (float) $this->adjustments()
+            ->selectRaw("COALESCE(SUM(CASE WHEN type = 'deduction' THEN -amount ELSE amount END), 0) as net")
+            ->value('net');
+    }
+
+    /** Base allocation + net logged adjustments — the spendable yearly pot. */
+    public function effectiveAllocation(): float
+    {
+        return (float) ($this->allocated_amount ?? 0) + $this->adjustmentsTotal();
+    }
 }

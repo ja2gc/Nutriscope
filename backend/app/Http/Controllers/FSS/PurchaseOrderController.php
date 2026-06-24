@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\FSS;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\FSS\StorePurchaseOrderRequest;
 use App\Http\Requests\FSS\UpdatePurchaseOrderRequest;
 use App\Http\Resources\PurchaseOrderResource;
 use App\Models\PurchaseOrder;
@@ -30,39 +29,6 @@ class PurchaseOrderController extends Controller
             $query->where('shopping_list_id', $request->get('shopping_list_id'));
         }
         return response()->json(['data' => PurchaseOrderResource::collection($query->get())]);
-    }
-
-    public function store(StorePurchaseOrderRequest $request): JsonResponse
-    {
-        return DB::transaction(function () use ($request) {
-            $data  = $request->validated();
-            $items = $data['items'] ?? [];
-            unset($data['items']);
-
-            $data['rnd_user_id'] = Auth::id();
-            $data['po_number']   = $data['po_number'] ?? ('PO-' . strtoupper(Str::random(8)) . '-' . time());
-            $data['status']      = $data['status'] ?? 'draft';
-            $data['total_amount'] = $data['total_amount'] ?? collect($items)->sum(fn ($i) => $i['qty'] * $i['unit_price']);
-
-            $po = PurchaseOrder::create($data);
-            foreach ($items as $item) {
-                $po->items()->create([
-                    'fs_item_id'  => $item['fs_item_id'] ?? null,
-                    'description' => $item['description'] ?? 'Item',
-                    'qty'         => $item['qty'],
-                    'unit'        => $item['unit'] ?? 'unit',
-                    'unit_price'  => $item['unit_price'],
-                    'total_value' => $item['qty'] * $item['unit_price'],
-                    'purchase_qty'   => $item['purchase_qty'] ?? null,
-                    'purchase_unit'  => $item['purchase_unit'] ?? null,
-                    'purchase_price' => $item['purchase_price'] ?? null,
-                ]);
-            }
-            $po->recalcTotal();
-            $this->notifyFssIfOrdered($po->id, $po->status);
-
-            return response()->json(['data' => new PurchaseOrderResource($po->load(self::RELATIONS))], 201);
-        });
     }
 
     public function show(PurchaseOrder $purchaseOrder): JsonResponse
@@ -99,14 +65,21 @@ class PurchaseOrderController extends Controller
     }
 
     /**
-     * Split one shopping list into a draft purchase order per vendor (e.g. one for
-     * vegetables, one for meat). Items with no vendor land in an "unassigned" PO.
+     * Approve a shopping list: it BECOMES the purchase. One purchase order is created
+     * per vendor (e.g. one for vegetables, one for meat) so each vendor carries its own
+     * OR number, receipts, and proof of purchase; items with no vendor land in an
+     * "unassigned" order. The list's per-vendor orders together are the single purchase
+     * for that list (grouped by shopping_list_id). Approval is one-shot — a list that
+     * already produced orders cannot be re-approved (delete its orders first to redo).
      */
-    public function generatePos(ShoppingList $shoppingList): JsonResponse
+    public function approve(ShoppingList $shoppingList): JsonResponse
     {
         $shoppingList->load('items');
         if ($shoppingList->items->isEmpty()) {
             return response()->json(['message' => 'Shopping list has no items.'], 422);
+        }
+        if ($shoppingList->purchaseOrders()->exists()) {
+            return response()->json(['message' => 'This shopping list has already been approved into a purchase.'], 422);
         }
 
         $created = [];

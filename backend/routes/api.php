@@ -216,6 +216,11 @@ Route::middleware(['auth:sanctum', 'role:FSS,RND'])->prefix('fss')->group(functi
     Route::get('budgets/{budget}/summary', [BudgetController::class, 'summary']);
     Route::apiResource('budgets', BudgetController::class)->only(['index', 'show']);
 
+    // Budget → Insights analytics (read-only, both roles)
+    Route::get('insights/spend-by-supplier', [\App\Http\Controllers\FSS\InsightsController::class, 'spendBySupplier']);
+    Route::get('insights/cost-per-head', [\App\Http\Controllers\FSS\InsightsController::class, 'costPerHead']);
+    Route::get('insights/consumption', [\App\Http\Controllers\FSS\InsightsController::class, 'consumption']);
+
     // Per-record audit history (Spec 5)
     Route::get('inventory/{inventory}/activity', [ActivityController::class, 'inventory']);
 
@@ -233,9 +238,10 @@ Route::middleware(['auth:sanctum', 'role:FSS,RND'])->prefix('fss')->group(functi
         // Suppliers — RND-only (FSS has no read scope either per §6)
         Route::apiResource('suppliers', SupplierController::class);
 
-        // Purchase Orders — RND authors; FSS gets reads + attachments above
-        Route::apiResource('purchase-orders', PurchaseOrderController::class)->only(['store', 'update', 'destroy']);
-        Route::post('shopping-lists/{shopping_list}/generate-pos', [PurchaseOrderController::class, 'generatePos']);
+        // Purchase Orders — created only by approving a shopping list (no manual create).
+        // RND can still edit/receive/delete the per-vendor orders the approval produced.
+        Route::apiResource('purchase-orders', PurchaseOrderController::class)->only(['update', 'destroy']);
+        Route::post('shopping-lists/{shopping_list}/approve', [PurchaseOrderController::class, 'approve']);
 
         // Shopping Lists — RND authors items; FSS generate (suggestion) stays above
         Route::post('shopping-lists/{shopping_list}/items', [ShoppingListController::class, 'storeItem']);
@@ -257,6 +263,7 @@ Route::middleware(['auth:sanctum', 'role:FSS,RND'])->prefix('fss')->group(functi
         Route::apiResource('food-service-recipes', FoodServiceRecipeController::class)->only(['store', 'update', 'destroy']);
 
         Route::post('budgets/{budget}/daily-logs', [BudgetController::class, 'storeDailyLog']);
+        Route::post('budgets/{budget}/adjustments', [BudgetController::class, 'storeAdjustment']);
         Route::apiResource('budgets', BudgetController::class)->only(['store', 'update', 'destroy']);
     });
 

@@ -4,8 +4,9 @@
 
 Nutriscope is a full-stack system composed of:
 
-- 🐘 Laravel Backend (PHP)
-- 🌐 Next.js Frontend (React)
+- 🐘 Laravel Backend (PHP) — shared API for all roles
+- 🌐 Next.js Frontend (React) — web console for RND + Admin
+- 📱 Expo Mobile App (React Native) — FSS (Food Service) role
 - 🐳 Docker Services:
   - MySQL
   - Redis
@@ -167,6 +168,18 @@ npm install
 
 ---
 
+## 📄 Create environment file
+
+```bash
+cp .env.example .env.local
+```
+
+`.env.local` sets `LARAVEL_API_URL` (where Next.js proxies API calls). Default
+`http://localhost:8000/api` matches the local backend — no change needed unless your
+backend runs elsewhere.
+
+---
+
 ## 🚀 Run frontend
 
 ```bash
@@ -176,6 +189,75 @@ npm run dev
 Frontend runs at:
 
 [http://localhost:3000](http://localhost:3000)
+
+---
+
+# 📱 5. MOBILE SETUP (EXPO — FSS APP)
+
+The Food Service (FSS) role runs on a **mobile app**, not the web. It's an Expo
+(React Native) app that talks to the same Laravel backend over your LAN.
+
+> Full details + Windows firewall steps: [`mobile/README.md`](mobile/README.md).
+
+## Prerequisites
+
+- Node.js LTS (18+)
+- **Expo Go** app installed on your phone ([expo.dev/go](https://expo.dev/go))
+- Phone and PC on the **same Wi-Fi network**
+
+Open a new terminal:
+
+```bash
+cd mobile
+```
+
+## 📦 Install dependencies
+
+```bash
+npm install
+```
+
+## 📄 Create environment file
+
+```bash
+cp .env.example .env
+```
+
+Then set `EXPO_PUBLIC_API_URL` to **your PC's LAN IP** (NOT `localhost` — the app
+runs on the phone, so localhost would point at the phone):
+
+```
+EXPO_PUBLIC_API_URL=http://192.168.1.X:8000
+```
+
+Find your LAN IP with `ipconfig` (Windows) / `ifconfig` (Mac/Linux) — the IPv4
+address of your Wi-Fi adapter.
+
+## 🔌 Start the backend so the phone can reach it
+
+The default `php artisan serve` only binds to localhost. For the phone, bind to all
+interfaces (run from `backend/`):
+
+```bash
+php artisan serve --host=0.0.0.0 --port=8000
+```
+
+Windows: if the phone still can't connect, allow port 8000 through the firewall:
+
+```bash
+netsh advfirewall firewall add rule name="Laravel Dev" dir=in action=allow protocol=TCP localport=8000
+```
+
+## 🚀 Start the Expo dev server
+
+```bash
+npx expo start
+```
+
+Scan the QR code in the terminal with **Expo Go** on your phone.
+
+> Sign in with the **FSS** demo account (see Seeded Accounts below). FSS can sign in
+> **only** on the mobile app; RND/Admin can sign in **only** on the web.
 
 ---
 
@@ -297,6 +379,16 @@ cd frontend
 npm install
 npm run dev
 ```
+
+4. **Mobile — optional, only for the FSS app (Terminal 3):**
+```bash
+cd mobile
+npm install
+npx expo start
+```
+Note: for the phone to reach the backend, start it with
+`php artisan serve --host=0.0.0.0 --port=8000` and set `EXPO_PUBLIC_API_URL`
+to your PC's LAN IP (see the Mobile Setup section above).
 
 ---
 

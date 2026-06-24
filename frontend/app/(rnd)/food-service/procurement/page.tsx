@@ -9,14 +9,13 @@ import {
 import { Button } from "@/components/ui/Button";
 import {
   ShoppingList, PurchaseOrder, CostEfficiency,
-  listShoppingLists, getShoppingList, generateFromCycleWeekdays, deleteShoppingList,
-  updateListItem, generatePos, listPurchaseOrders, getPurchaseOrder,
+  listShoppingLists, getShoppingList, generateByDates, deleteShoppingList,
+  updateListItem, approveShoppingList, listPurchaseOrders, getPurchaseOrder,
   updatePurchaseOrder, deletePurchaseOrder, uploadAttachments, deleteAttachment,
-  createShoppingList, updateShoppingList, addListItem, deleteListItem, createPurchaseOrder,
+  createShoppingList, updateShoppingList, addListItem, deleteListItem,
   getCostEfficiency,
 } from "@/services/procurementService";
 import { listSuppliers, Supplier } from "@/services/supplierService";
-import { listCycles, CycleListItem } from "@/services/menuCycleService";
 import { InventoryRow, listInventoryRows } from "@/services/inventoryService";
 import { HistoryPanel } from "@/components/HistoryPanel";
 import { SuppliersPanel } from "@/components/foodservice/SuppliersPanel";
@@ -24,7 +23,7 @@ import { SuppliersPanel } from "@/components/foodservice/SuppliersPanel";
 const STORAGE_BASE = process.env.NEXT_PUBLIC_LARAVEL_URL ?? "http://127.0.0.1:8000";
 const peso = (n: number) => `₱${n.toFixed(2)}`;
 const num = (s: string | null) => (s ? parseFloat(s) : 0);
-const WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"] as const;
+const today = () => new Date().toISOString().slice(0, 10);
 
 function Crumbs({ children }: { children?: React.ReactNode }) {
   return (
@@ -51,6 +50,8 @@ function ListDetail({ id, suppliers, onBack, onPosGenerated }: {
   const [addSupplier, setAddSupplier] = useState("");
   const [itemError, setItemError] = useState("");
   const [eff, setEff] = useState<CostEfficiency | null>(null);
+  const [warnDismissed, setWarnDismissed] = useState(false);
+  const [approveErr, setApproveErr] = useState("");
   const loadEff = useCallback(() => { getCostEfficiency(id).then(setEff).catch(() => setEff(null)); }, [id]);
   const load = useCallback(() => {
     getShoppingList(id).then(setList);
@@ -113,7 +114,9 @@ function ListDetail({ id, suppliers, onBack, onPosGenerated }: {
   }
   async function doGeneratePos() {
     setBusy(true);
-    try { await generatePos(id); onPosGenerated(); } finally { setBusy(false); }
+    try { await approveShoppingList(id); onPosGenerated(); }
+    catch (e) { setApproveErr(e instanceof Error ? e.message : "Failed to approve."); }
+    finally { setBusy(false); }
   }
 
   if (!list) return <div className="py-16 text-center text-xs text-zinc-400">Loading…</div>;
@@ -134,10 +137,24 @@ function ListDetail({ id, suppliers, onBack, onPosGenerated }: {
             </div>
           </div>
         </div>
-        <Button variant="primary" onClick={doGeneratePos} loading={busy} className="px-4 py-2 flex items-center gap-2">
-          <Split className="h-4 w-4" /> Generate POs by vendor
-        </Button>
+        <div className="flex flex-col items-end gap-1">
+          <Button variant="primary" onClick={doGeneratePos} loading={busy} disabled={list.status === "finalized"} className="px-4 py-2 flex items-center gap-2">
+            <Split className="h-4 w-4" /> {list.status === "finalized" ? "Approved" : "Approve & create purchase"}
+          </Button>
+          {approveErr && <span className="text-[10px] text-red-600 font-semibold">{approveErr}</span>}
+        </div>
       </div>
+
+      {list.coverage_status === "partial" && list.uncovered_dates.length > 0 && !warnDismissed && (
+        <div className="flex items-start justify-between gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+          <div className="text-[11px] text-amber-800">
+            <span className="font-extrabold">Partial coverage.</span> No menu plan for{" "}
+            <span className="font-semibold">{list.uncovered_dates.join(", ")}</span> — those days were skipped.
+            Add the missing menu plan and regenerate to include them before converting to POs.
+          </div>
+          <button onClick={() => setWarnDismissed(true)} className="text-amber-500 hover:text-amber-700 cursor-pointer shrink-0" aria-label="Dismiss"><X className="h-4 w-4" /></button>
+        </div>
+      )}
 
       <div className="flex flex-wrap gap-3">
         <div className="px-4 py-2.5 rounded-xl border bg-emerald-50 border-emerald-200 text-emerald-700 text-xs font-semibold flex items-center gap-2">
@@ -408,36 +425,33 @@ export default function ProcurementPage() {
   const [lists, setLists] = useState<ShoppingList[]>([]);
   const [pos, setPos] = useState<PurchaseOrder[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  const [cycles, setCycles] = useState<CycleListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [genOpen, setGenOpen] = useState(false);
-  const [genCycle, setGenCycle] = useState("");
-  const [genStartWeekday, setGenStartWeekday] = useState<(typeof WEEKDAYS)[number]>("Monday");
-  const [genEndWeekday, setGenEndWeekday] = useState<(typeof WEEKDAYS)[number]>("Sunday");
+  const [genStartDate, setGenStartDate] = useState(today());
+  const [genEndDate, setGenEndDate] = useState(today());
   const [genError, setGenError] = useState("");
   const [newListName, setNewListName] = useState("");
-  const [newPoSupplier, setNewPoSupplier] = useState("");
   const [editingListId, setEditingListId] = useState<number | null>(null);
   const [editingListName, setEditingListName] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [l, p, s, c] = await Promise.all([listShoppingLists(), listPurchaseOrders(), listSuppliers(), listCycles()]);
-      setLists(l); setPos(p); setSuppliers(s); setCycles(c);
+      const [l, p, s] = await Promise.all([listShoppingLists(), listPurchaseOrders(), listSuppliers()]);
+      setLists(l); setPos(p); setSuppliers(s);
     } finally { setLoading(false); }
   }, []);
   useEffect(() => { load(); }, [load]);
 
   async function doGenerate() {
-    if (!genCycle) return;
-    if (WEEKDAYS.indexOf(genEndWeekday) < WEEKDAYS.indexOf(genStartWeekday)) {
-      setGenError("Pick a contiguous weekday span where To is on or after From.");
+    if (!genStartDate || !genEndDate) return;
+    if (genEndDate < genStartDate) {
+      setGenError("End date must be on or after the start date.");
       return;
     }
     setGenError("");
     try {
-      const list = await generateFromCycleWeekdays(parseInt(genCycle), genStartWeekday, genEndWeekday);
+      const list = await generateByDates(genStartDate, genEndDate);
       setGenOpen(false); setLists((current) => [list, ...current]); setTab("lists"); setListDetail(list.id);
     } catch (e) {
       setGenError(e instanceof Error ? e.message : "Failed to generate list.");
@@ -456,18 +470,6 @@ export default function ProcurementPage() {
     setNewListName("");
     setTab("lists");
     setListDetail(created.id);
-  }
-
-  async function createManualPo() {
-    const created = await createPurchaseOrder({
-      supplier_id: newPoSupplier ? parseInt(newPoSupplier) : null,
-      order_date: new Date().toISOString().slice(0, 10),
-      status: "draft",
-    });
-    setPos((current) => [created, ...current]);
-    setNewPoSupplier("");
-    setTab("pos");
-    setPoDetail(created.id);
   }
 
   async function saveListName(list: ShoppingList) {
@@ -508,28 +510,16 @@ export default function ProcurementPage() {
       <div className="border-b border-zinc-200 pb-5 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div>
           <h2 className="text-xl font-extrabold text-zinc-950 tracking-tight flex items-center gap-2.5"><ShoppingBag className="h-5 w-5 text-emerald-600" /> Procurement</h2>
-          <p className="text-xs text-zinc-500 mt-1">Build shopping lists from the menu, split them into vendor purchase orders, and attach receipts &amp; proof of purchase.</p>
+          <p className="text-xs text-zinc-500 mt-1">Build lists from the menu (food) or as ad-hoc supplies not tied to any menu cycle, approve each into a vendor-split purchase order, and attach receipts &amp; proof of purchase.</p>
         </div>
         <div className="flex items-center gap-3 shrink-0">
           <button onClick={load} className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-700"><RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} /> Refresh</button>
           {tab === "lists" && (
             <div className="flex items-center gap-2">
               <input value={newListName} onChange={(e) => setNewListName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") void createManualList(); }}
-                placeholder="Manual list name" className="w-44 px-3 py-2 text-xs border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+                placeholder="Supplies / ad-hoc list name" className="w-44 px-3 py-2 text-xs border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500" />
               <Button variant="secondary" onClick={createManualList} className="px-3 py-2 flex items-center gap-1.5">
-                <Plus className="h-3.5 w-3.5" /> New list
-              </Button>
-            </div>
-          )}
-          {tab === "pos" && (
-            <div className="flex items-center gap-2">
-              <select value={newPoSupplier} onChange={(e) => setNewPoSupplier(e.target.value)}
-                className="w-44 px-3 py-2 text-xs border border-zinc-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer">
-                <option value="">Unassigned vendor</option>
-                {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
-              <Button variant="secondary" onClick={createManualPo} className="px-3 py-2 flex items-center gap-1.5">
-                <Plus className="h-3.5 w-3.5" /> New PO
+                <Plus className="h-3.5 w-3.5" /> New supplies list
               </Button>
             </div>
           )}
@@ -541,32 +531,19 @@ export default function ProcurementPage() {
       {genOpen && (
         <div className="bg-emerald-50/40 border border-emerald-100 rounded-2xl p-5 shadow-sm">
           <h3 className="text-xs font-extrabold text-emerald-700 uppercase tracking-wider mb-3 flex items-center gap-1.5"><Sparkles className="h-3.5 w-3.5" /> Suggested shopping list</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
-              <label className="block text-[10px] font-extrabold text-zinc-500 uppercase mb-1">Menu cycle</label>
-              <select value={genCycle} onChange={(e) => setGenCycle(e.target.value)} className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500">
-                <option value="">Select cycle…</option>
-                {cycles.map((c) => <option key={c.id} value={c.id}>{c.name}{c.is_active ? " (active)" : ""}</option>)}
-              </select>
+              <label className="block text-[10px] font-extrabold text-zinc-500 uppercase mb-1">From date</label>
+              <input type="date" value={genStartDate} onChange={(e) => {
+                const next = e.target.value;
+                setGenStartDate(next);
+                if (genEndDate < next) setGenEndDate(next);
+              }} className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500" />
             </div>
             <div>
-              <label className="block text-[10px] font-extrabold text-zinc-500 uppercase mb-1">From weekday</label>
-              <select value={genStartWeekday} onChange={(e) => {
-                const next = e.target.value as (typeof WEEKDAYS)[number];
-                setGenStartWeekday(next);
-                if (WEEKDAYS.indexOf(genEndWeekday) < WEEKDAYS.indexOf(next)) setGenEndWeekday(next);
-              }} className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500">
-                {WEEKDAYS.map((day) => <option key={day} value={day}>{day}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="block text-[10px] font-extrabold text-zinc-500 uppercase mb-1">To weekday</label>
-              <select value={genEndWeekday} onChange={(e) => setGenEndWeekday(e.target.value as (typeof WEEKDAYS)[number])}
-                className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500">
-                {WEEKDAYS.map((day, index) => (
-                  <option key={day} value={day} disabled={index < WEEKDAYS.indexOf(genStartWeekday)}>{day}</option>
-                ))}
-              </select>
+              <label className="block text-[10px] font-extrabold text-zinc-500 uppercase mb-1">To date</label>
+              <input type="date" value={genEndDate} min={genStartDate} onChange={(e) => setGenEndDate(e.target.value)}
+                className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500" />
             </div>
             <div className="flex items-end gap-2">
               <Button variant="primary" onClick={doGenerate} className="px-4 py-2">Generate</Button>
@@ -574,7 +551,7 @@ export default function ProcurementPage() {
             </div>
           </div>
           {genError && <p className="text-[10px] text-red-600 mt-2 font-semibold">{genError}</p>}
-          <p className="text-[10px] text-zinc-400 mt-2">Sums exactly the ingredients the menu plans for each day in the date range (e.g. Tue–Thu), with each item&apos;s default vendor pre-filled.</p>
+          <p className="text-[10px] text-zinc-400 mt-2">Sums exactly the ingredients the menu plans for each day in the date range — even a Fri→Mon span that crosses into next week&apos;s cycle. Each item&apos;s default vendor is pre-filled; days with no menu plan are flagged on the list.</p>
         </div>
       )}
 
