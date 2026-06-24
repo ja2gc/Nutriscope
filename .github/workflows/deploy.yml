@@ -18,9 +18,10 @@ jobs:
           key: ${{ secrets.DROPLET_SSH_KEY }}
           script: |
             cd Nutriscope
-            git pull origin main
+            git fetch origin main
+            git reset --hard origin/main
             export DB_ROOT_PASSWORD=${{ secrets.DB_ROOT_PASSWORD }}
             # Requires backend/.env.production to exist on the server.
-            # Base file provides mysql/redis/paddleocr/omr; prod overlay adds backend/frontend.
+            # Base file provides mysql/redis; prod overlay adds backend/frontend.
             docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
             docker image prune -f
