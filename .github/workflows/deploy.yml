@@ -22,6 +22,8 @@ jobs:
             git fetch origin main
             git reset --hard origin/main
             export DB_ROOT_PASSWORD=${{ secrets.DB_ROOT_PASSWORD }}
+            export DOCKER_BUILDKIT=1
+            export COMPOSE_DOCKER_CLI_BUILD=1
             # Requires backend/.env.production to exist on the server.
             # Base file provides mysql/redis; prod overlay adds backend/frontend.
             docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build

@@ -1,13 +1,17 @@
+# syntax=docker/dockerfile:1
 FROM php:8.4-apache
 
+ADD https://github.com/mlocati/docker-php-extension-installer/releases/download/2.11.12/install-php-extensions /usr/local/bin/
+RUN chmod +x /usr/local/bin/install-php-extensions
+
 # Install system dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    git curl zip unzip \
-    libpng-dev libonig-dev libxml2-dev libzip-dev \
-    && docker-php-ext-install \
-        pdo_mysql mbstring exif pcntl bcmath gd zip \
-    && a2enmod rewrite \
-    && rm -rf /var/lib/apt/lists/*
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && apt-get install -y --no-install-recommends \
+        git curl zip unzip \
+        libpng-dev libonig-dev libxml2-dev libzip-dev \
+    && install-php-extensions pdo_mysql mbstring exif pcntl bcmath gd zip opcache \
+    && a2enmod rewrite
 
 # Production OPcache + sane PHP defaults
 RUN { \
@@ -30,7 +34,8 @@ COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 WORKDIR /var/www/html
 
 COPY composer.json composer.lock ./
-RUN composer install --no-dev --optimize-autoloader --no-scripts --no-interaction
+RUN --mount=type=cache,target=/root/.composer/cache \
+    composer install --no-dev --optimize-autoloader --no-scripts --no-interaction
 
 COPY . .
 
