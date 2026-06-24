@@ -10,6 +10,7 @@ import {
   saveAiUsageLimits,
   AiUsageLimits,
 } from "@/services/aiUsageLimitService";
+import { fetchUsdToPhpRate } from "@/services/currencyService";
 import { KpiCard } from "@/components/ui/KpiCard";
 import { Badge, BadgeTone } from "@/components/ui/Badge";
 import {
@@ -49,6 +50,28 @@ function formatTokens(num: number) {
   return num.toString();
 }
 
+// Haiku: $0.80/MTok input · $4.00/MTok output
+const HAIKU_INPUT_PER_TOKEN  = 0.80 / 1_000_000;
+const HAIKU_OUTPUT_PER_TOKEN = 4.00 / 1_000_000;
+// Blended rate for when only totals are available (~65% input / 35% output)
+const HAIKU_BLENDED_PER_TOKEN = (0.65 * 0.80 + 0.35 * 4.00) / 1_000_000;
+
+function calcExactCost(inputTokens: number, outputTokens: number): number {
+  return inputTokens * HAIKU_INPUT_PER_TOKEN + outputTokens * HAIKU_OUTPUT_PER_TOKEN;
+}
+
+function calcBlendedCost(totalTokens: number): number {
+  return totalTokens * HAIKU_BLENDED_PER_TOKEN;
+}
+
+function formatCost(usd: number, phpRate: number): string {
+  const php = usd * phpRate;
+  if (php === 0) return "₱0.00";
+  if (php < 0.01)  return `₱${php.toFixed(4)}`;
+  if (php < 1)     return `₱${php.toFixed(3)}`;
+  return `₱${php.toFixed(2)}`;
+}
+
 function relativeTime(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
   const mins = Math.floor(diff / 60_000);
@@ -75,6 +98,8 @@ export default function AdminDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+
+  const [phpRate, setPhpRate] = useState<number>(56);
 
   // AI token cap state
   const [aiLimits, setAiLimits] = useState<AiUsageLimits | null>(null);
@@ -141,6 +166,7 @@ export default function AdminDashboardPage() {
   useEffect(() => {
     void loadData();
     void loadAiLimits();
+    void fetchUsdToPhpRate().then(setPhpRate);
   }, []);
 
   const chartData = useMemo(() => {
@@ -226,7 +252,7 @@ export default function AdminDashboardPage() {
           <KpiCard
             label="AI Usage (Month)"
             value={formatNumber(dashboardData.ai_usage.month_calls)}
-            hint={`${formatTokens(dashboardData.ai_usage.month_tokens)} tokens · month to date`}
+            hint={`${formatTokens(dashboardData.ai_usage.month_tokens)} tokens · ${formatCost(calcExactCost(dashboardData.ai_usage.month_tokens_input, dashboardData.ai_usage.month_tokens_output), phpRate)} est. cost`}
             tone="zinc"
           />
           <KpiCard
@@ -270,6 +296,9 @@ export default function AdminDashboardPage() {
                     of {cap !== null ? formatTokens(cap) : "Unlimited"}
                     {over && <span className="ml-1.5 font-bold text-amber-600">· over cap</span>}
                   </div>
+                  <div className="text-[10px] text-zinc-400 mt-1">
+                    {formatCost(calcBlendedCost(used), phpRate)} est. cost
+                  </div>
                 </div>
               );
             })()}
@@ -288,6 +317,9 @@ export default function AdminDashboardPage() {
                   <div className="text-[10px] text-zinc-500 mt-0.5">
                     of {cap !== null ? formatTokens(cap) : "Unlimited"}
                     {over && <span className="ml-1.5 font-bold text-amber-600">· over cap</span>}
+                  </div>
+                  <div className="text-[10px] text-zinc-400 mt-1">
+                    {formatCost(calcBlendedCost(used), phpRate)} est. cost
                   </div>
                 </div>
               );
@@ -408,7 +440,7 @@ export default function AdminDashboardPage() {
                           fontSize: "11px",
                           borderColor: "#e4e4e7",
                         }}
-                        formatter={(value) => [formatTokens(Number(value)), "Tokens"]}
+                        formatter={(value) => [`${formatTokens(Number(value))} · ${formatCost(calcBlendedCost(Number(value)), phpRate)} est.`, "Tokens"]}
                       />
                       <Bar dataKey="tokens" name="Tokens" fill="#059669" radius={[4, 4, 0, 0]} />
                     </BarChart>

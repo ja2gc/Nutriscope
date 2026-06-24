@@ -22,6 +22,8 @@ export interface DashboardAiUsage {
   tokens_output: number;
   month_calls: number;
   month_tokens: number;
+  month_tokens_input: number;
+  month_tokens_output: number;
   by_endpoint: Record<string, { calls: number; tokens: number }>;
   daily: DashboardAiDailyPoint[];
 }

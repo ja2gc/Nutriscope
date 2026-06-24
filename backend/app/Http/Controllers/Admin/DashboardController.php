@@ -80,6 +80,8 @@ class DashboardController extends Controller
             ->select(
                 DB::raw('COUNT(*) as calls'),
                 DB::raw('COALESCE(SUM(tokens_total), 0) as tokens'),
+                DB::raw('COALESCE(SUM(tokens_input), 0) as tokens_input'),
+                DB::raw('COALESCE(SUM(tokens_output), 0) as tokens_output'),
             )
             ->first();
 
@@ -119,6 +121,8 @@ class DashboardController extends Controller
             'tokens_output' => (int) $totals->tokens_output,
             'month_calls' => (int) $month->calls,
             'month_tokens' => (int) $month->tokens,
+            'month_tokens_input' => (int) $month->tokens_input,
+            'month_tokens_output' => (int) $month->tokens_output,
             'by_endpoint' => $byEndpoint,
             'daily' => $daily,
         ];
