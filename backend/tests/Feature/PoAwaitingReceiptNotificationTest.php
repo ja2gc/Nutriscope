@@ -38,51 +38,25 @@ class PoAwaitingReceiptNotificationTest extends TestCase
         ]);
     }
 
-    public function test_creating_po_with_ordered_status_notifies_all_fss_users(): void
+    public function test_approving_list_creates_draft_pos_with_no_notifications(): void
     {
+        // Purchase orders are now born from approving a shopping list, as drafts —
+        // FSS is only notified once RND marks a vendor order "ordered" (tested below).
         $supplier = Supplier::factory()->create();
+        $list = \App\Models\ShoppingList::create([
+            'rnd_user_id' => $this->rnd->id, 'name' => 'L', 'list_date' => '2026-06-20',
+            'list_type' => 'manual', 'status' => 'draft',
+        ]);
+        $list->items()->create([
+            'ingredient_name' => 'Eggs', 'qty' => 5, 'unit' => 'tray', 'supplier_id' => $supplier->id,
+            'unit_price' => 3.00, 'total' => 15,
+        ]);
 
-        $response = $this->actingAs($this->rnd)
-            ->postJson('/api/fss/purchase-orders', [
-                'supplier_id' => $supplier->id,
-                'order_date'  => '2026-06-20',
-                'status'      => 'ordered',
-                'items'       => [
-                    ['qty' => 10, 'unit_price' => 5.00, 'description' => 'Rice'],
-                ],
-            ]);
+        $this->actingAs($this->rnd)
+            ->postJson("/api/fss/shopping-lists/{$list->id}/approve")
+            ->assertCreated();
 
-        $response->assertCreated();
-        $poId = $response->json('data.id');
-
-        $notifications = Notification::where('type', 'po_awaiting_receipt')
-            ->where('source_module', 'food_service')
-            ->where('source_id', $poId)
-            ->get();
-
-        $this->assertCount(2, $notifications, 'Expected exactly one notification per FSS user.');
-
-        $notifiedUserIds = $notifications->pluck('user_id')->sort()->values()->all();
-        $expectedUserIds = collect([$this->fss1->id, $this->fss2->id])->sort()->values()->all();
-        $this->assertEquals($expectedUserIds, $notifiedUserIds);
-    }
-
-    public function test_creating_po_as_draft_sends_no_notifications(): void
-    {
-        $supplier = Supplier::factory()->create();
-
-        $response = $this->actingAs($this->rnd)
-            ->postJson('/api/fss/purchase-orders', [
-                'supplier_id' => $supplier->id,
-                'order_date'  => '2026-06-20',
-                'items'       => [
-                    ['qty' => 5, 'unit_price' => 3.00, 'description' => 'Eggs'],
-                ],
-            ]);
-
-        $response->assertCreated()
-            ->assertJsonPath('data.status', 'draft');
-
+        $this->assertDatabaseHas('purchase_orders', ['shopping_list_id' => $list->id, 'status' => 'draft']);
         $this->assertDatabaseCount('notifications', 0);
     }
 

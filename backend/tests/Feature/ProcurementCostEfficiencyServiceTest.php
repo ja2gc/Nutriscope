@@ -25,10 +25,14 @@ class ProcurementCostEfficiencyServiceTest extends TestCase
         $this->rnd = User::factory()->create(['role' => 'RND']);
     }
 
-    /** Cycle that serves the given weekdays (one fs_item entry per weekday). */
+    /**
+     * Cycle that serves the given weekdays (one fs_item entry per weekday). Anchored to
+     * the week of 2026-06-22 (a Monday) so MenuCycle::coveringDate resolves the spans
+     * the tests use (22–28 June).
+     */
     private function cycle(array $weekdays, int $pop = 40): MenuCycle
     {
-        $cycle  = MenuCycle::factory()->create();
+        $cycle  = MenuCycle::factory()->create(['week_start_date' => '2026-06-22']);
         $fsItem = FsItem::factory()->create();
         foreach ($weekdays as $wd) {
             MenuCycleDay::factory()->create([
@@ -45,9 +49,9 @@ class ProcurementCostEfficiencyServiceTest extends TestCase
 
     private function listForSpan(MenuCycle $cycle, string $start, string $end): ShoppingList
     {
+        // Cycle is resolved per-date from the span (coveringDate), not stored on the list.
         return ShoppingList::factory()->create([
             'rnd_user_id'  => $this->rnd->id,
-            'menu_cycle_id' => $cycle->id,
             'period_start' => $start,
             'period_end'   => $end,
         ]);
@@ -141,7 +145,7 @@ class ProcurementCostEfficiencyServiceTest extends TestCase
 
     public function test_estimated_uses_menu_cycle_span_cost_over_estimate_population(): void
     {
-        $cycle  = MenuCycle::factory()->create();
+        $cycle  = MenuCycle::factory()->create(['week_start_date' => '2026-06-22']);
         $fsItem = FsItem::factory()->create();
         MenuCycleDay::factory()->create([
             'menu_cycle_id'       => $cycle->id,
@@ -161,8 +165,9 @@ class ProcurementCostEfficiencyServiceTest extends TestCase
 
     public function test_estimated_null_when_no_menu_cycle(): void
     {
+        // No cycle covers the span → nothing to estimate against.
         $list = ShoppingList::factory()->create([
-            'rnd_user_id' => $this->rnd->id, 'menu_cycle_id' => null,
+            'rnd_user_id' => $this->rnd->id,
             'period_start' => '2026-06-22', 'period_end' => '2026-06-22',
         ]);
 

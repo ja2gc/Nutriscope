@@ -104,6 +104,11 @@ class FoodServiceDemoSeeder extends Seeder
             $cycles[] = $cycle;
         }
 
+        // Next week's cycle as a DRAFT plan (no consumption/procurement yet) so the
+        // client's Fri→Mon procurement run can resolve Monday from the upcoming cycle.
+        // Demonstrates date-driven, multi-cycle shopping-list generation.
+        $this->seedCycleForWeek($rnd, $currentWeekStart->copy()->addWeek(), false, 'draft');
+
         $this->seedBudget($fss, end($cycles));
 
         $this->command->info('FoodServiceDemoSeeder: ' . count($cycles) . ' weekly cycles (3 past + current) seeded.');
@@ -256,16 +261,17 @@ class FoodServiceDemoSeeder extends Seeder
     }
 
     // ── One weekly menu cycle for the given week ────────────────────────────
-    private function seedCycleForWeek(int $rnd, Carbon $weekStart, bool $isCurrent): MenuCycle
+    private function seedCycleForWeek(int $rnd, Carbon $weekStart, bool $isCurrent, ?string $statusOverride = null): MenuCycle
     {
+        $status = $statusOverride ?? ($isCurrent ? 'active' : 'archived');
         $cycle = MenuCycle::create([
             'rnd_user_id'     => $rnd,
             'name'            => 'Subsistence Cycle — Week of ' . $weekStart->format('M j'),
             'cycle_days'      => 7,
             'is_active'       => $isCurrent,
-            'status'          => $isCurrent ? 'active' : 'archived',
+            'status'          => $status,
             'week_start_date' => $weekStart->toDateString(),
-            'activation_date' => $weekStart->toDateString(),
+            'activation_date' => $status === 'draft' ? null : $weekStart->toDateString(),
         ]);
 
         $slots = ['breakfast', 'am_snack', 'lunch', 'pm_snack', 'dinner'];
@@ -359,12 +365,13 @@ class FoodServiceDemoSeeder extends Seeder
     private function seedProcurementForWeek(MenuCycle $cycle, int $fss, Carbon $weekStart, bool $isCurrent, int $totalServed): void
     {
         $list = ShoppingList::create([
-            'rnd_user_id'  => $fss, 'menu_cycle_id' => $cycle->id,
+            'rnd_user_id'  => $fss,
             'name'         => 'Marketing — week of ' . $weekStart->format('M j'),
             'list_date'    => $weekStart->toDateString(),
             'period_start' => $weekStart->toDateString(),
             'period_end'   => $weekStart->copy()->addDays(6)->toDateString(),
             'days_span'    => 7,
+            'coverage_status' => 'full',
             // Past weeks: the census headcount is in → actual budget-per-head computes.
             // Current week is still running → left null so "pending" is demonstrable.
             'total_served_population' => $isCurrent ? null : $totalServed,
@@ -447,6 +454,18 @@ class FoodServiceDemoSeeder extends Seeder
             'cost_per_person' => $perHeadCap, 'budget_per_head_day' => $perHeadCap,
             'period_start' => $start->toDateString(), 'period_end' => $end->toDateString(),
         ]);
+
+        // Sample allocation-adjustment ledger (approved top-up + a correction) so the
+        // add/deduct audit trail is visible in both the budget page and the report.
+        foreach ([
+            ['addition', 25000, 'Request for additional funds', null],
+            ['deduction', 4000, 'Budget correction', null],
+        ] as [$adjType, $adjAmount, $adjCat, $adjReason]) {
+            \App\Models\BudgetAdjustment::create([
+                'budget_id' => $budget->id, 'type' => $adjType, 'amount' => $adjAmount,
+                'reason_category' => $adjCat, 'reason' => $adjReason, 'created_by' => $fss,
+            ]);
+        }
 
         for ($d = $start->copy(); $d->lte(Carbon::now()); $d->addDay()) {
             BudgetDailyLog::create([

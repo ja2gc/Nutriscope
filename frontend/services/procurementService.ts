@@ -15,11 +15,12 @@ export interface ShoppingListItem {
 }
 export interface ShoppingList {
   id: number;
-  menu_cycle_id: number | null;
   name: string;
   list_date: string | null;
   list_type: "manual" | "suggested";
   status: "draft" | "finalized";
+  coverage_status: "full" | "partial";
+  uncovered_dates: string[];
   days_span: number | null;
   period_start: string | null;
   period_end: string | null;
@@ -84,16 +85,15 @@ export async function updateShoppingList(id: number, patch: Partial<Pick<Shoppin
     method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch),
   }), "Failed to update list.");
 }
-export async function generateFromCycle(menu_cycle_id: number, start_date: string, end_date: string, name?: string): Promise<ShoppingList> {
+/**
+ * Build a suggested list for a date range. The owning menu cycle is resolved per date
+ * server-side, so a span crossing a week boundary (e.g. Fri→Mon) pulls each day from its
+ * correct cycle. Dates with no plan come back in `uncovered_dates` with coverage `partial`.
+ */
+export async function generateByDates(start_date: string, end_date: string, name?: string): Promise<ShoppingList> {
   return unwrap(await apiFetch("/api/fss/shopping-lists/generate", {
     method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ menu_cycle_id, start_date, end_date, name }),
-  }), "Failed to generate list.");
-}
-export async function generateFromCycleWeekdays(menu_cycle_id: number, start_weekday: string, end_weekday: string, name?: string): Promise<ShoppingList> {
-  return unwrap(await apiFetch("/api/fss/shopping-lists/generate", {
-    method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ menu_cycle_id, start_weekday, end_weekday, name }),
+    body: JSON.stringify({ start_date, end_date, name }),
   }), "Failed to generate list.");
 }
 export async function deleteShoppingList(id: number): Promise<void> {
@@ -128,23 +128,15 @@ export async function deleteListItem(itemId: number): Promise<void> {
   const res = await apiFetch(`/api/fss/shopping-list-items/${itemId}`, { method: "DELETE" });
   if (!res.ok && res.status !== 204) throw new Error("Failed to delete item.");
 }
-export async function generatePos(listId: number): Promise<{ purchase_order_ids: number[] }> {
-  return unwrap(await apiFetch(`/api/fss/shopping-lists/${listId}/generate-pos`, { method: "POST" }), "Failed to generate POs.");
+/**
+ * Approve a shopping list → it becomes the purchase: one order per vendor, each with its
+ * own OR# and proof uploads. One-shot (re-approving an already-approved list is rejected).
+ */
+export async function approveShoppingList(listId: number): Promise<{ purchase_order_ids: number[] }> {
+  return unwrap(await apiFetch(`/api/fss/shopping-lists/${listId}/approve`, { method: "POST" }), "Failed to approve shopping list.");
 }
 
 // ─── Purchase orders ───────────────────────────────────────────────────────────
-export async function createPurchaseOrder(payload: {
-  shopping_list_id?: number | null;
-  supplier_id?: number | null;
-  or_number?: string | null;
-  order_date?: string | null;
-  status?: "draft" | "ordered" | "received";
-  notes?: string | null;
-}): Promise<PurchaseOrder> {
-  return unwrap(await apiFetch("/api/fss/purchase-orders", {
-    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
-  }), "Failed to create PO.");
-}
 export async function listPurchaseOrders(shoppingListId?: number): Promise<PurchaseOrder[]> {
   const qs = shoppingListId ? `?shopping_list_id=${shoppingListId}` : "";
   return unwrap(await apiFetch(`/api/fss/purchase-orders${qs}`), "Failed to load purchase orders.");

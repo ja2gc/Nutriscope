@@ -175,42 +175,48 @@ class FoodServiceOpsTest extends TestCase
 
     // ===== PURCHASE ORDERS =====
 
-    public function test_fss_cannot_create_purchase_order(): void
+    public function test_fss_cannot_approve_shopping_list(): void
     {
         $supplier = Supplier::factory()->create();
-        $fsItem   = $this->makeFsItem();
+        $list = ShoppingList::create([
+            'rnd_user_id' => $this->rnd->id, 'name' => 'L', 'list_date' => '2026-06-10',
+            'list_type' => 'manual', 'status' => 'draft',
+        ]);
+        $list->items()->create([
+            'ingredient_name' => 'Bleach', 'qty' => 5, 'unit' => 'L', 'supplier_id' => $supplier->id,
+            'unit_price' => 50, 'total' => 250,
+        ]);
 
-        $response = $this->actingAs($this->fss)
-            ->postJson('/api/fss/purchase-orders', [
-                'supplier_id'  => $supplier->id,
-                'order_date'   => '2026-06-10',
-                'items'        => [
-                    ['fs_item_id' => $fsItem->id, 'qty' => 50, 'unit_price' => 25.00],
-                ],
-            ]);
-
-        $response->assertForbidden();
+        $this->actingAs($this->fss)
+            ->postJson("/api/fss/shopping-lists/{$list->id}/approve")
+            ->assertForbidden();
     }
 
-    public function test_rnd_can_create_purchase_order(): void
+    public function test_rnd_approving_list_creates_per_vendor_purchase_orders(): void
     {
         $supplier = Supplier::factory()->create();
         $fsItem   = $this->makeFsItem();
+        $list = ShoppingList::create([
+            'rnd_user_id' => $this->rnd->id, 'name' => 'L', 'list_date' => '2026-06-10',
+            'list_type' => 'manual', 'status' => 'draft',
+        ]);
+        $list->items()->create([
+            'fs_item_id' => $fsItem->id, 'ingredient_name' => $fsItem->name, 'qty' => 50, 'unit' => 'kg',
+            'supplier_id' => $supplier->id, 'unit_price' => 25.00, 'total' => 1250,
+        ]);
 
-        $response = $this->actingAs($this->rnd)
-            ->postJson('/api/fss/purchase-orders', [
-                'supplier_id'  => $supplier->id,
-                'order_date'   => '2026-06-10',
-                'items'        => [
-                    ['fs_item_id' => $fsItem->id, 'qty' => 50, 'unit_price' => 25.00],
-                ],
-            ]);
+        $this->actingAs($this->rnd)
+            ->postJson("/api/fss/shopping-lists/{$list->id}/approve")
+            ->assertCreated();
 
-        $response->assertCreated()
-            ->assertJsonPath('data.status', 'draft');
-
-        $this->assertDatabaseHas('purchase_orders', ['supplier_id' => $supplier->id]);
+        $this->assertDatabaseHas('purchase_orders', ['shopping_list_id' => $list->id, 'supplier_id' => $supplier->id]);
         $this->assertDatabaseHas('purchase_order_items', ['fs_item_id' => $fsItem->id]);
+        $this->assertDatabaseHas('shopping_lists', ['id' => $list->id, 'status' => 'finalized']);
+
+        // One-shot: re-approving is rejected.
+        $this->actingAs($this->rnd)
+            ->postJson("/api/fss/shopping-lists/{$list->id}/approve")
+            ->assertStatus(422);
     }
 
     public function test_fss_can_read_purchase_order(): void
@@ -284,17 +290,16 @@ class FoodServiceOpsTest extends TestCase
         $this->assertEquals(15.00, $inventory->quantity_in_stock);
     }
 
-    public function test_purchase_order_item_validation(): void
+    public function test_approving_empty_shopping_list_is_rejected(): void
     {
-        $response = $this->actingAs($this->rnd)
-            ->postJson('/api/fss/purchase-orders', [
-                'items' => [
-                    ['unit_price' => 25.00]
-                ]
-            ]);
+        $list = ShoppingList::create([
+            'rnd_user_id' => $this->rnd->id, 'name' => 'Empty', 'list_date' => '2026-06-10',
+            'list_type' => 'manual', 'status' => 'draft',
+        ]);
 
-        $response->assertUnprocessable()
-            ->assertJsonValidationErrors(['items.0.qty']);
+        $this->actingAs($this->rnd)
+            ->postJson("/api/fss/shopping-lists/{$list->id}/approve")
+            ->assertStatus(422);
     }
 
     // ===== SHOPPING LISTS =====
@@ -305,8 +310,17 @@ class FoodServiceOpsTest extends TestCase
             'is_active' => true,
             'status' => 'active',
             'rnd_user_id' => $this->rnd->id,
+            'week_start_date' => '2026-06-15', // Monday — covers the span below
         ]);
         $fsItem = $this->makeFsItem();
+        MenuCycleDay::create([
+            'menu_cycle_id' => $cycle->id,
+            'day_of_week' => 'Monday',
+            'meal_type' => 'lunch',
+            'fs_item_id' => $fsItem->id,
+            'quantity' => 1,
+            'estimate_population' => 10,
+        ]);
         Inventory::factory()->create([
             'fs_item_id'             => $fsItem->id,
             'quantity_in_stock'        => 5,
@@ -314,18 +328,17 @@ class FoodServiceOpsTest extends TestCase
 
         $response = $this->actingAs($this->fss)
             ->postJson('/api/fss/shopping-lists/generate', [
-                'menu_cycle_id' => $cycle->id,
                 'start_date'    => '2026-06-15', // Monday
-                'end_date'      => '2026-06-21', // Sunday (one full week)
+                'end_date'      => '2026-06-15', // the planned Monday → fully covered
             ]);
 
         $response->assertCreated()
-            ->assertJsonStructure(['data' => ['id', 'items']]);
+            ->assertJsonStructure(['data' => ['id', 'items', 'coverage_status', 'uncovered_dates']]);
 
-        $this->assertDatabaseHas('shopping_lists', ['status' => 'draft']);
+        $this->assertDatabaseHas('shopping_lists', ['status' => 'draft', 'coverage_status' => 'full']);
     }
 
-    public function test_generate_shopping_list_accepts_weekday_span_from_cycle_anchor(): void
+    public function test_generate_shopping_list_sums_a_tuesday_to_thursday_span(): void
     {
         $fsItem = $this->makeFsItem([
             'name' => 'Banana',
@@ -351,34 +364,67 @@ class FoodServiceOpsTest extends TestCase
         }
 
         $response = $this->actingAs($this->fss)->postJson('/api/fss/shopping-lists/generate', [
-            'menu_cycle_id' => $cycle->id,
-            'start_weekday' => 'Tuesday',
-            'end_weekday' => 'Thursday',
+            'start_date' => '2026-06-16', // Tuesday
+            'end_date'   => '2026-06-18', // Thursday
         ]);
 
         $response->assertCreated()
             ->assertJsonPath('data.period_start', '2026-06-16')
             ->assertJsonPath('data.period_end', '2026-06-18')
-            ->assertJsonPath('data.days_span', 3);
+            ->assertJsonPath('data.days_span', 3)
+            ->assertJsonPath('data.coverage_status', 'full');
 
         $item = collect($response->json('data.items'))->firstWhere('fs_item_id', $fsItem->id);
         $this->assertEqualsWithDelta(30, (float) $item['qty'], 0.01);
     }
 
-    public function test_generate_shopping_list_rejects_weekday_span_that_runs_backwards(): void
+    public function test_generate_shopping_list_rejects_end_date_before_start_date(): void
     {
-        $cycle = MenuCycle::factory()->create([
-            'rnd_user_id' => $this->rnd->id,
-            'week_start_date' => '2026-06-15',
-        ]);
-
         $response = $this->actingAs($this->fss)->postJson('/api/fss/shopping-lists/generate', [
-            'menu_cycle_id' => $cycle->id,
-            'start_weekday' => 'Thursday',
-            'end_weekday' => 'Tuesday',
+            'start_date' => '2026-06-18',
+            'end_date'   => '2026-06-16',
         ]);
 
-        $response->assertStatus(422);
+        $response->assertStatus(422)->assertJsonValidationErrors(['end_date']);
+    }
+
+    public function test_generate_friday_to_monday_span_pulls_each_day_from_its_own_cycle(): void
+    {
+        $itemFri = $this->makeFsItem(['name' => 'FriItem', 'base_unit' => 'piece', 'purchase_unit' => 'piece', 'purchase_price' => 1, 'units_per_purchase' => 1]);
+        $itemMon = $this->makeFsItem(['name' => 'MonItem', 'base_unit' => 'piece', 'purchase_unit' => 'piece', 'purchase_price' => 1, 'units_per_purchase' => 1]);
+        Inventory::factory()->create(['fs_item_id' => $itemFri->id, 'quantity_in_stock' => 0, 'unit' => 'piece']);
+        Inventory::factory()->create(['fs_item_id' => $itemMon->id, 'quantity_in_stock' => 0, 'unit' => 'piece']);
+
+        // Week N cycle serves Friday; week N+1 cycle serves Monday.
+        $weekN = MenuCycle::factory()->create(['rnd_user_id' => $this->rnd->id, 'week_start_date' => '2026-06-15']);
+        MenuCycleDay::create(['menu_cycle_id' => $weekN->id, 'day_of_week' => 'Friday', 'meal_type' => 'lunch', 'fs_item_id' => $itemFri->id, 'quantity' => 1, 'estimate_population' => 10]);
+        $weekNext = MenuCycle::factory()->create(['rnd_user_id' => $this->rnd->id, 'week_start_date' => '2026-06-22']);
+        MenuCycleDay::create(['menu_cycle_id' => $weekNext->id, 'day_of_week' => 'Monday', 'meal_type' => 'lunch', 'fs_item_id' => $itemMon->id, 'quantity' => 1, 'estimate_population' => 10]);
+
+        // Fri 19 → Mon 22: Fri from week N, Mon from week N+1, Sat/Sun unplanned.
+        $response = $this->actingAs($this->fss)->postJson('/api/fss/shopping-lists/generate', [
+            'start_date' => '2026-06-19',
+            'end_date'   => '2026-06-22',
+        ]);
+
+        $response->assertCreated()
+            ->assertJsonPath('data.coverage_status', 'partial');
+
+        $items = collect($response->json('data.items'));
+        $this->assertEqualsWithDelta(10, (float) $items->firstWhere('fs_item_id', $itemFri->id)['qty'], 0.01);
+        $this->assertEqualsWithDelta(10, (float) $items->firstWhere('fs_item_id', $itemMon->id)['qty'], 0.01);
+        $this->assertEqualsCanonicalizing(['2026-06-20', '2026-06-21'], $response->json('data.uncovered_dates'));
+    }
+
+    public function test_generate_hard_blocks_when_entire_span_uncovered(): void
+    {
+        $response = $this->actingAs($this->fss)->postJson('/api/fss/shopping-lists/generate', [
+            'start_date' => '2030-01-01',
+            'end_date'   => '2030-01-03',
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonPath('uncovered_dates', ['2030-01-01', '2030-01-02', '2030-01-03']);
     }
 
     public function test_fss_can_list_shopping_lists(): void
@@ -419,11 +465,12 @@ class FoodServiceOpsTest extends TestCase
             'unit'                     => 'kg',
         ]);
 
-        // 2. Create active menu cycle
+        // 2. Create active menu cycle anchored to the week of the generated span
         $cycle = MenuCycle::factory()->create([
             'is_active'   => true,
             'status'      => 'active',
             'rnd_user_id' => $this->rnd->id,
+            'week_start_date' => '2026-06-15', // Monday — covers 2026-06-15
         ]);
 
         // 3. Create a recipe using fsItem1
@@ -461,7 +508,6 @@ class FoodServiceOpsTest extends TestCase
         // 5. Generate shopping list suggestion for a single Monday.
         $response = $this->actingAs($this->fss)
             ->postJson('/api/fss/shopping-lists/generate', [
-                'menu_cycle_id' => $cycle->id,
                 'start_date'    => '2026-06-15', // Monday
                 'end_date'      => '2026-06-15', // same Monday
             ]);
@@ -847,7 +893,7 @@ class FoodServiceOpsTest extends TestCase
         ]);
         Inventory::factory()->create(['fs_item_id' => $fs->id, 'quantity_in_stock' => 0, 'unit' => 'g']);
 
-        $cycle = MenuCycle::factory()->create(['rnd_user_id' => $this->rnd->id]);
+        $cycle = MenuCycle::factory()->create(['rnd_user_id' => $this->rnd->id, 'week_start_date' => '2026-06-15']);
         MenuCycleDay::create([
             'menu_cycle_id' => $cycle->id, 'day_of_week' => 'Monday',
             'meal_type' => 'lunch', 'fs_item_id' => $fs->id, 'quantity' => 1300,
@@ -855,7 +901,7 @@ class FoodServiceOpsTest extends TestCase
         ]);
 
         $response = $this->actingAs($this->fss)->postJson('/api/fss/shopping-lists/generate', [
-            'menu_cycle_id' => $cycle->id, 'start_date' => '2026-06-15', 'end_date' => '2026-06-15', // a Monday
+            'start_date' => '2026-06-15', 'end_date' => '2026-06-15', // a Monday
         ]);
 
         $response->assertCreated();
@@ -880,13 +926,13 @@ class FoodServiceOpsTest extends TestCase
             'unit_price' => 0.05, 'total' => 100, 'purchase_qty' => 2, 'purchase_unit' => 'kg', 'purchase_price' => 50,
         ]);
 
-        // generatePos is RND-only; FSS gets 403
+        // approve is RND-only; FSS gets 403
         $this->actingAs($this->fss)
-            ->postJson("/api/fss/shopping-lists/{$list->id}/generate-pos")
+            ->postJson("/api/fss/shopping-lists/{$list->id}/approve")
             ->assertForbidden();
 
         // RND gets 201
-        $response = $this->actingAs($this->rnd)->postJson("/api/fss/shopping-lists/{$list->id}/generate-pos");
+        $response = $this->actingAs($this->rnd)->postJson("/api/fss/shopping-lists/{$list->id}/approve");
         $response->assertCreated();
 
         $this->assertDatabaseHas('purchase_order_items', [
@@ -1005,12 +1051,12 @@ class FoodServiceOpsTest extends TestCase
             ->assertOk();
     }
 
-    public function test_fss_gets_403_on_insights_routes(): void
+    public function test_insights_routes_respond_for_fss(): void
     {
-        // Insights routes removed entirely — FSS gets 404 (not just 403)
-        $this->actingAs($this->fss)->getJson('/api/fss/insights/spend-by-supplier')->assertNotFound();
-        $this->actingAs($this->fss)->getJson('/api/fss/insights/cost-per-head')->assertNotFound();
-        $this->actingAs($this->fss)->getJson('/api/fss/insights/consumption')->assertNotFound();
+        // Insights are read-only analytics, re-homed under the budget page (both roles).
+        $this->actingAs($this->fss)->getJson('/api/fss/insights/spend-by-supplier')->assertOk();
+        $this->actingAs($this->fss)->getJson('/api/fss/insights/cost-per-head')->assertOk();
+        $this->actingAs($this->fss)->getJson('/api/fss/insights/consumption')->assertOk();
     }
 
     public function test_fss_gets_404_on_deleted_cleaning_log_routes(): void
@@ -1019,19 +1065,10 @@ class FoodServiceOpsTest extends TestCase
         $this->actingAs($this->fss)->postJson('/api/fss/cleaning-logs', ['item_name' => 'x'])->assertNotFound();
     }
 
-    public function test_rnd_can_create_po_and_shopping_list_item(): void
+    public function test_rnd_can_add_shopping_list_item(): void
     {
-        // PO create
         $supplier = Supplier::factory()->create();
         $fsItem   = $this->makeFsItem();
-
-        $this->actingAs($this->rnd)
-            ->postJson('/api/fss/purchase-orders', [
-                'supplier_id' => $supplier->id,
-                'order_date'  => '2026-06-10',
-                'items'       => [['fs_item_id' => $fsItem->id, 'qty' => 5, 'unit_price' => 10.00]],
-            ])
-            ->assertCreated();
 
         // Shopping list item add
         $list = ShoppingList::create([

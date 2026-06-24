@@ -58,6 +58,11 @@ class BudgetReportGenerator implements ReportGenerator
             // Remaining is a CASH question: allocation minus money disbursed (POs),
             // not allocation minus food-served value (different axis — see §5-D).
             'remaining' => round($allocated - $series['cash_flow'], 2),
+            // Yearly-allocation adjustment ledger (approved top-ups / corrections) for
+            // audit traceability — both Admin and RND see this in the report.
+            'adjustments'          => $budget->adjustments()->with('creator:id,name')->get(),
+            'adjustments_total'    => round($budget->adjustmentsTotal(), 2),
+            'effective_allocation' => round($budget->effectiveAllocation(), 2),
             'period_label' => $budget->period_start
                 ? Carbon::parse($budget->period_start)->format('M j, Y') . ' – ' .
                   optional($budget->period_end ? Carbon::parse($budget->period_end) : null)?->format('M j, Y')

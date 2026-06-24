@@ -71,6 +71,38 @@ class BudgetController extends Controller
         // budget graph chip; pending until a served population is recorded.
         $summary['procurement_per_head'] = \App\Services\FSS\ProcurementCostEfficiencyService::actualForBudget($budget, $start, $end);
 
+        // Yearly allocation tracking: the spendable pot is the base allocation PLUS the
+        // net of logged adjustments (approved top-ups − corrections), auto-deducted by
+        // every received purchase order in that calendar year. Base stays intact so the
+        // ledger preserves historical accuracy.
+        $yearStart = $end->copy()->startOfYear();
+        $yearEnd   = $end->copy()->endOfYear();
+        $yearSpent = (float) PurchaseOrder::where('status', 'received')
+            ->whereRaw('COALESCE(received_date, order_date) BETWEEN ? AND ?', [$yearStart->toDateString(), $yearEnd->toDateString()])
+            ->sum('total_amount');
+        $base      = (float) ($budget->allocated_amount ?? 0);
+        $adjTotal  = $budget->adjustmentsTotal();
+        $allocated = $base + $adjTotal;
+        $summary['year'] = [
+            'year'              => (int) $end->year,
+            'base_allocated'    => round($base, 2),
+            'adjustments_total' => round($adjTotal, 2),
+            'allocated'         => round($allocated, 2),
+            'spent'             => round($yearSpent, 2),
+            'remaining'         => round($allocated - $yearSpent, 2),
+        ];
+
+        $summary['adjustments'] = $budget->adjustments()->with('creator:id,name')->get()->map(fn ($a) => [
+            'id'              => $a->id,
+            'type'            => $a->type,
+            'amount'          => (float) $a->amount,
+            'signed_amount'   => $a->signedAmount(),
+            'reason_category' => $a->reason_category,
+            'reason'          => $a->reason,
+            'created_by'      => $a->creator?->name,
+            'created_at'      => $a->created_at?->toDateTimeString(),
+        ]);
+
         return response()->json(['data' => $summary]);
     }
 
@@ -89,6 +121,42 @@ class BudgetController extends Controller
     {
         $budget->delete();
         return response()->json(null, 204);
+    }
+
+    /**
+     * Log an addition (approved top-up) or deduction (correction) to a budget's yearly
+     * allocation. The base allocated_amount is never mutated — the effective pot is base
+     * + Σ adjustments — so the ledger keeps a full, auditable history (who, when, why).
+     */
+    public function storeAdjustment(Request $request, Budget $budget): JsonResponse
+    {
+        $data = $request->validate([
+            'type'            => ['required', 'in:addition,deduction'],
+            'amount'          => ['required', 'numeric', 'min:0.01'],
+            'reason_category' => ['nullable', 'string', 'max:255'],
+            // Free-text reason is required when the user picks "Other".
+            'reason'          => ['nullable', 'string', 'max:1000', 'required_if:reason_category,Other'],
+        ]);
+
+        $adjustment = $budget->adjustments()->create([
+            'type'            => $data['type'],
+            'amount'          => $data['amount'],
+            'reason_category' => $data['reason_category'] ?? null,
+            'reason'          => $data['reason'] ?? null,
+            'created_by'      => Auth::id(),
+        ]);
+
+        return response()->json(['data' => [
+            'id'                => $adjustment->id,
+            'type'              => $adjustment->type,
+            'amount'            => (float) $adjustment->amount,
+            'signed_amount'     => $adjustment->signedAmount(),
+            'reason_category'   => $adjustment->reason_category,
+            'reason'            => $adjustment->reason,
+            'created_by'        => Auth::user()?->name,
+            'created_at'        => $adjustment->created_at?->toDateTimeString(),
+            'effective_allocation' => round($budget->effectiveAllocation(), 2),
+        ]], 201);
     }
 
     public function storeDailyLog(Request $request, Budget $budget): JsonResponse

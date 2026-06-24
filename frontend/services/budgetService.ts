@@ -52,7 +52,23 @@ export interface BudgetSummary {
     procurement_cost: number;
     served_population: number;
   };
+  year: { year: number; base_allocated: number; adjustments_total: number; allocated: number; spent: number; remaining: number };
+  adjustments: BudgetAdjustment[];
 }
+
+export interface BudgetAdjustment {
+  id: number;
+  type: "addition" | "deduction";
+  amount: number;
+  signed_amount: number;
+  reason_category: string | null;
+  reason: string | null;
+  created_by: string | null;
+  created_at: string | null;
+}
+
+/** Predefined adjustment reasons; "Other" reveals a free-text field. */
+export const ADJUSTMENT_REASONS = ["Request for additional funds", "Budget correction", "Other"] as const;
 
 async function unwrap<T>(res: Response, fallback: string): Promise<T> {
   const data = await res.json().catch(() => ({}));
@@ -78,6 +94,13 @@ export async function getBudgetSummary(id: number, opts: { start?: string; end?:
   if (opts.end) qs.set("end", opts.end);
   if (opts.granularity) qs.set("granularity", opts.granularity);
   return unwrap(await apiFetch(`/api/fss/budgets/${id}/summary?${qs}`), "Failed to load summary.");
+}
+export async function addBudgetAdjustment(id: number, payload: {
+  type: "addition" | "deduction"; amount: number; reason_category?: string | null; reason?: string | null;
+}): Promise<BudgetAdjustment> {
+  return unwrap(await apiFetch(`/api/fss/budgets/${id}/adjustments`, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
+  }), "Failed to add adjustment.");
 }
 export async function addDailyLog(id: number, payload: { log_date: string; spent: number; notes?: string }): Promise<void> {
   const res = await apiFetch(`/api/fss/budgets/${id}/daily-logs`, {

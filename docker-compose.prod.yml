@@ -1,6 +1,6 @@
 # Production overlay. Run merged with the base file:
 #   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
-# The base file provides mysql, redis, paddleocr, and omr; this overlay adds the
+# The base file provides mysql and redis; this overlay adds the
 # application containers and publishes the frontend port for the host nginx.
 services:
   backend:
@@ -15,7 +15,7 @@ services:
       mysql:
         condition: service_healthy
       redis:
-        condition: service_started
+        condition: service_healthy
     networks:
       - nutriscope_net
 

@@ -12,7 +12,6 @@ class StoreShoppingListRequest extends FormRequest
     {
         return [
             'name'          => ['required', 'string', 'max:255'],
-            'menu_cycle_id' => ['nullable', 'integer', 'exists:menu_cycles,id'],
             'list_date'     => ['nullable', 'date'],
             'list_type'     => ['nullable', 'string', 'in:manual,suggested'],
             'status'        => ['nullable', 'string', 'in:draft,finalized'],

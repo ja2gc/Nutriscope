@@ -18,6 +18,7 @@ class MenuCycleResource extends JsonResource
             'week_start_date'         => $this->week_start_date?->toDateString(),
             'status'                  => $this->status,
             'activation_date'         => $this->activation_date?->toDateString(),
+            'days_count'              => $this->whenCounted('days'),
             'days'                    => $this->whenLoaded('days', fn () => $this->days->map(fn ($d) => [
                 'id'                => $d->id,
                 'day_of_week'       => $d->day_of_week,

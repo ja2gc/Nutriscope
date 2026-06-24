@@ -20,6 +20,24 @@ import {
 const peso = (n: number) => `₱${n.toFixed(2)}`;
 const cellKey = (d: Day, m: Meal) => `${d}|${m}`;
 
+// Week label + Past/Current/Upcoming tag for a cycle, from its week_start_date.
+const weekRange = (start: string | null, days = 7) => {
+  if (!start) return "—";
+  const s = new Date(`${start}T00:00:00`);
+  const e = new Date(s); e.setDate(e.getDate() + days - 1);
+  const fmt = (d: Date) => d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  return `${fmt(s)} – ${fmt(e)}`;
+};
+const temporal = (start: string | null, days = 7): { label: string; cls: string } => {
+  if (!start) return { label: "Unscheduled", cls: "bg-zinc-100 text-zinc-500 border-zinc-200" };
+  const s = new Date(`${start}T00:00:00`);
+  const e = new Date(s); e.setDate(e.getDate() + days - 1);
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  if (today < s) return { label: "Upcoming", cls: "bg-sky-50 text-sky-700 border-sky-200" };
+  if (today > e) return { label: "Past", cls: "bg-zinc-100 text-zinc-500 border-zinc-200" };
+  return { label: "Current week", cls: "bg-emerald-50 text-emerald-700 border-emerald-200" };
+};
+
 // A cell holds EITHER a recipe or a ready-to-serve fs_item. recipe_name is the
 // display label for whichever one is set. servings_override is the ACTUAL servings
 // for this menu-cycle slot (set via the food panel) — overrides the day's headcount
@@ -233,20 +251,35 @@ function CycleList({ readOnly, onOpen, onNew }: { readOnly: boolean; onOpen: (id
           ) : (
             <table className="w-full text-xs">
               <thead className="bg-zinc-50 border-b border-zinc-100">
-                <tr>{["Cycle", "Status", "Actions"].map((h) => (
+                <tr>{["Cycle", "Week", "When", "Status", "Plan", "Actions"].map((h) => (
                   <th key={h} className="px-4 py-3 text-left text-[10px] font-bold text-zinc-500 uppercase tracking-wider">{h}</th>
                 ))}</tr>
               </thead>
               <tbody className="divide-y divide-zinc-100">
-                {cycles.map((c) => (
-                  <tr key={c.id} className="hover:bg-zinc-50/60 transition-colors">
+                {cycles.map((c) => {
+                  const when = temporal(c.week_start_date);
+                  return (
+                  <tr key={c.id} className={`hover:bg-zinc-50/60 transition-colors ${c.is_active ? "bg-emerald-50/30" : ""}`}>
                     <td className="px-4 py-3">
-                      <button onClick={() => onOpen(c.id)} className="font-semibold text-emerald-700 hover:underline cursor-pointer">{c.name}</button>
+                      <button onClick={() => onOpen(c.id)} className="font-semibold text-emerald-700 hover:underline cursor-pointer flex items-center gap-1.5">
+                        {c.is_active && <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" title="Active cycle" />}{c.name}
+                      </button>
+                    </td>
+                    <td className="px-4 py-3 text-zinc-500 tabular-nums">{weekRange(c.week_start_date)}</td>
+                    <td className="px-4 py-3">
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${when.cls}`}>{when.label}</span>
                     </td>
                     <td className="px-4 py-3">
                       <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${c.is_active ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-zinc-100 text-zinc-500 border-zinc-200"}`}>
                         {c.is_active ? "Active" : c.status}
                       </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      {(c.days_count ?? 0) === 0 ? (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-600"><AlertTriangle className="h-3 w-3" /> Empty</span>
+                      ) : (
+                        <span className="text-[10px] font-semibold text-zinc-500">{c.days_count} slot{c.days_count === 1 ? "" : "s"}</span>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1">
@@ -261,7 +294,8 @@ function CycleList({ readOnly, onOpen, onNew }: { readOnly: boolean; onOpen: (id
                       </div>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           )}
