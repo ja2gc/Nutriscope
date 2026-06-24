@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { Logo } from "@/components/ui/Logo";
+import { getCycleStepHref, getPlaceholderStepHref, type NcpStep } from "@/lib/ncpWorkflow";
 import {
   Compass,
   CookingPot,
@@ -17,7 +18,6 @@ import {
   ChevronRight,
   ChevronDown,
   Users,
-  FileText,
   History,
   Megaphone
 } from "lucide-react";
@@ -36,11 +36,15 @@ export function Sidebar({ open = false, onClose }: { open?: boolean; onClose?: (
   const activePatientId = ncpMatch ? ncpMatch[1] : null;
   const activeNcpId = ncpMatch ? ncpMatch[3] : null;
 
-  // NCP step links only resolve to a real step page when we're already inside an
-  // NCP cycle; otherwise they'd point at /ncp/select-patient/... (a dead end), so
-  // send the user to the patient picker to choose a patient + cycle first.
-  const inNcp = Boolean(activePatientId && activeNcpId);
-  const stepHref = (step: string) => inNcp ? `/ncp/${activePatientId}/${step}/${activeNcpId}` : "/ncp/patients";
+  const hasRealNcpCycle = Boolean(
+    activePatientId &&
+    activeNcpId &&
+    activePatientId !== "select-patient" &&
+    activeNcpId !== "select-ncp"
+  );
+  const stepHref = (step: NcpStep) => hasRealNcpCycle
+    ? getCycleStepHref(activePatientId!, step, activeNcpId!)
+    : getPlaceholderStepHref(step);
 
   // Automatically expand relevant dropdown groups on mount if we are on their routes
   useEffect(() => {

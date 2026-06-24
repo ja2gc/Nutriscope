@@ -19,9 +19,10 @@ import {
   fetchAttachments,
   getAttachmentFileUrl,
 } from "@/services/assessmentService";
-import { Button } from "@/components/ui/Button";
+import { getNcpStepState, type NcpStep, type NcpStepState } from "@/lib/ncpWorkflow";
 
 type TabKey = "overview" | "adime-records" | "attachments";
+const NCP_STEPS: NcpStep[] = ["assessment", "diagnosis", "intervention", "monitoring"];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -124,6 +125,33 @@ function ConfirmBanner({
           {loading ? "Deleting…" : "Delete"}
         </button>
       </div>
+    </div>
+  );
+}
+
+function StepAction({ state, primary = false }: { state: NcpStepState; primary?: boolean }) {
+  const enabledClass = primary
+    ? "bg-zinc-950 text-white hover:bg-zinc-800 border-zinc-950"
+    : "border-zinc-200 text-zinc-700 hover:bg-zinc-50";
+
+  if (state.available) {
+    return (
+      <Link
+        href={state.href}
+        className={`inline-flex min-h-9 items-center justify-center px-3 py-2 text-[10px] font-bold uppercase tracking-wider rounded-lg border transition-colors ${enabledClass}`}
+      >
+        {state.label}
+      </Link>
+    );
+  }
+
+  return (
+    <div
+      title={state.reason ?? undefined}
+      className="min-h-9 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-center text-[10px] font-bold uppercase tracking-wider text-zinc-400 cursor-not-allowed"
+    >
+      <span className="block">{state.label}</span>
+      {state.reason && <span className="mt-1 block normal-case tracking-normal font-semibold text-[9px] leading-tight">{state.reason}</span>}
     </div>
   );
 }
@@ -368,18 +396,13 @@ export default function PatientProfilePage({
 
             {latestRecord ? (
               <div className="grid grid-cols-2 gap-2 pt-1">
-                <Link href={`/ncp/${patient.id}/assessment/${latestRecord.id}`} className="inline-flex items-center justify-center px-3 py-2 text-[10px] font-bold uppercase tracking-wider rounded-lg bg-zinc-950 text-white hover:bg-zinc-800 transition-colors">
-                  Assessment
-                </Link>
-                <Link href={`/ncp/${patient.id}/diagnosis/${latestRecord.id}`} className="inline-flex items-center justify-center px-3 py-2 text-[10px] font-bold uppercase tracking-wider rounded-lg border border-zinc-200 text-zinc-700 hover:bg-zinc-50 transition-colors">
-                  Diagnosis
-                </Link>
-                <Link href={`/ncp/${patient.id}/intervention/${latestRecord.id}`} className="inline-flex items-center justify-center px-3 py-2 text-[10px] font-bold uppercase tracking-wider rounded-lg border border-zinc-200 text-zinc-700 hover:bg-zinc-50 transition-colors">
-                  Intervention
-                </Link>
-                <Link href={`/ncp/${patient.id}/monitoring/${latestRecord.id}`} className="inline-flex items-center justify-center px-3 py-2 text-[10px] font-bold uppercase tracking-wider rounded-lg border border-zinc-200 text-zinc-700 hover:bg-zinc-50 transition-colors">
-                  Monitoring
-                </Link>
+                {NCP_STEPS.map((step) => (
+                  <StepAction
+                    key={step}
+                    state={getNcpStepState(latestRecord, step)}
+                    primary={step === "assessment"}
+                  />
+                ))}
               </div>
             ) : (
               <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-zinc-500">
@@ -676,19 +699,12 @@ export default function PatientProfilePage({
                     {/* Quick nav buttons */}
                     <div className="px-5.5 pb-5.5">
                       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
-                        {[
-                          { label: "Assessment",  href: `/ncp/${patient.id}/assessment/${record.id}` },
-                          { label: "Diagnosis",   href: `/ncp/${patient.id}/diagnosis/${record.id}` },
-                          { label: "Intervention",href: `/ncp/${patient.id}/intervention/${record.id}` },
-                          { label: "Monitoring",  href: `/ncp/${patient.id}/monitoring/${record.id}` },
-                        ].map(({ label, href }) => (
-                          <Link
-                            key={label}
-                            href={href}
-                            className="inline-flex items-center justify-center gap-2 px-3 py-2 text-[10px] font-bold uppercase tracking-wider rounded-lg border border-zinc-200 text-zinc-700 hover:bg-zinc-50 transition-colors"
-                          >
-                            {label}
-                          </Link>
+                        {NCP_STEPS.map((step) => (
+                          <StepAction
+                            key={step}
+                            state={getNcpStepState(record, step)}
+                            primary={step === "assessment"}
+                          />
                         ))}
                       </div>
                     </div>
