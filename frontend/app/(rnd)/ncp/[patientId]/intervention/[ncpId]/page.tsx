@@ -2,7 +2,7 @@
 
 import React, { use, useEffect, useState, useCallback } from "react";
 import Link from "next/link";
-import { Salad, User, Settings2, CheckCircle2 } from "lucide-react";
+import { Salad, User, Settings2, CheckCircle2, Lock } from "lucide-react";
 import {
   fetchIntervention, createIntervention, updateIntervention, autofillIntervention,
   Intervention,
@@ -10,6 +10,7 @@ import {
 import { EDUCATION_TEMPLATES } from "@/lib/educationTemplates";
 import { fetchAssessment } from "@/services/assessmentService";
 import { fetchPatientById } from "@/services/patientService";
+import { fetchDiagnoses } from "@/services/diagnosisService";
 import {
   autofillPrescription, GOAL_MICRO_FLAGS, Prescription, PatientMetrics, ACTIVITY_FACTORS, microKeys, microLimitsFromRx,
 } from "@/lib/nutritionCalculations";
@@ -75,6 +76,8 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
   // Unsaved-changes tracking: true once the RND edits a field, false after a
   // successful save or a fresh load. Drives the "save before leaving?" guard.
   const [dirty, setDirty]                       = useState(false);
+  const [workflowLoading, setWorkflowLoading]   = useState(true);
+  const [workflowBlock, setWorkflowBlock]       = useState<string | null>(null);
   const [patientMetrics, setPatientMetrics]     = useState<PatientMetrics | null>(null);
   const [foodDislikes, setFoodDislikes]         = useState<string[]>([]);
   const [allergens, setAllergens]               = useState<string[]>([]);
@@ -116,14 +119,25 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
   }, [dirty]);
 
   const loadMetrics = useCallback(async () => {
+    setWorkflowLoading(true);
     try {
-      const [assessment, patient] = await Promise.allSettled([
+      const [assessment, patient, diagnoses] = await Promise.allSettled([
         fetchAssessment(ncpId),
         fetchPatientById(patientId),
+        fetchDiagnoses(ncpId),
       ]);
 
       const a = assessment.status === "fulfilled" ? assessment.value : null;
       const p = patient.status === "fulfilled" ? patient.value : null;
+      const hasDiagnosis = diagnoses.status === "fulfilled" && diagnoses.value.length > 0;
+
+      if (!a) {
+        setWorkflowBlock("Save the assessment before starting intervention.");
+      } else if (!hasDiagnosis) {
+        setWorkflowBlock("Save at least one diagnosis before starting intervention.");
+      } else {
+        setWorkflowBlock(null);
+      }
 
       // Derive age from patient DOB
       let ageYears = 30;
@@ -161,6 +175,7 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
         setAllergens(a.allergies.map((al: string) => al.toLowerCase()));
       }
     } catch { /* assessment may not exist yet */ }
+    finally { setWorkflowLoading(false); }
   }, [ncpId, patientId]);
 
   useEffect(() => {
@@ -303,7 +318,32 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
     ?.stages?.find((s) => s.value === intervention?.disease_stage)?.label;
 
   if (isPlaceholder) return <PlaceholderState />;
-  if (loading) return (
+  if (!loading && !workflowLoading && workflowBlock) {
+    const nextHref = workflowBlock.includes("diagnosis")
+      ? `/ncp/${patientId}/diagnosis/${ncpId}`
+      : `/ncp/${patientId}/assessment/${ncpId}`;
+
+    return (
+      <div className="space-y-6 font-sans">
+        <div className="flex items-center gap-2 text-xs font-semibold text-zinc-400 select-none">
+          <Link href="/ncp/patients" className="hover:text-emerald-700 transition-colors">Directory</Link>
+          <span className="text-zinc-300">/</span>
+          <span className="text-zinc-600 font-bold">Intervention</span>
+        </div>
+        <div className="bg-white border border-zinc-200 rounded-2xl p-12 text-center max-w-2xl mx-auto shadow-sm">
+          <div className="p-3.5 bg-zinc-50 border border-zinc-200 rounded-2xl w-fit mx-auto text-zinc-400">
+            <Lock className="h-8 w-8" />
+          </div>
+          <h3 className="text-sm font-bold text-zinc-800 mt-4 uppercase tracking-wider">Prior Step Required</h3>
+          <p className="text-xs text-zinc-500 mt-2 leading-relaxed">{workflowBlock}</p>
+          <Link href={nextHref} className="inline-flex mt-6 px-4 py-2.5 bg-zinc-950 hover:bg-zinc-900 text-white text-xs font-bold uppercase tracking-wider rounded-lg transition-colors">
+            Continue Required Step
+          </Link>
+        </div>
+      </div>
+    );
+  }
+  if (loading || workflowLoading) return (
     <div className="flex items-center justify-center h-48 text-xs text-zinc-400">Loading intervention…</div>
   );
 

@@ -5,7 +5,7 @@ import Link from "next/link";
 import {
   Stethoscope, Sparkles, User, ChevronRight, Heart,
   Plus, Trash2, Pencil, AlertTriangle, CheckCircle2,
-  RefreshCw, X, CheckCheck,
+  RefreshCw, X, CheckCheck, Lock,
 } from "lucide-react";
 import ButtonFilterGroup from "@/components/ui/ButtonFilterGroup";
 import { fetchPatientById, Patient } from "@/services/patientService";
@@ -301,6 +301,7 @@ export default function NcpDiagnosisPage({
   const [aiLoading, setAiLoading] = useState(false);
   const [aiDismissed, setAiDismissed] = useState<Set<number>>(new Set());
   const [assessmentIbw, setAssessmentIbw] = useState<number | null>(null);
+  const [hasAssessment, setHasAssessment] = useState(false);
 
   const loadData = useCallback(async () => {
     if (isPlaceholder) { setLoading(false); return; }
@@ -314,8 +315,11 @@ export default function NcpDiagnosisPage({
       if (p.status === "fulfilled") setPatient(p.value);
       if (d.status === "fulfilled") setDiagnoses(d.value);
       if (a.status === "fulfilled") {
+        setHasAssessment(true);
         const ibw = a.value.ibw_percentage;
         setAssessmentIbw(typeof ibw === "number" ? ibw : ibw ? Number(ibw) : null);
+      } else {
+        setHasAssessment(false);
       }
     } catch {
       // silent
@@ -497,6 +501,30 @@ export default function NcpDiagnosisPage({
           <span>Directory</span><ChevronRight className="h-3 w-3" /><span>Loading...</span>
         </div>
         <div className="space-y-4">{[1, 2, 3].map(i => <div key={i} className="h-16 bg-zinc-100 rounded-xl animate-pulse" />)}</div>
+      </div>
+    );
+  }
+
+  if (!hasAssessment) {
+    return (
+      <div className="space-y-6 font-sans">
+        <div className="flex items-center gap-2 text-xs font-semibold text-zinc-400 select-none">
+          <Link href="/ncp/patients" className="hover:text-emerald-700 transition-colors">Directory</Link>
+          <ChevronRight className="h-3 w-3" />
+          <span className="text-zinc-600 font-bold">Diagnosis</span>
+        </div>
+        <div className="bg-white border border-zinc-200 rounded-2xl p-12 text-center max-w-2xl mx-auto shadow-sm">
+          <div className="p-3.5 bg-zinc-50 border border-zinc-200 rounded-2xl w-fit mx-auto text-zinc-400">
+            <Lock className="h-8 w-8" />
+          </div>
+          <h3 className="text-sm font-bold text-zinc-800 mt-4 uppercase tracking-wider">Assessment Required</h3>
+          <p className="text-xs text-zinc-500 mt-2 leading-relaxed">
+            Save the nutrition assessment before starting diagnosis. You can return here after Assessment is saved.
+          </p>
+          <Link href={`/ncp/${patientId}/assessment/${ncpId}`} className="inline-flex mt-6 px-4 py-2.5 bg-zinc-950 hover:bg-zinc-900 text-white text-xs font-bold uppercase tracking-wider rounded-lg transition-colors">
+            Go to Assessment
+          </Link>
+        </div>
       </div>
     );
   }

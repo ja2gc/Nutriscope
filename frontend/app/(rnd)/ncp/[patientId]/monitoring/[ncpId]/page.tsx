@@ -2,7 +2,7 @@
 
 import React, { use, useEffect, useState, useCallback } from "react";
 import Link from "next/link";
-import { Activity, User, Calendar } from "lucide-react";
+import { Activity, User, Calendar, Lock } from "lucide-react";
 import EncounterLog from "./_components/EncounterLog";
 import GoalProgressTracker from "./_components/GoalProgressTracker";
 import LogVisitForm from "./_components/LogVisitForm";
@@ -20,6 +20,7 @@ import {
 } from "@/services/monitoringService";
 import { fetchAssessment, Assessment } from "@/services/assessmentService";
 import { fetchIntervention, Intervention } from "@/services/interventionService";
+import { fetchDiagnoses } from "@/services/diagnosisService";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -72,24 +73,41 @@ export default function NcpMonitoringPage({
   const [showForm, setShowForm]             = useState(false);
   const [activeTab, setActiveTab]           = useState<Tab>("log");
   const [error, setError]                   = useState<string | null>(null);
+  const [workflowBlock, setWorkflowBlock]   = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
     if (isPlaceholder) { setLoading(false); return; }
     setLoading(true);
     setError(null);
     try {
-      const [monitoringData, assessmentData, interventionData, planData] = await Promise.all([
+      const [monitoringData, assessmentData, diagnosisData, interventionData, planData] = await Promise.allSettled([
         fetchMonitorings(ncpId),
         fetchAssessment(ncpId),
+        fetchDiagnoses(ncpId),
         fetchIntervention(ncpId),
         fetchMonitoringPlan(ncpId).catch(() => null),
       ]);
-      setEntries(monitoringData);
-      const a = assessmentData as AssessmentWithLabs;
-      setAssessment(a);
-      setBiochemicalData(a.biochemical_data ?? null);
-      setIntervention(interventionData);
-      setPlan(planData);
+      if (monitoringData.status === "fulfilled") setEntries(monitoringData.value);
+      if (assessmentData.status === "fulfilled") {
+        const a = assessmentData.value as AssessmentWithLabs;
+        setAssessment(a);
+        setBiochemicalData(a.biochemical_data ?? null);
+      }
+      const hasAssessment = assessmentData.status === "fulfilled";
+      const hasDiagnosis = diagnosisData.status === "fulfilled" && diagnosisData.value.length > 0;
+      const loadedIntervention = interventionData.status === "fulfilled" ? interventionData.value : null;
+      setIntervention(loadedIntervention);
+      setPlan(planData.status === "fulfilled" ? planData.value : null);
+
+      if (!hasAssessment) {
+        setWorkflowBlock("Save the assessment before monitoring can begin.");
+      } else if (!hasDiagnosis) {
+        setWorkflowBlock("Save at least one diagnosis before monitoring can begin.");
+      } else if (!loadedIntervention) {
+        setWorkflowBlock("Monitoring starts on follow-up or second visit after the care plan is saved.");
+      } else {
+        setWorkflowBlock(null);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load monitoring data.");
     } finally {
@@ -134,6 +152,37 @@ export default function NcpMonitoringPage({
               Go to Patients Directory
             </Link>
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!loading && workflowBlock) {
+    const nextHref = !assessment
+      ? `/ncp/${patientId}/assessment/${ncpId}`
+      : workflowBlock.includes("diagnosis")
+        ? `/ncp/${patientId}/diagnosis/${ncpId}`
+        : `/ncp/${patientId}/intervention/${ncpId}`;
+
+    return (
+      <div className="space-y-6 font-sans">
+        <Breadcrumb />
+        <div className="bg-white border border-zinc-200 rounded-2xl p-10 sm:p-12 text-center max-w-2xl mx-auto shadow-sm">
+          <div className="p-3.5 bg-zinc-50 border border-zinc-200 rounded-2xl w-fit mx-auto text-zinc-400">
+            <Lock className="h-8 w-8" />
+          </div>
+          <h3 className="text-sm font-bold text-zinc-800 mt-4 uppercase tracking-wider">
+            Monitoring Begins On Follow-up
+          </h3>
+          <p className="text-xs text-zinc-500 mt-2 leading-relaxed">
+            {workflowBlock} Initial visits build the Assessment, Diagnosis, and Intervention care plan; monitoring records the next visit response.
+          </p>
+          <Link
+            href={nextHref}
+            className="inline-flex mt-6 px-4 py-2.5 bg-zinc-950 hover:bg-zinc-900 active:bg-black text-white text-xs font-bold uppercase tracking-wider rounded-lg transition-colors select-none"
+          >
+            Continue Care Plan
+          </Link>
         </div>
       </div>
     );
