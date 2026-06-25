@@ -28,7 +28,7 @@ export default function NumericInput({
       <label className="block text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-1">
         {label}
       </label>
-      <div className="flex items-center border border-zinc-200 rounded-lg overflow-hidden focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-500/20 transition-all">
+      <div className="flex items-center border border-zinc-200 rounded-lg overflow-hidden focus-within:border-brand-green-500 focus-within:ring-2 focus-within:ring-brand-green-500/20 transition-all">
         <input
           type="number"
           min={min}

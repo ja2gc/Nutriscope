@@ -22,6 +22,8 @@ class StoreAnnouncementRequest extends FormRequest
             'body' => ['required', 'string'],
             'category' => ['required', Rule::in(['General', 'Event', 'Operational', 'Urgent', 'Memo'])],
             'attachment' => ['nullable', 'string'],
+            'attachments' => ['sometimes', 'array'],
+            'attachments.*' => ['string'],
             'visibility' => ['required', Rule::in(['FSS', 'Admin', 'All'])],
             'pinned' => ['sometimes', 'boolean'],
         ];

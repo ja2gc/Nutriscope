@@ -9,12 +9,15 @@ class AnnouncementResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
+        $attachments = $this->attachments();
+
         return [
             'id' => $this->id,
             'title' => $this->title,
             'body' => $this->body,
             'category' => $this->category,
-            'attachment' => $this->attachment,
+            'attachment' => $attachments[0] ?? null,
+            'attachments' => $attachments,
             'pinned' => $this->pinned,
             'visibility' => $this->visibility,
             'created_at' => $this->created_at,
@@ -25,5 +28,23 @@ class AnnouncementResource extends JsonResource
                 'role' => $this->user?->role,
             ],
         ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function attachments(): array
+    {
+        if (! is_string($this->attachment) || trim($this->attachment) === '') {
+            return [];
+        }
+
+        $decoded = json_decode($this->attachment, true);
+
+        if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+            return array_values(array_filter($decoded, is_string(...)));
+        }
+
+        return [$this->attachment];
     }
 }

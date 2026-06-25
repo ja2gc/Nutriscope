@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { tabTheme } from "./theme";
 
 interface Tab {
   key: string;
@@ -39,7 +40,7 @@ export default function TabBar({
           onClick={() => onTabChange(tab.key)}
           className={`relative flex items-center gap-1.5 px-4 py-3 text-[10px] font-bold uppercase tracking-wider whitespace-nowrap border-b-2 transition-all cursor-pointer ${
             activeTab === tab.key
-              ? "text-emerald-700 border-emerald-600 bg-white"
+              ? `${tabTheme.active} bg-white`
               : "text-zinc-500 border-transparent hover:text-zinc-700 hover:bg-white/50"
           }`}
         >

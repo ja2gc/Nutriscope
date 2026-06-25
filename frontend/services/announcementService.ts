@@ -11,6 +11,7 @@ export interface Announcement {
   body: string;
   category: AnnouncementCategory;
   attachment?: string | null;
+  attachments?: string[];
   pinned: boolean;
   visibility: AnnouncementVisibility;
   created_at: string;
@@ -28,6 +29,7 @@ export interface AnnouncementPayload {
   category: AnnouncementCategory;
   visibility: AnnouncementVisibility;
   attachment?: string | null;
+  attachments?: string[];
   pinned?: boolean;
 }
 

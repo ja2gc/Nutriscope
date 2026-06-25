@@ -626,7 +626,7 @@ export default function UserManagementPage() {
 
               {/* Submit */}
               <div className="pt-1">
-                <Button variant="primary" loading={submitting} type="submit">
+                <Button variant="primary" loading={submitting} type="submit" fullWidth>
                   {editingUser ? "Save Changes" : "Create Account"}
                 </Button>
               </div>
@@ -716,6 +716,7 @@ export default function UserManagementPage() {
                       variant="primary"
                       loading={submitting}
                       type="submit"
+                      fullWidth
                       className="!bg-amber-600 hover:!bg-amber-700 active:!bg-amber-800"
                     >
                       Reset Password

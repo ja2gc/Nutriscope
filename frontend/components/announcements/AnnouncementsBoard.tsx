@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/Button";
 import { Pagination, PaginationMeta } from "@/components/ui/Pagination";
+import { ImageCarousel, ImageUploadGallery, imagesFromSrcs, imageSrcs, type UploadImage } from "@/components/ui/ImageUploadGallery";
 import {
   Announcement,
   AnnouncementCategory,
@@ -36,8 +37,7 @@ type AnnouncementDraft = {
   category: AnnouncementCategory;
   visibility: AnnouncementVisibility;
   pinned: boolean;
-  imageName: string;
-  imageDataUrl: string;
+  images: UploadImage[];
 };
 
 const EMPTY_DRAFT: AnnouncementDraft = {
@@ -46,8 +46,7 @@ const EMPTY_DRAFT: AnnouncementDraft = {
   category: "General",
   visibility: "All",
   pinned: false,
-  imageName: "",
-  imageDataUrl: "",
+  images: [],
 };
 
 function getInitials(name: string) {
@@ -162,8 +161,7 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
       category: post.category,
       visibility: post.visibility,
       pinned: post.pinned,
-      imageName: post.attachment ? "Current attachment" : "",
-      imageDataUrl: post.attachment || "",
+      images: imagesFromSrcs(post.attachments?.length ? post.attachments : (post.attachment ? [post.attachment] : [])),
     });
     setSaveError(null);
     setComposerOpen(true);
@@ -195,26 +193,10 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
     setDraft((prev) => ({ ...prev, pinned: e.target.checked }));
   }
 
-  function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) {
-      setDraft((prev) => ({ ...prev, imageName: "", imageDataUrl: "" }));
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = () => {
-      setDraft((prev) => ({
-        ...prev,
-        imageName: file.name,
-        imageDataUrl: typeof reader.result === "string" ? reader.result : "",
-      }));
-    };
-    reader.readAsDataURL(file);
-  }
-
   async function saveAnnouncement(e: React.FormEvent) {
     e.preventDefault();
-    const hasContent = Boolean(draft.title.trim() || draft.body.trim() || draft.imageDataUrl);
+    const attachments = imageSrcs(draft.images);
+    const hasContent = Boolean(draft.title.trim() || draft.body.trim() || attachments.length);
     if (!hasContent) return;
 
     const payload = {
@@ -222,8 +204,9 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
       body: draft.body.trim(),
       category: draft.category,
       visibility: draft.visibility,
-      pinned: isAdmin ? draft.pinned : false,
-      attachment: draft.imageDataUrl || null,
+      pinned: draft.pinned,
+      attachment: attachments[0] ?? null,
+      attachments,
     };
 
     try {
@@ -358,7 +341,7 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
               </div>
 
               {/* Pin toggle — admin only */}
-              {isAdmin && (
+              {(isAdmin || user?.role === "RND") && (
                 <div className="flex items-center gap-2.5">
                   <input
                     id="pinned-toggle"
@@ -381,31 +364,11 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
                 </div>
               )}
 
-              {/* Image */}
-              <div className="space-y-2">
-                <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">
-                  Image
-                </label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageUpload}
-                  className="block w-full text-xs text-zinc-600 file:mr-3 file:px-3 file:py-2 file:rounded-lg file:border-0 file:bg-zinc-950 file:text-white file:text-[10px] file:font-bold file:uppercase file:tracking-wider"
-                />
-                {draft.imageDataUrl ? (
-                  <div className="rounded-2xl border border-zinc-200 overflow-hidden bg-white">
-                    <img
-                      src={draft.imageDataUrl}
-                      alt={draft.imageName || "Announcement preview"}
-                      className="block h-44 w-full object-cover"
-                    />
-                  </div>
-                ) : (
-                  <div className="rounded-2xl border border-dashed border-zinc-200 p-6 text-center text-xs text-zinc-400 bg-white">
-                    Image preview appears here after upload.
-                  </div>
-                )}
-              </div>
+              <ImageUploadGallery
+                images={draft.images}
+                onImagesChange={(images) => setDraft((prev) => ({ ...prev, images }))}
+                label="Images"
+              />
 
               {/* Footer */}
               <div className="flex items-center justify-between gap-3">
@@ -514,15 +477,11 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
                       </p>
                     </div>
 
-                    {selectedPost.attachment && (
-                      <div className="mt-4 overflow-hidden rounded-2xl border border-zinc-200 bg-zinc-50">
-                        <img
-                          src={selectedPost.attachment}
-                          alt={selectedPost.title}
-                          className="block w-full max-h-[520px] object-cover"
-                        />
-                      </div>
-                    )}
+                    <ImageCarousel
+                      images={imagesFromSrcs(selectedPost.attachments?.length ? selectedPost.attachments : (selectedPost.attachment ? [selectedPost.attachment] : []))}
+                      title={selectedPost.title}
+                      className="mt-4"
+                    />
 
                     <div className="mt-4 border-t border-zinc-100 pt-3 text-[10px] font-bold uppercase tracking-wider text-zinc-400">
                       Posted to department announcements
@@ -568,7 +527,7 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
           onClick={openCreate}
           className="w-auto px-4 py-2 text-[10px] font-bold uppercase tracking-wider shrink-0"
         >
-          Create Announcement
+          Add Announcement
         </Button>
       </div>
 
@@ -676,15 +635,11 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
                       </p>
                     </div>
 
-                    {post.attachment && (
-                      <div className="mt-4 overflow-hidden rounded-2xl border border-zinc-200 bg-zinc-50">
-                        <img
-                          src={post.attachment}
-                          alt={post.title}
-                          className="block w-full max-h-96 object-cover"
-                        />
-                      </div>
-                    )}
+                    <ImageCarousel
+                      images={imagesFromSrcs(post.attachments?.length ? post.attachments : (post.attachment ? [post.attachment] : []))}
+                      title={post.title}
+                      className="mt-4"
+                    />
 
                     <div className="mt-4 border-t border-zinc-100 pt-3 text-[10px] font-bold uppercase tracking-wider text-zinc-400">
                       Posted to department announcements

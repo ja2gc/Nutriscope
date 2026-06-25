@@ -40,12 +40,12 @@ class AnnouncementController extends Controller
     public function store(StoreAnnouncementRequest $request, NotificationService $notifications): JsonResponse
     {
         $user = $request->user();
-        $data = $request->validated();
+        $data = $this->normalizeAttachments($request->validated());
 
         $announcement = Announcement::create([
             ...$data,
             'user_id' => $user->id,
-            'pinned' => $user->role === 'Admin' ? (bool) ($data['pinned'] ?? false) : false,
+            'pinned' => in_array($user->role, ['Admin', 'RND'], true) ? (bool) ($data['pinned'] ?? false) : false,
         ]);
 
         // Trigger A (rnd.md §7) — fan out to users matching the announcement's visibility.
@@ -64,9 +64,9 @@ class AnnouncementController extends Controller
             return response()->json(['message' => 'Forbidden. You can only edit your own announcements.'], 403);
         }
 
-        $data = $request->validated();
+        $data = $this->normalizeAttachments($request->validated());
 
-        if ($user->role !== 'Admin') {
+        if (! in_array($user->role, ['Admin', 'RND'], true)) {
             unset($data['pinned']);
         }
 
@@ -89,5 +89,31 @@ class AnnouncementController extends Controller
         $announcement->delete();
 
         return response()->json(null, 204);
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function normalizeAttachments(array $data): array
+    {
+        if (! array_key_exists('attachments', $data)) {
+            return $data;
+        }
+
+        $attachments = array_values(array_filter(
+            $data['attachments'],
+            fn (mixed $attachment): bool => is_string($attachment) && trim($attachment) !== ''
+        ));
+
+        $data['attachment'] = match (count($attachments)) {
+            0 => null,
+            1 => $attachments[0],
+            default => json_encode($attachments, JSON_THROW_ON_ERROR),
+        };
+
+        unset($data['attachments']);
+
+        return $data;
     }
 }

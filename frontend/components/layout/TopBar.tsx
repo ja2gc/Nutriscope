@@ -131,8 +131,12 @@ export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
               </span>
             </div>
 
-            <div className="h-8 w-8 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700">
-              <UserIcon className="h-4 w-4" />
+            <div className="h-8 w-8 overflow-hidden rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700">
+              {user.profile_photo ? (
+                <img src={user.profile_photo} alt={user.name} className="h-full w-full object-cover" />
+              ) : (
+                <UserIcon className="h-4 w-4" />
+              )}
             </div>
           </button>
         )}

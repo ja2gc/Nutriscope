@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/Button";
+import { ImageCarousel, ImageUploadGallery, imagesFromSrcs, imageSrcs, type UploadImage } from "@/components/ui/ImageUploadGallery";
 import { fetchPatients, Patient } from "@/services/patientService";
 import {
   Announcement,
@@ -20,10 +21,10 @@ import { BellDot, Calendar, Compass, HeartHandshake, PencilLine, TrendingUp, X }
 type AnnouncementDraft = {
   category: AnnouncementCategory;
   visibility: AnnouncementVisibility;
+  pinned: boolean;
   title: string;
   body: string;
-  imageName: string;
-  imageDataUrl: string;
+  images: UploadImage[];
 };
 
 type FollowUpRow = {
@@ -152,10 +153,10 @@ export default function RndDashboardPage() {
   const [draft, setDraft] = useState<AnnouncementDraft>({
     category: "General",
     visibility: "All",
+    pinned: false,
     title: "",
     body: "",
-    imageName: "",
-    imageDataUrl: "",
+    images: [],
   });
 
   useEffect(() => {
@@ -239,10 +240,10 @@ export default function RndDashboardPage() {
     setDraft({
       category: "General",
       visibility: "All",
+      pinned: false,
       title: "",
       body: "",
-      imageName: "",
-      imageDataUrl: "",
+      images: [],
     });
   }
 
@@ -262,10 +263,10 @@ export default function RndDashboardPage() {
     setDraft({
       category: post.category,
       visibility: post.visibility,
+      pinned: post.pinned,
       title: post.title,
       body: post.body,
-      imageName: post.attachment ? "Current attachment" : "",
-      imageDataUrl: post.attachment || "",
+      images: imagesFromSrcs(post.attachments?.length ? post.attachments : (post.attachment ? [post.attachment] : [])),
     });
     setComposerOpen(true);
   }
@@ -292,29 +293,15 @@ export default function RndDashboardPage() {
     setDraft((prev) => ({ ...prev, [name]: value } as AnnouncementDraft));
   }
 
-  function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-
-    if (!file) {
-      setDraft((prev) => ({ ...prev, imageName: "", imageDataUrl: "" }));
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = () => {
-      setDraft((prev) => ({
-        ...prev,
-        imageName: file.name,
-        imageDataUrl: typeof reader.result === "string" ? reader.result : "",
-      }));
-    };
-    reader.readAsDataURL(file);
+  function handlePinnedChange(e: React.ChangeEvent<HTMLInputElement>) {
+    setDraft((prev) => ({ ...prev, pinned: e.target.checked }));
   }
 
   async function saveAnnouncement(e: React.FormEvent) {
     e.preventDefault();
 
-    const hasContent = Boolean(draft.title.trim() || draft.body.trim() || draft.imageDataUrl);
+    const attachments = imageSrcs(draft.images);
+    const hasContent = Boolean(draft.title.trim() || draft.body.trim() || attachments.length);
     if (!hasContent) {
       return;
     }
@@ -322,9 +309,11 @@ export default function RndDashboardPage() {
     const payload = {
       category: draft.category,
       visibility: draft.visibility,
+      pinned: draft.pinned,
       title: draft.title.trim() || "Announcement",
       body: draft.body.trim(),
-      attachment: draft.imageDataUrl || null,
+      attachment: attachments[0] ?? null,
+      attachments,
     };
 
     try {
@@ -445,30 +434,27 @@ export default function RndDashboardPage() {
                 />
               </div>
 
-              <div className="space-y-2">
-                <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">
-                  Image
-                </label>
+              <div className="flex items-center gap-2.5">
                 <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageUpload}
-                  className="block w-full text-xs text-zinc-600 file:mr-3 file:px-3 file:py-2 file:rounded-lg file:border-0 file:bg-zinc-950 file:text-white file:text-[10px] file:font-bold file:uppercase file:tracking-wider"
+                  id="dashboard-pinned-toggle"
+                  type="checkbox"
+                  checked={draft.pinned}
+                  onChange={handlePinnedChange}
+                  className="h-4 w-4 rounded border-zinc-300 text-brand-green-600 focus:ring-brand-green-500/20"
                 />
-                {draft.imageDataUrl ? (
-                  <div className="rounded-2xl border border-zinc-200 overflow-hidden bg-white">
-                    <img
-                      src={draft.imageDataUrl}
-                      alt={draft.imageName || "Announcement preview"}
-                      className="block h-44 w-full object-cover"
-                    />
-                  </div>
-                ) : (
-                  <div className="rounded-2xl border border-dashed border-zinc-200 p-6 text-center text-xs text-zinc-400 bg-white">
-                    Image preview appears here after upload.
-                  </div>
-                )}
+                <label
+                  htmlFor="dashboard-pinned-toggle"
+                  className="text-xs font-semibold text-zinc-700 select-none cursor-pointer"
+                >
+                  Pin to top of feed
+                </label>
               </div>
+
+              <ImageUploadGallery
+                images={draft.images}
+                onImagesChange={(images) => setDraft((prev) => ({ ...prev, images }))}
+                label="Images"
+              />
 
               <div className="flex items-center justify-between gap-3">
                 <div className="flex flex-wrap gap-2">
@@ -582,15 +568,11 @@ export default function RndDashboardPage() {
                       </p>
                     </div>
 
-                    {selectedPost.attachment && (
-                      <div className="mt-4 overflow-hidden rounded-2xl border border-zinc-200 bg-zinc-50">
-                        <img
-                          src={selectedPost.attachment}
-                          alt={selectedPost.title}
-                          className="block w-full max-h-[520px] object-cover"
-                        />
-                      </div>
-                    )}
+                    <ImageCarousel
+                      images={imagesFromSrcs(selectedPost.attachments?.length ? selectedPost.attachments : (selectedPost.attachment ? [selectedPost.attachment] : []))}
+                      title={selectedPost.title}
+                      className="mt-4"
+                    />
 
                     <div className="mt-4 border-t border-zinc-100 pt-3 text-[10px] font-bold uppercase tracking-wider text-zinc-400">
                       Posted to department announcements
@@ -904,15 +886,11 @@ export default function RndDashboardPage() {
                           </p>
                         </div>
 
-                        {post.attachment && (
-                          <div className="mt-4 overflow-hidden rounded-2xl border border-zinc-200 bg-zinc-50">
-                            <img
-                              src={post.attachment}
-                              alt={post.title}
-                              className="block w-full max-h-96 object-cover"
-                            />
-                          </div>
-                        )}
+                        <ImageCarousel
+                          images={imagesFromSrcs(post.attachments?.length ? post.attachments : (post.attachment ? [post.attachment] : []))}
+                          title={post.title}
+                          className="mt-4"
+                        />
 
                         <div className="mt-4 border-t border-zinc-100 pt-3 text-[10px] font-bold uppercase tracking-wider text-zinc-400">
                           Posted to department announcements

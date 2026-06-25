@@ -2,29 +2,28 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { Sliders, Palette, Bell, CheckCheck, Zap } from "lucide-react";
+import { Bell, Palette, Sliders } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
-import { Button } from "@/components/ui/Button";
 import {
   Density,
+  getAnnouncementNotifications,
   getDensity,
-  getReduceMotion,
+  getFollowUpNotifications,
+  setAnnouncementNotifications,
   setDensity as persistDensity,
-  setReduceMotion as persistReduceMotion,
+  setFollowUpNotifications,
 } from "@/lib/preferences";
-import { markAllNotificationsRead } from "@/services/notificationService";
 
 export default function SettingsPage() {
   const [density, setDensityState] = useState<Density>("comfortable");
-  const [reduceMotion, setReduceMotionState] = useState(false);
-  const [markingAll, setMarkingAll] = useState(false);
-  const [markedAll, setMarkedAll] = useState(false);
+  const [announcementAlerts, setAnnouncementAlerts] = useState(true);
+  const [followUpAlerts, setFollowUpAlerts] = useState(true);
 
-  // Hydrate from localStorage after mount (avoids SSR mismatch).
   useEffect(() => {
     setDensityState(getDensity());
-    setReduceMotionState(getReduceMotion());
+    setAnnouncementAlerts(getAnnouncementNotifications());
+    setFollowUpAlerts(getFollowUpNotifications());
   }, []);
 
   function chooseDensity(value: Density) {
@@ -32,23 +31,16 @@ export default function SettingsPage() {
     persistDensity(value);
   }
 
-  function toggleReduceMotion() {
-    const next = !reduceMotion;
-    setReduceMotionState(next);
-    persistReduceMotion(next);
+  function toggleAnnouncements() {
+    const next = !announcementAlerts;
+    setAnnouncementAlerts(next);
+    setAnnouncementNotifications(next);
   }
 
-  async function handleMarkAll() {
-    setMarkingAll(true);
-    setMarkedAll(false);
-    try {
-      await markAllNotificationsRead();
-      setMarkedAll(true);
-    } catch {
-      // Non-fatal.
-    } finally {
-      setMarkingAll(false);
-    }
+  function toggleFollowUps() {
+    const next = !followUpAlerts;
+    setFollowUpAlerts(next);
+    setFollowUpNotifications(next);
   }
 
   return (
@@ -56,15 +48,14 @@ export default function SettingsPage() {
       <PageHeader
         crumbs={[["Home", "/dashboard"], ["Settings"]]}
         title="Settings & Preferences"
-        icon={<Sliders className="h-5 w-5 text-emerald-600" />}
+        icon={<Sliders className="h-5 w-5 text-brand-green-600" />}
         subtitle="Display preferences are saved on this device. Account details live on your Profile."
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-        {/* Appearance */}
         <Card className="p-6 space-y-5">
           <h3 className="text-xs font-bold text-zinc-900 uppercase tracking-wider flex items-center gap-2">
-            <Palette className="h-4 w-4 text-emerald-600" />
+            <Palette className="h-4 w-4 text-brand-green-600" />
             Appearance
           </h3>
 
@@ -77,7 +68,7 @@ export default function SettingsPage() {
                   onClick={() => chooseDensity(value)}
                   className={`px-3 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider border transition-colors ${
                     density === value
-                      ? "border-emerald-600 bg-emerald-50 text-emerald-800"
+                      ? "border-brand-green-600 bg-brand-green-50 text-brand-green-800"
                       : "border-zinc-200 text-zinc-500 hover:bg-zinc-50"
                   }`}
                 >
@@ -85,44 +76,29 @@ export default function SettingsPage() {
                 </button>
               ))}
             </div>
-            <p className="text-[10px] text-zinc-400">Compact tightens spacing and text across the app.</p>
           </div>
-
-          <label className="flex items-center justify-between gap-3 pt-1 cursor-pointer">
-            <span className="flex items-center gap-2 text-xs font-semibold text-zinc-600">
-              <Zap className="h-4 w-4 text-zinc-400" />
-              Reduce motion
-            </span>
-            <button
-              role="switch"
-              aria-checked={reduceMotion}
-              onClick={toggleReduceMotion}
-              className={`relative h-5 w-9 rounded-full transition-colors ${reduceMotion ? "bg-emerald-600" : "bg-zinc-300"}`}
-            >
-              <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform ${reduceMotion ? "translate-x-4" : "translate-x-0.5"}`} />
-            </button>
-          </label>
         </Card>
 
-        {/* Notifications */}
         <Card className="p-6 space-y-5">
           <h3 className="text-xs font-bold text-zinc-900 uppercase tracking-wider flex items-center gap-2">
-            <Bell className="h-4 w-4 text-emerald-600" />
+            <Bell className="h-4 w-4 text-brand-green-600" />
             Notifications
           </h3>
-          <p className="text-xs text-zinc-500 leading-relaxed">
-            You receive notifications for new announcements and follow-ups scheduled for the next day.
-          </p>
-          <div className="flex flex-wrap items-center gap-3">
-            <Button variant="secondary" onClick={handleMarkAll} loading={markingAll} className="w-auto">
-              <CheckCheck className="h-4 w-4" />
-              Mark all as read
-            </Button>
-            <Link href="/notifications" className="text-xs font-semibold text-emerald-700 hover:text-emerald-800">
-              Open notifications →
-            </Link>
-            {markedAll && <span className="text-xs font-semibold text-emerald-600">Done.</span>}
-          </div>
+          <label className="flex items-center justify-between gap-3 cursor-pointer">
+            <span className="text-xs font-semibold text-zinc-600">New announcements</span>
+            <button role="switch" aria-checked={announcementAlerts} onClick={toggleAnnouncements} className={`relative h-5 w-9 rounded-full transition-colors ${announcementAlerts ? "bg-brand-green-600" : "bg-zinc-300"}`}>
+              <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform ${announcementAlerts ? "translate-x-4" : "translate-x-0.5"}`} />
+            </button>
+          </label>
+          <label className="flex items-center justify-between gap-3 cursor-pointer">
+            <span className="text-xs font-semibold text-zinc-600">Follow-up reminders</span>
+            <button role="switch" aria-checked={followUpAlerts} onClick={toggleFollowUps} className={`relative h-5 w-9 rounded-full transition-colors ${followUpAlerts ? "bg-brand-green-600" : "bg-zinc-300"}`}>
+              <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform ${followUpAlerts ? "translate-x-4" : "translate-x-0.5"}`} />
+            </button>
+          </label>
+          <Link href="/notifications" className="text-xs font-semibold text-brand-green-700 hover:text-brand-green-800">
+            Open notifications
+          </Link>
         </Card>
       </div>
     </div>

@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
+import { ImageUploadGallery, imagesFromSrcs, imageSrcs, type UploadImage } from "@/components/ui/ImageUploadGallery";
 import { useAuth } from "@/contexts/AuthContext";
 import { updateProfile, changePassword } from "@/services/authService";
 
@@ -14,6 +15,8 @@ export default function ProfilePage() {
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [contactNumber, setContactNumber] = useState("");
+  const [profileImages, setProfileImages] = useState<UploadImage[]>([]);
   const [savingProfile, setSavingProfile] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
   const [profileDone, setProfileDone] = useState(false);
@@ -29,6 +32,8 @@ export default function ProfilePage() {
     if (user) {
       setName(user.name);
       setEmail(user.email);
+      setContactNumber(user.contact_number ?? "");
+      setProfileImages(imagesFromSrcs(user.profile_photo ? [user.profile_photo] : [], "Profile photo"));
     }
   }, [user]);
 
@@ -38,7 +43,12 @@ export default function ProfilePage() {
     setProfileDone(false);
     setSavingProfile(true);
     try {
-      await updateProfile({ name, email });
+      await updateProfile({
+        name,
+        email,
+        contact_number: contactNumber.trim() || null,
+        profile_photo: imageSrcs(profileImages)[0] ?? null,
+      });
       await refreshUser();
       setProfileDone(true);
     } catch (err) {
@@ -87,8 +97,21 @@ export default function ProfilePage() {
             Account Details
           </h3>
           <form onSubmit={handleProfileSubmit} className="space-y-4">
+            <ImageUploadGallery
+              images={profileImages}
+              onImagesChange={(images) => setProfileImages(images.slice(-1))}
+              label="Profile Photo"
+              emptyText="Profile photo preview appears here after upload."
+            />
             <Input label="Full Name" value={name} onChange={(e) => setName(e.target.value)} required />
             <Input label="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+            <Input label="Contact Number" value={contactNumber} onChange={(e) => setContactNumber(e.target.value)} />
+            <div className="flex flex-col gap-1.5">
+              <span className="text-xs font-semibold text-zinc-600 select-none tracking-wide">Role / Designation</span>
+              <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-3.5 py-2 text-sm font-semibold text-zinc-700">
+                {user?.role ?? "RND"}
+              </div>
+            </div>
             <div className="flex items-center gap-3 pt-1">
               <Button type="submit" loading={savingProfile} className="w-auto">Save Changes</Button>
               {profileDone && <span className="text-xs font-semibold text-emerald-600">Saved.</span>}
