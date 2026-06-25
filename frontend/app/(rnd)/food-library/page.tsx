@@ -5,7 +5,7 @@ import Link from "next/link";
 import {
   Database, Plus, Search, Download, Trash2, Pencil,
   CookingPot, X, Loader2,
-  FlaskConical, TriangleAlert, ChevronDown,
+  FlaskConical, TriangleAlert,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Pagination } from "@/components/ui/Pagination";
@@ -17,8 +17,6 @@ import {
 
 const FOOD_CATEGORIES = ["all", "protein", "carbs", "vegetable", "fat", "dairy", "fruit"];
 const RECIPE_CATEGORIES = ["all", "breakfast", "lunch", "dinner", "snack"];
-
-const TAG_STYLE = "bg-zinc-100 text-zinc-600 border-zinc-200";
 
 const NUTRIENT_GROUPS = {
   Minerals: ["sodium","potassium","phosphate","calcium","iron","magnesium","zinc","copper","manganese","selenium","iodine"],
@@ -147,30 +145,25 @@ function UsdaImportModal({ onClose, onImported }: {
           )}
 
           {results.map((item) => {
-            const dtColor = TAG_STYLE;
             return (
               <div key={item.fdc_id}
                 className="flex items-center gap-4 p-3.5 rounded-xl border border-zinc-100 hover:border-emerald-200 hover:bg-emerald-50/30 transition-all group">
-                <div className="flex-1 min-w-0 space-y-1.5">
+                <div className="flex-1 min-w-0 space-y-1">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-xs font-bold text-zinc-900 leading-tight">{item.name}</span>
                     {item.data_type && (
-                      <span className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full border ${dtColor}`}>
-                        {item.data_type}
-                      </span>
+                      <span className="text-[9px] text-zinc-400 font-semibold uppercase tracking-wide">{item.data_type}</span>
                     )}
                   </div>
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <MacroChip label="kcal" value={item.calories} />
-                    <MacroChip label="P" value={item.protein} unit="g" />
-                    <MacroChip label="C" value={item.carbs} unit="g" />
-                    <MacroChip label="F" value={item.fat} unit="g" />
+                  <div className="text-[9px] text-zinc-500 font-medium">
+                    <span>{Math.round(item.calories * 10) / 10}kcal</span>
+                    {item.protein != null && <span className="ml-1.5">· P {Math.round(item.protein * 10) / 10}g</span>}
+                    {item.carbs != null && <span className="ml-1.5">· C {Math.round(item.carbs * 10) / 10}g</span>}
+                    {item.fat != null && <span className="ml-1.5">· F {Math.round(item.fat * 10) / 10}g</span>}
                     {('water_g' in item) && (item as { water_g?: number | null }).water_g != null && (
-                      <MacroChip label="W" value={Number((item as { water_g: number }).water_g)} unit="g" />
+                      <span className="ml-1.5">· W {Math.round(Number((item as { water_g: number }).water_g) * 10) / 10}g</span>
                     )}
-                    {item.food_category && (
-                      <span className="text-[9px] text-zinc-400 font-medium ml-1">· {item.food_category}</span>
-                    )}
+                    {item.food_category && <span className="ml-1.5 text-zinc-400">· {item.food_category}</span>}
                   </div>
                 </div>
                 <button
@@ -528,52 +521,40 @@ export default function FoodLibraryPage() {
                           )}
                         </td>
                         <td className="px-5 py-3.5">
-                          {food.category ? (
-                            <span className={`inline-flex min-w-[72px] justify-center px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide rounded-full border ${TAG_STYLE}`}>
-                              {food.category}
-                            </span>
-                          ) : <span className="text-zinc-300 text-[10px]">—</span>}
+                          {food.category
+                            ? <span className="text-[10px] text-zinc-600 capitalize font-medium">{food.category}</span>
+                            : <span className="text-zinc-300 text-[10px]">—</span>
+                          }
                         </td>
                         <td className="px-5 py-3.5">
-                          <div className="flex items-center gap-1 flex-wrap">
-                            <MacroChip label="kcal" value={parseFloat(food.calories)} />
-                            {food.protein && <MacroChip label="P" value={parseFloat(food.protein)} unit="g" />}
-                            {food.carbs   && <MacroChip label="C" value={parseFloat(food.carbs)}   unit="g" />}
-                            {food.fat     && <MacroChip label="F" value={parseFloat(food.fat)}     unit="g" />}
-                            {food.water_g != null && (
-                              <MacroChip label="W" value={Number(food.water_g)} unit="g" />
-                            )}
+                          <div className="text-[10px] text-zinc-600 font-medium">
+                            <span>{Math.round(parseFloat(food.calories))}kcal</span>
+                            {food.protein && <span className="ml-1.5">· P {Math.round(parseFloat(food.protein))}g</span>}
+                            {food.carbs && <span className="ml-1.5">· C {Math.round(parseFloat(food.carbs))}g</span>}
+                            {food.fat && <span className="ml-1.5">· F {Math.round(parseFloat(food.fat))}g</span>}
+                            {food.water_g != null && <span className="ml-1.5">· W {Math.round(Number(food.water_g))}g</span>}
                           </div>
                         </td>
                         <td className="px-5 py-3.5">
                           {(() => {
                             const hasMicros = Object.keys(food.micronutrients ?? {}).length > 0;
                             return (
-                              <button
+                              <Button
+                                variant="secondary"
+                                size="sm"
                                 onClick={() => setMicrosFood(food)}
-                                className={`flex items-center gap-1 px-2.5 py-1 rounded-lg border text-[10px] font-bold transition-all cursor-pointer ${
-                                  hasMicros
-                                    ? "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"
-                                    : "bg-zinc-50 text-zinc-400 border-zinc-200 hover:bg-zinc-100"
-                                }`}
                               >
-                                <FlaskConical className="h-3 w-3" />
+                                <FlaskConical className={`h-3 w-3 ${hasMicros ? "text-blue-600" : "text-zinc-400"}`} />
                                 Micros
-                              </button>
+                              </Button>
                             );
                           })()}
                         </td>
                         <td className="px-5 py-3.5">
-                          {food.allergens.length > 0 ? (
-                            <div className="flex flex-wrap gap-1">
-                              {food.allergens.slice(0, 3).map((a) => (
-                                <span key={a} title={a} className="inline-flex items-center justify-center w-[72px] px-1.5 py-0.5 bg-amber-50 border border-amber-200 text-amber-700 text-[9px] font-bold uppercase rounded-md truncate">{a}</span>
-                              ))}
-                              {food.allergens.length > 3 && (
-                                <span className="text-[9px] text-zinc-400 font-semibold self-center">+{food.allergens.length - 3}</span>
-                              )}
-                            </div>
-                          ) : <span className="text-zinc-300 text-[10px]">None</span>}
+                          {food.allergens.length > 0
+                            ? <span className="text-[10px] text-zinc-600" title={food.allergens.join(", ")}>{food.allergens.join(", ")}</span>
+                            : <span className="text-zinc-300 text-[10px]">None</span>
+                          }
                         </td>
                         <td className="px-5 py-3.5 text-right">
                           <div className="flex items-center justify-end gap-1">
@@ -653,34 +634,29 @@ export default function FoodLibraryPage() {
                             )}
                           </td>
                           <td className="px-5 py-3.5">
-                            {recipe.category ? (
-                              <span className={`inline-flex min-w-[72px] justify-center px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide rounded-full border ${TAG_STYLE}`}>
-                                {recipe.category}
-                              </span>
-                            ) : <span className="text-zinc-300 text-[10px]">—</span>}
+                            {recipe.category
+                              ? <span className="text-[10px] text-zinc-600 capitalize font-medium">{recipe.category}</span>
+                              : <span className="text-zinc-300 text-[10px]">—</span>
+                            }
                           </td>
                           <td className="px-5 py-3.5">
-                            <div className="flex items-center gap-1 flex-wrap">
-                              {recipe.total_calories && <MacroChip label="kcal" value={parseFloat(recipe.total_calories)} />}
-                              {recipe.total_protein  && <MacroChip label="P" value={parseFloat(recipe.total_protein)}  unit="g" />}
-                              {recipe.total_carbs    && <MacroChip label="C" value={parseFloat(recipe.total_carbs)}    unit="g" />}
-                              {recipe.total_fat      && <MacroChip label="F" value={parseFloat(recipe.total_fat)}      unit="g" />}
+                            <div className="text-[10px] text-zinc-600 font-medium">
+                              {recipe.total_calories && <span>{Math.round(parseFloat(recipe.total_calories))}kcal</span>}
+                              {recipe.total_protein && <span className="ml-1.5">· P {Math.round(parseFloat(recipe.total_protein))}g</span>}
+                              {recipe.total_carbs && <span className="ml-1.5">· C {Math.round(parseFloat(recipe.total_carbs))}g</span>}
+                              {recipe.total_fat && <span className="ml-1.5">· F {Math.round(parseFloat(recipe.total_fat))}g</span>}
                             </div>
                           </td>
                           <td className="px-5 py-3.5">
-                            <button
+                            <Button
+                              variant="secondary"
+                              size="sm"
                               onClick={() => setMicrosRecipe(recipe)}
-                              className={`flex items-center gap-1 px-2.5 py-1 rounded-lg border text-[10px] font-bold transition-all cursor-pointer ${
-                                hasMicros
-                                  ? "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"
-                                  : "bg-zinc-50 text-zinc-400 border-zinc-200 hover:bg-zinc-100"
-                              }`}
                               title={hasMicros ? "View micronutrients" : "No micronutrient data"}
                             >
-                              <FlaskConical className="h-3 w-3" />
+                              <FlaskConical className={`h-3 w-3 ${hasMicros ? "text-blue-600" : "text-zinc-400"}`} />
                               Micros
-                              <ChevronDown className="h-2.5 w-2.5 opacity-60" />
-                            </button>
+                            </Button>
                           </td>
                           <td className="px-5 py-3.5 text-right">
                             <div className="flex items-center justify-end gap-1">
@@ -742,14 +718,6 @@ export default function FoodLibraryPage() {
 }
 
 // ─── Shared sub-components ────────────────────────────────────────────────────
-
-function MacroChip({ label, value, unit = "" }: { label: string; value: number; unit?: string }) {
-  return (
-    <span className="inline-flex items-center justify-center min-w-[52px] px-1.5 py-0.5 text-[9px] font-bold rounded-md border bg-zinc-100 text-zinc-600 border-zinc-200">
-      {label} {Math.round(value * 10) / 10}{unit}
-    </span>
-  );
-}
 
 function MacroStat({ label, value, unit, color }: { label: string; value: string | number; unit: string; color: string }) {
   return (

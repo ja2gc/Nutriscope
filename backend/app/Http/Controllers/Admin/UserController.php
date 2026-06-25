@@ -15,7 +15,7 @@ class UserController extends Controller
 {
     public function index(): JsonResponse
     {
-        return response()->json(['data' => UserResource::collection(User::all())]);
+        return response()->json(['data' => UserResource::collection(User::orderBy('name')->get())]);
     }
 
     public function store(StoreUserRequest $request): JsonResponse
