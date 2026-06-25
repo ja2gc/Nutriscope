@@ -31,6 +31,36 @@ class ProfileTest extends TestCase
         ]);
     }
 
+    public function test_user_can_update_extended_profile_fields_but_not_role(): void
+    {
+        $user = User::factory()->create([
+            'name' => 'Old',
+            'email' => 'old@example.com',
+            'role' => 'RND',
+        ]);
+
+        $this->actingAs($user, 'sanctum')
+            ->patchJson('/api/auth/profile', [
+                'name' => 'New Name',
+                'email' => 'new@example.com',
+                'contact_number' => '+63 917 000 0000',
+                'profile_photo' => 'data:image/png;base64,avatar',
+                'role' => 'Admin',
+            ])
+            ->assertOk()
+            ->assertJsonPath('name', 'New Name')
+            ->assertJsonPath('contact_number', '+63 917 000 0000')
+            ->assertJsonPath('profile_photo', 'data:image/png;base64,avatar')
+            ->assertJsonPath('role', 'RND');
+
+        $this->assertDatabaseHas('users', [
+            'id' => $user->id,
+            'contact_number' => '+63 917 000 0000',
+            'profile_photo' => 'data:image/png;base64,avatar',
+            'role' => 'RND',
+        ]);
+    }
+
     public function test_profile_update_rejects_email_taken_by_another_user(): void
     {
         $other = User::factory()->create(['email' => 'taken@example.com']);

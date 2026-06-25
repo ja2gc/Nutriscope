@@ -117,7 +117,7 @@ export default function LoginPage() {
             />
 
             <div className="pt-2">
-              <Button id="login-submit" type="submit" loading={loading}>
+              <Button id="login-submit" type="submit" loading={loading} fullWidth>
                 Sign In
               </Button>
             </div>

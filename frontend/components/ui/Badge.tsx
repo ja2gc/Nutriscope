@@ -1,15 +1,9 @@
 import React from "react";
+import { badgeToneClasses } from "./theme";
 
 export type BadgeTone = "emerald" | "amber" | "red" | "zinc" | "sky" | "violet";
 
-const TONES: Record<BadgeTone, string> = {
-  emerald: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  amber: "bg-amber-50 text-amber-700 border-amber-200",
-  red: "bg-red-50 text-red-700 border-red-200",
-  zinc: "bg-zinc-100 text-zinc-600 border-zinc-200",
-  sky: "bg-sky-50 text-sky-700 border-sky-200",
-  violet: "bg-violet-50 text-violet-700 border-violet-200",
-};
+const TONES: Record<BadgeTone, string> = badgeToneClasses;
 
 /**
  * Status pill. Tone carries semantic meaning (red=danger, amber=warn,

@@ -29,7 +29,7 @@ export function PageHeader({
           <React.Fragment key={label}>
             {i > 0 && <span className="text-zinc-300">/</span>}
             {href ? (
-              <Link href={href} className="hover:text-emerald-700 transition-colors">{label}</Link>
+              <Link href={href} className="hover:text-brand-green-700 transition-colors">{label}</Link>
             ) : (
               <span className="font-bold text-zinc-600">{label}</span>
             )}

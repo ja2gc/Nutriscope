@@ -1,39 +1,46 @@
 // Local-only UX preferences (rnd.md §8) — persisted in localStorage, no backend.
 // Applied as attributes/classes on <html> so they cascade app-wide:
 //  - density: scales the root rem (Tailwind spacing/text are rem-based).
-//  - reduce motion: disables animations/transitions globally.
+//  - notification toggles: controls user-facing notification categories.
 
 export type Density = "comfortable" | "compact";
 
 const DENSITY_KEY = "ns_density";
-const MOTION_KEY = "ns_reduce_motion";
+const ANNOUNCEMENTS_KEY = "ns_notify_announcements";
+const FOLLOW_UPS_KEY = "ns_notify_follow_ups";
 
 export function getDensity(): Density {
   if (typeof window === "undefined") return "comfortable";
   return localStorage.getItem(DENSITY_KEY) === "compact" ? "compact" : "comfortable";
 }
 
-export function getReduceMotion(): boolean {
-  if (typeof window === "undefined") return false;
-  return localStorage.getItem(MOTION_KEY) === "1";
-}
-
 export function applyPreferences(
   density: Density = getDensity(),
-  reduceMotion: boolean = getReduceMotion(),
 ): void {
   if (typeof document === "undefined") return;
   const root = document.documentElement;
   root.dataset.density = density;
-  root.classList.toggle("reduce-motion", reduceMotion);
 }
 
 export function setDensity(density: Density): void {
   localStorage.setItem(DENSITY_KEY, density);
-  applyPreferences(density, getReduceMotion());
+  applyPreferences(density);
 }
 
-export function setReduceMotion(value: boolean): void {
-  localStorage.setItem(MOTION_KEY, value ? "1" : "0");
-  applyPreferences(getDensity(), value);
+export function getAnnouncementNotifications(): boolean {
+  if (typeof window === "undefined") return true;
+  return localStorage.getItem(ANNOUNCEMENTS_KEY) !== "0";
+}
+
+export function getFollowUpNotifications(): boolean {
+  if (typeof window === "undefined") return true;
+  return localStorage.getItem(FOLLOW_UPS_KEY) !== "0";
+}
+
+export function setAnnouncementNotifications(value: boolean): void {
+  localStorage.setItem(ANNOUNCEMENTS_KEY, value ? "1" : "0");
+}
+
+export function setFollowUpNotifications(value: boolean): void {
+  localStorage.setItem(FOLLOW_UPS_KEY, value ? "1" : "0");
 }

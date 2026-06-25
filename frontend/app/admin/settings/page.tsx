@@ -4,10 +4,8 @@ import React, { useEffect, useRef, useState } from "react";
 import {
   Bell,
   Building2,
-  CheckCheck,
   Palette,
   Settings,
-  Zap,
 } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
@@ -15,12 +13,13 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import {
   Density,
+  getAnnouncementNotifications,
   getDensity,
-  getReduceMotion,
+  getFollowUpNotifications,
+  setAnnouncementNotifications,
   setDensity as persistDensity,
-  setReduceMotion as persistReduceMotion,
+  setFollowUpNotifications,
 } from "@/lib/preferences";
-import { markAllNotificationsRead } from "@/services/notificationService";
 import {
   Branding,
   getAdminBranding,
@@ -30,11 +29,13 @@ import {
 export default function AdminSettingsPage() {
   // ── Appearance ──────────────────────────────────────────────────
   const [density, setDensityState] = useState<Density>("comfortable");
-  const [reduceMotion, setReduceMotionState] = useState(false);
+  const [announcementAlerts, setAnnouncementAlerts] = useState(true);
+  const [followUpAlerts, setFollowUpAlerts] = useState(true);
 
   useEffect(() => {
     setDensityState(getDensity());
-    setReduceMotionState(getReduceMotion());
+    setAnnouncementAlerts(getAnnouncementNotifications());
+    setFollowUpAlerts(getFollowUpNotifications());
   }, []);
 
   function chooseDensity(value: Density) {
@@ -42,29 +43,19 @@ export default function AdminSettingsPage() {
     persistDensity(value);
   }
 
-  function toggleReduceMotion() {
-    const next = !reduceMotion;
-    setReduceMotionState(next);
-    persistReduceMotion(next);
+  function toggleAnnouncements() {
+    const next = !announcementAlerts;
+    setAnnouncementAlerts(next);
+    setAnnouncementNotifications(next);
+  }
+
+  function toggleFollowUps() {
+    const next = !followUpAlerts;
+    setFollowUpAlerts(next);
+    setFollowUpNotifications(next);
   }
 
   // ── Notifications ────────────────────────────────────────────────
-  const [markingAll, setMarkingAll] = useState(false);
-  const [markedAll, setMarkedAll] = useState(false);
-
-  async function handleMarkAll() {
-    setMarkingAll(true);
-    setMarkedAll(false);
-    try {
-      await markAllNotificationsRead();
-      setMarkedAll(true);
-    } catch {
-      // Non-fatal.
-    } finally {
-      setMarkingAll(false);
-    }
-  }
-
   // ── Branding ─────────────────────────────────────────────────────
   const [branding, setBranding] = useState<Branding | null>(null);
   const [brandingLoading, setBrandingLoading] = useState(true);
@@ -317,22 +308,6 @@ export default function AdminSettingsPage() {
             </p>
           </div>
 
-          <label className="flex items-center justify-between gap-3 pt-1 cursor-pointer">
-            <span className="flex items-center gap-2 text-xs font-semibold text-zinc-600">
-              <Zap className="h-4 w-4 text-zinc-400" />
-              Reduce motion
-            </span>
-            <button
-              role="switch"
-              aria-checked={reduceMotion}
-              onClick={toggleReduceMotion}
-              className={`relative h-5 w-9 rounded-full transition-colors ${reduceMotion ? "bg-emerald-600" : "bg-zinc-300"}`}
-            >
-              <span
-                className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform ${reduceMotion ? "translate-x-4" : "translate-x-0.5"}`}
-              />
-            </button>
-          </label>
         </Card>
 
         {/* ── Notifications card ───────────────────────────────────── */}
@@ -341,25 +316,18 @@ export default function AdminSettingsPage() {
             <Bell className="h-4 w-4 text-emerald-600" />
             Notifications
           </h3>
-          <p className="text-xs text-zinc-500 leading-relaxed">
-            Mark all your notifications as read in one click.
-          </p>
-          <div className="flex flex-wrap items-center gap-3">
-            <Button
-              variant="secondary"
-              onClick={handleMarkAll}
-              loading={markingAll}
-              className="w-auto"
-            >
-              <CheckCheck className="h-4 w-4" />
-              Mark all as read
-            </Button>
-            {markedAll && (
-              <span className="text-xs font-semibold text-emerald-600">
-                Done.
-              </span>
-            )}
-          </div>
+          <label className="flex items-center justify-between gap-3 cursor-pointer">
+            <span className="text-xs font-semibold text-zinc-600">New announcements</span>
+            <button role="switch" aria-checked={announcementAlerts} onClick={toggleAnnouncements} className={`relative h-5 w-9 rounded-full transition-colors ${announcementAlerts ? "bg-brand-green-600" : "bg-zinc-300"}`}>
+              <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform ${announcementAlerts ? "translate-x-4" : "translate-x-0.5"}`} />
+            </button>
+          </label>
+          <label className="flex items-center justify-between gap-3 cursor-pointer">
+            <span className="text-xs font-semibold text-zinc-600">Follow-up reminders</span>
+            <button role="switch" aria-checked={followUpAlerts} onClick={toggleFollowUps} className={`relative h-5 w-9 rounded-full transition-colors ${followUpAlerts ? "bg-brand-green-600" : "bg-zinc-300"}`}>
+              <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform ${followUpAlerts ? "translate-x-4" : "translate-x-0.5"}`} />
+            </button>
+          </label>
         </Card>
       </div>
     </div>

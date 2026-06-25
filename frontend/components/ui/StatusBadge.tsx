@@ -1,23 +1,24 @@
 "use client";
 
 import React from "react";
+import { statusDotClasses, statusToneClasses } from "./theme";
 
 type Status = "success" | "warning" | "error" | "info" | "neutral";
 
 const STATUS_STYLES: Record<Status, string> = {
-  success: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  warning: "bg-amber-50 text-amber-700 border-amber-200",
-  error: "bg-rose-50 text-rose-700 border-rose-200",
-  info: "bg-blue-50 text-blue-700 border-blue-200",
-  neutral: "bg-zinc-50 text-zinc-600 border-zinc-200",
+  success: statusToneClasses.success,
+  warning: statusToneClasses.warning,
+  error: statusToneClasses.error,
+  info: statusToneClasses.info,
+  neutral: statusToneClasses.neutral,
 };
 
 const STATUS_DOT: Record<Status, string> = {
-  success: "bg-emerald-500",
-  warning: "bg-amber-500",
-  error: "bg-rose-500",
-  info: "bg-blue-500",
-  neutral: "bg-zinc-300",
+  success: statusDotClasses.success,
+  warning: statusDotClasses.warning,
+  error: statusDotClasses.error,
+  info: statusDotClasses.info,
+  neutral: statusDotClasses.neutral,
 };
 
 interface Props {

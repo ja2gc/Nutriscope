@@ -1,4 +1,5 @@
 import { apiFetch } from "@/lib/apiFetch";
+import { getAnnouncementNotifications, getFollowUpNotifications } from "@/lib/preferences";
 
 export interface Notification {
   id: number;
@@ -10,6 +11,28 @@ export interface Notification {
   read: boolean;
   created_at: string;
   updated_at: string;
+}
+
+export type NotificationPrefs = {
+  announcements: boolean;
+  followUps: boolean;
+};
+
+export function shouldShowNotification(
+  notification: Pick<Notification, "type" | "source_module">,
+  prefs: NotificationPrefs
+): boolean {
+  const type = `${notification.type ?? ""} ${notification.source_module ?? ""}`.toLowerCase();
+
+  if (!prefs.announcements && type.includes("announcement")) {
+    return false;
+  }
+
+  if (!prefs.followUps && (type.includes("follow") || type.includes("reminder"))) {
+    return false;
+  }
+
+  return true;
 }
 
 export async function fetchNotifications(): Promise<Notification[]> {
@@ -24,7 +47,12 @@ export async function fetchNotifications(): Promise<Notification[]> {
   }
 
   const responseData = await res.json();
-  return responseData.data || [];
+  const notifications: Notification[] = responseData.data || [];
+
+  return notifications.filter((notification) => shouldShowNotification(notification, {
+    announcements: getAnnouncementNotifications(),
+    followUps: getFollowUpNotifications(),
+  }));
 }
 
 export async function markNotificationRead(id: number | string): Promise<void> {

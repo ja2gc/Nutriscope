@@ -2,6 +2,8 @@ export interface User {
   id: number;
   name: string;
   email: string;
+  contact_number?: string | null;
+  profile_photo?: string | null;
   role: "RND" | "FSS" | "Admin";
   is_active: boolean;
   created_at: string;
@@ -43,7 +45,12 @@ export async function logoutUser(): Promise<void> {
   }
 }
 
-export async function updateProfile(data: { name: string; email: string }): Promise<User> {
+export async function updateProfile(data: {
+  name: string;
+  email: string;
+  contact_number?: string | null;
+  profile_photo?: string | null;
+}): Promise<User> {
   const res = await fetch("/api/auth/profile", {
     method: "PATCH",
     headers: {

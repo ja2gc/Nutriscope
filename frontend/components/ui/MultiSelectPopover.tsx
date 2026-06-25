@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { X, Lock } from "lucide-react";
+import { Lock } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
 
@@ -50,11 +50,11 @@ export default function MultiSelectPopover({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <button className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold text-zinc-500 border border-zinc-200 rounded-lg hover:border-emerald-400 hover:text-emerald-700 transition-colors cursor-pointer">
+        <button className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold text-zinc-500 border border-zinc-200 rounded-lg hover:border-brand-green-500 hover:text-brand-green-700 transition-colors cursor-pointer">
           {triggerIcon}
           {triggerLabel}
           {showCount && selected.length > 0 && (
-            <span className="ml-1 bg-emerald-100 text-emerald-700 rounded-full px-1.5 py-0.5 text-[9px] font-bold">
+            <span className="ml-1 bg-brand-green-100 text-brand-green-700 rounded-full px-1.5 py-0.5 text-[9px] font-bold">
               {selected.length}
             </span>
           )}
@@ -94,7 +94,7 @@ export default function MultiSelectPopover({
                   checked={selected.includes(key) || isRequired}
                   disabled={isRequired}
                   onCheckedChange={() => toggle(key)}
-                  className="data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600"
+                  className="data-[state=checked]:bg-brand-green-600 data-[state=checked]:border-brand-green-600"
                 />
                 <span className="text-xs text-zinc-700 group-hover:text-zinc-900 transition-colors flex-1">
                   {label}

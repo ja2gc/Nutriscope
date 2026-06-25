@@ -49,12 +49,3 @@ body {
   font-size: 93.75%; /* 15px base — tightens rem-based spacing/text app-wide */
 }
 
-.reduce-motion *,
-.reduce-motion *::before,
-.reduce-motion *::after {
-  animation-duration: 0.001ms !important;
-  animation-iteration-count: 1 !important;
-  transition-duration: 0.001ms !important;
-  scroll-behavior: auto !important;
-}
-

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useRef } from "react";
+import { tabTheme } from "./theme";
 
 export interface TabItem<K extends string = string> {
   key: K;
@@ -46,10 +47,10 @@ export function Tabs<K extends string>({
             tabIndex={active ? 0 : -1}
             onClick={() => onChange(t.key)}
             onKeyDown={(e) => onKeyDown(e, i)}
-            className={`flex items-center gap-2 px-5 py-3 text-sm font-semibold border-b-2 -mb-px cursor-pointer transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 rounded-t-md ${
+            className={`flex items-center gap-2 px-5 py-3 text-sm font-semibold border-b-2 -mb-px cursor-pointer transition-colors rounded-t-md ${tabTheme.focus} ${
               active
-                ? "border-emerald-600 text-emerald-700"
-                : "border-transparent text-zinc-500 hover:text-zinc-800"
+                ? tabTheme.active
+                : tabTheme.inactive
             }`}
           >
             {t.icon}
