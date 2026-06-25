@@ -53,5 +53,17 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('password-change', function (Request $request) {
             return Limit::perHour(5)->by($request->user()?->id);
         });
+
+        // Compute-heavy clinical endpoints (autofill, recommendations) — not AI-billed
+        // but CPU-bound; 30/min is generous for interactive use, blocks programmatic abuse.
+        RateLimiter::for('compute', function (Request $request) {
+            return Limit::perMinute(30)->by($request->user()?->id);
+        });
+
+        // Report rendering — hits DB aggregations and PDF generation; 10/min per user
+        // covers any real workflow, blocks runaway polling or scraping.
+        RateLimiter::for('reports', function (Request $request) {
+            return Limit::perMinute(10)->by($request->user()?->id);
+        });
     }
 }

@@ -12,8 +12,19 @@ class NotificationController extends Controller
 {
     public function index(): JsonResponse
     {
-        $notifications = Notification::where('user_id', Auth::id())->get();
+        $notifications = Notification::where('user_id', Auth::id())
+            ->orderByDesc('created_at')
+            ->get();
         return response()->json(['data' => NotificationResource::collection($notifications)]);
+    }
+
+    public function unreadCount(): JsonResponse
+    {
+        $count = Notification::where('user_id', Auth::id())
+            ->where('read', false)
+            ->count();
+
+        return response()->json(['count' => $count]);
     }
 
     public function read(Notification $notification): JsonResponse

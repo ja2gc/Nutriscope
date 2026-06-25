@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { TopBar } from "@/components/layout/TopBar";
+import { MobileBottomNav } from "@/components/layout/MobileBottomNav";
 import { applyPreferences } from "@/lib/preferences";
 
 export default function AdminLayout({
@@ -98,12 +99,15 @@ export default function AdminLayout({
         <TopBar onMenuClick={() => setSidebarOpen(true)} />
 
         {/* Scrollable Content Canvas */}
-        <main className="flex-1 overflow-y-auto overflow-x-hidden p-6 lg:p-8">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden p-6 pb-24 md:pb-6 lg:p-8">
           <div className="max-w-7xl mx-auto w-full min-w-0">
             {children}
           </div>
         </main>
       </div>
+
+      {/* Mobile bottom tab bar — hidden on md+ */}
+      <MobileBottomNav onMenuOpen={() => setSidebarOpen(true)} />
     </div>
   );
 }

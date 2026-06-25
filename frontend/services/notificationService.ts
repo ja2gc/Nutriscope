@@ -35,6 +35,18 @@ export function shouldShowNotification(
   return true;
 }
 
+export async function fetchUnreadCount(): Promise<number> {
+  const res = await apiFetch("/api/notifications/unread-count", {
+    method: "GET",
+    headers: { Accept: "application/json" },
+  });
+
+  if (!res.ok) return 0;
+
+  const data = await res.json().catch(() => ({ count: 0 }));
+  return data.count ?? 0;
+}
+
 export async function fetchNotifications(): Promise<Notification[]> {
   const res = await apiFetch("/api/notifications", {
     method: "GET",

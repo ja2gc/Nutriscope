@@ -51,8 +51,10 @@ use Illuminate\Support\Facades\Route;
 $reportRoutes = function () {
     Route::post('reports/generate-all', [ReportController::class, 'generateAll']); // deprecated (Spec 4)
     Route::get('reports/{type}/instances', [ReportController::class, 'instances'])->where('type', '[a-z_]+');
-    Route::get('reports/{type}/render', [ReportController::class, 'render'])->where('type', '[a-z_]+');
-    Route::post('reports/{type}/archive', [ReportController::class, 'archive'])->where('type', '[a-z_]+');
+    Route::middleware('throttle:reports')->group(function () {
+        Route::get('reports/{type}/render', [ReportController::class, 'render'])->where('type', '[a-z_]+');
+        Route::post('reports/{type}/archive', [ReportController::class, 'archive'])->where('type', '[a-z_]+');
+    });
     Route::get('reports/{report}/download', [ReportController::class, 'download']);
     Route::get('reports/{report}/view', [ReportController::class, 'view']);
     Route::apiResource('reports', ReportController::class)->only(['index', 'store', 'show', 'destroy']);
@@ -77,6 +79,7 @@ Route::prefix('auth')->group(function () {
 // The controller already scopes strictly by Auth::id(), so each user sees only their own rows.
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('notifications', [NotificationController::class, 'index']);
+    Route::get('notifications/unread-count', [NotificationController::class, 'unreadCount']);
     Route::patch('notifications/read-all', [NotificationController::class, 'readAll']);
     Route::patch('notifications/{notification}/read', [NotificationController::class, 'read']);
 
@@ -92,7 +95,12 @@ Route::middleware(['auth:sanctum', 'role:RND', 'audit'])->prefix('rnd')->group(f
     Route::get('patients/{patient}/ncp-records', [PatientController::class, 'ncpRecords']);
     Route::post('patients/{patient}/ncp-records', [PatientController::class, 'startNcpCycle']);
     Route::delete('ncp-records/{ncpRecord}', [NcpRecordController::class, 'destroy']);
-    Route::apiResource('announcements', RndAnnouncementController::class)->only(['index', 'store', 'update', 'destroy']);
+    Route::get('announcements', [RndAnnouncementController::class, 'index']);
+    Route::middleware('throttle:10,1')->group(function () {
+        Route::post('announcements', [RndAnnouncementController::class, 'store']);
+        Route::patch('announcements/{announcement}', [RndAnnouncementController::class, 'update']);
+        Route::delete('announcements/{announcement}', [RndAnnouncementController::class, 'destroy']);
+    });
 
     // Assessment routes
     Route::post('ncp-records/{ncpRecord}/assessment', [AssessmentController::class, 'store']);
@@ -118,12 +126,14 @@ Route::middleware(['auth:sanctum', 'role:RND', 'audit'])->prefix('rnd')->group(f
     });
 
     // Intervention routes
-    Route::post('ncp-records/{ncpRecord}/intervention/autofill', [InterventionController::class, 'autofill']);
+    Route::middleware('throttle:compute')->group(function () {
+        Route::post('ncp-records/{ncpRecord}/intervention/autofill', [InterventionController::class, 'autofill']);
+        Route::post('ncp-records/{ncpRecord}/intervention/recommend', [MealPlanController::class, 'recommend']);
+        Route::get('ncp-records/{ncpRecord}/intervention/recommendations', [InterventionController::class, 'recommendations']);
+    });
     Route::post('ncp-records/{ncpRecord}/intervention', [InterventionController::class, 'store']);
     Route::get('ncp-records/{ncpRecord}/intervention', [InterventionController::class, 'show']);
     Route::patch('ncp-records/{ncpRecord}/intervention', [InterventionController::class, 'update']);
-    Route::post('ncp-records/{ncpRecord}/intervention/recommend', [MealPlanController::class, 'recommend']);
-    Route::get('ncp-records/{ncpRecord}/intervention/recommendations', [InterventionController::class, 'recommendations']);
 
     // Meal Plan routes
     Route::get('ncp-records/{ncpRecord}/meal-plans', [MealPlanController::class, 'index']);
@@ -131,7 +141,7 @@ Route::middleware(['auth:sanctum', 'role:RND', 'audit'])->prefix('rnd')->group(f
     Route::get('ncp-records/{ncpRecord}/meal-plans/{mealPlan}', [MealPlanController::class, 'show']);
     Route::patch('ncp-records/{ncpRecord}/meal-plans/{mealPlan}', [MealPlanController::class, 'update']);
     Route::delete('ncp-records/{ncpRecord}/meal-plans/{mealPlan}', [MealPlanController::class, 'destroy']);
-    Route::post('ncp-records/{ncpRecord}/meal-plans/generate', [MealPlanController::class, 'generate']);
+    Route::post('ncp-records/{ncpRecord}/meal-plans/generate', [MealPlanController::class, 'generate'])->middleware('throttle:ai');
     Route::post('ncp-records/{ncpRecord}/meal-plans/from-template', [MealPlanController::class, 'fromTemplate']);
     Route::post('ncp-records/{ncpRecord}/meal-plans/{mealPlan}/save-template', [MealPlanController::class, 'saveTemplate']);
     Route::get('meal-plan-templates', [MealPlanController::class, 'templates']);
@@ -241,7 +251,7 @@ Route::middleware(['auth:sanctum', 'role:FSS,RND'])->prefix('fss')->group(functi
         // Purchase Orders — created only by approving a shopping list (no manual create).
         // RND can still edit/receive/delete the per-vendor orders the approval produced.
         Route::apiResource('purchase-orders', PurchaseOrderController::class)->only(['update', 'destroy']);
-        Route::post('shopping-lists/{shopping_list}/approve', [PurchaseOrderController::class, 'approve']);
+        Route::post('shopping-lists/{shopping_list}/approve', [PurchaseOrderController::class, 'approve'])->middleware('throttle:10,1');
 
         // Shopping Lists — RND authors items; FSS generate (suggestion) stays above
         Route::post('shopping-lists/{shopping_list}/items', [ShoppingListController::class, 'storeItem']);
@@ -275,10 +285,22 @@ Route::middleware(['auth:sanctum', 'role:FSS,RND'])->prefix('fss')->group(functi
 });
 
 Route::middleware(['auth:sanctum', 'role:Admin'])->prefix('admin')->group(function () {
-    Route::apiResource('announcements', AdminAnnouncementController::class)->only(['index', 'store', 'update', 'destroy']);
+    Route::get('announcements', [AdminAnnouncementController::class, 'index']);
+    Route::middleware('throttle:10,1')->group(function () {
+        Route::post('announcements', [AdminAnnouncementController::class, 'store']);
+        Route::patch('announcements/{announcement}', [AdminAnnouncementController::class, 'update']);
+        Route::delete('announcements/{announcement}', [AdminAnnouncementController::class, 'destroy']);
+    });
     Route::post('users/{user}/reset-password', [AdminUserController::class, 'resetPassword'])
         ->middleware('throttle:6,1');
-    Route::apiResource('users', AdminUserController::class);
+    Route::get('users', [AdminUserController::class, 'index']);
+    Route::get('users/{user}', [AdminUserController::class, 'show']);
+    Route::middleware('throttle:20,1')->group(function () {
+        Route::post('users', [AdminUserController::class, 'store']);
+        Route::put('users/{user}', [AdminUserController::class, 'update']);
+        Route::patch('users/{user}', [AdminUserController::class, 'update']);
+        Route::delete('users/{user}', [AdminUserController::class, 'destroy']);
+    });
     Route::get('audit-logs', [AdminAuditLogController::class, 'index']);
     Route::get('dashboard', AdminDashboardController::class);
     Route::get('report-branding', [ReportBrandingController::class, 'show']);

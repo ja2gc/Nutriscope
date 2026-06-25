@@ -12,6 +12,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Carbon;
 
 class MenuCycleController extends Controller
 {
@@ -176,16 +177,20 @@ class MenuCycleController extends Controller
         return $costPerHead <= $budget * 1.10 ? 'warning' : 'over';
     }
 
-    /** Replace the cycle's days with the supplied grid. */
+    /** Replace the cycle's days with the supplied grid (single batch INSERT). */
     private function syncDays(MenuCycle $cycle, array $days): void
     {
         $cycle->days()->delete();
+
+        $now = Carbon::now();
+        $rows = [];
+
         foreach ($days as $d) {
-            // Skip empty slots (no recipe and no item).
             if (empty($d['recipe_id']) && empty($d['fs_item_id'])) {
                 continue;
             }
-            $cycle->days()->create([
+            $rows[] = [
+                'menu_cycle_id'       => $cycle->id,
                 'day_of_week'         => $d['day_of_week'],
                 'meal_type'           => $d['meal_type'],
                 'recipe_id'           => $d['recipe_id'] ?? null,
@@ -195,7 +200,13 @@ class MenuCycleController extends Controller
                 'estimate_population' => $d['estimate_population'] ?? null,
                 'is_event'            => $d['is_event'] ?? false,
                 'event_allocation'    => $d['event_allocation'] ?? null,
-            ]);
+                'created_at'          => $now,
+                'updated_at'          => $now,
+            ];
+        }
+
+        if (!empty($rows)) {
+            DB::table('menu_cycle_days')->insert($rows);
         }
     }
 }

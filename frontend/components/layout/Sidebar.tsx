@@ -15,7 +15,6 @@ import {
   BellDot,
   Sliders,
   ChevronLeft,
-  ChevronRight,
   ChevronDown,
   Users,
   History,
@@ -103,16 +102,34 @@ export function Sidebar({ open = false, onClose }: { open?: boolean; onClose?: (
       `}
     >
       {/* Brand Header */}
-      <div className="h-14 border-b border-zinc-900 flex items-center justify-between px-4.5">
-        <Logo variant="dark" collapsed={collapsed} />
-        
-        <button
-          onClick={() => setCollapsed(!collapsed)}
-          className="hidden md:block p-1 hover:bg-zinc-900 rounded text-zinc-500 hover:text-zinc-300 cursor-pointer"
-          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-        >
-          {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
-        </button>
+      <div className={`h-14 border-b border-zinc-900 flex items-center px-4.5 ${collapsed ? "justify-center" : "justify-between"}`}>
+        {collapsed ? (
+          <>
+            {/* Desktop: whole logo area is clickable to expand */}
+            <button
+              onClick={() => setCollapsed(false)}
+              className="hidden md:flex items-center justify-center p-1.5 hover:bg-zinc-900/60 rounded-lg cursor-pointer transition-colors"
+              title="Expand sidebar"
+            >
+              <Logo variant="dark" collapsed={true} />
+            </button>
+            {/* Mobile: sidebar always full-width, show wordmark */}
+            <div className="md:hidden">
+              <Logo variant="dark" collapsed={false} />
+            </div>
+          </>
+        ) : (
+          <>
+            <Logo variant="dark" collapsed={false} />
+            <button
+              onClick={() => setCollapsed(true)}
+              className="hidden md:block p-1 hover:bg-zinc-900 rounded text-zinc-500 hover:text-zinc-300 cursor-pointer"
+              title="Collapse sidebar"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+          </>
+        )}
       </div>
 
       {/* Nav List */}
@@ -131,6 +148,19 @@ export function Sidebar({ open = false, onClose }: { open?: boolean; onClose?: (
             >
               <Compass className={`h-4.5 w-4.5 shrink-0 ${pathname === "/admin/dashboard" ? "text-emerald-500" : "text-zinc-400"}`} />
               {!collapsed && <span>Admin Dashboard</span>}
+            </Link>
+
+            <Link
+              href="/admin/announcements"
+              className={`flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all duration-150 ${
+                pathname.startsWith("/admin/announcements")
+                  ? "bg-zinc-900 text-zinc-100 border-l-2 border-emerald-600"
+                  : "text-zinc-400 hover:bg-zinc-900/60 hover:text-zinc-200"
+              }`}
+              title={collapsed ? "Announcements" : undefined}
+            >
+              <Megaphone className={`h-4.5 w-4.5 shrink-0 ${pathname.startsWith("/admin/announcements") ? "text-emerald-500" : "text-zinc-400"}`} />
+              {!collapsed && <span>Announcements</span>}
             </Link>
 
             <Link
@@ -173,19 +203,6 @@ export function Sidebar({ open = false, onClose }: { open?: boolean; onClose?: (
             </Link>
 
             <Link
-              href="/admin/announcements"
-              className={`flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all duration-150 ${
-                pathname.startsWith("/admin/announcements")
-                  ? "bg-zinc-900 text-zinc-100 border-l-2 border-emerald-600"
-                  : "text-zinc-400 hover:bg-zinc-900/60 hover:text-zinc-200"
-              }`}
-              title={collapsed ? "Announcements" : undefined}
-            >
-              <Megaphone className={`h-4.5 w-4.5 shrink-0 ${pathname.startsWith("/admin/announcements") ? "text-emerald-500" : "text-zinc-400"}`} />
-              {!collapsed && <span>Announcements</span>}
-            </Link>
-
-            <Link
               href="/admin/settings"
               className={`flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all duration-150 ${
                 pathname.startsWith("/admin/settings")
@@ -212,6 +229,19 @@ export function Sidebar({ open = false, onClose }: { open?: boolean; onClose?: (
             >
               <Compass className={`h-4.5 w-4.5 shrink-0 ${pathname === "/dashboard" ? "text-emerald-500" : "text-zinc-400"}`} />
               {!collapsed && <span>Dashboard</span>}
+            </Link>
+
+            <Link
+              href="/announcements"
+              className={`flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all duration-150 ${
+                pathname.startsWith("/announcements")
+                  ? "bg-zinc-900 text-zinc-100 border-l-2 border-emerald-600"
+                  : "text-zinc-400 hover:bg-zinc-900/60 hover:text-zinc-200"
+              }`}
+              title={collapsed ? "Announcements" : undefined}
+            >
+              <Megaphone className={`h-4.5 w-4.5 shrink-0 ${pathname.startsWith("/announcements") ? "text-emerald-500" : "text-zinc-400"}`} />
+              {!collapsed && <span>Announcements</span>}
             </Link>
 
             <Link
@@ -414,19 +444,6 @@ export function Sidebar({ open = false, onClose }: { open?: boolean; onClose?: (
             >
               <TrendingUp className={`h-4.5 w-4.5 shrink-0 ${pathname.startsWith("/reports") ? "text-emerald-500" : "text-zinc-400"}`} />
               {!collapsed && <span>Reports</span>}
-            </Link>
-
-            <Link
-              href="/announcements"
-              className={`flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all duration-150 ${
-                pathname.startsWith("/announcements")
-                  ? "bg-zinc-900 text-zinc-100 border-l-2 border-emerald-600"
-                  : "text-zinc-400 hover:bg-zinc-900/60 hover:text-zinc-200"
-              }`}
-              title={collapsed ? "Announcements" : undefined}
-            >
-              <Megaphone className={`h-4.5 w-4.5 shrink-0 ${pathname.startsWith("/announcements") ? "text-emerald-500" : "text-zinc-400"}`} />
-              {!collapsed && <span>Announcements</span>}
             </Link>
 
             <Link
