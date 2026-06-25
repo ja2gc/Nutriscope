@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { Bell, LogOut, Menu, User as UserIcon } from "lucide-react";
-import { fetchNotifications } from "@/services/notificationService";
+import { fetchUnreadCount } from "@/services/notificationService";
 
 export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
   const pathname = usePathname();
@@ -16,8 +16,8 @@ export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
   const refreshUnread = useCallback(async () => {
     if (user?.role !== "RND" && user?.role !== "Admin") return;
     try {
-      const items = await fetchNotifications();
-      setUnread(items.filter((n) => !n.read).length);
+      const count = await fetchUnreadCount();
+      setUnread(count);
     } catch {
       // Non-fatal — leave the prior count.
     }
@@ -58,16 +58,16 @@ export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
   const isAdminPath = pathname.startsWith("/admin");
 
   return (
-    <header className={`h-14 border-b flex items-center justify-between px-6 select-none shrink-0 z-10 font-sans transition-colors duration-150 ${
+    <header className={`h-14 border-b flex items-center justify-between px-4 sm:px-6 select-none shrink-0 z-10 font-sans transition-colors duration-150 ${
       isAdminPath
         ? "bg-zinc-950 border-zinc-900 text-zinc-100"
         : "bg-white border-zinc-200 text-zinc-800"
     }`}>
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
         {/* Hamburger — mobile only */}
         <button
           onClick={onMenuClick}
-          className={`md:hidden p-1.5 rounded-lg cursor-pointer transition-colors ${
+          className={`md:hidden shrink-0 p-1.5 rounded-lg cursor-pointer transition-colors ${
             isAdminPath ? "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900" : "text-zinc-500 hover:text-zinc-800 hover:bg-zinc-100"
           }`}
           aria-label="Open navigation"
@@ -75,7 +75,7 @@ export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
           <Menu className="h-5 w-5" />
         </button>
         {/* Module Title */}
-        <h1 className={`text-sm font-bold tracking-wide uppercase ${
+        <h1 className={`text-sm font-bold tracking-wide uppercase truncate ${
           isAdminPath ? "text-zinc-100" : "text-zinc-800"
         }`}>
           {getModuleTitle()}
@@ -83,7 +83,7 @@ export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
       </div>
 
       {/* User Actions */}
-      <div className="flex items-center gap-5">
+      <div className="flex items-center gap-3 sm:gap-5 shrink-0">
         {/* Alerts Bell — links to the notifications center; badge shows live unread count (RND + Admin). */}
         {(user?.role === "RND" || user?.role === "Admin") && (
           <button
@@ -116,11 +116,12 @@ export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
             }
             disabled={user.role !== "RND" && user.role !== "Admin"}
             title={user.role === "RND" || user.role === "Admin" ? "Edit profile" : undefined}
-            className={`flex items-center gap-3 border-l pl-5 rounded-lg transition-colors ${
+            className={`flex items-center gap-2 sm:gap-3 border-l pl-3 sm:pl-5 rounded-lg transition-colors ${
               isAdminPath ? "border-zinc-850" : "border-zinc-200"
             } ${user.role === "RND" || user.role === "Admin" ? "cursor-pointer hover:opacity-80" : "cursor-default"}`}
           >
-            <div className="flex flex-col text-right">
+            {/* Name + role — hidden on small mobile to save space */}
+            <div className="hidden sm:flex flex-col text-right">
               <span className={`text-xs font-bold leading-tight ${
                 isAdminPath ? "text-zinc-100" : "text-zinc-800"
               }`}>
@@ -131,7 +132,7 @@ export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
               </span>
             </div>
 
-            <div className="h-8 w-8 overflow-hidden rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700">
+            <div className="h-8 w-8 overflow-hidden rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700 shrink-0">
               {user.profile_photo ? (
                 <img src={user.profile_photo} alt={user.name} className="h-full w-full object-cover" />
               ) : (
@@ -144,7 +145,7 @@ export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
         {/* Log Out */}
         <button
           onClick={handleLogout}
-          className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all duration-150 cursor-pointer tracking-wide ${
+          className={`flex items-center gap-1.5 px-2 sm:px-3 py-1.5 text-xs font-semibold rounded-lg transition-all duration-150 cursor-pointer tracking-wide ${
             isAdminPath
               ? "text-zinc-400 hover:text-orange-500 hover:bg-zinc-900"
               : "text-zinc-500 hover:text-orange-600 hover:bg-orange-50"
@@ -152,7 +153,7 @@ export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
           title="Sign out of system"
         >
           <LogOut className="h-4 w-4" />
-          <span>Sign Out</span>
+          <span className="hidden sm:inline">Sign Out</span>
         </button>
       </div>
     </header>
