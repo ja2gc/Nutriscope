@@ -5,6 +5,7 @@ Use:
 - /backend/.agents/laravel-best-practices/skills
 - Superpowers
 - Caveman Mode
+- use ui ux pro max skill if needed, make sure if task handles ui look for reusable components first before inventing new one or create new component for it if it can be reused later
 
 Read first:
 
