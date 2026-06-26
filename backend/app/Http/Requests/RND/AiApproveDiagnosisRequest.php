@@ -15,7 +15,7 @@ class AiApproveDiagnosisRequest extends FormRequest
     {
         return [
             'domain'   => ['required', 'string', 'in:NI,NC,NB'],
-            'label'    => ['required', 'string', 'max:500'],
+            'label'    => ['required', 'string', 'max:255'],
             'etiology' => ['required', 'string'],
             'signs'    => ['required', 'string'],
             'priority' => ['nullable', 'integer', 'min:1'],

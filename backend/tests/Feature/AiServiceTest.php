@@ -199,6 +199,30 @@ class AiServiceTest extends TestCase
         ]);
     }
 
+    public function test_ai_approve_diagnosis_normalizes_pes_components_before_saving(): void
+    {
+        $ncpRecord = $this->makeNcpRecord();
+        \App\Models\Assessment::forceCreate([
+            'ncp_record_id' => $ncpRecord->id, 'weight' => 70.0, 'height' => 170.0,
+        ]);
+
+        $response = $this->actingAs($this->rnd)
+            ->postJson("/api/rnd/ncp-records/{$ncpRecord->id}/diagnoses/ai-approve", [
+                'domain'   => 'NI',
+                'label'    => 'Inadequate energy intake',
+                'etiology' => 'related to poor appetite',
+                'signs'    => 'as evidenced by 5% weight loss',
+            ]);
+
+        $response->assertCreated()
+            ->assertJsonPath('data.problem', 'Inadequate energy intake')
+            ->assertJsonPath('data.label', 'Inadequate energy intake')
+            ->assertJsonPath('data.etiology', 'poor appetite')
+            ->assertJsonPath('data.signs_symptoms', '5% weight loss')
+            ->assertJsonPath('data.pes_statement', 'Inadequate energy intake related to poor appetite as evidenced by 5% weight loss')
+            ->assertJsonPath('data.ai_generated', true);
+    }
+
     public function test_ai_approve_diagnosis_requires_valid_domain(): void
     {
         $ncpRecord = $this->makeNcpRecord();
@@ -213,5 +237,24 @@ class AiServiceTest extends TestCase
 
         $response->assertUnprocessable()
             ->assertJsonValidationErrors(['domain']);
+    }
+
+    public function test_ai_approve_diagnosis_rejects_problem_labels_longer_than_manual_builder_allows(): void
+    {
+        $ncpRecord = $this->makeNcpRecord();
+        \App\Models\Assessment::forceCreate([
+            'ncp_record_id' => $ncpRecord->id, 'weight' => 70.0, 'height' => 170.0,
+        ]);
+
+        $response = $this->actingAs($this->rnd)
+            ->postJson("/api/rnd/ncp-records/{$ncpRecord->id}/diagnoses/ai-approve", [
+                'domain'   => 'NI',
+                'label'    => str_repeat('A', 256),
+                'etiology' => 'related to poor appetite',
+                'signs'    => 'evidenced by low intake',
+            ]);
+
+        $response->assertUnprocessable()
+            ->assertJsonValidationErrors(['label']);
     }
 }

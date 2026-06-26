@@ -1,0 +1,740 @@
+always make sure if somethings should be crud and by what scale, use /docs/laravel-best-practices/skills, Laravel boost mcp server, ui ux pro max skill, superpowers when needed
+Frontend conventions:
+
+- Always look for existing reusable components before creating new ones.
+- Maintain consistent layouts, spacing, buttons, tables, forms, dialogs, and filters across the application.
+- For any data table or list that supports CRUD operations, never place Edit, Delete, View, Duplicate, Archive, or similar buttons inline beside individual fields or names.
+- Instead, every CRUD table must include a dedicated rightmost "Actions" column containing all row-specific actions.
+- The Actions column should contain only the actions allowed for that user's role (RND, FSS, Admin).
+- If a resource is read-only, omit the Actions column entirely rather than showing disabled controls.
+- Only omit the Actions column for purely informational tables that have no row-level operations.
+- make sure to not miss an already implemented variable and create a new one, when we already have one and have a dupl name differently
+- If you discover contradictions between documentation and the codebase, ask me. Update the documentation to match the implemented behavior after the implementation is complete.
+- Avoid unnecessary helpers / abstractions
+- Remove dead code (only if you accidentally scanned one dont actively look for it)
+- Follow existing architecture
+- Consistent naming
+- Verify implementation before assuming
+- Report architectural flaws before implementing
+
+Every calculation must be reproducible.
+
+Document:
+
+- inputs
+- formula
+- rounding rules
+- units
+- triggering events
+
+Avoid hidden calculations inside controllers or frontend components.
+
+Prompt C+B — PO Flow Redesign + Shopping List + Menu Cycle
+
+Before starting, read yes-to-multi-cycle-list-dapper-acorn.md. Then verify
+the following was actually built and working before touching anything:
+
+Clicking any recipe or food item in a menu plan must open its detail view showing its current scaled servings and all related information (ingredient breakdown, quantities, instructions, nutrition, etc., where available). FSS is read-only; RND follows existing edit permissions. Reuse existing detail components instead of creating new ones. and to view it shouldn't be just the name ot the food it should be the whole box, 
+The resolved menu cycle day is the single source of truth for procurement planning while a shopping list is in Draft.. Shopping list generation, recipe scaling, ingredient quantities, estimated procurement cost, and Estimated Budget Per Head Per Day must always be derived from the resolved menu cycle day's assigned recipes/food items and the active estimate_population, never from duplicated or stale data.
+Suggested shopping list generation must resolve each calendar date to its covering menu cycle, extract only the recipes and food items assigned to that exact day, expand recipes into their ingredient breakdown using the current scaled servings, then aggregate identical ingredients across the procurement span.
+- active menu cycle should always be first shown in the menu cycle page, and saved menu cycle should be loadable and has a ui for it when creating new menu, and the list for it should just be from a button to see, since we start on the active menu display
+
+Phase 1 confirmed shipped — verify each by reading actual files and running
+tests, do not trust commit messages or documentation alone:
+- generate() is date-driven, takes start_date + end_date, no menu_cycle_id
+- MenuCycle::coveringDate resolver exists and works
+- shopping_lists.menu_cycle_id column is dropped
+- coverage_status and uncovered_dates columns exist on shopping_lists
+- Fri→Mon cross-week span generates correctly from two cycles
+- Full backend suite passes (was 637 tests)
+- Frontend tsc --noEmit clean
+
+If any of the above is missing or broken, fix it before proceeding. Do not
+assume the codebase matches this list — verify by reading actual files and
+running the tests first.
+
+Use superpowers, ui ux pro max skill, caveman mode, laravel-best-practices,
+laravel boost. Create a plan first then implement in a TDD way. Use necessary
+skills on each task.
+
+Make sure to look for reusable components before inventing new ones. After each
+fix check blast radius — what other pages, components, API callers, and tests
+consume what you just changed.
+
+Work through these steps in order. Do not start the next step until the current
+one is fully done, tested, and verified.
+
+--- STEP 1: Estimated Population + Recipe Scaling ---
+
+The system has two completely separate population fields that must never be
+confused or overwrite each other:
+
+estimate_population — set by RND on menu cycle days. Used for planning: drives
+recipe and food quantity scaling and shopping list generation quantities. This
+is RND's estimate of how many servings will be needed for that day.
+
+Whenever estimate_population changes, the system must immediately:
+
+Rescale recipe servings.
+Recalculate ingredient quantities.
+Recalculate shopping list quantities.
+Recalculate the procurement's estimated total cost.
+Recalculate the procurement's Estimated Budget Per Head Per Day.
+
+served_population — set by FSS on meal prep logs on the actual day of prep,
+based on the real diet list or census from the hospital. Used for calculating
+actual budget per head per day after the fact. FSS only sets this — RND does
+not touch it.
+
+These two fields are fully independent. Changing one never affects the other
+in any code path.
+
+Population cascade and last-write-wins rule:
+RND can set estimate_population in two places:
+  1. Individually per menu cycle day when building the menu plan
+  2. At the shopping list level for the whole procurement span at once
+
+Whichever was written most recently wins and cascades. Specifically:
+
+When RND sets population on a shopping list (draft or pre-conversion):
+  - Update estimate_population on all menu cycle days within that span
+  - Rescale all recipes and food items for those days to the new serving count
+  - Recalculate shopping list quantities based on rescaled amounts
+  - Record a timestamp so individual day edits after this can override it
+
+When RND sets population on an individual menu cycle day:
+  - Update only that day's estimate_population
+  - Rescale that day's recipes and food items
+  - If a draft shopping list exists covering that day, recalculate its
+    quantities for that day only
+  - Record a timestamp so a future shopping list population write overrides it
+
+Last write always wins regardless of where the write came from. The timestamp
+comparison decides which value is authoritative.
+
+Cross-cycle cascade edge case — flag for agent:
+When a shopping list spans two menu cycles (e.g. Fri→Mon where Fri-Sun belong
+to Cycle A and Mon belongs to Cycle B), cascading a single population value
+from the shopping list will touch days in both cycles. If Cycle B is still a
+draft or inactive cycle being edited by RND, this cascade could interfere with
+work in progress. Additionally if multiple draft shopping lists overlap on the
+same dates there is ambiguity about which list to recalculate when a day's
+population changes individually. Agent must identify whether this is a current
+flaw in the codebase and propose a solution before implementing the cascade
+logic. Flag the proposed solution for review before building.
+
+Once a shopping list is converted to a PO, its line item quantities, vendor
+groupings, and structural data are frozen permanently. However the PO enters
+an open execution phase for operational details — see Step 3 for the full PO
+lifecycle.
+
+RND and FSS can both view the profile of each food and recipe in the menu plan
+and must see the current scaled servings based on the active estimate_population
+for that day. This view is read-only for FSS.
+
+Menu cycle activation guard:
+A menu cycle cannot be set to active unless every day that has at least one
+recipe or food item assigned also has an estimate_population value set. If any
+such day is missing it, block activation and return a clear error listing which
+specific days are missing population. Do not silently allow activation with
+blank days.
+
+Shopping list generation guard:
+When generating a shopping list, block generation and return a clear error
+listing the specific dates with missing population only if a day has zero or
+null estimate_population AND has at least one recipe or food item assigned to
+it. If a day has no menu items assigned, allow zero population — this supports
+manual-only shopping lists for special events or supplies-only runs where no
+menu cycle is involved. This guard is defense-in-depth on top of the activation
+guard.
+
+--- STEP 2: Shopping List States + Tabs ---
+
+Shopping list must have exactly two states: draft and converted. No finalized,
+no other intermediate states. Remove any finalize dropdown or option entirely.
+The only action that moves a shopping list forward is a single Convert to PO
+button — not a dropdown option. Converting means the groceries for that
+procurement span have been bought and a PO is now being created. A converted
+shopping list becomes read-only for its structural data and exists as a
+historical reference — it does not appear in the active procurement queue.
+
+RND is the only role that generates shopping lists. FSS does not generate,
+create, or modify shopping lists. Remove any FSS UI for shopping list creation
+if it exists.
+
+Shopping list must have two tabs:
+
+Ingredients tab — has two modes:
+  Auto-generated: existing date-driven flow from Phase 1. RND picks a start
+  and end date, system resolves which menu cycle covers each date automatically.
+  Do not touch this logic — it was built in Phase 1 and must be verified
+  working before this step runs.
+  Manual: RND can add ingredient items manually that are not covered by the
+  menu cycle. Same item entry UI as existing manual item creation. Manual items
+  sit alongside auto-generated ones in the same list. RND can also edit or
+  remove auto-generated items before conversion.
+
+Supplies tab — manual entry only. No menu cycle involvement. Items come from
+the supplies inventory which lives under the Inventory page. The Inventory page
+has two tabs: Ingredients and Supplies. RND adds, edits, and removes supply
+items before conversion. Supplies have their own quantity, unit, and estimated
+cost fields. Supplies from the same vendor as ingredients get grouped under the
+same vendor in the resulting PO.
+
+Both tabs are part of the same shopping list and the same procurement event.
+When Convert to PO is triggered, both ingredient items and supply items are
+included in the PO grouped by vendor.
+
+Check if the Inventory page already has a Supplies tab and supplies model. If
+it does, use it as-is. If it does not exist, design the supplies model
+minimally: name, unit, category, current stock, reorder level. Add the Supplies
+tab to the Inventory page following the exact same UI pattern as the existing
+Ingredients tab. Flag what exists vs what needs to be built before touching
+anything.
+
+RND can set estimated population at the shopping list level — a single
+population input for the whole span that cascades to all menu cycle days in
+that span and rescales per the rules in Step 1. This field must be editable
+on draft shopping lists before conversion.
+
+--- STEP 3: Purchase Order Flow Redesign ---
+
+One PO per shopping list. The PO has three explicit lifecycle phases:
+
+Phase 1 — Draft Shopping List:
+  Driven entirely by estimate_population. RND can edit items, quantities,
+  population, and tabs freely. No PO record exists yet.
+
+Phase 2 — Converted PO / Open Execution:
+  Triggered by the Convert to PO button. At this moment:
+  - One PO record is created linked to the shopping list
+  - Items are grouped by vendor into vendor sub-records (agent to decide best
+    name fitting existing conventions: VendorOrder or PurchaseGroup)
+  - Structural data (items, quantities, estimated base costs, vendor groupings)
+    becomes permanently read-only — never changes after this point
+  - Both RND and FSS can input OR numbers, upload receipt images, and upload
+    proof of purchase photos on their respective vendor groups
+  - PO creation must fire an event or hook that the budget ledger in D+E can
+    plug into. Design this hook now even if the listener is not wired until
+    D+E runs.
+  - PPA is auto-generated at this same moment — see Step 5
+
+Phase 3 — Completed and Archived PO:
+  The system tracks execution progress automatically. The PO transitions to
+  Phase 3 when ALL of the following are true:
+  - Every vendor group has receipts uploaded
+  - Every calendar day in the procurement span has served_population logged
+    by FSS
+  At that moment the system calculates the definitive actual_budget_per_head_
+  per_day for the procurement event: sum of all PO vendor group totals divided
+  by the total served_population across the span. The user saves or archives
+  the PO which locks all fields permanently. After Phase 3 nothing can change.
+
+Kill the following entirely:
+  - Manual Create PO endpoint and its UI
+  - Any standalone vendor PO creation path
+  - The generatePos() approach that created multiple separate PO records per
+    vendor — replace with single PO plus vendor group model above
+
+Schema design: agent must plan the schema (PO table, vendor group table,
+attachment table, lifecycle status field) and present it for review before
+running any migration. Flag clearly what existing PO records are affected and
+how to handle them.
+
+PO page per vendor group must show:
+  - List of items from that vendor with quantities and unit costs (read-only
+    after Phase 2)
+  - OR number input field (editable in Phase 2, locked in Phase 3)
+  - Receipt upload using ImageUploadGallery.tsx (multiple images, removable,
+    full feedback UX already established in Prompt A)
+  - Proof of purchase upload same as above
+  - Status indicator for this vendor group — plain text only, no badge pill
+  - Save action — ghost button variant
+
+Both RND and FSS can perform Phase 2 operational inputs (OR numbers, receipts,
+proof of purchase). FSS cannot edit structural data, create POs, delete POs,
+or generate shopping lists.
+
+--- STEP 4: Procurement Page Restructure ---
+
+Procurement page must be grouped by procurement event, not a flat list.
+
+Level 1 — Procurement event list:
+  Each row: date range of procurement span, total estimated cost, number of
+  vendors, PO lifecycle phase (Draft / Open Execution / Completed), coverage
+  status (full / partial from shopping list)
+
+Level 2 — Drill into a procurement event:
+  Shows the single PO with vendor groups listed. Each vendor group row: vendor
+  name, item count, OR number if entered, receipt status, total cost for that
+  vendor.
+
+Level 3 — Drill into a vendor group:
+  Items, quantities, costs (all read-only after Phase 2), OR number field,
+  receipt upload, proof of purchase upload.
+
+Remove the Settings tab from the procurement page entirely. No settings live
+in procurement.
+
+Navigation between levels uses breadcrumbs not browser back:
+Procurement > [Jun 20–23 Event] > [Vendor A]
+
+All rows at all levels are plain text — no badges, no colored cells per theme
+rules from Prompt A. Status column is plain muted gray text. Only exception:
+urgent status like Overdue may use danger red text only, no background pill.
+
+--- STEP 5: PPA Auto-Generation ---
+
+PPA (Program Project Activity) must be auto-generated at the same moment
+Convert to PO is triggered — same transaction, same data source, no manual
+step. The PPA follows a dual-tracking structure matching the standard format
+for Philippine government health facilities:
+
+Planning columns — frozen hard at PO creation (Phase 2):
+  - Activity: hardcoded to Food Subsistence for Patients
+  - Menu: chronological text snapshot listing day numbers paired with their
+    specific meal configurations e.g. 05: Cheezwhiz Sandwich... 06: Sopas...
+  - Target date range: procurement span formatted clearly e.g. 06/05/26 -
+    06/08/26
+  - Estimated total cost: from shopping list at moment of conversion
+  - Estimated output patients: estimate_population from the procurement span
+
+Execution columns — open during Phase 2, frozen when PO reaches Phase 3:
+  - Actual total cost: sum of all submitted OR amounts from vendor groups
+  - Actual output patients: sum of logged daily served_population across span
+  At the moment the PO transitions to Phase 3 (all receipts uploaded and all
+  served_population logged), an automated event hook updates these execution
+  columns and freezes the PPA permanently. After Phase 3 nothing in the PPA
+  can change.
+
+Agent must plan the PPA structure based on standard Philippine government
+health facility format and flag the proposed layout for review before building
+the PDF or print view.
+
+RND can view and print PPA. FSS cannot see PPA.
+
+--- STEP 6: Menu Cycle List View ---
+
+Add a menu cycle list view accessible to both RND and FSS.
+
+List shows all cycles in chronological order:
+  - Clear visual indicator on the currently active cycle — left border accent
+    or inline text label per theme rules from Prompt A, not a badge inside row
+  - Past cycles visible and accessible
+  - Upcoming and draft cycles visible
+  - Each row shows: week date range, status, and per-day plan existence
+    (whether a menu plan exists for each specific day of that week — per day,
+    not just an overall flag)
+
+RND behavior:
+  - Can click any cycle to open it
+  - Opens with same UI as current active cycle — full menu plan with all data
+    including current scaled servings per day based on estimate_population
+  - Can edit any cycle that is not yet active
+  - Same CRUD as existing menu plan management — do not rebuild, reuse
+  - Can set estimate_population per day from this view
+
+FSS behavior:
+  - Read-only view of list and each cycle
+  - Can see menu plan details and current scaled servings when clicking a cycle
+  - Cannot edit, create, or delete cycles
+  - Cannot change population values
+
+Do not create a new page — check if a route already exists and extend it. If
+it does not exist, create it under the existing food-service routing convention.
+
+--- STEP 7: Tests + Verification ---
+
+Run full backend test suite. All existing tests must pass. New tests required:
+
+Phase 1 verification (before any new tests):
+  - generate() date-driven with correct cross-week resolution
+  - coverage_status and uncovered_dates working
+  - Full suite still at 637+ passing
+
+Population and scaling:
+  - Setting population on shopping list cascades to all menu cycle days in span
+  - Setting population on individual day overrides shopping list value if newer
+  - Last write wins — timestamp comparison correct in both directions
+  - Recipe quantities rescale correctly when population changes
+  - Shopping list quantities recalculate after population cascade
+  - Menu cycle activation blocked if any day with recipe or food has no
+    estimate_population
+  - Shopping list generation blocked only if day has zero/null population AND
+    has at least one recipe or food item — days with no menu items and zero
+    population are allowed
+  - served_population and estimate_population never affect each other in any
+    code path
+  - Cross-cycle cascade edge case handled per agent's proposed solution
+
+Shopping list:
+  - State machine: draft to converted only, no other transitions
+  - FSS cannot generate or create shopping lists at API level
+  - Supplies tab items included in PO conversion
+  - Manual ingredient items included alongside auto-generated
+  - Population field on shopping list cascades correctly with timestamp
+
+PO lifecycle:
+  - Phase 1 to Phase 2 transition creates correct PO structure
+  - Structural data read-only after Phase 2
+  - Both RND and FSS can input OR numbers and upload receipts in Phase 2
+  - Phase 3 triggers correctly when all receipts uploaded and all
+    served_population logged
+  - actual_budget_per_head_per_day calculated correctly at Phase 3
+  - All fields locked after Phase 3
+  - PO creation fires event hook with correct payload for budget ledger
+  - FSS cannot create or delete POs at API level
+  - Manual Create PO endpoint completely gone — no dead routes
+
+PPA:
+  - Auto-generated at PO creation in same transaction
+  - Planning columns frozen at creation
+  - Execution columns update correctly when PO reaches Phase 3
+  - PPA fully frozen after Phase 3
+  - FSS cannot access PPA at API level
+
+Procurement page:
+  - Level 1/2/3 API responses correct
+  - Settings tab absent from procurement page
+  - Breadcrumb navigation correct at all levels
+
+Menu cycle list:
+  - Correct chronological order
+  - Active cycle indicator correct
+  - Per-day plan existence correct for each day of week
+  - FSS read-only enforced at API level
+
+Run frontend type check. No new TypeScript errors.
+
+Blast radius check: verify existing procurement tests, inventory ingredients
+tab unaffected, budget auto-deduction hook in place and documented for D+E,
+reports page unaffected, mobile app unaffected. Confirm no code path allows
+served_population and estimate_population to affect each other.
+
+
+
+Paste this over `Prompt D+E` budget/insights parts:
+
+```txt
+Prompt D+E — Budget Redesign + Reports + Insights
+
+Before starting, verify Prompt C+B is fully merged and green. The PO lifecycle must expose a completed/finalized event hook so the budget ledger can deduct only after the purchase order reaches Phase 3 and the final PO total is locked.
+
+--- STEP 1: Budget Model Redesign ---
+
+Kill the New Budget records concept entirely. The budget page is not a list of budget records and must not contain graphs.
+
+Fiscal year allocation:
+- One record per fiscal year.
+- Fields shown/set on Budget page only:
+  - fiscal_year
+  - allocated_amount for the year
+  - per_head_day_limit for the year
+- No population field on Budget setup.
+- Each year is independent.
+- On new calendar/fiscal year, allocated budget resets. No carryover.
+- If current year has no allocation, notify RND to set up the new year before PO finalization can deduct budget.
+
+Budget ledger:
+- Append-only log.
+- Entry types:
+  - po_deduction
+  - manual_addition
+  - manual_deduction
+- Fields:
+  - fiscal_year
+  - type
+  - amount
+  - reason
+  - reference
+  - purchase_order_id nullable
+  - procurement_span nullable
+  - created_by
+  - created_at
+- Remaining balance:
+  allocated_amount
+  + manual_additions
+  - manual_deductions
+  - po_deductions
+
+Manual budget adjustment:
+- RND only.
+- Add funds creates manual_addition.
+- Deduct funds creates manual_deduction.
+- Both require amount and reason.
+- Entries cannot be edited or deleted. Corrections use offsetting entries.
+
+PO auto-deduction:
+- When PO reaches Phase 3 / Completed / Finalized, automatically create po_deduction ledger entry.
+- Use final locked PO total, not draft estimate.
+- Must happen in same transaction as PO finalization.
+- Ledger row must include PO reference, procurement span, finalized/generated date, and total cost.
+- If no fiscal year allocation exists, show clear warning and block or hold finalization in recoverable state. Do not silently skip deduction.
+
+Actual budget per head per day:
+- Calculated only after PO reaches Phase 3.
+- Formula: final PO total / total served_population across procurement span.
+- Never use estimate_population for actual calculation.
+- Before Phase 3, show pending.
+
+--- STEP 2: Budget Page UI ---
+
+Budget page has no tabs and no graphs. Only show year setup, summary, manual adjustment controls, and ledger.
+
+Section 1 — Fiscal year selector and summary:
+- Fiscal year dropdown.
+- Shows:
+  - allocated amount for year
+  - per-head/day limit for year
+  - remaining balance
+  - total PO deductions
+  - total manual additions
+  - total manual deductions
+
+Section 2 — Manual allocation controls:
+- RND sees Add funds and Deduct funds ghost buttons.
+- FSS sees no budget management UI.
+- Add/Deduct forms require amount and reason.
+
+Section 3 — Budget ledger table:
+- Reverse chronological.
+- Columns:
+  - date created/generated
+  - source/type
+  - amount
+  - reason
+  - reference
+  - created by
+- Filter:
+  - all
+  - manual only
+  - purchase orders only
+  - manual_addition
+  - manual_deduction
+  - po_deduction
+- Manual rows show manual reason and creator.
+- PO rows show PO reference, procurement span, finalized/generated date.
+- Plain text only. No badges or colored pills.
+- Deductions use danger red text only. Additions use primary green text only.
+
+Section 4 — New fiscal year setup / reset:
+- RND only.
+- Form fields:
+  - fiscal_year
+  - allocated_amount
+  - per_head_day_limit
+- Provide Set up [year] / Reset dashboard for new year action.
+- Must create new year record, never overwrite prior year.
+- If current year missing setup, show notice prompting RND to fill new allocation and per-head/day limit.
+
+--- STEP 3: Insights UI ---
+
+All graphs live in Insights only. No graphs on Budget page, Procurement page, or Settings.
+
+Insights workflow:
+1. User selects fiscal year first.
+2. User selects insight category.
+3. Insight displays January through December for selected year.
+4. Months with no data stay visible as blank/zero/pending.
+5. Top of each insight shows useful summaries, such as yearly total, monthly average, average actual budget per head/day, total deductions, remaining allocation.
+
+Insight categories:
+
+Budget burn:
+- Shows allocated budget flat line and cumulative deductions.
+- Full fiscal year timeline.
+- PO deductions stamped on finalized/generated date.
+- Manual additions/deductions stamped on created date.
+- Shows how allocated budget is deducted over time.
+
+Budget per-head/day actual vs limit:
+- Shows each procurement span.
+- Actual budget per head/day appears only after PO Phase 3.
+- Shows fiscal year per_head_day_limit as reference.
+- Also show estimated per-head/day from planning when available.
+- PO marker compares actual vs estimated.
+- Phase 2 POs show pending markers.
+
+Procurement deduction timeline:
+- Full fiscal year timeline.
+- Each finalized PO stamped with:
+  - PO reference
+  - procurement span
+  - finalized/generated date
+  - total cost
+  - actual budget per head/day
+  - estimated budget per head/day when available
+- Manual additions/deductions appear as separate stamped markers.
+
+Spend by supplier:
+- Total spend per vendor for selected year.
+- Uses new PO vendor group model.
+
+Rules:
+- Full Jan to Dec range always shown.
+- Do not collapse missing months/days.
+- No forecasting, variance percentage, or projected overrun unless explicitly requested later.
+
+--- TESTS REQUIRED ---
+
+Budget:
+- Fiscal year allocation has only year, allocated_amount, per_head_day_limit.
+- New year has no carryover.
+- Current year missing allocation notifies RND.
+- Manual addition/deduction require reason and are RND only.
+- Ledger entries immutable.
+- Remaining balance correct across mixed entries.
+- PO ledger auto-deduction fires on PO Phase 3 finalization using final PO total.
+- No deduction on PO creation/open execution.
+- No fiscal year allocation blocks or safely holds PO finalization.
+- FSS budget management UI/routes absent.
+
+Insights:
+- User must select fiscal year before insight category.
+- All insights show January through December.
+- Budget burn stamps PO deductions and manual adjustments on correct dates.
+- Budget per-head/day shows actual vs estimated per procurement span.
+- Phase 2 POs show pending markers.
+- Spend by supplier uses vendor group model.
+- No graphs remain on Budget page.
+
+Blast radius:
+- Verify PO creation still generates PPA snapshot.
+- Verify PO Phase 3 triggers actual_budget_per_head_per_day, PPA execution freeze, accomplishment report freeze, and budget ledger deduction.
+- Verify reports remain frozen snapshots.
+- Verify estimate_population never affects actual budget calculation.
+```
+
+or current flow
+```mermaid
+flowchart TD
+  RND["RND creates FS recipes"] --> MC["RND creates menu cycle days"]
+  MC --> EP["RND sets estimate_population per day"]
+  EP --> SL["RND generates suggested shopping list by date range"]
+  SL --> COV{"Every date has menu plan + population?"}
+  COV -- No --> PARTIAL["Shopping list created as partial with uncovered_dates"]
+  COV -- Yes --> DRAFT["Draft shopping list"]
+  DRAFT --> APPROVE["Approve/finalize shopping list"]
+  APPROVE --> MPO["System creates multiple vendor POs"]
+  MPO --> REC["PO status ordered/received"]
+  FSS["FSS inputs diet_list_counts.population"] --> MPL["Meal prep log served_population sync"]
+  REC --> ACTUAL["Actual per-head waits for received POs + completed meal prep"]
+  MPL --> ACTUAL
+  ACTUAL --> BUDGET["Budget/report uses live services, not full frozen ledger"]
+```
+what we should essentially have
+```mermaid
+flowchart TD (btw estimated budget per head per day is for setting the population 
+  RND["RND creates recipes + ingredients"] --> MC["RND creates menu cycle/week"]
+  MC --> EP["RND sets estimate_population per planned day"]
+  EP --> ACTIVATE{"All planned days have estimate_population?"}
+  ACTIVATE -- No --> BLOCK["Block activation + list missing dates"]
+  ACTIVATE -- Yes --> ACTIVE["Cycle active/available"]
+
+  ACTIVE --> SLGEN["RND generates shopping list for procurement span"]
+  SLGEN --> RESOLVE["Resolve each calendar date to covering menu cycle"]
+  RESOLVE --> GAP{"Any date missing cycle/day/menu/population?"}
+  GAP -- Yes --> WARN["Create partial list or block if fully uncovered; notify exact missing dates"]
+  GAP -- No --> SLDRAFT["Draft shopping list"]
+  WARN --> SLDRAFT
+
+  SLDRAFT --> CONVERT["Convert to one PO"]
+  CONVERT --> VG["Vendor groups inside PO"]
+  CONVERT --> PPA["Auto-generate PPA planning snapshot from PO span/items/costs"]
+  VG --> EXEC["Open execution: OR, receipts, proof uploads"]
+
+  FSS["FSS inputs diet list numeric headcount per ward/date"] --> DLC["diet_list_counts.population"]
+  DLC --> SERVED["served_population for service date"]
+  EXEC --> COMPLETE{"All vendor receipts + all span dates have served_population?"}
+  SERVED --> COMPLETE
+  COMPLETE -- No --> PENDING["PO remains pending/open"]
+  COMPLETE -- Yes --> FINAL["Finalize/complete PO"]
+
+  FINAL --> ACTUAL["actual_budget_per_head_per_day = final PO total / total served_population"]
+  FINAL --> LEDGER["Budget ledger po_deduction for fiscal year"]
+  FINAL --> SNAP["Freeze PPA execution + accomplishment/report snapshots"]
+  LEDGER --> INSIGHTS["Insights graphs by selected fiscal year"]
+
+
+--- Food Service End-to-End Flow Clarifications ---
+
+The intended food service flow is:
+
+1. RND creates food service recipes with ingredient breakdowns.
+2. RND creates menu cycle days / meal plans from recipes or ready-to-serve FS items.
+3. RND sets estimate_population per planned menu cycle day. This is planning-only.
+4. Suggested shopping list generation takes a start_date and end_date, resolves each calendar date to the covering menu cycle, then extracts ingredients only from the matched menu cycle day for that exact date.
+5. If a date has no covering cycle, no menu cycle day, no menu items, or missing estimate_population where menu items exist, the system must flag/notify the exact date and reason:
+   - no covering menu cycle
+   - menu cycle day not created yet
+   - menu cycle day has no menu items
+   - menu cycle day has menu items but no estimate_population
+6. Fri-Mon or any procurement span crossing two menu cycles must work. Each date uses its own matched menu cycle.
+7. Shopping list converts to one PO with vendor groups.
+8. PPA is generated from the PO/procurement event, not directly from a whole menu cycle. It inherits the PO's procurement span, items, estimated cost, vendor grouping, and later final execution values.
+9. FSS inputs diet list as a numeric headcount, not text. Use diet_list_counts.population per ward/date/FSS user.
+10. served_population is derived from the numeric diet list counts or entered/backfilled by FSS for each service date.
+11. actual_budget_per_head_per_day is calculated only after PO finalization:
+    final locked PO total / total served_population across procurement span.
+12. Budget ledger po_deduction is created only when PO reaches Phase 3 / Completed / Finalized, using final PO total.
+13. Budget page remains setup + ledger only. All charts live in Insights.
+14. Reports must be frozen snapshots. Reports page must not live-query changing records.
+
+--- Accomplishment Report Clarification ---
+
+Current diet list input should be numeric:
+- service_date
+- ward
+- population integer
+- FSS user from auth
+- task checkboxes
+
+Accomplishment report should be based on those numeric diet_list_counts rows.
+It is per FSS user, not shared across all FSS users.
+It should be generated/updated when FSS submits diet list counts or served_population for dates in a procurement span.
+It must freeze when the related PO/procurement span reaches Phase 3.
+After freeze, later diet list edits or backfills must not change the stored accomplishment report snapshot.
+
+
+--- Inventory Stock-In / Stock-Out + Latest Price Sync ---
+
+Inventory must be tied directly to PO execution and meal-prep completion.
+
+Stock-in:
+- When a PO vendor group is received/confirmed during Phase 2, stock its items into inventory.
+- If the system treats Convert to PO as "items already purchased and received", then stock-in may happen at Convert to PO; otherwise stock-in happens when OR/receipt is saved for that vendor group.
+- Stock-in must add received quantities to inventory.quantity_in_stock in base units.
+- Stock-in must be idempotent. A vendor group cannot stock the same PO lines twice.
+- Free-text PO lines without fs_item_id do not affect inventory and must be logged/skipped.
+
+Stock-out:
+- Ingredients must be deducted from inventory when FSS completes meal prep for each service date.
+- Deduction uses the matched menu cycle day for that exact service date and the estimate_population/prepared population that drove the menu quantities.
+- served_population does not rescale stock deduction. It is used only for actual budget per head/day.
+- At procurement span completion / PO Phase 3, system must verify every service date in the procurement span has a completed meal-prep log.
+- If any date has not deducted inventory yet, block Phase 3 and notify the exact missing dates.
+- Do not silently deduct everything at the end if daily meal-prep logs are missing; daily deduction is the source of truth.
+
+PO price/unit editing:
+- During Phase 2 only, RND/FSS may edit vendor group PO line operational values:
+  - purchase_qty
+  - purchase_unit
+  - purchase_price
+  - units_per_purchase
+  - unit_price if used as base-unit fallback
+- Editing those fields recalculates PO line total and vendor group total.
+- Once PO reaches Phase 3, line prices/units are locked permanently.
+
+Latest catalog price sync:
+- When received PO lines are stocked into inventory, update the related fs_items latest purchase values:
+  - purchase_price
+  - purchase_unit
+  - units_per_purchase
+- Update inventory.unit_price as latest base-unit cost.
+- Recalculate dependent recipe costs after latest price changes.
+- Historical PO lines remain frozen snapshots. Updating latest catalog prices must not mutate old PO lines or frozen reports.
+- Changing base_unit from PO should be blocked unless a dedicated unit-conversion migration/workflow exists, because recipes and inventory quantities depend on base_unit.
+
+
+make sure all the reports in our reports page are updated to what our current system does there should be no stale data or reports, no deadend values everything must be reproduceable and come from an input somewhere and processed by our system
+
