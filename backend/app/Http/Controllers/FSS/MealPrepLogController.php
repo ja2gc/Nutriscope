@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\MealPrepLog;
 use App\Models\MenuCycle;
 use App\Services\FSS\ConsumptionService;
+use App\Services\FSS\PurchaseOrderLifecycleService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -28,7 +29,7 @@ class MealPrepLogController extends Controller
         return response()->json(['data' => $logs]);
     }
 
-    public function complete(Request $request, MenuCycle $menuCycle, ConsumptionService $consumption): JsonResponse
+    public function complete(Request $request, MenuCycle $menuCycle, ConsumptionService $consumption, PurchaseOrderLifecycleService $lifecycle): JsonResponse
     {
         $data = $request->validate([
             'service_date'      => ['required', 'date'],
@@ -44,6 +45,7 @@ class MealPrepLogController extends Controller
             $data['served_population'] ?? null,
             (bool) ($data['allow_shortfall'] ?? false),
         );
+        $lifecycle->refreshForServiceDate($data['service_date']);
 
         return response()->json(['data' => $log], 201);
     }
@@ -58,7 +60,7 @@ class MealPrepLogController extends Controller
      * didn't record the headcount on the day itself. Editable by FSS and RND. Drives the
      * derived budget-per-head once every day in the procurement span is filled.
      */
-    public function setServed(Request $request, MenuCycle $menuCycle): JsonResponse
+    public function setServed(Request $request, MenuCycle $menuCycle, PurchaseOrderLifecycleService $lifecycle): JsonResponse
     {
         $data = $request->validate([
             'service_date'      => ['required', 'date'],
@@ -78,6 +80,7 @@ class MealPrepLogController extends Controller
             $log->population_variance = $log->population - $data['served_population'];
         }
         $log->save();
+        $lifecycle->refreshForServiceDate($data['service_date']);
 
         return response()->json(['data' => $log]);
     }

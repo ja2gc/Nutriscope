@@ -21,6 +21,7 @@ class MenuCycleDayFactory extends Factory
             'quantity'            => 1,
             'servings_override'   => null,
             'estimate_population' => fake()->numberBetween(20, 100),
+            'estimate_population_updated_at' => null,
             'is_event'            => false,
             'event_allocation'    => null,
         ];

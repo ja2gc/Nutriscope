@@ -19,6 +19,11 @@ class MenuCycleResource extends JsonResource
             'status'                  => $this->status,
             'activation_date'         => $this->activation_date?->toDateString(),
             'days_count'              => $this->whenCounted('days'),
+            'plan_days'               => $this->whenLoaded('days', fn () => collect(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'])
+                ->mapWithKeys(fn ($day) => [$day => $this->days
+                    ->where('day_of_week', $day)
+                    ->contains(fn ($slot) => $slot->recipe_id || $slot->fs_item_id)])
+                ->all()),
             'days'                    => $this->whenLoaded('days', fn () => $this->days->map(fn ($d) => [
                 'id'                => $d->id,
                 'day_of_week'       => $d->day_of_week,
@@ -28,6 +33,7 @@ class MenuCycleResource extends JsonResource
                 'quantity'          => $d->quantity,
                 'servings_override' => $d->servings_override,
                 'estimate_population' => $d->estimate_population,
+                'estimate_population_updated_at' => $d->estimate_population_updated_at?->toISOString(),
                 'is_event'          => (bool) $d->is_event,
                 'event_allocation'  => $d->event_allocation,
                 'recipe'            => $d->relationLoaded('recipe') && $d->recipe ? [

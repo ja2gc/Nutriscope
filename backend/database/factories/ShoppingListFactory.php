@@ -24,7 +24,9 @@ class ShoppingListFactory extends Factory
             'period_start' => $this->faker->dateTimeBetween('-1 week', 'now')->format('Y-m-d'),
             'period_end'   => $this->faker->dateTimeBetween('now', '+1 week')->format('Y-m-d'),
             'list_type'    => $this->faker->randomElement(['manual', 'suggested']),
-            'status'       => $this->faker->randomElement(['draft', 'finalized']),
+            'status'       => $this->faker->randomElement(['draft', 'converted']),
+            'estimate_population' => null,
+            'estimate_population_updated_at' => null,
         ];
     }
 }

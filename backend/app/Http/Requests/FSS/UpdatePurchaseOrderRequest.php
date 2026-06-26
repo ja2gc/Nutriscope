@@ -18,6 +18,7 @@ class UpdatePurchaseOrderRequest extends FormRequest
             'order_date'       => ['nullable', 'date'],
             'total_amount'     => ['nullable', 'numeric', 'min:0'],
             'status'           => ['nullable', 'string', 'in:draft,ordered,received'],
+            'lifecycle_status' => ['nullable', 'string', 'in:archived'],
             'notes'            => ['nullable', 'string'],
         ];
     }

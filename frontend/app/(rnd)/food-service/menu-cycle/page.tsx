@@ -251,7 +251,7 @@ function CycleList({ readOnly, onOpen, onNew }: { readOnly: boolean; onOpen: (id
           ) : (
             <table className="w-full text-xs">
               <thead className="bg-zinc-50 border-b border-zinc-100">
-                <tr>{["Cycle", "Week", "When", "Status", "Plan", "Actions"].map((h) => (
+                <tr>{["Cycle", "Week", "When", "Status", "Per-day plan", "Actions"].map((h) => (
                   <th key={h} className="px-4 py-3 text-left text-[10px] font-bold text-zinc-500 uppercase tracking-wider">{h}</th>
                 ))}</tr>
               </thead>
@@ -259,27 +259,24 @@ function CycleList({ readOnly, onOpen, onNew }: { readOnly: boolean; onOpen: (id
                 {cycles.map((c) => {
                   const when = temporal(c.week_start_date);
                   return (
-                  <tr key={c.id} className={`hover:bg-zinc-50/60 transition-colors ${c.is_active ? "bg-emerald-50/30" : ""}`}>
+                  <tr key={c.id} className={`hover:bg-zinc-50/60 transition-colors ${c.is_active ? "border-l-4 border-l-emerald-500" : "border-l-4 border-l-transparent"}`}>
                     <td className="px-4 py-3">
                       <button onClick={() => onOpen(c.id)} className="font-semibold text-emerald-700 hover:underline cursor-pointer flex items-center gap-1.5">
-                        {c.is_active && <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" title="Active cycle" />}{c.name}
+                        {c.name}
                       </button>
+                      {c.is_active && <div className="text-[10px] text-emerald-700 font-semibold mt-0.5">Active cycle</div>}
                     </td>
                     <td className="px-4 py-3 text-zinc-500 tabular-nums">{weekRange(c.week_start_date)}</td>
+                    <td className="px-4 py-3 text-zinc-500">{when.label}</td>
+                    <td className="px-4 py-3 text-zinc-500">{c.is_active ? "Active" : c.status}</td>
                     <td className="px-4 py-3">
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${when.cls}`}>{when.label}</span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${c.is_active ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-zinc-100 text-zinc-500 border-zinc-200"}`}>
-                        {c.is_active ? "Active" : c.status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      {(c.days_count ?? 0) === 0 ? (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-600"><AlertTriangle className="h-3 w-3" /> Empty</span>
-                      ) : (
-                        <span className="text-[10px] font-semibold text-zinc-500">{c.days_count} slot{c.days_count === 1 ? "" : "s"}</span>
-                      )}
+                      <div className="flex flex-wrap gap-x-2 gap-y-1 text-[10px] text-zinc-500">
+                        {DAYS.map((day) => (
+                          <span key={day} className={c.plan_days?.[day] ? "text-zinc-800 font-semibold" : "text-zinc-400"}>
+                            {day.slice(0, 3)} {c.plan_days?.[day] ? "planned" : "empty"}
+                          </span>
+                        ))}
+                      </div>
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1">

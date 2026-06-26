@@ -93,11 +93,13 @@ export function ImageCarousel({
 export function ImageUploadGallery({
   images,
   onImagesChange,
+  onFilesSelected,
   label = "Images",
   emptyText = "Image preview appears here after upload.",
 }: {
   images: UploadImage[];
   onImagesChange: (images: UploadImage[]) => void;
+  onFilesSelected?: (files: File[]) => void | Promise<void>;
   label?: string;
   emptyText?: string;
 }) {
@@ -108,8 +110,10 @@ export function ImageUploadGallery({
   const inputId = useMemo(() => `image-upload-${label.toLowerCase().replace(/\W+/g, "-")}`, [label]);
 
   async function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
-    const nextImages = await readImages(event.target.files ?? []);
+    const files = Array.from(event.target.files ?? []);
+    const nextImages = await readImages(files);
     onImagesChange([...images, ...nextImages]);
+    await onFilesSelected?.(files);
     setActiveIndex(images.length);
     event.target.value = "";
   }

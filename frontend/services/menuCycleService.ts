@@ -44,6 +44,7 @@ export interface CycleListItem {
   status: string;
   is_active: boolean;
   week_start_date: string | null;
+  plan_days?: Partial<Record<Day, boolean>>;
   days_count?: number;
   updated_at: string;
 }

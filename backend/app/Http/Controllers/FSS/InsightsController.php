@@ -3,107 +3,221 @@
 namespace App\Http\Controllers\FSS;
 
 use App\Http\Controllers\Controller;
-use App\Models\MealPrepLog;
-use App\Models\MenuCycle;
+use App\Models\Budget;
+use App\Models\BudgetLedger;
 use App\Models\PurchaseOrder;
-use App\Services\MenuCycleCostService;
+use App\Models\PurchaseOrderVendorGroup;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
-/**
- * Read-only analytics for the Budget → Insights tab: spend by supplier, cost-per-head
- * by menu cycle, and value-served consumption. All derive from existing records
- * (received POs, menu-cycle cost snapshots, completed meal-prep logs) so the charts can
- * never drift from the rest of the system.
- */
 class InsightsController extends Controller
 {
-    private function range(Request $request): array
+    private function fiscalYear(Request $request): int
     {
-        $data = $request->validate([
-            'start' => ['nullable', 'date'],
-            'end'   => ['nullable', 'date', 'after_or_equal:start'],
-        ]);
-
-        return [
-            Carbon::parse($data['start'] ?? now()->startOfMonth())->toDateString(),
-            Carbon::parse($data['end'] ?? now())->toDateString(),
-        ];
+        return (int) ($request->input('fiscal_year') ?? now()->year);
     }
 
-    /** Received-PO cash grouped by vendor over the range. */
-    public function spendBySupplier(Request $request): JsonResponse
+    /**
+     * Budget burn: Jan–Dec cumulative ledger deductions vs flat allocation.
+     * PO deductions stamped on completed_at; manual entries stamped on created_at.
+     */
+    public function budgetBurn(Request $request): JsonResponse
     {
-        [$start, $end] = $this->range($request);
+        $year   = $this->fiscalYear($request);
+        $budget = Budget::where('fiscal_year', $year)->first();
 
-        $rows = PurchaseOrder::with('supplier')
-            ->where('status', 'received')
-            ->whereRaw('COALESCE(received_date, order_date) BETWEEN ? AND ?', [$start, $end])
-            ->get(['id', 'supplier_id', 'total_amount']);
+        $allocated = $budget ? (float) $budget->allocated_amount : 0.0;
 
-        $points = $rows->groupBy('supplier_id')->map(function ($group) {
-            $first = $group->first();
+        $entries = BudgetLedger::where('fiscal_year', $year)
+            ->with('purchaseOrder:id,completed_at')
+            ->get();
 
-            return [
-                'supplier_id' => $first->supplier_id,
-                'supplier'    => $first->supplier?->name ?? 'Unassigned',
-                'total'       => round((float) $group->sum('total_amount'), 2),
+        // Build monthly buckets Jan–Dec
+        $months = [];
+        for ($m = 1; $m <= 12; $m++) {
+            $months[sprintf('%04d-%02d', $year, $m)] = 0.0;
+        }
+
+        foreach ($entries as $entry) {
+            if ($entry->type === 'po_deduction') {
+                $date = optional($entry->purchaseOrder?->completed_at)->format('Y-m');
+            } else {
+                $date = Carbon::parse($entry->created_at)->format('Y-m');
+            }
+
+            if ($date && isset($months[$date])) {
+                $months[$date] += $entry->type === 'manual_addition'
+                    ? -(float) $entry->amount
+                    : (float) $entry->amount;
+            }
+        }
+
+        $cumulative = 0.0;
+        $points     = [];
+        foreach ($months as $month => $net) {
+            $cumulative += $net;
+            $points[] = [
+                'month'            => $month,
+                'cumulative_spent' => round($cumulative, 2),
+                'allocated'        => $allocated,
+                'remaining'        => round($allocated - $cumulative, 2),
             ];
-        })->sortByDesc('total')->values();
-
-        return response()->json(['data' => [
-            'points'  => $points,
-            'summary' => ['total' => round((float) $rows->sum('total_amount'), 2), 'range' => ['start' => $start, 'end' => $end]],
-        ]]);
-    }
-
-    /** Average daily ₱/head for each menu cycle (frozen snapshot, else live cost). */
-    public function costPerHead(): JsonResponse
-    {
-        $cycles = MenuCycle::orderByDesc('week_start_date')->limit(12)->get();
-
-        $points = $cycles->map(function (MenuCycle $cycle) {
-            $cost = MenuCycleCostService::forReport($cycle);
-
-            return [
-                'cycle_id'      => $cycle->id,
-                'cycle'         => $cycle->name,
-                'cost_per_head' => round((float) ($cost['cost_per_head'] ?? 0), 2),
-                'population'    => (int) ($cost['population'] ?? 0),
-            ];
-        })->filter(fn ($p) => $p['cost_per_head'] > 0)->values();
-
-        $avg = $points->count() > 0 ? round($points->avg('cost_per_head'), 2) : 0.0;
-
-        return response()->json(['data' => ['points' => $points, 'summary' => ['avg' => $avg]]]);
-    }
-
-    /** Value of food served per day (completed meal-prep logs) over the range. */
-    public function consumption(Request $request): JsonResponse
-    {
-        [$start, $end] = $this->range($request);
-
-        $logs = MealPrepLog::where('status', 'completed')
-            ->whereBetween('service_date', [$start, $end])
-            ->get(['service_date', 'total_value', 'has_shortfall']);
-
-        $points = $logs->groupBy(fn ($log) => Carbon::parse($log->service_date)->toDateString())
-            ->map(fn ($group, $date) => [
-                'date'      => $date,
-                'actual'    => round((float) $group->sum('total_value'), 2),
-                'shortfall' => (bool) $group->contains(fn ($l) => $l->has_shortfall),
-            ])
-            ->sortKeys()->values();
+        }
 
         return response()->json(['data' => [
             'points'  => $points,
             'summary' => [
-                'total'          => round((float) $logs->sum('total_value'), 2),
-                'days'           => $points->count(),
-                'shortfall_days' => $points->where('shortfall', true)->count(),
-                'range'          => ['start' => $start, 'end' => $end],
+                'fiscal_year'    => $year,
+                'allocated'      => $allocated,
+                'total_deducted' => round($cumulative, 2),
+                'remaining'      => round($allocated - $cumulative, 2),
             ],
+        ]]);
+    }
+
+    /**
+     * Per-head actual vs limit: one point per PO in fiscal year.
+     * Phase 2 POs (open_execution) show pending markers.
+     */
+    public function perHeadActualVsLimit(Request $request): JsonResponse
+    {
+        $year   = $this->fiscalYear($request);
+        $budget = Budget::where('fiscal_year', $year)->first();
+        $limit  = $budget ? (float) $budget->per_head_day_limit : null;
+
+        $pos = PurchaseOrder::with(['shoppingList:id,period_start,period_end', 'programProjectActivity'])
+            ->whereIn('lifecycle_status', ['open_execution', 'completed', 'archived'])
+            ->whereHas('shoppingList', fn ($q) => $q->whereYear('period_start', $year))
+            ->orderBy('completed_at')
+            ->get();
+
+        $points = $pos->map(function (PurchaseOrder $po) use ($limit) {
+            $sl   = $po->shoppingList;
+            $span = $sl
+                ? (optional($sl->period_start)->format('M j') . '–' . optional($sl->period_end)->format('M j'))
+                : null;
+
+            // Estimated per-head/day from the frozen PPA planning snapshot:
+            // estimated_total_cost / estimated_output_patients (sum of estimate_population across planned days).
+            $ppa = $po->programProjectActivity;
+            $estimatedPerHead = ($ppa && (int) $ppa->estimated_output_patients > 0)
+                ? round((float) $ppa->estimated_total_cost / (int) $ppa->estimated_output_patients, 2)
+                : null;
+
+            return [
+                'po_id'             => $po->id,
+                'span'              => $span,
+                'period_start'      => optional($sl?->period_start)->toDateString(),
+                'lifecycle_status'  => $po->lifecycle_status,
+                'actual_per_head'   => $po->lifecycle_status === 'open_execution'
+                    ? null
+                    : (float) ($po->actual_budget_per_head_per_day ?? 0),
+                'estimated_per_head' => $estimatedPerHead,
+                'pending'           => $po->lifecycle_status === 'open_execution',
+                'limit_per_head'    => $limit,
+            ];
+        });
+
+        $completed = $points->where('pending', false);
+
+        return response()->json(['data' => [
+            'points'  => $points->values(),
+            'summary' => [
+                'fiscal_year'    => $year,
+                'limit_per_head' => $limit,
+                'avg_actual'     => $completed->count() > 0
+                    ? round($completed->avg('actual_per_head'), 2)
+                    : null,
+            ],
+        ]]);
+    }
+
+    /**
+     * Procurement deduction timeline: completed POs + manual ledger entries for fiscal year.
+     */
+    public function procurementDeductionTimeline(Request $request): JsonResponse
+    {
+        $year = $this->fiscalYear($request);
+
+        $pos = PurchaseOrder::with(['shoppingList:id,period_start,period_end', 'programProjectActivity'])
+            ->whereIn('lifecycle_status', ['completed', 'archived'])
+            ->whereHas('shoppingList', fn ($q) => $q->whereYear('period_start', $year))
+            ->orderBy('completed_at')
+            ->get()
+            ->map(function (PurchaseOrder $po) {
+                $ppa = $po->programProjectActivity;
+                $estimatedPerHead = ($ppa && (int) $ppa->estimated_output_patients > 0)
+                    ? round((float) $ppa->estimated_total_cost / (int) $ppa->estimated_output_patients, 2)
+                    : null;
+
+                return [
+                    'type'              => 'po',
+                    'date'              => optional($po->completed_at)->toDateString(),
+                    'po_id'             => $po->id,
+                    'reference'         => $po->po_number ?? "PO #{$po->id}",
+                    'procurement_span'  => $po->shoppingList
+                        ? (optional($po->shoppingList->period_start)->format('m/d/Y')
+                            . ' - ' . optional($po->shoppingList->period_end)->format('m/d/Y'))
+                        : null,
+                    'total_cost'        => (float) $po->total_amount,
+                    'actual_per_head'   => (float) ($po->actual_budget_per_head_per_day ?? 0),
+                    'estimated_per_head' => $estimatedPerHead,
+                ];
+            });
+
+        $manuals = BudgetLedger::where('fiscal_year', $year)
+            ->whereIn('type', ['manual_addition', 'manual_deduction'])
+            ->with('creator:id,name')
+            ->orderBy('created_at')
+            ->get()
+            ->map(fn (BudgetLedger $e) => [
+                'type'       => $e->type,
+                'date'       => optional($e->created_at)->toDateString(),
+                'amount'     => (float) $e->amount,
+                'reason'     => $e->reason,
+                'created_by' => $e->creator?->name,
+            ]);
+
+        $timeline = $pos->merge($manuals)->sortBy('date')->values();
+
+        return response()->json(['data' => [
+            'timeline'    => $timeline,
+            'fiscal_year' => $year,
+        ]]);
+    }
+
+    /**
+     * Spend by supplier for fiscal year using PurchaseOrderVendorGroup (completed POs only).
+     */
+    public function spendBySupplier(Request $request): JsonResponse
+    {
+        $year = $this->fiscalYear($request);
+
+        $groups = PurchaseOrderVendorGroup::with('supplier:id,name')
+            ->whereHas('purchaseOrder', fn ($q) => $q
+                ->whereIn('lifecycle_status', ['completed', 'archived'])
+                ->whereHas('shoppingList', fn ($q2) => $q2->whereYear('period_start', $year)))
+            ->get(['supplier_id', 'total_amount']);
+
+        $points = $groups
+            ->groupBy('supplier_id')
+            ->map(function ($group) {
+                $first = $group->first();
+
+                return [
+                    'supplier_id' => $first->supplier_id,
+                    'supplier'    => $first->supplier?->name ?? 'Unassigned',
+                    'total'       => round((float) $group->sum('total_amount'), 2),
+                ];
+            })
+            ->sortByDesc('total')
+            ->values();
+
+        return response()->json(['data' => [
+            'points'      => $points,
+            'fiscal_year' => $year,
+            'total'       => round((float) $points->sum('total'), 2),
         ]]);
     }
 }
