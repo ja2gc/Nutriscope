@@ -46,15 +46,63 @@ class FoodServiceDemoSeeder extends Seeder
     private array $recipes = []; // recipe name => FoodServiceRecipe
     private array $suppliers = [];
 
-    /** Per-weekday plan: breakfast / am_snack / lunch / pm_snack / dinner. */
-    private array $plan = [
-        'Monday'    => ['Cheezwhiz Sandwich', 'Yakult', 'Pork Pinakbet', 'Latundan banana', 'Paksiw na Bangus'],
-        'Tuesday'   => ['Sopas', 'Coffee', 'Pork Picadillo', 'Latundan banana', 'Chicken Fillet w/ Mushroom Sauce'],
-        'Wednesday' => ['Mami Noodle Soup', 'Fresh milk', 'Pork Strips Oriental with Corn', 'Saba banana', 'Chicken Sisig'],
-        'Thursday'  => ['Pandesal with Boiled Egg', 'Milo', 'Beef Caldereta', 'Saba banana', 'Chicken with Lemongrass'],
-        'Friday'    => ['Cheezwhiz Sandwich', 'Yakult', 'Pork Picadillo', 'Ponkan', 'Paksiw na Bangus'],
-        'Saturday'  => ['Sopas', 'Coffee', 'Beef Caldereta', 'Brownie bite', 'Chicken Sisig'],
-        'Sunday'    => ['Pandesal with Boiled Egg', 'Milo', 'Pork Pinakbet', 'Chooey toffee', 'Chicken Fillet w/ Mushroom Sauce'],
+    /**
+     * Five genuinely different weekly menus keyed by week index.
+     * Each day is [breakfast, am_snack, lunch, pm_snack, dinner].
+     * Proteins are weighted per week (beef/pork-heavy vs chicken/fish-light) so
+     * system-computed weekly cost and actual ₱/head differ meaningfully across cycles.
+     */
+    private array $plans = [
+        // Week 0 — current/active: balanced mix.
+        0 => [
+            'Monday'    => ['Cheezwhiz Sandwich', 'Yakult', 'Pork Pinakbet', 'Latundan banana', 'Chicken Sisig'],
+            'Tuesday'   => ['Sopas', 'Coffee', 'Chicken Fillet w/ Mushroom Sauce', 'Saba banana', 'Pork Picadillo'],
+            'Wednesday' => ['Mami Noodle Soup', 'Fresh milk', 'Beef Caldereta', 'Ponkan', 'Paksiw na Bangus'],
+            'Thursday'  => ['Pandesal with Boiled Egg', 'Milo', 'Chicken with Lemongrass', 'Saba banana', 'Pork Strips Oriental with Corn'],
+            'Friday'    => ['Cheezwhiz Sandwich', 'Yakult', 'Pork Picadillo', 'Brownie bite', 'Chicken Fillet w/ Mushroom Sauce'],
+            'Saturday'  => ['Sopas', 'Coffee', 'Paksiw na Bangus', 'Chooey toffee', 'Beef Caldereta'],
+            'Sunday'    => ['Pandesal with Boiled Egg', 'Milo', 'Chicken Sisig', 'Latundan banana', 'Pork Pinakbet'],
+        ],
+        // Week 1 — beef/pork heavy: highest cost.
+        1 => [
+            'Monday'    => ['Cheezwhiz Sandwich', 'Yakult', 'Beef Caldereta', 'Latundan banana', 'Pork Pinakbet'],
+            'Tuesday'   => ['Sopas', 'Coffee', 'Pork Strips Oriental with Corn', 'Saba banana', 'Beef Caldereta'],
+            'Wednesday' => ['Mami Noodle Soup', 'Fresh milk', 'Pork Picadillo', 'Ponkan', 'Beef Caldereta'],
+            'Thursday'  => ['Pandesal with Boiled Egg', 'Milo', 'Beef Caldereta', 'Saba banana', 'Pork Strips Oriental with Corn'],
+            'Friday'    => ['Cheezwhiz Sandwich', 'Yakult', 'Pork Pinakbet', 'Brownie bite', 'Pork Picadillo'],
+            'Saturday'  => ['Sopas', 'Coffee', 'Beef Caldereta', 'Chooey toffee', 'Pork Strips Oriental with Corn'],
+            'Sunday'    => ['Pandesal with Boiled Egg', 'Milo', 'Pork Picadillo', 'Latundan banana', 'Pork Pinakbet'],
+        ],
+        // Week 2 — chicken/fish: lightest cost.
+        2 => [
+            'Monday'    => ['Sopas', 'Coffee', 'Chicken Sisig', 'Latundan banana', 'Paksiw na Bangus'],
+            'Tuesday'   => ['Mami Noodle Soup', 'Fresh milk', 'Chicken with Lemongrass', 'Saba banana', 'Chicken Fillet w/ Mushroom Sauce'],
+            'Wednesday' => ['Cheezwhiz Sandwich', 'Yakult', 'Paksiw na Bangus', 'Ponkan', 'Chicken Sisig'],
+            'Thursday'  => ['Pandesal with Boiled Egg', 'Milo', 'Chicken Fillet w/ Mushroom Sauce', 'Saba banana', 'Chicken with Lemongrass'],
+            'Friday'    => ['Sopas', 'Coffee', 'Chicken Sisig', 'Brownie bite', 'Paksiw na Bangus'],
+            'Saturday'  => ['Mami Noodle Soup', 'Fresh milk', 'Chicken with Lemongrass', 'Chooey toffee', 'Chicken Fillet w/ Mushroom Sauce'],
+            'Sunday'    => ['Pandesal with Boiled Egg', 'Milo', 'Paksiw na Bangus', 'Latundan banana', 'Chicken Sisig'],
+        ],
+        // Week 3 — mixed, distinct from week 0.
+        3 => [
+            'Monday'    => ['Pandesal with Boiled Egg', 'Milo', 'Pork Strips Oriental with Corn', 'Saba banana', 'Chicken with Lemongrass'],
+            'Tuesday'   => ['Cheezwhiz Sandwich', 'Yakult', 'Beef Caldereta', 'Latundan banana', 'Chicken Sisig'],
+            'Wednesday' => ['Sopas', 'Coffee', 'Chicken Fillet w/ Mushroom Sauce', 'Ponkan', 'Pork Pinakbet'],
+            'Thursday'  => ['Mami Noodle Soup', 'Fresh milk', 'Paksiw na Bangus', 'Saba banana', 'Beef Caldereta'],
+            'Friday'    => ['Pandesal with Boiled Egg', 'Milo', 'Pork Picadillo', 'Brownie bite', 'Chicken with Lemongrass'],
+            'Saturday'  => ['Cheezwhiz Sandwich', 'Yakult', 'Chicken Sisig', 'Chooey toffee', 'Pork Strips Oriental with Corn'],
+            'Sunday'    => ['Sopas', 'Coffee', 'Beef Caldereta', 'Latundan banana', 'Paksiw na Bangus'],
+        ],
+        // Week 4 — draft/next: breakfast-heavy and fish/chicken forward.
+        4 => [
+            'Monday'    => ['Mami Noodle Soup', 'Fresh milk', 'Paksiw na Bangus', 'Ponkan', 'Chicken Fillet w/ Mushroom Sauce'],
+            'Tuesday'   => ['Pandesal with Boiled Egg', 'Milo', 'Pork Pinakbet', 'Latundan banana', 'Chicken with Lemongrass'],
+            'Wednesday' => ['Cheezwhiz Sandwich', 'Yakult', 'Chicken Sisig', 'Saba banana', 'Pork Strips Oriental with Corn'],
+            'Thursday'  => ['Sopas', 'Coffee', 'Beef Caldereta', 'Brownie bite', 'Paksiw na Bangus'],
+            'Friday'    => ['Mami Noodle Soup', 'Fresh milk', 'Chicken with Lemongrass', 'Chooey toffee', 'Pork Picadillo'],
+            'Saturday'  => ['Pandesal with Boiled Egg', 'Milo', 'Pork Pinakbet', 'Ponkan', 'Chicken Fillet w/ Mushroom Sauce'],
+            'Sunday'    => ['Cheezwhiz Sandwich', 'Yakult', 'Pork Strips Oriental with Corn', 'Saba banana', 'Chicken Sisig'],
+        ],
     ];
 
     private array $dayPop = [
@@ -98,8 +146,8 @@ class FoodServiceDemoSeeder extends Seeder
         for ($w = 3; $w >= 0; $w--) {
             $weekStart = $currentWeekStart->copy()->subWeeks($w);
             $isCurrent = ($w === 0);
-            $cycle = $this->seedCycleForWeek($rnd, $weekStart, $isCurrent);
-            $served = $this->seedConsumptionForWeek($cycle, $fss, $weekStart, $isCurrent);
+            $cycle = $this->seedCycleForWeek($rnd, $weekStart, $isCurrent, null, $w);
+            $served = $this->seedConsumptionForWeek($cycle, $fss, $weekStart, $isCurrent, $w);
             $this->seedProcurementForWeek($cycle, $fss, $weekStart, $isCurrent, $served);
             $cycles[] = $cycle;
         }
@@ -107,7 +155,7 @@ class FoodServiceDemoSeeder extends Seeder
         // Next week's cycle as a DRAFT plan (no consumption/procurement yet) so the
         // client's Fri→Mon procurement run can resolve Monday from the upcoming cycle.
         // Demonstrates date-driven, multi-cycle shopping-list generation.
-        $this->seedCycleForWeek($rnd, $currentWeekStart->copy()->addWeek(), false, 'draft');
+        $this->seedCycleForWeek($rnd, $currentWeekStart->copy()->addWeek(), false, 'draft', 4);
 
         $this->seedBudget($fss, end($cycles));
 
@@ -136,6 +184,16 @@ class FoodServiceDemoSeeder extends Seeder
     private function id(string $name): ?int
     {
         return $this->fs[$name] ?? null;
+    }
+
+    private function planForWeek(int $weekIndex): array
+    {
+        return $this->plans[$weekIndex % count($this->plans)];
+    }
+
+    private function popFactor(int $weekIndex): float
+    {
+        return [0 => 1.00, 1 => 0.90, 2 => 1.12, 3 => 0.82][$weekIndex] ?? 1.0;
     }
 
     // ── Suppliers (payees from the real Dietary Cash Book) ──────────────────
@@ -261,7 +319,7 @@ class FoodServiceDemoSeeder extends Seeder
     }
 
     // ── One weekly menu cycle for the given week ────────────────────────────
-    private function seedCycleForWeek(int $rnd, Carbon $weekStart, bool $isCurrent, ?string $statusOverride = null): MenuCycle
+    private function seedCycleForWeek(int $rnd, Carbon $weekStart, bool $isCurrent, ?string $statusOverride = null, int $weekIndex = 0): MenuCycle
     {
         $status = $statusOverride ?? ($isCurrent ? 'active' : 'archived');
         $cycle = MenuCycle::create([
@@ -274,13 +332,15 @@ class FoodServiceDemoSeeder extends Seeder
             'activation_date' => $status === 'draft' ? null : $weekStart->toDateString(),
         ]);
 
+        $plan      = $this->planForWeek($weekIndex);
+        $popFactor = $this->popFactor($weekIndex);
         $slots = ['breakfast', 'am_snack', 'lunch', 'pm_snack', 'dinner'];
-        foreach ($this->plan as $day => $items) {
+        foreach ($plan as $day => $items) {
             foreach ($slots as $i => $slot) {
                 $name = $items[$i];
                 $row = [
                     'menu_cycle_id' => $cycle->id, 'day_of_week' => $day, 'meal_type' => $slot,
-                    'estimate_population' => $this->dayPop[$day],
+                    'estimate_population' => (int) round($this->dayPop[$day] * $popFactor),
                 ];
                 if (isset($this->recipes[$name])) {
                     $row['recipe_id'] = $this->recipes[$name]->id;
@@ -310,10 +370,11 @@ class FoodServiceDemoSeeder extends Seeder
      * Past weeks are fully served; the current week only up to today. Returns the
      * total served population across the week (census denominator for per-head).
      */
-    private function seedConsumptionForWeek(MenuCycle $cycle, int $fss, Carbon $weekStart, bool $isCurrent): int
+    private function seedConsumptionForWeek(MenuCycle $cycle, int $fss, Carbon $weekStart, bool $isCurrent, int $weekIndex = 0): int
     {
-        $cost     = MenuCycleCostService::forCycle($cycle);
-        $today    = Carbon::now();
+        $cost      = MenuCycleCostService::forCycle($cycle);
+        $today     = Carbon::now();
+        $popFactor = $this->popFactor($weekIndex);
         $totalServed = 0;
 
         for ($i = 0; $i < 7; $i++) {
@@ -323,8 +384,9 @@ class FoodServiceDemoSeeder extends Seeder
                 break; // current week: don't serve the future
             }
 
-            $planned  = $this->dayPop[$weekday];
-            $served   = max(0, $planned - mt_rand(0, 12)); // slight under-serve, realistic
+            $planned  = (int) round($this->dayPop[$weekday] * $popFactor);
+            $variance = (($weekIndex + 2) * ($i + 3)) % 13;
+            $served   = max(0, $planned - $variance);
             $dayCost  = (float) ($cost['days'][$weekday]['cost'] ?? 0);
             $totalServed += $served;
 

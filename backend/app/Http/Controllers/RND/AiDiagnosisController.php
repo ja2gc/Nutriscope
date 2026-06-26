@@ -93,18 +93,32 @@ class AiDiagnosisController extends Controller
         }
 
         $data = $request->validated();
+        $problem = $this->cleanPesComponent($data['label']);
+        $etiology = $this->cleanPesComponent($data['etiology'], 'related to');
+        $signs = $this->cleanPesComponent($data['signs'], 'as evidenced by');
 
         $diagnosis = Diagnosis::create([
             'ncp_record_id' => $ncpRecord->id,
             'domain'        => $data['domain'],
-            'problem'       => $data['label'],
-            'label'         => $data['label'],
-            'etiology'      => $data['etiology'],
-            'signs_symptoms'=> $data['signs'],
-            'pes_statement' => Diagnosis::buildPes($data['label'], $data['etiology'], $data['signs']),
+            'problem'       => $problem,
+            'label'         => $problem,
+            'etiology'      => $etiology,
+            'signs_symptoms'=> $signs,
+            'pes_statement' => Diagnosis::buildPes($problem, $etiology, $signs),
             'ai_generated'  => true,
         ]);
 
         return response()->json(['data' => new DiagnosisResource($diagnosis)], 201);
+    }
+
+    private function cleanPesComponent(string $value, ?string $prefix = null): string
+    {
+        $value = trim(preg_replace('/\s+/', ' ', $value) ?? $value);
+
+        if ($prefix === null) {
+            return $value;
+        }
+
+        return trim((string) preg_replace('/^'.preg_quote($prefix, '/').'\s+/i', '', $value));
     }
 }
