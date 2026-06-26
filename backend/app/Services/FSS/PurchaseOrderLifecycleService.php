@@ -1,0 +1,237 @@
+<?php
+
+namespace App\Services\FSS;
+
+use App\Events\PurchaseOrderCompleted;
+use App\Models\MealPrepLog;
+use App\Models\MenuCycle;
+use App\Models\ProgramProjectActivity;
+use App\Models\PurchaseOrder;
+use App\Models\PurchaseOrderVendorGroup;
+use App\Models\ShoppingList;
+use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
+
+class PurchaseOrderLifecycleService
+{
+    /**
+     * Re-evaluate every PO whose procurement span includes a service date.
+     */
+    public function refreshForServiceDate(string $serviceDate): void
+    {
+        $date = Carbon::parse($serviceDate)->toDateString();
+
+        PurchaseOrder::query()
+            ->whereHas('shoppingList', fn ($q) => $q
+                ->whereDate('period_start', '<=', $date)
+                ->whereDate('period_end', '>=', $date))
+            ->with('shoppingList')
+            ->get()
+            ->each(fn (PurchaseOrder $po) => $this->refresh($po));
+    }
+
+    public function refresh(PurchaseOrder $purchaseOrder): PurchaseOrder
+    {
+        return DB::transaction(function () use ($purchaseOrder) {
+            $po = $purchaseOrder->fresh(['vendorGroups.attachments', 'shoppingList', 'programProjectActivity']);
+            if (! $po || in_array($po->lifecycle_status, ['completed', 'archived'], true)) {
+                return $purchaseOrder->fresh();
+            }
+
+            $groups = $po->vendorGroups;
+            $hasReceipts = $groups->isNotEmpty()
+                && $groups->every(fn (PurchaseOrderVendorGroup $group) => $group->attachments->where('type', 'receipt')->isNotEmpty());
+
+            $prep = $this->servedPopulationProgress($po->shoppingList);
+            if (! $hasReceipts || $prep['expected'] === 0 || $prep['done'] < $prep['expected'] || $prep['served'] <= 0) {
+                return $po;
+            }
+
+            $actualTotal = round((float) $groups->sum('total_amount'), 2);
+            $actualPerHead = round($actualTotal / $prep['served'], 2);
+
+            // Block completion if no fiscal year allocation exists for the procurement year.
+            // BudgetController::store() re-calls refresh() for blocked POs when allocation is set up.
+            $procurementYear = optional($po->shoppingList?->period_start)->year ?? now()->year;
+            if (! \App\Models\Budget::where('fiscal_year', $procurementYear)->exists()) {
+                return $po;
+            }
+
+            $po->forceFill([
+                'lifecycle_status' => 'completed',
+                'completed_at' => now(),
+                'actual_budget_per_head_per_day' => $actualPerHead,
+                'total_amount' => $actualTotal,
+                'status' => 'received',
+                'received_date' => now()->toDateString(),
+            ])->save();
+
+            if ($po->programProjectActivity) {
+                $po->programProjectActivity->update([
+                    'actual_total_cost' => $actualTotal,
+                    'actual_output_patients' => $prep['served'],
+                    'execution_frozen_at' => now(),
+                    'execution_payload' => [
+                        'formula' => 'actual_budget_per_head_per_day = actual_total_cost / actual_output_patients',
+                        'actual_budget_per_head_per_day' => $actualPerHead,
+                        'service_days_done' => $prep['done'],
+                        'service_days_expected' => $prep['expected'],
+                    ],
+                ]);
+            }
+
+            event(new PurchaseOrderCompleted($po->fresh(['vendorGroups', 'shoppingList', 'programProjectActivity'])));
+
+            return $po->fresh();
+        });
+    }
+
+    public function archive(PurchaseOrder $purchaseOrder): PurchaseOrder
+    {
+        if ($purchaseOrder->lifecycle_status !== 'completed') {
+            abort(422, 'Only completed purchase orders can be archived.');
+        }
+
+        $purchaseOrder->forceFill([
+            'lifecycle_status' => 'archived',
+            'archived_at' => now(),
+        ])->save();
+
+        return $purchaseOrder->fresh();
+    }
+
+    public function createPpaSnapshot(PurchaseOrder $purchaseOrder, ShoppingList $shoppingList): ProgramProjectActivity
+    {
+        $shoppingList->loadMissing('items.fsItem');
+
+        $menuSnapshot = $this->menuSnapshot($shoppingList);
+        $estimatedTotal = round((float) $shoppingList->items->sum(fn ($item) => (float) $item->total), 2);
+        $estimatedPatients = $this->estimatedOutputPatients($shoppingList);
+
+        return ProgramProjectActivity::create([
+            'purchase_order_id' => $purchaseOrder->id,
+            'activity' => 'Food Subsistence for Patients',
+            'menu_snapshot' => $menuSnapshot,
+            'target_date_range' => $this->targetDateRange($shoppingList),
+            'period_start' => $shoppingList->period_start,
+            'period_end' => $shoppingList->period_end,
+            'estimated_total_cost' => $estimatedTotal,
+            'estimated_output_patients' => $estimatedPatients,
+            'planning_payload' => [
+                'source' => 'shopping_list_conversion',
+                'shopping_list_id' => $shoppingList->id,
+                'items_count' => $shoppingList->items->count(),
+                'formula' => 'estimated_total_cost = frozen shopping_list_items.total sum',
+                'estimated_output_patients_formula' => 'sum estimate_population for planned service dates in procurement span',
+            ],
+        ]);
+    }
+
+    /**
+     * @return array{expected:int, done:int, served:int}
+     */
+    public function servedPopulationProgress(?ShoppingList $shoppingList): array
+    {
+        if (! $shoppingList?->period_start || ! $shoppingList?->period_end) {
+            return ['expected' => 0, 'done' => 0, 'served' => 0];
+        }
+
+        $cycleIds = [];
+        $expectedDates = [];
+
+        for ($d = Carbon::parse($shoppingList->period_start); $d->lte(Carbon::parse($shoppingList->period_end)); $d->addDay()) {
+            $cycle = MenuCycle::coveringDate($d);
+            if (! $cycle) {
+                continue;
+            }
+
+            $cycle->loadMissing('days');
+            $hasPlan = $cycle->days
+                ->where('day_of_week', $d->format('l'))
+                ->contains(fn ($day) => $day->recipe_id || $day->fs_item_id);
+
+            if ($hasPlan) {
+                $cycleIds[$cycle->id] = true;
+                $expectedDates[$d->toDateString()] = true;
+            }
+        }
+
+        if (! $expectedDates) {
+            return ['expected' => 0, 'done' => 0, 'served' => 0];
+        }
+
+        $logs = MealPrepLog::query()
+            ->whereIn('menu_cycle_id', array_keys($cycleIds))
+            ->where('status', 'completed')
+            ->whereBetween('service_date', [
+                $shoppingList->period_start->toDateString(),
+                $shoppingList->period_end->toDateString(),
+            ])
+            ->whereNotNull('served_population')
+            ->get(['service_date', 'served_population']);
+
+        return [
+            'expected' => count($expectedDates),
+            'done' => $logs->pluck('service_date')->map(fn ($date) => Carbon::parse($date)->toDateString())->unique()->count(),
+            'served' => (int) $logs->sum('served_population'),
+        ];
+    }
+
+    private function estimatedOutputPatients(ShoppingList $shoppingList): int
+    {
+        if (! $shoppingList->period_start || ! $shoppingList->period_end) {
+            return (int) ($shoppingList->estimate_population ?? 0);
+        }
+
+        $total = 0;
+        for ($d = Carbon::parse($shoppingList->period_start); $d->lte(Carbon::parse($shoppingList->period_end)); $d->addDay()) {
+            $cycle = MenuCycle::coveringDate($d);
+            if (! $cycle) {
+                continue;
+            }
+            $cycle->loadMissing('days');
+            $day = $cycle->days->firstWhere('day_of_week', $d->format('l'));
+            if ($day && ($day->recipe_id || $day->fs_item_id)) {
+                $total += (int) ($day->estimate_population ?? $shoppingList->estimate_population ?? 0);
+            }
+        }
+
+        return $total;
+    }
+
+    private function menuSnapshot(ShoppingList $shoppingList): ?string
+    {
+        if (! $shoppingList->period_start || ! $shoppingList->period_end) {
+            return $shoppingList->items->pluck('ingredient_name')->unique()->values()->implode(', ');
+        }
+
+        $lines = [];
+        for ($d = Carbon::parse($shoppingList->period_start); $d->lte(Carbon::parse($shoppingList->period_end)); $d->addDay()) {
+            $cycle = MenuCycle::coveringDate($d);
+            if (! $cycle) {
+                continue;
+            }
+            $cycle->loadMissing('days.recipe', 'days.fsItem');
+            $names = $cycle->days
+                ->where('day_of_week', $d->format('l'))
+                ->map(fn ($day) => $day->recipe?->name ?? $day->fsItem?->name)
+                ->filter()
+                ->unique()
+                ->values();
+            if ($names->isNotEmpty()) {
+                $lines[] = $d->format('d') . ': ' . $names->implode(', ');
+            }
+        }
+
+        return $lines ? implode("\n", $lines) : null;
+    }
+
+    private function targetDateRange(ShoppingList $shoppingList): ?string
+    {
+        if (! $shoppingList->period_start || ! $shoppingList->period_end) {
+            return null;
+        }
+
+        return $shoppingList->period_start->format('m/d/y') . ' - ' . $shoppingList->period_end->format('m/d/y');
+    }
+}
