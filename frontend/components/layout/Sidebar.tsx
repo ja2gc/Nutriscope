@@ -409,6 +409,17 @@ export function Sidebar({ open = false, onClose }: { open?: boolean; onClose?: (
                   Budget
                 </Link>
                 <Link
+                  href="/food-service/insights"
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all duration-150 ${
+                    pathname === "/food-service/insights"
+                      ? "text-emerald-500 font-extrabold"
+                      : "text-zinc-500 hover:text-zinc-300"
+                  }`}
+                >
+                  <span className={`h-1.5 w-1.5 rounded-full ${pathname === "/food-service/insights" ? "bg-emerald-500" : "bg-zinc-700"}`} />
+                  Insights
+                </Link>
+                <Link
                   href="/food-service/procurement"
                   className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all duration-150 ${
                     pathname === "/food-service/procurement"

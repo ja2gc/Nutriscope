@@ -7,6 +7,7 @@ use App\Http\Requests\FSS\StoreMenuCycleRequest;
 use App\Http\Requests\FSS\UpdateMenuCycleRequest;
 use App\Http\Resources\MenuCycleResource;
 use App\Models\MenuCycle;
+use App\Services\FSS\ShoppingListPopulationService;
 use App\Services\MenuCycleCostService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -20,9 +21,11 @@ class MenuCycleController extends Controller
 
     public function index(): JsonResponse
     {
-        // Chronological (newest week first) so current + upcoming plans sit on top and
-        // past ones below; days_count surfaces which weeks are still empty/unplanned.
-        $cycles = MenuCycle::withCount('days')->orderByDesc('week_start_date')->get();
+        $cycles = MenuCycle::with('days')
+            ->withCount('days')
+            ->orderByDesc('is_active')
+            ->orderBy('week_start_date')
+            ->get();
 
         return response()->json(['data' => MenuCycleResource::collection($cycles)]);
     }
@@ -65,6 +68,10 @@ class MenuCycleController extends Controller
             }
         });
 
+        if ($days !== null) {
+            app(ShoppingListPopulationService::class)->recalculateDraftListsForCycle($menuCycle->fresh());
+        }
+
         return response()->json(['data' => new MenuCycleResource($menuCycle->fresh()->load(self::DAY_RELATIONS))]);
     }
 
@@ -76,6 +83,14 @@ class MenuCycleController extends Controller
 
     public function activate(MenuCycle $menuCycle): JsonResponse
     {
+        $missingPopulationDays = $this->missingPopulationDays($menuCycle);
+        if ($missingPopulationDays !== []) {
+            return response()->json([
+                'message' => 'Menu cycle cannot be activated until every planned day has estimate_population.',
+                'missing_population_days' => $missingPopulationDays,
+            ], 422);
+        }
+
         DB::transaction(function () use ($menuCycle) {
             // Retire any currently active cycle before promoting this one — only one
             // cycle may be active at a time (callers do where('is_active', true)->first()).
@@ -102,6 +117,31 @@ class MenuCycleController extends Controller
         return response()->json(['data' => new MenuCycleResource($menuCycle->fresh())]);
     }
 
+    private function missingPopulationDays(MenuCycle $menuCycle): array
+    {
+        $menuCycle->loadMissing('days.recipe', 'days.fsItem');
+        $weekStart = $menuCycle->week_start_date?->copy()->startOfDay();
+        $dayOffsets = [
+            'Monday' => 0,
+            'Tuesday' => 1,
+            'Wednesday' => 2,
+            'Thursday' => 3,
+            'Friday' => 4,
+            'Saturday' => 5,
+            'Sunday' => 6,
+        ];
+
+        return $menuCycle->days
+            ->filter(fn ($day) => ($day->recipe !== null || $day->fsItem !== null)
+                && (int) ($day->estimate_population ?? 0) <= 0)
+            ->map(fn ($day) => $weekStart && isset($dayOffsets[$day->day_of_week])
+                ? $weekStart->copy()->addDays($dayOffsets[$day->day_of_week])->toDateString()
+                : $day->day_of_week)
+            ->unique()
+            ->values()
+            ->all();
+    }
+
     /**
      * Cost-to-make per head for the active cycle on a given day (default today).
      * This is the REAL menu cost (recipes × ingredient prices ÷ population) for that
@@ -124,9 +164,9 @@ class MenuCycleController extends Controller
         $cost    = MenuCycleCostService::forCycle($cycle);
         $dayCost = $cost['days'][$weekday] ?? null;
         $perHead = $dayCost ? (float) $dayCost['cost_per_head'] : null;
-        // Per-head cap is owned by the Budget covering this date (not the cycle).
-        $budget  = \App\Models\Budget::coveringDate($date);
-        $limit   = $budget && $budget->budget_per_head_day !== null ? (float) $budget->budget_per_head_day : null;
+        // Per-head cap comes from the fiscal year budget.
+        $budget  = \App\Models\Budget::where('fiscal_year', $date->year)->first();
+        $limit   = $budget?->per_head_day_limit !== null ? (float) $budget->per_head_day_limit : null;
 
         // Representative headcount for the weekday = that day's estimate_population.
         $dayPop  = (int) ($cycle->days->where('day_of_week', $weekday)->max('estimate_population') ?? 0);
@@ -153,8 +193,8 @@ class MenuCycleController extends Controller
 
         // Per-head cap is owned by the Budget covering this cycle's anchored week.
         $capDate    = $menuCycle->week_start_date ?? now();
-        $budgetRow  = \App\Models\Budget::coveringDate($capDate);
-        $budget     = $budgetRow && $budgetRow->budget_per_head_day !== null ? (float) $budgetRow->budget_per_head_day : null;
+        $budgetRow  = \App\Models\Budget::forYear((int) $capDate->format('Y'));
+        $budget     = $budgetRow && $budgetRow->per_head_day_limit !== null ? (float) $budgetRow->per_head_day_limit : null;
         if ($budget !== null) {
             foreach ($result['days'] as $day => &$d) {
                 $d['budget_status'] = $this->budgetStatus($d['cost_per_head'], $budget);
@@ -198,6 +238,7 @@ class MenuCycleController extends Controller
                 'quantity'            => $d['quantity'] ?? 1,
                 'servings_override'   => $d['servings_override'] ?? null,
                 'estimate_population' => $d['estimate_population'] ?? null,
+                'estimate_population_updated_at' => array_key_exists('estimate_population', $d) ? $now : null,
                 'is_event'            => $d['is_event'] ?? false,
                 'event_allocation'    => $d['event_allocation'] ?? null,
                 'created_at'          => $now,

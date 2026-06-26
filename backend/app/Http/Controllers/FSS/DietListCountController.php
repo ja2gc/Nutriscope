@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\FSS\StoreDietListCountRequest;
 use App\Models\DietListCount;
 use App\Models\MealPrepLog;
+use App\Services\FSS\PurchaseOrderLifecycleService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -13,7 +14,7 @@ use Illuminate\Support\Facades\DB;
 
 class DietListCountController extends Controller
 {
-    public function store(StoreDietListCountRequest $request): JsonResponse
+    public function store(StoreDietListCountRequest $request, PurchaseOrderLifecycleService $lifecycle): JsonResponse
     {
         $validated = $request->validated();
 
@@ -25,6 +26,7 @@ class DietListCountController extends Controller
 
         // Recompute served_population for this date from the sum of all diet_list_counts.
         $this->syncServedPopulation($count->service_date->toDateString(), $validated['menu_cycle_id'] ?? null);
+        $lifecycle->refreshForServiceDate($count->service_date->toDateString());
 
         return response()->json(['data' => $count], 201);
     }

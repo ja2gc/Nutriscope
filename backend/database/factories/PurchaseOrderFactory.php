@@ -25,6 +25,7 @@ class PurchaseOrderFactory extends Factory
             'order_date'       => $this->faker->dateTimeBetween('-1 month', 'now')->format('Y-m-d'),
             'total_amount'     => $this->faker->randomFloat(2, 500, 5000),
             'status'           => $this->faker->randomElement(['draft', 'ordered', 'received']),
+            'lifecycle_status' => 'open_execution',
             'receipt_image'    => null,
             'notes'            => $this->faker->sentence(),
         ];

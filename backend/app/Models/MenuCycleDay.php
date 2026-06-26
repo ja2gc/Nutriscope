@@ -13,13 +13,15 @@ class MenuCycleDay extends Model
     protected $fillable = [
         'menu_cycle_id', 'day_of_week', 'meal_type',
         'recipe_id', 'fs_item_id', 'quantity', 'servings_override',
-        'estimate_population', 'is_event', 'event_allocation',
+        'estimate_population', 'estimate_population_updated_at',
+        'is_event', 'event_allocation',
     ];
 
     protected $casts = [
         'quantity'            => 'decimal:2',
         'servings_override'   => 'integer',
         'estimate_population' => 'integer',
+        'estimate_population_updated_at' => 'datetime',
         'is_event'            => 'boolean',
         'event_allocation'    => 'decimal:2',
     ];
