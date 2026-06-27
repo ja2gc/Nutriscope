@@ -16,11 +16,13 @@ use App\Models\MealPrepLog;
 use App\Models\MenuCycle;
 use App\Models\MenuCycleDay;
 use App\Models\PurchaseOrder;
+use App\Models\PurchaseOrderAttachment;
 use App\Models\PurchaseOrderItem;
 use App\Models\ShoppingList;
 use App\Models\ShoppingListItem;
 use App\Models\Supplier;
 use App\Models\User;
+use App\Services\FSS\PurchaseOrderLifecycleService;
 use App\Services\MenuCycleCostService;
 use Carbon\Carbon;
 use Illuminate\Database\Seeder;
@@ -522,6 +524,23 @@ class FoodServiceDemoSeeder extends Seeder
                     'supplier_id' => $vendor?->id, 'unit_price' => $price, 'total' => round($qty * $price, 2),
                 ]);
             }
+
+            if ($status === 'received') {
+                PurchaseOrderAttachment::create([
+                    'purchase_order_id' => $po->id,
+                    'vendor_group_id' => $vendorGroup->id,
+                    'type' => 'receipt',
+                    'path' => 'demo/receipts/'.$po->po_number.'.jpg',
+                    'caption' => 'Seeded receipt for '.$vendorName,
+                ]);
+                PurchaseOrderAttachment::create([
+                    'purchase_order_id' => $po->id,
+                    'vendor_group_id' => $vendorGroup->id,
+                    'type' => 'proof',
+                    'path' => 'demo/proofs/'.$po->po_number.'.jpg',
+                    'caption' => 'Seeded proof of purchase for '.$vendorName,
+                ]);
+            }
         }
     }
 
@@ -544,8 +563,8 @@ class FoodServiceDemoSeeder extends Seeder
             ],
         );
 
-        // Ledger: PO deductions for each received PO + a manual top-up and correction,
-        // so the add/deduct audit trail and remaining balance are visible.
+        // Manual entries make the add/deduct audit trail visible. PO deductions are
+        // produced by the normal Phase 3 lifecycle + PurchaseOrderCompleted listener.
         BudgetLedger::where('fiscal_year', $fiscalYear)->delete();
 
         BudgetLedger::create([
@@ -557,16 +576,10 @@ class FoodServiceDemoSeeder extends Seeder
             'reason' => 'Budget correction', 'created_by' => $fss,
         ]);
 
-        foreach (PurchaseOrder::where('status', 'received')->get() as $po) {
-            BudgetLedger::create([
-                'fiscal_year'       => $fiscalYear,
-                'type'              => 'po_deduction',
-                'amount'            => $po->total_amount,
-                'reason'            => 'Procurement — ' . $po->po_number,
-                'reference'         => $po->po_number,
-                'purchase_order_id' => $po->id,
-                'created_by'        => $fss,
-            ]);
-        }
+        $lifecycle = app(PurchaseOrderLifecycleService::class);
+        PurchaseOrder::with(['vendorGroups.attachments', 'shoppingList', 'programProjectActivity'])
+            ->where('status', 'received')
+            ->get()
+            ->each(fn (PurchaseOrder $po) => $lifecycle->refresh($po));
     }
 }

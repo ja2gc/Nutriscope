@@ -11,54 +11,6 @@ The modules share data through food items, recipes, menu cycles, patient records
 
 Demo logins: RND `rnd@nutriscope.local`, FSS `fss@nutriscope.local` (Maria Santos), both password `nutriscope2024!`. The mobile build points at `https://nutriscope.live`.
 
----
-
-## 1. Module-Level Workflow
-
-```mermaid
-flowchart TD
-    A["Start: RND signs in on web"] --> B{"Which module?"}
-
-    B --> FS["Food Service / Food Data"]
-    B --> CC["Clinical Care / NCP"]
-    B --> RP["Reports"]
-
-    FS --> FS1["Import ingredients or create food items manually"]
-    FS1 --> FS2["Review nutrition values, units, allergens, cost, supplier"]
-    FS2 --> FS3["Create recipes from ingredients or ready-to-serve items"]
-    FS3 --> FS4["Create menu cycle or reusable meal pattern"]
-    FS4 --> FS5["Generate shopping list / procurement / inventory flow"]
-
-    CC --> P1["Manage patients"]
-    P1 --> P2["Create patient or open existing patient profile"]
-    P2 --> P3["Start NCP cycle / assessment"]
-    P3 --> P4["Fill patient data and clinical assessment"]
-    P4 --> P5["Create diagnosis / PES manually or with AI suggestion"]
-    P5 --> P6["Save diagnosis"]
-    P6 --> P7["Open intervention"]
-    P7 --> P8["Select intervention goal / disease stage"]
-    P8 --> P9["Auto-generate nutrition prescription from assessed data"]
-    P9 --> P10["Create or generate patient menu cycle / meal plan"]
-    P10 --> P11["Adjust plan toward nutrition prescription targets"]
-    P11 --> P12["Save intervention and meal plan"]
-    P12 --> P13{"Visit number"}
-    P13 -->|"Initial visit"| P14["Monitoring locked / not yet applicable"]
-    P13 -->|"Second visit and later"| P15["Open Monitoring and Evaluation"]
-    P15 --> P16["Enter follow-up data, progress, labs, intake, symptoms"]
-    P16 --> P17["Optional AI review / summary"]
-
-    FS4 --> P10
-    FS3 --> P10
-    P12 --> RP
-    P17 --> RP
-    FS5 --> RP
-
-    RP --> R1["Generate live reports"]
-    R1 --> R2["Review completeness and values"]
-    R2 --> R3["Archive / freeze final report when ready"]
-```
-
----
 
 ## 2. Food Data, Ingredients, Recipes, and Menu Cycles
 

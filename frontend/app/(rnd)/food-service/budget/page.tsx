@@ -3,11 +3,13 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
+import { Tabs } from "@/components/ui/Tabs";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   FiscalYearBudget, FiscalYearSummary, BudgetLedgerEntry, LedgerFilter,
   listFiscalYears, getFiscalYearSummary, setupFiscalYear, getLedger, addManualAdjustment,
 } from "@/services/budgetService";
+import { BudgetInsightsPanel } from "../insights/page";
 
 const peso = (n: number) =>
   `₱${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -29,6 +31,11 @@ function Label({ children }: { children: React.ReactNode }) {
 }
 const inp = "w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500";
 const card = "bg-white border border-zinc-100 rounded-2xl shadow-sm p-6";
+type BudgetTab = "budget" | "insights";
+const PAGE_TABS: { key: BudgetTab; label: string }[] = [
+  { key: "budget", label: "Budget" },
+  { key: "insights", label: "Insights" },
+];
 
 // ───── Fiscal Year Selector ──────────────────────────────────────────────────
 function YearSelector({ years, selected, onChange }: {
@@ -307,7 +314,7 @@ function NewYearSection({ existingYears, onCreated }: {
 export default function BudgetPage() {
   const { user } = useAuth();
   const isRnd = user?.role === "RND";
-
+  const [activeTab, setActiveTab] = useState<BudgetTab>("budget");
   const [budgets, setBudgets] = useState<FiscalYearBudget[]>([]);
   const [selectedYear, setSelectedYear] = useState(currentYear);
   const [summary, setSummary] = useState<FiscalYearSummary | null>(null);
@@ -358,15 +365,19 @@ export default function BudgetPage() {
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
             <h1 className="text-2xl font-extrabold text-zinc-800">Budget</h1>
-            <p className="text-sm text-zinc-400 mt-1">Fiscal year allocation and ledger</p>
+            <p className="text-sm text-zinc-400 mt-1">Fiscal year allocation, ledger, and insights</p>
           </div>
           {years.length > 0 && (
             <YearSelector years={years} selected={selectedYear} onChange={(y) => { setSelectedYear(y); }} />
           )}
         </div>
 
+        <Tabs items={PAGE_TABS} value={activeTab} onChange={setActiveTab} />
+
         {loading ? (
           <div className="text-sm text-zinc-400 py-12 text-center">Loading…</div>
+        ) : activeTab === "insights" ? (
+          <BudgetInsightsPanel year={selectedYear} />
         ) : (
           <>
             {/* Section 1: Summary */}
