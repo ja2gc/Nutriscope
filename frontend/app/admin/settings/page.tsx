@@ -6,11 +6,69 @@ import {
   Building2,
   Palette,
   Settings,
+  Wallet,
 } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { getFoodServiceSetting, setFoodServiceSetting } from "@/services/budgetService";
+
+// Budget per head per day — shared Food Service setting (backend-backed).
+function PerHeadDayLimitCard() {
+  const [value, setValue] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    getFoodServiceSetting("admin")
+      .then((s) => setValue(s.per_head_day_limit ?? ""))
+      .catch(() => setMsg("Failed to load setting."))
+      .finally(() => setLoading(false));
+  }, []);
+
+  async function save() {
+    setSaving(true);
+    setMsg(null);
+    try {
+      const parsed = value.trim() === "" ? null : parseFloat(value);
+      const saved = await setFoodServiceSetting(parsed, "admin");
+      setValue(saved.per_head_day_limit ?? "");
+      setMsg("Saved.");
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "Failed to save.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Card className="p-6 space-y-5">
+      <h3 className="text-xs font-bold text-zinc-900 uppercase tracking-wider flex items-center gap-2">
+        <Wallet className="h-4 w-4 text-emerald-600" />
+        Food Service Budget
+      </h3>
+      <div className="space-y-2">
+        <span className="text-xs font-semibold text-zinc-600">Budget per head per day (₱)</span>
+        <input
+          type="number" min="0" step="0.01"
+          value={value}
+          disabled={loading}
+          onChange={(e) => setValue(e.target.value)}
+          placeholder="0.00"
+          className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+        />
+      </div>
+      <div className="flex items-center gap-3">
+        <Button onClick={save} disabled={saving || loading} className="text-sm">
+          {saving ? "Saving…" : "Save"}
+        </Button>
+        {msg && <span className="text-xs text-zinc-500">{msg}</span>}
+      </div>
+    </Card>
+  );
+}
 import {
   Density,
   getAnnouncementNotifications,
@@ -277,6 +335,8 @@ export default function AdminSettingsPage() {
           </form>
         )}
       </Card>
+
+      <PerHeadDayLimitCard />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         {/* ── Appearance card ─────────────────────────────────────── */}

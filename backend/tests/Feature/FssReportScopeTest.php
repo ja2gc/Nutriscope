@@ -60,57 +60,57 @@ class FssReportScopeTest extends TestCase
             ->assertOk();
     }
 
-    // ── FSS — other report types blocked (403) ────────────────────────────
+    // ── Retired report types are gone (404 for all roles) ─────────────────
 
-    public function test_fss_cannot_browse_instances_for_dietary_cash_book(): void
+    public function test_fss_retired_dietary_cash_book_is_not_found(): void
     {
         $this->actingAs($this->fss)
             ->getJson('/api/fss/reports/dietary_cash_book/instances')
-            ->assertForbidden();
+            ->assertNotFound();
     }
 
-    public function test_fss_cannot_browse_instances_for_inventory_report(): void
+    public function test_fss_retired_inventory_report_is_not_found(): void
     {
         $this->actingAs($this->fss)
             ->getJson('/api/fss/reports/inventory_report/instances')
-            ->assertForbidden();
+            ->assertNotFound();
     }
 
-    public function test_fss_cannot_browse_instances_for_budget_report(): void
+    public function test_fss_retired_budget_report_is_not_found(): void
     {
         $this->actingAs($this->fss)
             ->getJson('/api/fss/reports/budget_report/instances')
-            ->assertForbidden();
+            ->assertNotFound();
     }
 
-    public function test_fss_cannot_render_dietary_cash_book(): void
+    public function test_fss_retired_dietary_cash_book_render_is_not_found(): void
     {
         $this->actingAs($this->fss)
             ->get('/api/fss/reports/dietary_cash_book/render')
-            ->assertForbidden();
+            ->assertNotFound();
     }
 
-    public function test_fss_cannot_archive_budget_report(): void
+    public function test_fss_retired_budget_report_archive_is_not_found(): void
     {
         $this->actingAs($this->fss)
             ->postJson('/api/fss/reports/budget_report/archive')
-            ->assertForbidden();
+            ->assertNotFound();
     }
 
-    // ── RND — unrestricted by FSS guard ──────────────────────────────────
+    // ── RND — retired reports are also gone ───────────────────────────────
 
-    public function test_rnd_can_browse_instances_for_dietary_cash_book(): void
+    public function test_rnd_retired_dietary_cash_book_is_not_found(): void
     {
         $this->actingAs($this->rnd)
             ->getJson('/api/rnd/reports/dietary_cash_book/instances')
-            ->assertOk();
+            ->assertNotFound();
     }
 
-    public function test_rnd_can_browse_instances_for_inventory_report(): void
+    public function test_rnd_retired_inventory_report_is_not_found(): void
     {
         $this->actingAs($this->rnd)
             ->getJson('/api/rnd/reports/inventory_report/instances')
-            ->assertOk();
+            ->assertNotFound();
     }
 
     public function test_rnd_can_browse_accomplishment_report_instances(): void

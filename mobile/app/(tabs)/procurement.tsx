@@ -88,12 +88,6 @@ interface PurchaseOrder {
   created_at: string;
 }
 
-interface LineDraft {
-  purchase_qty: string;
-  purchase_unit: string;
-  purchase_price: string;
-}
-
 async function fetchPOs(): Promise<PurchaseOrder[]> {
   const res = await api.get<{ data: PurchaseOrder[] }>('/api/fss/purchase-orders');
   return res.data.data;
@@ -121,24 +115,6 @@ function isLocked(po: PurchaseOrder): boolean {
   return ['completed', 'archived'].includes(po.lifecycle_status);
 }
 
-function lineDrafts(group: VendorGroup | null): Record<number, LineDraft> {
-  const next: Record<number, LineDraft> = {};
-  (group?.items ?? []).forEach((item) => {
-    next[item.id] = {
-      purchase_qty: plain(item.purchase_qty ?? item.qty),
-      purchase_unit: plain(item.purchase_unit ?? item.unit),
-      purchase_price: plain(item.purchase_price ?? item.unit_price),
-    };
-  });
-  return next;
-}
-
-function nullableNumber(value: string): number | null {
-  const trimmed = value.trim();
-  if (trimmed === '') return null;
-  const parsed = Number(trimmed);
-  return Number.isFinite(parsed) ? parsed : null;
-}
 
 function attachmentName(att: PurchaseOrderAttachment): string {
   return att.caption || att.path.split('/').pop() || `${att.type} image`;
@@ -445,29 +421,20 @@ function VendorDetail({ po, group, onBack, onUpload }: VendorDetailProps) {
   const qc = useQueryClient();
   const locked = isLocked(po);
   const [orNumber, setOrNumber] = useState(group.or_number ?? '');
-  const [drafts, setDrafts] = useState<Record<number, LineDraft>>(lineDrafts(group));
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     setOrNumber(group.or_number ?? '');
-    setDrafts(lineDrafts(group));
     setError(null);
   }, [group]);
 
+  // Mobile FSS may only set the OR number and upload photos — structural line
+  // details are frozen and read-only here.
   const updateMutation = useMutation({
     mutationFn: async (nextStatus?: 'received') => {
       const payload = {
         or_number: orNumber.trim() || null,
         status: nextStatus,
-        items: (group.items ?? []).map((item) => {
-          const draft = drafts[item.id] ?? lineDrafts(group)[item.id];
-          return {
-            id: item.id,
-            purchase_qty: nullableNumber(draft.purchase_qty),
-            purchase_unit: draft.purchase_unit.trim() || null,
-            purchase_price: nullableNumber(draft.purchase_price),
-          };
-        }),
       };
       const res = await api.patch(`/api/fss/purchase-order-vendor-groups/${group.id}`, payload);
       return res.data;
@@ -482,16 +449,6 @@ function VendorDetail({ po, group, onBack, onUpload }: VendorDetailProps) {
       setError((err as any)?.response?.data?.message ?? 'Could not save vendor details.');
     },
   });
-
-  const setDraft = (itemId: number, field: keyof LineDraft, value: string) => {
-    setDrafts((prev) => ({
-      ...prev,
-      [itemId]: {
-        ...(prev[itemId] ?? { purchase_qty: '', purchase_unit: '', purchase_price: '' }),
-        [field]: value,
-      },
-    }));
-  };
 
   return (
     <ScrollView className="flex-1 bg-gray-50" contentContainerStyle={{ paddingBottom: 24 }}>
@@ -557,55 +514,19 @@ function VendorDetail({ po, group, onBack, onUpload }: VendorDetailProps) {
             </Text>
           </View>
 
-          {(group.items ?? []).map((item, idx) => {
-            const draft = drafts[item.id] ?? { purchase_qty: '', purchase_unit: '', purchase_price: '' };
-            const total = (nullableNumber(draft.purchase_qty) ?? 0) * (nullableNumber(draft.purchase_price) ?? 0);
-            return (
-              <View key={item.id} className={`px-4 py-4 ${idx < (group.items?.length ?? 0) - 1 ? 'border-b border-gray-100' : ''}`}>
-                <Text className="text-sm font-semibold text-gray-900 mb-1" numberOfLines={2}>
-                  {item.description}
-                </Text>
-                <Text className="text-xs text-gray-400 mb-3">
-                  Planned: {plain(item.qty)} {item.unit ?? ''} at {money(item.unit_price)}
-                </Text>
-
-                <View className="flex-row gap-2">
-                  <View className="flex-1">
-                    <Text className="text-xs text-gray-400 mb-1">Qty</Text>
-                    <TextInput
-                      value={draft.purchase_qty}
-                      onChangeText={(text) => setDraft(item.id, 'purchase_qty', text)}
-                      editable={!locked}
-                      keyboardType="decimal-pad"
-                      className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900"
-                    />
-                  </View>
-                  <View className="flex-1">
-                    <Text className="text-xs text-gray-400 mb-1">Unit</Text>
-                    <TextInput
-                      value={draft.purchase_unit}
-                      onChangeText={(text) => setDraft(item.id, 'purchase_unit', text)}
-                      editable={!locked}
-                      className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900"
-                    />
-                  </View>
-                  <View className="flex-1">
-                    <Text className="text-xs text-gray-400 mb-1">Cost/unit</Text>
-                    <TextInput
-                      value={draft.purchase_price}
-                      onChangeText={(text) => setDraft(item.id, 'purchase_price', text)}
-                      editable={!locked}
-                      keyboardType="decimal-pad"
-                      className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900"
-                    />
-                  </View>
-                </View>
-                <Text className="text-xs text-emerald-700 font-semibold mt-2">
-                  Line total: {money(total)}
-                </Text>
-              </View>
-            );
-          })}
+          {(group.items ?? []).map((item, idx) => (
+            <View key={item.id} className={`px-4 py-4 ${idx < (group.items?.length ?? 0) - 1 ? 'border-b border-gray-100' : ''}`}>
+              <Text className="text-sm font-semibold text-gray-900 mb-1" numberOfLines={2}>
+                {item.description}
+              </Text>
+              <Text className="text-xs text-gray-400">
+                {plain(item.qty)} {item.unit ?? ''} at {money(item.unit_price)}
+              </Text>
+              <Text className="text-xs text-emerald-700 font-semibold mt-1">
+                Line total: {money(item.total_value)}
+              </Text>
+            </View>
+          ))}
         </View>
 
         <View className="gap-4">

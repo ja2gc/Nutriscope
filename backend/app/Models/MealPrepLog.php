@@ -15,7 +15,7 @@ class MealPrepLog extends Model
     protected $fillable = [
         'menu_cycle_id', 'service_date', 'population', 'served_population',
         'population_variance', 'status', 'completed_by', 'completed_at',
-        'total_value', 'has_shortfall',
+        'total_value', 'has_shortfall', 'served_locked_at', 'served_locked_by',
     ];
 
     protected $casts = [
@@ -26,7 +26,13 @@ class MealPrepLog extends Model
         'completed_at'        => 'datetime',
         'total_value'         => 'decimal:2',
         'has_shortfall'       => 'boolean',
+        'served_locked_at'    => 'datetime',
     ];
+
+    public function servedLocked(): bool
+    {
+        return $this->served_locked_at !== null;
+    }
 
     public function menuCycle(): BelongsTo
     {

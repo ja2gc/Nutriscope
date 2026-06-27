@@ -22,10 +22,7 @@ class ReportController extends Controller
     /** The Food-Service report set produced by Generate-All. */
     private const FOOD_SERVICE_SET = [
         'program_project_activity',
-        'dietary_cash_book',
         'procurement_pack',
-        'budget_report',
-        'inventory_report',
     ];
 
     /** Reports that expose patient/clinical data — RND-only, never food-service. */
@@ -42,7 +39,6 @@ class ReportController extends Controller
      */
     public const ADMIN_ALLOWED_TYPES = [
         'demographic_census',
-        'budget_report',
         'procurement_pack',
     ];
 

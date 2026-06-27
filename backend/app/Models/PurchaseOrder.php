@@ -13,7 +13,9 @@ class PurchaseOrder extends Model
     protected $fillable = [
         'rnd_user_id', 'shopping_list_id', 'supplier_id', 'po_number', 'or_number',
         'order_date', 'received_date', 'total_amount', 'actual_budget_per_head_per_day',
-        'status', 'lifecycle_status', 'converted_at', 'completed_at', 'archived_at',
+        'status', 'lifecycle_status', 'procurement_track',
+        'converted_at', 'completed_at', 'archived_at',
+        'structural_locked_at', 'final_locked_at',
         'receipt_image', 'notes',
     ];
 
@@ -25,7 +27,24 @@ class PurchaseOrder extends Model
         'converted_at'  => 'datetime',
         'completed_at'  => 'datetime',
         'archived_at'   => 'datetime',
+        'structural_locked_at' => 'datetime',
+        'final_locked_at'      => 'datetime',
     ];
+
+    public function isFoodTrack(): bool
+    {
+        return $this->procurement_track === 'food';
+    }
+
+    public function corrections()
+    {
+        return $this->hasManyThrough(
+            PurchaseOrderItemCorrection::class,
+            PurchaseOrderItem::class,
+            'purchase_order_id',
+            'purchase_order_item_id',
+        );
+    }
 
     /** Single source of truth: total_amount is always the sum of its line items. */
     public function recalcTotal(): void

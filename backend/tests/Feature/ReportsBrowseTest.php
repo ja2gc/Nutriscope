@@ -2,17 +2,12 @@
 
 namespace Tests\Feature;
 
-use App\Models\Budget;
-use App\Models\BudgetLedger;
-use App\Models\FsItem;
-use App\Models\Inventory;
 use App\Models\MenuCycle;
-use App\Models\PurchaseOrder;
 use App\Models\Report;
 use App\Models\ReportBranding;
 use App\Models\Supplier;
+use App\Models\PurchaseOrder;
 use App\Models\User;
-use App\Services\Reports\Generators\InventoryReportGenerator;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
@@ -20,6 +15,9 @@ use Tests\TestCase;
 /**
  * Spec 4 — browse-don't-generate: instance enumeration per axis, on-demand render
  * (no persisted row), and Archive freezing an as-filed copy.
+ *
+ * Retired report types (dietary_cash_book, budget_report, inventory_report) were
+ * removed in the food-service redesign; coverage now uses surviving types.
  */
 class ReportsBrowseTest extends TestCase
 {
@@ -34,7 +32,7 @@ class ReportsBrowseTest extends TestCase
         ReportBranding::singleton(); // ensure a branding row exists
     }
 
-    /** Seed a completed PO in a given month. */
+    /** Seed a completed PO in a given month (procurement_pack browse source). */
     private function receivedPo(string $date, float $amount = 1000): PurchaseOrder
     {
         return PurchaseOrder::factory()->create([
@@ -49,54 +47,19 @@ class ReportsBrowseTest extends TestCase
 
     // ── Enumeration ─────────────────────────────────────────────────────────
 
-    public function test_period_axis_lists_only_months_with_data(): void
-    {
-        $this->receivedPo('2026-05-10');
-        $this->receivedPo('2026-05-22');
-        $this->receivedPo('2026-03-04');
-        // a draft PO must NOT create a bucket
-        PurchaseOrder::factory()->create(['status' => 'draft', 'order_date' => '2026-01-01']);
-
-        $res = $this->actingAs($this->rnd)
-            ->getJson('/api/rnd/reports/dietary_cash_book/instances')
-            ->assertOk()
-            ->assertJsonPath('data.axis', 'period');
-
-        $instances = $res->json('data.instances');
-        $this->assertCount(2, $instances);                       // May + March only
-        $this->assertSame('2026-05', $instances[0]['key']);       // newest first
-        $this->assertSame('2026-05-01', $instances[0]['params']['start']);
-        $this->assertSame('2026-05-31', $instances[0]['params']['end']);
-    }
-
-    public function test_period_axis_filters_by_year_and_month(): void
+    public function test_entity_axis_lists_procurement_pack_records(): void
     {
         $this->receivedPo('2026-05-10');
         $this->receivedPo('2026-03-04');
 
         $instances = $this->actingAs($this->rnd)
-            ->getJson('/api/rnd/reports/dietary_cash_book/instances?year=2026&month=3')
-            ->assertOk()
-            ->json('data.instances');
-
-        $this->assertCount(1, $instances);
-        $this->assertSame('2026-03', $instances[0]['key']);
-    }
-
-    public function test_entity_axis_lists_records(): void
-    {
-        Budget::factory()->create(['fiscal_year' => 2025]);
-        Budget::factory()->create(['fiscal_year' => 2026]);
-
-        $instances = $this->actingAs($this->rnd)
-            ->getJson('/api/rnd/reports/budget_report/instances')
+            ->getJson('/api/rnd/reports/procurement_pack/instances')
             ->assertOk()
             ->assertJsonPath('data.axis', 'entity')
             ->json('data.instances');
 
         $this->assertCount(2, $instances);
-        $this->assertArrayHasKey('fiscal_year', $instances[0]['params']);
-        $this->assertSame('FY 2026', $instances[0]['label']); // newest first
+        $this->assertArrayHasKey('purchase_order_id', $instances[0]['params']);
     }
 
     public function test_menu_cycle_axis_lists_cycles(): void
@@ -113,23 +76,20 @@ class ReportsBrowseTest extends TestCase
         $this->assertArrayHasKey('menu_cycle_id', $instances[0]['params']);
     }
 
-    public function test_singleton_axis_has_one_current_instance(): void
-    {
-        $instances = $this->actingAs($this->rnd)
-            ->getJson('/api/rnd/reports/inventory_report/instances')
-            ->assertOk()
-            ->assertJsonPath('data.axis', 'singleton')
-            ->json('data.instances');
-
-        $this->assertCount(1, $instances);
-        $this->assertSame('current', $instances[0]['key']);
-    }
-
     public function test_unknown_type_instances_is_404(): void
     {
         $this->actingAs($this->rnd)
             ->getJson('/api/rnd/reports/not_a_report/instances')
             ->assertNotFound();
+    }
+
+    public function test_retired_report_types_are_404(): void
+    {
+        foreach (['dietary_cash_book', 'budget_report', 'inventory_report'] as $type) {
+            $this->actingAs($this->rnd)
+                ->getJson("/api/rnd/reports/{$type}/instances")
+                ->assertNotFound();
+        }
     }
 
     // ── Clinical reports are RND-only (PHI guard) ───────────────────────────
@@ -157,11 +117,11 @@ class ReportsBrowseTest extends TestCase
     public function test_archive_prepared_by_is_the_authenticated_user_not_client_supplied(): void
     {
         Storage::fake('public');
-        $this->receivedPo('2026-05-10');
+        $po = $this->receivedPo('2026-05-10');
 
         // A client tries to spoof the filer via query params.
         $id = $this->actingAs($this->rnd)
-            ->postJson('/api/rnd/reports/dietary_cash_book/archive?start=2026-05-01&end=2026-05-31&prepared_by_name=Someone%20Else')
+            ->postJson("/api/rnd/reports/procurement_pack/archive?purchase_order_id={$po->id}&prepared_by_name=Someone%20Else")
             ->json('data.id');
 
         $report = Report::findOrFail($id);
@@ -172,11 +132,11 @@ class ReportsBrowseTest extends TestCase
 
     public function test_render_streams_pdf_without_persisting(): void
     {
-        $this->receivedPo('2026-05-10', 2500);
+        $po = $this->receivedPo('2026-05-10', 2500);
         $before = Report::count();
 
         $res = $this->actingAs($this->rnd)
-            ->get('/api/rnd/reports/dietary_cash_book/render?start=2026-05-01&end=2026-05-31');
+            ->get("/api/rnd/reports/procurement_pack/render?purchase_order_id={$po->id}");
 
         $res->assertOk();
         $this->assertSame('application/pdf', $res->headers->get('Content-Type'));
@@ -184,73 +144,15 @@ class ReportsBrowseTest extends TestCase
         $this->assertSame($before, Report::count(), 'render must not persist a Report');
     }
 
-    public function test_budget_report_renders_pdf(): void
-    {
-        Budget::factory()->create(['fiscal_year' => 2026, 'allocated_amount' => 5000]);
-        \App\Models\BudgetLedger::create([
-            'fiscal_year' => 2026, 'type' => 'po_deduction', 'amount' => 1200,
-        ]);
-
-        $res = $this->actingAs($this->rnd)
-            ->get('/api/rnd/reports/budget_report/render?fiscal_year=2026');
-
-        $res->assertOk();
-        $this->assertSame('application/pdf', $res->headers->get('Content-Type'));
-        $this->assertStringStartsWith('%PDF', $res->getContent());
-    }
-
-    public function test_cashbook_derives_replenishment_from_ledger(): void
-    {
-        // Replenishment comes from manual_addition ledger entries in the period.
-        \App\Models\BudgetLedger::forceCreate([
-            'fiscal_year' => 2026, 'type' => 'manual_addition',
-            'amount' => 8000, 'reason' => 'Monthly replenishment',
-            'created_at' => '2026-05-05 00:00:00',
-            'updated_at' => '2026-05-05 00:00:00',
-        ]);
-        $this->receivedPo('2026-05-10', 2000);
-
-        $gen  = new \App\Services\Reports\Generators\DietaryCashBookGenerator();
-        $data = $gen->data(new Report([
-            'type' => 'dietary_cash_book',
-            'parameters' => ['start' => '2026-05-01', 'end' => '2026-05-31'],
-        ]));
-
-        $this->assertEqualsWithDelta(8000, $data['total_replenishment'], 0.01);
-        $this->assertEqualsWithDelta(2000, $data['total_disbursement'], 0.01);
-        $this->assertEqualsWithDelta(6000, $data['ending_balance'], 0.01); // 0 + 8000 − 2000
-    }
-
-    public function test_explicit_replenishment_param_overrides_ledger(): void
-    {
-        // An explicit replenishment param wins over ledger derivation.
-        $gen  = new \App\Services\Reports\Generators\DietaryCashBookGenerator();
-        $data = $gen->data(new Report([
-            'type' => 'dietary_cash_book',
-            'parameters' => ['start' => '2026-05-01', 'end' => '2026-05-31', 'replenishment' => 3000],
-        ]));
-
-        $this->assertEqualsWithDelta(3000, $data['total_replenishment'], 0.01);
-    }
-
-    public function test_render_404_when_no_data_for_period(): void
-    {
-        $this->receivedPo('2026-05-10');
-
-        $this->actingAs($this->rnd)
-            ->getJson('/api/rnd/reports/dietary_cash_book/render?start=2030-01-01&end=2030-01-31')
-            ->assertNotFound();
-    }
-
     // ── Archive ─────────────────────────────────────────────────────────────
 
     public function test_archive_persists_row_with_file_and_snapshot(): void
     {
         Storage::fake('public');
-        $this->receivedPo('2026-05-10', 4000);
+        $po = $this->receivedPo('2026-05-10', 4000);
 
-        $res = $this->actingAs($this->rnd)
-            ->postJson('/api/rnd/reports/dietary_cash_book/archive?start=2026-05-01&end=2026-05-31')
+        $this->actingAs($this->rnd)
+            ->postJson("/api/rnd/reports/procurement_pack/archive?purchase_order_id={$po->id}")
             ->assertCreated()
             ->assertJsonPath('data.status', 'archived');
 
@@ -259,24 +161,16 @@ class ReportsBrowseTest extends TestCase
         $this->assertNotNull($report->file_path);
         Storage::disk('public')->assertExists($report->file_path);
         $this->assertNotNull($report->snapshot['branding']['hospital_name'] ?? null);
-        $this->assertSame('2026-05-01', $report->snapshot['params']['start']);
-    }
-
-    public function test_archive_404_when_no_data(): void
-    {
-        $this->actingAs($this->rnd)
-            ->postJson('/api/rnd/reports/dietary_cash_book/archive?start=2030-01-01&end=2030-01-31')
-            ->assertNotFound();
     }
 
     public function test_download_serves_frozen_bytes_after_branding_change(): void
     {
         Storage::fake('public');
-        $this->receivedPo('2026-05-10');
+        $po = $this->receivedPo('2026-05-10');
 
         $report = Report::findOrFail(
             $this->actingAs($this->rnd)
-                ->postJson('/api/rnd/reports/dietary_cash_book/archive?start=2026-05-01&end=2026-05-31')
+                ->postJson("/api/rnd/reports/procurement_pack/archive?purchase_order_id={$po->id}")
                 ->json('data.id')
         );
 
@@ -286,8 +180,7 @@ class ReportsBrowseTest extends TestCase
         // Mutate branding AFTER archiving.
         ReportBranding::singleton()->update(['hospital_name' => 'COMPLETELY NEW HOSPITAL NAME']);
 
-        // The archived copy is frozen: download serves the same stored bytes, and the
-        // snapshot still holds the as-filed branding (not the new value).
+        // The archived copy is frozen: download serves the same stored bytes.
         $download = $this->actingAs($this->rnd)->get("/api/rnd/reports/{$report->id}/download");
         $download->assertOk();
         $this->assertSame($frozenBytes, $download->streamedContent());
@@ -301,7 +194,7 @@ class ReportsBrowseTest extends TestCase
 
         return Report::factory()->create([
             'user_id'   => $this->rnd->id,
-            'type'      => 'dietary_cash_book',
+            'type'      => 'procurement_pack',
             'status'    => 'archived',
             'file_path' => 'reports/seeded.pdf',
         ]);
@@ -326,30 +219,5 @@ class ReportsBrowseTest extends TestCase
 
         $other = User::factory()->create(['role' => 'RND']);
         $this->actingAs($other)->get("/api/rnd/reports/{$report->id}/view")->assertForbidden();
-    }
-
-    // ── Spec-1 immutability through the new path ────────────────────────────
-
-    public function test_received_figures_are_stable_when_catalog_price_changes(): void
-    {
-        $item = FsItem::factory()->create(['purchase_price' => 100]);
-        Inventory::factory()->create([
-            'item_type'         => 'ingredient',
-            'fs_item_id'        => $item->id,
-            'quantity_in_stock' => 20,
-            'unit_price'        => 25, // frozen last-received cost (₱/base)
-        ]);
-
-        $generator = new InventoryReportGenerator();
-        $report    = new Report(['type' => 'inventory_report', 'parameters' => []]);
-
-        $before = $generator->data($report)['total_value'];
-
-        $item->update(['purchase_price' => 99999]); // catalog price drifts (unit_cost accessor)
-
-        $after = $generator->data($report)['total_value'];
-
-        $this->assertSame($before, $after, 'stored unit_price must win over live catalog');
-        $this->assertEqualsWithDelta(500.0, $after, 0.001); // 20 × 25
     }
 }

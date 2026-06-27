@@ -3,9 +3,7 @@
 namespace App\Services\FSS;
 
 use App\Models\FsItem;
-use App\Models\Inventory;
 use App\Models\MenuCycle;
-use App\Models\PurchaseOrderItem;
 use App\Models\ShoppingList;
 use App\Services\MenuCycleCostService;
 use Carbon\Carbon;
@@ -21,12 +19,15 @@ class ShoppingListPopulationService
         $acc = [];
         $uncovered = [];
         $missingPopulation = [];
+        $missingByDate = [];
         $cycleCache = [];
 
         for ($d = $cursor->copy(); $d->lte($end); $d->addDay()) {
+            $date = $d->toDateString();
             $cycle = MenuCycle::coveringDate($d);
             if (! $cycle) {
-                $uncovered[] = $d->toDateString();
+                $uncovered[] = $date;
+                $missingByDate[$date] = 'no menu cycle covers this date';
                 continue;
             }
 
@@ -40,12 +41,14 @@ class ShoppingListPopulationService
                 ->filter(fn ($day) => $day->recipe !== null || $day->fsItem !== null);
 
             if ($plannedDays->isEmpty()) {
-                $uncovered[] = $d->toDateString();
+                $uncovered[] = $date;
+                $missingByDate[$date] = 'no menu items planned for this day';
                 continue;
             }
 
             if ($plannedDays->contains(fn ($day) => (int) ($day->estimate_population ?? 0) <= 0)) {
-                $missingPopulation[] = $d->toDateString();
+                $missingPopulation[] = $date;
+                $missingByDate[$date] = 'estimated population not set for this day';
                 continue;
             }
 
@@ -66,6 +69,7 @@ class ShoppingListPopulationService
             'items' => $this->purchaseRows($acc),
             'uncovered_dates' => array_values(array_unique($uncovered)),
             'missing_population_dates' => array_values(array_unique($missingPopulation)),
+            'missing_items_by_date' => $missingByDate,
         ];
     }
 
@@ -166,19 +170,12 @@ class ShoppingListPopulationService
     {
         $ids = array_keys($acc);
         $fsItems = FsItem::whereIn('id', $ids)->get()->keyBy('id');
-        $onHand = $ids ? Inventory::whereIn('fs_item_id', $ids)->pluck('quantity_in_stock', 'fs_item_id') : collect();
-        $inTransit = $ids
-            ? PurchaseOrderItem::whereIn('fs_item_id', $ids)
-                ->whereHas('purchaseOrder', fn ($q) => $q->where('status', 'ordered'))
-                ->selectRaw('fs_item_id, SUM(qty) as q')
-                ->groupBy('fs_item_id')
-                ->pluck('q', 'fs_item_id')
-            : collect();
 
         $rows = [];
         foreach ($acc as $id => $row) {
-            $covered = (float) ($onHand[$id] ?? 0) + (float) ($inTransit[$id] ?? 0);
-            $net = max(0.0, (float) $row['qty'] - $covered);
+            // Food shopping list includes ALL required ingredients for the span —
+            // on-hand stock is NOT subtracted (inventory is a reference catalog only).
+            $net = (float) $row['qty'];
             if ($net <= 0) {
                 continue;
             }

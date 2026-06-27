@@ -38,6 +38,8 @@ class MenuCycleController extends Controller
 
         $data['rnd_user_id']     = Auth::id();
         $data['week_start_date'] = $data['week_start_date'] ?? now()->toDateString();
+        // New cycles start as 'upcoming' (states: completed|active|upcoming).
+        $data['status']          = $data['status'] ?? 'upcoming';
 
         $cycle = DB::transaction(function () use ($data, $days) {
             $cycle = MenuCycle::create($data);
@@ -94,9 +96,10 @@ class MenuCycleController extends Controller
         DB::transaction(function () use ($menuCycle) {
             // Retire any currently active cycle before promoting this one — only one
             // cycle may be active at a time (callers do where('is_active', true)->first()).
+            // A retired active cycle becomes 'completed' (states: completed|active|upcoming).
             MenuCycle::where('is_active', true)
                 ->where('id', '!=', $menuCycle->id)
-                ->update(['is_active' => false, 'status' => 'archived']);
+                ->update(['is_active' => false, 'status' => 'completed']);
 
             $attrs = [
                 'is_active'       => true,
@@ -164,9 +167,9 @@ class MenuCycleController extends Controller
         $cost    = MenuCycleCostService::forCycle($cycle);
         $dayCost = $cost['days'][$weekday] ?? null;
         $perHead = $dayCost ? (float) $dayCost['cost_per_head'] : null;
-        // Per-head cap comes from the fiscal year budget.
-        $budget  = \App\Models\Budget::where('fiscal_year', $date->year)->first();
-        $limit   = $budget?->per_head_day_limit !== null ? (float) $budget->per_head_day_limit : null;
+        // Per-head cap is the shared Food Service setting (configured in Settings).
+        $setting = \App\Models\FoodServiceSetting::singleton();
+        $limit   = $setting->per_head_day_limit !== null ? (float) $setting->per_head_day_limit : null;
 
         // Representative headcount for the weekday = that day's estimate_population.
         $dayPop  = (int) ($cycle->days->where('day_of_week', $weekday)->max('estimate_population') ?? 0);
@@ -191,10 +194,9 @@ class MenuCycleController extends Controller
     {
         $result = MenuCycleCostService::forCycle($menuCycle);
 
-        // Per-head cap is owned by the Budget covering this cycle's anchored week.
-        $capDate    = $menuCycle->week_start_date ?? now();
-        $budgetRow  = \App\Models\Budget::forYear((int) $capDate->format('Y'));
-        $budget     = $budgetRow && $budgetRow->per_head_day_limit !== null ? (float) $budgetRow->per_head_day_limit : null;
+        // Per-head cap is the shared Food Service setting (configured in Settings).
+        $setting    = \App\Models\FoodServiceSetting::singleton();
+        $budget     = $setting->per_head_day_limit !== null ? (float) $setting->per_head_day_limit : null;
         if ($budget !== null) {
             foreach ($result['days'] as $day => &$d) {
                 $d['budget_status'] = $this->budgetStatus($d['cost_per_head'], $budget);

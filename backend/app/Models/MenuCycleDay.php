@@ -15,6 +15,7 @@ class MenuCycleDay extends Model
         'recipe_id', 'fs_item_id', 'quantity', 'servings_override',
         'estimate_population', 'estimate_population_updated_at',
         'is_event', 'event_allocation',
+        'snapshot_purchase_order_id', 'po_snapshot', 'po_snapshot_at', 'po_snapshot_locked',
     ];
 
     protected $casts = [
@@ -24,7 +25,15 @@ class MenuCycleDay extends Model
         'estimate_population_updated_at' => 'datetime',
         'is_event'            => 'boolean',
         'event_allocation'    => 'decimal:2',
+        'po_snapshot'         => 'array',
+        'po_snapshot_at'      => 'datetime',
+        'po_snapshot_locked'  => 'boolean',
     ];
+
+    public function snapshotPurchaseOrder(): BelongsTo
+    {
+        return $this->belongsTo(PurchaseOrder::class, 'snapshot_purchase_order_id');
+    }
 
     public function menuCycle(): BelongsTo
     {

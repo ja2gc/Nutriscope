@@ -261,9 +261,7 @@ function CycleList({ readOnly, onOpen, onNew }: { readOnly: boolean; onOpen: (id
                   return (
                   <tr key={c.id} className={`hover:bg-zinc-50/60 transition-colors ${c.is_active ? "border-l-4 border-l-emerald-500" : "border-l-4 border-l-transparent"}`}>
                     <td className="px-4 py-3">
-                      <button onClick={() => onOpen(c.id)} className="font-semibold text-emerald-700 hover:underline cursor-pointer flex items-center gap-1.5">
-                        {c.name}
-                      </button>
+                      <span className="font-semibold text-zinc-800">{c.name}</span>
                       {c.is_active && <div className="text-[10px] text-emerald-700 font-semibold mt-0.5">Active cycle</div>}
                     </td>
                     <td className="px-4 py-3 text-zinc-500 tabular-nums">{weekRange(c.week_start_date)}</td>
@@ -280,8 +278,8 @@ function CycleList({ readOnly, onOpen, onNew }: { readOnly: boolean; onOpen: (id
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1">
-                        <button onClick={() => onOpen(c.id)} className="p-1.5 rounded-lg hover:bg-zinc-100 text-zinc-500 cursor-pointer" title="Open">
-                          <CalendarDays className="h-3.5 w-3.5" />
+                        <button onClick={() => onOpen(c.id)} className="p-1.5 rounded-lg hover:bg-zinc-100 text-zinc-500 cursor-pointer" title={readOnly ? "View" : "Edit"}>
+                          {readOnly ? <CalendarDays className="h-3.5 w-3.5" /> : <Pencil className="h-3.5 w-3.5" />}
                         </button>
                         {!readOnly && (
                           <button onClick={() => remove(c.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-zinc-500 hover:text-red-600 cursor-pointer" title="Delete">
@@ -544,12 +542,13 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: number | "new"; r
                         <button onClick={() => duplicateWeek(d)} title={`Copy ${d} to all days`} className="text-zinc-300 hover:text-emerald-600 cursor-pointer"><Copy className="h-3 w-3" /></button>
                       )}
                     </div>
-                    {/* Per-day headcount — drives scaling for this day's recipes. */}
+                    {/* Per-day ESTIMATED headcount — drives planning/scaling only.
+                        This is NOT the served population (that is logged by FSS on the day). */}
                     <div className="mt-1 flex items-center gap-1">
-                      <input type="number" min={0} value={dayPop[d] ?? ""} placeholder="pop" readOnly={readOnly}
-                        onChange={(e) => setPop(d, e.target.value)} title={`${d} estimated population`}
+                      <input type="number" min={0} value={dayPop[d] ?? ""} placeholder="est" readOnly={readOnly}
+                        onChange={(e) => setPop(d, e.target.value)} title={`${d} estimated population (planning only)`}
                         className="w-14 px-1.5 py-0.5 text-[10px] font-semibold border border-zinc-200 rounded focus:outline-none focus:ring-1 focus:ring-emerald-400 normal-case" />
-                      <span className="text-[8px] text-zinc-400 normal-case">heads</span>
+                      <span className="text-[8px] text-zinc-400 normal-case">est. heads</span>
                     </div>
                     {dc && (
                       <div className={`mt-1 inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold border ${BUDGET_CHIP[dc.budget_status ?? "ok"] ?? ""}`}>
@@ -681,12 +680,31 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: number | "new"; r
 
 // ═══ ROOT ═══════════════════════════════════════════════════════════════════════
 export default function MenuCyclePage() {
-  const [view, setView] = useState<{ mode: "list" } | { mode: "edit"; id: number | "new" }>({ mode: "list" });
+  const [view, setView] = useState<{ mode: "list" } | { mode: "edit"; id: number | "new" } | { mode: "loading" }>({ mode: "loading" });
   const { user } = useAuth();
   // FSS may VIEW menu cycles but never author them (RND owns writes). Backend already
   // enforces this; here we render a read-only editor so FSS sees no edit affordances.
   const readOnly = user?.role === "FSS";
 
+  // Landing page is the current ACTIVE menu cycle, not the list. The list stays
+  // reachable via "View all cycles". Falls back to the list when none is active.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const cycles = await listCycles();
+        const active = cycles.find((c) => c.is_active);
+        if (!cancelled) setView(active ? { mode: "edit", id: active.id } : { mode: "list" });
+      } catch {
+        if (!cancelled) setView({ mode: "list" });
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  if (view.mode === "loading") {
+    return <Shell><div className="py-16 text-center text-xs text-zinc-400">Loading…</div></Shell>;
+  }
   if (view.mode === "edit") {
     return <CycleEditor cycleId={view.id} readOnly={readOnly} onBack={() => setView({ mode: "list" })} />;
   }

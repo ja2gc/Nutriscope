@@ -4,38 +4,39 @@ export interface FiscalYearBudget {
   id: number;
   fiscal_year: number;
   allocated_amount: string;
-  per_head_day_limit: string | null;
-  total_po_deductions: string;
-  total_manual_additions: string;
-  total_manual_deductions: string;
-  remaining_balance: string;
+  total_deductions: string;
+  remaining: string;
 }
 
 export interface BudgetLedgerEntry {
   id: number;
   fiscal_year: number;
   type: "po_deduction" | "manual_addition" | "manual_deduction";
+  source: "system" | "manual";
   amount: number;
   signed_amount: number;
   reason: string | null;
   reference: string | null;
   purchase_order_id: number | null;
   po_number: string | null;
-  procurement_span: string | null;
   created_by: string | null;
   created_at: string | null;
 }
 
-export type LedgerFilter = "all" | "manual" | "po" | "manual_addition" | "manual_deduction" | "po_deduction";
+/** Ledger filter by reason source: system (PO deductions) or manual. */
+export type LedgerFilter = "all" | "system" | "manual";
 
 export interface FiscalYearSummary {
   fiscal_year: number;
   allocated_amount: string;
+  total_deductions: string;
+  remaining: string;
+}
+
+export interface FoodServiceSetting {
   per_head_day_limit: string | null;
-  total_po_deductions: string;
-  total_manual_additions: string;
-  total_manual_deductions: string;
-  remaining_balance: string;
+  updated_by: string | null;
+  updated_at: string | null;
 }
 
 async function unwrap<T>(res: Response, fallback: string): Promise<T> {
@@ -58,7 +59,6 @@ export async function getFiscalYearSummary(fiscalYear: number): Promise<{ data: 
 export async function setupFiscalYear(payload: {
   fiscal_year: number;
   allocated_amount: number;
-  per_head_day_limit?: number | null;
 }): Promise<FiscalYearBudget> {
   return unwrap(await apiFetch("/api/fss/budgets", {
     method: "POST",
@@ -67,9 +67,9 @@ export async function setupFiscalYear(payload: {
   }), "Failed to create fiscal year budget.");
 }
 
-export async function getLedger(fiscalYear: number, type: LedgerFilter = "all"): Promise<BudgetLedgerEntry[]> {
+export async function getLedger(fiscalYear: number, source: LedgerFilter = "all"): Promise<BudgetLedgerEntry[]> {
   const qs = new URLSearchParams({ fiscal_year: String(fiscalYear) });
-  if (type && type !== "all") qs.set("type", type);
+  if (source && source !== "all") qs.set("source", source);
   return unwrap(await apiFetch(`/api/fss/budgets/ledger?${qs}`), "Failed to load ledger.");
 }
 
@@ -85,4 +85,20 @@ export async function addManualAdjustment(payload: {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   }), "Failed to add adjustment.");
+}
+
+// ── Food Service settings: budget per head per day ──────────────────────────
+export async function getFoodServiceSetting(prefix: "fss" | "admin" = "fss"): Promise<FoodServiceSetting> {
+  return unwrap(await apiFetch(`/api/${prefix}/food-service-settings`), "Failed to load settings.");
+}
+
+export async function setFoodServiceSetting(
+  perHeadDayLimit: number | null,
+  prefix: "fss" | "admin" = "fss",
+): Promise<FoodServiceSetting> {
+  return unwrap(await apiFetch(`/api/${prefix}/food-service-settings`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ per_head_day_limit: perHeadDayLimit }),
+  }), "Failed to save settings.");
 }

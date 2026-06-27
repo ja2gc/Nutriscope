@@ -12,10 +12,15 @@ class ShoppingList extends Model
 
     protected $fillable = [
         'rnd_user_id', 'name', 'list_date', 'period_start', 'period_end',
-        'days_span', 'list_type', 'status', 'total_served_population',
+        'days_span', 'list_type', 'procurement_track', 'status', 'total_served_population',
         'estimate_population', 'estimate_population_updated_at',
         'coverage_status', 'uncovered_dates',
     ];
+
+    public function isSupplies(): bool
+    {
+        return $this->procurement_track === 'supplies';
+    }
 
     protected $casts = [
         'list_date'    => 'date',

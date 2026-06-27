@@ -107,7 +107,9 @@ class PurchaseOrderController extends Controller
             return response()->json(['message' => 'This shopping list has already been approved into a purchase.'], 422);
         }
 
-        $po = DB::transaction(function () use ($shoppingList, $lifecycle) {
+        $track = $shoppingList->procurement_track ?? 'food';
+
+        $po = DB::transaction(function () use ($shoppingList, $lifecycle, $track) {
             $po = PurchaseOrder::create([
                 'rnd_user_id' => Auth::id(),
                 'shopping_list_id' => $shoppingList->id,
@@ -117,7 +119,10 @@ class PurchaseOrderController extends Controller
                 'total_amount' => $shoppingList->items->sum(fn ($i) => (float) $i->total),
                 'status' => 'draft',
                 'lifecycle_status' => 'open_execution',
+                'procurement_track' => $track,
                 'converted_at' => now(),
+                // All structural data freezes at the moment of conversion.
+                'structural_locked_at' => now(),
             ]);
 
             foreach ($shoppingList->items->groupBy('supplier_id') as $supplierId => $items) {
@@ -145,6 +150,12 @@ class PurchaseOrderController extends Controller
 
             $po->recalcTotal();
             $lifecycle->createPpaSnapshot($po, $shoppingList);
+
+            // Food POs freeze the scaled snapshot onto each menu-cycle day cell.
+            if ($track === 'food') {
+                $lifecycle->writeMenuCycleSnapshots($po->fresh('items'), $shoppingList);
+            }
+
             $shoppingList->update(['status' => 'converted']);
 
             event(new PurchaseOrderConverted($po->fresh(self::RELATIONS)));
@@ -165,15 +176,16 @@ class PurchaseOrderController extends Controller
         ReceivingService $receiving,
         PurchaseOrderLifecycleService $lifecycle
     ): JsonResponse {
+        // During open execution the ONLY structural edit allowed is a unit cost /
+        // purchase price correction. purchase_qty and purchase_unit are frozen.
         $data = $request->validate([
             'or_number' => ['nullable', 'string', 'max:255'],
             'status' => ['nullable', 'string', 'in:pending,received'],
             'items' => ['nullable', 'array'],
             'items.*.id' => ['required_with:items', 'integer', 'exists:purchase_order_items,id'],
-            'items.*.purchase_qty' => ['nullable', 'numeric', 'min:0'],
-            'items.*.purchase_unit' => ['nullable', 'string', 'max:64'],
             'items.*.purchase_price' => ['nullable', 'numeric', 'min:0'],
             'items.*.unit_price' => ['nullable', 'numeric', 'min:0'],
+            'items.*.reason' => ['nullable', 'string', 'max:255'],
         ]);
 
         $po = $vendorGroup->purchaseOrder;
@@ -190,13 +202,40 @@ class PurchaseOrderController extends Controller
 
             foreach ($data['items'] ?? [] as $line) {
                 $item = $vendorGroup->items()->whereKey($line['id'])->firstOrFail();
-                $patch = collect($line)->only(['purchase_qty', 'purchase_unit', 'purchase_price', 'unit_price'])->all();
-                if (array_key_exists('purchase_qty', $patch) && array_key_exists('purchase_price', $patch)) {
-                    $patch['total_value'] = round((float) $patch['purchase_qty'] * (float) $patch['purchase_price'], 2);
+
+                $newUnitPrice     = array_key_exists('unit_price', $line) ? (float) $line['unit_price'] : null;
+                $newPurchasePrice = array_key_exists('purchase_price', $line) ? (float) $line['purchase_price'] : null;
+                if ($newUnitPrice === null && $newPurchasePrice === null) {
+                    continue;
+                }
+
+                $oldUnitPrice     = (float) $item->unit_price;
+                $oldPurchasePrice = $item->purchase_price !== null ? (float) $item->purchase_price : null;
+
+                $patch = [];
+                if ($newUnitPrice !== null)     { $patch['unit_price'] = $newUnitPrice; }
+                if ($newPurchasePrice !== null) { $patch['purchase_price'] = $newPurchasePrice; }
+
+                // Recompute the line total from the corrected values (qty stays frozen).
+                if ($item->purchase_qty !== null && array_key_exists('purchase_price', $patch)) {
+                    $patch['total_value'] = round((float) $item->purchase_qty * (float) $patch['purchase_price'], 2);
                 } elseif (array_key_exists('unit_price', $patch)) {
                     $patch['total_value'] = round((float) $item->qty * (float) $patch['unit_price'], 2);
                 }
+
                 $item->update($patch);
+
+                // Audit every correction with user + timestamp.
+                \App\Models\PurchaseOrderItemCorrection::create([
+                    'purchase_order_item_id' => $item->id,
+                    'old_unit_price'         => $oldUnitPrice,
+                    'new_unit_price'         => $newUnitPrice ?? $oldUnitPrice,
+                    'old_purchase_price'     => $oldPurchasePrice,
+                    'new_purchase_price'     => $newPurchasePrice ?? $oldPurchasePrice,
+                    'corrected_by'           => Auth::id(),
+                    'corrected_at'           => now(),
+                    'reason'                 => $line['reason'] ?? null,
+                ]);
             }
 
             $vendorGroup->total_amount = (float) $vendorGroup->items()->sum('total_value');

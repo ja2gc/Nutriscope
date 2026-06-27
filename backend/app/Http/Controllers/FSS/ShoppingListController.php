@@ -129,36 +129,32 @@ class ShoppingListController extends Controller
         $plan = app(ShoppingListPopulationService::class)->planRange($cursor, $end);
         $uncovered = $plan['uncovered_dates'];
 
-        if ($plan['missing_population_dates'] !== []) {
+        // All-or-nothing: if ANY date in the span is missing a cycle, missing menu
+        // items, or missing population, block creation entirely and report exactly
+        // what's missing per date. A partial list is never created.
+        $missingDates = array_values(array_unique(array_merge($uncovered, $plan['missing_population_dates'])));
+        if ($missingDates !== []) {
+            sort($missingDates);
             return response()->json([
-                'message' => 'Menu plan dates with assigned items require estimate_population before shopping list generation.',
-                'missing_population_dates' => $plan['missing_population_dates'],
-                'uncovered_dates' => $uncovered,
+                'message'               => 'Shopping list blocked — every date in the span must have a menu cycle, menu items, and an estimated population.',
+                'missing_dates'         => $missingDates,
+                'missing_items_by_date' => $plan['missing_items_by_date'],
             ], 422);
         }
 
-        // Whole span unbuyable (no cycle / no plan anywhere) → hard block.
-        if ($plan['items'] === []) {
-            return response()->json([
-                'message'         => 'No menu plan covers any date in this range.',
-                'uncovered_dates' => $uncovered,
-            ], 422);
-        }
-
-        $coverageStatus = empty($uncovered) ? 'full' : 'partial';
-
-        $list = DB::transaction(function () use ($data, $plan, $spanDays, $coverageStatus, $uncovered) {
+        $list = DB::transaction(function () use ($data, $plan, $spanDays) {
             $list = ShoppingList::create([
-                'rnd_user_id'     => Auth::id(),
-                'name'            => $data['name'] ?? "Suggested — {$data['start_date']}→{$data['end_date']}",
-                'list_date'       => now()->toDateString(),
-                'period_start'    => $data['start_date'],
-                'period_end'      => $data['end_date'],
-                'days_span'       => $spanDays,
-                'list_type'       => 'suggested',
-                'status'          => 'draft',
-                'coverage_status' => $coverageStatus,
-                'uncovered_dates' => $uncovered ?: null,
+                'rnd_user_id'       => Auth::id(),
+                'name'              => $data['name'] ?? "Suggested — {$data['start_date']}→{$data['end_date']}",
+                'list_date'         => now()->toDateString(),
+                'period_start'      => $data['start_date'],
+                'period_end'        => $data['end_date'],
+                'days_span'         => $spanDays,
+                'list_type'         => 'suggested',
+                'procurement_track' => 'food',
+                'status'            => 'draft',
+                'coverage_status'   => 'full',
+                'uncovered_dates'   => null,
             ]);
 
             foreach ($plan['items'] as $row) {
@@ -181,27 +177,40 @@ class ShoppingListController extends Controller
             return response()->json(['message' => 'Converted shopping list items are read-only.'], 422);
         }
 
+        // Unit is NOT editable — it follows the recipe/item creation unit.
         $data = $request->validate([
-            'supplier_id' => ['nullable', 'integer', 'exists:suppliers,id'],
-            'qty'         => ['nullable', 'numeric', 'min:0'],
-            'unit_price'  => ['nullable', 'numeric', 'min:0'],
+            'supplier_id'   => ['nullable', 'integer', 'exists:suppliers,id'],
+            'qty'           => ['nullable', 'numeric', 'min:0'],
+            'unit_price'    => ['nullable', 'numeric', 'min:0'],
+            'vendor_locked' => ['nullable', 'boolean'],
         ]);
 
-        $shoppingListItem->fill($data);
+        $shoppingListItem->fill(collect($data)->only(['supplier_id', 'qty', 'unit_price'])->all());
         $shoppingListItem->total = round((float) $shoppingListItem->qty * (float) $shoppingListItem->unit_price, 2);
-        $shoppingListItem->save();
 
-        if (array_key_exists('supplier_id', $data) && $data['supplier_id'] && $shoppingListItem->fs_item_id) {
-            FsItem::whereKey($shoppingListItem->fs_item_id)->update(['default_supplier_id' => $data['supplier_id']]);
+        // Manual vendor lock on this line — does NOT touch the catalog default.
+        // The catalog vendor auto-updates from the LATEST PROCUREMENT (receiving),
+        // not from a draft shopping-list edit.
+        if (array_key_exists('vendor_locked', $data)) {
+            if ($data['vendor_locked']) {
+                $shoppingListItem->vendor_locked_at = now();
+                $shoppingListItem->vendor_locked_by = Auth::id();
+            } else {
+                $shoppingListItem->vendor_locked_at = null;
+                $shoppingListItem->vendor_locked_by = null;
+            }
         }
 
+        $shoppingListItem->save();
+
         return response()->json(['data' => [
-            'id'          => $shoppingListItem->id,
-            'supplier_id' => $shoppingListItem->supplier_id,
-            'qty'         => $shoppingListItem->qty,
-            'unit_price'  => $shoppingListItem->unit_price,
-            'total'       => $shoppingListItem->total,
-            'item_type'   => $shoppingListItem->fsItem?->kind ?? 'ingredient',
+            'id'            => $shoppingListItem->id,
+            'supplier_id'   => $shoppingListItem->supplier_id,
+            'qty'           => $shoppingListItem->qty,
+            'unit_price'    => $shoppingListItem->unit_price,
+            'total'         => $shoppingListItem->total,
+            'vendor_locked' => $shoppingListItem->vendorLocked(),
+            'item_type'     => $shoppingListItem->fsItem?->kind ?? 'ingredient',
         ]]);
     }
 
@@ -224,6 +233,13 @@ class ShoppingListController extends Controller
         ]);
 
         $fsItem = isset($data['fs_item_id']) ? FsItem::find($data['fs_item_id']) : null;
+
+        // On a supplies list RND adds supply catalog items one by one — reject anything
+        // that isn't kind=supply so the two tracks stay independent.
+        if ($shoppingList->isSupplies() && $fsItem && $fsItem->kind !== 'supply') {
+            return response()->json(['message' => 'Supplies lists only accept supply catalog items.'], 422);
+        }
+
         $qty = (float) $data['qty'];
         $unitPrice = (float) ($data['unit_price'] ?? 0);
 

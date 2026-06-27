@@ -26,14 +26,27 @@ class FsItem extends Model
     protected $fillable = [
         'name', 'kind', 'category',
         'base_unit', 'purchase_unit', 'purchase_price', 'units_per_purchase',
-        'default_supplier_id', 'is_active', 'notes',
+        'default_supplier_id', 'default_supplier_locked_at', 'default_supplier_locked_by',
+        'is_active', 'notes',
     ];
 
     protected $casts = [
-        'purchase_price'     => 'decimal:2',
-        'units_per_purchase' => 'decimal:2',
-        'is_active'          => 'boolean',
+        'purchase_price'             => 'decimal:2',
+        'units_per_purchase'         => 'decimal:2',
+        'is_active'                  => 'boolean',
+        'default_supplier_locked_at' => 'datetime',
     ];
+
+    /** Vendor suggestion is locked when an explicit lock timestamp is set. */
+    public function vendorLocked(): bool
+    {
+        return $this->default_supplier_locked_at !== null;
+    }
+
+    public function defaultSupplierLockedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'default_supplier_locked_by');
+    }
 
     /**
      * Base units contained in ONE purchase unit (e.g. 1000 g per kg, or

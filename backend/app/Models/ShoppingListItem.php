@@ -13,6 +13,8 @@ class ShoppingListItem extends Model
         'shopping_list_id', 'fs_item_id', 'ingredient_name',
         'qty', 'unit', 'supplier_id', 'unit_price', 'total',
         'purchase_qty', 'purchase_unit', 'purchase_price',
+        'vendor_locked_at', 'vendor_locked_by',
+        'baseline_servings', 'baseline_quantity', 'scaled_quantity', 'scaled_unit',
     ];
 
     protected $casts = [
@@ -21,7 +23,16 @@ class ShoppingListItem extends Model
         'total' => 'decimal:2',
         'purchase_qty' => 'decimal:2',
         'purchase_price' => 'decimal:2',
+        'vendor_locked_at' => 'datetime',
+        'baseline_servings' => 'integer',
+        'baseline_quantity' => 'decimal:2',
+        'scaled_quantity' => 'decimal:2',
     ];
+
+    public function vendorLocked(): bool
+    {
+        return $this->vendor_locked_at !== null;
+    }
 
     public function shoppingList()
     {

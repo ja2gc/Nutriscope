@@ -185,6 +185,26 @@ export async function getCostToday(): Promise<CostToday | null> {
   return (await res.json()).data ?? null;
 }
 
+export interface PendingPo {
+  id: number;
+  po_number: string | null;
+  procurement_track: "food" | "supplies";
+  waiting_on: string[]; // e.g. ["receipts", "served_population"]
+}
+
+export interface FssDashboardSummary {
+  meals_to_log_today: number;
+  pending_pos: PendingPo[];
+  pending_pos_count: number;
+  today_service: Array<{ meal_type: string; name: string; prepped: boolean; has_shortfall: boolean }>;
+}
+
+export async function getFssDashboard(): Promise<FssDashboardSummary | null> {
+  const res = await apiFetch("/api/fss/dashboard/summary");
+  if (!res.ok) return null;
+  return (await res.json()).data ?? null;
+}
+
 export async function computeCycle(id: number): Promise<ComputeResult> {
   const res = await apiFetch(`/api/fss/menu-cycles/${id}/compute`);
   return json<ComputeResult>(res, "Failed to compute cycle.");

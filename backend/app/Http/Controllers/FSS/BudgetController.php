@@ -59,13 +59,15 @@ class BudgetController extends Controller
         return response()->json(['data' => new BudgetResource($budget)]);
     }
 
-    /** Ledger entries for a fiscal year, optionally filtered by type. */
+    /**
+     * Ledger entries for a fiscal year in reverse chronological order, optionally
+     * filtered by source (system = PO deductions, manual = manual add/deduct).
+     */
     public function ledger(Request $request): JsonResponse
     {
         $data = $request->validate([
             'fiscal_year' => ['nullable', 'integer'],
-            // single types plus the "manual" / "po" groups from the Budget page filter
-            'type'        => ['nullable', 'in:po_deduction,manual_addition,manual_deduction,manual,po,all'],
+            'source'      => ['nullable', 'in:system,manual,all'],
         ]);
 
         $year = (int) ($data['fiscal_year'] ?? now()->year);
@@ -74,26 +76,22 @@ class BudgetController extends Controller
             ->with(['purchaseOrder:id,po_number', 'creator:id,name'])
             ->orderByDesc('created_at');
 
-        $filter = $data['type'] ?? null;
-        if ($filter === 'manual') {
-            $query->whereIn('type', ['manual_addition', 'manual_deduction']);
-        } elseif ($filter === 'po') {
-            $query->where('type', 'po_deduction');
-        } elseif ($filter && $filter !== 'all') {
-            $query->where('type', $filter);
+        $filter = $data['source'] ?? null;
+        if ($filter && $filter !== 'all') {
+            $query->where('source', $filter);
         }
 
         $entries = $query->get()->map(fn (BudgetLedger $e) => [
             'id'                => $e->id,
             'fiscal_year'       => $e->fiscal_year,
             'type'              => $e->type,
+            'source'            => $e->source,
             'amount'            => (float) $e->amount,
             'signed_amount'     => $e->signedAmount(),
             'reason'            => $e->reason,
-            'reference'         => $e->reference,
+            'reference'         => $e->reference ?? $e->purchaseOrder?->po_number,
             'purchase_order_id' => $e->purchase_order_id,
             'po_number'         => $e->purchaseOrder?->po_number,
-            'procurement_span'  => $e->procurement_span,
             'created_by'        => $e->creator?->name,
             'created_at'        => $e->created_at?->toDateTimeString(),
         ]);
@@ -122,6 +120,7 @@ class BudgetController extends Controller
         $entry = BudgetLedger::create([
             'fiscal_year' => $year,
             'type'        => $data['type'],
+            'source'      => 'manual',
             'amount'      => $data['amount'],
             'reason'      => $data['reason'],
             'reference'   => $data['reference'] ?? null,
@@ -131,9 +130,11 @@ class BudgetController extends Controller
         return response()->json(['data' => [
             'id'            => $entry->id,
             'type'          => $entry->type,
+            'source'        => $entry->source,
             'amount'        => (float) $entry->amount,
             'signed_amount' => $entry->signedAmount(),
             'reason'        => $entry->reason,
+            'reference'     => $entry->reference,
             'created_by'    => Auth::user()?->name,
             'created_at'    => $entry->created_at?->toDateTimeString(),
         ]], 201);

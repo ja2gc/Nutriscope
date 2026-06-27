@@ -36,6 +36,11 @@ class MenuCycleResource extends JsonResource
                 'estimate_population_updated_at' => $d->estimate_population_updated_at?->toISOString(),
                 'is_event'          => (bool) $d->is_event,
                 'event_allocation'  => $d->event_allocation,
+                // Frozen scaled snapshot from the food PO conversion (null until converted).
+                'po_snapshot'                => $d->po_snapshot,
+                'po_snapshot_at'             => $d->po_snapshot_at?->toISOString(),
+                'po_snapshot_locked'         => (bool) $d->po_snapshot_locked,
+                'snapshot_purchase_order_id' => $d->snapshot_purchase_order_id,
                 'recipe'            => $d->relationLoaded('recipe') && $d->recipe ? [
                     'id' => $d->recipe->id, 'name' => $d->recipe->name, 'servings' => $d->recipe->servings, 'cost' => $d->recipe->cost,
                 ] : null,

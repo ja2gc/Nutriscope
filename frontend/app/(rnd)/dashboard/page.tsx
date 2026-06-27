@@ -15,7 +15,7 @@ import {
   updateAnnouncement,
 } from "@/services/announcementService";
 import { categoryStyles } from "@/components/announcements/AnnouncementsBoard";
-import { CostToday, getCostToday } from "@/services/menuCycleService";
+import { FssDashboardSummary, getFssDashboard } from "@/services/menuCycleService";
 import { BellDot, Calendar, Compass, HeartHandshake, PencilLine, TrendingUp, X } from "lucide-react";
 
 type AnnouncementDraft = {
@@ -102,24 +102,22 @@ function pesoAmount(n: number) {
   return `₱${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-// Cost-per-head headline for the dashboard KPI: the REAL cost to make today's menu
-// (computed from the active cycle), with the settable per-head limit as context.
-function costPerHeadKpi(c: CostToday | null): { value: string; sub: string } {
-  if (!c) {
-    return { value: "--", sub: "No active menu cycle" };
-  }
-  if (!c.has_menu_today || c.cost_per_head === null) {
-    return { value: "--", sub: `${c.cycle} · no menu planned for ${c.weekday}` };
-  }
+// Pending PO headline: open-execution POs and what they're waiting on.
+const WAITING_LABELS: Record<string, string> = {
+  receipts: "receipts",
+  served_population: "served population",
+};
 
-  const limitNote =
-    c.limit_per_head !== null
-      ? ` · limit ${pesoAmount(c.limit_per_head)}${c.within_budget === false ? " (over)" : ""}`
-      : "";
-
+function pendingPoKpi(d: FssDashboardSummary | null): { value: string; sub: string } {
+  if (!d || d.pending_pos_count === 0) {
+    return { value: "0", sub: "No POs in open execution" };
+  }
+  const reasons = Array.from(
+    new Set(d.pending_pos.flatMap((p) => p.waiting_on.map((w) => WAITING_LABELS[w] ?? w))),
+  );
   return {
-    value: `${pesoAmount(c.cost_per_head)}/head`,
-    sub: `${c.cycle} · ${c.weekday} menu cost${limitNote}`,
+    value: String(d.pending_pos_count),
+    sub: reasons.length ? `Waiting on ${reasons.join(", ")}` : "In open execution",
   };
 }
 
@@ -140,7 +138,7 @@ function isAnnouncementEditable(post: Announcement, userId?: number | null) {
 export default function RndDashboardPage() {
   const { user } = useAuth();
   const [patients, setPatients] = useState<Patient[]>([]);
-  const [costToday, setCostToday] = useState<CostToday | null>(null);
+  const [fssDashboard, setFssDashboard] = useState<FssDashboardSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [announcementsLoading, setAnnouncementsLoading] = useState(true);
   const [announcementsSaving, setAnnouncementsSaving] = useState(false);
@@ -178,9 +176,9 @@ export default function RndDashboardPage() {
 
   useEffect(() => {
     // Best-effort for the KPI card — a failure here must not block the dashboard.
-    getCostToday()
-      .then(setCostToday)
-      .catch(() => setCostToday(null));
+    getFssDashboard()
+      .then(setFssDashboard)
+      .catch(() => setFssDashboard(null));
   }, []);
 
   useEffect(() => {
@@ -228,7 +226,7 @@ export default function RndDashboardPage() {
   const activePatients = patients.filter((patient) => patient.status === "Active").length;
   const patientCountLabel = loading ? "--" : activePatients.toString();
   const upcomingFollowUpLabel = loading ? "--" : followUps.length.toString();
-  const budgetKpi = useMemo(() => costPerHeadKpi(costToday), [costToday]);
+  const pendingKpi = useMemo(() => pendingPoKpi(fssDashboard), [fssDashboard]);
   const orderedPosts = useMemo(() => sortAnnouncements(posts), [posts]);
   const selectedPost = useMemo(
     () => orderedPosts.find((post) => post.id === viewingPostId) || null,
@@ -647,12 +645,12 @@ export default function RndDashboardPage() {
 
         <div className="bg-white border border-zinc-200 rounded-2xl p-4 flex items-center justify-between shadow-sm">
           <div>
-            <Link href="/food-service/menu-cycle" className="text-[10px] font-extrabold text-[#EA580C] uppercase tracking-wider block hover:underline">
-              Cost / Head Today
+            <Link href="/food-service/procurement" className="text-[10px] font-extrabold text-[#EA580C] uppercase tracking-wider block hover:underline">
+              Pending POs
             </Link>
-            <span className="text-lg font-extrabold text-zinc-950 mt-1 block">{budgetKpi.value}</span>
+            <span className="text-lg font-extrabold text-zinc-950 mt-1 block">{pendingKpi.value}</span>
             <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block mt-1">
-              {budgetKpi.sub}
+              {pendingKpi.sub}
             </span>
           </div>
           <div className="p-2.5 rounded-xl bg-orange-50 text-[#EA580C] border border-orange-100">

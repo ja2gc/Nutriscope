@@ -25,6 +25,11 @@ class PurchaseOrderResource extends JsonResource
             'actual_budget_per_head_per_day' => $this->actual_budget_per_head_per_day,
             'status'           => $this->status,
             'lifecycle_status' => $this->lifecycle_status,
+            'procurement_track' => $this->procurement_track,
+            'structural_locked' => $this->structural_locked_at !== null,
+            'structural_locked_at' => $this->structural_locked_at?->toISOString(),
+            'final_locked'     => $this->final_locked_at !== null,
+            'final_locked_at'  => $this->final_locked_at?->toISOString(),
             'converted_at'     => $this->converted_at?->toISOString(),
             'completed_at'     => $this->completed_at?->toISOString(),
             'archived_at'      => $this->archived_at?->toISOString(),
@@ -88,6 +93,14 @@ class PurchaseOrderResource extends JsonResource
                 'actual_output_patients' => $this->programProjectActivity->actual_output_patients,
                 'execution_frozen_at' => $this->programProjectActivity->execution_frozen_at?->toISOString(),
             ] : null),
+            'waiting_on_receipts' => $this->when(
+                $this->relationLoaded('vendorGroups'),
+                fn () => $this->lifecycle_status === 'open_execution'
+                    && $this->vendorGroups->contains(
+                        fn ($g) => ! $g->relationLoaded('attachments')
+                            || $g->attachments->where('type', 'receipt')->isEmpty()
+                    ),
+            ),
             'created_at'       => $this->created_at,
             'updated_at'       => $this->updated_at,
         ];

@@ -3,13 +3,11 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
-import { Tabs } from "@/components/ui/Tabs";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   FiscalYearBudget, FiscalYearSummary, BudgetLedgerEntry, LedgerFilter,
   listFiscalYears, getFiscalYearSummary, setupFiscalYear, getLedger, addManualAdjustment,
 } from "@/services/budgetService";
-import { BudgetInsightsPanel } from "../insights/page";
 
 const peso = (n: number) =>
   `₱${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -31,11 +29,6 @@ function Label({ children }: { children: React.ReactNode }) {
 }
 const inp = "w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500";
 const card = "bg-white border border-zinc-100 rounded-2xl shadow-sm p-6";
-type BudgetTab = "budget" | "insights";
-const PAGE_TABS: { key: BudgetTab; label: string }[] = [
-  { key: "budget", label: "Budget" },
-  { key: "insights", label: "Insights" },
-];
 
 // ───── Fiscal Year Selector ──────────────────────────────────────────────────
 function YearSelector({ years, selected, onChange }: {
@@ -58,7 +51,61 @@ function YearSelector({ years, selected, onChange }: {
   );
 }
 
-// ───── Section 1: Fiscal Year Summary ───────────────────────────────────────
+// ───── Fiscal Year Setup (RND only) — top of page ─────────────────────────────
+function FiscalYearSetupSection({ existingYears, onCreated }: {
+  existingYears: number[]; onCreated: (year: number) => void;
+}) {
+  const nextYear = (existingYears.length > 0 ? Math.max(...existingYears) : currentYear) + 1;
+  const [fiscalYear, setFiscalYear] = useState(nextYear);
+  const [allocated, setAllocated] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setErr(null);
+    if (!allocated || parseFloat(allocated) <= 0) { setErr("Allocated amount required."); return; }
+    setSaving(true);
+    try {
+      await setupFiscalYear({ fiscal_year: fiscalYear, allocated_amount: parseFloat(allocated) });
+      setAllocated("");
+      onCreated(fiscalYear);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Failed.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className={card}>
+      <h2 className="text-xs font-extrabold text-zinc-500 uppercase tracking-wider mb-4">Fiscal Year Setup</h2>
+      <form onSubmit={submit} className="space-y-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <Label>Fiscal Year</Label>
+            <input
+              type="number" min="2020" max="2100"
+              value={fiscalYear} onChange={(e) => setFiscalYear(parseInt(e.target.value))}
+              className={inp}
+            />
+          </div>
+          <div>
+            <Label>Allocated Amount (₱)</Label>
+            <input type="number" min="0" step="0.01" value={allocated} onChange={(e) => setAllocated(e.target.value)} placeholder="0.00" className={inp} />
+          </div>
+        </div>
+        {err && <p className="text-xs text-red-500">{err}</p>}
+        <Button type="submit" disabled={saving} className="text-sm">
+          {saving ? "Creating…" : `Setup FY ${fiscalYear}`}
+        </Button>
+        <p className="text-[11px] text-zinc-400">Budget per head per day is configured in Settings.</p>
+      </form>
+    </div>
+  );
+}
+
+// ───── Summary: three cards only ──────────────────────────────────────────────
 function SummarySection({ summary, notice }: {
   summary: FiscalYearSummary | null; notice?: string;
 }) {
@@ -72,24 +119,19 @@ function SummarySection({ summary, notice }: {
   }
 
   const allocated = num(summary.allocated_amount);
-  const remaining = num(summary.remaining_balance);
-  const poDeduc = num(summary.total_po_deductions);
-  const manAdd = num(summary.total_manual_additions);
-  const manDeduc = num(summary.total_manual_deductions);
-  const pct = allocated > 0 ? Math.min(100, ((allocated - remaining) / allocated) * 100) : 0;
+  const deductions = num(summary.total_deductions);
+  const remaining = num(summary.remaining);
 
   const kpis = [
     { label: "Allocated", value: peso(allocated), color: "text-zinc-800" },
-    { label: "PO Deductions", value: peso(poDeduc), color: "text-red-600" },
-    { label: "Manual Additions", value: peso(manAdd), color: "text-emerald-600" },
-    { label: "Manual Deductions", value: peso(manDeduc), color: "text-amber-600" },
-    { label: remaining >= 0 ? "Remaining" : "Over Allocation", value: peso(Math.abs(remaining)), color: remaining >= 0 ? "text-emerald-700" : "text-red-600" },
+    { label: "Total Deductions", value: peso(deductions), color: "text-red-600" },
+    { label: "Remaining", value: peso(remaining), color: remaining >= 0 ? "text-emerald-700" : "text-red-600" },
   ];
 
   return (
     <div className={card}>
       <h2 className="text-xs font-extrabold text-zinc-500 uppercase tracking-wider mb-4">Fiscal Year Summary</h2>
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 mb-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {kpis.map((k) => (
           <div key={k.label} className="bg-zinc-50 rounded-xl p-4 text-center">
             <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">{k.label}</div>
@@ -97,23 +139,11 @@ function SummarySection({ summary, notice }: {
           </div>
         ))}
       </div>
-      <div className="flex items-center gap-3">
-        <div className="flex-1 bg-zinc-100 rounded-full h-2">
-          <div
-            className={`h-2 rounded-full transition-all ${remaining < 0 ? "bg-red-500" : pct > 80 ? "bg-amber-400" : "bg-emerald-500"}`}
-            style={{ width: `${pct}%` }}
-          />
-        </div>
-        <span className="text-xs font-bold text-zinc-500">{pct.toFixed(1)}% spent</span>
-      </div>
-      {summary.per_head_day_limit && (
-        <p className="text-xs text-zinc-400 mt-2">Per-head day limit: {peso(num(summary.per_head_day_limit))}</p>
-      )}
     </div>
   );
 }
 
-// ───── Section 2: Manual Adjustment (RND only) ───────────────────────────────
+// ───── Manual Adjustment (RND only) ───────────────────────────────────────────
 function ManualAdjustSection({ fiscalYear, onAdjusted }: {
   fiscalYear: number; onAdjusted: () => void;
 }) {
@@ -177,7 +207,7 @@ function ManualAdjustSection({ fiscalYear, onAdjusted }: {
   );
 }
 
-// ───── Section 3: Ledger Table ────────────────────────────────────────────────
+// ───── Ledger Table ───────────────────────────────────────────────────────────
 const TYPE_LABELS: Record<string, string> = {
   po_deduction: "PO Deduction",
   manual_addition: "Manual Addition",
@@ -186,11 +216,8 @@ const TYPE_LABELS: Record<string, string> = {
 
 const FILTERS: { key: LedgerFilter; label: string }[] = [
   { key: "all", label: "All" },
-  { key: "manual", label: "Manual only" },
-  { key: "po", label: "Purchase orders only" },
-  { key: "manual_addition", label: "Additions" },
-  { key: "manual_deduction", label: "Deductions" },
-  { key: "po_deduction", label: "PO deductions" },
+  { key: "system", label: "System (PO deductions)" },
+  { key: "manual", label: "Manual" },
 ];
 
 function LedgerSection({ entries, loading, filter, onFilter }: {
@@ -220,10 +247,9 @@ function LedgerSection({ entries, loading, filter, onFilter }: {
                 <th className="text-left py-2 px-3 text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider">Date</th>
                 <th className="text-left py-2 px-3 text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider">Type</th>
                 <th className="text-right py-2 px-3 text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider">Amount</th>
-                <th className="text-left py-2 px-3 text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider">Reference / PO</th>
-                <th className="text-left py-2 px-3 text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider">Span</th>
                 <th className="text-left py-2 px-3 text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider">Reason</th>
-                <th className="text-left py-2 px-3 text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider">By</th>
+                <th className="text-left py-2 px-3 text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider">Reference</th>
+                <th className="text-left py-2 px-3 text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider">Created By</th>
               </tr>
             </thead>
             <tbody>
@@ -234,9 +260,8 @@ function LedgerSection({ entries, loading, filter, onFilter }: {
                   <td className={`py-2 px-3 text-right font-bold ${e.signed_amount >= 0 ? "text-emerald-600" : "text-red-500"}`}>
                     {e.signed_amount >= 0 ? "+" : "−"}{peso(Math.abs(e.signed_amount))}
                   </td>
-                  <td className="py-2 px-3 text-zinc-500">{e.po_number ?? e.reference ?? "—"}</td>
-                  <td className="py-2 px-3 text-zinc-500">{e.procurement_span ?? "—"}</td>
                   <td className="py-2 px-3 text-zinc-500">{e.reason ?? "—"}</td>
+                  <td className="py-2 px-3 text-zinc-500">{e.reference ?? e.po_number ?? "—"}</td>
                   <td className="py-2 px-3 text-zinc-500">{e.created_by ?? "—"}</td>
                 </tr>
               ))}
@@ -248,73 +273,10 @@ function LedgerSection({ entries, loading, filter, onFilter }: {
   );
 }
 
-// ───── Section 4: New Year Setup (RND only) ───────────────────────────────────
-function NewYearSection({ existingYears, onCreated }: {
-  existingYears: number[]; onCreated: () => void;
-}) {
-  const nextYear = (existingYears.length > 0 ? Math.max(...existingYears) : currentYear) + 1;
-  const [fiscalYear, setFiscalYear] = useState(nextYear);
-  const [allocated, setAllocated] = useState("");
-  const [perHead, setPerHead] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
-
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    setErr(null);
-    if (!allocated || parseFloat(allocated) <= 0) { setErr("Allocated amount required."); return; }
-    setSaving(true);
-    try {
-      await setupFiscalYear({
-        fiscal_year: fiscalYear,
-        allocated_amount: parseFloat(allocated),
-        per_head_day_limit: perHead ? parseFloat(perHead) : null,
-      });
-      setAllocated(""); setPerHead("");
-      onCreated();
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : "Failed.");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <div className={card}>
-      <h2 className="text-xs font-extrabold text-zinc-500 uppercase tracking-wider mb-4">Setup New Fiscal Year</h2>
-      <form onSubmit={submit} className="space-y-4">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div>
-            <Label>Fiscal Year</Label>
-            <input
-              type="number" min="2020" max="2100"
-              value={fiscalYear} onChange={(e) => setFiscalYear(parseInt(e.target.value))}
-              className={inp}
-            />
-          </div>
-          <div>
-            <Label>Allocated Amount (₱)</Label>
-            <input type="number" min="0" step="0.01" value={allocated} onChange={(e) => setAllocated(e.target.value)} placeholder="0.00" className={inp} />
-          </div>
-          <div>
-            <Label>Per-Head Day Limit (₱, optional)</Label>
-            <input type="number" min="0" step="0.01" value={perHead} onChange={(e) => setPerHead(e.target.value)} placeholder="0.00" className={inp} />
-          </div>
-        </div>
-        {err && <p className="text-xs text-red-500">{err}</p>}
-        <Button type="submit" disabled={saving} className="text-sm">
-          {saving ? "Creating…" : `Setup FY ${fiscalYear}`}
-        </Button>
-      </form>
-    </div>
-  );
-}
-
 // ───── Page ───────────────────────────────────────────────────────────────────
 export default function BudgetPage() {
   const { user } = useAuth();
   const isRnd = user?.role === "RND";
-  const [activeTab, setActiveTab] = useState<BudgetTab>("budget");
   const [budgets, setBudgets] = useState<FiscalYearBudget[]>([]);
   const [selectedYear, setSelectedYear] = useState(currentYear);
   const [summary, setSummary] = useState<FiscalYearSummary | null>(null);
@@ -365,39 +327,35 @@ export default function BudgetPage() {
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
             <h1 className="text-2xl font-extrabold text-zinc-800">Budget</h1>
-            <p className="text-sm text-zinc-400 mt-1">Fiscal year allocation, ledger, and insights</p>
+            <p className="text-sm text-zinc-400 mt-1">Fiscal year allocation and shared budget ledger</p>
           </div>
           {years.length > 0 && (
             <YearSelector years={years} selected={selectedYear} onChange={(y) => { setSelectedYear(y); }} />
           )}
         </div>
 
-        <Tabs items={PAGE_TABS} value={activeTab} onChange={setActiveTab} />
-
         {loading ? (
           <div className="text-sm text-zinc-400 py-12 text-center">Loading…</div>
-        ) : activeTab === "insights" ? (
-          <BudgetInsightsPanel year={selectedYear} />
         ) : (
           <>
-            {/* Section 1: Summary */}
+            {/* Fiscal Year Setup — top of page (RND only) */}
+            {isRnd && (
+              <FiscalYearSetupSection
+                existingYears={years}
+                onCreated={(year) => { load(); setSelectedYear(year); }}
+              />
+            )}
+
+            {/* Three summary cards */}
             <SummarySection summary={summary} notice={notice} />
 
-            {/* Section 2: Manual Adjust (RND only, only when budget exists) */}
+            {/* Manual Adjust (RND only, only when budget exists) */}
             {isRnd && summary && (
               <ManualAdjustSection fiscalYear={selectedYear} onAdjusted={refresh} />
             )}
 
-            {/* Section 3: Ledger */}
+            {/* Ledger log */}
             <LedgerSection entries={entries} loading={ledgerLoading} filter={ledgerFilter} onFilter={setLedgerFilter} />
-
-            {/* Section 4: New Year Setup (RND only) */}
-            {isRnd && (
-              <NewYearSection
-                existingYears={years}
-                onCreated={() => { load(); setSelectedYear(years.length > 0 ? Math.max(...years) + 1 : currentYear); }}
-              />
-            )}
           </>
         )}
       </div>
