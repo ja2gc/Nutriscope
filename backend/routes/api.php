@@ -212,6 +212,7 @@ Route::middleware(['auth:sanctum', 'role:FSS,RND'])->prefix('fss')->group(functi
     // FS Items — catalog list (ready-to-serve picker) + price-trend read for FSS;
     // update is RND-only (see below)
     Route::get('fs-items', [FsItemController::class, 'index']);
+    Route::get('fs-items/{fsItem}/profile', [FsItemController::class, 'profile']);
     Route::get('fs-items/{fsItem}/price-trend', [FsItemController::class, 'priceTrend']);
 
     // Menu Cycles — FSS read-only (RND owns writes, see RND-only group below)

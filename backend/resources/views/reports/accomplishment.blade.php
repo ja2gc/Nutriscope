@@ -48,8 +48,8 @@
                         @foreach($days as $date)
                             @php $cell = $sheet['task_rows'][$taskKey][$date] ?? '–'; @endphp
                             <td style="text-align:center;">
-                                @if($cell === 'off-duty')
-                                    <span style="font-size:7px; color:#555;">off-duty</span>
+                                @if($cell === 'X')
+                                    <span style="font-size:9px; color:#333;">X</span>
                                 @elseif(is_numeric($cell) && $cell !== '–')
                                     {{ $cell }}
                                 @else

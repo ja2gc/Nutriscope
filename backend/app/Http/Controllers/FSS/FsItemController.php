@@ -57,6 +57,53 @@ class FsItemController extends Controller
         return response()->json(['data' => $fsItem->fresh()]);
     }
 
+    /**
+     * Cost profile for a ready-to-serve item placed directly in a menu-cycle slot.
+     * Quantity is per head, so total = quantity x population x unit cost.
+     */
+    public function profile(Request $request, FsItem $fsItem): JsonResponse
+    {
+        if ($fsItem->kind !== 'ready_to_eat') {
+            abort(404);
+        }
+
+        $data = $request->validate([
+            'population' => ['nullable', 'integer', 'min:0'],
+            'quantity'   => ['nullable', 'numeric', 'min:0'],
+        ]);
+
+        $population = (int) ($data['population'] ?? 0);
+        $quantity = (float) ($data['quantity'] ?? 1);
+        $totalQuantity = $population * $quantity;
+        $unitCost = $fsItem->unit_cost;
+        $totalCost = round($totalQuantity * $unitCost, 2);
+
+        return response()->json(['data' => [
+            'id' => $fsItem->id,
+            'fs_item_id' => $fsItem->id,
+            'name' => $fsItem->name,
+            'kind' => $fsItem->kind,
+            'category' => $fsItem->category,
+            'unit' => $fsItem->base_unit,
+            'unit_cost' => $unitCost,
+            'quantity' => $quantity,
+            'population' => $population,
+            'servings' => $population,
+            'total_quantity' => round($totalQuantity, 2),
+            'total_cost' => $totalCost,
+            'cost_per_head' => $population > 0 ? round($totalCost / $population, 2) : 0.0,
+            'prep_notes' => $fsItem->notes,
+            'formula' => 'total_cost = quantity_per_head * population * unit_cost',
+            'ingredient_usage' => [[
+                'fs_item_id' => $fsItem->id,
+                'name' => $fsItem->name,
+                'unit' => $fsItem->base_unit,
+                'quantity' => round($totalQuantity, 2),
+                'cost' => $totalCost,
+            ]],
+        ]]);
+    }
+
     /** @param array<int,array{date:string,unit_price:float}> $points */
     public static function summarizeTrend(array $points): array
     {

@@ -7,6 +7,7 @@ use App\Models\Report;
 use App\Models\ReportBranding;
 use App\Models\User;
 use App\Services\Reports\Generators\AccomplishmentReportGenerator;
+use Carbon\CarbonPeriod;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -109,7 +110,7 @@ class AccomplishmentReportTest extends TestCase
         $this->assertSame(42, $sheet['task_rows']['apportioned_food']['2026-06-03']);
     }
 
-    public function test_off_duty_day_renders_as_off_duty_string(): void
+    public function test_off_duty_day_renders_as_x(): void
     {
         $this->seedCount($this->fss1, '2026-06-04', ['off_duty' => true]);
 
@@ -122,8 +123,8 @@ class AccomplishmentReportTest extends TestCase
 
         // All task columns should be 'off-duty' for this day.
         foreach (array_keys(AccomplishmentReportGenerator::TASKS) as $task) {
-            $this->assertSame('off-duty', $sheet['task_rows'][$task]['2026-06-04'],
-                "Task [{$task}] should be 'off-duty' on an off-duty day");
+            $this->assertSame('X', $sheet['task_rows'][$task]['2026-06-04'],
+                "Task [{$task}] should be 'X' on an off-duty day");
         }
     }
 
@@ -200,6 +201,7 @@ class AccomplishmentReportTest extends TestCase
         $this->seedCount($this->fss1, '2026-06-01');
         $this->seedCount($this->fss2, '2026-05-15');
 
+        // FSS sees only their own months (fss.md §8 — FSS can only view their own).
         $data = $this->actingAs($this->fss1)
             ->getJson('/api/fss/reports/accomplishment_report/instances')
             ->assertOk()
@@ -208,7 +210,23 @@ class AccomplishmentReportTest extends TestCase
 
         $keys = collect($data['instances'])->pluck('key')->all();
         $this->assertContains('2026-06', $keys);
-        $this->assertContains('2026-05', $keys);
+        $this->assertNotContains('2026-05', $keys, 'FSS must not see another staff member\'s months');
+    }
+
+    public function test_rnd_instances_lists_all_fss_months(): void
+    {
+        $rnd = User::factory()->create(['role' => 'RND']);
+        $this->seedCount($this->fss1, '2026-06-01');
+        $this->seedCount($this->fss2, '2026-05-15');
+
+        $data = $this->actingAs($rnd)
+            ->getJson('/api/rnd/reports/accomplishment_report/instances')
+            ->assertOk()
+            ->json('data');
+
+        $keys = collect($data['instances'])->pluck('key')->all();
+        $this->assertContains('2026-06', $keys);
+        $this->assertContains('2026-05', $keys, 'RND must see all FSS staff months');
     }
 
     public function test_rnd_can_also_render_accomplishment_report(): void
@@ -264,5 +282,78 @@ class AccomplishmentReportTest extends TestCase
 
         $this->assertContains($own->id, $ids);
         $this->assertNotContains($other->id, $ids);
+    }
+
+    public function test_weekly_accomplishment_report_auto_archives_after_each_day_has_staff_entry(): void
+    {
+        foreach (CarbonPeriod::create('2026-06-01', '2026-06-06') as $date) {
+            $this->actingAs($this->fss1)
+                ->postJson('/api/fss/diet-list-counts', [
+                    'service_date' => $date->toDateString(),
+                    'ward' => 'Ward A',
+                    'population' => 10,
+                    'helped_food_prep' => true,
+                    'apportioned_food' => true,
+                ])
+                ->assertCreated();
+        }
+
+        $this->assertDatabaseMissing('reports', [
+            'user_id' => $this->fss1->id,
+            'type' => 'accomplishment_report',
+        ]);
+
+        $this->actingAs($this->fss1)
+            ->postJson('/api/fss/diet-list-counts', [
+                'service_date' => '2026-06-07',
+                'ward' => 'Off duty',
+                'population' => 0,
+                'off_duty' => true,
+            ])
+            ->assertCreated();
+
+        $report = Report::where('user_id', $this->fss1->id)
+            ->where('type', 'accomplishment_report')
+            ->firstOrFail();
+
+        $this->assertSame('archived', $report->status);
+        $this->assertSame('2026-06-01', $report->parameters['start']);
+        $this->assertSame('2026-06-07', $report->parameters['end']);
+        $this->assertSame($this->fss1->id, $report->parameters['fss_user_id']);
+        $this->assertSame('X', $report->snapshot['accomplishment']['staff_sheets'][0]['task_rows']['helped_food_prep']['2026-06-07']);
+    }
+
+    public function test_auto_archived_weekly_report_is_frozen_against_later_diet_list_changes(): void
+    {
+        foreach (CarbonPeriod::create('2026-06-01', '2026-06-07') as $date) {
+            $this->seedCount($this->fss1, $date->toDateString(), [
+                'helped_food_prep' => true,
+                'population' => $date->toDateString() === '2026-06-07' ? 0 : 10,
+                'off_duty' => $date->toDateString() === '2026-06-07',
+            ]);
+        }
+
+        $this->actingAs($this->fss1)
+            ->postJson('/api/fss/diet-list-counts', [
+                'service_date' => '2026-06-07',
+                'ward' => 'Off duty duplicate',
+                'population' => 0,
+                'off_duty' => true,
+            ])
+            ->assertCreated();
+
+        $report = Report::where('user_id', $this->fss1->id)
+            ->where('type', 'accomplishment_report')
+            ->firstOrFail();
+
+        $before = $report->snapshot['accomplishment']['staff_sheets'][0]['task_rows']['helped_food_prep']['2026-06-07'];
+
+        DietListCount::where('fss_user_id', $this->fss1->id)
+            ->whereDate('service_date', '2026-06-07')
+            ->update(['off_duty' => false, 'helped_food_prep' => true, 'population' => 99]);
+
+        $after = (new AccomplishmentReportGenerator())->data($report);
+        $this->assertSame($before, $after['staff_sheets'][0]['task_rows']['helped_food_prep']['2026-06-07']);
+        $this->assertSame('X', $after['staff_sheets'][0]['task_rows']['helped_food_prep']['2026-06-07']);
     }
 }

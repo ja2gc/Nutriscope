@@ -3,8 +3,11 @@
 namespace Database\Seeders;
 
 use App\Models\Budget;
-use App\Models\BudgetDailyLog;
+use App\Models\BudgetLedger;
 use App\Models\DietListCount;
+use App\Models\PurchaseOrderVendorGroup;
+use App\Models\ReportBranding;
+use App\Services\FSS\AccomplishmentReportArchiveService;
 use App\Models\FoodServiceRecipe;
 use App\Models\FoodServiceRecipeIngredient;
 use App\Models\FsItem;
@@ -139,9 +142,14 @@ class FoodServiceDemoSeeder extends Seeder
         $this->seedRecipes($rnd);
         $this->seedInventory();
 
+        // Ensure a report branding row exists so PDF generation doesn't abort.
+        ReportBranding::singleton();
+
         // Four weeks: 3 completed past cycles + the current active one. Week index 0 =
         // current; 3/2/1 = oldest→newest past. All start Monday so spans are clean.
         $currentWeekStart = Carbon::now()->startOfWeek(Carbon::MONDAY);
+        $fssUser = User::find($fss);
+        $archiveService = app(AccomplishmentReportArchiveService::class);
         $cycles = [];
         for ($w = 3; $w >= 0; $w--) {
             $weekStart = $currentWeekStart->copy()->subWeeks($w);
@@ -150,6 +158,12 @@ class FoodServiceDemoSeeder extends Seeder
             $served = $this->seedConsumptionForWeek($cycle, $fss, $weekStart, $isCurrent, $w);
             $this->seedProcurementForWeek($cycle, $fss, $weekStart, $isCurrent, $served);
             $cycles[] = $cycle;
+
+            // Auto-archive the accomplishment report for completed past weeks.
+            if (! $isCurrent && $fssUser) {
+                $weekEnd = $weekStart->copy()->endOfWeek(Carbon::SUNDAY)->toDateString();
+                $archiveService->archiveCompletedWeek($fssUser, $weekEnd);
+            }
         }
 
         // Next week's cycle as a DRAFT plan (no consumption/procurement yet) so the
@@ -166,7 +180,7 @@ class FoodServiceDemoSeeder extends Seeder
     {
         Schema::disableForeignKeyConstraints();
         foreach ([
-            'purchase_order_attachments', 'purchase_order_items', 'purchase_orders',
+            'purchase_order_attachments', 'purchase_order_items', 'purchase_order_vendor_groups', 'purchase_orders',
             'shopping_list_items', 'shopping_lists',
             'budget_daily_logs', 'budgets',
             'meal_prep_log_lines', 'meal_prep_logs', 'diet_list_counts',
@@ -438,7 +452,7 @@ class FoodServiceDemoSeeder extends Seeder
             // Current week is still running → left null so "pending" is demonstrable.
             'total_served_population' => $isCurrent ? null : $totalServed,
             'list_type'    => 'suggested',
-            'status'       => $isCurrent ? 'draft' : 'finalized',
+            'status'       => $isCurrent ? 'draft' : 'converted',
         ]);
 
         // [vendor, or_no, [ [fs_item name, qty, unit, unit_price], ... ] ]
@@ -471,20 +485,34 @@ class FoodServiceDemoSeeder extends Seeder
             $items  = array_map(fn ($i) => [$i[0], round($i[1] * self::PROCUREMENT_SCALE), $i[2], $i[3]], $items);
             $total  = array_sum(array_map(fn ($i) => $i[1] * $i[3], $items));
             $status = ($isCurrent && $idx === count($orders) - 1) ? 'ordered' : 'received';
+            $orNumber = $status === 'received' ? 'OR-' . $weekTag . '-' . sprintf('%02d', $idx + 1) : null;
+            $receivedAt = $status === 'received' ? $orderDate->copy()->addDay() : null;
 
             $po = PurchaseOrder::create([
-                'rnd_user_id'  => $fss, 'shopping_list_id' => $list->id, 'supplier_id' => $vendor?->id,
-                'po_number'    => 'PO-' . $weekTag . '-' . str_pad((string) $seq++, 2, '0', STR_PAD_LEFT),
-                'or_number'    => $status === 'received' ? 'OR-' . $weekTag . '-' . $idx : null,
-                'order_date'   => $orderDate->toDateString(),
-                'received_date' => $status === 'received' ? $orderDate->copy()->addDay()->toDateString() : null,
-                'total_amount' => round($total, 2), 'status' => $status,
-                'notes'        => $vendor?->category,
+                'rnd_user_id'   => $fss, 'shopping_list_id' => $list->id, 'supplier_id' => $vendor?->id,
+                'po_number'     => 'PO-' . $weekTag . '-' . str_pad((string) $seq++, 2, '0', STR_PAD_LEFT),
+                'or_number'     => $orNumber,
+                'order_date'    => $orderDate->toDateString(),
+                'received_date' => $receivedAt?->toDateString(),
+                'total_amount'  => round($total, 2), 'status' => $status,
+                'notes'         => $vendor?->category,
+            ]);
+
+            // One vendor group per PO (each PO represents a single-vendor procurement).
+            $vendorGroup = PurchaseOrderVendorGroup::create([
+                'purchase_order_id' => $po->id,
+                'supplier_id'       => $vendor?->id,
+                'or_number'         => $orNumber,
+                'status'            => $status === 'received' ? 'received' : 'pending',
+                'total_amount'      => round($total, 2),
+                'received_at'       => $receivedAt,
             ]);
 
             foreach ($items as [$itemName, $qty, $unit, $price]) {
                 PurchaseOrderItem::create([
-                    'purchase_order_id' => $po->id, 'fs_item_id' => $this->id($itemName),
+                    'purchase_order_id' => $po->id,
+                    'vendor_group_id'   => $vendorGroup->id,
+                    'fs_item_id'        => $this->id($itemName),
                     'description' => $itemName, 'qty' => $qty, 'unit' => $unit,
                     'unit_price' => $price, 'total_value' => round($qty * $price, 2),
                 ]);
@@ -497,43 +525,47 @@ class FoodServiceDemoSeeder extends Seeder
         }
     }
 
-    // ── Monthly budget covering the whole demo period ───────────────────────
+    // ── Fiscal-year budget + ledger covering the demo period ────────────────
     private function seedBudget(int $fss, MenuCycle $currentCycle): void
     {
         $cost          = MenuCycleCostService::forCycle($currentCycle);
         $dayCosts      = array_values(array_map(fn ($d) => $d['cost'], $cost['days']));
-        $avgPopulation = (int) round($currentCycle->days->whereNotNull('estimate_population')->avg('estimate_population') ?? 0);
-        $avgDay        = $dayCosts ? array_sum($dayCosts) / count($dayCosts) : ($avgPopulation * 110);
+        $avgDay        = $dayCosts ? array_sum($dayCosts) / count($dayCosts) : 18000;
 
-        $start = Carbon::now()->startOfMonth();
-        $end   = Carbon::now()->endOfMonth();
-
+        $fiscalYear = (int) Carbon::now()->year;
         $perHeadCap = 150;
-        $budget = Budget::create([
-            'rnd_user_id' => $fss, 'scope' => 'monthly', 'name' => $start->format('F Y') . ' Food Subsistence',
-            'menu_cycle_id' => $currentCycle->id,
-            'allocated_amount' => round($avgDay * 30, -2), 'population' => $avgPopulation,
-            'cost_per_person' => $perHeadCap, 'budget_per_head_day' => $perHeadCap,
-            'period_start' => $start->toDateString(), 'period_end' => $end->toDateString(),
+
+        // One budget row per fiscal year (unified ledger model).
+        $budget = Budget::updateOrCreate(
+            ['fiscal_year' => $fiscalYear],
+            [
+                'allocated_amount'   => round($avgDay * 30, -2),
+                'per_head_day_limit' => $perHeadCap,
+            ],
+        );
+
+        // Ledger: PO deductions for each received PO + a manual top-up and correction,
+        // so the add/deduct audit trail and remaining balance are visible.
+        BudgetLedger::where('fiscal_year', $fiscalYear)->delete();
+
+        BudgetLedger::create([
+            'fiscal_year' => $fiscalYear, 'type' => 'manual_addition', 'amount' => 25000,
+            'reason' => 'Request for additional subsistence funds', 'created_by' => $fss,
+        ]);
+        BudgetLedger::create([
+            'fiscal_year' => $fiscalYear, 'type' => 'manual_deduction', 'amount' => 4000,
+            'reason' => 'Budget correction', 'created_by' => $fss,
         ]);
 
-        // Sample allocation-adjustment ledger (approved top-up + a correction) so the
-        // add/deduct audit trail is visible in both the budget page and the report.
-        foreach ([
-            ['addition', 25000, 'Request for additional funds', null],
-            ['deduction', 4000, 'Budget correction', null],
-        ] as [$adjType, $adjAmount, $adjCat, $adjReason]) {
-            \App\Models\BudgetAdjustment::create([
-                'budget_id' => $budget->id, 'type' => $adjType, 'amount' => $adjAmount,
-                'reason_category' => $adjCat, 'reason' => $adjReason, 'created_by' => $fss,
-            ]);
-        }
-
-        for ($d = $start->copy(); $d->lte(Carbon::now()); $d->addDay()) {
-            BudgetDailyLog::create([
-                'budget_id' => $budget->id,
-                'log_date'  => $d->toDateString(),
-                'spent'     => round($avgDay * (mt_rand(88, 109) / 100), 2),
+        foreach (PurchaseOrder::where('status', 'received')->get() as $po) {
+            BudgetLedger::create([
+                'fiscal_year'       => $fiscalYear,
+                'type'              => 'po_deduction',
+                'amount'            => $po->total_amount,
+                'reason'            => 'Procurement — ' . $po->po_number,
+                'reference'         => $po->po_number,
+                'purchase_order_id' => $po->id,
+                'created_by'        => $fss,
             ]);
         }
     }

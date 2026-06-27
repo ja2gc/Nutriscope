@@ -8,6 +8,7 @@ export interface MenuDay {
   fs_item_id: number | null;
   estimate_population: number | null;
   servings_override: number | null;
+  quantity: number | null;
   recipe?: { id: number; name: string; servings: number } | null;
   fs_item?: { id: number; name: string } | null;
 }
@@ -29,6 +30,25 @@ export interface RecipeProfile {
   population: number;
   total_cost: number;
   cost_per_head: number;
+  ingredient_usage: { fs_item_id: number; name: string; unit: string; quantity: number; cost: number }[];
+}
+
+export interface FsItemProfile {
+  id: number;
+  fs_item_id: number;
+  name: string;
+  kind: string;
+  category: string | null;
+  unit: string;
+  unit_cost: number;
+  quantity: number;
+  population: number;
+  servings: number;
+  total_quantity: number;
+  total_cost: number;
+  cost_per_head: number;
+  prep_notes: string | null;
+  formula: string;
   ingredient_usage: { fs_item_id: number; name: string; unit: string; quantity: number; cost: number }[];
 }
 
@@ -60,6 +80,14 @@ export async function getRecipeProfile(recipeId: number, population: number): Pr
   const res = await api.get<{ data: RecipeProfile }>(
     `/api/fss/food-service-recipes/${recipeId}/profile`,
     { params: { population } },
+  );
+  return res.data.data;
+}
+
+export async function getFsItemProfile(fsItemId: number, population: number, quantity: number): Promise<FsItemProfile> {
+  const res = await api.get<{ data: FsItemProfile }>(
+    `/api/fss/fs-items/${fsItemId}/profile`,
+    { params: { population, quantity } },
   );
   return res.data.data;
 }

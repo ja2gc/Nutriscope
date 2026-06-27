@@ -13,17 +13,28 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
-  DAYS, MEALS, MEAL_LABELS, MenuCycle, MenuDay,
-  getMenuCycle, getRecipeProfile, listMealPrep, listMenuCycles, setServedPopulation,
+  DAYS, MEALS, MEAL_LABELS, MenuCycle, MenuDay, RecipeProfile, FsItemProfile,
+  getFsItemProfile, getMenuCycle, getRecipeProfile, listMealPrep, listMenuCycles, setServedPopulation,
 } from '../../lib/foodService';
 
 const peso = (n: number) => `₱${n.toFixed(2)}`;
 
 // ── Read-only recipe profile (scaled to RND's set servings / day population) ──────
-function RecipeModal({ recipeId, population, onClose }: { recipeId: number; population: number; onClose: () => void }) {
-  const { data, isLoading } = useQuery({
-    queryKey: ['fs-recipe-profile', recipeId, population],
-    queryFn: () => getRecipeProfile(recipeId, Math.max(1, population)),
+function MenuItemModal({
+  profile,
+  onClose,
+}: {
+  profile: { type: 'recipe'; id: number; population: number; quantity?: number } | { type: 'item'; id: number; population: number; quantity: number };
+  onClose: () => void;
+}) {
+  const { data, isLoading } = useQuery<RecipeProfile | FsItemProfile>({
+    queryKey: ['fs-menu-item-profile', profile.type, profile.id, profile.population, profile.quantity ?? 1],
+    queryFn: async () => {
+      if (profile.type === 'recipe') {
+        return getRecipeProfile(profile.id, Math.max(1, profile.population));
+      }
+      return getFsItemProfile(profile.id, Math.max(1, profile.population), profile.quantity);
+    },
   });
 
   return (
@@ -41,7 +52,7 @@ function RecipeModal({ recipeId, population, onClose }: { recipeId: number; popu
           ) : (
             <ScrollView contentContainerStyle={{ padding: 20 }}>
               <Text className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
-                Scaled to {population} servings · baseline serves {data.servings} (view only)
+                Scaled to {profile.population} servings · baseline serves {data.servings} (view only)
               </Text>
               <View className="flex-row gap-6 mt-3">
                 <View>
@@ -77,32 +88,51 @@ function RecipeModal({ recipeId, population, onClose }: { recipeId: number; popu
   );
 }
 
-// ── Per-day served population editor (backfill) ───────────────────────────────────
-function ServedRow({ cycleId, date, served }: { cycleId: number; date: string; served: number | null }) {
+// ── Per-day served population editor (backfill, works for ANY cycle day) ──────────
+function ServedRow({
+  cycleId,
+  date,
+  weekday,
+  served,
+}: {
+  cycleId: number;
+  date: string;
+  weekday: string;
+  served: number | null;
+}) {
   const qc = useQueryClient();
   const [val, setVal] = useState(served != null ? String(served) : '');
+  const [saved, setSaved] = useState(false);
   const mut = useMutation({
     mutationFn: () => setServedPopulation(cycleId, date, parseInt(val) || 0),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['fs-mealprep', cycleId] }),
+    onSuccess: () => {
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+      qc.invalidateQueries({ queryKey: ['fs-mealprep', cycleId] });
+    },
   });
 
   return (
     <View className="flex-row items-center justify-between px-4 py-3 border-b border-gray-100">
-      <Text className="text-sm text-gray-700">{new Date(date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</Text>
+      <View>
+        <Text className="text-sm font-medium text-gray-700">{weekday}</Text>
+        <Text className="text-[11px] text-gray-400">{new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</Text>
+      </View>
       <View className="flex-row items-center gap-2">
         <TextInput
           value={val}
           onChangeText={setVal}
           keyboardType="number-pad"
           placeholder="served"
-          className="w-20 px-2 py-1.5 text-sm border border-gray-200 rounded-lg text-gray-900"
+          placeholderTextColor="#9ca3af"
+          className="w-20 px-2 py-1.5 text-sm border border-gray-200 rounded-lg text-gray-900 tabular-nums"
         />
         <TouchableOpacity
           onPress={() => mut.mutate()}
-          disabled={mut.isPending}
-          className={`px-3 py-1.5 rounded-lg ${mut.isPending ? 'bg-emerald-400' : 'bg-emerald-600'}`}
+          disabled={mut.isPending || val.trim() === ''}
+          className={`px-3 py-1.5 rounded-lg ${mut.isPending || val.trim() === '' ? 'bg-emerald-300' : saved ? 'bg-green-600' : 'bg-emerald-600'}`}
         >
-          <Text className="text-white text-xs font-semibold">{mut.isPending ? '…' : 'Save'}</Text>
+          <Text className="text-white text-xs font-semibold">{mut.isPending ? '…' : saved ? 'Saved' : 'Save'}</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -111,7 +141,7 @@ function ServedRow({ cycleId, date, served }: { cycleId: number; date: string; s
 
 // ── Cycle detail: read-only week + served entry ───────────────────────────────────
 function CycleDetail({ cycleId, onBack }: { cycleId: number; onBack: () => void }) {
-  const [profile, setProfile] = useState<{ recipeId: number; population: number } | null>(null);
+  const [profile, setProfile] = useState<{ type: 'recipe'; id: number; population: number; quantity?: number } | { type: 'item'; id: number; population: number; quantity: number } | null>(null);
   const { data: cycle, isLoading } = useQuery({ queryKey: ['fs-cycle', cycleId], queryFn: () => getMenuCycle(cycleId) });
   const { data: prep } = useQuery({ queryKey: ['fs-mealprep', cycleId], queryFn: () => listMealPrep(cycleId) });
 
@@ -150,13 +180,21 @@ function CycleDetail({ cycleId, onBack }: { cycleId: number; onBack: () => void 
               return (
                 <TouchableOpacity
                   key={m}
-                  disabled={!entry.recipe_id}
-                  onPress={() => entry.recipe_id && setProfile({ recipeId: entry.recipe_id, population: scaleTo })}
+                  disabled={!entry.recipe_id && !entry.fs_item_id}
+                  onPress={() => {
+                    if (entry.recipe_id) {
+                      setProfile({ type: 'recipe', id: entry.recipe_id, population: scaleTo });
+                      return;
+                    }
+                    if (entry.fs_item_id) {
+                      setProfile({ type: 'item', id: entry.fs_item_id, population: scaleTo, quantity: Number(entry.quantity ?? 1) });
+                    }
+                  }}
                   className="flex-row items-center px-4 py-2.5 border-b border-gray-50"
                 >
                   <Text className="text-[10px] font-bold uppercase tracking-wider text-gray-400 w-20">{MEAL_LABELS[m]}</Text>
                   <Text className="text-sm text-gray-700 flex-1">{name}</Text>
-                  {entry.recipe_id ? <ChevronRight color="#9ca3af" size={16} /> : null}
+                  {entry.recipe_id || entry.fs_item_id ? <ChevronRight color="#9ca3af" size={16} /> : null}
                 </TouchableOpacity>
               );
             })}
@@ -164,24 +202,38 @@ function CycleDetail({ cycleId, onBack }: { cycleId: number; onBack: () => void 
         );
       })}
 
-      {/* Served population per service day (backfill) */}
-      {prep && prep.length > 0 && (
+      {/* Served population per service day — editable for EVERY day of the cycle */}
+      {cycle.week_start_date && Object.keys(byDay).length > 0 && (
         <View className="mt-5 mx-4 bg-white rounded-2xl border border-gray-100 overflow-hidden">
           <View className="px-4 py-2.5 bg-gray-50 border-b border-gray-100">
-            <Text className="text-xs font-extrabold uppercase tracking-wider text-gray-600">Served population per day</Text>
-            <Text className="text-[10px] text-gray-400 mt-0.5">Backfill any day you missed. Drives the actual budget per head.</Text>
+            <Text className="text-xs font-extrabold uppercase tracking-wider text-gray-600">Actual served population per day</Text>
+            <Text className="text-[10px] text-gray-400 mt-0.5">Record the real headcount for any day. Drives the actual budget per head.</Text>
           </View>
-          {prep
-            .slice()
-            .sort((a, b) => a.service_date.localeCompare(b.service_date))
-            .map((log) => (
-              <ServedRow key={log.id} cycleId={cycleId} date={log.service_date} served={log.served_population} />
-            ))}
+          {(() => {
+            const servedByDate: Record<string, number | null> = {};
+            (prep ?? []).forEach((log) => { servedByDate[log.service_date] = log.served_population; });
+            const weekStart = new Date(cycle.week_start_date + 'T00:00:00');
+            return DAYS.filter((d) => byDay[d]?.length).map((day) => {
+              const offset = DAYS.indexOf(day);
+              const d = new Date(weekStart);
+              d.setDate(d.getDate() + offset);
+              const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+              return (
+                <ServedRow
+                  key={day}
+                  cycleId={cycleId}
+                  date={dateStr}
+                  weekday={day}
+                  served={servedByDate[dateStr] ?? null}
+                />
+              );
+            });
+          })()}
         </View>
       )}
 
       {profile && (
-        <RecipeModal recipeId={profile.recipeId} population={profile.population} onClose={() => setProfile(null)} />
+        <MenuItemModal profile={profile} onClose={() => setProfile(null)} />
       )}
     </ScrollView>
   );

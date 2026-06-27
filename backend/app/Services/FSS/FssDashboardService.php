@@ -7,6 +7,7 @@ use App\Models\MealPrepLog;
 use App\Models\MenuCycle;
 use App\Models\MenuCycleDay;
 use App\Models\PurchaseOrder;
+use App\Models\PurchaseOrderVendorGroup;
 use Carbon\Carbon;
 
 class FssDashboardService
@@ -67,16 +68,23 @@ class FssDashboardService
     }
 
     /**
-     * Count of purchase orders with status 'ordered' that have no attachment
-     * of type 'receipt' or 'proof'.
+     * Count vendor groups in open execution that still need a receipt.
+     * Top-level PO attachments are legacy/back-compat; the operational workflow
+     * happens per vendor group so stock-in and Phase 3 can advance by vendor.
      */
     private function posAwaitingReceipt(): int
     {
-        return PurchaseOrder::where('status', 'ordered')
-            ->whereDoesntHave('attachments', function ($q) {
-                $q->whereIn('type', ['receipt', 'proof']);
-            })
+        $vendorGroupCount = PurchaseOrderVendorGroup::query()
+            ->whereHas('purchaseOrder', fn ($q) => $q->where('lifecycle_status', 'open_execution'))
+            ->whereDoesntHave('attachments', fn ($q) => $q->where('type', 'receipt'))
             ->count();
+
+        $legacyPoCount = PurchaseOrder::where('status', 'ordered')
+            ->whereDoesntHave('vendorGroups')
+            ->whereDoesntHave('attachments', fn ($q) => $q->whereIn('type', ['receipt', 'proof']))
+            ->count();
+
+        return $vendorGroupCount + $legacyPoCount;
     }
 
     /**

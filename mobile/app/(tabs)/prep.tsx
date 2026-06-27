@@ -1,9 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { router } from 'expo-router';
 import {
   AlertCircle,
+  CalendarDays,
   CheckCircle2,
   ChefHat,
   ClipboardCheck,
+  FileText,
   TriangleAlert,
 } from 'lucide-react-native';
 import { useCallback, useState } from 'react';
@@ -327,10 +330,10 @@ function AccomplishmentSection({ activeCycleId }: { activeCycleId?: number }) {
 
   const submitMutation = useMutation({
     mutationFn: async () => {
-      const pop = parseInt(population, 10);
+      const pop = offDuty ? 0 : parseInt(population, 10);
       const body: Record<string, unknown> = {
         service_date: today(),
-        ward: ward.trim(),
+        ward: offDuty ? (ward.trim() || 'Absent') : ward.trim(),
         population: pop,
         off_duty: offDuty,
         ...tasks,
@@ -370,12 +373,12 @@ function AccomplishmentSection({ activeCycleId }: { activeCycleId?: number }) {
     setValidationError(null);
     setSubmitSuccess(false);
 
-    if (!ward.trim()) {
+    if (!offDuty && !ward.trim()) {
       setValidationError('Ward is required.');
       return;
     }
-    const pop = parseInt(population, 10);
-    if (isNaN(pop) || pop < 0) {
+    const pop = offDuty ? 0 : parseInt(population, 10);
+    if (!offDuty && (isNaN(pop) || pop < 0)) {
       setValidationError('Population must be 0 or greater.');
       return;
     }
@@ -463,7 +466,12 @@ function AccomplishmentSection({ activeCycleId }: { activeCycleId?: number }) {
 
         {/* Off duty toggle */}
         <View className="flex-row items-center justify-between py-2 border-t border-gray-100">
-          <Text className="text-sm text-gray-700">Off duty today</Text>
+          <View className="flex-1 pr-4">
+            <Text className="text-sm text-gray-700">Absent / off duty today</Text>
+            <Text className="text-xs text-gray-400 mt-0.5">
+              Saves today as X in the accomplishment report.
+            </Text>
+          </View>
           <Switch
             value={offDuty}
             onValueChange={setOffDuty}
@@ -558,6 +566,33 @@ export default function PrepScreen() {
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
       }
     >
+      <View className="px-4 mt-4 gap-2.5">
+        <TouchableOpacity
+          className="flex-row items-center justify-between bg-white border border-gray-100 rounded-xl px-4 py-3"
+          onPress={() => router.push('/(tabs)/menu')}
+          accessibilityLabel="Open menu cycles and served population"
+          accessibilityRole="button"
+        >
+          <View className="flex-row items-center gap-2">
+            <CalendarDays color="#059669" size={18} />
+            <Text className="text-sm font-semibold text-gray-800">Menu cycles and served population</Text>
+          </View>
+          <Text className="text-xs text-gray-400">Open</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          className="flex-row items-center justify-between bg-white border border-gray-100 rounded-xl px-4 py-3"
+          onPress={() => router.push('/reports')}
+          accessibilityLabel="Open archived accomplishment reports"
+          accessibilityRole="button"
+        >
+          <View className="flex-row items-center gap-2">
+            <FileText color="#7c3aed" size={18} />
+            <Text className="text-sm font-semibold text-gray-800">My accomplishment reports</Text>
+          </View>
+          <Text className="text-xs text-gray-400">Open</Text>
+        </TouchableOpacity>
+      </View>
       <MealPrepSection />
       <View className="mx-4 mt-6 border-t border-gray-100" />
       <AccomplishmentSection activeCycleId={activeCycle?.id} />
