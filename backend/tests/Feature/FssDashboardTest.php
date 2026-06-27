@@ -8,6 +8,8 @@ use App\Models\MenuCycle;
 use App\Models\MenuCycleDay;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderAttachment;
+use App\Models\PurchaseOrderVendorGroup;
+use App\Models\Supplier;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -92,6 +94,58 @@ class FssDashboardTest extends TestCase
     {
         PurchaseOrder::factory()->create(['status' => 'draft']);
         PurchaseOrder::factory()->create(['status' => 'received']);
+
+        $data = $this->actingAs($this->fss)
+            ->getJson('/api/fss/dashboard/summary')
+            ->assertOk()
+            ->json('data');
+
+        $this->assertEquals(0, $data['pos_awaiting_receipt']);
+    }
+
+    public function test_open_vendor_group_without_receipt_increments_pos_awaiting_receipt(): void
+    {
+        $po = PurchaseOrder::factory()->create([
+            'status' => 'draft',
+            'lifecycle_status' => 'open_execution',
+        ]);
+
+        PurchaseOrderVendorGroup::create([
+            'purchase_order_id' => $po->id,
+            'supplier_id' => Supplier::factory()->create()->id,
+            'status' => 'pending',
+            'total_amount' => 500,
+        ]);
+
+        $data = $this->actingAs($this->fss)
+            ->getJson('/api/fss/dashboard/summary')
+            ->assertOk()
+            ->json('data');
+
+        $this->assertEquals(1, $data['pos_awaiting_receipt']);
+    }
+
+    public function test_vendor_group_with_receipt_is_not_counted_as_awaiting_receipt(): void
+    {
+        $po = PurchaseOrder::factory()->create([
+            'status' => 'draft',
+            'lifecycle_status' => 'open_execution',
+        ]);
+
+        $group = PurchaseOrderVendorGroup::create([
+            'purchase_order_id' => $po->id,
+            'supplier_id' => Supplier::factory()->create()->id,
+            'status' => 'received',
+            'total_amount' => 500,
+        ]);
+
+        PurchaseOrderAttachment::create([
+            'purchase_order_id' => $po->id,
+            'vendor_group_id' => $group->id,
+            'type' => 'receipt',
+            'path' => 'po-attachments/vendor-receipt.jpg',
+            'caption' => null,
+        ]);
 
         $data = $this->actingAs($this->fss)
             ->getJson('/api/fss/dashboard/summary')

@@ -3,8 +3,11 @@
 namespace Database\Seeders;
 
 use App\Models\Budget;
-use App\Models\BudgetDailyLog;
+use App\Models\BudgetLedger;
 use App\Models\DietListCount;
+use App\Models\PurchaseOrderVendorGroup;
+use App\Models\ReportBranding;
+use App\Services\FSS\AccomplishmentReportArchiveService;
 use App\Models\FoodServiceRecipe;
 use App\Models\FoodServiceRecipeIngredient;
 use App\Models\FsItem;
@@ -46,15 +49,63 @@ class FoodServiceDemoSeeder extends Seeder
     private array $recipes = []; // recipe name => FoodServiceRecipe
     private array $suppliers = [];
 
-    /** Per-weekday plan: breakfast / am_snack / lunch / pm_snack / dinner. */
-    private array $plan = [
-        'Monday'    => ['Cheezwhiz Sandwich', 'Yakult', 'Pork Pinakbet', 'Latundan banana', 'Paksiw na Bangus'],
-        'Tuesday'   => ['Sopas', 'Coffee', 'Pork Picadillo', 'Latundan banana', 'Chicken Fillet w/ Mushroom Sauce'],
-        'Wednesday' => ['Mami Noodle Soup', 'Fresh milk', 'Pork Strips Oriental with Corn', 'Saba banana', 'Chicken Sisig'],
-        'Thursday'  => ['Pandesal with Boiled Egg', 'Milo', 'Beef Caldereta', 'Saba banana', 'Chicken with Lemongrass'],
-        'Friday'    => ['Cheezwhiz Sandwich', 'Yakult', 'Pork Picadillo', 'Ponkan', 'Paksiw na Bangus'],
-        'Saturday'  => ['Sopas', 'Coffee', 'Beef Caldereta', 'Brownie bite', 'Chicken Sisig'],
-        'Sunday'    => ['Pandesal with Boiled Egg', 'Milo', 'Pork Pinakbet', 'Chooey toffee', 'Chicken Fillet w/ Mushroom Sauce'],
+    /**
+     * Five genuinely different weekly menus keyed by week index.
+     * Each day is [breakfast, am_snack, lunch, pm_snack, dinner].
+     * Proteins are weighted per week (beef/pork-heavy vs chicken/fish-light) so
+     * system-computed weekly cost and actual ₱/head differ meaningfully across cycles.
+     */
+    private array $plans = [
+        // Week 0 — current/active: balanced mix.
+        0 => [
+            'Monday'    => ['Cheezwhiz Sandwich', 'Yakult', 'Pork Pinakbet', 'Latundan banana', 'Chicken Sisig'],
+            'Tuesday'   => ['Sopas', 'Coffee', 'Chicken Fillet w/ Mushroom Sauce', 'Saba banana', 'Pork Picadillo'],
+            'Wednesday' => ['Mami Noodle Soup', 'Fresh milk', 'Beef Caldereta', 'Ponkan', 'Paksiw na Bangus'],
+            'Thursday'  => ['Pandesal with Boiled Egg', 'Milo', 'Chicken with Lemongrass', 'Saba banana', 'Pork Strips Oriental with Corn'],
+            'Friday'    => ['Cheezwhiz Sandwich', 'Yakult', 'Pork Picadillo', 'Brownie bite', 'Chicken Fillet w/ Mushroom Sauce'],
+            'Saturday'  => ['Sopas', 'Coffee', 'Paksiw na Bangus', 'Chooey toffee', 'Beef Caldereta'],
+            'Sunday'    => ['Pandesal with Boiled Egg', 'Milo', 'Chicken Sisig', 'Latundan banana', 'Pork Pinakbet'],
+        ],
+        // Week 1 — beef/pork heavy: highest cost.
+        1 => [
+            'Monday'    => ['Cheezwhiz Sandwich', 'Yakult', 'Beef Caldereta', 'Latundan banana', 'Pork Pinakbet'],
+            'Tuesday'   => ['Sopas', 'Coffee', 'Pork Strips Oriental with Corn', 'Saba banana', 'Beef Caldereta'],
+            'Wednesday' => ['Mami Noodle Soup', 'Fresh milk', 'Pork Picadillo', 'Ponkan', 'Beef Caldereta'],
+            'Thursday'  => ['Pandesal with Boiled Egg', 'Milo', 'Beef Caldereta', 'Saba banana', 'Pork Strips Oriental with Corn'],
+            'Friday'    => ['Cheezwhiz Sandwich', 'Yakult', 'Pork Pinakbet', 'Brownie bite', 'Pork Picadillo'],
+            'Saturday'  => ['Sopas', 'Coffee', 'Beef Caldereta', 'Chooey toffee', 'Pork Strips Oriental with Corn'],
+            'Sunday'    => ['Pandesal with Boiled Egg', 'Milo', 'Pork Picadillo', 'Latundan banana', 'Pork Pinakbet'],
+        ],
+        // Week 2 — chicken/fish: lightest cost.
+        2 => [
+            'Monday'    => ['Sopas', 'Coffee', 'Chicken Sisig', 'Latundan banana', 'Paksiw na Bangus'],
+            'Tuesday'   => ['Mami Noodle Soup', 'Fresh milk', 'Chicken with Lemongrass', 'Saba banana', 'Chicken Fillet w/ Mushroom Sauce'],
+            'Wednesday' => ['Cheezwhiz Sandwich', 'Yakult', 'Paksiw na Bangus', 'Ponkan', 'Chicken Sisig'],
+            'Thursday'  => ['Pandesal with Boiled Egg', 'Milo', 'Chicken Fillet w/ Mushroom Sauce', 'Saba banana', 'Chicken with Lemongrass'],
+            'Friday'    => ['Sopas', 'Coffee', 'Chicken Sisig', 'Brownie bite', 'Paksiw na Bangus'],
+            'Saturday'  => ['Mami Noodle Soup', 'Fresh milk', 'Chicken with Lemongrass', 'Chooey toffee', 'Chicken Fillet w/ Mushroom Sauce'],
+            'Sunday'    => ['Pandesal with Boiled Egg', 'Milo', 'Paksiw na Bangus', 'Latundan banana', 'Chicken Sisig'],
+        ],
+        // Week 3 — mixed, distinct from week 0.
+        3 => [
+            'Monday'    => ['Pandesal with Boiled Egg', 'Milo', 'Pork Strips Oriental with Corn', 'Saba banana', 'Chicken with Lemongrass'],
+            'Tuesday'   => ['Cheezwhiz Sandwich', 'Yakult', 'Beef Caldereta', 'Latundan banana', 'Chicken Sisig'],
+            'Wednesday' => ['Sopas', 'Coffee', 'Chicken Fillet w/ Mushroom Sauce', 'Ponkan', 'Pork Pinakbet'],
+            'Thursday'  => ['Mami Noodle Soup', 'Fresh milk', 'Paksiw na Bangus', 'Saba banana', 'Beef Caldereta'],
+            'Friday'    => ['Pandesal with Boiled Egg', 'Milo', 'Pork Picadillo', 'Brownie bite', 'Chicken with Lemongrass'],
+            'Saturday'  => ['Cheezwhiz Sandwich', 'Yakult', 'Chicken Sisig', 'Chooey toffee', 'Pork Strips Oriental with Corn'],
+            'Sunday'    => ['Sopas', 'Coffee', 'Beef Caldereta', 'Latundan banana', 'Paksiw na Bangus'],
+        ],
+        // Week 4 — draft/next: breakfast-heavy and fish/chicken forward.
+        4 => [
+            'Monday'    => ['Mami Noodle Soup', 'Fresh milk', 'Paksiw na Bangus', 'Ponkan', 'Chicken Fillet w/ Mushroom Sauce'],
+            'Tuesday'   => ['Pandesal with Boiled Egg', 'Milo', 'Pork Pinakbet', 'Latundan banana', 'Chicken with Lemongrass'],
+            'Wednesday' => ['Cheezwhiz Sandwich', 'Yakult', 'Chicken Sisig', 'Saba banana', 'Pork Strips Oriental with Corn'],
+            'Thursday'  => ['Sopas', 'Coffee', 'Beef Caldereta', 'Brownie bite', 'Paksiw na Bangus'],
+            'Friday'    => ['Mami Noodle Soup', 'Fresh milk', 'Chicken with Lemongrass', 'Chooey toffee', 'Pork Picadillo'],
+            'Saturday'  => ['Pandesal with Boiled Egg', 'Milo', 'Pork Pinakbet', 'Ponkan', 'Chicken Fillet w/ Mushroom Sauce'],
+            'Sunday'    => ['Cheezwhiz Sandwich', 'Yakult', 'Pork Strips Oriental with Corn', 'Saba banana', 'Chicken Sisig'],
+        ],
     ];
 
     private array $dayPop = [
@@ -91,23 +142,34 @@ class FoodServiceDemoSeeder extends Seeder
         $this->seedRecipes($rnd);
         $this->seedInventory();
 
+        // Ensure a report branding row exists so PDF generation doesn't abort.
+        ReportBranding::singleton();
+
         // Four weeks: 3 completed past cycles + the current active one. Week index 0 =
         // current; 3/2/1 = oldest→newest past. All start Monday so spans are clean.
         $currentWeekStart = Carbon::now()->startOfWeek(Carbon::MONDAY);
+        $fssUser = User::find($fss);
+        $archiveService = app(AccomplishmentReportArchiveService::class);
         $cycles = [];
         for ($w = 3; $w >= 0; $w--) {
             $weekStart = $currentWeekStart->copy()->subWeeks($w);
             $isCurrent = ($w === 0);
-            $cycle = $this->seedCycleForWeek($rnd, $weekStart, $isCurrent);
-            $served = $this->seedConsumptionForWeek($cycle, $fss, $weekStart, $isCurrent);
+            $cycle = $this->seedCycleForWeek($rnd, $weekStart, $isCurrent, null, $w);
+            $served = $this->seedConsumptionForWeek($cycle, $fss, $weekStart, $isCurrent, $w);
             $this->seedProcurementForWeek($cycle, $fss, $weekStart, $isCurrent, $served);
             $cycles[] = $cycle;
+
+            // Auto-archive the accomplishment report for completed past weeks.
+            if (! $isCurrent && $fssUser) {
+                $weekEnd = $weekStart->copy()->endOfWeek(Carbon::SUNDAY)->toDateString();
+                $archiveService->archiveCompletedWeek($fssUser, $weekEnd);
+            }
         }
 
         // Next week's cycle as a DRAFT plan (no consumption/procurement yet) so the
         // client's Fri→Mon procurement run can resolve Monday from the upcoming cycle.
         // Demonstrates date-driven, multi-cycle shopping-list generation.
-        $this->seedCycleForWeek($rnd, $currentWeekStart->copy()->addWeek(), false, 'draft');
+        $this->seedCycleForWeek($rnd, $currentWeekStart->copy()->addWeek(), false, 'draft', 4);
 
         $this->seedBudget($fss, end($cycles));
 
@@ -118,7 +180,7 @@ class FoodServiceDemoSeeder extends Seeder
     {
         Schema::disableForeignKeyConstraints();
         foreach ([
-            'purchase_order_attachments', 'purchase_order_items', 'purchase_orders',
+            'purchase_order_attachments', 'purchase_order_items', 'purchase_order_vendor_groups', 'purchase_orders',
             'shopping_list_items', 'shopping_lists',
             'budget_daily_logs', 'budgets',
             'meal_prep_log_lines', 'meal_prep_logs', 'diet_list_counts',
@@ -136,6 +198,16 @@ class FoodServiceDemoSeeder extends Seeder
     private function id(string $name): ?int
     {
         return $this->fs[$name] ?? null;
+    }
+
+    private function planForWeek(int $weekIndex): array
+    {
+        return $this->plans[$weekIndex % count($this->plans)];
+    }
+
+    private function popFactor(int $weekIndex): float
+    {
+        return [0 => 1.00, 1 => 0.90, 2 => 1.12, 3 => 0.82][$weekIndex] ?? 1.0;
     }
 
     // ── Suppliers (payees from the real Dietary Cash Book) ──────────────────
@@ -261,7 +333,7 @@ class FoodServiceDemoSeeder extends Seeder
     }
 
     // ── One weekly menu cycle for the given week ────────────────────────────
-    private function seedCycleForWeek(int $rnd, Carbon $weekStart, bool $isCurrent, ?string $statusOverride = null): MenuCycle
+    private function seedCycleForWeek(int $rnd, Carbon $weekStart, bool $isCurrent, ?string $statusOverride = null, int $weekIndex = 0): MenuCycle
     {
         $status = $statusOverride ?? ($isCurrent ? 'active' : 'archived');
         $cycle = MenuCycle::create([
@@ -274,13 +346,15 @@ class FoodServiceDemoSeeder extends Seeder
             'activation_date' => $status === 'draft' ? null : $weekStart->toDateString(),
         ]);
 
+        $plan      = $this->planForWeek($weekIndex);
+        $popFactor = $this->popFactor($weekIndex);
         $slots = ['breakfast', 'am_snack', 'lunch', 'pm_snack', 'dinner'];
-        foreach ($this->plan as $day => $items) {
+        foreach ($plan as $day => $items) {
             foreach ($slots as $i => $slot) {
                 $name = $items[$i];
                 $row = [
                     'menu_cycle_id' => $cycle->id, 'day_of_week' => $day, 'meal_type' => $slot,
-                    'estimate_population' => $this->dayPop[$day],
+                    'estimate_population' => (int) round($this->dayPop[$day] * $popFactor),
                 ];
                 if (isset($this->recipes[$name])) {
                     $row['recipe_id'] = $this->recipes[$name]->id;
@@ -310,10 +384,11 @@ class FoodServiceDemoSeeder extends Seeder
      * Past weeks are fully served; the current week only up to today. Returns the
      * total served population across the week (census denominator for per-head).
      */
-    private function seedConsumptionForWeek(MenuCycle $cycle, int $fss, Carbon $weekStart, bool $isCurrent): int
+    private function seedConsumptionForWeek(MenuCycle $cycle, int $fss, Carbon $weekStart, bool $isCurrent, int $weekIndex = 0): int
     {
-        $cost     = MenuCycleCostService::forCycle($cycle);
-        $today    = Carbon::now();
+        $cost      = MenuCycleCostService::forCycle($cycle);
+        $today     = Carbon::now();
+        $popFactor = $this->popFactor($weekIndex);
         $totalServed = 0;
 
         for ($i = 0; $i < 7; $i++) {
@@ -323,8 +398,9 @@ class FoodServiceDemoSeeder extends Seeder
                 break; // current week: don't serve the future
             }
 
-            $planned  = $this->dayPop[$weekday];
-            $served   = max(0, $planned - mt_rand(0, 12)); // slight under-serve, realistic
+            $planned  = (int) round($this->dayPop[$weekday] * $popFactor);
+            $variance = (($weekIndex + 2) * ($i + 3)) % 13;
+            $served   = max(0, $planned - $variance);
             $dayCost  = (float) ($cost['days'][$weekday]['cost'] ?? 0);
             $totalServed += $served;
 
@@ -376,7 +452,7 @@ class FoodServiceDemoSeeder extends Seeder
             // Current week is still running → left null so "pending" is demonstrable.
             'total_served_population' => $isCurrent ? null : $totalServed,
             'list_type'    => 'suggested',
-            'status'       => $isCurrent ? 'draft' : 'finalized',
+            'status'       => $isCurrent ? 'draft' : 'converted',
         ]);
 
         // [vendor, or_no, [ [fs_item name, qty, unit, unit_price], ... ] ]
@@ -409,20 +485,34 @@ class FoodServiceDemoSeeder extends Seeder
             $items  = array_map(fn ($i) => [$i[0], round($i[1] * self::PROCUREMENT_SCALE), $i[2], $i[3]], $items);
             $total  = array_sum(array_map(fn ($i) => $i[1] * $i[3], $items));
             $status = ($isCurrent && $idx === count($orders) - 1) ? 'ordered' : 'received';
+            $orNumber = $status === 'received' ? 'OR-' . $weekTag . '-' . sprintf('%02d', $idx + 1) : null;
+            $receivedAt = $status === 'received' ? $orderDate->copy()->addDay() : null;
 
             $po = PurchaseOrder::create([
-                'rnd_user_id'  => $fss, 'shopping_list_id' => $list->id, 'supplier_id' => $vendor?->id,
-                'po_number'    => 'PO-' . $weekTag . '-' . str_pad((string) $seq++, 2, '0', STR_PAD_LEFT),
-                'or_number'    => $status === 'received' ? 'OR-' . $weekTag . '-' . $idx : null,
-                'order_date'   => $orderDate->toDateString(),
-                'received_date' => $status === 'received' ? $orderDate->copy()->addDay()->toDateString() : null,
-                'total_amount' => round($total, 2), 'status' => $status,
-                'notes'        => $vendor?->category,
+                'rnd_user_id'   => $fss, 'shopping_list_id' => $list->id, 'supplier_id' => $vendor?->id,
+                'po_number'     => 'PO-' . $weekTag . '-' . str_pad((string) $seq++, 2, '0', STR_PAD_LEFT),
+                'or_number'     => $orNumber,
+                'order_date'    => $orderDate->toDateString(),
+                'received_date' => $receivedAt?->toDateString(),
+                'total_amount'  => round($total, 2), 'status' => $status,
+                'notes'         => $vendor?->category,
+            ]);
+
+            // One vendor group per PO (each PO represents a single-vendor procurement).
+            $vendorGroup = PurchaseOrderVendorGroup::create([
+                'purchase_order_id' => $po->id,
+                'supplier_id'       => $vendor?->id,
+                'or_number'         => $orNumber,
+                'status'            => $status === 'received' ? 'received' : 'pending',
+                'total_amount'      => round($total, 2),
+                'received_at'       => $receivedAt,
             ]);
 
             foreach ($items as [$itemName, $qty, $unit, $price]) {
                 PurchaseOrderItem::create([
-                    'purchase_order_id' => $po->id, 'fs_item_id' => $this->id($itemName),
+                    'purchase_order_id' => $po->id,
+                    'vendor_group_id'   => $vendorGroup->id,
+                    'fs_item_id'        => $this->id($itemName),
                     'description' => $itemName, 'qty' => $qty, 'unit' => $unit,
                     'unit_price' => $price, 'total_value' => round($qty * $price, 2),
                 ]);
@@ -435,43 +525,47 @@ class FoodServiceDemoSeeder extends Seeder
         }
     }
 
-    // ── Monthly budget covering the whole demo period ───────────────────────
+    // ── Fiscal-year budget + ledger covering the demo period ────────────────
     private function seedBudget(int $fss, MenuCycle $currentCycle): void
     {
         $cost          = MenuCycleCostService::forCycle($currentCycle);
         $dayCosts      = array_values(array_map(fn ($d) => $d['cost'], $cost['days']));
-        $avgPopulation = (int) round($currentCycle->days->whereNotNull('estimate_population')->avg('estimate_population') ?? 0);
-        $avgDay        = $dayCosts ? array_sum($dayCosts) / count($dayCosts) : ($avgPopulation * 110);
+        $avgDay        = $dayCosts ? array_sum($dayCosts) / count($dayCosts) : 18000;
 
-        $start = Carbon::now()->startOfMonth();
-        $end   = Carbon::now()->endOfMonth();
-
+        $fiscalYear = (int) Carbon::now()->year;
         $perHeadCap = 150;
-        $budget = Budget::create([
-            'rnd_user_id' => $fss, 'scope' => 'monthly', 'name' => $start->format('F Y') . ' Food Subsistence',
-            'menu_cycle_id' => $currentCycle->id,
-            'allocated_amount' => round($avgDay * 30, -2), 'population' => $avgPopulation,
-            'cost_per_person' => $perHeadCap, 'budget_per_head_day' => $perHeadCap,
-            'period_start' => $start->toDateString(), 'period_end' => $end->toDateString(),
+
+        // One budget row per fiscal year (unified ledger model).
+        $budget = Budget::updateOrCreate(
+            ['fiscal_year' => $fiscalYear],
+            [
+                'allocated_amount'   => round($avgDay * 30, -2),
+                'per_head_day_limit' => $perHeadCap,
+            ],
+        );
+
+        // Ledger: PO deductions for each received PO + a manual top-up and correction,
+        // so the add/deduct audit trail and remaining balance are visible.
+        BudgetLedger::where('fiscal_year', $fiscalYear)->delete();
+
+        BudgetLedger::create([
+            'fiscal_year' => $fiscalYear, 'type' => 'manual_addition', 'amount' => 25000,
+            'reason' => 'Request for additional subsistence funds', 'created_by' => $fss,
+        ]);
+        BudgetLedger::create([
+            'fiscal_year' => $fiscalYear, 'type' => 'manual_deduction', 'amount' => 4000,
+            'reason' => 'Budget correction', 'created_by' => $fss,
         ]);
 
-        // Sample allocation-adjustment ledger (approved top-up + a correction) so the
-        // add/deduct audit trail is visible in both the budget page and the report.
-        foreach ([
-            ['addition', 25000, 'Request for additional funds', null],
-            ['deduction', 4000, 'Budget correction', null],
-        ] as [$adjType, $adjAmount, $adjCat, $adjReason]) {
-            \App\Models\BudgetAdjustment::create([
-                'budget_id' => $budget->id, 'type' => $adjType, 'amount' => $adjAmount,
-                'reason_category' => $adjCat, 'reason' => $adjReason, 'created_by' => $fss,
-            ]);
-        }
-
-        for ($d = $start->copy(); $d->lte(Carbon::now()); $d->addDay()) {
-            BudgetDailyLog::create([
-                'budget_id' => $budget->id,
-                'log_date'  => $d->toDateString(),
-                'spent'     => round($avgDay * (mt_rand(88, 109) / 100), 2),
+        foreach (PurchaseOrder::where('status', 'received')->get() as $po) {
+            BudgetLedger::create([
+                'fiscal_year'       => $fiscalYear,
+                'type'              => 'po_deduction',
+                'amount'            => $po->total_amount,
+                'reason'            => 'Procurement — ' . $po->po_number,
+                'reference'         => $po->po_number,
+                'purchase_order_id' => $po->id,
+                'created_by'        => $fss,
             ]);
         }
     }

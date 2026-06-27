@@ -2,8 +2,15 @@ import axios from 'axios';
 import { router } from 'expo-router';
 import { clearToken, getToken } from './auth';
 
+// All callers prefix routes with `/api/...`, so the base URL must be the bare
+// origin. Normalize defensively: strip a trailing slash and a trailing `/api`
+// so a misconfigured EXPO_PUBLIC_API_URL (e.g. ".../api") can't double up to
+// `/api/api/...` in a production build.
+const rawBase = process.env.EXPO_PUBLIC_API_URL ?? '';
+const baseURL = rawBase.replace(/\/+$/, '').replace(/\/api$/, '');
+
 const api = axios.create({
-  baseURL: process.env.EXPO_PUBLIC_API_URL,
+  baseURL,
   headers: {
     'Content-Type': 'application/json',
     Accept: 'application/json',

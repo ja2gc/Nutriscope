@@ -13,6 +13,7 @@ use App\Services\Reports\Contracts\InstanceSource;
 use App\Services\Reports\Instances\EntityInstanceSource;
 use App\Services\Reports\Instances\PeriodInstanceSource;
 use App\Services\Reports\Instances\SingletonInstanceSource;
+use Illuminate\Support\Facades\Auth;
 
 /**
  * Registry mapping each report type to its browse-axis {@see InstanceSource}.
@@ -30,8 +31,8 @@ class ReportBrowser
         $this->sources = [
             // ── period axis (year → month) ───────────────────────────────────
             'dietary_cash_book' => fn () => new PeriodInstanceSource(
-                fn () => PurchaseOrder::query()->where('status', 'received'),
-                'order_date',
+                fn () => PurchaseOrder::query()->whereIn('lifecycle_status', ['completed', 'archived']),
+                'completed_at',
             ),
             'demographic_census' => fn () => new PeriodInstanceSource(
                 fn () => Patient::query(),
@@ -40,19 +41,29 @@ class ReportBrowser
 
             // ── entity axis ──────────────────────────────────────────────────
             'procurement_pack' => fn () => new EntityInstanceSource(
-                fn () => PurchaseOrder::query()->where('status', 'received')->with('supplier'),
+                fn () => PurchaseOrder::query()->whereIn('lifecycle_status', ['completed', 'archived'])->with('supplier'),
                 'purchase_order_id',
                 fn (PurchaseOrder $po) => trim(($po->po_number ?: "PO #{$po->id}")
-                    . (optional($po->order_date)?->format('M j, Y') ? ' — ' . $po->order_date->format('M j, Y') : '')
+                    . (optional($po->completed_at)?->format('M j, Y') ? ' — ' . $po->completed_at->format('M j, Y') : '')
                     . ($po->supplier ? " — {$po->supplier->name}" : '')),
-                'order_date',
+                'completed_at',
             ),
-            'budget_report' => fn () => new EntityInstanceSource(
-                fn () => Budget::query(),
-                'budget_id',
-                fn (Budget $b) => $b->name ?: "Budget #{$b->id}",
-                'period_start',
-            ),
+            'budget_report' => fn () => new class implements InstanceSource {
+                public function axis(): string { return 'entity'; }
+                public function instances(array $filters): array {
+                    return Budget::orderByDesc('fiscal_year')->get()
+                        ->map(fn (Budget $b) => [
+                            'key'    => (string) $b->fiscal_year,
+                            'label'  => 'FY ' . $b->fiscal_year,
+                            'params' => ['fiscal_year' => $b->fiscal_year],
+                            'date'   => null,
+                        ])->values()->all();
+                }
+                public function hasData(array $params): bool {
+                    $year = $params['fiscal_year'] ?? null;
+                    return $year !== null && Budget::where('fiscal_year', $year)->exists();
+                }
+            },
             'program_project_activity' => fn () => $this->menuCycleSource(),
             'menu_calendar'            => fn () => $this->menuCycleSource(),
             'patient_menu_plan' => fn () => new EntityInstanceSource(
@@ -75,7 +86,8 @@ class ReportBrowser
 
             // ── period axis: accomplishment report (FSS §4) ──────────────────
             'accomplishment_report' => fn () => new PeriodInstanceSource(
-                fn () => DietListCount::query(),
+                fn () => DietListCount::query()
+                    ->when(Auth::user()?->role === 'FSS', fn ($q) => $q->where('fss_user_id', Auth::id())),
                 'service_date',
             ),
         ];

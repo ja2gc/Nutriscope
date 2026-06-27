@@ -1,13 +1,59 @@
 import { apiFetch } from "@/lib/apiFetch";
 
+// Budget burn
+export interface BudgetBurnPoint {
+  month: string;
+  cumulative_spent: number;
+  allocated: number;
+  remaining: number;
+}
+export interface BudgetBurnData {
+  points: BudgetBurnPoint[];
+  summary: { fiscal_year: number; allocated: number; total_deducted: number; remaining: number };
+}
+
+// Per-head actual vs limit
+export interface PerHeadPoint {
+  po_id: number;
+  span: string | null;
+  period_start: string | null;
+  lifecycle_status: string;
+  actual_per_head: number | null;
+  estimated_per_head: number | null;
+  pending: boolean;
+  limit_per_head: number | null;
+}
+export interface PerHeadData {
+  points: PerHeadPoint[];
+  summary: { fiscal_year: number; limit_per_head: number | null; avg_actual: number | null };
+}
+
+// Procurement deduction timeline
+export interface TimelineEntry {
+  type: string;
+  date: string | null;
+  po_id?: number;
+  reference?: string;
+  procurement_span?: string | null;
+  total_cost?: number;
+  actual_per_head?: number;
+  estimated_per_head?: number | null;
+  amount?: number;
+  reason?: string | null;
+  created_by?: string | null;
+}
+export interface DeductionTimelineData {
+  timeline: TimelineEntry[];
+  fiscal_year: number;
+}
+
+// Spend by supplier
 export interface SupplierSpendPoint { supplier_id: number | null; supplier: string; total: number }
-export interface SpendBySupplier { points: SupplierSpendPoint[]; summary: { total: number; range: { start: string; end: string } } }
-
-export interface CostPerHeadPoint { cycle_id: number; cycle: string; cost_per_head: number; population: number }
-export interface CostPerHead { points: CostPerHeadPoint[]; summary: { avg: number } }
-
-export interface ConsumptionPoint { date: string; actual: number; shortfall: boolean }
-export interface Consumption { points: ConsumptionPoint[]; summary: { total: number; days: number; shortfall_days: number; range: { start: string; end: string } } }
+export interface SpendBySupplierData {
+  points: SupplierSpendPoint[];
+  fiscal_year: number;
+  total: number;
+}
 
 async function unwrap<T>(res: Response, fallback: string): Promise<T> {
   const data = await res.json().catch(() => ({}));
@@ -15,19 +61,18 @@ async function unwrap<T>(res: Response, fallback: string): Promise<T> {
   return (data as { data: T }).data;
 }
 
-const qs = (o: { start?: string; end?: string }) => {
-  const p = new URLSearchParams();
-  if (o.start) p.set("start", o.start);
-  if (o.end) p.set("end", o.end);
-  return p.toString();
-};
+const fyQs = (fiscalYear?: number) =>
+  fiscalYear ? `?fiscal_year=${fiscalYear}` : "";
 
-export async function getSpendBySupplier(o: { start?: string; end?: string }): Promise<SpendBySupplier> {
-  return unwrap(await apiFetch(`/api/fss/insights/spend-by-supplier?${qs(o)}`), "Failed to load spend by supplier.");
+export async function getBudgetBurn(fiscalYear?: number): Promise<BudgetBurnData> {
+  return unwrap(await apiFetch(`/api/fss/insights/budget-burn${fyQs(fiscalYear)}`), "Failed to load budget burn.");
 }
-export async function getCostPerHead(): Promise<CostPerHead> {
-  return unwrap(await apiFetch(`/api/fss/insights/cost-per-head`), "Failed to load cost per head.");
+export async function getPerHeadActualVsLimit(fiscalYear?: number): Promise<PerHeadData> {
+  return unwrap(await apiFetch(`/api/fss/insights/per-head-actual-vs-limit${fyQs(fiscalYear)}`), "Failed to load per-head data.");
 }
-export async function getConsumption(o: { start?: string; end?: string }): Promise<Consumption> {
-  return unwrap(await apiFetch(`/api/fss/insights/consumption?${qs(o)}`), "Failed to load consumption.");
+export async function getProcurementDeductionTimeline(fiscalYear?: number): Promise<DeductionTimelineData> {
+  return unwrap(await apiFetch(`/api/fss/insights/procurement-deduction-timeline${fyQs(fiscalYear)}`), "Failed to load timeline.");
+}
+export async function getSpendBySupplier(fiscalYear?: number): Promise<SpendBySupplierData> {
+  return unwrap(await apiFetch(`/api/fss/insights/spend-by-supplier${fyQs(fiscalYear)}`), "Failed to load spend by supplier.");
 }

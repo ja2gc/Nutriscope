@@ -12,13 +12,19 @@ class PurchaseOrder extends Model
 
     protected $fillable = [
         'rnd_user_id', 'shopping_list_id', 'supplier_id', 'po_number', 'or_number',
-        'order_date', 'received_date', 'total_amount', 'status', 'receipt_image', 'notes',
+        'order_date', 'received_date', 'total_amount', 'actual_budget_per_head_per_day',
+        'status', 'lifecycle_status', 'converted_at', 'completed_at', 'archived_at',
+        'receipt_image', 'notes',
     ];
 
     protected $casts = [
         'total_amount'  => 'decimal:2',
+        'actual_budget_per_head_per_day' => 'decimal:2',
         'order_date'    => 'date',
         'received_date' => 'date',
+        'converted_at'  => 'datetime',
+        'completed_at'  => 'datetime',
+        'archived_at'   => 'datetime',
     ];
 
     /** Single source of truth: total_amount is always the sum of its line items. */
@@ -48,8 +54,18 @@ class PurchaseOrder extends Model
         return $this->hasMany(PurchaseOrderItem::class);
     }
 
+    public function vendorGroups()
+    {
+        return $this->hasMany(PurchaseOrderVendorGroup::class);
+    }
+
     public function attachments()
     {
         return $this->hasMany(PurchaseOrderAttachment::class);
+    }
+
+    public function programProjectActivity()
+    {
+        return $this->hasOne(ProgramProjectActivity::class);
     }
 }

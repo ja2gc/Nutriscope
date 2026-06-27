@@ -33,7 +33,7 @@ class AdminUserSeeder extends Seeder
         User::firstOrCreate(
             ['email' => 'fss@nutriscope.local'],
             [
-                'name' => 'FSS User',
+                'name' => 'Maria Santos',
                 'password' => Hash::make('nutriscope2024!'),
                 'role' => 'FSS',
                 'is_active' => true,

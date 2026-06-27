@@ -5,25 +5,16 @@ namespace Database\Factories;
 use App\Models\Budget;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
-/**
- * @extends Factory<Budget>
- */
 class BudgetFactory extends Factory
 {
-    /**
-     * Define the model's default state.
-     *
-     * @return array<string, mixed>
-     */
+    protected $model = Budget::class;
+
     public function definition(): array
     {
         return [
-            'rnd_user_id'      => \App\Models\User::factory()->rnd(),
-            'allocated_amount' => $this->faker->randomFloat(2, 5000, 20000),
-            'actual_amount'    => $this->faker->randomFloat(2, 4000, 19000),
-            'period_start'     => $this->faker->dateTimeBetween('-1 month', 'now')->format('Y-m-d'),
-            'period_end'       => $this->faker->dateTimeBetween('now', '+1 month')->format('Y-m-d'),
-            'cost_per_person'  => $this->faker->randomFloat(2, 50, 150),
+            'fiscal_year'        => $this->faker->unique()->numberBetween(2020, 2099),
+            'allocated_amount'   => $this->faker->randomFloat(2, 500000, 2000000),
+            'per_head_day_limit' => $this->faker->randomFloat(2, 100, 500),
         ];
     }
 }

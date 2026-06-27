@@ -54,6 +54,12 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perHour(5)->by($request->user()?->id);
         });
 
+        // Budget ledger: auto-deduct from fiscal year allocation when PO completes.
+        \Illuminate\Support\Facades\Event::listen(
+            \App\Events\PurchaseOrderCompleted::class,
+            \App\Listeners\BudgetLedgerListener::class,
+        );
+
         // Compute-heavy clinical endpoints (autofill, recommendations) — not AI-billed
         // but CPU-bound; 30/min is generous for interactive use, blocks programmatic abuse.
         RateLimiter::for('compute', function (Request $request) {

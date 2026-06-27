@@ -152,7 +152,7 @@ class ReportController extends Controller
         $this->guardAdmin($type);
         $this->guardFss($type);
 
-        $params = $this->renderParams($request);
+        $params = $this->renderParams($request, $type);
         abort_unless($browser->sourceFor($type)->hasData($params), 404, 'No data for this report period.');
 
         $bytes = $reports->streamBytes($type, $params);
@@ -174,7 +174,7 @@ class ReportController extends Controller
         $this->guardAdmin($type);
         $this->guardFss($type);
 
-        $params = $this->renderParams($request);
+        $params = $this->renderParams($request, $type);
         abort_unless($browser->sourceFor($type)->hasData($params), 404, 'No data for this report period.');
 
         $template = ReportTemplate::where('type', $type)->first();
@@ -204,9 +204,12 @@ class ReportController extends Controller
      * "prepared by" forced to the authenticated user so the signatory is always the
      * real filer (never the template default, never a client-supplied value).
      */
-    private function renderParams(Request $request): array
+    private function renderParams(Request $request, string $type): array
     {
         $params = $request->except(['year', 'month']);
+        if (Auth::user()?->role === 'FSS' && $type === 'accomplishment_report') {
+            $params['fss_user_id'] = Auth::id();
+        }
         if ($name = Auth::user()?->name) {
             $params['prepared_by_name'] = $name;
         }
@@ -357,6 +360,10 @@ class ReportController extends Controller
 
     private function authorizeOwner(Report $report): void
     {
+        if (Auth::user()?->role === 'RND' && $report->type === 'accomplishment_report') {
+            return;
+        }
+
         abort_unless($report->user_id === Auth::id(), 403, 'This action is unauthorized.');
     }
 }

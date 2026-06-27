@@ -13,6 +13,7 @@ class ShoppingList extends Model
     protected $fillable = [
         'rnd_user_id', 'name', 'list_date', 'period_start', 'period_end',
         'days_span', 'list_type', 'status', 'total_served_population',
+        'estimate_population', 'estimate_population_updated_at',
         'coverage_status', 'uncovered_dates',
     ];
 
@@ -22,6 +23,8 @@ class ShoppingList extends Model
         'period_end'   => 'date',
         'days_span'    => 'integer',
         'total_served_population' => 'integer',
+        'estimate_population' => 'integer',
+        'estimate_population_updated_at' => 'datetime',
         'uncovered_dates' => 'array',
     ];
 

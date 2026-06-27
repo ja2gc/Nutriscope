@@ -67,6 +67,10 @@ class AccomplishmentReportGenerator implements ReportGenerator
 
     public function data(Report $report): array
     {
+        if (($report->snapshot['accomplishment'] ?? null) !== null) {
+            return $this->dataFromSnapshot($report->snapshot['accomplishment']);
+        }
+
         $params = $report->parameters ?? [];
 
         // Accept both 'start'/'end' (PeriodInstanceSource convention used by the
@@ -120,7 +124,7 @@ class AccomplishmentReportGenerator implements ReportGenerator
                         if ($row === null) {
                             $cells[$date] = '–';
                         } elseif ($row->off_duty) {
-                            $cells[$date] = 'off-duty';
+                            $cells[$date] = 'X';
                         } elseif ($task === self::NUMERIC_TASK) {
                             // Row 4: show the numeric headcount this staff distributed.
                             $cells[$date] = $row->population ?? '–';
@@ -153,6 +157,32 @@ class AccomplishmentReportGenerator implements ReportGenerator
             'numeric_task'     => self::NUMERIC_TASK,
             'staff_sheets'     => $staffSheets,
             'daily_population' => $dailyPopulation,
+        ];
+    }
+
+    private function dataFromSnapshot(array $snapshot): array
+    {
+        $staffSheets = collect($snapshot['staff_sheets'] ?? [])->map(function (array $sheet) {
+            $user = new User($sheet['user'] ?? []);
+            if (isset($sheet['user']['id'])) {
+                $user->id = $sheet['user']['id'];
+            }
+
+            return [
+                'user' => $user,
+                'task_rows' => $sheet['task_rows'] ?? [],
+            ];
+        })->values()->all();
+
+        return [
+            'from'             => Carbon::parse($snapshot['from']),
+            'to'               => Carbon::parse($snapshot['to']),
+            'period_label'     => $snapshot['period_label'],
+            'days'             => $snapshot['days'],
+            'tasks'            => $snapshot['tasks'],
+            'numeric_task'     => $snapshot['numeric_task'],
+            'staff_sheets'     => $staffSheets,
+            'daily_population' => $snapshot['daily_population'],
         ];
     }
 }

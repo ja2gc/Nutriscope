@@ -44,6 +44,7 @@ export interface CycleListItem {
   status: string;
   is_active: boolean;
   week_start_date: string | null;
+  plan_days?: Partial<Record<Day, boolean>>;
   days_count?: number;
   updated_at: string;
 }
@@ -75,10 +76,38 @@ export interface RecipeProfile {
   ingredient_usage: { fs_item_id: number; name: string; unit: string; quantity: number; cost: number }[];
 }
 
+export interface FsItemProfile {
+  id: number;
+  fs_item_id: number;
+  name: string;
+  kind: "ready_to_eat";
+  category: string | null;
+  unit: string;
+  unit_cost: number;
+  quantity: number;
+  population: number;
+  servings: number;
+  total_quantity: number;
+  total_cost: number;
+  cost_per_head: number;
+  prep_notes: string | null;
+  formula: string;
+  ingredient_usage: { fs_item_id: number; name: string; unit: string; quantity: number; cost: number }[];
+}
+
+export type MenuSlotProfile = RecipeProfile | FsItemProfile;
+
 /** Per-ingredient cost breakdown for a recipe scaled to a day's headcount. */
 export async function getRecipeProfile(recipeId: number, population: number): Promise<RecipeProfile> {
   const res = await apiFetch(`/api/fss/food-service-recipes/${recipeId}/profile?population=${population}`);
   return json<RecipeProfile>(res, "Failed to load recipe profile.");
+}
+
+/** Cost breakdown for a ready-to-serve catalog item scaled to a day's headcount. */
+export async function getFsItemProfile(fsItemId: number, population: number, quantity = 1): Promise<FsItemProfile> {
+  const qs = new URLSearchParams({ population: String(population), quantity: String(quantity) });
+  const res = await apiFetch(`/api/fss/fs-items/${fsItemId}/profile?${qs}`);
+  return json<FsItemProfile>(res, "Failed to load item profile.");
 }
 
 export interface SaveCyclePayload {

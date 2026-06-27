@@ -26,6 +26,7 @@ export default function TabsLayout() {
         name="menu"
         options={{
           title: 'Menu',
+          href: null,
           tabBarIcon: ({ color, size }) => (
             <CalendarDays color={color} size={size} />
           ),
@@ -35,11 +36,11 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="prep"
         options={{
-          title: 'Prep',
+          title: 'Prep & Accomp.',
           tabBarIcon: ({ color, size }) => (
             <BarChart3 color={color} size={size} />
           ),
-          header: () => <AppHeader title="Prep" />,
+          header: () => <AppHeader title="Prep & Accomplishment" />,
         }}
       />
       <Tabs.Screen

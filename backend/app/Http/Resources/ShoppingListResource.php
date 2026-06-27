@@ -22,10 +22,13 @@ class ShoppingListResource extends JsonResource
             'period_end'    => $this->period_end?->toDateString(),
             'days_span'     => $this->days_span,
             'total_served_population' => $this->total_served_population,
+            'estimate_population' => $this->estimate_population,
+            'estimate_population_updated_at' => $this->estimate_population_updated_at?->toISOString(),
             'items'         => $this->items->map(fn ($item) => [
                 'id'              => $item->id,
                 'fs_item_id'      => $item->fs_item_id,
                 'ingredient_name' => $item->ingredient_name,
+                'item_type'       => $item->relationLoaded('fsItem') && $item->fsItem ? $item->fsItem->kind : 'ingredient',
                 'qty'             => $item->qty,
                 'unit'            => $item->unit,
                 'supplier_id'     => $item->supplier_id,
