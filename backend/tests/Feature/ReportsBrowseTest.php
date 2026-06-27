@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Budget;
+use App\Models\BudgetLedger;
 use App\Models\FsItem;
 use App\Models\Inventory;
 use App\Models\MenuCycle;
@@ -33,15 +34,16 @@ class ReportsBrowseTest extends TestCase
         ReportBranding::singleton(); // ensure a branding row exists
     }
 
-    /** Seed a received PO in a given month. */
+    /** Seed a completed PO in a given month. */
     private function receivedPo(string $date, float $amount = 1000): PurchaseOrder
     {
         return PurchaseOrder::factory()->create([
-            'rnd_user_id' => $this->rnd->id,
-            'supplier_id' => Supplier::factory(),
-            'status'      => 'received',
-            'order_date'  => $date,
-            'total_amount' => $amount,
+            'rnd_user_id'      => $this->rnd->id,
+            'supplier_id'      => Supplier::factory(),
+            'lifecycle_status' => 'completed',
+            'completed_at'     => $date,
+            'order_date'       => $date,
+            'total_amount'     => $amount,
         ]);
     }
 
@@ -83,8 +85,8 @@ class ReportsBrowseTest extends TestCase
 
     public function test_entity_axis_lists_records(): void
     {
-        Budget::factory()->create(['name' => 'Q2 Subsistence']);
-        Budget::factory()->create(['name' => 'Q1 Subsistence']);
+        Budget::factory()->create(['fiscal_year' => 2025]);
+        Budget::factory()->create(['fiscal_year' => 2026]);
 
         $instances = $this->actingAs($this->rnd)
             ->getJson('/api/rnd/reports/budget_report/instances')
@@ -93,7 +95,8 @@ class ReportsBrowseTest extends TestCase
             ->json('data.instances');
 
         $this->assertCount(2, $instances);
-        $this->assertArrayHasKey('budget_id', $instances[0]['params']);
+        $this->assertArrayHasKey('fiscal_year', $instances[0]['params']);
+        $this->assertSame('FY 2026', $instances[0]['label']); // newest first
     }
 
     public function test_menu_cycle_axis_lists_cycles(): void
@@ -181,36 +184,29 @@ class ReportsBrowseTest extends TestCase
         $this->assertSame($before, Report::count(), 'render must not persist a Report');
     }
 
-    public function test_budget_report_renders_pdf_with_svg_chart(): void
+    public function test_budget_report_renders_pdf(): void
     {
-        // A2b — budget report includes a server-side SVG trend chart; this guards the
-        // blade + SVG actually render through DomPDF (no JS).
-        $budget = Budget::factory()->create([
-            'rnd_user_id' => $this->rnd->id, 'allocated_amount' => 5000,
-            'budget_per_head_day' => 100, 'population' => 10,
-            'period_start' => '2026-05-01', 'period_end' => '2026-05-31',
-        ]);
-        $cycle = MenuCycle::factory()->create();
-        \App\Models\MealPrepLog::create([
-            'menu_cycle_id' => $cycle->id, 'service_date' => '2026-05-10',
-            'status' => 'completed', 'total_value' => 1200, 'population' => 10, 'has_shortfall' => false,
+        Budget::factory()->create(['fiscal_year' => 2026, 'allocated_amount' => 5000]);
+        \App\Models\BudgetLedger::create([
+            'fiscal_year' => 2026, 'type' => 'po_deduction', 'amount' => 1200,
         ]);
 
         $res = $this->actingAs($this->rnd)
-            ->get("/api/rnd/reports/budget_report/render?budget_id={$budget->id}&start=2026-05-01&end=2026-05-31&granularity=day");
+            ->get('/api/rnd/reports/budget_report/render?fiscal_year=2026');
 
         $res->assertOk();
         $this->assertSame('application/pdf', $res->headers->get('Content-Type'));
         $this->assertStringStartsWith('%PDF', $res->getContent());
     }
 
-    public function test_cashbook_derives_replenishment_from_budget(): void
+    public function test_cashbook_derives_replenishment_from_ledger(): void
     {
-        // A5 — the Dietary Cash Book is now reproducible: replenishment is derived from
-        // Budget allocations overlapping the period, not from a report parameter.
-        Budget::factory()->create([
-            'rnd_user_id' => $this->rnd->id, 'scope' => 'monthly',
-            'allocated_amount' => 8000, 'period_start' => '2026-05-01', 'period_end' => '2026-05-31',
+        // Replenishment comes from manual_addition ledger entries in the period.
+        \App\Models\BudgetLedger::forceCreate([
+            'fiscal_year' => 2026, 'type' => 'manual_addition',
+            'amount' => 8000, 'reason' => 'Monthly replenishment',
+            'created_at' => '2026-05-05 00:00:00',
+            'updated_at' => '2026-05-05 00:00:00',
         ]);
         $this->receivedPo('2026-05-10', 2000);
 
@@ -225,43 +221,9 @@ class ReportsBrowseTest extends TestCase
         $this->assertEqualsWithDelta(6000, $data['ending_balance'], 0.01); // 0 + 8000 − 2000
     }
 
-    public function test_cashbook_includes_manual_non_po_spend_from_budget_daily_logs(): void
+    public function test_explicit_replenishment_param_overrides_ledger(): void
     {
-        $budget = Budget::factory()->create([
-            'rnd_user_id' => $this->rnd->id,
-            'scope' => 'monthly',
-            'allocated_amount' => 8000,
-            'period_start' => '2026-05-01',
-            'period_end' => '2026-05-31',
-        ]);
-        $budget->dailyLogs()->create([
-            'log_date' => '2026-05-12',
-            'spent' => 350,
-            'notes' => 'Petty cash vegetables',
-        ]);
-
-        $gen  = new \App\Services\Reports\Generators\DietaryCashBookGenerator();
-        $data = $gen->data(new Report([
-            'type' => 'dietary_cash_book',
-            'parameters' => ['start' => '2026-05-01', 'end' => '2026-05-31'],
-        ]));
-
-        $this->assertEqualsWithDelta(350, $data['total_disbursement'], 0.01);
-        $this->assertTrue(collect($data['rows'])->contains(fn ($row) =>
-            $row['date'] === '2026-05-12'
-            && $row['nature'] === 'Petty cash vegetables'
-            && (float) $row['disbursement'] === 350.0
-        ));
-    }
-
-    public function test_explicit_replenishment_param_overrides_budget_derivation(): void
-    {
-        // Back-compat: an explicit replenishment param still wins over budget derivation.
-        Budget::factory()->create([
-            'rnd_user_id' => $this->rnd->id, 'scope' => 'monthly',
-            'allocated_amount' => 8000, 'period_start' => '2026-05-01', 'period_end' => '2026-05-31',
-        ]);
-
+        // An explicit replenishment param wins over ledger derivation.
         $gen  = new \App\Services\Reports\Generators\DietaryCashBookGenerator();
         $data = $gen->data(new Report([
             'type' => 'dietary_cash_book',

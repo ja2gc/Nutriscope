@@ -1,74 +1,42 @@
 import { apiFetch } from "@/lib/apiFetch";
 
-export type BudgetScope = "monthly" | "quarterly" | "yearly" | "custom";
-
-export interface Budget {
+export interface FiscalYearBudget {
   id: number;
-  scope: BudgetScope;
-  name: string | null;
-  allocated_amount: string | null;
-  actual_amount: string | null;
-  period_start: string | null;
-  period_end: string | null;
-  cost_per_person: string | null;
-  population: number | null;
-  budget_per_head_day: string | null;
-  budget_per_head_month: string | null;
-  budget_per_head_year: string | null;
+  fiscal_year: number;
+  allocated_amount: string;
+  per_head_day_limit: string | null;
+  total_po_deductions: string;
+  total_manual_additions: string;
+  total_manual_deductions: string;
+  remaining_balance: string;
 }
 
-export interface BudgetPayload {
-  scope?: BudgetScope;
-  name?: string | null;
-  allocated_amount?: number;
-  period_start?: string | null;
-  period_end?: string | null;
-  population?: number | null;
-  budget_per_head_day?: number | null;
-  budget_per_head_month?: number | null;
-  budget_per_head_year?: number | null;
-}
-
-export interface TrendPoint { bucket: string; planned: number; actual: number; variance: number }
-export interface BudgetSummary {
-  planned: number;
-  actual: number;
-  variance: number;
-  variance_pct: number;
-  trend: TrendPoint[];
-  range: { start: string; end: string; granularity: string };
-  source: "consumption" | "purchases";
-  cash_flow: number;
-  days_served: number;
-  allocated: number;
-  budget_per_head_day: number | null;
-  population: number | null;
-  avg_population: number | null;
-  per_head_actual: number | null;
-  procurement_per_head: {
-    actual: number | null;
-    pending: boolean;
-    pending_reason: string | null;
-    procurement_cost: number;
-    served_population: number;
-  };
-  year: { year: number; base_allocated: number; adjustments_total: number; allocated: number; spent: number; remaining: number };
-  adjustments: BudgetAdjustment[];
-}
-
-export interface BudgetAdjustment {
+export interface BudgetLedgerEntry {
   id: number;
-  type: "addition" | "deduction";
+  fiscal_year: number;
+  type: "po_deduction" | "manual_addition" | "manual_deduction";
   amount: number;
   signed_amount: number;
-  reason_category: string | null;
   reason: string | null;
+  reference: string | null;
+  purchase_order_id: number | null;
+  po_number: string | null;
+  procurement_span: string | null;
   created_by: string | null;
   created_at: string | null;
 }
 
-/** Predefined adjustment reasons; "Other" reveals a free-text field. */
-export const ADJUSTMENT_REASONS = ["Request for additional funds", "Budget correction", "Other"] as const;
+export type LedgerFilter = "all" | "manual" | "po" | "manual_addition" | "manual_deduction" | "po_deduction";
+
+export interface FiscalYearSummary {
+  fiscal_year: number;
+  allocated_amount: string;
+  per_head_day_limit: string | null;
+  total_po_deductions: string;
+  total_manual_additions: string;
+  total_manual_deductions: string;
+  remaining_balance: string;
+}
 
 async function unwrap<T>(res: Response, fallback: string): Promise<T> {
   const data = await res.json().catch(() => ({}));
@@ -76,35 +44,45 @@ async function unwrap<T>(res: Response, fallback: string): Promise<T> {
   return (data as { data: T }).data;
 }
 
-export async function listBudgets(): Promise<Budget[]> {
+export async function listFiscalYears(): Promise<FiscalYearBudget[]> {
   return unwrap(await apiFetch("/api/fss/budgets"), "Failed to load budgets.");
 }
-export async function saveBudget(id: number | null, payload: BudgetPayload): Promise<Budget> {
-  return unwrap(await apiFetch(id ? `/api/fss/budgets/${id}` : "/api/fss/budgets", {
-    method: id ? "PATCH" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
-  }), "Failed to save budget.");
+
+export async function getFiscalYearSummary(fiscalYear: number): Promise<{ data: FiscalYearSummary | null; notice?: string }> {
+  const res = await apiFetch(`/api/fss/budgets/summary?fiscal_year=${fiscalYear}`);
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error((json as { message?: string }).message ?? "Failed to load summary.");
+  return json as { data: FiscalYearSummary | null; notice?: string };
 }
-export async function deleteBudget(id: number): Promise<void> {
-  const res = await apiFetch(`/api/fss/budgets/${id}`, { method: "DELETE" });
-  if (!res.ok && res.status !== 204) throw new Error("Failed to delete budget.");
+
+export async function setupFiscalYear(payload: {
+  fiscal_year: number;
+  allocated_amount: number;
+  per_head_day_limit?: number | null;
+}): Promise<FiscalYearBudget> {
+  return unwrap(await apiFetch("/api/fss/budgets", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  }), "Failed to create fiscal year budget.");
 }
-export async function getBudgetSummary(id: number, opts: { start?: string; end?: string; granularity?: string }): Promise<BudgetSummary> {
-  const qs = new URLSearchParams();
-  if (opts.start) qs.set("start", opts.start);
-  if (opts.end) qs.set("end", opts.end);
-  if (opts.granularity) qs.set("granularity", opts.granularity);
-  return unwrap(await apiFetch(`/api/fss/budgets/${id}/summary?${qs}`), "Failed to load summary.");
+
+export async function getLedger(fiscalYear: number, type: LedgerFilter = "all"): Promise<BudgetLedgerEntry[]> {
+  const qs = new URLSearchParams({ fiscal_year: String(fiscalYear) });
+  if (type && type !== "all") qs.set("type", type);
+  return unwrap(await apiFetch(`/api/fss/budgets/ledger?${qs}`), "Failed to load ledger.");
 }
-export async function addBudgetAdjustment(id: number, payload: {
-  type: "addition" | "deduction"; amount: number; reason_category?: string | null; reason?: string | null;
-}): Promise<BudgetAdjustment> {
-  return unwrap(await apiFetch(`/api/fss/budgets/${id}/adjustments`, {
-    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
+
+export async function addManualAdjustment(payload: {
+  fiscal_year: number;
+  type: "manual_addition" | "manual_deduction";
+  amount: number;
+  reason: string;
+  reference?: string | null;
+}): Promise<BudgetLedgerEntry> {
+  return unwrap(await apiFetch("/api/fss/budgets/adjust", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
   }), "Failed to add adjustment.");
-}
-export async function addDailyLog(id: number, payload: { log_date: string; spent: number; notes?: string }): Promise<void> {
-  const res = await apiFetch(`/api/fss/budgets/${id}/daily-logs`, {
-    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
-  });
-  if (!res.ok) throw new Error("Failed to add log.");
 }

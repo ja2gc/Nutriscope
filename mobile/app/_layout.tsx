@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Stack, router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import AnimatedSplash from '../components/AnimatedSplash';
 import { getToken } from '../lib/auth';
 
 const queryClient = new QueryClient();
@@ -22,6 +23,7 @@ function Redirector({ isAuthenticated }: { isAuthenticated: boolean }) {
 
 export default function RootLayout() {
   const [ready, setReady] = useState(false);
+  const [splashDone, setSplashDone] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
@@ -38,7 +40,15 @@ export default function RootLayout() {
     bootstrap();
   }, []);
 
-  if (!ready) return null;
+  // Hold on the branded splash until BOTH the token check finished and the
+  // animation has played out, so the launch always feels intentional.
+  if (!ready || !splashDone) {
+    return (
+      <SafeAreaProvider>
+        <AnimatedSplash onDone={() => setSplashDone(true)} />
+      </SafeAreaProvider>
+    );
+  }
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -68,6 +78,10 @@ export default function RootLayout() {
           <Stack.Screen
             name="settings"
             options={{ title: 'Settings' }}
+          />
+          <Stack.Screen
+            name="reports"
+            options={{ title: 'Accomplishment Reports' }}
           />
         </Stack>
         <Redirector isAuthenticated={isAuthenticated} />

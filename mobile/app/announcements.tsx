@@ -61,7 +61,7 @@ async function fetchSopHistory(): Promise<Sop[]> {
 }
 
 async function fetchAnnouncements(): Promise<Announcement[]> {
-  const res = await api.get<{ data: Announcement[] }>('/api/announcements?per_page=30');
+  const res = await api.get<{ data: Announcement[] }>('/api/fss/announcements?per_page=30');
   return res.data.data;
 }
 

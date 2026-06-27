@@ -7,12 +7,9 @@ use App\Http\Requests\FSS\StoreShoppingListRequest;
 use App\Http\Requests\FSS\UpdateShoppingListRequest;
 use App\Http\Resources\ShoppingListResource;
 use App\Models\FsItem;
-use App\Models\Inventory;
-use App\Models\MenuCycle;
-use App\Models\PurchaseOrderItem;
 use App\Models\ShoppingList;
 use App\Models\ShoppingListItem;
-use App\Services\MenuCycleCostService;
+use App\Services\FSS\ShoppingListPopulationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -22,7 +19,7 @@ class ShoppingListController extends Controller
 {
     public function index(): JsonResponse
     {
-        return response()->json(['data' => ShoppingListResource::collection(ShoppingList::with('items')->orderByDesc('created_at')->get())]);
+        return response()->json(['data' => ShoppingListResource::collection(ShoppingList::with('items.fsItem')->orderByDesc('created_at')->get())]);
     }
 
     public function store(StoreShoppingListRequest $request): JsonResponse
@@ -32,20 +29,36 @@ class ShoppingListController extends Controller
         $data['list_type'] = $data['list_type'] ?? 'manual';
         $data['status'] = $data['status'] ?? 'draft';
         $data['list_date'] = $data['list_date'] ?? now()->toDateString();
+        if (array_key_exists('estimate_population', $data)) {
+            $data['estimate_population_updated_at'] = now();
+        }
 
         $shoppingList = ShoppingList::create($data);
-        return response()->json(['data' => new ShoppingListResource($shoppingList->load('items'))], 201);
+        return response()->json(['data' => new ShoppingListResource($shoppingList->load('items.fsItem'))], 201);
     }
 
     public function show(ShoppingList $shoppingList): JsonResponse
     {
-        return response()->json(['data' => new ShoppingListResource($shoppingList->load('items'))]);
+        return response()->json(['data' => new ShoppingListResource($shoppingList->load('items.fsItem'))]);
     }
 
     public function update(UpdateShoppingListRequest $request, ShoppingList $shoppingList): JsonResponse
     {
-        $shoppingList->update($request->validated());
-        return response()->json(['data' => new ShoppingListResource($shoppingList->load('items'))]);
+        $data = $request->validated();
+        if (array_key_exists('estimate_population', $data)) {
+            if ($shoppingList->status !== 'draft') {
+                return response()->json(['message' => 'Only draft shopping lists can update estimate_population.'], 422);
+            }
+
+            app(ShoppingListPopulationService::class)->cascadePopulation($shoppingList, (int) $data['estimate_population']);
+            unset($data['estimate_population']);
+        }
+
+        if ($data !== []) {
+            $shoppingList->update($data);
+        }
+
+        return response()->json(['data' => new ShoppingListResource($shoppingList->load('items.fsItem'))]);
     }
 
     public function destroy(ShoppingList $shoppingList): JsonResponse
@@ -55,15 +68,38 @@ class ShoppingListController extends Controller
     }
 
     /**
-     * Calculated budget-per-head for this procurement span: estimated (planning-time)
-     * and actual (procurement cash ÷ derived served population, pending until the span
-     * is closed — all POs received and every service day's meal prep completed).
+     * Estimated and actual budget-per-head for a procurement span.
+     * Estimated comes from shopping list totals ÷ estimate_population.
+     * Actual comes from the linked PO after Phase 3 completion.
      */
     public function costEfficiency(ShoppingList $shoppingList): JsonResponse
     {
-        return response()->json([
-            'data' => \App\Services\FSS\ProcurementCostEfficiencyService::forShoppingList($shoppingList),
-        ]);
+        $shoppingList->loadMissing('items', 'purchaseOrder');
+
+        $totalEstimated = (float) $shoppingList->items->sum(fn ($i) => (float) $i->total);
+        $population     = (int) ($shoppingList->estimate_population ?? 0);
+        $days           = 0;
+        if ($shoppingList->period_start && $shoppingList->period_end) {
+            $days = (int) $shoppingList->period_start->diffInDays($shoppingList->period_end) + 1;
+        }
+
+        $estimatedPerHead = ($population > 0 && $days > 0)
+            ? round($totalEstimated / ($population * $days), 2)
+            : null;
+
+        $po     = $shoppingList->purchaseOrder;
+        $actual = ($po && $po->lifecycle_status !== 'open_execution')
+            ? (float) ($po->actual_budget_per_head_per_day ?? 0)
+            : null;
+
+        return response()->json(['data' => [
+            'estimated_per_head'   => $estimatedPerHead,
+            'actual_per_head'      => $actual,
+            'pending'              => $actual === null,
+            'estimated_total'      => round($totalEstimated, 2),
+            'estimate_population'  => $population,
+            'span_days'            => $days,
+        ]]);
     }
 
     /**
@@ -90,46 +126,19 @@ class ShoppingListController extends Controller
         $end    = \Carbon\Carbon::parse($data['end_date'])->startOfDay();
         $spanDays = $cursor->diffInDays($end) + 1;
 
-        // Sum the ACTUAL planned days across the range (not a proportional average),
-        // resolving the owning cycle per date so multi-week spans cost correctly.
-        $acc       = []; // fs_item_id => ['name','unit','qty','total']
-        $uncovered = []; // 'Y-m-d' dates with no buyable plan
-        $cycleCache = []; // menu_cycle_id => cycle with menu relations loaded
+        $plan = app(ShoppingListPopulationService::class)->planRange($cursor, $end);
+        $uncovered = $plan['uncovered_dates'];
 
-        for ($d = $cursor->copy(); $d->lte($end); $d->addDay()) {
-            $cycle = MenuCycle::coveringDate($d);
-            if (! $cycle) {
-                $uncovered[] = $d->toDateString();
-                continue;
-            }
-            if (! isset($cycleCache[$cycle->id])) {
-                $cycle->loadMissing('days.recipe.ingredients.fsItem', 'days.fsItem');
-                $cycleCache[$cycle->id] = $cycle;
-            }
-            $cycle = $cycleCache[$cycle->id];
-
-            $days = $cycle->days->where('day_of_week', $d->format('l'));
-            // Uncovered when the cycle serves nothing that weekday, or no day carries a
-            // usable population (servings_override / estimate_population) → would buy 0.
-            $hasPopulation = $days->contains(
-                fn ($day) => ($day->servings_override ?? $day->estimate_population ?? 0) > 0
-            );
-            if ($days->isEmpty() || ! $hasPopulation) {
-                $uncovered[] = $d->toDateString();
-                continue;
-            }
-
-            // Population is read per-day from each MenuCycleDay (estimate_population).
-            foreach (MenuCycleCostService::usageForDays($days) as $u) {
-                $id = $u['fs_item_id'];
-                $acc[$id] ??= ['name' => $u['name'], 'unit' => $u['unit'], 'qty' => 0.0, 'total' => 0.0];
-                $acc[$id]['qty']   += (float) $u['quantity'];
-                $acc[$id]['total'] += (float) $u['cost'];
-            }
+        if ($plan['missing_population_dates'] !== []) {
+            return response()->json([
+                'message' => 'Menu plan dates with assigned items require estimate_population before shopping list generation.',
+                'missing_population_dates' => $plan['missing_population_dates'],
+                'uncovered_dates' => $uncovered,
+            ], 422);
         }
 
         // Whole span unbuyable (no cycle / no plan anywhere) → hard block.
-        if (empty($acc)) {
+        if ($plan['items'] === []) {
             return response()->json([
                 'message'         => 'No menu plan covers any date in this range.',
                 'uncovered_dates' => $uncovered,
@@ -138,19 +147,7 @@ class ShoppingListController extends Controller
 
         $coverageStatus = empty($uncovered) ? 'full' : 'partial';
 
-        $ids     = array_keys($acc);
-        $fsItems = FsItem::whereIn('id', $ids)->get()->keyBy('id');
-
-        // Net of stock (Spec 6 #2): don't re-buy what's already on hand or already
-        // on an open (status='ordered', not-yet-received) purchase order.
-        $onHand    = $ids ? Inventory::whereIn('fs_item_id', $ids)->pluck('quantity_in_stock', 'fs_item_id') : collect();
-        $inTransit = $ids
-            ? PurchaseOrderItem::whereIn('fs_item_id', $ids)
-                ->whereHas('purchaseOrder', fn ($q) => $q->where('status', 'ordered'))
-                ->selectRaw('fs_item_id, SUM(qty) as q')->groupBy('fs_item_id')->pluck('q', 'fs_item_id')
-            : collect();
-
-        $list = DB::transaction(function () use ($data, $acc, $fsItems, $spanDays, $onHand, $inTransit, $coverageStatus, $uncovered) {
+        $list = DB::transaction(function () use ($data, $plan, $spanDays, $coverageStatus, $uncovered) {
             $list = ShoppingList::create([
                 'rnd_user_id'     => Auth::id(),
                 'name'            => $data['name'] ?? "Suggested — {$data['start_date']}→{$data['end_date']}",
@@ -164,52 +161,14 @@ class ShoppingListController extends Controller
                 'uncovered_dates' => $uncovered ?: null,
             ]);
 
-            foreach ($acc as $id => $row) {
-                $covered = (float) ($onHand[$id] ?? 0) + (float) ($inTransit[$id] ?? 0);
-                $net     = max(0.0, (float) $row['qty'] - $covered);
-                if ($net <= 0) {
-                    continue; // fully covered by stock on hand + open orders → nothing to buy
-                }
-                $fs  = $fsItems[$id] ?? null;
-                $bpp = $fs ? $fs->basePerPurchase() : 0.0;
-
-                if ($fs && $bpp > 0) {
-                    // Round UP to whole purchase units (Spec 6 #4). Overage is carried
-                    // as leftover stock (Decision B) and netted out next cycle by #2.
-                    $packs         = (int) ceil($net / $bpp);
-                    $baseBought    = $packs * $bpp;
-                    $purchasePrice = (float) $fs->purchase_price;
-                    $list->items()->create([
-                        'fs_item_id'      => $id,
-                        'ingredient_name' => $row['name'],
-                        'qty'             => round($baseBought, 2),
-                        'unit'            => $fs->base_unit ?? $row['unit'],
-                        'supplier_id'     => $fs->default_supplier_id,
-                        'unit_price'      => round($purchasePrice / $bpp, 4), // ₱/base
-                        'total'           => round($packs * $purchasePrice, 2),
-                        'purchase_qty'    => $packs,
-                        'purchase_unit'   => $fs->purchase_unit,
-                        'purchase_price'  => round($purchasePrice, 2),
-                    ]);
-                } else {
-                    // Degrade: no valid pack conversion — keep base-unit netting.
-                    $unitPrice = $row['qty'] > 0 ? round($row['total'] / $row['qty'], 4) : 0;
-                    $list->items()->create([
-                        'fs_item_id'      => $id,
-                        'ingredient_name' => $row['name'],
-                        'qty'             => round($net, 2),
-                        'unit'            => $row['unit'],
-                        'supplier_id'     => $fs?->default_supplier_id,
-                        'unit_price'      => $unitPrice,
-                        'total'           => round($net * $unitPrice, 2),
-                    ]);
-                }
+            foreach ($plan['items'] as $row) {
+                $list->items()->create($row);
             }
 
             return $list;
         });
 
-        return response()->json(['data' => new ShoppingListResource($list->load('items'))], 201);
+        return response()->json(['data' => new ShoppingListResource($list->load('items.fsItem'))], 201);
     }
 
     /**
@@ -218,6 +177,10 @@ class ShoppingListController extends Controller
      */
     public function updateItem(Request $request, ShoppingListItem $shoppingListItem): JsonResponse
     {
+        if ($shoppingListItem->shoppingList->status !== 'draft') {
+            return response()->json(['message' => 'Converted shopping list items are read-only.'], 422);
+        }
+
         $data = $request->validate([
             'supplier_id' => ['nullable', 'integer', 'exists:suppliers,id'],
             'qty'         => ['nullable', 'numeric', 'min:0'],
@@ -238,11 +201,16 @@ class ShoppingListController extends Controller
             'qty'         => $shoppingListItem->qty,
             'unit_price'  => $shoppingListItem->unit_price,
             'total'       => $shoppingListItem->total,
+            'item_type'   => $shoppingListItem->fsItem?->kind ?? 'ingredient',
         ]]);
     }
 
     public function storeItem(Request $request, ShoppingList $shoppingList): JsonResponse
     {
+        if ($shoppingList->status !== 'draft') {
+            return response()->json(['message' => 'Converted shopping list items are read-only.'], 422);
+        }
+
         $data = $request->validate([
             'fs_item_id'      => ['nullable', 'integer', 'exists:fs_items,id'],
             'ingredient_name' => ['nullable', 'string', 'max:255'],
@@ -284,11 +252,16 @@ class ShoppingListController extends Controller
             'purchase_qty'    => $item->purchase_qty,
             'purchase_unit'   => $item->purchase_unit,
             'purchase_price'  => $item->purchase_price,
+            'item_type'       => $item->fsItem?->kind ?? 'ingredient',
         ]], 201);
     }
 
     public function destroyItem(ShoppingListItem $shoppingListItem): JsonResponse
     {
+        if ($shoppingListItem->shoppingList->status !== 'draft') {
+            return response()->json(['message' => 'Converted shopping list items are read-only.'], 422);
+        }
+
         $shoppingListItem->delete();
         return response()->json(null, 204);
     }

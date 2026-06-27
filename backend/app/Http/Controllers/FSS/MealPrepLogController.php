@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\MealPrepLog;
 use App\Models\MenuCycle;
 use App\Services\FSS\ConsumptionService;
+use App\Services\FSS\PurchaseOrderLifecycleService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -28,7 +29,7 @@ class MealPrepLogController extends Controller
         return response()->json(['data' => $logs]);
     }
 
-    public function complete(Request $request, MenuCycle $menuCycle, ConsumptionService $consumption): JsonResponse
+    public function complete(Request $request, MenuCycle $menuCycle, ConsumptionService $consumption, PurchaseOrderLifecycleService $lifecycle): JsonResponse
     {
         $data = $request->validate([
             'service_date'      => ['required', 'date'],
@@ -44,6 +45,7 @@ class MealPrepLogController extends Controller
             $data['served_population'] ?? null,
             (bool) ($data['allow_shortfall'] ?? false),
         );
+        $lifecycle->refreshForServiceDate($data['service_date']);
 
         return response()->json(['data' => $log], 201);
     }
@@ -58,7 +60,7 @@ class MealPrepLogController extends Controller
      * didn't record the headcount on the day itself. Editable by FSS and RND. Drives the
      * derived budget-per-head once every day in the procurement span is filled.
      */
-    public function setServed(Request $request, MenuCycle $menuCycle): JsonResponse
+    public function setServed(Request $request, MenuCycle $menuCycle, PurchaseOrderLifecycleService $lifecycle): JsonResponse
     {
         $data = $request->validate([
             'service_date'      => ['required', 'date'],
@@ -69,15 +71,35 @@ class MealPrepLogController extends Controller
             ->whereDate('service_date', $data['service_date'])
             ->first();
 
+        // Backfill: when no log exists yet for this cycle-day, create a reconciliation
+        // row so FSS can record the actual headcount for ANY day of the cycle without
+        // having first run the inventory-deducting "mark served" flow. Population is the
+        // weekday's planned estimate; no inventory is touched (this is an after-the-fact
+        // census entry, not a prep run).
         if (! $log) {
-            return response()->json(['message' => 'No completed service day for that date — mark the day served first.'], 404);
+            $weekday  = \Carbon\Carbon::parse($data['service_date'])->format('l');
+            $estimate = (int) ($menuCycle->days()->where('day_of_week', $weekday)->value('estimate_population') ?? 0);
+
+            $log = MealPrepLog::create([
+                'menu_cycle_id'     => $menuCycle->id,
+                'service_date'      => $data['service_date'],
+                'population'        => $estimate ?: null,
+                'served_population' => $data['served_population'],
+                'status'            => 'completed',
+                'completed_by'      => $request->user()?->id,
+                'completed_at'      => now(),
+                'total_value'       => 0,
+                'has_shortfall'     => false,
+            ]);
+        } else {
+            $log->served_population = $data['served_population'];
         }
 
-        $log->served_population = $data['served_population'];
         if ($log->population !== null) {
             $log->population_variance = $log->population - $data['served_population'];
         }
         $log->save();
+        $lifecycle->refreshForServiceDate($data['service_date']);
 
         return response()->json(['data' => $log]);
     }

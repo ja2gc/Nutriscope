@@ -51,10 +51,16 @@ class FssPermissionTest extends TestCase
 
     public function test_fss_forbidden_from_budget_mutations(): void
     {
-        $budget = Budget::factory()->create(['rnd_user_id' => $this->rnd->id]);
+        $this->actingAs($this->fss)
+            ->postJson('/api/fss/budgets', ['fiscal_year' => 2026, 'allocated_amount' => 10000])
+            ->assertForbidden();
 
-        $this->actingAs($this->fss)->putJson("/api/fss/budgets/{$budget->id}", [])->assertForbidden();
-        $this->actingAs($this->fss)->deleteJson("/api/fss/budgets/{$budget->id}")->assertForbidden();
+        Budget::factory()->create(['fiscal_year' => 2026, 'allocated_amount' => 10000]);
+        $this->actingAs($this->fss)
+            ->postJson('/api/fss/budgets/adjust', [
+                'fiscal_year' => 2026, 'type' => 'manual_addition', 'amount' => 1000, 'reason' => 'test',
+            ])
+            ->assertForbidden();
     }
 
     /** RND retains write access (split did not lock them out). */
