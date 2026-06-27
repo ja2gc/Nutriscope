@@ -80,7 +80,7 @@ Food Shopping List:
 - It should never display as blank or a dash once the estimate is set because all the values needed to calculate it are already there
 - When converted to a PO, all structural data freezes, the scaled values snapshot is saved to menu cycle day cells permanently
 
-Supplies List:
+Supplies List: this must be in a different tab and have itst own ui for adding multiple supplies similar to how the ui for adding ingredients and the cost will just add up
 - Supplies list is a fully independent procurement track from the food shopping list, it has its own PO, its own PPA, and its own reports
 - Supplies list is not working, it should be a fully manual process with no date span and no menu cycle involvement
 - RND searches and adds each supply item one by one

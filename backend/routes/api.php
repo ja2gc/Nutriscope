@@ -202,8 +202,6 @@ Route::middleware(['auth:sanctum', 'role:FSS,RND'])->prefix('fss')->group(functi
     Route::apiResource('purchase-orders', PurchaseOrderController::class)->only(['index', 'show']);
 
     // Shopping Lists — FSS reads only; writes are RND-only (see below)
-    // Calculated budget-per-head (derived from meal-prep) — readable by BOTH roles.
-    Route::get('shopping-lists/{shopping_list}/cost-efficiency', [ShoppingListController::class, 'costEfficiency']);
     Route::apiResource('shopping-lists', ShoppingListController::class)->only(['index', 'show']);
 
     // Per-day served population (backfill from menu cycle) — editable by FSS + RND.
@@ -212,6 +210,8 @@ Route::middleware(['auth:sanctum', 'role:FSS,RND'])->prefix('fss')->group(functi
     // FS Items — catalog list (ready-to-serve picker) + price-trend read for FSS;
     // update is RND-only (see below)
     Route::get('fs-items', [FsItemController::class, 'index']);
+    // Reference catalog (ingredients + supplies) used to build recipes & procurement.
+    Route::get('fs-items/catalog', [FsItemController::class, 'catalog']);
     Route::get('fs-items/{fsItem}/profile', [FsItemController::class, 'profile']);
     Route::get('fs-items/{fsItem}/price-trend', [FsItemController::class, 'priceTrend']);
 
@@ -263,8 +263,10 @@ Route::middleware(['auth:sanctum', 'role:FSS,RND'])->prefix('fss')->group(functi
         Route::apiResource('shopping-lists', ShoppingListController::class)->only(['store', 'update', 'destroy']);
 
         // FS Item catalog edits
+        Route::post('fs-items', [FsItemController::class, 'store']);
         Route::patch('fs-items/{fsItem}', [FsItemController::class, 'update']);
         Route::patch('fs-items/{fsItem}/vendor-lock', [FsItemController::class, 'toggleDefaultSupplierLock']);
+        Route::delete('fs-items/{fsItem}', [FsItemController::class, 'destroy']);
 
         // Menu Cycles
         Route::patch('menu-cycles/{menu_cycle}/activate', [MenuCycleController::class, 'activate']);

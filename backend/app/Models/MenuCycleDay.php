@@ -46,7 +46,7 @@ class MenuCycleDay extends Model
         return $this->belongsTo(FoodServiceRecipe::class, 'recipe_id');
     }
 
-    /** Single ready-to-serve catalog item (alternative to a recipe). */
+    /** Single catalog item (alternative to a recipe). */
     public function fsItem(): BelongsTo
     {
         return $this->belongsTo(FsItem::class, 'fs_item_id');

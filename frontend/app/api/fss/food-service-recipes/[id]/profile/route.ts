@@ -1,0 +1,7 @@
+import { NextRequest } from "next/server";
+import { proxy } from "@/lib/laravelProxy";
+
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  return proxy(`/fss/food-service-recipes/${id}/profile`, { search: new URL(req.url).searchParams });
+}

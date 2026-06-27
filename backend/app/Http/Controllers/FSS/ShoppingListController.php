@@ -68,41 +68,6 @@ class ShoppingListController extends Controller
     }
 
     /**
-     * Estimated and actual budget-per-head for a procurement span.
-     * Estimated comes from shopping list totals ÷ estimate_population.
-     * Actual comes from the linked PO after Phase 3 completion.
-     */
-    public function costEfficiency(ShoppingList $shoppingList): JsonResponse
-    {
-        $shoppingList->loadMissing('items', 'purchaseOrder');
-
-        $totalEstimated = (float) $shoppingList->items->sum(fn ($i) => (float) $i->total);
-        $population     = (int) ($shoppingList->estimate_population ?? 0);
-        $days           = 0;
-        if ($shoppingList->period_start && $shoppingList->period_end) {
-            $days = (int) $shoppingList->period_start->diffInDays($shoppingList->period_end) + 1;
-        }
-
-        $estimatedPerHead = ($population > 0 && $days > 0)
-            ? round($totalEstimated / ($population * $days), 2)
-            : null;
-
-        $po     = $shoppingList->purchaseOrder;
-        $actual = ($po && $po->lifecycle_status !== 'open_execution')
-            ? (float) ($po->actual_budget_per_head_per_day ?? 0)
-            : null;
-
-        return response()->json(['data' => [
-            'estimated_per_head'   => $estimatedPerHead,
-            'actual_per_head'      => $actual,
-            'pending'              => $actual === null,
-            'estimated_total'      => round($totalEstimated, 2),
-            'estimate_population'  => $population,
-            'span_days'            => $days,
-        ]]);
-    }
-
-    /**
      * Auto-build a suggested list for a date RANGE. The owning menu cycle is resolved
      * per date (MenuCycle::coveringDate), so a span that crosses a week boundary —
      * e.g. the client's Fri→Mon run — pulls each day from the correct weekly cycle.
@@ -127,16 +92,14 @@ class ShoppingListController extends Controller
         $spanDays = $cursor->diffInDays($end) + 1;
 
         $plan = app(ShoppingListPopulationService::class)->planRange($cursor, $end);
-        $uncovered = $plan['uncovered_dates'];
 
-        // All-or-nothing: if ANY date in the span is missing a cycle, missing menu
-        // items, or missing population, block creation entirely and report exactly
-        // what's missing per date. A partial list is never created.
-        $missingDates = array_values(array_unique(array_merge($uncovered, $plan['missing_population_dates'])));
+        // All-or-nothing: if any date in the span is missing a cycle or menu
+        // items, block creation entirely. Estimate population is list-level only.
+        $missingDates = $plan['uncovered_dates'];
         if ($missingDates !== []) {
             sort($missingDates);
             return response()->json([
-                'message'               => 'Shopping list blocked — every date in the span must have a menu cycle, menu items, and an estimated population.',
+                'message'               => 'Shopping list blocked - every date in the span must have a menu cycle and menu items.',
                 'missing_dates'         => $missingDates,
                 'missing_items_by_date' => $plan['missing_items_by_date'],
             ], 422);
@@ -185,6 +148,10 @@ class ShoppingListController extends Controller
             'vendor_locked' => ['nullable', 'boolean'],
         ]);
 
+        if (array_key_exists('qty', $data) && ! $shoppingListItem->shoppingList->isSupplies()) {
+            return response()->json(['message' => 'Food list quantities are calculated from estimate_population and menu items.'], 422);
+        }
+
         $shoppingListItem->fill(collect($data)->only(['supplier_id', 'qty', 'unit_price'])->all());
         $shoppingListItem->total = round((float) $shoppingListItem->qty * (float) $shoppingListItem->unit_price, 2);
 
@@ -220,24 +187,63 @@ class ShoppingListController extends Controller
             return response()->json(['message' => 'Converted shopping list items are read-only.'], 422);
         }
 
+        $isSupplies = $shoppingList->isSupplies();
+
         $data = $request->validate([
-            'fs_item_id'      => ['nullable', 'integer', 'exists:fs_items,id'],
+            'fs_item_id'      => [$isSupplies ? 'required' : 'nullable', 'integer', 'exists:fs_items,id'],
             'ingredient_name' => ['nullable', 'string', 'max:255'],
             'qty'             => ['required', 'numeric', 'min:0'],
-            'unit'            => ['required', 'string', 'max:50'],
+            'unit'            => [$isSupplies ? 'nullable' : 'required', 'string', 'max:50'],
             'supplier_id'     => ['nullable', 'integer', 'exists:suppliers,id'],
             'unit_price'      => ['nullable', 'numeric', 'min:0'],
-            'purchase_qty'    => ['nullable', 'numeric', 'min:0'],
-            'purchase_unit'   => ['nullable', 'string', 'max:50'],
-            'purchase_price'  => ['nullable', 'numeric', 'min:0'],
+            'purchase_qty'    => [$isSupplies ? 'prohibited' : 'nullable', 'numeric', 'min:0'],
+            'purchase_unit'   => [$isSupplies ? 'prohibited' : 'nullable', 'string', 'max:50'],
+            'purchase_price'  => [$isSupplies ? 'prohibited' : 'nullable', 'numeric', 'min:0'],
         ]);
 
         $fsItem = isset($data['fs_item_id']) ? FsItem::find($data['fs_item_id']) : null;
 
         // On a supplies list RND adds supply catalog items one by one — reject anything
         // that isn't kind=supply so the two tracks stay independent.
-        if ($shoppingList->isSupplies() && $fsItem && $fsItem->kind !== 'supply') {
-            return response()->json(['message' => 'Supplies lists only accept supply catalog items.'], 422);
+        if ($isSupplies) {
+            if (! $fsItem || $fsItem->kind !== 'supply') {
+                return response()->json(['message' => 'Supplies lists only accept supply catalog items.'], 422);
+            }
+
+            $qty = (float) $data['qty'];
+            $unitPrice = array_key_exists('unit_price', $data) ? (float) $data['unit_price'] : (float) $fsItem->unit_cost;
+
+            $item = $shoppingList->items()->create([
+                'fs_item_id'      => $fsItem->id,
+                'ingredient_name' => $fsItem->name,
+                'qty'             => $qty,
+                'unit'            => $fsItem->base_unit,
+                'supplier_id'     => $data['supplier_id'] ?? $fsItem->default_supplier_id,
+                'unit_price'      => $unitPrice,
+                'total'           => round($qty * $unitPrice, 2),
+                'purchase_qty'    => $qty,
+                'purchase_unit'   => $fsItem->base_unit,
+                'purchase_price'  => $unitPrice,
+            ]);
+
+            return response()->json(['data' => [
+                'id'              => $item->id,
+                'fs_item_id'      => $item->fs_item_id,
+                'ingredient_name' => $item->ingredient_name,
+                'qty'             => $item->qty,
+                'unit'            => $item->unit,
+                'supplier_id'     => $item->supplier_id,
+                'unit_price'      => $item->unit_price,
+                'total'           => $item->total,
+                'purchase_qty'    => $item->purchase_qty,
+                'purchase_unit'   => $item->purchase_unit,
+                'purchase_price'  => $item->purchase_price,
+                'item_type'       => 'supply',
+            ]], 201);
+        }
+
+        if ($fsItem && $fsItem->kind !== 'ingredient') {
+            return response()->json(['message' => 'Food shopping lists only accept ingredient catalog items.'], 422);
         }
 
         $qty = (float) $data['qty'];
