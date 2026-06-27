@@ -1475,6 +1475,31 @@ class FoodServiceOpsTest extends TestCase
             ->assertOk();
     }
 
+    public function test_fss_can_view_ready_to_eat_fs_item_profile_for_menu_detail(): void
+    {
+        $fsItem = $this->makeFsItem([
+            'kind' => 'ready_to_eat',
+            'name' => 'Banana',
+            'category' => 'Fruit',
+            'base_unit' => 'piece',
+            'purchase_unit' => 'piece',
+            'purchase_price' => 8,
+            'units_per_purchase' => 1,
+        ]);
+
+        $this->actingAs($this->fss)
+            ->getJson("/api/fss/fs-items/{$fsItem->id}/profile?population=30&quantity=1")
+            ->assertOk()
+            ->assertJsonPath('data.id', $fsItem->id)
+            ->assertJsonPath('data.name', 'Banana')
+            ->assertJsonPath('data.kind', 'ready_to_eat')
+            ->assertJsonPath('data.population', 30)
+            ->assertJsonPath('data.quantity', 1)
+            ->assertJsonPath('data.total_quantity', 30)
+            ->assertJsonPath('data.total_cost', 240)
+            ->assertJsonPath('data.formula', 'total_cost = quantity_per_head * population * unit_cost');
+    }
+
     public function test_insights_routes_respond_for_fss(): void
     {
         $this->actingAs($this->fss)->getJson('/api/fss/insights/spend-by-supplier')->assertOk();
@@ -1529,5 +1554,66 @@ class FoodServiceOpsTest extends TestCase
         $this->assertEqualsWithDelta(2, (float) $pack['air_items'][0]['quantity'], 0.01); // packs, not 2000 g
         $this->assertSame('kg', $pack['air_items'][0]['unit']);
         $this->assertEqualsWithDelta(50, (float) $pack['statement_items'][0]['unit_price'], 0.01); // ₱/pack
+    }
+
+    // ===== SERVED-POPULATION BACKFILL (any cycle day) =====
+
+    public function test_fss_can_set_served_population_for_a_day_with_no_log_yet(): void
+    {
+        $cycle = MenuCycle::factory()->create([
+            'rnd_user_id'     => $this->rnd->id,
+            'week_start_date' => '2026-06-15', // Monday
+            'is_active'       => true,
+            'status'          => 'active',
+        ]);
+        MenuCycleDay::create([
+            'menu_cycle_id'       => $cycle->id,
+            'day_of_week'         => 'Wednesday',
+            'meal_type'           => 'lunch',
+            'estimate_population' => 40,
+        ]);
+
+        // No meal_prep_log exists for this date — the backfill must create one.
+        $this->actingAs($this->fss)
+            ->patchJson("/api/fss/menu-cycles/{$cycle->id}/served-population", [
+                'service_date'      => '2026-06-17', // Wednesday
+                'served_population' => 33,
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.served_population', 33);
+
+        $this->assertDatabaseHas('meal_prep_logs', [
+            'menu_cycle_id'     => $cycle->id,
+            'service_date'      => '2026-06-17',
+            'served_population'  => 33,
+            'population'         => 40, // pulled from the weekday's planned estimate
+        ]);
+    }
+
+    public function test_setting_served_population_again_updates_the_same_log(): void
+    {
+        $cycle = MenuCycle::factory()->create([
+            'rnd_user_id'     => $this->rnd->id,
+            'week_start_date' => '2026-06-15',
+            'is_active'       => true,
+            'status'          => 'active',
+        ]);
+        MenuCycleDay::create([
+            'menu_cycle_id'       => $cycle->id,
+            'day_of_week'         => 'Wednesday',
+            'meal_type'           => 'lunch',
+            'estimate_population' => 40,
+        ]);
+
+        $url = "/api/fss/menu-cycles/{$cycle->id}/served-population";
+        $this->actingAs($this->fss)->patchJson($url, ['service_date' => '2026-06-17', 'served_population' => 30])->assertOk();
+        $this->actingAs($this->fss)->patchJson($url, ['service_date' => '2026-06-17', 'served_population' => 38])->assertOk();
+
+        $this->assertSame(1, MealPrepLog::where('menu_cycle_id', $cycle->id)->whereDate('service_date', '2026-06-17')->count());
+        $this->assertDatabaseHas('meal_prep_logs', [
+            'menu_cycle_id'    => $cycle->id,
+            'service_date'     => '2026-06-17',
+            'served_population' => 38,
+        ]);
     }
 }

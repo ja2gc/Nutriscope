@@ -13,6 +13,7 @@ use App\Services\Reports\Contracts\InstanceSource;
 use App\Services\Reports\Instances\EntityInstanceSource;
 use App\Services\Reports\Instances\PeriodInstanceSource;
 use App\Services\Reports\Instances\SingletonInstanceSource;
+use Illuminate\Support\Facades\Auth;
 
 /**
  * Registry mapping each report type to its browse-axis {@see InstanceSource}.
@@ -85,7 +86,8 @@ class ReportBrowser
 
             // ── period axis: accomplishment report (FSS §4) ──────────────────
             'accomplishment_report' => fn () => new PeriodInstanceSource(
-                fn () => DietListCount::query(),
+                fn () => DietListCount::query()
+                    ->when(Auth::user()?->role === 'FSS', fn ($q) => $q->where('fss_user_id', Auth::id())),
                 'service_date',
             ),
         ];

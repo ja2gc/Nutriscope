@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { router } from 'expo-router';
 import { AlertCircle, Bell, ClipboardList, Package, Pin, ShoppingBag } from 'lucide-react-native';
 import { useCallback } from 'react';
 import {
@@ -157,6 +158,7 @@ export default function DashboardScreen() {
           label="POs awaiting receipt"
           value={data?.pos_awaiting_receipt ?? 0}
           accent="amber"
+          onPress={() => router.push('/(tabs)/procurement')}
         />
         <KpiCard
           icon={<Package color="#dc2626" size={22} />}
@@ -225,11 +227,13 @@ function KpiCard({
   label,
   value,
   accent,
+  onPress,
 }: {
   icon: React.ReactNode;
   label: string;
   value: number;
   accent: 'blue' | 'amber' | 'red';
+  onPress?: () => void;
 }) {
   const borderColor = {
     blue: 'border-emerald-200',
@@ -249,7 +253,7 @@ function KpiCard({
     red: 'text-red-700',
   }[accent];
 
-  return (
+  const content = (
     <View className={`flex-row items-center bg-white rounded-xl px-4 py-4 border ${borderColor}`}>
       <View className={`w-10 h-10 rounded-full ${bgColor} items-center justify-center mr-4`}>
         {icon}
@@ -259,6 +263,14 @@ function KpiCard({
         <Text className={`text-2xl font-bold ${valueColor}`}>{value}</Text>
       </View>
     </View>
+  );
+
+  if (!onPress) return content;
+
+  return (
+    <TouchableOpacity onPress={onPress} accessibilityRole="button" activeOpacity={0.8}>
+      {content}
+    </TouchableOpacity>
   );
 }
 
