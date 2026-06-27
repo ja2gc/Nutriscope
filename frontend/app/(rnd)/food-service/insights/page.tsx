@@ -302,6 +302,40 @@ function SupplierChart({ year }: { year: number }) {
 }
 
 // ── Page ──────────────────────────────────────────────────────────────────────
+export function BudgetInsightsPanel({ year }: { year: number }) {
+  const [category, setCategory] = useState<Category>("budget-burn");
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-wrap gap-2">
+        {CATEGORIES.map((c) => (
+          <button
+            key={c.key}
+            onClick={() => setCategory(c.key)}
+            className={`px-4 py-2 rounded-xl text-sm font-bold transition-colors ${
+              category === c.key
+                ? "bg-emerald-600 text-white shadow-sm"
+                : "bg-white text-zinc-500 border border-zinc-200 hover:border-emerald-400"
+            }`}
+          >
+            {c.label}
+          </button>
+        ))}
+      </div>
+
+      <div className={`${card} min-h-[340px]`}>
+        <h2 className="text-xs font-extrabold text-zinc-500 uppercase tracking-wider mb-4">
+          {CATEGORIES.find((c) => c.key === category)?.label} â€” FY {year}
+        </h2>
+        {category === "budget-burn" && <BudgetBurnChart year={year} />}
+        {category === "per-head" && <PerHeadChart year={year} />}
+        {category === "timeline" && <TimelineChart year={year} />}
+        {category === "supplier" && <SupplierChart year={year} />}
+      </div>
+    </div>
+  );
+}
+
 export default function InsightsPage() {
   const [year, setYear] = useState(currentYear);
   const [category, setCategory] = useState<Category>("budget-burn");
