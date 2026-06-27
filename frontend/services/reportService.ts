@@ -3,12 +3,9 @@ import { apiFetch } from "@/lib/apiFetch";
 export type ReportType =
   | "program_project_activity"
   | "menu_calendar"
-  | "dietary_cash_book"
   | "procurement_pack"
   | "demographic_census"
-  | "patient_menu_plan"
-  | "budget_report"
-  | "inventory_report";
+  | "patient_menu_plan";
 
 export interface ReportItem {
   id: number;

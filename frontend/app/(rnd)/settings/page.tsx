@@ -2,9 +2,11 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { Bell, Palette, Sliders } from "lucide-react";
+import { Bell, Palette, Sliders, Wallet } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
+import { getFoodServiceSetting, setFoodServiceSetting } from "@/services/budgetService";
 import {
   Density,
   getAnnouncementNotifications,
@@ -14,6 +16,62 @@ import {
   setDensity as persistDensity,
   setFollowUpNotifications,
 } from "@/lib/preferences";
+
+// Budget per head per day — shared Food Service setting (backend-backed).
+function PerHeadDayLimitCard({ prefix }: { prefix: "fss" | "admin" }) {
+  const [value, setValue] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    getFoodServiceSetting(prefix)
+      .then((s) => setValue(s.per_head_day_limit ?? ""))
+      .catch(() => setMsg("Failed to load setting."))
+      .finally(() => setLoading(false));
+  }, [prefix]);
+
+  async function save() {
+    setSaving(true);
+    setMsg(null);
+    try {
+      const parsed = value.trim() === "" ? null : parseFloat(value);
+      const saved = await setFoodServiceSetting(parsed, prefix);
+      setValue(saved.per_head_day_limit ?? "");
+      setMsg("Saved.");
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "Failed to save.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Card className="p-6 space-y-5">
+      <h3 className="text-xs font-bold text-zinc-900 uppercase tracking-wider flex items-center gap-2">
+        <Wallet className="h-4 w-4 text-brand-green-600" />
+        Food Service Budget
+      </h3>
+      <div className="space-y-2">
+        <span className="text-xs font-semibold text-zinc-600">Budget per head per day (₱)</span>
+        <input
+          type="number" min="0" step="0.01"
+          value={value}
+          disabled={loading}
+          onChange={(e) => setValue(e.target.value)}
+          placeholder="0.00"
+          className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-green-500"
+        />
+      </div>
+      <div className="flex items-center gap-3">
+        <Button onClick={save} disabled={saving || loading} className="text-sm">
+          {saving ? "Saving…" : "Save"}
+        </Button>
+        {msg && <span className="text-xs text-zinc-500">{msg}</span>}
+      </div>
+    </Card>
+  );
+}
 
 export default function SettingsPage() {
   const [density, setDensityState] = useState<Density>("comfortable");
@@ -100,6 +158,8 @@ export default function SettingsPage() {
             Open notifications
           </Link>
         </Card>
+
+        <PerHeadDayLimitCard prefix="fss" />
       </div>
     </div>
   );

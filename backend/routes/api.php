@@ -11,6 +11,7 @@ use App\Http\Controllers\FSS\BudgetController;
 use App\Http\Controllers\FSS\DashboardController as FssDashboardController;
 use App\Http\Controllers\FSS\DietListCountController;
 use App\Http\Controllers\FSS\FoodServiceRecipeController;
+use App\Http\Controllers\FSS\FoodServiceSettingController;
 use App\Http\Controllers\FSS\FsItemController;
 use App\Http\Controllers\FSS\InventoryController;
 use App\Http\Controllers\FSS\MealPrepLogController;
@@ -188,10 +189,9 @@ Route::middleware(['auth:sanctum', 'role:FSS,RND'])->prefix('fss')->group(functi
     // Dashboard
     Route::get('dashboard/summary', [FssDashboardController::class, 'summary']);
 
-    // Inventory routes
+    // Inventory routes - backend reference catalog only, no FSS stocking
     Route::get('inventory/rows', [InventoryController::class, 'rows']);
-    Route::apiResource('inventory', InventoryController::class);
-    Route::post('inventory/{inventory}/restock', [InventoryController::class, 'restock']);
+    Route::apiResource('inventory', InventoryController::class)->only(['index', 'show']);
 
     // Purchase Orders — FSS reads + attachments; writes are RND-only (see below)
     Route::get('purchase-orders/{purchase_order}/activity', [ActivityController::class, 'purchaseOrder']);
@@ -229,11 +229,8 @@ Route::middleware(['auth:sanctum', 'role:FSS,RND'])->prefix('fss')->group(functi
     Route::get('budgets/ledger', [BudgetController::class, 'ledger']);
     Route::apiResource('budgets', BudgetController::class)->only(['index', 'show']);
 
-    // Insights — fiscal year analytics (read-only, both roles)
-    Route::get('insights/budget-burn', [\App\Http\Controllers\FSS\InsightsController::class, 'budgetBurn']);
-    Route::get('insights/per-head-actual-vs-limit', [\App\Http\Controllers\FSS\InsightsController::class, 'perHeadActualVsLimit']);
-    Route::get('insights/procurement-deduction-timeline', [\App\Http\Controllers\FSS\InsightsController::class, 'procurementDeductionTimeline']);
-    Route::get('insights/spend-by-supplier', [\App\Http\Controllers\FSS\InsightsController::class, 'spendBySupplier']);
+    // Food Service settings — budget per head per day (FSS read, RND writes below)
+    Route::get('food-service-settings', [FoodServiceSettingController::class, 'show']);
 
     // Per-record audit history (Spec 5)
     Route::get('inventory/{inventory}/activity', [ActivityController::class, 'inventory']);
@@ -267,6 +264,7 @@ Route::middleware(['auth:sanctum', 'role:FSS,RND'])->prefix('fss')->group(functi
 
         // FS Item catalog edits
         Route::patch('fs-items/{fsItem}', [FsItemController::class, 'update']);
+        Route::patch('fs-items/{fsItem}/vendor-lock', [FsItemController::class, 'toggleDefaultSupplierLock']);
 
         // Menu Cycles
         Route::patch('menu-cycles/{menu_cycle}/activate', [MenuCycleController::class, 'activate']);
@@ -280,6 +278,9 @@ Route::middleware(['auth:sanctum', 'role:FSS,RND'])->prefix('fss')->group(functi
 
         Route::post('budgets/adjust', [BudgetController::class, 'manualAdjust']);
         Route::apiResource('budgets', BudgetController::class)->only(['store']);
+
+        // Food Service settings — budget per head per day (RND writes)
+        Route::put('food-service-settings', [FoodServiceSettingController::class, 'update']);
     });
 
     // Announcements — FSS reads its feed (visibility FSS|All); RND/Admin own writes
@@ -312,6 +313,10 @@ Route::middleware(['auth:sanctum', 'role:Admin'])->prefix('admin')->group(functi
     Route::post('report-branding', [ReportBrandingController::class, 'update']);
     Route::get('ai-usage-limits', [AiUsageLimitController::class, 'show']);
     Route::put('ai-usage-limits', [AiUsageLimitController::class, 'update']);
+
+    // Food Service settings — budget per head per day (Admin reads + writes)
+    Route::get('food-service-settings', [FoodServiceSettingController::class, 'show']);
+    Route::put('food-service-settings', [FoodServiceSettingController::class, 'update']);
 
     // Reports browse — Admin-scoped subset (demographic_census, budget_report, procurement_pack).
     // ReportController::guardAdmin() enforces the allowlist; 403 for any other type.

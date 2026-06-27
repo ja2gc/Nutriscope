@@ -154,10 +154,7 @@ export default function FSSRecipeListPage() {
               {recipes.map((recipe) => (
                 <tr key={recipe.id} className="hover:bg-zinc-50 transition-colors">
                   <td className="px-5 py-3.5">
-                    <Link href={`/food-service/foods/${recipe.id}`}
-                      className="font-bold text-zinc-900 hover:text-emerald-700 transition-colors">
-                      {recipe.name}
-                    </Link>
+                    <span className="font-bold text-zinc-900">{recipe.name}</span>
                   </td>
                   <td className="px-4 py-3.5">
                     {recipe.category ? (

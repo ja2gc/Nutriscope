@@ -2,7 +2,6 @@
 
 namespace App\Services\FSS;
 
-use App\Models\Inventory;
 use App\Models\MealPrepLog;
 use App\Models\MenuCycle;
 use App\Models\MenuCycleDay;
@@ -12,6 +11,11 @@ use Carbon\Carbon;
 
 class FssDashboardService
 {
+    public function __construct(
+        private PurchaseOrderLifecycleService $lifecycle = new PurchaseOrderLifecycleService(),
+    ) {
+    }
+
     /**
      * Return all FSS dashboard KPIs as a plain array. Every figure is a live
      * query so it reflects the current state of the database.
@@ -25,12 +29,54 @@ class FssDashboardService
             ->orderByDesc('activation_date')
             ->first();
 
+        $pendingPos = $this->pendingPos();
+
         return [
             'meals_to_log_today'    => $this->mealsToLogToday($cycle, $weekday, $today),
-            'pos_awaiting_receipt'  => $this->posAwaitingReceipt(),
-            'inventory_no_stock'    => $this->inventoryNoStock(),
+            'pending_pos'           => $pendingPos,
+            'pending_pos_count'     => count($pendingPos),
             'today_service'         => $this->todayService($cycle, $weekday, $today),
         ];
+    }
+
+    /**
+     * Open-execution POs and what each is waiting on. Food POs wait on receipts
+     * and/or served population; supplies POs wait on receipts only.
+     *
+     * @return array<int,array{id:int,po_number:?string,procurement_track:string,waiting_on:array<int,string>}>
+     */
+    private function pendingPos(): array
+    {
+        $pos = PurchaseOrder::with(['vendorGroups.attachments', 'shoppingList'])
+            ->where('lifecycle_status', 'open_execution')
+            ->orderByDesc('converted_at')
+            ->get();
+
+        return $pos->map(function (PurchaseOrder $po) {
+            $waiting = [];
+
+            $needsReceipts = $po->vendorGroups->isEmpty()
+                || $po->vendorGroups->contains(
+                    fn (PurchaseOrderVendorGroup $g) => $g->attachments->where('type', 'receipt')->isEmpty()
+                );
+            if ($needsReceipts) {
+                $waiting[] = 'receipts';
+            }
+
+            if ($po->isFoodTrack()) {
+                $prep = $this->lifecycle->servedPopulationProgress($po->shoppingList);
+                if ($prep['expected'] === 0 || $prep['done'] < $prep['expected'] || $prep['served'] <= 0) {
+                    $waiting[] = 'served_population';
+                }
+            }
+
+            return [
+                'id'                => $po->id,
+                'po_number'         => $po->po_number,
+                'procurement_track' => $po->procurement_track,
+                'waiting_on'        => $waiting,
+            ];
+        })->filter(fn ($p) => $p['waiting_on'] !== [])->values()->all();
     }
 
     /**
@@ -65,34 +111,6 @@ class FssDashboardService
             ->exists();
 
         return $alreadyLogged ? 0 : 1;
-    }
-
-    /**
-     * Count vendor groups in open execution that still need a receipt.
-     * Top-level PO attachments are legacy/back-compat; the operational workflow
-     * happens per vendor group so stock-in and Phase 3 can advance by vendor.
-     */
-    private function posAwaitingReceipt(): int
-    {
-        $vendorGroupCount = PurchaseOrderVendorGroup::query()
-            ->whereHas('purchaseOrder', fn ($q) => $q->where('lifecycle_status', 'open_execution'))
-            ->whereDoesntHave('attachments', fn ($q) => $q->where('type', 'receipt'))
-            ->count();
-
-        $legacyPoCount = PurchaseOrder::where('status', 'ordered')
-            ->whereDoesntHave('vendorGroups')
-            ->whereDoesntHave('attachments', fn ($q) => $q->whereIn('type', ['receipt', 'proof']))
-            ->count();
-
-        return $vendorGroupCount + $legacyPoCount;
-    }
-
-    /**
-     * Count of inventory rows where quantity_in_stock is at or below zero.
-     */
-    private function inventoryNoStock(): int
-    {
-        return Inventory::where('quantity_in_stock', '<=', 0)->count();
     }
 
     /**

@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
-import { AlertCircle, Bell, ClipboardList, Package, Pin, ShoppingBag } from 'lucide-react-native';
+import { AlertCircle, Bell, ClipboardList, Pin, ShoppingBag } from 'lucide-react-native';
 import { useCallback } from 'react';
 import {
   ActivityIndicator,
@@ -20,10 +20,17 @@ interface ServiceRow {
   has_shortfall: boolean;
 }
 
+interface PendingPo {
+  id: number;
+  po_number: string | null;
+  procurement_track: 'food' | 'supplies';
+  waiting_on: string[];
+}
+
 interface DashboardData {
   meals_to_log_today: number;
-  pos_awaiting_receipt: number;
-  inventory_no_stock: number;
+  pending_pos: PendingPo[];
+  pending_pos_count: number;
   today_service: ServiceRow[];
 }
 
@@ -155,16 +162,10 @@ export default function DashboardScreen() {
         />
         <KpiCard
           icon={<ShoppingBag color="#d97706" size={22} />}
-          label="POs awaiting receipt"
-          value={data?.pos_awaiting_receipt ?? 0}
+          label="Pending POs"
+          value={data?.pending_pos_count ?? 0}
           accent="amber"
           onPress={() => router.push('/(tabs)/procurement')}
-        />
-        <KpiCard
-          icon={<Package color="#dc2626" size={22} />}
-          label="Items out of stock"
-          value={data?.inventory_no_stock ?? 0}
-          accent="red"
         />
       </View>
 

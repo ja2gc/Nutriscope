@@ -9,12 +9,25 @@ class ShoppingListResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
+        $total      = (float) $this->items->sum(fn ($i) => (float) $i->total);
+        $population = (int) ($this->estimate_population ?? 0);
+        $days       = ($this->period_start && $this->period_end)
+            ? (int) $this->period_start->diffInDays($this->period_end) + 1
+            : (int) ($this->days_span ?? 0);
+
+        // Estimated budget per head per day: total span cost ÷ (days × population).
+        // Never blank once estimate_population is set — all inputs are present.
+        $estimatedBudgetPerHeadPerDay = ($population > 0 && $days > 0)
+            ? round($total / ($population * $days), 2)
+            : null;
+
         return [
             'id'            => $this->id,
             'rnd_user_id'   => $this->rnd_user_id,
             'name'          => $this->name,
             'list_date'     => $this->list_date?->toDateString(),
             'list_type'     => $this->list_type,
+            'procurement_track' => $this->procurement_track,
             'status'        => $this->status,
             'coverage_status' => $this->coverage_status,
             'uncovered_dates' => $this->uncovered_dates ?? [],
@@ -24,6 +37,8 @@ class ShoppingListResource extends JsonResource
             'total_served_population' => $this->total_served_population,
             'estimate_population' => $this->estimate_population,
             'estimate_population_updated_at' => $this->estimate_population_updated_at?->toISOString(),
+            'estimated_total' => round($total, 2),
+            'estimated_budget_per_head_per_day' => $estimatedBudgetPerHeadPerDay,
             'items'         => $this->items->map(fn ($item) => [
                 'id'              => $item->id,
                 'fs_item_id'      => $item->fs_item_id,
@@ -34,6 +49,7 @@ class ShoppingListResource extends JsonResource
                 'supplier_id'     => $item->supplier_id,
                 'unit_price'      => $item->unit_price,
                 'total'           => $item->total,
+                'vendor_locked'   => $item->vendor_locked_at !== null,
                 'purchase_qty'    => $item->purchase_qty,
                 'purchase_unit'   => $item->purchase_unit,
                 'purchase_price'  => $item->purchase_price,

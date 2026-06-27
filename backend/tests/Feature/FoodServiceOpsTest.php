@@ -64,48 +64,25 @@ class FoodServiceOpsTest extends TestCase
             ->assertJsonStructure(['data' => [['id', 'fs_item_id', 'quantity_in_stock', 'unit']]]);
     }
 
-    public function test_fss_can_update_inventory(): void
+    public function test_fss_inventory_write_route_is_removed(): void
     {
+        // Inventory is now a backend reference catalog only — no FSS stocking writes.
         $fsItem    = $this->makeFsItem();
         $inventory = Inventory::factory()->create(['fs_item_id' => $fsItem->id, 'quantity_in_stock' => 50]);
 
-        $response = $this->actingAs($this->fss)
-            ->patchJson("/api/fss/inventory/{$inventory->id}", [
-                'quantity_in_stock' => 80,
-            ]);
-
-        $response->assertOk()
-            ->assertJsonPath('data.quantity_in_stock', '80.00');
-
-        $this->assertDatabaseHas('inventory', ['id' => $inventory->id, 'quantity_in_stock' => 80]);
+        $this->actingAs($this->fss)
+            ->patchJson("/api/fss/inventory/{$inventory->id}", ['quantity_in_stock' => 80])
+            ->assertStatus(405);
     }
 
-    public function test_fss_can_restock_inventory(): void
+    public function test_fss_restock_route_is_removed(): void
     {
         $fsItem    = $this->makeFsItem();
         $inventory = Inventory::factory()->create(['fs_item_id' => $fsItem->id, 'quantity_in_stock' => 20]);
 
-        $response = $this->actingAs($this->fss)
-            ->postJson("/api/fss/inventory/{$inventory->id}/restock", [
-                'quantity' => 30,
-            ]);
-
-        $response->assertOk()
-            ->assertJsonPath('data.quantity_in_stock', '50.00');
-    }
-
-    public function test_restock_requires_positive_quantity(): void
-    {
-        $fsItem    = $this->makeFsItem();
-        $inventory = Inventory::factory()->create(['fs_item_id' => $fsItem->id]);
-
-        $response = $this->actingAs($this->fss)
-            ->postJson("/api/fss/inventory/{$inventory->id}/restock", [
-                'quantity' => -5,
-            ]);
-
-        $response->assertUnprocessable()
-            ->assertJsonValidationErrors(['quantity']);
+        $this->actingAs($this->fss)
+            ->postJson("/api/fss/inventory/{$inventory->id}/restock", ['quantity' => 30])
+            ->assertNotFound();
     }
 
     public function test_rnd_can_access_fss_inventory_routes(): void
@@ -240,7 +217,7 @@ class FoodServiceOpsTest extends TestCase
             ->assertStatus(422);
     }
 
-    public function test_rnd_and_fss_can_update_vendor_group_operational_fields(): void
+    public function test_vendor_group_or_and_audited_price_correction_only(): void
     {
         $supplier = Supplier::factory()->create();
         $fsItem = $this->makeFsItem();
@@ -257,21 +234,32 @@ class FoodServiceOpsTest extends TestCase
         $group = \App\Models\PurchaseOrderVendorGroup::firstOrFail();
         $line = $group->items()->firstOrFail();
 
+        // Only the unit cost / price correction is accepted during open execution;
+        // purchase_qty/purchase_unit are frozen and ignored. Qty stays 5, price → 22.
         $this->actingAs($this->fss)
             ->patchJson("/api/fss/purchase-order-vendor-groups/{$group->id}", [
                 'or_number' => 'OR-FSS-1',
                 'items' => [[
                     'id' => $line->id,
-                    'purchase_qty' => 6,
-                    'purchase_unit' => 'kg',
-                    'purchase_price' => 22,
+                    'purchase_qty' => 6,   // ignored (frozen)
+                    'purchase_unit' => 'sack', // ignored (frozen)
+                    'unit_price' => 22,
                 ]],
             ])
             ->assertOk()
             ->assertJsonPath('data.vendor_groups.0.or_number', 'OR-FSS-1');
 
-        $this->assertDatabaseHas('purchase_order_vendor_groups', ['id' => $group->id, 'or_number' => 'OR-FSS-1', 'total_amount' => 132]);
-        $this->assertDatabaseHas('purchase_orders', ['id' => $group->purchase_order_id, 'total_amount' => 132]);
+        // total = frozen qty (5) × corrected unit_price (22) = 110.
+        $this->assertDatabaseHas('purchase_order_vendor_groups', ['id' => $group->id, 'or_number' => 'OR-FSS-1', 'total_amount' => 110]);
+        $this->assertDatabaseHas('purchase_orders', ['id' => $group->purchase_order_id, 'total_amount' => 110]);
+
+        // Every correction is audited with the user who made it.
+        $this->assertDatabaseHas('purchase_order_item_corrections', [
+            'purchase_order_item_id' => $line->id,
+            'old_unit_price' => 20,
+            'new_unit_price' => 22,
+            'corrected_by'   => $this->fss->id,
+        ]);
     }
 
     public function test_po_completes_when_all_vendor_receipts_and_served_population_exist(): void
@@ -616,19 +604,16 @@ class FoodServiceOpsTest extends TestCase
         $weekNext = MenuCycle::factory()->create(['rnd_user_id' => $this->rnd->id, 'week_start_date' => '2026-06-22']);
         MenuCycleDay::create(['menu_cycle_id' => $weekNext->id, 'day_of_week' => 'Monday', 'meal_type' => 'lunch', 'fs_item_id' => $itemMon->id, 'quantity' => 1, 'estimate_population' => 10]);
 
-        // Fri 19 → Mon 22: Fri from week N, Mon from week N+1, Sat/Sun unplanned.
+        // Fri 19 → Mon 22: Sat/Sun unplanned → all-or-nothing blocks the whole list.
         $response = $this->actingAs($this->rnd)->postJson('/api/fss/shopping-lists/generate', [
             'start_date' => '2026-06-19',
             'end_date'   => '2026-06-22',
         ]);
 
-        $response->assertCreated()
-            ->assertJsonPath('data.coverage_status', 'partial');
-
-        $items = collect($response->json('data.items'));
-        $this->assertEqualsWithDelta(10, (float) $items->firstWhere('fs_item_id', $itemFri->id)['qty'], 0.01);
-        $this->assertEqualsWithDelta(10, (float) $items->firstWhere('fs_item_id', $itemMon->id)['qty'], 0.01);
-        $this->assertEqualsCanonicalizing(['2026-06-20', '2026-06-21'], $response->json('data.uncovered_dates'));
+        $response->assertStatus(422);
+        $this->assertEqualsCanonicalizing(['2026-06-20', '2026-06-21'], $response->json('missing_dates'));
+        // No partial list is created.
+        $this->assertDatabaseMissing('shopping_lists', ['period_start' => '2026-06-19']);
     }
 
     public function test_generate_hard_blocks_when_entire_span_uncovered(): void
@@ -639,7 +624,7 @@ class FoodServiceOpsTest extends TestCase
         ]);
 
         $response->assertStatus(422)
-            ->assertJsonPath('uncovered_dates', ['2030-01-01', '2030-01-02', '2030-01-03']);
+            ->assertJsonPath('missing_dates', ['2030-01-01', '2030-01-02', '2030-01-03']);
     }
 
     public function test_generate_blocks_planned_days_missing_estimate_population(): void
@@ -664,7 +649,7 @@ class FoodServiceOpsTest extends TestCase
         ]);
 
         $response->assertStatus(422)
-            ->assertJsonPath('missing_population_dates', ['2026-06-15']);
+            ->assertJsonPath('missing_dates', ['2026-06-15']);
 
         $this->assertDatabaseMissing('shopping_lists', [
             'period_start' => '2026-06-15',
@@ -871,14 +856,17 @@ class FoodServiceOpsTest extends TestCase
 
         $response->assertCreated();
 
-        // 6. NET-of-stock buy quantities (Spec 6 #2): planned − on-hand − open orders.
-        // fsItem1: planned 6 kg (recipe 3 kg/serving × pop 2 ÷ servings 1), on-hand 10 → fully covered, NOT on the list.
-        // fsItem2: planned 10 kg (ready item 5/head × pop 2),               on-hand 8  → buy 2.
-        $this->assertDatabaseMissing('shopping_list_items', ['fs_item_id' => $fsItem1->id]);
-
+        // 6. Food list includes ALL required ingredients for the span — on-hand stock
+        // is NOT subtracted (inventory is a backend reference catalog only).
+        // fsItem1: planned 6 kg (recipe 3 kg/serving × pop 2 ÷ servings 1).
+        // fsItem2: planned 10 kg (ready item 5/head × pop 2).
+        $this->assertDatabaseHas('shopping_list_items', [
+            'fs_item_id' => $fsItem1->id,
+            'qty'        => 6.00,
+        ]);
         $this->assertDatabaseHas('shopping_list_items', [
             'fs_item_id' => $fsItem2->id,
-            'qty'        => 2.00,
+            'qty'        => 10.00,
         ]);
     }
 
@@ -940,10 +928,8 @@ class FoodServiceOpsTest extends TestCase
             'quantity' => 100,
             'estimate_population' => 10,
         ]);
-        Budget::factory()->create([
-            'fiscal_year' => 2026,
-            'per_head_day_limit' => 12,
-        ]);
+        // Per-head limit now lives in the shared Food Service settings.
+        \App\Models\FoodServiceSetting::singleton()->update(['per_head_day_limit' => 12]);
 
         $response = $this->actingAs($this->rnd)
             ->getJson("/api/fss/menu-cycles/{$cycle->id}/compute");
@@ -1056,7 +1042,8 @@ class FoodServiceOpsTest extends TestCase
             ->assertJsonPath('data.allocated_amount', '100000.00');
 
         $data = $response->json('data');
-        $this->assertEqualsWithDelta(80000, (float) $data['remaining_balance'], 0.01); // 100k + 5k - 25k
+        $this->assertEqualsWithDelta(80000, (float) $data['remaining'], 0.01); // 100k + 5k - 25k
+        $this->assertEqualsWithDelta(25000, (float) $data['total_deductions'], 0.01);
     }
 
     public function test_budget_summary_returns_notice_when_no_fiscal_year(): void
@@ -1116,22 +1103,6 @@ class FoodServiceOpsTest extends TestCase
         $this->assertCount(1, $response->json('data'));
     }
 
-    public function test_budget_report_generator_uses_ledger(): void
-    {
-        Budget::factory()->create(['fiscal_year' => 2026, 'allocated_amount' => 80000]);
-        BudgetLedger::create(['fiscal_year' => 2026, 'type' => 'po_deduction', 'amount' => 30000]);
-        BudgetLedger::create(['fiscal_year' => 2026, 'type' => 'manual_addition', 'amount' => 10000]);
-
-        $report = new \App\Models\Report(['type' => 'budget_report', 'parameters' => ['fiscal_year' => 2026]]);
-        $data   = (new \App\Services\Reports\Generators\BudgetReportGenerator())->data($report);
-
-        $this->assertSame(2026, $data['fiscal_year']);
-        $this->assertEqualsWithDelta(80000, $data['allocated_amount'], 0.01);
-        $this->assertEqualsWithDelta(30000, $data['total_po_deductions'], 0.01);
-        $this->assertEqualsWithDelta(10000, $data['total_manual_additions'], 0.01);
-        $this->assertEqualsWithDelta(60000, $data['remaining_balance'], 0.01); // 80k + 10k - 30k
-    }
-
     public function test_complete_day_persists_served_population(): void
     {
         $fs = FsItem::factory()->create(['name' => 'Rice', 'base_unit' => 'g']);
@@ -1171,66 +1142,14 @@ class FoodServiceOpsTest extends TestCase
             'meal_type' => 'lunch', 'fs_item_id' => $fs->id, 'quantity' => 100,
             'estimate_population' => 10,
         ]);
-        // Per-head cap comes from fiscal year budget.
-        Budget::factory()->create([
-            'fiscal_year' => (int) now()->format('Y'), 'per_head_day_limit' => 50,
-        ]);
+        // Per-head cap is the shared Food Service setting.
+        \App\Models\FoodServiceSetting::singleton()->update(['per_head_day_limit' => 50]);
 
         $res = $this->actingAs($this->fss)->getJson('/api/fss/menu-cycles/cost-today')->assertOk();
         $this->assertEqualsWithDelta(10, $res->json('data.cost_per_head'), 0.01);
         $this->assertEqualsWithDelta(50, $res->json('data.limit_per_head'), 0.01);
         $this->assertTrue($res->json('data.within_budget'));
         $this->assertSame($weekday, $res->json('data.weekday'));
-    }
-
-    public function test_insights_per_head_vs_limit_returns_po_data(): void
-    {
-        $sl = ShoppingList::factory()->create([
-            'period_start' => '2026-06-01', 'period_end' => '2026-06-07',
-        ]);
-        Budget::factory()->create(['fiscal_year' => 2026, 'per_head_day_limit' => 120]);
-        PurchaseOrder::factory()->create([
-            'rnd_user_id' => $this->rnd->id,
-            'shopping_list_id' => $sl->id,
-            'lifecycle_status' => 'completed',
-            'actual_budget_per_head_per_day' => 95.00,
-        ]);
-
-        $response = $this->actingAs($this->fss)
-            ->getJson('/api/fss/insights/per-head-actual-vs-limit?fiscal_year=2026');
-
-        $response->assertOk();
-        $data = $response->json('data');
-        $this->assertCount(1, $data['points']);
-        $this->assertEqualsWithDelta(95, $data['points'][0]['actual_per_head'], 0.01);
-        $this->assertEqualsWithDelta(120, $data['summary']['limit_per_head'], 0.01);
-    }
-
-    public function test_insights_per_head_includes_estimated_from_ppa(): void
-    {
-        $sl = ShoppingList::factory()->create([
-            'period_start' => '2026-06-01', 'period_end' => '2026-06-07',
-        ]);
-        Budget::factory()->create(['fiscal_year' => 2026, 'per_head_day_limit' => 120]);
-        $po = PurchaseOrder::factory()->create([
-            'rnd_user_id' => $this->rnd->id,
-            'shopping_list_id' => $sl->id,
-            'lifecycle_status' => 'completed',
-            'actual_budget_per_head_per_day' => 95.00,
-        ]);
-        // Frozen PPA planning snapshot → estimated per head = 8000 / 100 = 80.
-        \App\Models\ProgramProjectActivity::create([
-            'purchase_order_id' => $po->id,
-            'activity' => 'Food Subsistence for Patients',
-            'estimated_total_cost' => 8000,
-            'estimated_output_patients' => 100,
-        ]);
-
-        $data = $this->actingAs($this->fss)
-            ->getJson('/api/fss/insights/per-head-actual-vs-limit?fiscal_year=2026')
-            ->assertOk()->json('data');
-
-        $this->assertEqualsWithDelta(80, $data['points'][0]['estimated_per_head'], 0.01);
     }
 
     public function test_generate_rounds_to_whole_purchase_units(): void
@@ -1500,12 +1419,13 @@ class FoodServiceOpsTest extends TestCase
             ->assertJsonPath('data.formula', 'total_cost = quantity_per_head * population * unit_cost');
     }
 
-    public function test_insights_routes_respond_for_fss(): void
+    public function test_insights_routes_are_removed(): void
     {
-        $this->actingAs($this->fss)->getJson('/api/fss/insights/spend-by-supplier')->assertOk();
-        $this->actingAs($this->fss)->getJson('/api/fss/insights/budget-burn')->assertOk();
-        $this->actingAs($this->fss)->getJson('/api/fss/insights/per-head-actual-vs-limit')->assertOk();
-        $this->actingAs($this->fss)->getJson('/api/fss/insights/procurement-deduction-timeline')->assertOk();
+        // Insights/graphs were removed in the food-service redesign.
+        $this->actingAs($this->fss)->getJson('/api/fss/insights/spend-by-supplier')->assertNotFound();
+        $this->actingAs($this->fss)->getJson('/api/fss/insights/budget-burn')->assertNotFound();
+        $this->actingAs($this->fss)->getJson('/api/fss/insights/per-head-actual-vs-limit')->assertNotFound();
+        $this->actingAs($this->fss)->getJson('/api/fss/insights/procurement-deduction-timeline')->assertNotFound();
     }
 
     public function test_fss_gets_404_on_deleted_cleaning_log_routes(): void

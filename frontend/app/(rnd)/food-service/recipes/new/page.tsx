@@ -53,12 +53,51 @@ function Required() {
   return <span className="text-red-500 ml-0.5">*</span>;
 }
 
+// ─── Client-side unit conversion (mirrors backend UnitConverter) ───────────────
+const MASS_TO_G: Record<string, number> = {
+  mg: 0.001, g: 1, gram: 1, grams: 1, kg: 1000, oz: 28.349523125, lb: 453.59237,
+};
+const VOLUME_TO_ML: Record<string, number> = {
+  ml: 1, milliliter: 1, millilitre: 1, cc: 1, l: 1000, liter: 1000, litre: 1000,
+  tsp: 4.92892, teaspoon: 4.92892, tbsp: 14.7868, tablespoon: 14.7868, cup: 236.588,
+};
+const norm = (u: string) => u.trim().toLowerCase();
+const isMass = (u: string) => norm(u) in MASS_TO_G;
+const isVolume = (u: string) => norm(u) in VOLUME_TO_ML;
+const isKnownUnit = (u: string) => isMass(u) || isVolume(u);
+
+/** Base units contained in one `from` unit, when both share a dimension. null if not convertible. */
+function basePerUnit(from: string, to: string): number | null {
+  const f = norm(from), t = norm(to);
+  if (f === t) return 1;
+  if (isMass(f) && isMass(t)) return MASS_TO_G[f] / MASS_TO_G[t];
+  if (isVolume(f) && isVolume(t)) return VOLUME_TO_ML[f] / VOLUME_TO_ML[t];
+  return null;
+}
+
+/** Convertibility of a recipe row against its inventory base unit. */
+function rowConversion(row: IngredientRow): { convertible: boolean; warning: string | null; blocked: boolean } {
+  if (!row.invItem) return { convertible: true, warning: null, blocked: false };
+  const base = row.invItem.base_unit;
+  if (norm(row.unit) === norm(base)) return { convertible: true, warning: null, blocked: false };
+  const factor = basePerUnit(row.unit, base);
+  if (factor !== null) return { convertible: true, warning: null, blocked: false };
+  // Inventory unit is convertible but the chosen unit is not → hard block.
+  if (isKnownUnit(base) && !isKnownUnit(row.unit)) {
+    return { convertible: false, blocked: true, warning: `Unit "${row.unit}" can't convert to inventory unit "${base}".` };
+  }
+  // Outlier inventory unit — allowed, warn only.
+  return { convertible: false, blocked: false, warning: `Unit "${row.unit}" can't be converted to inventory unit "${base}"; cost uses entered unit as-is.` };
+}
+
 function costPerIngredient(row: IngredientRow): number {
   if (!row.invItem || !row.quantity) return 0;
   const qty = parseFloat(row.quantity);
   if (isNaN(qty) || qty <= 0) return 0;
-  // qty is in the item's base_unit; unit_cost is ₱ per base_unit.
-  return qty * row.invItem.unit_cost;
+  // Convert qty from the recipe unit into the item's base_unit, then × ₱/base_unit.
+  const factor = basePerUnit(row.unit, row.invItem.base_unit);
+  const qtyInBase = factor !== null ? qty * factor : qty;
+  return qtyInBase * row.invItem.unit_cost;
 }
 
 let rowKey = 5000;
@@ -111,6 +150,10 @@ export default function NewFSSRecipePage() {
 
     if (valid.length === 0) { setError("Add at least one ingredient."); return; }
     if (singleItemMode && valid.length !== 1) { setError("Single item foods must have exactly one ingredient."); return; }
+
+    // Block bundle/non-convertible units when the inventory unit IS convertible.
+    const blockedRow = ingredients.find((r) => r.invItem && r.quantity && rowConversion(r).blocked);
+    if (blockedRow) { setError(rowConversion(blockedRow).warning ?? "Incompatible ingredient unit."); return; }
 
     try {
       setSaving(true);
@@ -272,8 +315,11 @@ export default function NewFSSRecipePage() {
           </div>
 
           <div className="space-y-3">
-            {ingredients.map((row, idx) => (
-              <div key={row.key} className="grid grid-cols-[1fr_80px_72px_80px_28px] gap-2 items-start">
+            {ingredients.map((row, idx) => {
+              const conv = rowConversion(row);
+              return (
+              <React.Fragment key={row.key}>
+              <div className="grid grid-cols-[1fr_80px_72px_80px_28px] gap-2 items-start">
                 {/* Ingredient search */}
                 <div className="relative">
                   <div className="flex items-center gap-2 w-full px-3 py-2 border border-zinc-300 rounded-lg bg-white">
@@ -329,7 +375,14 @@ export default function NewFSSRecipePage() {
                   <X className="h-3.5 w-3.5" />
                 </button>
               </div>
-            ))}
+              {row.invItem && conv.warning && (
+                <div className={`text-[10px] font-semibold px-1 ${conv.blocked ? "text-red-600" : "text-amber-600"}`}>
+                  {conv.blocked ? "⛔ " : "⚠ "}{conv.warning}
+                </div>
+              )}
+              </React.Fragment>
+              );
+            })}
           </div>
         </div>
 

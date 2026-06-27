@@ -171,33 +171,34 @@ class BudgetLedgerTest extends TestCase
         $this->assertSame('manual_addition', $res->json('data.0.type'));
     }
 
-    public function test_ledger_endpoint_filters_by_type(): void
+    public function test_ledger_endpoint_filters_by_system_source(): void
     {
-        BudgetLedger::create(['fiscal_year' => 2026, 'type' => 'manual_addition', 'amount' => 5000]);
-        BudgetLedger::create(['fiscal_year' => 2026, 'type' => 'po_deduction',    'amount' => 3000]);
+        BudgetLedger::create(['fiscal_year' => 2026, 'type' => 'manual_addition', 'source' => 'manual', 'amount' => 5000]);
+        BudgetLedger::create(['fiscal_year' => 2026, 'type' => 'po_deduction',    'source' => 'system', 'amount' => 3000]);
 
         $res = $this->actingAs($this->fss)
-            ->getJson('/api/fss/budgets/ledger?fiscal_year=2026&type=po_deduction')
+            ->getJson('/api/fss/budgets/ledger?fiscal_year=2026&source=system')
             ->assertOk();
 
         $this->assertCount(1, $res->json('data'));
+        $this->assertSame('po_deduction', $res->json('data.0.type'));
     }
 
-    public function test_ledger_endpoint_manual_group_filter(): void
+    public function test_ledger_endpoint_manual_source_filter(): void
     {
-        BudgetLedger::create(['fiscal_year' => 2026, 'type' => 'manual_addition',  'amount' => 5000]);
-        BudgetLedger::create(['fiscal_year' => 2026, 'type' => 'manual_deduction', 'amount' => 1000]);
-        BudgetLedger::create(['fiscal_year' => 2026, 'type' => 'po_deduction',     'amount' => 3000]);
+        BudgetLedger::create(['fiscal_year' => 2026, 'type' => 'manual_addition',  'source' => 'manual', 'amount' => 5000]);
+        BudgetLedger::create(['fiscal_year' => 2026, 'type' => 'manual_deduction', 'source' => 'manual', 'amount' => 1000]);
+        BudgetLedger::create(['fiscal_year' => 2026, 'type' => 'po_deduction',     'source' => 'system', 'amount' => 3000]);
 
         $manual = $this->actingAs($this->fss)
-            ->getJson('/api/fss/budgets/ledger?fiscal_year=2026&type=manual')
+            ->getJson('/api/fss/budgets/ledger?fiscal_year=2026&source=manual')
             ->assertOk();
         $this->assertCount(2, $manual->json('data'));
 
-        $po = $this->actingAs($this->fss)
-            ->getJson('/api/fss/budgets/ledger?fiscal_year=2026&type=po')
+        $system = $this->actingAs($this->fss)
+            ->getJson('/api/fss/budgets/ledger?fiscal_year=2026&source=system')
             ->assertOk();
-        $this->assertCount(1, $po->json('data'));
+        $this->assertCount(1, $system->json('data'));
     }
 
     // ── PO lifecycle guard ───────────────────────────────────────────────────

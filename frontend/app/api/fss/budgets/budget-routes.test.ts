@@ -26,11 +26,11 @@ describe("/api/fss/budgets fiscal-year proxy routes", () => {
     });
   });
 
-  test("GET ledger proxies to the fiscal-year ledger endpoint", async () => {
-    await getLedger(new Request("http://localhost/api/fss/budgets/ledger?fiscal_year=2026&type=po") as never);
+  test("GET ledger proxies to the fiscal-year ledger endpoint filtered by source", async () => {
+    await getLedger(new Request("http://localhost/api/fss/budgets/ledger?fiscal_year=2026&source=system") as never);
 
     expect(proxyMock).toHaveBeenCalledWith("/fss/budgets/ledger", {
-      search: new URLSearchParams("fiscal_year=2026&type=po"),
+      search: new URLSearchParams("fiscal_year=2026&source=system"),
     });
   });
 

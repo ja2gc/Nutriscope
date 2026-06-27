@@ -14,8 +14,8 @@ class StoreInventoryRequest extends FormRequest
             'item_type'               => ['required', 'in:ingredient,supply,recipe'],
             'fs_item_id'              => ['nullable', 'exists:fs_items,id', 'required_unless:item_type,recipe'],
             'recipe_id'               => ['nullable', 'exists:food_service_recipes,id', 'required_if:item_type,recipe'],
-            'quantity_in_stock'       => ['required', 'numeric', 'min:0'],
-            'unit'                    => ['required', 'string'],
+            'quantity_in_stock'       => ['nullable', 'numeric', 'min:0'],
+            'unit'                    => ['nullable', 'string'],
             'unit_price'              => ['nullable', 'numeric', 'min:0'],
             'notes'                   => ['nullable', 'string'],
         ];

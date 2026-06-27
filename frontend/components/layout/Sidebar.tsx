@@ -376,17 +376,6 @@ export function Sidebar({ open = false, onClose }: { open?: boolean; onClose?: (
                 }`}
               >
                 <Link
-                  href="/food-service/inventory"
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all duration-150 ${
-                    pathname === "/food-service/inventory"
-                      ? "text-emerald-500 font-extrabold"
-                      : "text-zinc-500 hover:text-zinc-300"
-                  }`}
-                >
-                  <span className={`h-1.5 w-1.5 rounded-full ${pathname === "/food-service/inventory" ? "bg-emerald-500" : "bg-zinc-700"}`} />
-                  Inventory
-                </Link>
-                <Link
                   href="/food-service/menu-cycle"
                   className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all duration-150 ${
                     pathname === "/food-service/menu-cycle"

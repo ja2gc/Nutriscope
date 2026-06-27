@@ -10,8 +10,8 @@ class BudgetLedger extends Model
     protected $table = 'budget_ledger';
 
     protected $fillable = [
-        'fiscal_year', 'type', 'amount', 'reason', 'reference',
-        'purchase_order_id', 'procurement_span', 'created_by',
+        'fiscal_year', 'type', 'source', 'amount', 'reason', 'reference',
+        'purchase_order_id', 'created_by',
     ];
 
     protected $casts = [

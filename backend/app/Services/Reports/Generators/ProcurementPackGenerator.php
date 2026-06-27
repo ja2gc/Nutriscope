@@ -82,9 +82,15 @@ class ProcurementPackGenerator implements ReportGenerator
             return $query->where('shopping_list_id', $params['shopping_list_id'])->orderBy('id')->get();
         }
 
-        // Fall back to a date range of received POs.
-        $start = ! empty($params['start']) ? Carbon::parse($params['start']) : Carbon::now()->startOfMonth();
-        $end   = ! empty($params['end']) ? Carbon::parse($params['end']) : Carbon::now()->endOfMonth();
+        // Explicit date range of received POs — no current-date fallback (must be reproducible).
+        if (empty($params['start']) || empty($params['end'])) {
+            throw new \InvalidArgumentException(
+                'Procurement pack requires a purchase_order_id, shopping_list_id, or an explicit start/end range.'
+            );
+        }
+
+        $start = Carbon::parse($params['start']);
+        $end   = Carbon::parse($params['end']);
 
         return $query->where('status', 'received')
             ->whereBetween('order_date', [$start->toDateString(), $end->toDateString()])

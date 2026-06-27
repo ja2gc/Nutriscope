@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Models\Inventory;
 use App\Models\MealPrepLog;
 use App\Models\MenuCycle;
 use App\Models\MenuCycleDay;
@@ -40,74 +39,14 @@ class FssDashboardTest extends TestCase
         $this->actingAs($admin)->getJson('/api/fss/dashboard/summary')->assertForbidden();
     }
 
-    // ── pos_awaiting_receipt ──────────────────────────────────────────────────
+    // ── pending_pos ───────────────────────────────────────────────────────────
 
-    public function test_ordered_po_without_attachment_increments_pos_awaiting_receipt(): void
-    {
-        PurchaseOrder::factory()->create(['status' => 'ordered']);
-
-        $data = $this->actingAs($this->fss)
-            ->getJson('/api/fss/dashboard/summary')
-            ->assertOk()
-            ->json('data');
-
-        $this->assertEquals(1, $data['pos_awaiting_receipt']);
-    }
-
-    public function test_ordered_po_with_receipt_attachment_is_not_counted(): void
-    {
-        $po = PurchaseOrder::factory()->create(['status' => 'ordered']);
-        PurchaseOrderAttachment::create([
-            'purchase_order_id' => $po->id,
-            'type'              => 'receipt',
-            'path'              => 'po-attachments/test.jpg',
-            'caption'           => null,
-        ]);
-
-        $data = $this->actingAs($this->fss)
-            ->getJson('/api/fss/dashboard/summary')
-            ->assertOk()
-            ->json('data');
-
-        $this->assertEquals(0, $data['pos_awaiting_receipt']);
-    }
-
-    public function test_ordered_po_with_proof_attachment_is_not_counted(): void
-    {
-        $po = PurchaseOrder::factory()->create(['status' => 'ordered']);
-        PurchaseOrderAttachment::create([
-            'purchase_order_id' => $po->id,
-            'type'              => 'proof',
-            'path'              => 'po-attachments/proof.jpg',
-            'caption'           => null,
-        ]);
-
-        $data = $this->actingAs($this->fss)
-            ->getJson('/api/fss/dashboard/summary')
-            ->assertOk()
-            ->json('data');
-
-        $this->assertEquals(0, $data['pos_awaiting_receipt']);
-    }
-
-    public function test_draft_and_received_pos_are_excluded_from_awaiting_receipt(): void
-    {
-        PurchaseOrder::factory()->create(['status' => 'draft']);
-        PurchaseOrder::factory()->create(['status' => 'received']);
-
-        $data = $this->actingAs($this->fss)
-            ->getJson('/api/fss/dashboard/summary')
-            ->assertOk()
-            ->json('data');
-
-        $this->assertEquals(0, $data['pos_awaiting_receipt']);
-    }
-
-    public function test_open_vendor_group_without_receipt_increments_pos_awaiting_receipt(): void
+    public function test_supplies_po_without_receipt_is_pending_on_receipts(): void
     {
         $po = PurchaseOrder::factory()->create([
             'status' => 'draft',
             'lifecycle_status' => 'open_execution',
+            'procurement_track' => 'supplies',
         ]);
 
         PurchaseOrderVendorGroup::create([
@@ -122,14 +61,16 @@ class FssDashboardTest extends TestCase
             ->assertOk()
             ->json('data');
 
-        $this->assertEquals(1, $data['pos_awaiting_receipt']);
+        $this->assertEquals(1, $data['pending_pos_count']);
+        $this->assertContains('receipts', $data['pending_pos'][0]['waiting_on']);
     }
 
-    public function test_vendor_group_with_receipt_is_not_counted_as_awaiting_receipt(): void
+    public function test_supplies_po_with_receipt_is_not_pending(): void
     {
         $po = PurchaseOrder::factory()->create([
             'status' => 'draft',
             'lifecycle_status' => 'open_execution',
+            'procurement_track' => 'supplies',
         ]);
 
         $group = PurchaseOrderVendorGroup::create([
@@ -152,45 +93,23 @@ class FssDashboardTest extends TestCase
             ->assertOk()
             ->json('data');
 
-        $this->assertEquals(0, $data['pos_awaiting_receipt']);
+        $this->assertEquals(0, $data['pending_pos_count']);
     }
 
-    // ── inventory_no_stock ────────────────────────────────────────────────────
-
-    public function test_inventory_row_at_zero_increments_no_stock(): void
+    public function test_completed_po_is_not_pending(): void
     {
-        Inventory::factory()->create(['quantity_in_stock' => 0]);
+        PurchaseOrder::factory()->create([
+            'status' => 'received',
+            'lifecycle_status' => 'completed',
+            'procurement_track' => 'supplies',
+        ]);
 
         $data = $this->actingAs($this->fss)
             ->getJson('/api/fss/dashboard/summary')
             ->assertOk()
             ->json('data');
 
-        $this->assertEquals(1, $data['inventory_no_stock']);
-    }
-
-    public function test_inventory_row_below_zero_increments_no_stock(): void
-    {
-        Inventory::factory()->create(['quantity_in_stock' => -5]);
-
-        $data = $this->actingAs($this->fss)
-            ->getJson('/api/fss/dashboard/summary')
-            ->assertOk()
-            ->json('data');
-
-        $this->assertEquals(1, $data['inventory_no_stock']);
-    }
-
-    public function test_inventory_row_with_stock_is_not_counted(): void
-    {
-        Inventory::factory()->create(['quantity_in_stock' => 10]);
-
-        $data = $this->actingAs($this->fss)
-            ->getJson('/api/fss/dashboard/summary')
-            ->assertOk()
-            ->json('data');
-
-        $this->assertEquals(0, $data['inventory_no_stock']);
+        $this->assertEquals(0, $data['pending_pos_count']);
     }
 
     // ── meals_to_log_today ────────────────────────────────────────────────────
@@ -259,31 +178,6 @@ class FssDashboardTest extends TestCase
         $this->assertEquals(0, $data['meals_to_log_today']);
     }
 
-    public function test_active_cycle_without_slot_today_returns_zero(): void
-    {
-        // Create a cycle with a slot for a day that is NOT today.
-        $weekday      = Carbon::today()->format('l');
-        $otherWeekday = $weekday === 'Monday' ? 'Tuesday' : 'Monday';
-
-        $cycle = MenuCycle::factory()->create([
-            'is_active' => true,
-            'status'    => 'active',
-        ]);
-
-        MenuCycleDay::factory()->create([
-            'menu_cycle_id' => $cycle->id,
-            'day_of_week'   => $otherWeekday,
-            'meal_type'     => 'lunch',
-        ]);
-
-        $data = $this->actingAs($this->fss)
-            ->getJson('/api/fss/dashboard/summary')
-            ->assertOk()
-            ->json('data');
-
-        $this->assertEquals(0, $data['meals_to_log_today']);
-    }
-
     // ── today_service ─────────────────────────────────────────────────────────
 
     public function test_today_service_shows_slot_as_not_prepped_when_no_log(): void
@@ -310,40 +204,9 @@ class FssDashboardTest extends TestCase
         $this->assertFalse($data['today_service'][0]['prepped']);
     }
 
-    public function test_today_service_shows_slot_as_prepped_when_log_exists(): void
-    {
-        $weekday = Carbon::today()->format('l');
-        $today   = now()->toDateString();
-
-        $cycle = MenuCycle::factory()->create([
-            'is_active' => true,
-            'status'    => 'active',
-        ]);
-
-        MenuCycleDay::factory()->create([
-            'menu_cycle_id' => $cycle->id,
-            'day_of_week'   => $weekday,
-            'meal_type'     => 'lunch',
-        ]);
-
-        MealPrepLog::factory()->create([
-            'menu_cycle_id' => $cycle->id,
-            'service_date'  => $today,
-            'status'        => 'completed',
-        ]);
-
-        $data = $this->actingAs($this->fss)
-            ->getJson('/api/fss/dashboard/summary')
-            ->assertOk()
-            ->json('data');
-
-        $this->assertNotEmpty($data['today_service']);
-        $this->assertTrue($data['today_service'][0]['prepped']);
-    }
-
     // ── response shape ────────────────────────────────────────────────────────
 
-    public function test_summary_returns_expected_keys(): void
+    public function test_summary_returns_expected_keys_and_no_stock_key(): void
     {
         $data = $this->actingAs($this->fss)
             ->getJson('/api/fss/dashboard/summary')
@@ -351,12 +214,13 @@ class FssDashboardTest extends TestCase
             ->json('data');
 
         $this->assertArrayHasKey('meals_to_log_today', $data);
-        $this->assertArrayHasKey('pos_awaiting_receipt', $data);
-        $this->assertArrayHasKey('inventory_no_stock', $data);
+        $this->assertArrayHasKey('pending_pos', $data);
+        $this->assertArrayHasKey('pending_pos_count', $data);
         $this->assertArrayHasKey('today_service', $data);
+        // Stock-related KPIs are removed.
+        $this->assertArrayNotHasKey('inventory_no_stock', $data);
+        $this->assertArrayNotHasKey('pos_awaiting_receipt', $data);
     }
-
-    // ── RND role can also access (FSS,RND group) ──────────────────────────────
 
     public function test_rnd_user_can_access_fss_dashboard_summary(): void
     {

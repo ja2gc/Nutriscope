@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import {
   ShoppingBag, Plus, Trash2, RefreshCw, ChevronLeft, Sparkles, Split,
-  FileText, X, Pencil, Check, Search,
+  FileText, X, Pencil, Check, Search, Eye,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import {
@@ -647,7 +647,7 @@ export default function ProcurementPage() {
         {loading ? <div className="py-16 text-center text-xs text-zinc-400">Loading…</div> : tab === "lists" ? (
           lists.length === 0 ? <div className="py-16 text-center"><ShoppingBag className="h-8 w-8 text-zinc-300 mx-auto mb-3" /><p className="text-xs text-zinc-400 font-medium">No shopping lists yet. Suggest one from a menu.</p></div> : (
             <table className="w-full text-xs">
-              <thead className="bg-zinc-50 border-b border-zinc-100"><tr>{["List", "Type", "Span", "Items", "Status", ""].map((h) => <th key={h} className="px-4 py-3 text-left text-[10px] font-bold text-zinc-500 uppercase tracking-wider">{h}</th>)}</tr></thead>
+              <thead className="bg-zinc-50 border-b border-zinc-100"><tr>{["List", "Type", "Span", "Items", "Status", "Actions"].map((h) => <th key={h} className="px-4 py-3 text-left text-[10px] font-bold text-zinc-500 uppercase tracking-wider">{h}</th>)}</tr></thead>
               <tbody className="divide-y divide-zinc-100">
                 {lists.map((l) => (
                   <tr key={l.id} className="hover:bg-zinc-50/60">
@@ -661,12 +661,7 @@ export default function ProcurementPage() {
                           </button>
                         </div>
                       ) : (
-                        <div className="flex items-center gap-2">
-                          <button onClick={() => setListDetail(l.id)} className="font-semibold text-emerald-700 hover:underline cursor-pointer">{l.name}</button>
-                          <button onClick={() => { setEditingListId(l.id); setEditingListName(l.name); }} className="p-1 rounded text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 cursor-pointer" aria-label={`Edit ${l.name}`}>
-                            <Pencil className="h-3 w-3" />
-                          </button>
-                        </div>
+                        <span className="font-semibold text-zinc-800">{l.name}</span>
                       )}
                     </td>
                     <td className="px-4 py-3 text-zinc-500">{l.list_type}</td>
@@ -681,7 +676,13 @@ export default function ProcurementPage() {
                         <option value="converted">converted</option>
                       </select>
                     </td>
-                    <td className="px-4 py-3"><button onClick={() => removeList(l.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-zinc-500 hover:text-red-600 cursor-pointer" aria-label={`Delete ${l.name}`}><Trash2 className="h-3.5 w-3.5" /></button></td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => setListDetail(l.id)} className="p-1.5 rounded-lg hover:bg-zinc-100 text-zinc-500 cursor-pointer" aria-label={`Open ${l.name}`} title="Open"><Eye className="h-3.5 w-3.5" /></button>
+                        <button onClick={() => { setEditingListId(l.id); setEditingListName(l.name); }} className="p-1.5 rounded-lg text-zinc-500 hover:text-zinc-700 hover:bg-zinc-100 cursor-pointer" aria-label={`Edit ${l.name}`} title="Edit"><Pencil className="h-3.5 w-3.5" /></button>
+                        <button onClick={() => removeList(l.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-zinc-500 hover:text-red-600 cursor-pointer" aria-label={`Delete ${l.name}`} title="Delete"><Trash2 className="h-3.5 w-3.5" /></button>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -695,9 +696,7 @@ export default function ProcurementPage() {
                 {procurementEvents.map(({ list, po }) => (
                   <tr key={list.id} className="hover:bg-zinc-50/60">
                     <td className="px-4 py-3">
-                      <button onClick={() => po ? setPoDetail(po.id) : setListDetail(list.id)} className="font-semibold text-emerald-700 hover:underline cursor-pointer">
-                        {spanLabel(list)}
-                      </button>
+                      <span className="font-semibold text-zinc-800">{spanLabel(list)}</span>
                       <div className="text-[10px] text-zinc-400">{list.name}</div>
                     </td>
                     <td className="px-4 py-3 font-mono text-zinc-700">{peso(list.items.reduce((sum, item) => sum + num(item.total), 0))}</td>

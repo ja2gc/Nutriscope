@@ -67,6 +67,21 @@ class MealPrepLogController extends Controller
             'served_population' => ['required', 'integer', 'min:0'],
         ]);
 
+        // Served population can be backfilled anytime BEFORE the related food PO
+        // completes. Once a food PO covering this date is completed, it's locked.
+        $lockedByCompletedPo = \App\Models\PurchaseOrder::where('procurement_track', 'food')
+            ->where('lifecycle_status', 'completed')
+            ->whereHas('shoppingList', fn ($q) => $q
+                ->whereDate('period_start', '<=', $data['service_date'])
+                ->whereDate('period_end', '>=', $data['service_date']))
+            ->exists();
+
+        if ($lockedByCompletedPo) {
+            return response()->json([
+                'message' => 'Served population is locked — the food purchase order covering this date is already completed.',
+            ], 422);
+        }
+
         $log = MealPrepLog::where('menu_cycle_id', $menuCycle->id)
             ->whereDate('service_date', $data['service_date'])
             ->first();

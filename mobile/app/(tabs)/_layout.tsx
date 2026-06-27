@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router';
-import { BarChart3, CalendarDays, LayoutDashboard, Package, ShoppingCart } from 'lucide-react-native';
+import { BarChart3, CalendarDays, LayoutDashboard, ShoppingCart } from 'lucide-react-native';
 import AppHeader from '../../components/AppHeader';
 
 export default function TabsLayout() {
@@ -41,16 +41,6 @@ export default function TabsLayout() {
             <BarChart3 color={color} size={size} />
           ),
           header: () => <AppHeader title="Prep & Accomplishment" />,
-        }}
-      />
-      <Tabs.Screen
-        name="inventory"
-        options={{
-          title: 'Inventory',
-          tabBarIcon: ({ color, size }) => (
-            <Package color={color} size={size} />
-          ),
-          header: () => <AppHeader title="Inventory" />,
         }}
       />
       <Tabs.Screen

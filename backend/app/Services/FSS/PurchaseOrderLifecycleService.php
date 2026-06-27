@@ -42,12 +42,35 @@ class PurchaseOrderLifecycleService
             $hasReceipts = $groups->isNotEmpty()
                 && $groups->every(fn (PurchaseOrderVendorGroup $group) => $group->attachments->where('type', 'receipt')->isNotEmpty());
 
+            $isFood = $po->isFoodTrack();
+            $actualTotal = round((float) $groups->sum('total_amount'), 2);
+
+            // Supplies POs complete on receipts alone — no served population, no per-head.
+            if (! $isFood) {
+                if (! $hasReceipts) {
+                    return $po;
+                }
+
+                $po->forceFill([
+                    'lifecycle_status' => 'completed',
+                    'completed_at' => now(),
+                    'final_locked_at' => now(),
+                    'total_amount' => $actualTotal,
+                    'status' => 'received',
+                    'received_date' => now()->toDateString(),
+                ])->save();
+
+                event(new PurchaseOrderCompleted($po->fresh(['vendorGroups', 'shoppingList', 'programProjectActivity'])));
+
+                return $po->fresh();
+            }
+
+            // Food PO: receipts on every group AND served population logged for every span date.
             $prep = $this->servedPopulationProgress($po->shoppingList);
             if (! $hasReceipts || $prep['expected'] === 0 || $prep['done'] < $prep['expected'] || $prep['served'] <= 0) {
                 return $po;
             }
 
-            $actualTotal = round((float) $groups->sum('total_amount'), 2);
             $actualPerHead = round($actualTotal / $prep['served'], 2);
 
             // Block completion if no fiscal year allocation exists for the procurement year.
@@ -60,11 +83,16 @@ class PurchaseOrderLifecycleService
             $po->forceFill([
                 'lifecycle_status' => 'completed',
                 'completed_at' => now(),
+                'final_locked_at' => now(),
                 'actual_budget_per_head_per_day' => $actualPerHead,
                 'total_amount' => $actualTotal,
                 'status' => 'received',
                 'received_date' => now()->toDateString(),
             ])->save();
+
+            // Permanently lock the menu-cycle day cells this PO snapshotted.
+            \App\Models\MenuCycleDay::where('snapshot_purchase_order_id', $po->id)
+                ->update(['po_snapshot_locked' => true]);
 
             if ($po->programProjectActivity) {
                 $po->programProjectActivity->update([
@@ -233,5 +261,66 @@ class PurchaseOrderLifecycleService
         }
 
         return $shoppingList->period_start->format('m/d/y') . ' - ' . $shoppingList->period_end->format('m/d/y');
+    }
+
+    /**
+     * Freeze the scaled values onto each menu-cycle day cell covered by a food PO's
+     * procurement span. The snapshot is the cell's recipe/item profile scaled to the
+     * shopping list's estimated population, captured permanently at conversion time.
+     */
+    public function writeMenuCycleSnapshots(PurchaseOrder $purchaseOrder, ShoppingList $shoppingList): void
+    {
+        if (! $shoppingList->period_start || ! $shoppingList->period_end) {
+            return;
+        }
+
+        $population = (int) ($shoppingList->estimate_population ?? 0);
+
+        for ($d = Carbon::parse($shoppingList->period_start); $d->lte(Carbon::parse($shoppingList->period_end)); $d->addDay()) {
+            $cycle = MenuCycle::coveringDate($d);
+            if (! $cycle) {
+                continue;
+            }
+
+            $cycle->loadMissing('days.recipe.ingredients.fsItem', 'days.fsItem');
+            $cells = $cycle->days->where('day_of_week', $d->format('l'))
+                ->filter(fn ($day) => $day->recipe_id || $day->fs_item_id);
+
+            foreach ($cells as $cell) {
+                // Locked cells never re-snapshot.
+                if ($cell->po_snapshot_locked) {
+                    continue;
+                }
+
+                $pop = (int) ($cell->estimate_population ?? $population);
+
+                if ($cell->recipe_id && $cell->recipe) {
+                    $snapshot = \App\Services\MenuCycleCostService::recipeProfile($cell->recipe, $pop);
+                } elseif ($cell->fs_item_id && $cell->fsItem) {
+                    $item = $cell->fsItem;
+                    $qty  = (float) ($cell->quantity ?? 1);
+                    $totalQty = $pop * $qty;
+                    $totalCost = round($totalQty * $item->unit_cost, 2);
+                    $snapshot = [
+                        'fs_item_id'     => $item->id,
+                        'name'           => $item->name,
+                        'unit'           => $item->base_unit,
+                        'unit_cost'      => round($item->unit_cost, 2),
+                        'quantity'       => round($qty, 2),
+                        'population'     => $pop,
+                        'total_quantity' => round($totalQty, 2),
+                        'total_cost'     => $totalCost,
+                    ];
+                } else {
+                    continue;
+                }
+
+                $cell->forceFill([
+                    'snapshot_purchase_order_id' => $purchaseOrder->id,
+                    'po_snapshot'                => $snapshot,
+                    'po_snapshot_at'             => now(),
+                ])->save();
+            }
+        }
     }
 }

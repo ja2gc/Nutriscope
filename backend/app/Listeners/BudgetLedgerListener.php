@@ -15,12 +15,12 @@ class BudgetLedgerListener
         $po = $event->purchaseOrder;
         $sl = $po->shoppingList;
 
-        if (! $sl?->period_start) {
-            Log::warning("BudgetLedgerListener: PO {$po->id} has no shopping list period_start — skipping deduction.");
-            return;
-        }
+        // Food POs derive the fiscal year from the procurement span; supplies POs
+        // have no span, so fall back to the completion date's year.
+        $year = $sl?->period_start
+            ? Carbon::parse($sl->period_start)->year
+            : Carbon::parse($po->completed_at ?? now())->year;
 
-        $year   = Carbon::parse($sl->period_start)->year;
         $budget = Budget::where('fiscal_year', $year)->first();
 
         if (! $budget) {
@@ -33,15 +33,13 @@ class BudgetLedgerListener
             return;
         }
 
-        $span = $sl->period_start->format('m/d/Y') . ' - ' . $sl->period_end->format('m/d/Y');
-
         BudgetLedger::create([
             'fiscal_year'       => $year,
             'type'              => 'po_deduction',
+            'source'            => 'system',
             'amount'            => (float) $po->total_amount,
             'reference'         => $po->po_number ?? "PO #{$po->id}",
             'purchase_order_id' => $po->id,
-            'procurement_span'  => $span,
             'created_by'        => null,
         ]);
     }

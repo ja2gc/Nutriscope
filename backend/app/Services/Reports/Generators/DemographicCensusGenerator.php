@@ -39,8 +39,12 @@ class DemographicCensusGenerator implements ReportGenerator
     public function data(Report $report): array
     {
         $params = $report->parameters ?? [];
-        $start  = ! empty($params['start']) ? Carbon::parse($params['start']) : Carbon::now()->startOfYear();
-        $end    = ! empty($params['end']) ? Carbon::parse($params['end']) : Carbon::now()->endOfDay();
+        // Period must be explicit so the census is reproducible — no current-date fallback.
+        if (empty($params['start']) || empty($params['end'])) {
+            throw new \InvalidArgumentException('Demographic census requires an explicit start/end period.');
+        }
+        $start = Carbon::parse($params['start']);
+        $end   = Carbon::parse($params['end']);
 
         $patients = Patient::query()
             ->whereBetween('admission_date', [$start->toDateString(), $end->toDateString()])

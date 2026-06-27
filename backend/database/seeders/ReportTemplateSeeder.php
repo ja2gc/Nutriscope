@@ -46,16 +46,6 @@ class ReportTemplateSeeder extends Seeder
                 ],
             ],
             [
-                'type' => 'dietary_cash_book', 'name' => 'Dietary Cash Book',
-                'blade_view' => 'reports.dietary-cash-book',
-                'description' => 'Cash disbursement record (running ledger).',
-                'signatories' => [
-                    ['role' => 'prepared_by', 'label' => 'Accountable Officer:', 'name' => $rnd[0], 'title' => $rnd[1]],
-                    ['role' => 'certified_correct', 'label' => 'Certified Correct:', 'name' => $admin[0], 'title' => $admin[1]],
-                    ['role' => 'approved_by', 'label' => 'Approved:', 'name' => $chief[0], 'title' => $chief[1]],
-                ],
-            ],
-            [
                 'type' => 'procurement_pack', 'name' => 'Procurement Pack',
                 'blade_view' => 'reports.procurement-pack',
                 'description' => 'AIR + Statement of Marketing + Summary of Marketing.',
@@ -115,24 +105,6 @@ class ReportTemplateSeeder extends Seeder
                 'signatories' => [
                     ['role' => 'prepared_by', 'label' => 'Prepared by:', 'name' => $rnd[0], 'title' => $rnd[1]],
                     ['role' => 'conforme', 'label' => 'Conforme (Attending Physician):', 'name' => '', 'title' => 'Attending Physician'],
-                ],
-            ],
-            [
-                'type' => 'budget_report', 'name' => 'Budget Report',
-                'blade_view' => 'reports.budget',
-                'description' => 'Planned vs actual, variance, any range.',
-                'signatories' => [
-                    ['role' => 'prepared_by', 'label' => 'Prepared by:', 'name' => $rnd[0], 'title' => $rnd[1]],
-                    ['role' => 'approved_by', 'label' => 'Approved:', 'name' => $chief[0], 'title' => $chief[1]],
-                ],
-            ],
-            [
-                'type' => 'inventory_report', 'name' => 'Inventory Report',
-                'blade_view' => 'reports.inventory',
-                'description' => 'Stock levels, value, low/no-stock.',
-                'signatories' => [
-                    ['role' => 'prepared_by', 'label' => 'Prepared by:', 'name' => $rnd[0], 'title' => $rnd[1]],
-                    ['role' => 'approved_by', 'label' => 'Approved:', 'name' => $chief[0], 'title' => $chief[1]],
                 ],
             ],
         ];

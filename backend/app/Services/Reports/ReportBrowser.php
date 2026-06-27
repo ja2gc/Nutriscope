@@ -2,7 +2,6 @@
 
 namespace App\Services\Reports;
 
-use App\Models\Budget;
 use App\Models\DietListCount;
 use App\Models\MealPlan;
 use App\Models\MenuCycle;
@@ -12,7 +11,6 @@ use App\Models\PurchaseOrder;
 use App\Services\Reports\Contracts\InstanceSource;
 use App\Services\Reports\Instances\EntityInstanceSource;
 use App\Services\Reports\Instances\PeriodInstanceSource;
-use App\Services\Reports\Instances\SingletonInstanceSource;
 use Illuminate\Support\Facades\Auth;
 
 /**
@@ -30,10 +28,6 @@ class ReportBrowser
     {
         $this->sources = [
             // ── period axis (year → month) ───────────────────────────────────
-            'dietary_cash_book' => fn () => new PeriodInstanceSource(
-                fn () => PurchaseOrder::query()->whereIn('lifecycle_status', ['completed', 'archived']),
-                'completed_at',
-            ),
             'demographic_census' => fn () => new PeriodInstanceSource(
                 fn () => Patient::query(),
                 'admission_date',
@@ -48,22 +42,6 @@ class ReportBrowser
                     . ($po->supplier ? " — {$po->supplier->name}" : '')),
                 'completed_at',
             ),
-            'budget_report' => fn () => new class implements InstanceSource {
-                public function axis(): string { return 'entity'; }
-                public function instances(array $filters): array {
-                    return Budget::orderByDesc('fiscal_year')->get()
-                        ->map(fn (Budget $b) => [
-                            'key'    => (string) $b->fiscal_year,
-                            'label'  => 'FY ' . $b->fiscal_year,
-                            'params' => ['fiscal_year' => $b->fiscal_year],
-                            'date'   => null,
-                        ])->values()->all();
-                }
-                public function hasData(array $params): bool {
-                    $year = $params['fiscal_year'] ?? null;
-                    return $year !== null && Budget::where('fiscal_year', $year)->exists();
-                }
-            },
             'program_project_activity' => fn () => $this->menuCycleSource(),
             'menu_calendar'            => fn () => $this->menuCycleSource(),
             'patient_menu_plan' => fn () => new EntityInstanceSource(
@@ -80,9 +58,6 @@ class ReportBrowser
                     . ($r->status ? " ({$r->status})" : '')),
                 'created_at',
             ),
-
-            // ── singleton axis (point-in-time) ───────────────────────────────
-            'inventory_report' => fn () => new SingletonInstanceSource('Current stock'),
 
             // ── period axis: accomplishment report (FSS §4) ──────────────────
             'accomplishment_report' => fn () => new PeriodInstanceSource(

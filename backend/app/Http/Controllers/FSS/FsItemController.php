@@ -5,8 +5,10 @@ namespace App\Http\Controllers\FSS;
 use App\Http\Controllers\Controller;
 use App\Models\FsItem;
 use App\Models\PurchaseOrder;
+use App\Services\FSS\LatestProcurementVendorService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
@@ -55,6 +57,33 @@ class FsItemController extends Controller
         Cache::flush();
 
         return response()->json(['data' => $fsItem->fresh()]);
+    }
+
+    /**
+     * Lock or unlock the catalog item's suggested vendor. While locked, the vendor
+     * stops auto-updating from the latest procurement until explicitly unlocked.
+     */
+    public function toggleDefaultSupplierLock(Request $request, FsItem $fsItem, LatestProcurementVendorService $vendorSync): JsonResponse
+    {
+        $data = $request->validate([
+            'locked' => ['required', 'boolean'],
+        ]);
+
+        if ($data['locked']) {
+            $vendorSync->lock($fsItem, Auth::id());
+        } else {
+            $vendorSync->unlock($fsItem);
+        }
+
+        $fsItem->refresh();
+
+        return response()->json(['data' => [
+            'id'                  => $fsItem->id,
+            'default_supplier_id' => $fsItem->default_supplier_id,
+            'vendor_locked'       => $fsItem->vendorLocked(),
+            'locked_at'           => $fsItem->default_supplier_locked_at?->toDateTimeString(),
+            'locked_by'           => $fsItem->defaultSupplierLockedBy?->name,
+        ]]);
     }
 
     /**

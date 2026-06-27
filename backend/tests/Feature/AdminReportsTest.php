@@ -36,13 +36,13 @@ class AdminReportsTest extends TestCase
             ->assertOk();
     }
 
-    public function test_admin_can_browse_budget_report_instances(): void
+    public function test_admin_retired_budget_report_is_not_found(): void
     {
         Budget::factory()->create();
 
         $this->actingAs($this->admin)
             ->getJson('/api/admin/reports/budget_report/instances')
-            ->assertOk();
+            ->assertNotFound();
     }
 
     public function test_admin_can_browse_procurement_pack_instances(): void
@@ -132,13 +132,13 @@ class AdminReportsTest extends TestCase
             ->assertForbidden();
     }
 
-    // ── Types not in the allowlist are also 403 (not just 404) ─────────────
+    // ── Types not in the allowlist are 403 (clinical PHI guard) ────────────
 
-    public function test_admin_blocked_from_food_service_only_types_not_in_allowlist(): void
+    public function test_admin_blocked_from_clinical_types_not_in_allowlist(): void
     {
-        // inventory_report is not in the admin allowlist
+        // ncp_summary is clinical PHI — never allowed for Admin.
         $this->actingAs($this->admin)
-            ->getJson('/api/admin/reports/inventory_report/instances')
+            ->getJson('/api/admin/reports/ncp_summary/instances')
             ->assertForbidden();
     }
 }

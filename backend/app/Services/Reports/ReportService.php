@@ -7,10 +7,7 @@ use App\Models\ReportBranding;
 use App\Models\ReportTemplate;
 use App\Services\Reports\Contracts\ReportGenerator;
 use App\Services\Reports\Generators\AccomplishmentReportGenerator;
-use App\Services\Reports\Generators\BudgetReportGenerator;
 use App\Services\Reports\Generators\DemographicCensusGenerator;
-use App\Services\Reports\Generators\DietaryCashBookGenerator;
-use App\Services\Reports\Generators\InventoryReportGenerator;
 use App\Services\Reports\Generators\MenuCalendarGenerator;
 use App\Services\Reports\Generators\NcpSummaryGenerator;
 use App\Services\Reports\Generators\PatientMenuPlanGenerator;
@@ -32,15 +29,10 @@ class ReportService
     private const GENERATORS = [
         'program_project_activity' => ProgramProjectActivityGenerator::class,
         'menu_calendar'            => MenuCalendarGenerator::class,
-        'dietary_cash_book'        => DietaryCashBookGenerator::class,
         'procurement_pack'         => ProcurementPackGenerator::class,
         'demographic_census'       => DemographicCensusGenerator::class,
         'patient_menu_plan'        => PatientMenuPlanGenerator::class,
         'ncp_summary'              => NcpSummaryGenerator::class,
-        'budget_report'            => BudgetReportGenerator::class,
-        'budget'                   => BudgetReportGenerator::class,
-        'inventory_report'         => InventoryReportGenerator::class,
-        'inventory'                => InventoryReportGenerator::class,
         'accomplishment_report'    => AccomplishmentReportGenerator::class,
     ];
 

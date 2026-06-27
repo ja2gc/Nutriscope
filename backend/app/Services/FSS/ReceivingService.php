@@ -34,12 +34,19 @@ class ReceivingService
         return [$qty * $basePerLine, $lineUnitPrice / $basePerLine];
     }
 
+    public function __construct(
+        private LatestProcurementVendorService $vendorSync = new LatestProcurementVendorService(),
+    ) {
+    }
+
     public function receive(PurchaseOrder $purchaseOrder): void
     {
         $touched = [];
 
+        // Group-aware so the vendor suggestion can track the supplier per line.
         foreach ($purchaseOrder->items as $item) {
-            $this->receiveLine($item, $touched, $purchaseOrder->id);
+            $supplierId = $item->vendorGroup?->supplier_id;
+            $this->receiveLine($item, $touched, $purchaseOrder->id, $supplierId);
         }
 
         $this->recalculateTouchedRecipes($touched);
@@ -50,13 +57,13 @@ class ReceivingService
         $touched = [];
 
         foreach ($vendorGroup->items as $item) {
-            $this->receiveLine($item, $touched, $vendorGroup->purchase_order_id);
+            $this->receiveLine($item, $touched, $vendorGroup->purchase_order_id, $vendorGroup->supplier_id);
         }
 
         $this->recalculateTouchedRecipes($touched);
     }
 
-    private function receiveLine(PurchaseOrderItem $item, array &$touched, int $purchaseOrderId): void
+    private function receiveLine(PurchaseOrderItem $item, array &$touched, int $purchaseOrderId, ?int $supplierId = null): void
     {
         if (! $item->fs_item_id) {
             Log::info('ReceivingService: skipped free-text PO line', [
@@ -99,6 +106,9 @@ class ReceivingService
             $fs->purchase_price = round($perBaseCost * $basePerPurchase, 2);
             $fs->save();
         }
+
+        // Vendor auto-updates from the latest procurement unless manually locked.
+        $this->vendorSync->syncFromReceipt($fs, $supplierId);
 
         $touched[$fs->id] = true;
     }

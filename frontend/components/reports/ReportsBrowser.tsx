@@ -2,8 +2,8 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  FileText, RefreshCw, CalendarRange, CalendarDays, BookText, PackageCheck,
-  Wallet, Boxes, Download, Trash2, Users, ClipboardList, Building2, Save,
+  FileText, RefreshCw, CalendarRange, CalendarDays, PackageCheck,
+  Download, Trash2, Users, ClipboardList, Building2, Save,
   Archive, Loader2, CheckCircle2, AlertTriangle, FolderArchive, Eye, Stethoscope,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
@@ -38,10 +38,7 @@ export interface CatalogEntry { type: string; name: string; desc: string; icon: 
 export const FULL_CATALOG: CatalogEntry[] = [
   { type: "program_project_activity", name: "Program Project Activity", desc: "Weekly menu, cost, headcount & inclusive dates.", icon: CalendarRange, group: "Food Service" },
   { type: "menu_calendar", name: "Menu Calendar", desc: "Printable Mon→Sun grid for the kitchen.", icon: CalendarDays, group: "Food Service" },
-  { type: "dietary_cash_book", name: "Dietary Cash Book", desc: "Cash disbursement ledger from received POs.", icon: BookText, group: "Food Service" },
   { type: "procurement_pack", name: "Procurement Pack", desc: "AIR + Statement + Summary of Marketing.", icon: PackageCheck, group: "Food Service" },
-  { type: "budget_report", name: "Budget Report", desc: "Planned vs actual spend with variance.", icon: Wallet, group: "Food Service" },
-  { type: "inventory_report", name: "Inventory Report", desc: "Current stock levels, value & low-stock.", icon: Boxes, group: "Food Service" },
   { type: "accomplishment_report", name: "Accomplishment Report", desc: "Per-staff weekly duty sheet + diet-list headcount logged by FSS.", icon: ClipboardList, group: "Food Service" },
   { type: "demographic_census", name: "Demographic Census", desc: "Patient counts by age, sex, ward, diagnosis.", icon: ClipboardList, group: "Clinical" },
   { type: "patient_menu_plan", name: "Patient Menu Plan", desc: "A patient's ADIME meal plan as a calendar.", icon: Users, group: "Clinical" },
@@ -51,7 +48,6 @@ export const FULL_CATALOG: CatalogEntry[] = [
 // Admin-allowed catalog — non-clinical PHI types only
 export const ADMIN_CATALOG: CatalogEntry[] = [
   { type: "demographic_census", name: "Demographic Census", desc: "Patient counts by age, sex, ward, diagnosis.", icon: ClipboardList, group: "Clinical" },
-  { type: "budget_report", name: "Budget Report", desc: "Planned vs actual spend with variance.", icon: Wallet, group: "Food Service" },
   { type: "procurement_pack", name: "Procurement Pack", desc: "AIR + Statement + Summary of Marketing.", icon: PackageCheck, group: "Food Service" },
 ];
 
@@ -402,33 +398,28 @@ function ArchivedTab({
       ) : (
         <table className="w-full text-xs">
           <thead className="bg-zinc-50 border-b border-zinc-100">
-            <tr>{["Report", "Type", "Archived", "Status", ""].map((h) => (
+            <tr>{["Report", "Type", "Archived", "Status", "Actions"].map((h) => (
               <th key={h} className="px-4 py-3 text-left text-[10px] font-bold text-zinc-500 uppercase tracking-wider">{h}</th>
             ))}</tr>
           </thead>
           <tbody className="divide-y divide-zinc-100">
             {pagedReports.map((r) => (
-              <tr
-                key={r.id}
-                onClick={() => r.file_path && setPreview(r)}
-                className={`hover:bg-zinc-50/60 ${r.file_path ? "cursor-pointer" : ""}`}
-              >
-                <td className="px-4 py-3 font-semibold text-zinc-800">
-                  <span className="flex items-center gap-2">
-                    {r.file_path && <Eye className="h-3.5 w-3.5 text-zinc-300" />}{r.title}
-                  </span>
-                </td>
+              <tr key={r.id} className="hover:bg-zinc-50/60">
+                <td className="px-4 py-3 font-semibold text-zinc-800">{r.title}</td>
                 <td className="px-4 py-3 text-zinc-500">{label(r.type)}</td>
                 <td className="px-4 py-3 text-zinc-500 tabular-nums">{r.generated_at ? new Date(r.generated_at).toLocaleString() : "—"}</td>
                 <td className="px-4 py-3"><Badge tone={STATUS_TONE[r.status] ?? "zinc"}>{r.status}</Badge></td>
                 <td className="px-4 py-3">
                   <div className="flex items-center justify-end gap-1">
                     {r.file_path && (
-                      <a href={reportDownloadUrl(r.id, apiPrefix)} download onClick={(e) => e.stopPropagation()} className="p-1.5 rounded-lg hover:bg-emerald-50 text-zinc-500 hover:text-emerald-600" aria-label={`Download ${r.title}`} title="Download frozen copy">
+                      <button onClick={() => setPreview(r)} className="p-1.5 rounded-lg hover:bg-zinc-100 text-zinc-500 cursor-pointer" aria-label={`View ${r.title}`} title="View"><Eye className="h-3.5 w-3.5" /></button>
+                    )}
+                    {r.file_path && (
+                      <a href={reportDownloadUrl(r.id, apiPrefix)} download className="p-1.5 rounded-lg hover:bg-emerald-50 text-zinc-500 hover:text-emerald-600" aria-label={`Download ${r.title}`} title="Download frozen copy">
                         <Download className="h-3.5 w-3.5" />
                       </a>
                     )}
-                    <button onClick={(e) => { e.stopPropagation(); onDelete(r.id); }} className="p-1.5 rounded-lg hover:bg-red-50 text-zinc-500 hover:text-red-600 cursor-pointer" aria-label={`Delete ${r.title}`} title="Delete">
+                    <button onClick={() => onDelete(r.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-zinc-500 hover:text-red-600 cursor-pointer" aria-label={`Delete ${r.title}`} title="Delete">
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
                   </div>

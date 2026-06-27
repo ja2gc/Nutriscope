@@ -75,8 +75,16 @@ class AccomplishmentReportGenerator implements ReportGenerator
 
         // Accept both 'start'/'end' (PeriodInstanceSource convention used by the
         // render/archive pipeline) and 'from'/'to' (direct/legacy usage).
-        $from = Carbon::parse($params['start'] ?? $params['from'] ?? now()->startOfMonth());
-        $to   = Carbon::parse($params['end']   ?? $params['to']   ?? now()->endOfMonth());
+        // No current-date fallback — period must be explicit so the report is reproducible.
+        $startParam = $params['start'] ?? $params['from'] ?? null;
+        $endParam   = $params['end']   ?? $params['to']   ?? null;
+        if ($startParam === null || $endParam === null) {
+            throw new \InvalidArgumentException(
+                'Accomplishment report requires an explicit start/end (or from/to) period.'
+            );
+        }
+        $from = Carbon::parse($startParam);
+        $to   = Carbon::parse($endParam);
 
         // All calendar days in the period.
         $days = collect(CarbonPeriod::create($from, $to))

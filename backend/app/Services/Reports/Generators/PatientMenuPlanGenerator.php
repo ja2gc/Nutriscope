@@ -43,11 +43,14 @@ class PatientMenuPlanGenerator implements ReportGenerator
     {
         $params = $report->parameters ?? [];
 
+        // Require an explicit meal_plan_id so the rendered plan is reproducible.
+        // patient_id alone would pick "latest" and drift over time.
+        if (empty($params['meal_plan_id'])) {
+            throw new \InvalidArgumentException('Patient menu plan requires an explicit meal_plan_id.');
+        }
+
         $plan = MealPlan::with(['patient', 'days.items.foodItem', 'days.items.recipe'])
-            ->when(! empty($params['meal_plan_id']), fn ($q) => $q->whereKey($params['meal_plan_id']))
-            ->when(empty($params['meal_plan_id']) && ! empty($params['patient_id']),
-                fn ($q) => $q->where('patient_id', $params['patient_id']))
-            ->latest('week_start_date')
+            ->whereKey($params['meal_plan_id'])
             ->firstOrFail();
 
         $grid = [];

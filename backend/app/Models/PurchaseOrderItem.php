@@ -38,4 +38,8 @@ class PurchaseOrderItem extends Model
         return $this->belongsTo(FsItem::class, 'fs_item_id');
     }
 
+    public function corrections()
+    {
+        return $this->hasMany(PurchaseOrderItemCorrection::class, 'purchase_order_item_id');
+    }
 }
