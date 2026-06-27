@@ -83,4 +83,57 @@ class FoodShoppingListGenerationTest extends TestCase
             ->assertJsonPath('data.procurement_track', 'food')
             ->assertJsonPath('data.coverage_status', 'full');
     }
+
+    public function test_list_level_estimate_population_scales_generated_quantities_without_menu_day_estimate(): void
+    {
+        // Planning headcount belongs to the shopping list, not the menu day cell.
+        $fsItem = FsItem::factory()->create([
+            'name' => 'Yakult',
+            'base_unit' => 'piece',
+            'purchase_unit' => 'pack',
+            'purchase_price' => 100,
+            'units_per_purchase' => 10,
+        ]);
+        $cycle = MenuCycle::factory()->create([
+            'rnd_user_id' => $this->rnd->id,
+            'week_start_date' => '2026-06-15',
+            'cycle_days' => 7,
+        ]);
+        $day = MenuCycleDay::factory()->create([
+            'menu_cycle_id' => $cycle->id,
+            'day_of_week' => 'Monday',
+            'fs_item_id' => $fsItem->id,
+            'quantity' => 2,
+            'estimate_population' => null,
+        ]);
+
+        $response = $this->actingAs($this->rnd)
+            ->postJson('/api/fss/shopping-lists/generate', [
+                'start_date' => '2026-06-15',
+                'end_date' => '2026-06-15',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.estimate_population', null);
+
+        $listId = $response->json('data.id');
+
+        $this->actingAs($this->rnd)
+            ->patchJson("/api/fss/shopping-lists/{$listId}", ['estimate_population' => 25])
+            ->assertOk()
+            ->assertJsonPath('data.estimate_population', 25)
+            ->assertJsonPath('data.estimated_budget_per_head_per_day', 20);
+
+        $this->assertDatabaseHas('shopping_list_items', [
+            'shopping_list_id' => $listId,
+            'fs_item_id' => $fsItem->id,
+            'qty' => 50,
+            'purchase_qty' => 5,
+            'total' => 500,
+        ]);
+
+        $this->assertDatabaseHas('menu_cycle_days', [
+            'id' => $day->id,
+            'estimate_population' => null,
+        ]);
+    }
 }

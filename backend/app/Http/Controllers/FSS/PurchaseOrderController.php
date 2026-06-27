@@ -242,7 +242,10 @@ class PurchaseOrderController extends Controller
             $vendorGroup->save();
             $vendorGroup->purchaseOrder->recalcTotal();
 
-            if (($data['status'] ?? null) === 'received' && ! $vendorGroup->stocked_at) {
+            // Only refresh catalog vendor/price from a vendor group that actually has a
+            // receipt — "received" without proof must not push prices into the catalog.
+            $hasReceipt = $vendorGroup->attachments()->where('type', 'receipt')->exists();
+            if (($data['status'] ?? null) === 'received' && ! $vendorGroup->stocked_at && $hasReceipt) {
                 $receiving->receiveVendorGroup($vendorGroup->fresh('items'));
                 $vendorGroup->forceFill(['stocked_at' => now()])->save();
             }

@@ -5,7 +5,6 @@ namespace Database\Seeders;
 use App\Models\Budget;
 use App\Models\BudgetLedger;
 use App\Models\DietListCount;
-use App\Models\PurchaseOrderVendorGroup;
 use App\Models\ReportBranding;
 use App\Services\FSS\AccomplishmentReportArchiveService;
 use App\Models\FoodServiceRecipe;
@@ -17,9 +16,7 @@ use App\Models\MenuCycle;
 use App\Models\MenuCycleDay;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderAttachment;
-use App\Models\PurchaseOrderItem;
 use App\Models\ShoppingList;
-use App\Models\ShoppingListItem;
 use App\Models\Supplier;
 use App\Models\User;
 use App\Services\FSS\PurchaseOrderLifecycleService;
@@ -115,15 +112,6 @@ class FoodServiceDemoSeeder extends Seeder
         'Friday' => 190, 'Saturday' => 155, 'Sunday' => 172,
     ];
 
-    /**
-     * The base PO quantities below are written per-line as round vendor amounts; on their
-     * own they procure far too little food for a ~1,200 head-meal week (e.g. 25 kg pork),
-     * so the derived ACTUAL average meal cost would land at ~₱36/head. Scaling the whole
-     * week's purchase by this factor lifts procurement to realistic hospital volumes and
-     * brings actual cost into the ₱100–130/head band that matches RPDH subsistence rates.
-     */
-    private const PROCUREMENT_SCALE = 3.2;
-
     public function run(): void
     {
         $rnd = User::where('role', 'RND')->value('id');
@@ -143,12 +131,15 @@ class FoodServiceDemoSeeder extends Seeder
         $this->seedSuppliers();
         $this->seedRecipes($rnd);
         $this->seedInventory();
+        // Pin each catalog item's default vendor so the suggested list resolves a vendor
+        // per ingredient and the PO conversion can group lines by supplier.
+        $this->seedItemVendors();
 
         // Ensure a report branding row exists so PDF generation doesn't abort.
         ReportBranding::singleton();
 
-        // Four weeks: 3 completed past cycles + the current active one. Week index 0 =
-        // current; 3/2/1 = oldest→newest past. All start Monday so spans are clean.
+        // Four Monday→Sunday weeks: 3 completed past cycles + the current active one.
+        // Week index 0 = current; 3/2/1 = oldest→newest past.
         $currentWeekStart = Carbon::now()->startOfWeek(Carbon::MONDAY);
         $fssUser = User::find($fss);
         $archiveService = app(AccomplishmentReportArchiveService::class);
@@ -157,8 +148,11 @@ class FoodServiceDemoSeeder extends Seeder
             $weekStart = $currentWeekStart->copy()->subWeeks($w);
             $isCurrent = ($w === 0);
             $cycle = $this->seedCycleForWeek($rnd, $weekStart, $isCurrent, null, $w);
-            $served = $this->seedConsumptionForWeek($cycle, $fss, $weekStart, $isCurrent, $w);
-            $this->seedProcurementForWeek($cycle, $fss, $weekStart, $isCurrent, $served);
+            $this->seedConsumptionForWeek($cycle, $fss, $weekStart, $isCurrent, $w);
+            // The whole procurement record is produced by the real flow: suggested list
+            // (system-extracted) → ONE PO with a vendor group per supplier → receipts.
+            // Past weeks complete; the current week is left in open execution (pending).
+            $this->seedProcurementForWeek($cycle, $fss, $weekStart, $isCurrent, $w);
             $cycles[] = $cycle;
 
             // Auto-archive the accomplishment report for completed past weeks.
@@ -168,23 +162,26 @@ class FoodServiceDemoSeeder extends Seeder
             }
         }
 
-        // Next week's cycle as a DRAFT plan (no consumption/procurement yet) so the
-        // client's Fri→Mon procurement run can resolve Monday from the upcoming cycle.
-        // Demonstrates date-driven, multi-cycle shopping-list generation.
-        $this->seedCycleForWeek($rnd, $currentWeekStart->copy()->addWeek(), false, 'draft', 4);
+        // Next week's cycle as an UPCOMING plan, plus a DRAFT suggested shopping list with
+        // its estimated population set — so the planner sees the live estimated budget per
+        // head per day and editable, system-extracted ingredients before any conversion.
+        $upcomingStart = $currentWeekStart->copy()->addWeek();
+        $upcoming = $this->seedCycleForWeek($rnd, $upcomingStart, false, 'upcoming', 4);
+        $this->seedDraftSuggestedList($upcoming, $fss, $upcomingStart, 4);
 
         $this->seedBudget($fss, end($cycles));
 
-        $this->command->info('FoodServiceDemoSeeder: ' . count($cycles) . ' weekly cycles (3 past + current) seeded.');
+        $this->command->info('FoodServiceDemoSeeder: ' . count($cycles) . ' weekly cycles (3 completed + 1 active) + 1 upcoming draft seeded.');
     }
 
     private function reset(): void
     {
         Schema::disableForeignKeyConstraints();
         foreach ([
+            'purchase_order_item_corrections', 'program_project_activities',
             'purchase_order_attachments', 'purchase_order_items', 'purchase_order_vendor_groups', 'purchase_orders',
             'shopping_list_items', 'shopping_lists',
-            'budget_daily_logs', 'budgets',
+            'budget_ledger', 'budget_daily_logs', 'budgets',
             'meal_prep_log_lines', 'meal_prep_logs', 'diet_list_counts',
             'menu_cycle_days', 'menu_cycles',
             'food_service_recipe_ingredients', 'food_service_recipes',
@@ -260,16 +257,29 @@ class FoodServiceDemoSeeder extends Seeder
                     $this->command->warn("  recipe '{$name}': fs_item '{$itemName}' missing");
                     continue;
                 }
+                // Recipe quantities are authored in fine units (g/mL/pc). The catalog item
+                // carries a single coarse unit (kg/L/pc); the UnitConverter resolves the
+                // rate, so a g quantity against a kg item costs correctly.
                 FoodServiceRecipeIngredient::create([
                     'food_service_recipe_id' => $recipe->id,
                     'fs_item_id'             => $fsId,
                     'quantity'               => $qty,
-                    'unit'                   => FsItem::find($fsId)->base_unit,
+                    'unit'                   => $this->recipeUnitFor(FsItem::find($fsId)->base_unit),
                 ]);
             }
             $recipe->recalculateCost();
             $this->recipes[$name] = $recipe->fresh();
         }
+    }
+
+    /** Fine recipe unit for a coarse catalog unit (kg→g, L→mL); counts stay as-is. */
+    private function recipeUnitFor(string $baseUnit): string
+    {
+        return match ($baseUnit) {
+            'kg' => 'g',
+            'L'  => 'mL',
+            default => $baseUnit,
+        };
     }
 
     // ── Inventory: ingredient + supply stock + a couple prepared recipes ────
@@ -337,7 +347,8 @@ class FoodServiceDemoSeeder extends Seeder
     // ── One weekly menu cycle for the given week ────────────────────────────
     private function seedCycleForWeek(int $rnd, Carbon $weekStart, bool $isCurrent, ?string $statusOverride = null, int $weekIndex = 0): MenuCycle
     {
-        $status = $statusOverride ?? ($isCurrent ? 'active' : 'archived');
+        // States: completed | active | upcoming (the redesigned menu-cycle lifecycle).
+        $status = $statusOverride ?? ($isCurrent ? 'active' : 'completed');
         $cycle = MenuCycle::create([
             'rnd_user_id'     => $rnd,
             'name'            => 'Subsistence Cycle — Week of ' . $weekStart->format('M j'),
@@ -345,7 +356,7 @@ class FoodServiceDemoSeeder extends Seeder
             'is_active'       => $isCurrent,
             'status'          => $status,
             'week_start_date' => $weekStart->toDateString(),
-            'activation_date' => $status === 'draft' ? null : $weekStart->toDateString(),
+            'activation_date' => $status === 'upcoming' ? null : $weekStart->toDateString(),
         ]);
 
         $plan      = $this->planForWeek($weekIndex);
@@ -439,109 +450,205 @@ class FoodServiceDemoSeeder extends Seeder
         return $totalServed;
     }
 
-    // ── Suggested shopping list + received POs split by vendor ──────────────
-    private function seedProcurementForWeek(MenuCycle $cycle, int $fss, Carbon $weekStart, bool $isCurrent, int $totalServed): void
+    // ── Catalog default vendors (drives suggested-list vendor + PO grouping) ──
+    private function seedItemVendors(): void
     {
-        $list = ShoppingList::create([
-            'rnd_user_id'  => $fss,
-            'name'         => 'Marketing — week of ' . $weekStart->format('M j'),
-            'list_date'    => $weekStart->toDateString(),
-            'period_start' => $weekStart->toDateString(),
-            'period_end'   => $weekStart->copy()->addDays(6)->toDateString(),
-            'days_span'    => 7,
-            'coverage_status' => 'full',
-            // Past weeks: the census headcount is in → actual budget-per-head computes.
-            // Current week is still running → left null so "pending" is demonstrable.
-            'total_served_population' => $isCurrent ? null : $totalServed,
-            'list_type'    => 'suggested',
-            'status'       => $isCurrent ? 'draft' : 'converted',
-        ]);
-
-        // [vendor, or_no, [ [fs_item name, qty, unit, unit_price], ... ] ]
-        $orders = [
-            ['MACMA Trading', [
-                ['Pork (kasim)', 25, 'kg', 280], ['Ground pork', 12, 'kg', 290],
-                ['Chicken (whole)', 20, 'kg', 200], ['Chicken fillet', 15, 'kg', 260],
-                ['Beef (cubes)', 10, 'kg', 360], ['Bangus (milkfish)', 18, 'kg', 180],
-            ]],
-            ['Gloria T.M. General Merchandise', [
-                ['Pinakbet vegetables', 20, 'kg', 90], ['Assorted vegetables', 15, 'kg', 80],
-                ['Potato', 12, 'kg', 90], ['Carrot', 8, 'kg', 90], ['Onion', 10, 'kg', 120],
-                ['Garlic', 5, 'kg', 140], ['Tomato', 6, 'kg', 80], ['Latundan banana', 200, 'pc', 5],
-            ]],
-            ['RPDH-MPC', [
-                ['Cooking oil', 10, 'L', 75], ['Soy sauce', 6, 'L', 60], ['Vinegar', 6, 'L', 45],
-                ['Macaroni', 15, 'kg', 85], ['Fresh milk', 12, 'L', 90], ['Egg', 10, 'tray', 240],
-                ['Cheez Whiz', 12, 'jar', 85], ['Loaf bread', 20, 'pack', 65],
-            ]],
+        // item name => supplier name (single source for the suggested list's vendor).
+        $map = [
+            // MACMA Trading — meat & fish
+            'Pork (kasim)' => 'MACMA Trading', 'Ground pork' => 'MACMA Trading',
+            'Chicken (whole)' => 'MACMA Trading', 'Chicken fillet' => 'MACMA Trading',
+            'Beef (cubes)' => 'MACMA Trading', 'Bangus (milkfish)' => 'MACMA Trading',
+            // Gloria T.M. — vegetables & fruits
+            'Pinakbet vegetables' => 'Gloria T.M. General Merchandise',
+            'Assorted vegetables' => 'Gloria T.M. General Merchandise',
+            'Potato' => 'Gloria T.M. General Merchandise', 'Carrot' => 'Gloria T.M. General Merchandise',
+            'Onion' => 'Gloria T.M. General Merchandise', 'Garlic' => 'Gloria T.M. General Merchandise',
+            'Tomato' => 'Gloria T.M. General Merchandise', 'Ginger' => 'Gloria T.M. General Merchandise',
+            'Corn kernel' => 'Gloria T.M. General Merchandise',
+            // RPDH-MPC — groceries & condiments
+            'Cooking oil' => 'RPDH-MPC', 'Soy sauce' => 'RPDH-MPC', 'Vinegar' => 'RPDH-MPC',
+            'Macaroni' => 'RPDH-MPC', 'Fresh milk' => 'RPDH-MPC', 'Egg' => 'RPDH-MPC',
+            'Cheez Whiz' => 'RPDH-MPC', 'Loaf bread' => 'RPDH-MPC', 'Pandesal' => 'RPDH-MPC',
+            'Mushroom (canned)' => 'RPDH-MPC', 'Salt' => 'RPDH-MPC',
+            'Coffee' => 'RPDH-MPC', 'Milo' => 'RPDH-MPC', 'Yakult' => 'RPDH-MPC',
+            'Brownie bite' => 'RPDH-MPC', 'Chooey toffee' => 'RPDH-MPC',
+            // SAMEJ Rice Store — rice & grains
+            'Rice' => 'SAMEJ Rice Store',
+            // Lolita R. Cayanan — fruits
+            'Latundan banana' => 'Lolita R. Cayanan', 'Saba banana' => 'Lolita R. Cayanan',
+            'Ponkan' => 'Lolita R. Cayanan',
+            // Pampanga Gas & Supplies — supplies
+            'LPG (cooking gas)' => 'Pampanga Gas & Supplies Trading',
+            'Paper meal box' => 'Pampanga Gas & Supplies Trading',
+            'Roll bag (garbage)' => 'Pampanga Gas & Supplies Trading',
+            'Dishwashing liquid' => 'Pampanga Gas & Supplies Trading',
+            'Disposable spoon' => 'Pampanga Gas & Supplies Trading',
+            'Plastic cup' => 'Pampanga Gas & Supplies Trading',
         ];
 
-        // Current week: one PO still "ordered" (not received) so the all-received gate
-        // is visible; past weeks all received.
+        foreach ($map as $itemName => $vendorName) {
+            $itemId = $this->id($itemName);
+            $vendor = $this->suppliers[$vendorName] ?? null;
+            if ($itemId && $vendor) {
+                FsItem::whereKey($itemId)->update(['default_supplier_id' => $vendor->id]);
+            }
+        }
+    }
+
+    /** Representative head-count for a week's suggested list (avg planned day pop). */
+    private function listEstimatePopulation(int $weekIndex): int
+    {
+        $factor = $this->popFactor($weekIndex);
+        $avg    = array_sum($this->dayPop) / count($this->dayPop);
+        return (int) round($avg * $factor);
+    }
+
+    /**
+     * Build the week's procurement exactly as the system would: a system-extracted
+     * suggested shopping list, then ONE purchase order with a vendor group per
+     * supplier. Past weeks are receipted in full; the current week is left in open
+     * execution with one vendor group still awaiting a receipt (Pending PO demo).
+     */
+    private function seedProcurementForWeek(MenuCycle $cycle, int $fss, Carbon $weekStart, bool $isCurrent, int $weekIndex): void
+    {
+        $start = $weekStart->toDateString();
+        $end   = $weekStart->copy()->addDays(6)->toDateString();
+
+        $list = $this->buildSuggestedList($fss, $weekStart, $start, $end, $weekIndex, 'Marketing — week of ' . $weekStart->format('M j'));
+        if (! $list) {
+            return; // no covered/planned days — nothing to procure
+        }
+
+        $this->convertListToPurchaseOrder($list, $weekStart, $isCurrent);
+    }
+
+    /**
+     * Create a suggested, food-track shopping list whose items are extracted by the
+     * real planner (scaled to each day's estimated population) with the list-level
+     * estimated population set so the estimated budget per head per day is live.
+     */
+    private function buildSuggestedList(int $fss, Carbon $weekStart, string $start, string $end, int $weekIndex, string $name): ?ShoppingList
+    {
+        $plan = app(\App\Services\FSS\ShoppingListPopulationService::class)->planRange($start, $end);
+        if ($plan['items'] === []) {
+            return null;
+        }
+
+        $list = ShoppingList::create([
+            'rnd_user_id'                    => $fss,
+            'name'                           => $name,
+            'list_date'                      => $start,
+            'period_start'                   => $start,
+            'period_end'                     => $end,
+            'days_span'                      => 7,
+            'list_type'                      => 'suggested',
+            'procurement_track'              => 'food',
+            'coverage_status'                => 'full',
+            'status'                         => 'draft',
+            'estimate_population'            => $this->listEstimatePopulation($weekIndex),
+            'estimate_population_updated_at' => $weekStart->copy(),
+        ]);
+
+        foreach ($plan['items'] as $row) {
+            $list->items()->create($row);
+        }
+
+        return $list->fresh('items');
+    }
+
+    /**
+     * Convert a suggested list into ONE purchase order with a vendor group per supplier
+     * — mirroring PurchaseOrderController::approve: structural lock at conversion, PPA
+     * snapshot, frozen menu-cycle day snapshots, then receipts/proof per vendor group.
+     */
+    private function convertListToPurchaseOrder(ShoppingList $list, Carbon $weekStart, bool $isCurrent): void
+    {
+        $list->loadMissing('items');
+        $lifecycle = app(PurchaseOrderLifecycleService::class);
         $orderDate = $weekStart->copy();
         $weekTag   = $weekStart->format('mdy');
-        $seq = 1;
-        foreach ($orders as $idx => [$vendorName, $items]) {
-            $vendor = $this->suppliers[$vendorName] ?? null;
-            // Scale every line to realistic weekly volume for the served headcount.
-            $items  = array_map(fn ($i) => [$i[0], round($i[1] * self::PROCUREMENT_SCALE), $i[2], $i[3]], $items);
-            $total  = array_sum(array_map(fn ($i) => $i[1] * $i[3], $items));
-            $status = ($isCurrent && $idx === count($orders) - 1) ? 'ordered' : 'received';
-            $orNumber = $status === 'received' ? 'OR-' . $weekTag . '-' . sprintf('%02d', $idx + 1) : null;
-            $receivedAt = $status === 'received' ? $orderDate->copy()->addDay() : null;
 
-            $po = PurchaseOrder::create([
-                'rnd_user_id'   => $fss, 'shopping_list_id' => $list->id, 'supplier_id' => $vendor?->id,
-                'po_number'     => 'PO-' . $weekTag . '-' . str_pad((string) $seq++, 2, '0', STR_PAD_LEFT),
-                'or_number'     => $orNumber,
-                'order_date'    => $orderDate->toDateString(),
-                'received_date' => $receivedAt?->toDateString(),
-                'total_amount'  => round($total, 2), 'status' => $status,
-                'notes'         => $vendor?->category,
+        $po = PurchaseOrder::create([
+            'rnd_user_id'          => $list->rnd_user_id,
+            'shopping_list_id'     => $list->id,
+            'supplier_id'          => null,
+            'po_number'            => 'PO-' . $weekTag,
+            'order_date'           => $orderDate->toDateString(),
+            'total_amount'         => round((float) $list->items->sum(fn ($i) => (float) $i->total), 2),
+            'status'               => 'draft',
+            'lifecycle_status'     => 'open_execution',
+            'procurement_track'    => 'food',
+            'converted_at'         => $orderDate,
+            'structural_locked_at' => $orderDate,
+        ]);
+
+        foreach ($list->items->groupBy('supplier_id') as $supplierId => $items) {
+            $group = $po->vendorGroups()->create([
+                'supplier_id'  => $supplierId !== '' ? (int) $supplierId : null,
+                'status'       => 'pending',
+                'total_amount' => round((float) $items->sum(fn ($i) => (float) $i->total), 2),
             ]);
 
-            // One vendor group per PO (each PO represents a single-vendor procurement).
-            $vendorGroup = PurchaseOrderVendorGroup::create([
-                'purchase_order_id' => $po->id,
-                'supplier_id'       => $vendor?->id,
-                'or_number'         => $orNumber,
-                'status'            => $status === 'received' ? 'received' : 'pending',
-                'total_amount'      => round($total, 2),
-                'received_at'       => $receivedAt,
-            ]);
-
-            foreach ($items as [$itemName, $qty, $unit, $price]) {
-                PurchaseOrderItem::create([
-                    'purchase_order_id' => $po->id,
-                    'vendor_group_id'   => $vendorGroup->id,
-                    'fs_item_id'        => $this->id($itemName),
-                    'description' => $itemName, 'qty' => $qty, 'unit' => $unit,
-                    'unit_price' => $price, 'total_value' => round($qty * $price, 2),
-                ]);
-                ShoppingListItem::create([
-                    'shopping_list_id' => $list->id, 'fs_item_id' => $this->id($itemName),
-                    'ingredient_name' => $itemName, 'qty' => $qty, 'unit' => $unit,
-                    'supplier_id' => $vendor?->id, 'unit_price' => $price, 'total' => round($qty * $price, 2),
-                ]);
-            }
-
-            if ($status === 'received') {
-                PurchaseOrderAttachment::create([
-                    'purchase_order_id' => $po->id,
-                    'vendor_group_id' => $vendorGroup->id,
-                    'type' => 'receipt',
-                    'path' => 'demo/receipts/'.$po->po_number.'.jpg',
-                    'caption' => 'Seeded receipt for '.$vendorName,
-                ]);
-                PurchaseOrderAttachment::create([
-                    'purchase_order_id' => $po->id,
-                    'vendor_group_id' => $vendorGroup->id,
-                    'type' => 'proof',
-                    'path' => 'demo/proofs/'.$po->po_number.'.jpg',
-                    'caption' => 'Seeded proof of purchase for '.$vendorName,
+            foreach ($items as $it) {
+                $po->items()->create([
+                    'vendor_group_id' => $group->id,
+                    'fs_item_id'      => $it->fs_item_id,
+                    'description'     => $it->ingredient_name,
+                    'qty'             => $it->qty,
+                    'unit'            => $it->unit,
+                    'unit_price'      => $it->unit_price,
+                    'total_value'     => $it->total,
+                    'purchase_qty'    => $it->purchase_qty,
+                    'purchase_unit'   => $it->purchase_unit,
+                    'purchase_price'  => $it->purchase_price,
                 ]);
             }
         }
+
+        $po->recalcTotal();
+        $lifecycle->createPpaSnapshot($po, $list);
+        $lifecycle->writeMenuCycleSnapshots($po->fresh('items'), $list);
+        $list->update(['status' => 'converted']);
+
+        // Receipts + proof + OR per vendor group. The current week leaves its last group
+        // un-receipted so the PO stays in open execution (the Pending PO demo case).
+        $groups = $po->vendorGroups()->get()->values();
+        foreach ($groups as $idx => $group) {
+            $leaveOpen = $isCurrent && $idx === $groups->count() - 1;
+            if ($leaveOpen) {
+                continue;
+            }
+
+            $orNumber = 'OR-' . $weekTag . '-' . sprintf('%02d', $idx + 1);
+            $group->forceFill([
+                'or_number'   => $orNumber,
+                'status'      => 'received',
+                'received_at' => $orderDate->copy()->addDay(),
+            ])->save();
+
+            foreach (['receipt', 'proof'] as $type) {
+                PurchaseOrderAttachment::create([
+                    'purchase_order_id' => $po->id,
+                    'vendor_group_id'   => $group->id,
+                    'type'              => $type,
+                    'path'              => "demo/{$type}s/{$po->po_number}-{$group->id}.jpg",
+                    'caption'           => ucfirst($type) . ' — ' . ($group->supplier?->name ?? 'vendor'),
+                ]);
+            }
+        }
+    }
+
+    /**
+     * A standalone DRAFT suggested list for an upcoming week — system-extracted items
+     * with the estimated population set, so the planner sees the live estimated budget
+     * per head per day and editable ingredients before any conversion.
+     */
+    private function seedDraftSuggestedList(MenuCycle $cycle, int $fss, Carbon $weekStart, int $weekIndex): void
+    {
+        $start = $weekStart->toDateString();
+        $end   = $weekStart->copy()->addDays(6)->toDateString();
+        $this->buildSuggestedList($fss, $weekStart, $start, $end, $weekIndex, 'Draft marketing — week of ' . $weekStart->format('M j'));
     }
 
     // ── Fiscal-year budget + ledger covering the demo period ────────────────
@@ -552,33 +659,39 @@ class FoodServiceDemoSeeder extends Seeder
         $avgDay        = $dayCosts ? array_sum($dayCosts) / count($dayCosts) : 18000;
 
         $fiscalYear = (int) Carbon::now()->year;
-        $perHeadCap = 150;
 
-        // One budget row per fiscal year (unified ledger model).
-        $budget = Budget::updateOrCreate(
+        // One budget row per fiscal year (unified ledger model). Per-head/day limit is
+        // configured separately in Food Service settings now, not on the budget row.
+        Budget::updateOrCreate(
             ['fiscal_year' => $fiscalYear],
-            [
-                'allocated_amount'   => round($avgDay * 30, -2),
-                'per_head_day_limit' => $perHeadCap,
-            ],
+            ['allocated_amount' => round($avgDay * 30, -2)],
         );
 
+        // Budget per head per day lives in the shared Food Service settings.
+        \App\Models\FoodServiceSetting::singleton()->update([
+            'per_head_day_limit' => 150,
+            'updated_by'         => $fss,
+        ]);
+
         // Manual entries make the add/deduct audit trail visible. PO deductions are
-        // produced by the normal Phase 3 lifecycle + PurchaseOrderCompleted listener.
+        // produced by the normal lifecycle + PurchaseOrderCompleted listener below.
         BudgetLedger::where('fiscal_year', $fiscalYear)->delete();
 
         BudgetLedger::create([
-            'fiscal_year' => $fiscalYear, 'type' => 'manual_addition', 'amount' => 25000,
+            'fiscal_year' => $fiscalYear, 'type' => 'manual_addition', 'source' => 'manual', 'amount' => 25000,
             'reason' => 'Request for additional subsistence funds', 'created_by' => $fss,
         ]);
         BudgetLedger::create([
-            'fiscal_year' => $fiscalYear, 'type' => 'manual_deduction', 'amount' => 4000,
+            'fiscal_year' => $fiscalYear, 'type' => 'manual_deduction', 'source' => 'manual', 'amount' => 4000,
             'reason' => 'Budget correction', 'created_by' => $fss,
         ]);
 
+        // Drive completion through the real lifecycle: past-week food POs (full receipts
+        // + served population) complete and fire the po_deduction ledger entry. The
+        // current week's PO stays open (a vendor group still awaiting a receipt).
         $lifecycle = app(PurchaseOrderLifecycleService::class);
         PurchaseOrder::with(['vendorGroups.attachments', 'shoppingList', 'programProjectActivity'])
-            ->where('status', 'received')
+            ->where('lifecycle_status', 'open_execution')
             ->get()
             ->each(fn (PurchaseOrder $po) => $lifecycle->refresh($po));
     }

@@ -13,12 +13,14 @@ export interface ShoppingListItem {
   purchase_qty: string | null;
   purchase_unit: string | null;
   purchase_price: string | null;
+  vendor_locked?: boolean;
 }
 export interface ShoppingList {
   id: number;
   name: string;
   list_date: string | null;
   list_type: "manual" | "suggested";
+  procurement_track?: "food" | "supplies" | null;
   status: "draft" | "converted";
   coverage_status: "full" | "partial";
   uncovered_dates: string[];
@@ -28,35 +30,11 @@ export interface ShoppingList {
   total_served_population: number | null;
   estimate_population: number | null;
   estimate_population_updated_at: string | null;
+  estimated_total?: number | null;
+  estimated_budget_per_head_per_day?: number | null;
   items: ShoppingListItem[];
 }
 
-/** Calculated budget-per-head for a procurement span. {@see ProcurementCostEfficiencyService} */
-export interface CostEfficiency {
-  estimated: number | null;
-  actual: number | null;
-  pending: boolean;
-  pending_reason: string | null;
-  procurement_cost: number;
-  served_population: number;
-  service_days_done: number;
-  service_days_expected: number;
-}
-interface CostEfficiencyApi {
-  estimated_per_head?: number | null;
-  actual_per_head?: number | null;
-  pending?: boolean;
-  estimated_total?: number;
-  estimate_population?: number;
-  span_days?: number;
-  estimated?: number | null;
-  actual?: number | null;
-  pending_reason?: string | null;
-  procurement_cost?: number;
-  served_population?: number;
-  service_days_done?: number;
-  service_days_expected?: number;
-}
 
 export interface POItem { id: number; vendor_group_id?: number | null; fs_item_id: number | null; description: string; qty: string; unit: string; unit_price: string; total_value: string; purchase_qty: string | null; purchase_unit: string | null; purchase_price: string | null }
 export interface POAttachment { id: number; vendor_group_id?: number | null; type: "receipt" | "proof"; path: string; caption: string | null }
@@ -123,6 +101,7 @@ export async function createShoppingList(payload: {
   name: string;
   list_date?: string | null;
   list_type?: "manual" | "suggested";
+  procurement_track?: "food" | "supplies";
   status?: "draft" | "converted";
   estimate_population?: number | null;
 }): Promise<ShoppingList> {
@@ -140,34 +119,44 @@ export async function updateShoppingList(id: number, patch: Partial<Pick<Shoppin
  * server-side, so a span crossing a week boundary (e.g. Fri→Mon) pulls each day from its
  * correct cycle. Dates with no plan come back in `uncovered_dates` with coverage `partial`.
  */
+/** Thrown when generation is blocked because span dates are missing a menu plan. */
+export class MissingMenuDaysError extends Error {
+  missingDates: string[];
+  missingByDate: Record<string, string>;
+  constructor(message: string, missingDates: string[], missingByDate: Record<string, string>) {
+    super(message);
+    this.name = "MissingMenuDaysError";
+    this.missingDates = missingDates;
+    this.missingByDate = missingByDate;
+  }
+}
+
 export async function generateByDates(start_date: string, end_date: string, name?: string): Promise<ShoppingList> {
-  return unwrap(await apiFetch("/api/fss/shopping-lists/generate", {
+  const res = await apiFetch("/api/fss/shopping-lists/generate", {
     method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ start_date, end_date, name }),
-  }), "Failed to generate list.");
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    // All-or-nothing: the backend reports the exact missing dates + per-date reason
+    // so the planner knows which empty menu days to fill before regenerating.
+    const missingDates = (data as { missing_dates?: string[] }).missing_dates;
+    if (res.status === 422 && Array.isArray(missingDates)) {
+      throw new MissingMenuDaysError(
+        (data as { message?: string }).message ?? "Some span dates are missing a menu plan.",
+        missingDates,
+        (data as { missing_items_by_date?: Record<string, string> }).missing_items_by_date ?? {},
+      );
+    }
+    throw new Error((data as { message?: string }).message ?? "Failed to generate list.");
+  }
+  return (data as { data: ShoppingList }).data;
 }
 export async function deleteShoppingList(id: number): Promise<void> {
   const res = await apiFetch(`/api/fss/shopping-lists/${id}`, { method: "DELETE" });
   if (!res.ok && res.status !== 204) throw new Error("Failed to delete list.");
 }
-/** Calculated estimated + actual budget-per-head for the span. */
-export async function getCostEfficiency(id: number): Promise<CostEfficiency> {
-  const data = await unwrap<CostEfficiencyApi>(
-    await apiFetch(`/api/fss/shopping-lists/${id}/cost-efficiency`),
-    "Failed to load cost efficiency.",
-  );
 
-  return {
-    estimated: data.estimated ?? data.estimated_per_head ?? null,
-    actual: data.actual ?? data.actual_per_head ?? null,
-    pending: data.pending ?? true,
-    pending_reason: data.pending_reason ?? null,
-    procurement_cost: data.procurement_cost ?? data.estimated_total ?? 0,
-    served_population: data.served_population ?? data.estimate_population ?? 0,
-    service_days_done: data.service_days_done ?? 0,
-    service_days_expected: data.service_days_expected ?? data.span_days ?? 0,
-  };
-}
 export async function updateListItem(itemId: number, patch: { supplier_id?: number | null; qty?: number; unit_price?: number }): Promise<{ id: number; supplier_id: number | null; qty: string; unit_price: string; total: string }> {
   return unwrap(await apiFetch(`/api/fss/shopping-list-items/${itemId}`, {
     method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch),
@@ -193,8 +182,9 @@ export async function deleteListItem(itemId: number): Promise<void> {
   if (!res.ok && res.status !== 204) throw new Error("Failed to delete item.");
 }
 /**
- * Approve a shopping list → it becomes the purchase: one order per vendor, each with its
- * own OR# and proof uploads. One-shot (re-approving an already-approved list is rejected).
+ * Convert a shopping list → it becomes the purchase: ONE purchase order with a vendor
+ * group per supplier, each group carrying its own OR#, receipts, and proof uploads.
+ * One-shot (re-converting an already-converted list is rejected).
  */
 export async function approveShoppingList(listId: number): Promise<{ purchase_order_id: number; purchase_order_ids: number[] }> {
   return unwrap(await apiFetch(`/api/fss/shopping-lists/${listId}/approve`, { method: "POST" }), "Failed to approve shopping list.");

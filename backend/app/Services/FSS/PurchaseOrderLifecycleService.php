@@ -135,10 +135,13 @@ class PurchaseOrderLifecycleService
         $menuSnapshot = $this->menuSnapshot($shoppingList);
         $estimatedTotal = round((float) $shoppingList->items->sum(fn ($item) => (float) $item->total), 2);
         $estimatedPatients = $this->estimatedOutputPatients($shoppingList);
+        $activity = $shoppingList->isSupplies()
+            ? 'Food Service Supplies'
+            : 'Food Subsistence for Patients';
 
         return ProgramProjectActivity::create([
             'purchase_order_id' => $purchaseOrder->id,
-            'activity' => 'Food Subsistence for Patients',
+            'activity' => $activity,
             'menu_snapshot' => $menuSnapshot,
             'target_date_range' => $this->targetDateRange($shoppingList),
             'period_start' => $shoppingList->period_start,
@@ -150,7 +153,7 @@ class PurchaseOrderLifecycleService
                 'shopping_list_id' => $shoppingList->id,
                 'items_count' => $shoppingList->items->count(),
                 'formula' => 'estimated_total_cost = frozen shopping_list_items.total sum',
-                'estimated_output_patients_formula' => 'sum estimate_population for planned service dates in procurement span',
+                'estimated_output_patients_formula' => 'shopping_list.estimate_population * planned service dates in procurement span',
             ],
         ]);
     }
@@ -207,11 +210,16 @@ class PurchaseOrderLifecycleService
 
     private function estimatedOutputPatients(ShoppingList $shoppingList): int
     {
+        if ($shoppingList->isSupplies()) {
+            return 0;
+        }
+
         if (! $shoppingList->period_start || ! $shoppingList->period_end) {
             return (int) ($shoppingList->estimate_population ?? 0);
         }
 
         $total = 0;
+        $population = (int) ($shoppingList->estimate_population ?? 0);
         for ($d = Carbon::parse($shoppingList->period_start); $d->lte(Carbon::parse($shoppingList->period_end)); $d->addDay()) {
             $cycle = MenuCycle::coveringDate($d);
             if (! $cycle) {
@@ -220,7 +228,7 @@ class PurchaseOrderLifecycleService
             $cycle->loadMissing('days');
             $day = $cycle->days->firstWhere('day_of_week', $d->format('l'));
             if ($day && ($day->recipe_id || $day->fs_item_id)) {
-                $total += (int) ($day->estimate_population ?? $shoppingList->estimate_population ?? 0);
+                $total += $population;
             }
         }
 
@@ -292,7 +300,7 @@ class PurchaseOrderLifecycleService
                     continue;
                 }
 
-                $pop = (int) ($cell->estimate_population ?? $population);
+                $pop = $population;
 
                 if ($cell->recipe_id && $cell->recipe) {
                     $snapshot = \App\Services\MenuCycleCostService::recipeProfile($cell->recipe, $pop);

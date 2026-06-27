@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { CookingPot, ArrowLeft, Search, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { CATALOG_UNIT_OPTIONS } from "@/lib/units";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -355,10 +356,10 @@ export default function NewFSSRecipePage() {
                   placeholder="0" min="0" step="0.1"
                   className="w-full px-3 py-2 text-sm border border-zinc-300 rounded-lg text-zinc-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600" />
 
-                {/* Unit */}
+                {/* Unit — catalog units first (match inventory), then common recipe units */}
                 <select value={row.unit} onChange={(e) => updateRow(idx, { unit: e.target.value })}
                   className="w-full px-2 py-2 text-sm border border-zinc-300 rounded-lg text-zinc-900 focus:outline-none cursor-pointer">
-                  {["g", "ml", "piece", "cup", "oz", "tbsp", "tsp"].map((u) => <option key={u} value={u}>{u}</option>)}
+                  {[...CATALOG_UNIT_OPTIONS, "cup", "oz", "tbsp", "tsp"].map((u) => <option key={u} value={u}>{u}</option>)}
                 </select>
 
                 {/* Cost contribution */}

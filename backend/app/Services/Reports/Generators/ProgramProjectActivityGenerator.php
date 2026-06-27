@@ -3,6 +3,7 @@
 namespace App\Services\Reports\Generators;
 
 use App\Models\MenuCycle;
+use App\Models\ProgramProjectActivity;
 use App\Models\Report;
 use App\Services\MenuCycleCostService;
 use App\Services\Reports\Contracts\ReportGenerator;
@@ -74,11 +75,33 @@ class ProgramProjectActivityGenerator implements ReportGenerator
         $entries       = self::groupEntries($cycle);
         $menuDays      = self::buildMenuDays($entries, $calendar);
 
-        $cost     = MenuCycleCostService::forReport($cycle);
-        $dayCosts = $cost['days'];
-        $total    = 0.0;
-        foreach ($calendar as $c) {
-            $total += $dayCosts[$c['day_of_week']]['cost'] ?? 0.0;
+        // A PPA is bound to a purchase order: once a food shopping list is converted, the
+        // PPA carries frozen totals + output that finalize when the PO completes. The
+        // report reads that snapshot first so it stays reproducible and PO-independent,
+        // and never drifts if the cycle is edited afterwards.
+        $ppa = ProgramProjectActivity::query()
+            ->whereDate('period_start', '<=', $end)
+            ->whereDate('period_end', '>=', $start)
+            ->whereHas('purchaseOrder', fn ($q) => $q->where('procurement_track', 'food'))
+            ->latest('id')
+            ->first();
+
+        if ($ppa) {
+            $isFinal  = $ppa->execution_frozen_at !== null;
+            $total    = (float) ($isFinal ? $ppa->actual_total_cost : $ppa->estimated_total_cost);
+            $output   = (int) ($isFinal ? $ppa->actual_output_patients : $ppa->estimated_output_patients);
+            $outLabel = number_format($output) . ' Patients' . ($isFinal ? ' (actual served)' : ' (estimated)');
+        } else {
+            // No PO yet — fall back to the cycle's frozen cost snapshot (never a live
+            // recompute that drifts when catalog prices change) and planning estimate.
+            $cost     = $cycle->cost_snapshot ?: MenuCycleCostService::forReport($cycle);
+            $dayCosts = $cost['days'] ?? [];
+            $total    = 0.0;
+            foreach ($calendar as $c) {
+                $total += $dayCosts[$c['day_of_week']]['cost'] ?? 0.0;
+            }
+            $output   = (int) round($cycle->days->whereNotNull('estimate_population')->avg('estimate_population') ?? 0);
+            $outLabel = number_format($output) . ' Patients (estimated)';
         }
 
         return [
@@ -86,8 +109,8 @@ class ProgramProjectActivityGenerator implements ReportGenerator
             'cycle'           => $cycle,
             'menu_days'       => $menuDays,
             'total_cost'      => round($total, 2),
-            'population'      => $avgPopulation = (int) round($cycle->days->whereNotNull('estimate_population')->avg('estimate_population') ?? 0),
-            'output_label'   => number_format($avgPopulation) . ' Patients',
+            'population'      => $output,
+            'output_label'    => $outLabel,
             'inclusive_start' => $start,
             'inclusive_end'   => $end,
             'inclusive_label' => Carbon::parse($start)->format('m/d/y') . '-' . Carbon::parse($end)->format('m/d/y'),
@@ -119,7 +142,10 @@ class ProgramProjectActivityGenerator implements ReportGenerator
     {
         $entries = [];
         foreach ($cycle->days as $day) {
-            $name = $day->recipe?->name ?? $day->fsItem?->name;
+            // Frozen-first: a converted cell carries a po_snapshot with the dish name
+            // captured at conversion, so the listing can't drift if the cycle is edited.
+            $snapshotName = is_array($day->po_snapshot) ? ($day->po_snapshot['name'] ?? null) : null;
+            $name = $snapshotName ?? $day->recipe?->name ?? $day->fsItem?->name;
             if (! $name) {
                 continue;
             }

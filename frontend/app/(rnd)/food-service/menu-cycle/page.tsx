@@ -4,11 +4,10 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   CalendarDays, Plus, Search, X, Trash2, Save, Zap, Copy, BookmarkPlus,
-  LayoutTemplate, ChevronLeft, AlertTriangle, CheckCircle2, RefreshCw, Pencil,
+  LayoutTemplate, ChevronLeft, AlertTriangle, RefreshCw, Pencil,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { useAuth } from "@/contexts/AuthContext";
-import ServiceLogPanel from "./_components/ServiceLogPanel";
 import {
   DAYS, MEALS, MEAL_LABELS, Day, Meal,
   CycleListItem, MenuCycle, ComputeResult, RecipeOption, FsItemOption, TemplateListItem, RecipeProfile,
@@ -16,9 +15,16 @@ import {
   saveCycleAsTemplate, listRecipeOptions, listFsItemOptions, listTemplates, instantiateTemplate, deleteTemplate,
   getRecipeProfile,
 } from "@/services/menuCycleService";
+import { setServedPopulation, listServiceLogs } from "@/services/consumptionService";
 
 const peso = (n: number) => `₱${n.toFixed(2)}`;
 const cellKey = (d: Day, m: Meal) => `${d}|${m}`;
+// Actual calendar date for a weekday column of a Monday-anchored cycle week.
+const isoAddDays = (start: string, n: number) => {
+  const d = new Date(`${start}T00:00:00`);
+  d.setDate(d.getDate() + n);
+  return d.toISOString().slice(0, 10);
+};
 
 // Week label + Past/Current/Upcoming tag for a cycle, from its week_start_date.
 const weekRange = (start: string | null, days = 7) => {
@@ -38,7 +44,7 @@ const temporal = (start: string | null, days = 7): { label: string; cls: string 
   return { label: "Current week", cls: "bg-emerald-50 text-emerald-700 border-emerald-200" };
 };
 
-// A cell holds EITHER a recipe or a ready-to-serve fs_item. recipe_name is the
+// A cell holds EITHER a recipe or a single fs_item. recipe_name is the
 // display label for whichever one is set. servings_override is the ACTUAL servings
 // for this menu-cycle slot (set via the food panel) — overrides the day's headcount
 // for this dish only, and never touches the baseline recipe.
@@ -47,11 +53,6 @@ type Grid = Record<string, Cell>;
 // Per-day headcount (drives scaling). Keyed by Day.
 type DayPop = Record<string, string>;
 
-const BUDGET_CHIP: Record<string, string> = {
-  ok:      "bg-emerald-50 text-emerald-700 border-emerald-200",
-  warning: "bg-amber-50 text-amber-700 border-amber-200",
-  over:    "bg-red-50 text-red-700 border-red-200",
-};
 
 // ─── Recipe profile panel (ingredients + cost scaled from the recipe baseline) ──────
 // FSS: read-only — sees ingredients, prep notes, and cost at the day's headcount.
@@ -337,6 +338,10 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: number | "new"; r
   const [isActive, setIsActive] = useState(false);
 
   const [grid, setGrid] = useState<Grid>({});
+  // Served (actual) population per weekday for the active week — logged by FSS/RND,
+  // summed across the span to complete the food PO + compute its actual budget/head.
+  const [served, setServed] = useState<DayPop>({});
+  const [savingServed, setSavingServed] = useState<string | null>(null);
   const [recipes, setRecipes] = useState<RecipeOption[]>([]);
   const [items, setItems] = useState<FsItemOption[]>([]);
   const [savedId, setSavedId] = useState<number | null>(cycleId === "new" ? null : cycleId);
@@ -349,7 +354,7 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: number | "new"; r
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(cycleId !== "new");
 
-  // Load recipes + ready-to-serve catalog items (picker) + existing cycle
+  // Load recipes + single catalog items (picker) + existing cycle
   useEffect(() => { listRecipeOptions().then(setRecipes); }, []);
   useEffect(() => { listFsItemOptions().then(setItems); }, []);
   useEffect(() => {
@@ -376,9 +381,36 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: number | "new"; r
     }).catch(() => setErr("Failed to load cycle.")).finally(() => setLoading(false));
   }, [cycleId]);
 
+  // Load served population for the active week's dates (keyed back to weekday).
+  const loadServed = useCallback(() => {
+    if (!savedId || !weekStart) { setServed({}); return; }
+    listServiceLogs({ menu_cycle_id: savedId }).then((logs) => {
+      const map: DayPop = {};
+      DAYS.forEach((d, i) => {
+        const date = isoAddDays(weekStart, i);
+        const log = logs.find((l) => l.service_date === date);
+        if (log?.served_population != null) map[d] = String(log.served_population);
+      });
+      setServed(map);
+    }).catch(() => { /* keep prior */ });
+  }, [savedId, weekStart]);
+  useEffect(() => { loadServed(); }, [loadServed]);
+
+  // Backfill served population for a weekday (FSS + RND, before the food PO completes).
+  async function saveServed(day: Day, value: string) {
+    if (!savedId || !weekStart) return;
+    const n = parseInt(value, 10);
+    if (!Number.isFinite(n) || n < 0) return;
+    setSavingServed(day); setErr("");
+    try {
+      await setServedPopulation(savedId, isoAddDays(weekStart, DAYS.indexOf(day)), n);
+      setServed((p) => ({ ...p, [day]: String(n) }));
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Failed to save served population.");
+    } finally { setSavingServed(null); }
+  }
+
   const visibleDays = useMemo(() => DAYS.slice(0, cycleDays), [cycleDays]);
-  const dayPops = visibleDays.map((d) => parseInt(dayPop[d]) || 0);
-  const cyclePop = dayPops.length ? Math.round(dayPops.reduce((a, b) => a + b, 0) / dayPops.length) : 0;
 
   function assign(key: string, r: RecipeOption) {
     setGrid((g) => ({ ...g, [key]: { recipe_id: r.id, fs_item_id: null, recipe_name: r.name, servings: r.servings, servings_override: null } }));
@@ -393,7 +425,6 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: number | "new"; r
     setGrid((g) => (g[key] ? { ...g, [key]: { ...g[key], servings_override: servings } } : g));
   }
   function clearCell(key: string) { setGrid((g) => { const n = { ...g }; delete n[key]; return n; }); }
-  function setPop(day: Day, v: string) { setDayPop((p) => ({ ...p, [day]: v })); }
   function duplicateWeek(from: Day) {
     setGrid((g) => {
       const n = { ...g };
@@ -503,26 +534,13 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: number | "new"; r
         </div>
       </div>
 
-      {/* Service log (consumption) — only for a saved, active cycle */}
-      {savedId && isActive && <ServiceLogPanel cycleId={savedId} population={cyclePop} />}
-
-      {/* Summary */}
+      {/* Weekly total — informational. Budget-per-head lives in Budget/Procurement, not here. */}
       {compute && (
         <div className="bg-white border border-zinc-200 rounded-2xl p-5 shadow-sm flex flex-wrap items-center gap-6">
           <div>
             <div className="text-[10px] font-extrabold text-zinc-500 uppercase tracking-wider">Weekly total</div>
             <div className="text-2xl font-extrabold text-emerald-600">{peso(compute.total_cost)}</div>
           </div>
-          <div>
-            <div className="text-[10px] font-extrabold text-zinc-500 uppercase tracking-wider">Cost / head (period)</div>
-            <div className="text-2xl font-extrabold text-zinc-800">{peso(compute.cost_per_head)}</div>
-          </div>
-          {compute.budget_per_head_day != null && (
-            <div className={`px-3 py-2 rounded-xl border text-xs font-bold flex items-center gap-1.5 ${compute.within_budget ? BUDGET_CHIP.ok : BUDGET_CHIP.over}`}>
-              {compute.within_budget ? <CheckCircle2 className="h-3.5 w-3.5" /> : <AlertTriangle className="h-3.5 w-3.5" />}
-              {compute.within_budget ? "Within budget" : "Over budget"} · cap {peso(compute.budget_per_head_day)}/head/day
-            </div>
-          )}
         </div>
       )}
 
@@ -533,7 +551,6 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: number | "new"; r
             <tr className="bg-zinc-50 border-b border-zinc-100">
               <th className="px-3 py-3 text-left text-[10px] font-bold text-zinc-500 uppercase sticky left-0 bg-zinc-50">Meal</th>
               {visibleDays.map((d) => {
-                const dc = compute?.days?.[d];
                 return (
                   <th key={d} className="px-3 py-2 text-left text-[10px] font-bold text-zinc-500 uppercase min-w-[140px]">
                     <div className="flex items-center justify-between gap-1">
@@ -542,17 +559,19 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: number | "new"; r
                         <button onClick={() => duplicateWeek(d)} title={`Copy ${d} to all days`} className="text-zinc-300 hover:text-emerald-600 cursor-pointer"><Copy className="h-3 w-3" /></button>
                       )}
                     </div>
-                    {/* Per-day ESTIMATED headcount — drives planning/scaling only.
-                        This is NOT the served population (that is logged by FSS on the day). */}
-                    <div className="mt-1 flex items-center gap-1">
-                      <input type="number" min={0} value={dayPop[d] ?? ""} placeholder="est" readOnly={readOnly}
-                        onChange={(e) => setPop(d, e.target.value)} title={`${d} estimated population (planning only)`}
-                        className="w-14 px-1.5 py-0.5 text-[10px] font-semibold border border-zinc-200 rounded focus:outline-none focus:ring-1 focus:ring-emerald-400 normal-case" />
-                      <span className="text-[8px] text-zinc-400 normal-case">est. heads</span>
-                    </div>
-                    {dc && (
-                      <div className={`mt-1 inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold border ${BUDGET_CHIP[dc.budget_status ?? "ok"] ?? ""}`}>
-                        {peso(dc.cost_per_head)}/head
+                    {/* Served (actual) population for this day — the real headcount FSS/RND
+                        log on/after the day. Summed across the span it completes the food PO
+                        and yields its actual budget/head. Editable by both roles. */}
+                    {savedId && isActive && weekStart && (
+                      <div className="mt-1 flex items-center gap-1">
+                        <input
+                          key={`served-${d}-${served[d] ?? ""}`}
+                          type="number" min={0} defaultValue={served[d] ?? ""} placeholder="served"
+                          onBlur={(e) => saveServed(d, e.target.value)}
+                          onKeyDown={(e) => { if (e.key === "Enter") saveServed(d, (e.target as HTMLInputElement).value); }}
+                          title={`${d} served population (${isoAddDays(weekStart, DAYS.indexOf(d))})`}
+                          className="w-14 px-1.5 py-0.5 text-[10px] font-semibold border border-emerald-200 rounded focus:outline-none focus:ring-1 focus:ring-emerald-400 normal-case" />
+                        <span className="text-[8px] text-zinc-400 normal-case">{savingServed === d ? "saving…" : "served"}</span>
                       </div>
                     )}
                   </th>
@@ -590,7 +609,7 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: number | "new"; r
                             )}
                           </div>
                           <div className="text-[9px] text-emerald-500 mt-1">
-                            {cell.recipe_id ? "click to see cost · scales to day pop" : "ready-to-serve item"}
+                            {cell.recipe_id ? "click to see cost · scales to day pop" : "single item"}
                           </div>
                         </div>
                       ) : readOnly ? (
@@ -622,7 +641,7 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: number | "new"; r
                                   </button>
                                 ))}
                                 {filteredItems.length > 0 && (
-                                  <div className="px-2 pt-2 pb-1 text-[9px] font-bold uppercase tracking-wider text-zinc-400">Ready-to-serve</div>
+                                  <div className="px-2 pt-2 pb-1 text-[9px] font-bold uppercase tracking-wider text-zinc-400">Single items</div>
                                 )}
                                 {filteredItems.map((it) => (
                                   <button key={`i-${it.id}`} onClick={() => assignItem(key, it)}

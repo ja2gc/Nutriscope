@@ -28,87 +28,92 @@ class FsCatalogSeeder extends Seeder
     /** @return array<int,array<string,mixed>> */
     private function items(): array
     {
-        // [name, kind, category, base_unit, purchase_unit, purchase_price, units_per_purchase]
-        // kind: 'ingredient' (needs a recipe) | 'ready_to_eat' (standalone snack, placeable
-        // directly in any meal slot) | 'supply' (non-food). Bought by kg / pack / bundle.
+        // [name, kind, category, unit, cost_per_unit]
+        // Single-unit catalog model (plan): each item has ONE unit and a cost per that
+        // unit. Recipes may use a different convertible unit (g↔kg, mL↔L) — the
+        // UnitConverter handles the rate. Count units (pc) are non-convertible: recipes
+        // use the same unit. Supplies have no user unit; stored as a generic 'unit'.
+        // kind: 'ingredient' (food, including single items) | 'supply' (non-food).
         $rows = [
-            // ── Meat & fish ───────────────────────────────────────────────
-            ['Pork (kasim)',          'ingredient', 'Meat',      'g',  'kg',   280, null],
-            ['Pork (liempo)',         'ingredient', 'Meat',      'g',  'kg',   300, null],
-            ['Ground pork',           'ingredient', 'Meat',      'g',  'kg',   290, null],
-            ['Beef (cubes)',          'ingredient', 'Meat',      'g',  'kg',   360, null],
-            ['Chicken (whole)',       'ingredient', 'Meat',      'g',  'kg',   200, null],
-            ['Chicken fillet',        'ingredient', 'Meat',      'g',  'kg',   260, null],
-            ['Bangus (milkfish)',     'ingredient', 'Fish',      'g',  'kg',   180, null],
-            ['Egg',                   'ingredient', 'Poultry',   'pc', 'tray',  240, 30],
+            // ── Meat & fish (per kg) ──────────────────────────────────────
+            ['Pork (kasim)',          'ingredient', 'Meat',      'kg', 280],
+            ['Pork (liempo)',         'ingredient', 'Meat',      'kg', 300],
+            ['Ground pork',           'ingredient', 'Meat',      'kg', 290],
+            ['Beef (cubes)',          'ingredient', 'Meat',      'kg', 360],
+            ['Chicken (whole)',       'ingredient', 'Meat',      'kg', 200],
+            ['Chicken fillet',        'ingredient', 'Meat',      'kg', 260],
+            ['Bangus (milkfish)',     'ingredient', 'Fish',      'kg', 180],
+            ['Egg',                   'ingredient', 'Poultry',   'pc', 8],
 
-            // ── Grains & staples ─────────────────────────────────────────
-            ['Rice',                  'ingredient', 'Grain',     'g',  'kg',    52, null],
-            ['Munggo (mung bean)',    'ingredient', 'Grain',     'g',  'kg',    90, null],
-            ['Macaroni',              'ingredient', 'Grain',     'g',  'pack',  85, 1000],
+            // ── Grains & staples (per kg) ─────────────────────────────────
+            ['Rice',                  'ingredient', 'Grain',     'kg', 52],
+            ['Munggo (mung bean)',    'ingredient', 'Grain',     'kg', 90],
+            ['Macaroni',              'ingredient', 'Grain',     'kg', 85],
 
-            // ── Vegetables ───────────────────────────────────────────────
-            ['Assorted vegetables',   'ingredient', 'Vegetable', 'g',  'kg',    80, null],
-            ['Pinakbet vegetables',   'ingredient', 'Vegetable', 'g',  'kg',    90, null],
-            ['Onion',                 'ingredient', 'Vegetable', 'g',  'kg',   120, null],
-            ['Garlic',                'ingredient', 'Vegetable', 'g',  'kg',   140, null],
-            ['Ginger',                'ingredient', 'Vegetable', 'g',  'kg',   100, null],
-            ['Tomato',                'ingredient', 'Vegetable', 'g',  'kg',    80, null],
-            ['Carrot',                'ingredient', 'Vegetable', 'g',  'kg',    90, null],
-            ['Potato',                'ingredient', 'Vegetable', 'g',  'kg',    90, null],
-            ['Sayote',                'ingredient', 'Vegetable', 'g',  'kg',    60, null],
-            ['Corn kernel',           'ingredient', 'Vegetable', 'g',  'kg',    70, null],
+            // ── Vegetables (per kg) ───────────────────────────────────────
+            ['Assorted vegetables',   'ingredient', 'Vegetable', 'kg', 80],
+            ['Pinakbet vegetables',   'ingredient', 'Vegetable', 'kg', 90],
+            ['Onion',                 'ingredient', 'Vegetable', 'kg', 120],
+            ['Garlic',                'ingredient', 'Vegetable', 'kg', 140],
+            ['Ginger',                'ingredient', 'Vegetable', 'kg', 100],
+            ['Tomato',                'ingredient', 'Vegetable', 'kg', 80],
+            ['Carrot',                'ingredient', 'Vegetable', 'kg', 90],
+            ['Potato',                'ingredient', 'Vegetable', 'kg', 90],
+            ['Sayote',                'ingredient', 'Vegetable', 'kg', 60],
+            ['Corn kernel',           'ingredient', 'Vegetable', 'kg', 70],
 
-            // ── Fruit (ready-to-eat, sold by the bundle) ─────────────────
-            ['Latundan banana',       'ready_to_eat', 'Fruit',   'pc', 'bundle', 50, 10],
-            ['Saba banana',           'ready_to_eat', 'Fruit',   'pc', 'bundle', 60, 10],
-            ['Ponkan',                'ready_to_eat', 'Fruit',   'pc', 'bundle', 96, 12],
-            ['Ripe mango',            'ready_to_eat', 'Fruit',   'pc', 'kg',     120, 4],
+            // ── Fruit (single items, per piece) ───────────────────────────
+            ['Latundan banana',       'ingredient', 'Fruit',     'pc', 5],
+            ['Saba banana',           'ingredient', 'Fruit',     'pc', 6],
+            ['Ponkan',                'ingredient', 'Fruit',     'pc', 8],
+            ['Ripe mango',            'ingredient', 'Fruit',     'pc', 30],
 
-            // ── Dairy & beverages ────────────────────────────────────────
-            ['Fresh milk',            'ready_to_eat', 'Beverage', 'mL', 'pack',  90, 1000],
-            ['Powdered milk',         'ingredient', 'Beverage',  'g',  'kg',   420, null],
-            ['Milo',                  'ready_to_eat', 'Beverage', 'g',  'pack', 320, 1000],
-            ['Coffee',                'ready_to_eat', 'Beverage', 'g',  'pack', 400, 1000],
-            ['Yakult',                'ready_to_eat', 'Beverage', 'pc', 'pack',  55, 5],
+            // ── Dairy & beverages ─────────────────────────────────────────
+            ['Fresh milk',            'ingredient', 'Beverage',  'L',  90],
+            ['Powdered milk',         'ingredient', 'Beverage',  'kg', 420],
+            ['Milo',                  'ingredient', 'Beverage',  'kg', 320],
+            ['Coffee',                'ingredient', 'Beverage',  'kg', 400],
+            ['Yakult',                'ingredient', 'Beverage',  'pc', 11],
 
-            // ── Bakery & snacks ──────────────────────────────────────────
-            ['Pandesal',              'ingredient', 'Bakery',    'pc', 'pack',  75, 25],
-            ['Loaf bread',            'ingredient', 'Bakery',    'pc', 'pack',   65, 20],
-            ['Brownie bite',          'ready_to_eat', 'Snack',   'pc', 'pack',  120, 24],
-            ['Chooey toffee',         'ready_to_eat', 'Snack',   'pc', 'pack',   96, 24],
+            // ── Bakery & snacks (per piece) ───────────────────────────────
+            ['Pandesal',              'ingredient', 'Bakery',    'pc', 3],
+            ['Loaf bread',            'ingredient', 'Bakery',    'pc', 3.25],
+            ['Brownie bite',          'ingredient', 'Snack',     'pc', 5],
+            ['Chooey toffee',         'ingredient', 'Snack',     'pc', 4],
 
-            // ── Condiments & cooking ─────────────────────────────────────
-            ['Cooking oil',           'ingredient', 'Condiment', 'mL', 'L',     75, null],
-            ['Soy sauce',             'ingredient', 'Condiment', 'mL', 'L',     60, null],
-            ['Vinegar',               'ingredient', 'Condiment', 'mL', 'L',     45, null],
-            ['Salt',                  'ingredient', 'Condiment', 'g',  'kg',    25, null],
-            ['Sugar',                 'ingredient', 'Condiment', 'g',  'kg',    70, null],
-            ['Cheez Whiz',            'ingredient', 'Condiment', 'g',  'jar',    85, 210],
-            ['Mushroom (canned)',     'ingredient', 'Condiment', 'g',  'can',    45, 400],
+            // ── Condiments & cooking ──────────────────────────────────────
+            ['Cooking oil',           'ingredient', 'Condiment', 'L',  75],
+            ['Soy sauce',             'ingredient', 'Condiment', 'L',  60],
+            ['Vinegar',               'ingredient', 'Condiment', 'L',  45],
+            ['Salt',                  'ingredient', 'Condiment', 'kg', 25],
+            ['Sugar',                 'ingredient', 'Condiment', 'kg', 70],
+            ['Cheez Whiz',            'ingredient', 'Condiment', 'kg', 405],
+            ['Mushroom (canned)',     'ingredient', 'Condiment', 'kg', 112.50],
 
-            // ── Supplies (non-food) ──────────────────────────────────────
-            ['LPG (cooking gas)',     'supply',     'Utility',    'kg', 'tank', 900, 11],
-            ['Roll bag (garbage)',    'supply',     'Disposable', 'pc', 'roll',  80, 50],
-            ['Paper meal box',        'supply',     'Disposable', 'pc', 'pack', 150, 50],
-            ['Disposable spoon',      'supply',     'Disposable', 'pc', 'pack',  60, 100],
-            ['Disposable fork',       'supply',     'Disposable', 'pc', 'pack',  60, 100],
-            ['Plastic cup',           'supply',     'Disposable', 'pc', 'pack',  70, 100],
-            ['Cling wrap',            'supply',     'Disposable', 'pc', 'pc',   120, null],
-            ['Dishwashing liquid',    'supply',     'Cleaning',   'mL', 'L',     95, null],
-            ['Hand soap',             'supply',     'Cleaning',   'mL', 'L',    110, null],
-            ['Bleach',                'supply',     'Cleaning',   'mL', 'L',     55, null],
-            ['Tissue paper',          'supply',     'Cleaning',   'pc', 'pack',  90, 12],
+            // ── Supplies (non-food, cost per unit, no user unit) ──────────
+            ['LPG (cooking gas)',     'supply',     'Utility',    'unit', 900],
+            ['Roll bag (garbage)',    'supply',     'Disposable', 'unit', 1.60],
+            ['Paper meal box',        'supply',     'Disposable', 'unit', 3],
+            ['Disposable spoon',      'supply',     'Disposable', 'unit', 0.60],
+            ['Disposable fork',       'supply',     'Disposable', 'unit', 0.60],
+            ['Plastic cup',           'supply',     'Disposable', 'unit', 0.70],
+            ['Cling wrap',            'supply',     'Disposable', 'unit', 120],
+            ['Dishwashing liquid',    'supply',     'Cleaning',   'unit', 95],
+            ['Hand soap',             'supply',     'Cleaning',   'unit', 110],
+            ['Bleach',                'supply',     'Cleaning',   'unit', 55],
+            ['Tissue paper',          'supply',     'Cleaning',   'unit', 7.50],
         ];
 
+        // Single unit + cost per unit: purchase_unit == base_unit, 1 per purchase, so the
+        // model's unit_cost accessor returns the entered cost directly.
         return array_map(fn ($r) => [
             'name'               => $r[0],
             'kind'               => $r[1],
             'category'           => $r[2],
             'base_unit'          => $r[3],
-            'purchase_unit'      => $r[4],
-            'purchase_price'     => $r[5],
-            'units_per_purchase' => $r[6],
+            'purchase_unit'      => $r[3],
+            'purchase_price'     => $r[4],
+            'units_per_purchase' => 1,
             'is_active'          => true,
         ], $rows);
     }

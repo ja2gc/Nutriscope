@@ -428,13 +428,12 @@ function VendorDetail({ po, group, onBack, onUpload }: VendorDetailProps) {
     setError(null);
   }, [group]);
 
-  // Mobile FSS may only set the OR number and upload photos — structural line
-  // details are frozen and read-only here.
+  // Mobile FSS may only set the OR number and upload photos. Receipt upload is
+  // the workflow event that marks a vendor group received server-side.
   const updateMutation = useMutation({
-    mutationFn: async (nextStatus?: 'received') => {
+    mutationFn: async () => {
       const payload = {
         or_number: orNumber.trim() || null,
-        status: nextStatus,
       };
       const res = await api.patch(`/api/fss/purchase-order-vendor-groups/${group.id}`, payload);
       return res.data;
@@ -487,21 +486,14 @@ function VendorDetail({ po, group, onBack, onUpload }: VendorDetailProps) {
           )}
 
           {!locked && (
-            <View className="flex-row gap-3 mt-3">
+            <View className="mt-3">
               <TouchableOpacity
-                className="flex-1 flex-row items-center justify-center gap-2 border border-gray-200 py-3 rounded-xl"
-                onPress={() => updateMutation.mutate(undefined)}
+                className="flex-row items-center justify-center gap-2 border border-gray-200 py-3 rounded-xl"
+                onPress={() => updateMutation.mutate()}
                 disabled={updateMutation.isPending}
               >
                 {updateMutation.isPending ? <ActivityIndicator size="small" color="#059669" /> : <Save color="#059669" size={16} />}
                 <Text className="text-sm font-semibold text-emerald-700">Save</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                className="flex-1 items-center justify-center bg-emerald-600 py-3 rounded-xl"
-                onPress={() => updateMutation.mutate('received')}
-                disabled={updateMutation.isPending || group.status === 'received'}
-              >
-                <Text className="text-sm font-semibold text-white">Mark received</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -739,7 +731,7 @@ export default function ProcurementScreen() {
         <View className="px-4 mb-4">
           <Text className="text-lg font-bold text-gray-900">Procurement</Text>
           <Text className="text-sm text-gray-500 mt-1">
-            Open purchase events, update vendor line details, and upload receipt/proof images.
+            Open purchase events, save OR numbers, and upload receipt/proof images.
           </Text>
         </View>
 

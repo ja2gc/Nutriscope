@@ -62,7 +62,6 @@ export interface ComputeResult {
 
 export interface RecipeOption { id: number; name: string; category: string | null; servings: number; cost?: string }
 
-/** Ready-to-serve catalog item (e.g. banana/Yakult snack) placeable in any meal slot. */
 export interface FsItemOption { id: number; name: string; category: string | null; unit: string; unit_cost: number }
 
 export interface RecipeProfile {
@@ -80,7 +79,7 @@ export interface FsItemProfile {
   id: number;
   fs_item_id: number;
   name: string;
-  kind: "ready_to_eat";
+  kind: "ingredient";
   category: string | null;
   unit: string;
   unit_cost: number;
@@ -103,7 +102,6 @@ export async function getRecipeProfile(recipeId: number, population: number): Pr
   return json<RecipeProfile>(res, "Failed to load recipe profile.");
 }
 
-/** Cost breakdown for a ready-to-serve catalog item scaled to a day's headcount. */
 export async function getFsItemProfile(fsItemId: number, population: number, quantity = 1): Promise<FsItemProfile> {
   const qs = new URLSearchParams({ population: String(population), quantity: String(quantity) });
   const res = await apiFetch(`/api/fss/fs-items/${fsItemId}/profile?${qs}`);
@@ -136,7 +134,7 @@ export async function listRecipeOptions(): Promise<RecipeOption[]> {
   return (await res.json()).data ?? [];
 }
 
-// ─── Ready-to-serve catalog items (picker source) ───────────────────────────────
+// ─── Single catalog items (picker source) ─────────────────────────────────────
 export async function listFsItemOptions(): Promise<FsItemOption[]> {
   const res = await apiFetch("/api/fss/fs-items");
   if (!res.ok) return [];

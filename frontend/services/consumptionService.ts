@@ -15,6 +15,7 @@ export interface MealPrepLog {
   menu_cycle_id: number;
   service_date: string;
   status: "completed" | "reversed";
+  served_population: number | null;
   total_value: string;
   has_shortfall: boolean;
   completed_at: string | null;
@@ -40,6 +41,19 @@ export async function completeServiceDay(menuCycleId: number, serviceDate: strin
 /** Reverse a completed service day — restores the deducted quantities to stock. */
 export async function reverseServiceDay(logId: number): Promise<MealPrepLog> {
   return unwrap(await apiFetch(`/api/fss/meal-prep-logs/${logId}/reverse`, { method: "POST" }), "Failed to reverse service day.");
+}
+
+/**
+ * Backfill the served (actual) population for one date of a cycle — a headcount
+ * census, NOT a stock deduction. Editable by FSS + RND any time before the related
+ * food PO completes. Summed across the span it drives PO completion, the food PO's
+ * actual budget/head/day, and the PPA report's actual output.
+ */
+export async function setServedPopulation(menuCycleId: number, serviceDate: string, servedPopulation: number): Promise<MealPrepLog> {
+  return unwrap(await apiFetch(`/api/fss/menu-cycles/${menuCycleId}/served-population`, {
+    method: "PATCH", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ service_date: serviceDate, served_population: servedPopulation }),
+  }), "Failed to save served population.");
 }
 
 export async function listServiceLogs(params: { menu_cycle_id?: number; from?: string; to?: string } = {}): Promise<MealPrepLog[]> {
