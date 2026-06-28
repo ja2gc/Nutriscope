@@ -9,8 +9,10 @@ use App\Models\Intervention;
 use App\Models\Monitoring;
 use App\Models\NcpRecord;
 use App\Models\Patient;
+use App\Models\MealPlan;
 use App\Models\ScreeningDocument;
 use App\Models\User;
+use App\Services\MealPlanService;
 use App\Services\RiskScoreCalculator;
 use Carbon\Carbon;
 use Illuminate\Database\Seeder;
@@ -46,6 +48,24 @@ class PatientSeeder extends Seeder
         $this->seedRobertoReyes($rnd->id);
     }
 
+    /**
+     * Generate a demo meal plan for a record's intervention so every seeded patient
+     * has a printable Patient Menu Plan. Deterministic via a fixed RNG seed.
+     */
+    private function seedMealPlan(NcpRecord $record, string $weekStart): void
+    {
+        $svc = resolve(MealPlanService::class);
+        $svc->setRngSeed(42);
+        $allergens = $record->assessment?->allergies ?? [];
+        $result = $svc->generate($record->fresh(), $weekStart, [], is_array($allergens) ? $allergens : []);
+
+        if (is_array($result)) {
+            $this->command->warn('  PatientSeeder: meal plan not generated — ' . ($result['message'] ?? 'insufficient recipes') . '.');
+            return;
+        }
+        $result->update(['status' => 'active']);
+    }
+
     // ── Cleanup helper ────────────────────────────────────────────────────────
 
     private function cleanupPatient(string $name): void
@@ -61,7 +81,11 @@ class PatientSeeder extends Seeder
         foreach ($patient->ncpRecords as $record) {
             $record->monitorings()->delete();
             $record->diagnoses()->delete();
-            $record->intervention?->delete();
+            if ($intervention = $record->intervention) {
+                // Meal plans (+days/items via FK cascade) hang off the intervention.
+                MealPlan::where('intervention_id', $intervention->id)->delete();
+                $intervention->delete();
+            }
             if ($assessment = $record->assessment) {
                 $assessment->biochemicalData?->delete();
                 $assessment->delete();
@@ -248,6 +272,9 @@ class PatientSeeder extends Seeder
                                 . "4. Filipino recipe modifications: less sugar in Tinola, less rice per serving in Adobo.\n"
                                 . "5. Sodium reduction: replace patis with calamansi and herbs.",
         ]);
+
+        // Meal plan — diabetic menu for the week after admission.
+        $this->seedMealPlan($record, '2026-05-25');
 
         // ── Monitoring — Follow-up 1 (4 weeks after admission, 2026-06-17) ─────
         // Labs trending down: glucose 145→128, HbA1c 8.4→8.0, cholesterol 218→205, LDL 125→112
@@ -493,6 +520,9 @@ class PatientSeeder extends Seeder
                                 . "4. Fortify lugaw with egg, evaporated milk, or peanut butter to increase energy density.\n"
                                 . "5. Electrolyte monitoring (phosphate, K+, Mg2+) on Day 3 and Day 5 post-refeeding start.",
         ]);
+
+        // Meal plan — nutritional-rehabilitation menu.
+        $this->seedMealPlan($record, '2026-06-08');
 
         // No monitoring entries — first session complete, follow-up pending in 2 weeks.
 
