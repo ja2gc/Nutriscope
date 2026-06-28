@@ -197,6 +197,52 @@ class NcpDiagnosisTest extends TestCase
             ->assertJsonPath('data.extra_notes', 'Updated notes');
     }
 
+    public function test_update_persists_manual_pes_override(): void
+    {
+        $rnd     = $this->rnd();
+        $patient = $this->patient();
+        $ncp     = $this->ncpRecord($patient, $rnd);
+
+        $diagnosis = Diagnosis::forceCreate([
+            'ncp_record_id' => $ncp->id, 'domain' => 'NI',
+            'problem' => 'Inadequate intake', 'etiology' => 'poor appetite',
+            'signs_symptoms' => 'weight loss', 'pes_statement' => 'auto',
+        ]);
+
+        $override = 'Inadequate oral intake related to chemotherapy-induced nausea as evidenced by 8% weight loss';
+
+        $this->actingAs($rnd, 'sanctum')
+            ->patchJson("/api/rnd/ncp-records/{$ncp->id}/diagnoses/{$diagnosis->id}", [
+                'pes_statement' => $override,
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.pes_statement', $override);
+
+        $this->assertDatabaseHas('diagnoses', [
+            'id' => $diagnosis->id, 'pes_statement' => $override,
+        ]);
+    }
+
+    public function test_update_rejects_blanked_pes_component(): void
+    {
+        $rnd     = $this->rnd();
+        $patient = $this->patient();
+        $ncp     = $this->ncpRecord($patient, $rnd);
+
+        $diagnosis = Diagnosis::forceCreate([
+            'ncp_record_id' => $ncp->id, 'domain' => 'NI',
+            'problem' => 'Inadequate intake', 'etiology' => 'poor appetite',
+            'signs_symptoms' => 'weight loss', 'pes_statement' => 'auto',
+        ]);
+
+        $this->actingAs($rnd, 'sanctum')
+            ->patchJson("/api/rnd/ncp-records/{$ncp->id}/diagnoses/{$diagnosis->id}", [
+                'problem' => '',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['problem']);
+    }
+
     public function test_rnd_can_delete_diagnosis(): void
     {
         $rnd     = $this->rnd();

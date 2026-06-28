@@ -217,6 +217,9 @@ function buildPayload(b: BuilderState): StoreDiagnosisPayload {
     problem,
     etiology,
     signs_symptoms: signs,
+    // Persist the PES the RND actually sees (manual override wins; otherwise the
+    // builder-derived statement). Backend falls back to P-E-S if this is blank.
+    pes_statement: pesStatement,
     extra_notes: b.extraNotes || null,
     ai_generated: false,
   };

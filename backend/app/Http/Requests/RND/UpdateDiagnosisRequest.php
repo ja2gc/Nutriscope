@@ -13,11 +13,15 @@ class UpdateDiagnosisRequest extends FormRequest
 
     public function rules(): array
     {
+        // `sometimes|required` enforces the PES invariant (DP-03): a field may be
+        // omitted, but if present it cannot be blanked — preventing edits that leave
+        // a malformed "... related to  as evidenced by ..." statement.
         return [
-            'domain'         => ['nullable', 'string', 'in:NI,NC,NB'],
-            'problem'        => ['nullable', 'string', 'max:255'],
-            'etiology'       => ['nullable', 'string'],
-            'signs_symptoms' => ['nullable', 'string'],
+            'domain'         => ['sometimes', 'required', 'string', 'in:NI,NC,NB'],
+            'problem'        => ['sometimes', 'required', 'string', 'max:255'],
+            'etiology'       => ['sometimes', 'required', 'string'],
+            'signs_symptoms' => ['sometimes', 'required', 'string'],
+            'pes_statement'  => ['nullable', 'string'],
             'extra_notes'    => ['nullable', 'string'],
             'ai_generated'   => ['nullable', 'boolean'],
         ];

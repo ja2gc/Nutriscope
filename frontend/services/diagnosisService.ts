@@ -19,6 +19,8 @@ export interface StoreDiagnosisPayload {
   problem: string;
   etiology: string;
   signs_symptoms: string;
+  /** RND's PES statement (manual override or builder-derived) — persisted as-is. */
+  pes_statement?: string;
   extra_notes?: string | null;
   ai_generated?: boolean;
 }
