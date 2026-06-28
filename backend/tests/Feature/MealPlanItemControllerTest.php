@@ -192,6 +192,40 @@ class MealPlanItemControllerTest extends TestCase
         $this->getJson($this->url($ctx))->assertUnauthorized();
     }
 
+    public function test_store_hard_blocks_allergen_conflict(): void
+    {
+        $ctx = $this->setupPlan();
+        \App\Models\Assessment::forceCreate([
+            'ncp_record_id' => $ctx['ncp']->id, 'weight' => 70, 'height' => 170,
+            'allergies' => ['Peanuts'],
+        ]);
+        $food = FoodItem::factory()->create(['name' => 'Peanut sauce', 'allergens' => ['peanuts']]);
+
+        $this->actingAs($ctx['rnd'])
+            ->postJson($this->url($ctx), ['food_item_id' => $food->id, 'quantity' => 100, 'unit' => 'g'])
+            ->assertUnprocessable()
+            ->assertJsonStructure(['message', 'errors' => ['allergens']]);
+
+        $this->assertDatabaseCount('meal_plan_items', 0);
+    }
+
+    public function test_store_warns_on_food_dislike_but_still_adds(): void
+    {
+        $ctx = $this->setupPlan();
+        \App\Models\Assessment::forceCreate([
+            'ncp_record_id' => $ctx['ncp']->id, 'weight' => 70, 'height' => 170,
+            'food_dislikes' => ['broccoli'],
+        ]);
+        $food = FoodItem::factory()->create(['name' => 'Broccoli soup', 'allergens' => []]);
+
+        $res = $this->actingAs($ctx['rnd'])
+            ->postJson($this->url($ctx), ['food_item_id' => $food->id, 'quantity' => 100, 'unit' => 'g'])
+            ->assertCreated();
+
+        $this->assertNotEmpty($res->json('warnings'));
+        $this->assertDatabaseCount('meal_plan_items', 1);
+    }
+
     public function test_snapshot_includes_water_g_for_library_food(): void
     {
         $ctx  = $this->setupPlan();
