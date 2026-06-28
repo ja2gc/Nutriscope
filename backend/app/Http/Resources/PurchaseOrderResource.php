@@ -9,6 +9,12 @@ class PurchaseOrderResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
+        $servedPopulationProgress = null;
+        if ($this->relationLoaded('shoppingList') && $this->shoppingList && $this->procurement_track === 'food') {
+            $servedPopulationProgress = app(\App\Services\FSS\PurchaseOrderLifecycleService::class)
+                ->servedPopulationProgress($this->shoppingList);
+        }
+
         return [
             'id'               => $this->id,
             'rnd_user_id'      => $this->rnd_user_id,
@@ -23,6 +29,7 @@ class PurchaseOrderResource extends JsonResource
             'received_date'    => $this->received_date?->toDateString(),
             'total_amount'     => $this->total_amount,
             'actual_budget_per_head_per_day' => $this->actual_budget_per_head_per_day,
+            'served_population_progress' => $servedPopulationProgress,
             'status'           => $this->status,
             'lifecycle_status' => $this->lifecycle_status,
             'procurement_track' => $this->procurement_track,

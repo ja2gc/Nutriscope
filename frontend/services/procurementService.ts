@@ -72,6 +72,7 @@ export interface PurchaseOrder {
   received_date: string | null;
   total_amount: string | null;
   actual_budget_per_head_per_day: string | null;
+  served_population_progress?: { expected: number; done: number; served: number } | null;
   status: "draft" | "ordered" | "received";
   lifecycle_status: "open_execution" | "completed" | "archived";
   converted_at: string | null;

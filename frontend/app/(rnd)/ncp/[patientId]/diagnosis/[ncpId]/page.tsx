@@ -15,6 +15,7 @@ import {
   Diagnosis, StoreDiagnosisPayload, AiSuggestion,
 } from "@/services/diagnosisService";
 import { fetchAssessment } from "@/services/assessmentService";
+import { splitStoredComponent } from "@/lib/diagnosisComponentSplit";
 
 // ─── Domain Metadata ─────────────────────────────────────────────────────────
 
@@ -225,10 +226,16 @@ function loadBuilderFromDiagnosis(d: Diagnosis): BuilderState {
   const b = defaultBuilder();
   b.editingId = d.id ?? null;
   b.domain = d.domain;
-  b.etiologyNotes = d.etiology;
-  b.signNotes = d.signs_symptoms;
   b.extraNotes = d.extra_notes ?? "";
   b.pesOverride = d.pes_statement ?? "";
+
+  // Re-hydrate checkbox selections from the stored joined strings.
+  const etiology = splitStoredComponent(d.etiology ?? "", getEtiologies(d.domain));
+  b.etiologyChecks = etiology.checks;
+  b.etiologyNotes = etiology.notes;
+  const signs = splitStoredComponent(d.signs_symptoms ?? "", getSigns(d.domain));
+  b.signChecks = signs.checks;
+  b.signNotes = signs.notes;
 
   if (d.domain === "NI") {
     const match = d.problem.match(/^(Inadequate|Excessive)\s+(.+)\s+Intake$/i);
