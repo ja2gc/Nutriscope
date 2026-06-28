@@ -33,7 +33,7 @@ class BudgetLedgerListener
             return;
         }
 
-        BudgetLedger::create([
+        $entry = BudgetLedger::create([
             'fiscal_year'       => $year,
             'type'              => 'po_deduction',
             'source'            => 'system',
@@ -42,5 +42,18 @@ class BudgetLedgerListener
             'purchase_order_id' => $po->id,
             'created_by'        => null,
         ]);
+
+        activity('audit')
+            ->performedOn($entry)
+            ->event('created')
+            ->withProperties([
+                'fiscal_year' => $year,
+                'type' => 'po_deduction',
+                'source' => 'system',
+                'amount' => (float) $po->total_amount,
+                'purchase_order_id' => $po->id,
+                'reference' => $po->po_number,
+            ])
+            ->log('Budget ledger system deduction created');
     }
 }

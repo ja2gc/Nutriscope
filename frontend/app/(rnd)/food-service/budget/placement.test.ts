@@ -6,7 +6,7 @@ const root = process.cwd();
 
 describe("food-service budget placement", () => {
   test("budget page has no insights tab and puts fiscal year setup at the top", () => {
-    const source = readFileSync(join(root, "app/(rnd)/food-service/budget/page.tsx"), "utf8");
+    const source = readFileSync(join(root, "components/budget/BudgetPageShell.tsx"), "utf8");
 
     // Insights are fully removed.
     expect(source).not.toContain("BudgetInsightsPanel");
@@ -18,7 +18,7 @@ describe("food-service budget placement", () => {
   });
 
   test("summary shows only the three slimmed cards", () => {
-    const source = readFileSync(join(root, "app/(rnd)/food-service/budget/page.tsx"), "utf8");
+    const source = readFileSync(join(root, "components/budget/BudgetPageShell.tsx"), "utf8");
 
     expect(source).toContain('label: "Allocated"');
     expect(source).toContain('label: "Total Deductions"');
@@ -30,7 +30,7 @@ describe("food-service budget placement", () => {
   });
 
   test("ledger has no procurement span column", () => {
-    const source = readFileSync(join(root, "app/(rnd)/food-service/budget/page.tsx"), "utf8");
+    const source = readFileSync(join(root, "components/budget/BudgetPageShell.tsx"), "utf8");
     expect(source).not.toContain("procurement_span");
     expect(source).not.toMatch(/>\s*Span\s*</);
   });

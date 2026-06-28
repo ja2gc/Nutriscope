@@ -4,8 +4,10 @@ export type ReportType =
   | "program_project_activity"
   | "menu_calendar"
   | "procurement_pack"
+  | "accomplishment_report"
   | "demographic_census"
-  | "patient_menu_plan";
+  | "patient_menu_plan"
+  | "ncp_summary";
 
 export interface ReportItem {
   id: number;

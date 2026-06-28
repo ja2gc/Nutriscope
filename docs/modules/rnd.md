@@ -138,6 +138,7 @@ Current behavior:
 - Shared budget ledger records system deductions from completed POs and manual adjustments.
 - Food and supplies share the ledger only for deductions; procurement tracks remain separate.
 - Budget page no longer asks for per-head/day limit.
+- RND keeps the editable budget page at `/food-service/budget`. Admin uses the same shell at `/admin/budget` in read-only mode.
 
 Known gap:
 
@@ -170,3 +171,5 @@ Basic settings stuff
 ## Profile
 basic profile stuff
 [2026-06-19] At minimum: User name (which should be the same variable for reports that are the ones that prepared it), email, password change. Check if profile photo upload is supported in the backend before adding it to the frontend.
+
+[2026-06-28] RND and Admin share `ProfilePageShell`. Profile photo updates are accepted only as PNG/JPEG/WebP data URLs with frontend size checks and Laravel max/regex validation. Password changes revoke existing Sanctum tokens.

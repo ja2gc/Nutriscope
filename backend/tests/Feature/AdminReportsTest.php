@@ -11,7 +11,7 @@ use Tests\TestCase;
 /**
  * Admin role-restricted report access.
  *
- * Allowlist: demographic_census, budget_report, procurement_pack.
+ * Allowlist: non-patient RND reports plus aggregate demographic_census.
  * Blocked:   ncp_summary, patient_menu_plan (PHI — 403 even via direct API).
  */
 class AdminReportsTest extends TestCase
@@ -50,6 +50,15 @@ class AdminReportsTest extends TestCase
         $this->actingAs($this->admin)
             ->getJson('/api/admin/reports/procurement_pack/instances')
             ->assertOk();
+    }
+
+    public function test_admin_can_browse_non_patient_rnd_report_instances(): void
+    {
+        foreach (['program_project_activity', 'menu_calendar', 'accomplishment_report'] as $type) {
+            $this->actingAs($this->admin)
+                ->getJson("/api/admin/reports/{$type}/instances")
+                ->assertOk();
+        }
     }
 
     // ── Blocked types → 403 (PHI guard — enforced on the backend) ──────────
@@ -93,10 +102,17 @@ class AdminReportsTest extends TestCase
 
     public function test_admin_index_returns_only_allowed_type_rows(): void
     {
+        $rnd = User::factory()->create(['role' => 'RND']);
+
         // Create reports of various types owned by admin
         \App\Models\Report::factory()->create([
             'user_id' => $this->admin->id,
             'type'    => 'demographic_census',
+            'status'  => 'archived',
+        ]);
+        \App\Models\Report::factory()->create([
+            'user_id' => $this->admin->id,
+            'type'    => 'accomplishment_report',
             'status'  => 'archived',
         ]);
         \App\Models\Report::factory()->create([
@@ -109,6 +125,11 @@ class AdminReportsTest extends TestCase
             'type'    => 'patient_menu_plan',
             'status'  => 'archived',
         ]);
+        \App\Models\Report::factory()->create([
+            'user_id' => $rnd->id,
+            'type'    => 'program_project_activity',
+            'status'  => 'archived',
+        ]);
 
         $data = $this->actingAs($this->admin)
             ->getJson('/api/admin/reports')
@@ -117,6 +138,8 @@ class AdminReportsTest extends TestCase
 
         $types = collect($data)->pluck('type')->all();
         $this->assertContains('demographic_census', $types);
+        $this->assertContains('accomplishment_report', $types);
+        $this->assertContains('program_project_activity', $types);
         $this->assertNotContains('ncp_summary', $types);
         $this->assertNotContains('patient_menu_plan', $types);
     }

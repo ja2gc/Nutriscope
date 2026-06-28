@@ -24,6 +24,7 @@ class UserController extends Controller
         $data['password'] = Hash::make($data['password']);
 
         $user = User::create($data);
+        $this->auditUser('created', $user, 'Admin user account created');
 
         return response()->json(['data' => new UserResource($user)], 201);
     }
@@ -43,12 +44,14 @@ class UserController extends Controller
         }
 
         $user->update($data);
+        $this->auditUser('updated', $user, 'Admin user account updated');
 
         return response()->json(['data' => new UserResource($user)]);
     }
 
     public function destroy(User $user): JsonResponse
     {
+        $this->auditUser('deleted', $user, 'Admin user account deleted');
         $user->delete();
         return response()->json(null, 204);
     }
@@ -58,7 +61,23 @@ class UserController extends Controller
         $user->update([
             'password' => Hash::make($request->validated('password')),
         ]);
+        $user->tokens()->delete();
+        $this->auditUser('password_reset', $user, 'Admin reset user password');
 
         return response()->json(['message' => 'Password reset.']);
+    }
+
+    private function auditUser(string $event, User $user, string $description): void
+    {
+        activity('audit')
+            ->causedBy(auth()->user())
+            ->performedOn($user)
+            ->event($event)
+            ->withProperties([
+                'user_id' => $user->id,
+                'role' => $user->role,
+                'is_active' => $user->is_active,
+            ])
+            ->log($description);
     }
 }

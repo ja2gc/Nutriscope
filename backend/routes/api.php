@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\AiUsageLimitController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Auth\AuthController;
+use App\Http\Controllers\Auth\PasswordResetController;
 use App\Http\Controllers\FSS\BudgetController;
 use App\Http\Controllers\FSS\DashboardController as FssDashboardController;
 use App\Http\Controllers\FSS\DietListCountController;
@@ -67,6 +68,10 @@ $reportRoutes = function () {
 
 Route::prefix('auth')->group(function () {
     Route::post('login', [AuthController::class, 'login'])->middleware('throttle:login');
+    Route::post('forgot-password', [PasswordResetController::class, 'sendResetLink'])
+        ->middleware('throttle:password-reset');
+    Route::post('reset-password', [PasswordResetController::class, 'reset'])
+        ->middleware('throttle:password-reset');
 
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('logout', [AuthController::class, 'logout']);
@@ -278,8 +283,10 @@ Route::middleware(['auth:sanctum', 'role:FSS,RND'])->prefix('fss')->group(functi
 
         Route::apiResource('food-service-recipes', FoodServiceRecipeController::class)->only(['store', 'update', 'destroy']);
 
-        Route::post('budgets/adjust', [BudgetController::class, 'manualAdjust']);
-        Route::apiResource('budgets', BudgetController::class)->only(['store']);
+        Route::middleware('audit')->group(function () {
+            Route::post('budgets/adjust', [BudgetController::class, 'manualAdjust']);
+            Route::apiResource('budgets', BudgetController::class)->only(['store']);
+        });
 
         // Food Service settings — budget per head per day (RND writes)
         Route::put('food-service-settings', [FoodServiceSettingController::class, 'update']);
@@ -311,6 +318,9 @@ Route::middleware(['auth:sanctum', 'role:Admin'])->prefix('admin')->group(functi
     });
     Route::get('audit-logs', [AdminAuditLogController::class, 'index']);
     Route::get('dashboard', AdminDashboardController::class);
+    Route::get('budgets/summary', [BudgetController::class, 'summary']);
+    Route::get('budgets/ledger', [BudgetController::class, 'ledger']);
+    Route::apiResource('budgets', BudgetController::class)->only(['index', 'show']);
     Route::get('report-branding', [ReportBrandingController::class, 'show']);
     Route::post('report-branding', [ReportBrandingController::class, 'update']);
     Route::get('ai-usage-limits', [AiUsageLimitController::class, 'show']);
@@ -320,7 +330,7 @@ Route::middleware(['auth:sanctum', 'role:Admin'])->prefix('admin')->group(functi
     Route::get('food-service-settings', [FoodServiceSettingController::class, 'show']);
     Route::put('food-service-settings', [FoodServiceSettingController::class, 'update']);
 
-    // Reports browse — Admin-scoped subset (demographic_census, budget_report, procurement_pack).
+    // Reports browse: Admin-scoped subset with RND parity except patient-specific reports.
     // ReportController::guardAdmin() enforces the allowlist; 403 for any other type.
     Route::get('reports/{type}/instances', [ReportController::class, 'instances'])->where('type', '[a-z_]+');
     Route::get('reports/{type}/render', [ReportController::class, 'render'])->where('type', '[a-z_]+');

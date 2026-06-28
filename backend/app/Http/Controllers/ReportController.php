@@ -39,29 +39,30 @@ class ReportController extends Controller
      */
     public const ADMIN_ALLOWED_TYPES = [
         'demographic_census',
+        'program_project_activity',
+        'menu_calendar',
         'procurement_pack',
+        'accomplishment_report',
     ];
 
     public function index(): JsonResponse
     {
         $query = Report::latest();
+        $role = Auth::user()?->role;
 
         // RND supervises FSS: in addition to their own rows, RND sees every
         // accomplishment_report filed by FSS staff (RND is the report's "Noted by").
-        if (Auth::user()?->role === 'RND') {
+        if ($role === 'RND') {
             $query->where(fn ($q) => $q->where('user_id', Auth::id())
                 ->orWhere('type', 'accomplishment_report'));
+        } elseif ($role === 'Admin') {
+            $query->whereIn('type', self::ADMIN_ALLOWED_TYPES);
         } else {
             $query->where('user_id', Auth::id());
         }
 
-        // Admin may only see their own allowed-type rows (PHI guard).
-        if (Auth::user()?->role === 'Admin') {
-            $query->whereIn('type', self::ADMIN_ALLOWED_TYPES);
-        }
-
         // FSS may only see accomplishment_report rows (fss.md §8).
-        if (Auth::user()?->role === 'FSS') {
+        if ($role === 'FSS') {
             $query->whereIn('type', self::FSS_ALLOWED_TYPES);
         }
 
@@ -361,6 +362,10 @@ class ReportController extends Controller
     private function authorizeOwner(Report $report): void
     {
         if (Auth::user()?->role === 'RND' && $report->type === 'accomplishment_report') {
+            return;
+        }
+
+        if (Auth::user()?->role === 'Admin' && in_array($report->type, self::ADMIN_ALLOWED_TYPES, true)) {
             return;
         }
 

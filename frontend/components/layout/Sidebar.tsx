@@ -18,7 +18,8 @@ import {
   ChevronDown,
   Users,
   History,
-  Megaphone
+  Megaphone,
+  WalletCards
 } from "lucide-react";
 
 export function Sidebar({ open = false, onClose }: { open?: boolean; onClose?: () => void }) {
@@ -187,6 +188,19 @@ export function Sidebar({ open = false, onClose }: { open?: boolean; onClose?: (
             >
               <TrendingUp className={`h-4.5 w-4.5 shrink-0 ${pathname.startsWith("/admin/reports") ? "text-emerald-500" : "text-zinc-400"}`} />
               {!collapsed && <span>Reports</span>}
+            </Link>
+
+            <Link
+              href="/admin/budget"
+              className={`flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all duration-150 ${
+                pathname.startsWith("/admin/budget")
+                  ? "bg-zinc-900 text-zinc-100 border-l-2 border-emerald-600"
+                  : "text-zinc-400 hover:bg-zinc-900/60 hover:text-zinc-200"
+              }`}
+              title={collapsed ? "Budget" : undefined}
+            >
+              <WalletCards className={`h-4.5 w-4.5 shrink-0 ${pathname.startsWith("/admin/budget") ? "text-emerald-500" : "text-zinc-400"}`} />
+              {!collapsed && <span>Budget</span>}
             </Link>
 
             <Link

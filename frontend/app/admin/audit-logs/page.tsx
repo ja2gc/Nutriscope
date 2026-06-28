@@ -24,6 +24,9 @@ const eventTones: Record<string, BadgeTone> = {
   deleted: "red",
   login: "violet",
   logout: "zinc",
+  login_failed: "red",
+  password_changed: "amber",
+  password_reset: "amber",
 };
 
 const roleTones: Record<string, BadgeTone> = {
@@ -106,17 +109,18 @@ export default function AuditLogsPage() {
   }
 
   const uniqueSubjectTypes = useMemo(() => [
-    { label: "Patient", value: "Patient" },
-    { label: "User Account", value: "User" },
-    { label: "NCP Assessment", value: "Assessment" },
-    { label: "NCP Diagnosis", value: "Diagnosis" },
-    { label: "NCP Intervention", value: "Intervention" },
-    { label: "NCP Monitoring", value: "Monitoring" },
-    { label: "Menu Cycle", value: "MenuCycle" },
-    { label: "Purchase Order", value: "PurchaseOrder" },
-    { label: "Budget", value: "Budget" },
-    { label: "Meal Prep Log", value: "MealPrepLog" },
-    { label: "FsItem", value: "FsItem" },
+    { label: "Patient", value: "App\\Models\\Patient" },
+    { label: "User Account", value: "App\\Models\\User" },
+    { label: "Budget", value: "App\\Models\\Budget" },
+    { label: "Budget Ledger", value: "App\\Models\\BudgetLedger" },
+    { label: "Purchase Order", value: "App\\Models\\PurchaseOrder" },
+    { label: "NCP Assessment", value: "App\\Models\\Assessment" },
+    { label: "NCP Diagnosis", value: "App\\Models\\Diagnosis" },
+    { label: "NCP Intervention", value: "App\\Models\\Intervention" },
+    { label: "NCP Monitoring", value: "App\\Models\\Monitoring" },
+    { label: "Menu Cycle", value: "App\\Models\\MenuCycle" },
+    { label: "Meal Prep Log", value: "App\\Models\\MealPrepLog" },
+    { label: "FsItem", value: "App\\Models\\FsItem" },
   ], []);
 
   function toggleRow(logId: number) {
@@ -216,6 +220,9 @@ export default function AuditLogsPage() {
               <option value="deleted">Deleted</option>
               <option value="login">Login</option>
               <option value="logout">Logout</option>
+              <option value="login_failed">Login Failed</option>
+              <option value="password_changed">Password Changed</option>
+              <option value="password_reset">Password Reset</option>
             </select>
           </div>
 
@@ -278,7 +285,7 @@ export default function AuditLogsPage() {
         <div className="bg-white border border-zinc-200 rounded-2xl p-12 text-center flex flex-col items-center justify-center gap-3 shadow-sm">
           <RefreshCw className="h-6 w-6 text-emerald-600 animate-spin" />
           <div className="text-xs text-zinc-500 font-semibold uppercase tracking-wider">
-            Loading audit logs…
+            Loading audit logs...
           </div>
         </div>
       ) : logs.length === 0 ? (
@@ -362,7 +369,7 @@ export default function AuditLogsPage() {
                               {log.event}
                             </Badge>
                           ) : (
-                            <span className="text-zinc-300 text-xs">—</span>
+                            <span className="text-zinc-300 text-xs">-</span>
                           )}
                           {log.log_name && (
                             <div className="text-[9px] text-zinc-400 font-mono mt-1 uppercase">
@@ -406,14 +413,14 @@ export default function AuditLogsPage() {
                               )}
                             </>
                           ) : (
-                            <span className="text-zinc-300 text-xs">—</span>
+                            <span className="text-zinc-300 text-xs">-</span>
                           )}
                         </td>
 
                         {/* Description */}
                         <td className="px-5 py-3.5 max-w-xs">
                           <div className="text-xs text-zinc-600 line-clamp-2">
-                            {log.description || <span className="text-zinc-300">—</span>}
+                            {log.description || <span className="text-zinc-300">-</span>}
                           </div>
                         </td>
 
@@ -452,7 +459,7 @@ export default function AuditLogsPage() {
                               <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
                                 Properties
                                 <span className="ml-2 font-normal normal-case text-zinc-400">
-                                  (redacted at write-time — no raw PHI stored)
+                                  (redacted at write-time - no raw PHI stored)
                                 </span>
                               </div>
 

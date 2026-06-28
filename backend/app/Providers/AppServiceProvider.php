@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
@@ -31,6 +32,13 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(5)->by($key);
         });
 
+        ResetPassword::createUrlUsing(function (object $notifiable, string $token): string {
+            $baseUrl = rtrim((string) config('app.frontend_url'), '/');
+            $email = urlencode((string) $notifiable->getEmailForPasswordReset());
+
+            return "{$baseUrl}/reset-password?token={$token}&email={$email}";
+        });
+
         // AI endpoints — each call hits a paid LLM; key by user so abuse can't drain the
         // budget through a single compromised account.
         RateLimiter::for('ai', function (Request $request) {
@@ -52,6 +60,12 @@ class AppServiceProvider extends ServiceProvider
         // Password change — prevents rapid credential cycling by a hijacked session.
         RateLimiter::for('password-change', function (Request $request) {
             return Limit::perHour(5)->by($request->user()?->id);
+        });
+
+        RateLimiter::for('password-reset', function (Request $request) {
+            $key = Str::transliterate(Str::lower((string) $request->input('email')).'|'.$request->ip());
+
+            return Limit::perHour(5)->by($key);
         });
 
         // Budget ledger: auto-deduct from fiscal year allocation when PO completes.
