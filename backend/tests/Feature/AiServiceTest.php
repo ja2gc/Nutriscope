@@ -42,24 +42,26 @@ class AiServiceTest extends TestCase
 
     // --- AIService unit tests ---
 
-    public function test_ai_service_degrades_to_empty_on_api_failure(): void
+    public function test_ai_service_throws_on_api_failure(): void
     {
+        // Previously the service swallowed failures and returned [], which made a
+        // broken API key look like "no suggestions". It now surfaces the failure.
         Http::fake(['api.anthropic.com/*' => Http::response('upstream error', 500)]);
 
-        $result = app(AIService::class)->suggestDiagnoses(['conditions' => ['CKD']]);
+        $this->expectException(\RuntimeException::class);
 
-        $this->assertSame([], $result);
+        app(AIService::class)->suggestDiagnoses(['conditions' => ['CKD']]);
     }
 
-    public function test_ai_service_degrades_to_empty_on_connection_timeout(): void
+    public function test_ai_service_throws_on_connection_timeout(): void
     {
         Http::fake([
             'api.anthropic.com/*' => fn () => throw new \Illuminate\Http\Client\ConnectionException('Connection timed out'),
         ]);
 
-        $result = app(AIService::class)->suggestDiagnoses(['conditions' => ['CKD']]);
+        $this->expectException(\RuntimeException::class);
 
-        $this->assertSame([], $result);
+        app(AIService::class)->suggestDiagnoses(['conditions' => ['CKD']]);
     }
 
     public function test_ai_service_returns_array_of_suggestions(): void
@@ -93,17 +95,51 @@ class AiServiceTest extends TestCase
         $this->assertArrayHasKey('domain', $suggestions[0]);
     }
 
-    public function test_ai_service_returns_empty_array_on_api_failure(): void
+    public function test_ai_service_throws_on_service_unavailable(): void
     {
         Http::fake([
             'api.anthropic.com/*' => Http::response([], 503),
         ]);
 
-        $service     = app(AIService::class);
-        $suggestions = $service->suggestDiagnoses(['conditions' => ['CKD']]);
+        $this->expectException(\RuntimeException::class);
 
-        $this->assertIsArray($suggestions);
-        $this->assertEmpty($suggestions);
+        app(AIService::class)->suggestDiagnoses(['conditions' => ['CKD']]);
+    }
+
+    public function test_ai_service_strips_markdown_fences_before_decoding(): void
+    {
+        Http::fake([
+            'api.anthropic.com/*' => Http::response([
+                'content' => [[
+                    'type' => 'text',
+                    'text' => "```json\n".json_encode([
+                        'suggestions' => [[
+                            'domain' => 'NI', 'label' => 'Inadequate energy intake',
+                            'etiology' => 'poor appetite', 'signs' => 'weight loss',
+                        ]],
+                    ])."\n```",
+                ]],
+            ], 200),
+        ]);
+
+        $suggestions = app(AIService::class)->suggestDiagnoses(['conditions' => ['CKD']]);
+
+        $this->assertNotEmpty($suggestions);
+        $this->assertSame('NI', $suggestions[0]['domain']);
+    }
+
+    public function test_ai_suggest_endpoint_returns_502_on_upstream_failure(): void
+    {
+        Http::fake(['api.anthropic.com/*' => Http::response('upstream error', 500)]);
+
+        $ncpRecord = $this->makeNcpRecord();
+
+        $this->actingAs($this->rnd)
+            ->postJson("/api/rnd/ncp-records/{$ncpRecord->id}/diagnoses/ai-suggest", [
+                'conditions' => ['CKD'],
+            ])
+            ->assertStatus(502)
+            ->assertJsonStructure(['message']);
     }
 
     public function test_ai_service_logs_usage_on_success(): void
