@@ -35,11 +35,11 @@ describe("food-service budget placement", () => {
     expect(source).not.toMatch(/>\s*Span\s*</);
   });
 
-  test("sidebar does not expose insights or inventory as food-service pages", () => {
+  test("sidebar exposes inventory but not insights as food-service pages", () => {
     const source = readFileSync(join(root, "components/layout/Sidebar.tsx"), "utf8");
 
-    expect(source).toContain('href="/food-service/budget"');
-    expect(source).not.toContain('href="/food-service/insights"');
-    expect(source).not.toContain('href="/food-service/inventory"');
+    expect(source).toContain('href: "/food-service/inventory"');
+    expect(source).toContain('href: "/food-service/budget"');
+    expect(source).not.toContain('href: "/food-service/insights"');
   });
 });
