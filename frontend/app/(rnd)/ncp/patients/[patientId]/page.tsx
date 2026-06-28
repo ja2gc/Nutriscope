@@ -4,7 +4,7 @@ import React, { use, useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { HeartHandshake, Plus, Trash2, AlertTriangle, Lock, Paperclip, FileText, Download } from "lucide-react";
-import { HistoryPanel } from "@/components/HistoryPanel";
+
 import {
   fetchPatientById,
   fetchPatientNcpRecords,
@@ -130,9 +130,7 @@ function ConfirmBanner({
 }
 
 function StepAction({ state, primary = false }: { state: NcpStepState; primary?: boolean }) {
-  const enabledClass = primary
-    ? "bg-zinc-950 text-white hover:bg-zinc-800 border-zinc-950"
-    : "border-zinc-200 text-zinc-700 hover:bg-zinc-50";
+  const enabledClass = "border-zinc-200 text-zinc-700 hover:bg-zinc-50";
 
   if (state.available) {
     return (
@@ -400,7 +398,6 @@ export default function PatientProfilePage({
                   <StepAction
                     key={step}
                     state={getNcpStepState(latestRecord, step)}
-                    primary={step === "assessment"}
                   />
                 ))}
               </div>
@@ -553,8 +550,6 @@ export default function PatientProfilePage({
               )}
             </div>
           </div>
-
-          <HistoryPanel path={`/api/rnd/patients/${patientId}/activity`} title="Patient change history" />
         </div>
       )}
 
@@ -720,7 +715,6 @@ export default function PatientProfilePage({
                           <StepAction
                             key={step}
                             state={getNcpStepState(record, step)}
-                            primary={step === "assessment"}
                           />
                         ))}
                       </div>
