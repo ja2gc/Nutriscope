@@ -379,13 +379,13 @@ export default function AdminSettingsPage() {
           <label className="flex items-center justify-between gap-3 cursor-pointer">
             <span className="text-xs font-semibold text-zinc-600">New announcements</span>
             <button role="switch" aria-checked={announcementAlerts} onClick={toggleAnnouncements} className={`relative h-5 w-9 rounded-full transition-colors ${announcementAlerts ? "bg-brand-green-600" : "bg-zinc-300"}`}>
-              <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform ${announcementAlerts ? "translate-x-4" : "translate-x-0.5"}`} />
+              <span className={`absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${announcementAlerts ? "translate-x-4" : "translate-x-0"}`} />
             </button>
           </label>
           <label className="flex items-center justify-between gap-3 cursor-pointer">
             <span className="text-xs font-semibold text-zinc-600">Follow-up reminders</span>
             <button role="switch" aria-checked={followUpAlerts} onClick={toggleFollowUps} className={`relative h-5 w-9 rounded-full transition-colors ${followUpAlerts ? "bg-brand-green-600" : "bg-zinc-300"}`}>
-              <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform ${followUpAlerts ? "translate-x-4" : "translate-x-0.5"}`} />
+              <span className={`absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${followUpAlerts ? "translate-x-4" : "translate-x-0"}`} />
             </button>
           </label>
         </Card>
