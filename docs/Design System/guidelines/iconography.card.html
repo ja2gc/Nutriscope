@@ -1,0 +1,25 @@
+<!-- @dsCard group="Brand" viewport="700x160" name="Iconography — Lucide" subtitle="Lucide line icons, 1.5–2px stroke, currentColor. The product's set." -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  body { margin: 0; font-family: var(--font-sans); background: var(--surface-card); color: var(--text-body); }
+  .grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; padding: 20px 22px; }
+  .cell { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 8px 4px; border-radius: var(--radius-md); }
+  .cell svg { width: 22px; height: 22px; color: var(--green-700); }
+  .nm { font-family: var(--font-mono); font-size: 8px; color: var(--text-faint); }
+</style>
+</head>
+<body>
+  <div class="grid" id="g"></div>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script>
+    const icons = ['compass','heart-handshake','salad','cooking-pot','package','shopping-cart','calendar-days','bar-chart-3','bell','megaphone','users','sliders','trending-up','log-out','clipboard-list','utensils'];
+    document.getElementById('g').innerHTML = icons.map(n =>
+      `<div class="cell"><i data-lucide="${n}"></i><div class="nm">${n}</div></div>`).join('');
+    lucide.createIcons();
+  </script>
+</body>
+</html>

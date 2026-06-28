@@ -1,0 +1,39 @@
+<!-- @dsCard group="Colors" viewport="700x130" name="Lime & Forest" subtitle="Lime = lively sprout highlight. Forest = the green nav (not black)." -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  body { margin: 0; font-family: var(--font-sans); background: var(--surface-card); color: var(--text-body); }
+  .wrap { display: flex; gap: 22px; padding: 18px 20px; }
+  .grp { flex: 1; }
+  .lbl { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 9px; }
+  .row { display: flex; }
+  .sw { flex: 1; }
+  .chip { height: 48px; }
+  .row .sw:first-child .chip { border-radius: var(--radius-md) 0 0 var(--radius-md); }
+  .row .sw:last-child .chip { border-radius: 0 var(--radius-md) var(--radius-md) 0; }
+  .tok { font-family: var(--font-mono); font-size: 9px; color: var(--text-strong); font-weight: 600; padding-top: 7px; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="grp">
+      <div class="lbl">Lime — sprout accent</div>
+      <div class="row" id="lime"></div>
+    </div>
+    <div class="grp">
+      <div class="lbl">Forest — nav surface</div>
+      <div class="row" id="forest"></div>
+    </div>
+  </div>
+  <script>
+    const lime = [['300','#bef264'],['400','#a3e635'],['500','#84cc16'],['600','#65a30d']];
+    const forest = [['700','#15412c'],['800','#0f3322'],['900','#0a261a'],['950','#061a11']];
+    const r = (arr,p) => arr.map(([k,v]) => `<div class="sw"><div class="chip" style="background:${v}"></div><div class="tok">--${p}-${k}</div></div>`).join('');
+    document.getElementById('lime').innerHTML = r(lime,'lime');
+    document.getElementById('forest').innerHTML = r(forest,'forest');
+  </script>
+</body>
+</html>

@@ -1,0 +1,31 @@
+<!-- @dsCard group="Type" viewport="700x300" name="Type Scale" subtitle="Display → caption. Headings track tight; body is 15px." -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  body { margin: 0; font-family: var(--font-sans); background: var(--surface-card); color: var(--text-strong); }
+  .list { padding: 18px 22px; display: flex; flex-direction: column; gap: 13px; }
+  .item { display: flex; align-items: baseline; gap: 16px; }
+  .spec { width: 130px; flex-shrink: 0; font-family: var(--font-mono); font-size: 10px; color: var(--text-faint); }
+  .sample { color: var(--text-strong); }
+</style>
+</head>
+<body>
+  <div class="list" id="l"></div>
+  <script>
+    const rows = [
+      ['Display 48 / 800', 'font-size:48px;font-weight:800;letter-spacing:-0.02em;line-height:1', 'Eat well, heal well'],
+      ['H1 32 / 700', 'font-size:32px;font-weight:700;letter-spacing:-0.02em', 'Patient overview'],
+      ['H2 24 / 700', 'font-size:24px;font-weight:700;letter-spacing:-0.01em', "Today's service"],
+      ['H3 20 / 600', 'font-size:20px;font-weight:600', 'Cost per head'],
+      ['Body 15 / 400', 'font-size:15px;font-weight:400', 'Enter your credentials to access your workspace.'],
+      ['Small 13 / 500', 'font-size:13px;font-weight:500;color:var(--text-muted)', 'Secondary label and dense table text'],
+      ['Overline 11 / 800', 'font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted)', 'Active Session'],
+    ];
+    document.getElementById('l').innerHTML = rows.map(([s,css,t]) =>
+      `<div class="item"><div class="spec">${s}</div><div class="sample" style="${css}">${t}</div></div>`).join('');
+  </script>
+</body>
+</html>

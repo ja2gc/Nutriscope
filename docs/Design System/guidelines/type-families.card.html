@@ -1,0 +1,37 @@
+<!-- @dsCard group="Type" viewport="700x180" name="Type Families" subtitle="Plus Jakarta Sans (universal UI) + JetBrains Mono (tabular data)." -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  body { margin: 0; font-family: var(--font-sans); background: var(--surface-card); color: var(--text-strong); }
+  .wrap { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
+  .col { padding: 20px 22px; }
+  .col + .col { border-left: 1px solid var(--border-subtle); }
+  .ov { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 4px; }
+  .name { font-size: 19px; font-weight: 700; letter-spacing: -0.02em; }
+  .name.mono { font-family: var(--font-mono); font-weight: 600; }
+  .big { font-size: 38px; font-weight: 800; letter-spacing: -0.02em; margin: 8px 0 2px; }
+  .big.mono { font-family: var(--font-mono); font-weight: 600; letter-spacing: -0.01em; }
+  .set { font-size: 12.5px; color: var(--text-muted); }
+  .set.mono { font-family: var(--font-mono); }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="col">
+      <div class="ov">Primary · UI &amp; Display</div>
+      <div class="name">Plus Jakarta Sans</div>
+      <div class="big">Nourish &amp; care</div>
+      <div class="set">AaBbCc 0123456789 ₱ &amp; %</div>
+    </div>
+    <div class="col">
+      <div class="ov">Data · Tabular figures</div>
+      <div class="name mono">JetBrains Mono</div>
+      <div class="big mono">₱1,240.00</div>
+      <div class="set mono">NS-00042 · 18.5 kg/m²</div>
+    </div>
+  </div>
+</body>
+</html>
