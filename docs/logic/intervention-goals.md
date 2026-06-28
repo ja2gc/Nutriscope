@@ -1,275 +1,304 @@
-# Intervention Goals — Clinical Reference
+# NutriScope — Intervention Goals: Calculation Reference
 
-> **Purpose:** Research and formula reference for all NutriScope intervention goal types.
-> Covers both adult and pediatric populations. Formulas are separated by population — never shared across rows.
-> `disease_stage` values defined here map directly to `interventions.disease_stage` in the database.
+> **This is the single source of truth for the prescription calculation engine.**
+> All formula logic, thresholds, and nutrient targets live here.
+> The PHP backend (`PrescriptionCalculator`) and TypeScript frontend engine both derive from this document.
+> Assessment/diagnostic criteria (GLIM phenotypic, AWGS muscle mass, waist circumference, MUAC) are
+> recorded during assessment but **do not feed the calculation engine** — they support the RND's
+> clinical diagnosis only. Once `goal_type` and `disease_stage` are set, the engine only needs
+> the inputs listed in §1.
 >
-> **System rule:** system-requirements supersede any inconsistency in this document.
+> **Population:** Filipino adults and children. Asia-Pacific standards are the **default**.
+> Western references are retained only for comparison.
+>
+> **Authority hierarchy:** This document → `prescription-targets.json` (machine-readable contract) →
+> PHP backend (authoritative runtime) → TypeScript mirror.
+
+**Last updated:** 2026-06-28
+**References:** PDRI 2015 (FNRI-DOST, rev. Sept 2018) · WHO Asia-Pacific Perspective (2000) ·
+KDOQI 2020 · ADA 2024/2026 · ESPEN 2019 · NICE CG32 · GLIM 2019/2025
 
 ---
 
 ## Table of Contents
 
-1. [Basic Macro Calculations (Foundation)](#1-basic-macro-calculations-foundation)
-2. [Renal Diet — CKD](#2-renal-diet--ckd)
-3. [Diabetic Control](#3-diabetic-control)
-4. [Cardiac Diet](#4-cardiac-diet)
-5. [Weight Loss](#5-weight-loss)
-6. [Weight Gain](#6-weight-gain)
-7. [High Protein](#7-high-protein)
-8. [Liver Disease](#8-liver-disease)
-9. [Malnutrition](#9-malnutrition)
-10. [Malnutrition vs Weight Gain — Clinical Distinction](#10-malnutrition-vs-weight-gain--clinical-distinction)
-11. [Appendix — disease_stage Quick Reference](#appendix--disease_stage-quick-reference)
-
-> **Design decision (2026-06-06):** Fluid restriction is **not a standalone intervention goal**. It is a clinical modifier applied within CKD (`renal_diet`) and Cardiac (`cardiac_diet`) goals. See the `fluid_ml` column in Sections 2 and 4 for stage-specific fluid targets. The `fluid_restriction` goal_type has been removed from the system.
-
----
-
-## 1. Basic Macro Calculations (Foundation)
-
-All intervention goals reference these base calculations. Goal-specific sections override individual values as needed.
-
-> **Energy method rule:** Goals marked **TEE-based** use the full formula chain below (BMR → TEE → goal modifier). Goals marked **Flat rate** use a disease-specific kcal/kg target that replaces TEE entirely. This distinction is stated explicitly at the top of each goal section.
+1. [Calculation Engine Inputs](#1-calculation-engine-inputs)
+2. [Step-by-Step Calculation Chain (Adult)](#2-step-by-step-calculation-chain-adult)
+3. [Step-by-Step Calculation Chain (Pediatric)](#3-step-by-step-calculation-chain-pediatric)
+4. [Baseline Nutrient Targets](#4-baseline-nutrient-targets)
+5. [Renal Diet — CKD](#5-renal-diet--ckd)
+6. [Diabetic Control](#6-diabetic-control)
+7. [Cardiac Diet](#7-cardiac-diet)
+8. [Weight Loss](#8-weight-loss)
+9. [Weight Gain](#9-weight-gain)
+10. [High Protein](#10-high-protein)
+11. [Liver Disease](#11-liver-disease)
+12. [Malnutrition](#12-malnutrition)
+13. [Clinical Distinction: Malnutrition vs Weight Gain](#13-clinical-distinction-malnutrition-vs-weight-gain)
+14. [Appendix — disease_stage Quick Reference](#14-appendix--disease_stage-quick-reference)
+15. [Changelog](#15-changelog)
 
 ---
 
-### [ADULT]
+## 1. Calculation Engine Inputs
 
-#### Calculation Workflow
+These are the **only fields the calculation engine reads**. Assessment fields not listed here
+(MUAC, waist circumference, hip circumference, ASMI) are recorded in the
+`assessments` table for clinical use but are **not passed to the prescription calculator**.
+Calf circumference has been removed from the assessment entirely (it was an AWGS muscle-mass
+proxy and fed nothing).
+
+| Input | Source | Notes |
+|---|---|---|
+| `weight_kg` | Measured | Use dry weight if edema present — RND must enter dry weight manually |
+| `height_cm` | Measured | — |
+| `age_years` | Computed from `dob` at assessment date | — |
+| `sex` | `patients.sex` | `male` \| `female` |
+| `physical_activity_level` | Assessment | Maps to PAL factor (§2) |
+| `stress_condition` | Assessment | Maps to stress factor (§2); `none` if absent |
+| `goal_type` | RND selection | Determines which section applies |
+| `disease_stage` | RND selection | Determines targets within goal |
+| `edema_present` | Assessment boolean | If true: engine halts and requires RND to confirm dry weight before proceeding |
+| `pregnancy_lactation_status` | Assessment | `none` \| `pregnant_t2` \| `pregnant_t3` \| `lactating` — triggers energy/protein add-ons |
+
+**Derived within the engine (not stored as inputs):**
 
 ```
-Step 1: Determine weight basis
-  If %IBW ≤ 120%  → use Actual Body Weight (ABW)
-  If %IBW > 120%  → use Adjusted Body Weight (AjBW)
-
-Step 2: Calculate IBW (Hamwi formula)
-  Male:   IBW = 48.0 kg + 2.7 kg × (height_inches − 60)
-  Female: IBW = 45.5 kg + 2.2 kg × (height_inches − 60)
-  Floor:  IBW cannot be < 30 kg
-  For height < 5 feet: subtract per-inch value for each inch under 60
-
-Step 3: Calculate AjBW (only if ABW > 120% IBW)
-  AjBW = IBW + 0.25 × (ABW − IBW)
-  Note: 0.25 is the AND nutrition-specific correction factor.
-        Drug dosing uses 0.4 — do not conflate.
-
-Step 4: Calculate %IBW
-  %IBW = (ABW / IBW) × 100
-
-Step 5: Calculate BMR (Mifflin-St Jeor)
-  Male:   BMR = (10 × weight_kg) + (6.25 × height_cm) − (5 × age) + 5
-  Female: BMR = (10 × weight_kg) + (6.25 × height_cm) − (5 × age) − 161
-  Use ABW for %IBW ≤ 120%; use AjBW for %IBW > 120%
-
-Step 6: Calculate TEE
-  TEE = BMR × Activity Factor × Stress Factor (if applicable)
-
-Step 7: Apply goal-specific modifier (see each section)
+IBW          → Hamwi formula (§2)
+AjBW         → only if %IBW > 120% (§2)
+%IBW         → (weight_kg / IBW) × 100
+working_weight → %IBW > 120 ? AjBW : weight_kg   [energy, fluid, BMR]
+protein_weight → IBW (always, for all adult protein targets)
+BMI          → weight_kg / (height_m)²
+bmi_class_ap → Asia-Pacific table (§2)
+BMR          → Mifflin-St Jeor using working_weight (§2)
+TEE          → BMR × PAL × stress_factor (§2)
 ```
+
+> **Edema rule:** If `edema_present = true` and the RND has not entered a dry weight, the engine must
+> surface a warning and block prescription output. Fluid-bloated weight makes every kg-based target wrong.
 
 ---
 
-#### Body Mass Index (BMI)
+## 2. Step-by-Step Calculation Chain (Adult)
+
+### Step 1 — Ideal Body Weight (Hamwi Formula)
 
 ```
-BMI = weight_kg / height_m²
+height_inches = height_cm / 2.54
+
+Male:
+  If height_inches >= 60:  IBW = 48.0 + 2.7 × (height_inches − 60)
+  If height_inches < 60:   IBW = 48.0 − 2.7 × (60 − height_inches)
+
+Female:
+  If height_inches >= 60:  IBW = 45.5 + 2.2 × (height_inches − 60)
+  If height_inches < 60:   IBW = 45.5 − 2.2 × (60 − height_inches)
+
+Floor: IBW = max(IBW, 30)   [never less than 30 kg]
 ```
 
-> **System decision (updated 2026-06-11):** NutriScope uses **WHO Asia-Pacific BMI cut-points as the
-> system default** (decision D1) for its Filipino patient population, who develop cardiometabolic disease
-> at lower BMI than European-ancestry populations. WHO Western cut-points are retained only as a labeled
-> reference. See [`intervention-goals-asia-pacific-research.md`](intervention-goals-asia-pacific-research.md) §2.
+**Source:** Hamwi GJ (1964). Referenced in AND Nutrition Care Manual.
 
-| BMI Range | Asia-Pacific Classification (default) | WHO Western (reference only) |
+> **Known limitation:** Hamwi was derived from a US population using imperial units. It modestly
+> over-estimates IBW in short-stature patients (common in Filipino adults). The 30 kg floor partially
+> mitigates this. The RND may override the calculated IBW if clinically inappropriate — the override
+> value is stored as `ibw_override_kg` and the engine uses it instead.
+
+---
+
+### Step 2 — Adjusted Body Weight (only if %IBW > 120%)
+
+```
+%IBW = (weight_kg / IBW) × 100
+
+If %IBW > 120:
+  AjBW = IBW + 0.25 × (weight_kg − IBW)
+Else:
+  AjBW = not used
+```
+
+> **0.25 factor:** AND nutrition-specific correction for metabolically active adipose tissue.
+> Drug-dosing literature uses 0.4 — these are different contexts. Do not conflate.
+
+---
+
+### Step 3 — Working Weight (determines which weight feeds each formula)
+
+```
+working_weight = (%IBW > 120) ? AjBW : weight_kg
+protein_weight = IBW   [always, for all adult protein g/kg targets]
+```
+
+This resolves the `calcWorkingWeight` ambiguity in the prior implementation:
+
+| Formula component | Weight used |
+|---|---|
+| BMR (Mifflin) | `working_weight` |
+| Energy kcal/kg (flat-rate goals) | `working_weight` |
+| Fluid mL/kg | `working_weight` |
+| Protein g/kg | `protein_weight` = IBW |
+
+---
+
+### Step 4 — BMI and Asia-Pacific Classification
+
+```
+BMI = weight_kg / (height_cm / 100)²
+```
+
+**Asia-Pacific BMI Classification (default for all Filipino patients):**
+
+| BMI (kg/m²) | Asia-Pacific Class | WHO Western (reference only) |
 |---|---|---|
 | < 18.5 | Underweight | Underweight |
 | 18.5 – 22.9 | Normal | Normal (to 24.9) |
 | 23.0 – 24.9 | Overweight | Normal |
 | 25.0 – 29.9 | Obese Class I | Overweight |
-| ≥ 30.0 | Obese Class II | Obese I–III |
+| ≥ 30.0 | Obese Class II | Obese Class I–III |
 
-> 23.0 = "increased risk" action point; 27.5 = "high risk" action point (within Obese I). Weight-loss
-> `disease_stage` maps to AP (D2): `overweight` 23–24.9 · `class_1` 25–29.9 · `class_2` 30–34.9 · `class_3` ≥35.
-
-**Source:** WHO Western Pacific Region / IASO / IOTF (2000). *The Asia-Pacific Perspective: Redefining Obesity and its Treatment.* — https://apps.who.int/iris/handle/10665/206936
-**Western reference:** WHO BMI Classification — https://www.who.int/news-room/fact-sheets/detail/obesity-and-overweight
-
----
-
-#### Ideal Body Weight (IBW) — Hamwi Formula
-
-> NutriScope uses the Hamwi formula for consistency with AND clinical nutrition guidelines.
-
-```
-Male:   IBW = 48.0 kg + 2.7 kg per inch over 5 feet
-Female: IBW = 45.5 kg + 2.2 kg per inch over 5 feet
-```
-
-For patients shorter than 5 feet: subtract the per-inch value for each inch under 5 feet.
-Minimum floor: IBW cannot be < 30 kg.
-
-**Adjusted Body Weight (AjBW)** — used when actual weight > 120% IBW:
-
-```
-AjBW = IBW + 0.25 × (actual weight − IBW)
-```
-
-> The 0.25 factor is the AND nutrition-specific correction. Drug dosing literature uses 0.4 — these are different contexts and must not be mixed.
-
-**%IBW:**
-
-```
-%IBW = (actual weight / IBW) × 100
-```
-
-> **Weight-basis rule (M2, decided 2026-06-11) — used by the engine:**
-> - **Energy (flat kcal/kg) and fluid (mL/kg):** use **working weight** = `%IBW > 120 ? AjBW : actual`.
-> - **BMR (Mifflin):** use **`%IBW > 120 ? AjBW : actual`** (actual body weight, adjusted only if obese).
-> - **Protein (g/kg):** use **IBW** for all adult goals (doc tables specify g/kg IBW).
+> **Action points** (within the AP system, not extra classification rows):
+> - 23.0 = "increased risk" trigger point
+> - 27.5 = "high risk" trigger point (within Obese I band)
 >
-> This resolves the prior `calcWorkingWeight` ambiguity (which used IBW for the 90–120% band). The
-> machine-readable encoding lives in [`prescription-targets.json`](prescription-targets.json) →
-> `weight_basis`, which is the single source of truth for both the backend and frontend engines.
+> These are public-health action thresholds, not separate classification categories.
 
-| %IBW | Nutritional Status |
-|---|---|
-| > 120% | Obese |
-| 110 – 120% | Overweight |
-| 90 – 110% | Normal |
-| 85 – 90% | Mildly underweight |
-| 70 – 84% | Moderately underweight |
-| < 70% | Severely underweight |
+**Pediatric:** Does NOT use BMI cut-points. Uses WHO z-scores (§3).
 
-**Source:** Hamwi GJ (1964). *Therapy: Changing dietary concepts.* In: Danowski TS (ed). Diabetes Mellitus: Diagnosis and Treatment. American Diabetes Association.
-Referenced in: AND Nutrition Care Manual — https://www.andeal.org/
+**Source:** WHO Western Pacific Region / IASO / IOTF (2000). *The Asia-Pacific Perspective: Redefining
+Obesity and its Treatment.* https://apps.who.int/iris/handle/10665/206936
 
 ---
 
-#### Basal Metabolic Rate (BMR) — Mifflin-St Jeor Equation
+### Step 5 — BMR (Mifflin-St Jeor Equation)
 
 ```
-Male:   BMR = (10 × weight_kg) + (6.25 × height_cm) − (5 × age_years) + 5
-Female: BMR = (10 × weight_kg) + (6.25 × height_cm) − (5 × age_years) − 161
+Male:   BMR = (10 × working_weight) + (6.25 × height_cm) − (5 × age_years) + 5
+Female: BMR = (10 × working_weight) + (6.25 × height_cm) − (5 × age_years) − 161
 ```
 
-Use **actual weight** for %IBW ≤ 120%. Use **AjBW** for %IBW > 120%.
+Result in **kcal/day**.
 
-**Source:** Mifflin MD et al. (1990). A new predictive equation for resting energy expenditure in healthy individuals. *Am J Clin Nutr.* 51(2):241–247. PMID: 2305711. https://pubmed.ncbi.nlm.nih.gov/2305711/
+> **Known limitation:** Mifflin-St Jeor was validated primarily in Western cohorts and may modestly
+> over-predict BMR in some Asian adults (typically 3–8%). It remains the best general-purpose default
+> short of indirect calorimetry, which is not available at Romana Pangan District Hospital.
+> No correction factor is applied — the RND may adjust TEE clinically if needed.
+
+**Source:** Mifflin MD et al. (1990). *Am J Clin Nutr.* 51(2):241–247. PMID: 2305711.
 
 ---
 
-#### Total Energy Expenditure (TEE)
+### Step 6 — Physical Activity Level (PAL) and Total Energy Expenditure
 
 ```
-TEE = BMR × Activity Factor
+TEE = BMR × PAL
 ```
 
-For hospitalized patients with acute illness or injury, apply a stress factor on top:
-
+If an acute stress condition is present:
 ```
-TEE (stressed) = BMR × Activity Factor × Stress Factor
+TEE = BMR × PAL × stress_factor
 ```
 
-| Activity Level | Factor | Clinical Context |
+> Do not apply a stress factor unless the patient has an active acute condition. For goals that use
+> a flat kcal/kg rate (CKD, High Protein, Liver Disease, Malnutrition `severe`), TEE is not used —
+> the flat rate replaces it. The energy method is stated at the top of each goal section.
+
+**PAL factors:**
+
+| `physical_activity_level` | PAL | Typical clinical context |
 |---|---|---|
-| Sedentary | 1.2 | Bedbound, ICU |
-| Light | 1.375 | Ambulatory inpatient |
-| Moderate | 1.55 | Outpatient, light daily activity |
-| Very Active | 1.725 | Regular vigorous exercise |
-| Extra Active | 1.9 | Heavy physical labor + exercise |
+| `bedbound` | 1.2 | ICU, immediate post-op, non-ambulatory |
+| `light` | 1.375 | Ambulatory inpatient, limited mobility |
+| `moderate` | 1.55 | Outpatient, light daily activity |
+| `very_active` | 1.725 | Regular vigorous exercise |
+| `extra_active` | 1.9 | Heavy physical labor |
 
-> For most hospitalized patients, use 1.2 (bedbound) or 1.375 (ambulatory).
+> For most hospitalized patients: `bedbound` (1.2) or `light` (1.375).
 
-**Stress Factors** (multiply over BMR × activity factor when applicable):
+**Stress factors:**
 
-| Condition | Stress Factor |
+| `stress_condition` | Factor |
 |---|---|
-| Post-minor surgery | 1.0 – 1.1 |
-| Moderate trauma / sepsis | 1.2 – 1.4 |
-| Major burns | 1.5 – 2.0 |
+| `none` | 1.0 (omit from formula) |
+| `minor_surgery` | 1.0 – 1.1 |
+| `moderate_trauma_sepsis` | 1.2 – 1.4 |
+| `major_burns` | 1.5 – 2.0 |
 
-> If no acute stress condition is present, stress factor = 1.0 (omit from formula).
+> **Double-count guard:** For `high_protein` and `malnutrition` goals that already use flat kcal/kg
+> disease-specific rates, the stress factor is **not** applied on top. Those flat rates already
+> embed severity. See §10.
 
-**Source:** Harris JA, Benedict FG (1919) revised by Roza AM, Shizgal HM (1984). Referenced in ASPEN Clinical Guidelines — https://www.nutritioncare.org/guidelines_and_clinical_resources/
-
----
-
-#### Baseline Fluid Requirements (Adult)
-
-For goals without a specific fluid restriction, apply this baseline:
-
-```
-Fluid = 30–35 mL/kg body weight/day
-or approximately 1 mL/kcal/day.
-Use clinical judgment — these are two estimation methods, not a comparative rule.
-```
-
-> These are alternative approaches to estimating fluid needs, not additive. Either method may be used depending on clinical context. Apply clinical judgment for patients with fever, excess losses, cardiac or renal conditions, or ICU status.
-
-**Source:** ASPEN/AND Clinical Nutrition Guidelines. Referenced in: NICE CG32 — https://www.nice.org.uk/guidance/cg32
+**Source:** Roza AM, Shizgal HM (1984), as referenced in ASPEN Clinical Guidelines.
 
 ---
 
-#### Baseline Macronutrient Distribution (Adult)
+### Step 7 — Baseline Fluid
 
-| Nutrient | Target | Notes |
+For goals without goal-specific fluid restriction:
+
+```
+Fluid = 30–35 mL/kg working_weight/day
+     ≈ 1 mL/kcal/day  (independently consistent with PDRI water AI)
+```
+
+These are two equivalent estimation methods — not additive. Apply clinical judgment for patients
+with fever, diarrhea, edema, cardiac or renal conditions, or ICU status.
+
+**Source:** ASPEN/AND Clinical Nutrition Guidelines; NICE CG32.
+
+---
+
+### Step 8 — Pregnancy / Lactation Add-ons
+
+Applied after goal-specific targets are computed:
+
+| Status | Energy add-on | Protein add-on |
 |---|---|---|
-| Energy | Per TEE or flat rate (see each section) | Goal-adjusted |
-| Protein | 0.8 g/kg IBW/day | Baseline; overridden by goal |
-| Carbohydrates | 45–65% total kcal | Prefer complex carbs |
-| Fat | 20–35% total kcal | Limit saturated/trans |
-| Fiber | 25–38 g/day | Women 25 g, Men 38 g |
-| Fluid | 30–35 mL/kg/day or 1 mL/kcal (greater) | Overridden if restriction applies |
+| `pregnant_t2` (2nd trimester) | +300 kcal/day | +27 g/day |
+| `pregnant_t3` (3rd trimester) | +300 kcal/day | +27 g/day |
+| `lactating` | +500 kcal/day | +27 g/day |
 
-**Source:** IOM. Dietary Reference Intakes for Energy, Carbohydrate, Fiber, Fat, Fatty Acids, Cholesterol, Protein, and Amino Acids. 2005. https://www.ncbi.nlm.nih.gov/books/NBK56068/
-
----
-
-### [PEDIATRIC]
-
-#### Calculation Workflow
-
-```
-Step 1: Classify using WHO z-scores (not BMI cutoffs)
-Step 2: Calculate BMR using Schofield equation (age-banded, weight-based)
-Step 3: TEE = BMR × PAL + Energy for Growth
-Step 4: Apply goal-specific modifier
-```
+> **Source:** PDRI 2015 (FNRI-DOST). These add-ons apply over the goal-calculated baseline.
+> CKD and cardiac disease-specific protein restrictions take precedence over the lactation add-on
+> if they conflict — flag for RND review.
 
 ---
 
-#### Weight Status — WHO Z-Scores
+## 3. Step-by-Step Calculation Chain (Pediatric)
 
-Pediatric patients do NOT use BMI cutoffs. Use WHO growth standard z-scores.
+Pediatric calculations do **not** share formulas with adult calculations. The rows are never mixed.
 
-| Z-Score Indicator | Assesses | Age Range |
+### Step 1 — Weight Status Classification (WHO Z-Scores)
+
+Pediatric patients do NOT use BMI cut-points.
+
+| Z-score indicator | Assesses | Age range |
 |---|---|---|
 | WAZ (Weight-for-Age Z-score) | General nutritional status | 0–10 yrs |
 | HAZ (Height-for-Age Z-score) | Stunting | 0–19 yrs |
 | WHZ (Weight-for-Height Z-score) | Acute malnutrition | 0–5 yrs |
 | BAZ (BMI-for-Age Z-score) | Overweight/obesity | 5–19 yrs |
 
-| Z-Score | Classification |
+| Z-score | Classification |
 |---|---|
 | > +2 | Overweight (BAZ) |
-| +1 to +2 | Risk of overweight |
+| +1 to +2 | At risk of overweight |
 | −1 to +1 | Normal |
-| −2 to −1 | At risk |
+| −2 to −1 | At risk of underweight |
 | < −2 | Underweight / Moderate malnutrition |
 | < −3 | Severe malnutrition |
 
-**Source:** WHO Child Growth Standards — https://www.who.int/tools/child-growth-standards/standards
+**Source:** WHO Child Growth Standards. https://www.who.int/tools/child-growth-standards/standards
 
 ---
 
-#### Basal Metabolic Rate (BMR) — Schofield Equation
+### Step 2 — BMR (Schofield Equation)
 
 W = weight in kg. Result in kcal/day.
 
 **Males:**
 
-| Age Band | Formula |
+| Age | Formula |
 |---|---|
 | 0–3 yrs | BMR = 59.512 × W − 30.4 |
 | 3–10 yrs | BMR = 22.706 × W + 504.3 |
@@ -277,32 +306,32 @@ W = weight in kg. Result in kcal/day.
 
 **Females:**
 
-| Age Band | Formula |
+| Age | Formula |
 |---|---|
 | 0–3 yrs | BMR = 58.317 × W − 31.1 |
 | 3–10 yrs | BMR = 20.315 × W + 485.9 |
 | 10–18 yrs | BMR = 13.384 × W + 692.8 |
 
-**Source:** Schofield WN (1985). Predicting basal metabolic rate, new standards and review of previous work. *Hum Nutr Clin Nutr.* 39 Suppl 1:5–41. PMID: 4044297. https://pubmed.ncbi.nlm.nih.gov/4044297/
+**Source:** Schofield WN (1985). *Hum Nutr Clin Nutr.* 39 Suppl 1:5–41. PMID: 4044297.
 
 ---
 
-#### Total Energy Expenditure (Pediatric)
+### Step 3 — Pediatric TEE
 
 ```
 TEE = BMR × PAL + Energy for Growth
 ```
 
-**Physical Activity Level (PAL):**
+**PAL (pediatric):**
 
 | Level | PAL | Context |
 |---|---|---|
-| Bedbound/hospitalized | 1.2 | ICU, post-op |
-| Sedentary | 1.4 – 1.5 | Inpatient, ambulatory |
-| Light activity | 1.6 – 1.7 | Outpatient |
-| Active | 1.8 – 1.9 | Normal daily activity |
+| `bedbound` | 1.2 | ICU, post-op |
+| `sedentary` | 1.4–1.5 | Inpatient, ambulatory |
+| `light` | 1.6–1.7 | Outpatient |
+| `active` | 1.8–1.9 | Normal daily activity |
 
-**Energy Allowance for Growth (add to TEE):**
+**Energy for Growth (add to BMR × PAL):**
 
 | Age | Additional kcal/day |
 |---|---|
@@ -311,232 +340,282 @@ TEE = BMR × PAL + Energy for Growth
 | 1–3 yrs | +20 |
 | 4–18 yrs | +10–25 |
 
-> Hospitalized patients: growth allowance may be reduced or omitted during acute illness; restore during recovery.
+> During acute illness: growth allowance may be reduced or omitted. Restore during recovery.
 
-**Source:** WHO/FAO/UNU (2004). Human Energy Requirements. https://www.fao.org/3/y5686e/y5686e.pdf
+**Source:** WHO/FAO/UNU (2004). *Human Energy Requirements.* https://www.fao.org/3/y5686e/y5686e.pdf
 
 ---
 
-#### Baseline Macronutrient Distribution (Pediatric)
+### Step 4 — Pediatric Fluid (Holliday-Segar)
+
+```
+First 10 kg:       100 mL/kg/day
+Next 10 kg (10–20):  50 mL/kg/day
+Each kg above 20:    20 mL/kg/day
+
+Example: 25 kg child = (10×100) + (10×50) + (5×20) = 1600 mL/day
+```
+
+**Source:** Holliday MA, Segar WE (1957). *Pediatrics.* 19(5):823–832.
+
+---
+
+## 4. Baseline Nutrient Targets
+
+These are the **healthy adult defaults** used when no goal-specific override applies.
+All goal sections below override these values. The source is now PDRI 2015 (FNRI-DOST),
+the legally mandated Philippine dietary standard (FDA Circular 2023-009).
+
+### Adult Baseline (PDRI 2015)
 
 | Nutrient | Target | Notes |
 |---|---|---|
-| Energy | Per TEE + growth | Age-adjusted |
-| Protein | Age-banded DRI (see below) | Never cut below DRI |
-| Carbohydrates | 45–65% total kcal | Same % as adult |
-| Fat | 30–40% (0–3 yrs); 25–35% (4–18 yrs) | Higher fat % for young children |
-| Fiber | Age + 5 g/day (e.g., 8 yrs → 13 g/day) | Or adult DRI if lower |
+| Energy | Per TEE (§2) | — |
+| Protein | 0.8 g/kg IBW/day | Clinical floor; PDRI healthy-adult maintenance ≈ 1.0–1.2 g/kg but 0.8 is the disease-state floor used by all clinical goals |
+| Carbohydrates | 55–75% total kcal | PDRI; reflects rice-based Filipino diet (IOM was 45–65%) |
+| Fat | 15–30% total kcal | PDRI (IOM was 20–35%) |
+| Fiber | 20–25 g/day | PDRI adult value (IOM was 25–38 g); therapeutic goals may target higher |
+| Sodium | < 2000 mg/day | PDRI / WHO 2012 recommendation (IOM was < 2300 mg) |
+| Free sugars | < 10% total kcal | PDRI / WHO 2015; add to all assessments |
+| Fluid | 30–35 mL/kg/day | ≈ 1 mL/kcal/day (PDRI water AI confirms equivalence) |
 
-**Protein DRI by Age (g/kg/day):**
-
-| Age | g/kg/day |
-|---|---|
-| 0–6 months | 1.52 |
-| 7–12 months | 1.20 |
-| 1–3 yrs | 1.05 |
-| 4–13 yrs | 0.95 |
-| 14–18 yrs | 0.85 |
-
-**Source:** IOM Dietary Reference Intakes for Macronutrients (2005) — https://www.ncbi.nlm.nih.gov/books/NBK56068/
+**Source:** FNRI-DOST. *Philippine Dietary Reference Intakes (PDRI) 2015, rev. Sept 2018.*
+https://www.fnri.dost.gov.ph/images/images/news/PDRI-2018.pdf
+FDA Circular 2023-009. https://www.fda.gov.ph/fda-circular-no-2023-009-adoption-of-2015-philippine-dietary-reference-intakes-pdri/
 
 ---
 
-#### Fluid Requirements — Holliday-Segar Method (Pediatric)
+### Pediatric Baseline (PDRI 2015 — Protein RNI; IOM for macros)
 
-```
-First 10 kg:          100 mL/kg/day
-Next 10 kg (10–20):    50 mL/kg/day
-Each kg above 20 kg:   20 mL/kg/day
-```
+**Protein RNI (PDRI 2015 — use g/day values; g/kg shown for reference):**
 
-**Example:** 25 kg child = (10 × 100) + (10 × 50) + (5 × 20) = **1600 mL/day**
+| Age group | Ref wt M/F (kg) | Protein RNI M/F (g/day) | Implied g/kg |
+|---|---|---|---|
+| 0–5 mo | 6.5 / 6.0 | 9 / 8 (AI) | ~1.4 |
+| 6–11 mo | 9.0 / 8.0 | 17 / 15 | ~1.9 |
+| 1–2 y | 12.0 / 11.5 | 18 / 17 | ~1.5 |
+| 3–5 y | 17.5 / 17.0 | 22 / 21 | ~1.25 |
+| 6–9 y | 23.0 / 22.5 | 30 / 29 | ~1.3 |
+| 10–12 y | 33.0 / 36.0 | 43 / 46 | ~1.3 |
+| 13–15 y | 48.5 / 46.0 | 62 / 57 | ~1.25 |
+| 16–18 y | 59.0 / 51.5 | 72 / 61 | ~1.2 |
 
-**Source:** Holliday MA, Segar WE (1957). The maintenance need for water in parenteral fluid therapy. *Pediatrics.* 19(5):823–832. https://pubmed.ncbi.nlm.nih.gov/13429656/
+> **Why PDRI protein is higher than IOM g/kg:** PDRI builds in a protein-quality/digestibility
+> correction for the typical Filipino rice-dominant diet. The clinical disease-state calculations
+> below still use g/kg IBW because KDOQI/ESPEN/ADA protocols assume high-quality protein.
+
+**Macronutrient distribution (PDRI 2015 AMDR):**
+
+| Age | Protein % | Fat % | Carbohydrate % |
+|---|---|---|---|
+| Infants 0–5 mo | 5 | 40–60 | 35–55 |
+| Infants 6–11 mo | 8–15 | 30–40 | 45–62 |
+| Children 1–2 y | 6–15 | 25–35 | 50–69 |
+| Children 3–18 y | 6–15 | 15–30 | 55–79 |
+
+**Pediatric fiber:** "age + 5 g/day" heuristic (e.g., 8 yrs → 13 g). Aligns with PDRI pediatric ranges. ✅
 
 ---
 
-## 2. Renal Diet — CKD
+## 5. Renal Diet — CKD
 
-**goal_type:** `renal_diet`
-**Energy method:** Flat rate — disease-specific kcal/kg replaces TEE.
+**`goal_type`:** `renal_diet`
+**Energy method:** Flat rate — disease-specific kcal/kg **replaces** TEE.
 
-Disease stage drives all nutrient targets. GFR staging follows KDOQI/KDIGO classification.
+### Adult
 
----
+**Energy (all CKD stages):** 25–35 kcal/kg `working_weight`/day, individualized.
+**System default:** 30 kcal/kg/day. RND adjusts per clinical assessment.
 
-### [ADULT]
+> Older adults (> 60 yrs): tend toward 25–30 kcal/kg/day. Younger/more active: 30–35 kcal/kg/day.
+> Per KDOQI 2020 update — prior flat 30–35 kcal/kg was an acceptable simplification but
+> individualization is now the standard.
 
-**Energy for all CKD stages:** 25–35 kcal/kg body weight/day, individualized based on age, sex, physical activity level, body composition, weight status goals, CKD stage, and concurrent illness or inflammation.
+**Protein uses `protein_weight` = IBW for all stages.**
 
-> **Age-specific guidance:** Older adults (> 60 years) tend toward the lower end of the range (25–30 kcal/kg/day) due to reduced physical activity and lower metabolic demand. Younger, more active patients may need the upper end (30–35 kcal/kg/day). System default: **30 kcal/kg/day** — RND adjusts based on clinical assessment.
+| disease_stage | GFR (mL/min/1.73m²) | Protein (g/kg IBW/day) | Sodium | Potassium | Phosphorus | Fluid |
+|---|---|---|---|---|---|---|
+| `stage_1` | ≥ 90 | 0.8 | < 2000 mg | Unrestricted | Unrestricted | 30–35 mL/kg |
+| `stage_2` | 60–89 | 0.8 | < 2000 mg | Unrestricted | Unrestricted | 30–35 mL/kg |
+| `stage_3` | 30–59 | 0.6–0.8 | < 2000 mg | Monitor; restrict if K > 5.0 mmol/L | 800–1000 mg/day if elevated | 30–35 mL/kg |
+| `stage_4` | 15–29 | 0.6 | < 2000 mg | < 2000 mg/day | 800–1000 mg/day | Unrestricted unless edema |
+| `stage_5_predialysis` | < 15 | 0.6 | < 1500 mg | < 2000 mg/day | 800–1000 mg/day | Individualized (~1000–1500 mL) |
+| `hemodialysis` | — | 1.2 | < 1500 mg | 2000–3000 mg/day | 800–1000 mg/day | **750 mL + prior-day urine output** |
+| `peritoneal` | — | 1.2–1.5 | < 2000 mg | Generally unrestricted | 800–1000 mg/day | Individualized per dialysis Rx |
 
-> **Note:** The previous flat 30–35 kcal/kg target was a clinically acceptable simplification consistent with older teaching materials. KDOQI 2020 updated this to emphasize individualization, particularly for elderly patients at risk of overfeeding.
+> **Sodium note (CKD stage 1–2):** KDOQI 2020 states < 2300 mg for early CKD. PDRI 2015 / WHO
+> set the population sodium ceiling at < 2000 mg. NutriScope uses < 2000 mg across all CKD stages
+> as a deliberate tightening for the Filipino context — stricter than KDOQI default but within
+> the same direction of evidence and consistent with the PDRI baseline adopted system-wide.
+> Stage 3–5 and dialysis sodium targets (< 2000, < 1500) are unchanged from KDOQI.
 
-| Stage | disease_stage | GFR (mL/min/1.73m²) | Protein (g/kg IBW) | Sodium | Potassium | Phosphorus | Fluid (mL/day) |
-|---|---|---|---|---|---|---|---|
-| Stage 1 | `stage_1` | ≥ 90 | 0.8 | < 2300 mg | Unrestricted | Unrestricted | 30–35 mL/kg (baseline) |
-| Stage 2 | `stage_2` | 60–89 | 0.8 | < 2300 mg | Unrestricted | Unrestricted | 30–35 mL/kg (baseline) |
-| Stage 3 | `stage_3` | 30–59 | 0.6–0.8 | < 2000 mg | Monitor; restrict if K > 5.0 mmol/L | 800–1000 mg/day if elevated | 30–35 mL/kg (baseline) |
-| Stage 4 | `stage_4` | 15–29 | 0.6 | < 2000 mg | < 2000 mg/day | 800–1000 mg/day | Unrestricted unless edema |
-| Stage 5 pre-dialysis | `stage_5_predialysis` | < 15 | 0.6 | < 1500 mg | < 2000 mg/day | 800–1000 mg/day | Individualized (~1000–1500) |
-| Hemodialysis | `hemodialysis` | — | 1.2 | < 1500 mg | 2000–3000 mg/day | 800–1000 mg/day | **750 mL + prior day urine output** |
-| Peritoneal Dialysis | `peritoneal` | — | 1.2–1.5 | < 2000 mg | Generally unrestricted | 800–1000 mg/day | **Individualized per dialysis Rx** |
+> **Fluid autofill:** `fluid_ml = 750` for `hemodialysis`. Peritoneal = RND manual entry.
 
-> **Fluid note:** Fluid restriction applies from hemodialysis and peritoneal stages. System autofills `fluid_ml = 750` for hemodialysis. Peritoneal is individualized — RND enters manually.
+> **Peritoneal energy:** Subtract 500–800 kcal/day from target to account for glucose absorbed
+> from dialysate.
 
-> **Peritoneal note:** Subtract ~500–800 kcal/day from energy target to account for glucose absorbed from dialysate.
-
-**Water intake tracking:** USDA nutrient ID for water is **1051**. NutriScope extracts this as `water_g` on `food_items`, enabling estimated daily fluid intake from the meal plan to be compared against the `fluid_ml` prescription target.
+> **Water tracking:** USDA nutrient ID 1051 → `water_g` on `food_items`, compared against
+> `fluid_ml` prescription target.
 
 **Sources:**
-- KDOQI Clinical Practice Guideline for Nutrition in CKD: 2020 Update. Ikizler TA et al. *Am J Kidney Dis.* 76(3 Suppl 1):S1–S107, 2020. https://www.ajkd.org/article/S0272-6386(20)30726-5/fulltext
-- D'Alessandro C et al. Energy Requirement for Elderly CKD Patients. *Nutrients* 13(10):3396, 2021. https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8541480/
-- KDIGO 2022 CKD Guideline — https://kdigo.org/guidelines/ckd-evaluation-and-management/
+- KDOQI Nutrition in CKD: 2020 Update. *Am J Kidney Dis.* 76(3 Suppl 1):S1–S107.
+  https://www.ajkd.org/article/S0272-6386(20)30726-5/fulltext
+- D'Alessandro C et al. *Nutrients* 13(10):3396, 2021.
+  https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8541480/
 
 ---
 
-### [PEDIATRIC]
+### Pediatric CKD
 
-**Energy:** DRI for age × 1.0–1.1
+**Energy:** DRI × 1.0–1.1
 
-| Stage | disease_stage | Protein | Electrolytes | Fluid |
-|---|---|---|---|---|
-| Stage 1–3 | `stage_1` / `stage_2` / `stage_3` | DRI for age | Monitor K and phosphorus | Per Holliday-Segar |
-| Stage 4–5 | `stage_4` / `stage_5_predialysis` | 0.8–1.0 g/kg/day | Restrict K if > 5.5 mmol/L; phosphorus 800 mg/day | Per Holliday-Segar; restrict if oliguric |
-| Hemodialysis | `hemodialysis` | 1.4–1.8 g/kg/day | Per labs | Prescription-based |
-| Peritoneal | `peritoneal` | 1.5–2.0 g/kg/day | Per labs | Per dialysis prescription |
+| disease_stage | Protein | Electrolytes | Fluid |
+|---|---|---|---|
+| `stage_1` / `stage_2` / `stage_3` | DRI for age (PDRI g/day table in §4) | Monitor K and phosphorus | Holliday-Segar |
+| `stage_4` / `stage_5_predialysis` | 0.8–1.0 g/kg/day | Restrict K if > 5.5 mmol/L; phosphorus 800 mg/day | Holliday-Segar; restrict if oliguric |
+| `hemodialysis` | 1.4–1.8 g/kg/day | Per labs | Prescription-based |
+| `peritoneal` | 1.5–2.0 g/kg/day | Per labs | Per dialysis Rx |
 
-**Source:** KDIGO CKD in Children — https://kdigo.org/guidelines/ckd-in-children/
+**Source:** KDIGO CKD in Children. https://kdigo.org/guidelines/ckd-in-children/
 
 ---
 
-## 3. Diabetic Control
+## 6. Diabetic Control
 
-**goal_type:** `diabetic_control`
+**`goal_type`:** `diabetic_control`
 **Energy method:** TEE-based for all stages.
-**disease_stage values:** `stage_1` | `stage_2` | `stage_3`
+**`disease_stage` values:** `stage_1` | `stage_2` | `stage_3`
 
-> **Note:** The ADA 2024 Standards state there is no single ideal macronutrient distribution for all people with diabetes. The targets below represent clinically practical defaults for a hospital nutrition system. The RND should apply individualized judgment, particularly for carbohydrate distribution based on medication regimen, insulin regimen, activity level, and glycemic response.
->
-> **HbA1c monitoring note:** HbA1c is a laboratory monitoring value, not a calculation input. It is recorded in the assessment (biochemical data) and reviewed during monitoring and evaluation to assess whether the diabetic control intervention is achieving its goal. General ADA target: HbA1c < 7% for most non-pregnant adults. However, targets should be individualized — less stringent goals (< 7.5%, < 8.0%, or < 8.5%) are appropriate for elderly patients, those with frailty, multiple comorbidities, limited life expectancy, or high hypoglycemia risk. HbA1c does not change any macro formula.
+> **ADA 2024 position:** No single ideal macronutrient distribution exists for all people with
+> diabetes. Targets below are clinically practical defaults. RND applies individualized judgment
+> based on medication regimen, insulin type, activity, and glycemic response.
 
----
+> **HbA1c:** Monitoring value only — does not change any macro formula.
+> General ADA target: < 7.0% for most non-pregnant adults. Individualize for elderly/frail
+> patients: < 7.5% (healthy older adults); < 8.0–8.5% (frailty, multiple comorbidities,
+> high hypoglycemia risk).
 
-### disease_stage values
+### disease_stage selection
 
 | disease_stage | Condition | When to use |
 |---|---|---|
-| `stage_1` | T1DM or T2DM, normal weight | Default — no weight or CKD complication |
-| `stage_2` | T2DM + overweight/obesity (BMI ≥ 25 or %IBW > 110%) | T2DM patient with excess weight where weight loss is a clinical priority |
-| `stage_3` | T1DM or T2DM coexisting with CKD (any non-dialysis stage) | Protein must be restricted; CKD takes precedence on protein target |
+| `stage_1` | T1DM or T2DM, normal weight | Default — no excess weight, no CKD |
+| `stage_2` | T2DM + overweight/obesity | BMI ≥ **23** (AP threshold) or %IBW > 110% — weight loss is a clinical priority |
+| `stage_3` | T1DM or T2DM + CKD (any non-dialysis stage) | Protein restriction required; CKD takes precedence |
 
----
+> **`stage_2` trigger changed to BMI ≥ 23** (AP overweight threshold). Prior value of ≥ 25 was
+> the Western threshold and is incorrect for this population.
 
-### [ADULT]
+### Adult
 
-| Nutrient | `stage_1` (T1DM / T2DM normal weight) | `stage_2` (T2DM + overweight) | `stage_3` (T1DM / T2DM + CKD) |
+| Nutrient | `stage_1` | `stage_2` | `stage_3` |
 |---|---|---|---|
-| Energy | TEE | TEE − 500 kcal/day; floor Female ≥ 1200, Male ≥ 1500 | TEE (no deficit) |
+| Energy | TEE | TEE − 500 kcal/day; floor: F ≥ 1200 / M ≥ 1500 kcal | TEE (no deficit) |
 | Carbohydrates | 45–60% total kcal; min 130 g/day | 45–55% of reduced total kcal | 45–60% total kcal |
-| Carb distribution | 45–60 g/main meal; 15–30 g/snack *(default planning target — individualize per medication regimen and glycemic response)* | Same distribution on reduced total | Same |
-| Protein | 0.8–1.0 g/kg | 0.8–1.0 g/kg | Target ≈ 0.8 g/kg/day; avoid routinely exceeding 1.3 g/kg/day |
-| Fat | < 30% total kcal; saturated < 7% | < 30% total kcal | < 30% total kcal |
-| Fiber | ≥ 25–38 g/day | ≥ 25–38 g/day | ≥ 25–38 g/day |
-| Sodium | < 2300 mg/day; < 1500 if HTN coexists | < 2300 mg/day | < 2000 mg/day |
-| Fluid | 30–35 mL/kg (baseline) | 30–35 mL/kg (baseline) | Per CKD stage (Section 2) |
+| Carb distribution | 45–60 g/main meal; 15–30 g/snack (default planning target — individualize per regimen) | Same on reduced total | Same |
+| Protein | 0.8–1.0 g/kg IBW | 0.8–1.0 g/kg IBW | Target ≈ 0.8 g/kg; avoid routinely exceeding 1.3 g/kg |
+| Fat | < 30% total kcal; sat fat < 7% | < 30% total kcal | < 30% total kcal |
+| Fiber | ≥ 25–30 g/day (therapeutic target) | ≥ 25–30 g/day | ≥ 25–30 g/day |
+| Sodium | < 2000 mg/day | < 2000 mg/day | < 2000 mg/day |
+| Fluid | 30–35 mL/kg (baseline) | 30–35 mL/kg (baseline) | Per CKD stage (§5) |
 
-> **T1DM insulin note:** For T1DM patients on insulin, carbohydrate distribution per meal affects insulin dosing. The carb-per-meal targets above (45–60 g/main meal) serve as the prescription anchor. The RND and clinical team set the carb-to-insulin ratio separately — NutriScope does not calculate insulin doses.
+> **`stage_2` rationale:** 5% weight loss in T2DM produces clinically significant improvement
+> in glycemic control, blood pressure, and lipids. The −500 kcal deficit targets ~0.5 kg/week.
 
-> **`stage_3` note:** When diabetes and CKD coexist, target protein ≈ 0.8 g/kg/day. Avoid routinely exceeding 1.3 g/kg/day — higher intake is associated with increased albuminuria and accelerated kidney function loss per ADA/KDIGO guidelines. This is a clinical target, not a strict pharmacological cap.
+> **`stage_3` protein:** Target 0.8 g/kg IBW/day. Avoiding routinely exceeding 1.3 g/kg is
+> associated with reduced albuminuria and slower kidney function loss (ADA/KDIGO). This is a
+> clinical target, not a strict cap — document it as guidance.
 
-> **`stage_2` note:** 5% weight loss in T2DM produces clinically significant improvement in glycemic control, blood pressure, and lipids. The −500 kcal deficit targets approximately 0.5 kg/week loss.
+> **T1DM insulin note:** Carb distribution per meal affects insulin dosing. The 45–60 g/meal
+> target is the prescription anchor. Carb-to-insulin ratio is set by the clinical team —
+> NutriScope does not calculate insulin doses.
 
 **Sources:**
-- ADA Standards of Care in Diabetes 2024. *Diabetes Care* 47 (Suppl 1). https://diabetesjournals.org/care/issue/47/Supplement_1
-- ADA Standards of Care in Diabetes 2026. *Diabetes Care* 49 (Suppl 1). https://diabetesjournals.org/care/article/49/Supplement_1/S6/163930/
-- ADA Nutrition Therapy Consensus Report 2019. *Diabetes Care* 42(5):731. https://diabetesjournals.org/care/article/42/5/731/40480/
-- ADA Standards of Care — CKD Section 11. *Diabetes Care* 2024. https://diabetesjournals.org/care/article/47/Supplement_1/S219/153938/
-- ADA/AGS HbA1c individualization for older adults: American Geriatrics Society recommends HbA1c < 7.5% for healthy older adults; < 8.0%–8.5% for frail patients with comorbidities or high hypoglycemia risk. Referenced in: Glycemic Goals and Hypoglycemia. *Diabetes Care* 47 (Suppl 1) Section 6. https://diabetesjournals.org/care/article/47/Supplement_1/S111/153951/
+- ADA Standards of Care 2024. *Diabetes Care* 47 (Suppl 1).
+  https://diabetesjournals.org/care/issue/47/Supplement_1
+- ADA Standards of Care 2026. *Diabetes Care* 49 (Suppl 1).
+  https://diabetesjournals.org/care/article/49/Supplement_1/S6/163930/
 
 ---
 
-### [PEDIATRIC]
+### Pediatric Diabetic Control
 
-**Type 1 Diabetes (T1DM):**
+**T1DM:**
 
-| Nutrient | Target | Notes |
-|---|---|---|
-| Energy | DRI for age — do NOT restrict | Growth must not be compromised |
-| Carbohydrates | 45–55% total kcal; consistent distribution per meal | Carb counting preferred |
-| Protein | DRI for age | Do not restrict |
-| Fat | < 30% total kcal; saturated < 10% | |
-| Fiber | Age + 5 g/day | |
+| Nutrient | Target |
+|---|---|
+| Energy | DRI for age — do NOT restrict (growth must not be compromised) |
+| Carbohydrates | 45–55% total kcal; consistent distribution per meal; carb counting preferred |
+| Protein | DRI for age |
+| Fat | < 30% total kcal; sat fat < 10% |
+| Fiber | Age + 5 g/day |
 
-**Type 2 Diabetes (T2DM) — typically adolescents:**
+**T2DM (typically adolescents, overweight/obese only):**
 
-| Nutrient | Target | Notes |
-|---|---|---|
-| Energy | Modest deficit (−500 kcal from TDEE) if overweight only | Only for overweight/obese adolescents |
-| Carbohydrates | 45–55% total kcal | Reduce refined sugars and high-GI foods |
-| Protein | DRI for age | |
-| Fat | < 30% total kcal | |
+| Nutrient | Target |
+|---|---|
+| Energy | TEE − 500 kcal/day (only if overweight/obese; not for normal-weight adolescents) |
+| Carbohydrates | 45–55% total kcal; reduce refined sugars and high-GI foods |
+| Protein | DRI for age |
+| Fat | < 30% total kcal |
 
-**Source:** ADA Standards of Care — Pediatric Diabetes Management. *Diabetes Care* 47 (Suppl 1) Section 14. https://diabetesjournals.org/care/article/47/Supplement_1/S234/153955/
+**Source:** ADA Standards of Care — Pediatric Section 14. *Diabetes Care* 47 (Suppl 1).
 
 ---
 
-## 4. Cardiac Diet
+## 7. Cardiac Diet
 
-**goal_type:** `cardiac_diet`
+**`goal_type`:** `cardiac_diet`
 **Energy method:** TEE-based.
-**disease_stage values:** `mild` | `moderate` | `severe`
+**`disease_stage` values:** `mild` | `moderate` | `severe`
 
-> **Important:** The mild/moderate/severe staging used here are **NutriScope internal severity tiers**, not standardized clinical disease classifications from AHA guidelines. AHA does not define cardiac diet stages with these exact sodium thresholds. These tiers are reasonable clinical defaults for a hospital nutrition system and are consistent with the general direction of AHA sodium guidance, but the RND should apply clinical judgment based on the patient's actual diagnosis, medication regimen, and fluid status.
+> **Staging note:** The mild/moderate/severe tiers are **NutriScope internal severity tiers**,
+> not AHA standardized classifications. They are clinically reasonable defaults. RND applies
+> judgment based on actual diagnosis, medication, and fluid status.
 
----
+### Adult
 
-### [ADULT]
+**Energy:** TEE (weight maintenance). TEE − 500 kcal/day if overweight coexists (BMI ≥ 23, AP threshold).
 
-**Energy:** TEE (weight maintenance); TEE − 500 kcal if overweight coexists.
-
-| Nutrient | Mild (`mild`) | Moderate (`moderate`) | Severe (`severe`) |
+| Nutrient | `mild` | `moderate` | `severe` |
 |---|---|---|---|
-| Sodium | < 2300 mg/day | < 2000 mg/day | < 1500 mg/day |
+| Sodium | < 2000 mg/day | < 2000 mg/day | < 1500 mg/day |
 | Total fat | < 30% total kcal | < 28% total kcal | < 25% total kcal |
 | Saturated fat | ≤ 7% total kcal | ≤ 6% total kcal | ≤ 6% total kcal |
 | Trans fat | Minimize | Minimize | Minimize |
 | Cholesterol | < 300 mg/day | < 200 mg/day | < 200 mg/day |
-| Fiber | ≥ 25–30 g/day | ≥ 30 g/day | ≥ 30 g/day |
+| Fiber | ≥ 25 g/day | ≥ 30 g/day | ≥ 30 g/day |
 | Fluid (`fluid_ml`) | 30–35 mL/kg (baseline) | **≤ 2000 mL/day** | **1000–1500 mL/day** |
 
-> System autofills `fluid_ml = 2000` for moderate and `fluid_ml = 1500` for severe cardiac stages.
+> **Fluid autofill:** `fluid_ml = 2000` for `moderate`; `fluid_ml = 1500` for `severe`.
 
-**DASH Diet Targets (all severity levels):**
+> **Sodium:** Updated from < 2300 mg for `mild` — aligned to PDRI < 2000 mg as the base threshold.
+> Severe already was < 1500 mg. ✅
 
-| Nutrient | Daily Target |
+**DASH targets (all severity levels, supplemental goals):**
+
+| Nutrient | Daily target |
 |---|---|
 | Potassium | 4700 mg/day |
 | Calcium | 1250 mg/day |
 | Magnesium | 500 mg/day |
 
 **Sources:**
-- AHA Dietary Guidance to Improve Cardiovascular Health. *Circulation* 2021. https://www.ahajournals.org/doi/10.1161/CIR.0000000000001031
-- NHLBI DASH Eating Plan — https://www.nhlbi.nih.gov/education/dash-eating-plan
+- AHA Dietary Guidance 2021. *Circulation.* https://www.ahajournals.org/doi/10.1161/CIR.0000000000001031
+- NHLBI DASH Eating Plan. https://www.nhlbi.nih.gov/education/dash-eating-plan
 
 ---
 
-### [PEDIATRIC]
+### Pediatric Cardiac Diet
 
 **Energy:** DRI for age (do not restrict unless overweight).
-
-**Sodium targets by age (AHA/AAP):**
 
 | Age | Max Sodium/day |
 |---|---|
 | 1–3 yrs | < 1000 mg |
 | 4–8 yrs | < 1200 mg |
 | 9–13 yrs | < 1500 mg |
-| 14–18 yrs | < 2300 mg |
+| 14–18 yrs | < 2000 mg |
 
 | Nutrient | Target |
 |---|---|
@@ -544,52 +623,53 @@ Disease stage drives all nutrient targets. GFR staging follows KDOQI/KDIGO class
 | Saturated fat | < 10% total kcal |
 | Cholesterol | < 300 mg/day |
 | Fiber | Age + 5 g/day |
-| Sodium | Age-specific (table above) |
 
-**Source:** AHA Dietary Recommendations for Children and Adolescents — https://www.ahajournals.org/doi/10.1161/CIR.0000000000001031
+**Source:** AHA Dietary Recommendations for Children and Adolescents.
 
 ---
 
-## 5. Weight Loss
+## 8. Weight Loss
 
-**goal_type:** `weight_loss`
+**`goal_type`:** `weight_loss`
 **Energy method:** TEE-based (deficit applied to TEE).
-**disease_stage values:** `overweight` | `class_1` | `class_2` | `class_3`
+**`disease_stage` values:** `overweight` | `class_1` | `class_2` | `class_3`
 
----
+Stage maps to **Asia-Pacific BMI classification** (§2 Step 4).
 
-### [ADULT]
+### Adult
 
-Stage maps to BMI classification.
-
-| disease_stage | BMI | Energy Target | Expected Rate of Loss |
+| disease_stage | AP BMI band | Energy target | Expected rate of loss |
 |---|---|---|---|
-| `overweight` | 25.0–29.9 | TEE − 250 to 500 kcal/day | 0.25–0.5 kg/week |
-| `class_1` | 30.0–34.9 | TEE − 500 kcal/day | ~0.5 kg/week |
-| `class_2` | 35.0–39.9 | TEE − 500 to 750 kcal/day | 0.5–0.75 kg/week |
-| `class_3` | ≥ 40.0 | TEE − 750 to 1000 kcal/day (supervised) | 0.75–1.0 kg/week |
+| `overweight` | 23.0–24.9 | TEE − 250 to 500 kcal/day | 0.25–0.5 kg/week |
+| `class_1` | 25.0–29.9 | TEE − 500 kcal/day | ~0.5 kg/week |
+| `class_2` | 30.0–34.9 | TEE − 500 to 750 kcal/day | 0.5–0.75 kg/week |
+| `class_3` | ≥ 35.0 | TEE − 750 to 1000 kcal/day (supervised) | 0.75–1.0 kg/week |
 
-**Caloric floors (never go below):**
-- Female: ≥ 1200 kcal/day
-- Male: ≥ 1500 kcal/day
+> **Caloric floors — never go below:**
+> Female: ≥ 1200 kcal/day
+> Male: ≥ 1500 kcal/day
 
 | Nutrient | Target |
 |---|---|
 | Protein | 1.2–1.6 g/kg IBW/day (protein-sparing; preserves lean mass) |
 | Carbohydrates | 45–55% of reduced total kcal; complex carbs preferred |
 | Fat | 25–30% total kcal |
-| Fiber | ≥ 25–38 g/day (satiety) |
+| Fiber | ≥ 25 g/day (satiety; PDRI floor) |
 | Fluid | 30–35 mL/kg (baseline) |
+| Sodium | < 2000 mg/day |
 
 **Sources:**
-- AND Evidence-Based Nutrition Practice Guideline: Adult Weight Management — https://www.andeal.org/topic.cfm?menu=5276
-- NHLBI Clinical Guidelines on Overweight and Obesity — https://www.nhlbi.nih.gov/health/educational/lose_wt/
+- AND Evidence-Based Nutrition Practice Guideline: Adult Weight Management.
+  https://www.andeal.org/topic.cfm?menu=5276
+- NHLBI Clinical Guidelines on Overweight and Obesity.
+  https://www.nhlbi.nih.gov/health/educational/lose_wt/
 
 ---
 
-### [PEDIATRIC]
+### Pediatric Weight Loss
 
-Children should generally NOT be placed on a caloric deficit. Goal is **weight maintenance while height increases** so BMI-for-age z-score normalizes over time.
+Children should generally **not** be placed on a caloric deficit. Goal is weight **maintenance
+while height increases** so BAZ normalizes over time.
 
 | BAZ | disease_stage | Approach |
 |---|---|---|
@@ -597,245 +677,258 @@ Children should generally NOT be placed on a caloric deficit. Goal is **weight m
 | +2 to +3 | `class_1` | Maintain weight; DRI energy; reduce high-calorie/low-nutrient foods |
 | > +3 | `class_2` / `class_3` | Modest energy reduction under specialist supervision only |
 
-**Source:** ADA Standards for Pediatric T2DM and Obesity. https://diabetesjournals.org/care/article/47/Supplement_1/S234/153955/
-
 ---
 
-## 6. Weight Gain
+## 9. Weight Gain
 
-**goal_type:** `weight_gain`
-**Energy method:** TEE-based (surplus applied to TEE) for `mild` and `moderate`. Flat rate protocol for `severe`.
-**disease_stage values:** `mild` | `moderate` | `severe`
+**`goal_type`:** `weight_gain`
+**Energy method:** TEE-based (`mild` / `moderate`); flat-rate refeeding protocol (`severe`).
+**`disease_stage` values:** `mild` | `moderate` | `severe`
 
-> **Important distinction from `malnutrition`:** Weight gain is used for patients who need a caloric surplus but do not meet GLIM criteria for malnutrition diagnosis. See Section 10 for the full clinical distinction.
+> **Distinction from `malnutrition`:** Weight gain is for patients needing a caloric surplus
+> who do NOT meet GLIM criteria for a confirmed malnutrition diagnosis. See §13.
 
-Stage maps to %IBW (adult) or WAZ z-score (pediatric).
+Stage maps to **%IBW** (adult) or **WAZ z-score** (pediatric).
 
----
+### Adult
 
-### [ADULT]
-
-| disease_stage | %IBW | Energy Target | Notes |
+| disease_stage | %IBW | Energy target | Notes |
 |---|---|---|---|
-| `mild` | 85–90% IBW | TEE + 300–500 kcal/day | Standard surplus |
-| `moderate` | 70–84% IBW | TEE + 500–750 kcal/day | Monitor tolerance |
-| `severe` | < 70% IBW | Refeeding protocol — start at 5–10 kcal/kg/day → target 30–35 kcal/kg/day, reach full needs by day 4–7 | Risk of refeeding syndrome; see protocol below |
-
-> **`severe` ceiling:** Target energy is 30–35 kcal/kg/day. This is both the target and the ceiling during refeeding. Once full needs are reached (day 4–7), maintain at 30–35 kcal/kg/day — do not continue escalating beyond this.
+| `mild` | 85–90% | TEE + 300–500 kcal/day | Standard surplus |
+| `moderate` | 70–84% | TEE + 500–750 kcal/day | Monitor tolerance |
+| `severe` | < 70% | Refeeding protocol (see below) | Refeeding syndrome risk |
 
 | Nutrient | Target |
 |---|---|
-| Protein | 1.2–2.0 g/kg IBW/day (higher for severe) |
+| Protein | 1.2–2.0 g/kg IBW/day (higher end for severe) |
 | Carbohydrates | 55–65% total kcal (primary energy driver) |
 | Fat | 25–30% total kcal |
-| Fluid | 30–35 mL/kg (baseline); monitor closely during refeeding |
+| Fluid | 30–35 mL/kg; monitor closely during refeeding |
+| Sodium | < 2000 mg/day |
 
-#### Refeeding Syndrome Protocol (severe stage)
+#### Refeeding Protocol (severe stage)
 
-**Risk factors — any 1 triggers protocol:**
+**Risk factors — any 1 triggers the protocol:**
 - BMI < 16
 - Unintentional weight loss > 15% in 3–6 months
 - Little or no nutritional intake > 10 days
 - Low serum potassium, magnesium, or phosphate before refeeding
 
-**Protocol:**
-
-| Timeframe | Energy |
+| Timeframe | Energy target |
 |---|---|
 | Start | 5–10 kcal/kg/day (use 5 kcal/kg if BMI < 14 or negligible intake > 15 days) |
-| Day 4–7 | Increase gradually to meet or exceed full needs (30–35 kcal/kg/day) |
+| Day 4–7 | Increase gradually to full needs (30–35 kcal/kg/day) |
+
+> **Ceiling:** Once full needs are reached (30–35 kcal/kg/day), do not escalate further.
 
 - Monitor serum phosphate, potassium, magnesium **daily for first 72 hours**
-- Supplement **thiamine 200–300 mg/day** before refeeding begins; continue for 10 days
-- If phosphate falls below 0.5 mmol/L: stop feeding increase, replace electrolytes, reassess
+- **Thiamine 200–300 mg/day** before refeeding begins; continue for 10 days
+- If phosphate < 0.5 mmol/L: stop feeding increase, replace electrolytes, reassess
 
-> **Correction from previous version:** The refeeding timeline is 4–7 days to full needs, not a 3-week weekly progression. NICE CG32 is the authoritative source.
-
-**Sources:**
-- NICE Clinical Guideline CG32. Nutrition Support for Adults. https://www.nice.org.uk/guidance/cg32
-- ASPEN Clinical Guidelines — https://www.nutritioncare.org/guidelines_and_clinical_resources/
+**Source:** NICE CG32. https://www.nice.org.uk/guidance/cg32
 
 ---
 
-### [PEDIATRIC]
+### Pediatric Weight Gain
 
-| disease_stage | WAZ / BAZ | Energy Target |
+| disease_stage | WAZ / BAZ | Energy target |
 |---|---|---|
 | `mild` | WAZ −1 to −2 | DRI × 1.1 |
 | `moderate` | WAZ −2 to −3 | DRI × 1.2–1.3 |
-| `severe` | WAZ < −3 | Refeeding protocol (same phased approach as adult, scaled to body weight — see Section 6 protocol) |
-
-> **Pediatric refeeding note:** The adult refeeding protocol applies in pediatrics with weight-based scaling. However, pediatric severe malnutrition (SAM) is a specialized condition — involve a pediatric specialist or pediatric dietitian where available. The WHO F-75/F-100 protocol (Section 9) applies to SAM specifically. The Section 6 refeeding protocol applies to weight_gain severe in older children and adolescents.
+| `severe` | WAZ < −3 | Refeeding protocol (weight-scaled, same steps as adult above) |
 
 | Nutrient | Target |
 |---|---|
-| Energy | DRI × activity multiplier + growth allowance |
 | Protein | 1.0–2.0 g/kg/day (increases with severity) |
-| Fat | Age-appropriate (do not restrict) |
+| Fat | Age-appropriate; do not restrict |
 
-> Refeeding syndrome applies equally in pediatrics. Monitor electrolytes daily during first 72 hours regardless of age.
+> **Pediatric refeeding note:** Refeeding syndrome applies equally in children. Monitor electrolytes
+> daily for first 72 hours regardless of age. For confirmed severe acute malnutrition (SAM) in
+> children, involve a pediatric specialist — the WHO F-75/F-100 protocol (§12) applies to SAM
+> specifically; this section applies to older children/adolescents needing general weight restoration.
 
-**Source:** NICE CG32 — https://www.nice.org.uk/guidance/cg32
+**Source:** NICE CG32. https://www.nice.org.uk/guidance/cg32
 
 ---
 
-## 7. High Protein
+## 10. High Protein
 
-**goal_type:** `high_protein`
-**Energy method:** Flat rate — disease-specific kcal/kg replaces TEE.
-**disease_stage values:** `mild_stress` | `moderate_stress` | `severe_stress` | `burns`
+**`goal_type`:** `high_protein`
+**Energy method:** Flat rate — disease-specific kcal/kg **replaces** TEE.
+**`disease_stage` values:** `mild_stress` | `moderate_stress` | `severe_stress` | `burns`
 
 Used for: post-surgery, trauma, sepsis, burns, pressure injuries, low albumin.
 
----
+> **Do not apply TEE stress factor on top of the flat rate.** The flat kcal/kg already
+> embeds stress severity. Applying an additional stress factor is double-counting.
 
-### [ADULT]
+### Adult
 
-| disease_stage | Condition Examples | Protein (g/kg IBW/day) | Energy (kcal/kg/day) | Stress Factor |
-|---|---|---|---|---|
-| `mild_stress` | Post-minor surgery, mild infection, low albumin | 1.0–1.2 | 25–30 | 1.0–1.1 |
-| `moderate_stress` | Major surgery, trauma, sepsis, pressure injury | 1.2–1.5 | 25–30 | 1.2–1.4 |
-| `severe_stress` | Critical illness, multi-organ failure | 1.5–2.0 | 25–30 | 1.4–1.6 |
-| `burns` | Burns > 20% BSA | 1.5–2.0 | 30–35 | 1.5–2.0 |
+| disease_stage | Condition examples | Protein (g/kg IBW/day) | Energy (kcal/kg/day) |
+|---|---|---|---|
+| `mild_stress` | Post-minor surgery, mild infection, low albumin | 1.0–1.2 | 25–30 |
+| `moderate_stress` | Major surgery, trauma, sepsis, pressure injury | 1.2–1.5 | 25–30 |
+| `severe_stress` | Critical illness, multi-organ failure | 1.5–2.0 | 25–30 |
+| `burns` | Burns > 20% BSA | 1.5–2.0 | 30–35 |
 
-> **Energy note:** For high protein goals, the flat kcal/kg rate already incorporates the stress factor implicitly. Do not apply an additional stress factor from Section 1 on top of the flat rate — that would double-count.
+**Additional micronutrient targets for specific conditions:**
 
-> **Micronutrient targets for specific conditions:**
-
-| Condition | Additional Targets |
+| Condition | Target |
 |---|---|
-| Low albumin (< 3.5 g/dL) | Protein 1.5–2.0 g/kg/day; monitor albumin trend alongside CRP and inflammatory markers — albumin is a negative acute phase reactant and does not reliably reflect nutritional response in isolation |
-| Pressure injuries | Zinc 25–40 mg/day; Vitamin C 500 mg/day; protein 1.25–1.5 g/kg/day |
+| Low albumin (< 3.5 g/dL) | Protein 1.5–2.0 g/kg IBW/day; monitor albumin trend alongside CRP — albumin is a negative acute-phase reactant and does not reliably reflect nutritional response in isolation |
+| Pressure injuries | Zinc 25–40 mg/day; Vitamin C 500 mg/day; protein 1.25–1.5 g/kg IBW/day |
 | Burns | Zinc 25–40 mg/day; Vitamin C 500–1000 mg/day; Vitamin A supplementation |
 
-> **Albumin note:** Serum albumin is heavily influenced by inflammation, infection, liver function, hydration status, and disease severity. It is not a reliable standalone nutrition outcome marker. ASPEN advises against using albumin in isolation to assess nutritional status. Monitor albumin trend as part of a broader clinical picture — normalization may reflect resolution of inflammation rather than nutritional recovery alone.
+> **Albumin note:** Heavily influenced by inflammation, infection, liver function, hydration,
+> and disease severity. Not a reliable standalone nutrition marker. Use as part of a broader
+> clinical picture — normalization may reflect inflammation resolution, not nutritional recovery.
 
-**Fluid:** 30–35 mL/kg baseline unless burns (burns require individualized fluid resuscitation per Parkland formula — not calculated by NutriScope).
+**Fluid:** 30–35 mL/kg baseline unless burns. Burns require individualized fluid resuscitation
+(Parkland formula) — not calculated by NutriScope.
 
 **Sources:**
-- ASPEN/SCCM Guidelines for Nutrition Support in the Adult Critically Ill Patient — https://www.nutritioncare.org/guidelines_and_clinical_resources/
-- ESPEN Guidelines on Clinical Nutrition in Surgery (2017). *Clin Nutr.* https://www.clinicalnutritionjournal.com/article/S0261-5614(17)30009-4/fulltext
-- Mueller C, Compher C, Ellen DM. ASPEN Clinical Guidelines: Nutrition Screening, Assessment, and Intervention in Adults. *JPEN* 2011. (Advises against using albumin in isolation to assess nutrition status.) https://www.facs.org/media/paikclgt/lab_screeningserum_albumin_fact_sheet.pdf
-- Harrington M et al. Admission serum albumin and nutritional therapy response. *eClinicalMedicine* 2022. https://www.thelancet.com/journals/eclinm/article/PIIS2589-5370(22)00031-1/fulltext
+- ASPEN/SCCM Guidelines for Nutrition Support in the Adult Critically Ill.
+  https://www.nutritioncare.org/guidelines_and_clinical_resources/
+- ESPEN Guidelines on Clinical Nutrition in Surgery (2017). *Clin Nutr.*
 
 ---
 
-### [PEDIATRIC]
+### Pediatric High Protein
 
-| disease_stage | Condition Examples | Protein (g/kg/day) | Energy |
+| disease_stage | Condition examples | Protein (g/kg/day) | Energy |
 |---|---|---|---|
 | `mild_stress` | Post-minor surgery, mild illness | DRI × 1.1–1.2 | DRI × 1.1 |
 | `moderate_stress` | Major surgery, moderate trauma | 1.5 g/kg/day | DRI × 1.2–1.3 |
 | `severe_stress` | Critical illness, sepsis | 2.0–3.0 g/kg/day | DRI × 1.3–1.5 |
 | `burns` | Burns > 10% BSA | 2.0–3.0 g/kg/day | 1.5–2× DRI |
 
-**Source:** ASPEN Clinical Guidelines — https://www.nutritioncare.org/guidelines_and_clinical_resources/
-
 ---
 
-## 8. Liver Disease
+## 11. Liver Disease
 
-**goal_type:** `liver_disease`
-**Energy method:** Flat rate — disease-specific kcal/kg replaces TEE.
-**disease_stage values:** `compensated` | `decompensated` | `encephalopathy_grade_1_2` | `encephalopathy_grade_3_4`
+**`goal_type`:** `liver_disease`
+**Energy method:** Flat rate — disease-specific kcal/kg **replaces** TEE.
+**`disease_stage` values:** `compensated` | `decompensated` | `encephalopathy_grade_1_2` | `encephalopathy_grade_3_4`
 
-> **Important:** Protein restriction in liver disease is **contraindicated** per current ESPEN and EASL guidelines. Even in hepatic encephalopathy, the primary interventions are BCAA supplementation, vegetable and dairy-based proteins, and lactulose/rifaximin — not protein restriction. Routine protein restriction worsens sarcopenia and outcomes. A temporary, modest reduction may be considered only in rare protein-intolerant patients unresponsive to all other encephalopathy therapies — this is now considered a historical approach rarely used in modern practice.
+> **Critical:** Protein restriction in liver disease is **contraindicated** per ESPEN 2019 and
+> EASL 2019. Even in hepatic encephalopathy, primary interventions are BCAA supplementation,
+> vegetable/dairy protein sources, and lactulose/rifaximin — not protein restriction. Restricting
+> protein worsens sarcopenia and outcomes. A temporary modest reduction (to 1.0 g/kg) is considered
+> only in rare, protein-intolerant patients unresponsive to all other therapies — a historical approach
+> no longer considered first-line.
 
----
+### Adult
 
-### [ADULT]
+| disease_stage | Condition | Energy (kcal/kg/day) | Protein (g/kg IBW/day) | Sodium | Fluid |
+|---|---|---|---|---|---|
+| `compensated` | Cirrhosis, no ascites, no encephalopathy | 35–40 | 1.2–1.5 | < 2000 mg/day | 30–35 mL/kg |
+| `decompensated` | Cirrhosis with ascites or fluid retention | 35–40 | 1.2–1.5 | < 2000 mg/day (strict) | Clinician-determined; restrict if edema |
+| `encephalopathy_grade_1_2` | Mild-moderate encephalopathy | 35–40 | 1.2–1.5 | < 2000 mg/day | 30–35 mL/kg |
+| `encephalopathy_grade_3_4` | Severe encephalopathy | 35–40 | 1.2–1.5 (target); temporary 1.0 only if protein-intolerant and unresponsive to all other therapies | < 2000 mg/day | Clinician-determined |
 
-| disease_stage | Condition | Energy (kcal/kg/day) | Protein (g/kg/day) | Sodium | Fluid | Notes |
-|---|---|---|---|---|---|---|
-| `compensated` | Cirrhosis, no ascites, no encephalopathy | 35–40 | 1.2–1.5 | < 2000 mg/day | 30–35 mL/kg baseline | Prefer small frequent meals; late-evening snack recommended |
-| `decompensated` | Cirrhosis with ascites or fluid retention | 35–40 | 1.2–1.5 | < 2000 mg/day (strict) | Clinician-determined; restrict if edema | Sodium restriction critical |
-| `encephalopathy_grade_1_2` | Mild–moderate encephalopathy | 35–40 | 1.2–1.5 | < 2000 mg/day | 30–35 mL/kg baseline | Maintain protein — do not restrict. Prefer vegetable and dairy protein sources. BCAA supplementation preferred. |
-| `encephalopathy_grade_3_4` | Severe encephalopathy | 35–40 | 1.2–1.5 (target); temporary reduction to 1.0 only if protein-intolerant and unresponsive to all other therapies | < 2000 mg/day | Clinician-determined | Protein restriction is not first-line. Primary interventions: BCAA, vegetable/dairy protein, lactulose, rifaximin. Nasogastric or parenteral feeding if oral intake is unsafe. |
+> **BCAA:** Target 0.25 g BCAA/kg IBW/day when encephalopathy is present.
 
-> **Sodium note for compensated stage:** < 2000 mg/day is the recommended sodium target for all cirrhosis stages regardless of ascites status, as prophylactic sodium restriction reduces risk of fluid retention progression.
+> **Late-evening snack:** Recommended for all liver disease stages to reduce overnight fasting
+> and prevent muscle catabolism.
 
-> **BCAA:** Target 0.25 g BCAA/kg/day when encephalopathy is present.
-
-> **Late-evening snack:** Recommended for all liver disease stages — reduces overnight fasting and prevents muscle catabolism.
+> **Compensated sodium:** < 2000 mg/day applies even without ascites as prophylactic
+> restriction to reduce fluid retention risk.
 
 **Sources:**
-- ESPEN Clinical Nutrition Guidelines on Liver Disease (2019). Plauth M et al. *Clin Nutr.* 38(2):485–521. https://www.clinicalnutritionjournal.com/article/S0261-5614(19)30098-7/fulltext
-- EASL Clinical Practice Guidelines on Nutrition in Chronic Liver Disease. *J Hepatol.* 2019. https://www.journal-of-hepatology.eu/article/S0168-8278(18)32145-7/fulltext
-- Maharshi S et al. Protein restriction contraindicated in hepatic encephalopathy — current evidence supports 1.2–1.5 g/kg/day with vegetable protein preference. *J Gastroenterol Hepatol* 2021. https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7911290/
+- ESPEN Guidelines on Clinical Nutrition in Liver Disease (2019). *Clin Nutr.* 38(2):485–521.
+  https://www.clinicalnutritionjournal.com/article/S0261-5614(19)30098-7/fulltext
+- EASL Clinical Practice Guidelines on Nutrition in Chronic Liver Disease. *J Hepatol.* 2019.
 
 ---
 
-### [PEDIATRIC]
+### Pediatric Liver Disease
 
-| disease_stage | Energy | Protein | Fat | Notes |
-|---|---|---|---|---|
-| `compensated` | 130–150% of DRI for age | 1.5–3.0 g/kg/day | MCT oil preferred if steatorrhea | Fat-soluble vitamins A, D, E, K likely deficient — supplement |
-| `decompensated` | 130–150% DRI | 2.0–3.0 g/kg/day | MCT oil; monitor fat tolerance | NG feeds may be needed |
-| `encephalopathy_grade_1_2` | 130% DRI | 1.0–1.5 g/kg/day | Normal age-appropriate | Less protein restriction than adults; growth priority |
-| `encephalopathy_grade_3_4` | 130% DRI | 1.0 g/kg/day (minimum) | Normal | Never restrict protein below growth-protective minimum |
+| disease_stage | Energy | Protein | Fat |
+|---|---|---|---|
+| `compensated` | 130–150% DRI for age | 1.5–3.0 g/kg/day | MCT oil preferred if steatorrhea |
+| `decompensated` | 130–150% DRI | 2.0–3.0 g/kg/day | MCT oil; monitor fat tolerance |
+| `encephalopathy_grade_1_2` | 130% DRI | 1.0–1.5 g/kg/day | Normal age-appropriate |
+| `encephalopathy_grade_3_4` | 130% DRI | 1.0 g/kg/day (minimum — never below growth-protective floor) | Normal |
 
-> **Fat-soluble vitamin protocol:** Vitamin A 5000–10,000 IU/day; Vitamin D 800–2000 IU/day; Vitamin E 25 IU/kg/day; Vitamin K 2.5–5 mg 2–3×/week.
-
-**Source:** ESPEN Guidelines on Pediatric Liver Disease — https://www.espen.org/guidelines-home
-
----
-
-## 9. Malnutrition
-
-**goal_type:** `malnutrition`
-**Energy method:** Flat rate for `moderate`; Refeeding protocol for `severe`.
-**disease_stage values:** `moderate` | `severe`
-
-> **See Section 10** for the clinical distinction between `malnutrition` and `weight_gain`. These are not redundant — they differ in diagnostic criteria, protocol intensity, and clinical workflow.
+> **Fat-soluble vitamin protocol:** Vitamin A 5000–10,000 IU/day; Vitamin D 800–2000 IU/day;
+> Vitamin E 25 IU/kg/day; Vitamin K 2.5–5 mg 2–3×/week.
 
 ---
 
-### [ADULT]
+## 12. Malnutrition
 
-#### Diagnosis — GLIM Criteria (2019, updated 2025)
+**`goal_type`:** `malnutrition`
+**Energy method:** Flat rate (`moderate`); Refeeding protocol (`severe`).
+**`disease_stage` values:** `moderate` | `severe`
+
+> See §13 for the clinical distinction between `malnutrition` and `weight_gain`.
+
+### Adult — Diagnosis (GLIM Criteria, 2019/2025)
 
 Malnutrition diagnosis requires **≥ 1 phenotypic criterion AND ≥ 1 etiologic criterion.**
+This is a clinical diagnosis made by the RND **before** selecting this goal type. The engine
+does not run GLIM — it receives `goal_type = malnutrition` as an already-confirmed diagnosis.
 
-**Phenotypic criteria:**
-- Non-volitional weight loss (> 5–10% in 6 months OR > 10–20% beyond 6 months for moderate; > 10–20% in 6 months OR > 20% beyond 6 months for severe)
-- Low BMI (< 20 if age < 70; < 22 if age ≥ 70; for Asian populations, adjust per regional thresholds)
-- Reduced muscle mass (assessed by BIA, CT, MRI, or anthropometric proxy)
+> **GLIM criteria exist only in this section as diagnostic context. They are not calculation
+> inputs and no field from the GLIM assessment changes any formula. The engine only reads
+> `disease_stage`.**
 
-**Etiologic criteria:**
-- Reduced food intake or assimilation (< 50% of estimated energy needs > 1 week, or any reduction > 2 weeks)
+**Phenotypic criteria (any 1):**
+- Non-volitional weight loss:
+  - Moderate: > 5% within 6 months OR > 10% beyond 6 months
+  - Severe: > 10% within 6 months OR > 20% beyond 6 months
+- Low BMI — **Asian-specific values** (GLIM Asian validation, *Clin Nutr* 2020):
+  - Age < 70: moderate < 18.5 kg/m²; severe < 17.0 kg/m²
+  - Age ≥ 70: moderate < 20.0 kg/m²; severe < 17.8 kg/m²
+- Reduced muscle mass (assessed by BIA or anthropometric proxy — clinical documentation only;
+  does not feed the prescription calculator)
+
+**Etiologic criteria (any 1):**
+- Reduced food intake/assimilation (< 50% estimated needs > 1 week, or any reduction > 2 weeks)
 - Inflammation or disease burden (acute illness, chronic disease)
 
-#### Classification
+---
+
+### Adult — Classification
 
 | Indicator | `moderate` | `severe` |
 |---|---|---|
-| BMI | 16.0–18.49 | < 16.0 |
+| BMI (Asian) | 17.0–18.49 (< 70 yrs); 17.8–19.99 (≥ 70 yrs) | < 17.0 (< 70 yrs); < 17.8 (≥ 70 yrs) |
 | %IBW | 70–84% | < 70% |
-| MUAC | 190–210 mm | < 185 mm |
-| System risk_score | 2–3 | > 3 |
+| System `risk_score` | 2–3 | > 3 |
 
-#### Nutrition Targets
-
-| disease_stage | Energy | Protein | Approach |
-|---|---|---|---|
-| `moderate` | 30–35 kcal/kg/day | 1.2–1.5 g/kg/day | Progressive feeding over 5–7 days; standard oral/enteral route |
-| `severe` | Start 5–10 kcal/kg/day → target 30–35 kcal/kg/day, reach full needs by day 4–7 | Start 1.0 g/kg → target 1.5–2.0 g/kg | Refeeding protocol (see Section 6 protocol — identical steps apply) |
-
-> **`severe` note:** Thiamine 200–300 mg/day must be given **before** refeeding begins and continued for 10 days. Daily electrolyte monitoring for first 72 hours.
-
-**Fluid:** 30–35 mL/kg baseline; monitor closely during refeeding for fluid overload.
-
-**Sources:**
-- GLIM Criteria for the Diagnosis of Malnutrition (2019). *Clin Nutr.* https://www.clinicalnutritionjournal.com/article/S0261-5614(18)31525-7/fulltext
-- GLIM 5-Year Update (2025). *Clin Nutr.* https://www.clinicalnutritionjournal.com/article/S0261-5614(25)00086-X/fulltext
-- NICE CG32. Refeeding Syndrome — https://www.nice.org.uk/guidance/cg32
-- WHO Malnutrition Fact Sheet — https://www.who.int/news-room/fact-sheets/detail/malnutrition
+> **MUAC removed from classification table.** Adult MUAC cut-offs are not well standardized
+> and vary by region and frame size. MUAC is retained in the assessment schema as clinical
+> documentation but is not used as a classification criterion in NutriScope. The BMI and %IBW
+> criteria above are sufficient for `disease_stage` selection.
 
 ---
 
-### [PEDIATRIC]
+### Adult — Nutrition Targets
 
-#### Classification — WHO z-scores
+| disease_stage | Energy | Protein |
+|---|---|---|
+| `moderate` | 30–35 kcal/kg `working_weight`/day | 1.2–1.5 g/kg IBW/day |
+| `severe` | Start 5–10 kcal/kg/day → reach 30–35 kcal/kg/day by day 4–7 (refeeding protocol) | Start 1.0 g/kg IBW → target 1.5–2.0 g/kg IBW |
+
+> **`severe` mandatory requirements:**
+> - Thiamine 200–300 mg/day **before** refeeding begins; continue 10 days
+> - Serum phosphate, potassium, magnesium monitoring **daily for first 72 hours**
+> - If phosphate < 0.5 mmol/L: stop feeding increase, replace electrolytes, reassess
+
+**Fluid:** 30–35 mL/kg `working_weight`/day; monitor during refeeding for fluid overload.
+
+**Sources:**
+- GLIM Criteria 2019. *Clin Nutr.* https://www.clinicalnutritionjournal.com/article/S0261-5614(18)31525-7/fulltext
+- GLIM 5-Year Update 2025. *Clin Nutr.* https://www.clinicalnutritionjournal.com/article/S0261-5614(25)00086-X/fulltext
+- Asian GLIM low-BMI validation. *Clin Nutr.* 2020. PMID: 32739660.
+- NICE CG32. https://www.nice.org.uk/guidance/cg32
+
+---
+
+### Pediatric — Malnutrition
+
+**Classification (WHO z-scores):**
 
 | Indicator | `moderate` | `severe` |
 |---|---|---|
@@ -844,7 +937,10 @@ Malnutrition diagnosis requires **≥ 1 phenotypic criterion AND ≥ 1 etiologic
 | MUAC (6–59 mo) | 115–125 mm | < 115 mm |
 | HAZ (stunting) | −3 to −2 | < −3 |
 
-#### Nutrition Targets
+> Pediatric MUAC retained for 6–59 months (universally accepted for this age band). Adult MUAC
+> is removed from classification criteria only.
+
+**Nutrition targets:**
 
 **Moderate Acute Malnutrition (MAM):**
 
@@ -858,85 +954,83 @@ Malnutrition diagnosis requires **≥ 1 phenotypic criterion AND ≥ 1 etiologic
 | Phase | Energy | Protein | Duration |
 |---|---|---|---|
 | Phase 1 — Stabilization | 80–100 kcal/kg/day | 1.0–1.5 g/kg/day | Until appetite returns (typically 2–7 days) |
-| Phase 2 — Rehabilitation | 150–220 kcal/kg/day | 4.0–6.0 g/kg/day | Until −2 WAZ achieved |
+| Phase 2 — Rehabilitation | 150–220 kcal/kg/day | 4.0–6.0 g/kg/day | Until WAZ −2 achieved |
 
 WHO F-75 formula in Phase 1; F-100 or RUTF in Phase 2.
 
-**Source:** WHO. Management of Severe Acute Malnutrition in Infants and Children (2013) — https://www.who.int/publications/i/item/9789241506328
+**Source:** WHO. *Management of Severe Acute Malnutrition in Infants and Children* (2013).
 
 ---
 
-## 10. Malnutrition vs Weight Gain — Clinical Distinction
+## 13. Clinical Distinction: Malnutrition vs Weight Gain
 
-Both goal types can involve underweight patients and caloric surpluses. They are not redundant. The distinction is in diagnostic criteria and protocol intensity.
+Both goal types may involve underweight patients and caloric surpluses. They are not redundant.
 
 | Factor | `malnutrition` | `weight_gain` |
 |---|---|---|
-| Diagnosis | Requires GLIM criteria: ≥ 1 phenotypic + ≥ 1 etiologic criterion confirmed | No diagnostic criteria required — RND clinical judgment |
+| Diagnosis | GLIM criteria confirmed by RND: ≥ 1 phenotypic + ≥ 1 etiologic | No diagnostic criteria — RND clinical judgment |
 | Etiologic requirement | Must have reduced intake/assimilation OR inflammation/disease burden | Not required |
-| Severe stage protocol | Mandatory refeeding protocol with daily electrolyte monitoring and thiamine | Refeeding protocol triggered only when %IBW < 70% |
-| Thiamine supplementation | Mandatory before refeeding for severe | Only if refeeding protocol triggered |
-| Typical patients | Confirmed hospital malnutrition (NCP diagnosis code NI-5.x or NC-3.x) | Post-illness recovery, athletes, patients needing general weight restoration without confirmed malnutrition diagnosis |
-| Monitoring intensity | Daily labs for first 72 hours (severe) | Routine monitoring |
+| Severe stage protocol | Mandatory refeeding: daily electrolyte monitoring + thiamine | Refeeding triggered only when %IBW < 70% |
+| Thiamine | Mandatory before refeeding for `severe` | Only if refeeding protocol triggered |
+| Typical patients | Confirmed hospital malnutrition (NCP code NI-5.x or NC-3.x) | Post-illness recovery, general weight restoration without confirmed GLIM diagnosis |
+| Monitoring | Daily labs for first 72 hours (severe) | Routine monitoring |
 
 **Decision rule for the RND:**
-- If GLIM criteria are met → use `malnutrition`
-- If patient is underweight or needs weight gain but GLIM criteria are not met → use `weight_gain`
-- If uncertain, `malnutrition` is the more conservative choice — its protocol is stricter and safer
+- GLIM criteria met → `malnutrition`
+- Underweight or needs weight gain but GLIM criteria not met → `weight_gain`
+- Uncertain → `malnutrition` is the conservative choice (stricter protocol)
 
 ---
 
-## Appendix — disease_stage Quick Reference
+## 14. Appendix — disease_stage Quick Reference
 
-| goal_type | disease_stage values | Energy method | fluid_ml autofill | Reference Section |
-|---|---|---|---|---|
-| `renal_diet` | `stage_1`, `stage_2`, `stage_3`, `stage_4`, `stage_5_predialysis`, `hemodialysis`, `peritoneal` | Flat rate (25–35 kcal/kg; default 30 kcal/kg, individualized by age) | 750 mL for `hemodialysis`; individualized for `peritoneal` | Section 2 |
-| `diabetic_control` | `stage_1`, `stage_2`, `stage_3` | TEE-based | Not restricted (baseline 30–35 mL/kg) | Section 3 |
-| `cardiac_diet` | `mild`, `moderate`, `severe` | TEE-based | 2000 mL for `moderate`; 1500 mL for `severe` | Section 4 |
-| `weight_loss` | `overweight`, `class_1`, `class_2`, `class_3` | TEE-based (deficit) | Not restricted (baseline 30–35 mL/kg) | Section 5 |
-| `weight_gain` | `mild`, `moderate`, `severe` | TEE-based (`mild`/`moderate`); Flat rate refeeding (`severe`) | Not restricted (baseline 30–35 mL/kg) | Section 6 |
-| `high_protein` | `mild_stress`, `moderate_stress`, `severe_stress`, `burns` | Flat rate | Not restricted (baseline 30–35 mL/kg; burns individualized) | Section 7 |
-| `liver_disease` | `compensated`, `decompensated`, `encephalopathy_grade_1_2`, `encephalopathy_grade_3_4` | Flat rate | Not restricted unless decompensated (clinician-determined) | Section 8 |
-| `malnutrition` | `moderate`, `severe` | Flat rate (`moderate`); Refeeding protocol (`severe`) | Not restricted (baseline 30–35 mL/kg) | Section 9 |
-| `custom` | `null` | Manual RND entry | Manual RND entry | Manual — no formula applied |
+| goal_type | disease_stage values | Energy method | fluid_ml autofill |
+|---|---|---|---|
+| `renal_diet` | `stage_1` `stage_2` `stage_3` `stage_4` `stage_5_predialysis` `hemodialysis` `peritoneal` | Flat rate (25–35 kcal/kg; default 30) | 750 for `hemodialysis`; manual for `peritoneal` |
+| `diabetic_control` | `stage_1` `stage_2` `stage_3` | TEE-based | 30–35 mL/kg (unrestricted) |
+| `cardiac_diet` | `mild` `moderate` `severe` | TEE-based | 2000 for `moderate`; 1500 for `severe` |
+| `weight_loss` | `overweight` `class_1` `class_2` `class_3` | TEE-based (deficit) | 30–35 mL/kg (unrestricted) |
+| `weight_gain` | `mild` `moderate` `severe` | TEE (`mild`/`moderate`); flat refeeding (`severe`) | 30–35 mL/kg |
+| `high_protein` | `mild_stress` `moderate_stress` `severe_stress` `burns` | Flat rate | 30–35 mL/kg; burns individualized |
+| `liver_disease` | `compensated` `decompensated` `encephalopathy_grade_1_2` `encephalopathy_grade_3_4` | Flat rate | Baseline unless `decompensated` (clinician) |
+| `malnutrition` | `moderate` `severe` | Flat rate (`moderate`); refeeding protocol (`severe`) | 30–35 mL/kg |
+| `custom` | null | Manual RND entry | Manual RND entry |
 
-> **Removed goal:** `fluid_restriction` was a standalone goal type up to 2026-06-05. It was removed because fluid restriction is a clinical modifier embedded within CKD and Cardiac goals, not an independent nutritional intervention category.
+> **Removed:** `fluid_restriction` as standalone goal type (removed 2026-06-05). Fluid restriction
+> is a clinical modifier embedded within CKD and Cardiac goals.
 
 ---
 
-## Changelog
+## 15. Changelog
 
 | Date | Change |
 |---|---|
-| 2026-06-11 | **Asia-Pacific localization (D1):** BMI default switched to WHO Asia-Pacific cut-points (Western kept as reference); weight-loss `disease_stage` re-cut to AP (D2); diabetic `stage_2` trigger BMI ≥ 23 (D3) |
-| 2026-06-11 | **Weight-basis rule pinned (M2):** energy/fluid use working weight (>120%→AjBW else actual); BMR same; protein uses IBW. Resolves `calcWorkingWeight` ambiguity |
-| 2026-06-11 | **Machine-readable spec added:** `prescription-targets.json` is now the canonical engine contract (PHP authoritative, TS mirror); golden cases freeze expected outputs |
-| 2026-06-11 | **PDRI baselines:** fiber 20–25 g, sodium < 2000 mg, free-sugars < 10% E, macro split carb 55–75% / fat 15–30% (research §5); pediatric goal-specific logic deferred (M4) |
-| 2026-06-08 | Fixed liver disease encephalopathy protein — updated grade 1–2 and grade 3–4 to target 1.2–1.5 g/kg per ESPEN/EASL; protein restriction now labeled contraindicated; BCAA and vegetable/dairy protein as primary interventions |
-| 2026-06-08 | Fixed albumin goal statement — removed "goal albumin ≥ 3.5 g/dL over 2–4 weeks"; replaced with monitoring language; added note that albumin is a negative acute phase reactant (ASPEN 2011) |
-| 2026-06-08 | Fixed CKD energy — updated from flat 30–35 kcal/kg to individualized 25–35 kcal/kg per KDOQI 2020; added age-specific guidance; system default 30 kcal/kg |
-| 2026-06-08 | Fixed diabetic carb distribution — labeled 45–60 g/meal as default planning target, not mandatory prescription |
-| 2026-06-08 | Fixed HbA1c note — added individualization guidance for elderly/frail patients per ADA/AGS tiers |
-| 2026-06-08 | Fixed diabetic stage_3 protein wording — changed from hard cap to target language per ADA/KDIGO |
-| 2026-06-08 | Fixed cardiac staging label — added note that mild/moderate/severe are NutriScope internal severity tiers |
-| 2026-06-08 | Fixed fluid baseline wording — removed "whichever is greater"; replaced with two estimation methods with clinical judgment |
-| 2026-06-08 | Fixed pediatric weight gain refeeding — kept protocol, added specialist referral note |
-| 2026-06-08 | Added Section 10 (Malnutrition vs Weight Gain clinical distinction) |
-| 2026-06-08 | Renamed `diabetic_control` stages to neutral `stage_1`, `stage_2`, `stage_3` |
-| 2026-06-08 | Added T1DM insulin carb distribution note (Section 3) |
-| 2026-06-08 | Corrected refeeding timeline: 4–7 days to full needs, not 3-week weekly progression (Sections 6 and 9) |
-| 2026-06-08 | Added energy method label (TEE-based vs Flat rate) to all goal sections |
-| 2026-06-08 | Added Section 1 calculation workflow chain (Step 1–7) |
-| 2026-06-08 | Added stress factor table and application rule to Section 1 |
-| 2026-06-08 | Added baseline fluid requirement to Section 1 and all unrestricted goal sections |
-| 2026-06-08 | Clarified AjBW trigger threshold: 120% IBW; clarified 0.25 correction factor vs 0.4 pharmacokinetic |
-| 2026-06-08 | Added BMI system decision note (Western cutoffs with Filipino population caveat) |
-| 2026-06-08 | Added weight gain energy ceiling note for severe stage |
-| 2026-06-08 | Added micronutrient targets table for high protein conditions |
-| 2026-06-08 | Updated GLIM reference to include 2025 update |
+| 2026-06-28 | **Calf circumference removed from assessment entirely** (column dropped, UI/request/resource fields removed). Was an AWGS muscle-mass proxy that fed no calculation. |
+| 2026-06-28 | **Verification pass (51 values confirmed, 4 corrected).** (1) CKD stage 1–2 sodium note clarified: KDOQI default is < 2300 mg; < 2000 mg is a deliberate PDRI tightening for PH context. (2) Diabetic fiber updated to ≥ 25–30 g/day (per research §5d therapeutic target, not just PDRI floor). (3) Refeeding BMI risk factor "(AP)" label removed — NICE CG32 BMI < 16 is not AP/Western-specific. (4) GLIM weight loss phenotypic criteria completed to include beyond-6-month figures (moderate > 10%; severe > 20%). |
+| 2026-06-28 | **Consolidated into single source of truth.** Merged `intervention-goals.md` and `intervention-goals-asia-pacific-research.md`. Research doc retired. |
+| 2026-06-28 | **PDRI 2015 adopted as baseline.** Carb 55–75% / fat 15–30% / fiber 20–25 g / sodium < 2000 mg / free sugars < 10% E. Replaces IOM DRI as the national reference (FDA Circular 2023-009). |
+| 2026-06-28 | **AP BMI is the default** for all Filipino patients. Western cut-points retained as reference column only. |
+| 2026-06-28 | **Weight-loss BMI bands updated to AP:** `overweight` 23–24.9 / `class_1` 25–29.9 / `class_2` 30–34.9 / `class_3` ≥ 35. |
+| 2026-06-28 | **Diabetic `stage_2` trigger** changed from BMI ≥ 25 to BMI ≥ 23 (AP overweight threshold). |
+| 2026-06-28 | **Cardiac mild sodium** tightened from < 2300 mg to < 2000 mg (PDRI / WHO alignment). |
+| 2026-06-28 | **CKD stage 1–2 sodium** updated from < 2300 mg to < 2000 mg (PDRI alignment). |
+| 2026-06-28 | **MUAC removed from adult malnutrition classification** (poorly standardized in Asian hospital context). Retained in pediatric 6–59 mo and in assessment schema for clinical documentation. |
+| 2026-06-28 | **Muscle mass / AWGS / ASMI / calf circumference** removed from calculation logic entirely. These are GLIM diagnostic inputs recorded in the assessment schema; they do not feed the prescription calculator. |
+| 2026-06-28 | **Waist circumference / hip / WHR** clarified: assessment/diagnostic fields only; not calculation inputs. |
+| 2026-06-28 | **GLIM low-BMI Asian cut-points filled** (previously "adjust per regional thresholds" with no numbers): age < 70 moderate < 18.5 / severe < 17.0; age ≥ 70 moderate < 20.0 / severe < 17.8. |
+| 2026-06-28 | **Edema flag added** to engine inputs: blocks prescription output until RND confirms dry weight. |
+| 2026-06-28 | **Pregnancy/lactation add-ons** added as step 8 in the calculation chain (PDRI 2015). |
+| 2026-06-28 | **Double-count guard documented:** high_protein and malnutrition flat-rate goals must not receive an additional TEE stress factor. |
+| 2026-06-11 | Asia-Pacific BMI default (D1); weight-loss disease_stage re-cut to AP (D2); diabetic stage_2 trigger BMI ≥ 23 (D3) |
+| 2026-06-11 | Weight-basis rule M2 pinned; machine-readable spec `prescription-targets.json` established |
+| 2026-06-08 | Liver disease protein restriction labeled contraindicated; ESPEN/EASL alignment |
+| 2026-06-08 | CKD energy individualized per KDOQI 2020 (25–35 kcal/kg, default 30) |
+| 2026-06-08 | Refeeding timeline corrected: 4–7 days to full needs (not 3-week progression) |
+| 2026-06-08 | Section 10 added (Malnutrition vs Weight Gain clinical distinction) |
 | 2026-06-06 | Removed `fluid_restriction` as standalone goal type |
 
 ---
 
-*Last updated: 2026-06-08*
 *System requirements supersede any conflict with this document.*
+*This document is the authoritative clinical reference. `prescription-targets.json` is the
+machine-readable encoding. PHP backend is the authoritative runtime.*

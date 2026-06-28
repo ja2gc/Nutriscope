@@ -110,7 +110,6 @@ class AssessmentSaveTest extends TestCase
                 'stress_factor'              => 1.2,
                 'edema_present'              => true,
                 'pregnancy_lactation_status' => 'none',
-                'calf_circumference_cm'      => 33.5,
             ]);
 
         $response->assertStatus(200)
@@ -120,8 +119,7 @@ class AssessmentSaveTest extends TestCase
             ->assertJsonPath('data.waist_cm', 92.5)
             ->assertJsonPath('data.hip_cm', 100.5)
             ->assertJsonPath('data.edema_present', true)
-            ->assertJsonPath('data.pregnancy_lactation_status', 'none')
-            ->assertJsonPath('data.calf_circumference_cm', 33.5);
+            ->assertJsonPath('data.pregnancy_lactation_status', 'none');
     }
 
     public function test_all_new_columns_are_nullable(): void

@@ -484,7 +484,6 @@ function defaultAssessment(): Assessment {
     dietary_intake_method: null, dietary_record_file: null,
     physical_activity_level: null, muac_mm: null, waist_cm: null, hip_cm: null,
     stress_factor: null, edema_present: false, pregnancy_lactation_status: "none",
-    calf_circumference_cm: null,
     religion: null,
   };
 }
@@ -933,9 +932,6 @@ export default function NcpAssessmentPage({
         </Field>
         <Field label="Hip Circumference (cm)" hint="WHR card">
           <TextInput type="number" value={String(assessment.hip_cm ?? "")} onChange={v => updateField("hip_cm", v ? Number(v) : null)} placeholder="e.g. 100" />
-        </Field>
-        <Field label="Calf Circumference (cm)" hint="Muscle mass (AWGS: <34 M / <33 F)">
-          <TextInput type="number" value={String(assessment.calf_circumference_cm ?? "")} onChange={v => updateField("calf_circumference_cm", v ? Number(v) : null)} placeholder="e.g. 32" />
         </Field>
         <Field label="Weight Loss Period">
           <TextInput value={s("weight_loss_period")} onChange={v => updateField("weight_loss_period", v)} placeholder="e.g. 3 months" />

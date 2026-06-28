@@ -29,7 +29,7 @@ class Assessment extends Model
         // Clinical measurement fields (activity level + body measurements)
         'physical_activity_level', 'muac_mm', 'waist_cm', 'hip_cm',
         // Phase 5 — engine inputs
-        'stress_factor', 'edema_present', 'pregnancy_lactation_status', 'calf_circumference_cm',
+        'stress_factor', 'edema_present', 'pregnancy_lactation_status',
     ];
 
     protected $casts = [
@@ -44,7 +44,6 @@ class Assessment extends Model
         'hip_cm'                       => 'float',
         'stress_factor'                => 'float',
         'edema_present'                => 'boolean',
-        'calf_circumference_cm'        => 'float',
     ];
 
     /**

@@ -57,7 +57,6 @@ class AssessmentResource extends JsonResource
             'stress_factor'             => $this->stress_factor,
             'edema_present'             => $this->edema_present,
             'pregnancy_lactation_status'=> $this->pregnancy_lactation_status,
-            'calf_circumference_cm'     => $this->calf_circumference_cm,
             'risk_score'           => $this->ncpRecord?->risk_score,
             'checked_factors'      => $riskResult['checked_factors'],
             'created_at'           => $this->created_at,
