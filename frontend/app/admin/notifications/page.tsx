@@ -16,7 +16,7 @@ import {
 function iconFor(type?: string | null) {
   if (type === "follow_up") return <CalendarClock className="h-4 w-4 text-amber-600" />;
   if (type === "announcement") return <Megaphone className="h-4 w-4 text-emerald-600" />;
-  return <Bell className="h-4 w-4 text-zinc-500" />;
+  return <Bell className="h-4 w-4 text-warm-500" />;
 }
 
 function formatWhen(value: string) {
@@ -93,7 +93,7 @@ export default function AdminNotificationsPage() {
       />
 
       {error && (
-        <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 font-semibold">
+        <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 font-semibold">
           {error}
         </div>
       )}
@@ -101,7 +101,7 @@ export default function AdminNotificationsPage() {
       {loading ? (
         <div className="space-y-3">
           {[0, 1, 2].map((i) => (
-            <div key={i} className="h-16 bg-zinc-100 rounded-2xl animate-pulse" />
+            <div key={i} className="h-16 bg-warm-100 rounded-2xl animate-pulse" />
           ))}
         </div>
       ) : items.length === 0 ? (
@@ -123,14 +123,14 @@ export default function AdminNotificationsPage() {
               <div className="mt-0.5 shrink-0">{iconFor(n.type)}</div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <h3 className={`text-sm truncate ${n.read ? "font-semibold text-zinc-700" : "font-extrabold text-zinc-900"}`}>
+                  <h3 className={`text-sm truncate ${n.read ? "font-semibold text-warm-700" : "font-extrabold text-warm-900"}`}>
                     {n.title}
                   </h3>
                   {!n.read && <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />}
                 </div>
-                <p className="text-xs text-zinc-500 mt-0.5 leading-relaxed">{n.message}</p>
+                <p className="text-xs text-warm-500 mt-0.5 leading-relaxed">{n.message}</p>
               </div>
-              <span className="text-[10px] font-semibold text-zinc-400 shrink-0 mt-0.5">{formatWhen(n.created_at)}</span>
+              <span className="text-[10px] font-semibold text-warm-400 shrink-0 mt-0.5">{formatWhen(n.created_at)}</span>
             </Card>
           ))}
         </div>

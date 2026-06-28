@@ -215,7 +215,7 @@ function isImagePath(path?: string) {
 function Field({ label, children, span, hint }: { label: string; children: React.ReactNode; span?: number; hint?: string }) {
   return (
     <div className={span ? `col-span-${span}` : ""} style={span ? { gridColumn: `span ${span}` } : undefined}>
-      <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1.5">
+      <label className="block text-[10px] font-bold text-warm-500 uppercase tracking-wider mb-1.5">
         {label}
         {hint && <span className="ml-1.5 text-emerald-500 font-semibold normal-case tracking-normal">→ {hint}</span>}
       </label>
@@ -234,7 +234,7 @@ function TextInput({ value, onChange, placeholder, type, disabled }: {
       onChange={e => onChange(e.target.value)}
       placeholder={placeholder}
       disabled={disabled}
-      className="w-full px-3 py-2 text-xs bg-white border border-zinc-200 rounded-lg text-zinc-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all placeholder:text-zinc-400 disabled:bg-zinc-50 disabled:cursor-not-allowed"
+      className="w-full px-3 py-2 text-xs bg-white border border-warm-200 rounded-lg text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all placeholder:text-warm-400 disabled:bg-warm-50 disabled:cursor-not-allowed"
     />
   );
 }
@@ -248,7 +248,7 @@ function TextArea({ value, onChange, placeholder, rows }: {
       onChange={e => onChange(e.target.value)}
       placeholder={placeholder}
       rows={rows ?? 3}
-      className="w-full px-3 py-2 text-xs bg-white border border-zinc-200 rounded-lg text-zinc-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all placeholder:text-zinc-400 resize-none"
+      className="w-full px-3 py-2 text-xs bg-white border border-warm-200 rounded-lg text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all placeholder:text-warm-400 resize-none"
     />
   );
 }
@@ -260,7 +260,7 @@ function SelectInput({ value, onChange, options, placeholder }: {
     <select
       value={value}
       onChange={e => onChange(e.target.value)}
-      className="w-full px-3 py-2 text-xs bg-white border border-zinc-200 rounded-lg text-zinc-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all cursor-pointer"
+      className="w-full px-3 py-2 text-xs bg-white border border-warm-200 rounded-lg text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all cursor-pointer"
     >
       <option value="">{placeholder ?? "Select..."}</option>
       {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -284,11 +284,11 @@ function TagInput({ tags, onChange, placeholder }: {
     }
   };
   return (
-    <div className="flex flex-wrap items-center gap-1.5 px-3 py-2 bg-white border border-zinc-200 rounded-lg min-h-[36px]">
+    <div className="flex flex-wrap items-center gap-1.5 px-3 py-2 bg-white border border-warm-200 rounded-lg min-h-[36px]">
       {tags.map((tag, i) => (
-        <span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 bg-zinc-100 border border-zinc-200 rounded text-[10px] font-bold text-zinc-700">
+        <span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 bg-warm-100 border border-warm-200 rounded text-[10px] font-bold text-warm-700">
           {tag}
-          <button type="button" onClick={() => onChange(tags.filter((_, j) => j !== i))} className="text-zinc-400 hover:text-red-500 ml-0.5 cursor-pointer">×</button>
+          <button type="button" onClick={() => onChange(tags.filter((_, j) => j !== i))} className="text-warm-400 hover:text-red-500 ml-0.5 cursor-pointer">×</button>
         </span>
       ))}
       <input
@@ -296,7 +296,7 @@ function TagInput({ tags, onChange, placeholder }: {
         onChange={e => setInput(e.target.value)}
         onKeyDown={handleKeyDown}
         placeholder={tags.length === 0 ? (placeholder ?? "Type and press Enter...") : ""}
-        className="flex-1 min-w-[80px] text-xs bg-transparent outline-none text-zinc-900 placeholder:text-zinc-400"
+        className="flex-1 min-w-[80px] text-xs bg-transparent outline-none text-warm-900 placeholder:text-warm-400"
       />
     </div>
   );
@@ -316,7 +316,7 @@ function DropZone({ label, onUpload, uploading }: {
 
   return (
     <div
-      className={`relative border-2 border-dashed rounded-xl p-6 text-center transition-all cursor-pointer select-none ${dragOver ? "border-emerald-400 bg-emerald-50/50" : "border-zinc-300 hover:border-zinc-400 bg-zinc-50/30"
+      className={`relative border-2 border-dashed rounded-xl p-6 text-center transition-all cursor-pointer select-none ${dragOver ? "border-emerald-400 bg-emerald-50/50" : "border-warm-300 hover:border-zinc-400 bg-warm-50/30"
         }`}
       onClick={() => inputRef.current?.click()}
       onDragOver={e => { e.preventDefault(); setDragOver(true); }}
@@ -326,16 +326,16 @@ function DropZone({ label, onUpload, uploading }: {
       <input ref={inputRef} type="file" accept=".pdf,.png,.jpg,.jpeg" className="hidden" onChange={e => { if (e.target.files?.[0]) handleFile(e.target.files[0]); }} />
       {uploading ? (
         <div className="space-y-2">
-          <div className="h-1 w-48 mx-auto bg-zinc-200 rounded-full overflow-hidden">
+          <div className="h-1 w-48 mx-auto bg-warm-200 rounded-full overflow-hidden">
             <div className="h-full bg-emerald-500 rounded-full animate-pulse" style={{ width: "70%" }} />
           </div>
           <p className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">Uploading...</p>
         </div>
       ) : (
         <>
-          <Upload className="h-5 w-5 text-zinc-400 mx-auto mb-2" />
-          <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-wider">{label}</p>
-          <p className="text-[9px] text-zinc-400 mt-1">Drag and drop or click to upload — PDF, JPEG, PNG (max 10MB)</p>
+          <Upload className="h-5 w-5 text-warm-400 mx-auto mb-2" />
+          <p className="text-[10px] font-bold text-warm-600 uppercase tracking-wider">{label}</p>
+          <p className="text-[9px] text-warm-400 mt-1">Drag and drop or click to upload — PDF, JPEG, PNG (max 10MB)</p>
         </>
       )}
     </div>
@@ -385,8 +385,8 @@ function AttachmentLightbox({
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-100">
-          <p className="text-xs font-bold text-zinc-700 truncate pr-4">{name}</p>
+        <div className="flex items-center justify-between px-4 py-3 border-b border-warm-100">
+          <p className="text-xs font-bold text-warm-700 truncate pr-4">{name}</p>
           <div className="flex items-center gap-2 shrink-0">
             <a
               href={url}
@@ -403,7 +403,7 @@ function AttachmentLightbox({
               className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-wider rounded-lg transition-colors ${
                 confirming
                   ? "bg-red-600 hover:bg-red-700 text-white"
-                  : "bg-zinc-100 hover:bg-rose-50 text-zinc-500 hover:text-rose-600"
+                  : "bg-warm-100 hover:bg-red-50 text-warm-500 hover:text-red-600"
               }`}
               title="Remove attachment"
             >
@@ -413,7 +413,7 @@ function AttachmentLightbox({
             <button
               type="button"
               onClick={onClose}
-              className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors"
+              className="p-1.5 rounded-lg text-warm-400 hover:text-warm-700 hover:bg-warm-100 transition-colors"
               title="Close"
             >
               <X className="h-4 w-4" />
@@ -421,7 +421,7 @@ function AttachmentLightbox({
           </div>
         </div>
         {/* Content */}
-        <div className="flex-1 overflow-auto bg-zinc-50 flex items-center justify-center min-h-0">
+        <div className="flex-1 overflow-auto bg-warm-50 flex items-center justify-center min-h-0">
           {isImage ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -509,25 +509,25 @@ function AttachmentsPanel({ ncpId, uploadLabel, kind, blurb }: {
       )}
 
       <div className="space-y-4">
-        <div className="rounded-xl border border-zinc-200 bg-zinc-50/60 p-4 space-y-3">
+        <div className="rounded-xl border border-warm-200 bg-warm-50/60 p-4 space-y-3">
           <div className="flex items-center gap-2">
             <Paperclip className="h-4 w-4 text-emerald-600" />
-            <h4 className="text-[10px] font-extrabold text-zinc-800 uppercase tracking-wider">Supporting Documents</h4>
+            <h4 className="text-[10px] font-extrabold text-warm-800 uppercase tracking-wider">Supporting Documents</h4>
           </div>
-          <p className="text-[11px] text-zinc-500 leading-relaxed">{blurb}</p>
+          <p className="text-[11px] text-warm-500 leading-relaxed">{blurb}</p>
           <DropZone label={uploadLabel} onUpload={handleUpload} uploading={uploading} />
         </div>
 
         {error && (
-          <div className="px-3 py-2 bg-rose-50 border border-rose-200 rounded-lg text-[11px] text-rose-700 font-semibold">{error}</div>
+          <div className="px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-[11px] text-red-700 font-semibold">{error}</div>
         )}
 
         {loading ? (
           <div className="space-y-2">
-            {[0, 1].map(i => <div key={i} className="h-12 bg-zinc-100 rounded-xl animate-pulse" />)}
+            {[0, 1].map(i => <div key={i} className="h-12 bg-warm-100 rounded-xl animate-pulse" />)}
           </div>
         ) : items.length === 0 ? (
-          <div className="text-center py-8 text-[11px] text-zinc-400 font-semibold border border-dashed border-zinc-200 rounded-xl">
+          <div className="text-center py-8 text-[11px] text-warm-400 font-semibold border border-dashed border-warm-200 rounded-xl">
             No documents attached to this cycle yet.
           </div>
         ) : (
@@ -537,14 +537,14 @@ function AttachmentsPanel({ ncpId, uploadLabel, kind, blurb }: {
               const fileUrl = getAttachmentFileUrl(doc.id);
               const docName = `${displayName} ${items.length > 1 ? idx + 1 : ""}`.trim();
               return (
-                <div key={doc.id} className="bg-white border border-zinc-200 rounded-xl overflow-hidden">
+                <div key={doc.id} className="bg-white border border-warm-200 rounded-xl overflow-hidden">
                   <div className="flex items-center gap-3 px-3 py-2.5">
-                    <div className="h-9 w-9 shrink-0 rounded-lg bg-zinc-50 border border-zinc-200 flex items-center justify-center text-zinc-400">
+                    <div className="h-9 w-9 shrink-0 rounded-lg bg-warm-50 border border-warm-200 flex items-center justify-center text-warm-400">
                       {isImg ? <Eye className="h-4 w-4" /> : <FileText className="h-4 w-4" />}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold text-zinc-800 truncate">{docName}</p>
-                      <p className="text-[10px] text-zinc-400">
+                      <p className="text-xs font-semibold text-warm-800 truncate">{docName}</p>
+                      <p className="text-[10px] text-warm-400">
                         {doc.type ? `${doc.type} · ` : ""}{formatDate(doc.created_at)}
                       </p>
                     </div>
@@ -552,7 +552,7 @@ function AttachmentsPanel({ ncpId, uploadLabel, kind, blurb }: {
                     <button
                       type="button"
                       onClick={() => setLightbox({ url: fileUrl, isImage: isImg, name: docName, docId: doc.id })}
-                      className="p-1.5 text-zinc-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                      className="p-1.5 text-warm-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
                       title="Preview"
                     >
                       <Eye className="h-3.5 w-3.5" />
@@ -561,7 +561,7 @@ function AttachmentsPanel({ ncpId, uploadLabel, kind, blurb }: {
                     <a
                       href={fileUrl}
                       download={docName}
-                      className="p-1.5 text-zinc-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                      className="p-1.5 text-warm-400 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition-colors"
                       title="Download"
                     >
                       <Download className="h-3.5 w-3.5" />
@@ -571,7 +571,7 @@ function AttachmentsPanel({ ncpId, uploadLabel, kind, blurb }: {
                       type="button"
                       onClick={() => handleDelete(doc.id)}
                       disabled={deletingId === doc.id}
-                      className="p-1.5 text-zinc-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors disabled:opacity-50"
+                      className="p-1.5 text-warm-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
                       title="Remove"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
@@ -842,16 +842,16 @@ export default function NcpAssessmentPage({
   if (isPlaceholder) {
     return (
       <div className="space-y-6 font-sans">
-        <div className="flex items-center gap-2 text-xs font-semibold text-zinc-400 select-none">
+        <div className="flex items-center gap-2 text-xs font-semibold text-warm-400 select-none">
           <Link href="/ncp/patients" className="hover:text-emerald-700 transition-colors">Directory</Link>
           <ChevronRight className="h-3 w-3" />
-          <span className="text-zinc-600 font-bold">Assessment</span>
+          <span className="text-warm-600 font-bold">Assessment</span>
         </div>
-        <div className="bg-white border border-zinc-200 rounded-2xl p-12 text-center max-w-2xl mx-auto shadow-sm">
-          <ClipboardCheck className="h-8 w-8 text-zinc-300 mx-auto mb-4" />
-          <h3 className="text-sm font-bold text-zinc-800">No Patient Selected</h3>
-          <p className="text-xs text-zinc-500 mt-2">Return to the directory to select or create a patient.</p>
-          <Link href="/ncp/patients" className="inline-flex mt-4 px-4 py-2 bg-zinc-950 text-white text-[10px] font-bold uppercase tracking-wider rounded-lg hover:bg-zinc-800 transition-colors">
+        <div className="bg-white border border-warm-200 rounded-2xl p-12 text-center max-w-2xl mx-auto shadow-sm">
+          <ClipboardCheck className="h-8 w-8 text-warm-300 mx-auto mb-4" />
+          <h3 className="text-sm font-bold text-warm-800">No Patient Selected</h3>
+          <p className="text-xs text-warm-500 mt-2">Return to the directory to select or create a patient.</p>
+          <Link href="/ncp/patients" className="inline-flex mt-4 px-4 py-2 bg-forest-900 text-white text-[10px] font-bold uppercase tracking-wider rounded-lg hover:bg-forest-800 transition-colors">
             Go to Patients
           </Link>
         </div>
@@ -862,11 +862,11 @@ export default function NcpAssessmentPage({
   if (loading) {
     return (
       <div className="space-y-6 font-sans">
-        <div className="flex items-center gap-2 text-xs font-semibold text-zinc-400 select-none">
+        <div className="flex items-center gap-2 text-xs font-semibold text-warm-400 select-none">
           <span>Directory</span><ChevronRight className="h-3 w-3" /><span>Loading...</span>
         </div>
         <div className="space-y-4">
-          {[1, 2, 3].map(i => <div key={i} className="h-16 bg-zinc-100 rounded-xl animate-pulse" />)}
+          {[1, 2, 3].map(i => <div key={i} className="h-16 bg-warm-100 rounded-xl animate-pulse" />)}
         </div>
       </div>
     );
@@ -930,7 +930,7 @@ export default function NcpAssessmentPage({
       </Field>
       {/* GI / Tolerance — moved from Anthropometrics tab */}
       <div className="col-span-1 md:col-span-2 mt-2">
-        <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-3">GI / Tolerance</p>
+        <p className="text-[10px] font-bold text-warm-400 uppercase tracking-wider mb-3">GI / Tolerance</p>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Field label="Chewing / Swallowing Difficulties">
             <TextArea value={s("chewing_swallowing_difficulties")} onChange={v => updateField("chewing_swallowing_difficulties", v)} placeholder="Any chewing or swallowing difficulties..." rows={2} />
@@ -952,12 +952,12 @@ export default function NcpAssessmentPage({
       {/* ── Always-visible calculated summary strip ───────────────────── */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
         {/* IBW — from weight + height (Hamwi) */}
-        <div className={`rounded-xl p-3 border ${computedIBW !== null ? "bg-white border-zinc-200" : "bg-zinc-50 border-zinc-100"}`}>
-          <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">IBW</p>
-          <p className={`text-xl font-black font-mono mt-0.5 ${computedIBW !== null ? "text-zinc-900" : "text-zinc-300"}`}>
+        <div className={`rounded-xl p-3 border ${computedIBW !== null ? "bg-white border-warm-200" : "bg-warm-50 border-warm-100"}`}>
+          <p className="text-[9px] font-bold text-warm-400 uppercase tracking-wider">IBW</p>
+          <p className={`text-xl font-black font-mono mt-0.5 ${computedIBW !== null ? "text-warm-900" : "text-warm-300"}`}>
             {computedIBW !== null ? `${computedIBW.toFixed(1)} kg` : "—"}
           </p>
-          <p className="text-[9px] text-zinc-400 mt-0.5">
+          <p className="text-[9px] text-warm-400 mt-0.5">
             {computedIBW !== null
               ? computedPercentIBW !== null
                 ? `${computedPercentIBW.toFixed(0)}% IBW · Hamwi`
@@ -966,59 +966,59 @@ export default function NcpAssessmentPage({
           </p>
         </div>
         {/* BMI — from weight + height */}
-        <div className={`rounded-xl p-3 border ${computedBmi !== null ? "bg-white border-zinc-200" : "bg-zinc-50 border-zinc-100"}`}>
-          <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">BMI</p>
-          <p className={`text-xl font-black font-mono mt-0.5 ${computedBmi !== null ? "text-zinc-900" : "text-zinc-300"}`}>
+        <div className={`rounded-xl p-3 border ${computedBmi !== null ? "bg-white border-warm-200" : "bg-warm-50 border-warm-100"}`}>
+          <p className="text-[9px] font-bold text-warm-400 uppercase tracking-wider">BMI</p>
+          <p className={`text-xl font-black font-mono mt-0.5 ${computedBmi !== null ? "text-warm-900" : "text-warm-300"}`}>
             {computedBmi !== null ? computedBmi.toFixed(1) : "—"}
           </p>
-          <p className="text-[9px] text-zinc-400 mt-0.5">
+          <p className="text-[9px] text-warm-400 mt-0.5">
             {computedBmi !== null ? "kg/m²" : "Enter weight & height"}
           </p>
         </div>
         {/* BMR — from weight + height + age + sex (+ PAL for TEE) */}
-        <div className={`rounded-xl p-3 border ${computedBMR !== null ? "bg-white border-zinc-200" : "bg-zinc-50 border-zinc-100"}`}>
-          <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">BMR / TEE</p>
-          <p className={`text-xl font-black font-mono mt-0.5 ${computedBMR !== null ? "text-zinc-900" : "text-zinc-300"}`}>
+        <div className={`rounded-xl p-3 border ${computedBMR !== null ? "bg-white border-warm-200" : "bg-warm-50 border-warm-100"}`}>
+          <p className="text-[9px] font-bold text-warm-400 uppercase tracking-wider">BMR / TEE</p>
+          <p className={`text-xl font-black font-mono mt-0.5 ${computedBMR !== null ? "text-warm-900" : "text-warm-300"}`}>
             {computedBMR !== null ? Math.round(computedBMR) : "—"}
           </p>
-          <p className="text-[9px] text-zinc-400 mt-0.5">
+          <p className="text-[9px] text-warm-400 mt-0.5">
             {computedBMR !== null
               ? `BMR · TEE ${computedTEE ?? "—"} kcal (×${palFactor})`
               : "Enter wt, ht · set age & sex in profile"}
           </p>
         </div>
         {/* Weight Loss % — from weight + usual weight */}
-        <div className={`rounded-xl p-3 border ${computedWeightLossPct !== null ? "bg-white border-zinc-200" : "bg-zinc-50 border-zinc-100"}`}>
-          <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">Weight Loss</p>
-          <p className={`text-xl font-black font-mono mt-0.5 ${computedWeightLossPct !== null ? "text-amber-700" : "text-zinc-300"}`}>
+        <div className={`rounded-xl p-3 border ${computedWeightLossPct !== null ? "bg-white border-warm-200" : "bg-warm-50 border-warm-100"}`}>
+          <p className="text-[9px] font-bold text-warm-400 uppercase tracking-wider">Weight Loss</p>
+          <p className={`text-xl font-black font-mono mt-0.5 ${computedWeightLossPct !== null ? "text-amber-700" : "text-warm-300"}`}>
             {computedWeightLossPct !== null ? `${computedWeightLossPct}%` : "—"}
           </p>
-          <p className="text-[9px] text-zinc-400 mt-0.5">
+          <p className="text-[9px] text-warm-400 mt-0.5">
             {computedWeightLossPct !== null ? "from usual weight" : "Enter weight & usual weight"}
           </p>
         </div>
         {/* MUAC — from muac_mm */}
-        <div className={`rounded-xl p-3 border ${muacClassification !== null ? "bg-white border-zinc-200" : "bg-zinc-50 border-zinc-100"}`}>
-          <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">MUAC</p>
-          <p className={`text-xl font-black font-mono mt-0.5 ${muacClassification !== null ? "text-zinc-900" : "text-zinc-300"}`}>
+        <div className={`rounded-xl p-3 border ${muacClassification !== null ? "bg-white border-warm-200" : "bg-warm-50 border-warm-100"}`}>
+          <p className="text-[9px] font-bold text-warm-400 uppercase tracking-wider">MUAC</p>
+          <p className={`text-xl font-black font-mono mt-0.5 ${muacClassification !== null ? "text-warm-900" : "text-warm-300"}`}>
             {muacValue > 0 ? `${muacValue} mm` : "—"}
           </p>
           {muacClassification !== null
             ? <p className={`text-[9px] font-bold mt-0.5 ${muacClassification.color}`}>{muacClassification.label}</p>
-            : <p className="text-[9px] text-zinc-400 mt-0.5">Enter MUAC (mm)</p>
+            : <p className="text-[9px] text-warm-400 mt-0.5">Enter MUAC (mm)</p>
           }
         </div>
         {/* WHR — from waist_cm ÷ hip_cm */}
-        <div className={`rounded-xl p-3 border ${computedWHR !== null ? (whrRisk === "High Risk" ? "bg-white border-red-200" : "bg-white border-zinc-200") : "bg-zinc-50 border-zinc-100"}`}>
-          <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">WHR</p>
-          <p className={`text-xl font-black font-mono mt-0.5 ${computedWHR !== null ? "text-zinc-900" : "text-zinc-300"}`}>
+        <div className={`rounded-xl p-3 border ${computedWHR !== null ? (whrRisk === "High Risk" ? "bg-white border-red-200" : "bg-white border-warm-200") : "bg-warm-50 border-warm-100"}`}>
+          <p className="text-[9px] font-bold text-warm-400 uppercase tracking-wider">WHR</p>
+          <p className={`text-xl font-black font-mono mt-0.5 ${computedWHR !== null ? "text-warm-900" : "text-warm-300"}`}>
             {computedWHR !== null ? computedWHR.toFixed(2) : "—"}
           </p>
           {computedWHR !== null
             ? <p className={`text-[9px] font-bold mt-0.5 ${whrRisk === "High Risk" ? "text-red-500" : "text-emerald-600"}`}>
               {whrRisk} · {patientSex === "Female" ? "cut-off 0.85" : "cut-off 0.90"}
             </p>
-            : <p className="text-[9px] text-zinc-400 mt-0.5">Enter waist & hip cm</p>
+            : <p className="text-[9px] text-warm-400 mt-0.5">Enter waist & hip cm</p>
           }
         </div>
       </div>
@@ -1141,7 +1141,7 @@ export default function NcpAssessmentPage({
               onClick={() => updateField("allergies", allergies.includes(a) ? allergies.filter(x => x !== a) : [...allergies, a])}
               className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide border transition-all cursor-pointer ${allergies.includes(a)
                   ? "bg-red-100 border-red-300 text-red-800"
-                  : "bg-zinc-50 border-zinc-200 text-zinc-500 hover:border-red-200 hover:text-red-700"
+                  : "bg-warm-50 border-warm-200 text-warm-500 hover:border-red-200 hover:text-red-700"
                 }`}
             >
               {a}
@@ -1164,7 +1164,7 @@ export default function NcpAssessmentPage({
   const renderBiochemicalTab = () => (
     <div className="grid gap-4 lg:grid-cols-[1.4fr_0.6fr] items-start">
       <div className="space-y-4">
-        <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Lab Values</p>
+        <p className="text-[10px] font-bold text-warm-400 uppercase tracking-wider">Lab Values</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
           {LAB_FIELDS.map(field => {
             const rawValue = (assessment.biochemical_data?.[field.key as keyof NonNullable<typeof assessment.biochemical_data>] ?? "") as string | number;
@@ -1178,16 +1178,16 @@ export default function NcpAssessmentPage({
                 key={field.key}
                 className={`rounded-xl border p-3 transition-colors ${isAbnormal
                     ? "border-red-200 bg-red-50/40"
-                    : "border-zinc-200 bg-white"
+                    : "border-warm-200 bg-white"
                   }`}
               >
                 <label className="block text-[10px] font-bold uppercase tracking-wider mb-1.5 flex items-center justify-between">
-                  <span className={isAbnormal ? "text-red-700" : "text-zinc-500"}>
+                  <span className={isAbnormal ? "text-red-700" : "text-warm-500"}>
                     {field.label}
                   </span>
                   {isAbnormal && (
                     <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded ${status === "low"
-                        ? "bg-blue-100 text-blue-700"
+                        ? "bg-sky-100 text-sky-700"
                         : "bg-red-100 text-red-700"
                       }`}>
                       {status === "low" ? "LOW" : "HIGH"}
@@ -1203,23 +1203,23 @@ export default function NcpAssessmentPage({
                       [field.key]: coerceBiochemicalValue(field.key, e.target.value),
                     })}
                     placeholder={`e.g. ${low ?? high}`}
-                    className={`w-full px-3 py-2 text-xs bg-white border rounded-lg text-zinc-900 focus:outline-none focus:ring-2 transition-all placeholder:text-zinc-400 ${isAbnormal
+                    className={`w-full px-3 py-2 text-xs bg-white border rounded-lg text-warm-900 focus:outline-none focus:ring-2 transition-all placeholder:text-warm-400 ${isAbnormal
                         ? "border-red-300 focus:ring-red-400/20 focus:border-red-400"
-                        : "border-zinc-200 focus:ring-emerald-500/20 focus:border-emerald-500"
+                        : "border-warm-200 focus:ring-emerald-500/20 focus:border-emerald-500"
                       }`}
                   />
                   {field.unit && (
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-zinc-400 pointer-events-none">
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-warm-400 pointer-events-none">
                       {field.unit}
                     </span>
                   )}
                 </div>
                 <div className="mt-1.5 space-y-0.5">
-                  <p className="text-[9px] text-zinc-400">
+                  <p className="text-[9px] text-warm-400">
                     Normal: {low !== null ? low : "—"} – {high !== null ? high : "—"}{field.unit ? ` ${field.unit}` : ""}
                   </p>
                   {field.note && (
-                    <p className="text-[9px] text-zinc-400 italic leading-relaxed">{field.note}</p>
+                    <p className="text-[9px] text-warm-400 italic leading-relaxed">{field.note}</p>
                   )}
                 </div>
               </div>
@@ -1243,14 +1243,14 @@ export default function NcpAssessmentPage({
     return (
       <div className="space-y-5">
         <div className="grid gap-4 lg:grid-cols-[1.4fr_0.6fr]">
-          <div className="bg-white border border-zinc-200 rounded-2xl p-5 shadow-sm space-y-4">
+          <div className="bg-white border border-warm-200 rounded-2xl p-5 shadow-sm space-y-4">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <h4 className="text-sm font-extrabold text-zinc-950 uppercase tracking-wider flex items-center gap-2">
+                <h4 className="text-sm font-extrabold text-warm-900 uppercase tracking-wider flex items-center gap-2">
                   <FileText className="h-4 w-4 text-emerald-600" />
                   Referral / Screening Form
                 </h4>
-                <p className="text-[11px] text-zinc-500 mt-1 leading-relaxed">
+                <p className="text-[11px] text-warm-500 mt-1 leading-relaxed">
                   Enter screening demographics below manually. Edits to demographics will persist back to the patient profile on save.
                 </p>
               </div>
@@ -1323,9 +1323,9 @@ export default function NcpAssessmentPage({
               </Field>
             </div>
 
-            <div className="flex flex-col gap-3 rounded-xl border border-zinc-200 bg-zinc-50/60 p-3">
+            <div className="flex flex-col gap-3 rounded-xl border border-warm-200 bg-warm-50/60 p-3">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Screening Type:</span>
+                <span className="text-[10px] font-bold text-warm-500 uppercase tracking-wider">Screening Type:</span>
                 <div className="flex gap-2">
                   {(["adult", "pediatric"] as const).map(t => (
                     <button
@@ -1338,7 +1338,7 @@ export default function NcpAssessmentPage({
                       }}
                       className={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-lg border transition-all cursor-pointer ${screeningType === t
                           ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                          : "bg-white text-zinc-500 border-zinc-200 hover:border-zinc-300"
+                          : "bg-white text-warm-500 border-warm-200 hover:border-warm-300"
                         }`}
                     >
                       {t === "adult" ? "Adult B.07" : "Pediatric B.06"}
@@ -1356,9 +1356,9 @@ export default function NcpAssessmentPage({
               uploadLabel="Upload Referral / Screening Form"
               blurb="Attach referral and screening forms for this NCP cycle. Stored for record-keeping and appended to the printed NCP report."
             />
-            {/* <div className="bg-zinc-950 border border-zinc-900 rounded-2xl p-5 text-zinc-100 shadow-sm">
+            {/* <div className="bg-forest-900 border border-forest-line rounded-2xl p-5 text-warm-100 shadow-sm">
               <h4 className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-300 mb-2">Workflow Note</h4>
-              <p className="text-[11px] leading-relaxed text-zinc-300">
+              <p className="text-[11px] leading-relaxed text-warm-300">
                 Save after entering screening details. The patient profile updates with the editable demographics captured here. Risk scoring is calculated based on assessment and biochemical data.
               </p>
             </div> */}
@@ -1366,14 +1366,14 @@ export default function NcpAssessmentPage({
         </div>
 
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-          <div className="bg-white border border-zinc-200 rounded-2xl p-4 shadow-sm">
-            <h4 className="text-[10px] font-extrabold text-zinc-800 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+          <div className="bg-white border border-warm-200 rounded-2xl p-4 shadow-sm">
+            <h4 className="text-[10px] font-extrabold text-warm-800 uppercase tracking-wider mb-3 flex items-center gap-1.5">
               <Shield className="h-3.5 w-3.5 text-emerald-600" />
               Section A - Clinical Conditions
             </h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
               {getScreeningConditions(screeningType).map((cond, i) => (
-                <label key={i} className="flex items-start gap-2 text-[11px] text-zinc-700 cursor-pointer hover:bg-zinc-50 p-1.5 rounded-lg transition-colors">
+                <label key={i} className="flex items-start gap-2 text-[11px] text-warm-700 cursor-pointer hover:bg-warm-50 p-1.5 rounded-lg transition-colors">
                   <input
                     type="checkbox"
                     checked={sectionAChecks[i] || false}
@@ -1390,14 +1390,14 @@ export default function NcpAssessmentPage({
             </div>
           </div>
 
-          <div className="bg-white border border-zinc-200 rounded-2xl p-4 shadow-sm">
-            <h4 className="text-[10px] font-extrabold text-zinc-800 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+          <div className="bg-white border border-warm-200 rounded-2xl p-4 shadow-sm">
+            <h4 className="text-[10px] font-extrabold text-warm-800 uppercase tracking-wider mb-3 flex items-center gap-1.5">
               <Scale className="h-3.5 w-3.5 text-emerald-600" />
               Section B - Intake / Weight History
             </h4>
             <div className="grid grid-cols-1 gap-2">
               {getScreeningIntakeHistory(screeningType).map((item, i) => (
-                <label key={i} className="flex items-start gap-2 text-[11px] text-zinc-700 cursor-pointer hover:bg-zinc-50 p-1.5 rounded-lg transition-colors">
+                <label key={i} className="flex items-start gap-2 text-[11px] text-warm-700 cursor-pointer hover:bg-warm-50 p-1.5 rounded-lg transition-colors">
                   <input
                     type="checkbox"
                     checked={sectionBChecks[i] || false}
@@ -1419,9 +1419,9 @@ export default function NcpAssessmentPage({
   };
 
   const renderRiskScore = () => (
-    <div className="bg-white border border-zinc-200 rounded-xl p-5 space-y-4">
+    <div className="bg-white border border-warm-200 rounded-xl p-5 space-y-4">
       <div className="flex items-center justify-between">
-        <h4 className="text-[10px] font-extrabold text-zinc-800 uppercase tracking-wider flex items-center gap-1.5">
+        <h4 className="text-[10px] font-extrabold text-warm-800 uppercase tracking-wider flex items-center gap-1.5">
           <Activity className="h-3.5 w-3.5 text-emerald-600" />
           Scoring of Nutritional Risk Related Factors
         </h4>
@@ -1431,7 +1431,7 @@ export default function NcpAssessmentPage({
       </div>
       <div className="space-y-2">
         {RISK_FACTORS.map((factor, i) => (
-          <div key={i} className="flex items-center justify-between gap-3 text-[11px] text-zinc-700 px-3 py-2 rounded-lg border border-transparent">
+          <div key={i} className="flex items-center justify-between gap-3 text-[11px] text-warm-700 px-3 py-2 rounded-lg border border-transparent">
             <div className="flex items-center gap-2">
               <input
                 type="checkbox"
@@ -1441,7 +1441,7 @@ export default function NcpAssessmentPage({
               />
               <span className="leading-tight">{factor.label}</span>
             </div>
-            <span className="text-[9px] font-bold text-zinc-400 shrink-0">{factor.points} pt{factor.points > 1 ? "s" : ""}</span>
+            <span className="text-[9px] font-bold text-warm-400 shrink-0">{factor.points} pt{factor.points > 1 ? "s" : ""}</span>
           </div>
         ))}
       </div>
@@ -1484,32 +1484,32 @@ export default function NcpAssessmentPage({
   return (
     <div className="space-y-4 font-sans">
       {/* Breadcrumb */}
-      <div className="flex items-center gap-1.5 text-xs font-semibold text-zinc-400 select-none">
+      <div className="flex items-center gap-1.5 text-xs font-semibold text-warm-400 select-none">
         <Link href="/ncp/patients" className="hover:text-emerald-700 transition-colors">Directory</Link>
         <ChevronRight className="h-3 w-3" />
         <Link href={`/ncp/patients/${patientId}`} className="hover:text-emerald-700 transition-colors">{patient?.name ?? systemId}</Link>
         <ChevronRight className="h-3 w-3" />
-        <span className="text-zinc-700 font-bold">Assessment</span>
+        <span className="text-warm-700 font-bold">Assessment</span>
       </div>
 
       {/* Persistent Patient Header */}
-      <div className="bg-white border border-zinc-200 rounded-xl px-5 py-3.5 shadow-sm">
+      <div className="bg-white border border-warm-200 rounded-xl px-5 py-3.5 shadow-sm">
         <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
           <div className="flex items-center gap-2.5">
             <div className="h-8 w-8 bg-emerald-50 border border-emerald-100 rounded-lg flex items-center justify-center text-emerald-700">
               <Heart className="h-4 w-4" />
             </div>
             <div>
-              <h2 className="text-sm font-extrabold text-zinc-950 tracking-tight">{patient?.name ?? "Loading..."}</h2>
-              <p className="text-[10px] font-mono text-zinc-400">{systemId}</p>
+              <h2 className="text-sm font-extrabold text-warm-900 tracking-tight">{patient?.name ?? "Loading..."}</h2>
+              <p className="text-[10px] font-mono text-warm-400">{systemId}</p>
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-3 text-[10px]">
             {patient?.ward && (
-              <span className="px-2 py-0.5 bg-zinc-100 text-zinc-700 rounded font-bold">Ward: {patient.ward}</span>
+              <span className="px-2 py-0.5 bg-warm-100 text-warm-700 rounded font-bold">Ward: {patient.ward}</span>
             )}
             {patient?.medical_diagnosis && (
-              <span className="px-2 py-0.5 bg-blue-50 text-blue-700 border border-blue-100 rounded font-bold">Dx: {patient.medical_diagnosis}</span>
+              <span className="px-2 py-0.5 bg-sky-50 text-sky-700 border border-sky-100 rounded font-bold">Dx: {patient.medical_diagnosis}</span>
             )}
             {allergies.length > 0 && allergies.map((a, i) => (
               <span key={i} className="px-2 py-0.5 bg-red-50 text-red-700 border border-red-100 rounded font-extrabold uppercase tracking-wider">
@@ -1538,8 +1538,8 @@ export default function NcpAssessmentPage({
       )}
 
       {/* Tab Navigation */}
-      <div className="bg-white border border-zinc-200 rounded-xl overflow-hidden shadow-sm">
-        <div className="flex overflow-x-auto border-b border-zinc-200 bg-zinc-50/50">
+      <div className="bg-white border border-warm-200 rounded-xl overflow-hidden shadow-sm">
+        <div className="flex overflow-x-auto border-b border-warm-200 bg-warm-50/50">
           {TABS.map(tab => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.key;
@@ -1550,7 +1550,7 @@ export default function NcpAssessmentPage({
                 onClick={() => setActiveTab(tab.key)}
                 className={`flex items-center gap-1.5 px-4 py-3 text-[10px] font-bold uppercase tracking-wider whitespace-nowrap border-b-2 transition-all cursor-pointer ${isActive
                     ? "text-emerald-700 border-emerald-600 bg-white"
-                    : "text-zinc-500 border-transparent hover:text-zinc-700 hover:bg-white/50"
+                    : "text-warm-500 border-transparent hover:text-warm-700 hover:bg-white/50"
                   }`}
               >
                 <Icon className="h-3.5 w-3.5" />
@@ -1574,8 +1574,8 @@ export default function NcpAssessmentPage({
       </div>
 
       {/* Save Bar */}
-      <div className="bg-white border border-zinc-200 rounded-xl px-5 py-3.5 flex items-center justify-between shadow-sm">
-        <div className="text-[10px] text-zinc-500 font-semibold select-none">
+      <div className="bg-white border border-warm-200 rounded-xl px-5 py-3.5 flex items-center justify-between shadow-sm">
+        <div className="text-[10px] text-warm-500 font-semibold select-none">
           NCP Cycle #{ncpId} • All tabs auto-merge into a single save
         </div>
         <button

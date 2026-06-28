@@ -38,7 +38,7 @@ const CATEGORY: Record<string, { bg: string; text: string }> = {
   Event: { bg: 'bg-orange-50', text: 'text-orange-700' },
   Operational: { bg: 'bg-emerald-50', text: 'text-emerald-700' },
   Urgent: { bg: 'bg-red-50', text: 'text-red-700' },
-  Memo: { bg: 'bg-violet-50', text: 'text-violet-700' },
+  Memo: { bg: 'bg-sky-50', text: 'text-sky-700' },
 };
 
 function fmt(date: string): string {

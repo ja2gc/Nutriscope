@@ -13,6 +13,8 @@ class UserResource extends JsonResource
             'id'        => $this->id,
             'name'      => $this->name,
             'email'     => $this->email,
+            'recovery_email' => $this->recovery_email,
+            'recovery_email_verified' => $this->recovery_email_verified_at !== null,
             'contact_number' => $this->contact_number,
             'profile_photo' => $this->profile_photo,
             'role'      => $this->role,

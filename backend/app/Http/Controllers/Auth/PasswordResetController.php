@@ -21,7 +21,15 @@ class PasswordResetController extends Controller
             'email' => ['required', 'email'],
         ]);
 
-        Password::sendResetLink($data);
+        $email = Str::lower($data['email']);
+        $user = User::where('recovery_email', $email)
+            ->whereNotNull('recovery_email_verified_at')
+            ->first();
+
+        if ($user) {
+            $token = Password::broker()->createToken($user);
+            $user->sendPasswordResetNotification($token);
+        }
 
         return response()->json(['message' => self::MESSAGE]);
     }
@@ -34,32 +42,32 @@ class PasswordResetController extends Controller
             'password' => ['required', 'confirmed', 'min:8'],
         ]);
 
-        $status = Password::reset(
-            $data,
-            function (User $user, string $password) use ($request) {
-                $user->forceFill([
-                    'password' => Hash::make($password),
-                    'remember_token' => Str::random(60),
-                ])->save();
+        $user = User::where('recovery_email', Str::lower($data['email']))
+            ->whereNotNull('recovery_email_verified_at')
+            ->first();
 
-                $user->tokens()->delete();
-
-                activity('audit')
-                    ->causedBy($user)
-                    ->event('password_reset')
-                    ->withProperties([
-                        'ip' => $request->ip(),
-                        'user_agent' => substr((string) $request->userAgent(), 0, 255),
-                    ])
-                    ->log('Password reset');
-
-                event(new PasswordReset($user));
-            }
-        );
-
-        if ($status !== Password::PASSWORD_RESET) {
+        if (! $user || ! Password::broker()->tokenExists($user, $data['token'])) {
             return response()->json(['message' => 'Invalid or expired password reset token.'], 422);
         }
+
+        $user->forceFill([
+            'password' => Hash::make($data['password']),
+            'remember_token' => Str::random(60),
+        ])->save();
+
+        Password::broker()->deleteToken($user);
+        $user->tokens()->delete();
+
+        activity('audit')
+            ->causedBy($user)
+            ->event('password_reset')
+            ->withProperties([
+                'ip' => $request->ip(),
+                'user_agent' => substr((string) $request->userAgent(), 0, 255),
+            ])
+            ->log('Password reset');
+
+        event(new PasswordReset($user));
 
         return response()->json(['message' => 'Password reset.']);
     }

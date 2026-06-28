@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -13,15 +14,45 @@ class User extends Authenticatable
 {
     use HasApiTokens, HasFactory, Notifiable, SoftDeletes, CausesActivity;
 
-    protected $fillable = ['name', 'email', 'contact_number', 'profile_photo', 'password', 'role', 'is_active'];
+    protected $fillable = [
+        'name',
+        'email',
+        'recovery_email',
+        'recovery_email_verified_at',
+        'recovery_email_verification_code',
+        'recovery_email_verification_expires_at',
+        'contact_number',
+        'profile_photo',
+        'password',
+        'role',
+        'is_active',
+    ];
 
     protected $hidden = ['password', 'remember_token'];
 
     protected $casts = [
         'email_verified_at' => 'datetime',
+        'recovery_email_verified_at' => 'datetime',
+        'recovery_email_verification_expires_at' => 'datetime',
         'password'          => 'hashed',
         'is_active'         => 'boolean',
     ];
+
+    public function getEmailForPasswordReset(): string
+    {
+        return $this->recovery_email_verified_at && $this->recovery_email
+            ? $this->recovery_email
+            : $this->email;
+    }
+
+    public function routeNotificationForMail(mixed $notification = null): ?string
+    {
+        if ($notification instanceof ResetPassword) {
+            return $this->getEmailForPasswordReset();
+        }
+
+        return $this->email;
+    }
 
     public function ncpRecords()
     {

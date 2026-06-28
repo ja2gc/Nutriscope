@@ -35,12 +35,12 @@ const weekRange = (start: string | null, days = 7) => {
   return `${fmt(s)} – ${fmt(e)}`;
 };
 const temporal = (start: string | null, days = 7): { label: string; cls: string } => {
-  if (!start) return { label: "Unscheduled", cls: "bg-zinc-100 text-zinc-500 border-zinc-200" };
+  if (!start) return { label: "Unscheduled", cls: "bg-warm-100 text-warm-500 border-warm-200" };
   const s = new Date(`${start}T00:00:00`);
   const e = new Date(s); e.setDate(e.getDate() + days - 1);
   const today = new Date(); today.setHours(0, 0, 0, 0);
   if (today < s) return { label: "Upcoming", cls: "bg-sky-50 text-sky-700 border-sky-200" };
-  if (today > e) return { label: "Past", cls: "bg-zinc-100 text-zinc-500 border-zinc-200" };
+  if (today > e) return { label: "Past", cls: "bg-warm-100 text-warm-500 border-warm-200" };
   return { label: "Current week", cls: "bg-emerald-50 text-emerald-700 border-emerald-200" };
 };
 
@@ -91,10 +91,10 @@ function RecipeProfilePanel(
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-start justify-between gap-3 p-5 border-b border-zinc-100">
+        <div className="flex items-start justify-between gap-3 p-5 border-b border-warm-100">
           <div>
-            <div className="text-sm font-extrabold text-zinc-900">{name}</div>
-            <div className="text-[11px] text-zinc-500 mt-0.5">
+            <div className="text-sm font-extrabold text-warm-900">{name}</div>
+            <div className="text-[11px] text-warm-500 mt-0.5">
               {day} · scaled to {scaleTo} servings{readOnly ? " (view only)" : ""}
             </div>
           </div>
@@ -105,46 +105,46 @@ function RecipeProfilePanel(
                 <Pencil className="h-3 w-3" /> Edit
               </Link>
             )}
-            <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-zinc-100 text-zinc-500 cursor-pointer"><X className="h-4 w-4" /></button>
+            <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-warm-100 text-warm-500 cursor-pointer"><X className="h-4 w-4" /></button>
           </div>
         </div>
 
         {loading ? (
-          <div className="py-16 text-center text-xs text-zinc-400">Loading…</div>
+          <div className="py-16 text-center text-xs text-warm-400">Loading…</div>
         ) : err ? (
           <div className="py-16 text-center text-xs text-red-500">{err}</div>
         ) : data ? (
           <div className="p-5 space-y-4">
             <div className="flex flex-wrap gap-5">
               <div>
-                <div className="text-[10px] font-extrabold text-zinc-500 uppercase tracking-wider">Total (this day)</div>
+                <div className="text-[10px] font-extrabold text-warm-500 uppercase tracking-wider">Total (this day)</div>
                 <div className="text-xl font-extrabold text-emerald-600">{peso(data.total_cost)}</div>
               </div>
               <div>
-                <div className="text-[10px] font-extrabold text-zinc-500 uppercase tracking-wider">Cost / head</div>
-                <div className="text-xl font-extrabold text-zinc-800">{peso(data.cost_per_head)}</div>
+                <div className="text-[10px] font-extrabold text-warm-500 uppercase tracking-wider">Cost / head</div>
+                <div className="text-xl font-extrabold text-warm-800">{peso(data.cost_per_head)}</div>
               </div>
               <div>
-                <div className="text-[10px] font-extrabold text-zinc-500 uppercase tracking-wider">Baseline</div>
-                <div className="text-xl font-extrabold text-zinc-400">serves {data.servings}</div>
+                <div className="text-[10px] font-extrabold text-warm-500 uppercase tracking-wider">Baseline</div>
+                <div className="text-xl font-extrabold text-warm-400">serves {data.servings}</div>
               </div>
               <div>
-                <div className="text-[10px] font-extrabold text-zinc-500 uppercase tracking-wider">Scale to (servings)</div>
+                <div className="text-[10px] font-extrabold text-warm-500 uppercase tracking-wider">Scale to (servings)</div>
                 {readOnly ? (
-                  <div className="text-xl font-extrabold text-zinc-800">{scaleTo}</div>
+                  <div className="text-xl font-extrabold text-warm-800">{scaleTo}</div>
                 ) : (
                   <input type="number" min={1} value={scaleTo}
                     onChange={(e) => changeScale(parseInt(e.target.value))}
-                    className="w-24 px-2 py-1 text-lg font-extrabold text-zinc-800 border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+                    className="w-24 px-2 py-1 text-lg font-extrabold text-warm-800 border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500" />
                 )}
               </div>
             </div>
 
             <div>
-              <div className="text-[10px] font-extrabold text-zinc-500 uppercase tracking-wider mb-2">Ingredients (scaled)</div>
+              <div className="text-[10px] font-extrabold text-warm-500 uppercase tracking-wider mb-2">Ingredients (scaled)</div>
               <table className="w-full text-xs">
                 <thead>
-                  <tr className="text-[10px] text-zinc-400 uppercase">
+                  <tr className="text-[10px] text-warm-400 uppercase">
                     <th className="text-left font-bold py-1">Item</th>
                     <th className="text-right font-bold py-1">Qty</th>
                     <th className="text-right font-bold py-1">Cost</th>
@@ -153,25 +153,25 @@ function RecipeProfilePanel(
                 <tbody className="divide-y divide-zinc-50">
                   {data.ingredient_usage.map((u) => (
                     <tr key={u.fs_item_id}>
-                      <td className="py-1.5 text-zinc-700 font-medium">{u.name}</td>
-                      <td className="py-1.5 text-right text-zinc-500 font-mono">{u.quantity.toFixed(2)} {u.unit}</td>
-                      <td className="py-1.5 text-right text-zinc-700 font-mono">{peso(u.cost)}</td>
+                      <td className="py-1.5 text-warm-700 font-medium">{u.name}</td>
+                      <td className="py-1.5 text-right text-warm-500 font-mono">{u.quantity.toFixed(2)} {u.unit}</td>
+                      <td className="py-1.5 text-right text-warm-700 font-mono">{peso(u.cost)}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
               {data.ingredient_usage.length === 0 && (
-                <div className="text-[11px] text-zinc-400 py-4 text-center">No costable ingredients.</div>
+                <div className="text-[11px] text-warm-400 py-4 text-center">No costable ingredients.</div>
               )}
             </div>
 
             {data.prep_notes && (
               <div>
-                <div className="text-[10px] font-extrabold text-zinc-500 uppercase tracking-wider mb-1">Preparation notes</div>
-                <p className="text-xs text-zinc-700 leading-6 whitespace-pre-wrap bg-zinc-50 border border-zinc-100 rounded-lg p-3">{data.prep_notes}</p>
+                <div className="text-[10px] font-extrabold text-warm-500 uppercase tracking-wider mb-1">Preparation notes</div>
+                <p className="text-xs text-warm-700 leading-6 whitespace-pre-wrap bg-warm-50 border border-warm-100 rounded-lg p-3">{data.prep_notes}</p>
               </div>
             )}
-            <p className="text-[10px] text-zinc-400">
+            <p className="text-[10px] text-warm-400">
               Quantities and cost scale live from the recipe baseline (serves {data.servings}){readOnly ? "" : " — change “Scale to” to rescale"}.
             </p>
           </div>
@@ -185,10 +185,10 @@ function RecipeProfilePanel(
 function Shell({ children }: { children: React.ReactNode }) {
   return (
     <div className="space-y-6 font-sans">
-      <div className="flex items-center gap-2 text-xs font-semibold text-zinc-400 select-none">
+      <div className="flex items-center gap-2 text-xs font-semibold text-warm-400 select-none">
         <Link href="/dashboard" className="hover:text-emerald-700 transition-colors">Home</Link>
         <span>/</span><span>Food Service</span><span>/</span>
-        <span className="font-bold text-zinc-600">Menu Cycle</span>
+        <span className="font-bold text-warm-600">Menu Cycle</span>
       </div>
       {children}
     </div>
@@ -220,15 +220,15 @@ function CycleList({ readOnly, onOpen, onNew }: { readOnly: boolean; onOpen: (id
 
   return (
     <Shell>
-      <div className="border-b border-zinc-200 pb-5 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+      <div className="border-b border-warm-200 pb-5 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div>
-          <h2 className="text-xl font-extrabold text-zinc-950 tracking-tight flex items-center gap-2.5">
+          <h2 className="text-xl font-extrabold text-warm-900 tracking-tight flex items-center gap-2.5">
             <CalendarDays className="h-5 w-5 text-emerald-600" /> Menu Cycles
           </h2>
-          <p className="text-xs text-zinc-500 mt-1">Plan a weekly menu from food-service recipes. Costs scale to ward population and check against your budget per head.</p>
+          <p className="text-xs text-warm-500 mt-1">Plan a weekly menu from food-service recipes. Costs scale to ward population and check against your budget per head.</p>
         </div>
         <div className="flex items-center gap-3 shrink-0">
-          <button onClick={load} className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-700">
+          <button onClick={load} className="flex items-center gap-1.5 text-xs text-warm-500 hover:text-warm-700">
             <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} /> Refresh
           </button>
           {!readOnly && (
@@ -242,36 +242,36 @@ function CycleList({ readOnly, onOpen, onNew }: { readOnly: boolean; onOpen: (id
       {err && <div className="text-xs text-red-500">{err}</div>}
 
       {/* Cycles */}
-      <div className="bg-white border border-zinc-200 rounded-2xl shadow-sm overflow-x-auto">
-        {loading ? <div className="py-16 text-center text-xs text-zinc-400">Loading…</div>
+      <div className="bg-white border border-warm-200 rounded-2xl shadow-sm overflow-x-auto">
+        {loading ? <div className="py-16 text-center text-xs text-warm-400">Loading…</div>
           : cycles.length === 0 ? (
             <div className="py-16 text-center">
-              <CalendarDays className="h-8 w-8 text-zinc-300 mx-auto mb-3" />
-              <p className="text-xs text-zinc-400 font-medium">No menu cycles yet. Create your first.</p>
+              <CalendarDays className="h-8 w-8 text-warm-300 mx-auto mb-3" />
+              <p className="text-xs text-warm-400 font-medium">No menu cycles yet. Create your first.</p>
             </div>
           ) : (
             <table className="w-full text-xs">
-              <thead className="bg-zinc-50 border-b border-zinc-100">
+              <thead className="bg-warm-50 border-b border-warm-100">
                 <tr>{["Cycle", "Week", "When", "Status", "Per-day plan", "Actions"].map((h) => (
-                  <th key={h} className="px-4 py-3 text-left text-[10px] font-bold text-zinc-500 uppercase tracking-wider">{h}</th>
+                  <th key={h} className="px-4 py-3 text-left text-[10px] font-bold text-warm-500 uppercase tracking-wider">{h}</th>
                 ))}</tr>
               </thead>
               <tbody className="divide-y divide-zinc-100">
                 {cycles.map((c) => {
                   const when = temporal(c.week_start_date);
                   return (
-                  <tr key={c.id} className={`hover:bg-zinc-50/60 transition-colors ${c.is_active ? "border-l-4 border-l-emerald-500" : "border-l-4 border-l-transparent"}`}>
+                  <tr key={c.id} className={`hover:bg-warm-50/60 transition-colors ${c.is_active ? "border-l-4 border-l-emerald-500" : "border-l-4 border-l-transparent"}`}>
                     <td className="px-4 py-3">
-                      <span className="font-semibold text-zinc-800">{c.name}</span>
+                      <span className="font-semibold text-warm-800">{c.name}</span>
                       {c.is_active && <div className="text-[10px] text-emerald-700 font-semibold mt-0.5">Active cycle</div>}
                     </td>
-                    <td className="px-4 py-3 text-zinc-500 tabular-nums">{weekRange(c.week_start_date)}</td>
-                    <td className="px-4 py-3 text-zinc-500">{when.label}</td>
-                    <td className="px-4 py-3 text-zinc-500">{c.is_active ? "Active" : c.status}</td>
+                    <td className="px-4 py-3 text-warm-500 tabular-nums">{weekRange(c.week_start_date)}</td>
+                    <td className="px-4 py-3 text-warm-500">{when.label}</td>
+                    <td className="px-4 py-3 text-warm-500">{c.is_active ? "Active" : c.status}</td>
                     <td className="px-4 py-3">
-                      <div className="flex flex-wrap gap-x-2 gap-y-1 text-[10px] text-zinc-500">
+                      <div className="flex flex-wrap gap-x-2 gap-y-1 text-[10px] text-warm-500">
                         {DAYS.map((day) => (
-                          <span key={day} className={c.plan_days?.[day] ? "text-zinc-800 font-semibold" : "text-zinc-400"}>
+                          <span key={day} className={c.plan_days?.[day] ? "text-warm-800 font-semibold" : "text-warm-400"}>
                             {day.slice(0, 3)} {c.plan_days?.[day] ? "planned" : "empty"}
                           </span>
                         ))}
@@ -279,11 +279,11 @@ function CycleList({ readOnly, onOpen, onNew }: { readOnly: boolean; onOpen: (id
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1">
-                        <button onClick={() => onOpen(c.id)} className="p-1.5 rounded-lg hover:bg-zinc-100 text-zinc-500 cursor-pointer" title={readOnly ? "View" : "Edit"}>
+                        <button onClick={() => onOpen(c.id)} className="p-1.5 rounded-lg hover:bg-warm-100 text-warm-500 cursor-pointer" title={readOnly ? "View" : "Edit"}>
                           {readOnly ? <CalendarDays className="h-3.5 w-3.5" /> : <Pencil className="h-3.5 w-3.5" />}
                         </button>
                         {!readOnly && (
-                          <button onClick={() => remove(c.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-zinc-500 hover:text-red-600 cursor-pointer" title="Delete">
+                          <button onClick={() => remove(c.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-warm-500 hover:text-red-600 cursor-pointer" title="Delete">
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
                         )}
@@ -300,19 +300,19 @@ function CycleList({ readOnly, onOpen, onNew }: { readOnly: boolean; onOpen: (id
       {/* Templates */}
       {templates.length > 0 && (
         <div>
-          <h3 className="text-xs font-extrabold text-zinc-700 uppercase tracking-wider flex items-center gap-2 mb-3">
-            <LayoutTemplate className="h-4 w-4 text-zinc-400" /> Templates
+          <h3 className="text-xs font-extrabold text-warm-700 uppercase tracking-wider flex items-center gap-2 mb-3">
+            <LayoutTemplate className="h-4 w-4 text-warm-400" /> Templates
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {templates.map((t) => (
-              <div key={t.id} className="bg-white border border-zinc-200 rounded-xl p-4 shadow-sm">
+              <div key={t.id} className="bg-white border border-warm-200 rounded-xl p-4 shadow-sm">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <div className="text-sm font-bold text-zinc-800 truncate">{t.name}</div>
-                    <div className="text-[10px] text-zinc-400">{t.days_count} slots · {t.cycle_days} days</div>
+                    <div className="text-sm font-bold text-warm-800 truncate">{t.name}</div>
+                    <div className="text-[10px] text-warm-400">{t.days_count} slots · {t.cycle_days} days</div>
                   </div>
                   {!readOnly && (
-                    <button onClick={() => removeTemplate(t.id)} className="p-1 rounded text-zinc-400 hover:text-red-500 cursor-pointer"><Trash2 className="h-3.5 w-3.5" /></button>
+                    <button onClick={() => removeTemplate(t.id)} className="p-1 rounded text-warm-400 hover:text-red-500 cursor-pointer"><Trash2 className="h-3.5 w-3.5" /></button>
                   )}
                 </div>
                 {!readOnly && (
@@ -494,28 +494,28 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: number | "new"; r
   const filteredRecipes = recipes.filter((r) => !pickerSearch || r.name.toLowerCase().includes(pickerSearch.toLowerCase()));
   const filteredItems = items.filter((i) => !pickerSearch || i.name.toLowerCase().includes(pickerSearch.toLowerCase()));
 
-  if (loading) return <Shell><div className="py-16 text-center text-xs text-zinc-400">Loading…</div></Shell>;
+  if (loading) return <Shell><div className="py-16 text-center text-xs text-warm-400">Loading…</div></Shell>;
 
   return (
     <Shell>
       {/* Header */}
-      <div className="border-b border-zinc-200 pb-5 flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+      <div className="border-b border-warm-200 pb-5 flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
         <div className="flex items-start gap-3">
-          <button onClick={onBack} className="p-2 rounded-lg border border-zinc-200 hover:bg-zinc-50 text-zinc-500 cursor-pointer mt-0.5"><ChevronLeft className="h-4 w-4" /></button>
+          <button onClick={onBack} className="p-2 rounded-lg border border-warm-200 hover:bg-warm-50 text-warm-500 cursor-pointer mt-0.5"><ChevronLeft className="h-4 w-4" /></button>
           <div>
             <input value={name} onChange={(e) => setName(e.target.value)} readOnly={readOnly}
-              className="text-xl font-extrabold text-zinc-950 tracking-tight bg-transparent border-b border-dashed border-zinc-200 focus:border-emerald-500 focus:outline-none read-only:border-transparent" />
+              className="text-xl font-extrabold text-warm-900 tracking-tight bg-transparent border-b border-dashed border-warm-200 focus:border-emerald-500 focus:outline-none read-only:border-transparent" />
             <div className="flex items-center gap-2 mt-1">
               {isActive && <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">Active</span>}
-              <span className="text-[10px] text-zinc-400">{savedId ? `Cycle #${savedId}` : "Unsaved draft"}</span>
+              <span className="text-[10px] text-warm-400">{savedId ? `Cycle #${savedId}` : "Unsaved draft"}</span>
             </div>
           </div>
         </div>
         {readOnly ? (
-          <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 border border-zinc-200 rounded-lg px-3 py-2 shrink-0">View only</span>
+          <span className="text-[10px] font-bold uppercase tracking-wider text-warm-400 border border-warm-200 rounded-lg px-3 py-2 shrink-0">View only</span>
         ) : (
           <div className="flex flex-wrap items-center gap-2 shrink-0">
-            <button onClick={handleSaveTemplate} className="flex items-center gap-1.5 text-xs font-semibold text-zinc-600 border border-zinc-200 rounded-lg px-3 py-2 hover:bg-zinc-50 cursor-pointer"><BookmarkPlus className="h-3.5 w-3.5" /> Save as Template</button>
+            <button onClick={handleSaveTemplate} className="flex items-center gap-1.5 text-xs font-semibold text-warm-600 border border-warm-200 rounded-lg px-3 py-2 hover:bg-warm-50 cursor-pointer"><BookmarkPlus className="h-3.5 w-3.5" /> Save as Template</button>
             <button onClick={handleActivate} className="flex items-center gap-1.5 text-xs font-semibold text-emerald-700 border border-emerald-200 rounded-lg px-3 py-2 hover:bg-emerald-50 cursor-pointer"><Zap className="h-3.5 w-3.5" /> Activate</button>
             <Button variant="primary" onClick={() => handleSave(true)} loading={busy} className="px-4 py-2 flex items-center gap-2"><Save className="h-4 w-4" /> Save &amp; Cost</Button>
           </div>
@@ -525,20 +525,20 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: number | "new"; r
       {err && <div className="bg-red-50 border border-red-100 p-3 rounded-xl text-xs text-red-700 font-bold flex items-center gap-2"><AlertTriangle className="h-3.5 w-3.5" /> {err}</div>}
 
       {/* Settings */}
-      <div className="bg-white border border-zinc-200 rounded-2xl p-5 shadow-sm grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="bg-white border border-warm-200 rounded-2xl p-5 shadow-sm grid grid-cols-1 sm:grid-cols-3 gap-4">
         {[
           { label: "Week start (Mon)", value: weekStart, set: setWeekStart, type: "date", ph: "" },
         ].map((f) => (
           <div key={f.label}>
-            <label className="block text-[10px] font-extrabold text-zinc-500 uppercase tracking-wider mb-1">{f.label}</label>
+            <label className="block text-[10px] font-extrabold text-warm-500 uppercase tracking-wider mb-1">{f.label}</label>
             <input type={f.type} value={f.value} placeholder={f.ph} onChange={(e) => f.set(e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+              className="w-full px-3 py-2 text-sm border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500" />
           </div>
         ))}
         <div>
-          <label className="block text-[10px] font-extrabold text-zinc-500 uppercase tracking-wider mb-1">Cycle length</label>
+          <label className="block text-[10px] font-extrabold text-warm-500 uppercase tracking-wider mb-1">Cycle length</label>
           <select value={cycleDays} onChange={(e) => setCycleDays(parseInt(e.target.value))}
-            className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500">
+            className="w-full px-3 py-2 text-sm border border-warm-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500">
             {[5, 6, 7].map((n) => <option key={n} value={n}>{n} days</option>)}
           </select>
         </div>
@@ -546,27 +546,27 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: number | "new"; r
 
       {/* Weekly total — informational. Budget-per-head lives in Budget/Procurement, not here. */}
       {compute && (
-        <div className="bg-white border border-zinc-200 rounded-2xl p-5 shadow-sm flex flex-wrap items-center gap-6">
+        <div className="bg-white border border-warm-200 rounded-2xl p-5 shadow-sm flex flex-wrap items-center gap-6">
           <div>
-            <div className="text-[10px] font-extrabold text-zinc-500 uppercase tracking-wider">Weekly total</div>
+            <div className="text-[10px] font-extrabold text-warm-500 uppercase tracking-wider">Weekly total</div>
             <div className="text-2xl font-extrabold text-emerald-600">{peso(compute.total_cost)}</div>
           </div>
         </div>
       )}
 
       {/* Grid */}
-      <div className="bg-white border border-zinc-200 rounded-2xl shadow-sm overflow-x-auto">
+      <div className="bg-white border border-warm-200 rounded-2xl shadow-sm overflow-x-auto">
         <table className="w-full text-xs border-collapse">
           <thead>
-            <tr className="bg-zinc-50 border-b border-zinc-100">
-              <th className="px-3 py-3 text-left text-[10px] font-bold text-zinc-500 uppercase sticky left-0 bg-zinc-50">Meal</th>
+            <tr className="bg-warm-50 border-b border-warm-100">
+              <th className="px-3 py-3 text-left text-[10px] font-bold text-warm-500 uppercase sticky left-0 bg-warm-50">Meal</th>
               {visibleDays.map((d) => {
                 return (
-                  <th key={d} className="px-3 py-2 text-left text-[10px] font-bold text-zinc-500 uppercase min-w-[140px]">
+                  <th key={d} className="px-3 py-2 text-left text-[10px] font-bold text-warm-500 uppercase min-w-[140px]">
                     <div className="flex items-center justify-between gap-1">
                       <span>{d.slice(0, 3)}</span>
                       {!readOnly && (
-                        <button onClick={() => duplicateWeek(d)} title={`Copy ${d} to all days`} className="text-zinc-300 hover:text-emerald-600 cursor-pointer"><Copy className="h-3 w-3" /></button>
+                        <button onClick={() => duplicateWeek(d)} title={`Copy ${d} to all days`} className="text-warm-300 hover:text-emerald-600 cursor-pointer"><Copy className="h-3 w-3" /></button>
                       )}
                     </div>
                     {/* Served (actual) population for this day — the real headcount FSS/RND
@@ -600,25 +600,25 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: number | "new"; r
                             <button
                               type="button"
                               onClick={() => setEditingServed(null)}
-                              className="p-0.5 rounded text-zinc-400 hover:bg-zinc-100 cursor-pointer"
+                              className="p-0.5 rounded text-warm-400 hover:bg-warm-100 cursor-pointer"
                               title="Cancel">
                               <X className="h-3 w-3" />
                             </button>
                           </div>
                         ) : (
                           <div className="flex items-center gap-1">
-                            <span className="text-[10px] font-extrabold text-zinc-700 tabular-nums">
+                            <span className="text-[10px] font-extrabold text-warm-700 tabular-nums">
                               {served[d] != null ? served[d] : "Not set"}
                             </span>
-                            <span className="text-[8px] text-zinc-400">served</span>
+                            <span className="text-[8px] text-warm-400">served</span>
                             <button
                               type="button"
                               onClick={() => beginServedEdit(d)}
-                              className="p-0.5 rounded text-zinc-400 hover:text-emerald-600 hover:bg-emerald-50 cursor-pointer"
+                              className="p-0.5 rounded text-warm-400 hover:text-emerald-600 hover:bg-emerald-50 cursor-pointer"
                               title={`Edit ${d} served population`}>
                               <Pencil className="h-3 w-3" />
                             </button>
-                            {savingServed === d && <span className="text-[8px] text-zinc-400">saving…</span>}
+                            {savingServed === d && <span className="text-[8px] text-warm-400">saving…</span>}
                           </div>
                         )}
                       </div>
@@ -630,8 +630,8 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: number | "new"; r
           </thead>
           <tbody>
             {MEALS.map((m) => (
-              <tr key={m} className="border-b border-zinc-100 last:border-0">
-                <td className="px-3 py-3 font-bold text-zinc-600 sticky left-0 bg-white whitespace-nowrap">{MEAL_LABELS[m]}</td>
+              <tr key={m} className="border-b border-warm-100 last:border-0">
+                <td className="px-3 py-3 font-bold text-warm-600 sticky left-0 bg-white whitespace-nowrap">{MEAL_LABELS[m]}</td>
                 {visibleDays.map((d) => {
                   const key = cellKey(d, m);
                   const cell = grid[key];
@@ -662,47 +662,47 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: number | "new"; r
                           </div>
                         </div>
                       ) : readOnly ? (
-                        <div className="w-full text-center py-2 text-[10px] text-zinc-300">—</div>
+                        <div className="w-full text-center py-2 text-[10px] text-warm-300">—</div>
                       ) : (
                         <button onClick={() => { setActiveCell(isPicking ? null : key); setPickerSearch(""); }}
-                          className="w-full border border-dashed border-zinc-200 rounded-lg py-2 text-[10px] text-zinc-400 hover:border-emerald-300 hover:text-emerald-600 cursor-pointer flex items-center justify-center gap-1">
+                          className="w-full border border-dashed border-warm-200 rounded-lg py-2 text-[10px] text-warm-400 hover:border-emerald-300 hover:text-emerald-600 cursor-pointer flex items-center justify-center gap-1">
                           <Plus className="h-3 w-3" /> add
                         </button>
                       )}
 
                       {isPicking && !readOnly && (
-                        <div className="absolute z-30 top-full left-0 mt-1 w-56 bg-white border border-zinc-200 rounded-xl shadow-lg p-2">
+                        <div className="absolute z-30 top-full left-0 mt-1 w-56 bg-white border border-warm-200 rounded-xl shadow-lg p-2">
                           <div className="relative mb-1">
-                            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-zinc-400" />
+                            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-warm-400" />
                             <input autoFocus value={pickerSearch} onChange={(e) => setPickerSearch(e.target.value)} placeholder="Search recipes & items…"
-                              className="w-full pl-7 pr-2 py-1.5 text-xs border border-zinc-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-400" />
+                              className="w-full pl-7 pr-2 py-1.5 text-xs border border-warm-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-400" />
                           </div>
                           <div className="max-h-48 overflow-y-auto">
                             {filteredRecipes.length === 0 && filteredItems.length === 0 ? (
-                              <div className="text-[10px] text-zinc-400 px-2 py-3 text-center">No matches. Build recipes/items under FSS.</div>
+                              <div className="text-[10px] text-warm-400 px-2 py-3 text-center">No matches. Build recipes/items under FSS.</div>
                             ) : (
                               <>
                                 {filteredRecipes.map((r) => (
                                   <button key={`r-${r.id}`} onClick={() => assign(key, r)}
                                     className="w-full text-left px-2 py-1.5 rounded-lg hover:bg-emerald-50 cursor-pointer">
-                                    <div className="text-[11px] font-semibold text-zinc-800 truncate">{r.name}</div>
-                                    <div className="text-[9px] text-zinc-400">serves {r.servings}{r.category ? ` · ${r.category}` : ""}</div>
+                                    <div className="text-[11px] font-semibold text-warm-800 truncate">{r.name}</div>
+                                    <div className="text-[9px] text-warm-400">serves {r.servings}{r.category ? ` · ${r.category}` : ""}</div>
                                   </button>
                                 ))}
                                 {filteredItems.length > 0 && (
-                                  <div className="px-2 pt-2 pb-1 text-[9px] font-bold uppercase tracking-wider text-zinc-400">Single items</div>
+                                  <div className="px-2 pt-2 pb-1 text-[9px] font-bold uppercase tracking-wider text-warm-400">Single items</div>
                                 )}
                                 {filteredItems.map((it) => (
                                   <button key={`i-${it.id}`} onClick={() => assignItem(key, it)}
                                     className="w-full text-left px-2 py-1.5 rounded-lg hover:bg-amber-50 cursor-pointer">
-                                    <div className="text-[11px] font-semibold text-zinc-800 truncate">{it.name}</div>
-                                    <div className="text-[9px] text-zinc-400">item{it.category ? ` · ${it.category}` : ""}</div>
+                                    <div className="text-[11px] font-semibold text-warm-800 truncate">{it.name}</div>
+                                    <div className="text-[9px] text-warm-400">item{it.category ? ` · ${it.category}` : ""}</div>
                                   </button>
                                 ))}
                               </>
                             )}
                           </div>
-                          <button onClick={() => setActiveCell(null)} className="w-full mt-1 text-[10px] text-zinc-400 hover:text-zinc-600 cursor-pointer">close</button>
+                          <button onClick={() => setActiveCell(null)} className="w-full mt-1 text-[10px] text-warm-400 hover:text-warm-600 cursor-pointer">close</button>
                         </div>
                       )}
                     </td>
@@ -716,17 +716,17 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: number | "new"; r
 
       {/* Ingredient usage (procurement preview) */}
       {compute && compute.ingredient_usage.length > 0 && (
-        <div className="bg-white border border-zinc-200 rounded-2xl p-5 shadow-sm">
-          <h3 className="text-xs font-extrabold text-zinc-700 uppercase tracking-wider mb-3">Ingredient usage (whole cycle)</h3>
+        <div className="bg-white border border-warm-200 rounded-2xl p-5 shadow-sm">
+          <h3 className="text-xs font-extrabold text-warm-700 uppercase tracking-wider mb-3">Ingredient usage (whole cycle)</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-1.5">
             {compute.ingredient_usage.map((u) => (
-              <div key={u.fs_item_id} className="flex items-center justify-between text-[11px] border-b border-zinc-50 py-1">
-                <span className="text-zinc-700 font-medium truncate">{u.name}</span>
-                <span className="text-zinc-500 shrink-0">{u.quantity.toFixed(0)} {u.unit} · {peso(u.cost)}</span>
+              <div key={u.fs_item_id} className="flex items-center justify-between text-[11px] border-b border-warm-100 py-1">
+                <span className="text-warm-700 font-medium truncate">{u.name}</span>
+                <span className="text-warm-500 shrink-0">{u.quantity.toFixed(0)} {u.unit} · {peso(u.cost)}</span>
               </div>
             ))}
           </div>
-          <p className="text-[10px] text-zinc-400 mt-3">This feeds the procurement suggested shopping list (Phase 3).</p>
+          <p className="text-[10px] text-warm-400 mt-3">This feeds the procurement suggested shopping list (Phase 3).</p>
         </div>
       )}
 
@@ -771,7 +771,7 @@ export default function MenuCyclePage() {
   }, []);
 
   if (view.mode === "loading") {
-    return <Shell><div className="py-16 text-center text-xs text-zinc-400">Loading…</div></Shell>;
+    return <Shell><div className="py-16 text-center text-xs text-warm-400">Loading…</div></Shell>;
   }
   if (view.mode === "edit") {
     return <CycleEditor cycleId={view.id} readOnly={readOnly} onBack={() => setView({ mode: "list" })} />;

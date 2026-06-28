@@ -62,7 +62,7 @@ function riskMeta(score?: number | string | null) {
   if (score === null || score === undefined || score === "") {
     return {
       label: "Unscored",
-      className: "bg-zinc-50 text-zinc-600 border-zinc-200",
+      className: "bg-warm-50 text-warm-600 border-warm-200",
     };
   }
 
@@ -70,7 +70,7 @@ function riskMeta(score?: number | string | null) {
   if (!Number.isFinite(numericScore)) {
     return {
       label: "Unscored",
-      className: "bg-zinc-50 text-zinc-600 border-zinc-200",
+      className: "bg-warm-50 text-warm-600 border-warm-200",
     };
   }
 
@@ -169,21 +169,21 @@ export default function NcpPatientsPage() {
 
   return (
     <div className="space-y-6 font-sans">
-      <div className="flex items-center gap-2 text-xs font-semibold text-zinc-400 select-none">
+      <div className="flex items-center gap-2 text-xs font-semibold text-warm-400 select-none">
         <span>Home</span>
-        <span className="text-zinc-300">/</span>
+        <span className="text-warm-300">/</span>
         <span>Clinical Care</span>
-        <span className="text-zinc-300">/</span>
-        <span className="text-zinc-600 font-bold">NCP Patients</span>
+        <span className="text-warm-300">/</span>
+        <span className="text-warm-600 font-bold">NCP Patients</span>
       </div>
 
-      <div className="border-b border-zinc-200 pb-5 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div className="border-b border-warm-200 pb-5 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h2 className="text-xl font-extrabold text-zinc-950 tracking-tight flex items-center gap-2.5">
+          <h2 className="text-xl font-extrabold text-warm-900 tracking-tight flex items-center gap-2.5">
             <HeartHandshake className="h-5 w-5 text-emerald-600" />
             NCP Patient Profile Portal
           </h2>
-          <p className="text-xs text-zinc-500 mt-1 select-none">
+          <p className="text-xs text-warm-500 mt-1 select-none">
             Create the patient record, then open the assessment page immediately to start OCR-assisted intake.
           </p>
         </div>
@@ -198,7 +198,7 @@ export default function NcpPatientsPage() {
         </Button>
       </div>
 
-      <div className="flex flex-col sm:flex-row items-center gap-3 bg-white p-4 rounded-xl border border-zinc-200 shadow-sm">
+      <div className="flex flex-col sm:flex-row items-center gap-3 bg-white p-4 rounded-xl border border-warm-200 shadow-sm">
         <div className="relative w-full sm:flex-1">
           <input
             type="text"
@@ -208,7 +208,7 @@ export default function NcpPatientsPage() {
               setSearch(e.target.value);
               setPage(1);
             }}
-            className="w-full px-4 py-2 text-sm bg-white border border-zinc-300 rounded-lg text-zinc-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 transition-all placeholder:text-zinc-400"
+            className="w-full px-4 py-2 text-sm bg-white border border-warm-300 rounded-lg text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 transition-all placeholder:text-warm-400"
           />
         </div>
 
@@ -219,7 +219,7 @@ export default function NcpPatientsPage() {
               setStatus(e.target.value);
               setPage(1);
             }}
-            className="w-full sm:w-40 px-3 py-2 text-sm bg-white border border-zinc-300 rounded-lg text-zinc-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 transition-all cursor-pointer font-semibold"
+            className="w-full sm:w-40 px-3 py-2 text-sm bg-white border border-warm-300 rounded-lg text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 transition-all cursor-pointer font-semibold"
           >
             <option value="All">All Statuses</option>
             <option value="Active">Active Care</option>
@@ -238,27 +238,27 @@ export default function NcpPatientsPage() {
         </div>
       )}
 
-      <div className="bg-white border border-zinc-200 rounded-2xl overflow-hidden shadow-sm">
+      <div className="bg-white border border-warm-200 rounded-2xl overflow-hidden shadow-sm">
         {loading ? (
           <div className="p-8 space-y-4">
-            <div className="h-5 w-40 bg-zinc-200 rounded-lg animate-pulse" />
+            <div className="h-5 w-40 bg-warm-200 rounded-lg animate-pulse" />
             <div className="space-y-2 pt-4">
               {[1, 2, 3, 4].map((index) => (
                 <div key={index} className="flex gap-4 h-12 items-center">
-                  <div className="flex-1 bg-zinc-100 rounded-lg h-8 animate-pulse" />
-                  <div className="w-24 bg-zinc-100 rounded-lg h-8 animate-pulse" />
-                  <div className="w-28 bg-zinc-100 rounded-lg h-8 animate-pulse" />
+                  <div className="flex-1 bg-warm-100 rounded-lg h-8 animate-pulse" />
+                  <div className="w-24 bg-warm-100 rounded-lg h-8 animate-pulse" />
+                  <div className="w-28 bg-warm-100 rounded-lg h-8 animate-pulse" />
                 </div>
               ))}
             </div>
           </div>
         ) : patients.length === 0 ? (
           <div className="p-12 text-center select-none">
-            <div className="p-3 bg-zinc-50 border border-zinc-200 rounded-2xl w-fit mx-auto text-zinc-400">
+            <div className="p-3 bg-warm-50 border border-warm-200 rounded-2xl w-fit mx-auto text-warm-400">
               <HeartHandshake className="h-8 w-8" />
             </div>
-            <h3 className="text-sm font-bold text-zinc-800 mt-4">No Patients Found</h3>
-            <p className="text-xs text-zinc-500 mt-1 max-w-sm mx-auto leading-relaxed">
+            <h3 className="text-sm font-bold text-warm-800 mt-4">No Patients Found</h3>
+            <p className="text-xs text-warm-500 mt-1 max-w-sm mx-auto leading-relaxed">
               No patient records match the current filters.
             </p>
           </div>
@@ -266,14 +266,14 @@ export default function NcpPatientsPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse min-w-[480px]">
               <thead>
-                <tr className="bg-zinc-50 border-b border-zinc-200 select-none">
-                  <th className="px-5 py-4 text-[10px] font-extrabold text-zinc-500 uppercase tracking-wider">Name / ID</th>
-                  <th className="px-5 py-4 text-[10px] font-extrabold text-zinc-500 uppercase tracking-wider">Age / Sex</th>
-                  <th className="px-5 py-4 text-[10px] font-extrabold text-zinc-500 uppercase tracking-wider">Physician</th>
-                  <th className="px-5 py-4 text-[10px] font-extrabold text-zinc-500 uppercase tracking-wider">Last Assessment</th>
-                  <th className="px-5 py-4 text-[10px] font-extrabold text-zinc-500 uppercase tracking-wider">Next Follow-up</th>
-                  <th className="px-5 py-4 text-[10px] font-extrabold text-zinc-500 uppercase tracking-wider">Risk Status</th>
-                  <th className="px-5 py-4 text-[10px] font-extrabold text-zinc-500 uppercase tracking-wider text-right">Actions</th>
+                <tr className="bg-warm-50 border-b border-warm-200 select-none">
+                  <th className="px-5 py-4 text-[10px] font-extrabold text-warm-500 uppercase tracking-wider">Name / ID</th>
+                  <th className="px-5 py-4 text-[10px] font-extrabold text-warm-500 uppercase tracking-wider">Age / Sex</th>
+                  <th className="px-5 py-4 text-[10px] font-extrabold text-warm-500 uppercase tracking-wider">Physician</th>
+                  <th className="px-5 py-4 text-[10px] font-extrabold text-warm-500 uppercase tracking-wider">Last Assessment</th>
+                  <th className="px-5 py-4 text-[10px] font-extrabold text-warm-500 uppercase tracking-wider">Next Follow-up</th>
+                  <th className="px-5 py-4 text-[10px] font-extrabold text-warm-500 uppercase tracking-wider">Risk Status</th>
+                  <th className="px-5 py-4 text-[10px] font-extrabold text-warm-500 uppercase tracking-wider text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-100">
@@ -285,14 +285,14 @@ export default function NcpPatientsPage() {
                   return (
                     <tr
                       key={patient.id}
-                      className={`${index % 2 === 0 ? "bg-white" : "bg-zinc-50/20"} hover:bg-zinc-50/40 transition-colors`}
+                      className={`${index % 2 === 0 ? "bg-white" : "bg-warm-50/20"} hover:bg-warm-50/40 transition-colors`}
                     >
                       <td className="px-5 py-4">
-                        <div className="text-xs font-bold text-zinc-900">{patient.name}</div>
-                        <div className="text-[10px] font-mono text-zinc-400 mt-1">{systemId}</div>
+                        <div className="text-xs font-bold text-warm-900">{patient.name}</div>
+                        <div className="text-[10px] font-mono text-warm-400 mt-1">{systemId}</div>
                       </td>
 
-                      <td className="px-5 py-4 text-xs font-medium text-zinc-700">
+                      <td className="px-5 py-4 text-xs font-medium text-warm-700">
                         {age} yrs / {patient.sex}
                       </td>
 
@@ -300,23 +300,23 @@ export default function NcpPatientsPage() {
                         {patient.physician || "Unassigned"}
                       </td>
 
-                      <td className="px-5 py-4 text-xs text-zinc-600">
+                      <td className="px-5 py-4 text-xs text-warm-600">
                         {patient.last_assessment_date ? (
-                          <span className="font-semibold text-zinc-700">
+                          <span className="font-semibold text-warm-700">
                             {formatRelativeDate(patient.last_assessment_date)}
                           </span>
                         ) : (
-                          <span className="text-zinc-400">No assessment yet</span>
+                          <span className="text-warm-400">No assessment yet</span>
                         )}
                       </td>
 
-                      <td className="px-5 py-4 text-xs text-zinc-600">
+                      <td className="px-5 py-4 text-xs text-warm-600">
                         {patient.next_followup_date ? (
-                          <span className="font-semibold text-zinc-700">
+                          <span className="font-semibold text-warm-700">
                             {formatRelativeDate(patient.next_followup_date)}
                           </span>
                         ) : (
-                          <span className="text-zinc-400">Not scheduled</span>
+                          <span className="text-warm-400">Not scheduled</span>
                         )}
                       </td>
 
@@ -333,7 +333,7 @@ export default function NcpPatientsPage() {
                       <td className="px-5 py-4 text-right">
                         <Link
                           href={`/ncp/patients/${patient.id}`}
-                          className="inline-flex px-3 py-1.5 bg-zinc-950 hover:bg-zinc-800 text-white text-[10px] font-bold uppercase tracking-wider rounded-lg transition-colors cursor-pointer select-none"
+                          className="inline-flex px-3 py-1.5 bg-brand-green-600 hover:bg-brand-green-700 text-white text-[10px] font-bold uppercase tracking-wider rounded-lg transition-colors cursor-pointer select-none"
                         >
                           View Profile
                         </Link>
@@ -351,29 +351,29 @@ export default function NcpPatientsPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm mx-4 p-6 space-y-5">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-extrabold text-zinc-900 tracking-tight">New Patient Details</h3>
+              <h3 className="text-sm font-extrabold text-warm-900 tracking-tight">New Patient Details</h3>
               <button
                 onClick={() => setShowCreateModal(false)}
-                className="p-1.5 text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 rounded-lg transition-colors"
+                className="p-1.5 text-warm-400 hover:text-warm-700 hover:bg-warm-100 rounded-lg transition-colors"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
 
             <div className="space-y-1">
-              <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block">Full Name</label>
+              <label className="text-[10px] font-bold text-warm-500 uppercase tracking-wider block">Full Name</label>
               <input
                 type="text"
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
                 placeholder="Patient full name"
                 autoFocus
-                className="w-full px-3 py-2 text-sm bg-white border border-zinc-300 rounded-lg text-zinc-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 transition-all placeholder:text-zinc-400"
+                className="w-full px-3 py-2 text-sm bg-white border border-warm-300 rounded-lg text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 transition-all placeholder:text-warm-400"
               />
             </div>
 
             <div className="space-y-1">
-              <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block">Sex</label>
+              <label className="text-[10px] font-bold text-warm-500 uppercase tracking-wider block">Sex</label>
               <div className="flex gap-2">
                 {(["Female", "Male"] as const).map((s) => (
                   <button
@@ -382,7 +382,7 @@ export default function NcpPatientsPage() {
                     className={`flex-1 py-2 text-xs font-bold rounded-lg border transition-colors ${
                       newSex === s
                         ? "bg-emerald-600 text-white border-emerald-600"
-                        : "bg-white text-zinc-600 border-zinc-300 hover:bg-zinc-50"
+                        : "bg-white text-warm-600 border-warm-300 hover:bg-warm-50"
                     }`}
                   >
                     {s}
@@ -392,25 +392,25 @@ export default function NcpPatientsPage() {
             </div>
 
             <div className="space-y-1">
-              <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block">Date of Birth</label>
+              <label className="text-[10px] font-bold text-warm-500 uppercase tracking-wider block">Date of Birth</label>
               <input
                 type="date"
                 value={newDob}
                 onChange={(e) => setNewDob(e.target.value)}
                 max={new Date().toISOString().split("T")[0]}
-                className="w-full px-3 py-2 text-sm bg-white border border-zinc-300 rounded-lg text-zinc-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 transition-all"
+                className="w-full px-3 py-2 text-sm bg-white border border-warm-300 rounded-lg text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 transition-all"
               />
             </div>
 
             {createError && (
-              <p className="text-xs text-rose-600 font-semibold">{createError}</p>
+              <p className="text-xs text-red-600 font-semibold">{createError}</p>
             )}
 
             <div className="flex gap-2 pt-1">
               <button
                 onClick={() => setShowCreateModal(false)}
                 disabled={creating}
-                className="flex-1 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl border border-zinc-300 text-zinc-600 hover:bg-zinc-50 transition-colors disabled:opacity-50"
+                className="flex-1 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl border border-warm-300 text-warm-600 hover:bg-warm-50 transition-colors disabled:opacity-50"
               >
                 Cancel
               </button>

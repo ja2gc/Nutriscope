@@ -83,35 +83,35 @@ function UsdaImportModal({ onClose, onImported }: {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col border border-zinc-200 overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col border border-warm-200 overflow-hidden">
 
         {/* Header */}
-        <div className="flex items-start justify-between px-6 py-5 border-b border-zinc-100 bg-zinc-50/60">
+        <div className="flex items-start justify-between px-6 py-5 border-b border-warm-100 bg-warm-50/60">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-emerald-100 rounded-xl">
               <FlaskConical className="h-4 w-4 text-emerald-700" />
             </div>
             <div>
-              <h3 className="text-sm font-extrabold text-zinc-900">Import from USDA FoodData Central</h3>
-              <p className="text-[10px] text-zinc-400 mt-0.5">Foundation · SR Legacy · Survey (FNDDS) — all nutrients auto-extracted</p>
+              <h3 className="text-sm font-extrabold text-warm-900">Import from USDA FoodData Central</h3>
+              <p className="text-[10px] text-warm-400 mt-0.5">Foundation · SR Legacy · Survey (FNDDS) — all nutrients auto-extracted</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-zinc-200 text-zinc-400 hover:text-zinc-700 cursor-pointer transition-colors mt-0.5">
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-warm-200 text-warm-400 hover:text-warm-700 cursor-pointer transition-colors mt-0.5">
             <X className="h-4 w-4" />
           </button>
         </div>
 
         {/* Search */}
-        <div className="px-6 py-4 border-b border-zinc-100">
+        <div className="px-6 py-4 border-b border-warm-100">
           <div className="relative">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-warm-400" />
             {searching && <Loader2 className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-emerald-500 animate-spin" />}
             <input
               type="text"
               value={query}
               onChange={(e) => handleQueryChange(e.target.value)}
               placeholder="Type to search — e.g. chicken breast, brown rice, bangus..."
-              className="w-full pl-10 pr-10 py-2.5 text-sm bg-white border border-zinc-300 rounded-xl text-zinc-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all placeholder:text-zinc-400"
+              className="w-full pl-10 pr-10 py-2.5 text-sm bg-white border border-warm-300 rounded-xl text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all placeholder:text-warm-400"
               autoFocus
             />
           </div>
@@ -137,8 +137,8 @@ function UsdaImportModal({ onClose, onImported }: {
         <div className="flex-1 overflow-y-auto px-6 py-4 space-y-2">
           {results.length === 0 && !searching && (
             <div className="text-center py-12 select-none">
-              <FlaskConical className="h-8 w-8 text-zinc-200 mx-auto mb-3" />
-              <p className="text-xs text-zinc-400">
+              <FlaskConical className="h-8 w-8 text-warm-200 mx-auto mb-3" />
+              <p className="text-xs text-warm-400">
                 {query.length >= 2 ? "No results found." : "Start typing to search the USDA database."}
               </p>
             </div>
@@ -147,15 +147,15 @@ function UsdaImportModal({ onClose, onImported }: {
           {results.map((item) => {
             return (
               <div key={item.fdc_id}
-                className="flex items-center gap-4 p-3.5 rounded-xl border border-zinc-100 hover:border-emerald-200 hover:bg-emerald-50/30 transition-all group">
+                className="flex items-center gap-4 p-3.5 rounded-xl border border-warm-100 hover:border-emerald-200 hover:bg-emerald-50/30 transition-all group">
                 <div className="flex-1 min-w-0 space-y-1">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-xs font-bold text-zinc-900 leading-tight">{item.name}</span>
+                    <span className="text-xs font-bold text-warm-900 leading-tight">{item.name}</span>
                     {item.data_type && (
-                      <span className="text-[9px] text-zinc-400 font-semibold uppercase tracking-wide">{item.data_type}</span>
+                      <span className="text-[9px] text-warm-400 font-semibold uppercase tracking-wide">{item.data_type}</span>
                     )}
                   </div>
-                  <div className="text-[9px] text-zinc-500 font-medium">
+                  <div className="text-[9px] text-warm-500 font-medium">
                     <span>{Math.round(item.calories * 10) / 10}kcal</span>
                     {item.protein != null && <span className="ml-1.5">· P {Math.round(item.protein * 10) / 10}g</span>}
                     {item.carbs != null && <span className="ml-1.5">· C {Math.round(item.carbs * 10) / 10}g</span>}
@@ -163,7 +163,7 @@ function UsdaImportModal({ onClose, onImported }: {
                     {('water_g' in item) && (item as { water_g?: number | null }).water_g != null && (
                       <span className="ml-1.5">· W {Math.round(Number((item as { water_g: number }).water_g) * 10) / 10}g</span>
                     )}
-                    {item.food_category && <span className="ml-1.5 text-zinc-400">· {item.food_category}</span>}
+                    {item.food_category && <span className="ml-1.5 text-warm-400">· {item.food_category}</span>}
                   </div>
                 </div>
                 <button
@@ -181,8 +181,8 @@ function UsdaImportModal({ onClose, onImported }: {
           })}
         </div>
 
-        <div className="px-6 py-3 border-t border-zinc-100 bg-zinc-50/60">
-          <p className="text-[10px] text-zinc-400 text-center">
+        <div className="px-6 py-3 border-t border-warm-100 bg-warm-50/60">
+          <p className="text-[10px] text-warm-400 text-center">
             FDC ID · Foundation Foods · SR Legacy · Survey (FNDDS) — Branded foods excluded
           </p>
         </div>
@@ -199,27 +199,27 @@ function FoodMicrosPopup({ food, onClose }: { food: FoodItem; onClose: () => voi
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl border border-zinc-200 overflow-hidden"
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl border border-warm-200 overflow-hidden"
         onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-100 bg-zinc-50/60">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-warm-100 bg-warm-50/60">
           <div>
-            <h3 className="text-sm font-extrabold text-zinc-900 truncate max-w-xs">{food.name}</h3>
-            <p className="text-[10px] text-zinc-400 mt-0.5">
+            <h3 className="text-sm font-extrabold text-warm-900 truncate max-w-xs">{food.name}</h3>
+            <p className="text-[10px] text-warm-400 mt-0.5">
               Full nutrient profile · per {food.serving_size ?? 100}{food.serving_unit ?? 'g'} serving
               {food.usda_fdc_id && <span className="ml-2 text-emerald-600 font-semibold">· USDA FDC #{food.usda_fdc_id}</span>}
             </p>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-zinc-200 text-zinc-400 cursor-pointer transition-colors">
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-warm-200 text-warm-400 cursor-pointer transition-colors">
             <X className="h-4 w-4" />
           </button>
         </div>
 
         {/* Macros bar */}
-        <div className="flex gap-6 px-6 py-4 bg-gradient-to-r from-zinc-50 to-white border-b border-zinc-100">
+        <div className="flex gap-6 px-6 py-4 bg-gradient-to-r from-warm-50 to-white border-b border-warm-100">
           <MacroStat label="Calories" value={food.calories}        unit="kcal" color="text-emerald-700" />
-          <MacroStat label="Protein"  value={food.protein ?? "—"}  unit="g"    color="text-rose-700" />
+          <MacroStat label="Protein"  value={food.protein ?? "—"}  unit="g"    color="text-red-700" />
           <MacroStat label="Carbs"    value={food.carbs ?? "—"}    unit="g"    color="text-amber-700" />
-          <MacroStat label="Fat"      value={food.fat ?? "—"}      unit="g"    color="text-violet-700" />
+          <MacroStat label="Fat"      value={food.fat ?? "—"}      unit="g"    color="text-sky-700" />
           {food.water_g != null && (
             <MacroStat label="Water" value={String(food.water_g)} unit="g" color="text-sky-700" />
           )}
@@ -228,7 +228,7 @@ function FoodMicrosPopup({ food, onClose }: { food: FoodItem; onClose: () => voi
         {/* Micronutrients */}
         <div className="px-6 py-4 max-h-72 overflow-y-auto space-y-4">
           {!hasMicros ? (
-            <p className="text-xs text-zinc-400 text-center py-6">
+            <p className="text-xs text-warm-400 text-center py-6">
               No micronutrient data — import from USDA to auto-populate all micros.
             </p>
           ) : (
@@ -237,13 +237,13 @@ function FoodMicrosPopup({ food, onClose }: { food: FoodItem; onClose: () => voi
               if (groupKeys.length === 0) return null;
               return (
                 <div key={group}>
-                  <p className="text-[9px] font-extrabold text-zinc-400 uppercase tracking-widest mb-2">{group}</p>
+                  <p className="text-[9px] font-extrabold text-warm-400 uppercase tracking-widest mb-2">{group}</p>
                   <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
                     {groupKeys.map((key) => (
-                      <div key={key} className="flex flex-col px-2.5 py-2 bg-zinc-50 border border-zinc-100 rounded-lg">
-                        <span className="text-[9px] text-zinc-400 uppercase tracking-wide">{key.replace(/_/g, " ")}</span>
-                        <span className="text-xs font-bold text-zinc-800 mt-0.5">
-                          {micros[key]} <span className="text-[9px] font-normal text-zinc-400">{NUTRIENT_UNITS[key]}</span>
+                      <div key={key} className="flex flex-col px-2.5 py-2 bg-warm-50 border border-warm-100 rounded-lg">
+                        <span className="text-[9px] text-warm-400 uppercase tracking-wide">{key.replace(/_/g, " ")}</span>
+                        <span className="text-xs font-bold text-warm-800 mt-0.5">
+                          {micros[key]} <span className="text-[9px] font-normal text-warm-400">{NUTRIENT_UNITS[key]}</span>
                         </span>
                       </div>
                     ))}
@@ -266,43 +266,43 @@ function RecipeMicrosPopup({ recipe, onClose }: { recipe: Recipe; onClose: () =>
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl border border-zinc-200 overflow-hidden"
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl border border-warm-200 overflow-hidden"
         onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-100 bg-zinc-50/60">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-warm-100 bg-warm-50/60">
           <div>
-            <h3 className="text-sm font-extrabold text-zinc-900 truncate max-w-xs">{recipe.name}</h3>
-            <p className="text-[10px] text-zinc-400 mt-0.5">Full nutrient profile · per recipe total</p>
+            <h3 className="text-sm font-extrabold text-warm-900 truncate max-w-xs">{recipe.name}</h3>
+            <p className="text-[10px] text-warm-400 mt-0.5">Full nutrient profile · per recipe total</p>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-zinc-200 text-zinc-400 cursor-pointer transition-colors">
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-warm-200 text-warm-400 cursor-pointer transition-colors">
             <X className="h-4 w-4" />
           </button>
         </div>
 
         {/* Macros bar */}
-        <div className="flex gap-6 px-6 py-4 bg-gradient-to-r from-zinc-50 to-white border-b border-zinc-100">
+        <div className="flex gap-6 px-6 py-4 bg-gradient-to-r from-warm-50 to-white border-b border-warm-100">
           <MacroStat label="Calories" value={recipe.total_calories ?? "—"} unit="kcal" color="text-emerald-700" />
-          <MacroStat label="Protein"  value={recipe.total_protein  ?? "—"} unit="g"    color="text-rose-700" />
+          <MacroStat label="Protein"  value={recipe.total_protein  ?? "—"} unit="g"    color="text-red-700" />
           <MacroStat label="Carbs"    value={recipe.total_carbs    ?? "—"} unit="g"    color="text-amber-700" />
-          <MacroStat label="Fat"      value={recipe.total_fat      ?? "—"} unit="g"    color="text-violet-700" />
-          {recipe.servings && <MacroStat label="Servings" value={recipe.servings} unit="" color="text-zinc-700" />}
+          <MacroStat label="Fat"      value={recipe.total_fat      ?? "—"} unit="g"    color="text-sky-700" />
+          {recipe.servings && <MacroStat label="Servings" value={recipe.servings} unit="" color="text-warm-700" />}
         </div>
 
         {/* Micronutrients */}
         <div className="px-6 py-4 max-h-72 overflow-y-auto space-y-4">
           {!hasMicros ? (
-            <p className="text-xs text-zinc-400 text-center py-6">No micronutrient data — add USDA-sourced ingredients to populate.</p>
+            <p className="text-xs text-warm-400 text-center py-6">No micronutrient data — add USDA-sourced ingredients to populate.</p>
           ) : (
             Object.entries(NUTRIENT_GROUPS).map(([group, keys]) => {
               const groupKeys = (keys as readonly string[]).filter((k) => micros[k] != null);
               if (groupKeys.length === 0) return null;
               return (
                 <div key={group}>
-                  <p className="text-[9px] font-extrabold text-zinc-400 uppercase tracking-widest mb-2">{group}</p>
+                  <p className="text-[9px] font-extrabold text-warm-400 uppercase tracking-widest mb-2">{group}</p>
                   <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
                     {groupKeys.map((key) => (
-                      <div key={key} className="flex flex-col px-2.5 py-2 bg-zinc-50 border border-zinc-100 rounded-lg">
-                        <span className="text-[9px] text-zinc-400 uppercase tracking-wide">{key.replace(/_/g, " ")}</span>
-                        <span className="text-xs font-bold text-zinc-800 mt-0.5">{micros[key]} <span className="text-[9px] font-normal text-zinc-400">{NUTRIENT_UNITS[key]}</span></span>
+                      <div key={key} className="flex flex-col px-2.5 py-2 bg-warm-50 border border-warm-100 rounded-lg">
+                        <span className="text-[9px] text-warm-400 uppercase tracking-wide">{key.replace(/_/g, " ")}</span>
+                        <span className="text-xs font-bold text-warm-800 mt-0.5">{micros[key]} <span className="text-[9px] font-normal text-warm-400">{NUTRIENT_UNITS[key]}</span></span>
                       </div>
                     ))}
                   </div>
@@ -404,22 +404,22 @@ export default function FoodLibraryPage() {
   return (
     <div className="space-y-6 font-sans">
       {/* Breadcrumb */}
-      <div className="flex items-center gap-2 text-xs font-semibold text-zinc-400 select-none">
+      <div className="flex items-center gap-2 text-xs font-semibold text-warm-400 select-none">
         <Link href="/dashboard" className="hover:text-emerald-700 transition-colors">Home</Link>
-        <span className="text-zinc-300">/</span>
-        <span className="font-bold text-zinc-700">Food Library</span>
+        <span className="text-warm-300">/</span>
+        <span className="font-bold text-warm-700">Food Library</span>
       </div>
 
       {/* Header */}
-      <div className="border-b border-zinc-200 pb-5 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+      <div className="border-b border-warm-200 pb-5 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
         <div>
-          <h2 className="text-xl font-extrabold text-zinc-950 tracking-tight flex items-center gap-2.5">
+          <h2 className="text-xl font-extrabold text-warm-900 tracking-tight flex items-center gap-2.5">
             <div className="p-1.5 bg-emerald-100 rounded-lg">
               <Database className="h-4 w-4 text-emerald-700" />
             </div>
             Food Library
           </h2>
-          <p className="text-xs text-zinc-500 mt-1.5 select-none">
+          <p className="text-xs text-warm-500 mt-1.5 select-none">
             Clinical food &amp; recipe reference — macros, micros, and allergens for nutrition care.
           </p>
         </div>
@@ -449,13 +449,13 @@ export default function FoodLibraryPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-zinc-200">
+      <div className="flex border-b border-warm-200">
         {(["foods", "recipes"] as Tab[]).map((tab) => (
           <button key={tab} onClick={() => setActiveTab(tab)}
             className={`px-5 py-2.5 text-xs font-bold uppercase tracking-wider border-b-2 transition-all cursor-pointer -mb-px ${
               activeTab === tab
                 ? "border-emerald-600 text-emerald-700"
-                : "border-transparent text-zinc-400 hover:text-zinc-700 hover:border-zinc-300"
+                : "border-transparent text-warm-400 hover:text-warm-700 hover:border-warm-300"
             }`}>
             {tab === "foods"
               ? <span className="flex items-center gap-1.5"><Database className="h-3.5 w-3.5" /> Foods</span>
@@ -470,18 +470,18 @@ export default function FoodLibraryPage() {
           {/* Filters */}
           <div className="flex flex-col sm:flex-row items-center gap-3">
             <div className="relative w-full sm:flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-warm-400" />
               <input type="text" placeholder="Search by food name..." value={foodSearch}
                 onChange={(e) => { setFoodSearch(e.target.value); setFoodPage(1); }}
-                className="w-full pl-9 pr-4 py-2 text-sm bg-white border border-zinc-200 rounded-xl text-zinc-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all placeholder:text-zinc-400 shadow-sm" />
+                className="w-full pl-9 pr-4 py-2 text-sm bg-white border border-warm-200 rounded-xl text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all placeholder:text-warm-400 shadow-sm" />
             </div>
             <div className="flex gap-1.5 flex-wrap">
               {FOOD_CATEGORIES.map((c) => (
                 <button key={c} onClick={() => { setFoodCategory(c); setFoodPage(1); }}
                   className={`min-w-[64px] px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide rounded-lg border transition-all cursor-pointer text-center ${
                     foodCategory === c
-                      ? "bg-zinc-900 text-white border-zinc-900"
-                      : "bg-white text-zinc-500 border-zinc-200 hover:border-zinc-300"
+                      ? "bg-forest-900 text-white border-forest-line"
+                      : "bg-white text-warm-500 border-warm-200 hover:border-warm-300"
                   }`}>
                   {c === "all" ? "All" : c}
                 </button>
@@ -491,7 +491,7 @@ export default function FoodLibraryPage() {
 
           {foodError && <ErrorBanner message={foodError} />}
 
-          <div className="bg-white border border-zinc-200 rounded-2xl overflow-hidden shadow-sm">
+          <div className="bg-white border border-warm-200 rounded-2xl overflow-hidden shadow-sm">
             {foodLoading ? <LoadingSkeleton /> : foods.length === 0 ? (
               <EmptyState icon={<Database className="h-8 w-8 text-emerald-400" />} title="No Foods Found"
                 message="Add foods manually or import from the USDA FoodData Central database." />
@@ -499,7 +499,7 @@ export default function FoodLibraryPage() {
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse min-w-[480px]">
                   <thead>
-                    <tr className="border-b border-zinc-100 select-none">
+                    <tr className="border-b border-warm-100 select-none">
                       <Th>Food</Th>
                       <Th>Category</Th>
                       <Th>Macros</Th>
@@ -510,24 +510,24 @@ export default function FoodLibraryPage() {
                   </thead>
                   <tbody className="divide-y divide-zinc-50">
                     {foods.map((food) => (
-                      <tr key={food.id} className="hover:bg-zinc-50/60 transition-colors group">
+                      <tr key={food.id} className="hover:bg-warm-50/60 transition-colors group">
                         <td className="px-5 py-3.5 min-w-[180px]">
-                          <div className="text-xs font-bold text-zinc-900 leading-snug">{food.name}</div>
+                          <div className="text-xs font-bold text-warm-900 leading-snug">{food.name}</div>
                           {food.usda_fdc_id && (
                             <div className="flex items-center gap-1 mt-1">
                               <FlaskConical className="h-2.5 w-2.5 text-emerald-500" />
-                              <span className="text-[9px] font-mono text-zinc-400">USDA #{food.usda_fdc_id}</span>
+                              <span className="text-[9px] font-mono text-warm-400">USDA #{food.usda_fdc_id}</span>
                             </div>
                           )}
                         </td>
                         <td className="px-5 py-3.5">
                           {food.category
-                            ? <span className="text-[10px] text-zinc-600 capitalize font-medium">{food.category}</span>
-                            : <span className="text-zinc-300 text-[10px]">—</span>
+                            ? <span className="text-[10px] text-warm-600 capitalize font-medium">{food.category}</span>
+                            : <span className="text-warm-300 text-[10px]">—</span>
                           }
                         </td>
                         <td className="px-5 py-3.5">
-                          <div className="text-[10px] text-zinc-600 font-medium">
+                          <div className="text-[10px] text-warm-600 font-medium">
                             <span>{Math.round(parseFloat(food.calories))}kcal</span>
                             {food.protein && <span className="ml-1.5">· P {Math.round(parseFloat(food.protein))}g</span>}
                             {food.carbs && <span className="ml-1.5">· C {Math.round(parseFloat(food.carbs))}g</span>}
@@ -544,7 +544,7 @@ export default function FoodLibraryPage() {
                                 size="sm"
                                 onClick={() => setMicrosFood(food)}
                               >
-                                <FlaskConical className={`h-3 w-3 ${hasMicros ? "text-blue-600" : "text-zinc-400"}`} />
+                                <FlaskConical className={`h-3 w-3 ${hasMicros ? "text-sky-600" : "text-warm-400"}`} />
                                 Micros
                               </Button>
                             );
@@ -552,18 +552,18 @@ export default function FoodLibraryPage() {
                         </td>
                         <td className="px-5 py-3.5">
                           {food.allergens.length > 0
-                            ? <span className="text-[10px] text-zinc-600" title={food.allergens.join(", ")}>{food.allergens.join(", ")}</span>
-                            : <span className="text-zinc-300 text-[10px]">None</span>
+                            ? <span className="text-[10px] text-warm-600" title={food.allergens.join(", ")}>{food.allergens.join(", ")}</span>
+                            : <span className="text-warm-300 text-[10px]">None</span>
                           }
                         </td>
                         <td className="px-5 py-3.5 text-right">
                           <div className="flex items-center justify-end gap-1">
                             <Link href={`/food-library/foods/${food.id}`}
-                              className="p-1.5 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-zinc-100 text-zinc-400 hover:text-zinc-800 transition-all" title="Edit">
+                              className="p-1.5 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-warm-100 text-warm-400 hover:text-warm-800 transition-all" title="Edit">
                               <Pencil className="h-3.5 w-3.5" />
                             </Link>
                             <button onClick={() => setDeleteConfirm({ type: "food", id: food.id, name: food.name })}
-                              className="p-1.5 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-red-50 text-zinc-400 hover:text-red-600 transition-all cursor-pointer" title="Delete">
+                              className="p-1.5 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-red-50 text-warm-400 hover:text-red-600 transition-all cursor-pointer" title="Delete">
                               <Trash2 className="h-3.5 w-3.5" />
                             </button>
                           </div>
@@ -585,18 +585,18 @@ export default function FoodLibraryPage() {
           {/* Filters */}
           <div className="flex flex-col sm:flex-row items-center gap-3">
             <div className="relative w-full sm:flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-warm-400" />
               <input type="text" placeholder="Search by recipe name..." value={recipeSearch}
                 onChange={(e) => { setRecipeSearch(e.target.value); setRecipePage(1); }}
-                className="w-full pl-9 pr-4 py-2 text-sm bg-white border border-zinc-200 rounded-xl text-zinc-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all placeholder:text-zinc-400 shadow-sm" />
+                className="w-full pl-9 pr-4 py-2 text-sm bg-white border border-warm-200 rounded-xl text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all placeholder:text-warm-400 shadow-sm" />
             </div>
             <div className="flex gap-1.5 flex-wrap">
               {RECIPE_CATEGORIES.map((c) => (
                 <button key={c} onClick={() => { setRecipeCategory(c); setRecipePage(1); }}
                   className={`min-w-[64px] px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide rounded-lg border transition-all cursor-pointer text-center ${
                     recipeCategory === c
-                      ? "bg-zinc-900 text-white border-zinc-900"
-                      : "bg-white text-zinc-500 border-zinc-200 hover:border-zinc-300"
+                      ? "bg-forest-900 text-white border-forest-line"
+                      : "bg-white text-warm-500 border-warm-200 hover:border-warm-300"
                   }`}>
                   {c === "all" ? "All" : c}
                 </button>
@@ -606,7 +606,7 @@ export default function FoodLibraryPage() {
 
           {recipeError && <ErrorBanner message={recipeError} />}
 
-          <div className="bg-white border border-zinc-200 rounded-2xl overflow-hidden shadow-sm">
+          <div className="bg-white border border-warm-200 rounded-2xl overflow-hidden shadow-sm">
             {recipeLoading ? <LoadingSkeleton /> : recipes.length === 0 ? (
               <EmptyState icon={<CookingPot className="h-8 w-8 text-emerald-400" />} title="No Recipes Found"
                 message="Build clinical recipes from the foods in your library." />
@@ -614,7 +614,7 @@ export default function FoodLibraryPage() {
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse min-w-[480px]">
                   <thead>
-                    <tr className="border-b border-zinc-100 select-none">
+                    <tr className="border-b border-warm-100 select-none">
                       <Th>Recipe</Th>
                       <Th>Category</Th>
                       <Th>Macros</Th>
@@ -626,21 +626,21 @@ export default function FoodLibraryPage() {
                     {recipes.map((recipe) => {
                       const hasMicros = Object.keys(recipe.micronutrients ?? {}).length > 0;
                       return (
-                        <tr key={recipe.id} className="hover:bg-zinc-50/60 transition-colors group">
+                        <tr key={recipe.id} className="hover:bg-warm-50/60 transition-colors group">
                           <td className="px-5 py-3.5 min-w-[180px]">
-                            <div className="text-xs font-bold text-zinc-900 leading-snug">{recipe.name}</div>
+                            <div className="text-xs font-bold text-warm-900 leading-snug">{recipe.name}</div>
                             {recipe.servings && (
-                              <div className="text-[10px] text-zinc-400 mt-0.5">{recipe.servings} serving{recipe.servings !== 1 ? "s" : ""}</div>
+                              <div className="text-[10px] text-warm-400 mt-0.5">{recipe.servings} serving{recipe.servings !== 1 ? "s" : ""}</div>
                             )}
                           </td>
                           <td className="px-5 py-3.5">
                             {recipe.category
-                              ? <span className="text-[10px] text-zinc-600 capitalize font-medium">{recipe.category}</span>
-                              : <span className="text-zinc-300 text-[10px]">—</span>
+                              ? <span className="text-[10px] text-warm-600 capitalize font-medium">{recipe.category}</span>
+                              : <span className="text-warm-300 text-[10px]">—</span>
                             }
                           </td>
                           <td className="px-5 py-3.5">
-                            <div className="text-[10px] text-zinc-600 font-medium">
+                            <div className="text-[10px] text-warm-600 font-medium">
                               {recipe.total_calories && <span>{Math.round(parseFloat(recipe.total_calories))}kcal</span>}
                               {recipe.total_protein && <span className="ml-1.5">· P {Math.round(parseFloat(recipe.total_protein))}g</span>}
                               {recipe.total_carbs && <span className="ml-1.5">· C {Math.round(parseFloat(recipe.total_carbs))}g</span>}
@@ -654,18 +654,18 @@ export default function FoodLibraryPage() {
                               onClick={() => setMicrosRecipe(recipe)}
                               title={hasMicros ? "View micronutrients" : "No micronutrient data"}
                             >
-                              <FlaskConical className={`h-3 w-3 ${hasMicros ? "text-blue-600" : "text-zinc-400"}`} />
+                              <FlaskConical className={`h-3 w-3 ${hasMicros ? "text-sky-600" : "text-warm-400"}`} />
                               Micros
                             </Button>
                           </td>
                           <td className="px-5 py-3.5 text-right">
                             <div className="flex items-center justify-end gap-1">
                               <Link href={`/food-library/recipes/${recipe.id}`}
-                                className="p-1.5 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-zinc-100 text-zinc-400 hover:text-zinc-800 transition-all" title="Edit">
+                                className="p-1.5 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-warm-100 text-warm-400 hover:text-warm-800 transition-all" title="Edit">
                                 <Pencil className="h-3.5 w-3.5" />
                               </Link>
                               <button onClick={() => setDeleteConfirm({ type: "recipe", id: recipe.id, name: recipe.name })}
-                                className="p-1.5 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-red-50 text-zinc-400 hover:text-red-600 transition-all cursor-pointer" title="Delete">
+                                className="p-1.5 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-red-50 text-warm-400 hover:text-red-600 transition-all cursor-pointer" title="Delete">
                                 <Trash2 className="h-3.5 w-3.5" />
                               </button>
                             </div>
@@ -700,11 +700,11 @@ export default function FoodLibraryPage() {
 
       {deleteConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm border border-zinc-200 p-6 space-y-4">
-            <h3 className="text-sm font-extrabold text-zinc-900">Confirm Delete</h3>
-            <p className="text-xs text-zinc-600 leading-relaxed">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm border border-warm-200 p-6 space-y-4">
+            <h3 className="text-sm font-extrabold text-warm-900">Confirm Delete</h3>
+            <p className="text-xs text-warm-600 leading-relaxed">
               Are you sure you want to delete{" "}
-              <span className="font-bold text-zinc-900">&quot;{deleteConfirm.name}&quot;</span>? This cannot be undone.
+              <span className="font-bold text-warm-900">&quot;{deleteConfirm.name}&quot;</span>? This cannot be undone.
             </p>
             <div className="flex gap-2 pt-1">
               <Button variant="secondary" onClick={() => setDeleteConfirm(null)} className="flex-1 py-2">Cancel</Button>
@@ -723,8 +723,8 @@ function MacroStat({ label, value, unit, color }: { label: string; value: string
   return (
     <div>
       <p className={`text-[9px] font-bold uppercase tracking-wider ${color}`}>{label}</p>
-      <p className="text-sm font-extrabold text-zinc-900">
-        {value}<span className="text-[9px] font-normal text-zinc-500 ml-0.5">{unit}</span>
+      <p className="text-sm font-extrabold text-warm-900">
+        {value}<span className="text-[9px] font-normal text-warm-500 ml-0.5">{unit}</span>
       </p>
     </div>
   );
@@ -732,7 +732,7 @@ function MacroStat({ label, value, unit, color }: { label: string; value: string
 
 function Th({ children, right }: { children: React.ReactNode; right?: boolean }) {
   return (
-    <th className={`px-5 py-3.5 text-[9px] font-extrabold text-zinc-400 uppercase tracking-widest ${right ? "text-right" : ""}`}>
+    <th className={`px-5 py-3.5 text-[9px] font-extrabold text-warm-400 uppercase tracking-widest ${right ? "text-right" : ""}`}>
       {children}
     </th>
   );
@@ -750,9 +750,9 @@ function ErrorBanner({ message }: { message: string }) {
 function EmptyState({ icon, title, message }: { icon: React.ReactNode; title: string; message: string }) {
   return (
     <div className="p-14 text-center select-none">
-      <div className="p-3.5 bg-zinc-50 border border-zinc-100 rounded-2xl w-fit mx-auto">{icon}</div>
-      <h3 className="text-sm font-bold text-zinc-800 mt-4">{title}</h3>
-      <p className="text-xs text-zinc-400 mt-1.5 max-w-sm mx-auto leading-relaxed">{message}</p>
+      <div className="p-3.5 bg-warm-50 border border-warm-100 rounded-2xl w-fit mx-auto">{icon}</div>
+      <h3 className="text-sm font-bold text-warm-800 mt-4">{title}</h3>
+      <p className="text-xs text-warm-400 mt-1.5 max-w-sm mx-auto leading-relaxed">{message}</p>
     </div>
   );
 }
@@ -762,10 +762,10 @@ function LoadingSkeleton() {
     <div className="p-8 space-y-3">
       {[1, 2, 3, 4, 5].map((i) => (
         <div key={i} className="flex gap-4 items-center h-10">
-          <div className="flex-1 bg-zinc-100 rounded-lg h-6 animate-pulse" style={{ animationDelay: `${i * 60}ms` }} />
-          <div className="w-20 bg-zinc-100 rounded-lg h-6 animate-pulse" style={{ animationDelay: `${i * 80}ms` }} />
-          <div className="w-32 bg-zinc-100 rounded-lg h-6 animate-pulse" style={{ animationDelay: `${i * 100}ms` }} />
-          <div className="w-24 bg-zinc-100 rounded-lg h-6 animate-pulse" style={{ animationDelay: `${i * 120}ms` }} />
+          <div className="flex-1 bg-warm-100 rounded-lg h-6 animate-pulse" style={{ animationDelay: `${i * 60}ms` }} />
+          <div className="w-20 bg-warm-100 rounded-lg h-6 animate-pulse" style={{ animationDelay: `${i * 80}ms` }} />
+          <div className="w-32 bg-warm-100 rounded-lg h-6 animate-pulse" style={{ animationDelay: `${i * 100}ms` }} />
+          <div className="w-24 bg-warm-100 rounded-lg h-6 animate-pulse" style={{ animationDelay: `${i * 120}ms` }} />
         </div>
       ))}
     </div>

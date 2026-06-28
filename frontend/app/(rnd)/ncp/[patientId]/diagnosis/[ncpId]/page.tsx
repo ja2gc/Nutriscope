@@ -15,13 +15,13 @@ import {
   Diagnosis, StoreDiagnosisPayload, AiSuggestion,
 } from "@/services/diagnosisService";
 import { fetchAssessment } from "@/services/assessmentService";
-import { splitStoredComponent } from "@/lib/diagnosisComponentSplit";
+import { matchStoredOption, splitStoredComponent } from "@/lib/diagnosisComponentSplit";
 
 // ─── Domain Metadata ─────────────────────────────────────────────────────────
 
 const DOMAIN_META = {
-  NI: { label: "Intake (NI)", color: "bg-blue-50 text-blue-700 border-blue-200" },
-  NC: { label: "Clinical (NC)", color: "bg-purple-50 text-purple-700 border-purple-200" },
+  NI: { label: "Intake (NI)", color: "bg-sky-50 text-sky-700 border-sky-200" },
+  NC: { label: "Clinical (NC)", color: "bg-sky-50 text-sky-700 border-sky-200" },
   NB: { label: "Behavioral-Env (NB)", color: "bg-amber-50 text-amber-700 border-amber-200" },
 } as const;
 
@@ -247,9 +247,9 @@ function loadBuilderFromDiagnosis(d: Diagnosis): BuilderState {
       b.niNutrient = match[2];
     }
   } else if (d.domain === "NC") {
-    b.ncProblems = [d.problem];
+    b.ncProblems = [matchStoredOption(d.problem, NC_PROBLEMS) ?? d.problem];
   } else {
-    b.nbProblems = [d.problem];
+    b.nbProblems = [matchStoredOption(d.problem, NB_PROBLEMS) ?? d.problem];
   }
   return b;
 }
@@ -267,7 +267,7 @@ function DomainBadge({ domain }: { domain: "NI" | "NC" | "NB" }) {
 
 function Checkbox({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label: string }) {
   return (
-    <label className="flex items-start gap-2 text-[11px] text-zinc-700 cursor-pointer hover:bg-zinc-50 p-1.5 rounded-lg transition-colors">
+    <label className="flex items-start gap-2 text-[11px] text-warm-700 cursor-pointer hover:bg-warm-50 p-1.5 rounded-lg transition-colors">
       <input
         type="checkbox"
         checked={checked}
@@ -281,7 +281,7 @@ function Checkbox({ checked, onChange, label }: { checked: boolean; onChange: (v
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <span className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1.5">{children}</span>
+    <span className="block text-[10px] font-bold text-warm-500 uppercase tracking-wider mb-1.5">{children}</span>
   );
 }
 
@@ -485,18 +485,18 @@ export default function NcpDiagnosisPage({
   if (isPlaceholder) {
     return (
       <div className="space-y-6 font-sans">
-        <div className="flex items-center gap-2 text-xs font-semibold text-zinc-400 select-none">
+        <div className="flex items-center gap-2 text-xs font-semibold text-warm-400 select-none">
           <Link href="/ncp/patients" className="hover:text-emerald-700 transition-colors">Directory</Link>
           <ChevronRight className="h-3 w-3" />
-          <span className="text-zinc-600 font-bold">Diagnosis</span>
+          <span className="text-warm-600 font-bold">Diagnosis</span>
         </div>
-        <div className="bg-white border border-zinc-200 rounded-2xl p-12 text-center max-w-2xl mx-auto shadow-sm">
-          <div className="p-3.5 bg-zinc-50 border border-zinc-200 rounded-2xl w-fit mx-auto text-zinc-400">
+        <div className="bg-white border border-warm-200 rounded-2xl p-12 text-center max-w-2xl mx-auto shadow-sm">
+          <div className="p-3.5 bg-warm-50 border border-warm-200 rounded-2xl w-fit mx-auto text-warm-400">
             <User className="h-8 w-8" />
           </div>
-          <h3 className="text-sm font-bold text-zinc-800 mt-4 uppercase tracking-wider">No Patient Selected</h3>
-          <p className="text-xs text-zinc-500 mt-2 leading-relaxed">Navigate to the NCP Patients directory and select a patient.</p>
-          <Link href="/ncp/patients" className="inline-flex mt-6 px-4 py-2.5 bg-zinc-950 hover:bg-zinc-900 text-white text-xs font-bold uppercase tracking-wider rounded-lg transition-colors">
+          <h3 className="text-sm font-bold text-warm-800 mt-4 uppercase tracking-wider">No Patient Selected</h3>
+          <p className="text-xs text-warm-500 mt-2 leading-relaxed">Navigate to the NCP Patients directory and select a patient.</p>
+          <Link href="/ncp/patients" className="inline-flex mt-6 px-4 py-2.5 bg-forest-900 hover:bg-forest-900 text-white text-xs font-bold uppercase tracking-wider rounded-lg transition-colors">
             Go to Patients Directory
           </Link>
         </div>
@@ -507,10 +507,10 @@ export default function NcpDiagnosisPage({
   if (loading) {
     return (
       <div className="space-y-6 font-sans">
-        <div className="flex items-center gap-2 text-xs font-semibold text-zinc-400">
+        <div className="flex items-center gap-2 text-xs font-semibold text-warm-400">
           <span>Directory</span><ChevronRight className="h-3 w-3" /><span>Loading...</span>
         </div>
-        <div className="space-y-4">{[1, 2, 3].map(i => <div key={i} className="h-16 bg-zinc-100 rounded-xl animate-pulse" />)}</div>
+        <div className="space-y-4">{[1, 2, 3].map(i => <div key={i} className="h-16 bg-warm-100 rounded-xl animate-pulse" />)}</div>
       </div>
     );
   }
@@ -518,20 +518,20 @@ export default function NcpDiagnosisPage({
   if (!hasAssessment) {
     return (
       <div className="space-y-6 font-sans">
-        <div className="flex items-center gap-2 text-xs font-semibold text-zinc-400 select-none">
+        <div className="flex items-center gap-2 text-xs font-semibold text-warm-400 select-none">
           <Link href="/ncp/patients" className="hover:text-emerald-700 transition-colors">Directory</Link>
           <ChevronRight className="h-3 w-3" />
-          <span className="text-zinc-600 font-bold">Diagnosis</span>
+          <span className="text-warm-600 font-bold">Diagnosis</span>
         </div>
-        <div className="bg-white border border-zinc-200 rounded-2xl p-12 text-center max-w-2xl mx-auto shadow-sm">
-          <div className="p-3.5 bg-zinc-50 border border-zinc-200 rounded-2xl w-fit mx-auto text-zinc-400">
+        <div className="bg-white border border-warm-200 rounded-2xl p-12 text-center max-w-2xl mx-auto shadow-sm">
+          <div className="p-3.5 bg-warm-50 border border-warm-200 rounded-2xl w-fit mx-auto text-warm-400">
             <Lock className="h-8 w-8" />
           </div>
-          <h3 className="text-sm font-bold text-zinc-800 mt-4 uppercase tracking-wider">Assessment Required</h3>
-          <p className="text-xs text-zinc-500 mt-2 leading-relaxed">
+          <h3 className="text-sm font-bold text-warm-800 mt-4 uppercase tracking-wider">Assessment Required</h3>
+          <p className="text-xs text-warm-500 mt-2 leading-relaxed">
             Save the nutrition assessment before starting diagnosis. You can return here after Assessment is saved.
           </p>
-          <Link href={`/ncp/${patientId}/assessment/${ncpId}`} className="inline-flex mt-6 px-4 py-2.5 bg-zinc-950 hover:bg-zinc-900 text-white text-xs font-bold uppercase tracking-wider rounded-lg transition-colors">
+          <Link href={`/ncp/${patientId}/assessment/${ncpId}`} className="inline-flex mt-6 px-4 py-2.5 bg-forest-900 hover:bg-forest-900 text-white text-xs font-bold uppercase tracking-wider rounded-lg transition-colors">
             Go to Assessment
           </Link>
         </div>
@@ -579,32 +579,32 @@ export default function NcpDiagnosisPage({
       </div>
 
       {filteredDiagnoses.length === 0 ? (
-        <div className="bg-white border border-zinc-200 rounded-2xl p-10 text-center shadow-sm">
-          <Stethoscope className="h-7 w-7 text-zinc-300 mx-auto mb-3" />
-          <p className="text-xs font-bold text-zinc-600 uppercase tracking-wider">No diagnoses recorded</p>
-          <p className="text-[11px] text-zinc-400 mt-1">
+        <div className="bg-white border border-warm-200 rounded-2xl p-10 text-center shadow-sm">
+          <Stethoscope className="h-7 w-7 text-warm-300 mx-auto mb-3" />
+          <p className="text-xs font-bold text-warm-600 uppercase tracking-wider">No diagnoses recorded</p>
+          <p className="text-[11px] text-warm-400 mt-1">
             {domainFilter !== "ALL" ? `No ${DOMAIN_META[domainFilter].label} diagnoses yet.` : `Click "Add New Diagnosis" to begin the PES builder.`}
           </p>
         </div>
       ) : (
-        <div className="bg-white border border-zinc-200 rounded-2xl overflow-hidden shadow-sm">
+        <div className="bg-white border border-warm-200 rounded-2xl overflow-hidden shadow-sm">
           <div className="overflow-x-auto">
           <table className="w-full text-xs min-w-[480px]">
             <thead>
-              <tr className="border-b border-zinc-100 bg-zinc-50/80">
-                <th className="text-left px-4 py-3 text-[10px] font-extrabold text-zinc-500 uppercase tracking-wider w-8">#</th>
-                <th className="text-left px-4 py-3 text-[10px] font-extrabold text-zinc-500 uppercase tracking-wider">Domain</th>
-                <th className="text-left px-4 py-3 text-[10px] font-extrabold text-zinc-500 uppercase tracking-wider">Problem</th>
-                <th className="text-left px-4 py-3 text-[10px] font-extrabold text-zinc-500 uppercase tracking-wider hidden xl:table-cell">Etiology</th>
-                <th className="text-left px-4 py-3 text-[10px] font-extrabold text-zinc-500 uppercase tracking-wider hidden xl:table-cell">S&S</th>
-                <th className="text-left px-4 py-3 text-[10px] font-extrabold text-zinc-500 uppercase tracking-wider">PES Statement</th>
-                <th className="text-right px-4 py-3 text-[10px] font-extrabold text-zinc-500 uppercase tracking-wider">Actions</th>
+              <tr className="border-b border-warm-100 bg-warm-50/80">
+                <th className="text-left px-4 py-3 text-[10px] font-extrabold text-warm-500 uppercase tracking-wider w-8">#</th>
+                <th className="text-left px-4 py-3 text-[10px] font-extrabold text-warm-500 uppercase tracking-wider">Domain</th>
+                <th className="text-left px-4 py-3 text-[10px] font-extrabold text-warm-500 uppercase tracking-wider">Problem</th>
+                <th className="text-left px-4 py-3 text-[10px] font-extrabold text-warm-500 uppercase tracking-wider hidden xl:table-cell">Etiology</th>
+                <th className="text-left px-4 py-3 text-[10px] font-extrabold text-warm-500 uppercase tracking-wider hidden xl:table-cell">S&S</th>
+                <th className="text-left px-4 py-3 text-[10px] font-extrabold text-warm-500 uppercase tracking-wider">PES Statement</th>
+                <th className="text-right px-4 py-3 text-[10px] font-extrabold text-warm-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody>
               {filteredDiagnoses.map((d, i) => (
-                <tr key={d.id} className="border-b border-zinc-50 hover:bg-zinc-50/60 transition-colors">
-                  <td className="px-4 py-3 text-zinc-400 font-mono font-bold">{i + 1}</td>
+                <tr key={d.id} className="border-b border-warm-100 hover:bg-warm-50/60 transition-colors">
+                  <td className="px-4 py-3 text-warm-400 font-mono font-bold">{i + 1}</td>
                   <td className="px-4 py-3">
                     <div className="space-y-1">
                       <DomainBadge domain={d.domain} />
@@ -613,19 +613,19 @@ export default function NcpDiagnosisPage({
                       )}
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-zinc-800 font-semibold max-w-[160px]">
+                  <td className="px-4 py-3 text-warm-800 font-semibold max-w-[160px]">
                     <span className="line-clamp-2">{d.problem}</span>
                   </td>
-                  <td className="px-4 py-3 text-zinc-600 hidden xl:table-cell max-w-[160px]">
+                  <td className="px-4 py-3 text-warm-600 hidden xl:table-cell max-w-[160px]">
                     <span className="line-clamp-2">{d.etiology}</span>
                   </td>
-                  <td className="px-4 py-3 text-zinc-600 hidden xl:table-cell max-w-[160px]">
+                  <td className="px-4 py-3 text-warm-600 hidden xl:table-cell max-w-[160px]">
                     <span className="line-clamp-2">{d.signs_symptoms}</span>
                   </td>
-                  <td className="px-4 py-3 text-zinc-700 max-w-[240px]">
+                  <td className="px-4 py-3 text-warm-700 max-w-[240px]">
                     <span className="line-clamp-3 italic text-[11px]">{d.pes_statement}</span>
                     {d.extra_notes && (
-                      <span className="block mt-1 text-[10px] text-zinc-400">{d.extra_notes}</span>
+                      <span className="block mt-1 text-[10px] text-warm-400">{d.extra_notes}</span>
                     )}
                   </td>
                   <td className="px-4 py-3">
@@ -633,7 +633,7 @@ export default function NcpDiagnosisPage({
                       <button
                         type="button"
                         onClick={() => startEdit(d)}
-                        className="p-1.5 text-zinc-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
+                        className="p-1.5 text-warm-400 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition-colors cursor-pointer"
                         title="Edit"
                       >
                         <Pencil className="h-3.5 w-3.5" />
@@ -642,7 +642,7 @@ export default function NcpDiagnosisPage({
                         type="button"
                         onClick={() => handleDelete(d)}
                         disabled={deleting === d.id}
-                        className="p-1.5 text-zinc-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                        className="p-1.5 text-warm-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
                         title="Delete"
                       >
                         {deleting === d.id ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
@@ -672,7 +672,7 @@ export default function NcpDiagnosisPage({
               className={`px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider rounded-xl border-2 transition-all cursor-pointer ${
                 builder.domain === d
                   ? `${DOMAIN_META[d].color} border-current`
-                  : "bg-white text-zinc-500 border-zinc-200 hover:border-zinc-400"
+                  : "bg-white text-warm-500 border-warm-200 hover:border-zinc-400"
               }`}
             >
               {DOMAIN_META[d].label}
@@ -693,8 +693,8 @@ export default function NcpDiagnosisPage({
                   onClick={() => updateBuilder({ niDirection: dir })}
                   className={`px-4 py-2 text-xs font-bold rounded-xl border-2 transition-all cursor-pointer ${
                     builder.niDirection === dir
-                      ? "bg-blue-50 text-blue-700 border-blue-400"
-                      : "bg-white text-zinc-500 border-zinc-200 hover:border-zinc-400"
+                      ? "bg-sky-50 text-sky-700 border-sky-400"
+                      : "bg-white text-warm-500 border-warm-200 hover:border-zinc-400"
                   }`}
                 >
                   {dir}
@@ -712,8 +712,8 @@ export default function NcpDiagnosisPage({
                   onClick={() => updateBuilder({ niNutrient: n })}
                   className={`px-3 py-2 text-xs font-semibold rounded-lg border transition-all cursor-pointer text-left ${
                     builder.niNutrient === n
-                      ? "bg-blue-50 text-blue-800 border-blue-300 font-bold"
-                      : "bg-white text-zinc-600 border-zinc-200 hover:border-zinc-300"
+                      ? "bg-sky-50 text-sky-800 border-sky-300 font-bold"
+                      : "bg-white text-warm-600 border-warm-200 hover:border-warm-300"
                   }`}
                 >
                   {n}
@@ -726,7 +726,7 @@ export default function NcpDiagnosisPage({
                 value={builder.niNutrient.includes("specify") ? "" : builder.niNutrient}
                 onChange={e => updateBuilder({ niNutrient: e.target.value })}
                 placeholder="Specify nutrient or mineral..."
-                className="mt-2 w-full px-3 py-2 text-xs bg-white border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400/20 focus:border-blue-400"
+                className="mt-2 w-full px-3 py-2 text-xs bg-white border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-400/20 focus:border-sky-400"
               />
             )}
           </div>
@@ -736,7 +736,7 @@ export default function NcpDiagnosisPage({
       {builder.domain === "NC" && (
         <div>
           <SectionLabel>Step 2: Select Clinical Problem(s)</SectionLabel>
-          <div className="space-y-1 bg-zinc-50/60 rounded-xl p-4 border border-zinc-200">
+          <div className="space-y-1 bg-warm-50/60 rounded-xl p-4 border border-warm-200">
             {NC_PROBLEMS.map(p => (
               <Checkbox
                 key={p}
@@ -756,7 +756,7 @@ export default function NcpDiagnosisPage({
       {builder.domain === "NB" && (
         <div>
           <SectionLabel>Step 2: Select Behavioral-Environmental Problem(s)</SectionLabel>
-          <div className="space-y-1 bg-zinc-50/60 rounded-xl p-4 border border-zinc-200">
+          <div className="space-y-1 bg-warm-50/60 rounded-xl p-4 border border-warm-200">
             {NB_PROBLEMS.map(p => (
               <Checkbox
                 key={p}
@@ -780,12 +780,12 @@ export default function NcpDiagnosisPage({
           onChange={e => updateBuilder({ extraNotes: e.target.value })}
           placeholder="Additional context or notes for this diagnosis..."
           rows={2}
-          className="w-full px-3 py-2 text-xs bg-white border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 placeholder:text-zinc-400 resize-none"
+          className="w-full px-3 py-2 text-xs bg-white border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 placeholder:text-warm-400 resize-none"
         />
       </div>
 
-      <div className="p-4 bg-zinc-950 rounded-xl border border-zinc-800">
-        <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-wider block mb-1">Problem preview (P)</span>
+      <div className="p-4 bg-forest-900 rounded-xl border border-forest-line">
+        <span className="text-[9px] font-bold text-warm-500 uppercase tracking-wider block mb-1">Problem preview (P)</span>
         <span className="text-xs font-semibold text-emerald-300">{buildProblemText(builder)}</span>
       </div>
 
@@ -805,8 +805,8 @@ export default function NcpDiagnosisPage({
     <div className="space-y-5 max-w-2xl">
       <div>
         <SectionLabel>Select Etiology Factors (Related to)</SectionLabel>
-        <p className="text-[11px] text-zinc-400 mb-3">Select all that apply for the <span className="font-bold text-zinc-600">{DOMAIN_META[builder.domain].label}</span> domain.</p>
-        <div className="space-y-1 bg-zinc-50/60 rounded-xl p-4 border border-zinc-200">
+        <p className="text-[11px] text-warm-400 mb-3">Select all that apply for the <span className="font-bold text-warm-600">{DOMAIN_META[builder.domain].label}</span> domain.</p>
+        <div className="space-y-1 bg-warm-50/60 rounded-xl p-4 border border-warm-200">
           {getEtiologies(builder.domain).map(e => (
             <Checkbox
               key={e}
@@ -828,15 +828,15 @@ export default function NcpDiagnosisPage({
           onChange={e => updateBuilder({ etiologyNotes: e.target.value })}
           placeholder="Specify any additional etiology not listed above..."
           rows={3}
-          className="w-full px-3 py-2 text-xs bg-white border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 placeholder:text-zinc-400 resize-none"
+          className="w-full px-3 py-2 text-xs bg-white border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 placeholder:text-warm-400 resize-none"
         />
       </div>
-      <div className="p-4 bg-zinc-950 rounded-xl border border-zinc-800">
-        <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-wider block mb-1">Etiology preview (E)</span>
+      <div className="p-4 bg-forest-900 rounded-xl border border-forest-line">
+        <span className="text-[9px] font-bold text-warm-500 uppercase tracking-wider block mb-1">Etiology preview (E)</span>
         <span className="text-xs font-semibold text-emerald-300">{buildEtiologyText(builder)}</span>
       </div>
       <div className="flex justify-between">
-        <button type="button" onClick={() => setActiveTab("problem")} className="px-4 py-2 text-[10px] font-bold text-zinc-600 bg-white border border-zinc-200 rounded-lg hover:bg-zinc-50 transition-colors cursor-pointer">
+        <button type="button" onClick={() => setActiveTab("problem")} className="px-4 py-2 text-[10px] font-bold text-warm-600 bg-white border border-warm-200 rounded-lg hover:bg-warm-50 transition-colors cursor-pointer">
           ← Back
         </button>
         <button type="button" onClick={() => setActiveTab("signs")} className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-extrabold uppercase tracking-wider rounded-lg transition-colors cursor-pointer">
@@ -850,8 +850,8 @@ export default function NcpDiagnosisPage({
     <div className="space-y-5 max-w-2xl">
       <div>
         <SectionLabel>Select Signs & Symptoms (As Evidenced By)</SectionLabel>
-        <p className="text-[11px] text-zinc-400 mb-3">Select all that apply for the <span className="font-bold text-zinc-600">{DOMAIN_META[builder.domain].label}</span> domain.</p>
-        <div className="space-y-1 bg-zinc-50/60 rounded-xl p-4 border border-zinc-200">
+        <p className="text-[11px] text-warm-400 mb-3">Select all that apply for the <span className="font-bold text-warm-600">{DOMAIN_META[builder.domain].label}</span> domain.</p>
+        <div className="space-y-1 bg-warm-50/60 rounded-xl p-4 border border-warm-200">
           {getSigns(builder.domain).map(s => (
             <Checkbox
               key={s}
@@ -873,15 +873,15 @@ export default function NcpDiagnosisPage({
           onChange={e => updateBuilder({ signNotes: e.target.value })}
           placeholder="Specify additional signs and symptoms with values, e.g. albumin 2.8 g/dL..."
           rows={3}
-          className="w-full px-3 py-2 text-xs bg-white border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 placeholder:text-zinc-400 resize-none"
+          className="w-full px-3 py-2 text-xs bg-white border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 placeholder:text-warm-400 resize-none"
         />
       </div>
-      <div className="p-4 bg-zinc-950 rounded-xl border border-zinc-800">
-        <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-wider block mb-1">Signs & Symptoms preview (S)</span>
+      <div className="p-4 bg-forest-900 rounded-xl border border-forest-line">
+        <span className="text-[9px] font-bold text-warm-500 uppercase tracking-wider block mb-1">Signs & Symptoms preview (S)</span>
         <span className="text-xs font-semibold text-emerald-300">{buildSignsText(builder)}</span>
       </div>
       <div className="flex justify-between">
-        <button type="button" onClick={() => setActiveTab("etiology")} className="px-4 py-2 text-[10px] font-bold text-zinc-600 bg-white border border-zinc-200 rounded-lg hover:bg-zinc-50 transition-colors cursor-pointer">
+        <button type="button" onClick={() => setActiveTab("etiology")} className="px-4 py-2 text-[10px] font-bold text-warm-600 bg-white border border-warm-200 rounded-lg hover:bg-warm-50 transition-colors cursor-pointer">
           ← Back
         </button>
         <button type="button" onClick={() => setActiveTab("pes")} className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-extrabold uppercase tracking-wider rounded-lg transition-colors cursor-pointer">
@@ -900,18 +900,18 @@ export default function NcpDiagnosisPage({
     return (
       <div className="space-y-5 max-w-2xl">
         <div className="grid grid-cols-1 gap-4">
-          <div className="p-4 bg-zinc-50 border border-zinc-200 rounded-xl space-y-3">
+          <div className="p-4 bg-warm-50 border border-warm-200 rounded-xl space-y-3">
             <div>
-              <span className="text-[9px] font-bold text-blue-600 uppercase tracking-wider block mb-0.5">Problem (P)</span>
-              <span className="text-xs font-semibold text-zinc-800">{problem}</span>
+              <span className="text-[9px] font-bold text-sky-600 uppercase tracking-wider block mb-0.5">Problem (P)</span>
+              <span className="text-xs font-semibold text-warm-800">{problem}</span>
             </div>
             <div>
-              <span className="text-[9px] font-bold text-purple-600 uppercase tracking-wider block mb-0.5">Etiology (E)</span>
-              <span className="text-xs font-semibold text-zinc-800">{etiology}</span>
+              <span className="text-[9px] font-bold text-sky-600 uppercase tracking-wider block mb-0.5">Etiology (E)</span>
+              <span className="text-xs font-semibold text-warm-800">{etiology}</span>
             </div>
             <div>
               <span className="text-[9px] font-bold text-amber-600 uppercase tracking-wider block mb-0.5">Signs & Symptoms (S)</span>
-              <span className="text-xs font-semibold text-zinc-800">{signs}</span>
+              <span className="text-xs font-semibold text-warm-800">{signs}</span>
             </div>
           </div>
 
@@ -921,10 +921,10 @@ export default function NcpDiagnosisPage({
               value={builder.pesOverride}
               onChange={e => updateBuilder({ pesOverride: e.target.value })}
               rows={4}
-              className="w-full px-3 py-2 text-xs bg-white border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-medium text-zinc-900 placeholder:text-zinc-400 resize-none"
+              className="w-full px-3 py-2 text-xs bg-white border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-medium text-warm-900 placeholder:text-warm-400 resize-none"
               placeholder="PES statement will auto-populate when P, E, and S are complete..."
             />
-            <p className="text-[10px] text-zinc-400 mt-1">The statement above is auto-generated from the builder. Edit manually if needed before saving.</p>
+            <p className="text-[10px] text-warm-400 mt-1">The statement above is auto-generated from the builder. Edit manually if needed before saving.</p>
           </div>
 
           {!isComplete && (
@@ -936,14 +936,14 @@ export default function NcpDiagnosisPage({
         </div>
 
         <div className="flex justify-between">
-          <button type="button" onClick={() => setActiveTab("signs")} className="px-4 py-2 text-[10px] font-bold text-zinc-600 bg-white border border-zinc-200 rounded-lg hover:bg-zinc-50 transition-colors cursor-pointer">
+          <button type="button" onClick={() => setActiveTab("signs")} className="px-4 py-2 text-[10px] font-bold text-warm-600 bg-white border border-warm-200 rounded-lg hover:bg-warm-50 transition-colors cursor-pointer">
             ← Back
           </button>
           <button
             type="button"
             onClick={handleSave}
             disabled={saving || !isComplete}
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-zinc-300 text-white text-[10px] font-extrabold uppercase tracking-wider rounded-lg transition-colors cursor-pointer disabled:cursor-not-allowed shadow-sm"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-warm-300 text-white text-[10px] font-extrabold uppercase tracking-wider rounded-lg transition-colors cursor-pointer disabled:cursor-not-allowed shadow-sm"
           >
             {saving ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
             {saving ? "Saving..." : builder.editingId ? "Update Diagnosis" : "Save Diagnosis"}
@@ -955,19 +955,19 @@ export default function NcpDiagnosisPage({
 
   const renderAiTab = () => (
     <div className="space-y-5">
-      <div className="bg-white border border-zinc-200 rounded-2xl p-5">
+      <div className="bg-white border border-warm-200 rounded-2xl p-5">
         <div className="flex items-center gap-2 text-emerald-600 font-bold text-xs uppercase tracking-wider mb-2">
           <Sparkles className="h-4 w-4" />
           AI Suggestions
         </div>
-        <p className="text-[11px] text-zinc-600 leading-relaxed mb-4">
-          Analyzes patient medical diagnosis and existing assessments to generate draft G-NCP PES statements for review. Using patient: <span className="font-semibold text-zinc-700">{patient?.medical_diagnosis ?? "No diagnosis on file"}</span>
+        <p className="text-[11px] text-warm-600 leading-relaxed mb-4">
+          Analyzes patient medical diagnosis and existing assessments to generate draft G-NCP PES statements for review. Using patient: <span className="font-semibold text-warm-700">{patient?.medical_diagnosis ?? "No diagnosis on file"}</span>
         </p>
         <button
           type="button"
           onClick={handleAiSuggest}
           disabled={aiLoading}
-          className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-zinc-300 text-white text-[10px] font-extrabold uppercase tracking-wider rounded-lg transition-colors cursor-pointer disabled:cursor-not-allowed"
+          className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-warm-300 text-white text-[10px] font-extrabold uppercase tracking-wider rounded-lg transition-colors cursor-pointer disabled:cursor-not-allowed"
         >
           {aiLoading ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
           {aiLoading ? "Generating suggestions..." : "Generate AI Suggestions"}
@@ -976,14 +976,14 @@ export default function NcpDiagnosisPage({
 
       {aiSuggestions.length > 0 && (
         <div className="space-y-3">
-          <h4 className="text-[10px] font-extrabold text-zinc-700 uppercase tracking-wider">
+          <h4 className="text-[10px] font-extrabold text-warm-700 uppercase tracking-wider">
             AI Suggestions ({aiSuggestions.filter((_, i) => !aiDismissed.has(i)).length} pending)
           </h4>
           {aiSuggestions.map((s, i) => {
             if (aiDismissed.has(i)) return null;
             const pes = `${s.label} related to ${s.etiology} as evidenced by ${s.signs}`;
             return (
-              <div key={i} className="bg-white border border-zinc-200 rounded-2xl p-5 shadow-sm space-y-3">
+              <div key={i} className="bg-white border border-warm-200 rounded-2xl p-5 shadow-sm space-y-3">
                 <div className="flex items-start justify-between gap-3">
                   <div className="space-y-1">
                     <DomainBadge domain={s.domain} />
@@ -1000,18 +1000,18 @@ export default function NcpDiagnosisPage({
                   )}
                 </div>
                 <div className="space-y-2 text-xs">
-                  <div><span className="font-bold text-blue-600">P:</span> <span className="text-zinc-700">{s.label}</span></div>
-                  <div><span className="font-bold text-purple-600">E:</span> <span className="text-zinc-700">{s.etiology}</span></div>
-                  <div><span className="font-bold text-amber-600">S:</span> <span className="text-zinc-700">{s.signs}</span></div>
+                  <div><span className="font-bold text-sky-600">P:</span> <span className="text-warm-700">{s.label}</span></div>
+                  <div><span className="font-bold text-sky-600">E:</span> <span className="text-warm-700">{s.etiology}</span></div>
+                  <div><span className="font-bold text-amber-600">S:</span> <span className="text-warm-700">{s.signs}</span></div>
                 </div>
-                <div className="p-3 bg-zinc-50 border border-zinc-100 rounded-lg">
-                  <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider block mb-1">PES Statement</span>
-                  <p className="text-[11px] font-medium text-zinc-800 italic leading-relaxed">{pes}</p>
+                <div className="p-3 bg-warm-50 border border-warm-100 rounded-lg">
+                  <span className="text-[9px] font-bold text-warm-400 uppercase tracking-wider block mb-1">PES Statement</span>
+                  <p className="text-[11px] font-medium text-warm-800 italic leading-relaxed">{pes}</p>
                 </div>
                 {s.reasoning && (
-                  <p className="text-[10px] text-zinc-500 leading-relaxed">{s.reasoning}</p>
+                  <p className="text-[10px] text-warm-500 leading-relaxed">{s.reasoning}</p>
                 )}
-                <div className="flex items-center gap-2 pt-1 border-t border-zinc-100">
+                <div className="flex items-center gap-2 pt-1 border-t border-warm-100">
                   <button
                     type="button"
                     onClick={() => handleAiAccept(s, i)}
@@ -1022,14 +1022,14 @@ export default function NcpDiagnosisPage({
                   <button
                     type="button"
                     onClick={() => handleAiEdit(s)}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 text-[10px] font-bold uppercase tracking-wider rounded-lg border border-blue-200 transition-colors cursor-pointer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-sky-50 hover:bg-sky-100 text-sky-700 text-[10px] font-bold uppercase tracking-wider rounded-lg border border-sky-200 transition-colors cursor-pointer"
                   >
                     <Pencil className="h-3 w-3" /> Edit then Accept
                   </button>
                   <button
                     type="button"
                     onClick={() => setAiDismissed(prev => new Set([...prev, i]))}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-600 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-colors cursor-pointer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-warm-100 hover:bg-warm-200 text-warm-600 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-colors cursor-pointer"
                   >
                     <X className="h-3 w-3" /> Reject
                   </button>
@@ -1056,38 +1056,38 @@ export default function NcpDiagnosisPage({
   return (
     <div className="space-y-4 font-sans">
       {/* Breadcrumb */}
-      <div className="flex items-center gap-1.5 text-xs font-semibold text-zinc-400 select-none">
+      <div className="flex items-center gap-1.5 text-xs font-semibold text-warm-400 select-none">
         <Link href="/ncp/patients" className="hover:text-emerald-700 transition-colors">Directory</Link>
         <ChevronRight className="h-3 w-3" />
         <Link href={`/ncp/patients/${patientId}`} className="hover:text-emerald-700 transition-colors">
           {patient?.name ?? systemId}
         </Link>
         <ChevronRight className="h-3 w-3" />
-        <span className="text-zinc-700 font-bold">Diagnosis</span>
+        <span className="text-warm-700 font-bold">Diagnosis</span>
       </div>
 
       {/* Patient Header */}
-      <div className="bg-white border border-zinc-200 rounded-xl px-5 py-3.5 shadow-sm">
+      <div className="bg-white border border-warm-200 rounded-xl px-5 py-3.5 shadow-sm">
         <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
           <div className="flex items-center gap-2.5">
             <div className="h-8 w-8 bg-emerald-50 border border-emerald-100 rounded-lg flex items-center justify-center text-emerald-700">
               <Heart className="h-4 w-4" />
             </div>
             <div>
-              <h2 className="text-sm font-extrabold text-zinc-950 tracking-tight">{patient?.name ?? "Loading..."}</h2>
-              <p className="text-[10px] font-mono text-zinc-400">{systemId}</p>
+              <h2 className="text-sm font-extrabold text-warm-900 tracking-tight">{patient?.name ?? "Loading..."}</h2>
+              <p className="text-[10px] font-mono text-warm-400">{systemId}</p>
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-3 text-[10px]">
             {patient?.ward && (
-              <span className="px-2 py-0.5 bg-zinc-100 text-zinc-700 rounded font-bold">Ward: {patient.ward}</span>
+              <span className="px-2 py-0.5 bg-warm-100 text-warm-700 rounded font-bold">Ward: {patient.ward}</span>
             )}
             {patient?.medical_diagnosis && (
-              <span className="px-2 py-0.5 bg-blue-50 text-blue-700 border border-blue-100 rounded font-bold">
+              <span className="px-2 py-0.5 bg-sky-50 text-sky-700 border border-sky-100 rounded font-bold">
                 Dx: {patient.medical_diagnosis}
               </span>
             )}
-            <span className="px-2 py-0.5 bg-stethoscope-50 text-zinc-500 rounded font-bold">
+            <span className="px-2 py-0.5 bg-stethoscope-50 text-warm-500 rounded font-bold">
               {diagnoses.length} {diagnoses.length !== 1 ? "diagnoses" : "diagnosis"} recorded
             </span>
           </div>
@@ -1107,8 +1107,8 @@ export default function NcpDiagnosisPage({
       )}
 
       {/* Tab Navigation */}
-      <div className="bg-white border border-zinc-200 rounded-xl overflow-hidden shadow-sm">
-        <div className="flex overflow-x-auto border-b border-zinc-200 bg-zinc-50/50">
+      <div className="bg-white border border-warm-200 rounded-xl overflow-hidden shadow-sm">
+        <div className="flex overflow-x-auto border-b border-warm-200 bg-warm-50/50">
           {TABS.map(tab => {
             const isActive = activeTab === tab.key;
             const isBuilderTab = ["problem", "etiology", "signs", "pes"].includes(tab.key);
@@ -1121,7 +1121,7 @@ export default function NcpDiagnosisPage({
                 className={`relative flex items-center gap-1.5 px-4 py-3 text-[10px] font-bold uppercase tracking-wider whitespace-nowrap border-b-2 transition-all cursor-pointer ${
                   isActive
                     ? "text-emerald-700 border-emerald-600 bg-white"
-                    : "text-zinc-500 border-transparent hover:text-zinc-700 hover:bg-white/50"
+                    : "text-warm-500 border-transparent hover:text-warm-700 hover:bg-white/50"
                 }`}
               >
                 {tab.label}
@@ -1140,14 +1140,14 @@ export default function NcpDiagnosisPage({
 
       {/* Builder context bar */}
       {activeTab !== "table" && activeTab !== "ai" && (
-        <div className="bg-white border border-zinc-200 rounded-xl px-5 py-3.5 flex items-center justify-between shadow-sm">
-          <div className="text-[10px] text-zinc-500 font-semibold select-none">
+        <div className="bg-white border border-warm-200 rounded-xl px-5 py-3.5 flex items-center justify-between shadow-sm">
+          <div className="text-[10px] text-warm-500 font-semibold select-none">
             {builder.editingId ? `Editing diagnosis #${builder.editingId}` : "New diagnosis"} · NCP Cycle #{ncpId}
           </div>
           <button
             type="button"
             onClick={() => { setBuilder(defaultBuilder()); setActiveTab("table"); }}
-            className="text-[10px] font-bold text-zinc-400 hover:text-zinc-700 transition-colors cursor-pointer"
+            className="text-[10px] font-bold text-warm-400 hover:text-warm-700 transition-colors cursor-pointer"
           >
             Cancel
           </button>

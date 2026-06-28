@@ -243,10 +243,10 @@ export default function DashboardScreen() {
                     {po.po_number ?? `PO #${po.id}`}
                   </Text>
                   <View className={`px-2 py-0.5 rounded-full ${
-                    po.procurement_track === 'food' ? 'bg-emerald-100' : 'bg-blue-100'
+                    po.procurement_track === 'food' ? 'bg-emerald-100' : 'bg-sky-100'
                   }`}>
                     <Text className={`text-xs font-medium ${
-                      po.procurement_track === 'food' ? 'text-emerald-700' : 'text-blue-700'
+                      po.procurement_track === 'food' ? 'text-emerald-700' : 'text-sky-700'
                     }`}>
                       {po.procurement_track === 'food' ? 'Food' : 'Supplies'}
                     </Text>
@@ -420,7 +420,7 @@ function AnnouncementCard({
   return (
     <View
       className={`px-4 py-3.5 ${isLast ? '' : 'border-b border-gray-100'} ${
-        announcement.pinned ? 'bg-purple-50' : 'bg-white'
+        announcement.pinned ? 'bg-emerald-50' : 'bg-white'
       }`}
     >
       <View className="flex-row items-start justify-between gap-2">
@@ -430,8 +430,8 @@ function AnnouncementCard({
               <Pin color="#7c3aed" size={12} />
             )}
             {announcement.category && (
-              <View className="bg-purple-100 px-1.5 py-0.5 rounded-full">
-                <Text className="text-xs font-medium text-purple-700">{announcement.category}</Text>
+              <View className="bg-emerald-100 px-1.5 py-0.5 rounded-full">
+                <Text className="text-xs font-medium text-emerald-700">{announcement.category}</Text>
               </View>
             )}
           </View>

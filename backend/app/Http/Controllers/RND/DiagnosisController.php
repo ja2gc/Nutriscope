@@ -54,6 +54,9 @@ class DiagnosisController extends Controller
 
         $data = $request->validated();
         $diagnosis->fill($data);
+        if (array_key_exists('problem', $data)) {
+            $diagnosis->label = $data['problem'];
+        }
         $diagnosis->pes_statement = $this->resolvePes($data, $diagnosis);
         $diagnosis->save();
 

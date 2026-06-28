@@ -5,7 +5,7 @@ interface Props { value: string; onChange: (v: string) => void; onSave: () => vo
 export default function EducationTab({ value, onChange, onSave, saving }: Props) {
   return (
     <div className="space-y-4">
-      <p className="text-[10px] text-zinc-400 leading-relaxed">
+      <p className="text-[10px] text-warm-400 leading-relaxed">
         Record educational topics, handouts given, and key instructions discussed with the patient.
       </p>
       <textarea
@@ -13,7 +13,7 @@ export default function EducationTab({ value, onChange, onSave, saving }: Props)
         onChange={(e) => onChange(e.target.value)}
         rows={10}
         placeholder="e.g. Discussed importance of low-sodium diet. Provided handout on renal diet food choices. Reviewed portion sizes..."
-        className="w-full px-3.5 py-3 text-sm border border-zinc-200 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
+        className="w-full px-3.5 py-3 text-sm border border-warm-200 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
       />
       <div className="flex justify-end">
         <button onClick={onSave} disabled={saving}

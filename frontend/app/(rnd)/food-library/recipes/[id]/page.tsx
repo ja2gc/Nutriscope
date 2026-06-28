@@ -145,7 +145,7 @@ export default function EditRecipePage({ params }: { params: Promise<{ id: strin
 
   return (
     <div className="space-y-6 font-sans max-w-3xl mx-auto">
-      <div className="flex items-center gap-2 text-xs font-semibold text-zinc-400 select-none">
+      <div className="flex items-center gap-2 text-xs font-semibold text-warm-400 select-none">
         <Link href="/dashboard" className="hover:text-emerald-700 transition-colors">Home</Link>
         <span>/</span>
         <Link href="/food-library" className="hover:text-emerald-700 transition-colors">Food Library</Link>
@@ -153,24 +153,24 @@ export default function EditRecipePage({ params }: { params: Promise<{ id: strin
         <span className="text-zinc-650 font-bold truncate max-w-40">{recipe?.name}</span>
       </div>
 
-      <div className="border-b border-zinc-200 pb-5 flex items-center gap-4">
-        <Link href="/food-library" className="p-2 rounded-lg border border-zinc-200 hover:bg-zinc-50 text-zinc-500 transition-colors">
+      <div className="border-b border-warm-200 pb-5 flex items-center gap-4">
+        <Link href="/food-library" className="p-2 rounded-lg border border-warm-200 hover:bg-warm-50 text-warm-500 transition-colors">
           <ArrowLeft className="h-4 w-4" />
         </Link>
         <div>
-          <h2 className="text-xl font-extrabold text-zinc-950 tracking-tight flex items-center gap-2.5">
+          <h2 className="text-xl font-extrabold text-warm-900 tracking-tight flex items-center gap-2.5">
             <CookingPot className="h-5 w-5 text-emerald-600" />
             Edit Recipe
           </h2>
-          <p className="text-xs text-zinc-500 mt-1 select-none">Update ingredients — macro totals recalculate on save.</p>
+          <p className="text-xs text-warm-500 mt-1 select-none">Update ingredients — macro totals recalculate on save.</p>
         </div>
       </div>
 
       {error && <div className="bg-red-50 border border-red-100 p-4 rounded-xl text-xs text-red-700 font-bold">{error}</div>}
 
       <form onSubmit={handleSubmit} className="space-y-5">
-        <div className="bg-white border border-zinc-200 rounded-2xl p-6 space-y-4 shadow-sm">
-          <h3 className="text-xs font-extrabold text-zinc-700 uppercase tracking-wider">Recipe Details</h3>
+        <div className="bg-white border border-warm-200 rounded-2xl p-6 space-y-4 shadow-sm">
+          <h3 className="text-xs font-extrabold text-warm-700 uppercase tracking-wider">Recipe Details</h3>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="sm:col-span-2"><Label>Recipe Name <Required /></Label><input type="text" value={name} onChange={(e) => setName(e.target.value)} className={inputCls} required /></div>
             <div><Label>Category</Label>
@@ -187,14 +187,14 @@ export default function EditRecipePage({ params }: { params: Promise<{ id: strin
         <div className="grid grid-cols-4 gap-3">
           {[
             { label: "Calories", value: macros.cal,  unit: "kcal", color: "text-emerald-600" },
-            { label: "Protein",  value: macros.pro,  unit: "g",    color: "text-rose-600" },
+            { label: "Protein",  value: macros.pro,  unit: "g",    color: "text-red-600" },
             { label: "Carbs",    value: macros.carb, unit: "g",    color: "text-amber-600" },
-            { label: "Fat",      value: macros.fat,  unit: "g",    color: "text-violet-600" },
+            { label: "Fat",      value: macros.fat,  unit: "g",    color: "text-sky-600" },
           ].map(({ label, value, unit, color }) => (
-            <div key={label} className="bg-white border border-zinc-200 rounded-xl p-3 text-center shadow-sm">
-              <div className="text-[10px] font-extrabold text-zinc-500 uppercase tracking-wider">{label}</div>
+            <div key={label} className="bg-white border border-warm-200 rounded-xl p-3 text-center shadow-sm">
+              <div className="text-[10px] font-extrabold text-warm-500 uppercase tracking-wider">{label}</div>
               <div className={`text-lg font-extrabold mt-1 ${color}`}>{value}</div>
-              <div className="text-[9px] text-zinc-400 font-semibold">{unit}</div>
+              <div className="text-[9px] text-warm-400 font-semibold">{unit}</div>
             </div>
           ))}
         </div>
@@ -202,17 +202,17 @@ export default function EditRecipePage({ params }: { params: Promise<{ id: strin
         {/* Micros preview button */}
         <div className="flex justify-end">
           <button type="button" onClick={() => setShowMicros(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 text-xs font-bold rounded-xl transition-colors cursor-pointer">
+            className="flex items-center gap-2 px-4 py-2 bg-sky-50 hover:bg-sky-100 border border-sky-200 text-sky-700 text-xs font-bold rounded-xl transition-colors cursor-pointer">
             <FlaskConical className="h-3.5 w-3.5" />
             View Micronutrient Profile
           </button>
         </div>
 
-        <div className="bg-white border border-zinc-200 rounded-2xl p-6 space-y-4 shadow-sm">
+        <div className="bg-white border border-warm-200 rounded-2xl p-6 space-y-4 shadow-sm">
           <div className="flex items-center justify-between">
-            <h3 className="text-xs font-extrabold text-zinc-700 uppercase tracking-wider">Ingredients</h3>
+            <h3 className="text-xs font-extrabold text-warm-700 uppercase tracking-wider">Ingredients</h3>
             <button type="button" onClick={() => setIngredients((prev) => [...prev, { key: rowKey++, food: null, foodSearch: "", searchResults: [], showDropdown: false, quantity: "", unit: "g" }])}
-              className="flex items-center gap-1.5 px-3 py-1.5 border border-zinc-300 rounded-lg text-zinc-600 hover:bg-zinc-50 cursor-pointer transition-colors text-[10px] font-bold uppercase tracking-wider">
+              className="flex items-center gap-1.5 px-3 py-1.5 border border-warm-300 rounded-lg text-warm-600 hover:bg-warm-50 cursor-pointer transition-colors text-[10px] font-bold uppercase tracking-wider">
               <Plus className="h-3 w-3" /> Add Row
             </button>
           </div>
@@ -220,38 +220,38 @@ export default function EditRecipePage({ params }: { params: Promise<{ id: strin
             {ingredients.map((row, idx) => (
               <div key={row.key} className="flex gap-2 items-start">
                 <div className="relative flex-1">
-                  <div className="flex items-center gap-2 w-full px-3 py-2 border border-zinc-300 rounded-lg bg-white">
-                    <Search className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
+                  <div className="flex items-center gap-2 w-full px-3 py-2 border border-warm-300 rounded-lg bg-white">
+                    <Search className="h-3.5 w-3.5 text-warm-400 shrink-0" />
                     <input
                       type="text"
                       value={row.foodSearch}
                       onChange={async (e) => { const v = e.target.value; updateRow(idx, { foodSearch: v, food: v ? row.food : null }); await searchFoods(v, idx); }}
                       placeholder="Search food from library..."
-                      className="flex-1 text-sm text-zinc-900 outline-none placeholder:text-zinc-400 bg-transparent"
+                      className="flex-1 text-sm text-warm-900 outline-none placeholder:text-warm-400 bg-transparent"
                     />
                     {row.food && <span className="text-[9px] text-emerald-600 font-bold shrink-0">{row.food.calories} kcal</span>}
                   </div>
                   {row.showDropdown && row.searchResults.length > 0 && (
-                    <div className="absolute top-full left-0 right-0 z-30 mt-1 bg-white border border-zinc-200 rounded-xl shadow-lg overflow-hidden">
+                    <div className="absolute top-full left-0 right-0 z-30 mt-1 bg-white border border-warm-200 rounded-xl shadow-lg overflow-hidden">
                       {row.searchResults.map((food) => (
                         <button key={food.id} type="button" onClick={() => selectFood(idx, food)}
-                          className="w-full text-left px-3 py-2 hover:bg-zinc-50 transition-colors border-b border-zinc-100 last:border-0 cursor-pointer">
-                          <div className="text-xs font-bold text-zinc-900">{food.name}</div>
-                          <div className="text-[10px] text-zinc-400">{food.calories} kcal · P {food.protein ?? 0}g · C {food.carbs ?? 0}g · F {food.fat ?? 0}g</div>
+                          className="w-full text-left px-3 py-2 hover:bg-warm-50 transition-colors border-b border-warm-100 last:border-0 cursor-pointer">
+                          <div className="text-xs font-bold text-warm-900">{food.name}</div>
+                          <div className="text-[10px] text-warm-400">{food.calories} kcal · P {food.protein ?? 0}g · C {food.carbs ?? 0}g · F {food.fat ?? 0}g</div>
                         </button>
                       ))}
                     </div>
                   )}
                 </div>
                 <input type="number" value={row.quantity} onChange={(e) => updateRow(idx, { quantity: e.target.value })} placeholder="Qty" min="0" step="0.1"
-                  className="w-20 px-3 py-2 text-sm border border-zinc-300 rounded-lg text-zinc-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600" />
+                  className="w-20 px-3 py-2 text-sm border border-warm-300 rounded-lg text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600" />
                 <select value={row.unit} onChange={(e) => updateRow(idx, { unit: e.target.value })}
-                  className="w-20 px-2 py-2 text-sm border border-zinc-300 rounded-lg text-zinc-900 focus:outline-none cursor-pointer">
+                  className="w-20 px-2 py-2 text-sm border border-warm-300 rounded-lg text-warm-900 focus:outline-none cursor-pointer">
                   {["g", "ml", "piece", "cup", "oz", "tbsp", "tsp"].map((u) => <option key={u} value={u}>{u}</option>)}
                 </select>
                 <button type="button" onClick={() => setIngredients((prev) => prev.filter((_, i) => i !== idx))}
                   disabled={ingredients.length === 1}
-                  className="p-2 rounded-lg text-zinc-400 hover:text-red-500 hover:bg-red-50 disabled:opacity-30 cursor-pointer transition-colors">
+                  className="p-2 rounded-lg text-warm-400 hover:text-red-500 hover:bg-red-50 disabled:opacity-30 cursor-pointer transition-colors">
                   <X className="h-3.5 w-3.5" />
                 </button>
               </div>
@@ -272,16 +272,16 @@ export default function EditRecipePage({ params }: { params: Promise<{ id: strin
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
             onClick={() => setShowMicros(false)}>
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl border border-zinc-200 overflow-hidden"
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl border border-warm-200 overflow-hidden"
               onClick={(e) => e.stopPropagation()}>
 
-              <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-100 bg-zinc-50/60">
+              <div className="flex items-center justify-between px-6 py-4 border-b border-warm-100 bg-warm-50/60">
                 <div>
-                  <h3 className="text-sm font-extrabold text-zinc-900">{name || "Recipe"} — Micronutrients</h3>
-                  <p className="text-[10px] text-zinc-400 mt-0.5">Aggregated from current ingredients · updates when you change quantities</p>
+                  <h3 className="text-sm font-extrabold text-warm-900">{name || "Recipe"} — Micronutrients</h3>
+                  <p className="text-[10px] text-warm-400 mt-0.5">Aggregated from current ingredients · updates when you change quantities</p>
                 </div>
                 <button onClick={() => setShowMicros(false)}
-                  className="p-1.5 rounded-lg hover:bg-zinc-200 text-zinc-400 cursor-pointer transition-colors">
+                  className="p-1.5 rounded-lg hover:bg-warm-200 text-warm-400 cursor-pointer transition-colors">
                   <X className="h-4 w-4" />
                 </button>
               </div>
@@ -289,9 +289,9 @@ export default function EditRecipePage({ params }: { params: Promise<{ id: strin
               <div className="px-6 py-4 max-h-[60vh] overflow-y-auto space-y-4">
                 {!hasMicros ? (
                   <div className="text-center py-10">
-                    <FlaskConical className="h-8 w-8 text-zinc-200 mx-auto mb-3" />
-                    <p className="text-xs text-zinc-400">No micronutrient data available.</p>
-                    <p className="text-[10px] text-zinc-300 mt-1">Add ingredients imported from USDA — they carry full micro profiles.</p>
+                    <FlaskConical className="h-8 w-8 text-warm-200 mx-auto mb-3" />
+                    <p className="text-xs text-warm-400">No micronutrient data available.</p>
+                    <p className="text-[10px] text-warm-300 mt-1">Add ingredients imported from USDA — they carry full micro profiles.</p>
                   </div>
                 ) : (
                   Object.entries(NUTRIENT_GROUPS).map(([group, keys]) => {
@@ -299,13 +299,13 @@ export default function EditRecipePage({ params }: { params: Promise<{ id: strin
                     if (present.length === 0) return null;
                     return (
                       <div key={group}>
-                        <p className="text-[9px] font-extrabold text-zinc-400 uppercase tracking-widest mb-2">{group}</p>
+                        <p className="text-[9px] font-extrabold text-warm-400 uppercase tracking-widest mb-2">{group}</p>
                         <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
                           {present.map((key) => (
-                            <div key={key} className="flex flex-col px-2.5 py-2 bg-zinc-50 border border-zinc-100 rounded-lg">
-                              <span className="text-[9px] text-zinc-400 uppercase tracking-wide">{key.replace(/_/g, " ")}</span>
-                              <span className="text-xs font-bold text-zinc-800 mt-0.5">
-                                {micros[key]} <span className="text-[9px] font-normal text-zinc-400">{NUTRIENT_UNITS[key]}</span>
+                            <div key={key} className="flex flex-col px-2.5 py-2 bg-warm-50 border border-warm-100 rounded-lg">
+                              <span className="text-[9px] text-warm-400 uppercase tracking-wide">{key.replace(/_/g, " ")}</span>
+                              <span className="text-xs font-bold text-warm-800 mt-0.5">
+                                {micros[key]} <span className="text-[9px] font-normal text-warm-400">{NUTRIENT_UNITS[key]}</span>
                               </span>
                             </div>
                           ))}
@@ -323,8 +323,8 @@ export default function EditRecipePage({ params }: { params: Promise<{ id: strin
   );
 }
 
-const inputCls = "w-full px-3 py-2 text-sm bg-white border border-zinc-300 rounded-lg text-zinc-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 transition-all placeholder:text-zinc-400";
+const inputCls = "w-full px-3 py-2 text-sm bg-white border border-warm-300 rounded-lg text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 transition-all placeholder:text-warm-400";
 function Label({ children }: { children: React.ReactNode }) {
-  return <label className="block text-[10px] font-extrabold text-zinc-500 uppercase tracking-wider mb-1.5">{children}</label>;
+  return <label className="block text-[10px] font-extrabold text-warm-500 uppercase tracking-wider mb-1.5">{children}</label>;
 }
 function Required() { return <span className="text-red-500 ml-0.5">*</span>; }

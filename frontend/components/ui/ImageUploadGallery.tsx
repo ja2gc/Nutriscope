@@ -61,7 +61,7 @@ export function ImageCarousel({
   if (!activeImage) return null;
 
   return (
-    <div className={`relative overflow-hidden rounded-lg border border-zinc-200 bg-zinc-50 ${className}`}>
+    <div className={`relative overflow-hidden rounded-lg border border-warm-200 bg-warm-50 ${className}`}>
       <img src={activeImage.src} alt={title} className="block w-full max-h-[520px] object-cover" />
       {hasMany && (
         <>
@@ -69,7 +69,7 @@ export function ImageCarousel({
             type="button"
             aria-label="Previous image"
             onClick={() => move(-1)}
-            className="absolute left-2 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-zinc-950/75 text-white hover:bg-zinc-900"
+            className="absolute left-2 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-forest-900/80 text-white hover:bg-forest-800"
           >
             <ChevronLeft className="h-5 w-5" />
           </button>
@@ -77,11 +77,11 @@ export function ImageCarousel({
             type="button"
             aria-label="Next image"
             onClick={() => move(1)}
-            className="absolute right-2 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-zinc-950/75 text-white hover:bg-zinc-900"
+            className="absolute right-2 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-forest-900/80 text-white hover:bg-forest-800"
           >
             <ChevronRight className="h-5 w-5" />
           </button>
-          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-zinc-950/75 px-2.5 py-1 text-[10px] font-bold text-white">
+          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-forest-900/80 px-2.5 py-1 text-[10px] font-bold text-white">
             {activeIndex + 1} / {images.length}
           </div>
         </>
@@ -145,7 +145,7 @@ export function ImageUploadGallery({
 
   return (
     <div className="space-y-2">
-      <label htmlFor={inputId} className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">
+      <label htmlFor={inputId} className="text-[10px] font-semibold text-warm-500 uppercase tracking-wider">
         {label}
       </label>
       <input
@@ -162,28 +162,28 @@ export function ImageUploadGallery({
         aria-disabled={disabled || uploading}
         className={`inline-flex min-h-9 w-full items-center justify-center gap-2 rounded-lg border px-3 py-2 text-[10px] font-bold uppercase tracking-wider transition-colors ${
           disabled || uploading
-            ? "cursor-not-allowed border-zinc-200 bg-zinc-100 text-zinc-400"
-            : "cursor-pointer border-zinc-950 bg-zinc-950 text-white hover:bg-zinc-800"
+            ? "cursor-not-allowed border-warm-200 bg-warm-100 text-warm-400"
+            : "cursor-pointer border-forest-900 bg-forest-900 text-white hover:bg-forest-800"
         }`}
       >
         <Upload className="h-3.5 w-3.5" />
         {uploading ? "Uploading..." : "Upload image"}
       </label>
       {error && (
-        <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[11px] font-semibold text-rose-700">
+        <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[11px] font-semibold text-red-700">
           {error}
         </div>
       )}
 
       {activeImage ? (
-        <div className="relative overflow-hidden rounded-lg border border-zinc-200 bg-white">
+        <div className="relative overflow-hidden rounded-lg border border-warm-200 bg-white">
           <img src={activeImage.src} alt={activeImage.name} className="block h-56 w-full object-cover" />
           <button
             type="button"
             aria-label={`Remove ${activeImage.name}`}
             onClick={() => removeImage(activeIndex)}
             disabled={disabled || deletingImageId === activeImage.id}
-            className="absolute right-2 top-2 inline-flex h-7 min-w-7 items-center justify-center rounded-full bg-zinc-950/80 px-2 text-white hover:bg-zinc-900 disabled:cursor-wait disabled:opacity-70"
+            className="absolute right-2 top-2 inline-flex h-7 min-w-7 items-center justify-center rounded-full bg-forest-900/90 px-2 text-white hover:bg-forest-800 disabled:cursor-wait disabled:opacity-70"
           >
             {deletingImageId === activeImage.id ? <span className="text-[10px] font-bold">Removing...</span> : <X className="h-4 w-4" />}
           </button>
@@ -194,7 +194,7 @@ export function ImageUploadGallery({
                 type="button"
                 aria-label="Previous image"
                 onClick={() => move(-1)}
-                className="absolute left-2 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-zinc-950/75 text-white hover:bg-zinc-900"
+                className="absolute left-2 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-forest-900/80 text-white hover:bg-forest-800"
               >
                 <ChevronLeft className="h-5 w-5" />
               </button>
@@ -202,18 +202,18 @@ export function ImageUploadGallery({
                 type="button"
                 aria-label="Next image"
                 onClick={() => move(1)}
-                className="absolute right-2 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-zinc-950/75 text-white hover:bg-zinc-900"
+                className="absolute right-2 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-forest-900/80 text-white hover:bg-forest-800"
               >
                 <ChevronRight className="h-5 w-5" />
               </button>
-              <div className="absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-zinc-950/75 px-2.5 py-1 text-[10px] font-bold text-white">
+              <div className="absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-forest-900/80 px-2.5 py-1 text-[10px] font-bold text-white">
                 {activeIndex + 1} / {images.length}
               </div>
             </>
           )}
         </div>
       ) : (
-        <div className="rounded-lg border border-dashed border-zinc-200 p-6 text-center text-xs text-zinc-400 bg-white">
+        <div className="rounded-lg border border-dashed border-warm-200 p-6 text-center text-xs text-warm-400 bg-white">
           {emptyText}
         </div>
       )}

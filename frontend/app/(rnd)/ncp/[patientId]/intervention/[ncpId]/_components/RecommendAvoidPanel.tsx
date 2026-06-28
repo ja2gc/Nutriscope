@@ -83,7 +83,7 @@ export default function RecommendAvoidPanel({ goalType }: Props) {
 
   const guide = GOAL_FOOD_GUIDES[goalType];
   if (!guide) return (
-    <div className="p-4 bg-zinc-50 border border-zinc-200 rounded-xl text-xs text-zinc-400 text-center">
+    <div className="p-4 bg-warm-50 border border-warm-200 rounded-xl text-xs text-warm-400 text-center">
       No specific food guidance for this goal.
     </div>
   );
@@ -97,21 +97,21 @@ export default function RecommendAvoidPanel({ goalType }: Props) {
             <ThumbsUp className="h-3 w-3" /> Recommended Foods
           </p>
           {guide.recommend.length === 0 ? (
-            <p className="text-[10px] text-zinc-400 italic">Focus on maximizing intake of all foods.</p>
+            <p className="text-[10px] text-warm-400 italic">Focus on maximizing intake of all foods.</p>
           ) : (
             <div className="space-y-1.5">
               {guide.recommend.map((food, i) => (
                 <div key={i} className="flex items-center gap-2 px-3 py-2 border-l-2 border-emerald-400 bg-emerald-50 rounded-r-lg">
-                  <p className="text-[11px] font-semibold text-zinc-800">{food}</p>
+                  <p className="text-[11px] font-semibold text-warm-800">{food}</p>
                 </div>
               ))}
             </div>
           )}
-          <div className="mt-2 p-2.5 bg-zinc-50 border border-zinc-200 rounded-lg">
-            <p className="flex items-center gap-1 text-[9px] font-bold text-zinc-500 uppercase tracking-widest mb-1">
+          <div className="mt-2 p-2.5 bg-warm-50 border border-warm-200 rounded-lg">
+            <p className="flex items-center gap-1 text-[9px] font-bold text-warm-500 uppercase tracking-widest mb-1">
               <BookOpen className="h-2.5 w-2.5" /> General Recommendation
             </p>
-            <p className="text-[10px] text-zinc-600 leading-relaxed">{guide.generalRecommend}</p>
+            <p className="text-[10px] text-warm-600 leading-relaxed">{guide.generalRecommend}</p>
           </div>
         </div>
 
@@ -121,22 +121,22 @@ export default function RecommendAvoidPanel({ goalType }: Props) {
             <ThumbsDown className="h-3 w-3" /> Foods to Limit / Avoid
           </p>
           {guide.avoid.length === 0 ? (
-            <p className="text-[10px] text-zinc-400 italic">No strict food restrictions for this goal.</p>
+            <p className="text-[10px] text-warm-400 italic">No strict food restrictions for this goal.</p>
           ) : (
             <div className="space-y-1.5">
               {guide.avoid.map((food, i) => (
                 <div key={i} className="flex items-center gap-2 px-3 py-2 border-l-2 border-red-400 bg-red-50 rounded-r-lg">
-                  <p className="text-[11px] font-semibold text-zinc-800">{food}</p>
+                  <p className="text-[11px] font-semibold text-warm-800">{food}</p>
                 </div>
               ))}
             </div>
           )}
           {guide.generalAvoid && (
-            <div className="mt-2 p-2.5 bg-zinc-50 border border-zinc-200 rounded-lg">
-              <p className="flex items-center gap-1 text-[9px] font-bold text-zinc-500 uppercase tracking-widest mb-1">
+            <div className="mt-2 p-2.5 bg-warm-50 border border-warm-200 rounded-lg">
+              <p className="flex items-center gap-1 text-[9px] font-bold text-warm-500 uppercase tracking-widest mb-1">
                 <BookOpen className="h-2.5 w-2.5" /> General Avoidance
               </p>
-              <p className="text-[10px] text-zinc-600 leading-relaxed">{guide.generalAvoid}</p>
+              <p className="text-[10px] text-warm-600 leading-relaxed">{guide.generalAvoid}</p>
             </div>
           )}
         </div>

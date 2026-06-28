@@ -50,9 +50,9 @@ function PlanIndicatorChart({ indicator }: { indicator: PlanIndicator }) {
 
   return (
     <div>
-      <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-1.5">
+      <p className="text-[9px] font-bold text-warm-400 uppercase tracking-widest mb-1.5">
         {indicator.label}{" "}
-        <span className="normal-case font-normal text-zinc-300">({indicator.unit})</span>
+        <span className="normal-case font-normal text-warm-300">({indicator.unit})</span>
       </p>
       <ResponsiveContainer width="100%" height={120}>
         <LineChart data={points} margin={{ top: 4, right: 4, left: -28, bottom: 0 }}>
@@ -87,8 +87,8 @@ function PlanTrendCharts({ plan }: { plan: MonitoringPlan }) {
 
   if (sections.length === 0) {
     return (
-      <div className="bg-white border border-zinc-200 rounded-2xl p-8 text-center shadow-sm">
-        <p className="text-xs font-semibold text-zinc-400">No tracked indicators yet for this care plan.</p>
+      <div className="bg-white border border-warm-200 rounded-2xl p-8 text-center shadow-sm">
+        <p className="text-xs font-semibold text-warm-400">No tracked indicators yet for this care plan.</p>
       </div>
     );
   }
@@ -100,7 +100,7 @@ function PlanTrendCharts({ plan }: { plan: MonitoringPlan }) {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
             {s.items.map((i) => <PlanIndicatorChart key={i.key} indicator={i} />)}
           </div>
-          <p className="text-[9px] text-zinc-300 mt-3 select-none">
+          <p className="text-[9px] text-warm-300 mt-3 select-none">
             Visit 1 = assessment baseline · amber = reference range · green dashed = prescription target.
           </p>
         </ChartCard>
@@ -123,8 +123,8 @@ const fmtNum = (n: number) =>
 function ChartTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="bg-white border border-zinc-200 rounded-xl shadow-sm px-3 py-2.5 text-xs min-w-[120px]">
-      <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-2">{label}</p>
+    <div className="bg-white border border-warm-200 rounded-xl shadow-sm px-3 py-2.5 text-xs min-w-[120px]">
+      <p className="text-[9px] font-bold text-warm-400 uppercase tracking-widest mb-2">{label}</p>
       {payload.map(
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (p: any) =>
@@ -134,8 +134,8 @@ function ChartTooltip({ active, payload, label }: any) {
                 className="w-1.5 h-1.5 rounded-full shrink-0"
                 style={{ backgroundColor: p.color }}
               />
-              <span className="text-zinc-400 truncate max-w-[80px]">{p.name}</span>
-              <span className="font-mono font-semibold text-zinc-900 ml-auto pl-2">
+              <span className="text-warm-400 truncate max-w-[80px]">{p.name}</span>
+              <span className="font-mono font-semibold text-warm-900 ml-auto pl-2">
                 {typeof p.value === "number" ? fmtNum(p.value) : p.value}
               </span>
             </div>
@@ -161,8 +161,8 @@ function ChartCard({
   children: React.ReactNode;
 }) {
   return (
-    <div className="bg-white border border-zinc-200 rounded-2xl p-5 shadow-sm">
-      <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-4">
+    <div className="bg-white border border-warm-200 rounded-2xl p-5 shadow-sm">
+      <p className="text-[9px] font-bold text-warm-400 uppercase tracking-widest mb-4">
         {title}
       </p>
       {children}
@@ -195,7 +195,7 @@ function WeightBmiChart({ entries }: { entries: MonitoringEntry[] }) {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {hasWeight && (
           <div>
-            <p className="text-[9px] font-bold text-zinc-300 uppercase tracking-widest mb-2">
+            <p className="text-[9px] font-bold text-warm-300 uppercase tracking-widest mb-2">
               Weight (kg)
             </p>
             <ResponsiveContainer width="100%" height={130}>
@@ -221,7 +221,7 @@ function WeightBmiChart({ entries }: { entries: MonitoringEntry[] }) {
 
         {hasBmi && (
           <div>
-            <p className="text-[9px] font-bold text-zinc-300 uppercase tracking-widest mb-2">
+            <p className="text-[9px] font-bold text-warm-300 uppercase tracking-widest mb-2">
               BMI (kg/m²)
             </p>
             <ResponsiveContainer width="100%" height={130}>
@@ -374,7 +374,7 @@ function MacroTrendsChart({
         </div>
       </div>
       {hasAnyTarget && (
-        <p className="text-[9px] text-zinc-300 mt-2 select-none">
+        <p className="text-[9px] text-warm-300 mt-2 select-none">
           Dashed line = prescription target (100%). Values above = exceeds target.
         </p>
       )}
@@ -443,9 +443,9 @@ function LabTrendsChart({
 
           return (
             <div key={k}>
-              <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-1.5">
+              <p className="text-[9px] font-bold text-warm-400 uppercase tracking-widest mb-1.5">
                 {meta.label}{" "}
-                <span className="normal-case font-normal text-zinc-300">({meta.unit})</span>
+                <span className="normal-case font-normal text-warm-300">({meta.unit})</span>
               </p>
               <ResponsiveContainer width="100%" height={120}>
                 <LineChart
@@ -499,7 +499,7 @@ function LabTrendsChart({
           );
         })}
       </div>
-      <p className="text-[9px] text-zinc-300 mt-3 select-none">
+      <p className="text-[9px] text-warm-300 mt-3 select-none">
         Dashed amber lines = reference range boundaries.
       </p>
     </ChartCard>
@@ -556,9 +556,9 @@ function MicroTrendsChart({
 
           return (
             <div key={k}>
-              <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-1.5">
+              <p className="text-[9px] font-bold text-warm-400 uppercase tracking-widest mb-1.5">
                 {meta?.label ?? k}{" "}
-                <span className="normal-case font-normal text-zinc-300">({meta?.unit ?? ""})</span>
+                <span className="normal-case font-normal text-warm-300">({meta?.unit ?? ""})</span>
               </p>
               <ResponsiveContainer width="100%" height={120}>
                 <LineChart
@@ -648,8 +648,8 @@ function LegacyVisitTrendsChart({
 
   if (sorted.length < 2) {
     return (
-      <div className="bg-white border border-zinc-200 rounded-2xl p-8 text-center shadow-sm">
-        <p className="text-xs font-semibold text-zinc-400">
+      <div className="bg-white border border-warm-200 rounded-2xl p-8 text-center shadow-sm">
+        <p className="text-xs font-semibold text-warm-400">
           Log at least 2 visits to see trend charts.
         </p>
       </div>

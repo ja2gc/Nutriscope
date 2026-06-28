@@ -83,11 +83,11 @@ export function MobileBottomNav({ onMenuOpen }: { onMenuOpen: () => void }) {
   const items = isAdmin ? ADMIN_ITEMS : RND_ITEMS;
 
   const baseBar = isAdmin
-    ? "bg-zinc-950 border-t border-zinc-800"
-    : "bg-white border-t border-zinc-200";
+    ? "bg-forest-900 border-t border-forest-line"
+    : "bg-white border-t border-warm-200";
 
   const activeText = "text-emerald-600";
-  const inactiveText = isAdmin ? "text-zinc-500" : "text-zinc-400";
+  const inactiveText = isAdmin ? "text-warm-500" : "text-warm-400";
   const activeIndicator = "bg-emerald-600";
 
   return (

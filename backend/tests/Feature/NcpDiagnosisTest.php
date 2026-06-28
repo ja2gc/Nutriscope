@@ -197,6 +197,51 @@ class NcpDiagnosisTest extends TestCase
             ->assertJsonPath('data.extra_notes', 'Updated notes');
     }
 
+    public function test_ai_generated_diagnosis_can_be_edited_like_manual_diagnosis(): void
+    {
+        $rnd     = $this->rnd();
+        $patient = $this->patient();
+        $ncp     = $this->ncpRecord($patient, $rnd);
+
+        $diagnosis = Diagnosis::forceCreate([
+            'ncp_record_id' => $ncp->id,
+            'domain' => 'NI',
+            'problem' => 'Inadequate energy intake',
+            'label' => 'Inadequate energy intake',
+            'etiology' => 'poor appetite',
+            'signs_symptoms' => 'weight loss',
+            'pes_statement' => 'Inadequate energy intake related to poor appetite as evidenced by weight loss',
+            'ai_generated' => true,
+        ]);
+
+        $response = $this->actingAs($rnd, 'sanctum')
+            ->patchJson("/api/rnd/ncp-records/{$ncp->id}/diagnoses/{$diagnosis->id}", [
+                'domain' => 'NC',
+                'problem' => 'Unintended weight loss',
+                'etiology' => 'reduced oral intake',
+                'signs_symptoms' => '8% weight loss in 1 month',
+                'extra_notes' => 'Edited after RND review.',
+            ]);
+
+        $response->assertOk()
+            ->assertJsonPath('data.domain', 'NC')
+            ->assertJsonPath('data.problem', 'Unintended weight loss')
+            ->assertJsonPath('data.label', 'Unintended weight loss')
+            ->assertJsonPath('data.etiology', 'reduced oral intake')
+            ->assertJsonPath('data.signs_symptoms', '8% weight loss in 1 month')
+            ->assertJsonPath('data.pes_statement', 'Unintended weight loss related to reduced oral intake as evidenced by 8% weight loss in 1 month')
+            ->assertJsonPath('data.extra_notes', 'Edited after RND review.')
+            ->assertJsonPath('data.ai_generated', true);
+
+        $this->assertDatabaseHas('diagnoses', [
+            'id' => $diagnosis->id,
+            'domain' => 'NC',
+            'problem' => 'Unintended weight loss',
+            'label' => 'Unintended weight loss',
+            'ai_generated' => true,
+        ]);
+    }
+
     public function test_update_persists_manual_pes_override(): void
     {
         $rnd     = $this->rnd();

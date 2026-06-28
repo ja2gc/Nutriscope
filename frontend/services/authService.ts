@@ -2,6 +2,8 @@ export interface User {
   id: number;
   name: string;
   email: string;
+  recovery_email?: string | null;
+  recovery_email_verified?: boolean;
   contact_number?: string | null;
   profile_photo?: string | null;
   role: "RND" | "FSS" | "Admin";
@@ -87,6 +89,36 @@ export async function changePassword(data: {
     const errorData = await res.json().catch(() => ({}));
     throw new Error(errorData.message || "Failed to change password.");
   }
+}
+
+export async function updateRecoveryEmail(recoveryEmail: string): Promise<{ message: string; user: User }> {
+  const res = await fetch("/api/auth/recovery-email", {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify({ recovery_email: recoveryEmail }),
+  });
+
+  const result = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(result.message || "Failed to update recovery email.");
+  return { message: result.message || "Verification code sent.", user: result.user?.data || result.user };
+}
+
+export async function verifyRecoveryEmail(code: string): Promise<{ message: string; user: User }> {
+  const res = await fetch("/api/auth/recovery-email/verify", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify({ code }),
+  });
+
+  const result = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(result.message || "Failed to verify recovery email.");
+  return { message: result.message || "Recovery email verified.", user: result.user?.data || result.user };
 }
 
 export async function requestPasswordReset(email: string): Promise<string> {

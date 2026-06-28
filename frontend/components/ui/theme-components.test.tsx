@@ -22,7 +22,7 @@ describe("NutriScope shared UI theme components", () => {
     expect(lightMarkup).toContain("text-brand-orange-600");
     expect(darkMarkup).toContain("text-brand-green-600");
     expect(darkMarkup).toContain("text-brand-orange-600");
-    expect(darkMarkup).not.toContain("text-zinc-100");
+    expect(darkMarkup).not.toContain("text-warm-100");
   });
 
   test("Button primary style is compact by default and opts into full width", () => {

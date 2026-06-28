@@ -7,7 +7,7 @@ export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Define public paths that don't need authentication
-  const isPublicPath = pathname === "/login";
+  const isPublicPath = pathname === "/login" || pathname === "/forgot-password" || pathname === "/reset-password";
   
   // Exclude Next.js internals, static files, and api routes
   const isInternalOrStatic = 

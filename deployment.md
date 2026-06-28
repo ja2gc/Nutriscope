@@ -182,37 +182,21 @@ conflict on port 80 and bring down the site.
 
 ---
 
-## Mobile API subdomain (api.nutriscope.live) — full VPS runbook
+## Mobile API on the root domain (/mobile-api)
 
-The mobile app (Expo / APK) calls Laravel **directly** via `https://api.nutriscope.live`.
-This is a separate nginx virtualhost that proxies to the backend container on
-`127.0.0.1:8080` (published by `docker-compose.prod.yml`). The web app keeps
-`nutriscope.live` (Next.js cookie proxies); mobile must never use it.
+The production APK calls Laravel **directly** through
+`https://nutriscope.live/mobile-api`. This avoids a new DNS subdomain and avoids a new
+Certbot certificate. It still uses production HTTPS because it reuses the existing
+`nutriscope.live` certificate.
 
-> **No new domain or paid SSL needed.** `api.nutriscope.live` is a free subdomain of a domain
-> you already own, and Let's Encrypt certs are free. You only add one DNS record and run
-> certbot once. Your existing root+www cert is untouched — certbot issues a **separate** cert
-> for the subdomain and auto-renews both.
+The web app keeps `https://nutriscope.live`. Next.js web API routes keep `/api/*`.
+Only `/mobile-api/*` is routed by host nginx straight to the Laravel backend on
+`127.0.0.1:8080` (published by `docker-compose.prod.yml`).
 
 Run the steps below top-to-bottom in the droplet web console. nginx + certbot are already
-installed (the root domain uses them).
+installed for the root domain.
 
-### Step 1 — Add the DNS record (in your DNS provider, not the server)
-
-```
-Type: A    Host: api    Value: 168.144.115.27
-```
-
-`Host: api` resolves to `api.nutriscope.live`. Skip only if a wildcard `*.nutriscope.live`
-A record already exists. Then verify on the server before continuing:
-
-```bash
-dig +short api.nutriscope.live    # MUST print 168.144.115.27
-```
-
-Do not continue until this resolves — certbot validates over HTTP and will fail otherwise.
-
-### Step 2 — Pull latest + redeploy (publishes backend on 127.0.0.1:8080)
+### Step 1 - Pull latest + redeploy (publishes backend on 127.0.0.1:8080)
 
 ```bash
 cd ~/Nutriscope
@@ -223,64 +207,54 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:8080/api/auth/login
 ```
 
-### Step 3 — Create an HTTP-only vhost (certbot adds the HTTPS block itself)
+### Step 2 - Add the mobile-api locations to host nginx
 
-> Do **not** copy `nginx/api.nutriscope.live.conf` directly — it hardcodes cert paths that do
-> not exist until Step 4, so nginx would refuse to start (chicken-and-egg). Use this minimal
-> HTTP vhost and let certbot write the SSL part.
+Edit the existing root-domain site:
 
 ```bash
-sudo tee /etc/nginx/sites-available/api.nutriscope.live >/dev/null <<'EOF'
-server {
-    listen 80;
-    server_name api.nutriscope.live;
-    client_max_body_size 25M;
-    location / {
-        proxy_pass         http://127.0.0.1:8080;
-        proxy_http_version 1.1;
-        proxy_set_header   Host              $host;
-        proxy_set_header   X-Real-IP         $remote_addr;
-        proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
-        proxy_set_header   X-Forwarded-Proto $scheme;
-    }
-}
-EOF
-
-sudo ln -sf /etc/nginx/sites-available/api.nutriscope.live /etc/nginx/sites-enabled/api.nutriscope.live
-sudo nginx -t && sudo systemctl reload nginx     # must say "test is successful"
+sudo nano /etc/nginx/sites-available/nutriscope
 ```
 
-If `nginx -t` complains the firewall blocks port 80: `sudo ufw allow 'Nginx Full'`.
+Inside the existing `server` block for `listen 443 ssl;` and
+`server_name nutriscope.live www.nutriscope.live;`, paste this before the existing
+`location /` block:
 
-### Step 4 — Issue the SSL certificate (free, auto-configures HTTPS + redirect)
+```nginx
+location = /mobile-api {
+    return 308 /mobile-api/;
+}
+
+location /mobile-api/ {
+    client_max_body_size 25M;
+
+    proxy_pass         http://127.0.0.1:8080/;
+    proxy_http_version 1.1;
+    proxy_set_header   Host              $host;
+    proxy_set_header   X-Real-IP         $remote_addr;
+    proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+    proxy_set_header   X-Forwarded-Proto $scheme;
+}
+```
+
+The same snippet is committed at `nginx/mobile-api.locations.conf` for copy/paste reference.
+
+Then validate and reload nginx:
 
 ```bash
-sudo certbot --nginx -d api.nutriscope.live \
-  --non-interactive --agree-tos --email jaredabriol2@gmail.com --redirect
-
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
-`--redirect` forces HTTP→HTTPS. Success prints "Congratulations" / "Deploying certificate".
-
-### Step 5 — Verify HTTPS + auto-renewal
+### Step 3 - Final API smoke test (the gate before building the APK)
 
 ```bash
-curl -I https://api.nutriscope.live      # expect HTTP/2 200 or 405
-sudo certbot renew --dry-run             # "all simulated renewals succeeded" = renews itself
-```
-
-### Step 6 — Final API smoke test (the gate before building the APK)
-
-```bash
-curl -s https://api.nutriscope.live/api/auth/login \
+curl -s https://nutriscope.live/mobile-api/api/auth/login \
   -H "Accept: application/json" \
   -H "Content-Type: application/json" \
   -d '{"email":"fss@nutriscope.local","password":"nutriscope2024!","device_name":"Expo App","platform":"app"}'
 ```
 
 Expected: JSON with `token` (string) and `user.role` = `"FSS"`. Only after this passes is it
-worth running `eas build` — the APK bakes in this origin at build time.
+worth running `eas build` because the APK bakes in this origin at build time.
 
 ---
 
@@ -322,6 +296,49 @@ grep -E 'ANTHROPIC_API_KEY|USDA_API_KEY' ~/Nutriscope/backend/.env.production
 `ANTHROPIC_API_KEY` must be non-empty and start with `sk-ant-`. (This affects RND AI
 diagnosis/suggest only — FSS mobile uses no AI.)
 
+### Production email sender (password reset / recovery email)
+
+Password reset and recovery verification emails require a real mail sender. Production uses
+Resend SMTP with the verified `nutriscope.live` domain, sending from
+`no-reply@nutriscope.live`.
+
+Things to do outside the VPS:
+
+1. Create or open a Resend account.
+2. Add the domain `nutriscope.live` in Resend.
+3. Add all DNS records Resend gives you where the domain DNS is hosted:
+   SPF, DKIM, DMARC, and any return-path / bounce CNAME.
+4. Wait until Resend marks the domain verified.
+5. Create a Resend API key.
+
+Set these in `~/Nutriscope/backend/.env.production` on the VPS:
+
+```env
+MAIL_MAILER=smtp
+MAIL_SCHEME=smtps
+MAIL_HOST=smtp.resend.com
+MAIL_PORT=465
+MAIL_USERNAME=resend
+MAIL_PASSWORD=re_your_resend_api_key_here
+MAIL_EHLO_DOMAIN=nutriscope.live
+MAIL_FROM_ADDRESS="no-reply@nutriscope.live"
+MAIL_FROM_NAME="${APP_NAME}"
+RESEND_API_KEY=re_your_resend_api_key_here
+```
+
+`no-reply@nutriscope.live` does not need an inbox. Resend sends from it because the domain
+is verified by DNS. Users can receive email at Gmail, Outlook/Microsoft, Yahoo, or work email.
+
+After deployment, test the real email path:
+
+1. Log in as a user.
+2. Open Profile / Settings.
+3. Set recovery email to a real inbox.
+4. Send verification code.
+5. Verify the code.
+6. Log out and use Forgot Password with that recovery email.
+7. Confirm the reset email arrives and the password reset completes.
+
 **After editing the env, recreate the backend and rebuild config cache:**
 
 ```bash
@@ -329,6 +346,7 @@ cd ~/Nutriscope
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --force-recreate backend
 docker compose -f docker-compose.yml -f docker-compose.prod.yml exec backend php artisan config:clear
 docker compose -f docker-compose.yml -f docker-compose.prod.yml exec backend php artisan config:cache
+docker compose -f docker-compose.yml -f docker-compose.prod.yml exec backend php artisan migrate --force
 ```
 
 ---
@@ -375,16 +393,17 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml exec backend \
 
 ## FSS mobile APK — build order checklist
 
-1. DNS + SSL for `api.nutriscope.live` live (Steps 1–5 above).
-2. API smoke test returns a `token` (Step 6 above).
+1. `/mobile-api` nginx route is live on `https://nutriscope.live` (mobile-api section above).
+2. API smoke test returns a `token` (Step 3 above).
 3. Demo `fss@nutriscope.local` exists and is active (demo-users section above).
-4. `mobile/eas.json` preview profile points at `https://api.nutriscope.live` (already committed).
+4. `mobile/eas.json` preview and production profiles point at
+   `https://nutriscope.live/mobile-api` (already committed).
 5. Build (requires an Expo account — run locally, not on the VPS):
 
    ```powershell
    cd mobile
    npx eas login
-   npx eas build -p android --profile preview
+   npx eas build -p android --profile production
    ```
 
 The APK bakes in `EXPO_PUBLIC_API_URL` at build time, so the API origin **must** be live and
