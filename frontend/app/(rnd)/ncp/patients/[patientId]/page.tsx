@@ -3,7 +3,7 @@
 import React, { use, useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { HeartHandshake, Plus, Trash2, AlertTriangle, Lock, Paperclip, FileText, Download } from "lucide-react";
+import { HeartHandshake, Plus, Trash2, AlertTriangle, Lock, Paperclip, FileText, Download, Eye, X } from "lucide-react";
 
 import {
   fetchPatientById,
@@ -17,6 +17,7 @@ import {
 import {
   AttachmentRecord,
   fetchAttachments,
+  deleteAttachment,
   getAttachmentFileUrl,
 } from "@/services/assessmentService";
 import { getNcpStepState, type NcpStep, type NcpStepState } from "@/lib/ncpWorkflow";
@@ -92,6 +93,15 @@ function isDeletableRecord(record: NcpRecord) {
   return !(hasAssessment && hasDiagnoses && hasIntervention);
 }
 
+function isImagePath(path?: string) {
+  return !!path && /\.(png|jpe?g|gif|webp)$/i.test(path);
+}
+
+function getAttachmentDisplayName(doc: AttachmentRecord, index: number, total: number) {
+  const label = doc.type === "labs" ? "Biochemical Data" : doc.type === "referral" ? "Screening Form" : (doc.original_name ?? "Document");
+  return `${label} ${total > 1 ? index + 1 : ""}`.trim();
+}
+
 // ─── Confirm danger banner ────────────────────────────────────────────────────
 
 function ConfirmBanner({
@@ -154,20 +164,101 @@ function StepAction({ state, primary = false }: { state: NcpStepState; primary?:
   );
 }
 
+function AttachmentLightbox({
+  url,
+  isImage,
+  name,
+  onClose,
+}: {
+  url: string;
+  isImage: boolean;
+  name: string;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)", backgroundColor: "rgba(0,0,0,0.55)" }}
+      onClick={onClose}
+    >
+      <div
+        className="relative bg-white rounded-2xl shadow-2xl overflow-hidden w-full max-w-2xl max-h-[90vh] flex flex-col"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-4 py-3 border-b border-warm-100">
+          <p className="text-xs font-bold text-warm-700 truncate pr-4">{name}</p>
+          <div className="flex items-center gap-2 shrink-0">
+            <a
+              href={url}
+              download={name}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-extrabold uppercase tracking-wider rounded-lg transition-colors"
+            >
+              <Download className="h-3 w-3" />
+              Download
+            </a>
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-1.5 rounded-lg text-warm-400 hover:text-warm-700 hover:bg-warm-100 transition-colors"
+              title="Close"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+        <div className="flex-1 overflow-auto bg-warm-50 flex items-center justify-center min-h-0">
+          {isImage ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={url} alt={name} className="max-w-full max-h-[75vh] object-contain p-2" />
+          ) : (
+            <iframe src={url} title={name} className="w-full h-[75vh] border-0" />
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Per-cycle attachments (rnd.md §3.1) ───────────────────────────────────────
 // Each NCP cycle shows only its own documents — scoped by ncp_record id, no mix-up.
 function CycleAttachments({ ncpId }: { ncpId: number }) {
   const [items, setItems] = useState<AttachmentRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [lightbox, setLightbox] = useState<{ url: string; isImage: boolean; name: string } | null>(null);
 
-  useEffect(() => {
-    let active = true;
-    fetchAttachments(ncpId)
-      .then((data) => { if (active) setItems(data); })
-      .catch(() => { if (active) setItems([]); })
-      .finally(() => { if (active) setLoading(false); });
-    return () => { active = false; };
+  const load = useCallback(async () => {
+    try {
+      setError(null);
+      setItems(await fetchAttachments(ncpId));
+    } catch {
+      setItems([]);
+      setError("Failed to load attachments.");
+    } finally {
+      setLoading(false);
+    }
   }, [ncpId]);
+
+  useEffect(() => { void load(); }, [load]);
+
+  async function handleDelete(id: number) {
+    setDeletingId(id);
+    try {
+      await deleteAttachment(id);
+      await load();
+    } catch {
+      setError("Failed to delete attachment.");
+    } finally {
+      setDeletingId(null);
+    }
+  }
 
   if (loading) {
     return <div className="h-10 bg-warm-100 rounded-lg animate-pulse" />;
@@ -180,26 +271,60 @@ function CycleAttachments({ ncpId }: { ncpId: number }) {
   }
 
   return (
-    <div className="space-y-2">
-      {items.map((doc) => (
-        <div key={doc.id} className="flex items-center gap-3 px-3 py-2 bg-warm-50 border border-warm-200 rounded-xl">
-          <FileText className="h-4 w-4 text-warm-400 shrink-0" />
-          <div className="flex-1 min-w-0">
-            <p className="text-xs font-semibold text-warm-800 truncate">{doc.original_name ?? "Document"}</p>
-            {doc.type && <p className="text-[10px] text-warm-400">{doc.type}</p>}
-          </div>
-          <a
-            href={getAttachmentFileUrl(doc.id)}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="p-1.5 text-warm-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
-            title="Open / download"
-          >
-            <Download className="h-3.5 w-3.5" />
-          </a>
-        </div>
-      ))}
-    </div>
+    <>
+      {lightbox && (
+        <AttachmentLightbox
+          url={lightbox.url}
+          isImage={lightbox.isImage}
+          name={lightbox.name}
+          onClose={() => setLightbox(null)}
+        />
+      )}
+      <div className="space-y-2">
+        {error && (
+          <div className="px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-[11px] text-red-700 font-semibold">{error}</div>
+        )}
+        {items.map((doc, index) => {
+          const fileUrl = getAttachmentFileUrl(doc.id);
+          const docName = getAttachmentDisplayName(doc, index, items.length);
+          const isImg = isImagePath(doc.file_path);
+          return (
+            <div key={doc.id} className="flex items-center gap-3 px-3 py-2 bg-warm-50 border border-warm-200 rounded-xl">
+              <FileText className="h-4 w-4 text-warm-400 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-semibold text-warm-800 truncate">{docName}</p>
+                {doc.type && <p className="text-[10px] text-warm-400">{doc.type}</p>}
+              </div>
+              <button
+                type="button"
+                onClick={() => setLightbox({ url: fileUrl, isImage: isImg, name: docName })}
+                className="p-1.5 text-warm-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                title="View"
+              >
+                <Eye className="h-3.5 w-3.5" />
+              </button>
+              <a
+                href={fileUrl}
+                download={docName}
+                className="p-1.5 text-warm-400 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition-colors"
+                title="Download"
+              >
+                <Download className="h-3.5 w-3.5" />
+              </a>
+              <button
+                type="button"
+                onClick={() => handleDelete(doc.id)}
+                disabled={deletingId === doc.id}
+                className="p-1.5 text-warm-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                title="Delete"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          );
+        })}
+      </div>
+    </>
   );
 }
 

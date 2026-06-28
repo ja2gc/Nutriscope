@@ -166,6 +166,8 @@ export default function MealPlanSection({
       }
       setPlans((prev) => [...prev, result]);
       setActivePlan(result);
+    } catch (err) {
+      setGenerateError(err instanceof Error ? err.message : 'Failed to generate meal plan. Please try again.');
     } finally { setGenerating(false); }
   };
 

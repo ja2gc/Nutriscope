@@ -15,6 +15,7 @@ import {
   Diagnosis, StoreDiagnosisPayload, AiSuggestion,
 } from "@/services/diagnosisService";
 import { fetchAssessment } from "@/services/assessmentService";
+import { buildDiagnosisProblemText } from "@/lib/diagnosisBuilder";
 import { matchStoredOption, splitStoredComponent } from "@/lib/diagnosisComponentSplit";
 
 // ─── Domain Metadata ─────────────────────────────────────────────────────────
@@ -161,6 +162,7 @@ interface BuilderState {
   signNotes: string;
   pesOverride: string;
   extraNotes: string;
+  problemOverride: string;
 }
 
 function defaultBuilder(): BuilderState {
@@ -177,17 +179,12 @@ function defaultBuilder(): BuilderState {
     signNotes: "",
     pesOverride: "",
     extraNotes: "",
+    problemOverride: "",
   };
 }
 
 function buildProblemText(b: BuilderState): string {
-  if (b.domain === "NI") {
-    return `${b.niDirection} ${b.niNutrient || "[Nutrient]"} Intake`;
-  }
-  if (b.domain === "NC") {
-    return b.ncProblems.length > 0 ? b.ncProblems.join("; ") : "[Select problem]";
-  }
-  return b.nbProblems.length > 0 ? b.nbProblems.join("; ") : "[Select problem]";
+  return buildDiagnosisProblemText(b);
 }
 
 function buildEtiologyText(b: BuilderState): string {
@@ -231,6 +228,7 @@ function loadBuilderFromDiagnosis(d: Diagnosis): BuilderState {
   b.domain = d.domain;
   b.extraNotes = d.extra_notes ?? "";
   b.pesOverride = d.pes_statement ?? "";
+  b.problemOverride = d.problem ?? "";
 
   // Re-hydrate checkbox selections from the stored joined strings.
   const etiology = splitStoredComponent(d.etiology ?? "", getEtiologies(d.domain));
@@ -245,11 +243,14 @@ function loadBuilderFromDiagnosis(d: Diagnosis): BuilderState {
     if (match) {
       b.niDirection = (match[1] as "Inadequate" | "Excessive");
       b.niNutrient = match[2];
+      b.problemOverride = "";
     }
   } else if (d.domain === "NC") {
     b.ncProblems = [matchStoredOption(d.problem, NC_PROBLEMS) ?? d.problem];
+    b.problemOverride = "";
   } else {
     b.nbProblems = [matchStoredOption(d.problem, NB_PROBLEMS) ?? d.problem];
+    b.problemOverride = "";
   }
   return b;
 }
@@ -355,7 +356,7 @@ export default function NcpDiagnosisPage({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     builder.domain, builder.niDirection, builder.niNutrient,
-    builder.ncProblems, builder.nbProblems,
+    builder.ncProblems, builder.nbProblems, builder.problemOverride,
     builder.etiologyChecks, builder.etiologyNotes,
     builder.signChecks, builder.signNotes,
   ]);
@@ -468,13 +469,20 @@ export default function NcpDiagnosisPage({
     b.etiologyNotes = s.etiology;
     b.signNotes = s.signs;
     b.pesOverride = `${s.label} related to ${s.etiology} as evidenced by ${s.signs}`;
+    b.problemOverride = s.label;
     if (s.domain === "NI") {
       const match = s.label.match(/^(Inadequate|Excessive)\s+(.+)\s+Intake$/i);
-      if (match) { b.niDirection = match[1] as "Inadequate" | "Excessive"; b.niNutrient = match[2]; }
+      if (match) {
+        b.niDirection = match[1] as "Inadequate" | "Excessive";
+        b.niNutrient = match[2];
+        b.problemOverride = "";
+      }
     } else if (s.domain === "NC") {
       b.ncProblems = [s.label];
+      b.problemOverride = "";
     } else {
       b.nbProblems = [s.label];
+      b.problemOverride = "";
     }
     setBuilder(b);
     setActiveTab("problem");
@@ -668,7 +676,7 @@ export default function NcpDiagnosisPage({
             <button
               key={d}
               type="button"
-              onClick={() => updateBuilder({ domain: d, ncProblems: [], nbProblems: [], niNutrient: "", etiologyChecks: [], signChecks: [] })}
+              onClick={() => updateBuilder({ domain: d, ncProblems: [], nbProblems: [], niNutrient: "", etiologyChecks: [], signChecks: [], problemOverride: "" })}
               className={`px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider rounded-xl border-2 transition-all cursor-pointer ${
                 builder.domain === d
                   ? `${DOMAIN_META[d].color} border-current`
@@ -690,7 +698,7 @@ export default function NcpDiagnosisPage({
                 <button
                   key={dir}
                   type="button"
-                  onClick={() => updateBuilder({ niDirection: dir })}
+                  onClick={() => updateBuilder({ niDirection: dir, problemOverride: "" })}
                   className={`px-4 py-2 text-xs font-bold rounded-xl border-2 transition-all cursor-pointer ${
                     builder.niDirection === dir
                       ? "bg-sky-50 text-sky-700 border-sky-400"
@@ -709,7 +717,7 @@ export default function NcpDiagnosisPage({
                 <button
                   key={n}
                   type="button"
-                  onClick={() => updateBuilder({ niNutrient: n })}
+                  onClick={() => updateBuilder({ niNutrient: n, problemOverride: "" })}
                   className={`px-3 py-2 text-xs font-semibold rounded-lg border transition-all cursor-pointer text-left ${
                     builder.niNutrient === n
                       ? "bg-sky-50 text-sky-800 border-sky-300 font-bold"
@@ -724,7 +732,7 @@ export default function NcpDiagnosisPage({
               <input
                 type="text"
                 value={builder.niNutrient.includes("specify") ? "" : builder.niNutrient}
-                onChange={e => updateBuilder({ niNutrient: e.target.value })}
+                onChange={e => updateBuilder({ niNutrient: e.target.value, problemOverride: "" })}
                 placeholder="Specify nutrient or mineral..."
                 className="mt-2 w-full px-3 py-2 text-xs bg-white border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-400/20 focus:border-sky-400"
               />
@@ -742,6 +750,7 @@ export default function NcpDiagnosisPage({
                 key={p}
                 checked={builder.ncProblems.includes(p)}
                 onChange={checked => updateBuilder({
+                  problemOverride: "",
                   ncProblems: checked
                     ? [...builder.ncProblems, p]
                     : builder.ncProblems.filter(x => x !== p)
@@ -762,6 +771,7 @@ export default function NcpDiagnosisPage({
                 key={p}
                 checked={builder.nbProblems.includes(p)}
                 onChange={checked => updateBuilder({
+                  problemOverride: "",
                   nbProblems: checked
                     ? [...builder.nbProblems, p]
                     : builder.nbProblems.filter(x => x !== p)

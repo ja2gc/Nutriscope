@@ -55,12 +55,14 @@ class AiUsageLimitTest extends TestCase
                 'data' => [
                     'daily_token_limit',
                     'monthly_token_limit',
+                    'cost_per_1m_tokens_usd',
                     'daily_used',
                     'monthly_used',
                 ],
             ])
             ->assertJsonPath('data.daily_token_limit', null)
             ->assertJsonPath('data.monthly_token_limit', null)
+            ->assertJsonPath('data.cost_per_1m_tokens_usd', 1.92)
             ->assertJsonPath('data.daily_used', 0)
             ->assertJsonPath('data.monthly_used', 0);
     }
@@ -132,15 +134,18 @@ class AiUsageLimitTest extends TestCase
             ->putJson('/api/admin/ai-usage-limits', [
                 'daily_token_limit'   => 10000,
                 'monthly_token_limit' => 200000,
+                'cost_per_1m_tokens_usd' => 2.50,
             ]);
 
         $response->assertOk()
             ->assertJsonPath('data.daily_token_limit', 10000)
-            ->assertJsonPath('data.monthly_token_limit', 200000);
+            ->assertJsonPath('data.monthly_token_limit', 200000)
+            ->assertJsonPath('data.cost_per_1m_tokens_usd', 2.50);
 
         $this->assertDatabaseHas('ai_usage_limits', [
             'daily_token_limit'   => 10000,
             'monthly_token_limit' => 200000,
+            'cost_per_1m_tokens_usd' => 2.50,
         ]);
     }
 
@@ -171,6 +176,17 @@ class AiUsageLimitTest extends TestCase
 
         $response->assertUnprocessable()
             ->assertJsonValidationErrors(['daily_token_limit']);
+    }
+
+    public function test_admin_put_validates_non_negative_cost_rate(): void
+    {
+        $response = $this->actingAs($this->admin, 'sanctum')
+            ->putJson('/api/admin/ai-usage-limits', [
+                'cost_per_1m_tokens_usd' => -0.01,
+            ]);
+
+        $response->assertUnprocessable()
+            ->assertJsonValidationErrors(['cost_per_1m_tokens_usd']);
     }
 
     public function test_rnd_cannot_set_limits(): void
