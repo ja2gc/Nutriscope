@@ -18,9 +18,28 @@ class MealPlanItemController extends Controller
 {
     public function __construct(private UsdaService $usdaService) {}
 
+    /**
+     * MP-04: enforce the nested ownership chain ncpRecord → intervention →
+     * mealPlan → day → item. Route-model binding resolves each id independently,
+     * so without this a valid id from another patient/plan would be accepted.
+     */
+    private function assertScope(NcpRecord $ncpRecord, MealPlan $mealPlan, ?MealPlanDay $day = null, ?MealPlanItem $item = null): void
+    {
+        if ($mealPlan->intervention_id !== $ncpRecord->intervention?->id) {
+            abort(404);
+        }
+        if ($day && $day->meal_plan_id !== $mealPlan->id) {
+            abort(404);
+        }
+        if ($item && $day && $item->meal_plan_day_id !== $day->id) {
+            abort(404);
+        }
+    }
+
     /** GET all items for a plan in one request */
     public function allItems(NcpRecord $ncpRecord, MealPlan $mealPlan): JsonResponse
     {
+        $this->assertScope($ncpRecord, $mealPlan);
         $dayIds = $mealPlan->days()->pluck('id');
         $items  = MealPlanItem::whereIn('meal_plan_day_id', $dayIds)->get();
         return response()->json(['data' => MealPlanItemResource::collection($items)]);
@@ -28,12 +47,14 @@ class MealPlanItemController extends Controller
 
     public function index(NcpRecord $ncpRecord, MealPlan $mealPlan, MealPlanDay $day): JsonResponse
     {
+        $this->assertScope($ncpRecord, $mealPlan, $day);
         $items = MealPlanItem::where('meal_plan_day_id', $day->id)->get();
         return response()->json(['data' => MealPlanItemResource::collection($items)]);
     }
 
     public function store(StoreMealPlanItemRequest $request, NcpRecord $ncpRecord, MealPlan $mealPlan, MealPlanDay $day): JsonResponse
     {
+        $this->assertScope($ncpRecord, $mealPlan, $day);
         // MP-03 / AD-04: hard-block allergen conflicts; warn on dislikes/restrictions.
         [$itemName, $itemAllergens] = $this->describeItem($request);
         $assessment = $ncpRecord->assessment;
@@ -133,6 +154,7 @@ class MealPlanItemController extends Controller
 
     public function update(\Illuminate\Http\Request $request, NcpRecord $ncpRecord, MealPlan $mealPlan, MealPlanDay $day, MealPlanItem $item): JsonResponse
     {
+        $this->assertScope($ncpRecord, $mealPlan, $day, $item);
         $validated = $request->validate([
             'quantity'          => 'sometimes|numeric|min:0.01',
             'unit'              => 'sometimes|string|max:50',
@@ -147,6 +169,7 @@ class MealPlanItemController extends Controller
 
     public function destroy(NcpRecord $ncpRecord, MealPlan $mealPlan, MealPlanDay $day, MealPlanItem $item): JsonResponse
     {
+        $this->assertScope($ncpRecord, $mealPlan, $day, $item);
         $item->delete();
         return response()->json(null, 204);
     }

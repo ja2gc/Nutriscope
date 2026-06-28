@@ -66,7 +66,16 @@ class MealPlanController extends Controller
      */
     public function show(NcpRecord $ncpRecord, MealPlan $mealPlan): JsonResponse
     {
+        $this->assertPlanScope($ncpRecord, $mealPlan);
         return response()->json(['data' => new MealPlanResource($mealPlan->load('days'))]);
+    }
+
+    /** MP-04: the meal plan must belong to this NCP's intervention. */
+    private function assertPlanScope(NcpRecord $ncpRecord, MealPlan $mealPlan): void
+    {
+        if ($mealPlan->intervention_id !== $ncpRecord->intervention?->id) {
+            abort(404);
+        }
     }
 
     /**
@@ -74,6 +83,7 @@ class MealPlanController extends Controller
      */
     public function update(UpdateMealPlanRequest $request, NcpRecord $ncpRecord, MealPlan $mealPlan): JsonResponse
     {
+        $this->assertPlanScope($ncpRecord, $mealPlan);
         $mealPlan->update($request->validated());
 
         return response()->json(['data' => new MealPlanResource($mealPlan->fresh()->load('days'))]);
@@ -115,6 +125,7 @@ class MealPlanController extends Controller
      */
     public function destroy(NcpRecord $ncpRecord, MealPlan $mealPlan): JsonResponse
     {
+        $this->assertPlanScope($ncpRecord, $mealPlan);
         $mealPlan->delete();
         return response()->json(null, 204);
     }
@@ -124,6 +135,7 @@ class MealPlanController extends Controller
      */
     public function saveTemplate(\Illuminate\Http\Request $request, NcpRecord $ncpRecord, MealPlan $mealPlan): JsonResponse
     {
+        $this->assertPlanScope($ncpRecord, $mealPlan);
         $validated = $request->validate([
             'name'        => 'required|string|max:255',
             'description' => 'nullable|string',
