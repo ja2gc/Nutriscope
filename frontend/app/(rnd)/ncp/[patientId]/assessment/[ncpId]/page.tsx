@@ -19,6 +19,7 @@ import {
   getAttachmentFileUrl,
 } from "@/services/assessmentService";
 import { coerceBiochemicalValue } from "@/services/biochemical";
+import { deriveRiskScore, RISK_FACTORS } from "@/lib/assessmentRiskScoring";
 
 // ─── Constants ───────────────────────────────────────────────────────────
 const COMMON_ALLERGENS = ["milk", "eggs", "fish", "shellfish", "tree nuts", "peanuts", "wheat", "soybeans"];
@@ -165,15 +166,6 @@ const DIETARY_METHOD_OPTIONS = [
   { value: "other", label: "Other" },
 ];
 const FUNCTIONAL_OPTIONS = ["Bed ridden", "Needs assistance", "Ambulatory"];
-const RISK_FACTORS = [
-  { key: "screening_criteria", label: "Screening criteria for potential nutritional risk", points: 1 },
-  { key: "ibw_limit", label: "Less than 85% or greater than 130% ideal body weight", points: 1 },
-  { key: "unintentional_weight_loss", label: "Unintentional weight loss over weeks/months", points: 2 },
-  { key: "mechanical_digestive_problem", label: "Mechanical / digestive problem", points: 1 },
-  { key: "low_albumin", label: "Low albumin", points: 1 },
-  { key: "significant_lab_result", label: "Significant lab result", points: 1 },
-  { key: "others", label: "Other/s", points: 1 },
-];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────
 function riskBadge(score: number) {
@@ -770,10 +762,22 @@ export default function NcpAssessmentPage({
     })()
     : null;
 
-  // ─── Risk Score (backend-authoritative) ────────────────────────────
-  const checkedSet = new Set(assessment.checked_factors ?? []);
-  const riskChecks = RISK_FACTORS.map(f => checkedSet.has(f.key));
-  const riskScore = RISK_FACTORS.reduce((sum, f, i) => riskChecks[i] ? sum + f.points : sum, 0);
+  // ─── Risk Score (live, derived from current form state) ────────────
+  const riskResult = deriveRiskScore({
+    screeningType: patient?.screening_type ?? null,
+    ibwPercentage: computedPercentIBW ?? assessment.ibw_percentage ?? null,
+    weightLossPercentage: computedWeightLossPct ?? assessment.weight_loss_percentage ?? null,
+    chewingSwallowingDifficulties: assessment.chewing_swallowing_difficulties,
+    constipation: assessment.constipation,
+    diarrheaNotes: assessment.diarrhea_notes,
+    foodIntolerance: assessment.food_intolerance,
+    nutrientDrugInteraction: assessment.nutrient_drug_interaction,
+    lifestyle: assessment.lifestyle,
+    biochemicalData: assessment.biochemical_data ?? null,
+    sex: patientSex,
+  });
+  const riskChecks = RISK_FACTORS.map((f) => riskResult.checkedFactors.includes(f.key));
+  const riskScore = riskResult.score;
   const riskInfo = riskBadge(riskScore);
 
   // ─── Field Updater ──────────────────────────────────────────────────
