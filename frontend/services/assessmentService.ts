@@ -151,8 +151,11 @@ export async function uploadAttachment(
   return responseData.data || responseData;
 }
 
-export async function fetchAttachments(ncpRecordId: number | string): Promise<AttachmentRecord[]> {
-  const res = await apiFetch(`/api/rnd/ncp-records/${ncpRecordId}/attachments`, {
+export async function fetchAttachments(ncpRecordId: number | string, type?: string): Promise<AttachmentRecord[]> {
+  const url = type
+    ? `/api/rnd/ncp-records/${ncpRecordId}/attachments?type=${encodeURIComponent(type)}`
+    : `/api/rnd/ncp-records/${ncpRecordId}/attachments`;
+  const res = await apiFetch(url, {
     method: "GET",
     headers: {
       Accept: "application/json",

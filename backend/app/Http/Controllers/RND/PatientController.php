@@ -73,7 +73,7 @@ class PatientController extends Controller
     public function ncpRecords(Patient $patient): JsonResponse
     {
         $records = $patient->ncpRecords()
-            ->with(['rnd:id,name', 'assessment', 'diagnoses', 'intervention'])
+            ->with(['rnd:id,name', 'assessment', 'diagnoses', 'intervention.mealPlans:id,intervention_id,week_start_date,generation_type'])
             ->orderByDesc('created_at')
             ->get();
 

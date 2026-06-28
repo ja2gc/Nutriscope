@@ -166,13 +166,13 @@ const DIETARY_METHOD_OPTIONS = [
 ];
 const FUNCTIONAL_OPTIONS = ["Bed ridden", "Needs assistance", "Ambulatory"];
 const RISK_FACTORS = [
-  { key: "screening_criteria",         label: "Screening criteria for potential nutritional risk", points: 1 },
-  { key: "ibw_limit",                  label: "Less than 85% or greater than 130% ideal body weight", points: 1 },
-  { key: "unintentional_weight_loss",  label: "Unintentional weight loss over weeks/months", points: 2 },
+  { key: "screening_criteria", label: "Screening criteria for potential nutritional risk", points: 1 },
+  { key: "ibw_limit", label: "Less than 85% or greater than 130% ideal body weight", points: 1 },
+  { key: "unintentional_weight_loss", label: "Unintentional weight loss over weeks/months", points: 2 },
   { key: "mechanical_digestive_problem", label: "Mechanical / digestive problem", points: 1 },
-  { key: "low_albumin",                label: "Low albumin", points: 1 },
-  { key: "significant_lab_result",     label: "Significant lab result", points: 1 },
-  { key: "others",                     label: "Other/s", points: 1 },
+  { key: "low_albumin", label: "Low albumin", points: 1 },
+  { key: "significant_lab_result", label: "Significant lab result", points: 1 },
+  { key: "others", label: "Other/s", points: 1 },
 ];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────
@@ -324,9 +324,8 @@ function DropZone({ label, onUpload, uploading }: {
 
   return (
     <div
-      className={`relative border-2 border-dashed rounded-xl p-6 text-center transition-all cursor-pointer select-none ${
-        dragOver ? "border-emerald-400 bg-emerald-50/50" : "border-zinc-300 hover:border-zinc-400 bg-zinc-50/30"
-      }`}
+      className={`relative border-2 border-dashed rounded-xl p-6 text-center transition-all cursor-pointer select-none ${dragOver ? "border-emerald-400 bg-emerald-50/50" : "border-zinc-300 hover:border-zinc-400 bg-zinc-50/30"
+        }`}
       onClick={() => inputRef.current?.click()}
       onDragOver={e => { e.preventDefault(); setDragOver(true); }}
       onDragLeave={() => setDragOver(false)}
@@ -366,13 +365,13 @@ function AttachmentsPanel({ ncpId, uploadLabel, kind, blurb }: {
   const load = useCallback(async () => {
     try {
       setError(null);
-      setItems(await fetchAttachments(ncpId));
+      setItems(await fetchAttachments(ncpId, kind));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load attachments.");
     } finally {
       setLoading(false);
     }
-  }, [ncpId]);
+  }, [ncpId, kind]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -425,43 +424,55 @@ function AttachmentsPanel({ ncpId, uploadLabel, kind, blurb }: {
           No documents attached to this cycle yet.
         </div>
       ) : (
-        <div className="space-y-2">
-          {items.map(doc => (
-            <div key={doc.id} className="flex items-center gap-3 px-3 py-2.5 bg-white border border-zinc-200 rounded-xl">
-              <div className="h-9 w-9 shrink-0 rounded-lg bg-zinc-50 border border-zinc-200 flex items-center justify-center overflow-hidden text-zinc-400">
-                {isImagePath(doc.file_path) ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={getAttachmentFileUrl(doc.id)} alt={doc.original_name ?? "attachment"} className="h-full w-full object-cover" />
-                ) : (
-                  <FileText className="h-4 w-4" />
+        <div className="space-y-3">
+          {items.map(doc => {
+            const isImg = isImagePath(doc.file_path);
+            return (
+              <div key={doc.id} className="bg-white border border-zinc-200 rounded-xl overflow-hidden">
+                {isImg && (
+                  <div className="w-full bg-zinc-50 border-b border-zinc-100">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={getAttachmentFileUrl(doc.id)}
+                      alt={doc.original_name ?? "attachment"}
+                      className="w-full max-h-96 object-contain"
+                    />
+                  </div>
                 )}
+                <div className="flex items-center gap-3 px-3 py-2.5">
+                  {!isImg && (
+                    <div className="h-9 w-9 shrink-0 rounded-lg bg-zinc-50 border border-zinc-200 flex items-center justify-center text-zinc-400">
+                      <FileText className="h-4 w-4" />
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold text-zinc-800 truncate">{doc.original_name ?? "Document"}</p>
+                    <p className="text-[10px] text-zinc-400">
+                      {doc.type ? `${doc.type} · ` : ""}{formatDate(doc.created_at)}
+                    </p>
+                  </div>
+                  <a
+                    href={getAttachmentFileUrl(doc.id)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-1.5 text-zinc-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                    title="Open / download"
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(doc.id)}
+                    disabled={deletingId === doc.id}
+                    className="p-1.5 text-zinc-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors disabled:opacity-50"
+                    title="Remove"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-semibold text-zinc-800 truncate">{doc.original_name ?? "Document"}</p>
-                <p className="text-[10px] text-zinc-400">
-                  {doc.type ? `${doc.type} · ` : ""}{formatDate(doc.created_at)}
-                </p>
-              </div>
-              <a
-                href={getAttachmentFileUrl(doc.id)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="p-1.5 text-zinc-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
-                title="Open / download"
-              >
-                <Download className="h-3.5 w-3.5" />
-              </a>
-              <button
-                type="button"
-                onClick={() => handleDelete(doc.id)}
-                disabled={deletingId === doc.id}
-                className="p-1.5 text-zinc-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors disabled:opacity-50"
-                title="Remove"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
@@ -587,13 +598,13 @@ export default function NcpAssessmentPage({
   const patientDobStr = patient?.dob ?? null;
   const patientAgeYears = patientDobStr
     ? (() => {
-        const b = new Date(patientDobStr);
-        const now = new Date();
-        let age = now.getFullYear() - b.getFullYear();
-        const m = now.getMonth() - b.getMonth();
-        if (m < 0 || (m === 0 && now.getDate() < b.getDate())) age -= 1;
-        return age;
-      })()
+      const b = new Date(patientDobStr);
+      const now = new Date();
+      let age = now.getFullYear() - b.getFullYear();
+      const m = now.getMonth() - b.getMonth();
+      if (m < 0 || (m === 0 && now.getDate() < b.getDate())) age -= 1;
+      return age;
+    })()
     : 30;
 
   const computedIBW = weight > 0 && height > 0 ? calcIBW(height, patientSex) : null;
@@ -616,8 +627,8 @@ export default function NcpAssessmentPage({
     : null;
   const whrRisk = computedWHR !== null
     ? (patientSex === "Female"
-        ? (computedWHR < 0.85 ? "Low Risk" : "High Risk")
-        : (computedWHR < 0.90 ? "Low Risk" : "High Risk"))
+      ? (computedWHR < 0.85 ? "Low Risk" : "High Risk")
+      : (computedWHR < 0.90 ? "Low Risk" : "High Risk"))
     : null;
 
   // ─── Weight Loss % Auto-Calc ────────────────────────────────────────
@@ -631,16 +642,16 @@ export default function NcpAssessmentPage({
   const isAdultPatient = patientAgeYears >= 18;
   const muacClassification = muacValue > 0
     ? (() => {
-        if (isAdultPatient) {
-          if (muacValue >= 210) return { label: "Normal", color: "text-emerald-600" };
-          if (muacValue >= 190) return { label: "Moderate Malnutrition", color: "text-amber-600" };
-          return { label: "Severe Malnutrition", color: "text-red-600" };
-        }
-        // Pediatric 6–59 months
-        if (muacValue >= 125) return { label: "Normal", color: "text-emerald-600" };
-        if (muacValue >= 115) return { label: "MAM", color: "text-amber-600" };
-        return { label: "SAM", color: "text-red-600" };
-      })()
+      if (isAdultPatient) {
+        if (muacValue >= 210) return { label: "Normal", color: "text-emerald-600" };
+        if (muacValue >= 190) return { label: "Moderate Malnutrition", color: "text-amber-600" };
+        return { label: "Severe Malnutrition", color: "text-red-600" };
+      }
+      // Pediatric 6–59 months
+      if (muacValue >= 125) return { label: "Normal", color: "text-emerald-600" };
+      if (muacValue >= 115) return { label: "MAM", color: "text-amber-600" };
+      return { label: "SAM", color: "text-red-600" };
+    })()
     : null;
 
   // ─── Risk Score (backend-authoritative) ────────────────────────────
@@ -775,13 +786,13 @@ export default function NcpAssessmentPage({
           onChange={v => updateField("appetite_changes", v || null)}
           placeholder="Select..."
           options={[
-            { value: "normal",         label: "Normal appetite" },
-            { value: "decreased",      label: "Decreased — eating less than usual" },
-            { value: "increased",      label: "Increased — eating more than usual" },
-            { value: "variable",       label: "Variable / Inconsistent" },
-            { value: "absent",         label: "Absent / Anorexia" },
-            { value: "early_satiety",  label: "Early satiety" },
-            { value: "nausea_vomiting",label: "Nausea / Vomiting affecting intake" },
+            { value: "normal", label: "Normal appetite" },
+            { value: "decreased", label: "Decreased — eating less than usual" },
+            { value: "increased", label: "Increased — eating more than usual" },
+            { value: "variable", label: "Variable / Inconsistent" },
+            { value: "absent", label: "Absent / Anorexia" },
+            { value: "early_satiety", label: "Early satiety" },
+            { value: "nausea_vomiting", label: "Nausea / Vomiting affecting intake" },
           ]}
         />
       </Field>
@@ -885,8 +896,8 @@ export default function NcpAssessmentPage({
           </p>
           {computedWHR !== null
             ? <p className={`text-[9px] font-bold mt-0.5 ${whrRisk === "High Risk" ? "text-red-500" : "text-emerald-600"}`}>
-                {whrRisk} · {patientSex === "Female" ? "cut-off 0.85" : "cut-off 0.90"}
-              </p>
+              {whrRisk} · {patientSex === "Female" ? "cut-off 0.85" : "cut-off 0.90"}
+            </p>
             : <p className="text-[9px] text-zinc-400 mt-0.5">Enter waist & hip cm</p>
           }
         </div>
@@ -1008,11 +1019,10 @@ export default function NcpAssessmentPage({
               key={a}
               type="button"
               onClick={() => updateField("allergies", allergies.includes(a) ? allergies.filter(x => x !== a) : [...allergies, a])}
-              className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide border transition-all cursor-pointer ${
-                allergies.includes(a)
+              className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide border transition-all cursor-pointer ${allergies.includes(a)
                   ? "bg-red-100 border-red-300 text-red-800"
                   : "bg-zinc-50 border-zinc-200 text-zinc-500 hover:border-red-200 hover:text-red-700"
-              }`}
+                }`}
             >
               {a}
             </button>
@@ -1032,10 +1042,10 @@ export default function NcpAssessmentPage({
   );
 
   const renderBiochemicalTab = () => (
-    <div className="space-y-5">
-      <div>
-        <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-3">Lab Values</p>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div className="grid gap-4 lg:grid-cols-[1.4fr_0.6fr] items-start">
+      <div className="space-y-4">
+        <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Lab Values</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
           {LAB_FIELDS.map(field => {
             const rawValue = (assessment.biochemical_data?.[field.key as keyof NonNullable<typeof assessment.biochemical_data>] ?? "") as string | number;
             const numValue = rawValue !== "" ? Number(rawValue) : null;
@@ -1046,22 +1056,20 @@ export default function NcpAssessmentPage({
             return (
               <div
                 key={field.key}
-                className={`rounded-xl border p-3 transition-colors ${
-                  isAbnormal
+                className={`rounded-xl border p-3 transition-colors ${isAbnormal
                     ? "border-red-200 bg-red-50/40"
                     : "border-zinc-200 bg-white"
-                }`}
+                  }`}
               >
                 <label className="block text-[10px] font-bold uppercase tracking-wider mb-1.5 flex items-center justify-between">
                   <span className={isAbnormal ? "text-red-700" : "text-zinc-500"}>
                     {field.label}
                   </span>
                   {isAbnormal && (
-                    <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded ${
-                      status === "low"
+                    <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded ${status === "low"
                         ? "bg-blue-100 text-blue-700"
                         : "bg-red-100 text-red-700"
-                    }`}>
+                      }`}>
                       {status === "low" ? "LOW" : "HIGH"}
                     </span>
                   )}
@@ -1075,11 +1083,10 @@ export default function NcpAssessmentPage({
                       [field.key]: coerceBiochemicalValue(field.key, e.target.value),
                     })}
                     placeholder={`e.g. ${low ?? high}`}
-                    className={`w-full px-3 py-2 text-xs bg-white border rounded-lg text-zinc-900 focus:outline-none focus:ring-2 transition-all placeholder:text-zinc-400 ${
-                      isAbnormal
+                    className={`w-full px-3 py-2 text-xs bg-white border rounded-lg text-zinc-900 focus:outline-none focus:ring-2 transition-all placeholder:text-zinc-400 ${isAbnormal
                         ? "border-red-300 focus:ring-red-400/20 focus:border-red-400"
                         : "border-zinc-200 focus:ring-emerald-500/20 focus:border-emerald-500"
-                    }`}
+                      }`}
                   />
                   {field.unit && (
                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-zinc-400 pointer-events-none">
@@ -1100,7 +1107,6 @@ export default function NcpAssessmentPage({
           })}
         </div>
       </div>
-      {/* Upload sits BELOW the lab values so the RND enters data first, then attaches proof. */}
       <AttachmentsPanel
         ncpId={ncpId}
         kind="labs"
@@ -1128,11 +1134,10 @@ export default function NcpAssessmentPage({
                   Enter screening demographics below manually. Edits to demographics will persist back to the patient profile on save.
                 </p>
               </div>
-              <span className={`inline-flex px-2.5 py-1 rounded-full text-[9px] font-extrabold uppercase tracking-wider border ${
-                screeningType === "pediatric"
+              <span className={`inline-flex px-2.5 py-1 rounded-full text-[9px] font-extrabold uppercase tracking-wider border ${screeningType === "pediatric"
                   ? "bg-sky-50 text-sky-700 border-sky-200"
                   : "bg-emerald-50 text-emerald-700 border-emerald-200"
-              }`}>
+                }`}>
                 {screeningType === "pediatric" ? "Pediatric B.06" : "Adult B.07"}
               </span>
             </div>
@@ -1211,11 +1216,10 @@ export default function NcpAssessmentPage({
                         setSectionAChecks(new Array(getScreeningConditions(t).length).fill(false));
                         setSectionBChecks(new Array(getScreeningIntakeHistory(t).length).fill(false));
                       }}
-                      className={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-lg border transition-all cursor-pointer ${
-                        screeningType === t
+                      className={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-lg border transition-all cursor-pointer ${screeningType === t
                           ? "bg-emerald-50 text-emerald-700 border-emerald-200"
                           : "bg-white text-zinc-500 border-zinc-200 hover:border-zinc-300"
-                      }`}
+                        }`}
                     >
                       {t === "adult" ? "Adult B.07" : "Pediatric B.06"}
                     </button>
@@ -1232,12 +1236,12 @@ export default function NcpAssessmentPage({
               uploadLabel="Upload Referral / Screening Form"
               blurb="Attach referral and screening forms for this NCP cycle. Stored for record-keeping and appended to the printed NCP report."
             />
-            <div className="bg-zinc-950 border border-zinc-900 rounded-2xl p-5 text-zinc-100 shadow-sm">
+            {/* <div className="bg-zinc-950 border border-zinc-900 rounded-2xl p-5 text-zinc-100 shadow-sm">
               <h4 className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-300 mb-2">Workflow Note</h4>
               <p className="text-[11px] leading-relaxed text-zinc-300">
                 Save after entering screening details. The patient profile updates with the editable demographics captured here. Risk scoring is calculated based on assessment and biochemical data.
               </p>
-            </div>
+            </div> */}
           </div>
         </div>
 
@@ -1424,11 +1428,10 @@ export default function NcpAssessmentPage({
                 key={tab.key}
                 type="button"
                 onClick={() => setActiveTab(tab.key)}
-                className={`flex items-center gap-1.5 px-4 py-3 text-[10px] font-bold uppercase tracking-wider whitespace-nowrap border-b-2 transition-all cursor-pointer ${
-                  isActive
+                className={`flex items-center gap-1.5 px-4 py-3 text-[10px] font-bold uppercase tracking-wider whitespace-nowrap border-b-2 transition-all cursor-pointer ${isActive
                     ? "text-emerald-700 border-emerald-600 bg-white"
                     : "text-zinc-500 border-transparent hover:text-zinc-700 hover:bg-white/50"
-                }`}
+                  }`}
               >
                 <Icon className="h-3.5 w-3.5" />
                 {tab.label}

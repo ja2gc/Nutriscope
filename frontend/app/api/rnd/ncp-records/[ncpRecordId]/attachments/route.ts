@@ -16,7 +16,11 @@ export async function GET(
 
   const { ncpRecordId } = await params;
 
-  const laravelRes = await fetch(`${LARAVEL_API}/rnd/ncp-records/${ncpRecordId}/attachments`, {
+  const backendUrl = new URL(`${LARAVEL_API}/rnd/ncp-records/${ncpRecordId}/attachments`);
+  const type = _req.nextUrl.searchParams.get("type");
+  if (type) backendUrl.searchParams.set("type", type);
+
+  const laravelRes = await fetch(backendUrl.toString(), {
     headers: {
       Authorization: `Bearer ${token}`,
       Accept: "application/json",
