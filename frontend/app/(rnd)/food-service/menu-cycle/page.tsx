@@ -212,7 +212,7 @@ function CycleList({ readOnly, onOpen, onNew }: { readOnly: boolean; onOpen: (id
   useEffect(() => { load(); }, [load]);
 
   async function remove(id: number) { await deleteCycle(id); load(); }
-  async function useTemplate(t: TemplateListItem) {
+  async function applyTemplate(t: TemplateListItem) {
     const res = await instantiateTemplate(t.id, {});
     onOpen(res.id);
   }
@@ -316,7 +316,7 @@ function CycleList({ readOnly, onOpen, onNew }: { readOnly: boolean; onOpen: (id
                   )}
                 </div>
                 {!readOnly && (
-                  <button onClick={() => useTemplate(t)} className="mt-3 w-full text-[10px] font-bold uppercase tracking-wider text-emerald-700 border border-emerald-200 rounded-lg py-1.5 hover:bg-emerald-50 cursor-pointer">
+                  <button onClick={() => applyTemplate(t)} className="mt-3 w-full text-[10px] font-bold uppercase tracking-wider text-emerald-700 border border-emerald-200 rounded-lg py-1.5 hover:bg-emerald-50 cursor-pointer">
                     Create cycle from this
                   </button>
                 )}
