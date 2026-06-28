@@ -11,6 +11,7 @@ import {
   AiUsageLimits,
 } from "@/services/aiUsageLimitService";
 import { fetchUsdToPhpRate } from "@/services/currencyService";
+import { DEFAULT_AI_COST_PER_1M_TOKENS_USD, calcTokenCostUsd } from "@/lib/aiTokenCost";
 import { KpiCard } from "@/components/ui/KpiCard";
 import { Badge, BadgeTone } from "@/components/ui/Badge";
 import {
@@ -48,20 +49,6 @@ function formatTokens(num: number) {
     return `${(num / 1_000).toFixed(1)}k`;
   }
   return num.toString();
-}
-
-// Haiku: $0.80/MTok input · $4.00/MTok output
-const HAIKU_INPUT_PER_TOKEN  = 0.80 / 1_000_000;
-const HAIKU_OUTPUT_PER_TOKEN = 4.00 / 1_000_000;
-// Blended rate for when only totals are available (~65% input / 35% output)
-const HAIKU_BLENDED_PER_TOKEN = (0.65 * 0.80 + 0.35 * 4.00) / 1_000_000;
-
-function calcExactCost(inputTokens: number, outputTokens: number): number {
-  return inputTokens * HAIKU_INPUT_PER_TOKEN + outputTokens * HAIKU_OUTPUT_PER_TOKEN;
-}
-
-function calcBlendedCost(totalTokens: number): number {
-  return totalTokens * HAIKU_BLENDED_PER_TOKEN;
 }
 
 function formatCost(usd: number, phpRate: number): string {
@@ -105,8 +92,10 @@ export default function AdminDashboardPage() {
   const [aiLimits, setAiLimits] = useState<AiUsageLimits | null>(null);
   const [capDailyInput, setCapDailyInput] = useState("");
   const [capMonthlyInput, setCapMonthlyInput] = useState("");
+  const [costPer1mInput, setCostPer1mInput] = useState(String(DEFAULT_AI_COST_PER_1M_TOKENS_USD));
   const [capSaving, setCapSaving] = useState(false);
   const [capSaveMsg, setCapSaveMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const costPer1mTokensUsd = aiLimits?.cost_per_1m_tokens_usd ?? DEFAULT_AI_COST_PER_1M_TOKENS_USD;
 
   async function loadAiLimits() {
     try {
@@ -114,6 +103,7 @@ export default function AdminDashboardPage() {
       setAiLimits(limits);
       setCapDailyInput(limits.daily_token_limit != null ? String(limits.daily_token_limit) : "");
       setCapMonthlyInput(limits.monthly_token_limit != null ? String(limits.monthly_token_limit) : "");
+      setCostPer1mInput(String(limits.cost_per_1m_tokens_usd ?? DEFAULT_AI_COST_PER_1M_TOKENS_USD));
     } catch {
       // non-fatal — card shows blank
     }
@@ -126,11 +116,15 @@ export default function AdminDashboardPage() {
       const payload = {
         daily_token_limit: capDailyInput.trim() === "" ? null : parseInt(capDailyInput, 10),
         monthly_token_limit: capMonthlyInput.trim() === "" ? null : parseInt(capMonthlyInput, 10),
+        cost_per_1m_tokens_usd: costPer1mInput.trim() === ""
+          ? DEFAULT_AI_COST_PER_1M_TOKENS_USD
+          : parseFloat(costPer1mInput),
       };
       const updated = await saveAiUsageLimits(payload);
       setAiLimits(updated);
       setCapDailyInput(updated.daily_token_limit != null ? String(updated.daily_token_limit) : "");
       setCapMonthlyInput(updated.monthly_token_limit != null ? String(updated.monthly_token_limit) : "");
+      setCostPer1mInput(String(updated.cost_per_1m_tokens_usd ?? DEFAULT_AI_COST_PER_1M_TOKENS_USD));
       setCapSaveMsg({ ok: true, text: "Limits saved." });
     } catch (err: unknown) {
       setCapSaveMsg({ ok: false, text: err instanceof Error ? err.message : "Failed to save limits." });
@@ -252,7 +246,7 @@ export default function AdminDashboardPage() {
           <KpiCard
             label="AI Usage (Month)"
             value={formatNumber(dashboardData.ai_usage.month_calls)}
-            hint={`${formatTokens(dashboardData.ai_usage.month_tokens)} tokens · ${formatCost(calcExactCost(dashboardData.ai_usage.month_tokens_input, dashboardData.ai_usage.month_tokens_output), phpRate)} est. cost`}
+            hint={`${formatTokens(dashboardData.ai_usage.month_tokens)} tokens · ${formatCost(calcTokenCostUsd(dashboardData.ai_usage.month_tokens, costPer1mTokensUsd), phpRate)} est. cost`}
             tone="zinc"
           />
           <KpiCard
@@ -297,7 +291,7 @@ export default function AdminDashboardPage() {
                     {over && <span className="ml-1.5 font-bold text-amber-600">· over cap</span>}
                   </div>
                   <div className="text-[10px] text-warm-400 mt-1">
-                    {formatCost(calcBlendedCost(used), phpRate)} est. cost
+                    {formatCost(calcTokenCostUsd(used, costPer1mTokensUsd), phpRate)} est. cost
                   </div>
                 </div>
               );
@@ -319,7 +313,7 @@ export default function AdminDashboardPage() {
                     {over && <span className="ml-1.5 font-bold text-amber-600">· over cap</span>}
                   </div>
                   <div className="text-[10px] text-warm-400 mt-1">
-                    {formatCost(calcBlendedCost(used), phpRate)} est. cost
+                    {formatCost(calcTokenCostUsd(used, costPer1mTokensUsd), phpRate)} est. cost
                   </div>
                 </div>
               );
@@ -327,7 +321,7 @@ export default function AdminDashboardPage() {
           </div>
 
           {/* Inline edit */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <label className="block text-[10px] font-bold uppercase tracking-wider text-warm-500 mb-1">
                 Daily limit (tokens)
@@ -352,6 +346,21 @@ export default function AdminDashboardPage() {
                 placeholder="Unlimited"
                 value={capMonthlyInput}
                 onChange={(e) => { setCapMonthlyInput(e.target.value); setCapSaveMsg(null); }}
+                disabled={capSaving}
+                className="w-full text-xs font-semibold tabular-nums rounded-xl border border-warm-200 bg-warm-50 px-3 py-2 text-warm-800 placeholder:text-warm-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 disabled:opacity-50 transition"
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-warm-500 mb-1">
+                Cost (USD per 1M tokens)
+              </label>
+              <input
+                type="number"
+                min={0}
+                step="0.0001"
+                placeholder={String(DEFAULT_AI_COST_PER_1M_TOKENS_USD)}
+                value={costPer1mInput}
+                onChange={(e) => { setCostPer1mInput(e.target.value); setCapSaveMsg(null); }}
                 disabled={capSaving}
                 className="w-full text-xs font-semibold tabular-nums rounded-xl border border-warm-200 bg-warm-50 px-3 py-2 text-warm-800 placeholder:text-warm-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 disabled:opacity-50 transition"
               />
@@ -440,7 +449,7 @@ export default function AdminDashboardPage() {
                           fontSize: "11px",
                           borderColor: "#e4e4e7",
                         }}
-                        formatter={(value) => [`${formatTokens(Number(value))} · ${formatCost(calcBlendedCost(Number(value)), phpRate)} est.`, "Tokens"]}
+                        formatter={(value) => [`${formatTokens(Number(value))} · ${formatCost(calcTokenCostUsd(Number(value), costPer1mTokensUsd), phpRate)} est.`, "Tokens"]}
                       />
                       <Bar dataKey="tokens" name="Tokens" fill="#059669" radius={[4, 4, 0, 0]} />
                     </BarChart>

@@ -44,11 +44,11 @@ type PrescriptionForm = PrescriptionFormState;
 
 function interventionToForm(iv: Intervention): PrescriptionForm {
   return {
-    energy_kcal: iv.energy_kcal ?? "",
-    protein_g:   iv.protein_g   ?? "",
-    carbs_g:     iv.carbs_g     ?? "",
-    fat_g:       iv.fat_g       ?? "",
-    fluid_ml:    iv.fluid_ml    ?? "",
+    energy_kcal: iv.energy_kcal != null ? String(iv.energy_kcal) : "",
+    protein_g:   iv.protein_g   != null ? String(iv.protein_g)   : "",
+    carbs_g:     iv.carbs_g     != null ? String(iv.carbs_g)     : "",
+    fat_g:       iv.fat_g       != null ? String(iv.fat_g)       : "",
+    fluid_ml:    iv.fluid_ml    != null ? String(iv.fluid_ml)    : "",
     micronutrient_limits: iv.micronutrient_limits ?? {},
     displayed_nutrients:  iv.displayed_nutrients  ?? [],
   };
@@ -219,6 +219,7 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
       } | null = preview
         ? { energy_kcal: preview.energy_kcal, protein_g: preview.protein_g, carbs_g: preview.carbs_g, fat_g: preview.fat_g, fluid_ml: preview.fluid_ml }
         : null;
+      let autofillError: string | null = null;
 
       try {
         const be = await autofillIntervention(ncpId, goalType, stage);
@@ -242,7 +243,20 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
         }
       } catch (err) {
         // Backend autofill unavailable — keep the TS preview values (already shown).
+        autofillError = err instanceof Error ? err.message : "Failed to autofill prescription.";
         console.warn("Backend autofill failed; using frontend preview values.", err);
+      }
+
+      if (!authoritative) {
+        const updated = await updateIntervention(ncpId, {
+          goal_type: goalType,
+          disease_stage: stage,
+        } as Partial<Intervention>);
+        setIntervention(updated);
+        setPrescription(interventionToForm(updated));
+        setPrescNote(autofillError ?? "Complete patient demographics and assessment anthropometrics before autofill.");
+        setDirty(false);
+        return;
       }
 
       const updated = await updateIntervention(ncpId, {
@@ -253,6 +267,7 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
         ...(authoritative ?? {}),
       } as Partial<Intervention>);
       setIntervention(updated);
+      setPrescription(interventionToForm(updated));
       setDirty(false);
     } finally { setSaving(false); }
   };
@@ -271,7 +286,10 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
         displayed_nutrients:  microKeys(prescription.displayed_nutrients),
       } as Partial<Intervention>);
       setIntervention(updated);
+      setPrescription(interventionToForm(updated));
       setDirty(false);
+    } catch (err) {
+      setPrescNote(err instanceof Error ? err.message : "Failed to save prescription.");
     } finally { setSaving(false); }
   };
 

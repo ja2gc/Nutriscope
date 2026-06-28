@@ -213,6 +213,9 @@ export function ProfilePageShell({ crumbs, subtitle, fallbackRole }: ProfilePage
               required
               autoComplete="email"
             />
+            <p className="-mt-2 text-[10px] text-warm-400">
+              Enter an email you have access to. A verification code will be sent to confirm ownership.
+            </p>
             <div className="flex items-center gap-3">
               <Button type="submit" loading={savingRecoveryEmail} className="w-auto">Send Verification Code</Button>
               {user?.recovery_email_verified && user.recovery_email === recoveryEmail && (

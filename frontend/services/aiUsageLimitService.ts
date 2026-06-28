@@ -3,6 +3,7 @@ import { apiFetch } from "@/lib/apiFetch";
 export interface AiUsageLimits {
   daily_token_limit: number | null;
   monthly_token_limit: number | null;
+  cost_per_1m_tokens_usd: number;
   daily_used: number;
   monthly_used: number;
 }
@@ -10,6 +11,7 @@ export interface AiUsageLimits {
 export interface SaveAiUsageLimitsPayload {
   daily_token_limit?: number | null;
   monthly_token_limit?: number | null;
+  cost_per_1m_tokens_usd?: number;
 }
 
 async function unwrap<T>(res: Response, fallback: string): Promise<T> {

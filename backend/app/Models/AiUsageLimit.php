@@ -15,11 +15,17 @@ class AiUsageLimit extends Model
     protected $fillable = [
         'daily_token_limit',
         'monthly_token_limit',
+        'cost_per_1m_tokens_usd',
     ];
 
     protected $casts = [
-        'daily_token_limit'   => 'integer',
-        'monthly_token_limit' => 'integer',
+        'daily_token_limit'       => 'integer',
+        'monthly_token_limit'     => 'integer',
+        'cost_per_1m_tokens_usd'  => 'float',
+    ];
+
+    protected $attributes = [
+        'cost_per_1m_tokens_usd' => 1.92,
     ];
 
     /** The one-and-only limits row, created on demand if missing. */

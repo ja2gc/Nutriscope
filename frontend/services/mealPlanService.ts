@@ -156,7 +156,10 @@ export async function generateMealPlan(
     body: JSON.stringify(payload),
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) return data;
+  if (!res.ok) {
+    if (data && typeof data === "object" && "insufficient_recipes" in data) return data;
+    throw new Error((data as { message?: string }).message || "Failed to generate meal plan.");
+  }
   return data.data ?? data;
 }
 

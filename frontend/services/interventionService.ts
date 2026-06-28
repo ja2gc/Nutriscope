@@ -11,11 +11,11 @@ export interface Intervention {
   goal_type: string | null;
   disease_stage: string | null;
   displayed_nutrients: string[] | null;
-  energy_kcal: string | null;
-  protein_g: string | null;
-  carbs_g: string | null;
-  fat_g: string | null;
-  fluid_ml: string | null;
+  energy_kcal: string | number | null;
+  protein_g: string | number | null;
+  carbs_g: string | number | null;
+  fat_g: string | number | null;
+  fluid_ml: string | number | null;
   micronutrient_limits: Record<string, MicronutrientLimit> | null;
   education_notes: string | null;
   counseling_goals: string | null;
