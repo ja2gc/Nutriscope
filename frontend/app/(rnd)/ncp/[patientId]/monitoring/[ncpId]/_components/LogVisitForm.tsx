@@ -37,12 +37,12 @@ interface LogVisitFormProps {
 const COMPLIANCE_OPTIONS: { value: ComplianceStatus; label: string; active: string }[] = [
   { value: "compliant",     label: "Compliant",   active: "bg-emerald-600 text-white border-emerald-600" },
   { value: "partial",       label: "Partial",     active: "bg-amber-500 text-white border-amber-500" },
-  { value: "non_compliant", label: "Non-compl.",  active: "bg-rose-500 text-white border-rose-500" },
+  { value: "non_compliant", label: "Non-compl.",  active: "bg-red-500 text-white border-red-500" },
 ];
 
 const GI_OPTIONS: { value: GiToleranceStatus; label: string; active: string }[] = [
   { value: "tolerating",     label: "Tolerating",     active: "bg-emerald-600 text-white border-emerald-600" },
-  { value: "not_tolerating", label: "Not Tolerating", active: "bg-rose-500 text-white border-rose-500" },
+  { value: "not_tolerating", label: "Not Tolerating", active: "bg-red-500 text-white border-red-500" },
 ];
 
 type NonNullDecision = NonNullable<ContinuationDecision>;
@@ -50,7 +50,7 @@ type NonNullDecision = NonNullable<ContinuationDecision>;
 const DECISION_OPTIONS: { value: NonNullDecision; label: string; active: string }[] = [
   { value: "continue",    label: "Continue",    active: "bg-emerald-600 text-white border-emerald-600" },
   { value: "modify",      label: "Modify",      active: "bg-amber-500 text-white border-amber-500" },
-  { value: "discontinue", label: "Discontinue", active: "bg-zinc-700 text-white border-zinc-700" },
+  { value: "discontinue", label: "Discontinue", active: "bg-forest-700 text-white border-zinc-700" },
 ];
 
 // ─── Macro fields metadata ────────────────────────────────────────────────────
@@ -68,7 +68,7 @@ type MacroKey = typeof MACRO_FIELDS[number]["key"];
 // ─── Input class ──────────────────────────────────────────────────────────────
 
 const inputCls =
-  "w-full px-3.5 py-2.5 text-sm border border-zinc-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 bg-white transition-all placeholder:text-zinc-400";
+  "w-full px-3.5 py-2.5 text-sm border border-warm-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 bg-white transition-all placeholder:text-warm-400";
 
 // ─── UnitInput — with optional target hint ────────────────────────────────────
 
@@ -94,7 +94,7 @@ function UnitInput({
   return (
     <div>
       <div className="flex items-end justify-between mb-1.5">
-        <label className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest">
+        <label className="text-[9px] font-bold text-warm-400 uppercase tracking-widest">
           {label}
         </label>
         {target && target !== "" && (
@@ -103,7 +103,7 @@ function UnitInput({
           </span>
         )}
       </div>
-      <div className="flex items-center border border-zinc-200 rounded-xl overflow-hidden focus-within:border-emerald-600 focus-within:ring-2 focus-within:ring-emerald-500/20 transition-all">
+      <div className="flex items-center border border-warm-200 rounded-xl overflow-hidden focus-within:border-emerald-600 focus-within:ring-2 focus-within:ring-emerald-500/20 transition-all">
         <input
           type={type}
           step="0.1"
@@ -112,9 +112,9 @@ function UnitInput({
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
           disabled={disabled}
-          className="w-full px-3.5 py-2.5 text-sm font-mono text-zinc-900 bg-transparent focus:outline-none placeholder:text-zinc-400 disabled:text-zinc-400"
+          className="w-full px-3.5 py-2.5 text-sm font-mono text-warm-900 bg-transparent focus:outline-none placeholder:text-warm-400 disabled:text-warm-400"
         />
-        <span className="px-2.5 text-[9px] font-bold text-zinc-400 bg-zinc-50 border-l border-zinc-200 whitespace-nowrap select-none">
+        <span className="px-2.5 text-[9px] font-bold text-warm-400 bg-warm-50 border-l border-warm-200 whitespace-nowrap select-none">
           {unit}
         </span>
       </div>
@@ -137,7 +137,7 @@ function ToggleGroup<T extends string>({
 }) {
   return (
     <div>
-      <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-2">{label}</p>
+      <p className="text-[9px] font-bold text-warm-400 uppercase tracking-widest mb-2">{label}</p>
       <div className="flex flex-wrap gap-2">
         {options.map((opt) => (
           <button
@@ -147,7 +147,7 @@ function ToggleGroup<T extends string>({
             className={`flex-1 min-w-[80px] py-2.5 text-xs font-semibold rounded-xl border transition-all ${
               value === opt.value
                 ? opt.active
-                : "bg-white text-zinc-500 border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50"
+                : "bg-white text-warm-500 border-warm-200 hover:border-warm-300 hover:bg-warm-50"
             }`}
           >
             {opt.label}
@@ -175,26 +175,26 @@ function CollapsibleSection({
 }) {
   return (
     <Collapsible open={open} onOpenChange={onOpenChange}>
-      <div className="border border-zinc-200 rounded-xl overflow-hidden">
+      <div className="border border-warm-200 rounded-xl overflow-hidden">
         <CollapsibleTrigger asChild>
           <button
             type="button"
-            className="w-full flex items-center justify-between px-4 py-3 text-[9px] font-bold text-zinc-400 uppercase tracking-widest hover:bg-zinc-50 transition-colors"
+            className="w-full flex items-center justify-between px-4 py-3 text-[9px] font-bold text-warm-400 uppercase tracking-widest hover:bg-warm-50 transition-colors"
           >
             <span>
               {title}{" "}
               {subtitle && (
-                <span className="normal-case font-normal text-zinc-300">({subtitle})</span>
+                <span className="normal-case font-normal text-warm-300">({subtitle})</span>
               )}
             </span>
             {open
-              ? <ChevronUp className="h-3.5 w-3.5 text-zinc-400" />
-              : <ChevronDown className="h-3.5 w-3.5 text-zinc-400" />
+              ? <ChevronUp className="h-3.5 w-3.5 text-warm-400" />
+              : <ChevronDown className="h-3.5 w-3.5 text-warm-400" />
             }
           </button>
         </CollapsibleTrigger>
         <CollapsibleContent>
-          <div className="px-4 pb-4 border-t border-zinc-100 pt-4">
+          <div className="px-4 pb-4 border-t border-warm-100 pt-4">
             {children}
           </div>
         </CollapsibleContent>
@@ -333,16 +333,16 @@ export default function LogVisitForm({
   }
 
   return (
-    <div className="bg-white border border-zinc-200 rounded-2xl shadow-sm overflow-hidden">
+    <div className="bg-white border border-warm-200 rounded-2xl shadow-sm overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-100">
-        <h3 className="text-xs font-extrabold text-zinc-700 uppercase tracking-wider">
+      <div className="flex items-center justify-between px-5 py-4 border-b border-warm-100">
+        <h3 className="text-xs font-extrabold text-warm-700 uppercase tracking-wider">
           Log New Visit
         </h3>
         <button
           onClick={onCancel}
           type="button"
-          className="text-zinc-400 hover:text-zinc-600 transition-colors p-1 rounded-lg hover:bg-zinc-100"
+          className="text-warm-400 hover:text-warm-600 transition-colors p-1 rounded-lg hover:bg-warm-100"
         >
           <X className="h-4 w-4" />
         </button>
@@ -478,7 +478,7 @@ export default function LogVisitForm({
                 );
               })}
             </div>
-            <p className="text-[9px] text-zinc-300 mt-3">
+            <p className="text-[9px] text-warm-300 mt-3">
               Target values from the nutrition prescription.
             </p>
           </CollapsibleSection>
@@ -486,7 +486,7 @@ export default function LogVisitForm({
 
         {/* ── Clinical Notes ───────────────────────────────────────────────── */}
         <div>
-          <label className="block text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-1.5">
+          <label className="block text-[9px] font-bold text-warm-400 uppercase tracking-widest mb-1.5">
             Clinical Notes
           </label>
           <textarea
@@ -494,13 +494,13 @@ export default function LogVisitForm({
             onChange={(e) => setClinicalSummary(e.target.value)}
             rows={3}
             placeholder="Observations, tolerance, patient feedback…"
-            className="w-full px-3.5 py-2.5 text-sm border border-zinc-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 bg-white transition-all placeholder:text-zinc-400 resize-none"
+            className="w-full px-3.5 py-2.5 text-sm border border-warm-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 bg-white transition-all placeholder:text-warm-400 resize-none"
           />
         </div>
 
         {/* ── Next Follow-up Date ──────────────────────────────────────────── */}
         <div>
-          <label className="block text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-1.5">
+          <label className="block text-[9px] font-bold text-warm-400 uppercase tracking-widest mb-1.5">
             Next Follow-up Date
           </label>
           <input
@@ -514,8 +514,8 @@ export default function LogVisitForm({
 
         {/* ── Error ────────────────────────────────────────────────────────── */}
         {error && (
-          <div className="flex items-start gap-2 p-3 bg-rose-50 border border-rose-200 rounded-xl">
-            <p className="text-xs text-rose-700">{error}</p>
+          <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-xl">
+            <p className="text-xs text-red-700">{error}</p>
           </div>
         )}
 

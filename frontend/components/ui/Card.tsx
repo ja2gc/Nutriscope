@@ -13,7 +13,7 @@ export function Card({
 }: React.HTMLAttributes<HTMLDivElement> & { padded?: boolean }) {
   return (
     <div
-      className={`bg-white border border-zinc-200 rounded-2xl shadow-sm ${padded ? "p-5" : ""} ${className}`}
+      className={`bg-white border border-warm-200 rounded-2xl shadow-sm ${padded ? "p-5" : ""} ${className}`}
       {...props}
     >
       {children}

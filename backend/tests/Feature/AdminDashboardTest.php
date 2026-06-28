@@ -81,7 +81,10 @@ class AdminDashboardTest extends TestCase
                         'total_tokens',
                         'tokens_input',
                         'tokens_output',
+                        'month_calls',
+                        'month_tokens',
                         'by_endpoint',
+                        'daily',
                     ],
                     'audit_logs' => ['total', 'last_7_days'],
                     'reports' => ['total'],
@@ -98,6 +101,13 @@ class AdminDashboardTest extends TestCase
         $response->assertJsonPath('data.ai_usage.total_tokens', 530);
         $response->assertJsonPath('data.ai_usage.tokens_input', 350);
         $response->assertJsonPath('data.ai_usage.tokens_output', 180);
+        $response->assertJsonPath('data.ai_usage.month_calls', 2);
+        $response->assertJsonPath('data.ai_usage.month_tokens', 530);
+        $response->assertJsonPath('data.ai_usage.by_endpoint.diagnosis_suggestion.tokens', 300);
+        $response->assertJsonPath('data.ai_usage.by_endpoint.monitoring_narrative.tokens', 230);
+        $response->assertJsonPath('data.ai_usage.daily.0.date', now()->toDateString());
+        $response->assertJsonPath('data.ai_usage.daily.0.calls', 2);
+        $response->assertJsonPath('data.ai_usage.daily.0.tokens', 530);
 
         // AuditsChanges trait auto-logs Patient creates; assert at least our manual row
         $this->assertGreaterThanOrEqual(

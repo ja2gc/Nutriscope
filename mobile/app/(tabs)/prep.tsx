@@ -393,9 +393,9 @@ function AccomplishmentSection({ activeCycleId }: { activeCycleId?: number }) {
       </View>
 
       {/* Running total */}
-      <View className="bg-purple-50 border border-purple-100 rounded-xl px-4 py-3 flex-row items-center justify-between mb-4">
-        <Text className="text-sm text-purple-700">Today's total headcount</Text>
-        <Text className="text-2xl font-bold text-purple-700 tabular-nums">{totalPopulation}</Text>
+      <View className="bg-emerald-50 border border-emerald-100 rounded-xl px-4 py-3 flex-row items-center justify-between mb-4">
+        <Text className="text-sm text-emerald-700">Today's total headcount</Text>
+        <Text className="text-2xl font-bold text-emerald-700 tabular-nums">{totalPopulation}</Text>
       </View>
 
       {/* Form */}
@@ -512,7 +512,7 @@ function AccomplishmentSection({ activeCycleId }: { activeCycleId?: number }) {
         {/* Submit button */}
         <TouchableOpacity
           className={`flex-row items-center justify-center gap-2 py-3.5 rounded-xl ${
-            submitMutation.isPending ? 'bg-purple-400' : 'bg-purple-600'
+            submitMutation.isPending ? 'bg-emerald-400' : 'bg-emerald-600'
           }`}
           onPress={handleSubmit}
           disabled={submitMutation.isPending}

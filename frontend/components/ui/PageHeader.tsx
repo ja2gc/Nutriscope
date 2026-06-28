@@ -24,25 +24,25 @@ export function PageHeader({
 }) {
   return (
     <div className="space-y-4">
-      <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs font-semibold text-zinc-400 select-none">
+      <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs font-semibold text-warm-400 select-none">
         {crumbs.map(([label, href], i) => (
           <React.Fragment key={label}>
-            {i > 0 && <span className="text-zinc-300">/</span>}
+            {i > 0 && <span className="text-warm-300">/</span>}
             {href ? (
               <Link href={href} className="hover:text-brand-green-700 transition-colors">{label}</Link>
             ) : (
-              <span className="font-bold text-zinc-600">{label}</span>
+              <span className="font-bold text-warm-600">{label}</span>
             )}
           </React.Fragment>
         ))}
       </nav>
-      <div className="border-b border-zinc-200 pb-5 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+      <div className="border-b border-warm-200 pb-5 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div>
-          <h1 className="text-xl font-extrabold text-zinc-950 tracking-tight flex items-center gap-2.5">
+          <h1 className="text-xl font-extrabold text-warm-900 tracking-tight flex items-center gap-2.5">
             {icon}
             {title}
           </h1>
-          {subtitle && <p className="text-xs text-zinc-500 mt-1 max-w-2xl">{subtitle}</p>}
+          {subtitle && <p className="text-xs text-warm-500 mt-1 max-w-2xl">{subtitle}</p>}
         </div>
         {actions && <div className="flex items-center gap-2 shrink-0">{actions}</div>}
       </div>

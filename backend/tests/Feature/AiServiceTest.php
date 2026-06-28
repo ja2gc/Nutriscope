@@ -8,6 +8,7 @@ use App\Models\Patient;
 use App\Models\User;
 use App\Services\AIService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
@@ -144,6 +145,8 @@ class AiServiceTest extends TestCase
 
     public function test_ai_service_logs_usage_on_success(): void
     {
+        Cache::put('admin_dashboard', ['stale' => true], 300);
+
         Http::fake([
             'api.anthropic.com/*' => Http::response([
                 'content' => [[
@@ -161,6 +164,7 @@ class AiServiceTest extends TestCase
             'model'    => config('services.anthropic.model', 'claude-haiku-20240307'),
             'endpoint' => 'diagnosis_suggestion',
         ]);
+        $this->assertFalse(Cache::has('admin_dashboard'));
     }
 
     // --- HTTP endpoint tests ---
@@ -195,6 +199,71 @@ class AiServiceTest extends TestCase
 
         $response->assertOk()
             ->assertJsonStructure(['data' => [['domain', 'label', 'etiology', 'signs']]]);
+    }
+
+    public function test_ai_suggest_output_can_be_approved_and_tracks_token_usage(): void
+    {
+        Http::fake([
+            'api.anthropic.com/*' => Http::response([
+                'content' => [[
+                    'type' => 'text',
+                    'text' => json_encode([
+                        'suggestions' => [
+                            [
+                                'domain' => 'NI',
+                                'label' => 'Inadequate energy intake',
+                                'etiology' => 'poor appetite',
+                                'signs' => '5% weight loss over 1 month',
+                                'confidence' => 0.86,
+                                'reasoning' => 'Supported by recent weight loss and intake history.',
+                                'priority' => 1,
+                            ],
+                        ],
+                    ]),
+                ]],
+                'usage' => ['input_tokens' => 240, 'output_tokens' => 80],
+            ], 200),
+        ]);
+
+        $ncpRecord = $this->makeNcpRecord();
+        \App\Models\Assessment::forceCreate([
+            'ncp_record_id' => $ncpRecord->id,
+            'weight' => 70.0,
+            'height' => 170.0,
+        ]);
+
+        $suggestResponse = $this->actingAs($this->rnd, 'sanctum')
+            ->postJson("/api/rnd/ncp-records/{$ncpRecord->id}/diagnoses/ai-suggest", [
+                'conditions' => ['Poor appetite'],
+                'ibw_percentage' => 75,
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.0.label', 'Inadequate energy intake');
+
+        $suggestion = $suggestResponse->json('data.0');
+
+        $this->actingAs($this->rnd, 'sanctum')
+            ->postJson("/api/rnd/ncp-records/{$ncpRecord->id}/diagnoses/ai-approve", $suggestion)
+            ->assertCreated()
+            ->assertJsonPath('data.ai_generated', true)
+            ->assertJsonPath(
+                'data.pes_statement',
+                'Inadequate energy intake related to poor appetite as evidenced by 5% weight loss over 1 month',
+            );
+
+        $this->assertDatabaseHas('diagnoses', [
+            'ncp_record_id' => $ncpRecord->id,
+            'label' => 'Inadequate energy intake',
+            'ai_generated' => true,
+        ]);
+
+        $this->assertDatabaseHas('ai_usage_logs', [
+            'user_id' => $this->rnd->id,
+            'endpoint' => 'diagnosis_suggestion',
+            'tokens_input' => 240,
+            'tokens_output' => 80,
+            'tokens_total' => 320,
+        ]);
     }
 
     public function test_ai_suggest_diagnoses_requires_conditions(): void

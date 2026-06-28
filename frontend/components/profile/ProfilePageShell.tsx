@@ -1,14 +1,20 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { UserCog, Mail, KeyRound } from "lucide-react";
+import { UserCog, Mail, KeyRound, ShieldCheck } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { ImageUploadGallery, imagesFromSrcs, imageSrcs, readImages, type UploadImage } from "@/components/ui/ImageUploadGallery";
 import { useAuth } from "@/contexts/AuthContext";
-import { updateProfile, changePassword, type User } from "@/services/authService";
+import {
+  updateProfile,
+  changePassword,
+  updateRecoveryEmail,
+  verifyRecoveryEmail,
+  type User,
+} from "@/services/authService";
 
 type ProfilePageShellProps = {
   crumbs: [string, string?][];
@@ -35,11 +41,19 @@ export function ProfilePageShell({ crumbs, subtitle, fallbackRole }: ProfilePage
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [passwordDone, setPasswordDone] = useState(false);
 
+  const [recoveryEmail, setRecoveryEmail] = useState("");
+  const [recoveryCode, setRecoveryCode] = useState("");
+  const [savingRecoveryEmail, setSavingRecoveryEmail] = useState(false);
+  const [verifyingRecoveryEmail, setVerifyingRecoveryEmail] = useState(false);
+  const [recoveryMessage, setRecoveryMessage] = useState<string | null>(null);
+  const [recoveryError, setRecoveryError] = useState<string | null>(null);
+
   useEffect(() => {
     if (user) {
       setName(user.name);
       setEmail(user.email);
       setContactNumber(user.contact_number ?? "");
+      setRecoveryEmail(user.recovery_email ?? "");
       setProfileImages(imagesFromSrcs(user.profile_photo ? [user.profile_photo] : [], "Profile photo"));
     }
   }, [user]);
@@ -104,6 +118,40 @@ export function ProfilePageShell({ crumbs, subtitle, fallbackRole }: ProfilePage
     }
   }
 
+  async function handleRecoveryEmailSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setRecoveryMessage(null);
+    setRecoveryError(null);
+    setSavingRecoveryEmail(true);
+    try {
+      await updateRecoveryEmail(recoveryEmail);
+      await refreshUser();
+      setRecoveryCode("");
+      setRecoveryMessage("Verification code sent.");
+    } catch (err) {
+      setRecoveryError(err instanceof Error ? err.message : "Failed to update recovery email.");
+    } finally {
+      setSavingRecoveryEmail(false);
+    }
+  }
+
+  async function handleRecoveryEmailVerify(e: React.FormEvent) {
+    e.preventDefault();
+    setRecoveryMessage(null);
+    setRecoveryError(null);
+    setVerifyingRecoveryEmail(true);
+    try {
+      await verifyRecoveryEmail(recoveryCode);
+      await refreshUser();
+      setRecoveryCode("");
+      setRecoveryMessage("Recovery email verified.");
+    } catch (err) {
+      setRecoveryError(err instanceof Error ? err.message : "Failed to verify recovery email.");
+    } finally {
+      setVerifyingRecoveryEmail(false);
+    }
+  }
+
   return (
     <div className="space-y-6 font-sans">
       <PageHeader
@@ -115,7 +163,7 @@ export function ProfilePageShell({ crumbs, subtitle, fallbackRole }: ProfilePage
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         <Card className="p-6">
-          <h3 className="text-xs font-bold text-zinc-900 uppercase tracking-wider flex items-center gap-2 mb-5">
+          <h3 className="text-xs font-bold text-warm-900 uppercase tracking-wider flex items-center gap-2 mb-5">
             <Mail className="h-4 w-4 text-emerald-600" />
             Account Details
           </h3>
@@ -132,8 +180,8 @@ export function ProfilePageShell({ crumbs, subtitle, fallbackRole }: ProfilePage
             <Input label="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
             <Input label="Contact Number" value={contactNumber} onChange={(e) => setContactNumber(e.target.value)} />
             <div className="flex flex-col gap-1.5">
-              <span className="text-xs font-semibold text-zinc-600 select-none tracking-wide">Role / Designation</span>
-              <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-3.5 py-2 text-sm font-semibold text-zinc-700">
+              <span className="text-xs font-semibold text-warm-600 select-none tracking-wide">Role / Designation</span>
+              <div className="rounded-lg border border-warm-200 bg-warm-50 px-3.5 py-2 text-sm font-semibold text-warm-700">
                 {user?.role ?? fallbackRole}
               </div>
             </div>
@@ -141,12 +189,49 @@ export function ProfilePageShell({ crumbs, subtitle, fallbackRole }: ProfilePage
               <Button type="submit" loading={savingProfile} className="w-auto">Save Changes</Button>
               {profileDone && <span className="text-xs font-semibold text-emerald-600">Saved.</span>}
             </div>
-            {profileError && <p className="text-xs font-semibold text-rose-600">{profileError}</p>}
+            {profileError && <p className="text-xs font-semibold text-red-600">{profileError}</p>}
           </form>
         </Card>
 
         <Card className="p-6">
-          <h3 className="text-xs font-bold text-zinc-900 uppercase tracking-wider flex items-center gap-2 mb-5">
+          <h3 className="text-xs font-bold text-warm-900 uppercase tracking-wider flex items-center gap-2 mb-5">
+            <ShieldCheck className="h-4 w-4 text-emerald-600" />
+            Recovery Email
+          </h3>
+          <form onSubmit={handleRecoveryEmailSubmit} className="space-y-4">
+            <Input
+              label="Recovery Email"
+              type="email"
+              value={recoveryEmail}
+              onChange={(e) => setRecoveryEmail(e.target.value)}
+              required
+              autoComplete="email"
+            />
+            <div className="flex items-center gap-3">
+              <Button type="submit" loading={savingRecoveryEmail} className="w-auto">Send Code</Button>
+              {user?.recovery_email_verified && user.recovery_email === recoveryEmail && (
+                <span className="text-xs font-semibold text-emerald-600">Verified.</span>
+              )}
+            </div>
+          </form>
+
+          <form onSubmit={handleRecoveryEmailVerify} className="mt-5 space-y-4 border-t border-warm-100 pt-5">
+            <Input
+              label="Verification Code"
+              value={recoveryCode}
+              onChange={(e) => setRecoveryCode(e.target.value)}
+              required
+              inputMode="numeric"
+              maxLength={6}
+            />
+            <Button type="submit" loading={verifyingRecoveryEmail} className="w-auto">Verify Email</Button>
+          </form>
+          {recoveryMessage && <p className="mt-3 text-xs font-semibold text-emerald-600">{recoveryMessage}</p>}
+          {recoveryError && <p className="mt-3 text-xs font-semibold text-red-600">{recoveryError}</p>}
+        </Card>
+
+        <Card className="p-6">
+          <h3 className="text-xs font-bold text-warm-900 uppercase tracking-wider flex items-center gap-2 mb-5">
             <KeyRound className="h-4 w-4 text-emerald-600" />
             Change Password
           </h3>
@@ -158,7 +243,7 @@ export function ProfilePageShell({ crumbs, subtitle, fallbackRole }: ProfilePage
               <Button type="submit" loading={savingPassword} className="w-auto">Update Password</Button>
               {passwordDone && <span className="text-xs font-semibold text-emerald-600">Password updated.</span>}
             </div>
-            {passwordError && <p className="text-xs font-semibold text-rose-600">{passwordError}</p>}
+            {passwordError && <p className="text-xs font-semibold text-red-600">{passwordError}</p>}
           </form>
         </Card>
       </div>

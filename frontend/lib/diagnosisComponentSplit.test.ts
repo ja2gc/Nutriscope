@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { splitStoredComponent } from "./diagnosisComponentSplit";
+import { matchStoredOption, splitStoredComponent } from "./diagnosisComponentSplit";
 
 const ETIOLOGIES = [
   "Poor appetite / anorexia",
@@ -40,5 +40,45 @@ describe("splitStoredComponent", () => {
 
   it("returns empty for an empty string", () => {
     expect(splitStoredComponent("", ETIOLOGIES)).toEqual({ checks: [], notes: "" });
+  });
+
+  it("maps common AI wording to checkbox options and keeps detailed text in notes", () => {
+    expect(
+      splitStoredComponent(
+        "Poor appetite and sub-optimal intake consuming less than 50% of estimated energy needs for 7 days",
+        ETIOLOGIES,
+      ),
+    ).toEqual({
+      checks: ["Poor appetite / anorexia"],
+      notes: "sub-optimal intake consuming less than 50% of estimated energy needs for 7 days",
+    });
+  });
+
+  it("maps AI weight loss wording to the closest signs checkbox", () => {
+    expect(
+      splitStoredComponent(
+        "Energy intake less than 50% of estimated needs for 7 days; unintentional weight loss of 8% in 1 month; current weight 45 kg at 78% IBW",
+        [
+          "Estimated intake < 75% of estimated needs",
+          "Unintentional weight loss > 5% in 3 months",
+          "BMI < 18.5 (underweight)",
+        ],
+      ),
+    ).toEqual({
+      checks: [
+        "Estimated intake < 75% of estimated needs",
+        "Unintentional weight loss > 5% in 3 months",
+      ],
+      notes: "current weight 45 kg at 78% IBW",
+    });
+  });
+
+  it("matches AI problem labels to existing problem checklist options", () => {
+    expect(
+      matchStoredOption("Unintended weight loss", [
+        "Unintended Weight Loss",
+        "Malnutrition (undernutrition)",
+      ]),
+    ).toBe("Unintended Weight Loss");
   });
 });

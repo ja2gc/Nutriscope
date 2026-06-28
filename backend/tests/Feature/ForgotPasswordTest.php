@@ -18,9 +18,17 @@ class ForgotPasswordTest extends TestCase
     public function test_forgot_password_returns_generic_response_and_sends_link_when_email_exists(): void
     {
         Notification::fake();
-        $user = User::factory()->create(['email' => 'rnd@example.com']);
+        $user = User::factory()->create([
+            'email' => 'rnd@nutriscope.local',
+            'recovery_email' => 'rnd@example.com',
+            'recovery_email_verified_at' => now(),
+        ]);
 
         $this->postJson('/api/auth/forgot-password', ['email' => 'rnd@example.com'])
+            ->assertOk()
+            ->assertJsonPath('message', 'If that email exists, a password reset link has been sent.');
+
+        $this->postJson('/api/auth/forgot-password', ['email' => 'rnd@nutriscope.local'])
             ->assertOk()
             ->assertJsonPath('message', 'If that email exists, a password reset link has been sent.');
 
@@ -28,13 +36,31 @@ class ForgotPasswordTest extends TestCase
             ->assertOk()
             ->assertJsonPath('message', 'If that email exists, a password reset link has been sent.');
 
-        Notification::assertSentTo($user, ResetPassword::class);
+        Notification::assertSentToTimes($user, ResetPassword::class, 1);
+    }
+
+    public function test_forgot_password_ignores_unverified_recovery_email(): void
+    {
+        Notification::fake();
+        $user = User::factory()->create([
+            'email' => 'rnd@nutriscope.local',
+            'recovery_email' => 'rnd@example.com',
+            'recovery_email_verified_at' => null,
+        ]);
+
+        $this->postJson('/api/auth/forgot-password', ['email' => 'rnd@example.com'])
+            ->assertOk()
+            ->assertJsonPath('message', 'If that email exists, a password reset link has been sent.');
+
+        Notification::assertNotSentTo($user, ResetPassword::class);
     }
 
     public function test_reset_password_changes_password_revokes_tokens_and_writes_audit_event(): void
     {
         $user = User::factory()->create([
-            'email' => 'rnd@example.com',
+            'email' => 'rnd@nutriscope.local',
+            'recovery_email' => 'rnd@example.com',
+            'recovery_email_verified_at' => now(),
             'password' => Hash::make('old-password'),
         ]);
         $user->createToken('browser');

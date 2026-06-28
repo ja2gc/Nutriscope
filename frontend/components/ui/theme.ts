@@ -18,10 +18,10 @@ export const buttonTheme = {
   },
   variants: {
     primary: "bg-brand-green-600 hover:bg-brand-green-700 active:bg-brand-green-700 text-white",
-    secondary: "bg-white hover:bg-zinc-50 active:bg-zinc-100 border border-zinc-200 text-zinc-700",
-    ghost: "text-zinc-500 hover:bg-zinc-100 active:bg-zinc-200",
+    secondary: "bg-white hover:bg-warm-50 active:bg-warm-100 border border-warm-200 text-warm-700",
+    ghost: "text-warm-500 hover:bg-warm-100 active:bg-warm-200",
     danger: "bg-red-600 hover:bg-red-700 active:bg-red-800 text-white focus-visible:ring-red-500/25",
-    icon: "w-auto text-zinc-400 hover:bg-zinc-100 active:bg-zinc-200",
+    icon: "w-auto text-warm-400 hover:bg-warm-100 active:bg-warm-200",
   },
 };
 
@@ -29,9 +29,9 @@ export const badgeToneClasses = {
   emerald: "bg-brand-green-50 text-brand-green-700 border-brand-green-200",
   amber: "bg-brand-orange-50 text-brand-orange-700 border-brand-orange-100",
   red: "bg-red-50 text-red-700 border-red-200",
-  zinc: "bg-zinc-100 text-zinc-600 border-zinc-200",
+  zinc: "bg-warm-100 text-warm-600 border-warm-200",
   sky: "bg-sky-50 text-sky-700 border-sky-200",
-  violet: "bg-violet-50 text-violet-700 border-violet-200",
+  violet: "bg-sky-50 text-sky-700 border-sky-200",
 };
 
 export const statusToneClasses = {
@@ -39,7 +39,7 @@ export const statusToneClasses = {
   warning: "bg-brand-orange-50 text-brand-orange-700 border-brand-orange-100",
   error: "bg-red-50 text-red-700 border-red-200",
   info: "bg-sky-50 text-sky-700 border-sky-200",
-  neutral: "bg-zinc-50 text-zinc-600 border-zinc-200",
+  neutral: "bg-warm-50 text-warm-600 border-warm-200",
 };
 
 export const statusDotClasses = {
@@ -47,11 +47,11 @@ export const statusDotClasses = {
   warning: "bg-brand-orange-500",
   error: "bg-red-500",
   info: "bg-sky-500",
-  neutral: "bg-zinc-300",
+  neutral: "bg-warm-300",
 };
 
 export const tabTheme = {
   active: "border-brand-green-600 text-brand-green-700",
-  inactive: "border-transparent text-zinc-500 hover:text-zinc-800",
+  inactive: "border-transparent text-warm-500 hover:text-warm-800",
   focus: "focus-visible:ring-2 focus-visible:ring-brand-green-500/30 focus-visible:outline-none",
 };

@@ -24,11 +24,11 @@ import { SopBanner } from "./SopBanner";
 // Shared category pill styles — exported so other files (e.g. the RND dashboard)
 // can import instead of redefining.
 export const categoryStyles: Record<AnnouncementCategory, string> = {
-  General: "bg-zinc-100 text-zinc-700 border-zinc-200",
+  General: "bg-warm-100 text-warm-700 border-warm-200",
   Event: "bg-orange-50 text-[#EA580C] border-orange-200",
-  Operational: "bg-blue-50 text-blue-700 border-blue-100",
+  Operational: "bg-sky-50 text-sky-700 border-sky-100",
   Urgent: "bg-red-50 text-red-700 border-red-100",
-  Memo: "bg-violet-50 text-violet-700 border-violet-200",
+  Memo: "bg-sky-50 text-sky-700 border-sky-200",
 };
 
 type AnnouncementDraft = {
@@ -247,19 +247,19 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
     if (composerOpen) {
       return (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/45 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-forest-900/45 backdrop-blur-sm"
           onClick={() => { closeComposer(); closeViewer(); }}
         >
           <div
-            className="w-full max-w-2xl bg-white border border-zinc-200 rounded-3xl overflow-hidden shadow-2xl"
+            className="w-full max-w-2xl bg-white border border-warm-200 rounded-3xl overflow-hidden shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-5 py-4 border-b border-zinc-100 bg-zinc-50 flex items-center justify-between gap-4">
+            <div className="px-5 py-4 border-b border-warm-100 bg-warm-50 flex items-center justify-between gap-4">
               <div>
-                <h3 className="text-xs font-bold text-zinc-900 uppercase tracking-[0.18em]">
+                <h3 className="text-xs font-bold text-warm-900 uppercase tracking-[0.18em]">
                   {editingPostId ? "Edit Announcement" : "Create Announcement"}
                 </h3>
-                <p className="text-[10px] text-zinc-500 mt-1">
+                <p className="text-[10px] text-warm-500 mt-1">
                   {isAdmin
                     ? "Admin announcements support pinning and all-department visibility."
                     : "Post content stays hidden until you open the composer."}
@@ -268,7 +268,7 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
               <button
                 type="button"
                 onClick={closeComposer}
-                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-zinc-200 text-[10px] font-bold uppercase tracking-wider text-zinc-600 hover:text-zinc-900 hover:bg-white transition-colors"
+                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-warm-200 text-[10px] font-bold uppercase tracking-wider text-warm-600 hover:text-warm-900 hover:bg-white transition-colors"
               >
                 <X className="h-3.5 w-3.5" />
                 Close
@@ -279,14 +279,14 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
               {/* Row 1 — Category / Visibility / Title */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">
+                  <label className="text-[10px] font-semibold text-warm-500 uppercase tracking-wider">
                     Category
                   </label>
                   <select
                     name="category"
                     value={draft.category}
                     onChange={handleDraftChange}
-                    className="w-full px-3 py-2 text-sm bg-white border border-zinc-300 rounded-xl text-zinc-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
+                    className="w-full px-3 py-2 text-sm bg-white border border-warm-300 rounded-xl text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
                   >
                     <option value="General">General</option>
                     <option value="Event">Event</option>
@@ -297,14 +297,14 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">
+                  <label className="text-[10px] font-semibold text-warm-500 uppercase tracking-wider">
                     Visibility
                   </label>
                   <select
                     name="visibility"
                     value={draft.visibility}
                     onChange={handleDraftChange}
-                    className="w-full px-3 py-2 text-sm bg-white border border-zinc-300 rounded-xl text-zinc-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
+                    className="w-full px-3 py-2 text-sm bg-white border border-warm-300 rounded-xl text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
                   >
                     <option value="All">All</option>
                     <option value="FSS">FSS</option>
@@ -313,7 +313,7 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
                 </div>
 
                 <div className="space-y-1.5 sm:col-span-2">
-                  <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">
+                  <label className="text-[10px] font-semibold text-warm-500 uppercase tracking-wider">
                     Title
                   </label>
                   <input
@@ -321,14 +321,14 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
                     value={draft.title}
                     onChange={handleDraftChange}
                     placeholder="Announcement title"
-                    className="w-full px-3 py-2 text-sm bg-white border border-zinc-300 rounded-xl text-zinc-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 placeholder:text-zinc-400"
+                    className="w-full px-3 py-2 text-sm bg-white border border-warm-300 rounded-xl text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 placeholder:text-warm-400"
                   />
                 </div>
               </div>
 
               {/* Body */}
               <div className="space-y-1.5">
-                <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">
+                <label className="text-[10px] font-semibold text-warm-500 uppercase tracking-wider">
                   Body
                 </label>
                 <textarea
@@ -336,7 +336,7 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
                   value={draft.body}
                   onChange={handleDraftChange}
                   placeholder="Write the announcement"
-                  className="w-full px-3 py-2 text-sm bg-white border border-zinc-300 rounded-xl text-zinc-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 placeholder:text-zinc-400 min-h-32"
+                  className="w-full px-3 py-2 text-sm bg-white border border-warm-300 rounded-xl text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 placeholder:text-warm-400 min-h-32"
                 />
               </div>
 
@@ -348,11 +348,11 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
                     type="checkbox"
                     checked={draft.pinned}
                     onChange={handlePinnedChange}
-                    className="h-4 w-4 rounded border-zinc-300 text-emerald-600 focus:ring-emerald-500/20"
+                    className="h-4 w-4 rounded border-warm-300 text-emerald-600 focus:ring-emerald-500/20"
                   />
                   <label
                     htmlFor="pinned-toggle"
-                    className="text-xs font-semibold text-zinc-700 select-none cursor-pointer"
+                    className="text-xs font-semibold text-warm-700 select-none cursor-pointer"
                   >
                     Pin to top of feed
                   </label>
@@ -405,22 +405,22 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
     if (selectedPost) {
       return (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/45 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-forest-900/45 backdrop-blur-sm"
           onClick={closeViewer}
         >
           <div
-            className="w-full max-w-3xl bg-white border border-zinc-200 rounded-3xl overflow-hidden shadow-2xl"
+            className="w-full max-w-3xl bg-white border border-warm-200 rounded-3xl overflow-hidden shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-5 py-4 border-b border-zinc-100 bg-zinc-50 flex items-center justify-between gap-4">
-              <h3 className="text-xs font-bold text-zinc-900 uppercase tracking-[0.18em]">
+            <div className="px-5 py-4 border-b border-warm-100 bg-warm-50 flex items-center justify-between gap-4">
+              <h3 className="text-xs font-bold text-warm-900 uppercase tracking-[0.18em]">
                 Announcement
               </h3>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => openEdit(selectedPost)}
-                  className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-zinc-200 text-[10px] font-bold uppercase tracking-wider text-zinc-600 hover:text-zinc-900 hover:bg-white transition-colors"
+                  className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-warm-200 text-[10px] font-bold uppercase tracking-wider text-warm-600 hover:text-warm-900 hover:bg-white transition-colors"
                 >
                   <PencilLine className="h-3.5 w-3.5" />
                   Edit
@@ -428,7 +428,7 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
                 <button
                   type="button"
                   onClick={closeViewer}
-                  className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-zinc-200 text-[10px] font-bold uppercase tracking-wider text-zinc-600 hover:text-zinc-900 hover:bg-white transition-colors"
+                  className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-warm-200 text-[10px] font-bold uppercase tracking-wider text-warm-600 hover:text-warm-900 hover:bg-white transition-colors"
                 >
                   <X className="h-3.5 w-3.5" />
                   Close
@@ -436,17 +436,17 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
               </div>
             </div>
 
-            <div className="p-5 bg-zinc-50/50">
-              <article className="bg-white border border-zinc-200 rounded-3xl p-5 shadow-sm">
+            <div className="p-5 bg-warm-50/50">
+              <article className="bg-white border border-warm-200 rounded-3xl p-5 shadow-sm">
                 <div className="flex items-start gap-3">
-                  <div className="h-11 w-11 rounded-full bg-zinc-950 text-white flex items-center justify-center text-xs font-bold uppercase shrink-0">
+                  <div className="h-11 w-11 rounded-full bg-forest-900 text-white flex items-center justify-center text-xs font-bold uppercase shrink-0">
                     {getInitials(selectedPost.author?.name || "")}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div>
-                        <div className="text-sm font-bold text-zinc-950">{selectedPost.author?.name}</div>
-                        <div className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
+                        <div className="text-sm font-bold text-warm-900">{selectedPost.author?.name}</div>
+                        <div className="text-[10px] font-semibold uppercase tracking-wider text-warm-400">
                           {selectedPost.author?.role} / {formatTimeStamp(selectedPost.created_at)}
                           {selectedPost.updated_at !== selectedPost.created_at ? " / Edited" : ""}
                         </div>
@@ -462,17 +462,17 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
                         >
                           {selectedPost.category}
                         </span>
-                        <span className="inline-flex px-2.5 py-1 rounded-full text-[9px] font-extrabold uppercase tracking-wider border bg-zinc-50 text-zinc-600 border-zinc-200">
+                        <span className="inline-flex px-2.5 py-1 rounded-full text-[9px] font-extrabold uppercase tracking-wider border bg-warm-50 text-warm-600 border-warm-200">
                           {selectedPost.visibility}
                         </span>
                       </div>
                     </div>
 
                     <div className="mt-4 space-y-3">
-                      <h4 className="text-base font-extrabold text-zinc-950 tracking-tight">
+                      <h4 className="text-base font-extrabold text-warm-900 tracking-tight">
                         {selectedPost.title}
                       </h4>
-                      <p className="text-sm text-zinc-700 leading-7 whitespace-pre-wrap">
+                      <p className="text-sm text-warm-700 leading-7 whitespace-pre-wrap">
                         {selectedPost.body}
                       </p>
                     </div>
@@ -483,7 +483,7 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
                       className="mt-4"
                     />
 
-                    <div className="mt-4 border-t border-zinc-100 pt-3 text-[10px] font-bold uppercase tracking-wider text-zinc-400">
+                    <div className="mt-4 border-t border-warm-100 pt-3 text-[10px] font-bold uppercase tracking-wider text-warm-400">
                       Posted to department announcements
                     </div>
                   </div>
@@ -506,19 +506,19 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
       <SopBanner />
 
       {/* Breadcrumb & header */}
-      <div className="flex items-center gap-2 text-xs font-semibold text-zinc-400 select-none">
+      <div className="flex items-center gap-2 text-xs font-semibold text-warm-400 select-none">
         <span>{breadcrumbRoot}</span>
-        <span className="text-zinc-300">/</span>
-        <span className="text-zinc-600 font-bold">Announcements</span>
+        <span className="text-warm-300">/</span>
+        <span className="text-warm-600 font-bold">Announcements</span>
       </div>
 
-      <div className="border-b border-zinc-200 pb-5 flex items-start justify-between gap-4">
+      <div className="border-b border-warm-200 pb-5 flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-xl font-extrabold text-zinc-950 tracking-tight flex items-center gap-2.5">
+          <h2 className="text-xl font-extrabold text-warm-900 tracking-tight flex items-center gap-2.5">
             <Megaphone className="h-5 w-5 text-emerald-600" />
             Announcements
           </h2>
-          <p className="text-xs text-zinc-500 mt-1 select-none">
+          <p className="text-xs text-warm-500 mt-1 select-none">
             {subtitle}
           </p>
         </div>
@@ -540,12 +540,12 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
       )}
 
       {/* Feed */}
-      <div className="bg-white border border-zinc-200 rounded-3xl overflow-hidden shadow-sm">
-        <div className="px-5 py-4 border-b border-zinc-100">
-          <h3 className="text-xs font-bold text-zinc-900 uppercase tracking-[0.18em]">
+      <div className="bg-white border border-warm-200 rounded-3xl overflow-hidden shadow-sm">
+        <div className="px-5 py-4 border-b border-warm-100">
+          <h3 className="text-xs font-bold text-warm-900 uppercase tracking-[0.18em]">
             Announcements Feed
           </h3>
-          <p className="text-[10px] text-zinc-500 mt-1">
+          <p className="text-[10px] text-warm-500 mt-1">
             Pinned posts float to the top. Click any post to view details or edit.
           </p>
         </div>
@@ -554,11 +554,11 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
           {loading ? (
             <div className="space-y-3">
               {[1, 2, 3].map((i) => (
-                <div key={i} className="h-32 rounded-3xl bg-zinc-100 animate-pulse" />
+                <div key={i} className="h-32 rounded-3xl bg-warm-100 animate-pulse" />
               ))}
             </div>
           ) : posts.length === 0 ? (
-            <div className="border border-dashed border-zinc-200 rounded-3xl p-8 text-center text-xs text-zinc-400 bg-zinc-50/40">
+            <div className="border border-dashed border-warm-200 rounded-3xl p-8 text-center text-xs text-warm-400 bg-warm-50/40">
               No announcements yet. Create the first one above.
             </div>
           ) : (
@@ -574,18 +574,18 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
                     openViewer(post);
                   }
                 }}
-                className="cursor-pointer rounded-3xl border border-zinc-200 bg-white p-5 shadow-sm transition-all duration-150 hover:-translate-y-0.5 hover:border-zinc-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                className="cursor-pointer rounded-3xl border border-warm-200 bg-white p-5 shadow-sm transition-all duration-150 hover:-translate-y-0.5 hover:border-warm-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
               >
                 <div className="flex items-start gap-3">
-                  <div className="h-11 w-11 rounded-full bg-zinc-950 text-white flex items-center justify-center text-xs font-bold uppercase shrink-0">
+                  <div className="h-11 w-11 rounded-full bg-forest-900 text-white flex items-center justify-center text-xs font-bold uppercase shrink-0">
                     {getInitials(post.author?.name || "")}
                   </div>
 
                   <div className="flex-1 min-w-0">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div>
-                        <div className="text-sm font-bold text-zinc-950">{post.author?.name}</div>
-                        <div className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
+                        <div className="text-sm font-bold text-warm-900">{post.author?.name}</div>
+                        <div className="text-[10px] font-semibold uppercase tracking-wider text-warm-400">
                           {post.author?.role} / {formatTimeStamp(post.created_at)}
                           {post.updated_at && post.updated_at !== post.created_at ? " / Edited" : ""}
                         </div>
@@ -602,7 +602,7 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
                         >
                           {post.category}
                         </span>
-                        <span className="inline-flex px-2.5 py-1 rounded-full text-[9px] font-extrabold uppercase tracking-wider border bg-zinc-50 text-zinc-500 border-zinc-200">
+                        <span className="inline-flex px-2.5 py-1 rounded-full text-[9px] font-extrabold uppercase tracking-wider border bg-warm-50 text-warm-500 border-warm-200">
                           {post.visibility}
                         </span>
 
@@ -610,7 +610,7 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
                         <button
                           type="button"
                           onClick={(e) => { e.stopPropagation(); openEdit(post); }}
-                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-zinc-200 text-[9px] font-extrabold uppercase tracking-wider text-zinc-600 hover:text-zinc-900 hover:bg-zinc-50 transition-colors"
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-warm-200 text-[9px] font-extrabold uppercase tracking-wider text-warm-600 hover:text-warm-900 hover:bg-warm-50 transition-colors"
                           title="Edit"
                         >
                           <PencilLine className="h-3 w-3" />
@@ -629,8 +629,8 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
                     </div>
 
                     <div className="mt-3 space-y-2">
-                      <h4 className="text-sm font-bold text-zinc-950 tracking-tight">{post.title}</h4>
-                      <p className="text-xs text-zinc-600 leading-relaxed whitespace-pre-wrap line-clamp-4">
+                      <h4 className="text-sm font-bold text-warm-900 tracking-tight">{post.title}</h4>
+                      <p className="text-xs text-warm-600 leading-relaxed whitespace-pre-wrap line-clamp-4">
                         {post.body}
                       </p>
                     </div>
@@ -641,7 +641,7 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
                       className="mt-4"
                     />
 
-                    <div className="mt-4 border-t border-zinc-100 pt-3 text-[10px] font-bold uppercase tracking-wider text-zinc-400">
+                    <div className="mt-4 border-t border-warm-100 pt-3 text-[10px] font-bold uppercase tracking-wider text-warm-400">
                       Posted to department announcements
                     </div>
                   </div>

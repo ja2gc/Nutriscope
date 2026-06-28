@@ -89,13 +89,13 @@ export default function FSSRecipeListPage() {
   return (
     <div className="space-y-6 font-sans">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-5 border-b border-zinc-200">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-5 border-b border-warm-200">
         <div>
-          <h2 className="text-xl font-extrabold text-zinc-950 tracking-tight flex items-center gap-2.5">
+          <h2 className="text-xl font-extrabold text-warm-900 tracking-tight flex items-center gap-2.5">
             <CookingPot className="h-5 w-5 text-emerald-600" />
             Foods
           </h2>
-          <p className="text-xs text-zinc-500 mt-1 select-none">
+          <p className="text-xs text-warm-500 mt-1 select-none">
             Manage recipes and single-ingredient food items used by the menu cycle.
           </p>
         </div>
@@ -122,7 +122,7 @@ export default function FSSRecipeListPage() {
             className={`px-3 py-1.5 rounded-full text-[10px] font-bold border transition-colors cursor-pointer ${
               filterCat === cat
                 ? "bg-emerald-600 text-white border-emerald-600"
-                : "bg-white text-zinc-600 border-zinc-200 hover:border-emerald-400"
+                : "bg-white text-warm-600 border-warm-200 hover:border-emerald-400"
             }`}>
             {cat}
           </button>
@@ -135,26 +135,26 @@ export default function FSSRecipeListPage() {
           <Loader2 className="h-6 w-6 animate-spin text-emerald-600" />
         </div>
       ) : recipes.length === 0 ? (
-        <div className="text-center py-16 border border-dashed border-zinc-200 rounded-2xl">
-          <CookingPot className="h-8 w-8 text-zinc-200 mx-auto mb-3" />
-          <p className="text-sm font-bold text-zinc-400">No recipes found.</p>
-          <p className="text-xs text-zinc-300 mt-1">Add a recipe to get started.</p>
+        <div className="text-center py-16 border border-dashed border-warm-200 rounded-2xl">
+          <CookingPot className="h-8 w-8 text-warm-200 mx-auto mb-3" />
+          <p className="text-sm font-bold text-warm-400">No recipes found.</p>
+          <p className="text-xs text-warm-300 mt-1">Add a recipe to get started.</p>
         </div>
       ) : (
-        <div className="bg-white border border-zinc-200 rounded-2xl overflow-hidden shadow-sm">
+        <div className="bg-white border border-warm-200 rounded-2xl overflow-hidden shadow-sm">
           <table className="w-full text-xs">
             <thead>
-              <tr className="border-b border-zinc-100 bg-zinc-50/60">
-                <th className="text-left px-5 py-3 font-extrabold text-zinc-500 uppercase tracking-wider">Recipe Name</th>
-                <th className="text-left px-4 py-3 font-extrabold text-zinc-500 uppercase tracking-wider">Category</th>
-                <th className="px-4 py-3 text-right font-extrabold text-zinc-500 uppercase tracking-wider">Actions</th>
+              <tr className="border-b border-warm-100 bg-warm-50/60">
+                <th className="text-left px-5 py-3 font-extrabold text-warm-500 uppercase tracking-wider">Recipe Name</th>
+                <th className="text-left px-4 py-3 font-extrabold text-warm-500 uppercase tracking-wider">Category</th>
+                <th className="px-4 py-3 text-right font-extrabold text-warm-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100">
               {recipes.map((recipe) => (
-                <tr key={recipe.id} className="hover:bg-zinc-50 transition-colors">
+                <tr key={recipe.id} className="hover:bg-warm-50 transition-colors">
                   <td className="px-5 py-3.5">
-                    <span className="font-bold text-zinc-900">{recipe.name}</span>
+                    <span className="font-bold text-warm-900">{recipe.name}</span>
                   </td>
                   <td className="px-4 py-3.5">
                     {recipe.category ? (
@@ -162,17 +162,17 @@ export default function FSSRecipeListPage() {
                         {recipe.category}
                       </span>
                     ) : (
-                      <span className="text-zinc-300">—</span>
+                      <span className="text-warm-300">—</span>
                     )}
                   </td>
                   <td className="px-4 py-3.5 text-right">
                     <div className="flex items-center justify-end gap-2">
                       <Link href={`/food-service/foods/${recipe.id}`}
-                        className="p-1.5 rounded-lg text-zinc-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors">
+                        className="p-1.5 rounded-lg text-warm-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors">
                         <Pencil className="h-3.5 w-3.5" />
                       </Link>
                       <button onClick={() => setDeleteId(recipe.id)}
-                        className="p-1.5 rounded-lg text-zinc-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer">
+                        className="p-1.5 rounded-lg text-warm-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer">
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
                     </div>
@@ -189,11 +189,11 @@ export default function FSSRecipeListPage() {
       {deleteId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
           onClick={() => setDeleteId(null)}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm border border-zinc-200 overflow-hidden"
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm border border-warm-200 overflow-hidden"
             onClick={(e) => e.stopPropagation()}>
             <div className="p-6 space-y-4">
-              <h3 className="text-sm font-extrabold text-zinc-900">Delete Recipe?</h3>
-              <p className="text-xs text-zinc-500">
+              <h3 className="text-sm font-extrabold text-warm-900">Delete Recipe?</h3>
+              <p className="text-xs text-warm-500">
                 This will permanently delete the recipe and all its ingredients. This cannot be undone.
               </p>
               <div className="flex gap-3 justify-end">

@@ -37,7 +37,7 @@ export default function LoginScreen() {
       if (typeof token !== 'string' || !token) {
         setError(
           'Login endpoint did not return a mobile token. ' +
-          'Check that EXPO_PUBLIC_API_URL points to the Laravel API (api.nutriscope.live), not the web app.'
+          'Check that EXPO_PUBLIC_API_URL points to the Laravel API origin, not the web app proxy.'
         );
         return;
       }
@@ -132,6 +132,16 @@ export default function LoginScreen() {
               editable={!submitting}
               onSubmitEditing={handleLogin}
             />
+
+            <TouchableOpacity
+              className="self-end mb-4"
+              onPress={() => router.push('/forgot-password' as never)}
+              disabled={submitting}
+            >
+              <Text className="text-xs font-semibold text-emerald-700">
+                Forgot password?
+              </Text>
+            </TouchableOpacity>
 
             <TouchableOpacity
               className={`rounded-lg h-12 items-center justify-center ${submitting ? 'bg-emerald-400' : 'bg-emerald-600 active:bg-emerald-700'

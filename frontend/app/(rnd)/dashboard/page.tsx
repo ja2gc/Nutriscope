@@ -374,26 +374,26 @@ export default function RndDashboardPage() {
     if (composerOpen) {
       return (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/45 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-forest-900/45 backdrop-blur-sm"
           onClick={handleModalBackdropClick}
         >
           <div
-            className="w-full max-w-2xl bg-white border border-zinc-200 rounded-3xl overflow-hidden shadow-2xl"
+            className="w-full max-w-2xl bg-white border border-warm-200 rounded-3xl overflow-hidden shadow-2xl"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="px-5 py-4 border-b border-zinc-100 bg-zinc-50 flex items-center justify-between gap-4">
+            <div className="px-5 py-4 border-b border-warm-100 bg-warm-50 flex items-center justify-between gap-4">
               <div>
-                <h3 className="text-xs font-bold text-zinc-900 uppercase tracking-[0.18em]">
+                <h3 className="text-xs font-bold text-warm-900 uppercase tracking-[0.18em]">
                   {editingPostId ? "Edit Announcement" : "Create Announcement"}
                 </h3>
-                <p className="text-[10px] text-zinc-500 mt-1">
+                <p className="text-[10px] text-warm-500 mt-1">
                   Post content stays hidden until you open the composer.
                 </p>
               </div>
               <button
                 type="button"
                 onClick={closeComposer}
-                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-zinc-200 text-[10px] font-bold uppercase tracking-wider text-zinc-600 hover:text-zinc-900 hover:bg-white transition-colors"
+                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-warm-200 text-[10px] font-bold uppercase tracking-wider text-warm-600 hover:text-warm-900 hover:bg-white transition-colors"
               >
                 <X className="h-3.5 w-3.5" />
                 Close
@@ -403,14 +403,14 @@ export default function RndDashboardPage() {
             <form onSubmit={saveAnnouncement} className="p-5 space-y-5">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">
+                  <label className="text-[10px] font-semibold text-warm-500 uppercase tracking-wider">
                     Category
                   </label>
                   <select
                     name="category"
                     value={draft.category}
                     onChange={handleDraftChange}
-                    className="w-full px-3 py-2 text-sm bg-white border border-zinc-300 rounded-xl text-zinc-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
+                    className="w-full px-3 py-2 text-sm bg-white border border-warm-300 rounded-xl text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
                   >
                     <option value="General">General</option>
                     <option value="Event">Event</option>
@@ -420,14 +420,14 @@ export default function RndDashboardPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">
+                  <label className="text-[10px] font-semibold text-warm-500 uppercase tracking-wider">
                     Visibility
                   </label>
                   <select
                     name="visibility"
                     value={draft.visibility}
                     onChange={handleDraftChange}
-                    className="w-full px-3 py-2 text-sm bg-white border border-zinc-300 rounded-xl text-zinc-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
+                    className="w-full px-3 py-2 text-sm bg-white border border-warm-300 rounded-xl text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
                   >
                     <option value="All">All</option>
                     <option value="FSS">FSS</option>
@@ -436,7 +436,7 @@ export default function RndDashboardPage() {
                 </div>
 
                 <div className="space-y-1.5 sm:col-span-2">
-                  <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">
+                  <label className="text-[10px] font-semibold text-warm-500 uppercase tracking-wider">
                     Title
                   </label>
                   <input
@@ -444,13 +444,13 @@ export default function RndDashboardPage() {
                     value={draft.title}
                     onChange={handleDraftChange}
                     placeholder="Announcement title"
-                    className="w-full px-3 py-2 text-sm bg-white border border-zinc-300 rounded-xl text-zinc-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 placeholder:text-zinc-400"
+                    className="w-full px-3 py-2 text-sm bg-white border border-warm-300 rounded-xl text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 placeholder:text-warm-400"
                   />
                 </div>
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">
+                <label className="text-[10px] font-semibold text-warm-500 uppercase tracking-wider">
                   Body
                 </label>
                 <textarea
@@ -458,7 +458,7 @@ export default function RndDashboardPage() {
                   value={draft.body}
                   onChange={handleDraftChange}
                   placeholder="Write the announcement"
-                  className="w-full px-3 py-2 text-sm bg-white border border-zinc-300 rounded-xl text-zinc-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 placeholder:text-zinc-400 min-h-32"
+                  className="w-full px-3 py-2 text-sm bg-white border border-warm-300 rounded-xl text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 placeholder:text-warm-400 min-h-32"
                 />
               </div>
 
@@ -468,11 +468,11 @@ export default function RndDashboardPage() {
                   type="checkbox"
                   checked={draft.pinned}
                   onChange={handlePinnedChange}
-                  className="h-4 w-4 rounded border-zinc-300 text-brand-green-600 focus:ring-brand-green-500/20"
+                  className="h-4 w-4 rounded border-warm-300 text-brand-green-600 focus:ring-brand-green-500/20"
                 />
                 <label
                   htmlFor="dashboard-pinned-toggle"
-                  className="text-xs font-semibold text-zinc-700 select-none cursor-pointer"
+                  className="text-xs font-semibold text-warm-700 select-none cursor-pointer"
                 >
                   Pin to top of feed
                 </label>
@@ -517,19 +517,19 @@ export default function RndDashboardPage() {
     if (selectedPost) {
       return (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/45 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-forest-900/45 backdrop-blur-sm"
           onClick={handleModalBackdropClick}
         >
           <div
-            className="w-full max-w-3xl bg-white border border-zinc-200 rounded-3xl overflow-hidden shadow-2xl"
+            className="w-full max-w-3xl bg-white border border-warm-200 rounded-3xl overflow-hidden shadow-2xl"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="px-5 py-4 border-b border-zinc-100 bg-zinc-50 flex items-center justify-between gap-4">
+            <div className="px-5 py-4 border-b border-warm-100 bg-warm-50 flex items-center justify-between gap-4">
               <div>
-                <h3 className="text-xs font-bold text-zinc-900 uppercase tracking-[0.18em]">
+                <h3 className="text-xs font-bold text-warm-900 uppercase tracking-[0.18em]">
                   Announcement
                 </h3>
-                <p className="text-[10px] text-zinc-500 mt-1">
+                <p className="text-[10px] text-warm-500 mt-1">
                   Facebook-style post view with background blur and author controls.
                 </p>
               </div>
@@ -539,7 +539,7 @@ export default function RndDashboardPage() {
                   <button
                     type="button"
                     onClick={() => openEditComposer(selectedPost)}
-                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-zinc-200 text-[10px] font-bold uppercase tracking-wider text-zinc-600 hover:text-zinc-900 hover:bg-white transition-colors"
+                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-warm-200 text-[10px] font-bold uppercase tracking-wider text-warm-600 hover:text-warm-900 hover:bg-white transition-colors"
                   >
                     <PencilLine className="h-3.5 w-3.5" />
                     Edit
@@ -548,7 +548,7 @@ export default function RndDashboardPage() {
                 <button
                   type="button"
                   onClick={closeViewer}
-                  className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-zinc-200 text-[10px] font-bold uppercase tracking-wider text-zinc-600 hover:text-zinc-900 hover:bg-white transition-colors"
+                  className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-warm-200 text-[10px] font-bold uppercase tracking-wider text-warm-600 hover:text-warm-900 hover:bg-white transition-colors"
                 >
                   <X className="h-3.5 w-3.5" />
                   Close
@@ -556,18 +556,18 @@ export default function RndDashboardPage() {
               </div>
             </div>
 
-            <div className="p-5 bg-zinc-50/50">
-              <article className="bg-white border border-zinc-200 rounded-3xl p-5 shadow-sm">
+            <div className="p-5 bg-warm-50/50">
+              <article className="bg-white border border-warm-200 rounded-3xl p-5 shadow-sm">
                 <div className="flex items-start gap-3">
-                  <div className="h-11 w-11 rounded-full bg-zinc-950 text-white flex items-center justify-center text-xs font-bold uppercase">
+                  <div className="h-11 w-11 rounded-full bg-brand-green-700 text-white flex items-center justify-center text-xs font-bold uppercase">
                     {getInitials(selectedPost.author?.name || "")}
                   </div>
 
                   <div className="flex-1 min-w-0">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div>
-                        <div className="text-sm font-bold text-zinc-950">{selectedPost.author?.name}</div>
-                        <div className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
+                        <div className="text-sm font-bold text-warm-900">{selectedPost.author?.name}</div>
+                        <div className="text-[10px] font-semibold uppercase tracking-wider text-warm-400">
                           {selectedPost.author?.role} / {formatTimeStamp(selectedPost.created_at)}
                           {selectedPost.updated_at && selectedPost.updated_at !== selectedPost.created_at ? " / Edited" : ""}
                         </div>
@@ -588,10 +588,10 @@ export default function RndDashboardPage() {
                     </div>
 
                     <div className="mt-4 space-y-3">
-                      <h4 className="text-base font-extrabold text-zinc-950 tracking-tight">
+                      <h4 className="text-base font-extrabold text-warm-900 tracking-tight">
                         {selectedPost.title}
                       </h4>
-                      <p className="text-sm text-zinc-700 leading-7 whitespace-pre-wrap">
+                      <p className="text-sm text-warm-700 leading-7 whitespace-pre-wrap">
                         {selectedPost.body}
                       </p>
                     </div>
@@ -602,7 +602,7 @@ export default function RndDashboardPage() {
                       className="mt-4"
                     />
 
-                    <div className="mt-4 border-t border-zinc-100 pt-3 text-[10px] font-bold uppercase tracking-wider text-zinc-400">
+                    <div className="mt-4 border-t border-warm-100 pt-3 text-[10px] font-bold uppercase tracking-wider text-warm-400">
                       Posted to department announcements
                     </div>
                   </div>
@@ -619,18 +619,18 @@ export default function RndDashboardPage() {
 
   return (
     <div className="space-y-6 font-sans">
-      <div className="flex items-center gap-2 text-xs font-semibold text-zinc-400 select-none">
+      <div className="flex items-center gap-2 text-xs font-semibold text-warm-400 select-none">
         <span>Home</span>
-        <span className="text-zinc-300">/</span>
-        <span className="text-zinc-600 font-bold">Dashboard</span>
+        <span className="text-warm-300">/</span>
+        <span className="text-warm-600 font-bold">Dashboard</span>
       </div>
 
-      <div className="border-b border-zinc-200 pb-5">
-        <h2 className="text-xl font-extrabold text-zinc-950 tracking-tight flex items-center gap-2.5">
+      <div className="border-b border-warm-200 pb-5">
+        <h2 className="text-xl font-extrabold text-warm-900 tracking-tight flex items-center gap-2.5">
           <Compass className="h-5 w-5 text-emerald-600" />
           {user ? `Good morning, ${user.name}` : "RND Dashboard"}
         </h2>
-        <p className="text-xs text-zinc-500 mt-1 select-none">
+        <p className="text-xs text-warm-500 mt-1 select-none">
           Follow-ups, patient oversight, and a social-feed style announcement board built for the clinical workflow.
         </p>
       </div>
@@ -645,12 +645,12 @@ export default function RndDashboardPage() {
       )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-        <div className="bg-white border border-zinc-200 rounded-2xl p-4 flex items-center justify-between shadow-sm">
+        <div className="bg-white border border-warm-200 rounded-2xl p-4 flex items-center justify-between shadow-sm">
           <div>
-            <span className="text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider block">
+            <span className="text-[10px] font-extrabold text-warm-400 uppercase tracking-wider block">
               Patients in Care
             </span>
-            <span className="text-lg font-extrabold text-zinc-950 mt-1 block">
+            <span className="text-lg font-extrabold text-warm-900 mt-1 block">
               {patientCountLabel}
             </span>
           </div>
@@ -659,27 +659,27 @@ export default function RndDashboardPage() {
           </div>
         </div>
 
-        <div className="bg-white border border-zinc-200 rounded-2xl p-4 flex items-center justify-between shadow-sm">
+        <div className="bg-white border border-warm-200 rounded-2xl p-4 flex items-center justify-between shadow-sm">
           <div>
-            <span className="text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider block">
+            <span className="text-[10px] font-extrabold text-warm-400 uppercase tracking-wider block">
               Upcoming Follow-ups
             </span>
-            <span className="text-lg font-extrabold text-zinc-950 mt-1 block">
+            <span className="text-lg font-extrabold text-warm-900 mt-1 block">
               {upcomingFollowUpLabel}
             </span>
           </div>
-          <div className="p-2.5 rounded-xl bg-blue-50 text-blue-700 border border-blue-100">
+          <div className="p-2.5 rounded-xl bg-sky-50 text-sky-700 border border-sky-100">
             <Calendar className="h-5 w-5" />
           </div>
         </div>
 
-        <div className="bg-white border border-zinc-200 rounded-2xl p-4 flex items-center justify-between shadow-sm">
+        <div className="bg-white border border-warm-200 rounded-2xl p-4 flex items-center justify-between shadow-sm">
           <div>
             <Link href="/food-service/procurement" className="text-[10px] font-extrabold text-[#EA580C] uppercase tracking-wider block hover:underline">
               Pending POs
             </Link>
-            <span className="text-lg font-extrabold text-zinc-950 mt-1 block">{pendingKpi.value}</span>
-            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block mt-1">
+            <span className="text-lg font-extrabold text-warm-900 mt-1 block">{pendingKpi.value}</span>
+            <span className="text-[10px] font-bold text-warm-500 uppercase tracking-wider block mt-1">
               {pendingKpi.sub}
             </span>
           </div>
@@ -691,19 +691,19 @@ export default function RndDashboardPage() {
 
       <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.12fr)_minmax(380px,0.88fr)] gap-6 items-start">
         <div className="space-y-4">
-          <div className="bg-white border border-zinc-200 rounded-3xl overflow-hidden shadow-sm">
-            <div className="px-5 py-4 border-b border-zinc-100 flex items-center justify-between gap-4">
+          <div className="bg-white border border-warm-200 rounded-3xl overflow-hidden shadow-sm">
+            <div className="px-5 py-4 border-b border-warm-100 flex items-center justify-between gap-4">
               <div>
-                <h3 className="text-xs font-bold text-zinc-900 uppercase tracking-[0.18em]">
+                <h3 className="text-xs font-bold text-warm-900 uppercase tracking-[0.18em]">
                   Patient Snapshot
                 </h3>
-                <p className="text-[10px] text-zinc-500 mt-1">
+                <p className="text-[10px] text-warm-500 mt-1">
                   Open the patient profile to continue the NCP cycle or review the next follow-up.
                 </p>
               </div>
               <Link
                 href="/ncp/patients"
-                className="inline-flex px-3 py-1.5 bg-zinc-950 hover:bg-zinc-800 text-white text-[10px] font-bold uppercase tracking-wider rounded-lg transition-colors"
+                className="inline-flex px-3 py-1.5 bg-brand-green-600 hover:bg-brand-green-700 text-white text-[10px] font-bold uppercase tracking-wider rounded-lg transition-colors"
               >
                 Open Patients
               </Link>
@@ -713,65 +713,65 @@ export default function RndDashboardPage() {
               <div className="p-5 space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   {[1, 2, 3].map((index) => (
-                    <div key={index} className="h-20 rounded-2xl bg-zinc-100 animate-pulse" />
+                    <div key={index} className="h-20 rounded-2xl bg-warm-100 animate-pulse" />
                   ))}
                 </div>
                 <div className="space-y-3 pt-2">
                   {[1, 2, 3, 4].map((index) => (
-                    <div key={index} className="h-12 rounded-xl bg-zinc-100 animate-pulse" />
+                    <div key={index} className="h-12 rounded-xl bg-warm-100 animate-pulse" />
                   ))}
                 </div>
               </div>
             ) : followUps.length === 0 ? (
               <div className="p-12 text-center">
-                <div className="p-3 bg-zinc-50 border border-zinc-200 rounded-2xl w-fit mx-auto text-zinc-400">
+                <div className="p-3 bg-warm-50 border border-warm-200 rounded-2xl w-fit mx-auto text-warm-400">
                   <HeartHandshake className="h-8 w-8" />
                 </div>
-                <h3 className="text-sm font-bold text-zinc-800 mt-4">No follow-ups scheduled yet</h3>
-                <p className="text-xs text-zinc-500 mt-1 max-w-sm mx-auto leading-relaxed">
+                <h3 className="text-sm font-bold text-warm-800 mt-4">No follow-ups scheduled yet</h3>
+                <p className="text-xs text-warm-500 mt-1 max-w-sm mx-auto leading-relaxed">
                   Once interventions are recorded, the next review dates will appear here.
                 </p>
               </div>
             ) : (
               <div className="p-5 space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
-                    <div className="text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider">
+                  <div className="rounded-2xl border border-warm-200 bg-warm-50 p-4">
+                    <div className="text-[10px] font-extrabold text-warm-400 uppercase tracking-wider">
                       Active Patients
                     </div>
-                    <div className="text-2xl font-extrabold text-zinc-950 mt-2">{patientCountLabel}</div>
+                    <div className="text-2xl font-extrabold text-warm-900 mt-2">{patientCountLabel}</div>
                   </div>
-                  <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
-                    <div className="text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider">
+                  <div className="rounded-2xl border border-warm-200 bg-warm-50 p-4">
+                    <div className="text-[10px] font-extrabold text-warm-400 uppercase tracking-wider">
                       Follow-ups Due
                     </div>
-                    <div className="text-2xl font-extrabold text-zinc-950 mt-2">{upcomingFollowUpLabel}</div>
+                    <div className="text-2xl font-extrabold text-warm-900 mt-2">{upcomingFollowUpLabel}</div>
                   </div>
-                  <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
-                    <div className="text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider">
+                  <div className="rounded-2xl border border-warm-200 bg-warm-50 p-4">
+                    <div className="text-[10px] font-extrabold text-warm-400 uppercase tracking-wider">
                       Review Window
                     </div>
-                    <div className="text-2xl font-extrabold text-zinc-950 mt-2">48h</div>
+                    <div className="text-2xl font-extrabold text-warm-900 mt-2">48h</div>
                   </div>
                 </div>
 
-                <div className="overflow-x-auto rounded-2xl border border-zinc-200">
+                <div className="overflow-x-auto rounded-2xl border border-warm-200">
                   <table className="w-full text-left border-collapse min-w-[480px]">
                     <thead>
-                      <tr className="bg-zinc-50 border-b border-zinc-200">
-                        <th className="px-4 py-3 text-[10px] font-extrabold text-zinc-500 uppercase tracking-wider">
+                      <tr className="bg-warm-50 border-b border-warm-200">
+                        <th className="px-4 py-3 text-[10px] font-extrabold text-warm-500 uppercase tracking-wider">
                           Patient
                         </th>
-                        <th className="px-4 py-3 text-[10px] font-extrabold text-zinc-500 uppercase tracking-wider">
+                        <th className="px-4 py-3 text-[10px] font-extrabold text-warm-500 uppercase tracking-wider">
                           Intervention Goal
                         </th>
-                        <th className="px-4 py-3 text-[10px] font-extrabold text-zinc-500 uppercase tracking-wider">
+                        <th className="px-4 py-3 text-[10px] font-extrabold text-warm-500 uppercase tracking-wider">
                           Next Follow-up
                         </th>
-                        <th className="px-4 py-3 text-[10px] font-extrabold text-zinc-500 uppercase tracking-wider">
+                        <th className="px-4 py-3 text-[10px] font-extrabold text-warm-500 uppercase tracking-wider">
                           Days Remaining
                         </th>
-                        <th className="px-4 py-3 text-[10px] font-extrabold text-zinc-500 uppercase tracking-wider text-right">
+                        <th className="px-4 py-3 text-[10px] font-extrabold text-warm-500 uppercase tracking-wider text-right">
                           Action
                         </th>
                       </tr>
@@ -780,14 +780,14 @@ export default function RndDashboardPage() {
                       {pagedFollowUps.map((row, index) => (
                         <tr
                           key={`${row.patientId}-${row.nextFollowUpDate}`}
-                          className={`${index % 2 === 0 ? "bg-white" : "bg-zinc-50/20"} hover:bg-zinc-50/60 transition-colors`}
+                          className={`${index % 2 === 0 ? "bg-white" : "bg-warm-50/20"} hover:bg-warm-50/60 transition-colors`}
                         >
                           <td className="px-4 py-4">
-                            <div className="text-xs font-bold text-zinc-900">{row.name}</div>
-                            <div className="text-[10px] font-mono text-zinc-400 mt-1">{row.systemId}</div>
+                            <div className="text-xs font-bold text-warm-900">{row.name}</div>
+                            <div className="text-[10px] font-mono text-warm-400 mt-1">{row.systemId}</div>
                           </td>
-                          <td className="px-4 py-4 text-xs text-zinc-700 font-medium">{row.goalType}</td>
-                          <td className="px-4 py-4 text-xs text-zinc-700 font-semibold">
+                          <td className="px-4 py-4 text-xs text-warm-700 font-medium">{row.goalType}</td>
+                          <td className="px-4 py-4 text-xs text-warm-700 font-semibold">
                             {new Date(row.nextFollowUpDate).toLocaleDateString("en-US", {
                               month: "short",
                               day: "numeric",
@@ -795,14 +795,14 @@ export default function RndDashboardPage() {
                             })}
                           </td>
                           <td className="px-4 py-4 text-xs font-semibold">
-                            <span className="inline-flex px-2.5 py-0.5 rounded-full border bg-zinc-50 text-zinc-700 border-zinc-200">
+                            <span className="inline-flex px-2.5 py-0.5 rounded-full border bg-warm-50 text-warm-700 border-warm-200">
                               {formatDaysRemaining(row.daysRemaining)}
                             </span>
                           </td>
                           <td className="px-4 py-4 text-right">
                             <Link
                               href={`/ncp/patients/${row.patientId}`}
-                              className="inline-flex px-3 py-1.5 bg-zinc-950 hover:bg-zinc-800 text-white text-[10px] font-bold uppercase tracking-wider rounded-lg transition-colors"
+                              className="inline-flex px-3 py-1.5 bg-brand-green-600 hover:bg-brand-green-700 text-white text-[10px] font-bold uppercase tracking-wider rounded-lg transition-colors"
                             >
                               Open NCP
                             </Link>
@@ -822,19 +822,19 @@ export default function RndDashboardPage() {
           </div>
         </div>
 
-        <div className="bg-white border border-zinc-200 rounded-3xl overflow-hidden shadow-sm xl:sticky xl:top-6">
-          <div className="px-5 py-4 border-b border-zinc-100 flex items-center justify-between gap-4">
+        <div className="bg-white border border-warm-200 rounded-3xl overflow-hidden shadow-sm xl:sticky xl:top-6">
+          <div className="px-5 py-4 border-b border-warm-100 flex items-center justify-between gap-4">
             <div>
-              <h3 className="text-xs font-bold text-zinc-900 uppercase tracking-[0.18em]">
+              <h3 className="text-xs font-bold text-warm-900 uppercase tracking-[0.18em]">
                 Announcements
               </h3>
-              <p className="text-[10px] text-zinc-500 mt-1">
+              <p className="text-[10px] text-warm-500 mt-1">
                 Social-feed layout on the right. Open a post to view it in a blurred modal.
               </p>
             </div>
             <Link
               href="/announcements"
-              className="inline-flex px-3 py-1.5 bg-zinc-950 hover:bg-zinc-800 text-white text-[10px] font-bold uppercase tracking-wider rounded-lg transition-colors"
+              className="inline-flex px-3 py-1.5 bg-brand-green-600 hover:bg-brand-green-700 text-white text-[10px] font-bold uppercase tracking-wider rounded-lg transition-colors"
             >
               Manage announcements →
             </Link>
@@ -844,11 +844,11 @@ export default function RndDashboardPage() {
             {announcementsLoading ? (
               <div className="space-y-3">
                 {[1, 2, 3].map((index) => (
-                  <div key={index} className="h-32 rounded-3xl bg-zinc-100 animate-pulse" />
+                  <div key={index} className="h-32 rounded-3xl bg-warm-100 animate-pulse" />
                 ))}
               </div>
             ) : orderedPosts.length === 0 ? (
-              <div className="border border-dashed border-zinc-200 rounded-3xl p-8 text-center text-xs text-zinc-400 bg-zinc-50/40">
+              <div className="border border-dashed border-warm-200 rounded-3xl p-8 text-center text-xs text-warm-400 bg-warm-50/40">
                 Announcements will appear here once configured.
               </div>
             ) : (
@@ -867,18 +867,18 @@ export default function RndDashboardPage() {
                         openViewer(post);
                       }
                     }}
-                    className="cursor-pointer rounded-3xl border border-zinc-200 bg-white p-5 shadow-sm transition-all duration-150 hover:-translate-y-0.5 hover:border-zinc-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                    className="cursor-pointer rounded-3xl border border-warm-200 bg-white p-5 shadow-sm transition-all duration-150 hover:-translate-y-0.5 hover:border-warm-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
                   >
                     <div className="flex items-start gap-3">
-                      <div className="h-11 w-11 rounded-full bg-zinc-950 text-white flex items-center justify-center text-xs font-bold uppercase shrink-0">
+                      <div className="h-11 w-11 rounded-full bg-brand-green-700 text-white flex items-center justify-center text-xs font-bold uppercase shrink-0">
                         {getInitials(post.author?.name || "")}
                       </div>
 
                       <div className="flex-1 min-w-0">
                         <div className="flex flex-wrap items-start justify-between gap-3">
                           <div>
-                            <div className="text-sm font-bold text-zinc-950">{post.author?.name}</div>
-                            <div className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
+                            <div className="text-sm font-bold text-warm-900">{post.author?.name}</div>
+                            <div className="text-[10px] font-semibold uppercase tracking-wider text-warm-400">
                               {post.author?.role} / {formatTimeStamp(post.created_at)}
                               {post.updated_at && post.updated_at !== post.created_at ? " / Edited" : ""}
                             </div>
@@ -902,7 +902,7 @@ export default function RndDashboardPage() {
                                   event.stopPropagation();
                                   openEditComposer(post);
                                 }}
-                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-zinc-200 text-[9px] font-extrabold uppercase tracking-wider text-zinc-600 hover:text-zinc-900 hover:bg-zinc-50 transition-colors"
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-warm-200 text-[9px] font-extrabold uppercase tracking-wider text-warm-600 hover:text-warm-900 hover:bg-warm-50 transition-colors"
                                 title="Edit your post"
                               >
                                 <PencilLine className="h-3 w-3" />
@@ -913,8 +913,8 @@ export default function RndDashboardPage() {
                         </div>
 
                         <div className="mt-3 space-y-2">
-                          <h4 className="text-sm font-bold text-zinc-950 tracking-tight">{post.title}</h4>
-                          <p className="text-xs text-zinc-600 leading-relaxed whitespace-pre-wrap">
+                          <h4 className="text-sm font-bold text-warm-900 tracking-tight">{post.title}</h4>
+                          <p className="text-xs text-warm-600 leading-relaxed whitespace-pre-wrap">
                             {post.body}
                           </p>
                         </div>
@@ -925,7 +925,7 @@ export default function RndDashboardPage() {
                           className="mt-4"
                         />
 
-                        <div className="mt-4 border-t border-zinc-100 pt-3 text-[10px] font-bold uppercase tracking-wider text-zinc-400">
+                        <div className="mt-4 border-t border-warm-100 pt-3 text-[10px] font-bold uppercase tracking-wider text-warm-400">
                           Posted to department announcements
                         </div>
                       </div>

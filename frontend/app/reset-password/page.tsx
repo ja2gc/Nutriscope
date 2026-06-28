@@ -41,23 +41,23 @@ function ResetPasswordForm() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 px-4 sm:px-6 lg:px-8 font-sans">
+    <div className="flex min-h-screen items-center justify-center bg-warm-50 px-4 sm:px-6 lg:px-8 font-sans">
       <div className="w-full max-w-md space-y-6">
         <div className="flex flex-col items-center text-center">
           <Logo variant="light" />
-          <p className="mt-2 text-xs font-semibold text-zinc-500 uppercase tracking-widest">
+          <p className="mt-2 text-xs font-semibold text-warm-500 uppercase tracking-widest">
             Account Recovery
           </p>
         </div>
 
-        <div className="bg-white px-8 py-10 border border-zinc-200 rounded-2xl shadow-sm">
-          <div className="mb-6 border-b border-zinc-100 pb-4">
-            <h1 className="text-lg font-bold text-zinc-900 flex items-center gap-2">
+        <div className="bg-white px-8 py-10 border border-warm-200 rounded-2xl shadow-sm">
+          <div className="mb-6 border-b border-warm-100 pb-4">
+            <h1 className="text-lg font-bold text-warm-900 flex items-center gap-2">
               <KeyRound className="h-4 w-4 text-emerald-600" />
               Set New Password
             </h1>
-            <p className="mt-1 text-xs text-zinc-500">
-              Use the token from your reset link to set a new password.
+            <p className="mt-1 text-xs text-warm-500">
+              Use the reset link sent to your verified recovery email.
             </p>
           </div>
 
@@ -72,7 +72,7 @@ function ResetPasswordForm() {
                 {error}
               </div>
             )}
-            <Input label="Email Address" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" />
+            <Input label="Recovery Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" />
             <Input label="Reset Token" value={token} onChange={(e) => setToken(e.target.value)} required />
             <Input label="New Password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} autoComplete="new-password" />
             <Input label="Confirm New Password" type="password" value={passwordConfirmation} onChange={(e) => setPasswordConfirmation(e.target.value)} required minLength={8} autoComplete="new-password" />
@@ -82,7 +82,7 @@ function ResetPasswordForm() {
           </form>
 
           <div className="mt-5 text-center">
-            <Link href="/login" className="text-xs font-semibold text-zinc-500 hover:text-zinc-800">
+            <Link href="/login" className="text-xs font-semibold text-warm-500 hover:text-warm-800">
               Back to sign in
             </Link>
           </div>

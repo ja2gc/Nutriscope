@@ -1,7 +1,7 @@
 import '../global.css';
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { Stack, router } from 'expo-router';
+import { Stack, router, usePathname } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import AnimatedSplash from '../components/AnimatedSplash';
@@ -10,13 +10,17 @@ import { getToken } from '../lib/auth';
 const queryClient = new QueryClient();
 
 function Redirector({ isAuthenticated }: { isAuthenticated: boolean }) {
+  const pathname = usePathname();
+
   useEffect(() => {
+    const isPublic = pathname === '/login' || pathname === '/forgot-password';
+
     if (isAuthenticated) {
       router.replace('/(tabs)');
-    } else {
+    } else if (!isPublic) {
       router.replace('/login');
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, pathname]);
 
   return null;
 }
@@ -63,6 +67,7 @@ export default function RootLayout() {
         >
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="login" options={{ headerShown: false }} />
+          <Stack.Screen name="forgot-password" options={{ headerShown: false }} />
           <Stack.Screen
             name="announcements"
             options={{ title: 'Announcements' }}

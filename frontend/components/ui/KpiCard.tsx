@@ -2,15 +2,20 @@ import React from "react";
 
 export type KpiTone = "zinc" | "emerald" | "red" | "amber" | "sky";
 
-const TONES: Record<KpiTone, string> = {
-  zinc: "bg-zinc-50 border-zinc-200 text-zinc-700",
-  emerald: "bg-brand-green-50 border-brand-green-200 text-brand-green-700",
-  red: "bg-red-50 border-red-200 text-red-700",
-  amber: "bg-brand-orange-50 border-brand-orange-100 text-brand-orange-700",
-  sky: "bg-sky-50 border-sky-200 text-sky-700",
+interface ToneConfig {
+  border: string;
+  labelColor: string;
+}
+
+const TONES: Record<KpiTone, ToneConfig> = {
+  zinc:    { border: "border-warm-200",                                          labelColor: "text-warm-500"         },
+  emerald: { border: "border-warm-200 border-l-4 border-l-brand-green-500",     labelColor: "text-brand-green-600"  },
+  red:     { border: "border-warm-200 border-l-4 border-l-red-500",             labelColor: "text-red-600"          },
+  amber:   { border: "border-warm-200 border-l-4 border-l-amber-500",           labelColor: "text-amber-600"        },
+  sky:     { border: "border-warm-200 border-l-4 border-l-sky-500",             labelColor: "text-sky-600"          },
 };
 
-/** Metric tile — uppercase label + big tabular value. Shared KPI card. */
+/** Metric tile — uppercase label + big tabular value. White card, tone shown via left border accent. */
 export function KpiCard({
   label,
   value,
@@ -22,11 +27,12 @@ export function KpiCard({
   hint?: string;
   tone?: KpiTone;
 }) {
+  const { border, labelColor } = TONES[tone];
   return (
-    <div className={`px-4 py-3 rounded-2xl border ${TONES[tone]}`}>
-      <div className="text-[10px] font-extrabold uppercase tracking-wider opacity-70">{label}</div>
-      <div className="text-xl font-extrabold mt-0.5 tabular-nums">{value}</div>
-      {hint && <div className="text-[10px] mt-0.5 opacity-60">{hint}</div>}
+    <div className={`px-4 py-3 bg-white rounded-2xl border ${border} shadow-sm`}>
+      <div className={`text-[10px] font-extrabold uppercase tracking-wider ${labelColor}`}>{label}</div>
+      <div className="text-xl font-bold mt-0.5 font-numeric text-warm-900">{value}</div>
+      {hint && <div className="text-[10px] mt-0.5 text-warm-400">{hint}</div>}
     </div>
   );
 }

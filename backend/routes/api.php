@@ -8,6 +8,7 @@ use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Auth\PasswordResetController;
+use App\Http\Controllers\Auth\RecoveryEmailController;
 use App\Http\Controllers\FSS\BudgetController;
 use App\Http\Controllers\FSS\DashboardController as FssDashboardController;
 use App\Http\Controllers\FSS\DietListCountController;
@@ -77,6 +78,10 @@ Route::prefix('auth')->group(function () {
         Route::post('logout', [AuthController::class, 'logout']);
         Route::get('me', [AuthController::class, 'me']);
         Route::patch('profile', [AuthController::class, 'updateProfile']);
+        Route::patch('recovery-email', [RecoveryEmailController::class, 'update'])
+            ->middleware('throttle:password-reset');
+        Route::post('recovery-email/verify', [RecoveryEmailController::class, 'verify'])
+            ->middleware('throttle:password-reset');
         Route::post('password', [AuthController::class, 'updatePassword'])->middleware('throttle:password-change');
     });
 });

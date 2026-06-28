@@ -30,7 +30,7 @@ export default function ButtonFilterGroup({
   return (
     <div className="flex flex-wrap items-center gap-2">
       {label && (
-        <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
+        <span className="text-[10px] font-bold text-warm-500 uppercase tracking-wider">
           {label}
         </span>
       )}
@@ -41,8 +41,8 @@ export default function ButtonFilterGroup({
           onClick={() => onChange(opt.value)}
           className={`${sizeClass} font-bold uppercase tracking-wider rounded-lg border transition-all cursor-pointer ${
             value === opt.value
-              ? "bg-zinc-950 text-white border-zinc-950"
-              : "bg-white text-zinc-500 border-zinc-200 hover:border-zinc-400"
+              ? "bg-forest-900 text-white border-forest-900"
+              : "bg-white text-warm-500 border-warm-200 hover:border-warm-400"
           }`}
         >
           {opt.label}

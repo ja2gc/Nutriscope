@@ -1,41 +1,57 @@
 @import "tailwindcss";
 
 :root {
-  --background: #fafafa;
-  --foreground: #09090b;
+  --background: #f8faf6;
+  --foreground: #181c16;
 }
 
 @theme {
-  --font-sans: ui-sans-serif, system-ui, sans-serif;
-  
+  --font-sans: var(--font-plus-jakarta), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
   /* Brand Green (Nutri) */
-  --color-brand-green-50: #ecfdf5;
+  --color-brand-green-50:  #ecfdf5;
   --color-brand-green-100: #d1fae5;
   --color-brand-green-200: #a7f3d0;
+  --color-brand-green-300: #6ee7b7;
+  --color-brand-green-400: #34d399;
   --color-brand-green-500: #10b981;
   --color-brand-green-600: #059669;
   --color-brand-green-700: #047857;
   --color-brand-green-900: #064e3b;
-  
+
   /* Brand Orange (Scope) */
-  --color-brand-orange-50: #fff7ed;
+  --color-brand-orange-50:  #fff7ed;
   --color-brand-orange-100: #ffedd5;
+  --color-brand-orange-200: #fed7aa;
   --color-brand-orange-500: #f97316;
   --color-brand-orange-600: #ea580c;
   --color-brand-orange-700: #c2410c;
 
-  /* Premium Dark Sidebar */
-  --color-sidebar-bg: #09090b;
-  --color-sidebar-border: #1f1f23;
-  --color-sidebar-text: #a1a1aa;
-  --color-sidebar-text-hover: #f4f4f5;
-  --color-sidebar-active: #18181b;
+  /* Forest Green — sidebar & admin bar surfaces */
+  --color-forest-700:  #15412c;
+  --color-forest-800:  #0f3322;
+  --color-forest-900:  #0a261a;
+  --color-forest-950:  #061a11;
+  --color-forest-line: #1c4a33;
 
-  /* Semantic Status Colors */
+  /* Warm Neutrals — faintly green-tinted grays */
+  --color-warm-25:  #f8faf6;
+  --color-warm-50:  #f3f6f1;
+  --color-warm-100: #e9ece6;
+  --color-warm-200: #dadfd5;
+  --color-warm-300: #c2c9bc;
+  --color-warm-400: #98a191;
+  --color-warm-500: #6e776a;
+  --color-warm-600: #535b50;
+  --color-warm-700: #3e453b;
+  --color-warm-800: #2a2f27;
+  --color-warm-900: #181c16;
+
+  /* Semantic Status */
   --color-status-critical: #ef4444;
-  --color-status-warning: #f59e0b;
-  --color-status-normal: #10b981;
-  --color-status-neutral: #64748b;
+  --color-status-warning:  #f59e0b;
+  --color-status-normal:   #10b981;
+  --color-status-neutral:  #64748b;
 }
 
 body {
@@ -44,8 +60,15 @@ body {
   font-feature-settings: "cv02", "cv03", "cv04", "cv11";
 }
 
-/* Local UX preferences (rnd.md §8) — applied to <html> from lib/preferences.ts */
-:root[data-density="compact"] {
-  font-size: 93.75%; /* 15px base — tightens rem-based spacing/text app-wide */
+/* Space Grotesk for all numeric / tabular data — clean oval 0, no slash */
+@layer utilities {
+  .font-numeric {
+    font-family: var(--font-space-grotesk), "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+    font-feature-settings: "tnum" 1;
+    font-variant-numeric: tabular-nums;
+  }
 }
 
+:root[data-density="compact"] {
+  font-size: 93.75%;
+}

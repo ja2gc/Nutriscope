@@ -18,6 +18,8 @@ interface UserProfile {
   id: number;
   name: string;
   email: string;
+  recovery_email: string | null;
+  recovery_email_verified: boolean;
   contact_number: string | null;
   role: string;
   is_active: boolean;
@@ -49,6 +51,24 @@ async function changePassword(body: {
   password_confirmation: string;
 }): Promise<void> {
   await api.post('/api/auth/password', body);
+}
+
+async function updateRecoveryEmail(body: { recovery_email: string }): Promise<UserProfile> {
+  const res = await api.patch<{ user: UserProfile | { data: UserProfile } }>('/api/auth/recovery-email', body);
+  const user = res.data.user;
+  if (user && typeof (user as { data: UserProfile }).data === 'object') {
+    return (user as { data: UserProfile }).data;
+  }
+  return user as UserProfile;
+}
+
+async function verifyRecoveryEmail(body: { code: string }): Promise<UserProfile> {
+  const res = await api.post<{ user: UserProfile | { data: UserProfile } }>('/api/auth/recovery-email/verify', body);
+  const user = res.data.user;
+  if (user && typeof (user as { data: UserProfile }).data === 'object') {
+    return (user as { data: UserProfile }).data;
+  }
+  return user as UserProfile;
 }
 
 function FormField({
@@ -127,6 +147,12 @@ export default function ProfileScreen() {
   const [emailError, setEmailError] = useState<string | null>(null);
   const [profileMsg, setProfileMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
+  const [recoveryEmail, setRecoveryEmail] = useState('');
+  const [recoveryCode, setRecoveryCode] = useState('');
+  const [recoveryEmailError, setRecoveryEmailError] = useState<string | null>(null);
+  const [recoveryCodeError, setRecoveryCodeError] = useState<string | null>(null);
+  const [recoveryMsg, setRecoveryMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
   const [currentPw, setCurrentPw] = useState('');
   const [newPw, setNewPw] = useState('');
   const [confirmPw, setConfirmPw] = useState('');
@@ -147,6 +173,7 @@ export default function ProfileScreen() {
     if (user) {
       setName(user.name);
       setEmail(user.email);
+      setRecoveryEmail(user.recovery_email ?? '');
       setContactNumber(user.contact_number ?? '');
     }
   }, [user]);
@@ -181,6 +208,36 @@ export default function ProfileScreen() {
     },
   });
 
+  const recoveryEmailMutation = useMutation({
+    mutationFn: updateRecoveryEmail,
+    onSuccess: (updated) => {
+      queryClient.setQueryData(['me'], updated);
+      setRecoveryCode('');
+      setRecoveryMsg({ ok: true, text: 'Verification code sent.' });
+    },
+    onError: (err: unknown) => {
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+        'Recovery email update failed.';
+      setRecoveryMsg({ ok: false, text: msg });
+    },
+  });
+
+  const recoveryVerifyMutation = useMutation({
+    mutationFn: verifyRecoveryEmail,
+    onSuccess: (updated) => {
+      queryClient.setQueryData(['me'], updated);
+      setRecoveryCode('');
+      setRecoveryMsg({ ok: true, text: 'Recovery email verified.' });
+    },
+    onError: (err: unknown) => {
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+        'Recovery email verification failed.';
+      setRecoveryMsg({ ok: false, text: msg });
+    },
+  });
+
   function validateProfile() {
     let valid = true;
     if (!name.trim()) { setNameError('Name is required.'); valid = false; } else setNameError(null);
@@ -197,6 +254,28 @@ export default function ProfileScreen() {
     if (!newPw || newPw.length < 8) { setNewPwError('At least 8 characters.'); valid = false; } else setNewPwError(null);
     if (newPw !== confirmPw) { setConfirmPwError('Passwords do not match.'); valid = false; } else setConfirmPwError(null);
     return valid;
+  }
+
+  function validateRecoveryEmail() {
+    if (!recoveryEmail.trim()) {
+      setRecoveryEmailError('Recovery email is required.');
+      return false;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recoveryEmail.trim())) {
+      setRecoveryEmailError('Enter a valid email.');
+      return false;
+    }
+    setRecoveryEmailError(null);
+    return true;
+  }
+
+  function validateRecoveryCode() {
+    if (!/^\d{6}$/.test(recoveryCode.trim())) {
+      setRecoveryCodeError('Enter the 6-digit code.');
+      return false;
+    }
+    setRecoveryCodeError(null);
+    return true;
   }
 
   function submitProfile() {
@@ -217,6 +296,18 @@ export default function ProfileScreen() {
       password: newPw,
       password_confirmation: confirmPw,
     });
+  }
+
+  function submitRecoveryEmail() {
+    setRecoveryMsg(null);
+    if (!validateRecoveryEmail()) return;
+    recoveryEmailMutation.mutate({ recovery_email: recoveryEmail.trim() });
+  }
+
+  function submitRecoveryCode() {
+    setRecoveryMsg(null);
+    if (!validateRecoveryCode()) return;
+    recoveryVerifyMutation.mutate({ code: recoveryCode.trim() });
   }
 
   if (isLoading) {
@@ -311,6 +402,68 @@ export default function ProfileScreen() {
               {profileMutation.isPending ? 'Saving…' : 'Save changes'}
             </Text>
           </TouchableOpacity>
+        </View>
+
+        {/* Password card */}
+        <View className="mx-4 bg-white rounded-xl border border-gray-100 p-4 mb-4">
+          <Text className="text-base font-semibold text-gray-800 mb-4">Recovery email</Text>
+
+          <FormField
+            label="Recovery email"
+            value={recoveryEmail}
+            onChangeText={setRecoveryEmail}
+            placeholder="you@example.com"
+            keyboardType="email-address"
+            autoCapitalize="none"
+            error={recoveryEmailError}
+            onBlur={validateRecoveryEmail}
+            editable={!recoveryEmailMutation.isPending}
+          />
+
+          <TouchableOpacity
+            className={`rounded-lg h-12 items-center justify-center ${recoveryEmailMutation.isPending ? 'bg-emerald-300' : 'bg-emerald-600'}`}
+            onPress={submitRecoveryEmail}
+            disabled={recoveryEmailMutation.isPending}
+            activeOpacity={0.8}
+          >
+            <Text className="text-white font-semibold">
+              {recoveryEmailMutation.isPending ? 'Sending…' : 'Send verification code'}
+            </Text>
+          </TouchableOpacity>
+
+          <View className="h-px bg-gray-100 my-4" />
+
+          <FormField
+            label="Verification code"
+            value={recoveryCode}
+            onChangeText={setRecoveryCode}
+            placeholder="123456"
+            keyboardType="phone-pad"
+            error={recoveryCodeError}
+            onBlur={validateRecoveryCode}
+            editable={!recoveryVerifyMutation.isPending}
+          />
+
+          <TouchableOpacity
+            className={`rounded-lg h-12 items-center justify-center ${recoveryVerifyMutation.isPending ? 'bg-emerald-300' : 'bg-emerald-600'}`}
+            onPress={submitRecoveryCode}
+            disabled={recoveryVerifyMutation.isPending}
+            activeOpacity={0.8}
+          >
+            <Text className="text-white font-semibold">
+              {recoveryVerifyMutation.isPending ? 'Verifying…' : 'Verify recovery email'}
+            </Text>
+          </TouchableOpacity>
+
+          {user?.recovery_email_verified && user.recovery_email === recoveryEmail ? (
+            <Text className="text-emerald-700 text-sm mt-3">Recovery email verified.</Text>
+          ) : null}
+
+          {recoveryMsg && (
+            <View className={`rounded-lg px-4 py-3 mt-3 ${recoveryMsg.ok ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
+              <Text className={`text-sm ${recoveryMsg.ok ? 'text-green-700' : 'text-red-700'}`}>{recoveryMsg.text}</Text>
+            </View>
+          )}
         </View>
 
         {/* Password card */}

@@ -24,9 +24,9 @@ export default function CarePlanHeader({ plan }: { plan: MonitoringPlan | null }
   const intake = plan.indicators.filter((i) => i.category === "intake" && i.target !== null);
 
   return (
-    <div className="bg-white border border-zinc-200 rounded-2xl p-5 shadow-sm space-y-4">
+    <div className="bg-white border border-warm-200 rounded-2xl p-5 shadow-sm space-y-4">
       <div className="flex items-center justify-between gap-2 flex-wrap">
-        <h3 className="text-xs font-extrabold text-zinc-700 uppercase tracking-wider flex items-center gap-2">
+        <h3 className="text-xs font-extrabold text-warm-700 uppercase tracking-wider flex items-center gap-2">
           <ClipboardList className="h-4 w-4 text-emerald-600" /> Care Plan — What We&apos;re Monitoring
         </h3>
         {plan.goal_type && (
@@ -39,12 +39,12 @@ export default function CarePlanHeader({ plan }: { plan: MonitoringPlan | null }
       {/* PES diagnoses */}
       {plan.pes_statements.length > 0 && (
         <div className="space-y-1.5">
-          <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-1.5">
+          <p className="text-[9px] font-bold text-warm-400 uppercase tracking-widest flex items-center gap-1.5">
             <Stethoscope className="h-3 w-3" /> Nutrition Diagnoses (PES)
           </p>
           <ul className="space-y-1">
             {plan.pes_statements.map((pes, i) => (
-              <li key={i} className="text-[11px] text-zinc-600 leading-relaxed flex gap-1.5">
+              <li key={i} className="text-[11px] text-warm-600 leading-relaxed flex gap-1.5">
                 <span className="mt-1 h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
                 {pes}
               </li>
@@ -56,14 +56,14 @@ export default function CarePlanHeader({ plan }: { plan: MonitoringPlan | null }
       {/* Flagged abnormalities */}
       {flagged.length > 0 && (
         <div className="space-y-1.5">
-          <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-1.5">
+          <p className="text-[9px] font-bold text-warm-400 uppercase tracking-widest flex items-center gap-1.5">
             <FlaskConical className="h-3 w-3" /> Tracked Because Abnormal at Assessment
           </p>
           <div className="flex flex-wrap gap-1.5">
             {flagged.map((i) => {
               const baseline = i.series[0]?.value;
               return (
-                <span key={i.key} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-rose-50 text-rose-700 border border-rose-200">
+                <span key={i.key} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-red-50 text-red-700 border border-red-200">
                   {i.label}
                   {baseline != null && <span className="font-mono">{baseline}{i.unit}</span>}
                 </span>
@@ -76,18 +76,18 @@ export default function CarePlanHeader({ plan }: { plan: MonitoringPlan | null }
       {/* Prescription targets */}
       {intake.length > 0 && (
         <div className="space-y-1.5">
-          <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest">Prescription Targets</p>
+          <p className="text-[9px] font-bold text-warm-400 uppercase tracking-widest">Prescription Targets</p>
           <div className="flex flex-wrap gap-1.5">
             {intake.map((i) => (
-              <span key={i.key} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-zinc-50 text-zinc-600 border border-zinc-200">
-                {i.label.replace(/ intake$/i, "")} <span className="font-mono text-zinc-900">{i.target}{i.unit}</span>
+              <span key={i.key} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-warm-50 text-warm-600 border border-warm-200">
+                {i.label.replace(/ intake$/i, "")} <span className="font-mono text-warm-900">{i.target}{i.unit}</span>
               </span>
             ))}
           </div>
         </div>
       )}
 
-      <p className="text-[9px] text-zinc-400 pt-1 border-t border-zinc-100">
+      <p className="text-[9px] text-warm-400 pt-1 border-t border-warm-100">
         Indicators are tracked from: {Object.values(SOURCE_LABELS).join(" · ")} — only what this patient&apos;s data supports.
       </p>
     </div>

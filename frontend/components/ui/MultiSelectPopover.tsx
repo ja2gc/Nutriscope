@@ -50,7 +50,7 @@ export default function MultiSelectPopover({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <button className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold text-zinc-500 border border-zinc-200 rounded-lg hover:border-brand-green-500 hover:text-brand-green-700 transition-colors cursor-pointer">
+        <button className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold text-warm-500 border border-warm-200 rounded-lg hover:border-brand-green-500 hover:text-brand-green-700 transition-colors cursor-pointer">
           {triggerIcon}
           {triggerLabel}
           {showCount && selected.length > 0 && (
@@ -64,12 +64,12 @@ export default function MultiSelectPopover({
         {(title || description) && (
           <div className="mb-3 space-y-1">
             {title && (
-              <p className="text-[10px] font-bold text-zinc-700 uppercase tracking-widest">
+              <p className="text-[10px] font-bold text-warm-700 uppercase tracking-widest">
                 {title}
               </p>
             )}
             {description && (
-              <p className="text-[10px] text-zinc-400 leading-relaxed">
+              <p className="text-[10px] text-warm-400 leading-relaxed">
                 {description}
               </p>
             )}
@@ -96,14 +96,14 @@ export default function MultiSelectPopover({
                   onCheckedChange={() => toggle(key)}
                   className="data-[state=checked]:bg-brand-green-600 data-[state=checked]:border-brand-green-600"
                 />
-                <span className="text-xs text-zinc-700 group-hover:text-zinc-900 transition-colors flex-1">
+                <span className="text-xs text-warm-700 group-hover:text-warm-900 transition-colors flex-1">
                   {label}
                 </span>
                 {isRequired && (
-                  <Lock className="h-2.5 w-2.5 text-zinc-300 shrink-0" />
+                  <Lock className="h-2.5 w-2.5 text-warm-300 shrink-0" />
                 )}
                 {unit && (
-                  <span className="text-[9px] text-zinc-400 shrink-0">
+                  <span className="text-[9px] text-warm-400 shrink-0">
                     {unit}
                   </span>
                 )}
@@ -116,7 +116,7 @@ export default function MultiSelectPopover({
             onClick={() =>
               onChange(selected.filter((k) => required.includes(k)))
             }
-            className="mt-3 text-[9px] font-bold text-zinc-400 hover:text-red-500 transition-colors cursor-pointer"
+            className="mt-3 text-[9px] font-bold text-warm-400 hover:text-red-500 transition-colors cursor-pointer"
           >
             Clear all {required.length > 0 && "(keeps required)"}
           </button>

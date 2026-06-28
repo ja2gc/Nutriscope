@@ -25,14 +25,14 @@ function ChangeRow({ field, oldVal, newVal }: { field: string; oldVal: unknown; 
   const redacted = newVal === REDACTED || oldVal === REDACTED;
   return (
     <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-[11px]">
-      <span className="font-semibold text-zinc-600">{field}</span>
+      <span className="font-semibold text-warm-600">{field}</span>
       {redacted ? (
         <Badge tone="zinc">value hidden (PHI)</Badge>
       ) : (
-        <span className="text-zinc-500 tabular-nums">
-          <span className="line-through text-zinc-400">{fmt(oldVal)}</span>
-          <span className="mx-1 text-zinc-300" aria-label="changed to">→</span>
-          <span className="font-medium text-zinc-700">{fmt(newVal)}</span>
+        <span className="text-warm-500 tabular-nums">
+          <span className="line-through text-warm-400">{fmt(oldVal)}</span>
+          <span className="mx-1 text-warm-300" aria-label="changed to">→</span>
+          <span className="font-medium text-warm-700">{fmt(newVal)}</span>
         </span>
       )}
     </div>
@@ -65,19 +65,19 @@ export function HistoryPanel({ path, title = "Change history" }: { path: string;
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
-        className="w-full flex items-center justify-between gap-2 px-5 py-3.5 text-left cursor-pointer hover:bg-zinc-50/60 transition-colors"
+        className="w-full flex items-center justify-between gap-2 px-5 py-3.5 text-left cursor-pointer hover:bg-warm-50/60 transition-colors"
       >
-        <span className="flex items-center gap-2 text-xs font-extrabold text-zinc-700 uppercase tracking-wider">
+        <span className="flex items-center gap-2 text-xs font-extrabold text-warm-700 uppercase tracking-wider">
           <History className="h-4 w-4 text-emerald-600" aria-hidden /> {title}
           {events && <Badge tone="zinc">{events.length}</Badge>}
         </span>
-        <ChevronDown className={`h-4 w-4 text-zinc-400 transition-transform duration-200 ${open ? "rotate-180" : ""}`} aria-hidden />
+        <ChevronDown className={`h-4 w-4 text-warm-400 transition-transform duration-200 ${open ? "rotate-180" : ""}`} aria-hidden />
       </button>
 
       {open && (
-        <div className="border-t border-zinc-100 px-5 py-4">
+        <div className="border-t border-warm-100 px-5 py-4">
           {loading && (
-            <div className="flex items-center gap-2 text-xs text-zinc-400 py-6 justify-center">
+            <div className="flex items-center gap-2 text-xs text-warm-400 py-6 justify-center">
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Loading history…
             </div>
           )}
@@ -92,11 +92,11 @@ export function HistoryPanel({ path, title = "Change history" }: { path: string;
           )}
 
           {!loading && !error && events && events.length === 0 && (
-            <p className="text-xs text-zinc-400 text-center py-6">No changes recorded yet.</p>
+            <p className="text-xs text-warm-400 text-center py-6">No changes recorded yet.</p>
           )}
 
           {!loading && !error && events && events.length > 0 && (
-            <ol className="relative ml-1 border-l border-zinc-200 space-y-4">
+            <ol className="relative ml-1 border-l border-warm-200 space-y-4">
               {events.map((ev) => {
                 const v = eventVisual(ev.event);
                 const fields = Array.from(new Set([
@@ -112,8 +112,8 @@ export function HistoryPanel({ path, title = "Change history" }: { path: string;
                     </span>
                     <div className="flex flex-wrap items-center gap-2">
                       <Badge tone={v.tone}>{v.label}</Badge>
-                      <span className="text-xs font-semibold text-zinc-700">{ev.causer}</span>
-                      <span className="text-[10px] text-zinc-400 tabular-nums">{new Date(ev.created_at).toLocaleString()}</span>
+                      <span className="text-xs font-semibold text-warm-700">{ev.causer}</span>
+                      <span className="text-[10px] text-warm-400 tabular-nums">{new Date(ev.created_at).toLocaleString()}</span>
                     </div>
                     {fields.length > 0 && (
                       <div className="mt-1.5 space-y-1">

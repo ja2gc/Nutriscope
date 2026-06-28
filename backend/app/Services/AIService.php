@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Exceptions\TokenLimitExceededException;
 use App\Models\AiUsageLimit;
 use App\Models\AiUsageLog;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -74,6 +75,7 @@ class AIService
                     'tokens_total' => $totalTokens,
                     'endpoint' => 'diagnosis_suggestion',
                 ]);
+                Cache::forget('admin_dashboard');
 
                 $text = $body['content'][0]['text'] ?? '';
                 // Models sometimes wrap JSON in ```json fences despite instructions —
@@ -171,6 +173,7 @@ class AIService
                     'tokens_total'  => ($body['usage']['input_tokens'] ?? 0) + ($body['usage']['output_tokens'] ?? 0),
                     'endpoint'      => 'monitoring_narrative',
                 ]);
+                Cache::forget('admin_dashboard');
 
                 return trim($body['content'][0]['text'] ?? '') ?: null;
             }

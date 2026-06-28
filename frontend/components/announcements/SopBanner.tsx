@@ -83,7 +83,7 @@ export function SopBanner() {
   }
 
   if (loading) {
-    return <div className="h-24 rounded-3xl bg-zinc-100 animate-pulse" />;
+    return <div className="h-24 rounded-3xl bg-warm-100 animate-pulse" />;
   }
 
   if (!sop && !canEdit) return null; // nothing to show non-editors
@@ -128,8 +128,8 @@ export function SopBanner() {
 
       {sop ? (
         <div className="mt-3">
-          <h4 className="text-sm font-extrabold text-zinc-900">{sop.title}</h4>
-          <p className="mt-1 text-xs text-zinc-700 leading-6 whitespace-pre-wrap">{sop.body}</p>
+          <h4 className="text-sm font-extrabold text-warm-900">{sop.title}</h4>
+          <p className="mt-1 text-xs text-warm-700 leading-6 whitespace-pre-wrap">{sop.body}</p>
         </div>
       ) : (
         <p className="mt-3 text-xs text-emerald-700/80">No SOP set yet. Click “Set SOP” to add one.</p>
@@ -138,41 +138,41 @@ export function SopBanner() {
       {/* Editor modal */}
       {editing && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/45 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-forest-900/45 backdrop-blur-sm"
           onClick={() => setEditing(false)}
         >
           <div
-            className="w-full max-w-2xl bg-white border border-zinc-200 rounded-3xl overflow-hidden shadow-2xl"
+            className="w-full max-w-2xl bg-white border border-warm-200 rounded-3xl overflow-hidden shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-5 py-4 border-b border-zinc-100 bg-zinc-50 flex items-center justify-between">
-              <h3 className="text-xs font-bold text-zinc-900 uppercase tracking-[0.18em]">Revise SOP</h3>
+            <div className="px-5 py-4 border-b border-warm-100 bg-warm-50 flex items-center justify-between">
+              <h3 className="text-xs font-bold text-warm-900 uppercase tracking-[0.18em]">Revise SOP</h3>
               <button
                 type="button"
                 onClick={() => setEditing(false)}
-                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-zinc-200 text-[10px] font-bold uppercase tracking-wider text-zinc-600 hover:bg-white"
+                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-warm-200 text-[10px] font-bold uppercase tracking-wider text-warm-600 hover:bg-white"
               >
                 <X className="h-3.5 w-3.5" /> Close
               </button>
             </div>
             <form onSubmit={submit} className="p-5 space-y-4">
-              <p className="text-[10px] text-zinc-500">
+              <p className="text-[10px] text-warm-500">
                 Saving creates a new version. The previous SOP is kept in History.
               </p>
               <div className="space-y-1.5">
-                <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">Title</label>
+                <label className="text-[10px] font-semibold text-warm-500 uppercase tracking-wider">Title</label>
                 <input
                   value={draft.title}
                   onChange={(e) => setDraft((p) => ({ ...p, title: e.target.value }))}
-                  className="w-full px-3 py-2 text-sm bg-white border border-zinc-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
+                  className="w-full px-3 py-2 text-sm bg-white border border-warm-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">Procedure</label>
+                <label className="text-[10px] font-semibold text-warm-500 uppercase tracking-wider">Procedure</label>
                 <textarea
                   value={draft.body}
                   onChange={(e) => setDraft((p) => ({ ...p, body: e.target.value }))}
-                  className="w-full px-3 py-2 text-sm bg-white border border-zinc-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 min-h-40"
+                  className="w-full px-3 py-2 text-sm bg-white border border-warm-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 min-h-40"
                 />
               </div>
               {error && (
@@ -193,43 +193,43 @@ export function SopBanner() {
       {/* History modal */}
       {historyOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/45 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-forest-900/45 backdrop-blur-sm"
           onClick={() => setHistoryOpen(false)}
         >
           <div
-            className="w-full max-w-2xl bg-white border border-zinc-200 rounded-3xl overflow-hidden shadow-2xl max-h-[85vh] flex flex-col"
+            className="w-full max-w-2xl bg-white border border-warm-200 rounded-3xl overflow-hidden shadow-2xl max-h-[85vh] flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-5 py-4 border-b border-zinc-100 bg-zinc-50 flex items-center justify-between">
-              <h3 className="text-xs font-bold text-zinc-900 uppercase tracking-[0.18em]">SOP History</h3>
+            <div className="px-5 py-4 border-b border-warm-100 bg-warm-50 flex items-center justify-between">
+              <h3 className="text-xs font-bold text-warm-900 uppercase tracking-[0.18em]">SOP History</h3>
               <button
                 type="button"
                 onClick={() => setHistoryOpen(false)}
-                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-zinc-200 text-[10px] font-bold uppercase tracking-wider text-zinc-600 hover:bg-white"
+                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-warm-200 text-[10px] font-bold uppercase tracking-wider text-warm-600 hover:bg-white"
               >
                 <X className="h-3.5 w-3.5" /> Close
               </button>
             </div>
             <div className="p-5 space-y-3 overflow-y-auto">
               {historyLoading ? (
-                <div className="text-xs text-zinc-400 text-center py-8">Loading…</div>
+                <div className="text-xs text-warm-400 text-center py-8">Loading…</div>
               ) : history.length === 0 ? (
-                <div className="text-xs text-zinc-400 text-center py-8">No past versions.</div>
+                <div className="text-xs text-warm-400 text-center py-8">No past versions.</div>
               ) : (
                 history.map((v, i) => (
-                  <div key={v.id} className="rounded-2xl border border-zinc-200 p-4">
+                  <div key={v.id} className="rounded-2xl border border-warm-200 p-4">
                     <div className="flex items-center justify-between gap-2">
-                      <div className="text-sm font-bold text-zinc-900">{v.title}</div>
+                      <div className="text-sm font-bold text-warm-900">{v.title}</div>
                       {i === 0 && (
                         <span className="inline-flex px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-wider border bg-emerald-50 text-emerald-700 border-emerald-200">
                           Current
                         </span>
                       )}
                     </div>
-                    <div className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400 mt-0.5">
+                    <div className="text-[10px] font-semibold uppercase tracking-wider text-warm-400 mt-0.5">
                       {v.author?.name} · {v.author?.role} · {formatTimeStamp(v.created_at)}
                     </div>
-                    <p className="mt-2 text-xs text-zinc-600 leading-6 whitespace-pre-wrap">{v.body}</p>
+                    <p className="mt-2 text-xs text-warm-600 leading-6 whitespace-pre-wrap">{v.body}</p>
                   </div>
                 ))
               )}

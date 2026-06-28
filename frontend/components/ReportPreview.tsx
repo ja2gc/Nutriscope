@@ -53,8 +53,8 @@ export function ReportPreview({
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between gap-3 px-5 py-3 border-b border-zinc-100 shrink-0">
-          <h2 className="text-sm font-bold text-zinc-800 truncate">{title}</h2>
+        <div className="flex items-center justify-between gap-3 px-5 py-3 border-b border-warm-100 shrink-0">
+          <h2 className="text-sm font-bold text-warm-800 truncate">{title}</h2>
           <div className="flex items-center gap-2 shrink-0">
             {onArchive && (
               <Button variant="secondary" onClick={onArchive} loading={archiving} className="!w-auto !py-1.5 !px-3 text-xs">
@@ -64,7 +64,7 @@ export function ReportPreview({
             <a
               href={downloadUrl}
               download
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-zinc-200 text-zinc-700 bg-white hover:bg-zinc-50 transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-warm-200 text-warm-700 bg-white hover:bg-warm-50 transition-colors"
             >
               <Download className="h-3.5 w-3.5" /> Download
             </a>
@@ -72,7 +72,7 @@ export function ReportPreview({
               ref={closeRef}
               onClick={onClose}
               aria-label="Close preview"
-              className="p-1.5 rounded-lg text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30"
+              className="p-1.5 rounded-lg text-warm-400 hover:bg-warm-100 hover:text-warm-700 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30"
             >
               <X className="h-4 w-4" />
             </button>
@@ -80,9 +80,9 @@ export function ReportPreview({
         </div>
 
         {/* Document */}
-        <div className="relative flex-1 bg-zinc-100">
+        <div className="relative flex-1 bg-warm-100">
           {loading && (
-            <div className="absolute inset-0 flex items-center justify-center gap-2 text-xs text-zinc-400">
+            <div className="absolute inset-0 flex items-center justify-center gap-2 text-xs text-warm-400">
               <Loader2 className="h-4 w-4 animate-spin" /> Rendering…
             </div>
           )}

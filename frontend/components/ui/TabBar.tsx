@@ -31,7 +31,7 @@ export default function TabBar({
 
   return (
     <div
-      className={`flex overflow-x-auto border-b border-zinc-200 ${containerClass}`}
+      className={`flex overflow-x-auto border-b border-warm-200 ${containerClass}`}
     >
       {tabs.map((tab) => (
         <button
@@ -41,7 +41,7 @@ export default function TabBar({
           className={`relative flex items-center gap-1.5 px-4 py-3 text-[10px] font-bold uppercase tracking-wider whitespace-nowrap border-b-2 transition-all cursor-pointer ${
             activeTab === tab.key
               ? `${tabTheme.active} bg-white`
-              : "text-zinc-500 border-transparent hover:text-zinc-700 hover:bg-white/50"
+              : "text-warm-500 border-transparent hover:text-warm-700 hover:bg-white/50"
           }`}
         >
           {showIcon && tab.icon && <span className="h-4 w-4">{tab.icon}</span>}
