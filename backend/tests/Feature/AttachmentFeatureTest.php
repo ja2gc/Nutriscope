@@ -57,8 +57,28 @@ class AttachmentFeatureTest extends TestCase
         $this->assertStringStartsWith('documents/ncp/', $doc->file_path);
         $this->assertStringNotContainsString(storage_path(), $doc->file_path);
         $this->assertSame('referral.pdf', $doc->original_name);
-        // Linked to this cycle via its assessment.
-        $this->assertSame($ncp->id, $doc->assessment->ncp_record_id);
+        // Linked directly to this cycle…
+        $this->assertSame($ncp->id, $doc->ncp_record_id);
+        // …and the upload must NOT have created an assessment row (AS-02).
+        $this->assertDatabaseMissing('assessments', ['ncp_record_id' => $ncp->id]);
+    }
+
+    public function test_upload_attachment_does_not_create_assessment(): void
+    {
+        Storage::fake('local');
+        $rnd = $this->rnd();
+        $ncp = $this->ncp($rnd);
+
+        $this->actingAs($rnd, 'sanctum')->postJson(
+            "/api/rnd/ncp-records/{$ncp->id}/attachments",
+            ['file' => UploadedFile::fake()->create('referral.pdf', 10, 'application/pdf')]
+        )->assertStatus(201);
+
+        // The Assessment gate must still report "not recorded" after an upload.
+        $this->assertDatabaseMissing('assessments', ['ncp_record_id' => $ncp->id]);
+        $this->actingAs($rnd, 'sanctum')
+            ->getJson("/api/rnd/ncp-records/{$ncp->id}/assessment")
+            ->assertNotFound();
     }
 
     public function test_attachments_are_scoped_per_ncp_cycle(): void

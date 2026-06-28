@@ -8,12 +8,15 @@ use App\Http\Requests\RND\UpdateInterventionRequest;
 use App\Http\Resources\InterventionResource;
 use App\Models\Intervention;
 use App\Models\NcpRecord;
+use App\Services\ClinicalCompletenessService;
 use App\Services\NutritionPrescriptionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class InterventionController extends Controller
 {
+    public function __construct(private ClinicalCompletenessService $completeness) {}
+
     /**
      * POST /api/rnd/ncp-records/{ncpRecord}/intervention/autofill
      *
@@ -95,17 +98,7 @@ class InterventionController extends Controller
         $intervention->ncp_record_id = $ncpRecord->id;
         $intervention->save();
 
-        // Auto-advance NCP record status:
-        // First session (type=new) is considered complete once A + D + I are all recorded.
-        // Monitoring & Evaluation is only for follow-up sessions (type=followup).
-        // Move draft → active so the patient shows as actively managed in the dashboard.
-        if ($ncpRecord->type === 'new'
-            && $ncpRecord->status === 'draft'
-            && $ncpRecord->assessment()->exists()
-            && $ncpRecord->diagnoses()->exists()
-        ) {
-            $ncpRecord->update(['status' => 'active']);
-        }
+        $this->refreshActivation($ncpRecord);
 
         return (new InterventionResource($intervention))->response()->setStatusCode(201);
     }
@@ -130,7 +123,25 @@ class InterventionController extends Controller
         $intervention->fill($data);
         $intervention->save();
 
+        $this->refreshActivation($ncpRecord);
+
         return new InterventionResource($intervention);
+    }
+
+    /**
+     * Activate the NCP only once the initial ADI is clinically COMPLETE (not just
+     * present). An empty intervention row no longer flips the record to active —
+     * that was the "false active NCP" risk (SL-02 / AD-01). Re-evaluated whenever
+     * the intervention is created or edited.
+     */
+    private function refreshActivation(NcpRecord $ncpRecord): void
+    {
+        if ($ncpRecord->type === 'new'
+            && $ncpRecord->status === 'draft'
+            && $this->completeness->initialAdiComplete($ncpRecord->fresh())
+        ) {
+            $ncpRecord->update(['status' => 'active']);
+        }
     }
 
     /**

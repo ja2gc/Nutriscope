@@ -75,8 +75,8 @@ export function SopBanner() {
       await saveSop({ title: draft.title.trim(), body: draft.body.trim() });
       setEditing(false);
       void load();
-    } catch (err: any) {
-      setError(err.message || "Failed to save SOP.");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to save SOP.");
     } finally {
       setSaving(false);
     }

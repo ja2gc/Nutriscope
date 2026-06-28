@@ -270,21 +270,27 @@ function MacroTrendsChart({
   intervention: Intervention;
 }) {
   // Only include macros where at least one entry has actual intake data
-  const activeMacros = MACRO_META.filter((m) =>
-    entries.some((e) => {
-      const v = e.lab_values?.[m.key];
-      return v !== null && v !== undefined;
-    })
+  const activeMacros = useMemo(
+    () =>
+      MACRO_META.filter((m) =>
+        entries.some((e) => {
+          const v = e.lab_values?.[m.key];
+          return v !== null && v !== undefined;
+        })
+      ),
+    [entries]
   );
-
-  if (activeMacros.length === 0) return null;
 
   // Build % of target dataset — show percentage only when target is set
   // Fall back to raw value chart when no target exists
-  const hasAnyTarget = activeMacros.some((m) => {
-    const t = intervention[m.targetKey as keyof typeof intervention];
-    return t !== null && t !== undefined && t !== "";
-  });
+  const hasAnyTarget = useMemo(
+    () =>
+      activeMacros.some((m) => {
+        const t = intervention[m.targetKey as keyof typeof intervention];
+        return t !== null && t !== undefined && t !== "";
+      }),
+    [activeMacros, intervention]
+  );
 
   const data = useMemo(
     () =>
@@ -307,9 +313,10 @@ function MacroTrendsChart({
         });
         return point;
       }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [entries, activeMacros, intervention, hasAnyTarget]
   );
+
+  if (activeMacros.length === 0) return null;
 
   return (
     <ChartCard
@@ -399,14 +406,16 @@ function LabTrendsChart({
   const numericKeys = labKeys.filter((k) => k !== "bp");
 
   // Only include labs where at least one entry has data
-  const activeKeys = numericKeys.filter((k) =>
-    entries.some((e) => {
-      const v = e.lab_values?.[k];
-      return v !== null && v !== undefined && typeof v === "number";
-    })
+  const activeKeys = useMemo(
+    () =>
+      numericKeys.filter((k) =>
+        entries.some((e) => {
+          const v = e.lab_values?.[k];
+          return v !== null && v !== undefined && typeof v === "number";
+        })
+      ),
+    [entries, numericKeys]
   );
-
-  if (activeKeys.length === 0) return null;
 
   const data = useMemo(
     () =>
@@ -422,6 +431,8 @@ function LabTrendsChart({
       }),
     [entries, activeKeys]
   );
+
+  if (activeKeys.length === 0) return null;
 
   return (
     <ChartCard title="Clinical Lab Trends">
@@ -506,14 +517,16 @@ function MicroTrendsChart({
   microKeys: string[];
   micronutrientLimits: Record<string, { min?: number; max?: number; unit: string }> | null;
 }) {
-  const activeMicros = microKeys.filter((k) =>
-    entries.some((e) => {
-      const v = e.lab_values?.[`micro_${k}`];
-      return v !== null && v !== undefined;
-    })
+  const activeMicros = useMemo(
+    () =>
+      microKeys.filter((k) =>
+        entries.some((e) => {
+          const v = e.lab_values?.[`micro_${k}`];
+          return v !== null && v !== undefined;
+        })
+      ),
+    [entries, microKeys]
   );
-
-  if (activeMicros.length === 0) return null;
 
   const metaMap = Object.fromEntries(ALL_MICROS.map((m) => [m.key, m]));
 
@@ -531,6 +544,8 @@ function MicroTrendsChart({
       }),
     [entries, activeMicros]
   );
+
+  if (activeMicros.length === 0) return null;
 
   return (
     <ChartCard title="Micronutrient Intake Trends">

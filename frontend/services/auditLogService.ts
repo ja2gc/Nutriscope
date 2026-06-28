@@ -16,7 +16,7 @@ export interface AuditLog {
   subject_type: string | null;
   subject_id: number | null;
   causer: AuditLogCauser | null;
-  properties: Record<string, any> | null;
+  properties: Record<string, unknown> | null;
   created_at: string;
   updated_at: string;
 }

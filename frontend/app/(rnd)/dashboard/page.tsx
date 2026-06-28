@@ -164,8 +164,8 @@ export default function RndDashboardPage() {
         setError(null);
         const response = await fetchPatients("", "All", 1);
         setPatients(response.data);
-      } catch (err: any) {
-        setError(err.message || "Failed to load dashboard data.");
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : "Failed to load dashboard data.");
       } finally {
         setLoading(false);
       }
@@ -188,8 +188,8 @@ export default function RndDashboardPage() {
         setAnnouncementError(null);
         const result = await fetchAnnouncements();
         setPosts(sortAnnouncements(result.data));
-      } catch (err: any) {
-        setAnnouncementError(err.message || "Failed to load announcements.");
+      } catch (err: unknown) {
+        setAnnouncementError(err instanceof Error ? err.message : "Failed to load announcements.");
       } finally {
         setAnnouncementsLoading(false);
       }
@@ -328,8 +328,8 @@ export default function RndDashboardPage() {
 
       closeComposer();
       resetDraft();
-    } catch (err: any) {
-      setAnnouncementError(err.message || "Failed to save announcement.");
+    } catch (err: unknown) {
+      setAnnouncementError(err instanceof Error ? err.message : "Failed to save announcement.");
     } finally {
       setAnnouncementsSaving(false);
     }

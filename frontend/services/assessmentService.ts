@@ -66,7 +66,7 @@ export interface Assessment {
     urr?: number | string | null;
     bp?: string | null;
     abg?: string | null;
-    others?: any[] | Record<string, any> | null;
+    others?: unknown[] | Record<string, unknown> | null;
   } | null;
 }
 

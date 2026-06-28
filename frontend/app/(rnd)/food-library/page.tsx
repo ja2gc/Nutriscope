@@ -12,7 +12,7 @@ import { Pagination } from "@/components/ui/Pagination";
 import {
   fetchFoodItems, fetchRecipes, deleteFoodItem, deleteRecipe,
   searchUsda, importUsdaFood,
-  FoodItem, Recipe, UsdaSearchResult,
+  FoodItem, Recipe, UsdaSearchResult, type PaginatedResponse,
 } from "@/services/foodLibraryService";
 
 const FOOD_CATEGORIES = ["all", "protein", "carbs", "vegetable", "fat", "dairy", "fruit"];
@@ -324,7 +324,7 @@ export default function FoodLibraryPage() {
   const [foodSearch, setFoodSearch]     = useState("");
   const [foodCategory, setFoodCategory] = useState("all");
   const [foodPage, setFoodPage]         = useState(1);
-  const [foodMeta, setFoodMeta]         = useState<any>(null);
+  const [foodMeta, setFoodMeta]         = useState<PaginatedResponse<FoodItem>["meta"] | null>(null);
   const [foodLoading, setFoodLoading]   = useState(true);
   const [foodError, setFoodError]       = useState<string | null>(null);
 
@@ -332,7 +332,7 @@ export default function FoodLibraryPage() {
   const [recipeSearch, setRecipeSearch]     = useState("");
   const [recipeCategory, setRecipeCategory] = useState("all");
   const [recipePage, setRecipePage]         = useState(1);
-  const [recipeMeta, setRecipeMeta]         = useState<any>(null);
+  const [recipeMeta, setRecipeMeta]         = useState<PaginatedResponse<Recipe>["meta"] | null>(null);
   const [recipeLoading, setRecipeLoading]   = useState(false);
   const [recipeError, setRecipeError]       = useState<string | null>(null);
 

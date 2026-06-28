@@ -100,20 +100,20 @@ class AssessmentController extends Controller
             'type' => 'nullable|string|max:50',
         ]);
 
-        $assessment = $ncpRecord->assessment()->firstOrCreate([
-            'ncp_record_id' => $ncpRecord->id,
-        ]);
-
         $file = $request->file('file');
         // Store the disk-relative path (portable) — readers resolve it to an absolute
         // path at access time. Storing an absolute path breaks if the app root moves (A8).
         $path = $file->store('documents/ncp');
 
+        // AS-02: link the document to the NCP cycle directly. Do NOT create an
+        // assessment row — uploading a file must not satisfy the Assessment gate.
+        // If an assessment already exists, keep the legacy link populated too.
         $document = ScreeningDocument::create([
-            'patient_id' => $ncpRecord->patient_id,
-            'assessment_id' => $assessment->id,
-            'type' => $validated['type'] ?? null,
-            'file_path' => $path,
+            'patient_id'    => $ncpRecord->patient_id,
+            'ncp_record_id' => $ncpRecord->id,
+            'assessment_id' => $ncpRecord->assessment?->id,
+            'type'          => $validated['type'] ?? null,
+            'file_path'     => $path,
             'original_name' => $file->getClientOriginalName(),
         ]);
 
@@ -127,10 +127,15 @@ class AssessmentController extends Controller
      */
     public function listAttachments(NcpRecord $ncpRecord): JsonResponse
     {
-        $assessment = $ncpRecord->assessment;
-        $docs = $assessment
-            ? $assessment->screeningDocuments()->latest()->get()
-            : collect();
+        // Scope by cycle. Include legacy rows that only carry the assessment link
+        // (pre-backfill) so nothing disappears for older records.
+        $assessmentId = $ncpRecord->assessment?->id;
+
+        $docs = ScreeningDocument::query()
+            ->where('ncp_record_id', $ncpRecord->id)
+            ->when($assessmentId, fn ($q) => $q->orWhere('assessment_id', $assessmentId))
+            ->latest()
+            ->get();
 
         return ScreeningDocumentResource::collection($docs)->response();
     }

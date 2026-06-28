@@ -19,6 +19,14 @@ export interface UpdateUserPayload {
   is_active?: boolean;
 }
 
+type ValidationError = Error & { fieldErrors: Record<string, string[]> };
+
+function makeValidationError(message: string, fieldErrors: Record<string, string[]>): ValidationError {
+  const error = new Error(message) as ValidationError;
+  error.fieldErrors = fieldErrors;
+  return error;
+}
+
 export async function listUsers(): Promise<User[]> {
   const res = await apiFetch("/api/admin/users", {
     method: "GET",
@@ -49,9 +57,10 @@ export async function createUser(data: CreateUserPayload): Promise<User> {
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}));
     if (res.status === 422 && errorData.errors) {
-      const err: any = new Error(errorData.message || "Validation failed.");
-      err.fieldErrors = errorData.errors as Record<string, string[]>;
-      throw err;
+      throw makeValidationError(
+        errorData.message || "Validation failed.",
+        errorData.errors as Record<string, string[]>,
+      );
     }
     throw new Error(errorData.message || "Failed to create user.");
   }
@@ -73,9 +82,10 @@ export async function updateUser(id: number | string, data: UpdateUserPayload): 
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}));
     if (res.status === 422 && errorData.errors) {
-      const err: any = new Error(errorData.message || "Validation failed.");
-      err.fieldErrors = errorData.errors as Record<string, string[]>;
-      throw err;
+      throw makeValidationError(
+        errorData.message || "Validation failed.",
+        errorData.errors as Record<string, string[]>,
+      );
     }
     throw new Error(errorData.message || "Failed to update user.");
   }
@@ -120,9 +130,10 @@ export async function resetPassword(
     // Surface Laravel 422 field errors as a structured object so the UI can
     // display them inline next to the relevant field.
     if (res.status === 422 && errorData.errors) {
-      const err: any = new Error(errorData.message || "Validation failed.");
-      err.fieldErrors = errorData.errors as Record<string, string[]>;
-      throw err;
+      throw makeValidationError(
+        errorData.message || "Validation failed.",
+        errorData.errors as Record<string, string[]>,
+      );
     }
     throw new Error(errorData.message || "Failed to reset password.");
   }
