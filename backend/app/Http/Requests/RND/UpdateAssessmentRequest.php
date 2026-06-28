@@ -55,7 +55,6 @@ class UpdateAssessmentRequest extends FormRequest
             'stress_factor'               => ['nullable', 'numeric', 'min:0.5', 'max:3.0'],
             'edema_present'               => ['nullable', 'boolean'],
             'pregnancy_lactation_status'  => ['nullable', 'string', 'in:none,pregnant,lactating'],
-            'calf_circumference_cm'       => ['nullable', 'numeric', 'min:0'],
             'biochemical_data'            => ['nullable', 'array'],
             'biochemical_data.albumin'    => ['nullable', 'numeric'],
             'biochemical_data.hematocrit' => ['nullable', 'numeric'],
