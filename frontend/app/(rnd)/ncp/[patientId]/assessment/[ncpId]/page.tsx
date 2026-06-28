@@ -362,16 +362,24 @@ function getKindLabel(kind: string) {
 
 // ─── Attachment Lightbox ────────────────────────────────────────────────────
 function AttachmentLightbox({
-  url, isImage, name, onClose,
+  url, isImage, name, onClose, onDelete,
 }: {
-  url: string; isImage: boolean; name: string; onClose: () => void;
+  url: string; isImage: boolean; name: string; onClose: () => void; onDelete: () => void;
 }) {
+  const [confirming, setConfirming] = useState(false);
+
   // Close on Escape
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
+
+  function handleDeleteClick() {
+    if (!confirming) { setConfirming(true); return; }
+    onDelete();
+    onClose();
+  }
 
   return (
     <div
@@ -396,6 +404,20 @@ function AttachmentLightbox({
               <Download className="h-3 w-3" />
               Download
             </a>
+            <button
+              type="button"
+              onClick={handleDeleteClick}
+              onBlur={() => setConfirming(false)}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-wider rounded-lg transition-colors ${
+                confirming
+                  ? "bg-red-600 hover:bg-red-700 text-white"
+                  : "bg-zinc-100 hover:bg-rose-50 text-zinc-500 hover:text-rose-600"
+              }`}
+              title="Remove attachment"
+            >
+              <Trash2 className="h-3 w-3" />
+              {confirming ? "Confirm?" : "Remove"}
+            </button>
             <button
               type="button"
               onClick={onClose}
@@ -439,7 +461,7 @@ function AttachmentsPanel({ ncpId, uploadLabel, kind, blurb }: {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
-  const [lightbox, setLightbox] = useState<{ url: string; isImage: boolean; name: string } | null>(null);
+  const [lightbox, setLightbox] = useState<{ url: string; isImage: boolean; name: string; docId: number } | null>(null);
 
   const displayName = getKindLabel(kind);
 
@@ -490,6 +512,7 @@ function AttachmentsPanel({ ncpId, uploadLabel, kind, blurb }: {
           isImage={lightbox.isImage}
           name={lightbox.name}
           onClose={() => setLightbox(null)}
+          onDelete={() => handleDelete(lightbox.docId)}
         />
       )}
 
@@ -536,7 +559,7 @@ function AttachmentsPanel({ ncpId, uploadLabel, kind, blurb }: {
                     {/* Preview / View button */}
                     <button
                       type="button"
-                      onClick={() => setLightbox({ url: fileUrl, isImage: isImg, name: docName })}
+                      onClick={() => setLightbox({ url: fileUrl, isImage: isImg, name: docName, docId: doc.id })}
                       className="p-1.5 text-zinc-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
                       title="Preview"
                     >
