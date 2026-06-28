@@ -11,8 +11,12 @@ Anthropic API key: Laravel backend only, never in frontend
 USDA API key: Laravel backend only
 APP_DEBUG=false in production
 Audit logging: change-level history via spatie/laravel-activitylog on sensitive clinical and food-service models (created/updated/deleted with causer + dirty field diffs). Clinical models log changed field NAMES only — PHI before/after values are redacted; operational/food-service models log full values. Access logging records mutating requests only (POST/PUT/PATCH/DELETE), not routine GET reads. NOTE: activity_log is an app-level trail, not a tamper-proof forensic store. Retention: prune with `php artisan activitylog:clean` (configure `activitylog.delete_records_older_than_days`).
-Rate limiting: login (5/min), AI endpoints (10/min), OCR endpoints (10/min)
+Rate limiting: login (5/min), password reset (5/hour per email+IP), password change (5/hour per user), AI endpoints, uploads, USDA, compute, and reports
+Password reset: generic forgot-password response, signed broker token, frontend reset URL, all existing Sanctum tokens revoked after reset
+Password change: current password required, all existing Sanctum tokens revoked after change
+Logout: current Sanctum token revoked and frontend clears `nutriscope_token` + `nutriscope_role`
+Profile photos: PNG/JPEG/WebP data URLs only, capped by frontend preflight and Laravel validation; raw data is not written to audit payloads
 Daily AI token limit: 100,000 tokens enforced in AIService
 Monthly spend cap: $10 set in Anthropic console
 Extraction pipeline: extracted data stored with confidence scores, always requires RND review before finalizing
-Report files: stored in private storage, accessible only to generating user and Admin role
+Report files: stored in private storage. RND/FSS access is owner scoped except documented supervision paths; Admin access is limited to non-patient report types and aggregate census.

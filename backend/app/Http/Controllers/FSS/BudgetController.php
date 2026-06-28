@@ -29,6 +29,15 @@ class BudgetController extends Controller
     public function store(StoreBudgetRequest $request): JsonResponse
     {
         $budget = Budget::create($request->validated());
+        activity('audit')
+            ->causedBy(Auth::user())
+            ->performedOn($budget)
+            ->event('created')
+            ->withProperties([
+                'fiscal_year' => $budget->fiscal_year,
+                'allocated_amount' => (float) $budget->allocated_amount,
+            ])
+            ->log('Budget fiscal year allocation created');
 
         // Re-evaluate open-execution POs that were blocked waiting for this allocation.
         $year      = $budget->fiscal_year;
@@ -126,6 +135,18 @@ class BudgetController extends Controller
             'reference'   => $data['reference'] ?? null,
             'created_by'  => Auth::id(),
         ]);
+        activity('audit')
+            ->causedBy(Auth::user())
+            ->performedOn($entry)
+            ->event('created')
+            ->withProperties([
+                'fiscal_year' => $entry->fiscal_year,
+                'type' => $entry->type,
+                'source' => $entry->source,
+                'amount' => (float) $entry->amount,
+                'reference' => $entry->reference,
+            ])
+            ->log('Budget ledger manual adjustment created');
 
         return response()->json(['data' => [
             'id'            => $entry->id,

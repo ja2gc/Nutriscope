@@ -21,7 +21,12 @@ class UpdateProfileRequest extends FormRequest
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', Rule::unique('users')->ignore($this->user()->id)],
             'contact_number' => ['nullable', 'string', 'max:50'],
-            'profile_photo' => ['nullable', 'string'],
+            'profile_photo' => [
+                'nullable',
+                'string',
+                'max:300000',
+                'regex:/^data:image\/(png|jpeg|webp);base64,/',
+            ],
         ];
     }
 }

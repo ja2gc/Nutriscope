@@ -10,6 +10,7 @@ export async function POST(_req: NextRequest) {
   // Always clear the cookie first — ensures logout even if backend is unreachable
   const res = NextResponse.json({ message: "Logged out." }, { status: 200 });
   res.cookies.delete("nutriscope_token");
+  res.cookies.delete("nutriscope_role");
 
   if (token) {
     try {

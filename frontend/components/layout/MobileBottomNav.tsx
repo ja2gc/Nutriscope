@@ -10,7 +10,7 @@ import {
   HeartHandshake,
   CookingPot,
   Users,
-  TrendingUp,
+  WalletCards,
   Menu,
 } from "lucide-react";
 
@@ -68,10 +68,10 @@ const ADMIN_ITEMS: NavItem[] = [
     active: (p) => p.startsWith("/admin/users"),
   },
   {
-    label: "Reports",
-    href: "/admin/reports",
-    icon: TrendingUp,
-    active: (p) => p.startsWith("/admin/reports"),
+    label: "Budget",
+    href: "/admin/budget",
+    icon: WalletCards,
+    active: (p) => p.startsWith("/admin/budget"),
   },
 ];
 

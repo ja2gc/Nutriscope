@@ -12,6 +12,14 @@ Admin owns access control and system oversight. Admin routes live under `/api/ad
 
 ---
 
+## Current Update - 2026-06-28
+
+- Admin now has `/admin/budget`, backed by `/api/admin/budgets*`, using the same budget shell as RND in read-only mode. Admin can select fiscal year and inspect summary/ledger; setup and manual adjustments stay RND-only.
+- Admin reports now match RND for non-patient report types: `program_project_activity`, `menu_calendar`, `procurement_pack`, `accomplishment_report`, and aggregate `demographic_census`. `patient_menu_plan` and `ncp_summary` stay blocked server-side.
+- Admin report archives are visible across users only for the allowed non-patient report types.
+- Shared profile now supports validated PNG/JPEG/WebP data URLs only, capped before submit and by Laravel validation.
+- Password reset, password change, logout, admin user actions, and budget mutations now produce audit/security effects: reset/change revokes Sanctum tokens; logout clears frontend auth cookies; audit rows are written without passwords, tokens, or raw photo data.
+
 ## 1. Dashboard
 Landing page after login (`/admin/dashboard`). System KPIs + charts + an activity feed — the IT-department's at-a-glance view of system health. **All numbers are read live from the API; nothing is hardcoded or seeded.**
 

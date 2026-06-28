@@ -5,6 +5,8 @@
 
 **Goal:** tighten Admin oversight, add a read-only Admin budget view, make audit logs match expected admin actions, and harden login/profile/password reset.
 
+**Implementation status (2026-06-28):** shipped and verified. Admin budget is read-only, RND/Food Service budget remains editable through the shared shell, Admin report access matches non-patient RND report types, patient-specific reports remain blocked, password reset/token cleanup/audit events are wired, and profile photo validation is tightened.
+
 **Architecture:** Laravel stays enforcement boundary. Next.js stays UI/proxy only. Role checks, audit events, file validation, password reset rules, and token cleanup must be enforced in Laravel.
 
 **Tech Stack:** Laravel 13, PHP 8.3, Sanctum, Spatie activitylog, Next.js 16, React 19, TypeScript, Tailwind CSS, Vitest, PHPUnit 12.
@@ -18,6 +20,7 @@
 3. **Profile photo handling is too loose.** Current validation allows oversized arbitrary strings. Tighten it or move to safer storage.
 4. **Forgot-password flow is missing.** Add it if time allows. If not, keep it clearly marked as follow-up.
 5. **Token/session cleanup needs work.** Logout should clear both cookies, and password changes/reset should revoke existing tokens.
+6. **Admin report visibility needs parity with RND for non-patient reports.** Admin should access every RND report that does not expose patient-specific records. `demographic_census` is allowed because it is aggregate. `patient_menu_plan` and `ncp_summary` stay blocked for data privacy.
 
 ---
 
@@ -245,6 +248,25 @@ $user->tokens()->delete();
 - [ ] Share one profile shell between RND and Admin.
 
 ### Task 6: Docs
+
+### Task 6A: Admin Non-PHI Report Parity
+
+**Files:**
+- `backend/app/Http/Controllers/ReportController.php`
+- `frontend/components/reports/ReportsBrowser.tsx`
+- `frontend/app/admin/reports/page.tsx`
+- `backend/tests/Feature/AdminReportsTest.php`
+
+- [ ] Allow Admin to browse/render/archive non-patient RND report types:
+  - `program_project_activity`
+  - `menu_calendar`
+  - `procurement_pack`
+  - `accomplishment_report`
+  - `demographic_census`
+- [ ] Keep patient-specific reports blocked for Admin:
+  - `patient_menu_plan`
+  - `ncp_summary`
+- [ ] Update Admin report catalog text to match backend allowlist.
 
 **Files:**
 - `docs/modules/admin.md`

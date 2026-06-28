@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
@@ -116,6 +117,15 @@ export default function LoginPage() {
               autoComplete="current-password"
             />
 
+            <div className="flex justify-end">
+              <Link
+                href="/forgot-password"
+                className="text-xs font-semibold text-emerald-700 hover:text-emerald-800"
+              >
+                Forgot password?
+              </Link>
+            </div>
+
             <div className="pt-2">
               <Button id="login-submit" type="submit" loading={loading} fullWidth>
                 Sign In
@@ -127,7 +137,7 @@ export default function LoginPage() {
         {/* Footer Audit Notice */}
         <div className="text-center">
           <p className="text-[10px] text-zinc-400 select-none uppercase tracking-widest">
-            Secure Connection • Activity Logs Active
+            Secure Connection - Activity Logs Active
           </p>
         </div>
       </div>

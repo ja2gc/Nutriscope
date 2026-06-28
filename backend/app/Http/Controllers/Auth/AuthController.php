@@ -12,6 +12,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Spatie\Activitylog\Models\Activity;
 
 class AuthController extends Controller
 {
@@ -23,6 +24,8 @@ class AuthController extends Controller
         $credentials = $request->only('email', 'password');
 
         if (! Auth::attempt($credentials)) {
+            $this->auditAuth($request, 'login_failed', null, 'Login failed');
+
             return response()->json(['message' => 'Invalid credentials.'], 401);
         }
 
@@ -49,6 +52,11 @@ class AuthController extends Controller
         $user->tokens()->where('name', $tokenName)->delete();
         $token = $user->createToken($tokenName, [$user->role])->plainTextToken;
 
+        $this->auditAuth($request, 'login', $user, 'User logged in', [
+            'platform' => $request->validated('platform') ?? 'web',
+            'device_name' => $tokenName,
+        ]);
+
         return response()->json([
             'token' => $token,
             'user' => new UserResource($user),
@@ -60,6 +68,9 @@ class AuthController extends Controller
      */
     public function logout(Request $request): JsonResponse
     {
+        $user = $request->user();
+        $this->auditAuth($request, 'logout', $user, 'User logged out');
+
         $request->user()->currentAccessToken()->delete();
 
         return response()->json(['message' => 'Logged out.']);
@@ -90,10 +101,37 @@ class AuthController extends Controller
      */
     public function updatePassword(UpdatePasswordRequest $request): JsonResponse
     {
-        $request->user()->update([
+        $user = $request->user();
+
+        $user->update([
             'password' => Hash::make($request->validated()['password']),
         ]);
+        $user->tokens()->delete();
+
+        $this->auditAuth($request, 'password_changed', $user, 'Password changed');
 
         return response()->json(['message' => 'Password updated.']);
+    }
+
+    private function auditAuth(
+        Request $request,
+        string $event,
+        ?User $user,
+        string $description,
+        array $properties = [],
+    ): Activity {
+        $activity = activity('audit');
+
+        if ($user) {
+            $activity->causedBy($user);
+        }
+
+        return $activity->event($event)
+            ->withProperties(array_merge([
+                'email' => $request->string('email')->lower()->toString() ?: null,
+                'ip' => $request->ip(),
+                'user_agent' => substr((string) $request->userAgent(), 0, 255),
+            ], $properties))
+            ->log($description);
     }
 }

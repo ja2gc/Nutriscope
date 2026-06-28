@@ -80,6 +80,29 @@ class ProfileTest extends TestCase
             ->assertOk();
     }
 
+    public function test_profile_photo_must_be_supported_data_image_and_size_limited(): void
+    {
+        $user = User::factory()->create(['name' => 'Me', 'email' => 'mine@example.com']);
+
+        $this->actingAs($user, 'sanctum')
+            ->patchJson('/api/auth/profile', [
+                'name' => 'Me',
+                'email' => 'mine@example.com',
+                'profile_photo' => 'not-an-image',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['profile_photo']);
+
+        $this->actingAs($user, 'sanctum')
+            ->patchJson('/api/auth/profile', [
+                'name' => 'Me',
+                'email' => 'mine@example.com',
+                'profile_photo' => 'data:image/png;base64,'.str_repeat('a', 300001),
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['profile_photo']);
+    }
+
     public function test_user_can_change_password_with_correct_current(): void
     {
         $user = User::factory()->create(['password' => Hash::make('oldpass123')]);

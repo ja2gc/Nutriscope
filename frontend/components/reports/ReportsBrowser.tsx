@@ -45,10 +45,13 @@ export const FULL_CATALOG: CatalogEntry[] = [
   { type: "ncp_summary", name: "NCP Summary", desc: "Patient Nutrition Care Plan (ADIME) — assessment, diagnosis, intervention, monitoring.", icon: Stethoscope, group: "Clinical" },
 ];
 
-// Admin-allowed catalog — non-clinical PHI types only
+// Admin-allowed catalog: RND parity minus patient-specific reports.
 export const ADMIN_CATALOG: CatalogEntry[] = [
-  { type: "demographic_census", name: "Demographic Census", desc: "Patient counts by age, sex, ward, diagnosis.", icon: ClipboardList, group: "Clinical" },
+  { type: "program_project_activity", name: "Program Project Activity", desc: "Weekly menu, cost, headcount & inclusive dates.", icon: CalendarRange, group: "Food Service" },
+  { type: "menu_calendar", name: "Menu Calendar", desc: "Printable Mon-Sun grid for the kitchen.", icon: CalendarDays, group: "Food Service" },
   { type: "procurement_pack", name: "Procurement Pack", desc: "AIR + Statement + Summary of Marketing.", icon: PackageCheck, group: "Food Service" },
+  { type: "accomplishment_report", name: "Accomplishment Report", desc: "Per-staff weekly duty sheet + diet-list headcount logged by FSS.", icon: ClipboardList, group: "Food Service" },
+  { type: "demographic_census", name: "Demographic Census", desc: "Aggregate patient counts by age, sex, ward, diagnosis.", icon: ClipboardList, group: "Clinical" },
 ];
 
 export type ApiPrefix = "rnd" | "admin";

@@ -39,18 +39,23 @@ export interface FoodServiceSetting {
   updated_at: string | null;
 }
 
+export type BudgetApiPrefix = "fss" | "admin";
+
 async function unwrap<T>(res: Response, fallback: string): Promise<T> {
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error((data as { message?: string }).message ?? fallback);
   return (data as { data: T }).data;
 }
 
-export async function listFiscalYears(): Promise<FiscalYearBudget[]> {
-  return unwrap(await apiFetch("/api/fss/budgets"), "Failed to load budgets.");
+export async function listFiscalYears(prefix: BudgetApiPrefix = "fss"): Promise<FiscalYearBudget[]> {
+  return unwrap(await apiFetch(`/api/${prefix}/budgets`), "Failed to load budgets.");
 }
 
-export async function getFiscalYearSummary(fiscalYear: number): Promise<{ data: FiscalYearSummary | null; notice?: string }> {
-  const res = await apiFetch(`/api/fss/budgets/summary?fiscal_year=${fiscalYear}`);
+export async function getFiscalYearSummary(
+  fiscalYear: number,
+  prefix: BudgetApiPrefix = "fss",
+): Promise<{ data: FiscalYearSummary | null; notice?: string }> {
+  const res = await apiFetch(`/api/${prefix}/budgets/summary?fiscal_year=${fiscalYear}`);
   const json = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error((json as { message?: string }).message ?? "Failed to load summary.");
   return json as { data: FiscalYearSummary | null; notice?: string };
@@ -59,18 +64,22 @@ export async function getFiscalYearSummary(fiscalYear: number): Promise<{ data: 
 export async function setupFiscalYear(payload: {
   fiscal_year: number;
   allocated_amount: number;
-}): Promise<FiscalYearBudget> {
-  return unwrap(await apiFetch("/api/fss/budgets", {
+}, prefix: BudgetApiPrefix = "fss"): Promise<FiscalYearBudget> {
+  return unwrap(await apiFetch(`/api/${prefix}/budgets`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   }), "Failed to create fiscal year budget.");
 }
 
-export async function getLedger(fiscalYear: number, source: LedgerFilter = "all"): Promise<BudgetLedgerEntry[]> {
+export async function getLedger(
+  fiscalYear: number,
+  source: LedgerFilter = "all",
+  prefix: BudgetApiPrefix = "fss",
+): Promise<BudgetLedgerEntry[]> {
   const qs = new URLSearchParams({ fiscal_year: String(fiscalYear) });
   if (source && source !== "all") qs.set("source", source);
-  return unwrap(await apiFetch(`/api/fss/budgets/ledger?${qs}`), "Failed to load ledger.");
+  return unwrap(await apiFetch(`/api/${prefix}/budgets/ledger?${qs}`), "Failed to load ledger.");
 }
 
 export async function addManualAdjustment(payload: {
@@ -79,8 +88,8 @@ export async function addManualAdjustment(payload: {
   amount: number;
   reason: string;
   reference?: string | null;
-}): Promise<BudgetLedgerEntry> {
-  return unwrap(await apiFetch("/api/fss/budgets/adjust", {
+}, prefix: BudgetApiPrefix = "fss"): Promise<BudgetLedgerEntry> {
+  return unwrap(await apiFetch(`/api/${prefix}/budgets/adjust`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
