@@ -12,8 +12,13 @@ import { fetchAssessment } from "@/services/assessmentService";
 import { fetchPatientById } from "@/services/patientService";
 import { fetchDiagnoses } from "@/services/diagnosisService";
 import {
-  autofillPrescription, GOAL_MICRO_FLAGS, Prescription, PatientMetrics, ACTIVITY_FACTORS, microKeys, microLimitsFromRx,
+  autofillPrescription, GOAL_MICRO_FLAGS, Prescription, PatientMetrics, ACTIVITY_FACTORS, microKeys,
 } from "@/lib/nutritionCalculations";
+import {
+  buildGoalPrescriptionForm,
+  emptyPrescriptionForm,
+  type PrescriptionFormState,
+} from "@/lib/interventionGoalState";
 import GoalSelectorModal, { GOALS } from "./_components/GoalSelectorModal";
 import { Button } from "@/components/ui/Button";
 import NutritionPrescriptionForm from "./_components/NutritionPrescriptionForm";
@@ -35,20 +40,7 @@ const TABS: { key: Tab; label: string }[] = [
   { key: "encounter",  label: "Encounter Context" },
 ];
 
-interface PrescriptionForm {
-  energy_kcal: string;
-  protein_g: string;
-  carbs_g: string;
-  fat_g: string;
-  fluid_ml: string;
-  micronutrient_limits: Record<string, { max?: number; min?: number; unit: string }>;
-  displayed_nutrients: string[];
-}
-
-const emptyPrescription = (): PrescriptionForm => ({
-  energy_kcal: "", protein_g: "", carbs_g: "", fat_g: "", fluid_ml: "",
-  micronutrient_limits: {}, displayed_nutrients: [],
-});
+type PrescriptionForm = PrescriptionFormState;
 
 function interventionToForm(iv: Intervention): PrescriptionForm {
   return {
@@ -70,7 +62,7 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
   const [intervention, setIntervention]         = useState<Intervention | null>(null);
   const [loading, setLoading]                   = useState(true);
   const [goalModalOpen, setGoalModalOpen]       = useState(false);
-  const [prescription, setPrescription]         = useState<PrescriptionForm>(emptyPrescription());
+  const [prescription, setPrescription]         = useState<PrescriptionForm>(emptyPrescriptionForm());
   const [prescNote, setPrescNote]               = useState<string | undefined>(undefined);
   const [saving, setSaving]                     = useState(false);
   // Unsaved-changes tracking: true once the RND edits a field, false after a
@@ -194,35 +186,22 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
 
   const handleGoalConfirm = async (goalType: string, stage: string | null) => {
     setGoalModalOpen(false);
-    await ensureIntervention();
-
-    // Goal change RESETS the micro panel to this goal's required set + the engine-
-    // derived limits — stale micros/limits from a previously selected goal are
-    // dropped so the panel always reflects the current goal. The RND can still add
-    // optional micros via the toggle afterward.
-    const flagged = GOAL_MICRO_FLAGS[goalType] ?? [];
-    const displayedFor = (limits: Record<string, unknown>) =>
-      Array.from(new Set([...flagged, ...Object.keys(limits)]));
+    const currentIntervention = await ensureIntervention();
+    setIntervention({
+      ...currentIntervention,
+      goal_type: goalType,
+      disease_stage: stage,
+    });
 
     // [1] Instant TS preview (frontend mirror — for responsiveness only).
     let preview: Prescription | null = null;
+    let finalForm = buildGoalPrescriptionForm(goalType, null);
     if (patientMetrics) {
       preview = autofillPrescription(goalType, stage, patientMetrics);
-      const previewLimits = microLimitsFromRx(preview, preview.energy_kcal);
       setPrescNote(preview.note);
-      setPrescription({
-        ...prescription,
-        displayed_nutrients: displayedFor(previewLimits),
-        energy_kcal: String(preview.energy_kcal),
-        protein_g:   String(preview.protein_g),
-        carbs_g:     String(preview.carbs_g),
-        fat_g:       String(preview.fat_g),
-        fluid_ml:    String(preview.fluid_ml),
-        micronutrient_limits: previewLimits,
-      });
-    } else {
-      setPrescription({ ...prescription, displayed_nutrients: [...flagged], micronutrient_limits: {} });
+      finalForm = buildGoalPrescriptionForm(goalType, preview);
     }
+    setPrescription(finalForm);
 
     // Auto-populate education template if notes currently empty
     if (!educationNotes.trim() && EDUCATION_TEMPLATES[goalType]) {
@@ -240,27 +219,13 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
       } | null = preview
         ? { energy_kcal: preview.energy_kcal, protein_g: preview.protein_g, carbs_g: preview.carbs_g, fat_g: preview.fat_g, fluid_ml: preview.fluid_ml }
         : null;
-      // Engine-derived micro limits (sodium/fiber/etc.) — preview first, BE overrides below.
-      let rxLimits: Record<string, { max?: number; min?: number; unit: string }> =
-        preview ? microLimitsFromRx(preview, preview.energy_kcal) : {};
-      let finalDisplayed = displayedFor(rxLimits);
 
       try {
         const be = await autofillIntervention(ncpId, goalType, stage);
         authoritative = { energy_kcal: be.energy_kcal, protein_g: be.protein_g, carbs_g: be.carbs_g, fat_g: be.fat_g, fluid_ml: be.fluid_ml };
-        rxLimits = microLimitsFromRx(be, be.energy_kcal);
-        finalDisplayed = displayedFor(rxLimits);
+        finalForm = buildGoalPrescriptionForm(goalType, be);
         setPrescNote(be.edema_warning ? `${be.note ?? ""} ${be.edema_warning}`.trim() : be.note);
-        setPrescription((prev) => ({
-          ...prev,
-          displayed_nutrients: finalDisplayed,
-          energy_kcal: String(be.energy_kcal),
-          protein_g:   String(be.protein_g),
-          carbs_g:     String(be.carbs_g),
-          fat_g:       String(be.fat_g),
-          fluid_ml:    String(be.fluid_ml),
-          micronutrient_limits: rxLimits,
-        }));
+        setPrescription(finalForm);
         // Dev-only drift guard: FE preview must match the authoritative BE value.
         if (process.env.NODE_ENV !== "production" && preview) {
           for (const [k, fe, beVal] of [
@@ -283,8 +248,8 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
       const updated = await updateIntervention(ncpId, {
         goal_type: goalType,
         disease_stage: stage,
-        displayed_nutrients: finalDisplayed,
-        micronutrient_limits: rxLimits,
+        displayed_nutrients: finalForm.displayed_nutrients,
+        micronutrient_limits: finalForm.micronutrient_limits,
         ...(authoritative ?? {}),
       } as Partial<Intervention>);
       setIntervention(updated);
