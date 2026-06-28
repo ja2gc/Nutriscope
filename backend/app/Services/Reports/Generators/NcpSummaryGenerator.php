@@ -88,8 +88,11 @@ class NcpSummaryGenerator implements ReportGenerator
             'intervention'       => $ncp->intervention,
             'monitorings'        => $ncp->monitorings->sortBy('created_at')->values(),
             // Attachments are cycle-scoped (AS-02) — load by ncp_record_id, not assessment.
-            'attachments'        => ScreeningDocument::where('ncp_record_id', $ncp->id)
+            'attachments'        => $attachments = ScreeningDocument::where('ncp_record_id', $ncp->id)
                 ->orderByDesc('created_at')->get(),
+            // Image attachments resolved to absolute paths for the PDF appendix
+            // (dompdf embeds local image files; PDFs can't be inlined and are listed only).
+            'attachment_images'  => $this->imageAppendix($attachments),
             'record_status'      => $ncp->status,
             // Completeness / report integrity (RP-01/02, AD-02)
             'completion_stage'   => $completionStage,
@@ -102,6 +105,34 @@ class NcpSummaryGenerator implements ReportGenerator
                 'status'          => $mealPlan->status,
             ] : null,
         ];
+    }
+
+    /**
+     * Resolve image attachments to absolute filesystem paths for the PDF appendix.
+     * Only raster images (jpg/jpeg/png) can be embedded by dompdf.
+     *
+     * @return array<int,array{name:string,path:string,date:?string}>
+     */
+    private function imageAppendix($attachments): array
+    {
+        $images = [];
+        foreach ($attachments as $doc) {
+            $ext = strtolower(pathinfo($doc->file_path, PATHINFO_EXTENSION));
+            if (! in_array($ext, ['jpg', 'jpeg', 'png'], true)) {
+                continue;
+            }
+            $abs = \Illuminate\Support\Facades\Storage::exists($doc->file_path)
+                ? \Illuminate\Support\Facades\Storage::path($doc->file_path)
+                : (is_file($doc->file_path) ? $doc->file_path : null); // legacy absolute path
+            if ($abs && is_file($abs)) {
+                $images[] = [
+                    'name' => $doc->original_name ?? basename($doc->file_path),
+                    'path' => $abs,
+                    'date' => optional($doc->created_at)->format('M j, Y'),
+                ];
+            }
+        }
+        return $images;
     }
 
     /** Age in whole years from DOB to a reference date (admission, else today). */
