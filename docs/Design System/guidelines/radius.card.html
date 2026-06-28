@@ -1,0 +1,27 @@
+<!-- @dsCard group="Spacing" viewport="700x150" name="Radius" subtitle="Controls 10px · cards 16px (signature) · pills full." -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  body { margin: 0; font-family: var(--font-sans); background: var(--surface-card); color: var(--text-body); }
+  .row { display: flex; gap: 18px; padding: 20px 22px; }
+  .item { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 9px; }
+  .box { width: 100%; height: 60px; background: var(--green-50); border: 1.5px solid var(--green-300); }
+  .tok { font-family: var(--font-mono); font-size: 9.5px; color: var(--text-strong); font-weight: 600; text-align: center; }
+  .px { font-family: var(--font-mono); font-size: 9px; color: var(--text-faint); }
+</style>
+</head>
+<body>
+  <div class="row" id="r"></div>
+  <script>
+    const radii = [['xs','6px'],['sm','8px'],['md','10px'],['lg','14px'],['xl','16px'],['2xl','20px'],['full','9999px']];
+    document.getElementById('r').innerHTML = radii.map(([k,v]) => `
+      <div class="item">
+        <div class="box" style="border-radius:${v}"></div>
+        <div class="tok">--radius-${k}</div><div class="px">${v}</div>
+      </div>`).join('');
+  </script>
+</body>
+</html>

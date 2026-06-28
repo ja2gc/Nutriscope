@@ -1,0 +1,23 @@
+<!-- @dsCard group="Spacing" viewport="700x170" name="Elevation" subtitle="Soft, green-neutral shadows — cards rest low, overlays lift." -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  body { margin: 0; font-family: var(--font-sans); background: var(--surface-page); color: var(--text-body); }
+  .row { display: flex; gap: 22px; padding: 26px 24px; }
+  .item { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+  .box { width: 100%; height: 62px; background: #fff; border-radius: var(--radius-xl); }
+  .tok { font-family: var(--font-mono); font-size: 9.5px; color: var(--text-strong); font-weight: 600; }
+</style>
+</head>
+<body>
+  <div class="row" id="r"></div>
+  <script>
+    const sh = [['xs','var(--shadow-xs)'],['sm','var(--shadow-sm)'],['md','var(--shadow-md)'],['lg','var(--shadow-lg)'],['brand','var(--shadow-brand)']];
+    document.getElementById('r').innerHTML = sh.map(([k,v]) => `
+      <div class="item"><div class="box" style="box-shadow:${v}"></div><div class="tok">--shadow-${k}</div></div>`).join('');
+  </script>
+</body>
+</html>

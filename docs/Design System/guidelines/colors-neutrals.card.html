@@ -1,0 +1,28 @@
+<!-- @dsCard group="Colors" viewport="700x120" name="Warm Neutrals" subtitle="Faintly green-tinted grays — the 'lively' gray, not cold zinc." -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  body { margin: 0; font-family: var(--font-sans); background: var(--surface-card); color: var(--text-body); }
+  .row { display: flex; padding: 18px 20px; }
+  .sw { flex: 1; }
+  .chip { height: 56px; border: 1px solid rgba(0,0,0,0.04); box-sizing: border-box; }
+  .row .sw:first-child .chip { border-radius: var(--radius-md) 0 0 var(--radius-md); }
+  .row .sw:last-child .chip { border-radius: 0 var(--radius-md) var(--radius-md) 0; }
+  .meta { padding: 8px 2px 0; }
+  .tok { font-family: var(--font-mono); font-size: 9.5px; color: var(--text-strong); font-weight: 600; }
+  .hex { font-family: var(--font-mono); font-size: 9px; color: var(--text-faint); margin-top: 2px; }
+</style>
+</head>
+<body>
+  <div class="row" id="r"></div>
+  <script>
+    const scale = [['0','#ffffff'],['25','#f8faf6'],['50','#f3f6f1'],['100','#e9ece6'],['200','#dadfd5'],['300','#c2c9bc'],['400','#98a191'],['500','#6e776a'],['600','#535b50'],['700','#3e453b'],['800','#2a2f27'],['900','#181c16']];
+    document.getElementById('r').innerHTML = scale.map(([k,v]) => `
+      <div class="sw"><div class="chip" style="background:${v}"></div>
+        <div class="meta"><div class="tok">${k}</div><div class="hex">${v}</div></div></div>`).join('');
+  </script>
+</body>
+</html>

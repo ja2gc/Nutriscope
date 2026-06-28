@@ -1,0 +1,44 @@
+<!-- @dsCard group="Mobile App" viewport="460x900" name="Mobile App — FSS" subtitle="Improved, on-brand Food Service Supervisor app. Tap the bottom tabs." -->
+<!-- @startingPoint section="Mobile App" subtitle="NutriScope FSS mobile app (dashboard, inventory, menu)" viewport="460x900" -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NutriScope — FSS Mobile</title>
+<link rel="stylesheet" href="../../styles.css">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<style>
+  html, body { margin: 0; height: 100%; font-family: var(--font-sans); }
+  body { background: radial-gradient(circle at 50% 0%, #0f3322, #061a11); display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 28px 0; box-sizing: border-box; }
+  .phone { width: 390px; height: 844px; background: #000; border-radius: 46px; padding: 11px; box-shadow: 0 30px 70px rgba(0,0,0,0.5), inset 0 0 0 2px #1c1c1c; position: relative; }
+  .screen { width: 100%; height: 100%; background: var(--surface-page); border-radius: 36px; overflow: hidden; position: relative; display: flex; flex-direction: column; }
+  .statusbar { height: 44px; flex-shrink: 0; background: var(--surface-card); display: flex; align-items: center; justify-content: space-between; padding: 0 24px; font-size: 13px; font-weight: 700; color: var(--text-strong); }
+  .notch { position: absolute; top: 11px; left: 50%; transform: translateX(-50%); width: 120px; height: 26px; background: #000; border-radius: 0 0 16px 16px; z-index: 20; }
+  .app { flex: 1; min-height: 0; }
+</style>
+</head>
+<body>
+<div class="phone">
+  <div class="notch"></div>
+  <div class="screen">
+    <div class="statusbar">
+      <span>9:41</span>
+      <span style="display:flex; gap:6px; align-items:center;">
+        <svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor"><rect x="0" y="6" width="3" height="5" rx="1"/><rect x="4.5" y="4" width="3" height="7" rx="1"/><rect x="9" y="2" width="3" height="9" rx="1"/><rect x="13.5" y="0" width="3" height="11" rx="1"/></svg>
+        <svg width="16" height="11" viewBox="0 0 16 11" fill="currentColor"><path d="M8 2.2c2 0 3.8.8 5.2 2l1.2-1.3C13 .9 10.6 0 8 0S3 .9 1.4 2.9l1.2 1.3C4 3 5.9 2.2 8 2.2z" opacity="0.9"/><path d="M8 5.4c1.1 0 2.1.4 2.9 1.2l1.2-1.3C11 4.1 9.6 3.5 8 3.5s-3 .6-4.1 1.8l1.2 1.3C5.9 5.8 6.9 5.4 8 5.4z"/><circle cx="8" cy="9" r="1.8"/></svg>
+        <svg width="25" height="12" viewBox="0 0 25 12" fill="none"><rect x="0.5" y="0.5" width="21" height="11" rx="3" stroke="currentColor" opacity="0.4"/><rect x="2" y="2" width="16" height="8" rx="1.5" fill="currentColor"/><rect x="23" y="4" width="1.5" height="4" rx="0.75" fill="currentColor" opacity="0.5"/></svg>
+      </span>
+    </div>
+    <div class="app" id="root"></div>
+  </div>
+</div>
+<script src="https://unpkg.com/lucide@latest"></script>
+<script type="text/babel" src="MobileApp.jsx"></script>
+<script type="text/babel">
+  ReactDOM.createRoot(document.getElementById("root")).render(<window.MobileApp />);
+</script>
+</body>
+</html>

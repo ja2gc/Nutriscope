@@ -1,0 +1,118 @@
+/* ==========================================================================
+   NutriScope — Color tokens
+   --------------------------------------------------------------------------
+   System logic (color theory):
+   • PRIMARY  Green  — health, nourishment, vitality. The "Nutri" half + every
+                       positive/primary action. Built on the emerald family
+                       already in the product, kept as the hero.
+   • SECONDARY Orange — appetite, warmth, energy. The "Scope" half + accents,
+                       highlights and non-destructive callouts. Split-
+                       complement of green = lively, not jarring.
+   • TERTIARY  Lime  — a fresh "sprout" highlight, analogous to green, used
+                       sparingly to add liveliness (active dots, sparkles).
+   • SURFACE   Warm, faintly green-tinted off-whites instead of cold gray, so
+                       the product reads bright & alive rather than clinical.
+   • NAV       Deep forest green (not near-black) — fixes the old "gloomy"
+                       zinc-950 sidebar while staying high-contrast & on-brand.
+   ========================================================================== */
+
+:root {
+  /* ---- Brand Green (primary / "Nutri") ---- */
+  --green-50:  #ecfdf5;
+  --green-100: #d1fae5;
+  --green-200: #a7f3d0;
+  --green-300: #6ee7b7;
+  --green-400: #34d399;
+  --green-500: #10b981;
+  --green-600: #059669;   /* primary action */
+  --green-700: #047857;   /* primary hover / pressed */
+  --green-800: #065f46;
+  --green-900: #064e3b;
+
+  /* ---- Brand Orange (secondary / "Scope") ---- */
+  --orange-50:  #fff7ed;
+  --orange-100: #ffedd5;
+  --orange-200: #fed7aa;
+  --orange-300: #fdba74;
+  --orange-400: #fb923c;
+  --orange-500: #f97316;
+  --orange-600: #ea580c;  /* "Scope" wordmark / accent */
+  --orange-700: #c2410c;
+
+  /* ---- Lime (tertiary / "sprout" highlight) ---- */
+  --lime-300: #bef264;
+  --lime-400: #a3e635;
+  --lime-500: #84cc16;
+  --lime-600: #65a30d;
+
+  /* ---- Forest (deep-green dark surfaces: nav, admin bar) ---- */
+  --forest-700: #15412c;
+  --forest-800: #0f3322;
+  --forest-900: #0a261a;   /* sidebar base */
+  --forest-950: #061a11;   /* sidebar edge / deepest */
+  --forest-line: #1c4a33;  /* hairline on forest surfaces */
+
+  /* ---- Neutrals — warm, faintly green-tinted (the "lively" gray) ---- */
+  --neutral-0:   #ffffff;
+  --neutral-25:  #f8faf6;  /* app page background */
+  --neutral-50:  #f3f6f1;
+  --neutral-100: #e9ece6;
+  --neutral-200: #dadfd5;
+  --neutral-300: #c2c9bc;
+  --neutral-400: #98a191;
+  --neutral-500: #6e776a;
+  --neutral-600: #535b50;
+  --neutral-700: #3e453b;
+  --neutral-800: #2a2f27;
+  --neutral-900: #181c16;
+
+  /* ---- Semantic status ---- */
+  --status-success:  #059669;
+  --status-success-bg: #ecfdf5;
+  --status-warning:  #d97706;
+  --status-warning-bg: #fff7ed;
+  --status-danger:   #dc2626;
+  --status-danger-bg: #fef2f2;
+  --status-info:     #0284c7;
+  --status-info-bg:  #f0f9ff;
+  --status-neutral:  #6e776a;
+  --status-neutral-bg: #f3f6f1;
+
+  /* ---- Categorical (charts / tags) ---- */
+  --cat-green:  #059669;
+  --cat-orange: #ea580c;
+  --cat-lime:   #84cc16;
+  --cat-teal:   #0d9488;
+  --cat-amber:  #d97706;
+  --cat-sky:    #0284c7;
+  --cat-violet: #7c3aed;
+  --cat-rose:   #e11d48;
+
+  /* ========== Semantic aliases (use these in components) ========== */
+  --surface-page:    var(--neutral-25);
+  --surface-card:    var(--neutral-0);
+  --surface-sunken:  var(--neutral-50);
+  --surface-hover:   var(--neutral-100);
+  --surface-inverse: var(--forest-900);
+
+  --border-subtle:  var(--neutral-200);
+  --border-strong:  var(--neutral-300);
+  --border-focus:   var(--green-500);
+
+  --text-strong:  var(--neutral-900);
+  --text-body:    var(--neutral-700);
+  --text-muted:   var(--neutral-500);
+  --text-faint:   var(--neutral-400);
+  --text-inverse: var(--neutral-0);
+  --text-onbrand: #ffffff;
+
+  --brand-primary:        var(--green-600);
+  --brand-primary-hover:  var(--green-700);
+  --brand-primary-soft:   var(--green-50);
+  --brand-accent:         var(--orange-600);
+  --brand-accent-soft:    var(--orange-50);
+  --brand-nutri:          var(--green-600);
+  --brand-scope:          var(--orange-600);
+
+  --ring-focus: 0 0 0 3px rgba(16, 185, 129, 0.28);
+}

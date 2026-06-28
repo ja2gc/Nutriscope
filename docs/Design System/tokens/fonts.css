@@ -1,0 +1,9 @@
+/* ==========================================================================
+   NutriScope — Webfonts
+   Primary UI + display: Plus Jakarta Sans (friendly humanist geometric sans —
+   warm, legible, clinical-but-not-cold). Data/numerics: JetBrains Mono
+   (tabular figures for the metric-heavy dashboards & inventory tables).
+   Fonts are loaded from Google's CDN — see readme "Font substitution" note.
+   ========================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,600&family=JetBrains+Mono:wght@400;500;600;700&display=swap');

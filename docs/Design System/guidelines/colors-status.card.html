@@ -1,0 +1,37 @@
+<!-- @dsCard group="Colors" viewport="700x140" name="Semantic Status" subtitle="ok / warn / danger / info — always paired with a word, never color alone." -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  body { margin: 0; font-family: var(--font-sans); background: var(--surface-card); color: var(--text-body); }
+  .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; padding: 18px 20px; }
+  .cell { border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); overflow: hidden; }
+  .bar { height: 6px; }
+  .body { padding: 11px 12px; }
+  .pill { display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; border-radius: var(--radius-full); font-size: 10px; font-weight: 700; }
+  .dot { width: 6px; height: 6px; border-radius: 50%; }
+  .tok { font-family: var(--font-mono); font-size: 9px; color: var(--text-faint); margin-top: 9px; }
+</style>
+</head>
+<body>
+  <div class="grid" id="g"></div>
+  <script>
+    const items = [
+      ['Success','In stock','#059669','#ecfdf5','status-success'],
+      ['Warning','Shortfall','#d97706','#fff7ed','status-warning'],
+      ['Danger','No stock','#dc2626','#fef2f2','status-danger'],
+      ['Info','Scheduled','#0284c7','#f0f9ff','status-info'],
+    ];
+    document.getElementById('g').innerHTML = items.map(([name,word,fg,bg,tok]) => `
+      <div class="cell">
+        <div class="bar" style="background:${fg}"></div>
+        <div class="body">
+          <span class="pill" style="background:${bg};color:${fg};"><span class="dot" style="background:${fg}"></span>${word}</span>
+          <div class="tok">--${tok}</div>
+        </div>
+      </div>`).join('');
+  </script>
+</body>
+</html>

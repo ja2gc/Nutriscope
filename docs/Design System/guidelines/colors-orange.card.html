@@ -1,0 +1,29 @@
+<!-- @dsCard group="Colors" viewport="700x120" name="Brand Orange — Scope" subtitle="Warm accent. The 'Scope' half, highlights & callouts." -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  body { margin: 0; font-family: var(--font-sans); background: var(--surface-card); color: var(--text-body); }
+  .row { display: flex; padding: 18px 20px; }
+  .sw { flex: 1; }
+  .chip { height: 56px; }
+  .row .sw:first-child .chip { border-radius: var(--radius-md) 0 0 var(--radius-md); }
+  .row .sw:last-child .chip { border-radius: 0 var(--radius-md) var(--radius-md) 0; }
+  .meta { padding: 8px 2px 0; }
+  .tok { font-family: var(--font-mono); font-size: 10px; color: var(--text-strong); font-weight: 600; }
+  .hex { font-family: var(--font-mono); font-size: 9.5px; color: var(--text-faint); margin-top: 2px; }
+  .star { color: var(--brand-accent); }
+</style>
+</head>
+<body>
+  <div class="row" id="r"></div>
+  <script>
+    const scale = [['50','#fff7ed'],['100','#ffedd5'],['200','#fed7aa'],['300','#fdba74'],['400','#fb923c'],['500','#f97316'],['600','#ea580c'],['700','#c2410c']];
+    document.getElementById('r').innerHTML = scale.map(([k,v]) => `
+      <div class="sw"><div class="chip" style="background:${v}"></div>
+        <div class="meta"><div class="tok">--orange-${k}${k==='600'?' <span class="star">●</span>':''}</div><div class="hex">${v}</div></div></div>`).join('');
+  </script>
+</body>
+</html>

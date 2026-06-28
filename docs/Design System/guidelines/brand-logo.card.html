@@ -1,0 +1,42 @@
+<!-- @dsCard group="Brand" viewport="700x180" name="Logo & Wordmark" subtitle="Leaf + scope mark. 'Nutri' green, 'Scope' orange. Light & forest lockups." -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  body { margin: 0; font-family: var(--font-sans); }
+  .wrap { display: grid; grid-template-columns: 1fr 1fr; }
+  .panel { padding: 26px 24px; display: flex; flex-direction: column; gap: 18px; justify-content: center; }
+  .light { background: var(--surface-card); }
+  .forest { background: var(--forest-900); }
+  .lock { display: flex; align-items: center; gap: 11px; }
+  .lock img { width: 34px; height: 34px; }
+  .word { display: flex; align-items: baseline; }
+  .word span { font-size: 24px; font-weight: 800; letter-spacing: -0.03em; }
+  .nutri { color: var(--brand-nutri); }
+  .scope { color: var(--brand-scope); }
+  .tag { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; }
+  .tag.l { color: var(--text-muted); }
+  .tag.d { color: var(--green-300); }
+  .markrow { display: flex; gap: 14px; align-items: center; }
+  .markrow img { width: 44px; height: 44px; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="panel light">
+      <div class="markrow"><img src="../assets/mark.svg" alt="NutriScope mark">
+        <div class="word"><span class="nutri">Nutri</span><span class="scope">Scope</span></div>
+      </div>
+      <div class="tag l">Clinical &amp; Operational Care Console</div>
+    </div>
+    <div class="panel forest">
+      <div class="lock"><img src="../assets/mark.svg" alt="NutriScope mark">
+        <div class="word"><span class="nutri" style="color:#34d399">Nutri</span><span class="scope" style="color:#fb923c">Scope</span></div>
+      </div>
+      <div class="tag d">On forest nav surface</div>
+    </div>
+  </div>
+</body>
+</html>
