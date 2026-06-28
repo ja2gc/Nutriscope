@@ -278,6 +278,40 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml exec backend \
 `backend/.env.production` is gitignored, so `git pull` / `git reset` never touches the
 droplet's copy. After adding new config keys to the code you must edit the live file by hand.
 
+### Reset or remake `.env.production` from the VPS web console
+
+Use this when the live env is broken, missing new keys, or you need to rebuild it from the
+current example file.
+
+```bash
+cd ~/Nutriscope/backend
+
+# Keep a copy first. Do not delete this backup until the app is confirmed working.
+cp .env.production ".env.production.backup.$(date +%Y%m%d-%H%M%S)"
+
+# Rebuild the live env from the current template.
+cp .env.production.example .env.production
+nano .env.production
+```
+
+Fill the production values again before restarting:
+
+- Keep the old `APP_KEY` from the backup if this is an existing production server. Changing it
+  can break encrypted data. Only generate a new key for a brand-new server with no real data.
+- Set `APP_ENV=production`, `APP_DEBUG=false`, and the real `APP_URL=https://nutriscope.live`.
+- Set Docker service hosts such as `DB_HOST=mysql` and `REDIS_HOST=redis` unless the app was
+  moved to managed database/Redis services.
+- Set real secrets: database password, JWT/session secrets, `ANTHROPIC_API_KEY`, `USDA_API_KEY`,
+  mail/Resend keys, Paddle keys, and any mobile/web public API URLs.
+
+If this is a brand-new production server and there is no old `APP_KEY`, generate one and paste it
+into `.env.production`:
+
+```bash
+cd ~/Nutriscope
+docker compose -f docker-compose.yml -f docker-compose.prod.yml run --rm backend php artisan key:generate --show
+```
+
 **Check for missing keys** (drift between the live env and what the code now expects):
 
 ```bash
@@ -295,6 +329,29 @@ grep -E 'ANTHROPIC_API_KEY|USDA_API_KEY' ~/Nutriscope/backend/.env.production
 
 `ANTHROPIC_API_KEY` must be non-empty and start with `sk-ant-`. (This affects RND AI
 diagnosis/suggest only — FSS mobile uses no AI.)
+
+### AI diagnosis and admin token tracking checks
+
+The AI diagnosis feature must save a normal diagnosis row, not a separate diagnosis summary. The
+saved result should come from selected checkbox fields and free-text `Other` fields, so editing the
+AI-created diagnosis shows the same checked values a manual diagnosis would show.
+
+After any env reset or AI-related deploy, run the backend smoke checks from the VPS:
+
+```bash
+cd ~/Nutriscope
+docker compose -f docker-compose.yml -f docker-compose.prod.yml exec backend php scripts/smoke-real-ai-diagnosis.php
+docker compose -f docker-compose.yml -f docker-compose.prod.yml exec backend php scripts/smoke-edit-ai-diagnosis.php
+```
+
+Expected result:
+
+- A real AI diagnosis is created in the `diagnoses` table.
+- No `diagnosis summary` artifact is created.
+- Editing the generated diagnosis pre-checks the values the AI selected and preserves/free-edits
+  any `Other` text fields.
+- Admin dashboard AI token usage increases after a real AI call, and the token graph reflects the
+  latest `ai_usage_logs` data.
 
 ### Production email sender (password reset / recovery email)
 
