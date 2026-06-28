@@ -194,4 +194,18 @@
     @endif
 
     @include('reports.partials.signatories')
+
+    {{-- Appendix: scanned lab sheets / screening forms uploaded for this cycle. --}}
+    @if(!empty($attachment_images))
+        <div style="page-break-before: always;"></div>
+        <div class="section">Appendix — Uploaded Documents</div>
+        @foreach($attachment_images as $img)
+            <div style="margin-bottom:12px;">
+                <p style="font-size:10px; color:#555; margin:0 0 3px;">
+                    <span class="bold">{{ $img['name'] }}</span>@if($img['date']) — {{ $img['date'] }}@endif
+                </p>
+                <img src="{{ $img['path'] }}" style="max-width:100%; max-height:520px; border:1px solid #ddd;">
+            </div>
+        @endforeach
+    @endif
 @endsection
