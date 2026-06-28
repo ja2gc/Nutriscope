@@ -52,5 +52,6 @@ class NcpRecord extends Model
     {
         return $this->hasMany(Monitoring::class);
     }
+
 }
 

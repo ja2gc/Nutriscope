@@ -131,9 +131,16 @@ class AssessmentController extends Controller
         // (pre-backfill) so nothing disappears for older records.
         $assessmentId = $ncpRecord->assessment?->id;
 
+        $type = request()->query('type');
+
         $docs = ScreeningDocument::query()
-            ->where('ncp_record_id', $ncpRecord->id)
-            ->when($assessmentId, fn ($q) => $q->orWhere('assessment_id', $assessmentId))
+            ->where(function ($q) use ($ncpRecord, $assessmentId) {
+                $q->where('ncp_record_id', $ncpRecord->id);
+                if ($assessmentId) {
+                    $q->orWhere('assessment_id', $assessmentId);
+                }
+            })
+            ->when($type, fn ($q) => $q->where('type', $type))
             ->latest()
             ->get();
 

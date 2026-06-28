@@ -696,6 +696,23 @@ export default function PatientProfilePage({
                       </div>
                     </div>
 
+                    {/* Meal Plans */}
+                    {(record.intervention?.meal_plans?.length ?? 0) > 0 && (
+                      <div className="px-5.5 pb-4">
+                        <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-1.5">Meal Plans</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {record.intervention!.meal_plans!.map((mp) => (
+                            <span key={mp.id} className="inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-semibold bg-zinc-50 border border-zinc-200 text-zinc-700">
+                              Week of {mp.week_start_date}
+                              {mp.generation_type === "auto" && (
+                                <span className="ml-1.5 text-[8px] font-bold text-zinc-400 uppercase">AI</span>
+                              )}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                     {/* Quick nav buttons */}
                     <div className="px-5.5 pb-5.5">
                       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">

@@ -46,6 +46,11 @@ export interface NcpRecord {
   intervention?: {
     goal_type?: string | null;
     next_followup_date?: string | null;
+    meal_plans?: Array<{
+      id: number;
+      week_start_date: string;
+      generation_type?: string | null;
+    }> | null;
   } | null;
 }
 
