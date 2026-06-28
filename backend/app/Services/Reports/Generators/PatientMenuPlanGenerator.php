@@ -65,7 +65,12 @@ class PatientMenuPlanGenerator implements ReportGenerator
             // labels ('Breakfast'). Map before lookup or every item is dropped.
             $label = self::MEAL_TYPE_LABELS[$day->meal_type] ?? $day->meal_type;
             foreach ($day->items as $item) {
-                $name = $item->foodItem?->name ?? $item->recipe?->name;
+                // USDA (fdc_id) items have no foodItem/recipe relation — their name
+                // lives only in the persisted nutrient snapshot. Fall back to it so
+                // USDA foods are not silently dropped from the printed menu. (MP-06)
+                $name = $item->foodItem?->name
+                    ?? $item->recipe?->name
+                    ?? ($item->nutrient_snapshot['name'] ?? null);
                 if ($name && isset($grid[$label][$day->day_of_week])) {
                     $grid[$label][$day->day_of_week][] = [
                         'name'     => $name,
