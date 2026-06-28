@@ -132,8 +132,8 @@ export default function AdminDashboardPage() {
       setCapDailyInput(updated.daily_token_limit != null ? String(updated.daily_token_limit) : "");
       setCapMonthlyInput(updated.monthly_token_limit != null ? String(updated.monthly_token_limit) : "");
       setCapSaveMsg({ ok: true, text: "Limits saved." });
-    } catch (err: any) {
-      setCapSaveMsg({ ok: false, text: err.message || "Failed to save limits." });
+    } catch (err: unknown) {
+      setCapSaveMsg({ ok: false, text: err instanceof Error ? err.message : "Failed to save limits." });
     } finally {
       setCapSaving(false);
     }
@@ -155,8 +155,8 @@ export default function AdminDashboardPage() {
 
       setDashboardData(data);
       setRecentLogs(logsResponse.data);
-    } catch (err: any) {
-      setError(err.message || "Failed to load admin dashboard data.");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to load admin dashboard data.");
     } finally {
       setLoading(false);
       setRefreshing(false);

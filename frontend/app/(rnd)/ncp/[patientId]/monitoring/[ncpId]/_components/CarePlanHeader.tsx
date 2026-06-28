@@ -27,7 +27,7 @@ export default function CarePlanHeader({ plan }: { plan: MonitoringPlan | null }
     <div className="bg-white border border-zinc-200 rounded-2xl p-5 shadow-sm space-y-4">
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <h3 className="text-xs font-extrabold text-zinc-700 uppercase tracking-wider flex items-center gap-2">
-          <ClipboardList className="h-4 w-4 text-emerald-600" /> Care Plan — What We're Monitoring
+          <ClipboardList className="h-4 w-4 text-emerald-600" /> Care Plan — What We&apos;re Monitoring
         </h3>
         {plan.goal_type && (
           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200">
@@ -88,7 +88,7 @@ export default function CarePlanHeader({ plan }: { plan: MonitoringPlan | null }
       )}
 
       <p className="text-[9px] text-zinc-400 pt-1 border-t border-zinc-100">
-        Indicators are tracked from: {Object.values(SOURCE_LABELS).join(" · ")} — only what this patient's data supports.
+        Indicators are tracked from: {Object.values(SOURCE_LABELS).join(" · ")} — only what this patient&apos;s data supports.
       </p>
     </div>
   );

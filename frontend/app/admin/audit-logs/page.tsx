@@ -80,8 +80,8 @@ export default function AuditLogsPage() {
       const response = await listAuditLogs(params);
       setLogs(response.data);
       setMeta(response.meta);
-    } catch (err: any) {
-      setError(err.message || "Failed to fetch audit log records.");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to fetch audit log records.");
     } finally {
       setLoading(false);
     }
@@ -457,7 +457,7 @@ export default function AuditLogsPage() {
                               </div>
 
                               {/* Structured old/new diff if present */}
-                              {(log.properties.old !== undefined ||
+                              {Boolean(log.properties.old !== undefined ||
                                 log.properties.attributes !== undefined) ? (
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                   {log.properties.old !== undefined && (
@@ -484,23 +484,23 @@ export default function AuditLogsPage() {
                               ) : null}
 
                               {/* Request metadata (url / method / ip) */}
-                              {(log.properties.url ||
+                              {Boolean(log.properties.url ||
                                 log.properties.method ||
                                 log.properties.ip) && (
                                 <div className="flex flex-wrap gap-3 text-[10px] font-mono text-zinc-500 mt-1">
-                                  {log.properties.method && (
+                                  {Boolean(log.properties.method) && (
                                     <span className="px-2 py-0.5 rounded bg-white border border-zinc-200">
-                                      {log.properties.method}
+                                      {String(log.properties.method)}
                                     </span>
                                   )}
-                                  {log.properties.url && (
+                                  {Boolean(log.properties.url) && (
                                     <span className="px-2 py-0.5 rounded bg-white border border-zinc-200 truncate max-w-xs">
-                                      {log.properties.url}
+                                      {String(log.properties.url)}
                                     </span>
                                   )}
-                                  {log.properties.ip && (
+                                  {Boolean(log.properties.ip) && (
                                     <span className="px-2 py-0.5 rounded bg-white border border-zinc-200">
-                                      IP: {log.properties.ip}
+                                      IP: {String(log.properties.ip)}
                                     </span>
                                   )}
                                 </div>

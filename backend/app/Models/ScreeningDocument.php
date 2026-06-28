@@ -10,12 +10,17 @@ class ScreeningDocument extends Model
     use HasFactory;
     
     protected $fillable = [
-        'patient_id', 'assessment_id', 'type', 'file_path', 'original_name',
+        'patient_id', 'ncp_record_id', 'assessment_id', 'type', 'file_path', 'original_name',
     ];
 
     public function patient()
     {
         return $this->belongsTo(Patient::class);
+    }
+
+    public function ncpRecord()
+    {
+        return $this->belongsTo(NcpRecord::class);
     }
 
     public function assessment()

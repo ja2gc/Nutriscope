@@ -10,7 +10,7 @@ import {
   createNcpRecord,
 } from "@/services/patientService";
 import { Button } from "@/components/ui/Button";
-import { Pagination } from "@/components/ui/Pagination";
+import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
 import { HeartHandshake, X } from "lucide-react";
 
 function calculateAge(dob?: string) {
@@ -102,7 +102,7 @@ export default function NcpPatientsPage() {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("All");
   const [page, setPage] = useState(1);
-  const [meta, setMeta] = useState<any>(null);
+  const [meta, setMeta] = useState<PaginationMeta | null>(null);
   const [creating, setCreating] = useState(false);
 
   // Create patient modal
@@ -119,9 +119,9 @@ export default function NcpPatientsPage() {
 
       const response = await fetchPatients(search, status, page);
       setPatients(response.data);
-      setMeta(response.meta);
-    } catch (err: any) {
-      setError(err.message || "Failed to load patients.");
+      setMeta(response.meta ?? null);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to load patients.");
     } finally {
       setLoading(false);
     }
@@ -153,8 +153,8 @@ export default function NcpPatientsPage() {
       });
       const newNcp = await createNcpRecord(newPatient.id);
       router.push(`/ncp/${newPatient.id}/assessment/${newNcp.id}`);
-    } catch (err: any) {
-      setCreateError(err.message || "Failed to initialize assessment workflow.");
+    } catch (err: unknown) {
+      setCreateError(err instanceof Error ? err.message : "Failed to initialize assessment workflow.");
       setCreating(false);
     }
   };

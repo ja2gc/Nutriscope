@@ -104,8 +104,8 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
       const result = await apiFetch(p, 15);
       setPosts(result.data);
       setMeta(result.meta);
-    } catch (err: any) {
-      setError(err.message || "Failed to load announcements.");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to load announcements.");
     } finally {
       setLoading(false);
     }
@@ -223,8 +223,8 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
         resetDraft();
         void loadPage(1);
       }
-    } catch (err: any) {
-      setSaveError(err.message || "Failed to save announcement.");
+    } catch (err: unknown) {
+      setSaveError(err instanceof Error ? err.message : "Failed to save announcement.");
     } finally {
       setSaving(false);
     }
@@ -236,8 +236,8 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
       await apiDelete(post.id);
       const newPage = posts.length === 1 && page > 1 ? page - 1 : page;
       void loadPage(newPage);
-    } catch (err: any) {
-      alert(err.message || "Failed to delete announcement.");
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Failed to delete announcement.");
     }
   }
 

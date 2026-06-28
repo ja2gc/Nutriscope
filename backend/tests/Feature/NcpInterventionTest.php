@@ -150,6 +150,49 @@ class NcpInterventionTest extends TestCase
         ]);
     }
 
+    public function test_empty_intervention_does_not_activate_ncp(): void
+    {
+        $rnd     = $this->rnd();
+        $patient = $this->patient();
+        $ncp     = $this->ncpRecord($patient, $rnd);
+        Assessment::forceCreate(['ncp_record_id' => $ncp->id, 'weight' => 70.0, 'height' => 170.0]);
+        $this->diagnosis($ncp);
+
+        // Creating an intervention with no prescription must NOT flip the NCP active.
+        $this->actingAs($rnd, 'sanctum')
+            ->postJson("/api/rnd/ncp-records/{$ncp->id}/intervention", [])
+            ->assertStatus(201);
+
+        $this->assertSame('draft', $ncp->fresh()->status);
+    }
+
+    public function test_completing_prescription_activates_ncp(): void
+    {
+        $rnd     = $this->rnd();
+        $patient = $this->patient();
+        $ncp     = $this->ncpRecord($patient, $rnd);
+        Assessment::forceCreate(['ncp_record_id' => $ncp->id, 'weight' => 70.0, 'height' => 170.0]);
+        $this->diagnosis($ncp);
+
+        $this->actingAs($rnd, 'sanctum')
+            ->postJson("/api/rnd/ncp-records/{$ncp->id}/intervention", [])
+            ->assertStatus(201);
+        $this->assertSame('draft', $ncp->fresh()->status);
+
+        // Filling the prescription via update completes the initial ADI → active.
+        $this->actingAs($rnd, 'sanctum')
+            ->patchJson("/api/rnd/ncp-records/{$ncp->id}/intervention", [
+                'goal_type'   => 'renal_diet',
+                'energy_kcal' => 1800.0,
+                'protein_g'   => 70.0,
+                'carbs_g'     => 250.0,
+                'fat_g'       => 55.0,
+            ])
+            ->assertOk();
+
+        $this->assertSame('active', $ncp->fresh()->status);
+    }
+
     public function test_intervention_has_no_encounter_location_field(): void
     {
         $rnd     = $this->rnd();

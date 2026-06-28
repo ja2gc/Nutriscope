@@ -59,6 +59,10 @@ function inputCls(errors: FieldErrors, field: string) {
   } text-zinc-800 placeholder:text-zinc-400`;
 }
 
+function hasFieldErrors(error: unknown): error is Error & { fieldErrors: FieldErrors } {
+  return error instanceof Error && "fieldErrors" in error;
+}
+
 // ─── page ───────────────────────────────────────────────────────────────────
 
 export default function UserManagementPage() {
@@ -102,8 +106,8 @@ export default function UserManagementPage() {
       setError(null);
       const data = await listUsers();
       setUsers(data);
-    } catch (err: any) {
-      setError(err.message || "Failed to load users.");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to load users.");
     } finally {
       setLoading(false);
     }
@@ -113,8 +117,11 @@ export default function UserManagementPage() {
     void loadUsers();
   }, []);
 
-  const filteredUsers = useMemo(() => {
+  useEffect(() => {
     setPage(1);
+  }, [search, roleFilter]);
+
+  const filteredUsers = useMemo(() => {
     return users.filter((u) => {
       const matchesSearch =
         u.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -184,8 +191,8 @@ export default function UserManagementPage() {
     try {
       const updated = await setActive(u.id, !u.is_active);
       setUsers((prev) => prev.map((item) => (item.id === u.id ? updated : item)));
-    } catch (err: any) {
-      alert(err.message || "Failed to change user status.");
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Failed to change user status.");
     }
   }
 
@@ -198,8 +205,8 @@ export default function UserManagementPage() {
     try {
       await deleteUser(u.id);
       setUsers((prev) => prev.filter((item) => item.id !== u.id));
-    } catch (err: any) {
-      alert(err.message || "Failed to delete user.");
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Failed to delete user.");
     }
   }
 
@@ -233,12 +240,14 @@ export default function UserManagementPage() {
         setUsers((prev) => [created, ...prev]);
         setFormOpen(false);
       }
-    } catch (err: any) {
-      if (err.fieldErrors) {
+    } catch (err: unknown) {
+      if (hasFieldErrors(err)) {
         setFormFieldErrors(err.fieldErrors);
         setFormError(err.message || "Please fix the errors below.");
-      } else {
+      } else if (err instanceof Error) {
         setFormError(err.message || "Failed to save user.");
+      } else {
+        setFormError("Failed to save user.");
       }
     } finally {
       setSubmitting(false);
@@ -255,12 +264,14 @@ export default function UserManagementPage() {
       await resetPassword(resettingUser.id, newPassword, newPasswordConfirm);
       setResetSuccess(true);
       setTimeout(() => setResetOpen(false), 1500);
-    } catch (err: any) {
-      if (err.fieldErrors) {
+    } catch (err: unknown) {
+      if (hasFieldErrors(err)) {
         setResetFieldErrors(err.fieldErrors);
         setResetError(err.message || "Please fix the errors below.");
-      } else {
+      } else if (err instanceof Error) {
         setResetError(err.message || "Failed to reset password.");
+      } else {
+        setResetError("Failed to reset password.");
       }
     } finally {
       setSubmitting(false);

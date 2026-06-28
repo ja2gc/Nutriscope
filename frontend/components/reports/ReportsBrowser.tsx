@@ -498,7 +498,7 @@ function TemplateEditor({ onFlash }: { onFlash: (ok: boolean, msg: string) => vo
       {/* Branding */}
       <Card padded>
         <h2 className="text-xs font-extrabold text-zinc-700 uppercase tracking-wider mb-1">Header Branding</h2>
-        <p className="text-[11px] text-zinc-500 mb-4">Shared across every report header. The "prepared by" name auto-fills from the logged-in user; these are the fallbacks.</p>
+        <p className="text-[11px] text-zinc-500 mb-4">Shared across every report header. The &quot;prepared by&quot; name auto-fills from the logged-in user; these are the fallbacks.</p>
         <form onSubmit={saveB} className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {([
