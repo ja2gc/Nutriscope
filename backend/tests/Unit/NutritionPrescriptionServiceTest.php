@@ -58,4 +58,44 @@ class NutritionPrescriptionServiceTest extends TestCase
             );
         }
     }
+
+    /**
+     * Regression guard: a normal-sized adult must never produce an implausible
+     * energy target across ANY goal/stage/activity combination. This pins the
+     * ceiling that the (since-fixed) "5000 kcal" report violated, so a formula
+     * regression can't silently reintroduce it.
+     */
+    public function test_no_goal_produces_implausible_energy_for_a_normal_adult(): void
+    {
+        $svc = new NutritionPrescriptionService();
+        $goals = [
+            'renal_diet' => ['stage_1','stage_2','stage_3','stage_4','stage_5_predialysis','hemodialysis','peritoneal'],
+            'diabetic_control' => ['stage_1','stage_2','stage_3'],
+            'cardiac_diet' => ['mild','moderate','severe'],
+            'weight_loss' => ['overweight','class_1','class_2','class_3'],
+            'weight_gain' => ['mild','moderate','severe'],
+            'high_protein' => ['mild_stress','moderate_stress','severe_stress','burns'],
+            'liver_disease' => ['compensated','decompensated','encephalopathy_grade_1_2','encephalopathy_grade_3_4'],
+            'malnutrition' => ['moderate','severe'],
+            'custom' => [null],
+        ];
+
+        foreach (['sedentary','moderate','extra_active'] as $activity) {
+            $metrics = [
+                'weightKg' => 70.0, 'heightCm' => 183.0, 'ageYears' => 30,
+                'sex' => 'Male', 'isAdult' => true,
+                'activityFactor' => NutritionPrescriptionService::ACTIVITY_FACTORS[$activity],
+            ];
+            foreach ($goals as $goal => $stages) {
+                foreach ($stages as $stage) {
+                    $energy = $svc->autofill($goal, $stage, $metrics)['energy_kcal'];
+                    $this->assertLessThanOrEqual(
+                        4500, $energy,
+                        "Implausible energy {$energy} kcal for {$goal}/{$stage} @ {$activity} (70kg/183cm)."
+                    );
+                    $this->assertGreaterThan(0, $energy, "Non-positive energy for {$goal}/{$stage}.");
+                }
+            }
+        }
+    }
 }
