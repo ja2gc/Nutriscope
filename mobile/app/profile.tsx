@@ -363,7 +363,7 @@ export default function ProfileScreen() {
             editable={!profileMutation.isPending}
           />
           <FormField
-            label="Email"
+            label="Sign-in email"
             value={email}
             onChangeText={setEmail}
             placeholder="you@example.com"
@@ -377,6 +377,9 @@ export default function ProfileScreen() {
             }}
             editable={!profileMutation.isPending}
           />
+          <Text className="text-xs text-gray-500 -mt-2 mb-4">
+            Use this email when signing in. Password reset links are sent to your verified recovery email below.
+          </Text>
           <FormField
             label="Contact Number"
             value={contactNumber}
@@ -407,9 +410,12 @@ export default function ProfileScreen() {
         {/* Password card */}
         <View className="mx-4 bg-white rounded-xl border border-gray-100 p-4 mb-4">
           <Text className="text-base font-semibold text-gray-800 mb-4">Recovery email</Text>
+          <Text className="text-sm text-gray-500 mb-4 leading-5">
+            Used only for password reset links and account recovery. It must be verified before it can receive reset emails.
+          </Text>
 
           <FormField
-            label="Recovery email"
+            label="Recovery email for password resets"
             value={recoveryEmail}
             onChangeText={setRecoveryEmail}
             placeholder="you@example.com"

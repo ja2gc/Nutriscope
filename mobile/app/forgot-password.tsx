@@ -80,7 +80,7 @@ export default function ForgotPasswordScreen() {
               </View>
             ) : null}
 
-            <Text className="text-xs font-semibold text-zinc-700 mb-1.5">Recovery Email</Text>
+            <Text className="text-xs font-semibold text-zinc-700 mb-1.5">Verified Recovery Email</Text>
             <TextInput
               className="border border-zinc-300 rounded-lg px-4 h-12 text-base text-zinc-900 mb-5 bg-white"
               keyboardType="email-address"
