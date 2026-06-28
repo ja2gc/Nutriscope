@@ -73,6 +73,7 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
   const [patientMetrics, setPatientMetrics]     = useState<PatientMetrics | null>(null);
   const [foodDislikes, setFoodDislikes]         = useState<string[]>([]);
   const [allergens, setAllergens]               = useState<string[]>([]);
+  const [goalError, setGoalError]               = useState<string | null>(null);
 
   const [educationNotes, setEducationNotes]   = useState("");
   const [counselingGoals, setCounselingGoals] = useState("");
@@ -177,99 +178,122 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
     }
   }, [isPlaceholder, loadIntervention, loadMetrics]);
 
+  /**
+   * Ensure an Intervention row exists in the DB for this NCP record.
+   * Handles 409 gracefully: if the backend says the row already exists but our
+   * local state is null (e.g. loadIntervention failed silently on page mount),
+   * we re-fetch and use the existing record instead of crashing.
+   */
   const ensureIntervention = async (): Promise<Intervention> => {
     if (intervention) return intervention;
-    const iv = await createIntervention(ncpId, {});
-    setIntervention(iv);
-    return iv;
+    try {
+      const iv = await createIntervention(ncpId, {});
+      setIntervention(iv);
+      return iv;
+    } catch (err) {
+      // 409 = Intervention already exists in DB but wasn't reflected in local state.
+      // Re-fetch and recover gracefully.
+      if (err instanceof Error && err.message.includes("already exists")) {
+        const existing = await fetchIntervention(ncpId);
+        if (existing) { setIntervention(existing); return existing; }
+      }
+      throw err;
+    }
   };
 
   const handleGoalConfirm = async (goalType: string, stage: string | null) => {
+    setGoalError(null);
     setGoalModalOpen(false);
-    const currentIntervention = await ensureIntervention();
-    setIntervention({
-      ...currentIntervention,
-      goal_type: goalType,
-      disease_stage: stage,
-    });
-
-    // [1] Instant TS preview (frontend mirror — for responsiveness only).
-    let preview: Prescription | null = null;
-    let finalForm = buildGoalPrescriptionForm(goalType, null);
-    if (patientMetrics) {
-      preview = autofillPrescription(goalType, stage, patientMetrics);
-      setPrescNote(preview.note);
-      finalForm = buildGoalPrescriptionForm(goalType, preview);
-    }
-    setPrescription(finalForm);
-
-    // Auto-populate education template if notes currently empty
-    if (!educationNotes.trim() && EDUCATION_TEMPLATES[goalType]) {
-      setEducationNotes(EDUCATION_TEMPLATES[goalType]);
-    }
-
-    // [2] Authoritative values come from the backend engine (Phase 2.4 source of
-    //     truth). If it succeeds, persist & display the BE numbers; the TS preview
-    //     above just avoids a flash of empty fields. If it fails (e.g. no assessment
-    //     yet), fall back to persisting the TS preview so the goal still saves.
-    setSaving(true);
     try {
-      let authoritative: {
-        energy_kcal: number; protein_g: number; carbs_g: number; fat_g: number; fluid_ml: number;
-      } | null = preview
-        ? { energy_kcal: preview.energy_kcal, protein_g: preview.protein_g, carbs_g: preview.carbs_g, fat_g: preview.fat_g, fluid_ml: preview.fluid_ml }
-        : null;
-      let autofillError: string | null = null;
+      const currentIntervention = await ensureIntervention();
+      setIntervention({
+        ...currentIntervention,
+        goal_type: goalType,
+        disease_stage: stage,
+      });
 
-      try {
-        const be = await autofillIntervention(ncpId, goalType, stage);
-        authoritative = { energy_kcal: be.energy_kcal, protein_g: be.protein_g, carbs_g: be.carbs_g, fat_g: be.fat_g, fluid_ml: be.fluid_ml };
-        finalForm = buildGoalPrescriptionForm(goalType, be);
-        setPrescNote(be.edema_warning ? `${be.note ?? ""} ${be.edema_warning}`.trim() : be.note);
-        setPrescription(finalForm);
-        // Dev-only drift guard: FE preview must match the authoritative BE value.
-        if (process.env.NODE_ENV !== "production" && preview) {
-          for (const [k, fe, beVal] of [
-            ["energy_kcal", preview.energy_kcal, be.energy_kcal],
-            ["protein_g",   preview.protein_g,   be.protein_g],
-            ["carbs_g",     preview.carbs_g,     be.carbs_g],
-            ["fat_g",       preview.fat_g,       be.fat_g],
-            ["fluid_ml",    preview.fluid_ml,    be.fluid_ml],
-          ] as const) {
-            if (Math.abs(Number(fe) - Number(beVal)) > 1) {
-              console.warn(`[prescription drift] ${k}: FE=${fe} BE=${beVal} — frontend mirror is out of sync with the backend engine.`);
-            }
-          }
-        }
-      } catch (err) {
-        // Backend autofill unavailable — keep the TS preview values (already shown).
-        autofillError = err instanceof Error ? err.message : "Failed to autofill prescription.";
-        console.warn("Backend autofill failed; using frontend preview values.", err);
+      // [1] Instant TS preview (frontend mirror — for responsiveness only).
+      let preview: Prescription | null = null;
+      let finalForm = buildGoalPrescriptionForm(goalType, null);
+      if (patientMetrics) {
+        preview = autofillPrescription(goalType, stage, patientMetrics);
+        setPrescNote(preview.note);
+        finalForm = buildGoalPrescriptionForm(goalType, preview);
+      }
+      setPrescription(finalForm);
+
+      // Auto-populate education template if notes currently empty
+      if (!educationNotes.trim() && EDUCATION_TEMPLATES[goalType]) {
+        setEducationNotes(EDUCATION_TEMPLATES[goalType]);
       }
 
-      if (!authoritative) {
+      // [2] Authoritative values come from the backend engine (Phase 2.4 source of
+      //     truth). If it succeeds, persist & display the BE numbers; the TS preview
+      //     above just avoids a flash of empty fields. If it fails (e.g. no assessment
+      //     yet), fall back to persisting the TS preview so the goal still saves.
+      setSaving(true);
+      try {
+        let authoritative: {
+          energy_kcal: number; protein_g: number; carbs_g: number; fat_g: number; fluid_ml: number;
+        } | null = preview
+          ? { energy_kcal: preview.energy_kcal, protein_g: preview.protein_g, carbs_g: preview.carbs_g, fat_g: preview.fat_g, fluid_ml: preview.fluid_ml }
+          : null;
+        let autofillError: string | null = null;
+
+        try {
+          const be = await autofillIntervention(ncpId, goalType, stage);
+          authoritative = { energy_kcal: be.energy_kcal, protein_g: be.protein_g, carbs_g: be.carbs_g, fat_g: be.fat_g, fluid_ml: be.fluid_ml };
+          finalForm = buildGoalPrescriptionForm(goalType, be);
+          setPrescNote(be.edema_warning ? `${be.note ?? ""} ${be.edema_warning}`.trim() : be.note);
+          setPrescription(finalForm);
+          // Dev-only drift guard: FE preview must match the authoritative BE value.
+          if (process.env.NODE_ENV !== "production" && preview) {
+            for (const [k, fe, beVal] of [
+              ["energy_kcal", preview.energy_kcal, be.energy_kcal],
+              ["protein_g",   preview.protein_g,   be.protein_g],
+              ["carbs_g",     preview.carbs_g,     be.carbs_g],
+              ["fat_g",       preview.fat_g,       be.fat_g],
+              ["fluid_ml",    preview.fluid_ml,    be.fluid_ml],
+            ] as const) {
+              if (Math.abs(Number(fe) - Number(beVal)) > 1) {
+                console.warn(`[prescription drift] ${k}: FE=${fe} BE=${beVal} — frontend mirror is out of sync with the backend engine.`);
+              }
+            }
+          }
+        } catch (err) {
+          // Backend autofill unavailable — keep the TS preview values (already shown).
+          autofillError = err instanceof Error ? err.message : "Failed to autofill prescription.";
+          console.warn("Backend autofill failed; using frontend preview values.", err);
+        }
+
+        if (!authoritative) {
+          const updated = await updateIntervention(ncpId, {
+            goal_type: goalType,
+            disease_stage: stage,
+          } as Partial<Intervention>);
+          setIntervention(updated);
+          setPrescription(interventionToForm(updated));
+          setPrescNote(autofillError ?? "Complete patient demographics and assessment anthropometrics before autofill.");
+          setDirty(false);
+          return;
+        }
+
         const updated = await updateIntervention(ncpId, {
           goal_type: goalType,
           disease_stage: stage,
+          displayed_nutrients: finalForm.displayed_nutrients,
+          micronutrient_limits: finalForm.micronutrient_limits,
+          ...(authoritative ?? {}),
         } as Partial<Intervention>);
         setIntervention(updated);
         setPrescription(interventionToForm(updated));
-        setPrescNote(autofillError ?? "Complete patient demographics and assessment anthropometrics before autofill.");
         setDirty(false);
-        return;
-      }
-
-      const updated = await updateIntervention(ncpId, {
-        goal_type: goalType,
-        disease_stage: stage,
-        displayed_nutrients: finalForm.displayed_nutrients,
-        micronutrient_limits: finalForm.micronutrient_limits,
-        ...(authoritative ?? {}),
-      } as Partial<Intervention>);
-      setIntervention(updated);
-      setPrescription(interventionToForm(updated));
-      setDirty(false);
-    } finally { setSaving(false); }
+      } finally { setSaving(false); }
+    } catch (err) {
+      // Surface any failure (ensureIntervention, updateIntervention, etc.) as a
+      // visible error banner rather than silently swallowing it.
+      setGoalError(err instanceof Error ? err.message : "Failed to apply goal. Please try again.");
+    }
   };
 
   const savePrescription = async () => {
@@ -390,6 +414,9 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
                   {intervention?.goal_type ? "Change Goal" : "Set Goal"}
                 </Button>
               </div>
+              {goalError && (
+                <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-2">{goalError}</p>
+              )}
               {intervention?.goal_type ? (
                 <div className="flex items-center gap-2 px-4 py-3 bg-emerald-50 border border-emerald-200 rounded-xl">
                   <CheckCircle2 className="h-4 w-4 text-emerald-600 flex-shrink-0" />
