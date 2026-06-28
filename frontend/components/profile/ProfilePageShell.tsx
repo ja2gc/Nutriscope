@@ -177,7 +177,10 @@ export function ProfilePageShell({ crumbs, subtitle, fallbackRole }: ProfilePage
               error={profilePhotoError}
             />
             <Input label="Full Name" value={name} onChange={(e) => setName(e.target.value)} required />
-            <Input label="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+            <Input label="Sign-in Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+            <p className="-mt-2 text-[10px] text-warm-400">
+              Use this email when signing in. Password reset links are sent to your verified recovery email below.
+            </p>
             <Input label="Contact Number" value={contactNumber} onChange={(e) => setContactNumber(e.target.value)} />
             <div className="flex flex-col gap-1.5">
               <span className="text-xs font-semibold text-warm-600 select-none tracking-wide">Role / Designation</span>
@@ -198,9 +201,12 @@ export function ProfilePageShell({ crumbs, subtitle, fallbackRole }: ProfilePage
             <ShieldCheck className="h-4 w-4 text-emerald-600" />
             Recovery Email
           </h3>
+          <p className="-mt-3 mb-5 text-xs leading-relaxed text-warm-500">
+            Used only for password reset links and account recovery. It must be verified before it can receive reset emails.
+          </p>
           <form onSubmit={handleRecoveryEmailSubmit} className="space-y-4">
             <Input
-              label="Recovery Email"
+              label="Recovery Email for Password Resets"
               type="email"
               value={recoveryEmail}
               onChange={(e) => setRecoveryEmail(e.target.value)}
@@ -208,7 +214,7 @@ export function ProfilePageShell({ crumbs, subtitle, fallbackRole }: ProfilePage
               autoComplete="email"
             />
             <div className="flex items-center gap-3">
-              <Button type="submit" loading={savingRecoveryEmail} className="w-auto">Send Code</Button>
+              <Button type="submit" loading={savingRecoveryEmail} className="w-auto">Send Verification Code</Button>
               {user?.recovery_email_verified && user.recovery_email === recoveryEmail && (
                 <span className="text-xs font-semibold text-emerald-600">Verified.</span>
               )}
@@ -224,7 +230,7 @@ export function ProfilePageShell({ crumbs, subtitle, fallbackRole }: ProfilePage
               inputMode="numeric"
               maxLength={6}
             />
-            <Button type="submit" loading={verifyingRecoveryEmail} className="w-auto">Verify Email</Button>
+            <Button type="submit" loading={verifyingRecoveryEmail} className="w-auto">Verify Recovery Email</Button>
           </form>
           {recoveryMessage && <p className="mt-3 text-xs font-semibold text-emerald-600">{recoveryMessage}</p>}
           {recoveryError && <p className="mt-3 text-xs font-semibold text-red-600">{recoveryError}</p>}
