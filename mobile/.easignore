@@ -2,3 +2,5 @@
 ../frontend
 ../nginx
 ../mysql
+../node_modules
+../mobile/node_modules
