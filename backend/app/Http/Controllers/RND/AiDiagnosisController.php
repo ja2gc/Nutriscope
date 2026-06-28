@@ -74,7 +74,13 @@ class AiDiagnosisController extends Controller
             $data['existing_diagnoses'] = $existing;
         }
 
-        $suggestions = $this->aiService->suggestDiagnoses($data);
+        try {
+            $suggestions = $this->aiService->suggestDiagnoses($data);
+        } catch (\App\Exceptions\TokenLimitExceededException $e) {
+            throw $e; // renders as 429
+        } catch (\RuntimeException $e) {
+            return response()->json(['message' => $e->getMessage()], 502);
+        }
 
         return response()->json(['data' => $suggestions]);
     }

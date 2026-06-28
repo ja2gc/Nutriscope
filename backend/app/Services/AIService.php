@@ -76,6 +76,9 @@ class AIService
                 ]);
 
                 $text = $body['content'][0]['text'] ?? '';
+                // Models sometimes wrap JSON in ```json fences despite instructions —
+                // strip them before decoding so a well-formed payload isn't rejected.
+                $text = $this->stripJsonFences($text);
                 $decoded = json_decode($text, true);
 
                 if (json_last_error() !== JSON_ERROR_NONE) {
@@ -83,7 +86,7 @@ class AIService
                         'error' => json_last_error_msg(),
                         'text'  => substr($text, 0, 500),
                     ]);
-                    return [];
+                    throw new \RuntimeException('The AI returned an unexpected response. Please try again.');
                 }
 
                 return $decoded['suggestions'] ?? [];
@@ -93,11 +96,28 @@ class AIService
                 'status' => $response->status(),
                 'body' => $response->body(),
             ]);
-        } catch (\Exception $e) {
+            throw new \RuntimeException(
+                'AI service request failed (HTTP '.$response->status().'). Check the API key and try again.'
+            );
+        } catch (TokenLimitExceededException $e) {
+            throw $e; // already a 429-rendering exception
+        } catch (\RuntimeException $e) {
+            throw $e; // surfaced above — don't re-wrap
+        } catch (\Throwable $e) {
             Log::error('AIService error: ' . $e->getMessage());
+            throw new \RuntimeException('Could not reach the AI service. Please try again.');
         }
+    }
 
-        return [];
+    /** Strip a leading/trailing ```json … ``` (or bare ```) fence if present. */
+    private function stripJsonFences(string $text): string
+    {
+        $text = trim($text);
+        if (str_starts_with($text, '```')) {
+            $text = preg_replace('/^```[a-zA-Z]*\s*/', '', $text);
+            $text = preg_replace('/\s*```$/', '', (string) $text);
+        }
+        return trim((string) $text);
     }
 
     /**
