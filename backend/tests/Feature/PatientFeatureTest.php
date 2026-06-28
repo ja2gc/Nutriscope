@@ -124,6 +124,33 @@ class PatientFeatureTest extends TestCase
         ]);
     }
 
+    public function test_cannot_start_second_open_cycle()
+    {
+        $rnd = User::forceCreate(['name' => 'T', 'email' => 'open-cycle@example.com', 'password' => Hash::make('pass'), 'role' => 'RND', 'is_active' => true]);
+        $patient = Patient::forceCreate(['name' => 'J', 'dob' => '1990-01-01', 'sex' => 'Male', 'admission_date' => '2024-01-01']);
+
+        $this->actingAs($rnd, 'sanctum')->postJson("/api/rnd/patients/{$patient->id}/ncp-records")->assertStatus(201);
+
+        // A second open cycle is rejected.
+        $this->actingAs($rnd, 'sanctum')
+            ->postJson("/api/rnd/patients/{$patient->id}/ncp-records")
+            ->assertStatus(409);
+
+        $this->assertSame(1, $patient->ncpRecords()->count());
+    }
+
+    public function test_cannot_start_cycle_for_discharged_patient()
+    {
+        $rnd = User::forceCreate(['name' => 'T', 'email' => 'discharged@example.com', 'password' => Hash::make('pass'), 'role' => 'RND', 'is_active' => true]);
+        $patient = Patient::forceCreate(['name' => 'J', 'dob' => '1990-01-01', 'sex' => 'Male', 'admission_date' => '2024-01-01', 'status' => 'Discharged']);
+
+        $this->actingAs($rnd, 'sanctum')
+            ->postJson("/api/rnd/patients/{$patient->id}/ncp-records")
+            ->assertStatus(422);
+
+        $this->assertSame(0, $patient->ncpRecords()->count());
+    }
+
     public function test_patient_resource_exposes_system_calculated_risk_score()
     {
         $rnd = User::forceCreate(['name' => 'Test', 'email' => 'test5@example.com', 'password' => Hash::make('pass'), 'role' => 'RND', 'is_active' => true]);

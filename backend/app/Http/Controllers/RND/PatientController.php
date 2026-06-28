@@ -116,6 +116,23 @@ class PatientController extends Controller
      */
     public function startNcpCycle(Request $request, Patient $patient): JsonResponse
     {
+        // SL-04: a discharged or transferred patient has no active episode of care,
+        // so a new NCP cycle must not be started for them.
+        if (in_array($patient->status, ['Discharged', 'Transferred'], true)) {
+            return response()->json([
+                'message' => "Cannot start a new NCP cycle for a {$patient->status} patient.",
+            ], 422);
+        }
+
+        // SL-03: only one open cycle per patient. A draft/active cycle must be
+        // completed (or removed) before another is started, so reports and patient
+        // selection stay coherent.
+        if ($patient->ncpRecords()->whereIn('status', ['draft', 'active'])->exists()) {
+            return response()->json([
+                'message' => 'This patient already has an open NCP cycle. Complete it before starting a new one.',
+            ], 409);
+        }
+
         $record = NcpRecord::create([
             'patient_id' => $patient->id,
             'rnd_user_id' => $request->user()->id,
