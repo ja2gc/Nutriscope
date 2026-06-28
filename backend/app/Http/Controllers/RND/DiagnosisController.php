@@ -89,6 +89,16 @@ class DiagnosisController extends Controller
             abort(404);
         }
 
+        // DP-04 / DI-02: an active or completed care plan must always retain at
+        // least one PES — its intervention/monitoring would otherwise be orphaned.
+        $isLast = $ncpRecord->diagnoses()->count() <= 1;
+        $locked = in_array($ncpRecord->status, ['active', 'completed'], true);
+        if ($isLast && $locked) {
+            return response()->json([
+                'message' => 'Cannot remove the last diagnosis from an active care plan. Add a replacement diagnosis first, or reopen the workflow.',
+            ], 422);
+        }
+
         $diagnosis->delete();
 
         return response()->noContent();
