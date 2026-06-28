@@ -10,6 +10,7 @@ use App\Http\Requests\RND\RecommendRequest;
 use App\Http\Resources\MealPlanResource;
 use App\Models\MealPlan;
 use App\Models\NcpRecord;
+use App\Services\ClinicalCompletenessService;
 use App\Services\MealPlanService;
 use App\Services\RecommendService;
 use Illuminate\Http\JsonResponse;
@@ -19,6 +20,7 @@ class MealPlanController extends Controller
     public function __construct(
         private MealPlanService $mealPlanService,
         private RecommendService $recommendService,
+        private ClinicalCompletenessService $completeness,
     ) {}
 
     /**
@@ -82,10 +84,15 @@ class MealPlanController extends Controller
      */
     public function generate(GenerateMealPlanRequest $request, NcpRecord $ncpRecord): JsonResponse
     {
-        if (!$ncpRecord->intervention()->exists()) {
+        // MP-01 / IV-02: a meal plan must be built against a real prescription.
+        // Generating without energy/macro targets falls back to generic defaults
+        // and produces a clinically meaningless plan.
+        $missing = $this->completeness->interventionMissing($ncpRecord);
+        if (! empty($missing)) {
             return response()->json([
-                'message' => 'Cannot generate a meal plan without an intervention.',
-                'errors'  => ['intervention' => ['Intervention is required before generating a meal plan.']],
+                'message' => 'Complete the nutrition prescription before generating a meal plan. Missing: '
+                    . implode(', ', $missing) . '.',
+                'errors'  => ['intervention' => $missing],
             ], 422);
         }
 

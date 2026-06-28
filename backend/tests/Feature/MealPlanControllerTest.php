@@ -192,6 +192,31 @@ class MealPlanControllerTest extends TestCase
         $response->assertUnprocessable();
     }
 
+    public function test_cannot_generate_meal_plan_without_complete_prescription(): void
+    {
+        $patient   = Patient::factory()->create();
+        $ncpRecord = NcpRecord::factory()->create([
+            'patient_id'  => $patient->id,
+            'rnd_user_id' => $this->rnd->id,
+        ]);
+        // Intervention exists but has no prescription targets.
+        Intervention::factory()->create([
+            'ncp_record_id' => $ncpRecord->id,
+            'goal_type'     => 'renal_diet',
+            'energy_kcal'   => null,
+            'protein_g'     => null,
+            'carbs_g'       => null,
+            'fat_g'         => null,
+        ]);
+
+        $this->actingAs($this->rnd)
+            ->postJson("/api/rnd/ncp-records/{$ncpRecord->id}/meal-plans/generate", [
+                'week_start_date' => '2026-06-09',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonStructure(['message', 'errors' => ['intervention']]);
+    }
+
     public function test_rnd_can_delete_meal_plan(): void
     {
         [$ncpRecord, $intervention, $patient] = $this->makeInterventionWithNcpRecord();
