@@ -114,6 +114,24 @@ class ReportsBrowseTest extends TestCase
             ->assertJsonPath('data.axis', 'entity');
     }
 
+    public function test_fss_cannot_download_a_clinical_report_even_if_owner(): void
+    {
+        // Defense-in-depth (PO-03): even if a clinical report row were owned by a
+        // non-RND, the by-id endpoints reject it on the clinical-type guard.
+        $fss = User::factory()->create(['role' => 'FSS']);
+        $report = Report::create([
+            'user_id'    => $fss->id,
+            'title'      => 'NCP Summary',
+            'type'       => 'ncp_summary',
+            'parameters' => ['ncp_record_id' => 1],
+            'status'     => 'completed',
+        ]);
+
+        $this->actingAs($fss)
+            ->get("/api/fss/reports/{$report->id}/download")
+            ->assertForbidden();
+    }
+
     public function test_archive_prepared_by_is_the_authenticated_user_not_client_supplied(): void
     {
         Storage::fake('public');
