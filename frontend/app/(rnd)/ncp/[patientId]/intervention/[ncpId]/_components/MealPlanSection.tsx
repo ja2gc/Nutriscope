@@ -268,12 +268,15 @@ export default function MealPlanSection({
     if (!editTarget || !activePlan) return;
     setEditSaving(true);
     try {
-      const payload: { quantity?: number; nutrient_snapshot?: NutrientSnapshot } = {};
+      const payload: { quantity?: number; ingredient_overrides?: { id: number; quantity: number }[] } = {};
       if (editTab === 'scale') {
         payload.quantity = parseFloat(editServings) || 1;
       } else {
-        const newSnap = recalcFromIngredients();
-        payload.nutrient_snapshot = { ...editTarget.item.nutrient_snapshot, ...newSnap } as NutrientSnapshot;
+        // Send ingredient quantity overrides; the server recomputes the snapshot
+        // from trusted food data (DI-03 — no client-supplied nutrient totals).
+        payload.ingredient_overrides = editIngredients.map(({ id, qty }) => ({
+          id, quantity: parseFloat(qty || '0') || 0,
+        }));
         payload.quantity = 1;
       }
       const updated = await updateMealPlanItem(ncpId, activePlan.id, editTarget.dayId, editTarget.item.id, payload);

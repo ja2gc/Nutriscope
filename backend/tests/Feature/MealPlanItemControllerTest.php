@@ -174,6 +174,55 @@ class MealPlanItemControllerTest extends TestCase
             ->assertUnprocessable();
     }
 
+    public function test_update_ignores_client_supplied_nutrient_snapshot(): void
+    {
+        $ctx  = $this->setupPlan();
+        $item = MealPlanItem::factory()->create([
+            'meal_plan_day_id'  => $ctx['day']->id,
+            'nutrient_snapshot' => ['name' => 'Real', 'calories' => 100, 'protein' => 5, 'carbs' => 10, 'fat' => 2, 'micronutrients' => []],
+        ]);
+
+        $this->actingAs($ctx['rnd'])
+            ->patchJson($this->url($ctx, $item->id), [
+                'quantity'          => 2,
+                'nutrient_snapshot' => ['name' => 'FAKE', 'calories' => 99999],
+            ])
+            ->assertOk();
+
+        $item->refresh();
+        $this->assertEquals(100, $item->nutrient_snapshot['calories']); // server snapshot untouched
+        $this->assertEquals(2, (float) $item->quantity);
+    }
+
+    public function test_update_recomputes_recipe_snapshot_from_trusted_food_data(): void
+    {
+        $ctx  = $this->setupPlan();
+        $food = FoodItem::factory()->create([
+            'calories' => 100, 'protein' => 10, 'carbs' => 20, 'fat' => 5,
+            'serving_size' => 100, 'micronutrients' => ['sodium' => 50],
+        ]);
+        $recipe = Recipe::factory()->create(['servings' => 1, 'name' => 'Soup']);
+        $ingredient = \App\Models\RecipeIngredient::create([
+            'recipe_id' => $recipe->id, 'food_item_id' => $food->id, 'quantity' => 100, 'unit' => 'g',
+        ]);
+        $item = MealPlanItem::factory()->create([
+            'meal_plan_day_id' => $ctx['day']->id,
+            'recipe_id'        => $recipe->id,
+            'nutrient_snapshot'=> ['name' => 'Soup', 'calories' => 100, 'protein' => 10, 'carbs' => 20, 'fat' => 5, 'micronutrients' => ['sodium' => 50]],
+        ]);
+
+        // Double the ingredient quantity → all nutrients double (servings = 1).
+        $this->actingAs($ctx['rnd'])
+            ->patchJson($this->url($ctx, $item->id), [
+                'ingredient_overrides' => [['id' => $ingredient->id, 'quantity' => 200]],
+            ])
+            ->assertOk();
+
+        $item->refresh();
+        $this->assertEquals(200, $item->nutrient_snapshot['calories']);
+        $this->assertEquals(100, $item->nutrient_snapshot['micronutrients']['sodium']);
+    }
+
     public function test_destroy_removes_item(): void
     {
         $ctx = $this->setupPlan();
