@@ -433,22 +433,25 @@ export default function MealPlanSection({
         </div>
       )}
 
-      {/* Plan pills */}
+      {/* Plan list */}
       {plans.length > 0 && (
-        <div className="flex gap-1.5 flex-wrap items-center">
-          {plans.map((p) => (
-            <div key={p.id} className="flex items-center gap-0.5">
-              <button onClick={() => setActivePlan(p)}
-                className={`px-3 py-1.5 rounded-l-lg text-[10px] font-bold border-y border-l transition-colors cursor-pointer ${activePlan?.id === p.id ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-zinc-600 border-zinc-200 hover:border-emerald-400'}`}>
-                Week of {p.week_start_date}
-              </button>
-              <Button variant="icon" onClick={() => setConfirmDeleteId(p.id)} title="Delete plan"
-                className={`rounded-l-none rounded-r-lg border-y border-r ${activePlan?.id === p.id ? 'bg-emerald-600 text-white border-emerald-600 hover:!bg-red-600 hover:!border-red-600' : 'border-zinc-200 hover:text-red-500 hover:border-red-300'}`}>
-                <Trash2 className="h-3 w-3" />
-              </Button>
-            </div>
-          ))}
-          {loadingPlans && <Loader2 className="h-3.5 w-3.5 animate-spin text-zinc-400" />}
+        <div className="space-y-1">
+          <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest">Meal Plans</p>
+          <div className="border border-zinc-200 rounded-xl overflow-hidden divide-y divide-zinc-100">
+            {plans.map((p) => (
+              <div key={p.id} className={`flex items-center gap-1 pr-1 transition-colors ${activePlan?.id === p.id ? 'bg-zinc-50' : 'hover:bg-zinc-50/60'}`}>
+                <Button variant="ghost" size="sm" onClick={() => setActivePlan(p)}
+                  className={`flex-1 !justify-start rounded-none text-[10px] ${activePlan?.id === p.id ? '!text-zinc-900 !font-bold' : '!text-zinc-600'}`}>
+                  Week of {p.week_start_date}
+                </Button>
+                <Button variant="icon" onClick={() => setConfirmDeleteId(p.id)} title="Delete plan"
+                  className="hover:text-red-500 hover:!bg-red-50 shrink-0">
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              </div>
+            ))}
+          </div>
+          {loadingPlans && <div className="flex items-center gap-1.5 px-1 text-[10px] text-zinc-400"><Loader2 className="h-3 w-3 animate-spin" />Loading…</div>}
         </div>
       )}
 

@@ -49,7 +49,7 @@ class PatientMenuPlanGenerator implements ReportGenerator
             throw new \InvalidArgumentException('Patient menu plan requires an explicit meal_plan_id.');
         }
 
-        $plan = MealPlan::with(['patient', 'days.items.foodItem', 'days.items.recipe'])
+        $plan = MealPlan::with(['patient', 'days.items.foodItem', 'days.items.recipe.ingredients.foodItem'])
             ->whereKey($params['meal_plan_id'])
             ->firstOrFail();
 
@@ -81,12 +81,36 @@ class PatientMenuPlanGenerator implements ReportGenerator
             }
         }
 
+        // Collect unique recipes used in the plan with their ingredients and prep notes.
+        $recipeDetails = [];
+        foreach ($plan->days as $day) {
+            foreach ($day->items as $item) {
+                if ($item->recipe && ! array_key_exists($item->recipe->id, $recipeDetails)) {
+                    $ings = [];
+                    foreach ($item->recipe->ingredients as $ing) {
+                        $ings[] = [
+                            'name'     => $ing->foodItem?->name ?? '—',
+                            'quantity' => $ing->quantity,
+                            'unit'     => $ing->unit,
+                        ];
+                    }
+                    $recipeDetails[$item->recipe->id] = [
+                        'name'        => $item->recipe->name,
+                        'servings'    => $item->recipe->servings,
+                        'prep_notes'  => $item->recipe->prep_notes,
+                        'ingredients' => $ings,
+                    ];
+                }
+            }
+        }
+
         return [
-            'plan'    => $plan,
-            'patient' => $plan->patient,
-            'meals'   => self::MEALS,
-            'days'    => self::WEEK,
-            'grid'    => $grid,
+            'plan'           => $plan,
+            'patient'        => $plan->patient,
+            'meals'          => self::MEALS,
+            'days'           => self::WEEK,
+            'grid'           => $grid,
+            'recipe_details' => array_values($recipeDetails),
         ];
     }
 }

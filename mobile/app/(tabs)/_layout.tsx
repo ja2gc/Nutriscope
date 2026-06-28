@@ -26,7 +26,6 @@ export default function TabsLayout() {
         name="menu"
         options={{
           title: 'Menu',
-          href: null,
           tabBarIcon: ({ color, size }) => (
             <CalendarDays color={color} size={size} />
           ),
