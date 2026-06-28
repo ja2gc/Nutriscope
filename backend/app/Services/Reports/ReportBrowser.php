@@ -45,10 +45,15 @@ class ReportBrowser
             'program_project_activity' => fn () => $this->menuCycleSource(),
             'menu_calendar'            => fn () => $this->menuCycleSource(),
             'patient_menu_plan' => fn () => new EntityInstanceSource(
-                // Only patients that actually have a meal plan (the generator firstOrFail's one).
-                fn () => Patient::query()->whereIn('id', MealPlan::query()->select('patient_id')),
-                'patient_id',
-                fn (Patient $p) => $p->name ?? "Patient #{$p->id}",
+                // One instance per meal plan so the RND selects the EXACT plan to print.
+                // (Previously keyed by patient_id, which the generator can't render —
+                // it requires a specific meal_plan_id.) (MP-08/RP-04)
+                fn () => MealPlan::query()->with('patient'),
+                'meal_plan_id',
+                fn (MealPlan $mp) => trim(($mp->patient?->name ?? "Patient #{$mp->patient_id}")
+                    . ' — week of ' . (optional($mp->week_start_date)->format('M j, Y') ?? '?')
+                    . ($mp->status ? " ({$mp->status})" : '')),
+                'created_at',
             ),
             'ncp_summary' => fn () => new EntityInstanceSource(
                 fn () => NcpRecord::query()->with('patient'),
