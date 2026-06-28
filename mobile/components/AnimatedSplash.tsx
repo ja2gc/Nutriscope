@@ -17,24 +17,29 @@ import Svg, { Circle, Line, Path } from 'react-native-svg';
  * reads as one organization from the very first frame.
  */
 export default function AnimatedSplash({ onDone }: { onDone?: () => void }) {
-  const logoScale = useSharedValue(0.6);
+  const logoScale = useSharedValue(0.9);
   const logoOpacity = useSharedValue(0);
-  const ringScale = useSharedValue(0.4);
-  const ringOpacity = useSharedValue(0);
+  const logoLift = useSharedValue(8);
+  const logoRotate = useSharedValue(-10);
   const wordOpacity = useSharedValue(0);
   const wordTranslate = useSharedValue(12);
   const taglineOpacity = useSharedValue(0);
 
   useEffect(() => {
-    ringOpacity.value = withTiming(0.75, { duration: 600, easing: Easing.out(Easing.quad) });
-    ringScale.value = withTiming(1, { duration: 800, easing: Easing.out(Easing.back(1.4)) });
-
-    logoOpacity.value = withDelay(150, withTiming(1, { duration: 500 }));
-    logoScale.value = withDelay(
-      150,
-      withSequence(
-        withTiming(1.08, { duration: 450, easing: Easing.out(Easing.cubic) }),
-        withTiming(1, { duration: 250, easing: Easing.inOut(Easing.quad) }),
+    logoOpacity.value = withTiming(1, { duration: 420, easing: Easing.out(Easing.quad) });
+    logoScale.value = withSequence(
+      withTiming(1.03, { duration: 360, easing: Easing.out(Easing.cubic) }),
+      withTiming(1, { duration: 260, easing: Easing.inOut(Easing.quad) }),
+    );
+    logoLift.value = withTiming(0, { duration: 520, easing: Easing.out(Easing.cubic) });
+    logoRotate.value = withSequence(
+      withTiming(6, { duration: 360, easing: Easing.out(Easing.cubic) }),
+      withDelay(
+        40,
+        withSequence(
+          withTiming(-2, { duration: 220, easing: Easing.inOut(Easing.quad) }),
+          withTiming(0, { duration: 180, easing: Easing.out(Easing.quad) }),
+        ),
       ),
     );
 
@@ -49,11 +54,11 @@ export default function AnimatedSplash({ onDone }: { onDone?: () => void }) {
 
   const logoStyle = useAnimatedStyle(() => ({
     opacity: logoOpacity.value,
-    transform: [{ scale: logoScale.value }],
-  }));
-  const ringStyle = useAnimatedStyle(() => ({
-    opacity: ringOpacity.value,
-    transform: [{ scale: ringScale.value }],
+    transform: [
+      { translateY: logoLift.value },
+      { rotate: `${logoRotate.value}deg` },
+      { scale: logoScale.value },
+    ],
   }));
   const wordStyle = useAnimatedStyle(() => ({
     opacity: wordOpacity.value,
@@ -62,21 +67,12 @@ export default function AnimatedSplash({ onDone }: { onDone?: () => void }) {
   const taglineStyle = useAnimatedStyle(() => ({ opacity: taglineOpacity.value }));
 
   return (
-    <View className="flex-1 items-center justify-center bg-white">
+    <View className="flex-1 items-center justify-center bg-[#f8faf6]">
       <View className="items-center">
-        <View className="items-center justify-center" style={{ height: 120, width: 120 }}>
-          {/* Pulsing outer scope ring */}
-          <Animated.View style={[{ position: 'absolute' }, ringStyle]}>
-            <Svg width={120} height={120} viewBox="0 0 32 32" fill="none">
-              <Circle cx="16" cy="16" r="13" stroke="#ea580c" strokeWidth="0.8" strokeDasharray="4 2" opacity="0.5" />
-            </Svg>
-          </Animated.View>
-
-          {/* Core mark */}
+        <View className="items-center justify-center" style={{ height: 88, width: 88 }}>
           <Animated.View style={logoStyle}>
-            <Svg width={96} height={96} viewBox="0 0 32 32" fill="none">
+            <Svg width={72} height={72} viewBox="0 0 32 32" fill="none">
               <Circle cx="16" cy="16" r="12" stroke="#ea580c" strokeWidth="1.5" strokeDasharray="4 2" opacity="0.75" />
-              <Circle cx="16" cy="16" r="6" stroke="#ea580c" strokeWidth="1" opacity="0.4" />
               <Line x1="16" y1="2" x2="16" y2="6" stroke="#ea580c" strokeWidth="1.5" />
               <Line x1="16" y1="26" x2="16" y2="30" stroke="#ea580c" strokeWidth="1.5" />
               <Line x1="2" y1="16" x2="6" y2="16" stroke="#ea580c" strokeWidth="1.5" />
