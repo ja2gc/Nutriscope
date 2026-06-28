@@ -56,7 +56,9 @@ class DemographicCensusGenerator implements ReportGenerator
                 'diagnosis'          => $p->medical_diagnosis,
                 // nutritional_status from the patient's most-recent assessment.
                 'nutritional_status' => $this->latestNutritionalStatus($p->id),
-                'risk_level'         => $p->screening_type,
+                // RP-05: risk level is the patient's latest computed NCP risk score,
+                // NOT the screening type (adult/pediatric), which is not a risk level.
+                'risk_level'         => $this->latestRiskLevel($p->id),
             ])->all();
 
         return [
@@ -74,6 +76,33 @@ class DemographicCensusGenerator implements ReportGenerator
         return Assessment::whereHas('ncpRecord', fn ($q) => $q->where('patient_id', $patientId))
             ->latest('id')
             ->value('nutritional_status');
+    }
+
+    /** Risk category from the patient's most-recent NCP risk score, or null. */
+    private function latestRiskLevel(int $patientId): ?string
+    {
+        $score = \App\Models\NcpRecord::where('patient_id', $patientId)
+            ->whereNotNull('risk_score')
+            ->latest('id')
+            ->value('risk_score');
+
+        return $score === null ? null : self::riskLevel((float) $score);
+    }
+
+    /**
+     * Map a numeric risk score to its category (mirrors RiskScoreCalculator):
+     * ≤ 1 Low · 2–3 Moderate · > 3 High.
+     */
+    public static function riskLevel(?float $score): ?string
+    {
+        if ($score === null) {
+            return null;
+        }
+        return match (true) {
+            $score > 3.0 => 'High',
+            $score >= 2.0 => 'Moderate',
+            default      => 'Low',
+        };
     }
 
     public static function ageGroup(?int $age): string

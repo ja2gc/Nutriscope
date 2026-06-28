@@ -19,6 +19,16 @@ class DemographicCensusTest extends TestCase
         $this->assertSame('60+', DemographicCensusGenerator::ageGroup(92));
     }
 
+    public function test_maps_risk_score_to_category(): void
+    {
+        $this->assertNull(DemographicCensusGenerator::riskLevel(null));
+        $this->assertSame('Low', DemographicCensusGenerator::riskLevel(0.0));
+        $this->assertSame('Low', DemographicCensusGenerator::riskLevel(1.0));
+        $this->assertSame('Moderate', DemographicCensusGenerator::riskLevel(2.0));
+        $this->assertSame('Moderate', DemographicCensusGenerator::riskLevel(3.0));
+        $this->assertSame('High', DemographicCensusGenerator::riskLevel(4.0));
+    }
+
     public function test_aggregates_age_by_sex_matrix_with_totals(): void
     {
         $patients = [
