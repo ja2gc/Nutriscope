@@ -177,6 +177,11 @@ class PurchaseOrderController extends Controller
         ReceivingService $receiving,
         PurchaseOrderLifecycleService $lifecycle
     ): JsonResponse {
+        // FSS may only update or_number; status and item-price corrections are RND-only.
+        if (Auth::user()->isFss() && $request->hasAny(['status', 'items'])) {
+            return response()->json(['message' => 'FSS users may only update the OR number.'], 403);
+        }
+
         // During open execution the ONLY structural edit allowed is a unit cost /
         // purchase price correction. purchase_qty and purchase_unit are frozen.
         $data = $request->validate([
@@ -188,6 +193,10 @@ class PurchaseOrderController extends Controller
             'items.*.unit_price' => ['nullable', 'numeric', 'min:0'],
             'items.*.reason' => ['nullable', 'string', 'max:255'],
         ]);
+
+        if (Auth::user()->isFss()) {
+            $data = collect($data)->only('or_number')->all();
+        }
 
         $po = $vendorGroup->purchaseOrder;
         if (in_array($po->lifecycle_status, ['completed', 'archived'], true)) {

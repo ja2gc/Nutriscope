@@ -17,7 +17,7 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://nutriscope.live"
+        "EXPO_PUBLIC_API_URL": "https://api.nutriscope.live"
       }
     },
     "production": {
@@ -25,7 +25,7 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://nutriscope.live"
+        "EXPO_PUBLIC_API_URL": "https://api.nutriscope.live"
       }
     }
   },

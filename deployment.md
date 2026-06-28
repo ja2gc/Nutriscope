@@ -182,6 +182,86 @@ conflict on port 80 and bring down the site.
 
 ---
 
+## Mobile API subdomain (api.nutriscope.live)
+
+The mobile app calls Laravel directly via `https://api.nutriscope.live`. This is a separate
+nginx virtualhost that proxies to the backend container on `127.0.0.1:8080` (published by
+`docker-compose.prod.yml`).
+
+### One-time setup on the VPS
+
+```bash
+# 1. Copy the nginx config
+sudo cp ~/Nutriscope/nginx/api.nutriscope.live.conf /etc/nginx/sites-available/api.nutriscope.live
+sudo ln -sf /etc/nginx/sites-available/api.nutriscope.live /etc/nginx/sites-enabled/api.nutriscope.live
+
+# 2. Start without SSL first (Let's Encrypt needs port 80 to respond)
+sudo sed -i '/ssl_/d; /listen 443/d; /return 301/d' /etc/nginx/sites-available/api.nutriscope.live
+sudo nginx -t && sudo systemctl reload nginx
+
+# 3. Issue certificate
+sudo certbot --nginx -d api.nutriscope.live --non-interactive --agree-tos --email jaredabriol2@gmail.com
+
+# 4. Reload with final SSL config (certbot modifies the config automatically)
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+> **DNS prerequisite:** Add an A record `api.nutriscope.live → 168.144.115.27` in your DNS
+> provider before running the above. DNS propagation typically takes a few minutes.
+
+### Smoke test
+
+```bash
+curl -s https://api.nutriscope.live/api/auth/login \
+  -H "Accept: application/json" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"fss@nutriscope.local","password":"nutriscope2024!","device_name":"Expo App","platform":"app"}'
+```
+
+Expected: JSON with `token` (string) and `user.role` = `"FSS"`.
+
+---
+
+## Demo users — verify and seed safely
+
+Demo users are seeded by `AdminUserSeeder` and `FoodServiceDemoSeeder`. Check and seed
+without wiping production data using the commands below.
+
+### Check demo users exist
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.prod.yml exec backend \
+  php artisan tinker --execute="
+    use App\\Models\\User;
+    foreach(['admin@nutriscope.local','rnd@nutriscope.local','fss@nutriscope.local'] as \$e) {
+      \$u = User::where('email', \$e)->first();
+      echo \$e . ': ' . (\$u ? 'OK role='.\$u->role.' active='.(\$u->is_active?'yes':'no') : 'MISSING') . PHP_EOL;
+    }
+  "
+```
+
+### Safe demo seed (non-destructive — uses firstOrCreate)
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.prod.yml exec backend \
+  php artisan db:seed --class=AdminUserSeeder --force
+```
+
+For full operational demo data (menu cycles, POs, diet lists):
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.prod.yml exec backend \
+  php artisan db:seed --class=FoodServiceDemoSeeder --force
+```
+
+> **Warning:** `FoodServiceDemoSeeder` truncates operational FS tables (not users or food items)
+> before re-seeding. Only run on a disposable demo database.
+>
+> **Never run `migrate:fresh --seed --force` on a production database** — this wipes all data.
+> Use the targeted seeders above instead.
+
+---
+
 ## Moving to managed MySQL / Redis (PaaS path)
 
 No code or compose changes needed — only env:

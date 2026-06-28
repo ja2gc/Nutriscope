@@ -40,7 +40,9 @@ So a full demo needs both surfaces open: the web console (RND + Admin) and the E
 | RND | `rnd@nutriscope.local` |
 | FSS | `fss@nutriscope.local` |
 
-Reseed anytime: `cd backend && php artisan migrate:fresh --seed` (wipes everything).
+Reseed demo data (non-destructive): `php artisan db:seed --class=AdminUserSeeder --force` (users only).
+For full operational data: `php artisan db:seed --class=FoodServiceDemoSeeder --force` (truncates FS operational tables, not users).
+**Never run `migrate:fresh --seed` on the production VPS** — this wipes all data.
 
 ---
 

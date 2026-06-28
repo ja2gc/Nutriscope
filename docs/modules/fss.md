@@ -18,13 +18,14 @@ FSS does not own menu planning, shopping-list generation, PO authoring, supplier
 
 ## Mobile App Shape
 
-Current bottom tabs:
+Four bottom tabs (in order):
 
-- Dashboard.
-- Prep & Accomplishment.
-- Procurement.
+1. **Dashboard** — KPIs, active menu week card, pending PO details, today's service, announcements.
+2. **Menu** — full menu cycle list, recipe/item profiles, served population backfill per day.
+3. **Prep & Accomp.** — mark today served, shortfall confirmation, diet-list/accomplishment form, links to Menu and reports.
+4. **Procurement** — PO list/detail, OR number, receipt/proof upload.
 
-Menu Cycle is reachable from Prep & Accomplishment, not a bottom tab. Notifications, announcements, profile, and settings are reached from the header/settings flow.
+Menu Cycle is reachable from the Menu bottom tab AND as a convenience link from Prep. Notifications, announcements, profile, and settings are reached from the header.
 
 Removed/out of current mobile scope:
 
@@ -40,12 +41,14 @@ FSS dashboard loads live data from `GET /api/fss/dashboard/summary`.
 
 Current widgets:
 
-- Meals to log today.
-- Pending POs.
-- Today's service.
-- Announcements feed.
+- **Meals to log today** — count of active-cycle service slots not yet completed for today.
+- **Pending POs** — count tap-navigates to Procurement.
+- **Active Menu Week card** — active cycle name, start date, service-day count per week; tap navigates to the Menu tab.
+- **Pending PO detail list** — each open-execution PO with `po_number`, `procurement_track`, and per-PO `waiting_on` labels (`Needs receipts`, `Needs served population`). Tap navigates to Procurement.
+- **Today's service** — meal slots for today with prep/shortfall status.
+- **Announcements feed** — recent announcements.
 
-The old inventory/no-stock and budget/cost KPI concepts are not part of the current demo scope.
+Absent by design: no inventory card, no budget card, no per-head KPI, no graph widgets.
 
 ## Menu Cycle View
 
@@ -113,10 +116,13 @@ FSS mobile procurement flow:
 - Receipt upload is the workflow event that marks a vendor group received server-side.
 - Completed/archived POs are locked from mobile edits.
 
-Current status:
+Backend role enforcement (enforced server-side, not just UI):
 
-- Mobile no longer exposes a manual `Mark received` shortcut.
-- Backend/web still have a manual received-status path; this is a remaining workflow gap outside mobile.
+- FSS may only update `or_number` on a vendor group.
+- FSS is blocked (403) from patching `status`, `items`, prices, quantities, or supplier data.
+- RND retains price-correction rights during open execution with full audit trail.
+
+Food PO completion requires receipts from all vendor groups **and** served population for all covered service dates. Supplies PO completion requires receipts only.
 
 ## Reports
 
@@ -129,13 +135,18 @@ Current behavior:
 - Detail screen renders the frozen accomplishment snapshot natively.
 - Backend blocks FSS access to non-accomplishment reports.
 
+## Data Read Scoping
+
+Diet-list/accomplishment reads (`GET /api/fss/diet-list-counts`) are scoped to the current FSS user's own rows. RND and Admin see broader views through dedicated report/admin endpoints.
+
 ## Notifications, Profile, Settings
 
 Current behavior:
 
 - Header bell loads `/api/notifications`.
 - Settings supports display density, reduce motion, mark-all-read, profile link, and logout.
-- Profile uses shared auth endpoints.
+- Profile shows: Role (read-only), Status (read-only), Name (editable), Email (editable), Contact Number (editable).
+- Profile uses shared auth endpoints (`GET /api/auth/me`, `PATCH /api/auth/profile`).
 
 ## Demo Readiness Notes
 

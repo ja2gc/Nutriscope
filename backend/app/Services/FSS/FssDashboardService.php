@@ -36,6 +36,30 @@ class FssDashboardService
             'pending_pos'           => $pendingPos,
             'pending_pos_count'     => count($pendingPos),
             'today_service'         => $this->todayService($cycle, $weekday, $today),
+            'active_cycle'          => $this->activeCycleInfo($cycle),
+        ];
+    }
+
+    /**
+     * Active menu cycle summary for the dashboard card.
+     */
+    private function activeCycleInfo(?MenuCycle $cycle): ?array
+    {
+        if (! $cycle) {
+            return null;
+        }
+
+        $serviceDayCount = MenuCycleDay::where('menu_cycle_id', $cycle->id)
+            ->distinct('day_of_week')
+            ->count('day_of_week');
+
+        return [
+            'id'               => $cycle->id,
+            'name'             => $cycle->name,
+            'activation_date'  => $cycle->activation_date
+                ? Carbon::parse($cycle->activation_date)->toDateString()
+                : null,
+            'service_day_count' => $serviceDayCount,
         ];
     }
 

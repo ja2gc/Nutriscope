@@ -1,6 +1,14 @@
 import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
-import { AlertCircle, Bell, ClipboardList, Pin, ShoppingBag } from 'lucide-react-native';
+import {
+  AlertCircle,
+  Bell,
+  CalendarDays,
+  ChevronRight,
+  ClipboardList,
+  Pin,
+  ShoppingBag,
+} from 'lucide-react-native';
 import { useCallback } from 'react';
 import {
   ActivityIndicator,
@@ -27,11 +35,19 @@ interface PendingPo {
   waiting_on: string[];
 }
 
+interface ActiveCycle {
+  id: number;
+  name: string;
+  activation_date: string | null;
+  service_day_count: number;
+}
+
 interface DashboardData {
   meals_to_log_today: number;
   pending_pos: PendingPo[];
   pending_pos_count: number;
   today_service: ServiceRow[];
+  active_cycle: ActiveCycle | null;
 }
 
 interface AnnouncementAuthor {
@@ -86,6 +102,11 @@ function relativeTime(isoString: string): string {
   if (diffDays < 7) return `${diffDays}d ago`;
   return new Date(isoString).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' });
 }
+
+const WAITING_LABELS: Record<string, string> = {
+  receipts: 'Needs receipts',
+  served_population: 'Needs served population',
+};
 
 export default function DashboardScreen() {
   const insets = useSafeAreaInsets();
@@ -169,6 +190,82 @@ export default function DashboardScreen() {
         />
       </View>
 
+      {/* Active Menu Week Card */}
+      <View className="px-4 mt-4">
+        {data?.active_cycle ? (
+          <TouchableOpacity
+            className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3.5 flex-row items-center"
+            onPress={() => router.push('/(tabs)/menu')}
+            accessibilityRole="button"
+            accessibilityLabel="Open active menu cycle"
+            activeOpacity={0.8}
+          >
+            <View className="w-9 h-9 rounded-full bg-emerald-100 items-center justify-center mr-3">
+              <CalendarDays color="#059669" size={18} />
+            </View>
+            <View className="flex-1">
+              <Text className="text-xs text-emerald-600 font-medium uppercase tracking-wide">Active Menu Cycle</Text>
+              <Text className="text-sm font-semibold text-gray-800 mt-0.5" numberOfLines={1}>
+                {data.active_cycle.name}
+              </Text>
+              <Text className="text-xs text-gray-500 mt-0.5">
+                {data.active_cycle.service_day_count} service day{data.active_cycle.service_day_count !== 1 ? 's' : ''} per week
+                {data.active_cycle.activation_date
+                  ? ` · started ${new Date(data.active_cycle.activation_date).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' })}`
+                  : ''}
+              </Text>
+            </View>
+            <ChevronRight color="#059669" size={16} />
+          </TouchableOpacity>
+        ) : (
+          <View className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3.5 flex-row items-center gap-3">
+            <AlertCircle color="#d97706" size={18} />
+            <Text className="text-sm text-amber-700 flex-1">No active menu cycle — contact RND.</Text>
+          </View>
+        )}
+      </View>
+
+      {/* Pending POs Detail */}
+      {(data?.pending_pos?.length ?? 0) > 0 && (
+        <View className="px-4 mt-4">
+          <Text className="text-base font-semibold text-gray-800 mb-2">Pending POs</Text>
+          <View className="bg-white rounded-xl overflow-hidden border border-gray-100">
+            {data!.pending_pos.map((po, idx) => (
+              <TouchableOpacity
+                key={po.id}
+                className={`px-4 py-3 ${idx < data!.pending_pos.length - 1 ? 'border-b border-gray-100' : ''}`}
+                onPress={() => router.push('/(tabs)/procurement')}
+                accessibilityRole="button"
+                activeOpacity={0.7}
+              >
+                <View className="flex-row items-center justify-between mb-1">
+                  <Text className="text-sm font-semibold text-gray-800">
+                    {po.po_number ?? `PO #${po.id}`}
+                  </Text>
+                  <View className={`px-2 py-0.5 rounded-full ${
+                    po.procurement_track === 'food' ? 'bg-emerald-100' : 'bg-blue-100'
+                  }`}>
+                    <Text className={`text-xs font-medium ${
+                      po.procurement_track === 'food' ? 'text-emerald-700' : 'text-blue-700'
+                    }`}>
+                      {po.procurement_track === 'food' ? 'Food' : 'Supplies'}
+                    </Text>
+                  </View>
+                </View>
+                <View className="flex-row flex-wrap gap-1.5 mt-1">
+                  {po.waiting_on.map((reason) => (
+                    <View key={reason} className="flex-row items-center gap-1 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5">
+                      <AlertCircle color="#d97706" size={10} />
+                      <Text className="text-xs text-amber-700">{WAITING_LABELS[reason] ?? reason}</Text>
+                    </View>
+                  ))}
+                </View>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      )}
+
       {/* Today's Service */}
       <View className="px-4 mt-6">
         <Text className="text-base font-semibold text-gray-800 mb-3">
@@ -178,7 +275,7 @@ export default function DashboardScreen() {
         {data?.today_service && data.today_service.length > 0 ? (
           <View className="bg-white rounded-xl overflow-hidden border border-gray-100">
             {data.today_service.map((row, idx) => (
-              <ServiceRow
+              <ServiceRowItem
                 key={`${row.meal_type}-${idx}`}
                 row={row}
                 isLast={idx === data.today_service.length - 1}
@@ -263,6 +360,7 @@ function KpiCard({
         <Text className="text-gray-500 text-xs">{label}</Text>
         <Text className={`text-2xl font-bold ${valueColor}`}>{value}</Text>
       </View>
+      {onPress && <ChevronRight color="#9ca3af" size={16} />}
     </View>
   );
 
@@ -275,7 +373,7 @@ function KpiCard({
   );
 }
 
-function ServiceRow({ row, isLast }: { row: ServiceRow; isLast: boolean }) {
+function ServiceRowItem({ row, isLast }: { row: ServiceRow; isLast: boolean }) {
   return (
     <View className={`flex-row items-center px-4 py-3 ${isLast ? '' : 'border-b border-gray-100'}`}>
       <View className="flex-1">
