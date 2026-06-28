@@ -36,13 +36,7 @@ class DiagnosisController extends Controller
         $data = $request->validated();
         $diagnosis = new Diagnosis($data);
         $diagnosis->ncp_record_id = $ncpRecord->id;
-        
-        $diagnosis->pes_statement = Diagnosis::buildPes(
-            $diagnosis->problem,
-            $diagnosis->etiology,
-            $diagnosis->signs_symptoms
-        );
-
+        $diagnosis->pes_statement = $this->resolvePes($data, $diagnosis);
         $diagnosis->save();
 
         return (new DiagnosisResource($diagnosis))->response()->setStatusCode(201);
@@ -60,16 +54,29 @@ class DiagnosisController extends Controller
 
         $data = $request->validated();
         $diagnosis->fill($data);
+        $diagnosis->pes_statement = $this->resolvePes($data, $diagnosis);
+        $diagnosis->save();
 
-        $diagnosis->pes_statement = Diagnosis::buildPes(
+        return new DiagnosisResource($diagnosis);
+    }
+
+    /**
+     * Use the RND's manual PES override when one is supplied (DP-02 — previously
+     * the override was silently discarded), otherwise derive the statement from
+     * the P-E-S components. Components are guaranteed non-empty by validation.
+     */
+    private function resolvePes(array $data, Diagnosis $diagnosis): string
+    {
+        $override = trim((string) ($data['pes_statement'] ?? ''));
+        if ($override !== '') {
+            return $override;
+        }
+
+        return Diagnosis::buildPes(
             $diagnosis->problem,
             $diagnosis->etiology,
             $diagnosis->signs_symptoms
         );
-
-        $diagnosis->save();
-
-        return new DiagnosisResource($diagnosis);
     }
 
     /**
