@@ -1,8 +1,32 @@
+import { ALL_MICROS, microKeys } from "@/lib/nutritionCalculations";
+
 interface Props {
   goals: string; energy: string; protein: string; carbs: string; fat: string;
+  /** Micros displayed on the prescription for the active goal. */
+  displayedMicros?: string[];
+  /** Prescribed micro limits keyed by micro key. */
+  micronutrientLimits?: Record<string, { max?: number; min?: number; unit: string }>;
 }
 
-export default function GoalPlanningTab({ goals, energy, protein, carbs, fat }: Props) {
+export default function GoalPlanningTab({
+  goals, energy, protein, carbs, fat,
+  displayedMicros = [], micronutrientLimits = {},
+}: Props) {
+  // Only real micros, and only those carrying a prescribed target — these mirror
+  // the micros shown during prescription creation for this goal.
+  const microRows = microKeys(displayedMicros)
+    .map((key) => {
+      const meta = ALL_MICROS.find((m) => m.key === key);
+      const limit = micronutrientLimits[key];
+      if (!meta || !limit) return null;
+      const hasMax = limit.max != null;
+      const hasMin = limit.min != null;
+      if (!hasMax && !hasMin) return null;
+      const value = hasMax ? `≤ ${limit.max}` : `≥ ${limit.min}`;
+      return { key, label: meta.label, value, unit: limit.unit || meta.unit };
+    })
+    .filter((r): r is { key: string; label: string; value: string; unit: string } => r !== null);
+
   return (
     <div className="space-y-5">
       <p className="text-[10px] text-zinc-400">Links behavioral counseling goals to measurable nutrient targets.</p>
@@ -17,6 +41,24 @@ export default function GoalPlanningTab({ goals, energy, protein, carbs, fat }: 
           </div>
         ))}
       </div>
+
+      {microRows.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest">Micronutrient Targets</p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {microRows.map(({ key, label, value, unit }) => (
+              <div key={key} className="bg-sky-50 border border-sky-200 p-3 rounded-xl text-center">
+                <p className="text-[9px] font-bold text-sky-600 uppercase tracking-wider">{label}</p>
+                <p className="text-base font-extrabold font-mono text-zinc-900 mt-1">
+                  {value}
+                  <span className="text-[9px] font-normal text-zinc-500 ml-0.5">{unit}</span>
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {goals ? (
         <div className="bg-white border border-zinc-200 rounded-xl p-4 space-y-2">
           <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest">Behavioral Goals</p>
