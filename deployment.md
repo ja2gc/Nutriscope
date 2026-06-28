@@ -193,7 +193,7 @@ smoke test, and EAS APK build.
 ```powershell
 cd C:\Users\jared\Documents\Nutriscope
 
-git add deployment.md mobile\eas.json mobile\app\login.tsx nginx\mobile-api.locations.conf nginx\api.nutriscope.live.conf
+git add deployment.md mobile\eas.json mobile\app\login.tsx nginx\mobile-api.locations.conf
 git commit -m "chore: use root mobile api for apk"
 git push origin main
 ```
