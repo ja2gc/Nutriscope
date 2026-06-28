@@ -5,7 +5,7 @@ import Link from "next/link";
 import {
   ClipboardCheck, Utensils, Ruler, UserRound, FlaskConical,
   FileText, Sparkles, Save, Upload, AlertTriangle,
-  ChevronRight, Activity, Heart, Paperclip, Trash2, Download,
+  ChevronRight, Activity, Heart, Paperclip, Trash2, Download, Eye, X,
   Shield, Scale,
 } from "lucide-react";
 import { fetchPatientById, Patient, updatePatient, PatientUpdateData } from "@/services/patientService";
@@ -350,6 +350,84 @@ function DropZone({ label, onUpload, uploading }: {
   );
 }
 
+// ─── Kind → display name map ───────────────────────────────────────────────
+const KIND_LABELS: Record<string, string> = {
+  labs: "Biochemical Data",
+  referral: "Screening Form",
+};
+
+function getKindLabel(kind: string) {
+  return KIND_LABELS[kind] ?? kind;
+}
+
+// ─── Attachment Lightbox ────────────────────────────────────────────────────
+function AttachmentLightbox({
+  url, isImage, name, onClose,
+}: {
+  url: string; isImage: boolean; name: string; onClose: () => void;
+}) {
+  // Close on Escape
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)", backgroundColor: "rgba(0,0,0,0.55)" }}
+      onClick={onClose}
+    >
+      {/* Modal card — stop propagation so clicking inside doesn't close */}
+      <div
+        className="relative bg-white rounded-2xl shadow-2xl overflow-hidden w-full max-w-2xl max-h-[90vh] flex flex-col"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-100">
+          <p className="text-xs font-bold text-zinc-700 truncate pr-4">{name}</p>
+          <div className="flex items-center gap-2 shrink-0">
+            <a
+              href={url}
+              download
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-extrabold uppercase tracking-wider rounded-lg transition-colors"
+            >
+              <Download className="h-3 w-3" />
+              Download
+            </a>
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors"
+              title="Close"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+        {/* Content */}
+        <div className="flex-1 overflow-auto bg-zinc-50 flex items-center justify-center min-h-0">
+          {isImage ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={url}
+              alt={name}
+              className="max-w-full max-h-[75vh] object-contain p-2"
+            />
+          ) : (
+            <iframe
+              src={url}
+              title={name}
+              className="w-full h-[75vh] border-0"
+            />
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Attachments Panel ─────────────────────────────────────────────────────
 // Plain supporting-document storage for this NCP cycle (rnd.md §3.1). No OCR.
 // Reused on the Labs and Referral/Screening tabs; both list the cycle's files.
@@ -361,6 +439,9 @@ function AttachmentsPanel({ ncpId, uploadLabel, kind, blurb }: {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [lightbox, setLightbox] = useState<{ url: string; isImage: boolean; name: string } | null>(null);
+
+  const displayName = getKindLabel(kind);
 
   const load = useCallback(async () => {
     try {
@@ -401,81 +482,93 @@ function AttachmentsPanel({ ncpId, uploadLabel, kind, blurb }: {
   }
 
   return (
-    <div className="space-y-4">
-      <div className="rounded-xl border border-zinc-200 bg-zinc-50/60 p-4 space-y-3">
-        <div className="flex items-center gap-2">
-          <Paperclip className="h-4 w-4 text-emerald-600" />
-          <h4 className="text-[10px] font-extrabold text-zinc-800 uppercase tracking-wider">Supporting Documents</h4>
-        </div>
-        <p className="text-[11px] text-zinc-500 leading-relaxed">{blurb}</p>
-        <DropZone label={uploadLabel} onUpload={handleUpload} uploading={uploading} />
-      </div>
-
-      {error && (
-        <div className="px-3 py-2 bg-rose-50 border border-rose-200 rounded-lg text-[11px] text-rose-700 font-semibold">{error}</div>
+    <>
+      {/* Lightbox portal */}
+      {lightbox && (
+        <AttachmentLightbox
+          url={lightbox.url}
+          isImage={lightbox.isImage}
+          name={lightbox.name}
+          onClose={() => setLightbox(null)}
+        />
       )}
 
-      {loading ? (
-        <div className="space-y-2">
-          {[0, 1].map(i => <div key={i} className="h-12 bg-zinc-100 rounded-xl animate-pulse" />)}
+      <div className="space-y-4">
+        <div className="rounded-xl border border-zinc-200 bg-zinc-50/60 p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <Paperclip className="h-4 w-4 text-emerald-600" />
+            <h4 className="text-[10px] font-extrabold text-zinc-800 uppercase tracking-wider">Supporting Documents</h4>
+          </div>
+          <p className="text-[11px] text-zinc-500 leading-relaxed">{blurb}</p>
+          <DropZone label={uploadLabel} onUpload={handleUpload} uploading={uploading} />
         </div>
-      ) : items.length === 0 ? (
-        <div className="text-center py-8 text-[11px] text-zinc-400 font-semibold border border-dashed border-zinc-200 rounded-xl">
-          No documents attached to this cycle yet.
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {items.map(doc => {
-            const isImg = isImagePath(doc.file_path);
-            return (
-              <div key={doc.id} className="bg-white border border-zinc-200 rounded-xl overflow-hidden">
-                {isImg && (
-                  <div className="w-full bg-zinc-50 border-b border-zinc-100">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={getAttachmentFileUrl(doc.id)}
-                      alt={doc.original_name ?? "attachment"}
-                      className="w-full max-h-96 object-contain"
-                    />
-                  </div>
-                )}
-                <div className="flex items-center gap-3 px-3 py-2.5">
-                  {!isImg && (
+
+        {error && (
+          <div className="px-3 py-2 bg-rose-50 border border-rose-200 rounded-lg text-[11px] text-rose-700 font-semibold">{error}</div>
+        )}
+
+        {loading ? (
+          <div className="space-y-2">
+            {[0, 1].map(i => <div key={i} className="h-12 bg-zinc-100 rounded-xl animate-pulse" />)}
+          </div>
+        ) : items.length === 0 ? (
+          <div className="text-center py-8 text-[11px] text-zinc-400 font-semibold border border-dashed border-zinc-200 rounded-xl">
+            No documents attached to this cycle yet.
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {items.map((doc, idx) => {
+              const isImg = isImagePath(doc.file_path);
+              const fileUrl = getAttachmentFileUrl(doc.id);
+              const docName = `${displayName} ${items.length > 1 ? idx + 1 : ""}`.trim();
+              return (
+                <div key={doc.id} className="bg-white border border-zinc-200 rounded-xl overflow-hidden">
+                  <div className="flex items-center gap-3 px-3 py-2.5">
                     <div className="h-9 w-9 shrink-0 rounded-lg bg-zinc-50 border border-zinc-200 flex items-center justify-center text-zinc-400">
-                      <FileText className="h-4 w-4" />
+                      {isImg ? <Eye className="h-4 w-4" /> : <FileText className="h-4 w-4" />}
                     </div>
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold text-zinc-800 truncate">{doc.original_name ?? "Document"}</p>
-                    <p className="text-[10px] text-zinc-400">
-                      {doc.type ? `${doc.type} · ` : ""}{formatDate(doc.created_at)}
-                    </p>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-zinc-800 truncate">{docName}</p>
+                      <p className="text-[10px] text-zinc-400">
+                        {doc.type ? `${doc.type} · ` : ""}{formatDate(doc.created_at)}
+                      </p>
+                    </div>
+                    {/* Preview / View button */}
+                    <button
+                      type="button"
+                      onClick={() => setLightbox({ url: fileUrl, isImage: isImg, name: docName })}
+                      className="p-1.5 text-zinc-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                      title="Preview"
+                    >
+                      <Eye className="h-3.5 w-3.5" />
+                    </button>
+                    {/* Download button */}
+                    <a
+                      href={fileUrl}
+                      download={docName}
+                      className="p-1.5 text-zinc-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                      title="Download"
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                    </a>
+                    {/* Delete button */}
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(doc.id)}
+                      disabled={deletingId === doc.id}
+                      className="p-1.5 text-zinc-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors disabled:opacity-50"
+                      title="Remove"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
                   </div>
-                  <a
-                    href={getAttachmentFileUrl(doc.id)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="p-1.5 text-zinc-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
-                    title="Open / download"
-                  >
-                    <Download className="h-3.5 w-3.5" />
-                  </a>
-                  <button
-                    type="button"
-                    onClick={() => handleDelete(doc.id)}
-                    disabled={deletingId === doc.id}
-                    className="p-1.5 text-zinc-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors disabled:opacity-50"
-                    title="Remove"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
                 </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </>
   );
 }
 
