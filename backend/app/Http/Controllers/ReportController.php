@@ -216,6 +216,7 @@ class ReportController extends Controller
     public function show(Report $report): JsonResponse
     {
         $this->authorizeOwner($report);
+        $this->guardClinical($report->type);
         $this->guardAdmin($report->type);
         return response()->json(['data' => new ReportResource($report)]);
     }
@@ -223,6 +224,7 @@ class ReportController extends Controller
     public function download(Report $report): StreamedResponse|JsonResponse
     {
         $this->authorizeOwner($report);
+        $this->guardClinical($report->type);
         $this->guardAdmin($report->type);
 
         if (! $report->file_path || ! Storage::disk('public')->exists($report->file_path)) {
@@ -240,6 +242,7 @@ class ReportController extends Controller
     public function view(Report $report): StreamedResponse|JsonResponse
     {
         $this->authorizeOwner($report);
+        $this->guardClinical($report->type);
         $this->guardAdmin($report->type);
 
         if (! $report->file_path || ! Storage::disk('public')->exists($report->file_path)) {
@@ -255,6 +258,7 @@ class ReportController extends Controller
     public function destroy(Report $report): JsonResponse
     {
         $this->authorizeOwner($report);
+        $this->guardClinical($report->type);
 
         if ($report->file_path) {
             Storage::disk('public')->delete($report->file_path);
