@@ -182,6 +182,176 @@ conflict on port 80 and bring down the site.
 
 ---
 
+## Full production release order (VPS + APK)
+
+Use this order when preparing a production APK and refreshing the VPS. It includes the
+repo push, env rebuild/check, Docker rebuild, migrations, seeders, nginx `/mobile-api`,
+smoke test, and EAS APK build.
+
+### Step 1 - Local: commit and push the release
+
+```powershell
+cd C:\Users\jared\Documents\Nutriscope
+
+git add deployment.md mobile\eas.json mobile\app\login.tsx nginx\mobile-api.locations.conf nginx\api.nutriscope.live.conf
+git commit -m "chore: use root mobile api for apk"
+git push origin main
+```
+
+The push to `main` triggers `.github/workflows/deploy.yml`. That workflow SSHes into the
+VPS, pulls `origin/main`, and rebuilds the Docker stack. If GitHub Actions fails or has not
+run yet, run Step 2 manually on the VPS.
+
+### Step 2 - VPS: pull latest and rebuild containers
+
+```bash
+cd ~/Nutriscope
+git fetch origin main
+git reset --hard origin/main
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+```
+
+### Step 3 - VPS: remake or verify backend env
+
+Do this before migrations or seeders. If `.env.production` is good already, do the drift
+check only. If it is missing/broken, rebuild it from the example.
+
+```bash
+cd ~/Nutriscope/backend
+
+# Backup first. Keep this until the app is confirmed working.
+cp .env.production ".env.production.backup.$(date +%Y%m%d-%H%M%S)"
+
+# Only run this copy when intentionally remaking the env file.
+cp .env.production.example .env.production
+nano .env.production
+```
+
+Fill these production values:
+
+- `APP_ENV=production`
+- `APP_DEBUG=false`
+- `APP_URL=https://nutriscope.live`
+- `APP_KEY=` copied from the backup for an existing production server
+- `DB_HOST=mysql`, `DB_DATABASE=nutriscope`, `DB_USERNAME=root`, and real `DB_PASSWORD`
+- `REDIS_HOST=redis`, `REDIS_PASSWORD=null` unless using managed Redis
+- `FRONTEND_URL=https://nutriscope.live`
+- `SANCTUM_STATEFUL_DOMAINS=nutriscope.live,www.nutriscope.live`
+- `ANTHROPIC_API_KEY=sk-ant-...` if AI diagnosis/suggest must work
+- `USDA_API_KEY=...` if USDA import/search must work
+- Resend mail keys if password reset/recovery email must work
+
+For a brand-new server only, generate a new app key and paste it into `.env.production`:
+
+```bash
+cd ~/Nutriscope
+docker compose -f docker-compose.yml -f docker-compose.prod.yml run --rm backend php artisan key:generate --show
+```
+
+For an existing production server, do not change `APP_KEY` unless you accept breaking
+previously encrypted data.
+
+Check for missing env keys:
+
+```bash
+cd ~/Nutriscope/backend
+grep -oE '^[A-Z_]+=' .env.production.example | sort > /tmp/want.txt
+grep -oE '^[A-Z_]+=' .env.production         | sort > /tmp/have.txt
+comm -23 /tmp/want.txt /tmp/have.txt
+```
+
+Anything printed by `comm` is missing and must be added before continuing.
+
+### Step 4 - VPS: recreate backend config and run migrations
+
+```bash
+cd ~/Nutriscope
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --force-recreate backend
+docker compose -f docker-compose.yml -f docker-compose.prod.yml exec backend php artisan config:clear
+docker compose -f docker-compose.yml -f docker-compose.prod.yml exec backend php artisan cache:clear
+docker compose -f docker-compose.yml -f docker-compose.prod.yml exec backend php artisan config:cache
+docker compose -f docker-compose.yml -f docker-compose.prod.yml exec backend php artisan migrate --force
+```
+
+Do not run `migrate:fresh` on production. It drops tables.
+
+### Step 5 - VPS: seed required users and optional demo data
+
+Seed the required demo/admin users safely:
+
+```bash
+cd ~/Nutriscope
+docker compose -f docker-compose.yml -f docker-compose.prod.yml exec backend php artisan db:seed --class=AdminUserSeeder --force
+```
+
+Verify the APK login user exists:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.prod.yml exec backend \
+  php artisan tinker --execute="
+    use App\\Models\\User;
+    foreach(['admin@nutriscope.local','rnd@nutriscope.local','fss@nutriscope.local'] as \$e) {
+      \$u = User::where('email', \$e)->first();
+      echo \$e . ': ' . (\$u ? 'OK role='.\$u->role.' active='.(\$u->is_active?'yes':'no') : 'MISSING') . PHP_EOL;
+    }
+  "
+```
+
+Only for a disposable demo database, seed full FSS operational demo data:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.prod.yml exec backend php artisan db:seed --class=FoodServiceDemoSeeder --force
+```
+
+`FoodServiceDemoSeeder` truncates operational FSS tables before re-seeding. Do not run it on
+real production data.
+
+### Step 6 - VPS: install the `/mobile-api` nginx route
+
+Edit the root-domain nginx config:
+
+```bash
+sudo nano /etc/nginx/sites-available/nutriscope
+```
+
+Inside the existing HTTPS `server` block for `nutriscope.live`, paste the contents of:
+
+```bash
+cat ~/Nutriscope/nginx/mobile-api.locations.conf
+```
+
+Put it before the existing `location /` block. Then validate and reload nginx:
+
+```bash
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+### Step 7 - VPS: smoke test web, backend, and mobile API
+
+```bash
+curl -I https://nutriscope.live
+curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:8080/api/auth/login
+curl -s https://nutriscope.live/mobile-api/api/auth/login \
+  -H "Accept: application/json" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"fss@nutriscope.local","password":"nutriscope2024!","device_name":"Expo App","platform":"app"}'
+```
+
+Expected mobile API result: JSON with `token` and `user.role` equal to `"FSS"`.
+
+### Step 8 - Local: build and download the production APK
+
+```powershell
+cd C:\Users\jared\Documents\Nutriscope\mobile
+npx eas login
+npx eas build -p android --profile production
+```
+
+When EAS finishes, it prints a build URL. Open it and download the `.apk`.
+
+---
+
 ## Mobile API on the root domain (/mobile-api)
 
 The production APK calls Laravel **directly** through
@@ -330,28 +500,26 @@ grep -E 'ANTHROPIC_API_KEY|USDA_API_KEY' ~/Nutriscope/backend/.env.production
 `ANTHROPIC_API_KEY` must be non-empty and start with `sk-ant-`. (This affects RND AI
 diagnosis/suggest only — FSS mobile uses no AI.)
 
-### AI diagnosis and admin token tracking checks
+### AI diagnosis and admin token tracking config
 
-The AI diagnosis feature must save a normal diagnosis row, not a separate diagnosis summary. The
-saved result should come from selected checkbox fields and free-text `Other` fields, so editing the
-AI-created diagnosis shows the same checked values a manual diagnosis would show.
+AI diagnosis and the admin token usage graph only need backend env/config to be present. No
+separate diagnosis-summary config is needed; AI-created diagnoses use the normal diagnosis fields.
 
-After any env reset or AI-related deploy, run the backend smoke checks from the VPS:
+Set these in `~/Nutriscope/backend/.env.production`:
 
-```bash
-cd ~/Nutriscope
-docker compose -f docker-compose.yml -f docker-compose.prod.yml exec backend php scripts/smoke-real-ai-diagnosis.php
-docker compose -f docker-compose.yml -f docker-compose.prod.yml exec backend php scripts/smoke-edit-ai-diagnosis.php
+```env
+ANTHROPIC_API_KEY=sk-ant-your_real_key_here
+ANTHROPIC_MODEL=claude-3-5-sonnet-latest
+AI_DAILY_TOKEN_LIMIT=100000
 ```
 
-Expected result:
+Notes:
 
-- A real AI diagnosis is created in the `diagnoses` table.
-- No `diagnosis summary` artifact is created.
-- Editing the generated diagnosis pre-checks the values the AI selected and preserves/free-edits
-  any `Other` text fields.
-- Admin dashboard AI token usage increases after a real AI call, and the token graph reflects the
-  latest `ai_usage_logs` data.
+- `ANTHROPIC_API_KEY` must be real, non-empty, and start with `sk-ant-`.
+- `ANTHROPIC_MODEL` controls which model is used for RND AI diagnosis/suggest.
+- `AI_DAILY_TOKEN_LIMIT` controls the application-side daily usage guard.
+- Token graph data comes from `ai_usage_logs`, which is written by real AI calls and shown in the
+  admin dashboard.
 
 ### Production email sender (password reset / recovery email)
 

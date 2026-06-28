@@ -12,7 +12,6 @@ export default function BrandLogo({ size = 28, showWordmark = true }: { size?: n
       <View className="relative items-center justify-center" style={{ height: size, width: size }}>
         <Svg style={{ width: size, height: size }} viewBox="0 0 32 32" fill="none">
           <Circle cx="16" cy="16" r="12" stroke="#ea580c" strokeWidth="1.5" strokeDasharray="4 2" opacity="0.75" />
-          <Circle cx="16" cy="16" r="6" stroke="#ea580c" strokeWidth="1" opacity="0.40" />
           <Line x1="16" y1="2" x2="16" y2="6" stroke="#ea580c" strokeWidth="1.5" />
           <Line x1="16" y1="26" x2="16" y2="30" stroke="#ea580c" strokeWidth="1.5" />
           <Line x1="2" y1="16" x2="6" y2="16" stroke="#ea580c" strokeWidth="1.5" />
