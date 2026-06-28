@@ -11,6 +11,18 @@
         'subtitle' => trim(($patient['name'] ?? 'Patient') . ($record_status ? ' — ' . ucfirst($record_status) : '')),
     ])
 
+    {{-- RP-01/02 / AD-02: completion banner. An incomplete initial ADI is watermarked
+         as a draft so an unfinished plan can't be mistaken for a final clinical record. --}}
+    @if(empty($is_complete))
+        <div style="border:2px solid #b91c1c; color:#b91c1c; padding:6px 10px; margin:6px 0; font-weight:bold; text-align:center;">
+            DRAFT — INCOMPLETE NUTRITION CARE PLAN @if(!empty($incomplete_items)) (missing: {{ implode(', ', $incomplete_items) }}) @endif
+        </div>
+    @else
+        <div style="text-align:right; font-size:10px; color:#555; margin-top:2px;">
+            Completion: <span class="bold">{{ $completion_stage }}</span>
+        </div>
+    @endif
+
     {{-- Patient header --}}
     <table class="meta" style="margin-top:6px;">
         <tr>
@@ -124,6 +136,10 @@
     <div style="margin-top:4px;"><span class="bold">Diet / Stage:</span> {{ $intervention?->disease_stage }}</div>
     <div><span class="bold">Nutrition Education:</span> {{ $intervention?->education_notes }}</div>
     <div><span class="bold">Counseling Goals:</span> {{ $intervention?->counseling_goals }}</div>
+    {{-- RP-03: reference the patient's meal plan for this cycle. --}}
+    @if(!empty($meal_plan))
+        <div><span class="bold">Meal Plan:</span> Week of {{ $meal_plan['week_start_date'] }} (#{{ $meal_plan['id'] }}, {{ ucfirst($meal_plan['status']) }})</div>
+    @endif
 
     {{-- Monitoring & Evaluation (all entries, dated) --}}
     <div class="section">Nutrition Monitoring &amp; Evaluation</div>

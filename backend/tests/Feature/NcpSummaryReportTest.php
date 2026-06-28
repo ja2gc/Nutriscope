@@ -116,6 +116,7 @@ class NcpSummaryReportTest extends TestCase
 
         \App\Models\ScreeningDocument::create([
             'patient_id'    => $ncp->patient_id,
+            'ncp_record_id' => $ncp->id,
             'assessment_id' => $ncp->assessment->id,
             'type'          => 'referral',
             'file_path'     => 'documents/ncp/ref.pdf',
@@ -126,10 +127,47 @@ class NcpSummaryReportTest extends TestCase
         $report->type = 'ncp_summary';
         $report->parameters = ['ncp_record_id' => $ncp->id];
 
-        $data = (new NcpSummaryGenerator())->data($report);
+        $data = app(NcpSummaryGenerator::class)->data($report);
 
         $this->assertCount(1, $data['attachments']);
         $this->assertSame('ref.pdf', $data['attachments']->first()->original_name);
+    }
+
+    public function test_data_flags_completion_stage_and_links_meal_plan(): void
+    {
+        $ncp = $this->makeRecord();
+        // makeRecord's intervention has no goal_type → still incomplete initial ADI.
+        $ncp->intervention->update(['goal_type' => 'renal_diet']);
+        $plan = \App\Models\MealPlan::create([
+            'intervention_id' => $ncp->intervention->id,
+            'patient_id'      => $ncp->patient_id,
+            'week_start_date' => '2026-06-15',
+            'generation_type' => 'auto',
+            'status'          => 'draft',
+        ]);
+
+        $report = new Report();
+        $report->type = 'ncp_summary';
+        $report->parameters = ['ncp_record_id' => $ncp->id];
+        $data = app(NcpSummaryGenerator::class)->data($report->fresh() ?? $report);
+
+        $this->assertTrue($data['is_complete']);
+        $this->assertSame('Full ADIME', $data['completion_stage']); // has monitoring too
+        $this->assertSame($plan->id, $data['meal_plan']['id']);
+    }
+
+    public function test_data_marks_incomplete_when_prescription_missing(): void
+    {
+        $ncp = $this->makeRecord();
+        $ncp->intervention->update(['goal_type' => null, 'energy_kcal' => null]);
+
+        $report = new Report();
+        $report->type = 'ncp_summary';
+        $report->parameters = ['ncp_record_id' => $ncp->id];
+        $data = app(NcpSummaryGenerator::class)->data($report);
+
+        $this->assertFalse($data['is_complete']);
+        $this->assertNotEmpty($data['incomplete_items']);
     }
 
     public function test_age_and_risk_helpers(): void

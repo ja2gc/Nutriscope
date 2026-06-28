@@ -5,6 +5,8 @@ namespace App\Services\Reports\Generators;
 use App\Models\Diagnosis;
 use App\Models\NcpRecord;
 use App\Models\Report;
+use App\Models\ScreeningDocument;
+use App\Services\ClinicalCompletenessService;
 use App\Services\Reports\Contracts\ReportGenerator;
 use Carbon\Carbon;
 
@@ -17,6 +19,8 @@ use Carbon\Carbon;
  */
 class NcpSummaryGenerator implements ReportGenerator
 {
+    public function __construct(private ClinicalCompletenessService $completeness) {}
+
     public function type(): string
     {
         return 'ncp_summary';
@@ -37,12 +41,28 @@ class NcpSummaryGenerator implements ReportGenerator
         $params = $report->parameters ?? [];
 
         $ncp = NcpRecord::with([
-            'patient', 'assessment.biochemicalData', 'assessment.screeningDocuments',
-            'diagnoses', 'intervention', 'monitorings',
+            'patient', 'assessment.biochemicalData',
+            'diagnoses', 'intervention.mealPlans', 'monitorings',
         ])->findOrFail($params['ncp_record_id']);
 
         $patient    = $ncp->patient;
         $assessment = $ncp->assessment;
+
+        // AD-02 / RP-01-02: distinguish a complete initial ADI from a full ADIME
+        // and flag incompleteness so the view can watermark a non-final report.
+        $missing = array_merge(
+            $this->completeness->assessmentMissing($ncp),
+            $this->completeness->diagnosisMissing($ncp),
+            $this->completeness->interventionMissing($ncp),
+        );
+        $initialComplete = $this->completeness->initialAdiComplete($ncp);
+        $fullComplete    = $this->completeness->fullAdimeComplete($ncp);
+        $completionStage = $fullComplete ? 'Full ADIME'
+            : ($initialComplete ? 'Initial ADI' : 'Incomplete — Draft');
+
+        // RP-03: reference the patient's meal plan(s) for this cycle.
+        $mealPlan = optional($ncp->intervention)->mealPlans
+            ?->sortByDesc('created_at')->first();
 
         return [
             'patient' => [
@@ -67,8 +87,20 @@ class NcpSummaryGenerator implements ReportGenerator
             ])->all(),
             'intervention'       => $ncp->intervention,
             'monitorings'        => $ncp->monitorings->sortBy('created_at')->values(),
-            'attachments'        => $assessment?->screeningDocuments->sortByDesc('created_at')->values() ?? collect(),
+            // Attachments are cycle-scoped (AS-02) — load by ncp_record_id, not assessment.
+            'attachments'        => ScreeningDocument::where('ncp_record_id', $ncp->id)
+                ->orderByDesc('created_at')->get(),
             'record_status'      => $ncp->status,
+            // Completeness / report integrity (RP-01/02, AD-02)
+            'completion_stage'   => $completionStage,
+            'is_complete'        => $initialComplete,
+            'incomplete_items'   => $missing,
+            'meal_plan'          => $mealPlan ? [
+                'id'              => $mealPlan->id,
+                'week_start_date' => optional($mealPlan->week_start_date)->format('M j, Y')
+                    ?? (string) $mealPlan->week_start_date,
+                'status'          => $mealPlan->status,
+            ] : null,
         ];
     }
 
