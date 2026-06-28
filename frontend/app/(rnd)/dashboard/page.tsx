@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
+import { Pagination } from "@/components/ui/Pagination";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/Button";
@@ -94,8 +95,7 @@ function buildFollowUps(patients: Patient[]): FollowUpRow[] {
         },
       ];
     })
-    .sort((left, right) => left.daysRemaining - right.daysRemaining)
-    .slice(0, 8);
+    .sort((left, right) => left.daysRemaining - right.daysRemaining);
 }
 
 function pesoAmount(n: number) {
@@ -148,6 +148,10 @@ export default function RndDashboardPage() {
   const [composerOpen, setComposerOpen] = useState(false);
   const [editingPostId, setEditingPostId] = useState<number | null>(null);
   const [viewingPostId, setViewingPostId] = useState<number | null>(null);
+  const [followUpPage, setFollowUpPage] = useState(1);
+  const [announcementsPage, setAnnouncementsPage] = useState(1);
+  const FOLLOW_UPS_PER_PAGE = 8;
+  const ANNOUNCEMENTS_PER_PAGE = 5;
   const [draft, setDraft] = useState<AnnouncementDraft>({
     category: "General",
     visibility: "All",
@@ -228,6 +232,32 @@ export default function RndDashboardPage() {
   const upcomingFollowUpLabel = loading ? "--" : followUps.length.toString();
   const pendingKpi = useMemo(() => pendingPoKpi(fssDashboard), [fssDashboard]);
   const orderedPosts = useMemo(() => sortAnnouncements(posts), [posts]);
+
+  // Follow-up pagination
+  const followUpLastPage = Math.max(1, Math.ceil(followUps.length / FOLLOW_UPS_PER_PAGE));
+  const followUpMeta = {
+    current_page: followUpPage,
+    per_page: FOLLOW_UPS_PER_PAGE,
+    total: followUps.length,
+    last_page: followUpLastPage,
+  };
+  const pagedFollowUps = followUps.slice(
+    (followUpPage - 1) * FOLLOW_UPS_PER_PAGE,
+    followUpPage * FOLLOW_UPS_PER_PAGE,
+  );
+
+  // Announcements pagination
+  const announcementsLastPage = Math.max(1, Math.ceil(orderedPosts.length / ANNOUNCEMENTS_PER_PAGE));
+  const announcementsMeta = {
+    current_page: announcementsPage,
+    per_page: ANNOUNCEMENTS_PER_PAGE,
+    total: orderedPosts.length,
+    last_page: announcementsLastPage,
+  };
+  const pagedPosts = orderedPosts.slice(
+    (announcementsPage - 1) * ANNOUNCEMENTS_PER_PAGE,
+    announcementsPage * ANNOUNCEMENTS_PER_PAGE,
+  );
   const selectedPost = useMemo(
     () => orderedPosts.find((post) => post.id === viewingPostId) || null,
     [orderedPosts, viewingPostId]
@@ -747,7 +777,7 @@ export default function RndDashboardPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-zinc-100 bg-white">
-                      {followUps.map((row, index) => (
+                      {pagedFollowUps.map((row, index) => (
                         <tr
                           key={`${row.patientId}-${row.nextFollowUpDate}`}
                           className={`${index % 2 === 0 ? "bg-white" : "bg-zinc-50/20"} hover:bg-zinc-50/60 transition-colors`}
@@ -782,6 +812,11 @@ export default function RndDashboardPage() {
                     </tbody>
                   </table>
                 </div>
+                <Pagination
+                  meta={followUpMeta}
+                  page={followUpPage}
+                  onPageChange={setFollowUpPage}
+                />
               </div>
             )}
           </div>
@@ -817,7 +852,7 @@ export default function RndDashboardPage() {
                 Announcements will appear here once configured.
               </div>
             ) : (
-              orderedPosts.map((post) => {
+              pagedPosts.map((post) => {
                 const canEdit = isAnnouncementEditable(post, user?.id);
 
                 return (
@@ -898,6 +933,13 @@ export default function RndDashboardPage() {
                   </article>
                 );
               })
+            )}
+            {!announcementsLoading && orderedPosts.length > 0 && (
+              <Pagination
+                meta={announcementsMeta}
+                page={announcementsPage}
+                onPageChange={setAnnouncementsPage}
+              />
             )}
           </div>
         </div>
