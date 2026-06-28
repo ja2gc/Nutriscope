@@ -1033,13 +1033,7 @@ export default function NcpAssessmentPage({
 
   const renderBiochemicalTab = () => (
     <div className="space-y-5">
-      <AttachmentsPanel
-        ncpId={ncpId}
-        kind="labs"
-        uploadLabel="Upload Lab Results (PDF or Image)"
-        blurb="Attach lab sheets and biochemical results for this NCP cycle. Stored for record-keeping and appended to the printed NCP report."
-      />
-      <div className="mt-6">
+      <div>
         <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-3">Lab Values</p>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {LAB_FIELDS.map(field => {
@@ -1106,6 +1100,13 @@ export default function NcpAssessmentPage({
           })}
         </div>
       </div>
+      {/* Upload sits BELOW the lab values so the RND enters data first, then attaches proof. */}
+      <AttachmentsPanel
+        ncpId={ncpId}
+        kind="labs"
+        uploadLabel="Upload Lab Results (PDF or Image)"
+        blurb="Attach lab sheets and biochemical results for this NCP cycle. Stored for record-keeping and appended to the printed NCP report."
+      />
     </div>
   );
 
