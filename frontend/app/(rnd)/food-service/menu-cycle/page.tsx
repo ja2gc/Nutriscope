@@ -341,6 +341,8 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: number | "new"; r
   // Served (actual) population per weekday for the active week — logged by FSS/RND,
   // summed across the span to complete the food PO + compute its actual budget/head.
   const [served, setServed] = useState<DayPop>({});
+  const [servedDraft, setServedDraft] = useState<DayPop>({});
+  const [editingServed, setEditingServed] = useState<Day | null>(null);
   const [savingServed, setSavingServed] = useState<string | null>(null);
   const [recipes, setRecipes] = useState<RecipeOption[]>([]);
   const [items, setItems] = useState<FsItemOption[]>([]);
@@ -407,7 +409,15 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: number | "new"; r
       setServed((p) => ({ ...p, [day]: String(n) }));
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Failed to save served population.");
-    } finally { setSavingServed(null); }
+    } finally {
+      setEditingServed(null);
+      setSavingServed(null);
+    }
+  }
+
+  function beginServedEdit(day: Day) {
+    setServedDraft((p) => ({ ...p, [day]: served[day] ?? "" }));
+    setEditingServed(day);
   }
 
   const visibleDays = useMemo(() => DAYS.slice(0, cycleDays), [cycleDays]);
@@ -562,16 +572,55 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: number | "new"; r
                     {/* Served (actual) population for this day — the real headcount FSS/RND
                         log on/after the day. Summed across the span it completes the food PO
                         and yields its actual budget/head. Editable by both roles. */}
-                    {savedId && isActive && weekStart && (
-                      <div className="mt-1 flex items-center gap-1">
-                        <input
-                          key={`served-${d}-${served[d] ?? ""}`}
-                          type="number" min={0} defaultValue={served[d] ?? ""} placeholder="served"
-                          onBlur={(e) => saveServed(d, e.target.value)}
-                          onKeyDown={(e) => { if (e.key === "Enter") saveServed(d, (e.target as HTMLInputElement).value); }}
-                          title={`${d} served population (${isoAddDays(weekStart, DAYS.indexOf(d))})`}
-                          className="w-14 px-1.5 py-0.5 text-[10px] font-semibold border border-emerald-200 rounded focus:outline-none focus:ring-1 focus:ring-emerald-400 normal-case" />
-                        <span className="text-[8px] text-zinc-400 normal-case">{savingServed === d ? "saving…" : "served"}</span>
+                    {savedId && weekStart && (
+                      <div className="mt-1 normal-case">
+                        {editingServed === d ? (
+                          <div className="flex items-center gap-1">
+                            <input
+                              autoFocus
+                              type="number"
+                              min={0}
+                              value={servedDraft[d] ?? ""}
+                              placeholder="served"
+                              onChange={(e) => setServedDraft((p) => ({ ...p, [d]: e.target.value }))}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") saveServed(d, servedDraft[d] ?? "");
+                                if (e.key === "Escape") setEditingServed(null);
+                              }}
+                              title={`${d} served population (${isoAddDays(weekStart, DAYS.indexOf(d))})`}
+                              className="w-14 px-1.5 py-0.5 text-[10px] font-semibold border border-emerald-200 rounded focus:outline-none focus:ring-1 focus:ring-emerald-400" />
+                            <button
+                              type="button"
+                              onClick={() => saveServed(d, servedDraft[d] ?? "")}
+                              disabled={savingServed === d}
+                              className="p-0.5 rounded text-emerald-600 hover:bg-emerald-50 disabled:opacity-50 cursor-pointer"
+                              title="Save served population">
+                              <Save className="h-3 w-3" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setEditingServed(null)}
+                              className="p-0.5 rounded text-zinc-400 hover:bg-zinc-100 cursor-pointer"
+                              title="Cancel">
+                              <X className="h-3 w-3" />
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1">
+                            <span className="text-[10px] font-extrabold text-zinc-700 tabular-nums">
+                              {served[d] != null ? served[d] : "Not set"}
+                            </span>
+                            <span className="text-[8px] text-zinc-400">served</span>
+                            <button
+                              type="button"
+                              onClick={() => beginServedEdit(d)}
+                              className="p-0.5 rounded text-zinc-400 hover:text-emerald-600 hover:bg-emerald-50 cursor-pointer"
+                              title={`Edit ${d} served population`}>
+                              <Pencil className="h-3 w-3" />
+                            </button>
+                            {savingServed === d && <span className="text-[8px] text-zinc-400">saving…</span>}
+                          </div>
+                        )}
                       </div>
                     )}
                   </th>
