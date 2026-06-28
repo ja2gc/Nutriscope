@@ -192,6 +192,32 @@ class MealPlanItemControllerTest extends TestCase
         $this->getJson($this->url($ctx))->assertUnauthorized();
     }
 
+    public function test_cannot_access_items_of_plan_from_another_ncp(): void
+    {
+        $a = $this->setupPlan();
+        $b = $this->setupPlan();
+
+        // Plan B's id under NCP A's URL must not resolve (MP-04).
+        $mismatchUrl = "/api/rnd/ncp-records/{$a['ncp']->id}/meal-plans/{$b['plan']->id}/days/{$b['day']->id}/items";
+
+        $this->actingAs($a['rnd'])
+            ->getJson($mismatchUrl)
+            ->assertNotFound();
+    }
+
+    public function test_cannot_delete_item_via_wrong_day(): void
+    {
+        $a = $this->setupPlan();
+        $otherDay = MealPlanDay::factory()->create(['meal_plan_id' => $a['plan']->id]);
+        $item = MealPlanItem::factory()->create(['meal_plan_day_id' => $a['day']->id]);
+
+        // item belongs to $a['day'], not $otherDay → 404.
+        $url = "/api/rnd/ncp-records/{$a['ncp']->id}/meal-plans/{$a['plan']->id}/days/{$otherDay->id}/items/{$item->id}";
+
+        $this->actingAs($a['rnd'])->deleteJson($url)->assertNotFound();
+        $this->assertDatabaseHas('meal_plan_items', ['id' => $item->id]);
+    }
+
     public function test_store_hard_blocks_allergen_conflict(): void
     {
         $ctx = $this->setupPlan();
