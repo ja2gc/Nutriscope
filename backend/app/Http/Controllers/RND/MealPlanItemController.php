@@ -155,16 +155,85 @@ class MealPlanItemController extends Controller
     public function update(\Illuminate\Http\Request $request, NcpRecord $ncpRecord, MealPlan $mealPlan, MealPlanDay $day, MealPlanItem $item): JsonResponse
     {
         $this->assertScope($ncpRecord, $mealPlan, $day, $item);
+        // DI-03: never accept a client-supplied nutrient snapshot — it would let a
+        // payload falsify the nutrient totals that drive reports. Edits may adjust
+        // quantity/unit, and ingredient quantities for a recipe item; in the latter
+        // case the snapshot is RE-COMPUTED server-side from trusted food data.
         $validated = $request->validate([
-            'quantity'          => 'sometimes|numeric|min:0.01',
-            'unit'              => 'sometimes|string|max:50',
-            'nutrient_snapshot' => 'sometimes|array',
+            'quantity'                       => 'sometimes|numeric|min:0.01',
+            'unit'                           => 'sometimes|string|max:50',
+            'ingredient_overrides'           => 'sometimes|array',
+            'ingredient_overrides.*.id'      => 'required_with:ingredient_overrides|integer',
+            'ingredient_overrides.*.quantity'=> 'required_with:ingredient_overrides|numeric|min:0',
         ]);
 
-        $item->fill($validated);
+        if (! empty($validated['ingredient_overrides'])) {
+            $snapshot = $this->recomputeRecipeSnapshot($item, $validated['ingredient_overrides']);
+            if ($snapshot !== null) {
+                $item->nutrient_snapshot = $snapshot;
+            }
+        }
+
+        $item->fill(array_intersect_key($validated, array_flip(['quantity', 'unit'])));
         $item->save();
 
         return response()->json(['data' => new MealPlanItemResource($item)]);
+    }
+
+    /**
+     * Recompute a recipe item's per-serving snapshot from its ingredients, applying
+     * the supplied per-ingredient quantity overrides but pulling all nutrient values
+     * from the trusted FoodItem records (never from the client). Returns null when
+     * the item is not recipe-backed. Mirrors the client preview math so the RND sees
+     * the same numbers, but the persisted values are server-authoritative.
+     *
+     * @param  array<int,array{id:int,quantity:float|int}>  $overrides
+     */
+    private function recomputeRecipeSnapshot(MealPlanItem $item, array $overrides): ?array
+    {
+        if (! $item->recipe_id) {
+            return null;
+        }
+        $recipe = Recipe::with('ingredients.foodItem')->find($item->recipe_id);
+        if (! $recipe) {
+            return null;
+        }
+
+        $servings    = max((float) ($recipe->servings ?? 1), 1);
+        $overrideQty = collect($overrides)->keyBy('id');
+
+        $cal = $prot = $carb = $fat = 0.0;
+        $micros = [];
+
+        foreach ($recipe->ingredients as $ing) {
+            $food = $ing->foodItem;
+            if (! $food) continue;
+
+            $qty    = (float) ($overrideQty[$ing->id]['quantity'] ?? $ing->quantity);
+            $factor = $qty / (max((float) ($food->serving_size ?? 100), 1));
+
+            $cal  += (float) $food->calories * $factor;
+            $prot += (float) $food->protein  * $factor;
+            $carb += (float) $food->carbs    * $factor;
+            $fat  += (float) $food->fat      * $factor;
+            foreach ((is_array($food->micronutrients) ? $food->micronutrients : []) as $k => $v) {
+                $micros[$k] = ($micros[$k] ?? 0) + (float) $v * $factor;
+            }
+        }
+
+        $r1 = fn (float $n) => round($n / $servings, 1);
+
+        return [
+            'name'           => $item->nutrient_snapshot['name'] ?? $recipe->name,
+            'calories'       => $r1($cal),
+            'protein'        => $r1($prot),
+            'carbs'          => $r1($carb),
+            'fat'            => $r1($fat),
+            'water_g'        => $item->nutrient_snapshot['water_g'] ?? null,
+            'serving_size'   => 1,
+            'serving_unit'   => 'serving',
+            'micronutrients' => array_map(fn ($v) => round($v / $servings, 1), $micros),
+        ];
     }
 
     public function destroy(NcpRecord $ncpRecord, MealPlan $mealPlan, MealPlanDay $day, MealPlanItem $item): JsonResponse

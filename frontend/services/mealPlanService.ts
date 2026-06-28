@@ -234,7 +234,10 @@ export async function updateMealPlanItem(
   planId: number,
   dayId: number,
   itemId: number,
-  payload: { quantity?: number; nutrient_snapshot?: NutrientSnapshot }
+  // DI-03: the client never sends a nutrient snapshot. For recipe ingredient
+  // edits, send per-ingredient quantity overrides; the server recomputes the
+  // snapshot from trusted food data.
+  payload: { quantity?: number; ingredient_overrides?: { id: number; quantity: number }[] }
 ): Promise<MealPlanItem> {
   const res = await apiFetch(
     `/api/rnd/ncp-records/${ncpId}/meal-plans/${planId}/days/${dayId}/items/${itemId}`,
