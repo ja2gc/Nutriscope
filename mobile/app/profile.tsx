@@ -3,7 +3,6 @@ import { Eye, EyeOff } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -19,18 +18,24 @@ interface UserProfile {
   id: number;
   name: string;
   email: string;
+  contact_number: string | null;
+  role: string;
+  is_active: boolean;
 }
 
 async function fetchMe(): Promise<UserProfile> {
   const res = await api.get<{ data: UserProfile } | UserProfile>('/api/auth/me');
-  // Handle both { data: {...} } and bare user object
   if (res.data && typeof (res.data as { data: UserProfile }).data === 'object') {
     return (res.data as { data: UserProfile }).data;
   }
   return res.data as UserProfile;
 }
 
-async function updateProfile(body: { name: string; email: string }): Promise<UserProfile> {
+async function updateProfile(body: {
+  name: string;
+  email: string;
+  contact_number: string | null;
+}): Promise<UserProfile> {
   const res = await api.patch<{ data: UserProfile } | UserProfile>('/api/auth/profile', body);
   if (res.data && typeof (res.data as { data: UserProfile }).data === 'object') {
     return (res.data as { data: UserProfile }).data;
@@ -63,7 +68,7 @@ function FormField({
   value: string;
   onChangeText: (v: string) => void;
   placeholder?: string;
-  keyboardType?: 'default' | 'email-address';
+  keyboardType?: 'default' | 'email-address' | 'phone-pad';
   autoCapitalize?: 'none' | 'words';
   error?: string | null;
   secure?: boolean;
@@ -100,18 +105,28 @@ function FormField({
   );
 }
 
+function ReadOnlyField({ label, value }: { label: string; value: string }) {
+  return (
+    <View className="mb-4">
+      <Text className="text-sm font-medium text-gray-700 mb-1">{label}</Text>
+      <View className="border border-gray-200 rounded-lg px-4 h-12 justify-center bg-gray-50">
+        <Text className="text-base text-gray-600">{value}</Text>
+      </View>
+    </View>
+  );
+}
+
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
 
-  // ── Account form ──
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [contactNumber, setContactNumber] = useState('');
   const [nameError, setNameError] = useState<string | null>(null);
   const [emailError, setEmailError] = useState<string | null>(null);
   const [profileMsg, setProfileMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
-  // ── Password form ──
   const [currentPw, setCurrentPw] = useState('');
   const [newPw, setNewPw] = useState('');
   const [confirmPw, setConfirmPw] = useState('');
@@ -132,6 +147,7 @@ export default function ProfileScreen() {
     if (user) {
       setName(user.name);
       setEmail(user.email);
+      setContactNumber(user.contact_number ?? '');
     }
   }, [user]);
 
@@ -186,7 +202,11 @@ export default function ProfileScreen() {
   function submitProfile() {
     setProfileMsg(null);
     if (!validateProfile()) return;
-    profileMutation.mutate({ name: name.trim(), email: email.trim() });
+    profileMutation.mutate({
+      name: name.trim(),
+      email: email.trim(),
+      contact_number: contactNumber.trim() || null,
+    });
   }
 
   function submitPassword() {
@@ -216,6 +236,27 @@ export default function ProfileScreen() {
         contentContainerStyle={{ paddingBottom: insets.bottom + 24, paddingTop: 16 }}
         keyboardShouldPersistTaps="handled"
       >
+        {/* Role & Status card */}
+        <View className="mx-4 bg-white rounded-xl border border-gray-100 p-4 mb-4">
+          <Text className="text-base font-semibold text-gray-800 mb-4">Account Info</Text>
+          <View className="flex-row gap-3">
+            <View className="flex-1">
+              <ReadOnlyField label="Role" value={user?.role ?? '—'} />
+            </View>
+            <View className="flex-1">
+              <View className="mb-4">
+                <Text className="text-sm font-medium text-gray-700 mb-1">Status</Text>
+                <View className="border border-gray-200 rounded-lg px-4 h-12 justify-center bg-gray-50 flex-row items-center gap-2">
+                  <View className={`w-2 h-2 rounded-full ${user?.is_active ? 'bg-emerald-500' : 'bg-red-400'}`} />
+                  <Text className={`text-base ${user?.is_active ? 'text-emerald-700' : 'text-red-600'}`}>
+                    {user?.is_active ? 'Active' : 'Inactive'}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </View>
+        </View>
+
         {/* Account card */}
         <View className="mx-4 bg-white rounded-xl border border-gray-100 p-4 mb-4">
           <Text className="text-base font-semibold text-gray-800 mb-4">Account</Text>
@@ -243,6 +284,14 @@ export default function ProfileScreen() {
               else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) setEmailError('Enter a valid email.');
               else setEmailError(null);
             }}
+            editable={!profileMutation.isPending}
+          />
+          <FormField
+            label="Contact Number"
+            value={contactNumber}
+            onChangeText={setContactNumber}
+            placeholder="e.g. 09171234567"
+            keyboardType="phone-pad"
             editable={!profileMutation.isPending}
           />
 

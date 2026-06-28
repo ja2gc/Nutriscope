@@ -234,31 +234,50 @@ class FoodServiceOpsTest extends TestCase
         $group = \App\Models\PurchaseOrderVendorGroup::firstOrFail();
         $line = $group->items()->firstOrFail();
 
-        // Only the unit cost / price correction is accepted during open execution;
-        // purchase_qty/purchase_unit are frozen and ignored. Qty stays 5, price → 22.
+        // FSS can set OR number only.
         $this->actingAs($this->fss)
             ->patchJson("/api/fss/purchase-order-vendor-groups/{$group->id}", [
                 'or_number' => 'OR-FSS-1',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.vendor_groups.0.or_number', 'OR-FSS-1');
+
+        // FSS cannot patch items or status — must return 403.
+        $this->actingAs($this->fss)
+            ->patchJson("/api/fss/purchase-order-vendor-groups/{$group->id}", [
+                'items' => [['id' => $line->id, 'unit_price' => 22]],
+            ])
+            ->assertForbidden();
+
+        $this->actingAs($this->fss)
+            ->patchJson("/api/fss/purchase-order-vendor-groups/{$group->id}", [
+                'status' => 'received',
+            ])
+            ->assertForbidden();
+
+        // RND can do an audited price correction; purchase_qty/purchase_unit are frozen.
+        // Qty stays 5, price → 22.
+        $this->actingAs($this->rnd)
+            ->patchJson("/api/fss/purchase-order-vendor-groups/{$group->id}", [
                 'items' => [[
                     'id' => $line->id,
-                    'purchase_qty' => 6,   // ignored (frozen)
+                    'purchase_qty' => 6,    // ignored (frozen)
                     'purchase_unit' => 'sack', // ignored (frozen)
                     'unit_price' => 22,
                 ]],
             ])
-            ->assertOk()
-            ->assertJsonPath('data.vendor_groups.0.or_number', 'OR-FSS-1');
+            ->assertOk();
 
         // total = frozen qty (5) × corrected unit_price (22) = 110.
         $this->assertDatabaseHas('purchase_order_vendor_groups', ['id' => $group->id, 'or_number' => 'OR-FSS-1', 'total_amount' => 110]);
         $this->assertDatabaseHas('purchase_orders', ['id' => $group->purchase_order_id, 'total_amount' => 110]);
 
-        // Every correction is audited with the user who made it.
+        // Every correction is audited with the RND user who made it.
         $this->assertDatabaseHas('purchase_order_item_corrections', [
             'purchase_order_item_id' => $line->id,
             'old_unit_price' => 20,
             'new_unit_price' => 22,
-            'corrected_by'   => $this->fss->id,
+            'corrected_by'   => $this->rnd->id,
         ]);
     }
 

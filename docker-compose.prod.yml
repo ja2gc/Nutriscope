@@ -11,6 +11,8 @@ services:
     restart: unless-stopped
     env_file:
       - ./backend/.env.production
+    ports:
+      - "127.0.0.1:8080:80"
     depends_on:
       mysql:
         condition: service_healthy

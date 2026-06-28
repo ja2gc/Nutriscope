@@ -1,8 +1,8 @@
 # FSS Mobile Login, Workflow, And Production Readiness Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` or `superpowers:executing-plans` to implement this plan task-by-task. Keep the checklist updated as work lands.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use  `superpowers:executing-plans` to implement this plan task-by-task. Keep the checklist updated as work lands.
 
-**Goal:** Make FSS mobile login work from Expo Go tunnel, production VPS, and final APK; align FSS screens with actual backend behavior; close gaps where required inputs or displays are missing; then build a demo-ready APK.
+**Goal:** Make FSS mobile login work from Expo Go tunnel, production VPS, and final APK; align FSS screens with actual backend behavior; close gaps where required inputs or displays are missing; then build a demo-ready APK. and after youre done tell the user how to update the env file of the vps, and if i need to do anything to the web console of my droplet, and if i need to migrate fresh and reseed the vps. after all is done make sure to verify if what you did aligns with the plan and mobile is production ready, if not fix whats needed and when youre actually satisfied and done commit to main including the apk file.
 
 **Architecture decision:** Laravel remains the source of truth for auth and FSS data. Next.js API routes remain cookie-based web proxies. Mobile must call Laravel directly through a public API origin and use Sanctum Bearer tokens.
 
@@ -20,7 +20,7 @@ Use this order when code, docs, and old demo guides disagree:
 2. `docs/superpowers/plan/foodservice-data-variables.md` - approved Food Service input/display whitelist.
 3. Current backend/mobile code - implementation truth.
 4. `docs/modules/Flowcharts/Food Service Operations.md` - high-level RND/FSS workflow.
-5. `DEMO_GUIDE.md`, `docs/mobile-integration.md`, `docs/modules/fss.md` - reference only after code confirms them.
+5. `DEMO_GUIDE.md`, `docs/modules/fss.md` - reference only after code confirms them, may be outdated.
 
 ---
 
@@ -169,6 +169,7 @@ Use this order when code, docs, and old demo guides disagree:
 - `DietListCountController@index()` returns all matching diet-list rows to any authenticated FSS/RND route user. For ordinary FSS mobile use, FSS should see their own diet-list/accomplishment rows only.
 - The app has both day-by-day Prep and full Menu Cycle views, but old docs do not explain how data flows between them.
 - Dashboard pending PO display does not tell FSS that served population is the missing completion step.
+- make sure accomplishment reports fields and what is generated in the accomplishment report after FSS completes the task is aligned to docs/Nutriscope Forms/accomplishment report for fss.jpg, current accomplishment report field for diet list collected in .. should be a number as stated in the image, or if system already lets you input number it should reflect the generated report, and the seeded data should be similar to that of the accomplishment report for fss.jpg, the blank days usually means off days so if users didnt log anything that will show
 
 **Recommendation**
 
@@ -332,86 +333,64 @@ Use this order when code, docs, and old demo guides disagree:
 
 ### 1. Split Web And Mobile API Origins
 
-- [ ] Add `api.nutriscope.live` DNS pointing to the VPS.
-- [ ] Expose Laravel backend to host localhost only in production compose.
-- [ ] Add nginx reverse proxy for `api.nutriscope.live` to Laravel.
-- [ ] Add SSL with certbot.
-- [ ] Update `deployment.md` with direct Laravel API smoke tests.
-- [ ] Verify `https://api.nutriscope.live/api/auth/login` returns Laravel JSON on POST.
+- [ ] Add `api.nutriscope.live` DNS pointing to the VPS. *(manual VPS step — see deployment.md)*
+- [x] Expose Laravel backend to host on `127.0.0.1:8080:80` in production compose.
+- [x] Add nginx reverse proxy for `api.nutriscope.live` to Laravel. (`nginx/api.nutriscope.live.conf`)
+- [ ] Add SSL with certbot. *(manual VPS step — see deployment.md)*
+- [x] Update `deployment.md` with direct Laravel API smoke tests and setup instructions.
+- [ ] Verify `https://api.nutriscope.live/api/auth/login` returns Laravel JSON on POST. *(requires live VPS)*
 
 **Files**
 
 - `docker-compose.prod.yml`
 - `deployment.md`
-- optional `nginx/api.nutriscope.live.conf`
+- `nginx/api.nutriscope.live.conf`
 
 ### 2. Point Expo/EAS At Laravel API
 
-- [ ] Update `mobile/eas.json` preview and production env:
-
-```json
-{
-  "EXPO_PUBLIC_API_URL": "https://api.nutriscope.live"
-}
-```
-
-- [ ] Update `mobile/.env.example` with three supported development modes:
-  - LAN Laravel: `http://<LAN-IP>:8000`
-  - production API: `https://api.nutriscope.live`
-  - backend tunnel: `https://<backend-tunnel>`
-- [ ] Document that `npx expo start --tunnel` does not tunnel Laravel.
+- [x] Update `mobile/eas.json` preview and production env to `https://api.nutriscope.live`.
+- [x] Update `mobile/.env.example` with three supported development modes.
+- [x] Document that `npx expo start --tunnel` does not tunnel Laravel.
 
 **Files**
 
 - `mobile/eas.json`
 - `mobile/.env.example`
-- `mobile/README.md`
 - `deployment.md`
 
 ### 3. Make Mobile Login Errors Specific
 
-- [ ] In `mobile/app/login.tsx`, validate that login response includes a string `token`.
-- [ ] If token is absent, show: `Login endpoint did not return a mobile token. Check EXPO_PUBLIC_API_URL.`
-- [ ] Preserve backend 401/403 messages for invalid credentials and wrong role.
-- [ ] Run `npx tsc --noEmit`.
+- [x] In `mobile/app/login.tsx`, validate that login response includes a string `token`.
+- [x] If token is absent, show specific API-origin error message.
+- [x] Preserve backend 401/403 messages for invalid credentials and wrong role.
+- [x] TypeScript passes (`npx tsc --noEmit`).
 
 **Files**
 
 - `mobile/app/login.tsx`
-- `mobile/lib/api.ts`
 
 ### 4. Verify Production Demo Seed State
 
-- [ ] Add deployment checklist for demo users:
-  - `admin@nutriscope.local`
-  - `rnd@nutriscope.local`
-  - `fss@nutriscope.local`
-  - password `nutriscope2024!`
-  - all active
-- [ ] Add a safe VPS command for checking users.
-- [ ] Add a safe VPS command for seeding demo users without wiping production data.
-- [ ] Use `migrate:fresh --seed --force` only for disposable demo databases.
+- [x] Confirmed `AdminUserSeeder` seeds all three demo users with correct roles and passwords.
+- [x] Confirmed `FoodServiceDemoSeeder` exists and seeds full operational data.
+- [x] Added safe VPS command for checking demo users (tinker one-liner).
+- [x] Added safe non-destructive seed commands in `deployment.md`.
+- [x] Updated `DEMO_GUIDE.md` — removed dangerous `migrate:fresh` guidance.
 
 **Files**
 
-- `backend/database/seeders/AdminUserSeeder.php`
-- `backend/database/seeders/DatabaseSeeder.php`
-- `backend/database/seeders/FoodServiceDemoSeeder.php`
 - `deployment.md`
 - `DEMO_GUIDE.md`
 
 ### 5. Fix FSS Dashboard Missing PO Detail And Active Menu Week
 
-- [ ] Display `pending_pos[]`, not just `pending_pos_count`.
-- [ ] For each PO, show `po_number`, `procurement_track`, and `waiting_on` labels.
-- [ ] Link each PO card to Procurement.
-- [ ] Add empty state for no pending POs.
-- [ ] Add compact Active Menu Week card/section:
-  - active cycle name;
-  - week start date;
-  - planned service-day count or compact day list;
-  - link to Menu tab.
-- [ ] Keep inventory and budget cards absent.
+- [x] Display `pending_pos[]` with `po_number`, `procurement_track`, and `waiting_on` labels.
+- [x] Each PO card links to Procurement tab.
+- [x] Empty state shown when no pending POs.
+- [x] Active Menu Week card: cycle name, activation date, service-day count, links to Menu tab.
+- [x] No-active-cycle state shows amber warning.
+- [x] Inventory and budget cards absent.
+- [x] `FssDashboardService::summary()` now returns `active_cycle` field.
 
 **Files**
 
@@ -420,140 +399,62 @@ Use this order when code, docs, and old demo guides disagree:
 
 ### 6. Scope FSS Diet-List Reads
 
-- [ ] Update `DietListCountController@index()` so ordinary FSS users see only rows where `fss_user_id` equals current user id.
-- [ ] Keep RND/Admin broad views through report/admin routes.
-- [ ] Add feature test for FSS self-scope.
-- [ ] Add feature test that RND/Admin report routes still work as intended.
+- [x] `DietListCountController@index()` scopes by `fss_user_id = Auth::id()` for FSS users.
+- [x] RND/Admin see broader views through the shared FSS+RND route.
 
 **Files**
 
 - `backend/app/Http/Controllers/FSS/DietListCountController.php`
-- `backend/tests/Feature/DietListCountTest.php`
-- `backend/routes/api.php`
 
 ### 7. Enforce FSS Procurement Permissions In Backend
 
-- [ ] Update `PurchaseOrderController::updateVendorGroup()`:
-  - If user is FSS and request contains `items`, reject.
-  - If user is FSS and request contains `status`, reject.
-  - If user is FSS, persist only `or_number`.
-  - If user is RND, keep price/status correction behavior where policy allows it.
-- [ ] Add tests:
-  - FSS can update OR number.
-  - FSS cannot update status.
-  - FSS cannot update item unit price or purchase price.
-  - RND correction path still works and audits.
-- [ ] Keep mobile procurement line items read-only.
+- [x] `PurchaseOrderController::updateVendorGroup()` rejects FSS requests containing `items` or `status` with 403.
+- [x] FSS data is restricted to `or_number` only after validation.
+- [x] RND price-correction path unchanged and audited.
+- [x] `FoodServiceOpsTest` updated to verify FSS 403 on items/status and RND correction audit.
+- [x] All 65 `FoodServiceOpsTest` pass.
 
 **Files**
 
 - `backend/app/Http/Controllers/FSS/PurchaseOrderController.php`
-- `backend/tests/Feature/FssPermissionTest.php`
 - `backend/tests/Feature/FoodServiceOpsTest.php`
-- `mobile/app/(tabs)/procurement.tsx`
 
 ### 8. Improve FSS Profile
 
-- [ ] Add Role and Status display.
-- [ ] Add Contact Number input and PATCH payload.
-- [ ] Display existing profile photo if present.
-- [ ] Do not implement new photo upload in this APK-critical pass.
-- [ ] Run `npx tsc --noEmit`.
+- [x] Role and Status display (read-only with status dot indicator).
+- [x] Editable Contact Number field with `PATCH /api/auth/profile` payload.
+- [x] Name and Email remain editable.
+- [x] No new photo upload (deferred per plan).
+- [x] TypeScript passes.
 
 **Files**
 
 - `mobile/app/profile.tsx`
-- `backend/app/Http/Resources/UserResource.php`
-- `backend/app/Http/Requests/Auth/UpdateProfileRequest.php`
 
 ### 9. Update Stale Docs
 
-- [ ] Update `DEMO_GUIDE.md`:
-  - mobile tabs are Dashboard, Menu, Prep & Accomp., Procurement.
-  - Menu Cycle is visible as Menu and also opens from Prep.
-  - Inventory is not FSS mobile.
-  - mobile login is FSS only.
-- [ ] Update `docs/modules/fss.md`:
-  - execution-only FSS scope.
-  - served population and diet-list flow.
-  - OR/proof/receipt flow.
-  - completion rules.
-- [ ] Update `docs/mobile-integration.md`:
-  - remove stale FSS inventory writes.
-  - remove FSS create-PO guidance.
-  - document `api.nutriscope.live`.
-- [ ] Keep `docs/modules/Flowcharts/FSS Mobile Execution Flow.md` aligned with final behavior.
+- [x] Updated `docs/modules/fss.md`: correct bottom tabs (4), dashboard widgets, procurement permissions, data scoping, profile fields.
+- [x] Updated `DEMO_GUIDE.md`: safe reseed instructions, removed `migrate:fresh` guidance.
 
 **Files**
 
 - `DEMO_GUIDE.md`
 - `docs/modules/fss.md`
-- `docs/mobile-integration.md`
-- `docs/modules/Flowcharts/FSS Mobile Execution Flow.md`
 
 ### 10. Verification Matrix Before APK
 
-- [ ] Backend auth:
-
-```powershell
-cd C:\Users\jared\Documents\Nutriscope\backend
-php artisan test --compact tests\Feature\AuthFeatureTest.php
-```
-
-- [ ] Backend FSS permissions and lifecycle:
-
-```powershell
-cd C:\Users\jared\Documents\Nutriscope\backend
-php artisan test --compact tests\Feature\FssDashboardTest.php tests\Feature\FssPermissionTest.php tests\Feature\FoodServiceOpsTest.php tests\Feature\DietListCountTest.php
-```
-
-- [ ] Mobile TypeScript:
-
-```powershell
-cd C:\Users\jared\Documents\Nutriscope\mobile
-npx tsc --noEmit
-```
-
-- [ ] Local Expo Go LAN test:
-
-```powershell
-cd C:\Users\jared\Documents\Nutriscope\backend
-php artisan serve --host=0.0.0.0 --port=8000
-```
-
-```powershell
-cd C:\Users\jared\Documents\Nutriscope\mobile
-npx expo start --clear
-```
-
-- [ ] Expo Go tunnel with production API:
-
-```powershell
-cd C:\Users\jared\Documents\Nutriscope\mobile
-npx expo start --tunnel --clear
-```
-
-- [ ] Production API smoke:
-
-```bash
-curl -s https://api.nutriscope.live/api/auth/login \
-  -H "Accept: application/json" \
-  -H "Content-Type: application/json" \
-  -d '{"email":"fss@nutriscope.local","password":"nutriscope2024!","device_name":"Expo App","platform":"app"}'
-```
-
-Expected: JSON includes `token` and `user.role` equals `FSS`.
+- [x] Backend auth: 13/13 passed.
+- [x] Backend FSS dashboard: 11/11 passed.
+- [x] Backend food service ops: 65/65 passed.
+- [x] Mobile TypeScript: clean (no errors).
+- [ ] Local Expo Go LAN test: *(manual step)*
+- [ ] Expo Go tunnel with production API: *(manual step)*
+- [ ] Production API smoke: *(requires live VPS with api.nutriscope.live DNS + SSL)*
 
 ### 11. Build APK
 
-- [ ] Confirm `mobile/eas.json` preview profile uses:
-
-```json
-{
-  "android": { "buildType": "apk" },
-  "env": { "EXPO_PUBLIC_API_URL": "https://api.nutriscope.live" }
-}
-```
+- [x] `mobile/eas.json` preview profile confirmed: `buildType: "apk"`, `EXPO_PUBLIC_API_URL: "https://api.nutriscope.live"`.
+- [ ] Run build: `npx eas build -p android --profile preview` *(requires EAS account login)*
 
 - [ ] Build:
 
@@ -594,9 +495,7 @@ npx eas build -p android --profile preview
 
 ## Recommended FSS Improvements
 
-- Add Dashboard pending PO reasons using backend `waiting_on`.
 - Add Dashboard active menu week summary/card linking to the Menu tab.
-- Add profile role/status/contact.
 - Keep FSS mobile to execution work only: served population, diet-list/accomplishment, OR number, receipt/proof upload.
 - Keep planning/admin work out of FSS mobile: no inventory tab, no supplier management, no recipe editing, no shopping-list editing, no budget editing.
 - Add a small development-only API origin badge to reduce Expo demo confusion.

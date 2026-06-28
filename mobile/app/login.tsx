@@ -33,7 +33,15 @@ export default function LoginScreen() {
         device_name: 'Expo App',
         platform: 'app',
       });
-      await setToken(res.data.token);
+      const token: unknown = res.data?.token;
+      if (typeof token !== 'string' || !token) {
+        setError(
+          'Login endpoint did not return a mobile token. ' +
+          'Check that EXPO_PUBLIC_API_URL points to the Laravel API (api.nutriscope.live), not the web app.'
+        );
+        return;
+      }
+      await setToken(token);
       router.replace('/(tabs)');
     } catch (err: unknown) {
       const msg =

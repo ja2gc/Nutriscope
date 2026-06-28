@@ -46,6 +46,7 @@ class DietListCountController extends Controller
         ]);
 
         $counts = DietListCount::with('user:id,name')
+            ->when($request->user()->isFss(), fn ($q) => $q->where('fss_user_id', Auth::id()))
             ->when($data['from'] ?? null, fn ($q, $d) => $q->where('service_date', '>=', $d))
             ->when($data['to'] ?? null, fn ($q, $d) => $q->where('service_date', '<=', $d))
             ->when($data['menu_cycle_id'] ?? null, fn ($q, $id) => $q->where('menu_cycle_id', $id))
