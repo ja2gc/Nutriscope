@@ -28,6 +28,7 @@ class PurchaseOrderController extends Controller
         'items',
         'attachments',
         'supplier',
+        'shoppingList',
         'vendorGroups.supplier',
         'vendorGroups.items',
         'vendorGroups.attachments',

@@ -31,4 +31,22 @@ describe("ImageUploadGallery", () => {
     expect(markup).not.toContain("aria-label=\"Previous image\"");
     expect(markup).not.toContain("aria-label=\"Next image\"");
   });
+
+  test("renders consistent feedback for upload and delete states", () => {
+    const markup = renderToStaticMarkup(
+      <ImageUploadGallery
+        images={images}
+        onImagesChange={() => undefined}
+        label="Receipt images"
+        uploading
+        deletingImageId="one"
+        error="Upload failed."
+      />
+    );
+
+    expect(markup).toContain("Uploading...");
+    expect(markup).toContain("Upload failed.");
+    expect(markup).toContain("disabled=\"\"");
+    expect(markup).toContain("Removing...");
+  });
 });

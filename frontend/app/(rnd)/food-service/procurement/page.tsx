@@ -420,6 +420,9 @@ function PurchaseEventDetailView({ po, onBack, reload }: { po: PurchaseOrder; on
   const [groupId, setGroupId] = useState<number | null>(null);
   const [orDraft, setOrDraft] = useState("");
   const [busy, setBusy] = useState(false);
+  const [uploadingKey, setUploadingKey] = useState<string | null>(null);
+  const [deletingImageId, setDeletingImageId] = useState<string | null>(null);
+  const [imageError, setImageError] = useState<string | null>(null);
   const group = po.vendor_groups?.find((g) => g.id === groupId) ?? null;
   const locked = po.lifecycle_status !== "open_execution";
 
@@ -433,20 +436,30 @@ function PurchaseEventDetailView({ po, onBack, reload }: { po: PurchaseOrder; on
   }
   async function uploadGroupFiles(type: "receipt" | "proof", files: File[]) {
     if (!group || files.length === 0) return;
-    setBusy(true);
-    try { await uploadVendorGroupAttachments(group.id, files, type); reload(); }
-    finally { setBusy(false); }
+    setUploadingKey(`${group.id}:${type}`);
+    setImageError(null);
+    try {
+      await uploadVendorGroupAttachments(group.id, files, type);
+      reload();
+    } catch (e) {
+      setImageError(e instanceof Error ? e.message : "Upload failed.");
+    } finally {
+      setUploadingKey(null);
+    }
   }
   async function syncImages(type: "receipt" | "proof", next: UploadImage[]) {
     if (!group) return;
     const keep = new Set(next.map((image) => image.id));
     const removed = (group.attachments ?? []).filter((a) => a.type === type && !keep.has(String(a.id)));
     if (removed.length === 0) return;
-    setBusy(true);
+    setDeletingImageId(String(removed[0].id));
+    setImageError(null);
     try {
       await Promise.all(removed.map((a) => deleteAttachment(a.id)));
       reload();
-    } finally { setBusy(false); }
+    } catch (e) {
+      setImageError(e instanceof Error ? e.message : "Delete failed.");
+    } finally { setDeletingImageId(null); }
   }
 
   if (group) {
@@ -467,14 +480,13 @@ function PurchaseEventDetailView({ po, onBack, reload }: { po: PurchaseOrder; on
           </div>
         </div>
 
-        <div className="bg-white border border-zinc-200 rounded-2xl p-5 shadow-sm grid grid-cols-1 md:grid-cols-[1fr_auto_auto] gap-3 items-end">
+        <div className="bg-white border border-zinc-200 rounded-2xl p-5 shadow-sm grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3 items-end">
           <label className="block">
             <span className="block text-[10px] font-extrabold text-zinc-500 uppercase tracking-wider mb-1">OR number</span>
             <input value={orDraft} onChange={(e) => setOrDraft(e.target.value)} disabled={locked}
               className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:bg-zinc-50 disabled:text-zinc-400" />
           </label>
           <Button variant="ghost" onClick={() => saveGroup({ or_number: orDraft || null })} loading={busy} disabled={locked} className="px-4 py-2">Save</Button>
-          <Button variant="ghost" onClick={() => saveGroup({ status: "received" })} loading={busy} disabled={locked || group.status === "received"} className="px-4 py-2">Mark received</Button>
         </div>
 
         <div className="bg-white border border-zinc-200 rounded-2xl shadow-sm overflow-x-auto">
@@ -502,17 +514,25 @@ function PurchaseEventDetailView({ po, onBack, reload }: { po: PurchaseOrder; on
           <div className="bg-white border border-zinc-200 rounded-2xl p-5 shadow-sm">
             <ImageUploadGallery
               images={attachmentImages(group.attachments, "receipt")}
-              onImagesChange={(images) => { void syncImages("receipt", images); }}
+              onImagesChange={(images) => syncImages("receipt", images)}
               onFilesSelected={(files) => uploadGroupFiles("receipt", files)}
               label="Receipt images" emptyText="No receipt images yet."
+              uploading={uploadingKey === `${group.id}:receipt`}
+              deletingImageId={deletingImageId}
+              error={imageError}
+              disabled={locked}
             />
           </div>
           <div className="bg-white border border-zinc-200 rounded-2xl p-5 shadow-sm">
             <ImageUploadGallery
               images={attachmentImages(group.attachments, "proof")}
-              onImagesChange={(images) => { void syncImages("proof", images); }}
+              onImagesChange={(images) => syncImages("proof", images)}
               onFilesSelected={(files) => uploadGroupFiles("proof", files)}
               label="Proof of purchase" emptyText="No proof photos yet."
+              uploading={uploadingKey === `${group.id}:proof`}
+              deletingImageId={deletingImageId}
+              error={imageError}
+              disabled={locked}
             />
           </div>
         </div>
@@ -542,6 +562,28 @@ function PurchaseEventDetailView({ po, onBack, reload }: { po: PurchaseOrder; on
           </div>
         )}
       </div>
+      {po.served_population_progress && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="bg-white border border-zinc-200 rounded-xl p-4">
+            <div className="text-[10px] font-extrabold text-zinc-500 uppercase tracking-wider">Served days</div>
+            <div className="text-lg font-extrabold text-zinc-900">
+              {po.served_population_progress.done} / {po.served_population_progress.expected}
+            </div>
+          </div>
+          <div className="bg-white border border-zinc-200 rounded-xl p-4">
+            <div className="text-[10px] font-extrabold text-zinc-500 uppercase tracking-wider">Total served population</div>
+            <div className="text-lg font-extrabold text-zinc-900">{po.served_population_progress.served}</div>
+          </div>
+          <div className="bg-white border border-zinc-200 rounded-xl p-4">
+            <div className="text-[10px] font-extrabold text-zinc-500 uppercase tracking-wider">Completion gate</div>
+            <div className="text-xs font-semibold text-zinc-600">
+              {po.lifecycle_status === "completed"
+                ? "Receipts and served population complete"
+                : "Needs receipts and all span served populations"}
+            </div>
+          </div>
+        </div>
+      )}
       <div className="bg-white border border-zinc-200 rounded-2xl shadow-sm overflow-x-auto">
         <table className="w-full text-xs">
           <thead className="bg-zinc-50 border-b border-zinc-100">

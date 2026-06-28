@@ -10,11 +10,13 @@ import {
   Save,
   ShoppingBag,
   Trash2,
+  X,
 } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Image,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -120,6 +122,11 @@ function attachmentName(att: PurchaseOrderAttachment): string {
   return att.caption || att.path.split('/').pop() || `${att.type} image`;
 }
 
+function attachmentUrl(att: PurchaseOrderAttachment): string {
+  const baseUrl = (process.env.EXPO_PUBLIC_API_URL ?? '').replace(/\/+$/, '').replace(/\/api$/, '');
+  return `${baseUrl}/storage/${att.path}`;
+}
+
 interface UploadModalProps {
   group: VendorGroup | null;
   visible: boolean;
@@ -134,10 +141,12 @@ function UploadAttachmentModal({ group, visible, type, onChangeType, onClose }: 
   const [error, setError] = useState<string | null>(null);
 
   const uploadMutation = useMutation({
-    mutationFn: async (file: { uri: string; name: string; type: string }) => {
+    mutationFn: async (files: { uri: string; name: string; type: string }[]) => {
       const formData = new FormData();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      formData.append('file', { uri: file.uri, name: file.name, type: file.type } as any);
+      files.forEach((file) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        formData.append(files.length === 1 ? 'file' : 'files[]', { uri: file.uri, name: file.name, type: file.type } as any);
+      });
       formData.append('type', type);
       if (caption.trim()) formData.append('caption', caption.trim());
       const res = await api.post(
@@ -163,7 +172,7 @@ function UploadAttachmentModal({ group, visible, type, onChangeType, onClose }: 
   const pickWithPermission = useCallback(
     async (source: 'library' | 'camera') => {
       setError(null);
-      let asset: ImagePicker.ImagePickerAsset | null = null;
+      let assets: ImagePicker.ImagePickerAsset[] = [];
 
       if (source === 'library') {
         const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -175,9 +184,10 @@ function UploadAttachmentModal({ group, visible, type, onChangeType, onClose }: 
           mediaTypes: 'images',
           quality: 0.85,
           allowsEditing: false,
+          allowsMultipleSelection: true,
         });
         if (result.canceled || !result.assets?.length) return;
-        asset = result.assets[0];
+        assets = result.assets;
       } else {
         const perm = await ImagePicker.requestCameraPermissionsAsync();
         if (!perm.granted) {
@@ -190,13 +200,15 @@ function UploadAttachmentModal({ group, visible, type, onChangeType, onClose }: 
           allowsEditing: false,
         });
         if (result.canceled || !result.assets?.length) return;
-        asset = result.assets[0];
+        assets = result.assets;
       }
 
-      const uri = asset.uri;
-      const ext = uri.split('.').pop() ?? 'jpg';
-      const mimeType = asset.mimeType ?? `image/${ext === 'png' ? 'png' : 'jpeg'}`;
-      uploadMutation.mutate({ uri, name: `${type}_${Date.now()}.${ext}`, type: mimeType });
+      uploadMutation.mutate(assets.map((asset, index) => {
+        const uri = asset.uri;
+        const ext = uri.split('.').pop() ?? 'jpg';
+        const mimeType = asset.mimeType ?? `image/${ext === 'png' ? 'png' : 'jpeg'}`;
+        return { uri, name: `${type}_${Date.now()}_${index}.${ext}`, type: mimeType };
+      }));
     },
     [type, uploadMutation],
   );
@@ -328,6 +340,7 @@ function AttachmentList({
 }) {
   const qc = useQueryClient();
   const attachments = (group.attachments ?? []).filter((att) => att.type === type);
+  const [viewing, setViewing] = useState<PurchaseOrderAttachment | null>(null);
 
   const deleteMutation = useMutation({
     mutationFn: async (attachmentId: number) => {
@@ -382,12 +395,24 @@ function AttachmentList({
             key={att.id}
             className={`flex-row items-center px-4 py-3 ${idx < attachments.length - 1 ? 'border-b border-gray-100' : ''}`}
           >
+            <TouchableOpacity
+              onPress={() => setViewing(att)}
+              className="w-14 h-14 rounded-lg bg-gray-50 border border-gray-100 overflow-hidden mr-3"
+              accessibilityRole="imagebutton"
+              accessibilityLabel={`View ${attachmentName(att)}`}
+            >
+              <Image
+                source={{ uri: attachmentUrl(att) }}
+                className="w-full h-full"
+                resizeMode="cover"
+              />
+            </TouchableOpacity>
             <View className="flex-1 pr-3">
               <Text className="text-sm font-medium text-gray-800" numberOfLines={1}>
                 {attachmentName(att)}
               </Text>
-              <Text className="text-xs text-gray-400" numberOfLines={1}>
-                {att.path}
+              <Text className="text-xs text-emerald-700 font-semibold" numberOfLines={1}>
+                Tap image to view
               </Text>
             </View>
             {!locked && (
@@ -406,6 +431,31 @@ function AttachmentList({
           </View>
         ))
       )}
+      <Modal visible={viewing !== null} transparent animationType="fade" onRequestClose={() => setViewing(null)}>
+        <Pressable className="flex-1 bg-black/90 justify-center px-4" onPress={() => setViewing(null)}>
+          {viewing && (
+            <Pressable onPress={(event) => event.stopPropagation()}>
+              <View className="mb-3 flex-row items-center justify-between">
+                <Text className="text-white text-sm font-semibold flex-1 pr-4" numberOfLines={1}>
+                  {attachmentName(viewing)}
+                </Text>
+                <TouchableOpacity
+                  onPress={() => setViewing(null)}
+                  className="w-10 h-10 rounded-full bg-white/15 items-center justify-center"
+                  accessibilityLabel="Close image preview"
+                >
+                  <X color="#fff" size={18} />
+                </TouchableOpacity>
+              </View>
+              <Image
+                source={{ uri: attachmentUrl(viewing) }}
+                className="w-full h-[520px] rounded-xl"
+                resizeMode="contain"
+              />
+            </Pressable>
+          )}
+        </Pressable>
+      </Modal>
     </View>
   );
 }

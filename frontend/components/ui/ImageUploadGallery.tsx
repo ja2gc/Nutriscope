@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Upload, X } from "lucide-react";
 
 export type UploadImage = {
   id: string;
@@ -96,12 +96,20 @@ export function ImageUploadGallery({
   onFilesSelected,
   label = "Images",
   emptyText = "Image preview appears here after upload.",
+  uploading = false,
+  deletingImageId = null,
+  error = null,
+  disabled = false,
 }: {
   images: UploadImage[];
-  onImagesChange: (images: UploadImage[]) => void;
+  onImagesChange: (images: UploadImage[]) => void | Promise<void>;
   onFilesSelected?: (files: File[]) => void | Promise<void>;
   label?: string;
   emptyText?: string;
+  uploading?: boolean;
+  deletingImageId?: string | null;
+  error?: string | null;
+  disabled?: boolean;
 }) {
   const [activeIndex, setActiveIndex] = useState(0);
   const activeImage = images[Math.min(activeIndex, Math.max(images.length - 1, 0))] ?? null;
@@ -111,16 +119,22 @@ export function ImageUploadGallery({
 
   async function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(event.target.files ?? []);
-    const nextImages = await readImages(files);
-    onImagesChange([...images, ...nextImages]);
-    await onFilesSelected?.(files);
-    setActiveIndex(images.length);
-    event.target.value = "";
+    try {
+      if (onFilesSelected) {
+        await onFilesSelected(files);
+      } else {
+        const nextImages = await readImages(files);
+        await onImagesChange([...images, ...nextImages]);
+        setActiveIndex(images.length);
+      }
+    } finally {
+      event.target.value = "";
+    }
   }
 
-  function removeImage(index: number) {
+  async function removeImage(index: number) {
     const nextImages = images.filter((_, imageIndex) => imageIndex !== index);
-    onImagesChange(nextImages);
+    await onImagesChange(nextImages);
     setActiveIndex((current) => Math.max(0, Math.min(current, nextImages.length - 1)));
   }
 
@@ -139,9 +153,27 @@ export function ImageUploadGallery({
         type="file"
         accept="image/*"
         multiple
+        disabled={disabled || uploading}
         onChange={(event) => { void handleFileChange(event); }}
-        className="block w-full text-xs text-zinc-600 file:mr-3 file:px-3 file:py-2 file:rounded-lg file:border-0 file:bg-zinc-950 file:text-white file:text-[10px] file:font-bold file:uppercase file:tracking-wider"
+        className="sr-only"
       />
+      <label
+        htmlFor={disabled || uploading ? undefined : inputId}
+        aria-disabled={disabled || uploading}
+        className={`inline-flex min-h-9 w-full items-center justify-center gap-2 rounded-lg border px-3 py-2 text-[10px] font-bold uppercase tracking-wider transition-colors ${
+          disabled || uploading
+            ? "cursor-not-allowed border-zinc-200 bg-zinc-100 text-zinc-400"
+            : "cursor-pointer border-zinc-950 bg-zinc-950 text-white hover:bg-zinc-800"
+        }`}
+      >
+        <Upload className="h-3.5 w-3.5" />
+        {uploading ? "Uploading..." : "Upload image"}
+      </label>
+      {error && (
+        <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[11px] font-semibold text-rose-700">
+          {error}
+        </div>
+      )}
 
       {activeImage ? (
         <div className="relative overflow-hidden rounded-lg border border-zinc-200 bg-white">
@@ -150,9 +182,10 @@ export function ImageUploadGallery({
             type="button"
             aria-label={`Remove ${activeImage.name}`}
             onClick={() => removeImage(activeIndex)}
-            className="absolute right-2 top-2 inline-flex h-7 w-7 items-center justify-center rounded-full bg-zinc-950/80 text-white hover:bg-zinc-900"
+            disabled={disabled || deletingImageId === activeImage.id}
+            className="absolute right-2 top-2 inline-flex h-7 min-w-7 items-center justify-center rounded-full bg-zinc-950/80 px-2 text-white hover:bg-zinc-900 disabled:cursor-wait disabled:opacity-70"
           >
-            <X className="h-4 w-4" />
+            {deletingImageId === activeImage.id ? <span className="text-[10px] font-bold">Removing...</span> : <X className="h-4 w-4" />}
           </button>
 
           {hasMany && (
