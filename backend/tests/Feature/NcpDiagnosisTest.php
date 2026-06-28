@@ -243,6 +243,50 @@ class NcpDiagnosisTest extends TestCase
             ->assertJsonValidationErrors(['problem']);
     }
 
+    public function test_cannot_delete_last_diagnosis_from_active_ncp(): void
+    {
+        $rnd     = $this->rnd();
+        $patient = $this->patient();
+        $ncp     = $this->ncpRecord($patient, $rnd);
+        $ncp->update(['status' => 'active']);
+
+        $diagnosis = Diagnosis::forceCreate([
+            'ncp_record_id' => $ncp->id, 'domain' => 'NI',
+            'problem' => 'Inadequate intake', 'etiology' => 'cause',
+            'signs_symptoms' => 'signs', 'pes_statement' => 'PES',
+        ]);
+
+        $this->actingAs($rnd, 'sanctum')
+            ->deleteJson("/api/rnd/ncp-records/{$ncp->id}/diagnoses/{$diagnosis->id}")
+            ->assertStatus(422);
+
+        $this->assertDatabaseHas('diagnoses', ['id' => $diagnosis->id]);
+    }
+
+    public function test_can_delete_non_last_diagnosis_from_active_ncp(): void
+    {
+        $rnd     = $this->rnd();
+        $patient = $this->patient();
+        $ncp     = $this->ncpRecord($patient, $rnd);
+        $ncp->update(['status' => 'active']);
+
+        $keep = Diagnosis::forceCreate([
+            'ncp_record_id' => $ncp->id, 'domain' => 'NI',
+            'problem' => 'Keep', 'etiology' => 'c', 'signs_symptoms' => 's', 'pes_statement' => 'P',
+        ]);
+        $drop = Diagnosis::forceCreate([
+            'ncp_record_id' => $ncp->id, 'domain' => 'NC',
+            'problem' => 'Drop', 'etiology' => 'c', 'signs_symptoms' => 's', 'pes_statement' => 'P',
+        ]);
+
+        $this->actingAs($rnd, 'sanctum')
+            ->deleteJson("/api/rnd/ncp-records/{$ncp->id}/diagnoses/{$drop->id}")
+            ->assertNoContent();
+
+        $this->assertModelMissing($drop);
+        $this->assertDatabaseHas('diagnoses', ['id' => $keep->id]);
+    }
+
     public function test_rnd_can_delete_diagnosis(): void
     {
         $rnd     = $this->rnd();
