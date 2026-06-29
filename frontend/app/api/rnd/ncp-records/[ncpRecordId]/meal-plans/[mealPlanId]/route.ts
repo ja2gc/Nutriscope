@@ -1,36 +1,29 @@
-import { cookies } from 'next/headers';
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from "next/server";
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
+import { proxy } from "@/lib/laravelProxy";
+
 type Ctx = { params: Promise<{ ncpRecordId: string; mealPlanId: string }> };
 
-async function proxy(req: NextRequest, path: string) {
-  const store = await cookies();
-  const token = store.get('nutriscope_token')?.value;
-  const hasBody = req.method !== 'GET' && req.method !== 'DELETE';
-  const res = await fetch(`${API}/api/rnd/${path}`, {
-    method: req.method,
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    body: hasBody ? await req.text() : undefined,
-  });
-  if (res.status === 204) return new NextResponse(null, { status: 204 });
-  const data = await res.json().catch(() => null);
-  return NextResponse.json(data, { status: res.status });
+export async function GET(_req: NextRequest, { params }: Ctx) {
+  const { ncpRecordId, mealPlanId } = await params;
+
+  return proxy(`/rnd/ncp-records/${ncpRecordId}/meal-plans/${mealPlanId}`);
 }
 
-export async function GET(req: NextRequest, { params }: Ctx) {
-  const { ncpRecordId, mealPlanId } = await params;
-  return proxy(req, `ncp-records/${ncpRecordId}/meal-plans/${mealPlanId}`);
-}
 export async function PATCH(req: NextRequest, { params }: Ctx) {
   const { ncpRecordId, mealPlanId } = await params;
-  return proxy(req, `ncp-records/${ncpRecordId}/meal-plans/${mealPlanId}`);
+  const body = await req.json().catch(() => ({}));
+
+  return proxy(`/rnd/ncp-records/${ncpRecordId}/meal-plans/${mealPlanId}`, {
+    method: "PATCH",
+    body,
+  });
 }
-export async function DELETE(req: NextRequest, { params }: Ctx) {
+
+export async function DELETE(_req: NextRequest, { params }: Ctx) {
   const { ncpRecordId, mealPlanId } = await params;
-  return proxy(req, `ncp-records/${ncpRecordId}/meal-plans/${mealPlanId}`);
+
+  return proxy(`/rnd/ncp-records/${ncpRecordId}/meal-plans/${mealPlanId}`, {
+    method: "DELETE",
+  });
 }
