@@ -5,7 +5,7 @@ import Link from "next/link";
 import {
   ClipboardCheck, Utensils, Ruler, UserRound, FlaskConical,
   FileText, Sparkles, Save, Upload, AlertTriangle,
-  ChevronRight, Activity, Heart, Paperclip, Trash2, Download, Eye, X,
+  ChevronRight, Activity, Paperclip, Trash2, Download, Eye, X,
   Shield, Scale,
 } from "lucide-react";
 import { fetchPatientById, Patient, updatePatient, PatientUpdateData } from "@/services/patientService";
@@ -21,6 +21,7 @@ import {
 } from "@/services/assessmentService";
 import { coerceBiochemicalValue } from "@/services/biochemical";
 import { deriveRiskScore, RISK_FACTORS, scoreRiskFactors } from "@/lib/assessmentRiskScoring";
+import NcpPatientHeader from "../../../_components/NcpPatientHeader";
 
 // ─── Constants ───────────────────────────────────────────────────────────
 const COMMON_ALLERGENS = ["milk", "eggs", "fish", "shellfish", "tree nuts", "peanuts", "wheat", "soybeans"];
@@ -1616,28 +1617,16 @@ export default function NcpAssessmentPage({
         <span className="text-warm-700 font-bold">Assessment</span>
       </div>
 
-      {/* Persistent Patient Header */}
-      <div className="bg-white border border-warm-200 rounded-xl px-5 py-3.5 shadow-sm">
-        <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
-          <div className="flex items-center gap-2.5">
-            <div className="h-8 w-8 bg-emerald-50 border border-emerald-100 rounded-lg flex items-center justify-center text-emerald-700">
-              <Heart className="h-4 w-4" />
-            </div>
-            <div>
-              <h2 className="text-sm font-extrabold text-warm-900 tracking-tight">{patient?.name ?? "Loading..."}</h2>
-              <p className="text-[10px] font-mono text-warm-400">{systemId}</p>
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-3 text-[10px]">
-            {patient?.ward && (
-              <span className="px-2 py-0.5 bg-warm-100 text-warm-700 rounded font-bold">Ward: {patient.ward}</span>
-            )}
-            {patient?.medical_diagnosis && (
-              <span className="px-2 py-0.5 bg-sky-50 text-sky-700 border border-sky-100 rounded font-bold">Dx: {patient.medical_diagnosis}</span>
-            )}
+      <NcpPatientHeader
+        patient={patient}
+        patientId={patientId}
+        ncpId={ncpId}
+        stepLabel="Assessment"
+        badges={
+          <>
             {allergies.length > 0 && allergies.map((a, i) => (
               <span key={i} className="px-2 py-0.5 bg-red-50 text-red-700 border border-red-100 rounded font-extrabold uppercase tracking-wider">
-                ⚠ {a}
+                ! {a}
               </span>
             ))}
             {riskScore > 0 && (
@@ -1645,9 +1634,9 @@ export default function NcpAssessmentPage({
                 Risk: {riskInfo.label}
               </span>
             )}
-          </div>
-        </div>
-      </div>
+          </>
+        }
+      />
 
       {/* Status Messages */}
       {error && (

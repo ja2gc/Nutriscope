@@ -2,6 +2,7 @@
 
 import React, { use, useEffect, useState, useCallback } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Salad, User, Settings2, CheckCircle2, Lock } from "lucide-react";
 import {
   fetchIntervention, createIntervention, updateIntervention, autofillIntervention,
@@ -9,7 +10,7 @@ import {
 } from "@/services/interventionService";
 import { EDUCATION_TEMPLATES } from "@/lib/educationTemplates";
 import { fetchAssessment } from "@/services/assessmentService";
-import { fetchPatientById } from "@/services/patientService";
+import { fetchPatientById, type Patient } from "@/services/patientService";
 import { fetchDiagnoses } from "@/services/diagnosisService";
 import {
   autofillPrescription, GOAL_MICRO_FLAGS, Prescription, PatientMetrics, ACTIVITY_FACTORS, microKeys,
@@ -28,6 +29,7 @@ import CounselingTab from "./_components/CounselingTab";
 import GoalPlanningTab from "./_components/GoalPlanningTab";
 import EncounterContextTab from "./_components/EncounterContextTab";
 import MealPlanSection from "./_components/MealPlanSection";
+import NcpPatientHeader from "../../../_components/NcpPatientHeader";
 
 type Tab = "nd" | "education" | "counseling" | "goals" | "encounter";
 type PageParams = { patientId: string; ncpId: string };
@@ -82,10 +84,12 @@ function interventionToForm(iv: Intervention): PrescriptionForm {
 
 export default function InterventionPage({ params }: { params: Promise<PageParams> }) {
   const { patientId, ncpId } = use(params);
+  const router = useRouter();
   const isPlaceholder = patientId === "select-patient" || ncpId === "select-ncp";
 
   const [tab, setTab]                           = useState<Tab>("nd");
   const [intervention, setIntervention]         = useState<Intervention | null>(null);
+  const [patient, setPatient]                   = useState<Patient | null>(null);
   const [loading, setLoading]                   = useState(true);
   const [goalModalOpen, setGoalModalOpen]       = useState(false);
   const [prescription, setPrescription]         = useState<PrescriptionForm>(emptyPrescriptionForm());
@@ -141,15 +145,16 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
   const loadMetrics = useCallback(async () => {
     setWorkflowLoading(true);
     try {
-      const [assessment, patient, diagnoses] = await Promise.allSettled([
+      const [assessment, patientData, diagnoses] = await Promise.allSettled([
         fetchAssessment(ncpId),
         fetchPatientById(patientId),
         fetchDiagnoses(ncpId),
       ]);
 
       const a = assessment.status === "fulfilled" ? assessment.value : null;
-      const p = patient.status === "fulfilled" ? patient.value : null;
+      const p = patientData.status === "fulfilled" ? patientData.value : null;
       const hasDiagnosis = diagnoses.status === "fulfilled" && diagnoses.value.length > 0;
+      if (p) setPatient(p);
 
       if (!a) {
         setWorkflowBlock("Save the assessment before starting intervention.");
@@ -204,6 +209,11 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
       loadMetrics();
     }
   }, [isPlaceholder, loadIntervention, loadMetrics]);
+
+  const handleChangePatient = () => {
+    if (dirty && !window.confirm("You have unsaved changes. Leave without saving?")) return;
+    router.push("/ncp/patients");
+  };
 
   /**
    * Ensure an Intervention row exists in the DB for this NCP record.
@@ -383,6 +393,13 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
           <span className="text-warm-300">/</span>
           <span className="text-warm-600 font-bold">Intervention</span>
         </div>
+        <NcpPatientHeader
+          patient={patient}
+          patientId={patientId}
+          ncpId={ncpId}
+          stepLabel="Intervention"
+          onChangePatientClick={handleChangePatient}
+        />
         <div className="bg-white border border-warm-200 rounded-2xl p-12 text-center max-w-2xl mx-auto shadow-sm">
           <div className="p-3.5 bg-warm-50 border border-warm-200 rounded-2xl w-fit mx-auto text-warm-400">
             <Lock className="h-8 w-8" />
@@ -412,6 +429,13 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
           <span className="text-warm-300">/</span>
           <span className="font-bold text-zinc-650">Nutrition Intervention</span>
         </div>
+        <NcpPatientHeader
+          patient={patient}
+          patientId={patientId}
+          ncpId={ncpId}
+          stepLabel="Intervention"
+          onChangePatientClick={handleChangePatient}
+        />
         <div className="border-b border-warm-200 pb-4">
           <h2 className="text-xl font-extrabold text-warm-900 tracking-tight flex items-center gap-2.5">
             <Salad className="h-5 w-5 text-emerald-600" />

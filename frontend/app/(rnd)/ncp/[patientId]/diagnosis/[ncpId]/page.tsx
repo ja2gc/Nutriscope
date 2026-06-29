@@ -3,7 +3,7 @@
 import React, { use, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import {
-  Stethoscope, Sparkles, User, ChevronRight, Heart,
+  Stethoscope, Sparkles, User, ChevronRight,
   Plus, Trash2, Pencil, AlertTriangle, CheckCircle2,
   RefreshCw, X, CheckCheck, Lock,
 } from "lucide-react";
@@ -17,6 +17,7 @@ import {
 import { fetchAssessment } from "@/services/assessmentService";
 import { buildDiagnosisProblemText } from "@/lib/diagnosisBuilder";
 import { matchStoredOption, splitStoredComponent } from "@/lib/diagnosisComponentSplit";
+import NcpPatientHeader from "../../../_components/NcpPatientHeader";
 
 // ─── Domain Metadata ─────────────────────────────────────────────────────────
 
@@ -1076,33 +1077,17 @@ export default function NcpDiagnosisPage({
         <span className="text-warm-700 font-bold">Diagnosis</span>
       </div>
 
-      {/* Patient Header */}
-      <div className="bg-white border border-warm-200 rounded-xl px-5 py-3.5 shadow-sm">
-        <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
-          <div className="flex items-center gap-2.5">
-            <div className="h-8 w-8 bg-emerald-50 border border-emerald-100 rounded-lg flex items-center justify-center text-emerald-700">
-              <Heart className="h-4 w-4" />
-            </div>
-            <div>
-              <h2 className="text-sm font-extrabold text-warm-900 tracking-tight">{patient?.name ?? "Loading..."}</h2>
-              <p className="text-[10px] font-mono text-warm-400">{systemId}</p>
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-3 text-[10px]">
-            {patient?.ward && (
-              <span className="px-2 py-0.5 bg-warm-100 text-warm-700 rounded font-bold">Ward: {patient.ward}</span>
-            )}
-            {patient?.medical_diagnosis && (
-              <span className="px-2 py-0.5 bg-sky-50 text-sky-700 border border-sky-100 rounded font-bold">
-                Dx: {patient.medical_diagnosis}
-              </span>
-            )}
-            <span className="px-2 py-0.5 bg-stethoscope-50 text-warm-500 rounded font-bold">
-              {diagnoses.length} {diagnoses.length !== 1 ? "diagnoses" : "diagnosis"} recorded
-            </span>
-          </div>
-        </div>
-      </div>
+      <NcpPatientHeader
+        patient={patient}
+        patientId={patientId}
+        ncpId={ncpId}
+        stepLabel="Diagnosis"
+        badges={
+          <span className="px-2 py-0.5 bg-stethoscope-50 text-warm-500 rounded font-bold">
+            {diagnoses.length} {diagnoses.length !== 1 ? "diagnoses" : "diagnosis"} recorded
+          </span>
+        }
+      />
 
       {/* Status Messages */}
       {error && (
