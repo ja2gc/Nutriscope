@@ -84,6 +84,9 @@ class StoreAssessmentRequest extends FormRequest
             'biochemical_data.bp'         => ['nullable', 'string', 'max:255'],
             'biochemical_data.abg'        => ['nullable', 'string', 'max:255'],
             'biochemical_data.others'     => ['nullable', 'array'],
+            'risk_score_manual_override'  => ['nullable', 'boolean'],
+            'risk_score_manual_factors'   => ['nullable', 'array'],
+            'risk_score_manual_factors.*' => ['string', 'in:screening_criteria,ibw_limit,unintentional_weight_loss,mechanical_digestive_problem,low_albumin,significant_lab_result,others'],
         ];
     }
 

@@ -89,6 +89,8 @@ class RiskScoreCalculatorTest extends TestCase
     {
         $assessment = $this->createAssessment([
             'ibw_percentage' => 140.0, // Checked (> 130%) -> 1 point
+            'usual_weight' => 70.0,
+            'weight' => 63.0,
             'weight_loss_percentage' => 10.0, // Checked (> 0%) -> 2 points
             'chewing_swallowing_difficulties' => 'Needs soft diet', // Checked -> 1 point
         ], [
@@ -101,6 +103,21 @@ class RiskScoreCalculatorTest extends TestCase
         // 1 point (screening_type) + 1 point (IBW) + 2 points (weight loss) + 1 point (mechanical) + 1 point (low albumin) = 6 points
         $this->assertEquals(6.0, $result['score']);
         $this->assertEquals('Severe Malnutrition', $result['nutritional_status']);
+    }
+
+    public function test_weight_gain_percentage_does_not_score_as_unintentional_weight_loss(): void
+    {
+        $assessment = $this->createAssessment([
+            'usual_weight' => 70.0,
+            'weight' => 73.5,
+            'ibw_percentage' => 100.0,
+            'weight_loss_percentage' => 5.0,
+        ]);
+
+        $result = app(RiskScoreCalculator::class)->calculate($assessment);
+
+        $this->assertEquals(1.0, $result['score']);
+        $this->assertNotContains('unintentional_weight_loss', $result['checked_factors']);
     }
 
     public function test_significant_lab_creatinine_is_sex_aware(): void

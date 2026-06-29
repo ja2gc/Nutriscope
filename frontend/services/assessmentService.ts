@@ -52,6 +52,10 @@ export interface Assessment {
   pregnancy_lactation_status: "none" | "pregnant" | "lactating" | null;
   risk_score?: number | null;
   checked_factors?: string[] | null;
+  risk_score_manual_override?: boolean | null;
+  risk_score_manual_factors?: string[] | null;
+  computed_risk_score?: number | null;
+  computed_checked_factors?: string[] | null;
   created_at?: string;
   updated_at?: string;
   biochemical_data?: {

@@ -10,6 +10,7 @@ use App\Http\Resources\ScreeningDocumentResource;
 use App\Models\Assessment;
 use App\Models\NcpRecord;
 use App\Models\ScreeningDocument;
+use App\Services\RiskScoreCalculator;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 
@@ -26,7 +27,9 @@ class AssessmentController extends Controller
 
         $data = $request->validated();
         $biochemicalData = $data['biochemical_data'] ?? null;
-        unset($data['biochemical_data']);
+        $manualOverride = (bool) ($data['risk_score_manual_override'] ?? false);
+        $manualFactors = $data['risk_score_manual_factors'] ?? [];
+        unset($data['biochemical_data'], $data['risk_score_manual_override'], $data['risk_score_manual_factors']);
 
         $assessment = new Assessment($data);
         $assessment->ncp_record_id = $ncpRecord->id;
@@ -38,12 +41,7 @@ class AssessmentController extends Controller
             $assessment->load('biochemicalData');
         }
 
-        // Calculate and save risk score
-        $calculator = resolve(\App\Services\RiskScoreCalculator::class);
-        $riskResult = $calculator->calculate($assessment);
-
-        $assessment->update(['nutritional_status' => $riskResult['nutritional_status']]);
-        $ncpRecord->update(['risk_score' => $riskResult['score']]);
+        $this->saveRiskScore($ncpRecord, $assessment, $manualOverride, $manualFactors);
 
         return (new AssessmentResource($assessment->fresh()->load('biochemicalData')))->response()->setStatusCode(201);
     }
@@ -66,7 +64,13 @@ class AssessmentController extends Controller
         
         $data = $request->validated();
         $biochemicalData = $data['biochemical_data'] ?? null;
-        unset($data['biochemical_data']);
+        $manualOverride = array_key_exists('risk_score_manual_override', $data)
+            ? (bool) $data['risk_score_manual_override']
+            : (bool) $ncpRecord->risk_score_manual_override;
+        $manualFactors = array_key_exists('risk_score_manual_factors', $data)
+            ? $data['risk_score_manual_factors']
+            : ($ncpRecord->risk_score_manual_factors ?? []);
+        unset($data['biochemical_data'], $data['risk_score_manual_override'], $data['risk_score_manual_factors']);
 
         $assessment->fill($data);
         $assessment->bmi = $assessment->calculateBmi();
@@ -77,14 +81,40 @@ class AssessmentController extends Controller
             $assessment->load('biochemicalData');
         }
 
-        // Calculate and save risk score
-        $calculator = resolve(\App\Services\RiskScoreCalculator::class);
-        $riskResult = $calculator->calculate($assessment);
-
-        $assessment->update(['nutritional_status' => $riskResult['nutritional_status']]);
-        $ncpRecord->update(['risk_score' => $riskResult['score']]);
+        $this->saveRiskScore($ncpRecord, $assessment, $manualOverride, $manualFactors);
 
         return new AssessmentResource($assessment->fresh()->load('biochemicalData'));
+    }
+
+    /**
+     * @param array<int, string> $manualFactors
+     */
+    private function saveRiskScore(NcpRecord $ncpRecord, Assessment $assessment, bool $manualOverride, array $manualFactors): void
+    {
+        $calculator = resolve(RiskScoreCalculator::class);
+        $riskResult = $calculator->calculate($assessment);
+
+        if ($manualOverride) {
+            $factors = array_values(array_unique($manualFactors));
+            $score = RiskScoreCalculator::scoreFactors($factors);
+            $nutritionalStatus = RiskScoreCalculator::nutritionalStatusForScore($score);
+
+            $assessment->update(['nutritional_status' => $nutritionalStatus]);
+            $ncpRecord->update([
+                'risk_score' => $score,
+                'risk_score_manual_override' => true,
+                'risk_score_manual_factors' => $factors,
+            ]);
+
+            return;
+        }
+
+        $assessment->update(['nutritional_status' => $riskResult['nutritional_status']]);
+        $ncpRecord->update([
+            'risk_score' => $riskResult['score'],
+            'risk_score_manual_override' => false,
+            'risk_score_manual_factors' => null,
+        ]);
     }
 
     /**
@@ -147,4 +177,3 @@ class AssessmentController extends Controller
         return ScreeningDocumentResource::collection($docs)->response();
     }
 }
-

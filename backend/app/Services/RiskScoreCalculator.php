@@ -6,6 +6,16 @@ use App\Models\Assessment;
 
 class RiskScoreCalculator
 {
+    public const FACTOR_POINTS = [
+        'screening_criteria' => 1.0,
+        'ibw_limit' => 1.0,
+        'unintentional_weight_loss' => 2.0,
+        'mechanical_digestive_problem' => 1.0,
+        'low_albumin' => 1.0,
+        'significant_lab_result' => 1.0,
+        'others' => 1.0,
+    ];
+
     public function __construct(private LabFlagService $labFlags) {}
 
     public function calculate(Assessment $assessment): array
@@ -27,7 +37,15 @@ class RiskScoreCalculator
         }
 
         // 3. Unintentional weight loss = 2 points
+        $hasWeightLoss = false;
         if (!is_null($assessment->weight_loss_percentage) && $assessment->weight_loss_percentage > 0.0) {
+            $hasWeights = !is_null($assessment->usual_weight) && !is_null($assessment->weight);
+            $hasWeightLoss = $hasWeights
+                ? (float) $assessment->usual_weight > (float) $assessment->weight
+                : true;
+        }
+
+        if ($hasWeightLoss) {
             $score += 2.0;
             $checkedFactors[] = 'unintentional_weight_loss';
         }
@@ -82,17 +100,37 @@ class RiskScoreCalculator
         //   Total = 1 → Low Risk → Nutritional Status: Normal
         //   Total = 2 or 3 → Moderate → Nutritional Status: Moderate Malnutrition
         //   Total > 3 → High Risk → Nutritional Status: Severe Malnutrition
-        $nutritionalStatus = 'Normal';
-        if ($score === 2.0 || $score === 3.0) {
-            $nutritionalStatus = 'Moderate Malnutrition';
-        } elseif ($score > 3.0) {
-            $nutritionalStatus = 'Severe Malnutrition';
-        }
+        $nutritionalStatus = self::nutritionalStatusForScore($score);
 
         return [
             'score' => $score,
             'nutritional_status' => $nutritionalStatus,
             'checked_factors' => $checkedFactors,
         ];
+    }
+
+    /**
+     * @param array<int, string> $factors
+     */
+    public static function scoreFactors(array $factors): float
+    {
+        return array_reduce(
+            array_unique($factors),
+            fn (float $score, string $factor): float => $score + (self::FACTOR_POINTS[$factor] ?? 0.0),
+            0.0,
+        );
+    }
+
+    public static function nutritionalStatusForScore(float $score): string
+    {
+        if ($score === 2.0 || $score === 3.0) {
+            return 'Moderate Malnutrition';
+        }
+
+        if ($score > 3.0) {
+            return 'Severe Malnutrition';
+        }
+
+        return 'Normal';
     }
 }

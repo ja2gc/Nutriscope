@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { deriveRiskScore } from "./assessmentRiskScoring";
+import { deriveRiskScore, scoreRiskFactors } from "./assessmentRiskScoring";
 
 describe("deriveRiskScore", () => {
   test("reflects live assessment edits before save", () => {
@@ -34,5 +34,13 @@ describe("deriveRiskScore", () => {
 
     expect(result.checkedFactors).toEqual(["screening_criteria"]);
     expect(result.score).toBe(1);
+  });
+
+  test("scores manually selected risk factors", () => {
+    expect(scoreRiskFactors([
+      "screening_criteria",
+      "unintentional_weight_loss",
+      "others",
+    ])).toBe(4);
   });
 });

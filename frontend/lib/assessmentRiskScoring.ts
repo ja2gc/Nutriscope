@@ -55,6 +55,14 @@ export interface RiskScoreResult {
   score: number;
 }
 
+export function scoreRiskFactors(factors: string[]): number {
+  const uniqueFactors = Array.from(new Set(factors));
+  return uniqueFactors.reduce((score, factor) => {
+    const match = RISK_FACTORS.find((item) => item.key === factor);
+    return score + (match?.points ?? 0);
+  }, 0);
+}
+
 function toNumber(value: number | string | null | undefined): number | null {
   if (value === null || value === undefined || value === "") return null;
   const next = typeof value === "number" ? value : Number(value);
