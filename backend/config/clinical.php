@@ -37,4 +37,32 @@ return [
         'custom'           => [],
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Intervention goal_type -> allowed disease_stage values
+    |--------------------------------------------------------------------------
+    |
+    | Shared by FormRequests and the authoritative autofill endpoint. Unknown
+    | goals/stages must fail validation instead of falling through to generic
+    | maintenance math.
+    */
+
+    'intervention_goal_stages' => [
+        'renal_diet' => [
+            'stage_1', 'stage_2', 'stage_3', 'stage_4',
+            'stage_5_predialysis', 'hemodialysis', 'peritoneal',
+        ],
+        'diabetic_control' => ['stage_1', 'stage_2', 'stage_3'],
+        'cardiac_diet' => ['mild', 'moderate', 'severe'],
+        'weight_loss' => ['overweight', 'class_1', 'class_2', 'class_3'],
+        'weight_gain' => ['mild', 'moderate', 'severe'],
+        'high_protein' => ['mild_stress', 'moderate_stress', 'severe_stress', 'burns'],
+        'liver_disease' => [
+            'compensated', 'decompensated',
+            'encephalopathy_grade_1_2', 'encephalopathy_grade_3_4',
+        ],
+        'malnutrition' => ['moderate', 'severe'],
+        'custom' => [],
+    ],
+
 ];

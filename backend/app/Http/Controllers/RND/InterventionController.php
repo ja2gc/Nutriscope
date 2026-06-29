@@ -9,13 +9,18 @@ use App\Http\Resources\InterventionResource;
 use App\Models\Intervention;
 use App\Models\NcpRecord;
 use App\Services\ClinicalCompletenessService;
+use App\Services\LabFlagService;
 use App\Services\NutritionPrescriptionService;
+use App\Support\InterventionGoalCatalog;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class InterventionController extends Controller
 {
-    public function __construct(private ClinicalCompletenessService $completeness) {}
+    public function __construct(
+        private ClinicalCompletenessService $completeness,
+        private LabFlagService $labFlags,
+    ) {}
 
     /**
      * POST /api/rnd/ncp-records/{ncpRecord}/intervention/autofill
@@ -34,6 +39,17 @@ class InterventionController extends Controller
             return response()->json(['message' => 'goal_type is required.'], 422);
         }
 
+        if (! InterventionGoalCatalog::stageIsValid($goalType, $stage)) {
+            return response()->json([
+                'message' => 'Invalid intervention goal or disease stage.',
+                'calculation_status' => 'invalid_goal_stage',
+                'errors' => [
+                    'goal_type' => ['The selected intervention goal is invalid.'],
+                    'disease_stage' => ['The selected disease stage is invalid for the intervention goal.'],
+                ],
+            ], 422);
+        }
+
         $assessment = $ncpRecord->assessment()->first();
         $patient    = $ncpRecord->patient;
 
@@ -43,6 +59,11 @@ class InterventionController extends Controller
         }
         if (! $assessment || $assessment->height === null) {
             $missingFields[] = 'height';
+        }
+        if ($this->requiresActivityFactor($goalType, $stage)
+            && (! $assessment || $assessment->physical_activity_level === null || $assessment->physical_activity_level === '')
+        ) {
+            $missingFields[] = 'physical_activity_level';
         }
 
         if ($missingFields !== []) {
@@ -94,6 +115,12 @@ class InterventionController extends Controller
 
         if ($assessment->edema_present) {
             $rx['edema_warning'] = 'Weight may be unreliable due to edema. Verify anthropometrics before confirming prescription.';
+        }
+
+        $warnings = $this->safetyWarnings($goalType, $stage, $assessment, $patient?->sex);
+        $rx['calculation_status'] = $warnings === [] ? 'ok' : 'warning';
+        if ($warnings !== []) {
+            $rx['safety_warnings'] = $warnings;
         }
 
         return response()->json(['data' => $rx]);
@@ -182,8 +209,12 @@ class InterventionController extends Controller
         $conditions = $this->mapGoalTypeToConditions($intervention->goal_type ?? '');
         $stages     = $intervention->disease_stage ? [$intervention->disease_stage] : null;
 
+        $assessment = $ncpRecord->assessment()->with('biochemicalData')->first();
+        $labValues = $assessment?->biochemicalData?->toArray() ?? [];
+        $labFlags = $this->labFlags->flag($labValues, $ncpRecord->patient?->sex);
+
         $result = app(\App\Services\RecommendService::class)
-            ->getRecommendations($conditions, $stages);
+            ->getRecommendations($conditions, $stages, $labFlags);
 
         return response()->json(['data' => $result]);
     }
@@ -197,5 +228,50 @@ class InterventionController extends Controller
     private function mapGoalTypeToConditions(string $goalType): array
     {
         return config("clinical.goal_type_conditions.{$goalType}", []);
+    }
+
+    private function requiresActivityFactor(string $goalType, ?string $stage): bool
+    {
+        return match ($goalType) {
+            'diabetic_control', 'cardiac_diet', 'weight_loss', 'custom' => true,
+            'weight_gain' => $stage !== 'severe',
+            default => false,
+        };
+    }
+
+    /**
+     * Labs are optional, but if present they must surface risk-relevant warnings.
+     *
+     * @return array<int,array{key:string,severity:string,message:string}>
+     */
+    private function safetyWarnings(string $goalType, ?string $stage, $assessment, ?string $sex): array
+    {
+        if (! in_array($goalType, ['malnutrition', 'weight_gain'], true) || $stage !== 'severe') {
+            return [];
+        }
+
+        $assessment->loadMissing('biochemicalData');
+        $flags = $this->labFlags->flag($assessment->biochemicalData?->toArray() ?? [], $sex);
+        $messages = [
+            'potassium' => 'Potassium is out of range. Refeeding protocols require daily potassium monitoring for the first 72 hours.',
+            'phosphate' => 'Phosphate is out of range. Low phosphate increases refeeding syndrome risk; monitor daily for the first 72 hours.',
+            'magnesium' => 'Magnesium is out of range. Refeeding protocols require daily magnesium monitoring for the first 72 hours.',
+            'calcium' => 'Calcium is out of range. Review hydration, renal status, medications, and supplementation before advancing feeding.',
+        ];
+
+        $warnings = [];
+        foreach (['potassium', 'phosphate', 'magnesium', 'calcium'] as $key) {
+            if (! isset($flags[$key])) {
+                continue;
+            }
+
+            $warnings[] = [
+                'key' => strtolower($flags[$key]['status']).'_'.$key,
+                'severity' => 'warning',
+                'message' => $messages[$key],
+            ];
+        }
+
+        return $warnings;
     }
 }

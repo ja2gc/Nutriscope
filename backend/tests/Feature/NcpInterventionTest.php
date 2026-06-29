@@ -103,7 +103,7 @@ class NcpInterventionTest extends TestCase
             ->assertJsonPath('data.fat_g', 67)
             ->assertJsonPath('data.carbs_g', 396)
             ->assertJsonPath('data.fluid_ml', 2600)
-            ->assertJsonPath('data.sodium_max_mg', 2300);
+            ->assertJsonPath('data.sodium_max_mg', 2000);
     }
 
     public function test_autofill_requires_assessment_weight_height(): void
@@ -121,6 +121,80 @@ class NcpInterventionTest extends TestCase
             ->assertJsonPath('missing_fields', ['weight', 'height']);
     }
 
+    public function test_autofill_rejects_unknown_goal_type(): void
+    {
+        $rnd     = $this->rnd();
+        $patient = $this->patient();
+        $ncp     = $this->ncpRecord($patient, $rnd);
+
+        Assessment::forceCreate([
+            'ncp_record_id' => $ncp->id,
+            'weight'        => 70.0,
+            'height'        => 170.0,
+        ]);
+
+        $this->actingAs($rnd, 'sanctum')
+            ->postJson("/api/rnd/ncp-records/{$ncp->id}/intervention/autofill", [
+                'goal_type'     => 'bad_goal',
+                'disease_stage' => 'stage_1',
+            ])
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'Invalid intervention goal or disease stage.');
+    }
+
+    public function test_autofill_requires_activity_level_for_tee_based_goals(): void
+    {
+        $rnd     = $this->rnd();
+        $patient = $this->patient();
+        $ncp     = $this->ncpRecord($patient, $rnd);
+
+        Assessment::forceCreate([
+            'ncp_record_id'           => $ncp->id,
+            'weight'                  => 70.0,
+            'height'                  => 170.0,
+            'physical_activity_level' => null,
+        ]);
+
+        $this->actingAs($rnd, 'sanctum')
+            ->postJson("/api/rnd/ncp-records/{$ncp->id}/intervention/autofill", [
+                'goal_type'     => 'weight_loss',
+                'disease_stage' => 'class_1',
+            ])
+            ->assertStatus(422)
+            ->assertJsonPath('missing_fields', ['physical_activity_level']);
+    }
+
+    public function test_autofill_returns_refeeding_lab_warnings_for_low_electrolytes(): void
+    {
+        $rnd     = $this->rnd();
+        $patient = $this->patient();
+        $ncp     = $this->ncpRecord($patient, $rnd);
+
+        $assessment = Assessment::forceCreate([
+            'ncp_record_id'           => $ncp->id,
+            'weight'                  => 48.0,
+            'height'                  => 174.0,
+            'physical_activity_level' => 'moderate',
+        ]);
+        $assessment->biochemicalData()->create([
+            'potassium'  => 3.1,
+            'phosphate'  => 2.1,
+            'calcium'    => 13.0,
+            'hemoglobin' => 10.0,
+        ]);
+
+        $this->actingAs($rnd, 'sanctum')
+            ->postJson("/api/rnd/ncp-records/{$ncp->id}/intervention/autofill", [
+                'goal_type'     => 'malnutrition',
+                'disease_stage' => 'severe',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.calculation_status', 'warning')
+            ->assertJsonFragment(['key' => 'low_potassium'])
+            ->assertJsonFragment(['key' => 'low_phosphate'])
+            ->assertJsonFragment(['key' => 'high_calcium']);
+    }
+
     public function test_rnd_can_create_intervention(): void
     {
         $rnd     = $this->rnd();
@@ -130,7 +204,7 @@ class NcpInterventionTest extends TestCase
 
         $response = $this->actingAs($rnd, 'sanctum')
             ->postJson("/api/rnd/ncp-records/{$ncp->id}/intervention", [
-                'goal_type'         => 'Maintenance',
+                'goal_type'         => 'custom',
                 'energy_kcal'       => 1800.0,
                 'protein_g'         => 70.0,
                 'carbs_g'           => 250.0,
@@ -149,6 +223,38 @@ class NcpInterventionTest extends TestCase
             'ncp_record_id' => $ncp->id,
             'energy_kcal'   => 1800.0,
         ]);
+    }
+
+    public function test_intervention_rejects_unknown_goal_type(): void
+    {
+        $rnd     = $this->rnd();
+        $patient = $this->patient();
+        $ncp     = $this->ncpRecord($patient, $rnd);
+        $this->diagnosis($ncp);
+
+        $this->actingAs($rnd, 'sanctum')
+            ->postJson("/api/rnd/ncp-records/{$ncp->id}/intervention", [
+                'goal_type'     => 'bad_goal',
+                'disease_stage' => 'stage_1',
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['goal_type']);
+    }
+
+    public function test_intervention_rejects_stage_that_does_not_belong_to_goal(): void
+    {
+        $rnd     = $this->rnd();
+        $patient = $this->patient();
+        $ncp     = $this->ncpRecord($patient, $rnd);
+        $this->diagnosis($ncp);
+
+        $this->actingAs($rnd, 'sanctum')
+            ->postJson("/api/rnd/ncp-records/{$ncp->id}/intervention", [
+                'goal_type'     => 'weight_gain',
+                'disease_stage' => 'stage_1',
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['disease_stage']);
     }
 
     public function test_empty_intervention_does_not_activate_ncp(): void
@@ -196,6 +302,7 @@ class NcpInterventionTest extends TestCase
         $this->actingAs($rnd, 'sanctum')
             ->patchJson("/api/rnd/ncp-records/{$ncp->id}/intervention", [
                 'goal_type'   => 'renal_diet',
+                'disease_stage' => 'stage_1',
                 'energy_kcal' => 1800.0,
                 'protein_g'   => 70.0,
                 'carbs_g'     => 250.0,
@@ -385,6 +492,31 @@ class NcpInterventionTest extends TestCase
         $response->assertOk()
             ->assertJsonPath('data.recommend', [])
             ->assertJsonPath('data.avoid', []);
+    }
+
+    public function test_recommendations_include_lab_refinements_for_abnormal_potassium(): void
+    {
+        $rnd     = $this->rnd();
+        $patient = $this->patient();
+        $ncp     = $this->ncpRecord($patient, $rnd);
+
+        $assessment = Assessment::forceCreate([
+            'ncp_record_id' => $ncp->id,
+            'weight'        => 70.0,
+            'height'        => 170.0,
+        ]);
+        $assessment->biochemicalData()->create(['potassium' => 5.8]);
+
+        Intervention::forceCreate([
+            'ncp_record_id' => $ncp->id,
+            'goal_type'     => 'custom',
+        ]);
+
+        $response = $this->actingAs($rnd, 'sanctum')
+            ->getJson("/api/rnd/ncp-records/{$ncp->id}/intervention/recommendations");
+
+        $response->assertOk();
+        $this->assertContains('potassium', array_column($response->json('data.limits'), 'tag'));
     }
 
     public function test_recommendations_returns_404_when_no_intervention(): void

@@ -33,6 +33,7 @@ class LabFlagService
             'potassium'     => ['low' => 3.5,   'high' => 5.1],
             'calcium'       => ['low' => 8.7,   'high' => 10.3],
             'phosphate'     => ['low' => 2.5,   'high' => 4.5],
+            'magnesium'     => ['low' => 1.7,   'high' => 2.2],
             'cholesterol'   => ['low' => null,  'high' => 200.0],
             'ldl'           => ['low' => null,  'high' => 100.0],
             'hdl'           => $male ? ['low' => 40.0, 'high' => null] : ['low' => 50.0, 'high' => null],

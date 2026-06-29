@@ -20,6 +20,7 @@ export interface GoalAutofillResult {
   fiber_g?: number;
   cholesterol_max_mg?: number;
   free_sugar_max_pct?: number;
+  feeding_phase?: "refeeding_start";
 }
 
 export const emptyPrescriptionForm = (): PrescriptionFormState => ({
@@ -41,7 +42,9 @@ export function buildGoalPrescriptionForm(
   }
 
   const micronutrient_limits = microLimitsFromRx(result, result.energy_kcal);
-  const requiredMicros = GOAL_MICRO_FLAGS[goalType] ?? [];
+  const requiredMicros = result.feeding_phase === "refeeding_start"
+    ? Array.from(new Set([...(GOAL_MICRO_FLAGS[goalType] ?? []), "potassium", "phosphate", "magnesium"]))
+    : GOAL_MICRO_FLAGS[goalType] ?? [];
   const displayed_nutrients = Array.from(new Set([...requiredMicros, ...Object.keys(micronutrient_limits)]));
 
   return {

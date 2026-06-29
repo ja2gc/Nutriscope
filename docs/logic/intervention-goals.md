@@ -725,6 +725,11 @@ Stage maps to **%IBW** (adult) or **WAZ z-score** (pediatric).
 - **Thiamine 200–300 mg/day** before refeeding begins; continue for 10 days
 - If phosphate < 0.5 mmol/L: stop feeding increase, replace electrolytes, reassess
 
+> **Runtime guardrail:** severe `weight_gain` returns `feeding_phase = refeeding_start`
+> and `target_energy_kcal_range = 30–35 kcal/kg/day`; the low initial kcal value is
+> the starting dose, not the final goal. Potassium, phosphate, and magnesium are
+> required monitoring micronutrients for this stage.
+
 **Source:** NICE CG32. https://www.nice.org.uk/guidance/cg32
 
 ---
@@ -916,6 +921,11 @@ does not run GLIM — it receives `goal_type = malnutrition` as an already-confi
 > - Serum phosphate, potassium, magnesium monitoring **daily for first 72 hours**
 > - If phosphate < 0.5 mmol/L: stop feeding increase, replace electrolytes, reassess
 
+> **Runtime guardrail:** severe `malnutrition` returns `feeding_phase = refeeding_start`
+> and `target_energy_kcal_range = 30–35 kcal/kg/day`; the initial 5–10 kcal/kg/day
+> value is the starting dose, not the final goal. Potassium, phosphate, and magnesium
+> are required monitoring micronutrients for this stage.
+
 **Fluid:** 30–35 mL/kg `working_weight`/day; monitor during refeeding for fluid overload.
 
 **Sources:**
@@ -1006,6 +1016,7 @@ Both goal types may involve underweight patients and caloric surpluses. They are
 | Date | Change |
 |---|---|
 | 2026-06-28 | **Calf circumference removed from assessment entirely** (column dropped, UI/request/resource fields removed). Was an AWGS muscle-mass proxy that fed no calculation. |
+| 2026-06-29 | **Refeeding runtime guardrails added.** Severe `malnutrition` / `weight_gain` now expose `feeding_phase`, full target kcal range, lab-warning status, and tracked magnesium alongside potassium/phosphate. |
 | 2026-06-28 | **Verification pass (51 values confirmed, 4 corrected).** (1) CKD stage 1–2 sodium note clarified: KDOQI default is < 2300 mg; < 2000 mg is a deliberate PDRI tightening for PH context. (2) Diabetic fiber updated to ≥ 25–30 g/day (per research §5d therapeutic target, not just PDRI floor). (3) Refeeding BMI risk factor "(AP)" label removed — NICE CG32 BMI < 16 is not AP/Western-specific. (4) GLIM weight loss phenotypic criteria completed to include beyond-6-month figures (moderate > 10%; severe > 20%). |
 | 2026-06-28 | **Consolidated into single source of truth.** Merged `intervention-goals.md` and `intervention-goals-asia-pacific-research.md`. Research doc retired. |
 | 2026-06-28 | **PDRI 2015 adopted as baseline.** Carb 55–75% / fat 15–30% / fiber 20–25 g / sodium < 2000 mg / free sugars < 10% E. Replaces IOM DRI as the national reference (FDA Circular 2023-009). |

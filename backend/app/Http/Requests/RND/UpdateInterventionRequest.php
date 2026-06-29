@@ -2,7 +2,10 @@
 
 namespace App\Http\Requests\RND;
 
+use App\Support\InterventionGoalCatalog;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class UpdateInterventionRequest extends FormRequest
 {
@@ -14,7 +17,7 @@ class UpdateInterventionRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'goal_type'            => ['nullable', 'string', 'max:255'],
+            'goal_type'            => ['nullable', 'string', Rule::in(InterventionGoalCatalog::goalTypes())],
             'disease_stage'        => ['nullable', 'string', 'max:255'],
             'displayed_nutrients'  => ['nullable', 'array'],
             'energy_kcal'          => ['nullable', 'numeric', 'min:0'],
@@ -29,6 +32,29 @@ class UpdateInterventionRequest extends FormRequest
             'strategies'           => ['nullable', 'string'],
             'session_type'         => ['nullable', 'string', 'max:255'],
             'next_followup_date'   => ['nullable', 'date'],
+        ];
+    }
+
+    public function after(): array
+    {
+        return [
+            function (Validator $validator): void {
+                $intervention = $this->route('ncpRecord')?->intervention;
+                $goalType = $this->has('goal_type') ? $this->input('goal_type') : $intervention?->goal_type;
+                $stage = $this->has('disease_stage') ? $this->input('disease_stage') : $intervention?->disease_stage;
+
+                if ($goalType === null || $goalType === '') {
+                    if ($stage !== null && $stage !== '') {
+                        $validator->errors()->add('disease_stage', 'A disease stage can only be set with a valid intervention goal.');
+                    }
+
+                    return;
+                }
+
+                if (! InterventionGoalCatalog::stageIsValid($goalType, $stage)) {
+                    $validator->errors()->add('disease_stage', 'The selected disease stage is invalid for the intervention goal.');
+                }
+            },
         ];
     }
 }

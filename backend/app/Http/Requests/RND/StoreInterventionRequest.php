@@ -2,7 +2,10 @@
 
 namespace App\Http\Requests\RND;
 
+use App\Support\InterventionGoalCatalog;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class StoreInterventionRequest extends FormRequest
 {
@@ -14,7 +17,7 @@ class StoreInterventionRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'goal_type'            => ['nullable', 'string', 'max:255'],
+            'goal_type'            => ['nullable', 'string', Rule::in(InterventionGoalCatalog::goalTypes())],
             'disease_stage'        => ['nullable', 'string', 'max:255'],
             'displayed_nutrients'  => ['nullable', 'array'],
             'energy_kcal'          => ['nullable', 'numeric', 'min:0'],
@@ -29,6 +32,28 @@ class StoreInterventionRequest extends FormRequest
             'strategies'           => ['nullable', 'string'],
             'session_type'         => ['nullable', 'string', 'max:255'],
             'next_followup_date'   => ['nullable', 'date'],
+        ];
+    }
+
+    public function after(): array
+    {
+        return [
+            function (Validator $validator): void {
+                $goalType = $this->input('goal_type');
+                $stage = $this->input('disease_stage');
+
+                if ($goalType === null || $goalType === '') {
+                    if ($stage !== null && $stage !== '') {
+                        $validator->errors()->add('disease_stage', 'A disease stage can only be set with a valid intervention goal.');
+                    }
+
+                    return;
+                }
+
+                if (! InterventionGoalCatalog::stageIsValid($goalType, $stage)) {
+                    $validator->errors()->add('disease_stage', 'The selected disease stage is invalid for the intervention goal.');
+                }
+            },
         ];
     }
 }

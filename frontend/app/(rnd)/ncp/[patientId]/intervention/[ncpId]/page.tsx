@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Salad, User, Settings2, CheckCircle2, Lock } from "lucide-react";
 import {
   fetchIntervention, createIntervention, updateIntervention, autofillIntervention,
-  AutofillError, Intervention,
+  AutofillError, Intervention, type AutofillResult,
 } from "@/services/interventionService";
 import { EDUCATION_TEMPLATES } from "@/lib/educationTemplates";
 import { fetchAssessment } from "@/services/assessmentService";
@@ -49,6 +49,21 @@ function formatMissingField(field: string) {
     dob: "date of birth",
     sex: "sex",
   } as Record<string, string>)[field] ?? field.replace(/_/g, " ");
+}
+
+function prescriptionNote(rx?: Partial<AutofillResult> | null): string | undefined {
+  if (!rx) return undefined;
+
+  const parts = [
+    rx.note,
+    rx.feeding_phase === "refeeding_start" && rx.target_energy_kcal_range
+      ? `Refeeding phase: current calories are the starting dose. Target full-energy range is ${rx.target_energy_kcal_range[0]}-${rx.target_energy_kcal_range[1]} kcal/day by day 4-7 if clinically stable.`
+      : undefined,
+    rx.edema_warning,
+    ...(rx.safety_warnings ?? []).map((warning) => warning.message),
+  ];
+
+  return parts.filter(Boolean).join(" ");
 }
 
 type PrescriptionForm = PrescriptionFormState;
@@ -230,7 +245,7 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
       let finalForm = buildGoalPrescriptionForm(goalType, null);
       if (patientMetrics) {
         preview = autofillPrescription(goalType, stage, patientMetrics);
-        setPrescNote(preview.note);
+        setPrescNote(prescriptionNote(preview));
         finalForm = buildGoalPrescriptionForm(goalType, preview);
       }
       setPrescription(finalForm);
@@ -258,7 +273,7 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
           authoritative = { energy_kcal: be.energy_kcal, protein_g: be.protein_g, carbs_g: be.carbs_g, fat_g: be.fat_g, fluid_ml: be.fluid_ml };
           finalForm = buildGoalPrescriptionForm(goalType, be);
           setCalculationWarning(null);
-          setPrescNote(be.edema_warning ? `${be.note ?? ""} ${be.edema_warning}`.trim() : be.note);
+          setPrescNote(prescriptionNote(be));
           setPrescription(finalForm);
           // Dev-only drift guard: FE preview must match the authoritative BE value.
           if (process.env.NODE_ENV !== "production" && preview) {
@@ -324,7 +339,7 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
         fat_g:       prescription.fat_g       ? parseFloat(prescription.fat_g)       : null,
         fluid_ml:    prescription.fluid_ml    ? parseFloat(prescription.fluid_ml)    : null,
         micronutrient_limits: prescription.micronutrient_limits,
-        displayed_nutrients:  microKeys(prescription.displayed_nutrients),
+        displayed_nutrients:  microKeys(Array.from(new Set([...requiredMicros, ...prescription.displayed_nutrients]))),
       } as Partial<Intervention>);
       setIntervention(updated);
       setPrescription(interventionToForm(updated));
@@ -348,6 +363,12 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
   const stageLabel = GOALS
     .find((g) => g.value === intervention?.goal_type)
     ?.stages?.find((s) => s.value === intervention?.disease_stage)?.label;
+  const requiredMicros = Array.from(new Set([
+    ...(GOAL_MICRO_FLAGS[intervention?.goal_type ?? ""] ?? []),
+    ...(intervention?.disease_stage === "severe" && ["malnutrition", "weight_gain"].includes(intervention.goal_type ?? "")
+      ? ["potassium", "phosphate", "magnesium"]
+      : []),
+  ]));
 
   if (isPlaceholder) return <PlaceholderState />;
   if (!loading && !workflowLoading && workflowBlock) {
@@ -457,7 +478,7 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
               onSave={savePrescription}
               saving={saving}
               note={prescNote}
-              requiredMicros={GOAL_MICRO_FLAGS[intervention?.goal_type ?? ""] ?? []}
+              requiredMicros={requiredMicros}
               goalLabel={goalLabel}
             />
 

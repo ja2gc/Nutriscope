@@ -77,6 +77,10 @@ export interface AutofillResult {
   fiber_g?: number;
   sodium_max_mg?: number;
   free_sugar_max_pct?: number;
+  feeding_phase?: "refeeding_start";
+  target_energy_kcal_range?: [number, number];
+  calculation_status?: "ok" | "warning" | "incomplete" | "invalid_goal_stage";
+  safety_warnings?: { key: string; severity: "warning" | "critical"; message: string }[];
   note?: string;
   edema_warning?: string;
 }

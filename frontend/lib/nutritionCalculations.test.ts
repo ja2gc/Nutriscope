@@ -171,6 +171,23 @@ describe('high_protein burns energy', () => {
 
 // ── BMR uses actual weight for normal-weight patients ────────────────────────
 
+describe('refeeding metadata', () => {
+  test('severe malnutrition marks refeeding start and target energy range', () => {
+    const result = autofillPrescription('malnutrition', 'severe', {
+      weightKg: 48,
+      heightCm: 174,
+      ageYears: 35,
+      sex: 'Male',
+      isAdult: true,
+      activityFactor: 1.55,
+    });
+
+    assert.equal(result.energy_kcal, 360);
+    assert.equal(result.feeding_phase, 'refeeding_start');
+    assert.deepEqual(result.target_energy_kcal_range, [1440, 1680]);
+  });
+});
+
 describe('autofillPrescription BMR weight selection', () => {
   test('diabetic_control uses actual weight for normal-weight patient (not IBW)', () => {
     // 80 kg, IBW ≈ 68 kg → %IBW = 117% (within 90–120% → used to return IBW, now returns actual)

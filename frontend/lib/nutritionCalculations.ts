@@ -139,6 +139,8 @@ export interface Prescription {
   sodium_max_mg?: number;
   free_sugar_max_pct?: number;
   cholesterol_max_mg?: number;
+  feeding_phase?: 'refeeding_start';
+  target_energy_kcal_range?: [number, number];
   note?: string;
 }
 
@@ -230,7 +232,7 @@ function autofillBase(
         hemodialysis: 1.2, peritoneal: 1.35,
       };
       const sodiumMap: Record<string, number> = {
-        stage_1: 2300, stage_2: 2300, stage_3: 2000, stage_4: 2000,
+        stage_1: 2000, stage_2: 2000, stage_3: 2000, stage_4: 2000,
         stage_5_predialysis: 1500, hemodialysis: 1500, peritoneal: 2000,
       };
       const protein_g = Math.round(ibw * (proteinPerKg[stage ?? 'stage_1'] ?? 0.8));
@@ -260,7 +262,7 @@ function autofillBase(
       const energy    = Math.round(tee);
       const protein_g = Math.round(ibw * 0.8);
       const fatPct    = stage === 'severe' ? 0.24 : stage === 'moderate' ? 0.26 : 0.28;
-      const sodiumMap: Record<string, number> = { mild: 2300, moderate: 2000, severe: 1500 };
+      const sodiumMap: Record<string, number> = { mild: 2000, moderate: 2000, severe: 1500 };
       const cholMap:   Record<string, number> = { mild: 300, moderate: 200, severe: 200 };
       const cardiacFluid: Record<string, number> = { moderate: 2000, severe: 1500 };
       const fluid_ml  = cardiacFluid[stage ?? ''] ?? std_fluid;
@@ -286,6 +288,8 @@ function autofillBase(
         const protein_g = Math.round(ibw * 1.0);
         return { energy_kcal: energy, protein_g, ...macrosFromEnergyProtein(energy, protein_g, 0.275),
           fluid_ml: std_fluid,
+          feeding_phase: 'refeeding_start',
+          target_energy_kcal_range: [Math.round(working * 30), Math.round(working * 35)],
           note: 'Refeeding: start 5–10 kcal/kg/day → target 30–35 kcal/kg, reach full needs by day 4–7. Monitor phosphate/K/Mg daily for first 72h; thiamine 200–300 mg/day before feeding.' };
       }
       const surplus   = stage === 'mild' ? 400 : 625;
@@ -324,6 +328,8 @@ function autofillBase(
         const protein_g = Math.round(ibw * 1.0);
         return { energy_kcal: energy, protein_g, ...macrosFromEnergyProtein(energy, protein_g, 0.275),
           fluid_ml: std_fluid,
+          feeding_phase: 'refeeding_start',
+          target_energy_kcal_range: [Math.round(working * 30), Math.round(working * 35)],
           note: 'Refeeding: start 5–10 kcal/kg/day → target 30–35 kcal/kg, full needs by day 4–7. Thiamine 200–300 mg/day BEFORE feeding, continue 10 days. Daily phosphate/K/Mg for first 72h.' };
       }
       const energy    = Math.round(working * 32.5);

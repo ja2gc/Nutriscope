@@ -100,12 +100,12 @@
       "stages": {
         "stage_1": {
           "protein_g_per_kg_ibw": 0.8,
-          "sodium_max_mg": 2300,
+          "sodium_max_mg": 2000,
           "fluid": "std"
         },
         "stage_2": {
           "protein_g_per_kg_ibw": 0.8,
-          "sodium_max_mg": 2300,
+          "sodium_max_mg": 2000,
           "fluid": "std"
         },
         "stage_3": {
@@ -184,7 +184,7 @@
       "stages": {
         "mild": {
           "fat_pct": 0.28,
-          "sodium_max_mg": 2300,
+          "sodium_max_mg": 2000,
           "cholesterol_max_mg": 300,
           "fluid": "std"
         },
