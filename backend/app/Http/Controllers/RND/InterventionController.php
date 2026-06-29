@@ -37,13 +37,35 @@ class InterventionController extends Controller
         $assessment = $ncpRecord->assessment()->first();
         $patient    = $ncpRecord->patient;
 
-        if (! $assessment || $assessment->weight === null || $assessment->height === null) {
+        $missingFields = [];
+        if (! $assessment || $assessment->weight === null) {
+            $missingFields[] = 'weight';
+        }
+        if (! $assessment || $assessment->height === null) {
+            $missingFields[] = 'height';
+        }
+
+        if ($missingFields !== []) {
             return response()->json([
-                'message' => 'Assessment with weight and height is required before autofill.',
+                'message' => 'Assessment fields required before autofill: '.implode(', ', $missingFields).'.',
+                'missing_fields' => $missingFields,
+                'calculation_status' => 'incomplete',
             ], 422);
         }
-        if (! $patient || ! $patient->dob || ! $patient->sex) {
-            return response()->json(['message' => 'Patient date of birth and sex are required.'], 422);
+
+        $missingPatientFields = [];
+        if (! $patient || ! $patient->dob) {
+            $missingPatientFields[] = 'dob';
+        }
+        if (! $patient || ! $patient->sex) {
+            $missingPatientFields[] = 'sex';
+        }
+        if ($missingPatientFields !== []) {
+            return response()->json([
+                'message' => 'Patient fields required before autofill: '.implode(', ', $missingPatientFields).'.',
+                'missing_fields' => $missingPatientFields,
+                'calculation_status' => 'incomplete',
+            ], 422);
         }
 
         $age = (int) \Illuminate\Support\Carbon::parse($patient->dob)->age;

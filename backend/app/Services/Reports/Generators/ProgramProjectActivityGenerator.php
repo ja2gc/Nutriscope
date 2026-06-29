@@ -4,6 +4,7 @@ namespace App\Services\Reports\Generators;
 
 use App\Models\MenuCycle;
 use App\Models\ProgramProjectActivity;
+use App\Models\PurchaseOrder;
 use App\Models\Report;
 use App\Services\MenuCycleCostService;
 use App\Services\Reports\Contracts\ReportGenerator;
@@ -68,6 +69,36 @@ class ProgramProjectActivityGenerator implements ReportGenerator
     public function data(Report $report): array
     {
         $params = $report->parameters ?? [];
+        if (! empty($params['purchase_order_id'])) {
+            $po = PurchaseOrder::with(['programProjectActivity', 'shoppingList'])
+                ->where('procurement_track', 'food')
+                ->whereIn('lifecycle_status', ['completed', 'archived'])
+                ->findOrFail($params['purchase_order_id']);
+
+            $ppa = $po->programProjectActivity;
+            abort_unless($ppa, 404, 'No PPA snapshot exists for this purchase order.');
+
+            $start = optional($ppa->period_start)->toDateString()
+                ?? optional($po->shoppingList?->period_start)->toDateString();
+            $end = optional($ppa->period_end)->toDateString()
+                ?? optional($po->shoppingList?->period_end)->toDateString();
+            abort_unless($start && $end, 404, 'Purchase order has no procurement span.');
+
+            $output = (int) ($ppa->actual_output_patients ?? 0);
+
+            return [
+                'activity'        => $ppa->activity ?: 'Food Subsistence for Patients',
+                'cycle'           => null,
+                'menu_days'       => $this->menuDaysForRange($start, $end),
+                'total_cost'      => round((float) ($ppa->actual_total_cost ?? $po->total_amount ?? 0), 2),
+                'population'      => $output,
+                'output_label'    => number_format($output) . ' Patients (actual served)',
+                'inclusive_start' => $start,
+                'inclusive_end'   => $end,
+                'inclusive_label' => Carbon::parse($start)->format('m/d/y') . '-' . Carbon::parse($end)->format('m/d/y'),
+            ];
+        }
+
         $cycle  = MenuCycle::with('days.recipe', 'days.fsItem')->findOrFail($params['menu_cycle_id']);
 
         [$start, $end] = $this->resolveRange($cycle, $params);
@@ -130,6 +161,25 @@ class ProgramProjectActivityGenerator implements ReportGenerator
         $len = max(1, (int) ($cycle->cycle_days ?: 7));
 
         return [$start->toDateString(), $start->copy()->addDays($len - 1)->toDateString()];
+    }
+
+    private function menuDaysForRange(string $start, string $end): array
+    {
+        return array_map(function (array $date) {
+            $cycle = MenuCycle::coveringDate($date['date']);
+            if (! $cycle) {
+                return [
+                    'date'        => $date['date'],
+                    'label'       => Carbon::parse($date['date'])->format('d'),
+                    'day_of_week' => $date['day_of_week'],
+                    'meals'       => [],
+                ];
+            }
+
+            $cycle->loadMissing('days.recipe', 'days.fsItem');
+            $entries = self::groupEntries($cycle);
+            return self::buildMenuDays($entries, [$date])[0];
+        }, self::calendarDates($start, $end));
     }
 
     /**

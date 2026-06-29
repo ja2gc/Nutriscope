@@ -81,6 +81,16 @@ export interface AutofillResult {
   edema_warning?: string;
 }
 
+export class AutofillError extends Error {
+  missingFields: string[];
+
+  constructor(message: string, missingFields: string[] = []) {
+    super(message);
+    this.name = "AutofillError";
+    this.missingFields = missingFields;
+  }
+}
+
 /**
  * POST /intervention/autofill — returns the spec-correct prescription computed
  * by the PHP engine. The TS mirror is for instant preview only; persisted values
@@ -98,7 +108,12 @@ export async function autofillIntervention(
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error((err as { message?: string }).message || 'Failed to autofill prescription.');
+    throw new AutofillError(
+      (err as { message?: string }).message || 'Failed to autofill prescription.',
+      Array.isArray((err as { missing_fields?: unknown }).missing_fields)
+        ? (err as { missing_fields: string[] }).missing_fields
+        : [],
+    );
   }
   return (await res.json()).data;
 }

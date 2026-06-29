@@ -3,7 +3,6 @@ import type { NextRequest } from "next/server";
 
 export function middleware(request: NextRequest) {
   const token = request.cookies.get("nutriscope_token")?.value;
-  const role = request.cookies.get("nutriscope_role")?.value;
   const { pathname } = request.nextUrl;
 
   // Define public paths that don't need authentication
@@ -19,11 +18,8 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // If user is authenticated and trying to access /login, redirect to appropriate dashboard
-  if (isPublicPath && token) {
-    const dashboardUrl = role === "Admin" ? "/admin/dashboard" : "/dashboard";
-    return NextResponse.redirect(new URL(dashboardUrl, request.url));
-  }
+  // Do not redirect public auth pages based only on cookies. A stale Sanctum token
+  // otherwise traps users away from /login before /api/auth/me can clear it.
 
   // If user is unauthenticated and trying to access any other page, redirect to /login
   if (!isPublicPath && !token) {

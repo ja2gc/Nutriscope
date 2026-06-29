@@ -144,6 +144,7 @@ class FoodServiceDemoSeeder extends Seeder
         $fssUser = User::find($fss);
         $archiveService = app(AccomplishmentReportArchiveService::class);
         $cycles = [];
+        $cycleMeta = [];
         for ($w = 3; $w >= 0; $w--) {
             $weekStart = $currentWeekStart->copy()->subWeeks($w);
             $isCurrent = ($w === 0);
@@ -154,6 +155,7 @@ class FoodServiceDemoSeeder extends Seeder
             // Past weeks complete; the current week is left in open execution (pending).
             $this->seedProcurementForWeek($cycle, $fss, $weekStart, $isCurrent, $w);
             $cycles[] = $cycle;
+            $cycleMeta[] = ['weekStart' => $weekStart->copy(), 'isCurrent' => $isCurrent, 'weekIndex' => $w];
 
             // Auto-archive the accomplishment report for completed past weeks.
             if (! $isCurrent && $fssUser) {
@@ -167,6 +169,9 @@ class FoodServiceDemoSeeder extends Seeder
         // head per day and editable, system-extracted ingredients before any conversion.
         $upcomingStart = $currentWeekStart->copy()->addWeek();
         $upcoming = $this->seedCycleForWeek($rnd, $upcomingStart, false, 'upcoming', 4);
+        foreach ($cycleMeta as $meta) {
+            $this->seedFridayToMondayProcurement($fss, $meta['weekStart'], $meta['isCurrent'], $meta['weekIndex']);
+        }
         $this->seedDraftSuggestedList($upcoming, $fss, $upcomingStart, 4);
 
         $this->seedBudget($fss, end($cycles));
@@ -512,15 +517,28 @@ class FoodServiceDemoSeeder extends Seeder
      */
     private function seedProcurementForWeek(MenuCycle $cycle, int $fss, Carbon $weekStart, bool $isCurrent, int $weekIndex): void
     {
-        $start = $weekStart->toDateString();
-        $end   = $weekStart->copy()->addDays(6)->toDateString();
+        $start = $weekStart->copy()->addDay()->toDateString();
+        $end   = $weekStart->copy()->addDays(3)->toDateString();
 
-        $list = $this->buildSuggestedList($fss, $weekStart, $start, $end, $weekIndex, 'Marketing — week of ' . $weekStart->format('M j'));
+        $list = $this->buildSuggestedList($fss, $weekStart, $start, $end, $weekIndex, 'Marketing - Tue-Thu ' . $weekStart->format('M j'));
         if (! $list) {
             return; // no covered/planned days — nothing to procure
         }
 
         $this->convertListToPurchaseOrder($list, $weekStart, $isCurrent);
+    }
+
+    private function seedFridayToMondayProcurement(int $fss, Carbon $weekStart, bool $isCurrent, int $weekIndex): void
+    {
+        $start = $weekStart->copy()->addDays(4)->toDateString();
+        $end = $weekStart->copy()->addDays(7)->toDateString();
+
+        $list = $this->buildSuggestedList($fss, $weekStart, $start, $end, $weekIndex, 'Marketing - Fri-Mon ' . $weekStart->format('M j'));
+        if (! $list) {
+            return;
+        }
+
+        $this->convertListToPurchaseOrder($list, Carbon::parse($start), $isCurrent);
     }
 
     /**
@@ -530,7 +548,8 @@ class FoodServiceDemoSeeder extends Seeder
      */
     private function buildSuggestedList(int $fss, Carbon $weekStart, string $start, string $end, int $weekIndex, string $name): ?ShoppingList
     {
-        $plan = app(\App\Services\FSS\ShoppingListPopulationService::class)->planRange($start, $end);
+        $estimate = $this->listEstimatePopulation($weekIndex);
+        $plan = app(\App\Services\FSS\ShoppingListPopulationService::class)->planRange($start, $end, $estimate);
         if ($plan['items'] === []) {
             return null;
         }
@@ -541,12 +560,12 @@ class FoodServiceDemoSeeder extends Seeder
             'list_date'                      => $start,
             'period_start'                   => $start,
             'period_end'                     => $end,
-            'days_span'                      => 7,
+            'days_span'                      => Carbon::parse($start)->diffInDays(Carbon::parse($end)) + 1,
             'list_type'                      => 'suggested',
             'procurement_track'              => 'food',
             'coverage_status'                => 'full',
             'status'                         => 'draft',
-            'estimate_population'            => $this->listEstimatePopulation($weekIndex),
+            'estimate_population'            => $estimate,
             'estimate_population_updated_at' => $weekStart->copy(),
         ]);
 
@@ -566,8 +585,9 @@ class FoodServiceDemoSeeder extends Seeder
     {
         $list->loadMissing('items');
         $lifecycle = app(PurchaseOrderLifecycleService::class);
-        $orderDate = $weekStart->copy();
-        $weekTag   = $weekStart->format('mdy');
+        $orderDate = $list->period_start ? Carbon::parse($list->period_start) : $weekStart->copy();
+        $endDate = $list->period_end ? Carbon::parse($list->period_end) : $orderDate->copy();
+        $weekTag = $orderDate->format('md') . '-' . $endDate->format('mdy');
 
         $po = PurchaseOrder::create([
             'rnd_user_id'          => $list->rnd_user_id,

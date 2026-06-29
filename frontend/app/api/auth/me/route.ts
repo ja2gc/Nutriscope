@@ -8,7 +8,9 @@ export async function GET(_req: NextRequest) {
   const token = cookieStore.get("nutriscope_token")?.value;
 
   if (!token) {
-    return NextResponse.json({ message: "Unauthenticated." }, { status: 401 });
+    const res = NextResponse.json({ message: "Unauthenticated." }, { status: 401 });
+    res.cookies.delete("nutriscope_role");
+    return res;
   }
 
   const laravelRes = await fetch(`${LARAVEL_API}/auth/me`, {
@@ -21,6 +23,7 @@ export async function GET(_req: NextRequest) {
   if (!laravelRes.ok) {
     const res = NextResponse.json({ message: "Unauthenticated." }, { status: 401 });
     res.cookies.delete("nutriscope_token");
+    res.cookies.delete("nutriscope_role");
     return res;
   }
 

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Salad, User, Settings2, CheckCircle2, Lock } from "lucide-react";
 import {
   fetchIntervention, createIntervention, updateIntervention, autofillIntervention,
-  Intervention,
+  AutofillError, Intervention,
 } from "@/services/interventionService";
 import { EDUCATION_TEMPLATES } from "@/lib/educationTemplates";
 import { fetchAssessment } from "@/services/assessmentService";
@@ -39,6 +39,17 @@ const TABS: { key: Tab; label: string }[] = [
   { key: "goals",      label: "Goal Planning" },
   { key: "encounter",  label: "Encounter Context" },
 ];
+
+function formatMissingField(field: string) {
+  return ({
+    weight: "body weight",
+    usual_weight: "usual body weight",
+    height: "height",
+    physical_activity_level: "physical activity level",
+    dob: "date of birth",
+    sex: "sex",
+  } as Record<string, string>)[field] ?? field.replace(/_/g, " ");
+}
 
 type PrescriptionForm = PrescriptionFormState;
 
@@ -74,6 +85,7 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
   const [foodDislikes, setFoodDislikes]         = useState<string[]>([]);
   const [allergens, setAllergens]               = useState<string[]>([]);
   const [goalError, setGoalError]               = useState<string | null>(null);
+  const [calculationWarning, setCalculationWarning] = useState<string | null>(null);
 
   const [educationNotes, setEducationNotes]   = useState("");
   const [counselingGoals, setCounselingGoals] = useState("");
@@ -203,6 +215,7 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
 
   const handleGoalConfirm = async (goalType: string, stage: string | null) => {
     setGoalError(null);
+    setCalculationWarning(null);
     setGoalModalOpen(false);
     try {
       const currentIntervention = await ensureIntervention();
@@ -244,6 +257,7 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
           const be = await autofillIntervention(ncpId, goalType, stage);
           authoritative = { energy_kcal: be.energy_kcal, protein_g: be.protein_g, carbs_g: be.carbs_g, fat_g: be.fat_g, fluid_ml: be.fluid_ml };
           finalForm = buildGoalPrescriptionForm(goalType, be);
+          setCalculationWarning(null);
           setPrescNote(be.edema_warning ? `${be.note ?? ""} ${be.edema_warning}`.trim() : be.note);
           setPrescription(finalForm);
           // Dev-only drift guard: FE preview must match the authoritative BE value.
@@ -262,7 +276,10 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
           }
         } catch (err) {
           // Backend autofill unavailable — keep the TS preview values (already shown).
-          autofillError = err instanceof Error ? err.message : "Failed to autofill prescription.";
+          const missing = err instanceof AutofillError ? err.missingFields : [];
+          const missingText = missing.length ? ` Missing: ${missing.map(formatMissingField).join(", ")}.` : "";
+          autofillError = err instanceof Error ? `${err.message}${missingText}` : "Failed to autofill prescription.";
+          setCalculationWarning(`Goal saved. Prescription calculation incomplete.${missingText} Values may be blank or off until assessment is completed.`);
           console.warn("Backend autofill failed; using frontend preview values.", err);
         }
 
@@ -416,6 +433,9 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
               </div>
               {goalError && (
                 <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-2">{goalError}</p>
+              )}
+              {calculationWarning && (
+                <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-2">{calculationWarning}</p>
               )}
               {intervention?.goal_type ? (
                 <div className="flex items-center gap-2 px-4 py-3 bg-emerald-50 border border-emerald-200 rounded-xl">

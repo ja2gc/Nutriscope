@@ -378,7 +378,7 @@ export default function RndDashboardPage() {
           onClick={handleModalBackdropClick}
         >
           <div
-            className="w-full max-w-2xl bg-white border border-warm-200 rounded-3xl overflow-hidden shadow-2xl"
+            className="w-full max-w-2xl max-h-[90vh] bg-white border border-warm-200 rounded-3xl overflow-hidden shadow-2xl flex flex-col"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="px-5 py-4 border-b border-warm-100 bg-warm-50 flex items-center justify-between gap-4">
@@ -400,7 +400,8 @@ export default function RndDashboardPage() {
               </button>
             </div>
 
-            <form onSubmit={saveAnnouncement} className="p-5 space-y-5">
+            <form onSubmit={saveAnnouncement} className="flex min-h-0 flex-1 flex-col">
+              <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-5">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-semibold text-warm-500 uppercase tracking-wider">
@@ -483,8 +484,9 @@ export default function RndDashboardPage() {
                 onImagesChange={(images) => setDraft((prev) => ({ ...prev, images }))}
                 label="Images"
               />
+              </div>
 
-              <div className="flex items-center justify-between gap-3">
+              <div className="sticky bottom-0 flex items-center justify-between gap-3 border-t border-warm-100 bg-white px-5 py-4">
                 <div className="flex flex-wrap gap-2">
                   {Object.entries(categoryStyles).map(([label, className]) => (
                     <span
@@ -504,7 +506,7 @@ export default function RndDashboardPage() {
                 </Button>
               </div>
               {announcementError && (
-                <div className="text-xs font-semibold text-red-700 bg-red-50 border border-red-100 rounded-xl px-3 py-2">
+                <div className="mx-5 mb-4 text-xs font-semibold text-red-700 bg-red-50 border border-red-100 rounded-xl px-3 py-2">
                   {announcementError}
                 </div>
               )}

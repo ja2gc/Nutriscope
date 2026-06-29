@@ -5,7 +5,7 @@ import { Stack, router, usePathname } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import AnimatedSplash from '../components/AnimatedSplash';
-import { getToken } from '../lib/auth';
+import { getToken, subscribeAuth } from '../lib/auth';
 
 const queryClient = new QueryClient();
 
@@ -15,7 +15,7 @@ function Redirector({ isAuthenticated }: { isAuthenticated: boolean }) {
   useEffect(() => {
     const isPublic = pathname === '/login' || pathname === '/forgot-password';
 
-    if (isAuthenticated) {
+    if (isAuthenticated && isPublic) {
       router.replace('/(tabs)');
     } else if (!isPublic) {
       router.replace('/login');
@@ -42,6 +42,10 @@ export default function RootLayout() {
       }
     }
     bootstrap();
+
+    return subscribeAuth((token) => {
+      setIsAuthenticated(!!token);
+    });
   }, []);
 
   // Hold on the branded splash until BOTH the token check finished and the

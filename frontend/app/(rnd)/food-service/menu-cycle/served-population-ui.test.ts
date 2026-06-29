@@ -21,4 +21,15 @@ describe("menu cycle served population UI", () => {
     expect(page).toContain("savedId && weekStart");
     expect(page).not.toContain("savedId && isActive && weekStart");
   });
+
+  test("does not expose menu-cycle span or procurement-cost preview controls", () => {
+    const page = source();
+
+    expect(page).not.toContain("Cycle length");
+    expect(page).not.toContain("Save &amp; Cost");
+    expect(page).not.toContain("computeCycle");
+    expect(page).not.toContain("setCycleDays");
+    expect(page).not.toContain("DAYS.slice(0, cycleDays)");
+    expect(page).not.toContain("Ingredient usage (whole cycle)");
+  });
 });
