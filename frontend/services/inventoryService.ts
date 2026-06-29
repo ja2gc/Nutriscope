@@ -22,22 +22,6 @@ export interface RecipeRef {
   servings?: number;
 }
 
-export interface InventoryRecord {
-  id: number;
-  item_type: ItemType;
-  fs_item_id: number | null;
-  recipe_id: number | null;
-  fs_item?: FsItemRef;
-  recipe?: RecipeRef;
-  quantity_in_stock: string;
-  unit: string;
-  in_stock: boolean;
-  unit_price: string | null;
-  notes: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
 export type RowHighlight = "green" | "red";
 
 /** A merged row in the unified inventory table (catalog item or recipe + optional stock). */
@@ -61,15 +45,6 @@ export interface InventoryRow {
   recipe_servings: number | null;
   status: StockStatus;
   highlight: RowHighlight;
-}
-
-export interface UpsertInventoryPayload {
-  item_type: ItemType;
-  fs_item_id?: number | null;
-  recipe_id?: number | null;
-  quantity_in_stock: number;
-  unit: string;
-  unit_price?: number | null;
 }
 
 export interface PaginationMeta {
@@ -131,39 +106,6 @@ export async function listInventoryRows(params: ListInventoryRowsParams = {}): P
   return { data, meta: json.meta, stats: json.stats };
 }
 
-export async function upsertInventory(
-  inventoryId: number | null,
-  payload: UpsertInventoryPayload
-): Promise<InventoryRecord> {
-  if (inventoryId) {
-    const res = await apiFetch(`/api/fss/inventory/${inventoryId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    const json = await res.json();
-    if (!res.ok) throw new Error(json.message ?? "Failed to update.");
-    return json.data;
-  } else {
-    const res = await apiFetch("/api/fss/inventory", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    const json = await res.json();
-    if (!res.ok) throw new Error(json.message ?? "Failed to create.");
-    return json.data;
-  }
-}
-
-export async function deleteInventory(id: number): Promise<void> {
-  const res = await apiFetch(`/api/fss/inventory/${id}`, { method: "DELETE" });
-  if (!res.ok && res.status !== 204) {
-    const json = await res.json().catch(() => ({}));
-    throw new Error(json.message ?? "Failed to delete.");
-  }
-}
-
 export async function patchFsItemCategory(fsItemId: number, category: string | null): Promise<void> {
   const res = await apiFetch(`/api/fss/fs-items/${fsItemId}`, {
     method: "PATCH",
@@ -206,18 +148,4 @@ export async function patchRecipeCategory(recipeId: number, category: string | n
     const json = await res.json().catch(() => ({}));
     throw new Error(json.message ?? "Failed to update category.");
   }
-}
-
-export async function restockInventory(
-  id: number,
-  quantity: number
-): Promise<InventoryRecord> {
-  const res = await apiFetch(`/api/fss/inventory/${id}/restock`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ quantity }),
-  });
-  const json = await res.json();
-  if (!res.ok) throw new Error(json.message ?? "Restock failed.");
-  return json.data;
 }
