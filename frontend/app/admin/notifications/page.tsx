@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { BellDot, Bell, Megaphone, CalendarClock, CheckCheck } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
@@ -11,6 +12,7 @@ import {
   fetchNotifications,
   markNotificationRead,
   markAllNotificationsRead,
+  notificationTargetHref,
 } from "@/services/notificationService";
 
 function iconFor(type?: string | null) {
@@ -32,6 +34,7 @@ function formatWhen(value: string) {
 }
 
 export default function AdminNotificationsPage() {
+  const router = useRouter();
   const [items, setItems] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -54,12 +57,14 @@ export default function AdminNotificationsPage() {
   const unreadCount = items.filter((n) => !n.read).length;
 
   async function handleRead(n: Notification) {
-    if (n.read) return;
-    setItems((prev) => prev.map((x) => (x.id === n.id ? { ...x, read: true } : x)));
+    const href = notificationTargetHref(n, "Admin");
+    if (!n.read) setItems((prev) => prev.map((x) => (x.id === n.id ? { ...x, read: true } : x)));
     try {
-      await markNotificationRead(n.id);
+      if (!n.read) await markNotificationRead(n.id);
     } catch {
       void load();
+    } finally {
+      router.push(href);
     }
   }
 

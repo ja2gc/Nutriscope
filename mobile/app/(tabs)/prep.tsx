@@ -3,14 +3,17 @@ import { router } from 'expo-router';
 import {
   AlertCircle,
   CalendarDays,
+  ChevronRight,
   CheckCircle2,
   ChefHat,
   ClipboardCheck,
   FileText,
+  X,
 } from 'lucide-react-native';
 import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
+  Modal,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -22,6 +25,13 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import api from '../../lib/api';
+import {
+  FsItemProfile,
+  MenuSnapshot,
+  RecipeProfile,
+  getFsItemProfile,
+  getRecipeProfile,
+} from '../../lib/foodService';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -35,8 +45,15 @@ interface MenuCycle {
 }
 
 interface ServiceRow {
+  id: number;
   meal_type: string;
   name: string;
+  recipe_id: number | null;
+  fs_item_id: number | null;
+  quantity: number | null;
+  estimate_population: number | null;
+  servings_override: number | null;
+  po_snapshot?: MenuSnapshot | null;
   prepped: boolean;
 }
 
@@ -56,6 +73,112 @@ interface DietListCount {
 // ---------------------------------------------------------------------------
 
 const today = () => new Date().toISOString().slice(0, 10);
+const peso = (n: number) => `PHP ${n.toFixed(2)}`;
+
+type ProfileTarget =
+  | { type: 'recipe'; id: number; population: number; quantity?: number }
+  | { type: 'item'; id: number; population: number; quantity: number }
+  | { type: 'snapshot'; data: MenuSnapshot };
+
+type DisplayProfile = {
+  name: string;
+  prep_notes: string | null;
+  servings: number;
+  population: number;
+  total_cost: number;
+  cost_per_head: number;
+  ingredient_usage: { fs_item_id: number; name: string; unit: string; quantity: number; cost: number }[];
+};
+
+function snapshotToProfile(snapshot: MenuSnapshot): DisplayProfile {
+  const population = Number(snapshot.population ?? 0);
+  const totalCost = Number(snapshot.total_cost ?? 0);
+  const ingredientUsage = snapshot.ingredient_usage ?? (snapshot.total_quantity != null ? [{
+    fs_item_id: snapshot.fs_item_id ?? 0,
+    name: snapshot.name,
+    unit: snapshot.unit ?? '',
+    quantity: Number(snapshot.total_quantity),
+    cost: totalCost,
+  }] : []);
+
+  return {
+    name: snapshot.name,
+    prep_notes: snapshot.prep_notes ?? null,
+    servings: Number(snapshot.servings ?? population),
+    population,
+    total_cost: totalCost,
+    cost_per_head: Number(snapshot.cost_per_head ?? (population > 0 ? totalCost / population : 0)),
+    ingredient_usage: ingredientUsage,
+  };
+}
+
+function FoodProfileModal({ profile, onClose }: { profile: ProfileTarget; onClose: () => void }) {
+  const { data, isLoading } = useQuery<DisplayProfile | RecipeProfile | FsItemProfile>({
+    queryKey: [
+      'prep-food-profile',
+      profile.type,
+      profile.type === 'snapshot' ? profile.data.name : profile.id,
+      profile.type === 'snapshot' ? profile.data.population : profile.population,
+      profile.type === 'item' ? profile.quantity : 1,
+    ],
+    queryFn: async () => {
+      if (profile.type === 'snapshot') return snapshotToProfile(profile.data);
+      if (profile.type === 'recipe') return getRecipeProfile(profile.id, Math.max(1, profile.population));
+      return getFsItemProfile(profile.id, Math.max(1, profile.population), profile.quantity);
+    },
+  });
+
+  return (
+    <Modal visible animationType="slide" transparent onRequestClose={onClose}>
+      <View className="flex-1 bg-black/40 justify-end">
+        <View className="bg-white rounded-t-3xl max-h-[85%]">
+          <View className="flex-row items-center justify-between px-5 py-4 border-b border-gray-100">
+            <Text className="text-sm font-extrabold text-gray-900 flex-1" numberOfLines={1}>
+              {data?.name ?? 'Food details'}
+            </Text>
+            <TouchableOpacity onPress={onClose} hitSlop={8}>
+              <X color="#374151" size={20} />
+            </TouchableOpacity>
+          </View>
+          {isLoading || !data ? (
+            <View className="py-16 items-center"><ActivityIndicator color="#059669" /></View>
+          ) : (
+            <ScrollView contentContainerStyle={{ padding: 20 }}>
+              <Text className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                Scaled to {data.population} servings
+              </Text>
+              <View className="flex-row gap-6 mt-3">
+                <View>
+                  <Text className="text-[10px] font-extrabold uppercase tracking-wider text-gray-500">Total</Text>
+                  <Text className="text-xl font-extrabold text-emerald-600">{peso(data.total_cost)}</Text>
+                </View>
+                <View>
+                  <Text className="text-[10px] font-extrabold uppercase tracking-wider text-gray-500">Cost / head</Text>
+                  <Text className="text-xl font-extrabold text-gray-800">{peso(data.cost_per_head)}</Text>
+                </View>
+              </View>
+
+              <Text className="text-[10px] font-extrabold uppercase tracking-wider text-gray-500 mt-5 mb-1">Ingredients needed</Text>
+              {data.ingredient_usage.map((u) => (
+                <View key={`${u.fs_item_id}-${u.name}`} className="flex-row items-center justify-between py-1.5 border-b border-gray-50">
+                  <Text className="text-sm text-gray-700 flex-1">{u.name}</Text>
+                  <Text className="text-xs text-gray-500 tabular-nums">{u.quantity.toFixed(1)} {u.unit}</Text>
+                </View>
+              ))}
+
+              {data.prep_notes ? (
+                <View className="mt-5">
+                  <Text className="text-[10px] font-extrabold uppercase tracking-wider text-gray-500 mb-1">Prep notes</Text>
+                  <Text className="text-xs text-gray-700 leading-6 bg-gray-50 border border-gray-100 rounded-xl p-3">{data.prep_notes}</Text>
+                </View>
+              ) : null}
+            </ScrollView>
+          )}
+        </View>
+      </View>
+    </Modal>
+  );
+}
 
 async function fetchActiveCycle(): Promise<MenuCycle | null> {
   const res = await api.get<{ data: MenuCycle[] }>('/api/fss/menu-cycles');
@@ -84,6 +207,7 @@ function MealPrepSection() {
   const qc = useQueryClient();
   const [servedPopulation, setServedPopulation] = useState('');
   const [markError, setMarkError] = useState<string | null>(null);
+  const [profile, setProfile] = useState<ProfileTarget | null>(null);
 
   const { data: activeCycle, isLoading: cycleLoading } = useQuery({
     queryKey: ['fss-active-cycle'],
@@ -165,11 +289,46 @@ function MealPrepSection() {
         </View>
       ) : (
         <>
+          {activeCycle && (
+            <View className="bg-white rounded-xl border border-gray-100 px-4 py-3 mb-3">
+              <Text className="text-xs font-medium text-gray-500 mb-1.5">Actual total patient population today</Text>
+              <TextInput
+                value={servedPopulation}
+                onChangeText={(t) => {
+                  setServedPopulation(t.replace(/[^0-9]/g, ''));
+                  setMarkError(null);
+                }}
+                placeholder="Enter census"
+                placeholderTextColor="#9ca3af"
+                className="border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-900 tabular-nums"
+                keyboardType="numeric"
+                accessibilityLabel="Actual total patient population today"
+              />
+            </View>
+          )}
+
           {service && service.length > 0 ? (
             <View className="bg-white rounded-xl border border-gray-100 overflow-hidden mb-3">
-              {service.map((row, idx) => (
-                <View
+              {service.map((row, idx) => {
+                const scaleTo = row.servings_override ?? row.estimate_population ?? (Number(servedPopulation || 0) || 1);
+                const canOpen = Boolean(row.po_snapshot || row.recipe_id || row.fs_item_id);
+                return (
+                <TouchableOpacity
                   key={`${row.meal_type}-${idx}`}
+                  disabled={!canOpen}
+                  onPress={() => {
+                    if (row.po_snapshot) {
+                      setProfile({ type: 'snapshot', data: row.po_snapshot });
+                      return;
+                    }
+                    if (row.recipe_id) {
+                      setProfile({ type: 'recipe', id: row.recipe_id, population: scaleTo });
+                      return;
+                    }
+                    if (row.fs_item_id) {
+                      setProfile({ type: 'item', id: row.fs_item_id, population: scaleTo, quantity: Number(row.quantity ?? 1) });
+                    }
+                  }}
                   className={`flex-row items-center px-4 py-3 ${idx < service.length - 1 ? 'border-b border-gray-100' : ''}`}
                 >
                   <View className="flex-1">
@@ -182,9 +341,10 @@ function MealPrepSection() {
                         <Text className="text-xs font-medium text-green-700">Prepped</Text>
                       </View>
                     )}
+                    {canOpen && <ChevronRight color="#9ca3af" size={16} />}
                   </View>
-                </View>
-              ))}
+                </TouchableOpacity>
+              );})}
             </View>
           ) : (
             <View className="bg-white rounded-xl border border-gray-100 px-4 py-6 items-center mb-3">
@@ -198,21 +358,6 @@ function MealPrepSection() {
             </View>
           ) : (
             <View className="gap-3">
-              <View className="bg-white rounded-xl border border-gray-100 px-4 py-3">
-                <Text className="text-xs font-medium text-gray-500 mb-1.5">Actual served population for menu cycle</Text>
-                <TextInput
-                  value={servedPopulation}
-                  onChangeText={(t) => {
-                    setServedPopulation(t.replace(/[^0-9]/g, ''));
-                    setMarkError(null);
-                  }}
-                  placeholder="Optional"
-                  placeholderTextColor="#9ca3af"
-                  className="border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-900 tabular-nums"
-                  keyboardType="numeric"
-                  accessibilityLabel="Actual served population for menu cycle"
-                />
-              </View>
             <TouchableOpacity
               className={`flex-row items-center justify-center gap-2 py-3.5 rounded-xl ${
                 markServedMutation.isPending ? 'bg-emerald-400' : 'bg-emerald-600'
@@ -247,6 +392,7 @@ function MealPrepSection() {
               <Text className="text-green-700 text-sm font-medium">Service day marked complete.</Text>
             </View>
           )}
+          {profile && <FoodProfileModal profile={profile} onClose={() => setProfile(null)} />}
         </>
       )}
 

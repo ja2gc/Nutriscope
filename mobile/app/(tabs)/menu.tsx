@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CalendarDays, ChevronLeft, ChevronRight, Utensils, X } from 'lucide-react-native';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -13,23 +13,69 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
-  DAYS, MEALS, MEAL_LABELS, MenuCycle, MenuDay, RecipeProfile, FsItemProfile,
+  DAYS, MEALS, MEAL_LABELS, MenuCycle, MenuDay, RecipeProfile, FsItemProfile, MenuSnapshot,
   getFsItemProfile, getMenuCycle, getRecipeProfile, listMealPrep, listMenuCycles, setServedPopulation,
 } from '../../lib/foodService';
 
 const peso = (n: number) => `₱${n.toFixed(2)}`;
 
 // ── Read-only recipe profile (scaled to RND's set servings / day population) ──────
+type ProfileTarget =
+  | { type: 'recipe'; id: number; population: number; quantity?: number }
+  | { type: 'item'; id: number; population: number; quantity: number }
+  | { type: 'snapshot'; data: MenuSnapshot };
+
+type DisplayProfile = {
+  name: string;
+  prep_notes: string | null;
+  servings: number;
+  population: number;
+  total_cost: number;
+  cost_per_head: number;
+  ingredient_usage: { fs_item_id: number; name: string; unit: string; quantity: number; cost: number }[];
+};
+
+function snapshotToProfile(snapshot: MenuSnapshot): DisplayProfile {
+  const population = Number(snapshot.population ?? 0);
+  const totalCost = Number(snapshot.total_cost ?? 0);
+  const ingredientUsage = snapshot.ingredient_usage ?? (snapshot.total_quantity != null ? [{
+    fs_item_id: snapshot.fs_item_id ?? 0,
+    name: snapshot.name,
+    unit: snapshot.unit ?? '',
+    quantity: Number(snapshot.total_quantity),
+    cost: totalCost,
+  }] : []);
+
+  return {
+    name: snapshot.name,
+    prep_notes: snapshot.prep_notes ?? null,
+    servings: Number(snapshot.servings ?? population),
+    population,
+    total_cost: totalCost,
+    cost_per_head: Number(snapshot.cost_per_head ?? (population > 0 ? totalCost / population : 0)),
+    ingredient_usage: ingredientUsage,
+  };
+}
+
 function MenuItemModal({
   profile,
   onClose,
 }: {
-  profile: { type: 'recipe'; id: number; population: number; quantity?: number } | { type: 'item'; id: number; population: number; quantity: number };
+  profile: ProfileTarget;
   onClose: () => void;
 }) {
-  const { data, isLoading } = useQuery<RecipeProfile | FsItemProfile>({
-    queryKey: ['fs-menu-item-profile', profile.type, profile.id, profile.population, profile.quantity ?? 1],
+  const { data, isLoading } = useQuery<DisplayProfile | RecipeProfile | FsItemProfile>({
+    queryKey: [
+      'fs-menu-item-profile',
+      profile.type,
+      profile.type === 'snapshot' ? profile.data.name : profile.id,
+      profile.type === 'snapshot' ? profile.data.population : profile.population,
+      profile.type === 'item' ? profile.quantity : 1,
+    ],
     queryFn: async () => {
+      if (profile.type === 'snapshot') {
+        return snapshotToProfile(profile.data);
+      }
       if (profile.type === 'recipe') {
         return getRecipeProfile(profile.id, Math.max(1, profile.population));
       }
@@ -52,7 +98,7 @@ function MenuItemModal({
           ) : (
             <ScrollView contentContainerStyle={{ padding: 20 }}>
               <Text className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
-                Scaled to {profile.population} servings · baseline serves {data.servings} (view only)
+                Scaled to {data.population} servings · baseline serves {data.servings} (view only)
               </Text>
               <View className="flex-row gap-6 mt-3">
                 <View>
@@ -141,7 +187,7 @@ function ServedRow({
 
 // ── Cycle detail: read-only week + served entry ───────────────────────────────────
 function CycleDetail({ cycleId, onBack }: { cycleId: number; onBack: () => void }) {
-  const [profile, setProfile] = useState<{ type: 'recipe'; id: number; population: number; quantity?: number } | { type: 'item'; id: number; population: number; quantity: number } | null>(null);
+  const [profile, setProfile] = useState<ProfileTarget | null>(null);
   const { data: cycle, isLoading } = useQuery({ queryKey: ['fs-cycle', cycleId], queryFn: () => getMenuCycle(cycleId) });
   const { data: prep } = useQuery({ queryKey: ['fs-mealprep', cycleId], queryFn: () => listMealPrep(cycleId) });
 
@@ -180,8 +226,12 @@ function CycleDetail({ cycleId, onBack }: { cycleId: number; onBack: () => void 
               return (
                 <TouchableOpacity
                   key={m}
-                  disabled={!entry.recipe_id && !entry.fs_item_id}
+                  disabled={!entry.recipe_id && !entry.fs_item_id && !entry.po_snapshot}
                   onPress={() => {
+                    if (entry.po_snapshot) {
+                      setProfile({ type: 'snapshot', data: entry.po_snapshot });
+                      return;
+                    }
                     if (entry.recipe_id) {
                       setProfile({ type: 'recipe', id: entry.recipe_id, population: scaleTo });
                       return;
@@ -243,7 +293,18 @@ function CycleDetail({ cycleId, onBack }: { cycleId: number; onBack: () => void 
 export default function MenuScreen() {
   const insets = useSafeAreaInsets();
   const [openId, setOpenId] = useState<number | null>(null);
+  const [autoOpened, setAutoOpened] = useState(false);
   const { data, isLoading, isError, refetch } = useQuery({ queryKey: ['fs-cycles'], queryFn: listMenuCycles });
+  const cycles = (data ?? []).slice().sort((a: MenuCycle, b: MenuCycle) => Number(b.is_active) - Number(a.is_active));
+
+  useEffect(() => {
+    if (autoOpened || openId || cycles.length === 0) return;
+    const active = cycles.find((cycle) => cycle.is_active);
+    if (active) {
+      setAutoOpened(true);
+      setOpenId(active.id);
+    }
+  }, [autoOpened, cycles, openId]);
 
   if (openId) return <CycleDetail cycleId={openId} onBack={() => setOpenId(null)} />;
 
@@ -261,9 +322,6 @@ export default function MenuScreen() {
       </View>
     );
   }
-
-  // Active cycle first.
-  const cycles = (data ?? []).slice().sort((a: MenuCycle, b: MenuCycle) => Number(b.is_active) - Number(a.is_active));
 
   return (
     <FlatList

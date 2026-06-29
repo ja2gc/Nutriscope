@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as ImagePicker from 'expo-image-picker';
+import { useLocalSearchParams } from 'expo-router';
 import {
   AlertCircle,
   Camera,
@@ -684,6 +685,8 @@ function PurchaseOrderRow({ po, onPress }: { po: PurchaseOrder; onPress: () => v
 
 export default function ProcurementScreen() {
   const insets = useSafeAreaInsets();
+  const params = useLocalSearchParams<{ poId?: string }>();
+  const targetPoId = Number(params.poId ?? 0) || null;
   const [selectedPoId, setSelectedPoId] = useState<number | null>(null);
   const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
   const [uploadGroup, setUploadGroup] = useState<VendorGroup | null>(null);
@@ -705,6 +708,14 @@ export default function ProcurementScreen() {
     () => selectedPo?.vendor_groups?.find((group) => group.id === selectedGroupId) ?? null,
     [selectedPo, selectedGroupId],
   );
+
+  useEffect(() => {
+    if (!targetPoId || selectedPoId === targetPoId) return;
+    if (orders.some((po) => po.id === targetPoId)) {
+      setSelectedPoId(targetPoId);
+      setSelectedGroupId(null);
+    }
+  }, [orders, selectedPoId, targetPoId]);
 
   const openUpload = useCallback((group: VendorGroup, type: AttachmentType) => {
     setUploadGroup(group);

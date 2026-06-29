@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   ShoppingBag, Plus, Trash2, RefreshCw, ChevronLeft, Sparkles, Split,
   FileText, Pencil, Check, Search, Eye,
@@ -626,6 +627,8 @@ function PoDetail({ id, onBack }: { id: number; onBack: () => void }) {
 
 // ═══ ROOT ═════════════════════════════════════════════════════════════════════
 export default function ProcurementPage() {
+  const searchParams = useSearchParams();
+  const targetPoId = Number(searchParams.get("poId") ?? 0) || null;
   const [tab, setTab] = useState<"food-lists" | "supplies-lists" | "pos" | "suppliers">("food-lists");
   const [listDetail, setListDetail] = useState<number | null>(null);
   const [poDetail, setPoDetail] = useState<number | null>(null);
@@ -651,6 +654,13 @@ export default function ProcurementPage() {
     } finally { setLoading(false); }
   }, []);
   useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    if (!targetPoId || poDetail === targetPoId) return;
+    setListDetail(null);
+    setTab("pos");
+    setPoDetail(targetPoId);
+  }, [targetPoId, poDetail]);
 
   async function doGenerate() {
     if (!genStartDate || !genEndDate) return;

@@ -35,6 +35,32 @@ export function shouldShowNotification(
   return true;
 }
 
+export function notificationTargetHref(
+  notification: Pick<Notification, "type" | "source_module" | "source_id">,
+  role?: string | null
+): string {
+  const type = (notification.type ?? "").toLowerCase();
+  const sourceModule = (notification.source_module ?? "").toLowerCase();
+  const sourceId = notification.source_id;
+  const isAdmin = (role ?? "").toLowerCase() === "admin";
+
+  if ((type.includes("announcement") || sourceModule.includes("announcement")) && sourceId) {
+    return isAdmin
+      ? `/admin/announcements?announcementId=${sourceId}`
+      : `/announcements?announcementId=${sourceId}`;
+  }
+
+  if ((type.includes("po") || type.includes("purchase") || sourceModule.includes("food_service")) && sourceId) {
+    return `/food-service/procurement?poId=${sourceId}`;
+  }
+
+  if ((type.includes("follow") || sourceModule.includes("ncp")) && sourceId) {
+    return `/ncp/patients?followUpNcpId=${sourceId}`;
+  }
+
+  return isAdmin ? "/admin/notifications" : "/notifications";
+}
+
 export async function fetchUnreadCount(): Promise<number> {
   const res = await apiFetch("/api/notifications/unread-count", {
     method: "GET",

@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { router } from 'expo-router';
 import {
   AlertCircle,
   Bell,
@@ -66,6 +67,26 @@ function NotifIcon({ type }: { type: string }) {
   return <Bell color="#6b7280" size={size} />;
 }
 
+function openNotificationTarget(notification: Notification) {
+  const type = `${notification.type ?? ''} ${notification.source_module ?? ''}`.toLowerCase();
+  const sourceId = notification.source_id;
+
+  if (sourceId && type.includes('announcement')) {
+    router.push({ pathname: '/announcements', params: { announcementId: String(sourceId) } } as never);
+    return;
+  }
+
+  if (sourceId && (type.includes('po') || type.includes('purchase') || type.includes('food_service'))) {
+    router.push({ pathname: '/(tabs)/procurement', params: { poId: String(sourceId) } } as never);
+    return;
+  }
+
+  if (type.includes('report') || type.includes('accomplishment')) {
+    router.push('/reports');
+    return;
+  }
+}
+
 export default function NotificationsScreen() {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
@@ -118,6 +139,7 @@ export default function NotificationsScreen() {
       <TouchableOpacity
         onPress={() => {
           if (!item.read) readMutation.mutate(item.id);
+          openNotificationTarget(item);
         }}
         activeOpacity={0.7}
         className={`flex-row items-start px-4 py-4 border-b border-gray-100 ${
