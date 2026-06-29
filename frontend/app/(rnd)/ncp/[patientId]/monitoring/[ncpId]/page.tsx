@@ -21,6 +21,8 @@ import {
 import { fetchAssessment, Assessment } from "@/services/assessmentService";
 import { fetchIntervention, Intervention } from "@/services/interventionService";
 import { fetchDiagnoses } from "@/services/diagnosisService";
+import { fetchPatientById, type Patient } from "@/services/patientService";
+import NcpPatientHeader from "../../../_components/NcpPatientHeader";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -67,6 +69,7 @@ export default function NcpMonitoringPage({
   const [entries, setEntries]               = useState<MonitoringEntry[]>([]);
   const [assessment, setAssessment]         = useState<AssessmentWithLabs | null>(null);
   const [intervention, setIntervention]     = useState<Intervention | null>(null);
+  const [patient, setPatient]               = useState<Patient | null>(null);
   const [biochemicalData, setBiochemicalData] = useState<BiochemicalData | null>(null);
   const [plan, setPlan]                     = useState<MonitoringPlan | null>(null);
   const [loading, setLoading]               = useState(true);
@@ -80,13 +83,15 @@ export default function NcpMonitoringPage({
     setLoading(true);
     setError(null);
     try {
-      const [monitoringData, assessmentData, diagnosisData, interventionData, planData] = await Promise.allSettled([
+      const [patientData, monitoringData, assessmentData, diagnosisData, interventionData, planData] = await Promise.allSettled([
+        fetchPatientById(patientId),
         fetchMonitorings(ncpId),
         fetchAssessment(ncpId),
         fetchDiagnoses(ncpId),
         fetchIntervention(ncpId),
         fetchMonitoringPlan(ncpId).catch(() => null),
       ]);
+      if (patientData.status === "fulfilled") setPatient(patientData.value);
       if (monitoringData.status === "fulfilled") setEntries(monitoringData.value);
       if (assessmentData.status === "fulfilled") {
         const a = assessmentData.value as AssessmentWithLabs;
@@ -113,7 +118,7 @@ export default function NcpMonitoringPage({
     } finally {
       setLoading(false);
     }
-  }, [ncpId, isPlaceholder]);
+  }, [patientId, ncpId, isPlaceholder]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -167,6 +172,12 @@ export default function NcpMonitoringPage({
     return (
       <div className="space-y-6 font-sans">
         <Breadcrumb />
+        <NcpPatientHeader
+          patient={patient}
+          patientId={patientId}
+          ncpId={ncpId}
+          stepLabel="Monitoring"
+        />
         <div className="bg-white border border-warm-200 rounded-2xl p-10 sm:p-12 text-center max-w-2xl mx-auto shadow-sm">
           <div className="p-3.5 bg-warm-50 border border-warm-200 rounded-2xl w-fit mx-auto text-warm-400">
             <Lock className="h-8 w-8" />
@@ -204,6 +215,12 @@ export default function NcpMonitoringPage({
   return (
     <div className="space-y-6 font-sans">
       <Breadcrumb />
+      <NcpPatientHeader
+        patient={patient}
+        patientId={patientId}
+        ncpId={ncpId}
+        stepLabel="Monitoring"
+      />
 
       {/* ── Page header ─────────────────────────────────────────────────────── */}
       <div className="border-b border-warm-200 pb-5">
