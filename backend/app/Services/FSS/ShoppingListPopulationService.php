@@ -98,7 +98,7 @@ class ShoppingListPopulationService
         }
 
         $start = $cycle->week_start_date->copy()->startOfDay();
-        $end = $start->copy()->addDays((int) ($cycle->cycle_days ?: 7) - 1);
+        $end = $start->copy()->addDays(6);
 
         ShoppingList::query()
             ->where('status', 'draft')

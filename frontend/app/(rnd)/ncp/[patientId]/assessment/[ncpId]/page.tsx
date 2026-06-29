@@ -14,7 +14,7 @@ import {
   classifyNutritionalStatus, ACTIVITY_FACTORS,
 } from "@/lib/nutritionCalculations";
 import {
-  Assessment, fetchAssessment, saveAssessment,
+  Assessment, AssessmentValidationError, fetchAssessment, saveAssessment,
   AttachmentRecord, uploadAttachment, fetchAttachments, deleteAttachment,
   getAttachmentFileUrl,
 } from "@/services/assessmentService";
@@ -23,6 +23,19 @@ import { deriveRiskScore, RISK_FACTORS } from "@/lib/assessmentRiskScoring";
 
 // ─── Constants ───────────────────────────────────────────────────────────
 const COMMON_ALLERGENS = ["milk", "eggs", "fish", "shellfish", "tree nuts", "peanuts", "wheat", "soybeans"];
+const ASSESSMENT_FIELD_LABELS: Record<string, string> = {
+  weight: "Weight",
+  usual_weight: "Usual weight",
+  height: "Height",
+  physical_activity_level: "Physical activity level",
+};
+
+function formatAssessmentValidationError(error: AssessmentValidationError): string {
+  const fields = Object.keys(error.errors).map((field) => ASSESSMENT_FIELD_LABELS[field] ?? field.replace(/_/g, " "));
+  return fields.length > 0
+    ? `Complete required calculation fields before saving: ${fields.join(", ")}.`
+    : error.message;
+}
 
 export type ScreeningDraft = {
   patientName: string;
@@ -832,7 +845,9 @@ export default function NcpAssessmentPage({
       setSuccess("Assessment saved successfully.");
       setTimeout(() => setSuccess(null), 3000);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to save assessment.");
+      setError(err instanceof AssessmentValidationError
+        ? formatAssessmentValidationError(err)
+        : err instanceof Error ? err.message : "Failed to save assessment.");
     } finally {
       setSaving(false);
     }
@@ -1046,13 +1061,13 @@ export default function NcpAssessmentPage({
 
       {/* ── Measurement inputs ───────────────────────────────────────── */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Field label="Weight (kg)" hint="IBW% · BMI · BMR · Weight Loss%">
+        <Field label="Weight (kg)" hint="Required for nutrition prescription">
           <TextInput type="number" value={String(assessment.weight ?? "")} onChange={v => updateField("weight", v ? Number(v) : null)} placeholder="e.g. 70.5" />
         </Field>
-        <Field label="Usual Weight (kg)" hint="Weight Loss%">
+        <Field label="Usual Weight (kg)" hint="Required for weight-loss calculation">
           <TextInput type="number" value={String(assessment.usual_weight ?? "")} onChange={v => updateField("usual_weight", v ? Number(v) : null)} placeholder="e.g. 72.0" />
         </Field>
-        <Field label="Height (cm)" hint="IBW · BMI · BMR">
+        <Field label="Height (cm)" hint="Required for nutrition prescription">
           <TextInput type="number" value={String(assessment.height ?? "")} onChange={v => updateField("height", v ? Number(v) : null)} placeholder="e.g. 170" />
         </Field>
         <Field label="MUAC (mm)" hint="MUAC card">
@@ -1095,7 +1110,7 @@ export default function NcpAssessmentPage({
           placeholder="e.g. Roman Catholic, Muslim, Seventh-Day Adventist"
         />
       </Field>
-      <Field label="Physical Activity Level (PAL)">
+      <Field label="Physical Activity Level (PAL)" hint="Required for nutrition prescription">
         <SelectInput
           value={s("physical_activity_level")}
           onChange={v => updateField("physical_activity_level", v || null)}

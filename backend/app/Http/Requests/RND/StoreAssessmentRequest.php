@@ -6,6 +6,13 @@ use Illuminate\Foundation\Http\FormRequest;
 
 class StoreAssessmentRequest extends FormRequest
 {
+    private const PRESCRIPTION_INPUTS = [
+        'weight',
+        'usual_weight',
+        'height',
+        'physical_activity_level',
+    ];
+
     public function authorize(): bool
     {
         return true;
@@ -19,8 +26,8 @@ class StoreAssessmentRequest extends FormRequest
             'dietary_restrictions' => ['nullable', 'string'],
             'supplements'          => ['nullable', 'string'],
             'knowledge_notes'      => ['nullable', 'string'],
-            'weight'               => ['nullable', 'numeric', 'min:0'],
-            'height'               => ['nullable', 'numeric', 'min:0'],
+            'weight'               => ['required', 'numeric', 'min:0'],
+            'height'               => ['required', 'numeric', 'min:0'],
             'body_composition'     => ['nullable', 'string'],
             'medical_history'      => ['nullable', 'string'],
             'social_history'       => ['nullable', 'string'],
@@ -30,7 +37,7 @@ class StoreAssessmentRequest extends FormRequest
             'food_dislikes'        => ['nullable', 'array'],
             'medications'          => ['nullable', 'array'],
             'rnd_summary'          => ['nullable', 'string'],
-            'usual_weight'         => ['nullable', 'numeric', 'min:0'],
+            'usual_weight'         => ['required', 'numeric', 'min:0'],
             'nutritional_status'   => ['nullable', 'string', 'in:Normal,Moderate Malnutrition,Severe Malnutrition'],
             'weight_loss_percentage'=> ['nullable', 'numeric', 'min:0', 'max:100'],
             'weight_loss_period'   => ['nullable', 'string'],
@@ -49,7 +56,7 @@ class StoreAssessmentRequest extends FormRequest
             // Clinical measurement fields
             // Note: physical_activity_level accepts canonical AND legacy strings;
             // Assessment::normalizedActivityLevel() canonicalises before engine use.
-            'physical_activity_level' => ['nullable', 'string'],
+            'physical_activity_level' => ['required', 'string', 'in:sedentary,light,moderate,very_active,extra_active'],
             'muac_mm'                 => ['nullable', 'numeric', 'min:0'],
             'waist_cm'                => ['nullable', 'numeric', 'min:0'],
             'hip_cm'                  => ['nullable', 'numeric', 'min:0'],
@@ -77,6 +84,25 @@ class StoreAssessmentRequest extends FormRequest
             'biochemical_data.bp'         => ['nullable', 'string', 'max:255'],
             'biochemical_data.abg'        => ['nullable', 'string', 'max:255'],
             'biochemical_data.others'     => ['nullable', 'array'],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return collect(self::PRESCRIPTION_INPUTS)
+            ->mapWithKeys(fn (string $field) => [
+                "{$field}.required" => 'This field is required before nutrition prescription calculation.',
+            ])
+            ->all();
+    }
+
+    public function attributes(): array
+    {
+        return [
+            'weight' => 'body weight',
+            'usual_weight' => 'usual body weight',
+            'height' => 'height',
+            'physical_activity_level' => 'physical activity level',
         ];
     }
 }

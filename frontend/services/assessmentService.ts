@@ -1,4 +1,11 @@
 import { apiFetch } from "@/lib/apiFetch";
+export class AssessmentValidationError extends Error {
+  constructor(message: string, public readonly errors: Record<string, string[]>) {
+    super(message);
+    this.name = "AssessmentValidationError";
+  }
+}
+
 export interface Assessment {
   id?: number;
   ncp_record_id?: number;
@@ -119,6 +126,9 @@ export async function saveAssessment(
 
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}));
+    if (res.status === 422 && errorData.errors && typeof errorData.errors === "object") {
+      throw new AssessmentValidationError(errorData.message || "Assessment is missing required fields.", errorData.errors);
+    }
     throw new Error(errorData.message || "Failed to save assessment details.");
   }
 

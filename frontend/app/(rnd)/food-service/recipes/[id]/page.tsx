@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CookingPot, ArrowLeft, Search, Plus, X, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { CATALOG_UNIT_OPTIONS } from "@/lib/units";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -380,7 +381,7 @@ export default function EditFSSRecipePage({ params }: { params: Promise<{ id: st
                 {/* Unit */}
                 <select value={row.unit} onChange={(e) => updateRow(idx, { unit: e.target.value })}
                   className="w-full px-2 py-2 text-sm border border-warm-300 rounded-lg text-warm-900 focus:outline-none cursor-pointer">
-                  {["g", "ml", "piece", "cup", "oz", "tbsp", "tsp"].map((u) => <option key={u} value={u}>{u}</option>)}
+                  {[...CATALOG_UNIT_OPTIONS, "cup", "oz", "tbsp", "tsp"].map((u) => <option key={u} value={u}>{u}</option>)}
                 </select>
 
                 {/* Cost contribution */}

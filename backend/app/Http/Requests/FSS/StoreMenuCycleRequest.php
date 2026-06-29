@@ -2,7 +2,9 @@
 
 namespace App\Http\Requests\FSS;
 
+use Illuminate\Support\Carbon;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Validator;
 
 class StoreMenuCycleRequest extends FormRequest
 {
@@ -12,7 +14,7 @@ class StoreMenuCycleRequest extends FormRequest
     {
         return [
             'name'                    => ['required', 'string', 'max:255'],
-            'cycle_days'              => ['nullable', 'integer', 'min:1', 'max:28'],
+            'cycle_days'              => ['nullable', 'integer', 'in:7'],
             'week_start_date'         => ['nullable', 'date'],
             'is_active'               => ['nullable', 'boolean'],
 
@@ -27,5 +29,23 @@ class StoreMenuCycleRequest extends FormRequest
             'days.*.is_event'            => ['nullable', 'boolean'],
             'days.*.event_allocation'    => ['nullable', 'numeric', 'min:0'],
         ];
+    }
+
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator): void {
+            $date = $this->input('week_start_date');
+            if (! $date) {
+                return;
+            }
+
+            try {
+                if (Carbon::parse($date)->dayOfWeek !== Carbon::MONDAY) {
+                    $validator->errors()->add('week_start_date', 'Week start date must be a Monday.');
+                }
+            } catch (\Throwable) {
+                // The date rule reports invalid date formats.
+            }
+        });
     }
 }

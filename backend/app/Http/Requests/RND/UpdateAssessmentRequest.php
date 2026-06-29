@@ -3,9 +3,17 @@
 namespace App\Http\Requests\RND;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Validator;
 
 class UpdateAssessmentRequest extends FormRequest
 {
+    private const PRESCRIPTION_INPUTS = [
+        'weight' => 'body weight',
+        'usual_weight' => 'usual body weight',
+        'height' => 'height',
+        'physical_activity_level' => 'physical activity level',
+    ];
+
     public function authorize(): bool
     {
         return true;
@@ -77,4 +85,29 @@ class UpdateAssessmentRequest extends FormRequest
             'biochemical_data.others'     => ['nullable', 'array'],
         ];
      }
+
+    public function after(): array
+    {
+        return [
+            function (Validator $validator): void {
+                $ncpRecord = $this->route('ncpRecord');
+                $assessment = $ncpRecord?->assessment;
+
+                foreach (self::PRESCRIPTION_INPUTS as $field => $label) {
+                    $value = $this->has($field) ? $this->input($field) : $assessment?->{$field};
+                    if ($value === null || $value === '') {
+                        $validator->errors()->add(
+                            $field,
+                            "The {$label} field is required before nutrition prescription calculation."
+                        );
+                    }
+                }
+            },
+        ];
+    }
+
+    public function attributes(): array
+    {
+        return self::PRESCRIPTION_INPUTS;
+    }
 }

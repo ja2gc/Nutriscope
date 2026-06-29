@@ -40,7 +40,13 @@ class AssessmentSaveTest extends TestCase
             'type'        => 'new',
             'status'      => 'draft',
         ]);
-        $assessment = Assessment::forceCreate(['ncp_record_id' => $ncp->id]);
+        $assessment = Assessment::forceCreate([
+            'ncp_record_id' => $ncp->id,
+            'weight' => 70,
+            'usual_weight' => 72,
+            'height' => 170,
+            'physical_activity_level' => 'sedentary',
+        ]);
         return [$rnd, $ncp, $assessment];
     }
 
@@ -122,7 +128,7 @@ class AssessmentSaveTest extends TestCase
             ->assertJsonPath('data.pregnancy_lactation_status', 'none');
     }
 
-    public function test_all_new_columns_are_nullable(): void
+    public function test_non_prescription_measurement_columns_are_nullable(): void
     {
         [$rnd, $ncp, $assessment] = $this->setup_assessment();
 
@@ -133,7 +139,6 @@ class AssessmentSaveTest extends TestCase
 
         $response->assertStatus(200);
         $fresh = $assessment->fresh();
-        $this->assertNull($fresh->physical_activity_level);
         $this->assertNull($fresh->muac_mm);
         $this->assertNull($fresh->waist_cm);
         $this->assertNull($fresh->hip_cm);

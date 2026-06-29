@@ -251,7 +251,7 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
           onClick={() => { closeComposer(); closeViewer(); }}
         >
           <div
-            className="w-full max-w-2xl bg-white border border-warm-200 rounded-3xl overflow-hidden shadow-2xl"
+            className="w-full max-w-2xl max-h-[90vh] bg-white border border-warm-200 rounded-3xl overflow-hidden shadow-2xl flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-5 py-4 border-b border-warm-100 bg-warm-50 flex items-center justify-between gap-4">
@@ -275,7 +275,8 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
               </button>
             </div>
 
-            <form onSubmit={(e) => void saveAnnouncement(e)} className="p-5 space-y-5">
+            <form onSubmit={(e) => void saveAnnouncement(e)} className="flex min-h-0 flex-1 flex-col">
+              <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-5">
               {/* Row 1 — Category / Visibility / Title */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
@@ -369,9 +370,10 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
                 onImagesChange={(images) => setDraft((prev) => ({ ...prev, images }))}
                 label="Images"
               />
+              </div>
 
               {/* Footer */}
-              <div className="flex items-center justify-between gap-3">
+              <div className="sticky bottom-0 flex items-center justify-between gap-3 border-t border-warm-100 bg-white px-5 py-4">
                 <div className="flex flex-wrap gap-2">
                   {Object.entries(categoryStyles).map(([label, cls]) => (
                     <span
@@ -392,7 +394,7 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
               </div>
 
               {saveError && (
-                <div className="text-xs font-semibold text-red-700 bg-red-50 border border-red-100 rounded-xl px-3 py-2">
+                <div className="mx-5 mb-4 text-xs font-semibold text-red-700 bg-red-50 border border-red-100 rounded-xl px-3 py-2">
                   {saveError}
                 </div>
               )}

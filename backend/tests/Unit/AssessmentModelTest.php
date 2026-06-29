@@ -69,7 +69,7 @@ class AssessmentModelTest extends TestCase
         $request = new \App\Http\Requests\RND\StoreAssessmentRequest();
         $rules = $request->rules();
         $this->assertArrayHasKey('physical_activity_level', $rules);
-        $this->assertContains('nullable', $rules['physical_activity_level']);
+        $this->assertContains('required', $rules['physical_activity_level']);
         $this->assertContains('string', $rules['physical_activity_level']);
     }
 
