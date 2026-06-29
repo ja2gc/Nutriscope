@@ -167,6 +167,18 @@ class NcpInterventionTest extends TestCase
         $this->assertSame('draft', $ncp->fresh()->status);
     }
 
+    public function test_show_returns_null_when_intervention_missing(): void
+    {
+        $rnd     = $this->rnd();
+        $patient = $this->patient();
+        $ncp     = $this->ncpRecord($patient, $rnd);
+
+        $this->actingAs($rnd, 'sanctum')
+            ->getJson("/api/rnd/ncp-records/{$ncp->id}/intervention")
+            ->assertOk()
+            ->assertJsonPath('data', null);
+    }
+
     public function test_completing_prescription_activates_ncp(): void
     {
         $rnd     = $this->rnd();
