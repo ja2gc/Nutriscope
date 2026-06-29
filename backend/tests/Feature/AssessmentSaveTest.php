@@ -33,6 +33,7 @@ class AssessmentSaveTest extends TestCase
             'dob'            => '1990-01-01',
             'sex'            => 'Male',
             'admission_date' => now()->toDateString(),
+            'screening_type' => 'adult',
         ]);
         $ncp = NcpRecord::forceCreate([
             'patient_id'  => $patient->id,
@@ -142,5 +143,66 @@ class AssessmentSaveTest extends TestCase
         $this->assertNull($fresh->muac_mm);
         $this->assertNull($fresh->waist_cm);
         $this->assertNull($fresh->hip_cm);
+    }
+
+    public function test_manual_risk_factor_override_updates_ncp_score(): void
+    {
+        [$rnd, $ncp] = $this->setup_assessment();
+
+        $response = $this->actingAs($rnd, 'sanctum')
+            ->patchJson("/api/rnd/ncp-records/{$ncp->id}/assessment", [
+                'risk_score_manual_override' => true,
+                'risk_score_manual_factors' => [
+                    'screening_criteria',
+                    'unintentional_weight_loss',
+                    'others',
+                ],
+            ]);
+
+        $response->assertStatus(200)
+            ->assertJsonPath('data.risk_score', '4.00')
+            ->assertJsonPath('data.risk_score_manual_override', true)
+            ->assertJsonPath('data.checked_factors', [
+                'screening_criteria',
+                'unintentional_weight_loss',
+                'others',
+            ]);
+
+        $this->assertDatabaseHas('ncp_records', [
+            'id' => $ncp->id,
+            'risk_score' => 4.00,
+            'risk_score_manual_override' => true,
+        ]);
+    }
+
+    public function test_risk_score_can_return_to_automatic_calculation(): void
+    {
+        [$rnd, $ncp] = $this->setup_assessment();
+        $ncp->forceFill([
+            'risk_score' => 4.00,
+            'risk_score_manual_override' => true,
+            'risk_score_manual_factors' => [
+                'screening_criteria',
+                'unintentional_weight_loss',
+                'others',
+            ],
+        ])->save();
+
+        $response = $this->actingAs($rnd, 'sanctum')
+            ->patchJson("/api/rnd/ncp-records/{$ncp->id}/assessment", [
+                'risk_score_manual_override' => false,
+            ]);
+
+        $response->assertStatus(200)
+            ->assertJsonPath('data.risk_score', '1.00')
+            ->assertJsonPath('data.risk_score_manual_override', false)
+            ->assertJsonPath('data.risk_score_manual_factors', null)
+            ->assertJsonPath('data.checked_factors', ['screening_criteria']);
+
+        $this->assertDatabaseHas('ncp_records', [
+            'id' => $ncp->id,
+            'risk_score' => 1.00,
+            'risk_score_manual_override' => false,
+        ]);
     }
 }

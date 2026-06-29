@@ -19,7 +19,7 @@ import {
   getAttachmentFileUrl,
 } from "@/services/assessmentService";
 import { coerceBiochemicalValue } from "@/services/biochemical";
-import { deriveRiskScore, RISK_FACTORS } from "@/lib/assessmentRiskScoring";
+import { deriveRiskScore, RISK_FACTORS, scoreRiskFactors } from "@/lib/assessmentRiskScoring";
 
 // ─── Constants ───────────────────────────────────────────────────────────
 const COMMON_ALLERGENS = ["milk", "eggs", "fish", "shellfish", "tree nuts", "peanuts", "wheat", "soybeans"];
@@ -616,6 +616,7 @@ function defaultAssessment(): Assessment {
     dietary_intake_method: null, dietary_record_file: null,
     physical_activity_level: null, muac_mm: null, waist_cm: null, hip_cm: null,
     stress_factor: null, edema_present: false, pregnancy_lactation_status: "none",
+    risk_score_manual_override: false, risk_score_manual_factors: null,
     religion: null,
   };
 }
@@ -754,9 +755,26 @@ export default function NcpAssessmentPage({
 
   // ─── Weight Loss % Auto-Calc ────────────────────────────────────────
   const usualWeight = Number(assessment.usual_weight) || 0;
-  const computedWeightLossPct = usualWeight > 0 && weight > 0 && usualWeight > weight
-    ? Math.round(((usualWeight - weight) / usualWeight) * 1000) / 10  // 1 decimal place
+  const computedWeightChangePct = usualWeight > 0 && weight > 0
+    ? Math.round((Math.abs(usualWeight - weight) / usualWeight) * 1000) / 10
     : null;
+  const weightChangeDirection = computedWeightChangePct !== null
+    ? weight < usualWeight
+      ? "loss"
+      : weight > usualWeight
+        ? "gain"
+        : "stable"
+    : null;
+  const computedWeightLossPct = weightChangeDirection === "loss" ? computedWeightChangePct : null;
+  const displayWeightChangePct = computedWeightChangePct ?? assessment.weight_loss_percentage ?? null;
+  const displayWeightChangeLabel = weightChangeDirection === "loss"
+    ? "Weight loss"
+    : weightChangeDirection === "gain"
+      ? "Weight gain"
+      : weightChangeDirection === "stable"
+        ? "Stable weight"
+        : "Weight change";
+  const riskWeightLossPct = computedWeightLossPct ?? (usualWeight > 0 && weight > 0 ? null : assessment.weight_loss_percentage ?? null);
 
   // ─── MUAC Classification ────────────────────────────────────────────
   const muacValue = Number(assessment.muac_mm) || 0;
@@ -779,7 +797,7 @@ export default function NcpAssessmentPage({
   const riskResult = deriveRiskScore({
     screeningType: patient?.screening_type ?? null,
     ibwPercentage: computedPercentIBW ?? assessment.ibw_percentage ?? null,
-    weightLossPercentage: computedWeightLossPct ?? assessment.weight_loss_percentage ?? null,
+    weightLossPercentage: riskWeightLossPct,
     chewingSwallowingDifficulties: assessment.chewing_swallowing_difficulties,
     constipation: assessment.constipation,
     diarrheaNotes: assessment.diarrhea_notes,
@@ -789,13 +807,50 @@ export default function NcpAssessmentPage({
     biochemicalData: assessment.biochemical_data ?? null,
     sex: patientSex,
   });
-  const riskChecks = RISK_FACTORS.map((f) => riskResult.checkedFactors.includes(f.key));
-  const riskScore = riskResult.score;
+  const riskManualOverride = assessment.risk_score_manual_override === true;
+  const manualRiskFactors = assessment.risk_score_manual_factors ?? [];
+  const effectiveRiskFactors = riskManualOverride ? manualRiskFactors : riskResult.checkedFactors;
+  const riskChecks = RISK_FACTORS.map((f) => effectiveRiskFactors.includes(f.key));
+  const riskScore = riskManualOverride ? scoreRiskFactors(manualRiskFactors) : riskResult.score;
   const riskInfo = riskBadge(riskScore);
+  const computedRiskInfo = riskBadge(riskResult.score);
 
   // ─── Field Updater ──────────────────────────────────────────────────
   const updateField = (key: keyof Assessment, value: unknown) => {
     setAssessment(prev => ({ ...prev, [key]: value }));
+  };
+
+  const enableManualRiskScore = () => {
+    setAssessment(prev => ({
+      ...prev,
+      risk_score_manual_override: true,
+      risk_score_manual_factors: prev.risk_score_manual_factors ?? riskResult.checkedFactors,
+    }));
+  };
+
+  const resetAutomaticRiskScore = () => {
+    setAssessment(prev => ({
+      ...prev,
+      risk_score_manual_override: false,
+      risk_score_manual_factors: null,
+    }));
+  };
+
+  const toggleManualRiskFactor = (factorKey: string, checked: boolean) => {
+    setAssessment(prev => {
+      const baseFactors = prev.risk_score_manual_override
+        ? prev.risk_score_manual_factors ?? []
+        : riskResult.checkedFactors;
+      const nextFactors = checked
+        ? Array.from(new Set([...baseFactors, factorKey]))
+        : baseFactors.filter((key) => key !== factorKey);
+
+      return {
+        ...prev,
+        risk_score_manual_override: true,
+        risk_score_manual_factors: nextFactors,
+      };
+    });
   };
 
   const s = (key: keyof Assessment): string => (assessment[key] as string) ?? "";
@@ -812,7 +867,7 @@ export default function NcpAssessmentPage({
         // Auto-computed fields — override stored value with live computation when available
         bmi: computedBmi,
         ibw_percentage: computedPercentIBW ?? assessment.ibw_percentage,
-        weight_loss_percentage: computedWeightLossPct ?? assessment.weight_loss_percentage,
+        weight_loss_percentage: computedWeightChangePct ?? assessment.weight_loss_percentage,
         nutritional_status: riskScore > 3 ? "Severe Malnutrition" : riskScore >= 2 ? "Moderate Malnutrition" : "Normal",
       };
       // Remove read-only fields
@@ -1002,14 +1057,21 @@ export default function NcpAssessmentPage({
               : "Enter wt, ht · set age & sex in profile"}
           </p>
         </div>
-        {/* Weight Loss % — from weight + usual weight */}
-        <div className={`rounded-xl p-3 border ${computedWeightLossPct !== null ? "bg-white border-warm-200" : "bg-warm-50 border-warm-100"}`}>
-          <p className="text-[9px] font-bold text-warm-400 uppercase tracking-wider">Weight Loss</p>
-          <p className={`text-xl font-black font-mono mt-0.5 ${computedWeightLossPct !== null ? "text-amber-700" : "text-warm-300"}`}>
-            {computedWeightLossPct !== null ? `${computedWeightLossPct}%` : "—"}
+        {/* Weight Loss/Gain % - from weight + usual weight */}
+        <div className={`rounded-xl p-3 border ${computedWeightChangePct !== null ? "bg-white border-warm-200" : "bg-warm-50 border-warm-100"}`}>
+          <p className="text-[9px] font-bold text-warm-400 uppercase tracking-wider">Weight Loss/Gain</p>
+          <p className={`text-xl font-black font-mono mt-0.5 ${computedWeightChangePct !== null
+              ? weightChangeDirection === "gain"
+                ? "text-emerald-700"
+                : weightChangeDirection === "loss"
+                  ? "text-amber-700"
+                  : "text-warm-700"
+              : "text-warm-300"
+            }`}>
+            {computedWeightChangePct !== null ? `${computedWeightChangePct}%` : "—"}
           </p>
           <p className="text-[9px] text-warm-400 mt-0.5">
-            {computedWeightLossPct !== null ? "from usual weight" : "Enter weight & usual weight"}
+            {computedWeightChangePct !== null ? `${displayWeightChangeLabel} from usual weight` : "Enter weight & usual weight"}
           </p>
         </div>
         {/* MUAC — from muac_mm */}
@@ -1079,7 +1141,7 @@ export default function NcpAssessmentPage({
         <Field label="Hip Circumference (cm)" hint="WHR card">
           <TextInput type="number" value={String(assessment.hip_cm ?? "")} onChange={v => updateField("hip_cm", v ? Number(v) : null)} placeholder="e.g. 100" />
         </Field>
-        <Field label="Weight Loss Period">
+        <Field label="Weight Loss/Gain Period">
           <TextInput value={s("weight_loss_period")} onChange={v => updateField("weight_loss_period", v)} placeholder="e.g. 3 months" />
         </Field>
         <Field label="Functional Assessment">
@@ -1435,24 +1497,51 @@ export default function NcpAssessmentPage({
 
   const renderRiskScore = () => (
     <div className="bg-white border border-warm-200 rounded-xl p-5 space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
         <h4 className="text-[10px] font-extrabold text-warm-800 uppercase tracking-wider flex items-center gap-1.5">
           <Activity className="h-3.5 w-3.5 text-emerald-600" />
           Scoring of Nutritional Risk Related Factors
         </h4>
+        <div className="flex items-center gap-2 flex-wrap justify-end">
+          <button
+            type="button"
+            onClick={resetAutomaticRiskScore}
+            className={`px-2.5 py-1 rounded-full text-[9px] font-extrabold uppercase tracking-wider border transition-colors ${!riskManualOverride
+                ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                : "bg-white text-warm-500 border-warm-200 hover:border-emerald-200 hover:text-emerald-700"
+              }`}
+          >
+            Automatic
+          </button>
+          <button
+            type="button"
+            onClick={enableManualRiskScore}
+            className={`px-2.5 py-1 rounded-full text-[9px] font-extrabold uppercase tracking-wider border transition-colors ${riskManualOverride
+                ? "bg-amber-50 text-amber-700 border-amber-200"
+                : "bg-white text-warm-500 border-warm-200 hover:border-amber-200 hover:text-amber-700"
+              }`}
+          >
+            Manual edit
+          </button>
+        </div>
         <span className={`inline-flex px-2.5 py-1 rounded-full text-[9px] font-extrabold uppercase tracking-wider border ${riskInfo.color}`}>
           {riskInfo.label} — {riskScore} pts
         </span>
       </div>
+      {riskManualOverride && (
+        <p className={`text-[10px] font-semibold px-3 py-2 rounded-lg border ${computedRiskInfo.color}`}>
+          Automatic score: {computedRiskInfo.label} - {riskResult.score} pts
+        </p>
+      )}
       <div className="space-y-2">
         {RISK_FACTORS.map((factor, i) => (
-          <div key={i} className="flex items-center justify-between gap-3 text-[11px] text-warm-700 px-3 py-2 rounded-lg border border-transparent">
+          <div key={i} className={`flex items-center justify-between gap-3 text-[11px] text-warm-700 px-3 py-2 rounded-lg border ${riskManualOverride ? "border-warm-200 bg-warm-50/40" : "border-transparent"}`}>
             <div className="flex items-center gap-2">
               <input
                 type="checkbox"
                 checked={riskChecks[i]}
-                readOnly
-                className="shrink-0 accent-emerald-600 cursor-default"
+                onChange={e => toggleManualRiskFactor(factor.key, e.target.checked)}
+                className="shrink-0 accent-emerald-600 cursor-pointer"
               />
               <span className="leading-tight">{factor.label}</span>
             </div>
@@ -1460,21 +1549,39 @@ export default function NcpAssessmentPage({
           </div>
         ))}
       </div>
-      {riskChecks[2] && (
-        <div className="grid grid-cols-2 gap-3 pl-6 pt-1">
-          <Field label="Weight Loss %">
-            <TextInput type="number" value={String(assessment.weight_loss_percentage ?? "")} onChange={v => updateField("weight_loss_percentage", v ? Number(v) : null)} placeholder="%" />
-          </Field>
-          <Field label="Over Period">
-            <TextInput value={s("weight_loss_period")} onChange={v => updateField("weight_loss_period", v)} placeholder="e.g. 3 months" />
-          </Field>
-        </div>
-      )}
+      <div className="grid grid-cols-2 gap-3 pt-1">
+        <Field label="Weight Loss/Gain %">
+          <TextInput
+            type="number"
+            value={String(displayWeightChangePct ?? "")}
+            onChange={v => updateField("weight_loss_percentage", v ? Number(v) : null)}
+            placeholder="%"
+            disabled={computedWeightChangePct !== null}
+          />
+        </Field>
+        <Field label="Over Period">
+          <TextInput value={s("weight_loss_period")} onChange={v => updateField("weight_loss_period", v)} placeholder="e.g. 3 months" />
+        </Field>
+      </div>
     </div>
   );
 
   const renderSummaryTab = () => (
     <div className="space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Field label="Calculated Weight Loss/Gain">
+          <TextInput
+            type="number"
+            value={String(displayWeightChangePct ?? "")}
+            onChange={v => updateField("weight_loss_percentage", v ? Number(v) : null)}
+            placeholder="%"
+            disabled={computedWeightChangePct !== null}
+          />
+        </Field>
+        <Field label="Weight Loss/Gain Period">
+          <TextInput value={s("weight_loss_period")} onChange={v => updateField("weight_loss_period", v)} placeholder="e.g. 3 months" />
+        </Field>
+      </div>
       <Field label="RND Summary (Clinical Observations)">
         <TextArea
           value={s("rnd_summary")}

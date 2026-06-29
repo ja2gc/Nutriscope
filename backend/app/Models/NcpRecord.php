@@ -17,10 +17,13 @@ class NcpRecord extends Model
     protected bool $auditRedactValues = true;
     protected $fillable = [
         'patient_id', 'rnd_user_id', 'type', 'status', 'risk_score',
+        'risk_score_manual_override', 'risk_score_manual_factors',
     ];
 
     protected $casts = [
         'risk_score' => 'decimal:2',
+        'risk_score_manual_override' => 'boolean',
+        'risk_score_manual_factors' => 'array',
     ];
 
     public function patient(): BelongsTo
@@ -54,4 +57,3 @@ class NcpRecord extends Model
     }
 
 }
-

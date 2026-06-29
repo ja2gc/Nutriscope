@@ -11,6 +11,10 @@ class AssessmentResource extends JsonResource
     public function toArray(Request $request): array
     {
         $riskResult = resolve(RiskScoreCalculator::class)->calculate($this->resource);
+        $ncpRecord = $this->ncpRecord;
+        $manualOverride = (bool) ($ncpRecord?->risk_score_manual_override ?? false);
+        $manualFactors = $ncpRecord?->risk_score_manual_factors;
+        $checkedFactors = $manualOverride ? ($manualFactors ?? []) : $riskResult['checked_factors'];
 
         return [
             'id'                   => $this->id,
@@ -57,8 +61,12 @@ class AssessmentResource extends JsonResource
             'stress_factor'             => $this->stress_factor,
             'edema_present'             => $this->edema_present,
             'pregnancy_lactation_status'=> $this->pregnancy_lactation_status,
-            'risk_score'           => $this->ncpRecord?->risk_score,
-            'checked_factors'      => $riskResult['checked_factors'],
+            'risk_score'           => $ncpRecord?->risk_score,
+            'risk_score_manual_override' => $manualOverride,
+            'risk_score_manual_factors' => $manualFactors,
+            'computed_risk_score' => $riskResult['score'],
+            'computed_checked_factors' => $riskResult['checked_factors'],
+            'checked_factors'      => $checkedFactors,
             'created_at'           => $this->created_at,
             'updated_at'           => $this->updated_at,
             'biochemical_data'     => $this->whenLoaded('biochemicalData', function () {
