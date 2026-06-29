@@ -1,12 +1,6 @@
 @extends('reports.layout')
 
 @section('body')
-    {{--
-        Accomplishment Report — per-staff pay-period duty sheet (FSS §4).
-        One page per staff member; landscape A4.
-        Columns = days in range, rows = the 7 fixed tasks.
-    --}}
-
     @foreach($staff_sheets as $sheet)
         @include('reports.partials.letterhead', ['title' => 'ACCOMPLISHMENT REPORT'])
 
@@ -14,20 +8,15 @@
             For the Period: <strong>{{ $period_label }}</strong>
         </div>
 
-        {{-- Staff name line --}}
         <table style="width:100%; margin:6px 0 4px; border:0;">
             <tr>
                 <td style="border:0;">
                     <span class="bold">Name of Employee:</span>
-                    <span style="border-bottom:1px solid #333; padding:0 60px 0 4px;">{{ $sheet['user']?->name ?? '—' }}</span>
+                    <span style="border-bottom:1px solid #333; padding:0 60px 0 4px;">{{ $sheet['user']?->name ?? '-' }}</span>
                 </td>
             </tr>
         </table>
 
-        {{--
-            Task grid: rows = tasks, cols = calendar days.
-            DomPDF handles moderate column counts fine on A4 landscape.
-        --}}
         <table class="grid" style="font-size:9px; margin-top:4px;">
             <thead>
                 <tr>
@@ -46,12 +35,10 @@
                     <tr>
                         <td>{{ $taskLabel }}</td>
                         @foreach($days as $date)
-                            @php $cell = $sheet['task_rows'][$taskKey][$date] ?? '–'; @endphp
+                            @php $cell = $sheet['task_rows'][$taskKey][$date] ?? '-'; @endphp
                             <td style="text-align:center;">
                                 @if($cell === 'X')
                                     <span style="font-size:9px; color:#333;">X</span>
-                                @elseif(is_numeric($cell) && $cell !== '–')
-                                    {{ $cell }}
                                 @else
                                     {{ $cell }}
                                 @endif
@@ -59,24 +46,12 @@
                         @endforeach
                     </tr>
                 @endforeach
-
-                {{-- Totals row: day's combined served population (row 4 sum) --}}
-                <tr class="totals">
-                    <td><strong>Total Patients Served (All Wards)</strong></td>
-                    @foreach($days as $date)
-                        <td style="text-align:center;">
-                            {{ $daily_population[$date] ?? '—' }}
-                        </td>
-                    @endforeach
-                </tr>
             </tbody>
         </table>
 
-        {{-- Signature blocks --}}
         @if(count($signatories ?? []))
             @include('reports.partials.signatories')
         @else
-            {{-- Fallback three-block layout when no template signatories are configured. --}}
             <table class="sigs" style="margin-top:32px;">
                 <tr>
                     <td>

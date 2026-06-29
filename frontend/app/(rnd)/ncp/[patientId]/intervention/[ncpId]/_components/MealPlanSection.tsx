@@ -148,6 +148,18 @@ export default function MealPlanSection({
   };
 
   const handleGenerate = async () => {
+    const missingTargets = [
+      ['energy', prescriptionTargets.energy],
+      ['protein', prescriptionTargets.protein],
+      ['carbs', prescriptionTargets.carbs],
+      ['fat', prescriptionTargets.fat],
+    ].filter(([, value]) => !Number.isFinite(Number(value)) || Number(value) <= 0).map(([label]) => label);
+
+    if (missingTargets.length > 0) {
+      setGenerateError(`Complete nutrition prescription before generating. Missing: ${missingTargets.join(', ')}.`);
+      return;
+    }
+
     setGenerating(true);
     setGenerateError(null);
     try {

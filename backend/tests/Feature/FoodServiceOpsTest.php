@@ -912,9 +912,23 @@ class FoodServiceOpsTest extends TestCase
             ]);
 
         $response->assertCreated()
-            ->assertJsonPath('data.name', 'Week 1 Cycle');
+            ->assertJsonPath('data.name', 'Week 1 Cycle')
+            ->assertJsonPath('data.cycle_days', 7);
 
         $this->assertDatabaseHas('menu_cycles', ['name' => 'Week 1 Cycle']);
+    }
+
+    public function test_menu_cycle_rejects_non_week_span_and_non_monday_start(): void
+    {
+        $response = $this->actingAs($this->rnd)
+            ->postJson('/api/fss/menu-cycles', [
+                'name' => 'Invalid span',
+                'cycle_days' => 5,
+                'week_start_date' => '2026-06-16', // Tuesday
+            ]);
+
+        $response->assertUnprocessable()
+            ->assertJsonValidationErrors(['cycle_days', 'week_start_date']);
     }
 
     public function test_fss_can_activate_menu_cycle(): void
@@ -971,7 +985,7 @@ class FoodServiceOpsTest extends TestCase
             ->assertJsonPath('data.within_budget', true);
     }
 
-    public function test_menu_cycle_activation_blocks_planned_days_missing_estimate_population(): void
+    public function test_menu_cycle_activation_allows_planned_days_missing_estimate_population(): void
     {
         $cycle = MenuCycle::factory()->create([
             'is_active' => false,
@@ -993,12 +1007,13 @@ class FoodServiceOpsTest extends TestCase
         $response = $this->actingAs($this->rnd)
             ->patchJson("/api/fss/menu-cycles/{$cycle->id}/activate");
 
-        $response->assertStatus(422)
-            ->assertJsonPath('missing_population_days', ['2026-06-15']);
+        $response->assertOk()
+            ->assertJsonPath('data.is_active', true)
+            ->assertJsonPath('data.status', 'active');
 
         $cycle->refresh();
-        $this->assertFalse($cycle->is_active);
-        $this->assertEquals('draft', $cycle->status);
+        $this->assertTrue($cycle->is_active);
+        $this->assertEquals('active', $cycle->status);
     }
 
     public function test_menu_cycle_requires_name(): void

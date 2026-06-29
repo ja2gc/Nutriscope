@@ -28,7 +28,13 @@ class AssessmentReligionTest extends TestCase
             'patient_id' => $patient->id, 'rnd_user_id' => $rnd->id,
             'type' => 'new', 'status' => 'draft',
         ]);
-        $assessment = Assessment::forceCreate(['ncp_record_id' => $ncp->id]);
+        $assessment = Assessment::forceCreate([
+            'ncp_record_id' => $ncp->id,
+            'weight' => 70,
+            'usual_weight' => 72,
+            'height' => 170,
+            'physical_activity_level' => 'sedentary',
+        ]);
         return [$rnd, $ncp, $assessment];
     }
 

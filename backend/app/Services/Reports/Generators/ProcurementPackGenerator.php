@@ -3,6 +3,7 @@
 namespace App\Services\Reports\Generators;
 
 use App\Models\PurchaseOrder;
+use App\Models\PurchaseOrderVendorGroup;
 use App\Models\Report;
 use App\Models\ReportTemplate;
 use App\Services\Reports\Contracts\ReportGenerator;
@@ -39,7 +40,12 @@ class ProcurementPackGenerator implements ReportGenerator
         $params = $report->parameters ?? [];
 
         $orders = $this->resolveOrders($params);
-        $packs  = $orders->map(fn (PurchaseOrder $po) => $this->buildPack($po))->all();
+        $packs  = $orders
+            ->flatMap(fn (PurchaseOrder $po) => $po->vendorGroups->isNotEmpty()
+                ? $po->vendorGroups->map(fn (PurchaseOrderVendorGroup $group) => $this->buildPack($po, $group))
+                : collect([$this->buildPack($po)]))
+            ->values()
+            ->all();
 
         $preparedBy = $params['prepared_by_name'] ?? null;
 
@@ -73,7 +79,15 @@ class ProcurementPackGenerator implements ReportGenerator
 
     private function resolveOrders(array $params): Collection
     {
-        $query = PurchaseOrder::with(['items.fsItem', 'supplier', 'attachments']);
+        $query = PurchaseOrder::with([
+            'items.fsItem',
+            'supplier',
+            'attachments',
+            'shoppingList',
+            'vendorGroups.supplier',
+            'vendorGroups.items.fsItem',
+            'vendorGroups.attachments',
+        ]);
 
         if (! empty($params['purchase_order_id'])) {
             return $query->whereKey($params['purchase_order_id'])->get();
@@ -97,18 +111,19 @@ class ProcurementPackGenerator implements ReportGenerator
             ->orderBy('order_date')->get();
     }
 
-    private function buildPack(PurchaseOrder $po): array
+    private function buildPack(PurchaseOrder $po, ?PurchaseOrderVendorGroup $group = null): array
     {
+        $items = $group?->items ?? $po->items;
         // Vendor docs show whole purchase units (kg/sacks), not base grams (Spec 6 #4).
         // total_value unchanged: purchase_qty × purchase_price == qty × unit_price.
-        $airItems = $po->items->values()->map(fn ($it, $i) => [
+        $airItems = $items->values()->map(fn ($it, $i) => [
             'item_no'     => $i + 1,
             'unit'        => $it->purchase_unit ?? $it->unit,
             'description' => $it->description ?? $it->fsItem?->name,
             'quantity'    => $it->purchase_qty ?? $it->qty,
         ])->all();
 
-        $statementItems = $po->items->map(fn ($it) => [
+        $statementItems = $items->map(fn ($it) => [
             'qty'         => $it->purchase_qty ?? $it->qty,
             'unit'        => $it->purchase_unit ?? $it->unit,
             'item'        => $it->description ?? $it->fsItem?->name,
@@ -116,25 +131,31 @@ class ProcurementPackGenerator implements ReportGenerator
             'total_value' => $it->total_value,
         ])->all();
 
-        $grandTotal = (float) $po->items->sum('total_value');
+        $grandTotal = (float) $items->sum('total_value');
         $date       = optional($po->order_date)->format('F j, Y') ?? '';
+        $inclusive  = $po->shoppingList?->period_start && $po->shoppingList?->period_end
+            ? $po->shoppingList->period_start->format('m/d/y') . '-' . $po->shoppingList->period_end->format('m/d/y')
+            : $date;
+        $attachments = $group ? $group->attachments : $po->attachments;
 
         return [
             'po'              => $po,
-            'supplier'        => $po->supplier,
+            'vendor_group'    => $group,
+            'supplier'        => $group?->supplier ?? $po->supplier,
+            'or_number'       => $group?->or_number ?? $po->or_number,
             'air_items'       => $airItems,
             'statement_items' => $statementItems,
             'grand_total'     => round($grandTotal, 2),
             'order_date'      => $date,
             // Uploaded receipt / proof-of-purchase photos, embedded as an appendix.
-            'attachments'     => $po->attachments->map(fn ($a) => [
+            'attachments'     => $attachments->map(fn ($a) => [
                 'type'    => $a->type,
                 'caption' => $a->caption,
                 'src'     => storage_path('app/public/' . $a->path),
             ])->values()->all(),
             'summary'         => [
                 'date_purchased' => $date,
-                'inclusive'      => $date,
+                'inclusive'      => $inclusive,
                 'amount'         => round($grandTotal, 2),
             ],
         ];

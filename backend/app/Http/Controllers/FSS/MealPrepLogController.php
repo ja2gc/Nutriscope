@@ -35,7 +35,6 @@ class MealPrepLogController extends Controller
             'service_date'      => ['required', 'date'],
             'population'        => ['nullable', 'integer', 'min:1'],
             'served_population' => ['nullable', 'integer', 'min:0'],
-            'allow_shortfall'   => ['nullable', 'boolean'],
         ]);
 
         $log = $consumption->completeDay(
@@ -43,7 +42,6 @@ class MealPrepLogController extends Controller
             $data['service_date'],
             $data['population'] ?? null,
             $data['served_population'] ?? null,
-            (bool) ($data['allow_shortfall'] ?? false),
         );
         $lifecycle->refreshForServiceDate($data['service_date']);
 

@@ -42,7 +42,18 @@ class ReportBrowser
                     . ($po->supplier ? " — {$po->supplier->name}" : '')),
                 'completed_at',
             ),
-            'program_project_activity' => fn () => $this->menuCycleSource(),
+            'program_project_activity' => fn () => new EntityInstanceSource(
+                fn () => PurchaseOrder::query()
+                    ->where('procurement_track', 'food')
+                    ->whereIn('lifecycle_status', ['completed', 'archived'])
+                    ->whereHas('programProjectActivity')
+                    ->with(['programProjectActivity', 'shoppingList']),
+                'purchase_order_id',
+                fn (PurchaseOrder $po) => trim(($po->po_number ?: "PO #{$po->id}")
+                    . ' — ' . (optional($po->programProjectActivity?->period_start)->format('M j') ?? optional($po->shoppingList?->period_start)->format('M j') ?? '?')
+                    . '-' . (optional($po->programProjectActivity?->period_end)->format('M j, Y') ?? optional($po->shoppingList?->period_end)->format('M j, Y') ?? '?')),
+                'completed_at',
+            ),
             'menu_calendar'            => fn () => $this->menuCycleSource(),
             'patient_menu_plan' => fn () => new EntityInstanceSource(
                 // One instance per meal plan so the RND selects the EXACT plan to print.

@@ -49,4 +49,22 @@ describe("ImageUploadGallery", () => {
     expect(markup).toContain("disabled=\"\"");
     expect(markup).toContain("Removing...");
   });
+
+  test("renders avatar mode as a circular single-image picker", () => {
+    const markup = renderToStaticMarkup(
+      <ImageUploadGallery
+        images={[images[0]]}
+        onImagesChange={() => undefined}
+        label="Profile Photo"
+        variant="avatar"
+        uploadLabel="Change profile picture"
+        removeLabel="Delete profile picture"
+      />
+    );
+
+    expect(markup).not.toContain("multiple=\"\"");
+    expect(markup).toContain("rounded-full");
+    expect(markup).toContain("Change profile picture");
+    expect(markup).toContain("aria-label=\"Delete profile picture\"");
+  });
 });

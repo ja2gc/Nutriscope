@@ -25,7 +25,6 @@ interface ServiceRow {
   meal_type: string;
   name: string;
   prepped: boolean;
-  has_shortfall: boolean;
 }
 
 interface PendingPo {
@@ -382,9 +381,6 @@ function ServiceRowItem({ row, isLast }: { row: ServiceRow; isLast: boolean }) {
       </View>
       <View className="flex-row gap-2">
         <StatusBadge label="Prepped" active={row.prepped} activeColor="green" />
-        {row.has_shortfall && (
-          <StatusBadge label="Shortfall" active={true} activeColor="red" />
-        )}
       </View>
     </View>
   );
