@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/Button";
 import { Pagination, PaginationMeta } from "@/components/ui/Pagination";
@@ -69,6 +70,9 @@ function formatTimeStamp(value: string) {
 
 export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
   const isAdmin = variant === "admin";
+  const searchParams = useSearchParams();
+  const targetAnnouncementId = Number(searchParams.get("announcementId") ?? 0) || null;
+  const openedTargetRef = useRef<number | null>(null);
 
   // Pick service functions based on variant
   const apiFetch = isAdmin ? fetchAdminAnnouncements : fetchAnnouncements;
@@ -101,7 +105,7 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
     setLoading(true);
     setError(null);
     try {
-      const result = await apiFetch(p, 15);
+      const result = await apiFetch(p, targetAnnouncementId ? 100 : 15);
       setPosts(result.data);
       setMeta(result.meta);
     } catch (err: unknown) {
@@ -115,7 +119,17 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
   useEffect(() => {
     void loadPage(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [variant]);
+  }, [variant, targetAnnouncementId]);
+
+  useEffect(() => {
+    if (!targetAnnouncementId || openedTargetRef.current === targetAnnouncementId) return;
+    const target = posts.find((post) => post.id === targetAnnouncementId);
+    if (!target) return;
+    openedTargetRef.current = targetAnnouncementId;
+    setComposerOpen(false);
+    setEditingPostId(null);
+    setViewingPostId(target.id);
+  }, [posts, targetAnnouncementId]);
 
   // Lock body scroll when modal is open
   useEffect(() => {

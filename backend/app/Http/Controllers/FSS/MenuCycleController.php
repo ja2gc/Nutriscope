@@ -18,6 +18,7 @@ use Illuminate\Support\Carbon;
 class MenuCycleController extends Controller
 {
     private const DAY_RELATIONS = ['days.recipe', 'days.fsItem'];
+    private const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
     public function index(): JsonResponse
     {
@@ -74,6 +75,12 @@ class MenuCycleController extends Controller
             }
         }
 
+        if ($days !== null && $this->structuralDaysLocked($menuCycle)) {
+            return response()->json([
+                'message' => 'Active or snapshotted menu cycles cannot change menu day structure.',
+            ], 422);
+        }
+
         DB::transaction(function () use ($menuCycle, $data, $days) {
             $menuCycle->update($data);
             if ($days !== null) {
@@ -96,6 +103,14 @@ class MenuCycleController extends Controller
 
     public function activate(MenuCycle $menuCycle): JsonResponse
     {
+        $missingDays = $this->missingPlannedWeekdays($menuCycle);
+        if ($missingDays !== []) {
+            return response()->json([
+                'message' => 'Menu cycle must include at least one planned item for every day before activation.',
+                'missing_days' => $missingDays,
+            ], 422);
+        }
+
         DB::transaction(function () use ($menuCycle) {
             // Retire any currently active cycle before promoting this one — only one
             // cycle may be active at a time (callers do where('is_active', true)->first()).
@@ -195,6 +210,36 @@ class MenuCycleController extends Controller
             return 'ok';
         }
         return $costPerHead <= $budget * 1.10 ? 'warning' : 'over';
+    }
+
+    private function missingPlannedWeekdays(MenuCycle $cycle): array
+    {
+        $planned = $cycle->days()
+            ->where(function ($query) {
+                $query->whereNotNull('recipe_id')->orWhereNotNull('fs_item_id');
+            })
+            ->pluck('day_of_week')
+            ->unique()
+            ->values()
+            ->all();
+
+        return array_values(array_diff(self::WEEKDAYS, $planned));
+    }
+
+    private function structuralDaysLocked(MenuCycle $cycle): bool
+    {
+        if ($cycle->is_active) {
+            return true;
+        }
+
+        return $cycle->days()
+            ->where(function ($query) {
+                $query->whereNotNull('po_snapshot')
+                    ->orWhereNotNull('po_snapshot_at')
+                    ->orWhereNotNull('snapshot_purchase_order_id')
+                    ->orWhere('po_snapshot_locked', true);
+            })
+            ->exists();
     }
 
     /** Replace the cycle's days with the supplied grid (single batch INSERT). */

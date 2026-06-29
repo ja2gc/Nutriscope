@@ -9,8 +9,27 @@ export interface MenuDay {
   estimate_population: number | null;
   servings_override: number | null;
   quantity: number | null;
+  po_snapshot?: MenuSnapshot | null;
+  po_snapshot_at?: string | null;
+  po_snapshot_locked?: boolean;
+  snapshot_purchase_order_id?: number | null;
   recipe?: { id: number; name: string; servings: number } | null;
   fs_item?: { id: number; name: string } | null;
+}
+
+export interface MenuSnapshot {
+  recipe_id?: number;
+  fs_item_id?: number;
+  name: string;
+  prep_notes?: string | null;
+  servings?: number;
+  population?: number;
+  total_cost?: number;
+  cost_per_head?: number;
+  unit?: string;
+  quantity?: number;
+  total_quantity?: number;
+  ingredient_usage?: { fs_item_id: number; name: string; unit: string; quantity: number; cost: number }[];
 }
 
 export interface MenuCycle {

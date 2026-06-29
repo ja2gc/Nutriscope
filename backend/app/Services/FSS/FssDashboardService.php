@@ -168,9 +168,16 @@ class FssDashboardService
         $ready = $log !== null;
 
         return $slots->map(fn ($slot) => [
-            'meal_type'  => $slot->meal_type,
-            'name'       => $slot->recipe?->name ?? $slot->fsItem?->name ?? 'Unknown',
-            'prepped'    => $ready,
+            'id'          => $slot->id,
+            'meal_type'   => $slot->meal_type,
+            'name'        => $slot->po_snapshot['name'] ?? $slot->recipe?->name ?? $slot->fsItem?->name ?? 'Unknown',
+            'recipe_id'   => $slot->recipe_id,
+            'fs_item_id'  => $slot->fs_item_id,
+            'quantity'    => $slot->quantity,
+            'estimate_population' => $slot->estimate_population,
+            'servings_override' => $slot->servings_override,
+            'po_snapshot' => $slot->po_snapshot,
+            'prepped'     => $ready,
             'has_shortfall' => $ready && (bool) $log->has_shortfall,
         ])->values()->all();
     }
