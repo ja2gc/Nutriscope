@@ -46,18 +46,24 @@ function UsdaImportModal({ onClose, onImported }: {
   const [importing, setImporting] = useState<number | null>(null);
   const [imported, setImported]   = useState<string | null>(null);
   const [error, setError]         = useState<string | null>(null);
+  const activeSearchRef           = useRef<number>(0);
   const debounceRef               = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const runSearch = useCallback(async (q: string) => {
     if (q.trim().length < 2) { setResults([]); return; }
+    const searchId = ++activeSearchRef.current;
     setSearching(true);
     setError(null);
     try {
-      setResults(await searchUsda(q.trim()));
+      const res = await searchUsda(q.trim());
+      if (searchId === activeSearchRef.current) setResults(res);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Search failed.");
+      if (searchId === activeSearchRef.current) {
+        const msg = e instanceof Error ? e.message : "Search failed.";
+        setError(msg.includes("400") ? "Please try a more specific search term." : msg);
+      }
     } finally {
-      setSearching(false);
+      if (searchId === activeSearchRef.current) setSearching(false);
     }
   }, []);
 
@@ -124,11 +130,10 @@ function UsdaImportModal({ onClose, onImported }: {
 
         {/* Review note — shown after successful import */}
         {imported && (
-          <div className="mx-6 mt-4 flex items-start gap-2.5 px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl">
-            <TriangleAlert className="h-3.5 w-3.5 text-amber-600 shrink-0 mt-0.5" />
-            <p className="text-[11px] text-amber-800 leading-relaxed">
-              <span className="font-bold">&quot;{imported}&quot;</span> imported. Category and allergens were auto-detected from USDA data —{" "}
-              <span className="font-bold">please review them in the edit page before use.</span>
+          <div className="mx-6 mt-4 flex items-start gap-2.5 px-4 py-3 bg-emerald-50 border border-emerald-200 rounded-xl">
+            <TriangleAlert className="h-3.5 w-3.5 text-emerald-600 shrink-0 mt-0.5" />
+            <p className="text-[11px] text-emerald-800 leading-relaxed">
+              <span className="font-bold">Food imported successfully.</span> Category and allergen suggestions are auto-mapped and should be reviewed.
             </p>
           </div>
         )}
@@ -356,17 +361,26 @@ export default function FoodLibraryPage() {
     }
   }, [foodSearch, foodCategory, foodPage]);
 
+  const activeRecipeSearchRef = useRef<number>(0);
+
   const loadRecipes = useCallback(async () => {
+    const searchId = ++activeRecipeSearchRef.current;
     try {
       setRecipeLoading(true);
       setRecipeError(null);
       const res = await fetchRecipes(recipeSearch, recipeCategory, recipePage);
-      setRecipes(res.data);
-      setRecipeMeta(res.meta);
+      if (searchId === activeRecipeSearchRef.current) {
+        setRecipes(res.data);
+        setRecipeMeta(res.meta);
+      }
     } catch (e: unknown) {
-      setRecipeError(e instanceof Error ? e.message : "Failed to load recipes.");
+      if (searchId === activeRecipeSearchRef.current) {
+        setRecipeError(e instanceof Error ? e.message : "Failed to load recipes.");
+      }
     } finally {
-      setRecipeLoading(false);
+      if (searchId === activeRecipeSearchRef.current) {
+        setRecipeLoading(false);
+      }
     }
   }, [recipeSearch, recipeCategory, recipePage]);
 

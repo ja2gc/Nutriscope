@@ -96,6 +96,11 @@ class UsdaServiceTest extends TestCase
 
         $results = $this->service->search('chicken breast');
 
+        Http::assertSent(function (\Illuminate\Http\Client\Request $request) {
+            return $request['dataType'] === ['SR Legacy', 'Foundation', 'Survey (FNDDS)']
+                && $request['query'] === 'chicken breast';
+        });
+
         $this->assertCount(1, $results);
         $this->assertEquals(12345, $results[0]['fdc_id']);
         $this->assertEquals('Chicken, breast, raw', $results[0]['name']);
