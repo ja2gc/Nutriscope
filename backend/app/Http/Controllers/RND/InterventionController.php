@@ -128,12 +128,16 @@ class InterventionController extends Controller
     /**
      * GET /api/rnd/ncp-records/{ncpRecord}/intervention
      */
-    public function show(NcpRecord $ncpRecord): InterventionResource
-    {
-        $intervention = $ncpRecord->intervention()->firstOrFail();
-        return new InterventionResource($intervention);
+    public function show(NcpRecord $ncpRecord): JsonResponse
+{
+    $intervention = $ncpRecord->intervention()->first();
+
+    if (! $intervention) {
+        return response()->json(['data' => null]);
     }
 
+    return (new InterventionResource($intervention))->response();
+}
     /**
      * PATCH /api/rnd/ncp-records/{ncpRecord}/intervention
      */
