@@ -117,7 +117,8 @@ class NcpInterventionTest extends TestCase
                 'goal_type' => 'renal_diet', 'disease_stage' => 'stage_1',
             ]);
 
-        $response->assertStatus(422);
+        $response->assertStatus(422)
+            ->assertJsonPath('missing_fields', ['weight', 'height']);
     }
 
     public function test_rnd_can_create_intervention(): void

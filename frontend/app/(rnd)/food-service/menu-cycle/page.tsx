@@ -10,8 +10,8 @@ import { Button } from "@/components/ui/Button";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   DAYS, MEALS, MEAL_LABELS, Day, Meal,
-  CycleListItem, MenuCycle, ComputeResult, RecipeOption, FsItemOption, TemplateListItem, RecipeProfile,
-  listCycles, getCycle, saveCycle, deleteCycle, computeCycle, activateCycle,
+  CycleListItem, MenuCycle, RecipeOption, FsItemOption, TemplateListItem, RecipeProfile,
+  listCycles, getCycle, saveCycle, deleteCycle, activateCycle,
   saveCycleAsTemplate, listRecipeOptions, listFsItemOptions, listTemplates, instantiateTemplate, deleteTemplate,
   getRecipeProfile,
 } from "@/services/menuCycleService";
@@ -225,7 +225,7 @@ function CycleList({ readOnly, onOpen, onNew }: { readOnly: boolean; onOpen: (id
           <h2 className="text-xl font-extrabold text-warm-900 tracking-tight flex items-center gap-2.5">
             <CalendarDays className="h-5 w-5 text-emerald-600" /> Menu Cycles
           </h2>
-          <p className="text-xs text-warm-500 mt-1">Plan a weekly menu from food-service recipes. Costs scale to ward population and check against your budget per head.</p>
+          <p className="text-xs text-warm-500 mt-1">Plan a fixed Monday-Sunday menu from food-service recipes and single items.</p>
         </div>
         <div className="flex items-center gap-3 shrink-0">
           <button onClick={load} className="flex items-center gap-1.5 text-xs text-warm-500 hover:text-warm-700">
@@ -332,9 +332,7 @@ function CycleList({ readOnly, onOpen, onNew }: { readOnly: boolean; onOpen: (id
 // ═══ EDITOR VIEW ═══════════════════════════════════════════════════════════════════
 function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: number | "new"; readOnly: boolean; onBack: () => void }) {
   const [name, setName] = useState("New Menu Cycle");
-  const [dayPop, setDayPop] = useState<DayPop>({});
   const [weekStart, setWeekStart] = useState("");
-  const [cycleDays, setCycleDays] = useState(7);
   const [isActive, setIsActive] = useState(false);
 
   const [grid, setGrid] = useState<Grid>({});
@@ -348,7 +346,6 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: number | "new"; r
   const [items, setItems] = useState<FsItemOption[]>([]);
   const [savedId, setSavedId] = useState<number | null>(cycleId === "new" ? null : cycleId);
 
-  const [compute, setCompute] = useState<ComputeResult | null>(null);
   const [activeCell, setActiveCell] = useState<string | null>(null);
   const [profileFor, setProfileFor] = useState<{ recipeId: number; day: Day; meal: Meal; name: string; servingsOverride: number | null } | null>(null);
   const [pickerSearch, setPickerSearch] = useState("");
@@ -363,9 +360,8 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: number | "new"; r
     if (cycleId === "new") return;
     getCycle(cycleId).then((c: MenuCycle) => {
       setName(c.name);
-      setWeekStart(c.week_start_date ?? ""); setCycleDays(c.cycle_days || 7); setIsActive(c.is_active);
+      setWeekStart(c.week_start_date ?? ""); setIsActive(c.is_active);
       const g: Grid = {};
-      const dp: DayPop = {};
       (c.days ?? []).forEach((d) => {
         const k = cellKey(d.day_of_week, d.meal_type);
         if (d.recipe_id && d.recipe) g[k] = {
@@ -376,10 +372,8 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: number | "new"; r
           recipe_id: null, fs_item_id: d.fs_item_id, recipe_name: d.fs_item.name, servings: 0,
           servings_override: d.servings_override ?? null,
         };
-        // Each day carries one population; first seen wins (they're equal across meals).
-        if (d.estimate_population != null && dp[d.day_of_week] == null) dp[d.day_of_week] = String(d.estimate_population);
       });
-      setGrid(g); setDayPop(dp);
+      setGrid(g);
     }).catch(() => setErr("Failed to load cycle.")).finally(() => setLoading(false));
   }, [cycleId]);
 
@@ -420,8 +414,6 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: number | "new"; r
     setEditingServed(day);
   }
 
-  const visibleDays = useMemo(() => DAYS.slice(0, cycleDays), [cycleDays]);
-
   function assign(key: string, r: RecipeOption) {
     setGrid((g) => ({ ...g, [key]: { recipe_id: r.id, fs_item_id: null, recipe_name: r.name, servings: r.servings, servings_override: null } }));
     setActiveCell(null); setPickerSearch("");
@@ -438,7 +430,7 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: number | "new"; r
   function duplicateWeek(from: Day) {
     setGrid((g) => {
       const n = { ...g };
-      visibleDays.filter((d) => d !== from).forEach((d) => {
+      DAYS.filter((d) => d !== from).forEach((d) => {
         MEALS.forEach((m) => {
           const src = g[cellKey(from, m)];
           if (src) n[cellKey(d, m)] = { ...src };
@@ -454,24 +446,23 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: number | "new"; r
       return {
         day_of_week, meal_type, recipe_id: c.recipe_id, fs_item_id: c.fs_item_id, quantity: 1,
         servings_override: c.servings_override,
-        estimate_population: parseInt(dayPop[day_of_week]) || 0,
+        estimate_population: null,
         is_event: false, event_allocation: null,
       };
     });
   }
 
-  async function handleSave(thenCompute = true) {
+  async function handleSave() {
     if (!name.trim()) { setErr("Name is required."); return null; }
     setBusy(true); setErr("");
     try {
       const saved = await saveCycle(savedId, {
         name: name.trim(),
-        cycle_days: cycleDays,
+        cycle_days: 7,
         week_start_date: weekStart || null,
         days: daysPayload(),
       });
       setSavedId(saved.id);
-      if (thenCompute) setCompute(await computeCycle(saved.id));
       return saved.id;
     } catch (e: unknown) {
       setErr(e instanceof Error ? e.message : "Save failed."); return null;
@@ -479,12 +470,12 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: number | "new"; r
   }
 
   async function handleActivate() {
-    const id = savedId ?? (await handleSave(false));
+    const id = savedId ?? (await handleSave());
     if (!id) return;
     await activateCycle(id); setIsActive(true);
   }
   async function handleSaveTemplate() {
-    const id = savedId ?? (await handleSave(false));
+    const id = savedId ?? (await handleSave());
     if (!id) return;
     const tName = prompt("Template name?", `${name} template`);
     if (!tName) return;
@@ -517,7 +508,7 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: number | "new"; r
           <div className="flex flex-wrap items-center gap-2 shrink-0">
             <button onClick={handleSaveTemplate} className="flex items-center gap-1.5 text-xs font-semibold text-warm-600 border border-warm-200 rounded-lg px-3 py-2 hover:bg-warm-50 cursor-pointer"><BookmarkPlus className="h-3.5 w-3.5" /> Save as Template</button>
             <button onClick={handleActivate} className="flex items-center gap-1.5 text-xs font-semibold text-emerald-700 border border-emerald-200 rounded-lg px-3 py-2 hover:bg-emerald-50 cursor-pointer"><Zap className="h-3.5 w-3.5" /> Activate</button>
-            <Button variant="primary" onClick={() => handleSave(true)} loading={busy} className="px-4 py-2 flex items-center gap-2"><Save className="h-4 w-4" /> Save &amp; Cost</Button>
+            <Button variant="primary" onClick={() => handleSave()} loading={busy} className="px-4 py-2 flex items-center gap-2"><Save className="h-4 w-4" /> Save</Button>
           </div>
         )}
       </div>
@@ -525,7 +516,7 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: number | "new"; r
       {err && <div className="bg-red-50 border border-red-100 p-3 rounded-xl text-xs text-red-700 font-bold flex items-center gap-2"><AlertTriangle className="h-3.5 w-3.5" /> {err}</div>}
 
       {/* Settings */}
-      <div className="bg-white border border-warm-200 rounded-2xl p-5 shadow-sm grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="bg-white border border-warm-200 rounded-2xl p-5 shadow-sm grid grid-cols-1 sm:grid-cols-2 gap-4">
         {[
           { label: "Week start (Mon)", value: weekStart, set: setWeekStart, type: "date", ph: "" },
         ].map((f) => (
@@ -535,24 +526,7 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: number | "new"; r
               className="w-full px-3 py-2 text-sm border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500" />
           </div>
         ))}
-        <div>
-          <label className="block text-[10px] font-extrabold text-warm-500 uppercase tracking-wider mb-1">Cycle length</label>
-          <select value={cycleDays} onChange={(e) => setCycleDays(parseInt(e.target.value))}
-            className="w-full px-3 py-2 text-sm border border-warm-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500">
-            {[5, 6, 7].map((n) => <option key={n} value={n}>{n} days</option>)}
-          </select>
-        </div>
       </div>
-
-      {/* Weekly total — informational. Budget-per-head lives in Budget/Procurement, not here. */}
-      {compute && (
-        <div className="bg-white border border-warm-200 rounded-2xl p-5 shadow-sm flex flex-wrap items-center gap-6">
-          <div>
-            <div className="text-[10px] font-extrabold text-warm-500 uppercase tracking-wider">Weekly total</div>
-            <div className="text-2xl font-extrabold text-emerald-600">{peso(compute.total_cost)}</div>
-          </div>
-        </div>
-      )}
 
       {/* Grid */}
       <div className="bg-white border border-warm-200 rounded-2xl shadow-sm overflow-x-auto">
@@ -560,7 +534,7 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: number | "new"; r
           <thead>
             <tr className="bg-warm-50 border-b border-warm-100">
               <th className="px-3 py-3 text-left text-[10px] font-bold text-warm-500 uppercase sticky left-0 bg-warm-50">Meal</th>
-              {visibleDays.map((d) => {
+              {DAYS.map((d) => {
                 return (
                   <th key={d} className="px-3 py-2 text-left text-[10px] font-bold text-warm-500 uppercase min-w-[140px]">
                     <div className="flex items-center justify-between gap-1">
@@ -632,7 +606,7 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: number | "new"; r
             {MEALS.map((m) => (
               <tr key={m} className="border-b border-warm-100 last:border-0">
                 <td className="px-3 py-3 font-bold text-warm-600 sticky left-0 bg-white whitespace-nowrap">{MEAL_LABELS[m]}</td>
-                {visibleDays.map((d) => {
+                {DAYS.map((d) => {
                   const key = cellKey(d, m);
                   const cell = grid[key];
                   const isPicking = activeCell === key;
@@ -658,7 +632,7 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: number | "new"; r
                             )}
                           </div>
                           <div className="text-[9px] text-emerald-500 mt-1">
-                            {cell.recipe_id ? "click to see cost · scales to day pop" : "single item"}
+                            {cell.recipe_id ? "click to see recipe details" : "single item"}
                           </div>
                         </div>
                       ) : readOnly ? (
@@ -714,28 +688,12 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: number | "new"; r
         </table>
       </div>
 
-      {/* Ingredient usage (procurement preview) */}
-      {compute && compute.ingredient_usage.length > 0 && (
-        <div className="bg-white border border-warm-200 rounded-2xl p-5 shadow-sm">
-          <h3 className="text-xs font-extrabold text-warm-700 uppercase tracking-wider mb-3">Ingredient usage (whole cycle)</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-1.5">
-            {compute.ingredient_usage.map((u) => (
-              <div key={u.fs_item_id} className="flex items-center justify-between text-[11px] border-b border-warm-100 py-1">
-                <span className="text-warm-700 font-medium truncate">{u.name}</span>
-                <span className="text-warm-500 shrink-0">{u.quantity.toFixed(0)} {u.unit} · {peso(u.cost)}</span>
-              </div>
-            ))}
-          </div>
-          <p className="text-[10px] text-warm-400 mt-3">This feeds the procurement suggested shopping list (Phase 3).</p>
-        </div>
-      )}
-
       {profileFor && (
         <RecipeProfilePanel
           recipeId={profileFor.recipeId}
           day={profileFor.day}
           name={profileFor.name}
-          population={parseInt(dayPop[profileFor.day]) || 0}
+          population={profileFor.servingsOverride ?? 1}
           initialServings={profileFor.servingsOverride}
           readOnly={readOnly}
           onPersist={readOnly ? undefined : (s) => setCellServings(cellKey(profileFor.day, profileFor.meal), s)}

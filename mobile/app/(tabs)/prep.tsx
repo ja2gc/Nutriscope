@@ -7,12 +7,10 @@ import {
   ChefHat,
   ClipboardCheck,
   FileText,
-  TriangleAlert,
 } from 'lucide-react-native';
 import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
-  Modal,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -40,7 +38,6 @@ interface ServiceRow {
   meal_type: string;
   name: string;
   prepped: boolean;
-  has_shortfall: boolean;
 }
 
 interface DashboardData {
@@ -85,9 +82,8 @@ async function fetchTodayDietCounts(): Promise<DietListCount[]> {
 
 function MealPrepSection() {
   const qc = useQueryClient();
-  const [showShortfallModal, setShowShortfallModal] = useState(false);
-  const [shortfallMessage, setShortfallMessage] = useState('');
-  const [pendingCycleId, setPendingCycleId] = useState<number | null>(null);
+  const [servedPopulation, setServedPopulation] = useState('');
+  const [markError, setMarkError] = useState<string | null>(null);
 
   const { data: activeCycle, isLoading: cycleLoading } = useQuery({
     queryKey: ['fss-active-cycle'],
@@ -100,7 +96,6 @@ function MealPrepSection() {
     isLoading: serviceLoading,
     isError: serviceError,
     refetch: refetchService,
-    isFetching: serviceFetching,
   } = useQuery({
     queryKey: ['fss-dashboard'],
     queryFn: fetchTodayService,
@@ -110,40 +105,40 @@ function MealPrepSection() {
   const isLoading = cycleLoading || serviceLoading;
 
   const markServedMutation = useMutation({
-    mutationFn: async ({ cycleId, allowShortfall }: { cycleId: number; allowShortfall: boolean }) => {
-      const res = await api.post(`/api/fss/menu-cycles/${cycleId}/complete-day`, {
-        service_date: today(),
-        allow_shortfall: allowShortfall,
-      });
+    mutationFn: async ({ cycleId, served }: { cycleId: number; served: string }) => {
+      const body: Record<string, unknown> = { service_date: today() };
+      if (served.trim() !== '') {
+        body.served_population = parseInt(served, 10);
+      }
+      const res = await api.post(`/api/fss/menu-cycles/${cycleId}/complete-day`, body);
       return res.data;
     },
     onSuccess: () => {
-      setShowShortfallModal(false);
+      setMarkError(null);
       qc.invalidateQueries({ queryKey: ['fss-dashboard'] });
       qc.invalidateQueries({ queryKey: ['fss-active-cycle'] });
+      if (activeCycle?.id != null) {
+        qc.invalidateQueries({ queryKey: ['fs-mealprep', activeCycle.id] });
+      }
     },
     onError: (err: unknown) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const axiosErr = err as any;
-      const status = axiosErr?.response?.status;
       const message: string = axiosErr?.response?.data?.message ?? 'Unknown error';
-
-      if (status === 422 && message.toLowerCase().includes('insufficient stock')) {
-        setShortfallMessage(message);
-        setPendingCycleId(activeCycle?.id ?? null);
-        setShowShortfallModal(true);
-      }
+      setMarkError(message);
     },
   });
 
   const handleMarkServed = () => {
     if (!activeCycle) return;
-    markServedMutation.mutate({ cycleId: activeCycle.id, allowShortfall: false });
-  };
-
-  const handleProceedWithShortfall = () => {
-    if (!pendingCycleId) return;
-    markServedMutation.mutate({ cycleId: pendingCycleId, allowShortfall: true });
+    if (servedPopulation.trim() !== '') {
+      const parsed = parseInt(servedPopulation, 10);
+      if (!Number.isFinite(parsed) || parsed < 0) {
+        setMarkError('Actual served population must be 0 or greater.');
+        return;
+      }
+    }
+    markServedMutation.mutate({ cycleId: activeCycle.id, served: servedPopulation });
   };
 
   return (
@@ -187,11 +182,6 @@ function MealPrepSection() {
                         <Text className="text-xs font-medium text-green-700">Prepped</Text>
                       </View>
                     )}
-                    {row.has_shortfall && (
-                      <View className="bg-red-100 px-2 py-0.5 rounded-full">
-                        <Text className="text-xs font-medium text-red-700">Shortfall</Text>
-                      </View>
-                    )}
                   </View>
                 </View>
               ))}
@@ -207,6 +197,22 @@ function MealPrepSection() {
               <Text className="text-amber-700 text-sm text-center">No active menu cycle — contact RND.</Text>
             </View>
           ) : (
+            <View className="gap-3">
+              <View className="bg-white rounded-xl border border-gray-100 px-4 py-3">
+                <Text className="text-xs font-medium text-gray-500 mb-1.5">Actual served population for menu cycle</Text>
+                <TextInput
+                  value={servedPopulation}
+                  onChangeText={(t) => {
+                    setServedPopulation(t.replace(/[^0-9]/g, ''));
+                    setMarkError(null);
+                  }}
+                  placeholder="Optional"
+                  placeholderTextColor="#9ca3af"
+                  className="border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-900 tabular-nums"
+                  keyboardType="numeric"
+                  accessibilityLabel="Actual served population for menu cycle"
+                />
+              </View>
             <TouchableOpacity
               className={`flex-row items-center justify-center gap-2 py-3.5 rounded-xl ${
                 markServedMutation.isPending ? 'bg-emerald-400' : 'bg-emerald-600'
@@ -222,9 +228,17 @@ function MealPrepSection() {
                 <CheckCircle2 color="#fff" size={18} />
               )}
               <Text className="text-white font-semibold text-sm">
-                {markServedMutation.isPending ? 'Marking served…' : 'Mark served'}
+                {markServedMutation.isPending ? 'Marking served...' : 'Mark service complete'}
               </Text>
             </TouchableOpacity>
+            </View>
+          )}
+
+          {markError && (
+            <View className="mt-3 bg-red-50 border border-red-200 rounded-xl px-4 py-3 flex-row items-center gap-2">
+              <AlertCircle color="#ef4444" size={18} />
+              <Text className="text-red-700 text-sm flex-1">{markError}</Text>
+            </View>
           )}
 
           {markServedMutation.isSuccess && (
@@ -236,47 +250,6 @@ function MealPrepSection() {
         </>
       )}
 
-      {/* Shortfall modal */}
-      <Modal
-        visible={showShortfallModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowShortfallModal(false)}
-      >
-        <View className="flex-1 bg-black/50 justify-center px-6">
-          <View className="bg-white rounded-2xl p-6">
-            <View className="flex-row items-center gap-2 mb-3">
-              <TriangleAlert color="#d97706" size={22} />
-              <Text className="text-base font-semibold text-gray-900">Inventory Shortfall</Text>
-            </View>
-            <Text className="text-sm text-gray-600 leading-5 mb-5">{shortfallMessage}</Text>
-            <View className="gap-3">
-              <TouchableOpacity
-                className="bg-amber-500 py-3 rounded-xl items-center"
-                onPress={handleProceedWithShortfall}
-                disabled={markServedMutation.isPending}
-                accessibilityLabel="Proceed anyway with shortfall"
-                accessibilityRole="button"
-              >
-                {markServedMutation.isPending ? (
-                  <ActivityIndicator color="#fff" size="small" />
-                ) : (
-                  <Text className="text-white font-semibold">Proceed anyway</Text>
-                )}
-              </TouchableOpacity>
-              <TouchableOpacity
-                className="border border-gray-200 py-3 rounded-xl items-center"
-                onPress={() => setShowShortfallModal(false)}
-                disabled={markServedMutation.isPending}
-                accessibilityLabel="Cancel mark served"
-                accessibilityRole="button"
-              >
-                <Text className="text-gray-600 font-medium">Cancel</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 }
@@ -286,13 +259,13 @@ function MealPrepSection() {
 // ---------------------------------------------------------------------------
 
 const TASK_FLAGS = [
-  { key: 'helped_food_prep', label: 'Helped food prep' },
-  { key: 'stored_supplies', label: 'Stored supplies' },
-  { key: 'collected_diet_list', label: 'Collected diet list' },
-  { key: 'apportioned_food', label: 'Apportioned food' },
-  { key: 'cleaned_utensils', label: 'Cleaned utensils' },
-  { key: 'assistant_cook', label: 'Assistant cook' },
-  { key: 'maintained_cleanliness', label: 'Maintained cleanliness' },
+  { key: 'helped_food_prep', label: 'Helped in food preparation work' },
+  { key: 'stored_supplies', label: 'Served food supplies properly' },
+  { key: 'collected_diet_list', label: 'Collected diet list from different wards' },
+  { key: 'apportioned_food', label: 'Apportioned and distributed food to in-patients in different wards' },
+  { key: 'cleaned_utensils', label: 'Collected, cleaned and returned used utensils and other equipment' },
+  { key: 'assistant_cook', label: 'Assumed duties as assistant cook' },
+  { key: 'maintained_cleanliness', label: 'Monitored cleanliness of kitchen, cabinets, refrigerators and freezers' },
 ] as const;
 
 type TaskKey = (typeof TASK_FLAGS)[number]['key'];
@@ -303,7 +276,7 @@ function AccomplishmentSection({ activeCycleId }: { activeCycleId?: number }) {
   const qc = useQueryClient();
 
   const [ward, setWard] = useState('');
-  const [population, setPopulation] = useState('');
+  const [distributedMeals, setDistributedMeals] = useState('');
   const [offDuty, setOffDuty] = useState(false);
   const [tasks, setTasks] = useState<TaskFlags>({
     helped_food_prep: false,
@@ -326,17 +299,18 @@ function AccomplishmentSection({ activeCycleId }: { activeCycleId?: number }) {
     staleTime: 30_000,
   });
 
-  const totalPopulation = todayCounts?.reduce((acc, c) => acc + c.population, 0) ?? 0;
+  const totalDistributedMeals = todayCounts?.reduce((acc, c) => acc + c.population, 0) ?? 0;
 
   const submitMutation = useMutation({
     mutationFn: async () => {
-      const pop = offDuty ? 0 : parseInt(population, 10);
+      const distributed = offDuty ? 0 : parseInt(distributedMeals, 10);
       const body: Record<string, unknown> = {
         service_date: today(),
         ward: offDuty ? (ward.trim() || 'Absent') : ward.trim(),
-        population: pop,
+        population: distributed,
         off_duty: offDuty,
         ...tasks,
+        apportioned_food: offDuty ? false : tasks.apportioned_food || distributed > 0,
       };
       if (activeCycleId != null) {
         body.menu_cycle_id = activeCycleId;
@@ -347,7 +321,7 @@ function AccomplishmentSection({ activeCycleId }: { activeCycleId?: number }) {
     onSuccess: () => {
       setSubmitSuccess(true);
       setWard('');
-      setPopulation('');
+      setDistributedMeals('');
       setOffDuty(false);
       setTasks({
         helped_food_prep: false,
@@ -377,9 +351,9 @@ function AccomplishmentSection({ activeCycleId }: { activeCycleId?: number }) {
       setValidationError('Ward is required.');
       return;
     }
-    const pop = offDuty ? 0 : parseInt(population, 10);
-    if (!offDuty && (isNaN(pop) || pop < 0)) {
-      setValidationError('Population must be 0 or greater.');
+    const distributed = offDuty ? 0 : parseInt(distributedMeals, 10);
+    if (!offDuty && (isNaN(distributed) || distributed < 0)) {
+      setValidationError('Distributed meals must be 0 or greater.');
       return;
     }
     submitMutation.mutate();
@@ -389,13 +363,13 @@ function AccomplishmentSection({ activeCycleId }: { activeCycleId?: number }) {
     <View className="px-4 mt-6 mb-4">
       <View className="flex-row items-center gap-2 mb-3">
         <ClipboardCheck color="#7c3aed" size={20} />
-        <Text className="text-base font-semibold text-gray-800">Accomplishment / Diet List</Text>
+        <Text className="text-base font-semibold text-gray-800">Accomplishment Report</Text>
       </View>
 
       {/* Running total */}
       <View className="bg-emerald-50 border border-emerald-100 rounded-xl px-4 py-3 flex-row items-center justify-between mb-4">
-        <Text className="text-sm text-emerald-700">Today's total headcount</Text>
-        <Text className="text-2xl font-bold text-emerald-700 tabular-nums">{totalPopulation}</Text>
+        <Text className="text-sm text-emerald-700">Today's distributed meals</Text>
+        <Text className="text-2xl font-bold text-emerald-700 tabular-nums">{totalDistributedMeals}</Text>
       </View>
 
       {/* Form */}
@@ -418,13 +392,13 @@ function AccomplishmentSection({ activeCycleId }: { activeCycleId?: number }) {
           />
         </View>
 
-        {/* Population */}
+        {/* Distributed meals */}
         <View>
-          <Text className="text-xs font-medium text-gray-500 mb-1.5">Population (headcount) *</Text>
+          <Text className="text-xs font-medium text-gray-500 mb-1.5">Distributed meals *</Text>
           <TextInput
-            value={population}
+            value={distributedMeals}
             onChangeText={(t) => {
-              setPopulation(t.replace(/[^0-9]/g, ''));
+              setDistributedMeals(t.replace(/[^0-9]/g, ''));
               setValidationError(null);
             }}
             placeholder="0"
@@ -432,7 +406,7 @@ function AccomplishmentSection({ activeCycleId }: { activeCycleId?: number }) {
             className="border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-900 tabular-nums"
             keyboardType="numeric"
             returnKeyType="done"
-            accessibilityLabel="Population headcount"
+            accessibilityLabel="Distributed meals"
           />
         </View>
 
@@ -505,7 +479,7 @@ function AccomplishmentSection({ activeCycleId }: { activeCycleId?: number }) {
         {submitSuccess && (
           <View className="flex-row items-center gap-2 bg-green-50 border border-green-200 rounded-lg px-3 py-2.5">
             <CheckCircle2 color="#16a34a" size={16} />
-            <Text className="text-sm text-green-700 font-medium">Diet list entry saved.</Text>
+            <Text className="text-sm text-green-700 font-medium">Accomplishment entry saved.</Text>
           </View>
         )}
 

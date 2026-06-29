@@ -37,7 +37,10 @@ class MenuCycleController extends Controller
         unset($data['days']);
 
         $data['rnd_user_id']     = Auth::id();
-        $data['week_start_date'] = $data['week_start_date'] ?? now()->toDateString();
+        $data['cycle_days']      = 7;
+        $data['week_start_date'] = ! empty($data['week_start_date'])
+            ? Carbon::parse($data['week_start_date'])->toDateString()
+            : now()->startOfWeek(Carbon::MONDAY)->toDateString();
         // New cycles start as 'upcoming' (states: completed|active|upcoming).
         $data['status']          = $data['status'] ?? 'upcoming';
 
@@ -62,6 +65,14 @@ class MenuCycleController extends Controller
         $data = $request->validated();
         $days = $data['days'] ?? null;
         unset($data['days']);
+        $data['cycle_days'] = 7;
+        if (array_key_exists('week_start_date', $data)) {
+            if (! empty($data['week_start_date'])) {
+                $data['week_start_date'] = Carbon::parse($data['week_start_date'])->toDateString();
+            } else {
+                unset($data['week_start_date']);
+            }
+        }
 
         DB::transaction(function () use ($menuCycle, $data, $days) {
             $menuCycle->update($data);
@@ -85,14 +96,6 @@ class MenuCycleController extends Controller
 
     public function activate(MenuCycle $menuCycle): JsonResponse
     {
-        $missingPopulationDays = $this->missingPopulationDays($menuCycle);
-        if ($missingPopulationDays !== []) {
-            return response()->json([
-                'message' => 'Menu cycle cannot be activated until every planned day has estimate_population.',
-                'missing_population_days' => $missingPopulationDays,
-            ], 422);
-        }
-
         DB::transaction(function () use ($menuCycle) {
             // Retire any currently active cycle before promoting this one — only one
             // cycle may be active at a time (callers do where('is_active', true)->first()).
@@ -118,31 +121,6 @@ class MenuCycleController extends Controller
         });
 
         return response()->json(['data' => new MenuCycleResource($menuCycle->fresh())]);
-    }
-
-    private function missingPopulationDays(MenuCycle $menuCycle): array
-    {
-        $menuCycle->loadMissing('days.recipe', 'days.fsItem');
-        $weekStart = $menuCycle->week_start_date?->copy()->startOfDay();
-        $dayOffsets = [
-            'Monday' => 0,
-            'Tuesday' => 1,
-            'Wednesday' => 2,
-            'Thursday' => 3,
-            'Friday' => 4,
-            'Saturday' => 5,
-            'Sunday' => 6,
-        ];
-
-        return $menuCycle->days
-            ->filter(fn ($day) => ($day->recipe !== null || $day->fsItem !== null)
-                && (int) ($day->estimate_population ?? 0) <= 0)
-            ->map(fn ($day) => $weekStart && isset($dayOffsets[$day->day_of_week])
-                ? $weekStart->copy()->addDays($dayOffsets[$day->day_of_week])->toDateString()
-                : $day->day_of_week)
-            ->unique()
-            ->values()
-            ->all();
     }
 
     /**

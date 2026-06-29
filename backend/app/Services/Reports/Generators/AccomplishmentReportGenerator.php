@@ -26,12 +26,12 @@ use Illuminate\Support\Collection;
  *   - staff_sheets        — one entry per FSS user:
  *       user              — User model
  *       rows              — keyed by task slug, each an assoc of date => cell value
- *                           ('✓' | population int | 'off-duty' | '–')
- *       daily_population  — date => int (served total for that day across all staff)
+ *                           ('✓' | distributed-meal int | 'off-duty' | '–')
+ *       daily_population  — legacy key for date => distributed-meal total
  *
  * Tasks (7 rows, in order):
  *   helped_food_prep, stored_supplies, collected_diet_list,
- *   apportioned_food (carries population number), cleaned_utensils,
+ *   apportioned_food (carries distributed-meal count), cleaned_utensils,
  *   assistant_cook, maintained_cleanliness
  */
 class AccomplishmentReportGenerator implements ReportGenerator
@@ -39,15 +39,15 @@ class AccomplishmentReportGenerator implements ReportGenerator
     /** The seven task rows in display order. */
     public const TASKS = [
         'helped_food_prep'       => 'Helped in food preparation work',
-        'stored_supplies'        => 'Stored food supplies properly',
+        'stored_supplies'        => 'Served food supplies properly',
         'collected_diet_list'    => 'Collected diet list from different wards',
         'apportioned_food'       => 'Apportioned and distributed food to in-patients in different wards',
-        'cleaned_utensils'       => 'Collected, cleaned and returned used utensils and dining equipment',
+        'cleaned_utensils'       => 'Collected, cleaned and returned used utensils and other equipment',
         'assistant_cook'         => 'Assumed duties as assistant cook',
-        'maintained_cleanliness' => 'Maintained cleanliness of kitchen, cabinets, refrigerators and freezers',
+        'maintained_cleanliness' => 'Monitored cleanliness of kitchen, cabinets, refrigerators and freezers',
     ];
 
-    /** Row 4 carries the numeric headcount; the rest are checkmark rows. */
+    /** Row 4 carries the numeric distributed-meal count; the rest are checkmark rows. */
     private const NUMERIC_TASK = 'apportioned_food';
 
     public function type(): string
@@ -106,7 +106,8 @@ class AccomplishmentReportGenerator implements ReportGenerator
         /** @var Collection<int, DietListCount> $counts */
         $counts = $query->orderBy('service_date')->get();
 
-        // Day-level served population (sum of all staff rows per day).
+        // Day-level distributed meal count. Kept under the legacy key for archived
+        // report compatibility, but it is not actual served population.
         $dailyPopulation = $counts
             ->groupBy(fn (DietListCount $r) => $r->service_date->toDateString())
             ->map(fn (Collection $rows) => $rows->sum('population'))
@@ -134,8 +135,8 @@ class AccomplishmentReportGenerator implements ReportGenerator
                         } elseif ($row->off_duty) {
                             $cells[$date] = 'X';
                         } elseif ($task === self::NUMERIC_TASK) {
-                            // Row 4: show the numeric headcount this staff distributed.
-                            $cells[$date] = $row->population ?? '–';
+                            // Row 4: show the numeric count this staff distributed.
+                            $cells[$date] = $row->apportioned_food ? ($row->population ?? '–') : '–';
                         } else {
                             $cells[$date] = $row->$task ? '✓' : '–';
                         }

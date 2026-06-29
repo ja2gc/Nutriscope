@@ -58,7 +58,9 @@ class NcpAssessmentTest extends TestCase
         $response = $this->actingAs($rnd, 'sanctum')
             ->postJson("/api/rnd/ncp-records/{$ncp->id}/assessment", [
                 'weight'      => 70.5,
+                'usual_weight' => 72.0,
                 'height'      => 170.0,
+                'physical_activity_level' => 'light',
                 'dietary_intake'  => 'Normal diet',
                 'allergies'   => ['peanuts', 'shellfish'],
                 'medications' => [],
@@ -84,7 +86,9 @@ class NcpAssessmentTest extends TestCase
         $response = $this->actingAs($rnd, 'sanctum')
             ->postJson("/api/rnd/ncp-records/{$ncp->id}/assessment", [
                 'weight' => 60.0,
+                'usual_weight' => 61.0,
                 'height' => 160.0,
+                'physical_activity_level' => 'sedentary',
             ]);
 
         $response->assertStatus(201)
@@ -106,6 +110,25 @@ class NcpAssessmentTest extends TestCase
             ->assertJsonValidationErrors(['weight']);
     }
 
+    public function test_assessment_requires_prescription_calculation_inputs_on_create(): void
+    {
+        $rnd     = $this->rnd();
+        $patient = $this->patient();
+        $ncp     = $this->ncpRecord($patient, $rnd);
+
+        $this->actingAs($rnd, 'sanctum')
+            ->postJson("/api/rnd/ncp-records/{$ncp->id}/assessment", [
+                'dietary_intake' => 'Normal diet',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors([
+                'weight',
+                'usual_weight',
+                'height',
+                'physical_activity_level',
+            ]);
+    }
+
     public function test_rnd_can_get_assessment_for_ncp_record(): void
     {
         $rnd     = $this->rnd();
@@ -115,7 +138,9 @@ class NcpAssessmentTest extends TestCase
         Assessment::forceCreate([
             'ncp_record_id' => $ncp->id,
             'weight'        => 80.0,
+            'usual_weight'  => 82.0,
             'height'        => 175.0,
+            'physical_activity_level' => 'sedentary',
             'bmi'           => 26.12,
         ]);
 
@@ -135,7 +160,9 @@ class NcpAssessmentTest extends TestCase
         $assessment = Assessment::forceCreate([
             'ncp_record_id' => $ncp->id,
             'weight'        => 80.0,
+            'usual_weight'  => 82.0,
             'height'        => 175.0,
+            'physical_activity_level' => 'sedentary',
             'bmi'           => 26.12,
         ]);
 
@@ -160,6 +187,10 @@ class NcpAssessmentTest extends TestCase
 
         $this->actingAs($rnd, 'sanctum')
             ->postJson("/api/rnd/ncp-records/{$ncp->id}/assessment", [
+                'weight' => 65.0,
+                'usual_weight' => 66.0,
+                'height' => 160.0,
+                'physical_activity_level' => 'sedentary',
                 'allergies' => ['gluten', 'dairy'],
             ]);
 
@@ -188,6 +219,9 @@ class NcpAssessmentTest extends TestCase
         $response = $this->actingAs($rnd, 'sanctum')
             ->postJson("/api/rnd/ncp-records/{$ncp->id}/assessment", [
                 'weight' => 75.0,
+                'usual_weight' => 76.0,
+                'height' => 170.0,
+                'physical_activity_level' => 'sedentary',
             ]);
 
         $response->assertStatus(409);

@@ -18,8 +18,9 @@ class DatabaseSeeder extends Seeder
             FoodServiceDemoSeeder::class,        // 7. FS operational demo (recipes/inventory/cycle/budget/POs)
             PatientSeeder::class,                // 8. demo NCP patients
             AnnouncementSeeder::class,           // 9. announcements
-            SopSeeder::class,                    // 10. standard operating procedure + history
-            ReportTemplateSeeder::class,         // 11. report templates
+            NotificationSeeder::class,           // 10. role demo notifications
+            SopSeeder::class,                    // 11. standard operating procedure + history
+            ReportTemplateSeeder::class,         // 12. report templates
         ]);
     }
 }

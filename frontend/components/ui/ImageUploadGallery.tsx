@@ -100,6 +100,9 @@ export function ImageUploadGallery({
   deletingImageId = null,
   error = null,
   disabled = false,
+  variant = "default",
+  uploadLabel,
+  removeLabel,
 }: {
   images: UploadImage[];
   onImagesChange: (images: UploadImage[]) => void | Promise<void>;
@@ -110,10 +113,14 @@ export function ImageUploadGallery({
   deletingImageId?: string | null;
   error?: string | null;
   disabled?: boolean;
+  variant?: "default" | "avatar";
+  uploadLabel?: string;
+  removeLabel?: string;
 }) {
   const [activeIndex, setActiveIndex] = useState(0);
   const activeImage = images[Math.min(activeIndex, Math.max(images.length - 1, 0))] ?? null;
-  const hasMany = images.length > 1;
+  const isAvatar = variant === "avatar";
+  const hasMany = !isAvatar && images.length > 1;
 
   const inputId = useMemo(() => `image-upload-${label.toLowerCase().replace(/\W+/g, "-")}`, [label]);
 
@@ -152,7 +159,7 @@ export function ImageUploadGallery({
         id={inputId}
         type="file"
         accept="image/*"
-        multiple
+        multiple={!isAvatar}
         disabled={disabled || uploading}
         onChange={(event) => { void handleFileChange(event); }}
         className="sr-only"
@@ -167,7 +174,7 @@ export function ImageUploadGallery({
         }`}
       >
         <Upload className="h-3.5 w-3.5" />
-        {uploading ? "Uploading..." : "Upload image"}
+        {uploading ? "Uploading..." : (uploadLabel ?? "Upload image")}
       </label>
       {error && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[11px] font-semibold text-red-700">
@@ -176,11 +183,15 @@ export function ImageUploadGallery({
       )}
 
       {activeImage ? (
-        <div className="relative overflow-hidden rounded-lg border border-warm-200 bg-white">
-          <img src={activeImage.src} alt={activeImage.name} className="block h-56 w-full object-cover" />
+        <div className={`relative overflow-hidden border border-warm-200 bg-white ${
+          isAvatar ? "mx-auto h-36 w-36 rounded-full" : "rounded-lg"
+        }`}>
+          <img src={activeImage.src} alt={activeImage.name} className={`block object-cover ${
+            isAvatar ? "h-full w-full" : "h-56 w-full"
+          }`} />
           <button
             type="button"
-            aria-label={`Remove ${activeImage.name}`}
+            aria-label={removeLabel ?? `Remove ${activeImage.name}`}
             onClick={() => removeImage(activeIndex)}
             disabled={disabled || deletingImageId === activeImage.id}
             className="absolute right-2 top-2 inline-flex h-7 min-w-7 items-center justify-center rounded-full bg-forest-900/90 px-2 text-white hover:bg-forest-800 disabled:cursor-wait disabled:opacity-70"
@@ -213,7 +224,9 @@ export function ImageUploadGallery({
           )}
         </div>
       ) : (
-        <div className="rounded-lg border border-dashed border-warm-200 p-6 text-center text-xs text-warm-400 bg-white">
+        <div className={`border border-dashed border-warm-200 text-center text-xs text-warm-400 bg-white ${
+          isAvatar ? "mx-auto flex h-36 w-36 items-center justify-center rounded-full p-4" : "rounded-lg p-6"
+        }`}>
           {emptyText}
         </div>
       )}

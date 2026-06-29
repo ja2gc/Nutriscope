@@ -13,7 +13,7 @@
             </tr>
             <tr>
                 <td style="border:0;">P.O. No: {{ $pack['po']->po_number }} &nbsp; Date: {{ $pack['order_date'] }}</td>
-                <td style="border:0;">O.R. No: {{ $pack['po']->or_number }}</td>
+                <td style="border:0;">O.R. No: {{ $pack['or_number'] }}</td>
             </tr>
             <tr>
                 <td style="border:0;" colspan="2">Requisition Office/Dept.: {{ $branding->hospital_name }}</td>

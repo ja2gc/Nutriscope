@@ -175,6 +175,9 @@ export function ProfilePageShell({ crumbs, subtitle, fallbackRole }: ProfilePage
               label="Profile Photo"
               emptyText="Profile photo preview appears here after upload."
               error={profilePhotoError}
+              variant="avatar"
+              uploadLabel={profileImages.length > 0 ? "Change profile picture" : "Upload profile picture"}
+              removeLabel="Delete profile picture"
             />
             <Input label="Full Name" value={name} onChange={(e) => setName(e.target.value)} required />
             <Input label="Sign-in Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />

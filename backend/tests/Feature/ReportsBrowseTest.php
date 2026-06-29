@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Models\MenuCycle;
+use App\Models\ProgramProjectActivity;
 use App\Models\Report;
 use App\Models\ReportBranding;
 use App\Models\Supplier;
@@ -38,6 +38,7 @@ class ReportsBrowseTest extends TestCase
         return PurchaseOrder::factory()->create([
             'rnd_user_id'      => $this->rnd->id,
             'supplier_id'      => Supplier::factory(),
+            'procurement_track'=> 'food',
             'lifecycle_status' => 'completed',
             'completed_at'     => $date,
             'order_date'       => $date,
@@ -62,9 +63,20 @@ class ReportsBrowseTest extends TestCase
         $this->assertArrayHasKey('purchase_order_id', $instances[0]['params']);
     }
 
-    public function test_menu_cycle_axis_lists_cycles(): void
+    public function test_ppa_axis_lists_completed_food_pos(): void
     {
-        MenuCycle::factory()->create(['name' => 'Cycle A']);
+        $po = $this->receivedPo('2026-05-10');
+        ProgramProjectActivity::create([
+            'purchase_order_id' => $po->id,
+            'activity' => 'Food Subsistence for Patients',
+            'period_start' => '2026-05-05',
+            'period_end' => '2026-05-07',
+            'estimated_total_cost' => 1000,
+            'estimated_output_patients' => 90,
+            'actual_total_cost' => 950,
+            'actual_output_patients' => 87,
+            'execution_frozen_at' => now(),
+        ]);
 
         $instances = $this->actingAs($this->rnd)
             ->getJson('/api/rnd/reports/program_project_activity/instances')
@@ -72,8 +84,8 @@ class ReportsBrowseTest extends TestCase
             ->json('data.instances');
 
         $this->assertCount(1, $instances);
-        $this->assertSame('Cycle A', $instances[0]['label']);
-        $this->assertArrayHasKey('menu_cycle_id', $instances[0]['params']);
+        $this->assertArrayHasKey('purchase_order_id', $instances[0]['params']);
+        $this->assertSame($po->id, $instances[0]['params']['purchase_order_id']);
     }
 
     public function test_unknown_type_instances_is_404(): void

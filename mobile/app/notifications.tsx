@@ -53,7 +53,7 @@ function relativeTime(dateStr: string): string {
 function NotifIcon({ type }: { type: string }) {
   const lower = type.toLowerCase();
   const size = 18;
-  if (lower.includes('warning') || lower.includes('shortfall'))
+  if (lower.includes('warning'))
     return <TriangleAlert color="#d97706" size={size} />;
   if (lower.includes('error') || lower.includes('critical'))
     return <AlertCircle color="#dc2626" size={size} />;
