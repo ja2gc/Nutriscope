@@ -65,18 +65,6 @@ function ReportGrid({ snap }: { snap: AccomplishmentSnapshot }) {
                   })}
                 </View>
               ))}
-
-              {/* Totals row */}
-              <View className="flex-row border-t-2 border-gray-200 bg-gray-50">
-                <View className="w-44 px-3 py-2 border-r border-gray-200 justify-center">
-                  <Text className="text-[10px] font-bold uppercase tracking-wider text-gray-600">Total served</Text>
-                </View>
-                {snap.days.map((d) => (
-                  <View key={d} className="w-12 px-1 py-2 items-center justify-center border-r border-gray-100">
-                    <Text className="text-[11px] font-bold text-gray-800 tabular-nums">{snap.daily_population?.[d] ?? '—'}</Text>
-                  </View>
-                ))}
-              </View>
             </View>
           </ScrollView>
         </View>

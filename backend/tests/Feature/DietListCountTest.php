@@ -4,7 +4,6 @@ namespace Tests\Feature;
 
 use App\Models\DietListCount;
 use App\Models\FsItem;
-use App\Models\Inventory;
 use App\Models\MealPrepLog;
 use App\Models\MenuCycle;
 use App\Models\MenuCycleDay;
@@ -31,7 +30,7 @@ class DietListCountTest extends TestCase
     // POST store
     // -------------------------------------------------------------------------
 
-    public function test_three_wards_sum_into_served_population(): void
+    public function test_diet_list_distribution_counts_do_not_update_served_population(): void
     {
         $date  = '2026-06-20';
         $rnd   = User::factory()->create(['role' => 'RND']);
@@ -42,8 +41,8 @@ class DietListCountTest extends TestCase
             'service_date'        => $date,
             'menu_cycle_id'       => $cycle->id,
             'population'          => 100,
-            'served_population'   => null,
-            'population_variance' => null,
+            'served_population'   => 100,
+            'population_variance' => 0,
             'status'              => 'completed',
             'completed_by'        => $this->fss->id,
             'completed_at'        => now(),
@@ -72,7 +71,7 @@ class DietListCountTest extends TestCase
         // Served population on the log = 30 + 25 + 20 = 75.
         $this->assertDatabaseHas('meal_prep_logs', [
             'id'                => $log->id,
-            'served_population' => 75,
+            'served_population' => 100,
         ]);
     }
 
@@ -163,14 +162,13 @@ class DietListCountTest extends TestCase
     }
 
     // -------------------------------------------------------------------------
-    // complete-day integration: diet-list rows drive served_population
+    // complete-day integration: diet-list rows stay separate from served_population
     // -------------------------------------------------------------------------
 
-    public function test_complete_day_uses_diet_list_sum_when_rows_exist(): void
+    public function test_complete_day_uses_hand_typed_served_population_when_diet_list_rows_exist(): void
     {
         $rnd = User::factory()->create(['role' => 'RND']);
 
-        // Create a cycle with Monday inventory.
         $cycle = MenuCycle::factory()->create(['rnd_user_id' => $rnd->id]);
         $item  = FsItem::factory()->create(['name' => 'Rice', 'base_unit' => 'g']);
         MenuCycleDay::create([
@@ -181,14 +179,7 @@ class DietListCountTest extends TestCase
             'quantity'            => 10,
             'estimate_population' => 5,
         ]);
-        Inventory::factory()->create([
-            'fs_item_id'       => $item->id,
-            'quantity_in_stock' => 10000,
-            'unit'             => 'g',
-            'unit_price'       => 0.05,
-        ]);
-
-        // Pre-submit two ward diet-list counts (total = 45) for the same cycle + date.
+        // Pre-submit two accomplishment report distribution counts for the same date.
         DietListCount::create([
             'service_date'  => '2026-06-15', // Monday
             'menu_cycle_id' => $cycle->id,
@@ -204,20 +195,20 @@ class DietListCountTest extends TestCase
             'population'    => 20,
         ]);
 
-        // complete-day passes served_population = 99 (hand-typed); diet-list sum (45) must win.
+        // complete-day passes served_population = 99. Distribution total 45 must not override it.
         $response = $this->actingAs($this->fss)
             ->postJson("/api/fss/menu-cycles/{$cycle->id}/complete-day", [
                 'service_date'      => '2026-06-15',
                 'population'        => 5,
-                'served_population' => 99, // should be overridden
+                'served_population' => 99,
             ]);
 
         $response->assertCreated();
 
         $this->assertDatabaseHas('meal_prep_logs', [
-            'menu_cycle_id'   => $cycle->id,
-            'service_date'    => '2026-06-15',
-            'served_population' => 45, // diet-list sum wins
+            'menu_cycle_id'     => $cycle->id,
+            'service_date'      => '2026-06-15',
+            'served_population' => 99,
         ]);
     }
 
@@ -235,13 +226,6 @@ class DietListCountTest extends TestCase
             'quantity'            => 10,
             'estimate_population' => 5,
         ]);
-        Inventory::factory()->create([
-            'fs_item_id'       => $item->id,
-            'quantity_in_stock' => 10000,
-            'unit'             => 'g',
-            'unit_price'       => 0.05,
-        ]);
-
         // No diet-list rows — hand-typed value must be used.
         $response = $this->actingAs($this->fss)
             ->postJson("/api/fss/menu-cycles/{$cycle->id}/complete-day", [
