@@ -14,7 +14,7 @@ class BiochemicalData extends Model
     protected $fillable = [
         'assessment_id',
         'albumin', 'hematocrit', 'bun', 'hemoglobin', 'calcium', 'ldl',
-        'cholesterol', 'phosphate', 'creatinine', 'potassium', 'glucose',
+        'cholesterol', 'phosphate', 'magnesium', 'creatinine', 'potassium', 'glucose',
         'sodium', 'hba1c', 'triglycerides', 'hdl', 'urr', 'bp', 'abg', 'others',
     ];
 
@@ -28,6 +28,7 @@ class BiochemicalData extends Model
         'ldl'         => 'decimal:2',
         'cholesterol' => 'decimal:2',
         'phosphate'   => 'decimal:2',
+        'magnesium'   => 'decimal:2',
         'creatinine'  => 'decimal:2',
         'potassium'   => 'decimal:2',
         'glucose'     => 'decimal:2',
@@ -43,4 +44,3 @@ class BiochemicalData extends Model
         return $this->belongsTo(Assessment::class);
     }
 }
-

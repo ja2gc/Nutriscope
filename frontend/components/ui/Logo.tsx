@@ -20,8 +20,8 @@ const COLORS = {
     vein:   "var(--color-brand-green-200)",
     stem:   "var(--color-brand-green-300)",
     ring:   "var(--color-brand-orange-500)",
-    nutri:  "text-brand-green-400",
-    scope:  "text-brand-orange-500",
+    nutri:  brand.nutriText,
+    scope:  brand.scopeText,
   },
 };
 

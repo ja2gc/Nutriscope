@@ -67,6 +67,7 @@ export interface Assessment {
     ldl?: number | string | null;
     cholesterol?: number | string | null;
     phosphate?: number | string | null;
+    magnesium?: number | string | null;
     creatinine?: number | string | null;
     potassium?: number | string | null;
     glucose?: number | string | null;

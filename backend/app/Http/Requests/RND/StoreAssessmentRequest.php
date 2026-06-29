@@ -73,6 +73,7 @@ class StoreAssessmentRequest extends FormRequest
             'biochemical_data.ldl'        => ['nullable', 'numeric'],
             'biochemical_data.cholesterol'=> ['nullable', 'numeric'],
             'biochemical_data.phosphate'  => ['nullable', 'numeric'],
+            'biochemical_data.magnesium'  => ['nullable', 'numeric'],
             'biochemical_data.creatinine' => ['nullable', 'numeric'],
             'biochemical_data.potassium'  => ['nullable', 'numeric'],
             'biochemical_data.glucose'    => ['nullable', 'numeric'],

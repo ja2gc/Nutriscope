@@ -71,6 +71,7 @@ class MonitoringPlanService
         'potassium'     => ['label' => 'Potassium',        'unit' => 'mEq/L'],
         'calcium'       => ['label' => 'Calcium',          'unit' => 'mg/dL'],
         'phosphate'     => ['label' => 'Phosphate',        'unit' => 'mg/dL'],
+        'magnesium'     => ['label' => 'Magnesium',        'unit' => 'mg/dL'],
         'cholesterol'   => ['label' => 'Total Cholesterol', 'unit' => 'mg/dL'],
         'ldl'           => ['label' => 'LDL',              'unit' => 'mg/dL'],
         'hdl'           => ['label' => 'HDL',              'unit' => 'mg/dL'],
@@ -100,6 +101,7 @@ class MonitoringPlanService
         $biochem    = $assessment?->biochemicalData;
         $sex        = $patient?->sex ?? 'Male';
         $goalType   = $ncpRecord->intervention?->goal_type;
+        $goalStage  = $ncpRecord->intervention?->disease_stage;
 
         $monitorings = $ncpRecord->monitorings->sortBy([['created_at', 'asc'], ['id', 'asc']])->values();
 
@@ -116,7 +118,7 @@ class MonitoringPlanService
             ->all();
 
         $indicators = array_merge(
-            $this->labIndicators($biochem, $sex, $goalType, $pesStatements, $monitorings),
+            $this->labIndicators($biochem, $sex, $goalType, $goalStage, $pesStatements, $monitorings),
             $this->anthroIndicators($assessment, $sex, $monitorings),
             $this->intakeIndicators($ncpRecord->intervention, $monitorings),
         );
@@ -134,7 +136,7 @@ class MonitoringPlanService
      * @param  array<int,string> $pesStatements
      * @return array<int,array<string,mixed>>
      */
-    private function labIndicators($biochem, string $sex, ?string $goalType, array $pesStatements, $monitorings): array
+    private function labIndicators($biochem, string $sex, ?string $goalType, ?string $goalStage, array $pesStatements, $monitorings): array
     {
         $ranges = $this->labFlags->ranges($sex);
         $labArray = $biochem ? $biochem->toArray() : [];
@@ -146,6 +148,11 @@ class MonitoringPlanService
         }
         foreach (self::GOAL_LAB_FLAGS[$goalType] ?? [] as $key) {
             $sources[$key][] = 'goal';
+        }
+        if (in_array($goalType, ['malnutrition', 'weight_gain'], true) && $goalStage === 'severe') {
+            foreach (['potassium', 'phosphate', 'magnesium'] as $key) {
+                $sources[$key][] = 'refeeding';
+            }
         }
         foreach ($this->pesLabs($pesStatements) as $key) {
             $sources[$key][] = 'pes';

@@ -80,6 +80,7 @@ class AssessmentResource extends JsonResource
                     'ldl'           => $bd->ldl,
                     'cholesterol'   => $bd->cholesterol,
                     'phosphate'     => $bd->phosphate,
+                    'magnesium'     => $bd->magnesium,
                     'creatinine'    => $bd->creatinine,
                     'potassium'     => $bd->potassium,
                     'glucose'       => $bd->glucose,

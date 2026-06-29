@@ -49,10 +49,10 @@ export const GOALS: GoalOption[] = [
     label: "Weight Loss",
     description: "Caloric deficit, protein-sparing approach",
     stages: [
-      { value: "overweight", label: "Overweight (BMI 25–29.9)" },
-      { value: "class_1", label: "Obese Class I (BMI 30–34.9)" },
-      { value: "class_2", label: "Obese Class II (BMI 35–39.9)" },
-      { value: "class_3", label: "Obese Class III (BMI ≥40)" },
+      { value: "overweight", label: "Overweight (BMI 23-24.9)" },
+      { value: "class_1", label: "Obese Class I (BMI 25-29.9)" },
+      { value: "class_2", label: "Obese Class II (BMI 30-34.9)" },
+      { value: "class_3", label: "Obese Class II, severe (BMI >=35)" },
     ],
   },
   {

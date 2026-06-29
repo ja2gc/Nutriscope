@@ -62,7 +62,7 @@ export default function NutritionPrescriptionForm({
 
   // Only real micronutrient keys belong in the limits list — strip any macro keys
   // that leaked into displayed_nutrients (legacy/seed data stored macros here).
-  const microList = microKeys(values.displayed_nutrients);
+  const microList = microKeys(Array.from(new Set([...requiredMicros, ...values.displayed_nutrients])));
 
   return (
     <div className="bg-white border border-warm-200 rounded-2xl p-5 shadow-sm space-y-5">

@@ -98,4 +98,22 @@ class NutritionPrescriptionServiceTest extends TestCase
             }
         }
     }
+
+    public function test_severe_refeeding_prescription_marks_progression_phase(): void
+    {
+        $svc = new NutritionPrescriptionService();
+
+        $rx = $svc->autofill('malnutrition', 'severe', [
+            'weightKg'       => 48.0,
+            'heightCm'       => 174.0,
+            'ageYears'       => 35,
+            'sex'            => 'Male',
+            'isAdult'        => true,
+            'activityFactor' => 1.55,
+        ]);
+
+        $this->assertSame(360, $rx['energy_kcal']);
+        $this->assertSame('refeeding_start', $rx['feeding_phase']);
+        $this->assertSame([1440, 1680], $rx['target_energy_kcal_range']);
+    }
 }

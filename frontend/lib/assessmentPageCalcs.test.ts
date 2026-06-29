@@ -20,6 +20,17 @@ import {
   classifyNutritionalStatus,
   ACTIVITY_FACTORS,
 } from './nutritionCalculations.ts';
+import { CALCULATION_INPUT_HELPERS } from './assessmentCalculationInputs.ts';
+
+describe('Assessment calculation input helpers', () => {
+  test('marks only non-lab prescription inputs as required', () => {
+    assert.equal(CALCULATION_INPUT_HELPERS.weight.required, true);
+    assert.equal(CALCULATION_INPUT_HELPERS.height.required, true);
+    assert.equal(CALCULATION_INPUT_HELPERS.physical_activity_level.required, true);
+    assert.equal('albumin' in CALCULATION_INPUT_HELPERS, false);
+    assert.equal('phosphate' in CALCULATION_INPUT_HELPERS, false);
+  });
+});
 
 // ── IBW + %IBW + AjBW pipeline ────────────────────────────────────────────────
 

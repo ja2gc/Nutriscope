@@ -37,4 +37,17 @@ class LabFlagServiceTest extends TestCase
         $this->assertSame('HIGH', $flags['glucose']['status']);
         $this->assertSame(140.0, $flags['glucose']['value']);
     }
+
+    public function test_magnesium_range_is_flagged_for_refeeding_monitoring(): void
+    {
+        $svc = new LabFlagService();
+
+        $low = $svc->flag(['magnesium' => 1.4], 'Male');
+        $high = $svc->flag(['magnesium' => 2.6], 'Male');
+        $normal = $svc->flag(['magnesium' => 1.9], 'Male');
+
+        $this->assertSame('LOW', $low['magnesium']['status']);
+        $this->assertSame('HIGH', $high['magnesium']['status']);
+        $this->assertArrayNotHasKey('magnesium', $normal);
+    }
 }
