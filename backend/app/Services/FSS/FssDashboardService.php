@@ -150,7 +150,7 @@ class FssDashboardService
             return [];
         }
 
-        $slots = MenuCycleDay::with('recipe:id,name', 'fsItem:id,name')
+        $slots = MenuCycleDay::with('recipe:id,uuid,name', 'fsItem:id,uuid,name')
             ->where('menu_cycle_id', $cycle->id)
             ->where('day_of_week', $weekday)
             ->orderBy('meal_type')
@@ -171,8 +171,10 @@ class FssDashboardService
             'id'          => $slot->id,
             'meal_type'   => $slot->meal_type,
             'name'        => $slot->po_snapshot['name'] ?? $slot->recipe?->name ?? $slot->fsItem?->name ?? 'Unknown',
-            'recipe_id'   => $slot->recipe_id,
-            'fs_item_id'  => $slot->fs_item_id,
+            // Public uuids — the mobile Meal Prep tab feeds these straight into the
+            // uuid-bound recipe/fs-item profile routes, so the raw internal FKs 404.
+            'recipe_id'   => $slot->recipe?->uuid,
+            'fs_item_id'  => $slot->fsItem?->uuid,
             'quantity'    => $slot->quantity,
             'estimate_population' => $slot->estimate_population,
             'servings_override' => $slot->servings_override,

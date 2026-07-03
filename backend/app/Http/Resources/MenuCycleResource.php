@@ -28,8 +28,13 @@ class MenuCycleResource extends JsonResource
                 'id'                => $d->id,
                 'day_of_week'       => $d->day_of_week,
                 'meal_type'         => $d->meal_type,
-                'recipe_id'         => $d->recipe_id,
-                'fs_item_id'        => $d->fs_item_id,
+                // Expose the public uuids (matching the nested recipe/fs_item embeds
+                // below) — the flat FK columns are the raw internal ints, and clients
+                // feed these values back into uuid-bound routes (recipe profile fetch,
+                // menu-cycle save). Null when the relation isn't loaded, mirroring the
+                // nested embeds' own availability.
+                'recipe_id'         => $d->relationLoaded('recipe') && $d->recipe ? $d->recipe->uuid : null,
+                'fs_item_id'        => $d->relationLoaded('fsItem') && $d->fsItem ? $d->fsItem->uuid : null,
                 'quantity'          => $d->quantity,
                 'servings_override' => $d->servings_override,
                 'estimate_population' => $d->estimate_population,

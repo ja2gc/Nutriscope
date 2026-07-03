@@ -227,12 +227,15 @@ class MealPlanController extends Controller
     public function fromTemplate(\Illuminate\Http\Request $request, NcpRecord $ncpRecord): JsonResponse
     {
         $validated = $request->validate([
-            'template_id'     => 'required|integer|exists:meal_plan_templates,id',
+            'template_id'     => 'required|string|exists:meal_plan_templates,uuid',
             'week_start_date' => 'required|date',
         ]);
 
+        // The picker submits the template's public uuid (its Resource 'id').
         $intervention = $ncpRecord->intervention()->firstOrFail();
-        $template     = \App\Models\MealPlanTemplate::with('days')->findOrFail($validated['template_id']);
+        $template     = \App\Models\MealPlanTemplate::with('days')
+            ->where('uuid', $validated['template_id'])
+            ->firstOrFail();
 
         $plan = MealPlan::create([
             'intervention_id' => $intervention->id,

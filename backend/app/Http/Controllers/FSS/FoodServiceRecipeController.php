@@ -60,6 +60,20 @@ class FoodServiceRecipeController extends Controller
      * convertible (mass/volume). When the base unit is an outlier (pc, pack, etc.)
      * any unit is allowed — those are surfaced as warnings, not hard errors.
      */
+    /**
+     * Frontend ingredient pickers submit each fs_item's public uuid (its Resource 'id').
+     * Resolve those back to the internal integer FK the persistence + unit checks expect.
+     */
+    private function resolveIngredientFsItemIds(array $ingredients): array
+    {
+        return array_map(function ($ing) {
+            if (isset($ing['fs_item_id'])) {
+                $ing['fs_item_id'] = FsItem::idFromUuid($ing['fs_item_id']);
+            }
+            return $ing;
+        }, $ingredients);
+    }
+
     private function assertIngredientUnits(array $ingredients): void
     {
         foreach ($ingredients as $ing) {
@@ -142,11 +156,12 @@ class FoodServiceRecipeController extends Controller
             'prep_notes'  => ['nullable', 'string'],
             'servings'    => ['nullable', 'integer', 'min:1'],
             'ingredients' => ['required', 'array', 'min:1'],
-            'ingredients.*.fs_item_id' => ['required', 'integer', 'exists:fs_items,id'],
+            'ingredients.*.fs_item_id' => ['required', 'string', 'exists:fs_items,uuid'],
             'ingredients.*.quantity'   => ['required', 'numeric', 'min:0.01'],
             'ingredients.*.unit'       => ['nullable', 'string'],
         ]);
 
+        $data['ingredients'] = $this->resolveIngredientFsItemIds($data['ingredients']);
         $this->assertIngredientUnits($data['ingredients']);
 
         $recipe = DB::transaction(function () use ($data) {
@@ -201,12 +216,13 @@ class FoodServiceRecipeController extends Controller
             'prep_notes'  => ['nullable', 'string'],
             'servings'    => ['nullable', 'integer', 'min:1'],
             'ingredients' => ['sometimes', 'array', 'min:1'],
-            'ingredients.*.fs_item_id' => ['required_with:ingredients', 'integer', 'exists:fs_items,id'],
+            'ingredients.*.fs_item_id' => ['required_with:ingredients', 'string', 'exists:fs_items,uuid'],
             'ingredients.*.quantity'   => ['required_with:ingredients', 'numeric', 'min:0.01'],
             'ingredients.*.unit'       => ['nullable', 'string'],
         ]);
 
         if (isset($data['ingredients'])) {
+            $data['ingredients'] = $this->resolveIngredientFsItemIds($data['ingredients']);
             $this->assertIngredientUnits($data['ingredients']);
         }
 

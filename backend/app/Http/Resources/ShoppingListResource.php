@@ -41,12 +41,14 @@ class ShoppingListResource extends JsonResource
             'estimated_budget_per_head_per_day' => $estimatedBudgetPerHeadPerDay,
             'items'         => $this->items->map(fn ($item) => [
                 'id'              => $item->uuid,
-                'fs_item_id'      => $item->fs_item_id,
+                // Public uuids (matching FsItem/Supplier Resource 'id') — the raw internal
+                // FKs never match the uuid-valued <option>/route the procurement UI uses.
+                'fs_item_id'      => $item->relationLoaded('fsItem') && $item->fsItem ? $item->fsItem->uuid : null,
                 'ingredient_name' => $item->ingredient_name,
                 'item_type'       => $item->relationLoaded('fsItem') && $item->fsItem ? $item->fsItem->kind : 'ingredient',
                 'qty'             => $item->qty,
                 'unit'            => $item->unit,
-                'supplier_id'     => $item->supplier_id,
+                'supplier_id'     => $item->relationLoaded('supplier') && $item->supplier ? $item->supplier->uuid : null,
                 'unit_price'      => $item->unit_price,
                 'total'           => $item->total,
                 'vendor_locked'   => $item->vendor_locked_at !== null,

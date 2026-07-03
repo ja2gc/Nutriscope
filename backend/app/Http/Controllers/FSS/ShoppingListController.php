@@ -20,7 +20,7 @@ class ShoppingListController extends Controller
 {
     public function index(): JsonResponse
     {
-        return response()->json(['data' => ShoppingListResource::collection(ShoppingList::with('items.fsItem')->orderByDesc('created_at')->get())]);
+        return response()->json(['data' => ShoppingListResource::collection(ShoppingList::with('items.fsItem', 'items.supplier:id,uuid')->orderByDesc('created_at')->get())]);
     }
 
     public function store(StoreShoppingListRequest $request): JsonResponse
@@ -35,12 +35,12 @@ class ShoppingListController extends Controller
         }
 
         $shoppingList = ShoppingList::create($data);
-        return response()->json(['data' => new ShoppingListResource($shoppingList->load('items.fsItem'))], 201);
+        return response()->json(['data' => new ShoppingListResource($shoppingList->load('items.fsItem', 'items.supplier:id,uuid'))], 201);
     }
 
     public function show(ShoppingList $shoppingList): JsonResponse
     {
-        return response()->json(['data' => new ShoppingListResource($shoppingList->load('items.fsItem'))]);
+        return response()->json(['data' => new ShoppingListResource($shoppingList->load('items.fsItem', 'items.supplier:id,uuid'))]);
     }
 
     public function update(UpdateShoppingListRequest $request, ShoppingList $shoppingList): JsonResponse
@@ -59,7 +59,7 @@ class ShoppingListController extends Controller
             $shoppingList->update($data);
         }
 
-        return response()->json(['data' => new ShoppingListResource($shoppingList->load('items.fsItem'))]);
+        return response()->json(['data' => new ShoppingListResource($shoppingList->load('items.fsItem', 'items.supplier:id,uuid'))]);
     }
 
     public function destroy(ShoppingList $shoppingList): JsonResponse
@@ -128,7 +128,7 @@ class ShoppingListController extends Controller
             return $list;
         });
 
-        return response()->json(['data' => new ShoppingListResource($list->load('items.fsItem'))], 201);
+        return response()->json(['data' => new ShoppingListResource($list->load('items.fsItem', 'items.supplier:id,uuid'))], 201);
     }
 
     /**
