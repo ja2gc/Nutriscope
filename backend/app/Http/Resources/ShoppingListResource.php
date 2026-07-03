@@ -41,9 +41,10 @@ class ShoppingListResource extends JsonResource
             'estimated_budget_per_head_per_day' => $estimatedBudgetPerHeadPerDay,
             'items'         => $this->items->map(fn ($item) => [
                 'id'              => $item->uuid,
-                // Public uuids (matching FsItem/Supplier Resource 'id') — the raw internal
-                // FKs never match the uuid-valued <option>/route the procurement UI uses.
-                'fs_item_id'      => $item->relationLoaded('fsItem') && $item->fsItem ? $item->fsItem->uuid : null,
+                // fs_item_id stays the raw FK — it isn't consumed for routing/matching by
+                // any client. supplier_id, however, is matched against uuid-valued <option>s
+                // in the procurement vendor dropdown, so it must be the public uuid.
+                'fs_item_id'      => $item->fs_item_id,
                 'ingredient_name' => $item->ingredient_name,
                 'item_type'       => $item->relationLoaded('fsItem') && $item->fsItem ? $item->fsItem->kind : 'ingredient',
                 'qty'             => $item->qty,

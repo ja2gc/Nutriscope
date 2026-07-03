@@ -274,7 +274,9 @@ class MealPlanControllerTest extends TestCase
 
         $this->actingAs($this->rnd)
             ->postJson("/api/rnd/ncp-records/{$ncpRecord->uuid}/meal-plans/from-template", [
-                'template_id'     => $template->id,
+                // template_id is the template's public uuid (its Resource 'id'), which is
+                // what the picker submits; the endpoint resolves it server-side.
+                'template_id'     => $template->uuid,
                 'week_start_date' => now()->addWeek()->startOfWeek()->toDateString(),
             ])
             ->assertCreated()

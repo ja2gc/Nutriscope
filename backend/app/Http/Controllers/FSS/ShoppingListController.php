@@ -241,9 +241,9 @@ class ShoppingListController extends Controller
 
             return response()->json(['data' => [
                 'id'              => $item->uuid,
-                // Public uuids — the procurement UI matches these against uuid-valued
-                // <option>s / routes, so the raw internal FKs would never line up.
-                'fs_item_id'      => $fsItem->uuid,
+                // fs_item_id stays the raw FK (not consumed for routing); supplier_id is
+                // the public uuid so it matches the vendor <option>s in the procurement UI.
+                'fs_item_id'      => $item->fs_item_id,
                 'ingredient_name' => $item->ingredient_name,
                 'qty'             => $item->qty,
                 'unit'            => $item->unit,
@@ -279,8 +279,8 @@ class ShoppingListController extends Controller
 
         return response()->json(['data' => [
             'id'              => $item->uuid,
-            // Public uuids — see the supplies branch above.
-            'fs_item_id'      => $item->fsItem?->uuid,
+            // fs_item_id stays the raw FK; supplier_id is the public uuid (see supplies branch).
+            'fs_item_id'      => $item->fs_item_id,
             'ingredient_name' => $item->ingredient_name,
             'qty'             => $item->qty,
             'unit'            => $item->unit,
