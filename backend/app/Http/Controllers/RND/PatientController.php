@@ -79,7 +79,13 @@ class PatientController extends Controller
 
         // Overlay the public uuid on the record's own identity (used to build
         // /ncp/{ncpId}/... nav links) without disturbing the rest of the payload shape.
-        $data = $records->map(fn (NcpRecord $record) => array_merge($record->toArray(), ['id' => $record->uuid]));
+        // patient_id must be overlaid too — toArray() still emits it as the raw internal
+        // FK, and callers build /ncp/{patientId}/... nav links from it; the raw int then
+        // 404s against the uuid-bound patients route (see NcpPatientHeader stuck loading).
+        $data = $records->map(fn (NcpRecord $record) => array_merge(
+            $record->toArray(),
+            ['id' => $record->uuid, 'patient_id' => $patient->uuid],
+        ));
 
         return response()->json(['data' => $data]);
     }
@@ -144,6 +150,9 @@ class PatientController extends Controller
             'status' => 'draft',
         ]);
 
-        return response()->json(['data' => array_merge($record->toArray(), ['id' => $record->uuid])], 201);
+        return response()->json(['data' => array_merge(
+            $record->toArray(),
+            ['id' => $record->uuid, 'patient_id' => $patient->uuid],
+        )], 201);
     }
 }
