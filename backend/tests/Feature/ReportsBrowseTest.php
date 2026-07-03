@@ -140,7 +140,7 @@ class ReportsBrowseTest extends TestCase
         ]);
 
         $this->actingAs($fss)
-            ->get("/api/fss/reports/{$report->id}/download")
+            ->get("/api/fss/reports/{$report->uuid}/download")
             ->assertForbidden();
     }
 
@@ -154,7 +154,7 @@ class ReportsBrowseTest extends TestCase
             ->postJson("/api/rnd/reports/procurement_pack/archive?purchase_order_id={$po->id}&prepared_by_name=Someone%20Else")
             ->json('data.id');
 
-        $report = Report::findOrFail($id);
+        $report = Report::where('uuid', $id)->firstOrFail();
         $this->assertSame($this->rnd->name, $report->parameters['prepared_by_name']);
     }
 
@@ -198,11 +198,11 @@ class ReportsBrowseTest extends TestCase
         Storage::fake('public');
         $po = $this->receivedPo('2026-05-10');
 
-        $report = Report::findOrFail(
+        $report = Report::where('uuid',
             $this->actingAs($this->rnd)
                 ->postJson("/api/rnd/reports/procurement_pack/archive?purchase_order_id={$po->id}")
                 ->json('data.id')
-        );
+        )->firstOrFail();
 
         $frozenBytes = Storage::disk('public')->get($report->file_path);
         $snapshotName = $report->snapshot['branding']['hospital_name'];
@@ -211,7 +211,7 @@ class ReportsBrowseTest extends TestCase
         ReportBranding::singleton()->update(['hospital_name' => 'COMPLETELY NEW HOSPITAL NAME']);
 
         // The archived copy is frozen: download serves the same stored bytes.
-        $download = $this->actingAs($this->rnd)->get("/api/rnd/reports/{$report->id}/download");
+        $download = $this->actingAs($this->rnd)->get("/api/rnd/reports/{$report->uuid}/download");
         $download->assertOk();
         $this->assertSame($frozenBytes, $download->streamedContent());
         $this->assertNotSame('COMPLETELY NEW HOSPITAL NAME', $snapshotName);
@@ -235,7 +235,7 @@ class ReportsBrowseTest extends TestCase
         Storage::fake('public');
         $report = $this->archivedReport();
 
-        $res = $this->actingAs($this->rnd)->get("/api/rnd/reports/{$report->id}/view");
+        $res = $this->actingAs($this->rnd)->get("/api/rnd/reports/{$report->uuid}/view");
 
         $res->assertOk();
         $this->assertSame('application/pdf', $res->headers->get('Content-Type'));
@@ -248,6 +248,6 @@ class ReportsBrowseTest extends TestCase
         $report = $this->archivedReport();
 
         $other = User::factory()->create(['role' => 'RND']);
-        $this->actingAs($other)->get("/api/rnd/reports/{$report->id}/view")->assertForbidden();
+        $this->actingAs($other)->get("/api/rnd/reports/{$report->uuid}/view")->assertForbidden();
     }
 }

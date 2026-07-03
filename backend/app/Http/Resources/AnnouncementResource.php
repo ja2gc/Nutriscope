@@ -12,7 +12,7 @@ class AnnouncementResource extends JsonResource
         $attachments = $this->attachments();
 
         return [
-            'id' => $this->id,
+            'id' => $this->uuid,
             'title' => $this->title,
             'body' => $this->body,
             'category' => $this->category,
@@ -23,7 +23,7 @@ class AnnouncementResource extends JsonResource
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
             'author' => [
-                'id' => $this->user?->id,
+                'id' => $this->user?->uuid,
                 'name' => $this->user?->name,
                 'role' => $this->user?->role,
             ],

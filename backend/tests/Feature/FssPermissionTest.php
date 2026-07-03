@@ -44,9 +44,9 @@ class FssPermissionTest extends TestCase
     {
         $cycle = MenuCycle::factory()->create(['rnd_user_id' => $this->rnd->id]);
 
-        $this->actingAs($this->fss)->putJson("/api/fss/menu-cycles/{$cycle->id}", [])->assertForbidden();
-        $this->actingAs($this->fss)->deleteJson("/api/fss/menu-cycles/{$cycle->id}")->assertForbidden();
-        $this->actingAs($this->fss)->patchJson("/api/fss/menu-cycles/{$cycle->id}/activate")->assertForbidden();
+        $this->actingAs($this->fss)->putJson("/api/fss/menu-cycles/{$cycle->uuid}", [])->assertForbidden();
+        $this->actingAs($this->fss)->deleteJson("/api/fss/menu-cycles/{$cycle->uuid}")->assertForbidden();
+        $this->actingAs($this->fss)->patchJson("/api/fss/menu-cycles/{$cycle->uuid}/activate")->assertForbidden();
     }
 
     public function test_fss_forbidden_from_budget_mutations(): void

@@ -79,7 +79,7 @@ class InventoryController extends Controller
         $parts    = [];
         $bindings = [];
 
-        $catalogCols = "f.id AS item_id, f.name, f.category, f.kind AS item_type,
+        $catalogCols = "f.id AS item_id, f.uuid AS item_uuid, f.name, f.category, f.kind AS item_type,
                         f.base_unit, f.purchase_unit, f.purchase_price, f.units_per_purchase,
                         inv.id AS inventory_id, inv.quantity_in_stock, inv.unit,
                         NULL AS recipe_cost, NULL AS recipe_servings";
@@ -101,7 +101,7 @@ class InventoryController extends Controller
         }
 
         if (in_array($type, ['all', 'recipe'], true)) {
-            $sql = "SELECT r.id AS item_id, r.name, r.category, 'recipe' AS item_type,
+            $sql = "SELECT r.id AS item_id, r.uuid AS item_uuid, r.name, r.category, 'recipe' AS item_type,
                            NULL AS base_unit, NULL AS purchase_unit, NULL AS purchase_price, NULL AS units_per_purchase,
                            inv.id AS inventory_id, inv.quantity_in_stock, inv.unit,
                            r.cost AS recipe_cost, r.servings AS recipe_servings
@@ -115,7 +115,7 @@ class InventoryController extends Controller
         }
 
         // Guard against an empty IN-set (unknown type) → return nothing rather than error.
-        $union = $parts ? implode(' UNION ALL ', $parts) : 'SELECT NULL AS item_id, NULL AS name, NULL AS category, NULL AS item_type, NULL AS base_unit, NULL AS purchase_unit, NULL AS purchase_price, NULL AS units_per_purchase, NULL AS inventory_id, NULL AS quantity_in_stock, NULL AS unit, NULL AS recipe_cost, NULL AS recipe_servings WHERE 1=0';
+        $union = $parts ? implode(' UNION ALL ', $parts) : 'SELECT NULL AS item_id, NULL AS item_uuid, NULL AS name, NULL AS category, NULL AS item_type, NULL AS base_unit, NULL AS purchase_unit, NULL AS purchase_price, NULL AS units_per_purchase, NULL AS inventory_id, NULL AS quantity_in_stock, NULL AS unit, NULL AS recipe_cost, NULL AS recipe_servings WHERE 1=0';
 
         return [$union, $bindings];
     }
@@ -155,7 +155,7 @@ class InventoryController extends Controller
         }
 
         return [
-            'item_id'                 => (int) $r->item_id,
+            'item_id'                 => $r->item_uuid,
             'item_type'               => $r->item_type,
             'inventory_id'            => $r->inventory_id !== null ? (int) $r->inventory_id : null,
             'name'                    => $r->name,

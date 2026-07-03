@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class PurchaseOrderAttachment extends Model
 {
+    use \App\Models\Concerns\HasPublicId;
+
     protected $fillable = ['purchase_order_id', 'vendor_group_id', 'type', 'path', 'caption'];
 
     public function purchaseOrder(): BelongsTo

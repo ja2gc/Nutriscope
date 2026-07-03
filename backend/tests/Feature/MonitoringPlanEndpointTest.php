@@ -29,7 +29,7 @@ class MonitoringPlanEndpointTest extends TestCase
         $ncp = $this->ncpFor($rnd);
 
         $this->actingAs($rnd, 'sanctum')
-            ->getJson("/api/rnd/ncp-records/{$ncp->id}/monitoring-plan")
+            ->getJson("/api/rnd/ncp-records/{$ncp->uuid}/monitoring-plan")
             ->assertOk()
             ->assertJsonStructure(['data' => ['visits', 'indicators', 'pes_statements']]);
     }
@@ -41,7 +41,7 @@ class MonitoringPlanEndpointTest extends TestCase
         $fss = User::factory()->create(['role' => 'FSS']);
 
         $this->actingAs($fss, 'sanctum')
-            ->getJson("/api/rnd/ncp-records/{$ncp->id}/monitoring-plan")
+            ->getJson("/api/rnd/ncp-records/{$ncp->uuid}/monitoring-plan")
             ->assertForbidden();
     }
 }

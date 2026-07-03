@@ -255,7 +255,7 @@ class AccomplishmentReportTest extends TestCase
             $this->actingAs($rnd)->getJson('/api/rnd/reports')->assertOk()->json('data')
         )->pluck('id')->all();
 
-        $this->assertContains($fssReport->id, $ids,
+        $this->assertContains($fssReport->uuid, $ids,
             'RND should see accomplishment reports filed by FSS staff');
     }
 
@@ -280,8 +280,8 @@ class AccomplishmentReportTest extends TestCase
             $this->actingAs($this->fss1)->getJson('/api/fss/reports')->assertOk()->json('data')
         )->pluck('id')->all();
 
-        $this->assertContains($own->id, $ids);
-        $this->assertNotContains($other->id, $ids);
+        $this->assertContains($own->uuid, $ids);
+        $this->assertNotContains($other->uuid, $ids);
     }
 
     public function test_weekly_accomplishment_report_auto_archives_after_each_day_has_staff_entry(): void

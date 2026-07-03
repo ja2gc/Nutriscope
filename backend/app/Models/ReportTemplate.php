@@ -8,7 +8,8 @@ use Illuminate\Database\Eloquent\Model;
 class ReportTemplate extends Model
 {
     use HasFactory;
-    
+    use \App\Models\Concerns\HasPublicId;
+
     protected $fillable = [
         'type', 'name', 'blade_view', 'default_filters',
         'available_filters', 'signatories', 'description', 'is_active'

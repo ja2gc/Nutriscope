@@ -2,10 +2,14 @@
 
 namespace App\Http\Requests\FSS;
 
+use App\Http\Requests\Concerns\ResolvesUuidForeignKeys;
+use App\Models\MenuCycle;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StoreDietListCountRequest extends FormRequest
 {
+    use ResolvesUuidForeignKeys;
+
     public function authorize(): bool { return true; }
 
     public function rules(): array
@@ -14,7 +18,7 @@ class StoreDietListCountRequest extends FormRequest
             'service_date'          => ['required', 'date'],
             'ward'                  => ['required', 'string', 'max:255'],
             'population'            => ['required', 'integer', 'min:0'],
-            'menu_cycle_id'         => ['nullable', 'integer', 'exists:menu_cycles,id'],
+            'menu_cycle_id'         => ['nullable', 'string', 'exists:menu_cycles,uuid'],
             'helped_food_prep'      => ['sometimes', 'boolean'],
             'stored_supplies'       => ['sometimes', 'boolean'],
             'collected_diet_list'   => ['sometimes', 'boolean'],
@@ -24,5 +28,10 @@ class StoreDietListCountRequest extends FormRequest
             'maintained_cleanliness'=> ['sometimes', 'boolean'],
             'off_duty'              => ['sometimes', 'boolean'],
         ];
+    }
+
+    protected function uuidForeignKeyMap(): array
+    {
+        return ['menu_cycle_id' => MenuCycle::class];
     }
 }

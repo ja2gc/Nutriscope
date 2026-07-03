@@ -10,7 +10,7 @@ class ScreeningDocumentResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
-            'id' => $this->id,
+            'id' => $this->uuid,
             'patient_id' => $this->patient_id,
             'assessment_id' => $this->assessment_id,
             'type' => $this->type,

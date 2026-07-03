@@ -50,7 +50,7 @@ function Crumbs({ children }: { children?: React.ReactNode }) {
 
 // ═══ Shopping list detail ═════════════════════════════════════════════════════
 function ListDetail({ id, suppliers, onBack, onPosGenerated }: {
-  id: number; suppliers: Supplier[]; onBack: () => void; onPosGenerated: () => void;
+  id: string; suppliers: Supplier[]; onBack: () => void; onPosGenerated: () => void;
 }) {
   const [list, setList] = useState<ShoppingList | null>(null);
   const [busy, setBusy] = useState(false);
@@ -75,7 +75,7 @@ function ListDetail({ id, suppliers, onBack, onPosGenerated }: {
   useEffect(() => { load(); }, [load]);
 
   // Reload the full list after any item change so estimated totals recalculate server-side.
-  async function patchItem(itemId: number, patch: { supplier_id?: number | null; qty?: number; unit_price?: number }) {
+  async function patchItem(itemId: string, patch: { supplier_id?: string | null; qty?: number; unit_price?: number }) {
     await updateListItem(itemId, patch);
     load();
   }
@@ -114,7 +114,7 @@ function ListDetail({ id, suppliers, onBack, onPosGenerated }: {
       qty,
       unit: selectedItem.base_unit ?? selectedItem.unit ?? "unit",
       unit_price: Number.isFinite(unitPrice) ? unitPrice : 0,
-      supplier_id: addSupplier ? parseInt(addSupplier) : null,
+      supplier_id: addSupplier ? addSupplier : null,
     });
     setList({ ...list, items: [...list.items, created] });
     setItemSearch("");
@@ -124,7 +124,7 @@ function ListDetail({ id, suppliers, onBack, onPosGenerated }: {
     setAddSupplier("");
   }
 
-  async function removeItem(itemId: number) {
+  async function removeItem(itemId: string) {
     await deleteListItem(itemId);
     load();
   }
@@ -364,7 +364,7 @@ function ListDetail({ id, suppliers, onBack, onPosGenerated }: {
                   <select
                     value={it.supplier_id ?? ""}
                     disabled={list.status === "converted"}
-                    onChange={(e) => patchItem(it.id, { supplier_id: e.target.value ? parseInt(e.target.value) : null })}
+                    onChange={(e) => patchItem(it.id, { supplier_id: e.target.value ? e.target.value : null })}
                     className="px-2 py-1 border border-warm-200 rounded bg-white text-warm-700 focus:outline-none focus:ring-1 focus:ring-emerald-400 cursor-pointer disabled:bg-warm-50 disabled:text-warm-400"
                   >
                     <option value="">— vendor —</option>
@@ -418,7 +418,7 @@ function ListDetail({ id, suppliers, onBack, onPosGenerated }: {
 
 // ═══ PO detail ════════════════════════════════════════════════════════════════
 function PurchaseEventDetailView({ po, onBack, reload }: { po: PurchaseOrder; onBack: () => void; reload: () => void }) {
-  const [groupId, setGroupId] = useState<number | null>(null);
+  const [groupId, setGroupId] = useState<string | null>(null);
   const [orDraft, setOrDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const [uploadingKey, setUploadingKey] = useState<string | null>(null);
@@ -617,7 +617,7 @@ function PurchaseEventDetailView({ po, onBack, reload }: { po: PurchaseOrder; on
   );
 }
 
-function PoDetail({ id, onBack }: { id: number; onBack: () => void }) {
+function PoDetail({ id, onBack }: { id: string; onBack: () => void }) {
   const [po, setPo] = useState<PurchaseOrder | null>(null);
   const load = useCallback(() => { getPurchaseOrder(id).then(setPo); }, [id]);
   useEffect(() => { load(); }, [load]);
@@ -628,10 +628,10 @@ function PoDetail({ id, onBack }: { id: number; onBack: () => void }) {
 // ═══ ROOT ═════════════════════════════════════════════════════════════════════
 export default function ProcurementPage() {
   const searchParams = useSearchParams();
-  const targetPoId = Number(searchParams.get("poId") ?? 0) || null;
+  const targetPoId = searchParams.get("poId") || null;
   const [tab, setTab] = useState<"food-lists" | "supplies-lists" | "pos" | "suppliers">("food-lists");
-  const [listDetail, setListDetail] = useState<number | null>(null);
-  const [poDetail, setPoDetail] = useState<number | null>(null);
+  const [listDetail, setListDetail] = useState<string | null>(null);
+  const [poDetail, setPoDetail] = useState<string | null>(null);
 
   const [lists, setLists] = useState<ShoppingList[]>([]);
   const [pos, setPos] = useState<PurchaseOrder[]>([]);
@@ -643,7 +643,7 @@ export default function ProcurementPage() {
   const [genError, setGenError] = useState("");
   const [genMissing, setGenMissing] = useState<Record<string, string>>({});
   const [newListName, setNewListName] = useState("");
-  const [editingListId, setEditingListId] = useState<number | null>(null);
+  const [editingListId, setEditingListId] = useState<string | null>(null);
   const [editingListName, setEditingListName] = useState("");
 
   const load = useCallback(async () => {
@@ -707,12 +707,12 @@ export default function ProcurementPage() {
     setEditingListId(null);
   }
 
-  async function removeList(id: number) {
+  async function removeList(id: string) {
     await deleteShoppingList(id);
     setLists((current) => current.filter((list) => list.id !== id));
   }
 
-  async function removePo(id: number) {
+  async function removePo(id: string) {
     await deletePurchaseOrder(id);
     setPos((current) => current.filter((po) => po.id !== id));
   }

@@ -9,6 +9,7 @@ class PurchaseOrder extends Model
 {
     use HasFactory;
     use \App\Models\Concerns\AuditsChanges;
+    use \App\Models\Concerns\HasPublicId;
 
     protected $fillable = [
         'rnd_user_id', 'shopping_list_id', 'supplier_id', 'po_number', 'or_number',

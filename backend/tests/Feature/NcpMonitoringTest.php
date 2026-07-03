@@ -63,7 +63,7 @@ class NcpMonitoringTest extends TestCase
         $ncp     = $this->ncpRecord($patient, $rnd);
 
         $response = $this->actingAs($rnd, 'sanctum')
-            ->postJson("/api/rnd/ncp-records/{$ncp->id}/monitorings", [
+            ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/monitorings", [
                 'weight'       => 72.0,
                 'intake_notes' => 'good adherence',
                 'symptoms'     => 'Patient improving',
@@ -92,7 +92,7 @@ class NcpMonitoringTest extends TestCase
         ]);
 
         $this->actingAs($rnd, 'sanctum')
-            ->postJson("/api/rnd/ncp-records/{$ncp->id}/monitorings", ['weight' => 70.0])
+            ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/monitorings", ['weight' => 70.0])
             ->assertStatus(422);
 
         $this->assertDatabaseMissing('monitorings', ['ncp_record_id' => $ncp->id]);
@@ -115,7 +115,7 @@ class NcpMonitoringTest extends TestCase
         ]);
 
         $response = $this->actingAs($rnd, 'sanctum')
-            ->getJson("/api/rnd/ncp-records/{$ncp->id}/monitorings");
+            ->getJson("/api/rnd/ncp-records/{$ncp->uuid}/monitorings");
 
         $response->assertOk()
             ->assertJsonCount(2, 'data');
@@ -128,7 +128,7 @@ class NcpMonitoringTest extends TestCase
         $ncp     = $this->ncpRecord($patient, $rnd);
 
         $response = $this->actingAs($rnd, 'sanctum')
-            ->postJson("/api/rnd/ncp-records/{$ncp->id}/monitorings", [
+            ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/monitorings", [
                 'weight' => 'invalid-weight',
             ]);
 
@@ -148,7 +148,7 @@ class NcpMonitoringTest extends TestCase
         ]);
 
         $response = $this->actingAs($rnd, 'sanctum')
-            ->patchJson("/api/rnd/ncp-records/{$ncp->id}/monitorings/{$monitoring->id}", [
+            ->patchJson("/api/rnd/ncp-records/{$ncp->uuid}/monitorings/{$monitoring->uuid}", [
                 'intake_notes' => 'good',
                 'symptoms'     => 'Progress noted',
             ]);
@@ -168,7 +168,7 @@ class NcpMonitoringTest extends TestCase
         ]);
 
         $this->actingAs($rnd, 'sanctum')
-            ->deleteJson("/api/rnd/ncp-records/{$ncp->id}/monitorings/{$monitoring->id}")
+            ->deleteJson("/api/rnd/ncp-records/{$ncp->uuid}/monitorings/{$monitoring->uuid}")
             ->assertNoContent();
 
         $this->assertDatabaseMissing('monitorings', ['id' => $monitoring->id]);
@@ -186,7 +186,7 @@ class NcpMonitoringTest extends TestCase
         ]);
 
         $response = $this->actingAs($rnd, 'sanctum')
-            ->getJson("/api/rnd/ncp-records/{$ncp1->id}/monitorings");
+            ->getJson("/api/rnd/ncp-records/{$ncp1->uuid}/monitorings");
 
         $response->assertOk()
             ->assertJsonCount(0, 'data');

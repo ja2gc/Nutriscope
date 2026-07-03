@@ -60,7 +60,7 @@ class AdminSystemTest extends TestCase
     public function test_user_show_payload_includes_is_active(): void
     {
         $response = $this->actingAs($this->admin)
-            ->getJson("/api/admin/users/{$this->rnd->id}");
+            ->getJson("/api/admin/users/{$this->rnd->uuid}");
 
         $response->assertOk()
             ->assertJsonStructure(['data' => ['id', 'name', 'email', 'role', 'is_active']]);
@@ -88,7 +88,7 @@ class AdminSystemTest extends TestCase
         $user = User::factory()->create(['role' => 'RND']);
 
         $response = $this->actingAs($this->admin)
-            ->patchJson("/api/admin/users/{$user->id}", [
+            ->patchJson("/api/admin/users/{$user->uuid}", [
                 'name' => 'Updated Name',
             ]);
 
@@ -101,7 +101,7 @@ class AdminSystemTest extends TestCase
         $user = User::factory()->create(['role' => 'RND']);
 
         $response = $this->actingAs($this->admin)
-            ->deleteJson("/api/admin/users/{$user->id}");
+            ->deleteJson("/api/admin/users/{$user->uuid}");
 
         $response->assertNoContent();
         $this->assertSoftDeleted('users', ['id' => $user->id]);
@@ -138,7 +138,7 @@ class AdminSystemTest extends TestCase
         ]);
 
         $response = $this->actingAs($this->admin, 'sanctum')
-            ->postJson("/api/admin/users/{$user->id}/reset-password", [
+            ->postJson("/api/admin/users/{$user->uuid}/reset-password", [
                 'password' => 'NewPass2026!',
                 'password_confirmation' => 'NewPass2026!',
             ]);
@@ -154,7 +154,7 @@ class AdminSystemTest extends TestCase
         $user = User::factory()->create(['role' => 'RND']);
 
         $response = $this->actingAs($this->admin, 'sanctum')
-            ->postJson("/api/admin/users/{$user->id}/reset-password", [
+            ->postJson("/api/admin/users/{$user->uuid}/reset-password", [
                 'password' => 'short',
                 'password_confirmation' => 'different',
             ]);
@@ -238,7 +238,7 @@ class AdminSystemTest extends TestCase
         ]);
 
         $response = $this->actingAs($this->rnd)
-            ->patchJson("/api/notifications/{$notification->id}/read");
+            ->patchJson("/api/notifications/{$notification->uuid}/read");
 
         $response->assertOk();
         $this->assertDatabaseHas('notifications', ['id' => $notification->id, 'read' => true]);

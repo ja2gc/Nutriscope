@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\FsItem;
 use App\Models\MenuCycle;
 use App\Models\MenuCycleDay;
+use App\Models\ShoppingList;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -124,7 +125,7 @@ class FoodShoppingListGenerationTest extends TestCase
             ->assertJsonPath('data.estimated_budget_per_head_per_day', 20);
 
         $this->assertDatabaseHas('shopping_list_items', [
-            'shopping_list_id' => $listId,
+            'shopping_list_id' => ShoppingList::where('uuid', $listId)->value('id'),
             'fs_item_id' => $fsItem->id,
             'qty' => 50,
             'purchase_qty' => 5,

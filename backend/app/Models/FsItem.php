@@ -20,6 +20,7 @@ class FsItem extends Model
 {
     use HasFactory;
     use \App\Models\Concerns\AuditsChanges;
+    use \App\Models\Concerns\HasPublicId;
 
     protected $table = 'fs_items';
 

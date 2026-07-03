@@ -10,7 +10,7 @@ class MealPlanItemResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
-            'id'                => $this->id,
+            'id'                => $this->uuid,
             'meal_plan_day_id'  => $this->meal_plan_day_id,
             'food_item_id'      => $this->food_item_id,
             'fdc_id'            => $this->fdc_id,

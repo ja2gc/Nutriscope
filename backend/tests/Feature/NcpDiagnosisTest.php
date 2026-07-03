@@ -66,7 +66,7 @@ class NcpDiagnosisTest extends TestCase
         $ncp     = $this->ncpRecord($patient, $rnd); // no assessment yet
 
         $response = $this->actingAs($rnd, 'sanctum')
-            ->postJson("/api/rnd/ncp-records/{$ncp->id}/diagnoses", [
+            ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/diagnoses", [
                 'domain'         => 'NI',
                 'problem'        => 'Inadequate oral food intake',
                 'etiology'       => 'anorexia',
@@ -85,7 +85,7 @@ class NcpDiagnosisTest extends TestCase
         $this->assessment($ncp);
 
         $response = $this->actingAs($rnd, 'sanctum')
-            ->postJson("/api/rnd/ncp-records/{$ncp->id}/diagnoses", [
+            ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/diagnoses", [
                 'domain'        => 'NI',
                 'problem'       => 'Inadequate oral food intake',
                 'etiology'      => 'anorexia',
@@ -110,7 +110,7 @@ class NcpDiagnosisTest extends TestCase
         $this->assessment($ncp);
 
         $response = $this->actingAs($rnd, 'sanctum')
-            ->postJson("/api/rnd/ncp-records/{$ncp->id}/diagnoses", [
+            ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/diagnoses", [
                 'domain'         => 'NC',
                 'problem'        => 'Overweight',
                 'etiology'       => 'excessive energy intake',
@@ -131,7 +131,7 @@ class NcpDiagnosisTest extends TestCase
         $ncp     = $this->ncpRecord($patient, $rnd);
 
         $response = $this->actingAs($rnd, 'sanctum')
-            ->postJson("/api/rnd/ncp-records/{$ncp->id}/diagnoses", [
+            ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/diagnoses", [
                 'domain'         => 'NO',
                 'problem'        => 'Some problem',
                 'etiology'       => 'some cause',
@@ -167,7 +167,7 @@ class NcpDiagnosisTest extends TestCase
         ]);
 
         $response = $this->actingAs($rnd, 'sanctum')
-            ->getJson("/api/rnd/ncp-records/{$ncp->id}/diagnoses");
+            ->getJson("/api/rnd/ncp-records/{$ncp->uuid}/diagnoses");
 
         $response->assertOk()
             ->assertJsonCount(2, 'data');
@@ -189,7 +189,7 @@ class NcpDiagnosisTest extends TestCase
         ]);
 
         $response = $this->actingAs($rnd, 'sanctum')
-            ->patchJson("/api/rnd/ncp-records/{$ncp->id}/diagnoses/{$diagnosis->id}", [
+            ->patchJson("/api/rnd/ncp-records/{$ncp->uuid}/diagnoses/{$diagnosis->uuid}", [
                 'extra_notes' => 'Updated notes',
             ]);
 
@@ -215,7 +215,7 @@ class NcpDiagnosisTest extends TestCase
         ]);
 
         $response = $this->actingAs($rnd, 'sanctum')
-            ->patchJson("/api/rnd/ncp-records/{$ncp->id}/diagnoses/{$diagnosis->id}", [
+            ->patchJson("/api/rnd/ncp-records/{$ncp->uuid}/diagnoses/{$diagnosis->uuid}", [
                 'domain' => 'NC',
                 'problem' => 'Unintended weight loss',
                 'etiology' => 'reduced oral intake',
@@ -257,7 +257,7 @@ class NcpDiagnosisTest extends TestCase
         $override = 'Inadequate oral intake related to chemotherapy-induced nausea as evidenced by 8% weight loss';
 
         $this->actingAs($rnd, 'sanctum')
-            ->patchJson("/api/rnd/ncp-records/{$ncp->id}/diagnoses/{$diagnosis->id}", [
+            ->patchJson("/api/rnd/ncp-records/{$ncp->uuid}/diagnoses/{$diagnosis->uuid}", [
                 'pes_statement' => $override,
             ])
             ->assertOk()
@@ -281,7 +281,7 @@ class NcpDiagnosisTest extends TestCase
         ]);
 
         $this->actingAs($rnd, 'sanctum')
-            ->patchJson("/api/rnd/ncp-records/{$ncp->id}/diagnoses/{$diagnosis->id}", [
+            ->patchJson("/api/rnd/ncp-records/{$ncp->uuid}/diagnoses/{$diagnosis->uuid}", [
                 'problem' => '',
             ])
             ->assertUnprocessable()
@@ -302,7 +302,7 @@ class NcpDiagnosisTest extends TestCase
         ]);
 
         $this->actingAs($rnd, 'sanctum')
-            ->deleteJson("/api/rnd/ncp-records/{$ncp->id}/diagnoses/{$diagnosis->id}")
+            ->deleteJson("/api/rnd/ncp-records/{$ncp->uuid}/diagnoses/{$diagnosis->uuid}")
             ->assertStatus(422);
 
         $this->assertDatabaseHas('diagnoses', ['id' => $diagnosis->id]);
@@ -325,7 +325,7 @@ class NcpDiagnosisTest extends TestCase
         ]);
 
         $this->actingAs($rnd, 'sanctum')
-            ->deleteJson("/api/rnd/ncp-records/{$ncp->id}/diagnoses/{$drop->id}")
+            ->deleteJson("/api/rnd/ncp-records/{$ncp->uuid}/diagnoses/{$drop->uuid}")
             ->assertNoContent();
 
         $this->assertModelMissing($drop);
@@ -348,7 +348,7 @@ class NcpDiagnosisTest extends TestCase
         ]);
 
         $this->actingAs($rnd, 'sanctum')
-            ->deleteJson("/api/rnd/ncp-records/{$ncp->id}/diagnoses/{$diagnosis->id}")
+            ->deleteJson("/api/rnd/ncp-records/{$ncp->uuid}/diagnoses/{$diagnosis->uuid}")
             ->assertNoContent();
 
         $this->assertDatabaseMissing('diagnoses', ['id' => $diagnosis->id]);
@@ -362,7 +362,7 @@ class NcpDiagnosisTest extends TestCase
         $this->assessment($ncp);
 
         $response = $this->actingAs($rnd, 'sanctum')
-            ->postJson("/api/rnd/ncp-records/{$ncp->id}/diagnoses", [
+            ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/diagnoses", [
                 'domain'         => 'NI',
                 'problem'        => 'Inadequate oral food intake',
                 'etiology'       => 'anorexia',
@@ -392,7 +392,7 @@ class NcpDiagnosisTest extends TestCase
         ]);
 
         $response = $this->actingAs($rnd, 'sanctum')
-            ->getJson("/api/rnd/ncp-records/{$ncp1->id}/diagnoses");
+            ->getJson("/api/rnd/ncp-records/{$ncp1->uuid}/diagnoses");
 
         $response->assertOk()
             ->assertJsonCount(0, 'data');

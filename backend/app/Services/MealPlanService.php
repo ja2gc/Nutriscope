@@ -155,7 +155,10 @@ class MealPlanService
         $dayRows = [];
         foreach ($daysOfWeek as $day) {
             foreach ($mealTypes as $mealType) {
-                $dayRows[] = ['meal_plan_id' => $mealPlan->id, 'day_of_week' => $day, 'meal_type' => $mealType, 'flagged' => false];
+                $dayRows[] = [
+                    'uuid' => (string) \Illuminate\Support\Str::uuid(),
+                    'meal_plan_id' => $mealPlan->id, 'day_of_week' => $day, 'meal_type' => $mealType, 'flagged' => false,
+                ];
             }
         }
         MealPlanDay::insert($dayRows);
@@ -648,6 +651,7 @@ class MealPlanService
         $isFood = $candidate->source === 'food_item';
 
         return [
+            'uuid'              => (string) \Illuminate\Support\Str::uuid(),
             'meal_plan_day_id'  => $dayId,
             'recipe_id'         => $isFood ? null : $candidate->source_id,
             'food_item_id'      => $isFood ? $candidate->source_id : null,

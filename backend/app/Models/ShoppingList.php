@@ -9,6 +9,7 @@ class ShoppingList extends Model
 {
     use HasFactory;
     use \App\Models\Concerns\AuditsChanges;
+    use \App\Models\Concerns\HasPublicId;
 
     protected $fillable = [
         'rnd_user_id', 'name', 'list_date', 'period_start', 'period_end',

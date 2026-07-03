@@ -22,7 +22,7 @@ class ShoppingListResource extends JsonResource
             : null;
 
         return [
-            'id'            => $this->id,
+            'id'            => $this->uuid,
             'rnd_user_id'   => $this->rnd_user_id,
             'name'          => $this->name,
             'list_date'     => $this->list_date?->toDateString(),
@@ -40,7 +40,7 @@ class ShoppingListResource extends JsonResource
             'estimated_total' => round($total, 2),
             'estimated_budget_per_head_per_day' => $estimatedBudgetPerHeadPerDay,
             'items'         => $this->items->map(fn ($item) => [
-                'id'              => $item->id,
+                'id'              => $item->uuid,
                 'fs_item_id'      => $item->fs_item_id,
                 'ingredient_name' => $item->ingredient_name,
                 'item_type'       => $item->relationLoaded('fsItem') && $item->fsItem ? $item->fsItem->kind : 'ingredient',

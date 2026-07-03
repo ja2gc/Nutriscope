@@ -165,9 +165,9 @@ class PurchaseOrderController extends Controller
         });
 
         return response()->json(['data' => [
-            'shopping_list_id' => $shoppingList->id,
-            'purchase_order_id' => $po->id,
-            'purchase_order_ids' => [$po->id],
+            'shopping_list_id' => $shoppingList->uuid,
+            'purchase_order_id' => $po->uuid,
+            'purchase_order_ids' => [$po->uuid],
         ]], 201);
     }
 
@@ -294,7 +294,7 @@ class PurchaseOrderController extends Controller
                 'caption' => $request->input('caption'),
             ]);
 
-            return ['id' => $att->id, 'type' => $att->type, 'path' => $att->path, 'caption' => $att->caption];
+            return ['id' => $att->uuid, 'type' => $att->type, 'path' => $att->path, 'caption' => $att->caption];
         })->all();
 
         return response()->json(['data' => $multi ? $created : $created[0]], 201);
@@ -334,7 +334,7 @@ class PurchaseOrderController extends Controller
                     'caption' => $request->input('caption'),
                 ]);
 
-                return ['id' => $att->id, 'type' => $att->type, 'path' => $att->path, 'caption' => $att->caption];
+                return ['id' => $att->uuid, 'type' => $att->type, 'path' => $att->path, 'caption' => $att->caption];
             })->all();
 
             if ($request->input('type') === 'receipt') {

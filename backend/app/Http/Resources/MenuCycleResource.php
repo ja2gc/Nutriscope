@@ -10,7 +10,7 @@ class MenuCycleResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
-            'id'                      => $this->id,
+            'id'                      => $this->uuid,
             'rnd_user_id'             => $this->rnd_user_id,
             'name'                    => $this->name,
             'cycle_days'              => $this->cycle_days,
@@ -42,10 +42,10 @@ class MenuCycleResource extends JsonResource
                 'po_snapshot_locked'         => (bool) $d->po_snapshot_locked,
                 'snapshot_purchase_order_id' => $d->snapshot_purchase_order_id,
                 'recipe'            => $d->relationLoaded('recipe') && $d->recipe ? [
-                    'id' => $d->recipe->id, 'name' => $d->recipe->name, 'servings' => $d->recipe->servings, 'cost' => $d->recipe->cost,
+                    'id' => $d->recipe->uuid, 'name' => $d->recipe->name, 'servings' => $d->recipe->servings, 'cost' => $d->recipe->cost,
                 ] : null,
                 'fs_item'           => $d->relationLoaded('fsItem') && $d->fsItem ? [
-                    'id' => $d->fsItem->id, 'name' => $d->fsItem->name,
+                    'id' => $d->fsItem->uuid, 'name' => $d->fsItem->name,
                 ] : null,
             ])->values()),
             'created_at'              => $this->created_at,

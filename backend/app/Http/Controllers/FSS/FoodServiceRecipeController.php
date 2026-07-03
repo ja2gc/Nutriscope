@@ -24,10 +24,13 @@ class FoodServiceRecipeController extends Controller
         $paginator = FoodServiceRecipe::orderBy('name')
             ->when($search, fn ($q) => $q->where('name', 'like', "%{$search}%"))
             ->when($category, fn ($q) => $q->where('category', $category))
-            ->paginate($perPage, ['id', 'name', 'category', 'servings', 'created_at']);
+            ->paginate($perPage, ['id', 'uuid', 'name', 'category', 'servings', 'created_at']);
 
         return response()->json([
-            'data' => $paginator->items(),
+            'data' => collect($paginator->items())->map(fn ($r) => [
+                'id' => $r->uuid, 'name' => $r->name, 'category' => $r->category,
+                'servings' => $r->servings, 'created_at' => $r->created_at,
+            ]),
             'meta' => [
                 'current_page' => $paginator->currentPage(),
                 'per_page'     => $paginator->perPage(),
@@ -249,7 +252,7 @@ class FoodServiceRecipeController extends Controller
         $recipe->loadMissing('ingredients.fsItem');
 
         return [
-            'id'          => $recipe->id,
+            'id'          => $recipe->uuid,
             'name'        => $recipe->name,
             'category'    => $recipe->category,
             'prep_notes'  => $recipe->prep_notes,
@@ -269,7 +272,7 @@ class FoodServiceRecipeController extends Controller
                     'converted_unit_cost'  => $conv['converted_unit_cost'],
                     'conversion_warning'   => $conv['conversion_warning'],
                     'fs_item'              => $ing->fsItem ? [
-                        'id'        => $ing->fsItem->id,
+                        'id'        => $ing->fsItem->uuid,
                         'name'      => $ing->fsItem->name,
                         'unit_cost' => round($ing->fsItem->unit_cost, 2),
                         'base_unit' => $ing->fsItem->base_unit,

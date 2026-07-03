@@ -69,7 +69,7 @@ class NcpInterventionTest extends TestCase
         $ncp     = $this->ncpRecord($patient, $rnd); // no diagnosis yet
 
         $response = $this->actingAs($rnd, 'sanctum')
-            ->postJson("/api/rnd/ncp-records/{$ncp->id}/intervention", [
+            ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/intervention", [
                 'energy_kcal' => 1800.0,
             ]);
 
@@ -92,7 +92,7 @@ class NcpInterventionTest extends TestCase
 
         // renal_diet/stage_1 is flat-rate (age-independent): matches frozen golden case A.
         $response = $this->actingAs($rnd, 'sanctum')
-            ->postJson("/api/rnd/ncp-records/{$ncp->id}/intervention/autofill", [
+            ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/intervention/autofill", [
                 'goal_type'     => 'renal_diet',
                 'disease_stage' => 'stage_1',
             ]);
@@ -113,7 +113,7 @@ class NcpInterventionTest extends TestCase
         $ncp     = $this->ncpRecord($patient, $rnd);
 
         $response = $this->actingAs($rnd, 'sanctum')
-            ->postJson("/api/rnd/ncp-records/{$ncp->id}/intervention/autofill", [
+            ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/intervention/autofill", [
                 'goal_type' => 'renal_diet', 'disease_stage' => 'stage_1',
             ]);
 
@@ -134,7 +134,7 @@ class NcpInterventionTest extends TestCase
         ]);
 
         $this->actingAs($rnd, 'sanctum')
-            ->postJson("/api/rnd/ncp-records/{$ncp->id}/intervention/autofill", [
+            ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/intervention/autofill", [
                 'goal_type'     => 'bad_goal',
                 'disease_stage' => 'stage_1',
             ])
@@ -156,7 +156,7 @@ class NcpInterventionTest extends TestCase
         ]);
 
         $this->actingAs($rnd, 'sanctum')
-            ->postJson("/api/rnd/ncp-records/{$ncp->id}/intervention/autofill", [
+            ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/intervention/autofill", [
                 'goal_type'     => 'weight_loss',
                 'disease_stage' => 'class_1',
             ])
@@ -184,7 +184,7 @@ class NcpInterventionTest extends TestCase
         ]);
 
         $this->actingAs($rnd, 'sanctum')
-            ->postJson("/api/rnd/ncp-records/{$ncp->id}/intervention/autofill", [
+            ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/intervention/autofill", [
                 'goal_type'     => 'malnutrition',
                 'disease_stage' => 'severe',
             ])
@@ -203,7 +203,7 @@ class NcpInterventionTest extends TestCase
         $this->diagnosis($ncp);
 
         $response = $this->actingAs($rnd, 'sanctum')
-            ->postJson("/api/rnd/ncp-records/{$ncp->id}/intervention", [
+            ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/intervention", [
                 'goal_type'         => 'custom',
                 'energy_kcal'       => 1800.0,
                 'protein_g'         => 70.0,
@@ -233,7 +233,7 @@ class NcpInterventionTest extends TestCase
         $this->diagnosis($ncp);
 
         $this->actingAs($rnd, 'sanctum')
-            ->postJson("/api/rnd/ncp-records/{$ncp->id}/intervention", [
+            ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/intervention", [
                 'goal_type'     => 'bad_goal',
                 'disease_stage' => 'stage_1',
             ])
@@ -249,7 +249,7 @@ class NcpInterventionTest extends TestCase
         $this->diagnosis($ncp);
 
         $this->actingAs($rnd, 'sanctum')
-            ->postJson("/api/rnd/ncp-records/{$ncp->id}/intervention", [
+            ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/intervention", [
                 'goal_type'     => 'weight_gain',
                 'disease_stage' => 'stage_1',
             ])
@@ -267,7 +267,7 @@ class NcpInterventionTest extends TestCase
 
         // Creating an intervention with no prescription must NOT flip the NCP active.
         $this->actingAs($rnd, 'sanctum')
-            ->postJson("/api/rnd/ncp-records/{$ncp->id}/intervention", [])
+            ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/intervention", [])
             ->assertStatus(201);
 
         $this->assertSame('draft', $ncp->fresh()->status);
@@ -280,7 +280,7 @@ class NcpInterventionTest extends TestCase
         $ncp     = $this->ncpRecord($patient, $rnd);
 
         $this->actingAs($rnd, 'sanctum')
-            ->getJson("/api/rnd/ncp-records/{$ncp->id}/intervention")
+            ->getJson("/api/rnd/ncp-records/{$ncp->uuid}/intervention")
             ->assertOk()
             ->assertJsonPath('data', null);
     }
@@ -294,13 +294,13 @@ class NcpInterventionTest extends TestCase
         $this->diagnosis($ncp);
 
         $this->actingAs($rnd, 'sanctum')
-            ->postJson("/api/rnd/ncp-records/{$ncp->id}/intervention", [])
+            ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/intervention", [])
             ->assertStatus(201);
         $this->assertSame('draft', $ncp->fresh()->status);
 
         // Filling the prescription via update completes the initial ADI → active.
         $this->actingAs($rnd, 'sanctum')
-            ->patchJson("/api/rnd/ncp-records/{$ncp->id}/intervention", [
+            ->patchJson("/api/rnd/ncp-records/{$ncp->uuid}/intervention", [
                 'goal_type'   => 'renal_diet',
                 'disease_stage' => 'stage_1',
                 'energy_kcal' => 1800.0,
@@ -325,7 +325,7 @@ class NcpInterventionTest extends TestCase
         ]);
 
         $response = $this->actingAs($rnd, 'sanctum')
-            ->getJson("/api/rnd/ncp-records/{$ncp->id}/intervention");
+            ->getJson("/api/rnd/ncp-records/{$ncp->uuid}/intervention");
 
         $response->assertOk()
             ->assertJsonMissingPath('data.encounter_location');
@@ -338,7 +338,7 @@ class NcpInterventionTest extends TestCase
         $ncp     = $this->ncpRecord($patient, $rnd);
 
         $response = $this->actingAs($rnd, 'sanctum')
-            ->postJson("/api/rnd/ncp-records/{$ncp->id}/intervention", [
+            ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/intervention", [
                 'energy_kcal' => 'not-a-number',
                 'protein_g'   => -10,
             ]);
@@ -360,7 +360,7 @@ class NcpInterventionTest extends TestCase
         ]);
 
         $response = $this->actingAs($rnd, 'sanctum')
-            ->patchJson("/api/rnd/ncp-records/{$ncp->id}/intervention", [
+            ->patchJson("/api/rnd/ncp-records/{$ncp->uuid}/intervention", [
                 'energy_kcal'   => 2000.0,
                 'education_notes' => 'Focus on protein-rich foods',
             ]);
@@ -396,7 +396,7 @@ class NcpInterventionTest extends TestCase
         Intervention::forceCreate(['ncp_record_id' => $ncp->id, 'energy_kcal' => 1800.0]);
 
         $response = $this->actingAs($rnd, 'sanctum')
-            ->postJson("/api/rnd/ncp-records/{$ncp->id}/intervention", [
+            ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/intervention", [
                 'energy_kcal' => 2000.0,
             ]);
 
@@ -411,7 +411,7 @@ class NcpInterventionTest extends TestCase
         $this->diagnosis($ncp);
 
         $this->actingAs($rnd, 'sanctum')
-            ->postJson("/api/rnd/ncp-records/{$ncp->id}/intervention", [
+            ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/intervention", [
                 'micronutrient_limits' => ['sodium' => 2000, 'potassium' => 4700],
             ]);
 
@@ -437,7 +437,7 @@ class NcpInterventionTest extends TestCase
         ]);
 
         $response = $this->actingAs($rnd, 'sanctum')
-            ->getJson("/api/rnd/ncp-records/{$ncp->id}/intervention/recommendations");
+            ->getJson("/api/rnd/ncp-records/{$ncp->uuid}/intervention/recommendations");
 
         $response->assertOk()
             ->assertJsonStructure([
@@ -460,7 +460,7 @@ class NcpInterventionTest extends TestCase
             $ncp = $this->ncpRecord($this->patient(), $rnd);
             Intervention::forceCreate(['ncp_record_id' => $ncp->id, 'goal_type' => $goalType, 'disease_stage' => 'all']);
             return $this->actingAs($rnd, 'sanctum')
-                ->getJson("/api/rnd/ncp-records/{$ncp->id}/intervention/recommendations");
+                ->getJson("/api/rnd/ncp-records/{$ncp->uuid}/intervention/recommendations");
         };
 
         // renal_diet -> CKD
@@ -487,7 +487,7 @@ class NcpInterventionTest extends TestCase
         ]);
 
         $response = $this->actingAs($rnd, 'sanctum')
-            ->getJson("/api/rnd/ncp-records/{$ncp->id}/intervention/recommendations");
+            ->getJson("/api/rnd/ncp-records/{$ncp->uuid}/intervention/recommendations");
 
         $response->assertOk()
             ->assertJsonPath('data.recommend', [])
@@ -513,7 +513,7 @@ class NcpInterventionTest extends TestCase
         ]);
 
         $response = $this->actingAs($rnd, 'sanctum')
-            ->getJson("/api/rnd/ncp-records/{$ncp->id}/intervention/recommendations");
+            ->getJson("/api/rnd/ncp-records/{$ncp->uuid}/intervention/recommendations");
 
         $response->assertOk();
         $this->assertContains('potassium', array_column($response->json('data.limits'), 'tag'));
@@ -526,7 +526,7 @@ class NcpInterventionTest extends TestCase
         $ncp     = $this->ncpRecord($patient, $rnd);
 
         $this->actingAs($rnd, 'sanctum')
-            ->getJson("/api/rnd/ncp-records/{$ncp->id}/intervention/recommendations")
+            ->getJson("/api/rnd/ncp-records/{$ncp->uuid}/intervention/recommendations")
             ->assertNotFound();
     }
 }

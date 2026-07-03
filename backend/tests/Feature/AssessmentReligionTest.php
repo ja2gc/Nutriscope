@@ -43,7 +43,7 @@ class AssessmentReligionTest extends TestCase
         [$rnd, $ncp, $assessment] = $this->setup_assessment();
 
         $response = $this->actingAs($rnd, 'sanctum')
-            ->patchJson("/api/rnd/ncp-records/{$ncp->id}/assessment", [
+            ->patchJson("/api/rnd/ncp-records/{$ncp->uuid}/assessment", [
                 'religion' => 'Roman Catholic',
             ]);
 
@@ -59,7 +59,7 @@ class AssessmentReligionTest extends TestCase
         [$rnd, $ncp, $assessment] = $this->setup_assessment();
 
         $response = $this->actingAs($rnd, 'sanctum')
-            ->patchJson("/api/rnd/ncp-records/{$ncp->id}/assessment", [
+            ->patchJson("/api/rnd/ncp-records/{$ncp->uuid}/assessment", [
                 'weight' => 65.0,
             ]);
 
