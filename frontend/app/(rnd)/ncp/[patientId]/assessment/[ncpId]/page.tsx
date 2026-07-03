@@ -227,13 +227,12 @@ function isImagePath(path?: string) {
 }
 
 // ─── Field Components ────────────────────────────────────────────────────
-function Field({ label, children, span, hint, required }: { label: string; children: React.ReactNode; span?: number; hint?: string; required?: boolean }) {
+function Field({ label, children, span, required }: { label: string; children: React.ReactNode; span?: number; required?: boolean }) {
   return (
     <div className={span ? `col-span-${span}` : ""} style={span ? { gridColumn: `span ${span}` } : undefined}>
       <label className="block text-[10px] font-bold text-warm-500 uppercase tracking-wider mb-1.5">
         {label}
-        {required && <span className="ml-1.5 text-red-500 font-semibold normal-case tracking-normal">Required</span>}
-        {hint && <span className="ml-1.5 text-emerald-500 font-semibold normal-case tracking-normal">→ {hint}</span>}
+        {required && <span className="ml-0.5 text-red-500" aria-hidden="true">*</span>}
       </label>
       {children}
     </div>
@@ -1126,25 +1125,25 @@ export default function NcpAssessmentPage({
 
       {/* ── Measurement inputs ───────────────────────────────────────── */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Field label="Weight (kg)" required={CALCULATION_INPUT_HELPERS.weight.required} hint={CALCULATION_INPUT_HELPERS.weight.helper}>
+        <Field label="Weight (kg)" required={CALCULATION_INPUT_HELPERS.weight.required}>
           <TextInput type="number" value={String(assessment.weight ?? "")} onChange={v => updateField("weight", v ? Number(v) : null)} placeholder="e.g. 70.5" />
         </Field>
-        <Field label="Usual Weight (kg)" required={CALCULATION_INPUT_HELPERS.usual_weight.required} hint={CALCULATION_INPUT_HELPERS.usual_weight.helper}>
+        <Field label="Usual Weight (kg)" required={CALCULATION_INPUT_HELPERS.usual_weight.required}>
           <TextInput type="number" value={String(assessment.usual_weight ?? "")} onChange={v => updateField("usual_weight", v ? Number(v) : null)} placeholder="e.g. 72.0" />
         </Field>
-        <Field label="Height (cm)" required={CALCULATION_INPUT_HELPERS.height.required} hint={CALCULATION_INPUT_HELPERS.height.helper}>
+        <Field label="Height (cm)" required={CALCULATION_INPUT_HELPERS.height.required}>
           <TextInput type="number" value={String(assessment.height ?? "")} onChange={v => updateField("height", v ? Number(v) : null)} placeholder="e.g. 170" />
         </Field>
-        <Field label="MUAC (mm)" required={CALCULATION_INPUT_HELPERS.muac_mm.required} hint={CALCULATION_INPUT_HELPERS.muac_mm.helper}>
+        <Field label="MUAC (mm)" required={CALCULATION_INPUT_HELPERS.muac_mm.required}>
           <TextInput type="number" value={String(assessment.muac_mm ?? "")} onChange={v => updateField("muac_mm", v ? Number(v) : null)} placeholder="e.g. 250" />
         </Field>
-        <Field label="Waist Circumference (cm)" required={CALCULATION_INPUT_HELPERS.waist_cm.required} hint={CALCULATION_INPUT_HELPERS.waist_cm.helper}>
+        <Field label="Waist Circumference (cm)" required={CALCULATION_INPUT_HELPERS.waist_cm.required}>
           <TextInput type="number" value={String(assessment.waist_cm ?? "")} onChange={v => updateField("waist_cm", v ? Number(v) : null)} placeholder="e.g. 90" />
         </Field>
-        <Field label="Hip Circumference (cm)" required={CALCULATION_INPUT_HELPERS.hip_cm.required} hint={CALCULATION_INPUT_HELPERS.hip_cm.helper}>
+        <Field label="Hip Circumference (cm)" required={CALCULATION_INPUT_HELPERS.hip_cm.required}>
           <TextInput type="number" value={String(assessment.hip_cm ?? "")} onChange={v => updateField("hip_cm", v ? Number(v) : null)} placeholder="e.g. 100" />
         </Field>
-        <Field label="Weight Loss/Gain Period" required={CALCULATION_INPUT_HELPERS.weight_loss_period.required} hint={CALCULATION_INPUT_HELPERS.weight_loss_period.helper}>
+        <Field label="Weight Loss/Gain Period" required={CALCULATION_INPUT_HELPERS.weight_loss_period.required}>
           <TextInput value={s("weight_loss_period")} onChange={v => updateField("weight_loss_period", v)} placeholder="e.g. 3 months" />
         </Field>
         <Field label="Functional Assessment">
@@ -1168,14 +1167,14 @@ export default function NcpAssessmentPage({
       <Field label="Social History">
         <TextArea value={s("social_history")} onChange={v => updateField("social_history", v)} placeholder="Social history..." rows={3} />
       </Field>
-      <Field label="Religion / Dietary Practices" hint="Helps identify dietary restrictions">
+      <Field label="Religion / Dietary Practices">
         <TextInput
           value={s("religion") ?? ""}
           onChange={v => updateField("religion", v || null)}
           placeholder="e.g. Roman Catholic, Muslim, Seventh-Day Adventist"
         />
       </Field>
-      <Field label="Physical Activity Level (PAL)" required={CALCULATION_INPUT_HELPERS.physical_activity_level.required} hint={CALCULATION_INPUT_HELPERS.physical_activity_level.helper}>
+      <Field label="Physical Activity Level (PAL)" required={CALCULATION_INPUT_HELPERS.physical_activity_level.required}>
         <SelectInput
           value={s("physical_activity_level")}
           onChange={v => updateField("physical_activity_level", v || null)}
@@ -1186,10 +1185,10 @@ export default function NcpAssessmentPage({
           placeholder="Select activity level..."
         />
       </Field>
-      <Field label="Stress Factor" required={CALCULATION_INPUT_HELPERS.stress_factor.required} hint={CALCULATION_INPUT_HELPERS.stress_factor.helper}>
+      <Field label="Stress Factor" required={CALCULATION_INPUT_HELPERS.stress_factor.required}>
         <TextInput type="number" value={String(assessment.stress_factor ?? "")} onChange={v => updateField("stress_factor", v ? Number(v) : null)} placeholder="e.g. 1.2" />
       </Field>
-      <Field label="Pregnancy / Lactation" required={CALCULATION_INPUT_HELPERS.pregnancy_lactation_status.required} hint={CALCULATION_INPUT_HELPERS.pregnancy_lactation_status.helper}>
+      <Field label="Pregnancy / Lactation" required={CALCULATION_INPUT_HELPERS.pregnancy_lactation_status.required}>
         <SelectInput
           value={(assessment.pregnancy_lactation_status as string) || "none"}
           onChange={v => updateField("pregnancy_lactation_status", v || "none")}
@@ -1201,7 +1200,7 @@ export default function NcpAssessmentPage({
           placeholder="None"
         />
       </Field>
-      <Field label="Edema Present" required={CALCULATION_INPUT_HELPERS.edema_present.required} hint={CALCULATION_INPUT_HELPERS.edema_present.helper}>
+      <Field label="Edema Present" required={CALCULATION_INPUT_HELPERS.edema_present.required}>
         <SelectInput
           value={assessment.edema_present ? "yes" : "no"}
           onChange={v => updateField("edema_present", v === "yes")}
