@@ -49,6 +49,20 @@ class MenuCostFreezeTest extends TestCase
             'recipe_id' => $recipe->id, 'quantity' => 1, 'estimate_population' => 1,
         ]);
 
+        // Activation requires every weekday to have a planned item (cycles always span the
+        // full week — cycle_days is forced to 7). Fill Tue–Sun with a separate ZERO-cost
+        // item so the cycle is activatable without changing its ₱100 cost. The ₱1000 item
+        // above is created first, so FsItem::firstOrFail() in the callers still targets it.
+        $filler = FsItem::factory()->create([
+            'kind' => 'ingredient', 'base_unit' => 'g', 'purchase_unit' => 'g', 'purchase_price' => 0,
+        ]);
+        foreach (['Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'] as $day) {
+            MenuCycleDay::create([
+                'menu_cycle_id' => $cycle->id, 'day_of_week' => $day, 'meal_type' => 'lunch',
+                'fs_item_id' => $filler->id, 'quantity' => 1, 'estimate_population' => 1,
+            ]);
+        }
+
         return $cycle->fresh();
     }
 

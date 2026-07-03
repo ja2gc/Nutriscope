@@ -50,6 +50,29 @@ class FoodServiceOpsTest extends TestCase
         return FsItem::factory()->create($attrs);
     }
 
+    /**
+     * Plan every weekday that isn't planned yet with a zero-cost item, so the cycle
+     * satisfies the activation rule ("every weekday must have a planned item" — cycles
+     * always span the full week) without affecting the cycle's cost. Returns the cycle.
+     */
+    private function planRemainingWeekdays(MenuCycle $cycle): MenuCycle
+    {
+        $weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+        $missing  = array_diff($weekdays, $cycle->days()->pluck('day_of_week')->all());
+
+        if ($missing !== []) {
+            $filler = $this->makeFsItem(['purchase_price' => 0]);
+            foreach ($missing as $day) {
+                MenuCycleDay::create([
+                    'menu_cycle_id' => $cycle->id, 'day_of_week' => $day, 'meal_type' => 'lunch',
+                    'fs_item_id' => $filler->id, 'quantity' => 1, 'estimate_population' => 1,
+                ]);
+            }
+        }
+
+        return $cycle->fresh();
+    }
+
     // ===== INVENTORY =====
 
     public function test_fss_can_list_inventory(): void
@@ -939,6 +962,8 @@ class FoodServiceOpsTest extends TestCase
             'activation_date' => null,
             'rnd_user_id' => $this->rnd->id
         ]);
+        // A cycle can only be activated once every weekday has a planned item.
+        $this->planRemainingWeekdays($cycle);
 
         $response = $this->actingAs($this->rnd) // Activations can be done by RND
             ->patchJson("/api/fss/menu-cycles/{$cycle->uuid}/activate");
@@ -995,6 +1020,7 @@ class FoodServiceOpsTest extends TestCase
             'week_start_date' => '2026-06-15',
         ]);
         $fsItem = $this->makeFsItem();
+        // Monday is planned but has NO estimate_population — the case under test.
         MenuCycleDay::create([
             'menu_cycle_id' => $cycle->id,
             'day_of_week' => 'Monday',
@@ -1003,6 +1029,9 @@ class FoodServiceOpsTest extends TestCase
             'quantity' => 1,
             'estimate_population' => null,
         ]);
+        // Plan the rest of the week so the cycle is activatable; Monday keeps its null
+        // population, so activation succeeding proves the missing-population case is allowed.
+        $this->planRemainingWeekdays($cycle);
 
         $response = $this->actingAs($this->rnd)
             ->patchJson("/api/fss/menu-cycles/{$cycle->uuid}/activate");
