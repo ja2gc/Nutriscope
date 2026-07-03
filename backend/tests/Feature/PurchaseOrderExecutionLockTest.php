@@ -39,7 +39,7 @@ class PurchaseOrderExecutionLockTest extends TestCase
             'supplier_id' => $supplier->id, 'unit_price' => 20, 'total' => 100,
         ]);
 
-        $this->actingAs($this->rnd)->postJson("/api/fss/shopping-lists/{$list->id}/approve")->assertCreated();
+        $this->actingAs($this->rnd)->postJson("/api/fss/shopping-lists/{$list->uuid}/approve")->assertCreated();
         $po = PurchaseOrder::where('shopping_list_id', $list->id)->firstOrFail();
 
         return [$po, $po->vendorGroups()->firstOrFail()];
@@ -59,7 +59,7 @@ class PurchaseOrderExecutionLockTest extends TestCase
         $line = $group->items()->firstOrFail();
 
         $this->actingAs($this->rnd)
-            ->patchJson("/api/fss/purchase-order-vendor-groups/{$group->id}", [
+            ->patchJson("/api/fss/purchase-order-vendor-groups/{$group->uuid}", [
                 'items' => [[
                     'id' => $line->id,
                     'unit_price' => 30,
@@ -86,7 +86,7 @@ class PurchaseOrderExecutionLockTest extends TestCase
         $originalQty = $line->qty;
 
         $this->actingAs($this->rnd)
-            ->patchJson("/api/fss/purchase-order-vendor-groups/{$group->id}", [
+            ->patchJson("/api/fss/purchase-order-vendor-groups/{$group->uuid}", [
                 'items' => [[
                     'id' => $line->id,
                     'purchase_qty' => 99,

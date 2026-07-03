@@ -136,7 +136,7 @@ class AiServiceTest extends TestCase
         $ncpRecord = $this->makeNcpRecord();
 
         $this->actingAs($this->rnd)
-            ->postJson("/api/rnd/ncp-records/{$ncpRecord->id}/diagnoses/ai-suggest", [
+            ->postJson("/api/rnd/ncp-records/{$ncpRecord->uuid}/diagnoses/ai-suggest", [
                 'conditions' => ['CKD'],
             ])
             ->assertStatus(502)
@@ -192,7 +192,7 @@ class AiServiceTest extends TestCase
         $ncpRecord = $this->makeNcpRecord();
 
         $response = $this->actingAs($this->rnd)
-            ->postJson("/api/rnd/ncp-records/{$ncpRecord->id}/diagnoses/ai-suggest", [
+            ->postJson("/api/rnd/ncp-records/{$ncpRecord->uuid}/diagnoses/ai-suggest", [
                 'conditions'     => ['CKD'],
                 'ibw_percentage' => 75,
             ]);
@@ -233,7 +233,7 @@ class AiServiceTest extends TestCase
         ]);
 
         $suggestResponse = $this->actingAs($this->rnd, 'sanctum')
-            ->postJson("/api/rnd/ncp-records/{$ncpRecord->id}/diagnoses/ai-suggest", [
+            ->postJson("/api/rnd/ncp-records/{$ncpRecord->uuid}/diagnoses/ai-suggest", [
                 'conditions' => ['Poor appetite'],
                 'ibw_percentage' => 75,
             ])
@@ -243,7 +243,7 @@ class AiServiceTest extends TestCase
         $suggestion = $suggestResponse->json('data.0');
 
         $this->actingAs($this->rnd, 'sanctum')
-            ->postJson("/api/rnd/ncp-records/{$ncpRecord->id}/diagnoses/ai-approve", $suggestion)
+            ->postJson("/api/rnd/ncp-records/{$ncpRecord->uuid}/diagnoses/ai-approve", $suggestion)
             ->assertCreated()
             ->assertJsonPath('data.ai_generated', true)
             ->assertJsonPath(
@@ -271,7 +271,7 @@ class AiServiceTest extends TestCase
         $ncpRecord = $this->makeNcpRecord();
 
         $response = $this->actingAs($this->rnd)
-            ->postJson("/api/rnd/ncp-records/{$ncpRecord->id}/diagnoses/ai-suggest", []);
+            ->postJson("/api/rnd/ncp-records/{$ncpRecord->uuid}/diagnoses/ai-suggest", []);
 
         $response->assertUnprocessable()
             ->assertJsonValidationErrors(['conditions']);
@@ -285,7 +285,7 @@ class AiServiceTest extends TestCase
         ]);
 
         $response = $this->actingAs($this->rnd)
-            ->postJson("/api/rnd/ncp-records/{$ncpRecord->id}/diagnoses/ai-approve", [
+            ->postJson("/api/rnd/ncp-records/{$ncpRecord->uuid}/diagnoses/ai-approve", [
                 'domain'   => 'NI',
                 'label'    => 'Inadequate energy intake',
                 'etiology' => 'related to poor appetite evidenced by food recall',
@@ -312,7 +312,7 @@ class AiServiceTest extends TestCase
         ]);
 
         $response = $this->actingAs($this->rnd)
-            ->postJson("/api/rnd/ncp-records/{$ncpRecord->id}/diagnoses/ai-approve", [
+            ->postJson("/api/rnd/ncp-records/{$ncpRecord->uuid}/diagnoses/ai-approve", [
                 'domain'   => 'NI',
                 'label'    => 'Inadequate energy intake',
                 'etiology' => 'related to poor appetite',
@@ -333,7 +333,7 @@ class AiServiceTest extends TestCase
         $ncpRecord = $this->makeNcpRecord();
 
         $response = $this->actingAs($this->rnd)
-            ->postJson("/api/rnd/ncp-records/{$ncpRecord->id}/diagnoses/ai-approve", [
+            ->postJson("/api/rnd/ncp-records/{$ncpRecord->uuid}/diagnoses/ai-approve", [
                 'domain'   => 'INVALID',
                 'label'    => 'Test',
                 'etiology' => 'related to X',
@@ -352,7 +352,7 @@ class AiServiceTest extends TestCase
         ]);
 
         $response = $this->actingAs($this->rnd)
-            ->postJson("/api/rnd/ncp-records/{$ncpRecord->id}/diagnoses/ai-approve", [
+            ->postJson("/api/rnd/ncp-records/{$ncpRecord->uuid}/diagnoses/ai-approve", [
                 'domain'   => 'NI',
                 'label'    => str_repeat('A', 256),
                 'etiology' => 'related to poor appetite',

@@ -10,7 +10,7 @@ class FoodItemResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
-            'id'             => $this->id,
+            'id'             => $this->uuid,
             'name'           => $this->name,
             'category'       => $this->category,
             'ready_to_eat'   => $this->ready_to_eat,

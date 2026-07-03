@@ -11,6 +11,7 @@ class MealPlan extends Model
 {
     use HasFactory;
     use \App\Models\Concerns\AuditsChanges;
+    use \App\Models\Concerns\HasPublicId;
 
     /** Clinical — log field names only, redact PHI values (Spec 5 Decision A). */
     protected bool $auditRedactValues = true;

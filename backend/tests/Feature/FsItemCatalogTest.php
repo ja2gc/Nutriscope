@@ -53,7 +53,7 @@ class FsItemCatalogTest extends TestCase
             ->postJson('/api/fss/fs-items', [
                 'name' => 'Tilapia', 'kind' => 'ingredient', 'category' => 'Fish',
                 'base_unit' => 'kg', 'purchase_price' => 160,
-                'default_supplier_id' => $vendor->id,
+                'default_supplier_id' => $vendor->uuid,
             ])
             ->assertCreated()
             ->assertJsonPath('data.kind', 'ingredient')
@@ -101,7 +101,7 @@ class FsItemCatalogTest extends TestCase
         ]);
 
         $this->actingAs($this->rnd)
-            ->deleteJson("/api/fss/fs-items/{$item->id}")
+            ->deleteJson("/api/fss/fs-items/{$item->uuid}")
             ->assertStatus(409);
 
         $this->assertDatabaseHas('fs_items', ['id' => $item->id]);
@@ -112,7 +112,7 @@ class FsItemCatalogTest extends TestCase
         $item = FsItem::factory()->create(['kind' => 'supply']);
 
         $this->actingAs($this->rnd)
-            ->deleteJson("/api/fss/fs-items/{$item->id}")
+            ->deleteJson("/api/fss/fs-items/{$item->uuid}")
             ->assertNoContent();
 
         $this->assertDatabaseMissing('fs_items', ['id' => $item->id]);

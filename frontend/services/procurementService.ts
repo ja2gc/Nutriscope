@@ -1,7 +1,7 @@
 import { apiFetch } from "@/lib/apiFetch";
 
 export interface ShoppingListItem {
-  id: number;
+  id: string;
   fs_item_id: number | null;
   ingredient_name: string;
   qty: string;
@@ -16,7 +16,7 @@ export interface ShoppingListItem {
   vendor_locked?: boolean;
 }
 export interface ShoppingList {
-  id: number;
+  id: string;
   name: string;
   list_date: string | null;
   list_type: "manual" | "suggested";
@@ -37,11 +37,11 @@ export interface ShoppingList {
 
 
 export interface POItem { id: number; vendor_group_id?: number | null; fs_item_id: number | null; description: string; qty: string; unit: string; unit_price: string; total_value: string; purchase_qty: string | null; purchase_unit: string | null; purchase_price: string | null }
-export interface POAttachment { id: number; vendor_group_id?: number | null; type: "receipt" | "proof"; path: string; caption: string | null }
+export interface POAttachment { id: string; vendor_group_id?: number | null; type: "receipt" | "proof"; path: string; caption: string | null }
 export interface POVendorGroup {
-  id: number;
+  id: string;
   supplier_id: number | null;
-  supplier?: { id: number; name: string; category: string | null } | null;
+  supplier?: { id: string; name: string; category: string | null } | null;
   or_number: string | null;
   status: "pending" | "received";
   total_amount: string | null;
@@ -62,10 +62,10 @@ export interface ProgramProjectActivity {
   execution_frozen_at: string | null;
 }
 export interface PurchaseOrder {
-  id: number;
-  shopping_list_id: number | null;
+  id: string;
+  shopping_list_id: string | null;
   supplier_id: number | null;
-  supplier?: { id: number; name: string; category: string | null } | null;
+  supplier?: { id: string; name: string; category: string | null } | null;
   po_number: string;
   or_number: string | null;
   order_date: string | null;
@@ -95,7 +95,7 @@ async function unwrap<T>(res: Response, fallback: string): Promise<T> {
 export async function listShoppingLists(): Promise<ShoppingList[]> {
   return unwrap(await apiFetch("/api/fss/shopping-lists"), "Failed to load shopping lists.");
 }
-export async function getShoppingList(id: number): Promise<ShoppingList> {
+export async function getShoppingList(id: string): Promise<ShoppingList> {
   return unwrap(await apiFetch(`/api/fss/shopping-lists/${id}`), "Failed to load list.");
 }
 export async function createShoppingList(payload: {
@@ -110,7 +110,7 @@ export async function createShoppingList(payload: {
     method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
   }), "Failed to create list.");
 }
-export async function updateShoppingList(id: number, patch: Partial<Pick<ShoppingList, "name" | "list_date" | "status" | "estimate_population">>): Promise<ShoppingList> {
+export async function updateShoppingList(id: string, patch: Partial<Pick<ShoppingList, "name" | "list_date" | "status" | "estimate_population">>): Promise<ShoppingList> {
   return unwrap(await apiFetch(`/api/fss/shopping-lists/${id}`, {
     method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch),
   }), "Failed to update list.");
@@ -153,22 +153,22 @@ export async function generateByDates(start_date: string, end_date: string, name
   }
   return (data as { data: ShoppingList }).data;
 }
-export async function deleteShoppingList(id: number): Promise<void> {
+export async function deleteShoppingList(id: string): Promise<void> {
   const res = await apiFetch(`/api/fss/shopping-lists/${id}`, { method: "DELETE" });
   if (!res.ok && res.status !== 204) throw new Error("Failed to delete list.");
 }
 
-export async function updateListItem(itemId: number, patch: { supplier_id?: number | null; qty?: number; unit_price?: number }): Promise<{ id: number; supplier_id: number | null; qty: string; unit_price: string; total: string }> {
+export async function updateListItem(itemId: string, patch: { supplier_id?: string | null; qty?: number; unit_price?: number }): Promise<{ id: string; supplier_id: number | null; qty: string; unit_price: string; total: string }> {
   return unwrap(await apiFetch(`/api/fss/shopping-list-items/${itemId}`, {
     method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch),
   }), "Failed to update item.");
 }
-export async function addListItem(listId: number, payload: {
-  fs_item_id?: number | null;
+export async function addListItem(listId: string, payload: {
+  fs_item_id?: string | null;
   ingredient_name?: string | null;
   qty: number;
   unit: string;
-  supplier_id?: number | null;
+  supplier_id?: string | null;
   unit_price?: number | null;
   purchase_qty?: number | null;
   purchase_unit?: string | null;
@@ -178,7 +178,7 @@ export async function addListItem(listId: number, payload: {
     method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
   }), "Failed to add item.");
 }
-export async function deleteListItem(itemId: number): Promise<void> {
+export async function deleteListItem(itemId: string): Promise<void> {
   const res = await apiFetch(`/api/fss/shopping-list-items/${itemId}`, { method: "DELETE" });
   if (!res.ok && res.status !== 204) throw new Error("Failed to delete item.");
 }
@@ -187,7 +187,7 @@ export async function deleteListItem(itemId: number): Promise<void> {
  * group per supplier, each group carrying its own OR#, receipts, and proof uploads.
  * One-shot (re-converting an already-converted list is rejected).
  */
-export async function approveShoppingList(listId: number): Promise<{ purchase_order_id: number; purchase_order_ids: number[] }> {
+export async function approveShoppingList(listId: string): Promise<{ purchase_order_id: string; purchase_order_ids: string[] }> {
   return unwrap(await apiFetch(`/api/fss/shopping-lists/${listId}/approve`, { method: "POST" }), "Failed to approve shopping list.");
 }
 
@@ -196,15 +196,15 @@ export async function listPurchaseOrders(shoppingListId?: number): Promise<Purch
   const qs = shoppingListId ? `?shopping_list_id=${shoppingListId}` : "";
   return unwrap(await apiFetch(`/api/fss/purchase-orders${qs}`), "Failed to load purchase orders.");
 }
-export async function getPurchaseOrder(id: number): Promise<PurchaseOrder> {
+export async function getPurchaseOrder(id: string): Promise<PurchaseOrder> {
   return unwrap(await apiFetch(`/api/fss/purchase-orders/${id}`), "Failed to load PO.");
 }
-export async function updatePurchaseOrder(id: number, patch: Partial<Pick<PurchaseOrder, "or_number" | "status" | "notes">>): Promise<PurchaseOrder> {
+export async function updatePurchaseOrder(id: string, patch: Partial<Pick<PurchaseOrder, "or_number" | "status" | "notes">>): Promise<PurchaseOrder> {
   return unwrap(await apiFetch(`/api/fss/purchase-orders/${id}`, {
     method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch),
   }), "Failed to update PO.");
 }
-export async function updateVendorGroup(groupId: number, patch: {
+export async function updateVendorGroup(groupId: string, patch: {
   or_number?: string | null;
   status?: "pending" | "received";
   items?: Array<{ id: number; purchase_qty?: number | null; purchase_unit?: string | null; purchase_price?: number | null; unit_price?: number | null }>;
@@ -213,11 +213,11 @@ export async function updateVendorGroup(groupId: number, patch: {
     method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch),
   }), "Failed to update vendor group.");
 }
-export async function deletePurchaseOrder(id: number): Promise<void> {
+export async function deletePurchaseOrder(id: string): Promise<void> {
   const res = await apiFetch(`/api/fss/purchase-orders/${id}`, { method: "DELETE" });
   if (!res.ok && res.status !== 204) throw new Error("Failed to delete PO.");
 }
-export async function uploadAttachment(poId: number, file: File, type: "receipt" | "proof", caption?: string): Promise<POAttachment> {
+export async function uploadAttachment(poId: string, file: File, type: "receipt" | "proof", caption?: string): Promise<POAttachment> {
   const fd = new FormData();
   fd.append("file", file); fd.append("type", type);
   if (caption) fd.append("caption", caption);
@@ -225,7 +225,7 @@ export async function uploadAttachment(poId: number, file: File, type: "receipt"
   return unwrap(res, "Failed to upload.");
 }
 /** Upload several receipt/proof photos at once. */
-export async function uploadAttachments(poId: number, files: File[], type: "receipt" | "proof", caption?: string): Promise<POAttachment[]> {
+export async function uploadAttachments(poId: string, files: File[], type: "receipt" | "proof", caption?: string): Promise<POAttachment[]> {
   const fd = new FormData();
   files.forEach((f) => fd.append("files[]", f));
   fd.append("type", type);
@@ -233,7 +233,7 @@ export async function uploadAttachments(poId: number, files: File[], type: "rece
   const res = await apiFetch(`/api/fss/purchase-orders/${poId}/attachments`, { method: "POST", body: fd });
   return unwrap(res, "Failed to upload.");
 }
-export async function uploadVendorGroupAttachments(groupId: number, files: File[], type: "receipt" | "proof", caption?: string): Promise<POAttachment[]> {
+export async function uploadVendorGroupAttachments(groupId: string, files: File[], type: "receipt" | "proof", caption?: string): Promise<POAttachment[]> {
   const fd = new FormData();
   files.forEach((f) => fd.append("files[]", f));
   fd.append("type", type);
@@ -241,10 +241,10 @@ export async function uploadVendorGroupAttachments(groupId: number, files: File[
   const res = await apiFetch(`/api/fss/purchase-order-vendor-groups/${groupId}/attachments`, { method: "POST", body: fd });
   return unwrap(res, "Failed to upload.");
 }
-export async function getPurchaseOrderPpa(id: number): Promise<ProgramProjectActivity> {
+export async function getPurchaseOrderPpa(id: string): Promise<ProgramProjectActivity> {
   return unwrap(await apiFetch(`/api/fss/purchase-orders/${id}/ppa`), "Failed to load PPA.");
 }
-export async function deleteAttachment(attachmentId: number): Promise<void> {
+export async function deleteAttachment(attachmentId: string): Promise<void> {
   const res = await apiFetch(`/api/fss/purchase-order-attachments/${attachmentId}`, { method: "DELETE" });
   if (!res.ok && res.status !== 204) throw new Error("Failed to delete attachment.");
 }

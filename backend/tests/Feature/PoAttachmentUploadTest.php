@@ -26,7 +26,7 @@ class PoAttachmentUploadTest extends TestCase
         Storage::fake('public');
         [$fss, $po] = $this->fssPo();
 
-        $res = $this->actingAs($fss)->post("/api/fss/purchase-orders/{$po->id}/attachments", [
+        $res = $this->actingAs($fss)->post("/api/fss/purchase-orders/{$po->uuid}/attachments", [
             'type' => 'receipt',
             'file' => UploadedFile::fake()->create('receipt.jpg', 100, 'image/jpeg'),
         ]);
@@ -40,7 +40,7 @@ class PoAttachmentUploadTest extends TestCase
         Storage::fake('public');
         [$fss, $po] = $this->fssPo();
 
-        $res = $this->actingAs($fss)->post("/api/fss/purchase-orders/{$po->id}/attachments", [
+        $res = $this->actingAs($fss)->post("/api/fss/purchase-orders/{$po->uuid}/attachments", [
             'type'  => 'proof',
             'files' => [
                 UploadedFile::fake()->create('a.jpg', 100, 'image/jpeg'),

@@ -56,7 +56,7 @@ class NcpAssessmentTest extends TestCase
         $ncp     = $this->ncpRecord($patient, $rnd);
 
         $response = $this->actingAs($rnd, 'sanctum')
-            ->postJson("/api/rnd/ncp-records/{$ncp->id}/assessment", [
+            ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/assessment", [
                 'weight'      => 70.5,
                 'usual_weight' => 72.0,
                 'height'      => 170.0,
@@ -84,7 +84,7 @@ class NcpAssessmentTest extends TestCase
         $ncp     = $this->ncpRecord($patient, $rnd);
 
         $response = $this->actingAs($rnd, 'sanctum')
-            ->postJson("/api/rnd/ncp-records/{$ncp->id}/assessment", [
+            ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/assessment", [
                 'weight' => 60.0,
                 'usual_weight' => 61.0,
                 'height' => 160.0,
@@ -102,7 +102,7 @@ class NcpAssessmentTest extends TestCase
         $ncp     = $this->ncpRecord($patient, $rnd);
 
         $response = $this->actingAs($rnd, 'sanctum')
-            ->postJson("/api/rnd/ncp-records/{$ncp->id}/assessment", [
+            ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/assessment", [
                 'weight' => 'not-a-number',
             ]);
 
@@ -117,7 +117,7 @@ class NcpAssessmentTest extends TestCase
         $ncp     = $this->ncpRecord($patient, $rnd);
 
         $this->actingAs($rnd, 'sanctum')
-            ->postJson("/api/rnd/ncp-records/{$ncp->id}/assessment", [
+            ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/assessment", [
                 'dietary_intake' => 'Normal diet',
             ])
             ->assertUnprocessable()
@@ -145,7 +145,7 @@ class NcpAssessmentTest extends TestCase
         ]);
 
         $response = $this->actingAs($rnd, 'sanctum')
-            ->getJson("/api/rnd/ncp-records/{$ncp->id}/assessment");
+            ->getJson("/api/rnd/ncp-records/{$ncp->uuid}/assessment");
 
         $response->assertOk()
             ->assertJsonPath('data.ncp_record_id', $ncp->id);
@@ -167,7 +167,7 @@ class NcpAssessmentTest extends TestCase
         ]);
 
         $response = $this->actingAs($rnd, 'sanctum')
-            ->patchJson("/api/rnd/ncp-records/{$ncp->id}/assessment", [
+            ->patchJson("/api/rnd/ncp-records/{$ncp->uuid}/assessment", [
                 'weight' => 78.0,
                 'height' => 175.0,
             ]);
@@ -186,7 +186,7 @@ class NcpAssessmentTest extends TestCase
         $ncp     = $this->ncpRecord($patient, $rnd);
 
         $this->actingAs($rnd, 'sanctum')
-            ->postJson("/api/rnd/ncp-records/{$ncp->id}/assessment", [
+            ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/assessment", [
                 'weight' => 65.0,
                 'usual_weight' => 66.0,
                 'height' => 160.0,
@@ -204,7 +204,7 @@ class NcpAssessmentTest extends TestCase
         $patient = $this->patient();
         $ncp     = $this->ncpRecord($patient, $this->rnd());
 
-        $this->getJson("/api/rnd/ncp-records/{$ncp->id}/assessment")
+        $this->getJson("/api/rnd/ncp-records/{$ncp->uuid}/assessment")
             ->assertStatus(401);
     }
 
@@ -217,7 +217,7 @@ class NcpAssessmentTest extends TestCase
         Assessment::forceCreate(['ncp_record_id' => $ncp->id, 'weight' => 70.0]);
 
         $response = $this->actingAs($rnd, 'sanctum')
-            ->postJson("/api/rnd/ncp-records/{$ncp->id}/assessment", [
+            ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/assessment", [
                 'weight' => 75.0,
                 'usual_weight' => 76.0,
                 'height' => 170.0,

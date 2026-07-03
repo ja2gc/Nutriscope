@@ -56,7 +56,7 @@ class AssessmentSaveTest extends TestCase
         [$rnd, $ncp, $assessment] = $this->setup_assessment();
 
         $response = $this->actingAs($rnd, 'sanctum')
-            ->patchJson("/api/rnd/ncp-records/{$ncp->id}/assessment", [
+            ->patchJson("/api/rnd/ncp-records/{$ncp->uuid}/assessment", [
                 'physical_activity_level' => 'light',
             ]);
 
@@ -72,7 +72,7 @@ class AssessmentSaveTest extends TestCase
         [$rnd, $ncp, $assessment] = $this->setup_assessment();
 
         $response = $this->actingAs($rnd, 'sanctum')
-            ->patchJson("/api/rnd/ncp-records/{$ncp->id}/assessment", [
+            ->patchJson("/api/rnd/ncp-records/{$ncp->uuid}/assessment", [
                 'muac_mm' => 285.0,
             ]);
 
@@ -88,7 +88,7 @@ class AssessmentSaveTest extends TestCase
         [$rnd, $ncp, $assessment] = $this->setup_assessment();
 
         $response = $this->actingAs($rnd, 'sanctum')
-            ->patchJson("/api/rnd/ncp-records/{$ncp->id}/assessment", [
+            ->patchJson("/api/rnd/ncp-records/{$ncp->uuid}/assessment", [
                 'waist_cm' => 88.5,
                 'hip_cm'   => 96.0,
             ]);
@@ -108,7 +108,7 @@ class AssessmentSaveTest extends TestCase
         [$rnd, $ncp, $assessment] = $this->setup_assessment();
 
         $response = $this->actingAs($rnd, 'sanctum')
-            ->patchJson("/api/rnd/ncp-records/{$ncp->id}/assessment", [
+            ->patchJson("/api/rnd/ncp-records/{$ncp->uuid}/assessment", [
                 'religion'                   => 'Roman Catholic',
                 'physical_activity_level'    => 'sedentary',
                 'muac_mm'                    => 285.5,
@@ -134,7 +134,7 @@ class AssessmentSaveTest extends TestCase
         [$rnd, $ncp, $assessment] = $this->setup_assessment();
 
         $response = $this->actingAs($rnd, 'sanctum')
-            ->patchJson("/api/rnd/ncp-records/{$ncp->id}/assessment", [
+            ->patchJson("/api/rnd/ncp-records/{$ncp->uuid}/assessment", [
                 'weight' => 70.0,
             ]);
 
@@ -150,7 +150,7 @@ class AssessmentSaveTest extends TestCase
         [$rnd, $ncp] = $this->setup_assessment();
 
         $response = $this->actingAs($rnd, 'sanctum')
-            ->patchJson("/api/rnd/ncp-records/{$ncp->id}/assessment", [
+            ->patchJson("/api/rnd/ncp-records/{$ncp->uuid}/assessment", [
                 'risk_score_manual_override' => true,
                 'risk_score_manual_factors' => [
                     'screening_criteria',
@@ -189,7 +189,7 @@ class AssessmentSaveTest extends TestCase
         ])->save();
 
         $response = $this->actingAs($rnd, 'sanctum')
-            ->patchJson("/api/rnd/ncp-records/{$ncp->id}/assessment", [
+            ->patchJson("/api/rnd/ncp-records/{$ncp->uuid}/assessment", [
                 'risk_score_manual_override' => false,
             ]);
 

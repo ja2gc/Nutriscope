@@ -14,7 +14,7 @@ class PatientResource extends JsonResource
             : null;
 
         return [
-            'id' => $this->id,
+            'id' => $this->uuid,
             'name' => $this->name,
             'dob' => $this->dob,
             'sex' => $this->sex,
@@ -36,7 +36,7 @@ class PatientResource extends JsonResource
             'last_assessment_date' => $latestNcpRecord?->assessment?->created_at,
             'next_followup_date' => $latestNcpRecord?->intervention?->next_followup_date,
             'risk_score' => $latestNcpRecord?->risk_score,
-            'latest_ncp_id' => $latestNcpRecord?->id,
+            'latest_ncp_id' => $latestNcpRecord?->uuid,
         ];
     }
 }

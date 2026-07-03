@@ -94,10 +94,10 @@ class FoodItemControllerTest extends TestCase
         $food = FoodItem::factory()->create();
 
         $response = $this->actingAs($this->rnd)
-            ->getJson("/api/rnd/food-items/{$food->id}");
+            ->getJson("/api/rnd/food-items/{$food->uuid}");
 
         $response->assertOk()
-            ->assertJsonPath('data.id', $food->id);
+            ->assertJsonPath('data.id', $food->uuid);
     }
 
     public function test_rnd_can_update_food_item(): void
@@ -105,7 +105,7 @@ class FoodItemControllerTest extends TestCase
         $food = FoodItem::factory()->create(['name' => 'Old Name']);
 
         $response = $this->actingAs($this->rnd)
-            ->putJson("/api/rnd/food-items/{$food->id}", [
+            ->putJson("/api/rnd/food-items/{$food->uuid}", [
                 'name'     => 'Updated Name',
                 'calories' => 150,
             ]);
@@ -121,7 +121,7 @@ class FoodItemControllerTest extends TestCase
         $food = FoodItem::factory()->create();
 
         $response = $this->actingAs($this->rnd)
-            ->deleteJson("/api/rnd/food-items/{$food->id}");
+            ->deleteJson("/api/rnd/food-items/{$food->uuid}");
 
         $response->assertNoContent();
         $this->assertDatabaseMissing('food_items', ['id' => $food->id]);

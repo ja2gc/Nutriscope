@@ -59,7 +59,7 @@ class MenuCostFreezeTest extends TestCase
 
         // Activate → snapshot taken at ₱100.
         $this->actingAs($this->rnd)
-            ->patchJson("/api/fss/menu-cycles/{$cycle->id}/activate")
+            ->patchJson("/api/fss/menu-cycles/{$cycle->uuid}/activate")
             ->assertOk();
 
         $cycle->refresh();
@@ -82,7 +82,7 @@ class MenuCostFreezeTest extends TestCase
 
         // First activation → snapshot frozen at ₱100.
         $this->actingAs($this->rnd)
-            ->patchJson("/api/fss/menu-cycles/{$cycle->id}/activate")
+            ->patchJson("/api/fss/menu-cycles/{$cycle->uuid}/activate")
             ->assertOk();
         $cycle->refresh();
         $this->assertEqualsWithDelta(100.0, $cycle->cost_snapshot['total_cost'], 1e-6);
@@ -92,7 +92,7 @@ class MenuCostFreezeTest extends TestCase
         // another cycle took over, or a double-click). History must NOT re-price.
         $fsItem->update(['purchase_price' => 2000]);
         $this->actingAs($this->rnd)
-            ->patchJson("/api/fss/menu-cycles/{$cycle->id}/activate")
+            ->patchJson("/api/fss/menu-cycles/{$cycle->uuid}/activate")
             ->assertOk();
         $cycle->refresh();
 

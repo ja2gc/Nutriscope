@@ -99,7 +99,7 @@ class AuditTrailTest extends TestCase
         $other = Inventory::factory()->create(['fs_item_id' => FsItem::factory()->create()->id, 'quantity_in_stock' => 1]);
         $other->update(['quantity_in_stock' => 2]);
 
-        $res = $this->getJson("/api/fss/inventory/{$inv->id}/activity");
+        $res = $this->getJson("/api/fss/inventory/{$inv->uuid}/activity");
         $res->assertOk();
 
         $events = collect($res->json('data'));

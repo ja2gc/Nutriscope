@@ -2,7 +2,7 @@ import { apiFetch } from "@/lib/apiFetch";
 import { PaginationMeta } from "./inventoryService";
 
 export interface AuditLogCauser {
-  id: number;
+  id: string;
   name: string;
   email: string;
   role: "RND" | "FSS" | "Admin";
@@ -24,7 +24,7 @@ export interface AuditLog {
 export interface ListAuditLogsParams {
   page?: number;
   per_page?: number;
-  causer_id?: number;
+  causer_id?: string;
   subject_type?: string;
   event?: string;
   start?: string; // YYYY-MM-DD

@@ -52,12 +52,12 @@ class AdminAuditLogTest extends TestCase
         ]);
 
         $response = $this->actingAs($this->admin, 'sanctum')
-            ->getJson("/api/admin/audit-logs?causer_id={$rnd->id}&subject_type=".urlencode(Patient::class).'&event=created&start=2026-06-10&end=2026-06-10&per_page=5');
+            ->getJson("/api/admin/audit-logs?causer_id={$rnd->uuid}&subject_type=".urlencode(Patient::class).'&event=created&start=2026-06-10&end=2026-06-10&per_page=5');
 
         $response->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.event', 'created')
-            ->assertJsonPath('data.0.causer.id', $rnd->id)
+            ->assertJsonPath('data.0.causer.id', $rnd->uuid)
             ->assertJsonStructure([
                 'data' => [[
                     'id',

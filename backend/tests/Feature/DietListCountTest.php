@@ -60,7 +60,7 @@ class DietListCountTest extends TestCase
             $this->actingAs($this->fss)
                 ->postJson('/api/fss/diet-list-counts', array_merge([
                     'service_date'  => $date,
-                    'menu_cycle_id' => $cycle->id,
+                    'menu_cycle_id' => $cycle->uuid,
                 ], $payload))
                 ->assertCreated();
         }
@@ -197,7 +197,7 @@ class DietListCountTest extends TestCase
 
         // complete-day passes served_population = 99. Distribution total 45 must not override it.
         $response = $this->actingAs($this->fss)
-            ->postJson("/api/fss/menu-cycles/{$cycle->id}/complete-day", [
+            ->postJson("/api/fss/menu-cycles/{$cycle->uuid}/complete-day", [
                 'service_date'      => '2026-06-15',
                 'population'        => 5,
                 'served_population' => 99,
@@ -228,7 +228,7 @@ class DietListCountTest extends TestCase
         ]);
         // No diet-list rows — hand-typed value must be used.
         $response = $this->actingAs($this->fss)
-            ->postJson("/api/fss/menu-cycles/{$cycle->id}/complete-day", [
+            ->postJson("/api/fss/menu-cycles/{$cycle->uuid}/complete-day", [
                 'service_date'      => '2026-06-15',
                 'population'        => 5,
                 'served_population' => 42,

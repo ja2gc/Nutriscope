@@ -310,7 +310,7 @@ class AiUsageLimitTest extends TestCase
         ]);
 
         $response = $this->actingAs($this->rnd, 'sanctum')
-            ->postJson("/api/rnd/ncp-records/{$ncpRecord->id}/diagnoses/ai-suggest", [
+            ->postJson("/api/rnd/ncp-records/{$ncpRecord->uuid}/diagnoses/ai-suggest", [
                 'conditions' => ['CKD'],
             ]);
 

@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Recipe extends Model
 {
     use HasFactory;
+    use \App\Models\Concerns\HasPublicId;
     protected $fillable = [
         'rnd_user_id', 'name', 'category', 'meal_types', 'prep_notes', 'cost',
         'total_calories', 'total_protein', 'total_carbs', 'total_fat', 'total_water_g',

@@ -51,8 +51,8 @@ class RecipeControllerTest extends TestCase
                 'servings'    => 2,
                 'prep_notes'  => 'Cook chicken then combine.',
                 'ingredients' => [
-                    ['food_item_id' => $food1->id, 'quantity' => 150, 'unit' => 'g'],
-                    ['food_item_id' => $food2->id, 'quantity' => 200, 'unit' => 'g'],
+                    ['food_item_id' => $food1->uuid, 'quantity' => 150, 'unit' => 'g'],
+                    ['food_item_id' => $food2->uuid, 'quantity' => 200, 'unit' => 'g'],
                 ],
             ]);
 
@@ -81,7 +81,7 @@ class RecipeControllerTest extends TestCase
                 'category'    => 'lunch',
                 'servings'    => 1,
                 'ingredients' => [
-                    ['food_item_id' => $food->id, 'quantity' => 100, 'unit' => 'g'],
+                    ['food_item_id' => $food->uuid, 'quantity' => 100, 'unit' => 'g'],
                 ],
             ]);
 
@@ -103,10 +103,10 @@ class RecipeControllerTest extends TestCase
         ]);
 
         $response = $this->actingAs($this->rnd)
-            ->getJson("/api/rnd/recipes/{$recipe->id}");
+            ->getJson("/api/rnd/recipes/{$recipe->uuid}");
 
         $response->assertOk()
-            ->assertJsonPath('data.id', $recipe->id)
+            ->assertJsonPath('data.id', $recipe->uuid)
             ->assertJsonStructure(['data' => ['id', 'name', 'ingredients']]);
     }
 
@@ -119,12 +119,12 @@ class RecipeControllerTest extends TestCase
         ]);
 
         $response = $this->actingAs($this->rnd)
-            ->putJson("/api/rnd/recipes/{$recipe->id}", [
+            ->putJson("/api/rnd/recipes/{$recipe->uuid}", [
                 'name'        => 'Updated Recipe',
                 'category'    => 'dinner',
                 'servings'    => 3,
                 'ingredients' => [
-                    ['food_item_id' => $food->id, 'quantity' => 200, 'unit' => 'g'],
+                    ['food_item_id' => $food->uuid, 'quantity' => 200, 'unit' => 'g'],
                 ],
             ]);
 
@@ -142,7 +142,7 @@ class RecipeControllerTest extends TestCase
         $recipe = Recipe::factory()->create(['rnd_user_id' => $this->rnd->id]);
 
         $response = $this->actingAs($this->rnd)
-            ->deleteJson("/api/rnd/recipes/{$recipe->id}");
+            ->deleteJson("/api/rnd/recipes/{$recipe->uuid}");
 
         $response->assertNoContent();
         $this->assertDatabaseMissing('recipes', ['id' => $recipe->id]);

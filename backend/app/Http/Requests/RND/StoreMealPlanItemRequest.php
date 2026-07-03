@@ -2,21 +2,31 @@
 
 namespace App\Http\Requests\RND;
 
+use App\Http\Requests\Concerns\ResolvesUuidForeignKeys;
+use App\Models\FoodItem;
+use App\Models\Recipe;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StoreMealPlanItemRequest extends FormRequest
 {
+    use ResolvesUuidForeignKeys;
+
     public function authorize(): bool { return true; }
 
     public function rules(): array
     {
         return [
-            'food_item_id' => 'sometimes|nullable|integer|exists:food_items,id',
+            'food_item_id' => 'sometimes|nullable|string|exists:food_items,uuid',
             'fdc_id'       => 'sometimes|nullable|string|regex:/^\d{1,10}$/',
-            'recipe_id'    => 'sometimes|nullable|integer|exists:recipes,id',
+            'recipe_id'    => 'sometimes|nullable|string|exists:recipes,uuid',
             'quantity'     => 'required|numeric|min:0.01',
             'unit'         => 'required|string|max:50',
         ];
+    }
+
+    protected function uuidForeignKeyMap(): array
+    {
+        return ['food_item_id' => FoodItem::class, 'recipe_id' => Recipe::class];
     }
 
     public function withValidator($validator): void

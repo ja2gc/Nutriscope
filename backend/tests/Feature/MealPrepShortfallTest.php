@@ -41,7 +41,7 @@ class MealPrepShortfallTest extends TestCase
     private function complete(array $payload = [])
     {
         return $this->actingAs($this->fss)
-            ->postJson("/api/fss/menu-cycles/{$this->cycle->id}/complete-day", array_merge([
+            ->postJson("/api/fss/menu-cycles/{$this->cycle->uuid}/complete-day", array_merge([
                 'service_date' => '2026-06-15',
                 'population'   => 5,
             ], $payload));

@@ -16,12 +16,12 @@ class PurchaseOrderResource extends JsonResource
         }
 
         return [
-            'id'               => $this->id,
+            'id'               => $this->uuid,
             'rnd_user_id'      => $this->rnd_user_id,
-            'shopping_list_id' => $this->shopping_list_id,
+            'shopping_list_id' => $this->whenLoaded('shoppingList', fn () => $this->shoppingList?->uuid, $this->shopping_list_id),
             'supplier_id'      => $this->supplier_id,
             'supplier'         => $this->whenLoaded('supplier', fn () => $this->supplier ? [
-                'id' => $this->supplier->id, 'name' => $this->supplier->name, 'category' => $this->supplier->category,
+                'id' => $this->supplier->uuid, 'name' => $this->supplier->name, 'category' => $this->supplier->category,
             ] : null),
             'po_number'        => $this->po_number,
             'or_number'        => $this->or_number,
@@ -55,10 +55,10 @@ class PurchaseOrderResource extends JsonResource
                 'purchase_price'  => $i->purchase_price,
             ])),
             'vendor_groups'    => $this->whenLoaded('vendorGroups', fn () => $this->vendorGroups->map(fn ($g) => [
-                'id' => $g->id,
+                'id' => $g->uuid,
                 'supplier_id' => $g->supplier_id,
                 'supplier' => $g->relationLoaded('supplier') && $g->supplier ? [
-                    'id' => $g->supplier->id,
+                    'id' => $g->supplier->uuid,
                     'name' => $g->supplier->name,
                     'category' => $g->supplier->category,
                 ] : null,
@@ -80,14 +80,14 @@ class PurchaseOrderResource extends JsonResource
                     'purchase_price' => $i->purchase_price,
                 ])->values() : null,
                 'attachments' => $g->relationLoaded('attachments') ? $g->attachments->map(fn ($a) => [
-                    'id' => $a->id,
+                    'id' => $a->uuid,
                     'type' => $a->type,
                     'path' => $a->path,
                     'caption' => $a->caption,
                 ])->values() : null,
             ])->values()),
             'attachments'      => $this->whenLoaded('attachments', fn () => $this->attachments->map(fn ($a) => [
-                'id' => $a->id, 'vendor_group_id' => $a->vendor_group_id, 'type' => $a->type, 'path' => $a->path, 'caption' => $a->caption,
+                'id' => $a->uuid, 'vendor_group_id' => $a->vendor_group_id, 'type' => $a->type, 'path' => $a->path, 'caption' => $a->caption,
             ])),
             'ppa'              => $this->whenLoaded('programProjectActivity', fn () => $this->programProjectActivity ? [
                 'id' => $this->programProjectActivity->id,

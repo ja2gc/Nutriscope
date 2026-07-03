@@ -8,7 +8,8 @@ use Illuminate\Database\Eloquent\Model;
 class ScreeningDocument extends Model
 {
     use HasFactory;
-    
+    use \App\Models\Concerns\HasPublicId;
+
     protected $fillable = [
         'patient_id', 'ncp_record_id', 'assessment_id', 'type', 'file_path', 'original_name',
     ];

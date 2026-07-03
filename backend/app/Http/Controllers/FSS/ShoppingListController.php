@@ -9,6 +9,7 @@ use App\Http\Resources\ShoppingListResource;
 use App\Models\FsItem;
 use App\Models\ShoppingList;
 use App\Models\ShoppingListItem;
+use App\Models\Supplier;
 use App\Services\FSS\ShoppingListPopulationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -142,11 +143,15 @@ class ShoppingListController extends Controller
 
         // Unit is NOT editable — it follows the recipe/item creation unit.
         $data = $request->validate([
-            'supplier_id'   => ['nullable', 'integer', 'exists:suppliers,id'],
+            'supplier_id'   => ['nullable', 'string', 'exists:suppliers,uuid'],
             'qty'           => ['nullable', 'numeric', 'min:0'],
             'unit_price'    => ['nullable', 'numeric', 'min:0'],
             'vendor_locked' => ['nullable', 'boolean'],
         ]);
+
+        if (! empty($data['supplier_id'])) {
+            $data['supplier_id'] = Supplier::idFromUuid($data['supplier_id']);
+        }
 
         if (array_key_exists('qty', $data) && ! $shoppingListItem->shoppingList->isSupplies()) {
             return response()->json(['message' => 'Food list quantities are calculated from estimate_population and menu items.'], 422);
@@ -171,7 +176,7 @@ class ShoppingListController extends Controller
         $shoppingListItem->save();
 
         return response()->json(['data' => [
-            'id'            => $shoppingListItem->id,
+            'id'            => $shoppingListItem->uuid,
             'supplier_id'   => $shoppingListItem->supplier_id,
             'qty'           => $shoppingListItem->qty,
             'unit_price'    => $shoppingListItem->unit_price,
@@ -190,16 +195,23 @@ class ShoppingListController extends Controller
         $isSupplies = $shoppingList->isSupplies();
 
         $data = $request->validate([
-            'fs_item_id'      => [$isSupplies ? 'required' : 'nullable', 'integer', 'exists:fs_items,id'],
+            'fs_item_id'      => [$isSupplies ? 'required' : 'nullable', 'string', 'exists:fs_items,uuid'],
             'ingredient_name' => ['nullable', 'string', 'max:255'],
             'qty'             => ['required', 'numeric', 'min:0'],
             'unit'            => [$isSupplies ? 'nullable' : 'required', 'string', 'max:50'],
-            'supplier_id'     => ['nullable', 'integer', 'exists:suppliers,id'],
+            'supplier_id'     => ['nullable', 'string', 'exists:suppliers,uuid'],
             'unit_price'      => ['nullable', 'numeric', 'min:0'],
             'purchase_qty'    => [$isSupplies ? 'prohibited' : 'nullable', 'numeric', 'min:0'],
             'purchase_unit'   => [$isSupplies ? 'prohibited' : 'nullable', 'string', 'max:50'],
             'purchase_price'  => [$isSupplies ? 'prohibited' : 'nullable', 'numeric', 'min:0'],
         ]);
+
+        if (! empty($data['fs_item_id'])) {
+            $data['fs_item_id'] = FsItem::idFromUuid($data['fs_item_id']);
+        }
+        if (! empty($data['supplier_id'])) {
+            $data['supplier_id'] = Supplier::idFromUuid($data['supplier_id']);
+        }
 
         $fsItem = isset($data['fs_item_id']) ? FsItem::find($data['fs_item_id']) : null;
 
@@ -227,7 +239,7 @@ class ShoppingListController extends Controller
             ]);
 
             return response()->json(['data' => [
-                'id'              => $item->id,
+                'id'              => $item->uuid,
                 'fs_item_id'      => $item->fs_item_id,
                 'ingredient_name' => $item->ingredient_name,
                 'qty'             => $item->qty,
@@ -263,7 +275,7 @@ class ShoppingListController extends Controller
         ]);
 
         return response()->json(['data' => [
-            'id'              => $item->id,
+            'id'              => $item->uuid,
             'fs_item_id'      => $item->fs_item_id,
             'ingredient_name' => $item->ingredient_name,
             'qty'             => $item->qty,

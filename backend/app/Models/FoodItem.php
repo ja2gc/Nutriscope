@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class FoodItem extends Model
 {
     use HasFactory;
+    use \App\Models\Concerns\HasPublicId;
     protected $fillable = [
         'name', 'category', 'ready_to_eat', 'usda_fdc_id', 'calories', 'protein', 'carbs', 'fat', 'water_g',
         'micronutrients', 'allergens', 'unit_price', 'serving_unit', 'serving_size',

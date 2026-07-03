@@ -53,7 +53,7 @@ class PoAwaitingReceiptNotificationTest extends TestCase
         ]);
 
         $this->actingAs($this->rnd)
-            ->postJson("/api/fss/shopping-lists/{$list->id}/approve")
+            ->postJson("/api/fss/shopping-lists/{$list->uuid}/approve")
             ->assertCreated();
 
         $this->assertDatabaseHas('purchase_orders', ['shopping_list_id' => $list->id, 'status' => 'draft']);
@@ -65,7 +65,7 @@ class PoAwaitingReceiptNotificationTest extends TestCase
         $po = PurchaseOrder::factory()->create(['status' => 'draft', 'rnd_user_id' => $this->rnd->id]);
 
         $response = $this->actingAs($this->rnd)
-            ->patchJson("/api/fss/purchase-orders/{$po->id}", [
+            ->patchJson("/api/fss/purchase-orders/{$po->uuid}", [
                 'status' => 'ordered',
             ]);
 
@@ -83,7 +83,7 @@ class PoAwaitingReceiptNotificationTest extends TestCase
         $po = PurchaseOrder::factory()->create(['status' => 'ordered', 'rnd_user_id' => $this->rnd->id]);
 
         $response = $this->actingAs($this->rnd)
-            ->patchJson("/api/fss/purchase-orders/{$po->id}", [
+            ->patchJson("/api/fss/purchase-orders/{$po->uuid}", [
                 'status'  => 'ordered',
                 'or_number' => 'OR-001',
             ]);

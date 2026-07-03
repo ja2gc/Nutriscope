@@ -70,7 +70,7 @@ function ItemFormModal({ kind, editing, suppliers, onClose, onSaved }: {
         category: form.category.trim() || null,
         base_unit: isSupply ? "unit" : form.base_unit.trim(),
         purchase_price: price,
-        default_supplier_id: form.default_supplier_id ? parseInt(form.default_supplier_id) : null,
+        default_supplier_id: form.default_supplier_id ? form.default_supplier_id : null,
       };
       if (editing) {
         await updateFsItem(editing.id, payload);

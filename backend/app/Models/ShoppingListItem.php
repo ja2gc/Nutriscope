@@ -8,7 +8,8 @@ use Illuminate\Database\Eloquent\Model;
 class ShoppingListItem extends Model
 {
     use HasFactory;
-    
+    use \App\Models\Concerns\HasPublicId;
+
     protected $fillable = [
         'shopping_list_id', 'fs_item_id', 'ingredient_name',
         'qty', 'unit', 'supplier_id', 'unit_price', 'total',

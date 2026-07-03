@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class MealPlanDay extends Model
 {
     use HasFactory;
+    use \App\Models\Concerns\HasPublicId;
     public $timestamps = false;
 
     protected $fillable = ['meal_plan_id', 'day_of_week', 'meal_type', 'flagged', 'variance'];

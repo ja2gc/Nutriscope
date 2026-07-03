@@ -5,6 +5,7 @@ namespace App\Http\Controllers\FSS;
 use App\Http\Controllers\Controller;
 use App\Models\FsItem;
 use App\Models\PurchaseOrder;
+use App\Models\Supplier;
 use App\Services\FSS\LatestProcurementVendorService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -27,7 +28,7 @@ class FsItemController extends Controller
             ->orderBy('name')
             ->get(['id', 'name', 'category', 'base_unit', 'purchase_price', 'purchase_unit', 'units_per_purchase'])
             ->map(fn (FsItem $i) => [
-                'id'        => $i->id,
+                'id'        => $i->uuid,
                 'name'      => $i->name,
                 'category'  => $i->category,
                 'unit'      => $i->base_unit,
@@ -66,7 +67,7 @@ class FsItemController extends Controller
     private function catalogRow(FsItem $i): array
     {
         return [
-            'id'                  => $i->id,
+            'id'                  => $i->uuid,
             'name'                => $i->name,
             'kind'                => $i->kind,
             'category'            => $i->category,
@@ -94,8 +95,12 @@ class FsItemController extends Controller
             'category'            => ['nullable', 'string', 'max:100'],
             'base_unit'           => ['required', 'string', 'max:20'],
             'purchase_price'      => ['required', 'numeric', 'min:0'],
-            'default_supplier_id' => ['nullable', 'integer', 'exists:suppliers,id'],
+            'default_supplier_id' => ['nullable', 'string', 'exists:suppliers,uuid'],
         ]);
+
+        if (! empty($data['default_supplier_id'])) {
+            $data['default_supplier_id'] = Supplier::idFromUuid($data['default_supplier_id']);
+        }
 
         // Catalog items carry a single unit and a cost per that unit (plan: ingredient =
         // name, category, vendor, unit, unit/cost; supply = name, category, vendor, cost).
@@ -116,8 +121,12 @@ class FsItemController extends Controller
             'category'            => ['nullable', 'string', 'max:100'],
             'purchase_price'      => ['sometimes', 'numeric', 'min:0'],
             'base_unit'           => ['sometimes', 'string', 'max:20'],
-            'default_supplier_id' => ['sometimes', 'nullable', 'integer', 'exists:suppliers,id'],
+            'default_supplier_id' => ['sometimes', 'nullable', 'string', 'exists:suppliers,uuid'],
         ]);
+
+        if (! empty($data['default_supplier_id'])) {
+            $data['default_supplier_id'] = Supplier::idFromUuid($data['default_supplier_id']);
+        }
 
         // Single unit + cost per unit: keep purchase unit aligned to the base unit so
         // unit_cost stays equal to the entered cost.
@@ -173,7 +182,7 @@ class FsItemController extends Controller
         $fsItem->refresh();
 
         return response()->json(['data' => [
-            'id'                  => $fsItem->id,
+            'id'                  => $fsItem->uuid,
             'default_supplier_id' => $fsItem->default_supplier_id,
             'vendor_locked'       => $fsItem->vendorLocked(),
             'locked_at'           => $fsItem->default_supplier_locked_at?->toDateTimeString(),
@@ -203,8 +212,8 @@ class FsItemController extends Controller
         $totalCost = round($totalQuantity * $unitCost, 2);
 
         return response()->json(['data' => [
-            'id' => $fsItem->id,
-            'fs_item_id' => $fsItem->id,
+            'id' => $fsItem->uuid,
+            'fs_item_id' => $fsItem->uuid,
             'name' => $fsItem->name,
             'kind' => $fsItem->kind,
             'category' => $fsItem->category,
@@ -219,7 +228,7 @@ class FsItemController extends Controller
             'prep_notes' => $fsItem->notes,
             'formula' => 'total_cost = quantity_per_head * population * unit_cost',
             'ingredient_usage' => [[
-                'fs_item_id' => $fsItem->id,
+                'fs_item_id' => $fsItem->uuid,
                 'name' => $fsItem->name,
                 'unit' => $fsItem->base_unit,
                 'quantity' => round($totalQuantity, 2),

@@ -20,13 +20,13 @@ class MealPrepLogController extends Controller
             'menu_cycle_id' => ['nullable', 'integer'],
         ]);
 
-        $logs = MealPrepLog::with('lines', 'menuCycle:id,name', 'completedBy:id,name')
+        $logs = MealPrepLog::with('lines', 'menuCycle:id,uuid,name', 'completedBy:id,uuid,name')
             ->when($data['menu_cycle_id'] ?? null, fn ($q, $id) => $q->where('menu_cycle_id', $id))
             ->when($data['from'] ?? null, fn ($q, $d) => $q->where('service_date', '>=', $d))
             ->when($data['to'] ?? null, fn ($q, $d) => $q->where('service_date', '<=', $d))
             ->orderByDesc('service_date')->get();
 
-        return response()->json(['data' => $logs]);
+        return response()->json(['data' => $logs->map(fn (MealPrepLog $l) => array_merge($l->toArray(), ['id' => $l->uuid]))]);
     }
 
     public function complete(Request $request, MenuCycle $menuCycle, ConsumptionService $consumption, PurchaseOrderLifecycleService $lifecycle): JsonResponse
@@ -45,12 +45,13 @@ class MealPrepLogController extends Controller
         );
         $lifecycle->refreshForServiceDate($data['service_date']);
 
-        return response()->json(['data' => $log], 201);
+        return response()->json(['data' => array_merge($log->toArray(), ['id' => $log->uuid])], 201);
     }
 
     public function reverse(MealPrepLog $mealPrepLog, ConsumptionService $consumption): JsonResponse
     {
-        return response()->json(['data' => $consumption->reverseDay($mealPrepLog->load('lines'))]);
+        $log = $consumption->reverseDay($mealPrepLog->load('lines'));
+        return response()->json(['data' => array_merge($log->toArray(), ['id' => $log->uuid])]);
     }
 
     /**
@@ -114,6 +115,6 @@ class MealPrepLogController extends Controller
         $log->save();
         $lifecycle->refreshForServiceDate($data['service_date']);
 
-        return response()->json(['data' => $log]);
+        return response()->json(['data' => array_merge($log->toArray(), ['id' => $log->uuid])]);
     }
 }

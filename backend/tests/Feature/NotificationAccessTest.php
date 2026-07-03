@@ -46,7 +46,7 @@ class NotificationAccessTest extends TestCase
         ]);
 
         $this->actingAs($admin, 'sanctum')
-             ->patchJson("/api/notifications/{$notification->id}/read")
+             ->patchJson("/api/notifications/{$notification->uuid}/read")
              ->assertOk()
              ->assertJsonFragment(['message' => 'Notification marked as read.']);
 
@@ -70,7 +70,7 @@ class NotificationAccessTest extends TestCase
         ]);
 
         $this->actingAs($admin, 'sanctum')
-             ->patchJson("/api/notifications/{$notification->id}/read")
+             ->patchJson("/api/notifications/{$notification->uuid}/read")
              ->assertForbidden();
     }
 }

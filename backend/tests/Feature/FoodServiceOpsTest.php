@@ -71,7 +71,7 @@ class FoodServiceOpsTest extends TestCase
         $inventory = Inventory::factory()->create(['fs_item_id' => $fsItem->id, 'quantity_in_stock' => 50]);
 
         $this->actingAs($this->fss)
-            ->patchJson("/api/fss/inventory/{$inventory->id}", ['quantity_in_stock' => 80])
+            ->patchJson("/api/fss/inventory/{$inventory->uuid}", ['quantity_in_stock' => 80])
             ->assertStatus(405);
     }
 
@@ -81,7 +81,7 @@ class FoodServiceOpsTest extends TestCase
         $inventory = Inventory::factory()->create(['fs_item_id' => $fsItem->id, 'quantity_in_stock' => 20]);
 
         $this->actingAs($this->fss)
-            ->postJson("/api/fss/inventory/{$inventory->id}/restock", ['quantity' => 30])
+            ->postJson("/api/fss/inventory/{$inventory->uuid}/restock", ['quantity' => 30])
             ->assertNotFound();
     }
 
@@ -170,7 +170,7 @@ class FoodServiceOpsTest extends TestCase
         ]);
 
         $this->actingAs($this->fss)
-            ->postJson("/api/fss/shopping-lists/{$list->id}/approve")
+            ->postJson("/api/fss/shopping-lists/{$list->uuid}/approve")
             ->assertForbidden();
     }
 
@@ -196,7 +196,7 @@ class FoodServiceOpsTest extends TestCase
         ]);
 
         $this->actingAs($this->rnd)
-            ->postJson("/api/fss/shopping-lists/{$list->id}/approve")
+            ->postJson("/api/fss/shopping-lists/{$list->uuid}/approve")
             ->assertCreated();
 
         $this->assertDatabaseHas('purchase_orders', ['shopping_list_id' => $list->id, 'lifecycle_status' => 'open_execution']);
@@ -213,7 +213,7 @@ class FoodServiceOpsTest extends TestCase
 
         // One-shot: re-approving is rejected.
         $this->actingAs($this->rnd)
-            ->postJson("/api/fss/shopping-lists/{$list->id}/approve")
+            ->postJson("/api/fss/shopping-lists/{$list->uuid}/approve")
             ->assertStatus(422);
     }
 
@@ -230,13 +230,13 @@ class FoodServiceOpsTest extends TestCase
             'supplier_id' => $supplier->id, 'unit_price' => 20, 'total' => 100,
         ]);
 
-        $this->actingAs($this->rnd)->postJson("/api/fss/shopping-lists/{$list->id}/approve")->assertCreated();
+        $this->actingAs($this->rnd)->postJson("/api/fss/shopping-lists/{$list->uuid}/approve")->assertCreated();
         $group = \App\Models\PurchaseOrderVendorGroup::firstOrFail();
         $line = $group->items()->firstOrFail();
 
         // FSS can set OR number only.
         $this->actingAs($this->fss)
-            ->patchJson("/api/fss/purchase-order-vendor-groups/{$group->id}", [
+            ->patchJson("/api/fss/purchase-order-vendor-groups/{$group->uuid}", [
                 'or_number' => 'OR-FSS-1',
             ])
             ->assertOk()
@@ -244,13 +244,13 @@ class FoodServiceOpsTest extends TestCase
 
         // FSS cannot patch items or status — must return 403.
         $this->actingAs($this->fss)
-            ->patchJson("/api/fss/purchase-order-vendor-groups/{$group->id}", [
+            ->patchJson("/api/fss/purchase-order-vendor-groups/{$group->uuid}", [
                 'items' => [['id' => $line->id, 'unit_price' => 22]],
             ])
             ->assertForbidden();
 
         $this->actingAs($this->fss)
-            ->patchJson("/api/fss/purchase-order-vendor-groups/{$group->id}", [
+            ->patchJson("/api/fss/purchase-order-vendor-groups/{$group->uuid}", [
                 'status' => 'received',
             ])
             ->assertForbidden();
@@ -258,7 +258,7 @@ class FoodServiceOpsTest extends TestCase
         // RND can do an audited price correction; purchase_qty/purchase_unit are frozen.
         // Qty stays 5, price → 22.
         $this->actingAs($this->rnd)
-            ->patchJson("/api/fss/purchase-order-vendor-groups/{$group->id}", [
+            ->patchJson("/api/fss/purchase-order-vendor-groups/{$group->uuid}", [
                 'items' => [[
                     'id' => $line->id,
                     'purchase_qty' => 6,    // ignored (frozen)
@@ -321,7 +321,7 @@ class FoodServiceOpsTest extends TestCase
         // Fiscal year 2026 must exist so the lifecycle guard allows completion.
         Budget::factory()->create(['fiscal_year' => 2026, 'allocated_amount' => 100000]);
 
-        $this->actingAs($this->rnd)->postJson("/api/fss/shopping-lists/{$list->id}/approve")->assertCreated();
+        $this->actingAs($this->rnd)->postJson("/api/fss/shopping-lists/{$list->uuid}/approve")->assertCreated();
         $po = PurchaseOrder::where('shopping_list_id', $list->id)->firstOrFail();
         $group = $po->vendorGroups()->firstOrFail();
 
@@ -338,7 +338,7 @@ class FoodServiceOpsTest extends TestCase
         ]);
 
         $this->actingAs($this->fss)
-            ->post("/api/fss/purchase-order-vendor-groups/{$group->id}/attachments", [
+            ->post("/api/fss/purchase-order-vendor-groups/{$group->uuid}/attachments", [
                 'type' => 'receipt',
                 'file' => UploadedFile::fake()->create('receipt.jpg', 100, 'image/jpeg'),
             ])
@@ -358,7 +358,7 @@ class FoodServiceOpsTest extends TestCase
         Event::assertDispatched(PurchaseOrderCompleted::class);
 
         $this->actingAs($this->fss)
-            ->patchJson("/api/fss/purchase-order-vendor-groups/{$group->id}", ['or_number' => 'LOCKED'])
+            ->patchJson("/api/fss/purchase-order-vendor-groups/{$group->uuid}", ['or_number' => 'LOCKED'])
             ->assertStatus(422);
     }
 
@@ -373,17 +373,17 @@ class FoodServiceOpsTest extends TestCase
             'fs_item_id' => $fsItem->id, 'ingredient_name' => $fsItem->name, 'qty' => 2, 'unit' => 'kg',
             'unit_price' => 50, 'total' => 100,
         ]);
-        $this->actingAs($this->rnd)->postJson("/api/fss/shopping-lists/{$list->id}/approve")->assertCreated();
+        $this->actingAs($this->rnd)->postJson("/api/fss/shopping-lists/{$list->uuid}/approve")->assertCreated();
         $po = PurchaseOrder::where('shopping_list_id', $list->id)->firstOrFail();
 
-        $this->actingAs($this->rnd)->getJson("/api/fss/purchase-orders/{$po->id}/ppa")
+        $this->actingAs($this->rnd)->getJson("/api/fss/purchase-orders/{$po->uuid}/ppa")
             ->assertOk()
             ->assertJsonPath('data.activity', 'Food Subsistence for Patients');
 
-        $this->actingAs($this->fss)->getJson("/api/fss/purchase-orders/{$po->id}/ppa")
+        $this->actingAs($this->fss)->getJson("/api/fss/purchase-orders/{$po->uuid}/ppa")
             ->assertForbidden();
 
-        $this->actingAs($this->fss)->deleteJson("/api/fss/purchase-orders/{$po->id}")
+        $this->actingAs($this->fss)->deleteJson("/api/fss/purchase-orders/{$po->uuid}")
             ->assertForbidden();
     }
 
@@ -400,12 +400,12 @@ class FoodServiceOpsTest extends TestCase
             'fs_item_id' => $fsItem->id, 'ingredient_name' => $fsItem->name, 'qty' => 2, 'unit' => 'kg',
             'supplier_id' => $supplier->id, 'unit_price' => 50, 'total' => 100,
         ]);
-        $this->actingAs($this->rnd)->postJson("/api/fss/shopping-lists/{$list->id}/approve")->assertCreated();
+        $this->actingAs($this->rnd)->postJson("/api/fss/shopping-lists/{$list->uuid}/approve")->assertCreated();
 
         $this->actingAs($this->fss)
             ->getJson('/api/fss/purchase-orders')
             ->assertOk()
-            ->assertJsonPath('data.0.shopping_list_id', $list->id)
+            ->assertJsonPath('data.0.shopping_list_id', $list->uuid)
             ->assertJsonPath('data.0.vendor_groups.0.supplier.name', 'Vendor A')
             ->assertJsonPath('data.0.lifecycle_status', 'open_execution');
     }
@@ -435,10 +435,10 @@ class FoodServiceOpsTest extends TestCase
         $this->actingAs($this->fss)
             ->getJson('/api/fss/menu-cycles')
             ->assertOk()
-            ->assertJsonPath('data.0.id', $active->id)
+            ->assertJsonPath('data.0.id', $active->uuid)
             ->assertJsonPath('data.0.plan_days.Monday', true)
             ->assertJsonPath('data.0.plan_days.Tuesday', false)
-            ->assertJsonPath('data.1.id', $past->id);
+            ->assertJsonPath('data.1.id', $past->uuid);
     }
 
     public function test_fss_can_read_purchase_order(): void
@@ -446,7 +446,7 @@ class FoodServiceOpsTest extends TestCase
         $po = PurchaseOrder::factory()->create(['status' => 'draft']);
 
         $this->actingAs($this->fss)
-            ->getJson("/api/fss/purchase-orders/{$po->id}")
+            ->getJson("/api/fss/purchase-orders/{$po->uuid}")
             ->assertOk()
             ->assertJsonPath('data.status', 'draft');
     }
@@ -456,7 +456,7 @@ class FoodServiceOpsTest extends TestCase
         $po = PurchaseOrder::factory()->create(['status' => 'draft']);
 
         $this->actingAs($this->fss)
-            ->patchJson("/api/fss/purchase-orders/{$po->id}", ['status' => 'received'])
+            ->patchJson("/api/fss/purchase-orders/{$po->uuid}", ['status' => 'received'])
             ->assertForbidden();
     }
 
@@ -465,7 +465,7 @@ class FoodServiceOpsTest extends TestCase
         $po = PurchaseOrder::factory()->create(['status' => 'draft']);
 
         $response = $this->actingAs($this->rnd)
-            ->patchJson("/api/fss/purchase-orders/{$po->id}", [
+            ->patchJson("/api/fss/purchase-orders/{$po->uuid}", [
                 'status' => 'received',
             ]);
 
@@ -502,7 +502,7 @@ class FoodServiceOpsTest extends TestCase
         ]);
 
         $response = $this->actingAs($this->rnd)
-            ->patchJson("/api/fss/purchase-orders/{$po->id}", [
+            ->patchJson("/api/fss/purchase-orders/{$po->uuid}", [
                 'status' => 'received',
             ]);
 
@@ -520,7 +520,7 @@ class FoodServiceOpsTest extends TestCase
         ]);
 
         $this->actingAs($this->rnd)
-            ->postJson("/api/fss/shopping-lists/{$list->id}/approve")
+            ->postJson("/api/fss/shopping-lists/{$list->uuid}/approve")
             ->assertStatus(422);
     }
 
@@ -731,7 +731,7 @@ class FoodServiceOpsTest extends TestCase
             'estimate_population' => 10, // unchanged — per-day population is for meal prep, not procurement
         ]);
         $this->assertDatabaseHas('shopping_list_items', [
-            'shopping_list_id' => $list['id'],
+            'shopping_list_id' => ShoppingList::where('uuid', $list['id'])->value('id'),
             'fs_item_id' => $fsItem->id,
             'qty' => 25,
             'total' => 125,
@@ -778,7 +778,7 @@ class FoodServiceOpsTest extends TestCase
         ])->assertOk()->json('data');
 
         $this->assertDatabaseHas('shopping_list_items', [
-            'shopping_list_id' => $list['id'],
+            'shopping_list_id' => ShoppingList::where('uuid', $list['id'])->value('id'),
             'fs_item_id' => $fsItem->id,
             'qty' => 40,
             'total' => 200,
@@ -941,7 +941,7 @@ class FoodServiceOpsTest extends TestCase
         ]);
 
         $response = $this->actingAs($this->rnd) // Activations can be done by RND
-            ->patchJson("/api/fss/menu-cycles/{$cycle->id}/activate");
+            ->patchJson("/api/fss/menu-cycles/{$cycle->uuid}/activate");
 
         $response->assertOk()
             ->assertJsonPath('data.is_active', true)
@@ -977,7 +977,7 @@ class FoodServiceOpsTest extends TestCase
         \App\Models\FoodServiceSetting::singleton()->update(['per_head_day_limit' => 12]);
 
         $response = $this->actingAs($this->rnd)
-            ->getJson("/api/fss/menu-cycles/{$cycle->id}/compute");
+            ->getJson("/api/fss/menu-cycles/{$cycle->uuid}/compute");
 
         $response->assertOk()
             ->assertJsonPath('data.budget_per_head_day', 12)
@@ -1005,7 +1005,7 @@ class FoodServiceOpsTest extends TestCase
         ]);
 
         $response = $this->actingAs($this->rnd)
-            ->patchJson("/api/fss/menu-cycles/{$cycle->id}/activate");
+            ->patchJson("/api/fss/menu-cycles/{$cycle->uuid}/activate");
 
         $response->assertOk()
             ->assertJsonPath('data.is_active', true)
@@ -1162,7 +1162,7 @@ class FoodServiceOpsTest extends TestCase
         ]);
 
         // Serve the day to 8 heads (override the cycle's default 5) — that headcount must be stored.
-        $this->actingAs($this->fss)->postJson("/api/fss/menu-cycles/{$cycle->id}/complete-day", [
+        $this->actingAs($this->fss)->postJson("/api/fss/menu-cycles/{$cycle->uuid}/complete-day", [
             'service_date' => '2026-06-15', // a Monday
             'population'   => 8,
         ])->assertCreated();
@@ -1242,11 +1242,11 @@ class FoodServiceOpsTest extends TestCase
 
         // approve is RND-only; FSS gets 403
         $this->actingAs($this->fss)
-            ->postJson("/api/fss/shopping-lists/{$list->id}/approve")
+            ->postJson("/api/fss/shopping-lists/{$list->uuid}/approve")
             ->assertForbidden();
 
         // RND gets 201
-        $response = $this->actingAs($this->rnd)->postJson("/api/fss/shopping-lists/{$list->id}/approve");
+        $response = $this->actingAs($this->rnd)->postJson("/api/fss/shopping-lists/{$list->uuid}/approve");
         $response->assertCreated();
 
         $this->assertDatabaseHas('purchase_order_items', [
@@ -1273,7 +1273,7 @@ class FoodServiceOpsTest extends TestCase
             'status' => 'draft',
         ]);
 
-        $this->actingAs($this->fss)->postJson("/api/fss/shopping-lists/{$list->id}/items", [
+        $this->actingAs($this->fss)->postJson("/api/fss/shopping-lists/{$list->uuid}/items", [
             'fs_item_id' => $fs->id,
             'qty' => 12,
             'unit' => 'piece',
@@ -1309,11 +1309,11 @@ class FoodServiceOpsTest extends TestCase
             'status' => 'draft',
         ]);
 
-        $response = $this->actingAs($this->rnd)->postJson("/api/fss/shopping-lists/{$list->id}/items", [
-            'fs_item_id' => $fs->id,
+        $response = $this->actingAs($this->rnd)->postJson("/api/fss/shopping-lists/{$list->uuid}/items", [
+            'fs_item_id' => $fs->uuid,
             'qty' => 12,
             'unit' => 'piece',
-            'supplier_id' => $supplier->id,
+            'supplier_id' => $supplier->uuid,
             'unit_price' => 6,
         ]);
 
@@ -1352,11 +1352,11 @@ class FoodServiceOpsTest extends TestCase
             'status' => 'draft',
         ]);
 
-        $response = $this->actingAs($this->rnd)->postJson("/api/fss/shopping-lists/{$list->id}/items", [
-            'fs_item_id' => $supply->id,
+        $response = $this->actingAs($this->rnd)->postJson("/api/fss/shopping-lists/{$list->uuid}/items", [
+            'fs_item_id' => $supply->uuid,
             'qty' => 3,
             'unit' => 'bottle',
-            'supplier_id' => $supplier->id,
+            'supplier_id' => $supplier->uuid,
             'unit_price' => 80,
         ]);
 
@@ -1396,7 +1396,7 @@ class FoodServiceOpsTest extends TestCase
 
         $this->actingAs($this->rnd)
             ->postJson("/api/fss/shopping-lists/{$listId}/items", [
-                'fs_item_id' => $ingredient->id,
+                'fs_item_id' => $ingredient->uuid,
                 'qty' => 10,
                 'unit_price' => 10,
             ])
@@ -1404,7 +1404,7 @@ class FoodServiceOpsTest extends TestCase
 
         $this->actingAs($this->rnd)
             ->postJson("/api/fss/shopping-lists/{$listId}/items", [
-                'fs_item_id' => $supply->id,
+                'fs_item_id' => $supply->uuid,
                 'qty' => 50,
                 'unit_price' => 3,
             ])
@@ -1419,7 +1419,7 @@ class FoodServiceOpsTest extends TestCase
             ->assertCreated();
 
         $this->assertDatabaseHas('purchase_orders', [
-            'shopping_list_id' => $listId,
+            'shopping_list_id' => ShoppingList::where('uuid', $listId)->value('id'),
             'procurement_track' => 'supplies',
             'lifecycle_status' => 'open_execution',
         ]);
@@ -1448,17 +1448,17 @@ class FoodServiceOpsTest extends TestCase
             'total' => 1,
         ]);
 
-        $this->actingAs($this->rnd)->postJson("/api/fss/shopping-lists/{$list->id}/items", [
+        $this->actingAs($this->rnd)->postJson("/api/fss/shopping-lists/{$list->uuid}/items", [
             'fs_item_id' => $fs->id,
             'qty' => 2,
             'unit' => 'piece',
         ])->assertStatus(422);
 
-        $this->actingAs($this->rnd)->patchJson("/api/fss/shopping-list-items/{$item->id}", [
+        $this->actingAs($this->rnd)->patchJson("/api/fss/shopping-list-items/{$item->uuid}", [
             'qty' => 5,
         ])->assertStatus(422);
 
-        $this->actingAs($this->rnd)->deleteJson("/api/fss/shopping-list-items/{$item->id}")
+        $this->actingAs($this->rnd)->deleteJson("/api/fss/shopping-list-items/{$item->uuid}")
             ->assertStatus(422);
     }
 
@@ -1477,7 +1477,7 @@ class FoodServiceOpsTest extends TestCase
         ]);
 
         // PO update is RND-only
-        $this->actingAs($this->rnd)->patchJson("/api/fss/purchase-orders/{$po->id}", ['status' => 'received'])
+        $this->actingAs($this->rnd)->patchJson("/api/fss/purchase-orders/{$po->uuid}", ['status' => 'received'])
             ->assertOk();
 
         // 2 kg × 1000 g/kg = 2000 g added to stock.
@@ -1491,7 +1491,7 @@ class FoodServiceOpsTest extends TestCase
         $fsItem = $this->makeFsItem(['purchase_price' => 10.00]);
 
         $this->actingAs($this->fss)
-            ->patchJson("/api/fss/fs-items/{$fsItem->id}", ['purchase_price' => 20.00])
+            ->patchJson("/api/fss/fs-items/{$fsItem->uuid}", ['purchase_price' => 20.00])
             ->assertForbidden();
     }
 
@@ -1500,7 +1500,7 @@ class FoodServiceOpsTest extends TestCase
         $fsItem = $this->makeFsItem(['purchase_price' => 10.00]);
 
         $this->actingAs($this->rnd)
-            ->patchJson("/api/fss/fs-items/{$fsItem->id}", ['purchase_price' => 20.00])
+            ->patchJson("/api/fss/fs-items/{$fsItem->uuid}", ['purchase_price' => 20.00])
             ->assertOk();
     }
 
@@ -1517,9 +1517,9 @@ class FoodServiceOpsTest extends TestCase
         ]);
 
         $this->actingAs($this->fss)
-            ->getJson("/api/fss/fs-items/{$fsItem->id}/profile?population=30&quantity=1")
+            ->getJson("/api/fss/fs-items/{$fsItem->uuid}/profile?population=30&quantity=1")
             ->assertOk()
-            ->assertJsonPath('data.id', $fsItem->id)
+            ->assertJsonPath('data.id', $fsItem->uuid)
             ->assertJsonPath('data.name', 'Banana')
             ->assertJsonPath('data.kind', 'ingredient')
             ->assertJsonPath('data.population', 30)
@@ -1556,8 +1556,8 @@ class FoodServiceOpsTest extends TestCase
         ]);
 
         $this->actingAs($this->rnd)
-            ->postJson("/api/fss/shopping-lists/{$list->id}/items", [
-                'fs_item_id' => $fsItem->id,
+            ->postJson("/api/fss/shopping-lists/{$list->uuid}/items", [
+                'fs_item_id' => $fsItem->uuid,
                 'qty' => 5,
                 'unit' => $fsItem->base_unit,
                 'unit_price' => 10.00,
@@ -1605,7 +1605,7 @@ class FoodServiceOpsTest extends TestCase
 
         // No meal_prep_log exists for this date — the backfill must create one.
         $this->actingAs($this->fss)
-            ->patchJson("/api/fss/menu-cycles/{$cycle->id}/served-population", [
+            ->patchJson("/api/fss/menu-cycles/{$cycle->uuid}/served-population", [
                 'service_date'      => '2026-06-17', // Wednesday
                 'served_population' => 33,
             ])
@@ -1635,7 +1635,7 @@ class FoodServiceOpsTest extends TestCase
             'estimate_population' => 40,
         ]);
 
-        $url = "/api/fss/menu-cycles/{$cycle->id}/served-population";
+        $url = "/api/fss/menu-cycles/{$cycle->uuid}/served-population";
         $this->actingAs($this->fss)->patchJson($url, ['service_date' => '2026-06-17', 'served_population' => 30])->assertOk();
         $this->actingAs($this->fss)->patchJson($url, ['service_date' => '2026-06-17', 'served_population' => 38])->assertOk();
 

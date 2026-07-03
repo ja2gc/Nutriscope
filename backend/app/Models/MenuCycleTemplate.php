@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class MenuCycleTemplate extends Model
 {
+    use \App\Models\Concerns\HasPublicId;
+
     protected $fillable = ['rnd_user_id', 'name', 'description', 'cycle_days'];
 
     protected $casts = ['cycle_days' => 'integer'];

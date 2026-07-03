@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Log;
 class FoodServiceRecipe extends Model
 {
     use \App\Models\Concerns\AuditsChanges;
+    use \App\Models\Concerns\HasPublicId;
 
     protected $table = 'food_service_recipes';
 

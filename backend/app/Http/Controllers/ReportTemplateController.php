@@ -17,9 +17,12 @@ class ReportTemplateController extends Controller
     {
         $templates = ReportTemplate::where('is_active', true)
             ->orderBy('name')
-            ->get(['id', 'type', 'name', 'description', 'signatories']);
+            ->get(['id', 'uuid', 'type', 'name', 'description', 'signatories']);
 
-        return response()->json(['data' => $templates]);
+        return response()->json(['data' => $templates->map(fn ($t) => [
+            'id' => $t->uuid, 'type' => $t->type, 'name' => $t->name,
+            'description' => $t->description, 'signatories' => $t->signatories,
+        ])]);
     }
 
     public function update(Request $request, ReportTemplate $reportTemplate): JsonResponse
@@ -35,6 +38,6 @@ class ReportTemplateController extends Controller
 
         $reportTemplate->update($data);
 
-        return response()->json(['data' => $reportTemplate->fresh()]);
+        return response()->json(['data' => array_merge($reportTemplate->fresh()->toArray(), ['id' => $reportTemplate->uuid])]);
     }
 }

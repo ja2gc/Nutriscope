@@ -28,7 +28,7 @@ export type RowHighlight = "green" | "red";
 export interface InventoryRow {
   inventoryId: number | null;   // null = no stock record yet
   itemType: ItemType;
-  itemId: number;               // fs_item_id or recipe_id
+  itemId: string;               // fs_item_id or recipe_id (uuid)
   name: string;
   category: string;
   quantity_in_stock: string;
@@ -87,7 +87,7 @@ export async function listInventoryRows(params: ListInventoryRowsParams = {}): P
   const data: InventoryRow[] = (json.data ?? []).map((r: Record<string, unknown>) => ({
     inventoryId:              r.inventory_id as number | null,
     itemType:                 r.item_type as ItemType,
-    itemId:                   r.item_id as number,
+    itemId:                   r.item_id as string,
     name:                     r.name as string,
     category:                 (r.category as string) ?? "",
     quantity_in_stock:        (r.quantity_in_stock as string) ?? "0",
