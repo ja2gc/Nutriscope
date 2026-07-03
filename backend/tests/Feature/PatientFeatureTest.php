@@ -112,8 +112,11 @@ class PatientFeatureTest extends TestCase
 
         $response = $this->actingAs($rnd, 'sanctum')->postJson("/api/rnd/patients/{$patient->uuid}/ncp-records");
 
+        // patient_id must be the patient's public uuid (not the raw int) so the client
+        // can build /ncp/{patientId}/... nav links that resolve against the uuid-bound
+        // patients route. See test_ncp_records_endpoint_exposes_patient_uuid below.
         $response->assertStatus(201)
-            ->assertJsonPath('data.patient_id', $patient->id)
+            ->assertJsonPath('data.patient_id', $patient->uuid)
             ->assertJsonPath('data.rnd_user_id', $rnd->id)
             ->assertJsonPath('data.status', 'draft');
 
@@ -122,6 +125,32 @@ class PatientFeatureTest extends TestCase
             'rnd_user_id' => $rnd->id,
             'status' => 'draft',
         ]);
+    }
+
+    /**
+     * Regression (stuck "Loading patient…" header): the NCP-records listing must expose
+     * each record's patient_id as the patient's public uuid, not the raw internal FK.
+     * The ADIME/NCP pages build /ncp/{patientId}/... links from this value and fetch the
+     * patient via the uuid-bound route; a raw int 404s and the header never resolves.
+     */
+    public function test_ncp_records_endpoint_exposes_patient_uuid(): void
+    {
+        $rnd = User::factory()->rnd()->create();
+        $patient = Patient::factory()->create();
+        $record = NcpRecord::factory()->create([
+            'patient_id'  => $patient->id,
+            'rnd_user_id' => $rnd->id,
+        ]);
+
+        $response = $this->actingAs($rnd, 'sanctum')
+            ->getJson("/api/rnd/patients/{$patient->uuid}/ncp-records");
+
+        $response->assertOk()
+            ->assertJsonPath('data.0.patient_id', $patient->uuid)
+            ->assertJsonPath('data.0.id', $record->uuid);
+
+        // Explicitly assert the raw internal FK never leaks.
+        $this->assertNotSame($patient->id, $response->json('data.0.patient_id'));
     }
 
     public function test_cannot_start_second_open_cycle()
