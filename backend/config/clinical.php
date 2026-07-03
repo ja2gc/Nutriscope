@@ -65,4 +65,28 @@ return [
         'custom' => [],
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Assessment anthropometric input bounds (physiological plausibility)
+    |--------------------------------------------------------------------------
+    |
+    | The prescription engine multiplies weight/height through IBW, working
+    | weight and BMR. A `min:0`-only rule let digit-transposition typos
+    | (e.g. 70 -> 700 kg, 165 -> 1650 cm) flow straight into flat kcal/kg and
+    | protein g/kg targets, producing absurd prescriptions. These bounds reject
+    | implausible entries at the source (StoreAssessmentRequest /
+    | UpdateAssessmentRequest). Keep the frontend input min/max in sync
+    | (frontend assessment page TextInput).
+    |
+    | Ranges are deliberately wide enough to never reject a real district-
+    | hospital patient (neonate -> super-obese adult) while still catching a
+    | transposed digit.
+    */
+
+    'assessment_input_bounds' => [
+        'weight'       => ['min' => 1,  'max' => 400], // kg
+        'usual_weight' => ['min' => 1,  'max' => 400], // kg
+        'height'       => ['min' => 30, 'max' => 250], // cm
+    ],
+
 ];

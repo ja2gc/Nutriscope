@@ -110,6 +110,64 @@ class NcpAssessmentTest extends TestCase
             ->assertJsonValidationErrors(['weight']);
     }
 
+    public function test_assessment_rejects_implausible_weight(): void
+    {
+        $rnd     = $this->rnd();
+        $patient = $this->patient();
+        $ncp     = $this->ncpRecord($patient, $rnd);
+
+        // 700 kg is a classic digit-transposition typo (intended 70). Left
+        // unbounded it flows through the flat kcal/kg engine into an absurd Rx.
+        $response = $this->actingAs($rnd, 'sanctum')
+            ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/assessment", [
+                'weight'                  => 700.0,
+                'usual_weight'            => 72.0,
+                'height'                  => 170.0,
+                'physical_activity_level' => 'light',
+            ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['weight']);
+    }
+
+    public function test_assessment_rejects_implausible_height(): void
+    {
+        $rnd     = $this->rnd();
+        $patient = $this->patient();
+        $ncp     = $this->ncpRecord($patient, $rnd);
+
+        // 1650 cm is a typo (intended 165); it inflates IBW and BMR into an
+        // absurd energy/protein prescription.
+        $response = $this->actingAs($rnd, 'sanctum')
+            ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/assessment", [
+                'weight'                  => 65.0,
+                'usual_weight'            => 65.0,
+                'height'                  => 1650.0,
+                'physical_activity_level' => 'light',
+            ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['height']);
+    }
+
+    public function test_assessment_accepts_plausible_boundary_anthropometrics(): void
+    {
+        $rnd     = $this->rnd();
+        $patient = $this->patient();
+        $ncp     = $this->ncpRecord($patient, $rnd);
+
+        // Upper plausibility bounds must still save (never reject a real patient).
+        $response = $this->actingAs($rnd, 'sanctum')
+            ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/assessment", [
+                'weight'                  => 400.0,
+                'usual_weight'            => 400.0,
+                'height'                  => 250.0,
+                'physical_activity_level' => 'sedentary',
+            ]);
+
+        $response->assertStatus(201);
+    }
+
     public function test_assessment_requires_prescription_calculation_inputs_on_create(): void
     {
         $rnd     = $this->rnd();

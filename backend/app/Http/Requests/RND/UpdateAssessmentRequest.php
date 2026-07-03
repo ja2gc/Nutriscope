@@ -21,14 +21,16 @@ class UpdateAssessmentRequest extends FormRequest
 
     public function rules(): array
     {
+        $bounds = config('clinical.assessment_input_bounds');
+
         return [
             'dietary_intake'       => ['nullable', 'string'],
             'appetite_changes'     => ['nullable', 'string'],
             'dietary_restrictions' => ['nullable', 'string'],
             'supplements'          => ['nullable', 'string'],
             'knowledge_notes'      => ['nullable', 'string'],
-            'weight'               => ['nullable', 'numeric', 'min:0'],
-            'height'               => ['nullable', 'numeric', 'min:0'],
+            'weight'               => ['nullable', 'numeric', "between:{$bounds['weight']['min']},{$bounds['weight']['max']}"],
+            'height'               => ['nullable', 'numeric', "between:{$bounds['height']['min']},{$bounds['height']['max']}"],
             'body_composition'     => ['nullable', 'string'],
             'medical_history'      => ['nullable', 'string'],
             'social_history'       => ['nullable', 'string'],
@@ -38,7 +40,7 @@ class UpdateAssessmentRequest extends FormRequest
             'food_dislikes'        => ['nullable', 'array'],
             'medications'          => ['nullable', 'array'],
             'rnd_summary'          => ['nullable', 'string'],
-            'usual_weight'         => ['nullable', 'numeric', 'min:0'],
+            'usual_weight'         => ['nullable', 'numeric', "between:{$bounds['usual_weight']['min']},{$bounds['usual_weight']['max']}"],
             'nutritional_status'   => ['nullable', 'string', 'in:Normal,Moderate Malnutrition,Severe Malnutrition'],
             'weight_loss_percentage'=> ['nullable', 'numeric', 'min:0', 'max:100'],
             'weight_loss_period'   => ['nullable', 'string'],
@@ -89,6 +91,17 @@ class UpdateAssessmentRequest extends FormRequest
             'risk_score_manual_factors.*' => ['string', 'in:screening_criteria,ibw_limit,unintentional_weight_loss,mechanical_digestive_problem,low_albumin,significant_lab_result,others'],
         ];
      }
+
+    public function messages(): array
+    {
+        $bounds = config('clinical.assessment_input_bounds');
+
+        return [
+            'weight.between'       => "Body weight must be between {$bounds['weight']['min']} and {$bounds['weight']['max']} kg. Check the entry for a typo.",
+            'usual_weight.between' => "Usual body weight must be between {$bounds['usual_weight']['min']} and {$bounds['usual_weight']['max']} kg. Check the entry for a typo.",
+            'height.between'       => "Height must be between {$bounds['height']['min']} and {$bounds['height']['max']} cm. Check the entry for a typo.",
+        ];
+    }
 
     public function after(): array
     {

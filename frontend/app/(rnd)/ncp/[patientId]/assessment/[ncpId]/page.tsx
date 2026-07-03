@@ -239,8 +239,9 @@ function Field({ label, children, span, required }: { label: string; children: R
   );
 }
 
-function TextInput({ value, onChange, placeholder, type, disabled }: {
+function TextInput({ value, onChange, placeholder, type, disabled, min, max }: {
   value: string; onChange: (v: string) => void; placeholder?: string; type?: string; disabled?: boolean;
+  min?: number; max?: number;
 }) {
   return (
     <input
@@ -249,6 +250,8 @@ function TextInput({ value, onChange, placeholder, type, disabled }: {
       onChange={e => onChange(e.target.value)}
       placeholder={placeholder}
       disabled={disabled}
+      min={min}
+      max={max}
       className="w-full px-3 py-2 text-xs bg-white border border-warm-200 rounded-lg text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all placeholder:text-warm-400 disabled:bg-warm-50 disabled:cursor-not-allowed"
     />
   );
@@ -1125,14 +1128,16 @@ export default function NcpAssessmentPage({
 
       {/* ── Measurement inputs ───────────────────────────────────────── */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Bounds mirror backend config/clinical.php assessment_input_bounds — reject typo'd
+            weight/height that would otherwise blow up the prescription engine. */}
         <Field label="Weight (kg)" required={CALCULATION_INPUT_HELPERS.weight.required}>
-          <TextInput type="number" value={String(assessment.weight ?? "")} onChange={v => updateField("weight", v ? Number(v) : null)} placeholder="e.g. 70.5" />
+          <TextInput type="number" min={1} max={400} value={String(assessment.weight ?? "")} onChange={v => updateField("weight", v ? Number(v) : null)} placeholder="e.g. 70.5" />
         </Field>
         <Field label="Usual Weight (kg)" required={CALCULATION_INPUT_HELPERS.usual_weight.required}>
-          <TextInput type="number" value={String(assessment.usual_weight ?? "")} onChange={v => updateField("usual_weight", v ? Number(v) : null)} placeholder="e.g. 72.0" />
+          <TextInput type="number" min={1} max={400} value={String(assessment.usual_weight ?? "")} onChange={v => updateField("usual_weight", v ? Number(v) : null)} placeholder="e.g. 72.0" />
         </Field>
         <Field label="Height (cm)" required={CALCULATION_INPUT_HELPERS.height.required}>
-          <TextInput type="number" value={String(assessment.height ?? "")} onChange={v => updateField("height", v ? Number(v) : null)} placeholder="e.g. 170" />
+          <TextInput type="number" min={30} max={250} value={String(assessment.height ?? "")} onChange={v => updateField("height", v ? Number(v) : null)} placeholder="e.g. 170" />
         </Field>
         <Field label="MUAC (mm)" required={CALCULATION_INPUT_HELPERS.muac_mm.required}>
           <TextInput type="number" value={String(assessment.muac_mm ?? "")} onChange={v => updateField("muac_mm", v ? Number(v) : null)} placeholder="e.g. 250" />
