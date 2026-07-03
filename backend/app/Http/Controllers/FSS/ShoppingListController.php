@@ -177,7 +177,8 @@ class ShoppingListController extends Controller
 
         return response()->json(['data' => [
             'id'            => $shoppingListItem->uuid,
-            'supplier_id'   => $shoppingListItem->supplier_id,
+            // Public uuid — the procurement UI matches this against uuid-valued <option>s.
+            'supplier_id'   => $shoppingListItem->supplier?->uuid,
             'qty'           => $shoppingListItem->qty,
             'unit_price'    => $shoppingListItem->unit_price,
             'total'         => $shoppingListItem->total,
@@ -240,11 +241,13 @@ class ShoppingListController extends Controller
 
             return response()->json(['data' => [
                 'id'              => $item->uuid,
-                'fs_item_id'      => $item->fs_item_id,
+                // Public uuids — the procurement UI matches these against uuid-valued
+                // <option>s / routes, so the raw internal FKs would never line up.
+                'fs_item_id'      => $fsItem->uuid,
                 'ingredient_name' => $item->ingredient_name,
                 'qty'             => $item->qty,
                 'unit'            => $item->unit,
-                'supplier_id'     => $item->supplier_id,
+                'supplier_id'     => $item->supplier?->uuid,
                 'unit_price'      => $item->unit_price,
                 'total'           => $item->total,
                 'purchase_qty'    => $item->purchase_qty,
@@ -276,11 +279,12 @@ class ShoppingListController extends Controller
 
         return response()->json(['data' => [
             'id'              => $item->uuid,
-            'fs_item_id'      => $item->fs_item_id,
+            // Public uuids — see the supplies branch above.
+            'fs_item_id'      => $item->fsItem?->uuid,
             'ingredient_name' => $item->ingredient_name,
             'qty'             => $item->qty,
             'unit'            => $item->unit,
-            'supplier_id'     => $item->supplier_id,
+            'supplier_id'     => $item->supplier?->uuid,
             'unit_price'      => $item->unit_price,
             'total'           => $item->total,
             'purchase_qty'    => $item->purchase_qty,

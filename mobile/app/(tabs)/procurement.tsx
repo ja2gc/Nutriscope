@@ -686,8 +686,9 @@ function PurchaseOrderRow({ po, onPress }: { po: PurchaseOrder; onPress: () => v
 export default function ProcurementScreen() {
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ poId?: string }>();
-  const targetPoId = Number(params.poId ?? 0) || null;
-  const [selectedPoId, setSelectedPoId] = useState<number | null>(null);
+  // PO ids are public uuids (strings) — match as strings, never Number().
+  const targetPoId = params.poId || null;
+  const [selectedPoId, setSelectedPoId] = useState<string | null>(null);
   const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
   const [uploadGroup, setUploadGroup] = useState<VendorGroup | null>(null);
   const [uploadType, setUploadType] = useState<AttachmentType>('receipt');
@@ -701,7 +702,7 @@ export default function ProcurementScreen() {
 
   const orders = useMemo(() => data ?? [], [data]);
   const selectedPo = useMemo(
-    () => orders.find((po) => po.id === selectedPoId) ?? null,
+    () => orders.find((po) => String(po.id) === selectedPoId) ?? null,
     [orders, selectedPoId],
   );
   const selectedGroup = useMemo(
@@ -711,7 +712,7 @@ export default function ProcurementScreen() {
 
   useEffect(() => {
     if (!targetPoId || selectedPoId === targetPoId) return;
-    if (orders.some((po) => po.id === targetPoId)) {
+    if (orders.some((po) => String(po.id) === targetPoId)) {
       setSelectedPoId(targetPoId);
       setSelectedGroupId(null);
     }

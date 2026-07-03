@@ -151,17 +151,18 @@ function SopBanner() {
 export default function AnnouncementsScreen() {
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ announcementId?: string }>();
-  const targetAnnouncementId = Number(params.announcementId ?? 0) || null;
-  const [selectedId, setSelectedId] = useState<number | null>(null);
+  // Announcement ids are public uuids (strings) — match as strings, never Number().
+  const targetAnnouncementId = params.announcementId || null;
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['announcements-feed'],
     queryFn: fetchAnnouncements,
   });
-  const selected = data?.find((item) => item.id === selectedId) ?? null;
+  const selected = data?.find((item) => String(item.id) === selectedId) ?? null;
 
   useEffect(() => {
     if (!targetAnnouncementId || selectedId === targetAnnouncementId) return;
-    if ((data ?? []).some((item) => item.id === targetAnnouncementId)) {
+    if ((data ?? []).some((item) => String(item.id) === targetAnnouncementId)) {
       setSelectedId(targetAnnouncementId);
     }
   }, [data, selectedId, targetAnnouncementId]);

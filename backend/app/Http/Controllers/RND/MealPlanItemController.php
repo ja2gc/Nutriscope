@@ -41,15 +41,20 @@ class MealPlanItemController extends Controller
     {
         $this->assertScope($ncpRecord, $mealPlan);
         $dayIds = $mealPlan->days()->pluck('id');
-        // Eager-load the day so the resource can expose its public uuid without an N+1.
-        $items  = MealPlanItem::whereIn('meal_plan_day_id', $dayIds)->with('mealPlanDay:id,uuid')->get();
+        // Eager-load day/recipe/food-item so the resource can expose their public uuids
+        // (used for the day lookup and the recipe-detail fetch) without an N+1.
+        $items  = MealPlanItem::whereIn('meal_plan_day_id', $dayIds)
+            ->with('mealPlanDay:id,uuid', 'recipe:id,uuid', 'foodItem:id,uuid')
+            ->get();
         return response()->json(['data' => MealPlanItemResource::collection($items)]);
     }
 
     public function index(NcpRecord $ncpRecord, MealPlan $mealPlan, MealPlanDay $day): JsonResponse
     {
         $this->assertScope($ncpRecord, $mealPlan, $day);
-        $items = MealPlanItem::where('meal_plan_day_id', $day->id)->get();
+        $items = MealPlanItem::where('meal_plan_day_id', $day->id)
+            ->with('mealPlanDay:id,uuid', 'recipe:id,uuid', 'foodItem:id,uuid')
+            ->get();
         return response()->json(['data' => MealPlanItemResource::collection($items)]);
     }
 

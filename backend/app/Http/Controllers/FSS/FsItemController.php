@@ -76,7 +76,9 @@ class FsItemController extends Controller
             'purchase_price'      => $i->purchase_price,
             'units_per_purchase'  => $i->units_per_purchase,
             'unit_cost'           => round($i->unit_cost, 4),
-            'default_supplier_id' => $i->default_supplier_id,
+            // Public uuid — the inventory edit form matches this against uuid-valued
+            // supplier <option>s (store/update already accept a uuid here).
+            'default_supplier_id' => $i->defaultSupplier?->uuid,
             'vendor'              => $i->defaultSupplier?->name,
             'vendor_locked'       => $i->vendorLocked(),
         ];
@@ -183,7 +185,7 @@ class FsItemController extends Controller
 
         return response()->json(['data' => [
             'id'                  => $fsItem->uuid,
-            'default_supplier_id' => $fsItem->default_supplier_id,
+            'default_supplier_id' => $fsItem->defaultSupplier?->uuid,
             'vendor_locked'       => $fsItem->vendorLocked(),
             'locked_at'           => $fsItem->default_supplier_locked_at?->toDateTimeString(),
             'locked_by'           => $fsItem->defaultSupplierLockedBy?->name,

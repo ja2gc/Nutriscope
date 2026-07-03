@@ -8,6 +8,8 @@ export interface Notification {
   type?: string | null;
   source_module?: string | null;
   source_id?: number | null;
+  // Public uuid of the source record — deep-links address the target by uuid.
+  source_uuid?: string | null;
   read: boolean;
   created_at: string;
   updated_at: string;
@@ -36,12 +38,13 @@ export function shouldShowNotification(
 }
 
 export function notificationTargetHref(
-  notification: Pick<Notification, "type" | "source_module" | "source_id">,
+  notification: Pick<Notification, "type" | "source_module" | "source_id" | "source_uuid">,
   role?: string | null
 ): string {
   const type = (notification.type ?? "").toLowerCase();
   const sourceModule = (notification.source_module ?? "").toLowerCase();
-  const sourceId = notification.source_id;
+  // Deep-links address the target by its public uuid; source_id is the raw internal FK.
+  const sourceId = notification.source_uuid ?? notification.source_id;
   const isAdmin = (role ?? "").toLowerCase() === "admin";
 
   if ((type.includes("announcement") || sourceModule.includes("announcement")) && sourceId) {

@@ -26,6 +26,8 @@ interface Notification {
   type: string;
   source_module: string | null;
   source_id: number | null;
+  // Public uuid of the source record — deep-links address the target by uuid.
+  source_uuid: string | null;
   read: boolean;
   created_at: string;
 }
@@ -69,7 +71,8 @@ function NotifIcon({ type }: { type: string }) {
 
 function openNotificationTarget(notification: Notification) {
   const type = `${notification.type ?? ''} ${notification.source_module ?? ''}`.toLowerCase();
-  const sourceId = notification.source_id;
+  // Deep-links address the target by its public uuid; source_id is the raw internal FK.
+  const sourceId = notification.source_uuid ?? notification.source_id;
 
   if (sourceId && type.includes('announcement')) {
     router.push({ pathname: '/announcements', params: { announcementId: String(sourceId) } } as never);

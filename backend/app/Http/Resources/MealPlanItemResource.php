@@ -11,13 +11,14 @@ class MealPlanItemResource extends JsonResource
     {
         return [
             'id'                => $this->uuid,
-            // The day's public uuid — clients key their day lookup by MealPlanResource's
-            // uuid 'id', so the raw internal FK here would never match. Falls back to the
-            // raw column only if the relation somehow isn't resolvable.
+            // Public uuids throughout — clients key their day lookup by MealPlanResource's
+            // uuid 'id', and fetch the source recipe via the uuid-bound recipes route, so
+            // the raw internal FKs never match. Fall back to the raw column only if the
+            // relation somehow isn't resolvable.
             'meal_plan_day_id'  => $this->mealPlanDay?->uuid ?? $this->meal_plan_day_id,
-            'food_item_id'      => $this->food_item_id,
+            'food_item_id'      => $this->foodItem?->uuid ?? $this->food_item_id,
             'fdc_id'            => $this->fdc_id,
-            'recipe_id'         => $this->recipe_id,
+            'recipe_id'         => $this->recipe?->uuid ?? $this->recipe_id,
             'quantity'          => $this->quantity,
             'unit'              => $this->unit,
             'nutrient_snapshot' => $this->nutrient_snapshot,

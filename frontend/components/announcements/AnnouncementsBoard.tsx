@@ -71,8 +71,9 @@ function formatTimeStamp(value: string) {
 export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
   const isAdmin = variant === "admin";
   const searchParams = useSearchParams();
-  const targetAnnouncementId = Number(searchParams.get("announcementId") ?? 0) || null;
-  const openedTargetRef = useRef<number | null>(null);
+  // Announcement ids are public uuids (strings) — match as strings, never Number().
+  const targetAnnouncementId = searchParams.get("announcementId") || null;
+  const openedTargetRef = useRef<string | null>(null);
 
   // Pick service functions based on variant
   const apiFetch = isAdmin ? fetchAdminAnnouncements : fetchAnnouncements;
@@ -123,7 +124,7 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
 
   useEffect(() => {
     if (!targetAnnouncementId || openedTargetRef.current === targetAnnouncementId) return;
-    const target = posts.find((post) => post.id === targetAnnouncementId);
+    const target = posts.find((post) => String(post.id) === targetAnnouncementId);
     if (!target) return;
     openedTargetRef.current = targetAnnouncementId;
     setComposerOpen(false);
