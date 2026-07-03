@@ -13,6 +13,7 @@ use Spatie\Activitylog\Traits\CausesActivity;
 class User extends Authenticatable
 {
     use HasApiTokens, HasFactory, Notifiable, SoftDeletes, CausesActivity;
+    use \App\Models\Concerns\HasPublicId;
 
     protected $fillable = [
         'name',

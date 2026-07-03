@@ -33,9 +33,9 @@ class MealPlanItemControllerTest extends TestCase
         return compact('rnd', 'ncp', 'plan', 'day');
     }
 
-    private function url(array $ctx, ?int $itemId = null): string
+    private function url(array $ctx, ?string $itemId = null): string
     {
-        $base = "/api/rnd/ncp-records/{$ctx['ncp']->id}/meal-plans/{$ctx['plan']->id}/days/{$ctx['day']->id}/items";
+        $base = "/api/rnd/ncp-records/{$ctx['ncp']->uuid}/meal-plans/{$ctx['plan']->uuid}/days/{$ctx['day']->uuid}/items";
         return $itemId ? "{$base}/{$itemId}" : $base;
     }
 
@@ -65,7 +65,7 @@ class MealPlanItemControllerTest extends TestCase
 
         $response = $this->actingAs($ctx['rnd'])
             ->postJson($this->url($ctx), [
-                'food_item_id' => $food->id,
+                'food_item_id' => $food->uuid,
                 'quantity'     => 150,
                 'unit'         => 'g',
             ]);
@@ -123,7 +123,7 @@ class MealPlanItemControllerTest extends TestCase
 
         $response = $this->actingAs($ctx['rnd'])
             ->postJson($this->url($ctx), [
-                'recipe_id' => $recipe->id,
+                'recipe_id' => $recipe->uuid,
                 'quantity'  => 1,
                 'unit'      => 'serving',
             ]);
@@ -144,7 +144,7 @@ class MealPlanItemControllerTest extends TestCase
 
         $this->actingAs($ctx['rnd'])
             ->postJson($this->url($ctx), [
-                'food_item_id' => $food->id,
+                'food_item_id' => $food->uuid,
                 'fdc_id'       => '331960',
                 'quantity'     => 100,
                 'unit'         => 'g',
@@ -183,7 +183,7 @@ class MealPlanItemControllerTest extends TestCase
         ]);
 
         $this->actingAs($ctx['rnd'])
-            ->patchJson($this->url($ctx, $item->id), [
+            ->patchJson($this->url($ctx, $item->uuid), [
                 'quantity'          => 2,
                 'nutrient_snapshot' => ['name' => 'FAKE', 'calories' => 99999],
             ])
@@ -213,7 +213,7 @@ class MealPlanItemControllerTest extends TestCase
 
         // Double the ingredient quantity → all nutrients double (servings = 1).
         $this->actingAs($ctx['rnd'])
-            ->patchJson($this->url($ctx, $item->id), [
+            ->patchJson($this->url($ctx, $item->uuid), [
                 'ingredient_overrides' => [['id' => $ingredient->id, 'quantity' => 200]],
             ])
             ->assertOk();
@@ -229,7 +229,7 @@ class MealPlanItemControllerTest extends TestCase
         $item = MealPlanItem::factory()->create(['meal_plan_day_id' => $ctx['day']->id]);
 
         $this->actingAs($ctx['rnd'])
-            ->deleteJson($this->url($ctx, $item->id))
+            ->deleteJson($this->url($ctx, $item->uuid))
             ->assertNoContent();
 
         $this->assertDatabaseMissing('meal_plan_items', ['id' => $item->id]);
@@ -247,7 +247,7 @@ class MealPlanItemControllerTest extends TestCase
         $b = $this->setupPlan();
 
         // Plan B's id under NCP A's URL must not resolve (MP-04).
-        $mismatchUrl = "/api/rnd/ncp-records/{$a['ncp']->id}/meal-plans/{$b['plan']->id}/days/{$b['day']->id}/items";
+        $mismatchUrl = "/api/rnd/ncp-records/{$a['ncp']->uuid}/meal-plans/{$b['plan']->uuid}/days/{$b['day']->uuid}/items";
 
         $this->actingAs($a['rnd'])
             ->getJson($mismatchUrl)
@@ -261,7 +261,7 @@ class MealPlanItemControllerTest extends TestCase
         $item = MealPlanItem::factory()->create(['meal_plan_day_id' => $a['day']->id]);
 
         // item belongs to $a['day'], not $otherDay → 404.
-        $url = "/api/rnd/ncp-records/{$a['ncp']->id}/meal-plans/{$a['plan']->id}/days/{$otherDay->id}/items/{$item->id}";
+        $url = "/api/rnd/ncp-records/{$a['ncp']->uuid}/meal-plans/{$a['plan']->uuid}/days/{$otherDay->uuid}/items/{$item->uuid}";
 
         $this->actingAs($a['rnd'])->deleteJson($url)->assertNotFound();
         $this->assertDatabaseHas('meal_plan_items', ['id' => $item->id]);
@@ -277,7 +277,7 @@ class MealPlanItemControllerTest extends TestCase
         $food = FoodItem::factory()->create(['name' => 'Peanut sauce', 'allergens' => ['peanuts']]);
 
         $this->actingAs($ctx['rnd'])
-            ->postJson($this->url($ctx), ['food_item_id' => $food->id, 'quantity' => 100, 'unit' => 'g'])
+            ->postJson($this->url($ctx), ['food_item_id' => $food->uuid, 'quantity' => 100, 'unit' => 'g'])
             ->assertUnprocessable()
             ->assertJsonStructure(['message', 'errors' => ['allergens']]);
 
@@ -294,7 +294,7 @@ class MealPlanItemControllerTest extends TestCase
         $food = FoodItem::factory()->create(['name' => 'Broccoli soup', 'allergens' => []]);
 
         $res = $this->actingAs($ctx['rnd'])
-            ->postJson($this->url($ctx), ['food_item_id' => $food->id, 'quantity' => 100, 'unit' => 'g'])
+            ->postJson($this->url($ctx), ['food_item_id' => $food->uuid, 'quantity' => 100, 'unit' => 'g'])
             ->assertCreated();
 
         $this->assertNotEmpty($res->json('warnings'));
@@ -311,7 +311,7 @@ class MealPlanItemControllerTest extends TestCase
         ]);
 
         $this->actingAs($ctx['rnd'])
-            ->postJson($this->url($ctx), ['food_item_id' => $food->id, 'quantity' => 100, 'unit' => 'g'])
+            ->postJson($this->url($ctx), ['food_item_id' => $food->uuid, 'quantity' => 100, 'unit' => 'g'])
             ->assertCreated();
 
         $this->assertEquals(65.5, MealPlanItem::first()->nutrient_snapshot['water_g']);
@@ -326,7 +326,7 @@ class MealPlanItemControllerTest extends TestCase
         ]);
 
         $this->actingAs($ctx['rnd'])
-            ->postJson($this->url($ctx), ['recipe_id' => $recipe->id, 'quantity' => 1, 'unit' => 'serving'])
+            ->postJson($this->url($ctx), ['recipe_id' => $recipe->uuid, 'quantity' => 1, 'unit' => 'serving'])
             ->assertCreated();
 
         $snap = MealPlanItem::first()->nutrient_snapshot;

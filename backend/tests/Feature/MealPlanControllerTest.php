@@ -58,7 +58,7 @@ class MealPlanControllerTest extends TestCase
         [$ncpRecord, $intervention] = $this->makeInterventionWithNcpRecord();
 
         $response = $this->actingAs($this->rnd)
-            ->postJson("/api/rnd/ncp-records/{$ncpRecord->id}/meal-plans", [
+            ->postJson("/api/rnd/ncp-records/{$ncpRecord->uuid}/meal-plans", [
                 'week_start_date' => '2026-06-09',
                 'generation_type' => 'manual',
             ]);
@@ -81,10 +81,10 @@ class MealPlanControllerTest extends TestCase
         ]);
 
         $response = $this->actingAs($this->rnd)
-            ->getJson("/api/rnd/ncp-records/{$ncpRecord->id}/meal-plans/{$mealPlan->id}");
+            ->getJson("/api/rnd/ncp-records/{$ncpRecord->uuid}/meal-plans/{$mealPlan->uuid}");
 
         $response->assertOk()
-            ->assertJsonPath('data.id', $mealPlan->id)
+            ->assertJsonPath('data.id', $mealPlan->uuid)
             ->assertJsonStructure(['data' => ['id', 'week_start_date', 'generation_type', 'days']]);
     }
 
@@ -97,7 +97,7 @@ class MealPlanControllerTest extends TestCase
         ]);
 
         $response = $this->actingAs($this->rnd)
-            ->getJson("/api/rnd/ncp-records/{$ncpRecord->id}/meal-plans");
+            ->getJson("/api/rnd/ncp-records/{$ncpRecord->uuid}/meal-plans");
 
         $response->assertOk()
             ->assertJsonCount(3, 'data');
@@ -113,7 +113,7 @@ class MealPlanControllerTest extends TestCase
         ]);
 
         $response = $this->actingAs($this->rnd)
-            ->patchJson("/api/rnd/ncp-records/{$ncpRecord->id}/meal-plans/{$mealPlan->id}", [
+            ->patchJson("/api/rnd/ncp-records/{$ncpRecord->uuid}/meal-plans/{$mealPlan->uuid}", [
                 'status' => 'active',
             ]);
 
@@ -128,7 +128,7 @@ class MealPlanControllerTest extends TestCase
         [$ncpRecord] = $this->makeInterventionWithNcpRecord();
 
         $response = $this->actingAs($this->rnd)
-            ->postJson("/api/rnd/ncp-records/{$ncpRecord->id}/meal-plans", [
+            ->postJson("/api/rnd/ncp-records/{$ncpRecord->uuid}/meal-plans", [
                 'generation_type' => 'manual',
             ]);
 
@@ -144,7 +144,7 @@ class MealPlanControllerTest extends TestCase
         $this->seedRecipes(15);
 
         $response = $this->actingAs($this->rnd)
-            ->postJson("/api/rnd/ncp-records/{$ncpRecord->id}/meal-plans/generate", [
+            ->postJson("/api/rnd/ncp-records/{$ncpRecord->uuid}/meal-plans/generate", [
                 'week_start_date' => '2026-06-09',
                 'conditions'      => ['DM'],
                 'allergens'       => [],
@@ -167,7 +167,7 @@ class MealPlanControllerTest extends TestCase
         [$ncpRecord] = $this->makeInterventionWithNcpRecord();
 
         $response = $this->actingAs($this->rnd)
-            ->postJson("/api/rnd/ncp-records/{$ncpRecord->id}/meal-plans/generate", [
+            ->postJson("/api/rnd/ncp-records/{$ncpRecord->uuid}/meal-plans/generate", [
                 'conditions' => ['DM'],
             ]);
 
@@ -184,7 +184,7 @@ class MealPlanControllerTest extends TestCase
         ]);
 
         $response = $this->actingAs($this->rnd)
-            ->postJson("/api/rnd/ncp-records/{$ncpRecord->id}/meal-plans/generate", [
+            ->postJson("/api/rnd/ncp-records/{$ncpRecord->uuid}/meal-plans/generate", [
                 'week_start_date' => '2026-06-09',
                 'conditions'      => ['DM'],
             ]);
@@ -210,7 +210,7 @@ class MealPlanControllerTest extends TestCase
         ]);
 
         $this->actingAs($this->rnd)
-            ->postJson("/api/rnd/ncp-records/{$ncpRecord->id}/meal-plans/generate", [
+            ->postJson("/api/rnd/ncp-records/{$ncpRecord->uuid}/meal-plans/generate", [
                 'week_start_date' => '2026-06-09',
             ])
             ->assertUnprocessable()
@@ -226,7 +226,7 @@ class MealPlanControllerTest extends TestCase
         ]);
 
         $this->actingAs($this->rnd)
-            ->deleteJson("/api/rnd/ncp-records/{$ncpRecord->id}/meal-plans/{$plan->id}")
+            ->deleteJson("/api/rnd/ncp-records/{$ncpRecord->uuid}/meal-plans/{$plan->uuid}")
             ->assertNoContent();
 
         $this->assertDatabaseMissing('meal_plans', ['id' => $plan->id]);
@@ -243,7 +243,7 @@ class MealPlanControllerTest extends TestCase
         ]);
 
         $this->actingAs($this->rnd)
-            ->postJson("/api/rnd/ncp-records/{$ncpRecord->id}/meal-plans/{$plan->id}/save-template", [
+            ->postJson("/api/rnd/ncp-records/{$ncpRecord->uuid}/meal-plans/{$plan->uuid}/save-template", [
                 'name'      => 'CKD Stage 4 — Week A',
                 'goal_type' => 'renal_diet',
             ])
@@ -273,7 +273,7 @@ class MealPlanControllerTest extends TestCase
         ]);
 
         $this->actingAs($this->rnd)
-            ->postJson("/api/rnd/ncp-records/{$ncpRecord->id}/meal-plans/from-template", [
+            ->postJson("/api/rnd/ncp-records/{$ncpRecord->uuid}/meal-plans/from-template", [
                 'template_id'     => $template->id,
                 'week_start_date' => now()->addWeek()->startOfWeek()->toDateString(),
             ])

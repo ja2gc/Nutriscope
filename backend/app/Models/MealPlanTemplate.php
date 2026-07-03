@@ -8,7 +8,8 @@ use Illuminate\Database\Eloquent\Model;
 class MealPlanTemplate extends Model
 {
     use HasFactory;
-    
+    use \App\Models\Concerns\HasPublicId;
+
     protected $fillable = ['rnd_user_id', 'name', 'description', 'goal_type'];
 
     public function rnd()

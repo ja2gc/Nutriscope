@@ -16,7 +16,7 @@ class MenuCycleTemplateController extends Controller
     {
         $templates = MenuCycleTemplate::withCount('days')->orderBy('name')->get();
         return response()->json(['data' => $templates->map(fn ($t) => [
-            'id' => $t->id, 'name' => $t->name, 'description' => $t->description,
+            'id' => $t->uuid, 'name' => $t->name, 'description' => $t->description,
             'cycle_days' => $t->cycle_days, 'days_count' => $t->days_count, 'updated_at' => $t->updated_at,
         ])]);
     }
@@ -126,22 +126,36 @@ class MenuCycleTemplateController extends Controller
             return $cycle;
         });
 
-        return response()->json(['data' => ['id' => $cycle->id, 'name' => $cycle->name]], 201);
+        return response()->json(['data' => ['id' => $cycle->uuid, 'name' => $cycle->name]], 201);
     }
 
     private function validatePayload(Request $request, bool $nameRequired = true): array
     {
-        return $request->validate([
+        $data = $request->validate([
             'name'                     => [$nameRequired ? 'required' : 'sometimes', 'string', 'max:255'],
             'description'              => ['nullable', 'string'],
             'cycle_days'               => ['nullable', 'integer', 'min:1', 'max:28'],
             'days'                     => ['nullable', 'array'],
             'days.*.day_of_week'       => ['required_with:days', 'in:Monday,Tuesday,Wednesday,Thursday,Friday,Saturday,Sunday'],
             'days.*.meal_type'         => ['required_with:days', 'in:breakfast,am_snack,lunch,pm_snack,dinner'],
-            'days.*.recipe_id'         => ['nullable', 'integer', 'exists:food_service_recipes,id'],
-            'days.*.fs_item_id'        => ['nullable', 'integer', 'exists:fs_items,id'],
+            'days.*.recipe_id'         => ['nullable', 'string', 'exists:food_service_recipes,uuid'],
+            'days.*.fs_item_id'        => ['nullable', 'string', 'exists:fs_items,uuid'],
             'days.*.quantity'          => ['nullable', 'numeric', 'min:0'],
         ]);
+
+        if (! empty($data['days'])) {
+            $data['days'] = collect($data['days'])->map(function ($d) {
+                if (! empty($d['recipe_id'])) {
+                    $d['recipe_id'] = \App\Models\FoodServiceRecipe::idFromUuid($d['recipe_id']);
+                }
+                if (! empty($d['fs_item_id'])) {
+                    $d['fs_item_id'] = \App\Models\FsItem::idFromUuid($d['fs_item_id']);
+                }
+                return $d;
+            })->all();
+        }
+
+        return $data;
     }
 
     private function syncDays(MenuCycleTemplate $template, array $days): void
@@ -165,7 +179,7 @@ class MenuCycleTemplateController extends Controller
     {
         $template->loadMissing('days.recipe', 'days.fsItem');
         return [
-            'id'          => $template->id,
+            'id'          => $template->uuid,
             'name'        => $template->name,
             'description' => $template->description,
             'cycle_days'  => $template->cycle_days,
@@ -176,8 +190,8 @@ class MenuCycleTemplateController extends Controller
                 'recipe_id'   => $d->recipe_id,
                 'fs_item_id'  => $d->fs_item_id,
                 'quantity'    => $d->quantity,
-                'recipe'      => $d->recipe ? ['id' => $d->recipe->id, 'name' => $d->recipe->name] : null,
-                'fs_item'     => $d->fsItem ? ['id' => $d->fsItem->id, 'name' => $d->fsItem->name] : null,
+                'recipe'      => $d->recipe ? ['id' => $d->recipe->uuid, 'name' => $d->recipe->name] : null,
+                'fs_item'     => $d->fsItem ? ['id' => $d->fsItem->uuid, 'name' => $d->fsItem->name] : null,
             ])->values(),
             'updated_at'  => $template->updated_at,
         ];

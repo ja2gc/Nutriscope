@@ -36,7 +36,7 @@ class MonitoringAiReviewTest extends TestCase
         Monitoring::create(['ncp_record_id' => $ncp->id, 'weight' => 52, 'bmi' => 18.0, 'lab_values' => ['albumin' => 3.0]]);
 
         $res = $this->actingAs($rnd, 'sanctum')
-            ->postJson("/api/rnd/ncp-records/{$ncp->id}/monitorings/ai-review")
+            ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/monitorings/ai-review")
             ->assertOk();
 
         $this->assertNotEmpty($res->json('data.narrative'));

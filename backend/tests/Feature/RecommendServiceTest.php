@@ -88,7 +88,7 @@ class RecommendServiceTest extends TestCase
         Intervention::factory()->create(['ncp_record_id' => $ncpRecord->id]);
 
         $response = $this->actingAs($this->rnd)
-            ->postJson("/api/rnd/ncp-records/{$ncpRecord->id}/intervention/recommend", [
+            ->postJson("/api/rnd/ncp-records/{$ncpRecord->uuid}/intervention/recommend", [
                 'conditions' => ['CKD', 'HTN'],
             ]);
 
@@ -101,7 +101,7 @@ class RecommendServiceTest extends TestCase
         $ncpRecord = $this->makeNcpRecord();
 
         $response = $this->actingAs($this->rnd)
-            ->postJson("/api/rnd/ncp-records/{$ncpRecord->id}/intervention/recommend", []);
+            ->postJson("/api/rnd/ncp-records/{$ncpRecord->uuid}/intervention/recommend", []);
 
         $response->assertUnprocessable()
             ->assertJsonValidationErrors(['conditions']);

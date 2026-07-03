@@ -11,6 +11,7 @@ class MealPrepLog extends Model
 {
     use HasFactory;
     use \App\Models\Concerns\AuditsChanges;
+    use \App\Models\Concerns\HasPublicId;
 
     protected $fillable = [
         'menu_cycle_id', 'service_date', 'population', 'served_population',

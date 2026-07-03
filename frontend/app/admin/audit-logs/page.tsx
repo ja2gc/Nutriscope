@@ -74,7 +74,7 @@ export default function AuditLogsPage() {
       setError(null);
 
       const params: ListAuditLogsParams = { page, per_page: 15 };
-      if (causerId !== "All") params.causer_id = parseInt(causerId);
+      if (causerId !== "All") params.causer_id = causerId;
       if (subjectType !== "All") params.subject_type = subjectType;
       if (eventFilter !== "All") params.event = eventFilter;
       if (startDate) params.start = startDate;

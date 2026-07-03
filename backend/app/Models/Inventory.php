@@ -3,13 +3,14 @@
 namespace App\Models;
 
 use App\Models\Concerns\AuditsChanges;
+use App\Models\Concerns\HasPublicId;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Inventory extends Model
 {
-    use HasFactory, AuditsChanges;
+    use HasFactory, AuditsChanges, HasPublicId;
 
     protected $table = 'inventory';
 

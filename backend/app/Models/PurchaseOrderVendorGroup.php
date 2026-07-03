@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class PurchaseOrderVendorGroup extends Model
 {
     use HasFactory;
+    use \App\Models\Concerns\HasPublicId;
 
     protected $fillable = [
         'purchase_order_id',

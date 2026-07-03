@@ -10,7 +10,7 @@ class RecipeResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
-            'id'             => $this->id,
+            'id'             => $this->uuid,
             'rnd_user_id'    => $this->rnd_user_id,
             'name'           => $this->name,
             'category'       => $this->category,
@@ -29,7 +29,7 @@ class RecipeResource extends JsonResource
                     'quantity'     => $ing->quantity,
                     'unit'         => $ing->unit,
                     'food_item'    => $ing->relationLoaded('foodItem') ? [
-                        'id'             => $ing->foodItem->id,
+                        'id'             => $ing->foodItem->uuid,
                         'name'           => $ing->foodItem->name,
                         'calories'       => $ing->foodItem->calories,
                         'protein'        => $ing->foodItem->protein,

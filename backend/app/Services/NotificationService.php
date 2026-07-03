@@ -29,6 +29,7 @@ class NotificationService
 
         foreach ($users as $user) {
             $rows[] = [
+                'uuid'          => (string) \Illuminate\Support\Str::uuid(),
                 'user_id'       => $user instanceof User ? $user->id : (int) $user,
                 'title'         => $title,
                 'message'       => $message,

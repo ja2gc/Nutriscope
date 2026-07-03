@@ -10,12 +10,12 @@ class InventoryResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
-            'id'                       => $this->id,
+            'id'                       => $this->uuid,
             'item_type'                => $this->item_type,
             'fs_item_id'               => $this->fs_item_id,
             'recipe_id'                => $this->recipe_id,
             'fs_item'                  => $this->whenLoaded('fsItem', fn () => [
-                'id'        => $this->fsItem->id,
+                'id'        => $this->fsItem->uuid,
                 'name'      => $this->fsItem->name,
                 'kind'      => $this->fsItem->kind,
                 'category'  => $this->fsItem->category,
@@ -23,7 +23,7 @@ class InventoryResource extends JsonResource
                 'unit_cost' => $this->fsItem->unit_cost,
             ]),
             'recipe'                   => $this->whenLoaded('recipe', fn () => [
-                'id'       => $this->recipe->id,
+                'id'       => $this->recipe->uuid,
                 'name'     => $this->recipe->name,
                 'category' => $this->recipe->category,
                 'cost'     => $this->recipe->cost,

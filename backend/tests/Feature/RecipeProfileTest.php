@@ -33,7 +33,7 @@ class RecipeProfileTest extends TestCase
         ]);
 
         $res = $this->actingAs($fss)
-            ->getJson("/api/fss/food-service-recipes/{$recipe->id}/profile?population=100")
+            ->getJson("/api/fss/food-service-recipes/{$recipe->uuid}/profile?population=100")
             ->assertOk();
 
         // factor 100/50 = 2 → 10000 g rice → ₱520 total → ₱5.20/head

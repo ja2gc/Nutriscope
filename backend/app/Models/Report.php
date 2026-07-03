@@ -8,7 +8,8 @@ use Illuminate\Database\Eloquent\Model;
 class Report extends Model
 {
     use HasFactory;
-    
+    use \App\Models\Concerns\HasPublicId;
+
     protected $fillable = [
         'user_id', 'title', 'type', 'filters', 'parameters', 'snapshot',
         'file_path', 'status', 'generated_at', 'expires_at'

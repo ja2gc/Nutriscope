@@ -38,7 +38,7 @@ class MenuCycleWorkflowGuardTest extends TestCase
         ]);
 
         $this->actingAs($this->rnd)
-            ->patchJson("/api/fss/menu-cycles/{$cycle->id}/activate")
+            ->patchJson("/api/fss/menu-cycles/{$cycle->uuid}/activate")
             ->assertStatus(422)
             ->assertJsonPath('missing_days.0', 'Tuesday');
 
@@ -63,11 +63,11 @@ class MenuCycleWorkflowGuardTest extends TestCase
         ]);
 
         $this->actingAs($this->rnd)
-            ->patchJson("/api/fss/menu-cycles/{$cycle->id}", [
+            ->patchJson("/api/fss/menu-cycles/{$cycle->uuid}", [
                 'days' => [[
                     'day_of_week' => 'Tuesday',
                     'meal_type' => 'lunch',
-                    'fs_item_id' => $item->id,
+                    'fs_item_id' => $item->uuid,
                     'quantity' => 1,
                 ]],
             ])
@@ -100,11 +100,11 @@ class MenuCycleWorkflowGuardTest extends TestCase
         ]);
 
         $this->actingAs($this->rnd)
-            ->patchJson("/api/fss/menu-cycles/{$cycle->id}", [
+            ->patchJson("/api/fss/menu-cycles/{$cycle->uuid}", [
                 'days' => [[
                     'day_of_week' => 'Tuesday',
                     'meal_type' => 'lunch',
-                    'fs_item_id' => $item->id,
+                    'fs_item_id' => $item->uuid,
                     'quantity' => 1,
                 ]],
             ])

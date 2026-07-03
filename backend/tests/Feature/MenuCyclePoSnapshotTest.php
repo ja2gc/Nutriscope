@@ -65,7 +65,7 @@ class MenuCyclePoSnapshotTest extends TestCase
         ]);
 
         $this->actingAs($this->rnd)
-            ->postJson("/api/fss/shopping-lists/{$list->id}/approve")
+            ->postJson("/api/fss/shopping-lists/{$list->uuid}/approve")
             ->assertCreated();
 
         $day->refresh();

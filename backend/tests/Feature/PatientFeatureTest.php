@@ -59,7 +59,7 @@ class PatientFeatureTest extends TestCase
             'admission_date' => '2024-01-01',
         ]);
 
-        $response = $this->actingAs($rnd, 'sanctum')->patchJson("/api/rnd/patients/{$patient->id}", [
+        $response = $this->actingAs($rnd, 'sanctum')->patchJson("/api/rnd/patients/{$patient->uuid}", [
             'ward' => 'ICU',
         ]);
 
@@ -80,7 +80,7 @@ class PatientFeatureTest extends TestCase
             'admission_date' => '2024-01-01',
         ]);
 
-        $response = $this->actingAs($rnd, 'sanctum')->patchJson("/api/rnd/patients/{$patient->id}", [
+        $response = $this->actingAs($rnd, 'sanctum')->patchJson("/api/rnd/patients/{$patient->uuid}", [
             'screening_type' => 'pediatric',
             'hospital_number' => 'HOSP-2026-0001',
             'age_group_category' => 'Adolescent',
@@ -110,7 +110,7 @@ class PatientFeatureTest extends TestCase
             'admission_date' => '2024-01-01',
         ]);
 
-        $response = $this->actingAs($rnd, 'sanctum')->postJson("/api/rnd/patients/{$patient->id}/ncp-records");
+        $response = $this->actingAs($rnd, 'sanctum')->postJson("/api/rnd/patients/{$patient->uuid}/ncp-records");
 
         $response->assertStatus(201)
             ->assertJsonPath('data.patient_id', $patient->id)
@@ -129,11 +129,11 @@ class PatientFeatureTest extends TestCase
         $rnd = User::forceCreate(['name' => 'T', 'email' => 'open-cycle@example.com', 'password' => Hash::make('pass'), 'role' => 'RND', 'is_active' => true]);
         $patient = Patient::forceCreate(['name' => 'J', 'dob' => '1990-01-01', 'sex' => 'Male', 'admission_date' => '2024-01-01']);
 
-        $this->actingAs($rnd, 'sanctum')->postJson("/api/rnd/patients/{$patient->id}/ncp-records")->assertStatus(201);
+        $this->actingAs($rnd, 'sanctum')->postJson("/api/rnd/patients/{$patient->uuid}/ncp-records")->assertStatus(201);
 
         // A second open cycle is rejected.
         $this->actingAs($rnd, 'sanctum')
-            ->postJson("/api/rnd/patients/{$patient->id}/ncp-records")
+            ->postJson("/api/rnd/patients/{$patient->uuid}/ncp-records")
             ->assertStatus(409);
 
         $this->assertSame(1, $patient->ncpRecords()->count());
@@ -145,7 +145,7 @@ class PatientFeatureTest extends TestCase
         $patient = Patient::forceCreate(['name' => 'J', 'dob' => '1990-01-01', 'sex' => 'Male', 'admission_date' => '2024-01-01', 'status' => 'Discharged']);
 
         $this->actingAs($rnd, 'sanctum')
-            ->postJson("/api/rnd/patients/{$patient->id}/ncp-records")
+            ->postJson("/api/rnd/patients/{$patient->uuid}/ncp-records")
             ->assertStatus(422);
 
         $this->assertSame(0, $patient->ncpRecords()->count());
@@ -170,7 +170,7 @@ class PatientFeatureTest extends TestCase
             'risk_score' => 3.5,
         ]);
 
-        $response = $this->actingAs($rnd, 'sanctum')->getJson("/api/rnd/patients/{$patient->id}");
+        $response = $this->actingAs($rnd, 'sanctum')->getJson("/api/rnd/patients/{$patient->uuid}");
 
         $response->assertOk()
             ->assertJsonPath('risk_score', '3.50')
@@ -203,10 +203,33 @@ class PatientFeatureTest extends TestCase
             'original_name' => 'labs.pdf',
         ]);
 
-        $response = $this->actingAs($rnd, 'sanctum')->deleteJson("/api/rnd/patients/{$patient->id}");
+        $response = $this->actingAs($rnd, 'sanctum')->deleteJson("/api/rnd/patients/{$patient->uuid}");
 
         $response->assertNoContent();
         $this->assertDatabaseMissing('patients', ['id' => $patient->id]);
         $this->assertDatabaseMissing('screening_documents', ['patient_id' => $patient->id]);
+    }
+
+    /**
+     * Regression: the old sequential integer id must no longer resolve a patient —
+     * this is the enumeration hole the uuid route-binding switch closes.
+     */
+    public function test_patient_route_no_longer_resolves_by_raw_integer_id(): void
+    {
+        $rnd = User::forceCreate(['name' => 'Test', 'email' => 'no-int-id@example.com', 'password' => Hash::make('pass'), 'role' => 'RND', 'is_active' => true]);
+        $patient = Patient::forceCreate([
+            'name' => 'John Doe',
+            'dob' => '1990-01-01',
+            'sex' => 'Male',
+            'admission_date' => '2024-01-01',
+        ]);
+
+        $this->actingAs($rnd, 'sanctum')
+            ->getJson("/api/rnd/patients/{$patient->id}")
+            ->assertNotFound();
+
+        $this->actingAs($rnd, 'sanctum')
+            ->getJson("/api/rnd/patients/{$patient->uuid}")
+            ->assertOk();
     }
 }

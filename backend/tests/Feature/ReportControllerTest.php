@@ -33,7 +33,7 @@ class ReportControllerTest extends TestCase
         ]);
 
         // Seed required report templates
-        ReportTemplate::insert([
+        ReportTemplate::insert(array_map(fn (array $row) => $row + ['uuid' => (string) \Illuminate\Support\Str::uuid()], [
             ['type' => 'adime_individual',    'name' => 'ADIME Individual',       'blade_view' => 'reports.adime_individual',    'description' => 'Individual ADIME Note', 'created_at' => now(), 'updated_at' => now()],
             ['type' => 'adime_aggregate',     'name' => 'ADIME Aggregate',        'blade_view' => 'reports.adime_aggregate',     'description' => 'Aggregate ADIME',       'created_at' => now(), 'updated_at' => now()],
             ['type' => 'ncp_census',          'name' => 'NCP Census',             'blade_view' => 'reports.ncp_census',          'description' => 'Monthly NCP Census',    'created_at' => now(), 'updated_at' => now()],
@@ -44,7 +44,7 @@ class ReportControllerTest extends TestCase
             ['type' => 'inspection_report',   'name' => 'Inspection Report',      'blade_view' => 'reports.inspection_report',   'description' => 'Delivery inspection',   'created_at' => now(), 'updated_at' => now()],
             ['type' => 'marketing_statement', 'name' => 'Marketing Statement',    'blade_view' => 'reports.marketing_statement', 'description' => 'Marketing docs',        'created_at' => now(), 'updated_at' => now()],
             ['type' => 'marketing_summary',   'name' => 'Marketing Summary',      'blade_view' => 'reports.marketing_summary',   'description' => 'Monthly summary',       'created_at' => now(), 'updated_at' => now()],
-        ]);
+        ]));
     }
 
     private function makeNcpRecord(): NcpRecord
@@ -118,10 +118,10 @@ class ReportControllerTest extends TestCase
         $report = Report::factory()->create(['user_id' => $this->rnd->id, 'status' => 'completed']);
 
         $response = $this->actingAs($this->rnd)
-            ->getJson("/api/rnd/reports/{$report->id}");
+            ->getJson("/api/rnd/reports/{$report->uuid}");
 
         $response->assertOk()
-            ->assertJsonPath('data.id', $report->id);
+            ->assertJsonPath('data.id', $report->uuid);
     }
 
     public function test_rnd_cannot_see_another_users_report(): void
@@ -130,7 +130,7 @@ class ReportControllerTest extends TestCase
         $report    = Report::factory()->create(['user_id' => $otherUser->id]);
 
         $response = $this->actingAs($this->rnd)
-            ->getJson("/api/rnd/reports/{$report->id}");
+            ->getJson("/api/rnd/reports/{$report->uuid}");
 
         $response->assertForbidden();
     }

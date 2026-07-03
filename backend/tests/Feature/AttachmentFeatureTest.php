@@ -49,7 +49,7 @@ class AttachmentFeatureTest extends TestCase
         $ncp = $this->ncp($rnd);
 
         $this->actingAs($rnd, 'sanctum')->postJson(
-            "/api/rnd/ncp-records/{$ncp->id}/attachments",
+            "/api/rnd/ncp-records/{$ncp->uuid}/attachments",
             ['file' => UploadedFile::fake()->create('referral.pdf', 10, 'application/pdf')]
         )->assertStatus(201);
 
@@ -70,14 +70,14 @@ class AttachmentFeatureTest extends TestCase
         $ncp = $this->ncp($rnd);
 
         $this->actingAs($rnd, 'sanctum')->postJson(
-            "/api/rnd/ncp-records/{$ncp->id}/attachments",
+            "/api/rnd/ncp-records/{$ncp->uuid}/attachments",
             ['file' => UploadedFile::fake()->create('referral.pdf', 10, 'application/pdf')]
         )->assertStatus(201);
 
         // The Assessment gate must still report "not recorded" after an upload.
         $this->assertDatabaseMissing('assessments', ['ncp_record_id' => $ncp->id]);
         $this->actingAs($rnd, 'sanctum')
-            ->getJson("/api/rnd/ncp-records/{$ncp->id}/assessment")
+            ->getJson("/api/rnd/ncp-records/{$ncp->uuid}/assessment")
             ->assertNotFound();
     }
 
@@ -92,17 +92,17 @@ class AttachmentFeatureTest extends TestCase
         ]);
 
         $this->actingAs($rnd, 'sanctum')->postJson(
-            "/api/rnd/ncp-records/{$cycleA->id}/attachments",
+            "/api/rnd/ncp-records/{$cycleA->uuid}/attachments",
             ['file' => UploadedFile::fake()->create('a.pdf', 10, 'application/pdf')]
         )->assertStatus(201);
 
         $this->actingAs($rnd, 'sanctum')->postJson(
-            "/api/rnd/ncp-records/{$cycleB->id}/attachments",
+            "/api/rnd/ncp-records/{$cycleB->uuid}/attachments",
             ['file' => UploadedFile::fake()->create('b.pdf', 10, 'application/pdf')]
         )->assertStatus(201);
 
         $res = $this->actingAs($rnd, 'sanctum')
-            ->getJson("/api/rnd/ncp-records/{$cycleA->id}/attachments")
+            ->getJson("/api/rnd/ncp-records/{$cycleA->uuid}/attachments")
             ->assertOk();
 
         $names = collect($res->json('data'))->pluck('original_name')->all();
@@ -117,14 +117,14 @@ class AttachmentFeatureTest extends TestCase
         $ncp = $this->ncp($rnd);
 
         $this->actingAs($rnd, 'sanctum')->postJson(
-            "/api/rnd/ncp-records/{$ncp->id}/attachments",
+            "/api/rnd/ncp-records/{$ncp->uuid}/attachments",
             ['file' => UploadedFile::fake()->create('labs.pdf', 10, 'application/pdf')]
         )->assertStatus(201);
 
         $doc = ScreeningDocument::firstOrFail();
 
         $this->actingAs($rnd, 'sanctum')
-            ->get("/api/rnd/screening-documents/{$doc->id}/file")
+            ->get("/api/rnd/screening-documents/{$doc->uuid}/file")
             ->assertOk();
     }
 
@@ -135,14 +135,14 @@ class AttachmentFeatureTest extends TestCase
         $ncp = $this->ncp($rnd);
 
         $this->actingAs($rnd, 'sanctum')->postJson(
-            "/api/rnd/ncp-records/{$ncp->id}/attachments",
+            "/api/rnd/ncp-records/{$ncp->uuid}/attachments",
             ['file' => UploadedFile::fake()->create('x.pdf', 10, 'application/pdf')]
         )->assertStatus(201);
 
         $doc = ScreeningDocument::firstOrFail();
 
         $this->actingAs($rnd, 'sanctum')
-            ->deleteJson("/api/rnd/screening-documents/{$doc->id}")
+            ->deleteJson("/api/rnd/screening-documents/{$doc->uuid}")
             ->assertOk();
 
         $this->assertModelMissing($doc);

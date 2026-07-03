@@ -53,7 +53,10 @@ class MealPlanController extends Controller
         $dayRows = [];
         foreach (['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'] as $day) {
             foreach (['breakfast','am_snack','lunch','pm_snack','dinner'] as $mealType) {
-                $dayRows[] = ['meal_plan_id' => $mealPlan->id, 'day_of_week' => $day, 'meal_type' => $mealType, 'flagged' => false];
+                $dayRows[] = [
+                    'uuid' => (string) \Illuminate\Support\Str::uuid(),
+                    'meal_plan_id' => $mealPlan->id, 'day_of_week' => $day, 'meal_type' => $mealType, 'flagged' => false,
+                ];
             }
         }
         \App\Models\MealPlanDay::insert($dayRows);
@@ -163,7 +166,7 @@ class MealPlanController extends Controller
         }
 
         return response()->json([
-            'data' => ['id' => $template->id, 'name' => $template->name, 'goal_type' => $template->goal_type],
+            'data' => ['id' => $template->uuid, 'name' => $template->name, 'goal_type' => $template->goal_type],
         ], 201);
     }
 
@@ -174,9 +177,12 @@ class MealPlanController extends Controller
     {
         $templates = \App\Models\MealPlanTemplate::where('rnd_user_id', auth()->id())
             ->orderByDesc('created_at')
-            ->get(['id', 'name', 'description', 'goal_type', 'created_at']);
+            ->get(['id', 'uuid', 'name', 'description', 'goal_type', 'created_at']);
 
-        return response()->json(['data' => $templates]);
+        return response()->json(['data' => $templates->map(fn ($t) => [
+            'id' => $t->uuid, 'name' => $t->name, 'description' => $t->description,
+            'goal_type' => $t->goal_type, 'created_at' => $t->created_at,
+        ])]);
     }
 
     /**
@@ -197,7 +203,7 @@ class MealPlanController extends Controller
         ]);
 
         return response()->json(['data' => [
-            'id'         => $template->id,
+            'id'         => $template->uuid,
             'name'       => $template->name,
             'description'=> $template->description,
             'goal_type'  => $template->goal_type,

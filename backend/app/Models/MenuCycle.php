@@ -11,6 +11,7 @@ class MenuCycle extends Model
 {
     use HasFactory;
     use \App\Models\Concerns\AuditsChanges;
+    use \App\Models\Concerns\HasPublicId;
 
     protected $fillable = [
         'rnd_user_id', 'name',

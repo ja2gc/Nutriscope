@@ -61,8 +61,8 @@ class SuppliesProcurementTest extends TestCase
         $ingredient = FsItem::factory()->create(['kind' => 'ingredient']);
 
         $this->actingAs($this->rnd)
-            ->postJson("/api/fss/shopping-lists/{$list->id}/items", [
-                'fs_item_id' => $ingredient->id,
+            ->postJson("/api/fss/shopping-lists/{$list->uuid}/items", [
+                'fs_item_id' => $ingredient->uuid,
                 'qty'        => 3,
                 'unit'       => 'pc',
                 'unit_price' => 25,
@@ -72,8 +72,8 @@ class SuppliesProcurementTest extends TestCase
         $supply = FsItem::factory()->create(['kind' => 'supply']);
 
         $this->actingAs($this->rnd)
-            ->postJson("/api/fss/shopping-lists/{$list->id}/items", [
-                'fs_item_id' => $supply->id,
+            ->postJson("/api/fss/shopping-lists/{$list->uuid}/items", [
+                'fs_item_id' => $supply->uuid,
                 'qty'        => 3,
                 'unit'       => 'pc',
                 'unit_price' => 25,
@@ -96,7 +96,7 @@ class SuppliesProcurementTest extends TestCase
         ]);
 
         $this->actingAs($this->rnd)
-            ->postJson("/api/fss/shopping-lists/{$list->id}/approve")
+            ->postJson("/api/fss/shopping-lists/{$list->uuid}/approve")
             ->assertCreated();
 
         $this->assertDatabaseHas('purchase_orders', [

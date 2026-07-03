@@ -18,7 +18,7 @@ class BudgetResource extends JsonResource
         $remaining  = (float) $this->allocated_amount + $additions - $totalDeductions;
 
         return [
-            'id'                 => $this->id,
+            'id'                 => $this->uuid,
             'fiscal_year'        => $this->fiscal_year,
             'allocated_amount'   => $this->allocated_amount,
             'total_deductions'   => round($totalDeductions, 2),

@@ -73,11 +73,15 @@ class PatientController extends Controller
     public function ncpRecords(Patient $patient): JsonResponse
     {
         $records = $patient->ncpRecords()
-            ->with(['rnd:id,name', 'assessment', 'diagnoses', 'intervention.mealPlans:id,intervention_id,week_start_date,generation_type'])
+            ->with(['rnd:id,uuid,name', 'assessment', 'diagnoses', 'intervention.mealPlans:id,uuid,intervention_id,week_start_date,generation_type'])
             ->orderByDesc('created_at')
             ->get();
 
-        return response()->json(['data' => $records]);
+        // Overlay the public uuid on the record's own identity (used to build
+        // /ncp/{ncpId}/... nav links) without disturbing the rest of the payload shape.
+        $data = $records->map(fn (NcpRecord $record) => array_merge($record->toArray(), ['id' => $record->uuid]));
+
+        return response()->json(['data' => $data]);
     }
 
     /**
@@ -140,6 +144,6 @@ class PatientController extends Controller
             'status' => 'draft',
         ]);
 
-        return response()->json(['data' => $record], 201);
+        return response()->json(['data' => array_merge($record->toArray(), ['id' => $record->uuid])], 201);
     }
 }

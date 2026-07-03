@@ -27,7 +27,7 @@ class AnnouncementFeatureTest extends TestCase
         $response->assertCreated()
             ->assertJsonPath('data.title', 'Tray schedule update')
             ->assertJsonPath('data.pinned', true)
-            ->assertJsonPath('data.author.id', $rnd->id);
+            ->assertJsonPath('data.author.id', $rnd->uuid);
 
         $this->assertDatabaseHas('announcements', [
             'user_id' => $rnd->id,
@@ -48,7 +48,7 @@ class AnnouncementFeatureTest extends TestCase
             'pinned' => false,
         ]);
 
-        $response = $this->actingAs($rnd, 'sanctum')->patchJson("/api/rnd/announcements/{$announcement->id}", [
+        $response = $this->actingAs($rnd, 'sanctum')->patchJson("/api/rnd/announcements/{$announcement->uuid}", [
             'pinned' => true,
         ]);
 
@@ -139,7 +139,7 @@ class AnnouncementFeatureTest extends TestCase
             'pinned' => false,
         ]);
 
-        $response = $this->actingAs($admin, 'sanctum')->patchJson("/api/admin/announcements/{$announcement->id}", [
+        $response = $this->actingAs($admin, 'sanctum')->patchJson("/api/admin/announcements/{$announcement->uuid}", [
             'pinned' => true,
         ]);
 
@@ -185,7 +185,7 @@ class AnnouncementFeatureTest extends TestCase
             'attachment' => json_encode(['data:image/png;base64,one', 'data:image/jpeg;base64,two'], JSON_THROW_ON_ERROR),
         ]);
 
-        $response = $this->actingAs($rnd, 'sanctum')->patchJson("/api/rnd/announcements/{$announcement->id}", [
+        $response = $this->actingAs($rnd, 'sanctum')->patchJson("/api/rnd/announcements/{$announcement->uuid}", [
             'attachments' => [],
         ]);
 
@@ -211,7 +211,7 @@ class AnnouncementFeatureTest extends TestCase
             'visibility' => 'All',
         ]);
 
-        $response = $this->actingAs($other, 'sanctum')->patchJson("/api/rnd/announcements/{$announcement->id}", [
+        $response = $this->actingAs($other, 'sanctum')->patchJson("/api/rnd/announcements/{$announcement->uuid}", [
             'title' => 'Changed title',
         ]);
 

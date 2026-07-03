@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 class Budget extends Model
 {
     use HasFactory;
+    use \App\Models\Concerns\HasPublicId;
 
     protected $fillable = ['fiscal_year', 'allocated_amount', 'per_head_day_limit'];
 

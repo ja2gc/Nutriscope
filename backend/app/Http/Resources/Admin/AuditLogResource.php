@@ -17,7 +17,7 @@ class AuditLogResource extends JsonResource
             'subject_type' => $this->subject_type,
             'subject_id' => $this->subject_id,
             'causer' => $this->whenLoaded('causer', fn () => $this->causer ? [
-                'id' => $this->causer->id,
+                'id' => $this->causer->uuid,
                 'name' => $this->causer->name,
                 'email' => $this->causer->email,
                 'role' => $this->causer->role,

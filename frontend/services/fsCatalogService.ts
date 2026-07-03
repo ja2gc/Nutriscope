@@ -3,7 +3,7 @@ import { apiFetch } from "@/lib/apiFetch";
 export type FsItemKind = "ingredient" | "supply";
 
 export interface CatalogItem {
-  id: number;
+  id: string;
   name: string;
   kind: FsItemKind;
   category: string | null;
@@ -12,7 +12,7 @@ export interface CatalogItem {
   purchase_price: string | null;
   units_per_purchase: string | null;
   unit_cost: number;
-  default_supplier_id: number | null;
+  default_supplier_id: string | null;
   vendor: string | null;
   vendor_locked: boolean;
 }
@@ -23,7 +23,7 @@ export interface CreateFsItemPayload {
   category?: string | null;
   base_unit: string;
   purchase_price: number;
-  default_supplier_id?: number | null;
+  default_supplier_id?: string | null;
 }
 
 async function unwrap<T>(res: Response, fallback: string): Promise<T> {
@@ -44,13 +44,13 @@ export async function createFsItem(payload: CreateFsItemPayload): Promise<Catalo
   }), "Failed to create item.");
 }
 
-export async function updateFsItem(id: number, patch: Partial<CreateFsItemPayload>): Promise<CatalogItem> {
+export async function updateFsItem(id: string, patch: Partial<CreateFsItemPayload>): Promise<CatalogItem> {
   return unwrap(await apiFetch(`/api/fss/fs-items/${id}`, {
     method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch),
   }), "Failed to update item.");
 }
 
-export async function deleteFsItem(id: number): Promise<void> {
+export async function deleteFsItem(id: string): Promise<void> {
   const res = await apiFetch(`/api/fss/fs-items/${id}`, { method: "DELETE" });
   if (!res.ok && res.status !== 204) {
     const data = await res.json().catch(() => ({}));
