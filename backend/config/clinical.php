@@ -26,15 +26,15 @@ return [
     */
 
     'goal_type_conditions' => [
-        'renal_diet'       => ['CKD'],
+        'renal_diet' => ['CKD'],
         'diabetic_control' => ['DM'],
-        'cardiac_diet'     => ['hypertension', 'dyslipidemia'],
-        'liver_disease'    => ['liver_disease'],
-        'malnutrition'     => ['malnutrition'],
-        'weight_loss'      => [],
-        'weight_gain'      => [],
-        'high_protein'     => [],
-        'custom'           => [],
+        'cardiac_diet' => ['hypertension', 'dyslipidemia'],
+        'liver_disease' => ['liver_disease'],
+        'malnutrition' => ['malnutrition'],
+        'weight_loss' => [],
+        'weight_gain' => [],
+        'high_protein' => [],
+        'custom' => [],
     ],
 
     /*
@@ -84,9 +84,10 @@ return [
     */
 
     'assessment_input_bounds' => [
-        'weight'       => ['min' => 1,  'max' => 400], // kg
+        'weight' => ['min' => 1,  'max' => 400], // kg
         'usual_weight' => ['min' => 1,  'max' => 400], // kg
-        'height'       => ['min' => 30, 'max' => 250], // cm
+        'dry_weight_kg' => ['min' => 1,  'max' => 400], // kg
+        'height' => ['min' => 30, 'max' => 250], // cm
     ],
 
 ];

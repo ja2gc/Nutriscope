@@ -49,6 +49,7 @@ export interface Assessment {
   // Phase 5 — nutrition engine inputs
   stress_factor: number | string | null;
   edema_present: boolean | null;
+  dry_weight_kg: number | string | null;
   pregnancy_lactation_status: "none" | "pregnant" | "lactating" | null;
   risk_score?: number | null;
   checked_factors?: string[] | null;

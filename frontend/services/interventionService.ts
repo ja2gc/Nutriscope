@@ -82,7 +82,6 @@ export interface AutofillResult {
   calculation_status?: "ok" | "warning" | "incomplete" | "invalid_goal_stage";
   safety_warnings?: { key: string; severity: "warning" | "critical"; message: string }[];
   note?: string;
-  edema_warning?: string;
 }
 
 export class AutofillError extends Error {

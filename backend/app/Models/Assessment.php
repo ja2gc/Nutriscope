@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\AuditsChanges;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -10,11 +11,12 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Assessment extends Model
 {
+    use AuditsChanges;
     use HasFactory;
-    use \App\Models\Concerns\AuditsChanges;
 
     /** Clinical — log field names only, redact PHI values (Spec 5 Decision A). */
     protected bool $auditRedactValues = true;
+
     protected $fillable = [
         'ncp_record_id',
         'dietary_intake', 'appetite_changes', 'dietary_restrictions', 'supplements', 'knowledge_notes',
@@ -29,21 +31,22 @@ class Assessment extends Model
         // Clinical measurement fields (activity level + body measurements)
         'physical_activity_level', 'muac_mm', 'waist_cm', 'hip_cm',
         // Phase 5 — engine inputs
-        'stress_factor', 'edema_present', 'pregnancy_lactation_status',
+        'stress_factor', 'edema_present', 'dry_weight_kg', 'pregnancy_lactation_status',
     ];
 
     protected $casts = [
-        'allergies'                    => 'array',
-        'food_dislikes'                => 'array',
-        'medications'                  => 'array',
-        'weight'                       => 'decimal:2',
-        'height'                       => 'decimal:2',
-        'bmi'                          => 'decimal:2',
-        'muac_mm'                      => 'float',
-        'waist_cm'                     => 'float',
-        'hip_cm'                       => 'float',
-        'stress_factor'                => 'float',
-        'edema_present'                => 'boolean',
+        'allergies' => 'array',
+        'food_dislikes' => 'array',
+        'medications' => 'array',
+        'weight' => 'decimal:2',
+        'height' => 'decimal:2',
+        'bmi' => 'decimal:2',
+        'muac_mm' => 'float',
+        'waist_cm' => 'float',
+        'hip_cm' => 'float',
+        'stress_factor' => 'float',
+        'edema_present' => 'boolean',
+        'dry_weight_kg' => 'decimal:2',
     ];
 
     /**
@@ -57,29 +60,29 @@ class Assessment extends Model
      */
     public const ACTIVITY_LEVEL_MAP = [
         // canonical keys (pass-through)
-        'sedentary'    => 'sedentary',
-        'light'        => 'light',
-        'moderate'     => 'moderate',
-        'very_active'  => 'very_active',
+        'sedentary' => 'sedentary',
+        'light' => 'light',
+        'moderate' => 'moderate',
+        'very_active' => 'very_active',
         'extra_active' => 'extra_active',
         // common UI/legacy variants
-        'lightly_active'       => 'light',
-        'lightly active'       => 'light',
-        'light activity'       => 'light',
-        'moderately_active'    => 'moderate',
-        'moderately active'    => 'moderate',
-        'moderate activity'    => 'moderate',
-        'active'               => 'moderate',
-        'very active'          => 'very_active',
+        'lightly_active' => 'light',
+        'lightly active' => 'light',
+        'light activity' => 'light',
+        'moderately_active' => 'moderate',
+        'moderately active' => 'moderate',
+        'moderate activity' => 'moderate',
+        'active' => 'moderate',
+        'very active' => 'very_active',
         'very_active_activity' => 'very_active',
-        'extra active'         => 'extra_active',
-        'extremely active'     => 'extra_active',
-        'extra_active_activity'=> 'extra_active',
-        'bedridden'            => 'sedentary',
-        'bed-ridden'           => 'sedentary',
-        'bed ridden'           => 'sedentary',
-        'desk job'             => 'sedentary',
-        'office work'          => 'sedentary',
+        'extra active' => 'extra_active',
+        'extremely active' => 'extra_active',
+        'extra_active_activity' => 'extra_active',
+        'bedridden' => 'sedentary',
+        'bed-ridden' => 'sedentary',
+        'bed ridden' => 'sedentary',
+        'desk job' => 'sedentary',
+        'office work' => 'sedentary',
     ];
 
     /**
@@ -89,6 +92,7 @@ class Assessment extends Model
     public function normalizedActivityLevel(): string
     {
         $raw = strtolower(trim((string) $this->physical_activity_level));
+
         return self::ACTIVITY_LEVEL_MAP[$raw] ?? 'sedentary';
     }
 
@@ -114,9 +118,10 @@ class Assessment extends Model
     {
         if ($this->weight && $this->height && $this->height > 0) {
             $heightM = $this->height / 100;
+
             return round($this->weight / ($heightM * $heightM), 2);
         }
+
         return null;
     }
 }
-

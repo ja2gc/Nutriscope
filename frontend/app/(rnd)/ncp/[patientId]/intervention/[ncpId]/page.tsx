@@ -48,6 +48,7 @@ function formatMissingField(field: string) {
     usual_weight: "usual body weight",
     height: "height",
     physical_activity_level: "physical activity level",
+    dry_weight_kg: "dry weight",
     dob: "date of birth",
     sex: "sex",
   } as Record<string, string>)[field] ?? field.replace(/_/g, " ");
@@ -61,7 +62,6 @@ function prescriptionNote(rx?: Partial<AutofillResult> | null): string | undefin
     rx.feeding_phase === "refeeding_start" && rx.target_energy_kcal_range
       ? `Refeeding phase: current calories are the starting dose. Target full-energy range is ${rx.target_energy_kcal_range[0]}-${rx.target_energy_kcal_range[1]} kcal/day by day 4-7 if clinically stable.`
       : undefined,
-    rx.edema_warning,
     ...(rx.safety_warnings ?? []).map((warning) => warning.message),
   ];
 
@@ -176,11 +176,12 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
       }
       const sex = (p?.sex as "Male" | "Female") ?? "Male";
 
-      if (a?.weight && a?.height) {
+      const calculationWeight = a?.edema_present ? a?.dry_weight_kg : a?.weight;
+      if (calculationWeight && a?.height) {
         const palKey = a.physical_activity_level ?? "sedentary";
         const activityFactor = ACTIVITY_FACTORS[palKey]?.factor ?? 1.2;
         setPatientMetrics({
-          weightKg: parseFloat(String(a.weight)),
+          weightKg: parseFloat(String(calculationWeight)),
           heightCm: parseFloat(String(a.height)),
           ageYears,
           sex,
@@ -300,8 +301,9 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
             }
           }
         } catch (err) {
-          // Backend autofill unavailable — keep the TS preview values (already shown).
+          // Missing required clinical inputs must not persist preview values.
           const missing = err instanceof AutofillError ? err.missingFields : [];
+          if (missing.length > 0) authoritative = null;
           const missingText = missing.length ? ` Missing: ${missing.map(formatMissingField).join(", ")}.` : "";
           autofillError = err instanceof Error ? `${err.message}${missingText}` : "Failed to autofill prescription.";
           setCalculationWarning(`Goal saved. Prescription calculation incomplete.${missingText} Values may be blank or off until assessment is completed.`);

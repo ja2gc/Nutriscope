@@ -11,9 +11,11 @@ use App\Models\NcpRecord;
 use App\Services\ClinicalCompletenessService;
 use App\Services\LabFlagService;
 use App\Services\NutritionPrescriptionService;
+use App\Services\RecommendService;
 use App\Support\InterventionGoalCatalog;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 
 class InterventionController extends Controller
 {
@@ -33,7 +35,7 @@ class InterventionController extends Controller
     public function autofill(Request $request, NcpRecord $ncpRecord, NutritionPrescriptionService $svc): JsonResponse
     {
         $goalType = $request->input('goal_type') ?? $ncpRecord->intervention?->goal_type;
-        $stage    = $request->input('disease_stage') ?? $ncpRecord->intervention?->disease_stage;
+        $stage = $request->input('disease_stage') ?? $ncpRecord->intervention?->disease_stage;
 
         if (! $goalType) {
             return response()->json(['message' => 'goal_type is required.'], 422);
@@ -51,7 +53,7 @@ class InterventionController extends Controller
         }
 
         $assessment = $ncpRecord->assessment()->first();
-        $patient    = $ncpRecord->patient;
+        $patient = $ncpRecord->patient;
 
         $missingFields = [];
         if (! $assessment || $assessment->weight === null) {
@@ -59,6 +61,9 @@ class InterventionController extends Controller
         }
         if (! $assessment || $assessment->height === null) {
             $missingFields[] = 'height';
+        }
+        if ($assessment?->edema_present && $assessment->dry_weight_kg === null) {
+            $missingFields[] = 'dry_weight_kg';
         }
         if ($this->requiresActivityFactor($goalType, $stage)
             && (! $assessment || $assessment->physical_activity_level === null || $assessment->physical_activity_level === '')
@@ -89,19 +94,23 @@ class InterventionController extends Controller
             ], 422);
         }
 
-        $age = (int) \Illuminate\Support\Carbon::parse($patient->dob)->age;
+        $age = (int) Carbon::parse($patient->dob)->age;
 
         // Phase 5.2: use normalised PAL key so any UI spelling maps to ACTIVITY_FACTORS
-        $activityKey    = $assessment->normalizedActivityLevel();
+        $activityKey = $assessment->normalizedActivityLevel();
         $activityFactor = NutritionPrescriptionService::ACTIVITY_FACTORS[$activityKey] ?? 1.2;
 
         // Phase 5.3: pass pregnancy/lactation status when present (gate inside service)
+        $calculationWeight = $assessment->edema_present
+            ? (float) $assessment->dry_weight_kg
+            : (float) $assessment->weight;
+
         $metrics = [
-            'weightKg'       => (float) $assessment->weight,
-            'heightCm'       => (float) $assessment->height,
-            'ageYears'       => $age,
-            'sex'            => $patient->sex,
-            'isAdult'        => $age >= 18,
+            'weightKg' => $calculationWeight,
+            'heightCm' => (float) $assessment->height,
+            'ageYears' => $age,
+            'sex' => $patient->sex,
+            'isAdult' => $age >= 18,
             'activityFactor' => $activityFactor,
         ];
 
@@ -110,12 +119,7 @@ class InterventionController extends Controller
             $metrics['pregnancyLactationStatus'] = $pregnancyStatus;
         }
 
-        // edema: flag in response for FE warning; no formula change (weight unreliable)
         $rx = $svc->autofill($goalType, $stage, $metrics);
-
-        if ($assessment->edema_present) {
-            $rx['edema_warning'] = 'Weight may be unreliable due to edema. Verify anthropometrics before confirming prescription.';
-        }
 
         $warnings = $this->safetyWarnings($goalType, $stage, $assessment, $patient?->sex);
         $rx['calculation_status'] = $warnings === [] ? 'ok' : 'warning';
@@ -207,13 +211,13 @@ class InterventionController extends Controller
         $intervention = $ncpRecord->intervention()->firstOrFail();
 
         $conditions = $this->mapGoalTypeToConditions($intervention->goal_type ?? '');
-        $stages     = $intervention->disease_stage ? [$intervention->disease_stage] : null;
+        $stages = $intervention->disease_stage ? [$intervention->disease_stage] : null;
 
         $assessment = $ncpRecord->assessment()->with('biochemicalData')->first();
         $labValues = $assessment?->biochemicalData?->toArray() ?? [];
         $labFlags = $this->labFlags->flag($labValues, $ncpRecord->patient?->sex);
 
-        $result = app(\App\Services\RecommendService::class)
+        $result = app(RecommendService::class)
             ->getRecommendations($conditions, $stages, $labFlags);
 
         return response()->json(['data' => $result]);

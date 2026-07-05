@@ -28,6 +28,7 @@ const COMMON_ALLERGENS = ["milk", "eggs", "fish", "shellfish", "tree nuts", "pea
 const ASSESSMENT_FIELD_LABELS: Record<string, string> = {
   weight: "Weight",
   usual_weight: "Usual weight",
+  dry_weight_kg: "Dry weight",
   height: "Height",
   physical_activity_level: "Physical activity level",
 };
@@ -620,7 +621,7 @@ function defaultAssessment(): Assessment {
     food_intolerance: null, nutrient_drug_interaction: null,
     dietary_intake_method: null, dietary_record_file: null,
     physical_activity_level: null, muac_mm: null, waist_cm: null, hip_cm: null,
-    stress_factor: null, edema_present: false, pregnancy_lactation_status: "none",
+    stress_factor: null, edema_present: false, dry_weight_kg: null, pregnancy_lactation_status: "none",
     risk_score_manual_override: false, risk_score_manual_factors: null,
     religion: null,
   };
@@ -1208,14 +1209,30 @@ export default function NcpAssessmentPage({
       <Field label="Edema Present" required={CALCULATION_INPUT_HELPERS.edema_present.required}>
         <SelectInput
           value={assessment.edema_present ? "yes" : "no"}
-          onChange={v => updateField("edema_present", v === "yes")}
+          onChange={v => {
+            const present = v === "yes";
+            updateField("edema_present", present);
+            if (!present) updateField("dry_weight_kg", null);
+          }}
           options={[
             { value: "no", label: "No" },
-            { value: "yes", label: "Yes — weight may be unreliable" },
+            { value: "yes", label: "Yes" },
           ]}
           placeholder="No"
         />
       </Field>
+      {assessment.edema_present && (
+        <Field label="Dry Weight (kg)" required>
+          <TextInput
+            type="number"
+            min={1}
+            max={400}
+            value={String(assessment.dry_weight_kg ?? "")}
+            onChange={v => updateField("dry_weight_kg", v ? Number(v) : null)}
+            placeholder="e.g. 68.0"
+          />
+        </Field>
+      )}
       <Field label="Allergies (Hard Filter for meal plans)">
         <div className="flex flex-wrap gap-1.5 py-1">
           {COMMON_ALLERGENS.map(a => (
