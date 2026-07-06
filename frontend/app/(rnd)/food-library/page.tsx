@@ -98,8 +98,8 @@ function UsdaImportModal({ onClose, onImported }: {
               <FlaskConical className="h-4 w-4 text-emerald-700" />
             </div>
             <div>
-              <h3 className="text-sm font-extrabold text-warm-900">Import from USDA FoodData Central</h3>
-              <p className="text-[10px] text-warm-400 mt-0.5">Foundation · SR Legacy · Survey (FNDDS) — all nutrients auto-extracted</p>
+              <h3 className="text-base font-extrabold text-warm-900">Import from USDA FoodData Central</h3>
+              <p className="text-xs text-warm-400 mt-0.5">Foundation · SR Legacy · Survey (FNDDS) — all nutrients auto-extracted</p>
             </div>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-warm-200 text-warm-400 hover:text-warm-700 cursor-pointer transition-colors mt-0.5">
@@ -117,12 +117,12 @@ function UsdaImportModal({ onClose, onImported }: {
               value={query}
               onChange={(e) => handleQueryChange(e.target.value)}
               placeholder="Type to search — e.g. chicken breast, brown rice, bangus..."
-              className="w-full pl-10 pr-10 py-2.5 text-sm bg-white border border-warm-300 rounded-xl text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all placeholder:text-warm-400"
+              className="w-full pl-10 pr-10 py-2.5 text-base bg-white border border-warm-300 rounded-xl text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all placeholder:text-warm-400"
               autoFocus
             />
           </div>
           {error && (
-            <div className="flex items-center gap-2 mt-2.5 text-[11px] text-red-600 font-semibold">
+            <div className="flex items-center gap-2 mt-2.5 text-xs text-red-600 font-semibold">
               <TriangleAlert className="h-3.5 w-3.5 shrink-0" /> {error}
             </div>
           )}
@@ -132,7 +132,7 @@ function UsdaImportModal({ onClose, onImported }: {
         {imported && (
           <div className="mx-6 mt-4 flex items-start gap-2.5 px-4 py-3 bg-emerald-50 border border-emerald-200 rounded-xl">
             <TriangleAlert className="h-3.5 w-3.5 text-emerald-600 shrink-0 mt-0.5" />
-            <p className="text-[11px] text-emerald-800 leading-relaxed">
+            <p className="text-xs text-emerald-800 leading-relaxed">
               <span className="font-bold">Food imported successfully.</span> Category and allergen suggestions are auto-mapped and should be reviewed.
             </p>
           </div>
@@ -143,7 +143,7 @@ function UsdaImportModal({ onClose, onImported }: {
           {results.length === 0 && !searching && (
             <div className="text-center py-12 select-none">
               <FlaskConical className="h-8 w-8 text-warm-200 mx-auto mb-3" />
-              <p className="text-xs text-warm-400">
+              <p className="text-sm text-warm-400">
                 {query.length >= 2 ? "No results found." : "Start typing to search the USDA database."}
               </p>
             </div>
@@ -155,12 +155,12 @@ function UsdaImportModal({ onClose, onImported }: {
                 className="flex items-center gap-4 p-3.5 rounded-xl border border-warm-100 hover:border-emerald-200 hover:bg-emerald-50/30 transition-all group">
                 <div className="flex-1 min-w-0 space-y-1">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-xs font-bold text-warm-900 leading-tight">{item.name}</span>
+                    <span className="text-sm font-bold text-warm-900 leading-tight">{item.name}</span>
                     {item.data_type && (
-                      <span className="text-[9px] text-warm-400 font-semibold uppercase tracking-wide">{item.data_type}</span>
+                      <span className="text-xs text-warm-400 font-semibold uppercase tracking-wide">{item.data_type}</span>
                     )}
                   </div>
-                  <div className="text-[9px] text-warm-500 font-medium">
+                  <div className="text-xs text-warm-500 font-medium">
                     <span>{Math.round(item.calories * 10) / 10}kcal</span>
                     {item.protein != null && <span className="ml-1.5">· P {Math.round(item.protein * 10) / 10}g</span>}
                     {item.carbs != null && <span className="ml-1.5">· C {Math.round(item.carbs * 10) / 10}g</span>}
@@ -174,7 +174,7 @@ function UsdaImportModal({ onClose, onImported }: {
                 <button
                   onClick={() => handleImport(item)}
                   disabled={importing === item.fdc_id}
-                  className="shrink-0 flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:opacity-50 text-white text-[10px] font-bold uppercase tracking-wider rounded-lg transition-colors cursor-pointer"
+                  className="shrink-0 flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:opacity-50 text-white text-xs font-bold uppercase tracking-wider rounded-lg transition-colors cursor-pointer"
                 >
                   {importing === item.fdc_id
                     ? <Loader2 className="h-3 w-3 animate-spin" />
@@ -187,7 +187,7 @@ function UsdaImportModal({ onClose, onImported }: {
         </div>
 
         <div className="px-6 py-3 border-t border-warm-100 bg-warm-50/60">
-          <p className="text-[10px] text-warm-400 text-center">
+          <p className="text-xs text-warm-400 text-center">
             FDC ID · Foundation Foods · SR Legacy · Survey (FNDDS) — Branded foods excluded
           </p>
         </div>
@@ -208,8 +208,8 @@ function FoodMicrosPopup({ food, onClose }: { food: FoodItem; onClose: () => voi
         onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-6 py-4 border-b border-warm-100 bg-warm-50/60">
           <div>
-            <h3 className="text-sm font-extrabold text-warm-900 truncate max-w-xs">{food.name}</h3>
-            <p className="text-[10px] text-warm-400 mt-0.5">
+            <h3 className="text-base font-extrabold text-warm-900 truncate max-w-xs">{food.name}</h3>
+            <p className="text-xs text-warm-400 mt-0.5">
               Full nutrient profile · per {food.serving_size ?? 100}{food.serving_unit ?? 'g'} serving
               {food.usda_fdc_id && <span className="ml-2 text-emerald-600 font-semibold">· USDA FDC #{food.usda_fdc_id}</span>}
             </p>
@@ -233,7 +233,7 @@ function FoodMicrosPopup({ food, onClose }: { food: FoodItem; onClose: () => voi
         {/* Micronutrients */}
         <div className="px-6 py-4 max-h-72 overflow-y-auto space-y-4">
           {!hasMicros ? (
-            <p className="text-xs text-warm-400 text-center py-6">
+            <p className="text-sm text-warm-400 text-center py-6">
               No micronutrient data — import from USDA to auto-populate all micros.
             </p>
           ) : (
@@ -242,13 +242,13 @@ function FoodMicrosPopup({ food, onClose }: { food: FoodItem; onClose: () => voi
               if (groupKeys.length === 0) return null;
               return (
                 <div key={group}>
-                  <p className="text-[9px] font-extrabold text-warm-400 uppercase tracking-widest mb-2">{group}</p>
+                  <p className="text-xs font-extrabold text-warm-400 uppercase tracking-widest mb-2">{group}</p>
                   <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
                     {groupKeys.map((key) => (
                       <div key={key} className="flex flex-col px-2.5 py-2 bg-warm-50 border border-warm-100 rounded-lg">
-                        <span className="text-[9px] text-warm-400 uppercase tracking-wide">{key.replace(/_/g, " ")}</span>
-                        <span className="text-xs font-bold text-warm-800 mt-0.5">
-                          {micros[key]} <span className="text-[9px] font-normal text-warm-400">{NUTRIENT_UNITS[key]}</span>
+                        <span className="text-xs text-warm-400 uppercase tracking-wide">{key.replace(/_/g, " ")}</span>
+                        <span className="text-sm font-bold text-warm-800 mt-0.5">
+                          {micros[key]} <span className="text-xs font-normal text-warm-400">{NUTRIENT_UNITS[key]}</span>
                         </span>
                       </div>
                     ))}
@@ -275,8 +275,8 @@ function RecipeMicrosPopup({ recipe, onClose }: { recipe: Recipe; onClose: () =>
         onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-6 py-4 border-b border-warm-100 bg-warm-50/60">
           <div>
-            <h3 className="text-sm font-extrabold text-warm-900 truncate max-w-xs">{recipe.name}</h3>
-            <p className="text-[10px] text-warm-400 mt-0.5">Full nutrient profile · per recipe total</p>
+            <h3 className="text-base font-extrabold text-warm-900 truncate max-w-xs">{recipe.name}</h3>
+            <p className="text-xs text-warm-400 mt-0.5">Full nutrient profile · per recipe total</p>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-warm-200 text-warm-400 cursor-pointer transition-colors">
             <X className="h-4 w-4" />
@@ -295,19 +295,19 @@ function RecipeMicrosPopup({ recipe, onClose }: { recipe: Recipe; onClose: () =>
         {/* Micronutrients */}
         <div className="px-6 py-4 max-h-72 overflow-y-auto space-y-4">
           {!hasMicros ? (
-            <p className="text-xs text-warm-400 text-center py-6">No micronutrient data — add USDA-sourced ingredients to populate.</p>
+            <p className="text-sm text-warm-400 text-center py-6">No micronutrient data — add USDA-sourced ingredients to populate.</p>
           ) : (
             Object.entries(NUTRIENT_GROUPS).map(([group, keys]) => {
               const groupKeys = (keys as readonly string[]).filter((k) => micros[k] != null);
               if (groupKeys.length === 0) return null;
               return (
                 <div key={group}>
-                  <p className="text-[9px] font-extrabold text-warm-400 uppercase tracking-widest mb-2">{group}</p>
+                  <p className="text-xs font-extrabold text-warm-400 uppercase tracking-widest mb-2">{group}</p>
                   <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
                     {groupKeys.map((key) => (
                       <div key={key} className="flex flex-col px-2.5 py-2 bg-warm-50 border border-warm-100 rounded-lg">
-                        <span className="text-[9px] text-warm-400 uppercase tracking-wide">{key.replace(/_/g, " ")}</span>
-                        <span className="text-xs font-bold text-warm-800 mt-0.5">{micros[key]} <span className="text-[9px] font-normal text-warm-400">{NUTRIENT_UNITS[key]}</span></span>
+                        <span className="text-xs text-warm-400 uppercase tracking-wide">{key.replace(/_/g, " ")}</span>
+                        <span className="text-sm font-bold text-warm-800 mt-0.5">{micros[key]} <span className="text-xs font-normal text-warm-400">{NUTRIENT_UNITS[key]}</span></span>
                       </div>
                     ))}
                   </div>
@@ -418,7 +418,7 @@ export default function FoodLibraryPage() {
   return (
     <div className="space-y-6 font-sans">
       {/* Breadcrumb */}
-      <div className="flex items-center gap-2 text-xs font-semibold text-warm-400 select-none">
+      <div className="flex items-center gap-2 text-sm font-semibold text-warm-400 select-none">
         <Link href="/dashboard" className="hover:text-emerald-700 transition-colors">Home</Link>
         <span className="text-warm-300">/</span>
         <span className="font-bold text-warm-700">Food Library</span>
@@ -433,19 +433,19 @@ export default function FoodLibraryPage() {
             </div>
             Food Library
           </h2>
-          <p className="text-xs text-warm-500 mt-1.5 select-none">
+          <p className="text-sm text-warm-500 mt-1.5 select-none">
             Clinical food &amp; recipe reference — macros, micros, and allergens for nutrition care.
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {activeTab === "foods" ? (
             <>
-              <Button variant="secondary" onClick={() => setShowUsda(true)} className="w-auto px-4 py-2.5 flex items-center gap-2 text-xs">
+              <Button variant="secondary" onClick={() => setShowUsda(true)} className="w-auto px-4 py-2.5 flex items-center gap-2 text-sm">
                 <FlaskConical className="h-3.5 w-3.5" />
                 Import from USDA
               </Button>
               <Link href="/food-library/foods/new">
-                <Button variant="primary" className="w-auto px-4 py-2.5 flex items-center gap-2 text-xs">
+                <Button variant="primary" className="w-auto px-4 py-2.5 flex items-center gap-2 text-sm">
                   <Plus className="h-3.5 w-3.5" />
                   Add Food
                 </Button>
@@ -453,7 +453,7 @@ export default function FoodLibraryPage() {
             </>
           ) : (
             <Link href="/food-library/recipes/new">
-              <Button variant="primary" className="w-auto px-4 py-2.5 flex items-center gap-2 text-xs">
+              <Button variant="primary" className="w-auto px-4 py-2.5 flex items-center gap-2 text-sm">
                 <Plus className="h-3.5 w-3.5" />
                 Create Recipe
               </Button>
@@ -466,7 +466,7 @@ export default function FoodLibraryPage() {
       <div className="flex border-b border-warm-200">
         {(["foods", "recipes"] as Tab[]).map((tab) => (
           <button key={tab} onClick={() => setActiveTab(tab)}
-            className={`px-5 py-2.5 text-xs font-bold uppercase tracking-wider border-b-2 transition-all cursor-pointer -mb-px ${
+            className={`px-5 py-2.5 text-sm font-bold uppercase tracking-wider border-b-2 transition-all cursor-pointer -mb-px ${
               activeTab === tab
                 ? "border-emerald-600 text-emerald-700"
                 : "border-transparent text-warm-400 hover:text-warm-700 hover:border-warm-300"
@@ -487,12 +487,12 @@ export default function FoodLibraryPage() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-warm-400" />
               <input type="text" placeholder="Search by food name..." value={foodSearch}
                 onChange={(e) => { setFoodSearch(e.target.value); setFoodPage(1); }}
-                className="w-full pl-9 pr-4 py-2 text-sm bg-white border border-warm-200 rounded-xl text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all placeholder:text-warm-400 shadow-sm" />
+                className="w-full pl-9 pr-4 py-2 text-base bg-white border border-warm-200 rounded-xl text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all placeholder:text-warm-400 shadow-sm" />
             </div>
             <div className="flex gap-1.5 flex-wrap">
               {FOOD_CATEGORIES.map((c) => (
                 <button key={c} onClick={() => { setFoodCategory(c); setFoodPage(1); }}
-                  className={`min-w-[64px] px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide rounded-lg border transition-all cursor-pointer text-center ${
+                  className={`min-w-[64px] px-3 py-1.5 text-xs font-bold uppercase tracking-wide rounded-lg border transition-all cursor-pointer text-center ${
                     foodCategory === c
                       ? "bg-forest-900 text-white border-forest-line"
                       : "bg-white text-warm-500 border-warm-200 hover:border-warm-300"
@@ -526,22 +526,22 @@ export default function FoodLibraryPage() {
                     {foods.map((food) => (
                       <tr key={food.id} className="hover:bg-warm-50/60 transition-colors group">
                         <td className="px-5 py-3.5 min-w-[180px]">
-                          <div className="text-xs font-bold text-warm-900 leading-snug">{food.name}</div>
+                          <div className="text-sm font-bold text-warm-900 leading-snug">{food.name}</div>
                           {food.usda_fdc_id && (
                             <div className="flex items-center gap-1 mt-1">
                               <FlaskConical className="h-2.5 w-2.5 text-emerald-500" />
-                              <span className="text-[9px] font-mono text-warm-400">USDA #{food.usda_fdc_id}</span>
+                              <span className="text-xs font-mono text-warm-400">USDA #{food.usda_fdc_id}</span>
                             </div>
                           )}
                         </td>
                         <td className="px-5 py-3.5">
                           {food.category
-                            ? <span className="text-[10px] text-warm-600 capitalize font-medium">{food.category}</span>
-                            : <span className="text-warm-300 text-[10px]">—</span>
+                            ? <span className="text-xs text-warm-600 capitalize font-medium">{food.category}</span>
+                            : <span className="text-warm-300 text-xs">—</span>
                           }
                         </td>
                         <td className="px-5 py-3.5">
-                          <div className="text-[10px] text-warm-600 font-medium">
+                          <div className="text-xs text-warm-600 font-medium">
                             <span>{Math.round(parseFloat(food.calories))}kcal</span>
                             {food.protein && <span className="ml-1.5">· P {Math.round(parseFloat(food.protein))}g</span>}
                             {food.carbs && <span className="ml-1.5">· C {Math.round(parseFloat(food.carbs))}g</span>}
@@ -566,8 +566,8 @@ export default function FoodLibraryPage() {
                         </td>
                         <td className="px-5 py-3.5">
                           {food.allergens.length > 0
-                            ? <span className="text-[10px] text-warm-600" title={food.allergens.join(", ")}>{food.allergens.join(", ")}</span>
-                            : <span className="text-warm-300 text-[10px]">None</span>
+                            ? <span className="text-xs text-warm-600" title={food.allergens.join(", ")}>{food.allergens.join(", ")}</span>
+                            : <span className="text-warm-300 text-xs">None</span>
                           }
                         </td>
                         <td className="px-5 py-3.5 text-right">
@@ -602,12 +602,12 @@ export default function FoodLibraryPage() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-warm-400" />
               <input type="text" placeholder="Search by recipe name..." value={recipeSearch}
                 onChange={(e) => { setRecipeSearch(e.target.value); setRecipePage(1); }}
-                className="w-full pl-9 pr-4 py-2 text-sm bg-white border border-warm-200 rounded-xl text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all placeholder:text-warm-400 shadow-sm" />
+                className="w-full pl-9 pr-4 py-2 text-base bg-white border border-warm-200 rounded-xl text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all placeholder:text-warm-400 shadow-sm" />
             </div>
             <div className="flex gap-1.5 flex-wrap">
               {RECIPE_CATEGORIES.map((c) => (
                 <button key={c} onClick={() => { setRecipeCategory(c); setRecipePage(1); }}
-                  className={`min-w-[64px] px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide rounded-lg border transition-all cursor-pointer text-center ${
+                  className={`min-w-[64px] px-3 py-1.5 text-xs font-bold uppercase tracking-wide rounded-lg border transition-all cursor-pointer text-center ${
                     recipeCategory === c
                       ? "bg-forest-900 text-white border-forest-line"
                       : "bg-white text-warm-500 border-warm-200 hover:border-warm-300"
@@ -642,19 +642,19 @@ export default function FoodLibraryPage() {
                       return (
                         <tr key={recipe.id} className="hover:bg-warm-50/60 transition-colors group">
                           <td className="px-5 py-3.5 min-w-[180px]">
-                            <div className="text-xs font-bold text-warm-900 leading-snug">{recipe.name}</div>
+                            <div className="text-sm font-bold text-warm-900 leading-snug">{recipe.name}</div>
                             {recipe.servings && (
-                              <div className="text-[10px] text-warm-400 mt-0.5">{recipe.servings} serving{recipe.servings !== 1 ? "s" : ""}</div>
+                              <div className="text-xs text-warm-400 mt-0.5">{recipe.servings} serving{recipe.servings !== 1 ? "s" : ""}</div>
                             )}
                           </td>
                           <td className="px-5 py-3.5">
                             {recipe.category
-                              ? <span className="text-[10px] text-warm-600 capitalize font-medium">{recipe.category}</span>
-                              : <span className="text-warm-300 text-[10px]">—</span>
+                              ? <span className="text-xs text-warm-600 capitalize font-medium">{recipe.category}</span>
+                              : <span className="text-warm-300 text-xs">—</span>
                             }
                           </td>
                           <td className="px-5 py-3.5">
-                            <div className="text-[10px] text-warm-600 font-medium">
+                            <div className="text-xs text-warm-600 font-medium">
                               {recipe.total_calories && <span>{Math.round(parseFloat(recipe.total_calories))}kcal</span>}
                               {recipe.total_protein && <span className="ml-1.5">· P {Math.round(parseFloat(recipe.total_protein))}g</span>}
                               {recipe.total_carbs && <span className="ml-1.5">· C {Math.round(parseFloat(recipe.total_carbs))}g</span>}
@@ -715,8 +715,8 @@ export default function FoodLibraryPage() {
       {deleteConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm border border-warm-200 p-6 space-y-4">
-            <h3 className="text-sm font-extrabold text-warm-900">Confirm Delete</h3>
-            <p className="text-xs text-warm-600 leading-relaxed">
+            <h3 className="text-base font-extrabold text-warm-900">Confirm Delete</h3>
+            <p className="text-sm text-warm-600 leading-relaxed">
               Are you sure you want to delete{" "}
               <span className="font-bold text-warm-900">&quot;{deleteConfirm.name}&quot;</span>? This cannot be undone.
             </p>
@@ -736,9 +736,9 @@ export default function FoodLibraryPage() {
 function MacroStat({ label, value, unit, color }: { label: string; value: string | number; unit: string; color: string }) {
   return (
     <div>
-      <p className={`text-[9px] font-bold uppercase tracking-wider ${color}`}>{label}</p>
-      <p className="text-sm font-extrabold text-warm-900">
-        {value}<span className="text-[9px] font-normal text-warm-500 ml-0.5">{unit}</span>
+      <p className={`text-xs font-bold uppercase tracking-wider ${color}`}>{label}</p>
+      <p className="text-base font-extrabold text-warm-900">
+        {value}<span className="text-xs font-normal text-warm-500 ml-0.5">{unit}</span>
       </p>
     </div>
   );
@@ -746,7 +746,7 @@ function MacroStat({ label, value, unit, color }: { label: string; value: string
 
 function Th({ children, right }: { children: React.ReactNode; right?: boolean }) {
   return (
-    <th className={`px-5 py-3.5 text-[9px] font-extrabold text-warm-400 uppercase tracking-widest ${right ? "text-right" : ""}`}>
+    <th className={`px-5 py-3.5 text-xs font-extrabold text-warm-400 uppercase tracking-widest ${right ? "text-right" : ""}`}>
       {children}
     </th>
   );
@@ -756,7 +756,7 @@ function ErrorBanner({ message }: { message: string }) {
   return (
     <div className="flex items-center gap-3 bg-red-50 border border-red-100 p-4 rounded-xl">
       <TriangleAlert className="h-4 w-4 text-red-500 shrink-0" />
-      <p className="text-xs text-red-700 font-semibold">{message}</p>
+      <p className="text-sm text-red-700 font-semibold">{message}</p>
     </div>
   );
 }
@@ -765,8 +765,8 @@ function EmptyState({ icon, title, message }: { icon: React.ReactNode; title: st
   return (
     <div className="p-14 text-center select-none">
       <div className="p-3.5 bg-warm-50 border border-warm-100 rounded-2xl w-fit mx-auto">{icon}</div>
-      <h3 className="text-sm font-bold text-warm-800 mt-4">{title}</h3>
-      <p className="text-xs text-warm-400 mt-1.5 max-w-sm mx-auto leading-relaxed">{message}</p>
+      <h3 className="text-base font-bold text-warm-800 mt-4">{title}</h3>
+      <p className="text-sm text-warm-400 mt-1.5 max-w-sm mx-auto leading-relaxed">{message}</p>
     </div>
   );
 }

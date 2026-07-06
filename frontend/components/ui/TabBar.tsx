@@ -38,7 +38,7 @@ export default function TabBar({
           key={tab.key}
           type="button"
           onClick={() => onTabChange(tab.key)}
-          className={`relative flex items-center gap-1.5 px-4 py-3 text-[10px] font-bold uppercase tracking-wider whitespace-nowrap border-b-2 transition-all cursor-pointer ${
+          className={`relative flex items-center gap-1.5 px-4 py-3 text-xs font-bold uppercase tracking-wider whitespace-nowrap border-b-2 transition-all cursor-pointer ${
             activeTab === tab.key
               ? `${tabTheme.active} bg-white`
               : "text-warm-500 border-transparent hover:text-warm-700 hover:bg-white/50"

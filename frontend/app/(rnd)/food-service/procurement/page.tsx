@@ -40,7 +40,7 @@ const spanLabel = (list?: ShoppingList) =>
 
 function Crumbs({ children }: { children?: React.ReactNode }) {
   return (
-    <div className="flex items-center gap-2 text-xs font-semibold text-warm-400 select-none">
+    <div className="flex items-center gap-2 text-sm font-semibold text-warm-400 select-none">
       <Link href="/dashboard" className="hover:text-emerald-700">Home</Link><span>/</span>
       <span>Food Service</span><span>/</span><span className="font-bold text-warm-600">Procurement</span>
       {children}
@@ -157,7 +157,7 @@ function ListDetail({ id, suppliers, onBack, onPosGenerated }: {
     }
   }
 
-  if (!list) return <div className="py-16 text-center text-xs text-warm-400">Loading…</div>;
+  if (!list) return <div className="py-16 text-center text-sm text-warm-400">Loading…</div>;
 
   const isSupplies = list.procurement_track === "supplies";
   const estimatedTotal = num(list.estimated_total);
@@ -173,7 +173,7 @@ function ListDetail({ id, suppliers, onBack, onPosGenerated }: {
           </button>
           <div>
             <h3 className="text-lg font-extrabold text-warm-900">{list.name}</h3>
-            <div className="text-[10px] text-warm-400 flex items-center gap-2">
+            <div className="text-xs text-warm-400 flex items-center gap-2">
               {!isSupplies && list.list_type === "suggested" && (
                 <span className="inline-flex items-center gap-0.5 text-emerald-600">
                   <Sparkles className="h-3 w-3" /> suggested
@@ -196,7 +196,7 @@ function ListDetail({ id, suppliers, onBack, onPosGenerated }: {
             <Split className="h-4 w-4" />
             {list.status === "converted" ? "Converted to PO" : "Convert to PO"}
           </Button>
-          {approveErr && <span className="text-[10px] text-red-600 font-semibold">{approveErr}</span>}
+          {approveErr && <span className="text-xs text-red-600 font-semibold">{approveErr}</span>}
         </div>
       </div>
 
@@ -205,7 +205,7 @@ function ListDetail({ id, suppliers, onBack, onPosGenerated }: {
         <div className="bg-white border border-warm-200 rounded-2xl p-5 shadow-sm">
           <div className="flex flex-wrap items-end gap-6">
             <div className="flex flex-col gap-1">
-              <span className="text-[10px] font-extrabold text-warm-500 uppercase tracking-wider">
+              <span className="text-xs font-extrabold text-warm-500 uppercase tracking-wider">
                 Estimated population
               </span>
               <div className="flex items-center gap-2">
@@ -217,7 +217,7 @@ function ListDetail({ id, suppliers, onBack, onPosGenerated }: {
                   onKeyDown={(e) => { if (e.key === "Enter") void savePopulation(); }}
                   disabled={list.status !== "draft"}
                   placeholder="Enter headcount…"
-                  className="w-36 px-3 py-2 text-sm border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:bg-warm-50 disabled:text-warm-400"
+                  className="w-36 px-3 py-2 text-base border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:bg-warm-50 disabled:text-warm-400"
                 />
                 <Button
                   variant="ghost"
@@ -225,33 +225,33 @@ function ListDetail({ id, suppliers, onBack, onPosGenerated }: {
                   onClick={savePopulation}
                   loading={savingPopulation}
                   disabled={list.status !== "draft"}
-                  className="!px-3 !py-2 text-xs"
+                  className="!px-3 !py-2 text-sm"
                 >
                   Save
                 </Button>
               </div>
               {populationErr && (
-                <span className="text-[10px] text-red-600 font-semibold">{populationErr}</span>
+                <span className="text-xs text-red-600 font-semibold">{populationErr}</span>
               )}
-              <span className="text-[10px] text-warm-400">
+              <span className="text-xs text-warm-400">
                 Press Enter or click Save · applies uniformly across the entire span
               </span>
             </div>
 
             <div className="flex flex-col gap-1">
-              <span className="text-[10px] font-extrabold text-warm-500 uppercase tracking-wider">
+              <span className="text-xs font-extrabold text-warm-500 uppercase tracking-wider">
                 Est. budget per head / day
               </span>
               <div className="text-2xl font-extrabold text-warm-800">
                 {budgetPerHeadPerDay != null ? peso(budgetPerHeadPerDay) : "—"}
               </div>
-              <span className="text-[10px] text-warm-400">
+              <span className="text-xs text-warm-400">
                 total cost ÷ (days × estimated population)
               </span>
             </div>
 
             <div className="flex flex-col gap-1 ml-auto">
-              <span className="text-[10px] font-extrabold text-warm-500 uppercase tracking-wider">
+              <span className="text-xs font-extrabold text-warm-500 uppercase tracking-wider">
                 Total procurement cost
               </span>
               <div className="text-2xl font-extrabold text-emerald-700">
@@ -265,7 +265,7 @@ function ListDetail({ id, suppliers, onBack, onPosGenerated }: {
       {/* Total for supplies list */}
       {isSupplies && (
         <div className="flex items-center gap-3">
-          <div className="px-4 py-2.5 rounded-xl border bg-emerald-50 border-emerald-200 text-emerald-700 text-xs font-semibold flex items-center gap-2">
+          <div className="px-4 py-2.5 rounded-xl border bg-emerald-50 border-emerald-200 text-emerald-700 text-sm font-semibold flex items-center gap-2">
             <span className="text-lg font-extrabold">{peso(estimatedTotal)}</span>
             <span className="opacity-70">total</span>
           </div>
@@ -275,17 +275,17 @@ function ListDetail({ id, suppliers, onBack, onPosGenerated }: {
       {/* Add supplies item form — supplies lists only */}
       {isSupplies && list.status === "draft" && (
         <div className="bg-white border border-warm-200 rounded-2xl p-4 shadow-sm">
-          <div className="text-[10px] font-extrabold text-warm-500 uppercase tracking-wider mb-3">Add supply item</div>
+          <div className="text-xs font-extrabold text-warm-500 uppercase tracking-wider mb-3">Add supply item</div>
           <div className="grid grid-cols-1 md:grid-cols-[1.4fr_90px_110px_150px_auto] gap-3 items-end">
             <div className="relative">
-              <label className="block text-[10px] font-extrabold text-warm-500 uppercase mb-1">Search supplies</label>
+              <label className="block text-xs font-extrabold text-warm-500 uppercase mb-1">Search supplies</label>
               <div className="flex items-center gap-2 px-3 py-2 border border-warm-200 rounded-lg">
                 <Search className="h-3.5 w-3.5 text-warm-400" />
                 <input
                   value={itemSearch}
                   onChange={(e) => searchItems(e.target.value)}
                   placeholder="Search supply catalog…"
-                  className="w-full text-sm outline-none"
+                  className="w-full text-base outline-none"
                 />
               </div>
               {itemResults.length > 0 && (
@@ -293,8 +293,8 @@ function ListDetail({ id, suppliers, onBack, onPosGenerated }: {
                   {itemResults.map((item) => (
                     <button key={item.itemId} type="button" onClick={() => selectManualItem(item)}
                       className="w-full text-left px-3 py-2 hover:bg-warm-50 border-b border-warm-100 last:border-0 cursor-pointer">
-                      <span className="block text-xs font-bold text-warm-900">{item.name}</span>
-                      <span className="text-[10px] text-warm-400">
+                      <span className="block text-sm font-bold text-warm-900">{item.name}</span>
+                      <span className="text-xs text-warm-400">
                         {item.base_unit ?? item.unit} · {item.unit_cost ? peso(num(item.unit_cost)) : "no price"}
                       </span>
                     </button>
@@ -303,21 +303,21 @@ function ListDetail({ id, suppliers, onBack, onPosGenerated }: {
               )}
             </div>
             <div>
-              <label className="block text-[10px] font-extrabold text-warm-500 uppercase mb-1">Qty</label>
+              <label className="block text-xs font-extrabold text-warm-500 uppercase mb-1">Qty</label>
               <input type="number" min="0" step="0.01" value={addQty}
                 onChange={(e) => setAddQty(e.target.value)}
-                className="w-full px-3 py-2 text-sm border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+                className="w-full px-3 py-2 text-base border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500" />
             </div>
             <div>
-              <label className="block text-[10px] font-extrabold text-warm-500 uppercase mb-1">Cost / unit (₱)</label>
+              <label className="block text-xs font-extrabold text-warm-500 uppercase mb-1">Cost / unit (₱)</label>
               <input type="number" min="0" step="0.01" value={addUnitPrice}
                 onChange={(e) => setAddUnitPrice(e.target.value)}
-                className="w-full px-3 py-2 text-sm border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+                className="w-full px-3 py-2 text-base border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500" />
             </div>
             <div>
-              <label className="block text-[10px] font-extrabold text-warm-500 uppercase mb-1">Vendor</label>
+              <label className="block text-xs font-extrabold text-warm-500 uppercase mb-1">Vendor</label>
               <select value={addSupplier} onChange={(e) => setAddSupplier(e.target.value)}
-                className="w-full px-3 py-2 text-sm border border-warm-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer">
+                className="w-full px-3 py-2 text-base border border-warm-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer">
                 <option value="">— vendor —</option>
                 {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
@@ -326,17 +326,17 @@ function ListDetail({ id, suppliers, onBack, onPosGenerated }: {
               <Plus className="h-4 w-4" /> Add
             </Button>
           </div>
-          {itemError && <p className="mt-2 text-[10px] font-semibold text-red-600">{itemError}</p>}
+          {itemError && <p className="mt-2 text-xs font-semibold text-red-600">{itemError}</p>}
         </div>
       )}
 
       {/* Cart table */}
       <div className="bg-white border border-warm-200 rounded-2xl shadow-sm overflow-x-auto">
-        <table className="w-full text-xs">
+        <table className="w-full text-sm">
           <thead className="bg-warm-50 border-b border-warm-100">
             <tr>
               {["Item", "Quantity", "Unit", "Vendor", "Cost / unit", "Total", ""].map((h) => (
-                <th key={h} className="px-3 py-3 text-left text-[10px] font-bold text-warm-500 uppercase tracking-wider">{h}</th>
+                <th key={h} className="px-3 py-3 text-left text-xs font-bold text-warm-500 uppercase tracking-wider">{h}</th>
               ))}
             </tr>
           </thead>
@@ -400,7 +400,7 @@ function ListDetail({ id, suppliers, onBack, onPosGenerated }: {
           {list.items.length > 0 && (
             <tfoot className="bg-warm-50 border-t border-warm-200">
               <tr>
-                <td colSpan={5} className="px-3 py-2.5 text-xs font-bold text-warm-500 text-right uppercase tracking-wider">Total</td>
+                <td colSpan={5} className="px-3 py-2.5 text-sm font-bold text-warm-500 text-right uppercase tracking-wider">Total</td>
                 <td className="px-3 py-2.5 font-mono font-bold text-emerald-700">{peso(estimatedTotal)}</td>
                 <td />
               </tr>
@@ -408,7 +408,7 @@ function ListDetail({ id, suppliers, onBack, onPosGenerated }: {
           )}
         </table>
       </div>
-      <p className="text-[10px] text-warm-400">
+      <p className="text-xs text-warm-400">
         Vendor is auto-suggested from the latest procurement and auto-updates unless locked.
         Converting to a PO creates one purchase order grouped by vendor.
       </p>
@@ -466,7 +466,7 @@ function PurchaseEventDetailView({ po, onBack, reload }: { po: PurchaseOrder; on
   if (group) {
     return (
       <div className="space-y-5">
-        <div className="flex items-center gap-2 text-xs font-semibold text-warm-400">
+        <div className="flex items-center gap-2 text-sm font-semibold text-warm-400">
           <button onClick={() => setGroupId(null)} className="hover:text-emerald-700">Procurement</button>
           <span>/</span><span>{po.po_number}</span><span>/</span>
           <span className="text-warm-700">{group.supplier?.name ?? "Unassigned vendor"}</span>
@@ -477,24 +477,24 @@ function PurchaseEventDetailView({ po, onBack, reload }: { po: PurchaseOrder; on
           </button>
           <div>
             <h3 className="text-lg font-extrabold text-warm-900">{group.supplier?.name ?? "Unassigned vendor"}</h3>
-            <div className="text-[10px] text-warm-400">Status: {group.status} · Total {peso(num(group.total_amount))}</div>
+            <div className="text-xs text-warm-400">Status: {group.status} · Total {peso(num(group.total_amount))}</div>
           </div>
         </div>
 
         <div className="bg-white border border-warm-200 rounded-2xl p-5 shadow-sm grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3 items-end">
           <label className="block">
-            <span className="block text-[10px] font-extrabold text-warm-500 uppercase tracking-wider mb-1">OR number</span>
+            <span className="block text-xs font-extrabold text-warm-500 uppercase tracking-wider mb-1">OR number</span>
             <input value={orDraft} onChange={(e) => setOrDraft(e.target.value)} disabled={locked}
-              className="w-full px-3 py-2 text-sm border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:bg-warm-50 disabled:text-warm-400" />
+              className="w-full px-3 py-2 text-base border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:bg-warm-50 disabled:text-warm-400" />
           </label>
           <Button variant="ghost" onClick={() => saveGroup({ or_number: orDraft || null })} loading={busy} disabled={locked} className="px-4 py-2">Save</Button>
         </div>
 
         <div className="bg-white border border-warm-200 rounded-2xl shadow-sm overflow-x-auto">
-          <table className="w-full text-xs">
+          <table className="w-full text-sm">
             <thead className="bg-warm-50 border-b border-warm-100">
               <tr>{["Item", "Qty", "Unit", "Cost / unit", "Total"].map((h) => (
-                <th key={h} className="px-3 py-3 text-left text-[10px] font-bold text-warm-500 uppercase tracking-wider">{h}</th>
+                <th key={h} className="px-3 py-3 text-left text-xs font-bold text-warm-500 uppercase tracking-wider">{h}</th>
               ))}</tr>
             </thead>
             <tbody className="divide-y divide-zinc-100">
@@ -551,33 +551,33 @@ function PurchaseEventDetailView({ po, onBack, reload }: { po: PurchaseOrder; on
           <h3 className="text-lg font-extrabold text-warm-900 flex items-center gap-2">
             <FileText className="h-4 w-4 text-emerald-600" />{po.po_number}
           </h3>
-          <div className="text-[10px] text-warm-400">
+          <div className="text-xs text-warm-400">
             Lifecycle: {po.lifecycle_status} · Total {peso(num(po.total_amount))}
           </div>
         </div>
         {po.lifecycle_status !== "open_execution" && po.actual_budget_per_head_per_day != null && (
           <div className="ml-auto flex flex-col items-end">
-            <span className="text-[10px] font-extrabold text-warm-500 uppercase tracking-wider">Actual budget / head / day</span>
+            <span className="text-xs font-extrabold text-warm-500 uppercase tracking-wider">Actual budget / head / day</span>
             <span className="text-2xl font-extrabold text-emerald-700">{peso(num(po.actual_budget_per_head_per_day))}</span>
-            <span className="text-[10px] text-warm-400">final total ÷ total served population</span>
+            <span className="text-xs text-warm-400">final total ÷ total served population</span>
           </div>
         )}
       </div>
       {po.served_population_progress && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div className="bg-white border border-warm-200 rounded-xl p-4">
-            <div className="text-[10px] font-extrabold text-warm-500 uppercase tracking-wider">Served days</div>
+            <div className="text-xs font-extrabold text-warm-500 uppercase tracking-wider">Served days</div>
             <div className="text-lg font-extrabold text-warm-900">
               {po.served_population_progress.done} / {po.served_population_progress.expected}
             </div>
           </div>
           <div className="bg-white border border-warm-200 rounded-xl p-4">
-            <div className="text-[10px] font-extrabold text-warm-500 uppercase tracking-wider">Total served population</div>
+            <div className="text-xs font-extrabold text-warm-500 uppercase tracking-wider">Total served population</div>
             <div className="text-lg font-extrabold text-warm-900">{po.served_population_progress.served}</div>
           </div>
           <div className="bg-white border border-warm-200 rounded-xl p-4">
-            <div className="text-[10px] font-extrabold text-warm-500 uppercase tracking-wider">Completion gate</div>
-            <div className="text-xs font-semibold text-warm-600">
+            <div className="text-xs font-extrabold text-warm-500 uppercase tracking-wider">Completion gate</div>
+            <div className="text-sm font-semibold text-warm-600">
               {po.lifecycle_status === "completed"
                 ? "Receipts and served population complete"
                 : "Needs receipts and all span served populations"}
@@ -586,10 +586,10 @@ function PurchaseEventDetailView({ po, onBack, reload }: { po: PurchaseOrder; on
         </div>
       )}
       <div className="bg-white border border-warm-200 rounded-2xl shadow-sm overflow-x-auto">
-        <table className="w-full text-xs">
+        <table className="w-full text-sm">
           <thead className="bg-warm-50 border-b border-warm-100">
             <tr>{["Vendor", "Items", "OR #", "Receipt", "Total", "Actions"].map((h) => (
-              <th key={h} className="px-4 py-3 text-left text-[10px] font-bold text-warm-500 uppercase tracking-wider">{h}</th>
+              <th key={h} className="px-4 py-3 text-left text-xs font-bold text-warm-500 uppercase tracking-wider">{h}</th>
             ))}</tr>
           </thead>
           <tbody className="divide-y divide-zinc-100">
@@ -603,7 +603,7 @@ function PurchaseEventDetailView({ po, onBack, reload }: { po: PurchaseOrder; on
                 </td>
                 <td className="px-4 py-3 font-mono text-warm-700">{peso(num(g.total_amount))}</td>
                 <td className="px-4 py-3">
-                  <button onClick={() => setGroupId(g.id)} className="text-xs font-semibold text-emerald-700 hover:underline cursor-pointer">
+                  <button onClick={() => setGroupId(g.id)} className="text-sm font-semibold text-emerald-700 hover:underline cursor-pointer">
                     Open
                   </button>
                 </td>
@@ -621,7 +621,7 @@ function PoDetail({ id, onBack }: { id: string; onBack: () => void }) {
   const [po, setPo] = useState<PurchaseOrder | null>(null);
   const load = useCallback(() => { getPurchaseOrder(id).then(setPo); }, [id]);
   useEffect(() => { load(); }, [load]);
-  if (!po) return <div className="py-16 text-center text-xs text-warm-400">Loading…</div>;
+  if (!po) return <div className="py-16 text-center text-sm text-warm-400">Loading…</div>;
   return <PurchaseEventDetailView po={po} onBack={onBack} reload={load} />;
 }
 
@@ -754,12 +754,12 @@ export default function ProcurementPage() {
           <h2 className="text-xl font-extrabold text-warm-900 tracking-tight flex items-center gap-2.5">
             <ShoppingBag className="h-5 w-5 text-emerald-600" /> Procurement
           </h2>
-          <p className="text-xs text-warm-500 mt-1">
+          <p className="text-sm text-warm-500 mt-1">
             Food and supplies procurement are separate tracks. Each converts to its own PO with its own vendor grouping.
           </p>
         </div>
         <div className="flex items-center gap-3 shrink-0">
-          <button onClick={load} className="flex items-center gap-1.5 text-xs text-warm-500 hover:text-warm-700">
+          <button onClick={load} className="flex items-center gap-1.5 text-sm text-warm-500 hover:text-warm-700">
             <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} /> Refresh
           </button>
           {tab === "supplies-lists" && (
@@ -769,7 +769,7 @@ export default function ProcurementPage() {
                 onChange={(e) => setNewListName(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") void createManualList(); }}
                 placeholder="Supplies list name…"
-                className="w-44 px-3 py-2 text-xs border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                className="w-44 px-3 py-2 text-sm border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
               />
               <Button variant="secondary" onClick={createManualList} className="px-3 py-2 flex items-center gap-1.5">
                 <Plus className="h-3.5 w-3.5" /> New supplies list
@@ -787,43 +787,43 @@ export default function ProcurementPage() {
       {/* Generate food list modal */}
       {genOpen && tab === "food-lists" && (
         <div className="bg-emerald-50/40 border border-emerald-100 rounded-2xl p-5 shadow-sm">
-          <h3 className="text-xs font-extrabold text-emerald-700 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+          <h3 className="text-sm font-extrabold text-emerald-700 uppercase tracking-wider mb-3 flex items-center gap-1.5">
             <Sparkles className="h-3.5 w-3.5" /> Suggested food shopping list
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
-              <label className="block text-[10px] font-extrabold text-warm-500 uppercase mb-1">From date</label>
+              <label className="block text-xs font-extrabold text-warm-500 uppercase mb-1">From date</label>
               <input type="date" value={genStartDate} onChange={(e) => {
                 const next = e.target.value;
                 setGenStartDate(next);
                 if (genEndDate < next) setGenEndDate(next);
-              }} className="w-full px-3 py-2 text-sm border border-warm-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+              }} className="w-full px-3 py-2 text-base border border-warm-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500" />
             </div>
             <div>
-              <label className="block text-[10px] font-extrabold text-warm-500 uppercase mb-1">To date</label>
+              <label className="block text-xs font-extrabold text-warm-500 uppercase mb-1">To date</label>
               <input type="date" value={genEndDate} min={genStartDate}
                 onChange={(e) => setGenEndDate(e.target.value)}
-                className="w-full px-3 py-2 text-sm border border-warm-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+                className="w-full px-3 py-2 text-base border border-warm-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500" />
             </div>
             <div className="flex items-end gap-2">
               <Button variant="primary" onClick={doGenerate} className="px-4 py-2">Generate</Button>
-              <button onClick={() => setGenOpen(false)} className="text-xs text-warm-500 hover:text-warm-700 cursor-pointer">Cancel</button>
+              <button onClick={() => setGenOpen(false)} className="text-sm text-warm-500 hover:text-warm-700 cursor-pointer">Cancel</button>
             </div>
           </div>
-          {genError && <p className="text-[10px] text-red-600 mt-2 font-semibold">{genError}</p>}
+          {genError && <p className="text-xs text-red-600 mt-2 font-semibold">{genError}</p>}
           {Object.keys(genMissing).length > 0 && (
             <div className="mt-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
-              <div className="text-[11px] font-extrabold text-amber-800 mb-1">Fill these days before generating:</div>
+              <div className="text-xs font-extrabold text-amber-800 mb-1">Fill these days before generating:</div>
               <ul className="space-y-0.5">
                 {Object.entries(genMissing).sort(([a], [b]) => a.localeCompare(b)).map(([date, reason]) => (
-                  <li key={date} className="text-[10px] text-amber-800">
+                  <li key={date} className="text-xs text-amber-800">
                     <span className="font-semibold">{date}</span> — {reason}
                   </li>
                 ))}
               </ul>
             </div>
           )}
-          <p className="text-[10px] text-warm-400 mt-2">
+          <p className="text-xs text-warm-400 mt-2">
             Sums all required ingredients for each day in the span. Generation is all-or-nothing: every day must have a menu cycle and menu items assigned, or the entire creation is blocked with the exact missing days listed above.
           </p>
         </div>
@@ -838,7 +838,7 @@ export default function ProcurementPage() {
           ["suppliers", "Suppliers"],
         ] as const).map(([k, label]) => (
           <button key={k} onClick={() => setTab(k)}
-            className={`px-5 py-3 text-sm font-semibold border-b-2 transition-colors cursor-pointer ${
+            className={`px-5 py-3 text-base font-semibold border-b-2 transition-colors cursor-pointer ${
               tab === k ? "border-emerald-600 text-emerald-700" : "border-transparent text-warm-500 hover:text-warm-800"
             }`}>
             {label}
@@ -849,23 +849,23 @@ export default function ProcurementPage() {
       {tab === "suppliers" ? <SuppliersPanel /> : (
         <div className="bg-white border border-warm-200 rounded-2xl shadow-sm overflow-x-auto">
           {loading ? (
-            <div className="py-16 text-center text-xs text-warm-400">Loading…</div>
+            <div className="py-16 text-center text-sm text-warm-400">Loading…</div>
           ) : (tab === "food-lists" || tab === "supplies-lists") ? (
             visibleLists.length === 0 ? (
               <div className="py-16 text-center">
                 <ShoppingBag className="h-8 w-8 text-warm-300 mx-auto mb-3" />
-                <p className="text-xs text-warm-400 font-medium">
+                <p className="text-sm text-warm-400 font-medium">
                   {tab === "food-lists"
                     ? "No food shopping lists yet. Click \"Suggest from Menu\" to generate one."
                     : "No supplies lists yet. Enter a name above and click \"New supplies list\"."}
                 </p>
               </div>
             ) : (
-              <table className="w-full text-xs">
+              <table className="w-full text-sm">
                 <thead className="bg-warm-50 border-b border-warm-100">
                   <tr>
                     {["Name", tab === "food-lists" ? "Span" : "Date", "Items", "Status", "Actions"].map((h) => (
-                      <th key={h} className="px-4 py-3 text-left text-[10px] font-bold text-warm-500 uppercase tracking-wider">{h}</th>
+                      <th key={h} className="px-4 py-3 text-left text-xs font-bold text-warm-500 uppercase tracking-wider">{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -896,7 +896,7 @@ export default function ProcurementPage() {
                       </td>
                       <td className="px-4 py-3 text-warm-500">{l.items.length}</td>
                       <td className="px-4 py-3">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${
                           l.status === "converted"
                             ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
                             : "bg-warm-100 text-warm-500"
@@ -930,13 +930,13 @@ export default function ProcurementPage() {
             procurementEvents.length === 0 ? (
               <div className="py-16 text-center">
                 <FileText className="h-8 w-8 text-warm-300 mx-auto mb-3" />
-                <p className="text-xs text-warm-400 font-medium">No purchase orders yet. Convert a shopping list to generate a PO.</p>
+                <p className="text-sm text-warm-400 font-medium">No purchase orders yet. Convert a shopping list to generate a PO.</p>
               </div>
             ) : (
-              <table className="w-full text-xs">
+              <table className="w-full text-sm">
                 <thead className="bg-warm-50 border-b border-warm-100">
                   <tr>{["Procurement span", "Track", "Estimated total", "Vendors", "Lifecycle", "Actions"].map((h) => (
-                    <th key={h} className="px-4 py-3 text-left text-[10px] font-bold text-warm-500 uppercase tracking-wider">{h}</th>
+                    <th key={h} className="px-4 py-3 text-left text-xs font-bold text-warm-500 uppercase tracking-wider">{h}</th>
                   ))}</tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-100">
@@ -944,10 +944,10 @@ export default function ProcurementPage() {
                     <tr key={list.id} className="hover:bg-warm-50/60">
                       <td className="px-4 py-3">
                         <span className="font-semibold text-warm-800">{spanLabel(list)}</span>
-                        <div className="text-[10px] text-warm-400">{list.name}</div>
+                        <div className="text-xs text-warm-400">{list.name}</div>
                       </td>
                       <td className="px-4 py-3">
-                        <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-bold ${
                           list.procurement_track === "supplies"
                             ? "bg-amber-50 text-amber-700 border border-amber-200"
                             : "bg-emerald-50 text-emerald-700 border border-emerald-200"

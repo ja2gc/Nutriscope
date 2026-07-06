@@ -20,7 +20,7 @@ export function Pagination({ meta, page, onPageChange }: PaginationProps) {
 
   return (
     <div className="px-5 py-3.5 border-t border-warm-100 flex items-center justify-between select-none">
-      <span className="text-[10px] font-semibold text-warm-400">
+      <span className="text-xs font-semibold text-warm-400">
         Page {meta.current_page} of {meta.last_page} · {meta.total} items
       </span>
       <div className="flex gap-1">

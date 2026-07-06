@@ -58,14 +58,14 @@ export default function ServiceLogPanel({ cycleId, population }: { cycleId: numb
     <div className="bg-white border border-warm-200 rounded-2xl p-5 shadow-sm space-y-4">
       <div className="flex items-center gap-2">
         <CalendarCheck className="h-4 w-4 text-emerald-600" />
-        <h3 className="text-xs font-extrabold text-warm-700 uppercase tracking-wider">Service log — deduct stock for a served day</h3>
+        <h3 className="text-sm font-extrabold text-warm-700 uppercase tracking-wider">Service log — deduct stock for a served day</h3>
       </div>
 
       <div className="flex flex-wrap items-end gap-3">
         <div>
-          <label className="block text-[10px] font-extrabold text-warm-500 uppercase tracking-wider mb-1">Service date</label>
+          <label className="block text-xs font-extrabold text-warm-500 uppercase tracking-wider mb-1">Service date</label>
           <input type="date" value={date} onChange={(e) => setDate(e.target.value)}
-            className="px-3 py-2 text-sm border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+            className="px-3 py-2 text-base border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500" />
         </div>
         <Button variant="primary" onClick={markServed} loading={busy} className="px-4 py-2 flex items-center gap-2">
           <CalendarCheck className="h-4 w-4" /> Mark served
@@ -73,7 +73,7 @@ export default function ServiceLogPanel({ cycleId, population }: { cycleId: numb
       </div>
 
       {flash && (
-        <div role="status" className={`flex items-start gap-2 text-xs font-bold px-3 py-2 rounded-xl border ${flash.ok ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-red-50 text-red-700 border-red-200"}`}>
+        <div role="status" className={`flex items-start gap-2 text-sm font-bold px-3 py-2 rounded-xl border ${flash.ok ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-red-50 text-red-700 border-red-200"}`}>
           {flash.ok ? <CheckCircle2 className="h-3.5 w-3.5 mt-0.5 shrink-0" /> : <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />}
           <span>{flash.msg}</span>
         </div>
@@ -81,12 +81,12 @@ export default function ServiceLogPanel({ cycleId, population }: { cycleId: numb
 
       <div className="border-t border-warm-100 pt-3">
         {loading ? (
-          <div className="py-4 text-center text-xs text-warm-400 flex items-center justify-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Loading…</div>
+          <div className="py-4 text-center text-sm text-warm-400 flex items-center justify-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Loading…</div>
         ) : logs.length === 0 ? (
-          <p className="text-[11px] text-warm-400">No days served yet for this cycle.</p>
+          <p className="text-xs text-warm-400">No days served yet for this cycle.</p>
         ) : (
-          <table className="w-full text-xs">
-            <thead className="text-[10px] font-bold text-warm-500 uppercase tracking-wider">
+          <table className="w-full text-sm">
+            <thead className="text-xs font-bold text-warm-500 uppercase tracking-wider">
               <tr><th className="text-left py-1.5">Date</th><th className="text-left py-1.5">Value used</th><th className="text-left py-1.5">Status</th><th /></tr>
             </thead>
             <tbody className="divide-y divide-zinc-100">
@@ -95,12 +95,12 @@ export default function ServiceLogPanel({ cycleId, population }: { cycleId: numb
                   <td className="py-2 font-semibold text-warm-800">{l.service_date}</td>
                   <td className="py-2 font-mono text-warm-600">{peso(l.total_value)}</td>
                   <td className="py-2">
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${l.status === "completed" ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-warm-100 text-warm-500 border-warm-200"}`}>{l.status}</span>
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-bold border ${l.status === "completed" ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-warm-100 text-warm-500 border-warm-200"}`}>{l.status}</span>
                   </td>
                   <td className="py-2 text-right">
                     {l.status === "completed" && (
                       <button onClick={() => reverse(l.id)} disabled={busy}
-                        className="inline-flex items-center gap-1 text-[10px] font-bold text-warm-500 hover:text-red-600 disabled:opacity-50">
+                        className="inline-flex items-center gap-1 text-xs font-bold text-warm-500 hover:text-red-600 disabled:opacity-50">
                         <Undo2 className="h-3 w-3" /> Reverse
                       </button>
                     )}

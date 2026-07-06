@@ -390,7 +390,7 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
 
     return (
       <div className="space-y-6 font-sans">
-        <div className="flex items-center gap-2 text-xs font-semibold text-warm-400 select-none">
+        <div className="flex items-center gap-2 text-sm font-semibold text-warm-400 select-none">
           <Link href="/ncp/patients" className="hover:text-emerald-700 transition-colors">Directory</Link>
           <span className="text-warm-300">/</span>
           <span className="text-warm-600 font-bold">Intervention</span>
@@ -406,9 +406,9 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
           <div className="p-3.5 bg-warm-50 border border-warm-200 rounded-2xl w-fit mx-auto text-warm-400">
             <Lock className="h-8 w-8" />
           </div>
-          <h3 className="text-sm font-bold text-warm-800 mt-4 uppercase tracking-wider">Prior Step Required</h3>
-          <p className="text-xs text-warm-500 mt-2 leading-relaxed">{workflowBlock}</p>
-          <Link href={nextHref} className="inline-flex mt-6 px-4 py-2.5 bg-forest-900 hover:bg-forest-900 text-white text-xs font-bold uppercase tracking-wider rounded-lg transition-colors">
+          <h3 className="text-base font-bold text-warm-800 mt-4 uppercase tracking-wider">Prior Step Required</h3>
+          <p className="text-sm text-warm-500 mt-2 leading-relaxed">{workflowBlock}</p>
+          <Link href={nextHref} className="inline-flex mt-6 px-4 py-2.5 bg-forest-900 hover:bg-forest-900 text-white text-sm font-bold uppercase tracking-wider rounded-lg transition-colors">
             Continue Required Step
           </Link>
         </div>
@@ -416,14 +416,14 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
     );
   }
   if (loading || workflowLoading) return (
-    <div className="flex items-center justify-center h-48 text-xs text-warm-400">Loading intervention…</div>
+    <div className="flex items-center justify-center h-48 text-sm text-warm-400">Loading intervention…</div>
   );
 
   return (
     <div className="space-y-0 font-sans">
       {/* Breadcrumb + header */}
       <div className="space-y-4 mb-4">
-        <div className="flex items-center gap-2 text-xs font-semibold text-warm-400 select-none">
+        <div className="flex items-center gap-2 text-sm font-semibold text-warm-400 select-none">
           <Link href="/ncp/patients" className="hover:text-emerald-700 transition-colors"
             onClick={(e) => {
               if (dirty && !window.confirm("You have unsaved changes. Leave without saving?")) e.preventDefault();
@@ -443,7 +443,7 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
             <Salad className="h-5 w-5 text-emerald-600" />
             Step 3: Nutrition Intervention
             {dirty && (
-              <span className="ml-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-[10px] font-bold text-amber-700 uppercase tracking-wide">
+              <span className="ml-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-xs font-bold text-amber-700 uppercase tracking-wide">
                 Unsaved changes
               </span>
             )}
@@ -455,7 +455,7 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
       <div className="flex flex-wrap border-b border-warm-200 mb-5">
         {TABS.map(({ key, label }) => (
           <button key={key} onClick={() => setTab(key)}
-            className={`px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider border-b-2 whitespace-nowrap transition-colors cursor-pointer ${
+            className={`px-4 py-2.5 text-xs font-bold uppercase tracking-wider border-b-2 whitespace-nowrap transition-colors cursor-pointer ${
               tab === key ? "border-emerald-600 text-emerald-700" : "border-transparent text-warm-400 hover:text-warm-600"
             }`}>
             {label}
@@ -472,28 +472,28 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
             {/* [A] Goal selector */}
             <div className="bg-white border border-warm-200 rounded-2xl p-5 shadow-sm">
               <div className="flex items-center justify-between mb-3">
-                <h3 className="text-xs font-extrabold text-warm-700 uppercase tracking-wider">Intervention Goal</h3>
-                <Button variant="ghost" onClick={() => setGoalModalOpen(true)} className="px-3 py-1.5 text-[10px] gap-1.5">
+                <h3 className="text-sm font-extrabold text-warm-700 uppercase tracking-wider">Intervention Goal</h3>
+                <Button variant="ghost" onClick={() => setGoalModalOpen(true)} className="px-3 py-1.5 text-xs gap-1.5">
                   <Settings2 className="h-3 w-3" />
                   {intervention?.goal_type ? "Change Goal" : "Set Goal"}
                 </Button>
               </div>
               {goalError && (
-                <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-2">{goalError}</p>
+                <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-2">{goalError}</p>
               )}
               {calculationWarning && (
-                <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-2">{calculationWarning}</p>
+                <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-2">{calculationWarning}</p>
               )}
               {intervention?.goal_type ? (
                 <div className="flex items-center gap-2 px-4 py-3 bg-emerald-50 border border-emerald-200 rounded-xl">
                   <CheckCircle2 className="h-4 w-4 text-emerald-600 flex-shrink-0" />
                   <div>
-                    <p className="text-xs font-bold text-emerald-800">{goalLabel}</p>
-                    {stageLabel && <p className="text-[10px] text-emerald-600">{stageLabel}</p>}
+                    <p className="text-sm font-bold text-emerald-800">{goalLabel}</p>
+                    {stageLabel && <p className="text-xs text-emerald-600">{stageLabel}</p>}
                   </div>
                 </div>
               ) : (
-                <p className="text-xs text-warm-400 italic">No goal set. Click &ldquo;Set Goal&rdquo; to begin.</p>
+                <p className="text-sm text-warm-400 italic">No goal set. Click &ldquo;Set Goal&rdquo; to begin.</p>
               )}
             </div>
 
@@ -511,8 +511,8 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
             {/* [C] Recommend / Avoid */}
             {intervention?.goal_type && (
               <div className="bg-white border border-warm-200 rounded-2xl p-5 shadow-sm space-y-3">
-                <h3 className="text-xs font-extrabold text-warm-700 uppercase tracking-wider">Food Recommendations</h3>
-                <p className="text-[9px] text-warm-400">Goal-specific food guidance. RND to individualise based on patient tolerance.</p>
+                <h3 className="text-sm font-extrabold text-warm-700 uppercase tracking-wider">Food Recommendations</h3>
+                <p className="text-xs text-warm-400">Goal-specific food guidance. RND to individualise based on patient tolerance.</p>
                 <RecommendAvoidPanel goalType={intervention.goal_type} />
               </div>
             )}
@@ -618,11 +618,11 @@ function PlaceholderState() {
         <div className="p-3.5 bg-warm-50 border border-warm-200 rounded-2xl w-fit mx-auto text-warm-400">
           <User className="h-8 w-8" />
         </div>
-        <h3 className="text-sm font-bold text-warm-800 mt-4 uppercase tracking-wider">No Patient Selected</h3>
-        <p className="text-xs text-warm-500 mt-2 leading-relaxed">Navigate to the NCP Patients directory and select a patient.</p>
+        <h3 className="text-base font-bold text-warm-800 mt-4 uppercase tracking-wider">No Patient Selected</h3>
+        <p className="text-sm text-warm-500 mt-2 leading-relaxed">Navigate to the NCP Patients directory and select a patient.</p>
         <div className="mt-6">
           <Link href="/ncp/patients"
-            className="inline-flex px-4 py-2.5 bg-forest-900 hover:bg-forest-900 text-white text-xs font-bold uppercase tracking-wider rounded-lg transition-colors">
+            className="inline-flex px-4 py-2.5 bg-forest-900 hover:bg-forest-900 text-white text-sm font-bold uppercase tracking-wider rounded-lg transition-colors">
             Go to Patients Directory
           </Link>
         </div>

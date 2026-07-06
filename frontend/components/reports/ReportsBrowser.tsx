@@ -21,8 +21,8 @@ import {
 } from "@/services/reportService";
 import { ReportPreview } from "@/components/ReportPreview";
 
-const inp = "w-full px-3 py-2 text-sm border border-warm-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500";
-const lbl = "block text-[10px] font-extrabold text-warm-500 uppercase tracking-wider mb-1";
+const inp = "w-full px-3 py-2 text-base border border-warm-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500";
+const lbl = "block text-xs font-extrabold text-warm-500 uppercase tracking-wider mb-1";
 
 const STATUS_TONE: Record<string, BadgeTone> = {
   archived: "violet", completed: "emerald", generating: "amber", pending: "amber", queued: "amber", failed: "red",
@@ -69,7 +69,7 @@ function FlashBar({ flash }: { flash: Flash }) {
     <div
       role="status"
       aria-live="polite"
-      className={`flex items-center gap-2 text-xs font-bold px-3 py-2 rounded-xl border w-fit ${
+      className={`flex items-center gap-2 text-sm font-bold px-3 py-2 rounded-xl border w-fit ${
         flash.ok ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-red-50 text-red-700 border-red-200"
       }`}
     >
@@ -147,7 +147,7 @@ function BrowseTab({
       <Card className="overflow-hidden">
         {groups.map((g) => (
           <div key={g}>
-            <div className="px-4 pt-4 pb-2 text-[10px] font-extrabold text-warm-400 uppercase tracking-wider">{g}</div>
+            <div className="px-4 pt-4 pb-2 text-xs font-extrabold text-warm-400 uppercase tracking-wider">{g}</div>
             <div className="pb-2">
               {catalog.filter((c) => c.group === g).map((c) => {
                 const Icon = c.icon;
@@ -157,7 +157,7 @@ function BrowseTab({
                     key={c.type}
                     onClick={() => setSelected(c)}
                     aria-current={active}
-                    className={`w-full flex items-center gap-2.5 px-4 py-2.5 text-left text-sm transition-colors cursor-pointer border-l-2 ${
+                    className={`w-full flex items-center gap-2.5 px-4 py-2.5 text-left text-base transition-colors cursor-pointer border-l-2 ${
                       active
                         ? "border-emerald-600 bg-emerald-50/60 text-emerald-700 font-semibold"
                         : "border-transparent text-warm-600 hover:bg-warm-50"
@@ -250,8 +250,8 @@ function InstancesPanel({
         <div className="flex items-start gap-3">
           <div className="p-2 rounded-xl bg-emerald-50 border border-emerald-100 text-emerald-600"><Icon className="h-5 w-5" /></div>
           <div>
-            <h2 className="text-sm font-bold text-warm-800">{entry.name}</h2>
-            <p className="text-[11px] text-warm-500 mt-0.5 leading-snug">{entry.desc}</p>
+            <h2 className="text-base font-bold text-warm-800">{entry.name}</h2>
+            <p className="text-xs text-warm-500 mt-0.5 leading-snug">{entry.desc}</p>
           </div>
         </div>
         {axis === "period" && years.length > 0 && (
@@ -266,13 +266,13 @@ function InstancesPanel({
       </div>
 
       {/* Live vs archived disclosure (spec §8.1) */}
-      <div className="px-5 py-2.5 bg-warm-50/70 border-b border-warm-100 text-[11px] text-warm-500 flex items-center gap-1.5">
+      <div className="px-5 py-2.5 bg-warm-50/70 border-b border-warm-100 text-xs text-warm-500 flex items-center gap-1.5">
         <Eye className="h-3.5 w-3.5 text-warm-400" />
         <span><span className="font-semibold text-warm-600">Click a report to view it.</span> The preview renders live from current data — use <span className="font-semibold text-warm-600">Archive</span> to freeze an as-filed copy.</span>
       </div>
 
       {loading ? (
-        <div className="py-16 text-center text-xs text-warm-400 flex items-center justify-center gap-2">
+        <div className="py-16 text-center text-sm text-warm-400 flex items-center justify-center gap-2">
           <Loader2 className="h-4 w-4 animate-spin" /> Loading…
         </div>
       ) : shown.length === 0 ? (
@@ -294,8 +294,8 @@ function InstancesPanel({
               >
                 <Eye className="h-4 w-4 text-warm-300 group-hover:text-emerald-500 shrink-0" />
                 <span className="min-w-0">
-                  <span className="block text-sm font-semibold text-warm-800 truncate">{i.label}</span>
-                  {i.date && <span className="block text-[11px] text-warm-400 tabular-nums">{new Date(i.date).toLocaleDateString()}</span>}
+                  <span className="block text-base font-semibold text-warm-800 truncate">{i.label}</span>
+                  {i.date && <span className="block text-xs text-warm-400 tabular-nums">{new Date(i.date).toLocaleDateString()}</span>}
                 </span>
               </button>
               <div className="px-5 shrink-0">
@@ -303,7 +303,7 @@ function InstancesPanel({
                   variant="secondary"
                   onClick={() => onArchive(i)}
                   loading={busy === i.key}
-                  className="!w-auto !py-1.5 !px-3 text-xs"
+                  className="!w-auto !py-1.5 !px-3 text-sm"
                 >
                   <Archive className="h-3.5 w-3.5" /> Archive
                 </Button>
@@ -382,14 +382,14 @@ function ArchivedTab({
   return (
     <Card className="overflow-hidden">
       <div className="px-5 py-3 border-b border-warm-100 flex items-center justify-between">
-        <h2 className="text-xs font-extrabold text-warm-700 uppercase tracking-wider">Archived Reports</h2>
-        <button onClick={load} className="flex items-center gap-1.5 text-xs text-warm-500 hover:text-warm-700 cursor-pointer">
+        <h2 className="text-sm font-extrabold text-warm-700 uppercase tracking-wider">Archived Reports</h2>
+        <button onClick={load} className="flex items-center gap-1.5 text-sm text-warm-500 hover:text-warm-700 cursor-pointer">
           <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} /> Refresh
         </button>
       </div>
 
       {loading ? (
-        <div className="py-12 text-center text-xs text-warm-400 flex items-center justify-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Loading…</div>
+        <div className="py-12 text-center text-sm text-warm-400 flex items-center justify-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Loading…</div>
       ) : reports.length === 0 ? (
         <div className="py-12">
           <EmptyState
@@ -399,10 +399,10 @@ function ArchivedTab({
           />
         </div>
       ) : (
-        <table className="w-full text-xs">
+        <table className="w-full text-sm">
           <thead className="bg-warm-50 border-b border-warm-100">
             <tr>{["Report", "Type", "Archived", "Status", "Actions"].map((h) => (
-              <th key={h} className="px-4 py-3 text-left text-[10px] font-bold text-warm-500 uppercase tracking-wider">{h}</th>
+              <th key={h} className="px-4 py-3 text-left text-xs font-bold text-warm-500 uppercase tracking-wider">{h}</th>
             ))}</tr>
           </thead>
           <tbody className="divide-y divide-zinc-100">
@@ -500,8 +500,8 @@ function TemplateEditor({ onFlash }: { onFlash: (ok: boolean, msg: string) => vo
     <div className="space-y-5">
       {/* Branding */}
       <Card padded>
-        <h2 className="text-xs font-extrabold text-warm-700 uppercase tracking-wider mb-1">Header Branding</h2>
-        <p className="text-[11px] text-warm-500 mb-4">Shared across every report header. The &quot;prepared by&quot; name auto-fills from the logged-in user; these are the fallbacks.</p>
+        <h2 className="text-sm font-extrabold text-warm-700 uppercase tracking-wider mb-1">Header Branding</h2>
+        <p className="text-xs text-warm-500 mb-4">Shared across every report header. The &quot;prepared by&quot; name auto-fills from the logged-in user; these are the fallbacks.</p>
         <form onSubmit={saveB} className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {([
@@ -517,8 +517,8 @@ function TemplateEditor({ onFlash }: { onFlash: (ok: boolean, msg: string) => vo
                 <input name={name} value={value ?? ""} onChange={(e) => setB({ [name]: e.target.value } as Partial<Branding>)} className={inp} />
               </div>
             ))}
-            <div><label className={lbl}>Left logo</label><input type="file" name="logo_left" accept="image/*" className="text-xs text-warm-500" /></div>
-            <div><label className={lbl}>Right logo</label><input type="file" name="logo_right" accept="image/*" className="text-xs text-warm-500" /></div>
+            <div><label className={lbl}>Left logo</label><input type="file" name="logo_left" accept="image/*" className="text-sm text-warm-500" /></div>
+            <div><label className={lbl}>Right logo</label><input type="file" name="logo_right" accept="image/*" className="text-sm text-warm-500" /></div>
           </div>
           <Button variant="primary" type="submit" loading={savingB} className="!w-auto !py-2 !px-4 flex items-center gap-2"><Save className="h-4 w-4" /> Save Branding</Button>
         </form>
@@ -529,23 +529,23 @@ function TemplateEditor({ onFlash }: { onFlash: (ok: boolean, msg: string) => vo
         {templates.map((t) => (
           <Card key={t.id} padded className="space-y-3">
             <div>
-              <h3 className="text-sm font-bold text-warm-800">{t.name}</h3>
-              {t.description && <p className="text-[11px] text-warm-500">{t.description}</p>}
+              <h3 className="text-base font-bold text-warm-800">{t.name}</h3>
+              {t.description && <p className="text-xs text-warm-500">{t.description}</p>}
             </div>
             {(t.signatories ?? []).length === 0 ? (
-              <p className="text-[11px] text-warm-400">No signatory block.</p>
+              <p className="text-xs text-warm-400">No signatory block.</p>
             ) : (
               <div className="space-y-2">
                 {(t.signatories ?? []).map((s, i) => (
                   <div key={`${s.role}-${i}`} className="grid grid-cols-[90px_1fr_1fr] gap-2 items-center">
-                    <span className="text-[10px] font-bold text-warm-400 uppercase truncate" title={s.label}>{s.label}</span>
+                    <span className="text-xs font-bold text-warm-400 uppercase truncate" title={s.label}>{s.label}</span>
                     <input value={s.name ?? ""} onChange={(e) => editSig(t.id, i, "name", e.target.value)} placeholder="Name" className={`${inp} !py-1.5`} />
                     <input value={s.title ?? ""} onChange={(e) => editSig(t.id, i, "title", e.target.value)} placeholder="Title" className={`${inp} !py-1.5`} />
                   </div>
                 ))}
               </div>
             )}
-            <Button variant="secondary" onClick={() => saveT(t)} loading={savingT === t.id} className="!w-auto !py-1.5 !px-3.5 text-xs flex items-center gap-1.5"><Save className="h-3.5 w-3.5" /> Save</Button>
+            <Button variant="secondary" onClick={() => saveT(t)} loading={savingT === t.id} className="!w-auto !py-1.5 !px-3.5 text-sm flex items-center gap-1.5"><Save className="h-3.5 w-3.5" /> Save</Button>
           </Card>
         ))}
       </div>

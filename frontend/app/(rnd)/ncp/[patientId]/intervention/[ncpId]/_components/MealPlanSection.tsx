@@ -402,31 +402,31 @@ export default function MealPlanSection({
     <div className="bg-white border border-warm-200 rounded-2xl p-5 shadow-sm space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <h3 className="text-xs font-extrabold text-warm-700 uppercase tracking-wider flex items-center gap-2">
+        <h3 className="text-sm font-extrabold text-warm-700 uppercase tracking-wider flex items-center gap-2">
           <Salad className="h-4 w-4 text-emerald-600" /> Weekly Meal Plan
         </h3>
         <div className="flex items-center gap-1 shrink-0">
           {templates.length > 0 && (
-            <button onClick={() => setFromTemplateOpen(true)} className="flex items-center gap-1.5 px-2.5 py-1.5 text-[10px] font-semibold text-warm-600 border border-warm-200 rounded-lg hover:bg-warm-50 transition-colors cursor-pointer whitespace-nowrap">
+            <button onClick={() => setFromTemplateOpen(true)} className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-warm-600 border border-warm-200 rounded-lg hover:bg-warm-50 transition-colors cursor-pointer whitespace-nowrap">
               <LayoutTemplate className="h-3 w-3" /> From Template
             </button>
           )}
           {activePlan && (
-            <button onClick={() => setSaveTemplateOpen(true)} className="flex items-center gap-1.5 px-2.5 py-1.5 text-[10px] font-semibold text-warm-600 border border-warm-200 rounded-lg hover:bg-warm-50 transition-colors cursor-pointer whitespace-nowrap">
+            <button onClick={() => setSaveTemplateOpen(true)} className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-warm-600 border border-warm-200 rounded-lg hover:bg-warm-50 transition-colors cursor-pointer whitespace-nowrap">
               <BookmarkPlus className="h-3 w-3" /> Save Template
             </button>
           )}
-          <button onClick={handleGenerate} disabled={generating} className="flex items-center gap-1.5 px-2.5 py-1.5 text-[10px] font-semibold text-warm-600 border border-warm-200 rounded-lg hover:bg-warm-50 transition-colors cursor-pointer whitespace-nowrap disabled:opacity-50">
+          <button onClick={handleGenerate} disabled={generating} className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-warm-600 border border-warm-200 rounded-lg hover:bg-warm-50 transition-colors cursor-pointer whitespace-nowrap disabled:opacity-50">
             {generating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wand2 className="h-3 w-3" />} Auto-Generate
           </button>
-          <button onClick={handleCreatePlan} disabled={creatingPlan} className="flex items-center gap-1.5 px-2.5 py-1.5 text-[10px] font-semibold text-warm-600 border border-warm-200 rounded-lg hover:bg-warm-50 transition-colors cursor-pointer whitespace-nowrap disabled:opacity-50">
+          <button onClick={handleCreatePlan} disabled={creatingPlan} className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-warm-600 border border-warm-200 rounded-lg hover:bg-warm-50 transition-colors cursor-pointer whitespace-nowrap disabled:opacity-50">
             {creatingPlan ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />} New Week
           </button>
         </div>
       </div>
 
       {allergens.length > 0 && (
-        <p className="text-[9px] text-amber-600 flex items-center gap-1">
+        <p className="text-xs text-amber-600 flex items-center gap-1">
           <AlertTriangle className="h-3 w-3" /> Auto-generate will exclude recipes containing: {allergens.join(', ')}
         </p>
       )}
@@ -434,7 +434,7 @@ export default function MealPlanSection({
       {foodDislikes.length > 0 && (
         <div className="flex items-start gap-2 p-2.5 bg-sky-50 border border-sky-200 rounded-lg">
           <AlertTriangle className="h-3 w-3 text-sky-500 flex-shrink-0 mt-0.5" />
-          <p className="text-[9px] text-sky-700">
+          <p className="text-xs text-sky-700">
             <span className="font-bold">Patient dislikes:</span> {foodDislikes.join(', ')} — these are <em>not</em> excluded from the plan but are flagged per item for RND review.
           </p>
         </div>
@@ -443,19 +443,19 @@ export default function MealPlanSection({
       {generateError && (
         <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-xl">
           <AlertTriangle className="h-3.5 w-3.5 text-amber-600 flex-shrink-0 mt-0.5" />
-          <p className="text-[10px] text-amber-800">{generateError}</p>
+          <p className="text-xs text-amber-800">{generateError}</p>
         </div>
       )}
 
       {/* Plan list */}
       {plans.length > 0 && (
         <div className="space-y-1">
-          <p className="text-[9px] font-bold text-warm-400 uppercase tracking-widest">Meal Plans</p>
+          <p className="text-xs font-bold text-warm-400 uppercase tracking-widest">Meal Plans</p>
           <div className="border border-warm-200 rounded-xl overflow-hidden divide-y divide-zinc-100">
             {plans.map((p) => (
               <div key={p.id} className={`flex items-center gap-1 pr-1 transition-colors ${activePlan?.id === p.id ? 'bg-warm-50' : 'hover:bg-warm-50/60'}`}>
                 <Button variant="ghost" size="sm" onClick={() => setActivePlan(p)}
-                  className={`flex-1 !justify-start rounded-none text-[10px] ${activePlan?.id === p.id ? '!text-warm-900 !font-bold' : '!text-warm-600'}`}>
+                  className={`flex-1 !justify-start rounded-none text-xs ${activePlan?.id === p.id ? '!text-warm-900 !font-bold' : '!text-warm-600'}`}>
                   Week of {p.week_start_date}
                 </Button>
                 <Button variant="icon" onClick={() => setConfirmDeleteId(p.id)} title="Delete plan"
@@ -465,20 +465,20 @@ export default function MealPlanSection({
               </div>
             ))}
           </div>
-          {loadingPlans && <div className="flex items-center gap-1.5 px-1 text-[10px] text-warm-400"><Loader2 className="h-3 w-3 animate-spin" />Loading…</div>}
+          {loadingPlans && <div className="flex items-center gap-1.5 px-1 text-xs text-warm-400"><Loader2 className="h-3 w-3 animate-spin" />Loading…</div>}
         </div>
       )}
 
       {deleteError && (
         <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-xl">
           <AlertTriangle className="h-3.5 w-3.5 text-red-600 flex-shrink-0 mt-0.5" />
-          <p className="text-[10px] text-red-800">{deleteError}</p>
+          <p className="text-xs text-red-800">{deleteError}</p>
         </div>
       )}
 
       {!activePlan && !loadingPlans && (
         <div className="bg-warm-50 border border-warm-200 rounded-xl p-8 text-center">
-          <p className="text-xs text-warm-400">No meal plans yet. Create one above or click Auto-Generate.</p>
+          <p className="text-sm text-warm-400">No meal plans yet. Create one above or click Auto-Generate.</p>
         </div>
       )}
 
@@ -494,7 +494,7 @@ export default function MealPlanSection({
           {/* Micro totals row */}
           {showMicros && displayedMicros.length > 0 && (
             <div className="p-3 bg-sky-50 border border-sky-100 rounded-xl space-y-2">
-              <p className="text-[9px] font-bold text-sky-500 uppercase tracking-widest">Daily Micronutrients — {selectedDay}</p>
+              <p className="text-xs font-bold text-sky-500 uppercase tracking-widest">Daily Micronutrients — {selectedDay}</p>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {displayedMicros.map((key) => {
                   const meta = ALL_MICROS.find((m) => m.key === key);
@@ -503,7 +503,7 @@ export default function MealPlanSection({
                   const overLimit = limit?.max != null && val > limit.max;
                   const underLimit = limit?.min != null && val < limit.min;
                   return (
-                    <div key={key} className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg border text-[10px] ${overLimit ? 'bg-red-50 border-red-200' : underLimit ? 'bg-amber-50 border-amber-200' : 'bg-white border-warm-200'}`}>
+                    <div key={key} className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg border text-xs ${overLimit ? 'bg-red-50 border-red-200' : underLimit ? 'bg-amber-50 border-amber-200' : 'bg-white border-warm-200'}`}>
                       <span className="font-semibold text-warm-700">{meta?.label ?? key}</span>
                       <span className={`font-mono font-bold ${overLimit ? 'text-red-600' : underLimit ? 'text-amber-600' : 'text-warm-500'}`}>
                         {val}{meta?.unit}
@@ -523,14 +523,14 @@ export default function MealPlanSection({
               const isDayFlagged = activePlan.days.some((day) => day.day_of_week === d && day.flagged === true);
               return (
                 <button key={d} onClick={() => setSelectedDay(d)}
-                  className={`px-3 py-2 rounded-xl text-[10px] font-bold border transition-colors cursor-pointer text-center ${
+                  className={`px-3 py-2 rounded-xl text-xs font-bold border transition-colors cursor-pointer text-center ${
                     selectedDay === d ? 'bg-emerald-600 text-white border-emerald-600'
                     : isDayFlagged ? 'bg-white text-amber-700 border-amber-300 hover:border-amber-400'
                     : 'bg-white text-warm-600 border-warm-200 hover:border-emerald-300'
                   }`}>
                   <span className="block">{d.slice(0,3)}</span>
                   {tot.cal > 0 && <span className="block font-normal opacity-80">{tot.cal}kcal</span>}
-                  {isDayFlagged && selectedDay !== d && <span className="block text-[8px] text-amber-500 font-bold">⚠ review</span>}
+                  {isDayFlagged && selectedDay !== d && <span className="block text-xs text-amber-500 font-bold">⚠ review</span>}
                 </button>
               );
             })}
@@ -546,13 +546,13 @@ export default function MealPlanSection({
               return (
                 <div key={mt} className="border border-warm-100 rounded-xl p-3.5 space-y-2">
                   <div className="flex items-center justify-between">
-                    <h4 className="text-[10px] font-extrabold text-warm-500 uppercase tracking-wider">{MEAL_LABELS[mt]}</h4>
+                    <h4 className="text-xs font-extrabold text-warm-500 uppercase tracking-wider">{MEAL_LABELS[mt]}</h4>
                     <button onClick={() => openPicker(day.id, mt)}
-                      className="flex items-center gap-1 text-[10px] font-bold text-emerald-600 hover:text-emerald-800 cursor-pointer">
+                      className="flex items-center gap-1 text-xs font-bold text-emerald-600 hover:text-emerald-800 cursor-pointer">
                       <Plus className="h-3 w-3" /> Add
                     </button>
                   </div>
-                  {items.length === 0 && <p className="text-[10px] text-warm-300 italic">Empty</p>}
+                  {items.length === 0 && <p className="text-xs text-warm-300 italic">Empty</p>}
                   {items.map((item) => {
                     const s = item.nutrient_snapshot;
                     const scale = s && s.serving_size > 0 ? parseFloat(item.quantity) / s.serving_size : 1;
@@ -562,11 +562,11 @@ export default function MealPlanSection({
                         <div className="flex items-center justify-between py-1 px-1.5 rounded-lg hover:bg-warm-50 group">
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-1.5">
-                              <span className="text-xs font-medium text-warm-800 truncate">{s?.name ?? '—'}</span>
-                              {item.source === 'usda' && <span className="text-[8px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-1.5 rounded-full uppercase">USDA</span>}
-                              {parseFloat(item.quantity) !== 1 && <span className="text-[8px] text-sky-500 font-bold">×{item.quantity}</span>}
+                              <span className="text-sm font-medium text-warm-800 truncate">{s?.name ?? '—'}</span>
+                              {item.source === 'usda' && <span className="text-xs font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-1.5 rounded-full uppercase">USDA</span>}
+                              {parseFloat(item.quantity) !== 1 && <span className="text-xs text-sky-500 font-bold">×{item.quantity}</span>}
                             </div>
-                            {s && <p className="text-[10px] text-warm-400">{item.quantity}{item.unit} · {Math.round(s.calories*scale)}kcal · P{Math.round(s.protein*scale)}g · C{Math.round(s.carbs*scale)}g · F{Math.round(s.fat*scale)}g</p>}
+                            {s && <p className="text-xs text-warm-400">{item.quantity}{item.unit} · {Math.round(s.calories*scale)}kcal · P{Math.round(s.protein*scale)}g · C{Math.round(s.carbs*scale)}g · F{Math.round(s.fat*scale)}g</p>}
                           </div>
                           <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                             <Button variant="icon" onClick={() => openEdit(item, day.id, key)} title="Edit"
@@ -588,7 +588,7 @@ export default function MealPlanSection({
                           </div>
                         </div>
                         {isDisliked && (
-                          <p className="text-[9px] text-amber-600 font-bold flex items-center gap-1 px-1.5 pb-1">
+                          <p className="text-xs text-amber-600 font-bold flex items-center gap-1 px-1.5 pb-1">
                             <AlertTriangle className="h-2.5 w-2.5" /> Patient dislikes this food — RND review recommended
                           </p>
                         )}
@@ -608,8 +608,8 @@ export default function MealPlanSection({
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 flex flex-col max-h-[85vh]">
             <div className="flex items-center justify-between px-6 py-4 border-b border-warm-100">
               <div>
-                <h3 className="text-sm font-extrabold text-warm-900">{editTarget.item.nutrient_snapshot?.name ?? 'Edit Meal'}</h3>
-                <p className="text-[9px] text-warm-400">Changes only affect this plan — not the recipe library.</p>
+                <h3 className="text-base font-extrabold text-warm-900">{editTarget.item.nutrient_snapshot?.name ?? 'Edit Meal'}</h3>
+                <p className="text-xs text-warm-400">Changes only affect this plan — not the recipe library.</p>
               </div>
               <button onClick={() => setEditTarget(null)} className="text-warm-400 hover:text-warm-700 cursor-pointer"><X className="h-4 w-4" /></button>
             </div>
@@ -618,7 +618,7 @@ export default function MealPlanSection({
             <div className="flex border-b border-warm-100 px-6">
               {(['scale', 'ingredients'] as const).map((tab) => (
                 <button key={tab} onClick={() => setEditTab(tab)}
-                  className={`px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider border-b-2 transition-colors cursor-pointer ${editTab === tab ? 'border-sky-600 text-sky-700' : 'border-transparent text-warm-400 hover:text-warm-600'}`}>
+                  className={`px-4 py-2.5 text-xs font-bold uppercase tracking-wider border-b-2 transition-colors cursor-pointer ${editTab === tab ? 'border-sky-600 text-sky-700' : 'border-transparent text-warm-400 hover:text-warm-600'}`}>
                   {tab === 'scale' ? 'Master Scale' : 'Ingredients'}
                 </button>
               ))}
@@ -628,22 +628,22 @@ export default function MealPlanSection({
               {/* Master scale tab */}
               {editTab === 'scale' && (
                 <div className="space-y-4">
-                  <p className="text-[10px] text-warm-400">Adjust serving size. All nutrients scale proportionally.</p>
+                  <p className="text-xs text-warm-400">Adjust serving size. All nutrients scale proportionally.</p>
                   <div className="space-y-2">
-                    <label className="block text-[9px] font-bold text-warm-400 uppercase tracking-widest">Serving Amount</label>
+                    <label className="block text-xs font-bold text-warm-400 uppercase tracking-widest">Serving Amount</label>
                     <div className="flex items-center gap-3">
                       <input type="number" min="0.1" max="10" step="0.1"
                         value={editServings}
                         onChange={(e) => setEditServings(e.target.value)}
-                        className="w-28 px-3 py-2 text-sm font-mono border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500" />
-                      <span className="text-xs text-warm-400">serving(s)</span>
+                        className="w-28 px-3 py-2 text-base font-mono border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500" />
+                      <span className="text-sm text-warm-400">serving(s)</span>
                     </div>
                     {/* Range slider */}
                     <input type="range" min="0.5" max="3" step="0.1"
                       value={editServings}
                       onChange={(e) => setEditServings(e.target.value)}
                       className="w-full accent-sky-600" />
-                    <div className="flex justify-between text-[9px] text-warm-400">
+                    <div className="flex justify-between text-xs text-warm-400">
                       <span>0.5×</span><span>1×</span><span>2×</span><span>3×</span>
                     </div>
                   </div>
@@ -651,8 +651,8 @@ export default function MealPlanSection({
                     <div className="grid grid-cols-4 gap-2 pt-2">
                       {[['Energy', editScaledSnap.cal, 'kcal'], ['Protein', editScaledSnap.prot, 'g'], ['Carbs', editScaledSnap.carb, 'g'], ['Fat', editScaledSnap.fat, 'g']].map(([label, val, unit]) => (
                         <div key={String(label)} className="bg-sky-50 border border-sky-100 rounded-xl p-2.5 text-center">
-                          <p className="text-[9px] font-bold text-sky-500 uppercase">{label}</p>
-                          <p className="text-sm font-extrabold font-mono text-warm-900">{val}<span className="text-[9px] font-normal text-warm-400 ml-0.5">{unit}</span></p>
+                          <p className="text-xs font-bold text-sky-500 uppercase">{label}</p>
+                          <p className="text-base font-extrabold font-mono text-warm-900">{val}<span className="text-xs font-normal text-warm-400 ml-0.5">{unit}</span></p>
                         </div>
                       ))}
                     </div>
@@ -664,12 +664,12 @@ export default function MealPlanSection({
               {editTab === 'ingredients' && (
                 <div className="space-y-3">
                   {!editTarget.item.recipe_id && (
-                    <p className="text-xs text-warm-400 italic">Ingredient editing is only available for recipe-based items.</p>
+                    <p className="text-sm text-warm-400 italic">Ingredient editing is only available for recipe-based items.</p>
                   )}
                   {editLoadingRecipe && <div className="flex items-center justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-warm-400" /></div>}
                   {editRecipe && editIngredients.length > 0 && (
                     <>
-                      <p className="text-[10px] text-warm-400">
+                      <p className="text-xs text-warm-400">
                         Modify ingredient quantities. &ldquo;Recalculate&rdquo; updates the nutrition for this plan item only.
                         Recipe makes <strong>{editRecipe.servings ?? 1} serving(s)</strong>.
                       </p>
@@ -677,8 +677,8 @@ export default function MealPlanSection({
                         {editIngredients.map((row, i) => (
                           <div key={row.id} className="flex items-center gap-3 p-2.5 border border-warm-100 rounded-xl">
                             <div className="flex-1 min-w-0">
-                              <p className="text-xs font-semibold text-warm-800 truncate">{row.ing.food_item?.name ?? '—'}</p>
-                              <p className="text-[9px] text-warm-400">{row.ing.unit} · {row.ing.food_item?.calories ?? 0} kcal per {row.ing.food_item?.serving_size ?? 100}{row.ing.food_item?.serving_unit ?? 'g'}</p>
+                              <p className="text-sm font-semibold text-warm-800 truncate">{row.ing.food_item?.name ?? '—'}</p>
+                              <p className="text-xs text-warm-400">{row.ing.unit} · {row.ing.food_item?.calories ?? 0} kcal per {row.ing.food_item?.serving_size ?? 100}{row.ing.food_item?.serving_unit ?? 'g'}</p>
                             </div>
                             <div className="flex items-center gap-1.5">
                               <input type="number" min="0" step="1"
@@ -686,8 +686,8 @@ export default function MealPlanSection({
                                 onChange={(e) => {
                                   setEditIngredients((prev) => prev.map((r, idx) => idx === i ? { ...r, qty: e.target.value } : r));
                                 }}
-                                className="w-16 px-2 py-1.5 text-sm font-mono border border-warm-200 rounded-lg focus:outline-none focus:border-sky-500 text-right" />
-                              <span className="text-[10px] text-warm-400 w-6">{row.ing.unit}</span>
+                                className="w-16 px-2 py-1.5 text-base font-mono border border-warm-200 rounded-lg focus:outline-none focus:border-sky-500 text-right" />
+                              <span className="text-xs text-warm-400 w-6">{row.ing.unit}</span>
                             </div>
                           </div>
                         ))}
@@ -699,8 +699,8 @@ export default function MealPlanSection({
                           <div className="grid grid-cols-4 gap-2 pt-1">
                             {[['Energy', r.calories, 'kcal'], ['Protein', r.protein, 'g'], ['Carbs', r.carbs, 'g'], ['Fat', r.fat, 'g']].map(([label, val, unit]) => (
                               <div key={String(label)} className="bg-sky-50 border border-sky-100 rounded-xl p-2.5 text-center">
-                                <p className="text-[9px] font-bold text-sky-500 uppercase">{label}</p>
-                                <p className="text-sm font-extrabold font-mono text-warm-900">{Math.round(Number(val) || 0)}<span className="text-[9px] font-normal text-warm-400 ml-0.5">{unit}</span></p>
+                                <p className="text-xs font-bold text-sky-500 uppercase">{label}</p>
+                                <p className="text-base font-extrabold font-mono text-warm-900">{Math.round(Number(val) || 0)}<span className="text-xs font-normal text-warm-400 ml-0.5">{unit}</span></p>
                               </div>
                             ))}
                           </div>
@@ -715,7 +715,7 @@ export default function MealPlanSection({
             <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-warm-100">
               <Button variant="ghost" onClick={() => setEditTarget(null)}>Cancel</Button>
               <button onClick={handleSaveEdit} disabled={editSaving}
-                className="px-5 py-2 text-xs font-bold bg-sky-600 hover:bg-sky-700 text-white rounded-lg transition-colors disabled:opacity-50 cursor-pointer">
+                className="px-5 py-2 text-sm font-bold bg-sky-600 hover:bg-sky-700 text-white rounded-lg transition-colors disabled:opacity-50 cursor-pointer">
                 {editSaving ? 'Saving…' : 'Save Changes'}
               </button>
             </div>
@@ -727,11 +727,11 @@ export default function MealPlanSection({
       {confirmDeleteId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6 space-y-4">
-            <h3 className="text-sm font-extrabold text-warm-900">Delete Meal Plan?</h3>
-            <p className="text-xs text-warm-500">This will permanently delete the plan and all its food entries.</p>
+            <h3 className="text-base font-extrabold text-warm-900">Delete Meal Plan?</h3>
+            <p className="text-sm text-warm-500">This will permanently delete the plan and all its food entries.</p>
             <div className="flex gap-2 justify-end">
               <Button variant="ghost" onClick={() => setConfirmDeleteId(null)}>Cancel</Button>
-              <Button variant="danger" onClick={handleDeletePlan} loading={deleting} className="w-auto px-4 py-2 text-xs">
+              <Button variant="danger" onClick={handleDeletePlan} loading={deleting} className="w-auto px-4 py-2 text-sm">
                 Delete Plan
               </Button>
             </div>
@@ -744,13 +744,13 @@ export default function MealPlanSection({
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 flex flex-col max-h-[80vh]">
             <div className="flex items-center justify-between p-4 border-b border-warm-100">
-              <h3 className="text-sm font-extrabold text-warm-900">Add Food</h3>
+              <h3 className="text-base font-extrabold text-warm-900">Add Food</h3>
               <button onClick={() => setPickerOpen(false)} className="text-warm-400 hover:text-warm-700 cursor-pointer"><X className="h-4 w-4" /></button>
             </div>
             <div className="flex gap-1 px-4 pt-3">
               {([{ key: 'library' as const, label: 'Library', Icon: Database }, { key: 'recipes' as const, label: 'Recipes', Icon: Salad }, { key: 'usda' as const, label: 'USDA', Icon: Leaf }]).map(({ key, label, Icon }) => (
                 <button key={key} onClick={() => setPickerTab(key)}
-                  className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-[10px] font-bold border transition-colors cursor-pointer ${pickerTab === key ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-warm-50 text-warm-500 border-warm-200'}`}>
+                  className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors cursor-pointer ${pickerTab === key ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-warm-50 text-warm-500 border-warm-200'}`}>
                   <Icon className="h-3 w-3" />{label}
                 </button>
               ))}
@@ -758,7 +758,7 @@ export default function MealPlanSection({
             {pickerError && (
               <div className="mx-4 mt-2 flex items-start gap-2 p-2.5 bg-red-50 border border-red-200 rounded-lg">
                 <AlertTriangle className="h-3.5 w-3.5 text-red-600 flex-shrink-0 mt-0.5" />
-                <p className="text-[10px] text-red-800">{pickerError}</p>
+                <p className="text-xs text-red-800">{pickerError}</p>
               </div>
             )}
             <div className="p-4 space-y-3 overflow-y-auto flex-1">
@@ -767,12 +767,12 @@ export default function MealPlanSection({
                   <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-warm-400" />
                     <input type="text" value={libraryQuery} autoFocus placeholder="Search library…"
                       onChange={async (e) => { setLibraryQuery(e.target.value); if (e.target.value.length >= 2) { setPickerLoading(true); try { setLibraryResults((await fetchFoodItems(e.target.value)).data); } finally { setPickerLoading(false); } } else setLibraryResults([]); }}
-                      className="w-full pl-9 pr-3 py-2 text-sm border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600" /></div>
+                      className="w-full pl-9 pr-3 py-2 text-base border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600" /></div>
                   {pickerLoading && <Loader2 className="h-4 w-4 animate-spin text-warm-400 mx-auto" />}
                   {libraryResults.map((food) => (
                     <div key={food.id} className="flex items-center justify-between p-3 border border-warm-100 rounded-xl hover:border-emerald-200 transition-colors">
-                      <div><p className="text-xs font-semibold text-warm-800">{food.name}</p><p className="text-[10px] text-warm-400">{food.calories}kcal · P{food.protein}g · C{food.carbs}g · F{food.fat}g</p></div>
-                      <Button variant="primary" loading={adding === food.id} onClick={() => addFromLibrary(food)} className="w-auto px-3 py-1.5 text-[10px]">Add</Button>
+                      <div><p className="text-sm font-semibold text-warm-800">{food.name}</p><p className="text-xs text-warm-400">{food.calories}kcal · P{food.protein}g · C{food.carbs}g · F{food.fat}g</p></div>
+                      <Button variant="primary" loading={adding === food.id} onClick={() => addFromLibrary(food)} className="w-auto px-3 py-1.5 text-xs">Add</Button>
                     </div>
                   ))}
                 </>
@@ -782,12 +782,12 @@ export default function MealPlanSection({
                   <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-warm-400" />
                     <input type="text" value={recipeQuery} autoFocus placeholder="Search recipes…"
                       onChange={async (e) => { setRecipeQuery(e.target.value); if (e.target.value.length >= 2) { setPickerLoading(true); try { setRecipeResults((await fetchRecipes(e.target.value)).data); } finally { setPickerLoading(false); } } else setRecipeResults([]); }}
-                      className="w-full pl-9 pr-3 py-2 text-sm border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600" /></div>
+                      className="w-full pl-9 pr-3 py-2 text-base border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600" /></div>
                   {pickerLoading && <Loader2 className="h-4 w-4 animate-spin text-warm-400 mx-auto" />}
                   {recipeResults.map((r) => (
                     <div key={r.id} className="flex items-center justify-between p-3 border border-warm-100 rounded-xl hover:border-emerald-200 transition-colors">
-                      <div><p className="text-xs font-semibold text-warm-800">{r.name}</p><p className="text-[10px] text-warm-400">{r.total_calories}kcal · P{r.total_protein}g · C{r.total_carbs}g · F{r.total_fat}g{r.servings ? ` · ${r.servings} srv` : ''}</p></div>
-                      <Button variant="primary" loading={adding === `recipe-${r.id}`} onClick={() => addFromRecipe(r)} className="w-auto px-3 py-1.5 text-[10px]">Add</Button>
+                      <div><p className="text-sm font-semibold text-warm-800">{r.name}</p><p className="text-xs text-warm-400">{r.total_calories}kcal · P{r.total_protein}g · C{r.total_carbs}g · F{r.total_fat}g{r.servings ? ` · ${r.servings} srv` : ''}</p></div>
+                      <Button variant="primary" loading={adding === `recipe-${r.id}`} onClick={() => addFromRecipe(r)} className="w-auto px-3 py-1.5 text-xs">Add</Button>
                     </div>
                   ))}
                 </>
@@ -797,13 +797,13 @@ export default function MealPlanSection({
                   <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-warm-400" />
                     <input type="text" value={usdaQuery} autoFocus placeholder="Search USDA…"
                       onChange={async (e) => { setUsdaQuery(e.target.value); if (e.target.value.length >= 2) { setPickerLoading(true); try { setUsdaResults(await searchUsda(e.target.value)); } finally { setPickerLoading(false); } } else setUsdaResults([]); }}
-                      className="w-full pl-9 pr-3 py-2 text-sm border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600" /></div>
-                  <p className="text-[9px] text-warm-400">USDA foods are not saved to the library unless you bookmark them.</p>
+                      className="w-full pl-9 pr-3 py-2 text-base border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600" /></div>
+                  <p className="text-xs text-warm-400">USDA foods are not saved to the library unless you bookmark them.</p>
                   {pickerLoading && <Loader2 className="h-4 w-4 animate-spin text-warm-400 mx-auto" />}
                   {usdaResults.map((food) => (
                     <div key={food.fdc_id} className="flex items-center justify-between p-3 border border-warm-100 rounded-xl hover:border-emerald-200 transition-colors">
-                      <div><p className="text-xs font-semibold text-warm-800">{food.name}</p><p className="text-[10px] text-warm-400">{food.calories}kcal · P{food.protein}g · C{food.carbs}g · F{food.fat}g</p></div>
-                      <Button variant="primary" loading={adding === food.fdc_id} onClick={() => addFromUsda(food)} className="w-auto px-3 py-1.5 text-[10px]">Add</Button>
+                      <div><p className="text-sm font-semibold text-warm-800">{food.name}</p><p className="text-xs text-warm-400">{food.calories}kcal · P{food.protein}g · C{food.carbs}g · F{food.fat}g</p></div>
+                      <Button variant="primary" loading={adding === food.fdc_id} onClick={() => addFromUsda(food)} className="w-auto px-3 py-1.5 text-xs">Add</Button>
                     </div>
                   ))}
                 </>
@@ -817,16 +817,16 @@ export default function MealPlanSection({
       {saveTemplateOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6 space-y-4">
-            <h3 className="text-sm font-extrabold text-warm-900">Save as Template</h3>
+            <h3 className="text-base font-extrabold text-warm-900">Save as Template</h3>
             <div className="space-y-1.5">
-              <label className="block text-[9px] font-bold text-warm-400 uppercase tracking-widest">Template Name</label>
+              <label className="block text-xs font-bold text-warm-400 uppercase tracking-widest">Template Name</label>
               <input type="text" value={templateName} onChange={(e) => setTemplateName(e.target.value)} placeholder='e.g. "CKD Stage 4 — Week A"' autoFocus
-                className="w-full px-3.5 py-2.5 text-sm border border-warm-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600" />
+                className="w-full px-3.5 py-2.5 text-base border border-warm-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600" />
             </div>
             <div className="flex gap-2 justify-end">
               <Button variant="ghost" onClick={() => setSaveTemplateOpen(false)}>Cancel</Button>
               <Button variant="primary" onClick={handleSaveTemplate} loading={savingTemplate}
-                disabled={savingTemplate || !templateName.trim()} className="w-auto px-4 py-2 text-xs">
+                disabled={savingTemplate || !templateName.trim()} className="w-auto px-4 py-2 text-sm">
                 Save Template
               </Button>
             </div>
@@ -844,29 +844,29 @@ export default function MealPlanSection({
                   <button onClick={() => setViewingTemplate(null)} className="text-warm-400 hover:text-warm-700 cursor-pointer">
                     <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
                   </button>
-                  <h3 className="text-sm font-extrabold text-warm-900">{viewingTemplate.name}</h3>
+                  <h3 className="text-base font-extrabold text-warm-900">{viewingTemplate.name}</h3>
                 </div>
-              ) : <h3 className="text-sm font-extrabold text-warm-900">Meal Plan Templates</h3>}
+              ) : <h3 className="text-base font-extrabold text-warm-900">Meal Plan Templates</h3>}
               <button onClick={() => { setFromTemplateOpen(false); setViewingTemplate(null); }} className="text-warm-400 hover:text-warm-700 cursor-pointer"><X className="h-4 w-4" /></button>
             </div>
             <div className="overflow-y-auto flex-1 p-4">
               {!viewingTemplate && (templates.length === 0 ? (
-                <p className="text-xs text-warm-400 text-center py-8">No templates saved yet.</p>
+                <p className="text-sm text-warm-400 text-center py-8">No templates saved yet.</p>
               ) : (
                 <div className="space-y-2">
                   {templates.map((tmpl) => (
                     <div key={tmpl.id} className="flex items-center gap-2 p-3 border border-warm-200 rounded-xl hover:border-warm-300 transition-colors">
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs font-semibold text-warm-800 truncate">{tmpl.name}</p>
-                        {tmpl.goal_type && <p className="text-[10px] text-warm-400 capitalize">{tmpl.goal_type.replace(/_/g, ' ')}</p>}
+                        <p className="text-sm font-semibold text-warm-800 truncate">{tmpl.name}</p>
+                        {tmpl.goal_type && <p className="text-xs text-warm-400 capitalize">{tmpl.goal_type.replace(/_/g, ' ')}</p>}
                       </div>
                       <div className="flex items-center gap-1 flex-shrink-0">
                         <button onClick={() => handleViewTemplate(tmpl.id)} disabled={loadingTemplate === tmpl.id}
-                          className="px-2.5 py-1.5 text-[10px] font-bold text-warm-500 border border-warm-200 rounded-lg hover:border-zinc-400 hover:text-warm-700 transition-colors cursor-pointer disabled:opacity-40">
+                          className="px-2.5 py-1.5 text-xs font-bold text-warm-500 border border-warm-200 rounded-lg hover:border-zinc-400 hover:text-warm-700 transition-colors cursor-pointer disabled:opacity-40">
                           {loadingTemplate === tmpl.id ? <Loader2 className="h-3 w-3 animate-spin" /> : 'View'}
                         </button>
                         <button onClick={() => handleFromTemplate(tmpl.id)}
-                          className="px-2.5 py-1.5 text-[10px] font-bold text-emerald-700 border border-emerald-300 rounded-lg hover:bg-emerald-50 transition-colors cursor-pointer">Use</button>
+                          className="px-2.5 py-1.5 text-xs font-bold text-emerald-700 border border-emerald-300 rounded-lg hover:bg-emerald-50 transition-colors cursor-pointer">Use</button>
                         <button onClick={() => setConfirmDeleteTemplateId(tmpl.id)} title="Delete template"
                           className="p-1.5 text-warm-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"><Trash2 className="h-3 w-3" /></button>
                       </div>
@@ -876,21 +876,21 @@ export default function MealPlanSection({
               ))}
               {viewingTemplate && (
                 <div className="space-y-3">
-                  {viewingTemplate.goal_type && <p className="text-[10px] text-warm-400 capitalize">{viewingTemplate.goal_type.replace(/_/g, ' ')}</p>}
+                  {viewingTemplate.goal_type && <p className="text-xs text-warm-400 capitalize">{viewingTemplate.goal_type.replace(/_/g, ' ')}</p>}
                   {(['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'] as const).map((day) => {
                     const daySlots = viewingTemplate.days.filter((d) => d.day_of_week === day);
                     if (daySlots.length === 0) return null;
                     return (
                       <div key={day} className="border border-warm-100 rounded-xl overflow-hidden">
-                        <div className="px-3 py-2 bg-warm-50 border-b border-warm-100"><p className="text-[10px] font-bold text-warm-500 uppercase tracking-wider">{day}</p></div>
+                        <div className="px-3 py-2 bg-warm-50 border-b border-warm-100"><p className="text-xs font-bold text-warm-500 uppercase tracking-wider">{day}</p></div>
                         <div className="divide-y divide-zinc-50">
                           {daySlots.map((slot) => (
                             <div key={slot.id} className="flex items-center justify-between px-3 py-2">
                               <div>
-                                <p className="text-[10px] font-semibold text-warm-500 capitalize">{slot.meal_type.replace('_', ' ')}</p>
-                                <p className="text-xs text-warm-800">{slot.food_name ?? '—'}</p>
+                                <p className="text-xs font-semibold text-warm-500 capitalize">{slot.meal_type.replace('_', ' ')}</p>
+                                <p className="text-sm text-warm-800">{slot.food_name ?? '—'}</p>
                               </div>
-                              {slot.calories != null && <p className="text-[10px] text-warm-400">{Math.round(slot.calories)} kcal</p>}
+                              {slot.calories != null && <p className="text-xs text-warm-400">{Math.round(slot.calories)} kcal</p>}
                             </div>
                           ))}
                         </div>
@@ -898,7 +898,7 @@ export default function MealPlanSection({
                     );
                   })}
                   <button onClick={() => handleFromTemplate(viewingTemplate.id)}
-                    className="w-full py-2.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition-colors cursor-pointer mt-2">
+                    className="w-full py-2.5 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition-colors cursor-pointer mt-2">
                     Use This Template
                   </button>
                 </div>
@@ -912,11 +912,11 @@ export default function MealPlanSection({
       {confirmDeleteTemplateId && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6 space-y-4">
-            <h3 className="text-sm font-extrabold text-warm-900">Delete Template?</h3>
-            <p className="text-xs text-warm-500">This template will be permanently deleted. Plans already created from it are not affected.</p>
+            <h3 className="text-base font-extrabold text-warm-900">Delete Template?</h3>
+            <p className="text-sm text-warm-500">This template will be permanently deleted. Plans already created from it are not affected.</p>
             <div className="flex gap-2 justify-end">
               <Button variant="ghost" onClick={() => setConfirmDeleteTemplateId(null)}>Cancel</Button>
-              <Button variant="danger" onClick={handleDeleteTemplate} loading={deletingTemplate} className="w-auto px-4 py-2 text-xs">
+              <Button variant="danger" onClick={handleDeleteTemplate} loading={deletingTemplate} className="w-auto px-4 py-2 text-sm">
                 Delete Template
               </Button>
             </div>

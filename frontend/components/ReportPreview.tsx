@@ -54,17 +54,17 @@ export function ReportPreview({
       >
         {/* Header */}
         <div className="flex items-center justify-between gap-3 px-5 py-3 border-b border-warm-100 shrink-0">
-          <h2 className="text-sm font-bold text-warm-800 truncate">{title}</h2>
+          <h2 className="text-base font-bold text-warm-800 truncate">{title}</h2>
           <div className="flex items-center gap-2 shrink-0">
             {onArchive && (
-              <Button variant="secondary" onClick={onArchive} loading={archiving} className="!w-auto !py-1.5 !px-3 text-xs">
+              <Button variant="secondary" onClick={onArchive} loading={archiving} className="!w-auto !py-1.5 !px-3 text-sm">
                 <Archive className="h-3.5 w-3.5" /> Archive
               </Button>
             )}
             <a
               href={downloadUrl}
               download
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-warm-200 text-warm-700 bg-white hover:bg-warm-50 transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold rounded-lg border border-warm-200 text-warm-700 bg-white hover:bg-warm-50 transition-colors"
             >
               <Download className="h-3.5 w-3.5" /> Download
             </a>
@@ -82,7 +82,7 @@ export function ReportPreview({
         {/* Document */}
         <div className="relative flex-1 bg-warm-100">
           {loading && (
-            <div className="absolute inset-0 flex items-center justify-center gap-2 text-xs text-warm-400">
+            <div className="absolute inset-0 flex items-center justify-center gap-2 text-sm text-warm-400">
               <Loader2 className="h-4 w-4 animate-spin" /> Rendering…
             </div>
           )}

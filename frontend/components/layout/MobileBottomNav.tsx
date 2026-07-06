@@ -117,7 +117,7 @@ export function MobileBottomNav({ onMenuOpen }: { onMenuOpen: () => void }) {
                 }`}
               />
               <Icon className="h-5 w-5 shrink-0" />
-              <span className="text-[10px] font-semibold tracking-wide leading-none">
+              <span className="text-xs font-semibold tracking-wide leading-none">
                 {item.label}
               </span>
             </Link>
@@ -132,7 +132,7 @@ export function MobileBottomNav({ onMenuOpen }: { onMenuOpen: () => void }) {
           aria-label="Open full navigation"
         >
           <Menu className="h-5 w-5 shrink-0" />
-          <span className="text-[10px] font-semibold tracking-wide leading-none">More</span>
+          <span className="text-xs font-semibold tracking-wide leading-none">More</span>
         </button>
       </div>
     </nav>

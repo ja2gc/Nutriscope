@@ -12,9 +12,9 @@ export const focusRing = "focus-visible:outline-none focus-visible:ring-2 focus-
 export const buttonTheme = {
   base: `inline-flex items-center justify-center gap-2 cursor-pointer transition-all duration-200 select-none disabled:opacity-50 disabled:cursor-not-allowed font-semibold rounded-lg ${focusRing}`,
   sizes: {
-    sm: "px-3 py-1.5 text-xs",
-    md: "px-4 py-2.5 text-sm",
-    icon: "p-1.5 text-sm",
+    sm: "px-3 py-1.5 text-sm",
+    md: "px-4 py-2.5 text-base",
+    icon: "p-1.5 text-base",
   },
   variants: {
     primary: "bg-brand-green-600 hover:bg-brand-green-700 active:bg-brand-green-700 text-white",

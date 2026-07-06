@@ -231,7 +231,7 @@ function isImagePath(path?: string) {
 function Field({ label, children, span, required }: { label: string; children: React.ReactNode; span?: number; required?: boolean }) {
   return (
     <div className={span ? `col-span-${span}` : ""} style={span ? { gridColumn: `span ${span}` } : undefined}>
-      <label className="block text-[10px] font-bold text-warm-500 uppercase tracking-wider mb-1.5">
+      <label className="block text-xs font-bold text-warm-500 uppercase tracking-wider mb-1.5">
         {label}
         {required && <span className="ml-0.5 text-red-500" aria-hidden="true">*</span>}
       </label>
@@ -253,7 +253,7 @@ function TextInput({ value, onChange, placeholder, type, disabled, min, max }: {
       disabled={disabled}
       min={min}
       max={max}
-      className="w-full px-3 py-2 text-xs bg-white border border-warm-200 rounded-lg text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all placeholder:text-warm-400 disabled:bg-warm-50 disabled:cursor-not-allowed"
+      className="w-full px-3 py-2 text-sm bg-white border border-warm-200 rounded-lg text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all placeholder:text-warm-400 disabled:bg-warm-50 disabled:cursor-not-allowed"
     />
   );
 }
@@ -267,7 +267,7 @@ function TextArea({ value, onChange, placeholder, rows }: {
       onChange={e => onChange(e.target.value)}
       placeholder={placeholder}
       rows={rows ?? 3}
-      className="w-full px-3 py-2 text-xs bg-white border border-warm-200 rounded-lg text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all placeholder:text-warm-400 resize-none"
+      className="w-full px-3 py-2 text-sm bg-white border border-warm-200 rounded-lg text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all placeholder:text-warm-400 resize-none"
     />
   );
 }
@@ -279,7 +279,7 @@ function SelectInput({ value, onChange, options, placeholder }: {
     <select
       value={value}
       onChange={e => onChange(e.target.value)}
-      className="w-full px-3 py-2 text-xs bg-white border border-warm-200 rounded-lg text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all cursor-pointer"
+      className="w-full px-3 py-2 text-sm bg-white border border-warm-200 rounded-lg text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all cursor-pointer"
     >
       <option value="">{placeholder ?? "Select..."}</option>
       {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -305,7 +305,7 @@ function TagInput({ tags, onChange, placeholder }: {
   return (
     <div className="flex flex-wrap items-center gap-1.5 px-3 py-2 bg-white border border-warm-200 rounded-lg min-h-[36px]">
       {tags.map((tag, i) => (
-        <span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 bg-warm-100 border border-warm-200 rounded text-[10px] font-bold text-warm-700">
+        <span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 bg-warm-100 border border-warm-200 rounded text-xs font-bold text-warm-700">
           {tag}
           <button type="button" onClick={() => onChange(tags.filter((_, j) => j !== i))} className="text-warm-400 hover:text-red-500 ml-0.5 cursor-pointer">×</button>
         </span>
@@ -315,7 +315,7 @@ function TagInput({ tags, onChange, placeholder }: {
         onChange={e => setInput(e.target.value)}
         onKeyDown={handleKeyDown}
         placeholder={tags.length === 0 ? (placeholder ?? "Type and press Enter...") : ""}
-        className="flex-1 min-w-[80px] text-xs bg-transparent outline-none text-warm-900 placeholder:text-warm-400"
+        className="flex-1 min-w-[80px] text-sm bg-transparent outline-none text-warm-900 placeholder:text-warm-400"
       />
     </div>
   );
@@ -348,13 +348,13 @@ function DropZone({ label, onUpload, uploading }: {
           <div className="h-1 w-48 mx-auto bg-warm-200 rounded-full overflow-hidden">
             <div className="h-full bg-emerald-500 rounded-full animate-pulse" style={{ width: "70%" }} />
           </div>
-          <p className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">Uploading...</p>
+          <p className="text-xs font-bold text-emerald-700 uppercase tracking-wider">Uploading...</p>
         </div>
       ) : (
         <>
           <Upload className="h-5 w-5 text-warm-400 mx-auto mb-2" />
-          <p className="text-[10px] font-bold text-warm-600 uppercase tracking-wider">{label}</p>
-          <p className="text-[9px] text-warm-400 mt-1">Drag and drop or click to upload — PDF, JPEG, PNG (max 10MB)</p>
+          <p className="text-xs font-bold text-warm-600 uppercase tracking-wider">{label}</p>
+          <p className="text-xs text-warm-400 mt-1">Drag and drop or click to upload — PDF, JPEG, PNG (max 10MB)</p>
         </>
       )}
     </div>
@@ -405,12 +405,12 @@ function AttachmentLightbox({
       >
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-warm-100">
-          <p className="text-xs font-bold text-warm-700 truncate pr-4">{name}</p>
+          <p className="text-sm font-bold text-warm-700 truncate pr-4">{name}</p>
           <div className="flex items-center gap-2 shrink-0">
             <a
               href={url}
               download
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-extrabold uppercase tracking-wider rounded-lg transition-colors"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold uppercase tracking-wider rounded-lg transition-colors"
             >
               <Download className="h-3 w-3" />
               Download
@@ -419,7 +419,7 @@ function AttachmentLightbox({
               type="button"
               onClick={handleDeleteClick}
               onBlur={() => setConfirming(false)}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-wider rounded-lg transition-colors ${
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-extrabold uppercase tracking-wider rounded-lg transition-colors ${
                 confirming
                   ? "bg-red-600 hover:bg-red-700 text-white"
                   : "bg-warm-100 hover:bg-red-50 text-warm-500 hover:text-red-600"
@@ -531,14 +531,14 @@ function AttachmentsPanel({ ncpId, uploadLabel, kind, blurb }: {
         <div className="rounded-xl border border-warm-200 bg-warm-50/60 p-4 space-y-3">
           <div className="flex items-center gap-2">
             <Paperclip className="h-4 w-4 text-emerald-600" />
-            <h4 className="text-[10px] font-extrabold text-warm-800 uppercase tracking-wider">Supporting Documents</h4>
+            <h4 className="text-xs font-extrabold text-warm-800 uppercase tracking-wider">Supporting Documents</h4>
           </div>
-          <p className="text-[11px] text-warm-500 leading-relaxed">{blurb}</p>
+          <p className="text-xs text-warm-500 leading-relaxed">{blurb}</p>
           <DropZone label={uploadLabel} onUpload={handleUpload} uploading={uploading} />
         </div>
 
         {error && (
-          <div className="px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-[11px] text-red-700 font-semibold">{error}</div>
+          <div className="px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700 font-semibold">{error}</div>
         )}
 
         {loading ? (
@@ -546,7 +546,7 @@ function AttachmentsPanel({ ncpId, uploadLabel, kind, blurb }: {
             {[0, 1].map(i => <div key={i} className="h-12 bg-warm-100 rounded-xl animate-pulse" />)}
           </div>
         ) : items.length === 0 ? (
-          <div className="text-center py-8 text-[11px] text-warm-400 font-semibold border border-dashed border-warm-200 rounded-xl">
+          <div className="text-center py-8 text-xs text-warm-400 font-semibold border border-dashed border-warm-200 rounded-xl">
             No documents attached to this cycle yet.
           </div>
         ) : (
@@ -562,8 +562,8 @@ function AttachmentsPanel({ ncpId, uploadLabel, kind, blurb }: {
                       {isImg ? <Eye className="h-4 w-4" /> : <FileText className="h-4 w-4" />}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold text-warm-800 truncate">{docName}</p>
-                      <p className="text-[10px] text-warm-400">
+                      <p className="text-sm font-semibold text-warm-800 truncate">{docName}</p>
+                      <p className="text-xs text-warm-400">
                         {doc.type ? `${doc.type} · ` : ""}{formatDate(doc.created_at)}
                       </p>
                     </div>
@@ -918,16 +918,16 @@ export default function NcpAssessmentPage({
   if (isPlaceholder) {
     return (
       <div className="space-y-6 font-sans">
-        <div className="flex items-center gap-2 text-xs font-semibold text-warm-400 select-none">
+        <div className="flex items-center gap-2 text-sm font-semibold text-warm-400 select-none">
           <Link href="/ncp/patients" className="hover:text-emerald-700 transition-colors">Directory</Link>
           <ChevronRight className="h-3 w-3" />
           <span className="text-warm-600 font-bold">Assessment</span>
         </div>
         <div className="bg-white border border-warm-200 rounded-2xl p-12 text-center max-w-2xl mx-auto shadow-sm">
           <ClipboardCheck className="h-8 w-8 text-warm-300 mx-auto mb-4" />
-          <h3 className="text-sm font-bold text-warm-800">No Patient Selected</h3>
-          <p className="text-xs text-warm-500 mt-2">Return to the directory to select or create a patient.</p>
-          <Link href="/ncp/patients" className="inline-flex mt-4 px-4 py-2 bg-forest-900 text-white text-[10px] font-bold uppercase tracking-wider rounded-lg hover:bg-forest-800 transition-colors">
+          <h3 className="text-base font-bold text-warm-800">No Patient Selected</h3>
+          <p className="text-sm text-warm-500 mt-2">Return to the directory to select or create a patient.</p>
+          <Link href="/ncp/patients" className="inline-flex mt-4 px-4 py-2 bg-forest-900 text-white text-xs font-bold uppercase tracking-wider rounded-lg hover:bg-forest-800 transition-colors">
             Go to Patients
           </Link>
         </div>
@@ -938,7 +938,7 @@ export default function NcpAssessmentPage({
   if (loading) {
     return (
       <div className="space-y-6 font-sans">
-        <div className="flex items-center gap-2 text-xs font-semibold text-warm-400 select-none">
+        <div className="flex items-center gap-2 text-sm font-semibold text-warm-400 select-none">
           <span>Directory</span><ChevronRight className="h-3 w-3" /><span>Loading...</span>
         </div>
         <div className="space-y-4">
@@ -1006,7 +1006,7 @@ export default function NcpAssessmentPage({
       </Field>
       {/* GI / Tolerance — moved from Anthropometrics tab */}
       <div className="col-span-1 md:col-span-2 mt-2">
-        <p className="text-[10px] font-bold text-warm-400 uppercase tracking-wider mb-3">GI / Tolerance</p>
+        <p className="text-xs font-bold text-warm-400 uppercase tracking-wider mb-3">GI / Tolerance</p>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Field label="Chewing / Swallowing Difficulties">
             <TextArea value={s("chewing_swallowing_difficulties")} onChange={v => updateField("chewing_swallowing_difficulties", v)} placeholder="Any chewing or swallowing difficulties..." rows={2} />
@@ -1029,11 +1029,11 @@ export default function NcpAssessmentPage({
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
         {/* IBW — from weight + height (Hamwi) */}
         <div className={`rounded-xl p-3 border ${computedIBW !== null ? "bg-white border-warm-200" : "bg-warm-50 border-warm-100"}`}>
-          <p className="text-[9px] font-bold text-warm-400 uppercase tracking-wider">IBW</p>
+          <p className="text-xs font-bold text-warm-400 uppercase tracking-wider">IBW</p>
           <p className={`text-xl font-black font-mono mt-0.5 ${computedIBW !== null ? "text-warm-900" : "text-warm-300"}`}>
             {computedIBW !== null ? `${computedIBW.toFixed(1)} kg` : "—"}
           </p>
-          <p className="text-[9px] text-warm-400 mt-0.5">
+          <p className="text-xs text-warm-400 mt-0.5">
             {computedIBW !== null
               ? computedPercentIBW !== null
                 ? `${computedPercentIBW.toFixed(0)}% IBW · Hamwi`
@@ -1043,21 +1043,21 @@ export default function NcpAssessmentPage({
         </div>
         {/* BMI — from weight + height */}
         <div className={`rounded-xl p-3 border ${computedBmi !== null ? "bg-white border-warm-200" : "bg-warm-50 border-warm-100"}`}>
-          <p className="text-[9px] font-bold text-warm-400 uppercase tracking-wider">BMI</p>
+          <p className="text-xs font-bold text-warm-400 uppercase tracking-wider">BMI</p>
           <p className={`text-xl font-black font-mono mt-0.5 ${computedBmi !== null ? "text-warm-900" : "text-warm-300"}`}>
             {computedBmi !== null ? computedBmi.toFixed(1) : "—"}
           </p>
-          <p className="text-[9px] text-warm-400 mt-0.5">
+          <p className="text-xs text-warm-400 mt-0.5">
             {computedBmi !== null ? "kg/m²" : "Enter weight & height"}
           </p>
         </div>
         {/* BMR — from weight + height + age + sex (+ PAL for TEE) */}
         <div className={`rounded-xl p-3 border ${computedBMR !== null ? "bg-white border-warm-200" : "bg-warm-50 border-warm-100"}`}>
-          <p className="text-[9px] font-bold text-warm-400 uppercase tracking-wider">BMR / TEE</p>
+          <p className="text-xs font-bold text-warm-400 uppercase tracking-wider">BMR / TEE</p>
           <p className={`text-xl font-black font-mono mt-0.5 ${computedBMR !== null ? "text-warm-900" : "text-warm-300"}`}>
             {computedBMR !== null ? Math.round(computedBMR) : "—"}
           </p>
-          <p className="text-[9px] text-warm-400 mt-0.5">
+          <p className="text-xs text-warm-400 mt-0.5">
             {computedBMR !== null
               ? `BMR · TEE ${computedTEE ?? "—"} kcal (×${palFactor})`
               : "Enter wt, ht · set age & sex in profile"}
@@ -1065,7 +1065,7 @@ export default function NcpAssessmentPage({
         </div>
         {/* Weight Loss/Gain % - from weight + usual weight */}
         <div className={`rounded-xl p-3 border ${computedWeightChangePct !== null ? "bg-white border-warm-200" : "bg-warm-50 border-warm-100"}`}>
-          <p className="text-[9px] font-bold text-warm-400 uppercase tracking-wider">Weight Loss/Gain</p>
+          <p className="text-xs font-bold text-warm-400 uppercase tracking-wider">Weight Loss/Gain</p>
           <p className={`text-xl font-black font-mono mt-0.5 ${computedWeightChangePct !== null
               ? weightChangeDirection === "gain"
                 ? "text-emerald-700"
@@ -1076,32 +1076,32 @@ export default function NcpAssessmentPage({
             }`}>
             {computedWeightChangePct !== null ? `${computedWeightChangePct}%` : "—"}
           </p>
-          <p className="text-[9px] text-warm-400 mt-0.5">
+          <p className="text-xs text-warm-400 mt-0.5">
             {computedWeightChangePct !== null ? `${displayWeightChangeLabel} from usual weight` : "Enter weight & usual weight"}
           </p>
         </div>
         {/* MUAC — from muac_mm */}
         <div className={`rounded-xl p-3 border ${muacClassification !== null ? "bg-white border-warm-200" : "bg-warm-50 border-warm-100"}`}>
-          <p className="text-[9px] font-bold text-warm-400 uppercase tracking-wider">MUAC</p>
+          <p className="text-xs font-bold text-warm-400 uppercase tracking-wider">MUAC</p>
           <p className={`text-xl font-black font-mono mt-0.5 ${muacClassification !== null ? "text-warm-900" : "text-warm-300"}`}>
             {muacValue > 0 ? `${muacValue} mm` : "—"}
           </p>
           {muacClassification !== null
-            ? <p className={`text-[9px] font-bold mt-0.5 ${muacClassification.color}`}>{muacClassification.label}</p>
-            : <p className="text-[9px] text-warm-400 mt-0.5">Enter MUAC (mm)</p>
+            ? <p className={`text-xs font-bold mt-0.5 ${muacClassification.color}`}>{muacClassification.label}</p>
+            : <p className="text-xs text-warm-400 mt-0.5">Enter MUAC (mm)</p>
           }
         </div>
         {/* WHR — from waist_cm ÷ hip_cm */}
         <div className={`rounded-xl p-3 border ${computedWHR !== null ? (whrRisk === "High Risk" ? "bg-white border-red-200" : "bg-white border-warm-200") : "bg-warm-50 border-warm-100"}`}>
-          <p className="text-[9px] font-bold text-warm-400 uppercase tracking-wider">WHR</p>
+          <p className="text-xs font-bold text-warm-400 uppercase tracking-wider">WHR</p>
           <p className={`text-xl font-black font-mono mt-0.5 ${computedWHR !== null ? "text-warm-900" : "text-warm-300"}`}>
             {computedWHR !== null ? computedWHR.toFixed(2) : "—"}
           </p>
           {computedWHR !== null
-            ? <p className={`text-[9px] font-bold mt-0.5 ${whrRisk === "High Risk" ? "text-red-500" : "text-emerald-600"}`}>
+            ? <p className={`text-xs font-bold mt-0.5 ${whrRisk === "High Risk" ? "text-red-500" : "text-emerald-600"}`}>
               {whrRisk} · {patientSex === "Female" ? "cut-off 0.85" : "cut-off 0.90"}
             </p>
-            : <p className="text-[9px] text-warm-400 mt-0.5">Enter waist & hip cm</p>
+            : <p className="text-xs text-warm-400 mt-0.5">Enter waist & hip cm</p>
           }
         </div>
       </div>
@@ -1111,13 +1111,13 @@ export default function NcpAssessmentPage({
         <div className={`p-3 rounded-xl border ${computedNutritionalStatus.colorClass}`}>
           <div className="flex items-center justify-between flex-wrap gap-2">
             <div>
-              <p className="text-[9px] font-bold uppercase tracking-wider opacity-70">Nutritional Status</p>
-              <p className="text-sm font-black mt-0.5">{computedNutritionalStatus.label}</p>
+              <p className="text-xs font-bold uppercase tracking-wider opacity-70">Nutritional Status</p>
+              <p className="text-base font-black mt-0.5">{computedNutritionalStatus.label}</p>
             </div>
             {computedNutritionalStatus.suggestedGoal && (
               <div className="text-right">
-                <p className="text-[9px] font-bold uppercase tracking-wider opacity-70">Suggested Goal</p>
-                <p className="text-[10px] font-bold mt-0.5 capitalize">
+                <p className="text-xs font-bold uppercase tracking-wider opacity-70">Suggested Goal</p>
+                <p className="text-xs font-bold mt-0.5 capitalize">
                   {computedNutritionalStatus.suggestedGoal.replace(/_/g, " ")}
                   {computedNutritionalStatus.suggestedStage ? ` → ${computedNutritionalStatus.suggestedStage.replace(/_/g, " ")}` : ""}
                 </p>
@@ -1240,7 +1240,7 @@ export default function NcpAssessmentPage({
               key={a}
               type="button"
               onClick={() => updateField("allergies", allergies.includes(a) ? allergies.filter(x => x !== a) : [...allergies, a])}
-              className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide border transition-all cursor-pointer ${allergies.includes(a)
+              className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide border transition-all cursor-pointer ${allergies.includes(a)
                   ? "bg-red-100 border-red-300 text-red-800"
                   : "bg-warm-50 border-warm-200 text-warm-500 hover:border-red-200 hover:text-red-700"
                 }`}
@@ -1250,7 +1250,7 @@ export default function NcpAssessmentPage({
           ))}
         </div>
         {allergies.length > 0 && (
-          <p className="text-[9px] text-red-500 mt-1 font-bold">⚠ These allergens will be hard-excluded from meal plan recommendations.</p>
+          <p className="text-xs text-red-500 mt-1 font-bold">⚠ These allergens will be hard-excluded from meal plan recommendations.</p>
         )}
       </Field>
       <Field label="Food Dislikes (Soft Filter — warnings only)">
@@ -1265,7 +1265,7 @@ export default function NcpAssessmentPage({
   const renderBiochemicalTab = () => (
     <div className="grid gap-4 lg:grid-cols-[1.4fr_0.6fr] items-start">
       <div className="space-y-4">
-        <p className="text-[10px] font-bold text-warm-400 uppercase tracking-wider">Lab Values</p>
+        <p className="text-xs font-bold text-warm-400 uppercase tracking-wider">Lab Values</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
           {LAB_FIELDS.map(field => {
             const rawValue = (assessment.biochemical_data?.[field.key as keyof NonNullable<typeof assessment.biochemical_data>] ?? "") as string | number;
@@ -1282,12 +1282,12 @@ export default function NcpAssessmentPage({
                     : "border-warm-200 bg-white"
                   }`}
               >
-                <label className="block text-[10px] font-bold uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                <label className="block text-xs font-bold uppercase tracking-wider mb-1.5 flex items-center justify-between">
                   <span className={isAbnormal ? "text-red-700" : "text-warm-500"}>
                     {field.label}
                   </span>
                   {isAbnormal && (
-                    <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded ${status === "low"
+                    <span className={`text-xs font-extrabold px-1.5 py-0.5 rounded ${status === "low"
                         ? "bg-sky-100 text-sky-700"
                         : "bg-red-100 text-red-700"
                       }`}>
@@ -1304,23 +1304,23 @@ export default function NcpAssessmentPage({
                       [field.key]: coerceBiochemicalValue(field.key, e.target.value),
                     })}
                     placeholder={`e.g. ${low ?? high}`}
-                    className={`w-full px-3 py-2 text-xs bg-white border rounded-lg text-warm-900 focus:outline-none focus:ring-2 transition-all placeholder:text-warm-400 ${isAbnormal
+                    className={`w-full px-3 py-2 text-sm bg-white border rounded-lg text-warm-900 focus:outline-none focus:ring-2 transition-all placeholder:text-warm-400 ${isAbnormal
                         ? "border-red-300 focus:ring-red-400/20 focus:border-red-400"
                         : "border-warm-200 focus:ring-emerald-500/20 focus:border-emerald-500"
                       }`}
                   />
                   {field.unit && (
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-warm-400 pointer-events-none">
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-warm-400 pointer-events-none">
                       {field.unit}
                     </span>
                   )}
                 </div>
                 <div className="mt-1.5 space-y-0.5">
-                  <p className="text-[9px] text-warm-400">
+                  <p className="text-xs text-warm-400">
                     Normal: {low !== null ? low : "—"} – {high !== null ? high : "—"}{field.unit ? ` ${field.unit}` : ""}
                   </p>
                   {field.note && (
-                    <p className="text-[9px] text-warm-400 italic leading-relaxed">{field.note}</p>
+                    <p className="text-xs text-warm-400 italic leading-relaxed">{field.note}</p>
                   )}
                 </div>
               </div>
@@ -1347,15 +1347,15 @@ export default function NcpAssessmentPage({
           <div className="bg-white border border-warm-200 rounded-2xl p-5 shadow-sm space-y-4">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <h4 className="text-sm font-extrabold text-warm-900 uppercase tracking-wider flex items-center gap-2">
+                <h4 className="text-base font-extrabold text-warm-900 uppercase tracking-wider flex items-center gap-2">
                   <FileText className="h-4 w-4 text-emerald-600" />
                   Referral / Screening Form
                 </h4>
-                <p className="text-[11px] text-warm-500 mt-1 leading-relaxed">
+                <p className="text-xs text-warm-500 mt-1 leading-relaxed">
                   Enter screening demographics below manually. Edits to demographics will persist back to the patient profile on save.
                 </p>
               </div>
-              <span className={`inline-flex px-2.5 py-1 rounded-full text-[9px] font-extrabold uppercase tracking-wider border ${screeningType === "pediatric"
+              <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider border ${screeningType === "pediatric"
                   ? "bg-sky-50 text-sky-700 border-sky-200"
                   : "bg-emerald-50 text-emerald-700 border-emerald-200"
                 }`}>
@@ -1426,7 +1426,7 @@ export default function NcpAssessmentPage({
 
             <div className="flex flex-col gap-3 rounded-xl border border-warm-200 bg-warm-50/60 p-3">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="text-[10px] font-bold text-warm-500 uppercase tracking-wider">Screening Type:</span>
+                <span className="text-xs font-bold text-warm-500 uppercase tracking-wider">Screening Type:</span>
                 <div className="flex gap-2">
                   {(["adult", "pediatric"] as const).map(t => (
                     <button
@@ -1437,7 +1437,7 @@ export default function NcpAssessmentPage({
                         setSectionAChecks(new Array(getScreeningConditions(t).length).fill(false));
                         setSectionBChecks(new Array(getScreeningIntakeHistory(t).length).fill(false));
                       }}
-                      className={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-lg border transition-all cursor-pointer ${screeningType === t
+                      className={`px-3 py-1.5 text-xs font-bold uppercase tracking-wider rounded-lg border transition-all cursor-pointer ${screeningType === t
                           ? "bg-emerald-50 text-emerald-700 border-emerald-200"
                           : "bg-white text-warm-500 border-warm-200 hover:border-warm-300"
                         }`}
@@ -1458,8 +1458,8 @@ export default function NcpAssessmentPage({
               blurb="Attach referral and screening forms for this NCP cycle. Stored for record-keeping and appended to the printed NCP report."
             />
             {/* <div className="bg-forest-900 border border-forest-line rounded-2xl p-5 text-warm-100 shadow-sm">
-              <h4 className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-300 mb-2">Workflow Note</h4>
-              <p className="text-[11px] leading-relaxed text-warm-300">
+              <h4 className="text-xs font-extrabold uppercase tracking-wider text-emerald-300 mb-2">Workflow Note</h4>
+              <p className="text-xs leading-relaxed text-warm-300">
                 Save after entering screening details. The patient profile updates with the editable demographics captured here. Risk scoring is calculated based on assessment and biochemical data.
               </p>
             </div> */}
@@ -1468,13 +1468,13 @@ export default function NcpAssessmentPage({
 
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
           <div className="bg-white border border-warm-200 rounded-2xl p-4 shadow-sm">
-            <h4 className="text-[10px] font-extrabold text-warm-800 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+            <h4 className="text-xs font-extrabold text-warm-800 uppercase tracking-wider mb-3 flex items-center gap-1.5">
               <Shield className="h-3.5 w-3.5 text-emerald-600" />
               Section A - Clinical Conditions
             </h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
               {getScreeningConditions(screeningType).map((cond, i) => (
-                <label key={i} className="flex items-start gap-2 text-[11px] text-warm-700 cursor-pointer hover:bg-warm-50 p-1.5 rounded-lg transition-colors">
+                <label key={i} className="flex items-start gap-2 text-xs text-warm-700 cursor-pointer hover:bg-warm-50 p-1.5 rounded-lg transition-colors">
                   <input
                     type="checkbox"
                     checked={sectionAChecks[i] || false}
@@ -1492,13 +1492,13 @@ export default function NcpAssessmentPage({
           </div>
 
           <div className="bg-white border border-warm-200 rounded-2xl p-4 shadow-sm">
-            <h4 className="text-[10px] font-extrabold text-warm-800 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+            <h4 className="text-xs font-extrabold text-warm-800 uppercase tracking-wider mb-3 flex items-center gap-1.5">
               <Scale className="h-3.5 w-3.5 text-emerald-600" />
               Section B - Intake / Weight History
             </h4>
             <div className="grid grid-cols-1 gap-2">
               {getScreeningIntakeHistory(screeningType).map((item, i) => (
-                <label key={i} className="flex items-start gap-2 text-[11px] text-warm-700 cursor-pointer hover:bg-warm-50 p-1.5 rounded-lg transition-colors">
+                <label key={i} className="flex items-start gap-2 text-xs text-warm-700 cursor-pointer hover:bg-warm-50 p-1.5 rounded-lg transition-colors">
                   <input
                     type="checkbox"
                     checked={sectionBChecks[i] || false}
@@ -1522,7 +1522,7 @@ export default function NcpAssessmentPage({
   const renderRiskScore = () => (
     <div className="bg-white border border-warm-200 rounded-xl p-5 space-y-4">
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <h4 className="text-[10px] font-extrabold text-warm-800 uppercase tracking-wider flex items-center gap-1.5">
+        <h4 className="text-xs font-extrabold text-warm-800 uppercase tracking-wider flex items-center gap-1.5">
           <Activity className="h-3.5 w-3.5 text-emerald-600" />
           Scoring of Nutritional Risk Related Factors
         </h4>
@@ -1530,7 +1530,7 @@ export default function NcpAssessmentPage({
           <button
             type="button"
             onClick={resetAutomaticRiskScore}
-            className={`px-2.5 py-1 rounded-full text-[9px] font-extrabold uppercase tracking-wider border transition-colors ${!riskManualOverride
+            className={`px-2.5 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider border transition-colors ${!riskManualOverride
                 ? "bg-emerald-50 text-emerald-700 border-emerald-200"
                 : "bg-white text-warm-500 border-warm-200 hover:border-emerald-200 hover:text-emerald-700"
               }`}
@@ -1540,7 +1540,7 @@ export default function NcpAssessmentPage({
           <button
             type="button"
             onClick={enableManualRiskScore}
-            className={`px-2.5 py-1 rounded-full text-[9px] font-extrabold uppercase tracking-wider border transition-colors ${riskManualOverride
+            className={`px-2.5 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider border transition-colors ${riskManualOverride
                 ? "bg-amber-50 text-amber-700 border-amber-200"
                 : "bg-white text-warm-500 border-warm-200 hover:border-amber-200 hover:text-amber-700"
               }`}
@@ -1548,18 +1548,18 @@ export default function NcpAssessmentPage({
             Manual edit
           </button>
         </div>
-        <span className={`inline-flex px-2.5 py-1 rounded-full text-[9px] font-extrabold uppercase tracking-wider border ${riskInfo.color}`}>
+        <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider border ${riskInfo.color}`}>
           {riskInfo.label} — {riskScore} pts
         </span>
       </div>
       {riskManualOverride && (
-        <p className={`text-[10px] font-semibold px-3 py-2 rounded-lg border ${computedRiskInfo.color}`}>
+        <p className={`text-xs font-semibold px-3 py-2 rounded-lg border ${computedRiskInfo.color}`}>
           Automatic score: {computedRiskInfo.label} - {riskResult.score} pts
         </p>
       )}
       <div className="space-y-2">
         {RISK_FACTORS.map((factor, i) => (
-          <div key={i} className={`flex items-center justify-between gap-3 text-[11px] text-warm-700 px-3 py-2 rounded-lg border ${riskManualOverride ? "border-warm-200 bg-warm-50/40" : "border-transparent"}`}>
+          <div key={i} className={`flex items-center justify-between gap-3 text-xs text-warm-700 px-3 py-2 rounded-lg border ${riskManualOverride ? "border-warm-200 bg-warm-50/40" : "border-transparent"}`}>
             <div className="flex items-center gap-2">
               <input
                 type="checkbox"
@@ -1569,7 +1569,7 @@ export default function NcpAssessmentPage({
               />
               <span className="leading-tight">{factor.label}</span>
             </div>
-            <span className="text-[9px] font-bold text-warm-400 shrink-0">{factor.points} pt{factor.points > 1 ? "s" : ""}</span>
+            <span className="text-xs font-bold text-warm-400 shrink-0">{factor.points} pt{factor.points > 1 ? "s" : ""}</span>
           </div>
         ))}
       </div>
@@ -1630,7 +1630,7 @@ export default function NcpAssessmentPage({
   return (
     <div className="space-y-4 font-sans">
       {/* Breadcrumb */}
-      <div className="flex items-center gap-1.5 text-xs font-semibold text-warm-400 select-none">
+      <div className="flex items-center gap-1.5 text-sm font-semibold text-warm-400 select-none">
         <Link href="/ncp/patients" className="hover:text-emerald-700 transition-colors">Directory</Link>
         <ChevronRight className="h-3 w-3" />
         <Link href={`/ncp/patients/${patientId}`} className="hover:text-emerald-700 transition-colors">{patient?.name ?? systemId}</Link>
@@ -1661,12 +1661,12 @@ export default function NcpAssessmentPage({
 
       {/* Status Messages */}
       {error && (
-        <div className="px-4 py-3 bg-red-50 border border-red-100 rounded-xl text-xs text-red-700 font-bold flex items-center gap-2">
+        <div className="px-4 py-3 bg-red-50 border border-red-100 rounded-xl text-sm text-red-700 font-bold flex items-center gap-2">
           <AlertTriangle className="h-3.5 w-3.5 shrink-0" /> {error}
         </div>
       )}
       {success && (
-        <div className="px-4 py-3 bg-emerald-50 border border-emerald-100 rounded-xl text-xs text-emerald-700 font-bold flex items-center gap-2">
+        <div className="px-4 py-3 bg-emerald-50 border border-emerald-100 rounded-xl text-sm text-emerald-700 font-bold flex items-center gap-2">
           <ClipboardCheck className="h-3.5 w-3.5 shrink-0" /> {success}
         </div>
       )}
@@ -1682,7 +1682,7 @@ export default function NcpAssessmentPage({
                 key={tab.key}
                 type="button"
                 onClick={() => setActiveTab(tab.key)}
-                className={`flex items-center gap-1.5 px-4 py-3 text-[10px] font-bold uppercase tracking-wider whitespace-nowrap border-b-2 transition-all cursor-pointer ${isActive
+                className={`flex items-center gap-1.5 px-4 py-3 text-xs font-bold uppercase tracking-wider whitespace-nowrap border-b-2 transition-all cursor-pointer ${isActive
                     ? "text-emerald-700 border-emerald-600 bg-white"
                     : "text-warm-500 border-transparent hover:text-warm-700 hover:bg-white/50"
                   }`}
@@ -1709,14 +1709,14 @@ export default function NcpAssessmentPage({
 
       {/* Save Bar */}
       <div className="bg-white border border-warm-200 rounded-xl px-5 py-3.5 flex items-center justify-between shadow-sm">
-        <div className="text-[10px] text-warm-500 font-semibold select-none">
+        <div className="text-xs text-warm-500 font-semibold select-none">
           NCP Cycle #{ncpId} • All tabs auto-merge into a single save
         </div>
         <button
           type="button"
           onClick={handleSave}
           disabled={saving}
-          className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:bg-emerald-400 text-white text-[10px] font-extrabold uppercase tracking-wider rounded-lg transition-colors cursor-pointer disabled:cursor-not-allowed shadow-sm"
+          className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:bg-emerald-400 text-white text-xs font-extrabold uppercase tracking-wider rounded-lg transition-colors cursor-pointer disabled:cursor-not-allowed shadow-sm"
         >
           <Save className="h-3.5 w-3.5" />
           {saving ? "Saving..." : "Save Assessment"}

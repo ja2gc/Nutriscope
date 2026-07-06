@@ -12,10 +12,10 @@ import {
 } from "@/services/supplierService";
 
 const inputCls =
-  "w-full px-3 py-2 text-sm border border-warm-200 rounded-lg text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all";
+  "w-full px-3 py-2 text-base border border-warm-200 rounded-lg text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all";
 
 function Label({ children }: { children: React.ReactNode }) {
-  return <label className="block text-[10px] font-extrabold text-warm-500 uppercase tracking-wider mb-1">{children}</label>;
+  return <label className="block text-xs font-extrabold text-warm-500 uppercase tracking-wider mb-1">{children}</label>;
 }
 
 const EMPTY: SupplierPayload = { name: "", category: "", contact: "", address: "", payment_terms: "", notes: "" };
@@ -56,11 +56,11 @@ function SupplierForm({ initial, editingId, onSaved, onCancel }: {
   return (
     <div className="bg-emerald-50/40 border border-emerald-100 rounded-2xl p-6 space-y-4 shadow-sm">
       <div className="flex items-center justify-between">
-        <h3 className="text-xs font-extrabold text-emerald-700 uppercase tracking-wider">
+        <h3 className="text-sm font-extrabold text-emerald-700 uppercase tracking-wider">
           {editingId ? "Edit Vendor" : "New Vendor"}
         </h3>
         {error && (
-          <span className="flex items-center gap-1 text-xs text-red-600 font-semibold">
+          <span className="flex items-center gap-1 text-sm text-red-600 font-semibold">
             <AlertTriangle className="h-3 w-3" /> {error}
           </span>
         )}
@@ -96,10 +96,10 @@ function SupplierForm({ initial, editingId, onSaved, onCancel }: {
         </div>
       </div>
       <div className="flex gap-2">
-        <Button variant="primary" onClick={handleSave} disabled={saving} className="!py-1.5 !px-4 text-xs">
+        <Button variant="primary" onClick={handleSave} disabled={saving} className="!py-1.5 !px-4 text-sm">
           {saving ? "Saving…" : editingId ? "Save Changes" : "Add Vendor"}
         </Button>
-        <button onClick={onCancel} className="text-xs text-warm-500 hover:text-warm-700 flex items-center gap-1">
+        <button onClick={onCancel} className="text-sm text-warm-500 hover:text-warm-700 flex items-center gap-1">
           <X className="h-3 w-3" /> Cancel
         </button>
       </div>
@@ -157,11 +157,11 @@ export function SuppliersPanel() {
   return (
     <div className="space-y-5">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <p className="text-xs text-warm-500">
+        <p className="text-sm text-warm-500">
           Vendors used across procurement. Set a description (vegetables, meats…) and contact for reports.
         </p>
         <div className="flex items-center gap-3 shrink-0">
-          <button onClick={load} className="flex items-center gap-1.5 text-xs text-warm-500 hover:text-warm-700 transition-colors">
+          <button onClick={load} className="flex items-center gap-1.5 text-sm text-warm-500 hover:text-warm-700 transition-colors">
             <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
             Refresh
           </button>
@@ -186,26 +186,26 @@ export function SuppliersPanel() {
       <div className="relative max-w-sm">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-warm-400" />
         <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search vendors…"
-          className="w-full pl-9 pr-3 py-2 text-xs border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
+          className="w-full pl-9 pr-3 py-2 text-sm border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
       </div>
 
       {/* Table */}
       <div className="bg-white border border-warm-200 rounded-2xl shadow-sm overflow-x-auto">
         {loading ? (
-          <div className="py-16 text-center text-xs text-warm-400">Loading…</div>
+          <div className="py-16 text-center text-sm text-warm-400">Loading…</div>
         ) : error ? (
-          <div className="py-16 text-center text-xs text-red-500">{error}</div>
+          <div className="py-16 text-center text-sm text-red-500">{error}</div>
         ) : filtered.length === 0 ? (
           <div className="py-16 text-center">
             <Truck className="h-8 w-8 text-warm-300 mx-auto mb-3" />
-            <p className="text-xs text-warm-400 font-medium">No vendors yet. Add your first one.</p>
+            <p className="text-sm text-warm-400 font-medium">No vendors yet. Add your first one.</p>
           </div>
         ) : (
-          <table className="w-full text-xs">
+          <table className="w-full text-sm">
             <thead className="bg-warm-50 border-b border-warm-100">
               <tr>
                 {["Vendor", "Description", "Contact", "Payment Terms", "Actions"].map((h) => (
-                  <th key={h} className="px-4 py-3 text-left text-[10px] font-bold text-warm-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
+                  <th key={h} className="px-4 py-3 text-left text-xs font-bold text-warm-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
                 ))}
               </tr>
             </thead>
@@ -219,12 +219,12 @@ export function SuppliersPanel() {
                   <td className="px-4 py-3">
                     {deleteId === s.id ? (
                       <div className="flex items-center gap-2">
-                        <span className="text-red-600 text-[10px] font-semibold">Delete?</span>
+                        <span className="text-red-600 text-xs font-semibold">Delete?</span>
                         <button onClick={() => handleDelete(s.id)} disabled={deleting}
-                          className="text-[10px] font-bold text-red-600 hover:underline disabled:opacity-50">
+                          className="text-xs font-bold text-red-600 hover:underline disabled:opacity-50">
                           {deleting ? "…" : "Yes"}
                         </button>
-                        <button onClick={() => setDeleteId(null)} className="text-[10px] font-bold text-warm-500 hover:underline">No</button>
+                        <button onClick={() => setDeleteId(null)} className="text-xs font-bold text-warm-500 hover:underline">No</button>
                       </div>
                     ) : (
                       <div className="flex items-center gap-1">

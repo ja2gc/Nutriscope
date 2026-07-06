@@ -23,7 +23,7 @@ export type BudgetPageShellProps = {
 
 function Crumbs({ crumbs }: { crumbs: [string, string?][] }) {
   return (
-    <div className="flex items-center gap-2 text-xs font-semibold text-warm-400 select-none">
+    <div className="flex items-center gap-2 text-sm font-semibold text-warm-400 select-none">
       {crumbs.map(([label, href], index) => (
         <React.Fragment key={`${label}-${index}`}>
           {href ? (
@@ -39,9 +39,9 @@ function Crumbs({ crumbs }: { crumbs: [string, string?][] }) {
 }
 
 function Label({ children }: { children: React.ReactNode }) {
-  return <label className="block text-[10px] font-extrabold text-warm-500 uppercase tracking-wider mb-1">{children}</label>;
+  return <label className="block text-xs font-extrabold text-warm-500 uppercase tracking-wider mb-1">{children}</label>;
 }
-const inp = "w-full px-3 py-2 text-sm border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500";
+const inp = "w-full px-3 py-2 text-base border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500";
 const card = "bg-white border border-warm-100 rounded-2xl shadow-sm p-6";
 
 // ───── Fiscal Year Selector ──────────────────────────────────────────────────
@@ -50,11 +50,11 @@ function YearSelector({ years, selected, onChange }: {
 }) {
   return (
     <div className="flex items-center gap-2">
-      <span className="text-xs font-bold text-warm-500 uppercase tracking-wider">Fiscal Year</span>
+      <span className="text-sm font-bold text-warm-500 uppercase tracking-wider">Fiscal Year</span>
       <select
         value={selected}
         onChange={(e) => onChange(parseInt(e.target.value))}
-        className="px-3 py-1.5 text-sm border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+        className="px-3 py-1.5 text-base border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
       >
         {years.map((y) => (
           <option key={y} value={y}>FY {y}</option>
@@ -93,7 +93,7 @@ function FiscalYearSetupSection({ existingYears, onCreated, apiPrefix }: {
 
   return (
     <div className={card}>
-      <h2 className="text-xs font-extrabold text-warm-500 uppercase tracking-wider mb-4">Fiscal Year Setup</h2>
+      <h2 className="text-sm font-extrabold text-warm-500 uppercase tracking-wider mb-4">Fiscal Year Setup</h2>
       <form onSubmit={submit} className="space-y-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
@@ -109,11 +109,11 @@ function FiscalYearSetupSection({ existingYears, onCreated, apiPrefix }: {
             <input type="number" min="0" step="0.01" value={allocated} onChange={(e) => setAllocated(e.target.value)} placeholder="0.00" className={inp} />
           </div>
         </div>
-        {err && <p className="text-xs text-red-500">{err}</p>}
-        <Button type="submit" disabled={saving} className="text-sm">
+        {err && <p className="text-sm text-red-500">{err}</p>}
+        <Button type="submit" disabled={saving} className="text-base">
           {saving ? "Creating..." : `Setup FY ${fiscalYear}`}
         </Button>
-        <p className="text-[11px] text-warm-400">Budget per head per day is configured in Settings.</p>
+        <p className="text-xs text-warm-400">Budget per head per day is configured in Settings.</p>
       </form>
     </div>
   );
@@ -126,8 +126,8 @@ function SummarySection({ summary, notice }: {
   if (notice || !summary) {
     return (
       <div className={card}>
-        <h2 className="text-xs font-extrabold text-warm-500 uppercase tracking-wider mb-4">Fiscal Year Summary</h2>
-        <p className="text-sm text-warm-400">{notice ?? "No budget allocated for this fiscal year."}</p>
+        <h2 className="text-sm font-extrabold text-warm-500 uppercase tracking-wider mb-4">Fiscal Year Summary</h2>
+        <p className="text-base text-warm-400">{notice ?? "No budget allocated for this fiscal year."}</p>
       </div>
     );
   }
@@ -144,11 +144,11 @@ function SummarySection({ summary, notice }: {
 
   return (
     <div className={card}>
-      <h2 className="text-xs font-extrabold text-warm-500 uppercase tracking-wider mb-4">Fiscal Year Summary</h2>
+      <h2 className="text-sm font-extrabold text-warm-500 uppercase tracking-wider mb-4">Fiscal Year Summary</h2>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {kpis.map((k) => (
           <div key={k.label} className="bg-warm-50 rounded-xl p-4 text-center">
-            <div className="text-[10px] font-bold text-warm-400 uppercase tracking-wider mb-1">{k.label}</div>
+            <div className="text-xs font-bold text-warm-400 uppercase tracking-wider mb-1">{k.label}</div>
             <div className={`text-lg font-extrabold ${k.color}`}>{k.value}</div>
           </div>
         ))}
@@ -188,7 +188,7 @@ function ManualAdjustSection({ fiscalYear, onAdjusted, apiPrefix }: {
 
   return (
     <div className={card}>
-      <h2 className="text-xs font-extrabold text-warm-500 uppercase tracking-wider mb-4">Manual Adjustment</h2>
+      <h2 className="text-sm font-extrabold text-warm-500 uppercase tracking-wider mb-4">Manual Adjustment</h2>
       <form onSubmit={submit} className="space-y-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
@@ -213,8 +213,8 @@ function ManualAdjustSection({ fiscalYear, onAdjusted, apiPrefix }: {
             <input value={reference} onChange={(e) => setReference(e.target.value)} placeholder="e.g. BUR-2026-05" className={inp} />
           </div>
         </div>
-        {err && <p className="text-xs text-red-500">{err}</p>}
-        <Button type="submit" disabled={saving} className="text-sm">
+        {err && <p className="text-sm text-red-500">{err}</p>}
+        <Button type="submit" disabled={saving} className="text-base">
           {saving ? "Saving..." : "Add Adjustment"}
         </Button>
       </form>
@@ -241,30 +241,30 @@ function LedgerSection({ entries, loading, filter, onFilter }: {
   return (
     <div className={card}>
       <div className="flex items-center justify-between gap-4 flex-wrap mb-4">
-        <h2 className="text-xs font-extrabold text-warm-500 uppercase tracking-wider">Ledger</h2>
+        <h2 className="text-sm font-extrabold text-warm-500 uppercase tracking-wider">Ledger</h2>
         <select
           value={filter}
           onChange={(e) => onFilter(e.target.value as LedgerFilter)}
-          className="px-3 py-1.5 text-xs border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+          className="px-3 py-1.5 text-sm border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
         >
           {FILTERS.map((f) => <option key={f.key} value={f.key}>{f.label}</option>)}
         </select>
       </div>
       {loading ? (
-        <p className="text-sm text-warm-400">Loading...</p>
+        <p className="text-base text-warm-400">Loading...</p>
       ) : entries.length === 0 ? (
-        <p className="text-sm text-warm-400">No ledger entries for this fiscal year.</p>
+        <p className="text-base text-warm-400">No ledger entries for this fiscal year.</p>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full text-base">
             <thead>
               <tr className="border-b border-warm-100">
-                <th className="text-left py-2 px-3 text-[10px] font-extrabold text-warm-400 uppercase tracking-wider">Date</th>
-                <th className="text-left py-2 px-3 text-[10px] font-extrabold text-warm-400 uppercase tracking-wider">Type</th>
-                <th className="text-right py-2 px-3 text-[10px] font-extrabold text-warm-400 uppercase tracking-wider">Amount</th>
-                <th className="text-left py-2 px-3 text-[10px] font-extrabold text-warm-400 uppercase tracking-wider">Reason</th>
-                <th className="text-left py-2 px-3 text-[10px] font-extrabold text-warm-400 uppercase tracking-wider">Reference</th>
-                <th className="text-left py-2 px-3 text-[10px] font-extrabold text-warm-400 uppercase tracking-wider">Created By</th>
+                <th className="text-left py-2 px-3 text-xs font-extrabold text-warm-400 uppercase tracking-wider">Date</th>
+                <th className="text-left py-2 px-3 text-xs font-extrabold text-warm-400 uppercase tracking-wider">Type</th>
+                <th className="text-right py-2 px-3 text-xs font-extrabold text-warm-400 uppercase tracking-wider">Amount</th>
+                <th className="text-left py-2 px-3 text-xs font-extrabold text-warm-400 uppercase tracking-wider">Reason</th>
+                <th className="text-left py-2 px-3 text-xs font-extrabold text-warm-400 uppercase tracking-wider">Reference</th>
+                <th className="text-left py-2 px-3 text-xs font-extrabold text-warm-400 uppercase tracking-wider">Created By</th>
               </tr>
             </thead>
             <tbody>
@@ -340,7 +340,7 @@ export function BudgetPageShell({ apiPrefix, canMutate, crumbs, homeHref: _homeH
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
             <h1 className="text-2xl font-extrabold text-warm-800">Budget</h1>
-            <p className="text-sm text-warm-400 mt-1">Fiscal year allocation and shared budget ledger</p>
+            <p className="text-base text-warm-400 mt-1">Fiscal year allocation and shared budget ledger</p>
           </div>
           {years.length > 0 && (
             <YearSelector years={years} selected={selectedYear} onChange={(y) => { setSelectedYear(y); }} />
@@ -348,7 +348,7 @@ export function BudgetPageShell({ apiPrefix, canMutate, crumbs, homeHref: _homeH
         </div>
 
         {loading ? (
-          <div className="text-sm text-warm-400 py-12 text-center">Loading...</div>
+          <div className="text-base text-warm-400 py-12 text-center">Loading...</div>
         ) : (
           <>
             {/* Fiscal Year Setup - top of page (RND only) */}

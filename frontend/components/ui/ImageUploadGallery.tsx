@@ -81,7 +81,7 @@ export function ImageCarousel({
           >
             <ChevronRight className="h-5 w-5" />
           </button>
-          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-forest-900/80 px-2.5 py-1 text-[10px] font-bold text-white">
+          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-forest-900/80 px-2.5 py-1 text-xs font-bold text-white">
             {activeIndex + 1} / {images.length}
           </div>
         </>
@@ -152,7 +152,7 @@ export function ImageUploadGallery({
 
   return (
     <div className="space-y-2">
-      <label htmlFor={inputId} className="text-[10px] font-semibold text-warm-500 uppercase tracking-wider">
+      <label htmlFor={inputId} className="text-xs font-semibold text-warm-500 uppercase tracking-wider">
         {label}
       </label>
       <input
@@ -167,7 +167,7 @@ export function ImageUploadGallery({
       <label
         htmlFor={disabled || uploading ? undefined : inputId}
         aria-disabled={disabled || uploading}
-        className={`inline-flex min-h-9 w-full items-center justify-center gap-2 rounded-lg border px-3 py-2 text-[10px] font-bold uppercase tracking-wider transition-colors ${
+        className={`inline-flex min-h-9 w-full items-center justify-center gap-2 rounded-lg border px-3 py-2 text-xs font-bold uppercase tracking-wider transition-colors ${
           disabled || uploading
             ? "cursor-not-allowed border-warm-200 bg-warm-100 text-warm-400"
             : "cursor-pointer border-forest-900 bg-forest-900 text-white hover:bg-forest-800"
@@ -177,7 +177,7 @@ export function ImageUploadGallery({
         {uploading ? "Uploading..." : (uploadLabel ?? "Upload image")}
       </label>
       {error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[11px] font-semibold text-red-700">
+        <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">
           {error}
         </div>
       )}
@@ -196,7 +196,7 @@ export function ImageUploadGallery({
             disabled={disabled || deletingImageId === activeImage.id}
             className="absolute right-2 top-2 inline-flex h-7 min-w-7 items-center justify-center rounded-full bg-forest-900/90 px-2 text-white hover:bg-forest-800 disabled:cursor-wait disabled:opacity-70"
           >
-            {deletingImageId === activeImage.id ? <span className="text-[10px] font-bold">Removing...</span> : <X className="h-4 w-4" />}
+            {deletingImageId === activeImage.id ? <span className="text-xs font-bold">Removing...</span> : <X className="h-4 w-4" />}
           </button>
 
           {hasMany && (
@@ -217,14 +217,14 @@ export function ImageUploadGallery({
               >
                 <ChevronRight className="h-5 w-5" />
               </button>
-              <div className="absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-forest-900/80 px-2.5 py-1 text-[10px] font-bold text-white">
+              <div className="absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-forest-900/80 px-2.5 py-1 text-xs font-bold text-white">
                 {activeIndex + 1} / {images.length}
               </div>
             </>
           )}
         </div>
       ) : (
-        <div className={`border border-dashed border-warm-200 text-center text-xs text-warm-400 bg-white ${
+        <div className={`border border-dashed border-warm-200 text-center text-sm text-warm-400 bg-white ${
           isAvatar ? "mx-auto flex h-36 w-36 items-center justify-center rounded-full p-4" : "rounded-lg p-6"
         }`}>
           {emptyText}

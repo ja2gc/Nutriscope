@@ -72,7 +72,7 @@ export default function LoginPage() {
 
         <div className="relative z-10">
           <Logo variant="dark" collapsed={false} />
-          <p className="mt-2 text-[11px] font-extrabold uppercase tracking-[0.16em] text-brand-green-200">
+          <p className="mt-2 text-xs font-extrabold uppercase tracking-[0.16em] text-brand-green-200">
             Clinical & Operational Care Console
           </p>
         </div>
@@ -93,7 +93,7 @@ export default function LoginPage() {
                 <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-lime-300/18 text-lime-200 ring-1 ring-white/10">
                   <Icon className="h-4 w-4" />
                 </span>
-                <span className="pt-1.5 text-sm font-semibold leading-snug text-white drop-shadow-[0_2px_5px_rgba(0,0,0,0.45)]">
+                <span className="pt-1.5 text-base font-semibold leading-snug text-white drop-shadow-[0_2px_5px_rgba(0,0,0,0.45)]">
                   {text}
                 </span>
               </div>
@@ -101,9 +101,9 @@ export default function LoginPage() {
           </div>
         </div>
 
-        <div className="relative z-10 flex items-center gap-2 text-xs font-medium text-white/65">
+        <div className="relative z-10 flex items-center gap-2 text-sm font-medium text-white/65">
           <Lock className="h-3.5 w-3.5" />
-          <span>Secure Connection - Activity Logs Active</span>
+          <span></span>
         </div>
       </div>
 
@@ -111,7 +111,7 @@ export default function LoginPage() {
         <div className="w-full max-w-[380px] space-y-7">
           <div className="mb-2 flex flex-col items-center text-center lg:hidden">
             <Logo variant="light" />
-            <p className="mt-2 text-[10px] font-bold uppercase tracking-widest text-warm-500">
+            <p className="mt-2 text-xs font-bold uppercase tracking-widest text-warm-500">
               Clinical & Operational Care Console
             </p>
           </div>
@@ -120,7 +120,7 @@ export default function LoginPage() {
             <h2 className="text-3xl font-extrabold tracking-tight text-warm-900">
               Welcome back
             </h2>
-            <p className="mt-2 text-sm font-medium text-warm-500">
+            <p className="mt-2 text-base font-medium text-warm-500">
               Enter your credentials below to access your workspace.
             </p>
           </div>
@@ -130,7 +130,7 @@ export default function LoginPage() {
               <div id="login-error" className="rounded-lg border border-red-100 bg-red-50 p-3.5">
                 <div className="flex gap-2.5">
                   <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-red-600" />
-                  <span className="text-xs font-semibold text-red-800">
+                  <span className="text-sm font-semibold text-red-800">
                     {validationError || error}
                   </span>
                 </div>
@@ -169,7 +169,7 @@ export default function LoginPage() {
               <div className="mt-2 flex justify-end">
                 <Link
                   href="/forgot-password"
-                  className="text-xs font-semibold text-brand-green-700 hover:text-brand-green-800"
+                  className="text-sm font-semibold text-brand-green-700 hover:text-brand-green-800"
                 >
                   Forgot password?
                 </Link>
@@ -188,13 +188,13 @@ export default function LoginPage() {
           </form>
 
           <div className="border-t border-warm-100 pt-5 text-center">
-            <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-warm-400">
-              RND - Admin - Food Service
+            <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-warm-400">
+              RND - Admin - Food Service Staff
             </p>
           </div>
 
           <div className="text-center lg:hidden">
-            <p className="select-none text-[10px] uppercase tracking-widest text-warm-400">
+            <p className="select-none text-xs uppercase tracking-widest text-warm-400">
               Secure Connection - Activity Logs Active
             </p>
           </div>

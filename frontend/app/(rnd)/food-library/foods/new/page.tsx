@@ -66,7 +66,7 @@ export default function NewFoodPage() {
 
   return (
     <div className="space-y-6 font-sans max-w-2xl mx-auto">
-      <div className="flex items-center gap-2 text-xs font-semibold text-warm-400 select-none">
+      <div className="flex items-center gap-2 text-sm font-semibold text-warm-400 select-none">
         <Link href="/dashboard" className="hover:text-emerald-700 transition-colors">Home</Link>
         <span>/</span>
         <Link href="/food-library" className="hover:text-emerald-700 transition-colors">Food Library</Link>
@@ -83,16 +83,16 @@ export default function NewFoodPage() {
             <Database className="h-5 w-5 text-emerald-600" />
             Add Food to Library
           </h2>
-          <p className="text-xs text-warm-500 mt-1 select-none">Manually add a food item not found in USDA FoodData Central.</p>
+          <p className="text-sm text-warm-500 mt-1 select-none">Manually add a food item not found in USDA FoodData Central.</p>
         </div>
       </div>
 
-      {error && <div className="bg-red-50 border border-red-100 p-4 rounded-xl text-xs text-red-700 font-bold">{error}</div>}
+      {error && <div className="bg-red-50 border border-red-100 p-4 rounded-xl text-sm text-red-700 font-bold">{error}</div>}
 
       <form onSubmit={handleSubmit} className="space-y-5">
         {/* Basic Info */}
         <div className="bg-white border border-warm-200 rounded-2xl p-6 space-y-4 shadow-sm">
-          <h3 className="text-xs font-extrabold text-warm-700 uppercase tracking-wider">Basic Information</h3>
+          <h3 className="text-sm font-extrabold text-warm-700 uppercase tracking-wider">Basic Information</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="sm:col-span-2">
               <Label>Name <Required /></Label>
@@ -112,7 +112,7 @@ export default function NewFoodPage() {
                 <option value="true">Yes — eligible as snack</option>
                 <option value="false">No — never a snack</option>
               </select>
-              <p className="text-[10px] text-warm-400 mt-1 leading-snug">
+              <p className="text-xs text-warm-400 mt-1 leading-snug">
                 Controls whether meal-plan auto-generation may place this item as a single snack.
                 {readyToEat === "" && (
                   <> Auto = {["fruit", "vegetable"].includes(category) ? "eligible" : "not eligible"} for “{category || "no category"}”.</>
@@ -136,7 +136,7 @@ export default function NewFoodPage() {
 
         {/* Macros */}
         <div className="bg-white border border-warm-200 rounded-2xl p-6 space-y-4 shadow-sm">
-          <h3 className="text-xs font-extrabold text-warm-700 uppercase tracking-wider">Nutritional Values (per serving)</h3>
+          <h3 className="text-sm font-extrabold text-warm-700 uppercase tracking-wider">Nutritional Values (per serving)</h3>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <div>
               <Label>Calories (kcal) <Required /></Label>
@@ -155,22 +155,22 @@ export default function NewFoodPage() {
               <input type="number" value={fat} onChange={(e) => setFat(e.target.value)} min="0" step="0.01" className={inputCls} />
             </div>
           </div>
-          <p className="text-[10px] text-warm-400 leading-relaxed">
+          <p className="text-xs text-warm-400 leading-relaxed">
             Micronutrients (vitamins, minerals) are automatically extracted when importing from USDA. For manually added foods, micronutrients can be added later if needed.
           </p>
         </div>
 
         {/* Allergens */}
         <div className="bg-white border border-warm-200 rounded-2xl p-6 space-y-4 shadow-sm">
-          <h3 className="text-xs font-extrabold text-warm-700 uppercase tracking-wider">Allergen Flags</h3>
-          <p className="text-[10px] text-warm-400">Used for allergen filtering in meal planning.</p>
+          <h3 className="text-sm font-extrabold text-warm-700 uppercase tracking-wider">Allergen Flags</h3>
+          <p className="text-xs text-warm-400">Used for allergen filtering in meal planning.</p>
           <div className="flex flex-wrap gap-2">
             {COMMON_ALLERGENS.map((a) => (
               <button
                 key={a}
                 type="button"
                 onClick={() => toggleAllergen(a)}
-                className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide border transition-all cursor-pointer ${
+                className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide border transition-all cursor-pointer ${
                   allergens.includes(a) ? "bg-amber-100 border-amber-300 text-amber-800" : "bg-warm-50 border-warm-200 text-warm-500 hover:border-amber-200 hover:text-amber-700"
                 }`}
               >
@@ -179,7 +179,7 @@ export default function NewFoodPage() {
             ))}
           </div>
           {allergens.filter((a) => !COMMON_ALLERGENS.includes(a)).map((a) => (
-            <span key={a} className="inline-flex items-center gap-1 mr-2 px-2 py-0.5 bg-amber-50 border border-amber-200 text-amber-700 text-[10px] font-bold rounded-full">
+            <span key={a} className="inline-flex items-center gap-1 mr-2 px-2 py-0.5 bg-amber-50 border border-amber-200 text-amber-700 text-xs font-bold rounded-full">
               {a}
               <button type="button" onClick={() => setAllergens((prev) => prev.filter((x) => x !== a))} className="cursor-pointer"><X className="h-2.5 w-2.5" /></button>
             </span>
@@ -208,8 +208,8 @@ export default function NewFoodPage() {
   );
 }
 
-const inputCls = "w-full px-3 py-2 text-sm bg-white border border-warm-300 rounded-lg text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 transition-all placeholder:text-warm-400";
+const inputCls = "w-full px-3 py-2 text-base bg-white border border-warm-300 rounded-lg text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 transition-all placeholder:text-warm-400";
 function Label({ children }: { children: React.ReactNode }) {
-  return <label className="block text-[10px] font-extrabold text-warm-500 uppercase tracking-wider mb-1.5">{children}</label>;
+  return <label className="block text-xs font-extrabold text-warm-500 uppercase tracking-wider mb-1.5">{children}</label>;
 }
 function Required() { return <span className="text-red-500 ml-0.5">*</span>; }

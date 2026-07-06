@@ -33,7 +33,7 @@ export default function ForgotPasswordPage() {
       <div className="w-full max-w-md space-y-6">
         <div className="flex flex-col items-center text-center">
           <Logo variant="light" />
-          <p className="mt-2 text-xs font-semibold text-warm-500 uppercase tracking-widest">
+          <p className="mt-2 text-sm font-semibold text-warm-500 uppercase tracking-widest">
             Account Recovery
           </p>
         </div>
@@ -44,19 +44,19 @@ export default function ForgotPasswordPage() {
               <Mail className="h-4 w-4 text-emerald-600" />
               Reset Password
             </h1>
-            <p className="mt-1 text-xs text-warm-500">
+            <p className="mt-1 text-sm text-warm-500">
               Enter your verified recovery email to receive a reset link.
             </p>
           </div>
 
           <form onSubmit={submit} className="space-y-4">
             {message && (
-              <div className="rounded-lg border border-emerald-100 bg-emerald-50 p-3 text-xs font-semibold text-emerald-700">
+              <div className="rounded-lg border border-emerald-100 bg-emerald-50 p-3 text-sm font-semibold text-emerald-700">
                 {message}
               </div>
             )}
             {error && (
-              <div className="rounded-lg border border-red-100 bg-red-50 p-3 text-xs font-semibold text-red-700">
+              <div className="rounded-lg border border-red-100 bg-red-50 p-3 text-sm font-semibold text-red-700">
                 {error}
               </div>
             )}
@@ -75,7 +75,7 @@ export default function ForgotPasswordPage() {
           </form>
 
           <div className="mt-5 text-center">
-            <Link href="/login" className="text-xs font-semibold text-warm-500 hover:text-warm-800">
+            <Link href="/login" className="text-sm font-semibold text-warm-500 hover:text-warm-800">
               Back to sign in
             </Link>
           </div>

@@ -22,8 +22,8 @@ export function EmptyState({
           {icon}
         </div>
       )}
-      {title && <h3 className="text-sm font-bold text-warm-800 mt-4 uppercase tracking-wider">{title}</h3>}
-      <p className="text-xs text-warm-500 mt-2 leading-relaxed">{message}</p>
+      {title && <h3 className="text-base font-bold text-warm-800 mt-4 uppercase tracking-wider">{title}</h3>}
+      <p className="text-sm text-warm-500 mt-2 leading-relaxed">{message}</p>
       {action && <div className="mt-4 flex justify-center">{action}</div>}
     </Card>
   );

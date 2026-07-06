@@ -261,7 +261,7 @@ function loadBuilderFromDiagnosis(d: Diagnosis): BuilderState {
 function DomainBadge({ domain }: { domain: "NI" | "NC" | "NB" }) {
   const meta = DOMAIN_META[domain];
   return (
-    <span className={`inline-flex px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-wider border ${meta.color}`}>
+    <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-extrabold uppercase tracking-wider border ${meta.color}`}>
       {meta.label}
     </span>
   );
@@ -269,7 +269,7 @@ function DomainBadge({ domain }: { domain: "NI" | "NC" | "NB" }) {
 
 function Checkbox({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label: string }) {
   return (
-    <label className="flex items-start gap-2 text-[11px] text-warm-700 cursor-pointer hover:bg-warm-50 p-1.5 rounded-lg transition-colors">
+    <label className="flex items-start gap-2 text-xs text-warm-700 cursor-pointer hover:bg-warm-50 p-1.5 rounded-lg transition-colors">
       <input
         type="checkbox"
         checked={checked}
@@ -283,7 +283,7 @@ function Checkbox({ checked, onChange, label }: { checked: boolean; onChange: (v
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <span className="block text-[10px] font-bold text-warm-500 uppercase tracking-wider mb-1.5">{children}</span>
+    <span className="block text-xs font-bold text-warm-500 uppercase tracking-wider mb-1.5">{children}</span>
   );
 }
 
@@ -494,7 +494,7 @@ export default function NcpDiagnosisPage({
   if (isPlaceholder) {
     return (
       <div className="space-y-6 font-sans">
-        <div className="flex items-center gap-2 text-xs font-semibold text-warm-400 select-none">
+        <div className="flex items-center gap-2 text-sm font-semibold text-warm-400 select-none">
           <Link href="/ncp/patients" className="hover:text-emerald-700 transition-colors">Directory</Link>
           <ChevronRight className="h-3 w-3" />
           <span className="text-warm-600 font-bold">Diagnosis</span>
@@ -503,9 +503,9 @@ export default function NcpDiagnosisPage({
           <div className="p-3.5 bg-warm-50 border border-warm-200 rounded-2xl w-fit mx-auto text-warm-400">
             <User className="h-8 w-8" />
           </div>
-          <h3 className="text-sm font-bold text-warm-800 mt-4 uppercase tracking-wider">No Patient Selected</h3>
-          <p className="text-xs text-warm-500 mt-2 leading-relaxed">Navigate to the NCP Patients directory and select a patient.</p>
-          <Link href="/ncp/patients" className="inline-flex mt-6 px-4 py-2.5 bg-forest-900 hover:bg-forest-900 text-white text-xs font-bold uppercase tracking-wider rounded-lg transition-colors">
+          <h3 className="text-base font-bold text-warm-800 mt-4 uppercase tracking-wider">No Patient Selected</h3>
+          <p className="text-sm text-warm-500 mt-2 leading-relaxed">Navigate to the NCP Patients directory and select a patient.</p>
+          <Link href="/ncp/patients" className="inline-flex mt-6 px-4 py-2.5 bg-forest-900 hover:bg-forest-900 text-white text-sm font-bold uppercase tracking-wider rounded-lg transition-colors">
             Go to Patients Directory
           </Link>
         </div>
@@ -516,7 +516,7 @@ export default function NcpDiagnosisPage({
   if (loading) {
     return (
       <div className="space-y-6 font-sans">
-        <div className="flex items-center gap-2 text-xs font-semibold text-warm-400">
+        <div className="flex items-center gap-2 text-sm font-semibold text-warm-400">
           <span>Directory</span><ChevronRight className="h-3 w-3" /><span>Loading...</span>
         </div>
         <div className="space-y-4">{[1, 2, 3].map(i => <div key={i} className="h-16 bg-warm-100 rounded-xl animate-pulse" />)}</div>
@@ -527,7 +527,7 @@ export default function NcpDiagnosisPage({
   if (!hasAssessment) {
     return (
       <div className="space-y-6 font-sans">
-        <div className="flex items-center gap-2 text-xs font-semibold text-warm-400 select-none">
+        <div className="flex items-center gap-2 text-sm font-semibold text-warm-400 select-none">
           <Link href="/ncp/patients" className="hover:text-emerald-700 transition-colors">Directory</Link>
           <ChevronRight className="h-3 w-3" />
           <span className="text-warm-600 font-bold">Diagnosis</span>
@@ -536,11 +536,11 @@ export default function NcpDiagnosisPage({
           <div className="p-3.5 bg-warm-50 border border-warm-200 rounded-2xl w-fit mx-auto text-warm-400">
             <Lock className="h-8 w-8" />
           </div>
-          <h3 className="text-sm font-bold text-warm-800 mt-4 uppercase tracking-wider">Assessment Required</h3>
-          <p className="text-xs text-warm-500 mt-2 leading-relaxed">
+          <h3 className="text-base font-bold text-warm-800 mt-4 uppercase tracking-wider">Assessment Required</h3>
+          <p className="text-sm text-warm-500 mt-2 leading-relaxed">
             Save the nutrition assessment before starting diagnosis. You can return here after Assessment is saved.
           </p>
-          <Link href={`/ncp/${patientId}/assessment/${ncpId}`} className="inline-flex mt-6 px-4 py-2.5 bg-forest-900 hover:bg-forest-900 text-white text-xs font-bold uppercase tracking-wider rounded-lg transition-colors">
+          <Link href={`/ncp/${patientId}/assessment/${ncpId}`} className="inline-flex mt-6 px-4 py-2.5 bg-forest-900 hover:bg-forest-900 text-white text-sm font-bold uppercase tracking-wider rounded-lg transition-colors">
             Go to Assessment
           </Link>
         </div>
@@ -580,7 +580,7 @@ export default function NcpDiagnosisPage({
         <button
           type="button"
           onClick={startNew}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-extrabold uppercase tracking-wider rounded-lg transition-colors cursor-pointer shadow-sm"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold uppercase tracking-wider rounded-lg transition-colors cursor-pointer shadow-sm"
         >
           <Plus className="h-3.5 w-3.5" />
           Add New Diagnosis
@@ -590,24 +590,24 @@ export default function NcpDiagnosisPage({
       {filteredDiagnoses.length === 0 ? (
         <div className="bg-white border border-warm-200 rounded-2xl p-10 text-center shadow-sm">
           <Stethoscope className="h-7 w-7 text-warm-300 mx-auto mb-3" />
-          <p className="text-xs font-bold text-warm-600 uppercase tracking-wider">No diagnoses recorded</p>
-          <p className="text-[11px] text-warm-400 mt-1">
+          <p className="text-sm font-bold text-warm-600 uppercase tracking-wider">No diagnoses recorded</p>
+          <p className="text-xs text-warm-400 mt-1">
             {domainFilter !== "ALL" ? `No ${DOMAIN_META[domainFilter].label} diagnoses yet.` : `Click "Add New Diagnosis" to begin the PES builder.`}
           </p>
         </div>
       ) : (
         <div className="bg-white border border-warm-200 rounded-2xl overflow-hidden shadow-sm">
           <div className="overflow-x-auto">
-          <table className="w-full text-xs min-w-[480px]">
+          <table className="w-full text-sm min-w-[480px]">
             <thead>
               <tr className="border-b border-warm-100 bg-warm-50/80">
-                <th className="text-left px-4 py-3 text-[10px] font-extrabold text-warm-500 uppercase tracking-wider w-8">#</th>
-                <th className="text-left px-4 py-3 text-[10px] font-extrabold text-warm-500 uppercase tracking-wider">Domain</th>
-                <th className="text-left px-4 py-3 text-[10px] font-extrabold text-warm-500 uppercase tracking-wider">Problem</th>
-                <th className="text-left px-4 py-3 text-[10px] font-extrabold text-warm-500 uppercase tracking-wider hidden xl:table-cell">Etiology</th>
-                <th className="text-left px-4 py-3 text-[10px] font-extrabold text-warm-500 uppercase tracking-wider hidden xl:table-cell">S&S</th>
-                <th className="text-left px-4 py-3 text-[10px] font-extrabold text-warm-500 uppercase tracking-wider">PES Statement</th>
-                <th className="text-right px-4 py-3 text-[10px] font-extrabold text-warm-500 uppercase tracking-wider">Actions</th>
+                <th className="text-left px-4 py-3 text-xs font-extrabold text-warm-500 uppercase tracking-wider w-8">#</th>
+                <th className="text-left px-4 py-3 text-xs font-extrabold text-warm-500 uppercase tracking-wider">Domain</th>
+                <th className="text-left px-4 py-3 text-xs font-extrabold text-warm-500 uppercase tracking-wider">Problem</th>
+                <th className="text-left px-4 py-3 text-xs font-extrabold text-warm-500 uppercase tracking-wider hidden xl:table-cell">Etiology</th>
+                <th className="text-left px-4 py-3 text-xs font-extrabold text-warm-500 uppercase tracking-wider hidden xl:table-cell">S&S</th>
+                <th className="text-left px-4 py-3 text-xs font-extrabold text-warm-500 uppercase tracking-wider">PES Statement</th>
+                <th className="text-right px-4 py-3 text-xs font-extrabold text-warm-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -618,7 +618,7 @@ export default function NcpDiagnosisPage({
                     <div className="space-y-1">
                       <DomainBadge domain={d.domain} />
                       {d.ai_generated && (
-                        <span className="block mt-1 text-[9px] font-bold text-orange-600 uppercase tracking-wider">AI</span>
+                        <span className="block mt-1 text-xs font-bold text-orange-600 uppercase tracking-wider">AI</span>
                       )}
                     </div>
                   </td>
@@ -632,9 +632,9 @@ export default function NcpDiagnosisPage({
                     <span className="line-clamp-2">{d.signs_symptoms}</span>
                   </td>
                   <td className="px-4 py-3 text-warm-700 max-w-[240px]">
-                    <span className="line-clamp-3 italic text-[11px]">{d.pes_statement}</span>
+                    <span className="line-clamp-3 italic text-xs">{d.pes_statement}</span>
                     {d.extra_notes && (
-                      <span className="block mt-1 text-[10px] text-warm-400">{d.extra_notes}</span>
+                      <span className="block mt-1 text-xs text-warm-400">{d.extra_notes}</span>
                     )}
                   </td>
                   <td className="px-4 py-3">
@@ -678,7 +678,7 @@ export default function NcpDiagnosisPage({
               key={d}
               type="button"
               onClick={() => updateBuilder({ domain: d, ncProblems: [], nbProblems: [], niNutrient: "", etiologyChecks: [], signChecks: [], problemOverride: "" })}
-              className={`px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider rounded-xl border-2 transition-all cursor-pointer ${
+              className={`px-4 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl border-2 transition-all cursor-pointer ${
                 builder.domain === d
                   ? `${DOMAIN_META[d].color} border-current`
                   : "bg-white text-warm-500 border-warm-200 hover:border-zinc-400"
@@ -700,7 +700,7 @@ export default function NcpDiagnosisPage({
                   key={dir}
                   type="button"
                   onClick={() => updateBuilder({ niDirection: dir, problemOverride: "" })}
-                  className={`px-4 py-2 text-xs font-bold rounded-xl border-2 transition-all cursor-pointer ${
+                  className={`px-4 py-2 text-sm font-bold rounded-xl border-2 transition-all cursor-pointer ${
                     builder.niDirection === dir
                       ? "bg-sky-50 text-sky-700 border-sky-400"
                       : "bg-white text-warm-500 border-warm-200 hover:border-zinc-400"
@@ -719,7 +719,7 @@ export default function NcpDiagnosisPage({
                   key={n}
                   type="button"
                   onClick={() => updateBuilder({ niNutrient: n, problemOverride: "" })}
-                  className={`px-3 py-2 text-xs font-semibold rounded-lg border transition-all cursor-pointer text-left ${
+                  className={`px-3 py-2 text-sm font-semibold rounded-lg border transition-all cursor-pointer text-left ${
                     builder.niNutrient === n
                       ? "bg-sky-50 text-sky-800 border-sky-300 font-bold"
                       : "bg-white text-warm-600 border-warm-200 hover:border-warm-300"
@@ -735,7 +735,7 @@ export default function NcpDiagnosisPage({
                 value={builder.niNutrient.includes("specify") ? "" : builder.niNutrient}
                 onChange={e => updateBuilder({ niNutrient: e.target.value, problemOverride: "" })}
                 placeholder="Specify nutrient or mineral..."
-                className="mt-2 w-full px-3 py-2 text-xs bg-white border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-400/20 focus:border-sky-400"
+                className="mt-2 w-full px-3 py-2 text-sm bg-white border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-400/20 focus:border-sky-400"
               />
             )}
           </div>
@@ -791,20 +791,20 @@ export default function NcpDiagnosisPage({
           onChange={e => updateBuilder({ extraNotes: e.target.value })}
           placeholder="Additional context or notes for this diagnosis..."
           rows={2}
-          className="w-full px-3 py-2 text-xs bg-white border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 placeholder:text-warm-400 resize-none"
+          className="w-full px-3 py-2 text-sm bg-white border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 placeholder:text-warm-400 resize-none"
         />
       </div>
 
       <div className="p-4 bg-forest-900 rounded-xl border border-forest-line">
-        <span className="text-[9px] font-bold text-warm-500 uppercase tracking-wider block mb-1">Problem preview (P)</span>
-        <span className="text-xs font-semibold text-emerald-300">{buildProblemText(builder)}</span>
+        <span className="text-xs font-bold text-warm-500 uppercase tracking-wider block mb-1">Problem preview (P)</span>
+        <span className="text-sm font-semibold text-emerald-300">{buildProblemText(builder)}</span>
       </div>
 
       <div className="flex justify-end">
         <button
           type="button"
           onClick={() => setActiveTab("etiology")}
-          className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-extrabold uppercase tracking-wider rounded-lg transition-colors cursor-pointer"
+          className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold uppercase tracking-wider rounded-lg transition-colors cursor-pointer"
         >
           Next: Etiology <ChevronRight className="h-3.5 w-3.5" />
         </button>
@@ -816,7 +816,7 @@ export default function NcpDiagnosisPage({
     <div className="space-y-5 max-w-2xl">
       <div>
         <SectionLabel>Select Etiology Factors (Related to)</SectionLabel>
-        <p className="text-[11px] text-warm-400 mb-3">Select all that apply for the <span className="font-bold text-warm-600">{DOMAIN_META[builder.domain].label}</span> domain.</p>
+        <p className="text-xs text-warm-400 mb-3">Select all that apply for the <span className="font-bold text-warm-600">{DOMAIN_META[builder.domain].label}</span> domain.</p>
         <div className="space-y-1 bg-warm-50/60 rounded-xl p-4 border border-warm-200">
           {getEtiologies(builder.domain).map(e => (
             <Checkbox
@@ -839,18 +839,18 @@ export default function NcpDiagnosisPage({
           onChange={e => updateBuilder({ etiologyNotes: e.target.value })}
           placeholder="Specify any additional etiology not listed above..."
           rows={3}
-          className="w-full px-3 py-2 text-xs bg-white border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 placeholder:text-warm-400 resize-none"
+          className="w-full px-3 py-2 text-sm bg-white border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 placeholder:text-warm-400 resize-none"
         />
       </div>
       <div className="p-4 bg-forest-900 rounded-xl border border-forest-line">
-        <span className="text-[9px] font-bold text-warm-500 uppercase tracking-wider block mb-1">Etiology preview (E)</span>
-        <span className="text-xs font-semibold text-emerald-300">{buildEtiologyText(builder)}</span>
+        <span className="text-xs font-bold text-warm-500 uppercase tracking-wider block mb-1">Etiology preview (E)</span>
+        <span className="text-sm font-semibold text-emerald-300">{buildEtiologyText(builder)}</span>
       </div>
       <div className="flex justify-between">
-        <button type="button" onClick={() => setActiveTab("problem")} className="px-4 py-2 text-[10px] font-bold text-warm-600 bg-white border border-warm-200 rounded-lg hover:bg-warm-50 transition-colors cursor-pointer">
+        <button type="button" onClick={() => setActiveTab("problem")} className="px-4 py-2 text-xs font-bold text-warm-600 bg-white border border-warm-200 rounded-lg hover:bg-warm-50 transition-colors cursor-pointer">
           ← Back
         </button>
-        <button type="button" onClick={() => setActiveTab("signs")} className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-extrabold uppercase tracking-wider rounded-lg transition-colors cursor-pointer">
+        <button type="button" onClick={() => setActiveTab("signs")} className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold uppercase tracking-wider rounded-lg transition-colors cursor-pointer">
           Next: Signs & Symptoms <ChevronRight className="h-3.5 w-3.5" />
         </button>
       </div>
@@ -861,7 +861,7 @@ export default function NcpDiagnosisPage({
     <div className="space-y-5 max-w-2xl">
       <div>
         <SectionLabel>Select Signs & Symptoms (As Evidenced By)</SectionLabel>
-        <p className="text-[11px] text-warm-400 mb-3">Select all that apply for the <span className="font-bold text-warm-600">{DOMAIN_META[builder.domain].label}</span> domain.</p>
+        <p className="text-xs text-warm-400 mb-3">Select all that apply for the <span className="font-bold text-warm-600">{DOMAIN_META[builder.domain].label}</span> domain.</p>
         <div className="space-y-1 bg-warm-50/60 rounded-xl p-4 border border-warm-200">
           {getSigns(builder.domain).map(s => (
             <Checkbox
@@ -884,18 +884,18 @@ export default function NcpDiagnosisPage({
           onChange={e => updateBuilder({ signNotes: e.target.value })}
           placeholder="Specify additional signs and symptoms with values, e.g. albumin 2.8 g/dL..."
           rows={3}
-          className="w-full px-3 py-2 text-xs bg-white border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 placeholder:text-warm-400 resize-none"
+          className="w-full px-3 py-2 text-sm bg-white border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 placeholder:text-warm-400 resize-none"
         />
       </div>
       <div className="p-4 bg-forest-900 rounded-xl border border-forest-line">
-        <span className="text-[9px] font-bold text-warm-500 uppercase tracking-wider block mb-1">Signs & Symptoms preview (S)</span>
-        <span className="text-xs font-semibold text-emerald-300">{buildSignsText(builder)}</span>
+        <span className="text-xs font-bold text-warm-500 uppercase tracking-wider block mb-1">Signs & Symptoms preview (S)</span>
+        <span className="text-sm font-semibold text-emerald-300">{buildSignsText(builder)}</span>
       </div>
       <div className="flex justify-between">
-        <button type="button" onClick={() => setActiveTab("etiology")} className="px-4 py-2 text-[10px] font-bold text-warm-600 bg-white border border-warm-200 rounded-lg hover:bg-warm-50 transition-colors cursor-pointer">
+        <button type="button" onClick={() => setActiveTab("etiology")} className="px-4 py-2 text-xs font-bold text-warm-600 bg-white border border-warm-200 rounded-lg hover:bg-warm-50 transition-colors cursor-pointer">
           ← Back
         </button>
-        <button type="button" onClick={() => setActiveTab("pes")} className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-extrabold uppercase tracking-wider rounded-lg transition-colors cursor-pointer">
+        <button type="button" onClick={() => setActiveTab("pes")} className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold uppercase tracking-wider rounded-lg transition-colors cursor-pointer">
           Next: PES Statement <ChevronRight className="h-3.5 w-3.5" />
         </button>
       </div>
@@ -913,16 +913,16 @@ export default function NcpDiagnosisPage({
         <div className="grid grid-cols-1 gap-4">
           <div className="p-4 bg-warm-50 border border-warm-200 rounded-xl space-y-3">
             <div>
-              <span className="text-[9px] font-bold text-sky-600 uppercase tracking-wider block mb-0.5">Problem (P)</span>
-              <span className="text-xs font-semibold text-warm-800">{problem}</span>
+              <span className="text-xs font-bold text-sky-600 uppercase tracking-wider block mb-0.5">Problem (P)</span>
+              <span className="text-sm font-semibold text-warm-800">{problem}</span>
             </div>
             <div>
-              <span className="text-[9px] font-bold text-sky-600 uppercase tracking-wider block mb-0.5">Etiology (E)</span>
-              <span className="text-xs font-semibold text-warm-800">{etiology}</span>
+              <span className="text-xs font-bold text-sky-600 uppercase tracking-wider block mb-0.5">Etiology (E)</span>
+              <span className="text-sm font-semibold text-warm-800">{etiology}</span>
             </div>
             <div>
-              <span className="text-[9px] font-bold text-amber-600 uppercase tracking-wider block mb-0.5">Signs & Symptoms (S)</span>
-              <span className="text-xs font-semibold text-warm-800">{signs}</span>
+              <span className="text-xs font-bold text-amber-600 uppercase tracking-wider block mb-0.5">Signs & Symptoms (S)</span>
+              <span className="text-sm font-semibold text-warm-800">{signs}</span>
             </div>
           </div>
 
@@ -932,14 +932,14 @@ export default function NcpDiagnosisPage({
               value={builder.pesOverride}
               onChange={e => updateBuilder({ pesOverride: e.target.value })}
               rows={4}
-              className="w-full px-3 py-2 text-xs bg-white border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-medium text-warm-900 placeholder:text-warm-400 resize-none"
+              className="w-full px-3 py-2 text-sm bg-white border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-medium text-warm-900 placeholder:text-warm-400 resize-none"
               placeholder="PES statement will auto-populate when P, E, and S are complete..."
             />
-            <p className="text-[10px] text-warm-400 mt-1">The statement above is auto-generated from the builder. Edit manually if needed before saving.</p>
+            <p className="text-xs text-warm-400 mt-1">The statement above is auto-generated from the builder. Edit manually if needed before saving.</p>
           </div>
 
           {!isComplete && (
-            <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg text-[11px] text-amber-700 font-semibold">
+            <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-700 font-semibold">
               <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
               Please complete Problem, Etiology, and Signs & Symptoms first.
             </div>
@@ -947,14 +947,14 @@ export default function NcpDiagnosisPage({
         </div>
 
         <div className="flex justify-between">
-          <button type="button" onClick={() => setActiveTab("signs")} className="px-4 py-2 text-[10px] font-bold text-warm-600 bg-white border border-warm-200 rounded-lg hover:bg-warm-50 transition-colors cursor-pointer">
+          <button type="button" onClick={() => setActiveTab("signs")} className="px-4 py-2 text-xs font-bold text-warm-600 bg-white border border-warm-200 rounded-lg hover:bg-warm-50 transition-colors cursor-pointer">
             ← Back
           </button>
           <button
             type="button"
             onClick={handleSave}
             disabled={saving || !isComplete}
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-warm-300 text-white text-[10px] font-extrabold uppercase tracking-wider rounded-lg transition-colors cursor-pointer disabled:cursor-not-allowed shadow-sm"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-warm-300 text-white text-xs font-extrabold uppercase tracking-wider rounded-lg transition-colors cursor-pointer disabled:cursor-not-allowed shadow-sm"
           >
             {saving ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
             {saving ? "Saving..." : builder.editingId ? "Update Diagnosis" : "Save Diagnosis"}
@@ -967,18 +967,18 @@ export default function NcpDiagnosisPage({
   const renderAiTab = () => (
     <div className="space-y-5">
       <div className="bg-white border border-warm-200 rounded-2xl p-5">
-        <div className="flex items-center gap-2 text-emerald-600 font-bold text-xs uppercase tracking-wider mb-2">
+        <div className="flex items-center gap-2 text-emerald-600 font-bold text-sm uppercase tracking-wider mb-2">
           <Sparkles className="h-4 w-4" />
           AI Suggestions
         </div>
-        <p className="text-[11px] text-warm-600 leading-relaxed mb-4">
+        <p className="text-xs text-warm-600 leading-relaxed mb-4">
           Analyzes patient medical diagnosis and existing assessments to generate draft G-NCP PES statements for review. Using patient: <span className="font-semibold text-warm-700">{patient?.medical_diagnosis ?? "No diagnosis on file"}</span>
         </p>
         <button
           type="button"
           onClick={handleAiSuggest}
           disabled={aiLoading}
-          className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-warm-300 text-white text-[10px] font-extrabold uppercase tracking-wider rounded-lg transition-colors cursor-pointer disabled:cursor-not-allowed"
+          className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-warm-300 text-white text-xs font-extrabold uppercase tracking-wider rounded-lg transition-colors cursor-pointer disabled:cursor-not-allowed"
         >
           {aiLoading ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
           {aiLoading ? "Generating suggestions..." : "Generate AI Suggestions"}
@@ -987,7 +987,7 @@ export default function NcpDiagnosisPage({
 
       {aiSuggestions.length > 0 && (
         <div className="space-y-3">
-          <h4 className="text-[10px] font-extrabold text-warm-700 uppercase tracking-wider">
+          <h4 className="text-xs font-extrabold text-warm-700 uppercase tracking-wider">
             AI Suggestions ({aiSuggestions.filter((_, i) => !aiDismissed.has(i)).length} pending)
           </h4>
           {aiSuggestions.map((s, i) => {
@@ -998,10 +998,10 @@ export default function NcpDiagnosisPage({
                 <div className="flex items-start justify-between gap-3">
                   <div className="space-y-1">
                     <DomainBadge domain={s.domain} />
-                    <span className="block text-[9px] font-bold text-orange-500 uppercase tracking-wider">AI Generated</span>
+                    <span className="block text-xs font-bold text-orange-500 uppercase tracking-wider">AI Generated</span>
                   </div>
                   {s.confidence !== undefined && (
-                    <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${
                       s.confidence > 0.8 ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
                       s.confidence >= 0.5 ? "bg-amber-50 text-amber-700 border-amber-200" :
                       "bg-red-50 text-red-700 border-red-200"
@@ -1010,37 +1010,37 @@ export default function NcpDiagnosisPage({
                     </span>
                   )}
                 </div>
-                <div className="space-y-2 text-xs">
+                <div className="space-y-2 text-sm">
                   <div><span className="font-bold text-sky-600">P:</span> <span className="text-warm-700">{s.label}</span></div>
                   <div><span className="font-bold text-sky-600">E:</span> <span className="text-warm-700">{s.etiology}</span></div>
                   <div><span className="font-bold text-amber-600">S:</span> <span className="text-warm-700">{s.signs}</span></div>
                 </div>
                 <div className="p-3 bg-warm-50 border border-warm-100 rounded-lg">
-                  <span className="text-[9px] font-bold text-warm-400 uppercase tracking-wider block mb-1">PES Statement</span>
-                  <p className="text-[11px] font-medium text-warm-800 italic leading-relaxed">{pes}</p>
+                  <span className="text-xs font-bold text-warm-400 uppercase tracking-wider block mb-1">PES Statement</span>
+                  <p className="text-xs font-medium text-warm-800 italic leading-relaxed">{pes}</p>
                 </div>
                 {s.reasoning && (
-                  <p className="text-[10px] text-warm-500 leading-relaxed">{s.reasoning}</p>
+                  <p className="text-xs text-warm-500 leading-relaxed">{s.reasoning}</p>
                 )}
                 <div className="flex items-center gap-2 pt-1 border-t border-warm-100">
                   <button
                     type="button"
                     onClick={() => handleAiAccept(s, i)}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold uppercase tracking-wider rounded-lg transition-colors cursor-pointer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold uppercase tracking-wider rounded-lg transition-colors cursor-pointer"
                   >
                     <CheckCheck className="h-3 w-3" /> Accept
                   </button>
                   <button
                     type="button"
                     onClick={() => handleAiEdit(s)}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-sky-50 hover:bg-sky-100 text-sky-700 text-[10px] font-bold uppercase tracking-wider rounded-lg border border-sky-200 transition-colors cursor-pointer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-sky-50 hover:bg-sky-100 text-sky-700 text-xs font-bold uppercase tracking-wider rounded-lg border border-sky-200 transition-colors cursor-pointer"
                   >
                     <Pencil className="h-3 w-3" /> Edit then Accept
                   </button>
                   <button
                     type="button"
                     onClick={() => setAiDismissed(prev => new Set([...prev, i]))}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-warm-100 hover:bg-warm-200 text-warm-600 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-colors cursor-pointer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-warm-100 hover:bg-warm-200 text-warm-600 text-xs font-bold uppercase tracking-wider rounded-lg transition-colors cursor-pointer"
                   >
                     <X className="h-3 w-3" /> Reject
                   </button>
@@ -1067,7 +1067,7 @@ export default function NcpDiagnosisPage({
   return (
     <div className="space-y-4 font-sans">
       {/* Breadcrumb */}
-      <div className="flex items-center gap-1.5 text-xs font-semibold text-warm-400 select-none">
+      <div className="flex items-center gap-1.5 text-sm font-semibold text-warm-400 select-none">
         <Link href="/ncp/patients" className="hover:text-emerald-700 transition-colors">Directory</Link>
         <ChevronRight className="h-3 w-3" />
         <Link href={`/ncp/patients/${patientId}`} className="hover:text-emerald-700 transition-colors">
@@ -1091,12 +1091,12 @@ export default function NcpDiagnosisPage({
 
       {/* Status Messages */}
       {error && (
-        <div className="px-4 py-3 bg-red-50 border border-red-100 rounded-xl text-xs text-red-700 font-bold flex items-center gap-2">
+        <div className="px-4 py-3 bg-red-50 border border-red-100 rounded-xl text-sm text-red-700 font-bold flex items-center gap-2">
           <AlertTriangle className="h-3.5 w-3.5 shrink-0" /> {error}
         </div>
       )}
       {success && (
-        <div className="px-4 py-3 bg-emerald-50 border border-emerald-100 rounded-xl text-xs text-emerald-700 font-bold flex items-center gap-2">
+        <div className="px-4 py-3 bg-emerald-50 border border-emerald-100 rounded-xl text-sm text-emerald-700 font-bold flex items-center gap-2">
           <CheckCircle2 className="h-3.5 w-3.5 shrink-0" /> {success}
         </div>
       )}
@@ -1113,7 +1113,7 @@ export default function NcpDiagnosisPage({
                 key={tab.key}
                 type="button"
                 onClick={() => setActiveTab(tab.key)}
-                className={`relative flex items-center gap-1.5 px-4 py-3 text-[10px] font-bold uppercase tracking-wider whitespace-nowrap border-b-2 transition-all cursor-pointer ${
+                className={`relative flex items-center gap-1.5 px-4 py-3 text-xs font-bold uppercase tracking-wider whitespace-nowrap border-b-2 transition-all cursor-pointer ${
                   isActive
                     ? "text-emerald-700 border-emerald-600 bg-white"
                     : "text-warm-500 border-transparent hover:text-warm-700 hover:bg-white/50"
@@ -1136,13 +1136,13 @@ export default function NcpDiagnosisPage({
       {/* Builder context bar */}
       {activeTab !== "table" && activeTab !== "ai" && (
         <div className="bg-white border border-warm-200 rounded-xl px-5 py-3.5 flex items-center justify-between shadow-sm">
-          <div className="text-[10px] text-warm-500 font-semibold select-none">
+          <div className="text-xs text-warm-500 font-semibold select-none">
             {builder.editingId ? `Editing diagnosis #${builder.editingId}` : "New diagnosis"} · NCP Cycle #{ncpId}
           </div>
           <button
             type="button"
             onClick={() => { setBuilder(defaultBuilder()); setActiveTab("table"); }}
-            className="text-[10px] font-bold text-warm-400 hover:text-warm-700 transition-colors cursor-pointer"
+            className="text-xs font-bold text-warm-400 hover:text-warm-700 transition-colors cursor-pointer"
           >
             Cancel
           </button>

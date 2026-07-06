@@ -13,7 +13,7 @@ import {
   Salad,
   TrendingUp,
   BellDot,
-  Sliders,
+  Cog,
   ChevronLeft,
   ChevronDown,
   Users,
@@ -85,7 +85,7 @@ export function Sidebar({ open = false, onClose }: { open?: boolean; onClose?: (
     return (
       <Link
         href={href}
-        className={`flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all duration-150 ${
+        className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-semibold uppercase tracking-wider transition-all duration-150 ${
           active
             ? "bg-white/10 text-white border-l-2 border-brand-green-400"
             : "text-warm-400 hover:bg-white/5 hover:text-white"
@@ -155,7 +155,7 @@ export function Sidebar({ open = false, onClose }: { open?: boolean; onClose?: (
               {navLink("/admin/reports",       false, "Reports",       TrendingUp)}
               {navLink("/admin/budget",        false, "Budget",        WalletCards)}
               {navLink("/admin/audit-logs",    false, "Audit Logs",    History)}
-              {navLink("/admin/settings",      false, "System Settings", Sliders)}
+              {navLink("/admin/settings",      false, "Settings",      Cog)}
             </>
           ) : (
             /* ================= RND CLINICAL SIDENAV ================= */
@@ -168,7 +168,7 @@ export function Sidebar({ open = false, onClose }: { open?: boolean; onClose?: (
               <div className="space-y-1">
                 <button
                   onClick={toggleNcp}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all duration-150 cursor-pointer ${
+                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-semibold uppercase tracking-wider transition-all duration-150 cursor-pointer ${
                     isNcpGroupActive
                       ? "bg-white/8 text-white font-bold border-l-2 border-brand-green-400"
                       : "text-warm-400 hover:bg-white/5 hover:text-white"
@@ -205,7 +205,7 @@ export function Sidebar({ open = false, onClose }: { open?: boolean; onClose?: (
                       <Link
                         key={label}
                         href={href}
-                        className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all duration-150 ${
+                        className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-bold uppercase tracking-wider transition-all duration-150 ${
                           active ? "text-brand-green-300 font-extrabold" : "text-warm-500 hover:text-warm-300"
                         }`}
                       >
@@ -221,7 +221,7 @@ export function Sidebar({ open = false, onClose }: { open?: boolean; onClose?: (
               <div className="space-y-1">
                 <button
                   onClick={toggleFoodService}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all duration-150 cursor-pointer ${
+                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-semibold uppercase tracking-wider transition-all duration-150 cursor-pointer ${
                     isFoodServiceGroupActive
                       ? "bg-white/8 text-white font-bold border-l-2 border-brand-green-400"
                       : "text-warm-400 hover:bg-white/5 hover:text-white"
@@ -258,7 +258,7 @@ export function Sidebar({ open = false, onClose }: { open?: boolean; onClose?: (
                       <Link
                         key={label}
                         href={href}
-                        className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all duration-150 ${
+                        className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-bold uppercase tracking-wider transition-all duration-150 ${
                           active ? "text-brand-green-300 font-extrabold" : "text-warm-500 hover:text-warm-300"
                         }`}
                       >
@@ -272,25 +272,10 @@ export function Sidebar({ open = false, onClose }: { open?: boolean; onClose?: (
 
               {navLink("/reports",       false, "Reports",          TrendingUp)}
               {navLink("/notifications", false, "Notifications",    BellDot)}
-              {navLink("/settings",      false, "System Settings",  Sliders)}
+              {navLink("/settings",      false, "Settings",       Cog)}
             </>
           )}
         </nav>
-
-        {/* Active User Session Footer */}
-        {!collapsed && user && (
-          <div className="p-4 border-t border-forest-line bg-white/5 text-center shrink-0">
-            <span className="text-[10px] text-white/40 font-bold uppercase tracking-wider block">
-              Active Session
-            </span>
-            <span className="text-xs font-semibold text-white/80 mt-1 block truncate" title={user.name}>
-              {user.name}
-            </span>
-            <span className="text-[9px] font-extrabold text-orange-400 uppercase tracking-widest block mt-0.5">
-              {user.role}
-            </span>
-          </div>
-        )}
       </aside>
     </>
   );

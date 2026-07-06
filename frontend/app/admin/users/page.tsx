@@ -46,13 +46,13 @@ function FieldError({ errors, field }: { errors: FieldErrors; field: string }) {
   const msgs = errors[field];
   if (!msgs?.length) return null;
   return (
-    <p className="text-[10px] text-red-600 font-semibold mt-1">{msgs[0]}</p>
+    <p className="text-xs text-red-600 font-semibold mt-1">{msgs[0]}</p>
   );
 }
 
 function inputCls(errors: FieldErrors, field: string) {
   const hasErr = !!errors[field]?.length;
-  return `w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/30 ${
+  return `w-full px-3 py-2 text-base border rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/30 ${
     hasErr
       ? "border-red-400 bg-red-50/40"
       : "border-warm-200 bg-white focus:border-emerald-500"
@@ -285,7 +285,7 @@ export default function UserManagementPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 text-xs font-semibold text-warm-400 select-none">
+          <div className="flex items-center gap-2 text-sm font-semibold text-warm-400 select-none">
             <span>Admin</span>
             <span>/</span>
             <span className="text-warm-600 font-bold">User & RBAC Manager</span>
@@ -294,14 +294,14 @@ export default function UserManagementPage() {
             <Users className="h-5 w-5 text-emerald-600" />
             User & RBAC Manager
           </h1>
-          <p className="text-xs text-warm-500 mt-0.5">
+          <p className="text-sm text-warm-500 mt-0.5">
             Manage accounts, roles, active status, and password resets.
           </p>
         </div>
 
         <button
           onClick={openCreate}
-          className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-sm font-semibold rounded-lg transition-colors cursor-pointer select-none shrink-0"
+          className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-base font-semibold rounded-lg transition-colors cursor-pointer select-none shrink-0"
         >
           <Plus className="h-4 w-4" />
           Create Account
@@ -319,16 +319,16 @@ export default function UserManagementPage() {
             placeholder="Search by name or email…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 text-sm border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 bg-white placeholder:text-warm-400 text-warm-800"
+            className="w-full pl-9 pr-4 py-2 text-base border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 bg-white placeholder:text-warm-400 text-warm-800"
           />
         </div>
 
         <div className="flex items-center gap-3 shrink-0 select-none">
-          <span className="text-xs font-bold text-warm-500 uppercase tracking-wider flex items-center gap-1.5">
+          <span className="text-sm font-bold text-warm-500 uppercase tracking-wider flex items-center gap-1.5">
             <Filter className="h-3.5 w-3.5" />
             Role:
           </span>
-          <div className="flex border border-warm-200 bg-warm-50 p-0.5 rounded-lg text-xs font-semibold gap-0.5">
+          <div className="flex border border-warm-200 bg-warm-50 p-0.5 rounded-lg text-sm font-semibold gap-0.5">
             {["All", "Admin", "RND", "FSS"].map((r) => (
               <button
                 key={r}
@@ -351,11 +351,11 @@ export default function UserManagementPage() {
         <div className="bg-red-50 border border-red-200 p-4 rounded-xl flex items-start gap-3">
           <AlertTriangle className="h-5 w-5 text-red-500 shrink-0 mt-0.5" />
           <div>
-            <div className="text-xs text-red-700 font-bold">Failed to load users</div>
-            <div className="text-xs text-red-600 mt-0.5">{error}</div>
+            <div className="text-sm text-red-700 font-bold">Failed to load users</div>
+            <div className="text-sm text-red-600 mt-0.5">{error}</div>
             <button
               onClick={loadUsers}
-              className="mt-2 text-xs text-red-700 underline hover:no-underline cursor-pointer"
+              className="mt-2 text-sm text-red-700 underline hover:no-underline cursor-pointer"
             >
               Retry
             </button>
@@ -364,7 +364,7 @@ export default function UserManagementPage() {
       ) : loading ? (
         <div className="bg-white border border-warm-200 rounded-2xl p-12 text-center flex flex-col items-center justify-center gap-3 shadow-sm">
           <RefreshCw className="h-6 w-6 text-emerald-600 animate-spin" />
-          <div className="text-xs text-warm-500 font-semibold uppercase tracking-wider">
+          <div className="text-sm text-warm-500 font-semibold uppercase tracking-wider">
             Loading users…
           </div>
         </div>
@@ -373,8 +373,8 @@ export default function UserManagementPage() {
           <div className="p-3 bg-warm-50 border border-warm-200 rounded-2xl w-fit mx-auto text-warm-400 mb-4">
             <Users className="h-8 w-8" />
           </div>
-          <h3 className="text-sm font-bold text-warm-700">No accounts found</h3>
-          <p className="text-xs text-warm-400 mt-1">
+          <h3 className="text-base font-bold text-warm-700">No accounts found</h3>
+          <p className="text-sm text-warm-400 mt-1">
             {search || roleFilter !== "All"
               ? "Try adjusting your search or filter."
               : "Create the first account using the button above."}
@@ -386,16 +386,16 @@ export default function UserManagementPage() {
             <table className="w-full text-left min-w-[640px]">
               <thead className="bg-warm-50 border-b border-warm-100">
                 <tr>
-                  <th className="px-5 py-3.5 text-[10px] font-bold text-warm-500 uppercase tracking-wider">
+                  <th className="px-5 py-3.5 text-xs font-bold text-warm-500 uppercase tracking-wider">
                     User
                   </th>
-                  <th className="px-5 py-3.5 text-[10px] font-bold text-warm-500 uppercase tracking-wider">
+                  <th className="px-5 py-3.5 text-xs font-bold text-warm-500 uppercase tracking-wider">
                     Role
                   </th>
-                  <th className="px-5 py-3.5 text-[10px] font-bold text-warm-500 uppercase tracking-wider">
+                  <th className="px-5 py-3.5 text-xs font-bold text-warm-500 uppercase tracking-wider">
                     Status
                   </th>
-                  <th className="px-5 py-3.5 text-[10px] font-bold text-warm-500 uppercase tracking-wider text-right">
+                  <th className="px-5 py-3.5 text-xs font-bold text-warm-500 uppercase tracking-wider text-right">
                     Actions
                   </th>
                 </tr>
@@ -408,16 +408,16 @@ export default function UserManagementPage() {
                       {/* User */}
                       <td className="px-5 py-3.5">
                         <div className="flex items-center gap-1.5">
-                          <span className="text-sm font-semibold text-warm-800">
+                          <span className="text-base font-semibold text-warm-800">
                             {u.name}
                           </span>
                           {isSelf && (
-                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold uppercase tracking-wider">
+                            <span className="text-xs px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold uppercase tracking-wider">
                               You
                             </span>
                           )}
                         </div>
-                        <div className="text-xs text-warm-400 font-mono mt-0.5">
+                        <div className="text-sm text-warm-400 font-mono mt-0.5">
                           {u.email}
                         </div>
                       </td>
@@ -433,7 +433,7 @@ export default function UserManagementPage() {
                           onClick={() => handleToggleActive(u)}
                           disabled={isSelf}
                           title={isSelf ? "Cannot change own status" : u.is_active ? "Deactivate" : "Activate"}
-                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[10px] font-bold uppercase tracking-wider transition-colors select-none ${
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-bold uppercase tracking-wider transition-colors select-none ${
                             isSelf ? "cursor-not-allowed opacity-50" : "cursor-pointer"
                           } ${
                             u.is_active
@@ -503,10 +503,10 @@ export default function UserManagementPage() {
             {/* Modal header */}
             <div className="px-5 py-4 border-b border-warm-100 flex items-center justify-between gap-4">
               <div>
-                <h3 className="text-sm font-bold text-warm-900">
+                <h3 className="text-base font-bold text-warm-900">
                   {editingUser ? "Edit Account" : "Create Account"}
                 </h3>
-                <p className="text-xs text-warm-400 mt-0.5">
+                <p className="text-sm text-warm-400 mt-0.5">
                   {editingUser
                     ? "Update details. Leave password blank to keep existing."
                     : "Fill in all required fields."}
@@ -525,7 +525,7 @@ export default function UserManagementPage() {
             <form onSubmit={handleSaveUser} className="p-5 space-y-4">
               {/* General error banner */}
               {formError && (
-                <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded-xl px-3 py-2.5 flex items-start gap-2">
+                <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-xl px-3 py-2.5 flex items-start gap-2">
                   <AlertTriangle className="h-4 w-4 text-red-500 shrink-0 mt-0.5" />
                   <span>{formError}</span>
                 </div>
@@ -533,7 +533,7 @@ export default function UserManagementPage() {
 
               {/* Name */}
               <div>
-                <label className="block text-[10px] font-bold text-warm-500 uppercase tracking-wider mb-1">
+                <label className="block text-xs font-bold text-warm-500 uppercase tracking-wider mb-1">
                   Full Name <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -549,7 +549,7 @@ export default function UserManagementPage() {
 
               {/* Email */}
               <div>
-                <label className="block text-[10px] font-bold text-warm-500 uppercase tracking-wider mb-1">
+                <label className="block text-xs font-bold text-warm-500 uppercase tracking-wider mb-1">
                   Email Address <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -566,7 +566,7 @@ export default function UserManagementPage() {
               {/* Role + Active grid */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[10px] font-bold text-warm-500 uppercase tracking-wider mb-1">
+                  <label className="block text-xs font-bold text-warm-500 uppercase tracking-wider mb-1">
                     Role <span className="text-red-500">*</span>
                   </label>
                   <select
@@ -582,7 +582,7 @@ export default function UserManagementPage() {
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-bold text-warm-500 uppercase tracking-wider mb-1">
+                  <label className="block text-xs font-bold text-warm-500 uppercase tracking-wider mb-1">
                     Status
                   </label>
                   <select
@@ -599,13 +599,13 @@ export default function UserManagementPage() {
 
               {/* Password section */}
               <div className="border-t border-warm-100 pt-4 space-y-4">
-                <p className="text-[10px] font-bold text-warm-500 uppercase tracking-wider">
+                <p className="text-xs font-bold text-warm-500 uppercase tracking-wider">
                   {editingUser ? "New Password (optional)" : "Password"}
                   {!editingUser && <span className="text-red-500 ml-0.5">*</span>}
                 </p>
 
                 <div>
-                  <label className="block text-[10px] text-warm-500 mb-1">
+                  <label className="block text-xs text-warm-500 mb-1">
                     {editingUser ? "New password" : "Password"}
                   </label>
                   <input
@@ -620,7 +620,7 @@ export default function UserManagementPage() {
                 </div>
 
                 <div>
-                  <label className="block text-[10px] text-warm-500 mb-1">
+                  <label className="block text-xs text-warm-500 mb-1">
                     Confirm password
                   </label>
                   <input
@@ -659,8 +659,8 @@ export default function UserManagementPage() {
             {/* Modal header */}
             <div className="px-5 py-4 border-b border-warm-100 flex items-center justify-between gap-4">
               <div>
-                <h3 className="text-sm font-bold text-warm-900">Reset Password</h3>
-                <p className="text-xs text-warm-400 mt-0.5">
+                <h3 className="text-base font-bold text-warm-900">Reset Password</h3>
+                <p className="text-sm text-warm-400 mt-0.5">
                   Set a new password for{" "}
                   <span className="font-semibold text-warm-600">{resettingUser?.name}</span>
                 </p>
@@ -677,14 +677,14 @@ export default function UserManagementPage() {
             {/* Modal body */}
             <form onSubmit={handleResetPassword} className="p-5 space-y-4">
               {resetError && !resetSuccess && (
-                <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded-xl px-3 py-2.5 flex items-start gap-2">
+                <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-xl px-3 py-2.5 flex items-start gap-2">
                   <AlertTriangle className="h-4 w-4 text-red-500 shrink-0 mt-0.5" />
                   <span>{resetError}</span>
                 </div>
               )}
 
               {resetSuccess && (
-                <div className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2.5 flex items-center gap-2">
+                <div className="text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2.5 flex items-center gap-2">
                   <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
                   Password reset successfully. Closing…
                 </div>
@@ -693,7 +693,7 @@ export default function UserManagementPage() {
               {!resetSuccess && (
                 <>
                   <div>
-                    <label className="block text-[10px] font-bold text-warm-500 uppercase tracking-wider mb-1">
+                    <label className="block text-xs font-bold text-warm-500 uppercase tracking-wider mb-1">
                       New Password <span className="text-red-500">*</span>
                     </label>
                     <input
@@ -708,7 +708,7 @@ export default function UserManagementPage() {
                   </div>
 
                   <div>
-                    <label className="block text-[10px] font-bold text-warm-500 uppercase tracking-wider mb-1">
+                    <label className="block text-xs font-bold text-warm-500 uppercase tracking-wider mb-1">
                       Confirm Password <span className="text-red-500">*</span>
                     </label>
                     <input

@@ -95,7 +95,7 @@ export default function FSSRecipeListPage() {
             <CookingPot className="h-5 w-5 text-emerald-600" />
             Foods
           </h2>
-          <p className="text-xs text-warm-500 mt-1 select-none">
+          <p className="text-sm text-warm-500 mt-1 select-none">
             Manage recipes and single-ingredient food items used by the menu cycle.
           </p>
         </div>
@@ -112,14 +112,14 @@ export default function FSSRecipeListPage() {
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-100 p-4 rounded-xl text-xs text-red-700 font-bold">{error}</div>
+        <div className="bg-red-50 border border-red-100 p-4 rounded-xl text-sm text-red-700 font-bold">{error}</div>
       )}
 
       {/* Category filter */}
       <div className="flex flex-wrap gap-2">
         {FSS_CATEGORIES.map((cat) => (
           <button key={cat} onClick={() => { setFilterCat(cat); void loadPage(1, cat); }}
-            className={`px-3 py-1.5 rounded-full text-[10px] font-bold border transition-colors cursor-pointer ${
+            className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-colors cursor-pointer ${
               filterCat === cat
                 ? "bg-emerald-600 text-white border-emerald-600"
                 : "bg-white text-warm-600 border-warm-200 hover:border-emerald-400"
@@ -137,12 +137,12 @@ export default function FSSRecipeListPage() {
       ) : recipes.length === 0 ? (
         <div className="text-center py-16 border border-dashed border-warm-200 rounded-2xl">
           <CookingPot className="h-8 w-8 text-warm-200 mx-auto mb-3" />
-          <p className="text-sm font-bold text-warm-400">No recipes found.</p>
-          <p className="text-xs text-warm-300 mt-1">Add a recipe to get started.</p>
+          <p className="text-base font-bold text-warm-400">No recipes found.</p>
+          <p className="text-sm text-warm-300 mt-1">Add a recipe to get started.</p>
         </div>
       ) : (
         <div className="bg-white border border-warm-200 rounded-2xl overflow-hidden shadow-sm">
-          <table className="w-full text-xs">
+          <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-warm-100 bg-warm-50/60">
                 <th className="text-left px-5 py-3 font-extrabold text-warm-500 uppercase tracking-wider">Recipe Name</th>
@@ -158,7 +158,7 @@ export default function FSSRecipeListPage() {
                   </td>
                   <td className="px-4 py-3.5">
                     {recipe.category ? (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                         {recipe.category}
                       </span>
                     ) : (
@@ -192,8 +192,8 @@ export default function FSSRecipeListPage() {
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm border border-warm-200 overflow-hidden"
             onClick={(e) => e.stopPropagation()}>
             <div className="p-6 space-y-4">
-              <h3 className="text-sm font-extrabold text-warm-900">Delete Recipe?</h3>
-              <p className="text-xs text-warm-500">
+              <h3 className="text-base font-extrabold text-warm-900">Delete Recipe?</h3>
+              <p className="text-sm text-warm-500">
                 This will permanently delete the recipe and all its ingredients. This cannot be undone.
               </p>
               <div className="flex gap-3 justify-end">

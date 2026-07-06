@@ -31,18 +31,18 @@ export default function MacroTrackerBar({
       <div className="flex flex-wrap items-center gap-x-5 gap-y-1 flex-1 min-w-0">
         {targets.map(({ label, current, target, unit }) => (
           <div key={label} className="flex items-baseline gap-1">
-            <span className="text-[9px] font-bold text-warm-400 uppercase tracking-wider">{label}</span>
-            <span className={`text-sm font-extrabold font-mono ${statusColor(current, target)}`}>
+            <span className="text-xs font-bold text-warm-400 uppercase tracking-wider">{label}</span>
+            <span className={`text-base font-extrabold font-mono ${statusColor(current, target)}`}>
               {Math.round(current)}
             </span>
-            <span className="text-[9px] text-warm-400">/ {Math.round(target)} {unit}</span>
+            <span className="text-xs text-warm-400">/ {Math.round(target)} {unit}</span>
           </div>
         ))}
       </div>
       {hasMicros && onToggleMicros && (
         <button
           onClick={onToggleMicros}
-          className={`flex items-center gap-1 px-2.5 py-1.5 text-[10px] font-bold border rounded-lg transition-colors cursor-pointer flex-shrink-0 ${
+          className={`flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold border rounded-lg transition-colors cursor-pointer flex-shrink-0 ${
             showMicros
               ? "bg-sky-600 text-white border-sky-600"
               : "border-warm-200 text-warm-500 hover:border-sky-400 hover:text-sky-700"

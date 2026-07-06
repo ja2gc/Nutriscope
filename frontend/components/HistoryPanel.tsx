@@ -24,7 +24,7 @@ const fmt = (v: unknown) =>
 function ChangeRow({ field, oldVal, newVal }: { field: string; oldVal: unknown; newVal: unknown }) {
   const redacted = newVal === REDACTED || oldVal === REDACTED;
   return (
-    <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-[11px]">
+    <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-xs">
       <span className="font-semibold text-warm-600">{field}</span>
       {redacted ? (
         <Badge tone="zinc">value hidden (PHI)</Badge>
@@ -67,7 +67,7 @@ export function HistoryPanel({ path, title = "Change history" }: { path: string;
         aria-expanded={open}
         className="w-full flex items-center justify-between gap-2 px-5 py-3.5 text-left cursor-pointer hover:bg-warm-50/60 transition-colors"
       >
-        <span className="flex items-center gap-2 text-xs font-extrabold text-warm-700 uppercase tracking-wider">
+        <span className="flex items-center gap-2 text-sm font-extrabold text-warm-700 uppercase tracking-wider">
           <History className="h-4 w-4 text-emerald-600" aria-hidden /> {title}
           {events && <Badge tone="zinc">{events.length}</Badge>}
         </span>
@@ -77,13 +77,13 @@ export function HistoryPanel({ path, title = "Change history" }: { path: string;
       {open && (
         <div className="border-t border-warm-100 px-5 py-4">
           {loading && (
-            <div className="flex items-center gap-2 text-xs text-warm-400 py-6 justify-center">
+            <div className="flex items-center gap-2 text-sm text-warm-400 py-6 justify-center">
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Loading history…
             </div>
           )}
 
           {error && !loading && (
-            <div className="flex items-center justify-between gap-2 text-xs font-semibold text-red-700 bg-red-50 border border-red-200 rounded-xl px-3 py-2">
+            <div className="flex items-center justify-between gap-2 text-sm font-semibold text-red-700 bg-red-50 border border-red-200 rounded-xl px-3 py-2">
               <span className="flex items-center gap-1.5"><AlertTriangle className="h-3.5 w-3.5" aria-hidden /> {error}</span>
               <button onClick={load} className="flex items-center gap-1 text-red-600 hover:text-red-800 cursor-pointer">
                 <RefreshCw className="h-3 w-3" aria-hidden /> Retry
@@ -92,7 +92,7 @@ export function HistoryPanel({ path, title = "Change history" }: { path: string;
           )}
 
           {!loading && !error && events && events.length === 0 && (
-            <p className="text-xs text-warm-400 text-center py-6">No changes recorded yet.</p>
+            <p className="text-sm text-warm-400 text-center py-6">No changes recorded yet.</p>
           )}
 
           {!loading && !error && events && events.length > 0 && (
@@ -112,8 +112,8 @@ export function HistoryPanel({ path, title = "Change history" }: { path: string;
                     </span>
                     <div className="flex flex-wrap items-center gap-2">
                       <Badge tone={v.tone}>{v.label}</Badge>
-                      <span className="text-xs font-semibold text-warm-700">{ev.causer}</span>
-                      <span className="text-[10px] text-warm-400 tabular-nums">{new Date(ev.created_at).toLocaleString()}</span>
+                      <span className="text-sm font-semibold text-warm-700">{ev.causer}</span>
+                      <span className="text-xs text-warm-400 tabular-nums">{new Date(ev.created_at).toLocaleString()}</span>
                     </div>
                     {fields.length > 0 && (
                       <div className="mt-1.5 space-y-1">

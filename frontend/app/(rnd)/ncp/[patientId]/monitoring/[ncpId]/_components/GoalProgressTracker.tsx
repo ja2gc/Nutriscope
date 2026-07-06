@@ -47,11 +47,11 @@ function PlanProgressTable({ plan }: { plan: MonitoringPlan }) {
   return (
     <div className="bg-white border border-warm-200 rounded-2xl shadow-sm overflow-hidden">
       <div className="px-5 py-4 border-b border-warm-100">
-        <h3 className="text-xs font-extrabold text-warm-700 uppercase tracking-wider flex items-center gap-2">
+        <h3 className="text-sm font-extrabold text-warm-700 uppercase tracking-wider flex items-center gap-2">
           <TrendingUp className="h-4 w-4 text-emerald-600" />
           Goal Progress
         </h3>
-        <p className="text-[10px] text-warm-400 mt-0.5">
+        <p className="text-xs text-warm-400 mt-0.5">
           Visit 1 = assessment baseline · only this patient&apos;s tracked indicators
         </p>
       </div>
@@ -59,7 +59,7 @@ function PlanProgressTable({ plan }: { plan: MonitoringPlan }) {
         <div className="min-w-[560px]">
           <div className="grid grid-cols-[1.4fr_72px_72px_90px_90px_80px] gap-2 px-5 py-2.5 bg-warm-50 border-b border-warm-100">
             {["Indicator", "Baseline", "Current", "Reference", "Status", "Trend"].map((h) => (
-              <span key={h} className="text-[9px] font-bold text-warm-400 uppercase tracking-widest">{h}</span>
+              <span key={h} className="text-xs font-bold text-warm-400 uppercase tracking-widest">{h}</span>
             ))}
           </div>
           <div className="divide-y divide-zinc-100">
@@ -159,7 +159,7 @@ export default function GoalProgressTracker({
     return (
       <div className="bg-white border border-warm-200 rounded-2xl shadow-sm">
         <div className="px-5 py-4 border-b border-warm-100">
-          <h3 className="text-xs font-extrabold text-warm-700 uppercase tracking-wider flex items-center gap-2">
+          <h3 className="text-sm font-extrabold text-warm-700 uppercase tracking-wider flex items-center gap-2">
             <TrendingUp className="h-4 w-4 text-emerald-600" />
             Goal Progress
           </h3>
@@ -168,8 +168,8 @@ export default function GoalProgressTracker({
           <div className="p-3 bg-warm-50 border border-dashed border-warm-300 rounded-xl w-fit mx-auto mb-3">
             <TrendingUp className="h-6 w-6 text-warm-400" />
           </div>
-          <p className="text-xs font-semibold text-warm-500">No assessment baseline found.</p>
-          <p className="text-[10px] text-warm-400 mt-1">
+          <p className="text-sm font-semibold text-warm-500">No assessment baseline found.</p>
+          <p className="text-xs text-warm-400 mt-1">
             Complete the assessment step to enable goal tracking.
           </p>
         </div>
@@ -180,11 +180,11 @@ export default function GoalProgressTracker({
   return (
     <div className="bg-white border border-warm-200 rounded-2xl shadow-sm overflow-hidden">
       <div className="px-5 py-4 border-b border-warm-100">
-        <h3 className="text-xs font-extrabold text-warm-700 uppercase tracking-wider flex items-center gap-2">
+        <h3 className="text-sm font-extrabold text-warm-700 uppercase tracking-wider flex items-center gap-2">
           <TrendingUp className="h-4 w-4 text-emerald-600" />
           Goal Progress
         </h3>
-        <p className="text-[10px] text-warm-400 mt-0.5">
+        <p className="text-xs text-warm-400 mt-0.5">
           Baseline from initial assessment · Status based on clinical reference ranges
         </p>
       </div>
@@ -195,7 +195,7 @@ export default function GoalProgressTracker({
           {/* Column headers */}
           <div className="grid grid-cols-[1.4fr_72px_72px_90px_90px_80px] gap-2 px-5 py-2.5 bg-warm-50 border-b border-warm-100">
             {['Indicator', 'Baseline', 'Current', 'Reference', 'Status', 'Trend'].map((h) => (
-              <span key={h} className="text-[9px] font-bold text-warm-400 uppercase tracking-widest">{h}</span>
+              <span key={h} className="text-xs font-bold text-warm-400 uppercase tracking-widest">{h}</span>
             ))}
           </div>
 
@@ -294,25 +294,25 @@ function TrackerRow({
     <div className="grid grid-cols-[1.4fr_72px_72px_90px_90px_80px] gap-2 items-center px-5 py-3">
       {/* Label + unit */}
       <div className="min-w-0">
-        <p className="text-xs font-semibold text-warm-800 truncate">{label}</p>
-        <p className="text-[9px] text-warm-400">{unit}</p>
+        <p className="text-sm font-semibold text-warm-800 truncate">{label}</p>
+        <p className="text-xs text-warm-400">{unit}</p>
       </div>
 
       {/* Baseline */}
-      <p className="text-xs font-mono text-warm-500 truncate">
+      <p className="text-sm font-mono text-warm-500 truncate">
         {baseline !== null ? baseline : <span className="text-warm-300">—</span>}
       </p>
 
       {/* Current */}
-      <p className={`text-xs font-mono font-bold truncate ${current !== null ? 'text-warm-900' : 'text-warm-300'}`}>
+      <p className={`text-sm font-mono font-bold truncate ${current !== null ? 'text-warm-900' : 'text-warm-300'}`}>
         {current !== null ? current : '—'}
       </p>
 
       {/* Reference range */}
-      <p className="text-[10px] text-warm-400 truncate">{referenceLabel}</p>
+      <p className="text-xs text-warm-400 truncate">{referenceLabel}</p>
 
       {/* Status chip */}
-      <span className={`inline-flex items-center justify-center px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap ${STATUS_STYLES[status]}`}>
+      <span className={`inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap ${STATUS_STYLES[status]}`}>
         {STATUS_LABELS[status]}
       </span>
 
@@ -320,7 +320,7 @@ function TrackerRow({
       <div className="flex items-center">
         {sparkValues.length >= 2
           ? <TrendSparkline values={sparkValues} lowerIsBetter={lowerIsBetter} />
-          : <span className="text-warm-300 text-[10px]">—</span>
+          : <span className="text-warm-300 text-xs">—</span>
         }
       </div>
     </div>

@@ -68,7 +68,3 @@ body {
     font-variant-numeric: tabular-nums;
   }
 }
-
-:root[data-density="compact"] {
-  font-size: 93.75%;
-}

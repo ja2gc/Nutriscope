@@ -45,26 +45,26 @@ function PerHeadDayLimitCard() {
 
   return (
     <Card className="p-6 space-y-5">
-      <h3 className="text-xs font-bold text-warm-900 uppercase tracking-wider flex items-center gap-2">
+      <h3 className="text-sm font-bold text-warm-900 uppercase tracking-wider flex items-center gap-2">
         <Wallet className="h-4 w-4 text-emerald-600" />
         Food Service Budget
       </h3>
       <div className="space-y-2">
-        <span className="text-xs font-semibold text-warm-600">Budget per head per day (₱)</span>
+        <span className="text-sm font-semibold text-warm-600">Budget per head per day (₱)</span>
         <input
           type="number" min="0" step="0.01"
           value={value}
           disabled={loading}
           onChange={(e) => setValue(e.target.value)}
           placeholder="0.00"
-          className="w-full px-3 py-2 text-sm border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+          className="w-full px-3 py-2 text-base border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
         />
       </div>
       <div className="flex items-center gap-3">
-        <Button onClick={save} disabled={saving || loading} className="text-sm">
+        <Button onClick={save} disabled={saving || loading} className="text-base">
           {saving ? "Saving…" : "Save"}
         </Button>
-        {msg && <span className="text-xs text-warm-500">{msg}</span>}
+        {msg && <span className="text-sm text-warm-500">{msg}</span>}
       </div>
     </Card>
   );
@@ -209,25 +209,25 @@ export default function AdminSettingsPage() {
   return (
     <div className="space-y-6 font-sans">
       <PageHeader
-        crumbs={[["Admin", "/admin/dashboard"], ["System Settings"]]}
-        title="System Settings"
+        crumbs={[["Admin", "/admin/dashboard"], ["Settings"]]}
+        title="Settings"
         icon={<Settings className="h-5 w-5 text-emerald-600" />}
         subtitle="Manage hospital branding and your display preferences."
       />
 
       {/* ── Branding card ────────────────────────────────────────── */}
       <Card className="p-6">
-        <h3 className="text-xs font-bold text-warm-900 uppercase tracking-wider flex items-center gap-2 mb-5">
+        <h3 className="text-sm font-bold text-warm-900 uppercase tracking-wider flex items-center gap-2 mb-5">
           <Building2 className="h-4 w-4 text-emerald-600" />
           Hospital Branding
         </h3>
 
         {brandingLoading && (
-          <p className="text-xs text-warm-400">Loading branding…</p>
+          <p className="text-sm text-warm-400">Loading branding…</p>
         )}
 
         {brandingError && (
-          <p className="text-xs font-semibold text-red-600">{brandingError}</p>
+          <p className="text-sm font-semibold text-red-600">{brandingError}</p>
         )}
 
         {!brandingLoading && !brandingError && branding && (
@@ -274,11 +274,11 @@ export default function AdminSettingsPage() {
             {/* Logo uploads */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-semibold text-warm-600 tracking-wide">
+                <label className="text-sm font-semibold text-warm-600 tracking-wide">
                   Logo Left
                 </label>
                 {branding.logo_left_path && (
-                  <p className="text-[10px] text-warm-400 truncate">
+                  <p className="text-xs text-warm-400 truncate">
                     Current: {branding.logo_left_path}
                   </p>
                 )}
@@ -286,20 +286,20 @@ export default function AdminSettingsPage() {
                   ref={logoLeftRef}
                   type="file"
                   accept="image/*"
-                  className="text-xs text-warm-600 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-warm-100 file:text-warm-700 hover:file:bg-warm-200"
+                  className="text-sm text-warm-600 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-warm-100 file:text-warm-700 hover:file:bg-warm-200"
                 />
                 {validationErrors.logo_left && (
-                  <span className="text-xs font-semibold text-red-600">
+                  <span className="text-sm font-semibold text-red-600">
                     {validationErrors.logo_left}
                   </span>
                 )}
               </div>
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-semibold text-warm-600 tracking-wide">
+                <label className="text-sm font-semibold text-warm-600 tracking-wide">
                   Logo Right
                 </label>
                 {branding.logo_right_path && (
-                  <p className="text-[10px] text-warm-400 truncate">
+                  <p className="text-xs text-warm-400 truncate">
                     Current: {branding.logo_right_path}
                   </p>
                 )}
@@ -307,10 +307,10 @@ export default function AdminSettingsPage() {
                   ref={logoRightRef}
                   type="file"
                   accept="image/*"
-                  className="text-xs text-warm-600 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-warm-100 file:text-warm-700 hover:file:bg-warm-200"
+                  className="text-sm text-warm-600 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-warm-100 file:text-warm-700 hover:file:bg-warm-200"
                 />
                 {validationErrors.logo_right && (
-                  <span className="text-xs font-semibold text-red-600">
+                  <span className="text-sm font-semibold text-red-600">
                     {validationErrors.logo_right}
                   </span>
                 )}
@@ -322,12 +322,12 @@ export default function AdminSettingsPage() {
                 Save Branding
               </Button>
               {savedOk && (
-                <span className="text-xs font-semibold text-emerald-600">
+                <span className="text-sm font-semibold text-emerald-600">
                   Saved.
                 </span>
               )}
               {saveError && (
-                <span className="text-xs font-semibold text-red-600">
+                <span className="text-sm font-semibold text-red-600">
                   {saveError}
                 </span>
               )}
@@ -341,19 +341,19 @@ export default function AdminSettingsPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         {/* ── Appearance card ─────────────────────────────────────── */}
         <Card className="p-6 space-y-5">
-          <h3 className="text-xs font-bold text-warm-900 uppercase tracking-wider flex items-center gap-2">
+          <h3 className="text-sm font-bold text-warm-900 uppercase tracking-wider flex items-center gap-2">
             <Palette className="h-4 w-4 text-emerald-600" />
             Appearance
           </h3>
 
           <div className="space-y-2">
-            <span className="text-xs font-semibold text-warm-600">Density</span>
+            <span className="text-sm font-semibold text-warm-600">Density</span>
             <div className="grid grid-cols-2 gap-2">
               {(["comfortable", "compact"] as Density[]).map((value) => (
                 <button
                   key={value}
                   onClick={() => chooseDensity(value)}
-                  className={`px-3 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider border transition-colors ${
+                  className={`px-3 py-2.5 rounded-lg text-sm font-bold uppercase tracking-wider border transition-colors ${
                     density === value
                       ? "border-emerald-600 bg-emerald-50 text-emerald-800"
                       : "border-warm-200 text-warm-500 hover:bg-warm-50"
@@ -363,8 +363,8 @@ export default function AdminSettingsPage() {
                 </button>
               ))}
             </div>
-            <p className="text-[10px] text-warm-400">
-              Compact tightens spacing and text across the app.
+            <p className="text-xs text-warm-400">
+              Compact tightens spacing across the app while keeping text readable.
             </p>
           </div>
 
@@ -372,18 +372,18 @@ export default function AdminSettingsPage() {
 
         {/* ── Notifications card ───────────────────────────────────── */}
         <Card className="p-6 space-y-5">
-          <h3 className="text-xs font-bold text-warm-900 uppercase tracking-wider flex items-center gap-2">
+          <h3 className="text-sm font-bold text-warm-900 uppercase tracking-wider flex items-center gap-2">
             <Bell className="h-4 w-4 text-emerald-600" />
             Notifications
           </h3>
           <label className="flex items-center justify-between gap-3 cursor-pointer">
-            <span className="text-xs font-semibold text-warm-600">New announcements</span>
+            <span className="text-sm font-semibold text-warm-600">New announcements</span>
             <button role="switch" aria-checked={announcementAlerts} onClick={toggleAnnouncements} className={`relative h-5 w-9 rounded-full transition-colors ${announcementAlerts ? "bg-brand-green-600" : "bg-warm-300"}`}>
               <span className={`absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${announcementAlerts ? "translate-x-4" : "translate-x-0"}`} />
             </button>
           </label>
           <label className="flex items-center justify-between gap-3 cursor-pointer">
-            <span className="text-xs font-semibold text-warm-600">Follow-up reminders</span>
+            <span className="text-sm font-semibold text-warm-600">Follow-up reminders</span>
             <button role="switch" aria-checked={followUpAlerts} onClick={toggleFollowUps} className={`relative h-5 w-9 rounded-full transition-colors ${followUpAlerts ? "bg-brand-green-600" : "bg-warm-300"}`}>
               <span className={`absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${followUpAlerts ? "translate-x-4" : "translate-x-0"}`} />
             </button>

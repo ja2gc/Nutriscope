@@ -96,11 +96,11 @@ export function SopBanner() {
             <ClipboardList className="h-4.5 w-4.5" />
           </span>
           <div>
-            <div className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-emerald-700">
+            <div className="text-xs font-extrabold uppercase tracking-[0.18em] text-emerald-700">
               Standard Operating Procedure
             </div>
             {sop?.author && (
-              <div className="text-[10px] font-semibold text-emerald-600/80">
+              <div className="text-xs font-semibold text-emerald-600/80">
                 {sop.author.name} · {sop.author.role} · {formatTimeStamp(sop.created_at)}
               </div>
             )}
@@ -110,7 +110,7 @@ export function SopBanner() {
           <button
             type="button"
             onClick={() => void openHistory()}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-emerald-200 text-[10px] font-bold uppercase tracking-wider text-emerald-700 hover:bg-white transition-colors"
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-emerald-200 text-xs font-bold uppercase tracking-wider text-emerald-700 hover:bg-white transition-colors"
           >
             <History className="h-3.5 w-3.5" /> History
           </button>
@@ -118,7 +118,7 @@ export function SopBanner() {
             <button
               type="button"
               onClick={openEditor}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-emerald-200 text-[10px] font-bold uppercase tracking-wider text-emerald-700 hover:bg-white transition-colors"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-emerald-200 text-xs font-bold uppercase tracking-wider text-emerald-700 hover:bg-white transition-colors"
             >
               <PencilLine className="h-3.5 w-3.5" /> {sop ? "Revise" : "Set SOP"}
             </button>
@@ -128,11 +128,11 @@ export function SopBanner() {
 
       {sop ? (
         <div className="mt-3">
-          <h4 className="text-sm font-extrabold text-warm-900">{sop.title}</h4>
-          <p className="mt-1 text-xs text-warm-700 leading-6 whitespace-pre-wrap">{sop.body}</p>
+          <h4 className="text-base font-extrabold text-warm-900">{sop.title}</h4>
+          <p className="mt-1 text-sm text-warm-700 leading-6 whitespace-pre-wrap">{sop.body}</p>
         </div>
       ) : (
-        <p className="mt-3 text-xs text-emerald-700/80">No SOP set yet. Click “Set SOP” to add one.</p>
+        <p className="mt-3 text-sm text-emerald-700/80">No SOP set yet. Click “Set SOP” to add one.</p>
       )}
 
       {/* Editor modal */}
@@ -146,42 +146,42 @@ export function SopBanner() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-5 py-4 border-b border-warm-100 bg-warm-50 flex items-center justify-between">
-              <h3 className="text-xs font-bold text-warm-900 uppercase tracking-[0.18em]">Revise SOP</h3>
+              <h3 className="text-sm font-bold text-warm-900 uppercase tracking-[0.18em]">Revise SOP</h3>
               <button
                 type="button"
                 onClick={() => setEditing(false)}
-                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-warm-200 text-[10px] font-bold uppercase tracking-wider text-warm-600 hover:bg-white"
+                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-warm-200 text-xs font-bold uppercase tracking-wider text-warm-600 hover:bg-white"
               >
                 <X className="h-3.5 w-3.5" /> Close
               </button>
             </div>
             <form onSubmit={submit} className="p-5 space-y-4">
-              <p className="text-[10px] text-warm-500">
+              <p className="text-xs text-warm-500">
                 Saving creates a new version. The previous SOP is kept in History.
               </p>
               <div className="space-y-1.5">
-                <label className="text-[10px] font-semibold text-warm-500 uppercase tracking-wider">Title</label>
+                <label className="text-xs font-semibold text-warm-500 uppercase tracking-wider">Title</label>
                 <input
                   value={draft.title}
                   onChange={(e) => setDraft((p) => ({ ...p, title: e.target.value }))}
-                  className="w-full px-3 py-2 text-sm bg-white border border-warm-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
+                  className="w-full px-3 py-2 text-base bg-white border border-warm-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-[10px] font-semibold text-warm-500 uppercase tracking-wider">Procedure</label>
+                <label className="text-xs font-semibold text-warm-500 uppercase tracking-wider">Procedure</label>
                 <textarea
                   value={draft.body}
                   onChange={(e) => setDraft((p) => ({ ...p, body: e.target.value }))}
-                  className="w-full px-3 py-2 text-sm bg-white border border-warm-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 min-h-40"
+                  className="w-full px-3 py-2 text-base bg-white border border-warm-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 min-h-40"
                 />
               </div>
               {error && (
-                <div className="text-xs font-semibold text-red-700 bg-red-50 border border-red-100 rounded-xl px-3 py-2">
+                <div className="text-sm font-semibold text-red-700 bg-red-50 border border-red-100 rounded-xl px-3 py-2">
                   {error}
                 </div>
               )}
               <div className="flex justify-end">
-                <Button variant="primary" loading={saving} className="w-auto px-4 py-2 text-[10px] font-bold uppercase tracking-wider">
+                <Button variant="primary" loading={saving} className="w-auto px-4 py-2 text-xs font-bold uppercase tracking-wider">
                   Save Version
                 </Button>
               </div>
@@ -201,35 +201,35 @@ export function SopBanner() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-5 py-4 border-b border-warm-100 bg-warm-50 flex items-center justify-between">
-              <h3 className="text-xs font-bold text-warm-900 uppercase tracking-[0.18em]">SOP History</h3>
+              <h3 className="text-sm font-bold text-warm-900 uppercase tracking-[0.18em]">SOP History</h3>
               <button
                 type="button"
                 onClick={() => setHistoryOpen(false)}
-                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-warm-200 text-[10px] font-bold uppercase tracking-wider text-warm-600 hover:bg-white"
+                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-warm-200 text-xs font-bold uppercase tracking-wider text-warm-600 hover:bg-white"
               >
                 <X className="h-3.5 w-3.5" /> Close
               </button>
             </div>
             <div className="p-5 space-y-3 overflow-y-auto">
               {historyLoading ? (
-                <div className="text-xs text-warm-400 text-center py-8">Loading…</div>
+                <div className="text-sm text-warm-400 text-center py-8">Loading…</div>
               ) : history.length === 0 ? (
-                <div className="text-xs text-warm-400 text-center py-8">No past versions.</div>
+                <div className="text-sm text-warm-400 text-center py-8">No past versions.</div>
               ) : (
                 history.map((v, i) => (
                   <div key={v.id} className="rounded-2xl border border-warm-200 p-4">
                     <div className="flex items-center justify-between gap-2">
-                      <div className="text-sm font-bold text-warm-900">{v.title}</div>
+                      <div className="text-base font-bold text-warm-900">{v.title}</div>
                       {i === 0 && (
-                        <span className="inline-flex px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-wider border bg-emerald-50 text-emerald-700 border-emerald-200">
+                        <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-extrabold uppercase tracking-wider border bg-emerald-50 text-emerald-700 border-emerald-200">
                           Current
                         </span>
                       )}
                     </div>
-                    <div className="text-[10px] font-semibold uppercase tracking-wider text-warm-400 mt-0.5">
+                    <div className="text-xs font-semibold uppercase tracking-wider text-warm-400 mt-0.5">
                       {v.author?.name} · {v.author?.role} · {formatTimeStamp(v.created_at)}
                     </div>
-                    <p className="mt-2 text-xs text-warm-600 leading-6 whitespace-pre-wrap">{v.body}</p>
+                    <p className="mt-2 text-sm text-warm-600 leading-6 whitespace-pre-wrap">{v.body}</p>
                   </div>
                 ))
               )}

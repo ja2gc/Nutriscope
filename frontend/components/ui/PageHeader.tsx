@@ -24,7 +24,7 @@ export function PageHeader({
 }) {
   return (
     <div className="space-y-4">
-      <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs font-semibold text-warm-400 select-none">
+      <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-sm font-semibold text-warm-400 select-none">
         {crumbs.map(([label, href], i) => (
           <React.Fragment key={label}>
             {i > 0 && <span className="text-warm-300">/</span>}
@@ -42,7 +42,7 @@ export function PageHeader({
             {icon}
             {title}
           </h1>
-          {subtitle && <p className="text-xs text-warm-500 mt-1 max-w-2xl">{subtitle}</p>}
+          {subtitle && <p className="text-sm text-warm-500 mt-1 max-w-2xl">{subtitle}</p>}
         </div>
         {actions && <div className="flex items-center gap-2 shrink-0">{actions}</div>}
       </div>

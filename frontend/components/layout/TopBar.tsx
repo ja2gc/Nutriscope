@@ -33,14 +33,14 @@ export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
     if (pathname.startsWith("/announcements")) return "Department Announcements";
     if (pathname.startsWith("/admin/notifications")) return "Activity Notifications";
     if (pathname.startsWith("/admin/reports")) return "Operations & Census Reports";
-    if (pathname.startsWith("/admin/settings")) return "Global Hospital Settings";
+    if (pathname.startsWith("/admin/settings")) return "Settings";
     if (pathname.startsWith("/recipes")) return "Recipes & Ingredient Database";
     if (pathname.startsWith("/ncp")) return "Patient Nutrition Care Center";
     if (pathname.startsWith("/food-service")) return "Food Service & Kitchen Operations";
     if (pathname.startsWith("/reports")) return "Clinical & Operational Reports";
     if (pathname.startsWith("/calendar")) return "Care Calendar & Schedules";
     if (pathname.startsWith("/notifications")) return "Activity Notifications";
-    if (pathname.startsWith("/settings")) return "System Settings & Preferences";
+    if (pathname.startsWith("/settings")) return "Settings";
     return "Nutrition Operations Console";
   };
 
@@ -75,7 +75,7 @@ export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
           <Menu className="h-5 w-5" />
         </button>
         {/* Module Title */}
-        <h1 className={`text-sm font-bold tracking-wide uppercase truncate ${
+        <h1 className={`text-base font-bold tracking-wide uppercase truncate ${
           isAdminPath ? "text-white" : "text-warm-800"
         }`}>
           {getModuleTitle()}
@@ -98,7 +98,7 @@ export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
           >
             <Bell className="h-4.5 w-4.5" />
             {unread > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 min-w-4 h-4 px-1 flex items-center justify-center rounded-full bg-orange-500 text-white text-[9px] font-bold ring-2 ring-white">
+              <span className="absolute -top-0.5 -right-0.5 min-w-4 h-4 px-1 flex items-center justify-center rounded-full bg-orange-500 text-white text-xs font-bold ring-2 ring-white">
                 {unread > 9 ? "9+" : unread}
               </span>
             )}
@@ -123,12 +123,12 @@ export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
             } ${user.role === "RND" || user.role === "Admin" ? "cursor-pointer hover:opacity-80" : "cursor-default"}`}
           >
             <div className="hidden sm:flex flex-col text-right">
-              <span className={`text-xs font-bold leading-tight ${
+              <span className={`text-sm font-bold leading-tight ${
                 isAdminPath ? "text-white" : "text-warm-800"
               }`}>
                 {user.name}
               </span>
-              <span className="text-[9px] font-extrabold text-brand-orange-600 uppercase tracking-widest leading-tight mt-0.5">
+              <span className="text-xs font-extrabold text-brand-orange-600 uppercase tracking-widest leading-tight mt-0.5">
                 {user.role}
               </span>
             </div>
@@ -146,7 +146,7 @@ export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
         {/* Log Out */}
         <button
           onClick={handleLogout}
-          className={`flex items-center gap-1.5 px-2 sm:px-3 py-1.5 text-xs font-semibold rounded-lg transition-all duration-150 cursor-pointer tracking-wide ${
+          className={`flex items-center gap-1.5 px-2 sm:px-3 py-1.5 text-sm font-semibold rounded-lg transition-all duration-150 cursor-pointer tracking-wide ${
             isAdminPath
               ? "text-white/40 hover:text-orange-400 hover:bg-white/10"
               : "text-warm-500 hover:text-brand-orange-600 hover:bg-brand-orange-50"

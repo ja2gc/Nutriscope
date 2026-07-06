@@ -169,7 +169,7 @@ export default function NcpPatientsPage() {
 
   return (
     <div className="space-y-6 font-sans">
-      <div className="flex items-center gap-2 text-xs font-semibold text-warm-400 select-none">
+      <div className="flex items-center gap-2 text-sm font-semibold text-warm-400 select-none">
         <span>Home</span>
         <span className="text-warm-300">/</span>
         <span>Clinical Care</span>
@@ -183,7 +183,7 @@ export default function NcpPatientsPage() {
             <HeartHandshake className="h-5 w-5 text-emerald-600" />
             NCP Patient Profile Portal
           </h2>
-          <p className="text-xs text-warm-500 mt-1 select-none">
+          <p className="text-sm text-warm-500 mt-1 select-none">
             Create the patient record, then open the assessment page immediately to start OCR-assisted intake.
           </p>
         </div>
@@ -208,7 +208,7 @@ export default function NcpPatientsPage() {
               setSearch(e.target.value);
               setPage(1);
             }}
-            className="w-full px-4 py-2 text-sm bg-white border border-warm-300 rounded-lg text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 transition-all placeholder:text-warm-400"
+            className="w-full px-4 py-2 text-base bg-white border border-warm-300 rounded-lg text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 transition-all placeholder:text-warm-400"
           />
         </div>
 
@@ -219,7 +219,7 @@ export default function NcpPatientsPage() {
               setStatus(e.target.value);
               setPage(1);
             }}
-            className="w-full sm:w-40 px-3 py-2 text-sm bg-white border border-warm-300 rounded-lg text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 transition-all cursor-pointer font-semibold"
+            className="w-full sm:w-40 px-3 py-2 text-base bg-white border border-warm-300 rounded-lg text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 transition-all cursor-pointer font-semibold"
           >
             <option value="All">All Statuses</option>
             <option value="Active">Active Care</option>
@@ -231,10 +231,10 @@ export default function NcpPatientsPage() {
 
       {error && (
         <div className="bg-red-50 border border-red-100 p-4 rounded-xl flex items-start gap-3">
-          <span className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-red-200 text-[10px] font-black text-red-600 shrink-0 mt-0.5">
+          <span className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-red-200 text-xs font-black text-red-600 shrink-0 mt-0.5">
             !
           </span>
-          <div className="text-xs text-red-700 font-bold">{error}</div>
+          <div className="text-sm text-red-700 font-bold">{error}</div>
         </div>
       )}
 
@@ -257,8 +257,8 @@ export default function NcpPatientsPage() {
             <div className="p-3 bg-warm-50 border border-warm-200 rounded-2xl w-fit mx-auto text-warm-400">
               <HeartHandshake className="h-8 w-8" />
             </div>
-            <h3 className="text-sm font-bold text-warm-800 mt-4">No Patients Found</h3>
-            <p className="text-xs text-warm-500 mt-1 max-w-sm mx-auto leading-relaxed">
+            <h3 className="text-base font-bold text-warm-800 mt-4">No Patients Found</h3>
+            <p className="text-sm text-warm-500 mt-1 max-w-sm mx-auto leading-relaxed">
               No patient records match the current filters.
             </p>
           </div>
@@ -267,13 +267,13 @@ export default function NcpPatientsPage() {
             <table className="w-full text-left border-collapse min-w-[480px]">
               <thead>
                 <tr className="bg-warm-50 border-b border-warm-200 select-none">
-                  <th className="px-5 py-4 text-[10px] font-extrabold text-warm-500 uppercase tracking-wider">Name / ID</th>
-                  <th className="px-5 py-4 text-[10px] font-extrabold text-warm-500 uppercase tracking-wider">Age / Sex</th>
-                  <th className="px-5 py-4 text-[10px] font-extrabold text-warm-500 uppercase tracking-wider">Physician</th>
-                  <th className="px-5 py-4 text-[10px] font-extrabold text-warm-500 uppercase tracking-wider">Last Assessment</th>
-                  <th className="px-5 py-4 text-[10px] font-extrabold text-warm-500 uppercase tracking-wider">Next Follow-up</th>
-                  <th className="px-5 py-4 text-[10px] font-extrabold text-warm-500 uppercase tracking-wider">Risk Status</th>
-                  <th className="px-5 py-4 text-[10px] font-extrabold text-warm-500 uppercase tracking-wider text-right">Actions</th>
+                  <th className="px-5 py-4 text-xs font-extrabold text-warm-500 uppercase tracking-wider">Name / ID</th>
+                  <th className="px-5 py-4 text-xs font-extrabold text-warm-500 uppercase tracking-wider">Age / Sex</th>
+                  <th className="px-5 py-4 text-xs font-extrabold text-warm-500 uppercase tracking-wider">Physician</th>
+                  <th className="px-5 py-4 text-xs font-extrabold text-warm-500 uppercase tracking-wider">Last Assessment</th>
+                  <th className="px-5 py-4 text-xs font-extrabold text-warm-500 uppercase tracking-wider">Next Follow-up</th>
+                  <th className="px-5 py-4 text-xs font-extrabold text-warm-500 uppercase tracking-wider">Risk Status</th>
+                  <th className="px-5 py-4 text-xs font-extrabold text-warm-500 uppercase tracking-wider text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-100">
@@ -288,19 +288,19 @@ export default function NcpPatientsPage() {
                       className={`${index % 2 === 0 ? "bg-white" : "bg-warm-50/20"} hover:bg-warm-50/40 transition-colors`}
                     >
                       <td className="px-5 py-4">
-                        <div className="text-xs font-bold text-warm-900">{patient.name}</div>
-                        <div className="text-[10px] font-mono text-warm-400 mt-1">{systemId}</div>
+                        <div className="text-sm font-bold text-warm-900">{patient.name}</div>
+                        <div className="text-xs font-mono text-warm-400 mt-1">{systemId}</div>
                       </td>
 
-                      <td className="px-5 py-4 text-xs font-medium text-warm-700">
+                      <td className="px-5 py-4 text-sm font-medium text-warm-700">
                         {age} yrs / {patient.sex}
                       </td>
 
-                      <td className="px-5 py-4 text-xs font-semibold text-zinc-650">
+                      <td className="px-5 py-4 text-sm font-semibold text-zinc-650">
                         {patient.physician || "Unassigned"}
                       </td>
 
-                      <td className="px-5 py-4 text-xs text-warm-600">
+                      <td className="px-5 py-4 text-sm text-warm-600">
                         {patient.last_assessment_date ? (
                           <span className="font-semibold text-warm-700">
                             {formatRelativeDate(patient.last_assessment_date)}
@@ -310,7 +310,7 @@ export default function NcpPatientsPage() {
                         )}
                       </td>
 
-                      <td className="px-5 py-4 text-xs text-warm-600">
+                      <td className="px-5 py-4 text-sm text-warm-600">
                         {patient.next_followup_date ? (
                           <span className="font-semibold text-warm-700">
                             {formatRelativeDate(patient.next_followup_date)}
@@ -323,7 +323,7 @@ export default function NcpPatientsPage() {
                       <td className="px-5 py-4 select-none">
                         <div className="flex flex-col items-start gap-1">
                           <span
-                            className={`inline-flex px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wide border ${currentRisk.className}`}
+                            className={`inline-flex px-2 py-0.5 rounded-full text-xs font-bold uppercase tracking-wide border ${currentRisk.className}`}
                           >
                             {currentRisk.label}
                           </span>
@@ -333,7 +333,7 @@ export default function NcpPatientsPage() {
                       <td className="px-5 py-4 text-right">
                         <Link
                           href={`/ncp/patients/${patient.id}`}
-                          className="inline-flex px-3 py-1.5 bg-brand-green-600 hover:bg-brand-green-700 text-white text-[10px] font-bold uppercase tracking-wider rounded-lg transition-colors cursor-pointer select-none"
+                          className="inline-flex px-3 py-1.5 bg-brand-green-600 hover:bg-brand-green-700 text-white text-xs font-bold uppercase tracking-wider rounded-lg transition-colors cursor-pointer select-none"
                         >
                           View Profile
                         </Link>
@@ -351,7 +351,7 @@ export default function NcpPatientsPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm mx-4 p-6 space-y-5">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-extrabold text-warm-900 tracking-tight">New Patient Details</h3>
+              <h3 className="text-base font-extrabold text-warm-900 tracking-tight">New Patient Details</h3>
               <button
                 onClick={() => setShowCreateModal(false)}
                 className="p-1.5 text-warm-400 hover:text-warm-700 hover:bg-warm-100 rounded-lg transition-colors"
@@ -361,25 +361,25 @@ export default function NcpPatientsPage() {
             </div>
 
             <div className="space-y-1">
-              <label className="text-[10px] font-bold text-warm-500 uppercase tracking-wider block">Full Name</label>
+              <label className="text-xs font-bold text-warm-500 uppercase tracking-wider block">Full Name</label>
               <input
                 type="text"
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
                 placeholder="Patient full name"
                 autoFocus
-                className="w-full px-3 py-2 text-sm bg-white border border-warm-300 rounded-lg text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 transition-all placeholder:text-warm-400"
+                className="w-full px-3 py-2 text-base bg-white border border-warm-300 rounded-lg text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 transition-all placeholder:text-warm-400"
               />
             </div>
 
             <div className="space-y-1">
-              <label className="text-[10px] font-bold text-warm-500 uppercase tracking-wider block">Sex</label>
+              <label className="text-xs font-bold text-warm-500 uppercase tracking-wider block">Sex</label>
               <div className="flex gap-2">
                 {(["Female", "Male"] as const).map((s) => (
                   <button
                     key={s}
                     onClick={() => setNewSex(s)}
-                    className={`flex-1 py-2 text-xs font-bold rounded-lg border transition-colors ${
+                    className={`flex-1 py-2 text-sm font-bold rounded-lg border transition-colors ${
                       newSex === s
                         ? "bg-emerald-600 text-white border-emerald-600"
                         : "bg-white text-warm-600 border-warm-300 hover:bg-warm-50"
@@ -392,32 +392,32 @@ export default function NcpPatientsPage() {
             </div>
 
             <div className="space-y-1">
-              <label className="text-[10px] font-bold text-warm-500 uppercase tracking-wider block">Date of Birth</label>
+              <label className="text-xs font-bold text-warm-500 uppercase tracking-wider block">Date of Birth</label>
               <input
                 type="date"
                 value={newDob}
                 onChange={(e) => setNewDob(e.target.value)}
                 max={new Date().toISOString().split("T")[0]}
-                className="w-full px-3 py-2 text-sm bg-white border border-warm-300 rounded-lg text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 transition-all"
+                className="w-full px-3 py-2 text-base bg-white border border-warm-300 rounded-lg text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 transition-all"
               />
             </div>
 
             {createError && (
-              <p className="text-xs text-red-600 font-semibold">{createError}</p>
+              <p className="text-sm text-red-600 font-semibold">{createError}</p>
             )}
 
             <div className="flex gap-2 pt-1">
               <button
                 onClick={() => setShowCreateModal(false)}
                 disabled={creating}
-                className="flex-1 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl border border-warm-300 text-warm-600 hover:bg-warm-50 transition-colors disabled:opacity-50"
+                className="flex-1 py-2.5 text-sm font-bold uppercase tracking-wider rounded-xl border border-warm-300 text-warm-600 hover:bg-warm-50 transition-colors disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
                 onClick={handleCreateAndAssess}
                 disabled={creating || !newName.trim() || !newDob}
-                className="flex-1 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 py-2.5 text-sm font-bold uppercase tracking-wider rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {creating ? "Creating…" : "Create & Assess"}
               </button>

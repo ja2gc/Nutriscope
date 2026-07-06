@@ -50,7 +50,7 @@ function PlanIndicatorChart({ indicator }: { indicator: PlanIndicator }) {
 
   return (
     <div>
-      <p className="text-[9px] font-bold text-warm-400 uppercase tracking-widest mb-1.5">
+      <p className="text-xs font-bold text-warm-400 uppercase tracking-widest mb-1.5">
         {indicator.label}{" "}
         <span className="normal-case font-normal text-warm-300">({indicator.unit})</span>
       </p>
@@ -88,7 +88,7 @@ function PlanTrendCharts({ plan }: { plan: MonitoringPlan }) {
   if (sections.length === 0) {
     return (
       <div className="bg-white border border-warm-200 rounded-2xl p-8 text-center shadow-sm">
-        <p className="text-xs font-semibold text-warm-400">No tracked indicators yet for this care plan.</p>
+        <p className="text-sm font-semibold text-warm-400">No tracked indicators yet for this care plan.</p>
       </div>
     );
   }
@@ -100,7 +100,7 @@ function PlanTrendCharts({ plan }: { plan: MonitoringPlan }) {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
             {s.items.map((i) => <PlanIndicatorChart key={i.key} indicator={i} />)}
           </div>
-          <p className="text-[9px] text-warm-300 mt-3 select-none">
+          <p className="text-xs text-warm-300 mt-3 select-none">
             Visit 1 = assessment baseline · amber = reference range · green dashed = prescription target.
           </p>
         </ChartCard>
@@ -123,8 +123,8 @@ const fmtNum = (n: number) =>
 function ChartTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="bg-white border border-warm-200 rounded-xl shadow-sm px-3 py-2.5 text-xs min-w-[120px]">
-      <p className="text-[9px] font-bold text-warm-400 uppercase tracking-widest mb-2">{label}</p>
+    <div className="bg-white border border-warm-200 rounded-xl shadow-sm px-3 py-2.5 text-sm min-w-[120px]">
+      <p className="text-xs font-bold text-warm-400 uppercase tracking-widest mb-2">{label}</p>
       {payload.map(
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (p: any) =>
@@ -162,7 +162,7 @@ function ChartCard({
 }) {
   return (
     <div className="bg-white border border-warm-200 rounded-2xl p-5 shadow-sm">
-      <p className="text-[9px] font-bold text-warm-400 uppercase tracking-widest mb-4">
+      <p className="text-xs font-bold text-warm-400 uppercase tracking-widest mb-4">
         {title}
       </p>
       {children}
@@ -195,7 +195,7 @@ function WeightBmiChart({ entries }: { entries: MonitoringEntry[] }) {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {hasWeight && (
           <div>
-            <p className="text-[9px] font-bold text-warm-300 uppercase tracking-widest mb-2">
+            <p className="text-xs font-bold text-warm-300 uppercase tracking-widest mb-2">
               Weight (kg)
             </p>
             <ResponsiveContainer width="100%" height={130}>
@@ -221,7 +221,7 @@ function WeightBmiChart({ entries }: { entries: MonitoringEntry[] }) {
 
         {hasBmi && (
           <div>
-            <p className="text-[9px] font-bold text-warm-300 uppercase tracking-widest mb-2">
+            <p className="text-xs font-bold text-warm-300 uppercase tracking-widest mb-2">
               BMI (kg/m²)
             </p>
             <ResponsiveContainer width="100%" height={130}>
@@ -374,7 +374,7 @@ function MacroTrendsChart({
         </div>
       </div>
       {hasAnyTarget && (
-        <p className="text-[9px] text-warm-300 mt-2 select-none">
+        <p className="text-xs text-warm-300 mt-2 select-none">
           Dashed line = prescription target (100%). Values above = exceeds target.
         </p>
       )}
@@ -443,7 +443,7 @@ function LabTrendsChart({
 
           return (
             <div key={k}>
-              <p className="text-[9px] font-bold text-warm-400 uppercase tracking-widest mb-1.5">
+              <p className="text-xs font-bold text-warm-400 uppercase tracking-widest mb-1.5">
                 {meta.label}{" "}
                 <span className="normal-case font-normal text-warm-300">({meta.unit})</span>
               </p>
@@ -499,7 +499,7 @@ function LabTrendsChart({
           );
         })}
       </div>
-      <p className="text-[9px] text-warm-300 mt-3 select-none">
+      <p className="text-xs text-warm-300 mt-3 select-none">
         Dashed amber lines = reference range boundaries.
       </p>
     </ChartCard>
@@ -556,7 +556,7 @@ function MicroTrendsChart({
 
           return (
             <div key={k}>
-              <p className="text-[9px] font-bold text-warm-400 uppercase tracking-widest mb-1.5">
+              <p className="text-xs font-bold text-warm-400 uppercase tracking-widest mb-1.5">
                 {meta?.label ?? k}{" "}
                 <span className="normal-case font-normal text-warm-300">({meta?.unit ?? ""})</span>
               </p>
@@ -649,7 +649,7 @@ function LegacyVisitTrendsChart({
   if (sorted.length < 2) {
     return (
       <div className="bg-white border border-warm-200 rounded-2xl p-8 text-center shadow-sm">
-        <p className="text-xs font-semibold text-warm-400">
+        <p className="text-sm font-semibold text-warm-400">
           Log at least 2 visits to see trend charts.
         </p>
       </div>

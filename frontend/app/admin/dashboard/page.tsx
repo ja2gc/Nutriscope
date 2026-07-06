@@ -195,7 +195,7 @@ export default function AdminDashboardPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-warm-200 pb-5">
         <div>
-          <div className="flex items-center gap-2 text-xs font-semibold text-warm-400 select-none">
+          <div className="flex items-center gap-2 text-sm font-semibold text-warm-400 select-none">
             <span>Admin</span>
             <span className="text-warm-300">/</span>
             <span className="text-warm-600 font-bold">Dashboard</span>
@@ -204,14 +204,14 @@ export default function AdminDashboardPage() {
             <LayoutDashboard className="h-5 w-5 text-emerald-600" />
             Admin Console
           </h1>
-          <p className="text-xs text-warm-500 mt-0.5 select-none">
+          <p className="text-sm text-warm-500 mt-0.5 select-none">
             System configuration, active directories, AI consumption metrics, and logs.
           </p>
         </div>
         <button
           onClick={() => void loadData(true)}
           disabled={refreshing}
-          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-warm-200 bg-white text-xs font-bold uppercase tracking-wider text-warm-600 hover:text-warm-900 hover:bg-warm-50 active:bg-warm-100 transition-colors disabled:opacity-50 shadow-sm"
+          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-warm-200 bg-white text-sm font-bold uppercase tracking-wider text-warm-600 hover:text-warm-900 hover:bg-warm-50 active:bg-warm-100 transition-colors disabled:opacity-50 shadow-sm"
         >
           <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
           {refreshing ? "Refreshing..." : "Refresh"}
@@ -222,8 +222,8 @@ export default function AdminDashboardPage() {
         <div className="bg-red-50 border border-red-100 p-4 rounded-xl flex items-start gap-3">
           <AlertCircle className="h-5 w-5 text-red-500 shrink-0 mt-0.5" />
           <div>
-            <div className="text-xs text-red-700 font-bold">Error loading metrics</div>
-            <div className="text-xs text-red-600/80 mt-0.5">{error}</div>
+            <div className="text-sm text-red-700 font-bold">Error loading metrics</div>
+            <div className="text-sm text-red-600/80 mt-0.5">{error}</div>
           </div>
         </div>
       )}
@@ -263,10 +263,10 @@ export default function AdminDashboardPage() {
         <div className="px-5 py-4 border-b border-warm-100 flex items-center gap-3">
           <Cpu className="h-4 w-4 text-emerald-600 shrink-0" />
           <div>
-            <h3 className="text-xs font-bold text-warm-900 uppercase tracking-[0.18em]">
+            <h3 className="text-sm font-bold text-warm-900 uppercase tracking-[0.18em]">
               AI Token Caps
             </h3>
-            <p className="text-[10px] text-warm-500 mt-0.5">
+            <p className="text-xs text-warm-500 mt-0.5">
               Set daily and monthly limits. Leave blank for unlimited.
             </p>
           </div>
@@ -282,15 +282,15 @@ export default function AdminDashboardPage() {
               const over = cap !== null && used >= cap;
               return (
                 <div className={`rounded-2xl border px-4 py-3 ${over ? "border-amber-200 bg-amber-50" : "border-warm-100 bg-warm-50"}`}>
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-warm-400 mb-1">Daily</div>
+                  <div className="text-xs font-bold uppercase tracking-wider text-warm-400 mb-1">Daily</div>
                   <div className={`text-lg font-bold tabular-nums leading-none ${over ? "text-amber-700" : "text-warm-900"}`}>
                     {formatTokens(used)}
                   </div>
-                  <div className="text-[10px] text-warm-500 mt-0.5">
+                  <div className="text-xs text-warm-500 mt-0.5">
                     of {cap !== null ? formatTokens(cap) : "Unlimited"}
                     {over && <span className="ml-1.5 font-bold text-amber-600">· over cap</span>}
                   </div>
-                  <div className="text-[10px] text-warm-400 mt-1">
+                  <div className="text-xs text-warm-400 mt-1">
                     {formatCost(calcTokenCostUsd(used, costPer1mTokensUsd), phpRate)} est. cost
                   </div>
                 </div>
@@ -304,15 +304,15 @@ export default function AdminDashboardPage() {
               const over = cap !== null && used >= cap;
               return (
                 <div className={`rounded-2xl border px-4 py-3 ${over ? "border-amber-200 bg-amber-50" : "border-warm-100 bg-warm-50"}`}>
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-warm-400 mb-1">Monthly</div>
+                  <div className="text-xs font-bold uppercase tracking-wider text-warm-400 mb-1">Monthly</div>
                   <div className={`text-lg font-bold tabular-nums leading-none ${over ? "text-amber-700" : "text-warm-900"}`}>
                     {formatTokens(used)}
                   </div>
-                  <div className="text-[10px] text-warm-500 mt-0.5">
+                  <div className="text-xs text-warm-500 mt-0.5">
                     of {cap !== null ? formatTokens(cap) : "Unlimited"}
                     {over && <span className="ml-1.5 font-bold text-amber-600">· over cap</span>}
                   </div>
-                  <div className="text-[10px] text-warm-400 mt-1">
+                  <div className="text-xs text-warm-400 mt-1">
                     {formatCost(calcTokenCostUsd(used, costPer1mTokensUsd), phpRate)} est. cost
                   </div>
                 </div>
@@ -323,7 +323,7 @@ export default function AdminDashboardPage() {
           {/* Inline edit */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
-              <label className="block text-[10px] font-bold uppercase tracking-wider text-warm-500 mb-1">
+              <label className="block text-xs font-bold uppercase tracking-wider text-warm-500 mb-1">
                 Daily limit (tokens)
               </label>
               <input
@@ -333,11 +333,11 @@ export default function AdminDashboardPage() {
                 value={capDailyInput}
                 onChange={(e) => { setCapDailyInput(e.target.value); setCapSaveMsg(null); }}
                 disabled={capSaving}
-                className="w-full text-xs font-semibold tabular-nums rounded-xl border border-warm-200 bg-warm-50 px-3 py-2 text-warm-800 placeholder:text-warm-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 disabled:opacity-50 transition"
+                className="w-full text-sm font-semibold tabular-nums rounded-xl border border-warm-200 bg-warm-50 px-3 py-2 text-warm-800 placeholder:text-warm-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 disabled:opacity-50 transition"
               />
             </div>
             <div>
-              <label className="block text-[10px] font-bold uppercase tracking-wider text-warm-500 mb-1">
+              <label className="block text-xs font-bold uppercase tracking-wider text-warm-500 mb-1">
                 Monthly limit (tokens)
               </label>
               <input
@@ -347,11 +347,11 @@ export default function AdminDashboardPage() {
                 value={capMonthlyInput}
                 onChange={(e) => { setCapMonthlyInput(e.target.value); setCapSaveMsg(null); }}
                 disabled={capSaving}
-                className="w-full text-xs font-semibold tabular-nums rounded-xl border border-warm-200 bg-warm-50 px-3 py-2 text-warm-800 placeholder:text-warm-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 disabled:opacity-50 transition"
+                className="w-full text-sm font-semibold tabular-nums rounded-xl border border-warm-200 bg-warm-50 px-3 py-2 text-warm-800 placeholder:text-warm-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 disabled:opacity-50 transition"
               />
             </div>
             <div>
-              <label className="block text-[10px] font-bold uppercase tracking-wider text-warm-500 mb-1">
+              <label className="block text-xs font-bold uppercase tracking-wider text-warm-500 mb-1">
                 Cost (USD per 1M tokens)
               </label>
               <input
@@ -362,7 +362,7 @@ export default function AdminDashboardPage() {
                 value={costPer1mInput}
                 onChange={(e) => { setCostPer1mInput(e.target.value); setCapSaveMsg(null); }}
                 disabled={capSaving}
-                className="w-full text-xs font-semibold tabular-nums rounded-xl border border-warm-200 bg-warm-50 px-3 py-2 text-warm-800 placeholder:text-warm-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 disabled:opacity-50 transition"
+                className="w-full text-sm font-semibold tabular-nums rounded-xl border border-warm-200 bg-warm-50 px-3 py-2 text-warm-800 placeholder:text-warm-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 disabled:opacity-50 transition"
               />
             </div>
           </div>
@@ -371,7 +371,7 @@ export default function AdminDashboardPage() {
             <button
               onClick={() => void handleSaveCaps()}
               disabled={capSaving}
-              className="inline-flex items-center gap-2 px-4 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-bold uppercase tracking-wider hover:bg-emerald-700 active:bg-emerald-800 disabled:opacity-50 transition-colors shadow-sm"
+              className="inline-flex items-center gap-2 px-4 py-1.5 rounded-lg bg-emerald-600 text-white text-sm font-bold uppercase tracking-wider hover:bg-emerald-700 active:bg-emerald-800 disabled:opacity-50 transition-colors shadow-sm"
             >
               {capSaving ? (
                 <>
@@ -383,7 +383,7 @@ export default function AdminDashboardPage() {
               )}
             </button>
             {capSaveMsg && (
-              <span className={`text-[10px] font-semibold ${capSaveMsg.ok ? "text-emerald-600" : "text-red-600"}`}>
+              <span className={`text-xs font-semibold ${capSaveMsg.ok ? "text-emerald-600" : "text-red-600"}`}>
                 {capSaveMsg.text}
               </span>
             )}
@@ -399,10 +399,10 @@ export default function AdminDashboardPage() {
           <div className="bg-white border border-warm-200 rounded-3xl overflow-hidden shadow-sm">
             <div className="px-5 py-4 border-b border-warm-100 flex items-center justify-between gap-4">
               <div>
-                <h3 className="text-xs font-bold text-warm-900 uppercase tracking-[0.18em]">
+                <h3 className="text-sm font-bold text-warm-900 uppercase tracking-[0.18em]">
                   AI Token Consumption
                 </h3>
-                <p className="text-[10px] text-warm-500 mt-1">
+                <p className="text-xs text-warm-500 mt-1">
                   Tokens per day · last 30 days.
                 </p>
               </div>
@@ -415,8 +415,8 @@ export default function AdminDashboardPage() {
                   <div className="p-3 bg-warm-50 border border-warm-200 rounded-2xl text-warm-400">
                     <Cpu className="h-8 w-8" />
                   </div>
-                  <h3 className="text-xs font-bold text-warm-600 mt-3">No AI usage recorded yet</h3>
-                  <p className="text-[10px] text-warm-400 mt-1 max-w-xs leading-relaxed">
+                  <h3 className="text-sm font-bold text-warm-600 mt-3">No AI usage recorded yet</h3>
+                  <p className="text-xs text-warm-400 mt-1 max-w-xs leading-relaxed">
                     AI generation tokens will map here once RND clinicians trigger automated NCP processes.
                   </p>
                 </div>
@@ -461,7 +461,7 @@ export default function AdminDashboardPage() {
 
           {/* Quick Actions */}
           <div className="bg-white border border-warm-200 rounded-3xl p-5 shadow-sm">
-            <h3 className="text-xs font-bold text-warm-900 uppercase tracking-[0.18em] mb-4">
+            <h3 className="text-sm font-bold text-warm-900 uppercase tracking-[0.18em] mb-4">
               Quick Actions
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -473,11 +473,11 @@ export default function AdminDashboardPage() {
                   <Users className="h-4 w-4" />
                 </div>
                 <div>
-                  <div className="text-xs font-bold text-warm-800 flex items-center gap-1 group-hover:text-emerald-700 transition-colors">
+                  <div className="text-sm font-bold text-warm-800 flex items-center gap-1 group-hover:text-emerald-700 transition-colors">
                     Manage Accounts
                     <ArrowRight className="h-3.5 w-3.5 opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all" />
                   </div>
-                  <div className="text-[10px] text-warm-500 mt-0.5">RBAC &amp; credentials setup</div>
+                  <div className="text-xs text-warm-500 mt-0.5">RBAC &amp; credentials setup</div>
                 </div>
               </Link>
 
@@ -489,11 +489,11 @@ export default function AdminDashboardPage() {
                   <Activity className="h-4 w-4" />
                 </div>
                 <div>
-                  <div className="text-xs font-bold text-warm-800 flex items-center gap-1 group-hover:text-amber-700 transition-colors">
+                  <div className="text-sm font-bold text-warm-800 flex items-center gap-1 group-hover:text-amber-700 transition-colors">
                     Audit Log Browser
                     <ArrowRight className="h-3.5 w-3.5 opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all" />
                   </div>
-                  <div className="text-[10px] text-warm-500 mt-0.5">Filter &amp; monitor operational actions</div>
+                  <div className="text-xs text-warm-500 mt-0.5">Filter &amp; monitor operational actions</div>
                 </div>
               </Link>
 
@@ -505,11 +505,11 @@ export default function AdminDashboardPage() {
                   <Megaphone className="h-4 w-4" />
                 </div>
                 <div>
-                  <div className="text-xs font-bold text-warm-800 flex items-center gap-1 group-hover:text-sky-700 transition-colors">
+                  <div className="text-sm font-bold text-warm-800 flex items-center gap-1 group-hover:text-sky-700 transition-colors">
                     Publish Feed
                     <ArrowRight className="h-3.5 w-3.5 opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all" />
                   </div>
-                  <div className="text-[10px] text-warm-500 mt-0.5">Broadcast system updates</div>
+                  <div className="text-xs text-warm-500 mt-0.5">Broadcast system updates</div>
                 </div>
               </Link>
             </div>
@@ -520,16 +520,16 @@ export default function AdminDashboardPage() {
         <div className="bg-white border border-warm-200 rounded-3xl overflow-hidden shadow-sm flex flex-col">
           <div className="px-5 py-4 border-b border-warm-100 flex items-center justify-between gap-4">
             <div>
-              <h3 className="text-xs font-bold text-warm-900 uppercase tracking-[0.18em]">
+              <h3 className="text-sm font-bold text-warm-900 uppercase tracking-[0.18em]">
                 Recent Activity
               </h3>
-              <p className="text-[10px] text-warm-500 mt-1">
+              <p className="text-xs text-warm-500 mt-1">
                 Latest 5 system events logged on the server.
               </p>
             </div>
             <Link
               href="/admin/audit-logs"
-              className="text-[10px] font-bold text-warm-500 hover:text-warm-900 transition-colors"
+              className="text-xs font-bold text-warm-500 hover:text-warm-900 transition-colors"
             >
               View All
             </Link>
@@ -541,8 +541,8 @@ export default function AdminDashboardPage() {
                 <div className="p-2.5 bg-warm-50 border border-warm-200 rounded-xl w-fit mx-auto text-warm-400">
                   <Activity className="h-5 w-5" />
                 </div>
-                <h4 className="text-xs font-bold text-warm-600 mt-3">No system activity</h4>
-                <p className="text-[10px] text-warm-400 mt-1">
+                <h4 className="text-sm font-bold text-warm-600 mt-3">No system activity</h4>
+                <p className="text-xs text-warm-400 mt-1">
                   System operations will populate here live.
                 </p>
               </div>
@@ -563,9 +563,9 @@ export default function AdminDashboardPage() {
                 return (
                   <div
                     key={log.id}
-                    className="py-3.5 first:pt-0 last:pb-0 flex gap-3 text-xs leading-relaxed"
+                    className="py-3.5 first:pt-0 last:pb-0 flex gap-3 text-sm leading-relaxed"
                   >
-                    <div className="h-8 w-8 rounded-full bg-warm-100 border border-warm-200 text-warm-600 font-bold text-[10px] flex items-center justify-center shrink-0">
+                    <div className="h-8 w-8 rounded-full bg-warm-100 border border-warm-200 text-warm-600 font-bold text-xs flex items-center justify-center shrink-0">
                       {initials}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -577,10 +577,10 @@ export default function AdminDashboardPage() {
                           <Badge tone={eventTone}>{log.event}</Badge>
                         )}
                       </div>
-                      <div className="text-warm-500 text-[10px] mt-0.5 truncate">
+                      <div className="text-warm-500 text-xs mt-0.5 truncate">
                         {log.description}
                       </div>
-                      <div className="flex items-center gap-2 mt-1 text-[9px] font-bold uppercase tracking-wider text-warm-400">
+                      <div className="flex items-center gap-2 mt-1 text-xs font-bold uppercase tracking-wider text-warm-400">
                         <span>{log.log_name}</span>
                         <span>·</span>
                         <span>{relativeTime(log.created_at)}</span>

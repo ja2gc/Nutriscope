@@ -47,7 +47,7 @@ export function Tabs<K extends string>({
             tabIndex={active ? 0 : -1}
             onClick={() => onChange(t.key)}
             onKeyDown={(e) => onKeyDown(e, i)}
-            className={`flex items-center gap-2 px-5 py-3 text-sm font-semibold border-b-2 -mb-px cursor-pointer transition-colors rounded-t-md ${tabTheme.focus} ${
+            className={`flex items-center gap-2 px-5 py-3 text-base font-semibold border-b-2 -mb-px cursor-pointer transition-colors rounded-t-md ${tabTheme.focus} ${
               active
                 ? tabTheme.active
                 : tabTheme.inactive

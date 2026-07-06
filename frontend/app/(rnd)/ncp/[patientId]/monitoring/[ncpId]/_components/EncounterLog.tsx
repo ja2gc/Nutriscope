@@ -40,7 +40,7 @@ export default function EncounterLog({ entries, onLogNew, onDelete }: EncounterL
     <div className="bg-white border border-warm-200 rounded-2xl shadow-sm overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between px-5 py-4 border-b border-warm-100">
-        <h3 className="text-xs font-extrabold text-warm-700 uppercase tracking-wider flex items-center gap-2">
+        <h3 className="text-sm font-extrabold text-warm-700 uppercase tracking-wider flex items-center gap-2">
           <ClipboardList className="h-4 w-4 text-emerald-600" />
           Visit History
         </h3>
@@ -55,8 +55,8 @@ export default function EncounterLog({ entries, onLogNew, onDelete }: EncounterL
           <div className="p-3 bg-warm-50 border border-dashed border-warm-300 rounded-xl w-fit mx-auto mb-3">
             <ClipboardList className="h-6 w-6 text-warm-400" />
           </div>
-          <p className="text-xs font-semibold text-warm-500">No monitoring visits logged yet.</p>
-          <p className="text-[10px] text-warm-400 mt-1">Log the first visit to start tracking progress.</p>
+          <p className="text-sm font-semibold text-warm-500">No monitoring visits logged yet.</p>
+          <p className="text-xs text-warm-400 mt-1">Log the first visit to start tracking progress.</p>
         </div>
       ) : (
         <>
@@ -66,7 +66,7 @@ export default function EncounterLog({ entries, onLogNew, onDelete }: EncounterL
               {/* Column headers */}
               <div className="grid grid-cols-[1fr_80px_120px_100px_32px] gap-2 px-5 py-2 bg-warm-50 border-b border-warm-100">
                 {['Date', 'Weight', 'Compliance', 'Decision', ''].map((h, i) => (
-                  <span key={i} className="text-[9px] font-bold text-warm-400 uppercase tracking-widest">{h}</span>
+                  <span key={i} className="text-xs font-bold text-warm-400 uppercase tracking-widest">{h}</span>
                 ))}
               </div>
 
@@ -83,12 +83,12 @@ export default function EncounterLog({ entries, onLogNew, onDelete }: EncounterL
                         className="w-full grid grid-cols-[1fr_80px_120px_100px_32px] gap-2 items-center px-5 py-3 hover:bg-warm-50 transition-colors text-left"
                       >
                         {/* Date */}
-                        <span className="text-xs font-semibold text-warm-800 truncate">
+                        <span className="text-sm font-semibold text-warm-800 truncate">
                           {formatDate(entry.created_at)}
                         </span>
 
                         {/* Weight */}
-                        <span className="text-xs text-warm-500">
+                        <span className="text-sm text-warm-500">
                           {entry.weight
                             ? <><span className="font-mono font-bold text-warm-900">{entry.weight}</span> kg</>
                             : <span className="text-warm-300">—</span>
@@ -98,22 +98,22 @@ export default function EncounterLog({ entries, onLogNew, onDelete }: EncounterL
                         {/* Compliance badge */}
                         <span>
                           {compliance && COMPLIANCE_BADGE[compliance] ? (
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${COMPLIANCE_BADGE[compliance].cls}`}>
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${COMPLIANCE_BADGE[compliance].cls}`}>
                               {COMPLIANCE_BADGE[compliance].label}
                             </span>
                           ) : (
-                            <span className="text-warm-300 text-[10px]">—</span>
+                            <span className="text-warm-300 text-xs">—</span>
                           )}
                         </span>
 
                         {/* Decision chip */}
                         <span>
                           {decision && DECISION_BADGE[decision] ? (
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold ${DECISION_BADGE[decision].cls}`}>
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-bold ${DECISION_BADGE[decision].cls}`}>
                               {DECISION_BADGE[decision].label}
                             </span>
                           ) : (
-                            <span className="text-warm-300 text-[10px]">—</span>
+                            <span className="text-warm-300 text-xs">—</span>
                           )}
                         </span>
 
@@ -132,14 +132,14 @@ export default function EncounterLog({ entries, onLogNew, onDelete }: EncounterL
                           {/* Lab values */}
                           {entry.lab_values && Object.keys(entry.lab_values).length > 0 && (
                             <div>
-                              <p className="text-[9px] font-bold text-warm-400 uppercase tracking-widest mb-2">Lab Values</p>
+                              <p className="text-xs font-bold text-warm-400 uppercase tracking-widest mb-2">Lab Values</p>
                               <div className="flex flex-wrap gap-2">
                                 {Object.entries(entry.lab_values)
                                   .filter(([, v]) => v !== null && v !== undefined)
                                   .map(([key, val]) => (
                                     <div key={key} className="bg-white border border-warm-200 rounded-lg px-3 py-2 min-w-[72px]">
-                                      <p className="text-[9px] font-bold text-warm-400 uppercase tracking-widest">{key}</p>
-                                      <p className="text-xs font-mono font-bold text-warm-900 mt-0.5">{String(val)}</p>
+                                      <p className="text-xs font-bold text-warm-400 uppercase tracking-widest">{key}</p>
+                                      <p className="text-sm font-mono font-bold text-warm-900 mt-0.5">{String(val)}</p>
                                     </div>
                                   ))}
                               </div>
@@ -149,8 +149,8 @@ export default function EncounterLog({ entries, onLogNew, onDelete }: EncounterL
                           {/* GI tolerance */}
                           {entry.goal_achievement?.gi_tolerance && (
                             <div>
-                              <p className="text-[9px] font-bold text-warm-400 uppercase tracking-widest mb-1">GI Tolerance</p>
-                              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                              <p className="text-xs font-bold text-warm-400 uppercase tracking-widest mb-1">GI Tolerance</p>
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${
                                 entry.goal_achievement.gi_tolerance === 'tolerating'
                                   ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                                   : 'bg-red-50 text-red-700 border border-red-200'
@@ -163,14 +163,14 @@ export default function EncounterLog({ entries, onLogNew, onDelete }: EncounterL
                           {/* Clinical notes */}
                           {entry.clinical_summary && (
                             <div>
-                              <p className="text-[9px] font-bold text-warm-400 uppercase tracking-widest mb-1">Clinical Notes</p>
-                              <p className="text-xs text-warm-700 leading-relaxed">{entry.clinical_summary}</p>
+                              <p className="text-xs font-bold text-warm-400 uppercase tracking-widest mb-1">Clinical Notes</p>
+                              <p className="text-sm text-warm-700 leading-relaxed">{entry.clinical_summary}</p>
                             </div>
                           )}
 
                           {/* Next date */}
                           {entry.next_monitoring_date && (
-                            <p className="text-[10px] text-warm-400">
+                            <p className="text-xs text-warm-400">
                               Next follow-up:{' '}
                               <span className="font-semibold text-warm-600">
                                 {formatDate(entry.next_monitoring_date)}

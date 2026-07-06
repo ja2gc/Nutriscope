@@ -93,15 +93,15 @@ function RecipeProfilePanel(
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-start justify-between gap-3 p-5 border-b border-warm-100">
           <div>
-            <div className="text-sm font-extrabold text-warm-900">{name}</div>
-            <div className="text-[11px] text-warm-500 mt-0.5">
+            <div className="text-base font-extrabold text-warm-900">{name}</div>
+            <div className="text-xs text-warm-500 mt-0.5">
               {day} · scaled to {scaleTo} servings{readOnly ? " (view only)" : ""}
             </div>
           </div>
           <div className="flex items-center gap-2">
             {!readOnly && (
               <Link href={`/food-service/foods/${recipeId}`}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-emerald-200 text-[10px] font-bold uppercase tracking-wider text-emerald-700 hover:bg-emerald-50">
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-emerald-200 text-xs font-bold uppercase tracking-wider text-emerald-700 hover:bg-emerald-50">
                 <Pencil className="h-3 w-3" /> Edit
               </Link>
             )}
@@ -110,26 +110,26 @@ function RecipeProfilePanel(
         </div>
 
         {loading ? (
-          <div className="py-16 text-center text-xs text-warm-400">Loading…</div>
+          <div className="py-16 text-center text-sm text-warm-400">Loading…</div>
         ) : err ? (
-          <div className="py-16 text-center text-xs text-red-500">{err}</div>
+          <div className="py-16 text-center text-sm text-red-500">{err}</div>
         ) : data ? (
           <div className="p-5 space-y-4">
             <div className="flex flex-wrap gap-5">
               <div>
-                <div className="text-[10px] font-extrabold text-warm-500 uppercase tracking-wider">Total (this day)</div>
+                <div className="text-xs font-extrabold text-warm-500 uppercase tracking-wider">Total (this day)</div>
                 <div className="text-xl font-extrabold text-emerald-600">{peso(data.total_cost)}</div>
               </div>
               <div>
-                <div className="text-[10px] font-extrabold text-warm-500 uppercase tracking-wider">Cost / head</div>
+                <div className="text-xs font-extrabold text-warm-500 uppercase tracking-wider">Cost / head</div>
                 <div className="text-xl font-extrabold text-warm-800">{peso(data.cost_per_head)}</div>
               </div>
               <div>
-                <div className="text-[10px] font-extrabold text-warm-500 uppercase tracking-wider">Baseline</div>
+                <div className="text-xs font-extrabold text-warm-500 uppercase tracking-wider">Baseline</div>
                 <div className="text-xl font-extrabold text-warm-400">serves {data.servings}</div>
               </div>
               <div>
-                <div className="text-[10px] font-extrabold text-warm-500 uppercase tracking-wider">Scale to (servings)</div>
+                <div className="text-xs font-extrabold text-warm-500 uppercase tracking-wider">Scale to (servings)</div>
                 {readOnly ? (
                   <div className="text-xl font-extrabold text-warm-800">{scaleTo}</div>
                 ) : (
@@ -141,10 +141,10 @@ function RecipeProfilePanel(
             </div>
 
             <div>
-              <div className="text-[10px] font-extrabold text-warm-500 uppercase tracking-wider mb-2">Ingredients (scaled)</div>
-              <table className="w-full text-xs">
+              <div className="text-xs font-extrabold text-warm-500 uppercase tracking-wider mb-2">Ingredients (scaled)</div>
+              <table className="w-full text-sm">
                 <thead>
-                  <tr className="text-[10px] text-warm-400 uppercase">
+                  <tr className="text-xs text-warm-400 uppercase">
                     <th className="text-left font-bold py-1">Item</th>
                     <th className="text-right font-bold py-1">Qty</th>
                     <th className="text-right font-bold py-1">Cost</th>
@@ -161,17 +161,17 @@ function RecipeProfilePanel(
                 </tbody>
               </table>
               {data.ingredient_usage.length === 0 && (
-                <div className="text-[11px] text-warm-400 py-4 text-center">No costable ingredients.</div>
+                <div className="text-xs text-warm-400 py-4 text-center">No costable ingredients.</div>
               )}
             </div>
 
             {data.prep_notes && (
               <div>
-                <div className="text-[10px] font-extrabold text-warm-500 uppercase tracking-wider mb-1">Preparation notes</div>
-                <p className="text-xs text-warm-700 leading-6 whitespace-pre-wrap bg-warm-50 border border-warm-100 rounded-lg p-3">{data.prep_notes}</p>
+                <div className="text-xs font-extrabold text-warm-500 uppercase tracking-wider mb-1">Preparation notes</div>
+                <p className="text-sm text-warm-700 leading-6 whitespace-pre-wrap bg-warm-50 border border-warm-100 rounded-lg p-3">{data.prep_notes}</p>
               </div>
             )}
-            <p className="text-[10px] text-warm-400">
+            <p className="text-xs text-warm-400">
               Quantities and cost scale live from the recipe baseline (serves {data.servings}){readOnly ? "" : " — change “Scale to” to rescale"}.
             </p>
           </div>
@@ -185,7 +185,7 @@ function RecipeProfilePanel(
 function Shell({ children }: { children: React.ReactNode }) {
   return (
     <div className="space-y-6 font-sans">
-      <div className="flex items-center gap-2 text-xs font-semibold text-warm-400 select-none">
+      <div className="flex items-center gap-2 text-sm font-semibold text-warm-400 select-none">
         <Link href="/dashboard" className="hover:text-emerald-700 transition-colors">Home</Link>
         <span>/</span><span>Food Service</span><span>/</span>
         <span className="font-bold text-warm-600">Menu Cycle</span>
@@ -225,10 +225,10 @@ function CycleList({ readOnly, onOpen, onNew }: { readOnly: boolean; onOpen: (id
           <h2 className="text-xl font-extrabold text-warm-900 tracking-tight flex items-center gap-2.5">
             <CalendarDays className="h-5 w-5 text-emerald-600" /> Menu Cycles
           </h2>
-          <p className="text-xs text-warm-500 mt-1">Plan a fixed Monday-Sunday menu from food-service recipes and single items.</p>
+          <p className="text-sm text-warm-500 mt-1">Plan a fixed Monday-Sunday menu from food-service recipes and single items.</p>
         </div>
         <div className="flex items-center gap-3 shrink-0">
-          <button onClick={load} className="flex items-center gap-1.5 text-xs text-warm-500 hover:text-warm-700">
+          <button onClick={load} className="flex items-center gap-1.5 text-sm text-warm-500 hover:text-warm-700">
             <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} /> Refresh
           </button>
           {!readOnly && (
@@ -239,21 +239,21 @@ function CycleList({ readOnly, onOpen, onNew }: { readOnly: boolean; onOpen: (id
         </div>
       </div>
 
-      {err && <div className="text-xs text-red-500">{err}</div>}
+      {err && <div className="text-sm text-red-500">{err}</div>}
 
       {/* Cycles */}
       <div className="bg-white border border-warm-200 rounded-2xl shadow-sm overflow-x-auto">
-        {loading ? <div className="py-16 text-center text-xs text-warm-400">Loading…</div>
+        {loading ? <div className="py-16 text-center text-sm text-warm-400">Loading…</div>
           : cycles.length === 0 ? (
             <div className="py-16 text-center">
               <CalendarDays className="h-8 w-8 text-warm-300 mx-auto mb-3" />
-              <p className="text-xs text-warm-400 font-medium">No menu cycles yet. Create your first.</p>
+              <p className="text-sm text-warm-400 font-medium">No menu cycles yet. Create your first.</p>
             </div>
           ) : (
-            <table className="w-full text-xs">
+            <table className="w-full text-sm">
               <thead className="bg-warm-50 border-b border-warm-100">
                 <tr>{["Cycle", "Week", "When", "Status", "Per-day plan", "Actions"].map((h) => (
-                  <th key={h} className="px-4 py-3 text-left text-[10px] font-bold text-warm-500 uppercase tracking-wider">{h}</th>
+                  <th key={h} className="px-4 py-3 text-left text-xs font-bold text-warm-500 uppercase tracking-wider">{h}</th>
                 ))}</tr>
               </thead>
               <tbody className="divide-y divide-zinc-100">
@@ -263,13 +263,13 @@ function CycleList({ readOnly, onOpen, onNew }: { readOnly: boolean; onOpen: (id
                   <tr key={c.id} className={`hover:bg-warm-50/60 transition-colors ${c.is_active ? "border-l-4 border-l-emerald-500" : "border-l-4 border-l-transparent"}`}>
                     <td className="px-4 py-3">
                       <span className="font-semibold text-warm-800">{c.name}</span>
-                      {c.is_active && <div className="text-[10px] text-emerald-700 font-semibold mt-0.5">Active cycle</div>}
+                      {c.is_active && <div className="text-xs text-emerald-700 font-semibold mt-0.5">Active cycle</div>}
                     </td>
                     <td className="px-4 py-3 text-warm-500 tabular-nums">{weekRange(c.week_start_date)}</td>
                     <td className="px-4 py-3 text-warm-500">{when.label}</td>
                     <td className="px-4 py-3 text-warm-500">{c.is_active ? "Active" : c.status}</td>
                     <td className="px-4 py-3">
-                      <div className="flex flex-wrap gap-x-2 gap-y-1 text-[10px] text-warm-500">
+                      <div className="flex flex-wrap gap-x-2 gap-y-1 text-xs text-warm-500">
                         {DAYS.map((day) => (
                           <span key={day} className={c.plan_days?.[day] ? "text-warm-800 font-semibold" : "text-warm-400"}>
                             {day.slice(0, 3)} {c.plan_days?.[day] ? "planned" : "empty"}
@@ -300,7 +300,7 @@ function CycleList({ readOnly, onOpen, onNew }: { readOnly: boolean; onOpen: (id
       {/* Templates */}
       {templates.length > 0 && (
         <div>
-          <h3 className="text-xs font-extrabold text-warm-700 uppercase tracking-wider flex items-center gap-2 mb-3">
+          <h3 className="text-sm font-extrabold text-warm-700 uppercase tracking-wider flex items-center gap-2 mb-3">
             <LayoutTemplate className="h-4 w-4 text-warm-400" /> Templates
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -308,15 +308,15 @@ function CycleList({ readOnly, onOpen, onNew }: { readOnly: boolean; onOpen: (id
               <div key={t.id} className="bg-white border border-warm-200 rounded-xl p-4 shadow-sm">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <div className="text-sm font-bold text-warm-800 truncate">{t.name}</div>
-                    <div className="text-[10px] text-warm-400">{t.days_count} slots · {t.cycle_days} days</div>
+                    <div className="text-base font-bold text-warm-800 truncate">{t.name}</div>
+                    <div className="text-xs text-warm-400">{t.days_count} slots · {t.cycle_days} days</div>
                   </div>
                   {!readOnly && (
                     <button onClick={() => removeTemplate(t.id)} className="p-1 rounded text-warm-400 hover:text-red-500 cursor-pointer"><Trash2 className="h-3.5 w-3.5" /></button>
                   )}
                 </div>
                 {!readOnly && (
-                  <button onClick={() => applyTemplate(t)} className="mt-3 w-full text-[10px] font-bold uppercase tracking-wider text-emerald-700 border border-emerald-200 rounded-lg py-1.5 hover:bg-emerald-50 cursor-pointer">
+                  <button onClick={() => applyTemplate(t)} className="mt-3 w-full text-xs font-bold uppercase tracking-wider text-emerald-700 border border-emerald-200 rounded-lg py-1.5 hover:bg-emerald-50 cursor-pointer">
                     Create cycle from this
                   </button>
                 )}
@@ -485,7 +485,7 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: number | "new"; r
   const filteredRecipes = recipes.filter((r) => !pickerSearch || r.name.toLowerCase().includes(pickerSearch.toLowerCase()));
   const filteredItems = items.filter((i) => !pickerSearch || i.name.toLowerCase().includes(pickerSearch.toLowerCase()));
 
-  if (loading) return <Shell><div className="py-16 text-center text-xs text-warm-400">Loading…</div></Shell>;
+  if (loading) return <Shell><div className="py-16 text-center text-sm text-warm-400">Loading…</div></Shell>;
 
   return (
     <Shell>
@@ -497,23 +497,23 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: number | "new"; r
             <input value={name} onChange={(e) => setName(e.target.value)} readOnly={readOnly}
               className="text-xl font-extrabold text-warm-900 tracking-tight bg-transparent border-b border-dashed border-warm-200 focus:border-emerald-500 focus:outline-none read-only:border-transparent" />
             <div className="flex items-center gap-2 mt-1">
-              {isActive && <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">Active</span>}
-              <span className="text-[10px] text-warm-400">{savedId ? `Cycle #${savedId}` : "Unsaved draft"}</span>
+              {isActive && <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">Active</span>}
+              <span className="text-xs text-warm-400">{savedId ? `Cycle #${savedId}` : "Unsaved draft"}</span>
             </div>
           </div>
         </div>
         {readOnly ? (
-          <span className="text-[10px] font-bold uppercase tracking-wider text-warm-400 border border-warm-200 rounded-lg px-3 py-2 shrink-0">View only</span>
+          <span className="text-xs font-bold uppercase tracking-wider text-warm-400 border border-warm-200 rounded-lg px-3 py-2 shrink-0">View only</span>
         ) : (
           <div className="flex flex-wrap items-center gap-2 shrink-0">
-            <button onClick={handleSaveTemplate} className="flex items-center gap-1.5 text-xs font-semibold text-warm-600 border border-warm-200 rounded-lg px-3 py-2 hover:bg-warm-50 cursor-pointer"><BookmarkPlus className="h-3.5 w-3.5" /> Save as Template</button>
-            <button onClick={handleActivate} className="flex items-center gap-1.5 text-xs font-semibold text-emerald-700 border border-emerald-200 rounded-lg px-3 py-2 hover:bg-emerald-50 cursor-pointer"><Zap className="h-3.5 w-3.5" /> Activate</button>
+            <button onClick={handleSaveTemplate} className="flex items-center gap-1.5 text-sm font-semibold text-warm-600 border border-warm-200 rounded-lg px-3 py-2 hover:bg-warm-50 cursor-pointer"><BookmarkPlus className="h-3.5 w-3.5" /> Save as Template</button>
+            <button onClick={handleActivate} className="flex items-center gap-1.5 text-sm font-semibold text-emerald-700 border border-emerald-200 rounded-lg px-3 py-2 hover:bg-emerald-50 cursor-pointer"><Zap className="h-3.5 w-3.5" /> Activate</button>
             <Button variant="primary" onClick={() => handleSave()} loading={busy} className="px-4 py-2 flex items-center gap-2"><Save className="h-4 w-4" /> Save</Button>
           </div>
         )}
       </div>
 
-      {err && <div className="bg-red-50 border border-red-100 p-3 rounded-xl text-xs text-red-700 font-bold flex items-center gap-2"><AlertTriangle className="h-3.5 w-3.5" /> {err}</div>}
+      {err && <div className="bg-red-50 border border-red-100 p-3 rounded-xl text-sm text-red-700 font-bold flex items-center gap-2"><AlertTriangle className="h-3.5 w-3.5" /> {err}</div>}
 
       {/* Settings */}
       <div className="bg-white border border-warm-200 rounded-2xl p-5 shadow-sm grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -521,22 +521,22 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: number | "new"; r
           { label: "Week start (Mon)", value: weekStart, set: setWeekStart, type: "date", ph: "" },
         ].map((f) => (
           <div key={f.label}>
-            <label className="block text-[10px] font-extrabold text-warm-500 uppercase tracking-wider mb-1">{f.label}</label>
+            <label className="block text-xs font-extrabold text-warm-500 uppercase tracking-wider mb-1">{f.label}</label>
             <input type={f.type} value={f.value} placeholder={f.ph} onChange={(e) => f.set(e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+              className="w-full px-3 py-2 text-base border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500" />
           </div>
         ))}
       </div>
 
       {/* Grid */}
       <div className="bg-white border border-warm-200 rounded-2xl shadow-sm overflow-x-auto">
-        <table className="w-full text-xs border-collapse">
+        <table className="w-full text-sm border-collapse">
           <thead>
             <tr className="bg-warm-50 border-b border-warm-100">
-              <th className="px-3 py-3 text-left text-[10px] font-bold text-warm-500 uppercase sticky left-0 bg-warm-50">Meal</th>
+              <th className="px-3 py-3 text-left text-xs font-bold text-warm-500 uppercase sticky left-0 bg-warm-50">Meal</th>
               {DAYS.map((d) => {
                 return (
-                  <th key={d} className="px-3 py-2 text-left text-[10px] font-bold text-warm-500 uppercase min-w-[140px]">
+                  <th key={d} className="px-3 py-2 text-left text-xs font-bold text-warm-500 uppercase min-w-[140px]">
                     <div className="flex items-center justify-between gap-1">
                       <span>{d.slice(0, 3)}</span>
                       {!readOnly && (
@@ -562,7 +562,7 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: number | "new"; r
                                 if (e.key === "Escape") setEditingServed(null);
                               }}
                               title={`${d} served population (${isoAddDays(weekStart, DAYS.indexOf(d))})`}
-                              className="w-14 px-1.5 py-0.5 text-[10px] font-semibold border border-emerald-200 rounded focus:outline-none focus:ring-1 focus:ring-emerald-400" />
+                              className="w-14 px-1.5 py-0.5 text-xs font-semibold border border-emerald-200 rounded focus:outline-none focus:ring-1 focus:ring-emerald-400" />
                             <button
                               type="button"
                               onClick={() => saveServed(d, servedDraft[d] ?? "")}
@@ -581,10 +581,10 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: number | "new"; r
                           </div>
                         ) : (
                           <div className="flex items-center gap-1">
-                            <span className="text-[10px] font-extrabold text-warm-700 tabular-nums">
+                            <span className="text-xs font-extrabold text-warm-700 tabular-nums">
                               {served[d] != null ? served[d] : "Not set"}
                             </span>
-                            <span className="text-[8px] text-warm-400">served</span>
+                            <span className="text-xs text-warm-400">served</span>
                             <button
                               type="button"
                               onClick={() => beginServedEdit(d)}
@@ -592,7 +592,7 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: number | "new"; r
                               title={`Edit ${d} served population`}>
                               <Pencil className="h-3 w-3" />
                             </button>
-                            {savingServed === d && <span className="text-[8px] text-warm-400">saving…</span>}
+                            {savingServed === d && <span className="text-xs text-warm-400">saving…</span>}
                           </div>
                         )}
                       </div>
@@ -619,11 +619,11 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: number | "new"; r
                               <button
                                 onClick={() => setProfileFor({ recipeId: cell.recipe_id!, day: d, meal: m, name: cell.recipe_name, servingsOverride: cell.servings_override })}
                                 title="View ingredients & cost for this day"
-                                className="text-[11px] font-semibold text-emerald-800 leading-tight text-left hover:underline cursor-pointer">
+                                className="text-xs font-semibold text-emerald-800 leading-tight text-left hover:underline cursor-pointer">
                                 {cell.recipe_name}
                               </button>
                             ) : (
-                              <span className="text-[11px] font-semibold text-emerald-800 leading-tight">
+                              <span className="text-xs font-semibold text-emerald-800 leading-tight">
                                 {cell.recipe_name}
                               </span>
                             )}
@@ -631,15 +631,15 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: number | "new"; r
                               <button onClick={() => clearCell(key)} className="text-emerald-400 hover:text-red-500 cursor-pointer shrink-0"><X className="h-3 w-3" /></button>
                             )}
                           </div>
-                          <div className="text-[9px] text-emerald-500 mt-1">
+                          <div className="text-xs text-emerald-500 mt-1">
                             {cell.recipe_id ? "click to see recipe details" : "single item"}
                           </div>
                         </div>
                       ) : readOnly ? (
-                        <div className="w-full text-center py-2 text-[10px] text-warm-300">—</div>
+                        <div className="w-full text-center py-2 text-xs text-warm-300">—</div>
                       ) : (
                         <button onClick={() => { setActiveCell(isPicking ? null : key); setPickerSearch(""); }}
-                          className="w-full border border-dashed border-warm-200 rounded-lg py-2 text-[10px] text-warm-400 hover:border-emerald-300 hover:text-emerald-600 cursor-pointer flex items-center justify-center gap-1">
+                          className="w-full border border-dashed border-warm-200 rounded-lg py-2 text-xs text-warm-400 hover:border-emerald-300 hover:text-emerald-600 cursor-pointer flex items-center justify-center gap-1">
                           <Plus className="h-3 w-3" /> add
                         </button>
                       )}
@@ -649,34 +649,34 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: number | "new"; r
                           <div className="relative mb-1">
                             <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-warm-400" />
                             <input autoFocus value={pickerSearch} onChange={(e) => setPickerSearch(e.target.value)} placeholder="Search recipes & items…"
-                              className="w-full pl-7 pr-2 py-1.5 text-xs border border-warm-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-400" />
+                              className="w-full pl-7 pr-2 py-1.5 text-sm border border-warm-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-400" />
                           </div>
                           <div className="max-h-48 overflow-y-auto">
                             {filteredRecipes.length === 0 && filteredItems.length === 0 ? (
-                              <div className="text-[10px] text-warm-400 px-2 py-3 text-center">No matches. Build recipes/items under FSS.</div>
+                              <div className="text-xs text-warm-400 px-2 py-3 text-center">No matches. Build recipes/items under FSS.</div>
                             ) : (
                               <>
                                 {filteredRecipes.map((r) => (
                                   <button key={`r-${r.id}`} onClick={() => assign(key, r)}
                                     className="w-full text-left px-2 py-1.5 rounded-lg hover:bg-emerald-50 cursor-pointer">
-                                    <div className="text-[11px] font-semibold text-warm-800 truncate">{r.name}</div>
-                                    <div className="text-[9px] text-warm-400">serves {r.servings}{r.category ? ` · ${r.category}` : ""}</div>
+                                    <div className="text-xs font-semibold text-warm-800 truncate">{r.name}</div>
+                                    <div className="text-xs text-warm-400">serves {r.servings}{r.category ? ` · ${r.category}` : ""}</div>
                                   </button>
                                 ))}
                                 {filteredItems.length > 0 && (
-                                  <div className="px-2 pt-2 pb-1 text-[9px] font-bold uppercase tracking-wider text-warm-400">Single items</div>
+                                  <div className="px-2 pt-2 pb-1 text-xs font-bold uppercase tracking-wider text-warm-400">Single items</div>
                                 )}
                                 {filteredItems.map((it) => (
                                   <button key={`i-${it.id}`} onClick={() => assignItem(key, it)}
                                     className="w-full text-left px-2 py-1.5 rounded-lg hover:bg-amber-50 cursor-pointer">
-                                    <div className="text-[11px] font-semibold text-warm-800 truncate">{it.name}</div>
-                                    <div className="text-[9px] text-warm-400">item{it.category ? ` · ${it.category}` : ""}</div>
+                                    <div className="text-xs font-semibold text-warm-800 truncate">{it.name}</div>
+                                    <div className="text-xs text-warm-400">item{it.category ? ` · ${it.category}` : ""}</div>
                                   </button>
                                 ))}
                               </>
                             )}
                           </div>
-                          <button onClick={() => setActiveCell(null)} className="w-full mt-1 text-[10px] text-warm-400 hover:text-warm-600 cursor-pointer">close</button>
+                          <button onClick={() => setActiveCell(null)} className="w-full mt-1 text-xs text-warm-400 hover:text-warm-600 cursor-pointer">close</button>
                         </div>
                       )}
                     </td>
@@ -729,7 +729,7 @@ export default function MenuCyclePage() {
   }, []);
 
   if (view.mode === "loading") {
-    return <Shell><div className="py-16 text-center text-xs text-warm-400">Loading…</div></Shell>;
+    return <Shell><div className="py-16 text-center text-sm text-warm-400">Loading…</div></Shell>;
   }
   if (view.mode === "edit") {
     return <CycleEditor cycleId={view.id} readOnly={readOnly} onBack={() => setView({ mode: "list" })} />;

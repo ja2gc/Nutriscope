@@ -98,7 +98,7 @@ export default function NotificationsPage() {
       />
 
       {error && (
-        <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 font-semibold">
+        <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700 font-semibold">
           {error}
         </div>
       )}
@@ -128,14 +128,14 @@ export default function NotificationsPage() {
               <div className="mt-0.5 shrink-0">{iconFor(n.type)}</div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <h3 className={`text-sm truncate ${n.read ? "font-semibold text-warm-700" : "font-extrabold text-warm-900"}`}>
+                  <h3 className={`text-base truncate ${n.read ? "font-semibold text-warm-700" : "font-extrabold text-warm-900"}`}>
                     {n.title}
                   </h3>
                   {!n.read && <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />}
                 </div>
-                <p className="text-xs text-warm-500 mt-0.5 leading-relaxed">{n.message}</p>
+                <p className="text-sm text-warm-500 mt-0.5 leading-relaxed">{n.message}</p>
               </div>
-              <span className="text-[10px] font-semibold text-warm-400 shrink-0 mt-0.5">{formatWhen(n.created_at)}</span>
+              <span className="text-xs font-semibold text-warm-400 shrink-0 mt-0.5">{formatWhen(n.created_at)}</span>
             </Card>
           ))}
         </div>

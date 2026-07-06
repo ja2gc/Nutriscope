@@ -30,9 +30,9 @@ export function KpiCard({
   const { border, labelColor } = TONES[tone];
   return (
     <div className={`px-4 py-3 bg-white rounded-2xl border ${border} shadow-sm`}>
-      <div className={`text-[10px] font-extrabold uppercase tracking-wider ${labelColor}`}>{label}</div>
+      <div className={`text-xs font-extrabold uppercase tracking-wider ${labelColor}`}>{label}</div>
       <div className="text-xl font-bold mt-0.5 font-numeric text-warm-900">{value}</div>
-      {hint && <div className="text-[10px] mt-0.5 text-warm-400">{hint}</div>}
+      {hint && <div className="text-xs mt-0.5 text-warm-400">{hint}</div>}
     </div>
   );
 }

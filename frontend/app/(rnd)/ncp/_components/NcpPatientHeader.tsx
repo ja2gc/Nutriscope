@@ -33,7 +33,7 @@ export default function NcpPatientHeader({
   const systemId = formatSystemId(patient?.id ?? patientId);
   const cycleId = formatCycleId(ncpId);
   const actionClass =
-    "inline-flex items-center gap-1.5 rounded-lg border border-warm-200 bg-white px-3 py-2 text-[10px] font-extrabold uppercase tracking-wider text-warm-600 transition-colors hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700";
+    "inline-flex items-center gap-1.5 rounded-lg border border-warm-200 bg-white px-3 py-2 text-xs font-extrabold uppercase tracking-wider text-warm-600 transition-colors hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700";
 
   return (
     <div className="bg-white border border-warm-200 rounded-xl px-5 py-3.5 shadow-sm">
@@ -44,19 +44,19 @@ export default function NcpPatientHeader({
               <Heart className="h-4 w-4" />
             </div>
             <div>
-              <p className="text-[9px] font-extrabold uppercase tracking-wider text-warm-400">
+              <p className="text-xs font-extrabold uppercase tracking-wider text-warm-400">
                 Active Patient - {stepLabel}
               </p>
-              <h2 className="text-sm font-extrabold text-warm-900 tracking-tight">
+              <h2 className="text-base font-extrabold text-warm-900 tracking-tight">
                 {patient?.name ?? "Loading patient..."}
               </h2>
-              <p className="text-[10px] font-mono text-warm-400">
+              <p className="text-xs font-mono text-warm-400">
                 {systemId} / {cycleId}
               </p>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3 text-[10px]">
+          <div className="flex flex-wrap items-center gap-3 text-xs">
             {patient?.ward && (
               <span className="px-2 py-0.5 bg-warm-100 text-warm-700 rounded font-bold">
                 Ward: {patient.ward}

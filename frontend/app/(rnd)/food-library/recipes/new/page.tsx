@@ -88,7 +88,7 @@ export default function NewRecipePage() {
 
   return (
     <div className="space-y-6 font-sans max-w-3xl mx-auto">
-      <div className="flex items-center gap-2 text-xs font-semibold text-warm-400 select-none">
+      <div className="flex items-center gap-2 text-sm font-semibold text-warm-400 select-none">
         <Link href="/dashboard" className="hover:text-emerald-700 transition-colors">Home</Link>
         <span>/</span>
         <Link href="/food-library" className="hover:text-emerald-700 transition-colors">Food Library</Link>
@@ -105,15 +105,15 @@ export default function NewRecipePage() {
             <CookingPot className="h-5 w-5 text-emerald-600" />
             Create Recipe
           </h2>
-          <p className="text-xs text-warm-500 mt-1 select-none">Build a clinical recipe from foods in your library.</p>
+          <p className="text-sm text-warm-500 mt-1 select-none">Build a clinical recipe from foods in your library.</p>
         </div>
       </div>
 
-      {error && <div className="bg-red-50 border border-red-100 p-4 rounded-xl text-xs text-red-700 font-bold">{error}</div>}
+      {error && <div className="bg-red-50 border border-red-100 p-4 rounded-xl text-sm text-red-700 font-bold">{error}</div>}
 
       <form onSubmit={handleSubmit} className="space-y-5">
         <div className="bg-white border border-warm-200 rounded-2xl p-6 space-y-4 shadow-sm">
-          <h3 className="text-xs font-extrabold text-warm-700 uppercase tracking-wider">Recipe Details</h3>
+          <h3 className="text-sm font-extrabold text-warm-700 uppercase tracking-wider">Recipe Details</h3>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="sm:col-span-2">
               <Label>Recipe Name <Required /></Label>
@@ -141,9 +141,9 @@ export default function NewRecipePage() {
         <div className="grid grid-cols-4 gap-3">
           {[{ label: "Calories", value: macros.cal, unit: "kcal", color: "emerald" }, { label: "Protein", value: macros.pro, unit: "g", color: "blue" }, { label: "Carbs", value: macros.carb, unit: "g", color: "amber" }, { label: "Fat", value: macros.fat, unit: "g", color: "rose" }].map(({ label, value, unit, color }) => (
             <div key={label} className="bg-white border border-warm-200 rounded-xl p-3 text-center shadow-sm">
-              <div className="text-[10px] font-extrabold text-warm-500 uppercase tracking-wider">{label}</div>
+              <div className="text-xs font-extrabold text-warm-500 uppercase tracking-wider">{label}</div>
               <div className={`text-lg font-extrabold mt-1 text-${color}-600`}>{value}</div>
-              <div className="text-[9px] text-warm-400 font-semibold">{unit}</div>
+              <div className="text-xs text-warm-400 font-semibold">{unit}</div>
             </div>
           ))}
         </div>
@@ -151,9 +151,9 @@ export default function NewRecipePage() {
         {/* Ingredients */}
         <div className="bg-white border border-warm-200 rounded-2xl p-6 space-y-4 shadow-sm">
           <div className="flex items-center justify-between">
-            <h3 className="text-xs font-extrabold text-warm-700 uppercase tracking-wider">Ingredients</h3>
+            <h3 className="text-sm font-extrabold text-warm-700 uppercase tracking-wider">Ingredients</h3>
             <button type="button" onClick={() => setIngredients((prev) => [...prev, newRow()])}
-              className="flex items-center gap-1.5 px-3 py-1.5 border border-warm-300 rounded-lg text-warm-600 hover:bg-warm-50 cursor-pointer transition-colors text-[10px] font-bold uppercase tracking-wider">
+              className="flex items-center gap-1.5 px-3 py-1.5 border border-warm-300 rounded-lg text-warm-600 hover:bg-warm-50 cursor-pointer transition-colors text-xs font-bold uppercase tracking-wider">
               <Plus className="h-3 w-3" /> Add Row
             </button>
           </div>
@@ -168,26 +168,26 @@ export default function NewRecipePage() {
                       value={row.foodSearch}
                       onChange={async (e) => { const v = e.target.value; updateRow(idx, { foodSearch: v, food: v ? row.food : null }); await searchFoods(v, idx); }}
                       placeholder="Search food from library..."
-                      className="flex-1 text-sm text-warm-900 outline-none placeholder:text-warm-400 bg-transparent"
+                      className="flex-1 text-base text-warm-900 outline-none placeholder:text-warm-400 bg-transparent"
                     />
-                    {row.food && <span className="text-[9px] text-emerald-600 font-bold shrink-0">{row.food.calories} kcal</span>}
+                    {row.food && <span className="text-xs text-emerald-600 font-bold shrink-0">{row.food.calories} kcal</span>}
                   </div>
                   {row.showDropdown && row.searchResults.length > 0 && (
                     <div className="absolute top-full left-0 right-0 z-30 mt-1 bg-white border border-warm-200 rounded-xl shadow-lg overflow-hidden">
                       {row.searchResults.map((food) => (
                         <button key={food.id} type="button" onClick={() => selectFood(idx, food)}
                           className="w-full text-left px-3 py-2 hover:bg-warm-50 transition-colors border-b border-warm-100 last:border-0 cursor-pointer">
-                          <div className="text-xs font-bold text-warm-900">{food.name}</div>
-                          <div className="text-[10px] text-warm-400">{food.calories} kcal · P {food.protein ?? 0}g · C {food.carbs ?? 0}g · F {food.fat ?? 0}g</div>
+                          <div className="text-sm font-bold text-warm-900">{food.name}</div>
+                          <div className="text-xs text-warm-400">{food.calories} kcal · P {food.protein ?? 0}g · C {food.carbs ?? 0}g · F {food.fat ?? 0}g</div>
                         </button>
                       ))}
                     </div>
                   )}
                 </div>
                 <input type="number" value={row.quantity} onChange={(e) => updateRow(idx, { quantity: e.target.value })} placeholder="Qty" min="0" step="0.1"
-                  className="w-20 px-3 py-2 text-sm border border-warm-300 rounded-lg text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600" />
+                  className="w-20 px-3 py-2 text-base border border-warm-300 rounded-lg text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600" />
                 <select value={row.unit} onChange={(e) => updateRow(idx, { unit: e.target.value })}
-                  className="w-20 px-2 py-2 text-sm border border-warm-300 rounded-lg text-warm-900 focus:outline-none cursor-pointer">
+                  className="w-20 px-2 py-2 text-base border border-warm-300 rounded-lg text-warm-900 focus:outline-none cursor-pointer">
                   {["g", "ml", "piece", "cup", "oz", "tbsp", "tsp"].map((u) => <option key={u} value={u}>{u}</option>)}
                 </select>
                 <button type="button" onClick={() => setIngredients((prev) => prev.filter((_, i) => i !== idx))}
@@ -209,8 +209,8 @@ export default function NewRecipePage() {
   );
 }
 
-const inputCls = "w-full px-3 py-2 text-sm bg-white border border-warm-300 rounded-lg text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 transition-all placeholder:text-warm-400";
+const inputCls = "w-full px-3 py-2 text-base bg-white border border-warm-300 rounded-lg text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 transition-all placeholder:text-warm-400";
 function Label({ children }: { children: React.ReactNode }) {
-  return <label className="block text-[10px] font-extrabold text-warm-500 uppercase tracking-wider mb-1.5">{children}</label>;
+  return <label className="block text-xs font-extrabold text-warm-500 uppercase tracking-wider mb-1.5">{children}</label>;
 }
 function Required() { return <span className="text-red-500 ml-0.5">*</span>; }

@@ -12,7 +12,7 @@ import { listSuppliers, Supplier } from "@/services/supplierService";
 import { CATALOG_UNIT_OPTIONS } from "@/lib/units";
 
 const peso = (n: number | string | null) => `₱${(n ? parseFloat(String(n)) : 0).toFixed(2)}`;
-const inputCls = "w-full px-3 py-2 text-sm border border-warm-200 rounded-lg text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500";
+const inputCls = "w-full px-3 py-2 text-base border border-warm-200 rounded-lg text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500";
 
 const TABS: { key: FsItemKind; label: string }[] = [
   { key: "ingredient", label: "Ingredients" },
@@ -20,7 +20,7 @@ const TABS: { key: FsItemKind; label: string }[] = [
 ];
 
 function Label({ children }: { children: React.ReactNode }) {
-  return <label className="block text-[10px] font-extrabold text-warm-500 uppercase tracking-wider mb-1">{children}</label>;
+  return <label className="block text-xs font-extrabold text-warm-500 uppercase tracking-wider mb-1">{children}</label>;
 }
 
 interface FormState {
@@ -89,7 +89,7 @@ function ItemFormModal({ kind, editing, suppliers, onClose, onSaved }: {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4" onClick={onClose}>
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-extrabold text-warm-900 uppercase tracking-wider">
+          <h3 className="text-base font-extrabold text-warm-900 uppercase tracking-wider">
             {editing ? "Edit" : "New"} {TABS.find((t) => t.key === kind)?.label.replace(/s$/, "")}
           </h3>
           <button onClick={onClose} className="text-warm-400 hover:text-warm-700"><X className="h-4 w-4" /></button>
@@ -134,7 +134,7 @@ function ItemFormModal({ kind, editing, suppliers, onClose, onSaved }: {
           )}
         </div>
 
-        {error && <p className="text-xs text-red-600 font-semibold">{error}</p>}
+        {error && <p className="text-sm text-red-600 font-semibold">{error}</p>}
         <div className="flex justify-end gap-3 pt-1">
           <Button variant="secondary" onClick={onClose} className="px-4 py-2">Cancel</Button>
           <Button variant="primary" onClick={save} loading={saving} className="px-4 py-2">{editing ? "Save" : "Create"}</Button>
@@ -182,7 +182,7 @@ export default function InventoryCatalogPage() {
 
   return (
     <div className="space-y-6 font-sans">
-      <div className="flex items-center gap-2 text-xs font-semibold text-warm-400 select-none">
+      <div className="flex items-center gap-2 text-sm font-semibold text-warm-400 select-none">
         <Link href="/dashboard" className="hover:text-emerald-700">Home</Link><span>/</span>
         <span>Food Service</span><span>/</span>
         <span className="font-bold text-warm-600">Inventory</span>
@@ -193,10 +193,10 @@ export default function InventoryCatalogPage() {
           <h2 className="text-xl font-extrabold text-warm-900 tracking-tight flex items-center gap-2.5">
             <Boxes className="h-5 w-5 text-emerald-600" /> Inventory — Reference Catalog
           </h2>
-          <p className="text-xs text-warm-500 mt-1"> Catalogs of foods and Supplies</p>
+          <p className="text-sm text-warm-500 mt-1"> Catalogs of foods and Supplies</p>
         </div>
         <div className="flex items-center gap-3 shrink-0">
-          <button onClick={load} className="flex items-center gap-1.5 text-xs text-warm-500 hover:text-warm-700">
+          <button onClick={load} className="flex items-center gap-1.5 text-sm text-warm-500 hover:text-warm-700">
             <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} /> Refresh
           </button>
           {isRnd && (
@@ -211,31 +211,31 @@ export default function InventoryCatalogPage() {
         <div className="flex gap-2">
           {TABS.map((t) => (
             <button key={t.key} onClick={() => setTab(t.key)}
-              className={`px-3 py-1.5 text-xs font-semibold border-b-2 ${tab === t.key ? "border-emerald-600 text-emerald-700" : "border-transparent text-warm-500 hover:text-warm-800"}`}>
+              className={`px-3 py-1.5 text-sm font-semibold border-b-2 ${tab === t.key ? "border-emerald-600 text-emerald-700" : "border-transparent text-warm-500 hover:text-warm-800"}`}>
               {t.label}
             </button>
           ))}
         </div>
         <div className="flex items-center gap-2 px-3 py-1.5 border border-warm-200 rounded-lg">
           <Search className="h-3.5 w-3.5 text-warm-400" />
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search…" className="text-sm outline-none w-48" />
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search…" className="text-base outline-none w-48" />
         </div>
       </div>
 
       <div className="bg-white border border-warm-200 rounded-2xl shadow-sm overflow-x-auto">
         {loading ? (
-          <div className="py-16 text-center text-xs text-warm-400">Loading…</div>
+          <div className="py-16 text-center text-sm text-warm-400">Loading…</div>
         ) : filtered.length === 0 ? (
-          <div className="py-16 text-center text-xs text-warm-400">No items yet.</div>
+          <div className="py-16 text-center text-sm text-warm-400">No items yet.</div>
         ) : (
-          <table className="w-full text-xs">
+          <table className="w-full text-sm">
             <thead className="bg-warm-50 border-b border-warm-100">
               <tr>
                 {(isSupply
                   ? ["Name", "Category", "Vendor", "Cost", "Actions"]
                   : ["Name", "Category", "Vendor", "Unit", "Cost", "Actions"]
                 ).map((h) => (
-                  <th key={h} className="px-4 py-3 text-left text-[10px] font-bold text-warm-500 uppercase tracking-wider">{h}</th>
+                  <th key={h} className="px-4 py-3 text-left text-xs font-bold text-warm-500 uppercase tracking-wider">{h}</th>
                 ))}
               </tr>
             </thead>
@@ -246,7 +246,7 @@ export default function InventoryCatalogPage() {
                     {it.name}
                   </td>
                   <td className="px-4 py-3 text-warm-500">{it.category ?? "—"}</td>
-                  <td className="px-4 py-3 text-warm-500">{it.vendor ?? "—"}{it.vendor_locked && <span className="ml-1 text-[9px] text-amber-600 font-bold">🔒</span>}</td>
+                  <td className="px-4 py-3 text-warm-500">{it.vendor ?? "—"}{it.vendor_locked && <span className="ml-1 text-xs text-amber-600 font-bold">🔒</span>}</td>
                   {!isSupply && <td className="px-4 py-3 text-warm-500">{it.base_unit}</td>}
                   <td className="px-4 py-3 text-warm-700 font-mono">
                     {isSupply ? peso(it.purchase_price) : `${peso(it.purchase_price)} / ${it.base_unit}`}

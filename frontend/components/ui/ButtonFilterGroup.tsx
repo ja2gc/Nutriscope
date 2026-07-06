@@ -24,13 +24,13 @@ export default function ButtonFilterGroup({
 }: Props) {
   const sizeClass =
     size === "sm"
-      ? "px-2.5 py-1 text-[9px]"
-      : "px-3 py-1.5 text-[10px]";
+      ? "px-2.5 py-1 text-xs"
+      : "px-3 py-1.5 text-xs";
 
   return (
     <div className="flex flex-wrap items-center gap-2">
       {label && (
-        <span className="text-[10px] font-bold text-warm-500 uppercase tracking-wider">
+        <span className="text-xs font-bold text-warm-500 uppercase tracking-wider">
           {label}
         </span>
       )}

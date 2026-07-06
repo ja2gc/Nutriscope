@@ -68,7 +68,7 @@ type MacroKey = typeof MACRO_FIELDS[number]["key"];
 // ─── Input class ──────────────────────────────────────────────────────────────
 
 const inputCls =
-  "w-full px-3.5 py-2.5 text-sm border border-warm-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 bg-white transition-all placeholder:text-warm-400";
+  "w-full px-3.5 py-2.5 text-base border border-warm-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 bg-white transition-all placeholder:text-warm-400";
 
 // ─── UnitInput — with optional target hint ────────────────────────────────────
 
@@ -94,11 +94,11 @@ function UnitInput({
   return (
     <div>
       <div className="flex items-end justify-between mb-1.5">
-        <label className="text-[9px] font-bold text-warm-400 uppercase tracking-widest">
+        <label className="text-xs font-bold text-warm-400 uppercase tracking-widest">
           {label}
         </label>
         {target && target !== "" && (
-          <span className="text-[9px] font-mono font-semibold text-emerald-600 tabular-nums">
+          <span className="text-xs font-mono font-semibold text-emerald-600 tabular-nums">
             target: {target} {unit}
           </span>
         )}
@@ -112,9 +112,9 @@ function UnitInput({
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
           disabled={disabled}
-          className="w-full px-3.5 py-2.5 text-sm font-mono text-warm-900 bg-transparent focus:outline-none placeholder:text-warm-400 disabled:text-warm-400"
+          className="w-full px-3.5 py-2.5 text-base font-mono text-warm-900 bg-transparent focus:outline-none placeholder:text-warm-400 disabled:text-warm-400"
         />
-        <span className="px-2.5 text-[9px] font-bold text-warm-400 bg-warm-50 border-l border-warm-200 whitespace-nowrap select-none">
+        <span className="px-2.5 text-xs font-bold text-warm-400 bg-warm-50 border-l border-warm-200 whitespace-nowrap select-none">
           {unit}
         </span>
       </div>
@@ -137,14 +137,14 @@ function ToggleGroup<T extends string>({
 }) {
   return (
     <div>
-      <p className="text-[9px] font-bold text-warm-400 uppercase tracking-widest mb-2">{label}</p>
+      <p className="text-xs font-bold text-warm-400 uppercase tracking-widest mb-2">{label}</p>
       <div className="flex flex-wrap gap-2">
         {options.map((opt) => (
           <button
             key={opt.value}
             type="button"
             onClick={() => onChange(value === opt.value ? null : opt.value)}
-            className={`flex-1 min-w-[80px] py-2.5 text-xs font-semibold rounded-xl border transition-all ${
+            className={`flex-1 min-w-[80px] py-2.5 text-sm font-semibold rounded-xl border transition-all ${
               value === opt.value
                 ? opt.active
                 : "bg-white text-warm-500 border-warm-200 hover:border-warm-300 hover:bg-warm-50"
@@ -179,7 +179,7 @@ function CollapsibleSection({
         <CollapsibleTrigger asChild>
           <button
             type="button"
-            className="w-full flex items-center justify-between px-4 py-3 text-[9px] font-bold text-warm-400 uppercase tracking-widest hover:bg-warm-50 transition-colors"
+            className="w-full flex items-center justify-between px-4 py-3 text-xs font-bold text-warm-400 uppercase tracking-widest hover:bg-warm-50 transition-colors"
           >
             <span>
               {title}{" "}
@@ -336,7 +336,7 @@ export default function LogVisitForm({
     <div className="bg-white border border-warm-200 rounded-2xl shadow-sm overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between px-5 py-4 border-b border-warm-100">
-        <h3 className="text-xs font-extrabold text-warm-700 uppercase tracking-wider">
+        <h3 className="text-sm font-extrabold text-warm-700 uppercase tracking-wider">
           Log New Visit
         </h3>
         <button
@@ -478,7 +478,7 @@ export default function LogVisitForm({
                 );
               })}
             </div>
-            <p className="text-[9px] text-warm-300 mt-3">
+            <p className="text-xs text-warm-300 mt-3">
               Target values from the nutrition prescription.
             </p>
           </CollapsibleSection>
@@ -486,7 +486,7 @@ export default function LogVisitForm({
 
         {/* ── Clinical Notes ───────────────────────────────────────────────── */}
         <div>
-          <label className="block text-[9px] font-bold text-warm-400 uppercase tracking-widest mb-1.5">
+          <label className="block text-xs font-bold text-warm-400 uppercase tracking-widest mb-1.5">
             Clinical Notes
           </label>
           <textarea
@@ -494,13 +494,13 @@ export default function LogVisitForm({
             onChange={(e) => setClinicalSummary(e.target.value)}
             rows={3}
             placeholder="Observations, tolerance, patient feedback…"
-            className="w-full px-3.5 py-2.5 text-sm border border-warm-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 bg-white transition-all placeholder:text-warm-400 resize-none"
+            className="w-full px-3.5 py-2.5 text-base border border-warm-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 bg-white transition-all placeholder:text-warm-400 resize-none"
           />
         </div>
 
         {/* ── Next Follow-up Date ──────────────────────────────────────────── */}
         <div>
-          <label className="block text-[9px] font-bold text-warm-400 uppercase tracking-widest mb-1.5">
+          <label className="block text-xs font-bold text-warm-400 uppercase tracking-widest mb-1.5">
             Next Follow-up Date
           </label>
           <input
@@ -515,7 +515,7 @@ export default function LogVisitForm({
         {/* ── Error ────────────────────────────────────────────────────────── */}
         {error && (
           <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-xl">
-            <p className="text-xs text-red-700">{error}</p>
+            <p className="text-sm text-red-700">{error}</p>
           </div>
         )}
 

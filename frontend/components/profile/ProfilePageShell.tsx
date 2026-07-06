@@ -163,7 +163,7 @@ export function ProfilePageShell({ crumbs, subtitle, fallbackRole }: ProfilePage
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         <Card className="p-6">
-          <h3 className="text-xs font-bold text-warm-900 uppercase tracking-wider flex items-center gap-2 mb-5">
+          <h3 className="text-sm font-bold text-warm-900 uppercase tracking-wider flex items-center gap-2 mb-5">
             <Mail className="h-4 w-4 text-emerald-600" />
             Account Details
           </h3>
@@ -181,30 +181,30 @@ export function ProfilePageShell({ crumbs, subtitle, fallbackRole }: ProfilePage
             />
             <Input label="Full Name" value={name} onChange={(e) => setName(e.target.value)} required />
             <Input label="Sign-in Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-            <p className="-mt-2 text-[10px] text-warm-400">
+            <p className="-mt-2 text-xs text-warm-400">
               Use this email when signing in. Password reset links are sent to your verified recovery email below.
             </p>
             <Input label="Contact Number" value={contactNumber} onChange={(e) => setContactNumber(e.target.value)} />
             <div className="flex flex-col gap-1.5">
-              <span className="text-xs font-semibold text-warm-600 select-none tracking-wide">Role / Designation</span>
-              <div className="rounded-lg border border-warm-200 bg-warm-50 px-3.5 py-2 text-sm font-semibold text-warm-700">
+              <span className="text-sm font-semibold text-warm-600 select-none tracking-wide">Role / Designation</span>
+              <div className="rounded-lg border border-warm-200 bg-warm-50 px-3.5 py-2 text-base font-semibold text-warm-700">
                 {user?.role ?? fallbackRole}
               </div>
             </div>
             <div className="flex items-center gap-3 pt-1">
               <Button type="submit" loading={savingProfile} className="w-auto">Save Changes</Button>
-              {profileDone && <span className="text-xs font-semibold text-emerald-600">Saved.</span>}
+              {profileDone && <span className="text-sm font-semibold text-emerald-600">Saved.</span>}
             </div>
-            {profileError && <p className="text-xs font-semibold text-red-600">{profileError}</p>}
+            {profileError && <p className="text-sm font-semibold text-red-600">{profileError}</p>}
           </form>
         </Card>
 
         <Card className="p-6">
-          <h3 className="text-xs font-bold text-warm-900 uppercase tracking-wider flex items-center gap-2 mb-5">
+          <h3 className="text-sm font-bold text-warm-900 uppercase tracking-wider flex items-center gap-2 mb-5">
             <ShieldCheck className="h-4 w-4 text-emerald-600" />
             Recovery Email
           </h3>
-          <p className="-mt-3 mb-5 text-xs leading-relaxed text-warm-500">
+          <p className="-mt-3 mb-5 text-sm leading-relaxed text-warm-500">
             Used only for password reset links and account recovery. It must be verified before it can receive reset emails.
           </p>
           <form onSubmit={handleRecoveryEmailSubmit} className="space-y-4">
@@ -216,13 +216,13 @@ export function ProfilePageShell({ crumbs, subtitle, fallbackRole }: ProfilePage
               required
               autoComplete="email"
             />
-            <p className="-mt-2 text-[10px] text-warm-400">
+            <p className="-mt-2 text-xs text-warm-400">
               Enter an email you have access to. A verification code will be sent to confirm ownership.
             </p>
             <div className="flex items-center gap-3">
               <Button type="submit" loading={savingRecoveryEmail} className="w-auto">Send Verification Code</Button>
               {user?.recovery_email_verified && user.recovery_email === recoveryEmail && (
-                <span className="text-xs font-semibold text-emerald-600">Verified.</span>
+                <span className="text-sm font-semibold text-emerald-600">Verified.</span>
               )}
             </div>
           </form>
@@ -238,12 +238,12 @@ export function ProfilePageShell({ crumbs, subtitle, fallbackRole }: ProfilePage
             />
             <Button type="submit" loading={verifyingRecoveryEmail} className="w-auto">Verify Recovery Email</Button>
           </form>
-          {recoveryMessage && <p className="mt-3 text-xs font-semibold text-emerald-600">{recoveryMessage}</p>}
-          {recoveryError && <p className="mt-3 text-xs font-semibold text-red-600">{recoveryError}</p>}
+          {recoveryMessage && <p className="mt-3 text-sm font-semibold text-emerald-600">{recoveryMessage}</p>}
+          {recoveryError && <p className="mt-3 text-sm font-semibold text-red-600">{recoveryError}</p>}
         </Card>
 
         <Card className="p-6">
-          <h3 className="text-xs font-bold text-warm-900 uppercase tracking-wider flex items-center gap-2 mb-5">
+          <h3 className="text-sm font-bold text-warm-900 uppercase tracking-wider flex items-center gap-2 mb-5">
             <KeyRound className="h-4 w-4 text-emerald-600" />
             Change Password
           </h3>
@@ -253,9 +253,9 @@ export function ProfilePageShell({ crumbs, subtitle, fallbackRole }: ProfilePage
             <Input label="Confirm New Password" type="password" value={passwordConfirmation} onChange={(e) => setPasswordConfirmation(e.target.value)} required minLength={8} autoComplete="new-password" />
             <div className="flex items-center gap-3 pt-1">
               <Button type="submit" loading={savingPassword} className="w-auto">Update Password</Button>
-              {passwordDone && <span className="text-xs font-semibold text-emerald-600">Password updated.</span>}
+              {passwordDone && <span className="text-sm font-semibold text-emerald-600">Password updated.</span>}
             </div>
-            {passwordError && <p className="text-xs font-semibold text-red-600">{passwordError}</p>}
+            {passwordError && <p className="text-sm font-semibold text-red-600">{passwordError}</p>}
           </form>
         </Card>
       </div>
