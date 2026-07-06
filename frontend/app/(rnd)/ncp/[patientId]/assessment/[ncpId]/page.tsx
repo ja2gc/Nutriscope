@@ -14,6 +14,8 @@ import {
   classifyNutritionalStatus, ACTIVITY_FACTORS,
 } from "@/lib/nutritionCalculations";
 import { CALCULATION_INPUT_HELPERS } from "@/lib/assessmentCalculationInputs";
+import { getAnthropometricSafetyWarning } from "@/lib/anthropometricSafety";
+import { formatDateInputValue, formatPatientAge } from "@/lib/patientAge";
 import {
   Assessment, AssessmentValidationError, fetchAssessment, saveAssessment,
   AttachmentRecord, uploadAttachment, fetchAttachments, deleteAttachment,
@@ -42,6 +44,7 @@ function formatAssessmentValidationError(error: AssessmentValidationError): stri
 
 export type ScreeningDraft = {
   patientName: string;
+  dob: string;
   age: string;
   sex: string;
   address: string;
@@ -200,19 +203,6 @@ function formatDate(value?: string) {
   if (!value) return "";
   const d = new Date(value);
   return Number.isNaN(d.getTime()) ? "" : d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-}
-
-function calculateAgeFromDob(dob?: string | null) {
-  if (!dob) return "N/A";
-  const birthDate = new Date(dob);
-  if (Number.isNaN(birthDate.getTime())) return "N/A";
-  const today = new Date();
-  let age = today.getFullYear() - birthDate.getFullYear();
-  const monthDelta = today.getMonth() - birthDate.getMonth();
-  if (monthDelta < 0 || (monthDelta === 0 && today.getDate() < birthDate.getDate())) {
-    age -= 1;
-  }
-  return `${age}`;
 }
 
 function getScreeningConditions(type: "adult" | "pediatric") {
@@ -654,7 +644,8 @@ export default function NcpAssessmentPage({
   const buildScreeningDraft = useCallback((basePatient: Patient, baseAssessment?: Assessment | null): ScreeningDraft => {
     return {
       patientName: basePatient.name,
-      age: calculateAgeFromDob(basePatient.dob),
+      dob: formatDateInputValue(basePatient.dob),
+      age: formatPatientAge(basePatient.dob),
       sex: basePatient.sex,
       address: basePatient.address ?? "",
       height: String(baseAssessment?.height ?? ""),
@@ -674,6 +665,9 @@ export default function NcpAssessmentPage({
   const updateScreeningDraftField = (key: keyof ScreeningDraft, value: string) => {
     setScreeningDraft(current => {
       if (!current) return null;
+      if (key === "dob") {
+        return { ...current, dob: value, age: formatPatientAge(value) };
+      }
       return { ...current, [key]: value };
     });
   };
@@ -722,7 +716,7 @@ export default function NcpAssessmentPage({
 
   // ─── Auto-Calc Panel Derived Values ────────────────────────────────
   const patientSex = (patient?.sex as "Male" | "Female") ?? "Male";
-  const patientDobStr = patient?.dob ?? null;
+  const patientDobStr = screeningDraft?.dob || patient?.dob || null;
   const patientAgeYears = patientDobStr
     ? (() => {
       const b = new Date(patientDobStr);
@@ -864,6 +858,15 @@ export default function NcpAssessmentPage({
       setError(null);
       setSuccess(null);
 
+      const safetyWarning = getAnthropometricSafetyWarning({
+        dob: screeningDraft?.dob ?? patient?.dob,
+        weightKg: assessment.weight,
+        heightCm: assessment.height,
+      });
+      if (safetyWarning && !window.confirm(safetyWarning)) {
+        return;
+      }
+
       const toSave: Partial<Assessment> = {
         ...assessment,
         // Auto-computed fields — override stored value with live computation when available
@@ -886,6 +889,7 @@ export default function NcpAssessmentPage({
       if (patient && screeningDraft) {
         const patientData: PatientUpdateData = {
           name: screeningDraft.patientName,
+          dob: screeningDraft.dob,
           sex: screeningDraft.sex as "Male" | "Female",
           address: screeningDraft.address,
           ward: screeningDraft.ward,
@@ -1362,6 +1366,9 @@ export default function NcpAssessmentPage({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Field label="Patient Name">
                 <TextInput value={draft?.patientName ?? ""} onChange={v => updateScreeningDraftField("patientName", v)} placeholder="Patient name" />
+              </Field>
+              <Field label="Date of Birth">
+                <TextInput type="date" value={draft?.dob ?? ""} onChange={v => updateScreeningDraftField("dob", v)} />
               </Field>
               <Field label="Age">
                 <TextInput value={draft?.age ?? ""} onChange={v => updateScreeningDraftField("age", v)} placeholder="Derived age" disabled />

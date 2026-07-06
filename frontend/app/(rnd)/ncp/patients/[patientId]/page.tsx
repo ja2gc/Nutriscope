@@ -21,6 +21,7 @@ import {
   getAttachmentFileUrl,
 } from "@/services/assessmentService";
 import { getNcpStepState, type NcpStep, type NcpStepState } from "@/lib/ncpWorkflow";
+import { formatPatientAge } from "@/lib/patientAge";
 
 type TabKey = "overview" | "adime-records" | "attachments";
 const NCP_STEPS: NcpStep[] = ["assessment", "diagnosis", "intervention", "monitoring"];
@@ -33,17 +34,6 @@ function formatSystemId(id: number) {
 
 function formatCycleId(id: number) {
   return `NCP-${String(id).padStart(5, "0")}`;
-}
-
-function formatAge(dob?: string | null) {
-  if (!dob) return "N/A";
-  const birthDate = new Date(dob);
-  if (Number.isNaN(birthDate.getTime())) return "N/A";
-  const today = new Date();
-  let age = today.getFullYear() - birthDate.getFullYear();
-  const monthDelta = today.getMonth() - birthDate.getMonth();
-  if (monthDelta < 0 || (monthDelta === 0 && today.getDate() < birthDate.getDate())) age -= 1;
-  return age;
 }
 
 function formatAbsoluteDate(value?: string | null) {
@@ -457,7 +447,7 @@ export default function PatientProfilePage({
   }
 
   const systemId = formatSystemId(patient.id);
-  const age = formatAge(patient.dob);
+  const age = formatPatientAge(patient.dob);
 
   return (
     <div className="space-y-6 font-sans">
@@ -482,7 +472,7 @@ export default function PatientProfilePage({
             </div>
 
             <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-warm-500 font-semibold">
-              <span>{age !== "N/A" ? `${age} yrs` : "Age N/A"} · {patient.sex ?? "Sex N/A"}</span>
+              <span>{age !== "N/A" ? age : "Age N/A"} · {patient.sex ?? "Sex N/A"}</span>
               <span>{patient.ward ?? "Ward N/A"}</span>
               <span>{patient.physician ?? "Physician N/A"}</span>
             </div>

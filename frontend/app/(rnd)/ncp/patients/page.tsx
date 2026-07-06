@@ -11,28 +11,8 @@ import {
 } from "@/services/patientService";
 import { Button } from "@/components/ui/Button";
 import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
+import { formatPatientAge } from "@/lib/patientAge";
 import { HeartHandshake, X } from "lucide-react";
-
-function calculateAge(dob?: string) {
-  if (!dob) {
-    return "N/A";
-  }
-
-  const birthDate = new Date(dob);
-  if (Number.isNaN(birthDate.getTime())) {
-    return "N/A";
-  }
-
-  const today = new Date();
-  let age = today.getFullYear() - birthDate.getFullYear();
-  const monthDelta = today.getMonth() - birthDate.getMonth();
-
-  if (monthDelta < 0 || (monthDelta === 0 && today.getDate() < birthDate.getDate())) {
-    age -= 1;
-  }
-
-  return age;
-}
 
 function formatRelativeDate(value?: string | null) {
   if (!value) {
@@ -280,7 +260,7 @@ export default function NcpPatientsPage() {
                 {patients.map((patient, index) => {
                   const systemId = `NS-${String(patient.id).padStart(5, "0")}`;
                   const currentRisk = riskMeta(patient.risk_score);
-                  const age = calculateAge(patient.dob);
+                  const age = formatPatientAge(patient.dob);
 
                   return (
                     <tr
@@ -293,7 +273,7 @@ export default function NcpPatientsPage() {
                       </td>
 
                       <td className="px-5 py-4 text-sm font-medium text-warm-700">
-                        {age} yrs / {patient.sex}
+                        {age} / {patient.sex}
                       </td>
 
                       <td className="px-5 py-4 text-sm font-semibold text-zinc-650">
