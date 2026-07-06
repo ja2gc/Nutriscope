@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import { fetchPatientById, Patient, updatePatient, PatientUpdateData } from "@/services/patientService";
 import {
-  calcIBW, calcAjBW, calcPercentIBW, calcBMR, calcTEE, calcBmrWeight,
+  calcIBW, calcPercentIBW, calcBMR, calcTEE, calcBmrWeight,
   classifyNutritionalStatus, ACTIVITY_FACTORS,
 } from "@/lib/nutritionCalculations";
 import { CALCULATION_INPUT_HELPERS } from "@/lib/assessmentCalculationInputs";
@@ -713,7 +713,6 @@ export default function NcpAssessmentPage({
     }
   }, [patientId, ncpId, isPlaceholder, buildScreeningDraft]);
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { void loadData(); }, [loadData]);
 
   // ─── BMI Auto-Calc ──────────────────────────────────────────────────
@@ -737,9 +736,6 @@ export default function NcpAssessmentPage({
 
   const computedIBW = weight > 0 && height > 0 ? calcIBW(height, patientSex) : null;
   const computedPercentIBW = computedIBW !== null && weight > 0 ? calcPercentIBW(weight, computedIBW) : null;
-  const computedAjBW = computedIBW !== null && computedPercentIBW !== null && computedPercentIBW > 120
-    ? calcAjBW(weight, computedIBW)
-    : null;
   const palKey = assessment.physical_activity_level ?? "sedentary";
   const palFactor = ACTIVITY_FACTORS[palKey]?.factor ?? 1.2;
   const computedBmrWt = computedIBW !== null && weight > 0 ? calcBmrWeight(weight, computedIBW) : null;

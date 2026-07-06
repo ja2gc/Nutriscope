@@ -1,9 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 
 const LARAVEL_API = process.env.LARAVEL_API_URL ?? "http://127.0.0.1:8000/api";
 
-export async function POST(_req: NextRequest) {
+export async function POST() {
   const cookieStore = await cookies();
   const token = cookieStore.get("nutriscope_token")?.value;
 

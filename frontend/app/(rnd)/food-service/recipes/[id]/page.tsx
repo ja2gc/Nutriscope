@@ -78,7 +78,7 @@ function Required() {
 
 // ─── Cost calculation ─────────────────────────────────────────────────────────
 
-function calcCost(rows: IngredientRow[], _servings: number): number {
+function calcCost(rows: IngredientRow[]): number {
   return rows.reduce((sum, row) => {
     if (!row.invItem || !row.quantity) return sum;
     const qty = parseFloat(row.quantity);
@@ -157,7 +157,7 @@ export default function EditFSSRecipePage({ params }: { params: Promise<{ id: st
   const selectItem = (idx: number, item: InventoryItem) =>
     updateRow(idx, { invItem: item, search: item.name, showDropdown: false, results: [], unit: item.base_unit });
 
-  const totalCost = calcCost(ingredients, parseInt(servings) || 1);
+  const totalCost = calcCost(ingredients);
   const servingsNum = parseInt(servings) || 1;
   const previewNum = parseInt(previewServings) || servingsNum;
   const previewFactor = servingsNum > 0 ? previewNum / servingsNum : 1;

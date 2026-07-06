@@ -61,6 +61,7 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-screen w-full overflow-hidden bg-white font-sans">
       <div className="relative hidden min-h-screen overflow-hidden p-12 text-white lg:flex lg:w-[55%] lg:flex-col lg:justify-between">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src="https://images.pexels.com/photos/1640777/pexels-photo-1640777.jpeg?auto=compress&cs=tinysrgb&w=1200"
           alt=""

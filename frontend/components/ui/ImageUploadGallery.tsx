@@ -62,6 +62,7 @@ export function ImageCarousel({
 
   return (
     <div className={`relative overflow-hidden rounded-lg border border-warm-200 bg-warm-50 ${className}`}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={activeImage.src} alt={title} className="block w-full max-h-[520px] object-cover" />
       {hasMany && (
         <>
@@ -186,6 +187,7 @@ export function ImageUploadGallery({
         <div className={`relative overflow-hidden border border-warm-200 bg-white ${
           isAvatar ? "mx-auto h-36 w-36 rounded-full" : "rounded-lg"
         }`}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={activeImage.src} alt={activeImage.name} className={`block object-cover ${
             isAvatar ? "h-full w-full" : "h-56 w-full"
           }`} />

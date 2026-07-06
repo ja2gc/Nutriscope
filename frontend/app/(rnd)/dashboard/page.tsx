@@ -17,7 +17,7 @@ import {
 } from "@/services/announcementService";
 import { categoryStyles } from "@/components/announcements/AnnouncementsBoard";
 import { FssDashboardSummary, getFssDashboard } from "@/services/menuCycleService";
-import { BellDot, Calendar, Compass, HeartHandshake, PencilLine, TrendingUp, X } from "lucide-react";
+import { Calendar, Compass, HeartHandshake, PencilLine, TrendingUp, X } from "lucide-react";
 
 type AnnouncementDraft = {
   category: AnnouncementCategory;
@@ -98,6 +98,7 @@ function buildFollowUps(patients: Patient[]): FollowUpRow[] {
     .sort((left, right) => left.daysRemaining - right.daysRemaining);
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function pesoAmount(n: number) {
   return `₱${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
@@ -273,12 +274,6 @@ export default function RndDashboardPage() {
       body: "",
       images: [],
     });
-  }
-
-  function openCreateComposer() {
-    setEditingPostId(null);
-    resetDraft();
-    setComposerOpen(true);
   }
 
   function openEditComposer(post: Announcement) {

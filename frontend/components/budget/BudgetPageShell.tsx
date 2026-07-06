@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import {
@@ -289,7 +289,7 @@ function LedgerSection({ entries, loading, filter, onFilter }: {
 }
 
 // ───── Page ───────────────────────────────────────────────────────────────────
-export function BudgetPageShell({ apiPrefix, canMutate, crumbs, homeHref: _homeHref }: BudgetPageShellProps) {
+export function BudgetPageShell({ apiPrefix, canMutate, crumbs }: BudgetPageShellProps) {
   const [budgets, setBudgets] = useState<FiscalYearBudget[]>([]);
   const [selectedYear, setSelectedYear] = useState(currentYear);
   const [summary, setSummary] = useState<FiscalYearSummary | null>(null);
@@ -301,7 +301,7 @@ export function BudgetPageShell({ apiPrefix, canMutate, crumbs, homeHref: _homeH
 
   const years = budgets.map((b) => b.fiscal_year).sort((a, b) => b - a);
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const list = await listFiscalYears(apiPrefix);
@@ -309,26 +309,26 @@ export function BudgetPageShell({ apiPrefix, canMutate, crumbs, homeHref: _homeH
     } finally {
       setLoading(false);
     }
-  }
+  }, [apiPrefix]);
 
-  async function loadSummary(year: number) {
+  const loadSummary = useCallback(async (year: number) => {
     const res = await getFiscalYearSummary(year, apiPrefix);
     setSummary(res.data);
     setNotice(res.notice);
-  }
+  }, [apiPrefix]);
 
-  async function loadLedger(year: number, filter: LedgerFilter) {
+  const loadLedger = useCallback(async (year: number, filter: LedgerFilter) => {
     setLedgerLoading(true);
     try {
       setEntries(await getLedger(year, filter, apiPrefix));
     } finally {
       setLedgerLoading(false);
     }
-  }
+  }, [apiPrefix]);
 
-  useEffect(() => { load(); }, []);
-  useEffect(() => { loadSummary(selectedYear); }, [selectedYear]);
-  useEffect(() => { loadLedger(selectedYear, ledgerFilter); }, [selectedYear, ledgerFilter]);
+  useEffect(() => { void load(); }, [load]);
+  useEffect(() => { void loadSummary(selectedYear); }, [loadSummary, selectedYear]);
+  useEffect(() => { void loadLedger(selectedYear, ledgerFilter); }, [loadLedger, selectedYear, ledgerFilter]);
 
   function refresh() { load(); loadSummary(selectedYear); loadLedger(selectedYear, ledgerFilter); }
 

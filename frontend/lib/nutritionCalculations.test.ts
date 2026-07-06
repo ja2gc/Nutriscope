@@ -17,7 +17,6 @@ import assert from 'node:assert/strict';
 import {
   calcIBW,
   calcAjBW,
-  calcPercentIBW,
   calcWorkingWeight,
   calcBMR,
   calcTEE,
@@ -204,7 +203,6 @@ describe('autofillPrescription BMR weight selection', () => {
     // BMR with IBW (≈68 kg): 10*68 + 6.25*170 - 5*40 + 5 = 680 + 1062.5 - 200 + 5 = 1547.5
     // TEE with actual × 1.2 = 2001; TEE with IBW × 1.2 = 1857
     // Energy should be closer to 2001 (actual weight used for BMR)
-    const ibw = calcIBW(170, 'Male');
     const bmrWithActual = calcBMR(80, 170, 40, 'Male');
     const teeWithActual = calcTEE(bmrWithActual, 1.2);
     assert.equal(result.energy_kcal, Math.round(teeWithActual),

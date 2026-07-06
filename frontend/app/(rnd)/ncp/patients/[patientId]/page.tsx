@@ -139,7 +139,7 @@ function ConfirmBanner({
   );
 }
 
-function StepAction({ state, primary = false }: { state: NcpStepState; primary?: boolean }) {
+function StepAction({ state }: { state: NcpStepState }) {
   const enabledClass = "border-warm-200 text-warm-700 hover:bg-warm-50";
 
   if (state.available) {
@@ -420,8 +420,6 @@ export default function PatientProfilePage({
   const allergies     = latestRecord?.assessment?.allergies ?? [];
   const riskMeta      = formatRiskLabel(patient?.risk_score);
   const latestAssessment  = latestRecord?.assessment?.rnd_summary?.trim();
-  const latestDiagnosis   = latestRecord?.diagnoses?.[0]?.pes_statement?.trim();
-  const latestIntervention = latestRecord?.intervention?.goal_type?.trim();
   const latestMonitoring  = latestRecord?.intervention?.next_followup_date;
 
   // Patient can be deleted only if no record has gone through A→D→I

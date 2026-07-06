@@ -550,8 +550,6 @@ export default function NcpDiagnosisPage({
 
   const systemId = patient ? `NS-${String(patient.id).padStart(5, "0")}` : "";
   const filteredDiagnoses = domainFilter === "ALL" ? diagnoses : diagnoses.filter(d => d.domain === domainFilter);
-  const pesPreview = builder.pesOverride || buildPes(buildProblemText(builder), buildEtiologyText(builder), buildSignsText(builder));
-
   const TABS: { key: TabKey; label: string }[] = [
     { key: "table", label: "Diagnosis Table" },
     { key: "problem", label: "P — Problem" },

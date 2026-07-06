@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useEffect, useState, useMemo } from "react";
-import { useAuth } from "@/contexts/AuthContext";
 import { listAuditLogs, AuditLog, ListAuditLogsParams } from "@/services/auditLogService";
 import { listUsers } from "@/services/adminUserService";
 import { User } from "@/services/authService";
@@ -36,7 +35,6 @@ const roleTones: Record<string, BadgeTone> = {
 };
 
 export default function AuditLogsPage() {
-  const { user: _currentUser } = useAuth();
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [meta, setMeta] = useState<PaginationMeta>({

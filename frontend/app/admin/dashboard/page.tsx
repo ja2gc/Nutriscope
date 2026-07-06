@@ -2,7 +2,6 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useAuth } from "@/contexts/AuthContext";
 import { fetchDashboard, DashboardData } from "@/services/adminDashboardService";
 import { listAuditLogs, AuditLog } from "@/services/auditLogService";
 import {
@@ -16,14 +15,11 @@ import { KpiCard } from "@/components/ui/KpiCard";
 import { Badge, BadgeTone } from "@/components/ui/Badge";
 import {
   Users,
-  Shield,
   Cpu,
-  FileText,
   Activity,
   ArrowRight,
   RefreshCw,
   AlertCircle,
-  Database,
   Megaphone,
   LayoutDashboard,
 } from "lucide-react";
@@ -79,7 +75,6 @@ const eventTones: Record<string, BadgeTone> = {
 };
 
 export default function AdminDashboardPage() {
-  const { user } = useAuth();
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [recentLogs, setRecentLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);

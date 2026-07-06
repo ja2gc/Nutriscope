@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import {
   CalendarDays, Plus, Search, X, Trash2, Save, Zap, Copy, BookmarkPlus,

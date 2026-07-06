@@ -135,6 +135,7 @@ export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
 
             <div className="h-8 w-8 overflow-hidden rounded-full bg-brand-green-50 border border-brand-green-200 flex items-center justify-center text-brand-green-700 shrink-0">
               {user.profile_photo ? (
+                // eslint-disable-next-line @next/next/no-img-element
                 <img src={user.profile_photo} alt={user.name} className="h-full w-full object-cover" />
               ) : (
                 <UserIcon className="h-4 w-4" />

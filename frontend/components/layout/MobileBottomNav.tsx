@@ -3,7 +3,6 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useAuth } from "@/contexts/AuthContext";
 import {
   Compass,
   Megaphone,
@@ -77,7 +76,6 @@ const ADMIN_ITEMS: NavItem[] = [
 
 export function MobileBottomNav({ onMenuOpen }: { onMenuOpen: () => void }) {
   const pathname = usePathname();
-  const { user } = useAuth();
 
   const isAdmin = pathname.startsWith("/admin");
   const items = isAdmin ? ADMIN_ITEMS : RND_ITEMS;
