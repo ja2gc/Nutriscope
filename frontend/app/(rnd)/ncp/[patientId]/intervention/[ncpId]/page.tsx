@@ -20,6 +20,7 @@ import {
   emptyPrescriptionForm,
   type PrescriptionFormState,
 } from "@/lib/interventionGoalState";
+import { buildPrescriptionCalculationTrace } from "@/lib/prescriptionCalculationTrace";
 import GoalSelectorModal, { GOALS } from "./_components/GoalSelectorModal";
 import { Button } from "@/components/ui/Button";
 import NutritionPrescriptionForm from "./_components/NutritionPrescriptionForm";
@@ -381,6 +382,17 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
       ? ["potassium", "phosphate", "magnesium"]
       : []),
   ]));
+  const calculationTrace = intervention?.goal_type && patientMetrics
+    ? buildPrescriptionCalculationTrace({
+        goalType: intervention.goal_type,
+        stage: intervention.disease_stage,
+        goalLabel,
+        stageLabel,
+        metrics: patientMetrics,
+        prescription,
+        requiredMicros,
+      })
+    : null;
 
   if (isPlaceholder) return <PlaceholderState />;
   if (!loading && !workflowLoading && workflowBlock) {
@@ -506,6 +518,7 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
               note={prescNote}
               requiredMicros={requiredMicros}
               goalLabel={goalLabel}
+              calculationTrace={calculationTrace}
             />
 
             {/* [C] Recommend / Avoid */}

@@ -4,6 +4,9 @@ import { ALL_MICROS, microKeys } from "@/lib/nutritionCalculations";
 import MicronutrientToggle from "./MicronutrientToggle";
 import NumericInput from "@/components/ui/NumericInput";
 import { AlertTriangle, X, Lock, FlaskConical } from "lucide-react";
+import { useState } from "react";
+import type { CalculationTrace } from "@/lib/prescriptionCalculationTrace";
+import PrescriptionCalculationPanel from "./PrescriptionCalculationPanel";
 
 interface PrescriptionValues {
   energy_kcal: string;
@@ -25,6 +28,7 @@ interface Props {
   requiredMicros?: string[];
   /** Label of the active goal, for the "required by …" tooltip. */
   goalLabel?: string;
+  calculationTrace?: CalculationTrace | null;
 }
 
 const MACROS = [
@@ -36,8 +40,9 @@ const MACROS = [
 ] as const;
 
 export default function NutritionPrescriptionForm({
-  values, onChange, onSave, saving, note, requiredMicros = [], goalLabel,
+  values, onChange, onSave, saving, note, requiredMicros = [], goalLabel, calculationTrace,
 }: Props) {
+  const [showCalculations, setShowCalculations] = useState(false);
   const setMacro = (key: string, val: string) => onChange({ ...values, [key]: val });
   const setMicros = (keys: string[]) => onChange({ ...values, displayed_nutrients: keys });
   const removeMicro = (key: string) => {
@@ -90,6 +95,14 @@ export default function NutritionPrescriptionForm({
           />
         ))}
       </div>
+
+      {calculationTrace && (
+        <PrescriptionCalculationPanel
+          trace={calculationTrace}
+          expanded={showCalculations}
+          onToggle={() => setShowCalculations((current) => !current)}
+        />
+      )}
 
       {/* Micronutrient limit rows */}
       {microList.length > 0 ? (
