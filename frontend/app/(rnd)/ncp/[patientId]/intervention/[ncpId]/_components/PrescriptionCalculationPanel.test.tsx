@@ -31,6 +31,16 @@ const trace: CalculationTrace = {
       calculation: "Refeeding requires potassium monitoring.",
       status: "flagged",
     },
+    {
+      key: "sodium",
+      label: "Sodium",
+      unit: "mg",
+      prescribed: { value: 2000, unit: "mg", text: "<= 2000 mg" },
+      calculated: { value: 2000, unit: "mg", text: "<= 2000 mg" },
+      formula: "Sodium maximum from goal target",
+      calculation: "Goal-specific nutrient limit.",
+      status: "matches",
+    },
   ],
   notes: ["Refeeding phase: monitor electrolytes."],
 };
@@ -57,5 +67,6 @@ describe("PrescriptionCalculationPanel", () => {
     expect(html).toContain("1400 kcal");
     expect(html).toContain("TEE - 500");
     expect(html).toContain("Flagged for monitoring");
+    expect(html).toContain("Recommended target");
   });
 });

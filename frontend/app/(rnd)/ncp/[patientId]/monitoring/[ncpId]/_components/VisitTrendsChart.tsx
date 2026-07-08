@@ -391,6 +391,8 @@ const LAB_COLORS: Record<string, string> = {
   cholesterol: "#7c3aed",
   creatinine:  "#0891b2",
   potassium:   "#2563eb",
+  phosphate:   "#9333ea",
+  magnesium:   "#0f766e",
   hemoglobin:  "#059669",
   glucose:     "#f59e0b",
 };

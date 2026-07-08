@@ -11,6 +11,8 @@ export interface MonitoringLabValues {
   cholesterol?: number | null;
   creatinine?: number | null;
   potassium?: number | null;
+  phosphate?: number | null;
+  magnesium?: number | null;
   hemoglobin?: number | null;
   glucose?: number | null;
   bp?: string | null;
@@ -219,6 +221,8 @@ export const LAB_REFERENCE_RANGES: Record<keyof MonitoringLabValues, LabReferenc
   cholesterol: { label: 'Cholesterol',   unit: 'mg/dL',  max: 200,  lowerIsBetter: true },
   creatinine:  { label: 'Creatinine',    unit: 'mg/dL',  max: 1.2,  lowerIsBetter: true },
   potassium:   { label: 'Potassium',     unit: 'mEq/L',  min: 3.5,  max: 5.0 },
+  phosphate:   { label: 'Phosphate',     unit: 'mg/dL',  min: 2.5,  max: 4.5 },
+  magnesium:   { label: 'Magnesium',     unit: 'mg/dL',  min: 1.7,  max: 2.2 },
   hemoglobin:  { label: 'Hemoglobin',    unit: 'g/dL',   min: 12.0 },
   glucose:     { label: 'Glucose',       unit: 'mg/dL',  max: 100,  lowerIsBetter: true },
   bp:          { label: 'Blood Pressure', unit: 'mmHg' },
@@ -272,10 +276,10 @@ export function getWeightStatus(
 // Keys must match MonitoringLabValues clinical fields.
 
 export type ClinicalLabKey = 'albumin' | 'hba1c' | 'ldl' | 'cholesterol' |
-  'creatinine' | 'potassium' | 'hemoglobin' | 'glucose' | 'bp';
+  'creatinine' | 'potassium' | 'phosphate' | 'magnesium' | 'hemoglobin' | 'glucose' | 'bp';
 
 export const GOAL_LAB_FLAGS: Record<string, ClinicalLabKey[]> = {
-  renal_diet:       ['albumin', 'creatinine', 'potassium', 'hemoglobin'],
+  renal_diet:       ['albumin', 'creatinine', 'potassium', 'phosphate', 'hemoglobin'],
   diabetic_control: ['hba1c', 'glucose', 'albumin'],
   cardiac_diet:     ['bp', 'ldl', 'cholesterol'],
   weight_loss:      [],
@@ -283,7 +287,7 @@ export const GOAL_LAB_FLAGS: Record<string, ClinicalLabKey[]> = {
   high_protein:     ['albumin', 'creatinine'],
   liver_disease:    ['albumin'],
   malnutrition:     ['albumin', 'hemoglobin'],
-  custom:           ['albumin', 'hba1c', 'ldl', 'cholesterol', 'creatinine', 'potassium', 'hemoglobin', 'glucose', 'bp'],
+  custom:           ['albumin', 'hba1c', 'ldl', 'cholesterol', 'creatinine', 'potassium', 'phosphate', 'magnesium', 'hemoglobin', 'glucose', 'bp'],
 };
 
 // Clinical lab display metadata (label + unit) for the form and tracker
@@ -294,6 +298,8 @@ export const CLINICAL_LAB_META: Record<ClinicalLabKey, { label: string; unit: st
   cholesterol: { label: 'Cholesterol',   unit: 'mg/dL',  type: 'number' },
   creatinine:  { label: 'Creatinine',    unit: 'mg/dL',  type: 'number' },
   potassium:   { label: 'Potassium',     unit: 'mEq/L',  type: 'number' },
+  phosphate:   { label: 'Phosphate',     unit: 'mg/dL',  type: 'number' },
+  magnesium:   { label: 'Magnesium',     unit: 'mg/dL',  type: 'number' },
   hemoglobin:  { label: 'Hemoglobin',    unit: 'g/dL',   type: 'number' },
   glucose:     { label: 'Glucose',       unit: 'mg/dL',  type: 'number' },
   bp:          { label: 'Blood Pressure', unit: 'mmHg',  type: 'text'   },

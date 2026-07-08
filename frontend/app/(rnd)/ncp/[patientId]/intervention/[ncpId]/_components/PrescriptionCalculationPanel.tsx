@@ -71,7 +71,7 @@ export default function PrescriptionCalculationPanel({ trace, expanded, onToggle
                   </div>
                   <div className="mt-3 grid gap-2 sm:grid-cols-3">
                     <ValueBlock label="Prescribed" text={target.prescribed?.text ?? "-"} />
-                    <ValueBlock label="Calculated" text={target.calculated?.text ?? "-"} />
+                    <ValueBlock label={calculatedLabelFor(target)} text={target.calculated?.text ?? "-"} />
                     <ValueBlock label="Calculation" text={target.calculation} />
                   </div>
                 </div>
@@ -93,6 +93,17 @@ export default function PrescriptionCalculationPanel({ trace, expanded, onToggle
       )}
     </div>
   );
+}
+
+function calculatedLabelFor(target: CalculationTrace["targets"][number]): string {
+  if (target.status === "flagged") return "Monitoring";
+  if (
+    target.formula.includes("from goal target") ||
+    target.formula.includes("Micronutrient target")
+  ) {
+    return "Recommended target";
+  }
+  return "Calculated";
 }
 
 function TraceSection({ title, rows }: { title: string; rows: CalculationTrace["inputs"] }) {

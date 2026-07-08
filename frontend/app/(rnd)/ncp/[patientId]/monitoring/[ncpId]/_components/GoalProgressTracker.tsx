@@ -19,6 +19,8 @@ interface BiochemicalBaseline {
   cholesterol?: number | null;
   creatinine?: number | null;
   potassium?: number | null;
+  phosphate?: number | null;
+  magnesium?: number | null;
   hemoglobin?: number | null;
   glucose?: number | null;
 }
@@ -105,7 +107,7 @@ const STATUS_LABELS: Record<GoalStatus, string> = {
 type LabKey = keyof MonitoringLabValues & keyof BiochemicalBaseline;
 const LAB_KEYS: LabKey[] = [
   'albumin', 'hba1c', 'ldl', 'cholesterol',
-  'creatinine', 'potassium', 'hemoglobin', 'glucose',
+  'creatinine', 'potassium', 'phosphate', 'magnesium', 'hemoglobin', 'glucose',
 ];
 
 export default function GoalProgressTracker({
