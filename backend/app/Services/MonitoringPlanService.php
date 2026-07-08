@@ -18,7 +18,7 @@ class MonitoringPlanService
 {
     /** Labs surfaced per intervention goal (mirrors frontend GOAL_LAB_FLAGS; bp excluded — non-numeric). */
     private const GOAL_LAB_FLAGS = [
-        'renal_diet' => ['albumin', 'creatinine', 'potassium', 'hemoglobin'],
+        'renal_diet' => ['albumin', 'creatinine', 'potassium', 'phosphate', 'hemoglobin'],
         'diabetic_control' => ['hba1c', 'glucose', 'albumin'],
         'cardiac_diet' => ['ldl', 'cholesterol'],
         'weight_loss' => [],
@@ -26,7 +26,7 @@ class MonitoringPlanService
         'high_protein' => ['albumin', 'creatinine'],
         'liver_disease' => ['albumin'],
         'malnutrition' => ['albumin', 'hemoglobin'],
-        'custom' => ['albumin', 'hba1c', 'ldl', 'cholesterol', 'creatinine', 'potassium', 'hemoglobin', 'glucose'],
+        'custom' => ['albumin', 'hba1c', 'ldl', 'cholesterol', 'creatinine', 'potassium', 'phosphate', 'magnesium', 'hemoglobin', 'glucose'],
     ];
 
     /** PES statement keyword → implied labs (best-effort, case-insensitive substrings). */

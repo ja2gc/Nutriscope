@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Assessment;
+use App\Models\Intervention;
 use App\Models\NcpRecord;
 use App\Models\Patient;
 use App\Models\User;
@@ -43,5 +44,44 @@ class MonitoringPlanEndpointTest extends TestCase
         $this->actingAs($fss, 'sanctum')
             ->getJson("/api/rnd/ncp-records/{$ncp->uuid}/monitoring-plan")
             ->assertForbidden();
+    }
+
+    public function test_renal_monitoring_plan_tracks_phosphate_goal_lab(): void
+    {
+        $rnd = User::factory()->create(['role' => 'RND']);
+        $ncp = $this->ncpFor($rnd);
+        Intervention::forceCreate([
+            'ncp_record_id' => $ncp->id,
+            'goal_type' => 'renal_diet',
+            'disease_stage' => 'stage_4',
+        ]);
+
+        $response = $this->actingAs($rnd, 'sanctum')
+            ->getJson("/api/rnd/ncp-records/{$ncp->uuid}/monitoring-plan")
+            ->assertOk();
+
+        $keys = collect($response->json('data.indicators'))->pluck('key')->all();
+
+        $this->assertContains('potassium', $keys);
+        $this->assertContains('phosphate', $keys);
+    }
+
+    public function test_custom_monitoring_plan_tracks_all_supported_electrolyte_labs(): void
+    {
+        $rnd = User::factory()->create(['role' => 'RND']);
+        $ncp = $this->ncpFor($rnd);
+        Intervention::forceCreate([
+            'ncp_record_id' => $ncp->id,
+            'goal_type' => 'custom',
+        ]);
+
+        $response = $this->actingAs($rnd, 'sanctum')
+            ->getJson("/api/rnd/ncp-records/{$ncp->uuid}/monitoring-plan")
+            ->assertOk();
+
+        $keys = collect($response->json('data.indicators'))->pluck('key')->all();
+
+        $this->assertContains('phosphate', $keys);
+        $this->assertContains('magnesium', $keys);
     }
 }
