@@ -199,11 +199,11 @@ Reference-data mutations use `operations`, even when a dietitian performs them. 
 - Modify: `backend/tests/Feature/AuditTrailTest.php`
 - Modify: `frontend/app/admin/audit-logs/audit-filter-contract.test.ts`
 
-- [ ] Write tests that enumerate every unsafe route from `php artisan route:list --json` and classify it as `explicit_event`, `model_event`, or `intentionally_not_audited` with a reason.
-- [ ] Add tests proving current pagination metadata and proxy query forwarding before changing DTO fields.
-- [ ] Add failing tests showing patient and PO trails currently omit child-subject events.
-- [ ] Add failing tests showing clinical raw values and arbitrary properties must never appear in Admin or trail responses.
-- [ ] Run:
+- [x] Write tests that enumerate every unsafe route from `php artisan route:list --json` and classify it as `explicit_event`, `model_event`, or `intentionally_not_audited` with a reason.
+- [x] Add tests proving current pagination metadata and proxy query forwarding before changing DTO fields.
+- [x] Add failing tests showing patient and PO trails currently omit child-subject events.
+- [x] Add failing tests showing clinical raw values and arbitrary properties must never appear in Admin or trail responses.
+- [x] Run:
 
 ```powershell
 cd backend
@@ -214,7 +214,7 @@ npm test -- app/admin/audit-logs/audit-filter-contract.test.ts
 
 Expected: characterization assertions pass; new contract/privacy/root-context assertions fail for the intended missing behavior.
 
-- [ ] Commit:
+- [x] Commit:
 
 ```powershell
 git add backend/tests/Feature/Audit frontend/app/admin/audit-logs/audit-filter-contract.test.ts

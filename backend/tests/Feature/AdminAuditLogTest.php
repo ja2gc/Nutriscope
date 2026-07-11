@@ -105,4 +105,69 @@ class AdminAuditLogTest extends TestCase
         $this->assertStringNotContainsString('Updated private diagnosis', $payload);
         $this->assertStringContainsString('redacted', $payload);
     }
+
+    public function test_admin_audit_logs_preserve_offset_pagination_metadata(): void
+    {
+        Activity::query()->delete();
+
+        foreach (range(1, 3) as $index) {
+            Activity::create([
+                'log_name' => 'audit',
+                'event' => 'updated',
+                'description' => "Audit event {$index}",
+                'subject_type' => Patient::class,
+                'subject_id' => $index,
+                'created_at' => "2026-06-10 08:0{$index}:00",
+            ]);
+        }
+
+        $response = $this->actingAs($this->admin, 'sanctum')
+            ->getJson('/api/admin/audit-logs?per_page=2&page=2');
+
+        $response->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('meta.current_page', 2)
+            ->assertJsonPath('meta.from', 3)
+            ->assertJsonPath('meta.last_page', 2)
+            ->assertJsonPath('meta.per_page', 2)
+            ->assertJsonPath('meta.to', 3)
+            ->assertJsonPath('meta.total', 3)
+            ->assertJsonStructure([
+                'links' => ['first', 'last', 'prev', 'next'],
+                'meta' => ['current_page', 'from', 'last_page', 'links', 'path', 'per_page', 'to', 'total'],
+            ]);
+    }
+
+    public function test_admin_response_never_exposes_clinical_values_or_arbitrary_properties(): void
+    {
+        Activity::query()->delete();
+        $activity = Activity::create([
+            'log_name' => 'audit',
+            'event' => 'updated',
+            'description' => 'Updated patient',
+            'subject_type' => Patient::class,
+            'subject_id' => 101,
+            'properties' => [
+                'attributes' => ['medical_diagnosis' => 'CLINICAL-VALUE-SENTINEL'],
+                'arbitrary_payload' => 'ARBITRARY-PROPERTY-SENTINEL',
+            ],
+        ]);
+
+        $response = $this->actingAs($this->admin, 'sanctum')
+            ->getJson('/api/admin/audit-logs?subject_type='.urlencode(Patient::class));
+
+        $response->assertOk()
+            ->assertJsonPath('data.0.id', $activity->id)
+            ->assertJsonPath('data.0.event', 'updated')
+            ->assertJsonPath('data.0.description', 'Updated patient');
+        $payload = $response->getContent();
+
+        $leaks = collect([
+            'clinical raw value' => 'CLINICAL-VALUE-SENTINEL',
+            'arbitrary property key' => 'arbitrary_payload',
+            'arbitrary property value' => 'ARBITRARY-PROPERTY-SENTINEL',
+        ])->filter(fn (string $needle) => str_contains($payload, $needle))->keys()->all();
+
+        $this->assertSame([], $leaks, 'Admin audit response leaked forbidden clinical or arbitrary properties.');
+    }
 }
