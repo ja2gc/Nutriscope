@@ -28,7 +28,6 @@ High-growth collections:
 - Inventory reference catalog: web inventory.
 - Budget ledger: web RND/Admin budget views.
 - Reports archive/list: web RND/Admin and mobile reports.
-- NCP diagnosis reference results: web diagnosis selection.
 
 Existing paginated collections are included in the consistency pass, not backend rewrites unless their contract differs:
 
@@ -39,6 +38,7 @@ Existing paginated collections are included in the consistency pass, not backend
 - Purchase-order vendor groups and line items.
 - Shopping-list line items inside one list.
 - Weekly menu grids, meal rows, recipe ingredients, and other naturally bounded detail collections.
+- Diagnoses attached to one NCP record. This is a bounded clinical detail list, not a diagnosis reference catalog.
 - Dashboard preview lists intentionally capped to a small number.
 - Pagination of dropdown option sets that are demonstrably small and loaded once; growing supplier/catalog selectors should use server search instead.
 - Cursor pagination. Numbered web navigation and total counts require length-aware offset pagination.
@@ -198,8 +198,7 @@ Mobile tests or focused query-helper tests:
 3. Purchase orders and menu cycles.
 4. Suppliers and inventory catalog.
 5. Budget ledger and reports.
-6. Diagnosis reference results.
-7. Existing-pagination consistency pass and removal of duplicate metadata types/local controls.
+6. Existing-pagination consistency pass and removal of duplicate metadata types/local controls.
 
 Each phase should remain independently testable and shippable.
 
@@ -214,3 +213,20 @@ Each phase should remain independently testable and shippable.
 - Notification headers no longer fetch full notification collections for unread counts.
 - Bounded detail tables remain unpaginated.
 - Existing authorization, deep links, mutations, and domain workflows still pass.
+
+## Implementation Plan Reference Standard
+
+The implementation plan must be saved under `docs/superpowers/plan/`. Every task must include an exhaustive file reference block grouped as `Create`, `Modify`, `Test`, and `Verify only / no change` where applicable.
+
+Each referenced file must include:
+
+- Exact repository-relative path.
+- One-line reason the file is relevant.
+- Expected responsibility or contract change.
+- Relevant symbol or line location when the current file already exists.
+
+The plan must include indirect consumers, not only visible table screens. This includes Next.js proxy routes that must forward pagination query parameters, mobile cache invalidation consumers, aggregate unread-count consumers, shared response types, resources, Form Requests, report instance-source contracts, and existing tests that inspect changed source files.
+
+Files reviewed and deliberately excluded must appear in a final `Verified exclusions` section with the reason no change is needed. At minimum, this section must record the bounded NCP diagnosis list, purchase-order detail sublists, dashboard previews, mobile query provider/configuration, and proxy routes already forwarding complete query strings.
+
+Do not list speculative files. A file belongs in the plan only when implementation changes it, tests it, or verifies a contract that could regress because of pagination.
