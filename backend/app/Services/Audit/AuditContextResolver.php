@@ -26,6 +26,7 @@ use App\Models\PurchaseOrderVendorGroup;
 use App\Models\Report;
 use App\Models\ScreeningDocument;
 use App\Models\ShoppingList;
+use App\Models\ShoppingListItem;
 use Illuminate\Database\Eloquent\Model;
 use InvalidArgumentException;
 
@@ -39,6 +40,9 @@ class AuditContextResolver
 
     /** @var array<int, int|null> */
     private array $ncpIdsByIntervention = [];
+
+    /** @var array<int, ShoppingList|null> */
+    private array $shoppingListsById = [];
 
     public function resolve(?Model $subject, ?Model $context = null): ?Model
     {
@@ -74,6 +78,8 @@ class AuditContextResolver
             $subject instanceof PurchaseOrder,
             $subject instanceof Budget,
             $subject instanceof Report => $subject,
+            $subject instanceof ShoppingList => $subject,
+            $subject instanceof ShoppingListItem => $this->shoppingListForItem($subject),
             $subject instanceof Assessment,
             $subject instanceof Diagnosis,
             $subject instanceof Intervention,
@@ -176,6 +182,21 @@ class AuditContextResolver
         return $this->reference(Budget::class, $this->budgetIdsByYear[$year]);
     }
 
+    private function shoppingListForItem(ShoppingListItem $item): ?Model
+    {
+        $listId = $item->getAttribute('shopping_list_id');
+        if (! $this->isPositiveKey($listId)) {
+            return null;
+        }
+
+        $listId = (int) $listId;
+        if (! array_key_exists($listId, $this->shoppingListsById)) {
+            $this->shoppingListsById[$listId] = ShoppingList::query()->whereKey($listId)->first(['id', 'uuid']);
+        }
+
+        return $this->shoppingListsById[$listId];
+    }
+
     /** @param class-string<Model> $modelClass */
     private function reference(string $modelClass, mixed $id): ?Model
     {
@@ -201,7 +222,8 @@ class AuditContextResolver
             || $model instanceof NcpRecord
             || $model instanceof PurchaseOrder
             || $model instanceof Budget
-            || $model instanceof Report;
+            || $model instanceof Report
+            || $model instanceof ShoppingList;
     }
 
     private function isPositiveKey(mixed $id): bool

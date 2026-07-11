@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\AuditActivity;
 use App\Models\FoodItem;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -13,6 +14,7 @@ class FoodItemControllerTest extends TestCase
     use RefreshDatabase;
 
     private User $rnd;
+
     private User $fss;
 
     protected function setUp(): void
@@ -64,12 +66,12 @@ class FoodItemControllerTest extends TestCase
     {
         $response = $this->actingAs($this->rnd)
             ->postJson('/api/rnd/food-items', [
-                'name'         => 'Grilled Salmon',
-                'category'     => 'protein',
-                'calories'     => 208,
-                'protein'      => 28,
-                'carbs'        => 0,
-                'fat'          => 10,
+                'name' => 'Grilled Salmon',
+                'category' => 'protein',
+                'calories' => 208,
+                'protein' => 28,
+                'carbs' => 0,
+                'fat' => 10,
                 'serving_size' => 100,
                 'serving_unit' => 'g',
             ]);
@@ -106,7 +108,7 @@ class FoodItemControllerTest extends TestCase
 
         $response = $this->actingAs($this->rnd)
             ->putJson("/api/rnd/food-items/{$food->uuid}", [
-                'name'     => 'Updated Name',
+                'name' => 'Updated Name',
                 'calories' => 150,
             ]);
 
@@ -114,6 +116,11 @@ class FoodItemControllerTest extends TestCase
             ->assertJsonPath('data.name', 'Updated Name');
 
         $this->assertDatabaseHas('food_items', ['id' => $food->id, 'name' => 'Updated Name']);
+
+        $activity = AuditActivity::query()->where('subject_type', FoodItem::class)->sole();
+        $this->assertSame('updated', $activity->event);
+        $this->assertSame(['calories', 'name'], $activity->properties['details']['changed_fields']);
+        $this->assertStringNotContainsString('Updated Name', $activity->properties->toJson());
     }
 
     public function test_rnd_can_delete_food_item(): void
@@ -125,6 +132,10 @@ class FoodItemControllerTest extends TestCase
 
         $response->assertNoContent();
         $this->assertDatabaseMissing('food_items', ['id' => $food->id]);
+
+        $activity = AuditActivity::query()->where('subject_type', FoodItem::class)->sole();
+        $this->assertSame('deleted', $activity->event);
+        $this->assertSame([], $activity->properties['details']['changed_fields']);
     }
 
     public function test_non_rnd_cannot_access_food_items(): void

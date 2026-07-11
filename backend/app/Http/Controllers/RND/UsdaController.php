@@ -2,8 +2,12 @@
 
 namespace App\Http\Controllers\RND;
 
+use App\Enums\AuditAction;
+use App\Enums\AuditDomain;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\FoodItemResource;
+use App\Models\FoodItem;
+use App\Services\Audit\AuditLogger;
 use App\Services\UsdaService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -11,7 +15,10 @@ use RuntimeException;
 
 class UsdaController extends Controller
 {
-    public function __construct(private readonly UsdaService $usda) {}
+    public function __construct(
+        private readonly UsdaService $usda,
+        private readonly AuditLogger $auditLogger,
+    ) {}
 
     public function search(Request $request): JsonResponse
     {
@@ -19,6 +26,7 @@ class UsdaController extends Controller
 
         try {
             $results = $this->usda->search($request->query('query'));
+
             return response()->json(['data' => $results]);
         } catch (RuntimeException $e) {
             return response()->json(['message' => $e->getMessage()], 502);
@@ -32,18 +40,27 @@ class UsdaController extends Controller
     public function preview(int $fdcId): JsonResponse
     {
         $data = $this->usda->fetch($fdcId);
+
         return response()->json(['data' => $data]);
     }
 
     public function import(Request $request, int $fdcId): JsonResponse
     {
         try {
-            $food = $this->usda->import($fdcId);
+            $attributes = $this->usda->prepareImport($fdcId);
+            $food = $this->audited(function () use ($attributes): FoodItem {
+                $food = $this->usda->persistImport($attributes);
+                $this->auditLogger->recordMutation(AuditAction::Created, AuditDomain::FoodService, $food, ['usda_fdc_id'], ['source' => 'usda']);
+
+                return $food;
+            });
+
             return (new FoodItemResource($food))
                 ->response()
                 ->setStatusCode(201);
         } catch (RuntimeException $e) {
             $status = str_contains($e->getMessage(), 'already exists') ? 409 : 502;
+
             return response()->json(['message' => $e->getMessage()], $status);
         }
     }

@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Http\Middleware\AuditMiddleware;
 use App\Models\FsItem;
 use App\Models\Inventory;
 use App\Models\NcpRecord;
@@ -11,8 +10,6 @@ use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderAttachment;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Http\Request;
-use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Hash;
 use Spatie\Activitylog\Models\Activity;
 use Tests\TestCase;
@@ -74,25 +71,6 @@ class AuditTrailTest extends TestCase
         $inv->update(['quantity_in_stock' => 10]); // same value → not dirty
 
         $this->assertSame(0, Activity::where('subject_type', Inventory::class)->where('event', 'updated')->count());
-    }
-
-    public function test_access_log_skips_reads_logs_mutations(): void
-    {
-        $rnd = User::factory()->create(['role' => 'RND']);
-        $mw = app(AuditMiddleware::class);
-        $next = fn ($r) => new Response('ok');
-
-        Activity::query()->delete();
-
-        $get = Request::create('/api/rnd/patients', 'GET');
-        $get->setUserResolver(fn () => $rnd);
-        $mw->handle($get, $next);
-        $this->assertSame(0, Activity::where('description', 'like', 'Accessed%')->count(), 'GET must not be access-logged');
-
-        $post = Request::create('/api/rnd/patients', 'POST');
-        $post->setUserResolver(fn () => $rnd);
-        $mw->handle($post, $next);
-        $this->assertSame(1, Activity::where('description', 'like', 'Accessed%')->count(), 'mutation must be access-logged');
     }
 
     public function test_subject_history_endpoint_returns_that_records_changes(): void

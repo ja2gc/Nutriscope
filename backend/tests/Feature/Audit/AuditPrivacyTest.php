@@ -8,7 +8,6 @@ use App\Enums\AuditDomain;
 use App\Enums\AuditOutcome;
 use App\Enums\AuditSeverity;
 use App\Events\PurchaseOrderCompleted;
-use App\Http\Middleware\AuditMiddleware;
 use App\Http\Resources\Admin\AuditLogResource;
 use App\Listeners\BudgetLedgerListener;
 use App\Models\Assessment;
@@ -32,7 +31,6 @@ use Illuminate\Support\Facades\Password;
 use InvalidArgumentException;
 use RuntimeException;
 use Spatie\Activitylog\Facades\LogBatch;
-use Symfony\Component\HttpFoundation\Response;
 use Tests\TestCase;
 
 class AuditPrivacyTest extends TestCase
@@ -627,15 +625,11 @@ class AuditPrivacyTest extends TestCase
         ]);
         app(BudgetLedgerListener::class)->handle(new PurchaseOrderCompleted($purchaseOrder));
 
-        $middlewareRequest = Request::create('/api/test?token=MIDDLEWARE-URL-SENTINEL', 'POST');
-        $middlewareRequest->setUserResolver(fn () => $rnd);
-        app(AuditMiddleware::class)->handle($middlewareRequest, fn () => new Response('ok'));
-
         $auditOutput = AuditActivity::query()->get(['description', 'properties'])->toJson();
         foreach ([
             'auth-sentinel@example.com', 'AUTH-PASSWORD-SENTINEL', 'ADMIN-PASSWORD-SENTINEL',
             'RESET-PASSWORD-SENTINEL', 'BUDGET-REASON-SENTINEL', 'BUDGET-REFERENCE-SENTINEL',
-            'LISTENER-NOTES-SENTINEL', 'MIDDLEWARE-URL-SENTINEL',
+            'LISTENER-NOTES-SENTINEL',
         ] as $sentinel) {
             $this->assertStringNotContainsString($sentinel, $auditOutput);
         }

@@ -2,10 +2,15 @@
 
 namespace App\Http\Controllers\FSS;
 
+use App\Enums\AuditAction;
+use App\Enums\AuditDomain;
 use App\Http\Controllers\Controller;
+use App\Models\FoodServiceRecipe;
+use App\Models\FoodServiceRecipeIngredient;
 use App\Models\FsItem;
 use App\Models\PurchaseOrder;
 use App\Models\Supplier;
+use App\Services\Audit\AuditLogger;
 use App\Services\FSS\LatestProcurementVendorService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -15,6 +20,8 @@ use Illuminate\Support\Facades\DB;
 
 class FsItemController extends Controller
 {
+    public function __construct(private readonly AuditLogger $auditLogger) {}
+
     /**
      * Ready-to-eat catalog items usable as standalone menu entries (e.g. a banana or
      * Yakult snack placed directly in any meal slot). Raw ingredients and non-food
@@ -28,10 +35,10 @@ class FsItemController extends Controller
             ->orderBy('name')
             ->get(['id', 'name', 'category', 'base_unit', 'purchase_price', 'purchase_unit', 'units_per_purchase'])
             ->map(fn (FsItem $i) => [
-                'id'        => $i->uuid,
-                'name'      => $i->name,
-                'category'  => $i->category,
-                'unit'      => $i->base_unit,
+                'id' => $i->uuid,
+                'name' => $i->name,
+                'category' => $i->category,
+                'unit' => $i->base_unit,
                 'unit_cost' => $i->unit_cost,
             ]);
 
@@ -47,10 +54,9 @@ class FsItemController extends Controller
     public function catalog(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'kind'   => ['nullable', 'in:ingredient,supply'],
+            'kind' => ['nullable', 'in:ingredient,supply'],
             'search' => ['nullable', 'string', 'max:100'],
         ]);
-
         $items = FsItem::query()
             ->with('defaultSupplier:id,name')
             ->where('is_active', true)
@@ -67,20 +73,20 @@ class FsItemController extends Controller
     private function catalogRow(FsItem $i): array
     {
         return [
-            'id'                  => $i->uuid,
-            'name'                => $i->name,
-            'kind'                => $i->kind,
-            'category'            => $i->category,
-            'base_unit'           => $i->base_unit,
-            'purchase_unit'       => $i->purchase_unit,
-            'purchase_price'      => $i->purchase_price,
-            'units_per_purchase'  => $i->units_per_purchase,
-            'unit_cost'           => round($i->unit_cost, 4),
+            'id' => $i->uuid,
+            'name' => $i->name,
+            'kind' => $i->kind,
+            'category' => $i->category,
+            'base_unit' => $i->base_unit,
+            'purchase_unit' => $i->purchase_unit,
+            'purchase_price' => $i->purchase_price,
+            'units_per_purchase' => $i->units_per_purchase,
+            'unit_cost' => round($i->unit_cost, 4),
             // Public uuid — the inventory edit form matches this against uuid-valued
             // supplier <option>s (store/update already accept a uuid here).
             'default_supplier_id' => $i->defaultSupplier?->uuid,
-            'vendor'              => $i->defaultSupplier?->name,
-            'vendor_locked'       => $i->vendorLocked(),
+            'vendor' => $i->defaultSupplier?->name,
+            'vendor_locked' => $i->vendorLocked(),
         ];
     }
 
@@ -92,11 +98,11 @@ class FsItemController extends Controller
     public function store(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'name'                => ['required', 'string', 'max:255', 'unique:fs_items,name'],
-            'kind'                => ['required', 'in:ingredient,supply'],
-            'category'            => ['nullable', 'string', 'max:100'],
-            'base_unit'           => ['required', 'string', 'max:20'],
-            'purchase_price'      => ['required', 'numeric', 'min:0'],
+            'name' => ['required', 'string', 'max:255', 'unique:fs_items,name'],
+            'kind' => ['required', 'in:ingredient,supply'],
+            'category' => ['nullable', 'string', 'max:100'],
+            'base_unit' => ['required', 'string', 'max:20'],
+            'purchase_price' => ['required', 'numeric', 'min:0'],
             'default_supplier_id' => ['nullable', 'string', 'exists:suppliers,uuid'],
         ]);
 
@@ -107,10 +113,15 @@ class FsItemController extends Controller
         // Catalog items carry a single unit and a cost per that unit (plan: ingredient =
         // name, category, vendor, unit, unit/cost; supply = name, category, vendor, cost).
         // purchase_unit == base_unit and 1 base unit per purchase ⇒ unit_cost == cost entered.
-        $data['purchase_unit']      = $data['base_unit'];
+        $data['purchase_unit'] = $data['base_unit'];
         $data['units_per_purchase'] = 1;
 
-        $item = FsItem::create($data + ['is_active' => true]);
+        $item = $this->audited(function () use ($data): FsItem {
+            $item = $this->auditLogger->withoutModelEvents(fn (): FsItem => FsItem::create($data + ['is_active' => true]));
+            $this->auditLogger->recordMutation(AuditAction::Created, AuditDomain::FoodService, $item, array_keys($item->getAttributes()));
+
+            return $item;
+        });
         Cache::flush();
 
         return response()->json(['data' => $this->catalogRow($item->fresh('defaultSupplier'))], 201);
@@ -119,10 +130,10 @@ class FsItemController extends Controller
     public function update(Request $request, FsItem $fsItem): JsonResponse
     {
         $data = $request->validate([
-            'name'                => ['sometimes', 'string', 'max:255', 'unique:fs_items,name,' . $fsItem->id],
-            'category'            => ['nullable', 'string', 'max:100'],
-            'purchase_price'      => ['sometimes', 'numeric', 'min:0'],
-            'base_unit'           => ['sometimes', 'string', 'max:20'],
+            'name' => ['sometimes', 'string', 'max:255', 'unique:fs_items,name,'.$fsItem->id],
+            'category' => ['nullable', 'string', 'max:100'],
+            'purchase_price' => ['sometimes', 'numeric', 'min:0'],
+            'base_unit' => ['sometimes', 'string', 'max:20'],
             'default_supplier_id' => ['sometimes', 'nullable', 'string', 'exists:suppliers,uuid'],
         ]);
 
@@ -133,17 +144,22 @@ class FsItemController extends Controller
         // Single unit + cost per unit: keep purchase unit aligned to the base unit so
         // unit_cost stays equal to the entered cost.
         if (array_key_exists('base_unit', $data)) {
-            $data['purchase_unit']      = $data['base_unit'];
+            $data['purchase_unit'] = $data['base_unit'];
             $data['units_per_purchase'] = 1;
         }
 
         // A price/unit change shifts derived unit_cost → refresh dependent recipe costs.
         $priceTouched = array_intersect(array_keys($data), ['purchase_price', 'base_unit']) !== [];
 
-        $fsItem->update($data);
-        if ($priceTouched) {
-            \App\Models\FoodServiceRecipe::recalculateForItems([$fsItem->id]);
-        }
+        $this->audited(function () use ($fsItem, $data, $priceTouched): void {
+            $this->auditLogger->withoutModelEvents(function () use ($fsItem, $data, $priceTouched): void {
+                $fsItem->update($data);
+                if ($priceTouched) {
+                    FoodServiceRecipe::recalculateForItems([$fsItem->id]);
+                }
+            });
+            $this->auditLogger->recordMutation(AuditAction::Updated, AuditDomain::FoodService, $fsItem, array_keys($fsItem->getChanges()));
+        });
         Cache::flush();
 
         return response()->json(['data' => $this->catalogRow($fsItem->fresh('defaultSupplier'))]);
@@ -152,14 +168,17 @@ class FsItemController extends Controller
     /** Remove a catalog item — blocked while any recipe still references it. */
     public function destroy(FsItem $fsItem): JsonResponse
     {
-        $usedBy = \App\Models\FoodServiceRecipeIngredient::where('fs_item_id', $fsItem->id)->count();
+        $usedBy = FoodServiceRecipeIngredient::where('fs_item_id', $fsItem->id)->count();
         if ($usedBy > 0) {
             return response()->json([
                 'message' => "Can't delete: this item is used by {$usedBy} recipe ingredient(s). Remove it from those recipes first.",
             ], 409);
         }
 
-        $fsItem->delete();
+        $this->audited(function () use ($fsItem): void {
+            $this->auditLogger->withoutModelEvents(fn () => $fsItem->delete());
+            $this->auditLogger->recordMutation(AuditAction::Deleted, AuditDomain::FoodService, $fsItem, []);
+        });
         Cache::flush();
 
         return response()->json(null, 204);
@@ -174,21 +193,33 @@ class FsItemController extends Controller
         $data = $request->validate([
             'locked' => ['required', 'boolean'],
         ]);
+        $wasLocked = $fsItem->vendorLocked();
 
-        if ($data['locked']) {
-            $vendorSync->lock($fsItem, Auth::id());
-        } else {
-            $vendorSync->unlock($fsItem);
-        }
+        $this->audited(function () use ($data, $vendorSync, $fsItem, $wasLocked): void {
+            $this->auditLogger->withoutModelEvents(function () use ($data, $vendorSync, $fsItem): void {
+                if ($data['locked']) {
+                    $vendorSync->lock($fsItem, Auth::id());
+                } else {
+                    $vendorSync->unlock($fsItem);
+                }
+            });
+            $fsItem->refresh();
+            $this->auditLogger->recordMutation(
+                AuditAction::Updated,
+                AuditDomain::FoodService,
+                $fsItem,
+                $wasLocked !== $fsItem->vendorLocked() ? ['vendor_locked'] : [],
+            );
+        });
 
         $fsItem->refresh();
 
         return response()->json(['data' => [
-            'id'                  => $fsItem->uuid,
+            'id' => $fsItem->uuid,
             'default_supplier_id' => $fsItem->defaultSupplier?->uuid,
-            'vendor_locked'       => $fsItem->vendorLocked(),
-            'locked_at'           => $fsItem->default_supplier_locked_at?->toDateTimeString(),
-            'locked_by'           => $fsItem->defaultSupplierLockedBy?->name,
+            'vendor_locked' => $fsItem->vendorLocked(),
+            'locked_at' => $fsItem->default_supplier_locked_at?->toDateTimeString(),
+            'locked_by' => $fsItem->defaultSupplierLockedBy?->name,
         ]]);
     }
 
@@ -204,7 +235,7 @@ class FsItemController extends Controller
 
         $data = $request->validate([
             'population' => ['nullable', 'integer', 'min:0'],
-            'quantity'   => ['nullable', 'numeric', 'min:0'],
+            'quantity' => ['nullable', 'numeric', 'min:0'],
         ]);
 
         $population = (int) ($data['population'] ?? 0);
@@ -245,14 +276,14 @@ class FsItemController extends Controller
         if (! $points) {
             return ['min' => 0.0, 'max' => 0.0, 'latest' => 0.0, 'avg' => 0.0];
         }
-        $last   = $points[array_key_last($points)];
+        $last = $points[array_key_last($points)];
         $prices = array_map(fn ($p) => (float) $p['unit_price'], $points);
 
         return [
-            'min'    => min($prices),
-            'max'    => max($prices),
+            'min' => min($prices),
+            'max' => max($prices),
             'latest' => (float) $last['unit_price'],
-            'avg'    => round(array_sum($prices) / count($prices), 6),
+            'avg' => round(array_sum($prices) / count($prices), 6),
         ];
     }
 
@@ -261,10 +292,10 @@ class FsItemController extends Controller
     {
         $data = $request->validate([
             'start' => ['nullable', 'date'],
-            'end'   => ['nullable', 'date', 'after_or_equal:start'],
+            'end' => ['nullable', 'date', 'after_or_equal:start'],
         ]);
         $start = $data['start'] ?? now()->subMonths(6)->toDateString();
-        $end   = $data['end'] ?? now()->toDateString();
+        $end = $data['end'] ?? now()->toDateString();
 
         $rows = PurchaseOrder::query()
             ->join('purchase_order_items', 'purchase_order_items.purchase_order_id', '=', 'purchase_orders.id')

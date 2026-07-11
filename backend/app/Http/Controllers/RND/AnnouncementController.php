@@ -2,11 +2,14 @@
 
 namespace App\Http\Controllers\RND;
 
+use App\Enums\AuditAction;
+use App\Enums\AuditDomain;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Announcement\StoreAnnouncementRequest;
 use App\Http\Requests\Announcement\UpdateAnnouncementRequest;
 use App\Http\Resources\AnnouncementResource;
 use App\Models\Announcement;
+use App\Services\Audit\AuditLogger;
 use App\Services\NotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -14,6 +17,8 @@ use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class AnnouncementController extends Controller
 {
+    public function __construct(private readonly AuditLogger $auditLogger) {}
+
     public function index(Request $request): AnonymousResourceCollection
     {
         $user = $request->user();
@@ -29,7 +34,7 @@ class AnnouncementController extends Controller
             ->when($user->role === 'FSS', function ($query) {
                 $query->whereIn('visibility', ['FSS', 'All']);
             })
-            ->when($user->role === 'Admin', fn($query) => $query)
+            ->when($user->role === 'Admin', fn ($query) => $query)
             ->orderByDesc('pinned')
             ->orderByDesc('created_at')
             ->paginate((int) min($request->query('per_page', 15), 100));
@@ -42,11 +47,28 @@ class AnnouncementController extends Controller
         $user = $request->user();
         $data = $this->normalizeAttachments($request->validated());
 
-        $announcement = Announcement::create([
-            ...$data,
-            'user_id' => $user->id,
-            'pinned' => in_array($user->role, ['Admin', 'RND'], true) ? (bool) ($data['pinned'] ?? false) : false,
-        ]);
+        $announcement = $this->audited(function () use ($data, $user): Announcement {
+            $announcement = Announcement::create([
+                ...$data,
+                'user_id' => $user->id,
+                'pinned' => in_array($user->role, ['Admin', 'RND'], true) ? (bool) ($data['pinned'] ?? false) : false,
+            ]);
+            $this->auditLogger->recordMutation(
+                AuditAction::Created,
+                AuditDomain::System,
+                $announcement,
+                array_map(
+                    fn (string $field): string => match ($field) {
+                        'body' => 'content',
+                        'attachment' => 'attachment',
+                        default => $field,
+                    },
+                    array_keys($announcement->getAttributes()),
+                ),
+            );
+
+            return $announcement;
+        });
 
         // Trigger A (rnd.md §7) — fan out to users matching the announcement's visibility.
         $notifications->fanOutAnnouncement($announcement);
@@ -70,7 +92,22 @@ class AnnouncementController extends Controller
             unset($data['pinned']);
         }
 
-        $announcement->update($data);
+        $this->audited(function () use ($announcement, $data): void {
+            $announcement->update($data);
+            $this->auditLogger->recordMutation(
+                AuditAction::Updated,
+                AuditDomain::System,
+                $announcement,
+                array_map(
+                    fn (string $field): string => match ($field) {
+                        'body' => 'content',
+                        'attachment' => 'attachment',
+                        default => $field,
+                    },
+                    array_keys($announcement->getChanges()),
+                ),
+            );
+        });
         $announcement->load('user:id,uuid,name,role');
 
         return response()->json([
@@ -86,7 +123,10 @@ class AnnouncementController extends Controller
             return response()->json(['message' => 'Forbidden. You can only delete your own announcements.'], 403);
         }
 
-        $announcement->delete();
+        $this->audited(function () use ($announcement): void {
+            $announcement->delete();
+            $this->auditLogger->recordMutation(AuditAction::Deleted, AuditDomain::System, $announcement, []);
+        });
 
         return response()->json(null, 204);
     }

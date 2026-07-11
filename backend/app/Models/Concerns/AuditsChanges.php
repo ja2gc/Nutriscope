@@ -60,10 +60,6 @@ trait AuditsChanges
         $props['actor'] ??= $sanitizer->actor($causer instanceof Model ? $causer : null);
         $props['request'] ??= $sanitizer->request(request());
         $activity->properties = $props;
-        $events = request()->attributes->get('_audit_events', []);
-        $events[] = ['source' => 'model', 'subject_table' => $this->getTable()];
-        request()->attributes->set('_audit_events', $events);
-
         $resolver = app(AuditContextResolver::class);
         $activity->category ??= $clinical ? AuditCategory::Clinical : AuditCategory::Operations;
         $activity->domain ??= $resolver->domain($this);

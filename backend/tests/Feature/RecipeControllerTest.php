@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\AuditActivity;
 use App\Models\FoodItem;
 use App\Models\Recipe;
 use App\Models\RecipeIngredient;
@@ -46,10 +47,10 @@ class RecipeControllerTest extends TestCase
 
         $response = $this->actingAs($this->rnd)
             ->postJson('/api/rnd/recipes', [
-                'name'        => 'Chicken & Rice Bowl',
-                'category'    => 'lunch',
-                'servings'    => 2,
-                'prep_notes'  => 'Cook chicken then combine.',
+                'name' => 'Chicken & Rice Bowl',
+                'category' => 'lunch',
+                'servings' => 2,
+                'prep_notes' => 'Cook chicken then combine.',
                 'ingredients' => [
                     ['food_item_id' => $food1->uuid, 'quantity' => 150, 'unit' => 'g'],
                     ['food_item_id' => $food2->uuid, 'quantity' => 200, 'unit' => 'g'],
@@ -62,24 +63,30 @@ class RecipeControllerTest extends TestCase
         $this->assertDatabaseHas('recipes', ['name' => 'Chicken & Rice Bowl']);
         $this->assertDatabaseHas('recipe_ingredients', ['food_item_id' => $food1->id]);
         $this->assertDatabaseHas('recipe_ingredients', ['food_item_id' => $food2->id]);
+
+        $activity = AuditActivity::query()->where('subject_type', Recipe::class)->sole();
+        $this->assertSame('created', $activity->event);
+        $this->assertContains('ingredients', $activity->properties['details']['changed_fields']);
+        $this->assertNotContains('prep_notes', $activity->properties['details']['changed_fields']);
+        $this->assertStringNotContainsString('Cook chicken then combine.', $activity->properties->toJson());
     }
 
     public function test_recipe_totals_auto_calculated_on_create(): void
     {
         $food = FoodItem::factory()->create([
-            'calories'     => 200,
-            'protein'      => 20,
-            'carbs'        => 10,
-            'fat'          => 5,
+            'calories' => 200,
+            'protein' => 20,
+            'carbs' => 10,
+            'fat' => 5,
             'serving_size' => 100,
-            'unit_price'   => 50,
+            'unit_price' => 50,
         ]);
 
         $response = $this->actingAs($this->rnd)
             ->postJson('/api/rnd/recipes', [
-                'name'        => 'Simple Meal',
-                'category'    => 'lunch',
-                'servings'    => 1,
+                'name' => 'Simple Meal',
+                'category' => 'lunch',
+                'servings' => 1,
                 'ingredients' => [
                     ['food_item_id' => $food->uuid, 'quantity' => 100, 'unit' => 'g'],
                 ],
@@ -94,12 +101,12 @@ class RecipeControllerTest extends TestCase
     public function test_rnd_can_view_recipe_with_ingredients(): void
     {
         $recipe = Recipe::factory()->create(['rnd_user_id' => $this->rnd->id]);
-        $food   = FoodItem::factory()->create();
+        $food = FoodItem::factory()->create();
         RecipeIngredient::create([
-            'recipe_id'    => $recipe->id,
+            'recipe_id' => $recipe->id,
             'food_item_id' => $food->id,
-            'quantity'     => 100,
-            'unit'         => 'g',
+            'quantity' => 100,
+            'unit' => 'g',
         ]);
 
         $response = $this->actingAs($this->rnd)
@@ -113,16 +120,16 @@ class RecipeControllerTest extends TestCase
     public function test_rnd_can_update_recipe_ingredients(): void
     {
         $recipe = Recipe::factory()->create(['rnd_user_id' => $this->rnd->id]);
-        $food   = FoodItem::factory()->create([
+        $food = FoodItem::factory()->create([
             'calories' => 150, 'protein' => 10, 'carbs' => 20,
             'fat' => 3, 'serving_size' => 100, 'unit_price' => 30,
         ]);
 
         $response = $this->actingAs($this->rnd)
             ->putJson("/api/rnd/recipes/{$recipe->uuid}", [
-                'name'        => 'Updated Recipe',
-                'category'    => 'dinner',
-                'servings'    => 3,
+                'name' => 'Updated Recipe',
+                'category' => 'dinner',
+                'servings' => 3,
                 'ingredients' => [
                     ['food_item_id' => $food->uuid, 'quantity' => 200, 'unit' => 'g'],
                 ],
@@ -132,9 +139,12 @@ class RecipeControllerTest extends TestCase
             ->assertJsonPath('data.name', 'Updated Recipe');
 
         $this->assertDatabaseHas('recipe_ingredients', [
-            'recipe_id'    => $recipe->id,
+            'recipe_id' => $recipe->id,
             'food_item_id' => $food->id,
         ]);
+        $activity = AuditActivity::query()->where('subject_type', Recipe::class)->sole();
+        $this->assertSame('updated', $activity->event);
+        $this->assertContains('ingredients', $activity->properties['details']['changed_fields']);
     }
 
     public function test_rnd_can_delete_recipe(): void
@@ -146,21 +156,22 @@ class RecipeControllerTest extends TestCase
 
         $response->assertNoContent();
         $this->assertDatabaseMissing('recipes', ['id' => $recipe->id]);
+        $this->assertSame('deleted', AuditActivity::query()->where('subject_type', Recipe::class)->sole()->event);
     }
 
     public function test_recipe_belongs_to_creating_rnd_user(): void
     {
         $response = $this->actingAs($this->rnd)
             ->postJson('/api/rnd/recipes', [
-                'name'        => 'My Recipe',
-                'category'    => 'breakfast',
-                'servings'    => 1,
+                'name' => 'My Recipe',
+                'category' => 'breakfast',
+                'servings' => 1,
                 'ingredients' => [],
             ]);
 
         $response->assertCreated();
         $this->assertDatabaseHas('recipes', [
-            'name'        => 'My Recipe',
+            'name' => 'My Recipe',
             'rnd_user_id' => $this->rnd->id,
         ]);
     }

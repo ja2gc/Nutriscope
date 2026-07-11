@@ -7,12 +7,15 @@ use App\Enums\AuditCategory;
 use App\Enums\AuditDomain;
 use App\Enums\AuditOutcome;
 use App\Enums\AuditSeverity;
+use App\Exceptions\AuditLoggingUnavailable;
 use App\Models\AuditActivity;
+use Closure;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use InvalidArgumentException;
+use Spatie\Activitylog\ActivityLogger;
 
 class AuditLogger
 {
@@ -20,7 +23,65 @@ class AuditLogger
         private readonly AuditSanitizer $sanitizer,
         private readonly AuditContextResolver $contextResolver,
         private readonly Request $request,
+        private readonly ActivityLogger $activityLogger,
     ) {}
+
+    public function withoutModelEvents(Closure $callback): mixed
+    {
+        return $this->activityLogger->withoutLogs($callback);
+    }
+
+    public function assertAvailable(): void
+    {
+        if (! config('activitylog.enabled', true)) {
+            throw new AuditLoggingUnavailable('Synchronous audit logging is disabled.');
+        }
+
+        $defaultConnection = config('database.default');
+        $auditConnection = config('activitylog.database_connection');
+        if (is_string($auditConnection) && $auditConnection !== '' && $auditConnection !== $defaultConnection) {
+            throw new AuditLoggingUnavailable('Synchronous audit logging must use the application database connection.');
+        }
+    }
+
+    public function recordMutation(
+        AuditAction $action,
+        AuditDomain $domain,
+        Model $subject,
+        array $changedFields,
+        array $details = [],
+        ?Model $context = null,
+    ): ?AuditActivity {
+        $changedFields = collect($changedFields)
+            ->filter(fn (mixed $field): bool => is_string($field) && preg_match('/^[a-z0-9_.:-]+$/iD', $field) === 1)
+            ->reject(fn (string $field): bool => in_array($field, ['id', 'uuid', 'created_at', 'updated_at', 'rnd_user_id', 'user_id', 'created_by'], true))
+            ->unique()
+            ->sort()
+            ->values()
+            ->all();
+
+        if ($action === AuditAction::Updated && $changedFields === []) {
+            return null;
+        }
+
+        $identifier = $subject->getAttribute('uuid') ?? $subject->getKey();
+        $resolvedContext = $this->contextResolver->resolve($subject, $context);
+
+        return $this->record(
+            $action,
+            AuditCategory::Operations,
+            $domain,
+            subject: $subject,
+            context: $context,
+            details: [
+                ...$details,
+                'public_id' => is_string($identifier) ? $identifier : null,
+                'record_id' => is_int($identifier) ? $identifier : null,
+                'context_public_id' => $resolvedContext?->getAttribute('uuid'),
+                'changed_fields' => $changedFields,
+            ],
+        );
+    }
 
     public function record(
         AuditAction $action,
@@ -74,6 +135,8 @@ class AuditLogger
         ?Authenticatable $actor = null,
         ?string $systemActor = null,
     ): AuditActivity {
+        $this->assertAvailable();
+
         if ($actor !== null && $systemActor !== null) {
             throw new InvalidArgumentException('An audit event cannot have both a user actor and a system actor.');
         }
@@ -128,17 +191,10 @@ class AuditLogger
             $logger->causedByAnonymous();
         }
 
-        /** @var AuditActivity $activity */
-        $description = $action === AuditAction::Updated
-            && $domain === AuditDomain::System
-            && isset($safeDetails['access_path'])
-            ? 'Accessed '.$this->sanitizer->text((string) $safeDetails['access_path'])
-            : $action->label();
-
-        $activity = $logger->log($description);
-        $events = $this->request->attributes->get('_audit_events', []);
-        $events[] = ['source' => 'explicit'];
-        $this->request->attributes->set('_audit_events', $events);
+        $activity = $logger->log($action->label());
+        if (! $activity instanceof AuditActivity) {
+            throw new AuditLoggingUnavailable('The audit activity could not be persisted.');
+        }
 
         return $activity;
     }

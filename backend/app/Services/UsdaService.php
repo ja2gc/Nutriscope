@@ -10,13 +10,18 @@ use RuntimeException;
 class UsdaService
 {
     private string $apiKey;
+
     private string $baseUrl;
 
-    private const ENERGY_ID  = 1008;
+    private const ENERGY_ID = 1008;
+
     private const PROTEIN_ID = 1003;
-    private const CARBS_ID   = 1005;
-    private const FAT_ID     = 1004;
-    private const WATER_ID   = 1051;
+
+    private const CARBS_ID = 1005;
+
+    private const FAT_ID = 1004;
+
+    private const WATER_ID = 1051;
 
     /**
      * Keys intentionally match the project's seeder and clinical-rule convention.
@@ -61,27 +66,27 @@ class UsdaService
      * Categories not listed here return null (manual input required).
      */
     private const CATEGORY_MAP = [
-        'Poultry Products'                    => 'protein',
-        'Beef Products'                       => 'protein',
-        'Pork Products'                       => 'protein',
-        'Lamb, Veal, and Game Products'       => 'protein',
-        'Finfish and Shellfish Products'      => 'protein',
-        'Legumes and Legume Products'         => 'protein',
-        'Sausages and Luncheon Meats'         => 'protein',
-        'Dairy and Egg Products'              => 'dairy',
-        'Vegetables and Vegetable Products'   => 'vegetable',
-        'Fruits and Fruit Juices'             => 'fruit',
-        'Fats and Oils'                       => 'fat',
-        'Nut and Seed Products'               => 'fat',
-        'Grain and Cereal Products'           => 'carbs',
-        'Breakfast Cereals'                   => 'carbs',
-        'Baked Products'                      => 'carbs',
-        'Sweets'                              => 'carbs',
-        'Snacks'                              => 'carbs',
+        'Poultry Products' => 'protein',
+        'Beef Products' => 'protein',
+        'Pork Products' => 'protein',
+        'Lamb, Veal, and Game Products' => 'protein',
+        'Finfish and Shellfish Products' => 'protein',
+        'Legumes and Legume Products' => 'protein',
+        'Sausages and Luncheon Meats' => 'protein',
+        'Dairy and Egg Products' => 'dairy',
+        'Vegetables and Vegetable Products' => 'vegetable',
+        'Fruits and Fruit Juices' => 'fruit',
+        'Fats and Oils' => 'fat',
+        'Nut and Seed Products' => 'fat',
+        'Grain and Cereal Products' => 'carbs',
+        'Breakfast Cereals' => 'carbs',
+        'Baked Products' => 'carbs',
+        'Sweets' => 'carbs',
+        'Snacks' => 'carbs',
     ];
 
     /** Egg-specific name terms — used to distinguish eggs from dairy within "Dairy and Egg Products" */
-    private const EGG_TERMS  = ['egg', 'eggs'];
+    private const EGG_TERMS = ['egg', 'eggs'];
 
     /** Milk/dairy name terms — catches dairy foods even when the USDA category is non-standard (e.g. FNDDS) */
     private const MILK_TERMS = ['milk', 'cream', 'cheese', 'butter', 'yogurt', 'dairy', 'whey', 'lactose', 'kefir', 'custard', 'pudding'];
@@ -97,7 +102,7 @@ class UsdaService
 
     public function __construct()
     {
-        $this->apiKey  = config('services.usda.key', '');
+        $this->apiKey = config('services.usda.key', '');
         $this->baseUrl = config('services.usda.base_url', 'https://api.nal.usda.gov/fdc/v1');
     }
 
@@ -107,9 +112,9 @@ class UsdaService
     public function search(string $query, int $pageSize = 20): array
     {
         $response = Http::withoutVerifying()->get("{$this->baseUrl}/foods/search", [
-            'query'    => $query,
+            'query' => $query,
             'pageSize' => $pageSize,
-            'api_key'  => $this->apiKey,
+            'api_key' => $this->apiKey,
             'dataType' => ['SR Legacy', 'Foundation', 'Survey (FNDDS)'],
         ]);
 
@@ -119,15 +124,16 @@ class UsdaService
 
         return collect($response->json('foods', []))->map(function ($food) {
             $nutrients = collect($food['foodNutrients'] ?? []);
+
             return [
-                'fdc_id'        => $food['fdcId'],
-                'name'          => $food['description'],
-                'data_type'     => $food['dataType'] ?? null,
+                'fdc_id' => $food['fdcId'],
+                'name' => $food['description'],
+                'data_type' => $food['dataType'] ?? null,
                 'food_category' => $food['foodCategory'] ?? null,
-                'calories'      => $this->findInSearch($nutrients, self::ENERGY_ID),
-                'protein'       => $this->findInSearch($nutrients, self::PROTEIN_ID),
-                'carbs'         => $this->findInSearch($nutrients, self::CARBS_ID),
-                'fat'           => $this->findInSearch($nutrients, self::FAT_ID),
+                'calories' => $this->findInSearch($nutrients, self::ENERGY_ID),
+                'protein' => $this->findInSearch($nutrients, self::PROTEIN_ID),
+                'carbs' => $this->findInSearch($nutrients, self::CARBS_ID),
+                'fat' => $this->findInSearch($nutrients, self::FAT_ID),
             ];
         })->values()->all();
     }
@@ -147,7 +153,7 @@ class UsdaService
                 throw new RuntimeException("USDA API fetch failed for FDC ID {$fdcId}: {$response->status()}");
             }
 
-            $data      = $response->json();
+            $data = $response->json();
             $nutrients = collect($data['foodNutrients'] ?? []);
 
             // foodCategory is nested as object on detail endpoint, string on search endpoint
@@ -156,15 +162,16 @@ class UsdaService
                 ?? null;
 
             $waterAmount = $this->findInDetail($nutrients, self::WATER_ID);
+
             return [
-                'fdc_id'         => $data['fdcId'],
-                'name'           => $data['description'],
-                'food_category'  => $foodCategory,
-                'calories'       => $this->findInDetail($nutrients, self::ENERGY_ID),
-                'protein'        => $this->findInDetail($nutrients, self::PROTEIN_ID),
-                'carbs'          => $this->findInDetail($nutrients, self::CARBS_ID),
-                'fat'            => $this->findInDetail($nutrients, self::FAT_ID),
-                'water_g'        => $waterAmount > 0 ? round($waterAmount, 2) : null,
+                'fdc_id' => $data['fdcId'],
+                'name' => $data['description'],
+                'food_category' => $foodCategory,
+                'calories' => $this->findInDetail($nutrients, self::ENERGY_ID),
+                'protein' => $this->findInDetail($nutrients, self::PROTEIN_ID),
+                'carbs' => $this->findInDetail($nutrients, self::CARBS_ID),
+                'fat' => $this->findInDetail($nutrients, self::FAT_ID),
+                'water_g' => $waterAmount > 0 ? round($waterAmount, 2) : null,
                 'micronutrients' => $this->extractMicros($nutrients),
             ];
         });
@@ -176,34 +183,47 @@ class UsdaService
      */
     public function import(int $fdcId): FoodItem
     {
+        return $this->persistImport($this->prepareImport($fdcId));
+    }
+
+    public function prepareImport(int $fdcId): array
+    {
         if (FoodItem::where('usda_fdc_id', $fdcId)->exists()) {
             throw new RuntimeException("Food item with USDA FDC ID {$fdcId} already exists.");
         }
 
-        $data         = $this->fetch($fdcId);
+        $data = $this->fetch($fdcId);
         $foodCategory = $data['food_category'] ?? null;
 
-        return FoodItem::create([
-            'name'           => $data['name'],
-            'usda_fdc_id'    => $data['fdc_id'],
-            'calories'       => $data['calories'],
-            'protein'        => $data['protein'],
-            'carbs'          => $data['carbs'],
-            'fat'            => $data['fat'],
-            'water_g'        => $data['water_g'] ?? null,
+        return [
+            'name' => $data['name'],
+            'usda_fdc_id' => $data['fdc_id'],
+            'calories' => $data['calories'],
+            'protein' => $data['protein'],
+            'carbs' => $data['carbs'],
+            'fat' => $data['fat'],
+            'water_g' => $data['water_g'] ?? null,
             'micronutrients' => $data['micronutrients'],
-            'category'       => $this->mapCategory($foodCategory),
-            'allergens'      => $this->detectAllergens($data['name'], $foodCategory ?? ''),
-            'serving_size'   => 100,
-            'serving_unit'   => 'g',
-        ]);
+            'category' => $this->mapCategory($foodCategory),
+            'allergens' => $this->detectAllergens($data['name'], $foodCategory ?? ''),
+            'serving_size' => 100,
+            'serving_unit' => 'g',
+        ];
+    }
+
+    public function persistImport(array $attributes): FoodItem
+    {
+        return FoodItem::create($attributes);
     }
 
     // ── Private helpers ───────────────────────────────────────────────────────
 
     private function mapCategory(?string $usdaCategory): ?string
     {
-        if ($usdaCategory === null) return null;
+        if ($usdaCategory === null) {
+            return null;
+        }
+
         return self::CATEGORY_MAP[$usdaCategory] ?? null;
     }
 
@@ -214,15 +234,19 @@ class UsdaService
     private function detectAllergens(string $name, string $usdaCategory): array
     {
         $allergens = [];
-        $lower     = strtolower($name);
+        $lower = strtolower($name);
 
         // "Dairy and Egg Products" — distinguish by food name since USDA lumps both together
         if ($usdaCategory === 'Dairy and Egg Products') {
-            $isEgg   = collect(self::EGG_TERMS)->contains(fn($t) => str_contains($lower, $t));
-            $isDairy = collect(self::MILK_TERMS)->contains(fn($t) => str_contains($lower, $t));
+            $isEgg = collect(self::EGG_TERMS)->contains(fn ($t) => str_contains($lower, $t));
+            $isDairy = collect(self::MILK_TERMS)->contains(fn ($t) => str_contains($lower, $t));
 
-            if ($isEgg)   $allergens[] = 'eggs';
-            if ($isDairy) $allergens[] = 'milk';
+            if ($isEgg) {
+                $allergens[] = 'eggs';
+            }
+            if ($isDairy) {
+                $allergens[] = 'milk';
+            }
             // If neither keyword matches, flag both — better to over-flag for RND review
             if (! $isEgg && ! $isDairy) {
                 $allergens = ['milk', 'eggs'];
@@ -300,7 +324,8 @@ class UsdaService
     /** Detail response: nested structure — nutrient.id + amount */
     private function findInDetail($nutrients, int $id): float
     {
-        $found = $nutrients->first(fn($n) => ($n['nutrient']['id'] ?? null) === $id);
+        $found = $nutrients->first(fn ($n) => ($n['nutrient']['id'] ?? null) === $id);
+
         return (float) ($found['amount'] ?? 0);
     }
 
@@ -309,7 +334,7 @@ class UsdaService
         $micros = [];
 
         foreach (self::MICRO_IDS as $id => $key) {
-            $found = $nutrients->first(fn($n) => ($n['nutrient']['id'] ?? null) === $id);
+            $found = $nutrients->first(fn ($n) => ($n['nutrient']['id'] ?? null) === $id);
             if ($found && isset($found['amount'])) {
                 $micros[$key] = round((float) $found['amount'], 3);
             }
@@ -317,7 +342,7 @@ class UsdaService
 
         $omega3 = 0.0;
         foreach (self::OMEGA3_IDS as $id) {
-            $found = $nutrients->first(fn($n) => ($n['nutrient']['id'] ?? null) === $id);
+            $found = $nutrients->first(fn ($n) => ($n['nutrient']['id'] ?? null) === $id);
             if ($found && isset($found['amount'])) {
                 $omega3 += (float) $found['amount'];
             }

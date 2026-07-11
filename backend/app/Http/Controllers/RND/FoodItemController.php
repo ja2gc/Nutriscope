@@ -2,22 +2,27 @@
 
 namespace App\Http\Controllers\RND;
 
+use App\Enums\AuditAction;
+use App\Enums\AuditDomain;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreFoodItemRequest;
 use App\Http\Resources\FoodItemResource;
 use App\Models\FoodItem;
+use App\Services\Audit\AuditLogger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class FoodItemController extends Controller
 {
+    public function __construct(private readonly AuditLogger $auditLogger) {}
+
     public function index(Request $request): AnonymousResourceCollection
     {
         $query = FoodItem::query();
 
         if ($request->filled('search')) {
-            $query->where('name', 'like', '%' . $request->search . '%');
+            $query->where('name', 'like', '%'.$request->search.'%');
         }
 
         if ($request->filled('category')) {
@@ -35,7 +40,13 @@ class FoodItemController extends Controller
 
     public function store(StoreFoodItemRequest $request): JsonResponse
     {
-        $food = FoodItem::create($request->validated());
+        $data = $request->validated();
+        $food = $this->audited(function () use ($data): FoodItem {
+            $food = FoodItem::create($data);
+            $this->auditLogger->recordMutation(AuditAction::Created, AuditDomain::FoodService, $food, array_keys($food->getAttributes()));
+
+            return $food;
+        });
 
         return (new FoodItemResource($food))
             ->response()
@@ -49,14 +60,21 @@ class FoodItemController extends Controller
 
     public function update(StoreFoodItemRequest $request, FoodItem $foodItem): FoodItemResource
     {
-        $foodItem->update($request->validated());
+        $data = $request->validated();
+        $this->audited(function () use ($foodItem, $data): void {
+            $foodItem->update($data);
+            $this->auditLogger->recordMutation(AuditAction::Updated, AuditDomain::FoodService, $foodItem, array_keys($foodItem->getChanges()));
+        });
 
         return new FoodItemResource($foodItem->fresh());
     }
 
     public function destroy(FoodItem $foodItem): JsonResponse
     {
-        $foodItem->delete();
+        $this->audited(function () use ($foodItem): void {
+            $foodItem->delete();
+            $this->auditLogger->recordMutation(AuditAction::Deleted, AuditDomain::FoodService, $foodItem, []);
+        });
 
         return response()->json(null, 204);
     }

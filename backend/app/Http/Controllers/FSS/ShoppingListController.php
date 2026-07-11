@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\FSS;
 
+use App\Enums\AuditAction;
+use App\Enums\AuditDomain;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\FSS\StoreShoppingListRequest;
 use App\Http\Requests\FSS\UpdateShoppingListRequest;
@@ -10,7 +12,9 @@ use App\Models\FsItem;
 use App\Models\ShoppingList;
 use App\Models\ShoppingListItem;
 use App\Models\Supplier;
+use App\Services\Audit\AuditLogger;
 use App\Services\FSS\ShoppingListPopulationService;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -18,6 +22,8 @@ use Illuminate\Support\Facades\DB;
 
 class ShoppingListController extends Controller
 {
+    public function __construct(private readonly AuditLogger $auditLogger) {}
+
     public function index(): JsonResponse
     {
         return response()->json(['data' => ShoppingListResource::collection(ShoppingList::with('items.fsItem', 'items.supplier:id,uuid')->orderByDesc('created_at')->get())]);
@@ -34,7 +40,13 @@ class ShoppingListController extends Controller
             $data['estimate_population_updated_at'] = now();
         }
 
-        $shoppingList = ShoppingList::create($data);
+        $shoppingList = $this->audited(function () use ($data): ShoppingList {
+            $list = $this->auditLogger->withoutModelEvents(fn (): ShoppingList => ShoppingList::create($data));
+            $this->auditLogger->recordMutation(AuditAction::Created, AuditDomain::Procurement, $list, array_keys($list->getAttributes()));
+
+            return $list;
+        });
+
         return response()->json(['data' => new ShoppingListResource($shoppingList->load('items.fsItem', 'items.supplier:id,uuid'))], 201);
     }
 
@@ -46,25 +58,42 @@ class ShoppingListController extends Controller
     public function update(UpdateShoppingListRequest $request, ShoppingList $shoppingList): JsonResponse
     {
         $data = $request->validated();
-        if (array_key_exists('estimate_population', $data)) {
-            if ($shoppingList->status !== 'draft') {
-                return response()->json(['message' => 'Only draft shopping lists can update estimate_population.'], 422);
+        if (array_key_exists('estimate_population', $data) && $shoppingList->status !== 'draft') {
+            return response()->json(['message' => 'Only draft shopping lists can update estimate_population.'], 422);
+        }
+
+        $this->audited(function () use ($shoppingList, &$data): void {
+            $fields = [];
+            if (array_key_exists('estimate_population', $data)) {
+                $beforePopulation = $shoppingList->estimate_population;
+                $this->auditLogger->withoutModelEvents(
+                    fn () => app(ShoppingListPopulationService::class)->cascadePopulation($shoppingList, (int) $data['estimate_population']),
+                );
+                $shoppingList->refresh();
+                if ($beforePopulation !== $shoppingList->estimate_population) {
+                    $fields[] = 'estimate_population';
+                }
+                unset($data['estimate_population']);
             }
 
-            app(ShoppingListPopulationService::class)->cascadePopulation($shoppingList, (int) $data['estimate_population']);
-            unset($data['estimate_population']);
-        }
+            if ($data !== []) {
+                $this->auditLogger->withoutModelEvents(fn () => $shoppingList->update($data));
+                $fields = [...$fields, ...array_keys($shoppingList->getChanges())];
+            }
 
-        if ($data !== []) {
-            $shoppingList->update($data);
-        }
+            $this->auditLogger->recordMutation(AuditAction::Updated, AuditDomain::Procurement, $shoppingList, $fields);
+        });
 
         return response()->json(['data' => new ShoppingListResource($shoppingList->load('items.fsItem', 'items.supplier:id,uuid'))]);
     }
 
     public function destroy(ShoppingList $shoppingList): JsonResponse
     {
-        $shoppingList->delete();
+        $this->audited(function () use ($shoppingList): void {
+            $this->auditLogger->withoutModelEvents(fn () => $shoppingList->delete());
+            $this->auditLogger->recordMutation(AuditAction::Deleted, AuditDomain::Procurement, $shoppingList, []);
+        });
+
         return response()->json(null, 204);
     }
 
@@ -84,12 +113,12 @@ class ShoppingListController extends Controller
     {
         $data = $request->validate([
             'start_date' => ['required', 'date'],
-            'end_date'   => ['required', 'date', 'after_or_equal:start_date'],
-            'name'       => ['nullable', 'string', 'max:255'],
+            'end_date' => ['required', 'date', 'after_or_equal:start_date'],
+            'name' => ['nullable', 'string', 'max:255'],
         ]);
 
-        $cursor = \Carbon\Carbon::parse($data['start_date'])->startOfDay();
-        $end    = \Carbon\Carbon::parse($data['end_date'])->startOfDay();
+        $cursor = Carbon::parse($data['start_date'])->startOfDay();
+        $end = Carbon::parse($data['end_date'])->startOfDay();
         $spanDays = $cursor->diffInDays($end) + 1;
 
         $plan = app(ShoppingListPopulationService::class)->planRange($cursor, $end);
@@ -99,31 +128,37 @@ class ShoppingListController extends Controller
         $missingDates = $plan['uncovered_dates'];
         if ($missingDates !== []) {
             sort($missingDates);
+
             return response()->json([
-                'message'               => 'Shopping list blocked - every date in the span must have a menu cycle and menu items.',
-                'missing_dates'         => $missingDates,
+                'message' => 'Shopping list blocked - every date in the span must have a menu cycle and menu items.',
+                'missing_dates' => $missingDates,
                 'missing_items_by_date' => $plan['missing_items_by_date'],
             ], 422);
         }
 
-        $list = DB::transaction(function () use ($data, $plan, $spanDays) {
-            $list = ShoppingList::create([
-                'rnd_user_id'       => Auth::id(),
-                'name'              => $data['name'] ?? "Suggested — {$data['start_date']}→{$data['end_date']}",
-                'list_date'         => now()->toDateString(),
-                'period_start'      => $data['start_date'],
-                'period_end'        => $data['end_date'],
-                'days_span'         => $spanDays,
-                'list_type'         => 'suggested',
-                'procurement_track' => 'food',
-                'status'            => 'draft',
-                'coverage_status'   => 'full',
-                'uncovered_dates'   => null,
-            ]);
+        $list = $this->audited(function () use ($data, $plan, $spanDays): ShoppingList {
+            $list = $this->auditLogger->withoutModelEvents(fn () => DB::transaction(function () use ($data, $plan, $spanDays) {
+                $list = ShoppingList::create([
+                    'rnd_user_id' => Auth::id(),
+                    'name' => $data['name'] ?? "Suggested — {$data['start_date']}→{$data['end_date']}",
+                    'list_date' => now()->toDateString(),
+                    'period_start' => $data['start_date'],
+                    'period_end' => $data['end_date'],
+                    'days_span' => $spanDays,
+                    'list_type' => 'suggested',
+                    'procurement_track' => 'food',
+                    'status' => 'draft',
+                    'coverage_status' => 'full',
+                    'uncovered_dates' => null,
+                ]);
 
-            foreach ($plan['items'] as $row) {
-                $list->items()->create($row);
-            }
+                foreach ($plan['items'] as $row) {
+                    $list->items()->create($row);
+                }
+
+                return $list;
+            }));
+            $this->auditLogger->recordMutation(AuditAction::Generated, AuditDomain::Procurement, $list, array_keys($list->getAttributes()));
 
             return $list;
         });
@@ -143,9 +178,9 @@ class ShoppingListController extends Controller
 
         // Unit is NOT editable — it follows the recipe/item creation unit.
         $data = $request->validate([
-            'supplier_id'   => ['nullable', 'string', 'exists:suppliers,uuid'],
-            'qty'           => ['nullable', 'numeric', 'min:0'],
-            'unit_price'    => ['nullable', 'numeric', 'min:0'],
+            'supplier_id' => ['nullable', 'string', 'exists:suppliers,uuid'],
+            'qty' => ['nullable', 'numeric', 'min:0'],
+            'unit_price' => ['nullable', 'numeric', 'min:0'],
             'vendor_locked' => ['nullable', 'boolean'],
         ]);
 
@@ -173,17 +208,20 @@ class ShoppingListController extends Controller
             }
         }
 
-        $shoppingListItem->save();
+        $this->audited(function () use ($shoppingListItem): void {
+            $shoppingListItem->save();
+            $this->auditLogger->recordMutation(AuditAction::Updated, AuditDomain::Procurement, $shoppingListItem, array_keys($shoppingListItem->getChanges()));
+        });
 
         return response()->json(['data' => [
-            'id'            => $shoppingListItem->uuid,
+            'id' => $shoppingListItem->uuid,
             // Public uuid — the procurement UI matches this against uuid-valued <option>s.
-            'supplier_id'   => $shoppingListItem->supplier?->uuid,
-            'qty'           => $shoppingListItem->qty,
-            'unit_price'    => $shoppingListItem->unit_price,
-            'total'         => $shoppingListItem->total,
+            'supplier_id' => $shoppingListItem->supplier?->uuid,
+            'qty' => $shoppingListItem->qty,
+            'unit_price' => $shoppingListItem->unit_price,
+            'total' => $shoppingListItem->total,
             'vendor_locked' => $shoppingListItem->vendorLocked(),
-            'item_type'     => $shoppingListItem->fsItem?->kind ?? 'ingredient',
+            'item_type' => $shoppingListItem->fsItem?->kind ?? 'ingredient',
         ]]);
     }
 
@@ -196,15 +234,15 @@ class ShoppingListController extends Controller
         $isSupplies = $shoppingList->isSupplies();
 
         $data = $request->validate([
-            'fs_item_id'      => [$isSupplies ? 'required' : 'nullable', 'string', 'exists:fs_items,uuid'],
+            'fs_item_id' => [$isSupplies ? 'required' : 'nullable', 'string', 'exists:fs_items,uuid'],
             'ingredient_name' => ['nullable', 'string', 'max:255'],
-            'qty'             => ['required', 'numeric', 'min:0'],
-            'unit'            => [$isSupplies ? 'nullable' : 'required', 'string', 'max:50'],
-            'supplier_id'     => ['nullable', 'string', 'exists:suppliers,uuid'],
-            'unit_price'      => ['nullable', 'numeric', 'min:0'],
-            'purchase_qty'    => [$isSupplies ? 'prohibited' : 'nullable', 'numeric', 'min:0'],
-            'purchase_unit'   => [$isSupplies ? 'prohibited' : 'nullable', 'string', 'max:50'],
-            'purchase_price'  => [$isSupplies ? 'prohibited' : 'nullable', 'numeric', 'min:0'],
+            'qty' => ['required', 'numeric', 'min:0'],
+            'unit' => [$isSupplies ? 'nullable' : 'required', 'string', 'max:50'],
+            'supplier_id' => ['nullable', 'string', 'exists:suppliers,uuid'],
+            'unit_price' => ['nullable', 'numeric', 'min:0'],
+            'purchase_qty' => [$isSupplies ? 'prohibited' : 'nullable', 'numeric', 'min:0'],
+            'purchase_unit' => [$isSupplies ? 'prohibited' : 'nullable', 'string', 'max:50'],
+            'purchase_price' => [$isSupplies ? 'prohibited' : 'nullable', 'numeric', 'min:0'],
         ]);
 
         if (! empty($data['fs_item_id'])) {
@@ -226,34 +264,39 @@ class ShoppingListController extends Controller
             $qty = (float) $data['qty'];
             $unitPrice = array_key_exists('unit_price', $data) ? (float) $data['unit_price'] : (float) $fsItem->unit_cost;
 
-            $item = $shoppingList->items()->create([
-                'fs_item_id'      => $fsItem->id,
-                'ingredient_name' => $fsItem->name,
-                'qty'             => $qty,
-                'unit'            => $fsItem->base_unit,
-                'supplier_id'     => $data['supplier_id'] ?? $fsItem->default_supplier_id,
-                'unit_price'      => $unitPrice,
-                'total'           => round($qty * $unitPrice, 2),
-                'purchase_qty'    => $qty,
-                'purchase_unit'   => $fsItem->base_unit,
-                'purchase_price'  => $unitPrice,
-            ]);
+            $item = $this->audited(function () use ($shoppingList, $fsItem, $qty, $unitPrice, $data): ShoppingListItem {
+                $item = $shoppingList->items()->create([
+                    'fs_item_id' => $fsItem->id,
+                    'ingredient_name' => $fsItem->name,
+                    'qty' => $qty,
+                    'unit' => $fsItem->base_unit,
+                    'supplier_id' => $data['supplier_id'] ?? $fsItem->default_supplier_id,
+                    'unit_price' => $unitPrice,
+                    'total' => round($qty * $unitPrice, 2),
+                    'purchase_qty' => $qty,
+                    'purchase_unit' => $fsItem->base_unit,
+                    'purchase_price' => $unitPrice,
+                ]);
+                $this->auditLogger->recordMutation(AuditAction::Created, AuditDomain::Procurement, $item, array_keys($item->getAttributes()));
+
+                return $item;
+            });
 
             return response()->json(['data' => [
-                'id'              => $item->uuid,
+                'id' => $item->uuid,
                 // fs_item_id stays the raw FK (not consumed for routing); supplier_id is
                 // the public uuid so it matches the vendor <option>s in the procurement UI.
-                'fs_item_id'      => $item->fs_item_id,
+                'fs_item_id' => $item->fs_item_id,
                 'ingredient_name' => $item->ingredient_name,
-                'qty'             => $item->qty,
-                'unit'            => $item->unit,
-                'supplier_id'     => $item->supplier?->uuid,
-                'unit_price'      => $item->unit_price,
-                'total'           => $item->total,
-                'purchase_qty'    => $item->purchase_qty,
-                'purchase_unit'   => $item->purchase_unit,
-                'purchase_price'  => $item->purchase_price,
-                'item_type'       => 'supply',
+                'qty' => $item->qty,
+                'unit' => $item->unit,
+                'supplier_id' => $item->supplier?->uuid,
+                'unit_price' => $item->unit_price,
+                'total' => $item->total,
+                'purchase_qty' => $item->purchase_qty,
+                'purchase_unit' => $item->purchase_unit,
+                'purchase_price' => $item->purchase_price,
+                'item_type' => 'supply',
             ]], 201);
         }
 
@@ -264,33 +307,38 @@ class ShoppingListController extends Controller
         $qty = (float) $data['qty'];
         $unitPrice = (float) ($data['unit_price'] ?? 0);
 
-        $item = $shoppingList->items()->create([
-            'fs_item_id'      => $data['fs_item_id'] ?? null,
-            'ingredient_name' => $data['ingredient_name'] ?? $fsItem?->name ?? 'Item',
-            'qty'             => $qty,
-            'unit'            => $data['unit'],
-            'supplier_id'     => $data['supplier_id'] ?? $fsItem?->default_supplier_id,
-            'unit_price'      => $unitPrice,
-            'total'           => round($qty * $unitPrice, 2),
-            'purchase_qty'    => $data['purchase_qty'] ?? null,
-            'purchase_unit'   => $data['purchase_unit'] ?? null,
-            'purchase_price'  => $data['purchase_price'] ?? null,
-        ]);
+        $item = $this->audited(function () use ($shoppingList, $data, $fsItem, $qty, $unitPrice): ShoppingListItem {
+            $item = $shoppingList->items()->create([
+                'fs_item_id' => $data['fs_item_id'] ?? null,
+                'ingredient_name' => $data['ingredient_name'] ?? $fsItem?->name ?? 'Item',
+                'qty' => $qty,
+                'unit' => $data['unit'],
+                'supplier_id' => $data['supplier_id'] ?? $fsItem?->default_supplier_id,
+                'unit_price' => $unitPrice,
+                'total' => round($qty * $unitPrice, 2),
+                'purchase_qty' => $data['purchase_qty'] ?? null,
+                'purchase_unit' => $data['purchase_unit'] ?? null,
+                'purchase_price' => $data['purchase_price'] ?? null,
+            ]);
+            $this->auditLogger->recordMutation(AuditAction::Created, AuditDomain::Procurement, $item, array_keys($item->getAttributes()));
+
+            return $item;
+        });
 
         return response()->json(['data' => [
-            'id'              => $item->uuid,
+            'id' => $item->uuid,
             // fs_item_id stays the raw FK; supplier_id is the public uuid (see supplies branch).
-            'fs_item_id'      => $item->fs_item_id,
+            'fs_item_id' => $item->fs_item_id,
             'ingredient_name' => $item->ingredient_name,
-            'qty'             => $item->qty,
-            'unit'            => $item->unit,
-            'supplier_id'     => $item->supplier?->uuid,
-            'unit_price'      => $item->unit_price,
-            'total'           => $item->total,
-            'purchase_qty'    => $item->purchase_qty,
-            'purchase_unit'   => $item->purchase_unit,
-            'purchase_price'  => $item->purchase_price,
-            'item_type'       => $item->fsItem?->kind ?? 'ingredient',
+            'qty' => $item->qty,
+            'unit' => $item->unit,
+            'supplier_id' => $item->supplier?->uuid,
+            'unit_price' => $item->unit_price,
+            'total' => $item->total,
+            'purchase_qty' => $item->purchase_qty,
+            'purchase_unit' => $item->purchase_unit,
+            'purchase_price' => $item->purchase_price,
+            'item_type' => $item->fsItem?->kind ?? 'ingredient',
         ]], 201);
     }
 
@@ -300,7 +348,11 @@ class ShoppingListController extends Controller
             return response()->json(['message' => 'Converted shopping list items are read-only.'], 422);
         }
 
-        $shoppingListItem->delete();
+        $this->audited(function () use ($shoppingListItem): void {
+            $shoppingListItem->delete();
+            $this->auditLogger->recordMutation(AuditAction::Deleted, AuditDomain::Procurement, $shoppingListItem, []);
+        });
+
         return response()->json(null, 204);
     }
 }

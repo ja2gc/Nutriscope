@@ -341,13 +341,13 @@ public function record(
 - Modify: `backend/tests/Feature/AuditMiddlewareTest.php`
 - Modify: `backend/tests/Feature/Audit/AuditRouteCoverageTest.php`
 
-- [ ] Remove `audit` from the full RND group and budget subgroup. Remove middleware alias only after no route references remain.
-- [ ] Delete generic "Accessed path" production. Failed security/authorization outcomes are recorded by dedicated handlers; business mutations are recorded by model/domain events.
-- [ ] Maintain a machine-readable route coverage map in `backend/config/audit.php`. Each unsafe route must map to a named event source or an exclusion reason. Notification read markers are excluded; report archive, clinical attachment changes, user/config changes, and PO lifecycle are included.
-- [ ] Add sanitized operations events for supplier, food item, recipe, FS item, menu cycle/template, shopping list, USDA import, announcement, SOP version, and AI usage-limit mutations. Log identifiers, action, actor, date, and safe changed fields; exclude announcement/SOP bodies and imported API payloads.
-- [ ] Add a test that fails whenever a new unsafe route lacks a coverage-map entry.
-- [ ] Verify no frontend proxy endpoint changes in this task.
-- [ ] Run route and middleware tests; then commit with `refactor: replace request audit middleware`.
+- [x] Remove `audit` from the full RND group and budget subgroup. Remove middleware alias only after no route references remain.
+- [x] Delete generic "Accessed path" production. Failed security/authorization outcomes are recorded by dedicated handlers; business mutations are recorded by model/domain events.
+- [x] Maintain a machine-readable route coverage map in `backend/config/audit.php`. Each unsafe route must map to a named event source or an exclusion reason. Notification read markers are excluded; report archive, clinical attachment changes, user/config changes, and PO lifecycle are included.
+- [x] Add sanitized operations events for supplier, food item, recipe, FS item, menu cycle/template, shopping list, USDA import, announcement, SOP version, and AI usage-limit mutations. Log identifiers, action, actor, date, and safe changed fields; exclude announcement/SOP bodies and imported API payloads.
+- [x] Add a test that fails whenever a new unsafe route lacks a coverage-map entry.
+- [x] Verify no frontend proxy endpoint changes in this task.
+- [x] Run route and middleware tests; then commit with `refactor: replace request audit middleware`.
 
 ### Task 5: Security Events, Rate Limits, and Optional Temporary Blocks
 

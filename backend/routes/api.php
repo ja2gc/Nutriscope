@@ -1,9 +1,9 @@
 <?php
 
 use App\Http\Controllers\ActivityController;
+use App\Http\Controllers\Admin\AiUsageLimitController;
 use App\Http\Controllers\Admin\AnnouncementController as AdminAnnouncementController;
 use App\Http\Controllers\Admin\AuditLogController as AdminAuditLogController;
-use App\Http\Controllers\Admin\AiUsageLimitController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Auth\AuthController;
@@ -100,7 +100,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('role:RND,Admin')->post('sop', [SopController::class, 'store']);
 });
 
-Route::middleware(['auth:sanctum', 'role:RND', 'audit'])->prefix('rnd')->group(function () use ($reportRoutes) {
+Route::middleware(['auth:sanctum', 'role:RND'])->prefix('rnd')->group(function () use ($reportRoutes) {
     Route::apiResource('patients', PatientController::class);
     Route::get('patients/{patient}/activity', [ActivityController::class, 'patient']);
     Route::get('patients/{patient}/ncp-records', [PatientController::class, 'ncpRecords']);
@@ -288,10 +288,8 @@ Route::middleware(['auth:sanctum', 'role:FSS,RND'])->prefix('fss')->group(functi
 
         Route::apiResource('food-service-recipes', FoodServiceRecipeController::class)->only(['store', 'update', 'destroy']);
 
-        Route::middleware('audit')->group(function () {
-            Route::post('budgets/adjust', [BudgetController::class, 'manualAdjust']);
-            Route::apiResource('budgets', BudgetController::class)->only(['store']);
-        });
+        Route::post('budgets/adjust', [BudgetController::class, 'manualAdjust']);
+        Route::apiResource('budgets', BudgetController::class)->only(['store']);
 
         // Food Service settings — budget per head per day (RND writes)
         Route::put('food-service-settings', [FoodServiceSettingController::class, 'update']);

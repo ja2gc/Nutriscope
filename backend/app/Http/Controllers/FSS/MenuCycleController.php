@@ -2,23 +2,30 @@
 
 namespace App\Http\Controllers\FSS;
 
+use App\Enums\AuditAction;
+use App\Enums\AuditDomain;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\FSS\StoreMenuCycleRequest;
 use App\Http\Requests\FSS\UpdateMenuCycleRequest;
 use App\Http\Resources\MenuCycleResource;
+use App\Models\FoodServiceSetting;
 use App\Models\MenuCycle;
+use App\Services\Audit\AuditLogger;
 use App\Services\FSS\ShoppingListPopulationService;
 use App\Services\MenuCycleCostService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Carbon;
 
 class MenuCycleController extends Controller
 {
     private const DAY_RELATIONS = ['days.recipe', 'days.fsItem'];
+
     private const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+    public function __construct(private readonly AuditLogger $auditLogger) {}
 
     public function index(): JsonResponse
     {
@@ -37,19 +44,29 @@ class MenuCycleController extends Controller
         $days = $data['days'] ?? null;
         unset($data['days']);
 
-        $data['rnd_user_id']     = Auth::id();
-        $data['cycle_days']      = 7;
+        $data['rnd_user_id'] = Auth::id();
+        $data['cycle_days'] = 7;
         $data['week_start_date'] = ! empty($data['week_start_date'])
             ? Carbon::parse($data['week_start_date'])->toDateString()
             : now()->startOfWeek(Carbon::MONDAY)->toDateString();
         // New cycles start as 'upcoming' (states: completed|active|upcoming).
-        $data['status']          = $data['status'] ?? 'upcoming';
+        $data['status'] = $data['status'] ?? 'upcoming';
 
-        $cycle = DB::transaction(function () use ($data, $days) {
-            $cycle = MenuCycle::create($data);
-            if ($days !== null) {
-                $this->syncDays($cycle, $days);
+        $cycle = $this->audited(function () use ($data, $days): MenuCycle {
+            $cycle = $this->auditLogger->withoutModelEvents(fn () => DB::transaction(function () use ($data, $days) {
+                $cycle = MenuCycle::create($data);
+                if ($days !== null) {
+                    $this->syncDays($cycle, $days);
+                }
+
+                return $cycle;
+            }));
+            $fields = array_keys($cycle->getAttributes());
+            if ($cycle->days()->exists()) {
+                $fields[] = 'days';
             }
+            $this->auditLogger->recordMutation(AuditAction::Created, AuditDomain::FoodService, $cycle, $fields);
+
             return $cycle;
         });
 
@@ -64,6 +81,7 @@ class MenuCycleController extends Controller
     public function update(UpdateMenuCycleRequest $request, MenuCycle $menuCycle): JsonResponse
     {
         $data = $request->validated();
+        $beforeDays = $this->daySignature($menuCycle);
         $days = $data['days'] ?? null;
         unset($data['days']);
         $data['cycle_days'] = 7;
@@ -81,23 +99,35 @@ class MenuCycleController extends Controller
             ], 422);
         }
 
-        DB::transaction(function () use ($menuCycle, $data, $days) {
-            $menuCycle->update($data);
+        $this->audited(function () use ($menuCycle, $data, $days, $beforeDays): void {
+            $this->auditLogger->withoutModelEvents(fn () => DB::transaction(function () use ($menuCycle, $data, $days) {
+                $menuCycle->update($data);
+                if ($days !== null) {
+                    $this->syncDays($menuCycle, $days);
+                }
+            }));
+            $fields = array_keys($menuCycle->getChanges());
             if ($days !== null) {
-                $this->syncDays($menuCycle, $days);
+                $this->auditLogger->withoutModelEvents(
+                    fn () => app(ShoppingListPopulationService::class)->recalculateDraftListsForCycle($menuCycle->fresh()),
+                );
+                if ($beforeDays !== $this->daySignature($menuCycle)) {
+                    $fields[] = 'days';
+                }
             }
+            $this->auditLogger->recordMutation(AuditAction::Updated, AuditDomain::FoodService, $menuCycle, $fields);
         });
-
-        if ($days !== null) {
-            app(ShoppingListPopulationService::class)->recalculateDraftListsForCycle($menuCycle->fresh());
-        }
 
         return response()->json(['data' => new MenuCycleResource($menuCycle->fresh()->load(self::DAY_RELATIONS))]);
     }
 
     public function destroy(MenuCycle $menuCycle): JsonResponse
     {
-        $menuCycle->delete();
+        $this->audited(function () use ($menuCycle): void {
+            $this->auditLogger->withoutModelEvents(fn () => $menuCycle->delete());
+            $this->auditLogger->recordMutation(AuditAction::Deleted, AuditDomain::FoodService, $menuCycle, []);
+        });
+
         return response()->json(null, 204);
     }
 
@@ -111,28 +141,38 @@ class MenuCycleController extends Controller
             ], 422);
         }
 
-        DB::transaction(function () use ($menuCycle) {
-            // Retire any currently active cycle before promoting this one — only one
-            // cycle may be active at a time (callers do where('is_active', true)->first()).
-            // A retired active cycle becomes 'completed' (states: completed|active|upcoming).
-            MenuCycle::where('is_active', true)
-                ->where('id', '!=', $menuCycle->id)
-                ->update(['is_active' => false, 'status' => 'completed']);
+        $this->audited(function () use ($menuCycle): void {
+            $before = $menuCycle->only(['is_active', 'status', 'activation_date']);
+            $this->auditLogger->withoutModelEvents(fn () => DB::transaction(function () use ($menuCycle) {
+                // Retire any currently active cycle before promoting this one — only one
+                // cycle may be active at a time (callers do where('is_active', true)->first()).
+                // A retired active cycle becomes 'completed' (states: completed|active|upcoming).
+                MenuCycle::where('is_active', true)
+                    ->where('id', '!=', $menuCycle->id)
+                    ->update(['is_active' => false, 'status' => 'completed']);
 
-            $attrs = [
-                'is_active'       => true,
-                'status'          => 'active',
-                'activation_date' => now()->toDateString(),
-            ];
+                $attrs = [
+                    'is_active' => true,
+                    'status' => 'active',
+                    'activation_date' => now()->toDateString(),
+                ];
 
-            // Freeze the plan's cost the FIRST time it's activated so past reports keep it
-            // (Spec 6 #1). Re-activating (re-promote or double-click) must NOT re-price.
-            if ($menuCycle->cost_snapshot === null) {
-                $attrs['cost_snapshot']    = MenuCycleCostService::forCycle($menuCycle);
-                $attrs['cost_snapshot_at'] = now();
-            }
+                // Freeze the plan's cost the FIRST time it's activated so past reports keep it
+                // (Spec 6 #1). Re-activating (re-promote or double-click) must NOT re-price.
+                if ($menuCycle->cost_snapshot === null) {
+                    $attrs['cost_snapshot'] = MenuCycleCostService::forCycle($menuCycle);
+                    $attrs['cost_snapshot_at'] = now();
+                }
 
-            $menuCycle->update($attrs);
+                $menuCycle->update($attrs);
+            }));
+            $menuCycle->refresh();
+            $this->auditLogger->recordMutation(
+                AuditAction::Updated,
+                AuditDomain::FoodService,
+                $menuCycle,
+                $before !== $menuCycle->only(['is_active', 'status', 'activation_date']) ? ['activation_state'] : [],
+            );
         });
 
         return response()->json(['data' => new MenuCycleResource($menuCycle->fresh())]);
@@ -145,7 +185,7 @@ class MenuCycleController extends Controller
      */
     public function costToday(Request $request): JsonResponse
     {
-        $date    = $request->filled('date') ? \Carbon\Carbon::parse($request->get('date')) : now();
+        $date = $request->filled('date') ? \Carbon\Carbon::parse($request->get('date')) : now();
         $weekday = $date->format('l');
 
         $cycle = MenuCycle::with('days.recipe.ingredients.fsItem', 'days.fsItem')
@@ -157,24 +197,24 @@ class MenuCycleController extends Controller
             return response()->json(['data' => null]);
         }
 
-        $cost    = MenuCycleCostService::forCycle($cycle);
+        $cost = MenuCycleCostService::forCycle($cycle);
         $dayCost = $cost['days'][$weekday] ?? null;
         $perHead = $dayCost ? (float) $dayCost['cost_per_head'] : null;
         // Per-head cap is the shared Food Service setting (configured in Settings).
-        $setting = \App\Models\FoodServiceSetting::singleton();
-        $limit   = $setting->per_head_day_limit !== null ? (float) $setting->per_head_day_limit : null;
+        $setting = FoodServiceSetting::singleton();
+        $limit = $setting->per_head_day_limit !== null ? (float) $setting->per_head_day_limit : null;
 
         // Representative headcount for the weekday = that day's estimate_population.
-        $dayPop  = (int) ($cycle->days->where('day_of_week', $weekday)->max('estimate_population') ?? 0);
+        $dayPop = (int) ($cycle->days->where('day_of_week', $weekday)->max('estimate_population') ?? 0);
 
         return response()->json(['data' => [
-            'cycle'          => $cycle->name,
-            'date'           => $date->toDateString(),
-            'weekday'        => $weekday,
-            'cost_per_head'  => $perHead,         // actual cost to make today's menu, per head
+            'cycle' => $cycle->name,
+            'date' => $date->toDateString(),
+            'weekday' => $weekday,
+            'cost_per_head' => $perHead,         // actual cost to make today's menu, per head
             'limit_per_head' => $limit,           // cap from the Budget covering this date
-            'within_budget'  => ($limit !== null && $perHead !== null) ? $perHead <= $limit : null,
-            'population'     => $dayPop,
+            'within_budget' => ($limit !== null && $perHead !== null) ? $perHead <= $limit : null,
+            'population' => $dayPop,
             'has_menu_today' => $dayCost !== null,
         ]]);
     }
@@ -188,8 +228,8 @@ class MenuCycleController extends Controller
         $result = MenuCycleCostService::forCycle($menuCycle);
 
         // Per-head cap is the shared Food Service setting (configured in Settings).
-        $setting    = \App\Models\FoodServiceSetting::singleton();
-        $budget     = $setting->per_head_day_limit !== null ? (float) $setting->per_head_day_limit : null;
+        $setting = FoodServiceSetting::singleton();
+        $budget = $setting->per_head_day_limit !== null ? (float) $setting->per_head_day_limit : null;
         if ($budget !== null) {
             foreach ($result['days'] as $day => &$d) {
                 $d['budget_status'] = $this->budgetStatus($d['cost_per_head'], $budget);
@@ -209,6 +249,7 @@ class MenuCycleController extends Controller
         if ($costPerHead <= $budget) {
             return 'ok';
         }
+
         return $costPerHead <= $budget * 1.10 ? 'warning' : 'over';
     }
 
@@ -255,24 +296,31 @@ class MenuCycleController extends Controller
                 continue;
             }
             $rows[] = [
-                'menu_cycle_id'       => $cycle->id,
-                'day_of_week'         => $d['day_of_week'],
-                'meal_type'           => $d['meal_type'],
-                'recipe_id'           => $d['recipe_id'] ?? null,
-                'fs_item_id'          => $d['fs_item_id'] ?? null,
-                'quantity'            => $d['quantity'] ?? 1,
-                'servings_override'   => $d['servings_override'] ?? null,
+                'menu_cycle_id' => $cycle->id,
+                'day_of_week' => $d['day_of_week'],
+                'meal_type' => $d['meal_type'],
+                'recipe_id' => $d['recipe_id'] ?? null,
+                'fs_item_id' => $d['fs_item_id'] ?? null,
+                'quantity' => $d['quantity'] ?? 1,
+                'servings_override' => $d['servings_override'] ?? null,
                 'estimate_population' => $d['estimate_population'] ?? null,
                 'estimate_population_updated_at' => array_key_exists('estimate_population', $d) ? $now : null,
-                'is_event'            => $d['is_event'] ?? false,
-                'event_allocation'    => $d['event_allocation'] ?? null,
-                'created_at'          => $now,
-                'updated_at'          => $now,
+                'is_event' => $d['is_event'] ?? false,
+                'event_allocation' => $d['event_allocation'] ?? null,
+                'created_at' => $now,
+                'updated_at' => $now,
             ];
         }
 
-        if (!empty($rows)) {
+        if (! empty($rows)) {
             DB::table('menu_cycle_days')->insert($rows);
         }
+    }
+
+    private function daySignature(MenuCycle $cycle): array
+    {
+        return $cycle->days()->orderBy('day_of_week')->orderBy('meal_type')
+            ->get(['day_of_week', 'meal_type', 'recipe_id', 'fs_item_id', 'quantity', 'estimate_population'])
+            ->map->toArray()->values()->all();
     }
 }
