@@ -230,7 +230,7 @@ git commit -m "test: define audit coverage contract"
 - Create: `backend/database/migrations/2026_07_11_000001_add_metadata_and_indexes_to_activity_log_table.php`
 - Modify: `backend/app/Providers/AppServiceProvider.php`
 
-- [ ] Define backed enums. Action values must include:
+- [x] Define backed enums. Action values must include:
 
 ```php
 enum AuditAction: string
@@ -270,11 +270,11 @@ enum AuditAction: string
 }
 ```
 
-- [ ] Add nullable `category`, `domain`, `severity`, `outcome`, `context_type`, and `context_id` columns. Add indexes matching `(log_name, created_at, id)`, `(category, created_at, id)`, `(event, created_at, id)`, and `(context_type, context_id, created_at, id)`. Reuse Spatie's existing `batch_uuid` as interaction/correlation ID instead of adding another UUID column. Do not modify the original package migrations.
-- [ ] Configure Spatie to use `App\Models\AuditActivity` and preserve existing table name.
-- [ ] Add query scopes `auditOnly()`, `forCategory()`, `forContext()`, and timestamp-range filters that use `where('created_at', '>=', startOfDay)` rather than `whereDate()`.
-- [ ] Set defaults for old rows at presentation time. Do not run a large blocking data backfill in the schema migration.
-- [ ] Run migration and index tests:
+- [x] Add nullable `category`, `domain`, `severity`, `outcome`, `context_type`, and `context_id` columns. Add indexes matching `(log_name, created_at, id)`, `(category, created_at, id)`, `(event, created_at, id)`, and `(context_type, context_id, created_at, id)`. Reuse Spatie's existing `batch_uuid` as interaction/correlation ID instead of adding another UUID column. Do not modify the original package migrations.
+- [x] Configure Spatie to use `App\Models\AuditActivity` and preserve existing table name.
+- [x] Add query scopes `auditOnly()`, `forCategory()`, `forContext()`, and timestamp-range filters that use `where('created_at', '>=', startOfDay)` rather than `whereDate()`.
+- [x] Set defaults for old rows at presentation time. Do not run a large blocking data backfill in the schema migration.
+- [x] Run migration and index tests:
 
 ```powershell
 cd backend
@@ -284,7 +284,7 @@ php artisan test tests/Feature/Audit/AuditContractTest.php
 
 Expected: migration succeeds; new fields/index assertions pass; old rows remain readable.
 
-- [ ] Commit with `feat: add audit event taxonomy`.
+- [x] Commit with `feat: add audit event taxonomy`.
 
 ### Task 3: Centralize Writing, Sanitization, and Actor Snapshots
 
