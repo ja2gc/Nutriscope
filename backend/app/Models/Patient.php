@@ -26,6 +26,15 @@ class Patient extends Model
         'admission_date' => 'date',
     ];
 
+    protected function auditAttributes(): array
+    {
+        return [
+            'name', 'dob', 'sex', 'religion', 'address', 'contact',
+            'physician', 'admission_date', 'medical_diagnosis', 'ward', 'status',
+            'screening_type', 'hospital_number', 'age_group_category',
+        ];
+    }
+
     public function ncpRecords(): HasMany
     {
         return $this->hasMany(NcpRecord::class);

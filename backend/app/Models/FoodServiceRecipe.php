@@ -24,6 +24,11 @@ class FoodServiceRecipe extends Model
         'cost' => 'decimal:2',
     ];
 
+    protected function auditAttributes(): array
+    {
+        return ['rnd_user_id', 'name', 'category', 'servings', 'cost'];
+    }
+
     public function rnd(): BelongsTo
     {
         return $this->belongsTo(User::class, 'rnd_user_id');

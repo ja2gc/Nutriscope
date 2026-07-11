@@ -34,6 +34,16 @@ class ShoppingList extends Model
         'uncovered_dates' => 'array',
     ];
 
+    protected function auditAttributes(): array
+    {
+        return [
+            'rnd_user_id', 'name', 'list_date', 'period_start', 'period_end', 'days_span',
+            'list_type', 'procurement_track', 'status', 'total_served_population',
+            'estimate_population', 'estimate_population_updated_at', 'coverage_status',
+            'uncovered_dates',
+        ];
+    }
+
     public function fss()
     {
         return $this->belongsTo(User::class, 'rnd_user_id');

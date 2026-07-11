@@ -14,6 +14,7 @@ class Intervention extends Model
 
     /** Clinical — log field names only, redact PHI values (Spec 5 Decision A). */
     protected bool $auditRedactValues = true;
+
     protected $fillable = [
         'ncp_record_id', 'goal_type', 'disease_stage', 'displayed_nutrients',
         'energy_kcal', 'protein_g', 'carbs_g', 'fat_g', 'fluid_ml',
@@ -32,6 +33,16 @@ class Intervention extends Model
         'fat_g'                => 'decimal:2',
         'fluid_ml'             => 'decimal:2',
     ];
+
+    protected function auditAttributes(): array
+    {
+        return [
+            'ncp_record_id', 'goal_type', 'disease_stage', 'displayed_nutrients',
+            'energy_kcal', 'protein_g', 'carbs_g', 'fat_g', 'fluid_ml',
+            'micronutrient_limits', 'education_notes', 'counseling_goals', 'barriers',
+            'strategies', 'session_type', 'next_followup_date',
+        ];
+    }
 
     public function ncpRecord(): BelongsTo
     {
@@ -57,7 +68,7 @@ class Intervention extends Model
         };
 
         if (!$target || $target === 0.0) return true;
+
         return abs($actual - $target) / $target <= 0.10;
     }
 }
-

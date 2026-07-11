@@ -23,6 +23,14 @@ class Diagnosis extends Model
         'ai_generated' => 'boolean',
     ];
 
+    protected function auditAttributes(): array
+    {
+        return [
+            'ncp_record_id', 'domain', 'problem', 'label', 'etiology', 'signs_symptoms',
+            'pes_statement', 'extra_notes', 'ai_generated',
+        ];
+    }
+
     public function ncpRecord(): BelongsTo
     {
         return $this->belongsTo(NcpRecord::class);
@@ -36,4 +44,3 @@ class Diagnosis extends Model
         return "{$problem} related to {$etiology} as evidenced by {$signSymptoms}";
     }
 }
-

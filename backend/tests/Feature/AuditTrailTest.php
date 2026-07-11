@@ -79,7 +79,7 @@ class AuditTrailTest extends TestCase
     public function test_access_log_skips_reads_logs_mutations(): void
     {
         $rnd = User::factory()->create(['role' => 'RND']);
-        $mw = new AuditMiddleware;
+        $mw = app(AuditMiddleware::class);
         $next = fn ($r) => new Response('ok');
 
         Activity::query()->delete();

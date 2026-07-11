@@ -2,11 +2,18 @@
 
 namespace Tests\Feature;
 
+use App\Http\Middleware\AuditMiddleware;
+use App\Models\Assessment;
+use App\Models\FsItem;
+use App\Models\Intervention;
+use App\Models\Inventory;
+use App\Models\NcpRecord;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Foundation\Testing\WithFaker;
-use Tests\TestCase;
+use Illuminate\Http\Request;
 use Spatie\Activitylog\Models\Activity;
+use Symfony\Component\HttpFoundation\Response;
+use Tests\TestCase;
 
 class AuditMiddlewareTest extends TestCase
 {
@@ -49,5 +56,92 @@ class AuditMiddlewareTest extends TestCase
         $response->assertStatus(401);
 
         $this->assertEquals(0, Activity::count());
+    }
+
+    public function test_incidental_model_event_does_not_suppress_request_fallback(): void
+    {
+        $user = User::factory()->rnd()->create();
+        $request = Request::create('/api/unrelated-action', 'POST');
+        $request->setUserResolver(fn () => $user);
+        $this->app->instance('request', $request);
+        $this->actingAs($user);
+
+        app(AuditMiddleware::class)->handle($request, function (): Response {
+            FsItem::factory()->create();
+
+            return new Response('ok');
+        });
+
+        $this->assertSame(
+            1,
+            Activity::query()->where('description', 'like', 'Accessed%')->count(),
+            json_encode([
+                'events' => $request->attributes->get('_audit_events'),
+                'descriptions' => Activity::query()->pluck('description')->all(),
+            ]),
+        );
+        $this->assertSame(1, Activity::query()->where('subject_type', FsItem::class)->count());
+    }
+
+    public function test_equivalent_model_event_suppresses_duplicate_request_fallback(): void
+    {
+        $user = User::factory()->rnd()->create();
+        $request = Request::create('/api/fss/fs-items', 'POST');
+        $request->setUserResolver(fn () => $user);
+        $this->app->instance('request', $request);
+        $this->actingAs($user);
+
+        app(AuditMiddleware::class)->handle($request, function (): Response {
+            FsItem::factory()->create();
+
+            return new Response('ok');
+        });
+
+        $this->assertSame(0, Activity::query()->where('description', 'like', 'Accessed%')->count());
+        $this->assertSame(1, Activity::query()->where('subject_type', FsItem::class)->count());
+    }
+
+    public function test_singular_assessment_intervention_and_inventory_routes_do_not_duplicate_model_audits(): void
+    {
+        $user = User::factory()->rnd()->create();
+        $ncp = NcpRecord::factory()->create();
+        $assessment = Assessment::factory()->create(['ncp_record_id' => $ncp->id, 'weight' => 70]);
+        $intervention = Intervention::factory()->create(['ncp_record_id' => $ncp->id]);
+        $inventory = Inventory::factory()->create(['fs_item_id' => FsItem::factory()->create()->id, 'unit' => 'kg']);
+
+        $cases = [
+            'assessment' => [
+                "/api/rnd/ncp-records/{$ncp->uuid}/assessment",
+                $assessment,
+                fn () => $assessment->update(['weight' => 71]),
+            ],
+            'intervention' => [
+                "/api/rnd/ncp-records/{$ncp->uuid}/intervention",
+                $intervention,
+                fn () => $intervention->update(['session_type' => 'route-dedupe-test']),
+            ],
+            'inventory' => [
+                "/api/fss/inventory/{$inventory->uuid}",
+                $inventory,
+                fn () => $inventory->update(['unit' => 'g']),
+            ],
+        ];
+
+        foreach ($cases as $label => [$path, $subject, $mutation]) {
+            Activity::query()->delete();
+            $request = Request::create($path, 'PATCH');
+            $request->setUserResolver(fn () => $user);
+            $this->app->instance('request', $request);
+            $this->actingAs($user);
+
+            app(AuditMiddleware::class)->handle($request, function () use ($mutation): Response {
+                $mutation();
+
+                return new Response('ok');
+            });
+
+            $this->assertSame(1, Activity::query()->where('subject_type', $subject::class)->count(), $label);
+            $this->assertSame(0, Activity::query()->where('description', 'like', 'Accessed%')->count(), $label);
+        }
     }
 }

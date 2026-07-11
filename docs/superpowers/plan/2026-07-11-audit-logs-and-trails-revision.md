@@ -295,7 +295,7 @@ Expected: migration succeeds; new fields/index assertions pass; old rows remain 
 - Modify: `backend/app/Models/Concerns/AuditsChanges.php`
 - Test: `backend/tests/Feature/Audit/AuditPrivacyTest.php`
 
-- [ ] Implement one manual logger API:
+- [x] Implement one manual logger API:
 
 ```php
 public function record(
@@ -312,13 +312,13 @@ public function record(
 ): AuditActivity;
 ```
 
-- [ ] Sanitize before storage: reject forbidden keys matching `password`, `token`, `secret`, `authorization`, `cookie`, `verification_code`, `snapshot`, `prompt`, `response`, `ocr`, `body`, and clinical-value keys. Strip URL query/fragment, remove CR/LF/control characters, cap user agent and detail values, and normalize IP through trusted Laravel request handling.
-- [ ] Store actor snapshot `{public_id, name, role, kind}` so soft-deleted users remain attributable. Anonymous login failures store normalized/partially masked email identifier, not a full recovery email.
-- [ ] Replace `logOnly($this->getFillable())` with explicit per-model `auditAttributes()` methods. Clinical models return field names only; operations models return approved before/after values.
-- [ ] Add a test that adds a fake secret to a model's fillable list and proves it does not enter the log.
-- [ ] Add tests for CR/LF injection, oversized fields, full URL query removal, clinical redaction, deleted actors, and system actors.
-- [ ] Run `php artisan test tests/Feature/Audit/AuditPrivacyTest.php` and expect all tests to pass.
-- [ ] Commit with `feat: centralize sanitized audit writes`.
+- [x] Sanitize before storage: reject forbidden keys matching `password`, `token`, `secret`, `authorization`, `cookie`, `verification_code`, `snapshot`, `prompt`, `response`, `ocr`, `body`, and clinical-value keys. Strip URL query/fragment, remove CR/LF/control characters, cap user agent and detail values, and normalize IP through trusted Laravel request handling.
+- [x] Store actor snapshot `{public_id, name, role, kind}` so soft-deleted users remain attributable. Anonymous login failures store normalized/partially masked email identifier, not a full recovery email.
+- [x] Replace `logOnly($this->getFillable())` with explicit per-model `auditAttributes()` methods. Clinical models return field names only; operations models return approved before/after values.
+- [x] Add a test that adds a fake secret to a model's fillable list and proves it does not enter the log.
+- [x] Add tests for CR/LF injection, oversized fields, full URL query removal, clinical redaction, deleted actors, and system actors.
+- [x] Run `php artisan test tests/Feature/Audit/AuditPrivacyTest.php` and expect all tests to pass.
+- [x] Commit with `feat: centralize sanitized audit writes`.
 
 ### Task 4: Remove Generic Request Noise and Create Explicit Coverage Matrix
 

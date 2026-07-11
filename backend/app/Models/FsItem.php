@@ -38,6 +38,15 @@ class FsItem extends Model
         'default_supplier_locked_at' => 'datetime',
     ];
 
+    protected function auditAttributes(): array
+    {
+        return [
+            'name', 'kind', 'category', 'base_unit', 'purchase_unit', 'purchase_price',
+            'units_per_purchase', 'default_supplier_id', 'default_supplier_locked_at',
+            'default_supplier_locked_by', 'is_active',
+        ];
+    }
+
     /** Vendor suggestion is locked when an explicit lock timestamp is set. */
     public function vendorLocked(): bool
     {

@@ -2,9 +2,13 @@
 
 namespace App\Providers;
 
+use App\Events\PurchaseOrderCompleted;
+use App\Listeners\BudgetLedgerListener;
+use App\Services\Audit\AuditContextResolver;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
@@ -16,7 +20,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->scoped(AuditContextResolver::class);
     }
 
     /**
@@ -69,9 +73,9 @@ class AppServiceProvider extends ServiceProvider
         });
 
         // Budget ledger: auto-deduct from fiscal year allocation when PO completes.
-        \Illuminate\Support\Facades\Event::listen(
-            \App\Events\PurchaseOrderCompleted::class,
-            \App\Listeners\BudgetLedgerListener::class,
+        Event::listen(
+            PurchaseOrderCompleted::class,
+            BudgetLedgerListener::class,
         );
 
         // Compute-heavy clinical endpoints (autofill, recommendations) — not AI-billed

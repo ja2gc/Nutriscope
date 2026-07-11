@@ -61,7 +61,7 @@ class BudgetAuditTest extends TestCase
         ]);
         Budget::factory()->create(['fiscal_year' => 2026, 'allocated_amount' => 200000]);
 
-        (new BudgetLedgerListener())->handle(new PurchaseOrderCompleted($po));
+        app(BudgetLedgerListener::class)->handle(new PurchaseOrderCompleted($po));
 
         $entry = BudgetLedger::where('purchase_order_id', $po->id)->firstOrFail();
         $activity = Activity::where('subject_type', BudgetLedger::class)

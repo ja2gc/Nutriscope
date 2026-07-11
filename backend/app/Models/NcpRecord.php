@@ -27,6 +27,14 @@ class NcpRecord extends Model
         'risk_score_manual_factors' => 'array',
     ];
 
+    protected function auditAttributes(): array
+    {
+        return [
+            'patient_id', 'rnd_user_id', 'type', 'status', 'risk_score',
+            'risk_score_manual_override', 'risk_score_manual_factors',
+        ];
+    }
+
     public function patient(): BelongsTo
     {
         return $this->belongsTo(Patient::class);

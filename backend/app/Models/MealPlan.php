@@ -23,6 +23,11 @@ class MealPlan extends Model
         'week_start_date' => 'date',
     ];
 
+    protected function auditAttributes(): array
+    {
+        return ['intervention_id', 'patient_id', 'week_start_date', 'generation_type', 'status'];
+    }
+
     public function intervention(): BelongsTo
     {
         return $this->belongsTo(Intervention::class);
@@ -38,4 +43,3 @@ class MealPlan extends Model
         return $this->hasMany(MealPlanDay::class);
     }
 }
-

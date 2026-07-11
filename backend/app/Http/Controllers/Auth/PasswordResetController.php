@@ -2,8 +2,12 @@
 
 namespace App\Http\Controllers\Auth;
 
+use App\Enums\AuditAction;
+use App\Enums\AuditCategory;
+use App\Enums\AuditDomain;
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Services\Audit\AuditLogger;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -14,6 +18,8 @@ use Illuminate\Support\Str;
 class PasswordResetController extends Controller
 {
     private const MESSAGE = 'If that email exists, a password reset link has been sent.';
+
+    public function __construct(private readonly AuditLogger $auditLogger) {}
 
     public function sendResetLink(Request $request): JsonResponse
     {
@@ -58,14 +64,12 @@ class PasswordResetController extends Controller
         Password::broker()->deleteToken($user);
         $user->tokens()->delete();
 
-        activity('audit')
-            ->causedBy($user)
-            ->event('password_reset')
-            ->withProperties([
-                'ip' => $request->ip(),
-                'user_agent' => substr((string) $request->userAgent(), 0, 255),
-            ])
-            ->log('Password reset');
+        $this->auditLogger->record(
+            AuditAction::PasswordReset,
+            AuditCategory::Security,
+            AuditDomain::Accounts,
+            actor: $user,
+        );
 
         event(new PasswordReset($user));
 

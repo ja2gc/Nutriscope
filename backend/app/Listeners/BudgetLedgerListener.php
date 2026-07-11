@@ -2,14 +2,20 @@
 
 namespace App\Listeners;
 
+use App\Enums\AuditAction;
+use App\Enums\AuditCategory;
+use App\Enums\AuditDomain;
 use App\Events\PurchaseOrderCompleted;
 use App\Models\Budget;
 use App\Models\BudgetLedger;
+use App\Services\Audit\AuditLogger;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
 
 class BudgetLedgerListener
 {
+    public function __construct(private readonly AuditLogger $auditLogger) {}
+
     public function handle(PurchaseOrderCompleted $event): void
     {
         $po = $event->purchaseOrder;
@@ -25,6 +31,7 @@ class BudgetLedgerListener
 
         if (! $budget) {
             Log::warning("BudgetLedgerListener: No Budget allocation for fiscal year {$year}. PO {$po->id} deduction skipped — set up the year to trigger deduction.");
+
             return;
         }
 
@@ -34,26 +41,29 @@ class BudgetLedgerListener
         }
 
         $entry = BudgetLedger::create([
-            'fiscal_year'       => $year,
-            'type'              => 'po_deduction',
-            'source'            => 'system',
-            'amount'            => (float) $po->total_amount,
-            'reference'         => $po->po_number ?? "PO #{$po->id}",
+            'fiscal_year' => $year,
+            'type' => 'po_deduction',
+            'source' => 'system',
+            'amount' => (float) $po->total_amount,
+            'reference' => $po->po_number ?? "PO #{$po->id}",
             'purchase_order_id' => $po->id,
-            'created_by'        => null,
+            'created_by' => null,
         ]);
 
-        activity('audit')
-            ->performedOn($entry)
-            ->event('created')
-            ->withProperties([
+        $this->auditLogger->record(
+            AuditAction::Created,
+            AuditCategory::Operations,
+            AuditDomain::Budget,
+            subject: $entry,
+            context: $budget,
+            details: [
                 'fiscal_year' => $year,
                 'type' => 'po_deduction',
                 'source' => 'system',
                 'amount' => (float) $po->total_amount,
                 'purchase_order_id' => $po->id,
-                'reference' => $po->po_number,
-            ])
-            ->log('Budget ledger system deduction created');
+            ],
+            systemActor: 'budget-ledger-listener',
+        );
     }
 }

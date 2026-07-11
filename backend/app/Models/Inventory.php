@@ -25,6 +25,11 @@ class Inventory extends Model
         'unit_price'        => 'decimal:2',
     ];
 
+    protected function auditAttributes(): array
+    {
+        return ['item_type', 'fs_item_id', 'recipe_id', 'quantity_in_stock', 'unit', 'unit_price'];
+    }
+
     /** Stock of a catalog item (ingredient or supply). */
     public function fsItem(): BelongsTo
     {

@@ -30,6 +30,15 @@ class MealPrepLog extends Model
         'served_locked_at'    => 'datetime',
     ];
 
+    protected function auditAttributes(): array
+    {
+        return [
+            'menu_cycle_id', 'service_date', 'population', 'served_population',
+            'population_variance', 'status', 'completed_by', 'completed_at', 'total_value',
+            'has_shortfall', 'served_locked_at', 'served_locked_by',
+        ];
+    }
+
     public function servedLocked(): bool
     {
         return $this->served_locked_at !== null;

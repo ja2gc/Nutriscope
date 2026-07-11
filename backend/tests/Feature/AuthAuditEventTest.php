@@ -39,6 +39,10 @@ class AuthAuditEventTest extends TestCase
         $this->assertNotNull($failed);
         $this->assertNotNull($login);
         $this->assertSame($user->id, $login->causer_id);
+        $this->assertSame($failed->properties['request']['ip'], $failed->properties['ip']);
+        $this->assertSame($failed->properties['request']['user_agent'], $failed->properties['user_agent']);
+        $this->assertSame($login->properties['request']['ip'], $login->properties['ip']);
+        $this->assertSame($login->properties['request']['user_agent'], $login->properties['user_agent']);
 
         $payload = json_encode(Activity::all()->pluck('properties'), JSON_THROW_ON_ERROR);
         $this->assertStringNotContainsString('wrong-password', $payload);

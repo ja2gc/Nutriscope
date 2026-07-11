@@ -32,6 +32,16 @@ class PurchaseOrder extends Model
         'final_locked_at'      => 'datetime',
     ];
 
+    protected function auditAttributes(): array
+    {
+        return [
+            'rnd_user_id', 'shopping_list_id', 'supplier_id', 'po_number', 'or_number',
+            'order_date', 'received_date', 'total_amount', 'actual_budget_per_head_per_day',
+            'status', 'lifecycle_status', 'procurement_track', 'converted_at', 'completed_at',
+            'archived_at', 'structural_locked_at', 'final_locked_at',
+        ];
+    }
+
     public function isFoodTrack(): bool
     {
         return $this->procurement_track === 'food';

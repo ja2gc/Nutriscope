@@ -75,6 +75,9 @@ class ForgotPasswordTest extends TestCase
 
         $this->assertTrue(Hash::check('new-password', $user->fresh()->password));
         $this->assertSame(0, $user->tokens()->count());
-        $this->assertNotNull(Activity::where('event', 'password_reset')->where('causer_id', $user->id)->first());
+        $activity = Activity::where('event', 'password_reset')->where('causer_id', $user->id)->first();
+        $this->assertNotNull($activity);
+        $this->assertSame($activity->properties['request']['ip'], $activity->properties['ip']);
+        $this->assertSame($activity->properties['request']['user_agent'], $activity->properties['user_agent']);
     }
 }

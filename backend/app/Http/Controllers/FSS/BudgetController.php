@@ -2,12 +2,16 @@
 
 namespace App\Http\Controllers\FSS;
 
+use App\Enums\AuditAction;
+use App\Enums\AuditCategory;
+use App\Enums\AuditDomain;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\FSS\StoreBudgetRequest;
 use App\Http\Resources\BudgetResource;
 use App\Models\Budget;
 use App\Models\BudgetLedger;
 use App\Models\PurchaseOrder;
+use App\Services\Audit\AuditLogger;
 use App\Services\FSS\PurchaseOrderLifecycleService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -15,6 +19,8 @@ use Illuminate\Support\Facades\Auth;
 
 class BudgetController extends Controller
 {
+    public function __construct(private readonly AuditLogger $auditLogger) {}
+
     public function index(): JsonResponse
     {
         return response()->json(['data' => BudgetResource::collection(Budget::orderByDesc('fiscal_year')->get())]);
@@ -29,18 +35,21 @@ class BudgetController extends Controller
     public function store(StoreBudgetRequest $request): JsonResponse
     {
         $budget = Budget::create($request->validated());
-        activity('audit')
-            ->causedBy(Auth::user())
-            ->performedOn($budget)
-            ->event('created')
-            ->withProperties([
+        $this->auditLogger->record(
+            AuditAction::Created,
+            AuditCategory::Operations,
+            AuditDomain::Budget,
+            subject: $budget,
+            context: $budget,
+            details: [
                 'fiscal_year' => $budget->fiscal_year,
                 'allocated_amount' => (float) $budget->allocated_amount,
-            ])
-            ->log('Budget fiscal year allocation created');
+            ],
+            actor: Auth::user(),
+        );
 
         // Re-evaluate open-execution POs that were blocked waiting for this allocation.
-        $year      = $budget->fiscal_year;
+        $year = $budget->fiscal_year;
         $lifecycle = app(PurchaseOrderLifecycleService::class);
         PurchaseOrder::where('lifecycle_status', 'open_execution')
             ->whereHas('shoppingList', fn ($q) => $q
@@ -55,12 +64,12 @@ class BudgetController extends Controller
     /** Fiscal year summary. Returns null with a notice if no allocation exists. */
     public function summary(Request $request): JsonResponse
     {
-        $year   = (int) ($request->input('fiscal_year') ?? now()->year);
+        $year = (int) ($request->input('fiscal_year') ?? now()->year);
         $budget = Budget::where('fiscal_year', $year)->first();
 
         if (! $budget) {
             return response()->json([
-                'data'   => null,
+                'data' => null,
                 'notice' => "No allocation found for fiscal year {$year}. Please set it up.",
             ]);
         }
@@ -76,7 +85,7 @@ class BudgetController extends Controller
     {
         $data = $request->validate([
             'fiscal_year' => ['nullable', 'integer'],
-            'source'      => ['nullable', 'in:system,manual,all'],
+            'source' => ['nullable', 'in:system,manual,all'],
         ]);
 
         $year = (int) ($data['fiscal_year'] ?? now()->year);
@@ -91,18 +100,18 @@ class BudgetController extends Controller
         }
 
         $entries = $query->get()->map(fn (BudgetLedger $e) => [
-            'id'                => $e->id,
-            'fiscal_year'       => $e->fiscal_year,
-            'type'              => $e->type,
-            'source'            => $e->source,
-            'amount'            => (float) $e->amount,
-            'signed_amount'     => $e->signedAmount(),
-            'reason'            => $e->reason,
-            'reference'         => $e->reference ?? $e->purchaseOrder?->po_number,
+            'id' => $e->id,
+            'fiscal_year' => $e->fiscal_year,
+            'type' => $e->type,
+            'source' => $e->source,
+            'amount' => (float) $e->amount,
+            'signed_amount' => $e->signedAmount(),
+            'reason' => $e->reason,
+            'reference' => $e->reference ?? $e->purchaseOrder?->po_number,
             'purchase_order_id' => $e->purchase_order_id,
-            'po_number'         => $e->purchaseOrder?->po_number,
-            'created_by'        => $e->creator?->name,
-            'created_at'        => $e->created_at?->toDateTimeString(),
+            'po_number' => $e->purchaseOrder?->po_number,
+            'created_by' => $e->creator?->name,
+            'created_at' => $e->created_at?->toDateTimeString(),
         ]);
 
         return response()->json(['data' => $entries]);
@@ -113,13 +122,13 @@ class BudgetController extends Controller
     {
         $data = $request->validate([
             'fiscal_year' => ['required', 'integer'],
-            'type'        => ['required', 'in:manual_addition,manual_deduction'],
-            'amount'      => ['required', 'numeric', 'min:0.01'],
-            'reason'      => ['required', 'string', 'max:1000'],
-            'reference'   => ['nullable', 'string', 'max:255'],
+            'type' => ['required', 'in:manual_addition,manual_deduction'],
+            'amount' => ['required', 'numeric', 'min:0.01'],
+            'reason' => ['required', 'string', 'max:1000'],
+            'reference' => ['nullable', 'string', 'max:255'],
         ]);
 
-        $year   = (int) $data['fiscal_year'];
+        $year = (int) $data['fiscal_year'];
         $budget = Budget::where('fiscal_year', $year)->first();
 
         if (! $budget) {
@@ -128,36 +137,38 @@ class BudgetController extends Controller
 
         $entry = BudgetLedger::create([
             'fiscal_year' => $year,
-            'type'        => $data['type'],
-            'source'      => 'manual',
-            'amount'      => $data['amount'],
-            'reason'      => $data['reason'],
-            'reference'   => $data['reference'] ?? null,
-            'created_by'  => Auth::id(),
+            'type' => $data['type'],
+            'source' => 'manual',
+            'amount' => $data['amount'],
+            'reason' => $data['reason'],
+            'reference' => $data['reference'] ?? null,
+            'created_by' => Auth::id(),
         ]);
-        activity('audit')
-            ->causedBy(Auth::user())
-            ->performedOn($entry)
-            ->event('created')
-            ->withProperties([
+        $this->auditLogger->record(
+            AuditAction::Created,
+            AuditCategory::Operations,
+            AuditDomain::Budget,
+            subject: $entry,
+            context: $budget,
+            details: [
                 'fiscal_year' => $entry->fiscal_year,
                 'type' => $entry->type,
                 'source' => $entry->source,
                 'amount' => (float) $entry->amount,
-                'reference' => $entry->reference,
-            ])
-            ->log('Budget ledger manual adjustment created');
+            ],
+            actor: Auth::user(),
+        );
 
         return response()->json(['data' => [
-            'id'            => $entry->id,
-            'type'          => $entry->type,
-            'source'        => $entry->source,
-            'amount'        => (float) $entry->amount,
+            'id' => $entry->id,
+            'type' => $entry->type,
+            'source' => $entry->source,
+            'amount' => (float) $entry->amount,
             'signed_amount' => $entry->signedAmount(),
-            'reason'        => $entry->reason,
-            'reference'     => $entry->reference,
-            'created_by'    => Auth::user()?->name,
-            'created_at'    => $entry->created_at?->toDateTimeString(),
+            'reason' => $entry->reason,
+            'reference' => $entry->reference,
+            'created_by' => Auth::user()?->name,
+            'created_at' => $entry->created_at?->toDateTimeString(),
         ]], 201);
     }
 }

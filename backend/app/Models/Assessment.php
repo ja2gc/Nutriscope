@@ -49,6 +49,22 @@ class Assessment extends Model
         'dry_weight_kg' => 'decimal:2',
     ];
 
+    protected function auditAttributes(): array
+    {
+        return [
+            'ncp_record_id', 'dietary_intake', 'appetite_changes', 'dietary_restrictions',
+            'supplements', 'knowledge_notes', 'weight', 'height', 'bmi', 'body_composition',
+            'medical_history', 'social_history', 'religion', 'lifestyle', 'allergies',
+            'food_dislikes', 'medications', 'rnd_summary', 'usual_weight', 'nutritional_status',
+            'weight_loss_percentage', 'weight_loss_period', 'functional_assessment',
+            'energy_intake_status', 'ibw_percentage', 'present_diet', 'physical_assessment',
+            'chewing_swallowing_difficulties', 'constipation', 'diarrhea_notes',
+            'food_intolerance', 'nutrient_drug_interaction', 'dietary_intake_method',
+            'dietary_record_file', 'physical_activity_level', 'muac_mm', 'waist_cm', 'hip_cm',
+            'stress_factor', 'edema_present', 'dry_weight_kg', 'pregnancy_lactation_status',
+        ];
+    }
+
     /**
      * Normalise physical_activity_level free-text / legacy values to the keys
      * that NutritionPrescriptionService::ACTIVITY_FACTORS expects.

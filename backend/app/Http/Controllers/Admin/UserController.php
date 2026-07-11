@@ -2,17 +2,23 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Enums\AuditAction;
+use App\Enums\AuditCategory;
+use App\Enums\AuditDomain;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\ResetPasswordRequest;
 use App\Http\Requests\Admin\StoreUserRequest;
 use App\Http\Requests\Admin\UpdateUserRequest;
 use App\Http\Resources\UserResource;
 use App\Models\User;
+use App\Services\Audit\AuditLogger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Hash;
 
 class UserController extends Controller
 {
+    public function __construct(private readonly AuditLogger $auditLogger) {}
+
     public function index(): JsonResponse
     {
         return response()->json(['data' => UserResource::collection(User::orderBy('name')->get())]);
@@ -24,7 +30,7 @@ class UserController extends Controller
         $data['password'] = Hash::make($data['password']);
 
         $user = User::create($data);
-        $this->auditUser('created', $user, 'Admin user account created');
+        $this->auditUser(AuditAction::Created, $user);
 
         return response()->json(['data' => new UserResource($user)], 201);
     }
@@ -37,22 +43,23 @@ class UserController extends Controller
     public function update(UpdateUserRequest $request, User $user): JsonResponse
     {
         $data = $request->validated();
-        if (!empty($data['password'])) {
+        if (! empty($data['password'])) {
             $data['password'] = Hash::make($data['password']);
         } else {
             unset($data['password']);
         }
 
         $user->update($data);
-        $this->auditUser('updated', $user, 'Admin user account updated');
+        $this->auditUser(AuditAction::Updated, $user);
 
         return response()->json(['data' => new UserResource($user)]);
     }
 
     public function destroy(User $user): JsonResponse
     {
-        $this->auditUser('deleted', $user, 'Admin user account deleted');
+        $this->auditUser(AuditAction::Deleted, $user);
         $user->delete();
+
         return response()->json(null, 204);
     }
 
@@ -62,22 +69,24 @@ class UserController extends Controller
             'password' => Hash::make($request->validated('password')),
         ]);
         $user->tokens()->delete();
-        $this->auditUser('password_reset', $user, 'Admin reset user password');
+        $this->auditUser(AuditAction::PasswordReset, $user);
 
         return response()->json(['message' => 'Password reset.']);
     }
 
-    private function auditUser(string $event, User $user, string $description): void
+    private function auditUser(AuditAction $action, User $user): void
     {
-        activity('audit')
-            ->causedBy(auth()->user())
-            ->performedOn($user)
-            ->event($event)
-            ->withProperties([
+        $this->auditLogger->record(
+            $action,
+            AuditCategory::Security,
+            AuditDomain::Accounts,
+            subject: $user,
+            details: [
                 'user_id' => $user->id,
                 'role' => $user->role,
                 'is_active' => $user->is_active,
-            ])
-            ->log($description);
+            ],
+            actor: auth()->user(),
+        );
     }
 }

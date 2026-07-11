@@ -27,6 +27,14 @@ class MenuCycle extends Model
         'cost_snapshot_at'        => 'datetime',
     ];
 
+    protected function auditAttributes(): array
+    {
+        return [
+            'rnd_user_id', 'name', 'cycle_days', 'is_active', 'week_start_date',
+            'status', 'activation_date',
+        ];
+    }
+
     public function rnd(): BelongsTo
     {
         return $this->belongsTo(User::class, 'rnd_user_id');

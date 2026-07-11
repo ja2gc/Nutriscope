@@ -2,20 +2,28 @@
 
 namespace App\Http\Controllers\Auth;
 
+use App\Enums\AuditAction;
+use App\Enums\AuditCategory;
+use App\Enums\AuditDomain;
+use App\Enums\AuditOutcome;
+use App\Enums\AuditSeverity;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Requests\Auth\UpdatePasswordRequest;
 use App\Http\Requests\Auth\UpdateProfileRequest;
 use App\Http\Resources\UserResource;
+use App\Models\AuditActivity;
 use App\Models\User;
+use App\Services\Audit\AuditLogger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
-use Spatie\Activitylog\Models\Activity;
 
 class AuthController extends Controller
 {
+    public function __construct(private readonly AuditLogger $auditLogger) {}
+
     /**
      * POST /api/auth/login
      */
@@ -24,7 +32,7 @@ class AuthController extends Controller
         $credentials = $request->only('email', 'password');
 
         if (! Auth::attempt($credentials)) {
-            $this->auditAuth($request, 'login_failed', null, 'Login failed');
+            $this->auditAuth($request, AuditAction::LoginFailed);
 
             return response()->json(['message' => 'Invalid credentials.'], 401);
         }
@@ -52,7 +60,7 @@ class AuthController extends Controller
         $user->tokens()->where('name', $tokenName)->delete();
         $token = $user->createToken($tokenName, [$user->role])->plainTextToken;
 
-        $this->auditAuth($request, 'login', $user, 'User logged in', [
+        $this->auditAuth($request, AuditAction::LoginSucceeded, $user, [
             'platform' => $request->validated('platform') ?? 'web',
             'device_name' => $tokenName,
         ]);
@@ -69,7 +77,7 @@ class AuthController extends Controller
     public function logout(Request $request): JsonResponse
     {
         $user = $request->user();
-        $this->auditAuth($request, 'logout', $user, 'User logged out');
+        $this->auditAuth($request, AuditAction::Logout, $user);
 
         $request->user()->currentAccessToken()->delete();
 
@@ -108,30 +116,33 @@ class AuthController extends Controller
         ]);
         $user->tokens()->delete();
 
-        $this->auditAuth($request, 'password_changed', $user, 'Password changed');
+        $this->auditAuth($request, AuditAction::PasswordChanged, $user);
 
         return response()->json(['message' => 'Password updated.']);
     }
 
     private function auditAuth(
         Request $request,
-        string $event,
-        ?User $user,
-        string $description,
+        AuditAction $action,
+        ?User $user = null,
         array $properties = [],
-    ): Activity {
-        $activity = activity('audit');
+    ): AuditActivity {
+        $details = array_merge([
+            'email' => $request->string('email')->lower()->toString() ?: null,
+        ], $properties);
 
-        if ($user) {
-            $activity->causedBy($user);
+        if ($action === AuditAction::LoginSucceeded && $user !== null) {
+            return $this->auditLogger->recordLegacyLogin($details, $user);
         }
 
-        return $activity->event($event)
-            ->withProperties(array_merge([
-                'email' => $request->string('email')->lower()->toString() ?: null,
-                'ip' => $request->ip(),
-                'user_agent' => substr((string) $request->userAgent(), 0, 255),
-            ], $properties))
-            ->log($description);
+        return $this->auditLogger->record(
+            $action,
+            AuditCategory::Security,
+            AuditDomain::Accounts,
+            outcome: $action === AuditAction::LoginFailed ? AuditOutcome::Failure : AuditOutcome::Success,
+            severity: $action === AuditAction::LoginFailed ? AuditSeverity::Warning : AuditSeverity::Info,
+            details: $details,
+            actor: $user,
+        );
     }
 }

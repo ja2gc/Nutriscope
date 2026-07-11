@@ -28,10 +28,17 @@ class Monitoring extends Model
         'next_monitoring_date' => 'date',
     ];
 
+    protected function auditAttributes(): array
+    {
+        return [
+            'ncp_record_id', 'weight', 'bmi', 'lab_values', 'intake_notes', 'symptoms',
+            'goal_achievement', 'clinical_summary', 'ai_decision', 'ai_review', 'ai_review_key',
+            'next_monitoring_date',
+        ];
+    }
+
     public function ncpRecord()
     {
         return $this->belongsTo(NcpRecord::class);
     }
-
 }
-

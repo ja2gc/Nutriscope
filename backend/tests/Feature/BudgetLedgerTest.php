@@ -38,7 +38,7 @@ class BudgetLedgerTest extends TestCase
         ]);
         Budget::factory()->create(['fiscal_year' => 2026, 'allocated_amount' => 200000]);
 
-        $listener = new BudgetLedgerListener();
+        $listener = app(BudgetLedgerListener::class);
         $listener->handle(new PurchaseOrderCompleted($po));
 
         $this->assertDatabaseHas('budget_ledger', [
@@ -55,7 +55,7 @@ class BudgetLedgerTest extends TestCase
         $po = PurchaseOrder::factory()->create(['shopping_list_id' => $sl->id, 'total_amount' => 10000]);
         Budget::factory()->create(['fiscal_year' => 2026, 'allocated_amount' => 100000]);
 
-        $listener = new BudgetLedgerListener();
+        $listener = app(BudgetLedgerListener::class);
         $listener->handle(new PurchaseOrderCompleted($po));
         $listener->handle(new PurchaseOrderCompleted($po)); // second fire, same PO
 
@@ -68,7 +68,7 @@ class BudgetLedgerTest extends TestCase
         $po = PurchaseOrder::factory()->create(['shopping_list_id' => $sl->id, 'total_amount' => 5000]);
 
         // No budget for 2099 — listener should log + return silently.
-        $listener = new BudgetLedgerListener();
+        $listener = app(BudgetLedgerListener::class);
         $listener->handle(new PurchaseOrderCompleted($po));
 
         $this->assertDatabaseEmpty('budget_ledger');
