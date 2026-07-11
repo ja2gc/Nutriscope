@@ -94,6 +94,7 @@ class AuditLogger
         array $details = [],
         ?Authenticatable $actor = null,
         ?string $systemActor = null,
+        bool $includeRequestMetadata = true,
     ): AuditActivity {
         return $this->recordEvent(
             $action->value,
@@ -107,18 +108,7 @@ class AuditLogger
             $details,
             $actor,
             $systemActor,
-        );
-    }
-
-    public function recordLegacyLogin(array $details, Authenticatable $actor): AuditActivity
-    {
-        return $this->recordEvent(
-            'login',
-            AuditAction::LoginSucceeded,
-            AuditCategory::Security,
-            AuditDomain::Accounts,
-            details: $details,
-            actor: $actor,
+            $includeRequestMetadata,
         );
     }
 
@@ -134,6 +124,7 @@ class AuditLogger
         array $details = [],
         ?Authenticatable $actor = null,
         ?string $systemActor = null,
+        bool $includeRequestMetadata = true,
     ): AuditActivity {
         $this->assertAvailable();
 
@@ -156,14 +147,16 @@ class AuditLogger
 
         $resolvedContext = $this->contextResolver->resolve($subject, $context);
         $safeDetails = $this->sanitizer->details($details, $category);
-        $requestProperties = $this->sanitizer->request($this->request);
+        $requestProperties = $includeRequestMetadata ? $this->sanitizer->request($this->request) : [];
         $properties = [
             'actor' => $this->sanitizer->actor($resolvedActor, $systemActor),
             'details' => $safeDetails,
-            'request' => $requestProperties,
             ...array_diff_key($safeDetails, array_flip(['actor', 'details', 'request'])),
-            'ip' => $requestProperties['ip'],
-            'user_agent' => $requestProperties['user_agent'],
+            ...($includeRequestMetadata ? [
+                'request' => $requestProperties,
+                'ip' => $requestProperties['ip'],
+                'user_agent' => $requestProperties['user_agent'],
+            ] : []),
         ];
 
         $logger = activity(config('audit.log_name'))

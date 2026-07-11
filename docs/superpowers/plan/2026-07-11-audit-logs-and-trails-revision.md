@@ -362,16 +362,16 @@ public function record(
 - Optional proxies: `frontend/app/api/admin/security-blocks/route.ts` and `frontend/app/api/admin/security-blocks/[id]/route.ts`
 - Test: `backend/tests/Feature/Audit/SecurityAuditTest.php`
 
-- [ ] Normalize existing `login` to `login_succeeded`; keep a legacy presentation alias so old rows display correctly.
-- [ ] Record login success/failure, logout, password change/reset, profile change, recovery-email change/verification, admin account create/update/deactivate/role change/password reset, and authorization denial.
-- [ ] In `backend/bootstrap/app.php`, record deduplicated `authentication_failed` and `authorization_denied` events for rejected protected requests using actor/public reference, safe route name, outcome, and status only. Do not log headers, cookies, bearer tokens, or request bodies.
-- [ ] Use Laravel 13 `Limit::response()` callbacks for named limiters to record a `rate_limit_exceeded` event when a 429 is produced. Record limiter name, safe route name, actor/public account reference when known, IP, retry-after seconds, and outcome `blocked`; never record request body.
-- [ ] Deduplicate repeated 429 events by `(limiter, actor-or-IP, route)` for five minutes and increment a cache counter. Emit a new row only on first threshold and after cooldown, preventing attacker-driven DB growth.
-- [ ] Keep permanent IP blocking out. Implement optional expiring blocks only when `AUDIT_SECURITY_BLOCKS_ENABLED=true`; require expiry, reason, creator, and revoke fields. Never auto-block from one rate-limit event.
-- [ ] Verify `TrustProxies`/deployment proxy configuration before enabling IP actions. If source IP cannot be trusted, keep feature disabled.
-- [ ] Add tests for 429 logging/dedup, shared-NAT safety, missing user, no secrets, block expiry, unblock, self-auditing block actions, and disabled feature behavior.
-- [ ] Run `php artisan test tests/Feature/AuthAuditEventTest.php tests/Feature/ForgotPasswordTest.php tests/Feature/Audit/SecurityAuditTest.php`.
-- [ ] Commit with `feat: add security audit events`.
+- [x] Normalize existing `login` to `login_succeeded`; keep a legacy presentation alias so old rows display correctly.
+- [x] Record login success/failure, logout, password change/reset, profile change, recovery-email change/verification, admin account create/update/deactivate/role change/password reset, and authorization denial.
+- [x] In `backend/bootstrap/app.php`, record deduplicated `authentication_failed` and `authorization_denied` events for rejected protected requests using actor/public reference, safe route name, outcome, and status only. Do not log headers, cookies, bearer tokens, or request bodies.
+- [x] Use Laravel 13 `Limit::response()` callbacks for named limiters to record a `rate_limit_exceeded` event when a 429 is produced. Record limiter name, safe route name, actor/public account reference when known, IP, retry-after seconds, and outcome `blocked`; never record request body.
+- [x] Deduplicate repeated 429 events by `(limiter, actor-or-IP, route)` for five minutes and increment a cache counter. Emit a new row only on first threshold and after cooldown, preventing attacker-driven DB growth.
+- [x] Keep permanent IP blocking out. Implement optional expiring blocks only when `AUDIT_SECURITY_BLOCKS_ENABLED=true`; require expiry, reason, creator, and revoke fields. Never auto-block from one rate-limit event.
+- [x] Verify `TrustProxies`/deployment proxy configuration before enabling IP actions. If source IP cannot be trusted, keep feature disabled.
+- [x] Add tests for 429 logging/dedup, shared-NAT safety, missing user, no secrets, and disabled feature behavior. Optional block expiry/unblock/self-audit tests are not applicable because trusted-proxy verification failed and no block capability or routes were created.
+- [x] Run `php artisan test tests/Feature/AuthAuditEventTest.php tests/Feature/ForgotPasswordTest.php tests/Feature/Audit/SecurityAuditTest.php`.
+- [x] Commit with `feat: add security audit events`.
 
 ### Task 6: Clinical Audit Coverage and Privacy-Safe Root Trails
 

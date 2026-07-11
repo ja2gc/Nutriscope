@@ -11,6 +11,7 @@ use App\Services\Audit\AuditLogger;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
@@ -48,28 +49,41 @@ class PasswordResetController extends Controller
             'password' => ['required', 'confirmed', 'min:8'],
         ]);
 
-        $user = User::where('recovery_email', Str::lower($data['email']))
-            ->whereNotNull('recovery_email_verified_at')
-            ->first();
+        $this->auditLogger->assertAvailable();
+        $user = DB::transaction(function () use ($data) {
+            $user = User::query()->where('recovery_email', Str::lower($data['email']))
+                ->whereNotNull('recovery_email_verified_at')->lockForUpdate()->first();
+            if (! $user) {
+                return null;
+            }
+            DB::table(config('auth.passwords.users.table'))->where('email', $user->getEmailForPasswordReset())->lockForUpdate()->first();
+            if (! Password::broker()->tokenExists($user, $data['token'])) {
+                return null;
+            }
+            $user->forceFill([
+                'password' => Hash::make($data['password']),
+                'remember_token' => Str::random(60),
+            ])->save();
 
-        if (! $user || ! Password::broker()->tokenExists($user, $data['token'])) {
+            Password::broker()->deleteToken($user);
+            $user->tokens()->delete();
+
+            $this->auditLogger->record(
+                AuditAction::PasswordReset,
+                AuditCategory::Security,
+                AuditDomain::Accounts,
+                subject: $user,
+                details: ['subject_public_id' => $user->uuid],
+                actor: $user,
+                includeRequestMetadata: false,
+            );
+
+            return $user;
+        });
+
+        if ($user === null) {
             return response()->json(['message' => 'Invalid or expired password reset token.'], 422);
         }
-
-        $user->forceFill([
-            'password' => Hash::make($data['password']),
-            'remember_token' => Str::random(60),
-        ])->save();
-
-        Password::broker()->deleteToken($user);
-        $user->tokens()->delete();
-
-        $this->auditLogger->record(
-            AuditAction::PasswordReset,
-            AuditCategory::Security,
-            AuditDomain::Accounts,
-            actor: $user,
-        );
 
         event(new PasswordReset($user));
 

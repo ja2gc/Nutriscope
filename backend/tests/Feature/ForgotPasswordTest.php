@@ -73,11 +73,22 @@ class ForgotPasswordTest extends TestCase
             'password_confirmation' => 'new-password',
         ])->assertOk();
 
+        $this->postJson('/api/auth/reset-password', [
+            'email' => 'rnd@example.com',
+            'token' => $token,
+            'password' => 'replayed-password',
+            'password_confirmation' => 'replayed-password',
+        ])->assertUnprocessable();
+
         $this->assertTrue(Hash::check('new-password', $user->fresh()->password));
         $this->assertSame(0, $user->tokens()->count());
         $activity = Activity::where('event', 'password_reset')->where('causer_id', $user->id)->first();
         $this->assertNotNull($activity);
-        $this->assertSame($activity->properties['request']['ip'], $activity->properties['ip']);
-        $this->assertSame($activity->properties['request']['user_agent'], $activity->properties['user_agent']);
+        $this->assertSame($user->uuid, $activity->properties['details']['subject_public_id']);
+        $this->assertSame(1, Activity::where('event', 'password_reset')->count());
+        $this->assertArrayNotHasKey('request', $activity->properties->all());
+        $this->assertArrayNotHasKey('user_agent', $activity->properties->all());
+        $this->assertStringNotContainsString($token, $activity->toJson());
+        $this->assertStringNotContainsString('new-password', $activity->toJson());
     }
 }

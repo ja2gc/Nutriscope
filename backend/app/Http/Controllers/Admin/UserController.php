@@ -13,6 +13,7 @@ use App\Http\Resources\UserResource;
 use App\Models\User;
 use App\Services\Audit\AuditLogger;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
 class UserController extends Controller
@@ -29,8 +30,13 @@ class UserController extends Controller
         $data = $request->validated();
         $data['password'] = Hash::make($data['password']);
 
-        $user = User::create($data);
-        $this->auditUser(AuditAction::Created, $user);
+        $this->auditLogger->assertAvailable();
+        $user = DB::transaction(function () use ($data): User {
+            $user = User::create($data);
+            $this->auditUser(AuditAction::Created, $user, ['is_active', 'name', 'role']);
+
+            return $user;
+        });
 
         return response()->json(['data' => new UserResource($user)], 201);
     }
@@ -43,38 +49,66 @@ class UserController extends Controller
     public function update(UpdateUserRequest $request, User $user): JsonResponse
     {
         $data = $request->validated();
+        $passwordChanged = ! empty($data['password']);
         if (! empty($data['password'])) {
             $data['password'] = Hash::make($data['password']);
         } else {
             unset($data['password']);
         }
 
-        $user->update($data);
-        $this->auditUser(AuditAction::Updated, $user);
+        $this->auditLogger->assertAvailable();
+        DB::transaction(function () use ($data, $passwordChanged, $user): void {
+            $user->fill($data);
+            $changedFields = array_values(array_diff(array_keys($user->getDirty()), ['password', 'updated_at']));
+            if ($passwordChanged) {
+                $changedFields[] = 'password';
+            }
+            sort($changedFields);
+            $user->save();
+
+            if ($passwordChanged || in_array('role', $changedFields, true) || in_array('is_active', $changedFields, true)) {
+                $user->tokens()->delete();
+            }
+
+            if ($changedFields !== []) {
+                $action = $changedFields === ['password']
+                    ? AuditAction::PasswordReset
+                    : AuditAction::Updated;
+                $this->auditUser($action, $user, $changedFields);
+            }
+        });
 
         return response()->json(['data' => new UserResource($user)]);
     }
 
     public function destroy(User $user): JsonResponse
     {
-        $this->auditUser(AuditAction::Deleted, $user);
-        $user->delete();
+        $this->auditLogger->assertAvailable();
+        DB::transaction(function () use ($user): void {
+            $user->forceFill(['is_active' => false])->save();
+            $user->tokens()->delete();
+            $user->delete();
+            $this->auditUser(AuditAction::Deleted, $user, ['is_active']);
+        });
 
         return response()->json(null, 204);
     }
 
     public function resetPassword(ResetPasswordRequest $request, User $user): JsonResponse
     {
-        $user->update([
-            'password' => Hash::make($request->validated('password')),
-        ]);
-        $user->tokens()->delete();
-        $this->auditUser(AuditAction::PasswordReset, $user);
+        $this->auditLogger->assertAvailable();
+        DB::transaction(function () use ($request, $user): void {
+            $user->update([
+                'password' => Hash::make($request->validated('password')),
+            ]);
+            $user->tokens()->delete();
+            $this->auditUser(AuditAction::PasswordReset, $user);
+        });
 
         return response()->json(['message' => 'Password reset.']);
     }
 
-    private function auditUser(AuditAction $action, User $user): void
+    private function auditUser(AuditAction $action, User $user, array $changedFields = []): void
     {
         $this->auditLogger->record(
             $action,
@@ -82,11 +116,13 @@ class UserController extends Controller
             AuditDomain::Accounts,
             subject: $user,
             details: [
-                'user_id' => $user->id,
+                'public_id' => $user->uuid,
                 'role' => $user->role,
                 'is_active' => $user->is_active,
+                'changed_fields' => $changedFields,
             ],
             actor: auth()->user(),
+            includeRequestMetadata: false,
         );
     }
 }

@@ -8,6 +8,7 @@ use App\Models\ReportBranding;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use Spatie\Activitylog\Models\Activity;
 use Tests\TestCase;
 
 class AdminSystemTest extends TestCase
@@ -81,6 +82,7 @@ class AdminSystemTest extends TestCase
             ->assertJsonPath('data.role', 'RND');
 
         $this->assertDatabaseHas('users', ['email' => 'newrnd@nutriscope.com']);
+        $this->assertSame(1, Activity::where('event', 'created')->where('subject_type', User::class)->count());
     }
 
     public function test_admin_can_update_user(): void
@@ -94,6 +96,73 @@ class AdminSystemTest extends TestCase
 
         $response->assertOk()
             ->assertJsonPath('data.name', 'Updated Name');
+        $activity = Activity::where('event', 'updated')->where('subject_id', $user->id)->firstOrFail();
+        $this->assertSame(['name'], $activity->properties['details']['changed_fields']);
+    }
+
+    public function test_admin_role_and_status_change_is_one_safe_account_event(): void
+    {
+        $user = User::factory()->create(['role' => 'RND', 'is_active' => true]);
+        $user->createToken('existing');
+
+        $this->actingAs($this->admin, 'sanctum')
+            ->patchJson("/api/admin/users/{$user->uuid}", [
+                'role' => 'FSS',
+                'is_active' => false,
+            ])->assertOk();
+
+        $activity = Activity::where('event', 'updated')->where('subject_id', $user->id)->sole();
+        $this->assertSame(['is_active', 'role'], $activity->properties['details']['changed_fields']);
+        $this->assertStringNotContainsString($user->email, $activity->toJson());
+        $this->assertSame(0, $user->tokens()->count());
+    }
+
+    public function test_admin_password_update_is_one_password_reset_event_without_credentials(): void
+    {
+        $user = User::factory()->create(['password' => Hash::make('old-password')]);
+        $secret = 'PATCH-PASSWORD-SENTINEL';
+
+        $this->actingAs($this->admin, 'sanctum')
+            ->patchJson("/api/admin/users/{$user->uuid}", [
+                'password' => $secret,
+                'password_confirmation' => $secret,
+            ])->assertOk();
+
+        $activity = Activity::where('subject_id', $user->id)->sole();
+        $this->assertSame('password_reset', $activity->event);
+        $this->assertStringNotContainsString($secret, $activity->toJson());
+    }
+
+    public function test_admin_password_update_rolls_back_when_required_audit_is_unavailable(): void
+    {
+        $user = User::factory()->create(['password' => Hash::make('old-password')]);
+        config(['activitylog.enabled' => false]);
+
+        $this->actingAs($this->admin, 'sanctum')
+            ->patchJson("/api/admin/users/{$user->uuid}", [
+                'password' => 'NewPass2026!',
+                'password_confirmation' => 'NewPass2026!',
+            ])->assertInternalServerError();
+
+        $this->assertTrue(Hash::check('old-password', $user->fresh()->password));
+    }
+
+    public function test_admin_mixed_password_and_profile_update_has_one_safe_complete_event(): void
+    {
+        $user = User::factory()->create(['name' => 'Before', 'password' => Hash::make('old-password')]);
+        $secret = 'MIXED-PASSWORD-SENTINEL';
+
+        $this->actingAs($this->admin, 'sanctum')
+            ->patchJson("/api/admin/users/{$user->uuid}", [
+                'name' => 'After',
+                'password' => $secret,
+                'password_confirmation' => $secret,
+            ])->assertOk();
+
+        $activity = Activity::where('subject_id', $user->id)->sole();
+        $this->assertSame('updated', $activity->event);
+        $this->assertSame(['name', 'password'], $activity->properties['details']['changed_fields']);
+        $this->assertStringNotContainsString($secret, $activity->toJson());
     }
 
     public function test_admin_can_deactivate_user(): void
@@ -105,6 +174,8 @@ class AdminSystemTest extends TestCase
 
         $response->assertNoContent();
         $this->assertSoftDeleted('users', ['id' => $user->id]);
+        $this->assertFalse(User::withTrashed()->findOrFail($user->id)->is_active);
+        $this->assertSame(1, Activity::where('event', 'deleted')->where('subject_id', $user->id)->count());
     }
 
     public function test_user_creation_requires_unique_email(): void
@@ -147,6 +218,7 @@ class AdminSystemTest extends TestCase
             ->assertJsonPath('message', 'Password reset.');
 
         $this->assertTrue(Hash::check('NewPass2026!', $user->fresh()->password));
+        $this->assertSame(1, Activity::where('event', 'password_reset')->where('subject_id', $user->id)->count());
     }
 
     public function test_admin_password_reset_requires_valid_confirmation(): void

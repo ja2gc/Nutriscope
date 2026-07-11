@@ -7,6 +7,7 @@ use App\Notifications\Auth\RecoveryEmailVerification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
+use Spatie\Activitylog\Models\Activity;
 use Tests\TestCase;
 
 class RecoveryEmailTest extends TestCase
@@ -47,6 +48,7 @@ class RecoveryEmailTest extends TestCase
             return $notifiable->routes['mail'] === 'jaredabriol2@gmail.com'
                 && $notification->code !== '';
         });
+        $this->assertSame(1, Activity::where('event', 'recovery_email_changed')->count());
     }
 
     public function test_user_can_verify_recovery_email_code(): void
@@ -79,11 +81,18 @@ class RecoveryEmailTest extends TestCase
             ->assertJsonPath('message', 'Recovery email verified.')
             ->assertJsonPath('user.recovery_email_verified', true);
 
+        $this->actingAs($user->fresh(), 'sanctum')
+            ->postJson('/api/auth/recovery-email/verify', ['code' => $code])
+            ->assertUnprocessable();
+
         $user->refresh();
 
         $this->assertNotNull($user->recovery_email_verified_at);
         $this->assertNull($user->recovery_email_verification_code);
         $this->assertNull($user->recovery_email_verification_expires_at);
+        $this->assertSame(1, Activity::where('event', 'recovery_email_verified')->count());
+        $this->assertSame($user->uuid, Activity::where('event', 'recovery_email_verified')->sole()->properties['details']['subject_public_id']);
+        $this->assertStringNotContainsString((string) $code, Activity::query()->get()->toJson());
     }
 
     public function test_recovery_email_cannot_match_another_users_login_email(): void

@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use Spatie\Activitylog\Models\Activity;
 use Tests\TestCase;
 
 /**
@@ -29,6 +30,7 @@ class ProfileTest extends TestCase
         $this->assertDatabaseHas('users', [
             'id' => $user->id, 'name' => 'New Name', 'email' => 'new@example.com',
         ]);
+        $this->assertSame(1, Activity::where('event', 'profile_changed')->count());
     }
 
     public function test_user_can_update_extended_profile_fields_but_not_role(): void

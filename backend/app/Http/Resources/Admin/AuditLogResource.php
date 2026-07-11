@@ -15,18 +15,21 @@ class AuditLogResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
+        $event = $this->event === 'login' ? AuditAction::LoginSucceeded->value : $this->event;
+
         return [
             'id' => $this->id,
             'log_name' => $this->log_name,
             'description' => $this->description,
-            'event' => $this->event,
-            'action' => $this->event ?? AuditAction::Updated->value,
+            'event' => $event,
+            'action' => $event ?? AuditAction::Updated->value,
             'category' => $this->valueOrDefault($this->category, AuditCategory::Operations),
             'domain' => $this->valueOrDefault($this->domain, AuditDomain::System),
             'severity' => $this->valueOrDefault($this->severity, AuditSeverity::Info),
             'outcome' => $this->valueOrDefault($this->outcome, AuditOutcome::Success),
             'subject_type' => $this->subject_type,
             'subject_id' => $this->subject_id,
+            'subject_public_id' => $this->properties['details']['subject_public_id'] ?? $this->properties['details']['public_id'] ?? null,
             'causer' => $this->whenLoaded('causer', fn () => $this->causer ? [
                 'id' => $this->causer->uuid,
                 'name' => $this->causer->name,

@@ -458,7 +458,18 @@ class AuditPrivacyTest extends TestCase
         DB::flushQueryLog();
         DB::enableQueryLog();
 
-        app(AuditLogger::class)->recordLegacyLogin(['platform' => 'web'], $actor);
+        AuditActivity::create([
+            'log_name' => config('audit.log_name'),
+            'description' => 'Login succeeded',
+            'event' => 'login',
+            'category' => AuditCategory::Security,
+            'domain' => AuditDomain::Accounts,
+            'severity' => AuditSeverity::Info,
+            'outcome' => AuditOutcome::Success,
+            'causer_type' => $actor->getMorphClass(),
+            'causer_id' => $actor->getKey(),
+            'properties' => [],
+        ]);
 
         $queries = collect(DB::getQueryLog());
         DB::disableQueryLog();

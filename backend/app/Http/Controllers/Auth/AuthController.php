@@ -18,7 +18,10 @@ use App\Services\Audit\AuditLogger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class AuthController extends Controller
 {
@@ -32,7 +35,7 @@ class AuthController extends Controller
         $credentials = $request->only('email', 'password');
 
         if (! Auth::attempt($credentials)) {
-            $this->auditAuth($request, AuditAction::LoginFailed);
+            $this->auditLogin($request, AuditAction::LoginFailed);
 
             return response()->json(['message' => 'Invalid credentials.'], 401);
         }
@@ -40,6 +43,9 @@ class AuthController extends Controller
         $user = $request->user() ?? User::where('email', $request->email)->first();
 
         if (! $user->is_active) {
+            $this->auditLogin($request, AuditAction::LoginFailed, $user);
+            Auth::logout();
+
             return response()->json(['message' => 'Account is deactivated.'], 403);
         }
 
@@ -48,10 +54,16 @@ class AuthController extends Controller
         $isApp = $request->validated('platform') === 'app';
 
         if ($isApp && ! $user->isFss()) {
+            $this->auditLogin($request, AuditAction::LoginFailed, $user, ['platform' => 'app']);
+            Auth::logout();
+
             return response()->json(['message' => 'This app is for Food Service staff only.'], 403);
         }
 
         if (! $isApp && $user->isFss()) {
+            $this->auditLogin($request, AuditAction::LoginFailed, $user, ['platform' => 'web']);
+            Auth::logout();
+
             return response()->json(['message' => 'Food Service staff must sign in through the mobile app.'], 403);
         }
 
@@ -60,9 +72,8 @@ class AuthController extends Controller
         $user->tokens()->where('name', $tokenName)->delete();
         $token = $user->createToken($tokenName, [$user->role])->plainTextToken;
 
-        $this->auditAuth($request, AuditAction::LoginSucceeded, $user, [
+        $this->auditLogin($request, AuditAction::LoginSucceeded, $user, [
             'platform' => $request->validated('platform') ?? 'web',
-            'device_name' => $tokenName,
         ]);
 
         return response()->json([
@@ -77,9 +88,11 @@ class AuthController extends Controller
     public function logout(Request $request): JsonResponse
     {
         $user = $request->user();
-        $this->auditAuth($request, AuditAction::Logout, $user);
-
-        $request->user()->currentAccessToken()->delete();
+        $this->auditLogger->assertAvailable();
+        DB::transaction(function () use ($request, $user): void {
+            $request->user()->currentAccessToken()->delete();
+            $this->auditAuth($request, AuditAction::Logout, $user);
+        });
 
         return response()->json(['message' => 'Logged out.']);
     }
@@ -99,7 +112,20 @@ class AuthController extends Controller
     public function updateProfile(UpdateProfileRequest $request): JsonResponse
     {
         $user = $request->user();
-        $user->update($request->validated());
+        $data = $request->validated();
+        $this->auditLogger->assertAvailable();
+        DB::transaction(function () use ($user, $data): void {
+            $user->update($data);
+            $this->auditLogger->record(
+                AuditAction::ProfileChanged,
+                AuditCategory::Security,
+                AuditDomain::Accounts,
+                subject: $user,
+                details: ['changed_fields' => array_keys($data)],
+                actor: $user,
+                includeRequestMetadata: false,
+            );
+        });
 
         return response()->json(new UserResource($user->fresh()));
     }
@@ -111,12 +137,14 @@ class AuthController extends Controller
     {
         $user = $request->user();
 
-        $user->update([
-            'password' => Hash::make($request->validated()['password']),
-        ]);
-        $user->tokens()->delete();
-
-        $this->auditAuth($request, AuditAction::PasswordChanged, $user);
+        $this->auditLogger->assertAvailable();
+        DB::transaction(function () use ($request, $user): void {
+            $user->update([
+                'password' => Hash::make($request->validated()['password']),
+            ]);
+            $user->tokens()->delete();
+            $this->auditAuth($request, AuditAction::PasswordChanged, $user);
+        });
 
         return response()->json(['message' => 'Password updated.']);
     }
@@ -127,13 +155,7 @@ class AuthController extends Controller
         ?User $user = null,
         array $properties = [],
     ): AuditActivity {
-        $details = array_merge([
-            'email' => $request->string('email')->lower()->toString() ?: null,
-        ], $properties);
-
-        if ($action === AuditAction::LoginSucceeded && $user !== null) {
-            return $this->auditLogger->recordLegacyLogin($details, $user);
-        }
+        $details = $properties;
 
         return $this->auditLogger->record(
             $action,
@@ -143,6 +165,26 @@ class AuthController extends Controller
             severity: $action === AuditAction::LoginFailed ? AuditSeverity::Warning : AuditSeverity::Info,
             details: $details,
             actor: $user,
+            includeRequestMetadata: false,
         );
+    }
+
+    private function auditLogin(
+        Request $request,
+        AuditAction $action,
+        ?User $user = null,
+        array $properties = [],
+    ): void {
+        try {
+            $this->auditAuth($request, $action, $user, $properties);
+        } catch (Throwable $exception) {
+            try {
+                Log::warning('Login audit telemetry failed.', [
+                    'exception_class' => $exception::class,
+                    'audit_action' => $action->value,
+                ]);
+            } catch (Throwable) {
+            }
+        }
     }
 }

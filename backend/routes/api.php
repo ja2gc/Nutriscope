@@ -74,7 +74,7 @@ Route::prefix('auth')->group(function () {
     Route::post('reset-password', [PasswordResetController::class, 'reset'])
         ->middleware('throttle:password-reset');
 
-    Route::middleware('auth:sanctum')->group(function () {
+    Route::middleware(['auth:sanctum', 'active'])->group(function () {
         Route::post('logout', [AuthController::class, 'logout']);
         Route::get('me', [AuthController::class, 'me']);
         Route::patch('profile', [AuthController::class, 'updateProfile']);
@@ -88,7 +88,7 @@ Route::prefix('auth')->group(function () {
 
 // Shared notification routes — accessible to any authenticated role (RND, FSS, Admin).
 // The controller already scopes strictly by Auth::id(), so each user sees only their own rows.
-Route::middleware('auth:sanctum')->group(function () {
+Route::middleware(['auth:sanctum', 'active'])->group(function () {
     Route::get('notifications', [NotificationController::class, 'index']);
     Route::get('notifications/unread-count', [NotificationController::class, 'unreadCount']);
     Route::patch('notifications/read-all', [NotificationController::class, 'readAll']);
@@ -100,7 +100,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('role:RND,Admin')->post('sop', [SopController::class, 'store']);
 });
 
-Route::middleware(['auth:sanctum', 'role:RND'])->prefix('rnd')->group(function () use ($reportRoutes) {
+Route::middleware(['auth:sanctum', 'active', 'role:RND'])->prefix('rnd')->group(function () use ($reportRoutes) {
     Route::apiResource('patients', PatientController::class);
     Route::get('patients/{patient}/activity', [ActivityController::class, 'patient']);
     Route::get('patients/{patient}/ncp-records', [PatientController::class, 'ncpRecords']);
@@ -195,7 +195,7 @@ Route::middleware(['auth:sanctum', 'role:RND'])->prefix('rnd')->group(function (
     });
 });
 
-Route::middleware(['auth:sanctum', 'role:FSS,RND'])->prefix('fss')->group(function () use ($reportRoutes) {
+Route::middleware(['auth:sanctum', 'active', 'role:FSS,RND'])->prefix('fss')->group(function () use ($reportRoutes) {
     // Dashboard
     Route::get('dashboard/summary', [FssDashboardController::class, 'summary']);
 
@@ -302,7 +302,7 @@ Route::middleware(['auth:sanctum', 'role:FSS,RND'])->prefix('fss')->group(functi
     $reportRoutes();
 });
 
-Route::middleware(['auth:sanctum', 'role:Admin'])->prefix('admin')->group(function () {
+Route::middleware(['auth:sanctum', 'active', 'role:Admin'])->prefix('admin')->group(function () {
     Route::get('announcements', [AdminAnnouncementController::class, 'index']);
     Route::middleware('throttle:10,1')->group(function () {
         Route::post('announcements', [AdminAnnouncementController::class, 'store']);
