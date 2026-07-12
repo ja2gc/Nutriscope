@@ -169,6 +169,14 @@ class ReportAuditTest extends TestCase
         $this->assertStringNotContainsString('JOB-PHI-SENTINEL', json_encode($event->properties, JSON_THROW_ON_ERROR));
     }
 
+    public function test_deprecated_report_commands_are_removed(): void
+    {
+        $rnd = User::factory()->rnd()->create();
+
+        $this->actingAs($rnd, 'sanctum')->postJson('/api/rnd/reports', [])->assertMethodNotAllowed();
+        $this->postJson('/api/rnd/reports/generate-all', [])->assertMethodNotAllowed();
+    }
+
     public function test_archive_creates_no_record_when_required_audit_is_unavailable(): void
     {
         $rnd = User::factory()->rnd()->create();

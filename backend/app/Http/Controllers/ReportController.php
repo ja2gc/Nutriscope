@@ -6,9 +6,7 @@ use App\Enums\AuditAction;
 use App\Enums\AuditCategory;
 use App\Enums\AuditDomain;
 use App\Enums\AuditOutcome;
-use App\Http\Requests\StoreReportRequest;
 use App\Http\Resources\ReportResource;
-use App\Jobs\GenerateReport;
 use App\Models\MealPlan;
 use App\Models\NcpRecord;
 use App\Models\Report;
@@ -37,12 +35,6 @@ class ReportController extends Controller
         private readonly ReportArchiveStorage $archiveStorage,
         private readonly ReportAuditReference $auditReference,
     ) {}
-
-    /** The Food-Service report set produced by Generate-All. */
-    private const FOOD_SERVICE_SET = [
-        'program_project_activity',
-        'procurement_pack',
-    ];
 
     /** Reports that expose patient/clinical data — RND-only, never food-service. */
     private const CLINICAL_TYPES = [
@@ -88,55 +80,6 @@ class ReportController extends Controller
         }
 
         return response()->json(['data' => ReportResource::collection($query->get())]);
-    }
-
-    /**
-     * @deprecated Spec 4 — reports are now browsed/rendered on demand and only the
-     * deliberate {@see archive()} action persists. Kept working for one release.
-     */
-    public function store(StoreReportRequest $request, ReportService $reports): JsonResponse
-    {
-        $template = ReportTemplate::where('type', $request->template_code)->firstOrFail();
-        $this->guardClinical($template->type);
-        $this->guardAdmin($template->type);
-        $this->guardFss($template->type);
-        $parameters = $request->parameters ?? [];
-        $this->authorizeClinicalReportContext($template->type, $parameters);
-        $report = $this->createReport($template->type, $template->name, $parameters);
-
-        $this->run($report, $reports);
-
-        return response()->json(['data' => new ReportResource($report->fresh())], 201);
-    }
-
-    /**
-     * Generate-All: produce the full Food-Service set for a chosen period in one go.
-     *
-     * @deprecated Spec 4 — superseded by browse + on-demand render. Kept for one release.
-     */
-    public function generateAll(Request $request, ReportService $reports): JsonResponse
-    {
-        $params = $request->validate([
-            'parameters' => ['nullable', 'array'],
-            'parameters.start' => ['nullable', 'date'],
-            'parameters.end' => ['nullable', 'date'],
-            'parameters.menu_cycle_id' => ['nullable', 'integer'],
-            'parameters.budget_id' => ['nullable', 'integer'],
-            'parameters.shopping_list_id' => ['nullable', 'integer'],
-        ])['parameters'] ?? [];
-
-        $created = [];
-        foreach (self::FOOD_SERVICE_SET as $type) {
-            if (! $reports->supports($type)) {
-                continue;
-            }
-            $template = ReportTemplate::where('type', $type)->first();
-            $report = $this->createReport($type, $template?->name ?? $type, $params);
-            $this->run($report, $reports);
-            $created[] = $report->fresh();
-        }
-
-        return response()->json(['data' => ReportResource::collection(collect($created))], 201);
     }
 
     /**
@@ -493,19 +436,6 @@ class ReportController extends Controller
             'parameters' => $params,
             'status' => $status,
         ]);
-    }
-
-    /**
-     * Generate synchronously so the PDF exists the moment the request returns
-     * (the queue is redis; a report is cheap enough to render inline).
-     */
-    private function run(Report $report, ReportService $reports): void
-    {
-        if ($reports->supports($report->type)) {
-            GenerateReport::dispatchSync($report);
-        } else {
-            GenerateReport::dispatch($report);
-        }
     }
 
     private function authorizeOwner(Report $report): void

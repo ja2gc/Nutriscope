@@ -429,14 +429,14 @@ public function record(
 - Test: `backend/tests/Feature/Audit/ReportAuditTest.php`
 - Test: `frontend/app/admin/reports/page.test.ts`
 
-- [ ] Treat archived reports as immutable records. User actions are `archived`, `viewed`, `downloaded`, `exported`, and `deleted`; background generation status/file updates are one system lifecycle event, not user modifications.
-- [ ] Record report type, period/instance reference, outcome, and report public ID. Never store filters/snapshot fields that contain patient data in the audit event.
-- [ ] Audit branding and report-template changes using explicit safe allow-lists. Signatory changes show field-level labels and safe names only when policy permits; images/data URLs never enter activity rows.
-- [ ] Eager-load report creator in index/show and return `created_by: { id, name }`, `created_at`, `generated_at`, and `updated_at`. Display creator and archive date in report cards/detail.
-- [ ] Add contextual report history or structured metadata block from the same event DTO; do not create a separate report-history table.
-- [ ] Add authorized `GET /api/rnd/reports/{report}/activity` and `GET /api/admin/reports/{report}/activity` routes plus matching Next proxies. Place static/specific activity routes so resource binding cannot shadow them.
-- [ ] Remove deprecated `ReportController::store()` and `generateAll()`, their `POST reports` / `POST reports/generate-all` routes, `backend/app/Http/Requests/StoreReportRequest.php`, and `frontend/app/api/rnd/reports/generate-all/route.ts` only after repository search proves no caller remains. Their removal is a separate commit after route tests.
-- [ ] Run report backend/frontend tests and commit with `feat: audit report lifecycle`.
+- [x] Treat archived reports as immutable records. User actions are `archived`, `viewed`, `downloaded`, `exported`, and `deleted`; background generation status/file updates are one system lifecycle event, not user modifications.
+- [x] Record report type, period/instance reference, outcome, and report public ID. Never store filters/snapshot fields that contain patient data in the audit event.
+- [x] Audit branding and report-template changes using explicit safe allow-lists. Signatory changes show field-level labels and safe names only when policy permits; images/data URLs never enter activity rows.
+- [x] Eager-load report creator in index/show and return `created_by: { id, name }`, `created_at`, `generated_at`, and `updated_at`. Display creator and archive date in report cards/detail.
+- [x] Add contextual report history or structured metadata block from the same event DTO; do not create a separate report-history table.
+- [x] Add authorized `GET /api/rnd/reports/{report}/activity` and `GET /api/admin/reports/{report}/activity` routes plus matching Next proxies. Place static/specific activity routes so resource binding cannot shadow them.
+- [x] Remove deprecated `ReportController::store()` and `generateAll()`, their `POST reports` / `POST reports/generate-all` routes, `backend/app/Http/Requests/StoreReportRequest.php`, and `frontend/app/api/rnd/reports/generate-all/route.ts` only after repository search proves no caller remains. Their removal is a separate commit after route tests.
+- [x] Run report backend/frontend tests and commit with `feat: audit report lifecycle`.
 
 ### Task 9: Retire Stale Inventory Audit and Stock Surface Safely
 

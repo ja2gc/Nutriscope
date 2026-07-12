@@ -31,4 +31,11 @@ describe("admin report catalog", () => {
     expect(source).not.toContain("JSON.stringify");
     expect(source).not.toContain("<pre");
   });
+
+  test("removed report create proxy exposes GET only", () => {
+    const source = readFileSync(join(root, "app/api/rnd/reports/route.ts"), "utf8");
+    expect(source).toContain("export async function GET");
+    expect(source).not.toContain("export async function POST");
+    expect(source).not.toContain("NextRequest");
+  });
 });

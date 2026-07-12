@@ -52,7 +52,6 @@ use Illuminate\Support\Facades\Route;
  * they win the match; {type} is constrained to lowercase so it can't shadow numeric ids.
  */
 $reportRoutes = function () {
-    Route::post('reports/generate-all', [ReportController::class, 'generateAll']); // deprecated (Spec 4)
     Route::get('reports/{type}/instances', [ReportController::class, 'instances'])->where('type', '[a-z_]+');
     Route::middleware('throttle:reports')->group(function () {
         Route::get('reports/{type}/render', [ReportController::class, 'render'])->where('type', '[a-z_]+');
@@ -61,7 +60,7 @@ $reportRoutes = function () {
     });
     Route::get('reports/{report}/download', [ReportController::class, 'download']);
     Route::get('reports/{report}/view', [ReportController::class, 'view']);
-    Route::apiResource('reports', ReportController::class)->only(['index', 'store', 'show', 'destroy']);
+    Route::apiResource('reports', ReportController::class)->only(['index', 'show', 'destroy']);
     Route::get('report-branding', [ReportBrandingController::class, 'show']);
     Route::post('report-branding', [ReportBrandingController::class, 'update']);
     Route::get('report-templates', [ReportTemplateController::class, 'index']);

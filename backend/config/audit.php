@@ -466,20 +466,6 @@ return [
             'implementation_state' => 'implemented',
             'reason' => 'This report-configuration command needs an explicit safe allow-listed change event; images and arbitrary payloads stay excluded.',
         ],
-        'POST api/fss/reports' => [
-            'classification' => 'explicit_event',
-            'source' => 'App\\Http\\Controllers\\ReportController@store',
-            'owner_task' => 8,
-            'implementation_state' => 'planned',
-            'reason' => 'This report lifecycle command needs an explicit outcome event without report snapshots, filters, or file contents.',
-        ],
-        'POST api/fss/reports/generate-all' => [
-            'classification' => 'explicit_event',
-            'source' => 'App\\Http\\Controllers\\ReportController@generateAll',
-            'owner_task' => 8,
-            'implementation_state' => 'planned',
-            'reason' => 'This report lifecycle command needs an explicit outcome event without report snapshots, filters, or file contents.',
-        ],
         'DELETE api/fss/reports/{report}' => [
             'classification' => 'explicit_event',
             'source' => 'App\\Http\\Controllers\\ReportController@destroy',
@@ -885,20 +871,6 @@ return [
             'owner_task' => 8,
             'implementation_state' => 'implemented',
             'reason' => 'This report-configuration command needs an explicit safe allow-listed change event; images and arbitrary payloads stay excluded.',
-        ],
-        'POST api/rnd/reports' => [
-            'classification' => 'explicit_event',
-            'source' => 'App\\Http\\Controllers\\ReportController@store',
-            'owner_task' => 8,
-            'implementation_state' => 'planned',
-            'reason' => 'This report lifecycle command needs an explicit outcome event without report snapshots, filters, or file contents.',
-        ],
-        'POST api/rnd/reports/generate-all' => [
-            'classification' => 'explicit_event',
-            'source' => 'App\\Http\\Controllers\\ReportController@generateAll',
-            'owner_task' => 8,
-            'implementation_state' => 'planned',
-            'reason' => 'This report lifecycle command needs an explicit outcome event without report snapshots, filters, or file contents.',
         ],
         'DELETE api/rnd/reports/{report}' => [
             'classification' => 'explicit_event',
