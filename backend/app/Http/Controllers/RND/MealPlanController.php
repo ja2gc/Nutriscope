@@ -2,18 +2,30 @@
 
 namespace App\Http\Controllers\RND;
 
+use App\Enums\AuditAction;
+use App\Enums\AuditCategory;
+use App\Enums\AuditDomain;
 use App\Http\Controllers\Controller;
-use App\Http\Requests\RND\StoreMealPlanRequest;
-use App\Http\Requests\RND\UpdateMealPlanRequest;
 use App\Http\Requests\RND\GenerateMealPlanRequest;
 use App\Http\Requests\RND\RecommendRequest;
+use App\Http\Requests\RND\StoreMealPlanRequest;
+use App\Http\Requests\RND\UpdateMealPlanRequest;
 use App\Http\Resources\MealPlanResource;
+use App\Models\FoodItem;
 use App\Models\MealPlan;
+use App\Models\MealPlanDay;
+use App\Models\MealPlanItem;
+use App\Models\MealPlanTemplate;
+use App\Models\MealPlanTemplateDay;
 use App\Models\NcpRecord;
+use App\Policies\AuditPolicy;
+use App\Services\Audit\AuditLogger;
 use App\Services\ClinicalCompletenessService;
 use App\Services\MealPlanService;
 use App\Services\RecommendService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 
 class MealPlanController extends Controller
 {
@@ -21,6 +33,8 @@ class MealPlanController extends Controller
         private MealPlanService $mealPlanService,
         private RecommendService $recommendService,
         private ClinicalCompletenessService $completeness,
+        private AuditPolicy $auditPolicy,
+        private AuditLogger $auditLogger,
     ) {}
 
     /**
@@ -28,6 +42,7 @@ class MealPlanController extends Controller
      */
     public function index(NcpRecord $ncpRecord): JsonResponse
     {
+        $this->authorizeNcp($ncpRecord);
         $intervention = $ncpRecord->intervention()->firstOrFail();
         $mealPlans = MealPlan::where('intervention_id', $intervention->id)->with('days')->get();
 
@@ -39,29 +54,31 @@ class MealPlanController extends Controller
      */
     public function store(StoreMealPlanRequest $request, NcpRecord $ncpRecord): JsonResponse
     {
+        $this->authorizeNcp($ncpRecord);
         $intervention = $ncpRecord->intervention()->firstOrFail();
 
-        $mealPlan = MealPlan::create([
-            'intervention_id' => $intervention->id,
-            'patient_id'      => $ncpRecord->patient_id,
-            'week_start_date' => $request->week_start_date,
-            'generation_type' => $request->generation_type ?? 'manual',
-            'status'          => $request->status ?? 'draft',
-        ]);
+        return $this->audited(function () use ($intervention, $ncpRecord, $request): JsonResponse {
+            $mealPlan = MealPlan::create([
+                'intervention_id' => $intervention->id,
+                'patient_id' => $ncpRecord->patient_id,
+                'week_start_date' => $request->week_start_date,
+                'generation_type' => $request->generation_type ?? 'manual',
+                'status' => $request->status ?? 'draft',
+            ]);
 
-        // Pre-create all 35 empty day slots so the frontend can render the grid immediately
-        $dayRows = [];
-        foreach (['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'] as $day) {
-            foreach (['breakfast','am_snack','lunch','pm_snack','dinner'] as $mealType) {
-                $dayRows[] = [
-                    'uuid' => (string) \Illuminate\Support\Str::uuid(),
-                    'meal_plan_id' => $mealPlan->id, 'day_of_week' => $day, 'meal_type' => $mealType, 'flagged' => false,
-                ];
+            $dayRows = [];
+            foreach (['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'] as $day) {
+                foreach (['breakfast', 'am_snack', 'lunch', 'pm_snack', 'dinner'] as $mealType) {
+                    $dayRows[] = [
+                        'uuid' => (string) Str::uuid(),
+                        'meal_plan_id' => $mealPlan->id, 'day_of_week' => $day, 'meal_type' => $mealType, 'flagged' => false,
+                    ];
+                }
             }
-        }
-        \App\Models\MealPlanDay::insert($dayRows);
+            MealPlanDay::insert($dayRows);
 
-        return response()->json(['data' => new MealPlanResource($mealPlan->load('days'))], 201);
+            return response()->json(['data' => new MealPlanResource($mealPlan->load('days'))], 201);
+        });
     }
 
     /**
@@ -70,12 +87,14 @@ class MealPlanController extends Controller
     public function show(NcpRecord $ncpRecord, MealPlan $mealPlan): JsonResponse
     {
         $this->assertPlanScope($ncpRecord, $mealPlan);
+
         return response()->json(['data' => new MealPlanResource($mealPlan->load('days'))]);
     }
 
     /** MP-04: the meal plan must belong to this NCP's intervention. */
     private function assertPlanScope(NcpRecord $ncpRecord, MealPlan $mealPlan): void
     {
+        $this->authorizeNcp($ncpRecord);
         if ($mealPlan->intervention_id !== $ncpRecord->intervention?->id) {
             abort(404);
         }
@@ -87,7 +106,7 @@ class MealPlanController extends Controller
     public function update(UpdateMealPlanRequest $request, NcpRecord $ncpRecord, MealPlan $mealPlan): JsonResponse
     {
         $this->assertPlanScope($ncpRecord, $mealPlan);
-        $mealPlan->update($request->validated());
+        $this->audited(fn () => $mealPlan->update($request->validated()));
 
         return response()->json(['data' => new MealPlanResource($mealPlan->fresh()->load('days'))]);
     }
@@ -97,6 +116,7 @@ class MealPlanController extends Controller
      */
     public function generate(GenerateMealPlanRequest $request, NcpRecord $ncpRecord): JsonResponse
     {
+        abort_unless($this->auditPolicy->viewNcpTrail($request->user(), $ncpRecord), 403);
         // MP-01 / IV-02: a meal plan must be built against a real prescription.
         // Generating without energy/macro targets falls back to generic defaults
         // and produces a clinically meaningless plan.
@@ -104,17 +124,32 @@ class MealPlanController extends Controller
         if (! empty($missing)) {
             return response()->json([
                 'message' => 'Complete the nutrition prescription before generating a meal plan. Missing: '
-                    . implode(', ', $missing) . '.',
-                'errors'  => ['intervention' => $missing],
+                    .implode(', ', $missing).'.',
+                'errors' => ['intervention' => $missing],
             ], 422);
         }
 
-        $result = $this->mealPlanService->generate(
-            $ncpRecord,
-            $request->week_start_date,
-            $request->conditions ?? [],
-            $request->allergens ?? [],
-        );
+        $result = $this->audited(function () use ($request, $ncpRecord) {
+            $result = $this->mealPlanService->generate(
+                $ncpRecord,
+                $request->week_start_date,
+                $request->conditions ?? [],
+                $request->allergens ?? [],
+            );
+
+            if ($result instanceof MealPlan) {
+                $this->auditLogger->record(
+                    AuditAction::Generated,
+                    AuditCategory::Clinical,
+                    AuditDomain::Ncp,
+                    subject: $result,
+                    context: $ncpRecord,
+                    details: ['status' => 201],
+                );
+            }
+
+            return $result;
+        });
 
         if (is_array($result)) {
             return response()->json($result, 422);
@@ -129,41 +164,55 @@ class MealPlanController extends Controller
     public function destroy(NcpRecord $ncpRecord, MealPlan $mealPlan): JsonResponse
     {
         $this->assertPlanScope($ncpRecord, $mealPlan);
-        $mealPlan->delete();
+        $this->audited(fn () => $mealPlan->delete());
+
         return response()->json(null, 204);
     }
 
     /**
      * POST /api/rnd/ncp-records/{ncpRecord}/meal-plans/{mealPlan}/save-template
      */
-    public function saveTemplate(\Illuminate\Http\Request $request, NcpRecord $ncpRecord, MealPlan $mealPlan): JsonResponse
+    public function saveTemplate(Request $request, NcpRecord $ncpRecord, MealPlan $mealPlan): JsonResponse
     {
+        abort_unless($this->auditPolicy->viewNcpTrail($request->user(), $ncpRecord), 403);
         $this->assertPlanScope($ncpRecord, $mealPlan);
         $validated = $request->validate([
-            'name'        => 'required|string|max:255',
+            'name' => 'required|string|max:255',
             'description' => 'nullable|string',
-            'goal_type'   => 'nullable|string|max:255',
+            'goal_type' => 'nullable|string|max:255',
         ]);
 
-        $template = \App\Models\MealPlanTemplate::create([
-            'rnd_user_id' => auth()->id(),
-            'name'        => $validated['name'],
-            'description' => $validated['description'] ?? null,
-            'goal_type'   => $validated['goal_type'] ?? $ncpRecord->intervention?->goal_type,
-        ]);
-
-        foreach ($mealPlan->days as $day) {
-            $firstItem = $day->items()->first();
-            \App\Models\MealPlanTemplateDay::create([
-                'template_id'  => $template->id,
-                'day_of_week'  => $day->day_of_week,
-                'meal_type'    => $day->meal_type,
-                'food_item_id' => $firstItem?->food_item_id,
-                'recipe_id'    => $firstItem?->recipe_id,
-                'quantity'     => $firstItem?->quantity ?? 1,
-                'unit'         => $firstItem?->unit ?? 'serving',
+        $template = $this->audited(function () use ($validated, $ncpRecord, $mealPlan) {
+            $template = MealPlanTemplate::create([
+                'rnd_user_id' => auth()->id(),
+                'name' => $validated['name'],
+                'description' => $validated['description'] ?? null,
+                'goal_type' => $validated['goal_type'] ?? $ncpRecord->intervention?->goal_type,
             ]);
-        }
+
+            foreach ($mealPlan->days as $day) {
+                $firstItem = $day->items()->first();
+                MealPlanTemplateDay::create([
+                    'template_id' => $template->id,
+                    'day_of_week' => $day->day_of_week,
+                    'meal_type' => $day->meal_type,
+                    'food_item_id' => $firstItem?->food_item_id,
+                    'recipe_id' => $firstItem?->recipe_id,
+                    'quantity' => $firstItem?->quantity ?? 1,
+                    'unit' => $firstItem?->unit ?? 'serving',
+                ]);
+            }
+            $this->auditLogger->record(
+                AuditAction::Created,
+                AuditCategory::Clinical,
+                AuditDomain::Ncp,
+                subject: $mealPlan,
+                context: $ncpRecord,
+                details: ['fields' => ['meal_plan_template'], 'status' => 201],
+            );
+
+            return $template;
+        });
 
         return response()->json([
             'data' => ['id' => $template->uuid, 'name' => $template->name, 'goal_type' => $template->goal_type],
@@ -175,7 +224,7 @@ class MealPlanController extends Controller
      */
     public function templates(): JsonResponse
     {
-        $templates = \App\Models\MealPlanTemplate::where('rnd_user_id', auth()->id())
+        $templates = MealPlanTemplate::where('rnd_user_id', auth()->id())
             ->orderByDesc('created_at')
             ->get(['id', 'uuid', 'name', 'description', 'goal_type', 'created_at']);
 
@@ -188,97 +237,103 @@ class MealPlanController extends Controller
     /**
      * GET /api/rnd/meal-plan-templates/{template}
      */
-    public function showTemplate(\App\Models\MealPlanTemplate $template): JsonResponse
+    public function showTemplate(MealPlanTemplate $template): JsonResponse
     {
         $template->load(['days.foodItem', 'days.recipe']);
 
-        $days = $template->days->map(fn($d) => [
-            'id'          => $d->id,
+        $days = $template->days->map(fn ($d) => [
+            'id' => $d->id,
             'day_of_week' => $d->day_of_week,
-            'meal_type'   => $d->meal_type,
-            'quantity'    => $d->quantity,
-            'unit'        => $d->unit,
-            'food_name'   => $d->foodItem?->name ?? $d->recipe?->name ?? null,
-            'calories'    => $d->foodItem?->calories ?? $d->recipe?->total_calories ?? null,
+            'meal_type' => $d->meal_type,
+            'quantity' => $d->quantity,
+            'unit' => $d->unit,
+            'food_name' => $d->foodItem?->name ?? $d->recipe?->name ?? null,
+            'calories' => $d->foodItem?->calories ?? $d->recipe?->total_calories ?? null,
         ]);
 
         return response()->json(['data' => [
-            'id'         => $template->uuid,
-            'name'       => $template->name,
-            'description'=> $template->description,
-            'goal_type'  => $template->goal_type,
+            'id' => $template->uuid,
+            'name' => $template->name,
+            'description' => $template->description,
+            'goal_type' => $template->goal_type,
             'created_at' => $template->created_at,
-            'days'       => $days,
+            'days' => $days,
         ]]);
     }
 
     /**
      * DELETE /api/rnd/meal-plan-templates/{template}
      */
-    public function destroyTemplate(\App\Models\MealPlanTemplate $template): JsonResponse
+    public function destroyTemplate(MealPlanTemplate $template): JsonResponse
     {
         $template->delete();
+
         return response()->json(null, 204);
     }
 
     /**
      * POST /api/rnd/ncp-records/{ncpRecord}/meal-plans/from-template
      */
-    public function fromTemplate(\Illuminate\Http\Request $request, NcpRecord $ncpRecord): JsonResponse
+    public function fromTemplate(Request $request, NcpRecord $ncpRecord): JsonResponse
     {
+        $this->authorizeNcp($ncpRecord);
         $validated = $request->validate([
-            'template_id'     => 'required|string|exists:meal_plan_templates,uuid',
+            'template_id' => 'required|string|exists:meal_plan_templates,uuid',
             'week_start_date' => 'required|date',
         ]);
 
         // The picker submits the template's public uuid (its Resource 'id').
         $intervention = $ncpRecord->intervention()->firstOrFail();
-        $template     = \App\Models\MealPlanTemplate::with('days')
+        $template = MealPlanTemplate::with('days')
             ->where('uuid', $validated['template_id'])
             ->firstOrFail();
 
-        $plan = MealPlan::create([
-            'intervention_id' => $intervention->id,
-            'patient_id'      => $ncpRecord->patient_id,
-            'week_start_date' => $validated['week_start_date'],
-            'generation_type' => 'manual',
-            'status'          => 'draft',
-        ]);
-
-        foreach ($template->days as $tDay) {
-            $day = \App\Models\MealPlanDay::create([
-                'meal_plan_id' => $plan->id,
-                'day_of_week'  => $tDay->day_of_week,
-                'meal_type'    => $tDay->meal_type,
+        $plan = $this->audited(function () use ($intervention, $ncpRecord, $validated, $template): MealPlan {
+            $plan = MealPlan::create([
+                'intervention_id' => $intervention->id,
+                'patient_id' => $ncpRecord->patient_id,
+                'week_start_date' => $validated['week_start_date'],
+                'generation_type' => 'manual',
+                'status' => 'draft',
             ]);
-            if ($tDay->food_item_id || $tDay->recipe_id) {
-                $snapshot = null;
-                if ($tDay->food_item_id) {
-                    $food = \App\Models\FoodItem::find($tDay->food_item_id);
-                    if ($food) {
-                        $snapshot = [
-                            'name'           => $food->name,
-                            'calories'       => (float) $food->calories,
-                            'protein'        => (float) $food->protein,
-                            'carbs'          => (float) $food->carbs,
-                            'fat'            => (float) $food->fat,
-                            'serving_size'   => (float) ($food->serving_size ?? 100),
-                            'serving_unit'   => $food->serving_unit ?? 'g',
-                            'micronutrients' => [],
-                        ];
-                    }
-                }
-                \App\Models\MealPlanItem::create([
-                    'meal_plan_day_id'  => $day->id,
-                    'food_item_id'      => $tDay->food_item_id,
-                    'recipe_id'         => $tDay->recipe_id,
-                    'quantity'          => $tDay->quantity,
-                    'unit'              => $tDay->unit,
-                    'nutrient_snapshot' => $snapshot,
-                    'source'            => $tDay->food_item_id ? 'library' : 'recipe',
+
+            foreach ($template->days as $tDay) {
+                $day = MealPlanDay::create([
+                    'meal_plan_id' => $plan->id,
+                    'day_of_week' => $tDay->day_of_week,
+                    'meal_type' => $tDay->meal_type,
                 ]);
+                if ($tDay->food_item_id || $tDay->recipe_id) {
+                    $snapshot = null;
+                    if ($tDay->food_item_id) {
+                        $food = FoodItem::find($tDay->food_item_id);
+                        if ($food) {
+                            $snapshot = [
+                                'name' => $food->name,
+                                'calories' => (float) $food->calories,
+                                'protein' => (float) $food->protein,
+                                'carbs' => (float) $food->carbs,
+                                'fat' => (float) $food->fat,
+                                'serving_size' => (float) ($food->serving_size ?? 100),
+                                'serving_unit' => $food->serving_unit ?? 'g',
+                                'micronutrients' => [],
+                            ];
+                        }
+                    }
+                    MealPlanItem::create([
+                        'meal_plan_day_id' => $day->id,
+                        'food_item_id' => $tDay->food_item_id,
+                        'recipe_id' => $tDay->recipe_id,
+                        'quantity' => $tDay->quantity,
+                        'unit' => $tDay->unit,
+                        'nutrient_snapshot' => $snapshot,
+                        'source' => $tDay->food_item_id ? 'library' : 'recipe',
+                    ]);
+                }
             }
-        }
+
+            return $plan;
+        });
 
         return response()->json(['data' => new MealPlanResource($plan->load('days.items'))], 201);
     }
@@ -288,11 +343,17 @@ class MealPlanController extends Controller
      */
     public function recommend(RecommendRequest $request, NcpRecord $ncpRecord): JsonResponse
     {
+        $this->authorizeNcp($ncpRecord);
         $result = $this->recommendService->getRecommendations(
             $request->conditions,
             $request->stages ?? null,
         );
 
         return response()->json(['data' => $result]);
+    }
+
+    private function authorizeNcp(NcpRecord $ncpRecord): void
+    {
+        abort_unless($this->auditPolicy->viewNcpTrail(request()->user(), $ncpRecord), 403);
     }
 }

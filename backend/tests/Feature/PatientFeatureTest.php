@@ -2,12 +2,19 @@
 
 namespace Tests\Feature;
 
-use App\Models\Patient;
+use App\Jobs\DeleteQuarantinedClinicalFile;
+use App\Models\AuditActivity;
 use App\Models\NcpRecord;
+use App\Models\Patient;
+use App\Models\ScreeningDocument;
 use App\Models\User;
+use App\Services\Audit\AuditLogger;
+use App\Services\ClinicalDocumentStorage;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class PatientFeatureTest extends TestCase
@@ -17,7 +24,7 @@ class PatientFeatureTest extends TestCase
     public function test_rnd_can_list_patients()
     {
         $rnd = User::forceCreate(['name' => 'Test', 'email' => 'test1@example.com', 'password' => Hash::make('pass'), 'role' => 'RND', 'is_active' => true]);
-        
+
         Patient::forceCreate([
             'name' => 'John Doe',
             'dob' => '1990-01-01',
@@ -28,7 +35,7 @@ class PatientFeatureTest extends TestCase
         $response = $this->actingAs($rnd, 'sanctum')->getJson('/api/rnd/patients');
 
         $response->assertStatus(200)
-                 ->assertJsonStructure(['data', 'meta', 'links']);
+            ->assertJsonStructure(['data', 'meta', 'links']);
     }
 
     public function test_rnd_can_create_patient()
@@ -43,7 +50,7 @@ class PatientFeatureTest extends TestCase
         ]);
 
         $response->assertStatus(201)
-                 ->assertJsonPath('name', 'Jane Doe');
+            ->assertJsonPath('name', 'Jane Doe');
 
         $this->assertDatabaseHas('patients', ['name' => 'Jane Doe']);
     }
@@ -51,7 +58,7 @@ class PatientFeatureTest extends TestCase
     public function test_rnd_can_update_patient()
     {
         $rnd = User::forceCreate(['name' => 'Test', 'email' => 'test3@example.com', 'password' => Hash::make('pass'), 'role' => 'RND', 'is_active' => true]);
-        
+
         $patient = Patient::forceCreate([
             'name' => 'John Doe',
             'dob' => '1990-01-01',
@@ -64,7 +71,7 @@ class PatientFeatureTest extends TestCase
         ]);
 
         $response->assertStatus(200)
-                 ->assertJsonPath('ward', 'ICU');
+            ->assertJsonPath('ward', 'ICU');
 
         $this->assertDatabaseHas('patients', ['id' => $patient->id, 'ward' => 'ICU']);
     }
@@ -138,7 +145,7 @@ class PatientFeatureTest extends TestCase
         $rnd = User::factory()->rnd()->create();
         $patient = Patient::factory()->create();
         $record = NcpRecord::factory()->create([
-            'patient_id'  => $patient->id,
+            'patient_id' => $patient->id,
             'rnd_user_id' => $rnd->id,
         ]);
 
@@ -225,10 +232,10 @@ class PatientFeatureTest extends TestCase
 
         // Screening document with no full A→D→I cycle. screening_documents.patient_id has no DB
         // cascade, so the controller must purge it first or the delete 500s on an FK violation.
-        \App\Models\ScreeningDocument::forceCreate([
-            'patient_id'    => $patient->id,
-            'type'          => 'labs',
-            'file_path'     => 'documents/ncp/missing-on-disk.pdf',
+        ScreeningDocument::forceCreate([
+            'patient_id' => $patient->id,
+            'type' => 'labs',
+            'file_path' => 'documents/ncp/missing-on-disk.pdf',
             'original_name' => 'labs.pdf',
         ]);
 
@@ -237,6 +244,103 @@ class PatientFeatureTest extends TestCase
         $response->assertNoContent();
         $this->assertDatabaseMissing('patients', ['id' => $patient->id]);
         $this->assertDatabaseMissing('screening_documents', ['patient_id' => $patient->id]);
+    }
+
+    public function test_patient_delete_audits_each_attachment_and_queues_file_cleanup_after_commit(): void
+    {
+        Storage::fake('local');
+        Queue::fake();
+        $rnd = User::factory()->rnd()->create();
+        $patient = Patient::factory()->create();
+        Storage::put('documents/ncp/patient-delete.pdf', 'safe');
+        $document = ScreeningDocument::create([
+            'patient_id' => $patient->id,
+            'file_path' => 'documents/ncp/patient-delete.pdf',
+            'original_name' => 'patient-delete.pdf',
+        ]);
+        AuditActivity::query()->delete();
+
+        $this->actingAs($rnd, 'sanctum')->deleteJson("/api/rnd/patients/{$patient->uuid}")->assertNoContent();
+
+        $this->assertModelMissing($document);
+        $this->assertDatabaseHas('activity_log', [
+            'event' => 'deleted',
+            'subject_type' => ScreeningDocument::class,
+            'subject_id' => $document->id,
+        ]);
+        Queue::assertPushed(DeleteQuarantinedClinicalFile::class);
+    }
+
+    public function test_patient_delete_restores_first_quarantine_when_second_acquisition_fails(): void
+    {
+        Storage::fake('local');
+        $rnd = User::factory()->rnd()->create();
+        $patient = Patient::factory()->create();
+        foreach (['first.pdf', 'second.pdf'] as $name) {
+            Storage::put("documents/ncp/{$name}", $name);
+            ScreeningDocument::create([
+                'patient_id' => $patient->id,
+                'file_path' => "documents/ncp/{$name}",
+                'original_name' => $name,
+            ]);
+        }
+
+        $storage = \Mockery::mock(ClinicalDocumentStorage::class)->makePartial();
+        $storage->shouldReceive('quarantineIfPresent')
+            ->once()->ordered()->with('documents/ncp/first.pdf')->passthru();
+        $storage->shouldReceive('quarantineIfPresent')
+            ->once()->ordered()->with('documents/ncp/second.pdf')
+            ->andThrow(new \RuntimeException('second quarantine failed'));
+        $this->app->instance(ClinicalDocumentStorage::class, $storage);
+
+        $this->actingAs($rnd, 'sanctum')
+            ->deleteJson("/api/rnd/patients/{$patient->uuid}")
+            ->assertServerError();
+
+        $this->assertModelExists($patient);
+        $this->assertDatabaseCount('screening_documents', 2);
+        Storage::assertExists('documents/ncp/first.pdf');
+        Storage::assertExists('documents/ncp/second.pdf');
+    }
+
+    public function test_patient_delete_attempts_every_restore_when_first_compensation_fails(): void
+    {
+        Storage::fake('local');
+        Queue::fake();
+        $rnd = User::factory()->rnd()->create();
+        $patient = Patient::factory()->create();
+        foreach (['first.pdf', 'second.pdf'] as $name) {
+            Storage::put("documents/ncp/{$name}", $name);
+            ScreeningDocument::create([
+                'patient_id' => $patient->id,
+                'file_path' => "documents/ncp/{$name}",
+                'original_name' => $name,
+            ]);
+        }
+        $logger = \Mockery::mock(AuditLogger::class);
+        $logger->shouldReceive('assertAvailable')->once()->ordered();
+        $logger->shouldReceive('assertAvailable')->once()->ordered()->andThrow(new \RuntimeException('original mutation failed'));
+        $storage = \Mockery::mock(ClinicalDocumentStorage::class)->makePartial();
+        $storage->shouldReceive('restore')->once()->ordered()
+            ->withArgs(fn (array $move): bool => str_ends_with($move['original'], 'second.pdf'))
+            ->andThrow(new \RuntimeException('first restore failed'));
+        $storage->shouldReceive('restore')->once()->ordered()
+            ->withArgs(fn (array $move): bool => str_ends_with($move['original'], 'first.pdf'))
+            ->passthru();
+        $this->app->instance(AuditLogger::class, $logger);
+        $this->app->instance(ClinicalDocumentStorage::class, $storage);
+        $this->withoutExceptionHandling();
+
+        try {
+            $this->actingAs($rnd, 'sanctum')->deleteJson("/api/rnd/patients/{$patient->uuid}");
+            $this->fail('The mutation failure was not rethrown.');
+        } catch (\RuntimeException $exception) {
+            $this->assertSame('original mutation failed', $exception->getMessage());
+        }
+
+        $this->assertModelExists($patient);
+        Storage::assertExists('documents/ncp/first.pdf');
+        Queue::assertCount(1);
     }
 
     /**

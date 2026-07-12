@@ -95,7 +95,7 @@ class AuditTrailTest extends TestCase
     {
         $rnd = User::factory()->create(['role' => 'RND']);
         $patient = Patient::factory()->create();
-        $ncpRecord = NcpRecord::factory()->for($patient)->create();
+        $ncpRecord = NcpRecord::factory()->for($patient)->create(['rnd_user_id' => $rnd->id]);
         $unrelatedNcpRecord = NcpRecord::factory()->create();
 
         Activity::query()->delete();
@@ -179,6 +179,7 @@ class AuditTrailTest extends TestCase
     {
         $rnd = User::factory()->create(['role' => 'RND']);
         $patient = Patient::factory()->create();
+        NcpRecord::factory()->for($patient)->create(['rnd_user_id' => $rnd->id]);
 
         Activity::query()->delete();
         $activity = Activity::create([

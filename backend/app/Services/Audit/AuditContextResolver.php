@@ -41,6 +41,9 @@ class AuditContextResolver
     /** @var array<int, int|null> */
     private array $ncpIdsByIntervention = [];
 
+    /** @var array<int, int|null> */
+    private array $patientIdsByNcp = [];
+
     /** @var array<int, ShoppingList|null> */
     private array $shoppingListsById = [];
 
@@ -127,6 +130,61 @@ class AuditContextResolver
         };
     }
 
+    /** @return array{root_patient_id: int|null, ncp_record_id: int|null} */
+    public function clinicalIdentifiers(Model $subject): array
+    {
+        $ncpId = match (true) {
+            $subject instanceof NcpRecord => $this->positiveInt($subject->getKey()),
+            $subject instanceof Assessment,
+            $subject instanceof Diagnosis,
+            $subject instanceof Intervention,
+            $subject instanceof Monitoring => $this->positiveInt($subject->getAttribute('ncp_record_id')),
+            $subject instanceof ScreeningDocument => $this->positiveInt($subject->getAttribute('ncp_record_id')),
+            $subject instanceof MealPlan => $this->ncpIdForMealPlan($subject),
+            $subject instanceof Report => $this->positiveInt($subject->getAttribute('audit_ncp_record_id')),
+            default => null,
+        };
+
+        $patientId = match (true) {
+            $subject instanceof Patient => $this->positiveInt($subject->getKey()),
+            $subject instanceof NcpRecord,
+            $subject instanceof ScreeningDocument,
+            $subject instanceof MealPlan => $this->positiveInt($subject->getAttribute('patient_id')),
+            $subject instanceof Report => $this->positiveInt($subject->getAttribute('audit_patient_id')),
+            default => null,
+        };
+
+        if ($patientId === null && $ncpId !== null) {
+            if (! array_key_exists($ncpId, $this->patientIdsByNcp)) {
+                $this->patientIdsByNcp[$ncpId] = NcpRecord::query()->whereKey($ncpId)->value('patient_id');
+            }
+
+            $patientId = $this->positiveInt($this->patientIdsByNcp[$ncpId]);
+        }
+
+        return ['root_patient_id' => $patientId, 'ncp_record_id' => $ncpId];
+    }
+
+    public function clinicalOwnerId(Model $subject): ?int
+    {
+        if ($subject instanceof Report) {
+            return $this->positiveInt($subject->getAttribute('audit_owner_id'));
+        }
+
+        if ($subject instanceof NcpRecord) {
+            return $this->positiveInt($subject->getAttribute('rnd_user_id'));
+        }
+
+        $identifiers = $this->clinicalIdentifiers($subject);
+        if ($identifiers['ncp_record_id'] === null) {
+            return null;
+        }
+
+        return $this->positiveInt(NcpRecord::query()
+            ->whereKey($identifiers['ncp_record_id'])
+            ->value('rnd_user_id'));
+    }
+
     private function purchaseOrderForCorrection(PurchaseOrderItemCorrection $correction): ?Model
     {
         $itemId = $correction->getAttribute('purchase_order_item_id');
@@ -163,6 +221,13 @@ class AuditContextResolver
         }
 
         return $this->reference(Patient::class, $mealPlan->getAttribute('patient_id'));
+    }
+
+    private function ncpIdForMealPlan(MealPlan $mealPlan): ?int
+    {
+        $context = $this->ncpForMealPlan($mealPlan);
+
+        return $context instanceof NcpRecord ? $this->positiveInt($context->getKey()) : null;
     }
 
     private function budgetForLedger(BudgetLedger $ledger): ?Model
@@ -230,5 +295,10 @@ class AuditContextResolver
     {
         return (is_int($id) && $id > 0)
             || (is_string($id) && preg_match('/^[1-9][0-9]*$/D', $id) === 1);
+    }
+
+    private function positiveInt(mixed $id): ?int
+    {
+        return $this->isPositiveKey($id) ? (int) $id : null;
     }
 }

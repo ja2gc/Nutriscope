@@ -2,33 +2,44 @@
 
 namespace App\Http\Controllers\RND;
 
+use App\Enums\AuditAction;
+use App\Enums\AuditCategory;
+use App\Enums\AuditDomain;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\RND\StorePatientRequest;
 use App\Http\Requests\RND\UpdatePatientRequest;
 use App\Http\Resources\PatientResource;
+use App\Jobs\DeleteQuarantinedClinicalFile;
+use App\Jobs\RestoreQuarantinedClinicalFile;
 use App\Models\NcpRecord;
 use App\Models\Patient;
 use App\Models\ScreeningDocument;
+use App\Services\Audit\AuditLogger;
+use App\Services\ClinicalDocumentStorage;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Cache;
 
 class PatientController extends Controller
 {
+    public function __construct(
+        private readonly AuditLogger $auditLogger,
+        private readonly ClinicalDocumentStorage $documentStorage,
+    ) {}
+
     /**
      * GET /api/rnd/patients
      */
     public function index(Request $request): AnonymousResourceCollection
     {
         $patients = Patient::query()
-            ->when($request->search, fn($q, $s) =>
-                $q->where('name', 'like', "%{$s}%")
-                  ->orWhere('physician', 'like', "%{$s}%")
-                  ->orWhere('ward', 'like', "%{$s}%")
+            ->when($request->search, fn ($q, $s) => $q->where('name', 'like', "%{$s}%")
+                ->orWhere('physician', 'like', "%{$s}%")
+                ->orWhere('ward', 'like', "%{$s}%")
             )
-            ->when($request->status, fn($q, $s) => $q->where('status', $s))
-            ->with(['ncpRecords' => fn($q) => $q->latest()->with(['assessment', 'intervention'])])
+            ->when($request->status, fn ($q, $s) => $q->where('status', $s))
+            ->with(['ncpRecords' => fn ($q) => $q->latest()->with(['assessment', 'intervention'])])
             ->orderByDesc('created_at')
             ->paginate((int) min($request->query('per_page', 15), 100));
 
@@ -40,18 +51,37 @@ class PatientController extends Controller
      */
     public function store(StorePatientRequest $request): JsonResponse
     {
-        $patient = Patient::create($request->validated());
-        return response()->json(new PatientResource($patient), 201);
+        return $this->audited(function () use ($request): JsonResponse {
+            $patient = Patient::create($request->validated());
+
+            return response()->json(new PatientResource($patient), 201);
+        });
     }
 
     /**
      * GET /api/rnd/patients/{id}
      */
-    public function show(Patient $patient): JsonResponse
+    public function show(Request $request, Patient $patient): JsonResponse
     {
         $patient->load([
-            'ncpRecords' => fn($q) => $q->latest()->with(['assessment', 'diagnoses', 'intervention']),
+            'ncpRecords' => fn ($q) => $q->latest()->with(['assessment', 'diagnoses', 'intervention']),
         ]);
+        $key = "patient-chart-view:{$request->user()->id}:{$patient->id}";
+        if (Cache::add($key, true, (int) config('audit.deduplication.chart_view_seconds', 900))) {
+            try {
+                $this->auditLogger->record(
+                    AuditAction::Viewed,
+                    AuditCategory::Clinical,
+                    AuditDomain::Patients,
+                    subject: $patient,
+                    details: ['status' => 200],
+                );
+            } catch (\Throwable $exception) {
+                Cache::forget($key);
+                throw $exception;
+            }
+        }
+
         return response()->json(new PatientResource($patient));
     }
 
@@ -60,11 +90,14 @@ class PatientController extends Controller
      */
     public function update(UpdatePatientRequest $request, Patient $patient): JsonResponse
     {
-        $patient->update($request->validated());
-        $patient->load([
-            'ncpRecords' => fn($q) => $q->latest()->with(['assessment', 'intervention']),
-        ]);
-        return response()->json(new PatientResource($patient));
+        return $this->audited(function () use ($request, $patient): JsonResponse {
+            $patient->update($request->validated());
+            $patient->load([
+                'ncpRecords' => fn ($q) => $q->latest()->with(['assessment', 'intervention']),
+            ]);
+
+            return response()->json(new PatientResource($patient));
+        });
     }
 
     /**
@@ -110,13 +143,57 @@ class PatientController extends Controller
 
         // screening_documents.patient_id has no DB cascade — purge the rows (and their stored
         // files) first, otherwise the patient delete hits an unhandled FK constraint violation.
+        $this->auditLogger->assertAvailable();
         $documents = ScreeningDocument::where('patient_id', $patient->id)->get();
-        foreach ($documents as $document) {
-            Storage::delete($document->file_path);
-        }
-        ScreeningDocument::where('patient_id', $patient->id)->delete();
+        $moves = [];
 
-        $patient->delete();
+        try {
+            foreach ($documents as $document) {
+                $move = $this->documentStorage->quarantineIfPresent($document->file_path);
+                if ($move !== null) {
+                    $moves[] = $move;
+                }
+            }
+
+            $this->audited(function () use ($patient, $documents, $moves): void {
+                foreach ($documents as $document) {
+                    $this->auditLogger->withoutModelEvents(fn () => $document->delete());
+                    $this->auditLogger->record(
+                        AuditAction::Deleted,
+                        AuditCategory::Clinical,
+                        AuditDomain::Patients,
+                        subject: $document,
+                        context: $patient,
+                        details: ['status' => 204],
+                    );
+                }
+                $patient->delete();
+                foreach ($moves as $move) {
+                    DeleteQuarantinedClinicalFile::dispatch($move['quarantine'])->afterCommit();
+                }
+            });
+        } catch (\Throwable $exception) {
+            $compensationFailures = [];
+            foreach (array_reverse($moves) as $move) {
+                try {
+                    $this->documentStorage->restore($move);
+                } catch (\Throwable $restoreException) {
+                    $compensationFailures[] = $restoreException;
+                    try {
+                        RestoreQuarantinedClinicalFile::dispatch($move);
+                    } catch (\Throwable $dispatchException) {
+                        $compensationFailures[] = $dispatchException;
+                    }
+                }
+            }
+            if ($compensationFailures !== []) {
+                report(new \RuntimeException(
+                    sprintf('Clinical file compensation encountered %d failure(s).', count($compensationFailures)),
+                    previous: $compensationFailures[0],
+                ));
+            }
+            throw $exception;
+        }
 
         return response()->json(null, 204);
     }
@@ -143,12 +220,12 @@ class PatientController extends Controller
             ], 409);
         }
 
-        $record = NcpRecord::create([
+        $record = $this->audited(fn () => NcpRecord::create([
             'patient_id' => $patient->id,
             'rnd_user_id' => $request->user()->id,
             'type' => 'new',
             'status' => 'draft',
-        ]);
+        ]));
 
         return response()->json(['data' => array_merge(
             $record->toArray(),

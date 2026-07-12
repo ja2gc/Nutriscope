@@ -8,16 +8,21 @@ use App\Http\Requests\RND\UpdateDiagnosisRequest;
 use App\Http\Resources\DiagnosisResource;
 use App\Models\Diagnosis;
 use App\Models\NcpRecord;
+use App\Policies\AuditPolicy;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class DiagnosisController extends Controller
 {
+    public function __construct(private readonly AuditPolicy $auditPolicy) {}
+
     /**
      * GET /api/rnd/ncp-records/{ncpRecord}/diagnoses
      */
     public function index(NcpRecord $ncpRecord): AnonymousResourceCollection
     {
+        $this->authorizeNcp($ncpRecord);
         $diagnoses = $ncpRecord->diagnoses;
+
         return DiagnosisResource::collection($diagnoses);
     }
 
@@ -26,6 +31,7 @@ class DiagnosisController extends Controller
      */
     public function store(StoreDiagnosisRequest $request, NcpRecord $ncpRecord)
     {
+        $this->authorizeNcp($ncpRecord);
         // ADIME step order: the assessment must precede the diagnosis.
         if (! $ncpRecord->assessment()->exists()) {
             return response()->json([
@@ -34,12 +40,15 @@ class DiagnosisController extends Controller
         }
 
         $data = $request->validated();
-        $diagnosis = new Diagnosis($data);
-        $diagnosis->ncp_record_id = $ncpRecord->id;
-        $diagnosis->pes_statement = $this->resolvePes($data, $diagnosis);
-        $diagnosis->save();
 
-        return (new DiagnosisResource($diagnosis))->response()->setStatusCode(201);
+        return $this->audited(function () use ($data, $ncpRecord) {
+            $diagnosis = new Diagnosis($data);
+            $diagnosis->ncp_record_id = $ncpRecord->id;
+            $diagnosis->pes_statement = $this->resolvePes($data, $diagnosis);
+            $diagnosis->save();
+
+            return (new DiagnosisResource($diagnosis))->response()->setStatusCode(201);
+        });
     }
 
     /**
@@ -47,20 +56,24 @@ class DiagnosisController extends Controller
      */
     public function update(UpdateDiagnosisRequest $request, NcpRecord $ncpRecord, Diagnosis $diagnosis): DiagnosisResource
     {
+        $this->authorizeNcp($ncpRecord);
         // Scope check
         if ($diagnosis->ncp_record_id !== $ncpRecord->id) {
             abort(404);
         }
 
         $data = $request->validated();
-        $diagnosis->fill($data);
-        if (array_key_exists('problem', $data)) {
-            $diagnosis->label = $data['problem'];
-        }
-        $diagnosis->pes_statement = $this->resolvePes($data, $diagnosis);
-        $diagnosis->save();
 
-        return new DiagnosisResource($diagnosis);
+        return $this->audited(function () use ($diagnosis, $data) {
+            $diagnosis->fill($data);
+            if (array_key_exists('problem', $data)) {
+                $diagnosis->label = $data['problem'];
+            }
+            $diagnosis->pes_statement = $this->resolvePes($data, $diagnosis);
+            $diagnosis->save();
+
+            return new DiagnosisResource($diagnosis);
+        });
     }
 
     /**
@@ -87,6 +100,7 @@ class DiagnosisController extends Controller
      */
     public function destroy(NcpRecord $ncpRecord, Diagnosis $diagnosis)
     {
+        $this->authorizeNcp($ncpRecord);
         // Scope check
         if ($diagnosis->ncp_record_id !== $ncpRecord->id) {
             abort(404);
@@ -102,8 +116,13 @@ class DiagnosisController extends Controller
             ], 422);
         }
 
-        $diagnosis->delete();
+        $this->audited(fn () => $diagnosis->delete());
 
         return response()->noContent();
+    }
+
+    private function authorizeNcp(NcpRecord $ncpRecord): void
+    {
+        abort_unless($this->auditPolicy->viewNcpTrail(request()->user(), $ncpRecord), 403);
     }
 }

@@ -45,7 +45,8 @@ class AuditSanitizer
     private const CLINICAL_SCALAR_KEYS = [
         'route', 'route_name', 'method', 'status', 'status_code', 'document_type',
         'attachment_type', 'format', 'count', 'source', 'generation_type',
-        'identifier', 'public_id', 'reason_code',
+        'identifier', 'public_id', 'reason_code', 'record_id', 'root_patient_id',
+        'ncp_record_id',
     ];
 
     public function details(array $details, AuditCategory $category): array

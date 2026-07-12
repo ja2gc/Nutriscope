@@ -8,6 +8,7 @@ use App\Http\Requests\RND\UpdateMonitoringRequest;
 use App\Http\Resources\MonitoringResource;
 use App\Models\Monitoring;
 use App\Models\NcpRecord;
+use App\Policies\AuditPolicy;
 use App\Services\AIService;
 use App\Services\MonitoringPlanService;
 use App\Services\MonitoringSummaryService;
@@ -17,6 +18,8 @@ use Illuminate\Support\Facades\RateLimiter;
 
 class MonitoringController extends Controller
 {
+    public function __construct(private readonly AuditPolicy $auditPolicy) {}
+
     /**
      * GET /api/rnd/ncp-records/{ncpRecord}/monitorings/summary
      *
@@ -24,6 +27,8 @@ class MonitoringController extends Controller
      */
     public function summary(NcpRecord $ncpRecord, MonitoringSummaryService $svc): JsonResponse
     {
+        $this->authorizeNcp($ncpRecord);
+
         return response()->json(['data' => $svc->summarize($ncpRecord)]);
     }
 
@@ -36,6 +41,7 @@ class MonitoringController extends Controller
      */
     public function aiReview(NcpRecord $ncpRecord, MonitoringPlanService $planSvc, AIService $ai): JsonResponse
     {
+        $this->authorizeNcp($ncpRecord);
         $plan = $planSvc->build($ncpRecord);
 
         $hasFollowup = collect($plan['visits'])->contains(fn ($v) => ($v['type'] ?? null) === 'monitoring');
@@ -45,18 +51,18 @@ class MonitoringController extends Controller
 
         // Focused payload — tracked indicators' trajectory only (nothing else).
         $payload = [
-            'pes_statements'     => $plan['pes_statements'],
-            'goal_type'          => $plan['goal_type'],
+            'pes_statements' => $plan['pes_statements'],
+            'goal_type' => $plan['goal_type'],
             'nutritional_status' => $plan['nutritional_status'],
-            'visit_count'        => count($plan['visits']),
-            'indicators'         => array_map(fn ($i) => [
-                'label'         => $i['label'],
-                'unit'          => $i['unit'],
-                'category'      => $i['category'],
-                'target'        => $i['target'],
-                'reference'     => $i['reference'],
+            'visit_count' => count($plan['visits']),
+            'indicators' => array_map(fn ($i) => [
+                'label' => $i['label'],
+                'unit' => $i['unit'],
+                'category' => $i['category'],
+                'target' => $i['target'],
+                'reference' => $i['reference'],
                 'latest_status' => $i['latest_status'],
-                'trajectory'    => array_map(fn ($s) => ['visit' => $s['visit'], 'value' => $s['value']], $i['series']),
+                'trajectory' => array_map(fn ($s) => ['visit' => $s['visit'], 'value' => $s['value']], $i['series']),
             ], $plan['indicators']),
         ];
 
@@ -70,7 +76,7 @@ class MonitoringController extends Controller
 
         // Rate-limit: 5 AI reviews per user per minute (per-user, not per-NCP —
         // keying on the record let a user bypass the cap by switching NCPs).
-        $rlKey = 'ai-review:' . (auth()->id() ?? 'guest');
+        $rlKey = 'ai-review:'.(auth()->id() ?? 'guest');
         if (RateLimiter::tooManyAttempts($rlKey, 5)) {
             return response()->json(['message' => 'Too many AI reviews. Try again shortly.'], 429);
         }
@@ -82,7 +88,7 @@ class MonitoringController extends Controller
         }
 
         if ($latest) {
-            $latest->update(['ai_review' => $narrative, 'ai_review_key' => $signature]);
+            $this->audited(fn () => $latest->update(['ai_review' => $narrative, 'ai_review_key' => $signature]));
         }
 
         return response()->json(['data' => ['narrative' => $narrative, 'cached' => false]]);
@@ -97,6 +103,8 @@ class MonitoringController extends Controller
      */
     public function plan(NcpRecord $ncpRecord, MonitoringPlanService $svc): JsonResponse
     {
+        $this->authorizeNcp($ncpRecord);
+
         return response()->json(['data' => $svc->build($ncpRecord)]);
     }
 
@@ -105,7 +113,9 @@ class MonitoringController extends Controller
      */
     public function index(NcpRecord $ncpRecord): AnonymousResourceCollection
     {
+        $this->authorizeNcp($ncpRecord);
         $monitorings = $ncpRecord->monitorings;
+
         return MonitoringResource::collection($monitorings);
     }
 
@@ -114,6 +124,7 @@ class MonitoringController extends Controller
      */
     public function store(StoreMonitoringRequest $request, NcpRecord $ncpRecord)
     {
+        $this->authorizeNcp($ncpRecord);
         // Monitoring & Evaluation is a FOLLOW-UP activity: the initial encounter
         // produces the care plan (assessment → diagnosis → intervention). Block
         // monitoring on the first encounter, before that plan exists.
@@ -124,11 +135,14 @@ class MonitoringController extends Controller
         }
 
         $data = $request->validated();
-        $monitoring = new Monitoring($data);
-        $monitoring->ncp_record_id = $ncpRecord->id;
-        $monitoring->save();
 
-        return (new MonitoringResource($monitoring))->response()->setStatusCode(201);
+        return $this->audited(function () use ($data, $ncpRecord) {
+            $monitoring = new Monitoring($data);
+            $monitoring->ncp_record_id = $ncpRecord->id;
+            $monitoring->save();
+
+            return (new MonitoringResource($monitoring))->response()->setStatusCode(201);
+        });
     }
 
     /**
@@ -136,15 +150,19 @@ class MonitoringController extends Controller
      */
     public function update(UpdateMonitoringRequest $request, NcpRecord $ncpRecord, Monitoring $monitoring): MonitoringResource
     {
+        $this->authorizeNcp($ncpRecord);
         if ($monitoring->ncp_record_id !== $ncpRecord->id) {
             abort(404);
         }
 
         $data = $request->validated();
-        $monitoring->fill($data);
-        $monitoring->save();
 
-        return new MonitoringResource($monitoring);
+        return $this->audited(function () use ($monitoring, $data) {
+            $monitoring->fill($data);
+            $monitoring->save();
+
+            return new MonitoringResource($monitoring);
+        });
     }
 
     /**
@@ -152,12 +170,18 @@ class MonitoringController extends Controller
      */
     public function destroy(NcpRecord $ncpRecord, Monitoring $monitoring)
     {
+        $this->authorizeNcp($ncpRecord);
         if ($monitoring->ncp_record_id !== $ncpRecord->id) {
             abort(404);
         }
 
-        $monitoring->delete();
+        $this->audited(fn () => $monitoring->delete());
 
         return response()->noContent();
+    }
+
+    private function authorizeNcp(NcpRecord $ncpRecord): void
+    {
+        abort_unless($this->auditPolicy->viewNcpTrail(request()->user(), $ncpRecord), 403);
     }
 }

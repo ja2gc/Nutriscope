@@ -386,15 +386,15 @@ public function record(
 - Modify: `backend/routes/api.php`
 - Test: `backend/tests/Feature/Audit/ClinicalTrailTest.php`
 
-- [ ] Resolve every Patient, NcpRecord, Assessment, Diagnosis, Intervention, MealPlan, Monitoring, ScreeningDocument, and clinical report event to a root patient plus optional NCP context.
-- [ ] Add explicit events for attachment upload/view/download/delete, patient chart open, NCP report view/download/export, AI suggestion/approval, and meal-plan generation. Log IDs/status/field names only; never file names containing patient names, file contents, OCR text, clinical measurements, prompts, or outputs.
-- [ ] Do not log every nested GET/poll. Log deliberate chart entry and protected file/report access. Use a short request/session dedup only for repeated chart-open events caused by frontend remounts; never dedup downloads or exports.
-- [ ] Replace patient-only direct-subject history with context query, newest first, 100-row cursor/`before_id` pagination. Keep the existing route during migration: `GET /api/rnd/patients/{patient}/activity`.
-- [ ] Add `GET /api/rnd/ncp-records/{ncpRecord}/activity` for an NCP-specific timeline. Add `frontend/app/api/rnd/ncp-records/[ncpRecordId]/activity/route.ts`; preserve patient route for whole-chart history.
-- [ ] Authorize patient and NCP history through `AuditPolicy`; role membership alone is insufficient. Admin audit view receives pseudonymous clinical references and field labels only. RND page trail may show patient context already visible on that authorized page, but API still excludes clinical values.
-- [ ] Record audit-log access when an authorized user opens clinical audit detail or exports clinical audit results.
-- [ ] Test all clinical models and controllers with unique sentinel PHI strings; assert those strings are absent from `activity_log`, JSON API, application logs, and rendered DTOs.
-- [ ] Run clinical audit, NCP, attachment, and report tests. Commit with `feat: add privacy-safe clinical trails`.
+- [x] Resolve every Patient, NcpRecord, Assessment, Diagnosis, Intervention, MealPlan, Monitoring, ScreeningDocument, and clinical report event to a root patient plus optional NCP context.
+- [x] Add explicit events for attachment upload/view/download/delete, patient chart open, NCP report view/download/export, AI suggestion/approval, and meal-plan generation. Log IDs/status/field names only; never file names containing patient names, file contents, OCR text, clinical measurements, prompts, or outputs.
+- [x] Do not log every nested GET/poll. Log deliberate chart entry and protected file/report access. Use a short request/session dedup only for repeated chart-open events caused by frontend remounts; never dedup downloads or exports.
+- [x] Replace patient-only direct-subject history with context query, newest first, 100-row cursor/`before_id` pagination. Keep the existing route during migration: `GET /api/rnd/patients/{patient}/activity`.
+- [x] Add `GET /api/rnd/ncp-records/{ncpRecord}/activity` for an NCP-specific timeline. Add `frontend/app/api/rnd/ncp-records/[ncpRecordId]/activity/route.ts`; preserve patient route for whole-chart history.
+- [x] Authorize patient and NCP history through `AuditPolicy`; role membership alone is insufficient. Admin audit view receives pseudonymous clinical references and field labels only. RND page trail may show patient context already visible on that authorized page, but API still excludes clinical values.
+- [x] Record audit-log access when an authorized user opens clinical audit detail or exports clinical audit results.
+- [x] Test all clinical models and controllers with unique sentinel PHI strings; assert those strings are absent from `activity_log`, JSON API, application logs, and rendered DTOs.
+- [x] Run clinical audit, NCP, attachment, and report tests. Commit with `feat: add privacy-safe clinical trails`.
 
 ### Task 7: Purchase Order, Food Service, and Budget Trails
 

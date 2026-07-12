@@ -8,6 +8,7 @@ use App\Http\Requests\RND\UpdateInterventionRequest;
 use App\Http\Resources\InterventionResource;
 use App\Models\Intervention;
 use App\Models\NcpRecord;
+use App\Policies\AuditPolicy;
 use App\Services\ClinicalCompletenessService;
 use App\Services\LabFlagService;
 use App\Services\NutritionPrescriptionService;
@@ -22,6 +23,7 @@ class InterventionController extends Controller
     public function __construct(
         private ClinicalCompletenessService $completeness,
         private LabFlagService $labFlags,
+        private AuditPolicy $auditPolicy,
     ) {}
 
     /**
@@ -34,6 +36,7 @@ class InterventionController extends Controller
      */
     public function autofill(Request $request, NcpRecord $ncpRecord, NutritionPrescriptionService $svc): JsonResponse
     {
+        $this->authorizeNcp($ncpRecord);
         $goalType = $request->input('goal_type') ?? $ncpRecord->intervention?->goal_type;
         $stage = $request->input('disease_stage') ?? $ncpRecord->intervention?->disease_stage;
 
@@ -135,6 +138,7 @@ class InterventionController extends Controller
      */
     public function store(StoreInterventionRequest $request, NcpRecord $ncpRecord)
     {
+        $this->authorizeNcp($ncpRecord);
         if ($ncpRecord->intervention()->exists()) {
             return response()->json(['message' => 'Intervention already exists for this NCP record.'], 409);
         }
@@ -147,13 +151,16 @@ class InterventionController extends Controller
         }
 
         $data = $request->validated();
-        $intervention = new Intervention($data);
-        $intervention->ncp_record_id = $ncpRecord->id;
-        $intervention->save();
 
-        $this->refreshActivation($ncpRecord);
+        return $this->audited(function () use ($data, $ncpRecord) {
+            $intervention = new Intervention($data);
+            $intervention->ncp_record_id = $ncpRecord->id;
+            $intervention->save();
 
-        return (new InterventionResource($intervention))->response()->setStatusCode(201);
+            $this->refreshActivation($ncpRecord);
+
+            return (new InterventionResource($intervention))->response()->setStatusCode(201);
+        });
     }
 
     /**
@@ -161,6 +168,7 @@ class InterventionController extends Controller
      */
     public function show(NcpRecord $ncpRecord): JsonResponse
     {
+        $this->authorizeNcp($ncpRecord);
         $intervention = $ncpRecord->intervention()->first();
 
         if (! $intervention) {
@@ -175,15 +183,19 @@ class InterventionController extends Controller
      */
     public function update(UpdateInterventionRequest $request, NcpRecord $ncpRecord): InterventionResource
     {
+        $this->authorizeNcp($ncpRecord);
         $intervention = $ncpRecord->intervention()->firstOrFail();
 
         $data = $request->validated();
-        $intervention->fill($data);
-        $intervention->save();
 
-        $this->refreshActivation($ncpRecord);
+        return $this->audited(function () use ($intervention, $data, $ncpRecord) {
+            $intervention->fill($data);
+            $intervention->save();
 
-        return new InterventionResource($intervention);
+            $this->refreshActivation($ncpRecord);
+
+            return new InterventionResource($intervention);
+        });
     }
 
     /**
@@ -208,6 +220,7 @@ class InterventionController extends Controller
      */
     public function recommendations(NcpRecord $ncpRecord): JsonResponse
     {
+        $this->authorizeNcp($ncpRecord);
         $intervention = $ncpRecord->intervention()->firstOrFail();
 
         $conditions = $this->mapGoalTypeToConditions($intervention->goal_type ?? '');
@@ -221,6 +234,11 @@ class InterventionController extends Controller
             ->getRecommendations($conditions, $stages, $labFlags);
 
         return response()->json(['data' => $result]);
+    }
+
+    private function authorizeNcp(NcpRecord $ncpRecord): void
+    {
+        abort_unless($this->auditPolicy->viewNcpTrail(request()->user(), $ncpRecord), 403);
     }
 
     /**

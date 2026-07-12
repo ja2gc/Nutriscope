@@ -29,7 +29,10 @@ class ReportBrowser
         $this->sources = [
             // ── period axis (year → month) ───────────────────────────────────
             'demographic_census' => fn () => new PeriodInstanceSource(
-                fn () => Patient::query(),
+                fn () => Patient::query()->when(
+                    Auth::user()?->role === 'RND',
+                    fn ($query) => $query->whereHas('ncpRecords', fn ($ncp) => $ncp->where('rnd_user_id', Auth::id())),
+                ),
                 'admission_date',
             ),
 
@@ -38,8 +41,8 @@ class ReportBrowser
                 fn () => PurchaseOrder::query()->whereIn('lifecycle_status', ['completed', 'archived'])->with('supplier'),
                 'purchase_order_id',
                 fn (PurchaseOrder $po) => trim(($po->po_number ?: "PO #{$po->id}")
-                    . (optional($po->completed_at)?->format('M j, Y') ? ' — ' . $po->completed_at->format('M j, Y') : '')
-                    . ($po->supplier ? " — {$po->supplier->name}" : '')),
+                    .(optional($po->completed_at)?->format('M j, Y') ? ' — '.$po->completed_at->format('M j, Y') : '')
+                    .($po->supplier ? " — {$po->supplier->name}" : '')),
                 'completed_at',
             ),
             'program_project_activity' => fn () => new EntityInstanceSource(
@@ -50,28 +53,36 @@ class ReportBrowser
                     ->with(['programProjectActivity', 'shoppingList']),
                 'purchase_order_id',
                 fn (PurchaseOrder $po) => trim(($po->po_number ?: "PO #{$po->id}")
-                    . ' — ' . (optional($po->programProjectActivity?->period_start)->format('M j') ?? optional($po->shoppingList?->period_start)->format('M j') ?? '?')
-                    . '-' . (optional($po->programProjectActivity?->period_end)->format('M j, Y') ?? optional($po->shoppingList?->period_end)->format('M j, Y') ?? '?')),
+                    .' — '.(optional($po->programProjectActivity?->period_start)->format('M j') ?? optional($po->shoppingList?->period_start)->format('M j') ?? '?')
+                    .'-'.(optional($po->programProjectActivity?->period_end)->format('M j, Y') ?? optional($po->shoppingList?->period_end)->format('M j, Y') ?? '?')),
                 'completed_at',
             ),
-            'menu_calendar'            => fn () => $this->menuCycleSource(),
+            'menu_calendar' => fn () => $this->menuCycleSource(),
             'patient_menu_plan' => fn () => new EntityInstanceSource(
                 // One instance per meal plan so the RND selects the EXACT plan to print.
                 // (Previously keyed by patient_id, which the generator can't render —
                 // it requires a specific meal_plan_id.) (MP-08/RP-04)
-                fn () => MealPlan::query()->with('patient'),
+                fn () => MealPlan::query()
+                    ->when(
+                        Auth::user()?->role === 'RND',
+                        fn ($query) => $query->whereHas(
+                            'intervention.ncpRecord',
+                            fn ($ncp) => $ncp->where('rnd_user_id', Auth::id()),
+                        ),
+                    )
+                    ->with('patient'),
                 'meal_plan_id',
                 fn (MealPlan $mp) => trim(($mp->patient?->name ?? "Patient #{$mp->patient_id}")
-                    . ' — week of ' . (optional($mp->week_start_date)->format('M j, Y') ?? '?')
-                    . ($mp->status ? " ({$mp->status})" : '')),
+                    .' — week of '.(optional($mp->week_start_date)->format('M j, Y') ?? '?')
+                    .($mp->status ? " ({$mp->status})" : '')),
                 'created_at',
             ),
             'ncp_summary' => fn () => new EntityInstanceSource(
-                fn () => NcpRecord::query()->with('patient'),
+                fn () => NcpRecord::query()->where('rnd_user_id', Auth::id())->with('patient'),
                 'ncp_record_id',
                 fn (NcpRecord $r) => trim(($r->patient?->name ?? "Patient #{$r->patient_id}")
-                    . ' — ' . optional($r->created_at)->format('M j, Y')
-                    . ($r->status ? " ({$r->status})" : '')),
+                    .' — '.optional($r->created_at)->format('M j, Y')
+                    .($r->status ? " ({$r->status})" : '')),
                 'created_at',
             ),
 

@@ -4,16 +4,20 @@ namespace App\Http\Controllers\RND;
 
 use App\Http\Controllers\Controller;
 use App\Models\NcpRecord;
+use App\Policies\AuditPolicy;
 use Illuminate\Http\JsonResponse;
 
 class NcpRecordController extends Controller
 {
+    public function __construct(private readonly AuditPolicy $auditPolicy) {}
+
     /**
      * DELETE /api/rnd/ncp-records/{ncpRecord}
      * Blocked when the record has gone through Assessment → Diagnosis → Intervention.
      */
     public function destroy(NcpRecord $ncpRecord): JsonResponse
     {
+        abort_unless($this->auditPolicy->viewNcpTrail(request()->user(), $ncpRecord), 403);
         $isOfficial = $ncpRecord->assessment()->exists()
             && $ncpRecord->diagnoses()->exists()
             && $ncpRecord->intervention()->exists();
@@ -24,7 +28,7 @@ class NcpRecordController extends Controller
             ], 422);
         }
 
-        $ncpRecord->delete();
+        $this->audited(fn () => $ncpRecord->delete());
 
         return response()->json(null, 204);
     }

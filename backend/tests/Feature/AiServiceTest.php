@@ -2,12 +2,14 @@
 
 namespace Tests\Feature;
 
-use App\Models\Diagnosis;
+use App\Models\Assessment;
+use App\Models\AuditActivity;
 use App\Models\NcpRecord;
 use App\Models\Patient;
 use App\Models\User;
 use App\Services\AIService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
@@ -23,7 +25,7 @@ class AiServiceTest extends TestCase
     {
         parent::setUp();
         $this->rnd = User::factory()->create([
-            'role'     => 'RND',
+            'role' => 'RND',
             'password' => Hash::make('password'),
         ]);
 
@@ -35,8 +37,9 @@ class AiServiceTest extends TestCase
     private function makeNcpRecord(): NcpRecord
     {
         $patient = Patient::factory()->create();
+
         return NcpRecord::factory()->create([
-            'patient_id'  => $patient->id,
+            'patient_id' => $patient->id,
             'rnd_user_id' => $this->rnd->id,
         ]);
     }
@@ -57,7 +60,7 @@ class AiServiceTest extends TestCase
     public function test_ai_service_throws_on_connection_timeout(): void
     {
         Http::fake([
-            'api.anthropic.com/*' => fn () => throw new \Illuminate\Http\Client\ConnectionException('Connection timed out'),
+            'api.anthropic.com/*' => fn () => throw new ConnectionException('Connection timed out'),
         ]);
 
         $this->expectException(\RuntimeException::class);
@@ -74,18 +77,18 @@ class AiServiceTest extends TestCase
                     'text' => json_encode([
                         'suggestions' => [
                             [
-                                'domain'    => 'NI',
-                                'label'     => 'Inadequate energy intake',
-                                'etiology'  => 'related to poor appetite',
-                                'signs'     => 'evidenced by weight loss',
-                            ]
-                        ]
+                                'domain' => 'NI',
+                                'label' => 'Inadequate energy intake',
+                                'etiology' => 'related to poor appetite',
+                                'signs' => 'evidenced by weight loss',
+                            ],
+                        ],
                     ]),
                 ]],
             ], 200),
         ]);
 
-        $service     = app(AIService::class);
+        $service = app(AIService::class);
         $suggestions = $service->suggestDiagnoses([
             'conditions' => ['CKD'],
             'ibw_percentage' => 75,
@@ -141,6 +144,8 @@ class AiServiceTest extends TestCase
             ])
             ->assertStatus(502)
             ->assertJsonStructure(['message']);
+
+        $this->assertDatabaseMissing('activity_log', ['event' => 'generated']);
     }
 
     public function test_ai_service_logs_usage_on_success(): void
@@ -161,7 +166,7 @@ class AiServiceTest extends TestCase
         $service->suggestDiagnoses(['conditions' => ['DM']]);
 
         $this->assertDatabaseHas('ai_usage_logs', [
-            'model'    => config('services.anthropic.model', 'claude-haiku-20240307'),
+            'model' => config('services.anthropic.model', 'claude-haiku-20240307'),
             'endpoint' => 'diagnosis_suggestion',
         ]);
         $this->assertFalse(Cache::has('admin_dashboard'));
@@ -178,12 +183,12 @@ class AiServiceTest extends TestCase
                     'text' => json_encode([
                         'suggestions' => [
                             [
-                                'domain'   => 'NI',
-                                'label'    => 'Inadequate energy intake',
+                                'domain' => 'NI',
+                                'label' => 'Inadequate energy intake',
                                 'etiology' => 'related to poor appetite',
-                                'signs'    => 'evidenced by weight loss',
-                            ]
-                        ]
+                                'signs' => 'evidenced by weight loss',
+                            ],
+                        ],
                     ]),
                 ]],
             ], 200),
@@ -193,12 +198,18 @@ class AiServiceTest extends TestCase
 
         $response = $this->actingAs($this->rnd)
             ->postJson("/api/rnd/ncp-records/{$ncpRecord->uuid}/diagnoses/ai-suggest", [
-                'conditions'     => ['CKD'],
+                'conditions' => ['CKD'],
                 'ibw_percentage' => 75,
             ]);
 
         $response->assertOk()
             ->assertJsonStructure(['data' => [['domain', 'label', 'etiology', 'signs']]]);
+
+        $activity = AuditActivity::query()->where('event', 'generated')->latest('id')->firstOrFail();
+        $this->assertSame(200, $activity->properties['details']['status']);
+        foreach (['Inadequate energy intake', 'related to poor appetite', 'evidenced by weight loss'] as $value) {
+            $this->assertStringNotContainsString($value, $activity->toJson());
+        }
     }
 
     public function test_ai_suggest_output_can_be_approved_and_tracks_token_usage(): void
@@ -226,7 +237,7 @@ class AiServiceTest extends TestCase
         ]);
 
         $ncpRecord = $this->makeNcpRecord();
-        \App\Models\Assessment::forceCreate([
+        Assessment::forceCreate([
             'ncp_record_id' => $ncpRecord->id,
             'weight' => 70.0,
             'height' => 170.0,
@@ -280,16 +291,16 @@ class AiServiceTest extends TestCase
     public function test_ai_approve_diagnosis_stores_to_database(): void
     {
         $ncpRecord = $this->makeNcpRecord();
-        \App\Models\Assessment::forceCreate([
+        Assessment::forceCreate([
             'ncp_record_id' => $ncpRecord->id, 'weight' => 70.0, 'height' => 170.0,
         ]);
 
         $response = $this->actingAs($this->rnd)
             ->postJson("/api/rnd/ncp-records/{$ncpRecord->uuid}/diagnoses/ai-approve", [
-                'domain'   => 'NI',
-                'label'    => 'Inadequate energy intake',
+                'domain' => 'NI',
+                'label' => 'Inadequate energy intake',
                 'etiology' => 'related to poor appetite evidenced by food recall',
-                'signs'    => 'weight loss 5% over 1 month',
+                'signs' => 'weight loss 5% over 1 month',
                 'priority' => 1,
             ]);
 
@@ -299,24 +310,24 @@ class AiServiceTest extends TestCase
 
         $this->assertDatabaseHas('diagnoses', [
             'ncp_record_id' => $ncpRecord->id,
-            'domain'        => 'NI',
-            'label'         => 'Inadequate energy intake',
+            'domain' => 'NI',
+            'label' => 'Inadequate energy intake',
         ]);
     }
 
     public function test_ai_approve_diagnosis_normalizes_pes_components_before_saving(): void
     {
         $ncpRecord = $this->makeNcpRecord();
-        \App\Models\Assessment::forceCreate([
+        Assessment::forceCreate([
             'ncp_record_id' => $ncpRecord->id, 'weight' => 70.0, 'height' => 170.0,
         ]);
 
         $response = $this->actingAs($this->rnd)
             ->postJson("/api/rnd/ncp-records/{$ncpRecord->uuid}/diagnoses/ai-approve", [
-                'domain'   => 'NI',
-                'label'    => 'Inadequate energy intake',
+                'domain' => 'NI',
+                'label' => 'Inadequate energy intake',
                 'etiology' => 'related to poor appetite',
-                'signs'    => 'as evidenced by 5% weight loss',
+                'signs' => 'as evidenced by 5% weight loss',
             ]);
 
         $response->assertCreated()
@@ -334,10 +345,10 @@ class AiServiceTest extends TestCase
 
         $response = $this->actingAs($this->rnd)
             ->postJson("/api/rnd/ncp-records/{$ncpRecord->uuid}/diagnoses/ai-approve", [
-                'domain'   => 'INVALID',
-                'label'    => 'Test',
+                'domain' => 'INVALID',
+                'label' => 'Test',
                 'etiology' => 'related to X',
-                'signs'    => 'evidenced by Y',
+                'signs' => 'evidenced by Y',
             ]);
 
         $response->assertUnprocessable()
@@ -347,16 +358,16 @@ class AiServiceTest extends TestCase
     public function test_ai_approve_diagnosis_rejects_problem_labels_longer_than_manual_builder_allows(): void
     {
         $ncpRecord = $this->makeNcpRecord();
-        \App\Models\Assessment::forceCreate([
+        Assessment::forceCreate([
             'ncp_record_id' => $ncpRecord->id, 'weight' => 70.0, 'height' => 170.0,
         ]);
 
         $response = $this->actingAs($this->rnd)
             ->postJson("/api/rnd/ncp-records/{$ncpRecord->uuid}/diagnoses/ai-approve", [
-                'domain'   => 'NI',
-                'label'    => str_repeat('A', 256),
+                'domain' => 'NI',
+                'label' => str_repeat('A', 256),
                 'etiology' => 'related to poor appetite',
-                'signs'    => 'evidenced by low intake',
+                'signs' => 'evidenced by low intake',
             ]);
 
         $response->assertUnprocessable()

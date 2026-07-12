@@ -2,9 +2,10 @@
 
 namespace Tests\Feature;
 
-use App\Models\FoodItem;
 use App\Models\Intervention;
 use App\Models\MealPlan;
+use App\Models\MealPlanTemplate;
+use App\Models\MealPlanTemplateDay;
 use App\Models\NcpRecord;
 use App\Models\Patient;
 use App\Models\Recipe;
@@ -23,26 +24,27 @@ class MealPlanControllerTest extends TestCase
     {
         parent::setUp();
         $this->rnd = User::factory()->create([
-            'role'     => 'RND',
+            'role' => 'RND',
             'password' => Hash::make('password'),
         ]);
     }
 
     private function makeInterventionWithNcpRecord(): array
     {
-        $patient       = Patient::factory()->create();
-        $ncpRecord     = NcpRecord::factory()->create([
-            'patient_id'  => $patient->id,
+        $patient = Patient::factory()->create();
+        $ncpRecord = NcpRecord::factory()->create([
+            'patient_id' => $patient->id,
             'rnd_user_id' => $this->rnd->id,
         ]);
-        $intervention  = Intervention::factory()->create([
+        $intervention = Intervention::factory()->create([
             'ncp_record_id' => $ncpRecord->id,
-            'energy_kcal'   => 1800,
-            'protein_g'     => 70,
-            'carbs_g'       => 250,
-            'fat_g'         => 55,
-            'fluid_ml'      => 2000,
+            'energy_kcal' => 1800,
+            'protein_g' => 70,
+            'carbs_g' => 250,
+            'fat_g' => 55,
+            'fluid_ml' => 2000,
         ]);
+
         return [$ncpRecord, $intervention, $patient];
     }
 
@@ -77,7 +79,7 @@ class MealPlanControllerTest extends TestCase
         [$ncpRecord, $intervention, $patient] = $this->makeInterventionWithNcpRecord();
         $mealPlan = MealPlan::factory()->create([
             'intervention_id' => $intervention->id,
-            'patient_id'      => $patient->id,
+            'patient_id' => $patient->id,
         ]);
 
         $response = $this->actingAs($this->rnd)
@@ -93,7 +95,7 @@ class MealPlanControllerTest extends TestCase
         [$ncpRecord, $intervention, $patient] = $this->makeInterventionWithNcpRecord();
         MealPlan::factory(3)->create([
             'intervention_id' => $intervention->id,
-            'patient_id'      => $patient->id,
+            'patient_id' => $patient->id,
         ]);
 
         $response = $this->actingAs($this->rnd)
@@ -108,8 +110,8 @@ class MealPlanControllerTest extends TestCase
         [$ncpRecord, $intervention, $patient] = $this->makeInterventionWithNcpRecord();
         $mealPlan = MealPlan::factory()->create([
             'intervention_id' => $intervention->id,
-            'patient_id'      => $patient->id,
-            'status'          => 'draft',
+            'patient_id' => $patient->id,
+            'status' => 'draft',
         ]);
 
         $response = $this->actingAs($this->rnd)
@@ -146,8 +148,8 @@ class MealPlanControllerTest extends TestCase
         $response = $this->actingAs($this->rnd)
             ->postJson("/api/rnd/ncp-records/{$ncpRecord->uuid}/meal-plans/generate", [
                 'week_start_date' => '2026-06-09',
-                'conditions'      => ['DM'],
-                'allergens'       => [],
+                'conditions' => ['DM'],
+                'allergens' => [],
             ]);
 
         $response->assertCreated()
@@ -160,6 +162,7 @@ class MealPlanControllerTest extends TestCase
 
         $mealPlan = MealPlan::where('intervention_id', '!=', null)->first();
         $this->assertNotNull($mealPlan);
+        $this->assertDatabaseHas('activity_log', ['event' => 'generated']);
     }
 
     public function test_generate_meal_plan_requires_week_start_date(): void
@@ -177,36 +180,37 @@ class MealPlanControllerTest extends TestCase
 
     public function test_cannot_generate_meal_plan_without_intervention(): void
     {
-        $patient   = Patient::factory()->create();
+        $patient = Patient::factory()->create();
         $ncpRecord = NcpRecord::factory()->create([
-            'patient_id'  => $patient->id,
+            'patient_id' => $patient->id,
             'rnd_user_id' => $this->rnd->id,
         ]);
 
         $response = $this->actingAs($this->rnd)
             ->postJson("/api/rnd/ncp-records/{$ncpRecord->uuid}/meal-plans/generate", [
                 'week_start_date' => '2026-06-09',
-                'conditions'      => ['DM'],
+                'conditions' => ['DM'],
             ]);
 
         $response->assertUnprocessable();
+        $this->assertDatabaseMissing('activity_log', ['event' => 'generated']);
     }
 
     public function test_cannot_generate_meal_plan_without_complete_prescription(): void
     {
-        $patient   = Patient::factory()->create();
+        $patient = Patient::factory()->create();
         $ncpRecord = NcpRecord::factory()->create([
-            'patient_id'  => $patient->id,
+            'patient_id' => $patient->id,
             'rnd_user_id' => $this->rnd->id,
         ]);
         // Intervention exists but has no prescription targets.
         Intervention::factory()->create([
             'ncp_record_id' => $ncpRecord->id,
-            'goal_type'     => 'renal_diet',
-            'energy_kcal'   => null,
-            'protein_g'     => null,
-            'carbs_g'       => null,
-            'fat_g'         => null,
+            'goal_type' => 'renal_diet',
+            'energy_kcal' => null,
+            'protein_g' => null,
+            'carbs_g' => null,
+            'fat_g' => null,
         ]);
 
         $this->actingAs($this->rnd)
@@ -222,7 +226,7 @@ class MealPlanControllerTest extends TestCase
         [$ncpRecord, $intervention, $patient] = $this->makeInterventionWithNcpRecord();
         $plan = MealPlan::factory()->create([
             'intervention_id' => $intervention->id,
-            'patient_id'      => $patient->id,
+            'patient_id' => $patient->id,
         ]);
 
         $this->actingAs($this->rnd)
@@ -239,12 +243,12 @@ class MealPlanControllerTest extends TestCase
         [$ncpRecord, $intervention, $patient] = $this->makeInterventionWithNcpRecord();
         $plan = MealPlan::factory()->create([
             'intervention_id' => $intervention->id,
-            'patient_id'      => $patient->id,
+            'patient_id' => $patient->id,
         ]);
 
         $this->actingAs($this->rnd)
             ->postJson("/api/rnd/ncp-records/{$ncpRecord->uuid}/meal-plans/{$plan->uuid}/save-template", [
-                'name'      => 'CKD Stage 4 — Week A',
+                'name' => 'CKD Stage 4 — Week A',
                 'goal_type' => 'renal_diet',
             ])
             ->assertCreated()
@@ -255,7 +259,7 @@ class MealPlanControllerTest extends TestCase
 
     public function test_rnd_can_list_templates(): void
     {
-        \App\Models\MealPlanTemplate::forceCreate([
+        MealPlanTemplate::forceCreate([
             'rnd_user_id' => $this->rnd->id, 'name' => 'Template A', 'goal_type' => 'renal_diet',
         ]);
 
@@ -268,7 +272,7 @@ class MealPlanControllerTest extends TestCase
     public function test_rnd_can_create_plan_from_template(): void
     {
         [$ncpRecord, $intervention, $patient] = $this->makeInterventionWithNcpRecord();
-        $template = \App\Models\MealPlanTemplate::forceCreate([
+        $template = MealPlanTemplate::forceCreate([
             'rnd_user_id' => $this->rnd->id, 'name' => 'Template A',
         ]);
 
@@ -276,10 +280,37 @@ class MealPlanControllerTest extends TestCase
             ->postJson("/api/rnd/ncp-records/{$ncpRecord->uuid}/meal-plans/from-template", [
                 // template_id is the template's public uuid (its Resource 'id'), which is
                 // what the picker submits; the endpoint resolves it server-side.
-                'template_id'     => $template->uuid,
+                'template_id' => $template->uuid,
                 'week_start_date' => now()->addWeek()->startOfWeek()->toDateString(),
             ])
             ->assertCreated()
             ->assertJsonPath('data.generation_type', 'manual');
+    }
+
+    public function test_plan_from_template_fails_closed_without_partial_graph_when_audit_unavailable(): void
+    {
+        [$ncpRecord] = $this->makeInterventionWithNcpRecord();
+        $template = MealPlanTemplate::forceCreate([
+            'rnd_user_id' => $this->rnd->id,
+            'name' => 'Atomic template',
+        ]);
+        MealPlanTemplateDay::forceCreate([
+            'template_id' => $template->id,
+            'day_of_week' => 'Monday',
+            'meal_type' => 'breakfast',
+            'quantity' => 1,
+            'unit' => 'serving',
+        ]);
+        config(['activitylog.enabled' => false]);
+
+        $this->actingAs($this->rnd, 'sanctum')
+            ->postJson("/api/rnd/ncp-records/{$ncpRecord->uuid}/meal-plans/from-template", [
+                'template_id' => $template->uuid,
+                'week_start_date' => '2026-07-13',
+            ])->assertServerError();
+
+        $this->assertDatabaseCount('meal_plans', 0);
+        $this->assertDatabaseCount('meal_plan_days', 0);
+        $this->assertDatabaseCount('meal_plan_items', 0);
     }
 }

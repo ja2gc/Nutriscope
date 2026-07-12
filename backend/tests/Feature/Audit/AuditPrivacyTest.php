@@ -67,7 +67,28 @@ class AuditPrivacyTest extends TestCase
             'role' => $actor->role,
             'kind' => 'user',
         ], $activity->properties['actor']);
-        $this->assertSame(['route' => 'patients.show'], $activity->properties['details']);
+        $this->assertSame([
+            'root_patient_id' => $patient->id,
+            'ncp_record_id' => null,
+            'route' => 'patients.show',
+        ], $activity->properties['details']);
+    }
+
+    public function test_clinical_caller_cannot_override_authoritative_root_identifiers(): void
+    {
+        $patient = Patient::factory()->create();
+        $ncp = NcpRecord::factory()->create(['patient_id' => $patient->id]);
+
+        $activity = app(AuditLogger::class)->record(
+            AuditAction::Viewed,
+            AuditCategory::Clinical,
+            AuditDomain::Ncp,
+            subject: $ncp,
+            details: ['root_patient_id' => 999999, 'ncp_record_id' => 999999],
+        );
+
+        $this->assertSame($patient->id, $activity->properties['details']['root_patient_id']);
+        $this->assertSame($ncp->id, $activity->properties['details']['ncp_record_id']);
     }
 
     public function test_trait_subject_preserves_nondefault_manual_metadata_and_context(): void

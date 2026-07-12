@@ -2,21 +2,32 @@
 
 namespace App\Http\Controllers\RND;
 
+use App\Enums\AuditAction;
+use App\Enums\AuditCategory;
+use App\Enums\AuditDomain;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\RND\StoreMealPlanItemRequest;
 use App\Http\Resources\MealPlanItemResource;
+use App\Models\Assessment;
 use App\Models\FoodItem;
 use App\Models\MealPlan;
 use App\Models\MealPlanDay;
 use App\Models\MealPlanItem;
 use App\Models\NcpRecord;
 use App\Models\Recipe;
+use App\Policies\AuditPolicy;
+use App\Services\Audit\AuditLogger;
 use App\Services\UsdaService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class MealPlanItemController extends Controller
 {
-    public function __construct(private UsdaService $usdaService) {}
+    public function __construct(
+        private UsdaService $usdaService,
+        private AuditPolicy $auditPolicy,
+        private AuditLogger $auditLogger,
+    ) {}
 
     /**
      * MP-04: enforce the nested ownership chain ncpRecord → intervention →
@@ -25,6 +36,7 @@ class MealPlanItemController extends Controller
      */
     private function assertScope(NcpRecord $ncpRecord, MealPlan $mealPlan, ?MealPlanDay $day = null, ?MealPlanItem $item = null): void
     {
+        abort_unless($this->auditPolicy->viewNcpTrail(request()->user(), $ncpRecord), 403);
         if ($mealPlan->intervention_id !== $ncpRecord->intervention?->id) {
             abort(404);
         }
@@ -43,9 +55,10 @@ class MealPlanItemController extends Controller
         $dayIds = $mealPlan->days()->pluck('id');
         // Eager-load day/recipe/food-item so the resource can expose their public uuids
         // (used for the day lookup and the recipe-detail fetch) without an N+1.
-        $items  = MealPlanItem::whereIn('meal_plan_day_id', $dayIds)
+        $items = MealPlanItem::whereIn('meal_plan_day_id', $dayIds)
             ->with('mealPlanDay:id,uuid', 'recipe:id,uuid', 'foodItem:id,uuid')
             ->get();
+
         return response()->json(['data' => MealPlanItemResource::collection($items)]);
     }
 
@@ -55,6 +68,7 @@ class MealPlanItemController extends Controller
         $items = MealPlanItem::where('meal_plan_day_id', $day->id)
             ->with('mealPlanDay:id,uuid', 'recipe:id,uuid', 'foodItem:id,uuid')
             ->get();
+
         return response()->json(['data' => MealPlanItemResource::collection($items)]);
     }
 
@@ -70,25 +84,31 @@ class MealPlanItemController extends Controller
         if (! empty($conflicts)) {
             return response()->json([
                 'message' => 'This item contains an allergen the patient is allergic to: '
-                    . implode(', ', $conflicts) . '. It cannot be added.',
-                'errors'  => ['allergens' => $conflicts],
+                    .implode(', ', $conflicts).'. It cannot be added.',
+                'errors' => ['allergens' => $conflicts],
             ], 422);
         }
 
-        $item = MealPlanItem::create([
-            'meal_plan_day_id'  => $day->id,
-            'food_item_id'      => $request->input('food_item_id'),
-            'fdc_id'            => $request->input('fdc_id'),
-            'recipe_id'         => $request->input('recipe_id'),
-            'quantity'          => $request->quantity,
-            'unit'              => $request->unit,
-            'nutrient_snapshot' => $this->buildSnapshot($request),
-        ]);
+        $snapshot = $this->buildSnapshot($request);
+        $item = $this->audited(function () use ($request, $day, $snapshot, $mealPlan, $ncpRecord) {
+            $item = MealPlanItem::create([
+                'meal_plan_day_id' => $day->id,
+                'food_item_id' => $request->input('food_item_id'),
+                'fdc_id' => $request->input('fdc_id'),
+                'recipe_id' => $request->input('recipe_id'),
+                'quantity' => $request->quantity,
+                'unit' => $request->unit,
+                'nutrient_snapshot' => $snapshot,
+            ]);
+            $this->recordMutation(AuditAction::Created, $mealPlan, $ncpRecord, ['meal_plan_item'], 201);
+
+            return $item;
+        });
 
         $warnings = $this->softWarnings($itemName, $assessment);
 
         return response()->json(array_filter([
-            'data'     => new MealPlanItemResource($item),
+            'data' => new MealPlanItemResource($item),
             'warnings' => $warnings ?: null,
         ]), 201);
     }
@@ -113,18 +133,26 @@ class MealPlanItemController extends Controller
     {
         if ($request->filled('recipe_id')) {
             $recipe = Recipe::with('ingredients.foodItem')->find($request->input('recipe_id'));
-            if (! $recipe) return ['', []];
+            if (! $recipe) {
+                return ['', []];
+            }
             $allergens = [];
             foreach ($recipe->ingredients as $ing) {
                 $a = $ing->foodItem?->allergens ?? [];
-                if (is_array($a)) $allergens = array_merge($allergens, $a);
+                if (is_array($a)) {
+                    $allergens = array_merge($allergens, $a);
+                }
             }
+
             return [$recipe->name, array_values(array_unique($allergens))];
         }
 
         if ($request->filled('food_item_id')) {
             $food = FoodItem::find($request->input('food_item_id'));
-            if (! $food) return ['', []];
+            if (! $food) {
+                return ['', []];
+            }
+
             return [$food->name, is_array($food->allergens) ? $food->allergens : []];
         }
 
@@ -137,9 +165,11 @@ class MealPlanItemController extends Controller
      *
      * @return array<int,string>
      */
-    private function softWarnings(string $itemName, ?\App\Models\Assessment $assessment): array
+    private function softWarnings(string $itemName, ?Assessment $assessment): array
     {
-        if (! $assessment || $itemName === '') return [];
+        if (! $assessment || $itemName === '') {
+            return [];
+        }
 
         $warnings = [];
         $name = strtolower($itemName);
@@ -151,14 +181,14 @@ class MealPlanItemController extends Controller
         }
 
         if (filled($assessment->dietary_restrictions)) {
-            $warnings[] = 'Patient has dietary restrictions ("' . $assessment->dietary_restrictions
-                . '") — verify this item complies.';
+            $warnings[] = 'Patient has dietary restrictions ("'.$assessment->dietary_restrictions
+                .'") — verify this item complies.';
         }
 
         return $warnings;
     }
 
-    public function update(\Illuminate\Http\Request $request, NcpRecord $ncpRecord, MealPlan $mealPlan, MealPlanDay $day, MealPlanItem $item): JsonResponse
+    public function update(Request $request, NcpRecord $ncpRecord, MealPlan $mealPlan, MealPlanDay $day, MealPlanItem $item): JsonResponse
     {
         $this->assertScope($ncpRecord, $mealPlan, $day, $item);
         // DI-03: never accept a client-supplied nutrient snapshot — it would let a
@@ -166,11 +196,11 @@ class MealPlanItemController extends Controller
         // quantity/unit, and ingredient quantities for a recipe item; in the latter
         // case the snapshot is RE-COMPUTED server-side from trusted food data.
         $validated = $request->validate([
-            'quantity'                       => 'sometimes|numeric|min:0.01',
-            'unit'                           => 'sometimes|string|max:50',
-            'ingredient_overrides'           => 'sometimes|array',
-            'ingredient_overrides.*.id'      => 'required_with:ingredient_overrides|integer',
-            'ingredient_overrides.*.quantity'=> 'required_with:ingredient_overrides|numeric|min:0',
+            'quantity' => 'sometimes|numeric|min:0.01',
+            'unit' => 'sometimes|string|max:50',
+            'ingredient_overrides' => 'sometimes|array',
+            'ingredient_overrides.*.id' => 'required_with:ingredient_overrides|integer',
+            'ingredient_overrides.*.quantity' => 'required_with:ingredient_overrides|numeric|min:0',
         ]);
 
         if (! empty($validated['ingredient_overrides'])) {
@@ -180,8 +210,11 @@ class MealPlanItemController extends Controller
             }
         }
 
-        $item->fill(array_intersect_key($validated, array_flip(['quantity', 'unit'])));
-        $item->save();
+        $this->audited(function () use ($item, $validated, $mealPlan, $ncpRecord): void {
+            $item->fill(array_intersect_key($validated, array_flip(['quantity', 'unit'])));
+            $item->save();
+            $this->recordMutation(AuditAction::Updated, $mealPlan, $ncpRecord, array_keys($validated));
+        });
 
         return response()->json(['data' => new MealPlanItemResource($item)]);
     }
@@ -205,7 +238,7 @@ class MealPlanItemController extends Controller
             return null;
         }
 
-        $servings    = max((float) ($recipe->servings ?? 1), 1);
+        $servings = max((float) ($recipe->servings ?? 1), 1);
         $overrideQty = collect($overrides)->keyBy('id');
 
         $cal = $prot = $carb = $fat = 0.0;
@@ -213,15 +246,17 @@ class MealPlanItemController extends Controller
 
         foreach ($recipe->ingredients as $ing) {
             $food = $ing->foodItem;
-            if (! $food) continue;
+            if (! $food) {
+                continue;
+            }
 
-            $qty    = (float) ($overrideQty[$ing->id]['quantity'] ?? $ing->quantity);
+            $qty = (float) ($overrideQty[$ing->id]['quantity'] ?? $ing->quantity);
             $factor = $qty / (max((float) ($food->serving_size ?? 100), 1));
 
-            $cal  += (float) $food->calories * $factor;
-            $prot += (float) $food->protein  * $factor;
-            $carb += (float) $food->carbs    * $factor;
-            $fat  += (float) $food->fat      * $factor;
+            $cal += (float) $food->calories * $factor;
+            $prot += (float) $food->protein * $factor;
+            $carb += (float) $food->carbs * $factor;
+            $fat += (float) $food->fat * $factor;
             foreach ((is_array($food->micronutrients) ? $food->micronutrients : []) as $k => $v) {
                 $micros[$k] = ($micros[$k] ?? 0) + (float) $v * $factor;
             }
@@ -230,14 +265,14 @@ class MealPlanItemController extends Controller
         $r1 = fn (float $n) => round($n / $servings, 1);
 
         return [
-            'name'           => $item->nutrient_snapshot['name'] ?? $recipe->name,
-            'calories'       => $r1($cal),
-            'protein'        => $r1($prot),
-            'carbs'          => $r1($carb),
-            'fat'            => $r1($fat),
-            'water_g'        => $item->nutrient_snapshot['water_g'] ?? null,
-            'serving_size'   => 1,
-            'serving_unit'   => 'serving',
+            'name' => $item->nutrient_snapshot['name'] ?? $recipe->name,
+            'calories' => $r1($cal),
+            'protein' => $r1($prot),
+            'carbs' => $r1($carb),
+            'fat' => $r1($fat),
+            'water_g' => $item->nutrient_snapshot['water_g'] ?? null,
+            'serving_size' => 1,
+            'serving_unit' => 'serving',
             'micronutrients' => array_map(fn ($v) => round($v / $servings, 1), $micros),
         ];
     }
@@ -245,44 +280,64 @@ class MealPlanItemController extends Controller
     public function destroy(NcpRecord $ncpRecord, MealPlan $mealPlan, MealPlanDay $day, MealPlanItem $item): JsonResponse
     {
         $this->assertScope($ncpRecord, $mealPlan, $day, $item);
-        $item->delete();
+        $this->audited(function () use ($item, $mealPlan, $ncpRecord): void {
+            $item->delete();
+            $this->recordMutation(AuditAction::Deleted, $mealPlan, $ncpRecord, ['meal_plan_item'], 204);
+        });
+
         return response()->json(null, 204);
+    }
+
+    /** @param array<int, string> $fields */
+    private function recordMutation(AuditAction $action, MealPlan $mealPlan, NcpRecord $ncpRecord, array $fields, int $status = 200): void
+    {
+        $this->auditLogger->record(
+            $action,
+            AuditCategory::Clinical,
+            AuditDomain::Ncp,
+            subject: $mealPlan,
+            context: $ncpRecord,
+            details: ['fields' => $fields, 'status' => $status],
+        );
     }
 
     private function buildSnapshot(StoreMealPlanItemRequest $request): array
     {
         if ($request->filled('fdc_id')) {
             $data = $this->usdaService->fetch((int) $request->input('fdc_id'));
+
             return array_merge($data, ['serving_size' => 100, 'serving_unit' => 'g']);
         }
 
         if ($request->filled('recipe_id')) {
             $recipe = Recipe::findOrFail($request->input('recipe_id'));
+
             return [
-                'name'           => $recipe->name,
-                'calories'       => (float) $recipe->total_calories,
-                'protein'        => (float) $recipe->total_protein,
-                'carbs'          => (float) $recipe->total_carbs,
-                'fat'            => (float) $recipe->total_fat,
-                'water_g'        => null,
+                'name' => $recipe->name,
+                'calories' => (float) $recipe->total_calories,
+                'protein' => (float) $recipe->total_protein,
+                'carbs' => (float) $recipe->total_carbs,
+                'fat' => (float) $recipe->total_fat,
+                'water_g' => null,
                 'micronutrients' => $recipe->micronutrients ?? [],
-                'serving_size'   => (float) ($recipe->servings ?? 1),
-                'serving_unit'   => 'serving',
+                'serving_size' => (float) ($recipe->servings ?? 1),
+                'serving_unit' => 'serving',
             ];
         }
 
         $food = FoodItem::findOrFail($request->input('food_item_id'));
+
         return [
-            'fdc_id'         => $food->usda_fdc_id,
-            'name'           => $food->name,
-            'calories'       => (float) $food->calories,
-            'protein'        => (float) $food->protein,
-            'carbs'          => (float) $food->carbs,
-            'fat'            => (float) $food->fat,
-            'water_g'        => $food->water_g !== null ? (float) $food->water_g : null,
+            'fdc_id' => $food->usda_fdc_id,
+            'name' => $food->name,
+            'calories' => (float) $food->calories,
+            'protein' => (float) $food->protein,
+            'carbs' => (float) $food->carbs,
+            'fat' => (float) $food->fat,
+            'water_g' => $food->water_g !== null ? (float) $food->water_g : null,
             'micronutrients' => $food->micronutrients ?? [],
-            'serving_size'   => (float) ($food->serving_size ?? 100),
-            'serving_unit'   => $food->serving_unit ?? 'g',
+            'serving_size' => (float) ($food->serving_size ?? 100),
+            'serving_unit' => $food->serving_unit ?? 'g',
         ];
     }
 }

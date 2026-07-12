@@ -2,12 +2,20 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\AuditAction;
+use App\Enums\AuditCategory;
+use App\Enums\AuditDomain;
 use App\Http\Requests\StoreReportRequest;
 use App\Http\Resources\ReportResource;
 use App\Jobs\GenerateReport;
+use App\Models\MealPlan;
+use App\Models\NcpRecord;
 use App\Models\Report;
 use App\Models\ReportBranding;
 use App\Models\ReportTemplate;
+use App\Policies\AuditPolicy;
+use App\Services\Audit\AuditContextResolver;
+use App\Services\Audit\AuditLogger;
 use App\Services\Reports\ReportBrowser;
 use App\Services\Reports\ReportService;
 use Illuminate\Http\JsonResponse;
@@ -19,6 +27,12 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ReportController extends Controller
 {
+    public function __construct(
+        private readonly AuditPolicy $auditPolicy,
+        private readonly AuditLogger $auditLogger,
+        private readonly AuditContextResolver $auditContextResolver,
+    ) {}
+
     /** The Food-Service report set produced by Generate-All. */
     private const FOOD_SERVICE_SET = [
         'program_project_activity',
@@ -27,8 +41,16 @@ class ReportController extends Controller
 
     /** Reports that expose patient/clinical data — RND-only, never food-service. */
     private const CLINICAL_TYPES = [
+        'adime_individual',
+        'adime_aggregate',
+        'ncp_census',
         'patient_menu_plan',
         'demographic_census',
+        'ncp_summary',
+    ];
+
+    private const NCP_CONTEXT_TYPES = [
+        'adime_individual',
         'ncp_summary',
     ];
 
@@ -79,7 +101,9 @@ class ReportController extends Controller
         $this->guardClinical($template->type);
         $this->guardAdmin($template->type);
         $this->guardFss($template->type);
-        $report   = $this->createReport($template->type, $template->name, $request->parameters ?? []);
+        $parameters = $request->parameters ?? [];
+        $this->authorizeClinicalReportContext($template->type, $parameters);
+        $report = $this->createReport($template->type, $template->name, $parameters);
 
         $this->run($report, $reports);
 
@@ -94,11 +118,11 @@ class ReportController extends Controller
     public function generateAll(Request $request, ReportService $reports): JsonResponse
     {
         $params = $request->validate([
-            'parameters'              => ['nullable', 'array'],
-            'parameters.start'        => ['nullable', 'date'],
-            'parameters.end'          => ['nullable', 'date'],
-            'parameters.menu_cycle_id'=> ['nullable', 'integer'],
-            'parameters.budget_id'    => ['nullable', 'integer'],
+            'parameters' => ['nullable', 'array'],
+            'parameters.start' => ['nullable', 'date'],
+            'parameters.end' => ['nullable', 'date'],
+            'parameters.menu_cycle_id' => ['nullable', 'integer'],
+            'parameters.budget_id' => ['nullable', 'integer'],
             'parameters.shopping_list_id' => ['nullable', 'integer'],
         ])['parameters'] ?? [];
 
@@ -108,7 +132,7 @@ class ReportController extends Controller
                 continue;
             }
             $template = ReportTemplate::where('type', $type)->first();
-            $report   = $this->createReport($type, $template?->name ?? $type, $params);
+            $report = $this->createReport($type, $template?->name ?? $type, $params);
             $this->run($report, $reports);
             $created[] = $report->fresh();
         }
@@ -127,12 +151,12 @@ class ReportController extends Controller
         $this->guardAdmin($type);
         $this->guardFss($type);
 
-        $source  = $browser->sourceFor($type);
+        $source = $browser->sourceFor($type);
         $filters = $request->only(['year', 'month']);
 
         return response()->json([
             'data' => [
-                'axis'      => $source->axis(),
+                'axis' => $source->axis(),
                 'instances' => $source->instances($filters),
             ],
         ]);
@@ -150,13 +174,15 @@ class ReportController extends Controller
         $this->guardFss($type);
 
         $params = $this->renderParams($request, $type);
+        $this->authorizeClinicalReportContext($type, $params);
         abort_unless($browser->sourceFor($type)->hasData($params), 404, 'No data for this report period.');
 
         $bytes = $reports->streamBytes($type, $params);
+        $this->recordClinicalReport(AuditAction::Viewed, $type, $params, status: 200);
 
         return response($bytes, 200, [
-            'Content-Type'        => 'application/pdf',
-            'Content-Disposition' => 'inline; filename="' . $type . '.pdf"',
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="'.$type.'.pdf"',
         ]);
     }
 
@@ -172,26 +198,30 @@ class ReportController extends Controller
         $this->guardFss($type);
 
         $params = $this->renderParams($request, $type);
+        $this->authorizeClinicalReportContext($type, $params);
         abort_unless($browser->sourceFor($type)->hasData($params), 404, 'No data for this report period.');
 
         $template = ReportTemplate::where('type', $type)->first();
-        $report   = $this->createReport($type, $template?->name ?? $type, $params, 'archived');
+        $report = $this->createReport($type, $template?->name ?? $type, $params, 'archived');
 
         $path = $reports->generate($report);
 
-        $report->update([
-            'file_path'    => $path,
-            'generated_at' => now(),
-            'snapshot'     => [
-                'branding'     => ReportBranding::singleton()->only([
-                    'hospital_name', 'address', 'accreditation', 'service_name',
-                    'province', 'lgu', 'logo_left_path', 'logo_right_path',
-                ]),
-                'signatories'  => $reports->signatoriesFor($report),
-                'params'       => $report->parameters,
-                'archived_at'  => now()->toIso8601String(),
-            ],
-        ]);
+        $this->audited(function () use ($report, $path, $reports, $type, $params): void {
+            $report->update([
+                'file_path' => $path,
+                'generated_at' => now(),
+                'snapshot' => [
+                    'branding' => ReportBranding::singleton()->only([
+                        'hospital_name', 'address', 'accreditation', 'service_name',
+                        'province', 'lgu', 'logo_left_path', 'logo_right_path',
+                    ]),
+                    'signatories' => $reports->signatoriesFor($report),
+                    'params' => $report->parameters,
+                    'archived_at' => now()->toIso8601String(),
+                ],
+            ]);
+            $this->recordClinicalReport(AuditAction::Exported, $type, $params, $report, 201);
+        });
 
         return response()->json(['data' => new ReportResource($report->fresh())], 201);
     }
@@ -219,6 +249,7 @@ class ReportController extends Controller
         $this->authorizeOwner($report);
         $this->guardClinical($report->type);
         $this->guardAdmin($report->type);
+
         return response()->json(['data' => new ReportResource($report)]);
     }
 
@@ -232,7 +263,9 @@ class ReportController extends Controller
             return response()->json(['message' => 'Report file not available.'], 404);
         }
 
-        $name = str($report->title)->slug() . '.pdf';
+        $name = str($report->title)->slug().'.pdf';
+        $this->recordClinicalReport(AuditAction::Downloaded, $report->type, $report->parameters ?? [], $report, 200);
+
         return Storage::disk('public')->download($report->file_path, $name);
     }
 
@@ -250,8 +283,10 @@ class ReportController extends Controller
             return response()->json(['message' => 'Report file not available.'], 404);
         }
 
-        return Storage::disk('public')->response($report->file_path, str($report->title)->slug() . '.pdf', [
-            'Content-Type'        => 'application/pdf',
+        $this->recordClinicalReport(AuditAction::Viewed, $report->type, $report->parameters ?? [], $report, 200);
+
+        return Storage::disk('public')->response($report->file_path, str($report->title)->slug().'.pdf', [
+            'Content-Type' => 'application/pdf',
             'Content-Disposition' => 'inline',
         ]);
     }
@@ -294,6 +329,79 @@ class ReportController extends Controller
         abort(403, 'This report contains patient data and is restricted to the RND role.');
     }
 
+    private function recordClinicalReport(
+        AuditAction $action,
+        string $type,
+        array $parameters,
+        ?Report $report = null,
+        int $status = 200,
+    ): void {
+        $ncpRecord = $this->ncpContextForReport($type, $parameters, $report);
+        if ($ncpRecord === null) {
+            return;
+        }
+
+        $this->authorizeClinicalReportContext($type, $parameters, $report);
+        $this->auditLogger->record(
+            $action,
+            AuditCategory::Clinical,
+            AuditDomain::Reports,
+            subject: $report ?? $ncpRecord,
+            context: $ncpRecord,
+            details: ['status' => $status],
+        );
+    }
+
+    private function ncpContextForReport(string $type, array $parameters, ?Report $report = null): ?NcpRecord
+    {
+        if ($report?->audit_ncp_record_id) {
+            $existing = NcpRecord::query()->find($report->audit_ncp_record_id);
+            if ($existing !== null) {
+                return $existing;
+            }
+
+            $snapshot = new NcpRecord([
+                'patient_id' => $report->audit_patient_id,
+                'rnd_user_id' => $report->audit_owner_id,
+            ]);
+            $snapshot->setAttribute($snapshot->getKeyName(), $report->audit_ncp_record_id);
+            $snapshot->exists = true;
+
+            return $snapshot;
+        }
+
+        if (in_array($type, self::NCP_CONTEXT_TYPES, true)) {
+            $ncpRecord = NcpRecord::query()->find($parameters['ncp_record_id'] ?? null);
+            abort_unless($ncpRecord !== null, 404);
+
+            return $ncpRecord;
+        }
+
+        if ($type !== 'patient_menu_plan') {
+            return null;
+        }
+
+        $mealPlan = MealPlan::query()->find($parameters['meal_plan_id'] ?? null);
+        $context = $mealPlan === null ? null : $this->auditContextResolver->resolve($mealPlan);
+
+        abort_unless($mealPlan !== null && $context instanceof NcpRecord, 403);
+        abort_if(isset($parameters['ncp_record_id']) && (int) $parameters['ncp_record_id'] !== (int) $context->getKey(), 403);
+        abort_if(isset($parameters['patient_id']) && (int) $parameters['patient_id'] !== (int) $mealPlan->patient_id, 403);
+
+        return NcpRecord::query()->find($context->getKey());
+    }
+
+    private function authorizeClinicalReportContext(string $type, array $parameters, ?Report $report = null): void
+    {
+        $ncpRecord = $this->ncpContextForReport($type, $parameters, $report);
+        if ($ncpRecord !== null) {
+            $allowed = $report?->audit_owner_id
+                ? (int) $report->audit_owner_id === (int) Auth::id()
+                : $this->auditPolicy->viewNcpTrail(request()->user(), $ncpRecord);
+            abort_unless($allowed, 403);
+        }
+    }
+
     /**
      * FSS role may only access the accomplishment_report type (fss.md §8).
      * All other report types are out of scope for FSS; returns 403.
@@ -333,16 +441,20 @@ class ReportController extends Controller
      */
     private function createReport(string $type, string $title, array $params, string $status = 'pending'): Report
     {
+        $ncpRecord = $this->ncpContextForReport($type, $params);
         if ($name = Auth::user()?->name) {
             $params['prepared_by_name'] = $name;
         }
 
         return Report::create([
-            'user_id'    => Auth::id(),
-            'title'      => $title,
-            'type'       => $type,
+            'user_id' => Auth::id(),
+            'audit_patient_id' => $ncpRecord?->patient_id,
+            'audit_ncp_record_id' => $ncpRecord?->id,
+            'audit_owner_id' => $ncpRecord ? Auth::id() : null,
+            'title' => $title,
+            'type' => $type,
             'parameters' => $params,
-            'status'     => $status,
+            'status' => $status,
         ]);
     }
 

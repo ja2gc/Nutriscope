@@ -61,6 +61,21 @@ trait AuditsChanges
         $props['request'] ??= $sanitizer->request(request());
         $activity->properties = $props;
         $resolver = app(AuditContextResolver::class);
+        if ($clinical && (isset($props['attributes']) || isset($props['old']))) {
+            $identifiers = $resolver->clinicalIdentifiers($this);
+            $props['details'] = $sanitizer->details([
+                ...$identifiers,
+                'changed_fields' => collect(['attributes', 'old'])
+                    ->flatMap(fn (string $bag) => array_keys((array) ($props[$bag] ?? [])))
+                    ->unique()
+                    ->values()
+                    ->all(),
+            ], AuditCategory::Clinical);
+            $activity->properties = $props;
+            $activity->root_patient_id = $identifiers['root_patient_id'];
+            $activity->ncp_record_id = $identifiers['ncp_record_id'];
+            $activity->audit_owner_id = $resolver->clinicalOwnerId($this);
+        }
         $activity->category ??= $clinical ? AuditCategory::Clinical : AuditCategory::Operations;
         $activity->domain ??= $resolver->domain($this);
         $activity->outcome ??= AuditOutcome::Success;

@@ -146,6 +146,24 @@ class AuditLogger
         }
 
         $resolvedContext = $this->contextResolver->resolve($subject, $context);
+        $clinicalIdentifiers = ['root_patient_id' => null, 'ncp_record_id' => null];
+        $clinicalOwnerId = null;
+        if ($category === AuditCategory::Clinical && $subject !== null) {
+            $subjectIdentifiers = $this->contextResolver->clinicalIdentifiers($subject);
+            $contextIdentifiers = $context !== null
+                ? $this->contextResolver->clinicalIdentifiers($context)
+                : ['root_patient_id' => null, 'ncp_record_id' => null];
+            $clinicalIdentifiers = [
+                'root_patient_id' => $subjectIdentifiers['root_patient_id'] ?? $contextIdentifiers['root_patient_id'],
+                'ncp_record_id' => $subjectIdentifiers['ncp_record_id'] ?? $contextIdentifiers['ncp_record_id'],
+            ];
+            $details = [
+                ...$clinicalIdentifiers,
+                ...array_diff_key($details, $clinicalIdentifiers),
+            ];
+            $clinicalOwnerId = $this->contextResolver->clinicalOwnerId($subject)
+                ?? ($context !== null ? $this->contextResolver->clinicalOwnerId($context) : null);
+        }
         $safeDetails = $this->sanitizer->details($details, $category);
         $requestProperties = $includeRequestMetadata ? $this->sanitizer->request($this->request) : [];
         $properties = [
@@ -162,11 +180,14 @@ class AuditLogger
         $logger = activity(config('audit.log_name'))
             ->event($event)
             ->withProperties($properties)
-            ->tap(function (AuditActivity $activity) use ($category, $domain, $outcome, $severity, $resolvedContext): void {
+            ->tap(function (AuditActivity $activity) use ($category, $domain, $outcome, $severity, $resolvedContext, $clinicalIdentifiers, $clinicalOwnerId): void {
                 $activity->category = $category;
                 $activity->domain = $domain;
                 $activity->outcome = $outcome;
                 $activity->severity = $severity;
+                $activity->root_patient_id = $clinicalIdentifiers['root_patient_id'];
+                $activity->ncp_record_id = $clinicalIdentifiers['ncp_record_id'];
+                $activity->audit_owner_id = $clinicalOwnerId;
 
                 if ($resolvedContext !== null) {
                     $activity->context_type = $resolvedContext->getMorphClass();

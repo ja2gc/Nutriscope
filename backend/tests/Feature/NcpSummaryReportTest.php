@@ -5,10 +5,12 @@ namespace Tests\Feature;
 use App\Models\Assessment;
 use App\Models\Diagnosis;
 use App\Models\Intervention;
+use App\Models\MealPlan;
 use App\Models\Monitoring;
 use App\Models\NcpRecord;
 use App\Models\Patient;
 use App\Models\Report;
+use App\Models\ScreeningDocument;
 use App\Models\User;
 use App\Services\Reports\Generators\NcpSummaryGenerator;
 use Carbon\Carbon;
@@ -32,20 +34,20 @@ class NcpSummaryReportTest extends TestCase
     {
         $patient = Patient::factory()->create();
         $ncp = NcpRecord::factory()->create([
-            'patient_id'  => $patient->id,
+            'patient_id' => $patient->id,
             'rnd_user_id' => $this->rnd->id,
-            'risk_score'  => 2,
+            'risk_score' => 2,
         ]);
         Assessment::factory()->create(['ncp_record_id' => $ncp->id]);
         // DiagnosisFactory is stale (writes non-existent `signs`/`priority` columns) —
         // create directly with the real schema fields.
         Diagnosis::create([
-            'ncp_record_id'  => $ncp->id,
-            'domain'         => 'NI',
-            'problem'        => 'Inadequate energy intake',
-            'etiology'       => 'poor appetite',
+            'ncp_record_id' => $ncp->id,
+            'domain' => 'NI',
+            'problem' => 'Inadequate energy intake',
+            'etiology' => 'poor appetite',
             'signs_symptoms' => 'unintentional weight loss',
-            'pes_statement'  => 'Inadequate energy intake related to poor appetite as evidenced by weight loss',
+            'pes_statement' => 'Inadequate energy intake related to poor appetite as evidenced by weight loss',
         ]);
         // Intervention/Monitoring factories are also stale vs the schema — create directly.
         Intervention::create([
@@ -54,11 +56,11 @@ class NcpSummaryReportTest extends TestCase
             'education_notes' => 'Low-salt, high-protein diet education.',
         ]);
         Monitoring::create([
-            'ncp_record_id'    => $ncp->id,
-            'weight'           => 60,
-            'bmi'              => 22,
-            'intake_notes'     => 'Adequate oral intake.',
-            'symptoms'         => 'None noted.',
+            'ncp_record_id' => $ncp->id,
+            'weight' => 60,
+            'bmi' => 22,
+            'intake_notes' => 'Adequate oral intake.',
+            'symptoms' => 'None noted.',
             'clinical_summary' => 'Tolerating diet, weight stable.',
         ]);
 
@@ -78,6 +80,21 @@ class NcpSummaryReportTest extends TestCase
 
         $this->assertCount(2, $data['instances']);
         $this->assertArrayHasKey('ncp_record_id', $data['instances'][0]['params']);
+    }
+
+    public function test_clinical_instances_exclude_other_rnd_records_and_labels(): void
+    {
+        $owned = $this->makeRecord();
+        $other = User::factory()->rnd()->create();
+        $otherPatient = Patient::factory()->create(['name' => 'OTHER-PATIENT-LABEL-SENTINEL']);
+        NcpRecord::factory()->create(['patient_id' => $otherPatient->id, 'rnd_user_id' => $other->id]);
+
+        $response = $this->actingAs($this->rnd, 'sanctum')
+            ->getJson('/api/rnd/reports/ncp_summary/instances')
+            ->assertOk();
+
+        $this->assertSame([(string) $owned->id], collect($response->json('data.instances'))->pluck('key')->all());
+        $this->assertStringNotContainsString('OTHER-PATIENT-LABEL-SENTINEL', $response->getContent());
     }
 
     public function test_fss_cannot_browse_ncp_summary(): void
@@ -114,16 +131,16 @@ class NcpSummaryReportTest extends TestCase
     {
         $ncp = $this->makeRecord();
 
-        \App\Models\ScreeningDocument::create([
-            'patient_id'    => $ncp->patient_id,
+        ScreeningDocument::create([
+            'patient_id' => $ncp->patient_id,
             'ncp_record_id' => $ncp->id,
             'assessment_id' => $ncp->assessment->id,
-            'type'          => 'referral',
-            'file_path'     => 'documents/ncp/ref.pdf',
+            'type' => 'referral',
+            'file_path' => 'documents/ncp/ref.pdf',
             'original_name' => 'ref.pdf',
         ]);
 
-        $report = new Report();
+        $report = new Report;
         $report->type = 'ncp_summary';
         $report->parameters = ['ncp_record_id' => $ncp->id];
 
@@ -138,15 +155,15 @@ class NcpSummaryReportTest extends TestCase
         $ncp = $this->makeRecord();
         // makeRecord's intervention has no goal_type → still incomplete initial ADI.
         $ncp->intervention->update(['goal_type' => 'renal_diet']);
-        $plan = \App\Models\MealPlan::create([
+        $plan = MealPlan::create([
             'intervention_id' => $ncp->intervention->id,
-            'patient_id'      => $ncp->patient_id,
+            'patient_id' => $ncp->patient_id,
             'week_start_date' => '2026-06-15',
             'generation_type' => 'auto',
-            'status'          => 'draft',
+            'status' => 'draft',
         ]);
 
-        $report = new Report();
+        $report = new Report;
         $report->type = 'ncp_summary';
         $report->parameters = ['ncp_record_id' => $ncp->id];
         $data = app(NcpSummaryGenerator::class)->data($report->fresh() ?? $report);
@@ -161,7 +178,7 @@ class NcpSummaryReportTest extends TestCase
         $ncp = $this->makeRecord();
         $ncp->intervention->update(['goal_type' => null, 'energy_kcal' => null]);
 
-        $report = new Report();
+        $report = new Report;
         $report->type = 'ncp_summary';
         $report->parameters = ['ncp_record_id' => $ncp->id];
         $data = app(NcpSummaryGenerator::class)->data($report);
