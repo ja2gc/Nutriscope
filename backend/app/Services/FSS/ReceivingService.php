@@ -7,7 +7,6 @@ use App\Enums\AuditCategory;
 use App\Enums\AuditDomain;
 use App\Models\FoodServiceRecipe;
 use App\Models\FsItem;
-use App\Models\Inventory;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderItem;
 use App\Models\PurchaseOrderVendorGroup;
@@ -90,38 +89,27 @@ class ReceivingService
             return;
         }
 
-        $fs = FsItem::find($item->fs_item_id);
+        $fs = FsItem::query()->whereKey($item->fs_item_id)->lockForUpdate()->first();
         if (! $fs) {
             Log::warning('ReceivingService: fs_item missing', ['fs_item_id' => $item->fs_item_id]);
 
             return;
         }
 
+        $lineQty = (float) $item->qty;
+        $lineTotal = (float) $item->total_value;
+        $frozenUnitPrice = $lineQty > 0 && $lineTotal > 0
+            ? $lineTotal / $lineQty
+            : (float) $item->unit_price;
+        [, $perBaseCost] = self::normalizeLine(
+            $lineQty,
+            (string) $item->unit,
+            $frozenUnitPrice,
+            (string) $fs->base_unit,
+        );
+
         $basePerPurchase = $fs->basePerPurchase();
-        if ($item->purchase_qty !== null && $basePerPurchase > 0) {
-            $qtyBase = (float) $item->purchase_qty * $basePerPurchase;
-            $perBaseCost = (float) $item->purchase_price / $basePerPurchase;
-        } else {
-            [$qtyBase, $perBaseCost] = self::normalizeLine(
-                (float) $item->qty,
-                (string) $item->unit,
-                (float) $item->unit_price,
-                (string) $fs->base_unit
-            );
-        }
-
-        $inv = Inventory::query()->where('fs_item_id', $fs->id)->lockForUpdate()->first();
-        if ($inv === null) {
-            $inv = new Inventory(['fs_item_id' => $fs->id]);
-            $inv->item_type = $fs->kind ?? 'ingredient';
-            $inv->quantity_in_stock = 0;
-        }
-        $inv->unit = $fs->base_unit;
-        $inv->quantity_in_stock = (float) $inv->quantity_in_stock + $qtyBase;
-        $inv->unit_price = round($perBaseCost, 2);
-        $inv->save();
-
-        if ($basePerPurchase > 0) {
+        if ($basePerPurchase > 0 && $perBaseCost > 0) {
             $fs->purchase_price = round($perBaseCost * $basePerPurchase, 2);
             $fs->save();
         }

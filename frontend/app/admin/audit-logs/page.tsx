@@ -4,7 +4,7 @@ import React, { useEffect, useState, useMemo } from "react";
 import { listAuditLogs, AuditLog, ListAuditLogsParams } from "@/services/auditLogService";
 import { listUsers } from "@/services/adminUserService";
 import { User } from "@/services/authService";
-import { PaginationMeta } from "@/services/inventoryService";
+import type { PaginationMeta } from "@/components/ui/Pagination";
 import { Pagination } from "@/components/ui/Pagination";
 import {
   Activity,

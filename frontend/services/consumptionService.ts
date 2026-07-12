@@ -30,7 +30,7 @@ async function unwrap<T>(res: Response, fallback: string): Promise<T> {
   return (data as { data: T }).data;
 }
 
-/** Complete a whole service day for a cycle — deducts that day's planned ingredients from stock. */
+/** Record a completed service day with population and status metadata. */
 export async function completeServiceDay(menuCycleId: number, serviceDate: string, population?: number): Promise<MealPrepLog> {
   return unwrap(await apiFetch(`/api/fss/menu-cycles/${menuCycleId}/complete-day`, {
     method: "POST", headers: { "Content-Type": "application/json" },
@@ -38,14 +38,14 @@ export async function completeServiceDay(menuCycleId: number, serviceDate: strin
   }), "Failed to complete service day.");
 }
 
-/** Reverse a completed service day — restores the deducted quantities to stock. */
+/** Reverse a completed service-day record by changing its status. */
 export async function reverseServiceDay(logId: number): Promise<MealPrepLog> {
   return unwrap(await apiFetch(`/api/fss/meal-prep-logs/${logId}/reverse`, { method: "POST" }), "Failed to reverse service day.");
 }
 
 /**
- * Backfill the served (actual) population for one date of a cycle — a headcount
- * census, NOT a stock deduction. Editable by FSS + RND any time before the related
+ * Backfill the served (actual) population for one date of a cycle as a headcount
+ * record. Editable by FSS + RND any time before the related
  * food PO completes. Summed across the span it drives PO completion, the food PO's
  * actual budget/head/day, and the PPA report's actual output.
  */

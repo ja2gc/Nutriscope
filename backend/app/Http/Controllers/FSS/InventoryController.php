@@ -3,12 +3,9 @@
 namespace App\Http\Controllers\FSS;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\FSS\StoreInventoryRequest;
-use App\Http\Requests\FSS\UpdateInventoryRequest;
 use App\Http\Resources\InventoryResource;
 use App\Models\FsItem;
 use App\Models\Inventory;
-use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -18,77 +15,62 @@ class InventoryController extends Controller
 {
     private const RELATIONS = ['fsItem', 'recipe'];
 
-    /** Merged, paginated inventory rows for the UI table (single query, no N+1). */
+    /**
+     * Compatibility catalog endpoint retained while callers move to fs-items/catalog.
+     * It exposes catalog and recipe costing data only; it is not a stock ledger.
+     */
     public function rows(Request $request): JsonResponse
     {
-        $search  = trim($request->get('search', ''));
-        $type    = $request->get('type', 'all');
-        // Back-compat: the old UI called ingredients "food_item".
-        $type    = $type === 'food_item' ? 'ingredient' : $type;
-        $status  = $request->get('status', 'all');
-        $perPage = (int) min($request->get('per_page', 25), 100);
-        $page    = max(1, (int) $request->get('page', 1));
+        $search = trim((string) $request->query('search', ''));
+        $type = (string) $request->query('type', 'all');
+        $type = $type === 'food_item' ? 'ingredient' : $type;
+        $perPage = min(max((int) $request->query('per_page', 25), 1), 100);
+        $page = max((int) $request->query('page', 1), 1);
+        $cacheKey = 'catalog_rows_'.md5("{$search}|{$type}|{$perPage}|{$page}");
 
-        $cacheKey = 'inv_rows_' . md5("{$search}|{$type}|{$status}|{$perPage}|{$page}");
+        $result = Cache::remember($cacheKey, 30, function () use ($search, $type, $perPage, $page): array {
+            [$union, $bindings] = $this->catalogUnion($type, $search);
+            $total = (int) DB::selectOne("SELECT COUNT(*) AS aggregate FROM ({$union}) AS catalog", $bindings)->aggregate;
+            $rows = DB::select(
+                "SELECT * FROM ({$union}) AS catalog ORDER BY name ASC LIMIT ? OFFSET ?",
+                [...$bindings, $perPage, ($page - 1) * $perPage],
+            );
 
-        $result = Cache::remember($cacheKey, 30, function () use ($search, $type, $status, $perPage, $page) {
-            return $this->buildRows($search, $type, $status, $perPage, $page);
+            return [
+                'data' => array_map(fn (object $row): array => $this->catalogRow($row), $rows),
+                'meta' => [
+                    'current_page' => $page,
+                    'per_page' => $perPage,
+                    'total' => $total,
+                    'last_page' => max(1, (int) ceil($total / $perPage)),
+                ],
+                'stats' => Cache::remember('catalog_row_stats', 30, function (): array {
+                    $catalogItems = FsItem::query()->where('is_active', true)->count();
+                    $recipes = DB::table('food_service_recipes')->count();
+
+                    return [
+                        'total' => $catalogItems + $recipes,
+                        'catalog_items' => $catalogItems,
+                        'recipes' => $recipes,
+                    ];
+                }),
+            ];
         });
 
         return response()->json($result);
     }
 
-    private function buildRows(string $search, string $type, string $status, int $perPage, int $page): array
+    /** @return array{0:string,1:array<int, mixed>} */
+    private function catalogUnion(string $type, string $search): array
     {
-        [$union, $bindings] = $this->unionFor($type, $search);
-
-        $statusWhere = $this->statusWhere($status);
-        $where       = $statusWhere ? "WHERE {$statusWhere}" : '';
-
-        $total = DB::selectOne("SELECT COUNT(*) AS cnt FROM ({$union}) AS t {$where}", $bindings)->cnt;
-
-        $offset = ($page - 1) * $perPage;
-        $rows   = DB::select(
-            "SELECT * FROM ({$union}) AS t {$where} ORDER BY name ASC LIMIT ? OFFSET ?",
-            [...$bindings, $perPage, $offset]
-        );
-
-        $now  = Carbon::now();
-        $data = array_map(fn ($r) => $this->decorateRow($r, $now), $rows);
-
-        return [
-            'data'  => $data,
-            'meta'  => [
-                'current_page' => $page,
-                'per_page'     => $perPage,
-                'total'        => (int) $total,
-                'last_page'    => max(1, (int) ceil($total / $perPage)),
-            ],
-            'stats' => Cache::remember('inv_stats', 30, fn () => $this->getStats()),
-        ];
-    }
-
-    /**
-     * Build the UNION of catalog rows (fs_items by kind) and recipe rows, both
-     * LEFT JOINed to their inventory stock. Columns are identical across selects.
-     *
-     * @return array{0:string,1:array<int,mixed>}
-     */
-    private function unionFor(string $type, string $search): array
-    {
-        $parts    = [];
+        $parts = [];
         $bindings = [];
 
-        $catalogCols = "f.id AS item_id, f.uuid AS item_uuid, f.name, f.category, f.kind AS item_type,
-                        f.base_unit, f.purchase_unit, f.purchase_price, f.units_per_purchase,
-                        inv.id AS inventory_id, inv.quantity_in_stock, inv.unit,
-                        NULL AS recipe_cost, NULL AS recipe_servings";
-
         if (in_array($type, ['all', 'ingredient', 'supply'], true)) {
-            $sql = "SELECT {$catalogCols}
-                    FROM fs_items f
-                    LEFT JOIN inventory inv ON inv.fs_item_id = f.id
-                    WHERE f.is_active = 1";
+            $sql = 'SELECT f.uuid AS item_id, f.name, f.category, f.kind AS item_type,
+                           f.base_unit, f.purchase_unit, f.purchase_price, f.units_per_purchase,
+                           NULL AS recipe_cost, NULL AS recipe_servings
+                    FROM fs_items f WHERE f.is_active = 1';
             if ($type !== 'all') {
                 $sql .= ' AND f.kind = ?';
                 $bindings[] = $type;
@@ -101,12 +83,10 @@ class InventoryController extends Controller
         }
 
         if (in_array($type, ['all', 'recipe'], true)) {
-            $sql = "SELECT r.id AS item_id, r.uuid AS item_uuid, r.name, r.category, 'recipe' AS item_type,
+            $sql = "SELECT r.uuid AS item_id, r.name, r.category, 'recipe' AS item_type,
                            NULL AS base_unit, NULL AS purchase_unit, NULL AS purchase_price, NULL AS units_per_purchase,
-                           inv.id AS inventory_id, inv.quantity_in_stock, inv.unit,
                            r.cost AS recipe_cost, r.servings AS recipe_servings
-                    FROM food_service_recipes r
-                    LEFT JOIN inventory inv ON inv.recipe_id = r.id";
+                    FROM food_service_recipes r";
             if ($search !== '') {
                 $sql .= ' WHERE r.name LIKE ?';
                 $bindings[] = "%{$search}%";
@@ -114,153 +94,48 @@ class InventoryController extends Controller
             $parts[] = $sql;
         }
 
-        // Guard against an empty IN-set (unknown type) → return nothing rather than error.
-        $union = $parts ? implode(' UNION ALL ', $parts) : 'SELECT NULL AS item_id, NULL AS item_uuid, NULL AS name, NULL AS category, NULL AS item_type, NULL AS base_unit, NULL AS purchase_unit, NULL AS purchase_price, NULL AS units_per_purchase, NULL AS inventory_id, NULL AS quantity_in_stock, NULL AS unit, NULL AS recipe_cost, NULL AS recipe_servings WHERE 1=0';
+        $empty = 'SELECT NULL AS item_id, NULL AS name, NULL AS category, NULL AS item_type,
+                         NULL AS base_unit, NULL AS purchase_unit, NULL AS purchase_price, NULL AS units_per_purchase,
+                         NULL AS recipe_cost, NULL AS recipe_servings WHERE 1 = 0';
 
-        return [$union, $bindings];
+        return [$parts === [] ? $empty : implode(' UNION ALL ', $parts), $bindings];
     }
 
-    private function statusWhere(string $status): string
+    /** @return array<string, mixed> */
+    private function catalogRow(object $row): array
     {
-        // Binary stock state: in stock (green) vs out — qty 0 or no inventory row (red).
-        return match ($status) {
-            'no_stock' => 'inventory_id IS NULL OR quantity_in_stock = 0',
-            'ok'       => 'inventory_id IS NOT NULL AND quantity_in_stock > 0',
-            default    => '',
-        };
-    }
-
-    private function decorateRow(object $r, Carbon $now): array
-    {
-        $qty = (float) ($r->quantity_in_stock ?? 0);
-
-        // Binary indicator: green when in stock, red when out (or untracked).
-        if ($qty > 0.0) {
-            $status = 'ok'; $highlight = 'green';
-        } else {
-            $status = 'no_stock'; $highlight = 'red';
-        }
-
-        $isRecipe = $r->item_type === 'recipe';
-
-        // Catalog rows: derive ₱/base-unit via the tested FsItem accessor (DRY).
-        $unitCost = null;
-        if (! $isRecipe) {
-            $unitCost = (new FsItem([
-                'purchase_price'     => $r->purchase_price,
-                'purchase_unit'      => $r->purchase_unit,
-                'base_unit'          => $r->base_unit,
-                'units_per_purchase' => $r->units_per_purchase,
-            ]))->unit_cost;
-        }
+        $isRecipe = $row->item_type === 'recipe';
+        $unitCost = $isRecipe ? null : (new FsItem([
+            'purchase_price' => $row->purchase_price,
+            'purchase_unit' => $row->purchase_unit,
+            'base_unit' => $row->base_unit,
+            'units_per_purchase' => $row->units_per_purchase,
+        ]))->unit_cost;
 
         return [
-            'item_id'                 => $r->item_uuid,
-            'item_type'               => $r->item_type,
-            'inventory_id'            => $r->inventory_id !== null ? (int) $r->inventory_id : null,
-            'name'                    => $r->name,
-            'category'                => $r->category ?? '',
-            'quantity_in_stock'       => $r->quantity_in_stock,
-            'unit'                    => $r->unit ?? '',
-            // Catalog "price" shown in the table = the buy price; unit_cost is the derived ₱/base-unit.
-            'unit_price'              => $isRecipe ? null : $r->purchase_price,
-            'unit_cost'               => $unitCost,
-            'base_unit'               => $r->base_unit,
-            'purchase_unit'           => $r->purchase_unit,
-            'units_per_purchase'      => $r->units_per_purchase !== null ? (float) $r->units_per_purchase : null,
-            'recipe_cost'             => $r->recipe_cost,
-            'recipe_servings'         => $r->recipe_servings !== null ? (int) $r->recipe_servings : null,
-            'status'                  => $status,
-            'highlight'               => $highlight,
-        ];
-    }
-
-    private function getStats(): array
-    {
-        $union = "
-            SELECT inv.id AS inventory_id, inv.quantity_in_stock
-            FROM fs_items f LEFT JOIN inventory inv ON inv.fs_item_id = f.id WHERE f.is_active = 1
-            UNION ALL
-            SELECT inv.id AS inventory_id, inv.quantity_in_stock
-            FROM food_service_recipes r LEFT JOIN inventory inv ON inv.recipe_id = r.id
-        ";
-
-        $row = DB::selectOne("
-            SELECT
-                COUNT(*)                                                          AS total,
-                SUM(inventory_id IS NOT NULL AND quantity_in_stock > 0)           AS in_stock,
-                SUM(inventory_id IS NULL OR quantity_in_stock = 0)               AS no_stock
-            FROM ({$union}) AS s
-        ");
-
-        return [
-            'total'    => (int) $row->total,
-            'in_stock' => (int) $row->in_stock,
-            'no_stock' => (int) $row->no_stock,
+            'item_id' => $row->item_id,
+            'item_type' => $row->item_type,
+            'name' => $row->name,
+            'category' => $row->category ?? '',
+            'purchase_price' => $isRecipe ? null : $row->purchase_price,
+            'unit_cost' => $unitCost,
+            'base_unit' => $row->base_unit,
+            'purchase_unit' => $row->purchase_unit,
+            'units_per_purchase' => $row->units_per_purchase !== null ? (float) $row->units_per_purchase : null,
+            'recipe_cost' => $row->recipe_cost,
+            'recipe_servings' => $row->recipe_servings !== null ? (int) $row->recipe_servings : null,
         ];
     }
 
     public function index(): JsonResponse
     {
-        return response()->json(['data' => InventoryResource::collection(Inventory::with(self::RELATIONS)->get())]);
-    }
-
-    public function store(StoreInventoryRequest $request): JsonResponse
-    {
-        $data = $request->validated();
-
-        // Force base-unit storage for catalog items (ingredient/supply) so a manual
-        // entry can never mix units with a received-PO row in the same stock total.
-        if (($data['item_type'] ?? null) !== 'recipe' && ! empty($data['fs_item_id'])) {
-            $fs = FsItem::find($data['fs_item_id']);
-            if ($fs) {
-                [$qtyBase] = \App\Services\FSS\ReceivingService::normalizeLine(
-                    (float) $data['quantity_in_stock'], (string) ($data['unit'] ?? ''), 0.0, (string) $fs->base_unit
-                );
-                $data['quantity_in_stock'] = $qtyBase;
-                $data['unit'] = $fs->base_unit;
-            }
-        }
-
-        // inventory has UNIQUE(fs_item_id)/UNIQUE(recipe_id) → upsert, never a dup-row 500.
-        $key = ! empty($data['fs_item_id'])
-            ? ['fs_item_id' => $data['fs_item_id']]
-            : ['recipe_id' => $data['recipe_id']];
-
-        $inventory = Inventory::updateOrCreate($key, $data);
-        Cache::flush();
-
-        return response()->json(['data' => new InventoryResource($inventory->load(self::RELATIONS))], 201);
+        return response()->json(['data' => InventoryResource::collection(
+            Inventory::query()->with(self::RELATIONS)->get(),
+        )]);
     }
 
     public function show(Inventory $inventory): JsonResponse
     {
         return response()->json(['data' => new InventoryResource($inventory->load(self::RELATIONS))]);
-    }
-
-    public function update(UpdateInventoryRequest $request, Inventory $inventory): JsonResponse
-    {
-        $inventory->update($request->validated());
-        Cache::flush();
-        return response()->json(['data' => new InventoryResource($inventory->load(self::RELATIONS))]);
-    }
-
-    public function destroy(Inventory $inventory): JsonResponse
-    {
-        $inventory->delete();
-        Cache::flush();
-        return response()->json(null, 204);
-    }
-
-    public function restock(Request $request, Inventory $inventory): JsonResponse
-    {
-        $data = $request->validate([
-            'quantity' => ['required', 'numeric', 'min:0.01'],
-        ]);
-
-        $inventory->increment('quantity_in_stock', $data['quantity']);
-        Cache::flush();
-
-        return response()->json(['data' => new InventoryResource($inventory->fresh()->load(self::RELATIONS))]);
     }
 }

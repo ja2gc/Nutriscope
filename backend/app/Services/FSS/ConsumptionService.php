@@ -11,8 +11,8 @@ use Illuminate\Support\Facades\DB;
 class ConsumptionService
 {
     /**
-     * Mark a service day complete. This is a formal service/accomplishment marker;
-     * it does not check stock, deduct inventory, create shortfall lines, or notify RND.
+     * Mark a service day complete. This formal service record stores attendance
+     * and status metadata without changing catalog quantities.
      */
     public function completeDay(
         MenuCycle $cycle,
@@ -62,8 +62,7 @@ class ConsumptionService
     }
 
     /**
-     * Reverse the formal completion marker. No inventory is restored because mark-served
-     * no longer deducts inventory.
+     * Reverse the formal completion marker. This changes service-record status only.
      */
     public function reverseDay(MealPrepLog $log): MealPrepLog
     {

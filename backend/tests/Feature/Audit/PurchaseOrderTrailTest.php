@@ -281,10 +281,10 @@ class PurchaseOrderTrailTest extends TestCase
             ['or_number', 'received_at', 'status'],
             $rootEvents->firstWhere('event', AuditAction::Received->value)->properties['details']['changed_fields'],
         );
-        $stockAfterFirstReceipt = Inventory::query()->sum('quantity_in_stock');
+        $catalogPriceAfterFirstReceipt = (float) $group->items()->firstOrFail()->fsItem->fresh()->purchase_price;
         $this->patchJson("/api/fss/purchase-order-vendor-groups/{$group->uuid}", ['status' => 'received'])
             ->assertStatus(422);
-        $this->assertSame((float) $stockAfterFirstReceipt, (float) Inventory::query()->sum('quantity_in_stock'));
+        $this->assertSame($catalogPriceAfterFirstReceipt, (float) $group->items()->firstOrFail()->fsItem->fresh()->purchase_price);
         $this->assertSame(1, AuditActivity::query()->where('context_type', $po->getMorphClass())
             ->where('context_id', $po->id)->where('event', AuditAction::Received->value)->count());
     }

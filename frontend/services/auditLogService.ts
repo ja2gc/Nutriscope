@@ -1,5 +1,5 @@
 import { apiFetch } from "@/lib/apiFetch";
-import { PaginationMeta } from "./inventoryService";
+import type { PaginationMeta } from "@/components/ui/Pagination";
 
 export interface AuditLogCauser {
   id: string;

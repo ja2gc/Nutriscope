@@ -21,7 +21,9 @@ use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Http\UploadedFile;
 use Tests\TestCase;
 
@@ -75,7 +77,15 @@ class FoodServiceOpsTest extends TestCase
 
     // ===== INVENTORY =====
 
-    public function test_fss_can_list_inventory(): void
+    public function test_retired_stock_columns_are_removed(): void
+    {
+        $this->assertFalse(Schema::hasColumn('inventory', 'quantity_in_stock'));
+        $this->assertFalse(Schema::hasColumn('inventory', 'unit'));
+        $this->assertFalse(Schema::hasColumn('inventory', 'unit_price'));
+        $this->assertFalse(Schema::hasColumn('inventory', 'notes'));
+    }
+
+    public function test_fss_can_list_legacy_inventory_associations_without_stock_fields(): void
     {
         $fsItem = $this->makeFsItem();
         Inventory::factory()->create(['fs_item_id' => $fsItem->id]);
@@ -84,24 +94,27 @@ class FoodServiceOpsTest extends TestCase
             ->getJson('/api/fss/inventory');
 
         $response->assertOk()
-            ->assertJsonStructure(['data' => [['id', 'fs_item_id', 'quantity_in_stock', 'unit']]]);
+            ->assertJsonStructure(['data' => [['id', 'fs_item_id', 'item_type']]])
+            ->assertJsonMissingPath('data.0.quantity_in_stock')
+            ->assertJsonMissingPath('data.0.in_stock')
+            ->assertJsonMissingPath('data.0.unit');
     }
 
     public function test_fss_inventory_write_route_is_removed(): void
     {
         // Inventory is now a backend reference catalog only — no FSS stocking writes.
         $fsItem    = $this->makeFsItem();
-        $inventory = Inventory::factory()->create(['fs_item_id' => $fsItem->id, 'quantity_in_stock' => 50]);
+        $inventory = Inventory::factory()->create(['fs_item_id' => $fsItem->id]);
 
         $this->actingAs($this->fss)
-            ->patchJson("/api/fss/inventory/{$inventory->uuid}", ['quantity_in_stock' => 80])
+            ->patchJson("/api/fss/inventory/{$inventory->uuid}", ['item_type' => 'supply'])
             ->assertStatus(405);
     }
 
     public function test_fss_restock_route_is_removed(): void
     {
         $fsItem    = $this->makeFsItem();
-        $inventory = Inventory::factory()->create(['fs_item_id' => $fsItem->id, 'quantity_in_stock' => 20]);
+        $inventory = Inventory::factory()->create(['fs_item_id' => $fsItem->id]);
 
         $this->actingAs($this->fss)
             ->postJson("/api/fss/inventory/{$inventory->uuid}/restock", ['quantity' => 30])
@@ -117,6 +130,34 @@ class FoodServiceOpsTest extends TestCase
             ->getJson('/api/fss/inventory');
 
         $response->assertOk();
+    }
+
+    public function test_catalog_search_validates_bounded_optional_pagination(): void
+    {
+        FsItem::factory()->count(12)->create(['kind' => 'ingredient', 'is_active' => true]);
+
+        $this->actingAs($this->rnd)
+            ->getJson('/api/fss/fs-items/catalog?kind=ingredient&limit=101')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['limit']);
+        $this->actingAs($this->rnd)
+            ->getJson('/api/fss/fs-items/catalog?kind=ingredient&page=2')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['page']);
+
+        $page = $this->actingAs($this->rnd)
+            ->getJson('/api/fss/fs-items/catalog?kind=ingredient&limit=5&page=2')
+            ->assertOk()
+            ->assertJsonCount(5, 'data')
+            ->assertJsonPath('meta.current_page', 2)
+            ->assertJsonPath('meta.per_page', 5);
+        $this->assertSame(12, $page->json('meta.total'));
+
+        $this->actingAs($this->rnd)
+            ->getJson('/api/fss/fs-items/catalog?kind=ingredient')
+            ->assertOk()
+            ->assertJsonCount(12, 'data')
+            ->assertJsonMissingPath('meta');
     }
 
     // ===== SUPPLIERS (RND-only — FSS has no supplier scope per §6) =====
@@ -311,7 +352,6 @@ class FoodServiceOpsTest extends TestCase
 
         $supplier = Supplier::factory()->create();
         $fsItem = $this->makeFsItem(['base_unit' => 'kg', 'purchase_unit' => 'kg', 'purchase_price' => 25]);
-        Inventory::factory()->create(['fs_item_id' => $fsItem->id, 'quantity_in_stock' => 0, 'unit' => 'kg']);
         $cycle = MenuCycle::factory()->create([
             'rnd_user_id' => $this->rnd->id,
             'week_start_date' => '2026-06-08',
@@ -496,19 +536,13 @@ class FoodServiceOpsTest extends TestCase
             ->assertJsonPath('data.status', 'received');
     }
 
-    public function test_rnd_po_status_received_updates_inventory(): void
+    public function test_rnd_po_receipt_updates_catalog_price_without_creating_stock(): void
     {
         $fsItem = $this->makeFsItem([
             'base_unit' => 'kg',
             'purchase_unit' => 'kg',
             'purchase_price' => 20.00,
         ]);
-        $inventory = Inventory::factory()->create([
-            'fs_item_id' => $fsItem->id,
-            'quantity_in_stock' => 10,
-            'unit' => 'kg',
-        ]);
-
         $po = PurchaseOrder::factory()->create([
             'status' => 'ordered',
         ]);
@@ -531,8 +565,14 @@ class FoodServiceOpsTest extends TestCase
 
         $response->assertOk();
 
-        $inventory->refresh();
-        $this->assertEquals(15.00, $inventory->quantity_in_stock);
+        $this->assertDatabaseMissing('inventory', ['fs_item_id' => $fsItem->id]);
+        $this->assertSame(20.0, (float) $fsItem->fresh()->purchase_price);
+        $this->assertDatabaseHas('purchase_order_items', [
+            'purchase_order_id' => $po->id,
+            'fs_item_id' => $fsItem->id,
+            'qty' => 5,
+            'unit_price' => 20,
+        ]);
     }
 
     public function test_approving_empty_shopping_list_is_rejected(): void
@@ -566,10 +606,6 @@ class FoodServiceOpsTest extends TestCase
             'quantity' => 1,
             'estimate_population' => 10,
         ]);
-        Inventory::factory()->create([
-            'fs_item_id'             => $fsItem->id,
-            'quantity_in_stock'        => 5,
-        ]);
 
         $response = $this->actingAs($this->rnd)
             ->postJson('/api/fss/shopping-lists/generate', [
@@ -592,7 +628,6 @@ class FoodServiceOpsTest extends TestCase
             'purchase_price' => 5,
             'units_per_purchase' => 1,
         ]);
-        Inventory::factory()->create(['fs_item_id' => $fsItem->id, 'quantity_in_stock' => 0, 'unit' => 'piece']);
         $cycle = MenuCycle::factory()->create([
             'rnd_user_id' => $this->rnd->id,
             'week_start_date' => '2026-06-15', // Monday
@@ -648,8 +683,6 @@ class FoodServiceOpsTest extends TestCase
     {
         $itemFri = $this->makeFsItem(['name' => 'FriItem', 'base_unit' => 'piece', 'purchase_unit' => 'piece', 'purchase_price' => 1, 'units_per_purchase' => 1]);
         $itemMon = $this->makeFsItem(['name' => 'MonItem', 'base_unit' => 'piece', 'purchase_unit' => 'piece', 'purchase_price' => 1, 'units_per_purchase' => 1]);
-        Inventory::factory()->create(['fs_item_id' => $itemFri->id, 'quantity_in_stock' => 0, 'unit' => 'piece']);
-        Inventory::factory()->create(['fs_item_id' => $itemMon->id, 'quantity_in_stock' => 0, 'unit' => 'piece']);
 
         // Week N cycle serves Friday; week N+1 cycle serves Monday.
         $weekN = MenuCycle::factory()->create(['rnd_user_id' => $this->rnd->id, 'week_start_date' => '2026-06-15']);
@@ -724,7 +757,6 @@ class FoodServiceOpsTest extends TestCase
             'purchase_price' => 5,
             'units_per_purchase' => 1,
         ]);
-        Inventory::factory()->create(['fs_item_id' => $fsItem->id, 'quantity_in_stock' => 0, 'unit' => 'piece']);
         MenuCycleDay::create([
             'menu_cycle_id' => $cycle->id,
             'day_of_week' => 'Monday',
@@ -777,7 +809,6 @@ class FoodServiceOpsTest extends TestCase
             'purchase_price' => 5,
             'units_per_purchase' => 1,
         ]);
-        Inventory::factory()->create(['fs_item_id' => $fsItem->id, 'quantity_in_stock' => 0, 'unit' => 'piece']);
         foreach (['Monday', 'Tuesday'] as $day) {
             MenuCycleDay::create([
                 'menu_cycle_id' => $cycle->id,
@@ -828,22 +859,12 @@ class FoodServiceOpsTest extends TestCase
             'purchase_unit' => 'kg',
             'purchase_price' => 10.00
         ]);
-        Inventory::factory()->create([
-            'fs_item_id'             => $fsItem1->id,
-            'quantity_in_stock'        => 10,
-            'unit'                     => 'kg',
-        ]);
 
         $fsItem2 = $this->makeFsItem([
             'name' => 'Food Item B',
             'base_unit' => 'kg',
             'purchase_unit' => 'kg',
             'purchase_price' => 10.00
-        ]);
-        Inventory::factory()->create([
-            'fs_item_id'             => $fsItem2->id,
-            'quantity_in_stock'        => 8,
-            'unit'                     => 'kg',
         ]);
 
         // 2. Create active menu cycle anchored to the week of the generated span
@@ -1181,7 +1202,6 @@ class FoodServiceOpsTest extends TestCase
     public function test_complete_day_persists_served_population(): void
     {
         $fs = FsItem::factory()->create(['name' => 'Rice', 'base_unit' => 'g']);
-        Inventory::factory()->create(['fs_item_id' => $fs->id, 'quantity_in_stock' => 10000, 'unit' => 'g', 'unit_price' => 0.05]);
 
         $cycle = MenuCycle::factory()->create(['rnd_user_id' => $this->rnd->id]);
         MenuCycleDay::create([
@@ -1234,7 +1254,6 @@ class FoodServiceOpsTest extends TestCase
             'name' => 'Rice', 'base_unit' => 'g', 'purchase_unit' => 'kg',
             'purchase_price' => 50, 'units_per_purchase' => null,
         ]);
-        Inventory::factory()->create(['fs_item_id' => $fs->id, 'quantity_in_stock' => 0, 'unit' => 'g']);
 
         $cycle = MenuCycle::factory()->create(['rnd_user_id' => $this->rnd->id, 'week_start_date' => '2026-06-15']);
         MenuCycleDay::create([
@@ -1491,12 +1510,11 @@ class FoodServiceOpsTest extends TestCase
             ->assertStatus(422);
     }
 
-    public function test_receiving_uses_purchase_qty_times_base_per_purchase(): void
+    public function test_receiving_preserves_purchase_quantity_history_and_updates_catalog_price(): void
     {
         $fs = FsItem::factory()->create([
             'name' => 'Rice', 'base_unit' => 'g', 'purchase_unit' => 'kg', 'purchase_price' => 50,
         ]);
-        Inventory::factory()->create(['fs_item_id' => $fs->id, 'quantity_in_stock' => 0, 'unit' => 'g']);
 
         $po = PurchaseOrder::factory()->create(['rnd_user_id' => $this->rnd->id, 'status' => 'draft']);
         $po->items()->create([
@@ -1510,7 +1528,138 @@ class FoodServiceOpsTest extends TestCase
             ->assertOk();
 
         // 2 kg × 1000 g/kg = 2000 g added to stock.
-        $this->assertDatabaseHas('inventory', ['fs_item_id' => $fs->id, 'quantity_in_stock' => 2000]);
+        $this->assertDatabaseMissing('inventory', ['fs_item_id' => $fs->id]);
+        $this->assertSame(50.0, (float) $fs->fresh()->purchase_price);
+        $this->assertDatabaseHas('purchase_order_items', [
+            'purchase_order_id' => $po->id,
+            'fs_item_id' => $fs->id,
+            'purchase_qty' => 2,
+            'purchase_unit' => 'kg',
+            'purchase_price' => 50,
+        ]);
+    }
+
+    public function test_receiving_with_null_purchase_price_uses_frozen_base_price_for_recipe_costing(): void
+    {
+        $fs = FsItem::factory()->create([
+            'base_unit' => 'g',
+            'purchase_unit' => 'kg',
+            'purchase_price' => 100,
+        ]);
+        $recipe = FoodServiceRecipe::create([
+            'rnd_user_id' => $this->rnd->id,
+            'name' => 'Rice serving',
+            'servings' => 1,
+            'cost' => 10,
+        ]);
+        FoodServiceRecipeIngredient::create([
+            'food_service_recipe_id' => $recipe->id,
+            'fs_item_id' => $fs->id,
+            'quantity' => 100,
+            'unit' => 'g',
+        ]);
+        $po = PurchaseOrder::factory()->create(['rnd_user_id' => $this->rnd->id, 'status' => 'draft']);
+        $po->items()->create([
+            'fs_item_id' => $fs->id,
+            'description' => 'Rice',
+            'qty' => 3_000,
+            'unit' => 'g',
+            'unit_price' => 0.08,
+            'total_value' => 240,
+            'purchase_qty' => 3,
+            'purchase_unit' => 'kg',
+            'purchase_price' => null,
+        ]);
+
+        $this->actingAs($this->rnd)
+            ->patchJson("/api/fss/purchase-orders/{$po->uuid}", ['status' => 'received'])
+            ->assertOk();
+
+        $this->assertSame(80.0, (float) $fs->fresh()->purchase_price);
+        $this->assertSame(8.0, (float) $recipe->fresh()->cost);
+        $this->assertDatabaseHas('purchase_order_items', [
+            'purchase_order_id' => $po->id,
+            'purchase_qty' => 3,
+            'purchase_price' => null,
+            'unit_price' => 0.08,
+        ]);
+    }
+
+    public function test_receiving_uses_frozen_line_economics_after_catalog_units_change(): void
+    {
+        $fs = FsItem::factory()->create([
+            'base_unit' => 'g',
+            'purchase_unit' => 'kg',
+            'purchase_price' => 100,
+        ]);
+        $recipe = FoodServiceRecipe::create([
+            'rnd_user_id' => $this->rnd->id,
+            'name' => 'Frozen-cost serving',
+            'servings' => 1,
+            'cost' => 10,
+        ]);
+        FoodServiceRecipeIngredient::create([
+            'food_service_recipe_id' => $recipe->id,
+            'fs_item_id' => $fs->id,
+            'quantity' => 100,
+            'unit' => 'g',
+        ]);
+        $po = PurchaseOrder::factory()->create(['rnd_user_id' => $this->rnd->id, 'status' => 'draft']);
+        $po->items()->create([
+            'fs_item_id' => $fs->id,
+            'description' => 'Rice',
+            'qty' => 2_000,
+            'unit' => 'g',
+            'unit_price' => 0.05,
+            'total_value' => 100,
+            'purchase_qty' => 2,
+            'purchase_unit' => 'kg',
+            'purchase_price' => 50,
+        ]);
+        $fs->update([
+            'purchase_unit' => 'sack',
+            'units_per_purchase' => 5_000,
+            'purchase_price' => 999,
+        ]);
+
+        $this->actingAs($this->rnd)
+            ->patchJson("/api/fss/purchase-orders/{$po->uuid}", ['status' => 'received'])
+            ->assertOk();
+
+        $this->assertSame(250.0, (float) $fs->fresh()->purchase_price);
+        $this->assertSame(0.05, $fs->fresh()->unit_cost);
+        $this->assertSame(5.0, (float) $recipe->fresh()->cost);
+        $this->actingAs($this->rnd)
+            ->patchJson("/api/fss/purchase-orders/{$po->uuid}", ['status' => 'received'])
+            ->assertOk();
+        $this->assertSame(250.0, (float) $fs->fresh()->purchase_price);
+    }
+
+    public function test_receiving_locks_catalog_row_before_price_update(): void
+    {
+        $fs = FsItem::factory()->create(['base_unit' => 'g', 'purchase_unit' => 'kg']);
+        $po = PurchaseOrder::factory()->create(['rnd_user_id' => $this->rnd->id, 'status' => 'draft']);
+        $po->items()->create([
+            'fs_item_id' => $fs->id,
+            'description' => 'Rice',
+            'qty' => 1_000,
+            'unit' => 'g',
+            'unit_price' => 0.05,
+            'total_value' => 50,
+        ]);
+        $queries = [];
+        DB::listen(function ($query) use (&$queries): void {
+            $queries[] = strtolower($query->sql);
+        });
+
+        $this->actingAs($this->rnd)
+            ->patchJson("/api/fss/purchase-orders/{$po->uuid}", ['status' => 'received'])
+            ->assertOk();
+
+        $this->assertTrue(collect($queries)->contains(
+            fn (string $sql): bool => str_contains($sql, 'from `fs_items`')
+                && str_contains($sql, 'for update'),
+        ));
     }
 
     // ===== R2.4 SCOPE ENFORCEMENT: gate assertions =====

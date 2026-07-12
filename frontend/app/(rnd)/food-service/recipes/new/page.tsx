@@ -6,39 +6,21 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { CookingPot, ArrowLeft, Search, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { CATALOG_UNIT_OPTIONS } from "@/lib/units";
+import { searchCatalog, type CatalogItem } from "@/services/fsCatalogService";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-interface InventoryItem {
-  id: number;        // fs_item_id
-  name: string;
-  unit_cost: number; // ₱ per base_unit (derived from catalog)
-  base_unit: string;
-}
-
 interface IngredientRow {
   key: number;
-  invItem: InventoryItem | null;
+  catalogItem: CatalogItem | null;
   search: string;
-  results: InventoryItem[];
+  results: CatalogItem[];
   showDropdown: boolean;
   quantity: string;
   unit: string;
 }
 
 // ─── API helpers ──────────────────────────────────────────────────────────────
-
-async function searchInventory(q: string): Promise<InventoryItem[]> {
-  const res = await fetch(`/api/fss/inventory/rows?search=${encodeURIComponent(q)}&per_page=8`);
-  if (!res.ok) return [];
-  const json = await res.json();
-  const rows = (json.data ?? []) as Array<{
-    item_id: number; name: string; unit_cost: string | null; base_unit: string | null; item_type: string;
-  }>;
-  return rows
-    .filter((r) => r.item_type === "ingredient")
-    .map((r) => ({ id: r.item_id, name: r.name, unit_cost: parseFloat(r.unit_cost ?? "0"), base_unit: r.base_unit ?? "g" }));
-}
 
 const FSS_CATEGORIES = [
   "beverage", "breakfast", "lunch", "snack", "dinner",
@@ -76,29 +58,29 @@ function basePerUnit(from: string, to: string): number | null {
   return null;
 }
 
-/** Convertibility of a recipe row against its inventory base unit. */
+/** Convertibility of a recipe row against its catalog base unit. */
 function rowConversion(row: IngredientRow): { convertible: boolean; warning: string | null; blocked: boolean } {
-  if (!row.invItem) return { convertible: true, warning: null, blocked: false };
-  const base = row.invItem.base_unit;
+  if (!row.catalogItem) return { convertible: true, warning: null, blocked: false };
+  const base = row.catalogItem.base_unit;
   if (norm(row.unit) === norm(base)) return { convertible: true, warning: null, blocked: false };
   const factor = basePerUnit(row.unit, base);
   if (factor !== null) return { convertible: true, warning: null, blocked: false };
-  // Inventory unit is convertible but the chosen unit is not → hard block.
+  // Catalog unit is convertible but the chosen unit is not -> hard block.
   if (isKnownUnit(base) && !isKnownUnit(row.unit)) {
-    return { convertible: false, blocked: true, warning: `Unit "${row.unit}" can't convert to inventory unit "${base}".` };
+    return { convertible: false, blocked: true, warning: `Unit "${row.unit}" can't convert to catalog unit "${base}".` };
   }
-  // Outlier inventory unit — allowed, warn only.
-  return { convertible: false, blocked: false, warning: `Unit "${row.unit}" can't be converted to inventory unit "${base}"; cost uses entered unit as-is.` };
+  // Outlier catalog unit is allowed with a warning.
+  return { convertible: false, blocked: false, warning: `Unit "${row.unit}" can't be converted to catalog unit "${base}"; cost uses entered unit as-is.` };
 }
 
 function costPerIngredient(row: IngredientRow): number {
-  if (!row.invItem || !row.quantity) return 0;
+  if (!row.catalogItem || !row.quantity) return 0;
   const qty = parseFloat(row.quantity);
   if (isNaN(qty) || qty <= 0) return 0;
   // Convert qty from the recipe unit into the item's base_unit, then × ₱/base_unit.
-  const factor = basePerUnit(row.unit, row.invItem.base_unit);
+  const factor = basePerUnit(row.unit, row.catalogItem.base_unit);
   const qtyInBase = factor !== null ? qty * factor : qty;
-  return qtyInBase * row.invItem.unit_cost;
+  return qtyInBase * row.catalogItem.unit_cost;
 }
 
 let rowKey = 5000;
@@ -116,7 +98,7 @@ export default function NewFSSRecipePage() {
   const [prepNotes, setPrepNotes] = useState("");
   const [previewServings, setPreviewServings] = useState(""); // blank = baseline; read-only scale preview
   const [ingredients, setIngredients] = useState<IngredientRow[]>([
-    { key: rowKey++, invItem: null, search: "", results: [], showDropdown: false, quantity: "", unit: "g" },
+    { key: rowKey++, catalogItem: null, search: "", results: [], showDropdown: false, quantity: "", unit: "g" },
   ]);
   const [saving, setSaving]   = useState(false);
   const [error, setError]     = useState<string | null>(null);
@@ -126,15 +108,15 @@ export default function NewFSSRecipePage() {
       setIngredients((prev) => prev.map((r, i) => i === idx ? { ...r, results: [], showDropdown: false } : r));
       return;
     }
-    const items = await searchInventory(q);
+    const items = await searchCatalog(q, "ingredient");
     setIngredients((prev) => prev.map((r, i) => i === idx ? { ...r, results: items, showDropdown: true } : r));
   }, []);
 
   const updateRow = (idx: number, patch: Partial<IngredientRow>) =>
     setIngredients((prev) => prev.map((r, i) => i === idx ? { ...r, ...patch } : r));
 
-  const selectItem = (idx: number, item: InventoryItem) =>
-    updateRow(idx, { invItem: item, search: item.name, showDropdown: false, results: [], unit: item.base_unit });
+  const selectItem = (idx: number, item: CatalogItem) =>
+    updateRow(idx, { catalogItem: item, search: item.name, showDropdown: false, results: [], unit: item.base_unit });
 
   const totalCost = ingredients.reduce((sum, row) => sum + costPerIngredient(row), 0);
   const servingsNum = parseInt(servings) || 1;
@@ -146,14 +128,14 @@ export default function NewFSSRecipePage() {
     if (!name.trim()) { setError("Recipe name is required."); return; }
 
     const valid = ingredients
-      .filter((r) => r.invItem && r.quantity && parseFloat(r.quantity) > 0)
-      .map((r) => ({ fs_item_id: r.invItem!.id, quantity: parseFloat(r.quantity), unit: r.unit }));
+      .filter((r) => r.catalogItem && r.quantity && parseFloat(r.quantity) > 0)
+      .map((r) => ({ fs_item_id: r.catalogItem!.id, quantity: parseFloat(r.quantity), unit: r.unit }));
 
     if (valid.length === 0) { setError("Add at least one ingredient."); return; }
     if (singleItemMode && valid.length !== 1) { setError("Single item foods must have exactly one ingredient."); return; }
 
-    // Block bundle/non-convertible units when the inventory unit IS convertible.
-    const blockedRow = ingredients.find((r) => r.invItem && r.quantity && rowConversion(r).blocked);
+    // Block bundle/non-convertible units when the catalog unit is convertible.
+    const blockedRow = ingredients.find((r) => r.catalogItem && r.quantity && rowConversion(r).blocked);
     if (blockedRow) { setError(rowConversion(blockedRow).warning ?? "Incompatible ingredient unit."); return; }
 
     try {
@@ -205,7 +187,7 @@ export default function NewFSSRecipePage() {
             {singleItemMode ? "New Single Item" : "New Food"}
           </h2>
           <p className="text-sm text-warm-500 mt-1 select-none">
-            {singleItemMode ? "Use one inventory ingredient with a one-serving baseline." : "Ingredients sourced from inventory. Cost calculates live."}
+            {singleItemMode ? "Use one catalog ingredient with a one-serving baseline." : "Ingredients sourced from the catalog. Cost calculates live."}
           </p>
         </div>
       </div>
@@ -283,9 +265,9 @@ export default function NewFSSRecipePage() {
           </div>
           {Math.abs(previewFactor - 1) > 1e-9 && (
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 pt-2 border-t border-warm-100">
-              {ingredients.filter((r) => r.invItem && r.quantity && parseFloat(r.quantity) > 0).map((r) => (
+              {ingredients.filter((r) => r.catalogItem && r.quantity && parseFloat(r.quantity) > 0).map((r) => (
                 <div key={r.key} className="text-xs text-warm-500 truncate">
-                  <span className="text-warm-700 font-semibold">{r.invItem!.name}:</span>{" "}
+                  <span className="text-warm-700 font-semibold">{r.catalogItem!.name}:</span>{" "}
                   {(parseFloat(r.quantity) * previewFactor).toFixed(1)} {r.unit}
                 </div>
               ))}
@@ -299,7 +281,7 @@ export default function NewFSSRecipePage() {
             <h3 className="text-sm font-extrabold text-warm-700 uppercase tracking-wider">Ingredients</h3>
             {!singleItemMode && (
               <button type="button"
-                onClick={() => setIngredients((prev) => [...prev, { key: rowKey++, invItem: null, search: "", results: [], showDropdown: false, quantity: "", unit: "g" }])}
+                onClick={() => setIngredients((prev) => [...prev, { key: rowKey++, catalogItem: null, search: "", results: [], showDropdown: false, quantity: "", unit: "g" }])}
                 className="flex items-center gap-1.5 px-3 py-1.5 border border-warm-300 rounded-lg text-warm-600 hover:bg-warm-50 cursor-pointer transition-colors text-xs font-bold uppercase tracking-wider">
                 <Plus className="h-3 w-3" /> Add Row
               </button>
@@ -308,7 +290,7 @@ export default function NewFSSRecipePage() {
 
           {/* Column headers */}
           <div className="grid grid-cols-[1fr_80px_72px_80px_28px] gap-2 text-xs font-extrabold text-warm-400 uppercase tracking-wider px-1">
-            <span>Ingredient (from inventory)</span>
+            <span>Catalog ingredient</span>
             <span>Qty (g)</span>
             <span>Unit</span>
             <span className="text-right">₱ Cost</span>
@@ -330,10 +312,10 @@ export default function NewFSSRecipePage() {
                       value={row.search}
                       onChange={async (e) => {
                         const v = e.target.value;
-                        updateRow(idx, { search: v, invItem: v ? row.invItem : null });
+                        updateRow(idx, { search: v, catalogItem: v ? row.catalogItem : null });
                         await doSearch(v, idx);
                       }}
-                      placeholder="Search inventory..."
+                      placeholder="Search catalog..."
                       className="flex-1 text-base text-warm-900 outline-none placeholder:text-warm-400 bg-transparent"
                     />
                   </div>
@@ -356,7 +338,7 @@ export default function NewFSSRecipePage() {
                   placeholder="0" min="0" step="0.1"
                   className="w-full px-3 py-2 text-base border border-warm-300 rounded-lg text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600" />
 
-                {/* Unit — catalog units first (match inventory), then common recipe units */}
+                {/* Catalog units first, then common recipe units. */}
                 <select value={row.unit} onChange={(e) => updateRow(idx, { unit: e.target.value })}
                   className="w-full px-2 py-2 text-base border border-warm-300 rounded-lg text-warm-900 focus:outline-none cursor-pointer">
                   {[...CATALOG_UNIT_OPTIONS, "cup", "oz", "tbsp", "tsp"].map((u) => <option key={u} value={u}>{u}</option>)}
@@ -364,7 +346,7 @@ export default function NewFSSRecipePage() {
 
                 {/* Cost contribution */}
                 <div className="py-2 text-right text-sm font-bold text-emerald-700">
-                  {row.invItem && row.quantity
+                  {row.catalogItem && row.quantity
                     ? `₱${costPerIngredient(row).toFixed(2)}`
                     : <span className="text-warm-300">—</span>}
                 </div>
@@ -376,7 +358,7 @@ export default function NewFSSRecipePage() {
                   <X className="h-3.5 w-3.5" />
                 </button>
               </div>
-              {row.invItem && conv.warning && (
+              {row.catalogItem && conv.warning && (
                 <div className={`text-xs font-semibold px-1 ${conv.blocked ? "text-red-600" : "text-amber-600"}`}>
                   {conv.blocked ? "⛔ " : "⚠ "}{conv.warning}
                 </div>

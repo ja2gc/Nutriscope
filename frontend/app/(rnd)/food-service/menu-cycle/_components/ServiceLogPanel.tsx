@@ -10,13 +10,9 @@ import {
   listServiceLogs,
 } from "@/services/consumptionService";
 
-const peso = (v: string | number | null) =>
-  v == null ? "—" : `₱${Number(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-
 /**
- * Self-contained "service day" consumption panel for an active menu cycle.
- * Marking a day served deducts that day's planned ingredients from inventory
- * (block-on-shortfall); the log can be reversed to restore stock.
+ * Self-contained service-day record for an active menu cycle. Completion captures
+ * attendance and status; reversal changes the record status only.
  */
 export default function ServiceLogPanel({ cycleId, population }: { cycleId: number; population: number }) {
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
@@ -40,7 +36,7 @@ export default function ServiceLogPanel({ cycleId, population }: { cycleId: numb
     setBusy(true);
     try {
       const log = await completeServiceDay(cycleId, date, population || undefined);
-      flashFor(true, `Served ${log.service_date} — ${peso(log.total_value)} of stock used.`);
+      flashFor(true, `Service day recorded for ${log.service_date}.`);
       await load();
     } catch (e) {
       flashFor(false, e instanceof Error ? e.message : "Failed to complete service day.");
@@ -49,7 +45,7 @@ export default function ServiceLogPanel({ cycleId, population }: { cycleId: numb
 
   async function reverse(id: number) {
     setBusy(true);
-    try { await reverseServiceDay(id); flashFor(true, "Service day reversed — stock restored."); await load(); }
+    try { await reverseServiceDay(id); flashFor(true, "Service-day record reversed."); await load(); }
     catch (e) { flashFor(false, e instanceof Error ? e.message : "Failed to reverse."); }
     finally { setBusy(false); }
   }
@@ -58,7 +54,7 @@ export default function ServiceLogPanel({ cycleId, population }: { cycleId: numb
     <div className="bg-white border border-warm-200 rounded-2xl p-5 shadow-sm space-y-4">
       <div className="flex items-center gap-2">
         <CalendarCheck className="h-4 w-4 text-emerald-600" />
-        <h3 className="text-sm font-extrabold text-warm-700 uppercase tracking-wider">Service log — deduct stock for a served day</h3>
+        <h3 className="text-sm font-extrabold text-warm-700 uppercase tracking-wider">Service log — record a served day</h3>
       </div>
 
       <div className="flex flex-wrap items-end gap-3">
@@ -87,13 +83,12 @@ export default function ServiceLogPanel({ cycleId, population }: { cycleId: numb
         ) : (
           <table className="w-full text-sm">
             <thead className="text-xs font-bold text-warm-500 uppercase tracking-wider">
-              <tr><th className="text-left py-1.5">Date</th><th className="text-left py-1.5">Value used</th><th className="text-left py-1.5">Status</th><th /></tr>
+              <tr><th className="text-left py-1.5">Date</th><th className="text-left py-1.5">Status</th><th /></tr>
             </thead>
             <tbody className="divide-y divide-zinc-100">
               {logs.map((l) => (
                 <tr key={l.id}>
                   <td className="py-2 font-semibold text-warm-800">{l.service_date}</td>
-                  <td className="py-2 font-mono text-warm-600">{peso(l.total_value)}</td>
                   <td className="py-2">
                     <span className={`px-2 py-0.5 rounded-full text-xs font-bold border ${l.status === "completed" ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-warm-100 text-warm-500 border-warm-200"}`}>{l.status}</span>
                   </td>

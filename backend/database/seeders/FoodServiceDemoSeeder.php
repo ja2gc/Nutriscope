@@ -10,7 +10,6 @@ use App\Services\FSS\AccomplishmentReportArchiveService;
 use App\Models\FoodServiceRecipe;
 use App\Models\FoodServiceRecipeIngredient;
 use App\Models\FsItem;
-use App\Models\Inventory;
 use App\Models\MealPrepLog;
 use App\Models\MenuCycle;
 use App\Models\MenuCycleDay;
@@ -130,7 +129,6 @@ class FoodServiceDemoSeeder extends Seeder
 
         $this->seedSuppliers();
         $this->seedRecipes($rnd);
-        $this->seedInventory();
         // Pin each catalog item's default vendor so the suggested list resolves a vendor
         // per ingredient and the PO conversion can group lines by supplier.
         $this->seedItemVendors();
@@ -284,68 +282,6 @@ class FoodServiceDemoSeeder extends Seeder
             'kg' => 'g',
             'L'  => 'mL',
             default => $baseUnit,
-        };
-    }
-
-    // ── Inventory: ingredient + supply stock + a couple prepared recipes ────
-    private function seedInventory(): void
-    {
-        $stock = [
-            'Rice' => [80000, null],
-            'Pork (kasim)' => [12000, null],
-            'Ground pork' => [3000, null],
-            'Chicken (whole)' => [18000, null],
-            'Chicken fillet' => [2000, null],
-            'Beef (cubes)' => [0, 'Out of stock'],
-            'Bangus (milkfish)' => [9000, 'Use soon'],
-            'Egg' => [600, null],
-            'Assorted vegetables' => [15000, null],
-            'Pinakbet vegetables' => [8000, null],
-            'Potato' => [10000, null],
-            'Carrot' => [7000, null],
-            'Onion' => [6000, null],
-            'Garlic' => [3000, null],
-            'Latundan banana' => [200, null],
-            'Macaroni' => [5000, null],
-            'Fresh milk' => [8000, null],
-            'Cooking oil' => [6000, null],
-            'LPG (cooking gas)' => [33, null],
-            'Paper meal box' => [600, null],
-            'Roll bag (garbage)' => [100, null],
-            'Dishwashing liquid' => [4000, null],
-            'Disposable spoon' => [800, null],
-            'Plastic cup' => [50, null],
-        ];
-
-        foreach (FsItem::all() as $item) {
-            [$qty, $notes] = $stock[$item->name] ?? [$this->defaultQty($item->base_unit), null];
-            Inventory::create([
-                'item_type'         => $item->kind,
-                'fs_item_id'        => $item->id,
-                'quantity_in_stock' => $qty,
-                'unit'              => $item->base_unit,
-                'unit_price'        => $item->purchase_price,
-                'notes'             => $notes,
-            ]);
-        }
-
-        foreach (['Sopas' => 40, 'Pork Pinakbet' => 25] as $rname => $qty) {
-            if (isset($this->recipes[$rname])) {
-                Inventory::create([
-                    'item_type' => 'recipe', 'recipe_id' => $this->recipes[$rname]->id,
-                    'quantity_in_stock' => $qty, 'unit' => 'servings',
-                ]);
-            }
-        }
-    }
-
-    private function defaultQty(string $baseUnit): float
-    {
-        return match ($baseUnit) {
-            'g', 'mL' => 5000,
-            'kg'      => 20,
-            'pc'      => 100,
-            default   => 50,
         };
     }
 

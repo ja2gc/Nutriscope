@@ -38,6 +38,15 @@ export async function listCatalog(kind?: FsItemKind): Promise<CatalogItem[]> {
   return unwrap(await apiFetch(`/api/fss/fs-items/catalog${qs}`), "Failed to load catalog.");
 }
 
+/** Search active reference-catalog items for recipe and procurement pickers. */
+export async function searchCatalog(search: string, kind: FsItemKind, limit = 8): Promise<CatalogItem[]> {
+  const qs = new URLSearchParams({ search, kind, limit: String(limit) });
+  return unwrap(
+    await apiFetch(`/api/fss/fs-items/catalog?${qs}`),
+    "Failed to search the catalog.",
+  );
+}
+
 export async function createFsItem(payload: CreateFsItemPayload): Promise<CatalogItem> {
   return unwrap(await apiFetch("/api/fss/fs-items", {
     method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),

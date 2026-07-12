@@ -15,7 +15,7 @@ class DatabaseSeeder extends Seeder
             ClinicalRulesSeeder::class,          // 4. clinical rules
             RecipeSeeder::class,                 // 5. NCP meal-plan recipes
             FsCatalogSeeder::class,              // 6. fs_items catalog (decoupled FS catalog)
-            FoodServiceDemoSeeder::class,        // 7. FS operational demo (recipes/inventory/cycle/budget/POs)
+            FoodServiceDemoSeeder::class,        // 7. FS operational demo (recipes/catalog/cycle/budget/POs)
             PatientSeeder::class,                // 8. demo NCP patients
             AnnouncementSeeder::class,           // 9. announcements
             NotificationSeeder::class,           // 10. role demo notifications

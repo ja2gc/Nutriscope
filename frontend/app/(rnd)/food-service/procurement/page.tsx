@@ -18,7 +18,7 @@ import {
   MissingMenuDaysError,
 } from "@/services/procurementService";
 import { listSuppliers, Supplier } from "@/services/supplierService";
-import { InventoryRow, listInventoryRows } from "@/services/inventoryService";
+import { searchCatalog, type CatalogItem } from "@/services/fsCatalogService";
 import { HistoryPanel } from "@/components/HistoryPanel";
 import { SuppliersPanel } from "@/components/foodservice/SuppliersPanel";
 import { ImageUploadGallery, type UploadImage } from "@/components/ui/ImageUploadGallery";
@@ -55,8 +55,8 @@ function ListDetail({ id, suppliers, onBack, onPosGenerated }: {
   const [list, setList] = useState<ShoppingList | null>(null);
   const [busy, setBusy] = useState(false);
   const [itemSearch, setItemSearch] = useState("");
-  const [itemResults, setItemResults] = useState<InventoryRow[]>([]);
-  const [selectedItem, setSelectedItem] = useState<InventoryRow | null>(null);
+  const [itemResults, setItemResults] = useState<CatalogItem[]>([]);
+  const [selectedItem, setSelectedItem] = useState<CatalogItem | null>(null);
   const [addQty, setAddQty] = useState("1");
   const [addUnitPrice, setAddUnitPrice] = useState("0");
   const [addSupplier, setAddSupplier] = useState("");
@@ -84,19 +84,18 @@ function ListDetail({ id, suppliers, onBack, onPosGenerated }: {
     setItemSearch(q);
     setSelectedItem(null);
     if (q.trim().length < 2) { setItemResults([]); return; }
-    const result = await listInventoryRows({
-      search: q,
-      type: list?.procurement_track === "supplies" ? "supply" : "ingredient",
-      per_page: 8,
-    });
-    setItemResults(result.data);
+    const result = await searchCatalog(
+      q,
+      list?.procurement_track === "supplies" ? "supply" : "ingredient",
+    );
+    setItemResults(result.slice(0, 8));
   }
 
-  function selectManualItem(item: InventoryRow) {
+  function selectManualItem(item: CatalogItem) {
     setSelectedItem(item);
     setItemSearch(item.name);
     setItemResults([]);
-    setAddUnitPrice(item.unit_cost ?? item.unit_price ?? "0");
+    setAddUnitPrice(String(item.unit_cost ?? item.purchase_price ?? "0"));
     setAddSupplier("");
   }
 
@@ -110,9 +109,9 @@ function ListDetail({ id, suppliers, onBack, onPosGenerated }: {
     }
     setItemError("");
     const created = await addListItem(list.id, {
-      fs_item_id: selectedItem.itemId,
+      fs_item_id: selectedItem.id,
       qty,
-      unit: selectedItem.base_unit ?? selectedItem.unit ?? "unit",
+      unit: selectedItem.base_unit || "unit",
       unit_price: Number.isFinite(unitPrice) ? unitPrice : 0,
       supplier_id: addSupplier ? addSupplier : null,
     });
@@ -291,11 +290,11 @@ function ListDetail({ id, suppliers, onBack, onPosGenerated }: {
               {itemResults.length > 0 && (
                 <div className="absolute z-20 mt-1 w-full bg-white border border-warm-200 rounded-xl shadow-lg overflow-hidden">
                   {itemResults.map((item) => (
-                    <button key={item.itemId} type="button" onClick={() => selectManualItem(item)}
+                    <button key={item.id} type="button" onClick={() => selectManualItem(item)}
                       className="w-full text-left px-3 py-2 hover:bg-warm-50 border-b border-warm-100 last:border-0 cursor-pointer">
                       <span className="block text-sm font-bold text-warm-900">{item.name}</span>
                       <span className="text-xs text-warm-400">
-                        {item.base_unit ?? item.unit} · {item.unit_cost ? peso(num(item.unit_cost)) : "no price"}
+                        {item.base_unit} · {item.unit_cost ? peso(num(item.unit_cost)) : "no price"}
                       </span>
                     </button>
                   ))}

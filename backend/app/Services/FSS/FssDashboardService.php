@@ -12,7 +12,7 @@ use Carbon\Carbon;
 class FssDashboardService
 {
     public function __construct(
-        private PurchaseOrderLifecycleService $lifecycle = new PurchaseOrderLifecycleService(),
+        private readonly PurchaseOrderLifecycleService $lifecycle,
     ) {
     }
 

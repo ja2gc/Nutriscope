@@ -453,13 +453,13 @@ public function record(
 - Delete after caller removal: `backend/app/Http/Requests/FSS/StoreInventoryRequest.php`, `UpdateInventoryRequest.php`
 - Modify: `backend/tests/Feature/AuditTrailTest.php`, `FoodServiceOpsTest.php`
 
-- [ ] Immediately remove `AuditsChanges` from `Inventory`, remove inventory from Admin audit filters, and remove inventory activity route/proxy/history UI. Replace audit tests with `FsItem` or PO lifecycle tests.
-- [ ] Remove unreachable `store`, `update`, `destroy`, and `restock` methods from `InventoryController` after route-list proof confirms they are not wired.
-- [ ] Replace recipe/procurement catalog naming and TypeScript `StockStatus`, `quantity_in_stock`, `in_stock`, and `no_stock` fields with catalog/receiving concepts actually used by current workflows.
-- [ ] Before dropping stock columns, replace `ReceivingService` quantity increments with immutable receipt/price history or PO receiving quantities already owned by PO items/corrections. Prove menu costing, recipe unit validation, procurement selection, dashboard, and reports still work.
-- [ ] Create forward-only migration `backend/database/migrations/2026_07_11_000004_drop_retired_inventory_stock_fields.php` to drop `quantity_in_stock` and dead inventory columns only after `rg` finds no runtime references and full food-service tests pass. Do not combine data backfill and column drop in one migration.
-- [ ] Run `rg -n "quantity_in_stock|StockStatus|in_stock|no_stock" backend/app frontend` and expect no stock-management runtime references before column removal.
-- [ ] Commit first audit/UI retirement as `refactor: retire inventory audit trail`; commit data-model retirement separately as `refactor: remove stock management fields`.
+- [x] Immediately remove `AuditsChanges` from `Inventory`, remove inventory from Admin audit filters, and remove inventory activity route/proxy/history UI. Replace audit tests with `FsItem` or PO lifecycle tests.
+- [x] Remove unreachable `store`, `update`, `destroy`, and `restock` methods from `InventoryController` after route-list proof confirms they are not wired.
+- [x] Replace recipe/procurement catalog naming and TypeScript `StockStatus`, `quantity_in_stock`, `in_stock`, and `no_stock` fields with catalog/receiving concepts actually used by current workflows.
+- [x] Before dropping stock columns, replace `ReceivingService` quantity increments with immutable receipt/price history or PO receiving quantities already owned by PO items/corrections. Prove menu costing, recipe unit validation, procurement selection, dashboard, and reports still work.
+- [x] Create forward-only migration `backend/database/migrations/2026_07_11_000004_drop_retired_inventory_stock_fields.php` to drop `quantity_in_stock` and dead inventory columns only after `rg` finds no runtime references and full food-service tests pass. Do not combine data backfill and column drop in one migration.
+- [x] Run `rg -n "quantity_in_stock|StockStatus|in_stock|no_stock" backend/app frontend` and expect no stock-management runtime references before column removal.
+- [x] Commit first audit/UI retirement as `refactor: retire inventory audit trail`; commit data-model retirement separately as `refactor: remove stock management fields`.
 
 ### Task 10: Build Authorized Audit Query and Structured API
 

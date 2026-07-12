@@ -15,22 +15,15 @@ class Inventory extends Model
 
     protected $fillable = [
         'item_type', 'fs_item_id', 'recipe_id',
-        'quantity_in_stock', 'unit',
-        'unit_price', 'notes',
     ];
 
-    protected $casts = [
-        'quantity_in_stock' => 'decimal:2',
-        'unit_price'        => 'decimal:2',
-    ];
-
-    /** Stock of a catalog item (ingredient or supply). */
+    /** Legacy association to a catalog item (ingredient or supply). */
     public function fsItem(): BelongsTo
     {
         return $this->belongsTo(FsItem::class, 'fs_item_id');
     }
 
-    /** Stock of a prepared food-service recipe. */
+    /** Legacy association to a prepared food-service recipe. */
     public function recipe(): BelongsTo
     {
         return $this->belongsTo(FoodServiceRecipe::class, 'recipe_id');

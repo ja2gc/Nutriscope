@@ -12,6 +12,7 @@ use App\Models\PurchaseOrder;
 use App\Models\Supplier;
 use App\Services\Audit\AuditLogger;
 use App\Services\FSS\LatestProcurementVendorService;
+use Closure;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -56,17 +57,45 @@ class FsItemController extends Controller
         $data = $request->validate([
             'kind' => ['nullable', 'in:ingredient,supply'],
             'search' => ['nullable', 'string', 'max:100'],
+            'limit' => ['nullable', 'integer', 'min:1', 'max:100'],
+            'page' => [
+                'nullable',
+                'integer',
+                'min:1',
+                function (string $attribute, mixed $value, Closure $fail) use ($request): void {
+                    if (! $request->filled('limit')) {
+                        $fail('The page field requires a limit.');
+                    }
+                },
+            ],
         ]);
-        $items = FsItem::query()
+        $query = FsItem::query()
             ->with('defaultSupplier:id,name')
             ->where('is_active', true)
             ->when($data['kind'] ?? null, fn ($q, $kind) => $q->where('kind', $kind))
             ->when($data['search'] ?? null, fn ($q, $s) => $q->where('name', 'like', "%{$s}%"))
-            ->orderBy('name')
-            ->get()
-            ->map(fn (FsItem $i) => $this->catalogRow($i));
+            ->orderBy('name');
 
-        return response()->json(['data' => $items]);
+        if (! isset($data['limit'])) {
+            return response()->json([
+                'data' => $query->get()->map(fn (FsItem $i) => $this->catalogRow($i)),
+            ]);
+        }
+
+        $items = $query->paginate(
+            perPage: $data['limit'],
+            page: $data['page'] ?? 1,
+        );
+
+        return response()->json([
+            'data' => collect($items->items())->map(fn (FsItem $i) => $this->catalogRow($i)),
+            'meta' => [
+                'current_page' => $items->currentPage(),
+                'per_page' => $items->perPage(),
+                'total' => $items->total(),
+                'last_page' => $items->lastPage(),
+            ],
+        ]);
     }
 
     /** @return array<string,mixed> */

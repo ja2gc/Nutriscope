@@ -186,7 +186,6 @@ class FoodItemsSeeder extends Seeder
         $manualIds = \App\Models\FoodItem::whereNull('usda_fdc_id')->pluck('id');
         if ($manualIds->isNotEmpty()) {
             DB::table('recipe_ingredients')->whereIn('food_item_id', $manualIds)->delete();
-            DB::table('inventory')->whereIn('food_item_id', $manualIds)->delete();
             \App\Models\FoodItem::whereNull('usda_fdc_id')->delete();
             $this->command->info('Cleared ' . $manualIds->count() . ' manually-seeded food items.');
         }

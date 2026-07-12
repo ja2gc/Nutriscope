@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Models\FoodServiceRecipe;
 use App\Models\FoodServiceRecipeIngredient;
 use App\Models\FsItem;
-use App\Models\Inventory;
 use App\Support\UnitConverter;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -56,7 +55,7 @@ class FoodServiceRecipeController extends Controller
     }
 
     /**
-     * Block bundle/non-convertible units ONLY when the inventory base unit is itself
+     * Block bundle/non-convertible units only when the catalog base unit is itself
      * convertible (mass/volume). When the base unit is an outlier (pc, pack, etc.)
      * any unit is allowed — those are surfaced as warnings, not hard errors.
      */
@@ -82,20 +81,20 @@ class FoodServiceRecipeController extends Controller
                 continue;
             }
             $unit = $ing['unit'] ?? $base;
-            // Inventory unit is convertible but the recipe unit is not → reject.
+            // Catalog unit is convertible but the recipe unit is not -> reject.
             if (UnitConverter::isKnown($base) && ! UnitConverter::isKnown($unit)
                 && UnitConverter::normalize($unit) !== UnitConverter::normalize($base)) {
-                abort(422, "Ingredient unit '{$unit}' can't convert to inventory unit '{$base}' for item #{$ing['fs_item_id']}. Use a mass or volume unit.");
+                abort(422, "Ingredient unit '{$unit}' can't convert to catalog unit '{$base}' for item #{$ing['fs_item_id']}. Use a mass or volume unit.");
             }
         }
     }
 
     /**
      * Per-ingredient conversion metadata for the recipe response: whether the recipe
-     * unit converts to the item's inventory (base) unit, the converted quantity and
+     * unit converts to the item's catalog base unit, the converted quantity and
      * unit cost (max 2 decimals), and a warning for non-convertible outliers.
      *
-     * @return array{is_convertible:bool,inventory_unit:string|null,converted_quantity:float|null,converted_unit_cost:float|null,conversion_warning:string|null}
+     * @return array{is_convertible:bool,catalog_unit:string|null,converted_quantity:float|null,converted_unit_cost:float|null,conversion_warning:string|null}
      */
     private static function conversionInfo(?FsItem $item, float $quantity, ?string $unit): array
     {
@@ -105,7 +104,7 @@ class FoodServiceRecipeController extends Controller
         if (! $item || ! $baseUnit || $unit === null) {
             return [
                 'is_convertible'       => false,
-                'inventory_unit'       => $baseUnit,
+                'catalog_unit'         => $baseUnit,
                 'converted_quantity'   => null,
                 'converted_unit_cost'  => null,
                 'conversion_warning'   => null,
@@ -117,7 +116,7 @@ class FoodServiceRecipeController extends Controller
         if ($sameUnit) {
             return [
                 'is_convertible'      => true,
-                'inventory_unit'      => $baseUnit,
+                'catalog_unit'        => $baseUnit,
                 'converted_quantity'  => round($quantity, 2),
                 'converted_unit_cost' => round($item->unit_cost, 2),
                 'conversion_warning'  => null,
@@ -125,13 +124,13 @@ class FoodServiceRecipeController extends Controller
         }
 
         if (UnitConverter::isKnown($unit) && UnitConverter::isKnown($baseUnit)) {
-            // Recipe unit → inventory unit. unit_cost is priced per inventory base unit,
+            // Recipe unit -> catalog unit. unit_cost is priced per catalog base unit,
             // so the rate per recipe unit converts inversely.
             $qtyInBase   = UnitConverter::convert($quantity, $unit, $baseUnit);
             $basePerUnit = UnitConverter::convert(1, $unit, $baseUnit);
             return [
                 'is_convertible'      => true,
-                'inventory_unit'      => $baseUnit,
+                'catalog_unit'        => $baseUnit,
                 'converted_quantity'  => round($qtyInBase, 2),
                 'converted_unit_cost' => round($item->unit_cost * $basePerUnit, 2),
                 'conversion_warning'  => null,
@@ -141,10 +140,10 @@ class FoodServiceRecipeController extends Controller
         // Non-convertible outlier — allowed, but warn the planner.
         return [
             'is_convertible'      => false,
-            'inventory_unit'      => $baseUnit,
+            'catalog_unit'        => $baseUnit,
             'converted_quantity'  => null,
             'converted_unit_cost' => null,
-            'conversion_warning'  => "Unit '{$unit}' can't be converted to inventory unit '{$baseUnit}'; cost uses the entered unit as-is.",
+            'conversion_warning'  => "Unit '{$unit}' can't be converted to catalog unit '{$baseUnit}'; cost uses the entered unit as-is.",
         ];
     }
 
@@ -283,7 +282,7 @@ class FoodServiceRecipeController extends Controller
                     'quantity'             => round((float) $ing->quantity, 2),
                     'unit'                 => $ing->unit,
                     'is_convertible'       => $conv['is_convertible'],
-                    'inventory_unit'       => $conv['inventory_unit'],
+                    'catalog_unit'         => $conv['catalog_unit'],
                     'converted_quantity'   => $conv['converted_quantity'],
                     'converted_unit_cost'  => $conv['converted_unit_cost'],
                     'conversion_warning'   => $conv['conversion_warning'],

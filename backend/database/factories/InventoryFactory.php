@@ -15,9 +15,6 @@ class InventoryFactory extends Factory
         return [
             'item_type'               => 'ingredient',
             'fs_item_id'              => FsItem::factory(),
-            'quantity_in_stock'       => fake()->randomFloat(2, 0, 500),
-            'unit'                    => fake()->randomElement(['kg', 'g', 'L', 'ml', 'piece']),
-            'notes'                   => null,
         ];
     }
 }
