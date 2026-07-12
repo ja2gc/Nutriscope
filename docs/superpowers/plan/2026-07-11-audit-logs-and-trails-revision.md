@@ -475,15 +475,15 @@ public function record(
 - Modify: `backend/app/Http/Controllers/Admin/DashboardController.php`
 - Modify: `backend/app/Providers/AppServiceProvider.php`
 
-- [ ] Validate filters against enum allow-lists: `category`, `domain`, `action`, `severity`, `outcome`, actor public UUID, subject/context public ID, `start`, `end`, page, and per-page.
-- [ ] Constrain all global audit queries to audit channels. Eager-load causer with selected columns and avoid N+1 subject loading by using stored safe labels/context snapshots.
-- [ ] Preserve offset pagination for Admin page/dashboard during frontend migration. Context trails may adopt `before_id` pagination separately.
-- [ ] Return only `AuditEventDto`; remove `properties`, raw model class names, internal numeric IDs, email addresses, full URLs, and `updated_at` from public response.
-- [ ] Add gates for `viewAny`, `viewClinical`, `viewSecurity`, `export`, and `viewTrail`. Deduplicate `audit_log_viewed` to one event per actor per 15 minutes, while always logging exports and clinical-detail access; this satisfies oversight without recursively logging each pagination request.
-- [ ] Add feature-flagged `GET /api/admin/audit-logs/export` through `AuditLogExportController`. It streams the same authorized/filter-scoped DTO fields as CSV, caps exports at 50,000 rows, and never includes `properties`, PHI, email, full IP for clinical rows, or internal IDs. Default `AUDIT_EXPORT_ENABLED=false`.
-- [ ] Update dashboard counts to audit-only channels and define whether counts represent retained rows or time-window activity. Keep existing keys until frontend dashboard migrates.
-- [ ] Use `EXPLAIN` in a test or documented verification query for default list, category/date, event/date, actor/date, and context/date queries.
-- [ ] Run API authorization/contract tests and commit with `feat: expose structured audit API`.
+- [x] Validate filters against enum allow-lists: `category`, `domain`, `action`, `severity`, `outcome`, actor public UUID, subject/context public ID, `start`, `end`, page, and per-page.
+- [x] Constrain all global audit queries to audit channels. Eager-load causer with selected columns and avoid N+1 subject loading by using stored safe labels/context snapshots.
+- [x] Preserve offset pagination for Admin page/dashboard during frontend migration. Context trails may adopt `before_id` pagination separately.
+- [x] Return only `AuditEventDto`; remove `properties`, raw model class names, internal numeric IDs, email addresses, full URLs, and `updated_at` from public response.
+- [x] Add gates for `viewAny`, `viewClinical`, `viewSecurity`, `export`, and `viewTrail`. Deduplicate `audit_log_viewed` to one event per actor per 15 minutes, while always logging exports and clinical-detail access; this satisfies oversight without recursively logging each pagination request.
+- [x] Add feature-flagged `GET /api/admin/audit-logs/export` through `AuditLogExportController`. It streams the same authorized/filter-scoped DTO fields as CSV, caps exports at 50,000 rows, and never includes `properties`, PHI, email, full IP for clinical rows, or internal IDs. Default `AUDIT_EXPORT_ENABLED=false`.
+- [x] Update dashboard counts to audit-only channels and define whether counts represent retained rows or time-window activity. Keep existing keys until frontend dashboard migrates.
+- [x] Use `EXPLAIN` in a test or documented verification query for default list, category/date, event/date, actor/date, and context/date queries.
+- [x] Run API authorization/contract tests and commit with `feat: expose structured audit API`.
 
 ### Task 11: Replace Admin JSON UI With Four Purposeful Views
 

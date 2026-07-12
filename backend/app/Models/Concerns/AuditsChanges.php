@@ -6,6 +6,7 @@ use App\Enums\AuditCategory;
 use App\Enums\AuditOutcome;
 use App\Enums\AuditSeverity;
 use App\Services\Audit\AuditContextResolver;
+use App\Services\Audit\AuditPublicIdResolver;
 use App\Services\Audit\AuditSanitizer;
 use Illuminate\Database\Eloquent\Model;
 use Spatie\Activitylog\Contracts\Activity;
@@ -61,6 +62,8 @@ trait AuditsChanges
         $props['request'] ??= $sanitizer->request(request());
         $activity->properties = $props;
         $resolver = app(AuditContextResolver::class);
+        $publicIds = app(AuditPublicIdResolver::class);
+        $activity->subject_public_id = $publicIds->forModel($this);
         if ($clinical && (isset($props['attributes']) || isset($props['old']))) {
             $identifiers = $resolver->clinicalIdentifiers($this);
             $props['details'] = $sanitizer->details([
@@ -87,6 +90,7 @@ trait AuditsChanges
             if ($context !== null) {
                 $activity->context_type = $context->getMorphClass();
                 $activity->context_id = $context->getKey();
+                $activity->context_public_id = $publicIds->forModel($context);
             }
         }
     }

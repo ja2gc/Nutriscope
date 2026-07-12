@@ -22,6 +22,7 @@ class AuditLogger
     public function __construct(
         private readonly AuditSanitizer $sanitizer,
         private readonly AuditContextResolver $contextResolver,
+        private readonly AuditPublicIdResolver $publicIdResolver,
         private readonly Request $request,
         private readonly ActivityLogger $activityLogger,
     ) {}
@@ -146,6 +147,8 @@ class AuditLogger
         }
 
         $resolvedContext = $this->contextResolver->resolve($subject, $context);
+        $subjectPublicId = $this->publicIdResolver->forModel($subject);
+        $contextPublicId = $this->publicIdResolver->forModel($resolvedContext);
         $clinicalIdentifiers = ['root_patient_id' => null, 'ncp_record_id' => null];
         $clinicalOwnerId = null;
         if ($category === AuditCategory::Clinical && $subject !== null) {
@@ -180,7 +183,7 @@ class AuditLogger
         $logger = activity(config('audit.log_name'))
             ->event($event)
             ->withProperties($properties)
-            ->tap(function (AuditActivity $activity) use ($category, $domain, $outcome, $severity, $resolvedContext, $clinicalIdentifiers, $clinicalOwnerId): void {
+            ->tap(function (AuditActivity $activity) use ($category, $domain, $outcome, $severity, $resolvedContext, $clinicalIdentifiers, $clinicalOwnerId, $subjectPublicId, $contextPublicId): void {
                 $activity->category = $category;
                 $activity->domain = $domain;
                 $activity->outcome = $outcome;
@@ -188,6 +191,8 @@ class AuditLogger
                 $activity->root_patient_id = $clinicalIdentifiers['root_patient_id'];
                 $activity->ncp_record_id = $clinicalIdentifiers['ncp_record_id'];
                 $activity->audit_owner_id = $clinicalOwnerId;
+                $activity->subject_public_id = $subjectPublicId;
+                $activity->context_public_id = $contextPublicId;
 
                 if ($resolvedContext !== null) {
                     $activity->context_type = $resolvedContext->getMorphClass();

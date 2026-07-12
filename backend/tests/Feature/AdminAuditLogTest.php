@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\AuditActivity;
 use App\Models\Patient;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -29,6 +30,7 @@ class AdminAuditLogTest extends TestCase
     {
         $rnd = User::factory()->create(['role' => 'RND']);
         $fss = User::factory()->create(['role' => 'FSS']);
+        $patient = Patient::factory()->create();
 
         Activity::create([
             'log_name' => 'audit',
@@ -37,7 +39,16 @@ class AdminAuditLogTest extends TestCase
             'causer_type' => User::class,
             'causer_id' => $rnd->id,
             'subject_type' => Patient::class,
-            'subject_id' => 101,
+            'subject_id' => $patient->id,
+            'subject_public_id' => $patient->uuid,
+            'category' => 'clinical',
+            'domain' => 'patients',
+            'severity' => 'info',
+            'outcome' => 'success',
+            'properties' => [
+                'actor' => ['kind' => 'user', 'public_id' => $rnd->uuid, 'name' => $rnd->name, 'role' => 'RND'],
+                'details' => ['public_id' => $patient->uuid],
+            ],
             'created_at' => '2026-06-10 08:00:00',
         ]);
         Activity::create([
@@ -52,23 +63,16 @@ class AdminAuditLogTest extends TestCase
         ]);
 
         $response = $this->actingAs($this->admin, 'sanctum')
-            ->getJson("/api/admin/audit-logs?causer_id={$rnd->uuid}&subject_type=".urlencode(Patient::class).'&event=created&start=2026-06-10&end=2026-06-10&per_page=5');
+            ->getJson("/api/admin/audit-logs?actor_id={$rnd->uuid}&subject_id={$patient->uuid}&action=created&start=2026-06-10&end=2026-06-10&per_page=5");
 
         $response->assertOk()
             ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.event', 'created')
-            ->assertJsonPath('data.0.causer.id', $rnd->uuid)
+            ->assertJsonPath('data.0.action', 'created')
+            ->assertJsonPath('data.0.actor.id', $rnd->uuid)
             ->assertJsonStructure([
                 'data' => [[
-                    'id',
-                    'log_name',
-                    'description',
-                    'event',
-                    'subject_type',
-                    'subject_id',
-                    'causer',
-                    'properties',
-                    'created_at',
+                    'id', 'category', 'domain', 'action', 'action_label', 'summary', 'severity',
+                    'outcome', 'actor', 'subject', 'context', 'occurred_at', 'details', 'changes',
                 ]],
                 'links',
                 'meta',
@@ -92,7 +96,7 @@ class AdminAuditLogTest extends TestCase
         ]);
 
         $response = $this->actingAs($this->admin, 'sanctum')
-            ->getJson('/api/admin/audit-logs?subject_type='.urlencode(Patient::class));
+            ->getJson('/api/admin/audit-logs?subject_id='.$patient->uuid);
 
         $response->assertOk();
 
@@ -141,25 +145,35 @@ class AdminAuditLogTest extends TestCase
     public function test_admin_response_never_exposes_clinical_values_or_arbitrary_properties(): void
     {
         Activity::query()->delete();
+        $patient = Patient::factory()->create();
+        AuditActivity::query()->delete();
         $activity = Activity::create([
             'log_name' => 'audit',
             'event' => 'updated',
             'description' => 'Updated patient',
             'subject_type' => Patient::class,
-            'subject_id' => 101,
+            'subject_id' => $patient->id,
+            'subject_public_id' => $patient->uuid,
+            'category' => 'clinical',
+            'domain' => 'patients',
             'properties' => [
-                'attributes' => ['medical_diagnosis' => 'CLINICAL-VALUE-SENTINEL'],
+                'details' => [
+                    'public_id' => $patient->uuid,
+                    'changed_fields' => ['medical_diagnosis'],
+                    'medical_diagnosis' => 'CLINICAL-VALUE-SENTINEL',
+                ],
                 'arbitrary_payload' => 'ARBITRARY-PROPERTY-SENTINEL',
             ],
         ]);
 
         $response = $this->actingAs($this->admin, 'sanctum')
-            ->getJson('/api/admin/audit-logs?subject_type='.urlencode(Patient::class));
+            ->getJson('/api/admin/audit-logs?subject_id='.$patient->uuid);
 
         $response->assertOk()
-            ->assertJsonPath('data.0.id', $activity->id)
-            ->assertJsonPath('data.0.event', 'updated')
-            ->assertJsonPath('data.0.description', 'Updated patient');
+            ->assertJsonPath('data.0.action', 'updated')
+            ->assertJsonPath('data.0.summary', 'Updated patient')
+            ->assertJsonPath('data.0.subject.id', $patient->uuid);
+        $this->assertNotSame((string) $activity->id, $response->json('data.0.id'));
         $payload = $response->getContent();
 
         $leaks = collect([

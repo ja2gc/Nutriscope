@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState } from "react";
 import { listAuditLogs, AuditLog, ListAuditLogsParams } from "@/services/auditLogService";
 import { listUsers } from "@/services/adminUserService";
 import { User } from "@/services/authService";
@@ -34,6 +34,24 @@ const roleTones: Record<string, BadgeTone> = {
   FSS: "sky",
 };
 
+const outcomeTones: Record<string, BadgeTone> = {
+  success: "emerald",
+  failure: "red",
+  blocked: "amber",
+};
+
+function formatDetailValue(value: string | number | string[] | null) {
+  if (Array.isArray(value)) return value.join(", ");
+  if (value === null) return "—";
+  return String(value);
+}
+
+function formatChangeValue(value: string | number | boolean | null, redacted: boolean) {
+  if (redacted) return "Redacted";
+  if (value === null) return "—";
+  return String(value);
+}
+
 export default function AuditLogsPage() {
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [users, setUsers] = useState<User[]>([]);
@@ -48,14 +66,14 @@ export default function AuditLogsPage() {
 
   // Filters
   const [page, setPage] = useState(1);
-  const [causerId, setCauserId] = useState<string>("All");
-  const [subjectType, setSubjectType] = useState<string>("All");
-  const [eventFilter, setEventFilter] = useState<string>("All");
+  const [actorId, setActorId] = useState<string>("All");
+  const [domainFilter, setDomainFilter] = useState<string>("All");
+  const [actionFilter, setActionFilter] = useState<string>("All");
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
 
   // Expandable row state
-  const [expandedLogId, setExpandedLogId] = useState<number | null>(null);
+  const [expandedLogId, setExpandedLogId] = useState<string | null>(null);
 
   async function loadDirectoryData() {
     try {
@@ -72,9 +90,9 @@ export default function AuditLogsPage() {
       setError(null);
 
       const params: ListAuditLogsParams = { page, per_page: 15 };
-      if (causerId !== "All") params.causer_id = causerId;
-      if (subjectType !== "All") params.subject_type = subjectType;
-      if (eventFilter !== "All") params.event = eventFilter;
+      if (actorId !== "All") params.actor_id = actorId;
+      if (domainFilter !== "All") params.domain = domainFilter as ListAuditLogsParams["domain"];
+      if (actionFilter !== "All") params.action = actionFilter;
       if (startDate) params.start = startDate;
       if (endDate) params.end = endDate;
 
@@ -95,33 +113,18 @@ export default function AuditLogsPage() {
   useEffect(() => {
     void loadLogs();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, causerId, subjectType, eventFilter, startDate, endDate]);
+  }, [page, actorId, domainFilter, actionFilter, startDate, endDate]);
 
   function handleResetFilters() {
-    setCauserId("All");
-    setSubjectType("All");
-    setEventFilter("All");
+    setActorId("All");
+    setDomainFilter("All");
+    setActionFilter("All");
     setStartDate("");
     setEndDate("");
     setPage(1);
   }
 
-  const uniqueSubjectTypes = useMemo(() => [
-    { label: "Patient", value: "App\\Models\\Patient" },
-    { label: "User Account", value: "App\\Models\\User" },
-    { label: "Budget", value: "App\\Models\\Budget" },
-    { label: "Budget Ledger", value: "App\\Models\\BudgetLedger" },
-    { label: "Purchase Order", value: "App\\Models\\PurchaseOrder" },
-    { label: "NCP Assessment", value: "App\\Models\\Assessment" },
-    { label: "NCP Diagnosis", value: "App\\Models\\Diagnosis" },
-    { label: "NCP Intervention", value: "App\\Models\\Intervention" },
-    { label: "NCP Monitoring", value: "App\\Models\\Monitoring" },
-    { label: "Menu Cycle", value: "App\\Models\\MenuCycle" },
-    { label: "Meal Prep Log", value: "App\\Models\\MealPrepLog" },
-    { label: "FsItem", value: "App\\Models\\FsItem" },
-  ], []);
-
-  function toggleRow(logId: number) {
+  function toggleRow(logId: string) {
     setExpandedLogId((prev) => (prev === logId ? null : logId));
   }
 
@@ -172,8 +175,8 @@ export default function AuditLogsPage() {
               Actor
             </label>
             <select
-              value={causerId}
-              onChange={(e) => { setCauserId(e.target.value); setPage(1); }}
+              value={actorId}
+              onChange={(e) => { setActorId(e.target.value); setPage(1); }}
               className={selCls}
             >
               <option value="All">All actors</option>
@@ -185,20 +188,25 @@ export default function AuditLogsPage() {
             </select>
           </div>
 
-          {/* Subject type */}
+          {/* Domain */}
           <div>
             <label className="block text-xs font-bold text-warm-500 uppercase tracking-wider mb-1">
-              Subject type
+              Domain
             </label>
             <select
-              value={subjectType}
-              onChange={(e) => { setSubjectType(e.target.value); setPage(1); }}
+              value={domainFilter}
+              onChange={(e) => { setDomainFilter(e.target.value); setPage(1); }}
               className={selCls}
             >
-              <option value="All">All subjects</option>
-              {uniqueSubjectTypes.map((t) => (
-                <option key={t.value} value={t.value}>{t.label}</option>
-              ))}
+              <option value="All">All domains</option>
+              <option value="accounts">Accounts</option>
+              <option value="patients">Patients</option>
+              <option value="ncp">NCP</option>
+              <option value="reports">Reports</option>
+              <option value="budget">Budget</option>
+              <option value="procurement">Procurement</option>
+              <option value="food_service">Food service</option>
+              <option value="system">System</option>
             </select>
           </div>
 
@@ -208,15 +216,15 @@ export default function AuditLogsPage() {
               Event
             </label>
             <select
-              value={eventFilter}
-              onChange={(e) => { setEventFilter(e.target.value); setPage(1); }}
+              value={actionFilter}
+              onChange={(e) => { setActionFilter(e.target.value); setPage(1); }}
               className={selCls}
             >
               <option value="All">All events</option>
               <option value="created">Created</option>
               <option value="updated">Updated</option>
               <option value="deleted">Deleted</option>
-              <option value="login">Login</option>
+              <option value="login_succeeded">Login Succeeded</option>
               <option value="logout">Logout</option>
               <option value="login_failed">Login Failed</option>
               <option value="password_changed">Password Changed</option>
@@ -318,26 +326,25 @@ export default function AuditLogsPage() {
                     Description
                   </th>
                   <th className="px-5 py-3.5 text-xs font-bold text-warm-500 uppercase tracking-wider text-right">
-                    Properties
+                    Details
                   </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-100">
                 {logs.map((log) => {
                   const isExpanded = expandedLogId === log.id;
-                  const logDate = new Date(log.created_at);
-                  const hasProps =
-                    !!log.properties && Object.keys(log.properties).length > 0;
+                  const logDate = new Date(log.occurred_at);
+                  const hasDetails = log.details.length > 0 || log.changes.length > 0;
 
                   return (
                     <React.Fragment key={log.id}>
                       <tr
                         className={`hover:bg-warm-50/60 transition-colors border-l-2 ${
-                          log.event === "deleted"
+                          log.action === "deleted"
                             ? "border-l-red-400"
-                            : log.event === "created"
+                            : log.action === "created"
                             ? "border-l-emerald-500"
-                            : log.event === "updated"
+                            : log.action === "updated"
                             ? "border-l-sky-400"
                             : "border-l-transparent"
                         }`}
@@ -362,34 +369,33 @@ export default function AuditLogsPage() {
 
                         {/* Event */}
                         <td className="px-5 py-3.5 whitespace-nowrap">
-                          {log.event ? (
-                            <Badge tone={eventTones[log.event] ?? "zinc"}>
-                              {log.event}
-                            </Badge>
-                          ) : (
-                            <span className="text-warm-300 text-sm">-</span>
-                          )}
-                          {log.log_name && (
-                            <div className="text-xs text-warm-400 font-mono mt-1 uppercase">
-                              {log.log_name}
-                            </div>
-                          )}
+                          <Badge tone={eventTones[log.action] ?? "zinc"}>
+                            {log.action_label}
+                          </Badge>
+                          <div className="flex items-center gap-1.5 mt-1">
+                            <span className="text-xs text-warm-400 uppercase">
+                              {log.category} · {log.domain}
+                            </span>
+                            <Badge tone={outcomeTones[log.outcome] ?? "zinc"}>{log.outcome}</Badge>
+                          </div>
                         </td>
 
                         {/* Actor */}
                         <td className="px-5 py-3.5">
-                          {log.causer ? (
+                          {log.actor ? (
                             <>
                               <div className="flex items-center gap-1.5">
                                 <span className="text-sm font-semibold text-warm-800">
-                                  {log.causer.name}
+                                  {log.actor.name}
                                 </span>
-                                <Badge tone={roleTones[log.causer.role] ?? "zinc"}>
-                                  {log.causer.role}
-                                </Badge>
+                                {log.actor.role && (
+                                  <Badge tone={roleTones[log.actor.role] ?? "zinc"}>
+                                    {log.actor.role}
+                                  </Badge>
+                                )}
                               </div>
                               <div className="text-xs text-warm-400 font-mono mt-0.5">
-                                {log.causer.email}
+                                {log.actor.kind}
                               </div>
                             </>
                           ) : (
@@ -399,14 +405,14 @@ export default function AuditLogsPage() {
 
                         {/* Subject */}
                         <td className="px-5 py-3.5 whitespace-nowrap">
-                          {log.subject_type ? (
+                          {log.subject ? (
                             <>
                               <div className="text-sm font-semibold text-warm-700 font-mono">
-                                {log.subject_type.split("\\").pop()}
+                                {log.subject.label}
                               </div>
-                              {log.subject_id !== null && (
+                              {log.subject.id !== null && (
                                 <div className="text-xs text-warm-400 font-mono mt-0.5">
-                                  #{log.subject_id}
+                                  {log.subject.id}
                                 </div>
                               )}
                             </>
@@ -418,7 +424,7 @@ export default function AuditLogsPage() {
                         {/* Description */}
                         <td className="px-5 py-3.5 max-w-xs">
                           <div className="text-sm text-warm-600 line-clamp-2">
-                            {log.description || <span className="text-warm-300">-</span>}
+                            {log.summary || <span className="text-warm-300">-</span>}
                           </div>
                         </td>
 
@@ -426,10 +432,10 @@ export default function AuditLogsPage() {
                         <td className="px-5 py-3.5 text-right whitespace-nowrap">
                           <button
                             onClick={() => toggleRow(log.id)}
-                            disabled={!hasProps}
+                            disabled={!hasDetails}
                             aria-expanded={isExpanded}
                             className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-bold uppercase tracking-wider transition-colors select-none ${
-                              hasProps
+                              hasDetails
                                 ? "border-warm-200 bg-warm-50 text-warm-500 hover:text-warm-800 hover:border-warm-300 hover:bg-white cursor-pointer"
                                 : "border-transparent bg-transparent text-warm-300 cursor-not-allowed"
                             }`}
@@ -449,75 +455,59 @@ export default function AuditLogsPage() {
                         </td>
                       </tr>
 
-                      {/* Expanded properties panel */}
-                      {isExpanded && log.properties && (
+                      {/* Expanded structured details */}
+                      {isExpanded && hasDetails && (
                         <tr className="bg-warm-50/80">
                           <td colSpan={6} className="px-6 py-4">
-                            <div className="space-y-2">
+                            <div className="space-y-4">
                               <div className="text-xs font-bold text-warm-500 uppercase tracking-wider">
-                                Properties
+                                Event details
                                 <span className="ml-2 font-normal normal-case text-warm-400">
-                                  (redacted at write-time - no raw PHI stored)
+                                  Safe, structured audit metadata only
                                 </span>
                               </div>
 
-                              {/* Structured old/new diff if present */}
-                              {Boolean(log.properties.old !== undefined ||
-                                log.properties.attributes !== undefined) ? (
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                  {log.properties.old !== undefined && (
-                                    <div>
-                                      <div className="text-xs font-bold text-red-600 uppercase tracking-wider mb-1">
-                                        Before (old)
-                                      </div>
-                                      <pre className="text-xs bg-white border border-warm-200 rounded-xl p-3 font-mono text-warm-600 overflow-x-auto max-h-48 leading-5">
-                                        {JSON.stringify(log.properties.old, null, 2)}
-                                      </pre>
+                              {log.details.length > 0 && (
+                                <dl className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                  {log.details.map((detail) => (
+                                    <div key={detail.key} className="rounded-xl border border-warm-200 bg-white px-3 py-2">
+                                      <dt className="text-xs font-bold uppercase tracking-wider text-warm-400">
+                                        {detail.label}
+                                      </dt>
+                                      <dd className="mt-1 text-sm font-semibold text-warm-700 break-words">
+                                        {formatDetailValue(detail.value)}
+                                      </dd>
                                     </div>
-                                  )}
-                                  {log.properties.attributes !== undefined && (
-                                    <div>
-                                      <div className="text-xs font-bold text-emerald-600 uppercase tracking-wider mb-1">
-                                        After (new)
-                                      </div>
-                                      <pre className="text-xs bg-white border border-warm-200 rounded-xl p-3 font-mono text-warm-600 overflow-x-auto max-h-48 leading-5">
-                                        {JSON.stringify(log.properties.attributes, null, 2)}
-                                      </pre>
-                                    </div>
-                                  )}
-                                </div>
-                              ) : null}
-
-                              {/* Request metadata (url / method / ip) */}
-                              {Boolean(log.properties.url ||
-                                log.properties.method ||
-                                log.properties.ip) && (
-                                <div className="flex flex-wrap gap-3 text-xs font-mono text-warm-500 mt-1">
-                                  {Boolean(log.properties.method) && (
-                                    <span className="px-2 py-0.5 rounded bg-white border border-warm-200">
-                                      {String(log.properties.method)}
-                                    </span>
-                                  )}
-                                  {Boolean(log.properties.url) && (
-                                    <span className="px-2 py-0.5 rounded bg-white border border-warm-200 truncate max-w-xs">
-                                      {String(log.properties.url)}
-                                    </span>
-                                  )}
-                                  {Boolean(log.properties.ip) && (
-                                    <span className="px-2 py-0.5 rounded bg-white border border-warm-200">
-                                      IP: {String(log.properties.ip)}
-                                    </span>
-                                  )}
-                                </div>
+                                  ))}
+                                </dl>
                               )}
 
-                              {/* Fallback: full JSON for any other structure */}
-                              {log.properties.old === undefined &&
-                                log.properties.attributes === undefined && (
-                                  <pre className="text-xs bg-white border border-warm-200 rounded-xl p-3 font-mono text-warm-600 overflow-x-auto max-h-48 leading-5">
-                                    {JSON.stringify(log.properties, null, 2)}
-                                  </pre>
-                                )}
+                              {log.changes.length > 0 && (
+                                <div className="overflow-x-auto rounded-xl border border-warm-200 bg-white">
+                                  <table className="w-full min-w-[560px] text-sm">
+                                    <thead className="bg-warm-50 text-xs uppercase tracking-wider text-warm-500">
+                                      <tr>
+                                        <th className="px-3 py-2 text-left">Field</th>
+                                        <th className="px-3 py-2 text-left">Before</th>
+                                        <th className="px-3 py-2 text-left">After</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-warm-100">
+                                      {log.changes.map((change) => (
+                                        <tr key={change.field}>
+                                          <td className="px-3 py-2 font-semibold text-warm-700">{change.label}</td>
+                                          <td className="px-3 py-2 text-warm-500">
+                                            {formatChangeValue(change.old_value, change.redacted)}
+                                          </td>
+                                          <td className="px-3 py-2 text-warm-500">
+                                            {formatChangeValue(change.new_value, change.redacted)}
+                                          </td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              )}
                             </div>
                           </td>
                         </tr>

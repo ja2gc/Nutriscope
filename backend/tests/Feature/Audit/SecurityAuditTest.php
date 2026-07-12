@@ -3,9 +3,9 @@
 namespace Tests\Feature\Audit;
 
 use App\Enums\AuditAction;
-use App\Http\Resources\Admin\AuditLogResource;
 use App\Models\AuditActivity;
 use App\Models\User;
+use App\Services\Audit\AuditEventPresenter;
 use App\Services\Audit\SecurityAuditDeduplicator;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
@@ -371,9 +371,8 @@ class SecurityAuditTest extends TestCase
             'properties' => [],
         ]);
 
-        $payload = (new AuditLogResource($activity))->resolve(Request::create('/'));
+        $payload = app(AuditEventPresenter::class)->present($activity)->toArray();
 
-        $this->assertSame('login_succeeded', $payload['event']);
         $this->assertSame('login_succeeded', $payload['action']);
     }
 

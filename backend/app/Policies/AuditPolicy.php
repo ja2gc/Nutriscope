@@ -10,6 +10,36 @@ use App\Models\User;
 
 class AuditPolicy
 {
+    public function viewAny(User $user): bool
+    {
+        return $user->role === 'Admin';
+    }
+
+    public function viewClinical(User $user): bool
+    {
+        return $user->role === 'Admin';
+    }
+
+    public function viewSecurity(User $user): bool
+    {
+        return $user->role === 'Admin';
+    }
+
+    public function export(User $user): bool
+    {
+        return $user->role === 'Admin';
+    }
+
+    public function viewTrail(User $user, object $subject): bool
+    {
+        return match (true) {
+            $subject instanceof Patient => $this->viewPatientTrail($user, $subject),
+            $subject instanceof NcpRecord => $this->viewNcpTrail($user, $subject),
+            $subject instanceof Report => $this->viewReportTrail($user, $subject),
+            default => $user->role === 'Admin',
+        };
+    }
+
     public function viewReportTrail(User $user, Report $report): bool
     {
         return match ($user->role) {

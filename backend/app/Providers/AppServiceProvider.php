@@ -5,13 +5,16 @@ namespace App\Providers;
 use App\Enums\AuditAction;
 use App\Events\PurchaseOrderCompleted;
 use App\Listeners\BudgetLedgerListener;
+use App\Models\AuditActivity;
 use App\Models\User;
+use App\Policies\AuditPolicy;
 use App\Services\Audit\AuditContextResolver;
 use App\Services\Audit\SecurityAuditDeduplicator;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
@@ -33,6 +36,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        Gate::policy(AuditActivity::class, AuditPolicy::class);
+
         // Brute-force / credential-stuffing protection for the login endpoint.
         // Layer account and source-IP limits so rotating either dimension cannot bypass throttling.
         RateLimiter::for('login', function (Request $request) {

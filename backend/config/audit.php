@@ -76,6 +76,12 @@ return [
         ],
     ],
 
+    'legacy' => [
+        'action_aliases' => [
+            'login' => AuditAction::LoginSucceeded->value,
+        ],
+    ],
+
     /* Retention values are defaults pending privacy-owner approval. */
     'retention' => [
         AuditCategory::Security->value => ['days' => 365, 'legal_hold' => false],
@@ -86,12 +92,16 @@ return [
 
     'deduplication' => [
         'chart_view_seconds' => 15 * 60,
+        'audit_list_view_seconds' => 15 * 60,
         'security_failure_seconds' => 5 * 60,
     ],
 
     'features' => [
         'export' => env('AUDIT_EXPORT_ENABLED', false),
         'ip_blocking' => env('AUDIT_SECURITY_BLOCKS_ENABLED', false),
+    ],
+    'export' => [
+        'max_rows' => 50_000,
     ],
     /* Every unsafe route must be reviewed; there is no fallback classifier. */
     'route_coverage' => [

@@ -11,6 +11,7 @@ use DateTimeInterface;
 use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
 use InvalidArgumentException;
 use Spatie\Activitylog\Models\Activity;
 
@@ -25,6 +26,13 @@ class AuditActivity extends Activity
         'severity' => AuditSeverity::class,
         'outcome' => AuditOutcome::class,
     ];
+
+    protected static function booted(): void
+    {
+        static::creating(function (AuditActivity $activity): void {
+            $activity->public_id ??= (string) Str::uuid();
+        });
+    }
 
     #[Scope]
     protected function auditOnly(Builder $query): void

@@ -8,7 +8,6 @@ use App\Enums\AuditDomain;
 use App\Enums\AuditOutcome;
 use App\Enums\AuditSeverity;
 use App\Events\PurchaseOrderCompleted;
-use App\Http\Resources\Admin\AuditLogResource;
 use App\Listeners\BudgetLedgerListener;
 use App\Models\Assessment;
 use App\Models\AuditActivity;
@@ -23,6 +22,7 @@ use App\Models\PurchaseOrder;
 use App\Models\ShoppingList;
 use App\Models\User;
 use App\Services\Audit\AuditContextResolver;
+use App\Services\Audit\AuditEventPresenter;
 use App\Services\Audit\AuditLogger;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
@@ -363,9 +363,9 @@ class AuditPrivacyTest extends TestCase
         $this->assertStringNotContainsString("\r", $activity->properties['request']['user_agent']);
         $this->assertStringNotContainsString('FORBIDDEN', $activity->properties->toJson());
 
-        $resource = AuditLogResource::make($activity)->resolve($request);
-        $this->assertSame('203.0.113.9', $resource['properties']['ip']);
-        $this->assertSame($resource['properties']['request']['user_agent'], $resource['properties']['user_agent']);
+        $resource = app(AuditEventPresenter::class)->present($activity)->toArray();
+        $this->assertArrayNotHasKey('properties', $resource);
+        $this->assertStringNotContainsString('203.0.113.9', json_encode($resource, JSON_THROW_ON_ERROR));
     }
 
     public function test_clinical_detail_values_are_removed_but_field_names_remain(): void

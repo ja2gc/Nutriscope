@@ -20,11 +20,11 @@ describe("admin audit filter contract", () => {
     proxyMock.mockResolvedValue(NextResponse.json({ data: [] }, { status: 200 }));
   });
 
-  test("uses backend model class names for subject filters", () => {
-    expect(source).toContain('value: "App\\\\Models\\\\User"');
-    expect(source).toContain('value: "App\\\\Models\\\\Budget"');
-    expect(source).toContain('value: "App\\\\Models\\\\BudgetLedger"');
-    expect(source).toContain('value: "App\\\\Models\\\\PurchaseOrder"');
+  test("uses structured domain filters without backend model class names", () => {
+    expect(source).toContain('value="patients"');
+    expect(source).toContain('value="procurement"');
+    expect(source).not.toContain("App\\\\Models");
+    expect(source).not.toContain("subject_type");
   });
 
   test("includes auth and password security events", () => {
@@ -37,9 +37,9 @@ describe("admin audit filter contract", () => {
     const search = new URLSearchParams({
       page: "3",
       per_page: "50",
-      causer_id: "actor-uuid",
-      subject_type: "App\\Models\\Patient",
-      event: "updated",
+      actor_id: "00000000-0000-4000-8000-000000000001",
+      domain: "patients",
+      action: "updated",
       start: "2026-06-01",
       end: "2026-06-30",
     });
@@ -47,5 +47,15 @@ describe("admin audit filter contract", () => {
     await GET(new NextRequest(`http://localhost/api/admin/audit-logs?${search}`));
 
     expect(proxyMock).toHaveBeenCalledWith("/admin/audit-logs", { search });
+  });
+
+  test("renders structured DTO fields without raw properties or JSON", () => {
+    expect(source).toContain("log.occurred_at");
+    expect(source).toContain("log.details");
+    expect(source).toContain("log.changes");
+    expect(source).not.toContain("log.properties");
+    expect(source).not.toContain("JSON.stringify");
+    expect(source).not.toContain("log.causer");
+    expect(source).not.toContain("log.subject_type");
   });
 });

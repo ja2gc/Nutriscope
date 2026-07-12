@@ -543,8 +543,8 @@ export default function AdminDashboardPage() {
               </div>
             ) : (
               recentLogs.map((log) => {
-                const initials = log.causer?.name
-                  ? log.causer.name
+                const initials = log.actor?.name
+                  ? log.actor.name
                       .split(" ")
                       .filter(Boolean)
                       .slice(0, 2)
@@ -553,7 +553,7 @@ export default function AdminDashboardPage() {
                   : "SYS";
 
                 const eventTone: BadgeTone =
-                  (log.event && eventTones[log.event]) || "zinc";
+                  eventTones[log.action] || "zinc";
 
                 return (
                   <div
@@ -566,19 +566,17 @@ export default function AdminDashboardPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <span className="font-semibold text-warm-800">
-                          {log.causer?.name || "System"}
+                          {log.actor?.name || "System"}
                         </span>
-                        {log.event && (
-                          <Badge tone={eventTone}>{log.event}</Badge>
-                        )}
+                        <Badge tone={eventTone}>{log.action_label}</Badge>
                       </div>
                       <div className="text-warm-500 text-xs mt-0.5 truncate">
-                        {log.description}
+                        {log.summary}
                       </div>
                       <div className="flex items-center gap-2 mt-1 text-xs font-bold uppercase tracking-wider text-warm-400">
-                        <span>{log.log_name}</span>
+                        <span>{log.category}</span>
                         <span>·</span>
-                        <span>{relativeTime(log.created_at)}</span>
+                        <span>{relativeTime(log.occurred_at)}</span>
                       </div>
                     </div>
                   </div>

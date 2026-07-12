@@ -7,8 +7,8 @@ use App\Enums\AuditCategory;
 use App\Enums\AuditDomain;
 use App\Enums\AuditOutcome;
 use App\Enums\AuditSeverity;
-use App\Http\Resources\Admin\AuditLogResource;
 use App\Models\AuditActivity;
+use App\Services\Audit\AuditEventPresenter;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Schema\Blueprint;
@@ -16,6 +16,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
+use Ramsey\Uuid\Uuid;
 use Spatie\Activitylog\Contracts\Activity as ActivityContract;
 use Tests\TestCase;
 
@@ -120,11 +121,13 @@ class AuditContractTest extends TestCase
     public function test_activity_log_has_nullable_metadata_and_query_indexes_without_an_extra_correlation_uuid(): void
     {
         $this->assertTrue(Schema::hasColumns('activity_log', [
-            'category', 'domain', 'severity', 'outcome', 'context_type', 'context_id', 'batch_uuid',
+            'public_id', 'subject_public_id', 'context_public_id', 'category', 'domain',
+            'severity', 'outcome', 'context_type', 'context_id', 'batch_uuid',
         ]));
         $this->assertFalse(Schema::hasColumn('activity_log', 'correlation_uuid'));
 
-        $indexes = collect(Schema::getIndexes('activity_log'))
+        $schemaIndexes = collect(Schema::getIndexes('activity_log'));
+        $indexes = $schemaIndexes
             ->map(fn (array $index): array => $index['columns'])
             ->values()
             ->all();
@@ -133,6 +136,10 @@ class AuditContractTest extends TestCase
         $this->assertContains(['category', 'created_at', 'id'], $indexes);
         $this->assertContains(['event', 'created_at', 'id'], $indexes);
         $this->assertContains(['context_type', 'context_id', 'created_at', 'id'], $indexes);
+        $this->assertContains(['causer_type', 'causer_id', 'created_at', 'id'], $indexes);
+        $this->assertContains(['subject_public_id', 'created_at', 'id'], $indexes);
+        $this->assertContains(['context_public_id', 'created_at', 'id'], $indexes);
+        $this->assertTrue((bool) $schemaIndexes->firstWhere('name', 'activity_log_public_id_unique')['unique']);
 
         $columns = collect(Schema::getColumns('activity_log'))->keyBy('name');
 
@@ -192,14 +199,14 @@ class AuditContractTest extends TestCase
             'event' => null,
         ]);
 
-        $payload = AuditLogResource::make($activity)->resolve(request());
+        $payload = app(AuditEventPresenter::class)->present($activity)->toArray();
 
         $this->assertSame('updated', $payload['action']);
         $this->assertSame('operations', $payload['category']);
         $this->assertSame('system', $payload['domain']);
         $this->assertSame('info', $payload['severity']);
         $this->assertSame('success', $payload['outcome']);
-        $this->assertNull($payload['event']);
+        $this->assertSame('Updated audit event', $payload['summary']);
 
         $activity->refresh();
         $this->assertNull($activity->category);
@@ -421,6 +428,105 @@ class AuditContractTest extends TestCase
 
             $migration = require database_path('migrations/2026_07_11_000001_add_metadata_and_indexes_to_activity_log_table.php');
             $migration->up();
+
+            $actorIndexMigration = require database_path('migrations/2026_07_12_090108_add_actor_query_index_to_activity_log_table.php');
+            $actorIndexMigration->up();
+
+            DB::connection($testConnection)->table('activity_log')->insert([
+                [
+                    'log_name' => 'audit',
+                    'description' => 'Legacy audit row one',
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ],
+                [
+                    'log_name' => 'audit',
+                    'description' => 'Legacy audit row two',
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ],
+            ]);
+            $legacyRows = collect(range(3, 1001))->map(fn (int $id): array => [
+                'log_name' => 'audit',
+                'description' => "Legacy audit row {$id}",
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+            $legacyRows->chunk(250)->each(
+                fn ($rows) => DB::connection($testConnection)->table('activity_log')->insert($rows->all()),
+            );
+            $publicIdMigration = require database_path('migrations/2026_07_12_092936_add_public_id_to_activity_log_table.php');
+            $publicIdBackfill = require database_path('migrations/2026_07_12_092937_backfill_activity_log_public_ids.php');
+            $publicIdMigration->up();
+            $retainedPublicId = (string) Str::uuid();
+            DB::connection($testConnection)->table('activity_log')->where('id', 1)->update(['public_id' => $retainedPublicId]);
+            DB::connection($testConnection)->flushQueryLog();
+            DB::connection($testConnection)->enableQueryLog();
+            $publicIdBackfill->up();
+            $publicIdUpdates = collect(DB::connection($testConnection)->getQueryLog())
+                ->filter(fn (array $query): bool => str_starts_with(strtolower($query['query']), 'update '))
+                ->count();
+            DB::connection($testConnection)->disableQueryLog();
+            $this->assertSame(2, $publicIdUpdates, 'The UUID backfill must use one update per 500-ID range.');
+            $this->assertSame($retainedPublicId, DB::connection($testConnection)->table('activity_log')->where('id', 1)->value('public_id'));
+            $this->assertTrue(Uuid::isValid(DB::connection($testConnection)->table('activity_log')->value('public_id')));
+            $this->assertSame(1001, DB::connection($testConnection)->table('activity_log')->distinct()->count('public_id'));
+            $publicIdBackfill->down();
+            $this->assertSame(1001, DB::connection($testConnection)->table('activity_log')->whereNotNull('public_id')->count());
+            $publicIdBackfill->up();
+
+            $subjectPublicId = (string) Str::uuid();
+            $contextPublicId = (string) Str::uuid();
+            DB::connection($testConnection)->table('activity_log')->update([
+                'properties' => json_encode(['details' => [
+                    'public_id' => $subjectPublicId,
+                    'context_public_id' => $contextPublicId,
+                ]], JSON_THROW_ON_ERROR),
+            ]);
+            $publicReferenceMigration = require database_path('migrations/2026_07_12_095710_add_public_references_to_activity_log_table.php');
+            $publicReferenceBackfill = require database_path('migrations/2026_07_12_095711_backfill_activity_log_public_references.php');
+            $publicReferenceMigration->up();
+            $retainedSubjectPublicId = (string) Str::uuid();
+            DB::connection($testConnection)->table('activity_log')->where('id', 1)->update([
+                'subject_public_id' => $retainedSubjectPublicId,
+            ]);
+            DB::connection($testConnection)->flushQueryLog();
+            DB::connection($testConnection)->enableQueryLog();
+            $publicReferenceBackfill->up();
+            $publicReferenceUpdates = collect(DB::connection($testConnection)->getQueryLog())
+                ->filter(fn (array $query): bool => str_starts_with(strtolower($query['query']), 'update '))
+                ->count();
+            DB::connection($testConnection)->disableQueryLog();
+            $this->assertSame(3, $publicReferenceUpdates, 'The reference backfill must use one CASE update per 500-row chunk.');
+            $this->assertSame($retainedSubjectPublicId, DB::connection($testConnection)->table('activity_log')->where('id', 1)->value('subject_public_id'));
+            $this->assertSame($contextPublicId, DB::connection($testConnection)->table('activity_log')->where('id', 1)->value('context_public_id'));
+            $this->assertSame($subjectPublicId, DB::connection($testConnection)->table('activity_log')->where('id', 2)->value('subject_public_id'));
+            $publicReferenceBackfill->down();
+            DB::connection($testConnection)->flushQueryLog();
+            DB::connection($testConnection)->enableQueryLog();
+            $publicReferenceBackfill->up();
+            $this->assertSame(0, collect(DB::connection($testConnection)->getQueryLog())
+                ->filter(fn (array $query): bool => str_starts_with(strtolower($query['query']), 'update '))
+                ->count());
+            DB::connection($testConnection)->disableQueryLog();
+            $publicReferenceMigration->down();
+            $this->assertFalse($schema->hasColumn('activity_log', 'subject_public_id'));
+            $publicIdMigration->down();
+            $this->assertFalse($schema->hasColumn('activity_log', 'public_id'));
+            $publicIdMigration->up();
+            $publicIdBackfill->up();
+            $publicReferenceMigration->up();
+            $publicReferenceBackfill->up();
+            $this->assertContains(
+                ['causer_type', 'causer_id', 'created_at', 'id'],
+                collect($schema->getIndexes('activity_log'))->pluck('columns')->all(),
+            );
+            $actorIndexMigration->down();
+            $this->assertNotContains(
+                ['causer_type', 'causer_id', 'created_at', 'id'],
+                collect($schema->getIndexes('activity_log'))->pluck('columns')->all(),
+            );
+            $actorIndexMigration->up();
 
             try {
                 try {

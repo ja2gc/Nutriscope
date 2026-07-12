@@ -20,18 +20,17 @@ use App\Models\PurchaseOrderItem;
 use App\Models\PurchaseOrderItemCorrection;
 use App\Models\PurchaseOrderVendorGroup;
 use App\Models\Report;
-use App\Policies\AuditPolicy;
 use App\Services\Audit\AuditLogger;
 use App\Services\Audit\AuditSanitizer;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 
 class ActivityController extends Controller
 {
     public function __construct(
-        private readonly AuditPolicy $policy,
         private readonly AuditLogger $auditLogger,
         private readonly AuditSanitizer $sanitizer,
     ) {}
@@ -98,14 +97,14 @@ class ActivityController extends Controller
 
     public function report(Request $request, Report $report): JsonResponse
     {
-        abort_unless($this->policy->viewReportTrail($request->user(), $report), 403);
+        Gate::authorize('viewTrail', [AuditActivity::class, $report]);
 
         return $this->directHistory($request, $report);
     }
 
     public function patient(Request $request, Patient $patient): JsonResponse
     {
-        abort_unless($this->policy->viewPatientTrail($request->user(), $patient), 403);
+        Gate::authorize('viewTrail', [AuditActivity::class, $patient]);
 
         $response = $this->history($request, fn (Builder $query): Builder => $query
             ->where(function (Builder $root) use ($patient): void {
@@ -125,7 +124,7 @@ class ActivityController extends Controller
 
     public function ncpRecord(Request $request, NcpRecord $ncpRecord): JsonResponse
     {
-        abort_unless($this->policy->viewNcpTrail($request->user(), $ncpRecord), 403);
+        Gate::authorize('viewTrail', [AuditActivity::class, $ncpRecord]);
 
         $response = $this->history($request, fn (Builder $query): Builder => $query
             ->where(function (Builder $root) use ($ncpRecord): void {

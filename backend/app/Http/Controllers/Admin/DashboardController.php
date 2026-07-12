@@ -5,13 +5,13 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Admin\DashboardResource;
 use App\Models\AiUsageLog;
+use App\Models\AuditActivity;
 use App\Models\Patient;
 use App\Models\Report;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
-use Spatie\Activitylog\Models\Activity;
 
 class DashboardController extends Controller
 {
@@ -131,8 +131,11 @@ class DashboardController extends Controller
     private function auditLogStats(): array
     {
         return [
-            'total' => Activity::count(),
-            'last_7_days' => Activity::where('created_at', '>=', now()->subDays(7))->count(),
+            // Total represents all retained audit-channel rows; last_7_days is a rolling activity window.
+            'total' => AuditActivity::query()->auditOnly()->count(),
+            'last_7_days' => AuditActivity::query()->auditOnly()
+                ->where('created_at', '>=', now()->subDays(7))
+                ->count(),
         ];
     }
 
