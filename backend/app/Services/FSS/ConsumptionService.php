@@ -37,14 +37,14 @@ class ConsumptionService
             $actualServed = $servedPopulation ?? $log?->served_population;
 
             $values = [
-                'population'          => $target,
-                'served_population'   => $actualServed,
+                'population' => $target,
+                'served_population' => $actualServed,
                 'population_variance' => $actualServed === null ? null : $target - $actualServed,
-                'status'              => 'completed',
-                'completed_by'        => Auth::id(),
-                'completed_at'        => now(),
-                'total_value'         => 0,
-                'has_shortfall'       => false,
+                'status' => 'completed',
+                'completed_by' => Auth::id(),
+                'completed_at' => now(),
+                'total_value' => 0,
+                'has_shortfall' => false,
             ];
 
             if ($log) {
@@ -52,7 +52,7 @@ class ConsumptionService
             } else {
                 $log = MealPrepLog::create([
                     'menu_cycle_id' => $cycle->id,
-                    'service_date'  => $serviceDate,
+                    'service_date' => $serviceDate,
                     ...$values,
                 ]);
             }
@@ -67,11 +67,11 @@ class ConsumptionService
      */
     public function reverseDay(MealPrepLog $log): MealPrepLog
     {
-        if ($log->status === 'reversed') {
-            abort(422, 'This service day is already reversed.');
-        }
-
         return DB::transaction(function () use ($log) {
+            $log = MealPrepLog::query()->whereKey($log->getKey())->lockForUpdate()->firstOrFail();
+            if ($log->status === 'reversed') {
+                abort(422, 'This service day is already reversed.');
+            }
             $log->update(['status' => 'reversed']);
 
             return $log->fresh('lines');

@@ -238,6 +238,7 @@ Route::middleware(['auth:sanctum', 'active', 'role:FSS,RND'])->prefix('fss')->gr
     // Budgets — fiscal year summary + ledger (FSS read-only, RND owns writes)
     Route::get('budgets/summary', [BudgetController::class, 'summary']);
     Route::get('budgets/ledger', [BudgetController::class, 'ledger']);
+    Route::get('budgets/{budget}/activity', [ActivityController::class, 'budget']);
     Route::apiResource('budgets', BudgetController::class)->only(['index', 'show']);
 
     // Food Service settings — budget per head per day (FSS read, RND writes below)
@@ -324,6 +325,7 @@ Route::middleware(['auth:sanctum', 'active', 'role:Admin'])->prefix('admin')->gr
     Route::get('dashboard', AdminDashboardController::class);
     Route::get('budgets/summary', [BudgetController::class, 'summary']);
     Route::get('budgets/ledger', [BudgetController::class, 'ledger']);
+    Route::get('budgets/{budget}/activity', [ActivityController::class, 'budget']);
     Route::apiResource('budgets', BudgetController::class)->only(['index', 'show']);
     Route::get('report-branding', [ReportBrandingController::class, 'show']);
     Route::post('report-branding', [ReportBrandingController::class, 'update']);

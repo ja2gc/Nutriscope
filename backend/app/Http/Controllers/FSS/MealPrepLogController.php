@@ -2,21 +2,30 @@
 
 namespace App\Http\Controllers\FSS;
 
+use App\Enums\AuditAction;
+use App\Enums\AuditCategory;
+use App\Enums\AuditDomain;
 use App\Http\Controllers\Controller;
 use App\Models\MealPrepLog;
 use App\Models\MenuCycle;
+use App\Models\MenuCycleDay;
+use App\Models\PurchaseOrder;
+use App\Services\Audit\AuditLogger;
 use App\Services\FSS\ConsumptionService;
 use App\Services\FSS\PurchaseOrderLifecycleService;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class MealPrepLogController extends Controller
 {
+    public function __construct(private readonly AuditLogger $auditLogger) {}
+
     public function index(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'from'          => ['nullable', 'date'],
-            'to'            => ['nullable', 'date', 'after_or_equal:from'],
+            'from' => ['nullable', 'date'],
+            'to' => ['nullable', 'date', 'after_or_equal:from'],
             'menu_cycle_id' => ['nullable', 'integer'],
         ]);
 
@@ -32,25 +41,38 @@ class MealPrepLogController extends Controller
     public function complete(Request $request, MenuCycle $menuCycle, ConsumptionService $consumption, PurchaseOrderLifecycleService $lifecycle): JsonResponse
     {
         $data = $request->validate([
-            'service_date'      => ['required', 'date'],
-            'population'        => ['nullable', 'integer', 'min:1'],
+            'service_date' => ['required', 'date'],
+            'population' => ['nullable', 'integer', 'min:1'],
             'served_population' => ['nullable', 'integer', 'min:0'],
         ]);
 
-        $log = $consumption->completeDay(
-            $menuCycle,
-            $data['service_date'],
-            $data['population'] ?? null,
-            $data['served_population'] ?? null,
-        );
-        $lifecycle->refreshForServiceDate($data['service_date']);
+        $log = $this->audited(function () use ($consumption, $menuCycle, $data, $lifecycle): MealPrepLog {
+            $log = $this->auditLogger->withoutModelEvents(fn (): MealPrepLog => $consumption->completeDay(
+                $menuCycle,
+                $data['service_date'],
+                $data['population'] ?? null,
+                $data['served_population'] ?? null,
+            ));
+            $this->recordServiceEvent(AuditAction::Completed, $log, $data['service_date'], ['status']);
+            $lifecycle->refreshForServiceDate($data['service_date']);
+
+            return $log;
+        });
 
         return response()->json(['data' => array_merge($log->toArray(), ['id' => $log->uuid])], 201);
     }
 
     public function reverse(MealPrepLog $mealPrepLog, ConsumptionService $consumption): JsonResponse
     {
-        $log = $consumption->reverseDay($mealPrepLog->load('lines'));
+        $log = $this->audited(function () use ($consumption, $mealPrepLog): MealPrepLog {
+            $log = $this->auditLogger->withoutModelEvents(
+                fn (): MealPrepLog => $consumption->reverseDay($mealPrepLog->load('lines')),
+            );
+            $this->recordServiceEvent(AuditAction::Reversed, $log, $log->service_date->toDateString(), ['status']);
+
+            return $log;
+        });
+
         return response()->json(['data' => array_merge($log->toArray(), ['id' => $log->uuid])]);
     }
 
@@ -62,13 +84,13 @@ class MealPrepLogController extends Controller
     public function setServed(Request $request, MenuCycle $menuCycle, PurchaseOrderLifecycleService $lifecycle): JsonResponse
     {
         $data = $request->validate([
-            'service_date'      => ['required', 'date'],
+            'service_date' => ['required', 'date'],
             'served_population' => ['required', 'integer', 'min:0'],
         ]);
 
         // Served population can be backfilled anytime BEFORE the related food PO
         // completes. Once a food PO covering this date is completed, it's locked.
-        $lockedByCompletedPo = \App\Models\PurchaseOrder::where('procurement_track', 'food')
+        $lockedByCompletedPo = PurchaseOrder::where('procurement_track', 'food')
             ->where('lifecycle_status', 'completed')
             ->whereHas('shoppingList', fn ($q) => $q
                 ->whereDate('period_start', '<=', $data['service_date'])
@@ -81,40 +103,97 @@ class MealPrepLogController extends Controller
             ], 422);
         }
 
-        $log = MealPrepLog::where('menu_cycle_id', $menuCycle->id)
-            ->whereDate('service_date', $data['service_date'])
-            ->first();
+        $log = $this->audited(function () use ($menuCycle, $data, $request, $lifecycle): MealPrepLog {
+            $log = MealPrepLog::where('menu_cycle_id', $menuCycle->id)
+                ->whereDate('service_date', $data['service_date'])
+                ->first();
 
-        // Backfill: when no log exists yet for this cycle-day, create a reconciliation
-        // row so FSS can record the actual headcount for ANY day of the cycle without
-        // having first run the inventory-deducting "mark served" flow. Population is the
-        // weekday's planned estimate; no inventory is touched (this is an after-the-fact
-        // census entry, not a prep run).
-        if (! $log) {
-            $weekday  = \Carbon\Carbon::parse($data['service_date'])->format('l');
-            $estimate = (int) ($menuCycle->days()->where('day_of_week', $weekday)->value('estimate_population') ?? 0);
+            // Backfill: when no log exists yet for this cycle-day, create a reconciliation
+            // row so FSS can record the actual headcount for ANY day of the cycle without
+            // having first run the inventory-deducting "mark served" flow. Population is the
+            // weekday's planned estimate; no inventory is touched (this is an after-the-fact
+            // census entry, not a prep run).
+            if (! $log) {
+                $weekday = Carbon::parse($data['service_date'])->format('l');
+                $estimate = (int) ($menuCycle->days()->where('day_of_week', $weekday)->value('estimate_population') ?? 0);
 
-            $log = MealPrepLog::create([
-                'menu_cycle_id'     => $menuCycle->id,
-                'service_date'      => $data['service_date'],
-                'population'        => $estimate ?: null,
-                'served_population' => $data['served_population'],
-                'status'            => 'completed',
-                'completed_by'      => $request->user()?->id,
-                'completed_at'      => now(),
-                'total_value'       => 0,
-                'has_shortfall'     => false,
-            ]);
-        } else {
-            $log->served_population = $data['served_population'];
-        }
+                $log = $this->auditLogger->withoutModelEvents(fn (): MealPrepLog => MealPrepLog::create([
+                    'menu_cycle_id' => $menuCycle->id,
+                    'service_date' => $data['service_date'],
+                    'population' => $estimate ?: null,
+                    'served_population' => $data['served_population'],
+                    'status' => 'completed',
+                    'completed_by' => $request->user()?->id,
+                    'completed_at' => now(),
+                    'total_value' => 0,
+                    'has_shortfall' => false,
+                ]));
+            } else {
+                $log->served_population = $data['served_population'];
+            }
 
-        if ($log->population !== null) {
-            $log->population_variance = $log->population - $data['served_population'];
-        }
-        $log->save();
-        $lifecycle->refreshForServiceDate($data['service_date']);
+            if ($log->population !== null) {
+                $log->population_variance = $log->population - $data['served_population'];
+            }
+            $this->auditLogger->withoutModelEvents(fn () => $log->save());
+            $this->recordServiceEvent(AuditAction::Adjusted, $log, $data['service_date'], ['served_population']);
+            $lifecycle->refreshForServiceDate($data['service_date']);
+
+            return $log;
+        });
 
         return response()->json(['data' => array_merge($log->toArray(), ['id' => $log->uuid])]);
+    }
+
+    /** @param array<int, string> $changedFields */
+    private function recordServiceEvent(AuditAction $action, MealPrepLog $log, string $serviceDate, array $changedFields): void
+    {
+        $purchaseOrder = $this->purchaseOrderRoot($log, $serviceDate);
+        if ($purchaseOrder === null) {
+            $this->auditLogger->record(
+                $action,
+                AuditCategory::Operations,
+                AuditDomain::FoodService,
+                subject: $log,
+                details: ['changed_fields' => $changedFields, 'service_date' => $serviceDate],
+            );
+
+            return;
+        }
+
+        $this->auditLogger->record(
+            $action,
+            AuditCategory::Operations,
+            AuditDomain::FoodService,
+            subject: $log,
+            context: $purchaseOrder,
+            details: ['changed_fields' => $changedFields, 'service_date' => $serviceDate],
+        );
+    }
+
+    private function purchaseOrderRoot(MealPrepLog $log, string $serviceDate): ?PurchaseOrder
+    {
+        if ($log->purchase_order_id !== null) {
+            return PurchaseOrder::query()->find($log->purchase_order_id, ['id', 'uuid']);
+        }
+
+        $weekday = Carbon::parse($serviceDate)->format('l');
+        $rootIds = MenuCycleDay::query()
+            ->where('menu_cycle_id', $log->menu_cycle_id)
+            ->where('day_of_week', $weekday)
+            ->whereNotNull('snapshot_purchase_order_id')
+            ->distinct()
+            ->pluck('snapshot_purchase_order_id');
+
+        if ($rootIds->count() !== 1) {
+            return null;
+        }
+
+        $purchaseOrder = PurchaseOrder::query()->find($rootIds->first(), ['id', 'uuid']);
+        if ($purchaseOrder !== null) {
+            $this->auditLogger->withoutModelEvents(fn () => $log->forceFill(['purchase_order_id' => $purchaseOrder->id])->save());
+        }
+
+        return $purchaseOrder;
     }
 }

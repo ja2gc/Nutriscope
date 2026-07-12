@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\AuditsChanges;
+use App\Models\Concerns\HasPublicId;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -9,25 +11,26 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class MealPrepLog extends Model
 {
+    use AuditsChanges;
     use HasFactory;
-    use \App\Models\Concerns\AuditsChanges;
-    use \App\Models\Concerns\HasPublicId;
+    use HasPublicId;
 
     protected $fillable = [
         'menu_cycle_id', 'service_date', 'population', 'served_population',
+        'purchase_order_id',
         'population_variance', 'status', 'completed_by', 'completed_at',
         'total_value', 'has_shortfall', 'served_locked_at', 'served_locked_by',
     ];
 
     protected $casts = [
-        'service_date'        => 'date',
-        'population'          => 'integer',
-        'served_population'   => 'integer',
+        'service_date' => 'date',
+        'population' => 'integer',
+        'served_population' => 'integer',
         'population_variance' => 'integer',
-        'completed_at'        => 'datetime',
-        'total_value'         => 'decimal:2',
-        'has_shortfall'       => 'boolean',
-        'served_locked_at'    => 'datetime',
+        'completed_at' => 'datetime',
+        'total_value' => 'decimal:2',
+        'has_shortfall' => 'boolean',
+        'served_locked_at' => 'datetime',
     ];
 
     protected function auditAttributes(): array
@@ -47,6 +50,11 @@ class MealPrepLog extends Model
     public function menuCycle(): BelongsTo
     {
         return $this->belongsTo(MenuCycle::class);
+    }
+
+    public function purchaseOrder(): BelongsTo
+    {
+        return $this->belongsTo(PurchaseOrder::class);
     }
 
     public function completedBy(): BelongsTo

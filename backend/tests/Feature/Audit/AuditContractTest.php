@@ -33,6 +33,7 @@ class AuditContractTest extends TestCase
             'downloaded' => 'Downloaded',
             'exported' => 'Exported',
             'approved' => 'Approved',
+            'ordered' => 'Ordered',
             'received' => 'Received',
             'reversed' => 'Reversed',
             'archived' => 'Archived',

@@ -2,18 +2,27 @@
 
 namespace App\Services\FSS;
 
+use App\Enums\AuditAction;
+use App\Enums\AuditCategory;
+use App\Enums\AuditDomain;
 use App\Events\PurchaseOrderCompleted;
+use App\Models\Budget;
 use App\Models\MealPrepLog;
 use App\Models\MenuCycle;
+use App\Models\MenuCycleDay;
 use App\Models\ProgramProjectActivity;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderVendorGroup;
 use App\Models\ShoppingList;
+use App\Services\Audit\AuditLogger;
+use App\Services\MenuCycleCostService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class PurchaseOrderLifecycleService
 {
+    public function __construct(private readonly AuditLogger $auditLogger) {}
+
     /**
      * Re-evaluate every PO whose procurement span includes a service date.
      */
@@ -33,7 +42,11 @@ class PurchaseOrderLifecycleService
     public function refresh(PurchaseOrder $purchaseOrder): PurchaseOrder
     {
         return DB::transaction(function () use ($purchaseOrder) {
-            $po = $purchaseOrder->fresh(['vendorGroups.attachments', 'shoppingList', 'programProjectActivity']);
+            $po = PurchaseOrder::query()
+                ->whereKey($purchaseOrder->getKey())
+                ->lockForUpdate()
+                ->with(['vendorGroups.attachments', 'shoppingList', 'programProjectActivity'])
+                ->first();
             if (! $po || in_array($po->lifecycle_status, ['completed', 'archived'], true)) {
                 return $purchaseOrder->fresh();
             }
@@ -51,16 +64,26 @@ class PurchaseOrderLifecycleService
                     return $po;
                 }
 
-                $po->forceFill([
-                    'lifecycle_status' => 'completed',
-                    'completed_at' => now(),
-                    'final_locked_at' => now(),
-                    'total_amount' => $actualTotal,
-                    'status' => 'received',
-                    'received_date' => now()->toDateString(),
-                ])->save();
+                $year = $po->shoppingList?->period_start?->year ?? now()->year;
+                if (! Budget::query()->where('fiscal_year', $year)->exists()) {
+                    return $po;
+                }
+
+                $this->auditLogger->assertAvailable();
+
+                $this->auditLogger->withoutModelEvents(function () use ($po, $actualTotal): void {
+                    $po->forceFill([
+                        'lifecycle_status' => 'completed',
+                        'completed_at' => now(),
+                        'final_locked_at' => now(),
+                        'total_amount' => $actualTotal,
+                        'status' => 'received',
+                        'received_date' => now()->toDateString(),
+                    ])->save();
+                });
 
                 event(new PurchaseOrderCompleted($po->fresh(['vendorGroups', 'shoppingList', 'programProjectActivity'])));
+                $this->recordLifecycle(AuditAction::Completed, $po);
 
                 return $po->fresh();
             }
@@ -76,22 +99,26 @@ class PurchaseOrderLifecycleService
             // Block completion if no fiscal year allocation exists for the procurement year.
             // BudgetController::store() re-calls refresh() for blocked POs when allocation is set up.
             $procurementYear = optional($po->shoppingList?->period_start)->year ?? now()->year;
-            if (! \App\Models\Budget::where('fiscal_year', $procurementYear)->exists()) {
+            if (! Budget::query()->where('fiscal_year', $procurementYear)->exists()) {
                 return $po;
             }
 
-            $po->forceFill([
-                'lifecycle_status' => 'completed',
-                'completed_at' => now(),
-                'final_locked_at' => now(),
-                'actual_budget_per_head_per_day' => $actualPerHead,
-                'total_amount' => $actualTotal,
-                'status' => 'received',
-                'received_date' => now()->toDateString(),
-            ])->save();
+            $this->auditLogger->assertAvailable();
+
+            $this->auditLogger->withoutModelEvents(function () use ($po, $actualPerHead, $actualTotal): void {
+                $po->forceFill([
+                    'lifecycle_status' => 'completed',
+                    'completed_at' => now(),
+                    'final_locked_at' => now(),
+                    'actual_budget_per_head_per_day' => $actualPerHead,
+                    'total_amount' => $actualTotal,
+                    'status' => 'received',
+                    'received_date' => now()->toDateString(),
+                ])->save();
+            });
 
             // Permanently lock the menu-cycle day cells this PO snapshotted.
-            \App\Models\MenuCycleDay::where('snapshot_purchase_order_id', $po->id)
+            MenuCycleDay::where('snapshot_purchase_order_id', $po->id)
                 ->update(['po_snapshot_locked' => true]);
 
             if ($po->programProjectActivity) {
@@ -109,6 +136,7 @@ class PurchaseOrderLifecycleService
             }
 
             event(new PurchaseOrderCompleted($po->fresh(['vendorGroups', 'shoppingList', 'programProjectActivity'])));
+            $this->recordLifecycle(AuditAction::Completed, $po);
 
             return $po->fresh();
         });
@@ -120,12 +148,31 @@ class PurchaseOrderLifecycleService
             abort(422, 'Only completed purchase orders can be archived.');
         }
 
-        $purchaseOrder->forceFill([
-            'lifecycle_status' => 'archived',
-            'archived_at' => now(),
-        ])->save();
+        $this->auditLogger->assertAvailable();
+        DB::transaction(function () use ($purchaseOrder): void {
+            $this->auditLogger->withoutModelEvents(function () use ($purchaseOrder): void {
+                $purchaseOrder->forceFill([
+                    'lifecycle_status' => 'archived',
+                    'archived_at' => now(),
+                ])->save();
+            });
+            $this->recordLifecycle(AuditAction::Archived, $purchaseOrder);
+        });
 
         return $purchaseOrder->fresh();
+    }
+
+    private function recordLifecycle(AuditAction $action, PurchaseOrder $purchaseOrder): void
+    {
+        $this->auditLogger->record(
+            $action,
+            AuditCategory::Operations,
+            AuditDomain::Procurement,
+            subject: $purchaseOrder,
+            context: $purchaseOrder,
+            details: ['status' => $purchaseOrder->status, 'lifecycle_status' => $purchaseOrder->lifecycle_status],
+            systemActor: auth()->user() === null ? 'purchase-order-lifecycle' : null,
+        );
     }
 
     public function createPpaSnapshot(PurchaseOrder $purchaseOrder, ShoppingList $shoppingList): ProgramProjectActivity
@@ -255,7 +302,7 @@ class PurchaseOrderLifecycleService
                 ->unique()
                 ->values();
             if ($names->isNotEmpty()) {
-                $lines[] = $d->format('d') . ': ' . $names->implode(', ');
+                $lines[] = $d->format('d').': '.$names->implode(', ');
             }
         }
 
@@ -268,7 +315,7 @@ class PurchaseOrderLifecycleService
             return null;
         }
 
-        return $shoppingList->period_start->format('m/d/y') . ' - ' . $shoppingList->period_end->format('m/d/y');
+        return $shoppingList->period_start->format('m/d/y').' - '.$shoppingList->period_end->format('m/d/y');
     }
 
     /**
@@ -303,21 +350,21 @@ class PurchaseOrderLifecycleService
                 $pop = $population;
 
                 if ($cell->recipe_id && $cell->recipe) {
-                    $snapshot = \App\Services\MenuCycleCostService::recipeProfile($cell->recipe, $pop);
+                    $snapshot = MenuCycleCostService::recipeProfile($cell->recipe, $pop);
                 } elseif ($cell->fs_item_id && $cell->fsItem) {
                     $item = $cell->fsItem;
-                    $qty  = (float) ($cell->quantity ?? 1);
+                    $qty = (float) ($cell->quantity ?? 1);
                     $totalQty = $pop * $qty;
                     $totalCost = round($totalQty * $item->unit_cost, 2);
                     $snapshot = [
-                        'fs_item_id'     => $item->id,
-                        'name'           => $item->name,
-                        'unit'           => $item->base_unit,
-                        'unit_cost'      => round($item->unit_cost, 2),
-                        'quantity'       => round($qty, 2),
-                        'population'     => $pop,
+                        'fs_item_id' => $item->id,
+                        'name' => $item->name,
+                        'unit' => $item->base_unit,
+                        'unit_cost' => round($item->unit_cost, 2),
+                        'quantity' => round($qty, 2),
+                        'population' => $pop,
                         'total_quantity' => round($totalQty, 2),
-                        'total_cost'     => $totalCost,
+                        'total_cost' => $totalCost,
                     ];
                 } else {
                     continue;
@@ -325,8 +372,8 @@ class PurchaseOrderLifecycleService
 
                 $cell->forceFill([
                     'snapshot_purchase_order_id' => $purchaseOrder->id,
-                    'po_snapshot'                => $snapshot,
-                    'po_snapshot_at'             => now(),
+                    'po_snapshot' => $snapshot,
+                    'po_snapshot_at' => now(),
                 ])->save();
             }
         }

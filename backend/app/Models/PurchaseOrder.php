@@ -2,17 +2,19 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\AuditsChanges;
+use App\Models\Concerns\HasPublicId;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class PurchaseOrder extends Model
 {
+    use AuditsChanges;
     use HasFactory;
-    use \App\Models\Concerns\AuditsChanges;
-    use \App\Models\Concerns\HasPublicId;
+    use HasPublicId;
 
     protected $fillable = [
-        'rnd_user_id', 'shopping_list_id', 'supplier_id', 'po_number', 'or_number',
+        'rnd_user_id', 'shopping_list_id', 'shopping_list_guard', 'supplier_id', 'po_number', 'or_number',
         'order_date', 'received_date', 'total_amount', 'actual_budget_per_head_per_day',
         'status', 'lifecycle_status', 'procurement_track',
         'converted_at', 'completed_at', 'archived_at',
@@ -21,15 +23,15 @@ class PurchaseOrder extends Model
     ];
 
     protected $casts = [
-        'total_amount'  => 'decimal:2',
+        'total_amount' => 'decimal:2',
         'actual_budget_per_head_per_day' => 'decimal:2',
-        'order_date'    => 'date',
+        'order_date' => 'date',
         'received_date' => 'date',
-        'converted_at'  => 'datetime',
-        'completed_at'  => 'datetime',
-        'archived_at'   => 'datetime',
+        'converted_at' => 'datetime',
+        'completed_at' => 'datetime',
+        'archived_at' => 'datetime',
         'structural_locked_at' => 'datetime',
-        'final_locked_at'      => 'datetime',
+        'final_locked_at' => 'datetime',
     ];
 
     protected function auditAttributes(): array

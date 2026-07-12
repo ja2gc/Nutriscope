@@ -2,14 +2,20 @@
 
 namespace App\Http\Controllers\FSS;
 
+use App\Enums\AuditAction;
+use App\Enums\AuditCategory;
+use App\Enums\AuditDomain;
 use App\Http\Controllers\Controller;
 use App\Models\FoodServiceSetting;
+use App\Services\Audit\AuditLogger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class FoodServiceSettingController extends Controller
 {
+    public function __construct(private readonly AuditLogger $auditLogger) {}
+
     /** Shared Food Service settings (per-head/day budget limit). */
     public function show(): JsonResponse
     {
@@ -17,8 +23,8 @@ class FoodServiceSettingController extends Controller
 
         return response()->json(['data' => [
             'per_head_day_limit' => $setting->per_head_day_limit,
-            'updated_by'         => $setting->updatedBy?->name,
-            'updated_at'         => $setting->updated_at?->toDateTimeString(),
+            'updated_by' => $setting->updatedBy?->name,
+            'updated_at' => $setting->updated_at?->toDateTimeString(),
         ]]);
     }
 
@@ -30,15 +36,36 @@ class FoodServiceSettingController extends Controller
         ]);
 
         $setting = FoodServiceSetting::singleton();
-        $setting->update([
-            'per_head_day_limit' => $data['per_head_day_limit'] ?? null,
-            'updated_by'         => Auth::id(),
-        ]);
+        $oldLimit = $setting->per_head_day_limit === null ? null : (float) $setting->per_head_day_limit;
+        $newLimit = array_key_exists('per_head_day_limit', $data)
+            ? ($data['per_head_day_limit'] === null ? null : (float) $data['per_head_day_limit'])
+            : $oldLimit;
+
+        if ($oldLimit !== $newLimit) {
+            $this->audited(function () use ($setting, $oldLimit, $newLimit): void {
+                $setting->update([
+                    'per_head_day_limit' => $newLimit,
+                    'updated_by' => Auth::id(),
+                ]);
+                $this->auditLogger->record(
+                    AuditAction::SettingsChanged,
+                    AuditCategory::Operations,
+                    AuditDomain::FoodService,
+                    subject: $setting,
+                    details: [
+                        'changed_fields' => ['per_head_day_limit'],
+                        'old_limit' => $oldLimit,
+                        'new_limit' => $newLimit,
+                    ],
+                    actor: Auth::user(),
+                );
+            });
+        }
 
         return response()->json(['data' => [
             'per_head_day_limit' => $setting->per_head_day_limit,
-            'updated_by'         => $setting->updatedBy?->name,
-            'updated_at'         => $setting->updated_at?->toDateTimeString(),
+            'updated_by' => $setting->updatedBy?->name,
+            'updated_at' => $setting->updated_at?->toDateTimeString(),
         ]]);
     }
 }

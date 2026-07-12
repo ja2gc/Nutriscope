@@ -61,8 +61,8 @@ class AuditRouteCoverageTest extends TestCase
 
         return [
             'unknown owner' => [[...$base, 'owner_task' => 99, 'implementation_state' => 'planned']],
-            'future implemented early' => [[...$base, 'owner_task' => 7, 'implementation_state' => 'implemented']],
-            'current still planned' => [[...$base, 'owner_task' => 6, 'implementation_state' => 'planned']],
+            'future implemented early' => [[...$base, 'owner_task' => 8, 'implementation_state' => 'implemented']],
+            'current still planned' => [[...$base, 'owner_task' => 7, 'implementation_state' => 'planned']],
         ];
     }
 
@@ -74,7 +74,7 @@ class AuditRouteCoverageTest extends TestCase
         $this->assertContains($policy['implementation_state'] ?? null, ['planned', 'implemented'], $route);
         $this->assertMatchesRegularExpression('/^[A-Za-z_\\\\][A-Za-z0-9_\\\\]+(?:@\w+|::AuditsChanges)$/D', $policy['source'] ?? '', $route);
 
-        if ($policy['owner_task'] <= 6) {
+        if ($policy['owner_task'] <= 7) {
             $this->assertSame('implemented', $policy['implementation_state'], $route);
             [$class, $method] = str_contains($policy['source'], '@')
                 ? explode('@', $policy['source'], 2)

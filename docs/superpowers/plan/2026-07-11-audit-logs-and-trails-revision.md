@@ -411,14 +411,14 @@ public function record(
 - Create: `backend/database/migrations/2026_07_11_000002_add_created_by_to_budgets_table.php`
 - Test: `backend/tests/Feature/Audit/PurchaseOrderTrailTest.php`
 
-- [ ] Correlate PO, shopping-list approval, vendor-group edits, attachments, item-price corrections, receiving, completion, reversal, and budget deduction to the root PO context.
-- [ ] Use business actions (`approved`, `received`, `completed`, `reversed`, `price_corrected`) instead of generic `updated` where workflow meaning exists.
-- [ ] Keep PO completion and budget deduction atomic. Because `PurchaseOrderCompleted` currently runs inside the DB transaction and the ledger is a required state change, do not convert it to an after-commit queued listener. Add rollback tests proving PO, ledger, and audit rows all roll back together.
-- [ ] Add `created_by` to budgets, set it from authenticated user during setup, expose creator public ID/name and `created_at` in `BudgetResource`, and show system/manual actor on ledger rows.
-- [ ] Add authorized `GET /api/fss/budgets/{budget}/activity` and `GET /api/admin/budgets/{budget}/activity` routes plus matching Next proxies. Both use budget context rows; Admin endpoint remains read-only.
-- [ ] Audit food-service setting changes with old/new limit and actor; do not audit reads.
-- [ ] Keep direct model events for low-level diffs only when they do not duplicate a richer lifecycle event. Disable model logging around service updates that already emit one complete domain event.
-- [ ] Run purchase-order, receiving, budget audit, and ledger tests. Commit with `feat: unify operations audit trails`.
+- [x] Correlate PO, shopping-list approval, vendor-group edits, attachments, item-price corrections, receiving, completion, reversal, and budget deduction to the root PO context.
+- [x] Use business actions (`approved`, `received`, `completed`, `reversed`, `price_corrected`) instead of generic `updated` where workflow meaning exists.
+- [x] Keep PO completion and budget deduction atomic. Because `PurchaseOrderCompleted` currently runs inside the DB transaction and the ledger is a required state change, do not convert it to an after-commit queued listener. Add rollback tests proving PO, ledger, and audit rows all roll back together.
+- [x] Add `created_by` to budgets, set it from authenticated user during setup, expose creator public ID/name and `created_at` in `BudgetResource`, and show system/manual actor on ledger rows.
+- [x] Add authorized `GET /api/fss/budgets/{budget}/activity` and `GET /api/admin/budgets/{budget}/activity` routes plus matching Next proxies. Both use budget context rows; Admin endpoint remains read-only.
+- [x] Audit food-service setting changes with old/new limit and actor; do not audit reads.
+- [x] Keep direct model events for low-level diffs only when they do not duplicate a richer lifecycle event. Disable model logging around service updates that already emit one complete domain event.
+- [x] Run purchase-order, receiving, budget audit, and ledger tests. Commit with `feat: unify operations audit trails`.
 
 ### Task 8: Reports, Branding, Templates, and Page Attribution
 

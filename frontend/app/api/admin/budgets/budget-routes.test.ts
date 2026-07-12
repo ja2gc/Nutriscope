@@ -5,6 +5,7 @@ import { proxy } from "@/lib/laravelProxy";
 import { GET as listBudgets } from "./route";
 import { GET as getLedger } from "./ledger/route";
 import { GET as getSummary } from "./summary/route";
+import { GET as getActivity } from "./[id]/activity/route";
 
 vi.mock("@/lib/laravelProxy", () => ({
   proxy: vi.fn(),
@@ -37,6 +38,17 @@ describe("/api/admin/budgets read-only proxy routes", () => {
 
     expect(proxyMock).toHaveBeenCalledWith("/admin/budgets/ledger", {
       search: new URLSearchParams("fiscal_year=2026&source=manual"),
+    });
+  });
+
+  test("GET activity proxies a read-only budget trail with its cursor", async () => {
+    await getActivity(
+      new Request("http://localhost/api/admin/budgets/budget-123/activity?before_id=42"),
+      { params: Promise.resolve({ id: "budget-123" }) },
+    );
+
+    expect(proxyMock).toHaveBeenCalledWith("/admin/budgets/budget-123/activity", {
+      search: new URLSearchParams("before_id=42"),
     });
   });
 });

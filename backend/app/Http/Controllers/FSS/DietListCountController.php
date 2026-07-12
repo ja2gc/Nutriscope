@@ -2,9 +2,13 @@
 
 namespace App\Http\Controllers\FSS;
 
+use App\Enums\AuditAction;
+use App\Enums\AuditCategory;
+use App\Enums\AuditDomain;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\FSS\StoreDietListCountRequest;
 use App\Models\DietListCount;
+use App\Services\Audit\AuditLogger;
 use App\Services\FSS\AccomplishmentReportArchiveService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -12,20 +16,36 @@ use Illuminate\Support\Facades\Auth;
 
 class DietListCountController extends Controller
 {
+    public function __construct(private readonly AuditLogger $auditLogger) {}
+
     public function store(
         StoreDietListCountRequest $request,
         AccomplishmentReportArchiveService $archives
-    ): JsonResponse
-    {
+    ): JsonResponse {
         $validated = $request->validated();
 
         // Self-scoped write: force fss_user_id to the authenticated user; never accept from request.
-        $count = DietListCount::create([
-            ...$validated,
-            'fss_user_id' => Auth::id(),
-        ]);
+        $count = $this->audited(function () use ($validated, $archives, $request): DietListCount {
+            $count = DietListCount::create([
+                ...$validated,
+                'fss_user_id' => Auth::id(),
+            ]);
+            $archives->archiveCompletedWeek($request->user(), $count->service_date->toDateString());
+            $this->auditLogger->record(
+                AuditAction::Created,
+                AuditCategory::Operations,
+                AuditDomain::FoodService,
+                subject: $count,
+                details: [
+                    'changed_fields' => collect(array_keys($validated))
+                        ->reject(fn (string $field): bool => in_array($field, ['ward', 'population'], true))
+                        ->values()->all(),
+                    'status' => 201,
+                ],
+            );
 
-        $archives->archiveCompletedWeek($request->user(), $count->service_date->toDateString());
+            return $count;
+        });
 
         return response()->json(['data' => $count], 201);
     }
@@ -33,8 +53,8 @@ class DietListCountController extends Controller
     public function index(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'from'          => ['nullable', 'date'],
-            'to'            => ['nullable', 'date', 'after_or_equal:from'],
+            'from' => ['nullable', 'date'],
+            'to' => ['nullable', 'date', 'after_or_equal:from'],
             'menu_cycle_id' => ['nullable', 'integer'],
         ]);
 
@@ -48,5 +68,4 @@ class DietListCountController extends Controller
 
         return response()->json(['data' => $counts]);
     }
-
 }

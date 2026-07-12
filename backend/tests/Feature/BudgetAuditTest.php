@@ -47,7 +47,7 @@ class BudgetAuditTest extends TestCase
         $entry = BudgetLedger::where('type', 'manual_addition')->firstOrFail();
         $this->assertNotNull(Activity::where('subject_type', BudgetLedger::class)
             ->where('subject_id', $entry->id)
-            ->where('event', 'created')
+            ->where('event', 'adjusted')
             ->where('causer_id', $rnd->id)
             ->first());
     }
@@ -66,7 +66,7 @@ class BudgetAuditTest extends TestCase
         $entry = BudgetLedger::where('purchase_order_id', $po->id)->firstOrFail();
         $activity = Activity::where('subject_type', BudgetLedger::class)
             ->where('subject_id', $entry->id)
-            ->where('event', 'created')
+            ->where('event', 'adjusted')
             ->first();
 
         $this->assertNotNull($activity);

@@ -11,12 +11,12 @@ class BudgetLedger extends Model
 
     protected $fillable = [
         'fiscal_year', 'type', 'source', 'amount', 'reason', 'reference',
-        'purchase_order_id', 'created_by',
+        'purchase_order_id', 'po_deduction_guard', 'created_by',
     ];
 
     protected $casts = [
         'fiscal_year' => 'integer',
-        'amount'      => 'decimal:2',
+        'amount' => 'decimal:2',
     ];
 
     public function purchaseOrder(): BelongsTo

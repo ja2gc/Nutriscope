@@ -23,30 +23,43 @@ class BudgetController extends Controller
 
     public function index(): JsonResponse
     {
-        return response()->json(['data' => BudgetResource::collection(Budget::orderByDesc('fiscal_year')->get())]);
+        return response()->json(['data' => BudgetResource::collection(Budget::query()
+            ->withLedgerTotals()
+            ->with('creator:id,uuid,name')
+            ->orderByDesc('fiscal_year')
+            ->get())]);
     }
 
     public function show(Budget $budget): JsonResponse
     {
+        $budget = Budget::query()->withLedgerTotals()->with('creator:id,uuid,name')->findOrFail($budget->id);
+
         return response()->json(['data' => new BudgetResource($budget)]);
     }
 
     /** RND sets up a new fiscal year allocation. Unique per year — enforced in DB. */
     public function store(StoreBudgetRequest $request): JsonResponse
     {
-        $budget = Budget::create($request->validated());
-        $this->auditLogger->record(
-            AuditAction::Created,
-            AuditCategory::Operations,
-            AuditDomain::Budget,
-            subject: $budget,
-            context: $budget,
-            details: [
-                'fiscal_year' => $budget->fiscal_year,
-                'allocated_amount' => (float) $budget->allocated_amount,
-            ],
-            actor: Auth::user(),
-        );
+        $budget = $this->audited(function () use ($request): Budget {
+            $budget = Budget::create([
+                ...$request->validated(),
+                'created_by' => Auth::id(),
+            ]);
+            $this->auditLogger->record(
+                AuditAction::Created,
+                AuditCategory::Operations,
+                AuditDomain::Budget,
+                subject: $budget,
+                context: $budget,
+                details: [
+                    'fiscal_year' => $budget->fiscal_year,
+                    'allocated_amount' => (float) $budget->allocated_amount,
+                ],
+                actor: Auth::user(),
+            );
+
+            return $budget;
+        });
 
         // Re-evaluate open-execution POs that were blocked waiting for this allocation.
         $year = $budget->fiscal_year;
@@ -58,14 +71,16 @@ class BudgetController extends Controller
             ->get()
             ->each(fn (PurchaseOrder $po) => $lifecycle->refresh($po));
 
-        return response()->json(['data' => new BudgetResource($budget->fresh())], 201);
+        $budget = Budget::query()->withLedgerTotals()->with('creator:id,uuid,name')->findOrFail($budget->id);
+
+        return response()->json(['data' => new BudgetResource($budget)], 201);
     }
 
     /** Fiscal year summary. Returns null with a notice if no allocation exists. */
     public function summary(Request $request): JsonResponse
     {
         $year = (int) ($request->input('fiscal_year') ?? now()->year);
-        $budget = Budget::where('fiscal_year', $year)->first();
+        $budget = Budget::query()->withLedgerTotals()->with('creator:id,uuid,name')->where('fiscal_year', $year)->first();
 
         if (! $budget) {
             return response()->json([
@@ -91,7 +106,7 @@ class BudgetController extends Controller
         $year = (int) ($data['fiscal_year'] ?? now()->year);
 
         $query = BudgetLedger::where('fiscal_year', $year)
-            ->with(['purchaseOrder:id,po_number', 'creator:id,name'])
+            ->with(['purchaseOrder:id,po_number', 'creator:id,uuid,name'])
             ->orderByDesc('created_at');
 
         $filter = $data['source'] ?? null;
@@ -111,6 +126,15 @@ class BudgetController extends Controller
             'purchase_order_id' => $e->purchase_order_id,
             'po_number' => $e->purchaseOrder?->po_number,
             'created_by' => $e->creator?->name,
+            'actor' => $e->creator ? [
+                'kind' => 'user',
+                'id' => $e->creator->uuid,
+                'name' => $e->creator->name,
+            ] : [
+                'kind' => 'system',
+                'id' => null,
+                'name' => 'Budget ledger',
+            ],
             'created_at' => $e->created_at?->toDateTimeString(),
         ]);
 
@@ -135,29 +159,33 @@ class BudgetController extends Controller
             return response()->json(['message' => "No allocation found for fiscal year {$year}."], 422);
         }
 
-        $entry = BudgetLedger::create([
-            'fiscal_year' => $year,
-            'type' => $data['type'],
-            'source' => 'manual',
-            'amount' => $data['amount'],
-            'reason' => $data['reason'],
-            'reference' => $data['reference'] ?? null,
-            'created_by' => Auth::id(),
-        ]);
-        $this->auditLogger->record(
-            AuditAction::Created,
-            AuditCategory::Operations,
-            AuditDomain::Budget,
-            subject: $entry,
-            context: $budget,
-            details: [
-                'fiscal_year' => $entry->fiscal_year,
-                'type' => $entry->type,
-                'source' => $entry->source,
-                'amount' => (float) $entry->amount,
-            ],
-            actor: Auth::user(),
-        );
+        $entry = $this->audited(function () use ($data, $year, $budget): BudgetLedger {
+            $entry = BudgetLedger::create([
+                'fiscal_year' => $year,
+                'type' => $data['type'],
+                'source' => 'manual',
+                'amount' => $data['amount'],
+                'reason' => $data['reason'],
+                'reference' => $data['reference'] ?? null,
+                'created_by' => Auth::id(),
+            ]);
+            $this->auditLogger->record(
+                AuditAction::Adjusted,
+                AuditCategory::Operations,
+                AuditDomain::Budget,
+                subject: $entry,
+                context: $budget,
+                details: [
+                    'fiscal_year' => $entry->fiscal_year,
+                    'type' => $entry->type,
+                    'source' => $entry->source,
+                    'amount' => (float) $entry->amount,
+                ],
+                actor: Auth::user(),
+            );
+
+            return $entry;
+        });
 
         return response()->json(['data' => [
             'id' => $entry->id,
@@ -168,6 +196,11 @@ class BudgetController extends Controller
             'reason' => $entry->reason,
             'reference' => $entry->reference,
             'created_by' => Auth::user()?->name,
+            'actor' => [
+                'kind' => 'user',
+                'id' => Auth::user()?->uuid,
+                'name' => Auth::user()?->name,
+            ],
             'created_at' => $entry->created_at?->toDateTimeString(),
         ]], 201);
     }

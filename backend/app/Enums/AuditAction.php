@@ -11,6 +11,7 @@ enum AuditAction: string
     case Downloaded = 'downloaded';
     case Exported = 'exported';
     case Approved = 'approved';
+    case Ordered = 'ordered';
     case Received = 'received';
     case Reversed = 'reversed';
     case Archived = 'archived';

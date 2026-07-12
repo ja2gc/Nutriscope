@@ -6,11 +6,20 @@ use App\Enums\AuditAction;
 use App\Enums\AuditCategory;
 use App\Enums\AuditDomain;
 use App\Models\AuditActivity;
+use App\Models\Budget;
+use App\Models\BudgetLedger;
 use App\Models\Concerns\AuditsChanges;
 use App\Models\Inventory;
+use App\Models\MealPrepLog;
+use App\Models\MenuCycleDay;
 use App\Models\NcpRecord;
 use App\Models\Patient;
+use App\Models\ProgramProjectActivity;
 use App\Models\PurchaseOrder;
+use App\Models\PurchaseOrderAttachment;
+use App\Models\PurchaseOrderItem;
+use App\Models\PurchaseOrderItemCorrection;
+use App\Models\PurchaseOrderVendorGroup;
 use App\Policies\AuditPolicy;
 use App\Services\Audit\AuditLogger;
 use App\Services\Audit\AuditSanitizer;
@@ -34,7 +43,62 @@ class ActivityController extends Controller
 
     public function purchaseOrder(Request $request, PurchaseOrder $purchaseOrder): JsonResponse
     {
-        return $this->directHistory($request, $purchaseOrder);
+        return $this->history($request, fn (Builder $query): Builder => $query
+            ->where(function (Builder $root) use ($purchaseOrder): void {
+                $root->where(function (Builder $context) use ($purchaseOrder): void {
+                    $context->where('context_type', $purchaseOrder->getMorphClass())
+                        ->where('context_id', $purchaseOrder->getKey());
+                })->orWhere(function (Builder $direct) use ($purchaseOrder): void {
+                    $direct->where('subject_type', $purchaseOrder->getMorphClass())
+                        ->where('subject_id', $purchaseOrder->getKey());
+                })->orWhere(function (Builder $ledger) use ($purchaseOrder): void {
+                    $ledger->where('subject_type', (new BudgetLedger)->getMorphClass())
+                        ->whereIn('subject_id', BudgetLedger::query()->select('id')
+                            ->where('purchase_order_id', $purchaseOrder->getKey()));
+                })->orWhere(function (Builder $attachment) use ($purchaseOrder): void {
+                    $attachment->where('subject_type', (new PurchaseOrderAttachment)->getMorphClass())
+                        ->whereIn('subject_id', PurchaseOrderAttachment::query()->select('id')
+                            ->where('purchase_order_id', $purchaseOrder->getKey()));
+                })->orWhere(function (Builder $vendorGroup) use ($purchaseOrder): void {
+                    $vendorGroup->where('subject_type', (new PurchaseOrderVendorGroup)->getMorphClass())
+                        ->whereIn('subject_id', PurchaseOrderVendorGroup::query()->select('id')
+                            ->where('purchase_order_id', $purchaseOrder->getKey()));
+                })->orWhere(function (Builder $item) use ($purchaseOrder): void {
+                    $item->where('subject_type', (new PurchaseOrderItem)->getMorphClass())
+                        ->whereIn('subject_id', PurchaseOrderItem::query()->select('id')
+                            ->where('purchase_order_id', $purchaseOrder->getKey()));
+                })->orWhere(function (Builder $correction) use ($purchaseOrder): void {
+                    $correction->where('subject_type', (new PurchaseOrderItemCorrection)->getMorphClass())
+                        ->whereIn('subject_id', PurchaseOrderItemCorrection::query()->select('id')
+                            ->whereIn('purchase_order_item_id', PurchaseOrderItem::query()->select('id')
+                                ->where('purchase_order_id', $purchaseOrder->getKey())));
+                })->orWhere(function (Builder $ppa) use ($purchaseOrder): void {
+                    $ppa->where('subject_type', (new ProgramProjectActivity)->getMorphClass())
+                        ->whereIn('subject_id', ProgramProjectActivity::query()->select('id')
+                            ->where('purchase_order_id', $purchaseOrder->getKey()));
+                })->orWhere(function (Builder $mealService) use ($purchaseOrder): void {
+                    $mealService->where('subject_type', (new MealPrepLog)->getMorphClass())
+                        ->whereIn('subject_id', $this->mealPrepLogsForPurchaseOrder($purchaseOrder));
+                });
+            }));
+    }
+
+    public function budget(Request $request, Budget $budget): JsonResponse
+    {
+        return $this->history($request, fn (Builder $query): Builder => $query
+            ->where(function (Builder $root) use ($budget): void {
+                $root->where(function (Builder $context) use ($budget): void {
+                    $context->where('context_type', $budget->getMorphClass())
+                        ->where('context_id', $budget->getKey());
+                })->orWhere(function (Builder $direct) use ($budget): void {
+                    $direct->where('subject_type', $budget->getMorphClass())
+                        ->where('subject_id', $budget->getKey());
+                })->orWhere(function (Builder $ledger) use ($budget): void {
+                    $ledger->where('subject_type', (new BudgetLedger)->getMorphClass())
+                        ->whereIn('subject_id', BudgetLedger::query()->select('id')
+                            ->where('fiscal_year', $budget->fiscal_year));
+                });
+            }));
     }
 
     public function patient(Request $request, Patient $patient): JsonResponse
@@ -83,6 +147,26 @@ class ActivityController extends Controller
         return $this->history($request, fn (Builder $query): Builder => $query
             ->where('subject_type', $subject->getMorphClass())
             ->where('subject_id', $subject->getKey()));
+    }
+
+    private function mealPrepLogsForPurchaseOrder(PurchaseOrder $purchaseOrder): Builder
+    {
+        $logTable = (new MealPrepLog)->getTable();
+        $dayTable = (new MenuCycleDay)->getTable();
+
+        return MealPrepLog::query()
+            ->select($logTable.'.id')
+            ->where(function (Builder $root) use ($purchaseOrder, $logTable, $dayTable): void {
+                $root->where($logTable.'.purchase_order_id', $purchaseOrder->getKey())
+                    ->orWhere(function (Builder $legacy) use ($purchaseOrder, $logTable, $dayTable): void {
+                        $legacy->whereNull($logTable.'.purchase_order_id')
+                            ->whereExists(MenuCycleDay::query()
+                                ->selectRaw('1')
+                                ->whereColumn($dayTable.'.menu_cycle_id', $logTable.'.menu_cycle_id')
+                                ->where($dayTable.'.snapshot_purchase_order_id', $purchaseOrder->getKey())
+                                ->whereRaw("{$dayTable}.day_of_week = DAYNAME({$logTable}.service_date)"));
+                    });
+            });
     }
 
     /** @param callable(Builder): Builder $scope */

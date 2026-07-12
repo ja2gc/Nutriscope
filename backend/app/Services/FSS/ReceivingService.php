@@ -2,13 +2,18 @@
 
 namespace App\Services\FSS;
 
+use App\Enums\AuditAction;
+use App\Enums\AuditCategory;
+use App\Enums\AuditDomain;
 use App\Models\FoodServiceRecipe;
 use App\Models\FsItem;
 use App\Models\Inventory;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderItem;
 use App\Models\PurchaseOrderVendorGroup;
+use App\Services\Audit\AuditLogger;
 use App\Support\UnitConverter;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class ReceivingService
@@ -35,32 +40,43 @@ class ReceivingService
     }
 
     public function __construct(
-        private LatestProcurementVendorService $vendorSync = new LatestProcurementVendorService(),
-    ) {
-    }
+        private readonly LatestProcurementVendorService $vendorSync,
+        private readonly AuditLogger $auditLogger,
+    ) {}
 
-    public function receive(PurchaseOrder $purchaseOrder): void
+    /** @param array<int, string> $changedFields */
+    public function receive(PurchaseOrder $purchaseOrder, array $changedFields = []): void
     {
-        $touched = [];
+        $this->auditLogger->assertAvailable();
+        DB::transaction(function () use ($purchaseOrder, $changedFields): void {
+            $touched = [];
 
-        // Group-aware so the vendor suggestion can track the supplier per line.
-        foreach ($purchaseOrder->items as $item) {
-            $supplierId = $item->vendorGroup?->supplier_id;
-            $this->receiveLine($item, $touched, $purchaseOrder->id, $supplierId);
-        }
+            $this->auditLogger->withoutModelEvents(function () use ($purchaseOrder, &$touched): void {
+                foreach ($purchaseOrder->items as $item) {
+                    $supplierId = $item->vendorGroup?->supplier_id;
+                    $this->receiveLine($item, $touched, $purchaseOrder->id, $supplierId);
+                }
 
-        $this->recalculateTouchedRecipes($touched);
+                $this->recalculateTouchedRecipes($touched);
+            });
+            $this->recordReceipt($purchaseOrder, $purchaseOrder, $purchaseOrder->items->count(), $changedFields);
+        });
     }
 
     public function receiveVendorGroup(PurchaseOrderVendorGroup $vendorGroup): void
     {
-        $touched = [];
+        $this->auditLogger->assertAvailable();
+        DB::transaction(function () use ($vendorGroup): void {
+            $touched = [];
 
-        foreach ($vendorGroup->items as $item) {
-            $this->receiveLine($item, $touched, $vendorGroup->purchase_order_id, $vendorGroup->supplier_id);
-        }
+            $this->auditLogger->withoutModelEvents(function () use ($vendorGroup, &$touched): void {
+                foreach ($vendorGroup->items as $item) {
+                    $this->receiveLine($item, $touched, $vendorGroup->purchase_order_id, $vendorGroup->supplier_id);
+                }
 
-        $this->recalculateTouchedRecipes($touched);
+                $this->recalculateTouchedRecipes($touched);
+            });
+        });
     }
 
     private function receiveLine(PurchaseOrderItem $item, array &$touched, int $purchaseOrderId, ?int $supplierId = null): void
@@ -70,12 +86,14 @@ class ReceivingService
                 'po' => $purchaseOrderId,
                 'description' => $item->description,
             ]);
+
             return;
         }
 
         $fs = FsItem::find($item->fs_item_id);
         if (! $fs) {
             Log::warning('ReceivingService: fs_item missing', ['fs_item_id' => $item->fs_item_id]);
+
             return;
         }
 
@@ -92,8 +110,9 @@ class ReceivingService
             );
         }
 
-        $inv = Inventory::firstOrNew(['fs_item_id' => $fs->id]);
-        if (! $inv->exists) {
+        $inv = Inventory::query()->where('fs_item_id', $fs->id)->lockForUpdate()->first();
+        if ($inv === null) {
+            $inv = new Inventory(['fs_item_id' => $fs->id]);
             $inv->item_type = $fs->kind ?? 'ingredient';
             $inv->quantity_in_stock = 0;
         }
@@ -118,5 +137,25 @@ class ReceivingService
         if ($touched) {
             FoodServiceRecipe::recalculateForItems(array_keys($touched));
         }
+    }
+
+    /** @param array<int, string> $changedFields */
+    private function recordReceipt(PurchaseOrder|PurchaseOrderVendorGroup $subject, PurchaseOrder $purchaseOrder, int $itemCount, array $changedFields = []): void
+    {
+        $this->auditLogger->record(
+            AuditAction::Received,
+            AuditCategory::Operations,
+            AuditDomain::Procurement,
+            subject: $subject,
+            context: $purchaseOrder,
+            details: [
+                'item_count' => $itemCount,
+                'status' => 'received',
+                'changed_fields' => collect($changedFields)
+                    ->reject(fn (string $field): bool => in_array($field, ['id', 'uuid', 'created_at', 'updated_at'], true))
+                    ->unique()->sort()->values()->all(),
+            ],
+            systemActor: auth()->user() === null ? 'purchase-order-receiving' : null,
+        );
     }
 }
