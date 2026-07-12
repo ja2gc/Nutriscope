@@ -16,4 +16,11 @@ describe("audit log service contract", () => {
     expect(source).not.toContain("email:");
     expect(source).not.toContain("updated_at");
   });
+
+  test("supports cancellation and validated CSV export requests", () => {
+    expect(source).toContain("signal?: AbortSignal");
+    expect(source).toContain("signal: options.signal");
+    expect(source).toContain("exportAuditLogs");
+    expect(source).toContain('contentType?.split(";", 1)[0].trim().toLowerCase() !== "text/csv"');
+  });
 });

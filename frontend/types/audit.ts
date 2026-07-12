@@ -46,3 +46,22 @@ export interface AuditEventDto {
   details: AuditDetailDto[];
   changes: AuditChangeDto[];
 }
+
+export interface AuditFilterOption {
+  value: string;
+  label: string;
+}
+
+export interface AuditFilterMetadata {
+  categories: AuditFilterOption[];
+  domains: AuditFilterOption[];
+  actions: AuditFilterOption[];
+  outcomes: AuditFilterOption[];
+  severities: AuditFilterOption[];
+  category_actions: Record<AuditCategory, string[]>;
+}
+
+export interface AuditCapabilities {
+  export: boolean;
+  temporary_ip_block: boolean;
+}

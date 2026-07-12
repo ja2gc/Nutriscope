@@ -1,6 +1,13 @@
 import { apiFetch } from "@/lib/apiFetch";
 import type { PaginationMeta } from "@/components/ui/Pagination";
-import type { AuditCategory, AuditEventDto, AuditOutcome, AuditSeverity } from "@/types/audit";
+import type {
+  AuditCapabilities,
+  AuditCategory,
+  AuditEventDto,
+  AuditFilterMetadata,
+  AuditOutcome,
+  AuditSeverity,
+} from "@/types/audit";
 
 export type AuditLog = AuditEventDto;
 
@@ -19,10 +26,19 @@ export interface ListAuditLogsParams {
   end?: string;   // YYYY-MM-DD
 }
 
-export async function listAuditLogs(params: ListAuditLogsParams = {}): Promise<{
-  data: AuditLog[];
-  meta: PaginationMeta;
-}> {
+export interface AuditLogListMeta extends PaginationMeta {
+  filters: AuditFilterMetadata;
+  capabilities: AuditCapabilities;
+}
+
+export class AuditLogServiceError extends Error {
+  constructor(message: string, readonly status: number) {
+    super(message);
+    this.name = "AuditLogServiceError";
+  }
+}
+
+function auditQuery(params: ListAuditLogsParams) {
   const qs = new URLSearchParams();
   if (params.page) qs.set("page", String(params.page));
   if (params.per_page) qs.set("per_page", String(params.per_page));
@@ -36,17 +52,29 @@ export async function listAuditLogs(params: ListAuditLogsParams = {}): Promise<{
   if (params.context_id) qs.set("context_id", params.context_id);
   if (params.start) qs.set("start", params.start);
   if (params.end) qs.set("end", params.end);
+  return qs;
+}
+
+export async function listAuditLogs(
+  params: ListAuditLogsParams = {},
+  options: { signal?: AbortSignal } = {},
+): Promise<{
+  data: AuditLog[];
+  meta: AuditLogListMeta;
+}> {
+  const qs = auditQuery(params);
 
   const res = await apiFetch(`/api/admin/audit-logs?${qs}`, {
     method: "GET",
     headers: {
       Accept: "application/json",
     },
-  });
+    signal: options.signal,
+  }, { redirectOnUnauthorized: false });
 
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}));
-    throw new Error(errorData.message || "Failed to fetch audit logs.");
+    throw new AuditLogServiceError(errorData.message || "Failed to fetch audit logs.", res.status);
   }
 
   const responseData = await res.json();
@@ -57,6 +85,34 @@ export async function listAuditLogs(params: ListAuditLogsParams = {}): Promise<{
       per_page: 25,
       total: 0,
       last_page: 1,
+      filters: {
+        categories: [],
+        domains: [],
+        actions: [],
+        outcomes: [],
+        severities: [],
+        category_actions: {},
+      },
+      capabilities: { export: false, temporary_ip_block: false },
     },
   };
+}
+
+export async function exportAuditLogs(params: ListAuditLogsParams = {}): Promise<Blob> {
+  const qs = auditQuery(params);
+  const res = await apiFetch(`/api/admin/audit-logs/export?${qs}`, {
+    method: "GET",
+    headers: { Accept: "text/csv" },
+  }, { redirectOnUnauthorized: false });
+
+  if (!res.ok) {
+    throw new AuditLogServiceError("Audit export unavailable.", res.status);
+  }
+
+  const contentType = res.headers.get("Content-Type");
+  if (contentType?.split(";", 1)[0].trim().toLowerCase() !== "text/csv") {
+    throw new AuditLogServiceError("Audit export unavailable.", 502);
+  }
+
+  return res.blob();
 }

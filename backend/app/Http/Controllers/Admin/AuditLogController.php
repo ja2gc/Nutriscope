@@ -10,6 +10,7 @@ use App\Http\Requests\Admin\ListAuditLogsRequest;
 use App\Http\Resources\AuditEventResource;
 use App\Models\AuditActivity;
 use App\Services\Audit\AuditEventPresenter;
+use App\Services\Audit\AuditFilterMetadata;
 use App\Services\Audit\AuditLogger;
 use App\Services\Audit\AuditQuery;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -21,6 +22,7 @@ class AuditLogController extends Controller
     public function __construct(
         private readonly AuditQuery $auditQuery,
         private readonly AuditEventPresenter $presenter,
+        private readonly AuditFilterMetadata $filterMetadata,
         private readonly AuditLogger $auditLogger,
     ) {}
 
@@ -36,7 +38,9 @@ class AuditLogController extends Controller
 
         $this->recordListAccess($request);
 
-        return AuditEventResource::collection($logs);
+        return AuditEventResource::collection($logs)->additional([
+            'meta' => $this->filterMetadata->for($request->user()),
+        ]);
     }
 
     /** @param array<string, mixed> $filters */

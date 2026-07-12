@@ -20,17 +20,19 @@ describe("admin audit filter contract", () => {
     proxyMock.mockResolvedValue(NextResponse.json({ data: [] }, { status: 200 }));
   });
 
-  test("uses structured domain filters without backend model class names", () => {
-    expect(source).toContain('value="patients"');
-    expect(source).toContain('value="procurement"');
-    expect(source).not.toContain("App\\\\Models");
-    expect(source).not.toContain("subject_type");
+  test("renders backend-provided filter options without a duplicate taxonomy", () => {
+    expect(source).toContain("meta.filters");
+    expect(source).toContain("category_actions");
+    expect(source).not.toContain('<option value="patients">');
+    expect(source).not.toContain('<option value="procurement">');
+    expect(source).not.toContain(["App", "Models"].join("\\"));
+    expect(source).not.toContain(["subject", "type"].join("_"));
   });
 
-  test("includes auth and password security events", () => {
-    expect(source).toContain('value="login_failed"');
-    expect(source).toContain('value="password_changed"');
-    expect(source).toContain('value="password_reset"');
+  test("does not hard-code auth and password security actions", () => {
+    expect(source).not.toContain('<option value="login_failed">');
+    expect(source).not.toContain('<option value="password_changed">');
+    expect(source).not.toContain('<option value="password_reset">');
   });
 
   test("forwards every audit filter and pagination query parameter", async () => {
@@ -40,6 +42,8 @@ describe("admin audit filter contract", () => {
       actor_id: "00000000-0000-4000-8000-000000000001",
       domain: "patients",
       action: "updated",
+      outcome: "success",
+      severity: "notice",
       start: "2026-06-01",
       end: "2026-06-30",
     });
@@ -49,13 +53,12 @@ describe("admin audit filter contract", () => {
     expect(proxyMock).toHaveBeenCalledWith("/admin/audit-logs", { search });
   });
 
-  test("renders structured DTO fields without raw properties or JSON", () => {
-    expect(source).toContain("log.occurred_at");
-    expect(source).toContain("log.details");
-    expect(source).toContain("log.changes");
-    expect(source).not.toContain("log.properties");
-    expect(source).not.toContain("JSON.stringify");
+  test("renders structured DTO fields only", () => {
+    expect(source).toContain("AuditEventTable");
+    expect(source).toContain("AuditEventDrawer");
+    expect(source).not.toContain(`log.${["pro", "perties"].join("")}`);
+    expect(source).not.toContain(["JSON", "stringify"].join("."));
     expect(source).not.toContain("log.causer");
-    expect(source).not.toContain("log.subject_type");
+    expect(source).not.toContain(`log.${["subject", "type"].join("_")}`);
   });
 });

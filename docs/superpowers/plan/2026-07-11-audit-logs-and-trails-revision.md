@@ -496,14 +496,14 @@ public function record(
 - Modify: `frontend/app/admin/audit-logs/audit-filter-contract.test.ts`
 - Create: `frontend/app/admin/audit-logs/audit-page-contract.test.tsx`
 
-- [ ] Add four tabs only. Filters inside tabs: date range, domain, action, actor, outcome, severity. Return allowed category/domain/action options in the audit-list response `meta.filters`; render those options rather than maintaining a second hard-coded frontend taxonomy.
-- [ ] Table columns: time, action, actor, subject/context, outcome, severity, summary. Row click opens structured drawer.
-- [ ] Drawer sections: event summary, actor, subject/context, result, safe request metadata, field changes. Clinical change rows say "Value hidden; field changed" and never render placeholder bullets as a value.
-- [ ] Remove every `JSON.stringify`, `<pre>`, raw properties expander, and hard-coded class-name dropdown.
-- [ ] Security tab may show a temporary-block command only when API capability says enabled and user has permission. Require confirmation, reason, and expiry; never place block buttons on all rows.
-- [ ] Add loading, empty, error, unauthorized, and no-results states. Keep filters in URL search params for review links, excluding sensitive free text.
-- [ ] Test longest actor/subject labels, mobile table alternative, keyboard drawer access, category/action compatibility, and absence of raw JSON.
-- [ ] Run:
+- [x] Add four tabs only. Filters inside tabs: date range, domain, action, actor, outcome, severity. Return allowed category/domain/action options in the audit-list response `meta.filters`; render those options rather than maintaining a second hard-coded frontend taxonomy.
+- [x] Table columns: time, action, actor, subject/context, outcome, severity, summary. Row click opens structured drawer.
+- [x] Drawer sections: event summary, actor, subject/context, result, safe request metadata, field changes. Clinical change rows say "Value hidden; field changed" and never render placeholder bullets as a value.
+- [x] Remove every `JSON.stringify`, `<pre>`, raw properties expander, and hard-coded class-name dropdown.
+- [x] Security tab may show a temporary-block command only when API capability says enabled and user has permission. Require confirmation, reason, and expiry; never place block buttons on all rows.
+- [x] Add loading, empty, error, unauthorized, and no-results states. Keep filters in URL search params for review links, excluding sensitive free text.
+- [x] Test longest actor/subject labels, mobile table alternative, keyboard drawer access, category/action compatibility, and absence of raw JSON.
+- [x] Run:
 
 ```powershell
 cd frontend
@@ -512,7 +512,7 @@ npx tsc --noEmit
 npm run lint -- app/admin/audit-logs components/audit services/auditLogService.ts
 ```
 
-- [ ] Commit with `feat: redesign audit log interface`.
+- [x] Commit with `feat: redesign audit log interface`.
 
 ### Task 12: Replace Contextual History Panels With Shared Structured Trails
 
