@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
+use Tests\Support\AuditFixture;
 use Tests\TestCase;
 
 class PatientFeatureTest extends TestCase
@@ -258,7 +259,7 @@ class PatientFeatureTest extends TestCase
             'file_path' => 'documents/ncp/patient-delete.pdf',
             'original_name' => 'patient-delete.pdf',
         ]);
-        AuditActivity::query()->delete();
+        AuditFixture::delete(AuditActivity::query());
 
         $this->actingAs($rnd, 'sanctum')->deleteJson("/api/rnd/patients/{$patient->uuid}")->assertNoContent();
 

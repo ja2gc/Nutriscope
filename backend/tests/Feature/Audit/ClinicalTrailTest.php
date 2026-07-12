@@ -23,6 +23,7 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Spatie\Activitylog\Models\Activity;
+use Tests\Support\AuditFixture;
 use Tests\TestCase;
 
 class ClinicalTrailTest extends TestCase
@@ -54,7 +55,7 @@ class ClinicalTrailTest extends TestCase
         $patient = Patient::factory()->create();
         $ncp = NcpRecord::factory()->create(['patient_id' => $patient->id, 'rnd_user_id' => $rnd->id, 'status' => 'draft']);
         $this->actingAs($rnd, 'sanctum');
-        AuditActivity::query()->delete();
+        AuditFixture::delete(AuditActivity::query());
         $createSentinel = is_array($createValue) ? (string) reset($createValue) : (string) $createValue;
         $updateSentinel = is_array($updateValue) ? (string) reset($updateValue) : (string) $updateValue;
         $subject = $this->createClinicalSubject($modelClass, $field, $createValue, $patient, $ncp);
@@ -125,7 +126,7 @@ class ClinicalTrailTest extends TestCase
         $patient = Patient::factory()->create(['name' => 'PATIENT-NAME-SENTINEL']);
         $ncp = NcpRecord::factory()->create(['patient_id' => $patient->id, 'rnd_user_id' => $rnd->id]);
         $assessment = Assessment::factory()->create(['ncp_record_id' => $ncp->id]);
-        $assessment->activities()->delete();
+        AuditFixture::delete($assessment->activities());
         $assessment->refresh();
         $this->actingAs($rnd, 'sanctum');
 
@@ -191,7 +192,7 @@ class ClinicalTrailTest extends TestCase
         $patient = Patient::factory()->create();
         $ncp = NcpRecord::factory()->create(['patient_id' => $patient->id, 'rnd_user_id' => $rnd->id]);
         Assessment::factory()->create(['ncp_record_id' => $ncp->id]);
-        AuditActivity::query()->delete();
+        AuditFixture::delete(AuditActivity::query());
         $this->actingAs($rnd, 'sanctum');
 
         foreach (['draft', 'active', 'completed'] as $status) {
@@ -217,7 +218,7 @@ class ClinicalTrailTest extends TestCase
         $rnd = User::factory()->rnd()->create();
         $patient = Patient::factory()->create();
         NcpRecord::factory()->create(['patient_id' => $patient->id, 'rnd_user_id' => $rnd->id]);
-        AuditActivity::query()->delete();
+        AuditFixture::delete(AuditActivity::query());
         $this->actingAs($rnd, 'sanctum');
 
         try {
@@ -255,7 +256,7 @@ class ClinicalTrailTest extends TestCase
             'patient_id' => $patient->id, 'ncp_record_id' => $ncp->id,
             'file_path' => 'documents/ncp/repeat.pdf', 'original_name' => 'repeat.pdf',
         ]);
-        AuditActivity::query()->delete();
+        AuditFixture::delete(AuditActivity::query());
         $this->actingAs($rnd, 'sanctum');
 
         $this->get("/api/rnd/screening-documents/{$document->uuid}/file")->assertOk();
@@ -271,7 +272,7 @@ class ClinicalTrailTest extends TestCase
         $patient = Patient::factory()->create(['name' => 'FILE-NAME-PATIENT-SENTINEL']);
         $ncp = NcpRecord::factory()->create(['patient_id' => $patient->id, 'rnd_user_id' => $rnd->id]);
         $this->actingAs($rnd, 'sanctum');
-        AuditActivity::query()->delete();
+        AuditFixture::delete(AuditActivity::query());
 
         $upload = $this->postJson("/api/rnd/ncp-records/{$ncp->uuid}/attachments", [
             'file' => UploadedFile::fake()->create('FILE-NAME-PATIENT-SENTINEL.pdf', 10, 'application/pdf'),
@@ -314,7 +315,7 @@ class ClinicalTrailTest extends TestCase
             'rnd_user_id' => $rnd->id,
             'status' => 'draft',
         ]);
-        AuditActivity::query()->delete();
+        AuditFixture::delete(AuditActivity::query());
         $this->actingAs($rnd, 'sanctum');
 
         $this->deleteJson("/api/rnd/ncp-records/{$ncp->uuid}")->assertNoContent();
@@ -332,7 +333,7 @@ class ClinicalTrailTest extends TestCase
         $other = User::factory()->rnd()->create();
         $patient = Patient::factory()->create();
         $ncp = NcpRecord::factory()->create(['patient_id' => $patient->id, 'rnd_user_id' => $owner->id]);
-        AuditActivity::query()->delete();
+        AuditFixture::delete(AuditActivity::query());
         Activity::create([
             'log_name' => 'audit',
             'event' => 'updated',
@@ -351,7 +352,7 @@ class ClinicalTrailTest extends TestCase
         $rnd = User::factory()->rnd()->create();
         $patient = Patient::factory()->create();
         NcpRecord::factory()->create(['patient_id' => $patient->id, 'rnd_user_id' => $rnd->id]);
-        AuditActivity::query()->delete();
+        AuditFixture::delete(AuditActivity::query());
         $foreign = Activity::create([
             'log_name' => 'default',
             'event' => 'updated',
@@ -391,7 +392,7 @@ class ClinicalTrailTest extends TestCase
         $rnd = User::factory()->rnd()->create();
         $patient = Patient::factory()->create();
         NcpRecord::factory()->create(['patient_id' => $patient->id, 'rnd_user_id' => $rnd->id]);
-        AuditActivity::query()->delete();
+        AuditFixture::delete(AuditActivity::query());
         $this->actingAs($rnd, 'sanctum');
 
         $this->getJson("/api/rnd/patients/{$patient->uuid}/activity")->assertOk();

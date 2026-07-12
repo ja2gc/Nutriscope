@@ -548,14 +548,14 @@ npm run lint -- app/admin/audit-logs components/audit services/auditLogService.t
 - Modify: `docs/security/security.md`
 - Test: `backend/tests/Feature/Audit/AuditRetentionTest.php`
 
-- [ ] Implement category-specific pruning in chunks using indexed timestamp ranges. `config/audit.php` contains `legal_hold` booleans per category; pruning refuses a held category. Dry-run reports counts; `--force` performs deletion.
-- [ ] Schedule daily with `withoutOverlapping()` and `onOneServer()`. Emit a system event for prune completion/failure containing counts only.
-- [ ] Do not run `OPTIMIZE TABLE` automatically; Spatie warns it can lock MySQL. Document maintenance-window use only.
-- [ ] Deny application update/delete of audit rows outside prune service. No HTTP mutation route exists for logs.
-- [ ] Add optional integrity export/hash-chain or external append-only sink as production-hardening phase. The minimum release must monitor unauthorized row mutation/deletion, log-writer failures, and sudden event-volume spikes.
-- [ ] Define failure behavior: required financial/clinical mutation audit writes participate in transaction and fail the mutation if logging cannot persist; non-critical security telemetry reports failure without exposing secrets or recursively flooding logs.
-- [ ] Add volume test with at least 100,000 generated events and assert default/date/context queries use intended indexes, avoid full table scans, and complete with p95 at or below 250 ms in the documented staging environment.
-- [ ] Commit with `feat: enforce audit retention and monitoring`.
+- [x] Implement category-specific pruning in chunks using indexed timestamp ranges. `config/audit.php` contains `legal_hold` booleans per category; pruning refuses a held category. Dry-run reports counts; `--force` performs deletion.
+- [x] Schedule daily with `withoutOverlapping()` and `onOneServer()`. Emit a system event for prune completion/failure containing counts only.
+- [x] Do not run `OPTIMIZE TABLE` automatically; Spatie warns it can lock MySQL. Document maintenance-window use only.
+- [x] Deny application update/delete of audit rows outside prune service. No HTTP mutation route exists for logs.
+- [x] Add optional integrity export/hash-chain or external append-only sink as production-hardening phase. The minimum release must monitor unauthorized row mutation/deletion, log-writer failures, and sudden event-volume spikes.
+- [x] Define failure behavior: required financial/clinical mutation audit writes participate in transaction and fail the mutation if logging cannot persist; non-critical security telemetry reports failure without exposing secrets or recursively flooding logs.
+- [x] Add volume test with at least 100,000 generated events and assert default/date/context queries use intended indexes, avoid full table scans, and complete with p95 at or below 250 ms in the documented staging environment.
+- [x] Commit with `feat: enforce audit retention and monitoring`.
 
 ### Task 14: Compatibility Cleanup, Documentation, and Full Verification
 

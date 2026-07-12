@@ -90,6 +90,23 @@ return [
         'legacy' => ['days' => 90, 'legal_hold' => false],
     ],
 
+    'pruning' => [
+        'chunk_size' => 1000,
+    ],
+
+    'monitoring' => [
+        'volume' => [
+            'trailing_days' => 30,
+            'spike_multiplier' => 3,
+        ],
+        'table_bytes_threshold' => 1024 * 1024 * 1024,
+        'database_disk_percent_threshold' => 70,
+        'database_disk_used_percent' => env('AUDIT_DATABASE_DISK_USED_PERCENT'),
+        'slow_query_ms' => 250,
+        'writer_alert_dedup_seconds' => 60,
+        'writer_alert_local_max_classes' => 256,
+    ],
+
     'deduplication' => [
         'chart_view_seconds' => 15 * 60,
         'audit_list_view_seconds' => 15 * 60,

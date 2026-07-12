@@ -14,6 +14,7 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Spatie\Activitylog\Models\Activity;
+use Tests\Support\AuditFixture;
 use Tests\TestCase;
 
 class AuditTrailTest extends TestCase
@@ -32,7 +33,7 @@ class AuditTrailTest extends TestCase
     {
         $this->actingAs($this->fss);
         $fs = FsItem::factory()->create();
-        Activity::query()->delete();
+        AuditFixture::delete(Activity::query());
 
         $fs->update(['category' => 'Dry goods']);
 
@@ -66,7 +67,7 @@ class AuditTrailTest extends TestCase
     {
         $this->actingAs($this->fss);
         $fs = FsItem::factory()->create(['category' => 'Dry goods']);
-        Activity::query()->delete();
+        AuditFixture::delete(Activity::query());
 
         $fs->update(['category' => 'Dry goods']); // same value -> not dirty
 
@@ -84,7 +85,7 @@ class AuditTrailTest extends TestCase
     public function test_inventory_model_no_longer_writes_audit_events(): void
     {
         $inventory = Inventory::factory()->create();
-        Activity::query()->delete();
+        AuditFixture::delete(Activity::query());
 
         $inventory->update(['item_type' => 'supply']);
 
@@ -101,7 +102,7 @@ class AuditTrailTest extends TestCase
         $ncpRecord = NcpRecord::factory()->for($patient)->create(['rnd_user_id' => $rnd->id]);
         $unrelatedNcpRecord = NcpRecord::factory()->create();
 
-        Activity::query()->delete();
+        AuditFixture::delete(Activity::query());
         $childEvent = Activity::create([
             'log_name' => 'audit',
             'event' => 'updated',
@@ -148,7 +149,7 @@ class AuditTrailTest extends TestCase
             'amount' => 100, 'purchase_order_id' => $purchaseOrder->id,
         ]);
 
-        Activity::query()->delete();
+        AuditFixture::delete(Activity::query());
         $childEvent = Activity::create([
             'log_name' => 'audit',
             'event' => 'created',
@@ -190,7 +191,7 @@ class AuditTrailTest extends TestCase
         $patient = Patient::factory()->create();
         NcpRecord::factory()->for($patient)->create(['rnd_user_id' => $rnd->id]);
 
-        Activity::query()->delete();
+        AuditFixture::delete(Activity::query());
         $activity = Activity::create([
             'log_name' => 'audit',
             'event' => 'updated',
@@ -246,7 +247,7 @@ class AuditTrailTest extends TestCase
         $rnd = User::factory()->rnd()->create();
         $patient = Patient::factory()->create();
         NcpRecord::factory()->for($patient)->create(['rnd_user_id' => $rnd->id]);
-        Activity::query()->delete();
+        AuditFixture::delete(Activity::query());
         foreach (range(1, 101) as $sequence) {
             AuditActivity::create([
                 'log_name' => 'audit', 'event' => 'updated', 'category' => 'clinical', 'domain' => 'patients',
@@ -270,7 +271,7 @@ class AuditTrailTest extends TestCase
         $patient = Patient::factory()->create();
         NcpRecord::factory()->for($patient)->create(['rnd_user_id' => $viewer->id]);
         $actor->delete();
-        AuditActivity::query()->delete();
+        AuditFixture::delete(AuditActivity::query());
         AuditActivity::create([
             'log_name' => 'audit', 'event' => 'updated', 'category' => 'clinical', 'domain' => 'patients',
             'description' => 'Updated patient', 'subject_type' => Patient::class, 'subject_id' => $patient->id,

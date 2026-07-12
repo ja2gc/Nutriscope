@@ -6,14 +6,19 @@ use App\Enums\AuditCategory;
 use App\Enums\AuditDomain;
 use App\Enums\AuditOutcome;
 use App\Enums\AuditSeverity;
+use App\Exceptions\AuditLoggingUnavailable;
+use App\Models\Builders\AuditActivityBuilder;
+use App\Services\Audit\AuditHealthMonitor;
 use Carbon\CarbonImmutable;
 use DateTimeInterface;
 use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 use Spatie\Activitylog\Models\Activity;
+use Throwable;
 
 class AuditActivity extends Activity
 {
@@ -32,6 +37,37 @@ class AuditActivity extends Activity
         static::creating(function (AuditActivity $activity): void {
             $activity->public_id ??= (string) Str::uuid();
         });
+        static::updating(function (): never {
+            app(AuditHealthMonitor::class)->unauthorizedRowMutation('update');
+
+            throw new \RuntimeException('Audit events are immutable.');
+        });
+        static::deleting(function (): never {
+            app(AuditHealthMonitor::class)->unauthorizedRowMutation('delete');
+
+            throw new \RuntimeException('Audit events may only be deleted by the retention service.');
+        });
+    }
+
+    public function newEloquentBuilder($query): AuditActivityBuilder
+    {
+        /** @var QueryBuilder $query */
+        return new AuditActivityBuilder($query);
+    }
+
+    protected function performInsert(Builder $query): bool
+    {
+        try {
+            return parent::performInsert($query);
+        } catch (Throwable) {
+            $exception = new AuditLoggingUnavailable('The audit event could not be persisted.');
+            try {
+                app(AuditHealthMonitor::class)->writerFailure($exception);
+            } catch (Throwable) {
+            }
+
+            throw $exception;
+        }
     }
 
     #[Scope]

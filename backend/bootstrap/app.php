@@ -4,8 +4,10 @@ use App\Enums\AuditAction;
 use App\Http\Middleware\EnsureActiveUser;
 use App\Http\Middleware\RecordSecurityRejections;
 use App\Http\Middleware\RoleMiddleware;
+use App\Services\Audit\AuditHealthMonitor;
 use App\Services\Audit\SecurityAuditDeduplicator;
 use Illuminate\Console\Scheduling\Schedule;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -28,6 +30,20 @@ return Application::configure(basePath: dirname(__DIR__))
             ->everyFiveMinutes()
             ->withoutOverlapping()
             ->onOneServer();
+        $schedule->command('audit:prune --force')
+            ->daily()
+            ->withoutOverlapping()
+            ->onOneServer();
+        $schedule->call(fn (): mixed => app(AuditHealthMonitor::class)->inspectDaily())
+            ->dailyAt('00:10')
+            ->name('audit:monitor-health')
+            ->withoutOverlapping()
+            ->onOneServer();
+        $schedule->call(fn (): mixed => app(AuditHealthMonitor::class)->emitMonthlyMetrics())
+            ->monthlyOn(1, '00:30')
+            ->name('audit:emit-monthly-metrics')
+            ->withoutOverlapping()
+            ->onOneServer();
     })
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->append(RecordSecurityRejections::class);
@@ -37,6 +53,19 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        $exceptions->report(function (QueryException $exception): ?bool {
+            $monitor = app(AuditHealthMonitor::class);
+            if (! $monitor->isAuditInsertQuery($exception->getSql())) {
+                return null;
+            }
+
+            try {
+                $monitor->writerFailure($exception);
+            } catch (Throwable) {
+            }
+
+            return false;
+        });
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request, Throwable $exception): bool => $request->is('api/*')
                 || $request->expectsJson(),
@@ -53,22 +82,36 @@ return Application::configure(basePath: dirname(__DIR__))
             );
 
             if ($response->getStatusCode() === 401 && ($isAuthenticatedRoute || $isRoleProtectedRoute)) {
-                app(SecurityAuditDeduplicator::class)->record(
-                    AuditAction::AuthenticationFailed,
-                    'authentication',
-                    $request,
-                    status: 401,
-                );
+                try {
+                    app(SecurityAuditDeduplicator::class)->record(
+                        AuditAction::AuthenticationFailed,
+                        'authentication',
+                        $request,
+                        status: 401,
+                    );
+                } catch (Throwable $exception) {
+                    try {
+                        app(AuditHealthMonitor::class)->writerFailure($exception);
+                    } catch (Throwable) {
+                    }
+                }
             }
 
             if ($response->getStatusCode() === 403 && ($isAuthenticatedRoute || $isRoleProtectedRoute)) {
-                app(SecurityAuditDeduplicator::class)->record(
-                    AuditAction::AuthorizationDenied,
-                    'authorization',
-                    $request,
-                    status: 403,
-                    actor: $request->user(),
-                );
+                try {
+                    app(SecurityAuditDeduplicator::class)->record(
+                        AuditAction::AuthorizationDenied,
+                        'authorization',
+                        $request,
+                        status: 403,
+                        actor: $request->user(),
+                    );
+                } catch (Throwable $exception) {
+                    try {
+                        app(AuditHealthMonitor::class)->writerFailure($exception);
+                    } catch (Throwable) {
+                    }
+                }
             }
 
             return $response;

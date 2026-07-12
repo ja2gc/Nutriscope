@@ -31,6 +31,7 @@ use Illuminate\Support\Facades\Password;
 use InvalidArgumentException;
 use RuntimeException;
 use Spatie\Activitylog\Facades\LogBatch;
+use Tests\Support\AuditFixture;
 use Tests\TestCase;
 
 class AuditPrivacyTest extends TestCase
@@ -684,7 +685,7 @@ class AuditPrivacyTest extends TestCase
         $ncp = NcpRecord::factory()->create();
         $assessment = Assessment::factory()->create(['ncp_record_id' => $ncp->id]);
         $this->actingAs($actor);
-        $assessment->activities()->delete();
+        AuditFixture::delete($assessment->activities());
 
         $assessment->update(['weight' => 72.5]);
 

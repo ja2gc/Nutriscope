@@ -33,6 +33,7 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use RuntimeException;
+use Tests\Support\AuditFixture;
 use Tests\TestCase;
 
 class PurchaseOrderTrailTest extends TestCase
@@ -126,7 +127,7 @@ class PurchaseOrderTrailTest extends TestCase
     {
         $rnd = User::factory()->rnd()->create();
         $po = PurchaseOrder::factory()->create(['rnd_user_id' => $rnd->id, 'status' => 'draft']);
-        AuditActivity::query()->delete();
+        AuditFixture::delete(AuditActivity::query());
 
         $this->actingAs($rnd)->patchJson("/api/fss/purchase-orders/{$po->uuid}", ['or_number' => 'OR-200'])->assertOk();
         $this->assertSame([AuditAction::Updated->value], AuditActivity::query()->pluck('event')->all());
@@ -141,7 +142,7 @@ class PurchaseOrderTrailTest extends TestCase
             'lifecycle_status' => 'completed',
             'completed_at' => now(),
         ]);
-        AuditActivity::query()->delete();
+        AuditFixture::delete(AuditActivity::query());
         $this->patchJson("/api/fss/purchase-orders/{$completed->uuid}", ['lifecycle_status' => 'archived'])->assertOk();
         $this->assertSame([AuditAction::Archived->value], AuditActivity::query()->pluck('event')->all());
     }
@@ -150,7 +151,7 @@ class PurchaseOrderTrailTest extends TestCase
     {
         $rnd = User::factory()->rnd()->create();
         $po = PurchaseOrder::factory()->create(['rnd_user_id' => $rnd->id, 'status' => 'draft']);
-        AuditActivity::query()->delete();
+        AuditFixture::delete(AuditActivity::query());
 
         $this->actingAs($rnd)->patchJson("/api/fss/purchase-orders/{$po->uuid}", [
             'status' => 'ordered',
@@ -169,7 +170,7 @@ class PurchaseOrderTrailTest extends TestCase
         Storage::fake('public');
         $rnd = User::factory()->rnd()->create();
         $po = PurchaseOrder::factory()->create(['rnd_user_id' => $rnd->id]);
-        AuditActivity::query()->delete();
+        AuditFixture::delete(AuditActivity::query());
 
         $this->app->instance(AuditLogger::class, $this->failingAuditLogger());
         $this->actingAs($rnd)->postJson("/api/fss/purchase-orders/{$po->uuid}/attachments", [
@@ -266,7 +267,7 @@ class PurchaseOrderTrailTest extends TestCase
             'type' => 'receipt',
             'path' => 'po-attachments/receipt.jpg',
         ]);
-        AuditActivity::query()->delete();
+        AuditFixture::delete(AuditActivity::query());
 
         $this->patchJson("/api/fss/purchase-order-vendor-groups/{$group->uuid}", [
             'status' => 'received',
@@ -441,7 +442,7 @@ class PurchaseOrderTrailTest extends TestCase
             'shopping_list_id' => $suppliesList->id,
             'procurement_track' => 'supplies',
         ]);
-        AuditActivity::query()->delete();
+        AuditFixture::delete(AuditActivity::query());
 
         $complete = $this->actingAs($fss)->postJson("/api/fss/menu-cycles/{$cycle->uuid}/complete-day", [
             'service_date' => '2026-06-01',

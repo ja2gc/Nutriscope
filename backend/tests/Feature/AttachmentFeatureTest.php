@@ -17,6 +17,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
+use Tests\Support\AuditFixture;
 use Tests\TestCase;
 
 /**
@@ -171,7 +172,7 @@ class AttachmentFeatureTest extends TestCase
                     'file_path' => $unsafe,
                     'original_name' => 'safe.pdf',
                 ]);
-                AuditActivity::query()->delete();
+                AuditFixture::delete(AuditActivity::query());
 
                 $this->actingAs($rnd, 'sanctum')
                     ->get("/api/rnd/screening-documents/{$doc->uuid}/file")

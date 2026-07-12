@@ -8,6 +8,7 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Spatie\Activitylog\Models\Activity;
+use Tests\Support\AuditFixture;
 use Tests\TestCase;
 
 class AdminAuditLogTest extends TestCase
@@ -133,7 +134,7 @@ class AdminAuditLogTest extends TestCase
 
     public function test_admin_audit_logs_preserve_offset_pagination_metadata(): void
     {
-        Activity::query()->delete();
+        AuditFixture::delete(Activity::query());
 
         foreach (range(1, 3) as $index) {
             Activity::create([
@@ -165,9 +166,9 @@ class AdminAuditLogTest extends TestCase
 
     public function test_admin_response_never_exposes_clinical_values_or_arbitrary_properties(): void
     {
-        Activity::query()->delete();
+        AuditFixture::delete(Activity::query());
         $patient = Patient::factory()->create();
-        AuditActivity::query()->delete();
+        AuditFixture::delete(AuditActivity::query());
         $activity = Activity::create([
             'log_name' => 'audit',
             'event' => 'updated',

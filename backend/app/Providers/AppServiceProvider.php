@@ -9,10 +9,14 @@ use App\Models\AuditActivity;
 use App\Models\User;
 use App\Policies\AuditPolicy;
 use App\Services\Audit\AuditContextResolver;
+use App\Services\Audit\AuditHealthMonitor;
+use App\Services\Audit\AuditRetentionService;
 use App\Services\Audit\SecurityAuditDeduplicator;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
@@ -29,6 +33,8 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->scoped(AuditContextResolver::class);
+        $this->app->singleton(AuditHealthMonitor::class);
+        $this->app->singleton(AuditRetentionService::class);
     }
 
     /**
@@ -36,6 +42,19 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        $retention = app(AuditRetentionService::class);
+        collect([config('database.default'), config('activitylog.database_connection')])
+            ->filter(fn (mixed $connection): bool => is_string($connection) && $connection !== '')
+            ->unique()
+            ->each(fn (string $connection) => $retention->registerMutationBoundary(DB::connection($connection)));
+        DB::listen(function (QueryExecuted $query): void {
+            $monitor = app(AuditHealthMonitor::class);
+            if ($query->time >= (float) config('audit.monitoring.slow_query_ms', 250)
+                && $monitor->isAuditQuery($query->sql)) {
+                $monitor->recordSlowAuditQuery();
+            }
+        });
+
         Gate::policy(AuditActivity::class, AuditPolicy::class);
 
         // Brute-force / credential-stuffing protection for the login endpoint.

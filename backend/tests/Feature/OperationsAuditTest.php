@@ -20,6 +20,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Mockery;
 use PHPUnit\Framework\Attributes\DataProvider;
 use RuntimeException;
+use Tests\Support\AuditFixture;
 use Tests\TestCase;
 
 class OperationsAuditTest extends TestCase
@@ -122,7 +123,7 @@ class OperationsAuditTest extends TestCase
     {
         $user = User::factory()->rnd()->create();
         $item = FsItem::factory()->create();
-        AuditActivity::query()->delete();
+        AuditFixture::delete(AuditActivity::query());
         $days = collect(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'])
             ->map(fn (string $day): array => [
                 'day_of_week' => $day,
@@ -320,7 +321,7 @@ class OperationsAuditTest extends TestCase
     {
         $user = User::factory()->rnd()->create();
         $item = FsItem::factory()->create(['kind' => 'supply']);
-        AuditActivity::query()->delete();
+        AuditFixture::delete(AuditActivity::query());
         $listId = $this->actingAs($user)->postJson('/api/fss/shopping-lists', [
             'name' => 'Context list', 'procurement_track' => 'supplies',
         ])->assertCreated()->json('data.id');
@@ -368,7 +369,7 @@ class OperationsAuditTest extends TestCase
         ];
 
         foreach ($cases as $label => [$command, $expectedEvents]) {
-            AuditActivity::query()->delete();
+            AuditFixture::delete(AuditActivity::query());
             $command();
             $this->assertSame($expectedEvents, AuditActivity::query()->count(), $label);
             if ($expectedEvents === 1) {

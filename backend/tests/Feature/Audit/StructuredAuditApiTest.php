@@ -21,6 +21,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Route;
 use Illuminate\Support\Facades\DB;
+use Tests\Support\AuditFixture;
 use Tests\TestCase;
 
 class StructuredAuditApiTest extends TestCase
@@ -197,7 +198,7 @@ class StructuredAuditApiTest extends TestCase
     {
         $actor = User::factory()->create();
         $patient = Patient::factory()->create();
-        AuditActivity::query()->delete();
+        AuditFixture::delete(AuditActivity::query());
         collect(range(1, 3000))->chunk(500)->each(function ($numbers): void {
             DB::table((new AuditActivity)->getTable())->insert($numbers->map(fn (int $number): array => [
                 'log_name' => $number % 10 === 0 ? 'audit' : 'default',
@@ -373,7 +374,7 @@ class StructuredAuditApiTest extends TestCase
     public function test_presenter_merges_actual_allowlisted_operations_change_keys_without_extras(): void
     {
         $po = PurchaseOrder::factory()->create(['status' => 'draft', 'po_number' => 'PO-OLD']);
-        AuditActivity::query()->delete();
+        AuditFixture::delete(AuditActivity::query());
 
         $po->update(['status' => 'ordered', 'po_number' => 'PO-PRIVATE-SENTINEL']);
         $activity = AuditActivity::query()->where('event', 'updated')->sole();
@@ -414,7 +415,7 @@ class StructuredAuditApiTest extends TestCase
 
     public function test_legacy_presented_defaults_and_action_aliases_are_filterable_without_unrelated_rows(): void
     {
-        AuditActivity::query()->delete();
+        AuditFixture::delete(AuditActivity::query());
         $legacy = AuditActivity::create([
             'log_name' => 'audit',
             'description' => 'Legacy login',
