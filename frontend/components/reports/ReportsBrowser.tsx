@@ -5,6 +5,7 @@ import {
   FileText, RefreshCw, CalendarRange, CalendarDays, PackageCheck,
   Download, Trash2, Users, ClipboardList, Building2, Save,
   Archive, Loader2, CheckCircle2, AlertTriangle, FolderArchive, Eye, Stethoscope,
+  History,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -20,6 +21,7 @@ import {
   getBranding, saveBranding, listTemplates, saveTemplate,
 } from "@/services/reportService";
 import { ReportPreview } from "@/components/ReportPreview";
+import { AuditTrail } from "@/components/audit/AuditTrail";
 
 const inp = "w-full px-3 py-2 text-base border border-warm-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500";
 const lbl = "block text-xs font-extrabold text-warm-500 uppercase tracking-wider mb-1";
@@ -350,6 +352,7 @@ function ArchivedTab({
   const [reports, setReports] = useState<ReportItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [preview, setPreview] = useState<ReportItem | null>(null);
+  const [historyReport, setHistoryReport] = useState<ReportItem | null>(null);
   const [page, setPage] = useState(1);
 
   const load = useCallback(async () => {
@@ -421,9 +424,12 @@ function ArchivedTab({
                 <td className="px-4 py-3 text-warm-500">{label(r.type)}</td>
                 <td className="px-4 py-3 text-warm-600">{r.created_by?.name ?? "Former user"}</td>
                 <td className="px-4 py-3 text-warm-500 tabular-nums">
-                  {r.generated_at ? (
-                    <time dateTime={r.generated_at} title={new Date(r.generated_at).toISOString()}>
-                      {reportDate(r.generated_at)}
+                  {r.snapshot?.archived_at || r.generated_at ? (
+                    <time
+                      dateTime={r.snapshot?.archived_at ?? r.generated_at ?? undefined}
+                      title={new Date(r.snapshot?.archived_at ?? r.generated_at!).toISOString()}
+                    >
+                      {reportDate(r.snapshot?.archived_at ?? r.generated_at!)}
                     </time>
                   ) : "—"}
                 </td>
@@ -438,6 +444,9 @@ function ArchivedTab({
                         <Download className="h-3.5 w-3.5" />
                       </a>
                     )}
+                    <button onClick={() => setHistoryReport(r)} className="p-1.5 rounded-lg hover:bg-sky-50 text-warm-500 hover:text-sky-700 cursor-pointer" aria-label={`Show activity for ${r.title}`} title="Activity trail">
+                      <History className="h-3.5 w-3.5" />
+                    </button>
                     <button onClick={() => onDelete(r.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-warm-500 hover:text-red-600 cursor-pointer" aria-label={`Delete ${r.title}`} title="Delete">
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
@@ -451,6 +460,15 @@ function ArchivedTab({
       )}
       {!loading && reports.length > 0 && (
         <Pagination meta={archiveMeta} page={page} onPageChange={setPage} />
+      )}
+
+      {historyReport && (
+        <div className="border-t border-warm-100 p-4">
+          <AuditTrail
+            path={`/api/${apiPrefix}/reports/${historyReport.id}/activity`}
+            title={`${historyReport.title} lifecycle`}
+          />
+        </div>
       )}
 
       {preview && (

@@ -75,8 +75,10 @@ class ClinicalTrailTest extends TestCase
             $this->assertStringNotContainsString($sentinel, $response->getContent());
         }
         foreach ($response->json('data') as $event) {
-            foreach (['old', 'new'] as $bag) {
-                $this->assertTrue(collect($event['changes'][$bag])->every(fn (mixed $value): bool => $value === null));
+            foreach ($event['changes'] as $change) {
+                $this->assertNull($change['old_value']);
+                $this->assertNull($change['new_value']);
+                $this->assertTrue($change['redacted']);
             }
         }
 
@@ -124,16 +126,30 @@ class ClinicalTrailTest extends TestCase
         $ncp = NcpRecord::factory()->create(['patient_id' => $patient->id, 'rnd_user_id' => $rnd->id]);
         $assessment = Assessment::factory()->create(['ncp_record_id' => $ncp->id]);
         $assessment->activities()->delete();
+        $assessment->refresh();
         $this->actingAs($rnd, 'sanctum');
 
         $assessment->update(['rnd_summary' => 'CLINICAL-VALUE-SENTINEL']);
+        $storedUpdate = AuditActivity::query()
+            ->where('subject_type', $assessment->getMorphClass())
+            ->where('subject_id', $assessment->id)
+            ->where('event', AuditAction::Updated->value)
+            ->latest('id')
+            ->firstOrFail();
+        $this->assertSame(['rnd_summary'], $storedUpdate->properties['details']['changed_fields']);
 
         $patientResponse = $this->getJson("/api/rnd/patients/{$patient->uuid}/activity")->assertOk();
         $ncpResponse = $this->getJson("/api/rnd/ncp-records/{$ncp->uuid}/activity")->assertOk();
 
         foreach ([$patientResponse, $ncpResponse] as $response) {
-            $response->assertJsonPath('data.0.event', 'updated');
-            $response->assertJsonPath('data.0.changes.new.rnd_summary', null);
+            $response->assertJsonPath('data.0.action', 'updated');
+            $response->assertJsonPath('data.0.category', 'clinical');
+            $response->assertJsonPath('data.0.domain', 'ncp');
+            $this->assertSame(['rnd_summary'], collect($response->json('data.0.changes'))->pluck('field')->all());
+            $this->assertSame([
+                'id', 'category', 'domain', 'action', 'action_label', 'summary', 'severity', 'outcome',
+                'actor', 'subject', 'context', 'occurred_at', 'details', 'changes',
+            ], array_keys($response->json('data.0')));
             $this->assertStringNotContainsString('CLINICAL-VALUE-SENTINEL', $response->getContent());
             $this->assertStringNotContainsString('PATIENT-NAME-SENTINEL', $response->getContent());
             $this->assertArrayNotHasKey('properties', $response->json('data.0'));
@@ -182,12 +198,15 @@ class ClinicalTrailTest extends TestCase
             $ncp->update(['status' => $status]);
         }
 
-        $allIds = AuditActivity::query()->orderByDesc('id')->pluck('id')->all();
-        $boundary = $allIds[1];
+        $allRows = AuditActivity::query()->orderByDesc('id')->get(['id', 'public_id']);
+        $boundary = $allRows[1]->public_id;
         $response = $this->getJson("/api/rnd/ncp-records/{$ncp->uuid}/activity?before_id={$boundary}")->assertOk();
         $ids = collect($response->json('data'))->pluck('id')->all();
 
-        $this->assertSame(array_values(array_filter($allIds, fn (int $id): bool => $id < $boundary)), $ids);
+        $this->assertCount($allRows->filter(fn (AuditActivity $activity): bool => $activity->id < $allRows[1]->id)->count(), $ids);
+        foreach ($ids as $id) {
+            $this->assertMatchesRegularExpression('/^[0-9a-f-]{36}$/iD', $id);
+        }
         $this->assertSame($ids, array_values(array_unique($ids)));
     }
 
@@ -301,7 +320,7 @@ class ClinicalTrailTest extends TestCase
         $this->deleteJson("/api/rnd/ncp-records/{$ncp->uuid}")->assertNoContent();
         $response = $this->getJson("/api/rnd/patients/{$patient->uuid}/activity")->assertOk();
 
-        $response->assertJsonPath('data.0.event', 'deleted');
+        $response->assertJsonPath('data.0.action', 'deleted');
         $activity = AuditActivity::query()->where('event', 'deleted')->latest('id')->firstOrFail();
         $this->assertSame($patient->id, $activity->properties['details']['root_patient_id']);
         $this->assertSame($rnd->id, $activity->audit_owner_id);
@@ -356,11 +375,12 @@ class ClinicalTrailTest extends TestCase
         $response = $this->actingAs($rnd, 'sanctum')
             ->getJson("/api/rnd/patients/{$patient->uuid}/activity")
             ->assertOk()
-            ->assertJsonPath('data.0.id', $poisoned->id)
-            ->assertJsonPath('data.0.event', 'clinical_activity')
-            ->assertJsonPath('data.0.causer', 'system');
+            ->assertJsonPath('data.0.action', 'updated')
+            ->assertJsonPath('data.0.actor', null)
+            ->assertJsonPath('data.0.changes.0.field', 'medical_diagnosis')
+            ->assertJsonPath('data.0.changes.0.redacted', true);
 
-        $this->assertNotContains($foreign->id, collect($response->json('data'))->pluck('id'));
+        $this->assertNotSame((string) $poisoned->id, $response->json('data.0.id'));
         foreach (['POISON-EVENT-SENTINEL', 'DESCRIPTION-PHI-SENTINEL', 'ATTRIBUTE-PHI-SENTINEL', 'ACTOR-PHI-SENTINEL', 'unexpected'] as $sentinel) {
             $this->assertStringNotContainsString($sentinel, $response->getContent());
         }
@@ -375,7 +395,8 @@ class ClinicalTrailTest extends TestCase
         $this->actingAs($rnd, 'sanctum');
 
         $this->getJson("/api/rnd/patients/{$patient->uuid}/activity")->assertOk();
-        $this->getJson("/api/rnd/patients/{$patient->uuid}/activity?before_id=999999")->assertOk();
+        $cursor = AuditActivity::query()->where('event', AuditAction::AuditLogViewed->value)->sole()->public_id;
+        $this->getJson("/api/rnd/patients/{$patient->uuid}/activity?before_id={$cursor}")->assertOk();
 
         $this->assertSame(2, AuditActivity::query()->where('event', AuditAction::AuditLogViewed->value)->count());
     }

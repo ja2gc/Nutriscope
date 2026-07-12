@@ -532,12 +532,12 @@ npm run lint -- app/admin/audit-logs components/audit services/auditLogService.t
 - Create: `frontend/app/api/rnd/reports/[id]/activity/route.ts`
 - Create: `frontend/app/api/admin/reports/[id]/activity/route.ts`
 
-- [ ] Make `activityService` consume the same `AuditEventDto` as Admin service; keep a shared type module to prevent drift.
-- [ ] Remove arbitrary object formatting and JSON serialization from `HistoryPanel`; migrate callers to `AuditTrail` and then delete the old component when `rg` finds no imports.
-- [ ] Patient/NCP trail shows root-correlated clinical events with field-name-only changes. PO trail shows complete workflow. Budget page shows creator/date plus ledger/domain events. Reports show creator/archive date plus lifecycle events.
-- [ ] Preserve existing route paths until each page and proxy is migrated; remove only inventory activity route.
-- [ ] Add component tests for user/system actors, exact dates, redacted clinical fields, deletion events whose subject no longer exists, and pagination.
-- [ ] Run frontend tests/typecheck and backend trail tests. Commit with `feat: unify contextual audit trails`.
+- [x] Make `activityService` consume the same `AuditEventDto` as Admin service; keep a shared type module to prevent drift.
+- [x] Remove arbitrary object formatting and JSON serialization from `HistoryPanel`; migrate callers to `AuditTrail` and then delete the old component when `rg` finds no imports.
+- [x] Patient/NCP trail shows root-correlated clinical events with field-name-only changes. PO trail shows complete workflow. Budget page shows creator/date plus ledger/domain events. Reports show creator/archive date plus lifecycle events.
+- [x] Preserve existing route paths until each page and proxy is migrated; remove only inventory activity route.
+- [x] Add component tests for user/system actors, exact dates, redacted clinical fields, deletion events whose subject no longer exists, and pagination.
+- [x] Run frontend tests/typecheck and backend trail tests. Commit with `feat: unify contextual audit trails`.
 
 ### Task 13: Retention, Integrity, Monitoring, and Failure Behavior
 

@@ -22,6 +22,7 @@ import {
 } from "@/services/assessmentService";
 import { getNcpStepState, type NcpStep, type NcpStepState } from "@/lib/ncpWorkflow";
 import { formatPatientAge } from "@/lib/patientAge";
+import { AuditTrail } from "@/components/audit/AuditTrail";
 
 type TabKey = "overview" | "adime-records" | "attachments";
 const NCP_STEPS: NcpStep[] = ["assessment", "diagnosis", "intervention", "monitoring"];
@@ -663,6 +664,9 @@ export default function PatientProfilePage({
               )}
             </div>
           </div>
+          <div className="lg:col-span-3">
+            <AuditTrail path={`/api/rnd/patients/${patientId}/activity`} title="Patient and NCP activity" />
+          </div>
         </div>
       )}
 
@@ -831,6 +835,9 @@ export default function PatientProfilePage({
                           />
                         ))}
                       </div>
+                    </div>
+                    <div className="px-5.5 pb-5.5">
+                      <AuditTrail path={`/api/rnd/ncp-records/${record.id}/activity`} title={`${cycleId} activity`} />
                     </div>
                   </div>
                 );

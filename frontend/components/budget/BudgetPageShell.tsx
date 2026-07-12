@@ -8,6 +8,8 @@ import {
   listFiscalYears, getFiscalYearSummary, setupFiscalYear, getLedger, addManualAdjustment,
   type BudgetApiPrefix,
 } from "@/services/budgetService";
+import { AuditTrail } from "@/components/audit/AuditTrail";
+import { AuditTimestamp } from "@/components/audit/AuditTimestamp";
 
 const peso = (n: number) =>
   `PHP ${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -300,6 +302,7 @@ export function BudgetPageShell({ apiPrefix, canMutate, crumbs }: BudgetPageShel
   const [loading, setLoading] = useState(true);
 
   const years = budgets.map((b) => b.fiscal_year).sort((a, b) => b - a);
+  const selectedBudget = budgets.find((budget) => budget.fiscal_year === selectedYear) ?? null;
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -363,6 +366,22 @@ export function BudgetPageShell({ apiPrefix, canMutate, crumbs }: BudgetPageShel
             {/* Three summary cards */}
             <SummarySection summary={summary} notice={notice} />
 
+            {selectedBudget && (
+              <div className="rounded-2xl border border-warm-200 bg-white p-5 shadow-sm">
+                <h2 className="text-sm font-extrabold uppercase tracking-wider text-warm-500">Budget record</h2>
+                <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
+                  <div>
+                    <dt className="text-xs font-bold uppercase tracking-wider text-warm-400">Created by</dt>
+                    <dd className="mt-1 font-semibold text-warm-800">{selectedBudget.creator?.name ?? "System"}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs font-bold uppercase tracking-wider text-warm-400">Created</dt>
+                    <dd className="mt-1 text-warm-700"><AuditTimestamp value={selectedBudget.created_at} /></dd>
+                  </div>
+                </dl>
+              </div>
+            )}
+
             {/* Manual Adjust (RND only, only when budget exists) */}
             {canMutate && summary && (
               <ManualAdjustSection apiPrefix={apiPrefix} fiscalYear={selectedYear} onAdjusted={refresh} />
@@ -370,6 +389,13 @@ export function BudgetPageShell({ apiPrefix, canMutate, crumbs }: BudgetPageShel
 
             {/* Ledger log */}
             <LedgerSection entries={entries} loading={ledgerLoading} filter={ledgerFilter} onFilter={setLedgerFilter} />
+
+            {selectedBudget && (
+              <AuditTrail
+                path={`/api/${apiPrefix}/budgets/${selectedBudget.id}/activity`}
+                title={`FY ${selectedBudget.fiscal_year} budget activity`}
+              />
+            )}
           </>
         )}
       </div>

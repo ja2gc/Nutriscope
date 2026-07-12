@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Enums\AuditAction;
 use App\Enums\AuditCategory;
 use App\Enums\AuditDomain;
+use App\Http\Resources\AuditEventResource;
 use App\Models\AuditActivity;
 use App\Models\Budget;
 use App\Models\BudgetLedger;
@@ -20,19 +21,22 @@ use App\Models\PurchaseOrderItem;
 use App\Models\PurchaseOrderItemCorrection;
 use App\Models\PurchaseOrderVendorGroup;
 use App\Models\Report;
+use App\Models\User;
+use App\Services\Audit\AuditEventPresenter;
 use App\Services\Audit\AuditLogger;
-use App\Services\Audit\AuditSanitizer;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\ValidationException;
 
 class ActivityController extends Controller
 {
     public function __construct(
         private readonly AuditLogger $auditLogger,
-        private readonly AuditSanitizer $sanitizer,
+        private readonly AuditEventPresenter $presenter,
     ) {}
 
     public function purchaseOrder(Request $request, PurchaseOrder $purchaseOrder): JsonResponse
@@ -74,7 +78,7 @@ class ActivityController extends Controller
                     $mealService->where('subject_type', (new MealPrepLog)->getMorphClass())
                         ->whereIn('subject_id', $this->mealPrepLogsForPurchaseOrder($purchaseOrder));
                 });
-            }));
+            }), AuditCategory::Operations, AuditDomain::Procurement);
     }
 
     public function budget(Request $request, Budget $budget): JsonResponse
@@ -92,14 +96,14 @@ class ActivityController extends Controller
                         ->whereIn('subject_id', BudgetLedger::query()->select('id')
                             ->where('fiscal_year', $budget->fiscal_year));
                 });
-            }));
+            }), AuditCategory::Operations, AuditDomain::Budget);
     }
 
     public function report(Request $request, Report $report): JsonResponse
     {
         Gate::authorize('viewTrail', [AuditActivity::class, $report]);
 
-        return $this->directHistory($request, $report);
+        return $this->directHistory($request, $report, AuditDomain::Reports);
     }
 
     public function patient(Request $request, Patient $patient): JsonResponse
@@ -115,7 +119,7 @@ class ActivityController extends Controller
             })->orWhere(function (Builder $legacy) use ($patient): void {
                 $legacy->where('subject_type', NcpRecord::class)
                     ->whereIn('subject_id', NcpRecord::query()->select('id')->where('patient_id', $patient->id));
-            }));
+            }), AuditCategory::Clinical, AuditDomain::Patients);
 
         $this->recordTrailAccess($patient, AuditDomain::Patients);
 
@@ -136,18 +140,18 @@ class ActivityController extends Controller
                         $direct->where('subject_type', $ncpRecord->getMorphClass())
                             ->where('subject_id', $ncpRecord->getKey());
                     });
-            }));
+            }), AuditCategory::Clinical, AuditDomain::Ncp);
 
         $this->recordTrailAccess($ncpRecord, AuditDomain::Ncp);
 
         return $response;
     }
 
-    private function directHistory(Request $request, Model $subject): JsonResponse
+    private function directHistory(Request $request, Model $subject, AuditDomain $domain): JsonResponse
     {
         return $this->history($request, fn (Builder $query): Builder => $query
             ->where('subject_type', $subject->getMorphClass())
-            ->where('subject_id', $subject->getKey()));
+            ->where('subject_id', $subject->getKey()), AuditCategory::Operations, $domain);
     }
 
     private function mealPrepLogsForPurchaseOrder(PurchaseOrder $purchaseOrder): Builder
@@ -171,27 +175,64 @@ class ActivityController extends Controller
     }
 
     /** @param callable(Builder): Builder $scope */
-    private function history(Request $request, callable $scope): JsonResponse
+    private function history(Request $request, callable $scope, AuditCategory $category, AuditDomain $domain): JsonResponse
     {
-        $validated = $request->validate(['before_id' => ['nullable', 'integer', 'min:1']]);
+        $validated = $request->validate(['before_id' => ['nullable', 'uuid']]);
         $query = AuditActivity::query()
             ->auditOnly()
             ->where(fn (Builder $root): Builder => $scope($root))
-            ->when($validated['before_id'] ?? null, fn (Builder $query, int $id): Builder => $query->where('id', '<', $id))
+            ->where(function (Builder $query): void {
+                $query->whereNull('causer_type')->orWhere('causer_type', (new User)->getMorphClass());
+            })
+            ->with(['causer' => function (MorphTo $relation): void {
+                $relation->constrain([
+                    User::class => fn (Builder $query): Builder => $query
+                        ->withTrashed()
+                        ->select('id', 'uuid', 'name', 'role'),
+                ]);
+            }]);
+        if (isset($validated['before_id'])) {
+            $boundaryId = (clone $query)->where('public_id', $validated['before_id'])->value('id');
+            if (! is_int($boundaryId) && (! is_string($boundaryId) || ctype_digit($boundaryId) === false)) {
+                throw ValidationException::withMessages(['before_id' => 'The selected activity cursor is invalid.']);
+            }
+            $query->where('id', '<', (int) $boundaryId);
+        }
+        $query
             ->orderByDesc('id')
             ->limit(101);
         $activities = $query->get();
         $hasMore = $activities->count() > 100;
-        $items = $activities->take(100)->map(fn (AuditActivity $activity): array => $this->present($activity))->values();
+        $pageActivities = $activities->take(100);
+        $items = $pageActivities
+            ->map(function (AuditActivity $activity) use ($request, $category, $domain): array {
+                $this->applyContextTaxonomy($activity, $category, $domain);
+                if ($category === AuditCategory::Clinical) {
+                    $this->sanitizeClinicalFields($activity);
+                }
+
+                return (new AuditEventResource($this->presenter->present($activity)))->resolve($request);
+            })
+            ->values();
 
         return response()->json([
             'data' => $items,
-            'meta' => ['next_before_id' => $hasMore ? $items->last()['id'] : null, 'has_more' => $hasMore],
+            'meta' => ['next_before_id' => $hasMore ? $pageActivities->last()?->public_id : null, 'has_more' => $hasMore],
         ]);
     }
 
-    /** @return array<string, mixed> */
-    private function present(AuditActivity $activity): array
+    private function applyContextTaxonomy(AuditActivity $activity, AuditCategory $fallbackCategory, AuditDomain $fallbackDomain): void
+    {
+        $storedCategory = AuditCategory::tryFrom((string) ($activity->getRawOriginal('category') ?? ''));
+        $storedDomain = AuditDomain::tryFrom((string) ($activity->getRawOriginal('domain') ?? ''));
+        $activity->setAttribute(
+            'category',
+            $fallbackCategory === AuditCategory::Clinical ? AuditCategory::Clinical : ($storedCategory ?? $fallbackCategory),
+        );
+        $activity->setAttribute('domain', $storedDomain ?? $fallbackDomain);
+    }
+
+    private function sanitizeClinicalFields(AuditActivity $activity): void
     {
         $subjectClass = $activity->subject_type;
         $allowedFields = is_string($subjectClass)
@@ -199,49 +240,21 @@ class ActivityController extends Controller
             && in_array(AuditsChanges::class, class_uses_recursive($subjectClass), true)
                 ? (new $subjectClass)->getActivitylogOptions()->logAttributes
                 : [];
-        $fields = collect($activity->properties['details']['changed_fields'] ?? [])
-            ->merge($activity->properties['details']['fields'] ?? [])
-            ->merge(array_keys((array) ($activity->properties['attributes'] ?? [])))
-            ->merge(array_keys((array) ($activity->properties['old'] ?? [])))
+        $properties = $activity->properties?->all() ?? [];
+        $details = is_array($properties['details'] ?? null) ? $properties['details'] : [];
+        $hasStoredFieldList = is_array($details['changed_fields'] ?? null) || is_array($details['fields'] ?? null);
+        $fields = ($hasStoredFieldList
+            ? collect($details['changed_fields'] ?? [])->merge($details['fields'] ?? [])
+            : collect(array_keys(is_array($properties['attributes'] ?? null) ? $properties['attributes'] : []))
+                ->merge(array_keys(is_array($properties['old'] ?? null) ? $properties['old'] : [])))
             ->intersect($allowedFields)
             ->filter(fn (mixed $field): bool => is_string($field))
-            ->unique()->sort()->values();
-        $hiddenValues = $fields->mapWithKeys(fn (string $field): array => [$field => null])->all();
-        $action = AuditAction::tryFrom((string) $activity->event);
+            ->unique()->sort()->values()->all();
 
-        return [
-            'id' => $activity->id,
-            'event' => $action?->value ?? 'clinical_activity',
-            'description' => $this->safeDescription($activity),
-            'subject_id' => $activity->subject_id,
-            'causer' => $this->safeActor($activity),
-            'changes' => ['old' => $hiddenValues, 'new' => $hiddenValues],
-            'created_at' => $activity->created_at,
-        ];
-    }
-
-    private function safeActor(AuditActivity $activity): string
-    {
-        $actor = $activity->properties['actor'] ?? null;
-        if (! is_array($actor)
-            || ($actor['kind'] ?? null) !== 'user'
-            || preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iD', (string) ($actor['public_id'] ?? '')) !== 1
-            || ! in_array($actor['role'] ?? null, ['RND', 'FSS', 'Admin'], true)
-        ) {
-            return 'system';
-        }
-
-        return $this->sanitizer->text(is_string($actor['name'] ?? null) ? $actor['name'] : null) ?? 'user';
-    }
-
-    private function safeDescription(AuditActivity $activity): string
-    {
-        $description = trim((string) $activity->description);
-        if (preg_match('/^(?:Created|Updated|Deleted) (?:patient|NCP record|assessment|diagnosis|intervention|meal plan|monitoring|screening document)$/iD', $description) === 1) {
-            return $description;
-        }
-
-        return AuditAction::tryFrom((string) $activity->event)?->label() ?? 'Clinical activity';
+        unset($details['fields']);
+        $details['changed_fields'] = $fields;
+        $properties['details'] = $details;
+        $activity->setAttribute('properties', $properties);
     }
 
     private function recordTrailAccess(Model $subject, AuditDomain $domain): void

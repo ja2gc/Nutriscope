@@ -19,7 +19,7 @@ import {
 } from "@/services/procurementService";
 import { listSuppliers, Supplier } from "@/services/supplierService";
 import { searchCatalog, type CatalogItem } from "@/services/fsCatalogService";
-import { HistoryPanel } from "@/components/HistoryPanel";
+import { AuditTrail } from "@/components/audit/AuditTrail";
 import { SuppliersPanel } from "@/components/foodservice/SuppliersPanel";
 import { ImageUploadGallery, type UploadImage } from "@/components/ui/ImageUploadGallery";
 
@@ -611,7 +611,7 @@ function PurchaseEventDetailView({ po, onBack, reload }: { po: PurchaseOrder; on
           </tbody>
         </table>
       </div>
-      <HistoryPanel path={`/api/fss/purchase-orders/${po.id}/activity`} title="Purchase order history" />
+      <AuditTrail path={`/api/fss/purchase-orders/${po.id}/activity`} title="Purchase order activity" />
     </div>
   );
 }

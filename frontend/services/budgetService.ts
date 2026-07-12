@@ -1,11 +1,14 @@
 import { apiFetch } from "@/lib/apiFetch";
 
 export interface FiscalYearBudget {
-  id: number;
+  id: string;
   fiscal_year: number;
   allocated_amount: string;
   total_deductions: string;
   remaining: string;
+  creator: { id: string; name: string } | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface BudgetLedgerEntry {

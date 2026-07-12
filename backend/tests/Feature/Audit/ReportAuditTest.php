@@ -141,13 +141,29 @@ class ReportAuditTest extends TestCase
             'type' => 'procurement_pack',
             'status' => 'archived',
         ]);
-        activity(config('audit.log_name'))->event(AuditAction::Archived->value)->performedOn($report)->log('Archived');
+        AuditActivity::create([
+            'log_name' => config('audit.log_name'),
+            'event' => AuditAction::Archived->value,
+            'category' => 'operations',
+            'domain' => 'reports',
+            'description' => 'Archived report',
+            'subject_type' => Report::class,
+            'subject_id' => $report->id,
+            'subject_public_id' => $report->uuid,
+        ]);
 
-        $this->actingAs($owner, 'sanctum')->getJson("/api/rnd/reports/{$report->uuid}/activity")
-            ->assertOk()->assertJsonPath('data.0.event', 'archived');
+        $event = $this->actingAs($owner, 'sanctum')->getJson("/api/rnd/reports/{$report->uuid}/activity")
+            ->assertOk()->assertJsonPath('data.0.action', 'archived')->json('data.0');
+        $this->assertSame([
+            'id', 'category', 'domain', 'action', 'action_label', 'summary', 'severity', 'outcome',
+            'actor', 'subject', 'context', 'occurred_at', 'details', 'changes',
+        ], array_keys($event));
+        $this->assertSame('operations', $event['category']);
+        $this->assertSame('reports', $event['domain']);
+        $this->assertArrayNotHasKey('subject_id', $event);
         $this->actingAs($other, 'sanctum')->getJson("/api/rnd/reports/{$report->uuid}/activity")->assertForbidden();
         $this->actingAs($admin, 'sanctum')->getJson("/api/admin/reports/{$report->uuid}/activity")
-            ->assertOk()->assertJsonPath('data.0.event', 'archived');
+            ->assertOk()->assertJsonPath('data.0.action', 'archived');
         $this->actingAs($owner, 'sanctum')->getJson("/api/admin/reports/{$report->uuid}/activity")->assertForbidden();
     }
 

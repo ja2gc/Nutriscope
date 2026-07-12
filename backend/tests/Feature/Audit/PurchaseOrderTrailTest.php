@@ -72,7 +72,7 @@ class PurchaseOrderTrailTest extends TestCase
         $this->assertStringNotContainsString('proof.jpg', $encoded);
 
         $actions = array_column($this->getJson("/api/fss/purchase-orders/{$po->uuid}/activity")
-            ->assertOk()->json('data'), 'event');
+            ->assertOk()->json('data'), 'action');
         $this->assertContains(AuditAction::Approved->value, $actions);
         $this->assertContains(AuditAction::Uploaded->value, $actions);
         $this->assertContains(AuditAction::PriceCorrected->value, $actions);
@@ -109,7 +109,7 @@ class PurchaseOrderTrailTest extends TestCase
         $this->assertSame($po->id, $deductionEvent->context_id);
         $this->assertSame(0, AuditActivity::query()->where('subject_type', (new Inventory)->getMorphClass())->count());
         $actions = array_column($this->getJson("/api/fss/purchase-orders/{$po->uuid}/activity")
-            ->assertOk()->json('data'), 'event');
+            ->assertOk()->json('data'), 'action');
         $this->assertContains(AuditAction::Received->value, $actions);
         $this->assertContains(AuditAction::Completed->value, $actions);
         $this->assertContains(AuditAction::Adjusted->value, $actions);
@@ -340,10 +340,17 @@ class PurchaseOrderTrailTest extends TestCase
             'fiscal_year' => 2096, 'type' => 'manual_addition', 'amount' => 1000, 'reason' => 'Adjustment',
         ])->assertCreated();
 
-        $this->actingAs($fss)->getJson("/api/fss/budgets/{$budget->uuid}/activity")
-            ->assertOk()->assertJsonCount(1, 'data');
-        $this->actingAs($admin)->getJson("/api/admin/budgets/{$budget->uuid}/activity")
-            ->assertOk()->assertJsonCount(1, 'data');
+        foreach ([$fss, $admin] as $viewer) {
+            $event = $this->actingAs($viewer)->getJson('/api/'.($viewer->role === 'Admin' ? 'admin' : 'fss')."/budgets/{$budget->uuid}/activity")
+                ->assertOk()->assertJsonCount(1, 'data')->json('data.0');
+            $this->assertSame([
+                'id', 'category', 'domain', 'action', 'action_label', 'summary', 'severity', 'outcome',
+                'actor', 'subject', 'context', 'occurred_at', 'details', 'changes',
+            ], array_keys($event));
+            $this->assertSame('operations', $event['category']);
+            $this->assertSame('budget', $event['domain']);
+            $this->assertArrayNotHasKey('subject_id', $event);
+        }
         $this->postJson("/api/admin/budgets/{$budget->uuid}/activity")->assertMethodNotAllowed();
     }
 
@@ -473,9 +480,9 @@ class PurchaseOrderTrailTest extends TestCase
         ]);
         $log->update(['purchase_order_id' => null]);
         $ids = collect($this->getJson("/api/fss/purchase-orders/{$po->uuid}/activity")->assertOk()->json('data'))->pluck('id');
-        $this->assertTrue($ids->contains($legacy->id));
+        $this->assertTrue($ids->contains($legacy->public_id));
         $overlapIds = collect($this->getJson("/api/fss/purchase-orders/{$overlapPo->uuid}/activity")->assertOk()->json('data'))->pluck('id');
-        $this->assertFalse($overlapIds->contains($legacy->id));
+        $this->assertFalse($overlapIds->contains($legacy->public_id));
     }
 
     public function test_diet_list_count_has_one_safe_food_service_event(): void
