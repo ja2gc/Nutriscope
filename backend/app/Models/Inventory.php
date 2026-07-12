@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use App\Models\Concerns\AuditsChanges;
 use App\Models\Concerns\HasPublicId;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -10,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Inventory extends Model
 {
-    use HasFactory, AuditsChanges, HasPublicId;
+    use HasFactory, HasPublicId;
 
     protected $table = 'inventory';
 
@@ -24,11 +23,6 @@ class Inventory extends Model
         'quantity_in_stock' => 'decimal:2',
         'unit_price'        => 'decimal:2',
     ];
-
-    protected function auditAttributes(): array
-    {
-        return ['item_type', 'fs_item_id', 'recipe_id', 'quantity_in_stock', 'unit', 'unit_price'];
-    }
 
     /** Stock of a catalog item (ingredient or supply). */
     public function fsItem(): BelongsTo

@@ -9,7 +9,6 @@ use App\Models\AuditActivity;
 use App\Models\Budget;
 use App\Models\BudgetLedger;
 use App\Models\Concerns\AuditsChanges;
-use App\Models\Inventory;
 use App\Models\MealPrepLog;
 use App\Models\MenuCycleDay;
 use App\Models\NcpRecord;
@@ -36,11 +35,6 @@ class ActivityController extends Controller
         private readonly AuditLogger $auditLogger,
         private readonly AuditSanitizer $sanitizer,
     ) {}
-
-    public function inventory(Request $request, Inventory $inventory): JsonResponse
-    {
-        return $this->directHistory($request, $inventory);
-    }
 
     public function purchaseOrder(Request $request, PurchaseOrder $purchaseOrder): JsonResponse
     {

@@ -669,13 +669,13 @@ class AuditPrivacyTest extends TestCase
 
     public function test_operational_model_values_are_sanitized_before_storage(): void
     {
-        $inventory = Inventory::factory()->create(['fs_item_id' => FsItem::factory()->create()->id, 'unit' => 'kg']);
+        $catalogItem = FsItem::factory()->create(['category' => 'Dry goods']);
 
-        $inventory->update(['unit' => "g\r\nFORGED"]);
+        $catalogItem->update(['category' => "Bulk\r\nFORGED"]);
 
-        $activity = $inventory->activities()->where('event', 'updated')->latest()->firstOrFail();
-        $this->assertSame('gFORGED', $activity->properties['attributes']['unit']);
-        $this->assertSame('kg', $activity->properties['old']['unit']);
+        $activity = $catalogItem->activities()->where('event', 'updated')->latest()->firstOrFail();
+        $this->assertSame('BulkFORGED', $activity->properties['attributes']['category']);
+        $this->assertSame('Dry goods', $activity->properties['old']['category']);
     }
 
     public function test_model_events_store_actor_snapshot_metadata_and_root_context(): void

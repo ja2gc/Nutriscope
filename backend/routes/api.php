@@ -247,9 +247,6 @@ Route::middleware(['auth:sanctum', 'active', 'role:FSS,RND'])->prefix('fss')->gr
     // Food Service settings — budget per head per day (FSS read, RND writes below)
     Route::get('food-service-settings', [FoodServiceSettingController::class, 'show']);
 
-    // Per-record audit history (Spec 5)
-    Route::get('inventory/{inventory}/activity', [ActivityController::class, 'inventory']);
-
     // Consumption (meal prep / service-day completion)
     Route::get('meal-prep-logs', [MealPrepLogController::class, 'index']);
     Route::post('menu-cycles/{menuCycle}/complete-day', [MealPrepLogController::class, 'complete']);
