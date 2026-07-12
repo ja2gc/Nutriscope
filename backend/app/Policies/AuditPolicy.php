@@ -5,10 +5,20 @@ namespace App\Policies;
 use App\Models\AuditActivity;
 use App\Models\NcpRecord;
 use App\Models\Patient;
+use App\Models\Report;
 use App\Models\User;
 
 class AuditPolicy
 {
+    public function viewReportTrail(User $user, Report $report): bool
+    {
+        return match ($user->role) {
+            'Admin' => in_array($report->type, Report::ADMIN_ALLOWED_TYPES, true),
+            'RND' => $report->user_id === $user->id || $report->type === 'accomplishment_report',
+            default => false,
+        };
+    }
+
     public function viewPatientTrail(User $user, Patient $patient): bool
     {
         return $user->role === 'RND'

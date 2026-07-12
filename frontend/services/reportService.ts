@@ -10,7 +10,8 @@ export type ReportType =
   | "ncp_summary";
 
 export interface ReportItem {
-  id: number;
+  id: string;
+  created_by: { id: string; name: string } | null;
   title: string;
   type: string;
   status: "pending" | "generating" | "completed" | "failed" | "queued" | "archived";
@@ -18,6 +19,7 @@ export interface ReportItem {
   snapshot: ReportSnapshot | null;
   generated_at: string | null;
   created_at: string;
+  updated_at: string;
 }
 
 /** The frozen as-filed metadata captured when a report is archived (Spec 4). */
@@ -47,7 +49,7 @@ export interface Signatory {
 }
 
 export interface ReportTemplate {
-  id: number;
+  id: string;
   type: string;
   name: string;
   description: string | null;
@@ -79,16 +81,16 @@ export async function listReports(prefix: "rnd" | "admin" = "rnd"): Promise<Repo
   return unwrap(await apiFetch(`/api/${prefix}/reports`), "Failed to load reports.");
 }
 
-export async function deleteReport(id: number, prefix: "rnd" | "admin" = "rnd"): Promise<void> {
+export async function deleteReport(id: string, prefix: "rnd" | "admin" = "rnd"): Promise<void> {
   const res = await apiFetch(`/api/${prefix}/reports/${id}`, { method: "DELETE" });
   if (!res.ok && res.status !== 204) throw new Error("Failed to delete report.");
 }
 
-export const reportDownloadUrl = (id: number, prefix: "rnd" | "admin" = "rnd") =>
+export const reportDownloadUrl = (id: string, prefix: "rnd" | "admin" = "rnd") =>
   `/api/${prefix}/reports/${id}/download`;
 
 /** Inline (viewable) URL for an archived copy's frozen PDF — for the preview pane. */
-export const reportViewUrl = (id: number, prefix: "rnd" | "admin" = "rnd") =>
+export const reportViewUrl = (id: string, prefix: "rnd" | "admin" = "rnd") =>
   `/api/${prefix}/reports/${id}/view`;
 
 // ── Browse / on-demand render / archive (Spec 4) ──────────────────────────
@@ -117,6 +119,9 @@ export const reportRenderUrl = (
   params: ReportParams,
   prefix: "rnd" | "admin" = "rnd",
 ) => `/api/${prefix}/reports/${type}/render${toQuery(params)}`;
+
+export const reportExportUrl = (type: ReportType | string, params: ReportParams, prefix: "rnd" | "admin" = "rnd") =>
+  `/api/${prefix}/reports/${type}/export${toQuery(params)}`;
 
 /** Freeze an as-filed copy: render, store, and persist a snapshot. */
 export async function archiveReport(
@@ -167,7 +172,7 @@ export async function listTemplates(): Promise<ReportTemplate[]> {
   return unwrap(await apiFetch("/api/rnd/report-templates"), "Failed to load templates.");
 }
 
-export async function saveTemplate(id: number, payload: { name?: string; signatories?: Signatory[] }): Promise<ReportTemplate> {
+export async function saveTemplate(id: string, payload: { name?: string; signatories?: Signatory[] }): Promise<ReportTemplate> {
   return unwrap(
     await apiFetch(`/api/rnd/report-templates/${id}`, {
       method: "PATCH",

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Enums\AuditAction;
 use App\Enums\AuditCategory;
 use App\Enums\AuditDomain;
+use App\Enums\AuditOutcome;
 use App\Http\Requests\StoreReportRequest;
 use App\Http\Resources\ReportResource;
 use App\Jobs\GenerateReport;
@@ -16,6 +17,8 @@ use App\Models\ReportTemplate;
 use App\Policies\AuditPolicy;
 use App\Services\Audit\AuditContextResolver;
 use App\Services\Audit\AuditLogger;
+use App\Services\Reports\ReportArchiveStorage;
+use App\Services\Reports\ReportAuditReference;
 use App\Services\Reports\ReportBrowser;
 use App\Services\Reports\ReportService;
 use Illuminate\Http\JsonResponse;
@@ -31,6 +34,8 @@ class ReportController extends Controller
         private readonly AuditPolicy $auditPolicy,
         private readonly AuditLogger $auditLogger,
         private readonly AuditContextResolver $auditContextResolver,
+        private readonly ReportArchiveStorage $archiveStorage,
+        private readonly ReportAuditReference $auditReference,
     ) {}
 
     /** The Food-Service report set produced by Generate-All. */
@@ -59,17 +64,11 @@ class ReportController extends Controller
      * SINGLE source of truth — also enforced in index() filtering.
      * Admin must NEVER reach ncp_summary or patient_menu_plan (PHI).
      */
-    public const ADMIN_ALLOWED_TYPES = [
-        'demographic_census',
-        'program_project_activity',
-        'menu_calendar',
-        'procurement_pack',
-        'accomplishment_report',
-    ];
+    public const ADMIN_ALLOWED_TYPES = Report::ADMIN_ALLOWED_TYPES;
 
     public function index(): JsonResponse
     {
-        $query = Report::latest();
+        $query = Report::query()->with('user:id,uuid,name')->latest();
         $role = Auth::user()?->role;
 
         // RND supervises FSS: in addition to their own rows, RND sees every
@@ -178,12 +177,27 @@ class ReportController extends Controller
         abort_unless($browser->sourceFor($type)->hasData($params), 404, 'No data for this report period.');
 
         $bytes = $reports->streamBytes($type, $params);
-        $this->recordClinicalReport(AuditAction::Viewed, $type, $params, status: 200);
+        $this->recordReportEvent(AuditAction::Viewed, $type, $params, status: 200);
 
         return response($bytes, 200, [
             'Content-Type' => 'application/pdf',
             'Content-Disposition' => 'inline; filename="'.$type.'.pdf"',
         ]);
+    }
+
+    public function export(Request $request, string $type, ReportService $reports, ReportBrowser $browser): Response
+    {
+        abort_unless($reports->supports($type) && $browser->supports($type), 404, 'Unknown report type.');
+        $this->guardClinical($type);
+        $this->guardAdmin($type);
+        $this->guardFss($type);
+        $params = $this->renderParams($request, $type);
+        $this->authorizeClinicalReportContext($type, $params);
+        abort_unless($browser->sourceFor($type)->hasData($params), 404, 'No data for this report period.');
+        $bytes = $reports->streamBytes($type, $params);
+        $this->recordReportEvent(AuditAction::Downloaded, $type, $params, status: 200);
+
+        return response($bytes, 200, ['Content-Type' => 'application/pdf', 'Content-Disposition' => 'attachment; filename="'.$type.'.pdf"']);
     }
 
     /**
@@ -202,28 +216,38 @@ class ReportController extends Controller
         abort_unless($browser->sourceFor($type)->hasData($params), 404, 'No data for this report period.');
 
         $template = ReportTemplate::where('type', $type)->first();
-        $report = $this->createReport($type, $template?->name ?? $type, $params, 'archived');
+        $path = null;
+        try {
+            $report = $this->audited(function () use ($type, $template, $params, $reports, &$path): Report {
+                $report = $this->createReport($type, $template?->name ?? $type, $params);
+                $path = $reports->generate($report);
+                $report->update([
+                    'status' => 'archived',
+                    'file_path' => $path,
+                    'generated_at' => now(),
+                    'snapshot' => [
+                        'branding' => ReportBranding::singleton()->only([
+                            'hospital_name', 'address', 'accreditation', 'service_name',
+                            'province', 'lgu', 'logo_left_path', 'logo_right_path',
+                        ]),
+                        'signatories' => $reports->signatoriesFor($report),
+                        'params' => $report->parameters,
+                        'archived_at' => now()->toIso8601String(),
+                    ],
+                ]);
+                $this->recordReportEvent(AuditAction::Archived, $type, $params, $report, 201);
 
-        $path = $reports->generate($report);
+                return $report;
+            });
+        } catch (\Throwable $exception) {
+            if ($path !== null) {
+                $this->archiveStorage->cleanupGenerated($path);
+            }
 
-        $this->audited(function () use ($report, $path, $reports, $type, $params): void {
-            $report->update([
-                'file_path' => $path,
-                'generated_at' => now(),
-                'snapshot' => [
-                    'branding' => ReportBranding::singleton()->only([
-                        'hospital_name', 'address', 'accreditation', 'service_name',
-                        'province', 'lgu', 'logo_left_path', 'logo_right_path',
-                    ]),
-                    'signatories' => $reports->signatoriesFor($report),
-                    'params' => $report->parameters,
-                    'archived_at' => now()->toIso8601String(),
-                ],
-            ]);
-            $this->recordClinicalReport(AuditAction::Exported, $type, $params, $report, 201);
-        });
+            throw $exception;
+        }
 
-        return response()->json(['data' => new ReportResource($report->fresh())], 201);
+        return response()->json(['data' => new ReportResource($report->fresh()->load('user:id,uuid,name'))], 201);
     }
 
     /**
@@ -250,7 +274,9 @@ class ReportController extends Controller
         $this->guardClinical($report->type);
         $this->guardAdmin($report->type);
 
-        return response()->json(['data' => new ReportResource($report)]);
+        $this->recordReportEvent(AuditAction::Viewed, $report->type, $report->parameters ?? [], $report, 200);
+
+        return response()->json(['data' => new ReportResource($report->load('user:id,uuid,name'))]);
     }
 
     public function download(Report $report): StreamedResponse|JsonResponse
@@ -264,7 +290,7 @@ class ReportController extends Controller
         }
 
         $name = str($report->title)->slug().'.pdf';
-        $this->recordClinicalReport(AuditAction::Downloaded, $report->type, $report->parameters ?? [], $report, 200);
+        $this->recordReportEvent(AuditAction::Downloaded, $report->type, $report->parameters ?? [], $report, 200);
 
         return Storage::disk('public')->download($report->file_path, $name);
     }
@@ -283,7 +309,7 @@ class ReportController extends Controller
             return response()->json(['message' => 'Report file not available.'], 404);
         }
 
-        $this->recordClinicalReport(AuditAction::Viewed, $report->type, $report->parameters ?? [], $report, 200);
+        $this->recordReportEvent(AuditAction::Viewed, $report->type, $report->parameters ?? [], $report, 200);
 
         return Storage::disk('public')->response($report->file_path, str($report->title)->slug().'.pdf', [
             'Content-Type' => 'application/pdf',
@@ -296,10 +322,21 @@ class ReportController extends Controller
         $this->authorizeOwner($report);
         $this->guardClinical($report->type);
 
-        if ($report->file_path) {
-            Storage::disk('public')->delete($report->file_path);
+        $move = $this->archiveStorage->quarantine($report->file_path);
+        try {
+            $this->audited(function () use ($report, $move): void {
+                $this->recordReportEvent(AuditAction::Deleted, $report->type, $report->parameters ?? [], $report, 204);
+                $report->delete();
+                if ($move !== null) {
+                    $this->archiveStorage->deleteAfterCommit($move);
+                }
+            });
+        } catch (\Throwable $exception) {
+            if ($move !== null) {
+                $this->archiveStorage->restoreDurably($move);
+            }
+            throw $exception;
         }
-        $report->delete();
 
         return response()->json(null, 204);
     }
@@ -329,7 +366,7 @@ class ReportController extends Controller
         abort(403, 'This report contains patient data and is restricted to the RND role.');
     }
 
-    private function recordClinicalReport(
+    private function recordReportEvent(
         AuditAction $action,
         string $type,
         array $parameters,
@@ -337,18 +374,18 @@ class ReportController extends Controller
         int $status = 200,
     ): void {
         $ncpRecord = $this->ncpContextForReport($type, $parameters, $report);
-        if ($ncpRecord === null) {
-            return;
+        if ($ncpRecord !== null) {
+            $this->authorizeClinicalReportContext($type, $parameters, $report);
         }
 
-        $this->authorizeClinicalReportContext($type, $parameters, $report);
         $this->auditLogger->record(
             $action,
-            AuditCategory::Clinical,
+            $ncpRecord === null ? AuditCategory::Operations : AuditCategory::Clinical,
             AuditDomain::Reports,
             subject: $report ?? $ncpRecord,
             context: $ncpRecord,
-            details: ['status' => $status],
+            outcome: $status >= 400 ? AuditOutcome::Failure : AuditOutcome::Success,
+            details: $this->auditReference->details($type, $parameters, $report, $status),
         );
     }
 

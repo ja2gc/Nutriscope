@@ -20,4 +20,15 @@ describe("admin report catalog", () => {
     expect(adminCatalog).not.toContain("patient_menu_plan");
     expect(adminCatalog).not.toContain("ncp_summary");
   });
+
+  test("shows accessible creator and archive attribution without raw metadata", () => {
+    const source = readFileSync(join(root, "components/reports/ReportsBrowser.tsx"), "utf8");
+
+    expect(source).toContain("Created by");
+    expect(source).toContain("r.created_by?.name");
+    expect(source).toContain("Asia/Manila");
+    expect(source).toContain("<time");
+    expect(source).not.toContain("JSON.stringify");
+    expect(source).not.toContain("<pre");
+  });
 });

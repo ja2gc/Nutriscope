@@ -56,6 +56,7 @@ $reportRoutes = function () {
     Route::get('reports/{type}/instances', [ReportController::class, 'instances'])->where('type', '[a-z_]+');
     Route::middleware('throttle:reports')->group(function () {
         Route::get('reports/{type}/render', [ReportController::class, 'render'])->where('type', '[a-z_]+');
+        Route::get('reports/{type}/export', [ReportController::class, 'export'])->where('type', '[a-z_]+');
         Route::post('reports/{type}/archive', [ReportController::class, 'archive'])->where('type', '[a-z_]+');
     });
     Route::get('reports/{report}/download', [ReportController::class, 'download']);
@@ -181,6 +182,9 @@ Route::middleware(['auth:sanctum', 'active', 'role:RND'])->prefix('rnd')->group(
     // Calendar Events routes
     Route::post('calendar-events', [CalendarEventController::class, 'store']);
     Route::get('calendar-events', [CalendarEventController::class, 'index']);
+
+    // Specific route precedes the report binding routes below.
+    Route::get('reports/{report}/activity', [ActivityController::class, 'report']);
 
     // Reports routes (shared with FSS — see $reportRoutes above)
     $reportRoutes();
@@ -336,10 +340,14 @@ Route::middleware(['auth:sanctum', 'active', 'role:Admin'])->prefix('admin')->gr
     Route::get('food-service-settings', [FoodServiceSettingController::class, 'show']);
     Route::put('food-service-settings', [FoodServiceSettingController::class, 'update']);
 
+    // Specific route precedes the type/report binding routes below.
+    Route::get('reports/{report}/activity', [ActivityController::class, 'report']);
+
     // Reports browse: Admin-scoped subset with RND parity except patient-specific reports.
     // ReportController::guardAdmin() enforces the allowlist; 403 for any other type.
     Route::get('reports/{type}/instances', [ReportController::class, 'instances'])->where('type', '[a-z_]+');
     Route::get('reports/{type}/render', [ReportController::class, 'render'])->where('type', '[a-z_]+');
+    Route::get('reports/{type}/export', [ReportController::class, 'export'])->where('type', '[a-z_]+');
     Route::post('reports/{type}/archive', [ReportController::class, 'archive'])->where('type', '[a-z_]+');
     Route::get('reports/{report}/download', [ReportController::class, 'download']);
     Route::get('reports/{report}/view', [ReportController::class, 'view']);

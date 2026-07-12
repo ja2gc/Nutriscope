@@ -25,12 +25,11 @@ class DietListCountController extends Controller
         $validated = $request->validated();
 
         // Self-scoped write: force fss_user_id to the authenticated user; never accept from request.
-        $count = $this->audited(function () use ($validated, $archives, $request): DietListCount {
+        $count = $this->audited(function () use ($validated): DietListCount {
             $count = DietListCount::create([
                 ...$validated,
                 'fss_user_id' => Auth::id(),
             ]);
-            $archives->archiveCompletedWeek($request->user(), $count->service_date->toDateString());
             $this->auditLogger->record(
                 AuditAction::Created,
                 AuditCategory::Operations,
@@ -46,6 +45,8 @@ class DietListCountController extends Controller
 
             return $count;
         });
+
+        $archives->archiveCompletedWeek($request->user(), $count->service_date->toDateString());
 
         return response()->json(['data' => $count], 201);
     }

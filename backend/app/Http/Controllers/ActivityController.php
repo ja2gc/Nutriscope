@@ -20,6 +20,7 @@ use App\Models\PurchaseOrderAttachment;
 use App\Models\PurchaseOrderItem;
 use App\Models\PurchaseOrderItemCorrection;
 use App\Models\PurchaseOrderVendorGroup;
+use App\Models\Report;
 use App\Policies\AuditPolicy;
 use App\Services\Audit\AuditLogger;
 use App\Services\Audit\AuditSanitizer;
@@ -99,6 +100,13 @@ class ActivityController extends Controller
                             ->where('fiscal_year', $budget->fiscal_year));
                 });
             }));
+    }
+
+    public function report(Request $request, Report $report): JsonResponse
+    {
+        abort_unless($this->policy->viewReportTrail($request->user(), $report), 403);
+
+        return $this->directHistory($request, $report);
     }
 
     public function patient(Request $request, Patient $patient): JsonResponse

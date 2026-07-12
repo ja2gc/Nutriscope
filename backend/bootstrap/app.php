@@ -24,6 +24,10 @@ return Application::configure(basePath: dirname(__DIR__))
         $schedule->command('notifications:follow-up-reminders')
             ->dailyAt('07:00')
             ->withoutOverlapping();
+        $schedule->command('reports:process-file-operations')
+            ->everyFiveMinutes()
+            ->withoutOverlapping()
+            ->onOneServer();
     })
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->append(RecordSecurityRejections::class);

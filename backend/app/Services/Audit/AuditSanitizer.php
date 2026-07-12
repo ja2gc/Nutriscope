@@ -46,7 +46,8 @@ class AuditSanitizer
         'route', 'route_name', 'method', 'status', 'status_code', 'document_type',
         'attachment_type', 'format', 'count', 'source', 'generation_type',
         'identifier', 'public_id', 'reason_code', 'record_id', 'root_patient_id',
-        'ncp_record_id',
+        'ncp_record_id', 'report_type', 'report_public_id', 'period_reference',
+        'instance_reference',
     ];
 
     public function details(array $details, AuditCategory $category): array
@@ -117,7 +118,7 @@ class AuditSanitizer
 
             if (in_array($key, self::CLINICAL_SCALAR_KEYS, true)
                 && (is_string($value) || is_int($value) || is_float($value) || is_bool($value) || $value === null)) {
-                if (is_string($value) && in_array($key, ['identifier', 'public_id'], true)) {
+                if (is_string($value) && in_array($key, ['identifier', 'public_id', 'report_public_id', 'instance_reference'], true)) {
                     if (filter_var(trim($value), FILTER_VALIDATE_EMAIL) !== false) {
                         $sanitized[$key] = $this->maskEmail($value);
                     } elseif (preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iD', trim($value)) === 1) {

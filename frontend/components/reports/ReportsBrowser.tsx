@@ -16,7 +16,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import {
   ReportItem, ReportTemplate, Branding, ReportAxis, ReportInstance,
   listReports, deleteReport, reportDownloadUrl, reportViewUrl,
-  listInstances, reportRenderUrl, archiveReport,
+  listInstances, reportRenderUrl, reportExportUrl, archiveReport,
   getBranding, saveBranding, listTemplates, saveTemplate,
 } from "@/services/reportService";
 import { ReportPreview } from "@/components/ReportPreview";
@@ -27,6 +27,14 @@ const lbl = "block text-xs font-extrabold text-warm-500 uppercase tracking-wider
 const STATUS_TONE: Record<string, BadgeTone> = {
   archived: "violet", completed: "emerald", generating: "amber", pending: "amber", queued: "amber", failed: "red",
 };
+
+function reportDate(value: string): string {
+  return new Date(value).toLocaleString("en-PH", {
+    timeZone: "Asia/Manila",
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+}
 
 type TabKey = "browse" | "archived" | "templates";
 
@@ -319,7 +327,7 @@ function InstancesPanel({
         <ReportPreview
           title={`${entry.name} — ${preview.label}`}
           src={reportRenderUrl(entry.type, preview.params, apiPrefix)}
-          downloadUrl={reportRenderUrl(entry.type, preview.params, apiPrefix)}
+          downloadUrl={reportExportUrl(entry.type, preview.params, apiPrefix)}
           onArchive={() => onArchive(preview)}
           archiving={busy === preview.key}
           onClose={() => setPreview(null)}
@@ -367,7 +375,7 @@ function ArchivedTab({
     last_page: Math.max(1, Math.ceil(reports.length / 15)),
   }), [reports.length, page]);
 
-  async function onDelete(id: number) {
+  async function onDelete(id: string) {
     try {
       await deleteReport(id, apiPrefix);
       onFlash(true, "Archived copy deleted.");
@@ -399,9 +407,10 @@ function ArchivedTab({
           />
         </div>
       ) : (
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto">
+        <table className="w-full min-w-[760px] text-sm">
           <thead className="bg-warm-50 border-b border-warm-100">
-            <tr>{["Report", "Type", "Archived", "Status", "Actions"].map((h) => (
+            <tr>{["Report", "Type", "Created by", "Archived", "Status", "Actions"].map((h) => (
               <th key={h} className="px-4 py-3 text-left text-xs font-bold text-warm-500 uppercase tracking-wider">{h}</th>
             ))}</tr>
           </thead>
@@ -410,7 +419,14 @@ function ArchivedTab({
               <tr key={r.id} className="hover:bg-warm-50/60">
                 <td className="px-4 py-3 font-semibold text-warm-800">{r.title}</td>
                 <td className="px-4 py-3 text-warm-500">{label(r.type)}</td>
-                <td className="px-4 py-3 text-warm-500 tabular-nums">{r.generated_at ? new Date(r.generated_at).toLocaleString() : "—"}</td>
+                <td className="px-4 py-3 text-warm-600">{r.created_by?.name ?? "Former user"}</td>
+                <td className="px-4 py-3 text-warm-500 tabular-nums">
+                  {r.generated_at ? (
+                    <time dateTime={r.generated_at} title={new Date(r.generated_at).toISOString()}>
+                      {reportDate(r.generated_at)}
+                    </time>
+                  ) : "—"}
+                </td>
                 <td className="px-4 py-3"><Badge tone={STATUS_TONE[r.status] ?? "zinc"}>{r.status}</Badge></td>
                 <td className="px-4 py-3">
                   <div className="flex items-center justify-end gap-1">
@@ -431,6 +447,7 @@ function ArchivedTab({
             ))}
           </tbody>
         </table>
+        </div>
       )}
       {!loading && reports.length > 0 && (
         <Pagination meta={archiveMeta} page={page} onPageChange={setPage} />
@@ -453,7 +470,7 @@ function TemplateEditor({ onFlash }: { onFlash: (ok: boolean, msg: string) => vo
   const [branding, setBranding] = useState<Branding | null>(null);
   const [templates, setTemplates] = useState<ReportTemplate[]>([]);
   const [savingB, setSavingB] = useState(false);
-  const [savingT, setSavingT] = useState<number | null>(null);
+  const [savingT, setSavingT] = useState<string | null>(null);
 
   const load = useCallback(() => {
     getBranding().then(setBranding).catch(() => {});
@@ -487,7 +504,7 @@ function TemplateEditor({ onFlash }: { onFlash: (ok: boolean, msg: string) => vo
     } finally { setSavingT(null); }
   }
 
-  function editSig(tid: number, idx: number, field: "name" | "title", val: string) {
+  function editSig(tid: string, idx: number, field: "name" | "title", val: string) {
     setTemplates((ts) => ts.map((t) => t.id !== tid ? t : {
       ...t,
       signatories: (t.signatories ?? []).map((s, i) => i === idx ? { ...s, [field]: val } : s),

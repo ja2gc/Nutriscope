@@ -14,6 +14,7 @@ use App\Services\Reports\Generators\PatientMenuPlanGenerator;
 use App\Services\Reports\Generators\ProcurementPackGenerator;
 use App\Services\Reports\Generators\ProgramProjectActivityGenerator;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
 
 /**
@@ -25,30 +26,32 @@ use Illuminate\Support\Facades\Storage;
  */
 class ReportService
 {
+    public function __construct(private readonly ReportArchiveStorage $archiveStorage) {}
+
     /** type => generator class. */
     private const GENERATORS = [
         'program_project_activity' => ProgramProjectActivityGenerator::class,
-        'menu_calendar'            => MenuCalendarGenerator::class,
-        'procurement_pack'         => ProcurementPackGenerator::class,
-        'demographic_census'       => DemographicCensusGenerator::class,
-        'patient_menu_plan'        => PatientMenuPlanGenerator::class,
-        'ncp_summary'              => NcpSummaryGenerator::class,
-        'accomplishment_report'    => AccomplishmentReportGenerator::class,
+        'menu_calendar' => MenuCalendarGenerator::class,
+        'procurement_pack' => ProcurementPackGenerator::class,
+        'demographic_census' => DemographicCensusGenerator::class,
+        'patient_menu_plan' => PatientMenuPlanGenerator::class,
+        'ncp_summary' => NcpSummaryGenerator::class,
+        'accomplishment_report' => AccomplishmentReportGenerator::class,
     ];
 
     /**
      * Render a report to PDF bytes WITHOUT persisting anything. Used by on-demand
      * render (browse-don't-generate) and reused by {@see generate()} for archives.
      *
-     * @return array{bytes:string,meta:array{branding:ReportBranding,signatories:array,generated_at:\Illuminate\Support\Carbon}}
+     * @return array{bytes:string,meta:array{branding:ReportBranding,signatories:array,generated_at:Carbon}}
      */
     public function buildPdf(Report $report): array
     {
         $generator = $this->resolve($report->type);
 
         $meta = [
-            'branding'     => ReportBranding::singleton(),
-            'signatories'  => $this->signatoriesFor($report),
+            'branding' => ReportBranding::singleton(),
+            'signatories' => $this->signatoriesFor($report),
             'generated_at' => now(),
         ];
 
@@ -76,8 +79,19 @@ class ReportService
     {
         $bytes = $this->buildPdf($report)['bytes'];
 
-        $path = "reports/{$report->id}.pdf";
-        Storage::disk('public')->put($path, $bytes);
+        $path = "reports/{$report->uuid}.pdf";
+        try {
+            if (! Storage::disk('public')->put($path, $bytes)) {
+                throw new \RuntimeException('Report archive storage failed.');
+            }
+        } catch (\Throwable $exception) {
+            try {
+                $this->archiveStorage->scheduleOriginalCleanup($path);
+            } catch (\Throwable $cleanupException) {
+                report($cleanupException);
+            }
+            throw $exception;
+        }
 
         return $path;
     }
@@ -105,14 +119,15 @@ class ReportService
      */
     public function signatoriesFor(Report $report): array
     {
-        $template    = ReportTemplate::where('type', $report->type)->first();
-        $defaults    = $template?->signatories ?? [];
-        $preparedBy  = $report->parameters['prepared_by_name'] ?? null;
+        $template = ReportTemplate::where('type', $report->type)->first();
+        $defaults = $template?->signatories ?? [];
+        $preparedBy = $report->parameters['prepared_by_name'] ?? null;
 
         return array_map(function (array $sig) use ($preparedBy) {
             if (($sig['role'] ?? null) === 'prepared_by' && $preparedBy) {
                 $sig['name'] = $preparedBy;
             }
+
             return $sig;
         }, $defaults);
     }
