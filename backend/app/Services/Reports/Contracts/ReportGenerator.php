@@ -3,10 +3,11 @@
 namespace App\Services\Reports\Contracts;
 
 use App\Models\Report;
+use App\Services\Reports\ReportService;
 
 /**
  * A report generator turns a persisted {@see Report} (type + parameters) into the
- * Blade view name + view data that {@see \App\Services\Reports\ReportService}
+ * Blade view name + view data that {@see ReportService}
  * renders to PDF. Generators never touch DomPDF or storage — they only build data.
  */
 interface ReportGenerator

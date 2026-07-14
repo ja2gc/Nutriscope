@@ -6,7 +6,5 @@ use App\Models\PurchaseOrder;
 
 class PurchaseOrderCompleted
 {
-    public function __construct(public PurchaseOrder $purchaseOrder)
-    {
-    }
+    public function __construct(public PurchaseOrder $purchaseOrder) {}
 }

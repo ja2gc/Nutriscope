@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\AuditsChanges;
+use App\Models\Concerns\HasPublicId;
 use App\Support\UnitConverter;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -18,9 +20,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class FsItem extends Model
 {
+    use AuditsChanges;
     use HasFactory;
-    use \App\Models\Concerns\AuditsChanges;
-    use \App\Models\Concerns\HasPublicId;
+    use HasPublicId;
 
     protected $table = 'fs_items';
 
@@ -32,9 +34,9 @@ class FsItem extends Model
     ];
 
     protected $casts = [
-        'purchase_price'             => 'decimal:2',
-        'units_per_purchase'         => 'decimal:2',
-        'is_active'                  => 'boolean',
+        'purchase_price' => 'decimal:2',
+        'units_per_purchase' => 'decimal:2',
+        'is_active' => 'boolean',
         'default_supplier_locked_at' => 'datetime',
     ];
 
@@ -70,7 +72,7 @@ class FsItem extends Model
     public function basePerPurchase(): float
     {
         $from = (string) $this->purchase_unit;
-        $to   = (string) $this->base_unit;
+        $to = (string) $this->base_unit;
 
         if ($from === '' || $to === '' || UnitConverter::normalize($from) === UnitConverter::normalize($to)) {
             return 1.0;
@@ -78,6 +80,7 @@ class FsItem extends Model
         if (UnitConverter::isKnown($from) && UnitConverter::isKnown($to)) {
             return UnitConverter::convert(1, $from, $to); // e.g. 1 kg = 1000 g
         }
+
         return (float) ($this->units_per_purchase ?? 0);
     }
 
@@ -88,6 +91,7 @@ class FsItem extends Model
     public function getUnitCostAttribute(): float
     {
         $n = $this->basePerPurchase();
+
         return $n > 0 ? round((float) $this->purchase_price / $n, 6) : 0.0;
     }
 

@@ -15,7 +15,9 @@ class MealPrepShortfallTest extends TestCase
     use RefreshDatabase;
 
     private User $fss;
+
     private User $rnd;
+
     private MenuCycle $cycle;
 
     protected function setUp(): void
@@ -29,11 +31,11 @@ class MealPrepShortfallTest extends TestCase
         $item = FsItem::factory()->create(['name' => 'Rice', 'base_unit' => 'g']);
 
         MenuCycleDay::create([
-            'menu_cycle_id'       => $this->cycle->id,
-            'day_of_week'         => 'Monday',
-            'meal_type'           => 'lunch',
-            'fs_item_id'          => $item->id,
-            'quantity'            => 100,
+            'menu_cycle_id' => $this->cycle->id,
+            'day_of_week' => 'Monday',
+            'meal_type' => 'lunch',
+            'fs_item_id' => $item->id,
+            'quantity' => 100,
             'estimate_population' => 5,
         ]);
     }
@@ -43,7 +45,7 @@ class MealPrepShortfallTest extends TestCase
         return $this->actingAs($this->fss)
             ->postJson("/api/fss/menu-cycles/{$this->cycle->uuid}/complete-day", array_merge([
                 'service_date' => '2026-06-15',
-                'population'   => 5,
+                'population' => 5,
             ], $payload));
     }
 
@@ -54,7 +56,7 @@ class MealPrepShortfallTest extends TestCase
         $this->assertDatabaseHas('meal_prep_logs', [
             'menu_cycle_id' => $this->cycle->id,
             'has_shortfall' => false,
-            'total_value'   => 0,
+            'total_value' => 0,
         ]);
         $this->assertDatabaseCount('meal_prep_log_lines', 0);
         $this->assertDatabaseCount('notifications', 0);
@@ -67,7 +69,7 @@ class MealPrepShortfallTest extends TestCase
         $this->assertDatabaseHas('meal_prep_logs', [
             'menu_cycle_id' => $this->cycle->id,
             'has_shortfall' => false,
-            'total_value'   => 0,
+            'total_value' => 0,
         ]);
         $this->assertDatabaseCount('meal_prep_log_lines', 0);
         $this->assertDatabaseCount('notifications', 0);
@@ -78,11 +80,11 @@ class MealPrepShortfallTest extends TestCase
         $this->complete(['population' => 10, 'served_population' => 7])->assertCreated();
 
         $this->assertDatabaseHas('meal_prep_logs', [
-            'menu_cycle_id'       => $this->cycle->id,
-            'population'          => 10,
-            'served_population'   => 7,
+            'menu_cycle_id' => $this->cycle->id,
+            'population' => 10,
+            'served_population' => 7,
             'population_variance' => 3,
-            'has_shortfall'       => false,
+            'has_shortfall' => false,
         ]);
         $this->assertDatabaseCount('notifications', 0);
     }
@@ -92,8 +94,8 @@ class MealPrepShortfallTest extends TestCase
         $this->complete(['population' => 8, 'served_population' => 12])->assertCreated();
 
         $this->assertDatabaseHas('meal_prep_logs', [
-            'population'          => 8,
-            'served_population'   => 12,
+            'population' => 8,
+            'served_population' => 12,
             'population_variance' => -4,
         ]);
         $this->assertDatabaseCount('notifications', 0);
@@ -105,7 +107,7 @@ class MealPrepShortfallTest extends TestCase
 
         $this->assertDatabaseHas('meal_prep_logs', [
             'population_variance' => 0,
-            'has_shortfall'       => false,
+            'has_shortfall' => false,
         ]);
         $this->assertDatabaseCount('notifications', 0);
     }

@@ -29,7 +29,7 @@ class PurchaseOrderExecutionLockTest extends TestCase
     private function convertedPo(): array
     {
         $supplier = Supplier::factory()->create();
-        $fsItem   = FsItem::factory()->create();
+        $fsItem = FsItem::factory()->create();
         $list = ShoppingList::create([
             'rnd_user_id' => $this->rnd->id, 'name' => 'L', 'list_date' => '2026-06-10',
             'list_type' => 'manual', 'procurement_track' => 'food', 'status' => 'draft',
@@ -72,8 +72,8 @@ class PurchaseOrderExecutionLockTest extends TestCase
             'purchase_order_item_id' => $line->id,
             'old_unit_price' => 20,
             'new_unit_price' => 30,
-            'corrected_by'   => $this->rnd->id,
-            'reason'         => 'Wrong price entered',
+            'corrected_by' => $this->rnd->id,
+            'reason' => 'Wrong price entered',
         ]);
         // total recalculated from corrected price: 5 × 30 = 150.
         $this->assertDatabaseHas('purchase_order_items', ['id' => $line->id, 'unit_price' => 30, 'total_value' => 150]);

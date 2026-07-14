@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasPublicId;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -9,7 +10,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class MealPlanItem extends Model
 {
     use HasFactory;
-    use \App\Models\Concerns\HasPublicId;
+    use HasPublicId;
+
     protected $fillable = [
         'meal_plan_day_id', 'food_item_id', 'recipe_id', 'fdc_id',
         'quantity', 'unit', 'nutrient_snapshot', 'ai_suggested',
@@ -17,8 +19,8 @@ class MealPlanItem extends Model
 
     protected $casts = [
         'nutrient_snapshot' => 'array',
-        'ai_suggested'      => 'boolean',
-        'quantity'          => 'decimal:2',
+        'ai_suggested' => 'boolean',
+        'quantity' => 'decimal:2',
     ];
 
     public function mealPlanDay(): BelongsTo
@@ -36,4 +38,3 @@ class MealPlanItem extends Model
         return $this->belongsTo(Recipe::class);
     }
 }
-

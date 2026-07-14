@@ -4,6 +4,7 @@ namespace Tests\Unit;
 
 use App\Models\FoodItem;
 use App\Models\Intervention;
+use App\Models\MealPlanDay;
 use App\Models\MealPlanItem;
 use App\Models\NcpRecord;
 use App\Models\Patient;
@@ -12,6 +13,7 @@ use App\Models\RecipeIngredient;
 use App\Models\User;
 use App\Services\MealPlanService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
@@ -33,14 +35,14 @@ class MealPlanServiceTest extends TestCase
 
         for ($i = 1; $i <= $count; $i++) {
             $recipe = Recipe::forceCreate([
-                'rnd_user_id'    => $rnd->id,
-                'name'           => "Test Recipe {$i}",
-                'category'       => 'Test',
-                'servings'       => 1,
+                'rnd_user_id' => $rnd->id,
+                'name' => "Test Recipe {$i}",
+                'category' => 'Test',
+                'servings' => 1,
                 'total_calories' => 400 + ($i * 10),
-                'total_protein'  => 15 + $i,
-                'total_carbs'    => 60 + $i,
-                'total_fat'      => 10 + $i,
+                'total_protein' => 15 + $i,
+                'total_carbs' => 60 + $i,
+                'total_fat' => 10 + $i,
             ]);
             RecipeIngredient::forceCreate([
                 'recipe_id' => $recipe->id, 'food_item_id' => $food->id,
@@ -62,12 +64,13 @@ class MealPlanServiceTest extends TestCase
         ]);
         Intervention::forceCreate([
             'ncp_record_id' => $ncp->id,
-            'goal_type'     => 'weight_maintenance',
-            'energy_kcal'   => 2000,
-            'protein_g'     => 75,
-            'carbs_g'       => 250,
-            'fat_g'         => 65,
+            'goal_type' => 'weight_maintenance',
+            'energy_kcal' => 2000,
+            'protein_g' => 75,
+            'carbs_g' => 250,
+            'fat_g' => 65,
         ]);
+
         return $ncp;
     }
 
@@ -76,13 +79,13 @@ class MealPlanServiceTest extends TestCase
         $this->seedRecipes(15);
         $ncp = $this->makeNcpWithIntervention();
 
-        $service = new MealPlanService();
+        $service = new MealPlanService;
         $plan = $service->generate($ncp, now()->startOfWeek()->toDateString());
 
-        $this->assertNotInstanceOf(\Illuminate\Support\Collection::class, $plan);
+        $this->assertNotInstanceOf(Collection::class, $plan);
         $this->assertArrayNotHasKey('insufficient_recipes', (array) $plan);
 
-        $items = MealPlanItem::whereHas('mealPlanDay', fn($q) => $q->where('meal_plan_id', $plan->id))->get();
+        $items = MealPlanItem::whereHas('mealPlanDay', fn ($q) => $q->where('meal_plan_id', $plan->id))->get();
         foreach ($items as $item) {
             $this->assertGreaterThanOrEqual(1.0, (float) $item->quantity,
                 "Quantity {$item->quantity} for item {$item->id} is below 1.0");
@@ -115,11 +118,11 @@ class MealPlanServiceTest extends TestCase
         }
         $ncp = $this->makeNcpWithIntervention();
 
-        $service = new MealPlanService();
+        $service = new MealPlanService;
         $service->setRngSeed(7);
         $plan = $service->generate($ncp, now()->startOfWeek()->toDateString());
 
-        $snackDayIds = \App\Models\MealPlanDay::where('meal_plan_id', $plan->id)
+        $snackDayIds = MealPlanDay::where('meal_plan_id', $plan->id)
             ->whereIn('meal_type', ['am_snack', 'pm_snack'])->pluck('id');
         $snackItems = MealPlanItem::whereIn('meal_plan_day_id', $snackDayIds)->get();
 
@@ -130,7 +133,7 @@ class MealPlanServiceTest extends TestCase
         }
 
         // A food item must never leak into a main-meal slot
-        $mainDayIds = \App\Models\MealPlanDay::where('meal_plan_id', $plan->id)
+        $mainDayIds = MealPlanDay::where('meal_plan_id', $plan->id)
             ->whereIn('meal_type', ['breakfast', 'lunch', 'dinner'])->pluck('id');
         $mainFood = MealPlanItem::whereIn('meal_plan_day_id', $mainDayIds)
             ->whereNotNull('food_item_id')->count();
@@ -142,15 +145,15 @@ class MealPlanServiceTest extends TestCase
         $this->seedRecipes(20);
         $ncp = $this->makeNcpWithIntervention();
 
-        $service = new MealPlanService();
+        $service = new MealPlanService;
 
         // Generate 3 times and check that not every generation is identical
         $firstPlan = $service->generate($ncp, now()->startOfWeek()->toDateString());
         $secondPlan = $service->generate($ncp, now()->addWeek()->startOfWeek()->toDateString());
 
-        $firstItems = MealPlanItem::whereHas('mealPlanDay', fn($q) => $q->where('meal_plan_id', $firstPlan->id)
+        $firstItems = MealPlanItem::whereHas('mealPlanDay', fn ($q) => $q->where('meal_plan_id', $firstPlan->id)
             ->where('day_of_week', 'Monday'))->pluck('recipe_id')->sort()->values()->toArray();
-        $secondItems = MealPlanItem::whereHas('mealPlanDay', fn($q) => $q->where('meal_plan_id', $secondPlan->id)
+        $secondItems = MealPlanItem::whereHas('mealPlanDay', fn ($q) => $q->where('meal_plan_id', $secondPlan->id)
             ->where('day_of_week', 'Monday'))->pluck('recipe_id')->sort()->values()->toArray();
 
         // With top-3 random selection and 20 recipes, two plans should rarely be identical
@@ -171,24 +174,24 @@ class MealPlanServiceTest extends TestCase
         ]);
         foreach ([200, 350, 500, 900, 1400, 1800] as $i => $kcal) {
             Recipe::forceCreate([
-                'rnd_user_id'    => $rnd->id,
-                'name'           => "Vary Recipe {$i}",
-                'category'       => 'Test',
-                'servings'       => 1,
+                'rnd_user_id' => $rnd->id,
+                'name' => "Vary Recipe {$i}",
+                'category' => 'Test',
+                'servings' => 1,
                 'total_calories' => $kcal,
-                'total_protein'  => 10 + $i,
-                'total_carbs'    => 30 + $i,
-                'total_fat'      => 5 + $i,
-                'meal_types'     => ['any'],
+                'total_protein' => 10 + $i,
+                'total_carbs' => 30 + $i,
+                'total_fat' => 5 + $i,
+                'meal_types' => ['any'],
             ]);
         }
         $ncp = $this->makeNcpWithIntervention();
 
-        $service = new MealPlanService();
+        $service = new MealPlanService;
         $service->setRngSeed(3);
         $plan = $service->generate($ncp, now()->startOfWeek()->toDateString());
 
-        $days = \App\Models\MealPlanDay::where('meal_plan_id', $plan->id)->get();
+        $days = MealPlanDay::where('meal_plan_id', $plan->id)->get();
         $byDayName = $days->groupBy('day_of_week');
         foreach ($byDayName as $dayName => $slots) {
             $recipeIds = MealPlanItem::whereIn('meal_plan_day_id', $slots->pluck('id'))

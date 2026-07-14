@@ -31,14 +31,14 @@ class UuidForeignKeyResolutionTest extends TestCase
     /** StoreMenuCycleRequest — custom validated() for the nested days[] array. */
     public function test_menu_cycle_store_resolves_uuid_day_fks_to_integer_ids(): void
     {
-        $rnd    = User::factory()->create(['role' => 'RND']);
+        $rnd = User::factory()->create(['role' => 'RND']);
         $recipe = FoodServiceRecipe::create(['name' => 'R', 'rnd_user_id' => $rnd->id, 'servings' => 1]);
         $fsItem = FsItem::factory()->create();
 
         $this->actingAs($rnd)->postJson('/api/fss/menu-cycles', [
             'name' => 'Cycle',
             'days' => [
-                ['day_of_week' => 'Monday',  'meal_type' => 'lunch', 'recipe_id'  => $recipe->uuid, 'quantity' => 1],
+                ['day_of_week' => 'Monday',  'meal_type' => 'lunch', 'recipe_id' => $recipe->uuid, 'quantity' => 1],
                 ['day_of_week' => 'Tuesday', 'meal_type' => 'lunch', 'fs_item_id' => $fsItem->uuid, 'quantity' => 1],
             ],
         ])->assertCreated();
@@ -51,11 +51,11 @@ class UuidForeignKeyResolutionTest extends TestCase
     /** StoreRecipeRequest — custom validated() for the nested ingredients[] array. */
     public function test_recipe_store_resolves_uuid_ingredient_fk_to_integer_id(): void
     {
-        $rnd      = User::factory()->create(['role' => 'RND']);
+        $rnd = User::factory()->create(['role' => 'RND']);
         $foodItem = FoodItem::factory()->create();
 
         $this->actingAs($rnd)->postJson('/api/rnd/recipes', [
-            'name'        => 'Soup',
+            'name' => 'Soup',
             'ingredients' => [
                 ['food_item_id' => $foodItem->uuid, 'quantity' => 100, 'unit' => 'g'],
             ],
@@ -67,14 +67,14 @@ class UuidForeignKeyResolutionTest extends TestCase
     /** StoreMealPlanItemRequest — the ResolvesUuidForeignKeys trait for a flat FK field. */
     public function test_meal_plan_item_store_resolves_uuid_fk_to_integer_id(): void
     {
-        $rnd          = User::factory()->create(['role' => 'RND']);
-        $ncpRecord    = NcpRecord::factory()->create();
+        $rnd = User::factory()->create(['role' => 'RND']);
+        $ncpRecord = NcpRecord::factory()->create(['rnd_user_id' => $rnd->id]);
         $intervention = Intervention::factory()->create(['ncp_record_id' => $ncpRecord->id]);
-        $mealPlan     = MealPlan::factory()->create([
+        $mealPlan = MealPlan::factory()->create([
             'intervention_id' => $intervention->id,
-            'patient_id'      => $ncpRecord->patient_id,
+            'patient_id' => $ncpRecord->patient_id,
         ]);
-        $day      = MealPlanDay::factory()->create(['meal_plan_id' => $mealPlan->id]);
+        $day = MealPlanDay::factory()->create(['meal_plan_id' => $mealPlan->id]);
         $foodItem = FoodItem::factory()->create();
 
         $this->actingAs($rnd)->postJson(

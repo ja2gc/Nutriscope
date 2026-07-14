@@ -29,11 +29,11 @@ class SuppliesProcurementTest extends TestCase
     {
         $this->actingAs($this->rnd)
             ->postJson('/api/fss/shopping-lists', [
-                'name'              => 'Cleaning supplies',
+                'name' => 'Cleaning supplies',
                 'procurement_track' => 'supplies',
-                'list_type'         => 'manual',
-                'period_start'      => '2026-06-01',
-                'period_end'        => '2026-06-07',
+                'list_type' => 'manual',
+                'period_start' => '2026-06-01',
+                'period_end' => '2026-06-07',
             ])
             ->assertStatus(422)
             ->assertJsonValidationErrors(['period_start']);
@@ -43,9 +43,9 @@ class SuppliesProcurementTest extends TestCase
     {
         $this->actingAs($this->rnd)
             ->postJson('/api/fss/shopping-lists', [
-                'name'              => 'Cleaning supplies',
+                'name' => 'Cleaning supplies',
                 'procurement_track' => 'supplies',
-                'list_type'         => 'manual',
+                'list_type' => 'manual',
             ])
             ->assertCreated()
             ->assertJsonPath('data.procurement_track', 'supplies');
@@ -63,8 +63,8 @@ class SuppliesProcurementTest extends TestCase
         $this->actingAs($this->rnd)
             ->postJson("/api/fss/shopping-lists/{$list->uuid}/items", [
                 'fs_item_id' => $ingredient->uuid,
-                'qty'        => 3,
-                'unit'       => 'pc',
+                'qty' => 3,
+                'unit' => 'pc',
                 'unit_price' => 25,
             ])
             ->assertStatus(422);
@@ -74,8 +74,8 @@ class SuppliesProcurementTest extends TestCase
         $this->actingAs($this->rnd)
             ->postJson("/api/fss/shopping-lists/{$list->uuid}/items", [
                 'fs_item_id' => $supply->uuid,
-                'qty'        => 3,
-                'unit'       => 'pc',
+                'qty' => 3,
+                'unit' => 'pc',
                 'unit_price' => 25,
             ])
             ->assertCreated()
@@ -85,7 +85,7 @@ class SuppliesProcurementTest extends TestCase
     public function test_supplies_list_converts_to_supplies_po(): void
     {
         $supplier = Supplier::factory()->create();
-        $supply   = FsItem::factory()->create(['kind' => 'supply']);
+        $supply = FsItem::factory()->create(['kind' => 'supply']);
         $list = ShoppingList::create([
             'rnd_user_id' => $this->rnd->id, 'name' => 'Supplies', 'list_date' => '2026-06-10',
             'list_type' => 'manual', 'procurement_track' => 'supplies', 'status' => 'draft',
@@ -100,9 +100,9 @@ class SuppliesProcurementTest extends TestCase
             ->assertCreated();
 
         $this->assertDatabaseHas('purchase_orders', [
-            'shopping_list_id'  => $list->id,
+            'shopping_list_id' => $list->id,
             'procurement_track' => 'supplies',
-            'lifecycle_status'  => 'open_execution',
+            'lifecycle_status' => 'open_execution',
         ]);
     }
 }

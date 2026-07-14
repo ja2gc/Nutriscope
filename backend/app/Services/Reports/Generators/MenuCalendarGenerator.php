@@ -35,11 +35,11 @@ class MenuCalendarGenerator implements ReportGenerator
     public function data(Report $report): array
     {
         $params = $report->parameters ?? [];
-        $cycle  = MenuCycle::with('days.recipe', 'days.fsItem')->findOrFail($params['menu_cycle_id']);
+        $cycle = MenuCycle::with('days.recipe', 'days.fsItem')->findOrFail($params['menu_cycle_id']);
 
-        $entries  = ProgramProjectActivityGenerator::groupEntries($cycle);
+        $entries = ProgramProjectActivityGenerator::groupEntries($cycle);
         $dayCount = max(1, min(7, (int) ($cycle->cycle_days ?: 7)));
-        $days     = array_slice(self::WEEK, 0, $dayCount);
+        $days = array_slice(self::WEEK, 0, $dayCount);
 
         // grid[meal_type][day_of_week] => [names]
         $grid = [];
@@ -68,12 +68,12 @@ class MenuCalendarGenerator implements ReportGenerator
         $cost = MenuCycleCostService::forReport($cycle);
 
         return [
-            'cycle'  => $cycle,
-            'meals'  => ProgramProjectActivityGenerator::MEAL_ORDER,
-            'days'   => $days,
-            'dates'  => $dates,
-            'grid'   => $grid,
-            'cost'   => $cost,
+            'cycle' => $cycle,
+            'meals' => ProgramProjectActivityGenerator::MEAL_ORDER,
+            'days' => $days,
+            'dates' => $dates,
+            'grid' => $grid,
+            'cost' => $cost,
         ];
     }
 }

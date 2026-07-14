@@ -340,14 +340,6 @@ class SecurityAuditTest extends TestCase
         $this->assertSame('login', Activity::where('event', 'rate_limit_exceeded')->sole()->properties['details']['limiter']);
     }
 
-    public function test_security_blocks_are_disabled_by_default_and_have_no_routes(): void
-    {
-        $this->assertFalse(config('audit.features.ip_blocking'));
-        $this->assertFalse(collect(app('router')->getRoutes())->contains(
-            fn ($route) => str_contains($route->uri(), 'security-blocks')
-        ));
-    }
-
     public function test_inactive_user_is_rejected_on_all_shared_authenticated_routes(): void
     {
         $user = User::factory()->create(['is_active' => false]);

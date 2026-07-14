@@ -19,9 +19,9 @@ class AiUsageLimit extends Model
     ];
 
     protected $casts = [
-        'daily_token_limit'       => 'integer',
-        'monthly_token_limit'     => 'integer',
-        'cost_per_1m_tokens_usd'  => 'float',
+        'daily_token_limit' => 'integer',
+        'monthly_token_limit' => 'integer',
+        'cost_per_1m_tokens_usd' => 'float',
     ];
 
     protected $attributes = [

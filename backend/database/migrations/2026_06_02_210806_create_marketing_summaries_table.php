@@ -12,7 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('marketing_summaries', function (Blueprint $table) {
-            
+
             $table->id();
             $table->foreignId('marketing_statement_id')->constrained()->cascadeOnDelete();
             $table->date('date_purchased')->nullable();
@@ -22,7 +22,7 @@ return new class extends Migration
             $table->string('certified_by')->nullable();
             $table->string('certified_by_title')->nullable();
             $table->timestamps();
-        
+
         });
     }
 

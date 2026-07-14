@@ -12,7 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('meal_prep_logs', function (Blueprint $table) {
-            
+
             $table->id();
             $table->foreignId('fss_user_id')->references('id')->on('users');
             $table->foreignId('menu_cycle_day_id')->constrained()->references('id')->on('menu_cycle_days');
@@ -20,7 +20,7 @@ return new class extends Migration
             $table->enum('status', ['done', 'pending'])->default('pending');
             $table->text('notes')->nullable();
             $table->timestamps();
-        
+
         });
     }
 

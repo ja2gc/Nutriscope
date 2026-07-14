@@ -14,11 +14,11 @@ class NcpRecordFactory extends Factory
     public function definition(): array
     {
         return [
-            'patient_id'   => \App\Models\Patient::factory(),
-            'rnd_user_id'  => \App\Models\User::factory()->rnd(),
-            'type'         => fake()->randomElement(['new', 'followup', 'reassessment']),
-            'status'       => fake()->randomElement(['draft', 'active', 'completed']),
-            'risk_score'   => fake()->randomFloat(2, 0, 10),
+            'patient_id' => Patient::factory(),
+            'rnd_user_id' => User::factory()->rnd(),
+            'type' => fake()->randomElement(['new', 'followup', 'reassessment']),
+            'status' => fake()->randomElement(['draft', 'active', 'completed']),
+            'risk_score' => fake()->randomFloat(2, 0, 10),
         ];
     }
 }

@@ -2,29 +2,34 @@
 
 namespace Tests\Feature;
 
+use App\Events\PurchaseOrderCompleted;
+use App\Events\PurchaseOrderConverted;
 use App\Models\Budget;
+use App\Models\BudgetLedger;
+use App\Models\FoodServiceRecipe;
+use App\Models\FoodServiceRecipeIngredient;
+use App\Models\FoodServiceSetting;
 use App\Models\FsItem;
 use App\Models\Inventory;
 use App\Models\MealPrepLog;
 use App\Models\MenuCycle;
 use App\Models\MenuCycleDay;
 use App\Models\PurchaseOrder;
+use App\Models\PurchaseOrderItem;
+use App\Models\PurchaseOrderVendorGroup;
+use App\Models\Report;
 use App\Models\ShoppingList;
 use App\Models\Supplier;
 use App\Models\User;
-use App\Models\FoodServiceRecipe;
-use App\Models\FoodServiceRecipeIngredient;
-use App\Events\PurchaseOrderCompleted;
-use App\Events\PurchaseOrderConverted;
-use App\Models\BudgetLedger;
+use App\Services\Reports\Generators\ProcurementPackGenerator;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Event;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class FoodServiceOpsTest extends TestCase
@@ -32,17 +37,18 @@ class FoodServiceOpsTest extends TestCase
     use RefreshDatabase;
 
     private User $fss;
+
     private User $rnd;
 
     protected function setUp(): void
     {
         parent::setUp();
         $this->fss = User::factory()->create([
-            'role'     => 'FSS',
+            'role' => 'FSS',
             'password' => Hash::make('password'),
         ]);
         $this->rnd = User::factory()->create([
-            'role'     => 'RND',
+            'role' => 'RND',
             'password' => Hash::make('password'),
         ]);
     }
@@ -60,7 +66,7 @@ class FoodServiceOpsTest extends TestCase
     private function planRemainingWeekdays(MenuCycle $cycle): MenuCycle
     {
         $weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-        $missing  = array_diff($weekdays, $cycle->days()->pluck('day_of_week')->all());
+        $missing = array_diff($weekdays, $cycle->days()->pluck('day_of_week')->all());
 
         if ($missing !== []) {
             $filler = $this->makeFsItem(['purchase_price' => 0]);
@@ -103,7 +109,7 @@ class FoodServiceOpsTest extends TestCase
     public function test_fss_inventory_write_route_is_removed(): void
     {
         // Inventory is now a backend reference catalog only — no FSS stocking writes.
-        $fsItem    = $this->makeFsItem();
+        $fsItem = $this->makeFsItem();
         $inventory = Inventory::factory()->create(['fs_item_id' => $fsItem->id]);
 
         $this->actingAs($this->fss)
@@ -113,7 +119,7 @@ class FoodServiceOpsTest extends TestCase
 
     public function test_fss_restock_route_is_removed(): void
     {
-        $fsItem    = $this->makeFsItem();
+        $fsItem = $this->makeFsItem();
         $inventory = Inventory::factory()->create(['fs_item_id' => $fsItem->id]);
 
         $this->actingAs($this->fss)
@@ -123,7 +129,7 @@ class FoodServiceOpsTest extends TestCase
 
     public function test_rnd_can_access_fss_inventory_routes(): void
     {
-        $fsItem    = $this->makeFsItem();
+        $fsItem = $this->makeFsItem();
         Inventory::factory()->create(['fs_item_id' => $fsItem->id]);
 
         $response = $this->actingAs($this->rnd)
@@ -166,7 +172,7 @@ class FoodServiceOpsTest extends TestCase
     {
         $response = $this->actingAs($this->fss)
             ->postJson('/api/fss/suppliers', [
-                'name'    => 'Green Valley Farm',
+                'name' => 'Green Valley Farm',
                 'contact' => '0912-345-6789',
                 'address' => 'Quezon City, Philippines',
             ]);
@@ -178,7 +184,7 @@ class FoodServiceOpsTest extends TestCase
     {
         $response = $this->actingAs($this->rnd)
             ->postJson('/api/fss/suppliers', [
-                'name'    => 'Green Valley Farm',
+                'name' => 'Green Valley Farm',
                 'contact' => '0912-345-6789',
                 'address' => 'Quezon City, Philippines',
             ]);
@@ -295,7 +301,7 @@ class FoodServiceOpsTest extends TestCase
         ]);
 
         $this->actingAs($this->rnd)->postJson("/api/fss/shopping-lists/{$list->uuid}/approve")->assertCreated();
-        $group = \App\Models\PurchaseOrderVendorGroup::firstOrFail();
+        $group = PurchaseOrderVendorGroup::firstOrFail();
         $line = $group->items()->firstOrFail();
 
         // FSS can set OR number only.
@@ -341,7 +347,7 @@ class FoodServiceOpsTest extends TestCase
             'purchase_order_item_id' => $line->id,
             'old_unit_price' => 20,
             'new_unit_price' => 22,
-            'corrected_by'   => $this->rnd->id,
+            'corrected_by' => $this->rnd->id,
         ]);
     }
 
@@ -548,7 +554,7 @@ class FoodServiceOpsTest extends TestCase
         ]);
 
         // Add item to purchase order
-        \App\Models\PurchaseOrderItem::create([
+        PurchaseOrderItem::create([
             'purchase_order_id' => $po->id,
             'fs_item_id' => $fsItem->id,
             'description' => $fsItem->name,
@@ -609,8 +615,8 @@ class FoodServiceOpsTest extends TestCase
 
         $response = $this->actingAs($this->rnd)
             ->postJson('/api/fss/shopping-lists/generate', [
-                'start_date'    => '2026-06-15', // Monday
-                'end_date'      => '2026-06-15', // the planned Monday → fully covered
+                'start_date' => '2026-06-15', // Monday
+                'end_date' => '2026-06-15', // the planned Monday → fully covered
             ]);
 
         $response->assertCreated()
@@ -645,7 +651,7 @@ class FoodServiceOpsTest extends TestCase
 
         $response = $this->actingAs($this->rnd)->postJson('/api/fss/shopping-lists/generate', [
             'start_date' => '2026-06-16', // Tuesday
-            'end_date'   => '2026-06-18', // Thursday
+            'end_date' => '2026-06-18', // Thursday
         ]);
 
         $response->assertCreated()
@@ -673,7 +679,7 @@ class FoodServiceOpsTest extends TestCase
     {
         $response = $this->actingAs($this->rnd)->postJson('/api/fss/shopping-lists/generate', [
             'start_date' => '2026-06-18',
-            'end_date'   => '2026-06-16',
+            'end_date' => '2026-06-16',
         ]);
 
         $response->assertStatus(422)->assertJsonValidationErrors(['end_date']);
@@ -693,7 +699,7 @@ class FoodServiceOpsTest extends TestCase
         // Fri 19 → Mon 22: Sat/Sun unplanned → all-or-nothing blocks the whole list.
         $response = $this->actingAs($this->rnd)->postJson('/api/fss/shopping-lists/generate', [
             'start_date' => '2026-06-19',
-            'end_date'   => '2026-06-22',
+            'end_date' => '2026-06-22',
         ]);
 
         $response->assertStatus(422);
@@ -706,7 +712,7 @@ class FoodServiceOpsTest extends TestCase
     {
         $response = $this->actingAs($this->rnd)->postJson('/api/fss/shopping-lists/generate', [
             'start_date' => '2030-01-01',
-            'end_date'   => '2030-01-03',
+            'end_date' => '2030-01-03',
         ]);
 
         $response->assertStatus(422)
@@ -857,61 +863,61 @@ class FoodServiceOpsTest extends TestCase
             'name' => 'Food Item A',
             'base_unit' => 'kg',
             'purchase_unit' => 'kg',
-            'purchase_price' => 10.00
+            'purchase_price' => 10.00,
         ]);
 
         $fsItem2 = $this->makeFsItem([
             'name' => 'Food Item B',
             'base_unit' => 'kg',
             'purchase_unit' => 'kg',
-            'purchase_price' => 10.00
+            'purchase_price' => 10.00,
         ]);
 
         // 2. Create active menu cycle anchored to the week of the generated span
         $cycle = MenuCycle::factory()->create([
-            'is_active'   => true,
-            'status'      => 'active',
+            'is_active' => true,
+            'status' => 'active',
             'rnd_user_id' => $this->rnd->id,
             'week_start_date' => '2026-06-15', // Monday — covers 2026-06-15
         ]);
 
         // 3. Create a recipe using fsItem1
         $recipe = FoodServiceRecipe::create([
-            'name'        => 'Test Recipe',
+            'name' => 'Test Recipe',
             'rnd_user_id' => $this->rnd->id,
-            'servings'    => 1,
+            'servings' => 1,
         ]);
         FoodServiceRecipeIngredient::create([
             'food_service_recipe_id' => $recipe->id,
-            'fs_item_id'             => $fsItem1->id,
-            'quantity'               => 3.00,
-            'unit'                   => 'kg',
+            'fs_item_id' => $fsItem1->id,
+            'quantity' => 3.00,
+            'unit' => 'kg',
         ]);
 
         // 4. Link recipe and fsItem2 to MenuCycle via MenuCycleDay
         MenuCycleDay::create([
             'menu_cycle_id' => $cycle->id,
-            'day_of_week'   => 'Monday',
-            'meal_type'     => 'breakfast',
-            'recipe_id'     => $recipe->id,
-            'quantity'      => 1.00, // 1 servings. Total fsItem1 needed = 3 * 2 (population) = 6
+            'day_of_week' => 'Monday',
+            'meal_type' => 'breakfast',
+            'recipe_id' => $recipe->id,
+            'quantity' => 1.00, // 1 servings. Total fsItem1 needed = 3 * 2 (population) = 6
             'estimate_population' => 2,
         ]);
 
         MenuCycleDay::create([
             'menu_cycle_id' => $cycle->id,
-            'day_of_week'   => 'Monday',
-            'meal_type'     => 'lunch',
-            'fs_item_id'    => $fsItem2->id,
-            'quantity'      => 5.00, // Direct food item. Total fsItem2 needed = 5
+            'day_of_week' => 'Monday',
+            'meal_type' => 'lunch',
+            'fs_item_id' => $fsItem2->id,
+            'quantity' => 5.00, // Direct food item. Total fsItem2 needed = 5
             'estimate_population' => 2,
         ]);
 
         // 5. Generate shopping list suggestion for a single Monday.
         $response = $this->actingAs($this->rnd)
             ->postJson('/api/fss/shopping-lists/generate', [
-                'start_date'    => '2026-06-15', // Monday
-                'end_date'      => '2026-06-15', // same Monday
+                'start_date' => '2026-06-15', // Monday
+                'end_date' => '2026-06-15', // same Monday
             ]);
 
         $response->assertCreated();
@@ -922,11 +928,11 @@ class FoodServiceOpsTest extends TestCase
         $listId = $response->json('data.id');
         $this->assertDatabaseHas('shopping_list_items', [
             'fs_item_id' => $fsItem1->id,
-            'qty'        => 3.00,
+            'qty' => 3.00,
         ]);
         $this->assertDatabaseHas('shopping_list_items', [
             'fs_item_id' => $fsItem2->id,
-            'qty'        => 5.00,
+            'qty' => 5.00,
         ]);
 
         // Set list-level estimate_population=2 → scales to original per-day expectations.
@@ -937,11 +943,11 @@ class FoodServiceOpsTest extends TestCase
 
         $this->assertDatabaseHas('shopping_list_items', [
             'fs_item_id' => $fsItem1->id,
-            'qty'        => 6.00,
+            'qty' => 6.00,
         ]);
         $this->assertDatabaseHas('shopping_list_items', [
             'fs_item_id' => $fsItem2->id,
-            'qty'        => 10.00,
+            'qty' => 10.00,
         ]);
     }
 
@@ -951,7 +957,7 @@ class FoodServiceOpsTest extends TestCase
     {
         $response = $this->actingAs($this->rnd) // MenuCycles are created by RND, not FSS
             ->postJson('/api/fss/menu-cycles', [
-                'name'       => 'Week 1 Cycle',
+                'name' => 'Week 1 Cycle',
                 'cycle_days' => 7,
             ]);
 
@@ -981,7 +987,7 @@ class FoodServiceOpsTest extends TestCase
             'is_active' => false,
             'status' => 'draft',
             'activation_date' => null,
-            'rnd_user_id' => $this->rnd->id
+            'rnd_user_id' => $this->rnd->id,
         ]);
         // A cycle can only be activated once every weekday has a planned item.
         $this->planRemainingWeekdays($cycle);
@@ -1020,7 +1026,7 @@ class FoodServiceOpsTest extends TestCase
             'estimate_population' => 10,
         ]);
         // Per-head limit now lives in the shared Food Service settings.
-        \App\Models\FoodServiceSetting::singleton()->update(['per_head_day_limit' => 12]);
+        FoodServiceSetting::singleton()->update(['per_head_day_limit' => 12]);
 
         $response = $this->actingAs($this->rnd)
             ->getJson("/api/fss/menu-cycles/{$cycle->uuid}/compute");
@@ -1081,8 +1087,8 @@ class FoodServiceOpsTest extends TestCase
     {
         $response = $this->actingAs($this->rnd)
             ->postJson('/api/fss/budgets', [
-                'fiscal_year'        => 2026,
-                'allocated_amount'   => 50000.00,
+                'fiscal_year' => 2026,
+                'allocated_amount' => 50000.00,
                 'per_head_day_limit' => 120.00,
             ]);
 
@@ -1159,16 +1165,16 @@ class FoodServiceOpsTest extends TestCase
         $this->actingAs($this->rnd)
             ->postJson('/api/fss/budgets/adjust', [
                 'fiscal_year' => 2026,
-                'type'        => 'manual_addition',
-                'amount'      => 5000,
-                'reason'      => 'Extra allocation from admin',
+                'type' => 'manual_addition',
+                'amount' => 5000,
+                'reason' => 'Extra allocation from admin',
             ])
             ->assertCreated();
 
         $this->assertDatabaseHas('budget_ledger', [
             'fiscal_year' => 2026,
-            'type'        => 'manual_addition',
-            'amount'      => 5000,
+            'type' => 'manual_addition',
+            'amount' => 5000,
         ]);
     }
 
@@ -1179,9 +1185,9 @@ class FoodServiceOpsTest extends TestCase
         $this->actingAs($this->fss)
             ->postJson('/api/fss/budgets/adjust', [
                 'fiscal_year' => 2026,
-                'type'        => 'manual_addition',
-                'amount'      => 5000,
-                'reason'      => 'Unauthorized attempt',
+                'type' => 'manual_addition',
+                'amount' => 5000,
+                'reason' => 'Unauthorized attempt',
             ])
             ->assertForbidden();
     }
@@ -1213,12 +1219,12 @@ class FoodServiceOpsTest extends TestCase
         // Serve the day to 8 heads (override the cycle's default 5) — that headcount must be stored.
         $this->actingAs($this->fss)->postJson("/api/fss/menu-cycles/{$cycle->uuid}/complete-day", [
             'service_date' => '2026-06-15', // a Monday
-            'population'   => 8,
+            'population' => 8,
         ])->assertCreated();
 
         $this->assertDatabaseHas('meal_prep_logs', [
             'menu_cycle_id' => $cycle->id,
-            'population'    => 8,
+            'population' => 8,
         ]);
     }
 
@@ -1238,7 +1244,7 @@ class FoodServiceOpsTest extends TestCase
             'estimate_population' => 10,
         ]);
         // Per-head cap is the shared Food Service setting.
-        \App\Models\FoodServiceSetting::singleton()->update(['per_head_day_limit' => 50]);
+        FoodServiceSetting::singleton()->update(['per_head_day_limit' => 50]);
 
         $res = $this->actingAs($this->fss)->getJson('/api/fss/menu-cycles/cost-today')->assertOk();
         $this->assertEqualsWithDelta(10, $res->json('data.cost_per_head'), 0.01);
@@ -1269,11 +1275,11 @@ class FoodServiceOpsTest extends TestCase
         $response->assertCreated();
         $item = collect($response->json('data.items'))->firstWhere('fs_item_id', $fs->id);
         $this->assertNotNull($item, 'Rice line should be present');
-        $this->assertEqualsWithDelta(2,    (float) $item['purchase_qty'], 0.01); // ceil(1300/1000)
+        $this->assertEqualsWithDelta(2, (float) $item['purchase_qty'], 0.01); // ceil(1300/1000)
         $this->assertSame('kg', $item['purchase_unit']);
-        $this->assertEqualsWithDelta(50,   (float) $item['purchase_price'], 0.01);
+        $this->assertEqualsWithDelta(50, (float) $item['purchase_price'], 0.01);
         $this->assertEqualsWithDelta(2000, (float) $item['qty'], 0.01);          // 2 sacks × 1000 g base
-        $this->assertEqualsWithDelta(100,  (float) $item['total'], 0.01);        // 2 × ₱50
+        $this->assertEqualsWithDelta(100, (float) $item['total'], 0.01);        // 2 × ₱50
     }
 
     public function test_generate_pos_carries_purchase_units(): void
@@ -1725,7 +1731,7 @@ class FoodServiceOpsTest extends TestCase
     public function test_rnd_can_add_shopping_list_item(): void
     {
         $supplier = Supplier::factory()->create();
-        $fsItem   = $this->makeFsItem();
+        $fsItem = $this->makeFsItem();
 
         // Shopping list item add
         $list = ShoppingList::create([
@@ -1755,8 +1761,8 @@ class FoodServiceOpsTest extends TestCase
             'purchase_qty' => 2, 'purchase_unit' => 'kg', 'purchase_price' => 50,
         ]);
 
-        $report = new \App\Models\Report(['type' => 'procurement_pack', 'parameters' => ['purchase_order_id' => $po->id]]);
-        $data = (new \App\Services\Reports\Generators\ProcurementPackGenerator())->data($report);
+        $report = new Report(['type' => 'procurement_pack', 'parameters' => ['purchase_order_id' => $po->id]]);
+        $data = (new ProcurementPackGenerator)->data($report);
 
         $pack = $data['packs'][0];
         $this->assertEqualsWithDelta(2, (float) $pack['air_items'][0]['quantity'], 0.01); // packs, not 2000 g
@@ -1769,47 +1775,47 @@ class FoodServiceOpsTest extends TestCase
     public function test_fss_can_set_served_population_for_a_day_with_no_log_yet(): void
     {
         $cycle = MenuCycle::factory()->create([
-            'rnd_user_id'     => $this->rnd->id,
+            'rnd_user_id' => $this->rnd->id,
             'week_start_date' => '2026-06-15', // Monday
-            'is_active'       => true,
-            'status'          => 'active',
+            'is_active' => true,
+            'status' => 'active',
         ]);
         MenuCycleDay::create([
-            'menu_cycle_id'       => $cycle->id,
-            'day_of_week'         => 'Wednesday',
-            'meal_type'           => 'lunch',
+            'menu_cycle_id' => $cycle->id,
+            'day_of_week' => 'Wednesday',
+            'meal_type' => 'lunch',
             'estimate_population' => 40,
         ]);
 
         // No meal_prep_log exists for this date — the backfill must create one.
         $this->actingAs($this->fss)
             ->patchJson("/api/fss/menu-cycles/{$cycle->uuid}/served-population", [
-                'service_date'      => '2026-06-17', // Wednesday
+                'service_date' => '2026-06-17', // Wednesday
                 'served_population' => 33,
             ])
             ->assertOk()
             ->assertJsonPath('data.served_population', 33);
 
         $this->assertDatabaseHas('meal_prep_logs', [
-            'menu_cycle_id'     => $cycle->id,
-            'service_date'      => '2026-06-17',
-            'served_population'  => 33,
-            'population'         => 40, // pulled from the weekday's planned estimate
+            'menu_cycle_id' => $cycle->id,
+            'service_date' => '2026-06-17',
+            'served_population' => 33,
+            'population' => 40, // pulled from the weekday's planned estimate
         ]);
     }
 
     public function test_setting_served_population_again_updates_the_same_log(): void
     {
         $cycle = MenuCycle::factory()->create([
-            'rnd_user_id'     => $this->rnd->id,
+            'rnd_user_id' => $this->rnd->id,
             'week_start_date' => '2026-06-15',
-            'is_active'       => true,
-            'status'          => 'active',
+            'is_active' => true,
+            'status' => 'active',
         ]);
         MenuCycleDay::create([
-            'menu_cycle_id'       => $cycle->id,
-            'day_of_week'         => 'Wednesday',
-            'meal_type'           => 'lunch',
+            'menu_cycle_id' => $cycle->id,
+            'day_of_week' => 'Wednesday',
+            'meal_type' => 'lunch',
             'estimate_population' => 40,
         ]);
 
@@ -1819,8 +1825,8 @@ class FoodServiceOpsTest extends TestCase
 
         $this->assertSame(1, MealPrepLog::where('menu_cycle_id', $cycle->id)->whereDate('service_date', '2026-06-17')->count());
         $this->assertDatabaseHas('meal_prep_logs', [
-            'menu_cycle_id'    => $cycle->id,
-            'service_date'     => '2026-06-17',
+            'menu_cycle_id' => $cycle->id,
+            'service_date' => '2026-06-17',
             'served_population' => 38,
         ]);
     }

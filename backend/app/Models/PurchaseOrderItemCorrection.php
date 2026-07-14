@@ -20,11 +20,11 @@ class PurchaseOrderItemCorrection extends Model
     ];
 
     protected $casts = [
-        'old_unit_price'     => 'decimal:2',
-        'new_unit_price'     => 'decimal:2',
+        'old_unit_price' => 'decimal:2',
+        'new_unit_price' => 'decimal:2',
         'old_purchase_price' => 'decimal:2',
         'new_purchase_price' => 'decimal:2',
-        'corrected_at'       => 'datetime',
+        'corrected_at' => 'datetime',
     ];
 
     public function item(): BelongsTo

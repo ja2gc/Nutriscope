@@ -2,9 +2,9 @@
 
 namespace Tests\Feature;
 
-use App\Models\FsItem;
 use App\Models\FoodServiceRecipe;
 use App\Models\FoodServiceRecipeIngredient;
+use App\Models\FsItem;
 use App\Models\Supplier;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -19,6 +19,7 @@ class FsItemCatalogTest extends TestCase
     use RefreshDatabase;
 
     private User $rnd;
+
     private User $fss;
 
     protected function setUp(): void

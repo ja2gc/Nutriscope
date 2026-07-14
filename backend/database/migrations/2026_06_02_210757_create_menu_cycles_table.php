@@ -12,14 +12,14 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('menu_cycles', function (Blueprint $table) {
-            
+
             $table->id();
             $table->foreignId('rnd_user_id')->references('id')->on('users');
             $table->date('week_start_date');
             $table->enum('status', ['draft', 'active', 'archived'])->default('draft');
             $table->date('activation_date')->nullable();
             $table->timestamps();
-        
+
         });
     }
 

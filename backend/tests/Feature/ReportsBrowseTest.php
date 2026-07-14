@@ -3,10 +3,10 @@
 namespace Tests\Feature;
 
 use App\Models\ProgramProjectActivity;
+use App\Models\PurchaseOrder;
 use App\Models\Report;
 use App\Models\ReportBranding;
 use App\Models\Supplier;
-use App\Models\PurchaseOrder;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
@@ -36,13 +36,13 @@ class ReportsBrowseTest extends TestCase
     private function receivedPo(string $date, float $amount = 1000): PurchaseOrder
     {
         return PurchaseOrder::factory()->create([
-            'rnd_user_id'      => $this->rnd->id,
-            'supplier_id'      => Supplier::factory(),
-            'procurement_track'=> 'food',
+            'rnd_user_id' => $this->rnd->id,
+            'supplier_id' => Supplier::factory(),
+            'procurement_track' => 'food',
             'lifecycle_status' => 'completed',
-            'completed_at'     => $date,
-            'order_date'       => $date,
-            'total_amount'     => $amount,
+            'completed_at' => $date,
+            'order_date' => $date,
+            'total_amount' => $amount,
         ]);
     }
 
@@ -132,11 +132,11 @@ class ReportsBrowseTest extends TestCase
         // non-RND, the by-id endpoints reject it on the clinical-type guard.
         $fss = User::factory()->create(['role' => 'FSS']);
         $report = Report::create([
-            'user_id'    => $fss->id,
-            'title'      => 'NCP Summary',
-            'type'       => 'ncp_summary',
+            'user_id' => $fss->id,
+            'title' => 'NCP Summary',
+            'type' => 'ncp_summary',
             'parameters' => ['ncp_record_id' => 1],
-            'status'     => 'completed',
+            'status' => 'completed',
         ]);
 
         $this->actingAs($fss)
@@ -223,9 +223,9 @@ class ReportsBrowseTest extends TestCase
         Storage::disk('public')->put('reports/seeded.pdf', '%PDF-1.4 seeded');
 
         return Report::factory()->create([
-            'user_id'   => $this->rnd->id,
-            'type'      => 'procurement_pack',
-            'status'    => 'archived',
+            'user_id' => $this->rnd->id,
+            'type' => 'procurement_pack',
+            'status' => 'archived',
             'file_path' => 'reports/seeded.pdf',
         ]);
     }

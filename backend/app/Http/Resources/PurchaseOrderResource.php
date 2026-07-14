@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Services\FSS\PurchaseOrderLifecycleService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -11,50 +12,50 @@ class PurchaseOrderResource extends JsonResource
     {
         $servedPopulationProgress = null;
         if ($this->relationLoaded('shoppingList') && $this->shoppingList && $this->procurement_track === 'food') {
-            $servedPopulationProgress = app(\App\Services\FSS\PurchaseOrderLifecycleService::class)
+            $servedPopulationProgress = app(PurchaseOrderLifecycleService::class)
                 ->servedPopulationProgress($this->shoppingList);
         }
 
         return [
-            'id'               => $this->uuid,
-            'rnd_user_id'      => $this->rnd_user_id,
+            'id' => $this->uuid,
+            'rnd_user_id' => $this->rnd_user_id,
             'shopping_list_id' => $this->whenLoaded('shoppingList', fn () => $this->shoppingList?->uuid, $this->shopping_list_id),
-            'supplier_id'      => $this->supplier_id,
-            'supplier'         => $this->whenLoaded('supplier', fn () => $this->supplier ? [
+            'supplier_id' => $this->supplier_id,
+            'supplier' => $this->whenLoaded('supplier', fn () => $this->supplier ? [
                 'id' => $this->supplier->uuid, 'name' => $this->supplier->name, 'category' => $this->supplier->category,
             ] : null),
-            'po_number'        => $this->po_number,
-            'or_number'        => $this->or_number,
-            'order_date'       => $this->order_date?->toDateString(),
-            'received_date'    => $this->received_date?->toDateString(),
-            'total_amount'     => $this->total_amount,
+            'po_number' => $this->po_number,
+            'or_number' => $this->or_number,
+            'order_date' => $this->order_date?->toDateString(),
+            'received_date' => $this->received_date?->toDateString(),
+            'total_amount' => $this->total_amount,
             'actual_budget_per_head_per_day' => $this->actual_budget_per_head_per_day,
             'served_population_progress' => $servedPopulationProgress,
-            'status'           => $this->status,
+            'status' => $this->status,
             'lifecycle_status' => $this->lifecycle_status,
             'procurement_track' => $this->procurement_track,
             'structural_locked' => $this->structural_locked_at !== null,
             'structural_locked_at' => $this->structural_locked_at?->toISOString(),
-            'final_locked'     => $this->final_locked_at !== null,
-            'final_locked_at'  => $this->final_locked_at?->toISOString(),
-            'converted_at'     => $this->converted_at?->toISOString(),
-            'completed_at'     => $this->completed_at?->toISOString(),
-            'archived_at'      => $this->archived_at?->toISOString(),
-            'notes'            => $this->notes,
-            'items'            => $this->whenLoaded('items', fn () => $this->items->map(fn ($i) => [
-                'id'          => $i->id,
+            'final_locked' => $this->final_locked_at !== null,
+            'final_locked_at' => $this->final_locked_at?->toISOString(),
+            'converted_at' => $this->converted_at?->toISOString(),
+            'completed_at' => $this->completed_at?->toISOString(),
+            'archived_at' => $this->archived_at?->toISOString(),
+            'notes' => $this->notes,
+            'items' => $this->whenLoaded('items', fn () => $this->items->map(fn ($i) => [
+                'id' => $i->id,
                 'vendor_group_id' => $i->vendor_group_id,
-                'fs_item_id'  => $i->fs_item_id,
+                'fs_item_id' => $i->fs_item_id,
                 'description' => $i->description,
-                'qty'         => $i->qty,
-                'unit'        => $i->unit,
-                'unit_price'  => $i->unit_price,
+                'qty' => $i->qty,
+                'unit' => $i->unit,
+                'unit_price' => $i->unit_price,
                 'total_value' => $i->total_value,
-                'purchase_qty'    => $i->purchase_qty,
-                'purchase_unit'   => $i->purchase_unit,
-                'purchase_price'  => $i->purchase_price,
+                'purchase_qty' => $i->purchase_qty,
+                'purchase_unit' => $i->purchase_unit,
+                'purchase_price' => $i->purchase_price,
             ])),
-            'vendor_groups'    => $this->whenLoaded('vendorGroups', fn () => $this->vendorGroups->map(fn ($g) => [
+            'vendor_groups' => $this->whenLoaded('vendorGroups', fn () => $this->vendorGroups->map(fn ($g) => [
                 'id' => $g->uuid,
                 'supplier_id' => $g->supplier_id,
                 'supplier' => $g->relationLoaded('supplier') && $g->supplier ? [
@@ -86,10 +87,10 @@ class PurchaseOrderResource extends JsonResource
                     'caption' => $a->caption,
                 ])->values() : null,
             ])->values()),
-            'attachments'      => $this->whenLoaded('attachments', fn () => $this->attachments->map(fn ($a) => [
+            'attachments' => $this->whenLoaded('attachments', fn () => $this->attachments->map(fn ($a) => [
                 'id' => $a->uuid, 'vendor_group_id' => $a->vendor_group_id, 'type' => $a->type, 'path' => $a->path, 'caption' => $a->caption,
             ])),
-            'ppa'              => $this->whenLoaded('programProjectActivity', fn () => $this->programProjectActivity ? [
+            'ppa' => $this->whenLoaded('programProjectActivity', fn () => $this->programProjectActivity ? [
                 'id' => $this->programProjectActivity->id,
                 'activity' => $this->programProjectActivity->activity,
                 'menu_snapshot' => $this->programProjectActivity->menu_snapshot,
@@ -108,8 +109,8 @@ class PurchaseOrderResource extends JsonResource
                             || $g->attachments->where('type', 'receipt')->isEmpty()
                     ),
             ),
-            'created_at'       => $this->created_at,
-            'updated_at'       => $this->updated_at,
+            'created_at' => $this->created_at,
+            'updated_at' => $this->updated_at,
         ];
     }
 }

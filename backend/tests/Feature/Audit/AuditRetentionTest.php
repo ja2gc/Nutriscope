@@ -14,6 +14,7 @@ use App\Models\AuditActivity;
 use App\Models\AuditSetting;
 use App\Models\FsItem;
 use App\Models\User;
+use App\Providers\AppServiceProvider;
 use App\Services\Audit\AuditHealthMonitor;
 use App\Services\Audit\AuditLogger;
 use App\Services\Audit\AuditRetentionService;
@@ -38,6 +39,15 @@ use Tests\TestCase;
 class AuditRetentionTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_audit_mutation_boundary_is_disabled_only_for_migration_commands(): void
+    {
+        $this->assertFalse(AppServiceProvider::shouldRegisterAuditMutationBoundary(true, ['artisan', 'migrate']));
+        $this->assertFalse(AppServiceProvider::shouldRegisterAuditMutationBoundary(true, ['artisan', 'migrate:fresh']));
+        $this->assertTrue(AppServiceProvider::shouldRegisterAuditMutationBoundary(true, ['artisan', 'test']));
+        $this->assertTrue(AppServiceProvider::shouldRegisterAuditMutationBoundary(true, ['artisan', 'queue:work']));
+        $this->assertTrue(AppServiceProvider::shouldRegisterAuditMutationBoundary(false, []));
+    }
 
     public function test_retention_state_uses_config_only_until_a_database_row_exists(): void
     {

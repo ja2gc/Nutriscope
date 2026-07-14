@@ -8,14 +8,14 @@ use Illuminate\Database\Eloquent\Model;
 class InspectionReport extends Model
 {
     use HasFactory;
-    
+
     protected $fillable = [
         'procurement_id', 'supplier_name', 'air_no', 'invoice_no', 'po_no',
         'invoice_date', 'requisition_office', 'date_received', 'date_inspected',
         'inspection_status', 'inspected_by', 'inspected_by_title',
         'certified_by', 'certified_by_title', 'verified_by', 'verified_by_title',
         'approved_by', 'approved_by_title', 'conforme_name', 'conforme_title',
-        'oic_pgso_name', 'oic_pgso_title', 'file_path', 'extracted_data'
+        'oic_pgso_name', 'oic_pgso_title', 'file_path', 'extracted_data',
     ];
 
     protected $casts = [
@@ -34,6 +34,4 @@ class InspectionReport extends Model
     {
         return $this->hasMany(InspectionReportItem::class);
     }
-
 }
-

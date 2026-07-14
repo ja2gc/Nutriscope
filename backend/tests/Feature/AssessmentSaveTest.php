@@ -17,10 +17,10 @@ class AssessmentSaveTest extends TestCase
     private function rnd(): User
     {
         return User::forceCreate([
-            'name'      => 'RND User',
-            'email'     => 'rnd' . uniqid() . '@example.com',
-            'password'  => Hash::make('password'),
-            'role'      => 'RND',
+            'name' => 'RND User',
+            'email' => 'rnd'.uniqid().'@example.com',
+            'password' => Hash::make('password'),
+            'role' => 'RND',
             'is_active' => true,
         ]);
     }
@@ -29,17 +29,17 @@ class AssessmentSaveTest extends TestCase
     {
         $rnd = $this->rnd();
         $patient = Patient::forceCreate([
-            'name'           => 'Test Patient',
-            'dob'            => '1990-01-01',
-            'sex'            => 'Male',
+            'name' => 'Test Patient',
+            'dob' => '1990-01-01',
+            'sex' => 'Male',
             'admission_date' => now()->toDateString(),
             'screening_type' => 'adult',
         ]);
         $ncp = NcpRecord::forceCreate([
-            'patient_id'  => $patient->id,
+            'patient_id' => $patient->id,
             'rnd_user_id' => $rnd->id,
-            'type'        => 'new',
-            'status'      => 'draft',
+            'type' => 'new',
+            'status' => 'draft',
         ]);
         $assessment = Assessment::forceCreate([
             'ncp_record_id' => $ncp->id,
@@ -48,6 +48,7 @@ class AssessmentSaveTest extends TestCase
             'height' => 170,
             'physical_activity_level' => 'sedentary',
         ]);
+
         return [$rnd, $ncp, $assessment];
     }
 
@@ -62,7 +63,7 @@ class AssessmentSaveTest extends TestCase
 
         $response->assertStatus(200);
         $this->assertDatabaseHas('assessments', [
-            'id'                     => $assessment->id,
+            'id' => $assessment->id,
             'physical_activity_level' => 'light',
         ]);
     }
@@ -78,7 +79,7 @@ class AssessmentSaveTest extends TestCase
 
         $response->assertStatus(200);
         $this->assertDatabaseHas('assessments', [
-            'id'      => $assessment->id,
+            'id' => $assessment->id,
             'muac_mm' => 285.0,
         ]);
     }
@@ -90,14 +91,14 @@ class AssessmentSaveTest extends TestCase
         $response = $this->actingAs($rnd, 'sanctum')
             ->patchJson("/api/rnd/ncp-records/{$ncp->uuid}/assessment", [
                 'waist_cm' => 88.5,
-                'hip_cm'   => 96.0,
+                'hip_cm' => 96.0,
             ]);
 
         $response->assertStatus(200);
         $this->assertDatabaseHas('assessments', [
-            'id'       => $assessment->id,
+            'id' => $assessment->id,
             'waist_cm' => 88.5,
-            'hip_cm'   => 96.0,
+            'hip_cm' => 96.0,
         ]);
     }
 
@@ -109,13 +110,14 @@ class AssessmentSaveTest extends TestCase
 
         $response = $this->actingAs($rnd, 'sanctum')
             ->patchJson("/api/rnd/ncp-records/{$ncp->uuid}/assessment", [
-                'religion'                   => 'Roman Catholic',
-                'physical_activity_level'    => 'sedentary',
-                'muac_mm'                    => 285.5,
-                'waist_cm'                   => 92.5,
-                'hip_cm'                     => 100.5,
-                'stress_factor'              => 1.2,
-                'edema_present'              => true,
+                'religion' => 'Roman Catholic',
+                'physical_activity_level' => 'sedentary',
+                'muac_mm' => 285.5,
+                'waist_cm' => 92.5,
+                'hip_cm' => 100.5,
+                'stress_factor' => 1.2,
+                'edema_present' => true,
+                'dry_weight_kg' => 68.0,
                 'pregnancy_lactation_status' => 'none',
             ]);
 

@@ -26,20 +26,20 @@ return new class extends Migration
 
         // Best-effort backfill from category free-text
         $categoryMap = [
-            'breakfast'   => ['breakfast'],
-            'lunch'       => ['lunch'],
-            'dinner'      => ['dinner'],
-            'snack'       => ['am_snack', 'pm_snack'],
-            'am_snack'    => ['am_snack'],
-            'pm_snack'    => ['pm_snack'],
-            'main'        => ['lunch', 'dinner'],
+            'breakfast' => ['breakfast'],
+            'lunch' => ['lunch'],
+            'dinner' => ['dinner'],
+            'snack' => ['am_snack', 'pm_snack'],
+            'am_snack' => ['am_snack'],
+            'pm_snack' => ['pm_snack'],
+            'main' => ['lunch', 'dinner'],
             'main course' => ['lunch', 'dinner'],
-            'side'        => ['lunch', 'dinner'],
-            'soup'        => ['lunch', 'dinner'],
-            'salad'       => ['lunch', 'dinner'],
-            'dessert'     => ['am_snack', 'pm_snack'],
-            'beverage'    => ['any'],
-            'drink'       => ['any'],
+            'side' => ['lunch', 'dinner'],
+            'soup' => ['lunch', 'dinner'],
+            'salad' => ['lunch', 'dinner'],
+            'dessert' => ['am_snack', 'pm_snack'],
+            'beverage' => ['any'],
+            'drink' => ['any'],
         ];
 
         $recipes = DB::table('recipes')->select('id', 'category')->get();

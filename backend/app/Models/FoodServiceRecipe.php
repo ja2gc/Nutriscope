@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\AuditsChanges;
+use App\Models\Concerns\HasPublicId;
 use App\Support\RecipeScaler;
 use App\Support\UnitConverter;
 use Illuminate\Database\Eloquent\Model;
@@ -11,8 +13,8 @@ use Illuminate\Support\Facades\Log;
 
 class FoodServiceRecipe extends Model
 {
-    use \App\Models\Concerns\AuditsChanges;
-    use \App\Models\Concerns\HasPublicId;
+    use AuditsChanges;
+    use HasPublicId;
 
     protected $table = 'food_service_recipes';
 
@@ -52,7 +54,7 @@ class FoodServiceRecipe extends Model
             if (! $item) {
                 continue;
             }
-            $qty  = (float) $ing->quantity;
+            $qty = (float) $ing->quantity;
             $from = (string) $ing->unit;
             $base = (string) $item->base_unit;
 
@@ -71,7 +73,7 @@ class FoodServiceRecipe extends Model
      * Recompute the cached cost of every recipe that uses any of the given
      * fs_items. One bad recipe is logged, not allowed to abort the batch.
      *
-     * @param array<int,int> $fsItemIds
+     * @param  array<int,int>  $fsItemIds
      */
     public static function recalculateForItems(array $fsItemIds): void
     {

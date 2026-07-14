@@ -12,7 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('purchase_orders', function (Blueprint $table) {
-            
+
             $table->id();
             $table->foreignId('rnd_user_id')->references('id')->on('users');
             $table->foreignId('shopping_list_id')->nullable()->references('id')->on('shopping_lists');
@@ -23,7 +23,7 @@ return new class extends Migration
             $table->text('receipt_image')->nullable();
             $table->text('notes')->nullable();
             $table->timestamps();
-        
+
         });
     }
 

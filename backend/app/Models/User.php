@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasPublicId;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -12,8 +13,8 @@ use Spatie\Activitylog\Traits\CausesActivity;
 
 class User extends Authenticatable
 {
-    use HasApiTokens, HasFactory, Notifiable, SoftDeletes, CausesActivity;
-    use \App\Models\Concerns\HasPublicId;
+    use CausesActivity, HasApiTokens, HasFactory, Notifiable, SoftDeletes;
+    use HasPublicId;
 
     protected $fillable = [
         'name',
@@ -35,8 +36,8 @@ class User extends Authenticatable
         'email_verified_at' => 'datetime',
         'recovery_email_verified_at' => 'datetime',
         'recovery_email_verification_expires_at' => 'datetime',
-        'password'          => 'hashed',
-        'is_active'         => 'boolean',
+        'password' => 'hashed',
+        'is_active' => 'boolean',
     ];
 
     public function getEmailForPasswordReset(): string
@@ -85,7 +86,18 @@ class User extends Authenticatable
         return $this->hasMany(Report::class);
     }
 
-    public function isRnd(): bool   { return $this->role === 'RND'; }
-    public function isFss(): bool   { return $this->role === 'FSS'; }
-    public function isAdmin(): bool { return $this->role === 'Admin'; }
+    public function isRnd(): bool
+    {
+        return $this->role === 'RND';
+    }
+
+    public function isFss(): bool
+    {
+        return $this->role === 'FSS';
+    }
+
+    public function isAdmin(): bool
+    {
+        return $this->role === 'Admin';
+    }
 }

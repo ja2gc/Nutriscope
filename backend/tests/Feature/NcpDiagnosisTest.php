@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Models\ClinicalRule;
+use App\Models\Assessment;
 use App\Models\Diagnosis;
 use App\Models\NcpRecord;
 use App\Models\Patient;
@@ -18,10 +18,10 @@ class NcpDiagnosisTest extends TestCase
     private function rnd(): User
     {
         return User::forceCreate([
-            'name'      => 'RND',
-            'email'     => 'rnd' . uniqid() . '@example.com',
-            'password'  => Hash::make('password'),
-            'role'      => 'RND',
+            'name' => 'RND',
+            'email' => 'rnd'.uniqid().'@example.com',
+            'password' => Hash::make('password'),
+            'role' => 'RND',
             'is_active' => true,
         ]);
     }
@@ -29,9 +29,9 @@ class NcpDiagnosisTest extends TestCase
     private function patient(): Patient
     {
         return Patient::forceCreate([
-            'name'           => 'Test Patient',
-            'dob'            => '1990-01-01',
-            'sex'            => 'Male',
+            'name' => 'Test Patient',
+            'dob' => '1990-01-01',
+            'sex' => 'Male',
             'admission_date' => now()->toDateString(),
         ]);
     }
@@ -39,19 +39,19 @@ class NcpDiagnosisTest extends TestCase
     private function ncpRecord(Patient $patient, User $rnd): NcpRecord
     {
         return NcpRecord::forceCreate([
-            'patient_id'  => $patient->id,
+            'patient_id' => $patient->id,
             'rnd_user_id' => $rnd->id,
-            'type'        => 'new',
-            'status'      => 'draft',
+            'type' => 'new',
+            'status' => 'draft',
         ]);
     }
 
-    private function assessment(NcpRecord $ncp): \App\Models\Assessment
+    private function assessment(NcpRecord $ncp): Assessment
     {
-        return \App\Models\Assessment::forceCreate([
+        return Assessment::forceCreate([
             'ncp_record_id' => $ncp->id,
-            'weight'        => 70.0,
-            'height'        => 170.0,
+            'weight' => 70.0,
+            'height' => 170.0,
         ]);
     }
 
@@ -61,15 +61,15 @@ class NcpDiagnosisTest extends TestCase
 
     public function test_diagnosis_requires_assessment_first(): void
     {
-        $rnd     = $this->rnd();
+        $rnd = $this->rnd();
         $patient = $this->patient();
-        $ncp     = $this->ncpRecord($patient, $rnd); // no assessment yet
+        $ncp = $this->ncpRecord($patient, $rnd); // no assessment yet
 
         $response = $this->actingAs($rnd, 'sanctum')
             ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/diagnoses", [
-                'domain'         => 'NI',
-                'problem'        => 'Inadequate oral food intake',
-                'etiology'       => 'anorexia',
+                'domain' => 'NI',
+                'problem' => 'Inadequate oral food intake',
+                'etiology' => 'anorexia',
                 'signs_symptoms' => 'low intake',
             ]);
 
@@ -79,16 +79,16 @@ class NcpDiagnosisTest extends TestCase
 
     public function test_rnd_can_add_diagnosis_to_ncp_record(): void
     {
-        $rnd     = $this->rnd();
+        $rnd = $this->rnd();
         $patient = $this->patient();
-        $ncp     = $this->ncpRecord($patient, $rnd);
+        $ncp = $this->ncpRecord($patient, $rnd);
         $this->assessment($ncp);
 
         $response = $this->actingAs($rnd, 'sanctum')
             ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/diagnoses", [
-                'domain'        => 'NI',
-                'problem'       => 'Inadequate oral food intake',
-                'etiology'      => 'anorexia',
+                'domain' => 'NI',
+                'problem' => 'Inadequate oral food intake',
+                'etiology' => 'anorexia',
                 'signs_symptoms' => 'Reported intake <50% of estimated requirements',
             ]);
 
@@ -98,22 +98,22 @@ class NcpDiagnosisTest extends TestCase
 
         $this->assertDatabaseHas('diagnoses', [
             'ncp_record_id' => $ncp->id,
-            'domain'        => 'NI',
+            'domain' => 'NI',
         ]);
     }
 
     public function test_diagnosis_pes_statement_is_auto_generated(): void
     {
-        $rnd     = $this->rnd();
+        $rnd = $this->rnd();
         $patient = $this->patient();
-        $ncp     = $this->ncpRecord($patient, $rnd);
+        $ncp = $this->ncpRecord($patient, $rnd);
         $this->assessment($ncp);
 
         $response = $this->actingAs($rnd, 'sanctum')
             ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/diagnoses", [
-                'domain'         => 'NC',
-                'problem'        => 'Overweight',
-                'etiology'       => 'excessive energy intake',
+                'domain' => 'NC',
+                'problem' => 'Overweight',
+                'etiology' => 'excessive energy intake',
                 'signs_symptoms' => 'BMI > 25',
             ]);
 
@@ -126,15 +126,15 @@ class NcpDiagnosisTest extends TestCase
 
     public function test_diagnosis_domain_must_be_ni_nc_or_nb(): void
     {
-        $rnd     = $this->rnd();
+        $rnd = $this->rnd();
         $patient = $this->patient();
-        $ncp     = $this->ncpRecord($patient, $rnd);
+        $ncp = $this->ncpRecord($patient, $rnd);
 
         $response = $this->actingAs($rnd, 'sanctum')
             ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/diagnoses", [
-                'domain'         => 'NO',
-                'problem'        => 'Some problem',
-                'etiology'       => 'some cause',
+                'domain' => 'NO',
+                'problem' => 'Some problem',
+                'etiology' => 'some cause',
                 'signs_symptoms' => 'some signs',
             ]);
 
@@ -144,26 +144,26 @@ class NcpDiagnosisTest extends TestCase
 
     public function test_rnd_can_list_diagnoses_for_ncp_record(): void
     {
-        $rnd     = $this->rnd();
+        $rnd = $this->rnd();
         $patient = $this->patient();
-        $ncp     = $this->ncpRecord($patient, $rnd);
+        $ncp = $this->ncpRecord($patient, $rnd);
 
         Diagnosis::forceCreate([
             'ncp_record_id' => $ncp->id,
-            'domain'        => 'NI',
-            'problem'        => 'Problem 1',
-            'etiology'       => 'Cause',
+            'domain' => 'NI',
+            'problem' => 'Problem 1',
+            'etiology' => 'Cause',
             'signs_symptoms' => 'Signs',
-            'pes_statement'  => 'PES 1',
+            'pes_statement' => 'PES 1',
         ]);
 
         Diagnosis::forceCreate([
             'ncp_record_id' => $ncp->id,
-            'domain'        => 'NB',
-            'problem'        => 'Problem 2',
-            'etiology'       => 'Cause 2',
+            'domain' => 'NB',
+            'problem' => 'Problem 2',
+            'etiology' => 'Cause 2',
             'signs_symptoms' => 'Signs 2',
-            'pes_statement'  => 'PES 2',
+            'pes_statement' => 'PES 2',
         ]);
 
         $response = $this->actingAs($rnd, 'sanctum')
@@ -175,17 +175,17 @@ class NcpDiagnosisTest extends TestCase
 
     public function test_rnd_can_update_diagnosis(): void
     {
-        $rnd     = $this->rnd();
+        $rnd = $this->rnd();
         $patient = $this->patient();
-        $ncp     = $this->ncpRecord($patient, $rnd);
+        $ncp = $this->ncpRecord($patient, $rnd);
 
         $diagnosis = Diagnosis::forceCreate([
             'ncp_record_id' => $ncp->id,
-            'domain'        => 'NI',
-            'problem'        => 'Old problem',
-            'etiology'       => 'Cause',
+            'domain' => 'NI',
+            'problem' => 'Old problem',
+            'etiology' => 'Cause',
             'signs_symptoms' => 'Signs',
-            'pes_statement'  => 'Old PES',
+            'pes_statement' => 'Old PES',
         ]);
 
         $response = $this->actingAs($rnd, 'sanctum')
@@ -199,9 +199,9 @@ class NcpDiagnosisTest extends TestCase
 
     public function test_ai_generated_diagnosis_can_be_edited_like_manual_diagnosis(): void
     {
-        $rnd     = $this->rnd();
+        $rnd = $this->rnd();
         $patient = $this->patient();
-        $ncp     = $this->ncpRecord($patient, $rnd);
+        $ncp = $this->ncpRecord($patient, $rnd);
 
         $diagnosis = Diagnosis::forceCreate([
             'ncp_record_id' => $ncp->id,
@@ -244,9 +244,9 @@ class NcpDiagnosisTest extends TestCase
 
     public function test_update_persists_manual_pes_override(): void
     {
-        $rnd     = $this->rnd();
+        $rnd = $this->rnd();
         $patient = $this->patient();
-        $ncp     = $this->ncpRecord($patient, $rnd);
+        $ncp = $this->ncpRecord($patient, $rnd);
 
         $diagnosis = Diagnosis::forceCreate([
             'ncp_record_id' => $ncp->id, 'domain' => 'NI',
@@ -270,9 +270,9 @@ class NcpDiagnosisTest extends TestCase
 
     public function test_update_rejects_blanked_pes_component(): void
     {
-        $rnd     = $this->rnd();
+        $rnd = $this->rnd();
         $patient = $this->patient();
-        $ncp     = $this->ncpRecord($patient, $rnd);
+        $ncp = $this->ncpRecord($patient, $rnd);
 
         $diagnosis = Diagnosis::forceCreate([
             'ncp_record_id' => $ncp->id, 'domain' => 'NI',
@@ -290,9 +290,9 @@ class NcpDiagnosisTest extends TestCase
 
     public function test_cannot_delete_last_diagnosis_from_active_ncp(): void
     {
-        $rnd     = $this->rnd();
+        $rnd = $this->rnd();
         $patient = $this->patient();
-        $ncp     = $this->ncpRecord($patient, $rnd);
+        $ncp = $this->ncpRecord($patient, $rnd);
         $ncp->update(['status' => 'active']);
 
         $diagnosis = Diagnosis::forceCreate([
@@ -310,9 +310,9 @@ class NcpDiagnosisTest extends TestCase
 
     public function test_can_delete_non_last_diagnosis_from_active_ncp(): void
     {
-        $rnd     = $this->rnd();
+        $rnd = $this->rnd();
         $patient = $this->patient();
-        $ncp     = $this->ncpRecord($patient, $rnd);
+        $ncp = $this->ncpRecord($patient, $rnd);
         $ncp->update(['status' => 'active']);
 
         $keep = Diagnosis::forceCreate([
@@ -334,17 +334,17 @@ class NcpDiagnosisTest extends TestCase
 
     public function test_rnd_can_delete_diagnosis(): void
     {
-        $rnd     = $this->rnd();
+        $rnd = $this->rnd();
         $patient = $this->patient();
-        $ncp     = $this->ncpRecord($patient, $rnd);
+        $ncp = $this->ncpRecord($patient, $rnd);
 
         $diagnosis = Diagnosis::forceCreate([
             'ncp_record_id' => $ncp->id,
-            'domain'        => 'NC',
-            'problem'        => 'Problem',
-            'etiology'       => 'Cause',
+            'domain' => 'NC',
+            'problem' => 'Problem',
+            'etiology' => 'Cause',
             'signs_symptoms' => 'Signs',
-            'pes_statement'  => 'PES',
+            'pes_statement' => 'PES',
         ]);
 
         $this->actingAs($rnd, 'sanctum')
@@ -356,18 +356,18 @@ class NcpDiagnosisTest extends TestCase
 
     public function test_clinical_rules_drive_ai_flag_on_diagnosis(): void
     {
-        $rnd     = $this->rnd();
+        $rnd = $this->rnd();
         $patient = $this->patient();
-        $ncp     = $this->ncpRecord($patient, $rnd);
+        $ncp = $this->ncpRecord($patient, $rnd);
         $this->assessment($ncp);
 
         $response = $this->actingAs($rnd, 'sanctum')
             ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/diagnoses", [
-                'domain'         => 'NI',
-                'problem'        => 'Inadequate oral food intake',
-                'etiology'       => 'anorexia',
+                'domain' => 'NI',
+                'problem' => 'Inadequate oral food intake',
+                'etiology' => 'anorexia',
                 'signs_symptoms' => 'low intake',
-                'ai_generated'   => true,
+                'ai_generated' => true,
             ]);
 
         $response->assertStatus(201)
@@ -376,19 +376,19 @@ class NcpDiagnosisTest extends TestCase
 
     public function test_diagnosis_belongs_to_correct_ncp_record(): void
     {
-        $rnd      = $this->rnd();
+        $rnd = $this->rnd();
         $patient1 = $this->patient();
         $patient2 = $this->patient();
-        $ncp1     = $this->ncpRecord($patient1, $rnd);
-        $ncp2     = $this->ncpRecord($patient2, $rnd);
+        $ncp1 = $this->ncpRecord($patient1, $rnd);
+        $ncp2 = $this->ncpRecord($patient2, $rnd);
 
         Diagnosis::forceCreate([
             'ncp_record_id' => $ncp2->id,
-            'domain'        => 'NB',
-            'problem'        => 'Other patient diagnosis',
-            'etiology'       => 'Cause',
+            'domain' => 'NB',
+            'problem' => 'Other patient diagnosis',
+            'etiology' => 'Cause',
             'signs_symptoms' => 'Signs',
-            'pes_statement'  => 'PES',
+            'pes_statement' => 'PES',
         ]);
 
         $response = $this->actingAs($rnd, 'sanctum')

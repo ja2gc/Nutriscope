@@ -9,6 +9,7 @@ use App\Models\ScreeningDocument;
 use App\Services\ClinicalCompletenessService;
 use App\Services\Reports\Contracts\ReportGenerator;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * NCP Summary — a patient's Nutrition Care Plan (ADIME) as the standard
@@ -45,7 +46,7 @@ class NcpSummaryGenerator implements ReportGenerator
             'diagnoses', 'intervention.mealPlans', 'monitorings',
         ])->findOrFail($params['ncp_record_id']);
 
-        $patient    = $ncp->patient;
+        $patient = $ncp->patient;
         $assessment = $ncp->assessment;
 
         // AD-02 / RP-01-02: distinguish a complete initial ADI from a full ADIME
@@ -56,7 +57,7 @@ class NcpSummaryGenerator implements ReportGenerator
             $this->completeness->interventionMissing($ncp),
         );
         $initialComplete = $this->completeness->initialAdiComplete($ncp);
-        $fullComplete    = $this->completeness->fullAdimeComplete($ncp);
+        $fullComplete = $this->completeness->fullAdimeComplete($ncp);
         $completionStage = $fullComplete ? 'Full ADIME'
             : ($initialComplete ? 'Initial ADI' : 'Incomplete — Draft');
 
@@ -66,43 +67,43 @@ class NcpSummaryGenerator implements ReportGenerator
 
         return [
             'patient' => [
-                'name'            => $patient?->name,
+                'name' => $patient?->name,
                 'hospital_number' => $patient?->hospital_number,
-                'age'             => self::ageFrom($patient?->dob, $patient?->admission_date),
-                'sex'             => $patient?->sex,
-                'physician'       => $patient?->physician,
-                'admission_date'  => optional($patient?->admission_date)->format('M j, Y'),
-                'diagnosis'       => $patient?->medical_diagnosis,
-                'religion'        => $assessment?->religion ?? $patient?->religion,
+                'age' => self::ageFrom($patient?->dob, $patient?->admission_date),
+                'sex' => $patient?->sex,
+                'physician' => $patient?->physician,
+                'admission_date' => optional($patient?->admission_date)->format('M j, Y'),
+                'diagnosis' => $patient?->medical_diagnosis,
+                'religion' => $assessment?->religion ?? $patient?->religion,
             ],
-            'assessment'         => $assessment,
-            'biochem'            => $assessment?->biochemicalData,
+            'assessment' => $assessment,
+            'biochem' => $assessment?->biochemicalData,
             'nutritional_status' => $assessment?->nutritional_status,
-            'risk_score'         => $ncp->risk_score,
-            'risk_band'          => self::riskBand($ncp->risk_score !== null ? (float) $ncp->risk_score : null),
-            'diagnoses'          => $ncp->diagnoses->map(fn (Diagnosis $d) => [
+            'risk_score' => $ncp->risk_score,
+            'risk_band' => self::riskBand($ncp->risk_score !== null ? (float) $ncp->risk_score : null),
+            'diagnoses' => $ncp->diagnoses->map(fn (Diagnosis $d) => [
                 'domain' => $d->domain,
-                'pes'    => $d->pes_statement
+                'pes' => $d->pes_statement
                     ?: Diagnosis::buildPes((string) $d->problem, (string) $d->etiology, (string) $d->signs_symptoms),
             ])->all(),
-            'intervention'       => $ncp->intervention,
-            'monitorings'        => $ncp->monitorings->sortBy('created_at')->values(),
+            'intervention' => $ncp->intervention,
+            'monitorings' => $ncp->monitorings->sortBy('created_at')->values(),
             // Attachments are cycle-scoped (AS-02) — load by ncp_record_id, not assessment.
-            'attachments'        => $attachments = ScreeningDocument::where('ncp_record_id', $ncp->id)
+            'attachments' => $attachments = ScreeningDocument::where('ncp_record_id', $ncp->id)
                 ->orderByDesc('created_at')->get(),
             // Image attachments resolved to absolute paths for the PDF appendix
             // (dompdf embeds local image files; PDFs can't be inlined and are listed only).
-            'attachment_images'  => $this->imageAppendix($attachments),
-            'record_status'      => $ncp->status,
+            'attachment_images' => $this->imageAppendix($attachments),
+            'record_status' => $ncp->status,
             // Completeness / report integrity (RP-01/02, AD-02)
-            'completion_stage'   => $completionStage,
-            'is_complete'        => $initialComplete,
-            'incomplete_items'   => $missing,
-            'meal_plan'          => $mealPlan ? [
-                'id'              => $mealPlan->id,
+            'completion_stage' => $completionStage,
+            'is_complete' => $initialComplete,
+            'incomplete_items' => $missing,
+            'meal_plan' => $mealPlan ? [
+                'id' => $mealPlan->id,
                 'week_start_date' => optional($mealPlan->week_start_date)->format('M j, Y')
                     ?? (string) $mealPlan->week_start_date,
-                'status'          => $mealPlan->status,
+                'status' => $mealPlan->status,
             ] : null,
         ];
     }
@@ -121,8 +122,8 @@ class NcpSummaryGenerator implements ReportGenerator
             if (! in_array($ext, ['jpg', 'jpeg', 'png'], true)) {
                 continue;
             }
-            $abs = \Illuminate\Support\Facades\Storage::exists($doc->file_path)
-                ? \Illuminate\Support\Facades\Storage::path($doc->file_path)
+            $abs = Storage::exists($doc->file_path)
+                ? Storage::path($doc->file_path)
                 : (is_file($doc->file_path) ? $doc->file_path : null); // legacy absolute path
             if ($abs && is_file($abs)) {
                 $images[] = [
@@ -132,6 +133,7 @@ class NcpSummaryGenerator implements ReportGenerator
                 ];
             }
         }
+
         return $images;
     }
 
@@ -156,10 +158,11 @@ class NcpSummaryGenerator implements ReportGenerator
         if ($score === null) {
             return '—';
         }
+
         return match (true) {
             $score <= 1 => 'Low Risk',
             $score <= 3 => 'Moderate Risk',
-            default     => 'High Risk',
+            default => 'High Risk',
         };
     }
 }

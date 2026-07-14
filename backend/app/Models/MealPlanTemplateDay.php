@@ -8,10 +8,10 @@ use Illuminate\Database\Eloquent\Model;
 class MealPlanTemplateDay extends Model
 {
     use HasFactory;
-    
+
     protected $fillable = [
         'template_id', 'day_of_week', 'meal_type', 'food_item_id',
-        'recipe_id', 'quantity', 'unit'
+        'recipe_id', 'quantity', 'unit',
     ];
 
     protected $casts = [
@@ -32,6 +32,4 @@ class MealPlanTemplateDay extends Model
     {
         return $this->belongsTo(Recipe::class);
     }
-
 }
-

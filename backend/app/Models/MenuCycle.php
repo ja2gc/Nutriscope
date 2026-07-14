@@ -2,6 +2,9 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\AuditsChanges;
+use App\Models\Concerns\HasPublicId;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -9,9 +12,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class MenuCycle extends Model
 {
+    use AuditsChanges;
     use HasFactory;
-    use \App\Models\Concerns\AuditsChanges;
-    use \App\Models\Concerns\HasPublicId;
+    use HasPublicId;
 
     protected $fillable = [
         'rnd_user_id', 'name',
@@ -20,11 +23,11 @@ class MenuCycle extends Model
     ];
 
     protected $casts = [
-        'week_start_date'         => 'date',
-        'activation_date'         => 'date',
-        'is_active'               => 'boolean',
-        'cost_snapshot'           => 'array',
-        'cost_snapshot_at'        => 'datetime',
+        'week_start_date' => 'date',
+        'activation_date' => 'date',
+        'is_active' => 'boolean',
+        'cost_snapshot' => 'array',
+        'cost_snapshot_at' => 'datetime',
     ];
 
     protected function auditAttributes(): array
@@ -54,9 +57,9 @@ class MenuCycle extends Model
      * Candidate filtering is done in SQL (week_start_date <= date) and the window-end
      * check in PHP so the date math stays portable across sqlite (tests) and the prod DB.
      */
-    public static function coveringDate(\Carbon\Carbon|string $date): ?self
+    public static function coveringDate(Carbon|string $date): ?self
     {
-        $day = ($date instanceof \Carbon\Carbon ? $date->copy() : \Carbon\Carbon::parse($date))->startOfDay();
+        $day = ($date instanceof Carbon ? $date->copy() : Carbon::parse($date))->startOfDay();
 
         return self::query()
             ->whereNotNull('week_start_date')
@@ -66,7 +69,7 @@ class MenuCycle extends Model
             ->get()
             ->first(function (self $cycle) use ($day) {
                 $span = (int) ($cycle->cycle_days ?: 7);
-                $end  = $cycle->week_start_date->copy()->startOfDay()->addDays($span - 1);
+                $end = $cycle->week_start_date->copy()->startOfDay()->addDays($span - 1);
 
                 return $day->gte($cycle->week_start_date->copy()->startOfDay()) && $day->lte($end);
             });

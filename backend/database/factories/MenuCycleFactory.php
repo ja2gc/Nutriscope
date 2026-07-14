@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Models\MenuCycle;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -18,12 +19,12 @@ class MenuCycleFactory extends Factory
     public function definition(): array
     {
         return [
-            'rnd_user_id'     => \App\Models\User::factory()->rnd(),
-            'name'            => $this->faker->words(3, true),
-            'cycle_days'      => 7,
-            'is_active'       => false,
+            'rnd_user_id' => User::factory()->rnd(),
+            'name' => $this->faker->words(3, true),
+            'cycle_days' => 7,
+            'is_active' => false,
             'week_start_date' => $this->faker->dateTimeBetween('now', '+1 week')->format('Y-m-d'),
-            'status'          => 'draft',
+            'status' => 'draft',
             'activation_date' => null,
         ];
     }

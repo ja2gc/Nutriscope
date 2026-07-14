@@ -12,7 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('inventory', function (Blueprint $table) {
-            
+
             $table->id();
             $table->foreignId('food_item_id')->constrained('food_items');
             $table->decimal('quantity_in_stock', 10, 2)->default(0);
@@ -23,7 +23,7 @@ return new class extends Migration
             $table->text('notes')->nullable();
             $table->timestamps();
             $table->unique('food_item_id');
-        
+
         });
     }
 

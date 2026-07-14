@@ -22,20 +22,20 @@ return new class extends Migration
     {
         Schema::table('assessments', function (Blueprint $table) {
             $table->decimal('stress_factor', 4, 2)->nullable()
-                  ->after('physical_activity_level')
-                  ->comment('Stress/injury multiplier for high-protein & acute illness goals');
+                ->after('physical_activity_level')
+                ->comment('Stress/injury multiplier for high-protein & acute illness goals');
 
             $table->boolean('edema_present')->nullable()->default(false)
-                  ->after('stress_factor')
-                  ->comment('True = weight unreliable; surfaced as a UI warning, no formula change');
+                ->after('stress_factor')
+                ->comment('True = weight unreliable; surfaced as a UI warning, no formula change');
 
             $table->string('pregnancy_lactation_status', 20)->nullable()->default('none')
-                  ->after('edema_present')
-                  ->comment('none | pregnant | lactating — PDRI energy/protein add-ons');
+                ->after('edema_present')
+                ->comment('none | pregnant | lactating — PDRI energy/protein add-ons');
 
             $table->decimal('calf_circumference_cm', 5, 1)->nullable()
-                  ->after('pregnancy_lactation_status')
-                  ->comment('AWGS sarcopenia proxy: <34 cm Male / <33 cm Female = low muscle mass');
+                ->after('pregnancy_lactation_status')
+                ->comment('AWGS sarcopenia proxy: <34 cm Male / <33 cm Female = low muscle mass');
         });
     }
 

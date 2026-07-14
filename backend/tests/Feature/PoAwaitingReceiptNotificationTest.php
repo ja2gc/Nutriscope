@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Notification;
 use App\Models\PurchaseOrder;
+use App\Models\ShoppingList;
 use App\Models\Supplier;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -15,7 +16,9 @@ class PoAwaitingReceiptNotificationTest extends TestCase
     use RefreshDatabase;
 
     private User $rnd;
+
     private User $fss1;
+
     private User $fss2;
 
     protected function setUp(): void
@@ -23,17 +26,17 @@ class PoAwaitingReceiptNotificationTest extends TestCase
         parent::setUp();
 
         $this->rnd = User::factory()->create([
-            'role'     => 'RND',
+            'role' => 'RND',
             'password' => Hash::make('password'),
         ]);
 
         $this->fss1 = User::factory()->create([
-            'role'     => 'FSS',
+            'role' => 'FSS',
             'password' => Hash::make('password'),
         ]);
 
         $this->fss2 = User::factory()->create([
-            'role'     => 'FSS',
+            'role' => 'FSS',
             'password' => Hash::make('password'),
         ]);
     }
@@ -43,7 +46,7 @@ class PoAwaitingReceiptNotificationTest extends TestCase
         // Purchase orders are now born from approving a shopping list, as drafts —
         // FSS is only notified once RND marks a vendor order "ordered" (tested below).
         $supplier = Supplier::factory()->create();
-        $list = \App\Models\ShoppingList::create([
+        $list = ShoppingList::create([
             'rnd_user_id' => $this->rnd->id, 'name' => 'L', 'list_date' => '2026-06-20',
             'list_type' => 'manual', 'status' => 'draft',
         ]);
@@ -84,7 +87,7 @@ class PoAwaitingReceiptNotificationTest extends TestCase
 
         $response = $this->actingAs($this->rnd)
             ->patchJson("/api/fss/purchase-orders/{$po->uuid}", [
-                'status'  => 'ordered',
+                'status' => 'ordered',
                 'or_number' => 'OR-001',
             ]);
 

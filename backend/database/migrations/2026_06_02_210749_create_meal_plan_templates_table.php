@@ -12,14 +12,14 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('meal_plan_templates', function (Blueprint $table) {
-            
+
             $table->id();
             $table->foreignId('rnd_user_id')->references('id')->on('users');
             $table->string('name');
             $table->text('description')->nullable();
             $table->string('goal_type')->nullable();
             $table->timestamps();
-        
+
         });
     }
 

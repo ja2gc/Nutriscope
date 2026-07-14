@@ -18,6 +18,7 @@ class BudgetLedgerRestructureTest extends TestCase
     use RefreshDatabase;
 
     private User $fss;
+
     private User $rnd;
 
     protected function setUp(): void

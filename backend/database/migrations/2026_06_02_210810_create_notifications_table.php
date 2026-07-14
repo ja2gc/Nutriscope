@@ -12,7 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('notifications', function (Blueprint $table) {
-            
+
             $table->id();
             $table->foreignId('user_id')->references('id')->on('users');
             $table->string('title');
@@ -22,7 +22,7 @@ return new class extends Migration
             $table->unsignedBigInteger('source_id')->nullable();
             $table->boolean('read')->default(false);
             $table->timestamps();
-        
+
         });
     }
 

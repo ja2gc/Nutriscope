@@ -35,8 +35,12 @@ class ClinicalCompletenessService
         }
 
         $missing = [];
-        if (! ($a->weight > 0)) $missing[] = 'Weight';
-        if (! ($a->height > 0)) $missing[] = 'Height';
+        if (! ($a->weight > 0)) {
+            $missing[] = 'Weight';
+        }
+        if (! ($a->height > 0)) {
+            $missing[] = 'Height';
+        }
 
         return $missing;
     }
@@ -73,6 +77,7 @@ class ClinicalCompletenessService
                 return false;
             }
         }
+
         return true;
     }
 
@@ -93,11 +98,21 @@ class ClinicalCompletenessService
         }
 
         $missing = [];
-        if (empty($iv->goal_type)) $missing[] = 'Intervention goal';
-        if (! ($iv->energy_kcal > 0)) $missing[] = 'Energy target';
-        if (! ($iv->protein_g > 0))   $missing[] = 'Protein target';
-        if (! ($iv->carbs_g > 0))     $missing[] = 'Carbohydrate target';
-        if (! ($iv->fat_g > 0))       $missing[] = 'Fat target';
+        if (empty($iv->goal_type)) {
+            $missing[] = 'Intervention goal';
+        }
+        if (! ($iv->energy_kcal > 0)) {
+            $missing[] = 'Energy target';
+        }
+        if (! ($iv->protein_g > 0)) {
+            $missing[] = 'Protein target';
+        }
+        if (! ($iv->carbs_g > 0)) {
+            $missing[] = 'Carbohydrate target';
+        }
+        if (! ($iv->fat_g > 0)) {
+            $missing[] = 'Fat target';
+        }
 
         return $missing;
     }
@@ -106,6 +121,7 @@ class ClinicalCompletenessService
     public function followUpPlanComplete(NcpRecord $ncp): bool
     {
         $iv = $ncp->intervention;
+
         return $iv && (! empty($iv->next_followup_date) || ! empty($iv->session_type));
     }
 

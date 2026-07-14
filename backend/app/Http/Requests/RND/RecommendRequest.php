@@ -14,10 +14,10 @@ class RecommendRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'conditions'   => ['required', 'array', 'min:1'],
+            'conditions' => ['required', 'array', 'min:1'],
             'conditions.*' => ['required', 'string'],
-            'stages'       => ['nullable', 'array'],
-            'stages.*'     => ['nullable', 'string'],
+            'stages' => ['nullable', 'array'],
+            'stages.*' => ['nullable', 'string'],
         ];
     }
 }

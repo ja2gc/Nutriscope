@@ -2,14 +2,16 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\AuditsChanges;
+use App\Models\Concerns\HasPublicId;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Monitoring extends Model
 {
+    use AuditsChanges;
     use HasFactory;
-    use \App\Models\Concerns\AuditsChanges;
-    use \App\Models\Concerns\HasPublicId;
+    use HasPublicId;
 
     /** Clinical — log field names only, redact PHI values (Spec 5 Decision A). */
     protected bool $auditRedactValues = true;
@@ -17,7 +19,7 @@ class Monitoring extends Model
     protected $fillable = [
         'ncp_record_id', 'weight', 'bmi', 'lab_values', 'intake_notes',
         'symptoms', 'goal_achievement', 'clinical_summary', 'ai_decision',
-        'ai_review', 'ai_review_key', 'next_monitoring_date'
+        'ai_review', 'ai_review_key', 'next_monitoring_date',
     ];
 
     protected $casts = [

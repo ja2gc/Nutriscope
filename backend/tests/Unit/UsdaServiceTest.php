@@ -5,6 +5,7 @@ namespace Tests\Unit;
 use App\Models\FoodItem;
 use App\Services\UsdaService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
@@ -17,14 +18,15 @@ class UsdaServiceTest extends TestCase
     private UsdaService $service;
 
     private const SEARCH_URL = 'https://api.nal.usda.gov/fdc/v1/foods/search*';
+
     private const DETAIL_URL = 'https://api.nal.usda.gov/fdc/v1/food/12345*';
 
     private array $searchResponse = [
         'foods' => [
             [
-                'fdcId'       => 12345,
+                'fdcId' => 12345,
                 'description' => 'Chicken, breast, raw',
-                'dataType'    => 'SR Legacy',
+                'dataType' => 'SR Legacy',
                 'foodNutrients' => [
                     // Search endpoint: flat structure (nutrientId + value)
                     ['nutrientId' => 1008, 'nutrientName' => 'Energy', 'value' => 110, 'unitName' => 'kcal'],
@@ -38,9 +40,9 @@ class UsdaServiceTest extends TestCase
 
     // Minimal macros-only detail response (for basic fetch/import tests)
     private array $detailResponse = [
-        'fdcId'       => 12345,
+        'fdcId' => 12345,
         'description' => 'Chicken, breast, raw',
-        'dataType'    => 'SR Legacy',
+        'dataType' => 'SR Legacy',
         'foodNutrients' => [
             // Detail endpoint: nested structure (nutrient.id + amount)
             ['nutrient' => ['id' => 1008, 'name' => 'Energy', 'unitName' => 'kcal'], 'amount' => 110],
@@ -52,9 +54,9 @@ class UsdaServiceTest extends TestCase
 
     // Full response with micronutrients for key-convention and omega-3 tests
     private array $detailResponseWithMicros = [
-        'fdcId'       => 12345,
+        'fdcId' => 12345,
         'description' => 'Chicken, breast, raw',
-        'dataType'    => 'SR Legacy',
+        'dataType' => 'SR Legacy',
         'foodNutrients' => [
             ['nutrient' => ['id' => 1008, 'name' => 'Energy', 'unitName' => 'kcal'], 'amount' => 110],
             ['nutrient' => ['id' => 1003, 'name' => 'Protein', 'unitName' => 'g'], 'amount' => 23.1],
@@ -82,7 +84,7 @@ class UsdaServiceTest extends TestCase
         parent::setUp();
         Cache::flush();
         config([
-            'services.usda.key'      => 'test-key',
+            'services.usda.key' => 'test-key',
             'services.usda.base_url' => 'https://api.nal.usda.gov/fdc/v1',
         ]);
         $this->service = app(UsdaService::class);
@@ -96,7 +98,7 @@ class UsdaServiceTest extends TestCase
 
         $results = $this->service->search('chicken breast');
 
-        Http::assertSent(function (\Illuminate\Http\Client\Request $request) {
+        Http::assertSent(function (Request $request) {
             return $request['dataType'] === ['SR Legacy', 'Foundation', 'Survey (FNDDS)']
                 && $request['query'] === 'chicken breast';
         });
@@ -185,7 +187,7 @@ class UsdaServiceTest extends TestCase
         $responseWithWater = $this->detailResponse;
         $responseWithWater['foodNutrients'][] = [
             'nutrient' => ['id' => 1051, 'name' => 'Water', 'unitName' => 'g'],
-            'amount'   => 65.46,
+            'amount' => 65.46,
         ];
 
         Http::fake([self::DETAIL_URL => Http::response($responseWithWater, 200)]);
@@ -209,7 +211,7 @@ class UsdaServiceTest extends TestCase
         $responseWithWater = $this->detailResponse;
         $responseWithWater['foodNutrients'][] = [
             'nutrient' => ['id' => 1051, 'name' => 'Water', 'unitName' => 'g'],
-            'amount'   => 65.46,
+            'amount' => 65.46,
         ];
 
         Http::fake([self::DETAIL_URL => Http::response($responseWithWater, 200)]);

@@ -16,19 +16,19 @@ class StoreFoodItemRequest extends FormRequest
         $isPost = $this->isMethod('POST');
 
         return [
-            'name'           => $isPost ? 'required|string|max:255' : 'sometimes|string|max:255',
-            'calories'       => $isPost ? 'required|numeric|min:0' : 'sometimes|numeric|min:0',
-            'category'       => 'sometimes|nullable|string|max:100',
-            'ready_to_eat'   => 'sometimes|nullable|boolean',
-            'protein'        => 'sometimes|nullable|numeric|min:0',
-            'carbs'          => 'sometimes|nullable|numeric|min:0',
-            'fat'            => 'sometimes|nullable|numeric|min:0',
+            'name' => $isPost ? 'required|string|max:255' : 'sometimes|string|max:255',
+            'calories' => $isPost ? 'required|numeric|min:0' : 'sometimes|numeric|min:0',
+            'category' => 'sometimes|nullable|string|max:100',
+            'ready_to_eat' => 'sometimes|nullable|boolean',
+            'protein' => 'sometimes|nullable|numeric|min:0',
+            'carbs' => 'sometimes|nullable|numeric|min:0',
+            'fat' => 'sometimes|nullable|numeric|min:0',
             'micronutrients' => 'sometimes|nullable|array',
-            'allergens'      => 'sometimes|nullable|array',
-            'allergens.*'    => 'string|max:100',
-            'serving_unit'   => 'sometimes|nullable|string|max:50',
-            'serving_size'   => 'sometimes|nullable|numeric|min:0',
-            'usda_fdc_id'    => 'sometimes|nullable|integer',
+            'allergens' => 'sometimes|nullable|array',
+            'allergens.*' => 'string|max:100',
+            'serving_unit' => 'sometimes|nullable|string|max:50',
+            'serving_size' => 'sometimes|nullable|numeric|min:0',
+            'usda_fdc_id' => 'sometimes|nullable|integer',
         ];
     }
 }

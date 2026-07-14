@@ -32,7 +32,6 @@ class AuditFilterMetadata
             'capabilities' => [
                 'export' => (bool) config('audit.features.export')
                     && Gate::forUser($user)->allows('export', AuditActivity::class),
-                'temporary_ip_block' => false,
             ],
             'retention' => $this->retentionState->current(),
         ];

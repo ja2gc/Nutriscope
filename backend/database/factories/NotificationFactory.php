@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Models\Notification;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -18,13 +19,13 @@ class NotificationFactory extends Factory
     public function definition(): array
     {
         return [
-            'user_id'       => \App\Models\User::factory(),
-            'title'         => $this->faker->sentence(3),
-            'message'       => $this->faker->paragraph(),
-            'type'          => $this->faker->randomElement(['alert', 'info', 'warning']),
+            'user_id' => User::factory(),
+            'title' => $this->faker->sentence(3),
+            'message' => $this->faker->paragraph(),
+            'type' => $this->faker->randomElement(['alert', 'info', 'warning']),
             'source_module' => $this->faker->randomElement(['ncp', 'fss', null]),
-            'source_id'     => null,
-            'read'          => false,
+            'source_id' => null,
+            'read' => false,
         ];
     }
 }

@@ -22,12 +22,12 @@ class UsdaPreviewTest extends TestCase
 
         $this->mock(UsdaService::class, function ($mock) {
             $mock->shouldReceive('fetch')->with(331960)->once()->andReturn([
-                'fdc_id'         => 331960,
-                'name'           => 'Chicken, broilers or fryers, breast',
-                'calories'       => 165.0,
-                'protein'        => 31.0,
-                'carbs'          => 0.0,
-                'fat'            => 3.6,
+                'fdc_id' => 331960,
+                'name' => 'Chicken, broilers or fryers, breast',
+                'calories' => 165.0,
+                'protein' => 31.0,
+                'carbs' => 0.0,
+                'fat' => 3.6,
                 'micronutrients' => ['sodium' => 74.0, 'potassium' => 256.0],
             ]);
         });

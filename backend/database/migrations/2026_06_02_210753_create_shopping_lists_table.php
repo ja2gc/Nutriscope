@@ -12,7 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('shopping_lists', function (Blueprint $table) {
-            
+
             $table->id();
             $table->foreignId('rnd_user_id')->references('id')->on('users');
             $table->string('name');
@@ -20,7 +20,7 @@ return new class extends Migration
             $table->enum('list_type', ['manual', 'suggested'])->default('manual');
             $table->enum('status', ['draft', 'finalized'])->default('draft');
             $table->timestamps();
-        
+
         });
     }
 

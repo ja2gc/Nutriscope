@@ -12,7 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('calendar_events', function (Blueprint $table) {
-            
+
             $table->id();
             $table->foreignId('user_id')->references('id')->on('users');
             $table->string('title');
@@ -23,7 +23,7 @@ return new class extends Migration
             $table->enum('status', ['pending', 'completed', 'overdue'])->default('pending');
             $table->boolean('deletable')->default(true);
             $table->timestamps();
-        
+
         });
     }
 

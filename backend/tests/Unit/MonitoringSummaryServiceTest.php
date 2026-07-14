@@ -17,7 +17,7 @@ class MonitoringSummaryServiceTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $svc = new MonitoringSummaryService();
+        $svc = new MonitoringSummaryService;
         $this->svc = $svc;
     }
 
@@ -41,7 +41,7 @@ class MonitoringSummaryServiceTest extends TestCase
     {
         $prev = ['date' => '2026-05-01', 'weight' => 90.0];
         $curr = ['date' => '2026-06-01', 'weight' => 87.0];
-        $out  = $this->svc->summarizePair($prev, $curr, [], 'Normal');
+        $out = $this->svc->summarizePair($prev, $curr, [], 'Normal');
 
         $weight = collect($out['changes'])->firstWhere('metric', 'weight');
         $this->assertSame(-3.0, $weight['delta']);
@@ -53,7 +53,7 @@ class MonitoringSummaryServiceTest extends TestCase
     {
         $prev = ['date' => '2026-05-01', 'weight' => 45.0];
         $curr = ['date' => '2026-06-01', 'weight' => 47.0];
-        $out  = $this->svc->summarizePair($prev, $curr, [], 'Severe Malnutrition');
+        $out = $this->svc->summarizePair($prev, $curr, [], 'Severe Malnutrition');
 
         $weight = collect($out['changes'])->firstWhere('metric', 'weight');
         $this->assertSame('met', $weight['status']); // gaining weight is the goal here
@@ -76,7 +76,7 @@ class MonitoringSummaryServiceTest extends TestCase
     {
         $prev = ['weight' => 70.0, 'albumin' => 3.2];
         $curr = ['date' => 'x', 'weight' => 68.0, 'albumin' => 4.0, 'energy_kcal' => 1950.0];
-        $out  = $this->svc->summarizePair($prev, $curr, ['energy_kcal' => 2000.0], 'Normal');
+        $out = $this->svc->summarizePair($prev, $curr, ['energy_kcal' => 2000.0], 'Normal');
 
         // weight met (down), albumin met (>=3.5), intake 97% on target → met
         $this->assertSame('met', $out['goal_evaluation']['status']);
@@ -84,7 +84,7 @@ class MonitoringSummaryServiceTest extends TestCase
 
     public function test_ranges_for_adjusts_hemoglobin_and_creatinine_by_sex(): void
     {
-        $male   = MonitoringSummaryService::rangesFor('Male');
+        $male = MonitoringSummaryService::rangesFor('Male');
         $female = MonitoringSummaryService::rangesFor('Female');
 
         $this->assertSame(13.5, $male['hemoglobin']['min']);
@@ -97,7 +97,7 @@ class MonitoringSummaryServiceTest extends TestCase
     {
         // Hemoglobin 13.0: met for a female (min 12.0), not met for a male (min 13.5).
         $female = $this->svc->summarizePair(null, ['date' => 'x', 'hemoglobin' => 13.0], [], null, MonitoringSummaryService::rangesFor('Female'));
-        $male   = $this->svc->summarizePair(null, ['date' => 'x', 'hemoglobin' => 13.0], [], null, MonitoringSummaryService::rangesFor('Male'));
+        $male = $this->svc->summarizePair(null, ['date' => 'x', 'hemoglobin' => 13.0], [], null, MonitoringSummaryService::rangesFor('Male'));
 
         $this->assertSame('met', collect($female['changes'])->firstWhere('metric', 'hemoglobin')['status']);
         $this->assertSame('not_met', collect($male['changes'])->firstWhere('metric', 'hemoglobin')['status']);
@@ -107,7 +107,7 @@ class MonitoringSummaryServiceTest extends TestCase
     {
         $prev = ['albumin' => 3.2];
         $curr = ['date' => 'x', 'albumin' => 4.0, 'energy_kcal' => 1000.0];
-        $out  = $this->svc->summarizePair($prev, $curr, ['energy_kcal' => 2000.0]);
+        $out = $this->svc->summarizePair($prev, $curr, ['energy_kcal' => 2000.0]);
 
         // albumin met but energy intake 50% → under → not fully met
         $this->assertSame('partial', $out['goal_evaluation']['status']);

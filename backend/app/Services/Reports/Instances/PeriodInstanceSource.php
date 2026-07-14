@@ -28,7 +28,7 @@ class PeriodInstanceSource implements InstanceSource
 
     public function instances(array $filters): array
     {
-        $year  = ! empty($filters['year']) ? (int) $filters['year'] : null;
+        $year = ! empty($filters['year']) ? (int) $filters['year'] : null;
         $month = ! empty($filters['month']) ? (int) $filters['month'] : null;
 
         $buckets = [];
@@ -48,13 +48,13 @@ class PeriodInstanceSource implements InstanceSource
         return array_values(array_map(function (array $ym) {
             [$y, $m] = $ym;
             $start = Carbon::create($y, $m, 1)->startOfDay();
-            $end   = $start->copy()->endOfMonth();
+            $end = $start->copy()->endOfMonth();
 
             return [
-                'key'    => $start->format('Y-m'),
-                'label'  => $start->format('F Y'),
+                'key' => $start->format('Y-m'),
+                'label' => $start->format('F Y'),
                 'params' => ['start' => $start->toDateString(), 'end' => $end->toDateString()],
-                'date'   => $start->toDateString(),
+                'date' => $start->toDateString(),
             ];
         }, $buckets));
     }

@@ -66,7 +66,7 @@ class ProfileTest extends TestCase
     public function test_profile_update_rejects_email_taken_by_another_user(): void
     {
         $other = User::factory()->create(['email' => 'taken@example.com']);
-        $user  = User::factory()->create(['email' => 'mine@example.com']);
+        $user = User::factory()->create(['email' => 'mine@example.com']);
 
         $this->actingAs($user, 'sanctum')
             ->patchJson('/api/auth/profile', ['name' => 'X', 'email' => 'taken@example.com'])

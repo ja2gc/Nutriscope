@@ -23,25 +23,25 @@ class AIService
 
         try {
             $userPrompt = "Patient clinical data for G-NCP PES nutrition diagnosis:\n"
-                . json_encode($data, JSON_PRETTY_PRINT) . "\n\n"
-                . "Generate 1-3 new G-NCP standardized PES nutrition diagnoses.\n\n"
-                . "Rules:\n"
-                . "- If existing_diagnoses are present, do NOT suggest anything that duplicates or overlaps with them\n"
-                . "- If the clinical data does not support any new diagnoses beyond what is already documented, return an empty suggestions array\n"
-                . "- abnormal_labs contains only lab values outside normal range with their flag (LOW/HIGH) and actual value — use these as objective Signs & Symptoms evidence, citing the value and flag (e.g. 'albumin 2.8 g/dL [LOW]', 'HbA1c 9.1% [HIGH]')\n"
-                . "- If no abnormal_labs are present, rely on anthropometric and clinical data for Signs & Symptoms\n"
-                . "- Etiology must reference actual data points: medications, intake status, activity level, medical history\n"
-                . "- label is only the nutrition problem, maximum 255 characters; do not include 'related to' or 'as evidenced by' in label\n"
-                . "- etiology is only the cause text; do not prefix with 'related to'\n"
-                . "- signs is only the evidence text; do not prefix with 'as evidenced by'\n"
-                . "- domain must be exactly one of: NI (Intake), NC (Clinical), NB (Behavioral-Environmental)\n"
-                . "- confidence is a float 0.0-1.0\n"
-                . "- priority starts at 1 for highest priority\n"
-                . "- Cover multiple domains where the data supports it\n\n"
-                . "Respond with ONLY this JSON, no prose, no markdown:\n"
-                . "{\"suggestions\":[{\"domain\":\"NI\",\"label\":\"Problem statement\",\"etiology\":\"etiology text\","
-                . "\"signs\":\"signs and symptoms citing abnormal lab values with flags\",\"confidence\":0.85,"
-                . "\"reasoning\":\"clinical reasoning citing data\",\"priority\":1}]}";
+                .json_encode($data, JSON_PRETTY_PRINT)."\n\n"
+                ."Generate 1-3 new G-NCP standardized PES nutrition diagnoses.\n\n"
+                ."Rules:\n"
+                ."- If existing_diagnoses are present, do NOT suggest anything that duplicates or overlaps with them\n"
+                ."- If the clinical data does not support any new diagnoses beyond what is already documented, return an empty suggestions array\n"
+                ."- abnormal_labs contains only lab values outside normal range with their flag (LOW/HIGH) and actual value — use these as objective Signs & Symptoms evidence, citing the value and flag (e.g. 'albumin 2.8 g/dL [LOW]', 'HbA1c 9.1% [HIGH]')\n"
+                ."- If no abnormal_labs are present, rely on anthropometric and clinical data for Signs & Symptoms\n"
+                ."- Etiology must reference actual data points: medications, intake status, activity level, medical history\n"
+                ."- label is only the nutrition problem, maximum 255 characters; do not include 'related to' or 'as evidenced by' in label\n"
+                ."- etiology is only the cause text; do not prefix with 'related to'\n"
+                ."- signs is only the evidence text; do not prefix with 'as evidenced by'\n"
+                ."- domain must be exactly one of: NI (Intake), NC (Clinical), NB (Behavioral-Environmental)\n"
+                ."- confidence is a float 0.0-1.0\n"
+                ."- priority starts at 1 for highest priority\n"
+                ."- Cover multiple domains where the data supports it\n\n"
+                ."Respond with ONLY this JSON, no prose, no markdown:\n"
+                .'{"suggestions":[{"domain":"NI","label":"Problem statement","etiology":"etiology text",'
+                .'"signs":"signs and symptoms citing abnormal lab values with flags","confidence":0.85,'
+                .'"reasoning":"clinical reasoning citing data","priority":1}]}';
 
             $response = Http::timeout(20)->connectTimeout(5)->withHeaders([
                 'x-api-key' => $apiKey,
@@ -55,13 +55,13 @@ class AIService
                     [
                         'role' => 'user',
                         'content' => $userPrompt,
-                    ]
+                    ],
                 ],
             ]);
 
             if ($response->successful()) {
                 $body = $response->json();
-                
+
                 // Log AI usage
                 $inputTokens = $body['usage']['input_tokens'] ?? 0;
                 $outputTokens = $body['usage']['output_tokens'] ?? 0;
@@ -86,7 +86,7 @@ class AIService
                 if (json_last_error() !== JSON_ERROR_NONE) {
                     Log::warning('AIService suggestDiagnoses: malformed JSON from model', [
                         'error' => json_last_error_msg(),
-                        'text'  => substr($text, 0, 500),
+                        'text' => substr($text, 0, 500),
                     ]);
                     throw new \RuntimeException('The AI returned an unexpected response. Please try again.');
                 }
@@ -106,7 +106,7 @@ class AIService
         } catch (\RuntimeException $e) {
             throw $e; // surfaced above — don't re-wrap
         } catch (\Throwable $e) {
-            Log::error('AIService error: ' . $e->getMessage());
+            Log::error('AIService error: '.$e->getMessage());
             throw new \RuntimeException('Could not reach the AI service. Please try again.');
         }
     }
@@ -119,6 +119,7 @@ class AIService
             $text = preg_replace('/^```[a-zA-Z]*\s*/', '', $text);
             $text = preg_replace('/\s*```$/', '', (string) $text);
         }
+
         return trim((string) $text);
     }
 
@@ -136,28 +137,28 @@ class AIService
         $this->assertWithinTokenLimits();
 
         $apiKey = config('services.anthropic.key');
-        $model  = config('services.anthropic.model', 'claude-haiku-4-5-20251001');
+        $model = config('services.anthropic.model', 'claude-haiku-4-5-20251001');
 
         try {
-            $userPrompt = "Patient monitoring trajectory across visits (JSON): " . json_encode($summary) . "\n\n"
-                . "Each indicator lists its values from Visit 1 (assessment baseline) through the latest follow-up, "
-                . "with its reference range/target and latest status. "
-                . "Based on the TRENDS across visits (not just the latest value), write a concise course of action for the dietitian: 2-4 sentences. "
-                . "Cite specific indicator trends by name and value. "
-                . "Reference the relevant PES problem(s) from pes_statements being addressed. "
-                . "End with one concrete next action. "
-                . "Use ONLY the indicators provided — never invent values or labs. "
-                . "Plain prose, no JSON, no markdown, no preamble.";
+            $userPrompt = 'Patient monitoring trajectory across visits (JSON): '.json_encode($summary)."\n\n"
+                .'Each indicator lists its values from Visit 1 (assessment baseline) through the latest follow-up, '
+                .'with its reference range/target and latest status. '
+                .'Based on the TRENDS across visits (not just the latest value), write a concise course of action for the dietitian: 2-4 sentences. '
+                .'Cite specific indicator trends by name and value. '
+                .'Reference the relevant PES problem(s) from pes_statements being addressed. '
+                .'End with one concrete next action. '
+                .'Use ONLY the indicators provided — never invent values or labs. '
+                .'Plain prose, no JSON, no markdown, no preamble.';
 
             $response = Http::timeout(20)->connectTimeout(5)->withHeaders([
-                'x-api-key'         => $apiKey,
+                'x-api-key' => $apiKey,
                 'anthropic-version' => '2023-06-01',
-                'content-type'      => 'application/json',
+                'content-type' => 'application/json',
             ])->post('https://api.anthropic.com/v1/messages', [
-                'model'      => $model,
+                'model' => $model,
                 'max_tokens' => 320,
-                'system'     => 'You are a clinical nutrition assistant interpreting monitoring data in the G-NCP framework. Be precise, brief, and actionable. Never invent values not present in the data.',
-                'messages'   => [
+                'system' => 'You are a clinical nutrition assistant interpreting monitoring data in the G-NCP framework. Be precise, brief, and actionable. Never invent values not present in the data.',
+                'messages' => [
                     ['role' => 'user', 'content' => $userPrompt],
                 ],
             ]);
@@ -166,12 +167,12 @@ class AIService
                 $body = $response->json();
 
                 AiUsageLog::create([
-                    'user_id'       => auth()->id(),
-                    'model'         => $model,
-                    'tokens_input'  => $body['usage']['input_tokens']  ?? 0,
+                    'user_id' => auth()->id(),
+                    'model' => $model,
+                    'tokens_input' => $body['usage']['input_tokens'] ?? 0,
                     'tokens_output' => $body['usage']['output_tokens'] ?? 0,
-                    'tokens_total'  => ($body['usage']['input_tokens'] ?? 0) + ($body['usage']['output_tokens'] ?? 0),
-                    'endpoint'      => 'monitoring_narrative',
+                    'tokens_total' => ($body['usage']['input_tokens'] ?? 0) + ($body['usage']['output_tokens'] ?? 0),
+                    'endpoint' => 'monitoring_narrative',
                 ]);
                 Cache::forget('admin_dashboard');
 
@@ -180,10 +181,10 @@ class AIService
 
             Log::error('AIService monitoring narrative failed', [
                 'status' => $response->status(),
-                'body'   => $response->body(),
+                'body' => $response->body(),
             ]);
         } catch (\Exception $e) {
-            Log::error('AIService narrateMonitoring error: ' . $e->getMessage());
+            Log::error('AIService narrateMonitoring error: '.$e->getMessage());
         }
 
         return null;

@@ -2,14 +2,15 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasPublicId;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class FoodItem extends Model
 {
     use HasFactory;
-    use \App\Models\Concerns\HasPublicId;
+    use HasPublicId;
+
     protected $fillable = [
         'name', 'category', 'ready_to_eat', 'usda_fdc_id', 'calories', 'protein', 'carbs', 'fat', 'water_g',
         'micronutrients', 'allergens', 'unit_price', 'serving_unit', 'serving_size',
@@ -17,15 +18,15 @@ class FoodItem extends Model
 
     protected $casts = [
         'micronutrients' => 'array',
-        'allergens'      => 'array',
-        'ready_to_eat'   => 'boolean',
-        'calories'       => 'decimal:2',
-        'protein'        => 'decimal:2',
-        'carbs'          => 'decimal:2',
-        'fat'            => 'decimal:2',
-        'water_g'        => 'float',
-        'unit_price'     => 'decimal:2',
-        'serving_size'   => 'decimal:2',
+        'allergens' => 'array',
+        'ready_to_eat' => 'boolean',
+        'calories' => 'decimal:2',
+        'protein' => 'decimal:2',
+        'carbs' => 'decimal:2',
+        'fat' => 'decimal:2',
+        'water_g' => 'float',
+        'unit_price' => 'decimal:2',
+        'serving_size' => 'decimal:2',
     ];
 
     /**
@@ -44,6 +45,7 @@ class FoodItem extends Model
         if ($this->ready_to_eat !== null) {
             return (bool) $this->ready_to_eat;
         }
+
         return in_array($this->category, self::READY_TO_EAT_CATEGORIES, true);
     }
 
@@ -55,10 +57,10 @@ class FoodItem extends Model
     {
         return $query->where(function ($q) {
             $q->where('ready_to_eat', true)
-              ->orWhere(function ($q2) {
-                  $q2->whereNull('ready_to_eat')
-                     ->whereIn('category', self::READY_TO_EAT_CATEGORIES);
-              });
+                ->orWhere(function ($q2) {
+                    $q2->whereNull('ready_to_eat')
+                        ->whereIn('category', self::READY_TO_EAT_CATEGORIES);
+                });
         });
     }
 
@@ -71,6 +73,7 @@ class FoodItem extends Model
         foreach ($allergens as $allergen) {
             $query->whereJsonDoesntContain('allergens', $allergen);
         }
+
         return $query;
     }
 
@@ -84,4 +87,3 @@ class FoodItem extends Model
         return $this->hasMany(RecipeIngredient::class);
     }
 }
-

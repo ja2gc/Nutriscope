@@ -18,13 +18,13 @@ class ClinicalRuleFactory extends Factory
     public function definition(): array
     {
         return [
-            'condition'            => $this->faker->randomElement(['CKD', 'DM', 'HTN']),
-            'stage'                => 'all',
+            'condition' => $this->faker->randomElement(['CKD', 'DM', 'HTN']),
+            'stage' => 'all',
             'nutrient_or_food_tag' => $this->faker->randomElement(['sodium', 'potassium', 'sugar', 'phosphorus']),
-            'rule_type'            => $this->faker->randomElement(['recommend', 'avoid', 'limit']),
-            'threshold'            => $this->faker->randomFloat(2, 0, 2000),
-            'unit'                 => $this->faker->randomElement(['mg', 'g', '']),
-            'reason'               => $this->faker->sentence(),
+            'rule_type' => $this->faker->randomElement(['recommend', 'avoid', 'limit']),
+            'threshold' => $this->faker->randomFloat(2, 0, 2000),
+            'unit' => $this->faker->randomElement(['mg', 'g', '']),
+            'reason' => $this->faker->sentence(),
         ];
     }
 }

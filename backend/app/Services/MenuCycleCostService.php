@@ -2,9 +2,11 @@
 
 namespace App\Services;
 
+use App\Models\FoodServiceRecipe;
 use App\Models\MenuCycle;
 use App\Support\RecipeScaler;
 use App\Support\UnitConverter;
+use Illuminate\Support\Collection;
 
 /**
  * Costing engine for menu cycles. The single source of truth for:
@@ -26,25 +28,25 @@ class MenuCycleCostService
      * Head-days (the per-head denominator) sum each DAY's population ONCE, so two meals
      * on the same day don't double-count the ward.
      *
-     * @param array<int,array{day_of_week?:string,meal_type?:string,servings_override?:int|null,estimate_population?:int|null,recipe?:array{servings?:int,ingredients?:array<int,array{fs_item_id:int,name:string,quantity:float,unit?:string,base_unit?:string,unit_cost:float}>}}> $entries
+     * @param  array<int,array{day_of_week?:string,meal_type?:string,servings_override?:int|null,estimate_population?:int|null,recipe?:array{servings?:int,ingredients?:array<int,array{fs_item_id:int,name:string,quantity:float,unit?:string,base_unit?:string,unit_cost:float}>}}>  $entries
      */
     public static function aggregate(array $entries, ?int $population = null): array
     {
-        $days    = [];
-        $usage   = [];
-        $total   = 0.0;
-        $dayPop  = []; // day_of_week => that day's headcount (recorded once per day)
+        $days = [];
+        $usage = [];
+        $total = 0.0;
+        $dayPop = []; // day_of_week => that day's headcount (recorded once per day)
 
         foreach ($entries as $entry) {
             $dayPopulation = $entry['estimate_population'] ?? $population;
-            $target    = $entry['servings_override'] ?? $dayPopulation ?? 0;
+            $target = $entry['servings_override'] ?? $dayPopulation ?? 0;
             $entryCost = 0.0;
 
             if ($recipe = $entry['recipe'] ?? null) {
                 $factor = RecipeScaler::factor((int) ($recipe['servings'] ?? 1), (int) $target);
 
                 foreach ($recipe['ingredients'] ?? [] as $ing) {
-                    $qty  = (float) $ing['quantity'];
+                    $qty = (float) $ing['quantity'];
                     $from = (string) ($ing['unit'] ?? '');
                     $base = (string) ($ing['base_unit'] ?? '');
 
@@ -55,27 +57,27 @@ class MenuCycleCostService
                     }
 
                     $scaledQty = $qty * $factor;
-                    $lineCost  = $scaledQty * (float) $ing['unit_cost'];
+                    $lineCost = $scaledQty * (float) $ing['unit_cost'];
                     $entryCost += $lineCost;
 
                     $id = (int) $ing['fs_item_id'];
                     if (! isset($usage[$id])) {
                         $usage[$id] = [
                             'fs_item_id' => $id,
-                            'name'       => $ing['name'],
-                            'unit'       => $base !== '' ? $base : $from,
-                            'quantity'   => 0.0,
-                            'cost'       => 0.0,
+                            'name' => $ing['name'],
+                            'unit' => $base !== '' ? $base : $from,
+                            'quantity' => 0.0,
+                            'cost' => 0.0,
                         ];
                     }
                     $usage[$id]['quantity'] += $scaledQty;
-                    $usage[$id]['cost']     += $lineCost;
+                    $usage[$id]['cost'] += $lineCost;
                 }
             } elseif ($item = $entry['item'] ?? null) {
                 // Ready-to-serve catalog item (e.g. a Yakult / banana snack): one
                 // serving per head (× per-head quantity), no recipe scaling.
                 $perHead = (float) ($item['quantity'] ?? 1);
-                $qty     = $perHead * (int) $target;
+                $qty = $perHead * (int) $target;
                 $lineCost = $qty * (float) $item['unit_cost'];
                 $entryCost += $lineCost;
 
@@ -83,14 +85,14 @@ class MenuCycleCostService
                 if (! isset($usage[$id])) {
                     $usage[$id] = [
                         'fs_item_id' => $id,
-                        'name'       => $item['name'],
-                        'unit'       => (string) ($item['unit'] ?? ''),
-                        'quantity'   => 0.0,
-                        'cost'       => 0.0,
+                        'name' => $item['name'],
+                        'unit' => (string) ($item['unit'] ?? ''),
+                        'quantity' => 0.0,
+                        'cost' => 0.0,
                     ];
                 }
                 $usage[$id]['quantity'] += $qty;
-                $usage[$id]['cost']     += $lineCost;
+                $usage[$id]['cost'] += $lineCost;
             } else {
                 continue;
             }
@@ -106,8 +108,8 @@ class MenuCycleCostService
         }
 
         foreach ($days as $day => &$d) {
-            $pop                = $dayPop[$day] ?? 0;
-            $d['cost']          = round($d['cost'], 2);
+            $pop = $dayPop[$day] ?? 0;
+            $d['cost'] = round($d['cost'], 2);
             $d['cost_per_head'] = $pop > 0 ? round($d['cost'] / $pop, 2) : 0.0;
         }
         unset($d);
@@ -118,15 +120,15 @@ class MenuCycleCostService
 
         foreach ($usage as &$u) {
             $u['quantity'] = round($u['quantity'], 2);
-            $u['cost']     = round($u['cost'], 2);
+            $u['cost'] = round($u['cost'], 2);
         }
         unset($u);
 
         return [
-            'population'       => $headDays,
-            'total_cost'      => round($total, 2),
-            'cost_per_head'   => $headDays > 0 ? round($total / $headDays, 2) : 0.0,
-            'days'            => $days,
+            'population' => $headDays,
+            'total_cost' => round($total, 2),
+            'cost_per_head' => $headDays > 0 ? round($total / $headDays, 2) : 0.0,
+            'days' => $days,
             'ingredient_usage' => array_values($usage),
         ];
     }
@@ -161,7 +163,7 @@ class MenuCycleCostService
      * (ConsumptionService), and procurement so their math can never diverge.
      * Requires days.recipe.ingredients.fsItem and days.fsItem to be loaded.
      *
-     * @param  \Illuminate\Support\Collection $days
+     * @param  Collection  $days
      */
     public static function entriesForDays($days): array
     {
@@ -169,25 +171,25 @@ class MenuCycleCostService
             ->filter(fn ($day) => $day->recipe !== null || $day->fsItem !== null)
             ->map(function ($day) {
                 $base = [
-                    'day_of_week'         => $day->day_of_week,
-                    'meal_type'           => $day->meal_type,
-                    'servings_override'   => $day->servings_override,
+                    'day_of_week' => $day->day_of_week,
+                    'meal_type' => $day->meal_type,
+                    'servings_override' => $day->servings_override,
                     'estimate_population' => $day->estimate_population,
                 ];
 
                 if ($day->recipe !== null) {
                     return $base + [
                         'recipe' => [
-                            'servings'    => (int) $day->recipe->servings,
+                            'servings' => (int) $day->recipe->servings,
                             'ingredients' => $day->recipe->ingredients
                                 ->filter(fn ($ing) => $ing->fsItem !== null)
                                 ->map(fn ($ing) => [
                                     'fs_item_id' => $ing->fs_item_id,
-                                    'name'       => $ing->fsItem->name,
-                                    'quantity'   => (float) $ing->quantity,
-                                    'unit'       => $ing->unit,
-                                    'base_unit'  => $ing->fsItem->base_unit,
-                                    'unit_cost'  => $ing->fsItem->unit_cost,
+                                    'name' => $ing->fsItem->name,
+                                    'quantity' => (float) $ing->quantity,
+                                    'unit' => $ing->unit,
+                                    'base_unit' => $ing->fsItem->base_unit,
+                                    'unit_cost' => $ing->fsItem->unit_cost,
                                 ])->values()->all(),
                         ],
                     ];
@@ -196,10 +198,10 @@ class MenuCycleCostService
                 return $base + [
                     'item' => [
                         'fs_item_id' => $day->fs_item_id,
-                        'name'       => $day->fsItem->name,
-                        'unit'       => $day->fsItem->base_unit,
-                        'unit_cost'  => $day->fsItem->unit_cost,
-                        'quantity'   => (float) ($day->quantity ?: 1),
+                        'name' => $day->fsItem->name,
+                        'unit' => $day->fsItem->base_unit,
+                        'unit_cost' => $day->fsItem->unit_cost,
+                        'quantity' => (float) ($day->quantity ?: 1),
                     ],
                 ];
             })->values()->all();
@@ -211,24 +213,24 @@ class MenuCycleCostService
      * planner clicks a menu cell. Reuses aggregate() so scaling + unit conversion match
      * the rest of the system exactly.
      */
-    public static function recipeProfile(\App\Models\FoodServiceRecipe $recipe, int $population): array
+    public static function recipeProfile(FoodServiceRecipe $recipe, int $population): array
     {
         $recipe->loadMissing('ingredients.fsItem');
 
         $entry = [
-            'day_of_week'         => 'Profile',
+            'day_of_week' => 'Profile',
             'estimate_population' => $population,
             'recipe' => [
-                'servings'    => (int) $recipe->servings,
+                'servings' => (int) $recipe->servings,
                 'ingredients' => $recipe->ingredients
                     ->filter(fn ($ing) => $ing->fsItem !== null)
                     ->map(fn ($ing) => [
                         'fs_item_id' => $ing->fs_item_id,
-                        'name'       => $ing->fsItem->name,
-                        'quantity'   => (float) $ing->quantity,
-                        'unit'       => $ing->unit,
-                        'base_unit'  => $ing->fsItem->base_unit,
-                        'unit_cost'  => $ing->fsItem->unit_cost,
+                        'name' => $ing->fsItem->name,
+                        'quantity' => (float) $ing->quantity,
+                        'unit' => $ing->unit,
+                        'base_unit' => $ing->fsItem->base_unit,
+                        'unit_cost' => $ing->fsItem->unit_cost,
                     ])->values()->all(),
             ],
         ];
@@ -236,13 +238,13 @@ class MenuCycleCostService
         $out = self::aggregate([$entry]);
 
         return [
-            'recipe_id'        => $recipe->id,
-            'name'             => $recipe->name,
-            'prep_notes'       => $recipe->prep_notes,
-            'servings'         => (int) $recipe->servings,
-            'population'       => $population,
-            'total_cost'       => $out['total_cost'],
-            'cost_per_head'    => $out['cost_per_head'],
+            'recipe_id' => $recipe->id,
+            'name' => $recipe->name,
+            'prep_notes' => $recipe->prep_notes,
+            'servings' => (int) $recipe->servings,
+            'population' => $population,
+            'total_cost' => $out['total_cost'],
+            'cost_per_head' => $out['cost_per_head'],
             'ingredient_usage' => $out['ingredient_usage'],
         ];
     }

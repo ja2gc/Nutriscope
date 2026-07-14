@@ -15,7 +15,7 @@ class SopSeeder extends Seeder
 {
     public function run(): void
     {
-        $rnd   = User::where('role', 'RND')->value('id');
+        $rnd = User::where('role', 'RND')->value('id');
         $admin = User::where('role', 'Admin')->value('id') ?? $rnd;
         if (! $rnd) {
             return;
@@ -31,8 +31,8 @@ class SopSeeder extends Seeder
 
         foreach ($versions as [$by, $title, $body, $daysAgo]) {
             Sop::create([
-                'title'      => $title,
-                'body'       => $body,
+                'title' => $title,
+                'body' => $body,
                 'created_by' => $by,
                 'created_at' => Carbon::now()->subDays($daysAgo),
                 'updated_at' => Carbon::now()->subDays($daysAgo),

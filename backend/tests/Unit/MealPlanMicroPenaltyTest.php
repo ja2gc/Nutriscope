@@ -22,10 +22,11 @@ class MealPlanMicroPenaltyTest extends TestCase
 {
     private function invokePenalty(array $recipeMicros, array $limits): float
     {
-        $service = new MealPlanService();
+        $service = new MealPlanService;
         $ref = new ReflectionClass($service);
         $method = $ref->getMethod('calcMicroPenalty');
         $method->setAccessible(true);
+
         return $method->invoke($service, $recipeMicros, $limits);
     }
 
@@ -35,8 +36,8 @@ class MealPlanMicroPenaltyTest extends TestCase
     {
         $micros = ['sodium_mg' => 800.0, 'potassium_mg' => 1500.0];
         $limits = [
-            'sodium_mg'   => ['max' => 1500, 'unit' => 'mg'],
-            'potassium_mg'=> ['max' => 2000, 'unit' => 'mg'],
+            'sodium_mg' => ['max' => 1500, 'unit' => 'mg'],
+            'potassium_mg' => ['max' => 2000, 'unit' => 'mg'],
         ];
         $this->assertEquals(0.0, $this->invokePenalty($micros, $limits));
     }
@@ -57,8 +58,8 @@ class MealPlanMicroPenaltyTest extends TestCase
     {
         $micros = ['sodium_mg' => 2000.0, 'potassium_mg' => 3000.0];
         $limits = [
-            'sodium_mg'   => ['max' => 1500, 'unit' => 'mg'],
-            'potassium_mg'=> ['max' => 2000, 'unit' => 'mg'],
+            'sodium_mg' => ['max' => 1500, 'unit' => 'mg'],
+            'potassium_mg' => ['max' => 2000, 'unit' => 'mg'],
         ];
         $onePenalty = $this->invokePenalty(['sodium_mg' => 2000.0], ['sodium_mg' => ['max' => 1500, 'unit' => 'mg']]);
         $twoPenalty = $this->invokePenalty($micros, $limits);

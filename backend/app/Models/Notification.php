@@ -2,17 +2,18 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasPublicId;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Notification extends Model
 {
     use HasFactory;
-    use \App\Models\Concerns\HasPublicId;
+    use HasPublicId;
 
     protected $fillable = [
         'user_id', 'title', 'message', 'type', 'source_module',
-        'source_id', 'read'
+        'source_id', 'read',
     ];
 
     protected $casts = [
@@ -23,6 +24,4 @@ class Notification extends Model
     {
         return $this->belongsTo(User::class);
     }
-
 }
-

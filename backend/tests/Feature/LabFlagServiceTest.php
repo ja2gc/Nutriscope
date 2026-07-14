@@ -9,7 +9,7 @@ class LabFlagServiceTest extends TestCase
 {
     public function test_flags_low_high_and_normal_with_sex_ranges(): void
     {
-        $svc = new LabFlagService();
+        $svc = new LabFlagService;
 
         $flags = $svc->flag(['albumin' => 2.8, 'glucose' => 90, 'hemoglobin' => 13.0], 'Male');
 
@@ -21,7 +21,7 @@ class LabFlagServiceTest extends TestCase
 
     public function test_female_hemoglobin_range_differs(): void
     {
-        $svc = new LabFlagService();
+        $svc = new LabFlagService;
 
         $flags = $svc->flag(['hemoglobin' => 13.0], 'Female');
 
@@ -30,7 +30,7 @@ class LabFlagServiceTest extends TestCase
 
     public function test_high_value_flagged(): void
     {
-        $svc = new LabFlagService();
+        $svc = new LabFlagService;
 
         $flags = $svc->flag(['glucose' => 140], 'Female');
 
@@ -40,7 +40,7 @@ class LabFlagServiceTest extends TestCase
 
     public function test_magnesium_range_is_flagged_for_refeeding_monitoring(): void
     {
-        $svc = new LabFlagService();
+        $svc = new LabFlagService;
 
         $low = $svc->flag(['magnesium' => 1.4], 'Male');
         $high = $svc->flag(['magnesium' => 2.6], 'Male');

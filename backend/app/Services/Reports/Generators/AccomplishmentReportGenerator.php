@@ -38,12 +38,12 @@ class AccomplishmentReportGenerator implements ReportGenerator
 {
     /** The seven task rows in display order. */
     public const TASKS = [
-        'helped_food_prep'       => 'Helped in food preparation work',
-        'stored_supplies'        => 'Served food supplies properly',
-        'collected_diet_list'    => 'Collected diet list from different wards',
-        'apportioned_food'       => 'Apportioned and distributed food to in-patients in different wards',
-        'cleaned_utensils'       => 'Collected, cleaned and returned used utensils and other equipment',
-        'assistant_cook'         => 'Assumed duties as assistant cook',
+        'helped_food_prep' => 'Helped in food preparation work',
+        'stored_supplies' => 'Served food supplies properly',
+        'collected_diet_list' => 'Collected diet list from different wards',
+        'apportioned_food' => 'Apportioned and distributed food to in-patients in different wards',
+        'cleaned_utensils' => 'Collected, cleaned and returned used utensils and other equipment',
+        'assistant_cook' => 'Assumed duties as assistant cook',
         'maintained_cleanliness' => 'Monitored cleanliness of kitchen, cabinets, refrigerators and freezers',
     ];
 
@@ -77,14 +77,14 @@ class AccomplishmentReportGenerator implements ReportGenerator
         // render/archive pipeline) and 'from'/'to' (direct/legacy usage).
         // No current-date fallback — period must be explicit so the report is reproducible.
         $startParam = $params['start'] ?? $params['from'] ?? null;
-        $endParam   = $params['end']   ?? $params['to']   ?? null;
+        $endParam = $params['end'] ?? $params['to'] ?? null;
         if ($startParam === null || $endParam === null) {
             throw new \InvalidArgumentException(
                 'Accomplishment report requires an explicit start/end (or from/to) period.'
             );
         }
         $from = Carbon::parse($startParam);
-        $to   = Carbon::parse($endParam);
+        $to = Carbon::parse($endParam);
 
         // All calendar days in the period.
         $days = collect(CarbonPeriod::create($from, $to))
@@ -145,26 +145,26 @@ class AccomplishmentReportGenerator implements ReportGenerator
                 }
 
                 return [
-                    'user'     => $user,
-                    'task_rows'=> $taskRows,
+                    'user' => $user,
+                    'task_rows' => $taskRows,
                 ];
             })
             ->values()
             ->all();
 
-        $periodLabel = $from->format('F j') . '–' . $to->format('j, Y');
+        $periodLabel = $from->format('F j').'–'.$to->format('j, Y');
         if ($from->month !== $to->month) {
-            $periodLabel = $from->format('F j') . ' – ' . $to->format('F j, Y');
+            $periodLabel = $from->format('F j').' – '.$to->format('F j, Y');
         }
 
         return [
-            'from'             => $from,
-            'to'               => $to,
-            'period_label'     => $periodLabel,
-            'days'             => $days,
-            'tasks'            => self::TASKS,
-            'numeric_task'     => self::NUMERIC_TASK,
-            'staff_sheets'     => $staffSheets,
+            'from' => $from,
+            'to' => $to,
+            'period_label' => $periodLabel,
+            'days' => $days,
+            'tasks' => self::TASKS,
+            'numeric_task' => self::NUMERIC_TASK,
+            'staff_sheets' => $staffSheets,
             'daily_population' => $dailyPopulation,
         ];
     }
@@ -184,13 +184,13 @@ class AccomplishmentReportGenerator implements ReportGenerator
         })->values()->all();
 
         return [
-            'from'             => Carbon::parse($snapshot['from']),
-            'to'               => Carbon::parse($snapshot['to']),
-            'period_label'     => $snapshot['period_label'],
-            'days'             => $snapshot['days'],
-            'tasks'            => $snapshot['tasks'],
-            'numeric_task'     => $snapshot['numeric_task'],
-            'staff_sheets'     => $staffSheets,
+            'from' => Carbon::parse($snapshot['from']),
+            'to' => Carbon::parse($snapshot['to']),
+            'period_label' => $snapshot['period_label'],
+            'days' => $snapshot['days'],
+            'tasks' => $snapshot['tasks'],
+            'numeric_task' => $snapshot['numeric_task'],
+            'staff_sheets' => $staffSheets,
             'daily_population' => $snapshot['daily_population'],
         ];
     }

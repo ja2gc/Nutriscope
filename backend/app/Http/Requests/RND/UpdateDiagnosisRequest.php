@@ -17,13 +17,13 @@ class UpdateDiagnosisRequest extends FormRequest
         // omitted, but if present it cannot be blanked — preventing edits that leave
         // a malformed "... related to  as evidenced by ..." statement.
         return [
-            'domain'         => ['sometimes', 'required', 'string', 'in:NI,NC,NB'],
-            'problem'        => ['sometimes', 'required', 'string', 'max:255'],
-            'etiology'       => ['sometimes', 'required', 'string'],
+            'domain' => ['sometimes', 'required', 'string', 'in:NI,NC,NB'],
+            'problem' => ['sometimes', 'required', 'string', 'max:255'],
+            'etiology' => ['sometimes', 'required', 'string'],
             'signs_symptoms' => ['sometimes', 'required', 'string'],
-            'pes_statement'  => ['nullable', 'string'],
-            'extra_notes'    => ['nullable', 'string'],
-            'ai_generated'   => ['nullable', 'boolean'],
+            'pes_statement' => ['nullable', 'string'],
+            'extra_notes' => ['nullable', 'string'],
+            'ai_generated' => ['nullable', 'boolean'],
         ];
     }
 }

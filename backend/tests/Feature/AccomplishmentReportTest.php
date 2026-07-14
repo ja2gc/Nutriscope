@@ -27,6 +27,7 @@ class AccomplishmentReportTest extends TestCase
     use RefreshDatabase;
 
     private User $fss1;
+
     private User $fss2;
 
     protected function setUp(): void
@@ -42,8 +43,8 @@ class AccomplishmentReportTest extends TestCase
     /** Build a transient Report for the generator. */
     private function makeReport(array $params): Report
     {
-        $r = new Report();
-        $r->type       = 'accomplishment_report';
+        $r = new Report;
+        $r->type = 'accomplishment_report';
         $r->parameters = $params;
 
         return $r;
@@ -53,9 +54,9 @@ class AccomplishmentReportTest extends TestCase
     private function seedCount(User $user, string $date, array $overrides = []): DietListCount
     {
         return DietListCount::factory()->create(array_merge([
-            'fss_user_id'  => $user->id,
+            'fss_user_id' => $user->id,
             'service_date' => $date,
-            'population'   => 30,
+            'population' => 30,
         ], $overrides));
     }
 
@@ -66,7 +67,7 @@ class AccomplishmentReportTest extends TestCase
         $this->seedCount($this->fss1, '2026-06-01', ['helped_food_prep' => true, 'population' => 25]);
         $this->seedCount($this->fss2, '2026-06-01', ['helped_food_prep' => true, 'population' => 15]);
 
-        $data = (new AccomplishmentReportGenerator())->data(
+        $data = (new AccomplishmentReportGenerator)->data(
             $this->makeReport(['from' => '2026-06-01', 'to' => '2026-06-01'])
         );
 
@@ -79,10 +80,10 @@ class AccomplishmentReportTest extends TestCase
     {
         $this->seedCount($this->fss1, '2026-06-02', [
             'helped_food_prep' => true,
-            'stored_supplies'  => false,
+            'stored_supplies' => false,
         ]);
 
-        $data = (new AccomplishmentReportGenerator())->data(
+        $data = (new AccomplishmentReportGenerator)->data(
             $this->makeReport(['from' => '2026-06-02', 'to' => '2026-06-02'])
         );
 
@@ -97,10 +98,10 @@ class AccomplishmentReportTest extends TestCase
     {
         $this->seedCount($this->fss1, '2026-06-03', [
             'apportioned_food' => true,
-            'population'       => 42,
+            'population' => 42,
         ]);
 
-        $data = (new AccomplishmentReportGenerator())->data(
+        $data = (new AccomplishmentReportGenerator)->data(
             $this->makeReport(['from' => '2026-06-03', 'to' => '2026-06-03'])
         );
 
@@ -114,7 +115,7 @@ class AccomplishmentReportTest extends TestCase
     {
         $this->seedCount($this->fss1, '2026-06-04', ['off_duty' => true]);
 
-        $data = (new AccomplishmentReportGenerator())->data(
+        $data = (new AccomplishmentReportGenerator)->data(
             $this->makeReport(['from' => '2026-06-04', 'to' => '2026-06-04'])
         );
 
@@ -134,7 +135,7 @@ class AccomplishmentReportTest extends TestCase
         $this->seedCount($this->fss1, '2026-06-05', ['population' => 20]);
         $this->seedCount($this->fss2, '2026-06-05', ['population' => 18]);
 
-        $data = (new AccomplishmentReportGenerator())->data(
+        $data = (new AccomplishmentReportGenerator)->data(
             $this->makeReport(['from' => '2026-06-05', 'to' => '2026-06-05'])
         );
 
@@ -146,7 +147,7 @@ class AccomplishmentReportTest extends TestCase
         // Only seed day 1; day 2 has no row for fss1.
         $this->seedCount($this->fss1, '2026-06-01', ['helped_food_prep' => true]);
 
-        $data = (new AccomplishmentReportGenerator())->data(
+        $data = (new AccomplishmentReportGenerator)->data(
             $this->makeReport(['from' => '2026-06-01', 'to' => '2026-06-02'])
         );
 
@@ -161,10 +162,10 @@ class AccomplishmentReportTest extends TestCase
         $this->seedCount($this->fss1, '2026-06-01');
         $this->seedCount($this->fss2, '2026-06-01');
 
-        $data = (new AccomplishmentReportGenerator())->data(
+        $data = (new AccomplishmentReportGenerator)->data(
             $this->makeReport([
-                'from'        => '2026-06-01',
-                'to'          => '2026-06-01',
+                'from' => '2026-06-01',
+                'to' => '2026-06-01',
                 'fss_user_id' => $this->fss1->id,
             ])
         );
@@ -246,9 +247,9 @@ class AccomplishmentReportTest extends TestCase
         // An accomplishment report archived by FSS staff (owned by an FSS user).
         $fssReport = Report::create([
             'user_id' => $this->fss1->id,
-            'title'   => 'Accomplishment May 01-15',
-            'type'    => 'accomplishment_report',
-            'status'  => 'archived',
+            'title' => 'Accomplishment May 01-15',
+            'type' => 'accomplishment_report',
+            'status' => 'archived',
         ]);
 
         $ids = collect(
@@ -264,16 +265,16 @@ class AccomplishmentReportTest extends TestCase
         // FSS staff sees their own accomplishment report...
         $own = Report::create([
             'user_id' => $this->fss1->id,
-            'title'   => 'Mine',
-            'type'    => 'accomplishment_report',
-            'status'  => 'archived',
+            'title' => 'Mine',
+            'type' => 'accomplishment_report',
+            'status' => 'archived',
         ]);
         // ...but not another FSS staff's row (index is owner-scoped for FSS).
         $other = Report::create([
             'user_id' => $this->fss2->id,
-            'title'   => 'Theirs',
-            'type'    => 'accomplishment_report',
-            'status'  => 'archived',
+            'title' => 'Theirs',
+            'type' => 'accomplishment_report',
+            'status' => 'archived',
         ]);
 
         $ids = collect(
@@ -352,7 +353,7 @@ class AccomplishmentReportTest extends TestCase
             ->whereDate('service_date', '2026-06-07')
             ->update(['off_duty' => false, 'helped_food_prep' => true, 'population' => 99]);
 
-        $after = (new AccomplishmentReportGenerator())->data($report);
+        $after = (new AccomplishmentReportGenerator)->data($report);
         $this->assertSame($before, $after['staff_sheets'][0]['task_rows']['helped_food_prep']['2026-06-07']);
         $this->assertSame('X', $after['staff_sheets'][0]['task_rows']['helped_food_prep']['2026-06-07']);
     }

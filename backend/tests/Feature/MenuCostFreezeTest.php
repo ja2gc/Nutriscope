@@ -68,7 +68,7 @@ class MenuCostFreezeTest extends TestCase
 
     public function test_activation_freezes_cost_and_price_changes_do_not_affect_report(): void
     {
-        $cycle  = $this->makeCycle();
+        $cycle = $this->makeCycle();
         $fsItem = FsItem::firstOrFail();
 
         // Activate → snapshot taken at ₱100.
@@ -91,7 +91,7 @@ class MenuCostFreezeTest extends TestCase
 
     public function test_reactivation_does_not_overwrite_the_frozen_snapshot(): void
     {
-        $cycle  = $this->makeCycle();
+        $cycle = $this->makeCycle();
         $fsItem = FsItem::firstOrFail();
 
         // First activation → snapshot frozen at ₱100.

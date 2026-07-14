@@ -367,7 +367,7 @@ public function record(
 - [x] In `backend/bootstrap/app.php`, record deduplicated `authentication_failed` and `authorization_denied` events for rejected protected requests using actor/public reference, safe route name, outcome, and status only. Do not log headers, cookies, bearer tokens, or request bodies.
 - [x] Use Laravel 13 `Limit::response()` callbacks for named limiters to record a `rate_limit_exceeded` event when a 429 is produced. Record limiter name, safe route name, actor/public account reference when known, IP, retry-after seconds, and outcome `blocked`; never record request body.
 - [x] Deduplicate repeated 429 events by `(limiter, actor-or-IP, route)` for five minutes and increment a cache counter. Emit a new row only on first threshold and after cooldown, preventing attacker-driven DB growth.
-- [x] Keep permanent IP blocking out. Implement optional expiring blocks only when `AUDIT_SECURITY_BLOCKS_ENABLED=true`; require expiry, reason, creator, and revoke fields. Never auto-block from one rate-limit event.
+- [x] Superseded by the owner decision recorded in the 2026-07-14 follow-up plan: keep permanent blocking out and remove all optional IP-block scaffolding. No model, migration, controller, route, flag, capability, or UI command shipped.
 - [x] Verify `TrustProxies`/deployment proxy configuration before enabling IP actions. If source IP cannot be trusted, keep feature disabled.
 - [x] Add tests for 429 logging/dedup, shared-NAT safety, missing user, no secrets, and disabled feature behavior. Optional block expiry/unblock/self-audit tests are not applicable because trusted-proxy verification failed and no block capability or routes were created.
 - [x] Run `php artisan test tests/Feature/AuthAuditEventTest.php tests/Feature/ForgotPasswordTest.php tests/Feature/Audit/SecurityAuditTest.php`.
@@ -567,9 +567,9 @@ npm run lint -- app/admin/audit-logs components/audit services/auditLogService.t
 - Create: `docs/architecture/audit-logging.md`
 - Modify/delete old audit tests only after replacement coverage exists.
 
-- [ ] Document event taxonomy, category/action matrix, actor/system semantics, retention, privacy redaction, export policy, incident workflow, route coverage rule, and page-trail behavior.
-- [ ] Add an operator runbook: review cadence, high-severity alert owner, legal hold, export handling, prune monitoring, clock synchronization, and emergency temporary-block reversal.
-- [ ] Run stale-code scans:
+- [x] Document event taxonomy, category/action matrix, actor/system semantics, retention, privacy redaction, export policy, incident workflow, route coverage rule, and page-trail behavior.
+- [x] Add an operator runbook: review cadence, high-severity alert owner, legal hold, export handling, prune monitoring, clock synchronization, and emergency temporary-block reversal.
+- [x] Run stale-code scans:
 
 ```powershell
 rg -n "JSON\.stringify|<pre|properties" frontend/app/admin/audit-logs frontend/components/audit frontend/components/HistoryPanel.tsx
@@ -580,7 +580,7 @@ rg -n "App\\Models\\Inventory|login_failed.*login|subject_type.*App\\Models" fro
 
 Expected: no raw JSON audit UI, no generic audit middleware wiring, no stock-management runtime surface after stock-removal phase, and no stale hard-coded model/action filters.
 
-- [ ] Run full backend verification:
+- [x] Run full backend verification:
 
 ```powershell
 cd backend
@@ -589,7 +589,7 @@ php artisan test
 vendor/bin/pint --test
 ```
 
-- [ ] Run full frontend verification:
+- [x] Run full frontend verification:
 
 ```powershell
 cd frontend
@@ -599,10 +599,10 @@ npm run lint
 npm run build
 ```
 
-- [ ] Review migration rollback on a fresh MySQL test database and forward migration against a copy containing legacy audit rows.
-- [ ] Verify no route/proxy mismatch by comparing Laravel route list with every `laravelProxy` target under `frontend/app/api`.
-- [ ] Verify git diff contains no unrelated changes and no commit metadata/message prohibited by repository policy.
-- [ ] Commit final docs/cleanup with `docs: document audit operations`.
+- [x] Review migration rollback on a fresh MySQL test database and forward migration against a copy containing legacy audit rows.
+- [x] Verify no route/proxy mismatch by comparing Laravel route list with every `laravelProxy` target under `frontend/app/api`.
+- [x] Verify git diff contains no unrelated changes and no commit metadata/message prohibited by repository policy.
+- [x] Commit final docs/cleanup with `docs: document audit operations`.
 
 ## 7. Blast-Radius Checklist
 

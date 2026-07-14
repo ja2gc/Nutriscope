@@ -17,10 +17,10 @@ class NcpAssessmentTest extends TestCase
     private function rnd(): User
     {
         return User::forceCreate([
-            'name'      => 'RND User',
-            'email'     => 'rnd' . uniqid() . '@example.com',
-            'password'  => Hash::make('password'),
-            'role'      => 'RND',
+            'name' => 'RND User',
+            'email' => 'rnd'.uniqid().'@example.com',
+            'password' => Hash::make('password'),
+            'role' => 'RND',
             'is_active' => true,
         ]);
     }
@@ -28,9 +28,9 @@ class NcpAssessmentTest extends TestCase
     private function patient(): Patient
     {
         return Patient::forceCreate([
-            'name'           => 'Test Patient',
-            'dob'            => '1990-01-01',
-            'sex'            => 'Male',
+            'name' => 'Test Patient',
+            'dob' => '1990-01-01',
+            'sex' => 'Male',
             'admission_date' => now()->toDateString(),
         ]);
     }
@@ -38,10 +38,10 @@ class NcpAssessmentTest extends TestCase
     private function ncpRecord(Patient $patient, User $rnd): NcpRecord
     {
         return NcpRecord::forceCreate([
-            'patient_id'  => $patient->id,
+            'patient_id' => $patient->id,
             'rnd_user_id' => $rnd->id,
-            'type'        => 'new',
-            'status'      => 'draft',
+            'type' => 'new',
+            'status' => 'draft',
         ]);
     }
 
@@ -51,18 +51,18 @@ class NcpAssessmentTest extends TestCase
 
     public function test_rnd_can_create_assessment_for_ncp_record(): void
     {
-        $rnd     = $this->rnd();
+        $rnd = $this->rnd();
         $patient = $this->patient();
-        $ncp     = $this->ncpRecord($patient, $rnd);
+        $ncp = $this->ncpRecord($patient, $rnd);
 
         $response = $this->actingAs($rnd, 'sanctum')
             ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/assessment", [
-                'weight'      => 70.5,
+                'weight' => 70.5,
                 'usual_weight' => 72.0,
-                'height'      => 170.0,
+                'height' => 170.0,
                 'physical_activity_level' => 'light',
-                'dietary_intake'  => 'Normal diet',
-                'allergies'   => ['peanuts', 'shellfish'],
+                'dietary_intake' => 'Normal diet',
+                'allergies' => ['peanuts', 'shellfish'],
                 'medications' => [],
             ]);
 
@@ -73,15 +73,15 @@ class NcpAssessmentTest extends TestCase
 
         $this->assertDatabaseHas('assessments', [
             'ncp_record_id' => $ncp->id,
-            'weight'        => 70.5,
+            'weight' => 70.5,
         ]);
     }
 
     public function test_assessment_bmi_is_calculated_automatically(): void
     {
-        $rnd     = $this->rnd();
+        $rnd = $this->rnd();
         $patient = $this->patient();
-        $ncp     = $this->ncpRecord($patient, $rnd);
+        $ncp = $this->ncpRecord($patient, $rnd);
 
         $response = $this->actingAs($rnd, 'sanctum')
             ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/assessment", [
@@ -97,9 +97,9 @@ class NcpAssessmentTest extends TestCase
 
     public function test_assessment_validates_required_fields(): void
     {
-        $rnd     = $this->rnd();
+        $rnd = $this->rnd();
         $patient = $this->patient();
-        $ncp     = $this->ncpRecord($patient, $rnd);
+        $ncp = $this->ncpRecord($patient, $rnd);
 
         $response = $this->actingAs($rnd, 'sanctum')
             ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/assessment", [
@@ -112,17 +112,17 @@ class NcpAssessmentTest extends TestCase
 
     public function test_assessment_rejects_implausible_weight(): void
     {
-        $rnd     = $this->rnd();
+        $rnd = $this->rnd();
         $patient = $this->patient();
-        $ncp     = $this->ncpRecord($patient, $rnd);
+        $ncp = $this->ncpRecord($patient, $rnd);
 
         // 700 kg is a classic digit-transposition typo (intended 70). Left
         // unbounded it flows through the flat kcal/kg engine into an absurd Rx.
         $response = $this->actingAs($rnd, 'sanctum')
             ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/assessment", [
-                'weight'                  => 700.0,
-                'usual_weight'            => 72.0,
-                'height'                  => 170.0,
+                'weight' => 700.0,
+                'usual_weight' => 72.0,
+                'height' => 170.0,
                 'physical_activity_level' => 'light',
             ]);
 
@@ -132,17 +132,17 @@ class NcpAssessmentTest extends TestCase
 
     public function test_assessment_rejects_implausible_height(): void
     {
-        $rnd     = $this->rnd();
+        $rnd = $this->rnd();
         $patient = $this->patient();
-        $ncp     = $this->ncpRecord($patient, $rnd);
+        $ncp = $this->ncpRecord($patient, $rnd);
 
         // 1650 cm is a typo (intended 165); it inflates IBW and BMR into an
         // absurd energy/protein prescription.
         $response = $this->actingAs($rnd, 'sanctum')
             ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/assessment", [
-                'weight'                  => 65.0,
-                'usual_weight'            => 65.0,
-                'height'                  => 1650.0,
+                'weight' => 65.0,
+                'usual_weight' => 65.0,
+                'height' => 1650.0,
                 'physical_activity_level' => 'light',
             ]);
 
@@ -152,16 +152,16 @@ class NcpAssessmentTest extends TestCase
 
     public function test_assessment_accepts_plausible_boundary_anthropometrics(): void
     {
-        $rnd     = $this->rnd();
+        $rnd = $this->rnd();
         $patient = $this->patient();
-        $ncp     = $this->ncpRecord($patient, $rnd);
+        $ncp = $this->ncpRecord($patient, $rnd);
 
         // Upper plausibility bounds must still save (never reject a real patient).
         $response = $this->actingAs($rnd, 'sanctum')
             ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/assessment", [
-                'weight'                  => 400.0,
-                'usual_weight'            => 400.0,
-                'height'                  => 250.0,
+                'weight' => 400.0,
+                'usual_weight' => 400.0,
+                'height' => 250.0,
                 'physical_activity_level' => 'sedentary',
             ]);
 
@@ -170,9 +170,9 @@ class NcpAssessmentTest extends TestCase
 
     public function test_assessment_requires_prescription_calculation_inputs_on_create(): void
     {
-        $rnd     = $this->rnd();
+        $rnd = $this->rnd();
         $patient = $this->patient();
-        $ncp     = $this->ncpRecord($patient, $rnd);
+        $ncp = $this->ncpRecord($patient, $rnd);
 
         $this->actingAs($rnd, 'sanctum')
             ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/assessment", [
@@ -189,17 +189,17 @@ class NcpAssessmentTest extends TestCase
 
     public function test_rnd_can_get_assessment_for_ncp_record(): void
     {
-        $rnd     = $this->rnd();
+        $rnd = $this->rnd();
         $patient = $this->patient();
-        $ncp     = $this->ncpRecord($patient, $rnd);
+        $ncp = $this->ncpRecord($patient, $rnd);
 
         Assessment::forceCreate([
             'ncp_record_id' => $ncp->id,
-            'weight'        => 80.0,
-            'usual_weight'  => 82.0,
-            'height'        => 175.0,
+            'weight' => 80.0,
+            'usual_weight' => 82.0,
+            'height' => 175.0,
             'physical_activity_level' => 'sedentary',
-            'bmi'           => 26.12,
+            'bmi' => 26.12,
         ]);
 
         $response = $this->actingAs($rnd, 'sanctum')
@@ -211,17 +211,17 @@ class NcpAssessmentTest extends TestCase
 
     public function test_rnd_can_update_assessment(): void
     {
-        $rnd     = $this->rnd();
+        $rnd = $this->rnd();
         $patient = $this->patient();
-        $ncp     = $this->ncpRecord($patient, $rnd);
+        $ncp = $this->ncpRecord($patient, $rnd);
 
         $assessment = Assessment::forceCreate([
             'ncp_record_id' => $ncp->id,
-            'weight'        => 80.0,
-            'usual_weight'  => 82.0,
-            'height'        => 175.0,
+            'weight' => 80.0,
+            'usual_weight' => 82.0,
+            'height' => 175.0,
             'physical_activity_level' => 'sedentary',
-            'bmi'           => 26.12,
+            'bmi' => 26.12,
         ]);
 
         $response = $this->actingAs($rnd, 'sanctum')
@@ -239,9 +239,9 @@ class NcpAssessmentTest extends TestCase
 
     public function test_assessment_stores_allergies_as_json(): void
     {
-        $rnd     = $this->rnd();
+        $rnd = $this->rnd();
         $patient = $this->patient();
-        $ncp     = $this->ncpRecord($patient, $rnd);
+        $ncp = $this->ncpRecord($patient, $rnd);
 
         $this->actingAs($rnd, 'sanctum')
             ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/assessment", [
@@ -260,7 +260,7 @@ class NcpAssessmentTest extends TestCase
     public function test_guest_cannot_access_assessment(): void
     {
         $patient = $this->patient();
-        $ncp     = $this->ncpRecord($patient, $this->rnd());
+        $ncp = $this->ncpRecord($patient, $this->rnd());
 
         $this->getJson("/api/rnd/ncp-records/{$ncp->uuid}/assessment")
             ->assertStatus(401);
@@ -268,9 +268,9 @@ class NcpAssessmentTest extends TestCase
 
     public function test_duplicate_assessment_returns_conflict(): void
     {
-        $rnd     = $this->rnd();
+        $rnd = $this->rnd();
         $patient = $this->patient();
-        $ncp     = $this->ncpRecord($patient, $rnd);
+        $ncp = $this->ncpRecord($patient, $rnd);
 
         Assessment::forceCreate(['ncp_record_id' => $ncp->id, 'weight' => 70.0]);
 

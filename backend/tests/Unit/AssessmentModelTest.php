@@ -2,9 +2,11 @@
 
 namespace Tests\Unit;
 
-use Tests\TestCase;
+use App\Http\Requests\RND\StoreAssessmentRequest;
 use App\Models\Assessment;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Schema;
+use Tests\TestCase;
 
 /**
  * TDD: Assessment model must accept new clinical measurement fields.
@@ -19,46 +21,46 @@ class AssessmentModelTest extends TestCase
     /** New fields must be in $fillable */
     public function test_assessment_fillable_includes_physical_activity_level(): void
     {
-        $assessment = new Assessment();
+        $assessment = new Assessment;
         $this->assertContains('physical_activity_level', $assessment->getFillable());
     }
 
     public function test_assessment_fillable_includes_muac_mm(): void
     {
-        $assessment = new Assessment();
+        $assessment = new Assessment;
         $this->assertContains('muac_mm', $assessment->getFillable());
     }
 
     public function test_assessment_fillable_includes_waist_cm(): void
     {
-        $assessment = new Assessment();
+        $assessment = new Assessment;
         $this->assertContains('waist_cm', $assessment->getFillable());
     }
 
     public function test_assessment_fillable_includes_hip_cm(): void
     {
-        $assessment = new Assessment();
+        $assessment = new Assessment;
         $this->assertContains('hip_cm', $assessment->getFillable());
     }
 
     /** Numeric fields must be cast to float */
     public function test_muac_mm_is_cast_to_float(): void
     {
-        $casts = (new Assessment())->getCasts();
+        $casts = (new Assessment)->getCasts();
         $this->assertArrayHasKey('muac_mm', $casts);
         $this->assertEquals('float', $casts['muac_mm']);
     }
 
     public function test_waist_cm_is_cast_to_float(): void
     {
-        $casts = (new Assessment())->getCasts();
+        $casts = (new Assessment)->getCasts();
         $this->assertArrayHasKey('waist_cm', $casts);
         $this->assertEquals('float', $casts['waist_cm']);
     }
 
     public function test_hip_cm_is_cast_to_float(): void
     {
-        $casts = (new Assessment())->getCasts();
+        $casts = (new Assessment)->getCasts();
         $this->assertArrayHasKey('hip_cm', $casts);
         $this->assertEquals('float', $casts['hip_cm']);
     }
@@ -66,7 +68,7 @@ class AssessmentModelTest extends TestCase
     /** Validation rules must accept the new fields */
     public function test_store_request_validates_physical_activity_level(): void
     {
-        $request = new \App\Http\Requests\RND\StoreAssessmentRequest();
+        $request = new StoreAssessmentRequest;
         $rules = $request->rules();
         $this->assertArrayHasKey('physical_activity_level', $rules);
         $this->assertContains('required', $rules['physical_activity_level']);
@@ -75,7 +77,7 @@ class AssessmentModelTest extends TestCase
 
     public function test_store_request_validates_muac_mm(): void
     {
-        $request = new \App\Http\Requests\RND\StoreAssessmentRequest();
+        $request = new StoreAssessmentRequest;
         $rules = $request->rules();
         $this->assertArrayHasKey('muac_mm', $rules);
         $this->assertContains('nullable', $rules['muac_mm']);
@@ -84,7 +86,7 @@ class AssessmentModelTest extends TestCase
 
     public function test_store_request_validates_waist_cm(): void
     {
-        $request = new \App\Http\Requests\RND\StoreAssessmentRequest();
+        $request = new StoreAssessmentRequest;
         $rules = $request->rules();
         $this->assertArrayHasKey('waist_cm', $rules);
         $this->assertContains('nullable', $rules['waist_cm']);
@@ -93,7 +95,7 @@ class AssessmentModelTest extends TestCase
 
     public function test_store_request_validates_hip_cm(): void
     {
-        $request = new \App\Http\Requests\RND\StoreAssessmentRequest();
+        $request = new StoreAssessmentRequest;
         $rules = $request->rules();
         $this->assertArrayHasKey('hip_cm', $rules);
         $this->assertContains('nullable', $rules['hip_cm']);
@@ -104,7 +106,7 @@ class AssessmentModelTest extends TestCase
     public function test_assessments_table_has_physical_activity_level_column(): void
     {
         $this->assertTrue(
-            \Illuminate\Support\Facades\Schema::hasColumn('assessments', 'physical_activity_level'),
+            Schema::hasColumn('assessments', 'physical_activity_level'),
             'assessments table must have physical_activity_level column'
         );
     }
@@ -112,7 +114,7 @@ class AssessmentModelTest extends TestCase
     public function test_assessments_table_has_muac_mm_column(): void
     {
         $this->assertTrue(
-            \Illuminate\Support\Facades\Schema::hasColumn('assessments', 'muac_mm'),
+            Schema::hasColumn('assessments', 'muac_mm'),
             'assessments table must have muac_mm column'
         );
     }
@@ -120,7 +122,7 @@ class AssessmentModelTest extends TestCase
     public function test_assessments_table_has_waist_cm_column(): void
     {
         $this->assertTrue(
-            \Illuminate\Support\Facades\Schema::hasColumn('assessments', 'waist_cm'),
+            Schema::hasColumn('assessments', 'waist_cm'),
             'assessments table must have waist_cm column'
         );
     }
@@ -128,7 +130,7 @@ class AssessmentModelTest extends TestCase
     public function test_assessments_table_has_hip_cm_column(): void
     {
         $this->assertTrue(
-            \Illuminate\Support\Facades\Schema::hasColumn('assessments', 'hip_cm'),
+            Schema::hasColumn('assessments', 'hip_cm'),
             'assessments table must have hip_cm column'
         );
     }

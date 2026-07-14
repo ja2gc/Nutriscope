@@ -17,7 +17,8 @@ class PoAttachmentUploadTest extends TestCase
     private function fssPo(): array
     {
         $fss = User::factory()->create(['role' => 'FSS']);
-        $po  = PurchaseOrder::factory()->create(['rnd_user_id' => $fss->id]);
+        $po = PurchaseOrder::factory()->create(['rnd_user_id' => $fss->id]);
+
         return [$fss, $po];
     }
 
@@ -41,7 +42,7 @@ class PoAttachmentUploadTest extends TestCase
         [$fss, $po] = $this->fssPo();
 
         $res = $this->actingAs($fss)->post("/api/fss/purchase-orders/{$po->uuid}/attachments", [
-            'type'  => 'proof',
+            'type' => 'proof',
             'files' => [
                 UploadedFile::fake()->create('a.jpg', 100, 'image/jpeg'),
                 UploadedFile::fake()->create('b.jpg', 100, 'image/jpeg'),

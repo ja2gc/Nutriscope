@@ -23,22 +23,23 @@ class RecommendServiceTest extends TestCase
     {
         parent::setUp();
         $this->rnd = User::factory()->create([
-            'role'     => 'RND',
+            'role' => 'RND',
             'password' => Hash::make('password'),
         ]);
     }
 
     private function makeNcpRecord(array $assessmentData = []): NcpRecord
     {
-        $patient   = Patient::factory()->create();
+        $patient = Patient::factory()->create();
         $ncpRecord = NcpRecord::factory()->create([
-            'patient_id'  => $patient->id,
+            'patient_id' => $patient->id,
             'rnd_user_id' => $this->rnd->id,
         ]);
         Assessment::factory()->create(array_merge(
             ['ncp_record_id' => $ncpRecord->id],
             $assessmentData
         ));
+
         return $ncpRecord;
     }
 
@@ -48,7 +49,7 @@ class RecommendServiceTest extends TestCase
             ['condition' => 'CKD', 'stage' => 'all',  'nutrient_or_food_tag' => 'phosphorus', 'rule_type' => 'limit',    'threshold' => 800,  'unit' => 'mg',  'reason' => 'CKD limits phosphorus.', 'created_at' => now(), 'updated_at' => now()],
             ['condition' => 'CKD', 'stage' => 'all',  'nutrient_or_food_tag' => 'potassium',  'rule_type' => 'limit',    'threshold' => 2000, 'unit' => 'mg',  'reason' => 'CKD limits potassium.',  'created_at' => now(), 'updated_at' => now()],
             ['condition' => 'DM',  'stage' => 'all',  'nutrient_or_food_tag' => 'sugar',      'rule_type' => 'avoid',    'threshold' => 0,    'unit' => 'g',   'reason' => 'DM avoids sugar.',        'created_at' => now(), 'updated_at' => now()],
-            ['condition' => 'DM',  'stage' => 'all',  'nutrient_or_food_tag' => 'whole_grain', 'rule_type' => 'recommend', 'threshold' => 0,   'unit' => '',    'reason' => 'DM recommends whole grain.','created_at' => now(), 'updated_at' => now()],
+            ['condition' => 'DM',  'stage' => 'all',  'nutrient_or_food_tag' => 'whole_grain', 'rule_type' => 'recommend', 'threshold' => 0,   'unit' => '',    'reason' => 'DM recommends whole grain.', 'created_at' => now(), 'updated_at' => now()],
             ['condition' => 'HTN', 'stage' => 'all',  'nutrient_or_food_tag' => 'sodium',     'rule_type' => 'limit',    'threshold' => 1500, 'unit' => 'mg',  'reason' => 'HTN limits sodium.',      'created_at' => now(), 'updated_at' => now()],
         ]);
     }
@@ -73,7 +74,7 @@ class RecommendServiceTest extends TestCase
 
         $result = $service->getRecommendations(['DM'], null);
 
-        $avoidTags    = array_column($result['avoid'], 'tag');
+        $avoidTags = array_column($result['avoid'], 'tag');
         $recommendTags = array_column($result['recommend'], 'tag');
 
         $this->assertContains('sugar', $avoidTags);

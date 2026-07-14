@@ -17,12 +17,13 @@ class DietListCountTest extends TestCase
     use RefreshDatabase;
 
     private User $fss;
+
     private User $fss2;
 
     protected function setUp(): void
     {
         parent::setUp();
-        $this->fss  = User::factory()->create(['role' => 'FSS', 'password' => Hash::make('password')]);
+        $this->fss = User::factory()->create(['role' => 'FSS', 'password' => Hash::make('password')]);
         $this->fss2 = User::factory()->create(['role' => 'FSS', 'password' => Hash::make('password')]);
     }
 
@@ -32,22 +33,22 @@ class DietListCountTest extends TestCase
 
     public function test_diet_list_distribution_counts_do_not_update_served_population(): void
     {
-        $date  = '2026-06-20';
-        $rnd   = User::factory()->create(['role' => 'RND']);
+        $date = '2026-06-20';
+        $rnd = User::factory()->create(['role' => 'RND']);
         $cycle = MenuCycle::factory()->create(['rnd_user_id' => $rnd->id]);
 
         // Create a meal_prep_log for the same date so we can assert it gets updated.
         $log = MealPrepLog::create([
-            'service_date'        => $date,
-            'menu_cycle_id'       => $cycle->id,
-            'population'          => 100,
-            'served_population'   => 100,
+            'service_date' => $date,
+            'menu_cycle_id' => $cycle->id,
+            'population' => 100,
+            'served_population' => 100,
             'population_variance' => 0,
-            'status'              => 'completed',
-            'completed_by'        => $this->fss->id,
-            'completed_at'        => now(),
-            'total_value'         => 0,
-            'has_shortfall'       => false,
+            'status' => 'completed',
+            'completed_by' => $this->fss->id,
+            'completed_at' => now(),
+            'total_value' => 0,
+            'has_shortfall' => false,
         ]);
 
         $wards = [
@@ -59,7 +60,7 @@ class DietListCountTest extends TestCase
         foreach ($wards as $payload) {
             $this->actingAs($this->fss)
                 ->postJson('/api/fss/diet-list-counts', array_merge([
-                    'service_date'  => $date,
+                    'service_date' => $date,
                     'menu_cycle_id' => $cycle->uuid,
                 ], $payload))
                 ->assertCreated();
@@ -70,7 +71,7 @@ class DietListCountTest extends TestCase
 
         // Served population on the log = 30 + 25 + 20 = 75.
         $this->assertDatabaseHas('meal_prep_logs', [
-            'id'                => $log->id,
+            'id' => $log->id,
             'served_population' => 100,
         ]);
     }
@@ -78,24 +79,24 @@ class DietListCountTest extends TestCase
     public function test_task_flag_booleans_persist_correctly(): void
     {
         $response = $this->actingAs($this->fss)->postJson('/api/fss/diet-list-counts', [
-            'service_date'        => '2026-06-20',
-            'ward'                => 'ICU',
-            'population'          => 10,
-            'helped_food_prep'    => true,
+            'service_date' => '2026-06-20',
+            'ward' => 'ICU',
+            'population' => 10,
+            'helped_food_prep' => true,
             'collected_diet_list' => true,
-            'apportioned_food'    => true,
-            'off_duty'            => false,
+            'apportioned_food' => true,
+            'off_duty' => false,
         ]);
 
         $response->assertCreated();
 
         $this->assertDatabaseHas('diet_list_counts', [
-            'ward'                => 'ICU',
-            'helped_food_prep'    => true,
+            'ward' => 'ICU',
+            'helped_food_prep' => true,
             'collected_diet_list' => true,
-            'apportioned_food'    => true,
-            'off_duty'            => false,
-            'stored_supplies'     => false,
+            'apportioned_food' => true,
+            'off_duty' => false,
+            'stored_supplies' => false,
         ]);
     }
 
@@ -103,20 +104,20 @@ class DietListCountTest extends TestCase
     {
         $response = $this->actingAs($this->fss)->postJson('/api/fss/diet-list-counts', [
             'service_date' => '2026-06-20',
-            'ward'         => 'Ward A',
-            'population'   => 15,
-            'fss_user_id'  => $this->fss2->id, // attacker tries to inject a different user
+            'ward' => 'Ward A',
+            'population' => 15,
+            'fss_user_id' => $this->fss2->id, // attacker tries to inject a different user
         ]);
 
         $response->assertCreated();
 
         // Must be recorded under the authenticated user, not the injected one.
         $this->assertDatabaseHas('diet_list_counts', [
-            'ward'        => 'Ward A',
+            'ward' => 'Ward A',
             'fss_user_id' => $this->fss->id,
         ]);
         $this->assertDatabaseMissing('diet_list_counts', [
-            'ward'        => 'Ward A',
+            'ward' => 'Ward A',
             'fss_user_id' => $this->fss2->id,
         ]);
     }
@@ -125,8 +126,8 @@ class DietListCountTest extends TestCase
     {
         $this->postJson('/api/fss/diet-list-counts', [
             'service_date' => '2026-06-20',
-            'ward'         => 'Ward A',
-            'population'   => 15,
+            'ward' => 'Ward A',
+            'population' => 15,
         ])->assertUnauthorized();
     }
 
@@ -139,8 +140,8 @@ class DietListCountTest extends TestCase
 
         $this->actingAs($admin)->postJson('/api/fss/diet-list-counts', [
             'service_date' => '2026-06-20',
-            'ward'         => 'Ward A',
-            'population'   => 15,
+            'ward' => 'Ward A',
+            'population' => 15,
         ])->assertForbidden();
     }
 
@@ -170,44 +171,44 @@ class DietListCountTest extends TestCase
         $rnd = User::factory()->create(['role' => 'RND']);
 
         $cycle = MenuCycle::factory()->create(['rnd_user_id' => $rnd->id]);
-        $item  = FsItem::factory()->create(['name' => 'Rice', 'base_unit' => 'g']);
+        $item = FsItem::factory()->create(['name' => 'Rice', 'base_unit' => 'g']);
         MenuCycleDay::create([
-            'menu_cycle_id'       => $cycle->id,
-            'day_of_week'         => 'Monday',
-            'meal_type'           => 'lunch',
-            'fs_item_id'          => $item->id,
-            'quantity'            => 10,
+            'menu_cycle_id' => $cycle->id,
+            'day_of_week' => 'Monday',
+            'meal_type' => 'lunch',
+            'fs_item_id' => $item->id,
+            'quantity' => 10,
             'estimate_population' => 5,
         ]);
         // Pre-submit two accomplishment report distribution counts for the same date.
         DietListCount::create([
-            'service_date'  => '2026-06-15', // Monday
+            'service_date' => '2026-06-15', // Monday
             'menu_cycle_id' => $cycle->id,
-            'ward'          => 'Ward A',
-            'fss_user_id'   => $this->fss->id,
-            'population'    => 25,
+            'ward' => 'Ward A',
+            'fss_user_id' => $this->fss->id,
+            'population' => 25,
         ]);
         DietListCount::create([
-            'service_date'  => '2026-06-15',
+            'service_date' => '2026-06-15',
             'menu_cycle_id' => $cycle->id,
-            'ward'          => 'Ward B',
-            'fss_user_id'   => $this->fss2->id,
-            'population'    => 20,
+            'ward' => 'Ward B',
+            'fss_user_id' => $this->fss2->id,
+            'population' => 20,
         ]);
 
         // complete-day passes served_population = 99. Distribution total 45 must not override it.
         $response = $this->actingAs($this->fss)
             ->postJson("/api/fss/menu-cycles/{$cycle->uuid}/complete-day", [
-                'service_date'      => '2026-06-15',
-                'population'        => 5,
+                'service_date' => '2026-06-15',
+                'population' => 5,
                 'served_population' => 99,
             ]);
 
         $response->assertCreated();
 
         $this->assertDatabaseHas('meal_prep_logs', [
-            'menu_cycle_id'     => $cycle->id,
-            'service_date'      => '2026-06-15',
+            'menu_cycle_id' => $cycle->id,
+            'service_date' => '2026-06-15',
             'served_population' => 99,
         ]);
     }
@@ -217,27 +218,27 @@ class DietListCountTest extends TestCase
         $rnd = User::factory()->create(['role' => 'RND']);
 
         $cycle = MenuCycle::factory()->create(['rnd_user_id' => $rnd->id]);
-        $item  = FsItem::factory()->create(['name' => 'Bread', 'base_unit' => 'g']);
+        $item = FsItem::factory()->create(['name' => 'Bread', 'base_unit' => 'g']);
         MenuCycleDay::create([
-            'menu_cycle_id'       => $cycle->id,
-            'day_of_week'         => 'Monday',
-            'meal_type'           => 'lunch',
-            'fs_item_id'          => $item->id,
-            'quantity'            => 10,
+            'menu_cycle_id' => $cycle->id,
+            'day_of_week' => 'Monday',
+            'meal_type' => 'lunch',
+            'fs_item_id' => $item->id,
+            'quantity' => 10,
             'estimate_population' => 5,
         ]);
         // No diet-list rows — hand-typed value must be used.
         $response = $this->actingAs($this->fss)
             ->postJson("/api/fss/menu-cycles/{$cycle->uuid}/complete-day", [
-                'service_date'      => '2026-06-15',
-                'population'        => 5,
+                'service_date' => '2026-06-15',
+                'population' => 5,
                 'served_population' => 42,
             ]);
 
         $response->assertCreated();
 
         $this->assertDatabaseHas('meal_prep_logs', [
-            'menu_cycle_id'     => $cycle->id,
+            'menu_cycle_id' => $cycle->id,
             'served_population' => 42,
         ]);
     }

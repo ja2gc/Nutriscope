@@ -42,11 +42,13 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        $retention = app(AuditRetentionService::class);
-        collect([config('database.default'), config('activitylog.database_connection')])
-            ->filter(fn (mixed $connection): bool => is_string($connection) && $connection !== '')
-            ->unique()
-            ->each(fn (string $connection) => $retention->registerMutationBoundary(DB::connection($connection)));
+        if (self::shouldRegisterAuditMutationBoundary($this->app->runningInConsole(), $_SERVER['argv'] ?? [])) {
+            $retention = app(AuditRetentionService::class);
+            collect([config('database.default'), config('activitylog.database_connection')])
+                ->filter(fn (mixed $connection): bool => is_string($connection) && $connection !== '')
+                ->unique()
+                ->each(fn (string $connection) => $retention->registerMutationBoundary(DB::connection($connection)));
+        }
         DB::listen(function (QueryExecuted $query): void {
             $monitor = app(AuditHealthMonitor::class);
             if ($query->time >= (float) config('audit.monitoring.slow_query_ms', 250)
@@ -127,6 +129,18 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('reports', function (Request $request) {
             return $this->auditedLimit(Limit::perMinute(10)->by($request->user()?->id ?? $request->ip()), 'reports');
         });
+    }
+
+    /** @param list<string> $arguments */
+    public static function shouldRegisterAuditMutationBoundary(bool $runningInConsole, array $arguments): bool
+    {
+        if (! $runningInConsole) {
+            return true;
+        }
+
+        $command = $arguments[1] ?? null;
+
+        return ! is_string($command) || ! Str::startsWith($command, 'migrate');
     }
 
     private function auditedLimit(Limit $limit, string $limiter): Limit

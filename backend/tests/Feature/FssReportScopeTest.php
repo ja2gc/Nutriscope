@@ -20,6 +20,7 @@ class FssReportScopeTest extends TestCase
     use RefreshDatabase;
 
     private User $fss;
+
     private User $rnd;
 
     protected function setUp(): void
@@ -34,9 +35,9 @@ class FssReportScopeTest extends TestCase
     private function seedAccomplishment(string $date = '2026-06-10'): DietListCount
     {
         return DietListCount::factory()->create([
-            'fss_user_id'  => $this->fss->id,
+            'fss_user_id' => $this->fss->id,
             'service_date' => $date,
-            'population'   => 30,
+            'population' => 30,
         ]);
     }
 

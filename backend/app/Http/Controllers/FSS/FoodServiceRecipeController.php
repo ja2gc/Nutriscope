@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\FoodServiceRecipe;
 use App\Models\FoodServiceRecipeIngredient;
 use App\Models\FsItem;
+use App\Models\MenuCycleDay;
+use App\Services\MenuCycleCostService;
 use App\Support\UnitConverter;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -16,8 +18,8 @@ class FoodServiceRecipeController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $perPage  = (int) min($request->query('per_page', 15), 100);
-        $search   = $request->query('search');
+        $perPage = (int) min($request->query('per_page', 15), 100);
+        $search = $request->query('search');
         $category = $request->query('category');
 
         $paginator = FoodServiceRecipe::orderBy('name')
@@ -32,9 +34,9 @@ class FoodServiceRecipeController extends Controller
             ]),
             'meta' => [
                 'current_page' => $paginator->currentPage(),
-                'per_page'     => $paginator->perPage(),
-                'total'        => $paginator->total(),
-                'last_page'    => $paginator->lastPage(),
+                'per_page' => $paginator->perPage(),
+                'total' => $paginator->total(),
+                'last_page' => $paginator->lastPage(),
             ],
         ]);
     }
@@ -51,6 +53,7 @@ class FoodServiceRecipeController extends Controller
         if ($a === '' || $b === '' || $a === $b) {
             return true;
         }
+
         return UnitConverter::isKnown($a) && UnitConverter::isKnown($b);
     }
 
@@ -69,6 +72,7 @@ class FoodServiceRecipeController extends Controller
             if (isset($ing['fs_item_id'])) {
                 $ing['fs_item_id'] = FsItem::idFromUuid($ing['fs_item_id']);
             }
+
             return $ing;
         }, $ingredients);
     }
@@ -103,11 +107,11 @@ class FoodServiceRecipeController extends Controller
 
         if (! $item || ! $baseUnit || $unit === null) {
             return [
-                'is_convertible'       => false,
-                'catalog_unit'         => $baseUnit,
-                'converted_quantity'   => null,
-                'converted_unit_cost'  => null,
-                'conversion_warning'   => null,
+                'is_convertible' => false,
+                'catalog_unit' => $baseUnit,
+                'converted_quantity' => null,
+                'converted_unit_cost' => null,
+                'conversion_warning' => null,
             ];
         }
 
@@ -115,49 +119,50 @@ class FoodServiceRecipeController extends Controller
 
         if ($sameUnit) {
             return [
-                'is_convertible'      => true,
-                'catalog_unit'        => $baseUnit,
-                'converted_quantity'  => round($quantity, 2),
+                'is_convertible' => true,
+                'catalog_unit' => $baseUnit,
+                'converted_quantity' => round($quantity, 2),
                 'converted_unit_cost' => round($item->unit_cost, 2),
-                'conversion_warning'  => null,
+                'conversion_warning' => null,
             ];
         }
 
         if (UnitConverter::isKnown($unit) && UnitConverter::isKnown($baseUnit)) {
             // Recipe unit -> catalog unit. unit_cost is priced per catalog base unit,
             // so the rate per recipe unit converts inversely.
-            $qtyInBase   = UnitConverter::convert($quantity, $unit, $baseUnit);
+            $qtyInBase = UnitConverter::convert($quantity, $unit, $baseUnit);
             $basePerUnit = UnitConverter::convert(1, $unit, $baseUnit);
+
             return [
-                'is_convertible'      => true,
-                'catalog_unit'        => $baseUnit,
-                'converted_quantity'  => round($qtyInBase, 2),
+                'is_convertible' => true,
+                'catalog_unit' => $baseUnit,
+                'converted_quantity' => round($qtyInBase, 2),
                 'converted_unit_cost' => round($item->unit_cost * $basePerUnit, 2),
-                'conversion_warning'  => null,
+                'conversion_warning' => null,
             ];
         }
 
         // Non-convertible outlier — allowed, but warn the planner.
         return [
-            'is_convertible'      => false,
-            'catalog_unit'        => $baseUnit,
-            'converted_quantity'  => null,
+            'is_convertible' => false,
+            'catalog_unit' => $baseUnit,
+            'converted_quantity' => null,
             'converted_unit_cost' => null,
-            'conversion_warning'  => "Unit '{$unit}' can't be converted to catalog unit '{$baseUnit}'; cost uses the entered unit as-is.",
+            'conversion_warning' => "Unit '{$unit}' can't be converted to catalog unit '{$baseUnit}'; cost uses the entered unit as-is.",
         ];
     }
 
     public function store(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'name'        => ['required', 'string', 'max:255', 'unique:food_service_recipes,name'],
-            'category'    => ['nullable', 'string', 'max:100'],
-            'prep_notes'  => ['nullable', 'string'],
-            'servings'    => ['nullable', 'integer', 'min:1'],
+            'name' => ['required', 'string', 'max:255', 'unique:food_service_recipes,name'],
+            'category' => ['nullable', 'string', 'max:100'],
+            'prep_notes' => ['nullable', 'string'],
+            'servings' => ['nullable', 'integer', 'min:1'],
             'ingredients' => ['required', 'array', 'min:1'],
             'ingredients.*.fs_item_id' => ['required', 'string', 'exists:fs_items,uuid'],
-            'ingredients.*.quantity'   => ['required', 'numeric', 'min:0.01'],
-            'ingredients.*.unit'       => ['nullable', 'string'],
+            'ingredients.*.quantity' => ['required', 'numeric', 'min:0.01'],
+            'ingredients.*.unit' => ['nullable', 'string'],
         ]);
 
         $data['ingredients'] = $this->resolveIngredientFsItemIds($data['ingredients']);
@@ -166,22 +171,23 @@ class FoodServiceRecipeController extends Controller
         $recipe = DB::transaction(function () use ($data) {
             $recipe = FoodServiceRecipe::create([
                 'rnd_user_id' => Auth::id(),
-                'name'        => $data['name'],
-                'category'    => $data['category'] ?? null,
-                'prep_notes'  => $data['prep_notes'] ?? null,
-                'servings'    => $data['servings'] ?? 1,
+                'name' => $data['name'],
+                'category' => $data['category'] ?? null,
+                'prep_notes' => $data['prep_notes'] ?? null,
+                'servings' => $data['servings'] ?? 1,
             ]);
 
             foreach ($data['ingredients'] as $ing) {
                 FoodServiceRecipeIngredient::create([
                     'food_service_recipe_id' => $recipe->id,
-                    'fs_item_id'             => $ing['fs_item_id'],
-                    'quantity'               => $ing['quantity'],
-                    'unit'                   => $ing['unit'] ?? 'g',
+                    'fs_item_id' => $ing['fs_item_id'],
+                    'quantity' => $ing['quantity'],
+                    'unit' => $ing['unit'] ?? 'g',
                 ]);
             }
 
             $recipe->recalculateCost();
+
             return $recipe;
         });
 
@@ -203,21 +209,21 @@ class FoodServiceRecipeController extends Controller
         $population = max(0, (int) $request->query('population', 0));
 
         return response()->json([
-            'data' => \App\Services\MenuCycleCostService::recipeProfile($foodServiceRecipe, $population),
+            'data' => MenuCycleCostService::recipeProfile($foodServiceRecipe, $population),
         ]);
     }
 
     public function update(Request $request, FoodServiceRecipe $foodServiceRecipe): JsonResponse
     {
         $data = $request->validate([
-            'name'        => ['sometimes', 'string', 'max:255', 'unique:food_service_recipes,name,' . $foodServiceRecipe->id],
-            'category'    => ['nullable', 'string', 'max:100'],
-            'prep_notes'  => ['nullable', 'string'],
-            'servings'    => ['nullable', 'integer', 'min:1'],
+            'name' => ['sometimes', 'string', 'max:255', 'unique:food_service_recipes,name,'.$foodServiceRecipe->id],
+            'category' => ['nullable', 'string', 'max:100'],
+            'prep_notes' => ['nullable', 'string'],
+            'servings' => ['nullable', 'integer', 'min:1'],
             'ingredients' => ['sometimes', 'array', 'min:1'],
             'ingredients.*.fs_item_id' => ['required_with:ingredients', 'string', 'exists:fs_items,uuid'],
-            'ingredients.*.quantity'   => ['required_with:ingredients', 'numeric', 'min:0.01'],
-            'ingredients.*.unit'       => ['nullable', 'string'],
+            'ingredients.*.quantity' => ['required_with:ingredients', 'numeric', 'min:0.01'],
+            'ingredients.*.unit' => ['nullable', 'string'],
         ]);
 
         if (isset($data['ingredients'])) {
@@ -227,20 +233,20 @@ class FoodServiceRecipeController extends Controller
 
         DB::transaction(function () use ($data, $foodServiceRecipe) {
             $foodServiceRecipe->update(array_filter([
-                'name'       => $data['name'] ?? null,
-                'category'   => $data['category'] ?? null,
+                'name' => $data['name'] ?? null,
+                'category' => $data['category'] ?? null,
                 'prep_notes' => $data['prep_notes'] ?? null,
-                'servings'   => $data['servings'] ?? null,
-            ], fn($v) => $v !== null));
+                'servings' => $data['servings'] ?? null,
+            ], fn ($v) => $v !== null));
 
             if (isset($data['ingredients'])) {
                 $foodServiceRecipe->ingredients()->delete();
                 foreach ($data['ingredients'] as $ing) {
                     FoodServiceRecipeIngredient::create([
                         'food_service_recipe_id' => $foodServiceRecipe->id,
-                        'fs_item_id'             => $ing['fs_item_id'],
-                        'quantity'               => $ing['quantity'],
-                        'unit'                   => $ing['unit'] ?? 'g',
+                        'fs_item_id' => $ing['fs_item_id'],
+                        'quantity' => $ing['quantity'],
+                        'unit' => $ing['unit'] ?? 'g',
                     ]);
                 }
             }
@@ -253,12 +259,13 @@ class FoodServiceRecipeController extends Controller
 
     public function destroy(FoodServiceRecipe $foodServiceRecipe): JsonResponse
     {
-        $usedBy = \App\Models\MenuCycleDay::where('recipe_id', $foodServiceRecipe->id)->count();
+        $usedBy = MenuCycleDay::where('recipe_id', $foodServiceRecipe->id)->count();
         if ($usedBy > 0) {
             abort(409, "Can't delete: this recipe is used by {$usedBy} menu-cycle slot(s). Remove it from the cycle(s) first.");
         }
 
         $foodServiceRecipe->delete();
+
         return response()->json(null, 204);
     }
 
@@ -267,35 +274,35 @@ class FoodServiceRecipeController extends Controller
         $recipe->loadMissing('ingredients.fsItem');
 
         return [
-            'id'          => $recipe->uuid,
-            'name'        => $recipe->name,
-            'category'    => $recipe->category,
-            'prep_notes'  => $recipe->prep_notes,
-            'servings'    => $recipe->servings,
-            'cost'        => round((float) $recipe->cost, 2),
+            'id' => $recipe->uuid,
+            'name' => $recipe->name,
+            'category' => $recipe->category,
+            'prep_notes' => $recipe->prep_notes,
+            'servings' => $recipe->servings,
+            'cost' => round((float) $recipe->cost, 2),
             'ingredients' => $recipe->ingredients->map(function ($ing) {
                 $conv = self::conversionInfo($ing->fsItem, (float) $ing->quantity, $ing->unit);
 
                 return [
-                    'id'                   => $ing->id,
-                    'fs_item_id'           => $ing->fs_item_id,
-                    'quantity'             => round((float) $ing->quantity, 2),
-                    'unit'                 => $ing->unit,
-                    'is_convertible'       => $conv['is_convertible'],
-                    'catalog_unit'         => $conv['catalog_unit'],
-                    'converted_quantity'   => $conv['converted_quantity'],
-                    'converted_unit_cost'  => $conv['converted_unit_cost'],
-                    'conversion_warning'   => $conv['conversion_warning'],
-                    'fs_item'              => $ing->fsItem ? [
-                        'id'        => $ing->fsItem->uuid,
-                        'name'      => $ing->fsItem->name,
+                    'id' => $ing->id,
+                    'fs_item_id' => $ing->fs_item_id,
+                    'quantity' => round((float) $ing->quantity, 2),
+                    'unit' => $ing->unit,
+                    'is_convertible' => $conv['is_convertible'],
+                    'catalog_unit' => $conv['catalog_unit'],
+                    'converted_quantity' => $conv['converted_quantity'],
+                    'converted_unit_cost' => $conv['converted_unit_cost'],
+                    'conversion_warning' => $conv['conversion_warning'],
+                    'fs_item' => $ing->fsItem ? [
+                        'id' => $ing->fsItem->uuid,
+                        'name' => $ing->fsItem->name,
                         'unit_cost' => round($ing->fsItem->unit_cost, 2),
                         'base_unit' => $ing->fsItem->base_unit,
                     ] : null,
                 ];
             })->values(),
-            'created_at'  => $recipe->created_at,
-            'updated_at'  => $recipe->updated_at,
+            'created_at' => $recipe->created_at,
+            'updated_at' => $recipe->updated_at,
         ];
     }
 }

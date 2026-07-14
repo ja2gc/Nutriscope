@@ -18,7 +18,8 @@ class NutritionPrescriptionServiceTest extends TestCase
         // NOTE: data providers run before the Laravel app is booted, so base_path()
         // is unavailable here. Resolve relative to this file instead.
         // __DIR__ = backend/tests/Unit → repo root is three levels up.
-        $path = dirname(__DIR__, 3) . '/docs/logic/prescription-targets.json';
+        $path = dirname(__DIR__, 3).'/docs/logic/prescription-targets.json';
+
         return json_decode(file_get_contents($path), true);
     }
 
@@ -29,22 +30,23 @@ class NutritionPrescriptionServiceTest extends TestCase
         $out = [];
         foreach ($spec['golden_cases'] as $c) {
             $p = $patients[$c['patient']];
-            $name = "{$c['patient']} {$c['goal']}/" . ($c['stage'] ?? 'null');
+            $name = "{$c['patient']} {$c['goal']}/".($c['stage'] ?? 'null');
             $out[$name] = [$p, $c['goal'], $c['stage'], $c['expected']];
         }
+
         return $out;
     }
 
     #[DataProvider('goldenCases')]
     public function test_matches_golden_case(array $p, string $goal, ?string $stage, array $expected): void
     {
-        $svc = new NutritionPrescriptionService();
+        $svc = new NutritionPrescriptionService;
         $metrics = [
             'weightKg' => $p['weightKg'],
             'heightCm' => $p['heightCm'],
             'ageYears' => $p['ageYears'],
-            'sex'      => $p['sex'],
-            'isAdult'  => true,
+            'sex' => $p['sex'],
+            'isAdult' => true,
             'activityFactor' => NutritionPrescriptionService::ACTIVITY_FACTORS[$p['activity']],
         ];
 
@@ -67,20 +69,20 @@ class NutritionPrescriptionServiceTest extends TestCase
      */
     public function test_no_goal_produces_implausible_energy_for_a_normal_adult(): void
     {
-        $svc = new NutritionPrescriptionService();
+        $svc = new NutritionPrescriptionService;
         $goals = [
-            'renal_diet' => ['stage_1','stage_2','stage_3','stage_4','stage_5_predialysis','hemodialysis','peritoneal'],
-            'diabetic_control' => ['stage_1','stage_2','stage_3'],
-            'cardiac_diet' => ['mild','moderate','severe'],
-            'weight_loss' => ['overweight','class_1','class_2','class_3'],
-            'weight_gain' => ['mild','moderate','severe'],
-            'high_protein' => ['mild_stress','moderate_stress','severe_stress','burns'],
-            'liver_disease' => ['compensated','decompensated','encephalopathy_grade_1_2','encephalopathy_grade_3_4'],
-            'malnutrition' => ['moderate','severe'],
+            'renal_diet' => ['stage_1', 'stage_2', 'stage_3', 'stage_4', 'stage_5_predialysis', 'hemodialysis', 'peritoneal'],
+            'diabetic_control' => ['stage_1', 'stage_2', 'stage_3'],
+            'cardiac_diet' => ['mild', 'moderate', 'severe'],
+            'weight_loss' => ['overweight', 'class_1', 'class_2', 'class_3'],
+            'weight_gain' => ['mild', 'moderate', 'severe'],
+            'high_protein' => ['mild_stress', 'moderate_stress', 'severe_stress', 'burns'],
+            'liver_disease' => ['compensated', 'decompensated', 'encephalopathy_grade_1_2', 'encephalopathy_grade_3_4'],
+            'malnutrition' => ['moderate', 'severe'],
             'custom' => [null],
         ];
 
-        foreach (['sedentary','moderate','extra_active'] as $activity) {
+        foreach (['sedentary', 'moderate', 'extra_active'] as $activity) {
             $metrics = [
                 'weightKg' => 70.0, 'heightCm' => 183.0, 'ageYears' => 30,
                 'sex' => 'Male', 'isAdult' => true,
@@ -101,14 +103,14 @@ class NutritionPrescriptionServiceTest extends TestCase
 
     public function test_severe_refeeding_prescription_marks_progression_phase(): void
     {
-        $svc = new NutritionPrescriptionService();
+        $svc = new NutritionPrescriptionService;
 
         $rx = $svc->autofill('malnutrition', 'severe', [
-            'weightKg'       => 48.0,
-            'heightCm'       => 174.0,
-            'ageYears'       => 35,
-            'sex'            => 'Male',
-            'isAdult'        => true,
+            'weightKg' => 48.0,
+            'heightCm' => 174.0,
+            'ageYears' => 35,
+            'sex' => 'Male',
+            'isAdult' => true,
             'activityFactor' => 1.55,
         ]);
 

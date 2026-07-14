@@ -22,7 +22,7 @@ class CleaningLogTest extends TestCase
     {
         parent::setUp();
         $this->fss = User::factory()->create([
-            'role'     => 'FSS',
+            'role' => 'FSS',
             'password' => Hash::make('password'),
         ]);
     }

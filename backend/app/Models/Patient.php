@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Patient extends Model
 {
-    use HasFactory, AuditsChanges, HasPublicId;
+    use AuditsChanges, HasFactory, HasPublicId;
 
     /** Clinical model — log which fields changed, never the PHI values (Spec 5 Decision A). */
     protected bool $auditRedactValues = true;

@@ -4,9 +4,9 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Route;
 use Tests\TestCase;
-use Illuminate\Support\Facades\Hash;
 
 class RoleMiddlewareTest extends TestCase
 {
@@ -31,35 +31,35 @@ class RoleMiddlewareTest extends TestCase
     {
         $user = User::forceCreate([
             'name' => 'Test', 'email' => 'test1@example.com', 'password' => Hash::make('pass'),
-            'role' => 'FSS'
+            'role' => 'FSS',
         ]);
-        
+
         $response = $this->actingAs($user)->getJson('/test-rnd');
         $response->assertStatus(403)
-                 ->assertJson(['message' => 'Forbidden. Insufficient role.']);
+            ->assertJson(['message' => 'Forbidden. Insufficient role.']);
     }
 
     public function test_deactivated_user_is_rejected()
     {
         $user = User::forceCreate([
             'name' => 'Test', 'email' => 'test2@example.com', 'password' => Hash::make('pass'),
-            'role' => 'RND', 'is_active' => false
+            'role' => 'RND', 'is_active' => false,
         ]);
-        
+
         $response = $this->actingAs($user)->getJson('/test-rnd');
         $response->assertStatus(403)
-                 ->assertJson(['message' => 'Account is deactivated.']);
+            ->assertJson(['message' => 'Account is deactivated.']);
     }
 
     public function test_authenticated_user_with_correct_role_is_accepted()
     {
         $user = User::forceCreate([
             'name' => 'Test', 'email' => 'test3@example.com', 'password' => Hash::make('pass'),
-            'role' => 'RND', 'is_active' => true
+            'role' => 'RND', 'is_active' => true,
         ]);
-        
+
         $response = $this->actingAs($user)->getJson('/test-rnd');
         $response->assertStatus(200)
-                 ->assertJson(['message' => 'Success']);
+            ->assertJson(['message' => 'Success']);
     }
 }

@@ -31,15 +31,15 @@ class RiskScoreCalculator
         }
 
         // 2. Less than 85% or greater than 130% ideal body weight = 1 point
-        if (!is_null($assessment->ibw_percentage) && ($assessment->ibw_percentage < 85.0 || $assessment->ibw_percentage > 130.0)) {
+        if (! is_null($assessment->ibw_percentage) && ($assessment->ibw_percentage < 85.0 || $assessment->ibw_percentage > 130.0)) {
             $score += 1.0;
             $checkedFactors[] = 'ibw_limit';
         }
 
         // 3. Unintentional weight loss = 2 points
         $hasWeightLoss = false;
-        if (!is_null($assessment->weight_loss_percentage) && $assessment->weight_loss_percentage > 0.0) {
-            $hasWeights = !is_null($assessment->usual_weight) && !is_null($assessment->weight);
+        if (! is_null($assessment->weight_loss_percentage) && $assessment->weight_loss_percentage > 0.0) {
+            $hasWeights = ! is_null($assessment->usual_weight) && ! is_null($assessment->weight);
             $hasWeightLoss = $hasWeights
                 ? (float) $assessment->usual_weight > (float) $assessment->weight
                 : true;
@@ -51,10 +51,10 @@ class RiskScoreCalculator
         }
 
         // 4. Mechanical / digestive problem = 1 point
-        $hasMechanicalProblem = !empty($assessment->chewing_swallowing_difficulties) ||
-                                !empty($assessment->constipation) ||
-                                !empty($assessment->diarrhea_notes) ||
-                                !empty($assessment->food_intolerance);
+        $hasMechanicalProblem = ! empty($assessment->chewing_swallowing_difficulties) ||
+                                ! empty($assessment->constipation) ||
+                                ! empty($assessment->diarrhea_notes) ||
+                                ! empty($assessment->food_intolerance);
         if ($hasMechanicalProblem) {
             $score += 1.0;
             $checkedFactors[] = 'mechanical_digestive_problem';
@@ -62,7 +62,7 @@ class RiskScoreCalculator
 
         // 5. Low albumin = 1 point
         $biochemical = $assessment->biochemicalData;
-        if ($biochemical && !is_null($biochemical->albumin) && $biochemical->albumin < 3.5) {
+        if ($biochemical && ! is_null($biochemical->albumin) && $biochemical->albumin < 3.5) {
             $score += 1.0;
             $checkedFactors[] = 'low_albumin';
         }
@@ -77,10 +77,10 @@ class RiskScoreCalculator
             $sex = $assessment->ncpRecord?->patient?->sex;
             $creatinineHigh = $this->labFlags->ranges($sex)['creatinine']['high'] ?? 1.2;
 
-            if ((!is_null($biochemical->glucose) && ($biochemical->glucose > 125.0 || $biochemical->glucose < 70.0)) ||
-                (!is_null($biochemical->potassium) && ($biochemical->potassium > 5.0 || $biochemical->potassium < 3.5)) ||
-                (!is_null($biochemical->creatinine) && $creatinineHigh !== null && $biochemical->creatinine > $creatinineHigh) ||
-                (!is_null($biochemical->bun) && $biochemical->bun > 20.0)) {
+            if ((! is_null($biochemical->glucose) && ($biochemical->glucose > 125.0 || $biochemical->glucose < 70.0)) ||
+                (! is_null($biochemical->potassium) && ($biochemical->potassium > 5.0 || $biochemical->potassium < 3.5)) ||
+                (! is_null($biochemical->creatinine) && $creatinineHigh !== null && $biochemical->creatinine > $creatinineHigh) ||
+                (! is_null($biochemical->bun) && $biochemical->bun > 20.0)) {
                 $hasSignificantLab = true;
             }
         }
@@ -90,7 +90,7 @@ class RiskScoreCalculator
         }
 
         // 7. Other/s = 1 point
-        $hasOthers = !empty($assessment->nutrient_drug_interaction) || !empty($assessment->lifestyle);
+        $hasOthers = ! empty($assessment->nutrient_drug_interaction) || ! empty($assessment->lifestyle);
         if ($hasOthers) {
             $score += 1.0;
             $checkedFactors[] = 'others';
@@ -110,7 +110,7 @@ class RiskScoreCalculator
     }
 
     /**
-     * @param array<int, string> $factors
+     * @param  array<int, string>  $factors
      */
     public static function scoreFactors(array $factors): float
     {

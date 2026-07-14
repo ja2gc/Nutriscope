@@ -28,6 +28,7 @@ class RecalculateRecipeTotals extends Command
         $recipes = $query->get();
         if ($recipes->isEmpty()) {
             $this->warn('No recipes found.');
+
             return self::SUCCESS;
         }
 
@@ -54,6 +55,7 @@ class RecalculateRecipeTotals extends Command
             foreach ($failures as $f) {
                 $this->line("  • {$f}");
             }
+
             return self::FAILURE;
         }
 

@@ -18,10 +18,10 @@ class NcpMonitoringTest extends TestCase
     private function rnd(): User
     {
         return User::forceCreate([
-            'name'      => 'RND',
-            'email'     => 'rnd' . uniqid() . '@example.com',
-            'password'  => Hash::make('password'),
-            'role'      => 'RND',
+            'name' => 'RND',
+            'email' => 'rnd'.uniqid().'@example.com',
+            'password' => Hash::make('password'),
+            'role' => 'RND',
             'is_active' => true,
         ]);
     }
@@ -29,9 +29,9 @@ class NcpMonitoringTest extends TestCase
     private function patient(): Patient
     {
         return Patient::forceCreate([
-            'name'           => 'Test Patient',
-            'dob'            => '1990-01-01',
-            'sex'            => 'Male',
+            'name' => 'Test Patient',
+            'dob' => '1990-01-01',
+            'sex' => 'Male',
             'admission_date' => now()->toDateString(),
         ]);
     }
@@ -39,10 +39,10 @@ class NcpMonitoringTest extends TestCase
     private function ncpRecord(Patient $patient, User $rnd): NcpRecord
     {
         $ncp = NcpRecord::forceCreate([
-            'patient_id'  => $patient->id,
+            'patient_id' => $patient->id,
             'rnd_user_id' => $rnd->id,
-            'type'        => 'new',
-            'status'      => 'active',
+            'type' => 'new',
+            'status' => 'active',
         ]);
 
         // Monitoring is follow-up only — give the record a care plan (intervention)
@@ -58,15 +58,15 @@ class NcpMonitoringTest extends TestCase
 
     public function test_rnd_can_log_monitoring_entry(): void
     {
-        $rnd     = $this->rnd();
+        $rnd = $this->rnd();
         $patient = $this->patient();
-        $ncp     = $this->ncpRecord($patient, $rnd);
+        $ncp = $this->ncpRecord($patient, $rnd);
 
         $response = $this->actingAs($rnd, 'sanctum')
             ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/monitorings", [
-                'weight'       => 72.0,
+                'weight' => 72.0,
                 'intake_notes' => 'good adherence',
-                'symptoms'     => 'Patient improving',
+                'symptoms' => 'Patient improving',
             ]);
 
         $response->assertStatus(201)
@@ -75,20 +75,20 @@ class NcpMonitoringTest extends TestCase
 
         $this->assertDatabaseHas('monitorings', [
             'ncp_record_id' => $ncp->id,
-            'weight'        => 72.0,
+            'weight' => 72.0,
         ]);
     }
 
     public function test_monitoring_blocked_on_first_encounter_without_care_plan(): void
     {
-        $rnd     = $this->rnd();
+        $rnd = $this->rnd();
         $patient = $this->patient();
         // Bare record with NO intervention (first encounter, plan not done yet).
-        $ncp     = NcpRecord::forceCreate([
-            'patient_id'  => $patient->id,
+        $ncp = NcpRecord::forceCreate([
+            'patient_id' => $patient->id,
             'rnd_user_id' => $rnd->id,
-            'type'        => 'new',
-            'status'      => 'draft',
+            'type' => 'new',
+            'status' => 'draft',
         ]);
 
         $this->actingAs($rnd, 'sanctum')
@@ -100,18 +100,18 @@ class NcpMonitoringTest extends TestCase
 
     public function test_rnd_can_list_monitoring_entries(): void
     {
-        $rnd     = $this->rnd();
+        $rnd = $this->rnd();
         $patient = $this->patient();
-        $ncp     = $this->ncpRecord($patient, $rnd);
+        $ncp = $this->ncpRecord($patient, $rnd);
 
         Monitoring::forceCreate([
             'ncp_record_id' => $ncp->id,
-            'intake_notes'  => 'fair',
+            'intake_notes' => 'fair',
         ]);
 
         Monitoring::forceCreate([
             'ncp_record_id' => $ncp->id,
-            'intake_notes'  => 'poor',
+            'intake_notes' => 'poor',
         ]);
 
         $response = $this->actingAs($rnd, 'sanctum')
@@ -123,9 +123,9 @@ class NcpMonitoringTest extends TestCase
 
     public function test_monitoring_weight_validation(): void
     {
-        $rnd     = $this->rnd();
+        $rnd = $this->rnd();
         $patient = $this->patient();
-        $ncp     = $this->ncpRecord($patient, $rnd);
+        $ncp = $this->ncpRecord($patient, $rnd);
 
         $response = $this->actingAs($rnd, 'sanctum')
             ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/monitorings", [
@@ -138,19 +138,19 @@ class NcpMonitoringTest extends TestCase
 
     public function test_rnd_can_update_monitoring_entry(): void
     {
-        $rnd     = $this->rnd();
+        $rnd = $this->rnd();
         $patient = $this->patient();
-        $ncp     = $this->ncpRecord($patient, $rnd);
+        $ncp = $this->ncpRecord($patient, $rnd);
 
         $monitoring = Monitoring::forceCreate([
             'ncp_record_id' => $ncp->id,
-            'intake_notes'  => 'fair',
+            'intake_notes' => 'fair',
         ]);
 
         $response = $this->actingAs($rnd, 'sanctum')
             ->patchJson("/api/rnd/ncp-records/{$ncp->uuid}/monitorings/{$monitoring->uuid}", [
                 'intake_notes' => 'good',
-                'symptoms'     => 'Progress noted',
+                'symptoms' => 'Progress noted',
             ]);
 
         $response->assertOk()
@@ -159,9 +159,9 @@ class NcpMonitoringTest extends TestCase
 
     public function test_rnd_can_delete_monitoring_entry(): void
     {
-        $rnd     = $this->rnd();
+        $rnd = $this->rnd();
         $patient = $this->patient();
-        $ncp     = $this->ncpRecord($patient, $rnd);
+        $ncp = $this->ncpRecord($patient, $rnd);
 
         $monitoring = Monitoring::forceCreate([
             'ncp_record_id' => $ncp->id,
@@ -176,10 +176,10 @@ class NcpMonitoringTest extends TestCase
 
     public function test_monitoring_entries_are_scoped_to_ncp_record(): void
     {
-        $rnd     = $this->rnd();
+        $rnd = $this->rnd();
         $patient = $this->patient();
-        $ncp1    = $this->ncpRecord($patient, $rnd);
-        $ncp2    = $this->ncpRecord($patient, $rnd);
+        $ncp1 = $this->ncpRecord($patient, $rnd);
+        $ncp2 = $this->ncpRecord($patient, $rnd);
 
         Monitoring::forceCreate([
             'ncp_record_id' => $ncp2->id,

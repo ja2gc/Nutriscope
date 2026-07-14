@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -12,8 +13,8 @@ return new class extends Migration
         $fksToDrop = ['budgets_menu_cycle_id_foreign', 'budgets_rnd_user_id_foreign'];
         foreach ($fksToDrop as $fk) {
             try {
-                \Illuminate\Support\Facades\DB::statement("ALTER TABLE `budgets` DROP FOREIGN KEY `{$fk}`");
-            } catch (\Throwable) {
+                DB::statement("ALTER TABLE `budgets` DROP FOREIGN KEY `{$fk}`");
+            } catch (Throwable) {
                 // FK may not exist
             }
         }

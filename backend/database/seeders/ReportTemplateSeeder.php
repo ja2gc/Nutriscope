@@ -20,11 +20,11 @@ class ReportTemplateSeeder extends Seeder
         // Names are intentionally BLANK — they are filled per-hospital in the
         // Template Edit tab (and "prepared by"/buyer auto-fills the logged-in user).
         // Only the position/title is seeded so the signature block keeps its shape.
-        $rnd      = ['', 'Nutritionist-Dietitian II'];
-        $chief    = ['', 'Chief of Hospital II'];
+        $rnd = ['', 'Nutritionist-Dietitian II'];
+        $chief = ['', 'Chief of Hospital II'];
         $oicChief = ['', 'OIC-Chief of Hospital II'];
-        $admin    = ['', 'Administrative Officer V'];
-        $pgso     = ['', 'OIC-PGSO'];
+        $admin = ['', 'Administrative Officer V'];
+        $pgso = ['', 'OIC-PGSO'];
 
         $templates = [
             [
@@ -113,11 +113,11 @@ class ReportTemplateSeeder extends Seeder
             ReportTemplate::updateOrCreate(
                 ['type' => $t['type']],
                 [
-                    'name'        => $t['name'],
-                    'blade_view'  => $t['blade_view'],
+                    'name' => $t['name'],
+                    'blade_view' => $t['blade_view'],
                     'description' => $t['description'],
                     'signatories' => $t['signatories'],
-                    'is_active'   => true,
+                    'is_active' => true,
                 ],
             );
         }

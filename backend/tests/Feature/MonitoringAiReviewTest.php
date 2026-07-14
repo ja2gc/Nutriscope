@@ -23,7 +23,7 @@ class MonitoringAiReviewTest extends TestCase
         Http::fake([
             'api.anthropic.com/*' => Http::response([
                 'content' => [['type' => 'text', 'text' => 'Albumin improving toward target; continue high-protein renal plan and recheck in 2 weeks.']],
-                'usage'   => ['input_tokens' => 50, 'output_tokens' => 20],
+                'usage' => ['input_tokens' => 50, 'output_tokens' => 20],
             ], 200),
         ]);
 
@@ -43,6 +43,7 @@ class MonitoringAiReviewTest extends TestCase
 
         Http::assertSent(function (Request $request) {
             $body = json_encode($request->data());
+
             return str_contains($body, 'Albumin')        // tracked (flagged + renal goal)
                 && str_contains($body, 'pes_statements')  // PES context included
                 && ! str_contains($body, 'Sodium');       // untracked lab excluded

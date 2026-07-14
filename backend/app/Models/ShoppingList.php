@@ -2,14 +2,16 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\AuditsChanges;
+use App\Models\Concerns\HasPublicId;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class ShoppingList extends Model
 {
+    use AuditsChanges;
     use HasFactory;
-    use \App\Models\Concerns\AuditsChanges;
-    use \App\Models\Concerns\HasPublicId;
+    use HasPublicId;
 
     protected $fillable = [
         'rnd_user_id', 'name', 'list_date', 'period_start', 'period_end',
@@ -24,10 +26,10 @@ class ShoppingList extends Model
     }
 
     protected $casts = [
-        'list_date'    => 'date',
+        'list_date' => 'date',
         'period_start' => 'date',
-        'period_end'   => 'date',
-        'days_span'    => 'integer',
+        'period_end' => 'date',
+        'days_span' => 'integer',
         'total_served_population' => 'integer',
         'estimate_population' => 'integer',
         'estimate_population_updated_at' => 'datetime',

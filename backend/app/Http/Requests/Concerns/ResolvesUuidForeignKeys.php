@@ -37,6 +37,7 @@ trait ResolvesUuidForeignKeys
                 }
             }
         }
+
         return $data;
     }
 }

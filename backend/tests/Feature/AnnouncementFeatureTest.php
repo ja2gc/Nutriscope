@@ -102,8 +102,8 @@ class AnnouncementFeatureTest extends TestCase
     public function test_fss_lists_fss_and_all_announcements_only(): void
     {
         $admin = $this->user('Admin', 'admin-fss-feed@example.com');
-        $rnd   = $this->user('RND', 'rnd-fss-feed@example.com');
-        $fss   = $this->user('FSS', 'fss-feed@example.com');
+        $rnd = $this->user('RND', 'rnd-fss-feed@example.com');
+        $fss = $this->user('FSS', 'fss-feed@example.com');
 
         Announcement::forceCreate([
             'user_id' => $admin->id, 'title' => 'All hands',

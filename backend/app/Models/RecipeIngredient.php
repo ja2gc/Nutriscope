@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class RecipeIngredient extends Model
 {
     use HasFactory;
+
     public $timestamps = false;
 
     protected $fillable = ['recipe_id', 'food_item_id', 'quantity', 'unit'];
@@ -25,4 +26,3 @@ class RecipeIngredient extends Model
         return $this->belongsTo(FoodItem::class);
     }
 }
-

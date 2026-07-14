@@ -2,8 +2,8 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
 use App\Models\ClinicalRule;
+use Illuminate\Database\Seeder;
 
 class ClinicalRulesSeeder extends Seeder
 {

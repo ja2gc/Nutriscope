@@ -13,8 +13,7 @@ class FssDashboardService
 {
     public function __construct(
         private readonly PurchaseOrderLifecycleService $lifecycle,
-    ) {
-    }
+    ) {}
 
     /**
      * Return all FSS dashboard KPIs as a plain array. Every figure is a live
@@ -22,7 +21,7 @@ class FssDashboardService
      */
     public function summary(): array
     {
-        $today   = now()->toDateString();
+        $today = now()->toDateString();
         $weekday = Carbon::today()->format('l'); // e.g. "Friday"
 
         $cycle = MenuCycle::where('is_active', true)
@@ -32,11 +31,11 @@ class FssDashboardService
         $pendingPos = $this->pendingPos();
 
         return [
-            'meals_to_log_today'    => $this->mealsToLogToday($cycle, $weekday, $today),
-            'pending_pos'           => $pendingPos,
-            'pending_pos_count'     => count($pendingPos),
-            'today_service'         => $this->todayService($cycle, $weekday, $today),
-            'active_cycle'          => $this->activeCycleInfo($cycle),
+            'meals_to_log_today' => $this->mealsToLogToday($cycle, $weekday, $today),
+            'pending_pos' => $pendingPos,
+            'pending_pos_count' => count($pendingPos),
+            'today_service' => $this->todayService($cycle, $weekday, $today),
+            'active_cycle' => $this->activeCycleInfo($cycle),
         ];
     }
 
@@ -54,9 +53,9 @@ class FssDashboardService
             ->count('day_of_week');
 
         return [
-            'id'               => $cycle->id,
-            'name'             => $cycle->name,
-            'activation_date'  => $cycle->activation_date
+            'id' => $cycle->id,
+            'name' => $cycle->name,
+            'activation_date' => $cycle->activation_date
                 ? Carbon::parse($cycle->activation_date)->toDateString()
                 : null,
             'service_day_count' => $serviceDayCount,
@@ -95,10 +94,10 @@ class FssDashboardService
             }
 
             return [
-                'id'                => $po->id,
-                'po_number'         => $po->po_number,
+                'id' => $po->id,
+                'po_number' => $po->po_number,
                 'procurement_track' => $po->procurement_track,
-                'waiting_on'        => $waiting,
+                'waiting_on' => $waiting,
             ];
         })->filter(fn ($p) => $p['waiting_on'] !== [])->values()->all();
     }
@@ -168,18 +167,18 @@ class FssDashboardService
         $ready = $log !== null;
 
         return $slots->map(fn ($slot) => [
-            'id'          => $slot->id,
-            'meal_type'   => $slot->meal_type,
-            'name'        => $slot->po_snapshot['name'] ?? $slot->recipe?->name ?? $slot->fsItem?->name ?? 'Unknown',
+            'id' => $slot->id,
+            'meal_type' => $slot->meal_type,
+            'name' => $slot->po_snapshot['name'] ?? $slot->recipe?->name ?? $slot->fsItem?->name ?? 'Unknown',
             // Public uuids — the mobile Meal Prep tab feeds these straight into the
             // uuid-bound recipe/fs-item profile routes, so the raw internal FKs 404.
-            'recipe_id'   => $slot->recipe?->uuid,
-            'fs_item_id'  => $slot->fsItem?->uuid,
-            'quantity'    => $slot->quantity,
+            'recipe_id' => $slot->recipe?->uuid,
+            'fs_item_id' => $slot->fsItem?->uuid,
+            'quantity' => $slot->quantity,
             'estimate_population' => $slot->estimate_population,
             'servings_override' => $slot->servings_override,
             'po_snapshot' => $slot->po_snapshot,
-            'prepped'     => $ready,
+            'prepped' => $ready,
             'has_shortfall' => $ready && (bool) $log->has_shortfall,
         ])->values()->all();
     }

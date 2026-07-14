@@ -35,8 +35,6 @@ enum AuditAction: string
     case AuditLogViewed = 'audit_log_viewed';
     case AccountBlocked = 'account_blocked';
     case AccountUnblocked = 'account_unblocked';
-    case IpBlocked = 'ip_blocked';
-    case IpUnblocked = 'ip_unblocked';
 
     public function label(): string
     {
@@ -56,8 +54,6 @@ enum AuditAction: string
             self::AuditLogViewed => 'Audit log viewed',
             self::AccountBlocked => 'Account blocked',
             self::AccountUnblocked => 'Account unblocked',
-            self::IpBlocked => 'IP blocked',
-            self::IpUnblocked => 'IP unblocked',
             default => ucfirst($this->value),
         };
     }

@@ -2,7 +2,9 @@
 
 namespace Database\Factories;
 
+use App\Models\Intervention;
 use App\Models\MealPlan;
+use App\Models\Patient;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -18,11 +20,11 @@ class MealPlanFactory extends Factory
     public function definition(): array
     {
         return [
-            'intervention_id' => \App\Models\Intervention::factory(),
-            'patient_id'      => \App\Models\Patient::factory(),
+            'intervention_id' => Intervention::factory(),
+            'patient_id' => Patient::factory(),
             'week_start_date' => $this->faker->dateTimeBetween('now', '+1 week')->format('Y-m-d'),
             'generation_type' => $this->faker->randomElement(['manual', 'auto']),
-            'status'          => $this->faker->randomElement(['draft', 'active']),
+            'status' => $this->faker->randomElement(['draft', 'active']),
         ];
     }
 }

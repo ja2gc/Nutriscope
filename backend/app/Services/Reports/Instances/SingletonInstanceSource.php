@@ -20,10 +20,10 @@ class SingletonInstanceSource implements InstanceSource
     public function instances(array $filters): array
     {
         return [[
-            'key'    => 'current',
-            'label'  => $this->label,
+            'key' => 'current',
+            'label' => $this->label,
             'params' => [],
-            'date'   => null,
+            'date' => null,
         ]];
     }
 

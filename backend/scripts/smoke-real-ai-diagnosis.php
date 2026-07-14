@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\AiUsageLog;
 use App\Models\Assessment;
 use App\Models\Diagnosis;
 use App\Models\NcpRecord;
@@ -118,11 +119,11 @@ $diagnosis = Diagnosis::create([
 
 Cache::forget('admin_dashboard');
 
-$usage = \App\Models\AiUsageLog::query()
+$usage = AiUsageLog::query()
     ->latest()
     ->first(['id', 'user_id', 'model', 'endpoint', 'tokens_input', 'tokens_output', 'tokens_total', 'created_at']);
 
-$dashboardDaily = \App\Models\AiUsageLog::query()
+$dashboardDaily = AiUsageLog::query()
     ->where('created_at', '>=', now()->subDays(29)->startOfDay())
     ->selectRaw('DATE(created_at) as date, COUNT(*) as calls, COALESCE(SUM(tokens_total), 0) as tokens')
     ->groupByRaw('DATE(created_at)')

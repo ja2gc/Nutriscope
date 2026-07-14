@@ -9,6 +9,7 @@ use App\Models\BudgetLedger;
 use App\Models\PurchaseOrder;
 use App\Models\ShoppingList;
 use App\Models\User;
+use App\Services\FSS\PurchaseOrderLifecycleService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Event;
 use Tests\TestCase;
@@ -18,6 +19,7 @@ class BudgetLedgerTest extends TestCase
     use RefreshDatabase;
 
     private User $rnd;
+
     private User $fss;
 
     protected function setUp(): void
@@ -34,7 +36,7 @@ class BudgetLedgerTest extends TestCase
         $sl = ShoppingList::factory()->create(['period_start' => '2026-06-01']);
         $po = PurchaseOrder::factory()->create([
             'shopping_list_id' => $sl->id,
-            'total_amount'     => 45000,
+            'total_amount' => 45000,
         ]);
         Budget::factory()->create(['fiscal_year' => 2026, 'allocated_amount' => 200000]);
 
@@ -42,10 +44,10 @@ class BudgetLedgerTest extends TestCase
         $listener->handle(new PurchaseOrderCompleted($po));
 
         $this->assertDatabaseHas('budget_ledger', [
-            'fiscal_year'         => 2026,
-            'type'                => 'po_deduction',
-            'purchase_order_id'   => $po->id,
-            'amount'              => 45000,
+            'fiscal_year' => 2026,
+            'type' => 'po_deduction',
+            'purchase_order_id' => $po->id,
+            'amount' => 45000,
         ]);
     }
 
@@ -81,8 +83,8 @@ class BudgetLedgerTest extends TestCase
         $budget = Budget::factory()->create(['fiscal_year' => 2026, 'allocated_amount' => 100000]);
 
         BudgetLedger::create(['fiscal_year' => 2026, 'type' => 'po_deduction',    'amount' => 30000]);
-        BudgetLedger::create(['fiscal_year' => 2026, 'type' => 'manual_addition', 'amount' =>  5000]);
-        BudgetLedger::create(['fiscal_year' => 2026, 'type' => 'manual_deduction','amount' =>  2000]);
+        BudgetLedger::create(['fiscal_year' => 2026, 'type' => 'manual_addition', 'amount' => 5000]);
+        BudgetLedger::create(['fiscal_year' => 2026, 'type' => 'manual_deduction', 'amount' => 2000]);
 
         // remaining = 100000 + 5000 - 30000 - 2000 = 73000
         $this->assertEqualsWithDelta(73000, $budget->remainingBalance(), 0.01);
@@ -97,18 +99,18 @@ class BudgetLedgerTest extends TestCase
         $this->actingAs($this->rnd)
             ->postJson('/api/fss/budgets/adjust', [
                 'fiscal_year' => 2026,
-                'type'        => 'manual_addition',
-                'amount'      => 10000,
-                'reason'      => 'Supplemental from treasury',
-                'reference'   => 'BUR-2026-03',
+                'type' => 'manual_addition',
+                'amount' => 10000,
+                'reason' => 'Supplemental from treasury',
+                'reference' => 'BUR-2026-03',
             ])
             ->assertCreated();
 
         $this->assertDatabaseHas('budget_ledger', [
             'fiscal_year' => 2026,
-            'type'        => 'manual_addition',
-            'reason'      => 'Supplemental from treasury',
-            'reference'   => 'BUR-2026-03',
+            'type' => 'manual_addition',
+            'reason' => 'Supplemental from treasury',
+            'reference' => 'BUR-2026-03',
         ]);
         $entry = BudgetLedger::where('fiscal_year', 2026)->where('type', 'manual_addition')->first();
         $this->assertNotNull($entry);
@@ -122,8 +124,8 @@ class BudgetLedgerTest extends TestCase
         $this->actingAs($this->rnd)
             ->postJson('/api/fss/budgets/adjust', [
                 'fiscal_year' => 2026,
-                'type'        => 'manual_addition',
-                'amount'      => 5000,
+                'type' => 'manual_addition',
+                'amount' => 5000,
             ])
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['reason']);
@@ -135,9 +137,9 @@ class BudgetLedgerTest extends TestCase
         $this->actingAs($this->rnd)
             ->postJson('/api/fss/budgets/adjust', [
                 'fiscal_year' => 2099,
-                'type'        => 'manual_addition',
-                'amount'      => 5000,
-                'reason'      => 'test',
+                'type' => 'manual_addition',
+                'amount' => 5000,
+                'reason' => 'test',
             ])
             ->assertUnprocessable();
     }
@@ -149,9 +151,9 @@ class BudgetLedgerTest extends TestCase
         $this->actingAs($this->fss)
             ->postJson('/api/fss/budgets/adjust', [
                 'fiscal_year' => 2026,
-                'type'        => 'manual_addition',
-                'amount'      => 5000,
-                'reason'      => 'test',
+                'type' => 'manual_addition',
+                'amount' => 5000,
+                'reason' => 'test',
             ])
             ->assertForbidden();
     }
@@ -214,7 +216,7 @@ class BudgetLedgerTest extends TestCase
         ]);
 
         // Trigger refresh — no FY 2099 budget, so PO must NOT complete.
-        app(\App\Services\FSS\PurchaseOrderLifecycleService::class)->refresh($po);
+        app(PurchaseOrderLifecycleService::class)->refresh($po);
 
         $this->assertSame('open_execution', $po->fresh()->lifecycle_status);
         Event::assertNotDispatched(PurchaseOrderCompleted::class);
@@ -228,8 +230,8 @@ class BudgetLedgerTest extends TestCase
         $ded = BudgetLedger::make(['type' => 'po_deduction',     'amount' => 500]);
         $man = BudgetLedger::make(['type' => 'manual_deduction', 'amount' => 200]);
 
-        $this->assertEqualsWithDelta(1000,  $add->signedAmount(), 0.01);
-        $this->assertEqualsWithDelta(-500,  $ded->signedAmount(), 0.01);
-        $this->assertEqualsWithDelta(-200,  $man->signedAmount(), 0.01);
+        $this->assertEqualsWithDelta(1000, $add->signedAmount(), 0.01);
+        $this->assertEqualsWithDelta(-500, $ded->signedAmount(), 0.01);
+        $this->assertEqualsWithDelta(-200, $man->signedAmount(), 0.01);
     }
 }

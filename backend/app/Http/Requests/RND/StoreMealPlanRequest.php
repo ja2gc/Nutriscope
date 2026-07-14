@@ -16,7 +16,7 @@ class StoreMealPlanRequest extends FormRequest
         return [
             'week_start_date' => ['required', 'date'],
             'generation_type' => ['nullable', 'string', 'in:manual,auto'],
-            'status'          => ['nullable', 'string', 'in:draft,active,completed'],
+            'status' => ['nullable', 'string', 'in:draft,active,completed'],
         ];
     }
 }

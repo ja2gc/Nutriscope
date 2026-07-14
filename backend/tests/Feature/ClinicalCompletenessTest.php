@@ -29,6 +29,7 @@ class ClinicalCompletenessTest extends TestCase
     {
         $rnd = User::forceCreate(['name' => 'R', 'email' => 'r'.uniqid().'@x.com', 'password' => 'x', 'role' => 'RND', 'is_active' => true]);
         $patient = Patient::forceCreate(['name' => 'P', 'dob' => '1990-01-01', 'sex' => 'Male', 'admission_date' => now()->toDateString()]);
+
         return NcpRecord::forceCreate(['patient_id' => $patient->id, 'rnd_user_id' => $rnd->id, 'type' => 'new', 'status' => 'draft']);
     }
 

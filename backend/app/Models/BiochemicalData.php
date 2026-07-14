@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class BiochemicalData extends Model
 {
     use HasFactory;
+
     protected $table = 'biochemical_data';
 
     protected $fillable = [
@@ -19,24 +20,24 @@ class BiochemicalData extends Model
     ];
 
     protected $casts = [
-        'others'      => 'array',
-        'albumin'     => 'decimal:2',
-        'hematocrit'  => 'decimal:2',
-        'bun'         => 'decimal:2',
-        'hemoglobin'  => 'decimal:2',
-        'calcium'     => 'decimal:2',
-        'ldl'         => 'decimal:2',
+        'others' => 'array',
+        'albumin' => 'decimal:2',
+        'hematocrit' => 'decimal:2',
+        'bun' => 'decimal:2',
+        'hemoglobin' => 'decimal:2',
+        'calcium' => 'decimal:2',
+        'ldl' => 'decimal:2',
         'cholesterol' => 'decimal:2',
-        'phosphate'   => 'decimal:2',
-        'magnesium'   => 'decimal:2',
-        'creatinine'  => 'decimal:2',
-        'potassium'   => 'decimal:2',
-        'glucose'     => 'decimal:2',
-        'sodium'      => 'decimal:2',
-        'hba1c'       => 'decimal:2',
-        'triglycerides'=> 'decimal:2',
-        'hdl'         => 'decimal:2',
-        'urr'         => 'decimal:2',
+        'phosphate' => 'decimal:2',
+        'magnesium' => 'decimal:2',
+        'creatinine' => 'decimal:2',
+        'potassium' => 'decimal:2',
+        'glucose' => 'decimal:2',
+        'sodium' => 'decimal:2',
+        'hba1c' => 'decimal:2',
+        'triglycerides' => 'decimal:2',
+        'hdl' => 'decimal:2',
+        'urr' => 'decimal:2',
     ];
 
     public function assessment(): BelongsTo

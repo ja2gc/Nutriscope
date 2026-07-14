@@ -25,12 +25,13 @@ class PatientMenuPlanGeneratorTest extends TestCase
         $patient = Patient::factory()->create(['name' => 'Jane Cruz']);
         $ncp = NcpRecord::factory()->create(['patient_id' => $patient->id, 'rnd_user_id' => $rnd->id]);
         $intervention = Intervention::factory()->create(['ncp_record_id' => $ncp->id]);
+
         return MealPlan::create([
             'intervention_id' => $intervention->id,
-            'patient_id'      => $patient->id,
+            'patient_id' => $patient->id,
             'week_start_date' => '2026-06-15',
             'generation_type' => 'manual',
-            'status'          => 'draft',
+            'status' => 'draft',
         ]);
     }
 
@@ -42,14 +43,14 @@ class PatientMenuPlanGeneratorTest extends TestCase
         ]);
         // USDA item: no food_item_id / recipe_id, name only in the snapshot.
         MealPlanItem::create([
-            'meal_plan_day_id'  => $day->id,
-            'fdc_id'            => '331960',
-            'quantity'          => 1,
-            'unit'              => 'serving',
+            'meal_plan_day_id' => $day->id,
+            'fdc_id' => '331960',
+            'quantity' => 1,
+            'unit' => 'serving',
             'nutrient_snapshot' => ['name' => 'USDA Chicken breast', 'calories' => 165],
         ]);
 
-        $report = new Report();
+        $report = new Report;
         $report->type = 'patient_menu_plan';
         $report->parameters = ['meal_plan_id' => $plan->id];
 

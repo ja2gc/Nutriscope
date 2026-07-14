@@ -23,8 +23,9 @@ class AssessmentPhase5Test extends BaseTestCase
 
     private function assessment(string $pal): Assessment
     {
-        $a = new Assessment();
+        $a = new Assessment;
         $a->physical_activity_level = $pal;
+
         return $a;
     }
 
@@ -86,21 +87,21 @@ class AssessmentPhase5Test extends BaseTestCase
     private function baseMetrics(): array
     {
         return [
-            'weightKg'       => 65.0,
-            'heightCm'       => 160.0,
-            'ageYears'       => 28,
-            'sex'            => 'Female',
-            'isAdult'        => true,
+            'weightKg' => 65.0,
+            'heightCm' => 160.0,
+            'ageYears' => 28,
+            'sex' => 'Female',
+            'isAdult' => true,
             'activityFactor' => 1.2,
         ];
     }
 
     public function test_no_pregnancy_status_leaves_output_unchanged(): void
     {
-        $svc     = new NutritionPrescriptionService();
+        $svc = new NutritionPrescriptionService;
         $metrics = $this->baseMetrics(); // no pregnancyLactationStatus key
 
-        $base    = $svc->autofill('default', null, $metrics);
+        $base = $svc->autofill('default', null, $metrics);
 
         $metrics['pregnancyLactationStatus'] = null;
         $withNull = $svc->autofill('default', null, $metrics);
@@ -116,8 +117,8 @@ class AssessmentPhase5Test extends BaseTestCase
 
     public function test_pregnant_adds_300_kcal_and_27g_protein(): void
     {
-        $svc     = new NutritionPrescriptionService();
-        $base    = $svc->autofill('default', null, $this->baseMetrics());
+        $svc = new NutritionPrescriptionService;
+        $base = $svc->autofill('default', null, $this->baseMetrics());
 
         $pregnant = $svc->autofill('default', null, array_merge(
             $this->baseMetrics(),
@@ -132,8 +133,8 @@ class AssessmentPhase5Test extends BaseTestCase
 
     public function test_lactating_adds_500_kcal_and_27g_protein(): void
     {
-        $svc      = new NutritionPrescriptionService();
-        $base     = $svc->autofill('default', null, $this->baseMetrics());
+        $svc = new NutritionPrescriptionService;
+        $base = $svc->autofill('default', null, $this->baseMetrics());
 
         $lactating = $svc->autofill('default', null, array_merge(
             $this->baseMetrics(),
@@ -148,7 +149,7 @@ class AssessmentPhase5Test extends BaseTestCase
 
     public function test_pregnancy_note_appended_to_result(): void
     {
-        $svc = new NutritionPrescriptionService();
+        $svc = new NutritionPrescriptionService;
         $result = $svc->autofill('default', null, array_merge(
             $this->baseMetrics(),
             ['pregnancyLactationStatus' => 'pregnant']
@@ -162,7 +163,7 @@ class AssessmentPhase5Test extends BaseTestCase
 
     public function test_lactating_note_appended_to_result(): void
     {
-        $svc = new NutritionPrescriptionService();
+        $svc = new NutritionPrescriptionService;
         $result = $svc->autofill('default', null, array_merge(
             $this->baseMetrics(),
             ['pregnancyLactationStatus' => 'lactating']
@@ -176,7 +177,7 @@ class AssessmentPhase5Test extends BaseTestCase
     public function test_pregnancy_adjustment_works_with_goal_that_has_note(): void
     {
         // liver_disease already has a note — ensure both notes are preserved
-        $svc = new NutritionPrescriptionService();
+        $svc = new NutritionPrescriptionService;
         $result = $svc->autofill('liver_disease', null, array_merge(
             $this->baseMetrics(),
             ['pregnancyLactationStatus' => 'pregnant']
@@ -188,7 +189,7 @@ class AssessmentPhase5Test extends BaseTestCase
 
     public function test_pregnancy_macros_remain_self_consistent(): void
     {
-        $svc = new NutritionPrescriptionService();
+        $svc = new NutritionPrescriptionService;
         $result = $svc->autofill('default', null, array_merge(
             $this->baseMetrics(),
             ['pregnancyLactationStatus' => 'pregnant']
@@ -205,18 +206,18 @@ class AssessmentPhase5Test extends BaseTestCase
     {
         // Spot-check: the frozen golden A.renal_diet/stage_1 case must still pass
         // (Patient A: 80 kg Male, 170 cm, sedentary — from prescription-targets.json)
-        $svc = new NutritionPrescriptionService();
+        $svc = new NutritionPrescriptionService;
         $metrics = [
-            'weightKg'       => 80.0,
-            'heightCm'       => 170.0,
-            'ageYears'       => 45,
-            'sex'            => 'Male',
-            'isAdult'        => true,
+            'weightKg' => 80.0,
+            'heightCm' => 170.0,
+            'ageYears' => 45,
+            'sex' => 'Male',
+            'isAdult' => true,
             'activityFactor' => NutritionPrescriptionService::ACTIVITY_FACTORS['sedentary'],
         ];
         // No pregnancyLactationStatus key → gate must not fire
         $result = $svc->autofill('renal_diet', 'stage_1', $metrics);
         $this->assertSame(2400, $result['energy_kcal']);
-        $this->assertSame(53,   $result['protein_g']);
+        $this->assertSame(53, $result['protein_g']);
     }
 }

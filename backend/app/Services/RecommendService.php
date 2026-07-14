@@ -9,9 +9,9 @@ class RecommendService
     /**
      * Get food recommendations, avoidances, and limits based on clinical conditions.
      *
-     * @param array $conditions e.g. ['CKD', 'DM']
-     * @param array|null $stages optional stage filters
-     * @param array<string,array{value:float,status:string}> $labFlags
+     * @param  array  $conditions  e.g. ['CKD', 'DM']
+     * @param  array|null  $stages  optional stage filters
+     * @param  array<string,array{value:float,status:string}>  $labFlags
      * @return array{recommend: array, avoid: array, limits: array}
      */
     public function getRecommendations(array $conditions, ?array $stages = null, array $labFlags = []): array
@@ -24,9 +24,9 @@ class RecommendService
 
         foreach ($rules as $rule) {
             $entry = [
-                'tag'       => $rule->nutrient_or_food_tag,
+                'tag' => $rule->nutrient_or_food_tag,
                 'condition' => $rule->condition,
-                'reason'    => $rule->reason,
+                'reason' => $rule->reason,
             ];
 
             if ($rule->rule_type === 'recommend') {
@@ -36,7 +36,7 @@ class RecommendService
             } elseif ($rule->rule_type === 'limit') {
                 $limits[] = array_merge($entry, [
                     'threshold' => $rule->threshold,
-                    'unit'      => $rule->unit,
+                    'unit' => $rule->unit,
                 ]);
             }
         }

@@ -27,6 +27,7 @@ class ShoppingListPopulationService
             if (! $cycle) {
                 $uncovered[] = $date;
                 $missingByDate[$date] = 'no menu cycle covers this date';
+
                 continue;
             }
 
@@ -42,6 +43,7 @@ class ShoppingListPopulationService
             if ($plannedDays->isEmpty()) {
                 $uncovered[] = $date;
                 $missingByDate[$date] = 'no menu items planned for this day';
+
                 continue;
             }
 
@@ -186,6 +188,7 @@ class ShoppingListPopulationService
                     'scaled_quantity' => round($net, 2),
                     'scaled_unit' => $fs->base_unit ?? $row['unit'],
                 ];
+
                 continue;
             }
 

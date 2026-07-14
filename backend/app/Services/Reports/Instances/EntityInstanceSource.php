@@ -17,10 +17,10 @@ use Illuminate\Database\Eloquent\Model;
 class EntityInstanceSource implements InstanceSource
 {
     /**
-     * @param Closure():Builder $query  A fresh base query over renderable records.
-     * @param string            $paramKey  Param the generator reads (e.g. 'budget_id').
-     * @param Closure(Model):string $label  Human label for an instance.
-     * @param ?string           $dateColumn  Optional date for sort + year/month facets.
+     * @param  Closure():Builder  $query  A fresh base query over renderable records.
+     * @param  string  $paramKey  Param the generator reads (e.g. 'budget_id').
+     * @param  Closure(Model):string  $label  Human label for an instance.
+     * @param  ?string  $dateColumn  Optional date for sort + year/month facets.
      */
     public function __construct(
         private Closure $query,
@@ -41,7 +41,7 @@ class EntityInstanceSource implements InstanceSource
             ? $query->orderByDesc($this->dateColumn)
             : $query->orderByDesc($query->getModel()->getKeyName());
 
-        $year  = ! empty($filters['year']) ? (int) $filters['year'] : null;
+        $year = ! empty($filters['year']) ? (int) $filters['year'] : null;
         $month = ! empty($filters['month']) ? (int) $filters['month'] : null;
 
         return $query->get()
@@ -49,10 +49,10 @@ class EntityInstanceSource implements InstanceSource
                 $date = $this->dateColumn ? $model->{$this->dateColumn} : null;
 
                 return [
-                    'key'    => (string) $model->getKey(),
-                    'label'  => ($this->label)($model),
+                    'key' => (string) $model->getKey(),
+                    'label' => ($this->label)($model),
                     'params' => [$this->paramKey => $model->getKey()],
-                    'date'   => $date ? Carbon::parse($date)->toDateString() : null,
+                    'date' => $date ? Carbon::parse($date)->toDateString() : null,
                 ];
             })
             ->filter(function (array $i) use ($year, $month) {
@@ -63,6 +63,7 @@ class EntityInstanceSource implements InstanceSource
                     return false;
                 }
                 $d = Carbon::parse($i['date']);
+
                 return ($year === null || $d->year === $year)
                     && ($month === null || $d->month === $month);
             })

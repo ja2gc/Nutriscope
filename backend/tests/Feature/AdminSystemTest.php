@@ -16,22 +16,24 @@ class AdminSystemTest extends TestCase
     use RefreshDatabase;
 
     private User $admin;
+
     private User $rnd;
+
     private User $fss;
 
     protected function setUp(): void
     {
         parent::setUp();
         $this->admin = User::factory()->create([
-            'role'     => 'Admin',
+            'role' => 'Admin',
             'password' => Hash::make('password'),
         ]);
         $this->rnd = User::factory()->create([
-            'role'     => 'RND',
+            'role' => 'RND',
             'password' => Hash::make('password'),
         ]);
         $this->fss = User::factory()->create([
-            'role'     => 'FSS',
+            'role' => 'FSS',
             'password' => Hash::make('password'),
         ]);
     }
@@ -71,11 +73,11 @@ class AdminSystemTest extends TestCase
     {
         $response = $this->actingAs($this->admin)
             ->postJson('/api/admin/users', [
-                'name'                  => 'New RND User',
-                'email'                 => 'newrnd@nutriscope.com',
-                'password'              => 'Password123!',
+                'name' => 'New RND User',
+                'email' => 'newrnd@nutriscope.com',
+                'password' => 'Password123!',
                 'password_confirmation' => 'Password123!',
-                'role'                  => 'RND',
+                'role' => 'RND',
             ]);
 
         $response->assertCreated()
@@ -182,11 +184,11 @@ class AdminSystemTest extends TestCase
     {
         $response = $this->actingAs($this->admin)
             ->postJson('/api/admin/users', [
-                'name'                  => 'Duplicate',
-                'email'                 => $this->rnd->email,
-                'password'              => 'Password123!',
+                'name' => 'Duplicate',
+                'email' => $this->rnd->email,
+                'password' => 'Password123!',
                 'password_confirmation' => 'Password123!',
-                'role'                  => 'RND',
+                'role' => 'RND',
             ]);
 
         $response->assertUnprocessable()
@@ -253,7 +255,7 @@ class AdminSystemTest extends TestCase
     {
         $response = $this->actingAs($this->rnd)
             ->postJson('/api/rnd/calendar-events', [
-                'title'      => 'Patient Follow-up',
+                'title' => 'Patient Follow-up',
                 'event_date' => '2026-06-15',
                 'event_type' => 'followup',
             ]);
@@ -262,8 +264,8 @@ class AdminSystemTest extends TestCase
             ->assertJsonPath('data.title', 'Patient Follow-up');
 
         $this->assertDatabaseHas('calendar_events', [
-            'title'      => 'Patient Follow-up',
-            'user_id'    => $this->rnd->id,
+            'title' => 'Patient Follow-up',
+            'user_id' => $this->rnd->id,
         ]);
     }
 
@@ -306,7 +308,7 @@ class AdminSystemTest extends TestCase
     {
         $notification = Notification::factory()->create([
             'user_id' => $this->rnd->id,
-            'read'    => false,
+            'read' => false,
         ]);
 
         $response = $this->actingAs($this->rnd)

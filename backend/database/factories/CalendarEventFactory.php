@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Models\CalendarEvent;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -18,14 +19,14 @@ class CalendarEventFactory extends Factory
     public function definition(): array
     {
         return [
-            'user_id'       => \App\Models\User::factory(),
-            'title'         => $this->faker->sentence(3),
-            'type'          => $this->faker->randomElement(['manual', 'system']),
+            'user_id' => User::factory(),
+            'title' => $this->faker->sentence(3),
+            'type' => $this->faker->randomElement(['manual', 'system']),
             'source_module' => $this->faker->randomElement(['ncp', 'fss', null]),
-            'source_id'     => null,
-            'event_date'    => $this->faker->dateTimeBetween('now', '+1 month')->format('Y-m-d'),
-            'status'        => $this->faker->randomElement(['pending', 'completed']),
-            'deletable'     => true,
+            'source_id' => null,
+            'event_date' => $this->faker->dateTimeBetween('now', '+1 month')->format('Y-m-d'),
+            'status' => $this->faker->randomElement(['pending', 'completed']),
+            'deletable' => true,
         ];
     }
 }

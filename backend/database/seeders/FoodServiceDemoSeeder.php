@@ -5,20 +5,22 @@ namespace Database\Seeders;
 use App\Models\Budget;
 use App\Models\BudgetLedger;
 use App\Models\DietListCount;
-use App\Models\ReportBranding;
-use App\Services\FSS\AccomplishmentReportArchiveService;
 use App\Models\FoodServiceRecipe;
 use App\Models\FoodServiceRecipeIngredient;
+use App\Models\FoodServiceSetting;
 use App\Models\FsItem;
 use App\Models\MealPrepLog;
 use App\Models\MenuCycle;
 use App\Models\MenuCycleDay;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderAttachment;
+use App\Models\ReportBranding;
 use App\Models\ShoppingList;
 use App\Models\Supplier;
 use App\Models\User;
+use App\Services\FSS\AccomplishmentReportArchiveService;
 use App\Services\FSS\PurchaseOrderLifecycleService;
+use App\Services\FSS\ShoppingListPopulationService;
 use App\Services\MenuCycleCostService;
 use Carbon\Carbon;
 use Illuminate\Database\Seeder;
@@ -44,7 +46,9 @@ use Illuminate\Support\Facades\Schema;
 class FoodServiceDemoSeeder extends Seeder
 {
     private array $fs = [];      // fs_item name => id
+
     private array $recipes = []; // recipe name => FoodServiceRecipe
+
     private array $suppliers = [];
 
     /**
@@ -56,53 +60,53 @@ class FoodServiceDemoSeeder extends Seeder
     private array $plans = [
         // Week 0 — current/active: balanced mix.
         0 => [
-            'Monday'    => ['Cheezwhiz Sandwich', 'Yakult', 'Pork Pinakbet', 'Latundan banana', 'Chicken Sisig'],
-            'Tuesday'   => ['Sopas', 'Coffee', 'Chicken Fillet w/ Mushroom Sauce', 'Saba banana', 'Pork Picadillo'],
+            'Monday' => ['Cheezwhiz Sandwich', 'Yakult', 'Pork Pinakbet', 'Latundan banana', 'Chicken Sisig'],
+            'Tuesday' => ['Sopas', 'Coffee', 'Chicken Fillet w/ Mushroom Sauce', 'Saba banana', 'Pork Picadillo'],
             'Wednesday' => ['Mami Noodle Soup', 'Fresh milk', 'Beef Caldereta', 'Ponkan', 'Paksiw na Bangus'],
-            'Thursday'  => ['Pandesal with Boiled Egg', 'Milo', 'Chicken with Lemongrass', 'Saba banana', 'Pork Strips Oriental with Corn'],
-            'Friday'    => ['Cheezwhiz Sandwich', 'Yakult', 'Pork Picadillo', 'Brownie bite', 'Chicken Fillet w/ Mushroom Sauce'],
-            'Saturday'  => ['Sopas', 'Coffee', 'Paksiw na Bangus', 'Chooey toffee', 'Beef Caldereta'],
-            'Sunday'    => ['Pandesal with Boiled Egg', 'Milo', 'Chicken Sisig', 'Latundan banana', 'Pork Pinakbet'],
+            'Thursday' => ['Pandesal with Boiled Egg', 'Milo', 'Chicken with Lemongrass', 'Saba banana', 'Pork Strips Oriental with Corn'],
+            'Friday' => ['Cheezwhiz Sandwich', 'Yakult', 'Pork Picadillo', 'Brownie bite', 'Chicken Fillet w/ Mushroom Sauce'],
+            'Saturday' => ['Sopas', 'Coffee', 'Paksiw na Bangus', 'Chooey toffee', 'Beef Caldereta'],
+            'Sunday' => ['Pandesal with Boiled Egg', 'Milo', 'Chicken Sisig', 'Latundan banana', 'Pork Pinakbet'],
         ],
         // Week 1 — beef/pork heavy: highest cost.
         1 => [
-            'Monday'    => ['Cheezwhiz Sandwich', 'Yakult', 'Beef Caldereta', 'Latundan banana', 'Pork Pinakbet'],
-            'Tuesday'   => ['Sopas', 'Coffee', 'Pork Strips Oriental with Corn', 'Saba banana', 'Beef Caldereta'],
+            'Monday' => ['Cheezwhiz Sandwich', 'Yakult', 'Beef Caldereta', 'Latundan banana', 'Pork Pinakbet'],
+            'Tuesday' => ['Sopas', 'Coffee', 'Pork Strips Oriental with Corn', 'Saba banana', 'Beef Caldereta'],
             'Wednesday' => ['Mami Noodle Soup', 'Fresh milk', 'Pork Picadillo', 'Ponkan', 'Beef Caldereta'],
-            'Thursday'  => ['Pandesal with Boiled Egg', 'Milo', 'Beef Caldereta', 'Saba banana', 'Pork Strips Oriental with Corn'],
-            'Friday'    => ['Cheezwhiz Sandwich', 'Yakult', 'Pork Pinakbet', 'Brownie bite', 'Pork Picadillo'],
-            'Saturday'  => ['Sopas', 'Coffee', 'Beef Caldereta', 'Chooey toffee', 'Pork Strips Oriental with Corn'],
-            'Sunday'    => ['Pandesal with Boiled Egg', 'Milo', 'Pork Picadillo', 'Latundan banana', 'Pork Pinakbet'],
+            'Thursday' => ['Pandesal with Boiled Egg', 'Milo', 'Beef Caldereta', 'Saba banana', 'Pork Strips Oriental with Corn'],
+            'Friday' => ['Cheezwhiz Sandwich', 'Yakult', 'Pork Pinakbet', 'Brownie bite', 'Pork Picadillo'],
+            'Saturday' => ['Sopas', 'Coffee', 'Beef Caldereta', 'Chooey toffee', 'Pork Strips Oriental with Corn'],
+            'Sunday' => ['Pandesal with Boiled Egg', 'Milo', 'Pork Picadillo', 'Latundan banana', 'Pork Pinakbet'],
         ],
         // Week 2 — chicken/fish: lightest cost.
         2 => [
-            'Monday'    => ['Sopas', 'Coffee', 'Chicken Sisig', 'Latundan banana', 'Paksiw na Bangus'],
-            'Tuesday'   => ['Mami Noodle Soup', 'Fresh milk', 'Chicken with Lemongrass', 'Saba banana', 'Chicken Fillet w/ Mushroom Sauce'],
+            'Monday' => ['Sopas', 'Coffee', 'Chicken Sisig', 'Latundan banana', 'Paksiw na Bangus'],
+            'Tuesday' => ['Mami Noodle Soup', 'Fresh milk', 'Chicken with Lemongrass', 'Saba banana', 'Chicken Fillet w/ Mushroom Sauce'],
             'Wednesday' => ['Cheezwhiz Sandwich', 'Yakult', 'Paksiw na Bangus', 'Ponkan', 'Chicken Sisig'],
-            'Thursday'  => ['Pandesal with Boiled Egg', 'Milo', 'Chicken Fillet w/ Mushroom Sauce', 'Saba banana', 'Chicken with Lemongrass'],
-            'Friday'    => ['Sopas', 'Coffee', 'Chicken Sisig', 'Brownie bite', 'Paksiw na Bangus'],
-            'Saturday'  => ['Mami Noodle Soup', 'Fresh milk', 'Chicken with Lemongrass', 'Chooey toffee', 'Chicken Fillet w/ Mushroom Sauce'],
-            'Sunday'    => ['Pandesal with Boiled Egg', 'Milo', 'Paksiw na Bangus', 'Latundan banana', 'Chicken Sisig'],
+            'Thursday' => ['Pandesal with Boiled Egg', 'Milo', 'Chicken Fillet w/ Mushroom Sauce', 'Saba banana', 'Chicken with Lemongrass'],
+            'Friday' => ['Sopas', 'Coffee', 'Chicken Sisig', 'Brownie bite', 'Paksiw na Bangus'],
+            'Saturday' => ['Mami Noodle Soup', 'Fresh milk', 'Chicken with Lemongrass', 'Chooey toffee', 'Chicken Fillet w/ Mushroom Sauce'],
+            'Sunday' => ['Pandesal with Boiled Egg', 'Milo', 'Paksiw na Bangus', 'Latundan banana', 'Chicken Sisig'],
         ],
         // Week 3 — mixed, distinct from week 0.
         3 => [
-            'Monday'    => ['Pandesal with Boiled Egg', 'Milo', 'Pork Strips Oriental with Corn', 'Saba banana', 'Chicken with Lemongrass'],
-            'Tuesday'   => ['Cheezwhiz Sandwich', 'Yakult', 'Beef Caldereta', 'Latundan banana', 'Chicken Sisig'],
+            'Monday' => ['Pandesal with Boiled Egg', 'Milo', 'Pork Strips Oriental with Corn', 'Saba banana', 'Chicken with Lemongrass'],
+            'Tuesday' => ['Cheezwhiz Sandwich', 'Yakult', 'Beef Caldereta', 'Latundan banana', 'Chicken Sisig'],
             'Wednesday' => ['Sopas', 'Coffee', 'Chicken Fillet w/ Mushroom Sauce', 'Ponkan', 'Pork Pinakbet'],
-            'Thursday'  => ['Mami Noodle Soup', 'Fresh milk', 'Paksiw na Bangus', 'Saba banana', 'Beef Caldereta'],
-            'Friday'    => ['Pandesal with Boiled Egg', 'Milo', 'Pork Picadillo', 'Brownie bite', 'Chicken with Lemongrass'],
-            'Saturday'  => ['Cheezwhiz Sandwich', 'Yakult', 'Chicken Sisig', 'Chooey toffee', 'Pork Strips Oriental with Corn'],
-            'Sunday'    => ['Sopas', 'Coffee', 'Beef Caldereta', 'Latundan banana', 'Paksiw na Bangus'],
+            'Thursday' => ['Mami Noodle Soup', 'Fresh milk', 'Paksiw na Bangus', 'Saba banana', 'Beef Caldereta'],
+            'Friday' => ['Pandesal with Boiled Egg', 'Milo', 'Pork Picadillo', 'Brownie bite', 'Chicken with Lemongrass'],
+            'Saturday' => ['Cheezwhiz Sandwich', 'Yakult', 'Chicken Sisig', 'Chooey toffee', 'Pork Strips Oriental with Corn'],
+            'Sunday' => ['Sopas', 'Coffee', 'Beef Caldereta', 'Latundan banana', 'Paksiw na Bangus'],
         ],
         // Week 4 — draft/next: breakfast-heavy and fish/chicken forward.
         4 => [
-            'Monday'    => ['Mami Noodle Soup', 'Fresh milk', 'Paksiw na Bangus', 'Ponkan', 'Chicken Fillet w/ Mushroom Sauce'],
-            'Tuesday'   => ['Pandesal with Boiled Egg', 'Milo', 'Pork Pinakbet', 'Latundan banana', 'Chicken with Lemongrass'],
+            'Monday' => ['Mami Noodle Soup', 'Fresh milk', 'Paksiw na Bangus', 'Ponkan', 'Chicken Fillet w/ Mushroom Sauce'],
+            'Tuesday' => ['Pandesal with Boiled Egg', 'Milo', 'Pork Pinakbet', 'Latundan banana', 'Chicken with Lemongrass'],
             'Wednesday' => ['Cheezwhiz Sandwich', 'Yakult', 'Chicken Sisig', 'Saba banana', 'Pork Strips Oriental with Corn'],
-            'Thursday'  => ['Sopas', 'Coffee', 'Beef Caldereta', 'Brownie bite', 'Paksiw na Bangus'],
-            'Friday'    => ['Mami Noodle Soup', 'Fresh milk', 'Chicken with Lemongrass', 'Chooey toffee', 'Pork Picadillo'],
-            'Saturday'  => ['Pandesal with Boiled Egg', 'Milo', 'Pork Pinakbet', 'Ponkan', 'Chicken Fillet w/ Mushroom Sauce'],
-            'Sunday'    => ['Cheezwhiz Sandwich', 'Yakult', 'Pork Strips Oriental with Corn', 'Saba banana', 'Chicken Sisig'],
+            'Thursday' => ['Sopas', 'Coffee', 'Beef Caldereta', 'Brownie bite', 'Paksiw na Bangus'],
+            'Friday' => ['Mami Noodle Soup', 'Fresh milk', 'Chicken with Lemongrass', 'Chooey toffee', 'Pork Picadillo'],
+            'Saturday' => ['Pandesal with Boiled Egg', 'Milo', 'Pork Pinakbet', 'Ponkan', 'Chicken Fillet w/ Mushroom Sauce'],
+            'Sunday' => ['Cheezwhiz Sandwich', 'Yakult', 'Pork Strips Oriental with Corn', 'Saba banana', 'Chicken Sisig'],
         ],
     ];
 
@@ -117,10 +121,12 @@ class FoodServiceDemoSeeder extends Seeder
         $fss = User::where('role', 'FSS')->value('id') ?? $rnd;
         if (! $rnd) {
             $this->command->warn('FoodServiceDemoSeeder: no RND user. Run AdminUserSeeder first.');
+
             return;
         }
         if (FsItem::count() === 0) {
             $this->command->warn('FoodServiceDemoSeeder: fs_items empty. Run FsCatalogSeeder first.');
+
             return;
         }
 
@@ -174,7 +180,7 @@ class FoodServiceDemoSeeder extends Seeder
 
         $this->seedBudget($fss, end($cycles));
 
-        $this->command->info('FoodServiceDemoSeeder: ' . count($cycles) . ' weekly cycles (3 completed + 1 active) + 1 upcoming draft seeded.');
+        $this->command->info('FoodServiceDemoSeeder: '.count($cycles).' weekly cycles (3 completed + 1 active) + 1 upcoming draft seeded.');
     }
 
     private function reset(): void
@@ -236,18 +242,18 @@ class FoodServiceDemoSeeder extends Seeder
     {
         // FS recipes carry no category — name => [servings, [[fs_item, qty], ...]].
         $defs = [
-            'Cheezwhiz Sandwich'             => [50, [['Loaf bread', 100], ['Cheez Whiz', 750]]],
-            'Pandesal with Boiled Egg'       => [50, [['Pandesal', 100], ['Egg', 50]]],
-            'Sopas'                          => [50, [['Macaroni', 2500], ['Chicken (whole)', 3000], ['Carrot', 1000], ['Assorted vegetables', 1500], ['Fresh milk', 2000]]],
-            'Mami Noodle Soup'               => [50, [['Macaroni', 3000], ['Chicken (whole)', 3000], ['Garlic', 200], ['Onion', 300]]],
-            'Pork Pinakbet'                  => [50, [['Pork (kasim)', 3000], ['Pinakbet vegetables', 5000], ['Garlic', 200], ['Onion', 400], ['Tomato', 600]]],
-            'Pork Picadillo'                 => [50, [['Ground pork', 3000], ['Potato', 2500], ['Carrot', 1500], ['Garlic', 200], ['Onion', 400]]],
+            'Cheezwhiz Sandwich' => [50, [['Loaf bread', 100], ['Cheez Whiz', 750]]],
+            'Pandesal with Boiled Egg' => [50, [['Pandesal', 100], ['Egg', 50]]],
+            'Sopas' => [50, [['Macaroni', 2500], ['Chicken (whole)', 3000], ['Carrot', 1000], ['Assorted vegetables', 1500], ['Fresh milk', 2000]]],
+            'Mami Noodle Soup' => [50, [['Macaroni', 3000], ['Chicken (whole)', 3000], ['Garlic', 200], ['Onion', 300]]],
+            'Pork Pinakbet' => [50, [['Pork (kasim)', 3000], ['Pinakbet vegetables', 5000], ['Garlic', 200], ['Onion', 400], ['Tomato', 600]]],
+            'Pork Picadillo' => [50, [['Ground pork', 3000], ['Potato', 2500], ['Carrot', 1500], ['Garlic', 200], ['Onion', 400]]],
             'Pork Strips Oriental with Corn' => [50, [['Pork (kasim)', 3000], ['Corn kernel', 2000], ['Soy sauce', 500], ['Garlic', 200]]],
-            'Beef Caldereta'                 => [50, [['Beef (cubes)', 3500], ['Potato', 2500], ['Carrot', 1500], ['Tomato', 800], ['Garlic', 200], ['Onion', 400]]],
+            'Beef Caldereta' => [50, [['Beef (cubes)', 3500], ['Potato', 2500], ['Carrot', 1500], ['Tomato', 800], ['Garlic', 200], ['Onion', 400]]],
             'Chicken Fillet w/ Mushroom Sauce' => [50, [['Chicken fillet', 4000], ['Mushroom (canned)', 1600], ['Fresh milk', 2000], ['Onion', 400]]],
-            'Chicken Sisig'                  => [50, [['Chicken fillet', 4000], ['Onion', 600], ['Soy sauce', 400], ['Cooking oil', 500]]],
-            'Chicken with Lemongrass'        => [50, [['Chicken (whole)', 5000], ['Ginger', 300], ['Garlic', 250], ['Salt', 150]]],
-            'Paksiw na Bangus'               => [50, [['Bangus (milkfish)', 5000], ['Vinegar', 800], ['Garlic', 250], ['Ginger', 300]]],
+            'Chicken Sisig' => [50, [['Chicken fillet', 4000], ['Onion', 600], ['Soy sauce', 400], ['Cooking oil', 500]]],
+            'Chicken with Lemongrass' => [50, [['Chicken (whole)', 5000], ['Ginger', 300], ['Garlic', 250], ['Salt', 150]]],
+            'Paksiw na Bangus' => [50, [['Bangus (milkfish)', 5000], ['Vinegar', 800], ['Garlic', 250], ['Ginger', 300]]],
         ];
 
         foreach ($defs as $name => [$servings, $lines]) {
@@ -258,6 +264,7 @@ class FoodServiceDemoSeeder extends Seeder
                 $fsId = $this->id($itemName);
                 if (! $fsId) {
                     $this->command->warn("  recipe '{$name}': fs_item '{$itemName}' missing");
+
                     continue;
                 }
                 // Recipe quantities are authored in fine units (g/mL/pc). The catalog item
@@ -265,9 +272,9 @@ class FoodServiceDemoSeeder extends Seeder
                 // rate, so a g quantity against a kg item costs correctly.
                 FoodServiceRecipeIngredient::create([
                     'food_service_recipe_id' => $recipe->id,
-                    'fs_item_id'             => $fsId,
-                    'quantity'               => $qty,
-                    'unit'                   => $this->recipeUnitFor(FsItem::find($fsId)->base_unit),
+                    'fs_item_id' => $fsId,
+                    'quantity' => $qty,
+                    'unit' => $this->recipeUnitFor(FsItem::find($fsId)->base_unit),
                 ]);
             }
             $recipe->recalculateCost();
@@ -280,7 +287,7 @@ class FoodServiceDemoSeeder extends Seeder
     {
         return match ($baseUnit) {
             'kg' => 'g',
-            'L'  => 'mL',
+            'L' => 'mL',
             default => $baseUnit,
         };
     }
@@ -291,16 +298,16 @@ class FoodServiceDemoSeeder extends Seeder
         // States: completed | active | upcoming (the redesigned menu-cycle lifecycle).
         $status = $statusOverride ?? ($isCurrent ? 'active' : 'completed');
         $cycle = MenuCycle::create([
-            'rnd_user_id'     => $rnd,
-            'name'            => 'Subsistence Cycle — Week of ' . $weekStart->format('M j'),
-            'cycle_days'      => 7,
-            'is_active'       => $isCurrent,
-            'status'          => $status,
+            'rnd_user_id' => $rnd,
+            'name' => 'Subsistence Cycle — Week of '.$weekStart->format('M j'),
+            'cycle_days' => 7,
+            'is_active' => $isCurrent,
+            'status' => $status,
             'week_start_date' => $weekStart->toDateString(),
             'activation_date' => $status === 'upcoming' ? null : $weekStart->toDateString(),
         ]);
 
-        $plan      = $this->planForWeek($weekIndex);
+        $plan = $this->planForWeek($weekIndex);
         $popFactor = $this->popFactor($weekIndex);
         $slots = ['breakfast', 'am_snack', 'lunch', 'pm_snack', 'dinner'];
         foreach ($plan as $day => $items) {
@@ -326,7 +333,7 @@ class FoodServiceDemoSeeder extends Seeder
         // Freeze the cost snapshot so filed reports (PPA / menu calendar) keep their
         // cost even if catalog prices change later — matches the activate() flow.
         $cycle->update([
-            'cost_snapshot'    => MenuCycleCostService::forCycle($cycle),
+            'cost_snapshot' => MenuCycleCostService::forCycle($cycle),
             'cost_snapshot_at' => $weekStart->copy()->addDay(),
         ]);
 
@@ -340,49 +347,49 @@ class FoodServiceDemoSeeder extends Seeder
      */
     private function seedConsumptionForWeek(MenuCycle $cycle, int $fss, Carbon $weekStart, bool $isCurrent, int $weekIndex = 0): int
     {
-        $cost      = MenuCycleCostService::forCycle($cycle);
-        $today     = Carbon::now();
+        $cost = MenuCycleCostService::forCycle($cycle);
+        $today = Carbon::now();
         $popFactor = $this->popFactor($weekIndex);
         $totalServed = 0;
 
         for ($i = 0; $i < 7; $i++) {
-            $date    = $weekStart->copy()->addDays($i);
+            $date = $weekStart->copy()->addDays($i);
             $weekday = $date->format('l');
             if ($isCurrent && $date->gt($today)) {
                 break; // current week: don't serve the future
             }
 
-            $planned  = (int) round($this->dayPop[$weekday] * $popFactor);
+            $planned = (int) round($this->dayPop[$weekday] * $popFactor);
             $variance = (($weekIndex + 2) * ($i + 3)) % 13;
-            $served   = max(0, $planned - $variance);
-            $dayCost  = (float) ($cost['days'][$weekday]['cost'] ?? 0);
+            $served = max(0, $planned - $variance);
+            $dayCost = (float) ($cost['days'][$weekday]['cost'] ?? 0);
             $totalServed += $served;
 
             MealPrepLog::create([
-                'menu_cycle_id'       => $cycle->id,
-                'service_date'        => $date->toDateString(),
-                'population'          => $planned,
-                'served_population'   => $served,
+                'menu_cycle_id' => $cycle->id,
+                'service_date' => $date->toDateString(),
+                'population' => $planned,
+                'served_population' => $served,
                 'population_variance' => $planned - $served,
-                'status'              => 'completed',
-                'completed_by'        => $fss,
-                'completed_at'        => $date->copy()->setTime(13, 0),
-                'total_value'         => round($dayCost, 2),
-                'has_shortfall'       => false,
+                'status' => 'completed',
+                'completed_by' => $fss,
+                'completed_at' => $date->copy()->setTime(13, 0),
+                'total_value' => round($dayCost, 2),
+                'has_shortfall' => false,
             ]);
 
             // Diet-list counts (accomplishment report) — a couple of wards per day.
             foreach (['Ward A' => 0.45, 'Ward B' => 0.35, 'ICU' => 0.20] as $ward => $share) {
                 DietListCount::create([
-                    'service_date'           => $date->toDateString(),
-                    'menu_cycle_id'          => $cycle->id,
-                    'ward'                   => $ward,
-                    'fss_user_id'            => $fss,
-                    'population'             => (int) round($served * $share),
-                    'helped_food_prep'       => true,
-                    'collected_diet_list'    => true,
-                    'apportioned_food'       => true,
-                    'cleaned_utensils'       => $ward !== 'ICU',
+                    'service_date' => $date->toDateString(),
+                    'menu_cycle_id' => $cycle->id,
+                    'ward' => $ward,
+                    'fss_user_id' => $fss,
+                    'population' => (int) round($served * $share),
+                    'helped_food_prep' => true,
+                    'collected_diet_list' => true,
+                    'apportioned_food' => true,
+                    'cleaned_utensils' => $ward !== 'ICU',
                     'maintained_cleanliness' => true,
                 ]);
             }
@@ -441,7 +448,8 @@ class FoodServiceDemoSeeder extends Seeder
     private function listEstimatePopulation(int $weekIndex): int
     {
         $factor = $this->popFactor($weekIndex);
-        $avg    = array_sum($this->dayPop) / count($this->dayPop);
+        $avg = array_sum($this->dayPop) / count($this->dayPop);
+
         return (int) round($avg * $factor);
     }
 
@@ -454,9 +462,9 @@ class FoodServiceDemoSeeder extends Seeder
     private function seedProcurementForWeek(MenuCycle $cycle, int $fss, Carbon $weekStart, bool $isCurrent, int $weekIndex): void
     {
         $start = $weekStart->copy()->addDay()->toDateString();
-        $end   = $weekStart->copy()->addDays(3)->toDateString();
+        $end = $weekStart->copy()->addDays(3)->toDateString();
 
-        $list = $this->buildSuggestedList($fss, $weekStart, $start, $end, $weekIndex, 'Marketing - Tue-Thu ' . $weekStart->format('M j'));
+        $list = $this->buildSuggestedList($fss, $weekStart, $start, $end, $weekIndex, 'Marketing - Tue-Thu '.$weekStart->format('M j'));
         if (! $list) {
             return; // no covered/planned days — nothing to procure
         }
@@ -469,7 +477,7 @@ class FoodServiceDemoSeeder extends Seeder
         $start = $weekStart->copy()->addDays(4)->toDateString();
         $end = $weekStart->copy()->addDays(7)->toDateString();
 
-        $list = $this->buildSuggestedList($fss, $weekStart, $start, $end, $weekIndex, 'Marketing - Fri-Mon ' . $weekStart->format('M j'));
+        $list = $this->buildSuggestedList($fss, $weekStart, $start, $end, $weekIndex, 'Marketing - Fri-Mon '.$weekStart->format('M j'));
         if (! $list) {
             return;
         }
@@ -485,23 +493,23 @@ class FoodServiceDemoSeeder extends Seeder
     private function buildSuggestedList(int $fss, Carbon $weekStart, string $start, string $end, int $weekIndex, string $name): ?ShoppingList
     {
         $estimate = $this->listEstimatePopulation($weekIndex);
-        $plan = app(\App\Services\FSS\ShoppingListPopulationService::class)->planRange($start, $end, $estimate);
+        $plan = app(ShoppingListPopulationService::class)->planRange($start, $end, $estimate);
         if ($plan['items'] === []) {
             return null;
         }
 
         $list = ShoppingList::create([
-            'rnd_user_id'                    => $fss,
-            'name'                           => $name,
-            'list_date'                      => $start,
-            'period_start'                   => $start,
-            'period_end'                     => $end,
-            'days_span'                      => Carbon::parse($start)->diffInDays(Carbon::parse($end)) + 1,
-            'list_type'                      => 'suggested',
-            'procurement_track'              => 'food',
-            'coverage_status'                => 'full',
-            'status'                         => 'draft',
-            'estimate_population'            => $estimate,
+            'rnd_user_id' => $fss,
+            'name' => $name,
+            'list_date' => $start,
+            'period_start' => $start,
+            'period_end' => $end,
+            'days_span' => Carbon::parse($start)->diffInDays(Carbon::parse($end)) + 1,
+            'list_type' => 'suggested',
+            'procurement_track' => 'food',
+            'coverage_status' => 'full',
+            'status' => 'draft',
+            'estimate_population' => $estimate,
             'estimate_population_updated_at' => $weekStart->copy(),
         ]);
 
@@ -523,41 +531,41 @@ class FoodServiceDemoSeeder extends Seeder
         $lifecycle = app(PurchaseOrderLifecycleService::class);
         $orderDate = $list->period_start ? Carbon::parse($list->period_start) : $weekStart->copy();
         $endDate = $list->period_end ? Carbon::parse($list->period_end) : $orderDate->copy();
-        $weekTag = $orderDate->format('md') . '-' . $endDate->format('mdy');
+        $weekTag = $orderDate->format('md').'-'.$endDate->format('mdy');
 
         $po = PurchaseOrder::create([
-            'rnd_user_id'          => $list->rnd_user_id,
-            'shopping_list_id'     => $list->id,
-            'supplier_id'          => null,
-            'po_number'            => 'PO-' . $weekTag,
-            'order_date'           => $orderDate->toDateString(),
-            'total_amount'         => round((float) $list->items->sum(fn ($i) => (float) $i->total), 2),
-            'status'               => 'draft',
-            'lifecycle_status'     => 'open_execution',
-            'procurement_track'    => 'food',
-            'converted_at'         => $orderDate,
+            'rnd_user_id' => $list->rnd_user_id,
+            'shopping_list_id' => $list->id,
+            'supplier_id' => null,
+            'po_number' => 'PO-'.$weekTag,
+            'order_date' => $orderDate->toDateString(),
+            'total_amount' => round((float) $list->items->sum(fn ($i) => (float) $i->total), 2),
+            'status' => 'draft',
+            'lifecycle_status' => 'open_execution',
+            'procurement_track' => 'food',
+            'converted_at' => $orderDate,
             'structural_locked_at' => $orderDate,
         ]);
 
         foreach ($list->items->groupBy('supplier_id') as $supplierId => $items) {
             $group = $po->vendorGroups()->create([
-                'supplier_id'  => $supplierId !== '' ? (int) $supplierId : null,
-                'status'       => 'pending',
+                'supplier_id' => $supplierId !== '' ? (int) $supplierId : null,
+                'status' => 'pending',
                 'total_amount' => round((float) $items->sum(fn ($i) => (float) $i->total), 2),
             ]);
 
             foreach ($items as $it) {
                 $po->items()->create([
                     'vendor_group_id' => $group->id,
-                    'fs_item_id'      => $it->fs_item_id,
-                    'description'     => $it->ingredient_name,
-                    'qty'             => $it->qty,
-                    'unit'            => $it->unit,
-                    'unit_price'      => $it->unit_price,
-                    'total_value'     => $it->total,
-                    'purchase_qty'    => $it->purchase_qty,
-                    'purchase_unit'   => $it->purchase_unit,
-                    'purchase_price'  => $it->purchase_price,
+                    'fs_item_id' => $it->fs_item_id,
+                    'description' => $it->ingredient_name,
+                    'qty' => $it->qty,
+                    'unit' => $it->unit,
+                    'unit_price' => $it->unit_price,
+                    'total_value' => $it->total,
+                    'purchase_qty' => $it->purchase_qty,
+                    'purchase_unit' => $it->purchase_unit,
+                    'purchase_price' => $it->purchase_price,
                 ]);
             }
         }
@@ -576,20 +584,20 @@ class FoodServiceDemoSeeder extends Seeder
                 continue;
             }
 
-            $orNumber = 'OR-' . $weekTag . '-' . sprintf('%02d', $idx + 1);
+            $orNumber = 'OR-'.$weekTag.'-'.sprintf('%02d', $idx + 1);
             $group->forceFill([
-                'or_number'   => $orNumber,
-                'status'      => 'received',
+                'or_number' => $orNumber,
+                'status' => 'received',
                 'received_at' => $orderDate->copy()->addDay(),
             ])->save();
 
             foreach (['receipt', 'proof'] as $type) {
                 PurchaseOrderAttachment::create([
                     'purchase_order_id' => $po->id,
-                    'vendor_group_id'   => $group->id,
-                    'type'              => $type,
-                    'path'              => "demo/{$type}s/{$po->po_number}-{$group->id}.jpg",
-                    'caption'           => ucfirst($type) . ' — ' . ($group->supplier?->name ?? 'vendor'),
+                    'vendor_group_id' => $group->id,
+                    'type' => $type,
+                    'path' => "demo/{$type}s/{$po->po_number}-{$group->id}.jpg",
+                    'caption' => ucfirst($type).' — '.($group->supplier?->name ?? 'vendor'),
                 ]);
             }
         }
@@ -603,16 +611,16 @@ class FoodServiceDemoSeeder extends Seeder
     private function seedDraftSuggestedList(MenuCycle $cycle, int $fss, Carbon $weekStart, int $weekIndex): void
     {
         $start = $weekStart->toDateString();
-        $end   = $weekStart->copy()->addDays(6)->toDateString();
-        $this->buildSuggestedList($fss, $weekStart, $start, $end, $weekIndex, 'Draft marketing — week of ' . $weekStart->format('M j'));
+        $end = $weekStart->copy()->addDays(6)->toDateString();
+        $this->buildSuggestedList($fss, $weekStart, $start, $end, $weekIndex, 'Draft marketing — week of '.$weekStart->format('M j'));
     }
 
     // ── Fiscal-year budget + ledger covering the demo period ────────────────
     private function seedBudget(int $fss, MenuCycle $currentCycle): void
     {
-        $cost          = MenuCycleCostService::forCycle($currentCycle);
-        $dayCosts      = array_values(array_map(fn ($d) => $d['cost'], $cost['days']));
-        $avgDay        = $dayCosts ? array_sum($dayCosts) / count($dayCosts) : 18000;
+        $cost = MenuCycleCostService::forCycle($currentCycle);
+        $dayCosts = array_values(array_map(fn ($d) => $d['cost'], $cost['days']));
+        $avgDay = $dayCosts ? array_sum($dayCosts) / count($dayCosts) : 18000;
 
         $fiscalYear = (int) Carbon::now()->year;
 
@@ -624,9 +632,9 @@ class FoodServiceDemoSeeder extends Seeder
         );
 
         // Budget per head per day lives in the shared Food Service settings.
-        \App\Models\FoodServiceSetting::singleton()->update([
+        FoodServiceSetting::singleton()->update([
             'per_head_day_limit' => 150,
-            'updated_by'         => $fss,
+            'updated_by' => $fss,
         ]);
 
         // Manual entries make the add/deduct audit trail visible. PO deductions are

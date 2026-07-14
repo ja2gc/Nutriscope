@@ -13,7 +13,7 @@ describe("readability contract", () => {
   test("compact density does not shrink the root font size", () => {
     const css = read("app/globals.css");
 
-    expect(css).not.toMatch(/:root\[data-density="compact"\]\s*{[^}]*font-size:\s*93\.75%/s);
+    expect(css).not.toMatch(/:root\[data-density="compact"\]\s*{[^}]*font-size:\s*93\.75%/);
   });
 
   test("frontend avoids text sizes below 12px", () => {

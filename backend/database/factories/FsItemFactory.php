@@ -13,16 +13,16 @@ class FsItemFactory extends Factory
     public function definition(): array
     {
         return [
-            'name'                => fake()->words(2, true),
-            'kind'                => 'ingredient',
-            'category'            => fake()->randomElement(['Vegetables', 'Meat', 'Dairy', 'Dry Goods']),
-            'base_unit'           => 'g',
-            'purchase_unit'       => 'kg',
-            'purchase_price'      => fake()->randomFloat(2, 50, 500),
-            'units_per_purchase'  => null,
+            'name' => fake()->words(2, true),
+            'kind' => 'ingredient',
+            'category' => fake()->randomElement(['Vegetables', 'Meat', 'Dairy', 'Dry Goods']),
+            'base_unit' => 'g',
+            'purchase_unit' => 'kg',
+            'purchase_price' => fake()->randomFloat(2, 50, 500),
+            'units_per_purchase' => null,
             'default_supplier_id' => Supplier::factory(),
-            'is_active'           => true,
-            'notes'               => null,
+            'is_active' => true,
+            'notes' => null,
         ];
     }
 }

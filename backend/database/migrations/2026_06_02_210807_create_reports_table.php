@@ -12,14 +12,14 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('reports', function (Blueprint $table) {
-            
+
             $table->id();
             $table->foreignId('user_id')->references('id')->on('users');
             $table->string('title');
             $table->enum('type', [
                 'adime_individual', 'adime_aggregate', 'ncp_census', 'inventory', 'inventory_report',
                 'budget', 'budget_report', 'procurement', 'menu_cycle', 'menu_cycle_report',
-                'patient_menu_plan', 'inspection_report', 'marketing_statement', 'marketing_summary'
+                'patient_menu_plan', 'inspection_report', 'marketing_statement', 'marketing_summary',
             ]);
             $table->json('filters')->nullable();
             $table->json('parameters')->nullable();
@@ -28,7 +28,7 @@ return new class extends Migration
             $table->timestamp('generated_at')->nullable();
             $table->timestamp('expires_at')->nullable();
             $table->timestamps();
-        
+
         });
     }
 

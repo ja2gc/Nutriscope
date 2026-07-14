@@ -63,7 +63,6 @@ export interface AuditFilterMetadata {
 
 export interface AuditCapabilities {
   export: boolean;
-  temporary_ip_block: boolean;
 }
 
 export interface AuditRetentionState {

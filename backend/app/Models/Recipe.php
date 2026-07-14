@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasPublicId;
 use App\Support\UnitConverter;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -11,7 +12,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Recipe extends Model
 {
     use HasFactory;
-    use \App\Models\Concerns\HasPublicId;
+    use HasPublicId;
+
     protected $fillable = [
         'rnd_user_id', 'name', 'category', 'meal_types', 'prep_notes', 'cost',
         'total_calories', 'total_protein', 'total_carbs', 'total_fat', 'total_water_g',
@@ -20,13 +22,13 @@ class Recipe extends Model
 
     protected $casts = [
         'micronutrients' => 'array',
-        'meal_types'     => 'array',
-        'cost'           => 'decimal:2',
+        'meal_types' => 'array',
+        'cost' => 'decimal:2',
         'total_calories' => 'decimal:2',
-        'total_protein'  => 'decimal:2',
-        'total_carbs'    => 'decimal:2',
-        'total_fat'      => 'decimal:2',
-        'total_water_g'  => 'decimal:2',
+        'total_protein' => 'decimal:2',
+        'total_carbs' => 'decimal:2',
+        'total_fat' => 'decimal:2',
+        'total_water_g' => 'decimal:2',
     ];
 
     public function rnd(): BelongsTo
@@ -51,12 +53,12 @@ class Recipe extends Model
      */
     private function ingredientFactor(RecipeIngredient $ing, FoodItem $food): float
     {
-        $servingUnit    = $food->serving_unit ?: 'g';
+        $servingUnit = $food->serving_unit ?: 'g';
         $ingredientUnit = $ing->unit ?: $servingUnit;
-        $size           = (float) $food->serving_size ?: 100.0;
+        $size = (float) $food->serving_size ?: 100.0;
 
         $bothConvertible = UnitConverter::isKnown($ingredientUnit) && UnitConverter::isKnown($servingUnit);
-        $sameUnit        = UnitConverter::normalize($ingredientUnit) === UnitConverter::normalize($servingUnit);
+        $sameUnit = UnitConverter::normalize($ingredientUnit) === UnitConverter::normalize($servingUnit);
 
         if (! $bothConvertible || $sameUnit) {
             return (float) $ing->quantity / $size;
@@ -83,11 +85,15 @@ class Recipe extends Model
             $total = 0.0;
             foreach ($this->ingredients as $ing) {
                 $food = $ing->foodItem;
-                if (!$food) continue;
+                if (! $food) {
+                    continue;
+                }
                 $total += (float) ($food->water_g ?? 0) * $this->ingredientFactor($ing, $food);
             }
+
             return round($total, 2);
         }
+
         return (float) ($this->total_water_g ?? 0);
     }
 
@@ -100,15 +106,17 @@ class Recipe extends Model
         $micros = [];
 
         foreach ($this->ingredients()->with('foodItem')->get() as $ing) {
-            $food   = $ing->foodItem;
-            if (! $food) continue;
+            $food = $ing->foodItem;
+            if (! $food) {
+                continue;
+            }
             $factor = $this->ingredientFactor($ing, $food);
 
             $totals['calories'] += (float) $food->calories * $factor;
-            $totals['protein']  += (float) $food->protein  * $factor;
-            $totals['carbs']    += (float) $food->carbs    * $factor;
-            $totals['fat']      += (float) $food->fat      * $factor;
-            $totals['water']    += (float) ($food->water_g ?? 0) * $factor;
+            $totals['protein'] += (float) $food->protein * $factor;
+            $totals['carbs'] += (float) $food->carbs * $factor;
+            $totals['fat'] += (float) $food->fat * $factor;
+            $totals['water'] += (float) ($food->water_g ?? 0) * $factor;
 
             // Aggregate micronutrients weighted by ingredient proportion
             foreach ($food->micronutrients ?? [] as $key => $value) {
@@ -118,12 +126,11 @@ class Recipe extends Model
 
         $this->update([
             'total_calories' => round($totals['calories'], 2),
-            'total_protein'  => round($totals['protein'], 2),
-            'total_carbs'    => round($totals['carbs'], 2),
-            'total_fat'      => round($totals['fat'], 2),
-            'total_water_g'  => round($totals['water'], 2),
-            'micronutrients' => array_map(fn($v) => round($v, 3), $micros),
+            'total_protein' => round($totals['protein'], 2),
+            'total_carbs' => round($totals['carbs'], 2),
+            'total_fat' => round($totals['fat'], 2),
+            'total_water_g' => round($totals['water'], 2),
+            'micronutrients' => array_map(fn ($v) => round($v, 3), $micros),
         ]);
     }
 }
-

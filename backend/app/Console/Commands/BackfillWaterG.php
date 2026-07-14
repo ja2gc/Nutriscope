@@ -5,11 +5,13 @@ namespace App\Console\Commands;
 use App\Models\FoodItem;
 use App\Services\UsdaService;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 class BackfillWaterG extends Command
 {
-    protected $signature   = 'food:backfill-water {--dry-run : Show what would be updated without saving}';
+    protected $signature = 'food:backfill-water {--dry-run : Show what would be updated without saving}';
+
     protected $description = 'Backfill water_g on USDA food items and patch existing meal plan item snapshots.';
 
     public function handle(UsdaService $usda): int
@@ -23,12 +25,13 @@ class BackfillWaterG extends Command
         foreach ($missing as $food) {
             try {
                 // Bust cached response — it was stored before water_g extraction was added
-                \Illuminate\Support\Facades\Cache::forget("usda_food_{$food->usda_fdc_id}");
+                Cache::forget("usda_food_{$food->usda_fdc_id}");
                 $data = $usda->fetch((int) $food->usda_fdc_id);
                 $waterG = $data['water_g'] ?? null;
 
                 if ($waterG === null) {
                     $this->line("  – {$food->name}: no water data in USDA");
+
                     continue;
                 }
 
@@ -61,7 +64,9 @@ class BackfillWaterG extends Command
         $patched = 0;
         foreach ($rows as $row) {
             $snap = json_decode($row->nutrient_snapshot, true);
-            if (isset($snap['water_g'])) continue; // already has it
+            if (isset($snap['water_g'])) {
+                continue;
+            } // already has it
 
             $snap['water_g'] = (float) $row->water_g;
 
@@ -73,7 +78,7 @@ class BackfillWaterG extends Command
             $patched++;
         }
 
-        $this->info("  Patched {$patched} snapshots" . ($dry ? ' (dry run)' : '.'));
+        $this->info("  Patched {$patched} snapshots".($dry ? ' (dry run)' : '.'));
 
         return Command::SUCCESS;
     }

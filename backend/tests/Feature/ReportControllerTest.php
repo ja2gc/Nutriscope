@@ -68,7 +68,11 @@ class ReportControllerTest extends TestCase
 
     public function test_rnd_can_show_owned_report(): void
     {
-        $report = Report::factory()->create(['user_id' => $this->rnd->id, 'status' => 'completed']);
+        $report = Report::factory()->create([
+            'user_id' => $this->rnd->id,
+            'status' => 'completed',
+            'type' => 'procurement_pack',
+        ]);
 
         $this->actingAs($this->rnd, 'sanctum')
             ->getJson("/api/rnd/reports/{$report->uuid}")

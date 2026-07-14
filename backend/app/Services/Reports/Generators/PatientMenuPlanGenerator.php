@@ -13,15 +13,16 @@ use App\Services\Reports\Contracts\ReportGenerator;
 class PatientMenuPlanGenerator implements ReportGenerator
 {
     private const WEEK = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
     private const MEALS = ['Breakfast', 'AM Snack', 'Lunch', 'PM Snack', 'Dinner'];
 
     /** Raw meal_plan_days.meal_type → the display label used as the grid key. */
     private const MEAL_TYPE_LABELS = [
         'breakfast' => 'Breakfast',
-        'am_snack'  => 'AM Snack',
-        'lunch'     => 'Lunch',
-        'pm_snack'  => 'PM Snack',
-        'dinner'    => 'Dinner',
+        'am_snack' => 'AM Snack',
+        'lunch' => 'Lunch',
+        'pm_snack' => 'PM Snack',
+        'dinner' => 'Dinner',
     ];
 
     public function type(): string
@@ -73,9 +74,9 @@ class PatientMenuPlanGenerator implements ReportGenerator
                     ?? ($item->nutrient_snapshot['name'] ?? null);
                 if ($name && isset($grid[$label][$day->day_of_week])) {
                     $grid[$label][$day->day_of_week][] = [
-                        'name'     => $name,
+                        'name' => $name,
                         'quantity' => $item->quantity,
-                        'unit'     => $item->unit,
+                        'unit' => $item->unit,
                     ];
                 }
             }
@@ -89,15 +90,15 @@ class PatientMenuPlanGenerator implements ReportGenerator
                     $ings = [];
                     foreach ($item->recipe->ingredients as $ing) {
                         $ings[] = [
-                            'name'     => $ing->foodItem?->name ?? '—',
+                            'name' => $ing->foodItem?->name ?? '—',
                             'quantity' => $ing->quantity,
-                            'unit'     => $ing->unit,
+                            'unit' => $ing->unit,
                         ];
                     }
                     $recipeDetails[$item->recipe->id] = [
-                        'name'        => $item->recipe->name,
-                        'servings'    => $item->recipe->servings,
-                        'prep_notes'  => $item->recipe->prep_notes,
+                        'name' => $item->recipe->name,
+                        'servings' => $item->recipe->servings,
+                        'prep_notes' => $item->recipe->prep_notes,
                         'ingredients' => $ings,
                     ];
                 }
@@ -105,11 +106,11 @@ class PatientMenuPlanGenerator implements ReportGenerator
         }
 
         return [
-            'plan'           => $plan,
-            'patient'        => $plan->patient,
-            'meals'          => self::MEALS,
-            'days'           => self::WEEK,
-            'grid'           => $grid,
+            'plan' => $plan,
+            'patient' => $plan->patient,
+            'meals' => self::MEALS,
+            'days' => self::WEEK,
+            'grid' => $grid,
             'recipe_details' => array_values($recipeDetails),
         ];
     }

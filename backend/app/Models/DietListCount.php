@@ -27,16 +27,16 @@ class DietListCount extends Model
     ];
 
     protected $casts = [
-        'service_date'          => 'date',
-        'population'            => 'integer',
-        'helped_food_prep'      => 'bool',
-        'stored_supplies'       => 'bool',
-        'collected_diet_list'   => 'bool',
-        'apportioned_food'      => 'bool',
-        'cleaned_utensils'      => 'bool',
-        'assistant_cook'        => 'bool',
-        'maintained_cleanliness'=> 'bool',
-        'off_duty'              => 'bool',
+        'service_date' => 'date',
+        'population' => 'integer',
+        'helped_food_prep' => 'bool',
+        'stored_supplies' => 'bool',
+        'collected_diet_list' => 'bool',
+        'apportioned_food' => 'bool',
+        'cleaned_utensils' => 'bool',
+        'assistant_cook' => 'bool',
+        'maintained_cleanliness' => 'bool',
+        'off_duty' => 'bool',
     ];
 
     public function user(): BelongsTo

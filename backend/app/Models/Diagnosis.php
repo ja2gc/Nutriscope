@@ -2,18 +2,21 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\AuditsChanges;
+use App\Models\Concerns\HasPublicId;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Diagnosis extends Model
 {
+    use AuditsChanges;
     use HasFactory;
-    use \App\Models\Concerns\AuditsChanges;
-    use \App\Models\Concerns\HasPublicId;
+    use HasPublicId;
 
     /** Clinical — log field names only, redact PHI values (Spec 5 Decision A). */
     protected bool $auditRedactValues = true;
+
     protected $fillable = [
         'ncp_record_id', 'domain', 'problem', 'label', 'etiology',
         'signs_symptoms', 'pes_statement', 'extra_notes', 'ai_generated',

@@ -3,6 +3,7 @@
 namespace App\Services\Reports\Generators;
 
 use App\Models\Assessment;
+use App\Models\NcpRecord;
 use App\Models\Patient;
 use App\Models\Report;
 use App\Services\Reports\Contracts\ReportGenerator;
@@ -44,29 +45,29 @@ class DemographicCensusGenerator implements ReportGenerator
             throw new \InvalidArgumentException('Demographic census requires an explicit start/end period.');
         }
         $start = Carbon::parse($params['start']);
-        $end   = Carbon::parse($params['end']);
+        $end = Carbon::parse($params['end']);
 
         $patients = Patient::query()
             ->whereBetween('admission_date', [$start->toDateString(), $end->toDateString()])
             ->get()
             ->map(fn (Patient $p) => [
-                'age'                => $p->dob ? $p->dob->diffInYears($p->admission_date ?? now()) : null,
-                'sex'                => $p->sex,
-                'ward'               => $p->ward,
-                'diagnosis'          => $p->medical_diagnosis,
+                'age' => $p->dob ? $p->dob->diffInYears($p->admission_date ?? now()) : null,
+                'sex' => $p->sex,
+                'ward' => $p->ward,
+                'diagnosis' => $p->medical_diagnosis,
                 // nutritional_status from the patient's most-recent assessment.
                 'nutritional_status' => $this->latestNutritionalStatus($p->id),
                 // RP-05: risk level is the patient's latest computed NCP risk score,
                 // NOT the screening type (adult/pediatric), which is not a risk level.
-                'risk_level'         => $this->latestRiskLevel($p->id),
+                'risk_level' => $this->latestRiskLevel($p->id),
             ])->all();
 
         return [
-            'census'          => self::aggregate($patients),
+            'census' => self::aggregate($patients),
             'inclusive_start' => $start->toDateString(),
-            'inclusive_end'   => $end->toDateString(),
-            'inclusive_label' => $start->format('m/d/y') . ' - ' . $end->format('m/d/y'),
-            'age_groups'      => self::AGE_GROUPS,
+            'inclusive_end' => $end->toDateString(),
+            'inclusive_label' => $start->format('m/d/y').' - '.$end->format('m/d/y'),
+            'age_groups' => self::AGE_GROUPS,
         ];
     }
 
@@ -81,7 +82,7 @@ class DemographicCensusGenerator implements ReportGenerator
     /** Risk category from the patient's most-recent NCP risk score, or null. */
     private function latestRiskLevel(int $patientId): ?string
     {
-        $score = \App\Models\NcpRecord::where('patient_id', $patientId)
+        $score = NcpRecord::where('patient_id', $patientId)
             ->whereNotNull('risk_score')
             ->latest('id')
             ->value('risk_score');
@@ -98,10 +99,11 @@ class DemographicCensusGenerator implements ReportGenerator
         if ($score === null) {
             return null;
         }
+
         return match (true) {
             $score > 3.0 => 'High',
             $score >= 2.0 => 'Moderate',
-            default      => 'Low',
+            default => 'Low',
         };
     }
 
@@ -110,20 +112,21 @@ class DemographicCensusGenerator implements ReportGenerator
         if ($age === null) {
             return 'Unspecified';
         }
+
         return match (true) {
-            $age <= 4  => '0-4',
-            $age <= 9  => '5-9',
+            $age <= 4 => '0-4',
+            $age <= 9 => '5-9',
             $age <= 14 => '10-14',
             $age <= 18 => '15-18',
             $age <= 29 => '19-29',
             $age <= 39 => '30-39',
             $age <= 59 => '40-59',
-            default    => '60+',
+            default => '60+',
         };
     }
 
     /**
-     * @param  array<int,array{age:?int,sex:?string,ward:?string,diagnosis:?string,nutritional_status:?string,risk_level:?string}> $patients
+     * @param  array<int,array{age:?int,sex:?string,ward:?string,diagnosis:?string,nutritional_status:?string,risk_level:?string}>  $patients
      */
     public static function aggregate(array $patients): array
     {
@@ -157,22 +160,23 @@ class DemographicCensusGenerator implements ReportGenerator
         arsort($byRisk);
 
         return [
-            'total'         => count($patients),
-            'age_sex'       => $ageSex,
-            'by_sex'        => $bySex,
-            'by_ward'       => $byWard,
-            'by_diagnosis'  => $byDiagnosis,
-            'by_status'     => $byStatus,
-            'by_risk'       => $byRisk,
+            'total' => count($patients),
+            'age_sex' => $ageSex,
+            'by_sex' => $bySex,
+            'by_ward' => $byWard,
+            'by_diagnosis' => $byDiagnosis,
+            'by_status' => $byStatus,
+            'by_risk' => $byRisk,
         ];
     }
 
     private static function normalizeSex(?string $sex): string
     {
         $s = strtoupper(substr(trim((string) $sex), 0, 1));
+
         return match ($s) {
-            'M'     => 'M',
-            'F'     => 'F',
+            'M' => 'M',
+            'F' => 'F',
             default => 'Unknown',
         };
     }

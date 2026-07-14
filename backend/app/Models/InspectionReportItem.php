@@ -8,10 +8,10 @@ use Illuminate\Database\Eloquent\Model;
 class InspectionReportItem extends Model
 {
     use HasFactory;
-    
+
     protected $fillable = [
         'inspection_report_id', 'item_no', 'unit', 'description',
-        'quantity', 'food_item_id'
+        'quantity', 'food_item_id',
     ];
 
     protected $casts = [
@@ -27,6 +27,4 @@ class InspectionReportItem extends Model
     {
         return $this->belongsTo(FoodItem::class);
     }
-
 }
-

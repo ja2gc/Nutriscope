@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Budget;
+use App\Models\Report;
 use App\Models\ReportBranding;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -105,30 +106,30 @@ class AdminReportsTest extends TestCase
         $rnd = User::factory()->create(['role' => 'RND']);
 
         // Create reports of various types owned by admin
-        \App\Models\Report::factory()->create([
+        Report::factory()->create([
             'user_id' => $this->admin->id,
-            'type'    => 'demographic_census',
-            'status'  => 'archived',
+            'type' => 'demographic_census',
+            'status' => 'archived',
         ]);
-        \App\Models\Report::factory()->create([
+        Report::factory()->create([
             'user_id' => $this->admin->id,
-            'type'    => 'accomplishment_report',
-            'status'  => 'archived',
+            'type' => 'accomplishment_report',
+            'status' => 'archived',
         ]);
-        \App\Models\Report::factory()->create([
+        Report::factory()->create([
             'user_id' => $this->admin->id,
-            'type'    => 'ncp_summary',
-            'status'  => 'archived',
+            'type' => 'ncp_summary',
+            'status' => 'archived',
         ]);
-        \App\Models\Report::factory()->create([
+        Report::factory()->create([
             'user_id' => $this->admin->id,
-            'type'    => 'patient_menu_plan',
-            'status'  => 'archived',
+            'type' => 'patient_menu_plan',
+            'status' => 'archived',
         ]);
-        \App\Models\Report::factory()->create([
+        Report::factory()->create([
             'user_id' => $rnd->id,
-            'type'    => 'program_project_activity',
-            'status'  => 'archived',
+            'type' => 'program_project_activity',
+            'status' => 'archived',
         ]);
 
         $data = $this->actingAs($this->admin)

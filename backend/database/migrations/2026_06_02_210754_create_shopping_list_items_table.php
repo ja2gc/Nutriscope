@@ -12,7 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('shopping_list_items', function (Blueprint $table) {
-            
+
             $table->id();
             $table->foreignId('shopping_list_id')->constrained()->cascadeOnDelete();
             $table->foreignId('food_item_id')->nullable()->references('id')->on('food_items');
@@ -23,7 +23,7 @@ return new class extends Migration
             $table->decimal('unit_price', 10, 2)->nullable();
             $table->decimal('total', 10, 2)->nullable();
             $table->timestamps();
-        
+
         });
     }
 

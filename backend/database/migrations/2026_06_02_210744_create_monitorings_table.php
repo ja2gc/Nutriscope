@@ -12,7 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('monitorings', function (Blueprint $table) {
-            
+
             $table->id();
             $table->foreignId('ncp_record_id')->constrained()->cascadeOnDelete();
             $table->decimal('weight', 6, 2)->nullable();
@@ -25,7 +25,7 @@ return new class extends Migration
             $table->string('ai_decision')->nullable();
             $table->date('next_monitoring_date')->nullable();
             $table->timestamps();
-        
+
         });
     }
 

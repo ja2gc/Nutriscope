@@ -15,9 +15,9 @@ class MealPrepLogLine extends Model
     ];
 
     protected $casts = [
-        'qty_base'      => 'decimal:2',
-        'unit_cost'     => 'decimal:6',
-        'line_value'    => 'decimal:2',
+        'qty_base' => 'decimal:2',
+        'unit_cost' => 'decimal:6',
+        'line_value' => 'decimal:2',
         'shortfall_qty' => 'decimal:2',
     ];
 

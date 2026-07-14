@@ -32,17 +32,17 @@ class UuidRouteRegressionTest extends TestCase
     public function test_meal_plan_items_expose_day_and_recipe_uuids(): void
     {
         $rnd = User::factory()->rnd()->create();
-        $ncpRecord = NcpRecord::factory()->create();
+        $ncpRecord = NcpRecord::factory()->create(['rnd_user_id' => $rnd->id]);
         $intervention = Intervention::factory()->create(['ncp_record_id' => $ncpRecord->id]);
         $mealPlan = MealPlan::factory()->create([
             'intervention_id' => $intervention->id,
-            'patient_id'      => $ncpRecord->patient_id,
+            'patient_id' => $ncpRecord->patient_id,
         ]);
         $day = MealPlanDay::factory()->create(['meal_plan_id' => $mealPlan->id]);
         $recipe = Recipe::factory()->create();
         $item = MealPlanItem::factory()->create([
             'meal_plan_day_id' => $day->id,
-            'recipe_id'        => $recipe->id,
+            'recipe_id' => $recipe->id,
         ]);
 
         $response = $this->actingAs($rnd, 'sanctum')
@@ -67,16 +67,16 @@ class UuidRouteRegressionTest extends TestCase
     {
         $rnd = User::factory()->rnd()->create();
         $announcement = Announcement::create([
-            'user_id'    => $rnd->id,
-            'title'      => 'Cycle menu updated',
-            'body'       => 'Please review.',
+            'user_id' => $rnd->id,
+            'title' => 'Cycle menu updated',
+            'body' => 'Please review.',
             'visibility' => 'All',
         ]);
         Notification::factory()->create([
-            'user_id'       => $rnd->id,
-            'type'          => 'announcement',
+            'user_id' => $rnd->id,
+            'type' => 'announcement',
             'source_module' => 'announcements',
-            'source_id'     => $announcement->id,
+            'source_id' => $announcement->id,
         ]);
 
         $response = $this->actingAs($rnd, 'sanctum')->getJson('/api/notifications');

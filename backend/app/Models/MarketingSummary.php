@@ -8,10 +8,10 @@ use Illuminate\Database\Eloquent\Model;
 class MarketingSummary extends Model
 {
     use HasFactory;
-    
+
     protected $fillable = [
         'marketing_statement_id', 'date_purchased', 'inclusive_start',
-        'inclusive_end', 'total_amount', 'certified_by', 'certified_by_title'
+        'inclusive_end', 'total_amount', 'certified_by', 'certified_by_title',
     ];
 
     protected $casts = [
@@ -25,6 +25,4 @@ class MarketingSummary extends Model
     {
         return $this->belongsTo(MarketingStatement::class);
     }
-
 }
-

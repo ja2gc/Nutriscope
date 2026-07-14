@@ -14,8 +14,8 @@ class AiSuggestDiagnosisRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'conditions'     => ['required', 'array', 'min:1'],
-            'conditions.*'   => ['required', 'string'],
+            'conditions' => ['required', 'array', 'min:1'],
+            'conditions.*' => ['required', 'string'],
             'ibw_percentage' => ['nullable', 'numeric'],
         ];
     }

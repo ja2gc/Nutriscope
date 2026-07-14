@@ -20,7 +20,7 @@ class RiskScoreCalculatorTest extends TestCase
     {
         $rnd = User::forceCreate([
             'name' => 'RND User',
-            'email' => 'rnd' . uniqid() . '@example.com',
+            'email' => 'rnd'.uniqid().'@example.com',
             'password' => Hash::make('password'),
             'role' => 'RND',
             'is_active' => true,
@@ -45,7 +45,7 @@ class RiskScoreCalculatorTest extends TestCase
             'ncp_record_id' => $ncp->id,
         ], $assessmentAttributes));
 
-        if (!empty($biochemicalAttributes)) {
+        if (! empty($biochemicalAttributes)) {
             BiochemicalData::forceCreate(array_merge([
                 'assessment_id' => $assessment->id,
             ], $biochemicalAttributes));

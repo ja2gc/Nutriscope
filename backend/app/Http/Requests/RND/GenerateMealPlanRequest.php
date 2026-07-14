@@ -15,10 +15,10 @@ class GenerateMealPlanRequest extends FormRequest
     {
         return [
             'week_start_date' => ['required', 'date'],
-            'conditions'      => ['nullable', 'array'],
-            'conditions.*'    => ['nullable', 'string'],
-            'allergens'       => ['nullable', 'array'],
-            'allergens.*'     => ['nullable', 'string'],
+            'conditions' => ['nullable', 'array'],
+            'conditions.*' => ['nullable', 'string'],
+            'allergens' => ['nullable', 'array'],
+            'allergens.*' => ['nullable', 'string'],
         ];
     }
 }

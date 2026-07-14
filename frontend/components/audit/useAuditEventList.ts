@@ -21,7 +21,7 @@ const emptyMeta: AuditLogListMeta = {
     severities: [],
     category_actions: {} as Record<AuditCategory, string[]>,
   },
-  capabilities: { export: false, temporary_ip_block: false },
+  capabilities: { export: false },
   retention: {
     enabled: false,
     source: "config",

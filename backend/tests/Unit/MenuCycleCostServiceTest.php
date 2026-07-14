@@ -19,7 +19,7 @@ class MenuCycleCostServiceTest extends TestCase
     private function riceRecipe(): array
     {
         return [
-            'servings'    => 50,
+            'servings' => 50,
             'ingredients' => [
                 ['fs_item_id' => 1, 'name' => 'Rice', 'quantity' => 5000, 'unit' => 'g', 'base_unit' => 'g', 'unit_cost' => 0.052],
             ],
@@ -71,7 +71,7 @@ class MenuCycleCostServiceTest extends TestCase
     {
         $out = MenuCycleCostService::aggregate([
             ['day_of_week' => 'Monday', 'meal_type' => 'lunch', 'servings_override' => null, 'recipe' => [
-                'servings'    => 50,
+                'servings' => 50,
                 'ingredients' => [
                     // entered as 5 kg but costed per gram → 5000 g × ₱0.052
                     ['fs_item_id' => 1, 'name' => 'Rice', 'quantity' => 5, 'unit' => 'kg', 'base_unit' => 'g', 'unit_cost' => 0.052],

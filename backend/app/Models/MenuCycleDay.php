@@ -19,15 +19,15 @@ class MenuCycleDay extends Model
     ];
 
     protected $casts = [
-        'quantity'            => 'decimal:2',
-        'servings_override'   => 'integer',
+        'quantity' => 'decimal:2',
+        'servings_override' => 'integer',
         'estimate_population' => 'integer',
         'estimate_population_updated_at' => 'datetime',
-        'is_event'            => 'boolean',
-        'event_allocation'    => 'decimal:2',
-        'po_snapshot'         => 'array',
-        'po_snapshot_at'      => 'datetime',
-        'po_snapshot_locked'  => 'boolean',
+        'is_event' => 'boolean',
+        'event_allocation' => 'decimal:2',
+        'po_snapshot' => 'array',
+        'po_snapshot_at' => 'datetime',
+        'po_snapshot_locked' => 'boolean',
     ];
 
     public function snapshotPurchaseOrder(): BelongsTo

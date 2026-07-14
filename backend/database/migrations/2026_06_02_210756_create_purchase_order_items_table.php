@@ -12,7 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('purchase_order_items', function (Blueprint $table) {
-            
+
             $table->id();
             $table->foreignId('purchase_order_id')->constrained()->cascadeOnDelete();
             $table->foreignId('food_item_id')->nullable()->references('id')->on('food_items');
@@ -22,7 +22,7 @@ return new class extends Migration
             $table->decimal('unit_price', 10, 2);
             $table->decimal('total_value', 10, 2);
             $table->timestamps();
-        
+
         });
     }
 

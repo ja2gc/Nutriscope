@@ -39,8 +39,6 @@ return [
                 AuditAction::AuditLogViewed->value,
                 AuditAction::AccountBlocked->value,
                 AuditAction::AccountUnblocked->value,
-                AuditAction::IpBlocked->value,
-                AuditAction::IpUnblocked->value,
             ],
             AuditCategory::Clinical->value => [
                 AuditAction::Created->value,
@@ -116,7 +114,6 @@ return [
     'features' => [
         'retention' => env('AUDIT_RETENTION_ENABLED', false),
         'export' => env('AUDIT_EXPORT_ENABLED', false),
-        'ip_blocking' => env('AUDIT_SECURITY_BLOCKS_ENABLED', false),
     ],
     'export' => [
         'max_rows' => 50_000,

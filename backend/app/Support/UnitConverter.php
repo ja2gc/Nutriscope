@@ -53,7 +53,8 @@ class UnitConverter
     /**
      * Convert `qty` of `from` unit into the equivalent amount expressed in `to` unit.
      *
-     * @param  float $density grams per millilitre, used only for mass↔volume crossings.
+     * @param  float  $density  grams per millilitre, used only for mass↔volume crossings.
+     *
      * @throws InvalidArgumentException on an unrecognised unit.
      */
     public static function convert(float $qty, string $from, string $to, float $density = 1.0): float
@@ -86,6 +87,7 @@ class UnitConverter
         if (! $fMass && $tMass) { // volume → mass: ml * density = g
             return ($qty * self::VOLUME_TO_ML[$f] * $density) / self::MASS_TO_G[$t];
         }
+
         // mass → volume: g / density = ml
         return ($qty * self::MASS_TO_G[$f] / $density) / self::VOLUME_TO_ML[$t];
     }
@@ -104,6 +106,7 @@ class UnitConverter
         float $density = 1.0
     ): float {
         $size = $servingSize > 0 ? $servingSize : 100.0;
+
         return self::convert($quantity, $ingredientUnit, $servingUnit, $density) / $size;
     }
 }

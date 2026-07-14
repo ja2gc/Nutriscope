@@ -40,7 +40,7 @@ class ProcurementPackGenerator implements ReportGenerator
         $params = $report->parameters ?? [];
 
         $orders = $this->resolveOrders($params);
-        $packs  = $orders
+        $packs = $orders
             ->flatMap(fn (PurchaseOrder $po) => $po->vendorGroups->isNotEmpty()
                 ? $po->vendorGroups->map(fn (PurchaseOrderVendorGroup $group) => $this->buildPack($po, $group))
                 : collect([$this->buildPack($po)]))
@@ -50,12 +50,12 @@ class ProcurementPackGenerator implements ReportGenerator
         $preparedBy = $params['prepared_by_name'] ?? null;
 
         return [
-            'packs'                => $packs,
-            'period_label'         => $this->periodLabel($orders),
+            'packs' => $packs,
+            'period_label' => $this->periodLabel($orders),
             // Each bundled form carries its own signatory block (§2.7).
-            'air_signatories'       => $this->sigsFor('inspection_report', $preparedBy),
+            'air_signatories' => $this->sigsFor('inspection_report', $preparedBy),
             'statement_signatories' => $this->sigsFor('marketing_statement', $preparedBy),
-            'summary_signatories'   => $this->sigsFor('marketing_summary', $preparedBy),
+            'summary_signatories' => $this->sigsFor('marketing_summary', $preparedBy),
         ];
     }
 
@@ -73,6 +73,7 @@ class ProcurementPackGenerator implements ReportGenerator
             if ($preparedBy && in_array($sig['role'] ?? '', ['prepared_by', 'buyer', 'conforme', 'certified_correct'], true)) {
                 $sig['name'] = $preparedBy;
             }
+
             return $sig;
         }, $sigs);
     }
@@ -104,7 +105,7 @@ class ProcurementPackGenerator implements ReportGenerator
         }
 
         $start = Carbon::parse($params['start']);
-        $end   = Carbon::parse($params['end']);
+        $end = Carbon::parse($params['end']);
 
         return $query->where('status', 'received')
             ->whereBetween('order_date', [$start->toDateString(), $end->toDateString()])
@@ -117,46 +118,46 @@ class ProcurementPackGenerator implements ReportGenerator
         // Vendor docs show whole purchase units (kg/sacks), not base grams (Spec 6 #4).
         // total_value unchanged: purchase_qty × purchase_price == qty × unit_price.
         $airItems = $items->values()->map(fn ($it, $i) => [
-            'item_no'     => $i + 1,
-            'unit'        => $it->purchase_unit ?? $it->unit,
+            'item_no' => $i + 1,
+            'unit' => $it->purchase_unit ?? $it->unit,
             'description' => $it->description ?? $it->fsItem?->name,
-            'quantity'    => $it->purchase_qty ?? $it->qty,
+            'quantity' => $it->purchase_qty ?? $it->qty,
         ])->all();
 
         $statementItems = $items->map(fn ($it) => [
-            'qty'         => $it->purchase_qty ?? $it->qty,
-            'unit'        => $it->purchase_unit ?? $it->unit,
-            'item'        => $it->description ?? $it->fsItem?->name,
-            'unit_price'  => $it->purchase_price ?? $it->unit_price,
+            'qty' => $it->purchase_qty ?? $it->qty,
+            'unit' => $it->purchase_unit ?? $it->unit,
+            'item' => $it->description ?? $it->fsItem?->name,
+            'unit_price' => $it->purchase_price ?? $it->unit_price,
             'total_value' => $it->total_value,
         ])->all();
 
         $grandTotal = (float) $items->sum('total_value');
-        $date       = optional($po->order_date)->format('F j, Y') ?? '';
-        $inclusive  = $po->shoppingList?->period_start && $po->shoppingList?->period_end
-            ? $po->shoppingList->period_start->format('m/d/y') . '-' . $po->shoppingList->period_end->format('m/d/y')
+        $date = optional($po->order_date)->format('F j, Y') ?? '';
+        $inclusive = $po->shoppingList?->period_start && $po->shoppingList?->period_end
+            ? $po->shoppingList->period_start->format('m/d/y').'-'.$po->shoppingList->period_end->format('m/d/y')
             : $date;
         $attachments = $group ? $group->attachments : $po->attachments;
 
         return [
-            'po'              => $po,
-            'vendor_group'    => $group,
-            'supplier'        => $group?->supplier ?? $po->supplier,
-            'or_number'       => $group?->or_number ?? $po->or_number,
-            'air_items'       => $airItems,
+            'po' => $po,
+            'vendor_group' => $group,
+            'supplier' => $group?->supplier ?? $po->supplier,
+            'or_number' => $group?->or_number ?? $po->or_number,
+            'air_items' => $airItems,
             'statement_items' => $statementItems,
-            'grand_total'     => round($grandTotal, 2),
-            'order_date'      => $date,
+            'grand_total' => round($grandTotal, 2),
+            'order_date' => $date,
             // Uploaded receipt / proof-of-purchase photos, embedded as an appendix.
-            'attachments'     => $attachments->map(fn ($a) => [
-                'type'    => $a->type,
+            'attachments' => $attachments->map(fn ($a) => [
+                'type' => $a->type,
                 'caption' => $a->caption,
-                'src'     => storage_path('app/public/' . $a->path),
+                'src' => storage_path('app/public/'.$a->path),
             ])->values()->all(),
-            'summary'         => [
+            'summary' => [
                 'date_purchased' => $date,
-                'inclusive'      => $inclusive,
-                'amount'         => round($grandTotal, 2),
+                'inclusive' => $inclusive,
+                'amount' => round($grandTotal, 2),
             ],
         ];
     }
@@ -170,6 +171,7 @@ class ProcurementPackGenerator implements ReportGenerator
         if ($dates->isEmpty()) {
             return '';
         }
-        return Carbon::parse($dates->min())->format('m/d/y') . '-' . Carbon::parse($dates->max())->format('m/d/y');
+
+        return Carbon::parse($dates->min())->format('m/d/y').'-'.Carbon::parse($dates->max())->format('m/d/y');
     }
 }

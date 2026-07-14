@@ -2,8 +2,11 @@
 
 namespace Tests\Feature;
 
-use App\Models\AiUsageLog;
+use App\Exceptions\TokenLimitExceededException;
 use App\Models\AiUsageLimit;
+use App\Models\AiUsageLog;
+use App\Models\NcpRecord;
+use App\Models\Patient;
 use App\Models\User;
 use App\Services\AIService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -16,7 +19,9 @@ class AiUsageLimitTest extends TestCase
     use RefreshDatabase;
 
     private User $admin;
+
     private User $rnd;
+
     private User $fss;
 
     protected function setUp(): void
@@ -24,15 +29,15 @@ class AiUsageLimitTest extends TestCase
         parent::setUp();
 
         $this->admin = User::factory()->create([
-            'role'     => 'Admin',
+            'role' => 'Admin',
             'password' => Hash::make('password'),
         ]);
         $this->rnd = User::factory()->create([
-            'role'     => 'RND',
+            'role' => 'RND',
             'password' => Hash::make('password'),
         ]);
         $this->fss = User::factory()->create([
-            'role'     => 'FSS',
+            'role' => 'FSS',
             'password' => Hash::make('password'),
         ]);
 
@@ -71,33 +76,33 @@ class AiUsageLimitTest extends TestCase
     {
         // Seed today + this month usage
         AiUsageLog::create([
-            'user_id'       => $this->rnd->id,
-            'model'         => 'claude-haiku-4-5-20251001',
-            'tokens_input'  => 100,
+            'user_id' => $this->rnd->id,
+            'model' => 'claude-haiku-4-5-20251001',
+            'tokens_input' => 100,
             'tokens_output' => 50,
-            'tokens_total'  => 150,
-            'endpoint'      => 'diagnosis_suggestion',
-            'created_at'    => now(),
+            'tokens_total' => 150,
+            'endpoint' => 'diagnosis_suggestion',
+            'created_at' => now(),
         ]);
         AiUsageLog::create([
-            'user_id'       => $this->rnd->id,
-            'model'         => 'claude-haiku-4-5-20251001',
-            'tokens_input'  => 200,
+            'user_id' => $this->rnd->id,
+            'model' => 'claude-haiku-4-5-20251001',
+            'tokens_input' => 200,
             'tokens_output' => 100,
-            'tokens_total'  => 300,
-            'endpoint'      => 'monitoring_narrative',
-            'created_at'    => now(),
+            'tokens_total' => 300,
+            'endpoint' => 'monitoring_narrative',
+            'created_at' => now(),
         ]);
         // Old log from last month — should NOT count in daily or monthly
         AiUsageLog::forceCreate([
-            'user_id'       => $this->rnd->id,
-            'model'         => 'claude-haiku-4-5-20251001',
-            'tokens_input'  => 999,
+            'user_id' => $this->rnd->id,
+            'model' => 'claude-haiku-4-5-20251001',
+            'tokens_input' => 999,
             'tokens_output' => 999,
-            'tokens_total'  => 1998,
-            'endpoint'      => 'diagnosis_suggestion',
-            'created_at'    => now()->subMonth(),
-            'updated_at'    => now()->subMonth(),
+            'tokens_total' => 1998,
+            'endpoint' => 'diagnosis_suggestion',
+            'created_at' => now()->subMonth(),
+            'updated_at' => now()->subMonth(),
         ]);
 
         $response = $this->actingAs($this->admin, 'sanctum')
@@ -132,7 +137,7 @@ class AiUsageLimitTest extends TestCase
     {
         $response = $this->actingAs($this->admin, 'sanctum')
             ->putJson('/api/admin/ai-usage-limits', [
-                'daily_token_limit'   => 10000,
+                'daily_token_limit' => 10000,
                 'monthly_token_limit' => 200000,
                 'cost_per_1m_tokens_usd' => 2.50,
             ]);
@@ -143,7 +148,7 @@ class AiUsageLimitTest extends TestCase
             ->assertJsonPath('data.cost_per_1m_tokens_usd', 2.50);
 
         $this->assertDatabaseHas('ai_usage_limits', [
-            'daily_token_limit'   => 10000,
+            'daily_token_limit' => 10000,
             'monthly_token_limit' => 200000,
             'cost_per_1m_tokens_usd' => 2.50,
         ]);
@@ -152,13 +157,13 @@ class AiUsageLimitTest extends TestCase
     public function test_admin_can_clear_limits_by_sending_null(): void
     {
         AiUsageLimit::current()->update([
-            'daily_token_limit'   => 5000,
+            'daily_token_limit' => 5000,
             'monthly_token_limit' => 100000,
         ]);
 
         $response = $this->actingAs($this->admin, 'sanctum')
             ->putJson('/api/admin/ai-usage-limits', [
-                'daily_token_limit'   => null,
+                'daily_token_limit' => null,
                 'monthly_token_limit' => null,
             ]);
 
@@ -221,7 +226,7 @@ class AiUsageLimitTest extends TestCase
         Http::fake([
             'api.anthropic.com/*' => Http::response([
                 'content' => [['type' => 'text', 'text' => json_encode(['suggestions' => []])]],
-                'usage'   => ['input_tokens' => 10, 'output_tokens' => 5],
+                'usage' => ['input_tokens' => 10, 'output_tokens' => 5],
             ], 200),
         ]);
 
@@ -243,18 +248,18 @@ class AiUsageLimitTest extends TestCase
 
         // Seed today's usage at the cap
         AiUsageLog::create([
-            'user_id'       => $this->rnd->id,
-            'model'         => 'claude-haiku-4-5-20251001',
-            'tokens_input'  => 60,
+            'user_id' => $this->rnd->id,
+            'model' => 'claude-haiku-4-5-20251001',
+            'tokens_input' => 60,
             'tokens_output' => 40,
-            'tokens_total'  => 100,
-            'endpoint'      => 'diagnosis_suggestion',
-            'created_at'    => now(),
+            'tokens_total' => 100,
+            'endpoint' => 'diagnosis_suggestion',
+            'created_at' => now(),
         ]);
 
         Http::fake(); // Should NOT be called
 
-        $this->expectException(\App\Exceptions\TokenLimitExceededException::class);
+        $this->expectException(TokenLimitExceededException::class);
 
         app(AIService::class)->suggestDiagnoses(['conditions' => ['DM']]);
     }
@@ -264,13 +269,13 @@ class AiUsageLimitTest extends TestCase
         AiUsageLimit::current()->update(['daily_token_limit' => 50]);
 
         AiUsageLog::create([
-            'user_id'       => $this->rnd->id,
-            'model'         => 'claude-haiku-4-5-20251001',
-            'tokens_input'  => 30,
+            'user_id' => $this->rnd->id,
+            'model' => 'claude-haiku-4-5-20251001',
+            'tokens_input' => 30,
             'tokens_output' => 20,
-            'tokens_total'  => 50,
-            'endpoint'      => 'diagnosis_suggestion',
-            'created_at'    => now(),
+            'tokens_total' => 50,
+            'endpoint' => 'diagnosis_suggestion',
+            'created_at' => now(),
         ]);
 
         $countBefore = AiUsageLog::count();
@@ -279,7 +284,7 @@ class AiUsageLimitTest extends TestCase
 
         try {
             app(AIService::class)->suggestDiagnoses(['conditions' => ['DM']]);
-        } catch (\App\Exceptions\TokenLimitExceededException $e) {
+        } catch (TokenLimitExceededException $e) {
             // expected
         }
 
@@ -291,21 +296,21 @@ class AiUsageLimitTest extends TestCase
         AiUsageLimit::current()->update(['daily_token_limit' => 100]);
 
         AiUsageLog::create([
-            'user_id'       => $this->rnd->id,
-            'model'         => 'claude-haiku-4-5-20251001',
-            'tokens_input'  => 60,
+            'user_id' => $this->rnd->id,
+            'model' => 'claude-haiku-4-5-20251001',
+            'tokens_input' => 60,
             'tokens_output' => 40,
-            'tokens_total'  => 100,
-            'endpoint'      => 'diagnosis_suggestion',
-            'created_at'    => now(),
+            'tokens_total' => 100,
+            'endpoint' => 'diagnosis_suggestion',
+            'created_at' => now(),
         ]);
 
         Http::fake();
 
         // Hit the HTTP layer via the RND route to confirm 429 is rendered
-        $patient   = \App\Models\Patient::factory()->create();
-        $ncpRecord = \App\Models\NcpRecord::factory()->create([
-            'patient_id'  => $patient->id,
+        $patient = Patient::factory()->create();
+        $ncpRecord = NcpRecord::factory()->create([
+            'patient_id' => $patient->id,
             'rnd_user_id' => $this->rnd->id,
         ]);
 
@@ -329,19 +334,19 @@ class AiUsageLimitTest extends TestCase
 
         // Month-to-date usage at cap (all this month, none today)
         AiUsageLog::forceCreate([
-            'user_id'       => $this->rnd->id,
-            'model'         => 'claude-haiku-4-5-20251001',
-            'tokens_input'  => 120,
+            'user_id' => $this->rnd->id,
+            'model' => 'claude-haiku-4-5-20251001',
+            'tokens_input' => 120,
             'tokens_output' => 80,
-            'tokens_total'  => 200,
-            'endpoint'      => 'diagnosis_suggestion',
-            'created_at'    => now()->startOfMonth()->addDays(1),
-            'updated_at'    => now()->startOfMonth()->addDays(1),
+            'tokens_total' => 200,
+            'endpoint' => 'diagnosis_suggestion',
+            'created_at' => now()->startOfMonth()->addDays(1),
+            'updated_at' => now()->startOfMonth()->addDays(1),
         ]);
 
         Http::fake();
 
-        $this->expectException(\App\Exceptions\TokenLimitExceededException::class);
+        $this->expectException(TokenLimitExceededException::class);
 
         app(AIService::class)->suggestDiagnoses(['conditions' => ['DM']]);
     }
@@ -351,14 +356,14 @@ class AiUsageLimitTest extends TestCase
         AiUsageLimit::current()->update(['monthly_token_limit' => 200]);
 
         AiUsageLog::forceCreate([
-            'user_id'       => $this->rnd->id,
-            'model'         => 'claude-haiku-4-5-20251001',
-            'tokens_input'  => 120,
+            'user_id' => $this->rnd->id,
+            'model' => 'claude-haiku-4-5-20251001',
+            'tokens_input' => 120,
             'tokens_output' => 80,
-            'tokens_total'  => 200,
-            'endpoint'      => 'diagnosis_suggestion',
-            'created_at'    => now()->startOfMonth()->addDays(1),
-            'updated_at'    => now()->startOfMonth()->addDays(1),
+            'tokens_total' => 200,
+            'endpoint' => 'diagnosis_suggestion',
+            'created_at' => now()->startOfMonth()->addDays(1),
+            'updated_at' => now()->startOfMonth()->addDays(1),
         ]);
 
         Http::fake();
@@ -366,7 +371,7 @@ class AiUsageLimitTest extends TestCase
         try {
             app(AIService::class)->suggestDiagnoses(['conditions' => ['DM']]);
             $this->fail('Expected TokenLimitExceededException');
-        } catch (\App\Exceptions\TokenLimitExceededException $e) {
+        } catch (TokenLimitExceededException $e) {
             $this->assertStringContainsStringIgnoringCase('monthly', $e->getMessage());
         }
     }
@@ -381,19 +386,19 @@ class AiUsageLimitTest extends TestCase
 
         // Seed 50 tokens used today — well under cap
         AiUsageLog::create([
-            'user_id'       => $this->rnd->id,
-            'model'         => 'claude-haiku-4-5-20251001',
-            'tokens_input'  => 30,
+            'user_id' => $this->rnd->id,
+            'model' => 'claude-haiku-4-5-20251001',
+            'tokens_input' => 30,
             'tokens_output' => 20,
-            'tokens_total'  => 50,
-            'endpoint'      => 'diagnosis_suggestion',
-            'created_at'    => now(),
+            'tokens_total' => 50,
+            'endpoint' => 'diagnosis_suggestion',
+            'created_at' => now(),
         ]);
 
         Http::fake([
             'api.anthropic.com/*' => Http::response([
                 'content' => [['type' => 'text', 'text' => json_encode(['suggestions' => []])]],
-                'usage'   => ['input_tokens' => 10, 'output_tokens' => 5],
+                'usage' => ['input_tokens' => 10, 'output_tokens' => 5],
             ], 200),
         ]);
 
@@ -410,20 +415,20 @@ class AiUsageLimitTest extends TestCase
 
         // 100 tokens used this month
         AiUsageLog::forceCreate([
-            'user_id'       => $this->rnd->id,
-            'model'         => 'claude-haiku-4-5-20251001',
-            'tokens_input'  => 60,
+            'user_id' => $this->rnd->id,
+            'model' => 'claude-haiku-4-5-20251001',
+            'tokens_input' => 60,
             'tokens_output' => 40,
-            'tokens_total'  => 100,
-            'endpoint'      => 'diagnosis_suggestion',
-            'created_at'    => now()->startOfMonth()->addDays(2),
-            'updated_at'    => now()->startOfMonth()->addDays(2),
+            'tokens_total' => 100,
+            'endpoint' => 'diagnosis_suggestion',
+            'created_at' => now()->startOfMonth()->addDays(2),
+            'updated_at' => now()->startOfMonth()->addDays(2),
         ]);
 
         Http::fake([
             'api.anthropic.com/*' => Http::response([
                 'content' => [['type' => 'text', 'text' => json_encode(['suggestions' => []])]],
-                'usage'   => ['input_tokens' => 10, 'output_tokens' => 5],
+                'usage' => ['input_tokens' => 10, 'output_tokens' => 5],
             ], 200),
         ]);
 

@@ -107,14 +107,14 @@ class FsCatalogSeeder extends Seeder
         // Single unit + cost per unit: purchase_unit == base_unit, 1 per purchase, so the
         // model's unit_cost accessor returns the entered cost directly.
         return array_map(fn ($r) => [
-            'name'               => $r[0],
-            'kind'               => $r[1],
-            'category'           => $r[2],
-            'base_unit'          => $r[3],
-            'purchase_unit'      => $r[3],
-            'purchase_price'     => $r[4],
+            'name' => $r[0],
+            'kind' => $r[1],
+            'category' => $r[2],
+            'base_unit' => $r[3],
+            'purchase_unit' => $r[3],
+            'purchase_price' => $r[4],
             'units_per_purchase' => 1,
-            'is_active'          => true,
+            'is_active' => true,
         ], $rows);
     }
 }

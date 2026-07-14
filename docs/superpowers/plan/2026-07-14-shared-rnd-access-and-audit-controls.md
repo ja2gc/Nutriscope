@@ -87,12 +87,12 @@
 - Modify: `docs/architecture/audit-logging.md`
 - Modify: `docs/audit-logs-and-trails-implementation-report.md`
 
-- [ ] Add a failing repository contract test proving no IP-block model, migration, controller, middleware, route, capability, environment flag, or UI command remains.
-- [ ] Remove only `IpBlocked`, `IpUnblocked`, and `AUDIT_SECURITY_BLOCKS_ENABLED` scaffolding while preserving ordinary rate-limit telemetry and the unrelated `AccountBlocked`/`AccountUnblocked` administration events.
-- [ ] Document temporary IP blocking only as considered future work requiring a separate approved design.
-- [ ] Run security audit, API contract, route coverage, frontend tests, typecheck, lint, and stale scans.
-- [ ] Perform spec-compliance and code-quality reviews; fix and re-review until approved.
-- [ ] Commit with `refactor: remove IP-blocking scaffolding`.
+- [x] Add a failing repository contract test proving no IP-block model, migration, controller, middleware, route, capability, environment flag, or UI command remains.
+- [x] Remove only `IpBlocked`, `IpUnblocked`, and `AUDIT_SECURITY_BLOCKS_ENABLED` scaffolding while preserving ordinary rate-limit telemetry and the unrelated `AccountBlocked`/`AccountUnblocked` administration events.
+- [x] Document temporary IP blocking only as considered future work requiring a separate approved design.
+- [x] Run security audit, API contract, route coverage, frontend tests, typecheck, lint, and stale scans.
+- [x] Perform spec-compliance and code-quality reviews; fix and re-review until approved.
+- [x] Commit with `refactor: remove IP-blocking scaffolding`.
 
 ### Task 4: Final Integration, Report, and Push
 

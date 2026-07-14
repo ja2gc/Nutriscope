@@ -47,7 +47,7 @@ class FoodShoppingListGenerationTest extends TestCase
         $response = $this->actingAs($this->rnd)
             ->postJson('/api/fss/shopping-lists/generate', [
                 'start_date' => '2026-06-15',
-                'end_date'   => '2026-06-16',
+                'end_date' => '2026-06-16',
             ]);
 
         $response->assertStatus(422)
@@ -78,7 +78,7 @@ class FoodShoppingListGenerationTest extends TestCase
         $this->actingAs($this->rnd)
             ->postJson('/api/fss/shopping-lists/generate', [
                 'start_date' => '2026-06-15',
-                'end_date'   => '2026-06-15',
+                'end_date' => '2026-06-15',
             ])
             ->assertCreated()
             ->assertJsonPath('data.procurement_track', 'food')

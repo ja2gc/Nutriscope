@@ -4,32 +4,35 @@ namespace App\Http\Requests\FSS;
 
 use App\Models\FoodServiceRecipe;
 use App\Models\FsItem;
-use Illuminate\Support\Carbon;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Carbon;
 use Illuminate\Validation\Validator;
 
 class StoreMenuCycleRequest extends FormRequest
 {
-    public function authorize(): bool { return true; }
+    public function authorize(): bool
+    {
+        return true;
+    }
 
     public function rules(): array
     {
         return [
-            'name'                    => ['required', 'string', 'max:255'],
-            'cycle_days'              => ['nullable', 'integer', 'in:7'],
-            'week_start_date'         => ['nullable', 'date'],
-            'is_active'               => ['nullable', 'boolean'],
+            'name' => ['required', 'string', 'max:255'],
+            'cycle_days' => ['nullable', 'integer', 'in:7'],
+            'week_start_date' => ['nullable', 'date'],
+            'is_active' => ['nullable', 'boolean'],
 
-            'days'                       => ['nullable', 'array'],
-            'days.*.day_of_week'         => ['required_with:days', 'in:Monday,Tuesday,Wednesday,Thursday,Friday,Saturday,Sunday'],
-            'days.*.meal_type'           => ['required_with:days', 'in:breakfast,am_snack,lunch,pm_snack,dinner'],
-            'days.*.recipe_id'           => ['nullable', 'string', 'exists:food_service_recipes,uuid'],
-            'days.*.fs_item_id'          => ['nullable', 'string', 'exists:fs_items,uuid'],
-            'days.*.quantity'            => ['nullable', 'numeric', 'min:0'],
-            'days.*.servings_override'   => ['nullable', 'integer', 'min:1'],
+            'days' => ['nullable', 'array'],
+            'days.*.day_of_week' => ['required_with:days', 'in:Monday,Tuesday,Wednesday,Thursday,Friday,Saturday,Sunday'],
+            'days.*.meal_type' => ['required_with:days', 'in:breakfast,am_snack,lunch,pm_snack,dinner'],
+            'days.*.recipe_id' => ['nullable', 'string', 'exists:food_service_recipes,uuid'],
+            'days.*.fs_item_id' => ['nullable', 'string', 'exists:fs_items,uuid'],
+            'days.*.quantity' => ['nullable', 'numeric', 'min:0'],
+            'days.*.servings_override' => ['nullable', 'integer', 'min:1'],
             'days.*.estimate_population' => ['nullable', 'integer', 'min:0'],
-            'days.*.is_event'            => ['nullable', 'boolean'],
-            'days.*.event_allocation'    => ['nullable', 'numeric', 'min:0'],
+            'days.*.is_event' => ['nullable', 'boolean'],
+            'days.*.event_allocation' => ['nullable', 'numeric', 'min:0'],
         ];
     }
 
@@ -62,6 +65,7 @@ class StoreMenuCycleRequest extends FormRequest
                 if (! empty($d['fs_item_id'])) {
                     $d['fs_item_id'] = FsItem::idFromUuid($d['fs_item_id']);
                 }
+
                 return $d;
             })->all();
             $this->merge(['days' => $days]);
@@ -74,6 +78,7 @@ class StoreMenuCycleRequest extends FormRequest
         if (is_array($data) && array_key_exists('days', $data)) {
             $data['days'] = $this->input('days');
         }
+
         return $data;
     }
 }

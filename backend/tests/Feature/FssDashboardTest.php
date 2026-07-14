@@ -131,13 +131,13 @@ class FssDashboardTest extends TestCase
 
         $cycle = MenuCycle::factory()->create([
             'is_active' => true,
-            'status'    => 'active',
+            'status' => 'active',
         ]);
 
         MenuCycleDay::factory()->create([
             'menu_cycle_id' => $cycle->id,
-            'day_of_week'   => $weekday,
-            'meal_type'     => 'lunch',
+            'day_of_week' => $weekday,
+            'meal_type' => 'lunch',
         ]);
 
         $data = $this->actingAs($this->fss)
@@ -151,23 +151,23 @@ class FssDashboardTest extends TestCase
     public function test_service_day_already_completed_returns_zero_meals_to_log(): void
     {
         $weekday = Carbon::today()->format('l');
-        $today   = now()->toDateString();
+        $today = now()->toDateString();
 
         $cycle = MenuCycle::factory()->create([
             'is_active' => true,
-            'status'    => 'active',
+            'status' => 'active',
         ]);
 
         MenuCycleDay::factory()->create([
             'menu_cycle_id' => $cycle->id,
-            'day_of_week'   => $weekday,
-            'meal_type'     => 'lunch',
+            'day_of_week' => $weekday,
+            'meal_type' => 'lunch',
         ]);
 
         MealPrepLog::factory()->create([
             'menu_cycle_id' => $cycle->id,
-            'service_date'  => $today,
-            'status'        => 'completed',
+            'service_date' => $today,
+            'status' => 'completed',
         ]);
 
         $data = $this->actingAs($this->fss)
@@ -186,13 +186,13 @@ class FssDashboardTest extends TestCase
 
         $cycle = MenuCycle::factory()->create([
             'is_active' => true,
-            'status'    => 'active',
+            'status' => 'active',
         ]);
 
         MenuCycleDay::factory()->create([
             'menu_cycle_id' => $cycle->id,
-            'day_of_week'   => $weekday,
-            'meal_type'     => 'breakfast',
+            'day_of_week' => $weekday,
+            'meal_type' => 'breakfast',
         ]);
 
         $data = $this->actingAs($this->fss)

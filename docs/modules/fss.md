@@ -139,6 +139,10 @@ Current behavior:
 
 Diet-list/accomplishment reads (`GET /api/fss/diet-list-counts`) are scoped to the current FSS user's own rows. RND and Admin see broader views through dedicated report/admin endpoints.
 
+## Audit trails
+
+FSS can view the authorized shared purchase-order trail at the existing PO activity path. It includes receipt/proof, vendor-group, receiving, lifecycle, meal-service, and related budget events while returning only the structured audit DTO—never raw properties or file contents. User, system, and deleted-record snapshots remain understandable, and older pages load through cursor pagination. Inventory has no activity route or stock-history surface. Audit taxonomy, retention, privacy, and incident handling are documented in [`docs/architecture/audit-logging.md`](../architecture/audit-logging.md).
+
 ## Notifications, Profile, Settings
 
 Current behavior:

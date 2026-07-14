@@ -3,6 +3,8 @@
 namespace Tests\Feature;
 
 use App\Models\Assessment;
+use App\Models\ClinicalRule;
+use App\Models\Diagnosis;
 use App\Models\Intervention;
 use App\Models\NcpRecord;
 use App\Models\Patient;
@@ -18,10 +20,10 @@ class NcpInterventionTest extends TestCase
     private function rnd(): User
     {
         return User::forceCreate([
-            'name'      => 'RND',
-            'email'     => 'rnd' . uniqid() . '@example.com',
-            'password'  => Hash::make('password'),
-            'role'      => 'RND',
+            'name' => 'RND',
+            'email' => 'rnd'.uniqid().'@example.com',
+            'password' => Hash::make('password'),
+            'role' => 'RND',
             'is_active' => true,
         ]);
     }
@@ -29,9 +31,9 @@ class NcpInterventionTest extends TestCase
     private function patient(): Patient
     {
         return Patient::forceCreate([
-            'name'           => 'Test Patient',
-            'dob'            => '1990-01-01',
-            'sex'            => 'Male',
+            'name' => 'Test Patient',
+            'dob' => '1990-01-01',
+            'sex' => 'Male',
             'admission_date' => now()->toDateString(),
         ]);
     }
@@ -39,22 +41,22 @@ class NcpInterventionTest extends TestCase
     private function ncpRecord(Patient $patient, User $rnd): NcpRecord
     {
         return NcpRecord::forceCreate([
-            'patient_id'  => $patient->id,
+            'patient_id' => $patient->id,
             'rnd_user_id' => $rnd->id,
-            'type'        => 'new',
-            'status'      => 'draft',
+            'type' => 'new',
+            'status' => 'draft',
         ]);
     }
 
-    private function diagnosis(NcpRecord $ncp): \App\Models\Diagnosis
+    private function diagnosis(NcpRecord $ncp): Diagnosis
     {
-        return \App\Models\Diagnosis::forceCreate([
-            'ncp_record_id'  => $ncp->id,
-            'domain'         => 'NI',
-            'problem'        => 'Inadequate intake',
-            'etiology'       => 'cause',
+        return Diagnosis::forceCreate([
+            'ncp_record_id' => $ncp->id,
+            'domain' => 'NI',
+            'problem' => 'Inadequate intake',
+            'etiology' => 'cause',
             'signs_symptoms' => 'signs',
-            'pes_statement'  => 'PES',
+            'pes_statement' => 'PES',
         ]);
     }
 
@@ -64,9 +66,9 @@ class NcpInterventionTest extends TestCase
 
     public function test_intervention_requires_diagnosis_first(): void
     {
-        $rnd     = $this->rnd();
+        $rnd = $this->rnd();
         $patient = $this->patient();
-        $ncp     = $this->ncpRecord($patient, $rnd); // no diagnosis yet
+        $ncp = $this->ncpRecord($patient, $rnd); // no diagnosis yet
 
         $response = $this->actingAs($rnd, 'sanctum')
             ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/intervention", [
@@ -79,21 +81,21 @@ class NcpInterventionTest extends TestCase
 
     public function test_autofill_returns_authoritative_prescription(): void
     {
-        $rnd     = $this->rnd();
+        $rnd = $this->rnd();
         $patient = $this->patient(); // Male
-        $ncp     = $this->ncpRecord($patient, $rnd);
+        $ncp = $this->ncpRecord($patient, $rnd);
 
         Assessment::forceCreate([
-            'ncp_record_id'           => $ncp->id,
-            'weight'                  => 80.0,
-            'height'                  => 170.0,
+            'ncp_record_id' => $ncp->id,
+            'weight' => 80.0,
+            'height' => 170.0,
             'physical_activity_level' => 'sedentary',
         ]);
 
         // renal_diet/stage_1 is flat-rate (age-independent): matches frozen golden case A.
         $response = $this->actingAs($rnd, 'sanctum')
             ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/intervention/autofill", [
-                'goal_type'     => 'renal_diet',
+                'goal_type' => 'renal_diet',
                 'disease_stage' => 'stage_1',
             ]);
 
@@ -108,9 +110,9 @@ class NcpInterventionTest extends TestCase
 
     public function test_autofill_requires_assessment_weight_height(): void
     {
-        $rnd     = $this->rnd();
+        $rnd = $this->rnd();
         $patient = $this->patient();
-        $ncp     = $this->ncpRecord($patient, $rnd);
+        $ncp = $this->ncpRecord($patient, $rnd);
 
         $response = $this->actingAs($rnd, 'sanctum')
             ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/intervention/autofill", [
@@ -123,19 +125,19 @@ class NcpInterventionTest extends TestCase
 
     public function test_autofill_rejects_unknown_goal_type(): void
     {
-        $rnd     = $this->rnd();
+        $rnd = $this->rnd();
         $patient = $this->patient();
-        $ncp     = $this->ncpRecord($patient, $rnd);
+        $ncp = $this->ncpRecord($patient, $rnd);
 
         Assessment::forceCreate([
             'ncp_record_id' => $ncp->id,
-            'weight'        => 70.0,
-            'height'        => 170.0,
+            'weight' => 70.0,
+            'height' => 170.0,
         ]);
 
         $this->actingAs($rnd, 'sanctum')
             ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/intervention/autofill", [
-                'goal_type'     => 'bad_goal',
+                'goal_type' => 'bad_goal',
                 'disease_stage' => 'stage_1',
             ])
             ->assertStatus(422)
@@ -144,20 +146,20 @@ class NcpInterventionTest extends TestCase
 
     public function test_autofill_requires_activity_level_for_tee_based_goals(): void
     {
-        $rnd     = $this->rnd();
+        $rnd = $this->rnd();
         $patient = $this->patient();
-        $ncp     = $this->ncpRecord($patient, $rnd);
+        $ncp = $this->ncpRecord($patient, $rnd);
 
         Assessment::forceCreate([
-            'ncp_record_id'           => $ncp->id,
-            'weight'                  => 70.0,
-            'height'                  => 170.0,
+            'ncp_record_id' => $ncp->id,
+            'weight' => 70.0,
+            'height' => 170.0,
             'physical_activity_level' => null,
         ]);
 
         $this->actingAs($rnd, 'sanctum')
             ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/intervention/autofill", [
-                'goal_type'     => 'weight_loss',
+                'goal_type' => 'weight_loss',
                 'disease_stage' => 'class_1',
             ])
             ->assertStatus(422)
@@ -166,26 +168,26 @@ class NcpInterventionTest extends TestCase
 
     public function test_autofill_returns_refeeding_lab_warnings_for_low_electrolytes(): void
     {
-        $rnd     = $this->rnd();
+        $rnd = $this->rnd();
         $patient = $this->patient();
-        $ncp     = $this->ncpRecord($patient, $rnd);
+        $ncp = $this->ncpRecord($patient, $rnd);
 
         $assessment = Assessment::forceCreate([
-            'ncp_record_id'           => $ncp->id,
-            'weight'                  => 48.0,
-            'height'                  => 174.0,
+            'ncp_record_id' => $ncp->id,
+            'weight' => 48.0,
+            'height' => 174.0,
             'physical_activity_level' => 'moderate',
         ]);
         $assessment->biochemicalData()->create([
-            'potassium'  => 3.1,
-            'phosphate'  => 2.1,
-            'calcium'    => 13.0,
+            'potassium' => 3.1,
+            'phosphate' => 2.1,
+            'calcium' => 13.0,
             'hemoglobin' => 10.0,
         ]);
 
         $this->actingAs($rnd, 'sanctum')
             ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/intervention/autofill", [
-                'goal_type'     => 'malnutrition',
+                'goal_type' => 'malnutrition',
                 'disease_stage' => 'severe',
             ])
             ->assertOk()
@@ -197,20 +199,20 @@ class NcpInterventionTest extends TestCase
 
     public function test_rnd_can_create_intervention(): void
     {
-        $rnd     = $this->rnd();
+        $rnd = $this->rnd();
         $patient = $this->patient();
-        $ncp     = $this->ncpRecord($patient, $rnd);
+        $ncp = $this->ncpRecord($patient, $rnd);
         $this->diagnosis($ncp);
 
         $response = $this->actingAs($rnd, 'sanctum')
             ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/intervention", [
-                'goal_type'         => 'custom',
-                'energy_kcal'       => 1800.0,
-                'protein_g'         => 70.0,
-                'carbs_g'           => 250.0,
-                'fat_g'             => 55.0,
-                'fluid_ml'          => 2000.0,
-                'session_type'      => 'individual',
+                'goal_type' => 'custom',
+                'energy_kcal' => 1800.0,
+                'protein_g' => 70.0,
+                'carbs_g' => 250.0,
+                'fat_g' => 55.0,
+                'fluid_ml' => 2000.0,
+                'session_type' => 'individual',
                 'next_followup_date' => now()->addDays(7)->toDateString(),
             ]);
 
@@ -221,20 +223,20 @@ class NcpInterventionTest extends TestCase
 
         $this->assertDatabaseHas('interventions', [
             'ncp_record_id' => $ncp->id,
-            'energy_kcal'   => 1800.0,
+            'energy_kcal' => 1800.0,
         ]);
     }
 
     public function test_intervention_rejects_unknown_goal_type(): void
     {
-        $rnd     = $this->rnd();
+        $rnd = $this->rnd();
         $patient = $this->patient();
-        $ncp     = $this->ncpRecord($patient, $rnd);
+        $ncp = $this->ncpRecord($patient, $rnd);
         $this->diagnosis($ncp);
 
         $this->actingAs($rnd, 'sanctum')
             ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/intervention", [
-                'goal_type'     => 'bad_goal',
+                'goal_type' => 'bad_goal',
                 'disease_stage' => 'stage_1',
             ])
             ->assertStatus(422)
@@ -243,14 +245,14 @@ class NcpInterventionTest extends TestCase
 
     public function test_intervention_rejects_stage_that_does_not_belong_to_goal(): void
     {
-        $rnd     = $this->rnd();
+        $rnd = $this->rnd();
         $patient = $this->patient();
-        $ncp     = $this->ncpRecord($patient, $rnd);
+        $ncp = $this->ncpRecord($patient, $rnd);
         $this->diagnosis($ncp);
 
         $this->actingAs($rnd, 'sanctum')
             ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/intervention", [
-                'goal_type'     => 'weight_gain',
+                'goal_type' => 'weight_gain',
                 'disease_stage' => 'stage_1',
             ])
             ->assertStatus(422)
@@ -259,9 +261,9 @@ class NcpInterventionTest extends TestCase
 
     public function test_empty_intervention_does_not_activate_ncp(): void
     {
-        $rnd     = $this->rnd();
+        $rnd = $this->rnd();
         $patient = $this->patient();
-        $ncp     = $this->ncpRecord($patient, $rnd);
+        $ncp = $this->ncpRecord($patient, $rnd);
         Assessment::forceCreate(['ncp_record_id' => $ncp->id, 'weight' => 70.0, 'height' => 170.0]);
         $this->diagnosis($ncp);
 
@@ -275,9 +277,9 @@ class NcpInterventionTest extends TestCase
 
     public function test_show_returns_null_when_intervention_missing(): void
     {
-        $rnd     = $this->rnd();
+        $rnd = $this->rnd();
         $patient = $this->patient();
-        $ncp     = $this->ncpRecord($patient, $rnd);
+        $ncp = $this->ncpRecord($patient, $rnd);
 
         $this->actingAs($rnd, 'sanctum')
             ->getJson("/api/rnd/ncp-records/{$ncp->uuid}/intervention")
@@ -287,9 +289,9 @@ class NcpInterventionTest extends TestCase
 
     public function test_completing_prescription_activates_ncp(): void
     {
-        $rnd     = $this->rnd();
+        $rnd = $this->rnd();
         $patient = $this->patient();
-        $ncp     = $this->ncpRecord($patient, $rnd);
+        $ncp = $this->ncpRecord($patient, $rnd);
         Assessment::forceCreate(['ncp_record_id' => $ncp->id, 'weight' => 70.0, 'height' => 170.0]);
         $this->diagnosis($ncp);
 
@@ -301,12 +303,12 @@ class NcpInterventionTest extends TestCase
         // Filling the prescription via update completes the initial ADI → active.
         $this->actingAs($rnd, 'sanctum')
             ->patchJson("/api/rnd/ncp-records/{$ncp->uuid}/intervention", [
-                'goal_type'   => 'renal_diet',
+                'goal_type' => 'renal_diet',
                 'disease_stage' => 'stage_1',
                 'energy_kcal' => 1800.0,
-                'protein_g'   => 70.0,
-                'carbs_g'     => 250.0,
-                'fat_g'       => 55.0,
+                'protein_g' => 70.0,
+                'carbs_g' => 250.0,
+                'fat_g' => 55.0,
             ])
             ->assertOk();
 
@@ -315,13 +317,13 @@ class NcpInterventionTest extends TestCase
 
     public function test_intervention_has_no_encounter_location_field(): void
     {
-        $rnd     = $this->rnd();
+        $rnd = $this->rnd();
         $patient = $this->patient();
-        $ncp     = $this->ncpRecord($patient, $rnd);
+        $ncp = $this->ncpRecord($patient, $rnd);
 
         Intervention::forceCreate([
             'ncp_record_id' => $ncp->id,
-            'energy_kcal'   => 1600.0,
+            'energy_kcal' => 1600.0,
         ]);
 
         $response = $this->actingAs($rnd, 'sanctum')
@@ -333,14 +335,14 @@ class NcpInterventionTest extends TestCase
 
     public function test_intervention_validates_numeric_nutrient_fields(): void
     {
-        $rnd     = $this->rnd();
+        $rnd = $this->rnd();
         $patient = $this->patient();
-        $ncp     = $this->ncpRecord($patient, $rnd);
+        $ncp = $this->ncpRecord($patient, $rnd);
 
         $response = $this->actingAs($rnd, 'sanctum')
             ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/intervention", [
                 'energy_kcal' => 'not-a-number',
-                'protein_g'   => -10,
+                'protein_g' => -10,
             ]);
 
         $response->assertStatus(422)
@@ -349,19 +351,19 @@ class NcpInterventionTest extends TestCase
 
     public function test_rnd_can_update_intervention(): void
     {
-        $rnd     = $this->rnd();
+        $rnd = $this->rnd();
         $patient = $this->patient();
-        $ncp     = $this->ncpRecord($patient, $rnd);
+        $ncp = $this->ncpRecord($patient, $rnd);
 
         Intervention::forceCreate([
             'ncp_record_id' => $ncp->id,
-            'energy_kcal'   => 1800.0,
-            'protein_g'     => 65.0,
+            'energy_kcal' => 1800.0,
+            'protein_g' => 65.0,
         ]);
 
         $response = $this->actingAs($rnd, 'sanctum')
             ->patchJson("/api/rnd/ncp-records/{$ncp->uuid}/intervention", [
-                'energy_kcal'   => 2000.0,
+                'energy_kcal' => 2000.0,
                 'education_notes' => 'Focus on protein-rich foods',
             ]);
 
@@ -372,13 +374,13 @@ class NcpInterventionTest extends TestCase
 
     public function test_intervention_is_within_target_10_percent(): void
     {
-        $rnd     = $this->rnd();
+        $rnd = $this->rnd();
         $patient = $this->patient();
-        $ncp     = $this->ncpRecord($patient, $rnd);
+        $ncp = $this->ncpRecord($patient, $rnd);
 
         $intervention = Intervention::forceCreate([
             'ncp_record_id' => $ncp->id,
-            'energy_kcal'   => 1800.0,
+            'energy_kcal' => 1800.0,
         ]);
 
         // 1800 ±10% = 1620-1980, actual 1850 is within range
@@ -389,9 +391,9 @@ class NcpInterventionTest extends TestCase
 
     public function test_duplicate_intervention_returns_conflict(): void
     {
-        $rnd     = $this->rnd();
+        $rnd = $this->rnd();
         $patient = $this->patient();
-        $ncp     = $this->ncpRecord($patient, $rnd);
+        $ncp = $this->ncpRecord($patient, $rnd);
 
         Intervention::forceCreate(['ncp_record_id' => $ncp->id, 'energy_kcal' => 1800.0]);
 
@@ -405,9 +407,9 @@ class NcpInterventionTest extends TestCase
 
     public function test_micronutrient_limits_stored_as_json(): void
     {
-        $rnd     = $this->rnd();
+        $rnd = $this->rnd();
         $patient = $this->patient();
-        $ncp     = $this->ncpRecord($patient, $rnd);
+        $ncp = $this->ncpRecord($patient, $rnd);
         $this->diagnosis($ncp);
 
         $this->actingAs($rnd, 'sanctum')
@@ -426,13 +428,13 @@ class NcpInterventionTest extends TestCase
 
     public function test_recommendations_returns_recommend_avoid_for_renal_diet(): void
     {
-        $rnd     = $this->rnd();
+        $rnd = $this->rnd();
         $patient = $this->patient();
-        $ncp     = $this->ncpRecord($patient, $rnd);
+        $ncp = $this->ncpRecord($patient, $rnd);
 
         Intervention::forceCreate([
             'ncp_record_id' => $ncp->id,
-            'goal_type'     => 'renal_diet',
+            'goal_type' => 'renal_diet',
             'disease_stage' => 'stage_4',
         ]);
 
@@ -449,7 +451,7 @@ class NcpInterventionTest extends TestCase
     {
         $rnd = $this->rnd();
 
-        \App\Models\ClinicalRule::insert([
+        ClinicalRule::insert([
             ['condition' => 'CKD',          'stage' => 'all', 'nutrient_or_food_tag' => 'potassium',     'rule_type' => 'limit',     'threshold' => 2000, 'unit' => 'mg', 'reason' => 'x', 'created_at' => now(), 'updated_at' => now()],
             ['condition' => 'hypertension', 'stage' => 'all', 'nutrient_or_food_tag' => 'sodium',        'rule_type' => 'limit',     'threshold' => 1500, 'unit' => 'mg', 'reason' => 'x', 'created_at' => now(), 'updated_at' => now()],
             ['condition' => 'dyslipidemia', 'stage' => 'all', 'nutrient_or_food_tag' => 'saturated_fat', 'rule_type' => 'limit',     'threshold' => 7,    'unit' => '%',  'reason' => 'x', 'created_at' => now(), 'updated_at' => now()],
@@ -459,6 +461,7 @@ class NcpInterventionTest extends TestCase
         $recs = function (string $goalType) use ($rnd) {
             $ncp = $this->ncpRecord($this->patient(), $rnd);
             Intervention::forceCreate(['ncp_record_id' => $ncp->id, 'goal_type' => $goalType, 'disease_stage' => 'all']);
+
             return $this->actingAs($rnd, 'sanctum')
                 ->getJson("/api/rnd/ncp-records/{$ncp->uuid}/intervention/recommendations");
         };
@@ -477,13 +480,13 @@ class NcpInterventionTest extends TestCase
 
     public function test_recommendations_returns_empty_for_custom_goal(): void
     {
-        $rnd     = $this->rnd();
+        $rnd = $this->rnd();
         $patient = $this->patient();
-        $ncp     = $this->ncpRecord($patient, $rnd);
+        $ncp = $this->ncpRecord($patient, $rnd);
 
         Intervention::forceCreate([
             'ncp_record_id' => $ncp->id,
-            'goal_type'     => 'custom',
+            'goal_type' => 'custom',
         ]);
 
         $response = $this->actingAs($rnd, 'sanctum')
@@ -496,20 +499,20 @@ class NcpInterventionTest extends TestCase
 
     public function test_recommendations_include_lab_refinements_for_abnormal_potassium(): void
     {
-        $rnd     = $this->rnd();
+        $rnd = $this->rnd();
         $patient = $this->patient();
-        $ncp     = $this->ncpRecord($patient, $rnd);
+        $ncp = $this->ncpRecord($patient, $rnd);
 
         $assessment = Assessment::forceCreate([
             'ncp_record_id' => $ncp->id,
-            'weight'        => 70.0,
-            'height'        => 170.0,
+            'weight' => 70.0,
+            'height' => 170.0,
         ]);
         $assessment->biochemicalData()->create(['potassium' => 5.8]);
 
         Intervention::forceCreate([
             'ncp_record_id' => $ncp->id,
-            'goal_type'     => 'custom',
+            'goal_type' => 'custom',
         ]);
 
         $response = $this->actingAs($rnd, 'sanctum')
@@ -521,9 +524,9 @@ class NcpInterventionTest extends TestCase
 
     public function test_recommendations_returns_404_when_no_intervention(): void
     {
-        $rnd     = $this->rnd();
+        $rnd = $this->rnd();
         $patient = $this->patient();
-        $ncp     = $this->ncpRecord($patient, $rnd);
+        $ncp = $this->ncpRecord($patient, $rnd);
 
         $this->actingAs($rnd, 'sanctum')
             ->getJson("/api/rnd/ncp-records/{$ncp->uuid}/intervention/recommendations")

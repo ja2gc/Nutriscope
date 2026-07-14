@@ -14,14 +14,14 @@ class StoreMonitoringRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'weight'               => ['nullable', 'numeric', 'min:0'],
-            'bmi'                  => ['nullable', 'numeric', 'min:0'],
-            'lab_values'           => ['nullable', 'array'],
-            'intake_notes'         => ['nullable', 'string'],
-            'symptoms'             => ['nullable', 'string'],
-            'goal_achievement'     => ['nullable', 'array'],
-            'clinical_summary'     => ['nullable', 'string'],
-            'ai_decision'          => ['nullable', 'string'],
+            'weight' => ['nullable', 'numeric', 'min:0'],
+            'bmi' => ['nullable', 'numeric', 'min:0'],
+            'lab_values' => ['nullable', 'array'],
+            'intake_notes' => ['nullable', 'string'],
+            'symptoms' => ['nullable', 'string'],
+            'goal_achievement' => ['nullable', 'array'],
+            'clinical_summary' => ['nullable', 'string'],
+            'ai_decision' => ['nullable', 'string'],
             'next_monitoring_date' => ['nullable', 'date'],
         ];
     }

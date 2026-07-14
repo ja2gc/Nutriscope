@@ -58,8 +58,6 @@ class AuditContractTest extends TestCase
             'audit_log_viewed' => 'Audit log viewed',
             'account_blocked' => 'Account blocked',
             'account_unblocked' => 'Account unblocked',
-            'ip_blocked' => 'IP blocked',
-            'ip_unblocked' => 'IP unblocked',
         ];
 
         $this->assertSame(array_keys($actions), array_column(AuditAction::cases(), 'value'));
@@ -154,7 +152,6 @@ class AuditContractTest extends TestCase
         $this->assertSame('activity_log', config('activitylog.table_name'));
         $this->assertNull(config('activitylog.delete_records_older_than_days'));
         $this->assertFalse(config('audit.features.export'));
-        $this->assertFalse(config('audit.features.ip_blocking'));
 
         $id = DB::table('activity_log')->insertGetId([
             'log_name' => 'default',

@@ -12,7 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('inspection_reports', function (Blueprint $table) {
-            
+
             $table->id();
             $table->foreignId('procurement_id')->nullable()->references('id')->on('purchase_orders');
             $table->string('supplier_name')->nullable();
@@ -39,7 +39,7 @@ return new class extends Migration
             $table->string('file_path')->nullable();
             $table->json('extracted_data')->nullable();
             $table->timestamps();
-        
+
         });
     }
 

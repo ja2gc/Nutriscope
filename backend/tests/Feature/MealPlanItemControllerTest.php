@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Assessment;
 use App\Models\FoodItem;
 use App\Models\Intervention;
 use App\Models\MealPlan;
@@ -10,6 +11,7 @@ use App\Models\MealPlanItem;
 use App\Models\NcpRecord;
 use App\Models\Patient;
 use App\Models\Recipe;
+use App\Models\RecipeIngredient;
 use App\Models\User;
 use App\Services\UsdaService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -27,15 +29,17 @@ class MealPlanItemControllerTest extends TestCase
         $intervention = Intervention::factory()->create(['ncp_record_id' => $ncp->id]);
         $plan = MealPlan::factory()->create([
             'intervention_id' => $intervention->id,
-            'patient_id'      => $patient->id,
+            'patient_id' => $patient->id,
         ]);
         $day = MealPlanDay::factory()->create(['meal_plan_id' => $plan->id]);
+
         return compact('rnd', 'ncp', 'plan', 'day');
     }
 
     private function url(array $ctx, ?string $itemId = null): string
     {
         $base = "/api/rnd/ncp-records/{$ctx['ncp']->uuid}/meal-plans/{$ctx['plan']->uuid}/days/{$ctx['day']->uuid}/items";
+
         return $itemId ? "{$base}/{$itemId}" : $base;
     }
 
@@ -54,20 +58,20 @@ class MealPlanItemControllerTest extends TestCase
     {
         $ctx = $this->setupPlan();
         $food = FoodItem::factory()->create([
-            'calories'       => 165.0,
-            'protein'        => 31.0,
-            'carbs'          => 0.0,
-            'fat'            => 3.6,
+            'calories' => 165.0,
+            'protein' => 31.0,
+            'carbs' => 0.0,
+            'fat' => 3.6,
             'micronutrients' => ['sodium' => 74],
-            'serving_size'   => 100,
-            'serving_unit'   => 'g',
+            'serving_size' => 100,
+            'serving_unit' => 'g',
         ]);
 
         $response = $this->actingAs($ctx['rnd'])
             ->postJson($this->url($ctx), [
                 'food_item_id' => $food->uuid,
-                'quantity'     => 150,
-                'unit'         => 'g',
+                'quantity' => 150,
+                'unit' => 'g',
             ]);
 
         $response->assertCreated();
@@ -84,21 +88,21 @@ class MealPlanItemControllerTest extends TestCase
 
         $this->mock(UsdaService::class, function ($mock) {
             $mock->shouldReceive('fetch')->with(331960)->once()->andReturn([
-                'fdc_id'         => 331960,
-                'name'           => 'Chicken breast',
-                'calories'       => 165.0,
-                'protein'        => 31.0,
-                'carbs'          => 0.0,
-                'fat'            => 3.6,
+                'fdc_id' => 331960,
+                'name' => 'Chicken breast',
+                'calories' => 165.0,
+                'protein' => 31.0,
+                'carbs' => 0.0,
+                'fat' => 3.6,
                 'micronutrients' => ['sodium' => 74],
             ]);
         });
 
         $response = $this->actingAs($ctx['rnd'])
             ->postJson($this->url($ctx), [
-                'fdc_id'   => '331960',
+                'fdc_id' => '331960',
                 'quantity' => 100,
-                'unit'     => 'g',
+                'unit' => 'g',
             ]);
 
         $response->assertCreated();
@@ -115,17 +119,17 @@ class MealPlanItemControllerTest extends TestCase
         $ctx = $this->setupPlan();
         $recipe = Recipe::factory()->create([
             'total_calories' => 420.0,
-            'total_protein'  => 25.0,
-            'total_carbs'    => 38.0,
-            'total_fat'      => 16.0,
-            'servings'       => 4,
+            'total_protein' => 25.0,
+            'total_carbs' => 38.0,
+            'total_fat' => 16.0,
+            'servings' => 4,
         ]);
 
         $response = $this->actingAs($ctx['rnd'])
             ->postJson($this->url($ctx), [
                 'recipe_id' => $recipe->uuid,
-                'quantity'  => 1,
-                'unit'      => 'serving',
+                'quantity' => 1,
+                'unit' => 'serving',
             ]);
 
         $response->assertCreated();
@@ -145,9 +149,9 @@ class MealPlanItemControllerTest extends TestCase
         $this->actingAs($ctx['rnd'])
             ->postJson($this->url($ctx), [
                 'food_item_id' => $food->uuid,
-                'fdc_id'       => '331960',
-                'quantity'     => 100,
-                'unit'         => 'g',
+                'fdc_id' => '331960',
+                'quantity' => 100,
+                'unit' => 'g',
             ])
             ->assertUnprocessable();
     }
@@ -167,24 +171,24 @@ class MealPlanItemControllerTest extends TestCase
 
         $this->actingAs($ctx['rnd'])
             ->postJson($this->url($ctx), [
-                'fdc_id'   => 'abc123!',
+                'fdc_id' => 'abc123!',
                 'quantity' => 100,
-                'unit'     => 'g',
+                'unit' => 'g',
             ])
             ->assertUnprocessable();
     }
 
     public function test_update_ignores_client_supplied_nutrient_snapshot(): void
     {
-        $ctx  = $this->setupPlan();
+        $ctx = $this->setupPlan();
         $item = MealPlanItem::factory()->create([
-            'meal_plan_day_id'  => $ctx['day']->id,
+            'meal_plan_day_id' => $ctx['day']->id,
             'nutrient_snapshot' => ['name' => 'Real', 'calories' => 100, 'protein' => 5, 'carbs' => 10, 'fat' => 2, 'micronutrients' => []],
         ]);
 
         $this->actingAs($ctx['rnd'])
             ->patchJson($this->url($ctx, $item->uuid), [
-                'quantity'          => 2,
+                'quantity' => 2,
                 'nutrient_snapshot' => ['name' => 'FAKE', 'calories' => 99999],
             ])
             ->assertOk();
@@ -196,19 +200,19 @@ class MealPlanItemControllerTest extends TestCase
 
     public function test_update_recomputes_recipe_snapshot_from_trusted_food_data(): void
     {
-        $ctx  = $this->setupPlan();
+        $ctx = $this->setupPlan();
         $food = FoodItem::factory()->create([
             'calories' => 100, 'protein' => 10, 'carbs' => 20, 'fat' => 5,
             'serving_size' => 100, 'micronutrients' => ['sodium' => 50],
         ]);
         $recipe = Recipe::factory()->create(['servings' => 1, 'name' => 'Soup']);
-        $ingredient = \App\Models\RecipeIngredient::create([
+        $ingredient = RecipeIngredient::create([
             'recipe_id' => $recipe->id, 'food_item_id' => $food->id, 'quantity' => 100, 'unit' => 'g',
         ]);
         $item = MealPlanItem::factory()->create([
             'meal_plan_day_id' => $ctx['day']->id,
-            'recipe_id'        => $recipe->id,
-            'nutrient_snapshot'=> ['name' => 'Soup', 'calories' => 100, 'protein' => 10, 'carbs' => 20, 'fat' => 5, 'micronutrients' => ['sodium' => 50]],
+            'recipe_id' => $recipe->id,
+            'nutrient_snapshot' => ['name' => 'Soup', 'calories' => 100, 'protein' => 10, 'carbs' => 20, 'fat' => 5, 'micronutrients' => ['sodium' => 50]],
         ]);
 
         // Double the ingredient quantity → all nutrients double (servings = 1).
@@ -270,7 +274,7 @@ class MealPlanItemControllerTest extends TestCase
     public function test_store_hard_blocks_allergen_conflict(): void
     {
         $ctx = $this->setupPlan();
-        \App\Models\Assessment::forceCreate([
+        Assessment::forceCreate([
             'ncp_record_id' => $ctx['ncp']->id, 'weight' => 70, 'height' => 170,
             'allergies' => ['Peanuts'],
         ]);
@@ -287,7 +291,7 @@ class MealPlanItemControllerTest extends TestCase
     public function test_store_warns_on_food_dislike_but_still_adds(): void
     {
         $ctx = $this->setupPlan();
-        \App\Models\Assessment::forceCreate([
+        Assessment::forceCreate([
             'ncp_record_id' => $ctx['ncp']->id, 'weight' => 70, 'height' => 170,
             'food_dislikes' => ['broccoli'],
         ]);
@@ -303,10 +307,10 @@ class MealPlanItemControllerTest extends TestCase
 
     public function test_snapshot_includes_water_g_for_library_food(): void
     {
-        $ctx  = $this->setupPlan();
+        $ctx = $this->setupPlan();
         $food = FoodItem::factory()->create([
             'calories' => 165.0, 'protein' => 31.0, 'carbs' => 0.0, 'fat' => 3.6,
-            'water_g'  => 65.5,
+            'water_g' => 65.5,
             'serving_size' => 100, 'serving_unit' => 'g',
         ]);
 
@@ -319,7 +323,7 @@ class MealPlanItemControllerTest extends TestCase
 
     public function test_snapshot_sets_water_g_null_for_recipe(): void
     {
-        $ctx    = $this->setupPlan();
+        $ctx = $this->setupPlan();
         $recipe = Recipe::factory()->create([
             'total_calories' => 400.0, 'total_protein' => 20.0,
             'total_carbs' => 40.0, 'total_fat' => 15.0, 'servings' => 2,
@@ -338,10 +342,10 @@ class MealPlanItemControllerTest extends TestCase
     {
         $food = FoodItem::factory()->create(['water_g' => 72.3, 'usda_fdc_id' => null]);
         $item = MealPlanItem::factory()->create([
-            'food_item_id'       => $food->id,
-            'nutrient_snapshot'  => ['name' => 'Test', 'calories' => 100, 'protein' => 5,
-                                      'carbs' => 20, 'fat' => 2, 'micronutrients' => [],
-                                      'serving_size' => 100, 'serving_unit' => 'g'],
+            'food_item_id' => $food->id,
+            'nutrient_snapshot' => ['name' => 'Test', 'calories' => 100, 'protein' => 5,
+                'carbs' => 20, 'fat' => 2, 'micronutrients' => [],
+                'serving_size' => 100, 'serving_unit' => 'g'],
         ]);
 
         $this->artisan('food:backfill-water')->assertSuccessful();

@@ -12,7 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('inspection_report_items', function (Blueprint $table) {
-            
+
             $table->id();
             $table->foreignId('inspection_report_id')->constrained()->cascadeOnDelete();
             $table->integer('item_no')->nullable();
@@ -21,7 +21,7 @@ return new class extends Migration
             $table->decimal('quantity', 10, 2);
             $table->foreignId('food_item_id')->nullable()->references('id')->on('food_items');
             $table->timestamps();
-        
+
         });
     }
 

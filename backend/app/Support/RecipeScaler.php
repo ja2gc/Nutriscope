@@ -14,7 +14,7 @@ class RecipeScaler
     /** target ÷ base, with a 0-base guard (falls back to 1) and no negative targets. */
     public static function factor(int $baseServings, int $targetServings): float
     {
-        $base   = $baseServings > 0 ? $baseServings : 1;
+        $base = $baseServings > 0 ? $baseServings : 1;
         $target = max(0, $targetServings);
 
         return $target / $base;

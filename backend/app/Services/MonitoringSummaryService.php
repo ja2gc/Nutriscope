@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\NcpRecord;
+use Illuminate\Support\Carbon;
 
 /**
  * Phase 6 — Monitoring & Evaluation.
@@ -26,14 +27,14 @@ class MonitoringSummaryService
      * @var array<string, array{label:string, unit:string, min?:float, max?:float, lowerIsBetter?:bool}>
      */
     public const LAB_RANGES = [
-        'albumin'     => ['label' => 'Albumin',     'unit' => 'g/dL',  'min' => 3.5],
-        'hba1c'       => ['label' => 'HbA1c',       'unit' => '%',     'max' => 7.0,  'lowerIsBetter' => true],
-        'ldl'         => ['label' => 'LDL',         'unit' => 'mg/dL', 'max' => 100,  'lowerIsBetter' => true],
+        'albumin' => ['label' => 'Albumin',     'unit' => 'g/dL',  'min' => 3.5],
+        'hba1c' => ['label' => 'HbA1c',       'unit' => '%',     'max' => 7.0,  'lowerIsBetter' => true],
+        'ldl' => ['label' => 'LDL',         'unit' => 'mg/dL', 'max' => 100,  'lowerIsBetter' => true],
         'cholesterol' => ['label' => 'Cholesterol', 'unit' => 'mg/dL', 'max' => 200,  'lowerIsBetter' => true],
-        'creatinine'  => ['label' => 'Creatinine',  'unit' => 'mg/dL', 'max' => 1.2,  'lowerIsBetter' => true],
-        'potassium'   => ['label' => 'Potassium',   'unit' => 'mEq/L', 'min' => 3.5,  'max' => 5.0],
-        'hemoglobin'  => ['label' => 'Hemoglobin',  'unit' => 'g/dL',  'min' => 12.0],
-        'glucose'     => ['label' => 'Glucose',     'unit' => 'mg/dL', 'max' => 100,  'lowerIsBetter' => true],
+        'creatinine' => ['label' => 'Creatinine',  'unit' => 'mg/dL', 'max' => 1.2,  'lowerIsBetter' => true],
+        'potassium' => ['label' => 'Potassium',   'unit' => 'mEq/L', 'min' => 3.5,  'max' => 5.0],
+        'hemoglobin' => ['label' => 'Hemoglobin',  'unit' => 'g/dL',  'min' => 12.0],
+        'glucose' => ['label' => 'Glucose',     'unit' => 'mg/dL', 'max' => 100,  'lowerIsBetter' => true],
     ];
 
     /**
@@ -63,7 +64,7 @@ class MonitoringSummaryService
     /** Macro intake keys logged per visit inside lab_values, compared against the Rx. */
     public const INTAKE_KEYS = [
         'energy_kcal' => ['label' => 'Energy intake', 'unit' => 'kcal', 'rx' => 'energy_kcal'],
-        'protein_g'   => ['label' => 'Protein intake', 'unit' => 'g',   'rx' => 'protein_g'],
+        'protein_g' => ['label' => 'Protein intake', 'unit' => 'g',   'rx' => 'protein_g'],
     ];
 
     /**
@@ -83,13 +84,13 @@ class MonitoringSummaryService
             return ['has_data' => false, 'has_previous' => false, 'changes' => [], 'intake' => [], 'goal_evaluation' => ['status' => 'no_data', 'reasons' => []]];
         }
 
-        $current  = $this->extractMetrics($visits[0]);
+        $current = $this->extractMetrics($visits[0]);
         $previous = $visits->count() > 1 ? $this->extractMetrics($visits[1]) : null;
 
         $intervention = $ncpRecord->intervention()->first();
         $rxTargets = $intervention ? [
             'energy_kcal' => $intervention->energy_kcal !== null ? (float) $intervention->energy_kcal : null,
-            'protein_g'   => $intervention->protein_g   !== null ? (float) $intervention->protein_g   : null,
+            'protein_g' => $intervention->protein_g !== null ? (float) $intervention->protein_g : null,
         ] : [];
 
         $nutritionalStatus = $ncpRecord->assessment()->first()?->nutritional_status;
@@ -102,12 +103,12 @@ class MonitoringSummaryService
 
         // A7: pick patient-context-adjusted lab ranges (sex-specific where it matters).
         $patient = $ncpRecord->patient;
-        $age     = $patient?->dob ? (int) \Illuminate\Support\Carbon::parse($patient->dob)->age : null;
-        $ranges  = self::rangesFor($patient?->sex, $age);
+        $age = $patient?->dob ? (int) Carbon::parse($patient->dob)->age : null;
+        $ranges = self::rangesFor($patient?->sex, $age);
 
         return $this->summarizePair($previous, $current, $rxTargets, $nutritionalStatus, $ranges, [
-            'intervention_goal'  => $intervention?->goal_type,
-            'active_diagnoses'   => $activeDiagnoses,
+            'intervention_goal' => $intervention?->goal_type,
+            'active_diagnoses' => $activeDiagnoses,
             'nutritional_status' => $nutritionalStatus,
         ]);
     }
@@ -122,11 +123,11 @@ class MonitoringSummaryService
         $labs = is_array($monitoring->lab_values) ? $monitoring->lab_values : [];
 
         $metrics = [
-            'date'             => $monitoring->created_at?->toDateString(),
-            'weight'           => $monitoring->weight !== null ? (float) $monitoring->weight : null,
-            'bmi'              => $monitoring->bmi !== null ? (float) $monitoring->bmi : null,
+            'date' => $monitoring->created_at?->toDateString(),
+            'weight' => $monitoring->weight !== null ? (float) $monitoring->weight : null,
+            'bmi' => $monitoring->bmi !== null ? (float) $monitoring->bmi : null,
             'goal_achievement' => $monitoring->goal_achievement ?? null,
-            'symptoms'         => $monitoring->symptoms ?? null,
+            'symptoms' => $monitoring->symptoms ?? null,
             'clinical_summary' => $monitoring->clinical_summary ?? null,
         ];
 
@@ -143,9 +144,9 @@ class MonitoringSummaryService
     /**
      * Pure delta computation — no DB. Compares two metric maps and evaluates the goal.
      *
-     * @param  array<string,mixed>|null $previous
-     * @param  array<string,mixed>      $current
-     * @param  array<string,float|null> $rxTargets
+     * @param  array<string,mixed>|null  $previous
+     * @param  array<string,mixed>  $current
+     * @param  array<string,float|null>  $rxTargets
      * @return array<string, mixed>
      */
     public function summarizePair(?array $previous, array $current, array $rxTargets = [], ?string $nutritionalStatus = null, ?array $ranges = null, array $context = []): array
@@ -177,28 +178,28 @@ class MonitoringSummaryService
             if ($actual !== null && $target !== null && $target > 0) {
                 $pct = (int) round(($actual / $target) * 100);
                 $intake[] = [
-                    'metric'  => $key,
-                    'label'   => $meta['label'],
-                    'unit'    => $meta['unit'],
-                    'actual'  => $actual,
-                    'target'  => $target,
-                    'pct'     => $pct,
+                    'metric' => $key,
+                    'label' => $meta['label'],
+                    'unit' => $meta['unit'],
+                    'actual' => $actual,
+                    'target' => $target,
+                    'pct' => $pct,
                     // <90% under-target, >110% over-target (energy over may be intentional in repletion)
-                    'flag'    => $pct < 90 ? 'under' : ($pct > 110 ? 'over' : 'on_target'),
+                    'flag' => $pct < 90 ? 'under' : ($pct > 110 ? 'over' : 'on_target'),
                 ];
             }
         }
 
         return [
-            'has_data'           => true,
-            'has_previous'       => $previous !== null,
-            'previous_date'      => $previous['date'] ?? null,
-            'current_date'       => $current['date'] ?? null,
-            'changes'            => $changes,
-            'intake'             => $intake,
-            'goal_evaluation'    => $this->evaluateGoal($changes, $intake),
-            'intervention_goal'  => $context['intervention_goal'] ?? null,
-            'active_diagnoses'   => $context['active_diagnoses'] ?? [],
+            'has_data' => true,
+            'has_previous' => $previous !== null,
+            'previous_date' => $previous['date'] ?? null,
+            'current_date' => $current['date'] ?? null,
+            'changes' => $changes,
+            'intake' => $intake,
+            'goal_evaluation' => $this->evaluateGoal($changes, $intake),
+            'intervention_goal' => $context['intervention_goal'] ?? null,
+            'active_diagnoses' => $context['active_diagnoses'] ?? [],
             'nutritional_status' => $context['nutritional_status'] ?? null,
         ];
     }
@@ -215,20 +216,20 @@ class MonitoringSummaryService
             return null;
         }
 
-        $delta     = $prev !== null ? round($curr - $prev, 2) : null;
-        $deltaPct  = ($prev !== null && $prev != 0.0) ? (int) round((($curr - $prev) / abs($prev)) * 100) : null;
+        $delta = $prev !== null ? round($curr - $prev, 2) : null;
+        $deltaPct = ($prev !== null && $prev != 0.0) ? (int) round((($curr - $prev) / abs($prev)) * 100) : null;
         $direction = $delta === null ? 'flat' : ($delta > 0 ? 'up' : ($delta < 0 ? 'down' : 'flat'));
 
         return [
-            'metric'    => $key,
-            'label'     => $label,
-            'unit'      => $unit,
-            'previous'  => $prev,
-            'current'   => $curr,
-            'delta'     => $delta,
+            'metric' => $key,
+            'label' => $label,
+            'unit' => $unit,
+            'previous' => $prev,
+            'current' => $curr,
+            'delta' => $delta,
             'delta_pct' => $deltaPct,
             'direction' => $direction,
-            'status'    => self::metricStatus($key, $curr, $prev, $nutritionalStatus, $ranges),
+            'status' => self::metricStatus($key, $curr, $prev, $nutritionalStatus, $ranges),
         ];
     }
 
@@ -250,6 +251,7 @@ class MonitoringSummaryService
                 return 'in_progress';
             }
             $moving = $gainGoal ? ($curr > $prev) : ($curr < $prev);
+
             return $moving ? 'met' : 'not_met';
         }
 
@@ -284,8 +286,8 @@ class MonitoringSummaryService
      * Roll per-metric statuses + intake adequacy into one overall evaluation that
      * flows into the NCP Evaluation step.
      *
-     * @param  array<int,array<string,mixed>> $changes
-     * @param  array<int,array<string,mixed>> $intake
+     * @param  array<int,array<string,mixed>>  $changes
+     * @param  array<int,array<string,mixed>>  $intake
      * @return array{status:string, reasons:array<int,string>}
      */
     public function evaluateGoal(array $changes, array $intake): array
@@ -313,9 +315,9 @@ class MonitoringSummaryService
             return ['status' => 'no_data', 'reasons' => $reasons];
         }
 
-        $met        = count(array_filter($statuses, fn ($s) => $s === 'met'));
-        $notMet     = count(array_filter($statuses, fn ($s) => $s === 'not_met'));
-        $total      = count($statuses);
+        $met = count(array_filter($statuses, fn ($s) => $s === 'met'));
+        $notMet = count(array_filter($statuses, fn ($s) => $s === 'not_met'));
+        $total = count($statuses);
         $underIntake = (bool) array_filter($intake, fn ($i) => $i['flag'] === 'under');
 
         // All targets in range AND intake adequate → met. None met / mostly off → not_met.

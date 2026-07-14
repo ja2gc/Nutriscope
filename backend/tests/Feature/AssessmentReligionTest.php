@@ -17,7 +17,7 @@ class AssessmentReligionTest extends TestCase
     private function setup_assessment(): array
     {
         $rnd = User::forceCreate([
-            'name' => 'RND', 'email' => 'rnd' . uniqid() . '@test.com',
+            'name' => 'RND', 'email' => 'rnd'.uniqid().'@test.com',
             'password' => Hash::make('pw'), 'role' => 'RND', 'is_active' => true,
         ]);
         $patient = Patient::forceCreate([
@@ -35,6 +35,7 @@ class AssessmentReligionTest extends TestCase
             'height' => 170,
             'physical_activity_level' => 'sedentary',
         ]);
+
         return [$rnd, $ncp, $assessment];
     }
 
@@ -49,7 +50,7 @@ class AssessmentReligionTest extends TestCase
 
         $response->assertStatus(200);
         $this->assertDatabaseHas('assessments', [
-            'id'       => $assessment->id,
+            'id' => $assessment->id,
             'religion' => 'Roman Catholic',
         ]);
     }

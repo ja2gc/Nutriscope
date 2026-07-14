@@ -84,7 +84,6 @@ class AdminAuditLogTest extends TestCase
     public function test_admin_audit_response_exposes_one_backend_taxonomy_and_disabled_capabilities(): void
     {
         config()->set('audit.features.export', false);
-        config()->set('audit.features.ip_blocking', false);
 
         $response = $this->actingAs($this->admin, 'sanctum')
             ->getJson('/api/admin/audit-logs?category=security');
@@ -98,8 +97,7 @@ class AdminAuditLogTest extends TestCase
             ->assertJsonPath('meta.filters.outcomes.0.value', 'success')
             ->assertJsonPath('meta.filters.severities.0.value', 'info')
             ->assertJsonPath('meta.filters.category_actions.security.0', 'created')
-            ->assertJsonPath('meta.capabilities.export', false)
-            ->assertJsonPath('meta.capabilities.temporary_ip_block', false);
+            ->assertJsonPath('meta.capabilities.export', false);
     }
 
     public function test_admin_can_read_static_retention_periods_and_config_fallback_state(): void

@@ -13,20 +13,20 @@ class MonitoringFactory extends Factory
     public function definition(): array
     {
         return [
-            'ncp_record_id'        => \App\Models\NcpRecord::factory(),
-            'weight'               => fake()->randomFloat(2, 40, 120),
-            'bmi'                  => fake()->randomFloat(2, 16, 35),
-            'lab_values'           => [
-                'albumin'    => fake()->randomFloat(1, 2.5, 5.0),
+            'ncp_record_id' => NcpRecord::factory(),
+            'weight' => fake()->randomFloat(2, 40, 120),
+            'bmi' => fake()->randomFloat(2, 16, 35),
+            'lab_values' => [
+                'albumin' => fake()->randomFloat(1, 2.5, 5.0),
                 'creatinine' => fake()->randomFloat(1, 0.5, 3.0),
             ],
-            'intake_notes'         => fake()->sentence(),
-            'symptoms'             => fake()->sentence(),
-            'goal_achievement'     => [
-                'energy'  => fake()->randomElement(['met', 'partial', 'not_met']),
+            'intake_notes' => fake()->sentence(),
+            'symptoms' => fake()->sentence(),
+            'goal_achievement' => [
+                'energy' => fake()->randomElement(['met', 'partial', 'not_met']),
                 'protein' => fake()->randomElement(['met', 'partial', 'not_met']),
             ],
-            'clinical_summary'     => fake()->paragraph(),
+            'clinical_summary' => fake()->paragraph(),
             'next_monitoring_date' => fake()->dateTimeBetween('+1 week', '+3 months')->format('Y-m-d'),
         ];
     }

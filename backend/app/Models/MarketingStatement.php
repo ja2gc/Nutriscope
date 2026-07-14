@@ -8,12 +8,12 @@ use Illuminate\Database\Eloquent\Model;
 class MarketingStatement extends Model
 {
     use HasFactory;
-    
+
     protected $fillable = [
         'purchase_order_id', 'date', 'period_start', 'period_end',
         'subtotal_forwarded', 'grand_total', 'buyer_name', 'buyer_title',
         'certified_by', 'certified_by_title', 'examined_by', 'examined_by_title',
-        'verified_by', 'verified_by_title', 'file_path', 'extracted_data'
+        'verified_by', 'verified_by_title', 'file_path', 'extracted_data',
     ];
 
     protected $casts = [
@@ -34,6 +34,4 @@ class MarketingStatement extends Model
     {
         return $this->hasMany(MarketingStatementItem::class);
     }
-
 }
-

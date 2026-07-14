@@ -114,7 +114,7 @@ Current planned food flow:
 3. PO groups items by vendor group under that one PO.
 4. PO enters `open_execution`.
 5. RND/FSS can input OR numbers and upload receipts/proof per vendor group.
-6. Receipt upload marks the vendor group received and can trigger stock-in.
+6. Receipt upload marks the vendor group received and preserves receipt/price history.
 7. Food PO completes only after every vendor group has receipt upload and every date in the span has served population.
 8. Completion calculates actual budget per head/day from final PO total divided by actual served population.
 
@@ -163,6 +163,12 @@ Accomplishment report:
 Known gap:
 
 - Program Project Activity report browse/render still uses `menu_cycle_id` and reloads menu-cycle data. The PO conversion creates a `ProgramProjectActivity` snapshot, but the report browser/generator is not yet fully snapshot/PO sourced.
+
+## Audit trails
+
+RND patient and NCP pages use the shared structured audit trail. Child assessment, diagnosis, intervention, meal-plan, monitoring, and attachment events correlate to the root patient/NCP. Clinical changes show allow-listed field names only; no clinical old/new values, OCR/file contents, or AI prompts/outputs enter the event store or UI. Opening a clinical trail is itself audited.
+
+Procurement, budget, and report surfaces use the same DTO. Purchase-order history includes lifecycle, vendor-group, attachment, correction, receiving, meal-service, and budget-deduction events. Budget history distinguishes user and named-system actors. Report history includes lifecycle/access events without snapshots, filters, or file contents. Trails use cursor pagination and retain safe actor/subject labels after deletion. See [`docs/architecture/audit-logging.md`](../architecture/audit-logging.md).
 
 ## 8. Settings
 Basic settings stuff

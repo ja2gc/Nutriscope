@@ -2,9 +2,9 @@
 
 namespace Tests\Unit;
 
-use App\Models\FsItem;
 use App\Models\FoodServiceRecipe;
 use App\Models\FoodServiceRecipeIngredient;
+use App\Models\FsItem;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
@@ -17,10 +17,10 @@ class FoodServiceRecipeCostTest extends TestCase
     private function rnd(): User
     {
         return User::forceCreate([
-            'name'      => 'RND',
-            'email'     => 'rnd' . uniqid() . '@example.com',
-            'password'  => Hash::make('password'),
-            'role'      => 'RND',
+            'name' => 'RND',
+            'email' => 'rnd'.uniqid().'@example.com',
+            'password' => Hash::make('password'),
+            'role' => 'RND',
             'is_active' => true,
         ]);
     }
@@ -29,20 +29,20 @@ class FoodServiceRecipeCostTest extends TestCase
     {
         return FoodServiceRecipe::create([
             'rnd_user_id' => $rnd->id,
-            'name'        => $name,
-            'servings'    => 1,
+            'name' => $name,
+            'servings' => 1,
         ]);
     }
 
     private function makeFsItem(string $name, float $purchasePrice, string $purchaseUnit, string $baseUnit, ?float $unitsPerPurchase = null): FsItem
     {
         return FsItem::create([
-            'name'               => $name,
-            'purchase_price'     => $purchasePrice,
-            'purchase_unit'      => $purchaseUnit,
-            'base_unit'          => $baseUnit,
+            'name' => $name,
+            'purchase_price' => $purchasePrice,
+            'purchase_unit' => $purchaseUnit,
+            'base_unit' => $baseUnit,
             'units_per_purchase' => $unitsPerPurchase,
-            'kind'               => 'ingredient',
+            'kind' => 'ingredient',
         ]);
     }
 
@@ -56,9 +56,9 @@ class FoodServiceRecipeCostTest extends TestCase
 
         FoodServiceRecipeIngredient::create([
             'food_service_recipe_id' => $recipe->id,
-            'fs_item_id'             => $item->id,
-            'quantity'               => 120,
-            'unit'                   => 'g',
+            'fs_item_id' => $item->id,
+            'quantity' => 120,
+            'unit' => 'g',
         ]);
 
         $recipe->recalculateCost();
@@ -77,9 +77,9 @@ class FoodServiceRecipeCostTest extends TestCase
         // Ingredient in kg: 0.5 kg (converts to 500 g)
         FoodServiceRecipeIngredient::create([
             'food_service_recipe_id' => $recipe->id,
-            'fs_item_id'             => $item->id,
-            'quantity'               => 0.5,
-            'unit'                   => 'kg',
+            'fs_item_id' => $item->id,
+            'quantity' => 0.5,
+            'unit' => 'kg',
         ]);
 
         $recipe->recalculateCost();

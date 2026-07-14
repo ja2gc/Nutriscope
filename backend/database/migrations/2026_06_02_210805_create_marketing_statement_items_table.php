@@ -12,7 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('marketing_statement_items', function (Blueprint $table) {
-            
+
             $table->id();
             $table->foreignId('marketing_statement_id')->constrained()->cascadeOnDelete();
             $table->string('item_description');
@@ -23,7 +23,7 @@ return new class extends Migration
             $table->string('record_payment')->nullable();
             $table->foreignId('food_item_id')->nullable()->references('id')->on('food_items');
             $table->timestamps();
-        
+
         });
     }
 

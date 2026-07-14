@@ -8,10 +8,10 @@ use Illuminate\Database\Eloquent\Model;
 class MarketingStatementItem extends Model
 {
     use HasFactory;
-    
+
     protected $fillable = [
         'marketing_statement_id', 'item_description', 'unit', 'qty',
-        'unit_price', 'total_value', 'record_payment', 'food_item_id'
+        'unit_price', 'total_value', 'record_payment', 'food_item_id',
     ];
 
     protected $casts = [
@@ -29,6 +29,4 @@ class MarketingStatementItem extends Model
     {
         return $this->belongsTo(FoodItem::class);
     }
-
 }
-

@@ -6,6 +6,7 @@ use App\Models\Announcement;
 use App\Models\Notification;
 use App\Models\User;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Str;
 
 /**
  * Writes notification rows for the two defense triggers (rnd.md §7).
@@ -29,16 +30,16 @@ class NotificationService
 
         foreach ($users as $user) {
             $rows[] = [
-                'uuid'          => (string) \Illuminate\Support\Str::uuid(),
-                'user_id'       => $user instanceof User ? $user->id : (int) $user,
-                'title'         => $title,
-                'message'       => $message,
-                'type'          => $type,
+                'uuid' => (string) Str::uuid(),
+                'user_id' => $user instanceof User ? $user->id : (int) $user,
+                'title' => $title,
+                'message' => $message,
+                'type' => $type,
                 'source_module' => $sourceModule,
-                'source_id'     => $sourceId,
-                'read'          => false,
-                'created_at'    => $now,
-                'updated_at'    => $now,
+                'source_id' => $sourceId,
+                'read' => false,
+                'created_at' => $now,
+                'updated_at' => $now,
             ];
         }
 

@@ -95,7 +95,7 @@ export async function listAuditLogs(
         severities: [],
         category_actions: {},
       },
-      capabilities: { export: false, temporary_ip_block: false },
+      capabilities: { export: false },
       retention: {
         enabled: false,
         source: "config",

@@ -13,8 +13,8 @@ class InventoryFactory extends Factory
     public function definition(): array
     {
         return [
-            'item_type'               => 'ingredient',
-            'fs_item_id'              => FsItem::factory(),
+            'item_type' => 'ingredient',
+            'fs_item_id' => FsItem::factory(),
         ];
     }
 }

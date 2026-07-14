@@ -23,9 +23,9 @@ class NotificationTriggersTest extends TestCase
     public function test_announcement_with_all_visibility_notifies_other_active_users(): void
     {
         $author = User::factory()->create(['role' => 'RND']);
-        $rnd2   = User::factory()->create(['role' => 'RND']);
-        $fss    = User::factory()->create(['role' => 'FSS']);
-        $admin  = User::factory()->create(['role' => 'Admin']);
+        $rnd2 = User::factory()->create(['role' => 'RND']);
+        $fss = User::factory()->create(['role' => 'FSS']);
+        $admin = User::factory()->create(['role' => 'Admin']);
 
         $this->actingAs($author, 'sanctum')->postJson('/api/rnd/announcements', [
             'title' => 'Town hall', 'body' => 'All staff please attend.',
@@ -42,8 +42,8 @@ class NotificationTriggersTest extends TestCase
     public function test_announcement_with_fss_visibility_only_notifies_fss(): void
     {
         $author = User::factory()->create(['role' => 'RND']);
-        $rnd2   = User::factory()->create(['role' => 'RND']);
-        $fss    = User::factory()->create(['role' => 'FSS']);
+        $rnd2 = User::factory()->create(['role' => 'RND']);
+        $fss = User::factory()->create(['role' => 'FSS']);
 
         $this->actingAs($author, 'sanctum')->postJson('/api/rnd/announcements', [
             'title' => 'Kitchen notice', 'body' => 'FSS only.',

@@ -14,13 +14,13 @@ class StoreDiagnosisRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'domain'         => ['required', 'string', 'in:NI,NC,NB'],
-            'problem'        => ['required', 'string', 'max:255'],
-            'etiology'       => ['required', 'string'],
+            'domain' => ['required', 'string', 'in:NI,NC,NB'],
+            'problem' => ['required', 'string', 'max:255'],
+            'etiology' => ['required', 'string'],
             'signs_symptoms' => ['required', 'string'],
-            'pes_statement'  => ['nullable', 'string'],
-            'extra_notes'    => ['nullable', 'string'],
-            'ai_generated'   => ['nullable', 'boolean'],
+            'pes_statement' => ['nullable', 'string'],
+            'extra_notes' => ['nullable', 'string'],
+            'ai_generated' => ['nullable', 'boolean'],
         ];
     }
 }

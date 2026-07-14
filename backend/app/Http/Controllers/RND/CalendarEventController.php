@@ -14,6 +14,7 @@ class CalendarEventController extends Controller
     public function index(): JsonResponse
     {
         $events = CalendarEvent::where('user_id', Auth::id())->get();
+
         return response()->json(['data' => CalendarEventResource::collection($events)]);
     }
 

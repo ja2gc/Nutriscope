@@ -12,7 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('marketing_statements', function (Blueprint $table) {
-            
+
             $table->id();
             $table->foreignId('purchase_order_id')->nullable()->references('id')->on('purchase_orders');
             $table->date('date')->nullable();
@@ -31,7 +31,7 @@ return new class extends Migration
             $table->string('file_path')->nullable();
             $table->json('extracted_data')->nullable();
             $table->timestamps();
-        
+
         });
     }
 

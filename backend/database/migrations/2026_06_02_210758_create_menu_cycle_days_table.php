@@ -12,7 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('menu_cycle_days', function (Blueprint $table) {
-            
+
             $table->id();
             $table->foreignId('menu_cycle_id')->constrained()->cascadeOnDelete();
             $table->enum('day_of_week', ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']);
@@ -22,7 +22,7 @@ return new class extends Migration
             $table->decimal('quantity', 8, 2)->default(1);
             $table->timestamps();
             $table->unique(['menu_cycle_id', 'day_of_week', 'meal_type'], 'menu_cycle_day_meal_unique');
-        
+
         });
     }
 

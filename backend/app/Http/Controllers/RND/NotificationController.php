@@ -22,8 +22,8 @@ class NotificationController extends Controller
      */
     private const SOURCE_MODELS = [
         'announcements' => Announcement::class,
-        'food_service'  => PurchaseOrder::class,
-        'ncp'           => NcpRecord::class,
+        'food_service' => PurchaseOrder::class,
+        'ncp' => NcpRecord::class,
     ];
 
     public function index(): JsonResponse

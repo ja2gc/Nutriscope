@@ -12,7 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('budget_daily_logs', function (Blueprint $table) {
-            
+
             $table->id();
             $table->foreignId('budget_id')->constrained()->cascadeOnDelete();
             $table->date('date')->nullable();
@@ -23,7 +23,7 @@ return new class extends Migration
             $table->decimal('spent', 10, 2)->nullable();
             $table->text('notes')->nullable();
             $table->timestamps();
-        
+
         });
     }
 

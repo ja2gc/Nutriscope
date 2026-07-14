@@ -14,16 +14,16 @@ class MealPrepLogFactory extends Factory
     public function definition(): array
     {
         return [
-            'menu_cycle_id'       => MenuCycle::factory(),
-            'service_date'        => now()->toDateString(),
-            'population'          => fake()->numberBetween(20, 100),
-            'served_population'   => null,
+            'menu_cycle_id' => MenuCycle::factory(),
+            'service_date' => now()->toDateString(),
+            'population' => fake()->numberBetween(20, 100),
+            'served_population' => null,
             'population_variance' => null,
-            'status'              => 'completed',
-            'completed_by'        => User::factory()->fss(),
-            'completed_at'        => now(),
-            'total_value'         => fake()->randomFloat(2, 100, 5000),
-            'has_shortfall'       => false,
+            'status' => 'completed',
+            'completed_by' => User::factory()->fss(),
+            'completed_at' => now(),
+            'total_value' => fake()->randomFloat(2, 100, 5000),
+            'has_shortfall' => false,
         ];
     }
 }

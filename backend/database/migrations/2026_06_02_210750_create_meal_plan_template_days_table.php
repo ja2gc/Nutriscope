@@ -12,7 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('meal_plan_template_days', function (Blueprint $table) {
-            
+
             $table->id();
             $table->foreignId('template_id')->constrained('meal_plan_templates')->cascadeOnDelete();
             $table->enum('day_of_week', ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']);
@@ -23,7 +23,7 @@ return new class extends Migration
             $table->string('unit')->default('serving');
             $table->timestamps();
             $table->unique(['template_id', 'day_of_week', 'meal_type'], 'template_day_meal_unique');
-        
+
         });
     }
 

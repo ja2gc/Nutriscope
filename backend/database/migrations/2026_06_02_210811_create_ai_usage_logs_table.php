@@ -12,7 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('ai_usage_logs', function (Blueprint $table) {
-            
+
             $table->id();
             $table->foreignId('user_id')->references('id')->on('users');
             $table->string('model');
@@ -21,7 +21,7 @@ return new class extends Migration
             $table->integer('tokens_total');
             $table->string('endpoint');
             $table->timestamps();
-        
+
         });
     }
 

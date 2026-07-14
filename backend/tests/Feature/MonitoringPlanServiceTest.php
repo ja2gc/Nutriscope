@@ -23,10 +23,10 @@ class MonitoringPlanServiceTest extends TestCase
         $ncp = NcpRecord::factory()->create(['patient_id' => $patient->id]);
 
         $assessment = Assessment::factory()->create([
-            'ncp_record_id'  => $ncp->id,
-            'weight'         => 50,
-            'height'         => 170,
-            'bmi'            => 17.3,
+            'ncp_record_id' => $ncp->id,
+            'weight' => 50,
+            'height' => 170,
+            'bmi' => 17.3,
             'ibw_percentage' => 75,
         ]);
         $assessment->biochemicalData()->create([
@@ -36,25 +36,25 @@ class MonitoringPlanServiceTest extends TestCase
 
         Intervention::create([
             'ncp_record_id' => $ncp->id,
-            'goal_type'     => 'renal_diet',
-            'energy_kcal'   => 1800,
-            'protein_g'     => 60,
+            'goal_type' => 'renal_diet',
+            'energy_kcal' => 1800,
+            'protein_g' => 60,
         ]);
 
         Diagnosis::create([
-            'ncp_record_id'  => $ncp->id,
-            'domain'         => 'NC',
-            'problem'        => 'Altered nutrition-related lab values',
-            'etiology'       => 'renal disease',
+            'ncp_record_id' => $ncp->id,
+            'domain' => 'NC',
+            'problem' => 'Altered nutrition-related lab values',
+            'etiology' => 'renal disease',
             'signs_symptoms' => 'low albumin',
-            'pes_statement'  => 'Altered lab values related to renal disease as evidenced by low albumin',
+            'pes_statement' => 'Altered lab values related to renal disease as evidenced by low albumin',
         ]);
 
         Monitoring::create([
             'ncp_record_id' => $ncp->id,
-            'weight'        => 52,
-            'bmi'           => 18.0,
-            'lab_values'    => ['albumin' => 3.0, 'energy_kcal' => 1600],
+            'weight' => 52,
+            'bmi' => 18.0,
+            'lab_values' => ['albumin' => 3.0, 'energy_kcal' => 1600],
         ]);
 
         return $ncp->fresh();

@@ -8,10 +8,10 @@ use Illuminate\Database\Eloquent\Model;
 class CalendarEvent extends Model
 {
     use HasFactory;
-    
+
     protected $fillable = [
         'user_id', 'title', 'type', 'source_module', 'source_id',
-        'event_date', 'status', 'deletable'
+        'event_date', 'status', 'deletable',
     ];
 
     protected $casts = [
@@ -23,6 +23,4 @@ class CalendarEvent extends Model
     {
         return $this->belongsTo(User::class);
     }
-
 }
-

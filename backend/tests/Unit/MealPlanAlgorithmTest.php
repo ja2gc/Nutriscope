@@ -3,6 +3,7 @@
 namespace Tests\Unit;
 
 use App\Services\MealPlanService;
+use Illuminate\Support\Collection;
 use PHPUnit\Framework\TestCase as BaseTestCase;
 
 /**
@@ -18,7 +19,7 @@ class MealPlanAlgorithmTest extends BaseTestCase
 {
     private function svc(): MealPlanService
     {
-        return new MealPlanService();
+        return new MealPlanService;
     }
 
     /**
@@ -28,6 +29,7 @@ class MealPlanAlgorithmTest extends BaseTestCase
     {
         $ref = new \ReflectionMethod($obj, $method);
         $ref->setAccessible(true);
+
         return $ref->invoke($obj, ...$args);
     }
 
@@ -35,24 +37,31 @@ class MealPlanAlgorithmTest extends BaseTestCase
 
     private function makeRecipe(array $mealTypes, string $name = 'Recipe'): object
     {
-        return new class($mealTypes, $name) {
+        return new class($mealTypes, $name)
+        {
             public string $name;
+
             public ?array $meal_types;
+
             public float $total_calories = 400;
-            public float $total_protein  = 15;
-            public float $total_carbs    = 60;
-            public float $total_fat      = 10;
+
+            public float $total_protein = 15;
+
+            public float $total_carbs = 60;
+
+            public float $total_fat = 10;
+
             public ?array $micronutrients = null;
 
             public function __construct(array $mt, string $n)
             {
                 $this->meal_types = $mt ?: null;
-                $this->name       = $n;
+                $this->name = $n;
             }
         };
     }
 
-    private function makeCollection(array $items): \Illuminate\Support\Collection
+    private function makeCollection(array $items): Collection
     {
         return collect($items);
     }
@@ -60,8 +69,8 @@ class MealPlanAlgorithmTest extends BaseTestCase
     public function test_breakfast_recipe_eligible_for_breakfast_slot(): void
     {
         $recipe = $this->makeRecipe(['breakfast']);
-        $pool   = $this->makeCollection([$recipe]);
-        $svc    = $this->svc();
+        $pool = $this->makeCollection([$recipe]);
+        $svc = $this->svc();
 
         $filtered = $this->call($svc, 'filterByMealType', [$pool, 'breakfast']);
         $this->assertCount(1, $filtered);
@@ -70,8 +79,8 @@ class MealPlanAlgorithmTest extends BaseTestCase
     public function test_breakfast_recipe_not_eligible_for_lunch_slot(): void
     {
         $recipe = $this->makeRecipe(['breakfast']);
-        $pool   = $this->makeCollection([$recipe]);
-        $svc    = $this->svc();
+        $pool = $this->makeCollection([$recipe]);
+        $svc = $this->svc();
 
         $filtered = $this->call($svc, 'filterByMealType', [$pool, 'lunch']);
         $this->assertCount(0, $filtered);
@@ -80,8 +89,8 @@ class MealPlanAlgorithmTest extends BaseTestCase
     public function test_any_recipe_eligible_for_all_slots(): void
     {
         $recipe = $this->makeRecipe(['any']);
-        $pool   = $this->makeCollection([$recipe]);
-        $svc    = $this->svc();
+        $pool = $this->makeCollection([$recipe]);
+        $svc = $this->svc();
 
         foreach (['breakfast', 'am_snack', 'lunch', 'pm_snack', 'dinner'] as $slot) {
             $filtered = $this->call($svc, 'filterByMealType', [$pool, $slot]);
@@ -92,8 +101,8 @@ class MealPlanAlgorithmTest extends BaseTestCase
     public function test_snack_alias_eligible_for_am_snack_and_pm_snack(): void
     {
         $recipe = $this->makeRecipe(['snack']);
-        $pool   = $this->makeCollection([$recipe]);
-        $svc    = $this->svc();
+        $pool = $this->makeCollection([$recipe]);
+        $svc = $this->svc();
 
         $this->assertCount(1, $this->call($svc, 'filterByMealType', [$pool, 'am_snack']));
         $this->assertCount(1, $this->call($svc, 'filterByMealType', [$pool, 'pm_snack']));
@@ -103,20 +112,20 @@ class MealPlanAlgorithmTest extends BaseTestCase
     public function test_null_meal_types_treated_as_any(): void
     {
         $recipe = $this->makeRecipe([]);  // empty → treated as any
-        $pool   = $this->makeCollection([$recipe]);
-        $svc    = $this->svc();
+        $pool = $this->makeCollection([$recipe]);
+        $svc = $this->svc();
 
         foreach (['breakfast', 'lunch', 'dinner'] as $slot) {
             $filtered = $this->call($svc, 'filterByMealType', [$pool, $slot]);
-            $this->assertCount(1, $filtered, "Null meal_types should be eligible for all slots");
+            $this->assertCount(1, $filtered, 'Null meal_types should be eligible for all slots');
         }
     }
 
     public function test_multi_type_recipe_eligible_for_correct_slots(): void
     {
         $recipe = $this->makeRecipe(['lunch', 'dinner']);
-        $pool   = $this->makeCollection([$recipe]);
-        $svc    = $this->svc();
+        $pool = $this->makeCollection([$recipe]);
+        $svc = $this->svc();
 
         $this->assertCount(1, $this->call($svc, 'filterByMealType', [$pool, 'lunch']));
         $this->assertCount(1, $this->call($svc, 'filterByMealType', [$pool, 'dinner']));
@@ -172,9 +181,12 @@ class MealPlanAlgorithmTest extends BaseTestCase
      */
     private function makeSlotWithItems(array $nutrients): object
     {
-        $item = new class($nutrients) {
+        $item = new class($nutrients)
+        {
             public float $quantity = 1.0;
+
             public array $nutrient_snapshot;
+
             public ?int $recipe_id = 1;
 
             public function __construct(array $n)
@@ -183,8 +195,10 @@ class MealPlanAlgorithmTest extends BaseTestCase
             }
         };
 
-        $slot = new class([$item]) {
+        $slot = new class([$item])
+        {
             public array $items;
+
             public string $meal_type = 'lunch';
 
             public function __construct(array $items)
@@ -204,13 +218,13 @@ class MealPlanAlgorithmTest extends BaseTestCase
             'calories' => 2050, 'protein' => 70, 'carbs' => 250, 'fat' => 60, 'water_g' => 0,
             'micronutrients' => [],
         ]);
-        $slots   = collect([$slot]);
+        $slots = collect([$slot]);
         $targets = ['energy' => 2000.0, 'protein' => 70.0, 'carbs' => 250.0, 'fat' => 60.0];
 
         $variance = $this->call($svc, 'computeDayVariance', [$slots, $targets, []]);
 
         $this->assertEqualsWithDelta(0.025, $variance['energy'], 0.001);
-        $this->assertEqualsWithDelta(0.0,   $variance['protein'], 0.001);
+        $this->assertEqualsWithDelta(0.0, $variance['protein'], 0.001);
     }
 
     public function test_compute_day_variance_marks_cannot_validate_for_missing_micro(): void
@@ -220,8 +234,8 @@ class MealPlanAlgorithmTest extends BaseTestCase
             'calories' => 2000, 'protein' => 70, 'carbs' => 250, 'fat' => 60, 'water_g' => 0,
             'micronutrients' => [],  // no sodium reported
         ]);
-        $slots      = collect([$slot]);
-        $targets    = ['energy' => 2000.0];
+        $slots = collect([$slot]);
+        $targets = ['energy' => 2000.0];
         $microLimits = ['sodium_mg' => ['min' => 1500, 'unit' => 'mg']];
 
         $variance = $this->call($svc, 'computeDayVariance', [$slots, $targets, $microLimits]);
@@ -235,10 +249,10 @@ class MealPlanAlgorithmTest extends BaseTestCase
         $svc = $this->svc();
         $slot = $this->makeSlotWithItems([
             'calories' => 2000, 'protein' => 70, 'carbs' => 250, 'fat' => 60,
-            'water_g'  => 1800,  // under 2000 mL target
+            'water_g' => 1800,  // under 2000 mL target
             'micronutrients' => [],
         ]);
-        $slots   = collect([$slot]);
+        $slots = collect([$slot]);
         $targets = ['energy' => 2000.0, 'water' => 2000.0];
 
         $variance = $this->call($svc, 'computeDayVariance', [$slots, $targets, []]);
@@ -251,20 +265,29 @@ class MealPlanAlgorithmTest extends BaseTestCase
     {
         $svc = $this->svc();
         // quantity = 2, calories per serving = 500 → day total = 1000
-        $item = new class {
+        $item = new class
+        {
             public float $quantity = 2.0;
+
             public array $nutrient_snapshot = [
                 'calories' => 500, 'protein' => 20, 'carbs' => 80, 'fat' => 15,
                 'water_g' => 100, 'micronutrients' => [],
             ];
+
             public ?int $recipe_id = 1;
         };
-        $slot = new class([$item]) {
+        $slot = new class([$item])
+        {
             public array $items;
+
             public string $meal_type = 'lunch';
-            public function __construct(array $i) { $this->items = $i; }
+
+            public function __construct(array $i)
+            {
+                $this->items = $i;
+            }
         };
-        $slots   = collect([$slot]);
+        $slots = collect([$slot]);
         $targets = ['energy' => 1000.0, 'protein' => 40.0];
 
         $variance = $this->call($svc, 'computeDayVariance', [$slots, $targets, []]);

@@ -12,7 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('budgets', function (Blueprint $table) {
-            
+
             $table->id();
             $table->foreignId('rnd_user_id')->references('id')->on('users');
             $table->decimal('planned_amount', 10, 2);
@@ -21,7 +21,7 @@ return new class extends Migration
             $table->date('period_end');
             $table->decimal('cost_per_person', 8, 2)->default(150);
             $table->timestamps();
-        
+
         });
     }
 

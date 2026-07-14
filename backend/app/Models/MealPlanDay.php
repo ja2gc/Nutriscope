@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasPublicId;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -10,13 +11,14 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class MealPlanDay extends Model
 {
     use HasFactory;
-    use \App\Models\Concerns\HasPublicId;
+    use HasPublicId;
+
     public $timestamps = false;
 
     protected $fillable = ['meal_plan_id', 'day_of_week', 'meal_type', 'flagged', 'variance'];
 
     protected $casts = [
-        'flagged'  => 'boolean',
+        'flagged' => 'boolean',
         'variance' => 'array',
     ];
 
@@ -38,11 +40,11 @@ class MealPlanDay extends Model
         return $this->items->reduce(function ($carry, $item) {
             $snap = $item->nutrient_snapshot ?? [];
             $carry['calories'] = ($carry['calories'] ?? 0) + ($snap['calories'] ?? 0);
-            $carry['protein']  = ($carry['protein'] ?? 0)  + ($snap['protein'] ?? 0);
-            $carry['carbs']    = ($carry['carbs'] ?? 0)    + ($snap['carbs'] ?? 0);
-            $carry['fat']      = ($carry['fat'] ?? 0)      + ($snap['fat'] ?? 0);
+            $carry['protein'] = ($carry['protein'] ?? 0) + ($snap['protein'] ?? 0);
+            $carry['carbs'] = ($carry['carbs'] ?? 0) + ($snap['carbs'] ?? 0);
+            $carry['fat'] = ($carry['fat'] ?? 0) + ($snap['fat'] ?? 0);
+
             return $carry;
         }, ['calories' => 0, 'protein' => 0, 'carbs' => 0, 'fat' => 0]);
     }
 }
-
