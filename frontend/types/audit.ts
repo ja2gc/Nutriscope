@@ -65,3 +65,9 @@ export interface AuditCapabilities {
   export: boolean;
   temporary_ip_block: boolean;
 }
+
+export interface AuditRetentionState {
+  enabled: boolean;
+  source: "config" | "database";
+  periods: Record<AuditCategory | "legacy", number>;
+}

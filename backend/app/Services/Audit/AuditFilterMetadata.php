@@ -13,6 +13,8 @@ use Illuminate\Support\Facades\Gate;
 
 class AuditFilterMetadata
 {
+    public function __construct(private readonly AuditRetentionState $retentionState) {}
+
     /** @return array{filters: array<string, mixed>, capabilities: array<string, bool>} */
     public function for(User $user): array
     {
@@ -32,6 +34,7 @@ class AuditFilterMetadata
                     && Gate::forUser($user)->allows('export', AuditActivity::class),
                 'temporary_ip_block' => false,
             ],
+            'retention' => $this->retentionState->current(),
         ];
     }
 

@@ -11,11 +11,13 @@ use App\Exceptions\AuditLoggingUnavailable;
 use App\Exceptions\AuditPruneFailed;
 use App\Http\Controllers\Controller;
 use App\Models\AuditActivity;
+use App\Models\AuditSetting;
 use App\Models\FsItem;
 use App\Models\User;
 use App\Services\Audit\AuditHealthMonitor;
 use App\Services\Audit\AuditLogger;
 use App\Services\Audit\AuditRetentionService;
+use App\Services\Audit\AuditRetentionState;
 use App\Services\Audit\SecurityAuditDeduplicator;
 use Closure;
 use Illuminate\Console\Scheduling\Schedule;
@@ -36,6 +38,29 @@ use Tests\TestCase;
 class AuditRetentionTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_retention_state_uses_config_only_until_a_database_row_exists(): void
+    {
+        config(['audit.features.retention' => false]);
+
+        $fallback = app(AuditRetentionState::class)->current();
+
+        $this->assertFalse($fallback['enabled']);
+        $this->assertSame('config', $fallback['source']);
+
+        config(['audit.features.retention' => true]);
+        $this->assertTrue(app(AuditRetentionState::class)->enabled());
+
+        AuditSetting::query()->create([
+            'key' => AuditSetting::RETENTION_ENABLED,
+            'enabled' => false,
+        ]);
+
+        $persisted = app(AuditRetentionState::class)->current();
+
+        $this->assertFalse($persisted['enabled']);
+        $this->assertSame('database', $persisted['source']);
+    }
 
     public function test_dry_run_reports_category_counts_without_deleting_rows(): void
     {
@@ -649,6 +674,15 @@ class AuditRetentionTest extends TestCase
         $this->assertSame('0 0 * * *', $prune->expression);
         $this->assertTrue($prune->withoutOverlapping);
         $this->assertTrue($prune->onOneServer);
+        $this->assertFalse(config('audit.features.retention'));
+        $this->assertFalse($prune->filtersPass(app()));
+        config(['audit.features.retention' => true]);
+        $this->assertTrue($prune->filtersPass(app()));
+        AuditSetting::query()->create([
+            'key' => AuditSetting::RETENTION_ENABLED,
+            'enabled' => false,
+        ]);
+        $this->assertFalse($prune->filtersPass(app()));
         $this->assertTrue($monitor->withoutOverlapping);
         $this->assertTrue($monitor->onOneServer);
         $this->assertSame('10 0 * * *', $monitor->expression);

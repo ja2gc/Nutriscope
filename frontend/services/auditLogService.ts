@@ -6,6 +6,7 @@ import type {
   AuditEventDto,
   AuditFilterMetadata,
   AuditOutcome,
+  AuditRetentionState,
   AuditSeverity,
 } from "@/types/audit";
 
@@ -29,6 +30,7 @@ export interface ListAuditLogsParams {
 export interface AuditLogListMeta extends PaginationMeta {
   filters: AuditFilterMetadata;
   capabilities: AuditCapabilities;
+  retention: AuditRetentionState;
 }
 
 export class AuditLogServiceError extends Error {
@@ -94,8 +96,28 @@ export async function listAuditLogs(
         category_actions: {},
       },
       capabilities: { export: false, temporary_ip_block: false },
+      retention: {
+        enabled: false,
+        source: "config",
+        periods: { security: 365, clinical: 2190, operations: 1095, legacy: 90 },
+      },
     },
   };
+}
+
+export async function updateAuditRetention(enabled: boolean): Promise<AuditRetentionState> {
+  const res = await apiFetch("/api/admin/audit-retention", {
+    method: "PUT",
+    headers: { Accept: "application/json", "Content-Type": "application/json" },
+    body: JSON.stringify({ enabled }),
+  }, { redirectOnUnauthorized: false });
+
+  if (!res.ok) {
+    throw new AuditLogServiceError("Unable to update scheduled deletion.", res.status);
+  }
+
+  const response = await res.json();
+  return response.data;
 }
 
 export async function exportAuditLogs(params: ListAuditLogsParams = {}): Promise<Blob> {

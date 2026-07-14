@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\AuditActivity;
+use App\Models\AuditSetting;
 use App\Models\Patient;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -99,6 +100,92 @@ class AdminAuditLogTest extends TestCase
             ->assertJsonPath('meta.filters.category_actions.security.0', 'created')
             ->assertJsonPath('meta.capabilities.export', false)
             ->assertJsonPath('meta.capabilities.temporary_ip_block', false);
+    }
+
+    public function test_admin_can_read_static_retention_periods_and_config_fallback_state(): void
+    {
+        config(['audit.features.retention' => false]);
+
+        $response = $this->actingAs($this->admin, 'sanctum')
+            ->getJson('/api/admin/audit-retention');
+
+        $response->assertOk()
+            ->assertJsonPath('data.enabled', false)
+            ->assertJsonPath('data.source', 'config')
+            ->assertJsonPath('data.periods.security', 365)
+            ->assertJsonPath('data.periods.clinical', 2190)
+            ->assertJsonPath('data.periods.operations', 1095)
+            ->assertJsonPath('data.periods.legacy', 90);
+    }
+
+    public function test_database_retention_state_overrides_config_and_is_exposed_in_audit_metadata(): void
+    {
+        config(['audit.features.retention' => false]);
+        AuditSetting::query()->create([
+            'key' => AuditSetting::RETENTION_ENABLED,
+            'enabled' => true,
+        ]);
+
+        $response = $this->actingAs($this->admin, 'sanctum')
+            ->getJson('/api/admin/audit-logs');
+
+        $response->assertOk()
+            ->assertJsonPath('meta.retention.enabled', true)
+            ->assertJsonPath('meta.retention.source', 'database')
+            ->assertJsonPath('meta.retention.periods.clinical', 2190);
+    }
+
+    public function test_only_admin_can_read_or_change_retention_state(): void
+    {
+        $rnd = User::factory()->create(['role' => 'RND']);
+
+        $this->getJson('/api/admin/audit-retention')->assertUnauthorized();
+        $this->putJson('/api/admin/audit-retention', ['enabled' => true])->assertUnauthorized();
+
+        $this->actingAs($rnd, 'sanctum')
+            ->getJson('/api/admin/audit-retention')
+            ->assertForbidden();
+        $this->actingAs($rnd, 'sanctum')
+            ->putJson('/api/admin/audit-retention', ['enabled' => true])
+            ->assertForbidden();
+    }
+
+    public function test_retention_update_requires_an_explicit_boolean(): void
+    {
+        foreach ([[], ['enabled' => 1], ['enabled' => 'true'], ['enabled' => null]] as $payload) {
+            $this->actingAs($this->admin, 'sanctum')
+                ->putJson('/api/admin/audit-retention', $payload)
+                ->assertUnprocessable()
+                ->assertJsonValidationErrors('enabled');
+        }
+    }
+
+    public function test_admin_retention_change_is_persisted_and_audited_with_safe_old_and_new_values(): void
+    {
+        $this->travelTo('2026-07-14 12:34:56');
+        config(['audit.features.retention' => false]);
+
+        $response = $this->actingAs($this->admin, 'sanctum')
+            ->putJson('/api/admin/audit-retention', ['enabled' => true]);
+
+        $response->assertOk()
+            ->assertJsonPath('data.enabled', true)
+            ->assertJsonPath('data.source', 'database');
+        $this->assertDatabaseHas('audit_settings', [
+            'key' => AuditSetting::RETENTION_ENABLED,
+            'enabled' => true,
+        ]);
+
+        $event = AuditActivity::query()
+            ->where('event', 'settings_changed')
+            ->where('domain', 'system')
+            ->sole();
+        $this->assertSame($this->admin->id, $event->causer_id);
+        $this->assertSame('2026-07-14 12:34:56', $event->created_at->format('Y-m-d H:i:s'));
+        $this->assertSame(['retention_enabled' => false], $event->properties->get('old'));
+        $this->assertSame(['retention_enabled' => true], $event->properties->get('attributes'));
+        $this->assertSame(['retention_enabled'], $event->properties->get('details')['changed_fields']);
+        $this->assertStringNotContainsString('patient', strtolower($event->properties->toJson()));
     }
 
     public function test_clinical_audit_values_are_redacted_before_admin_api_exposes_them(): void

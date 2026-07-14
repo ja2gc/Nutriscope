@@ -126,7 +126,9 @@ class AuditEventPresenter
             'status' => 'token', 'quantity' => 'number', 'servings' => 'number',
             'meal_type' => 'token', 'is_active' => 'boolean',
         ],
-        AuditDomain::System->value => ['status' => 'token', 'is_active' => 'boolean'],
+        AuditDomain::System->value => [
+            'status' => 'token', 'is_active' => 'boolean', 'retention_enabled' => 'boolean',
+        ],
         AuditDomain::Patients->value => [],
         AuditDomain::Ncp->value => [],
     ];

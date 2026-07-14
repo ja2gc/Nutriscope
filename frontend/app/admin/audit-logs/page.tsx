@@ -5,6 +5,7 @@ import { Activity, AlertTriangle, RefreshCw, Shield } from "lucide-react";
 import { AuditExportButton } from "@/components/audit/AuditExportButton";
 import { AuditEventDrawer } from "@/components/audit/AuditEventDrawer";
 import { AuditEventTable } from "@/components/audit/AuditEventTable";
+import { AuditRetentionControl } from "@/components/audit/AuditRetentionControl";
 import { AuditFilters, type AuditFilterState } from "@/components/audit/AuditFilters";
 import { useAuditEventList } from "@/components/audit/useAuditEventList";
 import { useAuditUrlState } from "@/components/audit/useAuditUrlState";
@@ -16,6 +17,7 @@ import { Tabs, type TabItem } from "@/components/ui/Tabs";
 import { listUsers } from "@/services/adminUserService";
 import {
   AuditLogServiceError,
+  updateAuditRetention,
   type ListAuditLogsParams,
 } from "@/services/auditLogService";
 import type { User } from "@/services/authService";
@@ -117,6 +119,8 @@ function AuditLogsContent() {
         <StatusPanel title="Unable to load audit events" message="The audit service could not be reached. Try again." retry={() => void reload()} />
       ) : (
         <>
+          <AuditRetentionControl retention={meta.retention} onUpdate={updateAuditRetention} />
+
           <Card className="overflow-hidden">
             <Tabs
               items={tabs}

@@ -22,6 +22,11 @@ const emptyMeta: AuditLogListMeta = {
     category_actions: {} as Record<AuditCategory, string[]>,
   },
   capabilities: { export: false, temporary_ip_block: false },
+  retention: {
+    enabled: false,
+    source: "config",
+    periods: { security: 365, clinical: 2190, operations: 1095, legacy: 90 },
+  },
 };
 
 export function useAuditEventList(params: ListAuditLogsParams) {

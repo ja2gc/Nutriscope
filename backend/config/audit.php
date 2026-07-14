@@ -114,6 +114,7 @@ return [
     ],
 
     'features' => [
+        'retention' => env('AUDIT_RETENTION_ENABLED', false),
         'export' => env('AUDIT_EXPORT_ENABLED', false),
         'ip_blocking' => env('AUDIT_SECURITY_BLOCKS_ENABLED', false),
     ],
@@ -135,6 +136,13 @@ return [
             'owner_task' => 4,
             'implementation_state' => 'implemented',
             'reason' => 'Successful PUT api/admin/ai-usage-limits emits one sanitized explicit event; rejected commands emit none.',
+        ],
+        'PUT api/admin/audit-retention' => [
+            'classification' => 'explicit_event',
+            'source' => 'App\\Http\\Controllers\\Admin\\AuditRetentionController@update',
+            'owner_task' => 8,
+            'implementation_state' => 'implemented',
+            'reason' => 'The retention switch emits one sanitized settings event containing only the old and new booleans.',
         ],
         'POST api/admin/announcements' => [
             'classification' => 'explicit_event',

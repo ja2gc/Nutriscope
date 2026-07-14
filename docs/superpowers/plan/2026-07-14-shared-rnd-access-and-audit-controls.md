@@ -56,17 +56,19 @@
 - Create: `frontend/components/audit/AuditRetentionControl.tsx`
 - Create: `frontend/components/audit/AuditRetentionControl.test.tsx`
 - Modify: `frontend/app/admin/audit-logs/page.tsx`
+- Create: `frontend/app/api/admin/audit-retention/route.ts`
+- Test: `frontend/app/api/admin/audit-retention/route.test.ts`
 
-- [ ] Write failing tests for config fallback with no DB row, DB override, Admin-only mutation, explicit boolean validation, and audit old/new actor attribution.
-- [ ] Write failing UI tests for read-only category periods, current state, explicit enable confirmation text/action, and immediate disable without confirmation.
-- [ ] Generate a focused reversible migration containing one unique setting row shape but no seeded data; absence of a row preserves the environment fallback.
-- [ ] Implement the model, state reader, transactional row-locked update action, Form Request, controller, route-coverage entry, and response metadata.
-- [ ] Gate only the scheduled `audit:prune --force` execution through the state reader; retain `daily()`, `withoutOverlapping()`, and `onOneServer()`.
-- [ ] Emit one sanitized operations `settings_changed` event with actor, `retention_enabled` old/new booleans, and server timestamp; never store clinical data.
-- [ ] Implement the Admin toggle and exact enable warning; show security 365 days, clinical 2,190 days, operations 1,095 days, and legacy 90 days as read-only values.
-- [ ] Run migrations, rollback/re-forward, retention, authorization, route coverage, privacy, frontend tests, typecheck, lint, and build.
-- [ ] Perform spec-compliance and code-quality reviews; fix and re-review until approved.
-- [ ] Commit with `feat: add audit retention control`.
+- [x] Write failing tests for config fallback with no DB row, DB override, Admin-only mutation, explicit boolean validation, and audit old/new actor attribution.
+- [x] Write failing UI tests for read-only category periods, current state, explicit enable confirmation text/action, and immediate disable without confirmation.
+- [x] Generate a focused reversible migration containing one unique setting row shape but no seeded data; absence of a row preserves the environment fallback.
+- [x] Implement the model, state reader, transactional row-locked update action, Form Request, controller, route-coverage entry, and response metadata.
+- [x] Gate only the scheduled `audit:prune --force` execution through the state reader; retain `daily()`, `withoutOverlapping()`, and `onOneServer()`.
+- [x] Emit one sanitized operations `settings_changed` event with actor, `retention_enabled` old/new booleans, and server timestamp; never store clinical data.
+- [x] Implement the Admin toggle and exact enable warning; show security 365 days, clinical 2,190 days, operations 1,095 days, and legacy 90 days as read-only values.
+- [x] Run migrations, rollback/re-forward, retention, authorization, route coverage, privacy, frontend tests, typecheck, lint, and build.
+- [x] Perform spec-compliance and code-quality reviews; fix and re-review until approved.
+- [x] Commit with `feat: add audit retention control`.
 
 ### Task 3: Remove IP-Blocking Scaffolding
 

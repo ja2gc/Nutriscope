@@ -5,6 +5,7 @@ use App\Http\Middleware\EnsureActiveUser;
 use App\Http\Middleware\RecordSecurityRejections;
 use App\Http\Middleware\RoleMiddleware;
 use App\Services\Audit\AuditHealthMonitor;
+use App\Services\Audit\AuditRetentionState;
 use App\Services\Audit\SecurityAuditDeduplicator;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Database\QueryException;
@@ -33,7 +34,8 @@ return Application::configure(basePath: dirname(__DIR__))
         $schedule->command('audit:prune --force')
             ->daily()
             ->withoutOverlapping()
-            ->onOneServer();
+            ->onOneServer()
+            ->when(fn (): bool => app(AuditRetentionState::class)->enabled());
         $schedule->call(fn (): mixed => app(AuditHealthMonitor::class)->inspectDaily())
             ->dailyAt('00:10')
             ->name('audit:monitor-health')
