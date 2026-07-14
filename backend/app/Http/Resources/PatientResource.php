@@ -37,6 +37,8 @@ class PatientResource extends JsonResource
             'next_followup_date' => $latestNcpRecord?->intervention?->next_followup_date,
             'risk_score' => $latestNcpRecord?->risk_score,
             'latest_ncp_id' => $latestNcpRecord?->uuid,
+            'latest_ncp_created_by' => $this->resource->getAttribute('latest_ncp_created_by'),
+            'last_clinical_action' => $this->resource->getAttribute('last_clinical_action'),
         ];
     }
 }

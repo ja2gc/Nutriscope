@@ -23,6 +23,7 @@ import {
 import { getNcpStepState, type NcpStep, type NcpStepState } from "@/lib/ncpWorkflow";
 import { formatPatientAge } from "@/lib/patientAge";
 import { AuditTrail } from "@/components/audit/AuditTrail";
+import { ClinicalAttribution } from "@/components/ncp/ClinicalAttribution";
 
 type TabKey = "overview" | "adime-records" | "attachments";
 const NCP_STEPS: NcpStep[] = ["assessment", "diagnosis", "intervention", "monitoring"];
@@ -746,6 +747,12 @@ export default function PatientProfilePage({
                         <p className="text-xs text-warm-500 uppercase tracking-wider font-bold">
                           Created {formatAbsoluteDate(record.created_at)}
                         </p>
+                        <ClinicalAttribution
+                          creator={record.created_by}
+                          lastAction={record.last_clinical_action}
+                          formatDate={formatAbsoluteDate}
+                          className="flex flex-wrap gap-x-3 gap-y-1"
+                        />
                       </div>
 
                       <div className="flex items-center gap-4">

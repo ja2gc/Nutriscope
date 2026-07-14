@@ -1,4 +1,16 @@
 ﻿import { apiFetch } from "@/lib/apiFetch";
+export interface ClinicalActor {
+  id: string | null;
+  kind: "user" | "system" | "anonymous";
+  name: string;
+  role: string | null;
+}
+
+export interface ClinicalActionAttribution {
+  actor: ClinicalActor | null;
+  occurred_at: string;
+}
+
 export interface Patient {
   id: number;
   name: string;
@@ -22,6 +34,8 @@ export interface Patient {
   next_followup_date?: string | null;
   risk_score?: number | string | null;
   latest_ncp_id?: number | null;
+  latest_ncp_created_by?: ClinicalActor | null;
+  last_clinical_action?: ClinicalActionAttribution | null;
 }
 
 export interface NcpRecord {
@@ -32,6 +46,8 @@ export interface NcpRecord {
   status: string;
   created_at: string;
   updated_at: string;
+  created_by?: ClinicalActor | null;
+  last_clinical_action?: ClinicalActionAttribution | null;
   rnd?: {
     id: number;
     name: string;

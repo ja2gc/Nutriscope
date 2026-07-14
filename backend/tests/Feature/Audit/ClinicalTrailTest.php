@@ -159,7 +159,7 @@ class ClinicalTrailTest extends TestCase
         $this->assertStringNotContainsString('CLINICAL-VALUE-SENTINEL', AuditActivity::query()->get(['properties'])->toJson());
     }
 
-    public function test_trails_require_resource_access_and_ncp_cross_record_access_is_forbidden(): void
+    public function test_trails_require_authentication_and_allow_cross_rnd_access(): void
     {
         $owner = User::factory()->rnd()->create();
         $other = User::factory()->rnd()->create();
@@ -168,11 +168,11 @@ class ClinicalTrailTest extends TestCase
 
         $this->getJson("/api/rnd/ncp-records/{$ncp->uuid}/activity")->assertUnauthorized();
         $this->actingAs($other, 'sanctum');
-        $this->getJson("/api/rnd/patients/{$patient->uuid}/activity")->assertForbidden();
-        $this->getJson("/api/rnd/ncp-records/{$ncp->uuid}/activity")->assertForbidden();
+        $this->getJson("/api/rnd/patients/{$patient->uuid}/activity")->assertOk();
+        $this->getJson("/api/rnd/ncp-records/{$ncp->uuid}/activity")->assertOk();
     }
 
-    public function test_opening_another_rnds_chart_does_not_grant_patient_trail_access(): void
+    public function test_every_rnd_can_open_another_rnds_chart_and_patient_trail(): void
     {
         $owner = User::factory()->rnd()->create();
         $other = User::factory()->rnd()->create();
@@ -183,7 +183,7 @@ class ClinicalTrailTest extends TestCase
             ->getJson("/api/rnd/patients/{$patient->uuid}")
             ->assertOk();
 
-        $this->getJson("/api/rnd/patients/{$patient->uuid}/activity")->assertForbidden();
+        $this->getJson("/api/rnd/patients/{$patient->uuid}/activity")->assertOk();
     }
 
     public function test_before_id_cursor_is_stable_newest_first_without_duplicates(): void
@@ -327,7 +327,7 @@ class ClinicalTrailTest extends TestCase
         $this->assertSame($rnd->id, $activity->audit_owner_id);
     }
 
-    public function test_actor_agnostic_legacy_rows_do_not_grant_patient_trail_access(): void
+    public function test_actor_agnostic_legacy_rows_do_not_block_shared_rnd_patient_trail_access(): void
     {
         $owner = User::factory()->rnd()->create();
         $other = User::factory()->rnd()->create();
@@ -344,7 +344,7 @@ class ClinicalTrailTest extends TestCase
 
         $this->actingAs($other, 'sanctum')
             ->getJson("/api/rnd/patients/{$patient->uuid}/activity")
-            ->assertForbidden();
+            ->assertOk();
     }
 
     public function test_non_audit_channels_and_poisoned_legacy_properties_fail_closed(): void

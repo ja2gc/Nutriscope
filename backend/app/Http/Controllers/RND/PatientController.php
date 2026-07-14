@@ -15,7 +15,9 @@ use App\Models\NcpRecord;
 use App\Models\Patient;
 use App\Models\ScreeningDocument;
 use App\Services\Audit\AuditLogger;
+use App\Services\Audit\ClinicalAttributionService;
 use App\Services\ClinicalDocumentStorage;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -25,6 +27,7 @@ class PatientController extends Controller
 {
     public function __construct(
         private readonly AuditLogger $auditLogger,
+        private readonly ClinicalAttributionService $clinicalAttribution,
         private readonly ClinicalDocumentStorage $documentStorage,
     ) {}
 
@@ -39,9 +42,10 @@ class PatientController extends Controller
                 ->orWhere('ward', 'like', "%{$s}%")
             )
             ->when($request->status, fn ($q, $s) => $q->where('status', $s))
-            ->with(['ncpRecords' => fn ($q) => $q->latest()->with(['assessment', 'intervention'])])
+            ->with(['ncpRecords' => fn ($q) => $q->latest()->with(['rnd:id,uuid,name,role', 'assessment', 'intervention'])])
             ->orderByDesc('created_at')
             ->paginate((int) min($request->query('per_page', 15), 100));
+        $this->clinicalAttribution->decoratePatients($patients->getCollection());
 
         return PatientResource::collection($patients);
     }
@@ -64,8 +68,9 @@ class PatientController extends Controller
     public function show(Request $request, Patient $patient): JsonResponse
     {
         $patient->load([
-            'ncpRecords' => fn ($q) => $q->latest()->with(['assessment', 'diagnoses', 'intervention']),
+            'ncpRecords' => fn ($q) => $q->latest()->with(['rnd:id,uuid,name,role', 'assessment', 'diagnoses', 'intervention']),
         ]);
+        $this->clinicalAttribution->decoratePatients(new Collection([$patient]));
         $key = "patient-chart-view:{$request->user()->id}:{$patient->id}";
         if (Cache::add($key, true, (int) config('audit.deduplication.chart_view_seconds', 900))) {
             try {
@@ -93,8 +98,9 @@ class PatientController extends Controller
         return $this->audited(function () use ($request, $patient): JsonResponse {
             $patient->update($request->validated());
             $patient->load([
-                'ncpRecords' => fn ($q) => $q->latest()->with(['assessment', 'intervention']),
+                'ncpRecords' => fn ($q) => $q->latest()->with(['rnd:id,uuid,name,role', 'assessment', 'intervention']),
             ]);
+            $this->clinicalAttribution->decoratePatients(new Collection([$patient]));
 
             return response()->json(new PatientResource($patient));
         });
@@ -106,9 +112,10 @@ class PatientController extends Controller
     public function ncpRecords(Patient $patient): JsonResponse
     {
         $records = $patient->ncpRecords()
-            ->with(['rnd:id,uuid,name', 'assessment', 'diagnoses', 'intervention.mealPlans:id,uuid,intervention_id,week_start_date,generation_type'])
+            ->with(['rnd:id,uuid,name,role', 'assessment', 'diagnoses', 'intervention.mealPlans:id,uuid,intervention_id,week_start_date,generation_type'])
             ->orderByDesc('created_at')
             ->get();
+        $this->clinicalAttribution->decorateNcpRecords($records);
 
         // Overlay the public uuid on the record's own identity (used to build
         // /ncp/{ncpId}/... nav links) without disturbing the rest of the payload shape.

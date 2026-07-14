@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/Button";
 import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
 import { formatPatientAge } from "@/lib/patientAge";
 import { HeartHandshake, X } from "lucide-react";
+import { ClinicalAttribution } from "@/components/ncp/ClinicalAttribution";
 
 function formatRelativeDate(value?: string | null) {
   if (!value) {
@@ -244,7 +245,7 @@ export default function NcpPatientsPage() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse min-w-[480px]">
+            <table className="w-full text-left border-collapse min-w-[1080px]">
               <thead>
                 <tr className="bg-warm-50 border-b border-warm-200 select-none">
                   <th className="px-5 py-4 text-xs font-extrabold text-warm-500 uppercase tracking-wider">Name / ID</th>
@@ -253,6 +254,7 @@ export default function NcpPatientsPage() {
                   <th className="px-5 py-4 text-xs font-extrabold text-warm-500 uppercase tracking-wider">Last Assessment</th>
                   <th className="px-5 py-4 text-xs font-extrabold text-warm-500 uppercase tracking-wider">Next Follow-up</th>
                   <th className="px-5 py-4 text-xs font-extrabold text-warm-500 uppercase tracking-wider">Risk Status</th>
+                  <th className="px-5 py-4 text-xs font-extrabold text-warm-500 uppercase tracking-wider">Clinical Attribution</th>
                   <th className="px-5 py-4 text-xs font-extrabold text-warm-500 uppercase tracking-wider text-right">Actions</th>
                 </tr>
               </thead>
@@ -308,6 +310,14 @@ export default function NcpPatientsPage() {
                             {currentRisk.label}
                           </span>
                         </div>
+                      </td>
+
+                      <td className="px-5 py-4">
+                        <ClinicalAttribution
+                          creator={patient.latest_ncp_created_by}
+                          lastAction={patient.last_clinical_action}
+                          formatDate={formatRelativeDate}
+                        />
                       </td>
 
                       <td className="px-5 py-4 text-right">
