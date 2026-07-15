@@ -3,6 +3,7 @@
 namespace App\Services\Audit;
 
 use App\Enums\AuditCategory;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 
@@ -80,7 +81,7 @@ class AuditSanitizer
         if ($actor !== null) {
             return [
                 'public_id' => $this->text($actor->getAttribute('uuid'), 64),
-                'name' => $this->text($actor->getAttribute('name')),
+                'name' => $this->text($actor instanceof User ? $actor->display_name : $actor->getAttribute('name')),
                 'role' => $this->text($actor->getAttribute('role'), 64),
                 'kind' => 'user',
             ];

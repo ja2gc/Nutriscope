@@ -14,7 +14,7 @@ class ReportResource extends JsonResource
             'user_id' => $this->user_id,
             'created_by' => $this->whenLoaded('user', fn (): ?array => $this->user === null ? null : [
                 'id' => $this->user->uuid,
-                'name' => $this->user->name,
+                'name' => $this->user->display_name,
             ]),
             'title' => $this->title,
             'type' => $this->type,

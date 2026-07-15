@@ -44,7 +44,8 @@ class PatientFeatureTest extends TestCase
         $rnd = User::forceCreate(['name' => 'Test', 'email' => 'test2@example.com', 'password' => Hash::make('pass'), 'role' => 'RND', 'is_active' => true]);
 
         $response = $this->actingAs($rnd, 'sanctum')->postJson('/api/rnd/patients', [
-            'name' => 'Jane Doe',
+            'first_name' => 'Jane',
+            'last_name' => 'Doe',
             'dob' => '1995-05-05',
             'sex' => 'Female',
             'admission_date' => '2024-01-01',

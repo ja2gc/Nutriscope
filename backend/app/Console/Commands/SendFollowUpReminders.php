@@ -51,7 +51,7 @@ class SendFollowUpReminders extends Command
                 continue;
             }
 
-            $name = $ncp->patient?->name ?? 'a patient';
+            $name = $ncp->patient?->display_name ?? 'a patient';
             $notifications->notify(
                 [$ncp->rnd_user_id],
                 'Upcoming follow-up',

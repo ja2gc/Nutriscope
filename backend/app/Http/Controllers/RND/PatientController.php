@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\RND;
 
+use App\Actions\Identity\SynchronizePersonName;
 use App\Enums\AuditAction;
 use App\Enums\AuditCategory;
 use App\Enums\AuditDomain;
@@ -29,6 +30,7 @@ class PatientController extends Controller
         private readonly AuditLogger $auditLogger,
         private readonly ClinicalAttributionService $clinicalAttribution,
         private readonly ClinicalDocumentStorage $documentStorage,
+        private readonly SynchronizePersonName $synchronizePersonName,
     ) {}
 
     /**
@@ -37,13 +39,18 @@ class PatientController extends Controller
     public function index(Request $request): AnonymousResourceCollection
     {
         $patients = Patient::query()
-            ->when($request->search, fn ($q, $s) => $q->where('name', 'like', "%{$s}%")
+            ->when($request->search, fn ($q, $s) => $q->where(fn ($search) => $search
+                ->where('first_name', 'like', "%{$s}%")
+                ->orWhere('last_name', 'like', "%{$s}%")
+                ->orWhere('name', 'like', "%{$s}%")
                 ->orWhere('physician', 'like', "%{$s}%")
                 ->orWhere('ward', 'like', "%{$s}%")
-            )
+                ->orWhere('hospital_number', 'like', "%{$s}%")
+            ))
             ->when($request->status, fn ($q, $s) => $q->where('status', $s))
-            ->with(['ncpRecords' => fn ($q) => $q->latest()->with(['rnd:id,uuid,name,role', 'assessment', 'intervention'])])
+            ->with(['ncpRecords' => fn ($q) => $q->latest()->with(['rnd:id,uuid,name,first_name,last_name,role', 'assessment', 'intervention'])])
             ->orderByDesc('created_at')
+            ->orderByDesc('id')
             ->paginate((int) min($request->query('per_page', 15), 100));
         $this->clinicalAttribution->decoratePatients($patients->getCollection());
 
@@ -56,7 +63,7 @@ class PatientController extends Controller
     public function store(StorePatientRequest $request): JsonResponse
     {
         return $this->audited(function () use ($request): JsonResponse {
-            $patient = Patient::create($request->validated());
+            $patient = Patient::create($this->synchronizePersonName->forCreate($request->validated()));
 
             return response()->json(new PatientResource($patient), 201);
         });
@@ -68,7 +75,7 @@ class PatientController extends Controller
     public function show(Request $request, Patient $patient): JsonResponse
     {
         $patient->load([
-            'ncpRecords' => fn ($q) => $q->latest()->with(['rnd:id,uuid,name,role', 'assessment', 'diagnoses', 'intervention']),
+            'ncpRecords' => fn ($q) => $q->latest()->with(['rnd:id,uuid,name,first_name,last_name,role', 'assessment', 'diagnoses', 'intervention']),
         ]);
         $this->clinicalAttribution->decoratePatients(new Collection([$patient]));
         $key = "patient-chart-view:{$request->user()->id}:{$patient->id}";
@@ -96,9 +103,9 @@ class PatientController extends Controller
     public function update(UpdatePatientRequest $request, Patient $patient): JsonResponse
     {
         return $this->audited(function () use ($request, $patient): JsonResponse {
-            $patient->update($request->validated());
+            $patient->update($this->synchronizePersonName->forUpdate($patient, $request->validated()));
             $patient->load([
-                'ncpRecords' => fn ($q) => $q->latest()->with(['rnd:id,uuid,name,role', 'assessment', 'intervention']),
+                'ncpRecords' => fn ($q) => $q->latest()->with(['rnd:id,uuid,name,first_name,last_name,role', 'assessment', 'intervention']),
             ]);
             $this->clinicalAttribution->decoratePatients(new Collection([$patient]));
 
@@ -112,7 +119,7 @@ class PatientController extends Controller
     public function ncpRecords(Patient $patient): JsonResponse
     {
         $records = $patient->ncpRecords()
-            ->with(['rnd:id,uuid,name,role', 'assessment', 'diagnoses', 'intervention.mealPlans:id,uuid,intervention_id,week_start_date,generation_type'])
+            ->with(['rnd:id,uuid,name,first_name,last_name,role', 'assessment', 'diagnoses', 'intervention.mealPlans:id,uuid,intervention_id,week_start_date,generation_type'])
             ->orderByDesc('created_at')
             ->get();
         $this->clinicalAttribution->decorateNcpRecords($records);

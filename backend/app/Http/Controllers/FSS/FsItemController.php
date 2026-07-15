@@ -248,7 +248,7 @@ class FsItemController extends Controller
             'default_supplier_id' => $fsItem->defaultSupplier?->uuid,
             'vendor_locked' => $fsItem->vendorLocked(),
             'locked_at' => $fsItem->default_supplier_locked_at?->toDateTimeString(),
-            'locked_by' => $fsItem->defaultSupplierLockedBy?->name,
+            'locked_by' => $fsItem->defaultSupplierLockedBy?->display_name,
         ]]);
     }
 

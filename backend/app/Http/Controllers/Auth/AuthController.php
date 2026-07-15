@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Auth;
 
+use App\Actions\Identity\SynchronizePersonName;
 use App\Enums\AuditAction;
 use App\Enums\AuditCategory;
 use App\Enums\AuditDomain;
@@ -25,7 +26,10 @@ use Throwable;
 
 class AuthController extends Controller
 {
-    public function __construct(private readonly AuditLogger $auditLogger) {}
+    public function __construct(
+        private readonly AuditLogger $auditLogger,
+        private readonly SynchronizePersonName $synchronizePersonName,
+    ) {}
 
     /**
      * POST /api/auth/login
@@ -112,10 +116,16 @@ class AuthController extends Controller
     public function updateProfile(UpdateProfileRequest $request): JsonResponse
     {
         $user = $request->user();
-        $data = $request->validated();
+        $data = $this->synchronizePersonName->forUpdate($user, $request->validated());
+        $oldNameValues = $this->accountNameAuditValues($user);
         $this->auditLogger->assertAvailable();
-        DB::transaction(function () use ($user, $data): void {
+        DB::transaction(function () use ($user, $data, $oldNameValues): void {
             $user->update($data);
+            $newNameValues = $this->accountNameAuditValues($user);
+            $changedNameFields = collect(array_keys($oldNameValues))
+                ->filter(fn (string $field): bool => $oldNameValues[$field] !== $newNameValues[$field])
+                ->values()
+                ->all();
             $this->auditLogger->record(
                 AuditAction::ProfileChanged,
                 AuditCategory::Security,
@@ -124,6 +134,8 @@ class AuthController extends Controller
                 details: ['changed_fields' => array_keys($data)],
                 actor: $user,
                 includeRequestMetadata: false,
+                oldValues: array_intersect_key($oldNameValues, array_flip($changedNameFields)),
+                newValues: array_intersect_key($newNameValues, array_flip($changedNameFields)),
             );
         });
 
@@ -186,5 +198,15 @@ class AuthController extends Controller
             } catch (Throwable) {
             }
         }
+    }
+
+    /** @return array{name: string, first_name: ?string, last_name: ?string} */
+    private function accountNameAuditValues(User $user): array
+    {
+        return [
+            'name' => $user->name,
+            'first_name' => $user->first_name,
+            'last_name' => $user->last_name,
+        ];
     }
 }

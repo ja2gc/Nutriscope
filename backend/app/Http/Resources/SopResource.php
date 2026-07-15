@@ -15,7 +15,7 @@ class SopResource extends JsonResource
             'body' => $this->body,
             'author' => $this->whenLoaded('author', fn () => [
                 'id' => $this->author?->uuid,
-                'name' => $this->author?->name,
+                'name' => $this->author?->display_name,
                 'role' => $this->author?->role,
             ]),
             'created_at' => $this->created_at,

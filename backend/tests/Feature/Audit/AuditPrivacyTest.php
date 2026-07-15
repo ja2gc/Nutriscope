@@ -617,7 +617,8 @@ class AuditPrivacyTest extends TestCase
 
         $admin = User::factory()->admin()->create();
         $this->actingAs($admin, 'sanctum')->postJson('/api/admin/users', [
-            'name' => 'Created User',
+            'first_name' => 'Created',
+            'last_name' => 'User',
             'email' => 'created@example.com',
             'password' => 'ADMIN-PASSWORD-SENTINEL',
             'password_confirmation' => 'ADMIN-PASSWORD-SENTINEL',

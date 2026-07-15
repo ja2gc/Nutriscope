@@ -29,7 +29,7 @@ class MealPrepLogController extends Controller
             'menu_cycle_id' => ['nullable', 'integer'],
         ]);
 
-        $logs = MealPrepLog::with('lines', 'menuCycle:id,uuid,name', 'completedBy:id,uuid,name')
+        $logs = MealPrepLog::with('lines', 'menuCycle:id,uuid,name', 'completedBy:id,uuid,name,first_name,last_name')
             ->when($data['menu_cycle_id'] ?? null, fn ($q, $id) => $q->where('menu_cycle_id', $id))
             ->when($data['from'] ?? null, fn ($q, $d) => $q->where('service_date', '>=', $d))
             ->when($data['to'] ?? null, fn ($q, $d) => $q->where('service_date', '<=', $d))

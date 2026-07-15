@@ -66,6 +66,10 @@ class NotificationTriggersTest extends TestCase
             'type' => 'follow_up',
             'source_id' => $ncp->id,
         ]);
+        $this->assertStringContainsString(
+            'Maria Luisa De la Cruz',
+            Notification::where('type', 'follow_up')->sole()->message,
+        );
     }
 
     public function test_follow_up_reminder_skips_dates_other_than_tomorrow(): void
@@ -91,7 +95,11 @@ class NotificationTriggersTest extends TestCase
 
     private function ncpWithFollowup(User $rnd, string $date): NcpRecord
     {
-        $patient = Patient::factory()->create();
+        $patient = Patient::factory()->create([
+            'name' => 'Stale Patient Name',
+            'first_name' => 'Maria Luisa',
+            'last_name' => 'De la Cruz',
+        ]);
         $ncp = NcpRecord::factory()->create([
             'patient_id' => $patient->id,
             'rnd_user_id' => $rnd->id,

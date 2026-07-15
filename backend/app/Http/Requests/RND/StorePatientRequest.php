@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\RND;
 
+use App\Rules\PersonName;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StorePatientRequest extends FormRequest
@@ -14,7 +15,9 @@ class StorePatientRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'name' => ['required', 'string', 'max:255'],
+            'name' => ['sometimes', 'required', 'string', 'max:255'],
+            'first_name' => ['required', 'string', new PersonName],
+            'last_name' => ['required', 'string', new PersonName],
             'dob' => ['required', 'date'],
             'sex' => ['required', 'in:Male,Female'],
             'religion' => ['nullable', 'string', 'max:255'],

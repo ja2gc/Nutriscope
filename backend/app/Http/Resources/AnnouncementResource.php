@@ -24,7 +24,7 @@ class AnnouncementResource extends JsonResource
             'updated_at' => $this->updated_at,
             'author' => [
                 'id' => $this->user?->uuid,
-                'name' => $this->user?->name,
+                'name' => $this->user?->display_name,
                 'role' => $this->user?->role,
             ],
         ];

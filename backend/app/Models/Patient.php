@@ -30,7 +30,7 @@ class Patient extends Model
     protected function auditAttributes(): array
     {
         return [
-            'name', 'dob', 'sex', 'religion', 'address', 'contact',
+            'name', 'first_name', 'last_name', 'dob', 'sex', 'religion', 'address', 'contact',
             'physician', 'admission_date', 'medical_diagnosis', 'ward', 'status',
             'screening_type', 'hospital_number', 'age_group_category',
         ];

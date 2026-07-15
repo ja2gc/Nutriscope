@@ -22,7 +22,11 @@ class ProfileTest extends TestCase
         $user = User::factory()->create(['name' => 'Old', 'email' => 'old@example.com']);
 
         $this->actingAs($user, 'sanctum')
-            ->patchJson('/api/auth/profile', ['name' => 'New Name', 'email' => 'new@example.com'])
+            ->patchJson('/api/auth/profile', [
+                'first_name' => 'New',
+                'last_name' => 'Name',
+                'email' => 'new@example.com',
+            ])
             ->assertOk()
             ->assertJsonPath('name', 'New Name')
             ->assertJsonPath('email', 'new@example.com');
@@ -43,7 +47,8 @@ class ProfileTest extends TestCase
 
         $this->actingAs($user, 'sanctum')
             ->patchJson('/api/auth/profile', [
-                'name' => 'New Name',
+                'first_name' => 'New',
+                'last_name' => 'Name',
                 'email' => 'new@example.com',
                 'contact_number' => '+63 917 000 0000',
                 'profile_photo' => 'data:image/png;base64,avatar',
@@ -69,8 +74,9 @@ class ProfileTest extends TestCase
         $user = User::factory()->create(['email' => 'mine@example.com']);
 
         $this->actingAs($user, 'sanctum')
-            ->patchJson('/api/auth/profile', ['name' => 'X', 'email' => 'taken@example.com'])
-            ->assertStatus(422);
+            ->patchJson('/api/auth/profile', ['email' => 'taken@example.com'])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['email']);
     }
 
     public function test_profile_update_allows_keeping_own_email(): void
@@ -78,7 +84,11 @@ class ProfileTest extends TestCase
         $user = User::factory()->create(['name' => 'Me', 'email' => 'mine@example.com']);
 
         $this->actingAs($user, 'sanctum')
-            ->patchJson('/api/auth/profile', ['name' => 'Me Renamed', 'email' => 'mine@example.com'])
+            ->patchJson('/api/auth/profile', [
+                'first_name' => 'Me',
+                'last_name' => 'Renamed',
+                'email' => 'mine@example.com',
+            ])
             ->assertOk();
     }
 

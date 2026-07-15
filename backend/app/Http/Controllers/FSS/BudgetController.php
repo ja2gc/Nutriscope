@@ -25,14 +25,14 @@ class BudgetController extends Controller
     {
         return response()->json(['data' => BudgetResource::collection(Budget::query()
             ->withLedgerTotals()
-            ->with('creator:id,uuid,name')
+            ->with('creator:id,uuid,name,first_name,last_name')
             ->orderByDesc('fiscal_year')
             ->get())]);
     }
 
     public function show(Budget $budget): JsonResponse
     {
-        $budget = Budget::query()->withLedgerTotals()->with('creator:id,uuid,name')->findOrFail($budget->id);
+        $budget = Budget::query()->withLedgerTotals()->with('creator:id,uuid,name,first_name,last_name')->findOrFail($budget->id);
 
         return response()->json(['data' => new BudgetResource($budget)]);
     }
@@ -71,7 +71,7 @@ class BudgetController extends Controller
             ->get()
             ->each(fn (PurchaseOrder $po) => $lifecycle->refresh($po));
 
-        $budget = Budget::query()->withLedgerTotals()->with('creator:id,uuid,name')->findOrFail($budget->id);
+        $budget = Budget::query()->withLedgerTotals()->with('creator:id,uuid,name,first_name,last_name')->findOrFail($budget->id);
 
         return response()->json(['data' => new BudgetResource($budget)], 201);
     }
@@ -80,7 +80,7 @@ class BudgetController extends Controller
     public function summary(Request $request): JsonResponse
     {
         $year = (int) ($request->input('fiscal_year') ?? now()->year);
-        $budget = Budget::query()->withLedgerTotals()->with('creator:id,uuid,name')->where('fiscal_year', $year)->first();
+        $budget = Budget::query()->withLedgerTotals()->with('creator:id,uuid,name,first_name,last_name')->where('fiscal_year', $year)->first();
 
         if (! $budget) {
             return response()->json([
@@ -106,7 +106,7 @@ class BudgetController extends Controller
         $year = (int) ($data['fiscal_year'] ?? now()->year);
 
         $query = BudgetLedger::where('fiscal_year', $year)
-            ->with(['purchaseOrder:id,po_number', 'creator:id,uuid,name'])
+            ->with(['purchaseOrder:id,po_number', 'creator:id,uuid,name,first_name,last_name'])
             ->orderByDesc('created_at');
 
         $filter = $data['source'] ?? null;
@@ -125,11 +125,11 @@ class BudgetController extends Controller
             'reference' => $e->reference ?? $e->purchaseOrder?->po_number,
             'purchase_order_id' => $e->purchase_order_id,
             'po_number' => $e->purchaseOrder?->po_number,
-            'created_by' => $e->creator?->name,
+            'created_by' => $e->creator?->display_name,
             'actor' => $e->creator ? [
                 'kind' => 'user',
                 'id' => $e->creator->uuid,
-                'name' => $e->creator->name,
+                'name' => $e->creator->display_name,
             ] : [
                 'kind' => 'system',
                 'id' => null,
@@ -195,11 +195,11 @@ class BudgetController extends Controller
             'signed_amount' => $entry->signedAmount(),
             'reason' => $entry->reason,
             'reference' => $entry->reference,
-            'created_by' => Auth::user()?->name,
+            'created_by' => Auth::user()?->display_name,
             'actor' => [
                 'kind' => 'user',
                 'id' => Auth::user()?->uuid,
-                'name' => Auth::user()?->name,
+                'name' => Auth::user()?->display_name,
             ],
             'created_at' => $entry->created_at?->toDateTimeString(),
         ]], 201);

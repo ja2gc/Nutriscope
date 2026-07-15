@@ -23,7 +23,7 @@ class FoodServiceSettingController extends Controller
 
         return response()->json(['data' => [
             'per_head_day_limit' => $setting->per_head_day_limit,
-            'updated_by' => $setting->updatedBy?->name,
+            'updated_by' => $setting->updatedBy?->display_name,
             'updated_at' => $setting->updated_at?->toDateTimeString(),
         ]]);
     }
@@ -64,7 +64,7 @@ class FoodServiceSettingController extends Controller
 
         return response()->json(['data' => [
             'per_head_day_limit' => $setting->per_head_day_limit,
-            'updated_by' => $setting->updatedBy?->name,
+            'updated_by' => $setting->updatedBy?->display_name,
             'updated_at' => $setting->updated_at?->toDateTimeString(),
         ]]);
     }

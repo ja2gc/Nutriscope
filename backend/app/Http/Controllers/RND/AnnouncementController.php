@@ -24,7 +24,7 @@ class AnnouncementController extends Controller
         $user = $request->user();
 
         $announcements = Announcement::query()
-            ->with('user:id,uuid,name,role')
+            ->with('user:id,uuid,name,first_name,last_name,role')
             ->when($user->role === 'RND', function ($query) use ($user) {
                 $query->where(function ($nested) use ($user) {
                     $nested->where('visibility', 'All')
@@ -74,7 +74,7 @@ class AnnouncementController extends Controller
         $notifications->fanOutAnnouncement($announcement);
 
         return response()->json([
-            'data' => new AnnouncementResource($announcement->load('user:id,uuid,name,role')),
+            'data' => new AnnouncementResource($announcement->load('user:id,uuid,name,first_name,last_name,role')),
         ], 201);
     }
 
@@ -108,7 +108,7 @@ class AnnouncementController extends Controller
                 ),
             );
         });
-        $announcement->load('user:id,uuid,name,role');
+        $announcement->load('user:id,uuid,name,first_name,last_name,role');
 
         return response()->json([
             'data' => new AnnouncementResource($announcement),

@@ -60,7 +60,7 @@ class ReportController extends Controller
 
     public function index(): JsonResponse
     {
-        $query = Report::query()->with('user:id,uuid,name')->latest();
+        $query = Report::query()->with('user:id,uuid,name,first_name,last_name')->latest();
         $role = Auth::user()?->role;
 
         // RND supervises FSS: in addition to their own rows, RND sees every
@@ -190,7 +190,7 @@ class ReportController extends Controller
             throw $exception;
         }
 
-        return response()->json(['data' => new ReportResource($report->fresh()->load('user:id,uuid,name'))], 201);
+        return response()->json(['data' => new ReportResource($report->fresh()->load('user:id,uuid,name,first_name,last_name'))], 201);
     }
 
     /**
@@ -219,7 +219,7 @@ class ReportController extends Controller
 
         $this->recordReportEvent(AuditAction::Viewed, $report->type, $report->parameters ?? [], $report, 200);
 
-        return response()->json(['data' => new ReportResource($report->load('user:id,uuid,name'))]);
+        return response()->json(['data' => new ReportResource($report->load('user:id,uuid,name,first_name,last_name'))]);
     }
 
     public function download(Report $report): StreamedResponse|JsonResponse

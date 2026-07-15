@@ -96,6 +96,8 @@ class AuditLogger
         ?Authenticatable $actor = null,
         ?string $systemActor = null,
         bool $includeRequestMetadata = true,
+        array $oldValues = [],
+        array $newValues = [],
     ): AuditActivity {
         return $this->recordEvent(
             $action->value,
@@ -110,6 +112,8 @@ class AuditLogger
             $actor,
             $systemActor,
             $includeRequestMetadata,
+            $oldValues,
+            $newValues,
         );
     }
 
@@ -126,6 +130,8 @@ class AuditLogger
         ?Authenticatable $actor = null,
         ?string $systemActor = null,
         bool $includeRequestMetadata = true,
+        array $oldValues = [],
+        array $newValues = [],
     ): AuditActivity {
         $this->assertAvailable();
 
@@ -168,10 +174,20 @@ class AuditLogger
                 ?? ($context !== null ? $this->contextResolver->clinicalOwnerId($context) : null);
         }
         $safeDetails = $this->sanitizer->details($details, $category);
+        $safeChanges = $category === AuditCategory::Clinical
+            ? []
+            : $this->sanitizer->details([
+                'old' => $oldValues,
+                'attributes' => $newValues,
+            ], $category);
+        $safeOldValues = $safeChanges['old'] ?? [];
+        $safeNewValues = $safeChanges['attributes'] ?? [];
         $requestProperties = $includeRequestMetadata ? $this->sanitizer->request($this->request) : [];
         $properties = [
             'actor' => $this->sanitizer->actor($resolvedActor, $systemActor),
             'details' => $safeDetails,
+            ...($safeOldValues !== [] ? ['old' => $safeOldValues] : []),
+            ...($safeNewValues !== [] ? ['attributes' => $safeNewValues] : []),
             ...array_diff_key($safeDetails, array_flip(['actor', 'details', 'request'])),
             ...($includeRequestMetadata ? [
                 'request' => $requestProperties,

@@ -2,10 +2,14 @@
 
 namespace App\Http\Requests\RND;
 
+use App\Http\Requests\Concerns\ValidatesPersonNameChanges;
+use App\Models\Patient;
 use Illuminate\Foundation\Http\FormRequest;
 
 class UpdatePatientRequest extends FormRequest
 {
+    use ValidatesPersonNameChanges;
+
     public function authorize(): bool
     {
         return true;
@@ -13,7 +17,11 @@ class UpdatePatientRequest extends FormRequest
 
     public function rules(): array
     {
+        $patient = $this->route('patient');
+        abort_unless($patient instanceof Patient, 404);
+
         return [
+            ...$this->splitNameUpdateRules($patient),
             'name' => ['sometimes', 'required', 'string', 'max:255'],
             'dob' => ['sometimes', 'required', 'date'],
             'sex' => ['sometimes', 'required', 'in:Male,Female'],

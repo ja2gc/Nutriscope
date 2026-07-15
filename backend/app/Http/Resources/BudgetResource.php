@@ -24,7 +24,7 @@ class BudgetResource extends JsonResource
             'remaining' => round($remaining, 2),
             'creator' => $this->creator ? [
                 'id' => $this->creator->uuid,
-                'name' => $this->creator->name,
+                'name' => $this->creator->display_name,
             ] : null,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,

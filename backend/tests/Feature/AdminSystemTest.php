@@ -73,7 +73,8 @@ class AdminSystemTest extends TestCase
     {
         $response = $this->actingAs($this->admin)
             ->postJson('/api/admin/users', [
-                'name' => 'New RND User',
+                'first_name' => 'New RND',
+                'last_name' => 'User',
                 'email' => 'newrnd@nutriscope.com',
                 'password' => 'Password123!',
                 'password_confirmation' => 'Password123!',
@@ -93,13 +94,14 @@ class AdminSystemTest extends TestCase
 
         $response = $this->actingAs($this->admin)
             ->patchJson("/api/admin/users/{$user->uuid}", [
-                'name' => 'Updated Name',
+                'first_name' => 'Updated',
+                'last_name' => 'Name',
             ]);
 
         $response->assertOk()
             ->assertJsonPath('data.name', 'Updated Name');
         $activity = Activity::where('event', 'updated')->where('subject_id', $user->id)->firstOrFail();
-        $this->assertSame(['name'], $activity->properties['details']['changed_fields']);
+        $this->assertSame(['first_name', 'last_name', 'name'], $activity->properties['details']['changed_fields']);
     }
 
     public function test_admin_role_and_status_change_is_one_safe_account_event(): void
@@ -156,14 +158,15 @@ class AdminSystemTest extends TestCase
 
         $this->actingAs($this->admin, 'sanctum')
             ->patchJson("/api/admin/users/{$user->uuid}", [
-                'name' => 'After',
+                'first_name' => 'After',
+                'last_name' => 'Name',
                 'password' => $secret,
                 'password_confirmation' => $secret,
             ])->assertOk();
 
         $activity = Activity::where('subject_id', $user->id)->sole();
         $this->assertSame('updated', $activity->event);
-        $this->assertSame(['name', 'password'], $activity->properties['details']['changed_fields']);
+        $this->assertSame(['first_name', 'last_name', 'name', 'password'], $activity->properties['details']['changed_fields']);
         $this->assertStringNotContainsString($secret, $activity->toJson());
     }
 
@@ -184,7 +187,8 @@ class AdminSystemTest extends TestCase
     {
         $response = $this->actingAs($this->admin)
             ->postJson('/api/admin/users', [
-                'name' => 'Duplicate',
+                'first_name' => 'Duplicate',
+                'last_name' => 'User',
                 'email' => $this->rnd->email,
                 'password' => 'Password123!',
                 'password_confirmation' => 'Password123!',

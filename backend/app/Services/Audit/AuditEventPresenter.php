@@ -112,7 +112,10 @@ class AuditEventPresenter
     ];
 
     private const OPERATIONS_CHANGE_FIELDS = [
-        AuditDomain::Accounts->value => ['name' => 'token', 'role' => 'token', 'is_active' => 'boolean'],
+        AuditDomain::Accounts->value => [
+            'name' => 'person_name', 'first_name' => 'person_name', 'last_name' => 'person_name',
+            'role' => 'token', 'is_active' => 'boolean',
+        ],
         AuditDomain::Reports->value => ['status' => 'token', 'type' => 'token', 'format' => 'token'],
         AuditDomain::Budget->value => [
             'status' => 'token', 'fiscal_year' => 'number', 'amount' => 'number',
@@ -193,7 +196,7 @@ class AuditEventPresenter
             return [
                 'id' => $activity->causer->uuid,
                 'kind' => 'user',
-                'name' => $this->safeText($activity->causer->name) ?? 'User',
+                'name' => $this->safeText($activity->causer->display_name) ?? 'User',
                 'role' => in_array($activity->causer->role, ['Admin', 'RND', 'FSS'], true)
                     ? $activity->causer->role
                     : null,
@@ -404,6 +407,9 @@ class AuditEventPresenter
         return match ($kind) {
             'token' => is_string($value) && ($token = $this->safeToken($value)) !== null
                 ? [true, $token]
+                : [false, null],
+            'person_name' => is_string($value) && ($name = $this->safeText($value)) !== null
+                ? [true, $name]
                 : [false, null],
             'number' => is_int($value) || is_float($value) ? [true, $value] : [false, null],
             'boolean' => is_bool($value) ? [true, $value] : [false, null],

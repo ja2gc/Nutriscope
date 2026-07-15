@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Actions\Identity\SynchronizePersonName;
 use App\Enums\AuditAction;
 use App\Enums\AuditCategory;
 use App\Enums\AuditDomain;
@@ -18,22 +19,37 @@ use Illuminate\Support\Facades\Hash;
 
 class UserController extends Controller
 {
-    public function __construct(private readonly AuditLogger $auditLogger) {}
+    public function __construct(
+        private readonly AuditLogger $auditLogger,
+        private readonly SynchronizePersonName $synchronizePersonName,
+    ) {}
 
     public function index(): JsonResponse
     {
-        return response()->json(['data' => UserResource::collection(User::orderBy('name')->get())]);
+        $users = User::query()
+            ->orderByRaw("LOWER(TRIM(COALESCE(NULLIF(last_name, ''), name)))")
+            ->orderByRaw("LOWER(TRIM(COALESCE(NULLIF(first_name, ''), name)))")
+            ->orderBy('id')
+            ->get();
+
+        return response()->json(['data' => UserResource::collection($users)]);
     }
 
     public function store(StoreUserRequest $request): JsonResponse
     {
-        $data = $request->validated();
+        $data = $this->synchronizePersonName->forCreate($request->validated());
         $data['password'] = Hash::make($data['password']);
 
         $this->auditLogger->assertAvailable();
         $user = DB::transaction(function () use ($data): User {
             $user = User::create($data);
-            $this->auditUser(AuditAction::Created, $user, ['is_active', 'name', 'role']);
+            $changedFields = ['first_name', 'is_active', 'last_name', 'name', 'role'];
+            $this->auditUser(
+                AuditAction::Created,
+                $user,
+                $changedFields,
+                newValues: array_intersect_key($this->accountAuditValues($user), array_flip($changedFields)),
+            );
 
             return $user;
         });
@@ -48,7 +64,7 @@ class UserController extends Controller
 
     public function update(UpdateUserRequest $request, User $user): JsonResponse
     {
-        $data = $request->validated();
+        $data = $this->synchronizePersonName->forUpdate($user, $request->validated());
         $passwordChanged = ! empty($data['password']);
         if (! empty($data['password'])) {
             $data['password'] = Hash::make($data['password']);
@@ -58,6 +74,7 @@ class UserController extends Controller
 
         $this->auditLogger->assertAvailable();
         DB::transaction(function () use ($data, $passwordChanged, $user): void {
+            $oldValues = $this->accountAuditValues($user);
             $user->fill($data);
             $changedFields = array_values(array_diff(array_keys($user->getDirty()), ['password', 'updated_at']));
             if ($passwordChanged) {
@@ -74,7 +91,13 @@ class UserController extends Controller
                 $action = $changedFields === ['password']
                     ? AuditAction::PasswordReset
                     : AuditAction::Updated;
-                $this->auditUser($action, $user, $changedFields);
+                $this->auditUser(
+                    $action,
+                    $user,
+                    $changedFields,
+                    array_intersect_key($oldValues, array_flip($changedFields)),
+                    array_intersect_key($this->accountAuditValues($user), array_flip($changedFields)),
+                );
             }
         });
 
@@ -85,10 +108,17 @@ class UserController extends Controller
     {
         $this->auditLogger->assertAvailable();
         DB::transaction(function () use ($user): void {
+            $oldValues = $this->accountAuditValues($user);
             $user->forceFill(['is_active' => false])->save();
             $user->tokens()->delete();
             $user->delete();
-            $this->auditUser(AuditAction::Deleted, $user, ['is_active']);
+            $this->auditUser(
+                AuditAction::Deleted,
+                $user,
+                ['is_active'],
+                ['is_active' => $oldValues['is_active']],
+                ['is_active' => (bool) $user->is_active],
+            );
         });
 
         return response()->json(null, 204);
@@ -108,8 +138,13 @@ class UserController extends Controller
         return response()->json(['message' => 'Password reset.']);
     }
 
-    private function auditUser(AuditAction $action, User $user, array $changedFields = []): void
-    {
+    private function auditUser(
+        AuditAction $action,
+        User $user,
+        array $changedFields = [],
+        array $oldValues = [],
+        array $newValues = [],
+    ): void {
         $this->auditLogger->record(
             $action,
             AuditCategory::Security,
@@ -123,6 +158,20 @@ class UserController extends Controller
             ],
             actor: auth()->user(),
             includeRequestMetadata: false,
+            oldValues: $oldValues,
+            newValues: $newValues,
         );
+    }
+
+    /** @return array{name: string, first_name: ?string, last_name: ?string, role: string, is_active: bool} */
+    private function accountAuditValues(User $user): array
+    {
+        return [
+            'name' => $user->name,
+            'first_name' => $user->first_name,
+            'last_name' => $user->last_name,
+            'role' => $user->role,
+            'is_active' => (bool) $user->is_active,
+        ];
     }
 }

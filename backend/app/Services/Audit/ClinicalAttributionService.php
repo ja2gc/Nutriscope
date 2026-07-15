@@ -37,7 +37,7 @@ class ClinicalAttributionService
     {
         $activities = $this->latestActivities('ncp_record_id', $records->pluck('id')->all());
         $creators = User::withTrashed()
-            ->select('id', 'uuid', 'name', 'role')
+            ->select('id', 'uuid', 'name', 'first_name', 'last_name', 'role')
             ->whereIn('id', $records->pluck('rnd_user_id')->filter()->unique())
             ->get()
             ->keyBy('id');
@@ -47,7 +47,7 @@ class ClinicalAttributionService
             $record->setAttribute('created_by', $creator instanceof User ? [
                 'id' => $creator->uuid,
                 'kind' => 'user',
-                'name' => $creator->name,
+                'name' => $creator->display_name,
                 'role' => $creator->role,
             ] : null);
             $record->setAttribute(
@@ -80,7 +80,7 @@ class ClinicalAttributionService
                 $relation->constrain([
                     User::class => fn (Builder $query): Builder => $query
                         ->withTrashed()
-                        ->select('id', 'uuid', 'name', 'role'),
+                        ->select('id', 'uuid', 'name', 'first_name', 'last_name', 'role'),
                 ]);
             }])
             ->get()

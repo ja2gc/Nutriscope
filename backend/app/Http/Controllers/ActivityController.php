@@ -188,7 +188,7 @@ class ActivityController extends Controller
                 $relation->constrain([
                     User::class => fn (Builder $query): Builder => $query
                         ->withTrashed()
-                        ->select('id', 'uuid', 'name', 'role'),
+                        ->select('id', 'uuid', 'name', 'first_name', 'last_name', 'role'),
                 ]);
             }]);
         if (isset($validated['before_id'])) {

@@ -31,7 +31,7 @@ class AuditQuery
                 $relation->constrain([
                     User::class => fn (Builder $query): Builder => $query
                         ->withTrashed()
-                        ->select('id', 'uuid', 'name', 'role'),
+                        ->select('id', 'uuid', 'name', 'first_name', 'last_name', 'role'),
                 ]);
             }]);
 
