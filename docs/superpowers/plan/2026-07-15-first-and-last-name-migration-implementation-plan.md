@@ -146,13 +146,15 @@ npm run build
 
 ## Task 6 — Mobile login/profile/types/consumers
 
-- [ ] Read the exact Expo SDK 56 official documentation required by `mobile/AGENTS.md` for form inputs, secure authentication state, and build/export validation. Record URLs and applicable guidance; do not upgrade the installed Expo 54 dependency set without separate owner approval.
-- [ ] Add `mobile/lib/personName.ts` and a shared person/profile DTO in `mobile/lib/auth.ts` so login/profile consumers understand `first_name`, `last_name`, `display_name`, and deprecated `name`.
-- [ ] Update `mobile/app/profile.tsx` to show required first/last inputs for deliberate changes, submit split fields, preserve unrelated legacy profile edits, and use the established mobile styling and accessible labels.
-- [ ] Update `mobile/app/login.tsx` only where its authenticated-user type/consumer requires the new contract. Do not rename food, recipe, supplier, menu, or snapshot entity fields in `mobile/app/(tabs)/*` or `mobile/lib/reports.ts`.
-- [ ] Expand `mobile/lib/personName.test.cjs` and add `mobile/lib/profilePayload.test.cjs` for fallback, split precedence, validation, and payloads.
-- [ ] Run Node tests, TypeScript, and the affected Expo export/build check without adding packages.
-- [ ] Review gates complete; commit `feat: migrate mobile profile names`.
+- [x] Read the exact Expo SDK 56 official documentation required by `mobile/AGENTS.md` for form inputs, secure authentication state, and build/export validation. Record URLs and applicable guidance; do not upgrade the installed Expo 54 dependency set without separate owner approval.
+- [x] Add `mobile/lib/personName.ts` and a shared person/profile DTO in `mobile/lib/auth.ts` so login/profile consumers understand `first_name`, `last_name`, `display_name`, and deprecated `name`.
+- [x] Update `mobile/app/profile.tsx` to show required first/last inputs for deliberate changes, submit split fields, preserve unrelated legacy profile edits, and use the established mobile styling and accessible labels.
+- [x] Update `mobile/app/login.tsx` only where its authenticated-user type/consumer requires the new contract. Do not rename food, recipe, supplier, menu, or snapshot entity fields in `mobile/app/(tabs)/*` or `mobile/lib/reports.ts`.
+- [x] Expand `mobile/lib/personName.test.cjs` and add `mobile/lib/profilePayload.test.cjs` for fallback, split precedence, validation, and payloads.
+- [x] Run Node tests, TypeScript, and the affected Expo export/build check without adding packages.
+- [x] Review gates complete; commit `feat: migrate mobile profile names`.
+
+**Task 6 evidence (2026-07-15):** Read the Expo SDK 56 overview, Universal `TextInput`, SecureStore, Router authentication, and build troubleshooting guidance at `https://docs.expo.dev/versions/v56.0.0/`, `https://docs.expo.dev/versions/v56.0.0/sdk/ui/universal/textinput/`, `https://docs.expo.dev/versions/v56.0.0/sdk/securestore/`, `https://docs.expo.dev/router/advanced/authentication/`, and `https://docs.expo.dev/build-reference/troubleshooting/`. The implementation keeps controlled native inputs and the existing encrypted SecureStore token flow, uses the shared split/display compatibility contract, and leaves the installed Expo 54 dependency set unchanged. Red tests failed against the missing helper, legacy one-field profile, and untyped login response. Final verification passed all 10 mobile Node tests, `npx tsc --noEmit`, `git diff --check`, and the Android `npx expo export` production bundle (3,241 modules; 6.16 MB Hermes bundle). The sandboxed export first hit `spawn EPERM`; the required worker-enabled rerun passed, and the verified output directory was removed. Full TypeScript verification also exposed two pre-existing number-to-string route-selection state errors in announcements and procurement; focused regression tests now cover the two safe `String(id)` conversions. Spec review and code-quality review found no unresolved Task 6 issue.
 
 **Focused verification:**
 

@@ -13,17 +13,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import api from '../lib/api';
-
-interface UserProfile {
-  id: number;
-  name: string;
-  email: string;
-  recovery_email: string | null;
-  recovery_email_verified: boolean;
-  contact_number: string | null;
-  role: string;
-  is_active: boolean;
-}
+import type { UserProfile } from '../lib/auth';
+import { changedPersonNameFields, personNameFormValues } from '../lib/personName';
 
 async function fetchMe(): Promise<UserProfile> {
   const res = await api.get<{ data: UserProfile } | UserProfile>('/api/auth/me');
@@ -34,7 +25,10 @@ async function fetchMe(): Promise<UserProfile> {
 }
 
 async function updateProfile(body: {
-  name: string;
+  first_name?: string;
+  last_name?: string;
+  /** @deprecated Kept for API compatibility. */
+  name?: string;
   email: string;
   contact_number: string | null;
 }): Promise<UserProfile> {
@@ -105,6 +99,7 @@ function FormField({
             error ? 'border-red-400' : 'border-gray-300'
           }`}
           value={value}
+          accessibilityLabel={label}
           onChangeText={onChangeText}
           placeholder={placeholder}
           keyboardType={keyboardType ?? 'default'}
@@ -140,10 +135,12 @@ export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
 
-  const [name, setName] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [contactNumber, setContactNumber] = useState('');
-  const [nameError, setNameError] = useState<string | null>(null);
+  const [firstNameError, setFirstNameError] = useState<string | null>(null);
+  const [lastNameError, setLastNameError] = useState<string | null>(null);
   const [emailError, setEmailError] = useState<string | null>(null);
   const [profileMsg, setProfileMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
@@ -171,7 +168,9 @@ export default function ProfileScreen() {
 
   useEffect(() => {
     if (user) {
-      setName(user.name);
+      const values = personNameFormValues(user);
+      setFirstName(values.firstName);
+      setLastName(values.lastName);
       setEmail(user.email);
       setRecoveryEmail(user.recovery_email ?? '');
       setContactNumber(user.contact_number ?? '');
@@ -238,9 +237,28 @@ export default function ProfileScreen() {
     },
   });
 
+  function validatePersonName() {
+    if (!user) return false;
+
+    try {
+      changedPersonNameFields(user, firstName, lastName);
+      setFirstNameError(null);
+      setLastNameError(null);
+      return true;
+    } catch (error) {
+      const message = error instanceof Error
+        ? error.message
+        : 'First and last name are both required when changing your name.';
+      const firstNameInvalid = !firstName.trim() || message.startsWith('First name');
+      const lastNameInvalid = !lastName.trim() || message.startsWith('Last name');
+      setFirstNameError(firstNameInvalid || !lastNameInvalid ? message : null);
+      setLastNameError(lastNameInvalid ? message : null);
+      return false;
+    }
+  }
+
   function validateProfile() {
-    let valid = true;
-    if (!name.trim()) { setNameError('Name is required.'); valid = false; } else setNameError(null);
+    let valid = validatePersonName();
     if (!email.trim()) { setEmailError('Email is required.'); valid = false; }
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
       setEmailError('Enter a valid email.'); valid = false;
@@ -281,8 +299,10 @@ export default function ProfileScreen() {
   function submitProfile() {
     setProfileMsg(null);
     if (!validateProfile()) return;
+    if (!user) return;
+    const nameFields = changedPersonNameFields(user, firstName, lastName);
     profileMutation.mutate({
-      name: name.trim(),
+      ...(nameFields ?? {}),
       email: email.trim(),
       contact_number: contactNumber.trim() || null,
     });
@@ -353,13 +373,23 @@ export default function ProfileScreen() {
           <Text className="text-base font-semibold text-gray-800 mb-4">Account</Text>
 
           <FormField
-            label="Name"
-            value={name}
-            onChangeText={setName}
-            placeholder="Your name"
+            label="First name"
+            value={firstName}
+            onChangeText={setFirstName}
+            placeholder="Your first name"
             autoCapitalize="words"
-            error={nameError}
-            onBlur={() => { if (!name.trim()) setNameError('Name is required.'); else setNameError(null); }}
+            error={firstNameError}
+            onBlur={validatePersonName}
+            editable={!profileMutation.isPending}
+          />
+          <FormField
+            label="Last name"
+            value={lastName}
+            onChangeText={setLastName}
+            placeholder="Your last name"
+            autoCapitalize="words"
+            error={lastNameError}
+            onBlur={validatePersonName}
             editable={!profileMutation.isPending}
           />
           <FormField

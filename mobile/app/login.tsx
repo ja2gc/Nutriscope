@@ -1,5 +1,5 @@
 import api from '../lib/api';
-import { setToken } from '../lib/auth';
+import { setToken, type LoginResponse } from '../lib/auth';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import {
@@ -27,7 +27,7 @@ export default function LoginScreen() {
     setError(null);
     setSubmitting(true);
     try {
-      const res = await api.post('/api/auth/login', {
+      const res = await api.post<LoginResponse>('/api/auth/login', {
         email: email.trim(),
         password,
         device_name: 'Expo App',

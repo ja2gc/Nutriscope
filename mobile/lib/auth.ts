@@ -1,5 +1,25 @@
 import * as SecureStore from 'expo-secure-store';
 
+export interface UserProfile {
+  id: number;
+  first_name: string | null;
+  last_name: string | null;
+  display_name: string;
+  /** @deprecated Use display_name for presentation. */
+  name: string;
+  email: string;
+  recovery_email: string | null;
+  recovery_email_verified: boolean;
+  contact_number: string | null;
+  role: string;
+  is_active: boolean;
+}
+
+export interface LoginResponse {
+  token: string;
+  user?: UserProfile;
+}
+
 const TOKEN_KEY = 'auth_token';
 type AuthListener = (token: string | null) => void;
 
