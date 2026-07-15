@@ -159,7 +159,8 @@ Sort users by normalized last name, then first name, then ID. Legacy records wit
 - Existing audit actor snapshots remain immutable.
 - New actor snapshots write `display_name` into the existing `name` snapshot key.
 - Account-name changes audit `first_name` and `last_name` as safe account fields with before/after values.
-- Patient-name changes remain clinical: Admin sees field names only, never values.
+- Future patient-linked audit events write `Patient::display_name` into the audit redesign's dedicated encrypted patient display-name snapshot.
+- Patient-name changes remain clinical: the event identifies the patient by its approved display-name snapshot, but Admin does not receive the previous/new name as a field diff or any other patient detail.
 - Clinical attribution DTOs keep `actor.name` as presentation text.
 - Audit actor search searches first/last fields while returning display labels.
 - The actor filter remains available through the later audit redesign and gains paginated search.
@@ -169,7 +170,7 @@ Sort users by normalized last name, then first name, then ID. Legacy records wit
 - Patient-facing reports render patient `display_name`.
 - Prepared-by and creator snapshots use user `display_name` going forward.
 - Historical reports keep stored `prepared_by_name` and other signatory snapshot values unchanged.
-- Admin remains unable to access patient-specific reports.
+- Admin remains unable to access patient-specific reports. The later audit redesign shows patient display name in the report's audit metadata without exposing report parameters/content.
 - Shared RND access corrections are owned by the audit/history redesign because they concern report authorization, not name storage.
 
 ## Seeder and factory updates
@@ -231,7 +232,7 @@ The name migration crosses:
 | Legacy record cannot be edited because last name is null | High | Require both fields only when name is deliberately changed; unrelated-edit regression tests for user/profile/patient |
 | Incomplete eager-load projections produce blank/truncated display names | High | Inventory every `select(...name...)`; include first/last/legacy fields or central projection helper; resource/report/attribution tests |
 | Patient search OR clauses bypass status/privacy filters | High | Group all search alternatives in one closure; status + first/last/physician/hospital-number regression tests |
-| Name changes leak patient identity into Admin audit output | Critical | Patient name changes remain Clinical field-name-only; privacy sentinels across storage/API/export/UI |
+| Name migration leaks patient details beyond the approved display-name audit field | Critical | Only encrypted patient display-name snapshot is allowed; name-change before/after values and every other patient field remain hidden; privacy sentinels across storage/API/export/UI |
 | Historical audit/report snapshots are rewritten or lose original attribution | High | Never rewrite `properties.actor.name` or `prepared_by_name`; legacy snapshot fixtures before/after migration |
 | Mobile profile/login breaks after backend contract changes | High | Preserve deprecated `name`; migrate mobile in same compatibility wave; mobile typecheck/tests/login/profile verification |
 | Reports overflow or format differently with compound names | Medium | Render tests for patient, NCP, menu-plan and accomplishment reports using long compound names |
@@ -316,7 +317,7 @@ The name migration crosses:
 - Unrelated edits do not lock legacy records.
 - Web/mobile/API/report/audit consumers use one coherent display-name contract.
 - Historical audit/report snapshots remain unchanged.
-- Patient name changes remain clinically private to Admin.
+- Patient-linked audit events identify the patient by display name, while patient-name before/after values and every other patient/clinical detail remain private to Admin.
 - Search and status filtering are correct and deterministic.
 - Seeders/factories produce realistic split-name data and remain idempotent.
 - No unrelated entity `name` field is migrated.

@@ -9,8 +9,8 @@ The coordinated first-name/last-name migration is specified separately. It must 
 ## Confirmed owner decisions
 
 - Admin remains the only global audit-log viewer.
-- Admin never sees patient identity, clinical values, clinical file contents, patient-specific report contents, AI prompts, or AI outputs.
-- Clinical events show the actual actor, timestamp, record type, stable pseudonymous NCP reference, and changed field names only.
+- Admin sees the patient's `display_name` as the sole patient identity field on patient-linked audit events. Admin never sees other patient identity/demographic fields, clinical values, clinical file contents, patient-specific report contents, AI prompts, or AI outputs.
+- Clinical events show patient display name, actual actor, timestamp, record type, stable pseudonymous NCP reference, and changed field names only.
 - Every active RND can view and edit every patient/NCP. `rnd_user_id` and report attribution fields record who created work; they are not ownership or authorization gates.
 - Admin budget access remains read-only. No approve, reject, flag, or mandatory review workflow is added.
 - Budget-ledger approval and reversal behavior remains outside this design until separately confirmed. Existing immutable entries remain unchanged.
@@ -70,7 +70,7 @@ The drawer currently shows:
 - a narrow detail allow-list;
 - a narrow before/after allow-list.
 
-Raw JSON, model class names, internal numeric identifiers, arbitrary properties, patient identity, and clinical values are not exposed. That boundary remains.
+Raw JSON, model class names, internal numeric identifiers, arbitrary properties, patient identity, and clinical values are not exposed by the current UI. The target design adds only the approved patient display-name exception defined below.
 
 The current summary is generated as `action label + generic entity label`. This produces summaries such as `Updated intervention`, `Created assessment`, and `Updated audit event`. The drawer section named **Safe request metadata** renders event details rather than request metadata. Stored operational details are often discarded by the presenter, leaving `Not recorded` or no field changes.
 
@@ -219,7 +219,7 @@ The redesign must treat stale-feature discovery as a contract task, not assume D
 ## Out of scope
 
 - Clinical old/new values in audit events or Admin UI.
-- Patient identity in Admin audit logs.
+- Patient identity in Admin audit logs beyond the explicitly approved patient `display_name`.
 - Historical read-only clinical record pages for Admin.
 - Raw JSON display.
 - Full file/PDF/OCR contents in audit storage.
@@ -288,6 +288,8 @@ Every event DTO must provide:
 - optional historical-view descriptor;
 - optional current-record URL when authorized and the record still exists.
 
+Patient-linked events additionally provide one narrowly typed patient identity object containing only `display_name`. They retain the stable pseudonymous NCP reference. No patient public/internal ID, hospital number, date of birth, sex, address, contact, ward, physician, diagnosis, admission data, screening result, risk value, or other demographic/clinical field is part of that identity object.
+
 Summaries use event-specific formatters, never one generic concatenation. Examples:
 
 - `Maria Santos changed Brown Rice serving size from 100 g to 150 g.`
@@ -323,7 +325,7 @@ Show state transition, key totals/counts, actor/system actor, linked safe refere
 
 ### Clinical events
 
-Show field names only. Both old and new values remain null/redacted. A deletion may show which clinical fields were present, but never their contents.
+Show patient display name, stable pseudonymous NCP reference, and changed field names only. Both old and new clinical values remain null/redacted. A deletion may show which clinical fields were present, but never their contents. A patient-name change still does not show the previous/new name as a field diff; the event subject shows the approved patient display-name snapshot only.
 
 ## Simple drawer versus historical page
 
@@ -382,6 +384,7 @@ Rules:
 
 - Only explicit serializers may write snapshots.
 - Patient, NCP, assessment, diagnosis, intervention, monitoring, patient meal plan, screening document, and patient-specific report types are rejected at the revision boundary.
+- The approved patient display-name snapshot lives on the parent audit event, not inside operational revision JSON.
 - No arbitrary model serialization, request payload, raw JSON response, file data, report contents, prompts, or outputs.
 - API presenters return typed historical DTOs, never raw stored JSON.
 - Revision payloads have per-type size caps and serializer-version tests.
@@ -490,7 +493,7 @@ Recipe history may show:
 - added, changed, and removed ingredients;
 - historical read-only recipe version for structural changes.
 
-Once a library item/recipe is associated with a specific patient's plan, the event is Clinical. Admin then sees only changed field names and pseudonymous NCP context.
+Once a library item/recipe is associated with a specific patient's plan, the event is Clinical. Admin then sees patient display name, changed field names and pseudonymous NCP context, but no selected food, recipe, quantity, prescription or other plan content.
 
 ## Food Service Operations historical details
 
@@ -530,12 +533,13 @@ Before report audit/history work proceeds:
 - replace archived clinical-report `audit_owner_id` and `user_id` ownership gates with role/policy-based RND access to the related NCP context;
 - retain `audit_owner_id`, `user_id`, and prepared-by fields as attribution only;
 - preserve Admin report type allow-lists and prevent Admin access to patient-specific reports/contents;
+- permit patient display name on the audit metadata for a patient-specific report event without granting Admin access to the report or its parameters/content;
 - add RND A/RND B browse, view, preview, download, delete-as-authorized, and report-trail tests as applicable to the existing product rules.
 
 ## Authorization and privacy
 
 - Admin can view global metadata and nonpatient operational values.
-- Admin cannot view patient identity, patient-specific report contents, clinical values, clinical snapshots, files, OCR, prompts or outputs.
+- Admin can view patient `display_name` on patient-linked audit events but cannot view other patient identity/demographics, patient-specific report contents, clinical values, clinical snapshots, files, OCR, prompts or outputs.
 - Active RND users share clinical record access under existing role policies; audit attribution always uses the actual actor.
 - FSS access remains limited to authorized operational areas and FSS report types.
 - Historical operational pages are Admin read-only from global audit oversight. Current-record links follow the current record's normal authorization.
@@ -552,6 +556,18 @@ Existing fixed periods remain:
 - Legacy: 90 days.
 
 The new module does not change retention; category controls retention. Historical revision rows follow the parent event. Legal holds protect both. Scheduled deletion remains OFF until explicitly confirmed through the existing Admin control. Audit/revision updates and deletes remain blocked outside reviewed migration/pruning boundaries.
+
+### Minimal patient identity snapshot
+
+- Add one nullable `patient_display_name_snapshot` text field to the audit event model.
+- Encrypt the field through Laravel's encrypted cast; never index, search, sort or filter by its ciphertext.
+- Populate it from `Patient::display_name` for future patient-linked clinical/report events.
+- Backfill existing patient-linked clinical/report events from the currently related patient when that patient still exists. Events without a resolvable patient retain only their pseudonymous NCP reference.
+- The public presenter exposes it only through authorized Admin audit and authorized RND contextual-trail DTOs.
+- Do not copy it into arbitrary details, request metadata, logs, metrics, revision JSON or URLs.
+- Patient-name updates do not expose old/new name values; later events capture the then-current display name.
+- It follows Clinical retention and legal hold. Encryption-key backup/rotation procedures must preserve decryptability for retained rows.
+- Audit export remains disabled. Any future export enablement must separately decide whether this identity field is included; default export serialization omits it.
 
 ## Demo seeder design
 
@@ -626,7 +642,8 @@ This redesign can affect more than the Admin audit page:
 
 | Risk | Impact | Required control and verification |
 |---|---|---|
-| Clinical/PHI leakage through new values or snapshots | Critical | Revision writer rejects every patient/NCP/clinical/report-content type; per-serializer allow-lists; storage/API/export/log/UI privacy sentinels; Admin authorization tests |
+| Clinical/PHI leakage beyond the approved patient-name exception | Critical | Revision writer rejects every patient/NCP/clinical/report-content type; only encrypted `patient_display_name_snapshot` is allowed; per-serializer allow-lists; storage/API/export/log/UI privacy sentinels; Admin authorization tests |
+| Patient-name snapshot is exposed through export, logs, filters or unauthorized routes | Critical | Dedicated encrypted non-indexed field; typed DTO only; export omission; direct-route denial, log/metric sentinel and ciphertext-at-rest tests |
 | Shared-RND report fix accidentally grants Admin/FSS clinical access | Critical | Role/policy tests for RND A/RND B/Admin/FSS across browse, preview, view, download, delete and trail endpoints; retain Admin report allow-list |
 | Attribution fields remain hidden authorization gates | High | Repository scan for `rnd_user_id`, `audit_owner_id`, report `user_id` gates; contract tests state they are attribution only |
 | Module/domain backfill misclassifies historical rows | High | Deterministic model/action mapping only; ambiguous rows stay Legacy/Unclassified; pre/post migration count report; rollback/re-forward test |
@@ -714,7 +731,7 @@ This redesign can affect more than the Admin audit page:
 - Tabs match Nutriscope modules rather than retention categories.
 - RND Food Library and RND recipes appear under Nutrition Care; FSS catalogs/recipes remain Food Service Operations.
 - Safe nonpatient values display for create/update/delete events.
-- Clinical events remain field-name-only and pseudonymous to Admin.
+- Clinical events show patient display name, actual actor, pseudonymous NCP reference and changed field names; they expose no other patient details or clinical values to Admin.
 - Complex nonclinical records open a truthful event-time read-only version; current record is a separate link.
 - Budget setup, per-head/day changes, manual adjustments and PO deductions are understandable and attributable.
 - Required reasons exist for destructive/corrective actions.
