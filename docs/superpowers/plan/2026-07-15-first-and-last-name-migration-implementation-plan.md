@@ -208,14 +208,16 @@ The generated verification directory is removed after inspection and is never co
 
 ## Task 10 — Full name-migration integration verification
 
-- [ ] Run fresh Laravel name, auth, patient, audit, report, seeder, authorization, and route-coverage suites, then the full Laravel suite.
-- [ ] Run relevant Pint and inspect its diff; run all frontend tests, TypeScript, lint, and production build.
-- [ ] Run mobile Node tests, TypeScript, and affected Expo export/build check.
-- [ ] On configured MySQL: verify baseline plus new migrations forward, rollback the two name migrations, re-forward, inspect legacy backfill (including soft-deleted users), and run MySQL query plans for patient search and user ordering. Add an index only if measured plans prove it is useful and its migration/rollback is tested.
-- [ ] Render report fixtures/PDFs and assert current displays plus historical snapshot immutability.
-- [ ] Run seeder idempotence, stale-consumer scans, query-count/N+1 tests, and `git diff --check`.
-- [ ] Update `docs/architecture/person-name-compatibility.md` with the display contract, validation matrix, API compatibility, migration/deployment/rollback order, consumer map, and verification evidence.
-- [ ] Review gates complete; commit `docs: document split name compatibility`.
+- [x] Run fresh Laravel name, auth, patient, audit, report, seeder, authorization, and route-coverage suites, then the full Laravel suite.
+- [x] Run relevant Pint and inspect its diff; run all frontend tests, TypeScript, lint, and production build.
+- [x] Run mobile Node tests, TypeScript, and affected Expo export/build check.
+- [x] On configured MySQL: verify baseline plus new migrations forward, rollback the two name migrations, re-forward, inspect legacy backfill (including soft-deleted users), and run MySQL query plans for patient search and user ordering. Add an index only if measured plans prove it is useful and its migration/rollback is tested.
+- [x] Render report fixtures/PDFs and assert current displays plus historical snapshot immutability.
+- [x] Run seeder idempotence, stale-consumer scans, query-count/N+1 tests, and `git diff --check`.
+- [x] Update `docs/architecture/person-name-compatibility.md` with the display contract, validation matrix, API compatibility, migration/deployment/rollback order, consumer map, and verification evidence.
+- [x] Review gates complete; commit `docs: document split name compatibility`.
+
+**Task 10 evidence (2026-07-15):** Laravel Boost reconfirmed PHP 8.4, Laravel 13.11.2, MySQL, Sanctum 4.3.2, PHPUnit 12.5.26, Boost 2.4.8, and Pint 1.29.1. The final MySQL Laravel run passed 1,029 tests/6,235 assertions with `--fail-on-skipped` and zero skips, covering name/auth/patient/audit/report/seeder/authorization/privacy/route/query-count behavior and real PDF signatures. Two stale current-name fixtures found by the first full run were corrected with explicit split fields. The platform link-escape test was changed from a Windows skip to a directory-junction fallback and passed, so no verification is hidden. Frontend passed 57 files/195 tests, TypeScript, ESLint, and a 91-page Next.js production build. Mobile passed 13 tests, TypeScript, and an Android Expo export (3,241 modules; 6.16 MB Hermes bundle); generated output was removed. Live MySQL passed the two-name-migration rollback/re-forward cycle; the legacy row remained byte-for-byte display-compatible, and nullable split columns were restored. EXPLAIN used `patients_status_idx` for patient search; expression-based user ordering used the documented small-table filesort, so no speculative index was added. Report current-name/PDF, historical snapshot, seeder idempotence/audit-noise, stale-consumer, N+1/query-count, Pint, and diff checks passed. Spec and code-quality reviews found no unresolved name-migration issue.
 
 **Wave N2 integration gate and push:** Tasks 5–7, with all backend/web/mobile/report focused verification passing. Push `main`; verify remote equality.
 
@@ -260,9 +262,9 @@ The audit implementation plan remains blocked until all of these are checked:
 
 - [ ] Wave N1, N2, and N3 commits exist locally and are pushed to `main`.
 - [ ] Remote `main` equals final local `HEAD`.
-- [ ] Deprecated input/output compatibility is proven across Laravel and Next.js proxies.
-- [ ] Web and mobile migrated consumers pass their checks.
-- [ ] Historical actor/prepared-by snapshots are proven unchanged.
-- [ ] MySQL forward/rollback/re-forward and legacy backfill pass.
-- [ ] Full backend/frontend suites and affected mobile/report checks pass.
+- [x] Deprecated input/output compatibility is proven across Laravel and Next.js proxies.
+- [x] Web and mobile migrated consumers pass their checks.
+- [x] Historical actor/prepared-by snapshots are proven unchanged.
+- [x] MySQL forward/rollback/re-forward and legacy backfill pass.
+- [x] Full backend/frontend suites and affected mobile/report checks pass.
 - [ ] Remaining unrelated `.codex/config.toml` and `.superpowers` state is reported separately and untouched.
