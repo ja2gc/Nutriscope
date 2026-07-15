@@ -28,7 +28,12 @@ class ReportsBrowseTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->rnd = User::factory()->create(['role' => 'RND']);
+        $this->rnd = User::factory()->create([
+            'role' => 'RND',
+            'name' => 'LEGACY BROWSE PREPARER',
+            'first_name' => 'Liza Mae',
+            'last_name' => 'Del Rosario',
+        ]);
         ReportBranding::singleton(); // ensure a branding row exists
     }
 
@@ -155,7 +160,7 @@ class ReportsBrowseTest extends TestCase
             ->json('data.id');
 
         $report = Report::where('uuid', $id)->firstOrFail();
-        $this->assertSame($this->rnd->name, $report->parameters['prepared_by_name']);
+        $this->assertSame('Liza Mae Del Rosario', $report->parameters['prepared_by_name']);
     }
 
     // ── On-demand render ────────────────────────────────────────────────────

@@ -49,7 +49,7 @@ class AccomplishmentReportArchiveService
             'from' => $start,
             'to' => $end,
             'fss_user_id' => $user->id,
-            'prepared_by_name' => $user->name,
+            'prepared_by_name' => $user->display_name,
             'auto_generated' => true,
         ];
 
@@ -75,7 +75,7 @@ class AccomplishmentReportArchiveService
                 }
                 $report = new Report([
                     'user_id' => $user->id,
-                    'title' => $user->name.' — Accomplishment Report '.Carbon::parse($start)->format('M j').'–'.Carbon::parse($end)->format('j, Y'),
+                    'title' => $user->display_name.' — Accomplishment Report '.Carbon::parse($start)->format('M j').'–'.Carbon::parse($end)->format('j, Y'),
                     'type' => 'accomplishment_report',
                     'archive_identity' => $archiveIdentity,
                     'parameters' => $params,
@@ -172,7 +172,7 @@ class AccomplishmentReportArchiveService
             'staff_sheets' => collect($data['staff_sheets'])->map(fn (array $sheet) => [
                 'user' => [
                     'id' => $sheet['user']?->id,
-                    'name' => $sheet['user']?->name,
+                    'name' => $sheet['user']?->display_name,
                     'role' => $sheet['user']?->role,
                 ],
                 'task_rows' => $sheet['task_rows'],

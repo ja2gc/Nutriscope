@@ -12,7 +12,7 @@
             <tr>
                 <td style="border:0;">
                     <span class="bold">Name of Employee:</span>
-                    <span style="border-bottom:1px solid #333; padding:0 60px 0 4px;">{{ $sheet['user']?->name ?? '-' }}</span>
+                    <span style="border-bottom:1px solid #333; padding:0 60px 0 4px;">{{ $sheet['user']?->display_name ?? '-' }}</span>
                 </td>
             </tr>
         </table>
@@ -56,7 +56,7 @@
                 <tr>
                     <td>
                         <div class="sig-label">Prepared by:</div>
-                        <div class="sig-name">{{ $sheet['user']?->name ?? '' }}</div>
+                        <div class="sig-name">{{ $sheet['user']?->display_name ?? '' }}</div>
                         <div class="sig-title">Food Service Staff</div>
                     </td>
                     <td>

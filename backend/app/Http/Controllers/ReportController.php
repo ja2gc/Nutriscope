@@ -204,7 +204,7 @@ class ReportController extends Controller
         if (Auth::user()?->role === 'FSS' && $type === 'accomplishment_report') {
             $params['fss_user_id'] = Auth::id();
         }
-        if ($name = Auth::user()?->name) {
+        if ($name = Auth::user()?->display_name) {
             $params['prepared_by_name'] = $name;
         }
 
@@ -422,7 +422,7 @@ class ReportController extends Controller
     private function createReport(string $type, string $title, array $params, string $status = 'pending'): Report
     {
         $ncpRecord = $this->ncpContextForReport($type, $params);
-        if ($name = Auth::user()?->name) {
+        if ($name = Auth::user()?->display_name) {
             $params['prepared_by_name'] = $name;
         }
 

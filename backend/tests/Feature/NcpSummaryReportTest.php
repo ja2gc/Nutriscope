@@ -15,6 +15,7 @@ use App\Models\User;
 use App\Services\Reports\Generators\NcpSummaryGenerator;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 /** NCP Summary report — per-record Nutrition Care Plan, RND-only. */
@@ -32,7 +33,11 @@ class NcpSummaryReportTest extends TestCase
 
     private function makeRecord(): NcpRecord
     {
-        $patient = Patient::factory()->create();
+        $patient = Patient::factory()->create([
+            'name' => 'LEGACY NCP PATIENT',
+            'first_name' => 'Ana Marie',
+            'last_name' => 'Santos Cruz',
+        ]);
         $ncp = NcpRecord::factory()->create([
             'patient_id' => $patient->id,
             'rnd_user_id' => $this->rnd->id,
@@ -80,6 +85,10 @@ class NcpSummaryReportTest extends TestCase
 
         $this->assertCount(2, $data['instances']);
         $this->assertArrayHasKey('ncp_record_id', $data['instances'][0]['params']);
+        $this->assertTrue(collect($data['instances'])->every(
+            fn (array $instance): bool => str_contains($instance['label'], 'Ana Marie Santos Cruz')
+                && ! str_contains($instance['label'], 'LEGACY NCP PATIENT')
+        ));
     }
 
     public function test_clinical_instances_exclude_other_rnd_records_and_labels(): void
@@ -148,6 +157,52 @@ class NcpSummaryReportTest extends TestCase
 
         $this->assertCount(1, $data['attachments']);
         $this->assertSame('ref.pdf', $data['attachments']->first()->original_name);
+    }
+
+    public function test_data_uses_current_patient_display_name(): void
+    {
+        $ncp = $this->makeRecord();
+        $report = new Report([
+            'type' => 'ncp_summary',
+            'parameters' => ['ncp_record_id' => $ncp->id],
+        ]);
+
+        $data = app(NcpSummaryGenerator::class)->data($report);
+
+        $this->assertSame('Ana Marie Santos Cruz', $data['patient']['name']);
+        $this->assertNotSame('LEGACY NCP PATIENT', $data['patient']['name']);
+    }
+
+    public function test_report_query_count_does_not_grow_with_more_clinical_rows(): void
+    {
+        $ncp = $this->makeRecord();
+        $report = new Report([
+            'type' => 'ncp_summary',
+            'parameters' => ['ncp_record_id' => $ncp->id],
+        ]);
+
+        DB::enableQueryLog();
+        app(NcpSummaryGenerator::class)->data($report);
+        $baseQueries = count(DB::getQueryLog());
+
+        Diagnosis::create([
+            'ncp_record_id' => $ncp->id,
+            'domain' => 'NC',
+            'problem' => 'Additional diagnosis',
+            'etiology' => 'additional cause',
+            'signs_symptoms' => 'additional evidence',
+            'pes_statement' => 'Additional diagnosis related to cause as evidenced by evidence',
+        ]);
+        Monitoring::create([
+            'ncp_record_id' => $ncp->id,
+            'weight' => 61,
+            'bmi' => 22.5,
+            'clinical_summary' => 'Additional monitoring.',
+        ]);
+        DB::flushQueryLog();
+        app(NcpSummaryGenerator::class)->data($report);
+
+        $this->assertSame($baseQueries, count(DB::getQueryLog()));
     }
 
     public function test_data_flags_completion_stage_and_links_meal_plan(): void

@@ -3,10 +3,12 @@
 namespace Tests\Feature;
 
 use App\Models\AuditActivity;
+use App\Models\DietListCount;
 use App\Models\NcpRecord;
 use App\Models\Patient;
 use App\Models\Report;
 use App\Models\User;
+use App\Services\Reports\ReportService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
@@ -20,7 +22,11 @@ class ReportControllerTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->rnd = User::factory()->rnd()->create();
+        $this->rnd = User::factory()->rnd()->create([
+            'name' => 'LEGACY REPORT OWNER',
+            'first_name' => 'Rosa Maria',
+            'last_name' => 'Dela Peña',
+        ]);
     }
 
     public function test_deleted_ncp_archived_report_keeps_safe_root_and_owner_authorization(): void
@@ -63,7 +69,8 @@ class ReportControllerTest extends TestCase
         $this->actingAs($this->rnd, 'sanctum')->getJson('/api/rnd/reports')
             ->assertOk()
             ->assertJsonCount(3, 'data')
-            ->assertJsonPath('data.0.created_by.id', $this->rnd->uuid);
+            ->assertJsonPath('data.0.created_by.id', $this->rnd->uuid)
+            ->assertJsonPath('data.0.created_by.name', 'Rosa Maria Dela Peña');
     }
 
     public function test_rnd_can_show_owned_report(): void
@@ -87,5 +94,43 @@ class ReportControllerTest extends TestCase
         $this->actingAs($this->rnd, 'sanctum')
             ->getJson("/api/rnd/reports/{$report->uuid}")
             ->assertForbidden();
+    }
+
+    public function test_historical_report_name_snapshots_are_not_rewritten(): void
+    {
+        $report = Report::factory()->create([
+            'user_id' => $this->rnd->id,
+            'status' => 'completed',
+            'type' => 'procurement_pack',
+            'parameters' => ['prepared_by_name' => 'Historical Prepared By'],
+            'snapshot' => ['staff' => [['name' => 'Historical Staff']]],
+        ]);
+
+        $this->actingAs($this->rnd, 'sanctum')
+            ->getJson("/api/rnd/reports/{$report->uuid}")
+            ->assertOk()
+            ->assertJsonPath('data.parameters.prepared_by_name', 'Historical Prepared By')
+            ->assertJsonPath('data.snapshot.staff.0.name', 'Historical Staff')
+            ->assertJsonPath('data.created_by.name', 'Rosa Maria Dela Peña');
+    }
+
+    public function test_live_render_uses_current_prepared_by_display_name(): void
+    {
+        DietListCount::factory()->create(['service_date' => '2026-06-10']);
+        $reports = $this->createMock(ReportService::class);
+        $reports->method('supports')->willReturn(true);
+        $reports->expects($this->once())
+            ->method('streamBytes')
+            ->willReturnCallback(function (string $type, array $params): string {
+                $this->assertSame('accomplishment_report', $type);
+                $this->assertSame('Rosa Maria Dela Peña', $params['prepared_by_name']);
+
+                return '%PDF-current-name';
+            });
+        $this->app->instance(ReportService::class, $reports);
+
+        $this->actingAs($this->rnd, 'sanctum')
+            ->get('/api/rnd/reports/accomplishment_report/render?start=2026-06-10&end=2026-06-10')
+            ->assertOk();
     }
 }

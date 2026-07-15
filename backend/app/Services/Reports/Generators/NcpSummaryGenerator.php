@@ -67,7 +67,7 @@ class NcpSummaryGenerator implements ReportGenerator
 
         return [
             'patient' => [
-                'name' => $patient?->name,
+                'name' => $patient?->display_name,
                 'hospital_number' => $patient?->hospital_number,
                 'age' => self::ageFrom($patient?->dob, $patient?->admission_date),
                 'sex' => $patient?->sex,

@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Services\Reports\Generators\AccomplishmentReportGenerator;
 use Carbon\CarbonPeriod;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 /**
@@ -33,8 +34,18 @@ class AccomplishmentReportTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->fss1 = User::factory()->create(['role' => 'FSS', 'name' => 'Alice Reyes']);
-        $this->fss2 = User::factory()->create(['role' => 'FSS', 'name' => 'Bob Santos']);
+        $this->fss1 = User::factory()->create([
+            'role' => 'FSS',
+            'name' => 'LEGACY ALICE',
+            'first_name' => 'Alice',
+            'last_name' => 'Reyes',
+        ]);
+        $this->fss2 = User::factory()->create([
+            'role' => 'FSS',
+            'name' => 'LEGACY BOB',
+            'first_name' => 'Bob',
+            'last_name' => 'Santos',
+        ]);
         ReportBranding::singleton(); // ensure branding row exists for PDF render
     }
 
@@ -71,9 +82,26 @@ class AccomplishmentReportTest extends TestCase
             $this->makeReport(['from' => '2026-06-01', 'to' => '2026-06-01'])
         );
 
-        $names = collect($data['staff_sheets'])->pluck('user.name')->all();
+        $names = collect($data['staff_sheets'])->pluck('user.display_name')->all();
         $this->assertContains('Alice Reyes', $names);
         $this->assertContains('Bob Santos', $names);
+    }
+
+    public function test_current_report_view_uses_staff_display_name(): void
+    {
+        $this->seedCount($this->fss1, '2026-06-01');
+        $report = $this->makeReport(['from' => '2026-06-01', 'to' => '2026-06-01']);
+        $data = (new AccomplishmentReportGenerator)->data($report);
+        $html = view('reports.accomplishment', [
+            ...$data,
+            'branding' => ReportBranding::singleton(),
+            'signatories' => [],
+            'generated_at' => now(),
+            'report' => $report,
+        ])->render();
+
+        $this->assertStringContainsString('Alice Reyes', $html);
+        $this->assertStringNotContainsString('LEGACY ALICE', $html);
     }
 
     public function test_checkmark_row_marks_true_as_tick_and_false_as_dash(): void
@@ -321,7 +349,55 @@ class AccomplishmentReportTest extends TestCase
         $this->assertSame('2026-06-01', $report->parameters['start']);
         $this->assertSame('2026-06-07', $report->parameters['end']);
         $this->assertSame($this->fss1->id, $report->parameters['fss_user_id']);
+        $this->assertSame('Alice Reyes', $report->parameters['prepared_by_name']);
+        $this->assertSame('Alice Reyes', $report->snapshot['accomplishment']['staff_sheets'][0]['user']['name']);
+        $this->assertStringContainsString('Alice Reyes', $report->title);
+        $this->assertStringNotContainsString('LEGACY ALICE', $report->title);
         $this->assertSame('X', $report->snapshot['accomplishment']['staff_sheets'][0]['task_rows']['helped_food_prep']['2026-06-07']);
+    }
+
+    public function test_manual_archive_snapshots_current_prepared_by_display_name(): void
+    {
+        Storage::fake('public');
+        $this->seedCount($this->fss1, '2026-06-10');
+
+        $this->actingAs($this->fss1, 'sanctum')
+            ->postJson('/api/fss/reports/accomplishment_report/archive', [
+                'start' => '2026-06-10',
+                'end' => '2026-06-10',
+            ])
+            ->assertCreated();
+
+        $report = Report::query()->where('user_id', $this->fss1->id)->latest('id')->firstOrFail();
+        $this->assertSame('Alice Reyes', $report->parameters['prepared_by_name']);
+        $this->assertSame('Alice Reyes', $report->snapshot['params']['prepared_by_name']);
+    }
+
+    public function test_historical_staff_name_snapshot_remains_unchanged(): void
+    {
+        $report = new Report([
+            'type' => 'accomplishment_report',
+            'snapshot' => [
+                'accomplishment' => [
+                    'from' => '2026-06-01',
+                    'to' => '2026-06-01',
+                    'period_label' => 'June 1-1, 2026',
+                    'days' => ['2026-06-01'],
+                    'tasks' => AccomplishmentReportGenerator::TASKS,
+                    'numeric_task' => 'apportioned_food',
+                    'daily_population' => ['2026-06-01' => 1],
+                    'staff_sheets' => [[
+                        'user' => ['id' => 999, 'name' => 'Historical Staff Label'],
+                        'task_rows' => [],
+                    ]],
+                ],
+            ],
+        ]);
+
+        $data = (new AccomplishmentReportGenerator)->data($report);
+
+        $this->assertSame('Historical Staff Label', $data['staff_sheets'][0]['user']->display_name);
+        $this->assertSame('Historical Staff Label', $data['staff_sheets'][0]['user']->name);
     }
 
     public function test_auto_archived_weekly_report_is_frozen_against_later_diet_list_changes(): void

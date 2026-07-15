@@ -39,7 +39,11 @@ class ReportAuditTest extends TestCase
 
     public function test_report_index_eager_loads_creator_and_returns_archive_attribution(): void
     {
-        $rnd = User::factory()->rnd()->create();
+        $rnd = User::factory()->rnd()->create([
+            'name' => 'LEGACY REPORT ACTOR',
+            'first_name' => 'Juan Miguel',
+            'last_name' => 'De los Santos',
+        ]);
         Report::factory()->count(3)->create([
             'user_id' => $rnd->id,
             'type' => 'procurement_pack',
@@ -52,7 +56,7 @@ class ReportAuditTest extends TestCase
         $response = $this->actingAs($rnd, 'sanctum')->getJson('/api/rnd/reports')->assertOk();
 
         $response->assertJsonPath('data.0.created_by.id', $rnd->uuid)
-            ->assertJsonPath('data.0.created_by.name', $rnd->name)
+            ->assertJsonPath('data.0.created_by.name', 'Juan Miguel De los Santos')
             ->assertJsonStructure(['data' => [['created_at', 'generated_at', 'updated_at']]]);
         $this->assertLessThanOrEqual(3, count(DB::getQueryLog()));
     }

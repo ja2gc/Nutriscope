@@ -72,7 +72,7 @@ class ReportBrowser
                     )
                     ->with('patient'),
                 'meal_plan_id',
-                fn (MealPlan $mp) => trim(($mp->patient?->name ?? "Patient #{$mp->patient_id}")
+                fn (MealPlan $mp) => trim(($mp->patient?->display_name ?? "Patient #{$mp->patient_id}")
                     .' — week of '.(optional($mp->week_start_date)->format('M j, Y') ?? '?')
                     .($mp->status ? " ({$mp->status})" : '')),
                 'created_at',
@@ -80,7 +80,7 @@ class ReportBrowser
             'ncp_summary' => fn () => new EntityInstanceSource(
                 fn () => NcpRecord::query()->where('rnd_user_id', Auth::id())->with('patient'),
                 'ncp_record_id',
-                fn (NcpRecord $r) => trim(($r->patient?->name ?? "Patient #{$r->patient_id}")
+                fn (NcpRecord $r) => trim(($r->patient?->display_name ?? "Patient #{$r->patient_id}")
                     .' — '.optional($r->created_at)->format('M j, Y')
                     .($r->status ? " ({$r->status})" : '')),
                 'created_at',
