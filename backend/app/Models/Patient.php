@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\AuditsChanges;
+use App\Models\Concerns\HasDisplayName;
 use App\Models\Concerns\HasPublicId;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -10,13 +11,13 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Patient extends Model
 {
-    use AuditsChanges, HasFactory, HasPublicId;
+    use AuditsChanges, HasDisplayName, HasFactory, HasPublicId;
 
     /** Clinical model — log which fields changed, never the PHI values (Spec 5 Decision A). */
     protected bool $auditRedactValues = true;
 
     protected $fillable = [
-        'name', 'dob', 'sex', 'religion', 'address', 'contact',
+        'name', 'first_name', 'last_name', 'dob', 'sex', 'religion', 'address', 'contact',
         'physician', 'admission_date', 'medical_diagnosis', 'ward', 'status',
         'screening_type', 'hospital_number', 'age_group_category',
     ];

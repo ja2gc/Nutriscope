@@ -1,6 +1,6 @@
 # First-Name/Last-Name Migration Implementation Plan
 
-**Status:** Tasks 1–2 complete; Task 3 model/display contract is next.
+**Status:** Tasks 1–3 complete; Task 4 backend compatibility flows are next.
 
 **Authoritative design:** `docs/superpowers/specs/2026-07-15-first-and-last-name-migration-design.md`
 
@@ -81,13 +81,15 @@ php artisan migrate:status --no-ansi
 
 ## Task 3 — Model display contract and explicit legacy synchronization
 
-- [ ] Add `backend/app/Models/Concerns/HasDisplayName.php` with a Laravel 13 `Attribute` accessor that joins normalized split values once only when both are nonblank, and falls back to the exact legacy `name` whenever the split pair is incomplete.
-- [ ] Apply the concern and fillable split fields in `backend/app/Models/User.php` and `backend/app/Models/Patient.php`. Keep the existing legacy field and do not append `display_name` globally; resources own public serialization.
-- [ ] Add `backend/app/Support/PersonNameRules.php` for trimming, collapsing repeated internal whitespace, control-character rejection, and current safe maximum lengths without token/surname inference.
-- [ ] Add `backend/app/Actions/Identity/SynchronizePersonName.php` as the explicit write-path normalizer. It accepts validated split and deprecated compatibility input, gives split input precedence, synchronizes `name` for new/deliberate split changes, and leaves unrelated legacy edits untouched.
-- [ ] Extend `backend/tests/Unit/DisplayNameTest.php` and `backend/tests/Unit/SynchronizePersonNameTest.php` for blank/null parts, repeated whitespace, control characters, compound names, exact incomplete-pair fallback, precedence, and no hidden-mutator behavior.
-- [ ] Run Task 1 compatibility tests plus model/action tests.
-- [ ] Review gates complete; commit `feat: define person display name contract`.
+- [x] Add `backend/app/Models/Concerns/HasDisplayName.php` with a Laravel 13 `Attribute` accessor that joins normalized split values once only when both are nonblank, and falls back to the exact legacy `name` whenever the split pair is incomplete.
+- [x] Apply the concern and fillable split fields in `backend/app/Models/User.php` and `backend/app/Models/Patient.php`. Keep the existing legacy field and do not append `display_name` globally; resources own public serialization.
+- [x] Add `backend/app/Support/PersonNameRules.php` for trimming, collapsing repeated internal whitespace, control-character rejection, and current safe maximum lengths without token/surname inference.
+- [x] Add `backend/app/Actions/Identity/SynchronizePersonName.php` as the explicit write-path normalizer. It accepts validated split and deprecated compatibility input, gives split input precedence, synchronizes `name` for new/deliberate split changes, and leaves unrelated legacy edits untouched.
+- [x] Extend `backend/tests/Unit/DisplayNameTest.php` and `backend/tests/Unit/SynchronizePersonNameTest.php` for blank/null parts, repeated whitespace, control characters, compound names, exact incomplete-pair fallback, precedence, and no hidden-mutator behavior.
+- [x] Run Task 1 compatibility tests plus model/action tests.
+- [x] Review gates complete; commit `feat: define person display name contract`.
+
+**Task 3 evidence (2026-07-15):** The initial 10 model/action tests failed because the accessor, rules helper, and synchronizer did not exist. The first implementation passed those tests. Spec and quality review then added red regressions for explicit null not falling back to the existing model, the 255-character defensive limit, and applying that limit after whitespace normalization. The final focused model/action suite passed 13 tests/30 assertions; the affected MySQL compatibility/migration suite passed 21 tests/69 assertions; targeted Pint and `git diff --check` passed. The accessor is not globally appended, incomplete legacy pairs preserve exact legacy display bytes, deprecated-only payloads remain untouched for Task 4 request validation, and only explicit split writes synchronize legacy `name`.
 
 **Rollback boundary:** Revert this application commit before rolling back schema. Existing legacy reads remain valid.
 

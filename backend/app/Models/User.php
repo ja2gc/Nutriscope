@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasDisplayName;
 use App\Models\Concerns\HasPublicId;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -14,10 +15,12 @@ use Spatie\Activitylog\Traits\CausesActivity;
 class User extends Authenticatable
 {
     use CausesActivity, HasApiTokens, HasFactory, Notifiable, SoftDeletes;
-    use HasPublicId;
+    use HasDisplayName, HasPublicId;
 
     protected $fillable = [
         'name',
+        'first_name',
+        'last_name',
         'email',
         'recovery_email',
         'recovery_email_verified_at',
