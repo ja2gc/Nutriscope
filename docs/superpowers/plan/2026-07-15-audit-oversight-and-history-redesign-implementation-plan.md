@@ -1,6 +1,6 @@
 # Audit Oversight and Historical-Record Redesign Implementation Plan
 
-**Status:** In progress. The name-migration gate is complete, pushed, and remote-verified at `6cc8fdd781ddf176d79be6181928c04b26499520`; Audit Tasks 1–7 and Waves A1–A2 are complete. Task 8 is next.
+**Status:** In progress. The name-migration gate is complete, pushed, and remote-verified at `6cc8fdd781ddf176d79be6181928c04b26499520`; Audit Tasks 1–7, Task 8A, and Waves A1–A2 are complete. Task 8B is next.
 
 **Authoritative design:** `docs/superpowers/specs/2026-07-15-audit-oversight-and-history-redesign.md`
 
@@ -219,17 +219,23 @@ Wave A2 passes 93 backend tests and 1,240 assertions on configured MySQL, includ
 
 ## Task 8 — Complex event-time read-only historical views
 
-- [ ] Task 8A: add `backend/app/Services/Audit/Revisions/AuditRevisionWriter.php`, `AuditRevisionRegistry.php`, typed historical DTOs, size-cap enforcement, Admin history route/resource/proxy/page shell, authorization, immutability, and privacy refusal. Complete the full test/review/verification protocol; commit `feat: add audit revision framework`.
+- [x] Task 8A: add `backend/app/Services/Audit/Revisions/AuditRevisionWriter.php`, `AuditRevisionRegistry.php`, typed historical DTOs, size-cap enforcement, Admin history route/resource/proxy/page shell, authorization, immutability, and privacy refusal. Complete the full test/review/verification protocol; commit `feat: add audit revision framework`.
 - [ ] Task 8B: add `RndRecipeRevisionSerializer.php` plus read-only RND recipe version UI/tests; commit `feat: add RND recipe history`.
 - [ ] Task 8C: add `FoodServiceRecipeRevisionSerializer.php` plus read-only FSS recipe version UI/tests; commit `feat: add FSS recipe history`.
 - [ ] Task 8D: add `MenuCycleRevisionSerializer.php` plus read-only weekly menu version UI/tests; commit `feat: add menu audit history`.
 - [ ] Task 8E: add `ShoppingListRevisionSerializer.php` and `PurchaseOrderRevisionSerializer.php` plus shopping/PO/receiving version UI/tests; commit `feat: add procurement audit history`.
 - [ ] Task 8F: add `BudgetRevisionSerializer.php` plus contextual fiscal-year/ledger version UI/tests; commit `feat: add budget audit history`.
 - [ ] Serializers capture complete event-time operational structure, safe scalar values, child rows, units, totals, statuses, and stable operational references before deletion or after committed mutation as policy requires. They refuse clinical/patient-linked subjects and prohibited keys.
-- [ ] Add `backend/app/Http/Controllers/Admin/AuditHistoryController.php`, `backend/app/Http/Resources/AuditHistoryResource.php`, and `GET /api/admin/audit-logs/{event}/history` in `backend/routes/api.php`, authorized Admin-only by `AuditPolicy`. Resolve by public audit UUID; never accept patient names/identifiers in the URL.
+- [x] Add `backend/app/Http/Controllers/Admin/AuditHistoryController.php`, `backend/app/Http/Resources/AuditHistoryResource.php`, and `GET /api/admin/audit-logs/{event}/history` in `backend/routes/api.php`, authorized Admin-only by `AuditPolicy`. Resolve by public audit UUID; never accept patient names/identifiers in the URL.
 - [ ] Add `frontend/app/api/admin/audit-logs/[id]/history/route.ts`, `frontend/services/auditHistoryService.ts`, `frontend/types/auditHistory.ts`, `frontend/app/admin/audit-logs/[id]/history/page.tsx`, and typed read-only components under `frontend/components/audit/history/` for menu plans, both recipe types, POs, shopping lists, receiving, and budgets. Default updates render After with highlighted added/changed/removed sections and an accessible Before/After toggle.
 - [ ] Link complex events from the drawer/table. Deleted live records still render from revision data; no link redirects to the mutable live record as historical proof.
 - [ ] Add `backend/tests/Feature/Audit/AuditHistoricalRevisionTest.php` and `frontend/components/audit/history/audit-history.test.tsx` for event-time fidelity, child structures, delete survival, immutability, authorization, current-record link authorization, privacy refusal, schema versions, per-type size caps, Before/After highlighting, and no raw JSON. Each 8A–8F slice receives its own spec and quality review before commit.
+
+Task 8A followed red-green TDD. The initial backend test failed on the missing serializer contract; the initial frontend test failed on the missing historical view. The completed framework accepts snapshots only from registered explicit serializers, validates serializer/type/public-ID/schema-version alignment, refuses prohibited clinical/report/AI/file fields and object payloads, enforces writes inside the business transaction, and relies on the existing immutable one-to-one size-capped revision model. Unsupported serializer versions receive neither a list link nor a detail response. The Admin-only detail route resolves the public event UUID, never the revision UUID or patient identity, loads full revision payloads only on detail, survives live-record deletion, returns only typed DTOs, and keeps current-record links separately policy-authorized.
+
+The frontend adds a no-store UUID proxy, typed service and DTOs, a responsive read-only page shell, accessible Before/After controls defaulting updates to After, typed fields/tables, change-status labels, explicit loading/unauthorized/retry states, and conditional drawer links only when the backend advertises supported history. Existing design-system cards, badges, typography, colors, focus rings, spacing, and 44-pixel targets are reused.
+
+The final configured-MySQL gate passes 73 tests and 1,640 assertions across the framework, presenter, structured API, privacy, route, and inventory contracts. The final frontend gate passes 7 files and 26 tests; TypeScript and focused ESLint pass. Full Pint and `git diff --check` pass. Spec review added deleted-record survival, raw-resource refusal, executable UUID-proxy, and UI-routing assertions. Code-quality review found no unresolved Task 8A issue.
 
 **Rollback boundary:** Revert history routes/UI/writers before dropping the revisions table. Existing activity rows remain.
 

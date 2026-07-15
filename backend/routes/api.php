@@ -4,6 +4,7 @@ use App\Http\Controllers\ActivityController;
 use App\Http\Controllers\Admin\AiUsageLimitController;
 use App\Http\Controllers\Admin\AnnouncementController as AdminAnnouncementController;
 use App\Http\Controllers\Admin\AuditActorController;
+use App\Http\Controllers\Admin\AuditHistoryController;
 use App\Http\Controllers\Admin\AuditLogController as AdminAuditLogController;
 use App\Http\Controllers\Admin\AuditLogExportController;
 use App\Http\Controllers\Admin\AuditRetentionController;
@@ -327,6 +328,8 @@ Route::middleware(['auth:sanctum', 'active', 'role:Admin'])->prefix('admin')->gr
     Route::get('audit-logs', [AdminAuditLogController::class, 'index']);
     Route::get('audit-actors', AuditActorController::class);
     Route::get('audit-logs/export', AuditLogExportController::class);
+    Route::get('audit-logs/{event}/history', AuditHistoryController::class)
+        ->whereUuid('event');
     Route::get('audit-retention', [AuditRetentionController::class, 'show']);
     Route::put('audit-retention', [AuditRetentionController::class, 'update']);
     Route::get('dashboard', AdminDashboardController::class);

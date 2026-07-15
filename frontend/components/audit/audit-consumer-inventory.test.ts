@@ -4,6 +4,7 @@ import { describe, expect, test } from "vitest";
 
 const productionFiles = [
   "app/admin/audit-logs/page.tsx",
+  "app/admin/audit-logs/[id]/history/page.tsx",
   "components/audit/AuditChangeList.tsx",
   "components/audit/AuditActorFilter.tsx",
   "components/audit/AuditEventDrawer.tsx",
@@ -13,16 +14,20 @@ const productionFiles = [
   "components/audit/AuditRetentionControl.tsx",
   "components/audit/AuditTimestamp.tsx",
   "components/audit/AuditTrail.tsx",
+  "components/audit/history/AuditHistoryView.tsx",
   "components/audit/useAuditEventList.ts",
   "components/audit/useAuditUrlState.ts",
   "services/activityService.ts",
   "services/auditActorService.ts",
   "services/auditLogService.ts",
+  "services/auditHistoryService.ts",
   "types/audit.ts",
+  "types/auditHistory.ts",
 ];
 
 const proxyFiles = [
   "app/api/admin/audit-actors/route.ts",
+  "app/api/admin/audit-logs/[id]/history/route.ts",
   "app/api/admin/audit-logs/export/route.ts",
   "app/api/admin/audit-logs/route.ts",
   "app/api/admin/audit-retention/route.ts",
@@ -90,7 +95,7 @@ describe("audit consumer inventory", () => {
     expect(service).toContain('if (params.domain) qs.set("domain"');
   });
 
-  test("five-tab module contract is implemented while history stays assigned to Task 8", () => {
+  test("five-tab module contract and Task 8 history framework are explicit", () => {
     const page = source("app/admin/audit-logs/page.tsx");
     const filters = source("components/audit/AuditFilters.tsx");
     const types = source("types/audit.ts");
@@ -104,6 +109,7 @@ describe("audit consumer inventory", () => {
     ]) expect(page).toContain(label);
     expect(filters).not.toContain('label="Domain"');
     expect(types).toContain("AuditModule");
-    expect(filesUnder("app/api")).not.toContain("app/api/admin/audit-logs/[id]/history/route.ts");
+    expect(filesUnder("app/api")).toContain("app/api/admin/audit-logs/[id]/history/route.ts");
+    expect(() => source("app/admin/audit-logs/[id]/history/page.tsx")).not.toThrow();
   });
 });

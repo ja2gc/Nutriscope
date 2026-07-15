@@ -15,6 +15,7 @@ use App\Models\Patient;
 use App\Models\Recipe;
 use App\Models\User;
 use App\Services\Audit\AuditEventPresenter;
+use App\Services\Audit\Revisions\AuditRevisionRegistry;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -233,7 +234,7 @@ class AuditEventPresenterTest extends TestCase
         $this->assertSame(['type' => 'text', 'value' => null], $event['changes'][0]['after']);
     }
 
-    public function test_revision_metadata_is_typed_without_exposing_snapshot_json(): void
+    public function test_unregistered_revision_is_not_linked_or_exposed(): void
     {
         $admin = User::factory()->admin()->create();
         $recipe = Recipe::factory()->create();
@@ -262,13 +263,12 @@ class AuditEventPresenterTest extends TestCase
             'occurred_at' => now(),
         ]);
         $activity->load('revision');
+        $this->app->instance(AuditRevisionRegistry::class, new AuditRevisionRegistry([]));
 
         $event = app(AuditEventPresenter::class)->present($activity, $admin)->toArray();
 
-        $this->assertSame($revision->public_id, $event['history']['id']);
-        $this->assertSame('View audited changes', $event['history']['label']);
-        $this->assertSame("/api/admin/audit-logs/{$activity->public_id}/history", $event['history']['url']);
-        $this->assertSame('history', $event['detail_mode']);
+        $this->assertNull($event['history']);
+        $this->assertSame('changes', $event['detail_mode']);
         $encoded = json_encode($event, JSON_THROW_ON_ERROR);
         $this->assertStringNotContainsString('REVISION-BEFORE-SENTINEL', $encoded);
         $this->assertStringNotContainsString('REVISION-AFTER-SENTINEL', $encoded);

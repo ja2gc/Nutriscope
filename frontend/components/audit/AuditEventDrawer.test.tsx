@@ -157,6 +157,23 @@ describe("structured audit event components", () => {
     expect(html).toContain('aria-label="Name after value"');
   });
 
+  test("links registered history to the read-only Admin page rather than the backend API", () => {
+    const historyEvent: AuditEventDto = {
+      ...operationalEvent,
+      history: {
+        id: "3adff5e3-8111-4a52-8390-f18a3bbc6d1d",
+        action: "updated",
+        label: "View audited changes",
+        url: `/api/admin/audit-logs/${operationalEvent.id}/history`,
+      },
+    };
+    const html = renderToStaticMarkup(<AuditEventDrawer event={historyEvent} onClose={vi.fn()} />);
+
+    expect(html).toContain(`href="/admin/audit-logs/${operationalEvent.id}/history"`);
+    expect(html).toContain("View audited changes");
+    expect(html).not.toContain(`href="/api/admin/audit-logs/${operationalEvent.id}/history"`);
+  });
+
   test("never renders redacted values as placeholder bullets", () => {
     const html = renderToStaticMarkup(<AuditChangeList changes={event.changes} clinical />);
     expect(html).toContain("Value hidden; field changed");

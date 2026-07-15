@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import Link from "next/link";
 import { X } from "lucide-react";
 import type { AuditEntityDto, AuditEventDto } from "@/types/audit";
 import { Badge, type BadgeTone } from "@/components/ui/Badge";
@@ -179,6 +180,15 @@ export function AuditEventDrawer({ event, onClose }: { event: AuditEventDto; onC
           <Section title="Field changes">
             <AuditChangeList changes={event.changes} clinical={event.category === "clinical"} />
           </Section>
+
+          {event.history && (
+            <Link
+              href={`/admin/audit-logs/${event.id}/history`}
+              className="inline-flex min-h-11 items-center font-bold text-brand-green-700 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green-500/30"
+            >
+              {event.history.label}
+            </Link>
+          )}
         </div>
       </aside>
     </div>

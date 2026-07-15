@@ -14,6 +14,7 @@ use App\Models\AuditActivity;
 use App\Models\NcpRecord;
 use App\Models\Patient;
 use App\Models\User;
+use App\Services\Audit\Revisions\AuditRevisionRegistry;
 use BackedEnum;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
@@ -25,6 +26,7 @@ class AuditEventPresenter
         private readonly AuditValuePresenter $values,
         private readonly AuditEntityPresenter $entities,
         private readonly AuditEventSummaryFormatter $summaries,
+        private readonly AuditRevisionRegistry $revisions,
     ) {}
 
     public function present(
@@ -184,7 +186,10 @@ class AuditEventPresenter
 
     private function history(AuditActivity $activity, string $action, ?User $viewer): ?AuditHistoryLinkDto
     {
-        if ($viewer?->role !== 'Admin' || ! $activity->relationLoaded('revision') || $activity->revision === null) {
+        if ($viewer?->role !== 'Admin'
+            || ! $activity->relationLoaded('revision')
+            || $activity->revision === null
+            || ! $this->revisions->supports($activity->revision)) {
             return null;
         }
 
