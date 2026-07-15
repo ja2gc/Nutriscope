@@ -17,6 +17,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
+use Symfony\Component\Process\Process;
 use Tests\Support\AuditFixture;
 use Tests\TestCase;
 
@@ -386,30 +387,53 @@ class AttachmentFeatureTest extends TestCase
         }
     }
 
-    public function test_attachment_download_rejects_symlink_escape_when_platform_supports_symlinks(): void
+    public function test_attachment_download_rejects_link_escape(): void
     {
         Storage::fake('local');
         $rnd = $this->rnd();
         $ncp = $this->ncp($rnd);
         $outside = tempnam(sys_get_temp_dir(), 'clinical-symlink-');
+        $this->assertIsString($outside);
         $link = Storage::path('documents/ncp/link.pdf');
-        @mkdir(dirname($link), 0700, true);
-        if (! @symlink($outside, $link)) {
-            @unlink($outside);
-            $this->markTestSkipped('Platform does not permit symlink creation.');
-        }
-        $document = ScreeningDocument::create([
-            'patient_id' => $ncp->patient_id, 'ncp_record_id' => $ncp->id,
-            'file_path' => 'documents/ncp/link.pdf', 'original_name' => 'link.pdf',
-        ]);
+        $junction = null;
+        $outsideDirectory = null;
+        $storedPath = 'documents/ncp/link.pdf';
 
         try {
+            @mkdir(dirname($link), 0700, true);
+            if (! @symlink($outside, $link)) {
+                $this->assertSame('\\', DIRECTORY_SEPARATOR, 'Non-Windows platform could not create the test symlink.');
+                @unlink($outside);
+                $outsideDirectory = sys_get_temp_dir().DIRECTORY_SEPARATOR.'clinical-junction-'.bin2hex(random_bytes(8));
+                $junction = str_replace(['/', '\\'], DIRECTORY_SEPARATOR, Storage::path('documents/ncp/link-directory'));
+                $outsideDirectory = str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $outsideDirectory);
+                $outside = $outsideDirectory.DIRECTORY_SEPARATOR.'outside.pdf';
+                $this->assertTrue(mkdir($outsideDirectory, 0700), 'Could not create the external junction target.');
+                $this->assertNotFalse(file_put_contents($outside, 'outside'));
+
+                $process = new Process(['cmd', '/c', 'mklink', '/J', $junction, $outsideDirectory]);
+                $process->run();
+                $this->assertTrue($process->isSuccessful(), 'Platform could not create a symlink or directory junction: '.$process->getErrorOutput());
+                $storedPath = 'documents/ncp/link-directory/outside.pdf';
+            }
+            $document = ScreeningDocument::create([
+                'patient_id' => $ncp->patient_id, 'ncp_record_id' => $ncp->id,
+                'file_path' => $storedPath, 'original_name' => 'link.pdf',
+            ]);
+
             $this->actingAs($rnd, 'sanctum')
                 ->get("/api/rnd/screening-documents/{$document->uuid}/file")
                 ->assertNotFound();
         } finally {
-            @unlink($link);
+            if ($junction === null) {
+                @unlink($link);
+            } else {
+                @rmdir($junction);
+            }
             @unlink($outside);
+            if ($outsideDirectory !== null) {
+                @rmdir($outsideDirectory);
+            }
         }
     }
 

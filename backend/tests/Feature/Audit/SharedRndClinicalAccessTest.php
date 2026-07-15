@@ -120,10 +120,14 @@ class SharedRndClinicalAccessTest extends TestCase
     public function test_patient_rows_and_ncp_cards_identify_creator_and_latest_clinical_actor(): void
     {
         $creator = User::factory()->rnd()->create([
+            'first_name' => 'Cycle',
+            'last_name' => 'Creator',
             'name' => 'Cycle Creator',
             'email' => 'creator-private@example.test',
         ]);
         $actor = User::factory()->rnd()->create([
+            'first_name' => 'Latest',
+            'last_name' => 'Clinician',
             'name' => 'Latest Clinician',
             'email' => 'actor-private@example.test',
         ]);

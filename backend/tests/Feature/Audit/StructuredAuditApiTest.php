@@ -479,7 +479,12 @@ class StructuredAuditApiTest extends TestCase
 
     public function test_deleted_actor_public_uuid_remains_filterable_in_list_and_export(): void
     {
-        $actor = User::factory()->create(['role' => 'FSS', 'name' => 'Former Auditor']);
+        $actor = User::factory()->create([
+            'role' => 'FSS',
+            'first_name' => 'Former',
+            'last_name' => 'Auditor',
+            'name' => 'Former Auditor',
+        ]);
         $activity = app(AuditLogger::class)->record(
             AuditAction::Updated,
             AuditCategory::Operations,
