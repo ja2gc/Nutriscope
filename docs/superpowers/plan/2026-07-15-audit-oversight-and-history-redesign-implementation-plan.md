@@ -1,6 +1,6 @@
 # Audit Oversight and Historical-Record Redesign Implementation Plan
 
-**Status:** In progress. The name-migration gate is complete, pushed, and remote-verified at `6cc8fdd781ddf176d79be6181928c04b26499520`; Audit Task 1 is active.
+**Status:** In progress. The name-migration gate is complete, pushed, and remote-verified at `6cc8fdd781ddf176d79be6181928c04b26499520`; Audit Tasks 1–2 are complete and Task 3 is next.
 
 **Authoritative design:** `docs/superpowers/specs/2026-07-15-audit-oversight-and-history-redesign.md`
 
@@ -84,14 +84,49 @@ Inventory completeness notes:
 
 ## Task 2 — Stale-feature and duplicate-event discovery
 
-- [ ] Add `backend/tests/Feature/Audit/AuditDuplicateDiscoveryTest.php` that exercises each user intent and asserts its current event count/sequence, including model-observer plus explicit-writer collisions, PO conversion/ordering/receiving, budget deductions, report generation/view/download/delete, Food Library changes, patient/NCP changes, and authentication/security actions.
-- [ ] Add `backend/tests/Unit/AuditStaleFeatureInventoryTest.php` and `frontend/components/audit/audit-stale-feature-inventory.test.ts` with explicit classifications for obsolete filters, labels, event cases, query parameters, compatibility paths, seed data, dead controllers/models/migrations, and UI copy.
-- [ ] Search specifically for `IpBlocked`, `IpUnblocked`, `AUDIT_SECURITY_BLOCKS_ENABLED`, IP-blocking routes/controllers/models/migrations, `AccountBlocked`, `AccountUnblocked`, Domain UI/filter text, unknown-action-to-Updated fallback, raw JSON renderers, export controls, creator-ownership authorization, and stale inventory/quantity fields.
-- [ ] Prove route, consumer, and database compatibility before marking any item removable. Keep account block/unblock and Admin account deactivation unchanged. Keep `quantity_in_stock`/related compatibility unless the full ReceivingService/costing/report/web/mobile/test dependency scan proves retirement already completed.
-- [ ] Record the removal/retention decision and evidence for every discovered item. No cleanup occurs in this task.
-- [ ] Review gates complete; commit `test: inventory stale audit behavior`.
+- [x] Add `backend/tests/Feature/Audit/AuditDuplicateDiscoveryTest.php` that exercises each user intent and asserts its current event count/sequence, including model-observer plus explicit-writer collisions, PO conversion/ordering/receiving, budget deductions, report generation/view/download/delete, Food Library changes, patient/NCP changes, and authentication/security actions.
+- [x] Add `backend/tests/Unit/AuditStaleFeatureInventoryTest.php` and `frontend/components/audit/audit-stale-feature-inventory.test.ts` with explicit classifications for obsolete filters, labels, event cases, query parameters, compatibility paths, seed data, dead controllers/models/migrations, and UI copy.
+- [x] Search specifically for `IpBlocked`, `IpUnblocked`, `AUDIT_SECURITY_BLOCKS_ENABLED`, IP-blocking routes/controllers/models/migrations, `AccountBlocked`, `AccountUnblocked`, Domain UI/filter text, unknown-action-to-Updated fallback, raw JSON renderers, export controls, creator-ownership authorization, and stale inventory/quantity fields.
+- [x] Prove route, consumer, and database compatibility before marking any item removable. Keep account block/unblock and Admin account deactivation unchanged. Keep `quantity_in_stock`/related compatibility unless the full ReceivingService/costing/report/web/mobile/test dependency scan proves retirement already completed.
+- [x] Record the removal/retention decision and evidence for every discovered item. No cleanup occurs in this task.
+- [x] Review gates complete; commit `test: inventory stale audit behavior`.
 
 **Rollback boundary:** Discovery tests/docs only; revert independently.
+
+### Task 2 stale/duplicate decision evidence
+
+No production cleanup occurs in Task 2. `AuditDuplicateDiscoveryTest` binds every required collision family to its behavioral suite and directly proves the current explicit/model and duplicate-listener outcomes. `AuditStaleFeatureInventoryTest` and the frontend inventory fail when an item loses its explicit owner task or when current compatibility changes before its verified boundary.
+
+| Discovered item | Route/consumer/database evidence | Decision | Removal or retention gate |
+|---|---|---|---|
+| Current category tabs | Admin page builds tabs from `AuditCategory`; API metadata supplies categories | Remove from normal UI | Task 6 five-tab module UI/tests |
+| Normal Domain filter | `AuditFilters`, URL state, service DTO, and API request/query all consume `domain` | Remove from normal UI | Task 6; backend/proxy parameter remains temporarily |
+| `category`/`domain` request parameters | Laravel request/query and the transparent Next.js proxy accept them; frontend URL/service emits them | Retain for compatibility, then remove | Task 15 only after stale-consumer/proxy scans are clean |
+| Stored `category`/`domain` | Live `activity_log` columns, retention mapping, legacy rows, presenter/query behavior | Retain internal storage and legacy fallback this release | Never dropped by Task 15 |
+| Unknown action becomes Updated | `AuditEventPresenter` uses `?? AuditAction::Updated`; `AuditQuery` folds unknown/null actions into Updated | Remove fallback; preserve unknown legacy text | Task 15 mixed-row API/filter tests |
+| Disabled audit export UI/capability/proxy | Config default is false; button is capability-gated; endpoint/proxy/tests still exist | Keep disabled during compatibility; remove active UI/capability remnants | Task 15 after every consumer is proven migrated; future export requires separate privacy approval |
+| Raw JSON audit renderer | No production audit component contains `JSON.stringify` or `<pre>`; typed DTO components only | Keep absent | Permanent UI/API sentinel |
+| Five-tab labels/history route | Target labels and history proxy are absent | Add, not stale cleanup | Tasks 6 and 8 |
+| Report creator ownership gates | Report list/show/view/download/delete/archive/activity and clinical report context use `user_id`/`audit_owner_id`; current tests return 403 to RND B | Remove as authorization gates; retain fields as attribution | Task 13 shared-RND matrix |
+| Patient/NCP creator fields | `rnd_user_id` is already attribution in clinical controllers/policy; shared-RND assessment/intervention/monitoring/meal-plan/screening and draft-NCP delete tests pass | Retain attribution; no cleanup | Task 13 re-verifies and fixes only remaining report/endpoint gates |
+| Personal template/calendar ownership | Meal-plan/menu template and calendar creator filters are nonpatient personal resources | Retain | Out of shared patient/NCP authorization scope |
+| IP-blocking scaffold | Production scan finds no enum, flag, model, migration, controller, route, capability, cache, or UI; existing removal contract passes | Keep absent | Task 15 reruns guard; never touch AccountBlocked/AccountUnblocked |
+| Account block/unblock and deactivation | Enum events and Admin deactivation behavior exist and are covered | Retain | Security compatibility requirement |
+| Model-observer plus explicit writers | FS item direct exercise emits exactly one Created; existing food/library/operations contracts cover no-op and CRUD sequences | Retain one authoritative writer; remove only proven collisions | Task 4 canonical policy |
+| PO conversion/order/receive/complete | Existing semantic sequence tests prove Ordered/Received/Completed without generic lifecycle duplicates | Retain semantic writer; remove only proven observer duplicates | Task 4, then Tasks 8/12 revisions |
+| Budget PO deduction retry | Direct duplicate listener delivery produces one ledger row and one Adjusted audit event | Retain idempotency/guard | Tasks 4/10 |
+| Report lifecycle retries | View/download/delete and duplicate generation/auto-archive contracts require one event per intent | Retain idempotent lifecycle writers | Tasks 4/13 |
+| Clinical and security duplicate handling | Clinical access uses explicit dedup windows; downloads/details are intentionally not deduplicated; security recurrence has a bounded reservation | Retain documented semantics | Task 4 canonical policy |
+| `quantity_in_stock` live surface | Column already dropped; exact scan finds it only in historical create/drop migrations and retirement tests, never ReceivingService, costing, reports, app routes/controllers/resources, web, or mobile; schema/API absence tests pass | Already retired; do not perform another drop | Keep historical create/drop migrations and compatibility tests; Task 15 rechecks |
+| Derived inventory controller/routes | `GET/HEAD /api/fss/inventory` and `/rows` remain active read-only consumers; no mutation route exists | Retain | Do not confuse derived inventory reads with retired direct stock editing |
+| Historical migrations | Inventory and audit migrations remain applied history; no audit/IP migration is orphaned | Retain | Migrations are evidence, not dead code |
+| Audit-related dead controllers/models/migrations | Exact Task 1 writer/observer/route inventories resolve; IP artifacts are absent; derived inventory is routed | No proven dead production artifact | Task 15 reruns before any deletion |
+| Seed behavior | Base seeder uses `activity()->withoutLogs`; no audit demo seeder exists | Keep base noise absent; add opt-in deterministic demo data | Task 14 |
+| Stale docs/UI text | Current architecture/module/report docs still describe four category views, Domain filters, and the old export posture | Update, do not use as design authority | Task 17 final documentation |
+
+Expected-red evidence: the future backend cleanup contract failed on retained `category`/`domain` request rules and unknown-action fallback (5 tests, 1 expected failure); the future frontend module-only contract failed on missing five-tab labels and retained Domain/category/domain state (4 tests, 1 expected failure). The tests now preserve the current compatibility state until their owner tasks.
+
+Fresh Task 2 verification: the full affected backend gate passed 136 tests and 1,319 assertions; the affected frontend gate passed 12 files and 40 tests. Focused PHP Pint, frontend ESLint/typecheck, and `git diff --check` passed. Separate spec-compliance and code-quality self-reviews fixed one test-only sentinel collision, found no unresolved finding, and confirmed no production file changed.
 
 ## Task 3 — Additive module, encrypted patient snapshot, revisions, indexes, and compatibility schema
 
