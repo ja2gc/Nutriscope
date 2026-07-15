@@ -13,6 +13,7 @@ vi.mock("@/lib/laravelProxy", () => ({
 const proxyMock = vi.mocked(proxy);
 
 const source = readFileSync(join(process.cwd(), "app/admin/audit-logs/page.tsx"), "utf8");
+const filtersSource = readFileSync(join(process.cwd(), "components/audit/AuditFilters.tsx"), "utf8");
 
 describe("admin audit filter contract", () => {
   beforeEach(() => {
@@ -22,7 +23,8 @@ describe("admin audit filter contract", () => {
 
   test("renders backend-provided filter options without a duplicate taxonomy", () => {
     expect(source).toContain("meta.filters");
-    expect(source).toContain("category_actions");
+    expect(source).toContain("module_actions");
+    expect(filtersSource).toContain("module_subfilters");
     expect(source).not.toContain('<option value="patients">');
     expect(source).not.toContain('<option value="procurement">');
     expect(source).not.toContain(["App", "Models"].join("\\"));
@@ -40,6 +42,9 @@ describe("admin audit filter contract", () => {
       page: "3",
       per_page: "50",
       actor_id: "00000000-0000-4000-8000-000000000001",
+      module: "nutrition_care",
+      subfilter: "patients_ncp",
+      category: "clinical",
       domain: "patients",
       action: "updated",
       outcome: "success",

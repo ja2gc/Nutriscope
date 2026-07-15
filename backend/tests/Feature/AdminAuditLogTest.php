@@ -2,11 +2,20 @@
 
 namespace Tests\Feature;
 
+use App\Enums\AuditAction;
+use App\Enums\AuditCategory;
+use App\Enums\AuditDomain;
+use App\Enums\AuditModule;
 use App\Models\AuditActivity;
 use App\Models\AuditSetting;
+use App\Models\FsItem;
+use App\Models\MenuCycle;
 use App\Models\Patient;
 use App\Models\User;
+use App\Services\Audit\AuditFilterMetadata;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Spatie\Activitylog\Models\Activity;
 use Tests\Support\AuditFixture;
@@ -290,5 +299,172 @@ class AdminAuditLogTest extends TestCase
         ])->filter(fn (string $needle) => str_contains($payload, $needle))->keys()->all();
 
         $this->assertSame([], $leaks, 'Admin audit response leaked forbidden clinical or arbitrary properties.');
+    }
+
+    public function test_admin_can_filter_by_module_and_its_contextual_subfilter(): void
+    {
+        AuditFixture::delete(AuditActivity::query());
+
+        $events = [
+            ['food-library', AuditModule::NutritionCare, AuditDomain::NutritionLibrary, AuditAction::Imported, null, []],
+            ['patient-ncp', AuditModule::NutritionCare, AuditDomain::Patients, AuditAction::Updated, Patient::class, []],
+            ['catalog', AuditModule::FoodServiceOperations, AuditDomain::FoodService, AuditAction::Updated, FsItem::class, []],
+            ['menus', AuditModule::FoodServiceOperations, AuditDomain::FoodService, AuditAction::Updated, MenuCycle::class, []],
+            ['procurement', AuditModule::FoodServiceOperations, AuditDomain::Procurement, AuditAction::Ordered, null, []],
+            ['budget', AuditModule::FoodServiceOperations, AuditDomain::Budget, AuditAction::Adjusted, null, []],
+            ['authentication', AuditModule::SecurityAdministration, AuditDomain::Accounts, AuditAction::LoginSucceeded, null, []],
+            ['accounts', AuditModule::SecurityAdministration, AuditDomain::Accounts, AuditAction::AccountBlocked, User::class, []],
+            ['oversight', AuditModule::SecurityAdministration, AuditDomain::System, AuditAction::AuditLogViewed, null, []],
+            ['settings', AuditModule::SecurityAdministration, AuditDomain::System, AuditAction::SettingsChanged, null, []],
+            ['report', AuditModule::Reports, AuditDomain::Reports, AuditAction::Generated, null, ['details' => ['report_type' => 'menu_calendar']]],
+        ];
+
+        foreach ($events as [$description, $module, $domain, $action, $subjectType, $properties]) {
+            AuditActivity::query()->create([
+                'log_name' => 'audit',
+                'description' => $description,
+                'event' => $action,
+                'category' => $module === AuditModule::SecurityAdministration
+                    ? AuditCategory::Security
+                    : AuditCategory::Operations,
+                'domain' => $domain,
+                'module' => $module,
+                'subject_type' => $subjectType,
+                'properties' => $properties,
+            ]);
+        }
+        Cache::put('audit-list-view:'.$this->admin->getAuthIdentifier(), true, 900);
+
+        foreach ([
+            ['nutrition_care', 'food_library', 'food-library'],
+            ['nutrition_care', 'patients_ncp', 'patient-ncp'],
+            ['food_service_operations', 'catalog', 'catalog'],
+            ['food_service_operations', 'menus', 'menus'],
+            ['food_service_operations', 'procurement', 'procurement'],
+            ['food_service_operations', 'budget', 'budget'],
+            ['security_administration', 'authentication', 'authentication'],
+            ['security_administration', 'accounts', 'accounts'],
+            ['security_administration', 'audit_oversight', 'oversight'],
+            ['security_administration', 'settings', 'settings'],
+            ['reports', 'menu_calendar', 'report'],
+        ] as [$module, $subfilter, $description]) {
+            $response = $this->actingAs($this->admin, 'sanctum')
+                ->getJson("/api/admin/audit-logs?module={$module}&subfilter={$subfilter}");
+
+            $response->assertOk()->assertJsonCount(1, 'data')
+                ->assertJsonPath('data.0.module', $module)
+                ->assertJsonPath('data.0.summary', fn (string $summary): bool => $summary !== '');
+            $this->assertSame($description, AuditActivity::query()
+                ->where('public_id', $response->json('data.0.id'))->value('description'));
+        }
+
+        $this->actingAs($this->admin, 'sanctum')
+            ->getJson('/api/admin/audit-logs?module=nutrition_care&subfilter=budget')
+            ->assertUnprocessable();
+        $this->actingAs($this->admin, 'sanctum')
+            ->getJson('/api/admin/audit-logs?module=nope')
+            ->assertUnprocessable();
+    }
+
+    public function test_module_metadata_has_exact_tabs_contextual_filters_actions_and_one_count_aggregate(): void
+    {
+        AuditFixture::delete(AuditActivity::query());
+        foreach (AuditModule::cases() as $module) {
+            AuditActivity::query()->create([
+                'log_name' => 'audit',
+                'description' => $module->value,
+                'event' => AuditAction::Created,
+                'category' => AuditCategory::Operations,
+                'domain' => AuditDomain::System,
+                'module' => $module,
+            ]);
+        }
+
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+        $metadata = app(AuditFilterMetadata::class)->for($this->admin);
+        $queries = collect(DB::getQueryLog());
+        DB::disableQueryLog();
+
+        $this->assertSame([
+            'security_administration', 'nutrition_care', 'food_service_operations', 'reports',
+        ], collect($metadata['filters']['modules'])->pluck('value')->all());
+        $this->assertSame([
+            'authentication', 'accounts', 'audit_oversight', 'settings',
+        ], collect($metadata['filters']['module_subfilters']['security_administration'])->pluck('value')->all());
+        $this->assertSame(['food_library', 'patients_ncp'], collect($metadata['filters']['module_subfilters']['nutrition_care'])->pluck('value')->all());
+        $this->assertSame(['catalog', 'menus', 'procurement', 'budget'], collect($metadata['filters']['module_subfilters']['food_service_operations'])->pluck('value')->all());
+        $this->assertSame([
+            'program_project_activity', 'menu_calendar', 'procurement_pack', 'demographic_census',
+            'patient_menu_plan', 'ncp_summary', 'accomplishment_report',
+        ], collect($metadata['filters']['module_subfilters']['reports'])->pluck('value')->all());
+        $this->assertContains('login_succeeded', $metadata['filters']['module_actions']['security_administration']);
+        $this->assertContains('imported', $metadata['filters']['module_actions']['nutrition_care']);
+        $this->assertContains('received', $metadata['filters']['module_actions']['food_service_operations']);
+        $this->assertContains('generated', $metadata['filters']['module_actions']['reports']);
+        $this->assertSame([
+            'all' => 4,
+            'security_administration' => 1,
+            'nutrition_care' => 1,
+            'food_service_operations' => 1,
+            'reports' => 1,
+        ], $metadata['filters']['module_counts']);
+
+        $countQueries = $queries->filter(fn (array $query): bool => str_contains(strtolower($query['query']), 'from `activity_log`')
+            && str_contains(strtolower($query['query']), 'security_administration'));
+        $this->assertCount(1, $countQueries, 'Module counts must use one conditional aggregate query.');
+    }
+
+    public function test_actor_lookup_is_admin_only_paginated_and_searches_names_without_patient_or_email_data(): void
+    {
+        $first = User::factory()->create([
+            'first_name' => 'Maria Luisa',
+            'last_name' => 'Dela Cruz',
+            'name' => 'Maria Luisa Dela Cruz',
+            'email' => 'private-actor@example.test',
+        ]);
+        $second = User::factory()->create([
+            'first_name' => 'Jose Miguel',
+            'last_name' => 'Santos',
+            'name' => 'Jose Miguel Santos',
+        ]);
+        User::factory()->create(['first_name' => 'No', 'last_name' => 'Events', 'name' => 'No Events']);
+        $patient = Patient::factory()->create(['first_name' => 'Patient', 'last_name' => 'Sentinel', 'name' => 'Patient Sentinel']);
+        AuditActivity::query()->create([
+            'log_name' => 'audit',
+            'description' => 'patient linked',
+            'event' => AuditAction::Updated,
+            'category' => AuditCategory::Clinical,
+            'domain' => AuditDomain::Patients,
+            'module' => AuditModule::NutritionCare,
+            'causer_type' => $first->getMorphClass(),
+            'causer_id' => $first->id,
+            'patient_display_name_snapshot' => $patient->display_name,
+        ]);
+        $second->delete();
+
+        $this->actingAs($this->admin, 'sanctum')
+            ->getJson('/api/admin/audit-actors?search=Maria%20Luisa%20Dela&per_page=1')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $first->uuid)
+            ->assertJsonPath('data.0.name', 'Maria Luisa Dela Cruz')
+            ->assertJsonMissing(['email' => 'private-actor@example.test'])
+            ->assertJsonPath('meta.per_page', 1);
+
+        $this->actingAs($this->admin, 'sanctum')
+            ->getJson('/api/admin/audit-actors?search=Patient%20Sentinel')
+            ->assertOk()->assertJsonCount(0, 'data');
+        $this->actingAs($this->admin, 'sanctum')
+            ->getJson('/api/admin/audit-actors?search=private-actor')
+            ->assertOk()->assertJsonCount(0, 'data');
+        $this->actingAs($this->admin, 'sanctum')
+            ->getJson("/api/admin/audit-actors?selected_id={$second->uuid}")
+            ->assertOk()->assertJsonPath('data.0.name', 'Jose Miguel Santos');
+
+        $this->actingAs(User::factory()->rnd()->create(), 'sanctum')
+            ->getJson('/api/admin/audit-actors')->assertForbidden();
+        auth()->forgetGuards();
+        $this->getJson('/api/admin/audit-actors')->assertUnauthorized();
     }
 }

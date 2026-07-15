@@ -19,7 +19,13 @@ function auditMeta(total: number): AuditLogListMeta {
   per_page: 25,
   total,
   last_page: 1,
-  filters: { categories: [], domains: [], actions: [], outcomes: [], severities: [], category_actions: { security: [], clinical: [], operations: [] } },
+  filters: {
+    categories: [], domains: [], modules: [], actions: [], outcomes: [], severities: [],
+    category_actions: { security: [], clinical: [], operations: [] },
+    module_subfilters: { security_administration: [], nutrition_care: [], food_service_operations: [], reports: [] },
+    module_actions: { security_administration: [], nutrition_care: [], food_service_operations: [], reports: [] },
+    module_counts: { all: 0, security_administration: 0, nutrition_care: 0, food_service_operations: 0, reports: 0 },
+  },
   capabilities: { export: false },
   retention: { enabled: false, source: "config", periods: { security: 365, clinical: 2190, operations: 1095, legacy: 90 } },
   };
@@ -35,8 +41,10 @@ function deferred<T>() {
 function auditEvent(summary: string): AuditEventDto {
   return {
     id: summary,
+    module: "reports",
     category: "operations",
     domain: "reports",
+    record_type: "Report",
     action: "viewed",
     action_label: "Viewed",
     summary,
@@ -45,6 +53,12 @@ function auditEvent(summary: string): AuditEventDto {
     actor: null,
     subject: null,
     context: null,
+    patient: null,
+    ncp_reference: null,
+    detail_mode: "changes",
+    reason: null,
+    history: null,
+    current_record_url: null,
     occurred_at: "2026-07-12T08:30:00Z",
     details: [],
     changes: [],

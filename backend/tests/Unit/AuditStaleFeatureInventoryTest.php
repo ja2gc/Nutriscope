@@ -72,11 +72,15 @@ class AuditStaleFeatureInventoryTest extends TestCase
 
         $this->assertStringContainsString("'category'", $request);
         $this->assertStringContainsString("'domain'", $request);
-        $this->assertStringContainsString('?? AuditAction::Updated', $presenter);
+        $this->assertStringNotContainsString('?? AuditAction::Updated', $presenter);
+        $this->assertStringContainsString('AuditAction::tryFrom($candidate)', $presenter);
+        $this->assertStringContainsString('return [AuditAction::Updated->value', $presenter);
         $this->assertStringContainsString('authorizeOwner($report)', $reportController);
         $this->assertStringContainsString("where('user_id', Auth::id())", $reportController);
-        $this->assertStringContainsString('AuditCategory', $auditPage);
-        $this->assertStringContainsString('label="Domain"', $filters);
+        $this->assertStringContainsString('AuditModule', $auditPage);
+        $this->assertStringContainsString('Security & Administration', $auditPage);
+        $this->assertStringNotContainsString('AuditCategory', $auditPage);
+        $this->assertStringNotContainsString('label="Domain"', $filters);
         $this->assertStringContainsString('qs.set("category"', $auditService);
         $this->assertStringContainsString('qs.set("domain"', $auditService);
         $this->assertFalse(config('audit.features.export'));
@@ -156,13 +160,14 @@ class AuditStaleFeatureInventoryTest extends TestCase
         }
     }
 
-    public function test_approved_cleanup_contract_is_not_yet_present(): void
+    public function test_api_compatibility_remains_while_unknown_actions_use_the_typed_presenter(): void
     {
         $request = file_get_contents(app_path('Http/Requests/Admin/ListAuditLogsRequest.php'));
         $presenter = file_get_contents(app_path('Services/Audit/AuditEventPresenter.php'));
 
         $this->assertStringContainsString("'category'", $request);
         $this->assertStringContainsString("'domain'", $request);
-        $this->assertStringContainsString('?? AuditAction::Updated', $presenter);
+        $this->assertStringNotContainsString('?? AuditAction::Updated', $presenter);
+        $this->assertStringContainsString('AuditAction::tryFrom($candidate)', $presenter);
     }
 }

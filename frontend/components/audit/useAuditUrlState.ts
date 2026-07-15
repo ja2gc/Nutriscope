@@ -3,12 +3,12 @@
 import { useCallback, useMemo } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { AuditFilterState } from "./AuditFilters";
-import type { AuditCategory, AuditOutcome, AuditSeverity } from "@/types/audit";
+import type { AuditModule, AuditOutcome, AuditSeverity } from "@/types/audit";
 
 function parseFilters(searchParams: URLSearchParams): AuditFilterState {
   return {
-    category: (searchParams.get("category") || undefined) as AuditCategory | undefined,
-    domain: searchParams.get("domain") || undefined,
+    module: (searchParams.get("module") || undefined) as AuditModule | undefined,
+    subfilter: searchParams.get("subfilter") || undefined,
     action: searchParams.get("action") || undefined,
     actor_id: searchParams.get("actor_id") || undefined,
     outcome: (searchParams.get("outcome") || undefined) as AuditOutcome | undefined,

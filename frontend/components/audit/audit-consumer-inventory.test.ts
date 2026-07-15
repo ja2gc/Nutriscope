@@ -5,6 +5,7 @@ import { describe, expect, test } from "vitest";
 const productionFiles = [
   "app/admin/audit-logs/page.tsx",
   "components/audit/AuditChangeList.tsx",
+  "components/audit/AuditActorFilter.tsx",
   "components/audit/AuditEventDrawer.tsx",
   "components/audit/AuditEventTable.tsx",
   "components/audit/AuditExportButton.tsx",
@@ -15,11 +16,13 @@ const productionFiles = [
   "components/audit/useAuditEventList.ts",
   "components/audit/useAuditUrlState.ts",
   "services/activityService.ts",
+  "services/auditActorService.ts",
   "services/auditLogService.ts",
   "types/audit.ts",
 ];
 
 const proxyFiles = [
+  "app/api/admin/audit-actors/route.ts",
   "app/api/admin/audit-logs/export/route.ts",
   "app/api/admin/audit-logs/route.ts",
   "app/api/admin/audit-retention/route.ts",
@@ -65,27 +68,29 @@ describe("audit consumer inventory", () => {
 
   test("all audit and contextual activity proxies are allowlisted", () => {
     const actual = filesUnder("app/api").filter((file) =>
-      file.includes("audit-logs") || file.includes("audit-retention") || file.endsWith("/activity/route.ts"),
+      file.includes("audit-actors") || file.includes("audit-logs") || file.includes("audit-retention") || file.endsWith("/activity/route.ts"),
     );
     expect(actual).toEqual(proxyFiles);
   });
 
-  test("current compatibility UI is category-tabbed with a normal Domain filter and URL state", () => {
+  test("normal UI is module-tabbed while backend-service compatibility parameters remain", () => {
     const page = source("app/admin/audit-logs/page.tsx");
     const filters = source("components/audit/AuditFilters.tsx");
     const urlState = source("components/audit/useAuditUrlState.ts");
     const service = source("services/auditLogService.ts");
 
-    expect(page).toContain('AuditCategory, AuditEventDto');
-    expect(page).toContain('value={filters.category || "all"}');
-    expect(filters).toContain('label="Domain"');
-    expect(urlState).toContain('searchParams.get("category")');
-    expect(urlState).toContain('searchParams.get("domain")');
+    expect(page).toContain('AuditEventDto, AuditModule');
+    expect(page).toContain('value={filters.module || "all"}');
+    expect(filters).not.toContain('label="Domain"');
+    expect(urlState).toContain('searchParams.get("module")');
+    expect(urlState).toContain('searchParams.get("subfilter")');
+    expect(urlState).not.toContain('searchParams.get("category")');
+    expect(urlState).not.toContain('searchParams.get("domain")');
     expect(service).toContain('if (params.category) qs.set("category"');
     expect(service).toContain('if (params.domain) qs.set("domain"');
   });
 
-  test("approved five-tab module and history contract is not yet implemented", () => {
+  test("five-tab module contract is implemented while history stays assigned to Task 8", () => {
     const page = source("app/admin/audit-logs/page.tsx");
     const filters = source("components/audit/AuditFilters.tsx");
     const types = source("types/audit.ts");
@@ -96,9 +101,9 @@ describe("audit consumer inventory", () => {
       "Nutrition Care",
       "Food Service Operations",
       "Reports",
-    ]) expect(page).not.toContain(label);
-    expect(filters).toContain('label="Domain"');
-    expect(types).not.toContain("AuditModule");
+    ]) expect(page).toContain(label);
+    expect(filters).not.toContain('label="Domain"');
+    expect(types).toContain("AuditModule");
     expect(filesUnder("app/api")).not.toContain("app/api/admin/audit-logs/[id]/history/route.ts");
   });
 });

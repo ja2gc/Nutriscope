@@ -17,6 +17,14 @@ function severityTone(severity: AuditEventDto["severity"]): BadgeTone {
 }
 
 function subjectContext(event: AuditEventDto) {
+  const typedContext = Array.from(new Set([
+    event.patient?.display_name,
+    event.ncp_reference,
+    event.subject?.label,
+    event.context?.label,
+  ].filter((value): value is string => Boolean(value)))).join(" / ");
+  if (typedContext) return typedContext;
+
   return [event.subject?.label, event.context?.label].filter(Boolean).join(" · ") || "No subject or context";
 }
 

@@ -39,6 +39,12 @@ class ReportService
         'accomplishment_report' => AccomplishmentReportGenerator::class,
     ];
 
+    /** @return list<string> */
+    public static function types(): array
+    {
+        return array_keys(self::GENERATORS);
+    }
+
     /**
      * Render a report to PDF bytes WITHOUT persisting anything. Used by on-demand
      * render (browse-don't-generate) and reused by {@see generate()} for archives.

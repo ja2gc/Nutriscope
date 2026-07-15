@@ -29,18 +29,21 @@ describe("audit stale-feature inventory", () => {
     });
   });
 
-  test("current category, Domain, URL, proxy, and disabled-export compatibility is explicit", () => {
+  test("module UI is live while API, proxy, and disabled-export compatibility remains explicit", () => {
     const page = source("app/admin/audit-logs/page.tsx");
     const filters = source("components/audit/AuditFilters.tsx");
     const urlState = source("components/audit/useAuditUrlState.ts");
     const service = source("services/auditLogService.ts");
     const proxy = source("app/api/admin/audit-logs/route.ts");
 
-    expect(page).toContain("AuditCategory");
+    expect(page).not.toContain("AuditCategory");
+    expect(page).toContain("Security & Administration");
     expect(page).toContain("meta.capabilities.export");
-    expect(filters).toContain('label="Domain"');
-    expect(urlState).toContain('searchParams.get("category")');
-    expect(urlState).toContain('searchParams.get("domain")');
+    expect(filters).not.toContain('label="Domain"');
+    expect(urlState).toContain('searchParams.get("module")');
+    expect(urlState).toContain('searchParams.get("subfilter")');
+    expect(urlState).not.toContain('searchParams.get("category")');
+    expect(urlState).not.toContain('searchParams.get("domain")');
     expect(service).toContain('qs.set("category"');
     expect(service).toContain('qs.set("domain"');
     expect(proxy).toContain("new URL(req.url).searchParams");
@@ -69,14 +72,14 @@ describe("audit stale-feature inventory", () => {
     expect(auditUi).not.toMatch(forbiddenIpScaffolding);
   });
 
-  test("approved module-only cleanup is not yet present", () => {
+  test("approved module-only normal UI cleanup is present", () => {
     const page = source("app/admin/audit-logs/page.tsx");
     const filters = source("components/audit/AuditFilters.tsx");
     const urlState = source("components/audit/useAuditUrlState.ts");
 
-    expect(page).not.toContain("Security & Administration");
-    expect(filters).toContain('label="Domain"');
-    expect(urlState).toContain('searchParams.get("category")');
-    expect(urlState).toContain('searchParams.get("domain")');
+    expect(page).toContain("Security & Administration");
+    expect(filters).not.toContain('label="Domain"');
+    expect(urlState).not.toContain('searchParams.get("category")');
+    expect(urlState).not.toContain('searchParams.get("domain")');
   });
 });

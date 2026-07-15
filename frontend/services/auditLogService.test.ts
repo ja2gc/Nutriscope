@@ -8,6 +8,8 @@ describe("audit log service contract", () => {
   test("uses only structured audit DTO fields and public filters", () => {
     expect(source).toContain('from "@/types/audit"');
     expect(source).toContain('qs.set("actor_id"');
+    expect(source).toContain('qs.set("module"');
+    expect(source).toContain('qs.set("subfilter"');
     expect(source).toContain('qs.set("domain"');
     expect(source).toContain('qs.set("action"');
     expect(source).not.toContain("properties:");

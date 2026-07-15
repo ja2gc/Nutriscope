@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
 import { Activity, AlertTriangle, RefreshCw, Shield } from "lucide-react";
 import { AuditExportButton } from "@/components/audit/AuditExportButton";
 import { AuditEventDrawer } from "@/components/audit/AuditEventDrawer";
@@ -14,14 +14,20 @@ import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Pagination } from "@/components/ui/Pagination";
 import { Tabs, type TabItem } from "@/components/ui/Tabs";
-import { listUsers } from "@/services/adminUserService";
 import {
   AuditLogServiceError,
   updateAuditRetention,
   type ListAuditLogsParams,
 } from "@/services/auditLogService";
-import type { User } from "@/services/authService";
-import type { AuditCategory, AuditEventDto } from "@/types/audit";
+import type { AuditEventDto, AuditModule } from "@/types/audit";
+
+const MODULE_TABS: TabItem<"all" | AuditModule>[] = [
+  { key: "all", label: "All Activity" },
+  { key: "security_administration", label: "Security & Administration" },
+  { key: "nutrition_care", label: "Nutrition Care" },
+  { key: "food_service_operations", label: "Food Service Operations" },
+  { key: "reports", label: "Reports" },
+];
 
 function StatusPanel({
   title,
@@ -43,37 +49,27 @@ function StatusPanel({
 }
 
 function AuditLogsContent() {
-  const [users, setUsers] = useState<User[]>([]);
   const [selected, setSelected] = useState<AuditEventDto | null>(null);
   const { filters, page, updateFilters: replaceFilters, setPage } = useAuditUrlState();
 
   const requestParams = useMemo<ListAuditLogsParams>(() => ({
     ...filters,
-    domain: filters.domain as ListAuditLogsParams["domain"],
     page,
     per_page: 25,
   }), [filters, page]);
   const exportParams = useMemo<ListAuditLogsParams>(() => ({
     ...filters,
-    domain: filters.domain as ListAuditLogsParams["domain"],
   }), [filters]);
 
   const { events, meta, loading, loaded, error, reload } = useAuditEventList(requestParams);
 
-  useEffect(() => {
-    void listUsers().then(setUsers).catch(() => setUsers([]));
-  }, []);
-
-  const tabs = useMemo<TabItem<"all" | AuditCategory>[]>(() => [
-    { key: "all", label: "All Activity" },
-    ...meta.filters.categories.map((category) => ({
-      key: category.value as AuditCategory,
-      label: category.label,
-    })),
-  ], [meta.filters.categories]);
+  const tabs = useMemo(() => MODULE_TABS.map((tab) => ({
+    ...tab,
+    label: `${tab.label} (${meta.filters.module_counts[tab.key] || 0})`,
+  })), [meta.filters.module_counts]);
 
   function updateFilters(next: AuditFilterState) {
-    if (next.category && next.action && !(meta.filters.category_actions[next.category] || []).includes(next.action)) {
+    if (next.module && next.action && !(meta.filters.module_actions[next.module] || []).includes(next.action)) {
       next = { ...next, action: undefined };
     }
     replaceFilters(next);
@@ -124,15 +120,18 @@ function AuditLogsContent() {
           <Card className="overflow-hidden">
             <Tabs
               items={tabs}
-              value={filters.category || "all"}
-              onChange={(category) => updateFilters({ ...filters, category: category === "all" ? undefined : category })}
+              value={filters.module || "all"}
+              onChange={(module) => updateFilters({
+                ...filters,
+                module: module === "all" ? undefined : module,
+                subfilter: undefined,
+              })}
               className="overflow-x-auto px-1"
             />
           </Card>
 
           <AuditFilters
             metadata={meta.filters}
-            users={users}
             value={filters}
             onChange={updateFilters}
             onClear={() => updateFilters({})}

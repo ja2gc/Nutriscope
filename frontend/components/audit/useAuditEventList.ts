@@ -6,7 +6,7 @@ import {
   type AuditLogListMeta,
   type ListAuditLogsParams,
 } from "@/services/auditLogService";
-import type { AuditCategory, AuditEventDto } from "@/types/audit";
+import type { AuditCategory, AuditEventDto, AuditModule } from "@/types/audit";
 
 const emptyMeta: AuditLogListMeta = {
   current_page: 1,
@@ -16,10 +16,14 @@ const emptyMeta: AuditLogListMeta = {
   filters: {
     categories: [],
     domains: [],
+    modules: [],
     actions: [],
     outcomes: [],
     severities: [],
     category_actions: {} as Record<AuditCategory, string[]>,
+    module_subfilters: {} as Record<AuditModule, []>,
+    module_actions: {} as Record<AuditModule, string[]>,
+    module_counts: { all: 0, security_administration: 0, nutrition_care: 0, food_service_operations: 0, reports: 0 },
   },
   capabilities: { export: false },
   retention: {
@@ -45,10 +49,12 @@ export function useAuditEventList(params: ListAuditLogsParams) {
     domain: params.domain,
     end: params.end,
     outcome: params.outcome,
+    module: params.module,
     page: params.page,
     per_page: params.per_page,
     severity: params.severity,
     start: params.start,
+    subfilter: params.subfilter,
     subject_id: params.subject_id,
   }), [
     params.action,
@@ -58,10 +64,12 @@ export function useAuditEventList(params: ListAuditLogsParams) {
     params.domain,
     params.end,
     params.outcome,
+    params.module,
     params.page,
     params.per_page,
     params.severity,
     params.start,
+    params.subfilter,
     params.subject_id,
   ]);
 

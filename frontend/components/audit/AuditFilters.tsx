@@ -1,15 +1,14 @@
 "use client";
 
 import { Filter, RotateCcw } from "lucide-react";
-import type { User } from "@/services/authService";
-import { personDisplayName } from "@/lib/personName";
-import type { AuditCategory, AuditFilterMetadata, AuditOutcome, AuditSeverity } from "@/types/audit";
+import type { AuditFilterMetadata, AuditModule, AuditOutcome, AuditSeverity } from "@/types/audit";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { AuditActorFilter } from "./AuditActorFilter";
 
 export interface AuditFilterState {
-  category?: AuditCategory;
-  domain?: string;
+  module?: AuditModule;
+  subfilter?: string;
   action?: string;
   actor_id?: string;
   outcome?: AuditOutcome;
@@ -47,24 +46,22 @@ function SelectFilter({
 
 export function AuditFilters({
   metadata,
-  users,
   value,
   onChange,
   onClear,
 }: {
   metadata: AuditFilterMetadata;
-  users: User[];
   value: AuditFilterState;
   onChange: (next: AuditFilterState) => void;
   onClear: () => void;
 }) {
-  const actorOptions = users.map((user) => ({ value: String(user.id), label: `${personDisplayName(user)} (${user.role})` }));
-  const compatibleActions = value.category
-    ? new Set(metadata.category_actions[value.category] || [])
+  const compatibleActions = value.module
+    ? new Set(metadata.module_actions[value.module] || [])
     : null;
   const actionOptions = compatibleActions
     ? metadata.actions.filter((option) => compatibleActions.has(option.value))
     : metadata.actions;
+  const subfilterOptions = value.module ? metadata.module_subfilters[value.module] || [] : [];
 
   function update(key: keyof AuditFilterState, nextValue: string | undefined) {
     onChange({ ...value, [key]: nextValue });
@@ -96,9 +93,11 @@ export function AuditFilters({
           </label>
         </fieldset>
 
-        <SelectFilter label="Domain" allLabel="All domains" value={value.domain} options={metadata.domains} onChange={(next) => update("domain", next)} />
+        {value.module && subfilterOptions.length > 0 && (
+          <SelectFilter label="Context" allLabel={`All ${metadata.modules.find((module) => module.value === value.module)?.label || "contexts"}`} value={value.subfilter} options={subfilterOptions} onChange={(next) => update("subfilter", next)} />
+        )}
         <SelectFilter label="Action" allLabel="All actions" value={value.action} options={actionOptions} onChange={(next) => update("action", next)} />
-        <SelectFilter label="Actor" allLabel="All actors" value={value.actor_id} options={actorOptions} onChange={(next) => update("actor_id", next)} />
+        <AuditActorFilter value={value.actor_id} onChange={(next) => update("actor_id", next)} />
         <SelectFilter label="Outcome" allLabel="All outcomes" value={value.outcome} options={metadata.outcomes} onChange={(next) => update("outcome", next)} />
         <SelectFilter label="Severity" allLabel="All severities" value={value.severity} options={metadata.severities} onChange={(next) => update("severity", next)} />
       </div>

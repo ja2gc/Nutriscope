@@ -11,19 +11,30 @@ const longSubject = "Quarterly nutrition-care compliance record for the longest 
 
 const event: AuditEventDto = {
   id: "evt_01HXYZ",
+  module: "nutrition_care",
   category: "clinical",
   domain: "patients",
+  record_type: "Patient",
   action: "updated",
   action_label: "Updated",
   summary: "Changed authorized clinical record fields.",
   severity: "notice",
   outcome: "success",
   actor: { id: "user-public-id", kind: "user", name: longActor, role: "Admin" },
-  subject: { type: "patient", id: "patient-public-id", label: longSubject },
-  context: { type: "ncp", id: "ncp-public-id", label: "Nutrition care plan" },
+  subject: { type: "patient", id: null, label: longSubject },
+  context: { type: "ncp", id: null, label: "Nutrition care plan" },
+  patient: { display_name: "Patient Example" },
+  ncp_reference: "NCP-EXAMPLE",
+  detail_mode: "field_names",
+  reason: null,
+  history: null,
+  current_record_url: null,
   occurred_at: "2026-07-12T08:30:00Z",
-  details: [{ key: "status", label: "Status", kind: "status", value: "completed" }],
-  changes: [{ field: "medical_diagnosis", label: "Medical diagnosis", old_value: "SECRET-OLD", new_value: "SECRET-NEW", redacted: true }],
+  details: [{ key: "status", label: "Status", kind: "enum", value: "completed", typed_value: { type: "enum", value: "completed" } }],
+  changes: [{
+    field: "medical_diagnosis", label: "Medical diagnosis", old_value: "SECRET-OLD", new_value: "SECRET-NEW",
+    before: { type: "redacted", value: null }, after: { type: "redacted", value: null }, redacted: true,
+  }],
 };
 
 describe("structured audit event components", () => {
@@ -63,10 +74,11 @@ describe("structured audit event components", () => {
     expect(html).not.toMatch(/[•●]{2,}/u);
   });
 
-  test("limits actions to the backend category-action compatibility map", () => {
+  test("limits actions to the selected backend module-action map", () => {
     const metadata: AuditFilterMetadata = {
       categories: [{ value: "clinical", label: "Clinical" }],
       domains: [],
+      modules: [{ value: "nutrition_care", label: "Nutrition Care" }],
       actions: [
         { value: "updated", label: "Updated" },
         { value: "login_failed", label: "Login failed" },
@@ -74,9 +86,12 @@ describe("structured audit event components", () => {
       outcomes: [],
       severities: [],
       category_actions: { clinical: ["updated"], security: [], operations: [] },
+      module_subfilters: { security_administration: [], nutrition_care: [], food_service_operations: [], reports: [] },
+      module_actions: { security_administration: [], nutrition_care: ["updated"], food_service_operations: [], reports: [] },
+      module_counts: { all: 0, security_administration: 0, nutrition_care: 0, food_service_operations: 0, reports: 0 },
     };
     const html = renderToStaticMarkup(
-      <AuditFilters metadata={metadata} users={[]} value={{ category: "clinical" }} onChange={vi.fn()} onClear={vi.fn()} />,
+      <AuditFilters metadata={metadata} value={{ module: "nutrition_care" }} onChange={vi.fn()} onClear={vi.fn()} />,
     );
     expect(html).toContain("Updated");
     expect(html).not.toContain("Login failed");

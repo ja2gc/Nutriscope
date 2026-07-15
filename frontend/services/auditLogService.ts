@@ -5,6 +5,7 @@ import type {
   AuditCategory,
   AuditEventDto,
   AuditFilterMetadata,
+  AuditModule,
   AuditOutcome,
   AuditRetentionState,
   AuditSeverity,
@@ -15,6 +16,8 @@ export type AuditLog = AuditEventDto;
 export interface ListAuditLogsParams {
   page?: number;
   per_page?: number;
+  module?: AuditModule;
+  subfilter?: string;
   category?: AuditCategory;
   domain?: AuditEventDto["domain"];
   action?: string;
@@ -44,6 +47,8 @@ function auditQuery(params: ListAuditLogsParams) {
   const qs = new URLSearchParams();
   if (params.page) qs.set("page", String(params.page));
   if (params.per_page) qs.set("per_page", String(params.per_page));
+  if (params.module) qs.set("module", params.module);
+  if (params.subfilter) qs.set("subfilter", params.subfilter);
   if (params.category) qs.set("category", params.category);
   if (params.domain) qs.set("domain", params.domain);
   if (params.action) qs.set("action", params.action);
@@ -90,10 +95,14 @@ export async function listAuditLogs(
       filters: {
         categories: [],
         domains: [],
+        modules: [],
         actions: [],
         outcomes: [],
         severities: [],
         category_actions: {},
+        module_subfilters: {} as Record<AuditModule, []>,
+        module_actions: {} as Record<AuditModule, string[]>,
+        module_counts: { all: 0, security_administration: 0, nutrition_care: 0, food_service_operations: 0, reports: 0 },
       },
       capabilities: { export: false },
       retention: {

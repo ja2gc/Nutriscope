@@ -10,8 +10,10 @@ import { AuditEventTable } from "./AuditEventTable";
 
 const event: AuditEventDto = {
   id: "evt_keyboard",
+  module: "security_administration",
   category: "security",
   domain: "accounts",
+  record_type: "Authentication",
   action: "login_failed",
   action_label: "Login failed",
   summary: "Authentication failed.",
@@ -20,6 +22,12 @@ const event: AuditEventDto = {
   actor: null,
   subject: null,
   context: null,
+  patient: null,
+  ncp_reference: null,
+  detail_mode: "changes",
+  reason: null,
+  history: null,
+  current_record_url: null,
   occurred_at: "2026-07-12T08:30:00Z",
   details: [],
   changes: [],

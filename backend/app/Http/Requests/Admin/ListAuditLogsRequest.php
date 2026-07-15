@@ -5,9 +5,11 @@ namespace App\Http\Requests\Admin;
 use App\Enums\AuditAction;
 use App\Enums\AuditCategory;
 use App\Enums\AuditDomain;
+use App\Enums\AuditModule;
 use App\Enums\AuditOutcome;
 use App\Enums\AuditSeverity;
 use App\Models\AuditActivity;
+use App\Services\Audit\AuditContextualFilters;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
@@ -23,6 +25,13 @@ class ListAuditLogsRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'module' => ['nullable', 'required_with:subfilter', Rule::enum(AuditModule::class)],
+            'subfilter' => [
+                'nullable',
+                'string',
+                'max:64',
+                Rule::in(app(AuditContextualFilters::class)->valuesFor($this->input('module'))),
+            ],
             'category' => ['nullable', Rule::enum(AuditCategory::class)],
             'domain' => ['nullable', Rule::enum(AuditDomain::class)],
             'action' => ['nullable', Rule::enum(AuditAction::class)],

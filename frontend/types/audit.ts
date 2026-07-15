@@ -1,6 +1,9 @@
 export type AuditCategory = "security" | "clinical" | "operations";
+export type AuditModule = "security_administration" | "nutrition_care" | "food_service_operations" | "reports";
 export type AuditSeverity = "info" | "notice" | "warning" | "critical";
 export type AuditOutcome = "success" | "failure" | "blocked";
+export type AuditValueType = "text" | "number" | "currency" | "quantity" | "boolean" | "date" | "datetime" | "enum" | "reference" | "field_list" | "redacted";
+export type AuditScalar = string | number | boolean | string[] | null;
 
 export interface AuditActorDto {
   id: string | null;
@@ -18,22 +21,41 @@ export interface AuditEntityDto {
 export interface AuditDetailDto {
   key: string;
   label: string;
-  kind: "text" | "number" | "money" | "date" | "status" | "field_list";
-  value: string | number | string[] | null;
+  kind: AuditValueType;
+  value: AuditScalar;
+  typed_value: AuditValueDto;
+}
+
+export interface AuditValueDto {
+  type: AuditValueType;
+  value: AuditScalar;
+  unit?: string;
+  currency?: string;
 }
 
 export interface AuditChangeDto {
   field: string;
   label: string;
-  old_value: string | number | boolean | null;
-  new_value: string | number | boolean | null;
+  old_value: AuditScalar;
+  new_value: AuditScalar;
+  before: AuditValueDto;
+  after: AuditValueDto;
   redacted: boolean;
+}
+
+export interface AuditHistoryLinkDto {
+  id: string;
+  action: string;
+  label: string;
+  url: string;
 }
 
 export interface AuditEventDto {
   id: string;
-  category: AuditCategory;
-  domain: "accounts" | "patients" | "ncp" | "reports" | "budget" | "procurement" | "food_service" | "nutrition_library" | "system";
+  module: AuditModule | "legacy_unclassified";
+  category: AuditCategory | "legacy_unclassified";
+  domain: "accounts" | "patients" | "ncp" | "reports" | "budget" | "procurement" | "food_service" | "nutrition_library" | "system" | "legacy_unclassified";
+  record_type: string;
   action: string;
   action_label: string;
   summary: string;
@@ -42,6 +64,12 @@ export interface AuditEventDto {
   actor: AuditActorDto | null;
   subject: AuditEntityDto | null;
   context: AuditEntityDto | null;
+  patient: { display_name: string } | null;
+  ncp_reference: string | null;
+  detail_mode: "field_names" | "changes" | "history";
+  reason: string | null;
+  history: AuditHistoryLinkDto | null;
+  current_record_url: string | null;
   occurred_at: string;
   details: AuditDetailDto[];
   changes: AuditChangeDto[];
@@ -55,10 +83,14 @@ export interface AuditFilterOption {
 export interface AuditFilterMetadata {
   categories: AuditFilterOption[];
   domains: AuditFilterOption[];
+  modules: AuditFilterOption[];
   actions: AuditFilterOption[];
   outcomes: AuditFilterOption[];
   severities: AuditFilterOption[];
   category_actions: Record<AuditCategory, string[]>;
+  module_subfilters: Record<AuditModule, AuditFilterOption[]>;
+  module_actions: Record<AuditModule, string[]>;
+  module_counts: Record<"all" | AuditModule, number>;
 }
 
 export interface AuditCapabilities {

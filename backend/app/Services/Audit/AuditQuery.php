@@ -5,6 +5,7 @@ namespace App\Services\Audit;
 use App\Enums\AuditAction;
 use App\Enums\AuditCategory;
 use App\Enums\AuditDomain;
+use App\Enums\AuditModule;
 use App\Enums\AuditOutcome;
 use App\Enums\AuditSeverity;
 use App\Models\AuditActivity;
@@ -14,6 +15,8 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 class AuditQuery
 {
+    public function __construct(private readonly AuditContextualFilters $contextualFilters) {}
+
     /** @param array<string, mixed> $filters */
     public function build(array $filters): Builder
     {
@@ -41,6 +44,13 @@ class AuditQuery
         $this->wherePresentedDefault($query, 'severity', $filters['severity'] ?? null, AuditSeverity::Info->value);
         $this->wherePresentedDefault($query, 'outcome', $filters['outcome'] ?? null, AuditOutcome::Success->value);
         $this->wherePresentedAction($query, $filters['action'] ?? null);
+
+        if ($module = AuditModule::tryFrom((string) ($filters['module'] ?? ''))) {
+            $query->where('module', $module->value);
+            if (is_string($filters['subfilter'] ?? null)) {
+                $this->contextualFilters->apply($query, $module, $filters['subfilter']);
+            }
+        }
 
         $query
             ->when($filters['start'] ?? null, fn (Builder $query, string $value): Builder => $query->fromDate($value))

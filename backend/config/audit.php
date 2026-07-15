@@ -3,6 +3,7 @@
 use App\Enums\AuditAction;
 use App\Enums\AuditCategory;
 use App\Enums\AuditDomain;
+use App\Enums\AuditModule;
 use App\Enums\AuditOutcome;
 use App\Enums\AuditSeverity;
 
@@ -17,6 +18,7 @@ return [
         'actions' => AuditAction::class,
         'categories' => AuditCategory::class,
         'domains' => AuditDomain::class,
+        'modules' => AuditModule::class,
         'outcomes' => AuditOutcome::class,
         'severities' => AuditSeverity::class,
 
@@ -70,6 +72,37 @@ return [
                 AuditAction::PriceCorrected->value,
                 AuditAction::ProfileChanged->value,
                 AuditAction::SettingsChanged->value,
+            ],
+        ],
+        'module_actions' => [
+            AuditModule::SecurityAdministration->value => [
+                AuditAction::Created->value, AuditAction::Updated->value, AuditAction::Deleted->value,
+                AuditAction::ProfileChanged->value, AuditAction::SettingsChanged->value,
+                AuditAction::LoginSucceeded->value, AuditAction::LoginFailed->value,
+                AuditAction::AuthenticationFailed->value, AuditAction::Logout->value,
+                AuditAction::PasswordChanged->value, AuditAction::PasswordReset->value,
+                AuditAction::RecoveryEmailChanged->value, AuditAction::RecoveryEmailVerified->value,
+                AuditAction::RateLimitExceeded->value, AuditAction::AuthorizationDenied->value,
+                AuditAction::AuditLogViewed->value, AuditAction::AccountBlocked->value,
+                AuditAction::AccountUnblocked->value,
+            ],
+            AuditModule::NutritionCare->value => [
+                AuditAction::Created->value, AuditAction::Updated->value, AuditAction::Deleted->value,
+                AuditAction::Viewed->value, AuditAction::Downloaded->value, AuditAction::Approved->value,
+                AuditAction::Uploaded->value, AuditAction::Imported->value, AuditAction::Generated->value,
+            ],
+            AuditModule::FoodServiceOperations->value => [
+                AuditAction::Created->value, AuditAction::Updated->value, AuditAction::Deleted->value,
+                AuditAction::Viewed->value, AuditAction::Downloaded->value, AuditAction::Approved->value,
+                AuditAction::Ordered->value, AuditAction::Received->value, AuditAction::Reversed->value,
+                AuditAction::Archived->value, AuditAction::Adjusted->value, AuditAction::Uploaded->value,
+                AuditAction::Generated->value, AuditAction::Completed->value, AuditAction::PriceCorrected->value,
+                AuditAction::SettingsChanged->value,
+            ],
+            AuditModule::Reports->value => [
+                AuditAction::Created->value, AuditAction::Updated->value, AuditAction::Deleted->value,
+                AuditAction::Viewed->value, AuditAction::Downloaded->value, AuditAction::Exported->value,
+                AuditAction::Archived->value, AuditAction::Generated->value, AuditAction::SettingsChanged->value,
             ],
         ],
     ],

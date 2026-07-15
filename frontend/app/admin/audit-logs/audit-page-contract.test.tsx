@@ -14,17 +14,28 @@ const changes = source("components/audit/AuditChangeList.tsx");
 const filters = source("components/audit/AuditFilters.tsx");
 const exportButton = source("components/audit/AuditExportButton.tsx");
 const urlState = source("components/audit/useAuditUrlState.ts");
+const tabsComponent = source("components/ui/Tabs.tsx");
 
 describe("purposeful admin audit views", () => {
-  test("provides exactly four backend-driven tabs and every required filter", () => {
-    expect(page).toContain("All Activity");
-    expect(page).toContain("meta.filters.categories");
+  test("provides exactly five module tabs and every required secondary filter", () => {
+    for (const label of ["All Activity", "Security & Administration", "Nutrition Care", "Food Service Operations", "Reports"]) {
+      expect(page).toContain(label);
+    }
+    expect(page).toContain("meta.filters.module_counts");
     expect(page).toContain("items={tabs}");
-    expect(page).not.toContain('value="security"');
+    expect(page).not.toContain("meta.filters.categories");
     expect(filters).toContain("Date range");
-    for (const label of ["Domain", "Action", "Actor", "Outcome", "Severity"]) {
+    for (const label of ["Context", "Action", "Actor", "Outcome", "Severity"]) {
       expect(filters).toContain(label);
     }
+    expect(filters).not.toContain('label="Domain"');
+    expect(filters).not.toContain('label="Category"');
+    expect(filters).toContain("AuditActorFilter");
+    expect(filters).toContain("h-11");
+    expect(tabsComponent).toContain('role="tablist"');
+    expect(tabsComponent).toContain('role="tab"');
+    expect(tabsComponent).toContain('e.key === "ArrowRight"');
+    expect(tabsComponent).toContain("tabTheme.focus");
   });
 
   test("uses the exact seven table columns and a responsive mobile alternative", () => {
@@ -74,6 +85,10 @@ describe("purposeful admin audit views", () => {
   test("keeps only non-sensitive filters in URL search parameters", () => {
     expect(urlState).toContain("useSearchParams");
     expect(urlState).toContain("router.replace");
+    expect(urlState).toContain('searchParams.get("module")');
+    expect(urlState).toContain('searchParams.get("subfilter")');
+    expect(urlState).not.toContain('searchParams.get("category")');
+    expect(urlState).not.toContain('searchParams.get("domain")');
     expect(urlState).not.toContain('searchParams.set("search"');
     expect(urlState).not.toContain('searchParams.set("reason"');
   });

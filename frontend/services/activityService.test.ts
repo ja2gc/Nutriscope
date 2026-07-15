@@ -9,8 +9,10 @@ const apiFetchMock = vi.mocked(apiFetch);
 
 const structuredEvent: AuditEventDto = {
   id: "event-public-id",
+  module: "reports",
   category: "operations",
   domain: "reports",
+  record_type: "Report",
   action: "archived",
   action_label: "Archived",
   summary: "Archived report",
@@ -19,6 +21,12 @@ const structuredEvent: AuditEventDto = {
   actor: { id: "user-public-id", kind: "user", name: "Maria Santos", role: "RND" },
   subject: { type: "report", id: "report-public-id", label: "Nutrition report" },
   context: null,
+  patient: null,
+  ncp_reference: null,
+  detail_mode: "changes",
+  reason: null,
+  history: null,
+  current_record_url: null,
   occurred_at: "2026-07-12T08:30:00Z",
   details: [],
   changes: [],
