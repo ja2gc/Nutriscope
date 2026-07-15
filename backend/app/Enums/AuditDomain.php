@@ -11,6 +11,7 @@ enum AuditDomain: string
     case Budget = 'budget';
     case Procurement = 'procurement';
     case FoodService = 'food_service';
+    case NutritionLibrary = 'nutrition_library';
     case System = 'system';
 
     public function label(): string
@@ -18,6 +19,7 @@ enum AuditDomain: string
         return match ($this) {
             self::Ncp => 'NCP',
             self::FoodService => 'Food service',
+            self::NutritionLibrary => 'Nutrition library',
             default => ucfirst($this->value),
         };
     }

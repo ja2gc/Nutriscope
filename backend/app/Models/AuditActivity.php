@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\AuditCategory;
 use App\Enums\AuditDomain;
+use App\Enums\AuditModule;
 use App\Enums\AuditOutcome;
 use App\Enums\AuditSeverity;
 use App\Exceptions\AuditLoggingUnavailable;
@@ -14,6 +15,7 @@ use DateTimeInterface;
 use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
@@ -28,6 +30,8 @@ class AuditActivity extends Activity
         'properties' => 'collection',
         'category' => AuditCategory::class,
         'domain' => AuditDomain::class,
+        'module' => AuditModule::class,
+        'patient_display_name_snapshot' => 'encrypted',
         'severity' => AuditSeverity::class,
         'outcome' => AuditOutcome::class,
     ];
@@ -53,6 +57,11 @@ class AuditActivity extends Activity
     {
         /** @var QueryBuilder $query */
         return new AuditActivityBuilder($query);
+    }
+
+    public function revision(): HasOne
+    {
+        return $this->hasOne(AuditRevision::class, 'activity_id');
     }
 
     protected function performInsert(Builder $query): bool

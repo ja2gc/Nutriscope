@@ -33,7 +33,7 @@ export interface AuditChangeDto {
 export interface AuditEventDto {
   id: string;
   category: AuditCategory;
-  domain: "accounts" | "patients" | "ncp" | "reports" | "budget" | "procurement" | "food_service" | "system";
+  domain: "accounts" | "patients" | "ncp" | "reports" | "budget" | "procurement" | "food_service" | "nutrition_library" | "system";
   action: string;
   action_label: string;
   summary: string;

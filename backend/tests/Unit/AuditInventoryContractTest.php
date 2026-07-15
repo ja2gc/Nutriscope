@@ -161,6 +161,9 @@ class AuditInventoryContractTest extends TestCase
         '2026_07_12_095710_add_public_references_to_activity_log_table.php',
         '2026_07_12_095711_backfill_activity_log_public_references.php',
         '2026_07_14_000001_create_audit_settings_table.php',
+        '2026_07_15_100001_add_module_and_patient_snapshot_to_activity_log.php',
+        '2026_07_15_100002_create_audit_revisions_table.php',
+        '2026_07_15_100003_backfill_audit_modules_and_patient_snapshots.php',
     ];
 
     public function test_every_audit_logger_reference_and_model_observer_is_classified(): void
@@ -230,7 +233,10 @@ class AuditInventoryContractTest extends TestCase
 
         $migrations = collect(glob(database_path('migrations/*.php')) ?: [])
             ->map(fn (string $path): string => basename($path))
-            ->filter(fn (string $file): bool => str_contains($file, 'activity_log') || str_contains($file, 'audit_settings'))
+            ->filter(fn (string $file): bool => str_contains($file, 'activity_log')
+                || str_contains($file, 'audit_settings')
+                || str_contains($file, 'audit_revisions')
+                || str_contains($file, 'audit_modules'))
             ->sort()
             ->values()
             ->all();
@@ -251,12 +257,12 @@ class AuditInventoryContractTest extends TestCase
         $this->assertFileDoesNotExist(database_path('seeders/DemoAuditSeeder.php'));
     }
 
-    public function test_approved_redesign_contract_is_not_yet_implemented(): void
+    public function test_additive_redesign_storage_contract_is_implemented(): void
     {
-        $this->assertFalse(class_exists('App\\Enums\\AuditModule'));
-        $this->assertFalse(Schema::hasColumn('activity_log', 'module'));
-        $this->assertFalse(Schema::hasColumn('activity_log', 'patient_display_name_snapshot'));
-        $this->assertFalse(Schema::hasTable('audit_revisions'));
+        $this->assertTrue(class_exists('App\\Enums\\AuditModule'));
+        $this->assertTrue(Schema::hasColumn('activity_log', 'module'));
+        $this->assertTrue(Schema::hasColumn('activity_log', 'patient_display_name_snapshot'));
+        $this->assertTrue(Schema::hasTable('audit_revisions'));
     }
 
     /** @return list<string> */

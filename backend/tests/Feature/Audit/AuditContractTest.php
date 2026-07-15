@@ -5,6 +5,7 @@ namespace Tests\Feature\Audit;
 use App\Enums\AuditAction;
 use App\Enums\AuditCategory;
 use App\Enums\AuditDomain;
+use App\Enums\AuditModule;
 use App\Enums\AuditOutcome;
 use App\Enums\AuditSeverity;
 use App\Models\AuditActivity;
@@ -75,7 +76,7 @@ class AuditContractTest extends TestCase
         )->all());
         $this->assertSame([
             'accounts', 'patients', 'ncp', 'reports', 'budget', 'procurement',
-            'food_service', 'system',
+            'food_service', 'nutrition_library', 'system',
         ], array_column(AuditDomain::cases(), 'value'));
         $this->assertSame([
             'accounts' => 'Accounts',
@@ -85,9 +86,18 @@ class AuditContractTest extends TestCase
             'budget' => 'Budget',
             'procurement' => 'Procurement',
             'food_service' => 'Food service',
+            'nutrition_library' => 'Nutrition library',
             'system' => 'System',
         ], collect(AuditDomain::cases())->mapWithKeys(
             fn (AuditDomain $domain): array => [$domain->value => $domain->label()],
+        )->all());
+        $this->assertSame([
+            'security_administration' => 'Security & Administration',
+            'nutrition_care' => 'Nutrition Care',
+            'food_service_operations' => 'Food Service Operations',
+            'reports' => 'Reports',
+        ], collect(AuditModule::cases())->mapWithKeys(
+            fn (AuditModule $module): array => [$module->value => $module->label()],
         )->all());
         $this->assertSame(['success', 'failure', 'blocked'], array_column(AuditOutcome::cases(), 'value'));
         $this->assertSame([
@@ -107,7 +117,7 @@ class AuditContractTest extends TestCase
             fn (AuditSeverity $severity): array => [$severity->value => $severity->label()],
         )->all());
 
-        foreach ([AuditAction::cases(), AuditCategory::cases(), AuditDomain::cases(), AuditOutcome::cases(), AuditSeverity::cases()] as $cases) {
+        foreach ([AuditAction::cases(), AuditCategory::cases(), AuditDomain::cases(), AuditModule::cases(), AuditOutcome::cases(), AuditSeverity::cases()] as $cases) {
             foreach ($cases as $case) {
                 $this->assertNotSame('', $case->label());
             }
@@ -120,7 +130,8 @@ class AuditContractTest extends TestCase
     {
         $this->assertTrue(Schema::hasColumns('activity_log', [
             'public_id', 'subject_public_id', 'context_public_id', 'category', 'domain',
-            'severity', 'outcome', 'context_type', 'context_id', 'batch_uuid',
+            'module', 'patient_display_name_snapshot', 'severity', 'outcome',
+            'context_type', 'context_id', 'batch_uuid',
         ]));
         $this->assertFalse(Schema::hasColumn('activity_log', 'correlation_uuid'));
 

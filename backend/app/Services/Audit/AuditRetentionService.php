@@ -4,11 +4,14 @@ namespace App\Services\Audit;
 
 use App\Exceptions\AuditPruneFailed;
 use App\Models\AuditActivity;
+use App\Models\AuditRevision;
 use Carbon\CarbonImmutable;
 use Closure;
 use Illuminate\Database\Connection;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+use LogicException;
 use RuntimeException;
 use Throwable;
 
@@ -43,6 +46,18 @@ class AuditRetentionService
 
             throw new RuntimeException('Audit events may only be mutated by the retention service.');
         });
+    }
+
+    public function withAuthorizedMigration(Connection $connection, Closure $mutation): mixed
+    {
+        $command = $_SERVER['argv'][1] ?? null;
+        $isMigrationRuntime = app()->runningInConsole()
+            && (app()->runningUnitTests() || (is_string($command) && Str::startsWith($command, 'migrate')));
+        if (! $isMigrationRuntime) {
+            throw new LogicException('Audit migration mutation scope is unavailable outside migrations.');
+        }
+
+        return $this->withAuthorizedDeletion($connection, $mutation);
     }
 
     /**
@@ -180,18 +195,24 @@ class AuditRetentionService
 
     private function auditMutationOperation(string $query): ?string
     {
-        $table = strtolower((new AuditActivity)->getTable());
         $normalized = strtolower(str_replace(['`', '"', '[', ']'], '', $query));
-        if (preg_match('/(?<![a-z0-9_])'.preg_quote($table, '/').'(?![a-z0-9_])/', $normalized) !== 1) {
+        $isAuditTable = collect([
+            (new AuditActivity)->getTable(),
+            (new AuditRevision)->getTable(),
+        ])->contains(fn (string $table): bool => preg_match(
+            '/(?<![a-z0-9_])'.preg_quote(strtolower($table), '/').'(?![a-z0-9_])/',
+            $normalized,
+        ) === 1);
+        if (! $isAuditTable) {
             return null;
         }
 
-        return match (true) {
-            preg_match('/\breplace\b/', $normalized) === 1 => 'replace',
-            preg_match('/\btruncate\b/', $normalized) === 1 => 'truncate',
-            preg_match('/\bdelete\b/', $normalized) === 1 => 'delete',
-            preg_match('/\bupdate\b/', $normalized) === 1 => 'update',
-            default => null,
-        };
+        if (preg_match('/^\s*insert\b.*\bon\s+duplicate\s+key\s+update\b/s', $normalized) === 1) {
+            return 'update';
+        }
+
+        preg_match('/^\s*(replace|truncate|delete|update)\b/', $normalized, $match);
+
+        return $match[1] ?? null;
     }
 }

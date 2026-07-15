@@ -1,6 +1,6 @@
 # Audit Oversight and Historical-Record Redesign Implementation Plan
 
-**Status:** In progress. The name-migration gate is complete, pushed, and remote-verified at `6cc8fdd781ddf176d79be6181928c04b26499520`; Audit Tasks 1–2 are complete and Task 3 is next.
+**Status:** In progress. The name-migration gate is complete, pushed, and remote-verified at `6cc8fdd781ddf176d79be6181928c04b26499520`; Audit Tasks 1–3 are complete and Task 4 is next.
 
 **Authoritative design:** `docs/superpowers/specs/2026-07-15-audit-oversight-and-history-redesign.md`
 
@@ -130,14 +130,20 @@ Fresh Task 2 verification: the full affected backend gate passed 136 tests and 1
 
 ## Task 3 — Additive module, encrypted patient snapshot, revisions, indexes, and compatibility schema
 
-- [ ] Add `backend/app/Enums/AuditModule.php` with only `security_administration`, `nutrition_care`, `food_service_operations`, and `reports`; All Activity remains an unfiltered UI state, not a stored module. Add the internal `nutrition_library` case to `backend/app/Enums/AuditDomain.php`.
-- [ ] Add `backend/database/migrations/2026_07_15_100001_add_module_and_patient_snapshot_to_activity_log.php` with nullable `module`, encrypted-storage-capable nullable text `patient_display_name_snapshot`, and a query-aligned `module, created_at, id` index. Do not index the patient name.
-- [ ] Add `backend/database/migrations/2026_07_15_100002_create_audit_revisions_table.php` with immutable `AuditRevision` rows: numeric key, public revision UUID, one-to-one audit-activity foreign key with retention-compatible cascade, module, internal domain, allow-listed subject type/public ID, action, serializer schema version, bounded typed `before` JSON, bounded typed `after` JSON, timestamp, and indexes for public/activity lookup.
-- [ ] Add `backend/database/migrations/2026_07_15_100003_backfill_audit_modules_and_patient_snapshots.php` as a separate chunked DML migration. Backfill modules from category/domain/subject policy; resolve patient-linked events through `root_patient_id`/NCP/context relations; encrypt the current patient's `display_name`; leave null when unresolved; never write the name into `properties`.
-- [ ] Add `backend/app/Models/AuditRevision.php` with guarded append-only behavior parallel to `AuditActivity`; extend `backend/app/Models/AuditActivity.php` with `AuditModule`, encrypted `patient_display_name_snapshot`, and revision relation. Extend retention deletion so foreign-key cascade is intentional and tested.
-- [ ] Add `backend/tests/Feature/Audit/AuditRedesignMigrationTest.php` for deterministic module/domain backfill, explicit `legacy_unclassified` presentation for ambiguous/null values, deleted/unresolvable patient fallback, encrypted at-rest name, no index on patient name, no JSON copy, revision constraints/size bounds, retention cascade, and exact forward/rollback/re-forward.
-- [ ] First bring the configured MySQL database through all pending baseline migrations. Run the three new migrations forward, roll back exactly three steps, and re-forward; inspect schema and ciphertext with Laravel Boost read-only tools.
-- [ ] Review gates complete; commit `feat: add audit oversight schema`.
+- [x] Add `backend/app/Enums/AuditModule.php` with only `security_administration`, `nutrition_care`, `food_service_operations`, and `reports`; All Activity remains an unfiltered UI state, not a stored module. Add the internal `nutrition_library` case to `backend/app/Enums/AuditDomain.php`.
+- [x] Add `backend/database/migrations/2026_07_15_100001_add_module_and_patient_snapshot_to_activity_log.php` with nullable `module`, encrypted-storage-capable nullable text `patient_display_name_snapshot`, and a query-aligned `module, created_at, id` index. Do not index the patient name.
+- [x] Add `backend/database/migrations/2026_07_15_100002_create_audit_revisions_table.php` with immutable `AuditRevision` rows: numeric key, public revision UUID, one-to-one audit-activity foreign key with retention-compatible cascade, module, internal domain, allow-listed subject type/public ID, action, serializer schema version, bounded typed `before` JSON, bounded typed `after` JSON, timestamp, and indexes for public/activity lookup.
+- [x] Add `backend/database/migrations/2026_07_15_100003_backfill_audit_modules_and_patient_snapshots.php` as a separate chunked DML migration. Backfill modules from category/domain/subject policy; resolve patient-linked events through `root_patient_id`/NCP/context relations; encrypt the current patient's `display_name`; leave null when unresolved; never write the name into `properties`.
+- [x] Add `backend/app/Models/AuditRevision.php` with guarded append-only behavior parallel to `AuditActivity`; extend `backend/app/Models/AuditActivity.php` with `AuditModule`, encrypted `patient_display_name_snapshot`, and revision relation. Extend retention deletion so foreign-key cascade is intentional and tested.
+- [x] Add `backend/tests/Feature/Audit/AuditRedesignMigrationTest.php` for deterministic module/domain backfill, ambiguous/null values retained for Task 5 `legacy_unclassified` presentation, deleted/unresolvable patient fallback, encrypted at-rest name, no index on patient name, no JSON copy, revision constraints/size bounds, retention cascade, and exact forward/rollback/re-forward.
+- [x] First bring the configured MySQL database through all pending baseline migrations. Run the three new migrations forward, roll back exactly three steps, and re-forward; inspect schema and ciphertext with Laravel Boost read-only tools.
+- [x] Review gates complete; commit `feat: add audit redesign storage`.
+
+Task 3 TDD started with 5 expected migration/storage failures. Later focused reds proved that revision timestamps could diverge from their parent events and that the revision model ignored a configured activity-log connection; both contracts now pass. The focused Task 3 suite passes 5 tests and 53 assertions. The fresh affected backend gate passes 95 tests and 765 assertions, including privacy, retention mutation/cascade, structured API, taxonomy, and inventory contracts.
+
+Configured MySQL verification ran the three migrations forward, rolled back exactly three steps, and re-forwarded them. Laravel Boost inspection confirmed nullable `module`, encrypted-storage-capable text for `patient_display_name_snapshot`, the exact `module, created_at, id` index, no patient-name index, revision uniqueness indexes, and the cascading activity foreign key. The configured development activity table had no rows to inspect; the MySQL test proves ciphertext at rest and absence from JSON properties.
+
+Affected frontend audit verification passes 15 files and 56 tests; TypeScript and focused ESLint pass. Focused Pint and `git diff --check` pass. Spec-compliance and code-quality self-review fixed the migration mutation guard's `ON DELETE CASCADE` false positive while preserving upsert blocking, rejected patient-linked operational revisions, coupled revision time to the immutable parent event, and aligned the revision model with the configured activity connection. No unresolved Task 3 finding remains.
 
 **Rollback boundary:** Before new writers deploy, roll back DML, revision DDL, then activity DDL. After Task 4+, revert application writers/readers first, then schema. Legacy category/domain/properties remain intact.
 
