@@ -196,11 +196,13 @@ The generated verification directory is removed after inspection and is never co
 
 ## Task 9 — Stale-consumer and non-person-name scan
 
-- [ ] Scan backend, frontend, and mobile for direct `User::name`, `Patient::name`, `user.name`, and `patient.name` reads/writes; classify every hit as migrated current-person display, retained deprecated compatibility, immutable historical snapshot, or test fixture.
-- [ ] Scan API Resources, query projections, report templates, Next.js proxies, mobile DTOs, seeders, factories, exports, sorting, filters, and audit attribution for missing split/display handling.
-- [ ] Prove unrelated entity names remain untouched: foods, RND/FSS recipes, ingredients, suppliers, menus, cycles, shopping lists, and report titles.
-- [ ] Add `backend/tests/Unit/PersonNameStaleConsumerTest.php`, `frontend/services/personNameStaleConsumer.test.ts`, and `mobile/lib/personNameStaleConsumer.test.cjs` with explicit allowlists for retained compatibility locations so future stale reads fail loudly.
-- [ ] Review gates complete; commit `test: guard split name consumers`.
+- [x] Scan backend, frontend, and mobile for direct `User::name`, `Patient::name`, `user.name`, and `patient.name` reads/writes; classify every hit as migrated current-person display, retained deprecated compatibility, immutable historical snapshot, or test fixture.
+- [x] Scan API Resources, query projections, report templates, Next.js proxies, mobile DTOs, seeders, factories, exports, sorting, filters, and audit attribution for missing split/display handling.
+- [x] Prove unrelated entity names remain untouched: foods, RND/FSS recipes, ingredients, suppliers, menus, cycles, shopping lists, and report titles.
+- [x] Add `backend/tests/Unit/PersonNameStaleConsumerTest.php`, `frontend/services/personNameStaleConsumer.test.ts`, and `mobile/lib/personNameStaleConsumer.test.cjs` with explicit allowlists for retained compatibility locations so future stale reads fail loudly.
+- [x] Review gates complete; commit `test: guard split name consumers`.
+
+**Task 9 evidence (2026-07-15):** Repository-wide production-source scans classified direct person-name access. Current User/Patient rendering uses the shared display adapters. The only backend raw model reads are the deprecated `name` values retained in account audit before/after payloads; legacy patient search and user-order fallbacks remain explicitly counted. Frontend raw `PersonNameLike.name` is confined to the shared fallback adapter; actor, author, creator, and report attribution `name` keys are explicit typed API compatibility boundaries whose backend values already come from `display_name`. Mobile has the same adapter boundary plus one staff-sheet report DTO `user.name`; announcement/SOP author keys are projected display values. Historical report snapshots remain unchanged. Guard tests also prove food, recipe, ingredient/catalog, supplier, menu/cycle, procurement/shopping-list, and report-template names did not acquire person fields. Focused guards passed 3 backend tests/55 assertions, 5 frontend tests, and 3 mobile tests. Broader verification passed 36 backend tests/206 assertions, 24 frontend name/proxy/form tests, all 13 mobile tests, both TypeScript checks, Pint, and `git diff --check`. The initial backend guard run caught an incorrect fallback-count expectation in the new test; correcting it required no production change. Spec and code-quality reviews found no unresolved Task 9 issue.
 
 **Rollback boundary:** Tests and bounded missed-consumer fixes only; revert this commit independently if needed.
 
