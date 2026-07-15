@@ -24,14 +24,35 @@ class UserFactory extends Factory
      */
     public function definition(): array
     {
+        $firstName = fake()->randomElement([
+            'Maria Luisa', 'Jose Miguel', 'Ana Marie', 'Carlo Andres', 'Rosa Mae',
+        ]);
+        $lastName = fake()->randomElement([
+            'Dela Cruz', 'De los Santos', 'Del Rosario', 'Reyes', 'Santos Cruz',
+        ]);
+
         return [
-            'name' => fake()->name(),
+            'first_name' => $firstName,
+            'last_name' => $lastName,
+            'name' => "{$firstName} {$lastName}",
             'email' => fake()->unique()->safeEmail(),
             'password' => static::$password ??= Hash::make('password'),
             'role' => fake()->randomElement(['RND', 'FSS', 'Admin']),
             'is_active' => true,
             'remember_token' => Str::random(10),
         ];
+    }
+
+    /**
+     * Represent an untouched pre-migration account without guessing name parts.
+     */
+    public function legacyName(string $name): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'first_name' => null,
+            'last_name' => null,
+            'name' => $name,
+        ]);
     }
 
     /**

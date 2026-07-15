@@ -11,8 +11,17 @@ class PatientFactory extends Factory
 
     public function definition(): array
     {
+        $firstName = fake()->randomElement([
+            'Maria Luisa', 'Jose Miguel', 'Ana Marie', 'Carlo Andres', 'Rosa Mae',
+        ]);
+        $lastName = fake()->randomElement([
+            'Dela Cruz', 'De los Santos', 'Del Rosario', 'Reyes', 'Santos Cruz',
+        ]);
+
         return [
-            'name' => fake()->name(),
+            'first_name' => $firstName,
+            'last_name' => $lastName,
+            'name' => "{$firstName} {$lastName}",
             'dob' => fake()->date('Y-m-d', '-20 years'),
             'sex' => fake()->randomElement(['Male', 'Female']),
             'religion' => fake()->randomElement(['Catholic', 'Christian', null]),
@@ -27,5 +36,17 @@ class PatientFactory extends Factory
             'screening_type' => fake()->randomElement(['adult', 'pediatric']),
             'age_group_category' => fake()->randomElement(['adult', 'pediatric', 'elderly']),
         ];
+    }
+
+    /**
+     * Represent an untouched pre-migration patient without guessing name parts.
+     */
+    public function legacyName(string $name): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'first_name' => null,
+            'last_name' => null,
+            'name' => $name,
+        ]);
     }
 }

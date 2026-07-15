@@ -29,11 +29,17 @@ use Illuminate\Support\Facades\DB;
  *   Full A + D + I, biochemical data with low albumin/hemoglobin/potassium.
  *   No monitoring entries yet — follow-up scheduled in 2 weeks.
  *
- * Always deletes and re-seeds both patients for a clean, consistent demo state.
+ * Rebuilds each demo clinical graph while retaining the stable patient row keyed
+ * by hospital number.
  */
 class PatientSeeder extends Seeder
 {
     public function run(): void
+    {
+        activity()->withoutLogs(fn () => $this->seedPatients());
+    }
+
+    private function seedPatients(): void
     {
         $rnd = User::where('role', 'RND')->first();
         if (! $rnd) {
@@ -42,8 +48,8 @@ class PatientSeeder extends Seeder
             return;
         }
 
-        $this->cleanupPatient('Maria Santos');
-        $this->cleanupPatient('Roberto Reyes');
+        $this->cleanupPatient('HN-2026-0042');
+        $this->cleanupPatient('HN-2026-0078');
 
         $this->seedMariaSantos($rnd->id);
         $this->seedRobertoReyes($rnd->id);
@@ -70,9 +76,9 @@ class PatientSeeder extends Seeder
 
     // ── Cleanup helper ────────────────────────────────────────────────────────
 
-    private function cleanupPatient(string $name): void
+    private function cleanupPatient(string $hospitalNumber): void
     {
-        $patient = Patient::where('name', $name)->first();
+        $patient = Patient::where('hospital_number', $hospitalNumber)->first();
         if (! $patient) {
             return;
         }
@@ -95,9 +101,7 @@ class PatientSeeder extends Seeder
             $record->delete();
         }
 
-        $patient->delete();
-
-        $this->command->line("  PatientSeeder: {$name} — existing record removed.");
+        $this->command->line("  PatientSeeder: {$hospitalNumber} — existing clinical records removed.");
     }
 
     // ── Patient 1: Maria Santos — T2DM + Hypertension, 2 follow-ups ──────────
@@ -105,22 +109,26 @@ class PatientSeeder extends Seeder
     private function seedMariaSantos(int $rndId): void
     {
         // Patient demographics
-        $patient = Patient::create([
-            'name' => 'Maria Santos',
-            'dob' => '1975-03-15',        // 51 yrs old
-            'sex' => 'Female',
-            'religion' => 'Roman Catholic',
-            'address' => 'Brgy. San Nicolas, San Fernando, Pampanga',
-            'contact' => '09171234567',
-            'physician' => 'Dr. Juan dela Cruz',
-            'admission_date' => '2026-05-20',
-            'medical_diagnosis' => 'Type 2 Diabetes Mellitus with Hypertension',
-            'ward' => 'Ward 3 — Internal Medicine',
-            'status' => 'Active',
-            'screening_type' => 'adult',
-            'hospital_number' => 'HN-2026-0042',
-            'age_group_category' => 'adult',
-        ]);
+        $patient = Patient::updateOrCreate(
+            ['hospital_number' => 'HN-2026-0042'],
+            [
+                'first_name' => 'Maria',
+                'last_name' => 'Santos',
+                'name' => 'Maria Santos',
+                'dob' => '1975-03-15',        // 51 yrs old
+                'sex' => 'Female',
+                'religion' => 'Roman Catholic',
+                'address' => 'Brgy. San Nicolas, San Fernando, Pampanga',
+                'contact' => '09171234567',
+                'physician' => 'Dr. Juan dela Cruz',
+                'admission_date' => '2026-05-20',
+                'medical_diagnosis' => 'Type 2 Diabetes Mellitus with Hypertension',
+                'ward' => 'Ward 3 — Internal Medicine',
+                'status' => 'Active',
+                'screening_type' => 'adult',
+                'age_group_category' => 'adult',
+            ],
+        );
 
         // NCP Record — active (2 monitoring follow-ups done, ongoing)
         $record = NcpRecord::create([
@@ -352,22 +360,26 @@ class PatientSeeder extends Seeder
 
     private function seedRobertoReyes(int $rndId): void
     {
-        $patient = Patient::create([
-            'name' => 'Roberto Reyes',
-            'dob' => '1988-06-22',        // 37 yrs old
-            'sex' => 'Male',
-            'religion' => 'Roman Catholic',
-            'address' => 'Brgy. Sto. Rosario, Angeles City, Pampanga',
-            'contact' => '09281234567',
-            'physician' => 'Dr. Ana Gonzales',
-            'admission_date' => '2026-06-01',
-            'medical_diagnosis' => 'Moderate Protein-Energy Malnutrition secondary to poor oral intake',
-            'ward' => 'Ward 1 — General Medicine',
-            'status' => 'Active',
-            'screening_type' => 'adult',
-            'hospital_number' => 'HN-2026-0078',
-            'age_group_category' => 'adult',
-        ]);
+        $patient = Patient::updateOrCreate(
+            ['hospital_number' => 'HN-2026-0078'],
+            [
+                'first_name' => 'Roberto',
+                'last_name' => 'Reyes',
+                'name' => 'Roberto Reyes',
+                'dob' => '1988-06-22',        // 37 yrs old
+                'sex' => 'Male',
+                'religion' => 'Roman Catholic',
+                'address' => 'Brgy. Sto. Rosario, Angeles City, Pampanga',
+                'contact' => '09281234567',
+                'physician' => 'Dr. Ana Gonzales',
+                'admission_date' => '2026-06-01',
+                'medical_diagnosis' => 'Moderate Protein-Energy Malnutrition secondary to poor oral intake',
+                'ward' => 'Ward 1 — General Medicine',
+                'status' => 'Active',
+                'screening_type' => 'adult',
+                'age_group_category' => 'adult',
+            ],
+        );
 
         $record = NcpRecord::create([
             'patient_id' => $patient->id,

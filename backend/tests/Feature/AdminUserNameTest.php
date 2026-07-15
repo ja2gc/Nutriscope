@@ -13,7 +13,7 @@ class AdminUserNameTest extends TestCase
     public function test_admin_user_resources_keep_the_deprecated_name_field(): void
     {
         $admin = User::factory()->admin()->create();
-        $rnd = User::factory()->rnd()->create(['name' => 'Maria Teresa Del Rosario']);
+        $rnd = User::factory()->rnd()->legacyName('Maria Teresa Del Rosario')->create();
 
         $this->actingAs($admin, 'sanctum')
             ->getJson("/api/admin/users/{$rnd->uuid}")
@@ -29,7 +29,7 @@ class AdminUserNameTest extends TestCase
     public function test_admin_unrelated_update_preserves_the_legacy_name(): void
     {
         $admin = User::factory()->admin()->create();
-        $user = User::factory()->rnd()->create(['name' => 'Jose Rizal Mercado']);
+        $user = User::factory()->rnd()->legacyName('Jose Rizal Mercado')->create();
 
         $this->actingAs($admin, 'sanctum')
             ->patchJson("/api/admin/users/{$user->uuid}", ['role' => 'FSS'])

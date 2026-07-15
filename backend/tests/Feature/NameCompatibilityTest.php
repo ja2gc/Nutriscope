@@ -19,7 +19,7 @@ class NameCompatibilityTest extends TestCase
 
     public function test_legacy_compound_user_name_round_trips_exactly(): void
     {
-        $user = User::factory()->create(['name' => 'Maria Luisa De la Cruz']);
+        $user = User::factory()->legacyName('Maria Luisa De la Cruz')->create();
 
         $this->actingAs($user, 'sanctum')
             ->getJson('/api/auth/me')
@@ -32,7 +32,7 @@ class NameCompatibilityTest extends TestCase
     public function test_legacy_compound_patient_name_and_unrelated_edit_round_trip_exactly(): void
     {
         $rnd = User::factory()->rnd()->create();
-        $patient = Patient::factory()->create(['name' => 'Juan Miguel Dela Cruz III']);
+        $patient = Patient::factory()->legacyName('Juan Miguel Dela Cruz III')->create();
 
         $this->actingAs($rnd, 'sanctum')
             ->patchJson("/api/rnd/patients/{$patient->uuid}", ['ward' => 'Ward 7'])
@@ -49,7 +49,7 @@ class NameCompatibilityTest extends TestCase
 
     public function test_soft_deleted_user_retains_exact_legacy_name(): void
     {
-        $user = User::factory()->create(['name' => 'Ana Mae San Jose']);
+        $user = User::factory()->legacyName('Ana Mae San Jose')->create();
 
         $user->delete();
 
@@ -58,7 +58,7 @@ class NameCompatibilityTest extends TestCase
 
     public function test_existing_actor_snapshot_does_not_follow_later_user_rename(): void
     {
-        $actor = User::factory()->admin()->create(['name' => 'Original Actor']);
+        $actor = User::factory()->admin()->legacyName('Original Actor')->create();
         $subject = User::factory()->rnd()->create();
 
         $this->actingAs($actor, 'sanctum');
@@ -78,7 +78,7 @@ class NameCompatibilityTest extends TestCase
 
     public function test_existing_prepared_by_snapshot_does_not_follow_later_user_rename(): void
     {
-        $preparer = User::factory()->rnd()->create(['name' => 'Original Preparer']);
+        $preparer = User::factory()->rnd()->legacyName('Original Preparer')->create();
         $report = Report::create([
             'user_id' => $preparer->id,
             'title' => 'Frozen report',

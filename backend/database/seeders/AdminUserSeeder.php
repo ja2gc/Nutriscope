@@ -10,34 +10,33 @@ class AdminUserSeeder extends Seeder
 {
     public function run(): void
     {
-        User::firstOrCreate(
-            ['email' => 'admin@nutriscope.local'],
+        $this->seedAccount('admin@nutriscope.local', 'System', 'Administrator', 'Admin');
+        $this->seedAccount('rnd@nutriscope.local', 'Rosa Mae', 'Dela Cruz', 'RND');
+        $this->seedAccount('fss@nutriscope.local', 'Maria', 'Santos', 'FSS');
+    }
+
+    private function seedAccount(string $email, string $firstName, string $lastName, string $role): void
+    {
+        $displayName = "{$firstName} {$lastName}";
+        $user = User::firstOrCreate(
+            ['email' => $email],
             [
-                'name' => 'System Admin',
+                'first_name' => $firstName,
+                'last_name' => $lastName,
+                'name' => $displayName,
                 'password' => Hash::make('nutriscope2024!'),
-                'role' => 'Admin',
+                'role' => $role,
                 'is_active' => true,
-            ]
+            ],
         );
 
-        User::firstOrCreate(
-            ['email' => 'rnd@nutriscope.local'],
-            [
-                'name' => 'RND User',
-                'password' => Hash::make('nutriscope2024!'),
-                'role' => 'RND',
-                'is_active' => true,
-            ]
-        );
-
-        User::firstOrCreate(
-            ['email' => 'fss@nutriscope.local'],
-            [
-                'name' => 'Maria Santos',
-                'password' => Hash::make('nutriscope2024!'),
-                'role' => 'FSS',
-                'is_active' => true,
-            ]
-        );
+        $user->forceFill([
+            'first_name' => $firstName,
+            'last_name' => $lastName,
+            'name' => $displayName,
+        ]);
+        if ($user->isDirty(['first_name', 'last_name', 'name'])) {
+            $user->save();
+        }
     }
 }

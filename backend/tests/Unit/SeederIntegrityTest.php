@@ -136,4 +136,25 @@ class SeederIntegrityTest extends TestCase
             'RecipeSeeder must use firstOrCreate to be idempotent'
         );
     }
+
+    public function test_base_database_seeding_suppresses_audit_noise_without_muting_model_events(): void
+    {
+        $content = file_get_contents(database_path('seeders/DatabaseSeeder.php'));
+
+        $this->assertStringContainsString('activity()->withoutLogs', $content);
+        $this->assertStringNotContainsString('WithoutModelEvents', $content,
+            'Global model-event muting would also disable public UUID generation.');
+    }
+
+    public function test_patient_seeder_uses_stable_hospital_keys_instead_of_display_names(): void
+    {
+        $content = file_get_contents(database_path('seeders/PatientSeeder.php'));
+
+        $this->assertStringNotContainsString("Patient::where('name'", $content);
+        $this->assertStringContainsString("Patient::updateOrCreate(\n            ['hospital_number'", $content);
+        $this->assertStringContainsString("'first_name' => 'Maria'", $content);
+        $this->assertStringContainsString("'last_name' => 'Santos'", $content);
+        $this->assertStringContainsString("'first_name' => 'Roberto'", $content);
+        $this->assertStringContainsString("'last_name' => 'Reyes'", $content);
+    }
 }

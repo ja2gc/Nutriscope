@@ -183,12 +183,14 @@ The generated verification directory is removed after inspection and is never co
 
 ## Task 8 — Seeders and factories
 
-- [ ] Update `backend/database/factories/UserFactory.php` and `backend/database/factories/PatientFactory.php` with realistic separate Filipino first/last names while continuing to synchronize the deprecated `name` column.
-- [ ] Update `backend/database/seeders/AdminUserSeeder.php` and every explicit account/patient writer found by the stale scan to provide split fields.
-- [ ] Update `backend/database/seeders/PatientSeeder.php` to identify/update deterministic patients by hospital number or another established stable key, never by display name.
-- [ ] Extend `backend/tests/Unit/SeederIntegrityTest.php` and add `backend/tests/Feature/PersonNameSeederTest.php` for idempotence, stable cleanup, split fields, legacy synchronization, and no anonymous audit noise.
-- [ ] Run the relevant seeders twice against a disposable/test transaction and compare counts/keys.
-- [ ] Review gates complete; commit `test: update seeded person names`.
+- [x] Update `backend/database/factories/UserFactory.php` and `backend/database/factories/PatientFactory.php` with realistic separate Filipino first/last names while continuing to synchronize the deprecated `name` column.
+- [x] Update `backend/database/seeders/AdminUserSeeder.php` and every explicit account/patient writer found by the stale scan to provide split fields.
+- [x] Update `backend/database/seeders/PatientSeeder.php` to identify/update deterministic patients by hospital number or another established stable key, never by display name.
+- [x] Extend `backend/tests/Unit/SeederIntegrityTest.php` and add `backend/tests/Feature/PersonNameSeederTest.php` for idempotence, stable cleanup, split fields, legacy synchronization, and no anonymous audit noise.
+- [x] Run the relevant seeders twice against a disposable/test transaction and compare counts/keys.
+- [x] Review gates complete; commit `test: update seeded person names`.
+
+**Task 8 evidence (2026-07-15):** The user and patient factories now generate synchronized realistic compound Filipino first/last names, with an explicit `legacyName()` state for pre-migration fixtures that preserves the exact deprecated value without guessing name parts. Seeded accounts provide both split fields and upgrade their established email-keyed rows without resetting passwords. Demo patients are keyed by hospital number, retain patient IDs/public UUIDs across reruns, and rebuild only their clinical graph; unrelated patients sharing a display name remain untouched. Base seeding suppresses activity logs without disabling model events, preserving UUID generation. The red run failed five expected requirements; focused verification then passed 11 tests/48 assertions, and the broader affected name/factory/seeder group passed 50 tests/231 assertions. Seeder reruns produced identical account hashes and patient IDs/UUIDs/counts, zero anonymous audit rows, and no duplicate deterministic patients. Pint and `git diff --check` passed. Spec and code-quality reviews found no unresolved Task 8 issue.
 
 **Rollback boundary:** Revert seeder/factory code. Do not attempt to reverse already generated demo data by matching names.
 
