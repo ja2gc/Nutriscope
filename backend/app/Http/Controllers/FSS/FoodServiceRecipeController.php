@@ -2,20 +2,30 @@
 
 namespace App\Http\Controllers\FSS;
 
+use App\Enums\AuditAction;
+use App\Enums\AuditDomain;
 use App\Http\Controllers\Controller;
 use App\Models\FoodServiceRecipe;
 use App\Models\FoodServiceRecipeIngredient;
 use App\Models\FsItem;
 use App\Models\MenuCycleDay;
+use App\Services\Audit\AuditLogger;
+use App\Services\Audit\Revisions\AuditRevisionRegistry;
+use App\Services\Audit\Revisions\AuditRevisionWriter;
 use App\Services\MenuCycleCostService;
 use App\Support\UnitConverter;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
 
 class FoodServiceRecipeController extends Controller
 {
+    public function __construct(
+        private readonly AuditLogger $auditLogger,
+        private readonly AuditRevisionRegistry $revisionRegistry,
+        private readonly AuditRevisionWriter $revisionWriter,
+    ) {}
+
     public function index(Request $request): JsonResponse
     {
         $perPage = (int) min($request->query('per_page', 15), 100);
@@ -168,25 +178,31 @@ class FoodServiceRecipeController extends Controller
         $data['ingredients'] = $this->resolveIngredientFsItemIds($data['ingredients']);
         $this->assertIngredientUnits($data['ingredients']);
 
-        $recipe = DB::transaction(function () use ($data) {
-            $recipe = FoodServiceRecipe::create([
-                'rnd_user_id' => Auth::id(),
-                'name' => $data['name'],
-                'category' => $data['category'] ?? null,
-                'prep_notes' => $data['prep_notes'] ?? null,
-                'servings' => $data['servings'] ?? 1,
-            ]);
-
-            foreach ($data['ingredients'] as $ing) {
-                FoodServiceRecipeIngredient::create([
-                    'food_service_recipe_id' => $recipe->id,
-                    'fs_item_id' => $ing['fs_item_id'],
-                    'quantity' => $ing['quantity'],
-                    'unit' => $ing['unit'] ?? 'g',
+        $recipe = $this->audited(function () use ($data): FoodServiceRecipe {
+            $recipe = $this->auditLogger->withoutModelEvents(function () use ($data): FoodServiceRecipe {
+                $recipe = FoodServiceRecipe::create([
+                    'rnd_user_id' => Auth::id(),
+                    'name' => $data['name'],
+                    'category' => $data['category'] ?? null,
+                    'prep_notes' => $data['prep_notes'] ?? null,
+                    'servings' => $data['servings'] ?? 1,
                 ]);
-            }
+                $this->syncIngredients($recipe, $data['ingredients']);
+                $recipe->recalculateCost();
 
-            $recipe->recalculateCost();
+                return $recipe->fresh(['ingredients.fsItem']);
+            });
+            $newValues = $this->auditValues($recipe);
+            $activity = $this->auditLogger->recordMutation(
+                AuditAction::Created,
+                AuditDomain::FoodService,
+                $recipe,
+                [...array_keys($newValues), 'ingredients'],
+                newValues: $newValues,
+            );
+            if ($activity !== null) {
+                $this->revisionWriter->write($activity, null, $this->revisionRegistry->capture($recipe));
+            }
 
             return $recipe;
         });
@@ -231,27 +247,46 @@ class FoodServiceRecipeController extends Controller
             $this->assertIngredientUnits($data['ingredients']);
         }
 
-        DB::transaction(function () use ($data, $foodServiceRecipe) {
-            $foodServiceRecipe->update(array_filter([
-                'name' => $data['name'] ?? null,
-                'category' => $data['category'] ?? null,
-                'prep_notes' => $data['prep_notes'] ?? null,
-                'servings' => $data['servings'] ?? null,
-            ], fn ($v) => $v !== null));
+        $this->audited(function () use ($data, $foodServiceRecipe): void {
+            $structural = array_key_exists('ingredients', $data);
+            $beforeValues = $this->auditValues($foodServiceRecipe);
+            $beforeSignature = $structural ? $this->ingredientSignature($foodServiceRecipe) : [];
+            $before = $structural
+                ? $this->revisionRegistry->capture($foodServiceRecipe->load('ingredients.fsItem'))
+                : null;
 
-            if (isset($data['ingredients'])) {
-                $foodServiceRecipe->ingredients()->delete();
-                foreach ($data['ingredients'] as $ing) {
-                    FoodServiceRecipeIngredient::create([
-                        'food_service_recipe_id' => $foodServiceRecipe->id,
-                        'fs_item_id' => $ing['fs_item_id'],
-                        'quantity' => $ing['quantity'],
-                        'unit' => $ing['unit'] ?? 'g',
-                    ]);
+            $after = $this->auditLogger->withoutModelEvents(function () use ($data, $foodServiceRecipe, $structural): FoodServiceRecipe {
+                $foodServiceRecipe->update(array_filter([
+                    'name' => $data['name'] ?? null,
+                    'category' => $data['category'] ?? null,
+                    'prep_notes' => $data['prep_notes'] ?? null,
+                    'servings' => $data['servings'] ?? null,
+                ], fn ($value) => $value !== null));
+
+                if ($structural) {
+                    $this->syncIngredients($foodServiceRecipe, $data['ingredients']);
                 }
-            }
+                $foodServiceRecipe->recalculateCost();
 
-            $foodServiceRecipe->recalculateCost();
+                return $foodServiceRecipe->fresh(['ingredients.fsItem']);
+            });
+            $afterValues = $this->auditValues($after);
+            $changedFields = $this->changedValueKeys($beforeValues, $afterValues);
+            $structureChanged = $structural && $beforeSignature !== $this->ingredientSignature($after);
+            if ($structureChanged) {
+                $changedFields[] = 'ingredients';
+            }
+            $activity = $this->auditLogger->recordMutation(
+                AuditAction::Updated,
+                AuditDomain::FoodService,
+                $after,
+                $changedFields,
+                oldValues: array_intersect_key($beforeValues, array_flip($changedFields)),
+                newValues: array_intersect_key($afterValues, array_flip($changedFields)),
+            );
+            if ($activity !== null && $structureChanged && $before !== null) {
+                $this->revisionWriter->write($activity, $before, $this->revisionRegistry->capture($after));
+            }
         });
 
         return response()->json(['data' => $this->formatRecipe($foodServiceRecipe->fresh())]);
@@ -264,9 +299,73 @@ class FoodServiceRecipeController extends Controller
             abort(409, "Can't delete: this recipe is used by {$usedBy} menu-cycle slot(s). Remove it from the cycle(s) first.");
         }
 
-        $foodServiceRecipe->delete();
+        $this->audited(function () use ($foodServiceRecipe): void {
+            $before = $this->revisionRegistry->capture($foodServiceRecipe->load('ingredients.fsItem'));
+            $oldValues = $this->auditValues($foodServiceRecipe);
+            $this->auditLogger->withoutModelEvents(fn () => $foodServiceRecipe->delete());
+            $activity = $this->auditLogger->recordMutation(
+                AuditAction::Deleted,
+                AuditDomain::FoodService,
+                $foodServiceRecipe,
+                [],
+                oldValues: $oldValues,
+            );
+            if ($activity !== null) {
+                $this->revisionWriter->write($activity, $before, null);
+            }
+        });
 
         return response()->json(null, 204);
+    }
+
+    /** @param array<int, array{fs_item_id:int, quantity:mixed, unit?:string|null}> $ingredients */
+    private function syncIngredients(FoodServiceRecipe $recipe, array $ingredients): void
+    {
+        $recipe->ingredients()->delete();
+        foreach ($ingredients as $ingredient) {
+            FoodServiceRecipeIngredient::create([
+                'food_service_recipe_id' => $recipe->id,
+                'fs_item_id' => $ingredient['fs_item_id'],
+                'quantity' => $ingredient['quantity'],
+                'unit' => $ingredient['unit'] ?? 'g',
+            ]);
+        }
+    }
+
+    /** @return array<string, string|int|float|null> */
+    private function auditValues(FoodServiceRecipe $recipe): array
+    {
+        return [
+            'name' => (string) $recipe->name,
+            'category' => $recipe->category,
+            'prep_notes' => $recipe->prep_notes,
+            'servings' => (int) $recipe->servings,
+            'cost' => (float) $recipe->cost,
+        ];
+    }
+
+    /** @param array<string, mixed> $before @param array<string, mixed> $after @return list<string> */
+    private function changedValueKeys(array $before, array $after): array
+    {
+        return collect($after)
+            ->filter(fn (mixed $value, string $key): bool => ($before[$key] ?? null) !== $value)
+            ->keys()
+            ->values()
+            ->all();
+    }
+
+    /** @return list<array{fs_item_id:int, quantity:string, unit:string|null}> */
+    private function ingredientSignature(FoodServiceRecipe $recipe): array
+    {
+        return $recipe->ingredients()->orderBy('fs_item_id')->orderBy('id')
+            ->get(['fs_item_id', 'quantity', 'unit'])
+            ->map(fn (FoodServiceRecipeIngredient $ingredient): array => [
+                'fs_item_id' => (int) $ingredient->fs_item_id,
+                'quantity' => (string) $ingredient->quantity,
+                'unit' => $ingredient->unit,
+            ])
+            ->values()
+            ->all();
     }
 
     private function formatRecipe(FoodServiceRecipe $recipe): array

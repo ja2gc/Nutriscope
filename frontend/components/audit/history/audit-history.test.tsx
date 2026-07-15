@@ -74,6 +74,37 @@ describe("audit historical view", () => {
     expect(html).not.toContain("<textarea");
   });
 
+  test("routes food service recipe snapshots through structural comparison", () => {
+    const fssHistory: AuditHistoryDto = {
+      ...history,
+      version: { ...history.version, serializer: "food_service_recipe" },
+      before: {
+        type: "food_service_recipe",
+        title: "Tray Meal",
+        reference: "c19f7769-b09e-445e-880e-51f128710af5",
+        fields: [],
+        tables: [{
+          key: "ingredients",
+          label: "Ingredients",
+          columns: { ingredient: "Ingredient" },
+          rows: [{ key: "removed-rice", values: { ingredient: { type: "text", value: "REMOVED-RICE-SENTINEL" } } }],
+        }],
+      },
+      after: {
+        type: "food_service_recipe",
+        title: "Tray Meal",
+        reference: "c19f7769-b09e-445e-880e-51f128710af5",
+        fields: [],
+        tables: [{ key: "ingredients", label: "Ingredients", columns: { ingredient: "Ingredient" }, rows: [] }],
+      },
+    };
+
+    const html = renderToStaticMarkup(<AuditHistoryView history={fssHistory} />);
+
+    expect(html).toContain("REMOVED-RICE-SENTINEL");
+    expect(html).toContain("Removed");
+  });
+
   test("switches accessibly between Before and After without mutation controls", async () => {
     const container = document.createElement("div");
     document.body.append(container);

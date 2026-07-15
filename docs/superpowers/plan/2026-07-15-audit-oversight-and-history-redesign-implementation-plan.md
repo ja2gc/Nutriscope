@@ -1,6 +1,6 @@
 # Audit Oversight and Historical-Record Redesign Implementation Plan
 
-**Status:** In progress. The name-migration gate is complete, pushed, and remote-verified at `6cc8fdd781ddf176d79be6181928c04b26499520`; Audit Tasks 1–7, Tasks 8A–8B, and Waves A1–A2 are complete. Task 8C is next.
+**Status:** In progress. The name-migration gate is complete, pushed, and remote-verified at `6cc8fdd781ddf176d79be6181928c04b26499520`; Audit Tasks 1–7, Tasks 8A–8C, and Waves A1–A2 are complete. Task 8D is next.
 
 **Authoritative design:** `docs/superpowers/specs/2026-07-15-audit-oversight-and-history-redesign.md`
 
@@ -221,7 +221,7 @@ Wave A2 passes 93 backend tests and 1,240 assertions on configured MySQL, includ
 
 - [x] Task 8A: add `backend/app/Services/Audit/Revisions/AuditRevisionWriter.php`, `AuditRevisionRegistry.php`, typed historical DTOs, size-cap enforcement, Admin history route/resource/proxy/page shell, authorization, immutability, and privacy refusal. Complete the full test/review/verification protocol; commit `feat: add audit revision framework`.
 - [x] Task 8B: add `RndRecipeRevisionSerializer.php` plus read-only RND recipe version UI/tests; commit `feat: add RND recipe history`.
-- [ ] Task 8C: add `FoodServiceRecipeRevisionSerializer.php` plus read-only FSS recipe version UI/tests; commit `feat: add FSS recipe history`.
+- [x] Task 8C: add `FoodServiceRecipeRevisionSerializer.php` plus read-only FSS recipe version UI/tests; commit `feat: add FSS recipe history`.
 - [ ] Task 8D: add `MenuCycleRevisionSerializer.php` plus read-only weekly menu version UI/tests; commit `feat: add menu audit history`.
 - [ ] Task 8E: add `ShoppingListRevisionSerializer.php` and `PurchaseOrderRevisionSerializer.php` plus shopping/PO/receiving version UI/tests; commit `feat: add procurement audit history`.
 - [ ] Task 8F: add `BudgetRevisionSerializer.php` plus contextual fiscal-year/ledger version UI/tests; commit `feat: add budget audit history`.
@@ -242,6 +242,10 @@ Task 8B followed red-green TDD. The initial backend gate failed because the RND 
 The read-only RND recipe view uses typed values and ingredient tables, defaults structural updates to After, merges removed rows into that view, and visibly labels added, changed, and removed fields/ingredients. It compares typed scalars and field lists without serialization and exposes no editing controls. Created, later-edited, and deleted live recipes were each verified through the Admin historical API to preserve event-time state. A pre-existing malformed regex in `AuditValueDto` used `/` as both delimiter and allowed unit character, causing typed units such as `kcal` to throw; Task 8B corrected the delimiter because recipe history requires safe quantity-unit rendering. The behavioral impact is limited to making the already-approved typed unit contract work.
 
 The final configured-MySQL Task 8B gate passes 83 tests and 644 assertions across recipe CRUD, serializer validation, history framework/API, privacy, canonical-event, and presenter behavior. The final frontend gate passes 7 files and 26 tests; TypeScript and focused ESLint pass. Full Pint and `git diff --check` pass. Separate spec and code-quality reviews found no unresolved Task 8B issue.
+
+Task 8C followed red-green TDD. The initial backend gate failed on the missing FSS serializer, the existing automatic writer's duplicate create/update events, and absent delete revisions; the frontend gate failed on the missing FSS historical component. FSS recipe create, structural update, and delete now run inside the existing fail-closed audited transaction, suppress intermediate model events, emit one explicit canonical event after the complete business mutation, and attach the revision in the same transaction. Created recipes store an After-only snapshot, structural ingredient changes store Before and After, deleted recipes retain a Before snapshot after the live row is gone, and blocked deletes emit nothing. Simple serving changes remain drawer-only and retain typed old/new values.
+
+The serializer captures only the public recipe and ingredient references, recipe name/category/yield/preparation notes/calculated cost, and ingredient name/quantity/unit/catalog unit/event-time unit cost. It excludes actor/internal foreign keys, supplier IDs, arbitrary model attributes, and unsupported nested data, and revalidates exact stored key sets. The frontend reuses the existing read-only structured view and a shared typed comparator for both recipe families, visibly merging added, changed, and removed FSS ingredients without raw serialization or edit controls. The final configured-MySQL gate passes 103 tests and 517 assertions across FSS operations, permissions, costing, canonical-event/duplicate policy, the history framework, and both recipe serializers. The final affected frontend gate passes 6 files and 21 tests across history, drawer interactions, and the UUID proxy; TypeScript, focused ESLint, full Pint, the production history privacy/raw-serialization scan, and `git diff --check` pass. Separate spec and code-quality reviews found no unresolved Task 8C issue.
 
 **Rollback boundary:** Revert history routes/UI/writers before dropping the revisions table. Existing activity rows remain.
 

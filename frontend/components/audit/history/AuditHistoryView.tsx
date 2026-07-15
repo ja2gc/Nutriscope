@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Eye, History } from "lucide-react";
 import { AuditTimestamp } from "@/components/audit/AuditTimestamp";
 import { StructuredHistorySnapshot } from "@/components/audit/history/StructuredHistorySnapshot";
+import { FoodServiceRecipeHistory } from "@/components/audit/history/types/FoodServiceRecipeHistory";
 import { RndRecipeHistory } from "@/components/audit/history/types/RndRecipeHistory";
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
@@ -75,7 +76,9 @@ export function AuditHistoryView({ history }: { history: AuditHistoryDto }) {
         {selected ? (
           selected.type === "rnd_recipe"
             ? <RndRecipeHistory snapshot={selected} comparison={comparison} side={side} />
-            : <StructuredHistorySnapshot snapshot={selected} />
+            : selected.type === "food_service_recipe"
+              ? <FoodServiceRecipeHistory snapshot={selected} comparison={comparison} side={side} />
+              : <StructuredHistorySnapshot snapshot={selected} />
         ) : <p className="text-sm text-warm-500">No captured version is available.</p>}
       </Card>
 

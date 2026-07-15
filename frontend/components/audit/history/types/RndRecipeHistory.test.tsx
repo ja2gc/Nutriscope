@@ -51,7 +51,7 @@ describe("RND recipe historical view", () => {
   });
 
   test("compares typed values without raw serialization", () => {
-    const source = readFileSync(join(process.cwd(), "components/audit/history/types/RndRecipeHistory.tsx"), "utf8");
+    const source = readFileSync(join(process.cwd(), "components/audit/history/compareHistorySnapshot.ts"), "utf8");
     expect(source).not.toContain("JSON.stringify");
     expect(source).toContain("AuditValueDto");
   });

@@ -198,8 +198,7 @@ class AuditEventPolicy
             $subject instanceof Intervention,
             $subject instanceof Monitoring,
             $subject instanceof MealPlan,
-            $subject instanceof ScreeningDocument,
-            $subject instanceof FoodServiceRecipe => 'automatic',
+            $subject instanceof ScreeningDocument => 'automatic',
             default => 'explicit',
         };
     }

@@ -57,6 +57,8 @@ class AuditLogger
         array $changedFields,
         array $details = [],
         ?Model $context = null,
+        array $oldValues = [],
+        array $newValues = [],
     ): ?AuditActivity {
         $changedFields = collect($changedFields)
             ->filter(fn (mixed $field): bool => is_string($field) && preg_match('/^[a-z0-9_.:-]+$/iD', $field) === 1)
@@ -86,6 +88,8 @@ class AuditLogger
                 'context_public_id' => $resolvedContext?->getAttribute('uuid'),
                 'changed_fields' => $changedFields,
             ],
+            oldValues: $oldValues,
+            newValues: $newValues,
         );
     }
 

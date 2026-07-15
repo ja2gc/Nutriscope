@@ -2,7 +2,7 @@ import { compareHistorySnapshot } from "@/components/audit/history/compareHistor
 import { StructuredHistorySnapshot } from "@/components/audit/history/StructuredHistorySnapshot";
 import type { AuditHistorySnapshotDto } from "@/types/auditHistory";
 
-export function RndRecipeHistory({
+export function FoodServiceRecipeHistory({
   snapshot,
   comparison,
   side,

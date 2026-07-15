@@ -10,6 +10,7 @@ use App\Models\Assessment;
 use App\Models\AuditActivity;
 use App\Models\Budget;
 use App\Models\FoodItem;
+use App\Models\FoodServiceRecipe;
 use App\Models\FsItem;
 use App\Models\Intervention;
 use App\Models\MealPlan;
@@ -113,6 +114,18 @@ class AuditCanonicalEventTest extends TestCase
         $this->assertSame('rnd_recipe', $policy->forEvent(
             AuditAction::Updated,
             new Recipe,
+            AuditCategory::Operations,
+            AuditDomain::FoodService,
+        )['revision_serializer']);
+        $this->assertSame('explicit', $policy->forEvent(
+            AuditAction::Updated,
+            new FoodServiceRecipe,
+            AuditCategory::Operations,
+            AuditDomain::FoodService,
+        )['canonical_writer']);
+        $this->assertSame('food_service_recipe', $policy->forEvent(
+            AuditAction::Updated,
+            new FoodServiceRecipe,
             AuditCategory::Operations,
             AuditDomain::FoodService,
         )['revision_serializer']);
