@@ -77,6 +77,7 @@ class AuditValuePresenter
             'name' => 'text', 'kind' => 'enum', 'base_unit' => 'enum',
             'status' => 'enum', 'quantity' => 'number', 'servings' => 'number',
             'meal_type' => 'enum', 'is_active' => 'boolean', 'purchase_price' => 'currency',
+            'cycle_days' => 'number', 'week_start_date' => 'date', 'activation_date' => 'date',
             'estimated_population' => 'number', 'served_population' => 'number',
         ],
         AuditDomain::NutritionLibrary->value => [

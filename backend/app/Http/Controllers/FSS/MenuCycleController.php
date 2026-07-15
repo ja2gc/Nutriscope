@@ -11,6 +11,8 @@ use App\Http\Resources\MenuCycleResource;
 use App\Models\FoodServiceSetting;
 use App\Models\MenuCycle;
 use App\Services\Audit\AuditLogger;
+use App\Services\Audit\Revisions\AuditRevisionRegistry;
+use App\Services\Audit\Revisions\AuditRevisionWriter;
 use App\Services\FSS\ShoppingListPopulationService;
 use App\Services\MenuCycleCostService;
 use Illuminate\Http\JsonResponse;
@@ -25,7 +27,11 @@ class MenuCycleController extends Controller
 
     private const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
-    public function __construct(private readonly AuditLogger $auditLogger) {}
+    public function __construct(
+        private readonly AuditLogger $auditLogger,
+        private readonly AuditRevisionRegistry $revisionRegistry,
+        private readonly AuditRevisionWriter $revisionWriter,
+    ) {}
 
     public function index(): JsonResponse
     {
@@ -60,12 +66,22 @@ class MenuCycleController extends Controller
                 }
 
                 return $cycle;
-            }));
-            $fields = array_keys($cycle->getAttributes());
+            }))->fresh(self::DAY_RELATIONS);
+            $newValues = $this->auditValues($cycle);
+            $fields = array_keys($newValues);
             if ($cycle->days()->exists()) {
                 $fields[] = 'days';
             }
-            $this->auditLogger->recordMutation(AuditAction::Created, AuditDomain::FoodService, $cycle, $fields);
+            $activity = $this->auditLogger->recordMutation(
+                AuditAction::Created,
+                AuditDomain::FoodService,
+                $cycle,
+                $fields,
+                newValues: $newValues,
+            );
+            if ($activity !== null) {
+                $this->revisionWriter->write($activity, null, $this->revisionRegistry->capture($cycle));
+            }
 
             return $cycle;
         });
@@ -81,7 +97,6 @@ class MenuCycleController extends Controller
     public function update(UpdateMenuCycleRequest $request, MenuCycle $menuCycle): JsonResponse
     {
         $data = $request->validated();
-        $beforeDays = $this->daySignature($menuCycle);
         $days = $data['days'] ?? null;
         unset($data['days']);
         $data['cycle_days'] = 7;
@@ -99,23 +114,47 @@ class MenuCycleController extends Controller
             ], 422);
         }
 
-        $this->audited(function () use ($menuCycle, $data, $days, $beforeDays): void {
+        $this->audited(function () use ($menuCycle, $data, $days): void {
+            $beforeValues = $this->auditValues($menuCycle);
+            $revisionEligible = $days !== null
+                || array_key_exists('week_start_date', $data)
+                || array_key_exists('is_active', $data);
+            $before = $revisionEligible
+                ? $this->revisionRegistry->capture($menuCycle->load(self::DAY_RELATIONS))
+                : null;
+            $beforeDays = $days !== null ? $this->daySignature($menuCycle) : [];
             $this->auditLogger->withoutModelEvents(fn () => DB::transaction(function () use ($menuCycle, $data, $days) {
                 $menuCycle->update($data);
                 if ($days !== null) {
                     $this->syncDays($menuCycle, $days);
                 }
             }));
-            $fields = array_keys($menuCycle->getChanges());
+            $after = $menuCycle->fresh(self::DAY_RELATIONS);
+            $afterValues = $this->auditValues($after);
+            $fields = $this->changedValueKeys($beforeValues, $afterValues);
+            $structureChanged = false;
             if ($days !== null) {
                 $this->auditLogger->withoutModelEvents(
-                    fn () => app(ShoppingListPopulationService::class)->recalculateDraftListsForCycle($menuCycle->fresh()),
+                    fn () => app(ShoppingListPopulationService::class)->recalculateDraftListsForCycle($after),
                 );
-                if ($beforeDays !== $this->daySignature($menuCycle)) {
+                $structureChanged = $beforeDays !== $this->daySignature($after);
+                if ($structureChanged) {
                     $fields[] = 'days';
                 }
             }
-            $this->auditLogger->recordMutation(AuditAction::Updated, AuditDomain::FoodService, $menuCycle, $fields);
+            $activity = $this->auditLogger->recordMutation(
+                AuditAction::Updated,
+                AuditDomain::FoodService,
+                $after,
+                $fields,
+                oldValues: array_intersect_key($beforeValues, array_flip($fields)),
+                newValues: array_intersect_key($afterValues, array_flip($fields)),
+            );
+            $revisionChanged = $structureChanged
+                || collect($fields)->intersect(['week_start_date', 'is_active'])->isNotEmpty();
+            if ($activity !== null && $before !== null && $revisionChanged) {
+                $this->revisionWriter->write($activity, $before, $this->revisionRegistry->capture($after));
+            }
         });
 
         return response()->json(['data' => new MenuCycleResource($menuCycle->fresh()->load(self::DAY_RELATIONS))]);
@@ -124,8 +163,19 @@ class MenuCycleController extends Controller
     public function destroy(MenuCycle $menuCycle): JsonResponse
     {
         $this->audited(function () use ($menuCycle): void {
+            $before = $this->revisionRegistry->capture($menuCycle->load(self::DAY_RELATIONS));
+            $oldValues = $this->auditValues($menuCycle);
             $this->auditLogger->withoutModelEvents(fn () => $menuCycle->delete());
-            $this->auditLogger->recordMutation(AuditAction::Deleted, AuditDomain::FoodService, $menuCycle, []);
+            $activity = $this->auditLogger->recordMutation(
+                AuditAction::Deleted,
+                AuditDomain::FoodService,
+                $menuCycle,
+                [],
+                oldValues: $oldValues,
+            );
+            if ($activity !== null) {
+                $this->revisionWriter->write($activity, $before, null);
+            }
         });
 
         return response()->json(null, 204);
@@ -142,7 +192,8 @@ class MenuCycleController extends Controller
         }
 
         $this->audited(function () use ($menuCycle): void {
-            $before = $menuCycle->only(['is_active', 'status', 'activation_date']);
+            $beforeValues = $this->auditValues($menuCycle);
+            $beforeRevision = $this->revisionRegistry->capture($menuCycle->load(self::DAY_RELATIONS));
             $this->auditLogger->withoutModelEvents(fn () => DB::transaction(function () use ($menuCycle) {
                 // Retire any currently active cycle before promoting this one — only one
                 // cycle may be active at a time (callers do where('is_active', true)->first()).
@@ -166,13 +217,23 @@ class MenuCycleController extends Controller
 
                 $menuCycle->update($attrs);
             }));
-            $menuCycle->refresh();
-            $this->auditLogger->recordMutation(
+            $after = $menuCycle->fresh(self::DAY_RELATIONS);
+            $afterValues = $this->auditValues($after);
+            $fields = $this->changedValueKeys($beforeValues, $afterValues);
+            if ($fields !== []) {
+                $fields[] = 'activation_state';
+            }
+            $activity = $this->auditLogger->recordMutation(
                 AuditAction::Updated,
                 AuditDomain::FoodService,
-                $menuCycle,
-                $before !== $menuCycle->only(['is_active', 'status', 'activation_date']) ? ['activation_state'] : [],
+                $after,
+                $fields,
+                oldValues: array_intersect_key($beforeValues, array_flip($fields)),
+                newValues: array_intersect_key($afterValues, array_flip($fields)),
             );
+            if ($activity !== null) {
+                $this->revisionWriter->write($activity, $beforeRevision, $this->revisionRegistry->capture($after));
+            }
         });
 
         return response()->json(['data' => new MenuCycleResource($menuCycle->fresh())]);
@@ -315,6 +376,29 @@ class MenuCycleController extends Controller
         if (! empty($rows)) {
             DB::table('menu_cycle_days')->insert($rows);
         }
+    }
+
+    /** @return array<string, string|int|bool|null> */
+    private function auditValues(MenuCycle $cycle): array
+    {
+        return [
+            'name' => (string) $cycle->name,
+            'cycle_days' => (int) $cycle->cycle_days,
+            'week_start_date' => $cycle->week_start_date?->toDateString(),
+            'status' => (string) $cycle->status,
+            'is_active' => (bool) $cycle->is_active,
+            'activation_date' => $cycle->activation_date?->toDateString(),
+        ];
+    }
+
+    /** @param array<string, mixed> $before @param array<string, mixed> $after @return list<string> */
+    private function changedValueKeys(array $before, array $after): array
+    {
+        return collect($after)
+            ->filter(fn (mixed $value, string $key): bool => ($before[$key] ?? null) !== $value)
+            ->keys()
+            ->values()
+            ->all();
     }
 
     private function daySignature(MenuCycle $cycle): array

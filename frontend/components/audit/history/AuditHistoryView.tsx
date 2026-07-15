@@ -6,10 +6,32 @@ import { Eye, History } from "lucide-react";
 import { AuditTimestamp } from "@/components/audit/AuditTimestamp";
 import { StructuredHistorySnapshot } from "@/components/audit/history/StructuredHistorySnapshot";
 import { FoodServiceRecipeHistory } from "@/components/audit/history/types/FoodServiceRecipeHistory";
+import { MenuCycleHistory } from "@/components/audit/history/types/MenuCycleHistory";
 import { RndRecipeHistory } from "@/components/audit/history/types/RndRecipeHistory";
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
-import type { AuditHistoryDto } from "@/types/auditHistory";
+import type { AuditHistoryDto, AuditHistorySnapshotDto } from "@/types/auditHistory";
+
+function HistorySnapshot({
+  snapshot,
+  comparison,
+  side,
+}: {
+  snapshot: AuditHistorySnapshotDto;
+  comparison: AuditHistorySnapshotDto | null;
+  side: "before" | "after";
+}) {
+  switch (snapshot.type) {
+    case "rnd_recipe":
+      return <RndRecipeHistory snapshot={snapshot} comparison={comparison} side={side} />;
+    case "food_service_recipe":
+      return <FoodServiceRecipeHistory snapshot={snapshot} comparison={comparison} side={side} />;
+    case "menu_cycle":
+      return <MenuCycleHistory snapshot={snapshot} comparison={comparison} side={side} />;
+    default:
+      return <StructuredHistorySnapshot snapshot={snapshot} />;
+  }
+}
 
 export function AuditHistoryView({ history }: { history: AuditHistoryDto }) {
   const initialSide = history.after ? "after" : "before";
@@ -73,13 +95,9 @@ export function AuditHistoryView({ history }: { history: AuditHistoryDto }) {
             </div>
           )}
         </div>
-        {selected ? (
-          selected.type === "rnd_recipe"
-            ? <RndRecipeHistory snapshot={selected} comparison={comparison} side={side} />
-            : selected.type === "food_service_recipe"
-              ? <FoodServiceRecipeHistory snapshot={selected} comparison={comparison} side={side} />
-              : <StructuredHistorySnapshot snapshot={selected} />
-        ) : <p className="text-sm text-warm-500">No captured version is available.</p>}
+        {selected
+          ? <HistorySnapshot snapshot={selected} comparison={comparison} side={side} />
+          : <p className="text-sm text-warm-500">No captured version is available.</p>}
       </Card>
 
       {history.event.current_record_url && (
