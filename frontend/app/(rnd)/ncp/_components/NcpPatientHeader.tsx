@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ArrowLeftRight, Heart } from "lucide-react";
 import type { ReactNode } from "react";
 import type { Patient } from "@/services/patientService";
+import { personDisplayName } from "@/lib/personName";
 
 type Props = {
   patient: Patient | null;
@@ -48,7 +49,7 @@ export default function NcpPatientHeader({
                 Active Patient - {stepLabel}
               </p>
               <h2 className="text-base font-extrabold text-warm-900 tracking-tight">
-                {patient?.name ?? "Loading patient..."}
+                {personDisplayName(patient, "Loading patient...")}
               </h2>
               <p className="text-xs font-mono text-warm-400">
                 {systemId} / {cycleId}

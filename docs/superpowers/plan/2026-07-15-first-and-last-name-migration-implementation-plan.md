@@ -1,6 +1,6 @@
 # First-Name/Last-Name Migration Implementation Plan
 
-**Status:** Tasks 1–4 and Wave N1 complete; Task 5 web migration is next.
+**Status:** Tasks 1–5 and Wave N1 complete; Task 6 mobile migration is next.
 
 **Authoritative design:** `docs/superpowers/specs/2026-07-15-first-and-last-name-migration-design.md`
 
@@ -119,16 +119,16 @@ php artisan migrate:status --no-ansi
 
 ## Task 5 — Web types, forms, tables, filters, proxies, and attribution
 
-- [ ] Add `frontend/lib/personName.ts` as the single frontend adapter for `display_name` with deprecated `name` fallback, plus `frontend/lib/personName.test.ts`.
-- [ ] Update person DTOs and payloads in `frontend/services/authService.ts`, `frontend/services/adminUserService.ts`, and `frontend/services/patientService.ts`. Keep nested historical/audit author `name` fields where their API contract intentionally remains a snapshot.
-- [ ] Keep proxy compatibility and add forwarding tests for `frontend/app/api/auth/profile/route.ts`, `frontend/app/api/admin/users/route.ts`, `frontend/app/api/admin/users/[id]/route.ts`, `frontend/app/api/patients/route.ts`, and `frontend/app/api/patients/[id]/route.ts`; request bodies must pass split and deprecated fields unchanged.
-- [ ] Replace the single full-name account form with required first/last inputs in `frontend/app/admin/users/page.tsx`; display `display_name`, preserve edit behavior for legacy null-last-name rows, and use existing Nutriscope inputs, modals, tables, spacing, colors, and responsive patterns.
-- [ ] Replace the profile name field in `frontend/components/profile/ProfilePageShell.tsx` with first/last inputs and deliberate-change validation; keep unrelated profile edits possible for legacy rows.
-- [ ] Replace patient creation/edit name inputs and displays in `frontend/app/(rnd)/ncp/patients/page.tsx`, `frontend/app/(rnd)/ncp/patients/[patientId]/page.tsx`, `frontend/app/(rnd)/ncp/_components/NcpPatientHeader.tsx`, `frontend/app/(rnd)/dashboard/page.tsx`, `frontend/app/(rnd)/ncp/[patientId]/assessment/[ncpId]/page.tsx`, `frontend/app/(rnd)/ncp/[patientId]/diagnosis/[ncpId]/page.tsx`, and `frontend/app/(rnd)/ncp/[patientId]/intervention/[ncpId]/page.tsx` with the adapter, without changing food/recipe/supplier/menu names.
-- [ ] Update user display in `frontend/components/layout/TopBar.tsx`; image alt text uses the same display contract.
-- [ ] Add/extend Vitest behavior tests for create/edit payloads, legacy display fallback, validation, tables, filters, attribution, proxies, and responsive accessible labels. Use the existing design system; touch targets are at least 44 px, focus is visible, and both inputs have semantic labels.
-- [ ] Before code changes, read the applicable local Next.js 16 documentation under `frontend/node_modules/next/dist/docs` for route handlers and client/server boundaries and record the file paths in the task evidence.
-- [ ] Review gates complete; commit `feat: migrate web person name flows`.
+- [x] Add `frontend/lib/personName.ts` as the single frontend adapter for `display_name` with deprecated `name` fallback, plus `frontend/lib/personName.test.ts`.
+- [x] Update person DTOs and payloads in `frontend/services/authService.ts`, `frontend/services/adminUserService.ts`, and `frontend/services/patientService.ts`. Keep nested historical/audit author `name` fields where their API contract intentionally remains a snapshot.
+- [x] Keep proxy compatibility and add forwarding tests for `frontend/app/api/auth/profile/route.ts`, `frontend/app/api/admin/users/route.ts`, `frontend/app/api/admin/users/[id]/route.ts`, `frontend/app/api/patients/route.ts`, and `frontend/app/api/patients/[id]/route.ts`; request bodies must pass split and deprecated fields unchanged.
+- [x] Replace the single full-name account form with required first/last inputs in `frontend/app/admin/users/page.tsx`; display `display_name`, preserve edit behavior for legacy null-last-name rows, and use existing Nutriscope inputs, modals, tables, spacing, colors, and responsive patterns.
+- [x] Replace the profile name field in `frontend/components/profile/ProfilePageShell.tsx` with first/last inputs and deliberate-change validation; keep unrelated profile edits possible for legacy rows.
+- [x] Replace patient creation/edit name inputs and displays in `frontend/app/(rnd)/ncp/patients/page.tsx`, `frontend/app/(rnd)/ncp/patients/[patientId]/page.tsx`, `frontend/app/(rnd)/ncp/_components/NcpPatientHeader.tsx`, `frontend/app/(rnd)/dashboard/page.tsx`, `frontend/app/(rnd)/ncp/[patientId]/assessment/[ncpId]/page.tsx`, `frontend/app/(rnd)/ncp/[patientId]/diagnosis/[ncpId]/page.tsx`, and `frontend/app/(rnd)/ncp/[patientId]/intervention/[ncpId]/page.tsx` with the adapter, without changing food/recipe/supplier/menu names.
+- [x] Update user display in `frontend/components/layout/TopBar.tsx`; image alt text uses the same display contract.
+- [x] Add/extend Vitest behavior tests for create/edit payloads, legacy display fallback, validation, tables, filters, attribution, proxies, and responsive accessible labels. Use the existing design system; touch targets are at least 44 px, focus is visible, and both inputs have semantic labels.
+- [x] Before code changes, read the applicable local Next.js 16 documentation under `frontend/node_modules/next/dist/docs` for route handlers and client/server boundaries and record the file paths in the task evidence.
+- [x] Review gates complete; commit `feat: migrate web person name flows`.
 
 **Focused verification:**
 
@@ -139,6 +139,8 @@ npx tsc --noEmit
 npm run lint
 npm run build
 ```
+
+**Task 5 evidence (2026-07-15):** Read `frontend/node_modules/next/dist/docs/01-app/01-getting-started/05-server-and-client-components.md` and `frontend/node_modules/next/dist/docs/01-app/01-getting-started/15-route-handlers.md` before implementation. Red-first tests covered the shared adapter, modern and deprecated DTO/payload compatibility, Admin/profile/patient paired-edit behavior, semantic labels, 44-pixel controls, visible focus, display labels, and all five Next.js proxy paths. The proxy review found and fixed an existing `per_page` forwarding gap by using the shared authenticated proxy without changing route paths. Spec review found one stale diagnosis breadcrumb; code-quality review added a keyboard-submittable, labelled patient dialog and clarified update types. Focused Vitest passed 19 tests; the final full frontend suite passed 190 tests in 56 files; TypeScript and ESLint passed; the Next.js 16.2.6 production build compiled, typechecked, and generated all 91 static pages. The first sandboxed build could not fetch the configured Google fonts; the authorized network-enabled rerun passed. A final stale-person-name scan found no direct User/Patient `.name` presentation consumers; intentional nested snapshot/entity `name` contracts remain unchanged.
 
 **Rollback boundary:** Revert the web commit independently. Backend deprecated `name` compatibility remains available.
 

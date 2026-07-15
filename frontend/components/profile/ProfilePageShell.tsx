@@ -15,6 +15,10 @@ import {
   verifyRecoveryEmail,
   type User,
 } from "@/services/authService";
+import {
+  changedPersonNameFields,
+  personNameFormValues,
+} from "@/lib/personName";
 
 type ProfilePageShellProps = {
   crumbs: [string, string?][];
@@ -25,7 +29,8 @@ type ProfilePageShellProps = {
 export function ProfilePageShell({ crumbs, subtitle, fallbackRole }: ProfilePageShellProps) {
   const { user, refreshUser } = useAuth();
 
-  const [name, setName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [contactNumber, setContactNumber] = useState("");
   const [profileImages, setProfileImages] = useState<UploadImage[]>([]);
@@ -50,7 +55,9 @@ export function ProfilePageShell({ crumbs, subtitle, fallbackRole }: ProfilePage
 
   useEffect(() => {
     if (user) {
-      setName(user.name);
+      const nameValues = personNameFormValues(user);
+      setFirstName(nameValues.firstName);
+      setLastName(nameValues.lastName);
       setEmail(user.email);
       setContactNumber(user.contact_number ?? "");
       setRecoveryEmail(user.recovery_email ?? "");
@@ -64,11 +71,15 @@ export function ProfilePageShell({ crumbs, subtitle, fallbackRole }: ProfilePage
     setProfileDone(false);
     setSavingProfile(true);
     try {
+      if (!user) {
+        throw new Error("User profile is unavailable.");
+      }
+      const nameFields = changedPersonNameFields(user, firstName, lastName);
       await updateProfile({
-        name,
         email,
         contact_number: contactNumber.trim() || null,
         profile_photo: imageSrcs(profileImages)[0] ?? null,
+        ...(nameFields ?? {}),
       });
       await refreshUser();
       setProfileDone(true);
@@ -179,7 +190,10 @@ export function ProfilePageShell({ crumbs, subtitle, fallbackRole }: ProfilePage
               uploadLabel={profileImages.length > 0 ? "Change profile picture" : "Upload profile picture"}
               removeLabel="Delete profile picture"
             />
-            <Input label="Full Name" value={name} onChange={(e) => setName(e.target.value)} required />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Input label="First Name" value={firstName} onChange={(e) => setFirstName(e.target.value)} className="min-h-11" />
+              <Input label="Last Name" value={lastName} onChange={(e) => setLastName(e.target.value)} className="min-h-11" />
+            </div>
             <Input label="Sign-in Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
             <p className="-mt-2 text-xs text-warm-400">
               Use this email when signing in. Password reset links are sent to your verified recovery email below.

@@ -16,6 +16,7 @@ import {
 import { CALCULATION_INPUT_HELPERS } from "@/lib/assessmentCalculationInputs";
 import { getAnthropometricSafetyWarning } from "@/lib/anthropometricSafety";
 import { formatDateInputValue, formatPatientAge } from "@/lib/patientAge";
+import { changedPersonNameFields, personDisplayName } from "@/lib/personName";
 import {
   Assessment, AssessmentValidationError, fetchAssessment, saveAssessment,
   AttachmentRecord, uploadAttachment, fetchAttachments, deleteAttachment,
@@ -43,7 +44,8 @@ function formatAssessmentValidationError(error: AssessmentValidationError): stri
 }
 
 export type ScreeningDraft = {
-  patientName: string;
+  firstName: string;
+  lastName: string;
   dob: string;
   age: string;
   sex: string;
@@ -218,10 +220,16 @@ function isImagePath(path?: string) {
 }
 
 // ─── Field Components ────────────────────────────────────────────────────
-function Field({ label, children, span, required }: { label: string; children: React.ReactNode; span?: number; required?: boolean }) {
+function Field({ label, children, span, required, htmlFor }: {
+  label: string;
+  children: React.ReactNode;
+  span?: number;
+  required?: boolean;
+  htmlFor?: string;
+}) {
   return (
     <div className={span ? `col-span-${span}` : ""} style={span ? { gridColumn: `span ${span}` } : undefined}>
-      <label className="block text-xs font-bold text-warm-500 uppercase tracking-wider mb-1.5">
+      <label htmlFor={htmlFor} className="block text-xs font-bold text-warm-500 uppercase tracking-wider mb-1.5">
         {label}
         {required && <span className="ml-0.5 text-red-500" aria-hidden="true">*</span>}
       </label>
@@ -230,20 +238,21 @@ function Field({ label, children, span, required }: { label: string; children: R
   );
 }
 
-function TextInput({ value, onChange, placeholder, type, disabled, min, max }: {
+function TextInput({ value, onChange, placeholder, type, disabled, min, max, id, className }: {
   value: string; onChange: (v: string) => void; placeholder?: string; type?: string; disabled?: boolean;
-  min?: number; max?: number;
+  min?: number; max?: number; id?: string; className?: string;
 }) {
   return (
     <input
       type={type ?? "text"}
+      id={id}
       value={value}
       onChange={e => onChange(e.target.value)}
       placeholder={placeholder}
       disabled={disabled}
       min={min}
       max={max}
-      className="w-full px-3 py-2 text-sm bg-white border border-warm-200 rounded-lg text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all placeholder:text-warm-400 disabled:bg-warm-50 disabled:cursor-not-allowed"
+      className={`w-full px-3 py-2 text-sm bg-white border border-warm-200 rounded-lg text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all placeholder:text-warm-400 disabled:bg-warm-50 disabled:cursor-not-allowed ${className ?? ""}`}
     />
   );
 }
@@ -643,7 +652,8 @@ export default function NcpAssessmentPage({
 
   const buildScreeningDraft = useCallback((basePatient: Patient, baseAssessment?: Assessment | null): ScreeningDraft => {
     return {
-      patientName: basePatient.name,
+      firstName: basePatient.first_name ?? "",
+      lastName: basePatient.last_name ?? "",
       dob: formatDateInputValue(basePatient.dob),
       age: formatPatientAge(basePatient.dob),
       sex: basePatient.sex,
@@ -867,6 +877,10 @@ export default function NcpAssessmentPage({
         return;
       }
 
+      const nameFields = patient && screeningDraft
+        ? changedPersonNameFields(patient, screeningDraft.firstName, screeningDraft.lastName)
+        : null;
+
       const toSave: Partial<Assessment> = {
         ...assessment,
         // Auto-computed fields — override stored value with live computation when available
@@ -888,7 +902,6 @@ export default function NcpAssessmentPage({
       // Save patient demographics if updated via screening form
       if (patient && screeningDraft) {
         const patientData: PatientUpdateData = {
-          name: screeningDraft.patientName,
           dob: screeningDraft.dob,
           sex: screeningDraft.sex as "Male" | "Female",
           address: screeningDraft.address,
@@ -898,6 +911,7 @@ export default function NcpAssessmentPage({
           hospital_number: screeningDraft.hospitalNumber,
           age_group_category: screeningDraft.ageGroupCategory,
           screening_type: screeningDraft.screeningType,
+          ...(nameFields ?? {}),
         };
         const updated = await updatePatient(patient.id, patientData);
         setPatient(updated);
@@ -1364,8 +1378,11 @@ export default function NcpAssessmentPage({
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Field label="Patient Name">
-                <TextInput value={draft?.patientName ?? ""} onChange={v => updateScreeningDraftField("patientName", v)} placeholder="Patient name" />
+              <Field label="First Name" htmlFor="screening-first-name">
+                <TextInput id="screening-first-name" className="min-h-11 focus-visible:ring-2" value={draft?.firstName ?? ""} onChange={v => updateScreeningDraftField("firstName", v)} placeholder="First name" />
+              </Field>
+              <Field label="Last Name" htmlFor="screening-last-name">
+                <TextInput id="screening-last-name" className="min-h-11 focus-visible:ring-2" value={draft?.lastName ?? ""} onChange={v => updateScreeningDraftField("lastName", v)} placeholder="Last name" />
               </Field>
               <Field label="Date of Birth">
                 <TextInput type="date" value={draft?.dob ?? ""} onChange={v => updateScreeningDraftField("dob", v)} />
@@ -1636,7 +1653,7 @@ export default function NcpAssessmentPage({
       <div className="flex items-center gap-1.5 text-sm font-semibold text-warm-400 select-none">
         <Link href="/ncp/patients" className="hover:text-emerald-700 transition-colors">Directory</Link>
         <ChevronRight className="h-3 w-3" />
-        <Link href={`/ncp/patients/${patientId}`} className="hover:text-emerald-700 transition-colors">{patient?.name ?? systemId}</Link>
+        <Link href={`/ncp/patients/${patientId}`} className="hover:text-emerald-700 transition-colors">{personDisplayName(patient, systemId)}</Link>
         <ChevronRight className="h-3 w-3" />
         <span className="text-warm-700 font-bold">Assessment</span>
       </div>

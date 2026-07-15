@@ -13,6 +13,9 @@ export interface ClinicalActionAttribution {
 
 export interface Patient {
   id: number;
+  first_name: string | null;
+  last_name: string | null;
+  display_name: string;
   name: string;
   dob: string; // YYYY-MM-DD
   sex: "Male" | "Female";
@@ -70,8 +73,19 @@ export interface NcpRecord {
   } | null;
 }
 
-export interface PatientStoreData {
+interface ModernPatientNameInput {
+  first_name: string;
+  last_name: string;
+  name?: string;
+}
+
+interface LegacyPatientNameInput {
   name: string;
+  first_name?: string;
+  last_name?: string;
+}
+
+interface PatientStoreFields {
   dob: string;
   sex: "Male" | "Female";
   religion?: string;
@@ -87,7 +101,13 @@ export interface PatientStoreData {
   age_group_category?: string;
 }
 
-export type PatientUpdateData = Partial<PatientStoreData>;
+export type PatientStoreData = (ModernPatientNameInput | LegacyPatientNameInput) & PatientStoreFields;
+
+export type PatientUpdateData = Partial<PatientStoreFields> & {
+  first_name?: string;
+  last_name?: string;
+  name?: string;
+};
 
 export interface PatientListResponse {
   data: Patient[];

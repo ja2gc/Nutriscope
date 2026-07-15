@@ -1,5 +1,8 @@
 export interface User {
   id: number;
+  first_name: string | null;
+  last_name: string | null;
+  display_name: string;
   name: string;
   email: string;
   recovery_email?: string | null;
@@ -48,7 +51,9 @@ export async function logoutUser(): Promise<void> {
 }
 
 export async function updateProfile(data: {
-  name: string;
+  first_name?: string;
+  last_name?: string;
+  name?: string;
   email: string;
   contact_number?: string | null;
   profile_photo?: string | null;

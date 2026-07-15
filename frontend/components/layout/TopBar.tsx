@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { Bell, LogOut, Menu, User as UserIcon } from "lucide-react";
 import { fetchUnreadCount } from "@/services/notificationService";
+import { personDisplayName } from "@/lib/personName";
 
 export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
   const pathname = usePathname();
@@ -126,7 +127,7 @@ export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
               <span className={`text-sm font-bold leading-tight ${
                 isAdminPath ? "text-white" : "text-warm-800"
               }`}>
-                {user.name}
+                {personDisplayName(user)}
               </span>
               <span className="text-xs font-extrabold text-brand-orange-600 uppercase tracking-widest leading-tight mt-0.5">
                 {user.role}
@@ -136,7 +137,7 @@ export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
             <div className="h-8 w-8 overflow-hidden rounded-full bg-brand-green-50 border border-brand-green-200 flex items-center justify-center text-brand-green-700 shrink-0">
               {user.profile_photo ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={user.profile_photo} alt={user.name} className="h-full w-full object-cover" />
+                <img src={user.profile_photo} alt={personDisplayName(user)} className="h-full w-full object-cover" />
               ) : (
                 <UserIcon className="h-4 w-4" />
               )}

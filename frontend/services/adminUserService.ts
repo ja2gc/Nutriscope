@@ -1,8 +1,19 @@
 import { apiFetch } from "@/lib/apiFetch";
 import { User } from "@/services/authService";
 
-export interface CreateUserPayload {
+interface ModernPersonNameInput {
+  first_name: string;
+  last_name: string;
+  name?: string;
+}
+
+interface LegacyPersonNameInput {
   name: string;
+  first_name?: string;
+  last_name?: string;
+}
+
+interface UserWriteFields {
   email: string;
   role: "RND" | "FSS" | "Admin";
   password?: string;
@@ -10,7 +21,11 @@ export interface CreateUserPayload {
   is_active?: boolean;
 }
 
+export type CreateUserPayload = (ModernPersonNameInput | LegacyPersonNameInput) & UserWriteFields;
+
 export interface UpdateUserPayload {
+  first_name?: string;
+  last_name?: string;
   name?: string;
   email?: string;
   role?: "RND" | "FSS" | "Admin";

@@ -18,6 +18,7 @@ import { fetchAssessment } from "@/services/assessmentService";
 import { buildDiagnosisProblemText } from "@/lib/diagnosisBuilder";
 import { matchStoredOption, splitStoredComponent } from "@/lib/diagnosisComponentSplit";
 import NcpPatientHeader from "../../../_components/NcpPatientHeader";
+import { personDisplayName } from "@/lib/personName";
 
 // ─── Domain Metadata ─────────────────────────────────────────────────────────
 
@@ -1069,7 +1070,7 @@ export default function NcpDiagnosisPage({
         <Link href="/ncp/patients" className="hover:text-emerald-700 transition-colors">Directory</Link>
         <ChevronRight className="h-3 w-3" />
         <Link href={`/ncp/patients/${patientId}`} className="hover:text-emerald-700 transition-colors">
-          {patient?.name ?? systemId}
+          {personDisplayName(patient, systemId)}
         </Link>
         <ChevronRight className="h-3 w-3" />
         <span className="text-warm-700 font-bold">Diagnosis</span>

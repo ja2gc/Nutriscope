@@ -12,6 +12,7 @@ import {
 import { Button } from "@/components/ui/Button";
 import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
 import { formatPatientAge } from "@/lib/patientAge";
+import { personDisplayName, requiredPersonNameFields } from "@/lib/personName";
 import { HeartHandshake, X } from "lucide-react";
 import { ClinicalAttribution } from "@/components/ncp/ClinicalAttribution";
 
@@ -88,7 +89,8 @@ export default function NcpPatientsPage() {
 
   // Create patient modal
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [newName, setNewName] = useState("");
+  const [newFirstName, setNewFirstName] = useState("");
+  const [newLastName, setNewLastName] = useState("");
   const [newSex, setNewSex] = useState<"Male" | "Female">("Female");
   const [newDob, setNewDob] = useState("");
   const [createError, setCreateError] = useState<string | null>(null);
@@ -116,17 +118,19 @@ export default function NcpPatientsPage() {
     return () => window.clearTimeout(timer);
   }, [loadPatients]);
 
-  const handleCreateAndAssess = async () => {
-    if (!newName.trim() || !newDob) {
-      setCreateError("Please fill in the patient's name and date of birth.");
+  const handleCreateAndAssess = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!newFirstName.trim() || !newLastName.trim() || !newDob) {
+      setCreateError("Please fill in the patient's first name, last name, and date of birth.");
       return;
     }
     setCreateError(null);
     setCreating(true);
     try {
+      const nameFields = requiredPersonNameFields(newFirstName, newLastName);
       const today = new Date().toISOString().split("T")[0];
       const newPatient = await createPatient({
-        name: newName.trim(),
+        ...nameFields,
         dob: newDob,
         sex: newSex,
         admission_date: today,
@@ -141,7 +145,8 @@ export default function NcpPatientsPage() {
   };
 
   function openCreateModal() {
-    setNewName("");
+    setNewFirstName("");
+    setNewLastName("");
     setNewSex("Female");
     setNewDob("");
     setCreateError(null);
@@ -270,7 +275,7 @@ export default function NcpPatientsPage() {
                       className={`${index % 2 === 0 ? "bg-white" : "bg-warm-50/20"} hover:bg-warm-50/40 transition-colors`}
                     >
                       <td className="px-5 py-4">
-                        <div className="text-sm font-bold text-warm-900">{patient.name}</div>
+                        <div className="text-sm font-bold text-warm-900">{personDisplayName(patient)}</div>
                         <div className="text-xs font-mono text-warm-400 mt-1">{systemId}</div>
                       </td>
 
@@ -339,27 +344,51 @@ export default function NcpPatientsPage() {
         {/* ── Create patient modal ─────────────────────────────────────────────── */}
       {showCreateModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm mx-4 p-6 space-y-5">
+          <form
+            onSubmit={handleCreateAndAssess}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="new-patient-title"
+            className="bg-white rounded-2xl shadow-xl w-full max-w-sm mx-4 p-6 space-y-5"
+          >
             <div className="flex items-center justify-between">
-              <h3 className="text-base font-extrabold text-warm-900 tracking-tight">New Patient Details</h3>
+              <h3 id="new-patient-title" className="text-base font-extrabold text-warm-900 tracking-tight">New Patient Details</h3>
               <button
+                type="button"
                 onClick={() => setShowCreateModal(false)}
-                className="p-1.5 text-warm-400 hover:text-warm-700 hover:bg-warm-100 rounded-lg transition-colors"
+                aria-label="Close new patient form"
+                className="min-h-11 min-w-11 p-1.5 text-warm-400 hover:text-warm-700 hover:bg-warm-100 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
 
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-warm-500 uppercase tracking-wider block">Full Name</label>
-              <input
-                type="text"
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                placeholder="Patient full name"
-                autoFocus
-                className="w-full px-3 py-2 text-base bg-white border border-warm-300 rounded-lg text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 transition-all placeholder:text-warm-400"
-              />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label htmlFor="patient-first-name" className="text-xs font-bold text-warm-500 uppercase tracking-wider block">First Name</label>
+                <input
+                  id="patient-first-name"
+                  type="text"
+                  required
+                  value={newFirstName}
+                  onChange={(e) => setNewFirstName(e.target.value)}
+                  placeholder="Maria Luisa"
+                  autoFocus
+                  className="min-h-11 w-full px-3 py-2 text-base bg-white border border-warm-300 rounded-lg text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 focus-visible:ring-2 transition-all placeholder:text-warm-400"
+                />
+              </div>
+              <div className="space-y-1">
+                <label htmlFor="patient-last-name" className="text-xs font-bold text-warm-500 uppercase tracking-wider block">Last Name</label>
+                <input
+                  id="patient-last-name"
+                  type="text"
+                  required
+                  value={newLastName}
+                  onChange={(e) => setNewLastName(e.target.value)}
+                  placeholder="De la Cruz"
+                  className="min-h-11 w-full px-3 py-2 text-base bg-white border border-warm-300 rounded-lg text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 focus-visible:ring-2 transition-all placeholder:text-warm-400"
+                />
+              </div>
             </div>
 
             <div className="space-y-1">
@@ -368,8 +397,9 @@ export default function NcpPatientsPage() {
                 {(["Female", "Male"] as const).map((s) => (
                   <button
                     key={s}
+                    type="button"
                     onClick={() => setNewSex(s)}
-                    className={`flex-1 py-2 text-sm font-bold rounded-lg border transition-colors ${
+                    className={`min-h-11 flex-1 py-2 text-sm font-bold rounded-lg border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${
                       newSex === s
                         ? "bg-emerald-600 text-white border-emerald-600"
                         : "bg-white text-warm-600 border-warm-300 hover:bg-warm-50"
@@ -382,13 +412,15 @@ export default function NcpPatientsPage() {
             </div>
 
             <div className="space-y-1">
-              <label className="text-xs font-bold text-warm-500 uppercase tracking-wider block">Date of Birth</label>
+              <label htmlFor="patient-dob" className="text-xs font-bold text-warm-500 uppercase tracking-wider block">Date of Birth</label>
               <input
+                id="patient-dob"
                 type="date"
+                required
                 value={newDob}
                 onChange={(e) => setNewDob(e.target.value)}
                 max={new Date().toISOString().split("T")[0]}
-                className="w-full px-3 py-2 text-base bg-white border border-warm-300 rounded-lg text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 transition-all"
+                className="min-h-11 w-full px-3 py-2 text-base bg-white border border-warm-300 rounded-lg text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 focus-visible:ring-2 transition-all"
               />
             </div>
 
@@ -398,21 +430,22 @@ export default function NcpPatientsPage() {
 
             <div className="flex gap-2 pt-1">
               <button
+                type="button"
                 onClick={() => setShowCreateModal(false)}
                 disabled={creating}
-                className="flex-1 py-2.5 text-sm font-bold uppercase tracking-wider rounded-xl border border-warm-300 text-warm-600 hover:bg-warm-50 transition-colors disabled:opacity-50"
+                className="min-h-11 flex-1 py-2.5 text-sm font-bold uppercase tracking-wider rounded-xl border border-warm-300 text-warm-600 hover:bg-warm-50 transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
               >
                 Cancel
               </button>
               <button
-                onClick={handleCreateAndAssess}
-                disabled={creating || !newName.trim() || !newDob}
-                className="flex-1 py-2.5 text-sm font-bold uppercase tracking-wider rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                type="submit"
+                disabled={creating || !newFirstName.trim() || !newLastName.trim() || !newDob}
+                className="min-h-11 flex-1 py-2.5 text-sm font-bold uppercase tracking-wider rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
               >
                 {creating ? "Creating…" : "Create & Assess"}
               </button>
             </div>
-          </div>
+          </form>
         </div>
       )}
 

@@ -2,6 +2,7 @@
 
 import { Filter, RotateCcw } from "lucide-react";
 import type { User } from "@/services/authService";
+import { personDisplayName } from "@/lib/personName";
 import type { AuditCategory, AuditFilterMetadata, AuditOutcome, AuditSeverity } from "@/types/audit";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -57,7 +58,7 @@ export function AuditFilters({
   onChange: (next: AuditFilterState) => void;
   onClear: () => void;
 }) {
-  const actorOptions = users.map((user) => ({ value: String(user.id), label: `${user.name} (${user.role})` }));
+  const actorOptions = users.map((user) => ({ value: String(user.id), label: `${personDisplayName(user)} (${user.role})` }));
   const compatibleActions = value.category
     ? new Set(metadata.category_actions[value.category] || [])
     : null;

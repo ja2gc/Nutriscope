@@ -18,6 +18,7 @@ import {
 import { categoryStyles } from "@/components/announcements/AnnouncementsBoard";
 import { FssDashboardSummary, getFssDashboard } from "@/services/menuCycleService";
 import { Calendar, Compass, HeartHandshake, PencilLine, TrendingUp, X } from "lucide-react";
+import { personDisplayName } from "@/lib/personName";
 
 type AnnouncementDraft = {
   category: AnnouncementCategory;
@@ -87,7 +88,7 @@ function buildFollowUps(patients: Patient[]): FollowUpRow[] {
       return [
         {
           patientId: patient.id,
-          name: patient.name,
+          name: personDisplayName(patient),
           systemId: `NS-${String(patient.id).padStart(5, "0")}`,
           goalType: patient.ncp_records?.[0]?.intervention?.goal_type?.trim() || "Not yet completed",
           nextFollowUpDate: patient.next_followup_date,
@@ -625,7 +626,7 @@ export default function RndDashboardPage() {
       <div className="border-b border-warm-200 pb-5">
         <h2 className="text-xl font-extrabold text-warm-900 tracking-tight flex items-center gap-2.5">
           <Compass className="h-5 w-5 text-emerald-600" />
-          {user ? `Good morning, ${user.name}` : "RND Dashboard"}
+          {user ? `Good morning, ${personDisplayName(user)}` : "RND Dashboard"}
         </h2>
         <p className="text-sm text-warm-500 mt-1 select-none">
           Follow-ups, patient oversight, and a social-feed style announcement board built for the clinical workflow.

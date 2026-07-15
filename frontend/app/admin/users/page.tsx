@@ -31,6 +31,12 @@ import {
 import { Button } from "@/components/ui/Button";
 import { Badge, BadgeTone } from "@/components/ui/Badge";
 import { Pagination } from "@/components/ui/Pagination";
+import {
+  changedPersonNameFields,
+  personDisplayName,
+  personNameFormValues,
+  requiredPersonNameFields,
+} from "@/lib/personName";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -52,7 +58,7 @@ function FieldError({ errors, field }: { errors: FieldErrors; field: string }) {
 
 function inputCls(errors: FieldErrors, field: string) {
   const hasErr = !!errors[field]?.length;
-  return `w-full px-3 py-2 text-base border rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/30 ${
+  return `min-h-11 w-full px-3 py-2 text-base border rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus-visible:ring-2 ${
     hasErr
       ? "border-red-400 bg-red-50/40"
       : "border-warm-200 bg-white focus:border-emerald-500"
@@ -79,7 +85,8 @@ export default function UserManagementPage() {
   // Create / Edit modal
   const [formOpen, setFormOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
-  const [name, setName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<"Admin" | "RND" | "FSS">("RND");
   const [password, setPassword] = useState("");
@@ -124,7 +131,7 @@ export default function UserManagementPage() {
   const filteredUsers = useMemo(() => {
     return users.filter((u) => {
       const matchesSearch =
-        u.name.toLowerCase().includes(search.toLowerCase()) ||
+        personDisplayName(u).toLowerCase().includes(search.toLowerCase()) ||
         u.email.toLowerCase().includes(search.toLowerCase());
       const matchesRole = roleFilter === "All" || u.role === roleFilter;
       return matchesSearch && matchesRole;
@@ -147,7 +154,8 @@ export default function UserManagementPage() {
 
   function openCreate() {
     setEditingUser(null);
-    setName("");
+    setFirstName("");
+    setLastName("");
     setEmail("");
     setRole("RND");
     setPassword("");
@@ -160,7 +168,9 @@ export default function UserManagementPage() {
 
   function openEdit(u: User) {
     setEditingUser(u);
-    setName(u.name);
+    const nameValues = personNameFormValues(u);
+    setFirstName(nameValues.firstName);
+    setLastName(nameValues.lastName);
     setEmail(u.email);
     setRole(u.role);
     setPassword("");
@@ -201,7 +211,7 @@ export default function UserManagementPage() {
       alert("You cannot delete your own account.");
       return;
     }
-    if (!confirm(`Delete account for ${u.name}? This cannot be undone.`)) return;
+    if (!confirm(`Delete account for ${personDisplayName(u)}? This cannot be undone.`)) return;
     try {
       await deleteUser(u.id);
       setUsers((prev) => prev.filter((item) => item.id !== u.id));
@@ -217,7 +227,13 @@ export default function UserManagementPage() {
     setSubmitting(true);
     try {
       if (editingUser) {
-        const payload: UpdateUserPayload = { name, email, role, is_active: isActive };
+        const nameFields = changedPersonNameFields(editingUser, firstName, lastName);
+        const payload: UpdateUserPayload = {
+          email,
+          role,
+          is_active: isActive,
+          ...(nameFields ?? {}),
+        };
         if (password) {
           payload.password = password;
           payload.password_confirmation = passwordConfirm;
@@ -228,8 +244,9 @@ export default function UserManagementPage() {
         );
         setFormOpen(false);
       } else {
+        const nameFields = requiredPersonNameFields(firstName, lastName);
         const payload: CreateUserPayload = {
-          name,
+          ...nameFields,
           email,
           role,
           password,
@@ -409,7 +426,7 @@ export default function UserManagementPage() {
                       <td className="px-5 py-3.5">
                         <div className="flex items-center gap-1.5">
                           <span className="text-base font-semibold text-warm-800">
-                            {u.name}
+                            {personDisplayName(u)}
                           </span>
                           {isSelf && (
                             <span className="text-xs px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold uppercase tracking-wider">
@@ -532,19 +549,37 @@ export default function UserManagementPage() {
               )}
 
               {/* Name */}
-              <div>
-                <label className="block text-xs font-bold text-warm-500 uppercase tracking-wider mb-1">
-                  Full Name <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g. Dr. Jane Doe"
-                  className={inputCls(formFieldErrors, "name")}
-                />
-                <FieldError errors={formFieldErrors} field="name" />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="account-first-name" className="block text-xs font-bold text-warm-500 uppercase tracking-wider mb-1">
+                    First Name {!editingUser && <span className="text-red-500">*</span>}
+                  </label>
+                  <input
+                    id="account-first-name"
+                    type="text"
+                    required={!editingUser}
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    placeholder="e.g. Maria Luisa"
+                    className={inputCls(formFieldErrors, "first_name")}
+                  />
+                  <FieldError errors={formFieldErrors} field="first_name" />
+                </div>
+                <div>
+                  <label htmlFor="account-last-name" className="block text-xs font-bold text-warm-500 uppercase tracking-wider mb-1">
+                    Last Name {!editingUser && <span className="text-red-500">*</span>}
+                  </label>
+                  <input
+                    id="account-last-name"
+                    type="text"
+                    required={!editingUser}
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    placeholder="e.g. De la Cruz"
+                    className={inputCls(formFieldErrors, "last_name")}
+                  />
+                  <FieldError errors={formFieldErrors} field="last_name" />
+                </div>
               </div>
 
               {/* Email */}
@@ -662,7 +697,7 @@ export default function UserManagementPage() {
                 <h3 className="text-base font-bold text-warm-900">Reset Password</h3>
                 <p className="text-sm text-warm-400 mt-0.5">
                   Set a new password for{" "}
-                  <span className="font-semibold text-warm-600">{resettingUser?.name}</span>
+                  <span className="font-semibold text-warm-600">{personDisplayName(resettingUser)}</span>
                 </p>
               </div>
               <button

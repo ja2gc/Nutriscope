@@ -24,6 +24,7 @@ import { getNcpStepState, type NcpStep, type NcpStepState } from "@/lib/ncpWorkf
 import { formatPatientAge } from "@/lib/patientAge";
 import { AuditTrail } from "@/components/audit/AuditTrail";
 import { ClinicalAttribution } from "@/components/ncp/ClinicalAttribution";
+import { personDisplayName } from "@/lib/personName";
 
 type TabKey = "overview" | "adime-records" | "attachments";
 const NCP_STEPS: NcpStep[] = ["assessment", "diagnosis", "intervention", "monitoring"];
@@ -450,6 +451,7 @@ export default function PatientProfilePage({
 
   const systemId = formatSystemId(patient.id);
   const age = formatPatientAge(patient.dob);
+  const patientName = personDisplayName(patient);
 
   return (
     <div className="space-y-6 font-sans">
@@ -458,7 +460,7 @@ export default function PatientProfilePage({
       <div className="flex items-center gap-2 text-sm font-semibold text-warm-400 select-none">
         <Link href="/ncp/patients" className="hover:text-emerald-700 transition-colors">Patients</Link>
         <span className="text-warm-300">/</span>
-        <span className="text-zinc-650 font-bold">{patient.name}</span>
+        <span className="text-zinc-650 font-bold">{patientName}</span>
       </div>
 
       {/* ── Patient header card ────────────────────────────────────────────── */}
@@ -466,7 +468,7 @@ export default function PatientProfilePage({
         <div className="flex flex-col xl:flex-row xl:items-start xl:justify-between gap-5">
           <div className="space-y-3">
             <div className="flex flex-wrap items-center gap-2.5">
-              <h2 className="text-xl font-extrabold text-warm-900 tracking-tight">{patient.name}</h2>
+              <h2 className="text-xl font-extrabold text-warm-900 tracking-tight">{patientName}</h2>
               <span className="text-sm font-mono px-2 py-0.5 bg-warm-100 text-warm-600 border border-warm-200 rounded-lg">{systemId}</span>
               <span className={`px-2 py-0.5 rounded-full text-xs font-extrabold uppercase tracking-wider border ${formatStatus(patient.status).className}`}>
                 {formatStatus(patient.status).label}
@@ -542,7 +544,7 @@ export default function PatientProfilePage({
               ) : (
                 <div className="space-y-2">
                   <ConfirmBanner
-                    message={`Delete ${patient.name} and all their NCP data? This cannot be undone.`}
+                    message={`Delete ${patientName} and all their NCP data? This cannot be undone.`}
                     onConfirm={handleDeletePatient}
                     onCancel={() => setConfirmDeletePatient(false)}
                     loading={deletingPatient}
