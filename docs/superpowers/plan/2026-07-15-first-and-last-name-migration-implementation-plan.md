@@ -260,11 +260,13 @@ The generated verification directory is removed after inspection and is never co
 
 The audit implementation plan remains blocked until all of these are checked:
 
-- [ ] Wave N1, N2, and N3 commits exist locally and are pushed to `main`.
-- [ ] Remote `main` equals final local `HEAD`.
+- [x] Wave N1, N2, and N3 commits exist locally and are pushed to `main`.
+- [x] Remote `main` equals final local `HEAD`.
 - [x] Deprecated input/output compatibility is proven across Laravel and Next.js proxies.
 - [x] Web and mobile migrated consumers pass their checks.
 - [x] Historical actor/prepared-by snapshots are proven unchanged.
 - [x] MySQL forward/rollback/re-forward and legacy backfill pass.
 - [x] Full backend/frontend suites and affected mobile/report checks pass.
-- [ ] Remaining unrelated `.codex/config.toml` and `.superpowers` state is reported separately and untouched.
+- [x] Remaining unrelated `.codex/config.toml` and `.superpowers` state is reported separately and untouched.
+
+**Wave N3 push checkpoint (2026-07-15):** The verified integration wave through `b9ca368214d348361db4531ddf568c356f889801` was pushed to `main`; local `HEAD`, `origin/main`, and direct `ls-remote` output were identical. The following owner/unrelated state remained unstaged and untouched: `.codex/config.toml`, both July 15 authoritative spec files, and the existing `.superpowers` directory. This completion-evidence update is documentation-only and is pushed/remote-verified before the audit plan begins.
