@@ -1,6 +1,6 @@
 # First-Name/Last-Name Migration Implementation Plan
 
-**Status:** Tasks 1–4 complete; Wave N1 integration verification and push are next.
+**Status:** Tasks 1–4 and Wave N1 complete; Task 5 web migration is next.
 
 **Authoritative design:** `docs/superpowers/specs/2026-07-15-first-and-last-name-migration-design.md`
 
@@ -109,9 +109,11 @@ php artisan migrate:status --no-ansi
 
 **Wave N1 integration gate and push:**
 
-- [ ] Run all Task 1–4 focused tests, `php artisan test --compact tests/Feature/Audit/AuditRouteCoverageTest.php`, relevant Pint, MySQL schema inspection, migration rollback/re-forward, and `git diff --check`.
-- [ ] Confirm old clients still read deprecated `name`, deprecated input remains recognized without bypassing create/name-change pair validation, new clients submit/read split fields, and unrelated legacy updates work.
-- [ ] Push `main` only after every N1 check passes. Verify `git ls-remote origin refs/heads/main` equals local `HEAD`.
+- [x] Run all Task 1–4 focused tests, `php artisan test --compact tests/Feature/Audit/AuditRouteCoverageTest.php`, relevant Pint, MySQL schema inspection, migration rollback/re-forward, and `git diff --check`.
+- [x] Confirm old clients still read deprecated `name`, deprecated input remains recognized without bypassing create/name-change pair validation, new clients submit/read split fields, and unrelated legacy updates work.
+- [x] Push `main` only after every N1 check passes. Verify `git ls-remote origin refs/heads/main` equals local `HEAD`.
+
+**Wave N1 evidence (2026-07-15):** Configured MySQL rolled back exactly `2026_07_15_000002` and `2026_07_15_000001`; Laravel Boost `SHOW COLUMNS` proved only legacy `name` remained and both migration rows were absent. Re-forward restored nullable, non-indexed split columns and both batch-6 migration rows with no configured-user display drift. The fresh Tasks 1–4 integration batch passed 130 tests/1,541 assertions and full Pint passed. `main` pushed through `f85288d03c9416be994b78943721ef2aa9cddd5b`; `git ls-remote origin refs/heads/main` returned the identical hash. Only owner-modified specs and unrelated `.codex/config.toml` remained unstaged.
 
 **Rollback boundary:** Revert Tasks 4 and 3 first. Because legacy columns and deprecated resource fields remain, old clients keep working. Only then roll back Task 2 migrations if necessary.
 
