@@ -275,7 +275,7 @@ npm test -- components/audit services/auditLogService.test.ts services/activityS
 | 13 | Reports/shared RND. Failure: attribution still gates access, RND B cannot perform permitted actions, actual actor is wrong, or Admin reaches patient report content. | `cd backend; php artisan test --compact tests/Feature/Audit/SharedRndClinicalAccessTest.php tests/Feature/Audit/ReportAuditTest.php tests/Feature/ReportControllerTest.php tests/Feature/ReportsBrowseTest.php` | Roll back A3 coherently; do not restore owner gates selectively. |
 | 14 | Base/demo seeding. Failure: base seeds emit anonymous noise, demo rerun duplicates, production guard fails, chronology/actors are false, or clinical values store. | `cd backend; php artisan test --compact tests/Feature/Audit/AuditDemoSeederTest.php tests/Unit/SeederIntegrityTest.php tests/Unit/FoodServiceDemoSeederSourceTest.php` | Revert seeder code; deterministic rows remain until explicit cleanup. |
 | 15 | Compatibility retirement/backfill/stale cleanup. Failure: a consumer still sends removed params, ambiguous history is misclassified, IP cleanup touches account blocking, or backfill overwrites data. | `cd backend; php artisan test --compact tests/Feature/Audit/AuditLegacyCompatibilityTest.php tests/Feature/Audit/ProxyRouteCompatibilityTest.php tests/Feature/Audit/IpBlockingRemovalContractTest.php; cd ../frontend; npm test -- components/audit services/auditLogService.test.ts` | Revert parameter retirement/cleanup; retain safe backfilled fields. |
-| 16 | Full integration/performance/privacy/auth. Failure: any required check is skipped/fails, MySQL ignores indexes, 100k gate regresses, N+1 appears, or any privacy boundary leaks. | `cd backend; php artisan test --compact; vendor/bin/pint --dirty --format agent; cd ../frontend; npm test; npx tsc --noEmit; npm run lint; npm run build; cd ../mobile; node --test lib/*.test.cjs; npx tsc --noEmit` | Stop before push; revert failing wave app-first. |
+| 16 | Full integration/performance/privacy/auth. Failure: any required check is skipped/fails, MySQL ignores indexes, 100k gate regresses, N+1 appears, or any privacy boundary leaks. | `cd backend; php artisan test --compact; vendor/bin/pint --dirty --format agent; cd ../frontend; npm test; npx tsc --noEmit; npm run lint; npm run build; cd ../mobile; node --test --test-isolation=none lib/*.test.cjs; npx tsc --noEmit` | Stop before push; revert failing wave app-first. |
 | 17 | Documentation/final remote state. Failure: catalog/workflow/evidence differs from code, Mermaid omits a required stage, a checkbox is unresolved, or remote differs. | `git diff --check`; fresh Task 16 command set; `git log --oneline`; `git ls-remote origin refs/heads/main` | Do not claim completion or push stale docs; fix evidence/docs then rerun. |
 
 ## Classification and presentation matrix
@@ -323,7 +323,7 @@ npm run lint
 npm run build
 
 cd ..\mobile
-node --test lib/*.test.cjs
+node --test --test-isolation=none lib/*.test.cjs
 npx tsc --noEmit
 npx expo export --platform android --output-dir .expo-audit-verification
 ```

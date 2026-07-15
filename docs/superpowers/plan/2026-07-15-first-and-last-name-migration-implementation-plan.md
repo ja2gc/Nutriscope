@@ -1,6 +1,6 @@
 # First-Name/Last-Name Migration Implementation Plan
 
-**Status:** Approved design translated into executable tasks. No implementation task is complete yet.
+**Status:** Task 1 characterization complete; Task 2 is next. No production name behavior has changed yet.
 
 **Authoritative design:** `docs/superpowers/specs/2026-07-15-first-and-last-name-migration-design.md`
 
@@ -32,13 +32,15 @@ No implementation subagents run concurrently. A reviewer, if used, starts only a
 
 ## Task 1 — Characterize names and freeze compatibility
 
-- [ ] Add backend characterization tests in `backend/tests/Feature/NameCompatibilityTest.php` covering exact legacy display preservation, whitespace normalization for new split names, split-field precedence, deprecated `name` output, deliberate-name-change versus unrelated-update validation, soft-deleted users, patient search grouping, status-filter isolation, deterministic user ordering, and unchanged existing actor/prepared-by snapshots.
-- [ ] Extend `backend/tests/Feature/PatientFeatureTest.php`, `backend/tests/Feature/AuthFeatureTest.php`, `backend/tests/Feature/ProfileTest.php`, and add `backend/tests/Feature/AdminUserNameTest.php` for current create/update/profile/patient contracts before changing them.
-- [ ] Add source/contract tests in `frontend/services/personNameContract.test.ts`, `frontend/app/admin/users/user-name-form-contract.test.ts`, and `frontend/app/(rnd)/ncp/patients/patient-name-form-contract.test.ts` that describe the new split-input and deprecated-output boundary without changing production code.
-- [ ] Add `mobile/lib/personName.test.cjs` as a dependency-free Node test for mobile DTO/display fallback and profile payload rules.
-- [ ] Add report characterization assertions to `backend/tests/Feature/PatientMenuPlanGeneratorTest.php`, `backend/tests/Feature/NcpSummaryReportTest.php`, `backend/tests/Feature/AccomplishmentReportTest.php`, and `backend/tests/Feature/Audit/ReportAuditTest.php` proving stored historical snapshots are not rewritten.
-- [ ] Run the new tests and capture their expected failures; run existing name-adjacent suites to establish the baseline.
-- [ ] Review gates complete; commit `test: characterize split name compatibility`.
+- [x] Add durable passing backend characterization tests in `backend/tests/Feature/NameCompatibilityTest.php` covering exact compound/legacy name preservation, deprecated `name` output, unrelated legacy updates, soft-deleted-user legacy data, and immutable existing actor/prepared-by snapshots. Split normalization, precedence, pair validation, grouped search, and ordering are added as red tests at the start of Tasks 2–4, immediately before their production changes.
+- [x] Verify existing `backend/tests/Feature/PatientFeatureTest.php`, `backend/tests/Feature/AuthFeatureTest.php`, and `backend/tests/Feature/ProfileTest.php`, and add `backend/tests/Feature/AdminUserNameTest.php` for durable current account/profile/patient compatibility contracts before changing them.
+- [x] Add durable source/contract tests in `frontend/services/personNameContract.test.ts`, `frontend/app/admin/users/user-name-form-contract.test.ts`, and `frontend/app/(rnd)/ncp/patients/patient-name-form-contract.test.ts` that freeze deprecated response/input and proxy compatibility. Split-form/display behavior is added red-first in Task 5.
+- [x] Add `mobile/lib/personName.test.cjs` as a dependency-free characterization of the deprecated mobile profile DTO/output contract. Split display/payload behavior is added red-first in Task 6.
+- [x] Add actor and prepared-by report snapshot characterizations to `backend/tests/Feature/NameCompatibilityTest.php`, while retaining the existing dedicated report suites for broader report tasks.
+- [x] Run the new durable tests green and run existing name-adjacent suites to establish the baseline. Record the red/green evidence for each new behavior under the later task that owns its implementation; never commit an intentionally failing suite.
+- [x] Spec-compliance and code-quality review gates complete; commit `test: characterize split name compatibility`.
+
+**Task 1 evidence (2026-07-15):** Laravel focused 7 tests/18 assertions passed; broader name-adjacent MySQL suite 66 tests/217 assertions passed; Vitest 3 files/4 tests passed; mobile Node characterization 1 test passed with `--test-isolation=none`; targeted Pint passed. Initial frontend failure was a test regex that assumed direct object arguments while the page uses typed payload variables. Initial mobile `EPERM` was Node's subprocess isolation under the sandbox; the same test passed directly and with isolation disabled. No production file changed. Self spec and quality reviews found no remaining Task 1 issue.
 
 **Focused verification:**
 
@@ -48,7 +50,7 @@ php artisan test --compact tests/Feature/NameCompatibilityTest.php tests/Feature
 cd ..\frontend
 npm test -- services/personNameContract.test.ts app/admin/users/user-name-form-contract.test.ts "app/(rnd)/ncp/patients/patient-name-form-contract.test.ts"
 cd ..\mobile
-node --test lib/personName.test.cjs
+node --test --test-isolation=none lib/personName.test.cjs
 ```
 
 **Rollback boundary:** Tests only. Revert this task commit; no data or schema changes exist.
@@ -146,7 +148,7 @@ npm run build
 
 ```powershell
 cd mobile
-node --test lib/*.test.cjs
+node --test --test-isolation=none lib/*.test.cjs
 npx tsc --noEmit
 npx expo export --platform android --output-dir .expo-name-verification
 ```
@@ -205,16 +207,16 @@ The generated verification directory is removed after inspection and is never co
 
 | Task | Touched workflow and failure mode | Exact focused verification | Rollback |
 |---|---|---|---|
-| 1 | Characterization across backend/web/mobile/reports. Failure: a new assertion passes before production behavior exists or an old compatibility baseline is not understood. | `cd backend; php artisan test --compact tests/Feature/NameCompatibilityTest.php tests/Feature/AdminUserNameTest.php tests/Feature/PatientFeatureTest.php tests/Feature/AuthFeatureTest.php tests/Feature/ProfileTest.php`; `cd ../frontend; npm test -- services/personNameContract.test.ts app/admin/users/user-name-form-contract.test.ts "app/(rnd)/ncp/patients/patient-name-form-contract.test.ts"`; `cd ../mobile; node --test lib/personName.test.cjs` | Revert Task 1 tests only. |
+| 1 | Characterization across backend/web/mobile/reports. Failure: a new assertion passes before production behavior exists or an old compatibility baseline is not understood. | `cd backend; php artisan test --compact tests/Feature/NameCompatibilityTest.php tests/Feature/AdminUserNameTest.php tests/Feature/PatientFeatureTest.php tests/Feature/AuthFeatureTest.php tests/Feature/ProfileTest.php`; `cd ../frontend; npm test -- services/personNameContract.test.ts app/admin/users/user-name-form-contract.test.ts "app/(rnd)/ncp/patients/patient-name-form-contract.test.ts"`; `cd ../mobile; node --test --test-isolation=none lib/personName.test.cjs` | Revert Task 1 tests only. |
 | 2 | MySQL schema/backfill. Failure: legacy bytes change, soft-deleted users are skipped, partial rows overwrite, audit noise appears, or rollback/re-forward diverges. | `cd backend; php artisan test --compact tests/Feature/NameMigrationTest.php; php artisan migrate --no-interaction; php artisan migrate:rollback --step=2 --no-interaction; php artisan migrate --no-interaction` | Roll back DML then DDL before app deployment. |
 | 3 | Model display/synchronization. Failure: incomplete split data renders instead of exact legacy fallback, validation normalization changes compound names, or unrelated saves mutate names. | `cd backend; php artisan test --compact tests/Unit/DisplayNameTest.php tests/Unit/SynchronizePersonNameTest.php tests/Feature/NameCompatibilityTest.php` | Revert Task 3 before schema rollback. |
 | 4 | Laravel requests/writers/resources/search/order/attribution. Failure: deprecated compatibility bypasses pair rules, status filters leak, ordering is unstable, projections trigger missing attributes/N+1, or snapshots rewrite. | `cd backend; php artisan test --compact tests/Feature/NameCompatibilityTest.php tests/Feature/AdminUserNameTest.php tests/Feature/PatientFeatureTest.php tests/Feature/AuthFeatureTest.php tests/Feature/ProfileTest.php tests/Feature/Audit/AuditRouteCoverageTest.php` | Revert Task 4, then Task 3; retain additive columns. |
 | 5 | Next.js proxies, web forms, types, tables, headers. Failure: payload shape changes at proxy, legacy rows become uneditable, current displays use stale `name`, accessibility/design regress, or production build fails. | `cd frontend; npm test -- lib/personName.test.ts services/personNameContract.test.ts app/admin/users/user-name-form-contract.test.ts "app/(rnd)/ncp/patients/patient-name-form-contract.test.ts"; npx tsc --noEmit; npm run lint; npm run build` | Revert web commit; backend compatibility remains. |
-| 6 | Expo login/profile/types. Failure: profile cannot preserve an unrelated legacy edit, split payload is wrong, food/entity name types change, or Expo validation fails. | `cd mobile; node --test lib/*.test.cjs; npx tsc --noEmit; npx expo export --platform android --output-dir .expo-name-verification` | Revert mobile commit and remove generated verification output. |
+| 6 | Expo login/profile/types. Failure: profile cannot preserve an unrelated legacy edit, split payload is wrong, food/entity name types change, or Expo validation fails. | `cd mobile; node --test --test-isolation=none lib/*.test.cjs; npx tsc --noEmit; npx expo export --platform android --output-dir .expo-name-verification` | Revert mobile commit and remove generated verification output. |
 | 7 | Reports/prepared-by/current-versus-stored snapshots. Failure: old archives change, current PDFs show legacy stale text, or report queries gain N+1 behavior. | `cd backend; php artisan test --compact tests/Feature/PatientMenuPlanGeneratorTest.php tests/Feature/NcpSummaryReportTest.php tests/Feature/AccomplishmentReportTest.php tests/Feature/ReportControllerTest.php tests/Feature/Audit/ReportAuditTest.php` | Revert report code; never rewrite stored snapshots. |
 | 8 | Factories/seeders. Failure: names are unsynchronized, patient cleanup uses mutable display, reruns duplicate data, or base setup emits audit noise. | `cd backend; php artisan test --compact tests/Unit/SeederIntegrityTest.php tests/Feature/PersonNameSeederTest.php` | Revert code only; never delete seeded data by name. |
-| 9 | Stale-consumer boundary. Failure: an unclassified direct person-name access remains or a non-person entity is renamed. | `cd backend; php artisan test --compact tests/Unit/PersonNameStaleConsumerTest.php; cd ../frontend; npm test -- services/personNameStaleConsumer.test.ts; cd ../mobile; node --test lib/personNameStaleConsumer.test.cjs` | Revert bounded missed-consumer fixes/tests. |
-| 10 | Whole integration. Failure: any required suite/check is skipped or fails, MySQL plans regress, migration round-trip changes data, remote push diverges, or documentation evidence is stale. | `cd backend; php artisan test --compact; vendor/bin/pint --dirty --format agent; cd ../frontend; npm test; npx tsc --noEmit; npm run lint; npm run build; cd ../mobile; node --test lib/*.test.cjs; npx tsc --noEmit` | Stop before push; revert the failing wave app-first, schema last. |
+| 9 | Stale-consumer boundary. Failure: an unclassified direct person-name access remains or a non-person entity is renamed. | `cd backend; php artisan test --compact tests/Unit/PersonNameStaleConsumerTest.php; cd ../frontend; npm test -- services/personNameStaleConsumer.test.ts; cd ../mobile; node --test --test-isolation=none lib/personNameStaleConsumer.test.cjs` | Revert bounded missed-consumer fixes/tests. |
+| 10 | Whole integration. Failure: any required suite/check is skipped or fails, MySQL plans regress, migration round-trip changes data, remote push diverges, or documentation evidence is stale. | `cd backend; php artisan test --compact; vendor/bin/pint --dirty --format agent; cd ../frontend; npm test; npx tsc --noEmit; npm run lint; npm run build; cd ../mobile; node --test --test-isolation=none lib/*.test.cjs; npx tsc --noEmit` | Stop before push; revert the failing wave app-first, schema last. |
 
 ## Blast-radius matrix
 
