@@ -154,8 +154,10 @@ class ClinicalTrailTest extends TestCase
             $response->assertJsonPath('data.0.domain', 'ncp');
             $this->assertSame(['rnd_summary'], collect($response->json('data.0.changes'))->pluck('field')->all());
             $this->assertSame([
-                'id', 'category', 'domain', 'action', 'action_label', 'summary', 'severity', 'outcome',
-                'actor', 'subject', 'context', 'occurred_at', 'details', 'changes',
+                'id', 'module', 'category', 'domain', 'record_type', 'action', 'action_label',
+                'summary', 'severity', 'outcome', 'actor', 'subject', 'context', 'patient',
+                'ncp_reference', 'detail_mode', 'reason', 'history', 'current_record_url',
+                'occurred_at', 'details', 'changes',
             ], array_keys($response->json('data.0')));
             $this->assertStringNotContainsString('CLINICAL-VALUE-SENTINEL', $response->getContent());
             $this->assertStringNotContainsString('PATIENT-NAME-SENTINEL', $response->getContent());
@@ -385,7 +387,7 @@ class ClinicalTrailTest extends TestCase
         $response = $this->actingAs($rnd, 'sanctum')
             ->getJson("/api/rnd/patients/{$patient->uuid}/activity")
             ->assertOk()
-            ->assertJsonPath('data.0.action', 'updated')
+            ->assertJsonPath('data.0.action', 'poison-event-sentinel')
             ->assertJsonPath('data.0.actor', null)
             ->assertJsonPath('data.0.changes.0.field', 'medical_diagnosis')
             ->assertJsonPath('data.0.changes.0.redacted', true);

@@ -1,6 +1,6 @@
 # Audit Oversight and Historical-Record Redesign Implementation Plan
 
-**Status:** In progress. The name-migration gate is complete, pushed, and remote-verified at `6cc8fdd781ddf176d79be6181928c04b26499520`; Audit Tasks 1–4 and Wave A1 are complete. Task 5 is next.
+**Status:** In progress. The name-migration gate is complete, pushed, and remote-verified at `6cc8fdd781ddf176d79be6181928c04b26499520`; Audit Tasks 1–5 and Wave A1 are complete. Task 6 is next.
 
 **Authoritative design:** `docs/superpowers/specs/2026-07-15-audit-oversight-and-history-redesign.md`
 
@@ -171,12 +171,14 @@ Wave A1 passes the complete audit feature directory plus inventory contract: 204
 
 ## Task 5 — Typed event DTO/presenter and event-specific summaries
 
-- [ ] Expand `backend/app/Data/AuditEventDto.php` with module, retained category/internal domain, record type, patient identity object containing only `display_name`, NCP reference, changed field labels, typed detail mode, safe typed details/changes, optional historical-view reference, and optional authorized current-record URL. Ambiguous legacy rows present `legacy_unclassified`; unknown action strings retain a sanitized original label.
-- [ ] Add `backend/app/Data/AuditValueDto.php` and `backend/app/Data/AuditHistoryLinkDto.php` so scalar/date/currency/quantity/boolean/enum/reference values are explicit and JSON structures cannot leak to presentation.
-- [ ] Split `backend/app/Services/Audit/AuditEventPresenter.php` into bounded collaborators: `AuditEventSummaryFormatter.php`, `AuditValuePresenter.php`, `AuditEntityPresenter.php`, and `AuditFieldLabels.php`. Summaries name the actual intent and safe entity, not generic `Updated record` text.
-- [ ] Update `backend/app/Http/Resources/AuditEventResource.php`, `backend/app/Services/Audit/AuditQuery.php`, `backend/app/Services/Audit/AuditFilterMetadata.php`, and `backend/app/Http/Controllers/ActivityController.php` for the typed contract without raw JSON.
-- [ ] Add `backend/tests/Unit/AuditEventPresenterTest.php` and expand structured API tests for every known action including Imported, unknown legacy action preservation, semantic security/system subjects, safe created values, before/after values, clinical redaction, patient/actor separation, deleted subjects, system actor, authorized current-record links, and no query growth.
-- [ ] Review gates complete; commit `feat: present typed audit events`.
+- [x] Expand `backend/app/Data/AuditEventDto.php` with module, retained category/internal domain, record type, patient identity object containing only `display_name`, NCP reference, changed field labels, typed detail mode, safe typed details/changes, optional historical-view reference, and optional authorized current-record URL. Ambiguous legacy rows present `legacy_unclassified`; unknown action strings retain a sanitized original label.
+- [x] Add `backend/app/Data/AuditValueDto.php` and `backend/app/Data/AuditHistoryLinkDto.php` so scalar/date/currency/quantity/boolean/enum/reference values are explicit and JSON structures cannot leak to presentation.
+- [x] Split `backend/app/Services/Audit/AuditEventPresenter.php` into bounded collaborators: `AuditEventSummaryFormatter.php`, `AuditValuePresenter.php`, `AuditEntityPresenter.php`, and `AuditFieldLabels.php`. Summaries name the actual intent and safe entity, not generic `Updated record` text.
+- [x] Update `backend/app/Http/Resources/AuditEventResource.php`, `backend/app/Services/Audit/AuditQuery.php`, `backend/app/Services/Audit/AuditFilterMetadata.php`, and `backend/app/Http/Controllers/ActivityController.php` for the typed contract without raw JSON.
+- [x] Add `backend/tests/Unit/AuditEventPresenterTest.php` and expand structured API tests for every known action including Imported, unknown legacy action preservation, semantic security/system subjects, safe created values, before/after values, clinical redaction, patient/actor separation, deleted subjects, system actor, authorized current-record links, and no query growth.
+- [x] Review gates complete; commit `feat: present typed audit events`.
+
+Task 5 started with the expected missing typed-contract failures for module, patient identity, detail mode, history, current-record URL, and semantic subject presentation. Focused reds also proved that an unrelated live record could be passed to the URL presenter, the value DTO accepted nested arrays, and the resource accepted a raw audit model; all three boundaries now fail closed. The final presenter/API gate passes 26 tests and 342 assertions. The fresh affected MySQL gate passes 219 tests and 3,106 assertions across every action, safe values, unknown legacy actions, patient/actor separation, encryption-backed patient presentation, privacy, trails, exports, reports, budgets, route coverage, query plans, and fixed query counts. Existing frontend consumers pass 11 files and 45 tests, and TypeScript passes. Pint and `git diff --check` pass. Spec-compliance and code-quality self-review found no unresolved Task 5 issue.
 
 **Rollback boundary:** Revert DTO/presenter/resources together. A1 storage stays valid.
 

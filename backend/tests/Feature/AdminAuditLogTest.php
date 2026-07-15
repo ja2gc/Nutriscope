@@ -278,8 +278,8 @@ class AdminAuditLogTest extends TestCase
 
         $response->assertOk()
             ->assertJsonPath('data.0.action', 'updated')
-            ->assertJsonPath('data.0.summary', 'Updated patient')
-            ->assertJsonPath('data.0.subject.id', $patient->uuid);
+            ->assertJsonPath('data.0.summary', 'Unknown actor changed Medical Diagnosis for patient; values hidden.')
+            ->assertJsonPath('data.0.subject.id', null);
         $this->assertNotSame((string) $activity->id, $response->json('data.0.id'));
         $payload = $response->getContent();
 

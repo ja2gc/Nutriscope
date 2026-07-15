@@ -5,6 +5,7 @@ namespace App\Services\Audit;
 use App\Enums\AuditAction;
 use App\Enums\AuditCategory;
 use App\Enums\AuditDomain;
+use App\Enums\AuditModule;
 use App\Enums\AuditOutcome;
 use App\Enums\AuditSeverity;
 use App\Models\AuditActivity;
@@ -22,6 +23,7 @@ class AuditFilterMetadata
             'filters' => [
                 'categories' => $this->options(AuditCategory::cases()),
                 'domains' => $this->options(AuditDomain::cases()),
+                'modules' => $this->options(AuditModule::cases()),
                 'actions' => $this->options(AuditAction::cases()),
                 'outcomes' => $this->options(AuditOutcome::cases()),
                 'severities' => $this->options(AuditSeverity::cases()),
@@ -38,7 +40,7 @@ class AuditFilterMetadata
     }
 
     /**
-     * @param  array<int, AuditAction|AuditCategory|AuditDomain|AuditOutcome|AuditSeverity>  $cases
+     * @param  array<int, AuditAction|AuditCategory|AuditDomain|AuditModule|AuditOutcome|AuditSeverity>  $cases
      * @return array<int, array{value: string, label: string}>
      */
     private function options(array $cases): array

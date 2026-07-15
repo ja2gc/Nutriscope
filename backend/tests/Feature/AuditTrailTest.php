@@ -234,8 +234,10 @@ class AuditTrailTest extends TestCase
     private function assertStructuredEvent(array $event): void
     {
         $this->assertSame([
-            'id', 'category', 'domain', 'action', 'action_label', 'summary', 'severity', 'outcome',
-            'actor', 'subject', 'context', 'occurred_at', 'details', 'changes',
+            'id', 'module', 'category', 'domain', 'record_type', 'action', 'action_label',
+            'summary', 'severity', 'outcome', 'actor', 'subject', 'context', 'patient',
+            'ncp_reference', 'detail_mode', 'reason', 'history', 'current_record_url',
+            'occurred_at', 'details', 'changes',
         ], array_keys($event));
         $this->assertMatchesRegularExpression('/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iD', $event['id']);
         foreach (['event', 'description', 'subject_id', 'causer', 'created_at', 'properties'] as $legacyKey) {

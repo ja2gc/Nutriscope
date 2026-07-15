@@ -33,7 +33,7 @@ class AuditLogController extends Controller
         $logs = $this->auditQuery->build($request->filters())
             ->paginate($request->integer('per_page', 25));
         $logs->setCollection($logs->getCollection()->map(
-            fn (AuditActivity $activity) => $this->presenter->present($activity),
+            fn (AuditActivity $activity) => $this->presenter->present($activity, $request->user()),
         ));
 
         $this->recordListAccess($request);

@@ -215,7 +215,7 @@ class AuditContractTest extends TestCase
         $this->assertSame('system', $payload['domain']);
         $this->assertSame('info', $payload['severity']);
         $this->assertSame('success', $payload['outcome']);
-        $this->assertSame('Updated audit event', $payload['summary']);
+        $this->assertSame('Unknown actor updated system operation.', $payload['summary']);
 
         $activity->refresh();
         $this->assertNull($activity->category);

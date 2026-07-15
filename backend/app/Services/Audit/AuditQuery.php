@@ -19,9 +19,10 @@ class AuditQuery
     {
         $query = AuditActivity::query()
             ->select([
-                'id', 'public_id', 'log_name', 'event', 'category', 'domain', 'severity', 'outcome',
+                'id', 'public_id', 'log_name', 'event', 'category', 'domain', 'module', 'severity', 'outcome',
                 'subject_type', 'subject_id', 'subject_public_id', 'causer_type', 'causer_id',
-                'context_type', 'context_id', 'context_public_id', 'properties', 'created_at',
+                'context_type', 'context_id', 'context_public_id', 'patient_display_name_snapshot',
+                'properties', 'created_at',
             ])
             ->auditOnly()
             ->where(function (Builder $query): void {
@@ -33,7 +34,7 @@ class AuditQuery
                         ->withTrashed()
                         ->select('id', 'uuid', 'name', 'first_name', 'last_name', 'role'),
                 ]);
-            }]);
+            }, 'revision:id,activity_id,public_id,action']);
 
         $this->wherePresentedDefault($query, 'category', $filters['category'] ?? null, AuditCategory::Operations->value);
         $this->wherePresentedDefault($query, 'domain', $filters['domain'] ?? null, AuditDomain::System->value);

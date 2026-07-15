@@ -88,7 +88,9 @@ class AuditLogExportController extends Controller
             $event->subject['type'] ?? null, $event->subject['id'] ?? null, $event->subject['label'] ?? null,
             $event->context['type'] ?? null, $event->context['id'] ?? null, $event->context['label'] ?? null,
             $event->occurredAt,
-            collect($event->details)->map(fn (array $detail): string => $detail['label'].': '.$this->csvValue($detail['value']))->implode('; '),
+            collect($event->details)->map(
+                fn (array $detail): string => $detail['label'].': '.$this->csvValue($detail['value']->value),
+            )->implode('; '),
             collect($event->changes)->pluck('label')->implode('; '),
         ]);
     }

@@ -345,8 +345,10 @@ class PurchaseOrderTrailTest extends TestCase
             $event = $this->actingAs($viewer)->getJson('/api/'.($viewer->role === 'Admin' ? 'admin' : 'fss')."/budgets/{$budget->uuid}/activity")
                 ->assertOk()->assertJsonCount(1, 'data')->json('data.0');
             $this->assertSame([
-                'id', 'category', 'domain', 'action', 'action_label', 'summary', 'severity', 'outcome',
-                'actor', 'subject', 'context', 'occurred_at', 'details', 'changes',
+                'id', 'module', 'category', 'domain', 'record_type', 'action', 'action_label',
+                'summary', 'severity', 'outcome', 'actor', 'subject', 'context', 'patient',
+                'ncp_reference', 'detail_mode', 'reason', 'history', 'current_record_url',
+                'occurred_at', 'details', 'changes',
             ], array_keys($event));
             $this->assertSame('operations', $event['category']);
             $this->assertSame('budget', $event['domain']);

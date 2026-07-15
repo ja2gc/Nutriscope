@@ -5,6 +5,7 @@ namespace Tests\Feature\Audit;
 use App\Enums\AuditAction;
 use App\Enums\AuditCategory;
 use App\Enums\AuditDomain;
+use App\Enums\AuditModule;
 use App\Enums\AuditOutcome;
 use App\Enums\AuditSeverity;
 use App\Models\AuditActivity;
@@ -47,12 +48,14 @@ class StructuredAuditApiTest extends TestCase
             'event' => AuditAction::Updated->value,
             'category' => AuditCategory::Clinical,
             'domain' => AuditDomain::Patients,
+            'module' => AuditModule::NutritionCare,
             'severity' => AuditSeverity::Notice,
             'outcome' => AuditOutcome::Success,
             'causer_type' => $actor->getMorphClass(),
             'causer_id' => $actor->id,
             'subject_type' => $patient->getMorphClass(),
             'subject_id' => $patient->id,
+            'patient_display_name_snapshot' => $patient->display_name,
             'properties' => [
                 'actor' => ['kind' => 'user', 'public_id' => $actor->uuid, 'name' => $actor->name, 'role' => 'RND'],
                 'details' => [
@@ -71,30 +74,38 @@ class StructuredAuditApiTest extends TestCase
 
         $response->assertOk()->assertJsonCount(1, 'data')->assertJsonStructure([
             'data' => [[
-                'id', 'category', 'domain', 'action', 'action_label', 'summary', 'severity', 'outcome',
+                'id', 'module', 'category', 'domain', 'record_type', 'action', 'action_label',
+                'summary', 'severity', 'outcome', 'patient', 'ncp_reference', 'detail_mode',
+                'reason', 'history', 'current_record_url',
                 'actor' => ['id', 'kind', 'name', 'role'],
                 'subject' => ['type', 'id', 'label'],
                 'context', 'occurred_at', 'details',
                 'changes' => [['field', 'label', 'old_value', 'new_value', 'redacted']],
             ]],
             'links', 'meta',
-        ])->assertJsonPath('data.0.category', 'clinical')
+        ])->assertJsonPath('data.0.module', 'nutrition_care')
+            ->assertJsonPath('data.0.category', 'clinical')
             ->assertJsonPath('data.0.id', $activity->public_id)
             ->assertJsonPath('data.0.actor.id', $actor->uuid)
-            ->assertJsonPath('data.0.subject.id', $patient->uuid)
+            ->assertJsonPath('data.0.patient', ['display_name' => $patient->display_name])
+            ->assertJsonPath('data.0.subject.id', null)
             ->assertJsonPath('data.0.changes.0.old_value', null)
             ->assertJsonPath('data.0.changes.0.new_value', null)
             ->assertJsonPath('data.0.changes.0.redacted', true);
 
         $payload = $response->getContent();
         foreach (['properties', 'subject_type', 'subject_id', 'causer_id', 'updated_at', Patient::class,
-            'private@example.test', 'PHI-SENTINEL', 'RAW-SENTINEL', '203.0.113.25', 'token=SECRET'] as $forbidden) {
+            'private@example.test', $patient->uuid, 'PHI-SENTINEL', 'RAW-SENTINEL',
+            '203.0.113.25', 'token=SECRET'] as $forbidden) {
             $this->assertStringNotContainsString($forbidden, $payload);
         }
         $this->assertMatchesRegularExpression(
             '/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/',
             $response->json('data.0.id'),
         );
+        $this->assertSame([
+            'security_administration', 'nutrition_care', 'food_service_operations', 'reports',
+        ], collect($response->json('meta.filters.modules'))->pluck('value')->all());
     }
 
     public function test_filters_use_enum_allow_lists_and_public_identifiers(): void
@@ -122,7 +133,8 @@ class StructuredAuditApiTest extends TestCase
             'start' => '2026-07-10', 'end' => '2026-07-10', 'page' => 1, 'per_page' => 10,
         ]);
         $this->actingAs($this->admin, 'sanctum')->getJson('/api/admin/audit-logs?'.$query)
-            ->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.summary', 'Created patient');
+            ->assertOk()->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.summary', "{$actor->display_name} created patient.");
 
         foreach (['category=nope', 'domain=nope', 'action=nope', 'severity=nope', 'outcome=nope',
             'actor_id=1', 'subject_id=1', 'context_id=1', 'page=0', 'per_page=101',
@@ -289,7 +301,40 @@ class StructuredAuditApiTest extends TestCase
         DB::disableQueryLog();
 
         $this->assertTrue($matches->contains('id', $activity->id));
-        $this->assertLessThanOrEqual(2, $queryCount, 'Public reference filters must not scan model tables.');
+        $this->assertLessThanOrEqual(3, $queryCount, 'Public reference filters must not scan model tables.');
+    }
+
+    public function test_typed_presentation_has_no_per_event_query_growth(): void
+    {
+        $actor = User::factory()->rnd()->create();
+        AuditFixture::delete(AuditActivity::query());
+        foreach (range(1, 20) as $number) {
+            AuditActivity::create([
+                'log_name' => 'audit',
+                'description' => "Audit event {$number}",
+                'event' => AuditAction::Updated->value,
+                'category' => AuditCategory::Operations,
+                'domain' => AuditDomain::System,
+                'module' => AuditModule::SecurityAdministration,
+                'causer_type' => $actor->getMorphClass(),
+                'causer_id' => $actor->id,
+                'properties' => ['details' => ['changed_fields' => ['status']]],
+            ]);
+        }
+
+        $queryCount = function (int $limit): int {
+            DB::flushQueryLog();
+            DB::enableQueryLog();
+            app(AuditQuery::class)->build([])->limit($limit)->get()
+                ->each(fn (AuditActivity $activity) => app(AuditEventPresenter::class)->present($activity, $this->admin));
+            $count = count(DB::getQueryLog());
+            DB::disableQueryLog();
+
+            return $count;
+        };
+
+        $this->assertSame($queryCount(1), $queryCount(20));
+        $this->assertLessThanOrEqual(3, $queryCount(20));
     }
 
     public function test_presenter_uses_domain_allowlists_for_safe_operations_changes_and_security_details(): void
@@ -335,6 +380,8 @@ class StructuredAuditApiTest extends TestCase
             'label' => 'Status',
             'old_value' => 'draft',
             'new_value' => 'approved',
+            'before' => ['type' => 'enum', 'value' => 'draft'],
+            'after' => ['type' => 'enum', 'value' => 'approved'],
             'redacted' => false,
         ]], $operationsDto['changes']);
 
@@ -367,7 +414,10 @@ class StructuredAuditApiTest extends TestCase
         $changes = app(AuditEventPresenter::class)->present($activity)->toArray()['changes'];
         $this->assertSame([[
             'field' => 'status', 'label' => 'Status', 'old_value' => null,
-            'new_value' => null, 'redacted' => true,
+            'new_value' => null,
+            'before' => ['type' => 'redacted', 'value' => null],
+            'after' => ['type' => 'redacted', 'value' => null],
+            'redacted' => true,
         ]], $changes);
     }
 
@@ -382,7 +432,10 @@ class StructuredAuditApiTest extends TestCase
 
         $this->assertSame([[
             'field' => 'status', 'label' => 'Status', 'old_value' => 'draft',
-            'new_value' => 'ordered', 'redacted' => false,
+            'new_value' => 'ordered',
+            'before' => ['type' => 'enum', 'value' => 'draft'],
+            'after' => ['type' => 'enum', 'value' => 'ordered'],
+            'redacted' => false,
         ]], $dto['changes']);
         $this->assertStringNotContainsString('PO-PRIVATE-SENTINEL', json_encode($dto, JSON_THROW_ON_ERROR));
     }
