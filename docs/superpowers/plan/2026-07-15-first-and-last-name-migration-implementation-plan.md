@@ -1,6 +1,6 @@
 # First-Name/Last-Name Migration Implementation Plan
 
-**Status:** Task 1 characterization complete; Task 2 is next. No production name behavior has changed yet.
+**Status:** Tasks 1–2 complete; Task 3 model/display contract is next.
 
 **Authoritative design:** `docs/superpowers/specs/2026-07-15-first-and-last-name-migration-design.md`
 
@@ -57,12 +57,14 @@ node --test --test-isolation=none lib/personName.test.cjs
 
 ## Task 2 — Additive schema and conservative backfill
 
-- [ ] Add `backend/database/migrations/2026_07_15_000001_add_split_names_to_users_and_patients.php` with nullable `first_name` and `last_name` columns on both tables. Do not drop or rename `name`.
-- [ ] Add `backend/database/migrations/2026_07_15_000002_backfill_split_names_for_users_and_patients.php` as a separate DML migration using query-builder `chunkById`, including soft-deleted users, setting only null `first_name` values from the unchanged legacy `name`, and leaving `last_name` null.
-- [ ] Add `backend/tests/Feature/NameMigrationTest.php` to prove legacy names remain byte-for-byte intact, compound names are unsplit, partially populated rows are not overwritten, soft-deleted users are included, no audit rows are emitted, rollback removes only the new columns, and re-forward reproduces the correct state.
-- [ ] Bring the configured MySQL baseline through the already-pending July 11–14 migrations before testing these migrations; record the pre/post `migrate:status` evidence.
-- [ ] Run forward, rollback of exactly the two new migrations, and re-forward on the configured MySQL database. Inspect `users` and `patients` with Laravel Boost database-schema and read-only queries after each direction.
-- [ ] Review gates complete; commit `feat: add split person name columns`.
+- [x] Add `backend/database/migrations/2026_07_15_000001_add_split_names_to_users_and_patients.php` with nullable `first_name` and `last_name` columns on both tables. Do not drop or rename `name`.
+- [x] Add `backend/database/migrations/2026_07_15_000002_backfill_split_names_for_users_and_patients.php` as a separate DML migration using query-builder `chunkById`, including soft-deleted users, setting `first_name = name` only when both split fields are null, and leaving `last_name` null.
+- [x] Add `backend/tests/Feature/NameMigrationTest.php` to prove exact legacy values, compound names unsplit, both forms of partial split data preserved, soft-deleted users included, a 500-row chunk boundary crossed, no audit rows emitted, rollback drops only new columns, and re-forward uses legacy `name` as authority.
+- [x] Bring the configured MySQL baseline through the pending July 11–14 migrations after proving the retired-inventory migration had no live receiving/cost/report/web/mobile dependency.
+- [x] Run forward, rollback of exactly the two new migrations, and re-forward on the configured MySQL database. Inspect `users` and `patients`, column indexes, migration rows, data, and audit count through Laravel Boost read-only queries after each direction.
+- [x] Spec-compliance and code-quality review gates complete; commit `feat: add split person name columns`.
+
+**Task 2 evidence (2026-07-15):** Red test failed because both planned migration files were absent. Isolated MySQL round-trip passed with 1 test/21 assertions, including 503 eligible user rows across the 500-row chunk boundary. Configured MySQL applied the pending July 11–14 baseline and both name migrations, rolled back exactly two name migrations, and re-forwarded twice after the bulk-query review fix. `SHOW COLUMNS` confirmed nullable 255-character split fields, `SHOW INDEX` confirmed no split-name index, legacy `name` remained, and activity count stayed zero. Before the pending forward-only stock retirement ran, runtime scans found no `quantity_in_stock` dependency and the retirement/receiving/PO/report batch passed 102 tests/434 assertions plus 3 frontend tests. Quality review replaced per-row updates with one guarded bulk update per chunk; targeted Pint passed.
 
 **Focused verification:**
 
