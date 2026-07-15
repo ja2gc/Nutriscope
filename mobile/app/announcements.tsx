@@ -201,7 +201,7 @@ export default function AnnouncementsScreen() {
             <TouchableOpacity
               className="rounded-2xl border border-gray-200 bg-white p-4 mb-3"
               activeOpacity={0.8}
-              onPress={() => setSelectedId(item.id)}
+              onPress={() => setSelectedId(String(item.id))}
             >
               <View className="flex-row items-center justify-between gap-2">
                 <Text className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 flex-1">

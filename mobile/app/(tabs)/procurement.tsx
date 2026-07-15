@@ -809,7 +809,7 @@ export default function ProcurementScreen() {
                 key={po.id}
                 po={po}
                 onPress={() => {
-                  setSelectedPoId(po.id);
+                  setSelectedPoId(String(po.id));
                   setSelectedGroupId(null);
                 }}
               />
