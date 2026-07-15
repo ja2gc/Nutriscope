@@ -1,6 +1,6 @@
 # Audit Oversight and Historical-Record Redesign Implementation Plan
 
-**Status:** In progress. The name-migration gate is complete, pushed, and remote-verified at `6cc8fdd781ddf176d79be6181928c04b26499520`; Audit Tasks 1–5 and Wave A1 are complete. Task 6 is next.
+**Status:** In progress. The name-migration gate is complete, pushed, and remote-verified at `6cc8fdd781ddf176d79be6181928c04b26499520`; Audit Tasks 1–7 and Waves A1–A2 are complete. Task 8 is next.
 
 **Authoritative design:** `docs/superpowers/specs/2026-07-15-audit-oversight-and-history-redesign.md`
 
@@ -200,14 +200,20 @@ The final configured-MySQL backend gate passes 70 tests and 1,622 assertions acr
 
 ## Task 7 — Simple before/after drawer presentation
 
-- [ ] Update `frontend/components/audit/AuditEventDrawer.tsx` and `AuditChangeList.tsx` to display field label, typed before value, typed after value, safe created values, actor, patient (when permitted), NCP reference, action, timestamp, record type, and reason.
-- [ ] Add `frontend/components/audit/AuditValue.tsx` for typed currency/date/quantity/boolean/enum/reference rendering. It must reject nested arrays/objects rather than stringify them.
-- [ ] Keep the existing accessible drawer focus trap, Escape behavior, return-focus behavior, mobile layout, typography, and color tokens. Clearly distinguish read-only content.
-- [ ] Remove misleading `Safe request metadata` detail rendering; request metadata remains storage/debug context only if already permitted and is not mixed with business details.
-- [ ] Extend `AuditEventDrawer.test.tsx`, `AuditEventInteractions.test.tsx`, and backend presenter tests for created/updated/deleted safe entities, redaction, null transitions, no raw JSON, and screen-reader labels.
-- [ ] Review gates complete; commit `feat: show typed audit changes`.
+- [x] Update `frontend/components/audit/AuditEventDrawer.tsx` and `AuditChangeList.tsx` to display field label, typed before value, typed after value, safe created values, actor, patient (when permitted), NCP reference, action, timestamp, record type, and reason.
+- [x] Add `frontend/components/audit/AuditValue.tsx` for typed currency/date/quantity/boolean/enum/reference rendering. It must reject nested arrays/objects rather than stringify them.
+- [x] Keep the existing accessible drawer focus trap, Escape behavior, return-focus behavior, mobile layout, typography, and color tokens. Clearly distinguish read-only content.
+- [x] Remove misleading `Safe request metadata` detail rendering; request metadata remains storage/debug context only if already permitted and is not mixed with business details.
+- [x] Extend `AuditEventDrawer.test.tsx`, `AuditEventInteractions.test.tsx`, and backend presenter tests for created/updated/deleted safe entities, redaction, null transitions, no raw JSON, and screen-reader labels.
+- [x] Review gates complete; commit `feat: show typed audit changes`.
+
+Task 7 followed red-green TDD: the initial frontend gate failed because the typed value renderer, business-value sections, read-only semantics, screen-reader relationships, and created/deleted typed transitions did not yet exist. The implementation now renders only presenter-approved typed values, refuses nested objects/arrays without serialization, preserves clinical redaction, labels Before/After values for assistive technology, and keeps the existing drawer focus trap, Escape/return-focus behavior, responsive layout, and design tokens. The drawer exposes permitted patient display name and NCP reference separately from the actual actor, removes normal category/domain output, and replaces the misleading request-metadata section with curated recorded values.
+
+The final focused frontend gate passes 3 files and 12 tests; TypeScript and focused ESLint pass. The configured-MySQL presenter/API/privacy gate passes 59 tests and 462 assertions. `git diff --check` passes. Separate spec and code-quality reviews found no unresolved Task 7 issue.
 
 **Wave A2 integration gate and push:** Tasks 5–7 backend/frontend focused tests, typecheck, lint, production build, privacy render sentinels, accessibility interactions, and query-count tests pass. Push `main`; verify remote equality.
+
+Wave A2 passes 93 backend tests and 1,240 assertions on configured MySQL, including typed presentation, structured API, clinical privacy, index-plan verification, fixed presenter query counts, module counts, and Admin authorization. The frontend integration gate passes 22 files and 77 tests across the five-tab page, drawer, accessibility interactions, privacy render sentinels, URL state, services, and Next.js proxies. Full ESLint, a standalone TypeScript check, and the Next.js production build pass. The first integration run exposed one stale static drawer-label assertion; it was updated to the approved `Record context` and `Recorded values` labels and reverified. The sandboxed build could not fetch the two existing Google fonts; the required network-enabled retry compiled, typechecked, and generated all 92 static pages successfully.
 
 **Rollback boundary:** Revert Tasks 7, 6, then 5. A1 storage remains compatible.
 

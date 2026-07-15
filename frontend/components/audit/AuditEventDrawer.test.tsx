@@ -37,6 +37,61 @@ const event: AuditEventDto = {
   }],
 };
 
+const operationalEvent: AuditEventDto = {
+  ...event,
+  id: "evt_operational",
+  module: "food_service_operations",
+  category: "operations",
+  domain: "food_service",
+  record_type: "FS Item",
+  action: "updated",
+  action_label: "Updated",
+  summary: "Maria Santos updated Brown Rice.",
+  actor: { id: "actor-public-id", kind: "user", name: "Maria Santos", role: "RND" },
+  subject: { type: "fs_item", id: "item-public-id", label: "Brown Rice" },
+  context: null,
+  patient: null,
+  ncp_reference: null,
+  detail_mode: "changes",
+  reason: "Corrected vendor invoice",
+  details: [
+    { key: "purchase_price", label: "Purchase Price", kind: "currency", value: 120.5, typed_value: { type: "currency", value: 120.5, currency: "PHP" } },
+    { key: "is_active", label: "Active", kind: "boolean", value: true, typed_value: { type: "boolean", value: true } },
+  ],
+  changes: [
+    {
+      field: "name", label: "Name", old_value: null, new_value: "Brown Rice",
+      before: { type: "text", value: null }, after: { type: "text", value: "Brown Rice" }, redacted: false,
+    },
+    {
+      field: "purchase_price", label: "Purchase Price", old_value: 100, new_value: 120.5,
+      before: { type: "currency", value: 100, currency: "PHP" }, after: { type: "currency", value: 120.5, currency: "PHP" }, redacted: false,
+    },
+  ],
+};
+
+const createdEvent: AuditEventDto = {
+  ...operationalEvent,
+  id: "evt_created",
+  action: "created",
+  action_label: "Created",
+  summary: "Maria Santos created Brown Rice.",
+  reason: null,
+  changes: [operationalEvent.changes[0]],
+};
+
+const deletedEvent: AuditEventDto = {
+  ...operationalEvent,
+  id: "evt_deleted",
+  action: "deleted",
+  action_label: "Deleted",
+  summary: "Maria Santos deleted Brown Rice.",
+  changes: [{
+    field: "name", label: "Name", old_value: "Brown Rice", new_value: null,
+    before: { type: "text", value: "Brown Rice" }, after: { type: "text", value: null }, redacted: false,
+  }],
+};
+
 describe("structured audit event components", () => {
   test("wraps longest labels in desktop table and mobile cards", () => {
     const html = renderToStaticMarkup(<AuditEventTable events={[event]} onSelect={vi.fn()} />);
@@ -60,12 +115,46 @@ describe("structured audit event components", () => {
 
   test("renders all drawer sections without raw clinical values", () => {
     const html = renderToStaticMarkup(<AuditEventDrawer event={event} onClose={vi.fn()} />);
-    for (const section of ["Event summary", "Actor", "Subject / context", "Result", "Safe request metadata", "Field changes"]) {
+    for (const section of ["Event summary", "Actor", "Record context", "Result", "Recorded values", "Field changes"]) {
       expect(html).toContain(section);
     }
+    expect(html).toContain("Patient Example");
+    expect(html).toContain("NCP-EXAMPLE");
+    expect(html).toContain("Patient");
     expect(html).toContain("Value hidden; field changed");
+    expect(html).not.toContain("Safe request metadata");
+    expect(html).not.toContain("No request metadata recorded");
     expect(html).not.toContain("SECRET-OLD");
     expect(html).not.toContain("SECRET-NEW");
+  });
+
+  test("renders typed recorded values, reason, and explicit before/after null transitions", () => {
+    const html = renderToStaticMarkup(<AuditEventDrawer event={operationalEvent} onClose={vi.fn()} />);
+
+    expect(html).toContain("FS Item");
+    expect(html).toContain("Corrected vendor invoice");
+    expect(html).toContain("₱120.50");
+    expect(html).toContain("Yes");
+    expect(html).toContain("Not recorded");
+    expect(html).toContain("Brown Rice");
+    expect(html).toContain('aria-label="Name before value"');
+    expect(html).toContain('aria-label="Name after value"');
+    expect(html).toContain("Read-only audit record");
+    expect(html).not.toContain("food_service");
+    expect(html).not.toContain(">operations<");
+  });
+
+  test.each([
+    ["created", createdEvent, "Created"],
+    ["deleted", deletedEvent, "Deleted"],
+  ])("renders a safe %s entity snapshot with typed null transitions", (_case, drawerEvent, actionLabel) => {
+    const html = renderToStaticMarkup(<AuditEventDrawer event={drawerEvent} onClose={vi.fn()} />);
+
+    expect(html).toContain(actionLabel);
+    expect(html).toContain("Brown Rice");
+    expect(html).toContain("Not recorded");
+    expect(html).toContain('aria-label="Name before value"');
+    expect(html).toContain('aria-label="Name after value"');
   });
 
   test("never renders redacted values as placeholder bullets", () => {

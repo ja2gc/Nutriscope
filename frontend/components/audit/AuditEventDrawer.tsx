@@ -2,22 +2,17 @@
 
 import { useEffect, useRef } from "react";
 import { X } from "lucide-react";
-import type { AuditDetailDto, AuditEntityDto, AuditEventDto } from "@/types/audit";
+import type { AuditEntityDto, AuditEventDto } from "@/types/audit";
 import { Badge, type BadgeTone } from "@/components/ui/Badge";
 import { AuditChangeList } from "./AuditChangeList";
 import { AuditTimestamp } from "./AuditTimestamp";
+import { AuditValue } from "./AuditValue";
 
 const outcomeTones: Record<AuditEventDto["outcome"], BadgeTone> = {
   success: "emerald",
   failure: "red",
   blocked: "amber",
 };
-
-function detailValue(detail: AuditDetailDto) {
-  if (Array.isArray(detail.value)) return detail.value.join(", ");
-  if (detail.value === null) return "Not recorded";
-  return String(detail.value);
-}
 
 function Entity({ entity, fallback }: { entity: AuditEntityDto | null; fallback: string }) {
   if (!entity) return <p className="text-sm text-warm-500">{fallback}</p>;
@@ -83,6 +78,7 @@ export function AuditEventDrawer({ event, onClose }: { event: AuditEventDto; onC
         role="dialog"
         aria-modal="true"
         aria-labelledby="audit-drawer-title"
+        aria-describedby="audit-drawer-description"
         className="absolute inset-y-0 right-0 flex w-full max-w-xl flex-col bg-white shadow-xl"
       >
         <header className="flex items-start justify-between gap-4 border-b border-warm-200 p-5">
@@ -91,6 +87,7 @@ export function AuditEventDrawer({ event, onClose }: { event: AuditEventDto; onC
             <h2 id="audit-drawer-title" className="mt-1 text-xl font-extrabold text-warm-900 break-words">
               {event.action_label}
             </h2>
+            <p id="audit-drawer-description" className="mt-1 text-xs font-semibold text-warm-500">Read-only audit record</p>
             <p className="mt-1 text-xs text-warm-500 break-all">Reference {event.id}</p>
           </div>
           <button
@@ -107,8 +104,18 @@ export function AuditEventDrawer({ event, onClose }: { event: AuditEventDto; onC
         <div className="flex-1 space-y-4 overflow-y-auto p-5">
           <Section title="Event summary">
             <p className="text-sm leading-relaxed text-warm-700 break-words">{event.summary}</p>
+            <dl className="mt-3">
+              <dt className="text-xs font-bold uppercase tracking-wider text-warm-500">Record type</dt>
+              <dd className="mt-0.5 text-sm text-warm-700 break-words">{event.record_type}</dd>
+            </dl>
+            {event.reason && (
+              <div className="mt-3 rounded-xl border border-warm-200 bg-warm-50 p-3">
+                <p className="text-xs font-bold uppercase tracking-wider text-warm-500">Reason</p>
+                <p className="mt-1 text-sm text-warm-700 break-words">{event.reason}</p>
+              </div>
+            )}
             <p className="mt-2 text-xs text-warm-500">
-              <AuditTimestamp value={event.occurred_at} /> · {event.category} · {event.domain}
+              <AuditTimestamp value={event.occurred_at} />
             </p>
           </Section>
 
@@ -125,8 +132,15 @@ export function AuditEventDrawer({ event, onClose }: { event: AuditEventDto; onC
             )}
           </Section>
 
-          <Section title="Subject / context">
+          <Section title="Record context">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {event.patient && (
+                <div className="rounded-xl border border-warm-200 p-3">
+                  <p className="mb-2 text-xs font-bold uppercase tracking-wider text-warm-500">Patient</p>
+                  <p className="text-sm font-semibold text-warm-800 break-words">{event.patient.display_name}</p>
+                  {event.ncp_reference && <p className="mt-1 text-xs text-warm-500 break-all">{event.ncp_reference}</p>}
+                </div>
+              )}
               <div className="rounded-xl border border-warm-200 p-3">
                 <p className="mb-2 text-xs font-bold uppercase tracking-wider text-warm-500">Subject</p>
                 <Entity entity={event.subject} fallback="No subject recorded" />
@@ -147,15 +161,15 @@ export function AuditEventDrawer({ event, onClose }: { event: AuditEventDto; onC
             </div>
           </Section>
 
-          <Section title="Safe request metadata">
+          <Section title="Recorded values">
             {event.details.length === 0 ? (
-              <p className="text-sm text-warm-500">No request metadata recorded.</p>
+              <p className="text-sm text-warm-500">No recorded values available.</p>
             ) : (
               <dl className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 {event.details.map((detail) => (
                   <div key={detail.key} className="rounded-xl border border-warm-200 bg-warm-50 p-3">
                     <dt className="text-xs font-bold uppercase tracking-wider text-warm-500 break-words">{detail.label}</dt>
-                    <dd className="mt-1 text-sm text-warm-700 break-words">{detailValue(detail)}</dd>
+                    <dd className="mt-1 text-sm text-warm-700 break-words"><AuditValue value={detail.typed_value} /></dd>
                   </div>
                 ))}
               </dl>

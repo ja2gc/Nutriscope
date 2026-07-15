@@ -70,6 +70,8 @@ describe("audit event keyboard interactions", () => {
     const drawer = container.querySelector<HTMLElement>('[role="dialog"]')!;
     const close = drawer.querySelector<HTMLButtonElement>('button[aria-label="Close event details"]')!;
     expect(drawer).not.toBeNull();
+    expect(drawer.getAttribute("aria-describedby")).toBe("audit-drawer-description");
+    expect(drawer.textContent).toContain("Read-only audit record");
     expect(document.activeElement).toBe(close);
 
     await act(async () => user.tab());

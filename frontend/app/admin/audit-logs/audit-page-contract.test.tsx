@@ -66,9 +66,10 @@ describe("purposeful admin audit views", () => {
   });
 
   test("renders every safe drawer section and clinical redaction message", () => {
-    for (const section of ["Event summary", "Actor", "Subject / context", "Result", "Safe request metadata", "Field changes"]) {
+    for (const section of ["Event summary", "Actor", "Record context", "Result", "Recorded values", "Field changes"]) {
       expect(drawer).toContain(section);
     }
+    expect(drawer).not.toContain("Safe request metadata");
     expect(changes).toContain("Value hidden; field changed");
     expect(changes).not.toMatch(/[•●]{2,}/u);
   });

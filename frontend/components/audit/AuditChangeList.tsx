@@ -1,10 +1,5 @@
 import type { AuditChangeDto } from "@/types/audit";
-
-function displayValue(value: AuditChangeDto["old_value"]) {
-  if (value === null) return "Not recorded";
-  if (typeof value === "boolean") return value ? "Yes" : "No";
-  return String(value);
-}
+import { AuditValue } from "./AuditValue";
 
 export function AuditChangeList({
   changes,
@@ -30,11 +25,15 @@ export function AuditChangeList({
               <dl className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
                 <div>
                   <dt className="text-xs font-bold uppercase tracking-wider text-warm-500">Before</dt>
-                  <dd className="mt-0.5 text-sm text-warm-700 break-words">{displayValue(change.old_value)}</dd>
+                  <dd aria-label={`${change.label} before value`} className="mt-0.5 text-sm text-warm-700 break-words">
+                    <AuditValue value={change.before} />
+                  </dd>
                 </div>
                 <div>
                   <dt className="text-xs font-bold uppercase tracking-wider text-warm-500">After</dt>
-                  <dd className="mt-0.5 text-sm text-warm-700 break-words">{displayValue(change.new_value)}</dd>
+                  <dd aria-label={`${change.label} after value`} className="mt-0.5 text-sm text-warm-700 break-words">
+                    <AuditValue value={change.after} />
+                  </dd>
                 </div>
               </dl>
             )}

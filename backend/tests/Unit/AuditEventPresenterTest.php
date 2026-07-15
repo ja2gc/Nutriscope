@@ -156,7 +156,10 @@ class AuditEventPresenterTest extends TestCase
             'subject_public_id' => (string) Str::uuid(),
             'properties' => [
                 'actor' => ['kind' => 'system', 'name' => 'Import worker'],
-                'details' => ['changed_fields' => ['serving_size', 'serving_unit']],
+                'details' => [
+                    'changed_fields' => ['serving_size', 'serving_unit'],
+                    'reason' => 'Corrected vendor invoice',
+                ],
                 'old' => ['serving_size' => 100, 'serving_unit' => 'g'],
                 'attributes' => ['serving_size' => 150, 'serving_unit' => 'g'],
             ],
@@ -172,6 +175,7 @@ class AuditEventPresenterTest extends TestCase
         $this->assertSame('g', $event['changes'][1]['before']['value']);
         $this->assertSame(100, $event['changes'][0]['old_value']);
         $this->assertSame(150, $event['changes'][0]['new_value']);
+        $this->assertSame('Corrected vendor invoice', $event['reason']);
     }
 
     public function test_created_operational_record_exposes_only_curated_initial_values(): void
@@ -199,6 +203,9 @@ class AuditEventPresenterTest extends TestCase
         $this->assertTrue(collect($event['changes'])->every(
             fn (array $change): bool => $change['before']['value'] === null && $change['after']['value'] !== null,
         ));
+        $name = collect($event['changes'])->firstWhere('field', 'name');
+        $this->assertSame(['type' => 'text', 'value' => null], $name['before']);
+        $this->assertSame(['type' => 'text', 'value' => 'Brown Rice'], $name['after']);
         $this->assertStringNotContainsString('RAW-CREATED-SENTINEL', json_encode($event, JSON_THROW_ON_ERROR));
     }
 
@@ -222,6 +229,8 @@ class AuditEventPresenterTest extends TestCase
         $this->assertSame(['type' => 'food_item', 'id' => $publicId, 'label' => 'Food item'], $event['subject']);
         $this->assertNull($event['current_record_url']);
         $this->assertSame('Deleted food', $event['changes'][0]['old_value']);
+        $this->assertSame(['type' => 'text', 'value' => 'Deleted food'], $event['changes'][0]['before']);
+        $this->assertSame(['type' => 'text', 'value' => null], $event['changes'][0]['after']);
     }
 
     public function test_revision_metadata_is_typed_without_exposing_snapshot_json(): void
