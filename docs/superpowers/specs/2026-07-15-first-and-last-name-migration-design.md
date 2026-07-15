@@ -205,6 +205,53 @@ The later audit demo seeder consumes `display_name` and named actors after this 
 - A failed schema/data migration rolls back without losing the legacy name.
 - No existing account or patient becomes inaccessible because its name cannot be heuristically parsed.
 
+## Blast radius and risk register
+
+### Affected systems
+
+The name migration crosses:
+
+- users/patients schema, indexes, soft-deleted rows and backfill migrations;
+- authentication/profile/Admin account and patient CRUD contracts;
+- patient search, filtering and user ordering;
+- reports, archived prepared-by values and clinical attribution;
+- future audit actor snapshots and historical actor presentation;
+- announcement/SOP/notification/budget creator DTOs;
+- frontend forms, types, headers, tables and reports;
+- mobile login/profile/report/author contracts;
+- factories, seeders, fixtures and demo cleanup logic.
+
+### Ranked risks and controls
+
+| Risk | Impact | Required control and verification |
+|---|---|---|
+| Heuristic splitting corrupts Filipino compound/legacy names | Critical | Never parse tokens; backfill exact legacy text into `first_name`, leave `last_name` null; byte-for-byte display-preservation tests |
+| Dropping `name` breaks old web/mobile/API/report consumers | Critical | Additive compatibility waves; continue accepting/returning deprecated `name`; stale-consumer scan; legacy input/output tests; no drop in this release |
+| Dual-write drift makes `name` differ from `display_name` | High | One explicit synchronization service used by all user/patient writers; paired-field contract tests and database assertions |
+| Legacy record cannot be edited because last name is null | High | Require both fields only when name is deliberately changed; unrelated-edit regression tests for user/profile/patient |
+| Incomplete eager-load projections produce blank/truncated display names | High | Inventory every `select(...name...)`; include first/last/legacy fields or central projection helper; resource/report/attribution tests |
+| Patient search OR clauses bypass status/privacy filters | High | Group all search alternatives in one closure; status + first/last/physician/hospital-number regression tests |
+| Name changes leak patient identity into Admin audit output | Critical | Patient name changes remain Clinical field-name-only; privacy sentinels across storage/API/export/UI |
+| Historical audit/report snapshots are rewritten or lose original attribution | High | Never rewrite `properties.actor.name` or `prepared_by_name`; legacy snapshot fixtures before/after migration |
+| Mobile profile/login breaks after backend contract changes | High | Preserve deprecated `name`; migrate mobile in same compatibility wave; mobile typecheck/tests/login/profile verification |
+| Reports overflow or format differently with compound names | Medium | Render tests for patient, NCP, menu-plan and accomplishment reports using long compound names |
+| New sort/index strategy degrades user/patient listing | Medium | Deterministic last/first/ID ordering tests, MySQL explain/index verification and pagination stability tests |
+| Seeder reruns duplicate patients after name changes | Medium | Patient demo cleanup uses stable `hospital_number`; seeder idempotence and fresh-seed smoke tests |
+| Migration misses soft-deleted or high-ID rows | High | `withTrashed`, `chunkById`, pre/post row counts, boundary fixtures and legacy-upgrade tests |
+| Rollback loses names entered after additive migration | High | Legacy `name` synchronized on every compatibility write; rollback drops only new columns; rollback/re-forward data-preservation test |
+| Unrelated business/entity `name` fields are accidentally migrated | Medium | Typed model/file inventory and stale scan distinguishing User/Patient from food, recipe, supplier, menu, physician and signatory names |
+
+### Rollout and rollback boundaries
+
+- Schema addition and conservative backfill are separate migrations.
+- Compatibility model/resources deploy before new web/mobile inputs become mandatory.
+- Backend continues accepting the old input until web and mobile migrations are verified.
+- Legacy `name` remains synchronized and indexed through this release, making application rollback safe.
+- Historical audit/report snapshots remain untouched and require no data migration.
+- Seeders/factories migrate only after compatibility models exist.
+- The legacy-column retirement is a separate future plan and deployment, not a final task hidden in this plan.
+- Each implementation-plan task must state affected API consumers, rollback behavior and focused backend/frontend/mobile verification.
+
 ## Testing requirements
 
 ### Migration

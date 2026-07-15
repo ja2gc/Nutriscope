@@ -606,6 +606,57 @@ Seeder tests verify no anonymous base-seed activity, deterministic reruns, valid
 - Add compound indexes based on actual module/date/actor/action filters and verify with MySQL explain plans.
 - Keep 100,000-row audit-list performance coverage and add bounded revision payload/lookup gates.
 
+## Blast radius and risk register
+
+### Affected systems
+
+This redesign can affect more than the Admin audit page:
+
+- `activity_log` schema, indexes, legacy rows, retention and legal holds;
+- model-event writers and explicit audit writers;
+- clinical, procurement, receiving, budget, report and account transactions;
+- shared `AuditEventDto`, contextual patient/NCP/PO/budget/report trails and Next.js proxies;
+- Admin audit filters, drawer, pagination, actor search and historical routes;
+- report browsing/authorization for all active RND users;
+- Food Library, recipes, menus, shopping lists, POs and budget UI components reused in read-only mode;
+- seeders, factories, demo data and test databases;
+- storage growth, pruning duration and MySQL query plans.
+
+### Ranked risks and controls
+
+| Risk | Impact | Required control and verification |
+|---|---|---|
+| Clinical/PHI leakage through new values or snapshots | Critical | Revision writer rejects every patient/NCP/clinical/report-content type; per-serializer allow-lists; storage/API/export/log/UI privacy sentinels; Admin authorization tests |
+| Shared-RND report fix accidentally grants Admin/FSS clinical access | Critical | Role/policy tests for RND A/RND B/Admin/FSS across browse, preview, view, download, delete and trail endpoints; retain Admin report allow-list |
+| Attribution fields remain hidden authorization gates | High | Repository scan for `rnd_user_id`, `audit_owner_id`, report `user_id` gates; contract tests state they are attribution only |
+| Module/domain backfill misclassifies historical rows | High | Deterministic model/action mapping only; ambiguous rows stay Legacy/Unclassified; pre/post migration count report; rollback/re-forward test |
+| New historical store becomes an unbounded shadow database | High | Explicit supported-type list, payload caps, one revision per qualifying event, no raw files/report contents, category retention cascade, legal-hold coupling and storage monitoring |
+| Snapshot/audit failure leaves an unlogged destructive or financial mutation | High | Required destructive, corrective, complex structural and financial audit/revision writes share the business transaction; fault-injection rollback tests |
+| Duplicate suppression removes a distinct accountable side effect | High | User-intent event matrix; keep separate PO lifecycle and budget-ledger events; focused event-count/order tests per workflow |
+| Canonical event cleanup breaks legacy filters or contextual trails | Medium | Add module/DTO compatibility first; migrate every web/proxy consumer; retain backend category/domain query compatibility during transition; stale-route/proxy tests |
+| Required reason validation blocks legitimate existing workflows | Medium | Add coordinated backend request and frontend modal/form in the same task; reason required only for confirmed destructive/corrective states; `422` and success-path tests |
+| Operational values expose data outside Admin authorization | High | Admin-only global endpoints, escaped typed presenters, no arbitrary values, authorization tests and direct-route denial tests |
+| Historical page is mistaken for current state | Medium | Prominent event timestamp/version label; read-only styling; separate `View current record`; no edit controls on history routes |
+| Budget presentation changes financial behavior | High | Presenter/snapshot changes remain read-only; no approval/reversal workflow; assert ledger immutability, balance calculations and PO-deduction idempotency |
+| Account Blocked is confused with removed IP blocking | Medium | Bind actions only to user `is_active` transitions; preserve tests proving IP-block model/config/routes remain absent |
+| Retired Inventory cleanup hides needed legacy evidence | Medium | Count/inspect legacy Inventory events first; move label support to legacy adapter before removing active resolver code; legacy presentation tests |
+| Query/index changes degrade 100,000-row performance | High | MySQL `EXPLAIN`, composite-index assertions, query-count/N+1 tests and existing 100,000-row gate before each integration wave |
+| Base/demo seeders create fake production audit history | High | `WithoutModelEvents` for base seed; strict local/demo environment guard; deterministic marker; production seeder test; no raw activity inserts |
+| Revision pruning violates legal hold or leaves orphans | High | Parent-child retention transaction, held-category tests, foreign-key/orphan assertions, dry-run/force pruning tests |
+| Large frontend reuse creates editable controls on history pages | Medium | Explicit read-only props/contracts, component tests proving mutation buttons/handlers absent, route authorization and visual interaction tests |
+
+### Rollout and rollback boundaries
+
+- Use additive schema/API changes before removing or hiding any existing contract.
+- Backfill module/domain in a dedicated migration and preserve ambiguous legacy values.
+- Deploy backend module/DTO compatibility before switching frontend tabs and filters.
+- Introduce revision storage and serializers before exposing historical links.
+- Migrate each complex record type independently; a type receives a historical link only after its serializer, API, read-only page and tests pass together.
+- Keep category/domain query parameters through the compatibility wave even after the normal UI stops showing Domain.
+- Do not remove active compatibility code until route/proxy, stale-reference and legacy-presentation tests prove no consumer remains.
+- A failed integration wave rolls back application code while additive columns/tables remain harmless; destructive schema cleanup occurs only in a later verified wave.
+- Each implementation-plan task must state its touched workflows, failure mode, rollback boundary and focused verification commands.
+
 ## Testing requirements
 
 ### Backend
