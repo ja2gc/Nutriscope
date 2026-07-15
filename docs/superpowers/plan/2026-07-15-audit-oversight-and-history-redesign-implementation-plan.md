@@ -1,6 +1,6 @@
 # Audit Oversight and Historical-Record Redesign Implementation Plan
 
-**Status:** In progress. The name-migration gate is complete, pushed, and remote-verified at `6cc8fdd781ddf176d79be6181928c04b26499520`; Audit Tasks 1–3 are complete and Task 4 is next.
+**Status:** In progress. The name-migration gate is complete, pushed, and remote-verified at `6cc8fdd781ddf176d79be6181928c04b26499520`; Audit Tasks 1–4 are complete and Wave A1 verification is next.
 
 **Authoritative design:** `docs/superpowers/specs/2026-07-15-audit-oversight-and-history-redesign.md`
 
@@ -149,13 +149,15 @@ Affected frontend audit verification passes 15 files and 56 tests; TypeScript an
 
 ## Task 4 — Canonical event policy, privacy boundary, and duplicate removal
 
-- [ ] Add the canonical `Imported` case to `backend/app/Enums/AuditAction.php`. Add `backend/app/Services/Audit/AuditEventPolicy.php` as the single registry mapping subject/action to module, retention category, internal domain, privacy class, canonical writer, detail mode, reason rule, and revision serializer.
-- [ ] Add `backend/app/Services/Audit/AuditPatientSnapshot.php` to resolve current patient identity, encrypt only through the model cast, and return null when unresolvable. It must not expose search/filter/sort helpers.
-- [ ] Add `backend/app/Services/Audit/AuditPseudonymousReference.php` for a stable non-identifying NCP reference derived from existing safe public identifiers; never expose hospital number or patient UUID as a patient lookup surface.
-- [ ] Update `backend/app/Services/Audit/AuditLogger.php`, `backend/app/Models/Concerns/AuditsChanges.php`, `backend/app/Services/Audit/AuditContextResolver.php`, and `backend/app/Services/Audit/AuditSanitizer.php` to apply the policy, dedicated patient snapshot, actual actor, retention category, module, and prohibited-field sentinels synchronously in the same database transaction.
-- [ ] Remove one side of every proven duplicate writer. Keep automatic model auditing only where the policy names it authoritative; keep explicit service/controller events for lifecycle/user-intent actions. Never collapse unknown legacy actions into `updated`.
-- [ ] Add `backend/tests/Feature/Audit/AuditCanonicalEventTest.php` and expand privacy tests for one-intent/one-event, actual actor, module classification, field-name-only clinical changes, encrypted patient name, no clinical or patient-identifying values in storage/API/export/logs/revisions, and account-block compatibility.
-- [ ] Review gates complete; commit `refactor: enforce canonical audit events`.
+- [x] Add the canonical `Imported` case to `backend/app/Enums/AuditAction.php`. Add `backend/app/Services/Audit/AuditEventPolicy.php` as the single registry mapping subject/action to module, retention category, internal domain, privacy class, canonical writer, detail mode, reason rule, and revision serializer.
+- [x] Add `backend/app/Services/Audit/AuditPatientSnapshot.php` to resolve current patient identity, encrypt only through the model cast, and return null when unresolvable. It must not expose search/filter/sort helpers.
+- [x] Add `backend/app/Services/Audit/AuditPseudonymousReference.php` for a stable non-identifying NCP reference derived from existing safe public identifiers; never expose hospital number or patient UUID as a patient lookup surface.
+- [x] Update `backend/app/Services/Audit/AuditLogger.php`, `backend/app/Models/Concerns/AuditsChanges.php`, `backend/app/Services/Audit/AuditContextResolver.php`, and `backend/app/Services/Audit/AuditSanitizer.php` to apply the policy, dedicated patient snapshot, actual actor, retention category, module, and prohibited-field sentinels synchronously in the same database transaction.
+- [x] Remove one side of every proven duplicate writer. Keep automatic model auditing only where the policy names it authoritative; keep explicit service/controller events for lifecycle/user-intent actions. Never collapse unknown legacy actions into `updated`.
+- [x] Add `backend/tests/Feature/Audit/AuditCanonicalEventTest.php` and expand privacy tests for one-intent/one-event, actual actor, module classification, field-name-only clinical changes, encrypted patient name, no clinical or patient-identifying values in storage/API/export/logs/revisions, and account-block compatibility.
+- [x] Review gates complete; commit `refactor: enforce canonical audit events`.
+
+Task 4 began with eight expected failures covering the missing policy and services, absent canonical modules and snapshots, unsafe clinical identifiers, and duplicate upload/AI/meal-plan events. Focused TDD also exposed and fixed explicit events being reprocessed by model hooks, security-action taxonomy being overwritten by a clinical subject, generic mutation identifiers entering clinical details, and deleted-NCP reports losing their stable reference. The canonical suite passes 8 tests and 85 assertions. The fresh affected MySQL gate passes 269 tests and 2,198 assertions across policy, privacy, contextual trails, duplicate discovery, reports, security, budgets, attachments, AI, meal plans, purchase orders, and legacy name compatibility. Pint and `git diff --check` pass. Spec-compliance and code-quality self-review found no unresolved Task 4 issue.
 
 **Wave A1 integration gate and push:**
 

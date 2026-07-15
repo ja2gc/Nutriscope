@@ -47,7 +47,7 @@ class OperationsAuditTest extends TestCase
         $activity = AuditActivity::query()->sole();
         $this->assertSame('created', $activity->event);
         $this->assertSame('operations', $activity->category->value);
-        $this->assertSame('food_service', $activity->domain->value);
+        $this->assertSame('nutrition_library', $activity->domain->value);
         $this->assertSame('success', $activity->outcome->value);
         $this->assertSame('info', $activity->severity->value);
         $this->assertSame($user->id, $activity->causer_id);
@@ -237,7 +237,7 @@ class OperationsAuditTest extends TestCase
         $this->postJson('/api/rnd/usda/import/124')->assertStatus(502);
 
         $activity = AuditActivity::query()->sole();
-        $this->assertSame('created', $activity->event);
+        $this->assertSame('imported', $activity->event);
         $this->assertSame(['usda_fdc_id'], $activity->properties['details']['changed_fields']);
     }
 

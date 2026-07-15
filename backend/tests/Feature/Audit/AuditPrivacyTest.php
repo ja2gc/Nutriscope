@@ -5,6 +5,7 @@ namespace Tests\Feature\Audit;
 use App\Enums\AuditAction;
 use App\Enums\AuditCategory;
 use App\Enums\AuditDomain;
+use App\Enums\AuditModule;
 use App\Enums\AuditOutcome;
 use App\Enums\AuditSeverity;
 use App\Events\PurchaseOrderCompleted;
@@ -68,11 +69,9 @@ class AuditPrivacyTest extends TestCase
             'role' => $actor->role,
             'kind' => 'user',
         ], $activity->properties['actor']);
-        $this->assertSame([
-            'root_patient_id' => $patient->id,
-            'ncp_record_id' => null,
-            'route' => 'patients.show',
-        ], $activity->properties['details']);
+        $this->assertSame(['route' => 'patients.show'], $activity->properties['details']);
+        $this->assertSame($patient->id, $activity->root_patient_id);
+        $this->assertSame($patient->display_name, $activity->patient_display_name_snapshot);
     }
 
     public function test_clinical_caller_cannot_override_authoritative_root_identifiers(): void
@@ -88,11 +87,14 @@ class AuditPrivacyTest extends TestCase
             details: ['root_patient_id' => 999999, 'ncp_record_id' => 999999],
         );
 
-        $this->assertSame($patient->id, $activity->properties['details']['root_patient_id']);
-        $this->assertSame($ncp->id, $activity->properties['details']['ncp_record_id']);
+        $this->assertSame($patient->id, $activity->root_patient_id);
+        $this->assertSame($ncp->id, $activity->ncp_record_id);
+        $this->assertMatchesRegularExpression('/^NCP-[A-F0-9]{16}$/D', $activity->properties['details']['ncp_reference']);
+        $this->assertArrayNotHasKey('root_patient_id', $activity->properties['details']);
+        $this->assertArrayNotHasKey('ncp_record_id', $activity->properties['details']);
     }
 
-    public function test_trait_subject_preserves_nondefault_manual_metadata_and_context(): void
+    public function test_security_action_preserves_security_taxonomy_context_outcome_and_severity(): void
     {
         $patient = Patient::factory()->create();
         $budget = Budget::factory()->create();
@@ -109,6 +111,7 @@ class AuditPrivacyTest extends TestCase
 
         $this->assertSame(AuditCategory::Security, $activity->category);
         $this->assertSame(AuditDomain::Accounts, $activity->domain);
+        $this->assertSame(AuditModule::SecurityAdministration, $activity->module);
         $this->assertSame(AuditOutcome::Blocked, $activity->outcome);
         $this->assertSame(AuditSeverity::Critical, $activity->severity);
         $this->assertSame($budget->getMorphClass(), $activity->context_type);

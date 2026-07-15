@@ -7,13 +7,8 @@ use App\Models\Assessment;
 use App\Models\Budget;
 use App\Models\BudgetLedger;
 use App\Models\Diagnosis;
-use App\Models\FoodServiceRecipe;
-use App\Models\FsItem;
 use App\Models\Intervention;
-use App\Models\Inventory;
 use App\Models\MealPlan;
-use App\Models\MealPrepLog;
-use App\Models\MenuCycle;
 use App\Models\Monitoring;
 use App\Models\NcpRecord;
 use App\Models\Patient;
@@ -102,32 +97,7 @@ class AuditContextResolver
 
     public function domain(Model $subject): AuditDomain
     {
-        return match (true) {
-            $subject instanceof Patient => AuditDomain::Patients,
-            $subject instanceof NcpRecord,
-            $subject instanceof Assessment,
-            $subject instanceof Diagnosis,
-            $subject instanceof Intervention,
-            $subject instanceof Monitoring,
-            $subject instanceof ScreeningDocument,
-            $subject instanceof MealPlan => AuditDomain::Ncp,
-            $subject instanceof PurchaseOrder,
-            $subject instanceof PurchaseOrderItem,
-            $subject instanceof PurchaseOrderAttachment,
-            $subject instanceof PurchaseOrderVendorGroup,
-            $subject instanceof PurchaseOrderItemCorrection,
-            $subject instanceof ProgramProjectActivity,
-            $subject instanceof ShoppingList => AuditDomain::Procurement,
-            $subject instanceof Budget,
-            $subject instanceof BudgetLedger => AuditDomain::Budget,
-            $subject instanceof Report => AuditDomain::Reports,
-            $subject instanceof FoodServiceRecipe,
-            $subject instanceof FsItem,
-            $subject instanceof Inventory,
-            $subject instanceof MealPrepLog,
-            $subject instanceof MenuCycle => AuditDomain::FoodService,
-            default => AuditDomain::System,
-        };
+        return app(AuditEventPolicy::class)->domain($subject, AuditDomain::System);
     }
 
     /** @return array{root_patient_id: int|null, ncp_record_id: int|null} */

@@ -66,6 +66,12 @@ class ClinicalTrailTest extends TestCase
             $ncp = $subject;
         }
         $subject->update([$field => $updateValue]);
+        $this->assertEqualsCanonicalizing(['created', 'updated'], AuditActivity::query()
+            ->where('subject_type', $subject->getMorphClass())
+            ->where('subject_id', $subject->getKey())
+            ->whereIn('event', ['created', 'updated'])
+            ->pluck('event')
+            ->all());
 
         $route = $subject instanceof NcpRecord
             ? "/api/rnd/ncp-records/{$subject->uuid}/activity"
@@ -285,9 +291,11 @@ class ClinicalTrailTest extends TestCase
         $this->deleteJson("/api/rnd/screening-documents/{$document->uuid}")->assertOk();
 
         $events = AuditActivity::query()->orderBy('id')->get();
-        $this->assertEqualsCanonicalizing(['created', 'uploaded', 'viewed', 'downloaded', 'deleted'], $events->pluck('event')->all());
-        $this->assertTrue($events->every(fn (AuditActivity $event): bool => (int) $event->properties['details']['root_patient_id'] === $patient->id
-            && (int) $event->properties['details']['ncp_record_id'] === $ncp->id
+        $this->assertEqualsCanonicalizing(['uploaded', 'viewed', 'downloaded', 'deleted'], $events->pluck('event')->all());
+        $this->assertTrue($events->every(fn (AuditActivity $event): bool => (int) $event->root_patient_id === $patient->id
+            && (int) $event->ncp_record_id === $ncp->id
+            && preg_match('/^NCP-[A-F0-9]{16}$/D', (string) $event->properties['details']['ncp_reference']) === 1
+            && ! isset($event->properties['details']['root_patient_id'], $event->properties['details']['ncp_record_id'])
         ));
         $this->assertStringNotContainsString('FILE-NAME-PATIENT-SENTINEL', $events->toJson());
     }
@@ -323,7 +331,8 @@ class ClinicalTrailTest extends TestCase
 
         $response->assertJsonPath('data.0.action', 'deleted');
         $activity = AuditActivity::query()->where('event', 'deleted')->latest('id')->firstOrFail();
-        $this->assertSame($patient->id, $activity->properties['details']['root_patient_id']);
+        $this->assertSame($patient->id, $activity->root_patient_id);
+        $this->assertMatchesRegularExpression('/^NCP-[A-F0-9]{16}$/D', $activity->properties['details']['ncp_reference']);
         $this->assertSame($rnd->id, $activity->audit_owner_id);
     }
 

@@ -41,6 +41,7 @@ class AuditContractTest extends TestCase
             'archived' => 'Archived',
             'adjusted' => 'Adjusted',
             'uploaded' => 'Uploaded',
+            'imported' => 'Imported',
             'generated' => 'Generated',
             'completed' => 'Completed',
             'price_corrected' => 'Price corrected',

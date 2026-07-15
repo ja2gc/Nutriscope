@@ -163,14 +163,14 @@ class AssessmentController extends Controller
         // If an assessment already exists, keep the legacy link populated too.
         try {
             return $this->audited(function () use ($ncpRecord, $validated, $path, $file) {
-                $document = ScreeningDocument::create([
+                $document = $this->auditLogger->withoutModelEvents(fn (): ScreeningDocument => ScreeningDocument::create([
                     'patient_id' => $ncpRecord->patient_id,
                     'ncp_record_id' => $ncpRecord->id,
                     'assessment_id' => $ncpRecord->assessment?->id,
                     'type' => $validated['type'] ?? null,
                     'file_path' => $path,
                     'original_name' => $file->getClientOriginalName(),
-                ]);
+                ]));
                 $this->auditLogger->record(
                     AuditAction::Uploaded,
                     AuditCategory::Clinical,

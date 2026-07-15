@@ -26,6 +26,17 @@ class AuditActivity extends Activity
 {
     private const MAX_UNSIGNED_BIGINT = '18446744073709551615';
 
+    protected $hidden = [
+        'subject_id',
+        'subject_public_id',
+        'context_id',
+        'context_public_id',
+        'root_patient_id',
+        'ncp_record_id',
+        'audit_owner_id',
+        'patient_display_name_snapshot',
+    ];
+
     protected $casts = [
         'properties' => 'collection',
         'category' => AuditCategory::class,

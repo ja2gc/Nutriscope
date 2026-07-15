@@ -57,8 +57,11 @@ class ReportControllerTest extends TestCase
         $this->get("/api/rnd/reports/{$report->uuid}/download")->assertOk();
 
         $activity = AuditActivity::query()->where('event', 'downloaded')->latest('id')->firstOrFail();
-        $this->assertSame($patientId, $activity->properties['details']['root_patient_id']);
-        $this->assertSame($ncpId, $activity->properties['details']['ncp_record_id']);
+        $this->assertSame($patientId, $activity->root_patient_id);
+        $this->assertSame($ncpId, $activity->ncp_record_id);
+        $this->assertMatchesRegularExpression('/^NCP-[A-F0-9]{16}$/D', $activity->properties['details']['ncp_reference']);
+        $this->assertArrayNotHasKey('root_patient_id', $activity->properties['details']);
+        $this->assertArrayNotHasKey('ncp_record_id', $activity->properties['details']);
         $this->assertSame(2, AuditActivity::query()->where('event', 'downloaded')->count());
     }
 

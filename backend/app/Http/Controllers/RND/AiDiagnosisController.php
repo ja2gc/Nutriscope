@@ -126,7 +126,7 @@ class AiDiagnosisController extends Controller
         $signs = $this->cleanPesComponent($data['signs'], 'as evidenced by');
 
         return $this->audited(function () use ($ncpRecord, $data, $problem, $etiology, $signs) {
-            $diagnosis = Diagnosis::create([
+            $diagnosis = $this->auditLogger->withoutModelEvents(fn (): Diagnosis => Diagnosis::create([
                 'ncp_record_id' => $ncpRecord->id,
                 'domain' => $data['domain'],
                 'problem' => $problem,
@@ -135,7 +135,7 @@ class AiDiagnosisController extends Controller
                 'signs_symptoms' => $signs,
                 'pes_statement' => Diagnosis::buildPes($problem, $etiology, $signs),
                 'ai_generated' => true,
-            ]);
+            ]));
             $this->auditLogger->record(
                 AuditAction::Approved,
                 AuditCategory::Clinical,

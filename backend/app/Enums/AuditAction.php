@@ -17,6 +17,7 @@ enum AuditAction: string
     case Archived = 'archived';
     case Adjusted = 'adjusted';
     case Uploaded = 'uploaded';
+    case Imported = 'imported';
     case Generated = 'generated';
     case Completed = 'completed';
     case PriceCorrected = 'price_corrected';

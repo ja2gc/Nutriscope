@@ -55,7 +55,7 @@ class RecipeController extends Controller
             }
             $this->auditLogger->recordMutation(
                 AuditAction::Created,
-                AuditDomain::FoodService,
+                AuditDomain::NutritionLibrary,
                 $recipe,
                 array_map(fn (string $field): string => $field === 'prep_notes' ? 'content' : $field, $fields),
             );
@@ -100,7 +100,7 @@ class RecipeController extends Controller
             }
             $this->auditLogger->recordMutation(
                 AuditAction::Updated,
-                AuditDomain::FoodService,
+                AuditDomain::NutritionLibrary,
                 $recipe,
                 array_map(fn (string $field): string => $field === 'prep_notes' ? 'content' : $field, $fields),
             );
@@ -115,7 +115,7 @@ class RecipeController extends Controller
     {
         $this->audited(function () use ($recipe): void {
             $recipe->delete();
-            $this->auditLogger->recordMutation(AuditAction::Deleted, AuditDomain::FoodService, $recipe, []);
+            $this->auditLogger->recordMutation(AuditAction::Deleted, AuditDomain::NutritionLibrary, $recipe, []);
         });
 
         return response()->json(null, 204);

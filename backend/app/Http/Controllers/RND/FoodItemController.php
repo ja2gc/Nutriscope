@@ -43,7 +43,7 @@ class FoodItemController extends Controller
         $data = $request->validated();
         $food = $this->audited(function () use ($data): FoodItem {
             $food = FoodItem::create($data);
-            $this->auditLogger->recordMutation(AuditAction::Created, AuditDomain::FoodService, $food, array_keys($food->getAttributes()));
+            $this->auditLogger->recordMutation(AuditAction::Created, AuditDomain::NutritionLibrary, $food, array_keys($food->getAttributes()));
 
             return $food;
         });
@@ -63,7 +63,7 @@ class FoodItemController extends Controller
         $data = $request->validated();
         $this->audited(function () use ($foodItem, $data): void {
             $foodItem->update($data);
-            $this->auditLogger->recordMutation(AuditAction::Updated, AuditDomain::FoodService, $foodItem, array_keys($foodItem->getChanges()));
+            $this->auditLogger->recordMutation(AuditAction::Updated, AuditDomain::NutritionLibrary, $foodItem, array_keys($foodItem->getChanges()));
         });
 
         return new FoodItemResource($foodItem->fresh());
@@ -73,7 +73,7 @@ class FoodItemController extends Controller
     {
         $this->audited(function () use ($foodItem): void {
             $foodItem->delete();
-            $this->auditLogger->recordMutation(AuditAction::Deleted, AuditDomain::FoodService, $foodItem, []);
+            $this->auditLogger->recordMutation(AuditAction::Deleted, AuditDomain::NutritionLibrary, $foodItem, []);
         });
 
         return response()->json(null, 204);

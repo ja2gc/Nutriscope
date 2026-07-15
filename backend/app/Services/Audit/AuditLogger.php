@@ -9,6 +9,8 @@ use App\Enums\AuditOutcome;
 use App\Enums\AuditSeverity;
 use App\Exceptions\AuditLoggingUnavailable;
 use App\Models\AuditActivity;
+use App\Models\NcpRecord;
+use App\Models\Patient;
 use Closure;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
@@ -23,6 +25,9 @@ class AuditLogger
         private readonly AuditSanitizer $sanitizer,
         private readonly AuditContextResolver $contextResolver,
         private readonly AuditPublicIdResolver $publicIdResolver,
+        private readonly AuditEventPolicy $eventPolicy,
+        private readonly AuditPatientSnapshot $patientSnapshot,
+        private readonly AuditPseudonymousReference $pseudonymousReference,
         private readonly Request $request,
         private readonly ActivityLogger $activityLogger,
     ) {}
@@ -153,25 +158,57 @@ class AuditLogger
         }
 
         $resolvedContext = $this->contextResolver->resolve($subject, $context);
+        $policy = $this->eventPolicy->forEvent(
+            $action,
+            $subject ?? $resolvedContext,
+            $category,
+            $domain,
+        );
+        $category = $policy['category'];
+        $domain = $policy['domain'];
+        $module = $policy['module'];
         $subjectPublicId = $this->publicIdResolver->forModel($subject);
         $contextPublicId = $this->publicIdResolver->forModel($resolvedContext);
         $clinicalIdentifiers = ['root_patient_id' => null, 'ncp_record_id' => null];
         $clinicalOwnerId = null;
-        if ($category === AuditCategory::Clinical && $subject !== null) {
-            $subjectIdentifiers = $this->contextResolver->clinicalIdentifiers($subject);
-            $contextIdentifiers = $context !== null
-                ? $this->contextResolver->clinicalIdentifiers($context)
+        $patientDisplayName = null;
+        if ($category === AuditCategory::Clinical) {
+            $subjectIdentifiers = $subject !== null
+                ? $this->contextResolver->clinicalIdentifiers($subject)
+                : ['root_patient_id' => null, 'ncp_record_id' => null];
+            $contextIdentifiers = $resolvedContext !== null
+                ? $this->contextResolver->clinicalIdentifiers($resolvedContext)
                 : ['root_patient_id' => null, 'ncp_record_id' => null];
             $clinicalIdentifiers = [
                 'root_patient_id' => $subjectIdentifiers['root_patient_id'] ?? $contextIdentifiers['root_patient_id'],
                 'ncp_record_id' => $subjectIdentifiers['ncp_record_id'] ?? $contextIdentifiers['ncp_record_id'],
             ];
-            $details = [
-                ...$clinicalIdentifiers,
-                ...array_diff_key($details, $clinicalIdentifiers),
-            ];
-            $clinicalOwnerId = $this->contextResolver->clinicalOwnerId($subject)
-                ?? ($context !== null ? $this->contextResolver->clinicalOwnerId($context) : null);
+            $details = array_diff_key($details, array_flip([
+                'public_id',
+                'record_id',
+                'context_public_id',
+                'root_patient_id',
+                'ncp_record_id',
+            ]));
+            $clinicalOwnerId = ($subject !== null ? $this->contextResolver->clinicalOwnerId($subject) : null)
+                ?? ($resolvedContext !== null ? $this->contextResolver->clinicalOwnerId($resolvedContext) : null);
+            $patientSubject = $subject instanceof Patient
+                ? $subject
+                : ($resolvedContext instanceof Patient ? $resolvedContext : null);
+            $patientDisplayName = $this->patientSnapshot->resolve(
+                $patientSubject,
+                $clinicalIdentifiers['root_patient_id'],
+            );
+            $ncpSubject = $subject instanceof NcpRecord
+                ? $subject
+                : ($resolvedContext instanceof NcpRecord ? $resolvedContext : null);
+            $ncpReference = $this->pseudonymousReference->resolve(
+                $ncpSubject,
+                $clinicalIdentifiers['ncp_record_id'],
+            );
+            if ($ncpReference !== null) {
+                $details['ncp_reference'] = $ncpReference;
+            }
         }
         $safeDetails = $this->sanitizer->details($details, $category);
         $safeChanges = $category === AuditCategory::Clinical
@@ -199,14 +236,16 @@ class AuditLogger
         $logger = activity(config('audit.log_name'))
             ->event($event)
             ->withProperties($properties)
-            ->tap(function (AuditActivity $activity) use ($category, $domain, $outcome, $severity, $resolvedContext, $clinicalIdentifiers, $clinicalOwnerId, $subjectPublicId, $contextPublicId): void {
+            ->tap(function (AuditActivity $activity) use ($category, $domain, $module, $outcome, $severity, $resolvedContext, $clinicalIdentifiers, $clinicalOwnerId, $patientDisplayName, $subjectPublicId, $contextPublicId): void {
                 $activity->category = $category;
                 $activity->domain = $domain;
+                $activity->module = $module;
                 $activity->outcome = $outcome;
                 $activity->severity = $severity;
                 $activity->root_patient_id = $clinicalIdentifiers['root_patient_id'];
                 $activity->ncp_record_id = $clinicalIdentifiers['ncp_record_id'];
                 $activity->audit_owner_id = $clinicalOwnerId;
+                $activity->patient_display_name_snapshot = $patientDisplayName;
                 $activity->subject_public_id = $subjectPublicId;
                 $activity->context_public_id = $contextPublicId;
 

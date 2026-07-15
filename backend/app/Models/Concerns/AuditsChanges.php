@@ -2,10 +2,17 @@
 
 namespace App\Models\Concerns;
 
+use App\Enums\AuditAction;
 use App\Enums\AuditCategory;
 use App\Enums\AuditOutcome;
 use App\Enums\AuditSeverity;
+use App\Models\AuditActivity;
+use App\Models\NcpRecord;
+use App\Models\Patient;
 use App\Services\Audit\AuditContextResolver;
+use App\Services\Audit\AuditEventPolicy;
+use App\Services\Audit\AuditPatientSnapshot;
+use App\Services\Audit\AuditPseudonymousReference;
 use App\Services\Audit\AuditPublicIdResolver;
 use App\Services\Audit\AuditSanitizer;
 use Illuminate\Database\Eloquent\Model;
@@ -39,9 +46,25 @@ trait AuditsChanges
 
     public function tapActivity(Activity $activity, string $eventName): void
     {
-        $clinical = $this->auditRedactValues ?? false;
+        if ($activity instanceof AuditActivity && $activity->module !== null) {
+            return;
+        }
+
+        $resolver = app(AuditContextResolver::class);
+        $policy = app(AuditEventPolicy::class)->forEvent(
+            AuditAction::from($eventName),
+            $this,
+            ($this->auditRedactValues ?? false) ? AuditCategory::Clinical : AuditCategory::Operations,
+            $resolver->domain($this),
+        );
+        $clinical = $policy['category'] === AuditCategory::Clinical;
         $sanitizer = app(AuditSanitizer::class);
         $props = $activity->properties;
+        $changedFields = collect(['attributes', 'old'])
+            ->flatMap(fn (string $bag) => array_keys((array) ($props[$bag] ?? [])))
+            ->unique()
+            ->values()
+            ->all();
 
         if (! $clinical) {
             $props = collect($sanitizer->details(
@@ -49,44 +72,48 @@ trait AuditsChanges
                 AuditCategory::Operations,
             ));
         } else {
-            foreach (['attributes', 'old'] as $bag) {
-                if (! isset($props[$bag]) || ! is_array($props[$bag])) {
-                    continue;
-                }
-                $props[$bag] = array_map(fn () => '••• redacted', $props[$bag]);
-            }
+            $props->forget(['attributes', 'old']);
         }
 
         $causer = $activity->causer;
         $props['actor'] ??= $sanitizer->actor($causer instanceof Model ? $causer : null);
         $props['request'] ??= $sanitizer->request(request());
         $activity->properties = $props;
-        $resolver = app(AuditContextResolver::class);
         $publicIds = app(AuditPublicIdResolver::class);
         $activity->subject_public_id = $publicIds->forModel($this);
-        if ($clinical && (isset($props['attributes']) || isset($props['old']))) {
+        $context = $resolver->resolve($this);
+        if ($clinical) {
             $identifiers = $resolver->clinicalIdentifiers($this);
+            $ncpSubject = $this instanceof NcpRecord
+                ? $this
+                : ($context instanceof NcpRecord ? $context : null);
+            $ncpReference = app(AuditPseudonymousReference::class)->resolve(
+                $ncpSubject,
+                $identifiers['ncp_record_id'],
+            );
             $props['details'] = $sanitizer->details([
-                ...$identifiers,
-                'changed_fields' => collect(['attributes', 'old'])
-                    ->flatMap(fn (string $bag) => array_keys((array) ($props[$bag] ?? [])))
-                    ->unique()
-                    ->values()
-                    ->all(),
+                'changed_fields' => $changedFields,
+                ...($ncpReference !== null ? ['ncp_reference' => $ncpReference] : []),
             ], AuditCategory::Clinical);
             $activity->properties = $props;
             $activity->root_patient_id = $identifiers['root_patient_id'];
             $activity->ncp_record_id = $identifiers['ncp_record_id'];
             $activity->audit_owner_id = $resolver->clinicalOwnerId($this);
+            $patientSubject = $this instanceof Patient
+                ? $this
+                : ($context instanceof Patient ? $context : null);
+            $activity->patient_display_name_snapshot = app(AuditPatientSnapshot::class)->resolve(
+                $patientSubject,
+                $identifiers['root_patient_id'],
+            );
         }
-        $activity->category ??= $clinical ? AuditCategory::Clinical : AuditCategory::Operations;
-        $activity->domain ??= $resolver->domain($this);
+        $activity->category = $policy['category'];
+        $activity->domain = $policy['domain'];
+        $activity->module = $policy['module'];
         $activity->outcome ??= AuditOutcome::Success;
         $activity->severity ??= AuditSeverity::Info;
 
         if ($activity->context_type === null && $activity->context_id === null) {
-            $context = $resolver->resolve($this);
-
             if ($context !== null) {
                 $activity->context_type = $context->getMorphClass();
                 $activity->context_id = $context->getKey();

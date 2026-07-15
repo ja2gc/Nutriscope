@@ -58,8 +58,9 @@ class AuditTrailTest extends TestCase
             ->where('subject_id', $patient->id)->where('event', 'updated')->latest()->first();
 
         $this->assertNotNull($activity);
-        $this->assertArrayHasKey($field, $activity->properties['attributes']);
-        $this->assertSame('••• redacted', $activity->properties['attributes'][$field]);
+        $this->assertContains($field, $activity->properties['details']['changed_fields']);
+        $this->assertArrayNotHasKey('attributes', $activity->properties);
+        $this->assertArrayNotHasKey('old', $activity->properties);
         $this->assertStringNotContainsString('CHANGED-PHI-VALUE', json_encode($activity->properties));
     }
 

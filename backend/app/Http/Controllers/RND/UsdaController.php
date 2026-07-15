@@ -50,7 +50,7 @@ class UsdaController extends Controller
             $attributes = $this->usda->prepareImport($fdcId);
             $food = $this->audited(function () use ($attributes): FoodItem {
                 $food = $this->usda->persistImport($attributes);
-                $this->auditLogger->recordMutation(AuditAction::Created, AuditDomain::FoodService, $food, ['usda_fdc_id'], ['source' => 'usda']);
+                $this->auditLogger->recordMutation(AuditAction::Imported, AuditDomain::NutritionLibrary, $food, ['usda_fdc_id'], ['source' => 'usda']);
 
                 return $food;
             });

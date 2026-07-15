@@ -130,12 +130,12 @@ class MealPlanController extends Controller
         }
 
         $result = $this->audited(function () use ($request, $ncpRecord) {
-            $result = $this->mealPlanService->generate(
+            $result = $this->auditLogger->withoutModelEvents(fn () => $this->mealPlanService->generate(
                 $ncpRecord,
                 $request->week_start_date,
                 $request->conditions ?? [],
                 $request->allergens ?? [],
-            );
+            ));
 
             if ($result instanceof MealPlan) {
                 $this->auditLogger->record(
