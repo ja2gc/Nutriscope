@@ -1,6 +1,6 @@
 # Audit Oversight and Historical-Record Redesign Implementation Plan
 
-**Status:** In progress. The name-migration gate is complete, pushed, and remote-verified at `6cc8fdd781ddf176d79be6181928c04b26499520`; Audit Tasks 1–4 are complete and Wave A1 verification is next.
+**Status:** In progress. The name-migration gate is complete, pushed, and remote-verified at `6cc8fdd781ddf176d79be6181928c04b26499520`; Audit Tasks 1–4 and Wave A1 are complete. Task 5 is next.
 
 **Authoritative design:** `docs/superpowers/specs/2026-07-15-audit-oversight-and-history-redesign.md`
 
@@ -161,9 +161,11 @@ Task 4 began with eight expected failures covering the missing policy and servic
 
 **Wave A1 integration gate and push:**
 
-- [ ] Tasks 1–4 focused suites, route inventory, duplicate tests, privacy storage sentinels, migration rollback/re-forward, relevant Pint, MySQL schema/index inspection, and `git diff --check` pass.
-- [ ] Legacy category/domain API parameters and Next.js pass-through still work in A1.
-- [ ] Push `main`; verify remote `main` equals local `HEAD`.
+- [x] Tasks 1–4 focused suites, route inventory, duplicate tests, privacy storage sentinels, migration rollback/re-forward, relevant Pint, MySQL schema/index inspection, and `git diff --check` pass.
+- [x] Legacy category/domain API parameters and Next.js pass-through still work in A1.
+- [x] Push `main`; verify remote `main` equals local `HEAD`.
+
+Wave A1 passes the complete audit feature directory plus inventory contract: 204 tests and 3,035 assertions on configured MySQL, including route coverage, duplicate discovery, privacy, retention, compatibility, and an isolated-MySQL forward/rollback/re-forward migration test. The broader Task 4 affected gate passes 269 tests and 2,198 assertions. Next.js audit/proxy compatibility passes 17 files and 67 tests; TypeScript and focused ESLint pass. Laravel Boost confirms the live MySQL module/index, unindexed encrypted patient-name snapshot, revision unique indexes, and revision-to-activity cascade. Full Pint and `git diff --check` pass. The Wave A1 commit was pushed to `main`, and remote equality was checked immediately after the push.
 
 **Rollback boundary:** Revert Task 4 writers/readers, then Task 3 schema. Compatibility fields make the old presenter/query usable.
 
