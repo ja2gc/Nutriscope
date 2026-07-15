@@ -1,6 +1,6 @@
 # Audit Oversight and Historical-Record Redesign Implementation Plan
 
-**Status:** In progress. The name-migration gate is complete, pushed, and remote-verified at `6cc8fdd781ddf176d79be6181928c04b26499520`; Audit Tasks 1–7, Task 8A, and Waves A1–A2 are complete. Task 8B is next.
+**Status:** In progress. The name-migration gate is complete, pushed, and remote-verified at `6cc8fdd781ddf176d79be6181928c04b26499520`; Audit Tasks 1–7, Tasks 8A–8B, and Waves A1–A2 are complete. Task 8C is next.
 
 **Authoritative design:** `docs/superpowers/specs/2026-07-15-audit-oversight-and-history-redesign.md`
 
@@ -220,7 +220,7 @@ Wave A2 passes 93 backend tests and 1,240 assertions on configured MySQL, includ
 ## Task 8 — Complex event-time read-only historical views
 
 - [x] Task 8A: add `backend/app/Services/Audit/Revisions/AuditRevisionWriter.php`, `AuditRevisionRegistry.php`, typed historical DTOs, size-cap enforcement, Admin history route/resource/proxy/page shell, authorization, immutability, and privacy refusal. Complete the full test/review/verification protocol; commit `feat: add audit revision framework`.
-- [ ] Task 8B: add `RndRecipeRevisionSerializer.php` plus read-only RND recipe version UI/tests; commit `feat: add RND recipe history`.
+- [x] Task 8B: add `RndRecipeRevisionSerializer.php` plus read-only RND recipe version UI/tests; commit `feat: add RND recipe history`.
 - [ ] Task 8C: add `FoodServiceRecipeRevisionSerializer.php` plus read-only FSS recipe version UI/tests; commit `feat: add FSS recipe history`.
 - [ ] Task 8D: add `MenuCycleRevisionSerializer.php` plus read-only weekly menu version UI/tests; commit `feat: add menu audit history`.
 - [ ] Task 8E: add `ShoppingListRevisionSerializer.php` and `PurchaseOrderRevisionSerializer.php` plus shopping/PO/receiving version UI/tests; commit `feat: add procurement audit history`.
@@ -236,6 +236,12 @@ Task 8A followed red-green TDD. The initial backend test failed on the missing s
 The frontend adds a no-store UUID proxy, typed service and DTOs, a responsive read-only page shell, accessible Before/After controls defaulting updates to After, typed fields/tables, change-status labels, explicit loading/unauthorized/retry states, and conditional drawer links only when the backend advertises supported history. Existing design-system cards, badges, typography, colors, focus rings, spacing, and 44-pixel targets are reused.
 
 The final configured-MySQL gate passes 73 tests and 1,640 assertions across the framework, presenter, structured API, privacy, route, and inventory contracts. The final frontend gate passes 7 files and 26 tests; TypeScript and focused ESLint pass. Full Pint and `git diff --check` pass. Spec review added deleted-record survival, raw-resource refusal, executable UUID-proxy, and UI-routing assertions. Code-quality review found no unresolved Task 8A issue.
+
+Task 8B followed red-green TDD. The initial backend gate failed because the RND recipe serializer and mutation revisions did not exist; the initial frontend gate failed because the recipe-specific historical component did not exist. Created recipes now store an After-only snapshot, structural ingredient updates store Before and After in the same transaction as the recipe and canonical audit event, deleted recipes store a final Before snapshot, and simple field-only updates stay in the typed drawer without creating a revision. The serializer captures only allow-listed recipe identity, category, servings, preparation notes, computed macro/cost totals, public ingredient references, ingredient names, quantities, and units. It excludes creator/internal IDs, raw model attributes, micronutrient blobs, and arbitrary nested data. Stored MySQL JSON is revalidated by exact key sets without relying on object-key order.
+
+The read-only RND recipe view uses typed values and ingredient tables, defaults structural updates to After, merges removed rows into that view, and visibly labels added, changed, and removed fields/ingredients. It compares typed scalars and field lists without serialization and exposes no editing controls. Created, later-edited, and deleted live recipes were each verified through the Admin historical API to preserve event-time state. A pre-existing malformed regex in `AuditValueDto` used `/` as both delimiter and allowed unit character, causing typed units such as `kcal` to throw; Task 8B corrected the delimiter because recipe history requires safe quantity-unit rendering. The behavioral impact is limited to making the already-approved typed unit contract work.
+
+The final configured-MySQL Task 8B gate passes 83 tests and 644 assertions across recipe CRUD, serializer validation, history framework/API, privacy, canonical-event, and presenter behavior. The final frontend gate passes 7 files and 26 tests; TypeScript and focused ESLint pass. Full Pint and `git diff --check` pass. Separate spec and code-quality reviews found no unresolved Task 8B issue.
 
 **Rollback boundary:** Revert history routes/UI/writers before dropping the revisions table. Existing activity rows remain.
 

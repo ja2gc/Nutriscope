@@ -69,6 +69,18 @@ class RecipeControllerTest extends TestCase
         $this->assertContains('ingredients', $activity->properties['details']['changed_fields']);
         $this->assertNotContains('prep_notes', $activity->properties['details']['changed_fields']);
         $this->assertStringNotContainsString('Cook chicken then combine.', $activity->properties->toJson());
+        $this->assertSame('Chicken & Rice Bowl', $activity->revision->after['name']);
+        $this->assertSame('Chicken & Rice Bowl', $activity->revision->after['title']);
+        $this->assertCount(2, $activity->revision->after['ingredients']);
+        $admin = User::factory()->admin()->create();
+        $this->actingAs($admin)
+            ->getJson("/api/admin/audit-logs/{$activity->public_id}/history")
+            ->assertOk()
+            ->assertJsonPath('data.version.serializer', 'rnd_recipe')
+            ->assertJsonPath('data.event.detail_mode', 'history')
+            ->assertJsonPath('data.event.history.label', 'View created version')
+            ->assertJsonPath('data.after.title', 'Chicken & Rice Bowl')
+            ->assertJsonCount(2, 'data.after.tables.0.rows');
     }
 
     public function test_recipe_totals_auto_calculated_on_create(): void
@@ -145,6 +157,16 @@ class RecipeControllerTest extends TestCase
         $activity = AuditActivity::query()->where('subject_type', Recipe::class)->sole();
         $this->assertSame('updated', $activity->event);
         $this->assertContains('ingredients', $activity->properties['details']['changed_fields']);
+        $this->assertSame($recipe->name, $activity->revision->before['name']);
+        $this->assertSame('Updated Recipe', $activity->revision->after['name']);
+        $this->assertSame('Updated Recipe', $activity->revision->after['title']);
+        $this->assertCount(1, $activity->revision->after['ingredients']);
+        Recipe::withoutEvents(fn (): int => Recipe::query()->whereKey($recipe->id)->update(['name' => 'Later Current Name']));
+        $this->actingAs(User::factory()->admin()->create())
+            ->getJson("/api/admin/audit-logs/{$activity->public_id}/history")
+            ->assertOk()
+            ->assertJsonPath('data.after.title', 'Updated Recipe')
+            ->assertJsonPath('data.event.current_record_url', null);
     }
 
     public function test_rnd_can_delete_recipe(): void
@@ -156,7 +178,32 @@ class RecipeControllerTest extends TestCase
 
         $response->assertNoContent();
         $this->assertDatabaseMissing('recipes', ['id' => $recipe->id]);
-        $this->assertSame('deleted', AuditActivity::query()->where('subject_type', Recipe::class)->sole()->event);
+        $activity = AuditActivity::query()->where('subject_type', Recipe::class)->sole();
+        $this->assertSame('deleted', $activity->event);
+        $this->assertSame($recipe->name, $activity->revision->before['name']);
+        $this->assertNull($activity->revision->after);
+        $this->actingAs(User::factory()->admin()->create())
+            ->getJson("/api/admin/audit-logs/{$activity->public_id}/history")
+            ->assertOk()
+            ->assertJsonPath('data.before.title', $recipe->name)
+            ->assertJsonPath('data.after', null);
+    }
+
+    public function test_simple_recipe_field_update_stays_in_the_typed_drawer_without_a_revision(): void
+    {
+        $recipe = Recipe::factory()->create(['rnd_user_id' => $this->rnd->id, 'servings' => 2]);
+
+        $this->actingAs($this->rnd)
+            ->putJson("/api/rnd/recipes/{$recipe->uuid}", [
+                'name' => $recipe->name,
+                'category' => $recipe->category,
+                'servings' => 6,
+            ])
+            ->assertOk();
+
+        $activity = AuditActivity::query()->where('subject_type', Recipe::class)->sole();
+        $this->assertSame('updated', $activity->event);
+        $this->assertNull($activity->revision);
     }
 
     public function test_recipe_belongs_to_creating_rnd_user(): void

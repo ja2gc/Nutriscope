@@ -33,7 +33,7 @@ final readonly class AuditValueDto
         if ($this->type === 'field_list' && $this->value !== null && ! is_array($this->value)) {
             throw new InvalidArgumentException('Unsupported audit value payload.');
         }
-        if ($this->unit !== null && preg_match('/^[A-Za-z0-9%µ/ .-]{1,32}$/D', $this->unit) !== 1) {
+        if ($this->unit !== null && preg_match('~^[A-Za-z0-9%\x{00B5}/ .-]{1,32}$~uD', $this->unit) !== 1) {
             throw new InvalidArgumentException('Unsupported audit value unit.');
         }
         if ($this->currency !== null && preg_match('/^[A-Z]{3}$/D', $this->currency) !== 1) {

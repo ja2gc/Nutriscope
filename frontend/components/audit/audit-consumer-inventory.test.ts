@@ -15,6 +15,8 @@ const productionFiles = [
   "components/audit/AuditTimestamp.tsx",
   "components/audit/AuditTrail.tsx",
   "components/audit/history/AuditHistoryView.tsx",
+  "components/audit/history/StructuredHistorySnapshot.tsx",
+  "components/audit/history/types/RndRecipeHistory.tsx",
   "components/audit/useAuditEventList.ts",
   "components/audit/useAuditUrlState.ts",
   "services/activityService.ts",

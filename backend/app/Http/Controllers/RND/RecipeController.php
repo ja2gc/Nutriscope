@@ -10,13 +10,19 @@ use App\Http\Resources\RecipeResource;
 use App\Models\Recipe;
 use App\Models\RecipeIngredient;
 use App\Services\Audit\AuditLogger;
+use App\Services\Audit\Revisions\AuditRevisionRegistry;
+use App\Services\Audit\Revisions\AuditRevisionWriter;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class RecipeController extends Controller
 {
-    public function __construct(private readonly AuditLogger $auditLogger) {}
+    public function __construct(
+        private readonly AuditLogger $auditLogger,
+        private readonly AuditRevisionRegistry $revisionRegistry,
+        private readonly AuditRevisionWriter $revisionWriter,
+    ) {}
 
     public function index(Request $request): AnonymousResourceCollection
     {
@@ -49,16 +55,20 @@ class RecipeController extends Controller
 
             $this->syncIngredients($recipe, $data['ingredients'] ?? []);
             $recipe->recalculateTotals();
+            $recipe->load('ingredients.foodItem');
             $fields = array_keys($recipe->getAttributes());
             if ($recipe->ingredients()->exists()) {
                 $fields[] = 'ingredients';
             }
-            $this->auditLogger->recordMutation(
+            $activity = $this->auditLogger->recordMutation(
                 AuditAction::Created,
                 AuditDomain::NutritionLibrary,
                 $recipe,
                 array_map(fn (string $field): string => $field === 'prep_notes' ? 'content' : $field, $fields),
             );
+            if ($activity !== null) {
+                $this->revisionWriter->write($activity, null, $this->revisionRegistry->capture($recipe));
+            }
 
             return $recipe;
         });
@@ -80,9 +90,12 @@ class RecipeController extends Controller
     public function update(StoreRecipeRequest $request, Recipe $recipe): RecipeResource
     {
         $data = $request->validated();
-        $beforeIngredients = $this->ingredientSignature($recipe);
-
-        $this->audited(function () use ($recipe, $data, $beforeIngredients): void {
+        $this->audited(function () use ($recipe, $data): void {
+            $structural = array_key_exists('ingredients', $data);
+            $beforeIngredients = $structural ? $this->ingredientSignature($recipe) : [];
+            $before = $structural
+                ? $this->revisionRegistry->capture($recipe->load('ingredients.foodItem'))
+                : null;
             $recipe->update(array_filter([
                 'name' => $data['name'] ?? $recipe->name,
                 'category' => $data['category'] ?? $recipe->category,
@@ -91,19 +104,25 @@ class RecipeController extends Controller
             ], fn ($v) => $v !== null));
 
             $fields = array_keys($recipe->getChanges());
-            if (array_key_exists('ingredients', $data)) {
+            $structureChanged = false;
+            if ($structural) {
                 $this->syncIngredients($recipe, $data['ingredients']);
                 $recipe->recalculateTotals();
-                if ($beforeIngredients !== $this->ingredientSignature($recipe)) {
+                $structureChanged = $beforeIngredients !== $this->ingredientSignature($recipe);
+                if ($structureChanged) {
                     $fields[] = 'ingredients';
                 }
             }
-            $this->auditLogger->recordMutation(
+            $activity = $this->auditLogger->recordMutation(
                 AuditAction::Updated,
                 AuditDomain::NutritionLibrary,
                 $recipe,
                 array_map(fn (string $field): string => $field === 'prep_notes' ? 'content' : $field, $fields),
             );
+            if ($activity !== null && $structureChanged && $before !== null) {
+                $afterRecipe = $recipe->fresh(['ingredients.foodItem']);
+                $this->revisionWriter->write($activity, $before, $this->revisionRegistry->capture($afterRecipe));
+            }
         });
 
         $recipe->load('ingredients.foodItem');
@@ -114,8 +133,12 @@ class RecipeController extends Controller
     public function destroy(Recipe $recipe): JsonResponse
     {
         $this->audited(function () use ($recipe): void {
+            $before = $this->revisionRegistry->capture($recipe->load('ingredients.foodItem'));
             $recipe->delete();
-            $this->auditLogger->recordMutation(AuditAction::Deleted, AuditDomain::NutritionLibrary, $recipe, []);
+            $activity = $this->auditLogger->recordMutation(AuditAction::Deleted, AuditDomain::NutritionLibrary, $recipe, []);
+            if ($activity !== null) {
+                $this->revisionWriter->write($activity, $before, null);
+            }
         });
 
         return response()->json(null, 204);

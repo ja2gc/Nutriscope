@@ -12,6 +12,7 @@ use App\Services\Audit\AuditContextResolver;
 use App\Services\Audit\AuditHealthMonitor;
 use App\Services\Audit\AuditRetentionService;
 use App\Services\Audit\Revisions\AuditRevisionRegistry;
+use App\Services\Audit\Revisions\Serializers\RndRecipeRevisionSerializer;
 use App\Services\Audit\SecurityAuditDeduplicator;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -36,7 +37,9 @@ class AppServiceProvider extends ServiceProvider
         $this->app->scoped(AuditContextResolver::class);
         $this->app->singleton(AuditHealthMonitor::class);
         $this->app->singleton(AuditRetentionService::class);
-        $this->app->singleton(AuditRevisionRegistry::class, fn (): AuditRevisionRegistry => new AuditRevisionRegistry([]));
+        $this->app->singleton(AuditRevisionRegistry::class, fn ($app): AuditRevisionRegistry => new AuditRevisionRegistry([
+            $app->make(RndRecipeRevisionSerializer::class),
+        ]));
     }
 
     /**
