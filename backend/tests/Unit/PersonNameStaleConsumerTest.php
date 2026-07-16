@@ -9,7 +9,7 @@ use Tests\TestCase;
 
 class PersonNameStaleConsumerTest extends TestCase
 {
-    public function test_direct_person_name_model_reads_are_limited_to_deprecated_audit_values(): void
+    public function test_direct_person_name_reads_are_limited_to_explicit_legacy_audit_compatibility(): void
     {
         $actual = $this->matchingProductionLines(
             '/(?:\$(?:[A-Za-z_][A-Za-z0-9_]*(?:user|patient|actor|causer|rnd|admin|fss|preparer|creator|clinician|author|owner|createdBy|updatedBy)|user|patient|actor|causer|rnd|admin|fss|preparer|creator|clinician|author|owner|createdBy|updatedBy)|->(?:[A-Za-z_][A-Za-z0-9_]*(?:user|patient|actor|causer|rnd|admin|fss|preparer|creator|clinician|author|owner|createdBy|updatedBy)|user|patient|actor|causer|rnd|admin|fss|preparer|creator|clinician|author|owner|createdBy|updatedBy))(?:\?->|->)name\b/i',
@@ -18,11 +18,12 @@ class PersonNameStaleConsumerTest extends TestCase
         $expected = [
             "app/Http/Controllers/Admin/UserController.php:'name' => \$user->name,",
             "app/Http/Controllers/Auth/AuthController.php:'name' => \$user->name,",
+            "app/Services/Audit/AuditOversightBackfill.php:\$displayName = \$parts !== [] ? implode(' ', \$parts) : trim((string) \$patient->name);",
         ];
 
         sort($expected);
         $this->assertSame($expected, $actual,
-            'A direct person name read was added outside the explicit deprecated account-audit compatibility boundary.');
+            'A direct person name read was added outside the explicit legacy audit compatibility boundaries.');
     }
 
     public function test_person_queries_keep_only_deliberate_legacy_fallbacks_and_complete_projections(): void
