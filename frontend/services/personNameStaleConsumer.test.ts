@@ -55,10 +55,12 @@ describe("person-name stale-consumer guard", () => {
       "app/admin/dashboard/page.tsx": 3,
       "components/announcements/AnnouncementsBoard.tsx": 4,
       "components/announcements/SopBanner.tsx": 2,
+      "components/audit/AuditActorFilter.tsx": 3,
       "components/audit/AuditEventDrawer.tsx": 1,
       "components/audit/AuditEventTable.tsx": 2,
       "components/audit/AuditTrail.tsx": 1,
-      "components/budget/BudgetPageShell.tsx": 1,
+      "components/audit/history/AuditHistoryView.tsx": 1,
+      "components/budget/BudgetPageShell.tsx": 2,
       "components/ncp/ClinicalAttribution.tsx": 2,
       "components/reports/ReportsBrowser.tsx": 1,
     });

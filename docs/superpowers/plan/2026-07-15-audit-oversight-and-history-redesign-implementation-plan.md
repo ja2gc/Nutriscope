@@ -334,6 +334,8 @@ Red-green TDD first reproduced the archived-report `403`, the failed-generation 
 
 **Wave A3 integration gate and push:** Tasks 8–13 history, reasons, budget, RND/FSS/report coverage, authorization matrix, privacy sentinels, report rendering, frontend tests/typecheck/lint/build, and affected mobile checks pass. Push `main`; verify remote equality.
 
+**Wave A3 status:** Complete. The fresh configured-MySQL full backend suite passes 1,119 tests and 7,407 assertions, covering migration/rollback contracts, revision history, reasons, budgets, shared-RND authorization, Admin/FSS denial, patient-name encryption/privacy, report rendering/lifecycle, route/proxy inventories, MySQL query plans, N+1 limits, and the 100,000-row audit performance gate. The full frontend suite passes 71 files and 232 tests; standalone TypeScript, full ESLint, and the Next.js 16.2.6 production build pass. Mobile TypeScript passes. Full-suite discovery exposed three stale backend test contracts and one stale frontend inventory count from earlier waves; their approved expectations were updated without changing runtime behavior, then the full suites were rerun successfully. Wave A3 commits are ready for the authorized `main` push and remote-equality check.
+
 **Rollback boundary:** Authorization fixes are approved behavior and should not be rolled back independently. If release rollback is unavoidable, revert A3 application commits together while preserving audit/revision rows.
 
 ## Task 14 — Deterministic demo audit seeders
