@@ -30,17 +30,19 @@ class DietListCountController extends Controller
                 ...$validated,
                 'fss_user_id' => Auth::id(),
             ]);
+            $values = $this->auditValues($count);
+            $fields = array_keys(array_filter($values, fn (mixed $value): bool => $value !== null));
             $this->auditLogger->record(
                 AuditAction::Created,
                 AuditCategory::Operations,
                 AuditDomain::FoodService,
                 subject: $count,
                 details: [
-                    'changed_fields' => collect(array_keys($validated))
-                        ->reject(fn (string $field): bool => in_array($field, ['ward', 'population'], true))
-                        ->values()->all(),
+                    'changed_fields' => $fields,
                     'status' => 201,
                 ],
+                oldValues: array_fill_keys(array_keys($values), null),
+                newValues: $values,
             );
 
             return $count;
@@ -68,5 +70,22 @@ class DietListCountController extends Controller
             ->get();
 
         return response()->json(['data' => $counts]);
+    }
+
+    /** @return array<string, string|int|bool|null> */
+    private function auditValues(DietListCount $count): array
+    {
+        return [
+            'service_date' => $count->service_date->toDateString(),
+            'population' => $count->population,
+            'helped_food_prep' => $count->helped_food_prep,
+            'stored_supplies' => $count->stored_supplies,
+            'collected_diet_list' => $count->collected_diet_list,
+            'apportioned_food' => $count->apportioned_food,
+            'cleaned_utensils' => $count->cleaned_utensils,
+            'assistant_cook' => $count->assistant_cook,
+            'maintained_cleanliness' => $count->maintained_cleanliness,
+            'off_duty' => $count->off_duty,
+        ];
     }
 }

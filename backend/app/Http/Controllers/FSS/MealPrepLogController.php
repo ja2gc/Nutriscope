@@ -47,13 +47,29 @@ class MealPrepLogController extends Controller
         ]);
 
         $log = $this->audited(function () use ($consumption, $menuCycle, $data, $lifecycle): MealPrepLog {
+            $existing = MealPrepLog::query()
+                ->where('menu_cycle_id', $menuCycle->id)
+                ->whereDate('service_date', $data['service_date'])
+                ->first();
+            $before = $existing === null ? [] : $this->auditValues($existing);
             $log = $this->auditLogger->withoutModelEvents(fn (): MealPrepLog => $consumption->completeDay(
                 $menuCycle,
                 $data['service_date'],
                 $data['population'] ?? null,
                 $data['served_population'] ?? null,
             ));
-            $this->recordServiceEvent(AuditAction::Completed, $log, $data['service_date'], ['status']);
+            $after = $this->auditValues($log);
+            $fields = $this->changedValueKeys($before, $after);
+            $before = $before === [] ? array_fill_keys(array_keys($after), null) : $before;
+            $fieldMap = array_flip($fields);
+            $this->recordServiceEvent(
+                AuditAction::Completed,
+                $log,
+                $data['service_date'],
+                $fields,
+                array_intersect_key($before, $fieldMap),
+                array_intersect_key($after, $fieldMap),
+            );
             $lifecycle->refreshForServiceDate($data['service_date']);
 
             return $log;
@@ -65,10 +81,21 @@ class MealPrepLogController extends Controller
     public function reverse(MealPrepLog $mealPrepLog, ConsumptionService $consumption): JsonResponse
     {
         $log = $this->audited(function () use ($consumption, $mealPrepLog): MealPrepLog {
+            $before = $this->auditValues($mealPrepLog);
             $log = $this->auditLogger->withoutModelEvents(
                 fn (): MealPrepLog => $consumption->reverseDay($mealPrepLog->load('lines')),
             );
-            $this->recordServiceEvent(AuditAction::Reversed, $log, $log->service_date->toDateString(), ['status']);
+            $after = $this->auditValues($log);
+            $fields = $this->changedValueKeys($before, $after);
+            $fieldMap = array_flip($fields);
+            $this->recordServiceEvent(
+                AuditAction::Reversed,
+                $log,
+                $log->service_date->toDateString(),
+                $fields,
+                array_intersect_key($before, $fieldMap),
+                array_intersect_key($after, $fieldMap),
+            );
 
             return $log;
         });
@@ -107,6 +134,7 @@ class MealPrepLogController extends Controller
             $log = MealPrepLog::where('menu_cycle_id', $menuCycle->id)
                 ->whereDate('service_date', $data['service_date'])
                 ->first();
+            $before = $log === null ? [] : $this->auditValues($log);
 
             // Backfill: when no log exists yet for this cycle-day, create a reconciliation
             // row so FSS can record the actual headcount for ANY day of the cycle without
@@ -136,7 +164,18 @@ class MealPrepLogController extends Controller
                 $log->population_variance = $log->population - $data['served_population'];
             }
             $this->auditLogger->withoutModelEvents(fn () => $log->save());
-            $this->recordServiceEvent(AuditAction::Adjusted, $log, $data['service_date'], ['served_population']);
+            $after = $this->auditValues($log);
+            $fields = $this->changedValueKeys($before, $after);
+            $before = $before === [] ? array_fill_keys(array_keys($after), null) : $before;
+            $fieldMap = array_flip($fields);
+            $this->recordServiceEvent(
+                AuditAction::Adjusted,
+                $log,
+                $data['service_date'],
+                $fields,
+                array_intersect_key($before, $fieldMap),
+                array_intersect_key($after, $fieldMap),
+            );
             $lifecycle->refreshForServiceDate($data['service_date']);
 
             return $log;
@@ -145,9 +184,19 @@ class MealPrepLogController extends Controller
         return response()->json(['data' => array_merge($log->toArray(), ['id' => $log->uuid])]);
     }
 
-    /** @param array<int, string> $changedFields */
-    private function recordServiceEvent(AuditAction $action, MealPrepLog $log, string $serviceDate, array $changedFields): void
-    {
+    /**
+     * @param  array<int, string>  $changedFields
+     * @param  array<string, mixed>  $oldValues
+     * @param  array<string, mixed>  $newValues
+     */
+    private function recordServiceEvent(
+        AuditAction $action,
+        MealPrepLog $log,
+        string $serviceDate,
+        array $changedFields,
+        array $oldValues,
+        array $newValues,
+    ): void {
         $purchaseOrder = $this->purchaseOrderRoot($log, $serviceDate);
         if ($purchaseOrder === null) {
             $this->auditLogger->record(
@@ -156,6 +205,8 @@ class MealPrepLogController extends Controller
                 AuditDomain::FoodService,
                 subject: $log,
                 details: ['changed_fields' => $changedFields, 'service_date' => $serviceDate],
+                oldValues: $oldValues,
+                newValues: $newValues,
             );
 
             return;
@@ -168,7 +219,35 @@ class MealPrepLogController extends Controller
             subject: $log,
             context: $purchaseOrder,
             details: ['changed_fields' => $changedFields, 'service_date' => $serviceDate],
+            oldValues: $oldValues,
+            newValues: $newValues,
         );
+    }
+
+    /** @return array<string, string|int|float|bool|null> */
+    private function auditValues(MealPrepLog $log): array
+    {
+        return [
+            'service_date' => $log->service_date->toDateString(),
+            'estimated_population' => $log->population,
+            'served_population' => $log->served_population,
+            'population_variance' => $log->population_variance,
+            'status' => $log->status,
+            'total_value' => $log->total_value === null ? null : (float) $log->total_value,
+            'has_shortfall' => (bool) $log->has_shortfall,
+        ];
+    }
+
+    /** @param array<string, mixed> $before @param array<string, mixed> $after @return list<string> */
+    private function changedValueKeys(array $before, array $after): array
+    {
+        if ($before === []) {
+            return array_keys(array_filter($after, fn (mixed $value): bool => $value !== null));
+        }
+
+        return collect(array_keys($after))
+            ->filter(fn (string $field): bool => $before[$field] !== $after[$field])
+            ->values()->all();
     }
 
     private function purchaseOrderRoot(MealPrepLog $log, string $serviceDate): ?PurchaseOrder

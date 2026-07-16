@@ -56,7 +56,7 @@ class AuditEventPolicy
      *   canonical_writer: 'automatic'|'explicit',
      *   detail_mode: 'field_names'|'changes'|'history',
      *   reason_rule: 'none'|'destructive'|'corrective'|'reversal',
-     *   revision_serializer: 'budget'|'food_service_recipe'|'menu_cycle'|'purchase_order'|'rnd_recipe'|'shopping_list'|null
+     *   revision_serializer: 'budget'|'food_service_recipe'|'menu_cycle'|'menu_cycle_template'|'purchase_order'|'rnd_recipe'|'shopping_list'|null
      * }
      */
     public function forEvent(
@@ -209,6 +209,7 @@ class AuditEventPolicy
             $subject instanceof Budget => 'budget',
             $subject instanceof FoodServiceRecipe => 'food_service_recipe',
             $subject instanceof MenuCycle => 'menu_cycle',
+            $subject instanceof MenuCycleTemplate => 'menu_cycle_template',
             $subject instanceof PurchaseOrder => 'purchase_order',
             $subject instanceof Recipe => 'rnd_recipe',
             $subject instanceof ShoppingList => 'shopping_list',

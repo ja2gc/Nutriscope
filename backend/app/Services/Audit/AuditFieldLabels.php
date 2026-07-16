@@ -17,6 +17,10 @@ class AuditFieldLabels
         'serving_size' => 'Serving Size',
         'serving_unit' => 'Serving Unit',
         'purchase_price' => 'Purchase Price',
+        'purchase_unit' => 'Purchase Unit',
+        'units_per_purchase' => 'Units Per Purchase',
+        'unit_cost' => 'Unit Cost',
+        'vendor_locked' => 'Vendor Lock',
         'unit_price' => 'Unit Price',
         'total_amount' => 'Total Amount',
         'allocated_amount' => 'Opening Allocation',
@@ -29,6 +33,8 @@ class AuditFieldLabels
         'usda_fdc_id' => 'USDA FoodData Central Reference',
         'estimated_population' => 'Estimated Population',
         'served_population' => 'Served Population',
+        'population_variance' => 'Population Variance',
+        'total_value' => 'Total Value',
     ];
 
     public function label(string $field): string

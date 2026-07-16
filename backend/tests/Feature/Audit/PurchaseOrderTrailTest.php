@@ -485,6 +485,22 @@ class PurchaseOrderTrailTest extends TestCase
         $this->assertContains(AuditAction::Reversed->value, $events->pluck('event'));
         $this->assertSame(1, $events->where('event', AuditAction::Reversed->value)->count());
         $this->assertSame(0, $events->whereIn('event', ['created', 'updated'])->count());
+        $completedEvent = $events->firstWhere('event', AuditAction::Completed->value);
+        $this->assertSame(20, $completedEvent->properties['attributes']['estimated_population']);
+        $this->assertSame(18, $completedEvent->properties['attributes']['served_population']);
+        $this->assertSame(2, $completedEvent->properties['attributes']['population_variance']);
+        $adjustedEvent = $events->firstWhere('event', AuditAction::Adjusted->value);
+        $this->assertSame(18, $adjustedEvent->properties['old']['served_population']);
+        $this->assertSame(19, $adjustedEvent->properties['attributes']['served_population']);
+        $this->assertSame(2, $adjustedEvent->properties['old']['population_variance']);
+        $this->assertSame(1, $adjustedEvent->properties['attributes']['population_variance']);
+        $reversedEvent = $events->firstWhere('event', AuditAction::Reversed->value);
+        $this->assertSame('completed', $reversedEvent->properties['old']['status']);
+        $this->assertSame('reversed', $reversedEvent->properties['attributes']['status']);
+        $presented = app(AuditEventPresenter::class)
+            ->present($adjustedEvent->load('causer'), User::factory()->admin()->create())
+            ->toArray();
+        $this->assertSame('number', collect($presented['changes'])->firstWhere('field', 'served_population')['after']['type']);
         $this->assertSame(0, AuditActivity::query()
             ->where('context_type', $suppliesPo->getMorphClass())
             ->where('context_id', $suppliesPo->id)
@@ -511,6 +527,7 @@ class PurchaseOrderTrailTest extends TestCase
     public function test_diet_list_count_has_one_safe_food_service_event(): void
     {
         $fss = User::factory()->fss()->create();
+        $admin = User::factory()->admin()->create();
         $this->actingAs($fss)->postJson('/api/fss/diet-list-counts', [
             'service_date' => '2026-06-01',
             'ward' => 'WARD-SENTINEL',
@@ -521,7 +538,14 @@ class PurchaseOrderTrailTest extends TestCase
         $activity = AuditActivity::query()->auditOnly()->sole();
         $this->assertSame(AuditAction::Created->value, $activity->event);
         $this->assertSame(AuditDomain::FoodService, $activity->domain);
+        $this->assertSame('2026-06-01', $activity->properties['attributes']['service_date']);
+        $this->assertSame(25, $activity->properties['attributes']['population']);
+        $this->assertTrue($activity->properties['attributes']['helped_food_prep']);
         $this->assertStringNotContainsString('WARD-SENTINEL', $activity->properties->toJson());
+        $presented = app(AuditEventPresenter::class)->present($activity->load('causer'), $admin)->toArray();
+        $this->assertSame('date', collect($presented['changes'])->firstWhere('field', 'service_date')['after']['type']);
+        $this->assertSame('number', collect($presented['changes'])->firstWhere('field', 'population')['after']['type']);
+        $this->assertSame('boolean', collect($presented['changes'])->firstWhere('field', 'helped_food_prep')['after']['type']);
     }
 
     public function test_every_task_seven_route_is_marked_implemented(): void

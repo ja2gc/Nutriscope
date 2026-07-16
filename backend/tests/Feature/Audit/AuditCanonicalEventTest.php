@@ -14,6 +14,7 @@ use App\Models\FoodServiceRecipe;
 use App\Models\FsItem;
 use App\Models\Intervention;
 use App\Models\MealPlan;
+use App\Models\MenuCycleTemplate;
 use App\Models\NcpRecord;
 use App\Models\Patient;
 use App\Models\PurchaseOrder;
@@ -127,6 +128,12 @@ class AuditCanonicalEventTest extends TestCase
         $this->assertSame('food_service_recipe', $policy->forEvent(
             AuditAction::Updated,
             new FoodServiceRecipe,
+            AuditCategory::Operations,
+            AuditDomain::FoodService,
+        )['revision_serializer']);
+        $this->assertSame('menu_cycle_template', $policy->forEvent(
+            AuditAction::Updated,
+            new MenuCycleTemplate,
             AuditCategory::Operations,
             AuditDomain::FoodService,
         )['revision_serializer']);

@@ -11,6 +11,7 @@ use App\Models\FsItem;
 use App\Models\PurchaseOrder;
 use App\Models\Supplier;
 use App\Services\Audit\AuditLogger;
+use App\Services\Audit\FsItemAuditValues;
 use App\Services\FSS\LatestProcurementVendorService;
 use Closure;
 use Illuminate\Http\JsonResponse;
@@ -21,7 +22,10 @@ use Illuminate\Support\Facades\DB;
 
 class FsItemController extends Controller
 {
-    public function __construct(private readonly AuditLogger $auditLogger) {}
+    public function __construct(
+        private readonly AuditLogger $auditLogger,
+        private readonly FsItemAuditValues $auditValues,
+    ) {}
 
     /**
      * Ready-to-eat catalog items usable as standalone menu entries (e.g. a banana or
@@ -147,7 +151,17 @@ class FsItemController extends Controller
 
         $item = $this->audited(function () use ($data): FsItem {
             $item = $this->auditLogger->withoutModelEvents(fn (): FsItem => FsItem::create($data + ['is_active' => true]));
-            $this->auditLogger->recordMutation(AuditAction::Created, AuditDomain::FoodService, $item, array_keys($item->getAttributes()));
+            $values = $this->auditValues->values($item);
+            $fields = array_keys(array_filter($values, fn (mixed $value): bool => $value !== null));
+            $this->auditLogger->recordMutation(
+                AuditAction::Created,
+                AuditDomain::FoodService,
+                $item,
+                $fields,
+                ['entity_name' => $item->name],
+                oldValues: array_fill_keys(array_keys($values), null),
+                newValues: $values,
+            );
 
             return $item;
         });
@@ -181,13 +195,26 @@ class FsItemController extends Controller
         $priceTouched = array_intersect(array_keys($data), ['purchase_price', 'base_unit']) !== [];
 
         $this->audited(function () use ($fsItem, $data, $priceTouched): void {
+            $before = $this->auditValues->values($fsItem);
             $this->auditLogger->withoutModelEvents(function () use ($fsItem, $data, $priceTouched): void {
                 $fsItem->update($data);
                 if ($priceTouched) {
                     FoodServiceRecipe::recalculateForItems([$fsItem->id]);
                 }
             });
-            $this->auditLogger->recordMutation(AuditAction::Updated, AuditDomain::FoodService, $fsItem, array_keys($fsItem->getChanges()));
+            $fsItem->unsetRelation('defaultSupplier');
+            $after = $this->auditValues->values($fsItem);
+            $fields = $this->auditValues->changedFields($before, $after);
+            $fieldMap = array_flip($fields);
+            $this->auditLogger->recordMutation(
+                AuditAction::Updated,
+                AuditDomain::FoodService,
+                $fsItem,
+                $fields,
+                ['entity_name' => $fsItem->name],
+                oldValues: array_intersect_key($before, $fieldMap),
+                newValues: array_intersect_key($after, $fieldMap),
+            );
         });
         Cache::flush();
 
@@ -205,8 +232,18 @@ class FsItemController extends Controller
         }
 
         $this->audited(function () use ($fsItem): void {
+            $before = $this->auditValues->values($fsItem);
+            $fields = array_keys(array_filter($before, fn (mixed $value): bool => $value !== null));
             $this->auditLogger->withoutModelEvents(fn () => $fsItem->delete());
-            $this->auditLogger->recordMutation(AuditAction::Deleted, AuditDomain::FoodService, $fsItem, []);
+            $this->auditLogger->recordMutation(
+                AuditAction::Deleted,
+                AuditDomain::FoodService,
+                $fsItem,
+                $fields,
+                ['entity_name' => $fsItem->name],
+                oldValues: $before,
+                newValues: array_fill_keys(array_keys($before), null),
+            );
         });
         Cache::flush();
 
@@ -225,6 +262,7 @@ class FsItemController extends Controller
         $wasLocked = $fsItem->vendorLocked();
 
         $this->audited(function () use ($data, $vendorSync, $fsItem, $wasLocked): void {
+            $before = $this->auditValues->values($fsItem);
             $this->auditLogger->withoutModelEvents(function () use ($data, $vendorSync, $fsItem): void {
                 if ($data['locked']) {
                     $vendorSync->lock($fsItem, Auth::id());
@@ -233,11 +271,18 @@ class FsItemController extends Controller
                 }
             });
             $fsItem->refresh();
+            $fsItem->unsetRelation('defaultSupplier');
+            $after = $this->auditValues->values($fsItem);
+            $fields = $this->auditValues->changedFields($before, $after);
+            $fieldMap = array_flip($fields);
             $this->auditLogger->recordMutation(
                 AuditAction::Updated,
                 AuditDomain::FoodService,
                 $fsItem,
-                $wasLocked !== $fsItem->vendorLocked() ? ['vendor_locked'] : [],
+                $wasLocked !== $fsItem->vendorLocked() ? $fields : [],
+                ['entity_name' => $fsItem->name],
+                oldValues: array_intersect_key($before, $fieldMap),
+                newValues: array_intersect_key($after, $fieldMap),
             );
         });
 

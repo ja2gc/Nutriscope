@@ -14,6 +14,7 @@ use App\Models\ShoppingListItem;
 use App\Models\Supplier;
 use App\Models\User;
 use App\Services\Audit\AuditContextResolver;
+use App\Services\Audit\AuditEventPresenter;
 use App\Services\Audit\AuditLogger;
 use App\Services\UsdaService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -94,9 +95,83 @@ class OperationsAuditTest extends TestCase
         $this->assertSame('operations', $activity->category->value);
         $this->assertSame('food_service', $activity->domain->value);
         $this->assertSame(
-            ['base_unit', 'is_active', 'kind', 'name', 'purchase_price', 'purchase_unit', 'units_per_purchase'],
+            ['base_unit', 'is_active', 'kind', 'name', 'purchase_price', 'purchase_unit', 'unit_cost', 'units_per_purchase', 'vendor_locked'],
             $activity->properties['details']['changed_fields'],
         );
+    }
+
+    public function test_fs_item_crud_exposes_only_safe_typed_values_and_final_state(): void
+    {
+        $user = User::factory()->rnd()->create();
+        $admin = User::factory()->admin()->create();
+        $supplier = Supplier::factory()->create(['name' => 'Farm Cooperative']);
+        AuditFixture::delete(AuditActivity::query());
+
+        $id = $this->actingAs($user)->postJson('/api/fss/fs-items', [
+            'name' => 'Brown rice',
+            'kind' => 'ingredient',
+            'category' => 'Grains',
+            'base_unit' => 'kg',
+            'purchase_price' => 55,
+            'default_supplier_id' => $supplier->uuid,
+        ])->assertCreated()->json('data.id');
+
+        $created = AuditActivity::query()->sole();
+        $this->assertSame('Farm Cooperative', $created->properties['attributes']['vendor']);
+        $this->assertEquals(55.0, $created->properties['attributes']['purchase_price']);
+        $this->assertArrayNotHasKey('default_supplier_id', $created->properties['attributes']);
+        $createdEvent = app(AuditEventPresenter::class)
+            ->present($created->load('causer'), $admin)
+            ->toArray();
+        $this->assertStringContainsString('food service item: Brown rice', $createdEvent['summary']);
+        $this->assertSame('currency', collect($createdEvent['changes'])->firstWhere('field', 'purchase_price')['after']['type']);
+
+        $this->patchJson("/api/fss/fs-items/{$id}", ['purchase_price' => 60])->assertOk();
+        $updated = AuditActivity::query()->where('event', 'updated')->sole();
+        $this->assertSame(['purchase_price', 'unit_cost'], $updated->properties['details']['changed_fields']);
+        $this->assertEquals(55.0, $updated->properties['old']['purchase_price']);
+        $this->assertEquals(60.0, $updated->properties['attributes']['purchase_price']);
+
+        $this->deleteJson("/api/fss/fs-items/{$id}")->assertNoContent();
+        $deleted = AuditActivity::query()->where('event', 'deleted')->sole();
+        $this->assertSame('Brown rice', $deleted->properties['old']['name']);
+        $this->assertNull($deleted->properties['attributes']['name']);
+    }
+
+    public function test_supplier_crud_exposes_safe_values_but_not_notes(): void
+    {
+        $user = User::factory()->rnd()->create();
+        $admin = User::factory()->admin()->create();
+
+        $id = $this->actingAs($user)->postJson('/api/fss/suppliers', [
+            'name' => 'Safe Foods Inc',
+            'category' => 'Produce',
+            'contact' => '09171234567',
+            'address' => 'Public market district',
+            'payment_terms' => 'Net 30',
+            'notes' => 'SUPPLIER-NOTES-SENTINEL',
+        ])->assertCreated()->json('data.id');
+
+        $created = AuditActivity::query()->sole();
+        $this->assertSame('Safe Foods Inc', $created->properties['attributes']['name']);
+        $this->assertSame('Net 30', $created->properties['attributes']['payment_terms']);
+        $this->assertStringNotContainsString('SUPPLIER-NOTES-SENTINEL', $created->properties->toJson());
+        $event = app(AuditEventPresenter::class)->present($created->load('causer'), $admin)->toArray();
+        $this->assertStringContainsString('supplier: Safe Foods Inc', $event['summary']);
+
+        $this->patchJson("/api/fss/suppliers/{$id}", [
+            'category' => 'Dry Goods',
+            'notes' => 'UPDATED-NOTES-SENTINEL',
+        ])->assertOk();
+        $updated = AuditActivity::query()->where('event', 'updated')->sole();
+        $this->assertSame('Produce', $updated->properties['old']['category']);
+        $this->assertSame('Dry Goods', $updated->properties['attributes']['category']);
+        $this->assertStringNotContainsString('UPDATED-NOTES-SENTINEL', $updated->properties->toJson());
+
+        $this->deleteJson("/api/fss/suppliers/{$id}")->assertNoContent();
+        $deleted = AuditActivity::query()->where('event', 'deleted')->sole();
+        $this->assertSame('Safe Foods Inc', $deleted->properties['old']['name']);
+        $this->assertNull($deleted->properties['attributes']['name']);
     }
 
     public function test_ai_usage_limit_event_contains_only_safe_changed_field_labels(): void

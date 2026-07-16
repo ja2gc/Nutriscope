@@ -42,6 +42,7 @@ class AuditRedesignMigrationTest extends TestCase
             262_144,
             262_144,
             524_288,
+            524_288,
             1_048_576,
             262_144,
             524_288,

@@ -136,6 +136,37 @@ describe("audit historical view", () => {
     expect(html).toContain("Removed");
   });
 
+  test("routes menu cycle template snapshots through structural comparison", () => {
+    const templateHistory: AuditHistoryDto = {
+      ...history,
+      version: { ...history.version, serializer: "menu_cycle_template" },
+      before: {
+        type: "menu_cycle_template",
+        title: "Standard ward menu",
+        reference: "573e6017-b8a5-4699-9142-ad2cc62fadf0",
+        fields: [],
+        tables: [{
+          key: "slots",
+          label: "Planned meals",
+          columns: { item: "Item" },
+          rows: [{ key: "removed-template-slot", values: { item: { type: "text", value: "REMOVED-TEMPLATE-SLOT" } } }],
+        }],
+      },
+      after: {
+        type: "menu_cycle_template",
+        title: "Standard ward menu",
+        reference: "573e6017-b8a5-4699-9142-ad2cc62fadf0",
+        fields: [],
+        tables: [{ key: "slots", label: "Planned meals", columns: { item: "Item" }, rows: [] }],
+      },
+    };
+
+    const html = renderToStaticMarkup(<AuditHistoryView history={templateHistory} />);
+
+    expect(html).toContain("REMOVED-TEMPLATE-SLOT");
+    expect(html).toContain("Removed");
+  });
+
   test("switches accessibly between Before and After without mutation controls", async () => {
     const container = document.createElement("div");
     document.body.append(container);

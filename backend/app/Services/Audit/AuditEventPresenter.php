@@ -190,7 +190,13 @@ class AuditEventPresenter
      */
     private function namedOperationalSubject(?array $subject, array $details, bool $clinical): ?array
     {
-        if ($clinical || $subject === null || ! in_array($subject['type'], ['food_item', 'recipe'], true)) {
+        if ($clinical || $subject === null || ! in_array($subject['type'], [
+            'food_item',
+            'recipe',
+            'fs_item',
+            'supplier',
+            'menu_cycle_template',
+        ], true)) {
             return $subject;
         }
 

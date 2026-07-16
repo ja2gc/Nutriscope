@@ -10,11 +10,15 @@ use App\Http\Requests\FSS\UpdateSupplierRequest;
 use App\Http\Resources\SupplierResource;
 use App\Models\Supplier;
 use App\Services\Audit\AuditLogger;
+use App\Services\Audit\SupplierAuditValues;
 use Illuminate\Http\JsonResponse;
 
 class SupplierController extends Controller
 {
-    public function __construct(private readonly AuditLogger $auditLogger) {}
+    public function __construct(
+        private readonly AuditLogger $auditLogger,
+        private readonly SupplierAuditValues $auditValues,
+    ) {}
 
     public function index(): JsonResponse
     {
@@ -26,11 +30,19 @@ class SupplierController extends Controller
         $data = $request->validated();
         $supplier = $this->audited(function () use ($data): Supplier {
             $supplier = Supplier::create($data);
+            $values = $this->auditValues->values($supplier);
+            $fields = array_keys(array_filter($values, fn (mixed $value): bool => $value !== null));
+            if (($data['notes'] ?? null) !== null) {
+                $fields[] = 'content';
+            }
             $this->auditLogger->recordMutation(
                 AuditAction::Created,
                 AuditDomain::Procurement,
                 $supplier,
-                array_map(fn (string $field): string => $field === 'notes' ? 'content' : $field, array_keys($supplier->getAttributes())),
+                $fields,
+                ['entity_name' => $supplier->name],
+                oldValues: array_fill_keys(array_keys($values), null),
+                newValues: $values,
             );
 
             return $supplier;
@@ -48,12 +60,22 @@ class SupplierController extends Controller
     {
         $data = $request->validated();
         $this->audited(function () use ($supplier, $data): void {
+            $before = $this->auditValues->values($supplier);
             $supplier->update($data);
+            $after = $this->auditValues->values($supplier);
+            $fields = $this->auditValues->changedFields($before, $after);
+            if (array_key_exists('notes', $data) && $supplier->wasChanged('notes')) {
+                $fields[] = 'content';
+            }
+            $fieldMap = array_flip($fields);
             $this->auditLogger->recordMutation(
                 AuditAction::Updated,
                 AuditDomain::Procurement,
                 $supplier,
-                array_map(fn (string $field): string => $field === 'notes' ? 'content' : $field, array_keys($supplier->getChanges())),
+                $fields,
+                ['entity_name' => $supplier->name],
+                oldValues: array_intersect_key($before, $fieldMap),
+                newValues: array_intersect_key($after, $fieldMap),
             );
         });
 
@@ -63,8 +85,21 @@ class SupplierController extends Controller
     public function destroy(Supplier $supplier): JsonResponse
     {
         $this->audited(function () use ($supplier): void {
+            $before = $this->auditValues->values($supplier);
+            $fields = array_keys(array_filter($before, fn (mixed $value): bool => $value !== null));
+            if ($supplier->notes !== null) {
+                $fields[] = 'content';
+            }
             $supplier->delete();
-            $this->auditLogger->recordMutation(AuditAction::Deleted, AuditDomain::Procurement, $supplier, []);
+            $this->auditLogger->recordMutation(
+                AuditAction::Deleted,
+                AuditDomain::Procurement,
+                $supplier,
+                $fields,
+                ['entity_name' => $supplier->name],
+                oldValues: $before,
+                newValues: array_fill_keys(array_keys($before), null),
+            );
         });
 
         return response()->json(null, 204);

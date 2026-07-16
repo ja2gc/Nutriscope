@@ -10,6 +10,8 @@ use App\Models\FsItem;
 use App\Models\MenuCycle;
 use App\Models\MenuCycleTemplate;
 use App\Services\Audit\AuditLogger;
+use App\Services\Audit\Revisions\AuditRevisionRegistry;
+use App\Services\Audit\Revisions\AuditRevisionWriter;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -17,7 +19,11 @@ use Illuminate\Support\Facades\DB;
 
 class MenuCycleTemplateController extends Controller
 {
-    public function __construct(private readonly AuditLogger $auditLogger) {}
+    public function __construct(
+        private readonly AuditLogger $auditLogger,
+        private readonly AuditRevisionRegistry $revisionRegistry,
+        private readonly AuditRevisionWriter $revisionWriter,
+    ) {}
 
     public function index(): JsonResponse
     {
@@ -45,14 +51,26 @@ class MenuCycleTemplateController extends Controller
 
                 return $template;
             });
-            $fields = array_map(
-                fn (string $field): string => $field === 'description' ? 'content' : $field,
-                array_keys($template->getAttributes()),
-            );
+            $values = $this->auditValues($template);
+            $fields = array_keys(array_filter($values, fn (mixed $value): bool => $value !== null));
+            if (($data['description'] ?? null) !== null) {
+                $fields[] = 'content';
+            }
             if ($template->days()->exists()) {
                 $fields[] = 'days';
             }
-            $this->auditLogger->recordMutation(AuditAction::Created, AuditDomain::FoodService, $template, $fields);
+            $activity = $this->auditLogger->recordMutation(
+                AuditAction::Created,
+                AuditDomain::FoodService,
+                $template,
+                $fields,
+                ['entity_name' => $template->name],
+                oldValues: array_fill_keys(array_keys($values), null),
+                newValues: $values,
+            );
+            if ($activity !== null) {
+                $this->revisionWriter->write($activity, null, $this->revisionRegistry->capture($template));
+            }
 
             return $template;
         });
@@ -71,6 +89,10 @@ class MenuCycleTemplateController extends Controller
         $beforeDays = $this->daySignature($menuCycleTemplate);
 
         $this->audited(function () use ($menuCycleTemplate, $data, $beforeDays): void {
+            $beforeValues = $this->auditValues($menuCycleTemplate);
+            $beforeRevision = isset($data['days'])
+                ? $this->revisionRegistry->capture($menuCycleTemplate)
+                : null;
             DB::transaction(function () use ($menuCycleTemplate, $data) {
                 $menuCycleTemplate->update(array_filter([
                     'name' => $data['name'] ?? null,
@@ -81,14 +103,29 @@ class MenuCycleTemplateController extends Controller
                     $this->syncDays($menuCycleTemplate, $data['days']);
                 }
             });
-            $fields = array_map(
-                fn (string $field): string => $field === 'description' ? 'content' : $field,
-                array_keys($menuCycleTemplate->getChanges()),
-            );
-            if (isset($data['days']) && $beforeDays !== $this->daySignature($menuCycleTemplate)) {
+            $after = $menuCycleTemplate->fresh(['days.recipe', 'days.fsItem']);
+            $afterValues = $this->auditValues($after);
+            $fields = $this->changedValueKeys($beforeValues, $afterValues);
+            if (array_key_exists('description', $data) && $menuCycleTemplate->wasChanged('description')) {
+                $fields[] = 'content';
+            }
+            $structureChanged = isset($data['days']) && $beforeDays !== $this->daySignature($after);
+            if ($structureChanged) {
                 $fields[] = 'days';
             }
-            $this->auditLogger->recordMutation(AuditAction::Updated, AuditDomain::FoodService, $menuCycleTemplate, $fields);
+            $fieldMap = array_flip($fields);
+            $activity = $this->auditLogger->recordMutation(
+                AuditAction::Updated,
+                AuditDomain::FoodService,
+                $after,
+                $fields,
+                ['entity_name' => $after->name],
+                oldValues: array_intersect_key($beforeValues, $fieldMap),
+                newValues: array_intersect_key($afterValues, $fieldMap),
+            );
+            if ($activity !== null && $structureChanged && $beforeRevision !== null) {
+                $this->revisionWriter->write($activity, $beforeRevision, $this->revisionRegistry->capture($after));
+            }
         });
 
         return response()->json(['data' => $this->format($menuCycleTemplate->fresh())]);
@@ -97,8 +134,20 @@ class MenuCycleTemplateController extends Controller
     public function destroy(MenuCycleTemplate $menuCycleTemplate): JsonResponse
     {
         $this->audited(function () use ($menuCycleTemplate): void {
+            $beforeRevision = $this->revisionRegistry->capture($menuCycleTemplate);
+            $beforeValues = $this->auditValues($menuCycleTemplate);
             $menuCycleTemplate->delete();
-            $this->auditLogger->recordMutation(AuditAction::Deleted, AuditDomain::FoodService, $menuCycleTemplate, []);
+            $activity = $this->auditLogger->recordMutation(
+                AuditAction::Deleted,
+                AuditDomain::FoodService,
+                $menuCycleTemplate,
+                [],
+                ['entity_name' => $menuCycleTemplate->name],
+                oldValues: $beforeValues,
+            );
+            if ($activity !== null) {
+                $this->revisionWriter->write($activity, $beforeRevision, null);
+            }
         });
 
         return response()->json(null, 204);
@@ -132,14 +181,26 @@ class MenuCycleTemplateController extends Controller
 
                 return $template;
             });
-            $fields = array_map(
-                fn (string $field): string => $field === 'description' ? 'content' : $field,
-                array_keys($template->getAttributes()),
-            );
+            $values = $this->auditValues($template);
+            $fields = array_keys(array_filter($values, fn (mixed $value): bool => $value !== null));
+            if (($data['description'] ?? null) !== null) {
+                $fields[] = 'content';
+            }
             if ($template->days()->exists()) {
                 $fields[] = 'days';
             }
-            $this->auditLogger->recordMutation(AuditAction::Created, AuditDomain::FoodService, $template, $fields, ['source' => 'menu_cycle']);
+            $activity = $this->auditLogger->recordMutation(
+                AuditAction::Created,
+                AuditDomain::FoodService,
+                $template,
+                $fields,
+                ['source' => 'menu_cycle', 'entity_name' => $template->name],
+                oldValues: array_fill_keys(array_keys($values), null),
+                newValues: $values,
+            );
+            if ($activity !== null) {
+                $this->revisionWriter->write($activity, null, $this->revisionRegistry->capture($template));
+            }
 
             return $template;
         });
@@ -180,7 +241,16 @@ class MenuCycleTemplateController extends Controller
             if ($cycle->days()->exists()) {
                 $fields[] = 'days';
             }
-            $this->auditLogger->recordMutation(AuditAction::Created, AuditDomain::FoodService, $cycle, $fields, ['source' => 'menu_cycle_template']);
+            $activity = $this->auditLogger->recordMutation(
+                AuditAction::Created,
+                AuditDomain::FoodService,
+                $cycle,
+                $fields,
+                ['source' => 'menu_cycle_template'],
+            );
+            if ($activity !== null) {
+                $this->revisionWriter->write($activity, null, $this->revisionRegistry->capture($cycle));
+            }
 
             return $cycle;
         });
@@ -263,5 +333,22 @@ class MenuCycleTemplateController extends Controller
         return $template->days()->orderBy('day_of_week')->orderBy('meal_type')
             ->get(['day_of_week', 'meal_type', 'recipe_id', 'fs_item_id', 'quantity'])
             ->map->toArray()->values()->all();
+    }
+
+    /** @return array{name: string, cycle_days: int} */
+    private function auditValues(MenuCycleTemplate $template): array
+    {
+        return [
+            'name' => (string) $template->name,
+            'cycle_days' => (int) $template->cycle_days,
+        ];
+    }
+
+    /** @param array<string, mixed> $before @param array<string, mixed> $after @return list<string> */
+    private function changedValueKeys(array $before, array $after): array
+    {
+        return collect(array_keys($before))
+            ->filter(fn (string $field): bool => $before[$field] !== $after[$field])
+            ->values()->all();
     }
 }

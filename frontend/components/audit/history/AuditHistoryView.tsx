@@ -32,6 +32,7 @@ function HistorySnapshot({
     case "food_service_recipe":
       return <FoodServiceRecipeHistory snapshot={snapshot} comparison={comparison} side={side} />;
     case "menu_cycle":
+    case "menu_cycle_template":
       return <MenuCycleHistory snapshot={snapshot} comparison={comparison} side={side} />;
     case "purchase_order":
       return <PurchaseOrderHistory snapshot={snapshot} comparison={comparison} side={side} />;

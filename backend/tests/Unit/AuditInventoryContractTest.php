@@ -75,6 +75,7 @@ class AuditInventoryContractTest extends TestCase
         'app/Http/Controllers/Controller.php',
         'app/Http/Controllers/FSS/BudgetController.php',
         'app/Http/Controllers/FSS/DietListCountController.php',
+        'app/Http/Controllers/FSS/FoodServiceRecipeController.php',
         'app/Http/Controllers/FSS/FoodServiceSettingController.php',
         'app/Http/Controllers/FSS/FsItemController.php',
         'app/Http/Controllers/FSS/MealPrepLogController.php',

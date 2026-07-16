@@ -15,6 +15,7 @@ use App\Services\Audit\Revisions\AuditRevisionRegistry;
 use App\Services\Audit\Revisions\Serializers\BudgetRevisionSerializer;
 use App\Services\Audit\Revisions\Serializers\FoodServiceRecipeRevisionSerializer;
 use App\Services\Audit\Revisions\Serializers\MenuCycleRevisionSerializer;
+use App\Services\Audit\Revisions\Serializers\MenuCycleTemplateRevisionSerializer;
 use App\Services\Audit\Revisions\Serializers\PurchaseOrderRevisionSerializer;
 use App\Services\Audit\Revisions\Serializers\RndRecipeRevisionSerializer;
 use App\Services\Audit\Revisions\Serializers\ShoppingListRevisionSerializer;
@@ -46,6 +47,7 @@ class AppServiceProvider extends ServiceProvider
             $app->make(BudgetRevisionSerializer::class),
             $app->make(FoodServiceRecipeRevisionSerializer::class),
             $app->make(MenuCycleRevisionSerializer::class),
+            $app->make(MenuCycleTemplateRevisionSerializer::class),
             $app->make(PurchaseOrderRevisionSerializer::class),
             $app->make(RndRecipeRevisionSerializer::class),
             $app->make(ShoppingListRevisionSerializer::class),
