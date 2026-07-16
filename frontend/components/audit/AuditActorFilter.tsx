@@ -56,7 +56,7 @@ export function AuditActorFilter({
     const timer = window.setTimeout(() => {
       setLoading(true);
       setError(false);
-      void listAuditActors({ search: query.trim() || undefined, page: 1, per_page: 20 }, controller.signal)
+      void listAuditActors({ search: query.trim() || undefined, page: 1, per_page: 10 }, controller.signal)
         .then((result) => {
           setOptions(result.data);
           setPage(result.meta.current_page);
@@ -81,7 +81,7 @@ export function AuditActorFilter({
     setLoading(true);
     setError(false);
     try {
-      const result = await listAuditActors({ search: query.trim() || undefined, page: page + 1, per_page: 20 });
+      const result = await listAuditActors({ search: query.trim() || undefined, page: page + 1, per_page: 10 });
       setOptions((current) => [...current, ...result.data.filter((actor) => !current.some((item) => item.id === actor.id))]);
       setPage(result.meta.current_page);
       setLastPage(result.meta.last_page);

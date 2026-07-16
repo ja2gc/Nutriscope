@@ -24,7 +24,11 @@ class InventoryController extends Controller
         $search = trim((string) $request->query('search', ''));
         $type = (string) $request->query('type', 'all');
         $type = $type === 'food_item' ? 'ingredient' : $type;
-        $perPage = min(max((int) $request->query('per_page', 25), 1), 100);
+        $request->validate([
+            'page' => ['nullable', 'integer', 'min:1'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:10'],
+        ]);
+        $perPage = (int) $request->query('per_page', 10);
         $page = max((int) $request->query('page', 1), 1);
         $cacheKey = 'catalog_rows_'.md5("{$search}|{$type}|{$perPage}|{$page}");
 
@@ -32,7 +36,7 @@ class InventoryController extends Controller
             [$union, $bindings] = $this->catalogUnion($type, $search);
             $total = (int) DB::selectOne("SELECT COUNT(*) AS aggregate FROM ({$union}) AS catalog", $bindings)->aggregate;
             $rows = DB::select(
-                "SELECT * FROM ({$union}) AS catalog ORDER BY name ASC LIMIT ? OFFSET ?",
+                "SELECT * FROM ({$union}) AS catalog ORDER BY name ASC, item_id ASC LIMIT ? OFFSET ?",
                 [...$bindings, $perPage, ($page - 1) * $perPage],
             );
 

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\RND;
 use App\Enums\AuditAction;
 use App\Enums\AuditDomain;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\PaginatedRequest;
 use App\Http\Requests\StoreRecipeRequest;
 use App\Http\Resources\RecipeResource;
 use App\Models\Recipe;
@@ -13,7 +14,6 @@ use App\Services\Audit\AuditLogger;
 use App\Services\Audit\Revisions\AuditRevisionRegistry;
 use App\Services\Audit\Revisions\AuditRevisionWriter;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class RecipeController extends Controller
@@ -24,7 +24,7 @@ class RecipeController extends Controller
         private readonly AuditRevisionWriter $revisionWriter,
     ) {}
 
-    public function index(Request $request): AnonymousResourceCollection
+    public function index(PaginatedRequest $request): AnonymousResourceCollection
     {
         $query = Recipe::query();
 
@@ -36,7 +36,7 @@ class RecipeController extends Controller
             $query->where('category', $request->category);
         }
 
-        $recipes = $query->orderBy('name')->paginate((int) min($request->query('per_page', 15), 100));
+        $recipes = $query->orderBy('name')->orderBy('id')->paginate($request->perPage())->withQueryString();
 
         return RecipeResource::collection($recipes);
     }

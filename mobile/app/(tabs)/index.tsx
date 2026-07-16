@@ -85,7 +85,7 @@ async function fetchDashboard(): Promise<DashboardData> {
 
 async function fetchAnnouncements(): Promise<Announcement[]> {
   const res = await api.get<AnnouncementsResponse>('/api/fss/announcements', {
-    params: { per_page: 10 },
+    params: { per_page: 3 },
   });
   return res.data.data;
 }

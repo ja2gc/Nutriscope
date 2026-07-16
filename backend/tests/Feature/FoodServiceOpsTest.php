@@ -138,7 +138,7 @@ class FoodServiceOpsTest extends TestCase
         $response->assertOk();
     }
 
-    public function test_catalog_search_validates_bounded_optional_pagination(): void
+    public function test_catalog_search_validates_bounded_pagination(): void
     {
         FsItem::factory()->count(12)->create(['kind' => 'ingredient', 'is_active' => true]);
 
@@ -146,10 +146,13 @@ class FoodServiceOpsTest extends TestCase
             ->getJson('/api/fss/fs-items/catalog?kind=ingredient&limit=101')
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['limit']);
-        $this->actingAs($this->rnd)
+        $defaultSecondPage = $this->actingAs($this->rnd)
             ->getJson('/api/fss/fs-items/catalog?kind=ingredient&page=2')
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors(['page']);
+            ->assertOk()
+            ->assertJsonCount(2, 'data')
+            ->assertJsonPath('meta.current_page', 2)
+            ->assertJsonPath('meta.per_page', 10);
+        $this->assertSame(12, $defaultSecondPage->json('meta.total'));
 
         $page = $this->actingAs($this->rnd)
             ->getJson('/api/fss/fs-items/catalog?kind=ingredient&limit=5&page=2')
@@ -162,8 +165,10 @@ class FoodServiceOpsTest extends TestCase
         $this->actingAs($this->rnd)
             ->getJson('/api/fss/fs-items/catalog?kind=ingredient')
             ->assertOk()
-            ->assertJsonCount(12, 'data')
-            ->assertJsonMissingPath('meta');
+            ->assertJsonCount(10, 'data')
+            ->assertJsonPath('meta.current_page', 1)
+            ->assertJsonPath('meta.per_page', 10)
+            ->assertJsonPath('meta.total', 12);
     }
 
     // ===== SUPPLIERS (RND-only — FSS has no supplier scope per §6) =====

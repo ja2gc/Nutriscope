@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Boxes, Plus, Pencil, Trash2, RefreshCw, X, Search } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   CatalogItem, FsItemKind, listCatalog, createFsItem, updateFsItem, deleteFsItem, CreateFsItemPayload,
@@ -154,23 +155,20 @@ export default function InventoryCatalogPage() {
   const [search, setSearch] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<CatalogItem | null>(null);
+  const [page, setPage] = useState(1);
+  const [meta, setMeta] = useState<PaginationMeta | null>(null);
 
   // Load the whole catalog once; Ingredients covers food items, Supplies covers supplies.
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [c, s] = await Promise.all([listCatalog(), listSuppliers()]);
-      setItems(c); setSuppliers(s);
+      const [c, s] = await Promise.all([listCatalog(tab, page, search), listSuppliers()]);
+      setItems(c.data); setMeta(c.meta); setSuppliers(s.data);
     } finally { setLoading(false); }
-  }, []);
+  }, [page, search, tab]);
   useEffect(() => { load(); }, [load]);
 
-  const filtered = useMemo(
-    () => items
-      .filter((i) => tab === "supply" ? i.kind === "supply" : i.kind === "ingredient")
-      .filter((i) => i.name.toLowerCase().includes(search.trim().toLowerCase())),
-    [items, tab, search],
-  );
+  useEffect(() => { setPage(1); }, [search, tab]);
 
   async function remove(item: CatalogItem) {
     if (!confirm(`Delete "${item.name}" from the catalog?`)) return;
@@ -225,7 +223,7 @@ export default function InventoryCatalogPage() {
       <div className="bg-white border border-warm-200 rounded-2xl shadow-sm overflow-x-auto">
         {loading ? (
           <div className="py-16 text-center text-sm text-warm-400">Loading…</div>
-        ) : filtered.length === 0 ? (
+        ) : items.length === 0 ? (
           <div className="py-16 text-center text-sm text-warm-400">No items yet.</div>
         ) : (
           <table className="w-full text-sm">
@@ -240,7 +238,7 @@ export default function InventoryCatalogPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100">
-              {filtered.map((it) => (
+              {items.map((it) => (
                 <tr key={it.id} className="hover:bg-warm-50/60">
                   <td className="px-4 py-3 font-semibold text-warm-800">
                     {it.name}
@@ -264,6 +262,7 @@ export default function InventoryCatalogPage() {
             </tbody>
           </table>
         )}
+        <Pagination meta={meta} page={page} onPageChange={setPage} />
       </div>
 
       {modalOpen && isRnd && (

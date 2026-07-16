@@ -137,6 +137,7 @@ export default function SettingsScreen() {
     mutationFn: markAllRead,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      queryClient.invalidateQueries({ queryKey: ['notifications-unread-count'] });
       Alert.alert('Done', 'All notifications marked as read.');
     },
     onError: () => {

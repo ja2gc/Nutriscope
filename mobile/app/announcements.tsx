@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { useLocalSearchParams } from 'expo-router';
 import { ClipboardList, History, Megaphone, X } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
@@ -13,6 +13,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import api from '../lib/api';
+import { PaginatedListFooter } from '../components/PaginatedListFooter';
+import { MOBILE_PAGE_SIZE, PaginatedResponse, flattenUniquePages, getNextPageParam } from '../lib/pagination';
 
 interface Sop {
   id: number;
@@ -56,24 +58,29 @@ async function fetchSop(): Promise<Sop | null> {
   return res.data.data;
 }
 
-async function fetchSopHistory(): Promise<Sop[]> {
-  const res = await api.get<{ data: Sop[] }>('/api/sop/history');
-  return res.data.data;
+async function fetchSopHistory(page: number): Promise<PaginatedResponse<Sop>> {
+  const res = await api.get<PaginatedResponse<Sop>>('/api/sop/history', { params: { page, per_page: MOBILE_PAGE_SIZE } });
+  return res.data;
 }
 
-async function fetchAnnouncements(): Promise<Announcement[]> {
-  const res = await api.get<{ data: Announcement[] }>('/api/fss/announcements?per_page=30');
-  return res.data.data;
+async function fetchAnnouncements(page: number): Promise<PaginatedResponse<Announcement>> {
+  const res = await api.get<PaginatedResponse<Announcement>>('/api/fss/announcements', {
+    params: { page, per_page: MOBILE_PAGE_SIZE },
+  });
+  return res.data;
 }
 
 function SopBanner() {
   const [historyOpen, setHistoryOpen] = useState(false);
   const { data: sop, isLoading } = useQuery({ queryKey: ['sop'], queryFn: fetchSop });
-  const { data: history, isLoading: histLoading } = useQuery({
+  const { data: historyPages, isLoading: histLoading, fetchNextPage, hasNextPage, isFetchingNextPage, isFetchNextPageError } = useInfiniteQuery({
     queryKey: ['sop-history'],
-    queryFn: fetchSopHistory,
+    queryFn: ({ pageParam }) => fetchSopHistory(pageParam),
+    initialPageParam: 1,
+    getNextPageParam,
     enabled: historyOpen,
   });
+  const history = flattenUniquePages(historyPages?.pages);
 
   if (isLoading) {
     return <View className="h-24 rounded-2xl bg-gray-100 mb-4" />;
@@ -123,7 +130,7 @@ function SopBanner() {
               {histLoading ? (
                 <ActivityIndicator color="#059669" />
               ) : (
-                (history ?? []).map((v, i) => (
+                history.map((v, i) => (
                   <View key={v.id} className="rounded-2xl border border-gray-200 p-4 mb-3">
                     <View className="flex-row items-center justify-between">
                       <Text className="text-sm font-bold text-gray-900">{v.title}</Text>
@@ -140,6 +147,12 @@ function SopBanner() {
                   </View>
                 ))
               )}
+              {hasNextPage && (
+                <TouchableOpacity className="min-h-12 items-center justify-center" onPress={() => void fetchNextPage()}>
+                  <PaginatedListFooter loading={isFetchingNextPage} error={isFetchNextPageError} onRetry={() => void fetchNextPage()} />
+                  {!isFetchingNextPage && !isFetchNextPageError && <Text className="text-sm font-semibold text-emerald-700">Load more</Text>}
+                </TouchableOpacity>
+              )}
             </ScrollView>
           </View>
         </View>
@@ -154,18 +167,23 @@ export default function AnnouncementsScreen() {
   // Announcement ids are public uuids (strings) — match as strings, never Number().
   const targetAnnouncementId = params.announcementId || null;
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const { data, isLoading, isError, refetch } = useQuery({
+  const { data: pages, isLoading, isError, refetch, fetchNextPage, hasNextPage, isFetchingNextPage, isFetchNextPageError } = useInfiniteQuery({
     queryKey: ['announcements-feed'],
-    queryFn: fetchAnnouncements,
+    queryFn: ({ pageParam }) => fetchAnnouncements(pageParam),
+    initialPageParam: 1,
+    getNextPageParam,
   });
-  const selected = data?.find((item) => String(item.id) === selectedId) ?? null;
+  const data = flattenUniquePages(pages?.pages);
+  const selected = data.find((item) => String(item.id) === selectedId) ?? null;
 
   useEffect(() => {
     if (!targetAnnouncementId || selectedId === targetAnnouncementId) return;
-    if ((data ?? []).some((item) => String(item.id) === targetAnnouncementId)) {
+    if (data.some((item) => String(item.id) === targetAnnouncementId)) {
       setSelectedId(targetAnnouncementId);
+    } else if (hasNextPage && !isFetchingNextPage) {
+      void fetchNextPage();
     }
-  }, [data, selectedId, targetAnnouncementId]);
+  }, [data, fetchNextPage, hasNextPage, isFetchingNextPage, selectedId, targetAnnouncementId]);
 
   if (isLoading) {
     return (
@@ -191,7 +209,7 @@ export default function AnnouncementsScreen() {
   return (
     <View className="flex-1 bg-gray-50">
       <FlatList
-        data={data ?? []}
+        data={data}
         keyExtractor={(item) => String(item.id)}
         ListHeaderComponent={<SopBanner />}
         contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 16, flexGrow: 1 }}
@@ -223,6 +241,9 @@ export default function AnnouncementsScreen() {
             </TouchableOpacity>
           );
         }}
+        onEndReached={() => { if (hasNextPage && !isFetchingNextPage) void fetchNextPage(); }}
+        onEndReachedThreshold={0.4}
+        ListFooterComponent={<PaginatedListFooter loading={isFetchingNextPage} error={isFetchNextPageError} onRetry={() => void fetchNextPage()} />}
         ListEmptyComponent={
           <View className="items-center justify-center py-20">
             <Megaphone color="#d1d5db" size={40} />

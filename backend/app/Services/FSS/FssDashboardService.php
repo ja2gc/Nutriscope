@@ -32,7 +32,7 @@ class FssDashboardService
 
         return [
             'meals_to_log_today' => $this->mealsToLogToday($cycle, $weekday, $today),
-            'pending_pos' => $pendingPos,
+            'pending_pos' => array_slice($pendingPos, 0, 3),
             'pending_pos_count' => count($pendingPos),
             'today_service' => $this->todayService($cycle, $weekday, $today),
             'active_cycle' => $this->activeCycleInfo($cycle),

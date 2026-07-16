@@ -54,7 +54,7 @@ function AuditLogsContent() {
   const requestParams = useMemo<ListAuditLogsParams>(() => ({
     ...filters,
     page,
-    per_page: 25,
+    per_page: 10,
   }), [filters, page]);
   const { events, meta, loading, loaded, error, reload } = useAuditEventList(requestParams);
 

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\FSS;
 use App\Enums\AuditAction;
 use App\Enums\AuditDomain;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\PaginatedRequest;
 use App\Models\FoodServiceRecipe;
 use App\Models\FsItem;
 use App\Models\MenuCycle;
@@ -25,14 +26,25 @@ class MenuCycleTemplateController extends Controller
         private readonly AuditRevisionWriter $revisionWriter,
     ) {}
 
-    public function index(): JsonResponse
+    public function index(PaginatedRequest $request): JsonResponse
     {
-        $templates = MenuCycleTemplate::withCount('days')->orderBy('name')->get();
+        $templates = MenuCycleTemplate::withCount('days')->orderBy('name')->orderBy('id')
+            ->paginate($request->perPage())->withQueryString();
 
-        return response()->json(['data' => $templates->map(fn ($t) => [
+        $templates->through(fn ($t) => [
             'id' => $t->uuid, 'name' => $t->name, 'description' => $t->description,
             'cycle_days' => $t->cycle_days, 'days_count' => $t->days_count, 'updated_at' => $t->updated_at,
-        ])]);
+        ]);
+
+        return response()->json([
+            'data' => $templates->items(),
+            'meta' => [
+                'current_page' => $templates->currentPage(),
+                'per_page' => $templates->perPage(),
+                'total' => $templates->total(),
+                'last_page' => $templates->lastPage(),
+            ],
+        ]);
     }
 
     public function store(Request $request): JsonResponse

@@ -1,4 +1,5 @@
 import api from './api';
+import { MOBILE_PAGE_SIZE, PaginatedResponse } from './pagination';
 
 export interface ReportStaffSheet {
   user: { id: number | null; name: string | null; role: string | null };
@@ -29,9 +30,11 @@ export interface Report {
 }
 
 /** FSS sees only their own accomplishment reports (backend-scoped). */
-export async function listReports(): Promise<Report[]> {
-  const res = await api.get<{ data: Report[] }>('/api/fss/reports');
-  return res.data.data.filter((r) => r.type === 'accomplishment_report');
+export async function listReports(page: number): Promise<PaginatedResponse<Report>> {
+  const res = await api.get<PaginatedResponse<Report>>('/api/fss/reports', {
+    params: { page, per_page: MOBILE_PAGE_SIZE },
+  });
+  return { ...res.data, data: res.data.data.filter((r) => r.type === 'accomplishment_report') };
 }
 
 export async function getReport(id: number): Promise<Report> {

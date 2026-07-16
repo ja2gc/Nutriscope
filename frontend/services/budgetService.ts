@@ -1,4 +1,5 @@
 import { apiFetch } from "@/lib/apiFetch";
+import type { PaginationMeta } from "@/components/ui/Pagination";
 
 export interface FiscalYearBudget {
   id: string;
@@ -80,10 +81,14 @@ export async function getLedger(
   fiscalYear: number,
   source: LedgerFilter = "all",
   prefix: BudgetApiPrefix = "fss",
-): Promise<BudgetLedgerEntry[]> {
-  const qs = new URLSearchParams({ fiscal_year: String(fiscalYear) });
+  page = 1,
+): Promise<{ data: BudgetLedgerEntry[]; meta: PaginationMeta }> {
+  const qs = new URLSearchParams({ fiscal_year: String(fiscalYear), page: String(page), per_page: "10" });
   if (source && source !== "all") qs.set("source", source);
-  return unwrap(await apiFetch(`/api/${prefix}/budgets/ledger?${qs}`), "Failed to load ledger.");
+  const res = await apiFetch(`/api/${prefix}/budgets/ledger?${qs}`);
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(json.message ?? "Failed to load ledger.");
+  return { data: json.data ?? [], meta: json.meta ?? { current_page: page, per_page: 10, total: 0, last_page: 1 } };
 }
 
 export async function addManualAdjustment(payload: {

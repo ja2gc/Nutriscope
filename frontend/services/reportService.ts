@@ -1,4 +1,5 @@
 import { apiFetch } from "@/lib/apiFetch";
+import type { PaginationMeta } from "@/components/ui/Pagination";
 
 export type ReportType =
   | "program_project_activity"
@@ -77,8 +78,11 @@ async function unwrap<T>(res: Response, fallback: string): Promise<T> {
 }
 
 // ── Reports ───────────────────────────────────────────────────────────────
-export async function listReports(prefix: "rnd" | "admin" = "rnd"): Promise<ReportItem[]> {
-  return unwrap(await apiFetch(`/api/${prefix}/reports`), "Failed to load reports.");
+export async function listReports(prefix: "rnd" | "admin" = "rnd", page = 1): Promise<{ data: ReportItem[]; meta: PaginationMeta }> {
+  const res = await apiFetch(`/api/${prefix}/reports?page=${page}&per_page=10`);
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(json.message ?? "Failed to load reports.");
+  return { data: json.data ?? [], meta: json.meta ?? { current_page: page, per_page: 10, total: 0, last_page: 1 } };
 }
 
 export async function deleteReport(id: string, prefix: "rnd" | "admin" = "rnd"): Promise<void> {
@@ -106,11 +110,11 @@ export async function listInstances(
   type: ReportType | string,
   filters: ReportParams = {},
   prefix: "rnd" | "admin" = "rnd",
-): Promise<{ axis: ReportAxis; instances: ReportInstance[] }> {
-  return unwrap(
-    await apiFetch(`/api/${prefix}/reports/${type}/instances${toQuery(filters)}`),
-    "Failed to load report instances.",
-  );
+): Promise<{ data: { axis: ReportAxis; instances: ReportInstance[] }; meta: PaginationMeta }> {
+  const res = await apiFetch(`/api/${prefix}/reports/${type}/instances${toQuery(filters)}`);
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(json.message ?? "Failed to load report instances.");
+  return { data: json.data, meta: json.meta };
 }
 
 /** URL that streams a freshly rendered (live) PDF — open in a new tab. */

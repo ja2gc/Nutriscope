@@ -1,4 +1,5 @@
 import { apiFetch } from "@/lib/apiFetch";
+import type { PaginationMeta } from "@/components/ui/Pagination";
 export class AssessmentValidationError extends Error {
   constructor(message: string, public readonly errors: Record<string, string[]>) {
     super(message);
@@ -167,10 +168,10 @@ export async function uploadAttachment(
   return responseData.data || responseData;
 }
 
-export async function fetchAttachments(ncpRecordId: number | string, type?: string): Promise<AttachmentRecord[]> {
-  const url = type
-    ? `/api/rnd/ncp-records/${ncpRecordId}/attachments?type=${encodeURIComponent(type)}`
-    : `/api/rnd/ncp-records/${ncpRecordId}/attachments`;
+export async function fetchAttachments(ncpRecordId: number | string, type?: string, page = 1): Promise<{ data: AttachmentRecord[]; meta: PaginationMeta }> {
+  const params = new URLSearchParams({ page: String(page), per_page: "10" });
+  if (type) params.set("type", type);
+  const url = `/api/rnd/ncp-records/${ncpRecordId}/attachments?${params}`;
   const res = await apiFetch(url, {
     method: "GET",
     headers: {
@@ -184,7 +185,7 @@ export async function fetchAttachments(ncpRecordId: number | string, type?: stri
   }
 
   const responseData = await res.json();
-  return responseData.data || [];
+  return { data: responseData.data || [], meta: responseData.meta ?? { current_page: page, per_page: 10, total: 0, last_page: 1 } };
 }
 
 export async function deleteAttachment(attachmentId: number | string): Promise<void> {

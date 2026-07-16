@@ -1,5 +1,6 @@
 ﻿import { apiFetch } from "@/lib/apiFetch";
 import type { MonitoringPlan } from "@/services/monitoringPlan";
+import type { PaginationMeta } from "@/components/ui/Pagination";
 export type { MonitoringPlan, PlanIndicator, PlanVisit, PlanSeriesPoint, IndicatorStatus, IndicatorCategory } from "@/services/monitoringPlan";
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -60,8 +61,8 @@ export interface MonitoringPayload {
 
 // ─── API Functions ─────────────────────────────────────────────────────────────
 
-export async function fetchMonitorings(ncpRecordId: number | string): Promise<MonitoringEntry[]> {
-  const res = await apiFetch(`/api/rnd/ncp-records/${ncpRecordId}/monitorings`, {
+export async function fetchMonitorings(ncpRecordId: number | string, page = 1): Promise<{ data: MonitoringEntry[]; meta: PaginationMeta }> {
+  const res = await apiFetch(`/api/rnd/ncp-records/${ncpRecordId}/monitorings?page=${page}&per_page=10`, {
     headers: { Accept: 'application/json' },
   });
   if (!res.ok) {
@@ -69,7 +70,7 @@ export async function fetchMonitorings(ncpRecordId: number | string): Promise<Mo
     throw new Error((err as { message?: string }).message || 'Failed to fetch monitoring entries.');
   }
   const data = await res.json();
-  return data.data ?? data ?? [];
+  return { data: data.data ?? [], meta: data.meta ?? { current_page: page, per_page: 10, total: 0, last_page: 1 } };
 }
 
 export async function createMonitoring(

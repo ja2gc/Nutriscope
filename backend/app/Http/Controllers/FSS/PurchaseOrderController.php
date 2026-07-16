@@ -8,6 +8,7 @@ use App\Enums\AuditDomain;
 use App\Events\PurchaseOrderConverted;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\FSS\UpdatePurchaseOrderRequest;
+use App\Http\Requests\PaginatedRequest;
 use App\Http\Resources\PurchaseOrderResource;
 use App\Models\AuditActivity;
 use App\Models\ProgramProjectActivity;
@@ -26,6 +27,7 @@ use App\Services\FSS\ReceivingService;
 use App\Services\NotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -52,14 +54,17 @@ class PurchaseOrderController extends Controller
         'programProjectActivity',
     ];
 
-    public function index(Request $request): JsonResponse
+    public function index(PaginatedRequest $request): AnonymousResourceCollection
     {
         $query = PurchaseOrder::with(self::RELATIONS)->orderByDesc('created_at');
         if ($request->filled('shopping_list_id')) {
             $query->where('shopping_list_id', $request->get('shopping_list_id'));
         }
 
-        return response()->json(['data' => PurchaseOrderResource::collection($query->get())]);
+        return PurchaseOrderResource::collection($query
+            ->orderByDesc('id')
+            ->paginate($request->perPage())
+            ->withQueryString());
     }
 
     public function show(PurchaseOrder $purchaseOrder): JsonResponse

@@ -1,4 +1,5 @@
 import { apiFetch } from "@/lib/apiFetch";
+import type { PaginationMeta } from "@/components/ui/Pagination";
 
 export type FsItemKind = "ingredient" | "supply";
 
@@ -33,9 +34,14 @@ async function unwrap<T>(res: Response, fallback: string): Promise<T> {
 }
 
 /** The reference catalog (ingredients + supplies). Optional kind filter. */
-export async function listCatalog(kind?: FsItemKind): Promise<CatalogItem[]> {
-  const qs = kind ? `?kind=${kind}` : "";
-  return unwrap(await apiFetch(`/api/fss/fs-items/catalog${qs}`), "Failed to load catalog.");
+export async function listCatalog(kind?: FsItemKind, page = 1, search = ""): Promise<{ data: CatalogItem[]; meta: PaginationMeta }> {
+  const qs = new URLSearchParams({ page: String(page), limit: "10" });
+  if (kind) qs.set("kind", kind);
+  if (search.trim()) qs.set("search", search.trim());
+  const res = await apiFetch(`/api/fss/fs-items/catalog?${qs}`);
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.message ?? "Failed to load catalog.");
+  return { data: body.data ?? [], meta: body.meta ?? { current_page: page, per_page: 10, total: 0, last_page: 1 } };
 }
 
 /** Search active reference-catalog items for recipe and procurement pickers. */

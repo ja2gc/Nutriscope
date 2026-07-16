@@ -38,13 +38,15 @@ export interface AnnouncementPage {
   meta: PaginationMeta;
 }
 
-const FALLBACK_META: PaginationMeta = { current_page: 1, per_page: 15, total: 0, last_page: 1 };
+const FALLBACK_META: PaginationMeta = { current_page: 1, per_page: 10, total: 0, last_page: 1 };
 
 export async function fetchAnnouncements(
   page: number = 1,
-  perPage: number = 15
+  perPage: number = 10,
+  announcementId?: string,
 ): Promise<AnnouncementPage> {
   const params = new URLSearchParams({ page: String(page), per_page: String(perPage) });
+  if (announcementId) params.set("announcement_id", announcementId);
   const res = await apiFetch(`/api/announcements?${params}`, {
     method: "GET",
     headers: { Accept: "application/json" },
@@ -122,9 +124,11 @@ export async function deleteAnnouncement(id: number | string): Promise<void> {
 
 export async function fetchAdminAnnouncements(
   page: number = 1,
-  perPage: number = 15
+  perPage: number = 10,
+  announcementId?: string,
 ): Promise<AnnouncementPage> {
   const params = new URLSearchParams({ page: String(page), per_page: String(perPage) });
+  if (announcementId) params.set("announcement_id", announcementId);
   const res = await apiFetch(`/api/admin/announcements?${params}`, {
     method: "GET",
     headers: { Accept: "application/json" },

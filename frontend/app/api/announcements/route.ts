@@ -8,14 +8,15 @@ async function currentToken() {
   return cookieStore.get("nutriscope_token")?.value;
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const token = await currentToken();
 
   if (!token) {
     return NextResponse.json({ message: "Unauthenticated." }, { status: 401 });
   }
 
-  const laravelRes = await fetch(`${LARAVEL_API}/rnd/announcements`, {
+  const search = new URL(req.url).searchParams.toString();
+  const laravelRes = await fetch(`${LARAVEL_API}/rnd/announcements${search ? `?${search}` : ""}`, {
     headers: {
       Authorization: `Bearer ${token}`,
       Accept: "application/json",

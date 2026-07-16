@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { Truck, Plus, Pencil, Trash2, X, RefreshCw, Search, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
 import {
   Supplier,
   SupplierPayload,
@@ -116,6 +117,8 @@ export function SuppliersPanel() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [meta, setMeta] = useState<PaginationMeta | null>(null);
 
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Supplier | null>(null);
@@ -125,15 +128,22 @@ export function SuppliersPanel() {
   const load = useCallback(async () => {
     setLoading(true); setError("");
     try {
-      setSuppliers(await listSuppliers());
+      const result = await listSuppliers(page, search);
+      setSuppliers(result.data);
+      setMeta(result.meta);
     } catch {
       setError("Failed to load suppliers.");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [page, search]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    const timer = setTimeout(() => { void load(); }, 250);
+    return () => clearTimeout(timer);
+  }, [load]);
+
+  useEffect(() => { setPage(1); }, [search]);
 
   function openNew() { setEditing(null); setFormOpen(true); }
   function openEdit(s: Supplier) { setEditing(s); setFormOpen(true); }
@@ -147,12 +157,6 @@ export function SuppliersPanel() {
       await load();
     } catch { } finally { setDeleting(false); }
   }
-
-  const filtered = suppliers.filter((s) =>
-    !search ||
-    s.name.toLowerCase().includes(search.toLowerCase()) ||
-    (s.category ?? "").toLowerCase().includes(search.toLowerCase())
-  );
 
   return (
     <div className="space-y-5">
@@ -195,7 +199,7 @@ export function SuppliersPanel() {
           <div className="py-16 text-center text-sm text-warm-400">Loading…</div>
         ) : error ? (
           <div className="py-16 text-center text-sm text-red-500">{error}</div>
-        ) : filtered.length === 0 ? (
+        ) : suppliers.length === 0 ? (
           <div className="py-16 text-center">
             <Truck className="h-8 w-8 text-warm-300 mx-auto mb-3" />
             <p className="text-sm text-warm-400 font-medium">No vendors yet. Add your first one.</p>
@@ -210,7 +214,7 @@ export function SuppliersPanel() {
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100">
-              {filtered.map((s) => (
+              {suppliers.map((s) => (
                 <tr key={s.id} className="hover:bg-warm-50/60 transition-colors">
                   <td className="px-4 py-3 font-semibold text-warm-800">{s.name}</td>
                   <td className="px-4 py-3 text-warm-600">{s.category || "—"}</td>
@@ -244,6 +248,7 @@ export function SuppliersPanel() {
             </tbody>
           </table>
         )}
+        <Pagination meta={meta} page={page} onPageChange={setPage} />
       </div>
     </div>
   );

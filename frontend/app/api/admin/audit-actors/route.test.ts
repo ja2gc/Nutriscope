@@ -16,7 +16,7 @@ describe("admin audit actor proxy", () => {
   test("forwards pagination, name search, and selected actor resolution", async () => {
     const search = new URLSearchParams({
       page: "2",
-      per_page: "20",
+      per_page: "10",
       search: "Maria Santos",
       selected_id: "00000000-0000-4000-8000-000000000001",
     });

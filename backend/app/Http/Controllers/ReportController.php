@@ -6,6 +6,7 @@ use App\Enums\AuditAction;
 use App\Enums\AuditCategory;
 use App\Enums\AuditDomain;
 use App\Enums\AuditOutcome;
+use App\Http\Requests\PaginatedRequest;
 use App\Http\Resources\ReportResource;
 use App\Models\MealPlan;
 use App\Models\NcpRecord;
@@ -21,6 +22,7 @@ use App\Services\Reports\ReportBrowser;
 use App\Services\Reports\ReportService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
@@ -58,7 +60,7 @@ class ReportController extends Controller
      */
     public const ADMIN_ALLOWED_TYPES = Report::ADMIN_ALLOWED_TYPES;
 
-    public function index(): JsonResponse
+    public function index(PaginatedRequest $request): AnonymousResourceCollection
     {
         $query = Report::query()->with('user:id,uuid,name,first_name,last_name')->latest();
         $role = Auth::user()?->role;
@@ -76,14 +78,17 @@ class ReportController extends Controller
             $query->whereIn('type', self::FSS_ALLOWED_TYPES);
         }
 
-        return response()->json(['data' => ReportResource::collection($query->get())]);
+        return ReportResource::collection($query
+            ->orderByDesc('id')
+            ->paginate($request->perPage())
+            ->withQueryString());
     }
 
     /**
      * Browse: enumerate the renderable instances of a type for the requested
      * period/entity, from real records (Spec 4 §4.1). Only instances with data.
      */
-    public function instances(Request $request, string $type, ReportBrowser $browser): JsonResponse
+    public function instances(PaginatedRequest $request, string $type, ReportBrowser $browser): JsonResponse
     {
         abort_unless($browser->supports($type), 404, 'Unknown report type.');
         $this->guardClinical($type);
@@ -92,11 +97,21 @@ class ReportController extends Controller
 
         $source = $browser->sourceFor($type);
         $filters = $request->only(['year', 'month']);
+        $instances = $source->instances($filters);
+        $page = max(1, $request->integer('page', 1));
+        $perPage = $request->perPage();
+        $total = count($instances);
 
         return response()->json([
             'data' => [
                 'axis' => $source->axis(),
-                'instances' => $source->instances($filters),
+                'instances' => array_slice($instances, ($page - 1) * $perPage, $perPage),
+            ],
+            'meta' => [
+                'current_page' => $page,
+                'per_page' => $perPage,
+                'total' => $total,
+                'last_page' => max(1, (int) ceil($total / $perPage)),
             ],
         ]);
     }

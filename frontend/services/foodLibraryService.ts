@@ -131,7 +131,7 @@ export async function fetchFoodItems(
   search?: string,
   category?: string,
   page: number = 1,
-  perPage: number = 15
+  perPage: number = 10
 ): Promise<PaginatedResponse<FoodItem>> {
   const params = new URLSearchParams();
   if (search) params.append("search", search);
@@ -218,7 +218,7 @@ export async function fetchRecipes(
   search?: string,
   category?: string,
   page: number = 1,
-  perPage: number = 15
+  perPage: number = 10
 ): Promise<PaginatedResponse<Recipe>> {
   const params = new URLSearchParams();
   if (search) params.append("search", search);

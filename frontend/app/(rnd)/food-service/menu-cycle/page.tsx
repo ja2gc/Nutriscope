@@ -7,6 +7,7 @@ import {
   LayoutTemplate, ChevronLeft, AlertTriangle, RefreshCw, Pencil,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   DAYS, MEALS, MEAL_LABELS, Day, Meal,
@@ -201,14 +202,18 @@ function CycleList({ readOnly, onOpen, onNew }: { readOnly: boolean; onOpen: (id
   const [templates, setTemplates] = useState<TemplateListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
+  const [cyclePage, setCyclePage] = useState(1);
+  const [templatePage, setTemplatePage] = useState(1);
+  const [cycleMeta, setCycleMeta] = useState<PaginationMeta | null>(null);
+  const [templateMeta, setTemplateMeta] = useState<PaginationMeta | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true); setErr("");
     try {
-      const [c, t] = await Promise.all([listCycles(), listTemplates()]);
-      setCycles(c); setTemplates(t);
+      const [c, t] = await Promise.all([listCycles(cyclePage), listTemplates(templatePage)]);
+      setCycles(c.data); setCycleMeta(c.meta); setTemplates(t.data); setTemplateMeta(t.meta);
     } catch { setErr("Failed to load menu cycles."); } finally { setLoading(false); }
-  }, []);
+  }, [cyclePage, templatePage]);
   useEffect(() => { load(); }, [load]);
 
   async function remove(id: number) { await deleteCycle(id); load(); }
@@ -295,6 +300,7 @@ function CycleList({ readOnly, onOpen, onNew }: { readOnly: boolean; onOpen: (id
               </tbody>
             </table>
           )}
+          <Pagination meta={cycleMeta} page={cyclePage} onPageChange={setCyclePage} />
       </div>
 
       {/* Templates */}
@@ -323,6 +329,7 @@ function CycleList({ readOnly, onOpen, onNew }: { readOnly: boolean; onOpen: (id
               </div>
             ))}
           </div>
+          <Pagination meta={templateMeta} page={templatePage} onPageChange={setTemplatePage} />
         </div>
       )}
     </Shell>
@@ -718,8 +725,8 @@ export default function MenuCyclePage() {
     let cancelled = false;
     (async () => {
       try {
-        const cycles = await listCycles();
-        const active = cycles.find((c) => c.is_active);
+        const cycles = await listCycles(1);
+        const active = cycles.data.find((c) => c.is_active);
         if (!cancelled) setView(active ? { mode: "edit", id: active.id } : { mode: "list" });
       } catch {
         if (!cancelled) setView({ mode: "list" });

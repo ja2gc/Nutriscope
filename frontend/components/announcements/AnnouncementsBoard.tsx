@@ -106,7 +106,7 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
     setLoading(true);
     setError(null);
     try {
-      const result = await apiFetch(p, targetAnnouncementId ? 100 : 15);
+      const result = await apiFetch(p, 10, targetAnnouncementId ?? undefined);
       setPosts(result.data);
       setMeta(result.meta);
     } catch (err: unknown) {

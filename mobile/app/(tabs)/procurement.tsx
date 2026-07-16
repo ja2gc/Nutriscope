@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams } from 'expo-router';
 import {
@@ -17,12 +17,12 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  FlatList,
   Image,
   KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
-  RefreshControl,
   ScrollView,
   Text,
   TextInput,
@@ -31,6 +31,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import api from '../../lib/api';
+import { PaginatedListFooter } from '../../components/PaginatedListFooter';
+import { MOBILE_PAGE_SIZE, PaginatedResponse, flattenUniquePages, getNextPageParam } from '../../lib/pagination';
 
 type AttachmentType = 'receipt' | 'proof';
 
@@ -91,9 +93,11 @@ interface PurchaseOrder {
   created_at: string;
 }
 
-async function fetchPOs(): Promise<PurchaseOrder[]> {
-  const res = await api.get<{ data: PurchaseOrder[] }>('/api/fss/purchase-orders');
-  return res.data.data;
+async function fetchPOs(page: number): Promise<PaginatedResponse<PurchaseOrder>> {
+  const res = await api.get<PaginatedResponse<PurchaseOrder>>('/api/fss/purchase-orders', {
+    params: { page, per_page: MOBILE_PAGE_SIZE },
+  });
+  return res.data;
 }
 
 function money(value: number | string | null | undefined): string {
@@ -694,13 +698,15 @@ export default function ProcurementScreen() {
   const [uploadType, setUploadType] = useState<AttachmentType>('receipt');
   const [uploadOpen, setUploadOpen] = useState(false);
 
-  const { data, isLoading, isError, refetch, isFetching } = useQuery({
+  const { data, isLoading, isError, refetch, isFetching, fetchNextPage, hasNextPage, isFetchingNextPage, isFetchNextPageError } = useInfiniteQuery({
     queryKey: ['fss-purchase-orders'],
-    queryFn: fetchPOs,
+    queryFn: ({ pageParam }) => fetchPOs(pageParam),
+    initialPageParam: 1,
+    getNextPageParam,
     staleTime: 60_000,
   });
 
-  const orders = useMemo(() => data ?? [], [data]);
+  const orders = useMemo(() => flattenUniquePages(data?.pages), [data]);
   const selectedPo = useMemo(
     () => orders.find((po) => String(po.id) === selectedPoId) ?? null,
     [orders, selectedPoId],
@@ -715,8 +721,10 @@ export default function ProcurementScreen() {
     if (orders.some((po) => String(po.id) === targetPoId)) {
       setSelectedPoId(targetPoId);
       setSelectedGroupId(null);
+    } else if (hasNextPage && !isFetchingNextPage) {
+      void fetchNextPage();
     }
-  }, [orders, selectedPoId, targetPoId]);
+  }, [fetchNextPage, hasNextPage, isFetchingNextPage, orders, selectedPoId, targetPoId]);
 
   const openUpload = useCallback((group: VendorGroup, type: AttachmentType) => {
     setUploadGroup(group);
@@ -783,40 +791,34 @@ export default function ProcurementScreen() {
 
   return (
     <>
-      <ScrollView
+      <FlatList
         className="flex-1 bg-gray-50"
+        data={orders}
+        keyExtractor={(po) => String(po.id)}
         contentContainerStyle={{ paddingBottom: insets.bottom + 16, paddingTop: 16 }}
-        refreshControl={
-          <RefreshControl refreshing={isFetching && !isLoading} onRefresh={refetch} />
-        }
-      >
-        <View className="px-4 mb-4">
+        refreshing={isFetching && !isLoading}
+        onRefresh={refetch}
+        onEndReached={() => { if (hasNextPage && !isFetchingNextPage) void fetchNextPage(); }}
+        onEndReachedThreshold={0.4}
+        ListHeaderComponent={<View className="px-4 mb-4">
           <Text className="text-lg font-bold text-gray-900">Procurement</Text>
           <Text className="text-sm text-gray-500 mt-1">
             Open purchase events, save OR numbers, and upload receipt/proof images.
           </Text>
-        </View>
-
-        <View className="px-4">
-          {orders.length === 0 ? (
-            <View className="bg-white rounded-xl border border-gray-100 px-4 py-8 items-center">
+        </View>}
+        renderItem={({ item: po }) => <View className="px-4"><PurchaseOrderRow
+          po={po}
+          onPress={() => {
+            setSelectedPoId(String(po.id));
+            setSelectedGroupId(null);
+          }}
+        /></View>}
+        ListEmptyComponent={<View className="px-4"><View className="bg-white rounded-xl border border-gray-100 px-4 py-8 items-center">
               <ShoppingBag color="#d1d5db" size={32} />
               <Text className="mt-2 text-sm text-gray-400">No purchase orders assigned yet.</Text>
-            </View>
-          ) : (
-            orders.map((po) => (
-              <PurchaseOrderRow
-                key={po.id}
-                po={po}
-                onPress={() => {
-                  setSelectedPoId(String(po.id));
-                  setSelectedGroupId(null);
-                }}
-              />
-            ))
-          )}
-        </View>
-      </ScrollView>
+            </View></View>}
+        ListFooterComponent={<PaginatedListFooter loading={isFetchingNextPage} error={isFetchNextPageError} onRetry={() => void fetchNextPage()} />}
+      />
 
       <UploadAttachmentModal
         group={uploadGroup}

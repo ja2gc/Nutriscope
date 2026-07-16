@@ -1,4 +1,5 @@
 import { apiFetch } from "@/lib/apiFetch";
+import type { PaginationMeta } from "@/components/ui/Pagination";
 
 export interface Sop {
   id: number;
@@ -25,14 +26,14 @@ export async function fetchCurrentSop(): Promise<Sop | null> {
 }
 
 /** Full revision history, newest first. */
-export async function fetchSopHistory(): Promise<Sop[]> {
-  const res = await apiFetch("/api/sop/history", {
+export async function fetchSopHistory(page = 1): Promise<{ data: Sop[]; meta: PaginationMeta }> {
+  const res = await apiFetch(`/api/sop/history?page=${page}&per_page=10`, {
     method: "GET",
     headers: { Accept: "application/json" },
   });
   if (!res.ok) throw new Error("Failed to load SOP history.");
   const json = await res.json();
-  return json.data ?? [];
+  return { data: json.data ?? [], meta: json.meta ?? { current_page: page, per_page: 10, total: 0, last_page: 1 } };
 }
 
 /** Save a new SOP revision (append-only). RND/Admin only. */

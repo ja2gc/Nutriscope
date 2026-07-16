@@ -5,13 +5,13 @@ namespace App\Http\Controllers\RND;
 use App\Enums\AuditAction;
 use App\Enums\AuditDomain;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\PaginatedRequest;
 use App\Http\Requests\StoreFoodItemRequest;
 use App\Http\Resources\FoodItemResource;
 use App\Models\FoodItem;
 use App\Services\Audit\AuditLogger;
 use App\Services\Audit\FoodItemAuditValues;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class FoodItemController extends Controller
@@ -21,7 +21,7 @@ class FoodItemController extends Controller
         private readonly FoodItemAuditValues $auditValues,
     ) {}
 
-    public function index(Request $request): AnonymousResourceCollection
+    public function index(PaginatedRequest $request): AnonymousResourceCollection
     {
         $query = FoodItem::query();
 
@@ -37,7 +37,7 @@ class FoodItemController extends Controller
             $query->withAllergen($request->allergen);
         }
 
-        $items = $query->orderBy('name')->paginate((int) min($request->query('per_page', 15), 100));
+        $items = $query->orderBy('name')->orderBy('id')->paginate($request->perPage())->withQueryString();
 
         return FoodItemResource::collection($items);
     }

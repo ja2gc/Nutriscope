@@ -206,10 +206,10 @@ class ActivityController extends Controller
         }
         $query
             ->orderByDesc('id')
-            ->limit(101);
+            ->limit(11);
         $activities = $query->get();
-        $hasMore = $activities->count() > 100;
-        $pageActivities = $activities->take(100);
+        $hasMore = $activities->count() > 10;
+        $pageActivities = $activities->take(10);
         $items = $pageActivities
             ->map(function (AuditActivity $activity) use ($request, $category, $domain, $currentRecord): array {
                 $this->applyContextTaxonomy($activity, $category, $domain);

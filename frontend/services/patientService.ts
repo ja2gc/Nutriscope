@@ -132,13 +132,15 @@ export async function fetchPatients(
   search?: string,
   status?: string,
   page: number = 1,
-  perPage: number = 15
+  perPage: number = 10,
+  upcomingFollowups = false,
 ): Promise<PatientListResponse> {
   const queryParams = new URLSearchParams();
   if (search) queryParams.append("search", search);
   if (status && status !== "All") queryParams.append("status", status);
   queryParams.append("page", page.toString());
   queryParams.append("per_page", perPage.toString());
+  if (upcomingFollowups) queryParams.append("upcoming_followups", "1");
 
   const res = await apiFetch(`/api/patients?${queryParams.toString()}`, {
     method: "GET",
@@ -214,9 +216,13 @@ export async function updatePatient(
 }
 
 export async function fetchPatientNcpRecords(
-  id: number | string
-): Promise<NcpRecord[]> {
-  const res = await apiFetch(`/api/patients/${id}/ncp-records`, {
+  id: number | string,
+  page = 1,
+  ncpRecordId?: number | string,
+): Promise<{ data: NcpRecord[]; meta: Pick<NonNullable<PatientListResponse["meta"]>, "current_page" | "per_page" | "total" | "last_page"> }> {
+  const params = new URLSearchParams({ page: String(page), per_page: "10" });
+  if (ncpRecordId !== undefined) params.set("ncp_record_id", String(ncpRecordId));
+  const res = await apiFetch(`/api/patients/${id}/ncp-records?${params}`, {
     method: "GET",
     headers: {
       Accept: "application/json",
@@ -229,7 +235,7 @@ export async function fetchPatientNcpRecords(
   }
 
   const responseData = await res.json();
-  return responseData.data || [];
+  return { data: responseData.data || [], meta: responseData.meta ?? { current_page: page, per_page: 10, total: 0, last_page: 1 } };
 }
 
 export async function deletePatient(id: number | string): Promise<void> {

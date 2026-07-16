@@ -6,14 +6,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import api from '../lib/api';
 import BrandLogo from './BrandLogo';
 
-interface Notification {
-  id: number;
-  read: boolean;
-}
-
-async function fetchNotifications(): Promise<Notification[]> {
-  const res = await api.get<{ data: Notification[] }>('/api/notifications');
-  return res.data.data;
+async function fetchUnreadCount(): Promise<number> {
+  const res = await api.get<{ count: number }>('/api/notifications/unread-count');
+  return res.data.count ?? 0;
 }
 
 interface AppHeaderProps {
@@ -24,13 +19,13 @@ export default function AppHeader({ title }: AppHeaderProps) {
   const insets = useSafeAreaInsets();
 
   const { data } = useQuery({
-    queryKey: ['notifications'],
-    queryFn: fetchNotifications,
+    queryKey: ['notifications-unread-count'],
+    queryFn: fetchUnreadCount,
     staleTime: 30_000,
     refetchInterval: 60_000,
   });
 
-  const unreadCount = data?.filter((n) => !n.read).length ?? 0;
+  const unreadCount = data ?? 0;
   const badgeLabel = unreadCount > 9 ? '9+' : String(unreadCount);
 
   return (

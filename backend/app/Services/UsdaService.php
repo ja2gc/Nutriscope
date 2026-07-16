@@ -109,7 +109,7 @@ class UsdaService
     /**
      * Search USDA FoodData Central. Returns macro preview + food category for display.
      */
-    public function search(string $query, int $pageSize = 20): array
+    public function search(string $query, int $pageSize = 10): array
     {
         $response = Http::withoutVerifying()->get("{$this->baseUrl}/foods/search", [
             'query' => $query,

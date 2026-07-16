@@ -1,4 +1,5 @@
 import { apiFetch } from "@/lib/apiFetch";
+import type { PaginationMeta } from "@/components/ui/Pagination";
 
 export interface Supplier {
   id: number;
@@ -22,10 +23,13 @@ export interface SupplierPayload {
   notes?: string | null;
 }
 
-export async function listSuppliers(): Promise<Supplier[]> {
-  const res = await apiFetch("/api/fss/suppliers");
+export async function listSuppliers(page = 1, search = ""): Promise<{ data: Supplier[]; meta: PaginationMeta }> {
+  const qs = new URLSearchParams({ page: String(page), per_page: "10" });
+  if (search.trim()) qs.set("search", search.trim());
+  const res = await apiFetch(`/api/fss/suppliers?${qs}`);
   if (!res.ok) throw new Error("Failed to load suppliers.");
-  return (await res.json()).data;
+  const json = await res.json();
+  return { data: json.data ?? [], meta: json.meta ?? { current_page: page, per_page: 10, total: 0, last_page: 1 } };
 }
 
 export async function saveSupplier(id: number | null, payload: SupplierPayload): Promise<Supplier> {

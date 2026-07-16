@@ -175,7 +175,7 @@ class SharedRndClinicalAccessTest extends TestCase
             ])->assertOk();
         $creator->delete();
 
-        $patients = $this->getJson('/api/rnd/patients?per_page=15')
+        $patients = $this->getJson('/api/rnd/patients?per_page=10')
             ->assertOk()
             ->assertJsonPath('data.0.latest_ncp_created_by.id', $creator->uuid)
             ->assertJsonPath('data.0.latest_ncp_created_by.name', 'Cycle Creator')

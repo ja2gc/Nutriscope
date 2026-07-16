@@ -5,6 +5,7 @@ namespace App\Http\Controllers\FSS;
 use App\Enums\AuditAction;
 use App\Enums\AuditDomain;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\PaginatedRequest;
 use App\Models\FoodServiceRecipe;
 use App\Models\FoodServiceRecipeIngredient;
 use App\Models\FsItem;
@@ -26,16 +27,16 @@ class FoodServiceRecipeController extends Controller
         private readonly AuditRevisionWriter $revisionWriter,
     ) {}
 
-    public function index(Request $request): JsonResponse
+    public function index(PaginatedRequest $request): JsonResponse
     {
-        $perPage = (int) min($request->query('per_page', 15), 100);
         $search = $request->query('search');
         $category = $request->query('category');
 
-        $paginator = FoodServiceRecipe::orderBy('name')
+        $paginator = FoodServiceRecipe::orderBy('name')->orderBy('id')
             ->when($search, fn ($q) => $q->where('name', 'like', "%{$search}%"))
             ->when($category, fn ($q) => $q->where('category', $category))
-            ->paginate($perPage, ['id', 'uuid', 'name', 'category', 'servings', 'created_at']);
+            ->paginate($request->perPage(), ['id', 'uuid', 'name', 'category', 'servings', 'created_at'])
+            ->withQueryString();
 
         return response()->json([
             'data' => collect($paginator->items())->map(fn ($r) => [

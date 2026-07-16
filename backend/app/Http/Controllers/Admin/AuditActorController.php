@@ -30,7 +30,7 @@ class AuditActorController extends Controller
             ->orderByRaw("LOWER(TRIM(COALESCE(NULLIF(last_name, ''), name)))")
             ->orderByRaw("LOWER(TRIM(COALESCE(NULLIF(first_name, ''), name)))")
             ->orderBy('id')
-            ->paginate($request->integer('per_page', 20));
+            ->paginate($request->integer('per_page', 10));
 
         return response()->json([
             'data' => $actors->getCollection()->map(fn (User $user): array => [

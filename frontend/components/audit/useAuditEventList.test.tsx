@@ -16,7 +16,7 @@ const listMock = vi.mocked(listAuditLogs);
 function auditMeta(total: number): AuditLogListMeta {
   return {
   current_page: 1,
-  per_page: 25,
+  per_page: 10,
   total,
   last_page: 1,
   filters: {

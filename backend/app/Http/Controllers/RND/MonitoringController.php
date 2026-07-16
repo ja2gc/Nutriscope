@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\RND;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\PaginatedRequest;
 use App\Http\Requests\RND\StoreMonitoringRequest;
 use App\Http\Requests\RND\UpdateMonitoringRequest;
 use App\Http\Resources\MonitoringResource;
@@ -111,10 +112,14 @@ class MonitoringController extends Controller
     /**
      * GET /api/rnd/ncp-records/{ncpRecord}/monitorings
      */
-    public function index(NcpRecord $ncpRecord): AnonymousResourceCollection
+    public function index(PaginatedRequest $request, NcpRecord $ncpRecord): AnonymousResourceCollection
     {
         $this->authorizeNcp($ncpRecord);
-        $monitorings = $ncpRecord->monitorings;
+        $monitorings = $ncpRecord->monitorings()
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->paginate($request->perPage())
+            ->withQueryString();
 
         return MonitoringResource::collection($monitorings);
     }

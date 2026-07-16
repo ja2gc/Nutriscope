@@ -20,14 +20,14 @@ interface RecipePage {
 }
 
 async function listRecipes(page: number, category: string): Promise<RecipePage> {
-  const params = new URLSearchParams({ page: String(page), per_page: "15" });
+  const params = new URLSearchParams({ page: String(page), per_page: "10" });
   if (category !== "All") params.set("category", category);
   const res = await fetch(`/api/fss/food-service-recipes?${params}`);
   if (!res.ok) throw new Error("Failed to load recipes.");
   const json = await res.json();
   return {
     data: json.data ?? [],
-    meta: json.meta ?? { current_page: page, per_page: 15, total: 0, last_page: 1 },
+    meta: json.meta ?? { current_page: page, per_page: 10, total: 0, last_page: 1 },
   };
 }
 

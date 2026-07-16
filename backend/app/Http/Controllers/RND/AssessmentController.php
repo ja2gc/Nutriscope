@@ -6,6 +6,7 @@ use App\Enums\AuditAction;
 use App\Enums\AuditCategory;
 use App\Enums\AuditDomain;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\PaginatedRequest;
 use App\Http\Requests\RND\StoreAssessmentRequest;
 use App\Http\Requests\RND\UpdateAssessmentRequest;
 use App\Http\Resources\AssessmentResource;
@@ -197,14 +198,14 @@ class AssessmentController extends Controller
      *
      * Attachments scoped to this NCP cycle — never mixes across a patient's cycles.
      */
-    public function listAttachments(NcpRecord $ncpRecord): JsonResponse
+    public function listAttachments(PaginatedRequest $request, NcpRecord $ncpRecord): JsonResponse
     {
         abort_unless($this->auditPolicy->viewNcpTrail(request()->user(), $ncpRecord), 403);
         // Scope by cycle. Include legacy rows that only carry the assessment link
         // (pre-backfill) so nothing disappears for older records.
         $assessmentId = $ncpRecord->assessment?->id;
 
-        $type = request()->query('type');
+        $type = $request->query('type');
 
         $docs = ScreeningDocument::query()
             ->where(function ($q) use ($ncpRecord, $assessmentId) {
@@ -215,7 +216,9 @@ class AssessmentController extends Controller
             })
             ->when($type, fn ($q) => $q->where('type', $type))
             ->latest()
-            ->get();
+            ->latest('id')
+            ->paginate($request->perPage())
+            ->withQueryString();
 
         return ScreeningDocumentResource::collection($docs)->response();
     }

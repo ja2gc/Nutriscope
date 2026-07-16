@@ -7,6 +7,7 @@ use App\Enums\AuditDomain;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\FSS\StoreShoppingListRequest;
 use App\Http\Requests\FSS\UpdateShoppingListRequest;
+use App\Http\Requests\PaginatedRequest;
 use App\Http\Resources\ShoppingListResource;
 use App\Models\FsItem;
 use App\Models\ShoppingList;
@@ -19,6 +20,7 @@ use App\Services\FSS\ShoppingListPopulationService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
@@ -32,9 +34,13 @@ class ShoppingListController extends Controller
         private readonly AuditRevisionWriter $revisionWriter,
     ) {}
 
-    public function index(): JsonResponse
+    public function index(PaginatedRequest $request): AnonymousResourceCollection
     {
-        return response()->json(['data' => ShoppingListResource::collection(ShoppingList::with('items.fsItem', 'items.supplier:id,uuid')->orderByDesc('created_at')->get())]);
+        return ShoppingListResource::collection(ShoppingList::with('items.fsItem', 'items.supplier:id,uuid')
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->paginate($request->perPage())
+            ->withQueryString());
     }
 
     public function store(StoreShoppingListRequest $request): JsonResponse

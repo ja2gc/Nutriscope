@@ -7,9 +7,11 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Button } from "@/components/ui/Button";
+import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
 import {
   Notification,
   fetchNotifications,
+  fetchUnreadCount,
   markNotificationRead,
   markAllNotificationsRead,
   notificationTargetHref,
@@ -39,26 +41,33 @@ export default function AdminNotificationsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [marking, setMarking] = useState(false);
+  const [page, setPage] = useState(1);
+  const [meta, setMeta] = useState<PaginationMeta | null>(null);
+  const [unreadTotal, setUnreadTotal] = useState(0);
 
   const load = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      setItems(await fetchNotifications());
+      const [result, count] = await Promise.all([fetchNotifications(page, 10), fetchUnreadCount()]);
+      setItems(result.data);
+      setMeta(result.meta);
+      setUnreadTotal(count);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load notifications.");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [page]);
 
   useEffect(() => { void load(); }, [load]);
 
-  const unreadCount = items.filter((n) => !n.read).length;
-
   async function handleRead(n: Notification) {
     const href = notificationTargetHref(n, "Admin");
-    if (!n.read) setItems((prev) => prev.map((x) => (x.id === n.id ? { ...x, read: true } : x)));
+    if (!n.read) {
+      setItems((prev) => prev.map((x) => (x.id === n.id ? { ...x, read: true } : x)));
+      setUnreadTotal((count) => Math.max(0, count - 1));
+    }
     try {
       if (!n.read) await markNotificationRead(n.id);
     } catch {
@@ -70,6 +79,7 @@ export default function AdminNotificationsPage() {
 
   async function handleReadAll() {
     setMarking(true);
+    setUnreadTotal(0);
     setItems((prev) => prev.map((x) => ({ ...x, read: true })));
     try {
       await markAllNotificationsRead();
@@ -88,7 +98,7 @@ export default function AdminNotificationsPage() {
         icon={<BellDot className="h-5 w-5 text-emerald-600" />}
         subtitle="Announcements and system alerts addressed to you."
         actions={
-          unreadCount > 0 ? (
+          unreadTotal > 0 ? (
             <Button variant="secondary" onClick={handleReadAll} loading={marking} className="w-auto">
               <CheckCheck className="h-4 w-4" />
               Mark all read
@@ -116,6 +126,7 @@ export default function AdminNotificationsPage() {
           message="You're all caught up. Announcements addressed to Admin or All will show up here."
         />
       ) : (
+        <>
         <div className="space-y-2.5">
           {items.map((n) => (
             <Card
@@ -139,6 +150,8 @@ export default function AdminNotificationsPage() {
             </Card>
           ))}
         </div>
+        <Pagination meta={meta} page={page} onPageChange={setPage} />
+        </>
       )}
     </div>
   );

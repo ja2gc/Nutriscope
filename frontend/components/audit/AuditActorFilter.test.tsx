@@ -35,7 +35,7 @@ describe("AuditActorFilter", () => {
       data: params.page === 2
         ? [{ id: "actor-2", name: "Jose Santos", role: "FSS" }]
         : [{ id: "actor-1", name: "Maria Dela Cruz", role: "RND" }],
-      meta: { current_page: params.page || 1, last_page: 2, per_page: 20, total: 2 },
+      meta: { current_page: params.page || 1, last_page: 2, per_page: 10, total: 2 },
     }));
 
     act(() => root.render(<AuditActorFilter onChange={onChange} />));
@@ -46,7 +46,7 @@ describe("AuditActorFilter", () => {
       await Promise.resolve();
     });
 
-    expect(listMock).toHaveBeenCalledWith({ search: undefined, page: 1, per_page: 20 }, expect.any(AbortSignal));
+    expect(listMock).toHaveBeenCalledWith({ search: undefined, page: 1, per_page: 10 }, expect.any(AbortSignal));
     expect(container.textContent).toContain("Maria Dela Cruz");
     expect(container.textContent).toContain("Load more actors");
 
@@ -55,10 +55,10 @@ describe("AuditActorFilter", () => {
       vi.advanceTimersByTime(250);
       await Promise.resolve();
     });
-    expect(listMock).toHaveBeenCalledWith({ search: "Maria", page: 1, per_page: 20 }, expect.any(AbortSignal));
+    expect(listMock).toHaveBeenCalledWith({ search: "Maria", page: 1, per_page: 10 }, expect.any(AbortSignal));
 
     await act(async () => container.querySelector<HTMLButtonElement>("button:last-child")!.click());
-    expect(listMock).toHaveBeenCalledWith({ search: "Maria", page: 2, per_page: 20 });
+    expect(listMock).toHaveBeenCalledWith({ search: "Maria", page: 2, per_page: 10 });
     expect(container.textContent).toContain("Jose Santos");
 
     const actor = Array.from(container.querySelectorAll<HTMLButtonElement>('[role="option"]'))

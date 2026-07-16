@@ -7,6 +7,7 @@ use App\Enums\AuditDomain;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Announcement\StoreAnnouncementRequest;
 use App\Http\Requests\Announcement\UpdateAnnouncementRequest;
+use App\Http\Requests\PaginatedRequest;
 use App\Http\Resources\AnnouncementResource;
 use App\Models\Announcement;
 use App\Services\Audit\AuditLogger;
@@ -19,12 +20,13 @@ class AnnouncementController extends Controller
 {
     public function __construct(private readonly AuditLogger $auditLogger) {}
 
-    public function index(Request $request): AnonymousResourceCollection
+    public function index(PaginatedRequest $request): AnonymousResourceCollection
     {
         $user = $request->user();
 
         $announcements = Announcement::query()
             ->with('user:id,uuid,name,first_name,last_name,role')
+            ->when($request->string('announcement_id')->toString(), fn ($query, $id) => $query->where('uuid', $id))
             ->when($user->role === 'RND', function ($query) use ($user) {
                 $query->where(function ($nested) use ($user) {
                     $nested->where('visibility', 'All')
@@ -37,7 +39,9 @@ class AnnouncementController extends Controller
             ->when($user->role === 'Admin', fn ($query) => $query)
             ->orderByDesc('pinned')
             ->orderByDesc('created_at')
-            ->paginate((int) min($request->query('per_page', 15), 100));
+            ->orderByDesc('id')
+            ->paginate($request->perPage())
+            ->withQueryString();
 
         return AnnouncementResource::collection($announcements);
     }

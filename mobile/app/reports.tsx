@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { ChevronLeft, ChevronRight, FileText } from 'lucide-react-native';
 import { useState } from 'react';
 import {
@@ -11,6 +11,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AccomplishmentSnapshot, Report, getReport, listReports } from '../lib/reports';
+import { PaginatedListFooter } from '../components/PaginatedListFooter';
+import { flattenUniquePages, getNextPageParam } from '../lib/pagination';
 
 function fmtDate(d: string): string {
   return new Date(d + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
@@ -115,10 +117,13 @@ function ReportDetail({ id, onBack }: { id: number; onBack: () => void }) {
 export default function ReportsScreen() {
   const insets = useSafeAreaInsets();
   const [openId, setOpenId] = useState<number | null>(null);
-  const { data, isLoading, isError, refetch } = useQuery({
+  const { data: pages, isLoading, isError, refetch, fetchNextPage, hasNextPage, isFetchingNextPage, isFetchNextPageError } = useInfiniteQuery({
     queryKey: ['fss-reports'],
-    queryFn: listReports,
+    queryFn: ({ pageParam }) => listReports(pageParam),
+    initialPageParam: 1,
+    getNextPageParam,
   });
+  const data = flattenUniquePages(pages?.pages);
 
   if (openId != null) return <ReportDetail id={openId} onBack={() => setOpenId(null)} />;
 
@@ -141,7 +146,7 @@ export default function ReportsScreen() {
   return (
     <FlatList
       className="bg-gray-50"
-      data={data ?? []}
+      data={data}
       keyExtractor={(r: Report) => String(r.id)}
       contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 16, flexGrow: 1 }}
       renderItem={({ item }) => {
@@ -168,6 +173,9 @@ export default function ReportsScreen() {
           </TouchableOpacity>
         );
       }}
+      onEndReached={() => { if (hasNextPage && !isFetchingNextPage) void fetchNextPage(); }}
+      onEndReachedThreshold={0.4}
+      ListFooterComponent={<PaginatedListFooter loading={isFetchingNextPage} error={isFetchNextPageError} onRetry={() => void fetchNextPage()} />}
       ListEmptyComponent={
         <View className="items-center justify-center py-20">
           <FileText color="#d1d5db" size={40} />

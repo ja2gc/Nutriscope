@@ -13,7 +13,6 @@ use App\Models\Supplier;
 use App\Services\Audit\AuditLogger;
 use App\Services\Audit\FsItemAuditValues;
 use App\Services\FSS\LatestProcurementVendorService;
-use Closure;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -61,17 +60,8 @@ class FsItemController extends Controller
         $data = $request->validate([
             'kind' => ['nullable', 'in:ingredient,supply'],
             'search' => ['nullable', 'string', 'max:100'],
-            'limit' => ['nullable', 'integer', 'min:1', 'max:100'],
-            'page' => [
-                'nullable',
-                'integer',
-                'min:1',
-                function (string $attribute, mixed $value, Closure $fail) use ($request): void {
-                    if (! $request->filled('limit')) {
-                        $fail('The page field requires a limit.');
-                    }
-                },
-            ],
+            'limit' => ['nullable', 'integer', 'min:1', 'max:10'],
+            'page' => ['nullable', 'integer', 'min:1'],
         ]);
         $query = FsItem::query()
             ->with('defaultSupplier:id,name')
@@ -80,14 +70,8 @@ class FsItemController extends Controller
             ->when($data['search'] ?? null, fn ($q, $s) => $q->where('name', 'like', "%{$s}%"))
             ->orderBy('name');
 
-        if (! isset($data['limit'])) {
-            return response()->json([
-                'data' => $query->get()->map(fn (FsItem $i) => $this->catalogRow($i)),
-            ]);
-        }
-
         $items = $query->paginate(
-            perPage: $data['limit'],
+            perPage: $data['limit'] ?? 10,
             page: $data['page'] ?? 1,
         );
 

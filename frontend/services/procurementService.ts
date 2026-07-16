@@ -1,4 +1,5 @@
 import { apiFetch } from "@/lib/apiFetch";
+import type { PaginationMeta } from "@/components/ui/Pagination";
 
 export interface ShoppingListItem {
   id: string;
@@ -75,6 +76,7 @@ export interface PurchaseOrder {
   served_population_progress?: { expected: number; done: number; served: number } | null;
   status: "draft" | "ordered" | "received";
   lifecycle_status: "open_execution" | "completed" | "archived";
+  procurement_track?: "food" | "supplies" | null;
   converted_at: string | null;
   completed_at: string | null;
   archived_at: string | null;
@@ -92,8 +94,11 @@ async function unwrap<T>(res: Response, fallback: string): Promise<T> {
 }
 
 // ─── Shopping lists ─────────────────────────────────────────────────────────────
-export async function listShoppingLists(): Promise<ShoppingList[]> {
-  return unwrap(await apiFetch("/api/fss/shopping-lists"), "Failed to load shopping lists.");
+export async function listShoppingLists(page = 1): Promise<{ data: ShoppingList[]; meta: PaginationMeta }> {
+  const res = await apiFetch(`/api/fss/shopping-lists?page=${page}&per_page=10`);
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.message ?? "Failed to load shopping lists.");
+  return { data: body.data ?? [], meta: body.meta ?? { current_page: page, per_page: 10, total: 0, last_page: 1 } };
 }
 export async function getShoppingList(id: string): Promise<ShoppingList> {
   return unwrap(await apiFetch(`/api/fss/shopping-lists/${id}`), "Failed to load list.");
@@ -192,9 +197,13 @@ export async function approveShoppingList(listId: string): Promise<{ purchase_or
 }
 
 // ─── Purchase orders ───────────────────────────────────────────────────────────
-export async function listPurchaseOrders(shoppingListId?: number): Promise<PurchaseOrder[]> {
-  const qs = shoppingListId ? `?shopping_list_id=${shoppingListId}` : "";
-  return unwrap(await apiFetch(`/api/fss/purchase-orders${qs}`), "Failed to load purchase orders.");
+export async function listPurchaseOrders(page = 1, shoppingListId?: number): Promise<{ data: PurchaseOrder[]; meta: PaginationMeta }> {
+  const qs = new URLSearchParams({ page: String(page), per_page: "10" });
+  if (shoppingListId) qs.set("shopping_list_id", String(shoppingListId));
+  const res = await apiFetch(`/api/fss/purchase-orders?${qs}`);
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.message ?? "Failed to load purchase orders.");
+  return { data: body.data ?? [], meta: body.meta ?? { current_page: page, per_page: 10, total: 0, last_page: 1 } };
 }
 export async function getPurchaseOrder(id: string): Promise<PurchaseOrder> {
   return unwrap(await apiFetch(`/api/fss/purchase-orders/${id}`), "Failed to load PO.");

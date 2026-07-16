@@ -7,6 +7,7 @@ use App\Enums\AuditDomain;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\FSS\StoreMenuCycleRequest;
 use App\Http\Requests\FSS\UpdateMenuCycleRequest;
+use App\Http\Requests\PaginatedRequest;
 use App\Http\Resources\MenuCycleResource;
 use App\Models\FoodServiceSetting;
 use App\Models\MenuCycle;
@@ -17,6 +18,7 @@ use App\Services\FSS\ShoppingListPopulationService;
 use App\Services\MenuCycleCostService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -33,15 +35,18 @@ class MenuCycleController extends Controller
         private readonly AuditRevisionWriter $revisionWriter,
     ) {}
 
-    public function index(): JsonResponse
+    public function index(PaginatedRequest $request): AnonymousResourceCollection
     {
         $cycles = MenuCycle::with('days')
             ->withCount('days')
+            ->when($request->boolean('active'), fn ($query) => $query->where('is_active', true))
             ->orderByDesc('is_active')
-            ->orderBy('week_start_date')
-            ->get();
+            ->orderByDesc('week_start_date')
+            ->orderByDesc('id')
+            ->paginate($request->perPage())
+            ->withQueryString();
 
-        return response()->json(['data' => MenuCycleResource::collection($cycles)]);
+        return MenuCycleResource::collection($cycles);
     }
 
     public function store(StoreMenuCycleRequest $request): JsonResponse

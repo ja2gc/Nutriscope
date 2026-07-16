@@ -1,4 +1,6 @@
 ﻿import { apiFetch } from "@/lib/apiFetch";
+import type { PaginationMeta } from "@/components/ui/Pagination";
+
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 export interface NutrientSnapshot {
@@ -185,10 +187,11 @@ export interface MealPlanTemplateDetail extends MealPlanTemplate {
   days: MealPlanTemplateDay[];
 }
 
-export async function fetchMealPlanTemplates(): Promise<MealPlanTemplate[]> {
-  const res = await apiFetch('/api/rnd/meal-plan-templates', { headers: { Accept: 'application/json' } });
-  if (!res.ok) return [];
-  return (await res.json()).data ?? [];
+export async function fetchMealPlanTemplates(page = 1): Promise<{ data: MealPlanTemplate[]; meta: PaginationMeta }> {
+  const res = await apiFetch(`/api/rnd/meal-plan-templates?page=${page}&per_page=10`, { headers: { Accept: 'application/json' } });
+  if (!res.ok) return { data: [], meta: { current_page: page, per_page: 10, total: 0, last_page: 1 } };
+  const json = await res.json();
+  return { data: json.data ?? [], meta: json.meta ?? { current_page: page, per_page: 10, total: 0, last_page: 1 } };
 }
 
 export async function fetchMealPlanTemplate(templateId: number): Promise<MealPlanTemplateDetail | null> {

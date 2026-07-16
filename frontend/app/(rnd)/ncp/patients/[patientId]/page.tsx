@@ -25,6 +25,7 @@ import { formatPatientAge } from "@/lib/patientAge";
 import { AuditTrail } from "@/components/audit/AuditTrail";
 import { ClinicalAttribution } from "@/components/ncp/ClinicalAttribution";
 import { personDisplayName } from "@/lib/personName";
+import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
 
 type TabKey = "overview" | "adime-records" | "attachments";
 const NCP_STEPS: NcpStep[] = ["assessment", "diagnosis", "intervention", "monitoring"];
@@ -226,18 +227,22 @@ function CycleAttachments({ ncpId }: { ncpId: number }) {
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [lightbox, setLightbox] = useState<{ url: string; isImage: boolean; name: string } | null>(null);
+  const [page, setPage] = useState(1);
+  const [meta, setMeta] = useState<PaginationMeta | null>(null);
 
   const load = useCallback(async () => {
     try {
       setError(null);
-      setItems(await fetchAttachments(ncpId));
+      const result = await fetchAttachments(ncpId, undefined, page);
+      setItems(result.data);
+      setMeta(result.meta);
     } catch {
       setItems([]);
       setError("Failed to load attachments.");
     } finally {
       setLoading(false);
     }
-  }, [ncpId]);
+  }, [ncpId, page]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -317,6 +322,7 @@ function CycleAttachments({ ncpId }: { ncpId: number }) {
           );
         })}
       </div>
+      <Pagination meta={meta} page={page} onPageChange={setPage} />
     </>
   );
 }
@@ -336,6 +342,8 @@ export default function PatientProfilePage({
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabKey>("overview");
+  const [recordsPage, setRecordsPage] = useState(1);
+  const [recordsMeta, setRecordsMeta] = useState<PaginationMeta | null>(null);
 
   // Action states
   const [startingCycle, setStartingCycle]             = useState(false);
@@ -353,16 +361,17 @@ export default function PatientProfilePage({
       setError(null);
       const [patientData, recordsData] = await Promise.all([
         fetchPatientById(patientId),
-        fetchPatientNcpRecords(patientId),
+        fetchPatientNcpRecords(patientId, recordsPage),
       ]);
       setPatient(patientData);
-      setRecords(recordsData);
+      setRecords(recordsData.data);
+      setRecordsMeta(recordsData.meta);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to load patient profile.");
     } finally {
       setLoading(false);
     }
-  }, [patientId]);
+  }, [patientId, recordsPage]);
 
   useEffect(() => { void loadData(); }, [loadData]);
 
@@ -908,6 +917,9 @@ export default function PatientProfilePage({
             </div>
           )}
         </div>
+      )}
+      {(activeTab === "adime-records" || activeTab === "attachments") && (
+        <Pagination meta={recordsMeta} page={recordsPage} onPageChange={setRecordsPage} />
       )}
     </div>
   );

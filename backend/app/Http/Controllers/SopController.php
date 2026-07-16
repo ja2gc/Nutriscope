@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Enums\AuditAction;
 use App\Enums\AuditDomain;
+use App\Http\Requests\PaginatedRequest;
 use App\Http\Resources\SopResource;
 use App\Models\Sop;
 use App\Services\Audit\AuditLogger;
@@ -31,9 +32,9 @@ class SopController extends Controller
     }
 
     /** Full revision history (newest first) — every past SOP + who saved it. */
-    public function history(): AnonymousResourceCollection
+    public function history(PaginatedRequest $request): AnonymousResourceCollection
     {
-        return SopResource::collection(Sop::with('author')->latest('id')->get());
+        return SopResource::collection(Sop::with('author')->latest('id')->paginate($request->perPage())->withQueryString());
     }
 
     /** Save a revision: always inserts a NEW row (never updates in place). */

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import { Pagination } from "@/components/ui/Pagination";
+import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/Button";
@@ -140,6 +140,8 @@ function isAnnouncementEditable(post: Announcement, userId?: number | null) {
 export default function RndDashboardPage() {
   const { user } = useAuth();
   const [patients, setPatients] = useState<Patient[]>([]);
+  const [activePatientTotal, setActivePatientTotal] = useState(0);
+  const [followUpMeta, setFollowUpMeta] = useState<PaginationMeta | null>(null);
   const [fssDashboard, setFssDashboard] = useState<FssDashboardSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [announcementsLoading, setAnnouncementsLoading] = useState(true);
@@ -147,13 +149,15 @@ export default function RndDashboardPage() {
   const [error, setError] = useState<string | null>(null);
   const [announcementError, setAnnouncementError] = useState<string | null>(null);
   const [posts, setPosts] = useState<Announcement[]>([]);
+  const [announcementsMeta, setAnnouncementsMeta] = useState<PaginationMeta | null>(null);
+  const [announcementsRefresh, setAnnouncementsRefresh] = useState(0);
   const [composerOpen, setComposerOpen] = useState(false);
   const [editingPostId, setEditingPostId] = useState<number | null>(null);
   const [viewingPostId, setViewingPostId] = useState<number | null>(null);
   const [followUpPage, setFollowUpPage] = useState(1);
   const [announcementsPage, setAnnouncementsPage] = useState(1);
-  const FOLLOW_UPS_PER_PAGE = 8;
-  const ANNOUNCEMENTS_PER_PAGE = 5;
+  const FOLLOW_UPS_PER_PAGE = 3;
+  const ANNOUNCEMENTS_PER_PAGE = 3;
   const [draft, setDraft] = useState<AnnouncementDraft>({
     category: "General",
     visibility: "All",
@@ -168,8 +172,14 @@ export default function RndDashboardPage() {
       try {
         setLoading(true);
         setError(null);
-        const response = await fetchPatients("", "All", 1);
+        const response = await fetchPatients("", "All", followUpPage, FOLLOW_UPS_PER_PAGE, true);
         setPatients(response.data);
+        setFollowUpMeta(response.meta ?? {
+          current_page: followUpPage,
+          per_page: FOLLOW_UPS_PER_PAGE,
+          total: response.data.length,
+          last_page: 1,
+        });
       } catch (err: unknown) {
         setError(err instanceof Error ? err.message : "Failed to load dashboard data.");
       } finally {
@@ -178,6 +188,12 @@ export default function RndDashboardPage() {
     }
 
     void loadDashboard();
+  }, [followUpPage]);
+
+  useEffect(() => {
+    fetchPatients("", "Active", 1, 1)
+      .then((response) => setActivePatientTotal(response.meta?.total ?? response.data.length))
+      .catch(() => setActivePatientTotal(0));
   }, []);
 
   useEffect(() => {
@@ -192,8 +208,9 @@ export default function RndDashboardPage() {
       try {
         setAnnouncementsLoading(true);
         setAnnouncementError(null);
-        const result = await fetchAnnouncements();
+        const result = await fetchAnnouncements(announcementsPage, ANNOUNCEMENTS_PER_PAGE);
         setPosts(sortAnnouncements(result.data));
+        setAnnouncementsMeta(result.meta);
       } catch (err: unknown) {
         setAnnouncementError(err instanceof Error ? err.message : "Failed to load announcements.");
       } finally {
@@ -202,7 +219,7 @@ export default function RndDashboardPage() {
     }
 
     void loadAnnouncements();
-  }, []);
+  }, [announcementsPage, announcementsRefresh]);
 
   useEffect(() => {
     if (!composerOpen && viewingPostId === null) {
@@ -229,37 +246,13 @@ export default function RndDashboardPage() {
   }, [composerOpen, viewingPostId]);
 
   const followUps = useMemo(() => buildFollowUps(patients), [patients]);
-  const activePatients = patients.filter((patient) => patient.status === "Active").length;
-  const patientCountLabel = loading ? "--" : activePatients.toString();
-  const upcomingFollowUpLabel = loading ? "--" : followUps.length.toString();
+  const patientCountLabel = loading ? "--" : activePatientTotal.toString();
+  const upcomingFollowUpLabel = loading ? "--" : (followUpMeta?.total ?? 0).toString();
   const pendingKpi = useMemo(() => pendingPoKpi(fssDashboard), [fssDashboard]);
   const orderedPosts = useMemo(() => sortAnnouncements(posts), [posts]);
 
-  // Follow-up pagination
-  const followUpLastPage = Math.max(1, Math.ceil(followUps.length / FOLLOW_UPS_PER_PAGE));
-  const followUpMeta = {
-    current_page: followUpPage,
-    per_page: FOLLOW_UPS_PER_PAGE,
-    total: followUps.length,
-    last_page: followUpLastPage,
-  };
-  const pagedFollowUps = followUps.slice(
-    (followUpPage - 1) * FOLLOW_UPS_PER_PAGE,
-    followUpPage * FOLLOW_UPS_PER_PAGE,
-  );
-
-  // Announcements pagination
-  const announcementsLastPage = Math.max(1, Math.ceil(orderedPosts.length / ANNOUNCEMENTS_PER_PAGE));
-  const announcementsMeta = {
-    current_page: announcementsPage,
-    per_page: ANNOUNCEMENTS_PER_PAGE,
-    total: orderedPosts.length,
-    last_page: announcementsLastPage,
-  };
-  const pagedPosts = orderedPosts.slice(
-    (announcementsPage - 1) * ANNOUNCEMENTS_PER_PAGE,
-    announcementsPage * ANNOUNCEMENTS_PER_PAGE,
-  );
+  const pagedFollowUps = followUps;
+  const pagedPosts = orderedPosts;
   const selectedPost = useMemo(
     () => orderedPosts.find((post) => post.id === viewingPostId) || null,
     [orderedPosts, viewingPostId]
@@ -348,9 +341,10 @@ export default function RndDashboardPage() {
         const updatedPost = await updateAnnouncement(editingPostId, payload);
         setPosts((prev) => sortAnnouncements(prev.map((post) => (post.id === updatedPost.id ? updatedPost : post))));
       } else {
-        const createdPost = await createAnnouncement(payload);
-        setPosts((prev) => sortAnnouncements([createdPost, ...prev]));
+        await createAnnouncement(payload);
+        setAnnouncementsPage(1);
       }
+      setAnnouncementsRefresh((value) => value + 1);
 
       closeComposer();
       resetDraft();
@@ -689,7 +683,7 @@ export default function RndDashboardPage() {
 
       <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.12fr)_minmax(380px,0.88fr)] gap-6 items-start">
         <div className="space-y-4">
-          <div className="bg-white border border-warm-200 rounded-3xl overflow-hidden shadow-sm">
+          <div className="bg-white border border-warm-200 rounded-3xl overflow-hidden shadow-sm xl:h-[480px] flex flex-col">
             <div className="px-5 py-4 border-b border-warm-100 flex items-center justify-between gap-4">
               <div>
                 <h3 className="text-sm font-bold text-warm-900 uppercase tracking-[0.18em]">
@@ -708,7 +702,7 @@ export default function RndDashboardPage() {
             </div>
 
             {loading ? (
-              <div className="p-5 space-y-4">
+              <div className="p-5 space-y-4 flex-1 overflow-hidden">
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   {[1, 2, 3].map((index) => (
                     <div key={index} className="h-20 rounded-2xl bg-warm-100 animate-pulse" />
@@ -820,7 +814,7 @@ export default function RndDashboardPage() {
           </div>
         </div>
 
-        <div className="bg-white border border-warm-200 rounded-3xl overflow-hidden shadow-sm xl:sticky xl:top-6">
+        <div className="bg-white border border-warm-200 rounded-3xl overflow-hidden shadow-sm xl:h-[480px] flex flex-col">
           <div className="px-5 py-4 border-b border-warm-100 flex items-center justify-between gap-4">
             <div>
               <h3 className="text-sm font-bold text-warm-900 uppercase tracking-[0.18em]">
@@ -838,7 +832,7 @@ export default function RndDashboardPage() {
             </Link>
           </div>
 
-          <div className="p-4 space-y-4">
+          <div className="p-4 space-y-3 flex-1 overflow-hidden">
             {announcementsLoading ? (
               <div className="space-y-3">
                 {[1, 2, 3].map((index) => (
@@ -865,7 +859,7 @@ export default function RndDashboardPage() {
                         openViewer(post);
                       }
                     }}
-                    className="cursor-pointer rounded-3xl border border-warm-200 bg-white p-5 shadow-sm transition-all duration-150 hover:-translate-y-0.5 hover:border-warm-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                    className="cursor-pointer rounded-2xl border border-warm-200 bg-white p-3 shadow-sm transition-all duration-150 hover:-translate-y-0.5 hover:border-warm-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
                   >
                     <div className="flex items-start gap-3">
                       <div className="h-11 w-11 rounded-full bg-brand-green-700 text-white flex items-center justify-center text-sm font-bold uppercase shrink-0">
@@ -912,19 +906,9 @@ export default function RndDashboardPage() {
 
                         <div className="mt-3 space-y-2">
                           <h4 className="text-base font-bold text-warm-900 tracking-tight">{post.title}</h4>
-                          <p className="text-sm text-warm-600 leading-relaxed whitespace-pre-wrap">
+                          <p className="text-sm text-warm-600 leading-relaxed line-clamp-2">
                             {post.body}
                           </p>
-                        </div>
-
-                        <ImageCarousel
-                          images={imagesFromSrcs(post.attachments?.length ? post.attachments : (post.attachment ? [post.attachment] : []))}
-                          title={post.title}
-                          className="mt-4"
-                        />
-
-                        <div className="mt-4 border-t border-warm-100 pt-3 text-xs font-bold uppercase tracking-wider text-warm-400">
-                          Posted to department announcements
                         </div>
                       </div>
                     </div>

@@ -43,7 +43,7 @@ class ListAuditLogsRequest extends FormRequest
             'start' => ['nullable', 'date_format:Y-m-d'],
             'end' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:start'],
             'page' => ['nullable', 'integer', 'min:1'],
-            'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:10'],
         ];
     }
 

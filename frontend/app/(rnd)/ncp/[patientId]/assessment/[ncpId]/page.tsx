@@ -25,6 +25,7 @@ import {
 import { coerceBiochemicalValue } from "@/services/biochemical";
 import { deriveRiskScore, RISK_FACTORS, scoreRiskFactors } from "@/lib/assessmentRiskScoring";
 import NcpPatientHeader from "../../../_components/NcpPatientHeader";
+import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
 
 // ─── Constants ───────────────────────────────────────────────────────────
 const COMMON_ALLERGENS = ["milk", "eggs", "fish", "shellfish", "tree nuts", "peanuts", "wheat", "soybeans"];
@@ -472,19 +473,23 @@ function AttachmentsPanel({ ncpId, uploadLabel, kind, blurb }: {
   const [error, setError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [lightbox, setLightbox] = useState<{ url: string; isImage: boolean; name: string; docId: number } | null>(null);
+  const [page, setPage] = useState(1);
+  const [meta, setMeta] = useState<PaginationMeta | null>(null);
 
   const displayName = getKindLabel(kind);
 
   const load = useCallback(async () => {
     try {
       setError(null);
-      setItems(await fetchAttachments(ncpId, kind));
+      const result = await fetchAttachments(ncpId, kind, page);
+      setItems(result.data);
+      setMeta(result.meta);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load attachments.");
     } finally {
       setLoading(false);
     }
-  }, [ncpId, kind]);
+  }, [ncpId, kind, page]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -600,6 +605,7 @@ function AttachmentsPanel({ ncpId, uploadLabel, kind, blurb }: {
             })}
           </div>
         )}
+        <Pagination meta={meta} page={page} onPageChange={setPage} />
       </div>
     </>
   );

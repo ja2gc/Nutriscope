@@ -181,7 +181,7 @@ function FoodProfileModal({ profile, onClose }: { profile: ProfileTarget; onClos
 }
 
 async function fetchActiveCycle(): Promise<MenuCycle | null> {
-  const res = await api.get<{ data: MenuCycle[] }>('/api/fss/menu-cycles');
+  const res = await api.get<{ data: MenuCycle[] }>('/api/fss/menu-cycles', { params: { active: 1, per_page: 1 } });
   const cycles: MenuCycle[] = res.data.data;
   return cycles.find((c) => c.is_active) ?? null;
 }

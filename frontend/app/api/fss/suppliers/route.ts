@@ -7,11 +7,12 @@ async function token() {
   return (await cookies()).get("nutriscope_token")?.value;
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const t = await token();
   if (!t) return NextResponse.json({ message: "Unauthenticated." }, { status: 401 });
 
-  const res = await fetch(`${LARAVEL_API}/fss/suppliers`, {
+  const search = new URL(req.url).searchParams.toString();
+  const res = await fetch(`${LARAVEL_API}/fss/suppliers${search ? `?${search}` : ""}`, {
     headers: { Authorization: `Bearer ${t}`, Accept: "application/json" },
   });
   const data = await res.json().catch(() => ({}));

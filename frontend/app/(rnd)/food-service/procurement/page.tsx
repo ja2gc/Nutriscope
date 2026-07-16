@@ -8,6 +8,7 @@ import {
   FileText, Pencil, Check, Search, Eye,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
 import {
   ShoppingList, PurchaseOrder, POVendorGroup, POAttachment,
   listShoppingLists, getShoppingList, generateByDates, deleteShoppingList,
@@ -644,14 +645,18 @@ export default function ProcurementPage() {
   const [newListName, setNewListName] = useState("");
   const [editingListId, setEditingListId] = useState<string | null>(null);
   const [editingListName, setEditingListName] = useState("");
+  const [listPage, setListPage] = useState(1);
+  const [poPage, setPoPage] = useState(1);
+  const [listMeta, setListMeta] = useState<PaginationMeta | null>(null);
+  const [poMeta, setPoMeta] = useState<PaginationMeta | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [l, p, s] = await Promise.all([listShoppingLists(), listPurchaseOrders(), listSuppliers()]);
-      setLists(l); setPos(p); setSuppliers(s);
+      const [l, p, s] = await Promise.all([listShoppingLists(listPage), listPurchaseOrders(poPage), listSuppliers()]);
+      setLists(l.data); setListMeta(l.meta); setPos(p.data); setPoMeta(p.meta); setSuppliers(s.data);
     } finally { setLoading(false); }
-  }, []);
+  }, [listPage, poPage]);
   useEffect(() => { load(); }, [load]);
 
   useEffect(() => {
@@ -716,15 +721,10 @@ export default function ProcurementPage() {
     setPos((current) => current.filter((po) => po.id !== id));
   }
 
-  const poByList = new Map(pos.filter((po) => po.shopping_list_id != null).map((po) => [po.shopping_list_id, po]));
   const foodLists = lists.filter((list) => (list.procurement_track ?? "food") === "food");
   const suppliesLists = lists.filter((list) => list.procurement_track === "supplies");
   const visibleLists = tab === "supplies-lists" ? suppliesLists : foodLists;
   // POs tab shows all converted procurement events.
-  const procurementEvents = lists.filter((list) => list.status === "converted").map((list) => ({
-    list,
-    po: poByList.get(list.id) ?? null,
-  }));
 
   if (listDetail) return (
     <div className="space-y-6 font-sans">
@@ -850,6 +850,8 @@ export default function ProcurementPage() {
           {loading ? (
             <div className="py-16 text-center text-sm text-warm-400">Loading…</div>
           ) : (tab === "food-lists" || tab === "supplies-lists") ? (
+            <>
+            {
             visibleLists.length === 0 ? (
               <div className="py-16 text-center">
                 <ShoppingBag className="h-8 w-8 text-warm-300 mx-auto mb-3" />
@@ -924,9 +926,11 @@ export default function ProcurementPage() {
                   ))}
                 </tbody>
               </table>
-            )
+            )}
+            <Pagination meta={listMeta} page={listPage} onPageChange={setListPage} />
+            </>
           ) : (
-            procurementEvents.length === 0 ? (
+            pos.length === 0 ? (
               <div className="py-16 text-center">
                 <FileText className="h-8 w-8 text-warm-300 mx-auto mb-3" />
                 <p className="text-sm text-warm-400 font-medium">No purchase orders yet. Convert a shopping list to generate a PO.</p>
@@ -939,36 +943,36 @@ export default function ProcurementPage() {
                   ))}</tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-100">
-                  {procurementEvents.map(({ list, po }) => (
-                    <tr key={list.id} className="hover:bg-warm-50/60">
+                  {pos.map((po) => (
+                    <tr key={po.id} className="hover:bg-warm-50/60">
                       <td className="px-4 py-3">
-                        <span className="font-semibold text-warm-800">{spanLabel(list)}</span>
-                        <div className="text-xs text-warm-400">{list.name}</div>
+                        <span className="font-semibold text-warm-800">{po.po_number}</span>
+                        <div className="text-xs text-warm-400">{po.order_date ?? "No order date"}</div>
                       </td>
                       <td className="px-4 py-3">
                         <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-bold ${
-                          list.procurement_track === "supplies"
+                          po.procurement_track === "supplies"
                             ? "bg-amber-50 text-amber-700 border border-amber-200"
                             : "bg-emerald-50 text-emerald-700 border border-emerald-200"
                         }`}>
-                          {list.procurement_track ?? "food"}
+                          {po.procurement_track ?? "food"}
                         </span>
                       </td>
                       <td className="px-4 py-3 font-mono text-warm-700">
-                        {peso(num(list.estimated_total))}
+                        {peso(num(po.total_amount))}
                       </td>
                       <td className="px-4 py-3 text-warm-500">{po?.vendor_groups?.length ?? 0}</td>
                       <td className="px-4 py-3 text-warm-500">{po ? po.lifecycle_status : "—"}</td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1">
                           <button
-                            onClick={() => po ? setPoDetail(po.id) : setListDetail(list.id)}
+                            onClick={() => setPoDetail(po.id)}
                             className="p-1.5 rounded-lg hover:bg-warm-100 text-warm-500 cursor-pointer"
                             title="Open"
                           >
                             <Eye className="h-3.5 w-3.5" />
                           </button>
-                          {po && po.lifecycle_status === "open_execution" && (
+                          {po.lifecycle_status === "open_execution" && (
                             <button
                               onClick={() => removePo(po.id)}
                               className="p-1.5 rounded-lg hover:bg-red-50 text-warm-500 hover:text-red-600 cursor-pointer"
@@ -985,6 +989,7 @@ export default function ProcurementPage() {
               </table>
             )
           )}
+          {tab === "pos" && <Pagination meta={poMeta} page={poPage} onPageChange={setPoPage} />}
         </div>
       )}
     </div>

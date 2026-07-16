@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import {
   AlertCircle,
@@ -18,6 +18,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import api from '../lib/api';
+import { PaginatedListFooter } from '../components/PaginatedListFooter';
+import { MOBILE_PAGE_SIZE, PaginatedResponse, flattenUniquePages, getNextPageParam, mapPageItems } from '../lib/pagination';
 
 interface Notification {
   id: number;
@@ -32,9 +34,11 @@ interface Notification {
   created_at: string;
 }
 
-async function fetchNotifications(): Promise<Notification[]> {
-  const res = await api.get<{ data: Notification[] }>('/api/notifications');
-  return res.data.data;
+async function fetchNotifications(page: number): Promise<PaginatedResponse<Notification>> {
+  const res = await api.get<PaginatedResponse<Notification>>('/api/notifications', {
+    params: { page, per_page: MOBILE_PAGE_SIZE },
+  });
+  return res.data;
 }
 
 async function markRead(id: number): Promise<void> {
@@ -43,6 +47,11 @@ async function markRead(id: number): Promise<void> {
 
 async function markAllRead(): Promise<void> {
   await api.patch('/api/notifications/read-all');
+}
+
+async function fetchUnreadCount(): Promise<number> {
+  const res = await api.get<{ count: number }>('/api/notifications/unread-count');
+  return res.data.count ?? 0;
 }
 
 function relativeTime(dateStr: string): string {
@@ -94,18 +103,25 @@ export default function NotificationsScreen() {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
 
-  const { data, isLoading, isError, refetch } = useQuery({
+  const { data, isLoading, isError, refetch, fetchNextPage, hasNextPage, isFetchingNextPage, isFetchNextPageError } = useInfiniteQuery({
     queryKey: ['notifications'],
-    queryFn: fetchNotifications,
+    queryFn: ({ pageParam }) => fetchNotifications(pageParam),
+    initialPageParam: 1,
+    getNextPageParam,
+  });
+  const notifications = flattenUniquePages(data?.pages);
+  const { data: unreadCount = 0 } = useQuery({
+    queryKey: ['notifications-unread-count'],
+    queryFn: fetchUnreadCount,
   });
 
   const readMutation = useMutation({
     mutationFn: markRead,
     onMutate: async (id) => {
       await queryClient.cancelQueries({ queryKey: ['notifications'] });
-      const prev = queryClient.getQueryData<Notification[]>(['notifications']);
-      queryClient.setQueryData<Notification[]>(['notifications'], (old) =>
-        old?.map((n) => (n.id === id ? { ...n, read: true } : n)),
+      const prev = queryClient.getQueryData<typeof data>(['notifications']);
+      queryClient.setQueryData<typeof data>(['notifications'], (old) =>
+        old ? mapPageItems(old, (n) => (n.id === id ? { ...n, read: true } : n)) : old,
       );
       return { prev };
     },
@@ -114,6 +130,7 @@ export default function NotificationsScreen() {
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      queryClient.invalidateQueries({ queryKey: ['notifications-unread-count'] });
     },
   });
 
@@ -121,9 +138,9 @@ export default function NotificationsScreen() {
     mutationFn: markAllRead,
     onMutate: async () => {
       await queryClient.cancelQueries({ queryKey: ['notifications'] });
-      const prev = queryClient.getQueryData<Notification[]>(['notifications']);
-      queryClient.setQueryData<Notification[]>(['notifications'], (old) =>
-        old?.map((n) => ({ ...n, read: true })),
+      const prev = queryClient.getQueryData<typeof data>(['notifications']);
+      queryClient.setQueryData<typeof data>(['notifications'], (old) =>
+        old ? mapPageItems(old, (n) => ({ ...n, read: true })) : old,
       );
       return { prev };
     },
@@ -132,10 +149,9 @@ export default function NotificationsScreen() {
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      queryClient.invalidateQueries({ queryKey: ['notifications-unread-count'] });
     },
   });
-
-  const unreadCount = data?.filter((n) => !n.read).length ?? 0;
 
   const renderItem = useCallback(
     ({ item }: { item: Notification }) => (
@@ -216,9 +232,12 @@ export default function NotificationsScreen() {
       )}
 
       <FlatList
-        data={data ?? []}
+        data={notifications}
         keyExtractor={(item) => String(item.id)}
         renderItem={renderItem}
+        onEndReached={() => { if (hasNextPage && !isFetchingNextPage) void fetchNextPage(); }}
+        onEndReachedThreshold={0.4}
+        ListFooterComponent={<PaginatedListFooter loading={isFetchingNextPage} error={isFetchNextPageError} onRetry={() => void fetchNextPage()} />}
         contentContainerStyle={{ paddingBottom: insets.bottom + 16, flexGrow: 1 }}
         ListEmptyComponent={
           <View className="flex-1 items-center justify-center py-20">

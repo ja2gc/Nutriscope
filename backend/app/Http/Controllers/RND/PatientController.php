@@ -7,6 +7,7 @@ use App\Enums\AuditAction;
 use App\Enums\AuditCategory;
 use App\Enums\AuditDomain;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\PaginatedRequest;
 use App\Http\Requests\RND\StorePatientRequest;
 use App\Http\Requests\RND\UpdatePatientRequest;
 use App\Http\Resources\PatientResource;
@@ -36,7 +37,7 @@ class PatientController extends Controller
     /**
      * GET /api/rnd/patients
      */
-    public function index(Request $request): AnonymousResourceCollection
+    public function index(PaginatedRequest $request): AnonymousResourceCollection
     {
         $patients = Patient::query()
             ->when($request->search, fn ($q, $s) => $q->where(fn ($search) => $search
@@ -48,10 +49,15 @@ class PatientController extends Controller
                 ->orWhere('hospital_number', 'like', "%{$s}%")
             ))
             ->when($request->status, fn ($q, $s) => $q->where('status', $s))
+            ->when($request->boolean('upcoming_followups'), fn ($q) => $q->whereHas(
+                'ncpRecords.intervention',
+                fn ($interventions) => $interventions->whereDate('next_followup_date', '>=', now()->toDateString()),
+            ))
             ->with(['ncpRecords' => fn ($q) => $q->latest()->with(['rnd:id,uuid,name,first_name,last_name,role', 'assessment', 'intervention'])])
             ->orderByDesc('created_at')
             ->orderByDesc('id')
-            ->paginate((int) min($request->query('per_page', 15), 100));
+            ->paginate($request->perPage())
+            ->withQueryString();
         $this->clinicalAttribution->decoratePatients($patients->getCollection());
 
         return PatientResource::collection($patients);
@@ -116,25 +122,36 @@ class PatientController extends Controller
     /**
      * GET /api/rnd/patients/{id}/ncp-records
      */
-    public function ncpRecords(Patient $patient): JsonResponse
+    public function ncpRecords(PaginatedRequest $request, Patient $patient): JsonResponse
     {
         $records = $patient->ncpRecords()
+            ->when($request->string('ncp_record_id')->toString(), fn ($query, $id) => $query->where('uuid', $id))
             ->with(['rnd:id,uuid,name,first_name,last_name,role', 'assessment', 'diagnoses', 'intervention.mealPlans:id,uuid,intervention_id,week_start_date,generation_type'])
             ->orderByDesc('created_at')
-            ->get();
-        $this->clinicalAttribution->decorateNcpRecords($records);
+            ->orderByDesc('id')
+            ->paginate($request->perPage())
+            ->withQueryString();
+        $this->clinicalAttribution->decorateNcpRecords($records->getCollection());
 
         // Overlay the public uuid on the record's own identity (used to build
         // /ncp/{ncpId}/... nav links) without disturbing the rest of the payload shape.
         // patient_id must be overlaid too — toArray() still emits it as the raw internal
         // FK, and callers build /ncp/{patientId}/... nav links from it; the raw int then
         // 404s against the uuid-bound patients route (see NcpPatientHeader stuck loading).
-        $data = $records->map(fn (NcpRecord $record) => array_merge(
+        $records->through(fn (NcpRecord $record) => array_merge(
             $record->toArray(),
             ['id' => $record->uuid, 'patient_id' => $patient->uuid],
         ));
 
-        return response()->json(['data' => $data]);
+        return response()->json([
+            'data' => $records->items(),
+            'meta' => [
+                'current_page' => $records->currentPage(),
+                'per_page' => $records->perPage(),
+                'total' => $records->total(),
+                'last_page' => $records->lastPage(),
+            ],
+        ]);
     }
 
     /**

@@ -6,6 +6,7 @@ import {
   Salad, Wand2, AlertTriangle, LayoutTemplate, Edit2,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
 import {
   fetchMealPlans, createMealPlan, fetchAllMealPlanItems, addMealPlanItem,
   removeMealPlanItem, updateMealPlanItem, deleteMealPlan, generateMealPlan,
@@ -72,6 +73,8 @@ export default function MealPlanSection({
   const [fromTemplateOpen, setFromTemplateOpen]                 = useState(false);
   const [viewingTemplate, setViewingTemplate]                   = useState<MealPlanTemplateDetail | null>(null);
   const [loadingTemplate, setLoadingTemplate]                   = useState<number | null>(null);
+  const [templatePage, setTemplatePage]                         = useState(1);
+  const [templateMeta, setTemplateMeta]                         = useState<PaginationMeta | null>(null);
   const [confirmDeleteTemplateId, setConfirmDeleteTemplateId]   = useState<number | null>(null);
   const [deletingTemplate, setDeletingTemplate]                 = useState(false);
 
@@ -112,8 +115,8 @@ export default function MealPlanSection({
 
   useEffect(() => {
     loadPlans();
-    fetchMealPlanTemplates().then(setTemplates);
-  }, [loadPlans]);
+    fetchMealPlanTemplates(templatePage).then((result) => { setTemplates(result.data); setTemplateMeta(result.meta); });
+  }, [loadPlans, templatePage]);
 
   const loadItems = useCallback(async (plan: MealPlan) => {
     try {
@@ -872,6 +875,7 @@ export default function MealPlanSection({
                       </div>
                     </div>
                   ))}
+                  <Pagination meta={templateMeta} page={templatePage} onPageChange={setTemplatePage} />
                 </div>
               ))}
               {viewingTemplate && (

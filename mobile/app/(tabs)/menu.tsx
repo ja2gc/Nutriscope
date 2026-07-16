@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CalendarDays, ChevronLeft, ChevronRight, Utensils, X } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import {
@@ -16,6 +16,8 @@ import {
   DAYS, MEALS, MEAL_LABELS, MenuCycle, MenuDay, RecipeProfile, FsItemProfile, MenuSnapshot,
   getFsItemProfile, getMenuCycle, getRecipeProfile, listMealPrep, listMenuCycles, setServedPopulation,
 } from '../../lib/foodService';
+import { PaginatedListFooter } from '../../components/PaginatedListFooter';
+import { flattenUniquePages, getNextPageParam } from '../../lib/pagination';
 
 const peso = (n: number) => `₱${n.toFixed(2)}`;
 
@@ -294,8 +296,13 @@ export default function MenuScreen() {
   const insets = useSafeAreaInsets();
   const [openId, setOpenId] = useState<number | null>(null);
   const [autoOpened, setAutoOpened] = useState(false);
-  const { data, isLoading, isError, refetch } = useQuery({ queryKey: ['fs-cycles'], queryFn: listMenuCycles });
-  const cycles = (data ?? []).slice().sort((a: MenuCycle, b: MenuCycle) => Number(b.is_active) - Number(a.is_active));
+  const { data, isLoading, isError, refetch, fetchNextPage, hasNextPage, isFetchingNextPage, isFetchNextPageError } = useInfiniteQuery({
+    queryKey: ['fs-cycles'],
+    queryFn: ({ pageParam }) => listMenuCycles(pageParam),
+    initialPageParam: 1,
+    getNextPageParam,
+  });
+  const cycles = flattenUniquePages(data?.pages).sort((a: MenuCycle, b: MenuCycle) => Number(b.is_active) - Number(a.is_active));
 
   useEffect(() => {
     if (autoOpened || openId || cycles.length === 0) return;
@@ -344,6 +351,9 @@ export default function MenuScreen() {
           <ChevronRight color="#9ca3af" size={18} />
         </TouchableOpacity>
       )}
+      onEndReached={() => { if (hasNextPage && !isFetchingNextPage) void fetchNextPage(); }}
+      onEndReachedThreshold={0.4}
+      ListFooterComponent={<PaginatedListFooter loading={isFetchingNextPage} error={isFetchNextPageError} onRetry={() => void fetchNextPage()} />}
       ListEmptyComponent={
         <View className="items-center justify-center py-20">
           <CalendarDays color="#d1d5db" size={40} />

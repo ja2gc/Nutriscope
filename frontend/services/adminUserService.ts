@@ -1,5 +1,6 @@
 import { apiFetch } from "@/lib/apiFetch";
 import { User } from "@/services/authService";
+import type { PaginationMeta } from "@/components/ui/Pagination";
 
 interface ModernPersonNameInput {
   first_name: string;
@@ -42,8 +43,11 @@ function makeValidationError(message: string, fieldErrors: Record<string, string
   return error;
 }
 
-export async function listUsers(): Promise<User[]> {
-  const res = await apiFetch("/api/admin/users", {
+export async function listUsers(params: { page?: number; search?: string; role?: string } = {}): Promise<{ data: User[]; meta: PaginationMeta }> {
+  const qs = new URLSearchParams({ page: String(params.page ?? 1), per_page: "10" });
+  if (params.search) qs.set("search", params.search);
+  if (params.role && params.role !== "All") qs.set("role", params.role);
+  const res = await apiFetch(`/api/admin/users?${qs}`, {
     method: "GET",
     headers: {
       Accept: "application/json",
@@ -56,7 +60,10 @@ export async function listUsers(): Promise<User[]> {
   }
 
   const responseData = await res.json();
-  return responseData.data || [];
+  return {
+    data: responseData.data || [],
+    meta: responseData.meta ?? { current_page: params.page ?? 1, per_page: 10, total: 0, last_page: 1 },
+  };
 }
 
 export async function createUser(data: CreateUserPayload): Promise<User> {

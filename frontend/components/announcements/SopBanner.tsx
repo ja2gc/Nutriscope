@@ -5,6 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/Button";
 import { fetchCurrentSop, fetchSopHistory, saveSop, Sop } from "@/services/sopService";
 import { ClipboardList, History, PencilLine, X } from "lucide-react";
+import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
 
 function formatTimeStamp(value: string) {
   return new Date(value).toLocaleString("en-US", {
@@ -32,6 +33,8 @@ export function SopBanner() {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [history, setHistory] = useState<Sop[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyPage, setHistoryPage] = useState(1);
+  const [historyMeta, setHistoryMeta] = useState<PaginationMeta | null>(null);
 
   async function load() {
     setLoading(true);
@@ -54,11 +57,14 @@ export function SopBanner() {
     setEditing(true);
   }
 
-  async function openHistory() {
+  async function openHistory(page = 1) {
     setHistoryOpen(true);
     setHistoryLoading(true);
     try {
-      setHistory(await fetchSopHistory());
+      const result = await fetchSopHistory(page);
+      setHistory(result.data);
+      setHistoryMeta(result.meta);
+      setHistoryPage(page);
     } catch {
       setHistory([]);
     } finally {
@@ -233,6 +239,7 @@ export function SopBanner() {
                   </div>
                 ))
               )}
+              <Pagination meta={historyMeta} page={historyPage} onPageChange={(page) => void openHistory(page)} />
             </div>
           </div>
         </div>

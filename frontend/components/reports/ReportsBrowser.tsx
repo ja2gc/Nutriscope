@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Tabs } from "@/components/ui/Tabs";
 import { Badge, BadgeTone } from "@/components/ui/Badge";
-import { Pagination } from "@/components/ui/Pagination";
+import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
 import {
@@ -205,17 +205,18 @@ function InstancesPanel({
   const [busy, setBusy] = useState<string | null>(null);
   const [preview, setPreview] = useState<ReportInstance | null>(null);
   const [page, setPage] = useState(1);
+  const [instancesMeta, setInstancesMeta] = useState<PaginationMeta | null>(null);
   const Icon = entry.icon;
 
   useEffect(() => {
     let alive = true;
     setLoading(true);
-    listInstances(entry.type, {}, apiPrefix)
-      .then((r) => { if (alive) { setAxis(r.axis); setInstances(r.instances); } })
+    listInstances(entry.type, { page, per_page: 10, ...(year !== "all" ? { year } : {}) }, apiPrefix)
+      .then((r) => { if (alive) { setAxis(r.data.axis); setInstances(r.data.instances); setInstancesMeta(r.meta); } })
       .catch((e) => { if (alive) onFlash(false, e instanceof Error ? e.message : "Failed to load."); })
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
-  }, [entry.type, apiPrefix, onFlash]);
+  }, [entry.type, apiPrefix, onFlash, page, year]);
 
   const years = useMemo(() => {
     const ys = new Set<string>();
@@ -223,24 +224,7 @@ function InstancesPanel({
     return Array.from(ys).sort().reverse();
   }, [instances]);
 
-  const shown = useMemo(
-    () => (year === "all" ? instances : instances.filter((i) => i.date?.startsWith(year))),
-    [instances, year],
-  );
-
-  useEffect(() => { setPage(1); }, [shown]);
-
-  const pagedShown = useMemo(
-    () => shown.slice((page - 1) * 15, page * 15),
-    [shown, page],
-  );
-
-  const instancesMeta = useMemo(() => ({
-    current_page: page,
-    per_page: 15,
-    total: shown.length,
-    last_page: Math.max(1, Math.ceil(shown.length / 15)),
-  }), [shown.length, page]);
+  const pagedShown = instances;
 
   async function onArchive(i: ReportInstance) {
     setBusy(i.key);
@@ -285,7 +269,7 @@ function InstancesPanel({
         <div className="py-16 text-center text-sm text-warm-400 flex items-center justify-center gap-2">
           <Loader2 className="h-4 w-4 animate-spin" /> Loading…
         </div>
-      ) : shown.length === 0 ? (
+      ) : instances.length === 0 ? (
         <div className="py-16">
           <EmptyState
             icon={<Icon className="h-6 w-6" />}
@@ -354,29 +338,23 @@ function ArchivedTab({
   const [preview, setPreview] = useState<ReportItem | null>(null);
   const [historyReport, setHistoryReport] = useState<ReportItem | null>(null);
   const [page, setPage] = useState(1);
+  const [archiveMeta, setArchiveMeta] = useState<PaginationMeta | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const all = await listReports(apiPrefix);
-      setReports(all.filter((r) => r.status === "archived" || !!r.file_path));
+      const result = await listReports(apiPrefix, page);
+      setReports(result.data.filter((r) => r.status === "archived" || !!r.file_path));
+      setArchiveMeta(result.meta);
     } catch (e) {
       onFlash(false, e instanceof Error ? e.message : "Failed to load archive.");
     } finally {
       setLoading(false);
     }
-  }, [apiPrefix, onFlash]);
+  }, [apiPrefix, onFlash, page]);
 
   useEffect(() => { load(); }, [load]);
-  useEffect(() => { setPage(1); }, [reports]);
-
-  const pagedReports = useMemo(() => reports.slice((page - 1) * 15, page * 15), [reports, page]);
-  const archiveMeta = useMemo(() => ({
-    current_page: page,
-    per_page: 15,
-    total: reports.length,
-    last_page: Math.max(1, Math.ceil(reports.length / 15)),
-  }), [reports.length, page]);
+  const pagedReports = reports;
 
   async function onDelete(id: string) {
     try {

@@ -117,20 +117,24 @@ class BudgetController extends Controller
         $data = $request->validate([
             'fiscal_year' => ['nullable', 'integer'],
             'source' => ['nullable', 'in:system,manual,all'],
+            'page' => ['nullable', 'integer', 'min:1'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:10'],
         ]);
 
         $year = (int) ($data['fiscal_year'] ?? now()->year);
 
         $query = BudgetLedger::where('fiscal_year', $year)
             ->with(['purchaseOrder:id,po_number', 'creator:id,uuid,name,first_name,last_name'])
-            ->orderByDesc('created_at');
+            ->orderByDesc('created_at')
+            ->orderByDesc('id');
 
         $filter = $data['source'] ?? null;
         if ($filter && $filter !== 'all') {
             $query->where('source', $filter);
         }
 
-        $entries = $query->get()->map(fn (BudgetLedger $e) => [
+        $entries = $query->paginate((int) ($data['per_page'] ?? 10))->withQueryString();
+        $entries->through(fn (BudgetLedger $e) => [
             'id' => $e->id,
             'fiscal_year' => $e->fiscal_year,
             'type' => $e->type,
@@ -154,7 +158,15 @@ class BudgetController extends Controller
             'created_at' => $e->created_at?->toDateTimeString(),
         ]);
 
-        return response()->json(['data' => $entries]);
+        return response()->json([
+            'data' => $entries->items(),
+            'meta' => [
+                'current_page' => $entries->currentPage(),
+                'per_page' => $entries->perPage(),
+                'total' => $entries->total(),
+                'last_page' => $entries->lastPage(),
+            ],
+        ]);
     }
 
     /** RND logs a manual addition or deduction. Entries are immutable once created. */

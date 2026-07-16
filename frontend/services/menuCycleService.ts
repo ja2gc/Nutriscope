@@ -1,4 +1,5 @@
 import { apiFetch } from "@/lib/apiFetch";
+import type { PaginationMeta } from "@/components/ui/Pagination";
 
 export const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"] as const;
 export const MEALS = ["breakfast", "am_snack", "lunch", "pm_snack", "dinner"] as const;
@@ -142,9 +143,11 @@ export async function listFsItemOptions(): Promise<FsItemOption[]> {
 }
 
 // ─── Cycles ───────────────────────────────────────────────────────────────────
-export async function listCycles(): Promise<CycleListItem[]> {
-  const res = await apiFetch("/api/fss/menu-cycles");
-  return json<CycleListItem[]>(res, "Failed to load menu cycles.");
+export async function listCycles(page = 1): Promise<{ data: CycleListItem[]; meta: PaginationMeta }> {
+  const res = await apiFetch(`/api/fss/menu-cycles?page=${page}&per_page=10`);
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.message ?? "Failed to load menu cycles.");
+  return { data: body.data ?? [], meta: body.meta ?? { current_page: page, per_page: 10, total: 0, last_page: 1 } };
 }
 
 export async function getCycle(id: number): Promise<MenuCycle> {
@@ -223,9 +226,11 @@ export async function saveCycleAsTemplate(id: number, name: string, description?
 }
 
 // ─── Templates ──────────────────────────────────────────────────────────────────
-export async function listTemplates(): Promise<TemplateListItem[]> {
-  const res = await apiFetch("/api/fss/menu-cycle-templates");
-  return json<TemplateListItem[]>(res, "Failed to load templates.");
+export async function listTemplates(page = 1): Promise<{ data: TemplateListItem[]; meta: PaginationMeta }> {
+  const res = await apiFetch(`/api/fss/menu-cycle-templates?page=${page}&per_page=10`);
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.message ?? "Failed to load templates.");
+  return { data: body.data ?? [], meta: body.meta ?? { current_page: page, per_page: 10, total: 0, last_page: 1 } };
 }
 
 export async function getTemplate(id: number): Promise<TemplateDetail> {

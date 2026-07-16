@@ -1,4 +1,5 @@
 import api from './api';
+import { MOBILE_PAGE_SIZE, PaginatedResponse } from './pagination';
 
 export interface MenuDay {
   id: number;
@@ -85,9 +86,11 @@ export const MEAL_LABELS: Record<string, string> = {
   breakfast: 'Breakfast', am_snack: 'AM Snack', lunch: 'Lunch', pm_snack: 'PM Snack', dinner: 'Dinner',
 };
 
-export async function listMenuCycles(): Promise<MenuCycle[]> {
-  const res = await api.get<{ data: MenuCycle[] }>('/api/fss/menu-cycles');
-  return res.data.data;
+export async function listMenuCycles(page: number, active = false): Promise<PaginatedResponse<MenuCycle>> {
+  const res = await api.get<PaginatedResponse<MenuCycle>>('/api/fss/menu-cycles', {
+    params: { page, per_page: active ? 1 : MOBILE_PAGE_SIZE, ...(active ? { active: 1 } : {}) },
+  });
+  return res.data;
 }
 
 export async function getMenuCycle(id: number): Promise<MenuCycle> {

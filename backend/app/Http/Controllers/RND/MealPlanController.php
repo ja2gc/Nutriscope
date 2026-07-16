@@ -6,6 +6,7 @@ use App\Enums\AuditAction;
 use App\Enums\AuditCategory;
 use App\Enums\AuditDomain;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\PaginatedRequest;
 use App\Http\Requests\RND\GenerateMealPlanRequest;
 use App\Http\Requests\RND\RecommendRequest;
 use App\Http\Requests\RND\StoreMealPlanRequest;
@@ -222,16 +223,28 @@ class MealPlanController extends Controller
     /**
      * GET /api/rnd/meal-plan-templates
      */
-    public function templates(): JsonResponse
+    public function templates(PaginatedRequest $request): JsonResponse
     {
         $templates = MealPlanTemplate::where('rnd_user_id', auth()->id())
             ->orderByDesc('created_at')
-            ->get(['id', 'uuid', 'name', 'description', 'goal_type', 'created_at']);
+            ->orderByDesc('id')
+            ->paginate($request->perPage(), ['id', 'uuid', 'name', 'description', 'goal_type', 'created_at'])
+            ->withQueryString();
 
-        return response()->json(['data' => $templates->map(fn ($t) => [
+        $templates->through(fn ($t) => [
             'id' => $t->uuid, 'name' => $t->name, 'description' => $t->description,
             'goal_type' => $t->goal_type, 'created_at' => $t->created_at,
-        ])]);
+        ]);
+
+        return response()->json([
+            'data' => $templates->items(),
+            'meta' => [
+                'current_page' => $templates->currentPage(),
+                'per_page' => $templates->perPage(),
+                'total' => $templates->total(),
+                'last_page' => $templates->lastPage(),
+            ],
+        ]);
     }
 
     /**

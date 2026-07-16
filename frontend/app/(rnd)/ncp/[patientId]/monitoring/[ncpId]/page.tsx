@@ -23,6 +23,7 @@ import { fetchIntervention, Intervention } from "@/services/interventionService"
 import { fetchDiagnoses } from "@/services/diagnosisService";
 import { fetchPatientById, type Patient } from "@/services/patientService";
 import NcpPatientHeader from "../../../_components/NcpPatientHeader";
+import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -77,6 +78,8 @@ export default function NcpMonitoringPage({
   const [activeTab, setActiveTab]           = useState<Tab>("log");
   const [error, setError]                   = useState<string | null>(null);
   const [workflowBlock, setWorkflowBlock]   = useState<string | null>(null);
+  const [historyPage, setHistoryPage]       = useState(1);
+  const [historyMeta, setHistoryMeta]       = useState<PaginationMeta | null>(null);
 
   const loadData = useCallback(async () => {
     if (isPlaceholder) { setLoading(false); return; }
@@ -85,14 +88,17 @@ export default function NcpMonitoringPage({
     try {
       const [patientData, monitoringData, assessmentData, diagnosisData, interventionData, planData] = await Promise.allSettled([
         fetchPatientById(patientId),
-        fetchMonitorings(ncpId),
+        fetchMonitorings(ncpId, historyPage),
         fetchAssessment(ncpId),
         fetchDiagnoses(ncpId),
         fetchIntervention(ncpId),
         fetchMonitoringPlan(ncpId).catch(() => null),
       ]);
       if (patientData.status === "fulfilled") setPatient(patientData.value);
-      if (monitoringData.status === "fulfilled") setEntries(monitoringData.value);
+      if (monitoringData.status === "fulfilled") {
+        setEntries(monitoringData.value.data);
+        setHistoryMeta(monitoringData.value.meta);
+      }
       if (assessmentData.status === "fulfilled") {
         const a = assessmentData.value as AssessmentWithLabs;
         setAssessment(a);
@@ -118,7 +124,7 @@ export default function NcpMonitoringPage({
     } finally {
       setLoading(false);
     }
-  }, [patientId, ncpId, isPlaceholder]);
+  }, [patientId, ncpId, isPlaceholder, historyPage]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -277,6 +283,7 @@ export default function NcpMonitoringPage({
                   onLogNew={() => setShowForm(true)}
                   onDelete={handleDeleteEntry}
                 />
+                <Pagination meta={historyMeta} page={historyPage} onPageChange={setHistoryPage} />
 
                 {showForm && (
                   <LogVisitForm
@@ -294,7 +301,7 @@ export default function NcpMonitoringPage({
             {activeTab === "progress" && (
               <div className="space-y-6">
                 <CarePlanHeader plan={plan} />
-                <MonitoringSummaryCard ncpId={ncpId} visitCount={entries.length} />
+                <MonitoringSummaryCard ncpId={ncpId} visitCount={historyMeta?.total ?? entries.length} />
                 <GoalProgressTracker
                   plan={plan}
                   entries={entries}

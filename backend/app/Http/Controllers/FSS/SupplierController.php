@@ -7,11 +7,13 @@ use App\Enums\AuditDomain;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\FSS\StoreSupplierRequest;
 use App\Http\Requests\FSS\UpdateSupplierRequest;
+use App\Http\Requests\PaginatedRequest;
 use App\Http\Resources\SupplierResource;
 use App\Models\Supplier;
 use App\Services\Audit\AuditLogger;
 use App\Services\Audit\SupplierAuditValues;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class SupplierController extends Controller
 {
@@ -20,9 +22,16 @@ class SupplierController extends Controller
         private readonly SupplierAuditValues $auditValues,
     ) {}
 
-    public function index(): JsonResponse
+    public function index(PaginatedRequest $request): AnonymousResourceCollection
     {
-        return response()->json(['data' => SupplierResource::collection(Supplier::all())]);
+        $suppliers = Supplier::query()
+            ->when($request->string('search')->trim()->toString(), fn ($query, $search) => $query->where('name', 'like', "%{$search}%"))
+            ->orderBy('name')
+            ->orderBy('id')
+            ->paginate($request->perPage())
+            ->withQueryString();
+
+        return SupplierResource::collection($suppliers);
     }
 
     public function store(StoreSupplierRequest $request): JsonResponse

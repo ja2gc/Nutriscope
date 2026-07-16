@@ -10,6 +10,7 @@ import {
 } from "@/services/budgetService";
 import { AuditTrail } from "@/components/audit/AuditTrail";
 import { AuditTimestamp } from "@/components/audit/AuditTimestamp";
+import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
 
 const peso = (n: number) =>
   `PHP ${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -237,8 +238,9 @@ const FILTERS: { key: LedgerFilter; label: string }[] = [
   { key: "manual", label: "Manual" },
 ];
 
-function LedgerSection({ entries, loading, filter, onFilter }: {
+function LedgerSection({ entries, loading, filter, onFilter, meta, page, onPage }: {
   entries: BudgetLedgerEntry[]; loading: boolean; filter: LedgerFilter; onFilter: (f: LedgerFilter) => void;
+  meta: PaginationMeta | null; page: number; onPage: (page: number) => void;
 }) {
   return (
     <div className={card}>
@@ -286,6 +288,7 @@ function LedgerSection({ entries, loading, filter, onFilter }: {
           </table>
         </div>
       )}
+      <Pagination meta={meta} page={page} onPageChange={onPage} />
     </div>
   );
 }
@@ -299,6 +302,8 @@ export function BudgetPageShell({ apiPrefix, canMutate, crumbs }: BudgetPageShel
   const [entries, setEntries] = useState<BudgetLedgerEntry[]>([]);
   const [ledgerLoading, setLedgerLoading] = useState(false);
   const [ledgerFilter, setLedgerFilter] = useState<LedgerFilter>("all");
+  const [ledgerPage, setLedgerPage] = useState(1);
+  const [ledgerMeta, setLedgerMeta] = useState<PaginationMeta | null>(null);
   const [loading, setLoading] = useState(true);
 
   const years = budgets.map((b) => b.fiscal_year).sort((a, b) => b - a);
@@ -320,10 +325,12 @@ export function BudgetPageShell({ apiPrefix, canMutate, crumbs }: BudgetPageShel
     setNotice(res.notice);
   }, [apiPrefix]);
 
-  const loadLedger = useCallback(async (year: number, filter: LedgerFilter) => {
+  const loadLedger = useCallback(async (year: number, filter: LedgerFilter, page: number) => {
     setLedgerLoading(true);
     try {
-      setEntries(await getLedger(year, filter, apiPrefix));
+      const result = await getLedger(year, filter, apiPrefix, page);
+      setEntries(result.data);
+      setLedgerMeta(result.meta);
     } finally {
       setLedgerLoading(false);
     }
@@ -331,9 +338,10 @@ export function BudgetPageShell({ apiPrefix, canMutate, crumbs }: BudgetPageShel
 
   useEffect(() => { void load(); }, [load]);
   useEffect(() => { void loadSummary(selectedYear); }, [loadSummary, selectedYear]);
-  useEffect(() => { void loadLedger(selectedYear, ledgerFilter); }, [loadLedger, selectedYear, ledgerFilter]);
+  useEffect(() => { setLedgerPage(1); }, [selectedYear, ledgerFilter]);
+  useEffect(() => { void loadLedger(selectedYear, ledgerFilter, ledgerPage); }, [loadLedger, selectedYear, ledgerFilter, ledgerPage]);
 
-  function refresh() { load(); loadSummary(selectedYear); loadLedger(selectedYear, ledgerFilter); }
+  function refresh() { load(); loadSummary(selectedYear); loadLedger(selectedYear, ledgerFilter, ledgerPage); }
 
   return (
     <div className="min-h-screen bg-warm-50 p-4 sm:p-8">
@@ -388,7 +396,7 @@ export function BudgetPageShell({ apiPrefix, canMutate, crumbs }: BudgetPageShel
             )}
 
             {/* Ledger log */}
-            <LedgerSection entries={entries} loading={ledgerLoading} filter={ledgerFilter} onFilter={setLedgerFilter} />
+            <LedgerSection entries={entries} loading={ledgerLoading} filter={ledgerFilter} onFilter={setLedgerFilter} meta={ledgerMeta} page={ledgerPage} onPage={setLedgerPage} />
 
             {selectedBudget && (
               <AuditTrail

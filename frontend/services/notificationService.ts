@@ -1,5 +1,6 @@
 import { apiFetch } from "@/lib/apiFetch";
 import { getAnnouncementNotifications, getFollowUpNotifications } from "@/lib/preferences";
+import type { PaginationMeta } from "@/components/ui/Pagination";
 
 export interface Notification {
   id: number;
@@ -76,8 +77,9 @@ export async function fetchUnreadCount(): Promise<number> {
   return data.count ?? 0;
 }
 
-export async function fetchNotifications(): Promise<Notification[]> {
-  const res = await apiFetch("/api/notifications", {
+export async function fetchNotifications(page = 1, perPage = 10): Promise<{ data: Notification[]; meta: PaginationMeta }> {
+  const params = new URLSearchParams({ page: String(page), per_page: String(perPage) });
+  const res = await apiFetch(`/api/notifications?${params}`, {
     method: "GET",
     headers: { Accept: "application/json" },
   });
@@ -90,10 +92,13 @@ export async function fetchNotifications(): Promise<Notification[]> {
   const responseData = await res.json();
   const notifications: Notification[] = responseData.data || [];
 
-  return notifications.filter((notification) => shouldShowNotification(notification, {
-    announcements: getAnnouncementNotifications(),
-    followUps: getFollowUpNotifications(),
-  }));
+  return {
+    data: notifications.filter((notification) => shouldShowNotification(notification, {
+      announcements: getAnnouncementNotifications(),
+      followUps: getFollowUpNotifications(),
+    })),
+    meta: responseData.meta ?? { current_page: page, per_page: perPage, total: 0, last_page: 1 },
+  };
 }
 
 export async function markNotificationRead(id: number | string): Promise<void> {

@@ -10,10 +10,12 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\ResetPasswordRequest;
 use App\Http\Requests\Admin\StoreUserRequest;
 use App\Http\Requests\Admin\UpdateUserRequest;
+use App\Http\Requests\PaginatedRequest;
 use App\Http\Resources\UserResource;
 use App\Models\User;
 use App\Services\Audit\AuditLogger;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
@@ -24,15 +26,24 @@ class UserController extends Controller
         private readonly SynchronizePersonName $synchronizePersonName,
     ) {}
 
-    public function index(): JsonResponse
+    public function index(PaginatedRequest $request): AnonymousResourceCollection
     {
         $users = User::query()
             ->orderByRaw("LOWER(TRIM(COALESCE(NULLIF(last_name, ''), name)))")
             ->orderByRaw("LOWER(TRIM(COALESCE(NULLIF(first_name, ''), name)))")
+            ->when($request->string('search')->trim()->toString(), fn ($query, $search) => $query->where(function ($nested) use ($search) {
+                $nested->where('name', 'like', "%{$search}%")
+                    ->orWhere('first_name', 'like', "%{$search}%")
+                    ->orWhere('last_name', 'like', "%{$search}%")
+                    ->orWhere('email', 'like', "%{$search}%");
+            }))
+            ->when($request->string('role')->toString(), fn ($query, $role) => $query->where('role', $role))
+            ->when($request->has('is_active'), fn ($query) => $query->where('is_active', $request->boolean('is_active')))
             ->orderBy('id')
-            ->get();
+            ->paginate($request->perPage())
+            ->withQueryString();
 
-        return response()->json(['data' => UserResource::collection($users)]);
+        return UserResource::collection($users);
     }
 
     public function store(StoreUserRequest $request): JsonResponse

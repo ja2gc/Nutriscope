@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\RND;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\PaginatedRequest;
 use App\Http\Resources\NotificationResource;
 use App\Models\Announcement;
 use App\Models\NcpRecord;
@@ -10,6 +11,7 @@ use App\Models\Notification;
 use App\Models\PurchaseOrder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\Auth;
 
 class NotificationController extends Controller
@@ -26,15 +28,17 @@ class NotificationController extends Controller
         'ncp' => NcpRecord::class,
     ];
 
-    public function index(): JsonResponse
+    public function index(PaginatedRequest $request): AnonymousResourceCollection
     {
         $notifications = Notification::where('user_id', Auth::id())
             ->orderByDesc('created_at')
-            ->get();
+            ->orderByDesc('id')
+            ->paginate($request->perPage())
+            ->withQueryString();
 
-        $this->attachSourceUuids($notifications);
+        $this->attachSourceUuids($notifications->getCollection());
 
-        return response()->json(['data' => NotificationResource::collection($notifications)]);
+        return NotificationResource::collection($notifications);
     }
 
     private function attachSourceUuids(Collection $notifications): void

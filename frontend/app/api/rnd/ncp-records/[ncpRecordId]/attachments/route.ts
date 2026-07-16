@@ -17,8 +17,7 @@ export async function GET(
   const { ncpRecordId } = await params;
 
   const backendUrl = new URL(`${LARAVEL_API}/rnd/ncp-records/${ncpRecordId}/attachments`);
-  const type = _req.nextUrl.searchParams.get("type");
-  if (type) backendUrl.searchParams.set("type", type);
+  _req.nextUrl.searchParams.forEach((value, key) => backendUrl.searchParams.set(key, value));
 
   const laravelRes = await fetch(backendUrl.toString(), {
     headers: {

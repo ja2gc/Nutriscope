@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   listUsers,
@@ -30,7 +30,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Badge, BadgeTone } from "@/components/ui/Badge";
-import { Pagination } from "@/components/ui/Pagination";
+import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
 import {
   changedPersonNameFields,
   personDisplayName,
@@ -81,6 +81,7 @@ export default function UserManagementPage() {
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("All");
   const [page, setPage] = useState(1);
+  const [usersMeta, setUsersMeta] = useState<PaginationMeta | null>(null);
 
   // Create / Edit modal
   const [formOpen, setFormOpen] = useState(false);
@@ -111,8 +112,9 @@ export default function UserManagementPage() {
     try {
       setLoading(true);
       setError(null);
-      const data = await listUsers();
-      setUsers(data);
+      const result = await listUsers({ page, search, role: roleFilter });
+      setUsers(result.data);
+      setUsersMeta(result.meta);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to load users.");
     } finally {
@@ -121,34 +123,16 @@ export default function UserManagementPage() {
   }
 
   useEffect(() => {
-    void loadUsers();
-  }, []);
+    const timer = setTimeout(() => { void loadUsers(); }, 250);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, search, roleFilter]);
 
   useEffect(() => {
     setPage(1);
   }, [search, roleFilter]);
 
-  const filteredUsers = useMemo(() => {
-    return users.filter((u) => {
-      const matchesSearch =
-        personDisplayName(u).toLowerCase().includes(search.toLowerCase()) ||
-        u.email.toLowerCase().includes(search.toLowerCase());
-      const matchesRole = roleFilter === "All" || u.role === roleFilter;
-      return matchesSearch && matchesRole;
-    });
-  }, [users, search, roleFilter]);
-
-  const pagedUsers = useMemo(
-    () => filteredUsers.slice((page - 1) * 15, page * 15),
-    [filteredUsers, page],
-  );
-
-  const usersMeta = useMemo(() => ({
-    current_page: page,
-    per_page: 15,
-    total: filteredUsers.length,
-    last_page: Math.max(1, Math.ceil(filteredUsers.length / 15)),
-  }), [filteredUsers.length, page]);
+  const pagedUsers = users;
 
   // ── modal openers ─────────────────────────────────────────────────────────
 
@@ -385,7 +369,7 @@ export default function UserManagementPage() {
             Loading users…
           </div>
         </div>
-      ) : filteredUsers.length === 0 ? (
+      ) : users.length === 0 ? (
         <div className="bg-white border border-warm-200 rounded-2xl p-16 text-center shadow-sm">
           <div className="p-3 bg-warm-50 border border-warm-200 rounded-2xl w-fit mx-auto text-warm-400 mb-4">
             <Users className="h-8 w-8" />
