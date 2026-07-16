@@ -401,11 +401,13 @@ Task 17 evidence (2026-07-16): Replaced the stale four-view runbook/report and a
 
 - [x] Run a fresh full verification, not cached evidence.
 - [x] Confirm every task checkbox is complete or explicitly marked as a genuine blocker.
-- [ ] Confirm all intended task commits exist in order.
-- [ ] Push final verified `main`.
-- [ ] Verify `git ls-remote origin refs/heads/main` exactly equals local `HEAD`.
-- [ ] Report `.codex/config.toml`, `.superpowers`, and any other unrelated/untracked files separately and untouched.
-- [ ] Treat every skipped required check as a blocker; do not claim completion.
+- [x] Confirm all intended task commits exist in order.
+- [x] Push final verified `main`.
+- [x] Verify `git ls-remote origin refs/heads/main` exactly equals local `HEAD`.
+- [x] Report `.codex/config.toml`, `.superpowers`, and any other unrelated/untracked files separately and untouched.
+- [x] Treat every skipped required check as a blocker; do not claim completion.
+
+Wave A5 evidence (2026-07-16): Verified the ordered chain of 24 name/audit commits from the name-migration integration commit through Task 17. Pushed Task 17 commit `a7ea2045dcf9f9ca14b3a364ee287e1f3cd0e42c`; local `HEAD`, fetched `origin/main`, and `git ls-remote origin refs/heads/main` matched exactly. No required check was skipped. The unrelated `.codex/config.toml` change remains unstaged and untouched. The existing `.superpowers` directory remains present and untouched; it is not part of any intended commit.
 
 ## Per-task execution controls
 

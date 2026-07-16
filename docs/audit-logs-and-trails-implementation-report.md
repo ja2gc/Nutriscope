@@ -272,7 +272,7 @@ No required check was skipped. The Next.js build emitted its existing nonblockin
 
 ## Commit and rollout record
 
-The name migration compatibility wave completed first at `6cc8fdd781ddf176d79be6181928c04b26499520`. Audit redesign task commits then landed sequentially from characterization through storage, policy, typed presentation, five tabs, historical serializers, budget/library/FSO/report authorization, compatibility cleanup, and integration verification. Wave A4 completed at `c6fd4e10eb382cce3878f0e4a1f37433070deb0b`, with local and remote `main` equal before Task 17 began.
+The name migration compatibility wave completed first at `6cc8fdd781ddf176d79be6181928c04b26499520`. Audit redesign task commits then landed sequentially from characterization through storage, policy, typed presentation, five tabs, historical serializers, budget/library/FSO/report authorization, compatibility cleanup, and integration verification. Wave A4 completed at `c6fd4e10eb382cce3878f0e4a1f37433070deb0b`, with local and remote `main` equal before Task 17 began. Task 17 was committed as `a7ea2045dcf9f9ca14b3a364ee287e1f3cd0e42c`; `git fetch`, `git rev-parse origin/main`, and `git ls-remote origin refs/heads/main` all matched that commit after the push.
 
 Every task used a concise Conventional Commit without AI attribution. Integration waves were pushed only after their specified gates. The final documentation/verification commit and Wave A5 remote equality are recorded in the implementation plan.
 
