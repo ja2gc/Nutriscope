@@ -388,17 +388,19 @@ Fresh full verification passed 1,124 Laravel tests with 7,465 assertions under `
 
 ## Task 17 — Final documentation and implementation report
 
-- [ ] Update `docs/architecture/audit-logging.md` with the exact current writer/privacy/storage/retention/history architecture.
-- [ ] Replace/update `docs/audit-logs-and-trails-implementation-report.md` with a complete implementation summary, exact workflow, every audited event/action and Admin/RND view, five-tab classification, filters/drawers/trails/history usage, clinical privacy boundary and patient-name exception, shared-RND behavior, budget coverage, retention toggle, base-seeder noise suppression and the owner decision not to add audit-demo events, migrations/compatibility, blast radius/mitigations, overscope, unrelated bugs fixed and impact, owner-authorized decisions, unresolved/future work, architectural advantages/disadvantages, and verification evidence.
-- [ ] Add `docs/architecture/audit-event-catalog.md` as the maintained event matrix with action, module, retention category, actor, subject/context, safe Admin fields, RND trail fields, reason, history mode, and route/writer.
-- [ ] Include a Mermaid flowchart covering event creation, canonical writer selection, privacy classification, patient snapshot encryption, storage, DTO presentation, simple-versus-complex history selection, Admin/RND authorization, retention, and legal hold.
-- [ ] Document the fixed 365/2,190/1,095/90-day mapping; DB-backed toggle and environment fallback; confirmation rules; audited toggle changes; encryption-key backup/rotation requirement for retained patient snapshots; export-disabled posture; and absence of external sink/hash chain.
-- [ ] Run documentation link/path checks, `git diff --check`, and a final spec/quality review. Commit `docs: complete audit redesign report`.
+- [x] Update `docs/architecture/audit-logging.md` with the exact current writer/privacy/storage/retention/history architecture.
+- [x] Replace/update `docs/audit-logs-and-trails-implementation-report.md` with a complete implementation summary, exact workflow, every audited event/action and Admin/RND view, five-tab classification, filters/drawers/trails/history usage, clinical privacy boundary and patient-name exception, shared-RND behavior, budget coverage, retention toggle, base-seeder noise suppression and the owner decision not to add audit-demo events, migrations/compatibility, blast radius/mitigations, overscope, unrelated bugs fixed and impact, owner-authorized decisions, unresolved/future work, architectural advantages/disadvantages, and verification evidence.
+- [x] Add `docs/architecture/audit-event-catalog.md` as the maintained event matrix with action, module, retention category, actor, subject/context, safe Admin fields, RND trail fields, reason, history mode, and route/writer.
+- [x] Include a Mermaid flowchart covering event creation, canonical writer selection, privacy classification, patient snapshot encryption, storage, DTO presentation, simple-versus-complex history selection, Admin/RND authorization, retention, and legal hold.
+- [x] Document the fixed 365/2,190/1,095/90-day mapping; DB-backed toggle and environment fallback; confirmation rules; audited toggle changes; encryption-key backup/rotation requirement for retained patient snapshots; export-disabled posture; and absence of external sink/hash chain.
+- [x] Run documentation link/path checks, `git diff --check`, and a final spec/quality review. Commit `docs: complete audit redesign report`.
+
+Task 17 evidence (2026-07-16): Replaced the stale four-view runbook/report and added the maintained 32-action event catalog. The documentation covers all required workflows, five-tab classification, patient-name exception, actor separation, every registered historical serializer, fixed retention/export/integrity posture, shared-RND authorization, budget behavior, seed decision, migrations/compatibility, blast radius, owner authorizations, trade-offs, and future work. Required file paths, all action keys, all seven serializer keys, prohibited stale claims, required terms, and `git diff --check` passed. The first fresh Laravel run failed only because `AuditStaleFeatureInventoryTest` still asserted that the new runbook contained the obsolete phrase `four UI views only`; the expected red failure was fixed by requiring the five approved names and rejecting the stale phrase. Focused verification passed 5 tests with 90 assertions and Pint. The fresh final gate then passed 1,124 Laravel tests with 7,470 assertions and zero skips; full Pint; 70 frontend files/226 tests, TypeScript, ESLint, and the 92-page production build; and 13 mobile tests, TypeScript, and the 3,241-module Android export. No required check was skipped.
 
 **Wave A5 final gate and push:**
 
-- [ ] Run a fresh full verification, not cached evidence.
-- [ ] Confirm every plan checkbox is complete or explicitly marked as a genuine blocker.
+- [x] Run a fresh full verification, not cached evidence.
+- [x] Confirm every task checkbox is complete or explicitly marked as a genuine blocker.
 - [ ] Confirm all intended task commits exist in order.
 - [ ] Push final verified `main`.
 - [ ] Verify `git ls-remote origin refs/heads/main` exactly equals local `HEAD`.
@@ -439,21 +441,21 @@ Fresh full verification passed 1,124 Laravel tests with 7,465 assertions under `
 
 ## Required privacy sentinels
 
-- [ ] No clinical old/new values in activity columns, properties, revisions, API, logs, export, UI, or seed data.
-- [ ] No previous/new patient-name values anywhere in audit output.
-- [ ] Dedicated `patient_display_name_snapshot` ciphertext is non-indexed and absent from arbitrary JSON.
-- [ ] No hospital number, DOB, sex, address/contact, ward, physician, diagnosis/admission, screening/risk, meal-plan, clinical content, files/OCR/AI prompts/outputs, or patient-report parameters/content.
-- [ ] No patient name in URL, metric, export, filter, sort, search, or logs.
-- [ ] Actor and patient identity are independently labeled and tested.
-- [ ] Historical serializers reject all clinical/patient-linked content.
+- [x] No clinical old/new values in activity columns, properties, revisions, API, logs, export, UI, or seed data.
+- [x] No previous/new patient-name values anywhere in audit output.
+- [x] Dedicated `patient_display_name_snapshot` ciphertext is non-indexed and absent from arbitrary JSON.
+- [x] No hospital number, DOB, sex, address/contact, ward, physician, diagnosis/admission, screening/risk, meal-plan, clinical content, files/OCR/AI prompts/outputs, or patient-report parameters/content.
+- [x] No patient name in URL, metric, export, filter, sort, search, or logs.
+- [x] Actor and patient identity are independently labeled and tested.
+- [x] Historical serializers reject all clinical/patient-linked content.
 
 ## Required authorization matrix
 
-- [ ] Admin can list/filter all five modules, view permitted typed details/history, and manage retention toggle; budget remains read-only; export is 404/disabled.
-- [ ] RND sees contextual trails permitted by policy but never the global Admin audit index.
-- [ ] RND B can view/edit permitted assessment, intervention, monitoring, meal plan, screening document, NCP/report context, and permitted deletion/report endpoints created by RND A.
-- [ ] FSS operational access remains role-scoped as before; attribution fields never become ownership gates.
-- [ ] Unauthenticated/wrong-role requests are denied and denial events remain canonical/privacy-safe.
+- [x] Admin can list/filter all five modules, view permitted typed details/history, and manage retention toggle; budget remains read-only; export is 404/disabled.
+- [x] RND sees contextual trails permitted by policy but never the global Admin audit index.
+- [x] RND B can view/edit permitted assessment, intervention, monitoring, meal plan, screening document, NCP/report context, and permitted deletion/report endpoints created by RND A.
+- [x] FSS operational access remains role-scoped as before; attribution fields never become ownership gates.
+- [x] Unauthenticated/wrong-role requests are denied and denial events remain canonical/privacy-safe.
 
 ## Final verification commands
 

@@ -1,250 +1,289 @@
-# Audit Logs and Trails Implementation Report
+# Audit Oversight and Historical Records Implementation Report
 
-**Implementation plan:** `docs/superpowers/plan/2026-07-11-audit-logs-and-trails-revision.md`  
-**Implementation branch:** `main`  
-**Implementation period:** July 11-13, 2026  
-**Status at report creation:** All fourteen plan tasks implemented and verified locally. Integration-wave commits through Task 9 were already on `origin/main`; Tasks 10-14 and the final formatting/report commits were awaiting the final push.
+**Authoritative design:** `docs/superpowers/specs/2026-07-15-audit-oversight-and-history-redesign.md`
+
+**Executable plan:** `docs/superpowers/plan/2026-07-15-audit-oversight-and-history-redesign-implementation-plan.md`
+
+**Dependent name design:** `docs/superpowers/specs/2026-07-15-first-and-last-name-migration-design.md`
+
+**Implementation branch:** `main`
+
+**Implementation period:** July 15-16, 2026
+**Status:** Tasks 1-17 implemented and freshly verified; the documentation commit and final remote-equality record complete Wave A5.
 
 ## Executive summary
 
-Nutriscope now has a structured, privacy-safe audit system covering security, clinical, operations, reports, and contextual page trails. The public API and UI use a single `AuditEventDto`; raw Spatie properties, internal model classes, internal numeric IDs, arbitrary request data, and raw JSON are not exposed. Clinical events retain only safe metadata and field names, never clinical values, PHI, credentials, file/OCR contents, or AI prompts and outputs.
+Nutriscope now organizes Admin audit oversight into five recognizable modules, presents meaningful typed changes without raw JSON, and preserves event-time versions of complex safe operational records. The redesign retains the existing explicit-route, append-only, retention, and contextual-trail foundation while correcting stale taxonomy, duplicate events, creator-based RND authorization, and clinical identity presentation.
 
-The implementation also replaced generic request logging with explicit route and domain coverage, added route/proxy compatibility enforcement, introduced retention and integrity monitoring, redesigned the Admin audit interface using the existing design system, unified contextual trails, and retired the obsolete stock-management surface only after its consumers were migrated and tested.
+For patient-linked events, Admin can understand which patient was concerned through one encrypted `display_name` snapshot and who acted through a separate actor snapshot. No other patient identity, demographic, clinical value, file/OCR content, AI content, or patient-specific report content is stored or returned through this exception. Safe nonpatient records show typed created/deleted state and before/after changes. Registered complex records have immutable, bounded historical pages that survive later edits and deletion.
 
-Two production capabilities remain disabled pending owner decisions:
+The normal Admin interface has exactly:
 
-- Scheduled retention deletion: Admin-controlled DB setting; `AUDIT_RETENTION_ENABLED=false` is only the fallback until the first setting row exists
-- Audit CSV export: `AUDIT_EXPORT_ENABLED=false`
+1. All Activity
+2. Security & Administration
+3. Nutrition Care
+4. Food Service Operations
+5. Reports
 
-Temporary IP blocking is not shipped. Its dormant enum, configuration, environment, API-capability, and frontend scaffolding were removed; a future implementation requires a separately approved design.
+Audit/report export and scheduled retention deletion remain disabled by default. No external append-only sink/hash chain, per-category retention editor, IP-blocking system, budget approval/rejection/flag flow, or ledger reversal workflow was added. Base seeders suppress audit logging, remain subject to current-contract tests, and intentionally do not create synthetic demo audit history.
 
-## What was implemented
+## What changed
 
-### 1. Structured event contract and taxonomy
+### Module taxonomy and event policy
 
-- Added backed enums for category, domain, action, outcome, and severity.
-- Added indexed audit metadata and safe root/context references while preserving the existing `activity_log` table.
-- Added the `AuditActivity` model, audit-only query scopes, legacy presentation aliases, and one shared DTO contract.
-- Kept Admin list pagination offset-based for compatibility; contextual trails use `before_id` cursor pagination.
+- Added the four stored modules `security_administration`, `nutrition_care`, `food_service_operations`, and `reports`; All Activity is a query view, not a stored module.
+- Retained category as the privacy/retention axis and domain as internal storage/classification.
+- Added `AuditEventPolicy` to select module, category, domain, privacy class, canonical writer, detail mode, reason class, and revision serializer.
+- Corrected RND Food Library, USDA-imported foods, and RND recipes into Nutrition Care without misclassifying them as patient-clinical data.
+- Kept hospital catalog, FSS recipes, menus, procurement, receiving, budgets, and ledger activity in Food Service Operations.
+- Kept all report families in Reports while retaining clinical category for patient-linked report events.
 
-### 2. Central privacy-safe writer
+### Patient identity and privacy
 
-- Added `AuditLogger`, `AuditSanitizer`, and context resolution as the supported audit-write path.
-- Replaced fillable-based logging with explicit allow-lists.
-- Stored safe actor snapshots so renamed or deleted users remain attributable.
-- Removed URL query strings/fragments, control characters, oversized metadata, secrets, tokens, clinical values, request bodies, OCR/file contents, report snapshots, and AI prompts/outputs.
-- Required financial and clinical audit writes participate in the same transaction as the mutation; audit failure rolls the mutation back. Non-critical security telemetry preserves the original response and reports a sanitized failure.
+- Added a dedicated encrypted, non-indexed `patient_display_name_snapshot` column to `activity_log`.
+- Backfilled resolvable patient-linked events from the currently related patient; unresolved events keep only their pseudonymous NCP reference.
+- Added a typed `patient: { display_name }` DTO field independent of the actual user/system actor.
+- Prohibited the patient snapshot from arbitrary JSON, revisions, logs, metrics, URLs, exports, filters, sorting, and search.
+- Preserved the clinical field-name-only contract at storage, API, UI, export, logs, metrics, and historical-version boundaries.
 
-### 3. Explicit coverage instead of request logging
+### Canonical writers and summaries
 
-- Removed generic audit middleware and "accessed path" events.
-- Added a machine-readable coverage entry for every unsafe Laravel route.
-- Added a test that fails when an unsafe route is added without an explicit event source or documented exclusion.
-- Added a Laravel/Next.js compatibility test that compares every `laravelProxy` method/path with the Laravel route list.
+- Kept automatic `AuditsChanges` events only for patient/NCP clinical model lifecycle records.
+- Used explicit `AuditLogger` calls for business lifecycle, access, security, report, food-library, FSS, budget, and system events.
+- Removed duplicate primary events and retained distinct accountable side effects, such as a PO lifecycle event plus its budget-ledger effect.
+- Added semantic subjects and event-specific sentences so events no longer depend on raw model classes or generic `Updated` descriptions.
+- Preserved unknown safe legacy actions as labeled legacy events instead of rewriting them as current actions.
 
-### 4. Security auditing
+### Typed drawer and complex history
 
-- Added login success/failure, authentication failure, logout, password/recovery changes, account administration, authorization denial, and rate-limit events.
-- Deduplicated repeated failures and 429 events to control attacker-driven database growth.
-- Avoided headers, cookies, bearer tokens, request bodies, full credential emails, and unsafe URLs.
-- Kept rate-limit telemetry and account deactivation events, while removing all temporary IP-blocking scaffolding after proxy trust could not be established safely.
+- Added allow-listed typed values for text, enum, boolean, number, PHP currency, dates, references, field lists, quantities, and redaction.
+- Created safe operational before/after rows for simple changes and meaningful final state for creates/deletes.
+- Added immutable, event-time revisions for budgets, FSS recipes, menu cycles, menu templates, purchase orders, RND recipes, and shopping lists.
+- Added read-only Admin history pages with before/after selection and structured tables. Deleted records remain reviewable until retention removes their event/version.
+- Kept current-record links separate and policy-controlled; a current mutable page is never presented as the historical version.
 
-### 5. Clinical trails
+### Shared-RND authorization and attribution
 
-- Correlated patient, NCP, assessment, diagnosis, intervention, meal-plan, monitoring, screening-document, and clinical-report events to their root patient/NCP context.
-- Added explicit chart-entry, protected attachment, report, AI-result approval, and meal-plan generation events.
-- Added authorized patient and NCP timelines with field-name-only changes.
-- Added sentinel tests proving unique PHI/clinical values do not appear in audit storage, API DTOs, exports, logs, or UI rendering.
+- Removed report `user_id`, `audit_owner_id`, and NCP `rnd_user_id` as RND authorization gates.
+- Confirmed every active RND can view and edit every patient/NCP and can perform every currently permitted clinical/report delete.
+- Corrected demographic, patient-menu-plan, and NCP-summary browsing/rendering/archiving to use role/context authorization.
+- Kept report user/owner/prepared-by and clinical creator fields as attribution only.
+- Ensured every event uses the actual actor. Patient rows and NCP cards separately show creator and last clinical action actor.
+- Kept Admin report access type-allow-listed and FSS report access role-scoped.
 
-### 6. Food-service and budget trails
+### Budget and operations
 
-- Correlated purchase-order lifecycle, vendor groups, attachments, price corrections, receiving, completion, reversal, shopping-list approval, and budget deduction to the root PO.
-- Added business actions such as `approved`, `received`, `completed`, `reversed`, and `price_corrected` instead of generic updates.
-- Preserved atomic PO completion, budget ledger, receiving, and audit behavior with rollback coverage.
-- Added budget creator attribution and authorized Admin/FSS budget trails.
+- Added complete typed presentation for fiscal-year setup/opening allocation, per-head/day changes, manual ledger entries, PO deductions, balances, fiscal year, safe reference, actor/system actor, and existing reasons.
+- Added operational coverage for catalog items, FSS recipes, suppliers, population/serving records, menu cycles/templates, shopping lists, PO lifecycle, receiving, price correction, attachments, meal-service completion/reversal, and settings.
+- Preserved budget and ledger calculation/transaction behavior. Admin access stays read-only.
+- Added no approval/rejection/flag workflow and no ledger-reversal workflow.
 
-### 7. Report lifecycle auditing
+### Compatibility and stale-feature cleanup
 
-- Added structured report generation, archive, view, download, export, deletion, branding, and template events.
-- Kept report snapshots, patient filters, image/data URLs, and file contents out of audit rows.
-- Added creator/archive metadata and contextual report timelines.
-- Removed deprecated report-create/generate-all routes only after caller and route tests proved they were unused.
+- Removed Domain/category from the normal Admin interface and list contract. Requests containing those retired list parameters now receive `422`.
+- Retained stored category/domain because privacy, retention, legacy data, and internal classification require them.
+- Retained bounded `event` and `causer_id` aliases for `action` and `actor_id` during compatibility.
+- Hid disabled audit export capability/action from normal metadata and UI while keeping the guarded backend/proxy endpoint for a future separately approved project.
+- Removed stale IP-blocking concepts without changing `AccountBlocked`, `AccountUnblocked`, or Admin account deactivation.
+- Isolated old Inventory labels as legacy presentation only; no current Inventory audit module or route was restored.
+- Added an unscheduled, chunked, idempotent `audit:backfill-oversight` command for legacy module/domain/patient snapshot correction.
 
-### 8. Inventory and stock retirement
-
-This was an explicit plan task but is the largest non-audit behavioral change.
-
-- Removed inventory audit history, its proxy, and unreachable inventory mutation methods.
-- Replaced stock-status and `quantity_in_stock` runtime usage with catalog and immutable PO receiving/price history concepts.
-- Migrated ReceivingService, costing, dashboard, reports, frontend services, seeders, factories, and tests before dropping columns.
-- Added a forward-only migration that removes retired stock fields after stale-reference and food-service verification passed.
-
-The result is that Nutriscope no longer represents receiving as a mutable on-hand inventory quantity. Receiving evidence remains in the PO/receipt history used by procurement and costing.
-
-### 9. Admin audit UI and shared trails
-
-- Rebuilt the Admin page around the existing font, theme tokens, responsive patterns, drawers, tables, and reusable components.
-- Added four views: All Activity, Security, Clinical, and Operations.
-- Added server-driven date, domain, action, actor, outcome, and severity filters, URL-persisted review links, structured detail drawer, and complete loading/empty/error/unauthorized states.
-- Removed raw JSON, `<pre>` blocks, arbitrary object formatting, raw properties expanders, and hard-coded model/action filters.
-- Unified Admin, patient/NCP, PO, budget, and report histories on the same DTO and audit-trail component.
-
-### 10. Retention, monitoring, and documentation
-
-- Added category-specific, indexed, chunked pruning with dry-run and `--force` modes.
-- Added category legal holds, append-only application boundaries, writer/slow-query/volume/storage monitoring, and sanitized system events for prune outcomes.
-- Added a 100,000-row MySQL performance gate and index-plan assertions.
-- Added the operator runbook at `docs/architecture/audit-logging.md`.
-- Corrected the retention schedule so destructive pruning is disabled until an Admin explicitly enables the DB-backed control; monitoring remains active. `AUDIT_RETENTION_ENABLED` supplies only the initial fallback when no settings row exists.
-
-## Current workflow and features
+## Exact current workflow
 
 ```mermaid
 flowchart TD
-    A["User, worker, or system action"] --> B{"Auditable event?"}
-    B -->|"Routine polling, list refresh, validation noise"| X["No audit row"]
-    B -->|"Security, clinical, operations, or report event"| C["Explicit model/domain/security event source"]
-    C --> D["AuditLogger"]
-    D --> E["AuditSanitizer and context resolver"]
-    E --> F{"Required mutation?"}
-    F -->|"Clinical or financial"| G["Write mutation and audit row in one transaction"]
-    F -->|"Non-critical telemetry"| H["Deduplicate and write without changing original response"]
-    G --> I["Append-only activity_log with safe metadata"]
-    H --> I
-    I --> J["AuditEventPresenter / AuditEventDto"]
-    J --> K["Admin audit page"]
-    J --> L["Patient, NCP, PO, budget, and report trails"]
-    J --> M{"Export approved and enabled?"}
-    M -->|"No, default"| N["Export unavailable"]
-    M -->|"Yes"| O["Authorized, filtered, capped CSV plus export audit event"]
-    I --> P["Health, volume, integrity, and query monitoring"]
-    I --> Q{"Retention approved and enabled?"}
-    Q -->|"No, default"| R["Dry-run available; no scheduled deletion"]
-    Q -->|"Yes"| S["Daily chunked prune; legal holds skipped"]
+    A["Business, access, security, report, or scheduled action"] --> B{"Covered and auditable?"}
+    B -->|"No, documented route exclusion/noise"| Z["No audit event"]
+    B -->|"Yes"| C{"Canonical writer selected by policy"}
+    C -->|"Clinical model lifecycle"| D["AuditsChanges observer"]
+    C -->|"Explicit business/access/system action"| E["AuditLogger"]
+    D --> F["Context resolver and actual actor attribution"]
+    E --> F
+    F --> G{"Clinical privacy class?"}
+    G -->|"Yes"| H["Keep field names; make NCP ref; resolve patient display name"]
+    H --> I["Encrypt dedicated non-indexed patient snapshot"]
+    G -->|"No"| J["Allow-list typed safe details and changes"]
+    J --> K{"Registered complex serializer?"}
+    K -->|"Yes"| L["Write bounded immutable before/after revision"]
+    K -->|"No"| M["Drawer-only event"]
+    I --> N["Immutable activity_log event"]
+    L --> N
+    M --> N
+    N --> O["AuditEventPresenter and AuditEventDto"]
+    O --> P{"Authorized viewer"}
+    P -->|"Admin"| Q["Five-tab list and typed drawer"]
+    P -->|"Admin plus revision"| R["Read-only event-time historical page"]
+    P -->|"RND/FSS contextual policy"| S["Patient, NCP, PO, budget, or report trail"]
+    N --> T{"Retention enabled and no legal hold?"}
+    T -->|"No"| U["Retain event and revision"]
+    T -->|"Yes and expired"| V["Daily indexed chunk prune in one retention boundary"]
 ```
 
-## How to use the result
+Required clinical/financial audit writes share the business transaction; audit persistence failure rolls back the mutation. Noncritical security telemetry preserves the original response, deduplicates repeated attacker-driven events, and reports content-free failures. All public presentation passes through the typed DTO. No UI/API returns raw Spatie properties or revision JSON.
 
-### Admin review
+## Admin workflow
 
-1. Sign in as an Admin and open the Audit Logs page.
-2. Choose All Activity, Security, Clinical, or Operations.
-3. Apply date, domain, action, actor, outcome, or severity filters. Filter state remains in the URL for review links.
-4. Open a row to inspect the structured event summary, actor, safe subject/context, outcome, request metadata, and permitted field changes.
-5. Clinical changes display "Value hidden; field changed" and never reveal the old or new clinical value.
+1. Open Admin > Audit Logs.
+2. Select one of the five tabs. Counts come from a conditional aggregate query.
+3. Optionally choose a tab-specific Context, Action, Actor, Outcome, Severity, and Start/End date. Filter state stays in the URL.
+4. Open an event to see its sentence, actual actor, permitted patient identity, safe subject/context, result, typed details, reason, and typed changes.
+5. For a registered complex event, choose the event-time history link and switch between Before and After. This page is read-only.
+6. Use contextual patient/NCP, PO, budget, or report trails from the relevant record page when the role policy permits.
 
-### Contextual trails
+Security contexts are Authentication, Accounts, Audit Oversight, and Settings. Nutrition Care contexts are Food Library and Patients/NCP. Food Service Operations contexts are Catalog, Menus, Procurement, and Budget. Report contexts are the current report types supplied by the backend. There is no normal Domain/category filter and no raw JSON view.
 
-- Every active RND can view and edit every patient/NCP and review its trail. `rnd_user_id` records the NCP-cycle creator only and is never an authorization gate; each timeline entry records its actual actor.
-- PO and budget pages show their complete operational lifecycle and actor/system attribution.
-- Report pages show generation, access, export, archive, and deletion history permitted for that report.
-- Trails load newest-first and request older rows with `before_id` pagination.
+## Clinical privacy boundary
 
-### Operations
+For patient-linked events Admin sees only patient display name, actual actor, action, timestamp, record type, stable pseudonymous NCP reference, and changed field names. Admin does not see old/new clinical values or patient-name values; hospital number; date of birth; sex; address/contact; ward; physician; diagnosis/admission; screening/risk values; meal-plan, assessment, intervention, or monitoring content; files/OCR; AI prompts/outputs; or patient-specific report parameters/content.
 
-- Dry-run retention counts: `php artisan audit:prune`
-- Force a reviewed manual prune: `php artisan audit:prune --force`
-- Enable scheduled deletion from Admin > Audit Logs only after privacy/compliance approval, backup verification, and review of the fixed category periods. Enabling requires the explicit permanent-deletion confirmation; disabling is immediate.
-- Enable audit export only for an approved window: `AUDIT_EXPORT_ENABLED=true`
-- Temporary IP blocking has no configuration or runtime surface. Treat it only as future work requiring separate approval and design.
-- Review daily/weekly/monthly ownership and incident procedures in `docs/architecture/audit-logging.md`.
+The patient name is stored only in the encrypted, non-indexed snapshot column. It is absent from `properties`, revision payloads, logs, metrics, URLs, exports, filters, sorting, and search. Export remains disabled; its future-compatible serialization omits the name. All historical serializers reject clinical/patient-linked types and unsafe content.
 
-### Developer workflow
+## Shared-RND workflow
 
-1. Classify each new unsafe route in `backend/config/audit.php`.
-2. Emit one explicit sanitized event or use an approved model event; do not restore generic request logging.
-3. Add only allow-listed metadata and stable public references.
-4. For clinical events, log field names only. Never log values, PHI, files/OCR, credentials, prompts, or outputs.
-5. Keep Laravel routes and Next.js proxies compatible.
-6. Run route coverage, privacy, authorization, migration, performance, backend, and frontend verification before integration.
+All active RNDs share patient/NCP care. RND B can open and update RND A's assessment, intervention, monitoring, patient meal plan, and screening document where applicable; open the related patient/NCP/report context; and use every delete endpoint currently permitted by the record state. `rnd_user_id`, `audit_owner_id`, report `user_id`, `created_by`, and prepared-by snapshots only explain attribution. They never grant or deny RND access.
 
-## Owner approval gates and decisions made
+The patient table and NCP card show both creator and last clinical action actor. Each timeline row shows the user/system that performed that specific action. Historical prepared-by and actor snapshots are not rewritten when account names later change.
 
-The implementation initially interpreted the plan's Section 10 gates as production-enablement gates rather than implementation blockers, so the owner was not interrupted at those points. The owner has since supplied the following binding decisions; only hospital-handover ownership and future enablement events remain operational approvals:
+## Budget workflow
 
-| Gate | Implemented state | Approval status | Action required |
-|---|---|---|---|
-| Retention periods and legal-hold owner | Fixed periods: security 365 days, clinical 2,190 days, operations 1,095 days, legacy 90 days; legal-hold capability remains | Periods confirmed; named owner deferred to hospital handover | Periods are read-only in the app. Scheduled deletion defaults OFF and may be enabled only after privacy/compliance approval through the confirmed Admin dialog. |
-| Roles allowed to review clinical metadata and export | Admin sees global audit metadata but only field names for clinical changes, never patient identity or values. Every active RND shares patient/NCP access and sees real records directly. | Confirmed | Preserve these boundaries. `rnd_user_id` is attribution only. |
-| Whether exports are required | Safe, authorized CSV capability exists and is capped at 50,000 rows | Confirmed disabled | Keep disabled. If approved later, access is Admin-only and requires an approved handling process. |
-| Whether temporary IP blocking is needed | No block model, migration, middleware, endpoint, capability, environment flag, or UI command exists | Confirmed removed | Future work only. A separate design requires proxy, shared-NAT, incident-response, authorization, expiry, and reversal approval. |
-| Whether `quantity_in_stock` has any remaining product purpose | Runtime consumers were migrated, tests passed, fields were removed in the forward-only migration | Confirmed retired | Preserve the catalog/receiving direction. Reversal would require a new forward migration and deliberate restoration of stock semantics. |
+The audit system records new fiscal-year setup/opening allocation, per-head/day changes, current manual ledger inputs/corrections, PO deductions, and related balances/references. Manual ledger input retains its required bounded reason. The owner deferred new cross-domain reason enforcement, so the redesign does not claim that all deletion, price-correction, reversal, or post-approval correction routes now require a new reason field; existing reasons are displayed when present.
 
-No retention or export feature was silently enabled, and no IP-block feature remains to enable. Scheduled deletion is controlled by one audited DB-backed Admin switch; the environment value is only its initial fallback and remains false by default.
+Admin may list/show budgets and view their audit trails but cannot mutate them. No new approval, rejection, flag, mandatory review, or ledger reversal exists. Existing immutable ledger behavior is unchanged; any future reversal would require a separately approved linked-entry design.
 
-## Behavioral changes beyond displaying audit trails
+## Retention, export, and legal hold
 
-These changes were in the approved plan but affect broader workflows:
+| Category | Fixed period |
+|---|---:|
+| Security | 365 days |
+| Clinical | 2,190 days (6 years) |
+| Operations | 1,095 days (3 years) |
+| Unclassified legacy | 90 days |
 
-- Inventory is now a catalog/receiving-history concept rather than mutable on-hand stock. There is no `quantity_in_stock` behavior.
-- Archived reports are treated as immutable records; background file lifecycle work records completion/failure rather than claiming completion at queue time.
-- Deprecated report-create/generate-all API routes and matching proxies were removed after no-caller proof.
-- Clinical and PO attachment storage uses rollback/quarantine handling so required audit and business state remain consistent when file/database operations fail.
-- PO completion, receiving, and budget deduction now have stronger transaction and uniqueness guarantees.
-- Audit-row update/delete/truncate attempts are rejected outside the reviewed retention service; migrations receive a narrowly scoped exemption so legacy audit backfills can run.
+Scheduled deletion uses one DB-backed `audit_settings` flag. `AUDIT_RETENTION_ENABLED=false` is the fallback only until a DB row exists. Enabling requires an Admin modal that explains the daily, permanent, unrecoverable deletion and the need for privacy/compliance approval. Disabling requires no confirmation. Each change is audited with actor, old/new state, and timestamp. Periods/state appear read-only beside the control.
 
-These were not unrelated feature additions; each supports an explicit plan requirement for truthful, private, attributable, and atomic audit history.
+`audit:prune` is dry-run; the scheduled `audit:prune --force` runs daily only when enabled, under overlap/single-server locks. Legal holds protect both parent events and revisions. Encryption-key backup/rotation must keep retained patient snapshots decryptable.
 
-## Overscope and incidental fixes
+Audit/report export remains disabled and absent from normal UI/capabilities. Future enablement is Admin-only and needs a new privacy/handling decision, including a decision on patient-name inclusion. No external append-only sink, integrity export, or hash chain exists.
 
-### Repository-wide Pint formatting
+## Seeder and demo behavior
 
-The final full-Pint gate found formatting debt in 246 pre-existing PHP files. After owner authorization to continue, Laravel Pint mechanically normalized those files. This produced most of the approximately 262 visible changes.
+`DatabaseSeeder` uses `activity()->withoutLogs()` so base/current data setup does not create anonymous audit rows. Seeders/factories use the separate first/last-name contract and are covered by idempotence, name-synchronization, enum/value, report-consumer, and no-audit-noise tests.
 
-**What changed:** whitespace, braces, import/trait ordering, blank lines, operator spacing, alignment, and other formatter-owned syntax presentation.  
-**What did not intentionally change:** application behavior, routes, schemas, authorization, or business rules.  
-**Pros:** full Pint gate passes; consistent backend style; less future CI/style debt.  
-**Cons:** large noisy diff; blame churn; higher merge-conflict risk; more review surface.  
-**Mitigation:** the formatting sweep is isolated in its own Conventional Commit and was followed by the full backend suite.
+The owner explicitly declined a dedicated audit-event demo seeder. Therefore a seeded demo shows application records and produces truthful audit history only when a user actually exercises workflows. It does not contain synthetic five-tab audit events or fake clinical values. This is intentional, not missing work.
 
-### Test-fixture corrections
+## Migrations and compatibility
 
-Full verification exposed four invalid/random fixtures. Corrections were limited to tests:
+The audit migration chain is additive:
 
-- supplied dry weight when edema validation requires it;
-- pinned a non-clinical report type where randomized factory output could select a clinical type;
-- assigned NCP ownership to the acting RND user in UUID route tests.
+- original Spatie activity table/event/batch migrations;
+- July 11 metadata and core indexes;
+- July 12 patient/NCP root, actor, public-ID, and public-reference indexes/backfills;
+- `2026_07_14_000001_create_audit_settings_table.php`;
+- `2026_07_15_100001_add_module_and_patient_snapshot_to_activity_log.php`;
+- `2026_07_15_100002_create_audit_revisions_table.php`;
+- `2026_07_15_100003_backfill_audit_modules_and_patient_snapshots.php`.
 
-These fixes do not change production behavior. They make tests represent the authorization and validation contracts they intended to exercise.
+The redesign depends on the two split-name migrations that add and backfill `first_name`/`last_name` for users and patients. Legacy `name` columns remain for compatibility. The backfill deliberately sets `first_name = name`, `last_name = null`; it never guesses compound Filipino names.
 
-### Compatibility cleanup
+Deploy application code and additive migrations together. Migration rollback requires application rollback first. Revision rows cascade with parent audit events. The manual oversight backfill is safe to rerun and does not modify existing revisions/payloads. No quantity/stock compatibility field was dropped in this redesign.
 
-- Removed one stale Next.js `POST /fss/purchase-orders` proxy handler after the Laravel route comparison proved no matching route existed.
-- Adjusted one readability-contract regex to remain compatible with the frontend JavaScript target while keeping it bounded to one CSS block.
-- Added the migration-only audit mutation-boundary exemption after fresh/legacy migration tests proved the append-only runtime guard blocked an existing reviewed backfill.
+## Blast radius and mitigations
 
-These are compatibility and verification fixes required to finish Task 14, not unrelated product features.
+| Area | Risk | Mitigation and evidence |
+|---|---|---|
+| Clinical privacy | Patient identity or clinical content leaks beyond the exception | Dedicated encrypted/non-indexed field; typed DTO; no revision; storage/API/export/log/metric/UI/URL/filter/search sentinels |
+| Actor correctness | Creator fields continue to masquerade as ownership/actor | Shared-RND route tests, report policy correction, actual-actor assertions, creator/last-action UI fields |
+| Historical truth | Current mutable state is mistaken for an old event | One immutable revision per event; event-time before/after; deleted-record tests; current link kept separate |
+| Revision growth | Operational history becomes an unbounded shadow store | Seven registered types, per-type byte caps, strict schemas, one-to-one rows, parent retention/legal hold, storage monitoring |
+| Duplicate events | One intent creates vague observer and explicit events | Canonical writer policy, exact event-count/order tests, distinct PO/ledger side effects preserved |
+| Migration/backfill | Wrong classification or plaintext names | Reversible isolated MySQL migration tests; ciphertext-at-rest; deterministic/idempotent chunked backfill |
+| Query performance | Five tabs/counts/history cause full scans or N+1 | Composite indexes, conditional count query, eager loading, query-count tests, Boost `EXPLAIN`, 100,000-row p95 gate |
+| Client compatibility | Laravel/Next/mobile consumers retain stale params/types | Proxy-route contract, frontend stale-consumer scans, typed service tests, full builds; mobile name checks |
+| Seeder accuracy | Demo data creates anonymous noise or stale values | Audit suppression, idempotence and current-value contracts, no synthetic audit-event seeder |
+| Retention | Scheduled permanent deletion starts unintentionally | Default false, DB row wins only after explicit Admin change, confirmation modal, audited toggles, legal hold and dry-run tests |
+
+## Owner-authorized decisions
+
+| Decision normally requiring approval | Exact binding owner decision used |
+|---|---|
+| Admin patient identity in clinical audit | Admin may see only patient `display_name` through the dedicated encrypted snapshot; all other identity/demographic/clinical content remains prohibited. |
+| Patient identity versus actor | Patient name identifies the patient concerned; actor identifies who performed the action. Both must be independently labeled. |
+| Information architecture | The normal Admin UI has exactly the five named tabs; module tabs replace Domain as the primary organization. |
+| Shared clinical access | Every active RND can view/edit every patient/NCP; creator/owner fields are attribution, not authorization. |
+| Historical operational detail | Safe simple records show typed values; complex records use immutable event-time read-only versions, including deleted records. |
+| Budget powers | Admin remains read-only; no approval/rejection/flag/mandatory review or new ledger reversal workflow. Existing ledger behavior is preserved. |
+| Change reasons | Existing manual-ledger reason remains required; new cross-domain reason enforcement was deferred for this implementation. |
+| Retention | Fixed 365/2,190/1,095/90-day mapping; one audited DB toggle; fallback false; confirmation only when enabling. |
+| Export | Audit/report export remains disabled; future enablement is Admin-only and requires a separate privacy decision. |
+| Integrity hardening | No external append-only sink, hash chain, or integrity export in this implementation. |
+| IP blocking | Remove only IP-blocking remnants; preserve account blocking/unblocking and account deactivation. |
+| Seed/demo | Base seeders create no audit noise; owner explicitly declined a dedicated synthetic audit-event seeder. |
+| Names dependency | Separate first/last fields with one display-name contract; no heuristic split; legacy names/inputs/outputs remain during compatibility. |
+
+## Overscope and unrelated fixes
+
+There was no intentional product overscope. Work remained within the two July 15 specifications and their verification/compatibility boundaries. In particular, the redesign did not drop `quantity_in_stock`, introduce a new budget workflow, enable export/retention, create synthetic audit history, or broaden Admin clinical access.
+
+Fresh integration verification exposed test-contract drift rather than unrelated production defects:
+
+- the person-name stale-consumer allow-list did not explicitly register the approved legacy `patient.name` fallback inside the oversight backfill; the test boundary was corrected, with no runtime behavior change;
+- characterization/inventory tests were aligned with the intentionally retained first-name compatibility and current audit logger/route inventory; no production behavior changed.
+
+The shared-RND report corrections were not incidental fixes: they implement the authoritative design's explicit discovery that attribution fields were incorrectly acting as authorization gates.
+
+## Architectural trade-offs
+
+| Choice | Advantages | Disadvantages/constraints |
+|---|---|---|
+| Spatie row plus Nutriscope typed contract | Reuses stable event storage while preventing raw-property/API coupling | Two layers must stay synchronized through tests and policy |
+| Separate module and category | User-facing organization matches workflows while retention/privacy remains correct | Every event needs both classifications; legacy backfill is required |
+| Encrypted patient-name snapshot | Admin can identify the concerned patient even after rename/delete without exposing other PHI | Search/sort/filter cannot use the field; encryption-key lifecycle is operationally critical |
+| Separate immutable revision table | Truthful event-time complex views survive edits/deletes and stay typed | Additional storage and serializers; only registered record types are supported |
+| Explicit route/event coverage | Prevents accidental request-body logging and forces intentional semantics | New routes/writers require inventory maintenance and focused tests |
+| DB-backed retention switch | Runtime Admin control is auditable and survives deploys | A mistaken enablement is destructive, so confirmation, backups, and legal ownership remain essential |
+| No synthetic audit demo seeder | Avoids fake chronology and clinical privacy mistakes | A fresh demo has no rich audit history until workflows are exercised |
+| No external integrity sink/hash chain | Fits current deployment scale and keeps operations simpler | Database administrators remain a trust boundary; independent tamper evidence is future work |
 
 ## Verification evidence
 
-- Backend full suite after the Pint sweep and retention safety guard: **971 passed, 1 Windows-only symlink skip, 5,851 assertions**.
-- Laravel Pint: **pass**.
-- Frontend tests: **47 files, 162 tests passed**.
-- Frontend TypeScript check: **pass**.
-- Frontend lint: **pass**.
-- Frontend production build: **pass, 90 pages generated**. The sandboxed attempt could not fetch the configured Google Fonts; the approved network retry completed successfully.
-- Laravel routes: **225 routes** reviewed with unsafe-route coverage.
-- Laravel/Next.js proxy compatibility: **pass** after the stale proxy removal.
-- Fresh migration, legacy-row forward migration, audit migration rollback/re-forward, privacy sentinels, authorization, stock stale-reference scans, and performance/index gates: **pass**.
-- Task 14 spec-compliance review: **approved**.
-- Task 14 code-quality review: **approved** after the bounded-regex correction.
+Task 16 fresh integration verification completed on PHP 8.4, Laravel 13.11.2, MySQL, Sanctum 4.3.2, PHPUnit 12.5.26, Laravel Boost 2.4.8, and Pint 1.29.1.
 
-## Commit and rollout notes
+- Full Laravel: **1,124 tests, 7,465 assertions, zero skips** under `--fail-on-skipped`.
+- Audit/report/budget/operations focused set: **354 tests, 3,988 assertions**.
+- Full frontend: **70 files, 226 tests**; TypeScript, ESLint, and Next.js 16.2.6 production build passed; 92 pages generated.
+- Mobile: **13 Node tests**, TypeScript, and Android Expo export passed; 3,241 modules and a 6.16 MB Hermes bundle.
+- Pint: full `vendor/bin/pint --test` passed.
+- MySQL migrations: redesign forward, rollback, and re-forward passed; live migration registry showed all migrations applied.
+- Manual backfill: two live `audit:backfill-oversight --chunk=500` runs produced identical zero-update results.
+- MySQL plans: Boost inspected All Activity, each module, Nutrition Library/FSO subfilters, actor/action/date, patient/budget trails, and revision IDs. Intended ordered/actor indexes were used where selective; representative-volume tests proved log/event/actor/context plans.
+- Performance: existing 100,000-row MySQL p95 and N+1/query-count gates passed.
+- Privacy, authorization, duplicate-event, retention toggle/prune/legal hold/scheduler, report rendering, seed idempotence, route/proxy compatibility, and stale-consumer scans passed.
+- Runtime config confirmed export false and retention environment fallback false. Scans found no external sink/hash chain, per-category editor, IP-block scaffold, or budget approval/reversal flow.
 
-The implementation uses one concise Conventional Commit per plan task, plus isolated cleanup/report commits. No AI attribution or extra author trailers were added. Optional export and scheduled deletion remain disabled by default; temporary IP blocking is absent and reserved for separately approved future work.
+Task 17 then ran a second fresh completion gate after the documentation changes. The first Laravel run correctly failed one stale characterization assertion that still required the old phrase "four UI views only." The test was changed first to reject that phrase and require all five current tab names; its focused rerun passed 5 tests with 90 assertions and Pint. The complete gate then passed:
 
-The `.superpowers` directory is unrelated, untracked, unstaged, and intentionally excluded from all commits.
+- Full Laravel: **1,124 tests, 7,470 assertions, zero skips**.
+- Full frontend: **70 files, 226 tests**; standalone TypeScript, ESLint, and production build passed; 92 pages generated.
+- Mobile: **13 tests**, TypeScript, and Android Expo export passed; 3,241 modules and a 6.16 MB Hermes bundle. Generated verification output was removed.
+- Full Pint: passed.
+- Documentation: required paths, all 32 action values, all seven revision serializers, stale claims, required privacy/retention/owner sections, and `git diff --check` passed.
 
-## Owner response checklist
+No required check was skipped. The Next.js build emitted its existing nonblocking middleware-to-proxy convention warning, and Node emitted the existing mobile module-type performance warning; neither changed verification results.
 
-- [x] Retention periods confirmed as static: security 365 days, clinical 2,190 days, operations 1,095 days, legacy 90 days.
-- [ ] Name the legal-hold owner and approval/release process at hospital handover.
-- [x] Clinical visibility confirmed: Admin receives field names only with no identity/values; all active RNDs share real patient/NCP access.
-- [x] Audit/report export remains disabled; any future enablement is Admin-only.
-- [x] Temporary IP blocking removed; any future phase requires a separate approved design.
-- [x] Mutable stock and `quantity_in_stock` retirement confirmed as the intended product model.
-- [x] External append-only sink, integrity export, and hash chain skipped for this deployment scale and retained only as future work.
-- [x] NCP attribution confirmed: show creator and last clinical actor; every timeline entry shows its actual actor.
-- [x] Admin budget access remains read-only with no approval/rejection/flag workflow.
-- [x] No separate clinical re-identification workflow; RND users access real records directly.
-- [ ] Confirm the ledger-correction pattern separately; no approval workflow was added. Current direction is immutable ledger plus reversal entries.
+## Commit and rollout record
+
+The name migration compatibility wave completed first at `6cc8fdd781ddf176d79be6181928c04b26499520`. Audit redesign task commits then landed sequentially from characterization through storage, policy, typed presentation, five tabs, historical serializers, budget/library/FSO/report authorization, compatibility cleanup, and integration verification. Wave A4 completed at `c6fd4e10eb382cce3878f0e4a1f37433070deb0b`, with local and remote `main` equal before Task 17 began.
+
+Every task used a concise Conventional Commit without AI attribution. Integration waves were pushed only after their specified gates. The final documentation/verification commit and Wave A5 remote equality are recorded in the implementation plan.
+
+## Unresolved and future work
+
+- Name the hospital privacy/legal-hold approver and release procedure during production handover.
+- Decide any future cross-domain destructive/corrective reason project as one coordinated backend/web/mobile change.
+- Decide any future immutable ledger reversal-entry design; do not modify current entries meanwhile.
+- Decide audit export privacy/handling, including whether patient display name can ever be included, before enabling the guarded endpoint.
+- Consider an external append-only sink/hash chain only as a separately approved hardening project.
+- Populate demo audit history by exercising real workflows or approve a future bounded demo strategy; the current owner decision prohibits synthetic audit-event seeding.
+- Monitor revision-table growth and query plans as real production volume increases.
+
+None of these items blocks the approved July 15 implementation. Export and retention deletion remain safely disabled until their existing approval controls are deliberately used.

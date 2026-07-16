@@ -97,10 +97,17 @@ class AuditStaleFeatureInventoryTest extends TestCase
         $this->assertTrue(Schema::hasColumn('activity_log', 'category'));
         $this->assertTrue(Schema::hasColumn('activity_log', 'domain'));
         $this->assertFileDoesNotExist(base_path('../frontend/components/audit/AuditExportButton.tsx'));
-        $this->assertStringContainsString(
-            'four UI views only',
-            file_get_contents(base_path('../docs/architecture/audit-logging.md')),
-        );
+        $architecture = file_get_contents(base_path('../docs/architecture/audit-logging.md'));
+        $this->assertStringNotContainsString('four UI views only', $architecture);
+        foreach ([
+            'All Activity',
+            'Security & Administration',
+            'Nutrition Care',
+            'Food Service Operations',
+            'Reports',
+        ] as $tab) {
+            $this->assertStringContainsString($tab, $architecture);
+        }
         $this->assertStringContainsString(
             'activity()->withoutLogs',
             file_get_contents(database_path('seeders/DatabaseSeeder.php')),
