@@ -43,7 +43,7 @@ class AuditInventoryContractTest extends TestCase
         ],
         'tests/Feature/Audit/ReportAuditTest.php' => [
             'test_report_views_downloads_and_deletes_emit_safe_semantic_events',
-            'getJson("/api/rnd/reports/{$report->uuid}/activity")->assertForbidden()',
+            "->assertJsonPath('data.0.actor.id', \$other->uuid)",
         ],
         'tests/Feature/Audit/SharedRndClinicalAccessTest.php' => [
             'test_an_rnd_can_write_every_clinical_section_of_another_rnds_ncp',

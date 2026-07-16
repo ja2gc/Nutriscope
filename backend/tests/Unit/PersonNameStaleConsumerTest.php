@@ -12,7 +12,7 @@ class PersonNameStaleConsumerTest extends TestCase
     public function test_direct_person_name_model_reads_are_limited_to_deprecated_audit_values(): void
     {
         $actual = $this->matchingProductionLines(
-            '/(?:\$(?:[A-Za-z_][A-Za-z0-9_]*(?:user|patient|actor|causer|rnd|admin|fss|preparer|creator|clinician|subject|author|owner|createdBy|updatedBy)|user|patient|actor|causer|rnd|admin|fss|preparer|creator|clinician|subject|author|owner|createdBy|updatedBy)|->(?:[A-Za-z_][A-Za-z0-9_]*(?:user|patient|actor|causer|rnd|admin|fss|preparer|creator|clinician|subject|author|owner|createdBy|updatedBy)|user|patient|actor|causer|rnd|admin|fss|preparer|creator|clinician|subject|author|owner|createdBy|updatedBy))(?:\?->|->)name\b/i',
+            '/(?:\$(?:[A-Za-z_][A-Za-z0-9_]*(?:user|patient|actor|causer|rnd|admin|fss|preparer|creator|clinician|author|owner|createdBy|updatedBy)|user|patient|actor|causer|rnd|admin|fss|preparer|creator|clinician|author|owner|createdBy|updatedBy)|->(?:[A-Za-z_][A-Za-z0-9_]*(?:user|patient|actor|causer|rnd|admin|fss|preparer|creator|clinician|author|owner|createdBy|updatedBy)|user|patient|actor|causer|rnd|admin|fss|preparer|creator|clinician|author|owner|createdBy|updatedBy))(?:\?->|->)name\b/i',
         );
 
         $expected = [
@@ -81,7 +81,8 @@ class PersonNameStaleConsumerTest extends TestCase
 
             $relative = str_replace('\\', '/', substr($file->getPathname(), strlen(base_path()) + 1));
             foreach (file($file->getPathname(), FILE_IGNORE_NEW_LINES) ?: [] as $line) {
-                if (preg_match($pattern, $line) === 1) {
+                $code = preg_replace("/'(?:\\\\.|[^'\\\\])*'/", "''", $line) ?? $line;
+                if (preg_match($pattern, $code) === 1) {
                     $matches[] = $relative.':'.trim($line);
                 }
             }

@@ -104,13 +104,17 @@ class PersonNameBackendFlowTest extends TestCase
             ->sole();
         $this->assertSame('Maria', $activity->properties['old']['first_name']);
         $this->assertSame('Maria Luisa', $activity->properties['attributes']['first_name']);
+        $change = collect(app(AuditEventPresenter::class)->present($activity)->toArray()['changes'])
+            ->firstWhere('field', 'first_name');
         $this->assertSame([
             'field' => 'first_name',
             'label' => 'First Name',
             'old_value' => 'Maria',
             'new_value' => 'Maria Luisa',
             'redacted' => false,
-        ], collect(app(AuditEventPresenter::class)->present($activity)->changes)->firstWhere('field', 'first_name'));
+        ], array_intersect_key($change, array_flip(['field', 'label', 'old_value', 'new_value', 'redacted'])));
+        $this->assertSame(['type' => 'text', 'value' => 'Maria'], $change['before']);
+        $this->assertSame(['type' => 'text', 'value' => 'Maria Luisa'], $change['after']);
 
         $legacy = User::factory()->rnd()->create([
             'name' => 'Legacy Mononym',
