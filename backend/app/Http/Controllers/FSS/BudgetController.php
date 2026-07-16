@@ -46,11 +46,20 @@ class BudgetController extends Controller
     /** RND sets up a new fiscal year allocation. Unique per year — enforced in DB. */
     public function store(StoreBudgetRequest $request): JsonResponse
     {
-        $budget = $this->audited(function () use ($request): Budget {
+        $validated = $request->validated();
+        $year = (int) $validated['fiscal_year'];
+        [$budget, $openPurchaseOrders] = $this->audited(function () use ($validated, $year): array {
             $budget = Budget::create([
-                ...$request->validated(),
+                ...$validated,
                 'created_by' => Auth::id(),
             ]);
+            $openPurchaseOrders = PurchaseOrder::query()
+                ->where('lifecycle_status', 'open_execution')
+                ->whereHas('shoppingList', fn ($query) => $query
+                    ->whereYear('period_start', $year)
+                    ->orWhereYear('period_end', $year))
+                ->get(['id']);
+            $after = $this->revisionRegistry->capture($budget->load('ledgerEntries.purchaseOrder', 'ledgerEntries.creator'));
             $activity = $this->auditLogger->record(
                 AuditAction::Created,
                 AuditCategory::Operations,
@@ -60,27 +69,23 @@ class BudgetController extends Controller
                 details: [
                     'fiscal_year' => $budget->fiscal_year,
                     'allocated_amount' => (float) $budget->allocated_amount,
+                    'balance_after' => $after->payload['totals']['remaining_balance'],
+                    'open_purchase_orders_re_evaluated_count' => $openPurchaseOrders->count(),
                 ],
                 actor: Auth::user(),
             );
             $this->revisionWriter->write(
                 $activity,
                 null,
-                $this->revisionRegistry->capture($budget->load('ledgerEntries.purchaseOrder', 'ledgerEntries.creator')),
+                $after,
             );
 
-            return $budget;
+            return [$budget, $openPurchaseOrders];
         });
 
         // Re-evaluate open-execution POs that were blocked waiting for this allocation.
-        $year = $budget->fiscal_year;
         $lifecycle = app(PurchaseOrderLifecycleService::class);
-        PurchaseOrder::where('lifecycle_status', 'open_execution')
-            ->whereHas('shoppingList', fn ($q) => $q
-                ->whereYear('period_start', $year)
-                ->orWhereYear('period_end', $year))
-            ->get()
-            ->each(fn (PurchaseOrder $po) => $lifecycle->refresh($po));
+        $openPurchaseOrders->each(fn (PurchaseOrder $po) => $lifecycle->refresh($po));
 
         $budget = Budget::query()->withLedgerTotals()->with('creator:id,uuid,name,first_name,last_name')->findOrFail($budget->id);
 
@@ -186,6 +191,7 @@ class BudgetController extends Controller
                 'reference' => $data['reference'] ?? null,
                 'created_by' => Auth::id(),
             ]);
+            $after = $this->revisionRegistry->capture($budget->fresh(['ledgerEntries.purchaseOrder', 'ledgerEntries.creator']));
             $activity = $this->auditLogger->record(
                 AuditAction::Adjusted,
                 AuditCategory::Operations,
@@ -197,15 +203,18 @@ class BudgetController extends Controller
                     'type' => $entry->type,
                     'source' => $entry->source,
                     'amount' => (float) $entry->amount,
+                    'signed_amount' => $entry->signedAmount(),
                     'reason' => $entry->reason,
                     'reference' => $entry->reference,
+                    'balance_before' => $before->payload['totals']['remaining_balance'],
+                    'balance_after' => $after->payload['totals']['remaining_balance'],
                 ],
                 actor: Auth::user(),
             );
             $this->revisionWriter->write(
                 $activity,
                 $before,
-                $this->revisionRegistry->capture($budget->fresh(['ledgerEntries.purchaseOrder', 'ledgerEntries.creator'])),
+                $after,
             );
 
             return $entry;

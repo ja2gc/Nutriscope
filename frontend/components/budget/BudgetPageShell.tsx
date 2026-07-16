@@ -266,7 +266,7 @@ function LedgerSection({ entries, loading, filter, onFilter }: {
                 <th className="text-right py-2 px-3 text-xs font-extrabold text-warm-400 uppercase tracking-wider">Amount</th>
                 <th className="text-left py-2 px-3 text-xs font-extrabold text-warm-400 uppercase tracking-wider">Reason</th>
                 <th className="text-left py-2 px-3 text-xs font-extrabold text-warm-400 uppercase tracking-wider">Reference</th>
-                <th className="text-left py-2 px-3 text-xs font-extrabold text-warm-400 uppercase tracking-wider">Created By</th>
+                <th className="text-left py-2 px-3 text-xs font-extrabold text-warm-400 uppercase tracking-wider">Actor</th>
               </tr>
             </thead>
             <tbody>
@@ -279,7 +279,7 @@ function LedgerSection({ entries, loading, filter, onFilter }: {
                   </td>
                   <td className="py-2 px-3 text-warm-500">{e.reason ?? "-"}</td>
                   <td className="py-2 px-3 text-warm-500">{e.reference ?? e.po_number ?? "-"}</td>
-                  <td className="py-2 px-3 text-warm-500">{e.created_by ?? "-"}</td>
+                  <td className="py-2 px-3 text-warm-500">{e.actor.name}</td>
                 </tr>
               ))}
             </tbody>

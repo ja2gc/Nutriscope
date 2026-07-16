@@ -21,6 +21,11 @@ class AuditFieldLabels
         'total_amount' => 'Total Amount',
         'allocated_amount' => 'Opening Allocation',
         'per_head_day_limit' => 'Budget Per Head Per Day',
+        'balance_before' => 'Balance Before',
+        'balance_after' => 'Balance After',
+        'purchase_order_public_id' => 'Purchase Order Reference',
+        'signed_amount' => 'Signed Amount',
+        'open_purchase_orders_re_evaluated_count' => 'Open Purchase Orders Re-evaluated',
         'estimated_population' => 'Estimated Population',
         'served_population' => 'Served Population',
     ];

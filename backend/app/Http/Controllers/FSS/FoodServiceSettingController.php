@@ -58,6 +58,8 @@ class FoodServiceSettingController extends Controller
                         'new_limit' => $newLimit,
                     ],
                     actor: Auth::user(),
+                    oldValues: ['per_head_day_limit' => $oldLimit],
+                    newValues: ['per_head_day_limit' => $newLimit],
                 );
             });
         }

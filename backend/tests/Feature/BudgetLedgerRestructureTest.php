@@ -50,6 +50,9 @@ class BudgetLedgerRestructureTest extends TestCase
         $this->assertArrayNotHasKey('procurement_span', $row);
         $this->assertArrayHasKey('source', $row);
         $this->assertArrayHasKey('created_by', $row);
+        $this->assertSame('PO', $row['reason']);
+        $this->assertSame('system', $row['actor']['kind']);
+        $this->assertSame('Budget ledger', $row['actor']['name']);
     }
 
     public function test_summary_returns_three_figures(): void

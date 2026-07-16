@@ -22,4 +22,14 @@ describe("admin budget page", () => {
     expect(source).toContain("FiscalYearSetupSection");
     expect(source).toContain("ManualAdjustSection");
   });
+
+  test("shared budget ledger identifies the actual user or system actor", () => {
+    const source = readFileSync(join(root, "components/budget/BudgetPageShell.tsx"), "utf8");
+    const service = readFileSync(join(root, "services/budgetService.ts"), "utf8");
+
+    expect(source).toContain(">Actor<");
+    expect(source).toContain("e.actor.name");
+    expect(source).not.toContain(">Created By<");
+    expect(service).toContain('kind: "user" | "system"');
+  });
 });

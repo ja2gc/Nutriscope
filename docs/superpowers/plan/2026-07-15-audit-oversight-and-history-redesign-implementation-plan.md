@@ -1,6 +1,6 @@
 # Audit Oversight and Historical-Record Redesign Implementation Plan
 
-**Status:** In progress. The name-migration gate is complete, pushed, and remote-verified at `6cc8fdd781ddf176d79be6181928c04b26499520`; Audit Tasks 1–8 and Waves A1–A2 are complete. Task 10 is next because the owner deferred Task 9. Task 14 is skipped by owner decision.
+**Status:** In progress. The name-migration gate is complete, pushed, and remote-verified at `6cc8fdd781ddf176d79be6181928c04b26499520`; Audit Tasks 1–8 and 10 plus Waves A1–A2 are complete. Task 11 is next because the owner deferred Task 9. Task 14 is skipped by owner decision.
 
 **Authoritative design:** `docs/superpowers/specs/2026-07-15-audit-oversight-and-history-redesign.md`
 
@@ -272,11 +272,15 @@ Future work may add bounded reasons for destructive and corrective Admin, clinic
 
 ## Task 10 — Budget audit coverage
 
-- [ ] Update `backend/app/Http/Controllers/FSS/BudgetController.php`, `backend/app/Listeners/BudgetLedgerListener.php`, `backend/app/Services/FSS/PurchaseOrderLifecycleService.php`, `backend/app/Models/Budget.php`, `BudgetLedger.php`, and budget revision serializer/policy for new fiscal year, opening allocation, per-head/day, manual ledger input, existing corrections, PO deductions, actor, reason, amount, balance, fiscal year, and safe linked operational reference.
-- [ ] Preserve current ledger behavior. Do not add approval/rejection, flags, mandatory Admin review, immutable-ledger reversal, or any new budget workflow.
-- [ ] Keep Admin budget routes/presentation read-only; update `backend/app/Http/Resources/BudgetResource.php`, `frontend/components/budget/BudgetPageShell.tsx`, and contextual `ActivityController`/`AuditTrail.tsx` only for safe audit presentation.
-- [ ] Extend `backend/tests/Feature/BudgetAuditTest.php`, `BudgetLedgerTest.php`, `BudgetLedgerRestructureTest.php`, `AdminBudgetReadOnlyTest.php`, `Audit/PurchaseOrderTrailTest.php`, and frontend budget/audit tests for exact balances, canonical events, reasons, revisions, Admin read-only, and no workflow additions.
-- [ ] Review gates complete; commit `feat: complete budget audit coverage`.
+- [x] Update `backend/app/Http/Controllers/FSS/BudgetController.php`, `backend/app/Listeners/BudgetLedgerListener.php`, `backend/app/Services/FSS/PurchaseOrderLifecycleService.php`, `backend/app/Models/Budget.php`, `BudgetLedger.php`, and budget revision serializer/policy for new fiscal year, opening allocation, per-head/day, manual ledger input, existing corrections, PO deductions, actor, reason, amount, balance, fiscal year, and safe linked operational reference.
+- [x] Preserve current ledger behavior. Do not add approval/rejection, flags, mandatory Admin review, immutable-ledger reversal, or any new budget workflow.
+- [x] Keep Admin budget routes/presentation read-only; update `backend/app/Http/Resources/BudgetResource.php`, `frontend/components/budget/BudgetPageShell.tsx`, and contextual `ActivityController`/`AuditTrail.tsx` only for safe audit presentation.
+- [x] Extend `backend/tests/Feature/BudgetAuditTest.php`, `BudgetLedgerTest.php`, `BudgetLedgerRestructureTest.php`, `AdminBudgetReadOnlyTest.php`, `Audit/PurchaseOrderTrailTest.php`, and frontend budget/audit tests for exact balances, canonical events, reasons, revisions, Admin read-only, and no workflow additions.
+- [x] Review gates complete; commit `feat: complete budget audit coverage`.
+
+Task 10 followed red-green TDD. Initial assertions failed because the typed Admin DTO omitted opening allocation, balance, signed amount, manual reference, and PO public reference; per-head/day changes had no typed before/after values; the budget ledger UI showed a blank creator for system deductions; and fiscal-year setup did not summarize open purchase orders re-evaluated after allocation. The canonical Budget writers now expose only allow-listed fiscal year, opening allocation, entry type/source, amount and signed amount, reason, safe reference, balance before/after, PO public reference, and re-evaluation count. The existing Budget revisions remain the event-time source of complete ledger history. Food Service Settings retain their existing domain and Budget subfilter while presenting the per-head/day limit as a typed currency change. Manual reasons remain required, PO deductions carry a deterministic safe reason, and the ledger UI names the actual user or system actor.
+
+The existing `Budget`, `BudgetLedger`, `BudgetResource`, `PurchaseOrderLifecycleService`, `ActivityController`, `AuditTrail`, policy, and Budget revision behavior was re-audited and retained where it already met the design: append-only ledger calculations, one idempotent deduction per PO, creator attribution, contextual Budget trails, authorized history, three-figure live summary, and fail-closed transactional revisions. No approve, reject, flag, review, update, delete, or reversal workflow was added. Admin Budget routes remain read-only, with explicit tests for forbidden/missing mutation workflows. The final configured-MySQL focused gate passes 42 tests and 263 assertions; the wider food-service gate passes 94 tests and 430 assertions. Five frontend budget/audit files pass 21 tests; direct TypeScript compilation, focused ESLint, Pint, PHP syntax checks, privacy scans, and `git diff --check` pass. Separate spec and code-quality reviews found and resolved the re-evaluation-count and signed-amount omissions; no Task 10 issue remains.
 
 **Rollback boundary:** Revert presentation/writer changes; never mutate existing ledger or audit history during rollback.
 

@@ -64,11 +64,13 @@ class BudgetLedgerListener
                 'type' => 'po_deduction',
                 'source' => 'system',
                 'amount' => (float) $po->total_amount,
+                'reason' => 'Purchase order deduction',
                 'reference' => $po->po_number ?? "PO #{$po->id}",
                 'purchase_order_id' => $po->id,
                 'po_deduction_guard' => $po->id,
                 'created_by' => null,
             ]);
+            $after = $this->revisionRegistry->capture($budget->fresh(['ledgerEntries.purchaseOrder', 'ledgerEntries.creator']));
 
             $activity = $this->auditLogger->record(
                 AuditAction::Adjusted,
@@ -81,6 +83,11 @@ class BudgetLedgerListener
                     'type' => 'po_deduction',
                     'source' => 'system',
                     'amount' => (float) $po->total_amount,
+                    'signed_amount' => $entry->signedAmount(),
+                    'reason' => $entry->reason,
+                    'reference' => $entry->reference,
+                    'balance_before' => $before->payload['totals']['remaining_balance'],
+                    'balance_after' => $after->payload['totals']['remaining_balance'],
                     'purchase_order_id' => $po->id,
                     'purchase_order_public_id' => $po->uuid,
                 ],
@@ -89,7 +96,7 @@ class BudgetLedgerListener
             $this->revisionWriter->write(
                 $activity,
                 $before,
-                $this->revisionRegistry->capture($budget->fresh(['ledgerEntries.purchaseOrder', 'ledgerEntries.creator'])),
+                $after,
             );
         });
     }

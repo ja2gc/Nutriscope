@@ -43,6 +43,7 @@ class AdminBudgetReadOnlyTest extends TestCase
     public function test_admin_cannot_mutate_budget_from_admin_scope(): void
     {
         $admin = User::factory()->create(['role' => 'Admin']);
+        $budget = Budget::factory()->create();
 
         $this->actingAs($admin, 'sanctum')
             ->postJson('/api/admin/budgets', [
@@ -59,5 +60,11 @@ class AdminBudgetReadOnlyTest extends TestCase
                 'reason' => 'Not allowed',
             ])
             ->assertStatus(405);
+
+        $this->putJson("/api/admin/budgets/{$budget->uuid}", ['allocated_amount' => 1])->assertStatus(405);
+        $this->deleteJson("/api/admin/budgets/{$budget->uuid}")->assertStatus(405);
+        foreach (['approve', 'reject', 'flag', 'reverse'] as $workflow) {
+            $this->postJson("/api/admin/budgets/{$budget->uuid}/{$workflow}")->assertNotFound();
+        }
     }
 }

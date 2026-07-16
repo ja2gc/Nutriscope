@@ -48,6 +48,8 @@ class BudgetLedgerTest extends TestCase
             'type' => 'po_deduction',
             'purchase_order_id' => $po->id,
             'amount' => 45000,
+            'reason' => 'Purchase order deduction',
+            'reference' => $po->po_number,
         ]);
     }
 

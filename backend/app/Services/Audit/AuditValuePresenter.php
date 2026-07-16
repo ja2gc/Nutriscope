@@ -33,7 +33,13 @@ class AuditValuePresenter
         ],
         AuditDomain::Budget->value => [
             'changed_fields' => 'field_list', 'fields' => 'field_list', 'status' => 'enum',
-            'count' => 'number', 'fiscal_year' => 'number',
+            'count' => 'number', 'fiscal_year' => 'number', 'type' => 'enum',
+            'source' => 'enum', 'amount' => 'currency', 'signed_amount' => 'currency',
+            'allocated_amount' => 'currency',
+            'balance_before' => 'currency', 'balance_after' => 'currency',
+            'per_head_day_limit' => 'currency', 'reference' => 'text',
+            'purchase_order_public_id' => 'reference',
+            'open_purchase_orders_re_evaluated_count' => 'number',
         ],
         AuditDomain::Procurement->value => [
             'changed_fields' => 'field_list', 'fields' => 'field_list', 'status' => 'enum',
@@ -79,6 +85,7 @@ class AuditValuePresenter
             'meal_type' => 'enum', 'is_active' => 'boolean', 'purchase_price' => 'currency',
             'cycle_days' => 'number', 'week_start_date' => 'date', 'activation_date' => 'date',
             'estimated_population' => 'number', 'served_population' => 'number',
+            'per_head_day_limit' => 'currency',
         ],
         AuditDomain::NutritionLibrary->value => [
             'name' => 'text', 'category' => 'enum', 'serving_size' => 'number',
@@ -228,6 +235,11 @@ class AuditValuePresenter
             return is_string($value) && preg_match('/^\d{4}-\d{2}(?:-\d{2})?$/D', $value) === 1
                 ? new AuditValueDto('date', $value)
                 : null;
+        }
+        if ($type === 'reference') {
+            $reference = $this->safeToken($value);
+
+            return $reference === null ? null : new AuditValueDto('reference', $reference);
         }
 
         $token = $this->safeToken($value);

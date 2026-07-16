@@ -19,6 +19,7 @@ use App\Models\PurchaseOrder;
 use App\Models\ShoppingList;
 use App\Models\Supplier;
 use App\Models\User;
+use App\Services\Audit\AuditEventPresenter;
 use App\Services\Audit\AuditLogger;
 use App\Services\FSS\PurchaseOrderAttachmentStorage;
 use App\Services\FSS\PurchaseOrderLifecycleService;
@@ -395,6 +396,17 @@ class PurchaseOrderTrailTest extends TestCase
         $this->assertSame(100.0, (float) $activity->properties['details']['old_limit']);
         $this->assertSame(125.0, (float) $activity->properties['details']['new_limit']);
         $this->assertTrue($activity->causer->is($admin));
+
+        $event = app(AuditEventPresenter::class)
+            ->present($activity->load('causer'), $admin)
+            ->toArray();
+        $this->assertSame('food_service_operations', $event['module']);
+        $this->assertSame('changes', $event['detail_mode']);
+        $this->assertCount(1, $event['changes']);
+        $this->assertSame('per_head_day_limit', $event['changes'][0]['field']);
+        $this->assertSame('currency', $event['changes'][0]['before']['type']);
+        $this->assertEqualsWithDelta(100, $event['changes'][0]['before']['value'], 0.01);
+        $this->assertEqualsWithDelta(125, $event['changes'][0]['after']['value'], 0.01);
 
         $this->putJson('/api/admin/food-service-settings', ['per_head_day_limit' => 125])->assertOk();
         $this->assertDatabaseCount('activity_log', 1);

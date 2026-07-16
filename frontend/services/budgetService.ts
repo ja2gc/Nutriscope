@@ -23,6 +23,7 @@ export interface BudgetLedgerEntry {
   purchase_order_id: number | null;
   po_number: string | null;
   created_by: string | null;
+  actor: { id: string | null; kind: "user" | "system"; name: string };
   created_at: string | null;
 }
 
