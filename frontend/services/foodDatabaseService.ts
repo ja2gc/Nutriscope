@@ -2,7 +2,7 @@
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 export interface FoodItem {
-  id: number;
+  id: string;
   name: string;
   category: string | null;
   usda_fdc_id: number | null;
@@ -25,7 +25,7 @@ export interface RecipeIngredient {
   quantity: string;
   unit: string;
   food_item: {
-    id: number;
+    id: string;
     name: string;
     calories: string;
     protein: string | null;
@@ -37,10 +37,11 @@ export interface RecipeIngredient {
 }
 
 export interface Recipe {
-  id: number;
+  id: string;
   rnd_user_id: number;
   name: string;
   category: string | null;
+  meal_types: string[] | null;
   prep_notes: string | null;
   servings: number | null;
   total_calories: string | null;
@@ -94,7 +95,7 @@ export type FoodItemPayload = {
 };
 
 export type RecipeIngredientPayload = {
-  food_item_id: number;
+  food_item_id: string;
   quantity: number;
   unit: string;
 };
@@ -102,6 +103,7 @@ export type RecipeIngredientPayload = {
 export type RecipePayload = {
   name: string;
   category?: string | null;
+  meal_types?: string[] | null;
   prep_notes?: string | null;
   servings?: number | null;
   ingredients: RecipeIngredientPayload[];

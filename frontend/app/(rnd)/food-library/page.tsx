@@ -344,7 +344,7 @@ export default function FoodLibraryPage() {
   const [showUsda, setShowUsda]           = useState(false);
   const [microsFood, setMicrosFood]       = useState<FoodItem | null>(null);
   const [microsRecipe, setMicrosRecipe]   = useState<Recipe | null>(null);
-  const [deleteConfirm, setDeleteConfirm] = useState<{ type: "food" | "recipe"; id: number; name: string } | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ type: "food" | "recipe"; id: string; name: string } | null>(null);
   const [deleting, setDeleting]           = useState(false);
 
   const loadFoods = useCallback(async () => {

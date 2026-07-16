@@ -62,6 +62,9 @@ class RndRecipeRevisionSerializer implements AuditRevisionSerializer
                 'name' => (string) $subject->name,
                 'reference' => (string) $subject->uuid,
                 'category' => $subject->category,
+                'meal_types' => collect($subject->meal_types ?? [])
+                    ->filter(fn (mixed $mealType): bool => is_string($mealType))
+                    ->unique()->values()->all(),
                 'servings' => (int) $subject->servings,
                 'prep_notes' => $subject->prep_notes,
                 'totals' => [
@@ -78,6 +81,9 @@ class RndRecipeRevisionSerializer implements AuditRevisionSerializer
 
     public function present(array $snapshot): AuditHistorySnapshotDto
     {
+        if (! array_key_exists('meal_types', $snapshot)) {
+            $snapshot['meal_types'] = [];
+        }
         $this->assertValidPayload($snapshot);
         $totals = $snapshot['totals'];
 
@@ -88,6 +94,7 @@ class RndRecipeRevisionSerializer implements AuditRevisionSerializer
             fields: [
                 new AuditHistoryFieldDto('name', 'Name', new AuditValueDto('text', $snapshot['name'])),
                 new AuditHistoryFieldDto('category', 'Category', new AuditValueDto('enum', $snapshot['category'])),
+                new AuditHistoryFieldDto('meal_types', 'Meal types', new AuditValueDto('field_list', $snapshot['meal_types'])),
                 new AuditHistoryFieldDto('servings', 'Servings', new AuditValueDto('number', $snapshot['servings'])),
                 new AuditHistoryFieldDto('prep_notes', 'Preparation notes', new AuditValueDto('text', $snapshot['prep_notes'])),
                 new AuditHistoryFieldDto('calories', 'Energy', new AuditValueDto('quantity', $totals['calories'], 'kcal')),
@@ -117,11 +124,14 @@ class RndRecipeRevisionSerializer implements AuditRevisionSerializer
     /** @param array<string, mixed> $snapshot */
     private function assertValidPayload(array $snapshot): void
     {
-        $valid = $this->hasExactKeys($snapshot, ['title', 'name', 'reference', 'category', 'servings', 'prep_notes', 'totals', 'ingredients'])
+        $valid = $this->hasExactKeys($snapshot, ['title', 'name', 'reference', 'category', 'meal_types', 'servings', 'prep_notes', 'totals', 'ingredients'])
             && is_string($snapshot['title']) && trim($snapshot['title']) !== ''
             && is_string($snapshot['name']) && trim($snapshot['name']) !== ''
             && is_string($snapshot['reference']) && Str::isUuid($snapshot['reference'])
             && ($snapshot['category'] === null || is_string($snapshot['category']))
+            && is_array($snapshot['meal_types']) && array_is_list($snapshot['meal_types'])
+            && collect($snapshot['meal_types'])->every(fn (mixed $mealType): bool => is_string($mealType)
+                && preg_match('/^[a-z_]{1,32}$/D', $mealType) === 1)
             && is_int($snapshot['servings']) && $snapshot['servings'] > 0
             && ($snapshot['prep_notes'] === null || is_string($snapshot['prep_notes']))
             && is_array($snapshot['totals'])

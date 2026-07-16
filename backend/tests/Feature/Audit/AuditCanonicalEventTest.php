@@ -22,6 +22,7 @@ use App\Models\Report;
 use App\Models\ScreeningDocument;
 use App\Models\User;
 use App\Services\Audit\AuditEventPolicy;
+use App\Services\Audit\AuditEventPresenter;
 use App\Services\Audit\AuditLogger;
 use App\Services\Audit\AuditPatientSnapshot;
 use App\Services\Audit\AuditPseudonymousReference;
@@ -365,5 +366,13 @@ class AuditCanonicalEventTest extends TestCase
         $this->assertSame(AuditAction::Imported->value, $event->event);
         $this->assertSame(AuditModule::NutritionCare, $event->module);
         $this->assertSame(AuditDomain::NutritionLibrary, $event->domain);
+        $presented = app(AuditEventPresenter::class)
+            ->present($event->load('causer'), User::factory()->admin()->create())
+            ->toArray();
+        $this->assertStringContainsString("food item: {$food->name}", $presented['summary']);
+        $this->assertSame('usda', collect($presented['details'])->keyBy('key')['source']['value']);
+        $external = collect($presented['changes'])->firstWhere('field', 'usda_fdc_id');
+        $this->assertSame('reference', $external['after']['type']);
+        $this->assertSame('456', $external['after']['value']);
     }
 }

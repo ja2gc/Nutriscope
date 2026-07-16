@@ -1,6 +1,6 @@
 # Audit Oversight and Historical-Record Redesign Implementation Plan
 
-**Status:** In progress. The name-migration gate is complete, pushed, and remote-verified at `6cc8fdd781ddf176d79be6181928c04b26499520`; Audit Tasks 1–8 and 10 plus Waves A1–A2 are complete. Task 11 is next because the owner deferred Task 9. Task 14 is skipped by owner decision.
+**Status:** In progress. The name-migration gate is complete, pushed, and remote-verified at `6cc8fdd781ddf176d79be6181928c04b26499520`; Audit Tasks 1–8 and 10–11 plus Waves A1–A2 are complete. Task 12 is next because the owner deferred Task 9. Task 14 is skipped by owner decision.
 
 **Authoritative design:** `docs/superpowers/specs/2026-07-15-audit-oversight-and-history-redesign.md`
 
@@ -286,11 +286,15 @@ The existing `Budget`, `BudgetLedger`, `BudgetResource`, `PurchaseOrderLifecycle
 
 ## Task 11 — RND Food Library and recipe audit coverage
 
-- [ ] Classify `backend/app/Models/FoodItem.php` and `Recipe.php` plus `backend/app/Http/Controllers/RND/FoodItemController.php` and `RecipeController.php` as Nutrition Care, including USDA/imported/custom foods and RND clinical recipes.
-- [ ] Present meaningful safe created values and before/after values for simple foods; create event-time recipe revisions including ingredient structure, units, servings, meal types, nutrients, and import source where safe.
-- [ ] Update `backend/app/Http/Resources/FoodItemResource.php`, `RecipeResource.php`, relevant import services/controllers, `frontend/app/(rnd)/food-library/page.tsx`, `frontend/services/foodLibraryService.ts`, and audit typed labels/history components.
-- [ ] Extend `backend/tests/Feature/FoodItemControllerTest.php`, `RecipeControllerTest.php`, `RecipeProfileTest.php`, `AuditCanonicalEventTest.php`, and frontend Food Library/audit tests for module classification, imports, create/update/delete, reason, one-event policy, revision fidelity, and no clinical leakage.
-- [ ] Review gates complete; commit `feat: audit RND food library`.
+- [x] Classify `backend/app/Models/FoodItem.php` and `Recipe.php` plus `backend/app/Http/Controllers/RND/FoodItemController.php` and `RecipeController.php` as Nutrition Care, including USDA/imported/custom foods and RND clinical recipes.
+- [x] Present meaningful safe created values and before/after values for simple foods; create event-time recipe revisions including ingredient structure, units, servings, meal types, nutrients, and import source where safe.
+- [x] Update `backend/app/Http/Resources/FoodItemResource.php`, `RecipeResource.php`, relevant import services/controllers, `frontend/app/(rnd)/food-library/page.tsx`, `frontend/services/foodLibraryService.ts`, and audit typed labels/history components.
+- [x] Extend `backend/tests/Feature/FoodItemControllerTest.php`, `RecipeControllerTest.php`, `RecipeProfileTest.php`, `AuditCanonicalEventTest.php`, and frontend Food Library/audit tests for module classification, imports, create/update/delete, reason, one-event policy, revision fidelity, and no clinical leakage. New reason enforcement remains deferred by the owner under Task 9; the existing no-reason Food Library behavior is unchanged.
+- [x] Review gates complete; commit `feat: audit RND food library`.
+
+Task 11 followed red-green TDD. Initial tests failed because Food Library create/import/update/delete events carried only field names, simple recipe changes had no typed before/after values, meal-type-only recipe changes produced no event-time revision, stored schema-one recipe snapshots did not contain meal types, summaries remained generic, and both active web clients modeled public UUIDs as numeric IDs. The canonical writers now store only curated nonpatient Food Library values: name, source and FDC reference, serving size/unit, ready-to-eat state, calories/macronutrients/water, and unit price. Created/imported events show an After-only safe state, updates retain changed safe values only, deletion retains the final safe state, USDA events identify their source without storing the raw response, and named operational summaries remain disabled for clinical events.
+
+RND recipe create, structural update, and delete reuse the Task 8B event-time serializer and historical page. The schema-one serializer now captures meal types alongside name/category, yield, preparation notes, calculated nutrition/cost, and ingredient names/quantities/units. Meal-type-only changes are structural, while simple name/category/serving changes stay in the typed drawer. Missing `meal_types` is normalized only while reading older schema-one snapshots, preserving historical compatibility without changing serializer routing. The public web contracts now use UUID strings for Food Library/recipe identifiers and retain numeric USDA FDC identifiers. The final configured-MySQL gate passes 87 tests and 528 assertions across Food Library/recipe writers, canonical policy, duplicate discovery, privacy, operations, UUID resolution, and legacy/current recipe revisions. Three affected frontend files pass 13 tests; TypeScript, focused ESLint, Pint, PHP syntax checks, the added-line privacy/raw-audit scan, and `git diff --check` pass. Separate sequential spec and code-quality reviews found and resolved the FDC identifier type mismatch; no Task 11 issue remains.
 
 **Rollback boundary:** Revert module/writer/history UI; live Food Library behavior and stored events remain usable.
 

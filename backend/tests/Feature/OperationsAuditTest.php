@@ -238,7 +238,20 @@ class OperationsAuditTest extends TestCase
 
         $activity = AuditActivity::query()->sole();
         $this->assertSame('imported', $activity->event);
-        $this->assertSame(['usda_fdc_id'], $activity->properties['details']['changed_fields']);
+        $this->assertSame([
+            'calories',
+            'carbs',
+            'category',
+            'fat',
+            'name',
+            'protein',
+            'serving_size',
+            'serving_unit',
+            'unit_price',
+            'usda_fdc_id',
+        ], $activity->properties['details']['changed_fields']);
+        $this->assertSame('usda', $activity->properties['details']['source']);
+        $this->assertSame(123, $activity->properties['attributes']['usda_fdc_id']);
     }
 
     public function test_same_value_food_item_update_emits_no_event(): void

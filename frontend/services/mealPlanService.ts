@@ -116,9 +116,9 @@ export async function addMealPlanItem(
   planId: number,
   dayId: number,
   payload: {
-    food_item_id?: number;
+    food_item_id?: string;
     fdc_id?: string;
-    recipe_id?: number;
+    recipe_id?: string;
     quantity: number;
     unit: string;
   }

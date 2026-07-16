@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\AuditActivity;
 use App\Models\FoodItem;
 use App\Models\User;
+use App\Services\Audit\AuditEventPresenter;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
@@ -80,6 +81,19 @@ class FoodItemControllerTest extends TestCase
             ->assertJsonPath('data.name', 'Grilled Salmon');
 
         $this->assertDatabaseHas('food_items', ['name' => 'Grilled Salmon']);
+        $activity = AuditActivity::query()->where('subject_type', FoodItem::class)->sole();
+        $event = app(AuditEventPresenter::class)
+            ->present($activity->load('causer'), User::factory()->admin()->create())
+            ->toArray();
+        $changes = collect($event['changes'])->keyBy('field');
+        $this->assertSame('nutrition_care', $event['module']);
+        $this->assertSame('nutrition_library', $event['domain']);
+        $this->assertSame($this->rnd->display_name, $event['actor']['name']);
+        $this->assertSame("{$this->rnd->display_name} created food item: Grilled Salmon.", $event['summary']);
+        $this->assertNull($changes['name']['before']['value']);
+        $this->assertSame('Grilled Salmon', $changes['name']['after']['value']);
+        $this->assertEqualsWithDelta(208, $changes['calories']['after']['value'], 0.01);
+        $this->assertSame('custom', collect($event['details'])->keyBy('key')['source']['value']);
     }
 
     public function test_create_food_item_requires_name_and_calories(): void
@@ -120,7 +134,15 @@ class FoodItemControllerTest extends TestCase
         $activity = AuditActivity::query()->where('subject_type', FoodItem::class)->sole();
         $this->assertSame('updated', $activity->event);
         $this->assertSame(['calories', 'name'], $activity->properties['details']['changed_fields']);
-        $this->assertStringNotContainsString('Updated Name', $activity->properties->toJson());
+        $event = app(AuditEventPresenter::class)
+            ->present($activity->load('causer'), User::factory()->admin()->create())
+            ->toArray();
+        $changes = collect($event['changes'])->keyBy('field');
+        $this->assertStringContainsString('food item: Updated Name', $event['summary']);
+        $this->assertSame('Old Name', $changes['name']['before']['value']);
+        $this->assertSame('Updated Name', $changes['name']['after']['value']);
+        $this->assertEqualsWithDelta((float) $food->calories, $changes['calories']['before']['value'], 0.01);
+        $this->assertEqualsWithDelta(150, $changes['calories']['after']['value'], 0.01);
     }
 
     public function test_rnd_can_delete_food_item(): void
@@ -135,7 +157,14 @@ class FoodItemControllerTest extends TestCase
 
         $activity = AuditActivity::query()->where('subject_type', FoodItem::class)->sole();
         $this->assertSame('deleted', $activity->event);
-        $this->assertSame([], $activity->properties['details']['changed_fields']);
+        $event = app(AuditEventPresenter::class)
+            ->present($activity->load('causer'), User::factory()->admin()->create())
+            ->toArray();
+        $changes = collect($event['changes'])->keyBy('field');
+        $this->assertStringContainsString("food item: {$food->name}", $event['summary']);
+        $this->assertSame($food->name, $changes['name']['before']['value']);
+        $this->assertNull($changes['name']['after']['value']);
+        $this->assertSame('custom', collect($event['details'])->keyBy('key')['source']['value']);
     }
 
     public function test_non_rnd_cannot_access_food_items(): void

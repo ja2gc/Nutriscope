@@ -26,6 +26,7 @@ class AuditFieldLabels
         'purchase_order_public_id' => 'Purchase Order Reference',
         'signed_amount' => 'Signed Amount',
         'open_purchase_orders_re_evaluated_count' => 'Open Purchase Orders Re-evaluated',
+        'usda_fdc_id' => 'USDA FoodData Central Reference',
         'estimated_population' => 'Estimated Population',
         'served_population' => 'Served Population',
     ];

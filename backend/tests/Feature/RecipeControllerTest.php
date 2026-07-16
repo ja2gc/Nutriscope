@@ -7,6 +7,7 @@ use App\Models\FoodItem;
 use App\Models\Recipe;
 use App\Models\RecipeIngredient;
 use App\Models\User;
+use App\Services\Audit\AuditEventPresenter;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
@@ -204,6 +205,33 @@ class RecipeControllerTest extends TestCase
         $activity = AuditActivity::query()->where('subject_type', Recipe::class)->sole();
         $this->assertSame('updated', $activity->event);
         $this->assertNull($activity->revision);
+        $event = app(AuditEventPresenter::class)
+            ->present($activity->load('causer'), User::factory()->admin()->create())
+            ->toArray();
+        $this->assertStringContainsString("recipe: {$recipe->name}", $event['summary']);
+        $change = collect($event['changes'])->firstWhere('field', 'servings');
+        $this->assertSame(2, $change['before']['value']);
+        $this->assertSame(6, $change['after']['value']);
+    }
+
+    public function test_meal_type_change_stores_a_complete_historical_recipe_version(): void
+    {
+        $recipe = Recipe::factory()->create([
+            'rnd_user_id' => $this->rnd->id,
+            'meal_types' => ['lunch'],
+        ]);
+
+        $this->actingAs($this->rnd)
+            ->putJson("/api/rnd/recipes/{$recipe->uuid}", [
+                'meal_types' => ['dinner', 'pm_snack'],
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.meal_types.0', 'dinner');
+
+        $activity = AuditActivity::query()->where('subject_type', Recipe::class)->sole();
+        $this->assertNotNull($activity->revision);
+        $this->assertSame(['lunch'], $activity->revision->before['meal_types']);
+        $this->assertSame(['dinner', 'pm_snack'], $activity->revision->after['meal_types']);
     }
 
     public function test_recipe_belongs_to_creating_rnd_user(): void

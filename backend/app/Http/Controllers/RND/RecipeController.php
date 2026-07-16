@@ -49,6 +49,7 @@ class RecipeController extends Controller
                 'rnd_user_id' => $request->user()->id,
                 'name' => $data['name'],
                 'category' => $data['category'] ?? null,
+                'meal_types' => $data['meal_types'] ?? null,
                 'prep_notes' => $data['prep_notes'] ?? null,
                 'servings' => $data['servings'] ?? 1,
             ]);
@@ -65,6 +66,7 @@ class RecipeController extends Controller
                 AuditDomain::NutritionLibrary,
                 $recipe,
                 array_map(fn (string $field): string => $field === 'prep_notes' ? 'content' : $field, $fields),
+                ['entity_name' => $recipe->name],
             );
             if ($activity !== null) {
                 $this->revisionWriter->write($activity, null, $this->revisionRegistry->capture($recipe));
@@ -91,33 +93,44 @@ class RecipeController extends Controller
     {
         $data = $request->validated();
         $this->audited(function () use ($recipe, $data): void {
-            $structural = array_key_exists('ingredients', $data);
-            $beforeIngredients = $structural ? $this->ingredientSignature($recipe) : [];
+            $oldValues = $this->auditValues($recipe);
+            $ingredientsSubmitted = array_key_exists('ingredients', $data);
+            $mealTypesSubmitted = array_key_exists('meal_types', $data);
+            $structural = $ingredientsSubmitted || $mealTypesSubmitted;
+            $beforeIngredients = $ingredientsSubmitted ? $this->ingredientSignature($recipe) : [];
+            $beforeMealTypes = $mealTypesSubmitted ? ($recipe->meal_types ?? []) : [];
             $before = $structural
                 ? $this->revisionRegistry->capture($recipe->load('ingredients.foodItem'))
                 : null;
             $recipe->update(array_filter([
                 'name' => $data['name'] ?? $recipe->name,
                 'category' => $data['category'] ?? $recipe->category,
+                'meal_types' => $data['meal_types'] ?? $recipe->meal_types,
                 'prep_notes' => $data['prep_notes'] ?? $recipe->prep_notes,
                 'servings' => $data['servings'] ?? $recipe->servings,
             ], fn ($v) => $v !== null));
 
             $fields = array_keys($recipe->getChanges());
-            $structureChanged = false;
-            if ($structural) {
+            $structureChanged = $mealTypesSubmitted && $beforeMealTypes !== ($recipe->meal_types ?? []);
+            if ($ingredientsSubmitted) {
                 $this->syncIngredients($recipe, $data['ingredients']);
                 $recipe->recalculateTotals();
-                $structureChanged = $beforeIngredients !== $this->ingredientSignature($recipe);
-                if ($structureChanged) {
+                $ingredientsChanged = $beforeIngredients !== $this->ingredientSignature($recipe);
+                $structureChanged = $structureChanged || $ingredientsChanged;
+                if ($ingredientsChanged) {
                     $fields[] = 'ingredients';
                 }
             }
+            $presentedFields = array_map(fn (string $field): string => $field === 'prep_notes' ? 'content' : $field, $fields);
+            $safeFieldMap = array_flip(array_intersect(array_keys($oldValues), $presentedFields));
             $activity = $this->auditLogger->recordMutation(
                 AuditAction::Updated,
                 AuditDomain::NutritionLibrary,
                 $recipe,
-                array_map(fn (string $field): string => $field === 'prep_notes' ? 'content' : $field, $fields),
+                $presentedFields,
+                ['entity_name' => $recipe->name],
+                oldValues: array_intersect_key($oldValues, $safeFieldMap),
+                newValues: array_intersect_key($this->auditValues($recipe), $safeFieldMap),
             );
             if ($activity !== null && $structureChanged && $before !== null) {
                 $afterRecipe = $recipe->fresh(['ingredients.foodItem']);
@@ -135,7 +148,13 @@ class RecipeController extends Controller
         $this->audited(function () use ($recipe): void {
             $before = $this->revisionRegistry->capture($recipe->load('ingredients.foodItem'));
             $recipe->delete();
-            $activity = $this->auditLogger->recordMutation(AuditAction::Deleted, AuditDomain::NutritionLibrary, $recipe, []);
+            $activity = $this->auditLogger->recordMutation(
+                AuditAction::Deleted,
+                AuditDomain::NutritionLibrary,
+                $recipe,
+                [],
+                ['entity_name' => $recipe->name],
+            );
             if ($activity !== null) {
                 $this->revisionWriter->write($activity, $before, null);
             }
@@ -164,5 +183,15 @@ class RecipeController extends Controller
             ->get(['food_item_id', 'quantity', 'unit'])
             ->map->only(['food_item_id', 'quantity', 'unit'])
             ->values()->all();
+    }
+
+    /** @return array{name: string, category: ?string, servings: int} */
+    private function auditValues(Recipe $recipe): array
+    {
+        return [
+            'name' => (string) $recipe->name,
+            'category' => $recipe->category,
+            'servings' => (int) $recipe->servings,
+        ];
     }
 }

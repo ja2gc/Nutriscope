@@ -20,6 +20,7 @@ class RndRecipeRevisionSerializerTest extends TestCase
         $recipe = Recipe::factory()->for($rnd, 'rnd')->create([
             'name' => 'Brown Rice Bowl',
             'category' => 'lunch',
+            'meal_types' => ['lunch', 'dinner'],
             'servings' => 4,
             'prep_notes' => 'Combine and portion.',
             'total_calories' => 420.5,
@@ -45,6 +46,7 @@ class RndRecipeRevisionSerializerTest extends TestCase
         $this->assertSame('rnd_recipe', $snapshot->serializer);
         $this->assertSame($recipe->uuid, $snapshot->subjectPublicId);
         $this->assertSame('Brown Rice Bowl', $presented['title']);
+        $this->assertSame(['lunch', 'dinner'], collect($presented['fields'])->firstWhere('key', 'meal_types')['value']['value']);
         $this->assertSame('Brown Rice', $presented['tables'][0]['rows'][0]['values']['ingredient']['value']);
         $this->assertSame(150.0, $presented['tables'][0]['rows'][0]['values']['quantity']['value']);
         $this->assertSame('g', $presented['tables'][0]['rows'][0]['values']['unit']['value']);
@@ -68,5 +70,18 @@ class RndRecipeRevisionSerializerTest extends TestCase
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('Invalid RND recipe revision payload.');
         $serializer->present(['name' => ['RAW-NESTED-SENTINEL']]);
+    }
+
+    public function test_schema_one_payload_without_meal_types_remains_readable(): void
+    {
+        $recipe = Recipe::factory()->create(['meal_types' => ['dinner']]);
+        $serializer = new RndRecipeRevisionSerializer;
+        $legacy = $serializer->capture($recipe)->payload;
+        unset($legacy['meal_types']);
+
+        $presented = $serializer->present($legacy)->toArray();
+
+        $mealTypes = collect($presented['fields'])->firstWhere('key', 'meal_types');
+        $this->assertSame([], $mealTypes['value']['value']);
     }
 }

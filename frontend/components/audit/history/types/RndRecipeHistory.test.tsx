@@ -12,6 +12,7 @@ const before: AuditHistorySnapshotDto = {
   fields: [
     { key: "name", label: "Name", value: { type: "text", value: "Brown Rice Bowl" } },
     { key: "servings", label: "Servings", value: { type: "number", value: 2 } },
+    { key: "meal_types", label: "Meal types", value: { type: "field_list", value: ["lunch", "dinner"] } },
   ],
   tables: [{
     key: "ingredients",
@@ -29,6 +30,7 @@ const after: AuditHistorySnapshotDto = {
   fields: [
     before.fields[0],
     { key: "servings", label: "Servings", value: { type: "number", value: 4 } },
+    before.fields[2],
   ],
   tables: [{
     ...before.tables[0],
@@ -43,7 +45,7 @@ describe("RND recipe historical view", () => {
   test("renders the After version with added, changed, and removed recipe structure", () => {
     const html = renderToStaticMarkup(<RndRecipeHistory snapshot={after} comparison={before} side="after" />);
 
-    for (const value of ["Brown Rice", "Chicken", "Tofu", "150", "Changed", "Added", "Removed"]) {
+    for (const value of ["Brown Rice", "Chicken", "Tofu", "Lunch", "Dinner", "150", "Changed", "Added", "Removed"]) {
       expect(html).toContain(value);
     }
     expect(html).not.toContain("<input");

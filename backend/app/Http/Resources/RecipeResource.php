@@ -14,6 +14,7 @@ class RecipeResource extends JsonResource
             'rnd_user_id' => $this->rnd_user_id,
             'name' => $this->name,
             'category' => $this->category,
+            'meal_types' => $this->meal_types,
             'prep_notes' => $this->prep_notes,
             'servings' => $this->servings,
             'total_calories' => $this->total_calories,

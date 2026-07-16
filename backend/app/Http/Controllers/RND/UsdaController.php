@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\FoodItemResource;
 use App\Models\FoodItem;
 use App\Services\Audit\AuditLogger;
+use App\Services\Audit\FoodItemAuditValues;
 use App\Services\UsdaService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -18,6 +19,7 @@ class UsdaController extends Controller
     public function __construct(
         private readonly UsdaService $usda,
         private readonly AuditLogger $auditLogger,
+        private readonly FoodItemAuditValues $auditValues,
     ) {}
 
     public function search(Request $request): JsonResponse
@@ -50,7 +52,17 @@ class UsdaController extends Controller
             $attributes = $this->usda->prepareImport($fdcId);
             $food = $this->audited(function () use ($attributes): FoodItem {
                 $food = $this->usda->persistImport($attributes);
-                $this->auditLogger->recordMutation(AuditAction::Imported, AuditDomain::NutritionLibrary, $food, ['usda_fdc_id'], ['source' => 'usda']);
+                $values = $this->auditValues->values($food);
+                $fields = array_keys(array_filter($values, fn (mixed $value): bool => $value !== null));
+                $this->auditLogger->recordMutation(
+                    AuditAction::Imported,
+                    AuditDomain::NutritionLibrary,
+                    $food,
+                    $fields,
+                    ['source' => 'usda', 'entity_name' => $food->name],
+                    oldValues: array_fill_keys(array_keys($values), null),
+                    newValues: $values,
+                );
 
                 return $food;
             });

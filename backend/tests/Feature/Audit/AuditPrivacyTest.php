@@ -665,11 +665,17 @@ class AuditPrivacyTest extends TestCase
         $auditOutput = AuditActivity::query()->get(['description', 'properties'])->toJson();
         foreach ([
             'auth-sentinel@example.com', 'AUTH-PASSWORD-SENTINEL', 'ADMIN-PASSWORD-SENTINEL',
-            'RESET-PASSWORD-SENTINEL', 'BUDGET-REASON-SENTINEL', 'BUDGET-REFERENCE-SENTINEL',
-            'LISTENER-NOTES-SENTINEL',
+            'RESET-PASSWORD-SENTINEL', 'LISTENER-NOTES-SENTINEL',
         ] as $sentinel) {
             $this->assertStringNotContainsString($sentinel, $auditOutput);
         }
+
+        $manualAdjustment = AuditActivity::query()
+            ->where('event', 'adjusted')
+            ->where('properties->details->source', 'manual')
+            ->sole();
+        $this->assertSame('BUDGET-REASON-SENTINEL', $manualAdjustment->properties['details']['reason']);
+        $this->assertSame('BUDGET-REFERENCE-SENTINEL', $manualAdjustment->properties['details']['reference']);
     }
 
     public function test_operational_model_values_are_sanitized_before_storage(): void

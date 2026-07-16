@@ -52,6 +52,7 @@ class AuditEventPresenter
             $clinical,
             $action,
         );
+        $subject = $this->namedOperationalSubject($subject, $storedDetails, $clinical);
         $context = $activity->context_type === null
             ? null
             : $this->entities->present(
@@ -182,6 +183,23 @@ class AuditEventPresenter
             && preg_match('/^NCP-[A-F0-9]{16}$/D', $reference) === 1
                 ? $reference
                 : null;
+    }
+
+    /** @param array{type: string, id: ?string, label: string}|null $subject
+     * @return array{type: string, id: ?string, label: string}|null
+     */
+    private function namedOperationalSubject(?array $subject, array $details, bool $clinical): ?array
+    {
+        if ($clinical || $subject === null || ! in_array($subject['type'], ['food_item', 'recipe'], true)) {
+            return $subject;
+        }
+
+        $name = $this->safeText($details['entity_name'] ?? null);
+        if ($name !== null) {
+            $subject['label'] .= ': '.$name;
+        }
+
+        return $subject;
     }
 
     private function history(AuditActivity $activity, string $action, ?User $viewer): ?AuditHistoryLinkDto
