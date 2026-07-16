@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\RND;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\PaginatedRequest;
 use App\Http\Requests\RND\StoreDiagnosisRequest;
 use App\Http\Requests\RND\UpdateDiagnosisRequest;
 use App\Http\Resources\DiagnosisResource;
@@ -18,10 +19,14 @@ class DiagnosisController extends Controller
     /**
      * GET /api/rnd/ncp-records/{ncpRecord}/diagnoses
      */
-    public function index(NcpRecord $ncpRecord): AnonymousResourceCollection
+    public function index(PaginatedRequest $request, NcpRecord $ncpRecord): AnonymousResourceCollection
     {
         $this->authorizeNcp($ncpRecord);
-        $diagnoses = $ncpRecord->diagnoses;
+        $diagnoses = $ncpRecord->diagnoses()
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->paginate($request->perPage())
+            ->withQueryString();
 
         return DiagnosisResource::collection($diagnoses);
     }

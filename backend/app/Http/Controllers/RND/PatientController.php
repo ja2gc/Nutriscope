@@ -51,7 +51,7 @@ class PatientController extends Controller
             ->when($request->status, fn ($q, $s) => $q->where('status', $s))
             ->when($request->boolean('upcoming_followups'), fn ($q) => $q->whereHas(
                 'ncpRecords.intervention',
-                fn ($interventions) => $interventions->whereDate('next_followup_date', '>=', now()->toDateString()),
+                fn ($interventions) => $interventions->whereNotNull('next_followup_date'),
             ))
             ->with(['ncpRecords' => fn ($q) => $q->latest()->with(['rnd:id,uuid,name,first_name,last_name,role', 'assessment', 'intervention'])])
             ->orderByDesc('created_at')

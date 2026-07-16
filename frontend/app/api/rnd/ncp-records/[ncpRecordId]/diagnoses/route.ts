@@ -4,7 +4,7 @@ import { cookies } from "next/headers";
 const LARAVEL_API = process.env.LARAVEL_API_URL ?? "http://127.0.0.1:8000/api";
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ ncpRecordId: string }> }
 ) {
   const cookieStore = await cookies();
@@ -16,7 +16,8 @@ export async function GET(
 
   const { ncpRecordId } = await params;
 
-  const laravelRes = await fetch(`${LARAVEL_API}/rnd/ncp-records/${ncpRecordId}/diagnoses`, {
+  const query = req.nextUrl.searchParams.toString();
+  const laravelRes = await fetch(`${LARAVEL_API}/rnd/ncp-records/${ncpRecordId}/diagnoses${query ? `?${query}` : ""}`, {
     headers: {
       Authorization: `Bearer ${token}`,
       Accept: "application/json",

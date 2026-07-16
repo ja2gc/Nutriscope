@@ -16,7 +16,7 @@ interface PaginationProps {
 }
 
 export function Pagination({ meta, page, onPageChange }: PaginationProps) {
-  if (!meta || meta.last_page <= 1) return null;
+  if (!meta) return null;
 
   return (
     <div className="px-5 py-3.5 border-t border-warm-100 flex items-center justify-between select-none">

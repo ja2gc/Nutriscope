@@ -10,7 +10,7 @@ import {
 import ButtonFilterGroup from "@/components/ui/ButtonFilterGroup";
 import { fetchPatientById, Patient } from "@/services/patientService";
 import {
-  fetchDiagnoses, storeDiagnosis, updateDiagnosis, deleteDiagnosis,
+  fetchDiagnosesPage, storeDiagnosis, updateDiagnosis, deleteDiagnosis,
   aiSuggestDiagnoses, aiApproveDiagnosis,
   Diagnosis, StoreDiagnosisPayload, AiSuggestion,
 } from "@/services/diagnosisService";
@@ -19,6 +19,7 @@ import { buildDiagnosisProblemText } from "@/lib/diagnosisBuilder";
 import { matchStoredOption, splitStoredComponent } from "@/lib/diagnosisComponentSplit";
 import NcpPatientHeader from "../../../_components/NcpPatientHeader";
 import { personDisplayName } from "@/lib/personName";
+import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
 
 // ─── Domain Metadata ─────────────────────────────────────────────────────────
 
@@ -303,6 +304,8 @@ export default function NcpDiagnosisPage({
   const [activeTab, setActiveTab] = useState<TabKey>("table");
   const [patient, setPatient] = useState<Patient | null>(null);
   const [diagnoses, setDiagnoses] = useState<Diagnosis[]>([]);
+  const [diagnosesMeta, setDiagnosesMeta] = useState<PaginationMeta | null>(null);
+  const [diagnosesPage, setDiagnosesPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<number | null>(null);
@@ -322,11 +325,14 @@ export default function NcpDiagnosisPage({
       setLoading(true);
       const [p, d, a] = await Promise.allSettled([
         fetchPatientById(patientId),
-        fetchDiagnoses(ncpId),
+        fetchDiagnosesPage(ncpId, diagnosesPage),
         fetchAssessment(ncpId),
       ]);
       if (p.status === "fulfilled") setPatient(p.value);
-      if (d.status === "fulfilled") setDiagnoses(d.value);
+      if (d.status === "fulfilled") {
+        setDiagnoses(d.value.data);
+        setDiagnosesMeta(d.value.meta);
+      }
       if (a.status === "fulfilled") {
         setHasAssessment(true);
         const ibw = a.value.ibw_percentage;
@@ -339,7 +345,7 @@ export default function NcpDiagnosisPage({
     } finally {
       setLoading(false);
     }
-  }, [patientId, ncpId, isPlaceholder]);
+  }, [patientId, ncpId, isPlaceholder, diagnosesPage]);
 
   useEffect(() => { void loadData(); }, [loadData]);
 
@@ -383,7 +389,11 @@ export default function NcpDiagnosisPage({
     try {
       setDeleting(d.id);
       await deleteDiagnosis(ncpId, d.id);
-      setDiagnoses(prev => prev.filter(x => x.id !== d.id));
+      if (diagnoses.length === 1 && diagnosesPage > 1) {
+        setDiagnosesPage(diagnosesPage - 1);
+      } else {
+        await loadData();
+      }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to delete.");
     } finally {
@@ -407,16 +417,19 @@ export default function NcpDiagnosisPage({
       setSaving(true);
       setError(null);
       if (builder.editingId) {
-        const updated = await updateDiagnosis(ncpId, builder.editingId, payload);
-        setDiagnoses(prev => prev.map(x => x.id === updated.id ? updated : x));
+        await updateDiagnosis(ncpId, builder.editingId, payload);
         setSuccess("Diagnosis updated.");
       } else {
-        const created = await storeDiagnosis(ncpId, payload);
-        setDiagnoses(prev => [...prev, created]);
+        await storeDiagnosis(ncpId, payload);
         setSuccess("Diagnosis saved.");
       }
       setBuilder(defaultBuilder());
       setActiveTab("table");
+      if (diagnosesPage === 1) {
+        await loadData();
+      } else {
+        setDiagnosesPage(1);
+      }
       setTimeout(() => setSuccess(null), 3000);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to save.");
@@ -449,14 +462,18 @@ export default function NcpDiagnosisPage({
 
   const handleAiAccept = async (s: AiSuggestion, idx: number) => {
     try {
-      const created = await aiApproveDiagnosis(ncpId, {
+      await aiApproveDiagnosis(ncpId, {
         domain: s.domain,
         label: s.label,
         etiology: s.etiology,
         signs: s.signs,
         priority: s.priority,
       });
-      setDiagnoses(prev => [...prev, created]);
+      if (diagnosesPage === 1) {
+        await loadData();
+      } else {
+        setDiagnosesPage(1);
+      }
       setAiDismissed(prev => new Set([...prev, idx]));
       setSuccess("AI diagnosis accepted and saved.");
       setTimeout(() => setSuccess(null), 3000);
@@ -664,6 +681,7 @@ export default function NcpDiagnosisPage({
           </div>
         </div>
       )}
+      <Pagination meta={diagnosesMeta} page={diagnosesPage} onPageChange={setDiagnosesPage} />
     </div>
   );
 
@@ -1083,7 +1101,7 @@ export default function NcpDiagnosisPage({
         stepLabel="Diagnosis"
         badges={
           <span className="px-2 py-0.5 bg-stethoscope-50 text-warm-500 rounded font-bold">
-            {diagnoses.length} {diagnoses.length !== 1 ? "diagnoses" : "diagnosis"} recorded
+            {diagnosesMeta?.total ?? diagnoses.length} {(diagnosesMeta?.total ?? diagnoses.length) !== 1 ? "diagnoses" : "diagnosis"} recorded
           </span>
         }
       />

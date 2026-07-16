@@ -1,4 +1,6 @@
 ﻿import { apiFetch } from "@/lib/apiFetch";
+import type { PaginationMeta } from "@/components/ui/Pagination";
+
 export interface Diagnosis {
   id?: number;
   ncp_record_id?: number;
@@ -48,8 +50,11 @@ export interface AiApprovePayload {
   priority?: number;
 }
 
-export async function fetchDiagnoses(ncpRecordId: number | string): Promise<Diagnosis[]> {
-  const res = await apiFetch(`/api/rnd/ncp-records/${ncpRecordId}/diagnoses`, {
+export async function fetchDiagnosesPage(
+  ncpRecordId: number | string,
+  page = 1
+): Promise<{ data: Diagnosis[]; meta: PaginationMeta }> {
+  const res = await apiFetch(`/api/rnd/ncp-records/${ncpRecordId}/diagnoses?page=${page}&per_page=10`, {
     headers: { Accept: "application/json" },
   });
   if (!res.ok) {
@@ -57,7 +62,15 @@ export async function fetchDiagnoses(ncpRecordId: number | string): Promise<Diag
     throw new Error(err.message || "Failed to fetch diagnoses.");
   }
   const data = await res.json();
-  return data.data ?? data;
+  return {
+    data: data.data ?? [],
+    meta: data.meta ?? { current_page: page, per_page: 10, total: 0, last_page: 1 },
+  };
+}
+
+export async function fetchDiagnoses(ncpRecordId: number | string): Promise<Diagnosis[]> {
+  const result = await fetchDiagnosesPage(ncpRecordId);
+  return result.data;
 }
 
 export async function storeDiagnosis(ncpRecordId: number | string, payload: StoreDiagnosisPayload): Promise<Diagnosis> {

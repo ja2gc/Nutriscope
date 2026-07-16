@@ -157,7 +157,7 @@ export default function RndDashboardPage() {
   const [followUpPage, setFollowUpPage] = useState(1);
   const [announcementsPage, setAnnouncementsPage] = useState(1);
   const FOLLOW_UPS_PER_PAGE = 3;
-  const ANNOUNCEMENTS_PER_PAGE = 3;
+  const ANNOUNCEMENTS_PER_PAGE = 2;
   const [draft, setDraft] = useState<AnnouncementDraft>({
     category: "General",
     visibility: "All",
@@ -715,7 +715,8 @@ export default function RndDashboardPage() {
                 </div>
               </div>
             ) : followUps.length === 0 ? (
-              <div className="p-12 text-center">
+              <div className="flex flex-1 items-center justify-center p-8 text-center">
+                <div>
                 <div className="p-3 bg-warm-50 border border-warm-200 rounded-2xl w-fit mx-auto text-warm-400">
                   <HeartHandshake className="h-8 w-8" />
                 </div>
@@ -723,27 +724,29 @@ export default function RndDashboardPage() {
                 <p className="text-sm text-warm-500 mt-1 max-w-sm mx-auto leading-relaxed">
                   Once interventions are recorded, the next review dates will appear here.
                 </p>
+                </div>
               </div>
             ) : (
-              <div className="p-5 space-y-4">
+              <div className="flex min-h-0 flex-1 flex-col">
+                <div className="min-h-0 flex-1 space-y-3 p-4">
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div className="rounded-2xl border border-warm-200 bg-warm-50 p-4">
+                  <div className="rounded-2xl border border-warm-200 bg-warm-50 p-3">
                     <div className="text-xs font-extrabold text-warm-400 uppercase tracking-wider">
                       Active Patients
                     </div>
-                    <div className="text-2xl font-extrabold text-warm-900 mt-2">{patientCountLabel}</div>
+                    <div className="mt-1 text-xl font-extrabold text-warm-900">{patientCountLabel}</div>
                   </div>
-                  <div className="rounded-2xl border border-warm-200 bg-warm-50 p-4">
+                  <div className="rounded-2xl border border-warm-200 bg-warm-50 p-3">
                     <div className="text-xs font-extrabold text-warm-400 uppercase tracking-wider">
                       Follow-ups Due
                     </div>
-                    <div className="text-2xl font-extrabold text-warm-900 mt-2">{upcomingFollowUpLabel}</div>
+                    <div className="mt-1 text-xl font-extrabold text-warm-900">{upcomingFollowUpLabel}</div>
                   </div>
-                  <div className="rounded-2xl border border-warm-200 bg-warm-50 p-4">
+                  <div className="rounded-2xl border border-warm-200 bg-warm-50 p-3">
                     <div className="text-xs font-extrabold text-warm-400 uppercase tracking-wider">
                       Review Window
                     </div>
-                    <div className="text-2xl font-extrabold text-warm-900 mt-2">48h</div>
+                    <div className="mt-1 text-xl font-extrabold text-warm-900">48h</div>
                   </div>
                 </div>
 
@@ -774,24 +777,24 @@ export default function RndDashboardPage() {
                           key={`${row.patientId}-${row.nextFollowUpDate}`}
                           className={`${index % 2 === 0 ? "bg-white" : "bg-warm-50/20"} hover:bg-warm-50/60 transition-colors`}
                         >
-                          <td className="px-4 py-4">
+                          <td className="px-4 py-2.5">
                             <div className="text-sm font-bold text-warm-900">{row.name}</div>
                             <div className="text-xs font-mono text-warm-400 mt-1">{row.systemId}</div>
                           </td>
-                          <td className="px-4 py-4 text-sm text-warm-700 font-medium">{row.goalType}</td>
-                          <td className="px-4 py-4 text-sm text-warm-700 font-semibold">
+                          <td className="px-4 py-2.5 text-sm text-warm-700 font-medium">{row.goalType}</td>
+                          <td className="px-4 py-2.5 text-sm text-warm-700 font-semibold">
                             {new Date(row.nextFollowUpDate).toLocaleDateString("en-US", {
                               month: "short",
                               day: "numeric",
                               year: "numeric",
                             })}
                           </td>
-                          <td className="px-4 py-4 text-sm font-semibold">
+                          <td className="px-4 py-2.5 text-sm font-semibold">
                             <span className="inline-flex px-2.5 py-0.5 rounded-full border bg-warm-50 text-warm-700 border-warm-200">
                               {formatDaysRemaining(row.daysRemaining)}
                             </span>
                           </td>
-                          <td className="px-4 py-4 text-right">
+                          <td className="px-4 py-2.5 text-right">
                             <Link
                               href={`/ncp/patients/${row.patientId}`}
                               className="inline-flex px-3 py-1.5 bg-brand-green-600 hover:bg-brand-green-700 text-white text-xs font-bold uppercase tracking-wider rounded-lg transition-colors"
@@ -803,6 +806,7 @@ export default function RndDashboardPage() {
                       ))}
                     </tbody>
                   </table>
+                </div>
                 </div>
                 <Pagination
                   meta={followUpMeta}
@@ -832,11 +836,11 @@ export default function RndDashboardPage() {
             </Link>
           </div>
 
-          <div className="p-4 space-y-3 flex-1 overflow-hidden">
+          <div className="min-h-0 flex-1 p-3">
             {announcementsLoading ? (
-              <div className="space-y-3">
-                {[1, 2, 3].map((index) => (
-                  <div key={index} className="h-32 rounded-3xl bg-warm-100 animate-pulse" />
+              <div className="space-y-2">
+                {[1, 2].map((index) => (
+                  <div key={index} className="h-28 rounded-2xl bg-warm-100 animate-pulse" />
                 ))}
               </div>
             ) : orderedPosts.length === 0 ? (
@@ -844,7 +848,8 @@ export default function RndDashboardPage() {
                 Announcements will appear here once configured.
               </div>
             ) : (
-              pagedPosts.map((post) => {
+              <div className="space-y-2">
+              {pagedPosts.map((post) => {
                 const canEdit = isAnnouncementEditable(post, user?.id);
 
                 return (
@@ -861,29 +866,29 @@ export default function RndDashboardPage() {
                     }}
                     className="cursor-pointer rounded-2xl border border-warm-200 bg-white p-3 shadow-sm transition-all duration-150 hover:-translate-y-0.5 hover:border-warm-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
                   >
-                    <div className="flex items-start gap-3">
-                      <div className="h-11 w-11 rounded-full bg-brand-green-700 text-white flex items-center justify-center text-sm font-bold uppercase shrink-0">
+                    <div className="flex items-start gap-2.5">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-green-700 text-xs font-bold uppercase text-white">
                         {getInitials(post.author?.name || "")}
                       </div>
 
                       <div className="flex-1 min-w-0">
-                        <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div className="flex flex-wrap items-start justify-between gap-2">
                           <div>
-                            <div className="text-base font-bold text-warm-900">{post.author?.name}</div>
+                            <div className="text-sm font-bold text-warm-900">{post.author?.name}</div>
                             <div className="text-xs font-semibold uppercase tracking-wider text-warm-400">
                               {post.author?.role} / {formatTimeStamp(post.created_at)}
                               {post.updated_at && post.updated_at !== post.created_at ? " / Edited" : ""}
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1.5">
                             {post.pinned && (
-                              <span className="inline-flex px-2.5 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider border bg-orange-50 text-[#EA580C] border-orange-200">
+                              <span className="inline-flex rounded-full border border-orange-200 bg-orange-50 px-2 py-0.5 text-xs font-extrabold uppercase tracking-wider text-[#EA580C]">
                                 Pinned
                               </span>
                             )}
                             <span
-                              className={`inline-flex px-2.5 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider border ${categoryStyles[post.category]}`}
+                              className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-extrabold uppercase tracking-wider ${categoryStyles[post.category]}`}
                             >
                               {post.category}
                             </span>
@@ -894,7 +899,7 @@ export default function RndDashboardPage() {
                                   event.stopPropagation();
                                   openEditComposer(post);
                                 }}
-                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-warm-200 text-xs font-extrabold uppercase tracking-wider text-warm-600 hover:text-warm-900 hover:bg-warm-50 transition-colors"
+                                className="inline-flex items-center gap-1 rounded-full border border-warm-200 px-2 py-0.5 text-xs font-extrabold uppercase tracking-wider text-warm-600 transition-colors hover:bg-warm-50 hover:text-warm-900"
                                 title="Edit your post"
                               >
                                 <PencilLine className="h-3 w-3" />
@@ -904,9 +909,9 @@ export default function RndDashboardPage() {
                           </div>
                         </div>
 
-                        <div className="mt-3 space-y-2">
-                          <h4 className="text-base font-bold text-warm-900 tracking-tight">{post.title}</h4>
-                          <p className="text-sm text-warm-600 leading-relaxed line-clamp-2">
+                        <div className="mt-2 space-y-1">
+                          <h4 className="truncate text-sm font-bold tracking-tight text-warm-900">{post.title}</h4>
+                          <p className="line-clamp-1 text-xs leading-relaxed text-warm-600">
                             {post.body}
                           </p>
                         </div>
@@ -914,16 +919,17 @@ export default function RndDashboardPage() {
                     </div>
                   </article>
                 );
-              })
-            )}
-            {!announcementsLoading && orderedPosts.length > 0 && (
-              <Pagination
-                meta={announcementsMeta}
-                page={announcementsPage}
-                onPageChange={setAnnouncementsPage}
-              />
+              })}
+              </div>
             )}
           </div>
+          {!announcementsLoading && orderedPosts.length > 0 && (
+            <Pagination
+              meta={announcementsMeta}
+              page={announcementsPage}
+              onPageChange={setAnnouncementsPage}
+            />
+          )}
         </div>
       </div>
 
