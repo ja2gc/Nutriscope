@@ -10,7 +10,7 @@ class AdminUserSeeder extends Seeder
 {
     public function run(): void
     {
-        $this->seedAccount('admin@nutriscope.local', 'System', 'Administrator', 'Admin');
+        $this->seedAccount('admin@nutriscope.local', 'Elena', 'Villanueva', 'Admin');
         $this->seedAccount('rnd@nutriscope.local', 'Rosa Mae', 'Dela Cruz', 'RND');
         $this->seedAccount('fss@nutriscope.local', 'Maria', 'Santos', 'FSS');
     }

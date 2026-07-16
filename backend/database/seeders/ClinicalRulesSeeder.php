@@ -52,7 +52,7 @@ class ClinicalRulesSeeder extends Seeder
         ];
 
         foreach ($rules as $rule) {
-            ClinicalRule::firstOrCreate(
+            ClinicalRule::updateOrCreate(
                 [
                     'condition' => $rule['condition'],
                     'stage' => $rule['stage'],

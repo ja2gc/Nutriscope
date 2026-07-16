@@ -64,10 +64,20 @@ class PersonNameSeederTest extends TestCase
 
         $this->assertSame($before, $after);
         $this->assertCount(3, $after);
+        $this->assertSame([
+            'admin@nutriscope.local' => ['Elena', 'Villanueva', 'Elena Villanueva'],
+            'fss@nutriscope.local' => ['Maria', 'Santos', 'Maria Santos'],
+            'rnd@nutriscope.local' => ['Rosa Mae', 'Dela Cruz', 'Rosa Mae Dela Cruz'],
+        ], collect($after)->map(fn (array $account): array => [
+            $account['first_name'],
+            $account['last_name'],
+            $account['name'],
+        ])->all());
         foreach ($after as $account) {
             $this->assertNotSame('', trim((string) $account['first_name']));
             $this->assertNotSame('', trim((string) $account['last_name']));
             $this->assertSame($account['first_name'].' '.$account['last_name'], $account['name']);
+            $this->assertDoesNotMatchRegularExpression('/^(system|admin|rnd|fss)\b/i', $account['name']);
         }
     }
 

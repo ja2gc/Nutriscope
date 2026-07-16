@@ -119,6 +119,18 @@ class SeederIntegrityTest extends TestCase
         $content = file_get_contents(database_path('seeders/RecipeSeeder.php'));
 
         $this->assertStringNotContainsString(
+            'Recipe::truncate()',
+            $content,
+            'RecipeSeeder must preserve unrelated RND recipes on every rerun'
+        );
+
+        $this->assertStringNotContainsString(
+            'RecipeIngredient::truncate()',
+            $content,
+            'RecipeSeeder must not globally delete ingredients from unrelated RND recipes'
+        );
+
+        $this->assertStringNotContainsString(
             "DB::table('recipes')->delete()",
             $content,
             'RecipeSeeder must not truncate recipes — use firstOrCreate for idempotency'
@@ -131,9 +143,9 @@ class SeederIntegrityTest extends TestCase
         );
 
         $this->assertStringContainsString(
-            'firstOrCreate',
+            'updateOrCreate',
             $content,
-            'RecipeSeeder must use firstOrCreate to be idempotent'
+            'RecipeSeeder must refresh its named demo recipes without duplicating them'
         );
     }
 

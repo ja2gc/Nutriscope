@@ -4,10 +4,9 @@ namespace Database\Seeders;
 
 use App\Models\FoodItem;
 use App\Models\Recipe;
-use App\Models\RecipeIngredient;
 use App\Models\User;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\DB;
 
 class RecipeSeeder extends Seeder
 {
@@ -17,11 +16,6 @@ class RecipeSeeder extends Seeder
         if (! $rnd) {
             return;
         }
-
-        Schema::disableForeignKeyConstraints();
-        RecipeIngredient::truncate();
-        Recipe::truncate();
-        Schema::enableForeignKeyConstraints();
 
         $recipes = [
             // ── Staples ───────────────────────────────────────────────────────
@@ -445,15 +439,6 @@ class RecipeSeeder extends Seeder
         ];
 
         foreach ($recipes as $recipeData) {
-            // Skip if already exists
-            if (Recipe::where('name', $recipeData['name'])->exists()) {
-                continue;
-            }
-
-            $totalCalories = 0.0;
-            $totalProtein = 0.0;
-            $totalCarbs = 0.0;
-            $totalFat = 0.0;
             $ingredientRows = [];
 
             foreach ($recipeData['ingredients'] as [$foodName, $qty, $unit]) {
@@ -464,14 +449,6 @@ class RecipeSeeder extends Seeder
                     continue;
                 }
 
-                $servingSize = (float) ($food->serving_size ?: 100);
-                $factor = $qty / $servingSize;
-
-                $totalCalories += (float) $food->calories * $factor;
-                $totalProtein += (float) $food->protein * $factor;
-                $totalCarbs += (float) $food->carbs * $factor;
-                $totalFat += (float) $food->fat * $factor;
-
                 $ingredientRows[] = ['food' => $food, 'qty' => $qty, 'unit' => $unit];
             }
 
@@ -479,37 +456,37 @@ class RecipeSeeder extends Seeder
                 continue;
             }
 
-            // firstOrCreate by name — idempotent: re-running seeder never duplicates recipes
-            $recipe = Recipe::firstOrCreate(
-                ['name' => $recipeData['name']],
-                [
-                    'rnd_user_id' => $rnd->id,
-                    'category' => $recipeData['category'],
-                    'prep_notes' => $recipeData['prep_notes'],
-                    'servings' => $recipeData['servings'] ?? 1,
-                    'total_calories' => round($totalCalories, 2),
-                    'total_protein' => round($totalProtein, 2),
-                    'total_carbs' => round($totalCarbs, 2),
-                    'total_fat' => round($totalFat, 2),
-                ]
-            );
+            $created = DB::transaction(function () use ($recipeData, $rnd, $ingredientRows): bool {
+                // Update only this canonical demo recipe; unrelated RND recipes survive reruns.
+                $recipe = Recipe::updateOrCreate(
+                    ['name' => $recipeData['name']],
+                    [
+                        'rnd_user_id' => $rnd->id,
+                        'category' => $recipeData['category'],
+                        'prep_notes' => $recipeData['prep_notes'],
+                        'servings' => $recipeData['servings'] ?? 1,
+                    ],
+                );
 
-            // Only insert ingredients for newly created recipes
-            if ($recipe->wasRecentlyCreated) {
+                $created = $recipe->wasRecentlyCreated;
+                $recipe->ingredients()->delete();
                 foreach ($ingredientRows as $row) {
-                    RecipeIngredient::create([
-                        'recipe_id' => $recipe->id,
+                    $recipe->ingredients()->create([
                         'food_item_id' => $row['food']->id,
                         'quantity' => $row['qty'],
                         'unit' => $row['unit'],
                     ]);
                 }
-                // Aggregate macros + water + micronutrients from the ingredients so
-                // meal-plan micro validation and the water display work out of the box.
+
+                // Aggregate macros, water, and micronutrients from the synchronized ingredients.
                 $recipe->recalculateTotals();
+
+                return $created;
+            });
+            if ($created) {
                 $this->command->info("  ✓ Recipe: {$recipeData['name']}");
             } else {
-                $this->command->line("  – Already seeded: {$recipeData['name']}");
+                $this->command->line("  – Synchronized: {$recipeData['name']}");
             }
         }
     }
