@@ -30,10 +30,21 @@ use Spatie\Activitylog\Traits\LogsActivity;
  */
 trait AuditsChanges
 {
-    use LogsActivity;
+    use LogsActivity {
+        shouldLogEvent as protected shouldLogActivityEvent;
+    }
 
     /** @return array<int, string> */
     abstract protected function auditAttributes(): array;
+
+    protected function shouldLogEvent(string $eventName): bool
+    {
+        if (config('audit.seeding.suppress_model_events', false)) {
+            return false;
+        }
+
+        return $this->shouldLogActivityEvent($eventName);
+    }
 
     public function getActivitylogOptions(): LogOptions
     {

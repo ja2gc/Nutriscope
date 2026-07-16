@@ -264,7 +264,7 @@ class AuditInventoryContractTest extends TestCase
         $this->assertStringContainsString('PurchaseOrderCompleted::class', $provider);
 
         $databaseSeeder = file_get_contents(database_path('seeders/DatabaseSeeder.php'));
-        $this->assertStringContainsString('activity()->withoutLogs', $databaseSeeder);
+        $this->assertStringContainsString('audit.seeding.suppress_model_events', $databaseSeeder);
         $this->assertFileDoesNotExist(database_path('seeders/DemoAuditSeeder.php'));
         $this->assertFileDoesNotExist(database_path('seeders/AuditDemoSeeder.php'));
     }

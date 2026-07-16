@@ -24,6 +24,9 @@ class FoodItemsSeeder extends Seeder
      * These 14 entries cover the items most likely to hit rate limits.
      */
     private const FALLBACK_FDC_IDS = [
+        'Milkfish / Bangus (Cooked)' => 171995, // SR Legacy — milkfish cooked, dry heat
+        'Egg (Hard Boiled)' => 173424, // SR Legacy — egg whole, cooked, hard-boiled
+        'Banana (Raw)' => 173944, // SR Legacy — bananas raw
         'Pork Loin (Cooked)' => 174480, // SR Legacy — pork loin roasted
         'Sweet Potato / Kamote' => 168482, // SR Legacy — sweet potato cooked baked
         // ── Former manual items — now USDA-imported for full micronutrient data ──

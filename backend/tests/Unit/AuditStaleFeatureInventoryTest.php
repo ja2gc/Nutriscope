@@ -109,7 +109,7 @@ class AuditStaleFeatureInventoryTest extends TestCase
             $this->assertStringContainsString($tab, $architecture);
         }
         $this->assertStringContainsString(
-            'activity()->withoutLogs',
+            'audit.seeding.suppress_model_events',
             file_get_contents(database_path('seeders/DatabaseSeeder.php')),
         );
         $this->assertFileDoesNotExist(database_path('seeders/AuditDemoSeeder.php'));

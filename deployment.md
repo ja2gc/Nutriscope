@@ -7,6 +7,105 @@ NutriScope has two runtime configurations:
 
 Both use the same two compose files:
 
+## July 16, 2026 disposable demo reset
+
+The owner approved a fresh reset of the deployed demonstration database because its existing rows
+are disposable and use stale schemas/values. These commands apply only to that demo VPS. Do not use
+them later if the database contains records that must be retained.
+
+### 1. Pull and rebuild the production stack
+
+Keep the existing `backend/.env.production`; do not copy the example over it or regenerate
+`APP_KEY`. Pull `main` and rebuild with the production overlay.
+
+```bash
+cd ~/Nutriscope
+git fetch origin main
+git reset --hard origin/main
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+```
+
+### 2. Add only the new audit env keys
+
+The split-name migration needs no new environment variable. The audit redesign adds safe audit
+fallbacks and an optional disk-usage input. Keep the existing `APP_KEY`: encrypted patient-name
+snapshots and every other Laravel-encrypted value depend on it.
+
+```bash
+cd ~/Nutriscope/backend
+cp .env.production ".env.production.backup.$(date +%Y%m%d-%H%M%S)"
+nano .env.production
+```
+
+Keep every existing key/API secret and add only these missing lines:
+
+```env
+SESSION_SECURE_COOKIE=true
+SESSION_SAME_SITE=lax
+AUDIT_DATABASE_DISK_USED_PERCENT=
+AUDIT_RETENTION_ENABLED=false
+AUDIT_EXPORT_ENABLED=false
+```
+
+`AUDIT_DATABASE_DISK_USED_PERCENT` may stay blank until infrastructure supplies a current 0-100
+value. Retention remains disabled until Admin explicitly enables the database-backed switch.
+Audit export must remain disabled. `DB_PASSWORD` must match the password already configured in
+MySQL; changing only the env file does not change an existing MySQL account. Never paste secrets
+into chat, logs, or Git.
+
+### 3. Fresh-migrate and seed the disposable demo
+
+```bash
+set -euo pipefail
+cd ~/Nutriscope
+dc() { docker compose -f docker-compose.yml -f docker-compose.prod.yml "$@"; }
+
+dc up -d --build
+dc exec -T backend php artisan optimize:clear
+dc exec -T backend php artisan config:cache
+dc exec -T backend php artisan migrate:fresh --seed --force
+dc exec -T backend php artisan migrate:status
+dc ps
+```
+
+This permanently deletes the current demo database and rebuilds it from all current migrations.
+Do not run it once real production records must be retained.
+
+### 4. Finish USDA foods, then resynchronize recipes
+
+If the first seed reports pending USDA foods, rerun only `FoodItemsSeeder` until it prints
+`All items successfully imported`. It is resumable and skips completed foods. Then run
+`RecipeSeeder` once so recipes that depended on a previously missing food are complete.
+
+- Admin: Elena Villanueva
+- RND: Rosa Mae Dela Cruz
+- FSS: Maria Santos
+
+```bash
+cd ~/Nutriscope
+dc() { docker compose -f docker-compose.yml -f docker-compose.prod.yml "$@"; }
+dc exec -T backend php artisan db:seed --class=FoodItemsSeeder --force
+dc exec -T backend php artisan db:seed --class=RecipeSeeder --force
+```
+
+The fresh base seed creates Elena Villanueva (Admin), Rosa Mae Dela Cruz (RND), Maria Santos
+(FSS), two current demo patients, 35 meal slots per patient plan, and the current food-service
+demo graph. Automatic model-event noise is suppressed; deliberate PO, budget, and report events
+remain attributed to named system actors.
+
+### 5. Verify the live release
+
+```bash
+cd ~/Nutriscope
+dc() { docker compose -f docker-compose.yml -f docker-compose.prod.yml "$@"; }
+dc exec -T backend php artisan tinker --execute="foreach (['admin@nutriscope.local','rnd@nutriscope.local','fss@nutriscope.local'] as \$email) { \$u=App\\Models\\User::where('email', \$email)->first(); echo \$email.': '.(\$u?\$u->display_name.' / '.\$u->role:'MISSING').PHP_EOL; }"
+dc exec -T backend php artisan schedule:list
+curl -fsS http://127.0.0.1:8080/up
+curl -I https://nutriscope.live
+git rev-parse HEAD
+git ls-remote origin refs/heads/main
+```
+
 | File | Contents | Used by |
 |------|----------|---------|
 | `docker-compose.yml` | mysql, redis, paddleocr, omr (ports bound to `127.0.0.1`) | local + deploy (base) |
@@ -275,9 +374,10 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml exec backend php
 
 Do not run `migrate:fresh` on production. It drops tables.
 
-### Step 5 - VPS: seed required users and optional demo data
+### Step 5 - VPS: optionally synchronize demonstration users
 
-Seed the required demo/admin users safely:
+Skip this step for a normal production database. On the intentional demo installation, synchronize
+the three fixed demonstration identities without changing their existing passwords or roles:
 
 ```bash
 cd ~/Nutriscope
@@ -594,12 +694,15 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml exec backend \
   "
 ```
 
-### Safe demo seed (non-destructive — uses firstOrCreate)
+### Optional demo-account seed
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.prod.yml exec backend \
   php artisan db:seed --class=AdminUserSeeder --force
 ```
+
+This synchronizes Elena Villanueva (Admin), Rosa Mae Dela Cruz (RND), and Maria Santos (FSS).
+It leaves existing passwords, roles, activation state, and unrelated accounts unchanged.
 
 For full operational demo data (menu cycles, POs, diet lists):
 
@@ -612,7 +715,8 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml exec backend \
 > before re-seeding. Only run on a disposable demo database.
 >
 > **Never run `migrate:fresh --seed --force` on a production database** — this wipes all data.
-> Use the targeted seeders above instead.
+> Do not run the base `DatabaseSeeder` on retained production data. Use only an explicitly reviewed
+> targeted seeder.
 
 ---
 

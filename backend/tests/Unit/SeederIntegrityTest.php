@@ -2,7 +2,9 @@
 
 namespace Tests\Unit;
 
+use Database\Seeders\FoodItemsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use ReflectionClass;
 use Tests\TestCase;
 
 /**
@@ -16,6 +18,25 @@ use Tests\TestCase;
  */
 class SeederIntegrityTest extends TestCase
 {
+    public function test_required_demo_foods_have_direct_usda_fallbacks(): void
+    {
+        $fallbacks = (new ReflectionClass(FoodItemsSeeder::class))->getConstant('FALLBACK_FDC_IDS');
+
+        $this->assertSame(171995, $fallbacks['Milkfish / Bangus (Cooked)'] ?? null);
+        $this->assertSame(173424, $fallbacks['Egg (Hard Boiled)'] ?? null);
+        $this->assertSame(173944, $fallbacks['Banana (Raw)'] ?? null);
+    }
+
+    public function test_base_seed_suppresses_model_noise_without_disabling_explicit_system_audits(): void
+    {
+        $databaseSeeder = file_get_contents(database_path('seeders/DatabaseSeeder.php'));
+        $auditConcern = file_get_contents(app_path('Models/Concerns/AuditsChanges.php'));
+
+        $this->assertStringNotContainsString('activity()->withoutLogs', $databaseSeeder);
+        $this->assertStringContainsString('audit.seeding.suppress_model_events', $databaseSeeder);
+        $this->assertStringContainsString('audit.seeding.suppress_model_events', $auditConcern);
+    }
+
     use RefreshDatabase;
 
     /** 1a/1b — FssFoodItemsSeeder must not exist / must not be referenced */
@@ -153,7 +174,7 @@ class SeederIntegrityTest extends TestCase
     {
         $content = file_get_contents(database_path('seeders/DatabaseSeeder.php'));
 
-        $this->assertStringContainsString('activity()->withoutLogs', $content);
+        $this->assertStringContainsString('audit.seeding.suppress_model_events', $content);
         $this->assertStringNotContainsString('WithoutModelEvents', $content,
             'Global model-event muting would also disable public UUID generation.');
     }

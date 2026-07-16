@@ -73,6 +73,10 @@ return [
         'chunk_size' => 1000,
     ],
 
+    'seeding' => [
+        'suppress_model_events' => false,
+    ],
+
     'monitoring' => [
         'volume' => [
             'trailing_days' => 30,

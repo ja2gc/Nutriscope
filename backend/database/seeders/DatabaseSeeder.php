@@ -8,9 +8,13 @@ class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
-        // Base/demo records are setup state, not user activity. Keep model events
-        // (notably UUID assignment) while suppressing anonymous audit rows.
-        activity()->withoutLogs(function (): void {
+        // Base/demo model persistence is setup state, not user activity. Suppress
+        // only automatic model audit events so UUID/model hooks still run and
+        // explicit named system events from real domain flows remain available.
+        $previous = config('audit.seeding.suppress_model_events', false);
+        config()->set('audit.seeding.suppress_model_events', true);
+
+        try {
             $this->call([
                 AdminUserSeeder::class,              // 1. users
                 AiUsageLimitSeeder::class,           // 2. AI token caps (35k daily / 1M monthly)
@@ -25,6 +29,8 @@ class DatabaseSeeder extends Seeder
                 SopSeeder::class,                    // 11. standard operating procedure + history
                 ReportTemplateSeeder::class,         // 12. report templates
             ]);
-        });
+        } finally {
+            config()->set('audit.seeding.suppress_model_events', $previous);
+        }
     }
 }
