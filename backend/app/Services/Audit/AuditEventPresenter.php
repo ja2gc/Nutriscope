@@ -34,8 +34,12 @@ class AuditEventPresenter
         ?User $viewer = null,
         ?Model $currentRecord = null,
     ): AuditEventDto {
-        $category = $this->enumValue($activity->category, AuditCategory::Operations);
-        $domain = $this->enumValue($activity->domain, AuditDomain::System);
+        $category = $activity->category instanceof AuditCategory
+            ? $activity->category->value
+            : 'legacy_unclassified';
+        $domain = $activity->domain instanceof AuditDomain
+            ? $activity->domain->value
+            : 'legacy_unclassified';
         $module = $activity->module instanceof AuditModule
             ? $activity->module->value
             : 'legacy_unclassified';
@@ -112,7 +116,7 @@ class AuditEventPresenter
     private function action(string $storedEvent): array
     {
         if (trim($storedEvent) === '') {
-            return [AuditAction::Updated->value, AuditAction::Updated->label()];
+            return ['legacy_event', 'Legacy event'];
         }
 
         $canonical = config('audit.legacy.action_aliases.'.$storedEvent, $storedEvent);

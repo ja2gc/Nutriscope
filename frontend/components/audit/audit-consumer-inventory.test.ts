@@ -9,7 +9,6 @@ const productionFiles = [
   "components/audit/AuditActorFilter.tsx",
   "components/audit/AuditEventDrawer.tsx",
   "components/audit/AuditEventTable.tsx",
-  "components/audit/AuditExportButton.tsx",
   "components/audit/AuditFilters.tsx",
   "components/audit/AuditRetentionControl.tsx",
   "components/audit/AuditTimestamp.tsx",
@@ -80,7 +79,7 @@ describe("audit consumer inventory", () => {
     expect(actual).toEqual(proxyFiles);
   });
 
-  test("normal UI is module-tabbed while backend-service compatibility parameters remain", () => {
+  test("normal UI and list service use only the active module taxonomy", () => {
     const page = source("app/admin/audit-logs/page.tsx");
     const filters = source("components/audit/AuditFilters.tsx");
     const urlState = source("components/audit/useAuditUrlState.ts");
@@ -93,8 +92,8 @@ describe("audit consumer inventory", () => {
     expect(urlState).toContain('searchParams.get("subfilter")');
     expect(urlState).not.toContain('searchParams.get("category")');
     expect(urlState).not.toContain('searchParams.get("domain")');
-    expect(service).toContain('if (params.category) qs.set("category"');
-    expect(service).toContain('if (params.domain) qs.set("domain"');
+    expect(service).not.toContain('if (params.category) qs.set("category"');
+    expect(service).not.toContain('if (params.domain) qs.set("domain"');
   });
 
   test("five-tab module contract and Task 8 history framework are explicit", () => {

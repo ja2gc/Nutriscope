@@ -6,7 +6,7 @@ import {
   type AuditLogListMeta,
   type ListAuditLogsParams,
 } from "@/services/auditLogService";
-import type { AuditCategory, AuditEventDto, AuditModule } from "@/types/audit";
+import type { AuditEventDto, AuditModule } from "@/types/audit";
 
 const emptyMeta: AuditLogListMeta = {
   current_page: 1,
@@ -14,18 +14,15 @@ const emptyMeta: AuditLogListMeta = {
   total: 0,
   last_page: 1,
   filters: {
-    categories: [],
-    domains: [],
     modules: [],
     actions: [],
     outcomes: [],
     severities: [],
-    category_actions: {} as Record<AuditCategory, string[]>,
     module_subfilters: {} as Record<AuditModule, []>,
     module_actions: {} as Record<AuditModule, string[]>,
     module_counts: { all: 0, security_administration: 0, nutrition_care: 0, food_service_operations: 0, reports: 0 },
   },
-  capabilities: { export: false },
+  capabilities: {},
   retention: {
     enabled: false,
     source: "config",
@@ -44,9 +41,7 @@ export function useAuditEventList(params: ListAuditLogsParams) {
   const stableParams = useMemo<ListAuditLogsParams>(() => ({
     action: params.action,
     actor_id: params.actor_id,
-    category: params.category,
     context_id: params.context_id,
-    domain: params.domain,
     end: params.end,
     outcome: params.outcome,
     module: params.module,
@@ -59,9 +54,7 @@ export function useAuditEventList(params: ListAuditLogsParams) {
   }), [
     params.action,
     params.actor_id,
-    params.category,
     params.context_id,
-    params.domain,
     params.end,
     params.outcome,
     params.module,

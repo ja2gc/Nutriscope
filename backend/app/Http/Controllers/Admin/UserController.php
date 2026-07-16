@@ -88,9 +88,16 @@ class UserController extends Controller
             }
 
             if ($changedFields !== []) {
-                $action = $changedFields === ['password']
-                    ? AuditAction::PasswordReset
-                    : AuditAction::Updated;
+                $action = match (true) {
+                    $changedFields === ['password'] => AuditAction::PasswordReset,
+                    in_array('is_active', $changedFields, true)
+                        && $oldValues['is_active'] === true
+                        && $user->is_active === false => AuditAction::AccountBlocked,
+                    in_array('is_active', $changedFields, true)
+                        && $oldValues['is_active'] === false
+                        && $user->is_active === true => AuditAction::AccountUnblocked,
+                    default => AuditAction::Updated,
+                };
                 $this->auditUser(
                     $action,
                     $user,

@@ -2,9 +2,6 @@
 
 namespace App\Services\Audit;
 
-use App\Enums\AuditAction;
-use App\Enums\AuditCategory;
-use App\Enums\AuditDomain;
 use App\Enums\AuditModule;
 use App\Enums\AuditOutcome;
 use App\Enums\AuditSeverity;
@@ -39,8 +36,6 @@ class AuditQuery
                 ]);
             }, 'revision:id,activity_id,public_id,action']);
 
-        $this->wherePresentedDefault($query, 'category', $filters['category'] ?? null, AuditCategory::Operations->value);
-        $this->wherePresentedDefault($query, 'domain', $filters['domain'] ?? null, AuditDomain::System->value);
         $this->wherePresentedDefault($query, 'severity', $filters['severity'] ?? null, AuditSeverity::Info->value);
         $this->wherePresentedDefault($query, 'outcome', $filters['outcome'] ?? null, AuditOutcome::Success->value);
         $this->wherePresentedAction($query, $filters['action'] ?? null);
@@ -97,19 +92,6 @@ class AuditQuery
             ->all();
         $events = [$value, ...$aliases];
 
-        if ($value !== AuditAction::Updated->value) {
-            $query->whereIn('event', $events);
-
-            return;
-        }
-
-        $knownEvents = [...array_column(AuditAction::cases(), 'value'), ...array_keys(config('audit.legacy.action_aliases', []))];
-        $query->where(function (Builder $scope) use ($events, $knownEvents): void {
-            $scope->whereIn('event', $events)
-                ->orWhereNull('event')
-                ->orWhere(fn (Builder $unknown): Builder => $unknown
-                    ->whereNotNull('event')
-                    ->whereNotIn('event', $knownEvents));
-        });
+        $query->whereIn('event', $events);
     }
 }

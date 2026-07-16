@@ -95,18 +95,18 @@ class AdminAuditLogTest extends TestCase
         config()->set('audit.features.export', false);
 
         $response = $this->actingAs($this->admin, 'sanctum')
-            ->getJson('/api/admin/audit-logs?category=security');
+            ->getJson('/api/admin/audit-logs');
 
         $response->assertOk()
-            ->assertJsonCount(3, 'meta.filters.categories')
-            ->assertJsonPath('meta.filters.categories.0.value', 'security')
-            ->assertJsonPath('meta.filters.categories.0.label', 'Security')
-            ->assertJsonPath('meta.filters.domains.0.value', 'accounts')
+            ->assertJsonCount(4, 'meta.filters.modules')
+            ->assertJsonPath('meta.filters.modules.0.value', 'security_administration')
             ->assertJsonPath('meta.filters.actions.0.value', 'created')
             ->assertJsonPath('meta.filters.outcomes.0.value', 'success')
-            ->assertJsonPath('meta.filters.severities.0.value', 'info')
-            ->assertJsonPath('meta.filters.category_actions.security.0', 'created')
-            ->assertJsonPath('meta.capabilities.export', false);
+            ->assertJsonPath('meta.filters.severities.0.value', 'info');
+        $this->assertArrayNotHasKey('categories', $response->json('meta.filters'));
+        $this->assertArrayNotHasKey('domains', $response->json('meta.filters'));
+        $this->assertArrayNotHasKey('category_actions', $response->json('meta.filters'));
+        $this->assertArrayNotHasKey('export', $response->json('meta.capabilities'));
     }
 
     public function test_admin_can_read_static_retention_periods_and_config_fallback_state(): void

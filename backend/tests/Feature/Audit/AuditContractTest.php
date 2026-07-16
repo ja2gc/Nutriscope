@@ -200,7 +200,7 @@ class AuditContractTest extends TestCase
         $this->assertModelExists($activity);
     }
 
-    public function test_legacy_metadata_defaults_are_added_only_when_presented(): void
+    public function test_legacy_metadata_is_explicitly_unclassified_only_when_presented(): void
     {
         $activity = AuditActivity::create([
             'log_name' => 'default',
@@ -210,12 +210,12 @@ class AuditContractTest extends TestCase
 
         $payload = app(AuditEventPresenter::class)->present($activity)->toArray();
 
-        $this->assertSame('updated', $payload['action']);
-        $this->assertSame('operations', $payload['category']);
-        $this->assertSame('system', $payload['domain']);
+        $this->assertSame('legacy_event', $payload['action']);
+        $this->assertSame('legacy_unclassified', $payload['category']);
+        $this->assertSame('legacy_unclassified', $payload['domain']);
         $this->assertSame('info', $payload['severity']);
         $this->assertSame('success', $payload['outcome']);
-        $this->assertSame('Unknown actor updated system operation.', $payload['summary']);
+        $this->assertSame('Unknown actor recorded Legacy event for system operation.', $payload['summary']);
 
         $activity->refresh();
         $this->assertNull($activity->category);

@@ -2,6 +2,7 @@
 
 namespace Tests\Unit;
 
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Schema;
 use RecursiveDirectoryIterator;
@@ -14,13 +15,13 @@ class AuditInventoryContractTest extends TestCase
 {
     private const CHARACTERIZATION_SUITES = [
         'tests/Feature/Audit/AuditContractTest.php' => [
-            'test_legacy_metadata_defaults_are_added_only_when_present',
+            'test_legacy_metadata_is_explicitly_unclassified_only_when_presented',
             'test_metadata_migration_is_reversible',
         ],
         'tests/Feature/Audit/StructuredAuditApiTest.php' => [
             'test_admin_list_returns_only_the_structured_public_contract',
             'test_common_audit_queries_have_explainable_indexed_plans',
-            'test_legacy_presented_defaults_and_action_aliases_are_filterable',
+            'test_legacy_unclassified_rows_and_action_aliases_remain_readable',
         ],
         'tests/Feature/Audit/AuditRouteCoverageTest.php' => [
             'test_every_unsafe_route_has_an_audit_classification_and_reason',
@@ -57,6 +58,10 @@ class AuditInventoryContractTest extends TestCase
         'tests/Feature/BudgetAuditTest.php' => [
             'test_budget_setup_and_manual_adjustment_write_audit_events',
             'test_po_deduction_ledger_creation_writes_system_audit_event',
+        ],
+        'tests/Feature/Audit/AuditLegacyCompatibilityTest.php' => [
+            'test_retired_category_and_domain_list_parameters_are_rejected',
+            'test_backfill_is_chunked_idempotent_and_preserves_privacy_and_existing_history',
         ],
     ];
 
@@ -223,6 +228,9 @@ class AuditInventoryContractTest extends TestCase
             'app/Services/Audit/AuditContextResolver.php',
             'app/Services/Audit/AuditQuery.php',
             'app/Services/Audit/AuditEventPresenter.php',
+            'app/Services/Audit/AuditOversightBackfill.php',
+            'app/Services/Audit/LegacyAuditEntityLabels.php',
+            'app/Console/Commands/BackfillAuditOversight.php',
             'app/Services/Audit/AuditFilterMetadata.php',
             'app/Policies/AuditPolicy.php',
             'app/Http/Controllers/Admin/AuditLogController.php',
@@ -248,6 +256,8 @@ class AuditInventoryContractTest extends TestCase
             $this->assertStringContainsString($scheduled, $bootstrap);
         }
         $this->assertStringContainsString('AuditRetentionState::class)->enabled()', $bootstrap);
+        $this->assertStringNotContainsString("schedule->command('audit:backfill-oversight", $bootstrap);
+        $this->assertArrayHasKey('audit:backfill-oversight', Artisan::all());
 
         $provider = file_get_contents(app_path('Providers/AppServiceProvider.php'));
         $this->assertStringContainsString('BudgetLedgerListener::class', $provider);
@@ -256,6 +266,7 @@ class AuditInventoryContractTest extends TestCase
         $databaseSeeder = file_get_contents(database_path('seeders/DatabaseSeeder.php'));
         $this->assertStringContainsString('activity()->withoutLogs', $databaseSeeder);
         $this->assertFileDoesNotExist(database_path('seeders/DemoAuditSeeder.php'));
+        $this->assertFileDoesNotExist(database_path('seeders/AuditDemoSeeder.php'));
     }
 
     public function test_additive_redesign_storage_contract_is_implemented(): void

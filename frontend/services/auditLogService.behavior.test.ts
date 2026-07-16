@@ -32,11 +32,11 @@ describe("audit log service behavior", () => {
       headers: { "Content-Type": "text/csv; charset=UTF-8" },
     }));
 
-    const result = await exportAuditLogs({ category: "security" });
+    const result = await exportAuditLogs({ outcome: "blocked" });
 
     expect(result.type).toMatch(/^text\/csv/);
     expect(apiFetchMock).toHaveBeenCalledWith(
-      "/api/admin/audit-logs/export?category=security",
+      "/api/admin/audit-logs/export?outcome=blocked",
       expect.objectContaining({ headers: { Accept: "text/csv" } }),
       { redirectOnUnauthorized: false },
     );

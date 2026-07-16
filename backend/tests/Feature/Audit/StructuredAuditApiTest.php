@@ -115,6 +115,7 @@ class StructuredAuditApiTest extends TestCase
         AuditActivity::create([
             'log_name' => 'audit', 'description' => 'Match', 'event' => AuditAction::Created,
             'category' => AuditCategory::Clinical, 'domain' => AuditDomain::Patients,
+            'module' => AuditModule::NutritionCare,
             'severity' => AuditSeverity::Info, 'outcome' => AuditOutcome::Success,
             'causer_type' => $actor->getMorphClass(), 'causer_id' => $actor->id,
             'subject_type' => $patient->getMorphClass(), 'subject_id' => $patient->id,
@@ -128,7 +129,7 @@ class StructuredAuditApiTest extends TestCase
         ]);
 
         $query = http_build_query([
-            'category' => 'clinical', 'domain' => 'patients', 'action' => 'created', 'severity' => 'info',
+            'module' => 'nutrition_care', 'action' => 'created', 'severity' => 'info',
             'outcome' => 'success', 'actor_id' => $actor->uuid, 'subject_id' => $patient->uuid,
             'start' => '2026-07-10', 'end' => '2026-07-10', 'page' => 1, 'per_page' => 10,
         ]);
@@ -136,7 +137,7 @@ class StructuredAuditApiTest extends TestCase
             ->assertOk()->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.summary', "{$actor->display_name} created patient.");
 
-        foreach (['category=nope', 'domain=nope', 'action=nope', 'severity=nope', 'outcome=nope',
+        foreach (['category=clinical', 'domain=patients', 'category=nope', 'domain=nope', 'action=nope', 'severity=nope', 'outcome=nope',
             'actor_id=1', 'subject_id=1', 'context_id=1', 'page=0', 'per_page=101',
             'start=2026-07-11&end=2026-07-10'] as $invalid) {
             $this->actingAs($this->admin, 'sanctum')->getJson('/api/admin/audit-logs?'.$invalid)->assertUnprocessable();
@@ -166,6 +167,7 @@ class StructuredAuditApiTest extends TestCase
         AuditActivity::create([
             'log_name' => 'audit', 'description' => 'Clinical event', 'event' => AuditAction::Viewed,
             'category' => AuditCategory::Clinical, 'domain' => AuditDomain::Patients,
+            'module' => AuditModule::NutritionCare,
             'properties' => [
                 'actor' => [
                     'kind' => 'user', 'public_id' => $this->admin->uuid,
@@ -180,7 +182,7 @@ class StructuredAuditApiTest extends TestCase
 
         config(['audit.features.export' => true]);
         config(['audit.export.max_rows' => 1]);
-        $response = $this->actingAs($this->admin, 'sanctum')->get('/api/admin/audit-logs/export?category=clinical');
+        $response = $this->actingAs($this->admin, 'sanctum')->get('/api/admin/audit-logs/export?module=nutrition_care');
         $response->assertOk()->assertHeader('content-type', 'text/csv; charset=UTF-8');
         $csv = $response->streamedContent();
         $this->assertStringContainsString('event_reference,category,domain,action', $csv);
@@ -191,7 +193,7 @@ class StructuredAuditApiTest extends TestCase
             $this->assertStringNotContainsString($forbidden, $csv);
         }
 
-        $this->actingAs($this->admin, 'sanctum')->get('/api/admin/audit-logs/export?category=clinical')->assertOk();
+        $this->actingAs($this->admin, 'sanctum')->get('/api/admin/audit-logs/export?module=nutrition_care')->assertOk();
         $this->assertSame(2, AuditActivity::query()->auditOnly()->where('event', AuditAction::Exported->value)->count());
     }
 
@@ -466,7 +468,7 @@ class StructuredAuditApiTest extends TestCase
         $this->assertStringNotContainsString('?token=', $csv);
     }
 
-    public function test_legacy_presented_defaults_and_action_aliases_are_filterable_without_unrelated_rows(): void
+    public function test_legacy_unclassified_rows_and_action_aliases_remain_readable_without_false_updated_matches(): void
     {
         AuditFixture::delete(AuditActivity::query());
         $legacy = AuditActivity::create([
@@ -503,21 +505,18 @@ class StructuredAuditApiTest extends TestCase
         ]);
 
         foreach ([
-            ['category' => 'operations'],
-            ['domain' => 'system'],
             ['severity' => 'info'],
             ['outcome' => 'success'],
             ['action' => 'login_succeeded'],
         ] as $filter) {
             $this->assertSame([$legacy->id], app(AuditQuery::class)->build($filter)->pluck('id')->all());
         }
-        $this->assertEqualsCanonicalizing(
-            [$nullAction->id, $unknownAction->id],
-            app(AuditQuery::class)->build(['action' => 'updated'])->pluck('id')->all(),
-        );
+        $this->assertSame([], app(AuditQuery::class)->build(['action' => 'updated'])->pluck('id')->all());
+        $this->assertSame('legacy_event', app(AuditEventPresenter::class)->present($nullAction)->action);
+        $this->assertSame('legacy_unknown', app(AuditEventPresenter::class)->present($unknownAction)->action);
 
         $response = $this->actingAs($this->admin, 'sanctum')->getJson(
-            '/api/admin/audit-logs?category=operations&domain=system&severity=info&outcome=success&action=login_succeeded',
+            '/api/admin/audit-logs?severity=info&outcome=success&action=login_succeeded',
         );
         $response->assertOk()->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.action', 'login_succeeded');

@@ -3,8 +3,6 @@
 namespace App\Http\Requests\Admin;
 
 use App\Enums\AuditAction;
-use App\Enums\AuditCategory;
-use App\Enums\AuditDomain;
 use App\Enums\AuditModule;
 use App\Enums\AuditOutcome;
 use App\Enums\AuditSeverity;
@@ -32,8 +30,8 @@ class ListAuditLogsRequest extends FormRequest
                 'max:64',
                 Rule::in(app(AuditContextualFilters::class)->valuesFor($this->input('module'))),
             ],
-            'category' => ['nullable', Rule::enum(AuditCategory::class)],
-            'domain' => ['nullable', Rule::enum(AuditDomain::class)],
+            'category' => ['prohibited'],
+            'domain' => ['prohibited'],
             'action' => ['nullable', Rule::enum(AuditAction::class)],
             'event' => ['nullable', Rule::enum(AuditAction::class)],
             'severity' => ['nullable', Rule::enum(AuditSeverity::class)],

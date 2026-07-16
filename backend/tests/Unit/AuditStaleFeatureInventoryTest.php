@@ -28,7 +28,7 @@ class AuditStaleFeatureInventoryTest extends TestCase
         'historical inventory migrations' => ['retain', 15],
         'audit-related dead controllers models or migrations' => ['keep-absent', 15],
         'base seeder anonymous audit noise' => ['keep-absent', 14],
-        'dedicated demo audit seeder' => ['add', 14],
+        'dedicated demo audit seeder' => ['keep-absent', 14],
         'stale four-view audit documentation' => ['update', 17],
     ];
 
@@ -65,6 +65,8 @@ class AuditStaleFeatureInventoryTest extends TestCase
     {
         $request = file_get_contents(app_path('Http/Requests/Admin/ListAuditLogsRequest.php'));
         $presenter = file_get_contents(app_path('Services/Audit/AuditEventPresenter.php'));
+        $eventPolicy = file_get_contents(app_path('Services/Audit/AuditEventPolicy.php'));
+        $legacyEntityLabels = file_get_contents(app_path('Services/Audit/LegacyAuditEntityLabels.php'));
         $reportController = file_get_contents(app_path('Http/Controllers/ReportController.php'));
         $reportBrowser = file_get_contents(app_path('Services/Reports/ReportBrowser.php'));
         $auditPolicy = file_get_contents(app_path('Policies/AuditPolicy.php'));
@@ -72,11 +74,13 @@ class AuditStaleFeatureInventoryTest extends TestCase
         $filters = file_get_contents(base_path('../frontend/components/audit/AuditFilters.tsx'));
         $auditService = file_get_contents(base_path('../frontend/services/auditLogService.ts'));
 
-        $this->assertStringContainsString("'category'", $request);
-        $this->assertStringContainsString("'domain'", $request);
+        $this->assertStringContainsString("'category' => ['prohibited']", $request);
+        $this->assertStringContainsString("'domain' => ['prohibited']", $request);
         $this->assertStringNotContainsString('?? AuditAction::Updated', $presenter);
         $this->assertStringContainsString('AuditAction::tryFrom($candidate)', $presenter);
-        $this->assertStringContainsString('return [AuditAction::Updated->value', $presenter);
+        $this->assertStringNotContainsString('return [AuditAction::Updated->value', $presenter);
+        $this->assertStringNotContainsString('Models\\Inventory', $eventPolicy);
+        $this->assertStringContainsString("'Inventory' => ['inventory', 'Inventory record']", $legacyEntityLabels);
         $this->assertStringContainsString('authorizeReportAccess($report)', $reportController);
         $this->assertStringNotContainsString('authorizeOwner', $reportController);
         $this->assertStringContainsString("\$role !== 'RND'", $reportController);
@@ -87,12 +91,12 @@ class AuditStaleFeatureInventoryTest extends TestCase
         $this->assertStringContainsString('Security & Administration', $auditPage);
         $this->assertStringNotContainsString('AuditCategory', $auditPage);
         $this->assertStringNotContainsString('label="Domain"', $filters);
-        $this->assertStringContainsString('qs.set("category"', $auditService);
-        $this->assertStringContainsString('qs.set("domain"', $auditService);
+        $this->assertStringNotContainsString('qs.set("category"', $auditService);
+        $this->assertStringNotContainsString('qs.set("domain"', $auditService);
         $this->assertFalse(config('audit.features.export'));
         $this->assertTrue(Schema::hasColumn('activity_log', 'category'));
         $this->assertTrue(Schema::hasColumn('activity_log', 'domain'));
-        $this->assertFileExists(base_path('../frontend/components/audit/AuditExportButton.tsx'));
+        $this->assertFileDoesNotExist(base_path('../frontend/components/audit/AuditExportButton.tsx'));
         $this->assertStringContainsString(
             'four UI views only',
             file_get_contents(base_path('../docs/architecture/audit-logging.md')),
@@ -166,13 +170,13 @@ class AuditStaleFeatureInventoryTest extends TestCase
         }
     }
 
-    public function test_api_compatibility_remains_while_unknown_actions_use_the_typed_presenter(): void
+    public function test_retired_list_parameters_are_prohibited_while_unknown_actions_remain_typed(): void
     {
         $request = file_get_contents(app_path('Http/Requests/Admin/ListAuditLogsRequest.php'));
         $presenter = file_get_contents(app_path('Services/Audit/AuditEventPresenter.php'));
 
-        $this->assertStringContainsString("'category'", $request);
-        $this->assertStringContainsString("'domain'", $request);
+        $this->assertStringContainsString("'category' => ['prohibited']", $request);
+        $this->assertStringContainsString("'domain' => ['prohibited']", $request);
         $this->assertStringNotContainsString('?? AuditAction::Updated', $presenter);
         $this->assertStringContainsString('AuditAction::tryFrom($candidate)', $presenter);
     }

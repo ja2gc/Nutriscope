@@ -29,7 +29,7 @@ describe("audit stale-feature inventory", () => {
     });
   });
 
-  test("module UI is live while API, proxy, and disabled-export compatibility remains explicit", () => {
+  test("module UI is live after list-filter and disabled-export UI compatibility retires", () => {
     const page = source("app/admin/audit-logs/page.tsx");
     const filters = source("components/audit/AuditFilters.tsx");
     const urlState = source("components/audit/useAuditUrlState.ts");
@@ -38,17 +38,17 @@ describe("audit stale-feature inventory", () => {
 
     expect(page).not.toContain("AuditCategory");
     expect(page).toContain("Security & Administration");
-    expect(page).toContain("meta.capabilities.export");
+    expect(page).not.toContain("meta.capabilities.export");
     expect(filters).not.toContain('label="Domain"');
     expect(urlState).toContain('searchParams.get("module")');
     expect(urlState).toContain('searchParams.get("subfilter")');
     expect(urlState).not.toContain('searchParams.get("category")');
     expect(urlState).not.toContain('searchParams.get("domain")');
-    expect(service).toContain('qs.set("category"');
-    expect(service).toContain('qs.set("domain"');
+    expect(service).not.toContain('qs.set("category"');
+    expect(service).not.toContain('qs.set("domain"');
     expect(proxy).toContain("new URL(req.url).searchParams");
     expect(proxy).toContain('proxy("/admin/audit-logs", { search })');
-    expect(existsSync(join(process.cwd(), "components/audit/AuditExportButton.tsx"))).toBe(true);
+    expect(existsSync(join(process.cwd(), "components/audit/AuditExportButton.tsx"))).toBe(false);
     expect(existsSync(join(process.cwd(), "app/api/admin/audit-logs/export/route.ts"))).toBe(true);
   });
 

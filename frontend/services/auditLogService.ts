@@ -2,7 +2,6 @@ import { apiFetch } from "@/lib/apiFetch";
 import type { PaginationMeta } from "@/components/ui/Pagination";
 import type {
   AuditCapabilities,
-  AuditCategory,
   AuditEventDto,
   AuditFilterMetadata,
   AuditModule,
@@ -18,8 +17,6 @@ export interface ListAuditLogsParams {
   per_page?: number;
   module?: AuditModule;
   subfilter?: string;
-  category?: AuditCategory;
-  domain?: AuditEventDto["domain"];
   action?: string;
   severity?: AuditSeverity;
   outcome?: AuditOutcome;
@@ -49,8 +46,6 @@ function auditQuery(params: ListAuditLogsParams) {
   if (params.per_page) qs.set("per_page", String(params.per_page));
   if (params.module) qs.set("module", params.module);
   if (params.subfilter) qs.set("subfilter", params.subfilter);
-  if (params.category) qs.set("category", params.category);
-  if (params.domain) qs.set("domain", params.domain);
   if (params.action) qs.set("action", params.action);
   if (params.severity) qs.set("severity", params.severity);
   if (params.outcome) qs.set("outcome", params.outcome);
@@ -93,18 +88,15 @@ export async function listAuditLogs(
       total: 0,
       last_page: 1,
       filters: {
-        categories: [],
-        domains: [],
         modules: [],
         actions: [],
         outcomes: [],
         severities: [],
-        category_actions: {},
         module_subfilters: {} as Record<AuditModule, []>,
         module_actions: {} as Record<AuditModule, string[]>,
         module_counts: { all: 0, security_administration: 0, nutrition_care: 0, food_service_operations: 0, reports: 0 },
       },
-      capabilities: { export: false },
+      capabilities: {},
       retention: {
         enabled: false,
         source: "config",

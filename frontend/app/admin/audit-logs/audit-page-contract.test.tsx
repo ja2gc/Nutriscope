@@ -12,7 +12,6 @@ const table = source("components/audit/AuditEventTable.tsx");
 const drawer = source("components/audit/AuditEventDrawer.tsx");
 const changes = source("components/audit/AuditChangeList.tsx");
 const filters = source("components/audit/AuditFilters.tsx");
-const exportButton = source("components/audit/AuditExportButton.tsx");
 const urlState = source("components/audit/useAuditUrlState.ts");
 const tabsComponent = source("components/ui/Tabs.tsx");
 
@@ -50,13 +49,12 @@ describe("purposeful admin audit views", () => {
     expect(table).not.toContain("onKeyDown");
   });
 
-  test("downloads exports through a guarded UI without navigating to a raw response", () => {
-    expect(page).toContain("AuditExportButton");
+  test("keeps disabled audit export out of the normal UI", () => {
+    expect(page).not.toContain("AuditExportButton");
     expect(page).not.toContain("window.location.href");
-    expect(exportButton).toContain("URL.createObjectURL");
-    expect(exportButton).toContain("URL.revokeObjectURL");
-    expect(exportButton).toContain("exporting");
-    expect(exportButton).toContain("exportErrorMessage");
+    expect(existsSync(join(process.cwd(), "components/audit/AuditExportButton.tsx"))).toBe(false);
+    expect(source("services/auditLogService.ts")).toContain("exportAuditLogs");
+    expect(source("app/api/admin/audit-logs/export/route.ts")).toContain('/admin/audit-logs/export`');
   });
 
   test("uses request sequencing and URL-authoritative state hooks", () => {

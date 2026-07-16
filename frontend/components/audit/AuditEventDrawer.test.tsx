@@ -182,8 +182,6 @@ describe("structured audit event components", () => {
 
   test("limits actions to the selected backend module-action map", () => {
     const metadata: AuditFilterMetadata = {
-      categories: [{ value: "clinical", label: "Clinical" }],
-      domains: [],
       modules: [{ value: "nutrition_care", label: "Nutrition Care" }],
       actions: [
         { value: "updated", label: "Updated" },
@@ -191,7 +189,6 @@ describe("structured audit event components", () => {
       ],
       outcomes: [],
       severities: [],
-      category_actions: { clinical: ["updated"], security: [], operations: [] },
       module_subfilters: { security_administration: [], nutrition_care: [], food_service_operations: [], reports: [] },
       module_actions: { security_administration: [], nutrition_care: ["updated"], food_service_operations: [], reports: [] },
       module_counts: { all: 0, security_administration: 0, nutrition_care: 0, food_service_operations: 0, reports: 0 },

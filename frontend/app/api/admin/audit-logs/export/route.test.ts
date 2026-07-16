@@ -28,11 +28,11 @@ describe("audit export proxy", () => {
     }));
 
     const response = await GET(new NextRequest(
-      "http://localhost/api/admin/audit-logs/export?category=security&outcome=blocked",
+      "http://localhost/api/admin/audit-logs/export?module=security_administration&outcome=blocked",
     ));
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "http://127.0.0.1:8000/api/admin/audit-logs/export?category=security&outcome=blocked",
+      "http://127.0.0.1:8000/api/admin/audit-logs/export?module=security_administration&outcome=blocked",
       expect.objectContaining({
         method: "GET",
         headers: expect.objectContaining({

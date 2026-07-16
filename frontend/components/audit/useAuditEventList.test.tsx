@@ -20,13 +20,12 @@ function auditMeta(total: number): AuditLogListMeta {
   total,
   last_page: 1,
   filters: {
-    categories: [], domains: [], modules: [], actions: [], outcomes: [], severities: [],
-    category_actions: { security: [], clinical: [], operations: [] },
+    modules: [], actions: [], outcomes: [], severities: [],
     module_subfilters: { security_administration: [], nutrition_care: [], food_service_operations: [], reports: [] },
     module_actions: { security_administration: [], nutrition_care: [], food_service_operations: [], reports: [] },
     module_counts: { all: 0, security_administration: 0, nutrition_care: 0, food_service_operations: 0, reports: 0 },
   },
-  capabilities: { export: false },
+  capabilities: {},
   retention: { enabled: false, source: "config", periods: { security: 365, clinical: 2190, operations: 1095, legacy: 90 } },
   };
 }
@@ -65,8 +64,8 @@ function auditEvent(summary: string): AuditEventDto {
   };
 }
 
-function Harness({ domain }: { domain: "accounts" | "reports" }) {
-  const state = useAuditEventList({ domain });
+function Harness({ module }: { module: "security_administration" | "reports" }) {
+  const state = useAuditEventList({ module });
   return (
     <div data-loading={state.loading} data-total={state.meta.total}>
       {state.error?.message || state.events[0]?.summary || "empty"}
@@ -96,9 +95,9 @@ describe("useAuditEventList", () => {
     const newer = deferred<{ data: AuditEventDto[]; meta: AuditLogListMeta }>();
     listMock.mockReturnValueOnce(older.promise).mockReturnValueOnce(newer.promise);
 
-    act(() => root.render(<Harness domain="accounts" />));
+    act(() => root.render(<Harness module="security_administration" />));
     const firstSignal = listMock.mock.calls[0][1]?.signal;
-    act(() => root.render(<Harness domain="reports" />));
+    act(() => root.render(<Harness module="reports" />));
 
     expect(firstSignal?.aborted).toBe(true);
     await act(async () => newer.resolve({ data: [auditEvent("newest")], meta: auditMeta(2) }));
@@ -116,8 +115,8 @@ describe("useAuditEventList", () => {
     const newer = deferred<{ data: AuditEventDto[]; meta: AuditLogListMeta }>();
     listMock.mockReturnValueOnce(older.promise).mockReturnValueOnce(newer.promise);
 
-    act(() => root.render(<Harness domain="accounts" />));
-    act(() => root.render(<Harness domain="reports" />));
+    act(() => root.render(<Harness module="security_administration" />));
+    act(() => root.render(<Harness module="reports" />));
     await act(async () => newer.resolve({ data: [auditEvent("current")], meta: auditMeta(1) }));
     await act(async () => older.reject(new Error("stale failure")));
 

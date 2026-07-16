@@ -81,20 +81,17 @@ export interface AuditFilterOption {
 }
 
 export interface AuditFilterMetadata {
-  categories: AuditFilterOption[];
-  domains: AuditFilterOption[];
   modules: AuditFilterOption[];
   actions: AuditFilterOption[];
   outcomes: AuditFilterOption[];
   severities: AuditFilterOption[];
-  category_actions: Record<AuditCategory, string[]>;
   module_subfilters: Record<AuditModule, AuditFilterOption[]>;
   module_actions: Record<AuditModule, string[]>;
   module_counts: Record<"all" | AuditModule, number>;
 }
 
 export interface AuditCapabilities {
-  export: boolean;
+  export?: boolean;
 }
 
 export interface AuditRetentionState {

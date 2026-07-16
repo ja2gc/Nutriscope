@@ -19,7 +19,6 @@ use App\Models\FoodServiceRecipe;
 use App\Models\FoodServiceSetting;
 use App\Models\FsItem;
 use App\Models\Intervention;
-use App\Models\Inventory;
 use App\Models\MealPlan;
 use App\Models\MealPrepLog;
 use App\Models\MenuCycle;
@@ -129,7 +128,6 @@ class AuditEventPolicy
             $subject instanceof FoodServiceRecipe,
             $subject instanceof FoodServiceSetting,
             $subject instanceof FsItem,
-            $subject instanceof Inventory,
             $subject instanceof MealPrepLog,
             $subject instanceof MenuCycle,
             $subject instanceof MenuCycleTemplate,

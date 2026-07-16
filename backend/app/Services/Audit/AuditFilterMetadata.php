@@ -3,8 +3,6 @@
 namespace App\Services\Audit;
 
 use App\Enums\AuditAction;
-use App\Enums\AuditCategory;
-use App\Enums\AuditDomain;
 use App\Enums\AuditModule;
 use App\Enums\AuditOutcome;
 use App\Enums\AuditSeverity;
@@ -20,36 +18,34 @@ class AuditFilterMetadata
         private readonly AuditContextualFilters $contextualFilters,
     ) {}
 
-    /** @return array{filters: array<string, mixed>, capabilities: array<string, bool>} */
+    /** @return array{filters: array<string, mixed>, capabilities: array<string, bool>|object, retention: array<string, mixed>} */
     public function for(User $user): array
     {
         return [
             'filters' => [
-                'categories' => $this->options(AuditCategory::cases()),
-                'domains' => $this->options(AuditDomain::cases()),
                 'modules' => $this->options(AuditModule::cases()),
                 'module_subfilters' => $this->contextualFilters->options(),
                 'module_actions' => collect(config('audit.taxonomy.module_actions', []))
                     ->map(fn (array $actions): array => array_values($actions))
                     ->all(),
                 'module_counts' => $this->moduleCounts(),
-                'actions' => $this->options(AuditAction::cases()),
+                'actions' => $this->options(array_values(array_filter(
+                    AuditAction::cases(),
+                    fn (AuditAction $action): bool => $action !== AuditAction::Exported,
+                ))),
                 'outcomes' => $this->options(AuditOutcome::cases()),
                 'severities' => $this->options(AuditSeverity::cases()),
-                'category_actions' => collect(config('audit.taxonomy.category_actions', []))
-                    ->map(fn (array $actions): array => array_values($actions))
-                    ->all(),
             ],
-            'capabilities' => [
-                'export' => (bool) config('audit.features.export')
-                    && Gate::forUser($user)->allows('export', AuditActivity::class),
-            ],
+            'capabilities' => (bool) config('audit.features.export')
+                && Gate::forUser($user)->allows('export', AuditActivity::class)
+                    ? ['export' => true]
+                    : (object) [],
             'retention' => $this->retentionState->current(),
         ];
     }
 
     /**
-     * @param  array<int, AuditAction|AuditCategory|AuditDomain|AuditModule|AuditOutcome|AuditSeverity>  $cases
+     * @param  array<int, AuditAction|AuditModule|AuditOutcome|AuditSeverity>  $cases
      * @return array<int, array{value: string, label: string}>
      */
     private function options(array $cases): array

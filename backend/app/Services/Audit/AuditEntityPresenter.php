@@ -30,7 +30,6 @@ class AuditEntityPresenter
         'FoodServiceSetting' => ['food_service_setting', 'Food service setting'],
         'FsItem' => ['fs_item', 'Food service item'],
         'Intervention' => ['intervention', 'Intervention'],
-        'Inventory' => ['inventory', 'Inventory record'],
         'MealPlan' => ['meal_plan', 'Meal plan'],
         'MealPlanDay' => ['meal_plan_day', 'Meal plan day'],
         'MealPlanItem' => ['meal_plan_item', 'Meal plan item'],
@@ -61,6 +60,8 @@ class AuditEntityPresenter
         'User' => ['user', 'User account'],
     ];
 
+    public function __construct(private readonly LegacyAuditEntityLabels $legacyLabels) {}
+
     /** @return array{type: string, id: ?string, label: string} */
     public function present(
         ?string $class,
@@ -73,8 +74,8 @@ class AuditEntityPresenter
         }
 
         $entity = str_starts_with($class, 'App\\Models\\')
-            ? (self::ENTITY_LABELS[class_basename($class)] ?? ['record', 'Record'])
-            : ['record', 'Record'];
+            ? (self::ENTITY_LABELS[class_basename($class)] ?? $this->legacyLabels->for($class) ?? ['record', 'Record'])
+            : ($this->legacyLabels->for($class) ?? ['record', 'Record']);
 
         return [
             'type' => $entity[0],

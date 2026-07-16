@@ -115,7 +115,7 @@ class AdminSystemTest extends TestCase
                 'is_active' => false,
             ])->assertOk();
 
-        $activity = Activity::where('event', 'updated')->where('subject_id', $user->id)->sole();
+        $activity = Activity::where('event', 'account_blocked')->where('subject_id', $user->id)->sole();
         $this->assertSame(['is_active', 'role'], $activity->properties['details']['changed_fields']);
         $this->assertStringNotContainsString($user->email, $activity->toJson());
         $this->assertSame(0, $user->tokens()->count());

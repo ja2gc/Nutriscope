@@ -2,7 +2,6 @@
 
 import { Suspense, useMemo, useState } from "react";
 import { Activity, AlertTriangle, RefreshCw, Shield } from "lucide-react";
-import { AuditExportButton } from "@/components/audit/AuditExportButton";
 import { AuditEventDrawer } from "@/components/audit/AuditEventDrawer";
 import { AuditEventTable } from "@/components/audit/AuditEventTable";
 import { AuditRetentionControl } from "@/components/audit/AuditRetentionControl";
@@ -57,10 +56,6 @@ function AuditLogsContent() {
     page,
     per_page: 25,
   }), [filters, page]);
-  const exportParams = useMemo<ListAuditLogsParams>(() => ({
-    ...filters,
-  }), [filters]);
-
   const { events, meta, loading, loaded, error, reload } = useAuditEventList(requestParams);
 
   const tabs = useMemo(() => MODULE_TABS.map((tab) => ({
@@ -92,9 +87,6 @@ function AuditLogsContent() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          {meta.capabilities.export && (
-            <AuditExportButton filters={exportParams} />
-          )}
           <Button variant="secondary" loading={loading} onClick={() => void reload()}>
             <RefreshCw className="h-4 w-4" />
             Refresh

@@ -60,6 +60,18 @@ class AuditRetentionService
         return $this->withAuthorizedDeletion($connection, $mutation);
     }
 
+    public function withAuthorizedBackfill(Connection $connection, Closure $mutation): mixed
+    {
+        $command = $_SERVER['argv'][1] ?? null;
+        $isBackfillRuntime = app()->runningInConsole()
+            && (app()->runningUnitTests() || $command === 'audit:backfill-oversight');
+        if (! $isBackfillRuntime) {
+            throw new LogicException('Audit backfill mutation scope is unavailable outside its command.');
+        }
+
+        return $this->withAuthorizedDeletion($connection, $mutation);
+    }
+
     /**
      * @return array{eligible_count: int, deleted_count: int, held_category_count: int, categories: array<string, array{eligible: int, deleted: int, held: bool}>}
      */
