@@ -12,6 +12,8 @@ use App\Models\Budget;
 use App\Models\BudgetLedger;
 use App\Models\PurchaseOrder;
 use App\Services\Audit\AuditLogger;
+use App\Services\Audit\Revisions\AuditRevisionRegistry;
+use App\Services\Audit\Revisions\AuditRevisionWriter;
 use App\Services\FSS\PurchaseOrderLifecycleService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -19,7 +21,11 @@ use Illuminate\Support\Facades\Auth;
 
 class BudgetController extends Controller
 {
-    public function __construct(private readonly AuditLogger $auditLogger) {}
+    public function __construct(
+        private readonly AuditLogger $auditLogger,
+        private readonly AuditRevisionRegistry $revisionRegistry,
+        private readonly AuditRevisionWriter $revisionWriter,
+    ) {}
 
     public function index(): JsonResponse
     {
@@ -45,7 +51,7 @@ class BudgetController extends Controller
                 ...$request->validated(),
                 'created_by' => Auth::id(),
             ]);
-            $this->auditLogger->record(
+            $activity = $this->auditLogger->record(
                 AuditAction::Created,
                 AuditCategory::Operations,
                 AuditDomain::Budget,
@@ -56,6 +62,11 @@ class BudgetController extends Controller
                     'allocated_amount' => (float) $budget->allocated_amount,
                 ],
                 actor: Auth::user(),
+            );
+            $this->revisionWriter->write(
+                $activity,
+                null,
+                $this->revisionRegistry->capture($budget->load('ledgerEntries.purchaseOrder', 'ledgerEntries.creator')),
             );
 
             return $budget;
@@ -160,6 +171,12 @@ class BudgetController extends Controller
         }
 
         $entry = $this->audited(function () use ($data, $year, $budget): BudgetLedger {
+            $budget = Budget::query()
+                ->whereKey($budget->getKey())
+                ->lockForUpdate()
+                ->with('ledgerEntries.purchaseOrder', 'ledgerEntries.creator')
+                ->firstOrFail();
+            $before = $this->revisionRegistry->capture($budget);
             $entry = BudgetLedger::create([
                 'fiscal_year' => $year,
                 'type' => $data['type'],
@@ -169,19 +186,26 @@ class BudgetController extends Controller
                 'reference' => $data['reference'] ?? null,
                 'created_by' => Auth::id(),
             ]);
-            $this->auditLogger->record(
+            $activity = $this->auditLogger->record(
                 AuditAction::Adjusted,
                 AuditCategory::Operations,
                 AuditDomain::Budget,
-                subject: $entry,
+                subject: $budget,
                 context: $budget,
                 details: [
                     'fiscal_year' => $entry->fiscal_year,
                     'type' => $entry->type,
                     'source' => $entry->source,
                     'amount' => (float) $entry->amount,
+                    'reason' => $entry->reason,
+                    'reference' => $entry->reference,
                 ],
                 actor: Auth::user(),
+            );
+            $this->revisionWriter->write(
+                $activity,
+                $before,
+                $this->revisionRegistry->capture($budget->fresh(['ledgerEntries.purchaseOrder', 'ledgerEntries.creator'])),
             );
 
             return $entry;

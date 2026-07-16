@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Eye, History } from "lucide-react";
 import { AuditTimestamp } from "@/components/audit/AuditTimestamp";
 import { StructuredHistorySnapshot } from "@/components/audit/history/StructuredHistorySnapshot";
+import { BudgetHistory } from "@/components/audit/history/types/BudgetHistory";
 import { FoodServiceRecipeHistory } from "@/components/audit/history/types/FoodServiceRecipeHistory";
 import { MenuCycleHistory } from "@/components/audit/history/types/MenuCycleHistory";
 import { PurchaseOrderHistory } from "@/components/audit/history/types/PurchaseOrderHistory";
@@ -24,6 +25,8 @@ function HistorySnapshot({
   side: "before" | "after";
 }) {
   switch (snapshot.type) {
+    case "budget":
+      return <BudgetHistory snapshot={snapshot} comparison={comparison} side={side} />;
     case "rnd_recipe":
       return <RndRecipeHistory snapshot={snapshot} comparison={comparison} side={side} />;
     case "food_service_recipe":

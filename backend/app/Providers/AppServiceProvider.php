@@ -12,6 +12,7 @@ use App\Services\Audit\AuditContextResolver;
 use App\Services\Audit\AuditHealthMonitor;
 use App\Services\Audit\AuditRetentionService;
 use App\Services\Audit\Revisions\AuditRevisionRegistry;
+use App\Services\Audit\Revisions\Serializers\BudgetRevisionSerializer;
 use App\Services\Audit\Revisions\Serializers\FoodServiceRecipeRevisionSerializer;
 use App\Services\Audit\Revisions\Serializers\MenuCycleRevisionSerializer;
 use App\Services\Audit\Revisions\Serializers\PurchaseOrderRevisionSerializer;
@@ -42,6 +43,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(AuditHealthMonitor::class);
         $this->app->singleton(AuditRetentionService::class);
         $this->app->singleton(AuditRevisionRegistry::class, fn ($app): AuditRevisionRegistry => new AuditRevisionRegistry([
+            $app->make(BudgetRevisionSerializer::class),
             $app->make(FoodServiceRecipeRevisionSerializer::class),
             $app->make(MenuCycleRevisionSerializer::class),
             $app->make(PurchaseOrderRevisionSerializer::class),

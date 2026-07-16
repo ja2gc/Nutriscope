@@ -97,7 +97,7 @@ class PurchaseOrderTrailTest extends TestCase
         Storage::fake('public');
         $rnd = User::factory()->rnd()->create();
         [$list] = $this->shoppingList($rnd, 'supplies');
-        Budget::factory()->create(['fiscal_year' => 2026, 'created_by' => $rnd->id]);
+        $budget = Budget::factory()->create(['fiscal_year' => 2026, 'created_by' => $rnd->id]);
 
         $this->actingAs($rnd)->postJson("/api/fss/shopping-lists/{$list->uuid}/approve")->assertCreated();
         $po = PurchaseOrder::query()->where('shopping_list_id', $list->id)->firstOrFail();
@@ -108,10 +108,10 @@ class PurchaseOrderTrailTest extends TestCase
 
         $this->assertSame('completed', $po->fresh()->lifecycle_status);
         $this->assertDatabaseHas('budget_ledger', ['purchase_order_id' => $po->id, 'type' => 'po_deduction']);
-        $deduction = BudgetLedger::query()->where('purchase_order_id', $po->id)->firstOrFail();
+        BudgetLedger::query()->where('purchase_order_id', $po->id)->firstOrFail();
         $deductionEvent = AuditActivity::query()
-            ->where('subject_type', $deduction->getMorphClass())
-            ->where('subject_id', $deduction->id)
+            ->where('subject_type', $budget->getMorphClass())
+            ->where('subject_id', $budget->id)
             ->where('event', AuditAction::Adjusted->value)
             ->sole();
         $this->assertSame($po->getMorphClass(), $deductionEvent->context_type);
@@ -126,8 +126,8 @@ class PurchaseOrderTrailTest extends TestCase
         app(PurchaseOrderLifecycleService::class)->refresh($po);
         $this->assertSame(1, AuditActivity::query()->where('context_type', $po->getMorphClass())
             ->where('context_id', $po->id)->where('event', AuditAction::Completed->value)->count());
-        $this->assertSame(1, AuditActivity::query()->where('subject_type', $deduction->getMorphClass())
-            ->where('subject_id', $deduction->id)->where('event', AuditAction::Adjusted->value)->count());
+        $this->assertSame(1, AuditActivity::query()->where('subject_type', $budget->getMorphClass())
+            ->where('subject_id', $budget->id)->where('event', AuditAction::Adjusted->value)->count());
         $this->assertTrue(Schema::hasIndex('budget_ledger', ['po_deduction_guard'], 'unique'));
     }
 

@@ -4,13 +4,13 @@ namespace Tests\Feature;
 
 use App\Events\PurchaseOrderCompleted;
 use App\Listeners\BudgetLedgerListener;
+use App\Models\AuditActivity;
 use App\Models\Budget;
 use App\Models\BudgetLedger;
 use App\Models\PurchaseOrder;
 use App\Models\ShoppingList;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Spatie\Activitylog\Models\Activity;
 use Tests\TestCase;
 
 class BudgetAuditTest extends TestCase
@@ -29,7 +29,7 @@ class BudgetAuditTest extends TestCase
             ->assertCreated();
 
         $budget = Budget::where('fiscal_year', 2026)->firstOrFail();
-        $this->assertNotNull(Activity::where('subject_type', Budget::class)
+        $this->assertNotNull(AuditActivity::where('subject_type', Budget::class)
             ->where('subject_id', $budget->id)
             ->where('event', 'created')
             ->where('causer_id', $rnd->id)
@@ -44,9 +44,8 @@ class BudgetAuditTest extends TestCase
             ])
             ->assertCreated();
 
-        $entry = BudgetLedger::where('type', 'manual_addition')->firstOrFail();
-        $this->assertNotNull(Activity::where('subject_type', BudgetLedger::class)
-            ->where('subject_id', $entry->id)
+        $this->assertNotNull(AuditActivity::where('subject_type', Budget::class)
+            ->where('subject_id', $budget->id)
             ->where('event', 'adjusted')
             ->where('causer_id', $rnd->id)
             ->first());
@@ -59,18 +58,19 @@ class BudgetAuditTest extends TestCase
             'shopping_list_id' => $sl->id,
             'total_amount' => 45000,
         ]);
-        Budget::factory()->create(['fiscal_year' => 2026, 'allocated_amount' => 200000]);
+        $budget = Budget::factory()->create(['fiscal_year' => 2026, 'allocated_amount' => 200000]);
 
         app(BudgetLedgerListener::class)->handle(new PurchaseOrderCompleted($po));
 
-        $entry = BudgetLedger::where('purchase_order_id', $po->id)->firstOrFail();
-        $activity = Activity::where('subject_type', BudgetLedger::class)
-            ->where('subject_id', $entry->id)
+        BudgetLedger::where('purchase_order_id', $po->id)->firstOrFail();
+        $activity = AuditActivity::where('subject_type', Budget::class)
+            ->where('subject_id', $budget->id)
             ->where('event', 'adjusted')
             ->first();
 
         $this->assertNotNull($activity);
         $this->assertSame('system', $activity->properties['source']);
         $this->assertSame($po->id, $activity->properties['purchase_order_id']);
+        $this->assertNotNull($activity->revision);
     }
 }

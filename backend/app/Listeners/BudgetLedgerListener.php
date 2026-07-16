@@ -10,13 +10,19 @@ use App\Models\Budget;
 use App\Models\BudgetLedger;
 use App\Models\PurchaseOrder;
 use App\Services\Audit\AuditLogger;
+use App\Services\Audit\Revisions\AuditRevisionRegistry;
+use App\Services\Audit\Revisions\AuditRevisionWriter;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class BudgetLedgerListener
 {
-    public function __construct(private readonly AuditLogger $auditLogger) {}
+    public function __construct(
+        private readonly AuditLogger $auditLogger,
+        private readonly AuditRevisionRegistry $revisionRegistry,
+        private readonly AuditRevisionWriter $revisionWriter,
+    ) {}
 
     public function handle(PurchaseOrderCompleted $event): void
     {
@@ -35,7 +41,11 @@ class BudgetLedgerListener
                 ? Carbon::parse($sl->period_start)->year
                 : Carbon::parse($po->completed_at ?? now())->year;
 
-            $budget = Budget::where('fiscal_year', $year)->first();
+            $budget = Budget::query()
+                ->where('fiscal_year', $year)
+                ->lockForUpdate()
+                ->with('ledgerEntries.purchaseOrder', 'ledgerEntries.creator')
+                ->first();
 
             if (! $budget) {
                 Log::warning("BudgetLedgerListener: No Budget allocation for fiscal year {$year}. PO {$po->id} deduction skipped — set up the year to trigger deduction.");
@@ -47,6 +57,7 @@ class BudgetLedgerListener
             if (BudgetLedger::where('purchase_order_id', $po->id)->where('type', 'po_deduction')->exists()) {
                 return;
             }
+            $before = $this->revisionRegistry->capture($budget);
 
             $entry = BudgetLedger::create([
                 'fiscal_year' => $year,
@@ -59,11 +70,11 @@ class BudgetLedgerListener
                 'created_by' => null,
             ]);
 
-            $this->auditLogger->record(
+            $activity = $this->auditLogger->record(
                 AuditAction::Adjusted,
                 AuditCategory::Operations,
                 AuditDomain::Budget,
-                subject: $entry,
+                subject: $budget,
                 context: $po,
                 details: [
                     'fiscal_year' => $year,
@@ -74,6 +85,11 @@ class BudgetLedgerListener
                     'purchase_order_public_id' => $po->uuid,
                 ],
                 systemActor: 'budget-ledger-listener',
+            );
+            $this->revisionWriter->write(
+                $activity,
+                $before,
+                $this->revisionRegistry->capture($budget->fresh(['ledgerEntries.purchaseOrder', 'ledgerEntries.creator'])),
             );
         });
     }
