@@ -5,6 +5,7 @@ namespace App\Services\FSS;
 use App\Enums\AuditAction;
 use App\Enums\AuditCategory;
 use App\Enums\AuditDomain;
+use App\Models\AuditActivity;
 use App\Models\FoodServiceRecipe;
 use App\Models\FsItem;
 use App\Models\PurchaseOrder;
@@ -44,10 +45,11 @@ class ReceivingService
     ) {}
 
     /** @param array<int, string> $changedFields */
-    public function receive(PurchaseOrder $purchaseOrder, array $changedFields = []): void
+    public function receive(PurchaseOrder $purchaseOrder, array $changedFields = []): AuditActivity
     {
         $this->auditLogger->assertAvailable();
-        DB::transaction(function () use ($purchaseOrder, $changedFields): void {
+
+        return DB::transaction(function () use ($purchaseOrder, $changedFields): AuditActivity {
             $touched = [];
 
             $this->auditLogger->withoutModelEvents(function () use ($purchaseOrder, &$touched): void {
@@ -58,7 +60,8 @@ class ReceivingService
 
                 $this->recalculateTouchedRecipes($touched);
             });
-            $this->recordReceipt($purchaseOrder, $purchaseOrder, $purchaseOrder->items->count(), $changedFields);
+
+            return $this->recordReceipt($purchaseOrder, $purchaseOrder, $purchaseOrder->items->count(), $changedFields);
         });
     }
 
@@ -128,9 +131,9 @@ class ReceivingService
     }
 
     /** @param array<int, string> $changedFields */
-    private function recordReceipt(PurchaseOrder|PurchaseOrderVendorGroup $subject, PurchaseOrder $purchaseOrder, int $itemCount, array $changedFields = []): void
+    private function recordReceipt(PurchaseOrder|PurchaseOrderVendorGroup $subject, PurchaseOrder $purchaseOrder, int $itemCount, array $changedFields = []): AuditActivity
     {
-        $this->auditLogger->record(
+        return $this->auditLogger->record(
             AuditAction::Received,
             AuditCategory::Operations,
             AuditDomain::Procurement,

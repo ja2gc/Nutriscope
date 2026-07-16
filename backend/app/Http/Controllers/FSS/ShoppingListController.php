@@ -13,6 +13,8 @@ use App\Models\ShoppingList;
 use App\Models\ShoppingListItem;
 use App\Models\Supplier;
 use App\Services\Audit\AuditLogger;
+use App\Services\Audit\Revisions\AuditRevisionRegistry;
+use App\Services\Audit\Revisions\AuditRevisionWriter;
 use App\Services\FSS\ShoppingListPopulationService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
@@ -22,7 +24,13 @@ use Illuminate\Support\Facades\DB;
 
 class ShoppingListController extends Controller
 {
-    public function __construct(private readonly AuditLogger $auditLogger) {}
+    private const ITEM_RELATIONS = ['items.fsItem', 'items.supplier'];
+
+    public function __construct(
+        private readonly AuditLogger $auditLogger,
+        private readonly AuditRevisionRegistry $revisionRegistry,
+        private readonly AuditRevisionWriter $revisionWriter,
+    ) {}
 
     public function index(): JsonResponse
     {
@@ -42,7 +50,10 @@ class ShoppingListController extends Controller
 
         $shoppingList = $this->audited(function () use ($data): ShoppingList {
             $list = $this->auditLogger->withoutModelEvents(fn (): ShoppingList => ShoppingList::create($data));
-            $this->auditLogger->recordMutation(AuditAction::Created, AuditDomain::Procurement, $list, array_keys($list->getAttributes()));
+            $activity = $this->auditLogger->recordMutation(AuditAction::Created, AuditDomain::Procurement, $list, array_keys($list->getAttributes()));
+            if ($activity !== null) {
+                $this->revisionWriter->write($activity, null, $this->revisionRegistry->capture($list->load(self::ITEM_RELATIONS)));
+            }
 
             return $list;
         });
@@ -63,6 +74,7 @@ class ShoppingListController extends Controller
         }
 
         $this->audited(function () use ($shoppingList, &$data): void {
+            $before = $this->revisionRegistry->capture($shoppingList->load(self::ITEM_RELATIONS));
             $fields = [];
             if (array_key_exists('estimate_population', $data)) {
                 $beforePopulation = $shoppingList->estimate_population;
@@ -81,7 +93,11 @@ class ShoppingListController extends Controller
                 $fields = [...$fields, ...array_keys($shoppingList->getChanges())];
             }
 
-            $this->auditLogger->recordMutation(AuditAction::Updated, AuditDomain::Procurement, $shoppingList, $fields);
+            $after = $shoppingList->fresh(self::ITEM_RELATIONS);
+            $activity = $this->auditLogger->recordMutation(AuditAction::Updated, AuditDomain::Procurement, $after, $fields);
+            if ($activity !== null) {
+                $this->revisionWriter->write($activity, $before, $this->revisionRegistry->capture($after));
+            }
         });
 
         return response()->json(['data' => new ShoppingListResource($shoppingList->load('items.fsItem', 'items.supplier:id,uuid'))]);
@@ -90,8 +106,12 @@ class ShoppingListController extends Controller
     public function destroy(ShoppingList $shoppingList): JsonResponse
     {
         $this->audited(function () use ($shoppingList): void {
+            $before = $this->revisionRegistry->capture($shoppingList->load(self::ITEM_RELATIONS));
             $this->auditLogger->withoutModelEvents(fn () => $shoppingList->delete());
-            $this->auditLogger->recordMutation(AuditAction::Deleted, AuditDomain::Procurement, $shoppingList, []);
+            $activity = $this->auditLogger->recordMutation(AuditAction::Deleted, AuditDomain::Procurement, $shoppingList, []);
+            if ($activity !== null) {
+                $this->revisionWriter->write($activity, $before, null);
+            }
         });
 
         return response()->json(null, 204);
@@ -158,7 +178,10 @@ class ShoppingListController extends Controller
 
                 return $list;
             }));
-            $this->auditLogger->recordMutation(AuditAction::Generated, AuditDomain::Procurement, $list, array_keys($list->getAttributes()));
+            $activity = $this->auditLogger->recordMutation(AuditAction::Generated, AuditDomain::Procurement, $list, array_keys($list->getAttributes()));
+            if ($activity !== null) {
+                $this->revisionWriter->write($activity, null, $this->revisionRegistry->capture($list->load(self::ITEM_RELATIONS)));
+            }
 
             return $list;
         });
@@ -209,8 +232,22 @@ class ShoppingListController extends Controller
         }
 
         $this->audited(function () use ($shoppingListItem): void {
-            $shoppingListItem->save();
-            $this->auditLogger->recordMutation(AuditAction::Updated, AuditDomain::Procurement, $shoppingListItem, array_keys($shoppingListItem->getChanges()));
+            if ($shoppingListItem->isClean()) {
+                return;
+            }
+            $list = ShoppingList::query()->with(self::ITEM_RELATIONS)->lockForUpdate()->findOrFail($shoppingListItem->shopping_list_id);
+            $before = $this->revisionRegistry->capture($list);
+            $this->auditLogger->withoutModelEvents(fn () => $shoppingListItem->save());
+            $after = $list->fresh(self::ITEM_RELATIONS);
+            $activity = $this->auditLogger->recordMutation(
+                AuditAction::Updated,
+                AuditDomain::Procurement,
+                $after,
+                ['items'],
+            );
+            if ($activity !== null) {
+                $this->revisionWriter->write($activity, $before, $this->revisionRegistry->capture($after));
+            }
         });
 
         return response()->json(['data' => [
@@ -265,7 +302,9 @@ class ShoppingListController extends Controller
             $unitPrice = array_key_exists('unit_price', $data) ? (float) $data['unit_price'] : (float) $fsItem->unit_cost;
 
             $item = $this->audited(function () use ($shoppingList, $fsItem, $qty, $unitPrice, $data): ShoppingListItem {
-                $item = $shoppingList->items()->create([
+                $list = ShoppingList::query()->with(self::ITEM_RELATIONS)->lockForUpdate()->findOrFail($shoppingList->id);
+                $before = $this->revisionRegistry->capture($list);
+                $item = $this->auditLogger->withoutModelEvents(fn () => $list->items()->create([
                     'fs_item_id' => $fsItem->id,
                     'ingredient_name' => $fsItem->name,
                     'qty' => $qty,
@@ -276,8 +315,12 @@ class ShoppingListController extends Controller
                     'purchase_qty' => $qty,
                     'purchase_unit' => $fsItem->base_unit,
                     'purchase_price' => $unitPrice,
-                ]);
-                $this->auditLogger->recordMutation(AuditAction::Created, AuditDomain::Procurement, $item, array_keys($item->getAttributes()));
+                ]));
+                $after = $list->fresh(self::ITEM_RELATIONS);
+                $activity = $this->auditLogger->recordMutation(AuditAction::Updated, AuditDomain::Procurement, $after, ['items']);
+                if ($activity !== null) {
+                    $this->revisionWriter->write($activity, $before, $this->revisionRegistry->capture($after));
+                }
 
                 return $item;
             });
@@ -308,7 +351,9 @@ class ShoppingListController extends Controller
         $unitPrice = (float) ($data['unit_price'] ?? 0);
 
         $item = $this->audited(function () use ($shoppingList, $data, $fsItem, $qty, $unitPrice): ShoppingListItem {
-            $item = $shoppingList->items()->create([
+            $list = ShoppingList::query()->with(self::ITEM_RELATIONS)->lockForUpdate()->findOrFail($shoppingList->id);
+            $before = $this->revisionRegistry->capture($list);
+            $item = $this->auditLogger->withoutModelEvents(fn () => $list->items()->create([
                 'fs_item_id' => $data['fs_item_id'] ?? null,
                 'ingredient_name' => $data['ingredient_name'] ?? $fsItem?->name ?? 'Item',
                 'qty' => $qty,
@@ -319,8 +364,12 @@ class ShoppingListController extends Controller
                 'purchase_qty' => $data['purchase_qty'] ?? null,
                 'purchase_unit' => $data['purchase_unit'] ?? null,
                 'purchase_price' => $data['purchase_price'] ?? null,
-            ]);
-            $this->auditLogger->recordMutation(AuditAction::Created, AuditDomain::Procurement, $item, array_keys($item->getAttributes()));
+            ]));
+            $after = $list->fresh(self::ITEM_RELATIONS);
+            $activity = $this->auditLogger->recordMutation(AuditAction::Updated, AuditDomain::Procurement, $after, ['items']);
+            if ($activity !== null) {
+                $this->revisionWriter->write($activity, $before, $this->revisionRegistry->capture($after));
+            }
 
             return $item;
         });
@@ -349,8 +398,14 @@ class ShoppingListController extends Controller
         }
 
         $this->audited(function () use ($shoppingListItem): void {
-            $shoppingListItem->delete();
-            $this->auditLogger->recordMutation(AuditAction::Deleted, AuditDomain::Procurement, $shoppingListItem, []);
+            $list = ShoppingList::query()->with(self::ITEM_RELATIONS)->lockForUpdate()->findOrFail($shoppingListItem->shopping_list_id);
+            $before = $this->revisionRegistry->capture($list);
+            $this->auditLogger->withoutModelEvents(fn () => $shoppingListItem->delete());
+            $after = $list->fresh(self::ITEM_RELATIONS);
+            $activity = $this->auditLogger->recordMutation(AuditAction::Updated, AuditDomain::Procurement, $after, ['items']);
+            if ($activity !== null) {
+                $this->revisionWriter->write($activity, $before, $this->revisionRegistry->capture($after));
+            }
         });
 
         return response()->json(null, 204);

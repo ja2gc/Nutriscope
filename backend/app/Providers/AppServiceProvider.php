@@ -14,7 +14,9 @@ use App\Services\Audit\AuditRetentionService;
 use App\Services\Audit\Revisions\AuditRevisionRegistry;
 use App\Services\Audit\Revisions\Serializers\FoodServiceRecipeRevisionSerializer;
 use App\Services\Audit\Revisions\Serializers\MenuCycleRevisionSerializer;
+use App\Services\Audit\Revisions\Serializers\PurchaseOrderRevisionSerializer;
 use App\Services\Audit\Revisions\Serializers\RndRecipeRevisionSerializer;
+use App\Services\Audit\Revisions\Serializers\ShoppingListRevisionSerializer;
 use App\Services\Audit\SecurityAuditDeduplicator;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -42,7 +44,9 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(AuditRevisionRegistry::class, fn ($app): AuditRevisionRegistry => new AuditRevisionRegistry([
             $app->make(FoodServiceRecipeRevisionSerializer::class),
             $app->make(MenuCycleRevisionSerializer::class),
+            $app->make(PurchaseOrderRevisionSerializer::class),
             $app->make(RndRecipeRevisionSerializer::class),
+            $app->make(ShoppingListRevisionSerializer::class),
         ]));
     }
 

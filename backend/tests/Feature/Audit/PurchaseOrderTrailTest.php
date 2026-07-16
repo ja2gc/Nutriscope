@@ -67,6 +67,14 @@ class PurchaseOrderTrailTest extends TestCase
         $this->assertContains(AuditAction::Uploaded->value, $events->pluck('event'));
         $this->assertContains(AuditAction::PriceCorrected->value, $events->pluck('event'));
         $this->assertSame(1, $events->where('event', AuditAction::Approved->value)->count());
+        $uploaded = $events->firstWhere('event', AuditAction::Uploaded->value);
+        $corrected = $events->firstWhere('event', AuditAction::PriceCorrected->value);
+        $this->assertSame($po->getMorphClass(), $uploaded->subject_type);
+        $this->assertCount(0, $uploaded->revision->before['attachments']);
+        $this->assertCount(1, $uploaded->revision->after['attachments']);
+        $this->assertSame($po->getMorphClass(), $corrected->subject_type);
+        $this->assertEquals(20.0, $corrected->revision->before['lines'][0]['unit_price']);
+        $this->assertEquals(30.0, $corrected->revision->after['lines'][0]['unit_price']);
         $encoded = $events->pluck('properties')->toJson();
         $this->assertStringNotContainsString('PRIVATE-CAPTION-SENTINEL', $encoded);
         $this->assertStringNotContainsString('PRIVATE-REASON-SENTINEL', $encoded);

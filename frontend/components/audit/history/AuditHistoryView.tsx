@@ -7,7 +7,9 @@ import { AuditTimestamp } from "@/components/audit/AuditTimestamp";
 import { StructuredHistorySnapshot } from "@/components/audit/history/StructuredHistorySnapshot";
 import { FoodServiceRecipeHistory } from "@/components/audit/history/types/FoodServiceRecipeHistory";
 import { MenuCycleHistory } from "@/components/audit/history/types/MenuCycleHistory";
+import { PurchaseOrderHistory } from "@/components/audit/history/types/PurchaseOrderHistory";
 import { RndRecipeHistory } from "@/components/audit/history/types/RndRecipeHistory";
+import { ShoppingListHistory } from "@/components/audit/history/types/ShoppingListHistory";
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import type { AuditHistoryDto, AuditHistorySnapshotDto } from "@/types/auditHistory";
@@ -28,6 +30,10 @@ function HistorySnapshot({
       return <FoodServiceRecipeHistory snapshot={snapshot} comparison={comparison} side={side} />;
     case "menu_cycle":
       return <MenuCycleHistory snapshot={snapshot} comparison={comparison} side={side} />;
+    case "purchase_order":
+      return <PurchaseOrderHistory snapshot={snapshot} comparison={comparison} side={side} />;
+    case "shopping_list":
+      return <ShoppingListHistory snapshot={snapshot} comparison={comparison} side={side} />;
     default:
       return <StructuredHistorySnapshot snapshot={snapshot} />;
   }

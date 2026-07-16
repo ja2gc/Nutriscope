@@ -1,5 +1,7 @@
 # Audit Oversight and Historical Record Redesign
 
+# AI subagents
+use 5.6 Terra luna or sol depending on whats the best to use, no need to use 5.5
 ## Status and relationship to prior work
 
 This specification revises the audit-log and audit-trail implementation delivered by `docs/superpowers/plan/2026-07-11-audit-logs-and-trails-revision.md`. It does not discard the existing privacy, immutability, retention, route-coverage, or contextual-trail foundations. It corrects the information architecture, removes stale compatibility behavior, makes safe operational changes understandable, and adds bounded historical views for complex nonclinical records.
@@ -201,7 +203,7 @@ The redesign must treat stale-feature discovery as a contract task, not assume D
 
 - `DatabaseSeeder` does not mute model events.
 - Audited model creation during normal seeding can generate anonymous events with seeding-time timestamps and little business context.
-- There is no deliberate, idempotent, local/demo-only audit scenario seeder covering all modules and display modes.
+- Base seeders suppress audit noise. The owner has explicitly declined a dedicated audit-event demo seeder; existing seeders instead require current-contract, idempotence, and stale-value checks.
 
 ## Goals
 
@@ -407,7 +409,9 @@ Generic Created/Updated/Deleted remains for ordinary direct CRUD without a bette
 
 ## Change-reason policy
 
-Require a bounded, validated reason for:
+The existing manual budget-ledger input already requires and audits a bounded reason. Preserve and verify that behavior in this implementation.
+
+The owner deferred new cross-domain reason enforcement for this implementation. The following remain future work rather than completion blockers:
 
 - deletion;
 - reversal;
@@ -416,7 +420,7 @@ Require a bounded, validated reason for:
 - correction to ordered or received records;
 - manual financial correction.
 
-Reason is optional for routine draft edits. The UI provides a purpose-specific field/modal; audit writers receive only validated reason text. Do not accept arbitrary request bodies as audit context.
+Routine draft edits remain unchanged. Any future reason project must use purpose-specific validated input, coordinated clients, privacy-safe audit storage, and must not accept arbitrary request bodies as audit context.
 
 ## Budget audit design
 
@@ -569,37 +573,11 @@ The new module does not change retention; category controls retention. Historica
 - It follows Clinical retention and legal hold. Encryption-key backup/rotation procedures must preserve decryptability for retained rows.
 - Audit export remains disabled. Any future export enablement must separately decide whether this identity field is included; default export serialization omits it.
 
-## Demo seeder design
+## Seeder design
 
 Use Laravel 13's `WithoutModelEvents` on the base database seeding flow so ordinary data setup does not create anonymous audit noise.
 
-Add a dedicated local/demo-only audit scenario seeder after all domain seeders. It must:
-
-- never run in production by default;
-- be idempotent through a deterministic scenario marker;
-- use explicit named Admin, RND, FSS, and system actors;
-- use a controlled clock to create realistic chronological history;
-- write through supported audit/domain services rather than direct raw activity rows;
-- create no clinical values in audit storage;
-- create coherent current records and historical snapshots;
-- cover all five tabs and both drawer/history-page interactions.
-
-Minimum demo scenarios:
-
-- account activation/deactivation or settings change under Security & Administration;
-- RND Food Library manual creation, USDA import, nutrient/unit update, and safe deletion example;
-- RND recipe structural update;
-- clinical intervention/monitoring change showing field names only and actual actor;
-- FSS item price/unit change;
-- FSS recipe creation/update;
-- weekly menu structural change with historical version;
-- meal-service population correction;
-- shopping-list population correction with linked draft PO recalculation;
-- PO approval/order/receiving/completion and related budget deduction;
-- new fiscal-year allocation, per-head/day setting change, and manual ledger adjustment;
-- report generation/view/download/archive metadata.
-
-Seeder tests verify no anonymous base-seed activity, deterministic reruns, valid actor attribution, module distribution, privacy sentinels, and working historical links.
+Do not add a dedicated audit-event seeder or synthetic audit-history scenarios. Existing account, patient, food-service, and other application seeders must use the split person-name contract, remain idempotent, and be audited for stale values that no longer match current enums, validation, reports, or business rules. Seeder tests verify no anonymous base-seed activity, stable reruns, synchronized person names, and current-code-compatible values.
 
 ## API and frontend compatibility
 
@@ -658,7 +636,7 @@ This redesign can affect more than the Admin audit page:
 | Account Blocked is confused with removed IP blocking | Medium | Bind actions only to user `is_active` transitions; preserve tests proving IP-block model/config/routes remain absent |
 | Retired Inventory cleanup hides needed legacy evidence | Medium | Count/inspect legacy Inventory events first; move label support to legacy adapter before removing active resolver code; legacy presentation tests |
 | Query/index changes degrade 100,000-row performance | High | MySQL `EXPLAIN`, composite-index assertions, query-count/N+1 tests and existing 100,000-row gate before each integration wave |
-| Base/demo seeders create fake production audit history | High | `WithoutModelEvents` for base seed; strict local/demo environment guard; deterministic marker; production seeder test; no raw activity inserts |
+| Base/current seeders create audit noise or stale records | High | `WithoutModelEvents` for base seed; no dedicated audit-event seeder; idempotence, person-name synchronization, stale-value and report-consumer tests |
 | Revision pruning violates legal hold or leaves orphans | High | Parent-child retention transaction, held-category tests, foreign-key/orphan assertions, dry-run/force pruning tests |
 | Large frontend reuse creates editable controls on history pages | Medium | Explicit read-only props/contracts, component tests proving mutation buttons/handlers absent, route authorization and visual interaction tests |
 
@@ -687,14 +665,14 @@ This redesign can affect more than the Admin audit page:
 - revision serializer allow-list, size cap, immutability and pruning cascade;
 - historical route authorization and current-record link authorization;
 - duplicate-event suppression for upload/generate/approve/receive workflows;
-- required reason validation and rollback behavior;
+- existing manual budget-ledger reason validation and rollback behavior;
 - budget fiscal-year, per-head/day, ledger and PO-deduction presentation;
 - shared-RND report browse/access correction;
 - account activation taxonomy;
 - retired Inventory and dead-action stale scans;
 - unsafe-route coverage and Laravel/Next.js proxy compatibility;
 - fresh/legacy migration, rollback/re-forward and performance/index tests;
-- demo seeder idempotence/privacy/actor/history coverage.
+- base/current seeder idempotence, no-audit-noise, person-name, stale-value, and report-consumer coverage.
 
 ### Frontend
 

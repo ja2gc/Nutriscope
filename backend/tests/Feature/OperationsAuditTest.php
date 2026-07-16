@@ -202,7 +202,7 @@ class OperationsAuditTest extends TestCase
         $this->deleteJson("/api/fss/fs-items/{$itemId}")->assertNoContent();
 
         $this->assertSame(
-            ['created', 'updated', 'deleted', 'created', 'updated', 'updated', 'created', 'created', 'updated', 'deleted', 'updated', 'deleted', 'deleted'],
+            ['created', 'updated', 'deleted', 'created', 'updated', 'updated', 'created', 'updated', 'updated', 'updated', 'updated', 'deleted', 'deleted'],
             AuditActivity::query()->orderBy('id')->pluck('event')->all(),
         );
         $this->assertSame(13, AuditActivity::query()->count());
@@ -317,7 +317,7 @@ class OperationsAuditTest extends TestCase
         ];
     }
 
-    public function test_shopping_list_item_event_has_root_context_and_missing_parent_is_safe(): void
+    public function test_shopping_list_item_mutation_uses_parent_event_and_missing_parent_is_safe(): void
     {
         $user = User::factory()->rnd()->create();
         $item = FsItem::factory()->create(['kind' => 'supply']);
@@ -331,10 +331,16 @@ class OperationsAuditTest extends TestCase
 
         $list = ShoppingList::where('uuid', $listId)->firstOrFail();
         $line = ShoppingListItem::where('uuid', $lineId)->firstOrFail();
-        $activity = AuditActivity::query()->where('subject_type', ShoppingListItem::class)->sole();
+        $activity = AuditActivity::query()
+            ->where('subject_type', ShoppingList::class)
+            ->where('event', 'updated')
+            ->sole();
+        $this->assertSame($list->id, $activity->subject_id);
         $this->assertSame(ShoppingList::class, $activity->context_type);
         $this->assertSame($list->id, $activity->context_id);
         $this->assertSame($list->uuid, $activity->properties['details']['context_public_id']);
+        $this->assertSame(['items'], $activity->properties['details']['changed_fields']);
+        $this->assertNotNull($activity->revision);
 
         $ghost = new ShoppingListItem(['shopping_list_id' => 999999]);
         $ghost->id = $line->id + 999999;

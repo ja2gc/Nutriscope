@@ -9,6 +9,7 @@ use App\Events\PurchaseOrderConverted;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\FSS\UpdatePurchaseOrderRequest;
 use App\Http\Resources\PurchaseOrderResource;
+use App\Models\AuditActivity;
 use App\Models\ProgramProjectActivity;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderAttachment;
@@ -17,6 +18,8 @@ use App\Models\PurchaseOrderVendorGroup;
 use App\Models\ShoppingList;
 use App\Models\User;
 use App\Services\Audit\AuditLogger;
+use App\Services\Audit\Revisions\AuditRevisionRegistry;
+use App\Services\Audit\Revisions\AuditRevisionWriter;
 use App\Services\FSS\PurchaseOrderAttachmentStorage;
 use App\Services\FSS\PurchaseOrderLifecycleService;
 use App\Services\FSS\ReceivingService;
@@ -33,11 +36,14 @@ class PurchaseOrderController extends Controller
     public function __construct(
         private readonly AuditLogger $auditLogger,
         private readonly PurchaseOrderAttachmentStorage $attachmentStorage,
+        private readonly AuditRevisionRegistry $revisionRegistry,
+        private readonly AuditRevisionWriter $revisionWriter,
     ) {}
 
     private const RELATIONS = [
-        'items',
-        'attachments',
+        'items.fsItem',
+        'items.vendorGroup',
+        'attachments.vendorGroup',
         'supplier',
         'shoppingList',
         'vendorGroups.supplier',
@@ -77,8 +83,9 @@ class PurchaseOrderController extends Controller
             $purchaseOrder = PurchaseOrder::query()
                 ->whereKey($purchaseOrder->getKey())
                 ->lockForUpdate()
-                ->with('items')
+                ->with(self::RELATIONS)
                 ->firstOrFail();
+            $before = $this->revisionRegistry->capture($purchaseOrder);
             $previousStatus = $purchaseOrder->status;
             if (in_array($purchaseOrder->lifecycle_status, ['completed', 'archived'], true)
                 && ($validated['lifecycle_status'] ?? null) !== 'archived') {
@@ -98,24 +105,34 @@ class PurchaseOrderController extends Controller
                     $purchaseOrder->received_date = now()->toDateString();
                     $purchaseOrder->save();
                 });
-                $receiving->receive($purchaseOrder->load('items'), [...$changedFields, 'received_date']);
+                $activity = $receiving->receive($purchaseOrder->load('items'), [...$changedFields, 'received_date']);
+                $after = $purchaseOrder->fresh(self::RELATIONS);
+                $this->revisionWriter->write($activity, $before, $this->revisionRegistry->capture($after));
                 $lifecycle->refresh($purchaseOrder);
             } elseif (($validated['status'] ?? null) === 'ordered' && $previousStatus !== 'ordered') {
-                $this->auditLogger->recordMutation(
+                $activity = $this->auditLogger->recordMutation(
                     AuditAction::Ordered,
                     AuditDomain::Procurement,
                     $purchaseOrder,
                     $changedFields,
                     context: $purchaseOrder,
                 );
+                if ($activity !== null) {
+                    $after = $purchaseOrder->fresh(self::RELATIONS);
+                    $this->revisionWriter->write($activity, $before, $this->revisionRegistry->capture($after));
+                }
             } else {
-                $this->auditLogger->recordMutation(
+                $activity = $this->auditLogger->recordMutation(
                     AuditAction::Updated,
                     AuditDomain::Procurement,
                     $purchaseOrder,
                     $changedFields,
                     context: $purchaseOrder,
                 );
+                if ($activity !== null) {
+                    $after = $purchaseOrder->fresh(self::RELATIONS);
+                    $this->revisionWriter->write($activity, $before, $this->revisionRegistry->capture($after));
+                }
             }
 
             if (($validated['status'] ?? null) === 'ordered' && $previousStatus !== 'ordered') {
@@ -138,13 +155,14 @@ class PurchaseOrderController extends Controller
                 $purchaseOrder = PurchaseOrder::query()
                     ->whereKey($purchaseOrder->getKey())
                     ->lockForUpdate()
-                    ->with('attachments:id,purchase_order_id,path')
+                    ->with(self::RELATIONS)
                     ->firstOrFail();
                 if (in_array($purchaseOrder->lifecycle_status, ['completed', 'archived'], true)) {
                     abort(422, 'Completed purchase orders are locked.');
                 }
+                $before = $this->revisionRegistry->capture($purchaseOrder);
                 $moves = $this->attachmentStorage->quarantineMany($purchaseOrder->attachments->pluck('path')->all());
-                $this->auditLogger->record(
+                $activity = $this->auditLogger->record(
                     AuditAction::Deleted,
                     AuditCategory::Operations,
                     AuditDomain::Procurement,
@@ -153,6 +171,7 @@ class PurchaseOrderController extends Controller
                     details: ['status' => $purchaseOrder->status],
                 );
                 $this->auditLogger->withoutModelEvents(fn () => $purchaseOrder->delete());
+                $this->revisionWriter->write($activity, $before, null);
             });
         } catch (Throwable $exception) {
             $this->attachmentStorage->restoreMany($moves);
@@ -244,7 +263,7 @@ class PurchaseOrderController extends Controller
 
                 return $po->fresh(self::RELATIONS);
             }));
-            $this->auditLogger->record(
+            $activity = $this->auditLogger->record(
                 AuditAction::Approved,
                 AuditCategory::Operations,
                 AuditDomain::Procurement,
@@ -257,6 +276,7 @@ class PurchaseOrderController extends Controller
                     'status' => $po->status,
                 ],
             );
+            $this->revisionWriter->write($activity, null, $this->revisionRegistry->capture($po->load(self::RELATIONS)));
 
             return $po;
         });
@@ -302,7 +322,12 @@ class PurchaseOrderController extends Controller
 
         $this->audited(function () use ($vendorGroup, $data, $receiving, $lifecycle): void {
             DB::transaction(function () use ($vendorGroup, $data, $receiving, $lifecycle) {
-                $purchaseOrder = PurchaseOrder::query()->whereKey($vendorGroup->purchase_order_id)->lockForUpdate()->firstOrFail();
+                $purchaseOrder = PurchaseOrder::query()
+                    ->whereKey($vendorGroup->purchase_order_id)
+                    ->lockForUpdate()
+                    ->with(self::RELATIONS)
+                    ->firstOrFail();
+                $before = $this->revisionRegistry->capture($purchaseOrder);
                 $vendorGroup = PurchaseOrderVendorGroup::query()
                     ->whereKey($vendorGroup->getKey())
                     ->lockForUpdate()
@@ -320,9 +345,7 @@ class PurchaseOrderController extends Controller
                 $vendorChangedFields = array_values(array_intersect(array_keys($vendorGroup->getChanges()), ['or_number']));
                 $receivedTransition = ! $wasReceived
                     && ($vendorGroup->status === 'received' || $vendorGroup->received_at !== null);
-                if ($receivedTransition) {
-                    $this->recordVendorReceived($vendorGroup, $vendorChangedFields);
-                }
+                $correctionCount = 0;
 
                 foreach ($data['items'] ?? [] as $line) {
                     $item = $vendorGroup->items()->whereKey($line['id'])->firstOrFail();
@@ -354,7 +377,7 @@ class PurchaseOrderController extends Controller
                     $item->update($patch);
 
                     // Audit every correction with user + timestamp.
-                    $correction = PurchaseOrderItemCorrection::create([
+                    PurchaseOrderItemCorrection::create([
                         'purchase_order_item_id' => $item->id,
                         'old_unit_price' => $oldUnitPrice,
                         'new_unit_price' => $newUnitPrice ?? $oldUnitPrice,
@@ -364,17 +387,7 @@ class PurchaseOrderController extends Controller
                         'corrected_at' => now(),
                         'reason' => $line['reason'] ?? null,
                     ]);
-                    $this->auditLogger->record(
-                        AuditAction::PriceCorrected,
-                        AuditCategory::Operations,
-                        AuditDomain::Procurement,
-                        subject: $correction,
-                        context: $vendorGroup->purchaseOrder,
-                        details: [
-                            'changed_fields' => array_keys($patch),
-                            'item_count' => 1,
-                        ],
-                    );
+                    $correctionCount++;
                 }
 
                 $vendorGroup->total_amount = (float) $vendorGroup->items()->sum('total_value');
@@ -389,14 +402,40 @@ class PurchaseOrderController extends Controller
                     $vendorGroup->forceFill(['stocked_at' => now()])->save();
                 }
 
-                if (! $receivedTransition) {
-                    $this->auditLogger->recordMutation(
+                $activities = [];
+                if ($receivedTransition) {
+                    $activities[] = $this->recordVendorReceived($vendorGroup, $vendorChangedFields);
+                }
+                if ($correctionCount > 0) {
+                    $activities[] = $this->auditLogger->record(
+                        AuditAction::PriceCorrected,
+                        AuditCategory::Operations,
+                        AuditDomain::Procurement,
+                        subject: $purchaseOrder,
+                        context: $purchaseOrder,
+                        details: [
+                            'changed_fields' => collect([...$vendorChangedFields, 'items'])->unique()->sort()->values()->all(),
+                            'item_count' => $correctionCount,
+                        ],
+                    );
+                } elseif (! $receivedTransition) {
+                    $activity = $this->auditLogger->recordMutation(
                         AuditAction::Updated,
                         AuditDomain::Procurement,
-                        $vendorGroup,
+                        $purchaseOrder,
                         $vendorChangedFields,
-                        context: $vendorGroup->purchaseOrder,
+                        context: $purchaseOrder,
                     );
+                    if ($activity !== null) {
+                        $activities[] = $activity;
+                    }
+                }
+                if ($activities !== []) {
+                    $after = $purchaseOrder->fresh(self::RELATIONS);
+                    $afterRevision = $this->revisionRegistry->capture($after);
+                    foreach ($activities as $activity) {
+                        $this->revisionWriter->write($activity, $before, $afterRevision);
+                    }
                 }
 
                 $lifecycle->refresh($vendorGroup->purchaseOrder);
@@ -433,10 +472,12 @@ class PurchaseOrderController extends Controller
                 $purchaseOrder = PurchaseOrder::query()
                     ->whereKey($purchaseOrder->getKey())
                     ->lockForUpdate()
+                    ->with(self::RELATIONS)
                     ->firstOrFail();
                 if (in_array($purchaseOrder->lifecycle_status, ['completed', 'archived'], true)) {
                     abort(422, 'Completed purchase orders are locked.');
                 }
+                $before = $this->revisionRegistry->capture($purchaseOrder);
                 $attachments = collect($files)->map(function ($file) use ($purchaseOrder, $request, &$storedPaths) {
                     $path = $this->attachmentStorage->store($file);
                     $storedPaths[] = $path;
@@ -447,17 +488,19 @@ class PurchaseOrderController extends Controller
                         'caption' => $request->input('caption'),
                     ]);
                 });
-                $this->auditLogger->record(
+                $activity = $this->auditLogger->record(
                     AuditAction::Uploaded,
                     AuditCategory::Operations,
                     AuditDomain::Procurement,
-                    subject: $attachments->first(),
+                    subject: $purchaseOrder,
                     context: $purchaseOrder,
                     details: [
                         'attachment_type' => $request->input('type'),
                         'attachment_count' => $attachments->count(),
                     ],
                 );
+                $after = $purchaseOrder->fresh(self::RELATIONS);
+                $this->revisionWriter->write($activity, $before, $this->revisionRegistry->capture($after));
 
                 return $attachments->map(fn ($attachment): array => [
                     'id' => $attachment->uuid,
@@ -502,9 +545,14 @@ class PurchaseOrderController extends Controller
 
         $storedPaths = [];
         try {
-            $created = $this->audited(function () use ($files, $vendorGroup, $request, $receiving, $lifecycle, $po, &$storedPaths): array {
-                return DB::transaction(function () use ($files, $vendorGroup, $request, $receiving, $lifecycle, $po, &$storedPaths): array {
-                    $lockedPo = PurchaseOrder::query()->whereKey($vendorGroup->purchase_order_id)->lockForUpdate()->firstOrFail();
+            $created = $this->audited(function () use ($files, $vendorGroup, $request, $receiving, $lifecycle, &$storedPaths): array {
+                return DB::transaction(function () use ($files, $vendorGroup, $request, $receiving, $lifecycle, &$storedPaths): array {
+                    $lockedPo = PurchaseOrder::query()
+                        ->whereKey($vendorGroup->purchase_order_id)
+                        ->lockForUpdate()
+                        ->with(self::RELATIONS)
+                        ->firstOrFail();
+                    $before = $this->revisionRegistry->capture($lockedPo);
                     $vendorGroup = PurchaseOrderVendorGroup::query()
                         ->whereKey($vendorGroup->getKey())
                         ->lockForUpdate()
@@ -531,9 +579,6 @@ class PurchaseOrderController extends Controller
                             'status' => 'received',
                             'received_at' => $vendorGroup->received_at ?? now(),
                         ])->save();
-                        if (! $wasReceived) {
-                            $this->recordVendorReceived($vendorGroup);
-                        }
 
                         if (! $vendorGroup->stocked_at) {
                             $receiving->receiveVendorGroup($vendorGroup->fresh('items'));
@@ -541,18 +586,25 @@ class PurchaseOrderController extends Controller
                         }
                     }
 
-                    $lifecycle->refresh($vendorGroup->purchaseOrder);
-                    $this->auditLogger->record(
+                    $after = $lockedPo->fresh(self::RELATIONS);
+                    $afterRevision = $this->revisionRegistry->capture($after);
+                    if ($request->input('type') === 'receipt' && ! $wasReceived) {
+                        $receivedActivity = $this->recordVendorReceived($vendorGroup->fresh('purchaseOrder'));
+                        $this->revisionWriter->write($receivedActivity, $before, $afterRevision);
+                    }
+                    $uploadedActivity = $this->auditLogger->record(
                         AuditAction::Uploaded,
                         AuditCategory::Operations,
                         AuditDomain::Procurement,
-                        subject: $attachments->first(),
-                        context: $po,
+                        subject: $after,
+                        context: $after,
                         details: [
                             'attachment_type' => $request->input('type'),
                             'attachment_count' => $attachments->count(),
                         ],
                     );
+                    $this->revisionWriter->write($uploadedActivity, $before, $afterRevision);
+                    $lifecycle->refresh($after);
 
                     return $attachments->map(fn ($attachment): array => [
                         'id' => $attachment->uuid,
@@ -583,6 +635,7 @@ class PurchaseOrderController extends Controller
                 $purchaseOrder = PurchaseOrder::query()
                     ->whereKey($attachment->purchase_order_id)
                     ->lockForUpdate()
+                    ->with(self::RELATIONS)
                     ->firstOrFail();
                 $attachment = PurchaseOrderAttachment::query()
                     ->whereKey($attachment->getKey())
@@ -591,16 +644,19 @@ class PurchaseOrderController extends Controller
                 if (in_array($purchaseOrder->lifecycle_status, ['completed', 'archived'], true)) {
                     abort(422, 'Completed purchase orders are locked.');
                 }
+                $before = $this->revisionRegistry->capture($purchaseOrder);
                 $move = $this->attachmentStorage->quarantine($attachment->path);
                 $attachment->delete();
-                $this->auditLogger->record(
+                $activity = $this->auditLogger->record(
                     AuditAction::Deleted,
                     AuditCategory::Operations,
                     AuditDomain::Procurement,
-                    subject: $attachment,
+                    subject: $purchaseOrder,
                     context: $purchaseOrder,
                     details: ['attachment_type' => $attachment->type],
                 );
+                $after = $purchaseOrder->fresh(self::RELATIONS);
+                $this->revisionWriter->write($activity, $before, $this->revisionRegistry->capture($after));
             });
         } catch (Throwable $exception) {
             if ($move !== null) {
@@ -647,13 +703,13 @@ class PurchaseOrderController extends Controller
     }
 
     /** @param array<int, string> $ordinaryFields */
-    private function recordVendorReceived(PurchaseOrderVendorGroup $vendorGroup, array $ordinaryFields = []): void
+    private function recordVendorReceived(PurchaseOrderVendorGroup $vendorGroup, array $ordinaryFields = []): AuditActivity
     {
-        $this->auditLogger->record(
+        return $this->auditLogger->record(
             AuditAction::Received,
             AuditCategory::Operations,
             AuditDomain::Procurement,
-            subject: $vendorGroup,
+            subject: $vendorGroup->purchaseOrder,
             context: $vendorGroup->purchaseOrder,
             details: [
                 'status' => 'received',

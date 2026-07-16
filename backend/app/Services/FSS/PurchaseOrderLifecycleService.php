@@ -6,6 +6,7 @@ use App\Enums\AuditAction;
 use App\Enums\AuditCategory;
 use App\Enums\AuditDomain;
 use App\Events\PurchaseOrderCompleted;
+use App\Models\AuditActivity;
 use App\Models\Budget;
 use App\Models\MealPrepLog;
 use App\Models\MenuCycle;
@@ -15,13 +16,31 @@ use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderVendorGroup;
 use App\Models\ShoppingList;
 use App\Services\Audit\AuditLogger;
+use App\Services\Audit\Revisions\AuditRevisionRegistry;
+use App\Services\Audit\Revisions\AuditRevisionWriter;
 use App\Services\MenuCycleCostService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class PurchaseOrderLifecycleService
 {
-    public function __construct(private readonly AuditLogger $auditLogger) {}
+    private const REVISION_RELATIONS = [
+        'items.fsItem',
+        'items.vendorGroup',
+        'attachments.vendorGroup',
+        'supplier',
+        'shoppingList',
+        'vendorGroups.supplier',
+        'vendorGroups.items',
+        'vendorGroups.attachments',
+        'programProjectActivity',
+    ];
+
+    public function __construct(
+        private readonly AuditLogger $auditLogger,
+        private readonly AuditRevisionRegistry $revisionRegistry,
+        private readonly AuditRevisionWriter $revisionWriter,
+    ) {}
 
     /**
      * Re-evaluate every PO whose procurement span includes a service date.
@@ -45,7 +64,7 @@ class PurchaseOrderLifecycleService
             $po = PurchaseOrder::query()
                 ->whereKey($purchaseOrder->getKey())
                 ->lockForUpdate()
-                ->with(['vendorGroups.attachments', 'shoppingList', 'programProjectActivity'])
+                ->with(self::REVISION_RELATIONS)
                 ->first();
             if (! $po || in_array($po->lifecycle_status, ['completed', 'archived'], true)) {
                 return $purchaseOrder->fresh();
@@ -70,6 +89,7 @@ class PurchaseOrderLifecycleService
                 }
 
                 $this->auditLogger->assertAvailable();
+                $before = $this->revisionRegistry->capture($po);
 
                 $this->auditLogger->withoutModelEvents(function () use ($po, $actualTotal): void {
                     $po->forceFill([
@@ -83,9 +103,11 @@ class PurchaseOrderLifecycleService
                 });
 
                 event(new PurchaseOrderCompleted($po->fresh(['vendorGroups', 'shoppingList', 'programProjectActivity'])));
-                $this->recordLifecycle(AuditAction::Completed, $po);
+                $activity = $this->recordLifecycle(AuditAction::Completed, $po);
+                $after = $po->fresh(self::REVISION_RELATIONS);
+                $this->revisionWriter->write($activity, $before, $this->revisionRegistry->capture($after));
 
-                return $po->fresh();
+                return $after;
             }
 
             // Food PO: receipts on every group AND served population logged for every span date.
@@ -104,6 +126,7 @@ class PurchaseOrderLifecycleService
             }
 
             $this->auditLogger->assertAvailable();
+            $before = $this->revisionRegistry->capture($po);
 
             $this->auditLogger->withoutModelEvents(function () use ($po, $actualPerHead, $actualTotal): void {
                 $po->forceFill([
@@ -136,9 +159,11 @@ class PurchaseOrderLifecycleService
             }
 
             event(new PurchaseOrderCompleted($po->fresh(['vendorGroups', 'shoppingList', 'programProjectActivity'])));
-            $this->recordLifecycle(AuditAction::Completed, $po);
+            $activity = $this->recordLifecycle(AuditAction::Completed, $po);
+            $after = $po->fresh(self::REVISION_RELATIONS);
+            $this->revisionWriter->write($activity, $before, $this->revisionRegistry->capture($after));
 
-            return $po->fresh();
+            return $after;
         });
     }
 
@@ -149,22 +174,34 @@ class PurchaseOrderLifecycleService
         }
 
         $this->auditLogger->assertAvailable();
-        DB::transaction(function () use ($purchaseOrder): void {
-            $this->auditLogger->withoutModelEvents(function () use ($purchaseOrder): void {
-                $purchaseOrder->forceFill([
+
+        return DB::transaction(function () use ($purchaseOrder): PurchaseOrder {
+            $po = PurchaseOrder::query()
+                ->whereKey($purchaseOrder->getKey())
+                ->lockForUpdate()
+                ->with(self::REVISION_RELATIONS)
+                ->firstOrFail();
+            if ($po->lifecycle_status !== 'completed') {
+                abort(422, 'Only completed purchase orders can be archived.');
+            }
+            $before = $this->revisionRegistry->capture($po);
+            $this->auditLogger->withoutModelEvents(function () use ($po): void {
+                $po->forceFill([
                     'lifecycle_status' => 'archived',
                     'archived_at' => now(),
                 ])->save();
             });
-            $this->recordLifecycle(AuditAction::Archived, $purchaseOrder);
-        });
+            $activity = $this->recordLifecycle(AuditAction::Archived, $po);
+            $after = $po->fresh(self::REVISION_RELATIONS);
+            $this->revisionWriter->write($activity, $before, $this->revisionRegistry->capture($after));
 
-        return $purchaseOrder->fresh();
+            return $after;
+        });
     }
 
-    private function recordLifecycle(AuditAction $action, PurchaseOrder $purchaseOrder): void
+    private function recordLifecycle(AuditAction $action, PurchaseOrder $purchaseOrder): AuditActivity
     {
-        $this->auditLogger->record(
+        return $this->auditLogger->record(
             $action,
             AuditCategory::Operations,
             AuditDomain::Procurement,

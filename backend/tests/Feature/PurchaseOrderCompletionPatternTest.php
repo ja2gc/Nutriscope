@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Http\Resources\PurchaseOrderResource;
+use App\Models\AuditActivity;
 use App\Models\Budget;
 use App\Models\FsItem;
 use App\Models\MealPrepLog;
@@ -115,6 +116,10 @@ class PurchaseOrderCompletionPatternTest extends TestCase
         $po->refresh();
         $this->assertSame('completed', $po->lifecycle_status);
         $this->assertSame('1.00', $po->actual_budget_per_head_per_day);
+        $completed = AuditActivity::query()->where('event', 'completed')->sole();
+        $this->assertSame(PurchaseOrder::class, $completed->subject_type);
+        $this->assertSame('open_execution', $completed->revision->before['lifecycle_status']);
+        $this->assertSame('completed', $completed->revision->after['lifecycle_status']);
 
         $payload = (new PurchaseOrderResource($po->fresh([
             'vendorGroups.attachments',
