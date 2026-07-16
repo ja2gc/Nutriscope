@@ -8,6 +8,8 @@ use App\Jobs\GenerateReport;
 use App\Jobs\ProcessReportFileOperation;
 use App\Models\AuditActivity;
 use App\Models\DietListCount;
+use App\Models\NcpRecord;
+use App\Models\Patient;
 use App\Models\Report;
 use App\Models\ReportBranding;
 use App\Models\ReportFileOperation;
@@ -95,7 +97,75 @@ class ReportAuditTest extends TestCase
             $this->assertStringNotContainsString('TOKEN-SENTINEL', $encoded);
             $this->assertSame('procurement_pack', $event->properties['details']['report_type']);
             $this->assertSame($report->uuid, $event->properties['details']['report_public_id']);
+            $this->assertSame('reports', $event->domain->value);
+            $this->assertSame('reports', $event->module->value);
         }
+    }
+
+    public function test_patient_linked_report_audit_exposes_only_safe_identity_and_actual_actor(): void
+    {
+        Storage::fake('public');
+        $creator = User::factory()->rnd()->create();
+        $actor = User::factory()->rnd()->create();
+        $admin = User::factory()->admin()->create();
+        $patient = Patient::factory()->create([
+            'first_name' => 'Clinical',
+            'last_name' => 'Patient',
+            'name' => 'Clinical Patient',
+        ]);
+        $ncp = NcpRecord::factory()->create([
+            'patient_id' => $patient->id,
+            'rnd_user_id' => $creator->id,
+        ]);
+        Storage::disk('public')->put('reports/clinical.pdf', '%PDF-private');
+        $report = Report::factory()->create([
+            'user_id' => $creator->id,
+            'type' => 'ncp_summary',
+            'status' => 'archived',
+            'file_path' => 'reports/clinical.pdf',
+            'audit_patient_id' => $patient->id,
+            'audit_ncp_record_id' => $ncp->id,
+            'audit_owner_id' => $creator->id,
+            'parameters' => [
+                'patient_name' => 'REPORT-PHI-SENTINEL',
+                'clinical_notes' => 'REPORT-CONTENT-SENTINEL',
+            ],
+            'snapshot' => ['contents' => 'REPORT-SNAPSHOT-SENTINEL'],
+        ]);
+
+        $this->actingAs($actor, 'sanctum')
+            ->get("/api/rnd/reports/{$report->uuid}/view")
+            ->assertOk();
+
+        $event = AuditActivity::query()->where('event', 'viewed')->sole();
+        $this->assertSame('clinical', $event->category->value);
+        $this->assertSame('reports', $event->domain->value);
+        $this->assertSame('reports', $event->module->value);
+        $this->assertSame($patient->display_name, $event->patient_display_name_snapshot);
+        $this->assertSame($actor->uuid, $event->properties['actor']['public_id']);
+        $this->assertSame($actor->id, $event->causer_id);
+        $this->assertMatchesRegularExpression('/^NCP-[A-F0-9]{16}$/D', $event->properties['details']['ncp_reference']);
+
+        $adminResponse = $this->actingAs($admin, 'sanctum')
+            ->getJson('/api/admin/audit-logs?module=reports')
+            ->assertOk()
+            ->assertJsonPath('data.0.patient.display_name', 'Clinical Patient')
+            ->assertJsonPath('data.0.actor.id', $actor->uuid);
+        $reportType = collect($adminResponse->json('data.0.details'))->firstWhere('key', 'report_type');
+        $this->assertSame('ncp_summary', $reportType['value']);
+        $adminPayload = $adminResponse->getContent();
+
+        foreach (['REPORT-PHI-SENTINEL', 'REPORT-CONTENT-SENTINEL', 'REPORT-SNAPSHOT-SENTINEL'] as $sentinel) {
+            $this->assertStringNotContainsString($sentinel, $event->properties->toJson());
+            $this->assertStringNotContainsString($sentinel, $adminPayload);
+        }
+        $rawSnapshot = DB::table('activity_log')->where('id', $event->id)->value('patient_display_name_snapshot');
+        $this->assertNotSame($patient->display_name, $rawSnapshot);
+        $this->assertStringNotContainsString($patient->display_name, (string) $rawSnapshot);
+
+        $this->actingAs($admin, 'sanctum')
+            ->getJson("/api/admin/reports/{$report->uuid}")
+            ->assertForbidden();
     }
 
     public function test_branding_and_template_updates_log_only_safe_allowlisted_fields(): void
@@ -156,8 +226,15 @@ class ReportAuditTest extends TestCase
             'subject_public_id' => $report->uuid,
         ]);
 
-        $event = $this->actingAs($owner, 'sanctum')->getJson("/api/rnd/reports/{$report->uuid}/activity")
-            ->assertOk()->assertJsonPath('data.0.action', 'archived')->json('data.0');
+        $this->actingAs($other, 'sanctum')
+            ->getJson("/api/rnd/reports/{$report->uuid}")
+            ->assertOk();
+        $event = $this->getJson("/api/rnd/reports/{$report->uuid}/activity")
+            ->assertOk()
+            ->assertJsonPath('data.0.action', 'viewed')
+            ->assertJsonPath('data.0.actor.id', $other->uuid)
+            ->assertJsonPath('data.1.action', 'archived')
+            ->json('data.0');
         $this->assertSame([
             'id', 'module', 'category', 'domain', 'record_type', 'action', 'action_label',
             'summary', 'severity', 'outcome', 'actor', 'subject', 'context', 'patient',
@@ -167,9 +244,8 @@ class ReportAuditTest extends TestCase
         $this->assertSame('operations', $event['category']);
         $this->assertSame('reports', $event['domain']);
         $this->assertArrayNotHasKey('subject_id', $event);
-        $this->actingAs($other, 'sanctum')->getJson("/api/rnd/reports/{$report->uuid}/activity")->assertForbidden();
         $this->actingAs($admin, 'sanctum')->getJson("/api/admin/reports/{$report->uuid}/activity")
-            ->assertOk()->assertJsonPath('data.0.action', 'archived');
+            ->assertOk()->assertJsonPath('data.0.action', 'viewed');
         $this->actingAs($owner, 'sanctum')->getJson("/api/admin/reports/{$report->uuid}/activity")->assertForbidden();
     }
 
@@ -188,6 +264,8 @@ class ReportAuditTest extends TestCase
         $event = AuditActivity::query()->where('event', 'generated')->sole();
         $this->assertSame('system', $event->properties['actor']['kind']);
         $this->assertSame('report_generation', $event->properties['actor']['name']);
+        $this->assertSame('reports', $event->domain->value);
+        $this->assertSame('reports', $event->module->value);
         $this->assertStringNotContainsString('JOB-PHI-SENTINEL', json_encode($event->properties, JSON_THROW_ON_ERROR));
     }
 
@@ -839,7 +917,10 @@ class ReportAuditTest extends TestCase
         }
 
         $this->assertSame('failed', $failed->refresh()->status);
-        $this->assertSame(1, AuditActivity::query()->where('event', 'generated')->where('subject_id', $failed->id)->count());
+        $event = AuditActivity::query()->where('event', 'generated')->where('subject_id', $failed->id)->sole();
+        $this->assertSame('failure', $event->outcome->value);
+        $this->assertSame('reports', $event->module->value);
+        $this->assertSame(500, $event->properties['details']['status']);
     }
 
     public function test_report_outbox_and_archive_identity_migrations_roll_back_and_forward(): void

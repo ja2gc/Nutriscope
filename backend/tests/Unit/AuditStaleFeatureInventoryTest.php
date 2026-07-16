@@ -66,6 +66,8 @@ class AuditStaleFeatureInventoryTest extends TestCase
         $request = file_get_contents(app_path('Http/Requests/Admin/ListAuditLogsRequest.php'));
         $presenter = file_get_contents(app_path('Services/Audit/AuditEventPresenter.php'));
         $reportController = file_get_contents(app_path('Http/Controllers/ReportController.php'));
+        $reportBrowser = file_get_contents(app_path('Services/Reports/ReportBrowser.php'));
+        $auditPolicy = file_get_contents(app_path('Policies/AuditPolicy.php'));
         $auditPage = file_get_contents(base_path('../frontend/app/admin/audit-logs/page.tsx'));
         $filters = file_get_contents(base_path('../frontend/components/audit/AuditFilters.tsx'));
         $auditService = file_get_contents(base_path('../frontend/services/auditLogService.ts'));
@@ -75,8 +77,12 @@ class AuditStaleFeatureInventoryTest extends TestCase
         $this->assertStringNotContainsString('?? AuditAction::Updated', $presenter);
         $this->assertStringContainsString('AuditAction::tryFrom($candidate)', $presenter);
         $this->assertStringContainsString('return [AuditAction::Updated->value', $presenter);
-        $this->assertStringContainsString('authorizeOwner($report)', $reportController);
+        $this->assertStringContainsString('authorizeReportAccess($report)', $reportController);
+        $this->assertStringNotContainsString('authorizeOwner', $reportController);
+        $this->assertStringContainsString("\$role !== 'RND'", $reportController);
         $this->assertStringContainsString("where('user_id', Auth::id())", $reportController);
+        $this->assertStringNotContainsString("where('rnd_user_id', Auth::id())", $reportBrowser);
+        $this->assertStringNotContainsString('$report->user_id === $user->id', $auditPolicy);
         $this->assertStringContainsString('AuditModule', $auditPage);
         $this->assertStringContainsString('Security & Administration', $auditPage);
         $this->assertStringNotContainsString('AuditCategory', $auditPage);

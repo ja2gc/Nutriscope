@@ -5,6 +5,8 @@ namespace Tests\Feature\Audit;
 use App\Models\Assessment;
 use App\Models\Intervention;
 use App\Models\MealPlan;
+use App\Models\MealPlanDay;
+use App\Models\MealPlanItem;
 use App\Models\Monitoring;
 use App\Models\NcpRecord;
 use App\Models\Patient;
@@ -48,10 +50,33 @@ class SharedRndClinicalAccessTest extends TestCase
             'ncp_record_id' => $ncp->id,
             'weight' => 60,
         ]);
+        $day = MealPlanDay::factory()->create([
+            'meal_plan_id' => $mealPlan->id,
+            'day_of_week' => 'Monday',
+            'meal_type' => 'breakfast',
+        ]);
+        $item = MealPlanItem::factory()->create([
+            'meal_plan_day_id' => $day->id,
+            'quantity' => 100,
+            'unit' => 'g',
+        ]);
+        $upload = $this->actingAs($creator, 'sanctum')
+            ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/attachments", [
+                'file' => UploadedFile::fake()->create('handover.pdf', 10, 'application/pdf'),
+            ])->assertCreated();
+        $document = ScreeningDocument::query()->where('uuid', $upload->json('data.id'))->firstOrFail();
 
         $this->actingAs($actor, 'sanctum')
             ->getJson("/api/rnd/ncp-records/{$ncp->uuid}/assessment")
             ->assertOk();
+        $this->getJson("/api/rnd/ncp-records/{$ncp->uuid}/intervention")->assertOk();
+        $this->getJson("/api/rnd/ncp-records/{$ncp->uuid}/meal-plans")->assertOk();
+        $this->getJson("/api/rnd/ncp-records/{$ncp->uuid}/meal-plans/{$mealPlan->uuid}")->assertOk();
+        $this->getJson("/api/rnd/ncp-records/{$ncp->uuid}/monitorings")->assertOk();
+        $this->getJson("/api/rnd/ncp-records/{$ncp->uuid}/meal-plans/{$mealPlan->uuid}/days/{$day->uuid}/items")
+            ->assertOk();
+        $this->getJson("/api/rnd/screening-documents/{$document->uuid}")->assertOk();
+        $this->get("/api/rnd/screening-documents/{$document->uuid}/file")->assertOk();
 
         $this->patchJson("/api/rnd/ncp-records/{$ncp->uuid}/assessment", [
             'physical_activity_level' => 'light',
@@ -66,20 +91,22 @@ class SharedRndClinicalAccessTest extends TestCase
         $this->patchJson("/api/rnd/ncp-records/{$ncp->uuid}/meal-plans/{$mealPlan->uuid}", [
             'status' => 'active',
         ])->assertOk();
+        $this->patchJson("/api/rnd/ncp-records/{$ncp->uuid}/meal-plans/{$mealPlan->uuid}/days/{$day->uuid}/items/{$item->uuid}", [
+            'quantity' => 125,
+        ])->assertOk();
 
         $this->patchJson("/api/rnd/ncp-records/{$ncp->uuid}/monitorings/{$monitoring->uuid}", [
             'weight' => 61,
         ])->assertOk();
 
-        $upload = $this->postJson("/api/rnd/ncp-records/{$ncp->uuid}/attachments", [
-            'file' => UploadedFile::fake()->create('handover.pdf', 10, 'application/pdf'),
-        ])->assertCreated();
-        $document = ScreeningDocument::query()->where('uuid', $upload->json('data.id'))->firstOrFail();
         $this->deleteJson("/api/rnd/screening-documents/{$document->uuid}")->assertOk();
 
         $this->assertSame('active', $mealPlan->fresh()->status);
+        $this->assertSame(125.0, (float) $item->fresh()->quantity);
         $this->assertSame(61.0, (float) $monitoring->fresh()->weight);
 
+        $this->deleteJson("/api/rnd/ncp-records/{$ncp->uuid}/meal-plans/{$mealPlan->uuid}/days/{$day->uuid}/items/{$item->uuid}")
+            ->assertNoContent();
         $this->deleteJson("/api/rnd/ncp-records/{$ncp->uuid}/monitorings/{$monitoring->uuid}")
             ->assertNoContent();
         $this->deleteJson("/api/rnd/ncp-records/{$ncp->uuid}/meal-plans/{$mealPlan->uuid}")
@@ -88,6 +115,7 @@ class SharedRndClinicalAccessTest extends TestCase
         $this->assertSame('light', $ncp->assessment->fresh()->physical_activity_level);
         $this->assertSame('Updated by the covering RND', $intervention->fresh()->education_notes);
         $this->assertModelMissing($document);
+        $this->assertModelMissing($item);
         $this->assertModelMissing($monitoring);
         $this->assertModelMissing($mealPlan);
 

@@ -2,12 +2,18 @@
 
 namespace Tests\Feature;
 
+use App\Models\AuditActivity;
+use App\Models\Intervention;
+use App\Models\MealPlan;
+use App\Models\NcpRecord;
+use App\Models\Patient;
 use App\Models\ProgramProjectActivity;
 use App\Models\PurchaseOrder;
 use App\Models\Report;
 use App\Models\ReportBranding;
 use App\Models\Supplier;
 use App\Models\User;
+use App\Services\Reports\ReportService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
@@ -131,6 +137,63 @@ class ReportsBrowseTest extends TestCase
             ->assertJsonPath('data.axis', 'entity');
     }
 
+    public function test_rnd_can_browse_render_and_archive_another_rnds_clinical_context(): void
+    {
+        Storage::fake('public');
+        $creator = User::factory()->rnd()->create();
+        $patient = Patient::factory()->create(['admission_date' => '2026-05-10']);
+        $ncp = NcpRecord::factory()->create([
+            'patient_id' => $patient->id,
+            'rnd_user_id' => $creator->id,
+        ]);
+        $intervention = Intervention::factory()->create(['ncp_record_id' => $ncp->id]);
+        $mealPlan = MealPlan::factory()->create([
+            'intervention_id' => $intervention->id,
+            'patient_id' => $patient->id,
+        ]);
+
+        $this->actingAs($this->rnd, 'sanctum');
+        $this->getJson('/api/rnd/reports/ncp_summary/instances')
+            ->assertOk()
+            ->assertJsonPath('data.instances.0.params.ncp_record_id', $ncp->id);
+        $this->getJson('/api/rnd/reports/patient_menu_plan/instances')
+            ->assertOk()
+            ->assertJsonPath('data.instances.0.params.meal_plan_id', $mealPlan->id);
+        $this->getJson('/api/rnd/reports/demographic_census/instances')
+            ->assertOk()
+            ->assertJsonPath('data.instances.0.key', '2026-05');
+
+        $reports = $this->createMock(ReportService::class);
+        $reports->method('supports')->willReturn(true);
+        $reports->method('streamBytes')->willReturn('%PDF-shared-context');
+        $reports->method('signatoriesFor')->willReturn([]);
+        $reports->method('generate')->willReturnCallback(function (Report $report): string {
+            $path = "reports/{$report->uuid}.pdf";
+            Storage::disk('public')->put($path, '%PDF-shared-context');
+
+            return $path;
+        });
+        $this->app->instance(ReportService::class, $reports);
+
+        $this->get("/api/rnd/reports/ncp_summary/render?ncp_record_id={$ncp->id}")
+            ->assertOk();
+        $archived = $this->postJson("/api/rnd/reports/ncp_summary/archive?ncp_record_id={$ncp->id}")
+            ->assertCreated()
+            ->assertJsonPath('data.created_by.id', $this->rnd->uuid)
+            ->json('data');
+
+        $this->assertDatabaseHas('reports', [
+            'uuid' => $archived['id'],
+            'user_id' => $this->rnd->id,
+            'audit_ncp_record_id' => $ncp->id,
+        ]);
+        $archiveEvent = AuditActivity::query()->where('event', 'archived')->sole();
+        $this->assertSame('clinical', $archiveEvent->category->value);
+        $this->assertSame('reports', $archiveEvent->domain->value);
+        $this->assertSame('reports', $archiveEvent->module->value);
+        $this->assertSame($this->rnd->uuid, $archiveEvent->properties['actor']['public_id']);
+    }
+
     public function test_fss_cannot_download_a_clinical_report_even_if_owner(): void
     {
         // Defense-in-depth (PO-03): even if a clinical report row were owned by a
@@ -247,12 +310,12 @@ class ReportsBrowseTest extends TestCase
         $this->assertStringContainsString('inline', (string) $res->headers->get('Content-Disposition'));
     }
 
-    public function test_view_is_owner_scoped(): void
+    public function test_view_is_shared_across_active_rnds(): void
     {
         Storage::fake('public');
         $report = $this->archivedReport();
 
         $other = User::factory()->create(['role' => 'RND']);
-        $this->actingAs($other)->get("/api/rnd/reports/{$report->uuid}/view")->assertForbidden();
+        $this->actingAs($other)->get("/api/rnd/reports/{$report->uuid}/view")->assertOk();
     }
 }

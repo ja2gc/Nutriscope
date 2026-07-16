@@ -95,7 +95,12 @@ class GenerateReport implements ShouldQueue
             outcome: $outcome,
             severity: $outcome === AuditOutcome::Failure ? AuditSeverity::Warning : AuditSeverity::Info,
             details: [
-                ...$auditReference->details($this->report->type, $this->report->parameters ?? [], $this->report, 200),
+                ...$auditReference->details(
+                    $this->report->type,
+                    $this->report->parameters ?? [],
+                    $this->report,
+                    $outcome === AuditOutcome::Success ? 200 : 500,
+                ),
                 'generation_status' => $outcome === AuditOutcome::Success ? 'completed' : 'failed',
             ],
             systemActor: 'report_generation',

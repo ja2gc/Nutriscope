@@ -7,6 +7,7 @@ use App\Models\Report;
 use App\Models\ReportBranding;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 /**
@@ -164,5 +165,25 @@ class AdminReportsTest extends TestCase
         $this->actingAs($this->admin)
             ->getJson('/api/admin/reports/ncp_summary/instances')
             ->assertForbidden();
+    }
+
+    public function test_admin_cannot_open_mutate_or_trail_patient_specific_report_rows(): void
+    {
+        Storage::fake('public');
+        $rnd = User::factory()->rnd()->create();
+        Storage::disk('public')->put('reports/clinical.pdf', '%PDF-private');
+        $report = Report::factory()->create([
+            'user_id' => $rnd->id,
+            'type' => 'ncp_summary',
+            'status' => 'archived',
+            'file_path' => 'reports/clinical.pdf',
+        ]);
+
+        $this->actingAs($this->admin, 'sanctum');
+        foreach (['', '/view', '/download', '/activity'] as $suffix) {
+            $this->getJson("/api/admin/reports/{$report->uuid}{$suffix}")->assertForbidden();
+        }
+        $this->deleteJson("/api/admin/reports/{$report->uuid}")->assertForbidden();
+        $this->assertModelExists($report);
     }
 }

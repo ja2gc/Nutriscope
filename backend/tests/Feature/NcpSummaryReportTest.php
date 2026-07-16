@@ -91,19 +91,27 @@ class NcpSummaryReportTest extends TestCase
         ));
     }
 
-    public function test_clinical_instances_exclude_other_rnd_records_and_labels(): void
+    public function test_clinical_instances_include_other_rnd_records_and_use_display_labels(): void
     {
         $owned = $this->makeRecord();
         $other = User::factory()->rnd()->create();
-        $otherPatient = Patient::factory()->create(['name' => 'OTHER-PATIENT-LABEL-SENTINEL']);
-        NcpRecord::factory()->create(['patient_id' => $otherPatient->id, 'rnd_user_id' => $other->id]);
+        $otherPatient = Patient::factory()->create([
+            'first_name' => 'Other',
+            'last_name' => 'Patient',
+            'name' => 'OTHER-PATIENT-LEGACY-SENTINEL',
+        ]);
+        $shared = NcpRecord::factory()->create(['patient_id' => $otherPatient->id, 'rnd_user_id' => $other->id]);
 
         $response = $this->actingAs($this->rnd, 'sanctum')
             ->getJson('/api/rnd/reports/ncp_summary/instances')
             ->assertOk();
 
-        $this->assertSame([(string) $owned->id], collect($response->json('data.instances'))->pluck('key')->all());
-        $this->assertStringNotContainsString('OTHER-PATIENT-LABEL-SENTINEL', $response->getContent());
+        $this->assertEqualsCanonicalizing(
+            [(string) $shared->id, (string) $owned->id],
+            collect($response->json('data.instances'))->pluck('key')->all(),
+        );
+        $this->assertStringContainsString('Other Patient', $response->getContent());
+        $this->assertStringNotContainsString('OTHER-PATIENT-LEGACY-SENTINEL', $response->getContent());
     }
 
     public function test_fss_cannot_browse_ncp_summary(): void

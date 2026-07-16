@@ -63,14 +63,11 @@ class ReportController extends Controller
         $query = Report::query()->with('user:id,uuid,name,first_name,last_name')->latest();
         $role = Auth::user()?->role;
 
-        // RND supervises FSS: in addition to their own rows, RND sees every
-        // accomplishment_report filed by FSS staff (RND is the report's "Noted by").
-        if ($role === 'RND') {
-            $query->where(fn ($q) => $q->where('user_id', Auth::id())
-                ->orWhere('type', 'accomplishment_report'));
-        } elseif ($role === 'Admin') {
+        // Report creator fields are attribution only. Active RNDs share the
+        // complete report workspace; Admin and FSS retain their role limits.
+        if ($role === 'Admin') {
             $query->whereIn('type', self::ADMIN_ALLOWED_TYPES);
-        } else {
+        } elseif ($role !== 'RND') {
             $query->where('user_id', Auth::id());
         }
 
@@ -213,9 +210,10 @@ class ReportController extends Controller
 
     public function show(Report $report): JsonResponse
     {
-        $this->authorizeOwner($report);
+        $this->authorizeReportAccess($report);
         $this->guardClinical($report->type);
         $this->guardAdmin($report->type);
+        $this->guardFss($report->type);
 
         $this->recordReportEvent(AuditAction::Viewed, $report->type, $report->parameters ?? [], $report, 200);
 
@@ -224,9 +222,10 @@ class ReportController extends Controller
 
     public function download(Report $report): StreamedResponse|JsonResponse
     {
-        $this->authorizeOwner($report);
+        $this->authorizeReportAccess($report);
         $this->guardClinical($report->type);
         $this->guardAdmin($report->type);
+        $this->guardFss($report->type);
 
         if (! $report->file_path || ! Storage::disk('public')->exists($report->file_path)) {
             return response()->json(['message' => 'Report file not available.'], 404);
@@ -240,13 +239,14 @@ class ReportController extends Controller
 
     /**
      * Stream an archived copy INLINE (for the in-app preview) — frozen stored
-     * bytes, never re-rendered, same owner check as {@see download()}.
+     * bytes, never re-rendered, same role access check as {@see download()}.
      */
     public function view(Report $report): StreamedResponse|JsonResponse
     {
-        $this->authorizeOwner($report);
+        $this->authorizeReportAccess($report);
         $this->guardClinical($report->type);
         $this->guardAdmin($report->type);
+        $this->guardFss($report->type);
 
         if (! $report->file_path || ! Storage::disk('public')->exists($report->file_path)) {
             return response()->json(['message' => 'Report file not available.'], 404);
@@ -262,8 +262,10 @@ class ReportController extends Controller
 
     public function destroy(Report $report): JsonResponse
     {
-        $this->authorizeOwner($report);
+        $this->authorizeReportAccess($report);
         $this->guardClinical($report->type);
+        $this->guardAdmin($report->type);
+        $this->guardFss($report->type);
 
         $move = $this->archiveStorage->quarantine($report->file_path);
         try {
@@ -375,10 +377,7 @@ class ReportController extends Controller
     {
         $ncpRecord = $this->ncpContextForReport($type, $parameters, $report);
         if ($ncpRecord !== null) {
-            $allowed = $report?->audit_owner_id
-                ? (int) $report->audit_owner_id === (int) Auth::id()
-                : $this->auditPolicy->viewNcpTrail(request()->user(), $ncpRecord);
-            abort_unless($allowed, 403);
+            abort_unless($this->auditPolicy->viewNcpTrail(request()->user(), $ncpRecord), 403);
         }
     }
 
@@ -438,9 +437,9 @@ class ReportController extends Controller
         ]);
     }
 
-    private function authorizeOwner(Report $report): void
+    private function authorizeReportAccess(Report $report): void
     {
-        if (Auth::user()?->role === 'RND' && $report->type === 'accomplishment_report') {
+        if (Auth::user()?->role === 'RND') {
             return;
         }
 

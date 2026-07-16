@@ -54,6 +54,7 @@ class ProxyRouteCompatibilityTest extends TestCase
 
     private function canonicalPath(string $path): string
     {
+        $path = preg_replace('/\$\{encodeURIComponent\([A-Za-z_][A-Za-z0-9_]*\)\}/', '{}', $path);
         $path = preg_replace('/\$\{[A-Za-z_][A-Za-z0-9_]*\}/', '{}', $path);
         $path = preg_replace('/\{[^}]+\}/', '{}', (string) $path);
 

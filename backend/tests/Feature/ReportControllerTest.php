@@ -29,9 +29,10 @@ class ReportControllerTest extends TestCase
         ]);
     }
 
-    public function test_deleted_ncp_archived_report_keeps_safe_root_and_owner_authorization(): void
+    public function test_deleted_ncp_archived_report_keeps_safe_root_and_shared_rnd_authorization(): void
     {
         Storage::fake('public');
+        $coveringRnd = User::factory()->rnd()->create();
         $patient = Patient::factory()->create();
         $ncp = NcpRecord::factory()->create([
             'patient_id' => $patient->id,
@@ -51,7 +52,7 @@ class ReportControllerTest extends TestCase
         $ncpId = $ncp->id;
         $ncp->delete();
 
-        $this->actingAs($this->rnd, 'sanctum')
+        $this->actingAs($coveringRnd, 'sanctum')
             ->get("/api/rnd/reports/{$report->uuid}/download")
             ->assertOk();
         $this->get("/api/rnd/reports/{$report->uuid}/download")->assertOk();
@@ -65,15 +66,22 @@ class ReportControllerTest extends TestCase
         $this->assertSame(2, AuditActivity::query()->where('event', 'downloaded')->count());
     }
 
-    public function test_rnd_can_list_own_reports_with_creator_attribution(): void
+    public function test_rnd_can_list_all_rnd_reports_with_creator_attribution(): void
     {
         Report::factory(3)->create(['user_id' => $this->rnd->id, 'status' => 'completed']);
+        $other = User::factory()->rnd()->create([
+            'first_name' => 'Covering',
+            'last_name' => 'Dietitian',
+        ]);
+        $shared = Report::factory()->create(['user_id' => $other->id, 'status' => 'completed']);
 
-        $this->actingAs($this->rnd, 'sanctum')->getJson('/api/rnd/reports')
+        $response = $this->actingAs($this->rnd, 'sanctum')->getJson('/api/rnd/reports')
             ->assertOk()
-            ->assertJsonCount(3, 'data')
-            ->assertJsonPath('data.0.created_by.id', $this->rnd->uuid)
-            ->assertJsonPath('data.0.created_by.name', 'Rosa Maria Dela Peña');
+            ->assertJsonCount(4, 'data');
+
+        $sharedPayload = collect($response->json('data'))->firstWhere('id', $shared->uuid);
+        $this->assertSame($other->uuid, $sharedPayload['created_by']['id']);
+        $this->assertSame('Covering Dietitian', $sharedPayload['created_by']['name']);
     }
 
     public function test_rnd_can_show_owned_report(): void
@@ -90,13 +98,38 @@ class ReportControllerTest extends TestCase
             ->assertJsonPath('data.id', $report->uuid);
     }
 
-    public function test_rnd_cannot_see_another_users_report(): void
+    public function test_rnd_can_show_another_rnds_report(): void
     {
-        $report = Report::factory()->create(['user_id' => User::factory()->rnd()->create()->id]);
+        $report = Report::factory()->create([
+            'user_id' => User::factory()->rnd()->create()->id,
+            'type' => 'procurement_pack',
+        ]);
 
         $this->actingAs($this->rnd, 'sanctum')
             ->getJson("/api/rnd/reports/{$report->uuid}")
-            ->assertForbidden();
+            ->assertOk()
+            ->assertJsonPath('data.id', $report->uuid);
+    }
+
+    public function test_rnd_can_view_download_and_delete_another_rnds_archived_report(): void
+    {
+        Storage::fake('public');
+        $owner = User::factory()->rnd()->create();
+        Storage::disk('public')->put('reports/shared.pdf', '%PDF-shared');
+        $report = Report::factory()->create([
+            'user_id' => $owner->id,
+            'type' => 'procurement_pack',
+            'status' => 'archived',
+            'file_path' => 'reports/shared.pdf',
+        ]);
+
+        $this->actingAs($this->rnd, 'sanctum')
+            ->get("/api/rnd/reports/{$report->uuid}/view")
+            ->assertOk();
+        $this->get("/api/rnd/reports/{$report->uuid}/download")->assertOk();
+        $this->deleteJson("/api/rnd/reports/{$report->uuid}")->assertNoContent();
+
+        $this->assertModelMissing($report);
     }
 
     public function test_historical_report_name_snapshots_are_not_rewritten(): void

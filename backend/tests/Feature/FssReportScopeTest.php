@@ -3,9 +3,11 @@
 namespace Tests\Feature;
 
 use App\Models\DietListCount;
+use App\Models\Report;
 use App\Models\ReportBranding;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 /**
@@ -59,6 +61,29 @@ class FssReportScopeTest extends TestCase
         $this->actingAs($this->fss)
             ->get('/api/fss/reports/accomplishment_report/render?start=2026-06-10&end=2026-06-10')
             ->assertOk();
+    }
+
+    public function test_fss_cannot_open_mutate_or_trail_disallowed_report_rows_even_if_attributed(): void
+    {
+        Storage::fake('public');
+        $this->actingAs($this->fss, 'sanctum');
+        foreach (['ncp_summary', 'procurement_pack'] as $type) {
+            $path = "reports/{$type}.pdf";
+            Storage::disk('public')->put($path, '%PDF-private');
+            $report = Report::factory()->create([
+                'user_id' => $this->fss->id,
+                'type' => $type,
+                'status' => 'archived',
+                'file_path' => $path,
+            ]);
+
+            foreach (['', '/view', '/download'] as $suffix) {
+                $this->getJson("/api/fss/reports/{$report->uuid}{$suffix}")->assertForbidden();
+            }
+            $this->deleteJson("/api/fss/reports/{$report->uuid}")->assertForbidden();
+            $this->getJson("/api/rnd/reports/{$report->uuid}/activity")->assertForbidden();
+            $this->assertModelExists($report);
+        }
     }
 
     // ── Retired report types are gone (404 for all roles) ─────────────────

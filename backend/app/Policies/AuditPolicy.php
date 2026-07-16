@@ -43,7 +43,7 @@ class AuditPolicy
     {
         return match ($user->role) {
             'Admin' => in_array($report->type, Report::ADMIN_ALLOWED_TYPES, true),
-            'RND' => $report->user_id === $user->id || $report->type === 'accomplishment_report',
+            'RND' => true,
             default => false,
         };
     }

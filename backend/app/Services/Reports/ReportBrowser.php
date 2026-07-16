@@ -29,10 +29,7 @@ class ReportBrowser
         $this->sources = [
             // ── period axis (year → month) ───────────────────────────────────
             'demographic_census' => fn () => new PeriodInstanceSource(
-                fn () => Patient::query()->when(
-                    Auth::user()?->role === 'RND',
-                    fn ($query) => $query->whereHas('ncpRecords', fn ($ncp) => $ncp->where('rnd_user_id', Auth::id())),
-                ),
+                fn () => Patient::query(),
                 'admission_date',
             ),
 
@@ -63,13 +60,6 @@ class ReportBrowser
                 // (Previously keyed by patient_id, which the generator can't render —
                 // it requires a specific meal_plan_id.) (MP-08/RP-04)
                 fn () => MealPlan::query()
-                    ->when(
-                        Auth::user()?->role === 'RND',
-                        fn ($query) => $query->whereHas(
-                            'intervention.ncpRecord',
-                            fn ($ncp) => $ncp->where('rnd_user_id', Auth::id()),
-                        ),
-                    )
                     ->with('patient'),
                 'meal_plan_id',
                 fn (MealPlan $mp) => trim(($mp->patient?->display_name ?? "Patient #{$mp->patient_id}")
@@ -78,7 +68,7 @@ class ReportBrowser
                 'created_at',
             ),
             'ncp_summary' => fn () => new EntityInstanceSource(
-                fn () => NcpRecord::query()->where('rnd_user_id', Auth::id())->with('patient'),
+                fn () => NcpRecord::query()->with('patient'),
                 'ncp_record_id',
                 fn (NcpRecord $r) => trim(($r->patient?->display_name ?? "Patient #{$r->patient_id}")
                     .' — '.optional($r->created_at)->format('M j, Y')
