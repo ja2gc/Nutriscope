@@ -1,4 +1,4 @@
-import { GOAL_MICRO_FLAGS, microLimitsFromRx } from "@/lib/nutritionCalculations";
+import { microKeys, microLimitsFromRx } from "@/lib/nutritionCalculations";
 
 export interface PrescriptionFormState {
   energy_kcal: string;
@@ -20,7 +20,6 @@ export interface GoalAutofillResult {
   fiber_g?: number;
   cholesterol_max_mg?: number;
   free_sugar_max_pct?: number;
-  feeding_phase?: "refeeding_start";
 }
 
 export const emptyPrescriptionForm = (): PrescriptionFormState => ({
@@ -33,6 +32,14 @@ export const emptyPrescriptionForm = (): PrescriptionFormState => ({
   displayed_nutrients: [],
 });
 
+export function nutrientKeysWithValues(
+  limits: PrescriptionFormState["micronutrient_limits"],
+): string[] {
+  return microKeys(Object.entries(limits)
+    .filter(([, limit]) => Number.isFinite(limit.min) || Number.isFinite(limit.max))
+    .map(([key]) => key));
+}
+
 export function buildGoalPrescriptionForm(
   goalType: string,
   result: GoalAutofillResult | null,
@@ -42,10 +49,7 @@ export function buildGoalPrescriptionForm(
   }
 
   const micronutrient_limits = microLimitsFromRx(result, result.energy_kcal);
-  const requiredMicros = result.feeding_phase === "refeeding_start"
-    ? Array.from(new Set([...(GOAL_MICRO_FLAGS[goalType] ?? []), "potassium", "phosphate", "magnesium"]))
-    : GOAL_MICRO_FLAGS[goalType] ?? [];
-  const displayed_nutrients = Array.from(new Set([...requiredMicros, ...Object.keys(micronutrient_limits)]));
+  const displayed_nutrients = nutrientKeysWithValues(micronutrient_limits);
 
   return {
     energy_kcal: String(result.energy_kcal),

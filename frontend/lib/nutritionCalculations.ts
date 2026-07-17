@@ -139,8 +139,6 @@ export interface Prescription {
   sodium_max_mg?: number;
   free_sugar_max_pct?: number;
   cholesterol_max_mg?: number;
-  feeding_phase?: 'refeeding_start';
-  target_energy_kcal_range?: [number, number];
   note?: string;
 }
 
@@ -284,13 +282,10 @@ function autofillBase(
 
     case 'weight_gain': {
       if (stage === 'severe') {
-        const energy    = Math.round(working * 7.5);
+        const energy    = Math.round(working * 32.5);
         const protein_g = Math.round(ibw * 1.0);
         return { energy_kcal: energy, protein_g, ...macrosFromEnergyProtein(energy, protein_g, 0.275),
-          fluid_ml: std_fluid,
-          feeding_phase: 'refeeding_start',
-          target_energy_kcal_range: [Math.round(working * 30), Math.round(working * 35)],
-          note: 'Refeeding: start 5–10 kcal/kg/day → target 30–35 kcal/kg, reach full needs by day 4–7. Monitor phosphate/K/Mg daily for first 72h; thiamine 200–300 mg/day before feeding.' };
+          fluid_ml: std_fluid };
       }
       const surplus   = stage === 'mild' ? 400 : 625;
       const energy    = Math.round(tee + surplus);
@@ -324,13 +319,10 @@ function autofillBase(
 
     case 'malnutrition': {
       if (stage === 'severe') {
-        const energy    = Math.round(working * 7.5);
+        const energy    = Math.round(working * 32.5);
         const protein_g = Math.round(ibw * 1.0);
         return { energy_kcal: energy, protein_g, ...macrosFromEnergyProtein(energy, protein_g, 0.275),
-          fluid_ml: std_fluid,
-          feeding_phase: 'refeeding_start',
-          target_energy_kcal_range: [Math.round(working * 30), Math.round(working * 35)],
-          note: 'Refeeding: start 5–10 kcal/kg/day → target 30–35 kcal/kg, full needs by day 4–7. Thiamine 200–300 mg/day BEFORE feeding, continue 10 days. Daily phosphate/K/Mg for first 72h.' };
+          fluid_ml: std_fluid };
       }
       const energy    = Math.round(working * 32.5);
       const protein_g = Math.round(ibw * 1.35);

@@ -38,7 +38,7 @@ class LabFlagServiceTest extends TestCase
         $this->assertSame(140.0, $flags['glucose']['value']);
     }
 
-    public function test_magnesium_range_is_flagged_for_refeeding_monitoring(): void
+    public function test_magnesium_range_is_flagged_for_severe_nutrition_monitoring(): void
     {
         $svc = new LabFlagService;
 

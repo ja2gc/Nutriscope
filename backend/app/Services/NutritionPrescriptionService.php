@@ -287,18 +287,13 @@ class NutritionPrescriptionService
 
             case 'weight_gain':
                 if ($stage === 'severe') {
-                    $energy = (int) round($working * 7.5);
+                    $energy = (int) round($working * 32.5);
                     $proteinG = (int) round($ibw * 1.0);
 
                     return array_merge(
                         ['energy_kcal' => $energy, 'protein_g' => $proteinG],
                         $this->macros($energy, $proteinG, 0.275),
-                        [
-                            'fluid_ml' => $stdFluid,
-                            'feeding_phase' => 'refeeding_start',
-                            'target_energy_kcal_range' => [(int) round($working * 30), (int) round($working * 35)],
-                            'note' => 'Refeeding: start 5–10 kcal/kg/day → target 30–35 kcal/kg, reach full needs by day 4–7. Monitor phosphate/K/Mg daily for first 72h; thiamine 200–300 mg/day before feeding.',
-                        ],
+                        ['fluid_ml' => $stdFluid],
                     );
                 }
                 $surplus = $stage === 'mild' ? 400 : 625;
@@ -340,18 +335,13 @@ class NutritionPrescriptionService
 
             case 'malnutrition':
                 if ($stage === 'severe') {
-                    $energy = (int) round($working * 7.5);
+                    $energy = (int) round($working * 32.5);
                     $proteinG = (int) round($ibw * 1.0);
 
                     return array_merge(
                         ['energy_kcal' => $energy, 'protein_g' => $proteinG],
                         $this->macros($energy, $proteinG, 0.275),
-                        [
-                            'fluid_ml' => $stdFluid,
-                            'feeding_phase' => 'refeeding_start',
-                            'target_energy_kcal_range' => [(int) round($working * 30), (int) round($working * 35)],
-                            'note' => 'Refeeding: start 5–10 kcal/kg/day → target 30–35 kcal/kg, full needs by day 4–7. Thiamine 200–300 mg/day BEFORE feeding, continue 10 days. Daily phosphate/K/Mg for first 72h.',
-                        ],
+                        ['fluid_ml' => $stdFluid],
                     );
                 }
                 $energy = (int) round($working * 32.5);

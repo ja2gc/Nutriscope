@@ -10,14 +10,20 @@ import {
 } from "@/services/interventionService";
 import { EDUCATION_TEMPLATES } from "@/lib/educationTemplates";
 import { fetchAssessment } from "@/services/assessmentService";
-import { fetchPatientById, type Patient } from "@/services/patientService";
+import {
+  fetchPatientById,
+  fetchPatientNcpRecords,
+  ncpRecordMatchesRoute,
+  type Patient,
+} from "@/services/patientService";
 import { fetchDiagnoses } from "@/services/diagnosisService";
 import {
-  autofillPrescription, GOAL_MICRO_FLAGS, Prescription, PatientMetrics, ACTIVITY_FACTORS, microKeys,
+  autofillPrescription, Prescription, PatientMetrics, ACTIVITY_FACTORS, microKeys,
 } from "@/lib/nutritionCalculations";
 import {
   buildGoalPrescriptionForm,
   emptyPrescriptionForm,
+  nutrientKeysWithValues,
   type PrescriptionFormState,
 } from "@/lib/interventionGoalState";
 import { buildPrescriptionCalculationTrace } from "@/lib/prescriptionCalculationTrace";
@@ -58,13 +64,7 @@ function formatMissingField(field: string) {
 function prescriptionNote(rx?: Partial<AutofillResult> | null): string | undefined {
   if (!rx) return undefined;
 
-  const parts = [
-    rx.note,
-    rx.feeding_phase === "refeeding_start" && rx.target_energy_kcal_range
-      ? `Refeeding phase: current calories are the starting dose. Target full-energy range is ${rx.target_energy_kcal_range[0]}-${rx.target_energy_kcal_range[1]} kcal/day by day 4-7 if clinically stable.`
-      : undefined,
-    ...(rx.safety_warnings ?? []).map((warning) => warning.message),
-  ];
+  const parts = [rx.note, ...(rx.safety_warnings ?? []).map((warning) => warning.message)];
 
   return parts.filter(Boolean).join(" ");
 }
@@ -72,14 +72,15 @@ function prescriptionNote(rx?: Partial<AutofillResult> | null): string | undefin
 type PrescriptionForm = PrescriptionFormState;
 
 function interventionToForm(iv: Intervention): PrescriptionForm {
+  const micronutrientLimits = iv.micronutrient_limits ?? {};
   return {
     energy_kcal: iv.energy_kcal != null ? String(iv.energy_kcal) : "",
     protein_g:   iv.protein_g   != null ? String(iv.protein_g)   : "",
     carbs_g:     iv.carbs_g     != null ? String(iv.carbs_g)     : "",
     fat_g:       iv.fat_g       != null ? String(iv.fat_g)       : "",
     fluid_ml:    iv.fluid_ml    != null ? String(iv.fluid_ml)    : "",
-    micronutrient_limits: iv.micronutrient_limits ?? {},
-    displayed_nutrients:  iv.displayed_nutrients  ?? [],
+    micronutrient_limits: micronutrientLimits,
+    displayed_nutrients: nutrientKeysWithValues(micronutrientLimits),
   };
 }
 
@@ -146,16 +147,25 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
   const loadMetrics = useCallback(async () => {
     setWorkflowLoading(true);
     try {
-      const [assessment, patientData, diagnoses] = await Promise.allSettled([
+      const [assessment, patientData, diagnoses, ncpRecords] = await Promise.allSettled([
         fetchAssessment(ncpId),
         fetchPatientById(patientId),
         fetchDiagnoses(ncpId),
+        fetchPatientNcpRecords(patientId, 1, ncpId),
       ]);
 
       const a = assessment.status === "fulfilled" ? assessment.value : null;
       const p = patientData.status === "fulfilled" ? patientData.value : null;
       const hasDiagnosis = diagnoses.status === "fulfilled" && diagnoses.value.length > 0;
       if (p) setPatient(p);
+
+      const routeMatchesPatient = ncpRecords.status === "fulfilled"
+        && ncpRecordMatchesRoute(ncpRecords.value.data, ncpId);
+      if (!routeMatchesPatient) {
+        setPatientMetrics(null);
+        setWorkflowBlock("This care cycle does not belong to the selected patient.");
+        return;
+      }
 
       if (!a) {
         setWorkflowBlock("Save the assessment before starting intervention.");
@@ -352,7 +362,7 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
         fat_g:       prescription.fat_g       ? parseFloat(prescription.fat_g)       : null,
         fluid_ml:    prescription.fluid_ml    ? parseFloat(prescription.fluid_ml)    : null,
         micronutrient_limits: prescription.micronutrient_limits,
-        displayed_nutrients:  microKeys(Array.from(new Set([...requiredMicros, ...prescription.displayed_nutrients]))),
+        displayed_nutrients: nutrientKeysWithValues(prescription.micronutrient_limits),
       } as Partial<Intervention>);
       setIntervention(updated);
       setPrescription(interventionToForm(updated));
@@ -376,12 +386,12 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
   const stageLabel = GOALS
     .find((g) => g.value === intervention?.goal_type)
     ?.stages?.find((s) => s.value === intervention?.disease_stage)?.label;
-  const requiredMicros = Array.from(new Set([
-    ...(GOAL_MICRO_FLAGS[intervention?.goal_type ?? ""] ?? []),
-    ...(intervention?.disease_stage === "severe" && ["malnutrition", "weight_gain"].includes(intervention.goal_type ?? "")
-      ? ["potassium", "phosphate", "magnesium"]
-      : []),
-  ]));
+  const recommendedPrescription = intervention?.goal_type && intervention.goal_type !== "custom" && patientMetrics
+    ? autofillPrescription(intervention.goal_type, intervention.disease_stage, patientMetrics)
+    : null;
+  const requiredMicros = recommendedPrescription
+    ? buildGoalPrescriptionForm(intervention?.goal_type ?? "", recommendedPrescription).displayed_nutrients
+    : [];
   const calculationTrace = intervention?.goal_type && patientMetrics
     ? buildPrescriptionCalculationTrace({
         goalType: intervention.goal_type,
@@ -396,9 +406,12 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
 
   if (isPlaceholder) return <PlaceholderState />;
   if (!loading && !workflowLoading && workflowBlock) {
-    const nextHref = workflowBlock.includes("diagnosis")
-      ? `/ncp/${patientId}/diagnosis/${ncpId}`
-      : `/ncp/${patientId}/assessment/${ncpId}`;
+    const routeMismatch = workflowBlock.includes("does not belong");
+    const nextHref = routeMismatch
+      ? `/ncp/patients/${patientId}`
+      : workflowBlock.includes("diagnosis")
+        ? `/ncp/${patientId}/diagnosis/${ncpId}`
+        : `/ncp/${patientId}/assessment/${ncpId}`;
 
     return (
       <div className="space-y-6 font-sans">
@@ -421,7 +434,7 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
           <h3 className="text-base font-bold text-warm-800 mt-4 uppercase tracking-wider">Prior Step Required</h3>
           <p className="text-sm text-warm-500 mt-2 leading-relaxed">{workflowBlock}</p>
           <Link href={nextHref} className="inline-flex mt-6 px-4 py-2.5 bg-forest-900 hover:bg-forest-900 text-white text-sm font-bold uppercase tracking-wider rounded-lg transition-colors">
-            Continue Required Step
+            {routeMismatch ? "Return to Patient" : "Continue Required Step"}
           </Link>
         </div>
       </div>

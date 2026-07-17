@@ -58,11 +58,11 @@ export const GOALS: GoalOption[] = [
   {
     value: "weight_gain",
     label: "Weight Gain",
-    description: "Caloric surplus; refeeding protocol for severe cases",
+    description: "Caloric surplus with stage-specific recommended targets",
     stages: [
       { value: "mild", label: "Mild (85–90% IBW)" },
       { value: "moderate", label: "Moderate (70–84% IBW)" },
-      { value: "severe", label: "Severe (<70% IBW) — Refeeding protocol" },
+      { value: "severe", label: "Severe (<70% IBW)" },
     ],
   },
   {
@@ -90,10 +90,10 @@ export const GOALS: GoalOption[] = [
   {
     value: "malnutrition",
     label: "Malnutrition",
-    description: "High-calorie high-protein; refeeding for severe cases",
+    description: "High-calorie, high-protein nutrition support",
     stages: [
       { value: "moderate", label: "Moderate (risk score 2–3)" },
-      { value: "severe", label: "Severe (risk score >3) — Refeeding protocol" },
+      { value: "severe", label: "Severe (risk score >3)" },
     ],
   },
   {

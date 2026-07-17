@@ -36,7 +36,7 @@ function formatSystemId(id: number) {
   return `NS-${String(id).padStart(5, "0")}`;
 }
 
-function formatCycleId(id: number) {
+function formatCycleId(id: number | string) {
   return `NCP-${String(id).padStart(5, "0")}`;
 }
 
@@ -221,7 +221,7 @@ function AttachmentLightbox({
 
 // ─── Per-cycle attachments (rnd.md §3.1) ───────────────────────────────────────
 // Each NCP cycle shows only its own documents — scoped by ncp_record id, no mix-up.
-function CycleAttachments({ ncpId }: { ncpId: number }) {
+function CycleAttachments({ ncpId }: { ncpId: number | string }) {
   const [items, setItems] = useState<AttachmentRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<number | null>(null);
@@ -348,8 +348,8 @@ export default function PatientProfilePage({
   // Action states
   const [startingCycle, setStartingCycle]             = useState(false);
   const [cycleError, setCycleError]                   = useState<string | null>(null);
-  const [confirmDeleteRecord, setConfirmDeleteRecord] = useState<number | null>(null);
-  const [deletingRecordId, setDeletingRecordId]       = useState<number | null>(null);
+  const [confirmDeleteRecord, setConfirmDeleteRecord] = useState<number | string | null>(null);
+  const [deletingRecordId, setDeletingRecordId]       = useState<number | string | null>(null);
   const [recordDeleteError, setRecordDeleteError]     = useState<string | null>(null);
   const [confirmDeletePatient, setConfirmDeletePatient] = useState(false);
   const [deletingPatient, setDeletingPatient]         = useState(false);
@@ -389,7 +389,7 @@ export default function PatientProfilePage({
   }
 
   // ─── Delete NCP record ─────────────────────────────────────────────────────
-  async function handleDeleteRecord(id: number) {
+  async function handleDeleteRecord(id: number | string) {
     setRecordDeleteError(null);
     setDeletingRecordId(id);
     try {

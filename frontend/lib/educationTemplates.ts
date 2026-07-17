@@ -122,8 +122,8 @@ Next session: Review 3-day food record and identify top calorie sources.`,
    Target: [RND to fill] g protein/day. Distribute across all meals.
    Aim for at least 20–30 g protein per meal.
 
-5. If Severe Malnutrition / Refeeding
-   Start slowly. Your body needs time to adjust. Follow the schedule your RND gives you exactly.
+5. If Severe Malnutrition
+   Follow the prescription and monitoring schedule your RND gives you exactly.
    Report any muscle cramps, tingling, or confusion immediately — these may signal electrolyte changes.
 
 Next session: Weight check and tolerance assessment.`,
@@ -181,21 +181,20 @@ Next session: Assess encephalopathy grade and adjust protein targets if needed.`
 1. Your Current Status
    Nutritional assessment shows [moderate/severe] malnutrition. This affects your strength, immunity, and healing ability.
 
-2. Feeding Plan
-   [RND to fill based on stage — progressive feeding or refeeding protocol]
-   Do not try to "eat as much as possible" on day 1. Your body needs gradual re-introduction of nutrients.
+2. Nutrition Plan
+   Daily energy target: [RND to fill] kcal/day.
+   Daily protein target: [RND to fill] g/day.
+   Follow the portions and meal schedule prescribed by your RND.
 
-3. Thiamine First (Severe Malnutrition)
-   Before increasing food intake, you will receive Vitamin B1 (thiamine) supplementation. This prevents a serious complication called refeeding syndrome.
+3. Micronutrient Support (Severe Malnutrition)
+   Take only supplements ordered by your clinical team. Do not self-prescribe high-dose vitamins or minerals.
 
-4. Gradual Progression
-   Week 1: [RND to fill start target]
-   Week 2: [RND to fill increase]
-   Week 3: [RND to fill full target]
+4. Consistent Intake
+   Follow the prescribed daily target. Spread meals and snacks across the day to improve tolerance.
 
 5. Warning Signs — Report Immediately
    Muscle cramps, numbness/tingling, rapid heartbeat, confusion, swelling.
-   These may indicate dangerous electrolyte shifts during refeeding.
+   These may indicate dangerous electrolyte shifts and require prompt clinical review.
 
 6. Beyond the Hospital
    Sustainable recovery requires: consistent meal schedule, protein at every meal, follow-up labs every 1–2 weeks.

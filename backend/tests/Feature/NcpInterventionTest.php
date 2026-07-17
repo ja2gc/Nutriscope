@@ -166,7 +166,7 @@ class NcpInterventionTest extends TestCase
             ->assertJsonPath('missing_fields', ['physical_activity_level']);
     }
 
-    public function test_autofill_returns_refeeding_lab_warnings_for_low_electrolytes(): void
+    public function test_autofill_returns_severe_nutrition_lab_warnings_for_low_electrolytes(): void
     {
         $rnd = $this->rnd();
         $patient = $this->patient();

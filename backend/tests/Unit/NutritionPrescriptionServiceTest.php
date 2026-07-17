@@ -101,21 +101,26 @@ class NutritionPrescriptionServiceTest extends TestCase
         }
     }
 
-    public function test_severe_refeeding_prescription_marks_progression_phase(): void
+    public function test_severe_malnutrition_uses_flat_recommended_prescription(): void
     {
         $svc = new NutritionPrescriptionService;
 
         $rx = $svc->autofill('malnutrition', 'severe', [
-            'weightKg' => 48.0,
-            'heightCm' => 174.0,
-            'ageYears' => 35,
+            'weightKg' => 52.0,
+            'heightCm' => 170.0,
+            'ageYears' => 38,
             'sex' => 'Male',
             'isAdult' => true,
-            'activityFactor' => 1.55,
+            'activityFactor' => 1.4,
         ]);
 
-        $this->assertSame(360, $rx['energy_kcal']);
-        $this->assertSame('refeeding_start', $rx['feeding_phase']);
-        $this->assertSame([1440, 1680], $rx['target_energy_kcal_range']);
+        $this->assertSame(1690, $rx['energy_kcal']);
+        $this->assertSame(67, $rx['protein_g']);
+        $this->assertSame(239, $rx['carbs_g']);
+        $this->assertSame(52, $rx['fat_g']);
+        $this->assertSame(1690, $rx['fluid_ml']);
+        $this->assertArrayNotHasKey('feeding_phase', $rx);
+        $this->assertArrayNotHasKey('target_energy_kcal_range', $rx);
+        $this->assertStringNotContainsStringIgnoringCase('refeeding', $rx['note'] ?? '');
     }
 }

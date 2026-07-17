@@ -68,7 +68,7 @@ const GOAL_FOOD_GUIDES: Record<string, GoalFoodGuide> = {
     recommend: ["Eggs", "Mung beans (monggo)", "Chicken lugaw (congee)", "Peanuts", "Evaporated milk"],
     avoid: [],
     generalRecommend:
-      "Prioritize energy-dense foods in small frequent portions. Ensure thiamine-rich foods before refeeding protocol.",
+      "Prioritize energy-dense foods in small, frequent portions and monitor clinical tolerance.",
     generalAvoid:
       "Avoid skipping meals or long fasting periods. Do not over-restrict any macronutrient.",
   },

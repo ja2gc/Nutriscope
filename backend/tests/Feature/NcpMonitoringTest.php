@@ -136,6 +136,20 @@ class NcpMonitoringTest extends TestCase
             ->assertJsonValidationErrors(['weight']);
     }
 
+    public function test_monitoring_rejects_non_numeric_electrolyte_labs(): void
+    {
+        $rnd = $this->rnd();
+        $patient = $this->patient();
+        $ncp = $this->ncpRecord($patient, $rnd);
+
+        $this->actingAs($rnd, 'sanctum')
+            ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/monitorings", [
+                'lab_values' => ['phosphate' => 'not-a-number'],
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['lab_values.phosphate']);
+    }
+
     public function test_rnd_can_update_monitoring_entry(): void
     {
         $rnd = $this->rnd();
@@ -155,6 +169,21 @@ class NcpMonitoringTest extends TestCase
 
         $response->assertOk()
             ->assertJsonPath('data.intake_notes', 'good');
+    }
+
+    public function test_monitoring_update_rejects_non_numeric_electrolyte_labs(): void
+    {
+        $rnd = $this->rnd();
+        $patient = $this->patient();
+        $ncp = $this->ncpRecord($patient, $rnd);
+        $monitoring = Monitoring::forceCreate(['ncp_record_id' => $ncp->id]);
+
+        $this->actingAs($rnd, 'sanctum')
+            ->patchJson("/api/rnd/ncp-records/{$ncp->uuid}/monitorings/{$monitoring->uuid}", [
+                'lab_values' => ['magnesium' => 'not-a-number'],
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['lab_values.magnesium']);
     }
 
     public function test_rnd_can_delete_monitoring_entry(): void

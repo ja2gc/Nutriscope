@@ -264,14 +264,13 @@
           ]
         },
         "severe": {
-          "energy_method": "refeeding",
-          "refeeding_kcal_per_kg": 7.5,
+          "energy_method": "flat_kcal_per_kg",
+          "kcal_per_kg": 32.5,
           "protein_g_per_kg_ibw": 1.0,
           "ibw_pct_range": [
             null,
             70
-          ],
-          "note": "Refeeding: start 5-10 kcal/kg/day -> target 30-35 kcal/kg, reach full needs by day 4-7. Monitor phosphate/K/Mg daily for 72h. Thiamine 200-300 mg/day before feeding."
+          ]
         }
       }
     },
@@ -358,10 +357,9 @@
           "protein_g_per_kg_ibw": 1.35
         },
         "severe": {
-          "energy_method": "refeeding",
-          "refeeding_kcal_per_kg": 7.5,
-          "protein_g_per_kg_ibw": 1.0,
-          "note": "Refeeding protocol (identical to weight_gain severe). Thiamine 200-300 mg/day before feeding; continue 10 days. Daily electrolytes 72h."
+          "energy_method": "flat_kcal_per_kg",
+          "kcal_per_kg": 32.5,
+          "protein_g_per_kg_ibw": 1.0
         }
       }
     },
@@ -634,10 +632,10 @@
       "goal": "weight_gain",
       "stage": "severe",
       "expected": {
-        "energy_kcal": 600,
+        "energy_kcal": 2600,
         "protein_g": 67,
-        "carbs_g": 43,
-        "fat_g": 18,
+        "carbs_g": 405,
+        "fat_g": 79,
         "fluid_ml": 2600
       }
     },
@@ -754,10 +752,10 @@
       "goal": "malnutrition",
       "stage": "severe",
       "expected": {
-        "energy_kcal": 600,
+        "energy_kcal": 2600,
         "protein_g": 67,
-        "carbs_g": 43,
-        "fat_g": 18,
+        "carbs_g": 405,
+        "fat_g": 79,
         "fluid_ml": 2600
       }
     },
@@ -994,10 +992,10 @@
       "goal": "weight_gain",
       "stage": "severe",
       "expected": {
-        "energy_kcal": 400,
+        "energy_kcal": 1733,
         "protein_g": 48,
-        "carbs_g": 25,
-        "fat_g": 12,
+        "carbs_g": 266,
+        "fat_g": 53,
         "fluid_ml": 1733
       }
     },
@@ -1114,10 +1112,10 @@
       "goal": "malnutrition",
       "stage": "severe",
       "expected": {
-        "energy_kcal": 400,
+        "energy_kcal": 1733,
         "protein_g": 48,
-        "carbs_g": 25,
-        "fat_g": 12,
+        "carbs_g": 266,
+        "fat_g": 53,
         "fluid_ml": 1733
       }
     },
@@ -1354,10 +1352,10 @@
       "goal": "weight_gain",
       "stage": "severe",
       "expected": {
-        "energy_kcal": 450,
+        "energy_kcal": 1950,
         "protein_g": 72,
-        "carbs_g": 9,
-        "fat_g": 14,
+        "carbs_g": 281,
+        "fat_g": 60,
         "fluid_ml": 1950
       }
     },
@@ -1474,10 +1472,10 @@
       "goal": "malnutrition",
       "stage": "severe",
       "expected": {
-        "energy_kcal": 450,
+        "energy_kcal": 1950,
         "protein_g": 72,
-        "carbs_g": 9,
-        "fat_g": 14,
+        "carbs_g": 281,
+        "fat_g": 60,
         "fluid_ml": 1950
       }
     }

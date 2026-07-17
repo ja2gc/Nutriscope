@@ -275,9 +275,9 @@ class InterventionController extends Controller
         $assessment->loadMissing('biochemicalData');
         $flags = $this->labFlags->flag($assessment->biochemicalData?->toArray() ?? [], $sex);
         $messages = [
-            'potassium' => 'Potassium is out of range. Refeeding protocols require daily potassium monitoring for the first 72 hours.',
-            'phosphate' => 'Phosphate is out of range. Low phosphate increases refeeding syndrome risk; monitor daily for the first 72 hours.',
-            'magnesium' => 'Magnesium is out of range. Refeeding protocols require daily magnesium monitoring for the first 72 hours.',
+            'potassium' => 'Potassium is out of range. Severe nutrition risk requires close potassium monitoring.',
+            'phosphate' => 'Phosphate is out of range. Severe nutrition risk requires close phosphate monitoring.',
+            'magnesium' => 'Magnesium is out of range. Severe nutrition risk requires close magnesium monitoring.',
             'calcium' => 'Calcium is out of range. Review hydration, renal status, medications, and supplementation before advancing feeding.',
         ];
 

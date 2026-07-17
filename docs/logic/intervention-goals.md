@@ -682,7 +682,7 @@ while height increases** so BAZ normalizes over time.
 ## 9. Weight Gain
 
 **`goal_type`:** `weight_gain`
-**Energy method:** TEE-based (`mild` / `moderate`); flat-rate refeeding protocol (`severe`).
+**Energy method:** TEE-based (`mild` / `moderate`); flat-rate target (`severe`).
 **`disease_stage` values:** `mild` | `moderate` | `severe`
 
 > **Distinction from `malnutrition`:** Weight gain is for patients needing a caloric surplus
@@ -696,39 +696,21 @@ Stage maps to **%IBW** (adult) or **WAZ z-score** (pediatric).
 |---|---|---|---|
 | `mild` | 85–90% | TEE + 300–500 kcal/day | Standard surplus |
 | `moderate` | 70–84% | TEE + 500–750 kcal/day | Monitor tolerance |
-| `severe` | < 70% | Refeeding protocol (see below) | Refeeding syndrome risk |
+| `severe` | < 70% | 30–35 kcal/kg `working_weight`/day | Use 32.5 kcal/kg system default; monitor clinical tolerance |
 
 | Nutrient | Target |
 |---|---|
 | Protein | 1.2–2.0 g/kg IBW/day (higher end for severe) |
 | Carbohydrates | 55–65% total kcal (primary energy driver) |
 | Fat | 25–30% total kcal |
-| Fluid | 30–35 mL/kg; monitor closely during refeeding |
+| Fluid | 30–35 mL/kg; monitor clinical tolerance |
 | Sodium | < 2000 mg/day |
 
-#### Refeeding Protocol (severe stage)
+#### Severe-stage monitoring
 
-**Risk factors — any 1 triggers the protocol:**
-- BMI < 16
-- Unintentional weight loss > 15% in 3–6 months
-- Little or no nutritional intake > 10 days
-- Low serum potassium, magnesium, or phosphate before refeeding
-
-| Timeframe | Energy target |
-|---|---|
-| Start | 5–10 kcal/kg/day (use 5 kcal/kg if BMI < 14 or negligible intake > 15 days) |
-| Day 4–7 | Increase gradually to full needs (30–35 kcal/kg/day) |
-
-> **Ceiling:** Once full needs are reached (30–35 kcal/kg/day), do not escalate further.
-
-- Monitor serum phosphate, potassium, magnesium **daily for first 72 hours**
-- **Thiamine 200–300 mg/day** before refeeding begins; continue for 10 days
-- If phosphate < 0.5 mmol/L: stop feeding increase, replace electrolytes, reassess
-
-> **Runtime guardrail:** severe `weight_gain` returns `feeding_phase = refeeding_start`
-> and `target_energy_kcal_range = 30–35 kcal/kg/day`; the low initial kcal value is
-> the starting dose, not the final goal. Potassium, phosphate, and magnesium are
-> required monitoring micronutrients for this stage.
+Severe-stage prescriptions use the full 30–35 kcal/kg target. Potassium, phosphate, and magnesium
+remain available as monitoring indicators when clinically appropriate, but they are not prescription
+nutrients unless a numeric target is entered. No blank micronutrient target may be generated.
 
 **Source:** NICE CG32. https://www.nice.org.uk/guidance/cg32
 
@@ -740,15 +722,14 @@ Stage maps to **%IBW** (adult) or **WAZ z-score** (pediatric).
 |---|---|---|
 | `mild` | WAZ −1 to −2 | DRI × 1.1 |
 | `moderate` | WAZ −2 to −3 | DRI × 1.2–1.3 |
-| `severe` | WAZ < −3 | Refeeding protocol (weight-scaled, same steps as adult above) |
+| `severe` | WAZ < −3 | Specialist-directed full prescription |
 
 | Nutrient | Target |
 |---|---|
 | Protein | 1.0–2.0 g/kg/day (increases with severity) |
 | Fat | Age-appropriate; do not restrict |
 
-> **Pediatric refeeding note:** Refeeding syndrome applies equally in children. Monitor electrolytes
-> daily for first 72 hours regardless of age. For confirmed severe acute malnutrition (SAM) in
+> **Pediatric severe-stage note:** Monitor electrolytes as clinically indicated. For confirmed severe acute malnutrition (SAM) in
 > children, involve a pediatric specialist — the WHO F-75/F-100 protocol (§12) applies to SAM
 > specifically; this section applies to older children/adolescents needing general weight restoration.
 
@@ -863,7 +844,7 @@ Used for: post-surgery, trauma, sepsis, burns, pressure injuries, low albumin.
 ## 12. Malnutrition
 
 **`goal_type`:** `malnutrition`
-**Energy method:** Flat rate (`moderate`); Refeeding protocol (`severe`).
+**Energy method:** Flat rate for all stages.
 **`disease_stage` values:** `moderate` | `severe`
 
 > See §13 for the clinical distinction between `malnutrition` and `weight_gain`.
@@ -914,19 +895,12 @@ does not run GLIM — it receives `goal_type = malnutrition` as an already-confi
 | disease_stage | Energy | Protein |
 |---|---|---|
 | `moderate` | 30–35 kcal/kg `working_weight`/day | 1.2–1.5 g/kg IBW/day |
-| `severe` | Start 5–10 kcal/kg/day → reach 30–35 kcal/kg/day by day 4–7 (refeeding protocol) | Start 1.0 g/kg IBW → target 1.5–2.0 g/kg IBW |
+| `severe` | 30–35 kcal/kg `working_weight`/day | 1.0 g/kg IBW/day system default; RND may individualize |
 
-> **`severe` mandatory requirements:**
-> - Thiamine 200–300 mg/day **before** refeeding begins; continue 10 days
-> - Serum phosphate, potassium, magnesium monitoring **daily for first 72 hours**
-> - If phosphate < 0.5 mmol/L: stop feeding increase, replace electrolytes, reassess
+> **`severe` monitoring:** Serum phosphate, potassium, and magnesium remain available in the
+> monitoring plan. They are not prescription targets unless a real numeric recommendation exists.
 
-> **Runtime guardrail:** severe `malnutrition` returns `feeding_phase = refeeding_start`
-> and `target_energy_kcal_range = 30–35 kcal/kg/day`; the initial 5–10 kcal/kg/day
-> value is the starting dose, not the final goal. Potassium, phosphate, and magnesium
-> are required monitoring micronutrients for this stage.
-
-**Fluid:** 30–35 mL/kg `working_weight`/day; monitor during refeeding for fluid overload.
+**Fluid:** 30–35 mL/kg `working_weight`/day; monitor for fluid overload.
 
 **Sources:**
 - GLIM Criteria 2019. *Clin Nutr.* https://www.clinicalnutritionjournal.com/article/S0261-5614(18)31525-7/fulltext
@@ -980,15 +954,15 @@ Both goal types may involve underweight patients and caloric surpluses. They are
 |---|---|---|
 | Diagnosis | GLIM criteria confirmed by RND: ≥ 1 phenotypic + ≥ 1 etiologic | No diagnostic criteria — RND clinical judgment |
 | Etiologic requirement | Must have reduced intake/assimilation OR inflammation/disease burden | Not required |
-| Severe stage protocol | Mandatory refeeding: daily electrolyte monitoring + thiamine | Refeeding triggered only when %IBW < 70% |
-| Thiamine | Mandatory before refeeding for `severe` | Only if refeeding protocol triggered |
+| Severe stage target | Flat 30–35 kcal/kg prescription | Flat 30–35 kcal/kg prescription |
+| Micronutrients | Numeric prescription targets only; separate lab monitoring as indicated | Numeric prescription targets only; separate lab monitoring as indicated |
 | Typical patients | Confirmed hospital malnutrition (NCP code NI-5.x or NC-3.x) | Post-illness recovery, general weight restoration without confirmed GLIM diagnosis |
 | Monitoring | Daily labs for first 72 hours (severe) | Routine monitoring |
 
 **Decision rule for the RND:**
 - GLIM criteria met → `malnutrition`
 - Underweight or needs weight gain but GLIM criteria not met → `weight_gain`
-- Uncertain → `malnutrition` is the conservative choice (stricter protocol)
+- Uncertain → RND confirms diagnosis before selecting the goal
 
 ---
 
@@ -1000,10 +974,10 @@ Both goal types may involve underweight patients and caloric surpluses. They are
 | `diabetic_control` | `stage_1` `stage_2` `stage_3` | TEE-based | 30–35 mL/kg (unrestricted) |
 | `cardiac_diet` | `mild` `moderate` `severe` | TEE-based | 2000 for `moderate`; 1500 for `severe` |
 | `weight_loss` | `overweight` `class_1` `class_2` `class_3` | TEE-based (deficit) | 30–35 mL/kg (unrestricted) |
-| `weight_gain` | `mild` `moderate` `severe` | TEE (`mild`/`moderate`); flat refeeding (`severe`) | 30–35 mL/kg |
+| `weight_gain` | `mild` `moderate` `severe` | TEE (`mild`/`moderate`); flat rate (`severe`) | 30–35 mL/kg |
 | `high_protein` | `mild_stress` `moderate_stress` `severe_stress` `burns` | Flat rate | 30–35 mL/kg; burns individualized |
 | `liver_disease` | `compensated` `decompensated` `encephalopathy_grade_1_2` `encephalopathy_grade_3_4` | Flat rate | Baseline unless `decompensated` (clinician) |
-| `malnutrition` | `moderate` `severe` | Flat rate (`moderate`); refeeding protocol (`severe`) | 30–35 mL/kg |
+| `malnutrition` | `moderate` `severe` | Flat rate | 30–35 mL/kg |
 | `custom` | null | Manual RND entry | Manual RND entry |
 
 > **Removed:** `fluid_restriction` as standalone goal type (removed 2026-06-05). Fluid restriction
@@ -1015,9 +989,9 @@ Both goal types may involve underweight patients and caloric surpluses. They are
 
 | Date | Change |
 |---|---|
+| 2026-07-17 | **Severe prescriptions changed to flat full targets.** Removed staged low-calorie output and phase metadata. Severe `malnutrition` and `weight_gain` use 32.5 kcal/kg by default; micronutrients appear only with numeric targets. |
 | 2026-06-28 | **Calf circumference removed from assessment entirely** (column dropped, UI/request/resource fields removed). Was an AWGS muscle-mass proxy that fed no calculation. |
-| 2026-06-29 | **Refeeding runtime guardrails added.** Severe `malnutrition` / `weight_gain` now expose `feeding_phase`, full target kcal range, lab-warning status, and tracked magnesium alongside potassium/phosphate. |
-| 2026-06-28 | **Verification pass (51 values confirmed, 4 corrected).** (1) CKD stage 1–2 sodium note clarified: KDOQI default is < 2300 mg; < 2000 mg is a deliberate PDRI tightening for PH context. (2) Diabetic fiber updated to ≥ 25–30 g/day (per research §5d therapeutic target, not just PDRI floor). (3) Refeeding BMI risk factor "(AP)" label removed — NICE CG32 BMI < 16 is not AP/Western-specific. (4) GLIM weight loss phenotypic criteria completed to include beyond-6-month figures (moderate > 10%; severe > 20%). |
+| 2026-06-28 | **Verification pass (51 values confirmed, 4 corrected).** CKD sodium, diabetic fiber, BMI risk labeling, and GLIM weight-loss criteria were corrected. |
 | 2026-06-28 | **Consolidated into single source of truth.** Merged `intervention-goals.md` and `intervention-goals-asia-pacific-research.md`. Research doc retired. |
 | 2026-06-28 | **PDRI 2015 adopted as baseline.** Carb 55–75% / fat 15–30% / fiber 20–25 g / sodium < 2000 mg / free sugars < 10% E. Replaces IOM DRI as the national reference (FDA Circular 2023-009). |
 | 2026-06-28 | **AP BMI is the default** for all Filipino patients. Western cut-points retained as reference column only. |
@@ -1036,7 +1010,6 @@ Both goal types may involve underweight patients and caloric surpluses. They are
 | 2026-06-11 | Weight-basis rule M2 pinned; machine-readable spec `prescription-targets.json` established |
 | 2026-06-08 | Liver disease protein restriction labeled contraindicated; ESPEN/EASL alignment |
 | 2026-06-08 | CKD energy individualized per KDOQI 2020 (25–35 kcal/kg, default 30) |
-| 2026-06-08 | Refeeding timeline corrected: 4–7 days to full needs (not 3-week progression) |
 | 2026-06-08 | Section 10 added (Malnutrition vs Weight Gain clinical distinction) |
 | 2026-06-06 | Removed `fluid_restriction` as standalone goal type |
 

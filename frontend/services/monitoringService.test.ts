@@ -8,7 +8,7 @@ import {
 } from "./monitoringService";
 
 describe("monitoring lab metadata", () => {
-  it("supports refeeding electrolyte labs from monitoring plans", () => {
+  it("supports severe nutrition electrolyte labs from monitoring plans", () => {
     const knownKeys = Object.keys(CLINICAL_LAB_META) as ClinicalLabKey[];
 
     expect(knownKeys).toEqual(expect.arrayContaining(["phosphate", "magnesium"]));

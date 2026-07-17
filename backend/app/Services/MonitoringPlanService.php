@@ -151,7 +151,7 @@ class MonitoringPlanService
         }
         if (in_array($goalType, ['malnutrition', 'weight_gain'], true) && $goalStage === 'severe') {
             foreach (['potassium', 'phosphate', 'magnesium'] as $key) {
-                $sources[$key][] = 'refeeding';
+                $sources[$key][] = 'severe_nutrition_risk';
             }
         }
         foreach ($this->pesLabs($pesStatements) as $key) {

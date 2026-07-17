@@ -1,7 +1,6 @@
 import {
   ALL_MICROS,
   autofillPrescription,
-  calcAjBW,
   calcBMR,
   calcBmrWeight,
   calcHollidaySegar,
@@ -17,12 +16,7 @@ import {
 } from "./nutritionCalculations";
 import type { PrescriptionFormState } from "./interventionGoalState";
 
-export type CalculationTargetStatus =
-  | "matches"
-  | "modified"
-  | "manual"
-  | "missing"
-  | "flagged";
+export type CalculationTargetStatus = "matches" | "modified" | "manual" | "missing";
 
 export interface CalculationTraceValue {
   value?: number;
@@ -30,27 +24,25 @@ export interface CalculationTraceValue {
   text: string;
 }
 
-export interface CalculationTraceItem {
+export interface CalculationContextItem {
   label: string;
-  formula: string;
-  calculation: string;
   value: string;
+  formulaName?: string;
 }
 
 export interface CalculationTargetRow {
   key: string;
   label: string;
   unit: string;
-  prescribed?: CalculationTraceValue;
-  calculated?: CalculationTraceValue;
+  value?: CalculationTraceValue;
+  formulaName?: string;
   formula: string;
   calculation: string;
   status: CalculationTargetStatus;
 }
 
 export interface CalculationTrace {
-  inputs: CalculationTraceItem[];
-  weights: CalculationTraceItem[];
+  context: CalculationContextItem[];
   targets: CalculationTargetRow[];
   notes: string[];
 }
@@ -73,7 +65,7 @@ const MACRO_ROWS = [
   { key: "fluid_ml", label: "Fluid", unit: "mL" },
 ] as const;
 
-const FLUID_FACTOR_ML_PER_KG = 32.5;
+const FLUID_FACTOR = 32.5;
 
 export function buildPrescriptionCalculationTrace({
   goalType,
@@ -82,144 +74,58 @@ export function buildPrescriptionCalculationTrace({
   stageLabel,
   metrics,
   prescription,
-  requiredMicros = [],
 }: BuildPrescriptionCalculationTraceInput): CalculationTrace {
-  const isCustom = goalType === "custom";
-  const calculated = isCustom ? null : autofillPrescription(goalType, stage, metrics);
+  const calculated = goalType === "custom" ? null : autofillPrescription(goalType, stage, metrics);
 
   return {
-    inputs: buildInputRows(goalLabel ?? goalType, stageLabel, metrics),
-    weights: buildWeightRows(metrics),
+    context: buildContext(goalLabel ?? goalType, stageLabel, metrics),
     targets: [
       ...buildMacroRows(goalType, stage, metrics, prescription, calculated),
-      ...buildMicroRows(goalType, prescription, calculated, requiredMicros),
+      ...buildMicroRows(prescription, calculated),
     ],
-    notes: buildNotes(calculated),
+    notes: calculated?.note ? [calculated.note] : [],
   };
 }
 
-function buildInputRows(goalLabel: string, stageLabel: string | undefined, metrics: PatientMetrics): CalculationTraceItem[] {
-  const rows: CalculationTraceItem[] = [
-    { label: "Goal", formula: "Selected intervention", calculation: goalLabel, value: goalLabel },
+function buildContext(goalLabel: string, stageLabel: string | undefined, metrics: PatientMetrics): CalculationContextItem[] {
+  const context: CalculationContextItem[] = [
+    { label: "Goal", value: goalLabel },
+    ...(stageLabel ? [{ label: "Stage", value: stageLabel }] : []),
+    { label: "Weight", value: `${fmt(metrics.weightKg)} kg` },
+    { label: "Height", value: `${fmt(metrics.heightCm)} cm` },
+    { label: "Age", value: `${fmt(metrics.ageYears)} y` },
+    { label: "Sex", value: metrics.sex },
+    { label: "Activity", value: fmt(metrics.activityFactor ?? 1.2) },
   ];
 
-  if (stageLabel) {
-    rows.push({ label: "Stage", formula: "Selected disease stage", calculation: stageLabel, value: stageLabel });
-  }
-
-  rows.push(
-    {
-      label: "Weight",
-      formula: "Assessment weight used by engine",
-      calculation: `${fmt(metrics.weightKg)} kg`,
-      value: `${fmt(metrics.weightKg)} kg`,
-    },
-    {
-      label: "Height / Age / Sex",
-      formula: "Patient demographics",
-      calculation: `${fmt(metrics.heightCm)} cm / ${fmt(metrics.ageYears)} y / ${metrics.sex}`,
-      value: `${fmt(metrics.heightCm)} cm, ${fmt(metrics.ageYears)} y, ${metrics.sex}`,
-    },
-    {
-      label: "Activity",
-      formula: "PAL factor",
-      calculation: `${fmt(metrics.activityFactor ?? 1.2)}`,
-      value: `${fmt(metrics.activityFactor ?? 1.2)}`,
-    },
-  );
-
   if (metrics.pregnancyLactationStatus && metrics.pregnancyLactationStatus !== "none") {
-    rows.push({
+    context.push({
       label: "Pregnancy / Lactation",
-      formula: "PDRI add-on",
-      calculation: metrics.pregnancyLactationStatus === "lactating"
-        ? "+500 kcal, +27 g protein"
-        : "+300 kcal, +27 g protein",
-      value: metrics.pregnancyLactationStatus,
+      value: metrics.pregnancyLactationStatus === "pregnant" ? "Pregnant" : "Lactating",
     });
   }
 
-  return rows;
-}
-
-function buildWeightRows(metrics: PatientMetrics): CalculationTraceItem[] {
   if (!metrics.isAdult) {
     const bmr = calcSchofield(metrics.weightKg, metrics.ageYears, metrics.sex);
-    const tee = calcTEE(bmr, metrics.activityFactor ?? 1.2);
     return [
-      {
-        label: "Schofield BMR",
-        formula: "Age/sex weight equation",
-        calculation: `Schofield(${fmt(metrics.weightKg)} kg, ${fmt(metrics.ageYears)} y) = ${fmt(bmr)} kcal`,
-        value: `${fmt(bmr)} kcal`,
-      },
-      {
-        label: "Growth energy",
-        formula: "TEE + growth allowance",
-        calculation: `${fmt(bmr)} x ${fmt(metrics.activityFactor ?? 1.2)} + growth = ${fmt(tee)}+ kcal`,
-        value: "Age-banded",
-      },
-      {
-        label: "Fluid",
-        formula: "Holliday-Segar",
-        calculation: `${fmt(calcHollidaySegar(metrics.weightKg))} mL/day`,
-        value: `${fmt(calcHollidaySegar(metrics.weightKg))} mL`,
-      },
+      ...context,
+      { label: "BMR", value: `${fmt(bmr)} kcal`, formulaName: "Schofield" },
+      { label: "Fluid", value: `${fmt(calcHollidaySegar(metrics.weightKg))} mL`, formulaName: "Holliday-Segar" },
     ];
   }
 
   const ibw = calcIBW(metrics.heightCm, metrics.sex);
-  const percentIbw = calcPercentIBW(metrics.weightKg, ibw);
   const working = calcWorkingWeight(metrics.weightKg, ibw);
-  const bmrWeight = calcBmrWeight(metrics.weightKg, ibw);
-  const bmr = calcBMR(bmrWeight, metrics.heightCm, metrics.ageYears, metrics.sex);
-  const rows: CalculationTraceItem[] = [
-    {
-      label: "IBW",
-      formula: "Hamwi, floor 30 kg",
-      calculation: `${metrics.sex}: height ${fmt(metrics.heightCm)} cm -> ${fmt(ibw)} kg`,
-      value: `${fmt(ibw)} kg`,
-    },
-    {
-      label: "%IBW",
-      formula: "weight / IBW x 100",
-      calculation: `${fmt(metrics.weightKg)} / ${fmt(ibw)} x 100 = ${fmt(percentIbw)}%`,
-      value: `${fmt(percentIbw)}%`,
-    },
+  const bmr = calcBMR(calcBmrWeight(metrics.weightKg, ibw), metrics.heightCm, metrics.ageYears, metrics.sex);
+
+  return [
+    ...context,
+    { label: "IBW", value: `${fmt(ibw)} kg`, formulaName: "Hamwi" },
+    { label: "%IBW", value: `${fmt(calcPercentIBW(metrics.weightKg, ibw))}%` },
+    { label: "Working weight", value: `${fmt(working)} kg` },
+    { label: "Protein weight", value: `${fmt(ibw)} kg` },
+    { label: "BMR", value: `${fmt(bmr)} kcal`, formulaName: "Mifflin-St Jeor" },
   ];
-
-  if (percentIbw > 120) {
-    const ajbw = calcAjBW(metrics.weightKg, ibw);
-    rows.push({
-      label: "AjBW",
-      formula: "IBW + 0.25 x (actual - IBW)",
-      calculation: `${fmt(ibw)} + 0.25 x (${fmt(metrics.weightKg)} - ${fmt(ibw)}) = ${fmt(ajbw)} kg`,
-      value: `${fmt(ajbw)} kg`,
-    });
-  }
-
-  rows.push(
-    {
-      label: "Working weight",
-      formula: "%IBW > 120 ? AjBW : actual",
-      calculation: `${fmt(percentIbw)}% ${percentIbw > 120 ? ">" : "<="} 120 -> ${fmt(working)} kg`,
-      value: `${fmt(working)} kg`,
-    },
-    {
-      label: "Protein weight",
-      formula: "Adult protein targets use IBW",
-      calculation: `${fmt(ibw)} kg`,
-      value: `${fmt(ibw)} kg`,
-    },
-    {
-      label: "BMR",
-      formula: "Mifflin-St Jeor",
-      calculation: `${fmt(bmrWeight)} kg, ${fmt(metrics.heightCm)} cm, ${fmt(metrics.ageYears)} y -> ${fmt(bmr)} kcal`,
-      value: `${fmt(bmr)} kcal`,
-    },
-  );
-
-  return rows;
 }
 
 function buildMacroRows(
@@ -230,199 +136,222 @@ function buildMacroRows(
   calculated: Prescription | null,
 ): CalculationTargetRow[] {
   return MACRO_ROWS.map(({ key, label, unit }) => {
-    const prescribedNumber = parseNumber(prescription[key]);
-    const calculatedNumber = calculated ? Number(calculated[key]) : undefined;
-    const formulaInfo = formulaForMacro(goalType, stage, key, metrics);
+    const prescribed = parseNumber(prescription[key]);
+    const expected = calculated ? Number(calculated[key]) : undefined;
+    const formula = withPatientAddOn(
+      key,
+      macroFormula(goalType, stage, key, metrics, calculated),
+      metrics,
+      expected,
+    );
 
     return {
       key,
       label,
       unit,
-      prescribed: valueFromNumber(prescribedNumber, unit),
-      calculated: valueFromNumber(calculatedNumber, unit),
-      formula: calculated ? formulaInfo.formula : "Manual target",
-      calculation: calculated ? formulaInfo.calculation : "No formula applies to custom goals.",
-      status: statusFor(prescribedNumber, calculatedNumber),
+      value: valueFromNumber(prescribed ?? expected, unit),
+      formulaName: formula.formulaName,
+      formula: calculated ? formula.variables : "Manual target",
+      calculation: calculated ? formula.values : "Entered by RND; no automatic formula applies.",
+      status: statusFor(prescribed, expected),
     };
   });
 }
 
+function withPatientAddOn(
+  key: (typeof MACRO_ROWS)[number]["key"],
+  formula: { formulaName?: string; variables: string; values: string },
+  metrics: PatientMetrics,
+  expected: number | undefined,
+) {
+  const status = metrics.pregnancyLactationStatus;
+  if (!status || status === "none" || expected == null) return formula;
+
+  const addOn = key === "energy_kcal" ? (status === "pregnant" ? 300 : 500) : key === "protein_g" ? 27 : 0;
+  if (addOn === 0) return formula;
+
+  const unit = key === "energy_kcal" ? "kcal" : "g";
+  const calculationWithoutResult = formula.values.replace(` = ${expected} ${unit}`, "");
+  const addOnLabel = key === "energy_kcal" ? "energy" : "protein";
+
+  return {
+    ...formula,
+    variables: `${formula.variables} + pregnancy/lactation ${addOnLabel} add-on`,
+    values: `${calculationWithoutResult} + ${addOn} = ${expected} ${unit}`,
+  };
+}
+
 function buildMicroRows(
-  goalType: string,
   prescription: PrescriptionFormState,
   calculated: Prescription | null,
-  requiredMicros: string[],
 ): CalculationTargetRow[] {
   const calculatedLimits = calculated ? microLimitsFromRx(calculated, calculated.energy_kcal) : {};
   const keys = microKeys(Array.from(new Set([
-    ...requiredMicros,
-    ...prescription.displayed_nutrients,
     ...Object.keys(prescription.micronutrient_limits),
     ...Object.keys(calculatedLimits),
   ])));
 
-  return keys.map((key) => {
-    const meta = ALL_MICROS.find((micro) => micro.key === key);
+  return keys.flatMap((key) => {
     const prescribed = prescription.micronutrient_limits[key];
     const expected = calculatedLimits[key];
-    const flagOnly = requiredMicros.includes(key) && !expected;
+    const currentValue = valueFromLimit(prescribed) ?? valueFromLimit(expected);
+    if (!currentValue) return [];
 
-    return {
+    const meta = ALL_MICROS.find((micro) => micro.key === key);
+    return [{
       key,
       label: meta?.label ?? key,
       unit: prescribed?.unit ?? expected?.unit ?? meta?.unit ?? "",
-      prescribed: valueFromLimit(prescribed),
-      calculated: flagOnly
-        ? { text: "Flagged for monitoring", unit: meta?.unit }
-        : valueFromLimit(expected),
-      formula: expected ? microFormula(key) : flagOnly ? "Goal-required monitoring flag" : "Manual target",
-      calculation: expected
-        ? microCalculation(key, calculated)
-        : flagOnly
-          ? `${goalType} requires ${meta?.label ?? key} monitoring.`
-          : "No calculated micronutrient target for selected goal.",
-      status: flagOnly ? "flagged" : statusFor(limitNumber(prescribed), limitNumber(expected)),
-    };
+      value: currentValue,
+      formula: calculated ? microFormula(key) : "Manual target",
+      calculation: calculated
+        ? microCalculation(key, calculated, currentValue.text)
+        : "Entered by RND; no automatic formula applies.",
+      status: statusFor(limitNumber(prescribed), limitNumber(expected)),
+    }];
   });
 }
 
-function formulaForMacro(
+function macroFormula(
   goalType: string,
   stage: string | null,
   key: (typeof MACRO_ROWS)[number]["key"],
   metrics: PatientMetrics,
-): { formula: string; calculation: string } {
+  calculated: Prescription | null,
+): { formulaName?: string; variables: string; values: string } {
   const shared = sharedNumbers(metrics);
-  if (key === "protein_g") return proteinFormula(goalType, stage, shared);
-  if (key === "fluid_ml") return fluidFormula(goalType, stage, shared);
-  if (key === "carbs_g") return { formula: "Carbs = energy - protein kcal - fat kcal", calculation: "Remaining kcal / 4." };
-  if (key === "fat_g") return { formula: `Fat = energy x ${fmt(fatPctFor(goalType, stage) * 100)}% / 9`, calculation: "Goal-specific fat percentage converted to grams." };
+  const expected = calculated?.[key] ?? 0;
+
+  if (key === "protein_g") {
+    if (!metrics.isAdult) {
+      return { variables: "Body Weight × age-based g/kg factor", values: `${fmt(metrics.weightKg)} × age-based factor = ${expected} g` };
+    }
+    const factor = proteinFactor(goalType, stage);
+    return { variables: "IBW × g/kg factor", values: `${fmt(shared.ibw)} × ${factor} = ${expected} g` };
+  }
+
+  if (key === "carbs_g") {
+    const energy = calculated?.energy_kcal ?? 0;
+    const protein = calculated?.protein_g ?? 0;
+    const fat = calculated?.fat_g ?? 0;
+    return {
+      variables: "(Energy − Protein kcal − Fat kcal) ÷ 4",
+      values: `(${energy} − (${protein} × 4) − (${fat} × 9)) ÷ 4 = ${expected} g`,
+    };
+  }
+
+  if (key === "fat_g") {
+    const pct = metrics.isAdult ? fatPctFor(goalType, stage) : 0.3;
+    return {
+      variables: "Energy × fat% ÷ 9",
+      values: `${calculated?.energy_kcal ?? 0} × ${fmt(pct * 100)}% ÷ 9 = ${expected} g`,
+    };
+  }
+
+  if (key === "fluid_ml") {
+    if (!metrics.isAdult) {
+      return { formulaName: "Holliday-Segar", variables: "Pediatric maintenance fluid equation", values: `${fmt(metrics.weightKg)} kg = ${expected} mL` };
+    }
+    if (goalType === "renal_diet" && stage === "hemodialysis") {
+      return { variables: "Base fluid allowance + prior-day urine output", values: `750 mL base = ${expected} mL before clinical adjustment` };
+    }
+    if (goalType === "renal_diet" && stage === "peritoneal") {
+      return { variables: "Goal-specific fluid allowance", values: `${expected} mL` };
+    }
+    if (goalType === "cardiac_diet" && ["moderate", "severe"].includes(stage ?? "")) {
+      return { variables: "Goal-specific fluid allowance", values: `${expected} mL` };
+    }
+    return { variables: "Working Weight × mL/kg factor", values: `${fmt(shared.working)} × ${FLUID_FACTOR} = ${expected} mL` };
+  }
 
   if (!metrics.isAdult) {
-    return {
-      formula: "Schofield BMR x PAL + growth allowance",
-      calculation: "Pediatric baseline engine applies age-banded growth allowance.",
-    };
+    return { formulaName: "Schofield", variables: "(BMR × PAL) + growth allowance", values: `(${fmt(shared.bmr)} × ${fmt(metrics.activityFactor ?? 1.2)}) + growth allowance = ${expected} kcal` };
   }
 
   switch (goalType) {
     case "renal_diet":
-      return { formula: "Energy = working weight x 30 kcal/kg", calculation: `${fmt(shared.working)} x 30 = ${Math.round(shared.working * 30)} kcal` };
+      return flatEnergy(shared.working, 30, expected);
     case "diabetic_control":
       return stage === "stage_2"
-        ? { formula: "Energy = max(TEE - 500, sex-specific floor)", calculation: `${fmt(shared.tee)} - 500 = ${Math.round(shared.tee - 500)} kcal` }
-        : { formula: "Energy = TEE", calculation: `${fmt(shared.bmr)} x ${fmt(metrics.activityFactor ?? 1.2)} = ${Math.round(shared.tee)} kcal` };
+        ? { variables: "max((BMR × PAL) − calorie deficit, caloric floor)", values: `max((${fmt(shared.bmr)} × ${fmt(metrics.activityFactor ?? 1.2)}) − 500, caloric floor) = ${expected} kcal` }
+        : teeEnergy(shared.bmr, metrics.activityFactor ?? 1.2, expected);
     case "cardiac_diet":
-      return { formula: "Energy = TEE", calculation: `${fmt(shared.bmr)} x ${fmt(metrics.activityFactor ?? 1.2)} = ${Math.round(shared.tee)} kcal` };
+      return teeEnergy(shared.bmr, metrics.activityFactor ?? 1.2, expected);
     case "weight_loss": {
       const deficit = ({ overweight: 375, class_1: 500, class_2: 625, class_3: 875 } as Record<string, number>)[stage ?? "class_1"] ?? 500;
-      return { formula: "Energy = max(TEE - deficit, sex-specific floor)", calculation: `${fmt(shared.tee)} - ${deficit} = ${Math.round(shared.tee - deficit)} kcal` };
+      return { variables: "max((BMR × PAL) − calorie deficit, caloric floor)", values: `max((${fmt(shared.bmr)} × ${fmt(metrics.activityFactor ?? 1.2)}) − ${deficit}, caloric floor) = ${expected} kcal` };
     }
     case "weight_gain":
       return stage === "severe"
-        ? { formula: "Refeeding start = working weight x 7.5 kcal/kg", calculation: `${fmt(shared.working)} x 7.5 = ${Math.round(shared.working * 7.5)} kcal` }
-        : { formula: "Energy = TEE + stage surplus", calculation: `${fmt(shared.tee)} + ${stage === "mild" ? 400 : 625} kcal` };
-    case "high_protein": {
-      const kcalPerKg = stage === "burns" ? 32.5 : 27.5;
-      return { formula: `Energy = working weight x ${kcalPerKg} kcal/kg`, calculation: `${fmt(shared.working)} x ${kcalPerKg} = ${Math.round(shared.working * kcalPerKg)} kcal` };
-    }
+        ? flatEnergy(shared.working, 32.5, expected)
+        : { variables: "(BMR × PAL) + calorie surplus", values: `(${fmt(shared.bmr)} × ${fmt(metrics.activityFactor ?? 1.2)}) + ${stage === "mild" ? 400 : 625} = ${expected} kcal` };
+    case "high_protein":
+      return flatEnergy(shared.working, stage === "burns" ? 32.5 : 27.5, expected);
     case "liver_disease":
-      return { formula: "Energy = working weight x 37.5 kcal/kg", calculation: `${fmt(shared.working)} x 37.5 = ${Math.round(shared.working * 37.5)} kcal` };
+      return flatEnergy(shared.working, 37.5, expected);
     case "malnutrition":
-      return stage === "severe"
-        ? { formula: "Refeeding start = working weight x 7.5 kcal/kg", calculation: `${fmt(shared.working)} x 7.5 = ${Math.round(shared.working * 7.5)} kcal` }
-        : { formula: "Energy = working weight x 32.5 kcal/kg", calculation: `${fmt(shared.working)} x 32.5 = ${Math.round(shared.working * 32.5)} kcal` };
+      return flatEnergy(shared.working, 32.5, expected);
     default:
-      return { formula: "Energy = TEE", calculation: `${fmt(shared.bmr)} x ${fmt(metrics.activityFactor ?? 1.2)} = ${Math.round(shared.tee)} kcal` };
+      return teeEnergy(shared.bmr, metrics.activityFactor ?? 1.2, expected);
   }
 }
 
-function proteinFormula(goalType: string, stage: string | null, shared: ReturnType<typeof sharedNumbers>) {
-  if (!shared.isAdult) return { formula: "Protein = weight x age-banded g/kg", calculation: "Pediatric age-banded protein factor." };
+function flatEnergy(weight: number, factor: number, expected: number) {
+  return { variables: "Working Weight × kcal/kg factor", values: `${fmt(weight)} × ${factor} = ${expected} kcal` };
+}
+
+function teeEnergy(bmr: number, pal: number, expected: number) {
+  return { variables: "BMR × PAL", values: `${fmt(bmr)} × ${fmt(pal)} = ${expected} kcal` };
+}
+
+function proteinFactor(goalType: string, stage: string | null): number {
   const factors: Record<string, number> = {
     renal_diet: ({ stage_1: 0.8, stage_2: 0.8, stage_3: 0.7, stage_4: 0.6, stage_5_predialysis: 0.6, hemodialysis: 1.2, peritoneal: 1.35 } as Record<string, number>)[stage ?? "stage_1"] ?? 0.8,
     diabetic_control: stage === "stage_3" ? 0.8 : 0.9,
     cardiac_diet: 0.8,
     weight_loss: 1.4,
-    weight_gain: stage === "severe" ? 1.0 : 1.6,
+    weight_gain: stage === "severe" ? 1 : 1.6,
     high_protein: ({ mild_stress: 1.1, moderate_stress: 1.35, severe_stress: 1.75, burns: 1.75 } as Record<string, number>)[stage ?? "mild_stress"] ?? 1.1,
     liver_disease: 1.35,
-    malnutrition: stage === "severe" ? 1.0 : 1.35,
+    malnutrition: stage === "severe" ? 1 : 1.35,
   };
-  const factor = factors[goalType] ?? 0.8;
-  return { formula: `Protein = IBW x ${factor} g/kg`, calculation: `${fmt(shared.ibw)} x ${factor} = ${Math.round(shared.ibw * factor)} g` };
-}
-
-function fluidFormula(goalType: string, stage: string | null, shared: ReturnType<typeof sharedNumbers>) {
-  if (goalType === "renal_diet" && stage === "hemodialysis") return { formula: "Fluid = 750 mL base", calculation: "Add prior-day urine output clinically." };
-  if (goalType === "renal_diet" && stage === "peritoneal") return { formula: "Fluid = 1000 mL default", calculation: "Individualize to residual renal function and losses." };
-  if (goalType === "cardiac_diet" && stage === "moderate") return { formula: "Fluid = 2000 mL", calculation: "Cardiac moderate restriction default." };
-  if (goalType === "cardiac_diet" && stage === "severe") return { formula: "Fluid = 1500 mL", calculation: "Cardiac severe restriction default." };
-  return { formula: "Fluid = working weight x 32.5 mL/kg", calculation: `${fmt(shared.working)} x ${FLUID_FACTOR_ML_PER_KG} = ${Math.round(shared.working * FLUID_FACTOR_ML_PER_KG)} mL` };
+  return factors[goalType] ?? 0.8;
 }
 
 function sharedNumbers(metrics: PatientMetrics) {
   if (!metrics.isAdult) {
-    const schofield = calcSchofield(metrics.weightKg, metrics.ageYears, metrics.sex);
-    return {
-      isAdult: false as const,
-      ibw: metrics.weightKg,
-      working: metrics.weightKg,
-      bmr: schofield,
-      tee: calcTEE(schofield, metrics.activityFactor ?? 1.2),
-    };
+    const bmr = calcSchofield(metrics.weightKg, metrics.ageYears, metrics.sex);
+    return { ibw: metrics.weightKg, working: metrics.weightKg, bmr, tee: calcTEE(bmr, metrics.activityFactor ?? 1.2) };
   }
   const ibw = calcIBW(metrics.heightCm, metrics.sex);
-  const working = calcWorkingWeight(metrics.weightKg, ibw);
-  const bmrWeight = calcBmrWeight(metrics.weightKg, ibw);
-  const bmr = calcBMR(bmrWeight, metrics.heightCm, metrics.ageYears, metrics.sex);
-  return {
-    isAdult: true as const,
-    ibw,
-    working,
-    bmr,
-    tee: calcTEE(bmr, metrics.activityFactor ?? 1.2),
-  };
+  const bmr = calcBMR(calcBmrWeight(metrics.weightKg, ibw), metrics.heightCm, metrics.ageYears, metrics.sex);
+  return { ibw, working: calcWorkingWeight(metrics.weightKg, ibw), bmr, tee: calcTEE(bmr, metrics.activityFactor ?? 1.2) };
 }
 
 function fatPctFor(goalType: string, stage: string | null): number {
   if (goalType === "diabetic_control") return 0.28;
   if (goalType === "cardiac_diet") return stage === "severe" ? 0.24 : stage === "moderate" ? 0.26 : 0.28;
   if (["weight_loss", "weight_gain", "high_protein", "liver_disease", "malnutrition"].includes(goalType)) return 0.275;
-  if (!stage && goalType === "custom") return 0;
   return 0.25;
 }
 
 function microFormula(key: string): string {
-  if (key === "free_sugars") return "Free sugars max = energy x 10% / 4";
-  if (key === "fiber") return "Fiber minimum from goal target";
-  if (key === "sodium") return "Sodium maximum from goal target";
-  if (key === "cholesterol") return "Cholesterol maximum from goal target";
-  return "Micronutrient target from goal";
+  if (key === "free_sugars") return "Energy × free sugar limit% ÷ 4";
+  return "Goal-specific recommended target";
 }
 
-function microCalculation(key: string, calculated: Prescription | null): string {
-  if (!calculated) return "No calculated target.";
-  if (key === "free_sugars" && calculated.free_sugar_max_pct != null) {
-    return `${calculated.energy_kcal} kcal x ${fmt(calculated.free_sugar_max_pct * 100)}% / 4 = ${Math.round((calculated.energy_kcal * calculated.free_sugar_max_pct) / 4)} g`;
+function microCalculation(key: string, calculated: Prescription | null, fallback: string): string {
+  if (key === "free_sugars" && calculated?.free_sugar_max_pct != null) {
+    return `${calculated.energy_kcal} × ${fmt(calculated.free_sugar_max_pct * 100)}% ÷ 4 = ${Math.round((calculated.energy_kcal * calculated.free_sugar_max_pct) / 4)} g`;
   }
-  return "Goal-specific nutrient limit.";
-}
-
-function buildNotes(calculated: Prescription | null): string[] {
-  if (!calculated) return ["Custom goal: RND enters all targets manually."];
-  const notes = [calculated.note].filter((note): note is string => Boolean(note));
-  if (calculated.feeding_phase === "refeeding_start" && calculated.target_energy_kcal_range) {
-    notes.push(`Refeeding phase: target full-energy range ${calculated.target_energy_kcal_range[0]}-${calculated.target_energy_kcal_range[1]} kcal/day by day 4-7 if clinically stable.`);
-  }
-  return notes;
+  return fallback;
 }
 
 function statusFor(prescribed: number | undefined, calculated: number | undefined): CalculationTargetStatus {
   if (calculated == null && prescribed == null) return "missing";
-  if (calculated == null && prescribed != null) return "manual";
-  if (calculated != null && prescribed == null) return "missing";
-  return Math.abs(Number(prescribed) - Number(calculated)) <= 1 ? "matches" : "modified";
+  if (calculated == null) return "manual";
+  if (prescribed == null) return "matches";
+  return Math.abs(prescribed - calculated) <= 1 ? "matches" : "modified";
 }
 
 function valueFromNumber(value: number | undefined, unit: string): CalculationTraceValue | undefined {
@@ -431,9 +360,8 @@ function valueFromNumber(value: number | undefined, unit: string): CalculationTr
 }
 
 function valueFromLimit(limit: { max?: number; min?: number; unit: string } | undefined): CalculationTraceValue | undefined {
-  if (!limit) return undefined;
-  if (limit.max != null) return { value: limit.max, unit: limit.unit, text: `<= ${fmt(limit.max)} ${limit.unit}` };
-  if (limit.min != null) return { value: limit.min, unit: limit.unit, text: `>= ${fmt(limit.min)} ${limit.unit}` };
+  if (limit?.max != null) return { value: limit.max, unit: limit.unit, text: `≤ ${fmt(limit.max)} ${limit.unit}` };
+  if (limit?.min != null) return { value: limit.min, unit: limit.unit, text: `≥ ${fmt(limit.min)} ${limit.unit}` };
   return undefined;
 }
 
@@ -448,7 +376,5 @@ function parseNumber(value: string): number | undefined {
 }
 
 function fmt(value: number): string {
-  return Number.isInteger(value)
-    ? String(value)
-    : value.toLocaleString("en-US", { maximumFractionDigits: 1 });
+  return Number.isInteger(value) ? String(value) : value.toLocaleString("en-US", { maximumFractionDigits: 1 });
 }

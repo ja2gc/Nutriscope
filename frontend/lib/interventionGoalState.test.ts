@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { buildGoalPrescriptionForm } from "./interventionGoalState";
+import { buildGoalPrescriptionForm, nutrientKeysWithValues } from "./interventionGoalState";
 
 describe("buildGoalPrescriptionForm", () => {
   test("replaces the previous goal's targets with the new goal's targets", () => {
@@ -27,8 +27,29 @@ describe("buildGoalPrescriptionForm", () => {
     expect(next.energy_kcal).toBe("2100");
     expect(next.protein_g).toBe("56");
     expect(next.fluid_ml).toBe("750");
-    expect(next.displayed_nutrients).toEqual(expect.arrayContaining(["potassium", "phosphate", "sodium"]));
+    expect(next.displayed_nutrients).toEqual(["sodium"]);
     expect(next.displayed_nutrients).not.toContain("fiber");
+  });
+
+  test("does not display micronutrients without numeric targets", () => {
+    const form = buildGoalPrescriptionForm("malnutrition", {
+      energy_kcal: 1690,
+      protein_g: 67,
+      carbs_g: 239,
+      fat_g: 52,
+      fluid_ml: 1690,
+    });
+
+    expect(form.displayed_nutrients).toEqual([]);
+    expect(form.micronutrient_limits).toEqual({});
+  });
+
+  test("keeps only micronutrients with real values", () => {
+    expect(nutrientKeysWithValues({
+      potassium: { unit: "mg" },
+      sodium: { max: 2000, unit: "mg" },
+      fiber: { min: 25, unit: "g" },
+    })).toEqual(["sodium", "fiber"]);
   });
 
   test("clears the prescription instead of keeping stale values when no autofill result exists", () => {

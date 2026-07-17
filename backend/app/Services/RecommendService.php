@@ -69,7 +69,7 @@ class RecommendService
                 $recommend[] = [
                     'tag' => 'phosphate',
                     'condition' => 'lab_refinement',
-                    'reason' => 'Phosphate is below reference range; correct before advancing refeeding when clinically indicated.',
+                    'reason' => 'Phosphate is below reference range; review replacement and nutrition progression clinically.',
                 ];
             } elseif ($key === 'calcium' && $status === 'HIGH') {
                 $limits[] = [
@@ -83,7 +83,7 @@ class RecommendService
                 $recommend[] = [
                     'tag' => 'magnesium',
                     'condition' => 'lab_refinement',
-                    'reason' => 'Magnesium is below reference range; refeeding care requires magnesium monitoring and replacement review.',
+                    'reason' => 'Magnesium is below reference range; review monitoring and replacement clinically.',
                 ];
             }
         }

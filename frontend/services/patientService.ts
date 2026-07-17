@@ -42,8 +42,8 @@ export interface Patient {
 }
 
 export interface NcpRecord {
-  id: number;
-  patient_id: number;
+  id: number | string;
+  patient_id: number | string;
   rnd_user_id: number;
   type?: string;
   status: string;
@@ -77,6 +77,10 @@ interface ModernPatientNameInput {
   first_name: string;
   last_name: string;
   name?: string;
+}
+
+export function ncpRecordMatchesRoute(records: NcpRecord[], ncpRecordId: number | string): boolean {
+  return records.some((record) => String(record.id) === String(ncpRecordId));
 }
 
 interface LegacyPatientNameInput {

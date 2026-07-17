@@ -170,20 +170,25 @@ describe('high_protein burns energy', () => {
 
 // ── BMR uses actual weight for normal-weight patients ────────────────────────
 
-describe('refeeding metadata', () => {
-  test('severe malnutrition marks refeeding start and target energy range', () => {
+describe('severe malnutrition prescription', () => {
+  test('uses flat recommended targets without refeeding metadata', () => {
     const result = autofillPrescription('malnutrition', 'severe', {
-      weightKg: 48,
-      heightCm: 174,
-      ageYears: 35,
+      weightKg: 52,
+      heightCm: 170,
+      ageYears: 38,
       sex: 'Male',
       isAdult: true,
-      activityFactor: 1.55,
+      activityFactor: 1.4,
     });
 
-    assert.equal(result.energy_kcal, 360);
-    assert.equal(result.feeding_phase, 'refeeding_start');
-    assert.deepEqual(result.target_energy_kcal_range, [1440, 1680]);
+    assert.equal(result.energy_kcal, 1690);
+    assert.equal(result.protein_g, 67);
+    assert.equal(result.carbs_g, 239);
+    assert.equal(result.fat_g, 52);
+    assert.equal(result.fluid_ml, 1690);
+    assert.equal('feeding_phase' in result, false);
+    assert.equal('target_energy_kcal_range' in result, false);
+    assert.doesNotMatch(result.note ?? '', /refeeding/i);
   });
 });
 
