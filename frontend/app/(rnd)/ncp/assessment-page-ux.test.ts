@@ -44,4 +44,37 @@ describe("Assessment page UX", () => {
     expect(page).toContain("Undo");
     expect(page).toContain("onChange={handleSummaryChange}");
   });
+
+  test("auto-grows long text without nested field scrolling or equal-height stretching", () => {
+    expect(page).toContain("useLayoutEffect");
+    expect(page).toContain("scrollHeight");
+    expect(page).toContain("overflow-hidden");
+    expect(page).toContain("resize-none");
+    expect(page).toContain("items-start");
+    expect(page).not.toContain("resize-y");
+  });
+
+  test("puts explicit save above tabs and removes cycle merge copy", () => {
+    expect(page.indexOf("Save Assessment")).toBeLessThan(page.indexOf("{/* Tab Navigation */}"));
+    expect(page).not.toContain("All tabs auto-merge");
+    expect(page).not.toContain("NCP Cycle #{ncpId}");
+  });
+
+  test("keeps both attachment panels below their clinical fields", () => {
+    expect(page.indexOf('kind="labs"')).toBeGreaterThan(page.indexOf('legend="Lab values"'));
+    expect(page.indexOf('kind="referral"')).toBeGreaterThan(page.indexOf('label="Referral Date & Time"'));
+  });
+
+  test("shows BMI class in its card without a separate suggested-goal banner", () => {
+    expect(page).toContain("computedBmiClassification.label");
+    expect(page).not.toContain("Suggested Goal");
+    expect(page).not.toContain("Nutritional Status Badge");
+  });
+
+  test("explains current automatic risk rules without changing them", () => {
+    expect(page).toContain("How automatic scoring works");
+    expect(page).toContain("IBW below 85% or above 130%");
+    expect(page).toContain("Albumin below 3.5 g/dL");
+    expect(page).toContain("Glucose below 70 or above 125 mg/dL");
+  });
 });

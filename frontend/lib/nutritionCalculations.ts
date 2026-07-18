@@ -369,6 +369,11 @@ export interface NutritionalStatusResult {
   suggestedStage?: string;
 }
 
+/** BMI-only view of the existing Asia-Pacific classification bands. */
+export function classifyBmi(bmi: number): NutritionalStatusResult {
+  return classifyNutritionalStatus(bmi, 100);
+}
+
 /**
  * Classifies nutritional status from BMI and %IBW using **WHO Asia-Pacific** cut-points (D1).
  * Uses the more severe of the two indicators (clinical convention).

@@ -24,6 +24,7 @@ import {
   autofillPrescription,
   ACTIVITY_FACTORS,
   classifyNutritionalStatus,
+  classifyBmi,
   type PatientMetrics,
 } from './nutritionCalculations.ts';
 
@@ -332,5 +333,15 @@ describe('classifyNutritionalStatus', () => {
     const severe = classifyNutritionalStatus(15.0, 65);
     assert.equal(severe.suggestedGoal, 'malnutrition');
     assert.equal(severe.suggestedStage, 'severe');
+  });
+});
+
+describe('classifyBmi', () => {
+  test('reuses Asia-Pacific BMI bands without an IBW override', () => {
+    assert.equal(classifyBmi(22).label, 'Normal');
+    assert.equal(classifyBmi(24).label, 'Overweight');
+    assert.equal(classifyBmi(27).label, 'Obese Class I');
+    assert.equal(classifyBmi(32).label, 'Obese Class II');
+    assert.equal(classifyBmi(37).label, 'Obese Class II (Severe)');
   });
 });
