@@ -20,6 +20,15 @@ describe("NCP active patient header", () => {
     expect(header).toContain("Loading patient");
   });
 
+  test("shared header stays compact without shrinking its primary action", () => {
+    const header = source("app/(rnd)/ncp/_components/NcpPatientHeader.tsx");
+
+    expect(header).toContain("min-h-11");
+    expect(header).toContain("title={patient.medical_diagnosis}");
+    expect(header).toContain("truncate");
+    expect(header).toContain("lg:flex-nowrap");
+  });
+
   test("all concrete NCP steps use the shared header", () => {
     const pages = [
       "app/(rnd)/ncp/[patientId]/assessment/[ncpId]/page.tsx",
