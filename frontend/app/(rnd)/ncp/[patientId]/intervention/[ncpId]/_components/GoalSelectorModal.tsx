@@ -105,7 +105,7 @@ export default function GoalSelectorModal({ onConfirm, onClose, initialGoal, ini
             disabled={!selected || (!!goal?.stages && !stage)}
             className="w-auto px-5 py-2 text-sm"
           >
-            Apply Goal
+            Save Goal
           </Button>
         </div>
       </div>

@@ -494,8 +494,12 @@ export default function NcpDiagnosisPage({
   const handleAiEdit = (s: AiSuggestion) => {
     const b = defaultBuilder();
     b.domain = s.domain;
-    b.etiologyNotes = s.etiology;
-    b.signNotes = s.signs;
+    const etiology = splitStoredComponent(s.etiology, getEtiologies(s.domain));
+    const signs = splitStoredComponent(s.signs, getSigns(s.domain));
+    b.etiologyChecks = etiology.checks;
+    b.etiologyNotes = etiology.notes;
+    b.signChecks = signs.checks;
+    b.signNotes = signs.notes;
     b.pesOverride = `${s.label} related to ${s.etiology} as evidenced by ${s.signs}`;
     b.problemOverride = s.label;
     if (s.domain === "NI") {
@@ -506,11 +510,13 @@ export default function NcpDiagnosisPage({
         b.problemOverride = "";
       }
     } else if (s.domain === "NC") {
-      b.ncProblems = [s.label];
-      b.problemOverride = "";
+      const matchedProblem = matchStoredOption(s.label, NC_PROBLEMS);
+      b.ncProblems = matchedProblem ? [matchedProblem] : [];
+      b.problemOverride = matchedProblem ? "" : s.label;
     } else {
-      b.nbProblems = [s.label];
-      b.problemOverride = "";
+      const matchedProblem = matchStoredOption(s.label, NB_PROBLEMS);
+      b.nbProblems = matchedProblem ? [matchedProblem] : [];
+      b.problemOverride = matchedProblem ? "" : s.label;
     }
     setBuilder(b);
     setActiveTab("problem");
@@ -821,9 +827,9 @@ export default function NcpDiagnosisPage({
         />
       </div>
 
-      <div className="p-4 bg-forest-900 rounded-xl border border-forest-line">
+      <div className="p-4 bg-warm-50 rounded-xl border border-warm-200">
         <span className="text-xs font-bold text-warm-500 uppercase tracking-wider block mb-1">Problem preview (P)</span>
-        <span className="text-sm font-semibold text-emerald-300">{buildProblemText(builder)}</span>
+        <span className="text-sm font-semibold text-warm-800">{buildProblemText(builder)}</span>
       </div>
 
       <div className="flex justify-end">
@@ -868,9 +874,9 @@ export default function NcpDiagnosisPage({
           className="w-full px-3 py-2 text-sm bg-white border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 placeholder:text-warm-400 resize-none"
         />
       </div>
-      <div className="p-4 bg-forest-900 rounded-xl border border-forest-line">
+      <div className="p-4 bg-warm-50 rounded-xl border border-warm-200">
         <span className="text-xs font-bold text-warm-500 uppercase tracking-wider block mb-1">Etiology preview (E)</span>
-        <span className="text-sm font-semibold text-emerald-300">{buildEtiologyText(builder)}</span>
+        <span className="text-sm font-semibold text-warm-800">{buildEtiologyText(builder)}</span>
       </div>
       <div className="flex justify-between">
         <button type="button" onClick={() => setActiveTab("problem")} className="px-4 py-2 text-xs font-bold text-warm-600 bg-white border border-warm-200 rounded-lg hover:bg-warm-50 transition-colors cursor-pointer">
@@ -913,9 +919,9 @@ export default function NcpDiagnosisPage({
           className="w-full px-3 py-2 text-sm bg-white border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 placeholder:text-warm-400 resize-none"
         />
       </div>
-      <div className="p-4 bg-forest-900 rounded-xl border border-forest-line">
+      <div className="p-4 bg-warm-50 rounded-xl border border-warm-200">
         <span className="text-xs font-bold text-warm-500 uppercase tracking-wider block mb-1">Signs & Symptoms preview (S)</span>
-        <span className="text-sm font-semibold text-emerald-300">{buildSignsText(builder)}</span>
+        <span className="text-sm font-semibold text-warm-800">{buildSignsText(builder)}</span>
       </div>
       <div className="flex justify-between">
         <button type="button" onClick={() => setActiveTab("etiology")} className="px-4 py-2 text-xs font-bold text-warm-600 bg-white border border-warm-200 rounded-lg hover:bg-warm-50 transition-colors cursor-pointer">
@@ -1061,7 +1067,7 @@ export default function NcpDiagnosisPage({
                     onClick={() => handleAiEdit(s)}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-sky-50 hover:bg-sky-100 text-sky-700 text-xs font-bold uppercase tracking-wider rounded-lg border border-sky-200 transition-colors cursor-pointer"
                   >
-                    <Pencil className="h-3 w-3" /> Edit then Accept
+                    <Pencil className="h-3 w-3" /> Edit
                   </button>
                   <button
                     type="button"
