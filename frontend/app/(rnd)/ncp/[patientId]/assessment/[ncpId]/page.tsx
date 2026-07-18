@@ -25,6 +25,7 @@ import {
 import { coerceBiochemicalValue } from "@/services/biochemical";
 import { deriveRiskScore, RISK_FACTORS, scoreRiskFactors } from "@/lib/assessmentRiskScoring";
 import { buildAssessmentSummary, type AssessmentSummaryInput } from "@/lib/assessmentSummary";
+import { fetchIntervention } from "@/services/interventionService";
 import NcpPatientHeader from "../../../_components/NcpPatientHeader";
 import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
 
@@ -690,6 +691,7 @@ export default function NcpAssessmentPage({
   const [activeTab, setActiveTab] = useState<TabKey>("dietary");
   const [patient, setPatient] = useState<Patient | null>(null);
   const [assessment, setAssessment] = useState<Assessment>(defaultAssessment());
+  const [interventionGoal, setInterventionGoal] = useState<string | null>(null);
   const [assessmentExists, setAssessmentExists] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -745,9 +747,10 @@ export default function NcpAssessmentPage({
     if (isPlaceholder) { setLoading(false); return; }
     try {
       setLoading(true);
-      const [p, a] = await Promise.allSettled([
+      const [p, a, intervention] = await Promise.allSettled([
         fetchPatientById(patientId),
         fetchAssessment(ncpId),
+        fetchIntervention(ncpId),
       ]);
       let loadedPatient: Patient | null = null;
       let loadedAssessment: Assessment | null = null;
@@ -760,6 +763,9 @@ export default function NcpAssessmentPage({
         setAssessment(a.value);
         setAssessmentExists(true);
         loadedAssessment = a.value;
+      }
+      if (intervention.status === "fulfilled") {
+        setInterventionGoal(intervention.value?.goal_type ?? null);
       }
 
       if (loadedPatient) {
@@ -1018,7 +1024,6 @@ export default function NcpAssessmentPage({
       if (safetyWarning && !window.confirm(safetyWarning)) {
         return;
       }
-
       const nameFields = patient && screeningDraft
         ? changedPersonNameFields(patient, screeningDraft.firstName, screeningDraft.lastName)
         : null;
@@ -1869,23 +1874,11 @@ export default function NcpAssessmentPage({
 
       <NcpPatientHeader
         patient={patient}
-        patientId={patientId}
-        ncpId={ncpId}
-        stepLabel="Assessment"
-        badges={
-          <>
-            {allergies.length > 0 && allergies.map((a, i) => (
-              <span key={i} className="shrink-0 px-2 py-0.5 bg-red-50 text-red-700 border border-red-100 rounded font-extrabold uppercase tracking-wider">
-                ! {a}
-              </span>
-            ))}
-            {riskScore > 0 && (
-              <span className={`shrink-0 px-2 py-0.5 rounded font-extrabold uppercase tracking-wider border ${riskInfo.color}`}>
-                Risk: {riskInfo.label}
-              </span>
-            )}
-          </>
-        }
+        physician={screeningDraft?.referredBy}
+        riskScore={riskScore}
+        foodDetails={[...allergies, ...(assessment.food_dislikes ?? []), assessment.dietary_restrictions]}
+        interventionGoal={interventionGoal}
+        medicalDiagnosis={screeningDraft?.diagnosis}
       />
 
       {/* Status Messages */}

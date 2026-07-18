@@ -180,9 +180,15 @@ export default function NcpMonitoringPage({
         <Breadcrumb />
         <NcpPatientHeader
           patient={patient}
-          patientId={patientId}
-          ncpId={ncpId}
-          stepLabel="Monitoring"
+          physician={patient?.physician}
+          riskScore={assessment?.risk_score ?? assessment?.computed_risk_score}
+          foodDetails={[
+            ...(assessment?.allergies ?? []),
+            ...(assessment?.food_dislikes ?? []),
+            assessment?.dietary_restrictions,
+          ]}
+          interventionGoal={intervention?.goal_type}
+          medicalDiagnosis={patient?.medical_diagnosis}
         />
         <div className="bg-white border border-warm-200 rounded-2xl p-10 sm:p-12 text-center max-w-2xl mx-auto shadow-sm">
           <div className="p-3.5 bg-warm-50 border border-warm-200 rounded-2xl w-fit mx-auto text-warm-400">
@@ -223,9 +229,15 @@ export default function NcpMonitoringPage({
       <Breadcrumb />
       <NcpPatientHeader
         patient={patient}
-        patientId={patientId}
-        ncpId={ncpId}
-        stepLabel="Monitoring"
+        physician={patient?.physician}
+        riskScore={assessment?.risk_score ?? assessment?.computed_risk_score}
+        foodDetails={[
+          ...(assessment?.allergies ?? []),
+          ...(assessment?.food_dislikes ?? []),
+          assessment?.dietary_restrictions,
+        ]}
+        interventionGoal={intervention?.goal_type}
+        medicalDiagnosis={patient?.medical_diagnosis}
       />
 
       {/* ── Page header ─────────────────────────────────────────────────────── */}

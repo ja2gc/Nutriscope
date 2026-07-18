@@ -9,14 +9,22 @@ function source(path: string) {
 }
 
 describe("NCP active patient header", () => {
-  test("shared header shows patient identity and returns to patient directory", () => {
+  test("shared header shows only approved clinical context and change action", () => {
     const header = source("app/(rnd)/ncp/_components/NcpPatientHeader.tsx");
 
     expect(header).toContain("NcpPatientHeader");
     expect(header).toContain("/ncp/patients");
     expect(header).toContain("Change Patient");
-    expect(header).toContain("NS-");
-    expect(header).toContain("NCP-");
+    expect(header).toContain("Physician");
+    expect(header).toContain("Risk");
+    expect(header).toContain("Foods");
+    expect(header).toContain("Goal");
+    expect(header).toContain("Medical diagnosis");
+    expect(header).not.toContain("NS-");
+    expect(header).not.toContain("NCP-");
+    expect(header).not.toContain("Heart");
+    expect(header).not.toContain("ArrowLeftRight");
+    expect(header).not.toContain("Ward:");
     expect(header).toContain("Loading patient");
   });
 
@@ -24,8 +32,7 @@ describe("NCP active patient header", () => {
     const header = source("app/(rnd)/ncp/_components/NcpPatientHeader.tsx");
 
     expect(header).toContain("min-h-11");
-    expect(header).toContain("title={patient.medical_diagnosis}");
-    expect(header).toContain("truncate");
+    expect(header).toContain("break-words");
     expect(header).toContain("lg:flex-nowrap");
   });
 
@@ -40,7 +47,9 @@ describe("NCP active patient header", () => {
     for (const pagePath of pages) {
       const page = source(pagePath);
       expect(page, pagePath).toContain("NcpPatientHeader");
-      expect(page, pagePath).toContain("stepLabel=");
+      expect(page, pagePath).toContain("riskScore=");
+      expect(page, pagePath).toContain("foodDetails=");
+      expect(page, pagePath).toContain("interventionGoal=");
     }
   });
 

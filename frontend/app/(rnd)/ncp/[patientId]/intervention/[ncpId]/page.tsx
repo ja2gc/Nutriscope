@@ -9,7 +9,7 @@ import {
   AutofillError, Intervention, type AutofillResult,
 } from "@/services/interventionService";
 import { EDUCATION_TEMPLATES } from "@/lib/educationTemplates";
-import { fetchAssessment } from "@/services/assessmentService";
+import { fetchAssessment, type Assessment } from "@/services/assessmentService";
 import {
   fetchPatientById,
   fetchPatientNcpRecords,
@@ -105,6 +105,7 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
   const [patientMetrics, setPatientMetrics]     = useState<PatientMetrics | null>(null);
   const [foodDislikes, setFoodDislikes]         = useState<string[]>([]);
   const [allergens, setAllergens]               = useState<string[]>([]);
+  const [assessmentContext, setAssessmentContext] = useState<Assessment | null>(null);
   const [goalError, setGoalError]               = useState<string | null>(null);
   const [calculationWarning, setCalculationWarning] = useState<string | null>(null);
 
@@ -158,6 +159,7 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
       const p = patientData.status === "fulfilled" ? patientData.value : null;
       const hasDiagnosis = diagnoses.status === "fulfilled" && diagnoses.value.length > 0;
       if (p) setPatient(p);
+      setAssessmentContext(a);
 
       const routeMatchesPatient = ncpRecords.status === "fulfilled"
         && ncpRecordMatchesRoute(ncpRecords.value.data, ncpId);
@@ -422,9 +424,11 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
         </div>
         <NcpPatientHeader
           patient={patient}
-          patientId={patientId}
-          ncpId={ncpId}
-          stepLabel="Intervention"
+          physician={patient?.physician}
+          riskScore={assessmentContext?.risk_score ?? assessmentContext?.computed_risk_score}
+          foodDetails={[...allergens, ...foodDislikes, assessmentContext?.dietary_restrictions]}
+          interventionGoal={intervention?.goal_type}
+          medicalDiagnosis={patient?.medical_diagnosis}
           onChangePatientClick={handleChangePatient}
         />
         <div className="bg-white border border-warm-200 rounded-2xl p-12 text-center max-w-2xl mx-auto shadow-sm">
@@ -458,9 +462,11 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
         </div>
         <NcpPatientHeader
           patient={patient}
-          patientId={patientId}
-          ncpId={ncpId}
-          stepLabel="Intervention"
+          physician={patient?.physician}
+          riskScore={assessmentContext?.risk_score ?? assessmentContext?.computed_risk_score}
+          foodDetails={[...allergens, ...foodDislikes, assessmentContext?.dietary_restrictions]}
+          interventionGoal={intervention?.goal_type}
+          medicalDiagnosis={patient?.medical_diagnosis}
           onChangePatientClick={handleChangePatient}
         />
         <div className="border-b border-warm-200 pb-4">

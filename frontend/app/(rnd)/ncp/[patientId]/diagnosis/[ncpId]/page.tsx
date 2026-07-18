@@ -14,7 +14,8 @@ import {
   aiSuggestDiagnoses, aiApproveDiagnosis,
   Diagnosis, StoreDiagnosisPayload, AiSuggestion,
 } from "@/services/diagnosisService";
-import { fetchAssessment } from "@/services/assessmentService";
+import { fetchAssessment, type Assessment } from "@/services/assessmentService";
+import { fetchIntervention } from "@/services/interventionService";
 import { buildDiagnosisProblemText } from "@/lib/diagnosisBuilder";
 import { matchStoredOption, splitStoredComponent } from "@/lib/diagnosisComponentSplit";
 import NcpPatientHeader from "../../../_components/NcpPatientHeader";
@@ -318,15 +319,18 @@ export default function NcpDiagnosisPage({
   const [aiDismissed, setAiDismissed] = useState<Set<number>>(new Set());
   const [assessmentIbw, setAssessmentIbw] = useState<number | null>(null);
   const [hasAssessment, setHasAssessment] = useState(false);
+  const [assessmentContext, setAssessmentContext] = useState<Assessment | null>(null);
+  const [interventionGoal, setInterventionGoal] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
     if (isPlaceholder) { setLoading(false); return; }
     try {
       setLoading(true);
-      const [p, d, a] = await Promise.allSettled([
+      const [p, d, a, intervention] = await Promise.allSettled([
         fetchPatientById(patientId),
         fetchDiagnosesPage(ncpId, diagnosesPage),
         fetchAssessment(ncpId),
+        fetchIntervention(ncpId),
       ]);
       if (p.status === "fulfilled") setPatient(p.value);
       if (d.status === "fulfilled") {
@@ -335,10 +339,15 @@ export default function NcpDiagnosisPage({
       }
       if (a.status === "fulfilled") {
         setHasAssessment(true);
+        setAssessmentContext(a.value);
         const ibw = a.value.ibw_percentage;
         setAssessmentIbw(typeof ibw === "number" ? ibw : ibw ? Number(ibw) : null);
       } else {
         setHasAssessment(false);
+        setAssessmentContext(null);
+      }
+      if (intervention.status === "fulfilled") {
+        setInterventionGoal(intervention.value?.goal_type ?? null);
       }
     } catch {
       // silent
@@ -1096,14 +1105,15 @@ export default function NcpDiagnosisPage({
 
       <NcpPatientHeader
         patient={patient}
-        patientId={patientId}
-        ncpId={ncpId}
-        stepLabel="Diagnosis"
-        badges={
-          <span className="px-2 py-0.5 bg-stethoscope-50 text-warm-500 rounded font-bold">
-            {diagnosesMeta?.total ?? diagnoses.length} {(diagnosesMeta?.total ?? diagnoses.length) !== 1 ? "diagnoses" : "diagnosis"} recorded
-          </span>
-        }
+        physician={patient?.physician}
+        riskScore={assessmentContext?.risk_score ?? assessmentContext?.computed_risk_score}
+        foodDetails={[
+          ...(assessmentContext?.allergies ?? []),
+          ...(assessmentContext?.food_dislikes ?? []),
+          assessmentContext?.dietary_restrictions,
+        ]}
+        interventionGoal={interventionGoal}
+        medicalDiagnosis={patient?.medical_diagnosis}
       />
 
       {/* Status Messages */}

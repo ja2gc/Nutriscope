@@ -38,16 +38,15 @@ const INTAKE_METHODS: Record<string, string> = {
   other: "another documented method",
 };
 
-const ACTIVITY_LABELS: Record<string, string> = {
-  sedentary: "Sedentary",
-  light: "Lightly active",
-  moderate: "Moderately active",
-  very_active: "Very active",
-  extra_active: "Extra active",
-};
-
 function cleanText(value: unknown): string {
   return typeof value === "string" ? value.replace(/\s+/g, " ").trim() : "";
+}
+
+function compactText(value: unknown, maxWords = 20): string {
+  const cleaned = cleanText(value);
+  if (!cleaned) return "";
+  const words = cleaned.split(" ");
+  return words.length > maxWords ? `${words.slice(0, maxWords).join(" ")}…` : cleaned;
 }
 
 function numberValue(value: unknown): number | null {
@@ -80,20 +79,15 @@ export function buildAssessmentSummary(input: AssessmentSummaryInput): string {
 
   const anthropometricParts: string[] = [];
   const weight = formatNumber(assessment.weight);
-  const usualWeight = formatNumber(assessment.usual_weight);
-  const height = formatNumber(assessment.height);
   const dryWeight = formatNumber(assessment.dry_weight_kg);
-  if (weight) anthropometricParts.push(`Weight ${weight} kg`);
-  if (usualWeight) anthropometricParts.push(`usual weight ${usualWeight} kg`);
-  if (height) anthropometricParts.push(`height ${height} cm`);
+  if (weight) anthropometricParts.push(`${weight} kg`);
+  const nutritionalStatus = cleanText(anthropometrics.nutritionalStatus ?? assessment.nutritional_status);
   if (anthropometrics.bmi !== null && anthropometrics.bmi !== undefined) {
-    anthropometricParts.push(`BMI ${anthropometrics.bmi}`);
+    anthropometricParts.push(`BMI ${anthropometrics.bmi}${nutritionalStatus ? ` (${nutritionalStatus})` : ""}`);
   }
-  if (anthropometrics.ibwKg !== null && anthropometrics.ibwKg !== undefined) {
-    const percent = anthropometrics.percentIbw !== null && anthropometrics.percentIbw !== undefined
-      ? ` (${anthropometrics.percentIbw}%)`
-      : "";
-    anthropometricParts.push(`IBW ${anthropometrics.ibwKg} kg${percent}`);
+  if (anthropometrics.percentIbw !== null && anthropometrics.percentIbw !== undefined
+    && (anthropometrics.percentIbw < 85 || anthropometrics.percentIbw > 130)) {
+    anthropometricParts.push(`${anthropometrics.percentIbw}% IBW`);
   }
   if (anthropometrics.weightChangePercent !== null && anthropometrics.weightChangePercent !== undefined) {
     const direction = anthropometrics.weightChangeDirection === "gain" ? "gain" : anthropometrics.weightChangeDirection === "loss" ? "loss" : "change";
@@ -101,28 +95,27 @@ export function buildAssessmentSummary(input: AssessmentSummaryInput): string {
     anthropometricParts.push(`${anthropometrics.weightChangePercent}% weight ${direction}${period ? ` over ${period}` : ""}`);
   }
   const muac = formatNumber(assessment.muac_mm);
-  if (muac) anthropometricParts.push(`MUAC ${muac} mm${anthropometrics.muacClassification ? ` (${anthropometrics.muacClassification})` : ""}`);
-  if (anthropometrics.whr !== null && anthropometrics.whr !== undefined) {
+  if (muac && anthropometrics.muacClassification && !/^normal$/i.test(anthropometrics.muacClassification)) {
+    anthropometricParts.push(`MUAC ${muac} mm (${anthropometrics.muacClassification})`);
+  }
+  if (anthropometrics.whr !== null && anthropometrics.whr !== undefined && /high/i.test(anthropometrics.whrRisk ?? "")) {
     anthropometricParts.push(`WHR ${anthropometrics.whr}${anthropometrics.whrRisk ? ` (${anthropometrics.whrRisk})` : ""}`);
   }
-  const nutritionalStatus = cleanText(anthropometrics.nutritionalStatus ?? assessment.nutritional_status);
-  if (nutritionalStatus) anthropometricParts.push(`nutritional status ${nutritionalStatus}`);
   if (anthropometricParts.length) categories.push(`Anthropometrics: ${anthropometricParts.join("; ")}.`);
 
   const dietaryParts: string[] = [];
-  const presentDiet = cleanText(assessment.present_diet);
+  const presentDiet = compactText(assessment.present_diet);
   const intakeStatus = cleanText(assessment.energy_intake_status);
   const intakeMethod = cleanText(assessment.dietary_intake_method);
-  const dietaryIntake = cleanText(assessment.dietary_intake);
+  const dietaryIntake = compactText(assessment.dietary_intake);
   const appetite = cleanText(assessment.appetite_changes);
-  const restrictions = cleanText(assessment.dietary_restrictions);
-  const supplements = cleanText(assessment.supplements);
-  const knowledge = cleanText(assessment.knowledge_notes);
-  const interaction = cleanText(assessment.nutrient_drug_interaction);
-  const chewing = cleanText(assessment.chewing_swallowing_difficulties);
-  const constipation = cleanText(assessment.constipation);
-  const diarrhea = cleanText(assessment.diarrhea_notes);
-  const intolerance = cleanText(assessment.food_intolerance);
+  const restrictions = compactText(assessment.dietary_restrictions);
+  const supplements = compactText(assessment.supplements);
+  const interaction = compactText(assessment.nutrient_drug_interaction);
+  const chewing = compactText(assessment.chewing_swallowing_difficulties);
+  const constipation = compactText(assessment.constipation);
+  const diarrhea = compactText(assessment.diarrhea_notes);
+  const intolerance = compactText(assessment.food_intolerance);
   if (presentDiet) dietaryParts.push(sentence(`Current diet: ${presentDiet}`));
   if (intakeStatus) dietaryParts.push(sentence(`Energy intake is ${lowerFirst(intakeStatus)}`));
   if (intakeMethod) dietaryParts.push(sentence(`Intake assessed using ${INTAKE_METHODS[intakeMethod] ?? lowerFirst(intakeMethod)}`));
@@ -130,7 +123,6 @@ export function buildAssessmentSummary(input: AssessmentSummaryInput): string {
   if (appetite) dietaryParts.push(sentence(`Appetite is ${lowerFirst(appetite.replace(/_/g, " "))}`));
   if (restrictions) dietaryParts.push(sentence(`Dietary restrictions: ${restrictions}`));
   if (supplements) dietaryParts.push(sentence(`Supplements: ${supplements}`));
-  if (knowledge) dietaryParts.push(sentence(`Knowledge/beliefs: ${knowledge}`));
   if (interaction) dietaryParts.push(sentence(`Nutrient-drug interaction: ${interaction}`));
   if (chewing) dietaryParts.push(sentence(`Chewing/swallowing: ${chewing}`));
   if (constipation) dietaryParts.push(sentence(`Constipation: ${constipation}`));
@@ -140,25 +132,19 @@ export function buildAssessmentSummary(input: AssessmentSummaryInput): string {
 
   if (labs.length) {
     const labParts = labs
-      .filter((lab) => Number.isFinite(lab.value))
+      .filter((lab) => Number.isFinite(lab.value) && lab.status !== "normal")
       .map((lab) => `${lab.label} ${lab.value}${lab.unit ? ` ${lab.unit}` : ""}${lab.status === "normal" ? "" : ` (${lab.status.toUpperCase()})`}`);
-    if (labParts.length) categories.push(`Biochemical: ${labParts.join("; ")}.`);
+    categories.push(labParts.length
+      ? `Biochemical: ${labParts.join("; ")}.`
+      : "Biochemical: Entered results are within listed reference ranges.");
   }
 
   const clinicalParts: string[] = [];
-  const medicalHistory = cleanText(assessment.medical_history);
-  const socialHistory = cleanText(assessment.social_history);
-  const religion = cleanText(assessment.religion);
+  const medicalHistory = compactText(assessment.medical_history);
   const functional = cleanText(assessment.functional_assessment);
-  const activity = cleanText(assessment.physical_activity_level);
-  const stress = formatNumber(assessment.stress_factor);
   const pregnancy = cleanText(assessment.pregnancy_lactation_status);
   if (medicalHistory) clinicalParts.push(sentence(`Medical history: ${medicalHistory}`));
-  if (socialHistory) clinicalParts.push(sentence(`Social history: ${socialHistory}`));
-  if (religion) clinicalParts.push(sentence(`Religious/dietary practice: ${religion}`));
   if (functional) clinicalParts.push(sentence(`Functional status: ${functional}`));
-  if (activity) clinicalParts.push(sentence(`Physical activity: ${ACTIVITY_LABELS[activity] ?? activity.replace(/_/g, " ")}`));
-  if (stress) clinicalParts.push(sentence(`Stress factor: ${stress}`));
   if (pregnancy && pregnancy !== "none") clinicalParts.push(sentence(`Pregnancy/lactation: ${pregnancy}`));
   if (assessment.edema_present) clinicalParts.push("Edema is present.");
   if (assessment.edema_present && dryWeight) clinicalParts.push(`Dry weight is ${dryWeight} kg.`);
@@ -168,7 +154,11 @@ export function buildAssessmentSummary(input: AssessmentSummaryInput): string {
   categories.push(category("Clinical context", clinicalParts));
 
   if (risk) {
-    const factors = risk.factors.length ? `; factors: ${risk.factors.join(", ")}` : "";
+    const visibleFactors = risk.factors.slice(0, 3);
+    const remaining = risk.factors.length - visibleFactors.length;
+    const factors = visibleFactors.length
+      ? `; ${visibleFactors.join(", ")}${remaining > 0 ? ` +${remaining} more` : ""}`
+      : "";
     const label = /risk$/i.test(risk.label.trim()) ? risk.label.trim() : `${risk.label.trim()} risk`;
     categories.push(`Nutrition risk: ${label} (${risk.score} point${risk.score === 1 ? "" : "s"}, ${risk.mode})${factors}.`);
   }

@@ -35,7 +35,7 @@ describe("buildAssessmentSummary", () => {
       },
     }));
 
-    expect(result).toContain("Anthropometrics: Weight 70 kg; height 170 cm; BMI 24.2; IBW 68 kg (103%); nutritional status Normal.");
+    expect(result).toContain("Anthropometrics: 70 kg; BMI 24.2 (Normal).");
     expect(result).toContain("Dietary / GI: Current diet: Soft diet. Energy intake is sub-optimal. Appetite is decreased.");
     expect(result).toContain("Clinical context: Medical history: Type 2 diabetes. Functional status: Ambulatory.");
     expect(result).not.toContain("Biochemical:");
@@ -43,7 +43,7 @@ describe("buildAssessmentSummary", () => {
     expect(result.indexOf("Dietary / GI:")).toBeLessThan(result.indexOf("Clinical context:"));
   });
 
-  test("marks abnormal labs while retaining entered normal results", () => {
+  test("includes abnormal labs without dumping entered normal results", () => {
     const result = buildAssessmentSummary(input({
       labs: [
         { label: "Albumin", value: 3, unit: "g/dL", status: "low" },
@@ -51,7 +51,13 @@ describe("buildAssessmentSummary", () => {
       ],
     }));
 
-    expect(result).toBe("Biochemical: Albumin 3 g/dL (LOW); Sodium 140 mEq/L.");
+    expect(result).toBe("Biochemical: Albumin 3 g/dL (LOW).");
+  });
+
+  test("uses one short statement when all entered labs are normal", () => {
+    expect(buildAssessmentSummary(input({
+      labs: [{ label: "Sodium", value: 140, unit: "mEq/L", status: "normal" }],
+    }))).toBe("Biochemical: Entered results are within listed reference ranges.");
   });
 
   test("skips incomplete calculations without producing dangling text", () => {
@@ -60,12 +66,12 @@ describe("buildAssessmentSummary", () => {
       anthropometrics: { bmi: null, ibwKg: null, percentIbw: null },
     }));
 
-    expect(result).toBe("Anthropometrics: Weight 70 kg.\n\nClinical context: Edema is present.");
+    expect(result).toBe("Anthropometrics: 70 kg.\n\nClinical context: Edema is present.");
     expect(result).not.toMatch(/undefined|null|NaN|IBW \(|BMI ;/);
   });
 
-  test("normalizes note whitespace without truncating clinical text", () => {
-    const note = "Poor intake   for three days.\nNeeds feeding assistance and close review.";
+  test("normalizes and compacts long source notes without changing the source", () => {
+    const note = "Poor intake   for three days.\nNeeds feeding assistance and close review because fatigue limits every meal and snacks are usually refused despite repeated encouragement.";
     const result = buildAssessmentSummary(input({
       assessment: {
         dietary_intake: note,
@@ -73,7 +79,7 @@ describe("buildAssessmentSummary", () => {
       },
     }));
 
-    expect(result).toContain("Reported intake: Poor intake for three days. Needs feeding assistance and close review.");
+    expect(result).toContain("Reported intake: Poor intake for three days. Needs feeding assistance and close review because fatigue limits every meal and snacks are usually…");
     expect(result).toContain("Chewing/swallowing: Coughs with thin liquids.");
     expect(result).not.toContain("  ");
   });
@@ -88,7 +94,18 @@ describe("buildAssessmentSummary", () => {
       },
     }));
 
-    expect(result).toBe("Nutrition risk: Moderate risk (3 points, manual); factors: Unintentional weight loss, Low albumin.");
+    expect(result).toBe("Nutrition risk: Moderate risk (3 points, manual); Unintentional weight loss, Low albumin.");
+  });
+
+  test("caps displayed risk factors and reports the remainder", () => {
+    expect(buildAssessmentSummary(input({
+      risk: {
+        label: "High Risk",
+        score: 7,
+        mode: "automatic",
+        factors: ["Weight loss", "Low albumin", "GI issue", "Abnormal lab", "Other"],
+      },
+    }))).toBe("Nutrition risk: High Risk (7 points, automatic); Weight loss, Low albumin, GI issue +2 more.");
   });
 
   test("does not repeat risk when the badge label already includes it", () => {
