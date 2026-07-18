@@ -6,7 +6,7 @@ import {
   ClipboardCheck, Utensils, Ruler, UserRound, FlaskConical,
   FileText, Sparkles, Save, Upload, AlertTriangle,
   ChevronRight, Activity, Paperclip, Trash2, Download, Eye, X,
-  Shield, Scale,
+  Shield, Scale, RotateCcw,
 } from "lucide-react";
 import { fetchPatientById, Patient, updatePatient, PatientUpdateData } from "@/services/patientService";
 import {
@@ -24,6 +24,7 @@ import {
 } from "@/services/assessmentService";
 import { coerceBiochemicalValue } from "@/services/biochemical";
 import { deriveRiskScore, RISK_FACTORS, scoreRiskFactors } from "@/lib/assessmentRiskScoring";
+import { buildAssessmentSummary, type AssessmentSummaryInput } from "@/lib/assessmentSummary";
 import NcpPatientHeader from "../../../_components/NcpPatientHeader";
 import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
 
@@ -168,15 +169,22 @@ const REFERRAL_TYPE_OPTIONS = [
 ];
 
 const TABS = [
-  { key: "dietary", label: "A: Dietary History", icon: Utensils },
+  { key: "dietary", label: "A: Dietary", icon: Utensils },
   { key: "anthropometric", label: "B: Anthropometrics", icon: Ruler },
-  { key: "client", label: "C: Client History", icon: UserRound },
-  { key: "biochemical", label: "D: Biochemical / Labs", icon: FlaskConical },
-  { key: "referral", label: "E: Referral / Screening", icon: FileText },
-  { key: "summary", label: "F: RND Summary", icon: Sparkles },
+  { key: "client", label: "C: Client", icon: UserRound },
+  { key: "biochemical", label: "D: Biochemical", icon: FlaskConical },
+  { key: "referral", label: "E: Referral", icon: FileText },
+  { key: "summary", label: "F: Summary", icon: Sparkles },
 ] as const;
 
 type TabKey = (typeof TABS)[number]["key"];
+type ReferralSection = "details" | "conditions" | "intake";
+
+const REFERRAL_SECTIONS: Array<{ key: ReferralSection; label: string }> = [
+  { key: "details", label: "Referral details" },
+  { key: "conditions", label: "Clinical conditions" },
+  { key: "intake", label: "Intake / weight history" },
+];
 
 const ENERGY_INTAKE_OPTIONS = [
   "No change", "Mostly liquids", "Sub-optimal", "Starvation", "Poor intake prior to admission"
@@ -221,21 +229,37 @@ function isImagePath(path?: string) {
 }
 
 // ─── Field Components ────────────────────────────────────────────────────
-function Field({ label, children, span, required, htmlFor }: {
+function Field({ label, children, span, required, htmlFor, className = "" }: {
   label: string;
   children: React.ReactNode;
   span?: number;
   required?: boolean;
   htmlFor?: string;
+  className?: string;
 }) {
   return (
-    <div className={span ? `col-span-${span}` : ""} style={span ? { gridColumn: `span ${span}` } : undefined}>
+    <div className={`${span ? `col-span-${span}` : ""} ${className}`} style={span ? { gridColumn: `span ${span}` } : undefined}>
       <label htmlFor={htmlFor} className="block text-xs font-bold text-warm-500 uppercase tracking-wider mb-1.5">
         {label}
         {required && <span className="ml-0.5 text-red-500" aria-hidden="true">*</span>}
       </label>
       {children}
     </div>
+  );
+}
+
+function AssessmentSection({ legend, children, className = "" }: {
+  legend: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <fieldset className={`min-w-0 space-y-3 ${className}`}>
+      <legend className="text-xs font-extrabold uppercase tracking-wider text-warm-500">
+        {legend}
+      </legend>
+      {children}
+    </fieldset>
   );
 }
 
@@ -253,7 +277,7 @@ function TextInput({ value, onChange, placeholder, type, disabled, min, max, id,
       disabled={disabled}
       min={min}
       max={max}
-      className={`w-full px-3 py-2 text-sm bg-white border border-warm-200 rounded-lg text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all placeholder:text-warm-400 disabled:bg-warm-50 disabled:cursor-not-allowed ${className ?? ""}`}
+      className={`min-h-11 w-full px-3 py-2 text-sm bg-white border border-warm-200 rounded-lg text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all placeholder:text-warm-400 disabled:bg-warm-50 disabled:cursor-not-allowed ${className ?? ""}`}
     />
   );
 }
@@ -267,7 +291,7 @@ function TextArea({ value, onChange, placeholder, rows }: {
       onChange={e => onChange(e.target.value)}
       placeholder={placeholder}
       rows={rows ?? 3}
-      className="w-full px-3 py-2 text-sm bg-white border border-warm-200 rounded-lg text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all placeholder:text-warm-400 resize-none"
+      className="w-full resize-y rounded-lg border border-warm-200 bg-white px-3 py-2 text-sm text-warm-900 transition-all placeholder:text-warm-400 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
     />
   );
 }
@@ -279,7 +303,7 @@ function SelectInput({ value, onChange, options, placeholder }: {
     <select
       value={value}
       onChange={e => onChange(e.target.value)}
-      className="w-full px-3 py-2 text-sm bg-white border border-warm-200 rounded-lg text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all cursor-pointer"
+      className="min-h-11 w-full px-3 py-2 text-sm bg-white border border-warm-200 rounded-lg text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all cursor-pointer"
     >
       <option value="">{placeholder ?? "Select..."}</option>
       {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -303,11 +327,18 @@ function TagInput({ tags, onChange, placeholder }: {
     }
   };
   return (
-    <div className="flex flex-wrap items-center gap-1.5 px-3 py-2 bg-white border border-warm-200 rounded-lg min-h-[36px]">
+    <div className="flex min-h-11 flex-wrap items-center gap-1.5 rounded-lg border border-warm-200 bg-white px-3 py-2">
       {tags.map((tag, i) => (
         <span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 bg-warm-100 border border-warm-200 rounded text-xs font-bold text-warm-700">
           {tag}
-          <button type="button" onClick={() => onChange(tags.filter((_, j) => j !== i))} className="text-warm-400 hover:text-red-500 ml-0.5 cursor-pointer">×</button>
+          <button
+            type="button"
+            aria-label={`Remove ${tag}`}
+            onClick={() => onChange(tags.filter((_, j) => j !== i))}
+            className="ml-0.5 inline-flex min-h-6 min-w-6 cursor-pointer items-center justify-center text-warm-400 hover:text-red-500"
+          >
+            ×
+          </button>
         </span>
       ))}
       <input
@@ -531,31 +562,35 @@ function AttachmentsPanel({ ncpId, uploadLabel, kind, blurb }: {
         />
       )}
 
-      <div className="space-y-4">
-        <div className="rounded-xl border border-warm-200 bg-warm-50/60 p-4 space-y-3">
-          <div className="flex items-center gap-2">
+      <details className="group rounded-xl border border-warm-200 bg-warm-50/60">
+        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-4 py-2 text-xs font-extrabold uppercase tracking-wider text-warm-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500">
+          <span className="flex items-center gap-2">
             <Paperclip className="h-4 w-4 text-emerald-600" />
-            <h4 className="text-xs font-extrabold text-warm-800 uppercase tracking-wider">Supporting Documents</h4>
-          </div>
+            Supporting documents
+          </span>
+          <span className="font-semibold normal-case tracking-normal text-warm-500">
+            {loading ? "Loading…" : `${items.length} attached`}
+          </span>
+        </summary>
+        <div className="space-y-3 border-t border-warm-200 p-4">
           <p className="text-xs text-warm-500 leading-relaxed">{blurb}</p>
           <DropZone label={uploadLabel} onUpload={handleUpload} uploading={uploading} />
-        </div>
 
-        {error && (
-          <div className="px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700 font-semibold">{error}</div>
-        )}
+          {error && (
+            <div className="px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700 font-semibold">{error}</div>
+          )}
 
-        {loading ? (
-          <div className="space-y-2">
-            {[0, 1].map(i => <div key={i} className="h-12 bg-warm-100 rounded-xl animate-pulse" />)}
-          </div>
-        ) : items.length === 0 ? (
-          <div className="text-center py-8 text-xs text-warm-400 font-semibold border border-dashed border-warm-200 rounded-xl">
-            No documents attached to this cycle yet.
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {items.map((doc, idx) => {
+          {loading ? (
+            <div className="space-y-2">
+              {[0, 1].map(i => <div key={i} className="h-12 bg-warm-100 rounded-xl animate-pulse" />)}
+            </div>
+          ) : items.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-warm-200 py-4 text-center text-xs font-semibold text-warm-400">
+              No documents attached to this cycle yet.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {items.map((doc, idx) => {
               const isImg = isImagePath(doc.file_path);
               const fileUrl = getAttachmentFileUrl(doc.id);
               const docName = `${displayName} ${items.length > 1 ? idx + 1 : ""}`.trim();
@@ -602,11 +637,12 @@ function AttachmentsPanel({ ncpId, uploadLabel, kind, blurb }: {
                   </div>
                 </div>
               );
-            })}
-          </div>
-        )}
-        <Pagination meta={meta} page={page} onPageChange={setPage} />
-      </div>
+              })}
+            </div>
+          )}
+          <Pagination meta={meta} page={page} onPageChange={setPage} />
+        </div>
+      </details>
     </>
   );
 }
@@ -653,6 +689,12 @@ export default function NcpAssessmentPage({
   const [screeningDraft, setScreeningDraft] = useState<ScreeningDraft | null>(null);
   const [sectionAChecks, setSectionAChecks] = useState<boolean[]>([]);
   const [sectionBChecks, setSectionBChecks] = useState<boolean[]>([]);
+  const [referralSection, setReferralSection] = useState<ReferralSection>("details");
+  const [summaryBaseline, setSummaryBaseline] = useState<string | null>(null);
+  const [lastGeneratedSummary, setLastGeneratedSummary] = useState<string | null>(null);
+  const [summaryUndo, setSummaryUndo] = useState<string | null>(null);
+  const [summaryNotice, setSummaryNotice] = useState<string | null>(null);
+  const summaryBaselineNcpId = useRef<string | null>(null);
 
   const isPlaceholder = patientId === "select-patient" || ncpId === "select-ncp";
 
@@ -827,6 +869,57 @@ export default function NcpAssessmentPage({
   const riskInfo = riskBadge(riskScore);
   const computedRiskInfo = riskBadge(riskResult.score);
 
+  const summaryInput: AssessmentSummaryInput = (() => {
+    const labs = LAB_FIELDS.flatMap((field) => {
+      const raw = assessment.biochemical_data?.[field.key as keyof NonNullable<Assessment["biochemical_data"]>];
+      if (raw === null || raw === undefined || raw === "") return [];
+      const value = Number(raw);
+      if (!Number.isFinite(value)) return [];
+      return [{
+        label: field.label,
+        value,
+        unit: field.unit,
+        status: getLabStatus(value, field, patientSex),
+      }];
+    });
+
+    return {
+      assessment,
+      anthropometrics: {
+        bmi: computedBmi,
+        ibwKg: computedIBW === null ? null : Number(computedIBW.toFixed(1)),
+        percentIbw: computedPercentIBW === null ? null : Math.round(computedPercentIBW),
+        weightChangePercent: computedWeightChangePct,
+        weightChangeDirection: weightChangeDirection === "stable" ? "none" : weightChangeDirection,
+        muacClassification: muacClassification?.label ?? null,
+        whr: computedWHR,
+        whrRisk,
+        nutritionalStatus: computedNutritionalStatus?.label ?? assessment.nutritional_status,
+      },
+      labs,
+      risk: riskScore > 0 || effectiveRiskFactors.length > 0
+        ? {
+            label: riskInfo.label,
+            score: riskScore,
+            mode: riskManualOverride ? "manual" : "automatic",
+            factors: effectiveRiskFactors
+              .map((key) => RISK_FACTORS.find((factor) => factor.key === key)?.label)
+              .filter((label): label is string => Boolean(label)),
+          }
+        : null,
+    };
+  })();
+  const summaryCandidate = buildAssessmentSummary(summaryInput);
+
+  useEffect(() => {
+    if (loading || isPlaceholder || summaryBaselineNcpId.current === ncpId) return;
+    summaryBaselineNcpId.current = ncpId;
+    setSummaryBaseline(summaryCandidate);
+    setLastGeneratedSummary(null);
+    setSummaryUndo(null);
+    setSummaryNotice(null);
+  }, [isPlaceholder, loading, ncpId, summaryCandidate]);
+
   // ─── Field Updater ──────────────────────────────────────────────────
   const updateField = (key: keyof Assessment, value: unknown) => {
     setAssessment(prev => ({ ...prev, [key]: value }));
@@ -866,6 +959,38 @@ export default function NcpAssessmentPage({
   };
 
   const s = (key: keyof Assessment): string => (assessment[key] as string) ?? "";
+
+  const summaryIsStale = summaryBaseline !== null
+    && summaryCandidate !== summaryBaseline
+    && s("rnd_summary").trim().length > 0;
+  const summaryWasEdited = lastGeneratedSummary !== null && s("rnd_summary") !== lastGeneratedSummary;
+
+  const handleGenerateSummary = () => {
+    if (!summaryCandidate) {
+      setSummaryNotice("Add assessment details before generating a summary.");
+      return;
+    }
+    const previousSummary = s("rnd_summary");
+    setSummaryUndo(previousSummary.trim() ? previousSummary : null);
+    updateField("rnd_summary", summaryCandidate);
+    setSummaryBaseline(summaryCandidate);
+    setLastGeneratedSummary(summaryCandidate);
+    setSummaryNotice("Summary draft generated. Review before saving.");
+  };
+
+  const handleSummaryChange = (value: string) => {
+    updateField("rnd_summary", value);
+    setSummaryUndo(null);
+    setSummaryNotice(null);
+  };
+
+  const handleUndoSummary = () => {
+    if (summaryUndo === null) return;
+    updateField("rnd_summary", summaryUndo);
+    setLastGeneratedSummary(null);
+    setSummaryUndo(null);
+    setSummaryNotice("Previous summary restored.");
+  };
 
   // ─── Save ───────────────────────────────────────────────────────────
   const handleSave = async () => {
@@ -973,9 +1098,11 @@ export default function NcpAssessmentPage({
 
   // ─── Tab Renderers ──────────────────────────────────────────────────
   const renderDietaryTab = () => (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <Field label="Present Diet" span={2}>
-        <TextArea value={s("present_diet")} onChange={v => updateField("present_diet", v)} placeholder="Current diet description..." />
+    <div className="space-y-4">
+      <AssessmentSection legend="Diet and intake">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+      <Field label="Present Diet" className="md:col-span-2 xl:col-span-2">
+        <TextArea value={s("present_diet")} onChange={v => updateField("present_diet", v)} placeholder="Current diet description..." rows={2} />
       </Field>
       <Field label="Energy Intake Status">
         <SelectInput
@@ -993,8 +1120,8 @@ export default function NcpAssessmentPage({
           placeholder="Select method..."
         />
       </Field>
-      <Field label="Dietary Intake" span={2}>
-        <TextArea value={s("dietary_intake")} onChange={v => updateField("dietary_intake", v)} placeholder="24-hour recall narrative or food frequency notes..." />
+      <Field label="Dietary Intake" className="md:col-span-2 xl:col-span-2">
+        <TextArea value={s("dietary_intake")} onChange={v => updateField("dietary_intake", v)} placeholder="24-hour recall narrative or food frequency notes..." rows={2} />
       </Field>
       <Field label="Appetite Changes">
         <SelectInput
@@ -1015,19 +1142,25 @@ export default function NcpAssessmentPage({
       <Field label="Dietary Restrictions">
         <TextArea value={s("dietary_restrictions")} onChange={v => updateField("dietary_restrictions", v)} placeholder="Restrictions and intolerances..." rows={2} />
       </Field>
+        </div>
+      </AssessmentSection>
+
+      <AssessmentSection legend="Dietary modifiers">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
       <Field label="Supplements">
         <TextInput value={s("supplements")} onChange={v => updateField("supplements", v)} placeholder="Current supplements..." />
       </Field>
-      <Field label="Knowledge / Beliefs Notes" span={2}>
-        <TextArea value={s("knowledge_notes")} onChange={v => updateField("knowledge_notes", v)} placeholder="RND observations on patient knowledge and beliefs..." />
+      <Field label="Knowledge / Beliefs Notes">
+        <TextArea value={s("knowledge_notes")} onChange={v => updateField("knowledge_notes", v)} placeholder="RND observations on patient knowledge and beliefs..." rows={2} />
       </Field>
-      <Field label="Nutrient-Drug Interaction" span={2}>
+      <Field label="Nutrient-Drug Interaction">
         <TextArea value={s("nutrient_drug_interaction")} onChange={v => updateField("nutrient_drug_interaction", v)} placeholder="Known nutrient-drug interactions..." rows={2} />
       </Field>
+        </div>
+      </AssessmentSection>
       {/* GI / Tolerance — moved from Anthropometrics tab */}
-      <div className="col-span-1 md:col-span-2 mt-2">
-        <p className="text-xs font-bold text-warm-400 uppercase tracking-wider mb-3">GI / Tolerance</p>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <AssessmentSection legend="GI / tolerance">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
           <Field label="Chewing / Swallowing Difficulties">
             <TextArea value={s("chewing_swallowing_difficulties")} onChange={v => updateField("chewing_swallowing_difficulties", v)} placeholder="Any chewing or swallowing difficulties..." rows={2} />
           </Field>
@@ -1038,17 +1171,17 @@ export default function NcpAssessmentPage({
             <TextArea value={s("diarrhea_notes")} onChange={v => updateField("diarrhea_notes", v)} placeholder="Diarrhea notes..." rows={2} />
           </Field>
         </div>
-      </div>
+      </AssessmentSection>
     </div>
   );
 
   const renderAnthropometricTab = () => (
-    <div className="space-y-6">
+    <div className="space-y-4">
 
       {/* ── Always-visible calculated summary strip ───────────────────── */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6">
         {/* IBW — from weight + height (Hamwi) */}
-        <div className={`rounded-xl p-3 border ${computedIBW !== null ? "bg-white border-warm-200" : "bg-warm-50 border-warm-100"}`}>
+        <div className={`rounded-xl border p-2.5 ${computedIBW !== null ? "bg-white border-warm-200" : "bg-warm-50 border-warm-100"}`}>
           <p className="text-xs font-bold text-warm-400 uppercase tracking-wider">IBW</p>
           <p className={`text-xl font-black font-mono mt-0.5 ${computedIBW !== null ? "text-warm-900" : "text-warm-300"}`}>
             {computedIBW !== null ? `${computedIBW.toFixed(1)} kg` : "—"}
@@ -1062,7 +1195,7 @@ export default function NcpAssessmentPage({
           </p>
         </div>
         {/* BMI — from weight + height */}
-        <div className={`rounded-xl p-3 border ${computedBmi !== null ? "bg-white border-warm-200" : "bg-warm-50 border-warm-100"}`}>
+        <div className={`rounded-xl border p-2.5 ${computedBmi !== null ? "bg-white border-warm-200" : "bg-warm-50 border-warm-100"}`}>
           <p className="text-xs font-bold text-warm-400 uppercase tracking-wider">BMI</p>
           <p className={`text-xl font-black font-mono mt-0.5 ${computedBmi !== null ? "text-warm-900" : "text-warm-300"}`}>
             {computedBmi !== null ? computedBmi.toFixed(1) : "—"}
@@ -1072,7 +1205,7 @@ export default function NcpAssessmentPage({
           </p>
         </div>
         {/* BMR — from weight + height + age + sex (+ PAL for TEE) */}
-        <div className={`rounded-xl p-3 border ${computedBMR !== null ? "bg-white border-warm-200" : "bg-warm-50 border-warm-100"}`}>
+        <div className={`rounded-xl border p-2.5 ${computedBMR !== null ? "bg-white border-warm-200" : "bg-warm-50 border-warm-100"}`}>
           <p className="text-xs font-bold text-warm-400 uppercase tracking-wider">BMR / TEE</p>
           <p className={`text-xl font-black font-mono mt-0.5 ${computedBMR !== null ? "text-warm-900" : "text-warm-300"}`}>
             {computedBMR !== null ? Math.round(computedBMR) : "—"}
@@ -1084,7 +1217,7 @@ export default function NcpAssessmentPage({
           </p>
         </div>
         {/* Weight Loss/Gain % - from weight + usual weight */}
-        <div className={`rounded-xl p-3 border ${computedWeightChangePct !== null ? "bg-white border-warm-200" : "bg-warm-50 border-warm-100"}`}>
+        <div className={`rounded-xl border p-2.5 ${computedWeightChangePct !== null ? "bg-white border-warm-200" : "bg-warm-50 border-warm-100"}`}>
           <p className="text-xs font-bold text-warm-400 uppercase tracking-wider">Weight Loss/Gain</p>
           <p className={`text-xl font-black font-mono mt-0.5 ${computedWeightChangePct !== null
               ? weightChangeDirection === "gain"
@@ -1101,7 +1234,7 @@ export default function NcpAssessmentPage({
           </p>
         </div>
         {/* MUAC — from muac_mm */}
-        <div className={`rounded-xl p-3 border ${muacClassification !== null ? "bg-white border-warm-200" : "bg-warm-50 border-warm-100"}`}>
+        <div className={`rounded-xl border p-2.5 ${muacClassification !== null ? "bg-white border-warm-200" : "bg-warm-50 border-warm-100"}`}>
           <p className="text-xs font-bold text-warm-400 uppercase tracking-wider">MUAC</p>
           <p className={`text-xl font-black font-mono mt-0.5 ${muacClassification !== null ? "text-warm-900" : "text-warm-300"}`}>
             {muacValue > 0 ? `${muacValue} mm` : "—"}
@@ -1112,7 +1245,7 @@ export default function NcpAssessmentPage({
           }
         </div>
         {/* WHR — from waist_cm ÷ hip_cm */}
-        <div className={`rounded-xl p-3 border ${computedWHR !== null ? (whrRisk === "High Risk" ? "bg-white border-red-200" : "bg-white border-warm-200") : "bg-warm-50 border-warm-100"}`}>
+        <div className={`rounded-xl border p-2.5 ${computedWHR !== null ? (whrRisk === "High Risk" ? "bg-white border-red-200" : "bg-white border-warm-200") : "bg-warm-50 border-warm-100"}`}>
           <p className="text-xs font-bold text-warm-400 uppercase tracking-wider">WHR</p>
           <p className={`text-xl font-black font-mono mt-0.5 ${computedWHR !== null ? "text-warm-900" : "text-warm-300"}`}>
             {computedWHR !== null ? computedWHR.toFixed(2) : "—"}
@@ -1148,7 +1281,7 @@ export default function NcpAssessmentPage({
       )}
 
       {/* ── Measurement inputs ───────────────────────────────────────── */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-3 xl:grid-cols-4">
         {/* Bounds mirror backend config/clinical.php assessment_input_bounds — reject typo'd
             weight/height that would otherwise blow up the prescription engine. */}
         <Field label="Weight (kg)" required={CALCULATION_INPUT_HELPERS.weight.required}>
@@ -1186,9 +1319,11 @@ export default function NcpAssessmentPage({
   );
 
   const renderClientTab = () => (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <Field label="Medical History" span={2}>
-        <TextArea value={s("medical_history")} onChange={v => updateField("medical_history", v)} placeholder="Medical history..." rows={4} />
+    <div className="space-y-4">
+      <AssessmentSection legend="Clinical and social context">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+      <Field label="Medical History" className="md:col-span-2">
+        <TextArea value={s("medical_history")} onChange={v => updateField("medical_history", v)} placeholder="Medical history..." rows={3} />
       </Field>
       <Field label="Social History">
         <TextArea value={s("social_history")} onChange={v => updateField("social_history", v)} placeholder="Social history..." rows={3} />
@@ -1200,6 +1335,11 @@ export default function NcpAssessmentPage({
           placeholder="e.g. Roman Catholic, Muslim, Seventh-Day Adventist"
         />
       </Field>
+        </div>
+      </AssessmentSection>
+
+      <AssessmentSection legend="Calculation context">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
       <Field label="Physical Activity Level (PAL)" required={CALCULATION_INPUT_HELPERS.physical_activity_level.required}>
         <SelectInput
           value={s("physical_activity_level")}
@@ -1253,14 +1393,20 @@ export default function NcpAssessmentPage({
           />
         </Field>
       )}
+        </div>
+      </AssessmentSection>
+
+      <AssessmentSection legend="Food safety and preferences">
+        <div className="grid grid-cols-1 gap-3 xl:grid-cols-3">
       <Field label="Allergies (Hard Filter for meal plans)">
         <div className="flex flex-wrap gap-1.5 py-1">
           {COMMON_ALLERGENS.map(a => (
             <button
               key={a}
               type="button"
+              aria-pressed={allergies.includes(a)}
               onClick={() => updateField("allergies", allergies.includes(a) ? allergies.filter(x => x !== a) : [...allergies, a])}
-              className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide border transition-all cursor-pointer ${allergies.includes(a)
+              className={`min-h-11 rounded-full border px-3 py-1 text-xs font-bold uppercase tracking-wide transition-all cursor-pointer ${allergies.includes(a)
                   ? "bg-red-100 border-red-300 text-red-800"
                   : "bg-warm-50 border-warm-200 text-warm-500 hover:border-red-200 hover:text-red-700"
                 }`}
@@ -1276,17 +1422,24 @@ export default function NcpAssessmentPage({
       <Field label="Food Dislikes (Soft Filter — warnings only)">
         <TagInput tags={assessment.food_dislikes ?? []} onChange={v => updateField("food_dislikes", v)} placeholder="Type disliked food and press Enter..." />
       </Field>
-      <Field label="Medications" span={2}>
+      <Field label="Medications">
         <TagInput tags={assessment.medications ?? []} onChange={v => updateField("medications", v)} placeholder="Type medication and press Enter..." />
       </Field>
+        </div>
+      </AssessmentSection>
     </div>
   );
 
   const renderBiochemicalTab = () => (
-    <div className="grid gap-4 lg:grid-cols-[1.4fr_0.6fr] items-start">
-      <div className="space-y-4">
-        <p className="text-xs font-bold text-warm-400 uppercase tracking-wider">Lab Values</p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+    <div className="space-y-4">
+      <AttachmentsPanel
+        ncpId={ncpId}
+        kind="labs"
+        uploadLabel="Upload Lab Results (PDF or Image)"
+        blurb="Attach lab sheets and biochemical results for this NCP cycle. Stored for record-keeping and appended to the printed NCP report."
+      />
+      <AssessmentSection legend="Lab values">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
           {LAB_FIELDS.map(field => {
             const rawValue = (assessment.biochemical_data?.[field.key as keyof NonNullable<typeof assessment.biochemical_data>] ?? "") as string | number;
             const numValue = rawValue !== "" ? Number(rawValue) : null;
@@ -1297,17 +1450,17 @@ export default function NcpAssessmentPage({
             return (
               <div
                 key={field.key}
-                className={`rounded-xl border p-3 transition-colors ${isAbnormal
+                className={`rounded-xl border p-2.5 transition-colors ${isAbnormal
                     ? "border-red-200 bg-red-50/40"
                     : "border-warm-200 bg-white"
                   }`}
               >
-                <label className="block text-xs font-bold uppercase tracking-wider mb-1.5 flex items-center justify-between">
-                  <span className={isAbnormal ? "text-red-700" : "text-warm-500"}>
+                <label htmlFor={`lab-${field.key}`} className="mb-1.5 flex items-start justify-between gap-1 text-xs font-bold uppercase tracking-wider">
+                  <span className={`min-w-0 leading-tight ${isAbnormal ? "text-red-700" : "text-warm-500"}`}>
                     {field.label}
                   </span>
                   {isAbnormal && (
-                    <span className={`text-xs font-extrabold px-1.5 py-0.5 rounded ${status === "low"
+                    <span className={`shrink-0 text-xs font-extrabold px-1.5 py-0.5 rounded ${status === "low"
                         ? "bg-sky-100 text-sky-700"
                         : "bg-red-100 text-red-700"
                       }`}>
@@ -1318,13 +1471,14 @@ export default function NcpAssessmentPage({
                 <div className="relative">
                   <input
                     type="number"
+                    id={`lab-${field.key}`}
                     value={rawValue}
                     onChange={e => updateField("biochemical_data", {
                       ...assessment.biochemical_data,
                       [field.key]: coerceBiochemicalValue(field.key, e.target.value),
                     })}
                     placeholder={`e.g. ${low ?? high}`}
-                    className={`w-full px-3 py-2 text-sm bg-white border rounded-lg text-warm-900 focus:outline-none focus:ring-2 transition-all placeholder:text-warm-400 ${isAbnormal
+                    className={`min-h-11 w-full rounded-lg border bg-white px-3 py-2 text-sm text-warm-900 transition-all placeholder:text-warm-400 focus:outline-none focus:ring-2 ${isAbnormal
                         ? "border-red-300 focus:ring-red-400/20 focus:border-red-400"
                         : "border-warm-200 focus:ring-emerald-500/20 focus:border-emerald-500"
                       }`}
@@ -1340,20 +1494,19 @@ export default function NcpAssessmentPage({
                     Normal: {low !== null ? low : "—"} – {high !== null ? high : "—"}{field.unit ? ` ${field.unit}` : ""}
                   </p>
                   {field.note && (
-                    <p className="text-xs text-warm-400 italic leading-relaxed">{field.note}</p>
+                    <details className="group/reference pt-0.5">
+                      <summary className="inline-flex min-h-6 cursor-pointer items-center text-xs font-semibold text-warm-500 underline decoration-warm-300 underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500">
+                        Reference guidance
+                      </summary>
+                      <p className="pt-1 text-xs italic leading-relaxed text-warm-500">{field.note}</p>
+                    </details>
                   )}
                 </div>
               </div>
             );
           })}
         </div>
-      </div>
-      <AttachmentsPanel
-        ncpId={ncpId}
-        kind="labs"
-        uploadLabel="Upload Lab Results (PDF or Image)"
-        blurb="Attach lab sheets and biochemical results for this NCP cycle. Stored for record-keeping and appended to the printed NCP report."
-      />
+      </AssessmentSection>
     </div>
   );
 
@@ -1362,10 +1515,29 @@ export default function NcpAssessmentPage({
     const screeningType = draft?.screeningType ?? "adult";
 
     return (
-      <div className="space-y-5">
-        <div className="grid gap-4 lg:grid-cols-[1.4fr_0.6fr]">
-          <div className="bg-white border border-warm-200 rounded-2xl p-5 shadow-sm space-y-4">
-            <div className="flex items-start justify-between gap-3">
+      <div className="space-y-4">
+        <div role="tablist" aria-label="Referral and screening sections" className="grid grid-cols-1 gap-2 rounded-xl border border-warm-200 bg-warm-50/60 p-1.5 sm:grid-cols-3">
+          {REFERRAL_SECTIONS.map((section) => (
+            <button
+              key={section.key}
+              type="button"
+              role="tab"
+              aria-selected={referralSection === section.key}
+              onClick={() => setReferralSection(section.key)}
+              className={`min-h-11 rounded-lg px-3 py-2 text-xs font-extrabold uppercase tracking-wider transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${referralSection === section.key
+                  ? "bg-white text-emerald-700 shadow-sm"
+                  : "text-warm-500 hover:bg-white/70 hover:text-warm-800"
+                }`}
+            >
+              {section.label}
+            </button>
+          ))}
+        </div>
+
+        {referralSection === "details" && (
+        <div className="space-y-3">
+          <div className="space-y-4 rounded-2xl border border-warm-200 bg-white p-4 shadow-sm">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <h4 className="text-base font-extrabold text-warm-900 uppercase tracking-wider flex items-center gap-2">
                   <FileText className="h-4 w-4 text-emerald-600" />
@@ -1375,15 +1547,28 @@ export default function NcpAssessmentPage({
                   Enter screening demographics below manually. Edits to demographics will persist back to the patient profile on save.
                 </p>
               </div>
-              <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider border ${screeningType === "pediatric"
-                  ? "bg-sky-50 text-sky-700 border-sky-200"
-                  : "bg-emerald-50 text-emerald-700 border-emerald-200"
-                }`}>
-                {screeningType === "pediatric" ? "Pediatric B.06" : "Adult B.07"}
-              </span>
+              <div className="grid w-full shrink-0 grid-cols-2 gap-2 sm:flex sm:w-auto">
+                {(["adult", "pediatric"] as const).map(t => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => {
+                      updateScreeningDraftField("screeningType", t);
+                      setSectionAChecks(new Array(getScreeningConditions(t).length).fill(false));
+                      setSectionBChecks(new Array(getScreeningIntakeHistory(t).length).fill(false));
+                    }}
+                    className={`min-h-11 rounded-lg border px-3 py-1.5 text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${screeningType === t
+                        ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                        : "bg-white text-warm-500 border-warm-200 hover:border-warm-300"
+                      }`}
+                  >
+                    {t === "adult" ? "Adult B.07" : "Pediatric B.06"}
+                  </button>
+                ))}
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
               <Field label="First Name" htmlFor="screening-first-name">
                 <TextInput id="screening-first-name" className="min-h-11 focus-visible:ring-2" value={draft?.firstName ?? ""} onChange={v => updateScreeningDraftField("firstName", v)} placeholder="First name" />
               </Field>
@@ -1416,12 +1601,12 @@ export default function NcpAssessmentPage({
               <Field label="Attending Physician">
                 <TextInput value={draft?.referredBy ?? ""} onChange={v => updateScreeningDraftField("referredBy", v)} placeholder="Attending physician" />
               </Field>
-              <Field label="Medical Diagnosis" span={2}>
+              <Field label="Medical Diagnosis" className="md:col-span-2 xl:col-span-2">
                 <TextArea
                   value={draft?.diagnosis ?? ""}
                   onChange={v => updateScreeningDraftField("diagnosis", v)}
                   placeholder="Medical diagnosis or admitting impression"
-                  rows={3}
+                  rows={2}
                 />
               </Field>
               <Field label="Hospital Number">
@@ -1445,35 +1630,11 @@ export default function NcpAssessmentPage({
                   placeholder="Select referral type..."
                 />
               </Field>
-              <Field label="Referral Date & Time" span={2}>
+              <Field label="Referral Date & Time" className="md:col-span-2 xl:col-span-2">
                 <TextInput type="datetime-local" value={draft?.referralDatetime ?? ""} onChange={v => updateScreeningDraftField("referralDatetime", v)} />
               </Field>
             </div>
 
-            <div className="flex flex-col gap-3 rounded-xl border border-warm-200 bg-warm-50/60 p-3">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-xs font-bold text-warm-500 uppercase tracking-wider">Screening Type:</span>
-                <div className="flex gap-2">
-                  {(["adult", "pediatric"] as const).map(t => (
-                    <button
-                      key={t}
-                      type="button"
-                      onClick={() => {
-                        updateScreeningDraftField("screeningType", t);
-                        setSectionAChecks(new Array(getScreeningConditions(t).length).fill(false));
-                        setSectionBChecks(new Array(getScreeningIntakeHistory(t).length).fill(false));
-                      }}
-                      className={`px-3 py-1.5 text-xs font-bold uppercase tracking-wider rounded-lg border transition-all cursor-pointer ${screeningType === t
-                          ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                          : "bg-white text-warm-500 border-warm-200 hover:border-warm-300"
-                        }`}
-                    >
-                      {t === "adult" ? "Adult B.07" : "Pediatric B.06"}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
           </div>
 
           <div className="space-y-4">
@@ -1491,16 +1652,17 @@ export default function NcpAssessmentPage({
             </div> */}
           </div>
         </div>
+        )}
 
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+        {referralSection === "conditions" && (
           <div className="bg-white border border-warm-200 rounded-2xl p-4 shadow-sm">
             <h4 className="text-xs font-extrabold text-warm-800 uppercase tracking-wider mb-3 flex items-center gap-1.5">
               <Shield className="h-3.5 w-3.5 text-emerald-600" />
               Section A - Clinical Conditions
             </h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
               {getScreeningConditions(screeningType).map((cond, i) => (
-                <label key={i} className="flex items-start gap-2 text-xs text-warm-700 cursor-pointer hover:bg-warm-50 p-1.5 rounded-lg transition-colors">
+                <label key={i} className="flex min-h-11 cursor-pointer items-start gap-2 rounded-lg p-2 text-xs text-warm-700 transition-colors hover:bg-warm-50">
                   <input
                     type="checkbox"
                     checked={sectionAChecks[i] || false}
@@ -1516,15 +1678,17 @@ export default function NcpAssessmentPage({
               ))}
             </div>
           </div>
+        )}
 
+        {referralSection === "intake" && (
           <div className="bg-white border border-warm-200 rounded-2xl p-4 shadow-sm">
             <h4 className="text-xs font-extrabold text-warm-800 uppercase tracking-wider mb-3 flex items-center gap-1.5">
               <Scale className="h-3.5 w-3.5 text-emerald-600" />
               Section B - Intake / Weight History
             </h4>
-            <div className="grid grid-cols-1 gap-2">
+            <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
               {getScreeningIntakeHistory(screeningType).map((item, i) => (
-                <label key={i} className="flex items-start gap-2 text-xs text-warm-700 cursor-pointer hover:bg-warm-50 p-1.5 rounded-lg transition-colors">
+                <label key={i} className="flex min-h-11 cursor-pointer items-start gap-2 rounded-lg p-2 text-xs text-warm-700 transition-colors hover:bg-warm-50">
                   <input
                     type="checkbox"
                     checked={sectionBChecks[i] || false}
@@ -1540,13 +1704,13 @@ export default function NcpAssessmentPage({
               ))}
             </div>
           </div>
-        </div>
+        )}
       </div>
     );
   };
 
   const renderRiskScore = () => (
-    <div className="bg-white border border-warm-200 rounded-xl p-5 space-y-4">
+    <div className="bg-white border border-warm-200 rounded-xl p-4 space-y-3">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <h4 className="text-xs font-extrabold text-warm-800 uppercase tracking-wider flex items-center gap-1.5">
           <Activity className="h-3.5 w-3.5 text-emerald-600" />
@@ -1556,7 +1720,7 @@ export default function NcpAssessmentPage({
           <button
             type="button"
             onClick={resetAutomaticRiskScore}
-            className={`px-2.5 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider border transition-colors ${!riskManualOverride
+            className={`min-h-11 px-3 py-2 rounded-full text-xs font-extrabold uppercase tracking-wider border transition-colors ${!riskManualOverride
                 ? "bg-emerald-50 text-emerald-700 border-emerald-200"
                 : "bg-white text-warm-500 border-warm-200 hover:border-emerald-200 hover:text-emerald-700"
               }`}
@@ -1566,7 +1730,7 @@ export default function NcpAssessmentPage({
           <button
             type="button"
             onClick={enableManualRiskScore}
-            className={`px-2.5 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider border transition-colors ${riskManualOverride
+            className={`min-h-11 px-3 py-2 rounded-full text-xs font-extrabold uppercase tracking-wider border transition-colors ${riskManualOverride
                 ? "bg-amber-50 text-amber-700 border-amber-200"
                 : "bg-white text-warm-500 border-warm-200 hover:border-amber-200 hover:text-amber-700"
               }`}
@@ -1583,9 +1747,9 @@ export default function NcpAssessmentPage({
           Automatic score: {computedRiskInfo.label} - {riskResult.score} pts
         </p>
       )}
-      <div className="space-y-2">
+      <div className="grid grid-cols-1 gap-2 xl:grid-cols-2">
         {RISK_FACTORS.map((factor, i) => (
-          <div key={i} className={`flex items-center justify-between gap-3 text-xs text-warm-700 px-3 py-2 rounded-lg border ${riskManualOverride ? "border-warm-200 bg-warm-50/40" : "border-transparent"}`}>
+          <div key={i} className={`min-h-11 flex items-center justify-between gap-3 text-xs text-warm-700 px-3 py-2 rounded-lg border ${riskManualOverride ? "border-warm-200 bg-warm-50/40" : "border-transparent"}`}>
             <div className="flex items-center gap-2">
               <input
                 type="checkbox"
@@ -1599,7 +1763,7 @@ export default function NcpAssessmentPage({
           </div>
         ))}
       </div>
-      <div className="grid grid-cols-2 gap-3 pt-1">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
         <Field label="Weight Loss/Gain %">
           <TextInput
             type="number"
@@ -1617,29 +1781,64 @@ export default function NcpAssessmentPage({
   );
 
   const renderSummaryTab = () => (
-    <div className="space-y-4">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Field label="Calculated Weight Loss/Gain">
-          <TextInput
-            type="number"
-            value={String(displayWeightChangePct ?? "")}
-            onChange={v => updateField("weight_loss_percentage", v ? Number(v) : null)}
-            placeholder="%"
-            disabled={computedWeightChangePct !== null}
+    <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(22rem,0.85fr)]">
+      <div className="space-y-3 rounded-xl border border-warm-200 bg-white p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h3 className="text-sm font-extrabold text-warm-800">Auto-generated assessment draft</h3>
+            <p className="mt-1 text-xs leading-relaxed text-warm-500">
+              Builds a concise draft from completed fields. Existing text remains editable.
+            </p>
+          </div>
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            {summaryUndo !== null && (
+              <button
+                type="button"
+                onClick={handleUndoSummary}
+                className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg border border-warm-200 bg-white px-3 py-2 text-xs font-bold text-warm-700 transition-colors hover:border-warm-300 hover:bg-warm-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+              >
+                <RotateCcw className="h-3.5 w-3.5" />
+                Undo
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={handleGenerateSummary}
+              className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-extrabold uppercase tracking-wider text-white transition-colors hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 sm:flex-none"
+            >
+              <ClipboardCheck className="h-3.5 w-3.5" />
+              {s("rnd_summary").trim() ? "Regenerate Summary" : "Generate Summary"}
+            </button>
+          </div>
+        </div>
+
+        <div aria-live="polite" className={`rounded-lg border px-3 py-2 text-xs font-semibold ${summaryIsStale
+            ? "border-amber-200 bg-amber-50 text-amber-800"
+            : "border-warm-200 bg-warm-50 text-warm-600"
+          }`}>
+          {summaryNotice
+            ?? (summaryIsStale
+              ? "Assessment changed - regenerate to refresh"
+              : summaryWasEdited
+                ? "Draft edited after generation. Regeneration will replace it; Undo restores the prior text."
+                : s("rnd_summary").trim()
+                  ? "Summary is current with the loaded assessment data."
+                  : "Generate a draft after entering assessment details.")}
+        </div>
+
+        <Field label="RND Summary (Clinical Observations)">
+          <TextArea
+            value={s("rnd_summary")}
+            onChange={handleSummaryChange}
+            placeholder="Summarize clinical observations, reassessment needs, and overall nutritional status..."
+            rows={7}
           />
         </Field>
-        <Field label="Weight Loss/Gain Period">
-          <TextInput value={s("weight_loss_period")} onChange={v => updateField("weight_loss_period", v)} placeholder="e.g. 3 months" />
-        </Field>
+        <p className="text-xs leading-relaxed text-warm-500">
+          Generated text is a draft. Review and edit it before saving the assessment.
+        </p>
       </div>
-      <Field label="RND Summary (Clinical Observations)">
-        <TextArea
-          value={s("rnd_summary")}
-          onChange={v => updateField("rnd_summary", v)}
-          placeholder="Summarize clinical observations, reassessment needs, and overall nutritional status..."
-          rows={8}
-        />
-      </Field>
+      {renderRiskScore()}
     </div>
   );
 
@@ -1672,12 +1871,12 @@ export default function NcpAssessmentPage({
         badges={
           <>
             {allergies.length > 0 && allergies.map((a, i) => (
-              <span key={i} className="px-2 py-0.5 bg-red-50 text-red-700 border border-red-100 rounded font-extrabold uppercase tracking-wider">
+              <span key={i} className="shrink-0 px-2 py-0.5 bg-red-50 text-red-700 border border-red-100 rounded font-extrabold uppercase tracking-wider">
                 ! {a}
               </span>
             ))}
             {riskScore > 0 && (
-              <span className={`px-2 py-0.5 rounded font-extrabold uppercase tracking-wider border ${riskInfo.color}`}>
+              <span className={`shrink-0 px-2 py-0.5 rounded font-extrabold uppercase tracking-wider border ${riskInfo.color}`}>
                 Risk: {riskInfo.label}
               </span>
             )}
@@ -1699,7 +1898,11 @@ export default function NcpAssessmentPage({
 
       {/* Tab Navigation */}
       <div className="bg-white border border-warm-200 rounded-xl overflow-hidden shadow-sm">
-        <div className="flex overflow-x-auto border-b border-warm-200 bg-warm-50/50">
+        <div
+          role="tablist"
+          aria-label="Assessment categories"
+          className="flex overflow-x-auto border-b border-warm-200 bg-warm-50/50"
+        >
           {TABS.map(tab => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.key;
@@ -1707,8 +1910,11 @@ export default function NcpAssessmentPage({
               <button
                 key={tab.key}
                 type="button"
+                role="tab"
+                aria-selected={isActive}
+                aria-controls={`assessment-panel-${tab.key}`}
                 onClick={() => setActiveTab(tab.key)}
-                className={`flex items-center gap-1.5 px-4 py-3 text-xs font-bold uppercase tracking-wider whitespace-nowrap border-b-2 transition-all cursor-pointer ${isActive
+                className={`flex min-h-11 items-center gap-1.5 px-4 py-3 text-xs font-bold uppercase tracking-wider whitespace-nowrap border-b-2 transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500 ${isActive
                     ? "text-emerald-700 border-emerald-600 bg-white"
                     : "text-warm-500 border-transparent hover:text-warm-700 hover:bg-white/50"
                   }`}
@@ -1721,20 +1927,18 @@ export default function NcpAssessmentPage({
         </div>
 
         {/* Tab Content */}
-        <div className="p-5">
+        <div
+          id={`assessment-panel-${activeTab}`}
+          role="tabpanel"
+          className="p-3 sm:p-4 lg:p-5"
+        >
           {tabContent[activeTab]}
         </div>
 
-        {/* Risk Score — shown only on Tab F (Summary) so it appears once, not on Tab E */}
-        {activeTab === "summary" && (
-          <div className="px-5 pb-5">
-            {renderRiskScore()}
-          </div>
-        )}
       </div>
 
       {/* Save Bar */}
-      <div className="bg-white border border-warm-200 rounded-xl px-5 py-3.5 flex items-center justify-between shadow-sm">
+      <div className="flex flex-col gap-3 rounded-xl border border-warm-200 bg-white px-4 py-3.5 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:px-5">
         <div className="text-xs text-warm-500 font-semibold select-none">
           NCP Cycle #{ncpId} • All tabs auto-merge into a single save
         </div>
@@ -1742,7 +1946,7 @@ export default function NcpAssessmentPage({
           type="button"
           onClick={handleSave}
           disabled={saving}
-          className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:bg-emerald-400 text-white text-xs font-extrabold uppercase tracking-wider rounded-lg transition-colors cursor-pointer disabled:cursor-not-allowed shadow-sm"
+          className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 px-5 py-2.5 text-xs font-extrabold uppercase tracking-wider text-white shadow-sm transition-colors hover:bg-emerald-700 active:bg-emerald-800 disabled:cursor-not-allowed disabled:bg-emerald-400 sm:w-auto"
         >
           <Save className="h-3.5 w-3.5" />
           {saving ? "Saving..." : "Save Assessment"}
