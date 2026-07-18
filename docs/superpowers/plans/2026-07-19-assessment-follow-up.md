@@ -18,7 +18,7 @@
 - Modify `frontend/app/(rnd)/ncp/_components/NcpPatientHeader.tsx` and test: allow-listed text context only.
 - Modify Diagnosis/Intervention/Monitoring NCP pages only to supply header context or clarify explicit save UI.
 - Modify `frontend/lib/diagnosisComponentSplit.ts` and tests only if AI wording needs an existing checkbox alias.
-- Modify `frontend/components/announcements/SopBanner.tsx` and add a contract test: Edit label and collapsible date history.
+- Modify `frontend/components/announcements/SopBanner.tsx` and add a contract test: retained Revise label and collapsible date history.
 
 ### Task 1: Documentation checkpoint
 
@@ -54,9 +54,9 @@
 
 ### Task 5: SOP history
 
-- [ ] Add a failing SOP contract test for Edit labels, automatic date-labeled disclosures, and collapsed bodies.
+- [ ] Add a failing SOP contract test for retained Revise labels, automatic date-labeled disclosures, collapsed bodies, and author attribution.
 - [ ] Run focused test and confirm expected failures.
-- [ ] Implement native collapsible history items and neutral Edit wording; add no custom history-name input.
+- [ ] Implement native collapsible history items; retain Revise wording and add no custom history-name input.
 - [ ] Run tests and commit `fix(sop): compact revision history`.
 
 ### Task 6: Verification and push

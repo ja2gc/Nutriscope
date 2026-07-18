@@ -55,9 +55,10 @@ Remove step labels, ward, system/cycle IDs, arbitrary diagnosis-count badges, an
 
 ## SOP history
 
-- Main actions read `History` and `Edit` (or `Set SOP` when empty); modal heading reads `Edit SOP`.
+- Keep the existing `History` and `Revise` action labels and `Revise SOP` modal heading.
 - History remains newest-first and paginated.
 - Each entry is a native collapsible disclosure labeled automatically by its completion date/time. Title, author, role, body, and Current status appear only when expanded.
+- The current SOP identifies `Last changed by`; each expanded history version identifies `Created by`, including the recorded role and timestamp.
 - No custom history naming field is added.
 
 ## Accessibility and responsive rules

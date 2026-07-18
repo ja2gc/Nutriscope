@@ -96,7 +96,7 @@ export function SopBanner() {
 
   return (
     <div className="rounded-3xl border border-emerald-200 bg-emerald-50/60 p-5 shadow-sm">
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex flex-col items-start justify-between gap-3 sm:flex-row">
         <div className="flex items-center gap-2.5">
           <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-600 text-white">
             <ClipboardList className="h-4.5 w-4.5" />
@@ -107,16 +107,16 @@ export function SopBanner() {
             </div>
             {sop?.author && (
               <div className="text-xs font-semibold text-emerald-600/80">
-                {sop.author.name} · {sop.author.role} · {formatTimeStamp(sop.created_at)}
+                Last changed by {sop.author.name} · {sop.author.role} · {formatTimeStamp(sop.created_at)}
               </div>
             )}
           </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex w-full shrink-0 flex-wrap items-center gap-2 sm:w-auto">
           <button
             type="button"
             onClick={() => void openHistory()}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-emerald-200 text-xs font-bold uppercase tracking-wider text-emerald-700 hover:bg-white transition-colors"
+            className="inline-flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-lg border border-emerald-200 px-2.5 py-1.5 text-xs font-bold uppercase tracking-wider text-emerald-700 transition-colors hover:bg-white sm:flex-none"
           >
             <History className="h-3.5 w-3.5" /> History
           </button>
@@ -124,7 +124,7 @@ export function SopBanner() {
             <button
               type="button"
               onClick={openEditor}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-emerald-200 text-xs font-bold uppercase tracking-wider text-emerald-700 hover:bg-white transition-colors"
+              className="inline-flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-lg border border-emerald-200 px-2.5 py-1.5 text-xs font-bold uppercase tracking-wider text-emerald-700 transition-colors hover:bg-white sm:flex-none"
             >
               <PencilLine className="h-3.5 w-3.5" /> {sop ? "Revise" : "Set SOP"}
             </button>
@@ -223,20 +223,23 @@ export function SopBanner() {
                 <div className="text-sm text-warm-400 text-center py-8">No past versions.</div>
               ) : (
                 history.map((v, i) => (
-                  <div key={v.id} className="rounded-2xl border border-warm-200 p-4">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="text-base font-bold text-warm-900">{v.title}</div>
+                  <details key={v.id} className="group rounded-2xl border border-warm-200 bg-white open:border-emerald-200">
+                    <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 rounded-2xl px-4 py-2.5 text-sm font-bold text-warm-800 transition-colors hover:bg-warm-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-inset">
+                      <span>{formatTimeStamp(v.created_at)}</span>
                       {i === 0 && (
                         <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-extrabold uppercase tracking-wider border bg-emerald-50 text-emerald-700 border-emerald-200">
                           Current
                         </span>
                       )}
+                    </summary>
+                    <div className="border-t border-warm-100 px-4 pb-4 pt-3">
+                      <div className="break-words text-base font-bold text-warm-900">{v.title}</div>
+                      <div className="mt-1 text-xs font-semibold text-warm-500">
+                        Created by {v.author?.name ?? "Unknown"}{v.author?.role ? ` · ${v.author.role}` : ""} · {formatTimeStamp(v.created_at)}
+                      </div>
+                      <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-warm-700">{v.body}</p>
                     </div>
-                    <div className="text-xs font-semibold uppercase tracking-wider text-warm-400 mt-0.5">
-                      {v.author?.name} · {v.author?.role} · {formatTimeStamp(v.created_at)}
-                    </div>
-                    <p className="mt-2 text-sm text-warm-600 leading-6 whitespace-pre-wrap">{v.body}</p>
-                  </div>
+                  </details>
                 ))
               )}
               <Pagination meta={historyMeta} page={historyPage} onPageChange={(page) => void openHistory(page)} />
