@@ -11,10 +11,10 @@ import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   DAYS, MEALS, MEAL_LABELS, Day, Meal,
-  CycleListItem, MenuCycle, RecipeOption, FsItemOption, TemplateListItem, RecipeProfile,
+  CycleListItem, MenuCycle, RecipeOption, FsItemOption, TemplateListItem, MenuSnapshot, MenuSlotProfile,
   listCycles, getCycle, saveCycle, deleteCycle, activateCycle,
   saveCycleAsTemplate, listRecipeOptions, listFsItemOptions, listTemplates, instantiateTemplate, deleteTemplate,
-  getRecipeProfile,
+  getRecipeProfile, getFsItemProfile, menuSnapshotToProfile,
 } from "@/services/menuCycleService";
 import { setServedPopulation, listServiceLogs } from "@/services/consumptionService";
 
@@ -49,7 +49,16 @@ const temporal = (start: string | null, days = 7): { label: string; cls: string 
 // display label for whichever one is set. servings_override is the ACTUAL servings
 // for this menu-cycle slot (set via the food panel) — overrides the day's headcount
 // for this dish only, and never touches the baseline recipe.
-interface Cell { recipe_id: number | null; fs_item_id: number | null; recipe_name: string; servings: number; servings_override: number | null }
+interface Cell {
+  recipe_id: number | null;
+  fs_item_id: number | null;
+  recipe_name: string;
+  servings: number;
+  servings_override: number | null;
+  quantity: number;
+  estimate_population: number | null;
+  po_snapshot: MenuSnapshot | null;
+}
 type Grid = Record<string, Cell>;
 // Per-day headcount (drives scaling). Keyed by Day.
 type DayPop = Record<string, string>;
@@ -59,19 +68,22 @@ type DayPop = Record<string, string>;
 // FSS: read-only — sees ingredients, prep notes, and cost at the day's headcount.
 // RND: can scale servings live (re-scales ingredients + cost) and jump to full edit.
 function RecipeProfilePanel(
-  { recipeId, day, population, name, initialServings, readOnly, onPersist, onClose }:
+  { recipeId, fsItemId, snapshot, quantity, day, population, name, initialServings, readOnly, onPersist, onClose }:
   {
-    recipeId: number; day: Day; population: number; name: string;
+    recipeId: number | null; fsItemId: number | null; snapshot: MenuSnapshot | null; quantity: number;
+    day: Day; population: number; name: string;
     initialServings: number | null; readOnly: boolean;
     onPersist?: (servings: number) => void; onClose: () => void;
   },
 ) {
-  const [data, setData] = useState<RecipeProfile | null>(null);
+  const [data, setData] = useState<MenuSlotProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
   // Actual servings for THIS menu-cycle slot — defaults to a saved override, else the
   // day's headcount. Changing it (RND) persists to the slot, never the baseline recipe.
-  const [scaleTo, setScaleTo] = useState(Math.max(1, initialServings || population || 1));
+  const frozen = snapshot !== null;
+  const scaleLocked = readOnly || frozen || recipeId === null;
+  const [scaleTo, setScaleTo] = useState(Math.max(1, snapshot?.population || initialServings || population || 1));
 
   function changeScale(n: number) {
     const v = Math.max(1, n || 1);
@@ -82,12 +94,19 @@ function RecipeProfilePanel(
   useEffect(() => {
     let live = true;
     setLoading(true); setErr("");
-    getRecipeProfile(recipeId, scaleTo)
+    const request = snapshot
+      ? Promise.resolve(menuSnapshotToProfile(snapshot))
+      : recipeId
+        ? getRecipeProfile(recipeId, scaleTo)
+        : fsItemId
+          ? getFsItemProfile(fsItemId, scaleTo, quantity)
+          : Promise.reject(new Error("Food profile is unavailable."));
+    request
       .then((d) => { if (live) setData(d); })
-      .catch(() => { if (live) setErr("Failed to load recipe profile."); })
+      .catch(() => { if (live) setErr("Failed to load food profile."); })
       .finally(() => { if (live) setLoading(false); });
     return () => { live = false; };
-  }, [recipeId, scaleTo]);
+  }, [fsItemId, quantity, recipeId, scaleTo, snapshot]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
@@ -96,11 +115,12 @@ function RecipeProfilePanel(
           <div>
             <div className="text-base font-extrabold text-warm-900">{name}</div>
             <div className="text-xs text-warm-500 mt-0.5">
-              {day} · scaled to {scaleTo} servings{readOnly ? " (view only)" : ""}
+              {day} · scaled to {snapshot?.population ?? scaleTo} servings{scaleLocked ? " (view only)" : ""}
+              {frozen && <span className="ml-1 font-semibold text-emerald-700">· frozen at PO conversion</span>}
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {!readOnly && (
+            {!readOnly && !frozen && recipeId && (
               <Link href={`/food-service/foods/${recipeId}`}
                 className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-emerald-200 text-xs font-bold uppercase tracking-wider text-emerald-700 hover:bg-emerald-50">
                 <Pencil className="h-3 w-3" /> Edit
@@ -131,7 +151,7 @@ function RecipeProfilePanel(
               </div>
               <div>
                 <div className="text-xs font-extrabold text-warm-500 uppercase tracking-wider">Scale to (servings)</div>
-                {readOnly ? (
+                {scaleLocked ? (
                   <div className="text-xl font-extrabold text-warm-800">{scaleTo}</div>
                 ) : (
                   <input type="number" min={1} value={scaleTo}
@@ -354,7 +374,17 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: number | "new"; r
   const [savedId, setSavedId] = useState<number | null>(cycleId === "new" ? null : cycleId);
 
   const [activeCell, setActiveCell] = useState<string | null>(null);
-  const [profileFor, setProfileFor] = useState<{ recipeId: number; day: Day; meal: Meal; name: string; servingsOverride: number | null } | null>(null);
+  const [profileFor, setProfileFor] = useState<{
+    recipeId: number | null;
+    fsItemId: number | null;
+    day: Day;
+    meal: Meal;
+    name: string;
+    servingsOverride: number | null;
+    population: number;
+    quantity: number;
+    snapshot: MenuSnapshot | null;
+  } | null>(null);
   const [pickerSearch, setPickerSearch] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
@@ -374,10 +404,14 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: number | "new"; r
         if (d.recipe_id && d.recipe) g[k] = {
           recipe_id: d.recipe_id, fs_item_id: null, recipe_name: d.recipe.name, servings: d.recipe.servings,
           servings_override: d.servings_override ?? null,
+          quantity: d.quantity ?? 1, estimate_population: d.estimate_population ?? null,
+          po_snapshot: d.po_snapshot ?? null,
         };
         else if (d.fs_item_id && d.fs_item) g[k] = {
           recipe_id: null, fs_item_id: d.fs_item_id, recipe_name: d.fs_item.name, servings: 0,
           servings_override: d.servings_override ?? null,
+          quantity: d.quantity ?? 1, estimate_population: d.estimate_population ?? null,
+          po_snapshot: d.po_snapshot ?? null,
         };
       });
       setGrid(g);
@@ -422,11 +456,17 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: number | "new"; r
   }
 
   function assign(key: string, r: RecipeOption) {
-    setGrid((g) => ({ ...g, [key]: { recipe_id: r.id, fs_item_id: null, recipe_name: r.name, servings: r.servings, servings_override: null } }));
+    setGrid((g) => ({ ...g, [key]: {
+      recipe_id: r.id, fs_item_id: null, recipe_name: r.name, servings: r.servings,
+      servings_override: null, quantity: 1, estimate_population: null, po_snapshot: null,
+    } }));
     setActiveCell(null); setPickerSearch("");
   }
   function assignItem(key: string, it: FsItemOption) {
-    setGrid((g) => ({ ...g, [key]: { recipe_id: null, fs_item_id: it.id, recipe_name: it.name, servings: 0, servings_override: null } }));
+    setGrid((g) => ({ ...g, [key]: {
+      recipe_id: null, fs_item_id: it.id, recipe_name: it.name, servings: 0,
+      servings_override: null, quantity: 1, estimate_population: null, po_snapshot: null,
+    } }));
     setActiveCell(null); setPickerSearch("");
   }
   // Persist the actual servings for a recipe slot (menu-cycle specific; baseline untouched).
@@ -451,9 +491,9 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: number | "new"; r
     return Object.entries(grid).map(([key, c]) => {
       const [day_of_week, meal_type] = key.split("|") as [Day, Meal];
       return {
-        day_of_week, meal_type, recipe_id: c.recipe_id, fs_item_id: c.fs_item_id, quantity: 1,
+        day_of_week, meal_type, recipe_id: c.recipe_id, fs_item_id: c.fs_item_id, quantity: c.quantity,
         servings_override: c.servings_override,
-        estimate_population: null,
+        estimate_population: c.estimate_population,
         is_event: false, event_allocation: null,
       };
     });
@@ -622,24 +662,28 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: number | "new"; r
                       {cell ? (
                         <div className="bg-emerald-50/60 border border-emerald-100 rounded-lg p-2 group">
                           <div className="flex items-start justify-between gap-1">
-                            {cell.recipe_id ? (
-                              <button
-                                onClick={() => setProfileFor({ recipeId: cell.recipe_id!, day: d, meal: m, name: cell.recipe_name, servingsOverride: cell.servings_override })}
-                                title="View ingredients & cost for this day"
-                                className="text-xs font-semibold text-emerald-800 leading-tight text-left hover:underline cursor-pointer">
-                                {cell.recipe_name}
-                              </button>
-                            ) : (
-                              <span className="text-xs font-semibold text-emerald-800 leading-tight">
-                                {cell.recipe_name}
-                              </span>
-                            )}
+                            <button
+                              onClick={() => setProfileFor({
+                                recipeId: cell.recipe_id,
+                                fsItemId: cell.fs_item_id,
+                                day: d,
+                                meal: m,
+                                name: cell.recipe_name,
+                                servingsOverride: cell.servings_override,
+                                population: cell.estimate_population ?? cell.servings_override ?? 1,
+                                quantity: cell.quantity,
+                                snapshot: cell.po_snapshot,
+                              })}
+                              title="View scaled ingredients and cost for this day"
+                              className="text-xs font-semibold text-emerald-800 leading-tight text-left hover:underline cursor-pointer">
+                              {cell.recipe_name}
+                            </button>
                             {!readOnly && (
                               <button onClick={() => clearCell(key)} className="text-emerald-400 hover:text-red-500 cursor-pointer shrink-0"><X className="h-3 w-3" /></button>
                             )}
                           </div>
                           <div className="text-xs text-emerald-500 mt-1">
-                            {cell.recipe_id ? "click to see recipe details" : "single item"}
+                            {cell.po_snapshot ? "PO-scaled profile" : "click to see food details"}
                           </div>
                         </div>
                       ) : readOnly ? (
@@ -698,12 +742,15 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: number | "new"; r
       {profileFor && (
         <RecipeProfilePanel
           recipeId={profileFor.recipeId}
+          fsItemId={profileFor.fsItemId}
+          snapshot={profileFor.snapshot}
+          quantity={profileFor.quantity}
           day={profileFor.day}
           name={profileFor.name}
-          population={profileFor.servingsOverride ?? 1}
+          population={profileFor.population}
           initialServings={profileFor.servingsOverride}
           readOnly={readOnly}
-          onPersist={readOnly ? undefined : (s) => setCellServings(cellKey(profileFor.day, profileFor.meal), s)}
+          onPersist={readOnly || profileFor.snapshot || !profileFor.recipeId ? undefined : (s) => setCellServings(cellKey(profileFor.day, profileFor.meal), s)}
           onClose={() => setProfileFor(null)}
         />
       )}

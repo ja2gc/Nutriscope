@@ -18,6 +18,7 @@ import {
 } from '../../lib/foodService';
 import { PaginatedListFooter } from '../../components/PaginatedListFooter';
 import { flattenUniquePages, getNextPageParam } from '../../lib/pagination';
+import { DayPicker } from '../../components/menu/DayPicker';
 
 const peso = (n: number) => `₱${n.toFixed(2)}`;
 
@@ -190,8 +191,17 @@ function ServedRow({
 // ── Cycle detail: read-only week + served entry ───────────────────────────────────
 function CycleDetail({ cycleId, onBack }: { cycleId: number; onBack: () => void }) {
   const [profile, setProfile] = useState<ProfileTarget | null>(null);
+  const [selectedDay, setSelectedDay] = useState('');
   const { data: cycle, isLoading } = useQuery({ queryKey: ['fs-cycle', cycleId], queryFn: () => getMenuCycle(cycleId) });
   const { data: prep } = useQuery({ queryKey: ['fs-mealprep', cycleId], queryFn: () => listMealPrep(cycleId) });
+
+  useEffect(() => {
+    if (!cycle) return;
+    const available = DAYS.filter((day) => cycle.days?.some((entry) => entry.day_of_week === day));
+    if (selectedDay && available.includes(selectedDay)) return;
+    const todayName = new Date().toLocaleDateString('en-US', { weekday: 'long' });
+    setSelectedDay(available.includes(todayName) ? todayName : available[0] ?? '');
+  }, [cycle, selectedDay]);
 
   if (isLoading || !cycle) {
     return <View className="flex-1 items-center justify-center bg-gray-50"><ActivityIndicator color="#059669" /></View>;
@@ -199,6 +209,7 @@ function CycleDetail({ cycleId, onBack }: { cycleId: number; onBack: () => void 
 
   const byDay: Record<string, MenuDay[]> = {};
   (cycle.days ?? []).forEach((d) => { (byDay[d.day_of_week] ??= []).push(d); });
+  const availableDays = DAYS.filter((day) => byDay[day]?.length);
 
   return (
     <ScrollView className="flex-1 bg-gray-50" contentContainerStyle={{ paddingBottom: 32 }}>
@@ -212,8 +223,32 @@ function CycleDetail({ cycleId, onBack }: { cycleId: number; onBack: () => void 
         )}
       </View>
 
+      {selectedDay && (
+        <DayPicker days={availableDays} weekStartDate={cycle.week_start_date} selectedDay={selectedDay} onSelect={setSelectedDay} />
+      )}
+
+      {selectedDay && (() => {
+        const planned = Number(byDay[selectedDay]?.[0]?.estimate_population ?? 0);
+        const serviceDate = cycle.week_start_date ? new Date(`${cycle.week_start_date}T00:00:00`) : null;
+        if (serviceDate) serviceDate.setDate(serviceDate.getDate() + DAYS.indexOf(selectedDay));
+        const dateKey = serviceDate ? `${serviceDate.getFullYear()}-${String(serviceDate.getMonth() + 1).padStart(2, '0')}-${String(serviceDate.getDate()).padStart(2, '0')}` : '';
+        const served = prep?.find((log) => log.service_date === dateKey)?.served_population ?? 0;
+        return (
+          <View className="mx-4 mt-4 flex-row gap-3">
+            <View className="flex-1 rounded-2xl bg-[#EAF7F1] border border-[#CBEADB] p-4">
+              <Text className="text-[10px] font-bold uppercase tracking-wider text-[#4D7464]">Planned population</Text>
+              <Text className="text-2xl font-extrabold text-[#087F5B] mt-1 tabular-nums">{planned}</Text>
+            </View>
+            <View className="flex-1 rounded-2xl bg-[#FFF7EA] border border-[#F3DEC1] p-4">
+              <Text className="text-[10px] font-bold uppercase tracking-wider text-[#8A653B]">Total served</Text>
+              <Text className="text-2xl font-extrabold text-[#A65B13] mt-1 tabular-nums">{served}</Text>
+            </View>
+          </View>
+        );
+      })()}
+
       {/* Week — read-only foods */}
-      {DAYS.filter((d) => byDay[d]?.length).map((day) => {
+      {DAYS.filter((d) => d === selectedDay && byDay[d]?.length).map((day) => {
         const pop = byDay[day][0]?.estimate_population ?? 0;
         return (
           <View key={day} className="mt-3 mx-4 bg-white rounded-2xl border border-gray-100 overflow-hidden">
@@ -265,7 +300,7 @@ function CycleDetail({ cycleId, onBack }: { cycleId: number; onBack: () => void 
             const servedByDate: Record<string, number | null> = {};
             (prep ?? []).forEach((log) => { servedByDate[log.service_date] = log.served_population; });
             const weekStart = new Date(cycle.week_start_date + 'T00:00:00');
-            return DAYS.filter((d) => byDay[d]?.length).map((day) => {
+            return DAYS.filter((d) => d === selectedDay && byDay[d]?.length).map((day) => {
               const offset = DAYS.indexOf(day);
               const d = new Date(weekStart);
               d.setDate(d.getDate() + offset);

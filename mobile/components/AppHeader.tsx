@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import api from '../lib/api';
 import type { UserProfile } from '../lib/auth';
 import BrandLogo from './BrandLogo';
+import { MOBILE_THEME } from '../lib/theme';
 
 async function fetchUnreadCount(): Promise<number> {
   const res = await api.get<{ count: number }>('/api/notifications/unread-count');
@@ -43,29 +44,34 @@ export default function AppHeader({ title }: AppHeaderProps) {
   return (
     <View
       style={{ paddingTop: insets.top }}
-      className="bg-white border-b border-gray-100"
+      className="bg-[#FBFCFB] border-b border-[#E2EAE5]"
     >
-      <View className="flex-row items-center justify-between px-4 h-14">
-        <View className="flex-row items-center gap-2.5">
-          <BrandLogo size={24} showWordmark={false} />
-          <Text className="text-base font-semibold text-gray-900">{title}</Text>
+      <View className="flex-row items-center justify-between px-4 h-16">
+        <View className="flex-row items-center gap-3">
+          <View className="h-10 w-10 rounded-2xl bg-[#EAF7F1] items-center justify-center border border-[#D2EBDF]">
+            <BrandLogo size={24} showWordmark={false} />
+          </View>
+          <View>
+            <Text className="text-[10px] font-bold uppercase tracking-widest text-[#7A8D85]">Nutriscope</Text>
+            <Text className="text-base font-extrabold text-[#16352B]">{title}</Text>
+          </View>
         </View>
 
         <View className="flex-row items-center gap-2">
           {/* Announcements + SOP */}
           <TouchableOpacity
             onPress={() => router.push('/announcements')}
-            className="w-11 h-11 items-center justify-center"
+            className="w-10 h-10 rounded-xl bg-white border border-[#E5ECE8] items-center justify-center"
             accessibilityLabel="Announcements and SOP"
             hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
           >
-            <Megaphone color="#374151" size={22} />
+            <Megaphone color={MOBILE_THEME.colors.text} size={19} />
           </TouchableOpacity>
 
           {/* Bell */}
           <TouchableOpacity
             onPress={() => router.push('/notifications')}
-            className="w-11 h-11 items-center justify-center"
+            className="w-10 h-10 rounded-xl bg-white border border-[#E5ECE8] items-center justify-center"
             accessibilityLabel={
               unreadCount > 0
                 ? `Notifications, ${unreadCount} unread`
@@ -74,7 +80,7 @@ export default function AppHeader({ title }: AppHeaderProps) {
             hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
           >
             <View className="relative">
-              <Bell color="#374151" size={22} />
+              <Bell color={MOBILE_THEME.colors.text} size={19} />
               {unreadCount > 0 && (
                 <View className="absolute -top-1.5 -right-2 bg-red-500 rounded-full min-w-[16px] h-4 items-center justify-center px-0.5">
                   <Text className="text-white text-[10px] font-bold tabular-nums leading-none">
@@ -88,11 +94,11 @@ export default function AppHeader({ title }: AppHeaderProps) {
           {/* Account */}
           <TouchableOpacity
             onPress={() => router.push('/settings')}
-            className="w-11 h-11 items-center justify-center"
+            className="w-10 h-10 rounded-xl bg-white border border-[#E5ECE8] items-center justify-center"
             accessibilityLabel="Settings and profile"
             hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
           >
-            <UserCircle color="#374151" size={22} />
+            <UserCircle color={MOBILE_THEME.colors.text} size={19} />
           </TouchableOpacity>
         </View>
       </View>

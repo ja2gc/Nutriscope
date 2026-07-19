@@ -60,27 +60,30 @@ export default function LoginScreen() {
 
   return (
     <KeyboardAvoidingView
-      className="flex-1 bg-zinc-50"
+      className="flex-1 bg-[#F4F7F5]"
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <View className="flex-1 justify-center px-4">
+      <View className="flex-1 justify-center px-6">
         <View className="w-full max-w-md mx-auto">
           {/* Brand Header */}
-          <View className="flex flex-col items-center mb-6">
-            <BrandLogo size={32} />
-            <Text className="text-[10px] font-semibold text-zinc-500 uppercase tracking-widest text-center mt-1">
-              Clinical & Operational Care Console
+          <View className="items-center mb-7">
+            <View className="h-16 w-16 rounded-[22px] bg-[#EAF7F1] border border-[#CDE8DB] items-center justify-center mb-3">
+              <BrandLogo size={34} showWordmark={false} />
+            </View>
+            <BrandLogo size={28} />
+            <Text className="text-[10px] font-bold text-[#6B7F77] uppercase tracking-widest text-center mt-2">
+              Food service operations
             </Text>
           </View>
 
           {/* Login Card */}
-          <View className="bg-white px-6 py-8 border border-zinc-200 rounded-2xl shadow-sm">
+          <View className="bg-white px-6 py-7 border border-[#E0E9E4] rounded-[24px] shadow-sm">
             <View className="mb-6 border-b border-zinc-100 pb-4">
-              <Text className="text-lg font-bold text-zinc-900">
-                Sign In
+              <Text className="text-2xl font-extrabold text-[#16352B]">
+                Welcome back
               </Text>
               <Text className="mt-1 text-xs text-zinc-500">
-                Enter your credentials below to access your workspace.
+                Sign in to today’s kitchen and procurement workspace.
               </Text>
             </View>
 
@@ -109,7 +112,7 @@ export default function LoginScreen() {
             {/* Inputs */}
             <Text className="text-xs font-semibold text-zinc-700 mb-1.5">Email Address</Text>
             <TextInput
-              className="border border-zinc-300 rounded-lg px-4 h-12 text-base text-zinc-900 mb-4 bg-white"
+              className="border border-[#D7E2DC] rounded-xl px-4 h-12 text-base text-[#16352B] mb-4 bg-[#FAFCFB]"
               placeholder=""
               placeholderTextColor="#a1a1aa"
               keyboardType="email-address"
@@ -125,7 +128,7 @@ export default function LoginScreen() {
 
             <Text className="text-xs font-semibold text-zinc-700 mb-1.5">Password</Text>
             <TextInput
-              className="border border-zinc-300 rounded-lg px-4 h-12 text-base text-zinc-900 mb-6 bg-white"
+              className="border border-[#D7E2DC] rounded-xl px-4 h-12 text-base text-[#16352B] mb-6 bg-[#FAFCFB]"
               placeholder="••••••••"
               placeholderTextColor="#a1a1aa"
               secureTextEntry
@@ -149,7 +152,7 @@ export default function LoginScreen() {
             </TouchableOpacity>
 
             <TouchableOpacity
-              className={`rounded-lg h-12 items-center justify-center ${submitting ? 'bg-emerald-400' : 'bg-emerald-600 active:bg-emerald-700'
+              className={`rounded-xl h-12 items-center justify-center ${submitting ? 'bg-[#69B99D]' : 'bg-[#087F5B] active:bg-[#0B5D45]'
                 }`}
               onPress={handleLogin}
               disabled={submitting}

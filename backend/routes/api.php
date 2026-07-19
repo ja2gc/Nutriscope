@@ -101,6 +101,7 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
     Route::get('notifications', [NotificationController::class, 'index']);
     Route::get('notifications/unread-count', [NotificationController::class, 'unreadCount']);
     Route::patch('notifications/read-all', [NotificationController::class, 'readAll']);
+    Route::patch('notifications/{notification}/open', [NotificationController::class, 'open']);
     Route::patch('notifications/{notification}/read', [NotificationController::class, 'read']);
 
     // SOP — all roles read the current procedure + its history; RND/Admin author.

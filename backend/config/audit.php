@@ -602,6 +602,13 @@ return [
             'implementation_state' => 'implemented',
             'reason' => 'Notification read state is routine UI housekeeping.',
         ],
+        'PATCH api/notifications/{notification}/open' => [
+            'classification' => 'intentionally_not_audited',
+            'source' => 'App\\Http\\Controllers\\RND\\NotificationController@open',
+            'owner_task' => 4,
+            'implementation_state' => 'implemented',
+            'reason' => 'Notification open state is routine UI housekeeping used for lifecycle cleanup.',
+        ],
         'POST api/rnd/announcements' => [
             'classification' => 'explicit_event',
             'source' => 'App\\Http\\Controllers\\RND\\AnnouncementController@store',

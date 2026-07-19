@@ -18,7 +18,7 @@ export interface AccomplishmentSnapshot {
 }
 
 export interface Report {
-  id: number;
+  id: string;
   user_id: number;
   title: string;
   type: string;
@@ -37,7 +37,7 @@ export async function listReports(page: number): Promise<PaginatedResponse<Repor
   return { ...res.data, data: res.data.data.filter((r) => r.type === 'accomplishment_report') };
 }
 
-export async function getReport(id: number): Promise<Report> {
+export async function getReport(id: string): Promise<Report> {
   const res = await api.get<{ data: Report }>(`/api/fss/reports/${id}`);
   return res.data.data;
 }

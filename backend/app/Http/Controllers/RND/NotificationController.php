@@ -77,15 +77,38 @@ class NotificationController extends Controller
             return response()->json(['message' => 'This action is unauthorized.'], 403);
         }
 
-        $notification->update(['read' => true]);
+        $notification->update([
+            'read' => true,
+            'read_at' => $notification->read_at ?? now(),
+        ]);
 
         return response()->json(['message' => 'Notification marked as read.']);
     }
 
     public function readAll(): JsonResponse
     {
-        Notification::where('user_id', Auth::id())->update(['read' => true]);
+        Notification::where('user_id', Auth::id())
+            ->where(function ($query): void {
+                $query->where('read', false)->orWhereNull('read_at');
+            })
+            ->update(['read' => true, 'read_at' => now()]);
 
         return response()->json(['message' => 'All notifications marked as read.']);
+    }
+
+    public function open(Notification $notification): JsonResponse
+    {
+        if ($notification->user_id !== Auth::id()) {
+            return response()->json(['message' => 'This action is unauthorized.'], 403);
+        }
+
+        $now = now();
+        $notification->update([
+            'read' => true,
+            'read_at' => $notification->read_at ?? $now,
+            'opened_at' => $notification->opened_at ?? $now,
+        ]);
+
+        return response()->json(['message' => 'Notification opened.']);
     }
 }

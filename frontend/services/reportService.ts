@@ -70,6 +70,7 @@ export interface Branding {
 }
 
 export type ReportParams = Record<string, string | number | null | undefined>;
+export type ReportApiPrefix = "rnd" | "admin" | "fss";
 
 async function unwrap<T>(res: Response, fallback: string): Promise<T> {
   const data = await res.json().catch(() => ({}));
@@ -78,23 +79,23 @@ async function unwrap<T>(res: Response, fallback: string): Promise<T> {
 }
 
 // ── Reports ───────────────────────────────────────────────────────────────
-export async function listReports(prefix: "rnd" | "admin" = "rnd", page = 1): Promise<{ data: ReportItem[]; meta: PaginationMeta }> {
+export async function listReports(prefix: ReportApiPrefix = "rnd", page = 1): Promise<{ data: ReportItem[]; meta: PaginationMeta }> {
   const res = await apiFetch(`/api/${prefix}/reports?page=${page}&per_page=10`);
   const json = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(json.message ?? "Failed to load reports.");
   return { data: json.data ?? [], meta: json.meta ?? { current_page: page, per_page: 10, total: 0, last_page: 1 } };
 }
 
-export async function deleteReport(id: string, prefix: "rnd" | "admin" = "rnd"): Promise<void> {
+export async function deleteReport(id: string, prefix: ReportApiPrefix = "rnd"): Promise<void> {
   const res = await apiFetch(`/api/${prefix}/reports/${id}`, { method: "DELETE" });
   if (!res.ok && res.status !== 204) throw new Error("Failed to delete report.");
 }
 
-export const reportDownloadUrl = (id: string, prefix: "rnd" | "admin" = "rnd") =>
+export const reportDownloadUrl = (id: string, prefix: ReportApiPrefix = "rnd") =>
   `/api/${prefix}/reports/${id}/download`;
 
 /** Inline (viewable) URL for an archived copy's frozen PDF — for the preview pane. */
-export const reportViewUrl = (id: string, prefix: "rnd" | "admin" = "rnd") =>
+export const reportViewUrl = (id: string, prefix: ReportApiPrefix = "rnd") =>
   `/api/${prefix}/reports/${id}/view`;
 
 // ── Browse / on-demand render / archive (Spec 4) ──────────────────────────
@@ -109,7 +110,7 @@ function toQuery(params: ReportParams): string {
 export async function listInstances(
   type: ReportType | string,
   filters: ReportParams = {},
-  prefix: "rnd" | "admin" = "rnd",
+  prefix: ReportApiPrefix = "rnd",
 ): Promise<{ data: { axis: ReportAxis; instances: ReportInstance[] }; meta: PaginationMeta }> {
   const res = await apiFetch(`/api/${prefix}/reports/${type}/instances${toQuery(filters)}`);
   const json = await res.json().catch(() => ({}));
@@ -121,17 +122,17 @@ export async function listInstances(
 export const reportRenderUrl = (
   type: ReportType | string,
   params: ReportParams,
-  prefix: "rnd" | "admin" = "rnd",
+  prefix: ReportApiPrefix = "rnd",
 ) => `/api/${prefix}/reports/${type}/render${toQuery(params)}`;
 
-export const reportExportUrl = (type: ReportType | string, params: ReportParams, prefix: "rnd" | "admin" = "rnd") =>
+export const reportExportUrl = (type: ReportType | string, params: ReportParams, prefix: ReportApiPrefix = "rnd") =>
   `/api/${prefix}/reports/${type}/export${toQuery(params)}`;
 
 /** Freeze an as-filed copy: render, store, and persist a snapshot. */
 export async function archiveReport(
   type: ReportType | string,
   params: ReportParams,
-  prefix: "rnd" | "admin" = "rnd",
+  prefix: ReportApiPrefix = "rnd",
 ): Promise<ReportItem> {
   return unwrap(
     await apiFetch(`/api/${prefix}/reports/${type}/archive${toQuery(params)}`, { method: "POST" }),

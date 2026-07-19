@@ -64,7 +64,11 @@ export const ADMIN_CATALOG: CatalogEntry[] = [
   { type: "demographic_census", name: "Demographic Census", desc: "Aggregate patient counts by age, sex, ward, diagnosis.", icon: ClipboardList, group: "Clinical" },
 ];
 
-export type ApiPrefix = "rnd" | "admin";
+export const FSS_CATALOG: CatalogEntry[] = [
+  { type: "accomplishment_report", name: "My Accomplishment Reports", desc: "Your own weekly duty sheets and diet-list headcount logs.", icon: ClipboardList, group: "Food Service" },
+];
+
+export type ApiPrefix = "rnd" | "admin" | "fss";
 
 export interface ReportsBrowserProps {
   catalog: CatalogEntry[];
@@ -98,7 +102,7 @@ export function ReportsBrowser({ catalog, apiPrefix }: ReportsBrowserProps) {
   }, []);
 
   // Admin browser suppresses the Template Edit tab (branding owned by Settings page)
-  const tabs = apiPrefix === "admin"
+  const tabs = apiPrefix !== "rnd"
     ? [
         { key: "browse" as TabKey, label: "Browse", icon: <FileText className="h-4 w-4" /> },
         { key: "archived" as TabKey, label: "Archived", icon: <FolderArchive className="h-4 w-4" /> },
@@ -422,9 +426,11 @@ function ArchivedTab({
                         <Download className="h-3.5 w-3.5" />
                       </a>
                     )}
-                    <button onClick={() => setHistoryReport(r)} className="p-1.5 rounded-lg hover:bg-sky-50 text-warm-500 hover:text-sky-700 cursor-pointer" aria-label={`Show activity for ${r.title}`} title="Activity trail">
-                      <History className="h-3.5 w-3.5" />
-                    </button>
+                    {apiPrefix !== "fss" && (
+                      <button onClick={() => setHistoryReport(r)} className="p-1.5 rounded-lg hover:bg-sky-50 text-warm-500 hover:text-sky-700 cursor-pointer" aria-label={`Show activity for ${r.title}`} title="Activity trail">
+                        <History className="h-3.5 w-3.5" />
+                      </button>
+                    )}
                     <button onClick={() => onDelete(r.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-warm-500 hover:text-red-600 cursor-pointer" aria-label={`Delete ${r.title}`} title="Delete">
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
@@ -440,7 +446,7 @@ function ArchivedTab({
         <Pagination meta={archiveMeta} page={page} onPageChange={setPage} />
       )}
 
-      {historyReport && (
+      {historyReport && apiPrefix !== "fss" && (
         <div className="border-t border-warm-100 p-4">
           <AuditTrail
             path={`/api/${apiPrefix}/reports/${historyReport.id}/activity`}

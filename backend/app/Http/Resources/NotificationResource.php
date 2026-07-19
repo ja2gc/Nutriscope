@@ -21,6 +21,9 @@ class NotificationResource extends JsonResource
             // the controller — deep-links address the target by uuid, not the raw FK.
             'source_uuid' => $this->source_uuid ?? null,
             'read' => (bool) $this->read,
+            'read_at' => $this->read_at,
+            'opened_at' => $this->opened_at,
+            'resolved_at' => $this->resolved_at,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];

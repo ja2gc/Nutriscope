@@ -26,6 +26,9 @@ class NotificationFactory extends Factory
             'source_module' => $this->faker->randomElement(['ncp', 'fss', null]),
             'source_id' => null,
             'read' => false,
+            'read_at' => null,
+            'opened_at' => null,
+            'resolved_at' => null,
         ];
     }
 }

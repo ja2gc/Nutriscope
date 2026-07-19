@@ -12,7 +12,7 @@ import {
   Notification,
   fetchNotifications,
   fetchUnreadCount,
-  markNotificationRead,
+  markNotificationOpened,
   markAllNotificationsRead,
   notificationTargetHref,
 } from "@/services/notificationService";
@@ -69,7 +69,7 @@ export default function AdminNotificationsPage() {
       setUnreadTotal((count) => Math.max(0, count - 1));
     }
     try {
-      if (!n.read) await markNotificationRead(n.id);
+      await markNotificationOpened(n.id);
     } catch {
       void load();
     } finally {

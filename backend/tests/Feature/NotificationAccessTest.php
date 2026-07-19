@@ -54,6 +54,55 @@ class NotificationAccessTest extends TestCase
             'id' => $notification->id,
             'read' => true,
         ]);
+        $this->assertNotNull($notification->fresh()->read_at);
+        $this->assertNull($notification->fresh()->opened_at);
+    }
+
+    public function test_owner_can_open_notification_and_record_navigation_intent(): void
+    {
+        $admin = User::factory()->create(['role' => 'Admin']);
+        $notification = Notification::factory()->for($admin)->create([
+            'type' => 'announcement',
+            'read' => false,
+        ]);
+
+        $this->actingAs($admin, 'sanctum')
+            ->patchJson("/api/notifications/{$notification->uuid}/open")
+            ->assertOk()
+            ->assertJsonFragment(['message' => 'Notification opened.']);
+
+        $notification->refresh();
+        $this->assertTrue($notification->read);
+        $this->assertNotNull($notification->read_at);
+        $this->assertNotNull($notification->opened_at);
+    }
+
+    public function test_user_cannot_open_another_users_notification(): void
+    {
+        $admin = User::factory()->create(['role' => 'Admin']);
+        $other = User::factory()->create(['role' => 'RND']);
+        $notification = Notification::factory()->for($other)->create();
+
+        $this->actingAs($admin, 'sanctum')
+            ->patchJson("/api/notifications/{$notification->uuid}/open")
+            ->assertForbidden();
+
+        $this->assertNull($notification->fresh()->opened_at);
+    }
+
+    public function test_mark_all_read_does_not_mark_notifications_opened(): void
+    {
+        $fss = User::factory()->create(['role' => 'FSS']);
+        $notification = Notification::factory()->for($fss)->create(['read' => false]);
+
+        $this->actingAs($fss, 'sanctum')
+            ->patchJson('/api/notifications/read-all')
+            ->assertOk();
+
+        $notification->refresh();
+        $this->assertTrue($notification->read);
+        $this->assertNotNull($notification->read_at);
+        $this->assertNull($notification->opened_at);
     }
 
     public function test_user_cannot_mark_another_users_notification_read(): void

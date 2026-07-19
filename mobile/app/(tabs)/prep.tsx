@@ -700,22 +700,8 @@ export default function PrepScreen() {
           <Text className="text-xs text-gray-400">Open</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity
-          className="flex-row items-center justify-between bg-white border border-gray-100 rounded-xl px-4 py-3"
-          onPress={() => router.push('/reports')}
-          accessibilityLabel="Open archived accomplishment reports"
-          accessibilityRole="button"
-        >
-          <View className="flex-row items-center gap-2">
-            <FileText color="#7c3aed" size={18} />
-            <Text className="text-sm font-semibold text-gray-800">My accomplishment reports</Text>
-          </View>
-          <Text className="text-xs text-gray-400">Open</Text>
-        </TouchableOpacity>
       </View>
       <MealPrepSection />
-      <View className="mx-4 mt-6 border-t border-gray-100" />
-      <AccomplishmentSection activeCycleId={activeCycle?.id} />
     </ScrollView>
   );
 }

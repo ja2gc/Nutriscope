@@ -13,6 +13,7 @@ use App\Policies\AuditPolicy;
 use App\Services\AIService;
 use App\Services\MonitoringPlanService;
 use App\Services\MonitoringSummaryService;
+use App\Services\NotificationLifecycleService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\RateLimiter;
@@ -127,8 +128,11 @@ class MonitoringController extends Controller
     /**
      * POST /api/rnd/ncp-records/{ncpRecord}/monitorings
      */
-    public function store(StoreMonitoringRequest $request, NcpRecord $ncpRecord)
-    {
+    public function store(
+        StoreMonitoringRequest $request,
+        NcpRecord $ncpRecord,
+        NotificationLifecycleService $notificationLifecycle,
+    ) {
         $this->authorizeNcp($ncpRecord);
         // Monitoring & Evaluation is a FOLLOW-UP activity: the initial encounter
         // produces the care plan (assessment → diagnosis → intervention). Block
@@ -141,10 +145,11 @@ class MonitoringController extends Controller
 
         $data = $request->validated();
 
-        return $this->audited(function () use ($data, $ncpRecord) {
+        return $this->audited(function () use ($data, $ncpRecord, $notificationLifecycle) {
             $monitoring = new Monitoring($data);
             $monitoring->ncp_record_id = $ncpRecord->id;
             $monitoring->save();
+            $notificationLifecycle->resolveFollowUp($ncpRecord, $monitoring->created_at);
 
             return (new MonitoringResource($monitoring))->response()->setStatusCode(201);
         });

@@ -3,7 +3,7 @@ import { getAnnouncementNotifications, getFollowUpNotifications } from "@/lib/pr
 import type { PaginationMeta } from "@/components/ui/Pagination";
 
 export interface Notification {
-  id: number;
+  id: string;
   title: string;
   message: string;
   type?: string | null;
@@ -12,6 +12,9 @@ export interface Notification {
   // Public uuid of the source record — deep-links address the target by uuid.
   source_uuid?: string | null;
   read: boolean;
+  read_at?: string | null;
+  opened_at?: string | null;
+  resolved_at?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -110,6 +113,18 @@ export async function markNotificationRead(id: number | string): Promise<void> {
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}));
     throw new Error(errorData.message || "Failed to mark notification as read.");
+  }
+}
+
+export async function markNotificationOpened(id: string): Promise<void> {
+  const res = await apiFetch(`/api/notifications/${id}/open`, {
+    method: "PATCH",
+    headers: { Accept: "application/json" },
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.message || "Failed to open notification.");
   }
 }
 

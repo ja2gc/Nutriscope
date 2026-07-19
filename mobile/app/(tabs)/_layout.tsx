@@ -1,21 +1,24 @@
 import { Tabs } from 'expo-router';
-import { BarChart3, CalendarDays, LayoutDashboard, ShoppingCart } from 'lucide-react-native';
+import { CalendarDays, ChefHat, ClipboardCheck, LayoutDashboard, ShoppingCart } from 'lucide-react-native';
 import AppHeader from '../../components/AppHeader';
+import { MOBILE_THEME } from '../../lib/theme';
 
 export default function TabsLayout() {
   return (
     <Tabs
       screenOptions={{
         headerShown: true,
-        tabBarActiveTintColor: '#059669',
-        tabBarInactiveTintColor: '#6b7280',
-        tabBarStyle: { backgroundColor: '#ffffff' },
+        tabBarActiveTintColor: MOBILE_THEME.colors.brand,
+        tabBarInactiveTintColor: MOBILE_THEME.colors.muted,
+        tabBarStyle: { backgroundColor: MOBILE_THEME.colors.surface, borderTopColor: MOBILE_THEME.colors.border, height: 64, paddingTop: 6, paddingBottom: 6 },
+        tabBarLabelStyle: { fontSize: 10, fontWeight: '600' },
+        tabBarHideOnKeyboard: true,
       }}
     >
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Dashboard',
+          title: 'Home',
           tabBarIcon: ({ color, size }) => (
             <LayoutDashboard color={color} size={size} />
           ),
@@ -35,17 +38,27 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="prep"
         options={{
-          title: 'Prep & Accomp.',
+          title: 'Meal Prep',
           tabBarIcon: ({ color, size }) => (
-            <BarChart3 color={color} size={size} />
+            <ChefHat color={color} size={size} />
           ),
-          header: () => <AppHeader title="Prep & Accomplishment" />,
+          header: () => <AppHeader title="Meal Preparation" />,
+        }}
+      />
+      <Tabs.Screen
+        name="accomplishments"
+        options={{
+          title: 'Accomplish',
+          tabBarIcon: ({ color, size }) => (
+            <ClipboardCheck color={color} size={size} />
+          ),
+          header: () => <AppHeader title="Accomplishments" />,
         }}
       />
       <Tabs.Screen
         name="procurement"
         options={{
-          title: 'Procurement',
+          title: 'Purchase',
           tabBarIcon: ({ color, size }) => (
             <ShoppingCart color={color} size={size} />
           ),

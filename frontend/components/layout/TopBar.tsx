@@ -14,7 +14,7 @@ export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
 
   const [unread, setUnread] = useState(0);
   const refreshUnread = useCallback(async () => {
-    if (user?.role !== "RND" && user?.role !== "Admin") return;
+    if (!user?.role) return;
     try {
       const count = await fetchUnreadCount();
       setUnread(count);
@@ -86,7 +86,7 @@ export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
       {/* User Actions */}
       <div className="flex items-center gap-3 sm:gap-5 shrink-0">
         {/* Alerts Bell */}
-        {(user?.role === "RND" || user?.role === "Admin") && (
+        {user && (
           <button
             onClick={() => router.push(user.role === "Admin" ? "/admin/notifications" : "/notifications")}
             className={`relative p-1.5 rounded-lg cursor-pointer transition-colors ${

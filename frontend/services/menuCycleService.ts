@@ -25,8 +25,25 @@ export interface MenuDay {
   estimate_population: number | null; // headcount for this day (drives scaling)
   is_event: boolean;
   event_allocation: number | null;
+  po_snapshot?: MenuSnapshot | null;
+  po_snapshot_at?: string | null;
+  po_snapshot_locked?: boolean;
   recipe?: { id: number; name: string; servings: number; cost: string } | null;
   fs_item?: { id: number; name: string } | null;
+}
+
+export interface MenuSnapshot {
+  recipe_id?: number;
+  fs_item_id?: number;
+  name: string;
+  prep_notes?: string | null;
+  servings?: number;
+  population?: number;
+  total_cost?: number;
+  cost_per_head?: number;
+  unit?: string;
+  total_quantity?: number;
+  ingredient_usage?: { fs_item_id: number; name: string; unit: string; quantity: number; cost: number }[];
 }
 
 export interface MenuCycle {
@@ -96,6 +113,29 @@ export interface FsItemProfile {
 }
 
 export type MenuSlotProfile = RecipeProfile | FsItemProfile;
+
+export function menuSnapshotToProfile(snapshot: MenuSnapshot): RecipeProfile {
+  const population = Number(snapshot.population ?? 0);
+  const totalCost = Number(snapshot.total_cost ?? 0);
+  const ingredientUsage = snapshot.ingredient_usage ?? (snapshot.total_quantity != null ? [{
+    fs_item_id: snapshot.fs_item_id ?? 0,
+    name: snapshot.name,
+    unit: snapshot.unit ?? "",
+    quantity: Number(snapshot.total_quantity),
+    cost: totalCost,
+  }] : []);
+
+  return {
+    recipe_id: snapshot.recipe_id ?? 0,
+    name: snapshot.name,
+    prep_notes: snapshot.prep_notes ?? null,
+    servings: Number(snapshot.servings ?? population),
+    population,
+    total_cost: totalCost,
+    cost_per_head: Number(snapshot.cost_per_head ?? (population > 0 ? totalCost / population : 0)),
+    ingredient_usage: ingredientUsage,
+  };
+}
 
 /** Per-ingredient cost breakdown for a recipe scaled to a day's headcount. */
 export async function getRecipeProfile(recipeId: number, population: number): Promise<RecipeProfile> {

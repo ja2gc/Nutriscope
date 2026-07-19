@@ -4,6 +4,7 @@ use App\Enums\AuditAction;
 use App\Http\Middleware\EnsureActiveUser;
 use App\Http\Middleware\RecordSecurityRejections;
 use App\Http\Middleware\RoleMiddleware;
+use App\Models\Notification;
 use App\Services\Audit\AuditHealthMonitor;
 use App\Services\Audit\AuditRetentionState;
 use App\Services\Audit\SecurityAuditDeduplicator;
@@ -27,6 +28,10 @@ return Application::configure(basePath: dirname(__DIR__))
         $schedule->command('notifications:follow-up-reminders')
             ->dailyAt('07:00')
             ->withoutOverlapping();
+        $schedule->command('model:prune', ['--model' => [Notification::class]])
+            ->dailyAt('00:20')
+            ->withoutOverlapping()
+            ->onOneServer();
         $schedule->command('reports:process-file-operations')
             ->everyFiveMinutes()
             ->withoutOverlapping()

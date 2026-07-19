@@ -22,7 +22,7 @@ import { PaginatedListFooter } from '../components/PaginatedListFooter';
 import { MOBILE_PAGE_SIZE, PaginatedResponse, flattenUniquePages, getNextPageParam, mapPageItems } from '../lib/pagination';
 
 interface Notification {
-  id: number;
+  id: string;
   title: string;
   message: string;
   type: string;
@@ -41,8 +41,8 @@ async function fetchNotifications(page: number): Promise<PaginatedResponse<Notif
   return res.data;
 }
 
-async function markRead(id: number): Promise<void> {
-  await api.patch(`/api/notifications/${id}/read`);
+async function markOpened(id: string): Promise<void> {
+  await api.patch(`/api/notifications/${id}/open`);
 }
 
 async function markAllRead(): Promise<void> {
@@ -116,7 +116,7 @@ export default function NotificationsScreen() {
   });
 
   const readMutation = useMutation({
-    mutationFn: markRead,
+    mutationFn: markOpened,
     onMutate: async (id) => {
       await queryClient.cancelQueries({ queryKey: ['notifications'] });
       const prev = queryClient.getQueryData<typeof data>(['notifications']);
@@ -157,12 +157,11 @@ export default function NotificationsScreen() {
     ({ item }: { item: Notification }) => (
       <TouchableOpacity
         onPress={() => {
-          if (!item.read) readMutation.mutate(item.id);
-          openNotificationTarget(item);
+          readMutation.mutate(item.id, { onSettled: () => openNotificationTarget(item) });
         }}
         activeOpacity={0.7}
-        className={`flex-row items-start px-4 py-4 border-b border-gray-100 ${
-          item.read ? 'bg-white' : 'bg-emerald-50'
+        className={`flex-row items-start px-4 py-4 mb-3 rounded-2xl border ${
+          item.read ? 'bg-white border-[#E2EAE5]' : 'bg-[#EAF7F1] border-[#BFE3D3]'
         }`}
       >
         {/* Unread dot */}
@@ -215,14 +214,14 @@ export default function NotificationsScreen() {
   }
 
   return (
-    <View className="flex-1 bg-gray-50">
+    <View className="flex-1 bg-[#F4F7F5]">
       {/* Mark all read button */}
       {unreadCount > 0 && (
-        <View className="px-4 py-3 bg-white border-b border-gray-100">
+        <View className="px-4 pt-3">
           <TouchableOpacity
             onPress={() => readAllMutation.mutate()}
             disabled={readAllMutation.isPending}
-            className="self-end"
+            className="self-end bg-white border border-[#DCE7E1] rounded-xl px-3 py-2"
           >
             <Text className="text-emerald-600 text-sm font-medium">
               {readAllMutation.isPending ? 'Marking…' : `Mark all read (${unreadCount})`}
@@ -238,7 +237,7 @@ export default function NotificationsScreen() {
         onEndReached={() => { if (hasNextPage && !isFetchingNextPage) void fetchNextPage(); }}
         onEndReachedThreshold={0.4}
         ListFooterComponent={<PaginatedListFooter loading={isFetchingNextPage} error={isFetchNextPageError} onRetry={() => void fetchNextPage()} />}
-        contentContainerStyle={{ paddingBottom: insets.bottom + 16, flexGrow: 1 }}
+        contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 16, flexGrow: 1 }}
         ListEmptyComponent={
           <View className="flex-1 items-center justify-center py-20">
             <Bell color="#d1d5db" size={40} />

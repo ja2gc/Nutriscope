@@ -22,6 +22,15 @@ describe("notification target routing", () => {
     ).toBe("/announcements?announcementId=42");
   });
 
+  test("prefers the public UUID over the internal source id", () => {
+    expect(
+      notificationTargetHref(
+        { type: "po_awaiting_receipt", source_module: "food_service", source_id: 12, source_uuid: "po-public-uuid" },
+        "FSS",
+      ),
+    ).toBe("/food-service/procurement?poId=po-public-uuid");
+  });
+
   test("routes Admin announcement notifications to the admin announcement page", () => {
     expect(
       notificationTargetHref(

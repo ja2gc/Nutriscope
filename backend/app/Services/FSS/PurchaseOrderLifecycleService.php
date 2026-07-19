@@ -19,6 +19,7 @@ use App\Services\Audit\AuditLogger;
 use App\Services\Audit\Revisions\AuditRevisionRegistry;
 use App\Services\Audit\Revisions\AuditRevisionWriter;
 use App\Services\MenuCycleCostService;
+use App\Services\NotificationLifecycleService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -40,6 +41,7 @@ class PurchaseOrderLifecycleService
         private readonly AuditLogger $auditLogger,
         private readonly AuditRevisionRegistry $revisionRegistry,
         private readonly AuditRevisionWriter $revisionWriter,
+        private readonly NotificationLifecycleService $notificationLifecycle,
     ) {}
 
     /**
@@ -73,6 +75,10 @@ class PurchaseOrderLifecycleService
             $groups = $po->vendorGroups;
             $hasReceipts = $groups->isNotEmpty()
                 && $groups->every(fn (PurchaseOrderVendorGroup $group) => $group->attachments->where('type', 'receipt')->isNotEmpty());
+
+            if ($hasReceipts) {
+                $this->notificationLifecycle->resolvePurchaseOrder($po);
+            }
 
             $isFood = $po->isFoodTrack();
             $actualTotal = round((float) $groups->sum('total_amount'), 2);

@@ -75,7 +75,7 @@ function ReportGrid({ snap }: { snap: AccomplishmentSnapshot }) {
   );
 }
 
-function ReportDetail({ id, onBack }: { id: number; onBack: () => void }) {
+function ReportDetail({ id, onBack }: { id: string; onBack: () => void }) {
   const insets = useSafeAreaInsets();
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['fss-report', id],
@@ -116,7 +116,7 @@ function ReportDetail({ id, onBack }: { id: number; onBack: () => void }) {
 
 export default function ReportsScreen() {
   const insets = useSafeAreaInsets();
-  const [openId, setOpenId] = useState<number | null>(null);
+  const [openId, setOpenId] = useState<string | null>(null);
   const { data: pages, isLoading, isError, refetch, fetchNextPage, hasNextPage, isFetchingNextPage, isFetchNextPageError } = useInfiniteQuery({
     queryKey: ['fss-reports'],
     queryFn: ({ pageParam }) => listReports(pageParam),
