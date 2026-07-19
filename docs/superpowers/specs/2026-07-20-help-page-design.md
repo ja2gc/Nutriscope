@@ -27,7 +27,7 @@ Build one searchable, role-aware Help experience with platform-specific presenta
 - Mobile: Expo screen rendered at `/help` for FSS.
 - Content: typed, static content modules within each client package. The verified `docs/FAQ.md` and `docs/ROLE-HOW-TO.md` remain the human-readable source material. Client-local modules avoid cross-package bundler configuration and keep each application independently buildable.
 
-The signed-in role is selected initially. Users may switch among **Shared**, **RND**, **FSS**, **Admin**, and **All**. Shared guidance appears with a role selection because account, saving, announcements, SOP, and troubleshooting questions apply across roles.
+Role visibility is fixed by the authenticated surface. RND sees Shared + RND guidance, FSS sees Shared + FSS guidance, and Admin sees Shared + Admin guidance. Users cannot switch roles or inspect another role's guidance. Shared questions are deliberately repeated on every role's Help page because account, saving, announcements, SOP, and troubleshooting guidance applies across roles.
 
 ## Information Architecture
 
@@ -43,11 +43,10 @@ Help is secondary, persistent navigation. It does not consume one of FSS’s fiv
 
 1. Page title and short orientation.
 2. Search field with visible label and descriptive placeholder.
-3. Role filter controls.
-4. Popular questions for the selected role when no search is active.
-5. Topic groups containing expandable questions.
-6. Results count or a useful no-results recovery message.
-7. “Still need help?” guidance directing users to an administrator and telling them what diagnostic details to provide.
+3. Popular questions for the signed-in role when no search is active.
+4. Topic groups containing expandable questions.
+5. Results count or a useful no-results recovery message.
+6. “Still need help?” guidance directing users to an administrator and telling them what diagnostic details to provide.
 
 ### Topic coverage
 
@@ -64,16 +63,8 @@ Help is secondary, persistent navigation. It does not consume one of FSS’s fiv
 - Search matches question, answer, category, and explicit keywords case-insensitively.
 - Whitespace is normalized.
 - The page announces the result count through a polite live region on web.
-- A no-results state recommends broader wording, another role, or clearing the search.
-- Clearing search restores popular questions and all topic groups for the selected role.
-
-### Role filters
-
-- The active role has a visible selected state and semantic state (`aria-pressed` on web and `accessibilityState.selected` on mobile).
-- Selecting **Shared** shows only cross-role guidance.
-- Selecting a named role shows shared guidance plus that role’s guidance.
-- Selecting **All** shows every item.
-- The control wraps or scrolls horizontally on narrow screens without causing page-level horizontal overflow.
+- A no-results state recommends broader wording or clearing the search.
+- Clearing search restores popular questions and all topic groups for the authenticated role.
 
 ### Question disclosure
 
@@ -100,7 +91,8 @@ The page reuses NutriScope’s current typography, warm neutral surfaces, brand 
 ### Web
 
 - `frontend/lib/helpContent.ts`: types, role/category definitions, FAQ data, search/filter functions, and popular-item selection.
-- `frontend/components/help/HelpPage.tsx`: shared interactive page for RND and Admin layouts.
+- `frontend/components/help/HelpPage.tsx`: reusable interactive page for RND and Admin layouts.
+- `frontend/components/help/HelpQuestionList.tsx`: reusable semantic question disclosure list.
 - `frontend/app/(rnd)/help/page.tsx`: RND route wrapper.
 - `frontend/app/admin/help/page.tsx`: Admin route wrapper.
 - `frontend/components/layout/Sidebar.tsx`: persistent Help navigation.
@@ -109,9 +101,11 @@ The page reuses NutriScope’s current typography, warm neutral surfaces, brand 
 ### Mobile
 
 - `mobile/lib/helpContent.ts`: mobile-safe typed content and pure filtering behavior.
-- `mobile/app/help.tsx`: FSS Help screen.
+- `mobile/components/help/HelpQuestionList.tsx`: reusable mobile question disclosure list.
+- `mobile/app/help.tsx`: FSS Help screen composed from the shared mobile component.
 - `mobile/app/_layout.tsx`: authenticated stack registration.
 - `mobile/app/settings.tsx`: Help & Support entry.
+- `mobile/app.json`: patch-version and Android version-code increment for the updated installable build.
 
 ### Documentation
 
@@ -136,8 +130,7 @@ Implementation follows test-first development.
 
 ### Web tests
 
-- Filtering includes Shared plus the selected role and excludes unrelated roles.
-- All mode returns every role.
+- Filtering includes Shared plus the authenticated role and excludes every unrelated role.
 - Search matches questions, answers, categories, and keywords.
 - Empty and whitespace-only searches behave consistently.
 - Sidebar exposes Help for RND and Admin at the approved paths and placement.
@@ -150,6 +143,7 @@ Implementation follows test-first development.
 - A source contract verifies the Help route, Settings entry, Help & Support label, and accessible disclosure state.
 - Mobile TypeScript passes.
 - Existing Node-based mobile contract tests pass.
+- The app-version contract proves the patch version and Android version code were incremented before the APK build.
 
 ### Documentation checks
 
@@ -160,10 +154,11 @@ Implementation follows test-first development.
 ## Acceptance Criteria
 
 - Every authenticated role can reach a page labeled **Help**.
-- Help defaults to the current role and allows switching to Shared, RND, FSS, Admin, or All.
+- Help exposes only Shared plus the authenticated role; no cross-role selector exists.
 - Users can search the complete verified question set and recover from no results.
 - Question disclosures are keyboard and screen-reader operable.
 - FSS retains exactly five primary bottom tabs.
 - The requested storyboard files are split into their correct directories.
 - No unrelated `.codex/config.toml` or `AGENTS.md` changes enter the Help commits.
 - Focused and full client verification passes before commits are pushed to `main`.
+- An installable Android APK is produced from the EAS `preview` profile against `https://nutriscope.live/mobile-api`, and its download URL or local artifact is handed to the owner.
