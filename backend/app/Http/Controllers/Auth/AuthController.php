@@ -9,6 +9,7 @@ use App\Enums\AuditDomain;
 use App\Enums\AuditOutcome;
 use App\Enums\AuditSeverity;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Auth\CompleteOnboardingRequest;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Requests\Auth\UpdatePasswordRequest;
 use App\Http\Requests\Auth\UpdateProfileRequest;
@@ -86,6 +87,68 @@ class AuthController extends Controller
         ]);
     }
 
+    public function completeOnboarding(CompleteOnboardingRequest $request): JsonResponse
+    {
+        $user = $request->user();
+        $data = $request->validated();
+
+        $this->auditLogger->assertAvailable();
+        DB::transaction(function () use ($data, $request, $user): void {
+            $user->forceFill([
+                'password' => Hash::make($data['password']),
+                'recovery_email' => strtolower($data['recovery_email']),
+                'recovery_email_verified_at' => now(),
+                'recovery_email_verification_code' => null,
+                'recovery_email_verification_expires_at' => null,
+                'pending_recovery_email' => null,
+                'must_change_password' => false,
+                'must_set_recovery_email' => false,
+                'onboarding_skipped_at' => null,
+            ])->save();
+
+            $this->auditAuth($request, AuditAction::PasswordChanged, $user);
+            $this->auditLogger->record(
+                AuditAction::RecoveryEmailChanged,
+                AuditCategory::Security,
+                AuditDomain::Accounts,
+                subject: $user,
+                details: ['changed_fields' => ['recovery_email']],
+                actor: $user,
+                includeRequestMetadata: false,
+            );
+        });
+
+        return response()->json([
+            'message' => 'Account setup complete.',
+            'user' => new UserResource($user->fresh()),
+        ]);
+    }
+
+    public function skipOnboarding(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        abort_unless($user->requiresOnboarding(), 403);
+
+        $this->auditLogger->assertAvailable();
+        DB::transaction(function () use ($user): void {
+            $user->forceFill(['onboarding_skipped_at' => now()])->save();
+            $this->auditLogger->record(
+                AuditAction::SettingsChanged,
+                AuditCategory::Security,
+                AuditDomain::Accounts,
+                subject: $user,
+                details: ['changed_fields' => ['onboarding_skipped_at']],
+                actor: $user,
+                includeRequestMetadata: false,
+            );
+        });
+
+        return response()->json([
+            'message' => 'You can finish account setup later in Settings.',
+            'user' => new UserResource($user->fresh()),
+        ]);
+    }
+
     /**
      * POST /api/auth/logout
      */
@@ -154,6 +217,9 @@ class AuthController extends Controller
             $user->update([
                 'password' => Hash::make($request->validated()['password']),
             ]);
+            if ($user->must_change_password) {
+                $user->completeOnboardingRequirement('must_change_password');
+            }
             $user->tokens()->delete();
             $this->auditAuth($request, AuditAction::PasswordChanged, $user);
         });

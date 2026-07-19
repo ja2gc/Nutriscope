@@ -22,6 +22,14 @@ class UserResource extends JsonResource
             'profile_photo' => $this->profile_photo,
             'role' => $this->role,
             'is_active' => (bool) $this->is_active,
+            'onboarding_required' => $this->requiresOnboarding(),
+            'onboarding_skipped' => $this->onboarding_skipped_at !== null,
+            'must_change_password' => (bool) $this->must_change_password,
+            'must_set_recovery_email' => (bool) $this->must_set_recovery_email,
+            'pending_recovery_email' => $this->when(
+                $request->user()?->is($this->resource),
+                $this->pending_recovery_email,
+            ),
         ];
     }
 }

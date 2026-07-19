@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { CalendarCheck, Undo2, AlertTriangle, CheckCircle2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { DatePicker } from "@/components/ui/DatePicker";
 import {
   MealPrepLog,
   completeServiceDay,
@@ -58,11 +59,7 @@ export default function ServiceLogPanel({ cycleId, population }: { cycleId: numb
       </div>
 
       <div className="flex flex-wrap items-end gap-3">
-        <div>
-          <label className="block text-xs font-extrabold text-warm-500 uppercase tracking-wider mb-1">Service date</label>
-          <input type="date" value={date} onChange={(e) => setDate(e.target.value)}
-            className="px-3 py-2 text-base border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500" />
-        </div>
+        <DatePicker label="Service date" value={date} onChange={setDate} className="min-w-72" />
         <Button variant="primary" onClick={markServed} loading={busy} className="px-4 py-2 flex items-center gap-2">
           <CalendarCheck className="h-4 w-4" /> Mark served
         </Button>

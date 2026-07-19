@@ -11,6 +11,11 @@ export interface User {
   profile_photo?: string | null;
   role: "RND" | "FSS" | "Admin";
   is_active: boolean;
+  onboarding_required?: boolean;
+  onboarding_skipped?: boolean;
+  must_change_password?: boolean;
+  must_set_recovery_email?: boolean;
+  pending_recovery_email?: string | null;
   created_at: string;
 }
 
@@ -177,4 +182,18 @@ export async function fetchCurrentUser(): Promise<User> {
   const data = await res.json();
   // Support both wrapped (data.data) and unwrapped (data) structures
   return data.data || data;
+}
+
+export async function completeOnboarding(data: { password: string; password_confirmation: string; recovery_email: string }): Promise<User> {
+  const res = await fetch('/api/auth/onboarding', { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify(data) });
+  const result = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(result.message || 'Failed to complete account setup.');
+  return result.user?.data || result.user;
+}
+
+export async function skipOnboarding(): Promise<User> {
+  const res = await fetch('/api/auth/onboarding/skip', { method: 'POST', headers: { Accept: 'application/json' } });
+  const result = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(result.message || 'Failed to defer account setup.');
+  return result.user?.data || result.user;
 }

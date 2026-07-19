@@ -50,6 +50,8 @@ class UserController extends Controller
     {
         $data = $this->synchronizePersonName->forCreate($request->validated());
         $data['password'] = Hash::make($data['password']);
+        $data['must_change_password'] = true;
+        $data['must_set_recovery_email'] = true;
 
         $this->auditLogger->assertAvailable();
         $user = DB::transaction(function () use ($data): User {

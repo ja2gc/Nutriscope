@@ -13,6 +13,11 @@ export interface UserProfile {
   contact_number: string | null;
   role: string;
   is_active: boolean;
+  onboarding_required: boolean;
+  onboarding_skipped: boolean;
+  must_change_password: boolean;
+  must_set_recovery_email: boolean;
+  pending_recovery_email?: string | null;
 }
 
 export interface LoginResponse {

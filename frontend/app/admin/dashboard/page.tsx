@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { fetchDashboard, DashboardData } from "@/services/adminDashboardService";
 import { listAuditLogs, AuditLog } from "@/services/auditLogService";
@@ -12,6 +12,7 @@ import {
 import { fetchUsdToPhpRate } from "@/services/currencyService";
 import { DEFAULT_AI_COST_PER_1M_TOKENS_USD, calcTokenCostUsd } from "@/lib/aiTokenCost";
 import { KpiCard } from "@/components/ui/KpiCard";
+import { AiUsageExplorer } from "@/components/admin/AiUsageExplorer";
 import { Badge, BadgeTone } from "@/components/ui/Badge";
 import {
   Users,
@@ -23,15 +24,6 @@ import {
   Megaphone,
   LayoutDashboard,
 } from "lucide-react";
-import {
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  CartesianGrid,
-} from "recharts";
 
 function formatNumber(num: number) {
   return num.toLocaleString();
@@ -157,15 +149,6 @@ export default function AdminDashboardPage() {
     void loadAiLimits();
     void fetchUsdToPhpRate().then(setPhpRate);
   }, []);
-
-  const chartData = useMemo(() => {
-    if (!dashboardData?.ai_usage?.daily) return [];
-    return dashboardData.ai_usage.daily.map((point) => ({
-      name: new Date(point.date).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-      tokens: point.tokens,
-      calls: point.calls,
-    }));
-  }, [dashboardData]);
 
   if (loading) {
     return (
@@ -390,71 +373,8 @@ export default function AdminDashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left: AI usage chart + Quick Actions */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Token-usage chart */}
-          <div className="bg-white border border-warm-200 rounded-3xl overflow-hidden shadow-sm">
-            <div className="px-5 py-4 border-b border-warm-100 flex items-center justify-between gap-4">
-              <div>
-                <h3 className="text-sm font-bold text-warm-900 uppercase tracking-[0.18em]">
-                  AI Token Consumption
-                </h3>
-                <p className="text-xs text-warm-500 mt-1">
-                  Tokens per day · last 30 days.
-                </p>
-              </div>
-              <Badge tone="zinc">Daily</Badge>
-            </div>
+          <AiUsageExplorer />
 
-            <div className="p-6">
-              {chartData.length === 0 ? (
-                <div className="h-72 flex flex-col items-center justify-center text-center">
-                  <div className="p-3 bg-warm-50 border border-warm-200 rounded-2xl text-warm-400">
-                    <Cpu className="h-8 w-8" />
-                  </div>
-                  <h3 className="text-sm font-bold text-warm-600 mt-3">No AI usage recorded yet</h3>
-                  <p className="text-xs text-warm-400 mt-1 max-w-xs leading-relaxed">
-                    AI generation tokens will map here once RND clinicians trigger automated NCP processes.
-                  </p>
-                </div>
-              ) : (
-                <div className="h-72 w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                      data={chartData}
-                      margin={{ top: 5, right: 16, left: 0, bottom: 5 }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                      <XAxis
-                        dataKey="name"
-                        tick={{ fontSize: 10, fill: "#94a3b8" }}
-                        tickLine={false}
-                        axisLine={false}
-                        minTickGap={16}
-                      />
-                      <YAxis
-                        tick={{ fontSize: 10, fill: "#94a3b8" }}
-                        tickLine={false}
-                        axisLine={false}
-                        width={44}
-                        tickFormatter={formatTokens}
-                      />
-                      <Tooltip
-                        cursor={{ fill: "rgba(0,0,0,0.03)" }}
-                        contentStyle={{
-                          borderRadius: "12px",
-                          fontSize: "11px",
-                          borderColor: "#e4e4e7",
-                        }}
-                        formatter={(value) => [`${formatTokens(Number(value))} · ${formatCost(calcTokenCostUsd(Number(value), costPer1mTokensUsd), phpRate)} est.`, "Tokens"]}
-                      />
-                      <Bar dataKey="tokens" name="Tokens" fill="#059669" radius={[4, 4, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Quick Actions */}
           <div className="bg-white border border-warm-200 rounded-3xl p-5 shadow-sm">
             <h3 className="text-sm font-bold text-warm-900 uppercase tracking-[0.18em] mb-4">
               Quick Actions

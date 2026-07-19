@@ -34,6 +34,10 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (user) {
+      if (user.onboarding_required && !user.onboarding_skipped) {
+        router.replace("/account-setup");
+        return;
+      }
       if (user.role === "Admin") {
         router.replace("/admin/dashboard");
       } else {

@@ -110,4 +110,57 @@ class RecoveryEmailTest extends TestCase
 
         Notification::assertNothingSent();
     }
+
+    public function test_verified_recovery_email_stays_linked_until_replacement_is_verified(): void
+    {
+        Notification::fake();
+        $user = User::factory()->create([
+            'recovery_email' => 'old@example.com',
+            'recovery_email_verified_at' => now(),
+        ]);
+
+        $this->actingAs($user, 'sanctum')->patchJson('/api/auth/recovery-email', [
+            'recovery_email' => 'new@example.com',
+        ])->assertOk()
+            ->assertJsonPath('user.recovery_email', 'old@example.com')
+            ->assertJsonPath('user.pending_recovery_email', 'new@example.com')
+            ->assertJsonPath('user.recovery_email_verified', true);
+
+        $code = null;
+        Notification::assertSentOnDemand(RecoveryEmailVerification::class, function (RecoveryEmailVerification $notification) use (&$code) {
+            $code = $notification->code;
+
+            return true;
+        });
+
+        $this->actingAs($user->fresh(), 'sanctum')->postJson('/api/auth/recovery-email/verify', ['code' => '000000'])
+            ->assertUnprocessable();
+        $this->assertSame('old@example.com', $user->fresh()->recovery_email);
+
+        $this->actingAs($user->fresh(), 'sanctum')->postJson('/api/auth/recovery-email/verify', ['code' => $code])
+            ->assertOk()
+            ->assertJsonPath('user.recovery_email', 'new@example.com')
+            ->assertJsonPath('user.pending_recovery_email', null);
+    }
+
+    public function test_pending_recovery_email_is_reserved_for_only_one_user(): void
+    {
+        Notification::fake();
+        $first = User::factory()->create([
+            'recovery_email' => 'first-old@example.com',
+            'recovery_email_verified_at' => now(),
+        ]);
+        $second = User::factory()->create([
+            'recovery_email' => 'second-old@example.com',
+            'recovery_email_verified_at' => now(),
+        ]);
+
+        $this->actingAs($first, 'sanctum')->patchJson('/api/auth/recovery-email', [
+            'recovery_email' => 'reserved@example.com',
+        ])->assertOk();
+
+        $this->actingAs($second, 'sanctum')->patchJson('/api/auth/recovery-email', [
+            'recovery_email' => 'reserved@example.com',
+        ])->assertUnprocessable()->assertJsonValidationErrors(['recovery_email']);
+    }
 }

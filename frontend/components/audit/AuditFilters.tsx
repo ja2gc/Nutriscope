@@ -4,6 +4,7 @@ import { Filter, RotateCcw } from "lucide-react";
 import type { AuditFilterMetadata, AuditModule, AuditOutcome, AuditSeverity } from "@/types/audit";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { DatePicker } from "@/components/ui/DatePicker";
 import { AuditActorFilter } from "./AuditActorFilter";
 
 export interface AuditFilterState {
@@ -83,14 +84,8 @@ export function AuditFilters({
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <fieldset className="grid grid-cols-2 gap-2 sm:col-span-2">
           <legend className="mb-1 text-xs font-bold uppercase tracking-wider text-warm-500">Date range</legend>
-          <label>
-            <span className="sr-only">Start date</span>
-            <input aria-label="Start date" type="date" className={controlClass} value={value.start || ""} onChange={(event) => update("start", event.target.value || undefined)} />
-          </label>
-          <label>
-            <span className="sr-only">End date</span>
-            <input aria-label="End date" type="date" className={controlClass} value={value.end || ""} onChange={(event) => update("end", event.target.value || undefined)} />
-          </label>
+          <DatePicker ariaLabel="Start date" value={value.start || ""} onChange={(next) => update("start", next || undefined)} />
+          <DatePicker ariaLabel="End date" value={value.end || ""} onChange={(next) => update("end", next || undefined)} />
         </fieldset>
 
         {value.module && subfilterOptions.length > 0 && (

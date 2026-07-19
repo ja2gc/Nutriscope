@@ -42,7 +42,12 @@ export default function LoginScreen() {
         return;
       }
       await setToken(token);
-      router.replace('/(tabs)');
+      const user = res.data?.user;
+      router.replace((
+        user?.onboarding_required && !user.onboarding_skipped
+          ? '/account-setup'
+          : '/(tabs)'
+      ) as never);
     } catch (err: unknown) {
       const msg =
         (err as { response?: { data?: { message?: string } } })?.response?.data

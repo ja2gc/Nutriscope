@@ -28,6 +28,7 @@ import { buildAssessmentSummary, type AssessmentSummaryInput } from "@/lib/asses
 import { fetchIntervention } from "@/services/interventionService";
 import NcpPatientHeader from "../../../_components/NcpPatientHeader";
 import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
+import { DatePicker, DateTimePicker } from "@/components/ui/DatePicker";
 
 // ─── Constants ───────────────────────────────────────────────────────────
 const COMMON_ALLERGENS = ["milk", "eggs", "fish", "shellfish", "tree nuts", "peanuts", "wheat", "soybeans"];
@@ -248,7 +249,6 @@ function Field({ label, children, span, required, htmlFor, className = "" }: {
     </div>
   );
 }
-
 function AssessmentSection({ legend, children, className = "" }: {
   legend: string;
   children: React.ReactNode;
@@ -1571,7 +1571,7 @@ export default function NcpAssessmentPage({
                 <TextInput id="screening-last-name" className="min-h-11 focus-visible:ring-2" value={draft?.lastName ?? ""} onChange={v => updateScreeningDraftField("lastName", v)} placeholder="Last name" />
               </Field>
               <Field label="Date of Birth">
-                <TextInput type="date" value={draft?.dob ?? ""} onChange={v => updateScreeningDraftField("dob", v)} />
+                <DatePicker label="Date of birth" value={draft?.dob ?? ""} onChange={v => updateScreeningDraftField("dob", v)} />
               </Field>
               <Field label="Age">
                 <TextInput value={draft?.age ?? ""} onChange={v => updateScreeningDraftField("age", v)} placeholder="Derived age" disabled />
@@ -1626,7 +1626,7 @@ export default function NcpAssessmentPage({
                 />
               </Field>
               <Field label="Referral Date & Time" className="md:col-span-2 xl:col-span-2">
-                <TextInput type="datetime-local" value={draft?.referralDatetime ?? ""} onChange={v => updateScreeningDraftField("referralDatetime", v)} />
+                <DateTimePicker ariaLabel="Referral date and time" value={draft?.referralDatetime ?? ""} onChange={v => updateScreeningDraftField("referralDatetime", v)} />
               </Field>
             </div>
 

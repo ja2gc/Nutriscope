@@ -118,6 +118,7 @@ export function ProfilePageShell({ crumbs, subtitle, fallbackRole }: ProfilePage
         password,
         password_confirmation: passwordConfirmation,
       });
+      await refreshUser();
       setCurrentPassword("");
       setPassword("");
       setPasswordConfirmation("");
@@ -135,10 +136,10 @@ export function ProfilePageShell({ crumbs, subtitle, fallbackRole }: ProfilePage
     setRecoveryError(null);
     setSavingRecoveryEmail(true);
     try {
-      await updateRecoveryEmail(recoveryEmail);
+      const result = await updateRecoveryEmail(recoveryEmail);
       await refreshUser();
       setRecoveryCode("");
-      setRecoveryMessage("Verification code sent.");
+      setRecoveryMessage(result.message);
     } catch (err) {
       setRecoveryError(err instanceof Error ? err.message : "Failed to update recovery email.");
     } finally {
@@ -219,7 +220,9 @@ export function ProfilePageShell({ crumbs, subtitle, fallbackRole }: ProfilePage
             Recovery Email
           </h3>
           <p className="-mt-3 mb-5 text-sm leading-relaxed text-warm-500">
-            Used only for password reset links and account recovery. It must be verified before it can receive reset emails.
+            {user?.must_set_recovery_email
+              ? "Add the recovery email required for first-login setup. No verification code is needed."
+              : "Changing an existing recovery email requires a code before the old address is replaced."}
           </p>
           <form onSubmit={handleRecoveryEmailSubmit} className="space-y-4">
             <Input
@@ -231,27 +234,34 @@ export function ProfilePageShell({ crumbs, subtitle, fallbackRole }: ProfilePage
               autoComplete="email"
             />
             <p className="-mt-2 text-xs text-warm-400">
-              Enter an email you have access to. A verification code will be sent to confirm ownership.
+              {user?.must_set_recovery_email
+                ? "Enter an address you control for future password recovery."
+                : "A verification code will be sent to the new address to confirm ownership."}
             </p>
             <div className="flex items-center gap-3">
-              <Button type="submit" loading={savingRecoveryEmail} className="w-auto">Send Verification Code</Button>
+              <Button type="submit" loading={savingRecoveryEmail} className="w-auto">
+                {user?.must_set_recovery_email ? "Save Recovery Email" : "Send Verification Code"}
+              </Button>
               {user?.recovery_email_verified && user.recovery_email === recoveryEmail && (
                 <span className="text-sm font-semibold text-emerald-600">Verified.</span>
               )}
             </div>
           </form>
 
-          <form onSubmit={handleRecoveryEmailVerify} className="mt-5 space-y-4 border-t border-warm-100 pt-5">
-            <Input
-              label="Verification Code"
-              value={recoveryCode}
-              onChange={(e) => setRecoveryCode(e.target.value)}
-              required
-              inputMode="numeric"
-              maxLength={6}
-            />
-            <Button type="submit" loading={verifyingRecoveryEmail} className="w-auto">Verify Recovery Email</Button>
-          </form>
+          {!user?.must_set_recovery_email
+            && (Boolean(user?.pending_recovery_email) || !user?.recovery_email_verified) && (
+            <form onSubmit={handleRecoveryEmailVerify} className="mt-5 space-y-4 border-t border-warm-100 pt-5">
+              <Input
+                label="Verification Code"
+                value={recoveryCode}
+                onChange={(e) => setRecoveryCode(e.target.value)}
+                required
+                inputMode="numeric"
+                maxLength={6}
+              />
+              <Button type="submit" loading={verifyingRecoveryEmail} className="w-auto">Verify Recovery Email</Button>
+            </form>
+          )}
           {recoveryMessage && <p className="mt-3 text-sm font-semibold text-emerald-600">{recoveryMessage}</p>}
           {recoveryError && <p className="mt-3 text-sm font-semibold text-red-600">{recoveryError}</p>}
         </Card>

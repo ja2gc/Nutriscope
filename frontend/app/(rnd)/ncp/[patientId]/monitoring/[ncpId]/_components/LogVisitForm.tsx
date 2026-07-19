@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { ChevronDown, ChevronUp, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { DatePicker } from "@/components/ui/DatePicker";
 import {
   Collapsible,
   CollapsibleTrigger,
@@ -64,11 +65,6 @@ const MACRO_FIELDS = [
 ] as const;
 
 type MacroKey = typeof MACRO_FIELDS[number]["key"];
-
-// ─── Input class ──────────────────────────────────────────────────────────────
-
-const inputCls =
-  "w-full px-3.5 py-2.5 text-base border border-warm-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 bg-white transition-all placeholder:text-warm-400";
 
 // ─── UnitInput — with optional target hint ────────────────────────────────────
 
@@ -499,18 +495,7 @@ export default function LogVisitForm({
         </div>
 
         {/* ── Next Follow-up Date ──────────────────────────────────────────── */}
-        <div>
-          <label className="block text-xs font-bold text-warm-400 uppercase tracking-widest mb-1.5">
-            Next Follow-up Date
-          </label>
-          <input
-            type="date"
-            value={nextDate}
-            min={todayStr}
-            onChange={(e) => setNextDate(e.target.value)}
-            className={inputCls}
-          />
-        </div>
+        <DatePicker label="Next Follow-up Date" value={nextDate} min={todayStr} onChange={setNextDate} />
 
         {/* ── Error ────────────────────────────────────────────────────────── */}
         {error && (

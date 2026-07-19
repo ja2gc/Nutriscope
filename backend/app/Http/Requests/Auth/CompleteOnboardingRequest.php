@@ -5,19 +5,17 @@ namespace App\Http\Requests\Auth;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
-class UpdateRecoveryEmailRequest extends FormRequest
+class CompleteOnboardingRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        return $this->user()?->requiresOnboarding() === true;
     }
 
-    /**
-     * @return array<string, mixed>
-     */
     public function rules(): array
     {
         return [
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
             'recovery_email' => [
                 'required',
                 'email',
@@ -31,8 +29,6 @@ class UpdateRecoveryEmailRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
-        $this->merge([
-            'recovery_email' => strtolower(trim((string) $this->input('recovery_email'))),
-        ]);
+        $this->merge(['recovery_email' => strtolower(trim((string) $this->input('recovery_email')))]);
     }
 }

@@ -31,6 +31,10 @@ class User extends Authenticatable
         'password',
         'role',
         'is_active',
+        'must_change_password',
+        'must_set_recovery_email',
+        'onboarding_skipped_at',
+        'pending_recovery_email',
     ];
 
     protected $hidden = ['password', 'remember_token'];
@@ -41,6 +45,9 @@ class User extends Authenticatable
         'recovery_email_verification_expires_at' => 'datetime',
         'password' => 'hashed',
         'is_active' => 'boolean',
+        'must_change_password' => 'boolean',
+        'must_set_recovery_email' => 'boolean',
+        'onboarding_skipped_at' => 'datetime',
     ];
 
     public function getEmailForPasswordReset(): string
@@ -102,5 +109,19 @@ class User extends Authenticatable
     public function isAdmin(): bool
     {
         return $this->role === 'Admin';
+    }
+
+    public function requiresOnboarding(): bool
+    {
+        return $this->must_change_password || $this->must_set_recovery_email;
+    }
+
+    public function completeOnboardingRequirement(string $attribute): void
+    {
+        $this->forceFill([$attribute => false]);
+        if (! $this->must_change_password && ! $this->must_set_recovery_email) {
+            $this->onboarding_skipped_at = null;
+        }
+        $this->save();
     }
 }

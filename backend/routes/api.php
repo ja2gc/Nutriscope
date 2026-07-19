@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\ActivityController;
+use App\Http\Controllers\Admin\AiUsageAnalyticsController;
 use App\Http\Controllers\Admin\AiUsageLimitController;
 use App\Http\Controllers\Admin\AnnouncementController as AdminAnnouncementController;
 use App\Http\Controllers\Admin\AuditActorController;
@@ -81,6 +82,10 @@ Route::prefix('auth')->group(function () {
     Route::middleware(['auth:sanctum', 'active'])->group(function () {
         Route::post('logout', [AuthController::class, 'logout']);
         Route::get('me', [AuthController::class, 'me']);
+        Route::post('onboarding', [AuthController::class, 'completeOnboarding'])
+            ->middleware('throttle:password-change');
+        Route::post('onboarding/skip', [AuthController::class, 'skipOnboarding'])
+            ->middleware('throttle:password-change');
         Route::patch('profile', [AuthController::class, 'updateProfile']);
         Route::patch('recovery-email', [RecoveryEmailController::class, 'update'])
             ->middleware('throttle:password-reset');
@@ -341,6 +346,7 @@ Route::middleware(['auth:sanctum', 'active', 'role:Admin'])->prefix('admin')->gr
     Route::post('report-branding', [ReportBrandingController::class, 'update']);
     Route::get('ai-usage-limits', [AiUsageLimitController::class, 'show']);
     Route::put('ai-usage-limits', [AiUsageLimitController::class, 'update']);
+    Route::get('ai-usage', AiUsageAnalyticsController::class);
 
     // Food Service settings — budget per head per day (Admin reads + writes)
     Route::get('food-service-settings', [FoodServiceSettingController::class, 'show']);

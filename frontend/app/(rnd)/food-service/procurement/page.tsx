@@ -23,6 +23,7 @@ import { searchCatalog, type CatalogItem } from "@/services/fsCatalogService";
 import { AuditTrail } from "@/components/audit/AuditTrail";
 import { SuppliersPanel } from "@/components/foodservice/SuppliersPanel";
 import { ImageUploadGallery, type UploadImage } from "@/components/ui/ImageUploadGallery";
+import { DatePicker } from "@/components/ui/DatePicker";
 
 const STORAGE_BASE = process.env.NEXT_PUBLIC_LARAVEL_URL ?? "http://127.0.0.1:8000";
 const peso = (n: number) => `₱${n.toFixed(2)}`;
@@ -791,18 +792,13 @@ export default function ProcurementPage() {
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
-              <label className="block text-xs font-extrabold text-warm-500 uppercase mb-1">From date</label>
-              <input type="date" value={genStartDate} onChange={(e) => {
-                const next = e.target.value;
+              <DatePicker label="From date" value={genStartDate} onChange={(next) => {
                 setGenStartDate(next);
                 if (genEndDate < next) setGenEndDate(next);
-              }} className="w-full px-3 py-2 text-base border border-warm-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+              }} />
             </div>
             <div>
-              <label className="block text-xs font-extrabold text-warm-500 uppercase mb-1">To date</label>
-              <input type="date" value={genEndDate} min={genStartDate}
-                onChange={(e) => setGenEndDate(e.target.value)}
-                className="w-full px-3 py-2 text-base border border-warm-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+              <DatePicker label="To date" value={genEndDate} min={genStartDate} onChange={setGenEndDate} />
             </div>
             <div className="flex items-end gap-2">
               <Button variant="primary" onClick={doGenerate} className="px-4 py-2">Generate</Button>

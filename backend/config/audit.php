@@ -231,6 +231,20 @@ return [
             'implementation_state' => 'implemented',
             'reason' => 'This authentication or account-security command needs an explicit outcome event; credentials, tokens, and codes stay excluded.',
         ],
+        'POST api/auth/onboarding' => [
+            'classification' => 'explicit_event',
+            'source' => 'App\\Http\\Controllers\\Auth\\AuthController@completeOnboarding',
+            'owner_task' => 5,
+            'implementation_state' => 'implemented',
+            'reason' => 'First-login password and recovery-email setup emits sanitized account-security events without credentials or email values.',
+        ],
+        'POST api/auth/onboarding/skip' => [
+            'classification' => 'explicit_event',
+            'source' => 'App\\Http\\Controllers\\Auth\\AuthController@skipOnboarding',
+            'owner_task' => 5,
+            'implementation_state' => 'implemented',
+            'reason' => 'Deferring required first-login setup changes persistent account-security state and emits a sanitized settings event.',
+        ],
         'POST api/auth/password' => [
             'classification' => 'explicit_event',
             'source' => 'App\\Http\\Controllers\\Auth\\AuthController@updatePassword',

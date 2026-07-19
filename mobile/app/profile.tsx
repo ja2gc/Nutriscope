@@ -212,7 +212,12 @@ export default function ProfileScreen() {
     onSuccess: (updated) => {
       queryClient.setQueryData(['me'], updated);
       setRecoveryCode('');
-      setRecoveryMsg({ ok: true, text: 'Verification code sent.' });
+      setRecoveryMsg({
+        ok: true,
+        text: updated.recovery_email_verified
+          ? 'Recovery email saved.'
+          : 'Verification code sent.',
+      });
     },
     onError: (err: unknown) => {
       const msg =
@@ -441,7 +446,9 @@ export default function ProfileScreen() {
         <View className="mx-4 bg-white rounded-xl border border-gray-100 p-4 mb-4">
           <Text className="text-base font-semibold text-gray-800 mb-4">Recovery email</Text>
           <Text className="text-sm text-gray-500 mb-4 leading-5">
-            Used only for password reset links and account recovery. It must be verified before it can receive reset emails.
+            {user?.must_set_recovery_email
+              ? 'Add the recovery email required for first-login setup. No verification code is needed.'
+              : 'Changing an existing recovery email requires a code before the old address is replaced.'}
           </Text>
 
           <FormField
@@ -463,11 +470,18 @@ export default function ProfileScreen() {
             activeOpacity={0.8}
           >
             <Text className="text-white font-semibold">
-              {recoveryEmailMutation.isPending ? 'Sending…' : 'Send verification code'}
+              {recoveryEmailMutation.isPending
+                ? 'Saving...'
+                : user?.must_set_recovery_email
+                  ? 'Save recovery email'
+                  : 'Send verification code'}
             </Text>
           </TouchableOpacity>
 
-          <View className="h-px bg-gray-100 my-4" />
+          {!user?.must_set_recovery_email
+            && (Boolean(user?.pending_recovery_email) || !user?.recovery_email_verified) ? (
+            <>
+              <View className="h-px bg-gray-100 my-4" />
 
           <FormField
             label="Verification code"
@@ -490,6 +504,9 @@ export default function ProfileScreen() {
               {recoveryVerifyMutation.isPending ? 'Verifying…' : 'Verify recovery email'}
             </Text>
           </TouchableOpacity>
+
+            </>
+          ) : null}
 
           {user?.recovery_email_verified && user.recovery_email === recoveryEmail ? (
             <Text className="text-emerald-700 text-sm mt-3">Recovery email verified.</Text>

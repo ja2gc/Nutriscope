@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/Button";
 import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
 import { formatPatientAge } from "@/lib/patientAge";
 import { personDisplayName, requiredPersonNameFields } from "@/lib/personName";
+import { DatePicker } from "@/components/ui/DatePicker";
 import { HeartHandshake, X } from "lucide-react";
 import { ClinicalAttribution } from "@/components/ncp/ClinicalAttribution";
 
@@ -412,16 +413,7 @@ export default function NcpPatientsPage() {
             </div>
 
             <div className="space-y-1">
-              <label htmlFor="patient-dob" className="text-xs font-bold text-warm-500 uppercase tracking-wider block">Date of Birth</label>
-              <input
-                id="patient-dob"
-                type="date"
-                required
-                value={newDob}
-                onChange={(e) => setNewDob(e.target.value)}
-                max={new Date().toISOString().split("T")[0]}
-                className="min-h-11 w-full px-3 py-2 text-base bg-white border border-warm-300 rounded-lg text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 focus-visible:ring-2 transition-all"
-              />
+              <DatePicker label="Date of Birth" required value={newDob} onChange={setNewDob} max={new Date().toISOString().slice(0, 10)} />
             </div>
 
             {createError && (
