@@ -1,71 +1,107 @@
-# Clinical Care — Nutrition Care Process (NCP / ADIME) Workflow
+# Clinical Care — Current NCP/ADIME Flow
 
-End-to-end RND workflow for a single patient's nutrition care cycle. Backend-enforced
-gates are shown as decision diamonds; an empty record never advances the workflow.
+Verified against current RND pages and workflow helpers on **2026-07-19**.
+
+## End-to-End Flow
 
 ```mermaid
 flowchart TD
-    A[RND Login] --> B[Patient Directory\nsearch / filter by status\nAdmit or select a patient]
-    B --> C{Start NCP Cycle?\nGuards:\n- patient not Discharged/Transferred\n- no existing open draft/active cycle}
-    C -- Blocked --> C1[Show reason\ne.g. open cycle exists\nor patient discharged]
-    C1 --> B
-    C -- Allowed --> D[NCP Cycle created\nstatus = draft\ntype = new]
+    A["RND web login"] --> B["Nutrition Care → Patients"]
+    B --> C{"Patient exists?"}
+    C -->|"No"| D["Create Patient and Start Assessment"]
+    C -->|"Yes"| E["Open patient profile"]
+    D --> F["New NCP cycle"]
+    E --> G{"Continue or start cycle?"}
+    G -->|"Continue"| H["Open existing ADIME record"]
+    G -->|"Start"| F
 
-    %% ── ASSESSMENT (A) ──────────────────────────────────────────────
-    D --> AS[Step 1 — Nutrition Assessment\nAnthropometrics: weight, height auto-BMI, usual wt, %IBW, MUAC, waist/hip\nDietary: intake recall, appetite, restrictions, present diet\nClinical: medical/social history, meds, allergies, dislikes\nEngine inputs: activity level, stress, edema, pregnancy/lactation\nBiochemical/Labs tab: 17 lab values flagged LOW/HIGH by sex-specific ranges\nUpload lab sheets / screening forms BELOW the lab entries\nReferral / Screening form -> risk score auto-computed]
-    AS --> ASG{Assessment complete?\nweight AND height present}
-    ASG -- No --> AS
-    ASG -- Yes --> ASOK[Assessment saved\nrisk score + nutritional status stored\nUploads stored against the cycle\nUploading a file does NOT satisfy this gate]
+    F --> I["Assessment"]
+    H --> I
+    I --> I1["Dietary"]
+    I --> I2["Anthropometrics"]
+    I --> I3["Client History"]
+    I --> I4["Biochemical and Labs"]
+    I --> I5["Referral and Screening"]
+    I --> I6["Summary and Risk Review"]
+    I4 --> I7["Optional supporting-file upload; no current OCR/autofill"]
+    I5 --> I7
+    I6 --> J{"Assessment save valid?"}
+    J -->|"No"| I
+    J -->|"Yes"| K["Diagnosis unlocked"]
 
-    %% ── DIAGNOSIS (D) ───────────────────────────────────────────────
-    ASOK --> DX[Step 2 — Nutrition Diagnosis\nBuild PES per domain NI / NC / NB\nProblem -> Etiology -> Signs/Symptoms via checkbox builder + notes\nOptional: AI Suggest draws on assessment + abnormal labs\n   to propose 1-3 PES statements RND approves/edits\nManual PES override is persisted as-is]
-    DX --> DXG{At least one VALID PES?\nproblem + etiology + signs\nno placeholder text}
-    DXG -- No --> DX
-    DXG -- Yes --> DXOK[Diagnosis saved\nEdit re-hydrates prior checkbox selections\nLast PES cannot be deleted once cycle is active]
+    K --> L["Build Problem, Etiology, Signs/Symptoms"]
+    L --> M["Review editable PES statement"]
+    K --> N["Optional AI draft suggestions"]
+    N --> O["Accept, edit, or dismiss"]
+    O --> M
+    M --> P["Save at least one Diagnosis"]
 
-    %% ── INTERVENTION (I) ────────────────────────────────────────────
-    DXOK --> IV[Step 3 — Nutrition Intervention]
-    IV --> GOAL[Set Intervention Goal + disease stage\ne.g. diabetic_control / renal_diet / malnutrition ...]
-    GOAL --> RX[Nutrition Prescription auto-fills from the engine\nEnergy/Protein/Carbs/Fat/Fluid from goal+stage+patient metrics\nRequired micronutrients for the goal auto-display + limits\nChanging goal RESETS prescription + micros to the new goal\nRND may override any value; relevant micros editable]
-    RX --> TABS[Supporting tabs\nFood Recommendations Recommend/Avoid by goal\nEducation auto-template per goal\nCounseling: goals, barriers, strategies\nGoal Planning: macro + micro targets compiled\nEncounter Context: session type, next follow-up]
+    P --> Q["Intervention unlocked"]
+    Q --> Q1["Set goal and stage"]
+    Q1 --> Q2["Backend-authoritative prescription autofill and trace"]
+    Q2 --> Q3["Review/edit targets and food guidance"]
+    Q3 --> Q4["Create, generate, or load patient meal plan"]
+    Q4 --> Q5["Complete education, counseling, goals, encounter context"]
+    Q5 --> R["Save care plan"]
 
-    TABS --> MPG{Generate Meal Plan?\nGate: prescription complete\ngoal + energy + full macros}
-    MPG -- Blocked --> MPG1[Block with missing fields\ncomplete the prescription first]
-    MPG1 --> RX
-    MPG -- Allowed --> MP[Auto-generate 7-day x 5-slot plan\nScores recipes to prescription macro ratios\nExcludes patient allergens\n±10% per-day variance check + reconciliation\nManual edits: allergen items HARD-BLOCKED\n   dislikes/restrictions warn; nutrient snapshot computed server-side]
+    R --> S{"Patient returns for follow-up?"}
+    S -->|"Not yet"| T["Care plan remains usable without Monitoring"]
+    S -->|"Yes"| U["Monitoring Visit Log"]
+    U --> V["Progress Trends vs baseline and targets"]
+    V --> W["Save entry and next monitoring date"]
+    W --> X{"Continue, revise, or close care?"}
+    X -->|"Continue"| U
+    X -->|"Revise"| Q
 
-    IV --> IVG{Initial ADI complete?\nAssessment + valid PES + full prescription}
-    MP --> IVG
-    IVG -- No --> IV
-    IVG -- Yes --> ACT[NCP auto-activated\nstatus draft -> active\n'Initial ADI' established]
-
-    %% ── MONITORING / EVALUATION (M/E) ───────────────────────────────
-    ACT --> MON[Step 4 — Monitoring & Evaluation\nLog follow-up visits: weight, BMI, labs, intake, symptoms, goal achievement\nMacro/micro intake optional record-keeping only\nMonitoring Plan compiles patient-specific indicators:\n   abnormal labs + goal labs + PES-implied labs\n   anthropometrics weight/BMI/%IBW\n   intake vs prescription\nTrend charts run Visit 1 baseline -> follow-ups\nOptional AI monitoring narrative]
-    MON --> MEG{Meaningful M/E entry?\nat least one measured/observed value}
-    MEG -- No --> MON
-    MEG -- Yes --> FULL[Full ADIME achieved\ncycle ready for final reporting]
-
-    %% ── REPORTS ─────────────────────────────────────────────────────
-    ACT --> R1[NCP Summary Report\nRND-only PHI\nDRAFT watermark + missing-items list if initial ADI incomplete\nLabels completion stage Initial ADI vs Full ADIME\nIncludes assessment, PES, prescription, all monitoring entries\nReferences the cycle's meal plan\nAppendix embeds uploaded lab/screening photos]
-    MP --> R2[Patient Menu Plan Report\nRND selects the EXACT meal plan to print\nMon-Sun x meals grid\nUSDA, library, and recipe items all shown]
-    FULL --> R1
-    FULL --> R2
-
-    subgraph SEC [Access & Integrity — enforced throughout]
-        S1[Clinical reports + uploaded documents are RND-only\nFSS/Admin blocked from PHI]
-        S2[Meal-plan routes scoped: cycle -> intervention -> plan -> day -> item]
-        S3[Nutrient snapshots computed server-side only\nclient cannot falsify report totals]
-    end
+    T --> Y["Reports"]
+    W --> Y
+    Y --> Z["Preview live NCP Summary or Patient Menu Plan"]
+    Z --> AA["Archive approved as-filed copy"]
 ```
 
----
+## Implemented Navigation Gates
 
-**Notes for demo**
+```mermaid
+flowchart LR
+    A["Assessment"] -->|"saved"| B["Diagnosis"]
+    B -->|"one or more saved"| C["Intervention"]
+    C -->|"saved"| D["Monitoring"]
+```
 
-- Each ADIME step is gated on *clinically meaningful* content — empty rows never advance the
-  cycle or appear in a final report.
-- "Initial ADI" (Assessment + Diagnosis + Intervention) activates the cycle; "Full ADIME" adds
-  Monitoring/Evaluation and is required before a final, un-watermarked NCP Summary.
-- The prescription engine (PHP `NutritionPrescriptionService`, mirrored in the frontend) derives
-  all targets from `goal_type` + `disease_stage` + patient metrics; see
-  [intervention-goals.md](../../logic/intervention-goals.md).
+- Diagnosis block reason: save Assessment first.
+- Intervention block reason: save Assessment and at least one Diagnosis.
+- Monitoring block reason: save Assessment, Diagnosis, and care plan first.
+- Current code calls Monitoring follow-up/second-visit work but does not separately enforce a numeric visit count.
+
+## Patient Record Structure
+
+```mermaid
+flowchart TD
+    P["Patient Profile"] --> O["Overview"]
+    P --> A["ADIME Records"]
+    P --> F["Attachments"]
+    A --> C1["NCP Cycle 1"]
+    A --> C2["NCP Cycle 2+"]
+    C1 --> S1["Assessment"]
+    C1 --> S2["Diagnoses"]
+    C1 --> S3["Intervention and meal plans"]
+    C1 --> S4["Monitoring entries"]
+    C1 --> S5["Structured activity"]
+    F --> F1["Files grouped by NCP cycle"]
+```
+
+## Important Current Rules
+
+- Edema present requires dry weight before Assessment save.
+- Generated Assessment Summary is an editable draft; stale-source warning supports regenerate/undo.
+- AI Diagnosis output is never accepted without RND action.
+- Prescription calculation authority is Laravel backend; frontend trace explains the result.
+- A cycle becomes deletion-protected once Assessment, Diagnosis, and Intervention all exist.
+- Reports have live preview and frozen archived-copy states.
+
+## Related Documents
+
+- [RND Module](../rnd.md)
+- [FAQ](../../FAQ.md)
+- [Role How-To](../../ROLE-HOW-TO.md)
+- [Storyboards](../../STORYBOARD.md)

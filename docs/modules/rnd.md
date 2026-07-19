@@ -1,181 +1,242 @@
-# RND Role - Current Workflow Status
+# RND Module — Current Role and Workflow
 
-RND is the food-service planning owner and the clinical nutrition owner. This file reflects the current implementation after the `docs/superpowers/plan/` food-service redesign work.
+Verified against current frontend navigation, Laravel routes/controllers, and shared services on **2026-07-20**. Code is authoritative; older plans describe history only.
 
-## Current Scope
+## Role Purpose
 
-RND owns:
+RND owns two work lanes:
 
-- Patient/NCP clinical workflows.
-- Food catalog/inventory reference, food-service recipes, and menu-cycle planning.
-- Budget setup and food-service settings.
-- Shopping-list generation and PO conversion.
-- Procurement open-execution follow-up with FSS.
-- Reports and archived submitted outputs.
+1. **Clinical nutrition care:** patients, NCP/ADIME, clinical food data, patient meal plans, monitoring, and clinical reports.
+2. **Food-service planning and supervision:** reference catalog, food-service recipes/items, menu cycles, procurement planning, budget, execution follow-up, and operational reports.
 
-FSS owns daily execution data: receipts/proof uploads, OR numbers, served population, and accomplishment/diet-list entries.
+RND does not perform Admin account/audit administration and does not use the FSS mobile app as its working platform.
+
+## Platform and Navigation
+
+RND signs in through the web console. The current sidebar is:
+
+| Navigation | Current purpose |
+|---|---|
+| Dashboard | Follow-ups, active-patient snapshot, pending POs, announcements |
+| Announcements | RND announcement board plus current/versioned SOP |
+| Food Library | Clinical foods and recipes; USDA import |
+| Nutrition Care → Patients | Patient directory and NCP-cycle entry |
+| Nutrition Care → Assessment | Baseline NCP data for selected cycle |
+| Nutrition Care → Diagnosis | Structured P/E/S and PES workflow |
+| Nutrition Care → Intervention | Prescription, meal plan, education, counseling, goals, encounter context |
+| Nutrition Care → Monitoring | Follow-up visit log and progress trends |
+| Food Service → Inventory | Ingredient/supply reference catalog |
+| Food Service → Menu Cycle | Weekly operational menu planning |
+| Food Service → Budget | Fiscal-year budget and ledger management |
+| Food Service → Procurement | Food/supplies lists, POs, vendors, execution follow-up |
+| Food Service → Foods | Food-service recipes and single-item foods |
+| Reports | Live report browser, archives, templates/branding |
+| Notifications | Announcements and follow-up reminders |
+| Help | Searchable Shared and RND-only account, clinical, food-service, communication, and report guidance |
+| Settings | Local preferences and budget-per-head/day setting |
+
+Profile is reached from the top bar.
 
 ## Dashboard
 
-RND dashboard now focuses on live work items instead of old cost-per-head KPI cards.
+Current dashboard content:
 
-- Pending POs are shown from open-execution purchase orders.
-- Budget-per-head/day KPI cards were removed per plan.
-- Food-service status is read from real backend data, not hardcoded display values.
-- Announcement feed remains visible.
+- active patient count;
+- scheduled follow-up directory;
+- pending open-execution POs and their missing requirements;
+- patient snapshot and links into NCP;
+- announcement feed with RND authoring/editing for authorized posts.
 
-## Food-Service Settings
+It does not present the old inventory-stock KPI workflow.
 
-Budget per head per day belongs in Food Service Settings for RND/Admin use.
+## Nutrition Care Process
 
-Current status:
+### Patient Directory and Profile
 
-- `food_service_settings.per_head_day_limit` exists and is used by menu-cycle cost/budget display.
-- RND budget page copy says the per-head/day limit is configured in Settings.
+RND can create/search/filter patients and start Assessment immediately. Patient profile contains:
 
-Known gap:
+- **Overview:** demographics, diagnosis, risk, latest-cycle snapshot, follow-up;
+- **ADIME Records:** all cycles with Assessment/Diagnosis/Intervention/Monitoring summaries, meal plans, and activity;
+- **Attachments:** supporting files grouped by NCP cycle.
 
-- Legacy `budgets.per_head_day_limit` is still accepted by backend budget setup. UI no longer uses it, but API/model surface still exists.
+A new cycle is started from ADIME Records. A cycle can be deleted only until it contains Assessment, at least one Diagnosis, and Intervention. A patient containing any such protected cycle cannot be deleted through the normal UI.
 
-## Inventory / Reference Catalog
+### Implemented Step Gates
 
-Inventory remains in RND scope as a food-service reference catalog. It is not the old stock-management page.
+```mermaid
+flowchart LR
+    A["Patient and NCP cycle"] --> B["Save Assessment"]
+    B --> C["Save at least one Diagnosis"]
+    C --> D["Save Intervention and care plan"]
+    D --> E["Use Monitoring on follow-up"]
+    D --> F["Clinical reports"]
+    E --> F
+```
 
-Plan intent:
+- Assessment is always the first available step.
+- Diagnosis requires a saved Assessment.
+- Intervention requires Assessment plus at least one Diagnosis.
+- Monitoring requires Assessment, Diagnosis, and Intervention.
+- Monitoring is described as follow-up/second-visit work, but current code does not separately enforce an encounter-count field; the saved prior steps are the implemented gate.
 
-- Inventory is the backend reference list of items available for procurement.
-- It should not be a navigable page for FSS.
-- It should remain available to RND because recipes, menu cycles, shopping lists, supplies lists, procurement, PO values, and reports depend on it.
-- It must not expose stocking/restock workflow as a user-facing FSS operation.
+### Assessment
 
-RND page contents:
+Current tabs:
 
-- Ingredients: name, category, vendor, inventory/base unit, purchase unit, purchase cost, unit cost.
-- Supplies: name, category, vendor, cost per unit only, no quantity field.
-- Ready-to-eat/single items: name, category, vendor, base unit, purchase cost, and unit cost so they can be placed directly in a menu-cycle cell.
-- Vendor state: auto-suggested from latest procurement and auto-updated unless manually locked.
-- Vendor controls: lock/unlock suggested vendor so RND can preserve a manually selected supplier.
-- Unit/cost visibility: show how purchase price converts into cost per inventory/base unit.
-- Actions: create, edit, delete where safe; block delete when item is already used by recipes or procurement history.
+1. Dietary
+2. Anthropometrics
+3. Client History
+4. Biochemical/Labs
+5. Referral/Screening
+6. Summary
 
-Explicitly not on this page:
+Current behavior includes calculated anthropometrics, nutritional-risk scoring with optional manual override, editable generated summary, stale-summary warning/undo, clinical calculation helpers, and supporting-document upload. When edema is present, dry weight is required.
 
-- Quantity in stock.
-- Restock button.
-- Stock status/no-stock workflow.
-- FSS stocking controls.
+Important correction: lab/referral uploads are stored as supporting files only. They do **not** run OCR or auto-populate Assessment fields in the current page.
 
-Current status:
+### Diagnosis and PES
 
-- The backend catalog table `fs_items` is intact and still drives calculations.
-- Recipe creation/editing still reads catalog rows from `/api/fss/inventory/rows`.
-- Claude is currently restoring a cleaner catalog API under `/api/fss/fs-items/catalog` with RND-only create/edit/delete routes.
+RND can:
 
-Known gap:
+- manage saved diagnoses and filter NI/NC/NB domains;
+- build Problem, Etiology, and Signs/Symptoms;
+- review/edit the generated PES statement;
+- create/update/delete diagnoses;
+- request AI draft suggestions and accept, edit, or dismiss each.
 
-- The RND food-service catalog/inventory surface is not cleanly wired yet. The sidebar points to `/food-service/foods`, while current implemented pages were under `/food-service/recipes`. RND needs a usable `/food-service/foods` inventory/catalog page matching the fields above.
+AI is assistive. The RND remains the saving/approval actor.
 
-## Menu Cycles
+### Intervention and Patient Meal Plan
 
-Menu cycles are weekly planning artifacts, normally Monday-Sunday.
+Current tabs:
 
-Current behavior:
+1. Food/Nutrient Delivery
+2. Education
+3. Counseling
+4. Goal Planning
+5. Encounter Context
 
-- RND fills menu-cycle cells with recipes or food-service items.
-- Each planned cell can carry estimated population.
-- FSS can view active/saved cycles read-only in mobile.
-- Mobile menu view can open a food/recipe profile for a cell and show scaled ingredients, quantities, cost, cost/head, and prep notes.
-- When a food shopping list is converted to PO, menu-cycle day cells receive permanent PO snapshots.
+Food/Nutrient Delivery includes goal/stage selection, backend-authoritative prescription autofill, a visible calculation trace, editable macro/fluid/micronutrient targets, food recommendations, and patient meal planning. Patient plans may be manual, generated, or template-based. Unsaved-change guards warn before leaving.
 
-## Shopping List Generation
+### Monitoring and Evaluation
 
-The planned procurement flow is now date-span based.
+Current tabs:
 
-Current behavior:
+- **Visit Log:** follow-up entries and history.
+- **Progress Trends:** monitoring summary, goal progress, and trends against baseline/prescription.
 
-- RND selects a start and end date.
-- Backend resolves each date to its covering menu cycle.
-- Suggested list generation is all-or-nothing: missing menu days or missing estimated population block generation and return exact missing dates.
-- Estimated population is saved at shopping-list level and cascades into covered menu-cycle day cells.
-- Ingredient quantities and costs recalculate into the editable shopping-list item table.
-- Manual quantity/cost edits update line totals.
-- UI shows the calculated budget-per-head/day panel from backend cost-efficiency data.
+The screen also shows encounter context, next follow-up, and saved prescription targets.
 
-Known UI drift:
+## Food Library
 
-- The shopping-list header still has a secondary `per day` chip computed as total divided by span days. The correct budget-per-head/day value is shown in the dedicated panel.
+Food Library is the **clinical** food/recipe reference used by nutrition-care planning. It supports:
 
-## Procurement
+- local food CRUD;
+- USDA FoodData Central search/import;
+- macro/micronutrient and allergen review;
+- clinical recipe CRUD and calculated nutrients;
+- search, category filters, and pagination.
 
-Current planned food flow:
+It is distinct from the food-service Inventory and Foods modules.
 
-1. RND generates or edits a draft shopping list.
-2. RND converts it to one food PO.
-3. PO groups items by vendor group under that one PO.
-4. PO enters `open_execution`.
-5. RND/FSS can input OR numbers and upload receipts/proof per vendor group.
-6. Receipt upload marks the vendor group received and preserves receipt/price history.
-7. Food PO completes only after every vendor group has receipt upload and every date in the span has served population.
-8. Completion calculates actual budget per head/day from final PO total divided by actual served population.
+## Food-Service Planning
 
-Current status:
+### Inventory
 
-- One PO with vendor groups is implemented.
-- Structural PO data freezes at conversion.
-- Menu-cycle day PO snapshots are written.
-- Pending PO cards exist on web and mobile dashboards.
-- Supplies and food use independent procurement tracks.
+Current Inventory is a reference catalog, not stock control. RND maintains:
 
-Known gap:
+- ingredients: name, category, vendor, base unit, purchase cost;
+- supplies: name, category, vendor, cost per unit;
+- search and pagination;
+- safe create/edit/delete.
 
-- Backend/web still allow a vendor group to be manually marked `received` without receipt upload. Mobile has been corrected to rely on receipt upload.
+There is no quantity-on-hand, restock, or FSS stock-adjustment user flow.
 
-## Budget
+### Foods
 
-Current behavior:
+The `/food-service/foods` route is now implemented and uses the food-service recipe list. It supports food-service recipes and single-ingredient items used in menu-cycle cells, with ingredient/cost/preparation profiles.
 
-- Fiscal-year budget setup uses fiscal year and allocated amount.
-- Shared budget ledger records system deductions from completed POs and manual adjustments.
-- Food and supplies share the ledger only for deductions; procurement tracks remain separate.
-- Budget page no longer asks for per-head/day limit.
-- RND keeps the editable budget page at `/food-service/budget`. Admin uses the same shell at `/admin/budget` in read-only mode.
+This resolves the old module note claiming the Foods route was not wired.
 
-Known gap:
+### Menu Cycles
 
-- Backend still keeps legacy `budgets.per_head_day_limit` API/model field. Remove or ignore after Settings migration is locked.
+RND can create, edit, delete, save, activate, template, and instantiate Monday-anchored weekly cycles. A cell may contain a recipe or a single food-service item. RND sets estimated population/servings and inspects scaled ingredients, costs, cost/head, and preparation notes.
+
+FSS sees active/saved cycles read-only but may record actual served population.
+
+### Procurement
+
+Four current tabs:
+
+1. Food Shopping Lists
+2. Supplies Lists
+3. Purchase Orders
+4. Suppliers
+
+Food-list generation is date-span based and all-or-nothing. Every requested date must be covered by a menu with assigned items and required population; validation returns exact missing dates. RND reviews quantities/costs/vendors and converts one list into one PO grouped by vendor.
+
+Food and supplies remain separate procurement tracks. Conversion freezes structural execution data and relevant menu snapshots. RND then follows OR numbers, receipt/proof attachments, served-day progress, totals, corrections, and activity.
+
+Food PO completion requires all vendor receipts plus served population for all covered dates. Supplies PO completion requires all vendor receipts only.
+
+### Budget and Settings
+
+RND Budget is editable: fiscal-year setup, summary, ledger, manual adjustments, and activity. The shared budget-per-head/day limit belongs in Settings. Estimated and actual cost-per-head/day values are distinct.
+
+## Announcements and SOP
+
+RND can create announcements with category, visibility, pinning, body, and images, and can edit/delete authorized posts. The current SOP is pinned above the feed. RND/Admin can revise it; every save creates a new preserved version. FSS reads both current SOP and history.
 
 ## Reports
 
-Current active food-service report direction:
+RND report catalog:
 
-- RND reports are browse/render/archive, not blind "generate all".
-- Active food-service report types are narrowed to current useful reports.
-- FSS accomplishment reports archived by staff are visible to RND.
-- Rendered archived reports use frozen snapshots where implemented.
+- Program Project Activity
+- Menu Calendar
+- Procurement Pack
+- Accomplishment Report
+- Demographic Census
+- Patient Menu Plan
+- NCP Summary
 
-Accomplishment report:
+Browse renders current/live data. Archive freezes an as-filed copy. RND can view/download archived copies, inspect lifecycle activity, and edit shared report branding/signatory templates.
 
-- FSS diet-list entries auto-file weekly accomplishment reports.
-- Week boundaries are Monday through Sunday.
-- A staff report archives only after that FSS user has one entry for every day in the week.
-- Snapshot is frozen and remains stable even if diet-list rows later change.
+## Help, Notifications, Settings, and Profile
 
-Known gap:
+- Help: searchable Shared and RND guidance only; the page has no role switch and exposes no Admin-only answers.
+- Notifications: announcements and follow-up reminders; open/mark-read/mark-all-read.
+- Settings: density, reduced motion, announcement/follow-up preferences, budget-per-head/day.
+- Profile: first/last name, sign-in email, contact, one validated profile photo, recovery email verification, password change.
+- First login: temporary password replacement and recovery email, with optional deferral reminder.
 
-- Program Project Activity report browse/render still uses `menu_cycle_id` and reloads menu-cycle data. The PO conversion creates a `ProgramProjectActivity` snapshot, but the report browser/generator is not yet fully snapshot/PO sourced.
+## Explicit Boundaries
 
-## Audit trails
+RND does not:
 
-RND patient and NCP pages use the shared structured audit trail. Child assessment, diagnosis, intervention, meal-plan, monitoring, and attachment events correlate to the root patient/NCP. Clinical changes show allow-listed field names only; no clinical old/new values, OCR/file contents, or AI prompts/outputs enter the event store or UI. Opening a clinical trail is itself audited.
+- manage Admin audit-retention or user RBAC;
+- use the FSS mobile execution tab set;
+- treat AI output as an automatically accepted clinical decision;
+- rely on uploaded Assessment documents for current OCR/autofill;
+- treat Inventory as live stock quantity.
 
-Procurement, budget, and report surfaces use the same DTO. Purchase-order history includes lifecycle, vendor-group, attachment, correction, receiving, meal-service, and budget-deduction events. Budget history distinguishes user and named-system actors. Report history includes lifecycle/access events without snapshots, filters, or file contents. Trails use cursor pagination and retain safe actor/subject labels after deletion. See [`docs/architecture/audit-logging.md`](../architecture/audit-logging.md).
+## Related User Documents
 
-## 8. Settings
-Basic settings stuff
-[2026-06-19] Check existing scaffold before building. Build frontend only against what the backend already supports. Do not add settings with no backend support.
+- [FAQ](../FAQ.md)
+- [Role How-To Guide](../ROLE-HOW-TO.md)
+- [Storyboards](../STORYBOARD.md)
+- [Clinical Care Flowchart](Flowcharts/Clinical%20Care%20%28NCP%29%20Operations.md)
+- [Food Service Flowchart](Flowcharts/Food%20Service%20Operations.md)
 
-## Profile
-basic profile stuff
-[2026-06-19] At minimum: User name (which should be the same variable for reports that are the ones that prepared it), email, password change. Check if profile photo upload is supported in the backend before adding it to the frontend.
+## Current Code Evidence
 
-[2026-06-28] RND and Admin share `ProfilePageShell`. Profile photo updates are accepted only as PNG/JPEG/WebP data URLs with frontend size checks and Laravel max/regex validation. Password changes revoke existing Sanctum tokens.
+- `frontend/components/layout/Sidebar.tsx`
+- `frontend/app/(rnd)/help/page.tsx`
+- `frontend/components/help/**`
+- `frontend/lib/helpContent.ts`
+- `frontend/app/(rnd)/ncp/**`
+- `frontend/lib/ncpWorkflow.ts`
+- `frontend/app/(rnd)/food-library/**`
+- `frontend/app/(rnd)/food-service/**`
+- `frontend/components/reports/ReportsBrowser.tsx`
+- `frontend/components/announcements/**`
+- `backend/routes/api.php`

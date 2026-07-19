@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { router } from 'expo-router';
-import { ChevronRight, LogOut, UserCircle } from 'lucide-react-native';
+import { router, type Href } from 'expo-router';
+import { ChevronRight, CircleHelp, LogOut, UserCircle } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import {
   Alert,
@@ -188,6 +188,14 @@ export default function SettingsScreen() {
       <RowLink
         label={readAllMutation.isPending ? 'Marking…' : 'Mark all notifications read'}
         onPress={() => readAllMutation.mutate()}
+      />
+
+      {/* Help */}
+      <SectionLabel label="Help & Support" />
+      <RowLink
+        icon={<CircleHelp color="#374151" size={18} />}
+        label="Help"
+        onPress={() => router.push('/help' as Href)}
       />
 
       {/* Account */}

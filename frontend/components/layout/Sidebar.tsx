@@ -19,7 +19,8 @@ import {
   Users,
   History,
   Megaphone,
-  WalletCards
+  WalletCards,
+  CircleHelp,
 } from "lucide-react";
 
 export function Sidebar({ open = false, onClose }: { open?: boolean; onClose?: () => void }) {
@@ -155,6 +156,7 @@ export function Sidebar({ open = false, onClose }: { open?: boolean; onClose?: (
               {navLink("/admin/reports",       false, "Reports",       TrendingUp)}
               {navLink("/admin/budget",        false, "Budget",        WalletCards)}
               {navLink("/admin/audit-logs",    false, "Audit Logs",    History)}
+              {navLink("/admin/help",          false, "Help",          CircleHelp)}
               {navLink("/admin/settings",      false, "Settings",      Cog)}
             </>
           ) : (
@@ -272,6 +274,7 @@ export function Sidebar({ open = false, onClose }: { open?: boolean; onClose?: (
 
               {navLink("/reports",       false, "Reports",          TrendingUp)}
               {navLink("/notifications", false, "Notifications",    BellDot)}
+              {navLink("/help",          true,  "Help",             CircleHelp)}
               {navLink("/settings",      false, "Settings",       Cog)}
             </>
           )}

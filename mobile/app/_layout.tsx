@@ -89,6 +89,10 @@ export default function RootLayout() {
             options={{ title: 'Settings' }}
           />
           <Stack.Screen
+            name="help"
+            options={{ title: 'Help' }}
+          />
+          <Stack.Screen
             name="reports"
             options={{ title: 'Accomplishment Reports' }}
           />

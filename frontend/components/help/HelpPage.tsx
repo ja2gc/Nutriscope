@@ -1,0 +1,145 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import { CircleHelp, Search, ShieldCheck, X } from "lucide-react";
+import { PageHeader } from "@/components/ui/PageHeader";
+import {
+  filterHelpItems,
+  getPopularHelpItems,
+  groupHelpItems,
+  type WebHelpRole,
+} from "@/lib/helpContent";
+import { HelpQuestionList } from "./HelpQuestionList";
+
+function slug(value: string) {
+  return value.toLocaleLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+}
+
+export function HelpPage({ role }: { role: WebHelpRole }) {
+  const [query, setQuery] = useState("");
+  const normalizedQuery = query.trim();
+  const items = useMemo(() => filterHelpItems(role, query), [query, role]);
+  const groups = useMemo(() => groupHelpItems(items), [items]);
+  const popular = useMemo(() => getPopularHelpItems(role), [role]);
+  const homeHref = role === "Admin" ? "/admin/dashboard" : "/dashboard";
+
+  return (
+    <div className="mx-auto max-w-5xl space-y-6">
+      <PageHeader
+        crumbs={[[role, homeHref], ["Help"]]}
+        title="Help"
+        icon={<CircleHelp className="h-5 w-5 text-brand-green-700" />}
+        subtitle={`Find answers for ${role} work, account access, and shared NutriScope operations.`}
+      />
+
+      <section
+        aria-labelledby="help-search-heading"
+        className="rounded-2xl border border-warm-200 bg-white p-5 shadow-sm sm:p-6"
+      >
+        <div className="max-w-3xl">
+          <h2 id="help-search-heading" className="text-lg font-extrabold text-warm-900">
+            What do you need help with?
+          </h2>
+          <p className="mt-1 text-sm leading-6 text-warm-500">
+            Search your role&apos;s guidance and the questions shared by every NutriScope user.
+          </p>
+          <label htmlFor="help-search" className="mt-4 block text-sm font-semibold text-warm-700">
+            Search Help
+          </label>
+          <div className="relative mt-1.5">
+            <Search
+              aria-hidden="true"
+              className="pointer-events-none absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-warm-400"
+            />
+            <input
+              id="help-search"
+              type="search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Try ‘forgot password’, ‘dry weight’, or ‘reports’"
+              className="min-h-12 w-full rounded-xl border border-warm-300 bg-white py-3 pl-11 pr-12 text-base text-warm-900 outline-none placeholder:text-warm-400 focus:border-brand-green-600 focus:ring-2 focus:ring-brand-green-500/20"
+            />
+            {query && (
+              <button
+                type="button"
+                onClick={() => setQuery("")}
+                aria-label="Clear Help search"
+                className="absolute right-1.5 top-1/2 flex h-10 w-10 -translate-y-1/2 cursor-pointer items-center justify-center rounded-lg text-warm-400 hover:bg-warm-100 hover:text-warm-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green-500/30"
+              >
+                <X aria-hidden="true" className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+          <p aria-live="polite" className="mt-2 text-sm font-medium text-warm-500">
+            {normalizedQuery
+              ? `${items.length} ${items.length === 1 ? "answer" : "answers"} found`
+              : `${items.length} answers available for your role`}
+          </p>
+        </div>
+      </section>
+
+      {!normalizedQuery && popular.length > 0 && (
+        <section aria-labelledby="popular-help-heading" className="overflow-hidden rounded-2xl border border-warm-200 bg-white shadow-sm">
+          <div className="border-b border-warm-100 bg-warm-50 px-4 py-3.5 sm:px-5">
+            <h2 id="popular-help-heading" className="text-base font-extrabold text-warm-900">
+              Popular questions
+            </h2>
+            <p className="mt-0.5 text-sm text-warm-500">Quick answers users commonly need.</p>
+          </div>
+          <HelpQuestionList items={popular} instanceId="popular" />
+        </section>
+      )}
+
+      {groups.length > 0 ? (
+        <div className="space-y-5">
+          {groups.map((group) => (
+            <section
+              key={group.category}
+              aria-labelledby={`help-group-${slug(group.category)}`}
+              className="overflow-hidden rounded-2xl border border-warm-200 bg-white shadow-sm"
+            >
+              <div className="border-b border-warm-100 bg-warm-50 px-4 py-3.5 sm:px-5">
+                <h2 id={`help-group-${slug(group.category)}`} className="text-base font-extrabold text-warm-900">
+                  {group.category}
+                </h2>
+                <p className="mt-0.5 text-sm text-warm-500">
+                  {group.items.length} {group.items.length === 1 ? "answer" : "answers"}
+                </p>
+              </div>
+              <HelpQuestionList
+                key={`${group.category}-${normalizedQuery}`}
+                items={group.items}
+                instanceId={`group-${slug(group.category)}`}
+              />
+            </section>
+          ))}
+        </div>
+      ) : (
+        <section className="rounded-2xl border border-dashed border-warm-300 bg-white px-6 py-12 text-center">
+          <CircleHelp aria-hidden="true" className="mx-auto h-9 w-9 text-warm-400" />
+          <h2 className="mt-3 text-lg font-extrabold text-warm-900">No matching answers</h2>
+          <p className="mx-auto mt-2 max-w-xl text-base leading-7 text-warm-500">
+            Try fewer or broader words. You can also clear the search to browse every topic available to your role.
+          </p>
+          <button
+            type="button"
+            onClick={() => setQuery("")}
+            className="mt-5 min-h-11 cursor-pointer rounded-lg bg-forest-900 px-4 py-2 text-sm font-bold text-white hover:bg-forest-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green-500/40"
+          >
+            Clear search
+          </button>
+        </section>
+      )}
+
+      <aside className="flex gap-3 rounded-2xl border border-brand-green-200 bg-brand-green-50 p-5 text-brand-green-900">
+        <ShieldCheck aria-hidden="true" className="mt-0.5 h-5 w-5 shrink-0 text-brand-green-700" />
+        <div>
+          <h2 className="text-base font-extrabold">Still need help?</h2>
+          <p className="mt-1 text-sm leading-6">
+            Contact your administrator with the screen, time, action, and safe error wording. Never send a password, recovery code, or patient information in a support message.
+          </p>
+        </div>
+      </aside>
+    </div>
+  );
+}

@@ -1,123 +1,208 @@
-# Admin Role — Workflow (current state + intended scope)
+# Admin Module — Current Role and Workflow
 
-Admin owns access control and system oversight. Admin routes live under `/api/admin/*` (middleware `auth:sanctum, role:Admin`). The Admin **backend** is built (users, audit-log w/ pagination, dashboard aggregates, announcements, password-reset). An Admin **frontend** was built by codex/antigravity (`baf8fbf`→HEAD) **but strayed from this spec** and must be rebuilt — see the Reconciliation note below. This doc states the intended flow and is the **source of truth**.
+Verified against current Admin web pages, shared components, and Laravel role/report guards on **2026-07-20**. This replaces older text saying the Admin frontend still needed rebuilding; the current light-theme Admin console is live.
 
-> Scope note: this describes **how the system flows** (data origin → backend → DB → frontend consumer → cross-role → downstream). Known gaps/risks live in [`docs/reviews/2026-06-14-system-review.md`](../reviews/2026-06-14-system-review.md). Execution plan (TDD tasks + file refs): [`admin-sprint-plan.md`](../superpowers/plans/admin-sprint-plan.md).
+## Role Purpose
 
-> **Frontend API path:** the frontend never calls Laravel directly — every Admin service calls a same-origin Next.js route handler under `frontend/app/api/admin/**` that proxies to `/api/admin/*` on the backend via `lib/laravelProxy.ts` (forwarding the `nutriscope_token` cookie as a Bearer). Each Admin page therefore needs both a backend route **and** a Next.js proxy handler; the users/audit-logs/dashboard handlers exist, the rest are tracked in [`admin-sprint-plan.md`](../superpowers/plans/admin-sprint-plan.md).
+Admin owns system administration and operational oversight:
 
-> **Reconciliation (2026-06-18) — codex/antigravity Admin frontend strayed:** the build under `frontend/app/admin/` (and the committed `frontend/app/(admin)/`) does not match the rest of the app and is to be **rebuilt**, not patched on top of. Specific deviations: (1) **theme inverted** — the whole app is **light** (`bg-gray-50`/`bg-zinc-100`, RND dashboard `categoryStyles`), the codex admin console is **dark** (`bg-zinc-950`); (2) **no component reuse** — bespoke pages instead of reusing the shared `Sidebar`/`TopBar`/`Badge`/`Button`/`Card`/`KpiCard` and, for §4, the RND announcement composer; (3) **announcement diverged** — a bespoke dark "Bulletin/Broadcast Manager" card grid, instead of mirroring how RND composes/announces (shared `announcementService`). The **backend** Admin work in that same range is fine and stays. Build direction is in [`admin-sprint-plan.md`](../superpowers/plans/admin-sprint-plan.md).
+- account creation, RBAC, activation/suspension, password reset;
+- audit browsing, safe history, export, and retention control;
+- AI usage/cost oversight and daily/monthly token caps;
+- announcements and versioned SOP;
+- allowed operational/aggregate reports;
+- read-only budget oversight;
+- report/hospital branding and shared food-service budget setting;
+- Admin notifications, profile, and local preferences.
 
-> **CHANGE OF MIND (this revision):** Admin's scope is now defined as system administration only — RBAC, accounts, audit oversight, system/operational health (including budget and procurement, which are financial/operational data, not clinical) — modeled on RPDH's IT department. Admin has **no standing path to clinical content** (NCP Summary, Menu Plan, or any patient-identified report). This replaces an earlier draft of this doc that gave Admin "full access to all report types across all users." That draft is preserved below, struck through, rather than deleted, so the reasoning is traceable. The underlying legal basis — DPA 2012 (RA 10173) legitimate-purpose and proportionality principles, and the DOH Health Privacy Code's need-to-know standard — is why the original wording was the problem to begin with: a role grant with no declared purpose and no proportionality limit is hard to defend regardless of phrasing. Narrowing what Admin *is* (an IT-department function with no clinical job to do) resolves that more cleanly than trying to police a broader grant after the fact.
+Admin has no standing patient NCP workflow and no patient-specific clinical-report access.
 
----
+## Platform and Role Gate
 
-## Current Update - 2026-06-28
+Admin uses the web console. The Admin layout redirects non-Admin users to the RND dashboard, and Laravel protects `/api/admin/*` with authenticated active-user and Admin-role middleware.
 
-- Admin now has `/admin/budget`, backed by `/api/admin/budgets*`, using the same budget shell as RND in read-only mode. Admin can select fiscal year and inspect summary/ledger; setup and manual adjustments stay RND-only.
-- Admin reports now match RND for non-patient report types: `program_project_activity`, `menu_calendar`, `procurement_pack`, `accomplishment_report`, and aggregate `demographic_census`. `patient_menu_plan` and `ncp_summary` stay blocked server-side.
-- Admin report archives are visible across users only for the allowed non-patient report types.
-- Shared profile now supports validated PNG/JPEG/WebP data URLs only, capped before submit and by Laravel validation.
-- Password reset, password change, logout, admin user actions, and budget mutations now produce audit/security effects: reset/change revokes Sanctum tokens; logout clears frontend auth cookies; audit rows are written without passwords, tokens, or raw photo data.
+## Current Navigation
 
-## 1. Dashboard
-Landing page after login (`/admin/dashboard`). System KPIs + charts + an activity feed — the IT-department's at-a-glance view of system health. **All numbers are read live from the API; nothing is hardcoded or seeded.**
+| Navigation | Current purpose |
+|---|---|
+| Admin Dashboard | System KPIs, AI usage/cost/caps, quick actions, recent activity |
+| Announcements | Admin announcement board and current/versioned SOP |
+| Manage Users | Account CRUD, role/status, password reset, onboarding creation |
+| Reports | Allowed operational and aggregate reports |
+| Budget | Read-only fiscal-year summary, ledger, activity |
+| Audit Logs | Structured event browser, filters, history, export, retention |
+| Help | Searchable Shared and Admin-only account, oversight, audit, settings, and report guidance |
+| Settings | Branding, logos, budget-per-head/day, local preferences |
 
-- **Source → backend → DB:** `GET /api/admin/dashboard` (`Admin/DashboardController`, cached 300s, key `admin_dashboard`) aggregates five groups, each from a real table populated by real user actions:
-  - `users { total, by_role{Admin,RND,FSS} }` — from `users` (created by Admin in §2).
-  - `patients { total }` — from `patients` (created by RND).
-  - `ai_usage { total_calls, total_tokens, tokens_input, tokens_output, month_calls, month_tokens, by_endpoint{}, daily[] }` — from `ai_usage_logs`, written every time RND triggers an AI call (diagnosis suggest, monitoring AI-review, recipe generator — see [`rnd.md`](rnd.md) §2–3). `month_*` = month-to-date totals; `daily[]` = `{date,calls,tokens}` for the last 30 days.
-  - `audit_logs { total, last_7_days }` — from Spatie `activity_log` (§3).
-  - `reports { total }` — from `reports`.
-- **Frontend consumer:** `frontend/app/admin/dashboard/page.tsx` via `adminDashboardService.fetchDashboard()`. KPI cards reuse the shared `KpiCard` with the **neutral** zinc tone (no per-card color tint); the **AI Usage** card headlines `month_calls`/`month_tokens`; the **token chart** (Recharts) plots the `ai_usage.daily` series (tokens per day, last 30 days); the **activity feed** reuses the audit-log list (§3).
-- **Constraint:** KPIs stay **count/rate-level only** — no patient-identifying detail (same boundary as the census report in §6). Aggregates are computed in SQL (`COUNT`/`SUM`/`groupBy`), never per-patient rows.
-- **Downstream:** none — read-only oversight surface.
+Notifications and Profile are reached from the top bar.
 
-## 2. User Management & RBAC (baseline)
-The core IT-department function: who exists, what role they hold, whether they can log in. **Every account is created by a human Admin action — the app never auto-provisions credentials.**
+## Dashboard
 
-- **Source → backend → DB:** `apiResource /api/admin/users` (`Admin/UserController`, create/read/update/delete) writes the `users` table. Columns: `name`, `email`, `password` (hashed), `role` ∈ `RND | FSS | Admin`, `is_active` (bool, default true), soft-deletes (`deleted_at`). Validation: `StoreUserRequest` (name, email unique, password confirmed min:8, role in RND|FSS|Admin, is_active nullable bool); `UpdateUserRequest` (all nullable, email unique-ignoring-self, password optional). Password reset: `POST /api/admin/users/{user}/reset-password` (`Admin/ResetPasswordRequest`, password confirmed min:8) rate-limited `throttle:6,1`.
-- **Roles** are a single string on the user (no separate permissions table); route access is enforced by `RoleMiddleware` (exact-role match) and `is_active` is checked there too. A deactivated user is blocked at the middleware **and** at login.
-- **Frontend consumer:** `frontend/app/admin/users/page.tsx` via `adminUserService` (`listUsers/createUser/updateUser/deleteUser/setActive/resetPassword`). Reuse shared `Badge` (role), `Button`, and table styling. Admin types passwords directly — no auto-generation.
-- **Cross-role / downstream:** the `role` field is what scopes every other role's entire surface (RND, FSS) via `RoleMiddleware`; `is_active=false` immediately denies all their requests. This is the single switch that gates the rest of the system.
+Current dashboard shows:
 
-## 3. Audit / Activity Tracking (oversight)
-- **Source → backend → DB:** explicit business/security events and narrowly allow-listed model events write to Spatie's `activity_log` through the central audit service. The retired request middleware no longer writes one row for every mutation. Every unsafe route is classified in `config/audit.php`, and a coverage test rejects unreviewed routes.
-- **Privacy contract:** clinical events persist field names only, never clinical values. PHI, credentials, tokens, codes, file/OCR contents, report snapshots, AI prompts/outputs, raw URLs, and arbitrary request bodies are excluded at write time. The public presenter also allow-lists every returned detail and never returns raw `properties`, model class names, email addresses, or internal IDs.
-- **Read API:** `GET /api/admin/audit-logs` returns the shared structured `AuditEventDto`, offset pagination, capabilities, and backend-owned filter metadata. Filters are category, domain, action, severity, outcome, actor public ID, subject/context public ID, and timestamp range.
-- **Frontend consumer:** `/admin/audit-logs` has exactly four views: All Activity, Security, Clinical, and Operations. Its table/drawer render labeled fields and typed changes; there is no JSON expander. Audit access is authorized and audit-list viewing is deduplicated.
-- **Export:** `GET /api/admin/audit-logs/export` is permission-controlled, uses the same scope, caps CSV output, and is disabled by default. Temporary IP blocking is not implemented: there is no runtime control, configuration flag, unblock path, or production workflow. Any future version requires a separate approved trusted-proxy and incident-response design.
-- **Cross-role:** the same DTO powers patient/NCP, purchase-order, budget, and report trails. Inventory has no history route. See [`docs/architecture/audit-logging.md`](../architecture/audit-logging.md) for taxonomy, privacy rules, retention, and the operator runbook.
+- total users and counts by Admin/RND/FSS;
+- aggregate patients in care;
+- monthly AI calls, tokens, and estimated cost;
+- total audit events and recent volume;
+- daily/monthly token use versus limits;
+- configurable token caps and USD cost per one million tokens;
+- AI Usage Explorer;
+- quick links to accounts, audit, and announcements;
+- latest five structured system events.
 
-## 4. Announcements
-- **Source → backend → DB:** `apiResource /api/admin/announcements` (`Admin/AnnouncementController`, which **extends `RND/AnnouncementController`** — no logic fork) writes the `announcements` table: `title`, `body`, `category` (General|Event|Operational|Urgent), `attachment` (nullable longText), `pinned` (bool — Admin-only), `visibility` (FSS|Admin|All). Requests `StoreAnnouncementRequest`/`UpdateAnnouncementRequest`. Admin sees **all** announcements (no visibility filter) and is the only role that can pin.
-- **Reuse (built):** Admin and RND share **one** component — `frontend/components/announcements/AnnouncementsBoard.tsx` (`variant: "admin" | "rnd"`) over the shared `announcementService`. Both `frontend/app/admin/announcements/page.tsx` and `frontend/app/(rnd)/announcements/page.tsx` are thin wrappers; the pin toggle is gated to `variant="admin"`. The `categoryStyles` constant is defined once in that component and imported everywhere (incl. the RND dashboard feed). The `attachment` field is a `nullable|string` column (longText). No bespoke "broadcast manager".
-- **Cross-role / downstream:** on store, `NotificationService::fanOutAnnouncement()` (§5) creates one `notifications` row per recipient matching the announcement's `visibility` (excluding the author). FSS reads its feed (`visibility FSS|All`) via `GET /api/fss/announcements`; RND reads via its dashboard. So an Admin announcement with `visibility=All` lands on every active user's notification feed.
+Patient count is an aggregate KPI. It is not a path into patient clinical content.
 
-## 5. Notifications
-Kept **simple and aligned with RND** ([`rnd.md`](rnd.md) §7) — same table, same controller, same frontend components. Two write-triggers exist system-wide; Admin reuses the read/mark side.
+## Account Management and Onboarding
 
-- **The one backend change Admin needs:** the notification routes currently live **inside the RND-only group** (`/api/rnd/notifications`, `routes/api.php`), so Admin cannot reach them. `NotificationController` already scopes strictly by `Auth::id()` (it is role-agnostic). **Resolution:** move the three notification routes out of the `role:RND` prefix into the shared `auth:sanctum` group → `/api/notifications`, `/api/notifications/read-all`, `/api/notifications/{notification}/read`. RND, FSS, and Admin then reuse one controller and one frontend service. (RND's `notificationService.ts` path updates `/api/rnd/notifications` → `/api/notifications`; covered by `NotificationTriggersTest`.) This is the single backend edit in Admin's scope — see [`admin-sprint-plan.md`](../superpowers/plans/admin-sprint-plan.md) S5.
-- **Source → backend → DB:** `notifications` table (`user_id`, `title`, `message`, `type`, `source_module`, `source_id`, `read`). Writes come only from real events via `NotificationService`:
-  - **Trigger A — announcement posted** (`fanOutAnnouncement`): one row per active recipient matching visibility, `type='announcement'`, `source_module='announcements'`. This is Admin's realistic notification source (e.g. an RND posts a `visibility=All`/`Admin` announcement — fan-out excludes the author, so an Admin only sees announcements they didn't write).
-  - **Trigger B — upcoming follow-up** (`SendFollowUpReminders` command, 1 day before `next_followup_date`, idempotent): targets the **RND owning the NCP** only. Admin owns no NCPs, so this trigger does not target Admin — documented for completeness, not an Admin path. Requires the Laravel scheduler running in the backend container.
-- **Frontend consumer (built):** reuse RND's `notificationService` (`fetchNotifications/markNotificationRead/markAllNotificationsRead`), the notifications page, and the **TopBar bell + unread badge** (now renders for both RND and Admin). Notifications are reached from the **TopBar bell** (→ `/admin/notifications`), not the sidebar — mirroring how RND surfaces them. No new components.
-- **Downstream:** marking read flips `read=true` (owner-only, 403 otherwise); the bell badge recomputes unread count.
+Admin can search/filter users and:
 
-## 6. Reports — **no Admin access to clinical reports**
+- create an account with first/last name, sign-in email, role, active status, and temporary password;
+- edit identity, role, status, and optional password;
+- activate/suspend accounts;
+- reset a password;
+- delete an account when appropriate.
 
-> ~~Admin should have access to **all** report types across **all** users (not owner-scoped like RND/FSS). The Reports browser model is the same (browse → view → download/archive); Admin's view spans the whole facility. Clinical types remain PHI-bearing and Admin access should be deliberate.~~
-> *(struck — superseded by the section below)*
+New Admin-created accounts set both onboarding requirements:
 
-RPDH produces three report types under the NCP umbrella, with different sensitivity:
-- **NCP Summary** (patient-identified clinical record — assessment/diagnosis/intervention/monitoring) — RND-only. Never Admin.
-- **Menu Plan** (patient-identified; reveals clinical information indirectly even though it's a meal plan, e.g. a renal diet implies kidney involvement) — RND-only. Never Admin.
-- **Census report** (facility-level aggregate statistics, no patient-identifying fields) — Admin may access this one, **conditional on it staying a true aggregate**: fixed/coarse breakdowns only, no drill-down to a filter narrow enough to isolate a small number of patients. If the census report ever gains a filter capability (by ward + condition + date, etc.), a minimum-cell-size floor (e.g., suppress any breakdown under N patients) must be added before Admin's access to it remains safe — small-cell counts can re-identify a person even with zero patient fields in the output, especially in a facility small enough that staff already know who's on which ward.
+- change temporary password;
+- add recovery email.
 
-**Budget and procurement reports are not PHI and are not subject to the above.** These are financial/operational data (spending, inventory, supplier terms) — Admin has full access. The one thing worth a one-time check: confirm no budget/procurement report line ever ties a cost figure to an individual patient (e.g., "spend per patient" rather than per-ward/per-period) — if one does, that line indirectly discloses something about that patient's care and should be treated as patient-identified, not financial, data. Based on the system's module structure (Procurement and Budget operate at inventory/supplier/threshold level), this is believed not to be the case, but hasn't been explicitly verified against the schema.
+Users complete setup on first login or defer it and finish in Profile. Role/status/password changes revoke existing tokens. Admin password reset also revokes tokens and creates an audit event.
 
-- **Source → backend → frontend (built):** reports use the shared browser model over the `reports` table and one `ReportController`. The restriction is **enforced server-side**, not just hidden in the UI: `ReportController::ADMIN_ALLOWED_TYPES = [demographic_census, budget_report, procurement_pack]` is the single source of truth, and every entry point (`index/instances/render/archive/store/show/download/view`) returns **403** for an Admin requesting any other type (NCP Summary, Menu Plan, inventory, etc.). Admin reaches it via `/api/admin/reports*`. Frontend: one shared `frontend/components/reports/ReportsBrowser.tsx` (`catalog` + `apiPrefix` props) — the RND page passes `FULL_CATALOG`/`apiPrefix="rnd"`, the Admin page (`frontend/app/admin/reports/page.tsx`) passes `ADMIN_CATALOG` (the 3 allowed types)/`apiPrefix="admin"`; Template-Edit tab suppressed for Admin (branding lives in §7 Settings).
-- **Analytics — token usage:** the daily/monthly token-usage chart (`ai_usage_logs`, AI cost oversight) is non-PHI operational analytics and lives on the Dashboard (§1).
+The current UI blocks Admin self-deactivation and self-deletion.
 
-**Rationale for "no Admin access to clinical reports," not "Admin access requires a stated purpose":** an earlier draft handled clinical-report access by requiring Admin to declare a purpose per access (a "break-the-glass"-style log). That's a workable pattern in general, but it's unnecessary complexity here once Admin's job description is scoped to system administration — there's no administrative duty in that job description that requires reading a patient's NCP Summary or Menu Plan, so there's nothing to gate. If a future capability genuinely needs cross-role clinical-report access (e.g. a billing-dispute investigation), that should be designed as its own narrow, logged exception path when the need is concrete — not as a standing capability on the Admin role today.
+## Audit Oversight
 
-## 7. Settings
-Two distinct kinds, mirroring how RND's settings page is built ([`rnd.md`](rnd.md) §8) — **build frontend only against what the backend already supports.**
+Admin Audit Logs provide:
 
-- **(a) Hospital branding / letterhead (system-level, persisted):** `GET/POST /api/report-branding` (`ReportBrandingController`) over the single-row `report_branding` table (`hospital_name`, `address`, `accreditation`, `service_name`, `province`, `lgu`, `logo_left_path`, `logo_right_path`; logos validated `image|max:2048`, stored on the `public` disk). This is metadata about how a PDF header looks, not clinical content. **Downstream / cross-role:** editing it changes the letterhead on **every** RND/FSS report and archive at render time (only the live letterhead reflects current branding; frozen report values do not re-price). This endpoint is shared, not Admin-prefixed — Admin reuses it.
-- **(b) Appearance preferences (device-local):** density (`comfortable|compact`) and reduce-motion, persisted to `localStorage` via `lib/preferences` and applied by the layout — exactly like the RND settings page. No backend storage (none exists, none added). The page also offers **mark-all-read** for notifications (reuses `notificationService.markAllNotificationsRead`).
-- **Out of scope — clinical_rules CRUD:** *(CHANGE OF MIND)* the `clinical_rules` configuration originally bundled into Admin "Settings" is **moved out** — disease-to-nutrient mappings are clinical authority and belong with RND, not an IT-scoped Admin role (see §6 rationale). Not yet placed under RND (follow-up task). Budget thresholds / notification rules (operational, not clinical) may stay under Admin if/when built.
+- module selection;
+- action/actor/date and other structured filters;
+- server pagination;
+- safe event detail;
+- correlated historical record view;
+- export;
+- retention display/update;
+- clear states for unauthenticated, unauthorized, unavailable, and empty results.
 
-## 8. Profile
-Self-service account management, **identical to RND** ([`rnd.md`](rnd.md) §9) — shared endpoints, no Admin fork.
+Audit UI consumes the structured audit DTO. It does not expose raw properties, file contents, AI prompts/outputs, or clinical old/new values. Safe actor and subject labels remain understandable after record deletion.
 
-- **Source → backend → DB:** `GET /api/auth/me`, `PATCH /api/auth/profile` (`UpdateProfileRequest`: `name` required, `email` required + unique-ignoring-self), `POST /api/auth/password` (`UpdatePasswordRequest`: `current_password` validated against the hash, `password` confirmed min:8). `AuthController`, shared `auth:sanctum` group. Touches `users.name`/`users.email`/`users.password`.
-- **Frontend consumer:** reuse RND's `frontend/app/(rnd)/profile/page.tsx` layout and `authService` (`updateProfile`, `changePassword`, `refreshUser`). Two cards: Account Details (name/email) + Change Password. Reached from the **TopBar profile card** (→ `/admin/profile`), not the sidebar — mirroring RND.
-- **No profile photo** — verified: the `users` table has no photo/avatar column and there is no upload endpoint. Do not add a photo field to the frontend.
-- **Downstream:** `users.name` is the same identity rendered as the **"prepared-by"** signatory on reports — changing it here changes how this user appears on documents they file.
+Opening sensitive clinical audit trails is itself auditable. Audit access is oversight, not permission to browse the underlying patient care record.
 
-## 9. Calendar (preserved, hidden)
-Same backend as the other roles ([`rnd.md`](rnd.md) §6): `calendar_events` table, controller, and routes exist; the frontend is hidden from the Admin nav for the demo. Auto-event wiring (facility-wide events, deadlines) is a post-defense task. No Admin-specific work now.
+## Announcements and SOP
 
-## 10. Role mapping at RPDH
-Admin maps to RPDH's IT department, not an administrative officer — confirmed RPDH has a dedicated IT department, and this role's job description (RBAC, accounts, audit, system health) is the IT department's existing core function elsewhere, not a new responsibility handed to a non-technical role. This independently supports §6: an IT department isn't the body with clinical authority to govern clinical content even if it wanted to, so "Admin = IT, no clinical-content path" reflects how the hospital is actually organized, not just a security policy invented for this system. **Open question, not yet confirmed:** whether RPDH's IT function is an in-house permanent hospital position or a shared/outsourced DOH-region resource — this affects how conservative the access boundaries should default to be (a shared/rotating role argues for less assumed continuity of trust), and is worth confirming with the RND contact.
+Admin can create/edit/delete announcement posts with category, visibility, pinning, text, and images. Audience-specific notifications are produced for matching users.
 
----
+The current SOP is pinned at the top. Admin and RND can revise it. Every save creates a new version; History displays timestamp, author, role, title, body, and current marker.
 
-## Build status summary (shipped)
-The off-spec codex frontend was discarded and rebuilt as a light-theme `app/admin/*` group that reuses the shared `Sidebar`/`TopBar`/`KpiCard`/`Badge`/`Button` and shared feature components. All rows below are **built and browser-verified**.
+## Reports and Clinical Privacy Boundary
 
-| Capability | Backend | Frontend |
-|---|---|---|
-| Dashboard (KPIs + AI chart + activity feed) | ✅ `Admin/DashboardController` (cached; now also `ai_usage.month_*` + `daily[]`) | ✅ light, neutral `KpiCard` tones; AI card = month-to-date, chart = tokens/day |
-| User management / RBAC | ✅ endpoints + password-reset (`throttle:6,1`); `UserResource` exposes `is_active` | ✅ `adminUserService` wired (CRUD/activate/reset, 422s surface) |
-| Audit logs | ✅ authorized structured DTO, server taxonomy, retention/monitoring | ✅ four views, typed drawer, shared contextual trails; no raw JSON |
-| Announcements | ✅ Admin extends RND ctrl; fan-out on store | ✅ shared `AnnouncementsBoard` (admin + RND pages = thin wrappers) |
-| Notifications | ✅ routes moved to shared `auth:sanctum` (`/api/notifications*`) | ✅ shared `notificationService`; TopBar bell (RND + Admin); reached from topbar |
-| Profile | ✅ shared `/api/auth/*` (no photo) | ✅ reuses RND profile page; reached from TopBar profile card |
-| Settings — branding | ✅ `/api/admin/report-branding` (+ shared `report_branding` singleton) | ✅ branding form (multipart logos) |
-| Settings — appearance prefs | n/a (client-side `lib/preferences`) | ✅ mirrors RND settings page + mark-all-read |
-| Reports (census + budget/procurement only) | ✅ one `ReportController` + `ADMIN_ALLOWED_TYPES` allowlist **enforced server-side** (403 on clinical/other for Admin); `/api/admin/reports*` | ✅ shared `ReportsBrowser` (`catalog`+`apiPrefix`); Admin catalog = 3 types |
-| Clinical-rules config | — | **moved out of Admin scope, not yet placed under RND** (follow-up) |
+Admin's server-allowed report types are:
 
-**Frontend integration note:** every Admin page goes through a Next.js proxy route handler under `frontend/app/api/admin/**` (and shared `app/api/{auth,notifications}/**`) that forwards the `nutriscope_token` cookie to Laravel via `lib/laravelProxy.ts` — a backend route alone is not reachable without its proxy handler. Remaining follow-up: place clinical-rules CRUD under RND.
+- Program Project Activity
+- Menu Calendar
+- Procurement Pack
+- Accomplishment Report
+- aggregate Demographic Census
+
+Admin is blocked from:
+
+- Patient Menu Plan
+- NCP Summary
+
+This is enforced in the report controller/model, not only hidden in the UI. Admin may browse live instances, preview, archive, view/download frozen copies, delete authorized archives, and inspect report activity for allowed types.
+
+## Budget Oversight
+
+Admin Budget uses the shared budget shell in read-only mode. Admin can select a fiscal year and inspect:
+
+- allocation/summary;
+- ledger entries;
+- budget activity.
+
+Admin cannot create a fiscal-year budget or make a manual ledger adjustment from this page. Those are RND operations.
+
+## Settings
+
+Admin can configure:
+
+- hospital name;
+- service name;
+- address;
+- accreditation;
+- province;
+- LGU;
+- left/right report logos;
+- food-service budget per head/day;
+- local display density and reduced motion;
+- local announcement/follow-up notification preferences.
+
+The budget-per-head/day value is a shared backend setting used by food-service cost comparisons.
+
+## Help, Notifications, and Profile
+
+- Help shows Shared and Admin guidance only; it has no role switch and does not expose RND clinical answers.
+- Notifications show Admin/All announcements and system alerts, with open/read/all-read behavior.
+- Profile supports name, sign-in email, contact, validated profile photo, recovery email, and password.
+- Role/designation is read-only in self-service Profile.
+
+## Admin Workflow
+
+```mermaid
+flowchart TD
+    A["Admin signs in on web"] --> B["Review dashboard health and AI usage"]
+    B --> C["Manage accounts and onboarding"]
+    B --> D["Investigate structured audit events"]
+    B --> E["Publish announcements or revise SOP"]
+    B --> F["Review allowed reports and budget"]
+    B --> G["Maintain branding and shared settings"]
+    C --> H["Role/status/password change revokes sessions and is audited"]
+    D --> I["Filter, inspect safe history, export or adjust retention"]
+    F --> J{"Patient-specific report?"}
+    J -->|"Yes"| K["Blocked server-side"]
+    J -->|"No, explicitly allowed"| L["Preview/archive/download"]
+```
+
+## Explicit Boundaries
+
+Admin does not:
+
+- enter Assessment, Diagnosis, Intervention, Monitoring, or patient meal plans;
+- access Patient Menu Plan or NCP Summary;
+- modify RND fiscal-year allocation/ledger adjustments from Admin Budget;
+- use FSS mobile execution tools;
+- treat audit events as a substitute for underlying clinical authorization;
+- expose raw audit JSON or clinical value diffs.
+
+## Removed or Superseded Notes
+
+- The old statement that Admin frontend must be rebuilt is obsolete.
+- Old dark-console/theme mismatch notes are historical, not current behavior.
+- Calendar is not in current Admin sidebar and is not part of the documented workflow.
+- Admin clinical-report parity with RND is intentionally false; patient-specific types remain blocked.
+
+## Related User Documents
+
+- [FAQ](../FAQ.md)
+- [Role How-To Guide](../ROLE-HOW-TO.md)
+- [Storyboards](../STORYBOARD.md)
+- [Admin Flowchart](Flowcharts/Admin%20Operations.md)
+
+## Current Code Evidence
+
+- `frontend/components/layout/Sidebar.tsx`
+- `frontend/app/admin/layout.tsx`
+- `frontend/app/admin/dashboard/page.tsx`
+- `frontend/app/admin/help/page.tsx`
+- `frontend/components/help/**`
+- `frontend/lib/helpContent.ts`
+- `frontend/app/admin/users/page.tsx`
+- `frontend/app/admin/audit-logs/**`
+- `frontend/app/admin/announcements/page.tsx`
+- `frontend/app/admin/reports/page.tsx`
+- `frontend/app/admin/budget/page.tsx`
+- `frontend/app/admin/settings/page.tsx`
+- `frontend/components/reports/ReportsBrowser.tsx`
+- `backend/app/Http/Controllers/Admin/**`
+- `backend/app/Http/Controllers/ReportController.php`
+- `backend/app/Models/Report.php`
+- `backend/routes/api.php`

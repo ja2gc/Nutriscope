@@ -1,6 +1,6 @@
 # NutriScope Help Page Design
 
-**Date:** 2026-07-20  
+**Date:** 2026-07-20
 **Status:** Approved for implementation planning
 
 ## Purpose

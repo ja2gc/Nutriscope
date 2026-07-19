@@ -34,6 +34,7 @@ export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
     if (pathname.startsWith("/announcements")) return "Department Announcements";
     if (pathname.startsWith("/admin/notifications")) return "Activity Notifications";
     if (pathname.startsWith("/admin/reports")) return "Operations & Census Reports";
+    if (pathname.startsWith("/admin/help")) return "Help";
     if (pathname.startsWith("/admin/settings")) return "Settings";
     if (pathname.startsWith("/recipes")) return "Recipes & Ingredient Database";
     if (pathname.startsWith("/ncp")) return "Patient Nutrition Care Center";
@@ -41,6 +42,7 @@ export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
     if (pathname.startsWith("/reports")) return "Clinical & Operational Reports";
     if (pathname.startsWith("/calendar")) return "Care Calendar & Schedules";
     if (pathname.startsWith("/notifications")) return "Activity Notifications";
+    if (pathname.startsWith("/help")) return "Help";
     if (pathname.startsWith("/settings")) return "Settings";
     return "Nutrition Operations Console";
   };

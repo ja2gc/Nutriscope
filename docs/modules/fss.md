@@ -1,165 +1,213 @@
-# FSS Role - Current Workflow Status
+# FSS Module — Current Role and Workflow
 
-FSS is the food-service execution role. This file reflects the current implementation after the `docs/superpowers/plan/` redesign work.
+Verified against current Expo navigation, rendered screens, and Laravel role gates on **2026-07-20**.
 
-## Current Scope
+## Role Purpose
 
-FSS owns:
+FSS executes daily food-service work prepared by RND:
 
-- Daily meal-prep/service logging.
-- Diet-list/accomplishment entries.
-- Served population input.
-- PO vendor-group OR numbers.
-- Receipt/proof uploads.
-- Viewing active menu cycles and food profiles.
-- Viewing own archived accomplishment reports.
+- view active/saved menu cycles and food profiles;
+- receive PO vendor groups by OR number and receipt/proof upload;
+- record actual served population and meal-service completion;
+- log daily ward meals and seven accomplishment duties;
+- view own archived accomplishment reports;
+- read announcements, notifications, current SOP, and SOP history.
 
-FSS does not own menu planning, shopping-list generation, PO authoring, supplier management, budget setup, or analytics.
+FSS does not author menus, shopping lists, POs, suppliers, budgets, food catalogs, recipes, or clinical/NCP records.
 
-## Mobile App Shape
+## Platform Gate
 
-Four bottom tabs (in order):
+FSS signs in through the mobile app. Laravel rejects FSS web login. It also rejects RND/Admin login from the FSS app. An active account with role `FSS` is required.
 
-1. **Dashboard** — KPIs, active menu week card, pending PO details, today's service, announcements.
-2. **Menu** — full menu cycle list, recipe/item profiles, served population backfill per day.
-3. **Prep & Accomp.** — mark today served, shortfall confirmation, diet-list/accomplishment form, links to Menu and reports.
-4. **Procurement** — PO list/detail, OR number, receipt/proof upload.
+## Current Mobile Navigation
 
-Menu Cycle is reachable from the Menu bottom tab AND as a convenience link from Prep. Notifications, announcements, profile, and settings are reached from the header.
+There are **five** bottom tabs, in this order:
 
-Removed/out of current mobile scope:
+1. **Home**
+2. **Menu**
+3. **Meal Prep**
+4. **Accomplish**
+5. **Purchase**
 
-- Inventory tab.
-- Suppliers tab.
-- Budget tab.
-- Insights tab.
-- FSS-side shopping-list authoring.
+This replaces older documentation showing four tabs or an Inventory tab. Header actions on every tab open:
 
-## Dashboard
+- megaphone: Announcements and SOP;
+- bell: Notifications;
+- account: Settings, Help, and Profile.
 
-FSS dashboard loads live data from `GET /api/fss/dashboard/summary`.
+Help is deliberately not a sixth bottom tab. Open **Settings → Help & Support → Help** to search Shared and FSS-only guidance.
 
-Current widgets:
+## Recommended Daily Sequence
 
-- **Meals to log today** — count of active-cycle service slots not yet completed for today.
-- **Pending POs** — count tap-navigates to Procurement.
-- **Active Menu Week card** — active cycle name, start date, service-day count per week; tap navigates to the Menu tab.
-- **Pending PO detail list** — each open-execution PO with `po_number`, `procurement_track`, and per-PO `waiting_on` labels (`Needs receipts`, `Needs served population`). Tap navigates to Procurement.
-- **Today's service** — meal slots for today with prep/shortfall status.
-- **Announcements feed** — recent announcements.
+```mermaid
+flowchart LR
+    A["Home: review queues"] --> B["Menu: review approved plan"]
+    B --> C["Purchase: receive vendor groups"]
+    C --> D["Meal Prep: serve and record actual population"]
+    D --> E["Accomplish: record duties and meals"]
+    E --> F["Own weekly report"]
+```
 
-Absent by design: no inventory card, no budget card, no per-head KPI, no graph widgets.
+## Home
 
-## Menu Cycle View
+Current content:
 
-FSS can open menu cycles read-only from the Prep & Accomplishment screen.
+- meals to log today;
+- pending PO count linking to Purchase;
+- active menu-cycle card linking to Menu;
+- per-PO waiting labels such as **Needs receipts** and **Needs served population**;
+- today's service rows;
+- role-visible announcement feed.
 
-Current behavior:
+If no active cycle exists, Home tells FSS to contact RND.
 
-- Active cycle is listed first.
-- Weekly menu cells are grouped by weekday.
-- Food or recipe cells can be opened.
-- Profile modal shows scaled servings, total cost, cost/head, ingredients, quantities, costs, and prep notes.
-- FSS can backfill actual served population per day.
+## Menu
 
-This supports kitchen visibility without letting FSS alter RND planning data.
+FSS can browse cycles and open meal slots. Recipe/item profiles show scaled ingredients, quantities, cost, cost/head, and preparation notes. Planning fields remain read-only.
 
-## Prep And Meal Service
+FSS can set/backfill actual served population for a cycle date. This data contributes to food-PO completion and final actual cost per head/day.
 
-FSS can:
+## Meal Prep
 
-- View today's planned service.
-- Mark today's service as served.
-- Handle shortfall confirmation when inventory is insufficient.
-- Submit actual served population via diet-list/accomplishment entries.
+Current rendered page contains today's meal-service workflow:
 
-Diet-list counts are the source of actual served population when present. Those sums flow into `meal_prep_logs.served_population` and refresh PO lifecycle/completion calculations.
+- planned service rows and food profiles;
+- actual total patient population;
+- served/prepped status;
+- completion action;
+- shortfall confirmation when required.
 
-## Accomplishment / Diet List
+The source file still contains an older `AccomplishmentSection` function, but it is **not rendered** by the current Meal Prep screen. Daily accomplishment entry belongs to the separate **Accomplish** tab.
 
-FSS enters daily accomplishment data from mobile:
+## Accomplish
 
-- Ward.
-- Population/headcount.
-- Seven task flags.
-- Off-duty marker.
-- Active menu-cycle linkage when available.
+FSS records:
 
-Seven task rows:
+- service date (today);
+- ward;
+- meals distributed/population;
+- off-duty/absent state;
+- seven duty flags:
+  1. helped prepare food;
+  2. stored food supplies properly;
+  3. collected ward diet lists;
+  4. apportioned and distributed meals;
+  5. cleaned and returned utensils/equipment;
+  6. worked as assistant cook;
+  7. checked kitchen/cold-storage cleanliness.
 
-1. Helped in food preparation work.
-2. Stored food supplies properly.
-3. Collected diet list from different wards.
-4. Apportioned and distributed food to in-patients in different wards.
-5. Collected, cleaned and returned used utensils and dining equipment.
-6. Assumed duties as assistant cook.
-7. Maintained cleanliness of kitchen, cabinets, refrigerators and freezers.
+Off duty stores zero meals and renders as **X** in the weekly report. The tab also shows today's logged-meal total and links to **My reports**.
 
-Weekly archive behavior:
+### Weekly Accomplishment Archive
 
-- The week is always Monday-Sunday.
-- A report archives only after the FSS user has one entry for every day in that week.
-- Off-duty entries count as that day's entry and render as `X`.
-- Archived snapshot freezes the grid and does not change after later diet-list edits.
+- Week is Monday through Sunday.
+- The current FSS user needs an entry for each of the seven days.
+- Off-duty entries count as daily completion.
+- The archived report is frozen against later source edits.
 - FSS sees only their own archived accomplishment reports.
-- RND can see FSS-filed accomplishment reports.
+- RND/Admin may view accomplishment reports within their allowed report scope.
 
-## Procurement Execution
+## Purchase
 
-FSS mobile procurement flow:
+FSS sees existing POs and vendor groups. For an open PO, FSS can:
 
-- Lists existing POs only.
-- Opens vendor groups under one PO.
-- Shows vendor line details read-only.
-- Allows OR number save.
-- Allows receipt and proof image upload.
-- Receipt upload is the workflow event that marks a vendor group received server-side.
-- Completed/archived POs are locked from mobile edits.
+- review vendor line details read-only;
+- save `or_number`;
+- upload receipt images;
+- upload proof-of-purchase images;
+- add captions;
+- view or delete attachments while unlocked.
 
-Backend role enforcement (enforced server-side, not just UI):
+Receipt upload is the receiving event that marks a vendor group received server-side. Current mobile UI has no separate manual **Mark received** action.
 
-- FSS may only update `or_number` on a vendor group.
-- FSS is blocked (403) from patching `status`, `items`, prices, quantities, or supplier data.
-- RND retains price-correction rights during open execution with full audit trail.
+FSS cannot change:
 
-Food PO completion requires receipts from all vendor groups **and** served population for all covered service dates. Supplies PO completion requires receipts only.
+- vendor items;
+- quantities;
+- prices;
+- supplier;
+- lifecycle status.
+
+Completed/archived POs lock execution edits.
+
+### PO Completion
+
+- Food PO: every vendor group needs a receipt, and every covered service date needs actual served population.
+- Supplies PO: every vendor group needs a receipt; served population is not required.
+
+## Announcements and SOP
+
+The megaphone page shows:
+
+- current SOP;
+- paginated SOP version history;
+- FSS/All announcements;
+- announcement details and images.
+
+FSS is read-only. RND/Admin revise SOP and publish announcements.
+
+## Notifications
+
+FSS notifications support pagination, unread badge/count, mark-read/open behavior, mark-all-read, and navigation to supported targets such as announcements or procurement.
 
 ## Reports
 
-FSS report scope is accomplishment report only.
+FSS report access is limited server-side to `accomplishment_report`. The mobile report viewer lists only the signed-in FSS user's reports and renders frozen weekly accomplishment data.
 
-Current behavior:
+## Settings and Profile
 
-- Mobile `My accomplishment reports` loads `/api/fss/reports`.
-- Client filters to `accomplishment_report`.
-- Detail screen renders the frozen accomplishment snapshot natively.
-- Backend blocks FSS access to non-accomplishment reports.
+Settings supports:
 
-## Data Read Scoping
+- comfortable/compact display density;
+- reduced motion;
+- mark all notifications read;
+- Help link under Help & Support;
+- Profile link;
+- sign out.
 
-Diet-list/accomplishment reads (`GET /api/fss/diet-list-counts`) are scoped to the current FSS user's own rows. RND and Admin see broader views through dedicated report/admin endpoints.
+Profile supports first/last name, sign-in email, contact number, recovery email setup/change/verification, and password change. Role and status are read-only.
 
-## Audit trails
+First-login accounts must replace the temporary password and add a recovery email. Setup can be deferred, but the header reminder remains until complete.
 
-FSS can view the authorized shared purchase-order trail at the existing PO activity path. It includes receipt/proof, vendor-group, receiving, lifecycle, meal-service, and related budget events while returning only the structured audit DTO—never raw properties or file contents. User, system, and deleted-record snapshots remain understandable, and older pages load through cursor pagination. Inventory has no activity route or stock-history surface. Audit taxonomy, retention, privacy, and incident handling are documented in [`docs/architecture/audit-logging.md`](../architecture/audit-logging.md).
+## Data Scope and Safety
 
-## Notifications, Profile, Settings
+- FSS diet-list/accomplishment reads are scoped to the signed-in FSS user.
+- FSS report access is own accomplishment reports only.
+- FSS has no patient/NCP clinical route.
+- Server role middleware enforces write restrictions even if a client is modified.
+- Purchase-order activity uses structured audit data, not raw properties or file contents.
 
-Current behavior:
+## Removed or Not Current
 
-- Header bell loads `/api/notifications`.
-- Settings supports display density, reduce motion, mark-all-read, profile link, and logout.
-- Profile shows: Role (read-only), Status (read-only), Name (editable), Email (editable), Contact Number (editable).
-- Profile uses shared auth endpoints (`GET /api/auth/me`, `PATCH /api/auth/profile`).
+- Inventory bottom tab
+- stock add/deduct controls
+- Suppliers tab
+- Budget tab
+- analytics/Insights tab
+- shopping-list or PO authoring
+- manual vendor status edits
+- FSS web console login
 
-## Demo Readiness Notes
+## Related User Documents
 
-Mobile is suitable for APK demo after the remaining non-mobile flagged gaps are addressed and verification passes.
+- [FAQ](../FAQ.md)
+- [Role How-To Guide](../ROLE-HOW-TO.md)
+- [Storyboards](../STORYBOARD.md)
+- [FSS Mobile Flowchart](Flowcharts/FSS%20Mobile%20Execution%20Flow.md)
+- [Food Service Flowchart](Flowcharts/Food%20Service%20Operations.md)
 
-Need before demo:
+## Current Code Evidence
 
-- Backend API reachable from the device/emulator through `EXPO_PUBLIC_API_URL`.
-- Seeded users and food-service demo data.
-- At least one active/current menu cycle.
-- At least one open-execution PO with vendor groups for receipt/proof demo.
-- FSS account with role `FSS`.
+- `mobile/app/(tabs)/_layout.tsx`
+- `mobile/app/(tabs)/index.tsx`
+- `mobile/app/(tabs)/menu.tsx`
+- `mobile/app/(tabs)/prep.tsx`
+- `mobile/app/(tabs)/accomplishments.tsx`
+- `mobile/app/(tabs)/procurement.tsx`
+- `mobile/components/AppHeader.tsx`
+- `mobile/app/help.tsx`
+- `mobile/components/help/**`
+- `mobile/lib/helpContent.ts`
+- `mobile/app/announcements.tsx`
+- `mobile/app/reports.tsx`
+- `backend/routes/api.php`
