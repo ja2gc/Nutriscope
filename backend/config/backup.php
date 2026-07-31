@@ -1,5 +1,6 @@
 <?php
 
+use Spatie\Backup\Tasks\Cleanup\Strategies\DefaultStrategy;
 use Spatie\Backup\Tasks\Monitor\HealthChecks\MaximumAgeInDays;
 use Spatie\Backup\Tasks\Monitor\HealthChecks\MaximumStorageInMegabytes;
 
@@ -37,7 +38,7 @@ return [
     'notifications' => [
         'notifications' => [],
         'mail' => [
-            'to' => env('BACKUP_ALERT_EMAIL'),
+            'to' => env('BACKUP_ALERT_EMAIL') ?: env('MAIL_FROM_ADDRESS', 'no-reply@nutriscope.local'),
             'from' => [
                 'address' => env('MAIL_FROM_ADDRESS', 'no-reply@nutriscope.local'),
                 'name' => env('MAIL_FROM_NAME', 'NutriScope'),
@@ -55,6 +56,7 @@ return [
         ],
     ],
     'cleanup' => [
+        'strategy' => DefaultStrategy::class,
         'default_strategy' => [
             'keep_all_backups_for_days' => 3,
             'keep_daily_backups_for_days' => 3,
@@ -63,5 +65,7 @@ return [
             'keep_yearly_backups_for_years' => 0,
             'delete_oldest_backups_when_using_more_megabytes_than' => 2048,
         ],
+        'tries' => 1,
+        'retry_delay' => 0,
     ],
 ];
