@@ -18,7 +18,7 @@ Open **Administration > Backups**.
 
 - The status card shows whether the latest backup is verified, running, or failed.
 - Select **Create backup** for an important checkpoint. It stays disabled while another backup runs. Wait for feedback; do not repeatedly click it.
-- Select **Keep** to protect a restore point that is about to expire.
+- In Recently Deleted, select **Keep backup** to return that restore point to Available before its 48-hour deadline.
 - Select **Delete** to move a backup to Recently Deleted. This is not immediate permanent deletion.
 - After a live-system failure, select a verified restore point and choose **Request recovery**. Add a short incident note. This protects it and records a request for the technical operator.
 

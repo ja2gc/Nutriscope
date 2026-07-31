@@ -73,6 +73,8 @@ class AuditInventoryContractTest extends TestCase
         'app/Http/Controllers/Admin/AnnouncementController.php',
         'app/Http/Controllers/Admin/AuditLogController.php',
         'app/Http/Controllers/Admin/AuditLogExportController.php',
+        'app/Http/Controllers/Admin/BackupController.php',
+        'app/Http/Controllers/Admin/BackupRecoveryController.php',
         'app/Http/Controllers/Admin/UserController.php',
         'app/Http/Controllers/Auth/AuthController.php',
         'app/Http/Controllers/Auth/PasswordResetController.php',
