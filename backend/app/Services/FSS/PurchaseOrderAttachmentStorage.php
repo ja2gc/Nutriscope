@@ -4,6 +4,7 @@ namespace App\Services\FSS;
 
 use App\Jobs\DeleteQuarantinedPurchaseOrderAttachment;
 use App\Jobs\RestoreQuarantinedPurchaseOrderAttachment;
+use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -17,7 +18,7 @@ class PurchaseOrderAttachmentStorage
 
     public function store(UploadedFile $file): string
     {
-        $path = $file->store('po-attachments', 'public');
+        $path = $file->store('po-attachments', config('filesystems.uploads'));
         $this->assertPath($path, self::ROOT);
 
         return $path;
@@ -42,13 +43,13 @@ class PurchaseOrderAttachmentStorage
     public function quarantine(string $path): ?array
     {
         $this->assertPath($path, self::ROOT);
-        if (! Storage::disk('public')->exists($path)) {
+        if (! $this->disk()->exists($path)) {
             return null;
         }
 
         $extension = pathinfo($path, PATHINFO_EXTENSION);
         $quarantine = self::QUARANTINE_ROOT.Str::uuid().($extension === '' ? '' : '.'.$extension);
-        if (! Storage::disk('public')->move($path, $quarantine)) {
+        if (! $this->disk()->move($path, $quarantine)) {
             throw new RuntimeException('Failed to quarantine the purchase-order attachment.');
         }
 
@@ -82,8 +83,8 @@ class PurchaseOrderAttachmentStorage
     {
         $this->assertPath($move['original'], self::ROOT);
         $this->assertPath($move['quarantine'], self::QUARANTINE_ROOT);
-        if (Storage::disk('public')->exists($move['quarantine'])
-            && ! Storage::disk('public')->move($move['quarantine'], $move['original'])) {
+        if ($this->disk()->exists($move['quarantine'])
+            && ! $this->disk()->move($move['quarantine'], $move['original'])) {
             throw new RuntimeException('Failed to restore the purchase-order attachment.');
         }
     }
@@ -128,5 +129,10 @@ class PurchaseOrderAttachmentStorage
         if (! str_starts_with($path, $root) || str_contains($path, '..') || str_contains($path, '\\')) {
             throw new RuntimeException('Purchase-order attachment path is outside its safe root.');
         }
+    }
+
+    private function disk(): Filesystem
+    {
+        return Storage::disk(config('filesystems.uploads'));
     }
 }

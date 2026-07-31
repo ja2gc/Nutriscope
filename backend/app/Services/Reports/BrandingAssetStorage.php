@@ -4,6 +4,7 @@ namespace App\Services\Reports;
 
 use App\Jobs\ProcessReportFileOperation;
 use App\Models\ReportFileOperation;
+use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -23,7 +24,7 @@ class BrandingAssetStorage
         $extension = strtolower($file->guessExtension() ?: 'bin');
         $path = self::ROOT.Str::uuid().'.'.$extension;
         try {
-            $stored = $file->storeAs('branding', basename($path), 'public');
+            $stored = $file->storeAs('branding', basename($path), config('filesystems.uploads'));
             if ($stored !== $path) {
                 throw new RuntimeException('Branding asset storage failed.');
             }
@@ -42,12 +43,12 @@ class BrandingAssetStorage
             return null;
         }
         $this->assertPath($path, self::ROOT);
-        if (! Storage::disk('public')->exists($path)) {
+        if (! $this->disk()->exists($path)) {
             return null;
         }
         $move = ['original' => $path, 'quarantine' => self::QUARANTINE_ROOT.Str::uuid().'.asset'];
         $this->intent('restore', $move);
-        if (! Storage::disk('public')->move($path, $move['quarantine'])) {
+        if (! $this->disk()->move($path, $move['quarantine'])) {
             throw new RuntimeException('Failed to quarantine branding asset.');
         }
 
@@ -93,7 +94,7 @@ class BrandingAssetStorage
     {
         $this->assertPath($move['original'], self::ROOT);
         $this->assertPath($move['quarantine'], self::QUARANTINE_ROOT);
-        if (Storage::disk('public')->exists($move['quarantine']) && ! Storage::disk('public')->move($move['quarantine'], $move['original'])) {
+        if ($this->disk()->exists($move['quarantine']) && ! $this->disk()->move($move['quarantine'], $move['original'])) {
             throw new RuntimeException('Failed to restore branding asset.');
         }
     }
@@ -101,7 +102,7 @@ class BrandingAssetStorage
     public function purge(string $path): void
     {
         $this->assertPath($path, self::QUARANTINE_ROOT);
-        if (Storage::disk('public')->exists($path) && ! Storage::disk('public')->delete($path)) {
+        if ($this->disk()->exists($path) && ! $this->disk()->delete($path)) {
             throw new RuntimeException('Failed to purge branding quarantine.');
         }
     }
@@ -111,7 +112,7 @@ class BrandingAssetStorage
     {
         $this->assertPath($move['original'], self::ROOT);
         $this->assertPath($move['quarantine'], self::QUARANTINE_ROOT);
-        $disk = Storage::disk('public');
+        $disk = $this->disk();
         if (! $disk->exists($move['quarantine']) && $disk->exists($move['original']) && ! $disk->move($move['original'], $move['quarantine'])) {
             throw new RuntimeException('Failed to quarantine uncertain branding asset.');
         }
@@ -128,6 +129,11 @@ class BrandingAssetStorage
         }
 
         return $intent;
+    }
+
+    private function disk(): Filesystem
+    {
+        return Storage::disk(config('filesystems.uploads'));
     }
 
     /** @param array{original:string,quarantine:string} $move */

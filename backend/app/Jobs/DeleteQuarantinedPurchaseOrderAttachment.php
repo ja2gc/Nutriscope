@@ -23,7 +23,8 @@ class DeleteQuarantinedPurchaseOrderAttachment implements ShouldQueue
             throw new RuntimeException('Invalid purchase-order attachment quarantine path.');
         }
 
-        if (Storage::disk('public')->exists($this->path) && ! Storage::disk('public')->delete($this->path)) {
+        $disk = Storage::disk(config('filesystems.uploads'));
+        if ($disk->exists($this->path) && ! $disk->delete($this->path)) {
             throw new RuntimeException('Failed to delete a quarantined purchase-order attachment.');
         }
     }

@@ -27,8 +27,9 @@ class RestoreQuarantinedPurchaseOrderAttachment implements ShouldQueue
             throw new RuntimeException('Invalid purchase-order attachment restoration path.');
         }
 
-        if (Storage::disk('public')->exists($this->quarantine)
-            && ! Storage::disk('public')->move($this->quarantine, $this->original)) {
+        $disk = Storage::disk(config('filesystems.uploads'));
+        if ($disk->exists($this->quarantine)
+            && ! $disk->move($this->quarantine, $this->original)) {
             throw new RuntimeException('Failed to restore a quarantined purchase-order attachment.');
         }
     }
