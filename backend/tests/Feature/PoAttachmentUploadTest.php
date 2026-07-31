@@ -32,7 +32,9 @@ class PoAttachmentUploadTest extends TestCase
             'file' => UploadedFile::fake()->create('receipt.jpg', 100, 'image/jpeg'),
         ]);
 
-        $res->assertCreated()->assertJsonPath('data.type', 'receipt');
+        $res->assertCreated()
+            ->assertJsonPath('data.type', 'receipt')
+            ->assertJsonPath('data.url', Storage::disk('public')->url($res->json('data.path')));
         $this->assertDatabaseCount('purchase_order_attachments', 1);
     }
 
@@ -52,6 +54,10 @@ class PoAttachmentUploadTest extends TestCase
 
         $res->assertCreated();
         $this->assertCount(3, $res->json('data'));
+        $this->assertSame(
+            Storage::disk('public')->url($res->json('data.0.path')),
+            $res->json('data.0.url'),
+        );
         $this->assertDatabaseCount('purchase_order_attachments', 3);
     }
 }

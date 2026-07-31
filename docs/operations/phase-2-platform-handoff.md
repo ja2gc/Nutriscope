@@ -17,7 +17,7 @@ Use client-owned accounts wherever possible. Enable MFA, store recovery codes wi
 
 Use the platform's encrypted secret manager and `backend/.env.production.example`. Backup variable names include `BACKUP_DISK`, `BACKUP_ACCESS_KEY_ID`, `BACKUP_SECRET_ACCESS_KEY`, `BACKUP_BUCKET`, `BACKUP_ENDPOINT`, `BACKUP_ARCHIVE_PASSWORD`, and `BACKUP_ALERT_EMAIL`. Never put values in Git.
 
-Set `UPLOADS_DISK` only after testing the selected storage. A database backup does not replace an upload-storage policy.
+Set `UPLOADS_DISK` only after testing the selected storage. When using the local public disk, also set `UPLOADS_PUBLIC_URL` to its browser-reachable base URL. A database backup does not replace an upload-storage policy.
 
 ## Existing-domain facts to re-check at migration time
 

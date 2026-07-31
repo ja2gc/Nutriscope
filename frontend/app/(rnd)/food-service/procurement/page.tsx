@@ -25,7 +25,6 @@ import { SuppliersPanel } from "@/components/foodservice/SuppliersPanel";
 import { ImageUploadGallery, type UploadImage } from "@/components/ui/ImageUploadGallery";
 import { DatePicker } from "@/components/ui/DatePicker";
 
-const STORAGE_BASE = process.env.NEXT_PUBLIC_LARAVEL_URL ?? "http://127.0.0.1:8000";
 const peso = (n: number) => `₱${n.toFixed(2)}`;
 const num = (s: string | number | null | undefined) => (s != null ? parseFloat(String(s)) : 0);
 const today = () => new Date().toISOString().slice(0, 10);
@@ -33,7 +32,7 @@ const attachmentImages = (attachments: POAttachment[] | undefined | null, type: 
   (attachments ?? []).filter((a) => a.type === type).map((a) => ({
     id: String(a.id),
     name: a.caption ?? `${type} ${a.id}`,
-    src: `${STORAGE_BASE}/storage/${a.path}`,
+    src: a.url,
   }));
 const spanLabel = (list?: ShoppingList) =>
   list?.period_start && list?.period_end

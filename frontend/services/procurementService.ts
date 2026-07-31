@@ -38,7 +38,7 @@ export interface ShoppingList {
 
 
 export interface POItem { id: number; vendor_group_id?: number | null; fs_item_id: number | null; description: string; qty: string; unit: string; unit_price: string; total_value: string; purchase_qty: string | null; purchase_unit: string | null; purchase_price: string | null }
-export interface POAttachment { id: string; vendor_group_id?: number | null; type: "receipt" | "proof"; path: string; caption: string | null }
+export interface POAttachment { id: string; vendor_group_id?: number | null; type: "receipt" | "proof"; path: string; url: string; caption: string | null }
 export interface POVendorGroup {
   id: string;
   supplier_id: number | null;

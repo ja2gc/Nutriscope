@@ -23,7 +23,7 @@ Important groups are `APP_*`, `DB_*`, `REDIS_*`, `CACHE_*`, `SESSION_*`, `QUEUE_
 ## Storage boundaries
 
 - Database backups use the private `BACKUP_DISK`, normally a separate S3-compatible bucket.
-- Purchase-order attachments and branding assets use `UPLOADS_DISK`. The default `public` disk requires persistent Laravel storage.
+- Purchase-order attachments and branding assets use `UPLOADS_DISK`. The default `public` disk requires persistent Laravel storage and a browser-reachable `UPLOADS_PUBLIC_URL`.
 - Clinical documents remain private local files. Managed hosting must provide a persistent private volume. Moving them to object storage needs a separate security-reviewed change.
 - Generated reports remain temporary artifacts and are not part of the database backup.
 

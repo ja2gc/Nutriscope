@@ -511,6 +511,7 @@ class PurchaseOrderController extends Controller
                     'id' => $attachment->uuid,
                     'type' => $attachment->type,
                     'path' => $attachment->path,
+                    'url' => $attachment->url,
                     'caption' => $attachment->caption,
                 ])->all();
             });
@@ -615,6 +616,7 @@ class PurchaseOrderController extends Controller
                         'id' => $attachment->uuid,
                         'type' => $attachment->type,
                         'path' => $attachment->path,
+                        'url' => $attachment->url,
                         'caption' => $attachment->caption,
                     ])->all();
                 });

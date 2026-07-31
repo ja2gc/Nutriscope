@@ -2,6 +2,8 @@
 
 namespace Tests\Unit;
 
+use App\Models\PurchaseOrderAttachment;
+use Illuminate\Support\Facades\Storage;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -30,5 +32,17 @@ class UploadDiskConfigurationTest extends TestCase
 
         $this->assertIsString($contents);
         $this->assertStringContainsString("disk('public')", $contents);
+    }
+
+    #[Test]
+    public function purchase_order_attachments_expose_the_configured_disk_url(): void
+    {
+        Storage::fake('public');
+        config(['filesystems.uploads' => 'public']);
+
+        $attachment = new PurchaseOrderAttachment(['path' => 'po-attachments/receipt.jpg']);
+
+        $this->assertSame(Storage::disk('public')->url($attachment->path), $attachment->url);
+        $this->assertArrayHasKey('url', $attachment->toArray());
     }
 }
