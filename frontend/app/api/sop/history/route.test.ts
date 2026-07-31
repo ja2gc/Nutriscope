@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import { proxy } from "@/lib/laravelProxy";
@@ -17,8 +17,10 @@ describe("/api/sop/history proxy route", () => {
   });
 
   test("GET proxies to Laravel SOP history endpoint", async () => {
-    await GET();
+    await GET(new NextRequest("http://localhost/api/sop/history?page=2"));
 
-    expect(proxyMock).toHaveBeenCalledWith("/sop/history");
+    expect(proxyMock).toHaveBeenCalledWith("/sop/history", {
+      search: new URLSearchParams("page=2"),
+    });
   });
 });
