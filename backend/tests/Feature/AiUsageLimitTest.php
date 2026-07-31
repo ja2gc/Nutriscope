@@ -101,8 +101,8 @@ class AiUsageLimitTest extends TestCase
             'tokens_output' => 999,
             'tokens_total' => 1998,
             'endpoint' => 'diagnosis_suggestion',
-            'created_at' => now()->subMonth(),
-            'updated_at' => now()->subMonth(),
+            'created_at' => now()->subMonthNoOverflow()->startOfMonth(),
+            'updated_at' => now()->subMonthNoOverflow()->startOfMonth(),
         ]);
 
         $response = $this->actingAs($this->admin, 'sanctum')
