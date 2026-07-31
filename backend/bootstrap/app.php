@@ -1,9 +1,13 @@
 <?php
 
 use App\Enums\AuditAction;
+use App\Enums\BackupSource;
+use App\Enums\BackupState;
 use App\Http\Middleware\EnsureActiveUser;
 use App\Http\Middleware\RecordSecurityRejections;
 use App\Http\Middleware\RoleMiddleware;
+use App\Jobs\CreateDatabaseBackup;
+use App\Models\BackupRun;
 use App\Models\Notification;
 use App\Services\Audit\AuditHealthMonitor;
 use App\Services\Audit\AuditRetentionState;
@@ -24,6 +28,38 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withSchedule(function (Schedule $schedule): void {
+        $schedule->call(function (): void {
+            $active = BackupRun::whereIn('state', [
+                BackupState::Queued,
+                BackupState::Running,
+                BackupState::Verifying,
+            ])->exists();
+
+            if (! $active) {
+                $backup = BackupRun::create([
+                    'state' => BackupState::Queued,
+                    'source' => BackupSource::Automatic,
+                    'storage_disk' => config('nutriscope-backups.disk'),
+                    'queued_at' => now(),
+                ]);
+                CreateDatabaseBackup::dispatch($backup->uuid);
+            }
+        })
+            ->dailyAt('01:30')
+            ->timezone(config('nutriscope-backups.timezone'))
+            ->name('backups:create-daily')
+            ->withoutOverlapping()
+            ->onOneServer();
+        $schedule->command('backup:monitor')
+            ->dailyAt('02:15')
+            ->timezone(config('nutriscope-backups.timezone'))
+            ->withoutOverlapping()
+            ->onOneServer();
+        $schedule->command('backups:purge-deleted')
+            ->dailyAt('02:30')
+            ->timezone(config('nutriscope-backups.timezone'))
+            ->withoutOverlapping()
+            ->onOneServer();
         // Trigger B (rnd.md §7) — daily follow-up reminders, one day before.
         $schedule->command('notifications:follow-up-reminders')
             ->dailyAt('07:00')

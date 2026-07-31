@@ -6,6 +6,7 @@ use App\Contracts\BackupArchiveRunner;
 use App\Enums\BackupState;
 use App\Models\BackupRun;
 use App\Notifications\BackupFailedNotification;
+use App\Services\Backup\BackupRetentionService;
 use App\Services\Backup\BackupVerifier;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -44,8 +45,11 @@ class CreateDatabaseBackup implements ShouldBeUnique, ShouldQueue
         return [(new WithoutOverlapping('database-backup'))->expireAfter(960)->dontRelease()];
     }
 
-    public function handle(BackupArchiveRunner $runner, BackupVerifier $verifier): void
-    {
+    public function handle(
+        BackupArchiveRunner $runner,
+        BackupVerifier $verifier,
+        BackupRetentionService $retention,
+    ): void {
         $backup = BackupRun::where('uuid', $this->backupUuid)->firstOrFail();
         $backup->update([
             'state' => BackupState::Running,
@@ -67,6 +71,7 @@ class CreateDatabaseBackup implements ShouldBeUnique, ShouldQueue
                 'completed_at' => now(),
                 'verified_at' => now(),
             ]);
+            $retention->apply();
         } catch (Throwable $exception) {
             $this->markFailed($backup);
 
