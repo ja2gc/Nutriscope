@@ -15,6 +15,8 @@ return [
 
     'default' => env('FILESYSTEM_DISK', 'local'),
 
+    'uploads' => env('UPLOADS_DISK', 'public'),
+
     /*
     |--------------------------------------------------------------------------
     | Filesystem Disks
@@ -58,6 +60,19 @@ return [
             'use_path_style_endpoint' => env('AWS_USE_PATH_STYLE_ENDPOINT', false),
             'throw' => false,
             'report' => false,
+        ],
+
+        'backups' => [
+            'driver' => env('BACKUP_FILESYSTEM_DRIVER', 's3'),
+            'key' => env('BACKUP_ACCESS_KEY_ID'),
+            'secret' => env('BACKUP_SECRET_ACCESS_KEY'),
+            'region' => env('BACKUP_DEFAULT_REGION', 'auto'),
+            'bucket' => env('BACKUP_BUCKET'),
+            'endpoint' => env('BACKUP_ENDPOINT'),
+            'use_path_style_endpoint' => env('BACKUP_USE_PATH_STYLE_ENDPOINT', false),
+            'visibility' => 'private',
+            'throw' => true,
+            'report' => true,
         ],
 
     ],
