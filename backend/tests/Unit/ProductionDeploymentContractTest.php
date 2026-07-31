@@ -20,16 +20,15 @@ class ProductionDeploymentContractTest extends TestCase
     }
 
     #[Test]
-    public function deployment_runbook_matches_the_approved_disposable_demo_reset(): void
+    public function current_operations_guides_do_not_depend_on_the_legacy_deployment_runbook(): void
     {
-        $runbook = file_get_contents(base_path('../deployment.md'));
+        $requirements = file_get_contents(base_path('../docs/operations/platform-requirements.md'));
+        $handoff = file_get_contents(base_path('../docs/operations/phase-2-platform-handoff.md'));
 
-        $this->assertIsString($runbook);
-        $this->assertStringContainsString('migrate:fresh --seed --force', $runbook);
-        $this->assertStringContainsString('FoodItemsSeeder', $runbook);
-        $this->assertStringContainsString('RecipeSeeder', $runbook);
-        $this->assertStringContainsString('Elena Villanueva', $runbook);
-        $this->assertStringContainsString('Rosa Mae Dela Cruz', $runbook);
-        $this->assertStringContainsString('Maria Santos', $runbook);
+        $this->assertIsString($requirements);
+        $this->assertIsString($handoff);
+        $this->assertStringContainsString('release', $requirements);
+        $this->assertStringContainsString('Phase 2', $handoff);
+        $this->assertStringNotContainsString('migrate:fresh', $requirements.$handoff);
     }
 }
