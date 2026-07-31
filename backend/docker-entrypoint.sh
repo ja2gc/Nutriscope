@@ -13,7 +13,6 @@ log "MySQL ready."
 
 php artisan config:cache >&2
 php artisan view:cache >&2
-php artisan migrate --force >&2
 php artisan storage:link >&2 2>/dev/null || true
 
 exec "$@"

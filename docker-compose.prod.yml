@@ -1,18 +1,10 @@
-# Production overlay. Run merged with the base file:
-#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
-# The base file provides mysql and redis; this overlay adds the
-# application containers and publishes the frontend port for the host nginx.
-services:
-  backend:
+x-backend-common: &backend-common
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: nutriscope_backend
     restart: unless-stopped
     env_file:
       - ./backend/.env.production
-    ports:
-      - "127.0.0.1:8080:80"
     depends_on:
       mysql:
         condition: service_healthy
@@ -21,13 +13,33 @@ services:
     networks:
       - nutriscope_net
 
+services:
+  backend:
+    <<: *backend-common
+    ports:
+      - "127.0.0.1:8080:80"
+
+  backend_worker:
+    <<: *backend-common
+    command: php artisan queue:work redis --queue=backups,default --sleep=3 --tries=3 --backoff=5 --timeout=900 --max-time=3600
+
+  backend_scheduler:
+    <<: *backend-common
+    command: php artisan schedule:work
+
+  backend_release:
+    <<: *backend-common
+    command: /usr/local/bin/docker-release.sh
+    profiles:
+      - release
+    restart: "no"
+
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
       args:
         LARAVEL_API_URL: http://backend/api
-    container_name: nutriscope_frontend
     restart: unless-stopped
     environment:
       LARAVEL_API_URL: http://backend/api

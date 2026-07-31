@@ -8,7 +8,7 @@ RUN chmod +x /usr/local/bin/install-php-extensions
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     apt-get update && apt-get install -y --no-install-recommends \
-        git curl zip unzip \
+        default-mysql-client git curl zip unzip \
         libpng-dev libonig-dev libxml2-dev libzip-dev \
     && install-php-extensions pdo_mysql mbstring exif pcntl bcmath gd zip opcache \
     && a2enmod rewrite
@@ -53,7 +53,8 @@ RUN chown -R www-data:www-data storage bootstrap/cache \
     && chmod -R 775 storage bootstrap/cache
 
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+COPY docker-release.sh /usr/local/bin/docker-release.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh /usr/local/bin/docker-release.sh
 
 EXPOSE 80
 
