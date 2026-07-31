@@ -118,6 +118,14 @@ class AppServiceProvider extends ServiceProvider
             return $this->auditedLimit(Limit::perHour(20)->by($request->user()?->id ?? $request->ip()), 'uploads');
         });
 
+        RateLimiter::for('manual-backups', function (Request $request) {
+            return $this->auditedLimit(
+                Limit::perHour(config('nutriscope-backups.manual_rate_limit_per_hour'))
+                    ->by('admin:'.($request->user()?->getAuthIdentifier() ?? $request->ip())),
+                'manual-backups',
+            );
+        });
+
         // Password change — prevents rapid credential cycling by a hijacked session.
         RateLimiter::for('password-change', function (Request $request) {
             return $this->auditedLimit(Limit::perHour(5)->by($request->user()?->id ?? $request->ip()), 'password-change');
