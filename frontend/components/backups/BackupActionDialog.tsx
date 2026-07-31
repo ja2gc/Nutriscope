@@ -6,7 +6,13 @@ import { Button } from "@/components/ui/Button";
 
 export function BackupActionDialog({ open, title, description, confirmLabel, loading, onClose, onConfirm }: { open: boolean; title: string; description: string; confirmLabel: string; loading: boolean; onClose: () => void; onConfirm: () => void }) {
   const cancelRef = useRef<HTMLButtonElement>(null);
-  useEffect(() => { if (open) cancelRef.current?.focus(); }, [open]);
+  const returnFocusRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    if (!open) return;
+    returnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    cancelRef.current?.focus();
+    return () => returnFocusRef.current?.focus();
+  }, [open]);
   if (!open) return null;
 
   return (

@@ -17,6 +17,7 @@ describe("admin backup page contract", () => {
     expect(page).toContain('role="status"');
     expect(dialog).toContain('role="dialog"');
     expect(dialog).toContain('aria-modal="true"');
+    expect(dialog).toContain("returnFocusRef");
     expect(page).not.toMatch(/object_key|integrity_value|BACKUP_SECRET/);
   });
 });

@@ -12,7 +12,13 @@ export function RecoveryRequestDialog({ open, loading, onClose, onSubmit }: { op
   const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
   const selectRef = useRef<HTMLSelectElement>(null);
-  useEffect(() => { if (open) selectRef.current?.focus(); }, [open]);
+  const returnFocusRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    if (!open) return;
+    returnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    selectRef.current?.focus();
+    return () => returnFocusRef.current?.focus();
+  }, [open]);
   if (!open) return null;
 
   const submit = () => { const clean = note.trim(); if (clean.length < 10) { setError("Describe what failed using at least 10 characters."); return; } setError(null); onSubmit({ incident_type: incident, note: clean }); };
