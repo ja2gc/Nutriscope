@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Contracts\BackupArchiveRunner;
 use App\Enums\AuditAction;
 use App\Events\PurchaseOrderCompleted;
 use App\Listeners\BudgetLedgerListener;
@@ -20,6 +21,7 @@ use App\Services\Audit\Revisions\Serializers\PurchaseOrderRevisionSerializer;
 use App\Services\Audit\Revisions\Serializers\RndRecipeRevisionSerializer;
 use App\Services\Audit\Revisions\Serializers\ShoppingListRevisionSerializer;
 use App\Services\Audit\SecurityAuditDeduplicator;
+use App\Services\Backup\SpatieBackupArchiveRunner;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Events\QueryExecuted;
@@ -40,6 +42,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        $this->app->bind(BackupArchiveRunner::class, SpatieBackupArchiveRunner::class);
         $this->app->scoped(AuditContextResolver::class);
         $this->app->singleton(AuditHealthMonitor::class);
         $this->app->singleton(AuditRetentionService::class);
