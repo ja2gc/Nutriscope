@@ -11,6 +11,8 @@ artifacts/tsbuild/
 /AGENTS.md
 /.claude/
 /.superpowers/
+/.agent/skills/
+/.agent/workflows/
 .mcp.json
 skills-lock.json
 e2e_demo/
