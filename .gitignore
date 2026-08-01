@@ -7,9 +7,10 @@ Thumbs.db
 artifacts/tsbuild/
 
 # Local agent / skill tooling (per-machine installs, not project code)
-.agents/skills/
-.claude/
-.superpowers/
+/.agents/
+/AGENTS.md
+/.claude/
+/.superpowers/
 .mcp.json
 skills-lock.json
 e2e_demo/
