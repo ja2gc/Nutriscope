@@ -2,9 +2,11 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Boxes, Plus, Pencil, Trash2, RefreshCw, X, Search } from "lucide-react";
+import { Boxes, Plus, Pencil, Trash2, RefreshCw, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
+import SearchInput from "@/components/ui/SearchInput";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   CatalogItem, FsItemKind, listCatalog, createFsItem, updateFsItem, deleteFsItem, CreateFsItemPayload,
@@ -153,6 +155,7 @@ export default function InventoryCatalogPage() {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(search);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<CatalogItem | null>(null);
   const [page, setPage] = useState(1);
@@ -162,10 +165,10 @@ export default function InventoryCatalogPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [c, s] = await Promise.all([listCatalog(tab, page, search), listSuppliers()]);
+      const [c, s] = await Promise.all([listCatalog(tab, page, debouncedSearch), listSuppliers()]);
       setItems(c.data); setMeta(c.meta); setSuppliers(s.data);
     } finally { setLoading(false); }
-  }, [page, search, tab]);
+  }, [page, debouncedSearch, tab]);
   useEffect(() => { load(); }, [load]);
 
   useEffect(() => { setPage(1); }, [search, tab]);
@@ -214,10 +217,7 @@ export default function InventoryCatalogPage() {
             </button>
           ))}
         </div>
-        <div className="flex items-center gap-2 px-3 py-1.5 border border-warm-200 rounded-lg">
-          <Search className="h-3.5 w-3.5 text-warm-400" />
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search…" className="text-base outline-none w-48" />
-        </div>
+        <SearchInput className="w-64" label="Search inventory" value={search} onChange={setSearch} placeholder="Search inventory…" loading={loading && search !== debouncedSearch} />
       </div>
 
       <div className="bg-white border border-warm-200 rounded-2xl shadow-sm overflow-x-auto">

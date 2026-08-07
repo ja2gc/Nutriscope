@@ -14,6 +14,8 @@ import { Badge, BadgeTone } from "@/components/ui/Badge";
 import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
+import SearchInput from "@/components/ui/SearchInput";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import {
   ReportItem, ReportTemplate, Branding, ReportAxis, ReportInstance,
   listReports, deleteReport, reportDownloadUrl, reportViewUrl,
@@ -209,18 +211,20 @@ function InstancesPanel({
   const [busy, setBusy] = useState<string | null>(null);
   const [preview, setPreview] = useState<{ report: ReportItem; label: string } | null>(null);
   const [page, setPage] = useState(1);
+  const [search, setSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(search);
   const [instancesMeta, setInstancesMeta] = useState<PaginationMeta | null>(null);
   const Icon = entry.icon;
 
   useEffect(() => {
     let alive = true;
     setLoading(true);
-    listInstances(entry.type, { page, per_page: 10, ...(year !== "all" ? { year } : {}) }, apiPrefix)
+    listInstances(entry.type, { page, per_page: 10, search: debouncedSearch, ...(year !== "all" ? { year } : {}) }, apiPrefix)
       .then((r) => { if (alive) { setAxis(r.data.axis); setInstances(r.data.instances); setInstancesMeta(r.meta); } })
       .catch((e) => { if (alive) onFlash(false, e instanceof Error ? e.message : "Failed to load."); })
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
-  }, [entry.type, apiPrefix, onFlash, page, year]);
+  }, [entry.type, apiPrefix, onFlash, page, year, debouncedSearch]);
 
   const years = useMemo(() => {
     const ys = new Set<string>();
@@ -268,6 +272,18 @@ function InstancesPanel({
         <Eye className="h-3.5 w-3.5 text-warm-400" />
         <span><span className="font-semibold text-warm-600">Click a report to view it.</span> NutriScope saves its identity automatically and refreshes important source data when needed.</span>
       </div>
+
+      {axis === "entity" && (
+        <div className="border-b border-warm-100 px-5 py-3">
+          <SearchInput
+            label={`Search ${entry.name}`}
+            value={search}
+            onChange={(value) => { setSearch(value); setPage(1); }}
+            placeholder="Search report records…"
+            loading={loading && search !== debouncedSearch}
+          />
+        </div>
+      )}
 
       {loading ? (
         <div className="py-16 text-center text-sm text-warm-400 flex items-center justify-center gap-2">
@@ -332,19 +348,21 @@ function ArchivedTab({
   const [historyReport, setHistoryReport] = useState<ReportItem | null>(null);
   const [page, setPage] = useState(1);
   const [archiveMeta, setArchiveMeta] = useState<PaginationMeta | null>(null);
+  const [search, setSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(search);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const result = await listReports(apiPrefix, page);
-      setReports(result.data.filter((r) => r.status === "archived"));
+      const result = await listReports(apiPrefix, page, { status: "archived", search: debouncedSearch });
+      setReports(result.data);
       setArchiveMeta(result.meta);
     } catch (e) {
       onFlash(false, e instanceof Error ? e.message : "Failed to load archive.");
     } finally {
       setLoading(false);
     }
-  }, [apiPrefix, onFlash, page]);
+  }, [apiPrefix, onFlash, page, debouncedSearch]);
 
   useEffect(() => { load(); }, [load]);
   const pagedReports = reports;
@@ -368,6 +386,15 @@ function ArchivedTab({
         <button onClick={load} className="flex items-center gap-1.5 text-sm text-warm-500 hover:text-warm-700 cursor-pointer">
           <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} /> Refresh
         </button>
+      </div>
+      <div className="border-b border-warm-100 px-5 py-3">
+        <SearchInput
+          label="Search archived reports"
+          value={search}
+          onChange={(value) => { setSearch(value); setPage(1); }}
+          placeholder="Search by report name or type…"
+          loading={loading && search !== debouncedSearch}
+        />
       </div>
 
       {loading ? (

@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { CookingPot, Plus, Pencil, Trash2, Loader2, Banana } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Pagination, PaginationMeta } from "@/components/ui/Pagination";
+import SearchInput from "@/components/ui/SearchInput";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 
 interface FSSRecipe {
   id: number;
@@ -19,9 +21,10 @@ interface RecipePage {
   meta: PaginationMeta;
 }
 
-async function listRecipes(page: number, category: string): Promise<RecipePage> {
+async function listRecipes(page: number, category: string, search = ""): Promise<RecipePage> {
   const params = new URLSearchParams({ page: String(page), per_page: "10" });
   if (category !== "All") params.set("category", category);
+  if (search) params.set("search", search);
   const res = await fetch(`/api/fss/food-service-recipes?${params}`);
   if (!res.ok) throw new Error("Failed to load recipes.");
   const json = await res.json();
@@ -50,13 +53,15 @@ export default function FSSRecipeListPage() {
   const [page, setPage]           = useState(1);
   const [deleteId, setDeleteId]   = useState<number | null>(null);
   const [deleting, setDeleting]   = useState(false);
+  const [search, setSearch]       = useState("");
+  const debouncedSearch = useDebouncedValue(search);
 
-  async function loadPage(p: number, cat: string) {
+  async function loadPage(p: number, cat: string, term = debouncedSearch) {
     setPage(p);
     setLoading(true);
     setError(null);
     try {
-      const result = await listRecipes(p, cat);
+      const result = await listRecipes(p, cat, term);
       setRecipes(result.data);
       setMeta(result.meta);
     } catch (e: unknown) {
@@ -67,9 +72,9 @@ export default function FSSRecipeListPage() {
   }
 
   useEffect(() => {
-    void loadPage(1, filterCat);
+    void loadPage(1, filterCat, debouncedSearch);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [debouncedSearch]);
 
   const handleDelete = async () => {
     if (!deleteId) return;
@@ -116,6 +121,13 @@ export default function FSSRecipeListPage() {
       )}
 
       {/* Category filter */}
+      <SearchInput
+        label="Search foods"
+        value={search}
+        onChange={(value) => { setSearch(value); setPage(1); }}
+        placeholder="Search recipes and single items…"
+        loading={loading && search !== debouncedSearch}
+      />
       <div className="flex flex-wrap gap-2">
         {FSS_CATEGORIES.map((cat) => (
           <button key={cat} onClick={() => { setFilterCat(cat); void loadPage(1, cat); }}

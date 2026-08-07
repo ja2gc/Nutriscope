@@ -11,6 +11,7 @@ import {
 } from "@/services/patientService";
 import { Button } from "@/components/ui/Button";
 import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
+import SearchInput from "@/components/ui/SearchInput";
 import { formatPatientAge } from "@/lib/patientAge";
 import { personDisplayName, requiredPersonNameFields } from "@/lib/personName";
 import { DatePicker } from "@/components/ui/DatePicker";
@@ -186,18 +187,7 @@ export default function NcpPatientsPage() {
       </div>
 
       <div className="flex flex-col sm:flex-row items-center gap-3 bg-white p-4 rounded-xl border border-warm-200 shadow-sm">
-        <div className="relative w-full sm:flex-1">
-          <input
-            type="text"
-            placeholder="Search patient, physician, or ward..."
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setPage(1);
-            }}
-            className="w-full px-4 py-2 text-base bg-white border border-warm-300 rounded-lg text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 transition-all placeholder:text-warm-400"
-          />
-        </div>
+        <SearchInput className="sm:flex-1" label="Search patients" placeholder="Search patient, physician, ward, or hospital number…" value={search} onChange={(value) => { setSearch(value); setPage(1); }} loading={loading} />
 
         <div className="flex items-center gap-2 w-full sm:w-auto shrink-0 select-none">
           <select

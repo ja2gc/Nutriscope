@@ -41,7 +41,7 @@ class AuditDuplicateDiscoveryTest extends TestCase
         'report view download and delete' => [
             'tests/Feature/Audit/ReportAuditTest.php',
             'test_report_views_downloads_and_deletes_emit_safe_semantic_events',
-            ['viewed', 'downloaded', 'deleted'],
+            ['viewed', 'downloaded', 'archived'],
         ],
         'report generation retry' => [
             'tests/Feature/Audit/ReportAuditTest.php',

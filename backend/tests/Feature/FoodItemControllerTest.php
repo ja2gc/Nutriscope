@@ -50,6 +50,32 @@ class FoodItemControllerTest extends TestCase
         $this->assertStringContainsStringIgnoringCase('Chicken', $data[0]['name']);
     }
 
+    public function test_food_item_search_orders_exact_prefix_then_contains_matches(): void
+    {
+        FoodItem::factory()->create(['name' => 'Brown Rice']);
+        FoodItem::factory()->create(['name' => 'Rice Cake']);
+        FoodItem::factory()->create(['name' => 'Rice']);
+
+        $names = $this->actingAs($this->rnd)
+            ->getJson('/api/rnd/food-items?search=Rice')
+            ->assertOk()
+            ->json('data.*.name');
+
+        $this->assertSame(['Rice', 'Rice Cake', 'Brown Rice'], $names);
+    }
+
+    public function test_food_item_search_falls_back_to_a_close_typo(): void
+    {
+        FoodItem::factory()->create(['name' => 'Chicken Breast']);
+        FoodItem::factory()->create(['name' => 'Brown Rice']);
+
+        $this->actingAs($this->rnd)
+            ->getJson('/api/rnd/food-items?search=Chiken')
+            ->assertOk()
+            ->assertJsonPath('data.0.name', 'Chicken Breast')
+            ->assertJsonCount(1, 'data');
+    }
+
     public function test_rnd_can_filter_food_items_by_category(): void
     {
         FoodItem::factory()->create(['category' => 'protein']);

@@ -89,7 +89,7 @@ function ListDetail({ id, suppliers, onBack, onPosGenerated }: {
       q,
       list?.procurement_track === "supplies" ? "supply" : "ingredient",
     );
-    setItemResults(result.slice(0, 8));
+    setItemResults(result.slice(0, 5));
   }
 
   function selectManualItem(item: CatalogItem) {

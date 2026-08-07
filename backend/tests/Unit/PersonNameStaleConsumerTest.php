@@ -33,9 +33,8 @@ class PersonNameStaleConsumerTest extends TestCase
 
         $this->assertSame(1, substr_count($users, "COALESCE(NULLIF(last_name, ''), name)"));
         $this->assertSame(1, substr_count($users, "COALESCE(NULLIF(first_name, ''), name)"));
-        $this->assertSame(1, substr_count($patients, "->orWhere('name', 'like'"));
-        $this->assertStringContainsString("->where('first_name', 'like'", $patients);
-        $this->assertStringContainsString("->orWhere('last_name', 'like'", $patients);
+        $this->assertStringContainsString('RankedSearch::apply($query', $patients);
+        $this->assertStringContainsString("'name', 'first_name', 'last_name', 'physician', 'ward', 'hospital_number'", $patients);
 
         preg_match_all("/(?:user|rnd):id,uuid,([^']+)/", $patients, $projections);
         $this->assertNotEmpty($projections[1]);

@@ -149,7 +149,7 @@ return [
         ],
         'POST api/admin/backups/{backupRun}/recovery-requests' => [
             'classification' => 'explicit_event',
-            'source' => 'App\\Http\\Controllers\\Admin\\BackupRecoveryController@__invoke',
+            'source' => 'App\\Http\\Controllers\\Admin\\BackupRecoveryController@store',
             'owner_task' => 8,
             'implementation_state' => 'implemented',
             'reason' => 'Recovery requests record public references and outcome without incident notes or backup contents.',

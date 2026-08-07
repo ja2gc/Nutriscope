@@ -111,7 +111,7 @@ export default function EditRecipePage({ params }: { params: Promise<{ id: strin
       return;
     }
     const res = await fetchFoodItems(query, "all", 1);
-    setIngredients((prev) => prev.map((r, i) => i === idx ? { ...r, searchResults: res.data.slice(0, 8), showDropdown: true } : r));
+    setIngredients((prev) => prev.map((r, i) => i === idx ? { ...r, searchResults: res.data.slice(0, 5), showDropdown: true } : r));
   }, []);
 
   const updateRow = (idx: number, patch: Partial<IngredientRow>) =>

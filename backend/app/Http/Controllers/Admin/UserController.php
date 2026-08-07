@@ -14,6 +14,7 @@ use App\Http\Requests\PaginatedRequest;
 use App\Http\Resources\UserResource;
 use App\Models\User;
 use App\Services\Audit\AuditLogger;
+use App\Support\Search\RankedSearch;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\DB;
@@ -28,17 +29,15 @@ class UserController extends Controller
 
     public function index(PaginatedRequest $request): AnonymousResourceCollection
     {
-        $users = User::query()
+        $query = User::query()
+            ->when($request->string('role')->toString(), fn ($query, $role) => $query->where('role', $role))
+            ->when($request->has('is_active'), fn ($query) => $query->where('is_active', $request->boolean('is_active')));
+
+        RankedSearch::apply($query, $request->string('search')->toString(), ['name', 'first_name', 'last_name', 'email']);
+
+        $users = $query
             ->orderByRaw("LOWER(TRIM(COALESCE(NULLIF(last_name, ''), name)))")
             ->orderByRaw("LOWER(TRIM(COALESCE(NULLIF(first_name, ''), name)))")
-            ->when($request->string('search')->trim()->toString(), fn ($query, $search) => $query->where(function ($nested) use ($search) {
-                $nested->where('name', 'like', "%{$search}%")
-                    ->orWhere('first_name', 'like', "%{$search}%")
-                    ->orWhere('last_name', 'like', "%{$search}%")
-                    ->orWhere('email', 'like', "%{$search}%");
-            }))
-            ->when($request->string('role')->toString(), fn ($query, $role) => $query->where('role', $role))
-            ->when($request->has('is_active'), fn ($query) => $query->where('is_active', $request->boolean('is_active')))
             ->orderBy('id')
             ->paginate($request->perPage())
             ->withQueryString();

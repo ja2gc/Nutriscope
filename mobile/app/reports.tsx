@@ -1,6 +1,6 @@
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { ChevronLeft, ChevronRight, FileText } from 'lucide-react-native';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -12,6 +12,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AccomplishmentSnapshot, Report, getReport, listReports } from '../lib/reports';
 import { PaginatedListFooter } from '../components/PaginatedListFooter';
+import { SearchInput } from '../components/SearchInput';
 import { flattenUniquePages, getNextPageParam } from '../lib/pagination';
 
 function fmtDate(d: string): string {
@@ -117,9 +118,15 @@ function ReportDetail({ id, onBack }: { id: string; onBack: () => void }) {
 export default function ReportsScreen() {
   const insets = useSafeAreaInsets();
   const [openId, setOpenId] = useState<string | null>(null);
-  const { data: pages, isLoading, isError, refetch, fetchNextPage, hasNextPage, isFetchingNextPage, isFetchNextPageError } = useInfiniteQuery({
-    queryKey: ['fss-reports'],
-    queryFn: ({ pageParam }) => listReports(pageParam),
+  const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search.trim()), 250);
+    return () => clearTimeout(timer);
+  }, [search]);
+  const { data: pages, isLoading, isFetching, isError, refetch, fetchNextPage, hasNextPage, isFetchingNextPage, isFetchNextPageError } = useInfiniteQuery({
+    queryKey: ['fss-reports', debouncedSearch],
+    queryFn: ({ pageParam }) => listReports(pageParam, debouncedSearch),
     initialPageParam: 1,
     getNextPageParam,
   });
@@ -149,6 +156,7 @@ export default function ReportsScreen() {
       data={data}
       keyExtractor={(r: Report) => String(r.id)}
       contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 16, flexGrow: 1 }}
+      ListHeaderComponent={<View className="mb-4"><SearchInput label="Search accomplishment reports" value={search} onChangeText={setSearch} placeholder="Search reports" loading={isFetching && search.trim() !== debouncedSearch} /></View>}
       renderItem={({ item }) => {
         const period = item.snapshot?.accomplishment?.period_label
           ?? (item.parameters?.start && item.parameters?.end
@@ -179,7 +187,7 @@ export default function ReportsScreen() {
       ListEmptyComponent={
         <View className="items-center justify-center py-20">
           <FileText color="#d1d5db" size={40} />
-          <Text className="mt-4 text-gray-400 text-sm text-center">No accomplishment reports yet.</Text>
+          <Text className="mt-4 text-gray-400 text-sm text-center">{debouncedSearch ? 'No matching reports.' : 'No accomplishment reports yet.'}</Text>
           <Text className="mt-1 text-gray-400 text-xs text-center px-8">
             A report is filed automatically once all 7 days of a week are logged.
           </Text>

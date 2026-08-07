@@ -1,9 +1,10 @@
 "use client";
 
 import React, { useEffect, useState, useCallback } from "react";
-import { Truck, Plus, Pencil, Trash2, X, RefreshCw, Search, AlertTriangle } from "lucide-react";
+import { Truck, Plus, Pencil, Trash2, X, RefreshCw, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
+import SearchInput from "@/components/ui/SearchInput";
 import {
   Supplier,
   SupplierPayload,
@@ -187,11 +188,7 @@ export function SuppliersPanel() {
       )}
 
       {/* Search */}
-      <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-warm-400" />
-        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search vendors…"
-          className="w-full pl-9 pr-3 py-2 text-sm border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
-      </div>
+      <SearchInput className="max-w-sm" label="Search vendors" value={search} onChange={setSearch} placeholder="Search vendors…" loading={loading} />
 
       {/* Table */}
       <div className="bg-white border border-warm-200 rounded-2xl shadow-sm overflow-x-auto">

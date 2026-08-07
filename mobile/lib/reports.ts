@@ -30,11 +30,11 @@ export interface Report {
 }
 
 /** FSS sees only their own accomplishment reports (backend-scoped). */
-export async function listReports(page: number): Promise<PaginatedResponse<Report>> {
+export async function listReports(page: number, search = ''): Promise<PaginatedResponse<Report>> {
   const res = await api.get<PaginatedResponse<Report>>('/api/fss/reports', {
-    params: { page, per_page: MOBILE_PAGE_SIZE },
+    params: { page, per_page: MOBILE_PAGE_SIZE, status: 'archived', search: search || undefined },
   });
-  return { ...res.data, data: res.data.data.filter((r) => r.type === 'accomplishment_report') };
+  return res.data;
 }
 
 export async function getReport(id: string): Promise<Report> {

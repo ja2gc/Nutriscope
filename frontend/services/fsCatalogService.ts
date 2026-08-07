@@ -45,7 +45,7 @@ export async function listCatalog(kind?: FsItemKind, page = 1, search = ""): Pro
 }
 
 /** Search active reference-catalog items for recipe and procurement pickers. */
-export async function searchCatalog(search: string, kind: FsItemKind, limit = 8): Promise<CatalogItem[]> {
+export async function searchCatalog(search: string, kind: FsItemKind, limit = 5): Promise<CatalogItem[]> {
   const qs = new URLSearchParams({ search, kind, limit: String(limit) });
   return unwrap(
     await apiFetch(`/api/fss/fs-items/catalog?${qs}`),

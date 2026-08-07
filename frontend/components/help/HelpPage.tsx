@@ -1,8 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { CircleHelp, Search, ShieldCheck, X } from "lucide-react";
+import { CircleHelp, ShieldCheck } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
+import SearchInput from "@/components/ui/SearchInput";
 import {
   filterHelpItems,
   getPopularHelpItems,
@@ -46,30 +47,7 @@ export function HelpPage({ role }: { role: WebHelpRole }) {
           <label htmlFor="help-search" className="mt-4 block text-sm font-semibold text-warm-700">
             Search Help
           </label>
-          <div className="relative mt-1.5">
-            <Search
-              aria-hidden="true"
-              className="pointer-events-none absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-warm-400"
-            />
-            <input
-              id="help-search"
-              type="search"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Try ‘forgot password’, ‘dry weight’, or ‘reports’"
-              className="min-h-12 w-full rounded-xl border border-warm-300 bg-white py-3 pl-11 pr-12 text-base text-warm-900 outline-none placeholder:text-warm-400 focus:border-brand-green-600 focus:ring-2 focus:ring-brand-green-500/20"
-            />
-            {query && (
-              <button
-                type="button"
-                onClick={() => setQuery("")}
-                aria-label="Clear Help search"
-                className="absolute right-1.5 top-1/2 flex h-10 w-10 -translate-y-1/2 cursor-pointer items-center justify-center rounded-lg text-warm-400 hover:bg-warm-100 hover:text-warm-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green-500/30"
-              >
-                <X aria-hidden="true" className="h-4 w-4" />
-              </button>
-            )}
-          </div>
+          <SearchInput id="help-search" className="mt-1.5" label="Search Help" value={query} onChange={setQuery} placeholder="Try ‘forgot password’, ‘dry weight’, or ‘reports’" />
           <p aria-live="polite" className="mt-2 text-sm font-medium text-warm-500">
             {normalizedQuery
               ? `${items.length} ${items.length === 1 ? "answer" : "answers"} found`

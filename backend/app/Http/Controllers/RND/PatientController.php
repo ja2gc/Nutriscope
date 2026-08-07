@@ -19,6 +19,7 @@ use App\Models\ScreeningDocument;
 use App\Services\Audit\AuditLogger;
 use App\Services\Audit\ClinicalAttributionService;
 use App\Services\ClinicalDocumentStorage;
+use App\Support\Search\RankedSearch;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -39,20 +40,18 @@ class PatientController extends Controller
      */
     public function index(PaginatedRequest $request): AnonymousResourceCollection
     {
-        $patients = Patient::query()
-            ->when($request->search, fn ($q, $s) => $q->where(fn ($search) => $search
-                ->where('first_name', 'like', "%{$s}%")
-                ->orWhere('last_name', 'like', "%{$s}%")
-                ->orWhere('name', 'like', "%{$s}%")
-                ->orWhere('physician', 'like', "%{$s}%")
-                ->orWhere('ward', 'like', "%{$s}%")
-                ->orWhere('hospital_number', 'like', "%{$s}%")
-            ))
+        $query = Patient::query()
             ->when($request->status, fn ($q, $s) => $q->where('status', $s))
             ->when($request->boolean('upcoming_followups'), fn ($q) => $q->whereHas(
                 'ncpRecords.intervention',
                 fn ($interventions) => $interventions->whereNotNull('next_followup_date'),
-            ))
+            ));
+
+        RankedSearch::apply($query, $request->string('search')->toString(), [
+            'name', 'first_name', 'last_name', 'physician', 'ward', 'hospital_number',
+        ]);
+
+        $patients = $query
             ->with(['ncpRecords' => fn ($q) => $q->latest()->with(['rnd:id,uuid,name,first_name,last_name,role', 'assessment', 'intervention'])])
             ->orderByDesc('created_at')
             ->orderByDesc('id')

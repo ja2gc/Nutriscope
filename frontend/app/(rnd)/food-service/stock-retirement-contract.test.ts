@@ -24,7 +24,7 @@ describe("food-service stock retirement", () => {
 
     const catalogService = read("services/fsCatalogService.ts");
     expect(catalogService).toContain('limit: String(limit)');
-    expect(catalogService).toContain('limit = 8');
+    expect(catalogService).toContain('limit = 5');
   });
 
   test("runtime source has no retired stock contract names", () => {

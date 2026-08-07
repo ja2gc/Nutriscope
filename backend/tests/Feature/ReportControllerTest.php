@@ -29,6 +29,67 @@ class ReportControllerTest extends TestCase
         ]);
     }
 
+    public function test_archive_filters_are_applied_before_pagination(): void
+    {
+        Report::factory()->count(12)->create([
+            'user_id' => $this->rnd->id,
+            'type' => 'inventory',
+            'status' => 'completed',
+        ]);
+        $archived = Report::factory()->create([
+            'user_id' => $this->rnd->id,
+            'title' => 'July Inventory Archive',
+            'type' => 'inventory',
+            'status' => 'archived',
+        ]);
+
+        $this->actingAs($this->rnd)
+            ->getJson('/api/rnd/reports?status=archived')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $archived->uuid)
+            ->assertJsonPath('meta.total', 1);
+    }
+
+    public function test_reports_can_be_searched_by_title_with_typo_tolerance(): void
+    {
+        Report::factory()->create([
+            'user_id' => $this->rnd->id,
+            'title' => 'Monthly Procurement Summary',
+            'type' => 'procurement',
+        ]);
+        Report::factory()->create([
+            'user_id' => $this->rnd->id,
+            'title' => 'Inventory Count',
+            'type' => 'inventory',
+        ]);
+
+        $this->actingAs($this->rnd)
+            ->getJson('/api/rnd/reports?search=Procuremnt')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.title', 'Monthly Procurement Summary');
+    }
+
+    public function test_report_search_ranks_an_exact_field_before_a_prefix_match(): void
+    {
+        $exact = Report::factory()->create([
+            'user_id' => $this->rnd->id,
+            'title' => 'Stock Count',
+            'type' => 'inventory',
+        ]);
+        Report::factory()->create([
+            'user_id' => $this->rnd->id,
+            'title' => 'Inventory Count',
+            'type' => 'budget',
+        ]);
+
+        $this->actingAs($this->rnd)
+            ->getJson('/api/rnd/reports?search=inventory')
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $exact->uuid);
+    }
+
     public function test_deleted_ncp_archived_report_keeps_safe_root_and_shared_rnd_authorization(): void
     {
         Storage::fake('public');

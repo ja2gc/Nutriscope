@@ -20,6 +20,8 @@ use App\Services\Reports\ReportArchiveStorage;
 use App\Services\Reports\ReportAuditReference;
 use App\Services\Reports\ReportBrowser;
 use App\Services\Reports\ReportService;
+use App\Support\Search\FuzzyText;
+use App\Support\Search\RankedSearch;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -61,7 +63,13 @@ class ReportController extends Controller
 
     public function index(PaginatedRequest $request): AnonymousResourceCollection
     {
-        $query = Report::query()->with('user:id,uuid,name,first_name,last_name')->latest();
+        $request->validate([
+            'status' => ['nullable', 'string', 'max:30'],
+            'type' => ['nullable', 'string', 'max:60'],
+            'year' => ['nullable', 'integer', 'min:2000', 'max:2100'],
+        ]);
+
+        $query = Report::query()->with('user:id,uuid,name,first_name,last_name');
         $role = Auth::user()?->role;
 
         // Report creator fields are attribution only. Active RNDs share the
@@ -76,6 +84,13 @@ class ReportController extends Controller
         if ($role === 'FSS') {
             $query->whereIn('type', self::FSS_ALLOWED_TYPES);
         }
+
+        $query
+            ->when($request->filled('status'), fn ($q) => $q->where('status', $request->string('status')))
+            ->when($request->filled('type'), fn ($q) => $q->where('type', $request->string('type')))
+            ->when($request->filled('year'), fn ($q) => $q->whereYear('created_at', $request->integer('year')));
+
+        RankedSearch::apply($query, $request->string('search')->toString(), ['title', 'type']);
 
         return ReportResource::collection($query
             ->orderByDesc('id')
@@ -97,6 +112,7 @@ class ReportController extends Controller
         $source = $browser->sourceFor($type);
         $filters = $request->only(['year', 'month']);
         $instances = $source->instances($filters);
+        $instances = $this->filterReportInstances($instances, $request->string('search')->toString());
         $page = max(1, $request->integer('page', 1));
         $perPage = $request->perPage();
         $total = count($instances);
@@ -454,5 +470,30 @@ class ReportController extends Controller
                 'audit_owner_id' => Auth::id(),
             ]);
         }
+    }
+
+    /** @param list<array<string, mixed>> $instances @return list<array<string, mixed>> */
+    private function filterReportInstances(array $instances, string $search): array
+    {
+        $search = FuzzyText::normalize($search);
+        if ($search === '') {
+            return $instances;
+        }
+
+        $normal = array_values(array_filter(
+            $instances,
+            fn (array $instance): bool => str_contains(
+                FuzzyText::normalize((string) ($instance['label'] ?? '')),
+                $search,
+            ),
+        ));
+        if ($normal !== []) {
+            return $normal;
+        }
+
+        return array_values(array_filter(
+            $instances,
+            fn (array $instance): bool => FuzzyText::score($search, (string) ($instance['label'] ?? '')) !== null,
+        ));
     }
 }

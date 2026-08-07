@@ -1,10 +1,9 @@
-import { Search } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
-import { ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import HelpQuestionList from '../components/help/HelpQuestionList';
+import { SearchInput } from '../components/SearchInput';
 import { filterMobileHelpItems, groupMobileHelpItems, MOBILE_HELP_ITEMS } from '../lib/helpContent';
-import { MOBILE_THEME } from '../lib/theme';
 
 export default function HelpScreen() {
   const insets = useSafeAreaInsets();
@@ -22,10 +21,7 @@ export default function HelpScreen() {
       </View>
 
       <Text className="mb-2 text-sm font-semibold text-gray-800">Search Help</Text>
-      <View className="min-h-12 flex-row items-center rounded-xl border border-gray-300 bg-white px-3">
-        <Search color={MOBILE_THEME.colors.muted} size={19} />
-        <TextInput accessibilityLabel="Search help" autoCapitalize="none" autoCorrect={false} className="min-h-12 flex-1 px-3 text-base text-gray-900" onChangeText={setQuery} placeholder="Search questions or topics" placeholderTextColor="#9CA3AF" returnKeyType="search" value={query} />
-      </View>
+      <SearchInput label="Search help" value={query} onChangeText={setQuery} placeholder="Search questions or topics" />
       <Text accessibilityLiveRegion="polite" className="mb-5 mt-2 text-xs text-gray-500">{results.length} {results.length === 1 ? 'answer' : 'answers'} found</Text>
 
       {!query.trim() && popular.length ? (

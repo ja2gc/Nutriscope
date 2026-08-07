@@ -419,8 +419,8 @@ class AdminAuditLogTest extends TestCase
     {
         $first = User::factory()->create([
             'first_name' => 'Maria Luisa',
-            'last_name' => 'Dela Cruz',
-            'name' => 'Maria Luisa Dela Cruz',
+            'last_name' => 'Dela Peña',
+            'name' => 'Maria Luisa Dela Peña',
             'email' => 'private-actor@example.test',
         ]);
         $second = User::factory()->create([
@@ -444,13 +444,18 @@ class AdminAuditLogTest extends TestCase
         $second->delete();
 
         $this->actingAs($this->admin, 'sanctum')
-            ->getJson('/api/admin/audit-actors?search=Maria%20Luisa%20Dela&per_page=1')
+            ->getJson('/api/admin/audit-actors?search=Maria%20Luisa%20Dela%20Pe%C3%B1a&per_page=1')
             ->assertOk()
             ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.name', 'Maria Luisa Dela Peña')
             ->assertJsonPath('data.0.id', $first->uuid)
-            ->assertJsonPath('data.0.name', 'Maria Luisa Dela Cruz')
             ->assertJsonMissing(['email' => 'private-actor@example.test'])
             ->assertJsonPath('meta.per_page', 1);
+
+        $this->actingAs($this->admin, 'sanctum')
+            ->getJson('/api/admin/audit-actors?search=Santso')
+            ->assertOk()
+            ->assertJsonFragment(['id' => $second->uuid, 'name' => 'Jose Miguel Santos']);
 
         $this->actingAs($this->admin, 'sanctum')
             ->getJson('/api/admin/audit-actors?search=Patient%20Sentinel')

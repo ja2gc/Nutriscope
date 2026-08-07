@@ -12,6 +12,7 @@ use App\Http\Resources\SupplierResource;
 use App\Models\Supplier;
 use App\Services\Audit\AuditLogger;
 use App\Services\Audit\SupplierAuditValues;
+use App\Support\Search\RankedSearch;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
@@ -24,8 +25,10 @@ class SupplierController extends Controller
 
     public function index(PaginatedRequest $request): AnonymousResourceCollection
     {
-        $suppliers = Supplier::query()
-            ->when($request->string('search')->trim()->toString(), fn ($query, $search) => $query->where('name', 'like', "%{$search}%"))
+        $query = Supplier::query();
+        RankedSearch::apply($query, $request->string('search')->toString(), ['name']);
+
+        $suppliers = $query
             ->orderBy('name')
             ->orderBy('id')
             ->paginate($request->perPage())

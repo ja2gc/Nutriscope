@@ -14,6 +14,7 @@ use App\Services\Audit\AuditLogger;
 use App\Services\Audit\Revisions\AuditRevisionRegistry;
 use App\Services\Audit\Revisions\AuditRevisionWriter;
 use App\Services\MenuCycleCostService;
+use App\Support\Search\RankedSearch;
 use App\Support\UnitConverter;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -32,9 +33,11 @@ class FoodServiceRecipeController extends Controller
         $search = $request->query('search');
         $category = $request->query('category');
 
-        $paginator = FoodServiceRecipe::orderBy('name')->orderBy('id')
-            ->when($search, fn ($q) => $q->where('name', 'like', "%{$search}%"))
-            ->when($category, fn ($q) => $q->where('category', $category))
+        $query = FoodServiceRecipe::query()
+            ->when($category, fn ($q) => $q->where('category', $category));
+        RankedSearch::apply($query, is_string($search) ? $search : null, ['name']);
+
+        $paginator = $query->orderBy('name')->orderBy('id')
             ->paginate($request->perPage(), ['id', 'uuid', 'name', 'category', 'servings', 'created_at'])
             ->withQueryString();
 

@@ -79,8 +79,12 @@ async function unwrap<T>(res: Response, fallback: string): Promise<T> {
 }
 
 // ── Reports ───────────────────────────────────────────────────────────────
-export async function listReports(prefix: ReportApiPrefix = "rnd", page = 1): Promise<{ data: ReportItem[]; meta: PaginationMeta }> {
-  const res = await apiFetch(`/api/${prefix}/reports?page=${page}&per_page=10`);
+export async function listReports(
+  prefix: ReportApiPrefix = "rnd",
+  page = 1,
+  filters: ReportParams = {},
+): Promise<{ data: ReportItem[]; meta: PaginationMeta }> {
+  const res = await apiFetch(`/api/${prefix}/reports${toQuery({ page, per_page: 10, ...filters })}`);
   const json = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(json.message ?? "Failed to load reports.");
   return { data: json.data ?? [], meta: json.meta ?? { current_page: page, per_page: 10, total: 0, last_page: 1 } };

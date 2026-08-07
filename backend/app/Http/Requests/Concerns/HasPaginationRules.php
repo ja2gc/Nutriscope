@@ -14,6 +14,7 @@ trait HasPaginationRules
         return [
             'page' => ['nullable', 'integer', 'min:1'],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:'.self::MAX_PER_PAGE],
+            'search' => ['nullable', 'string', 'max:100'],
         ];
     }
 

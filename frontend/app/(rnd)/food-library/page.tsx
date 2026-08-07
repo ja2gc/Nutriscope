@@ -3,12 +3,13 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
-  Database, Plus, Search, Download, Trash2, Pencil,
+  Database, Plus, Download, Trash2, Pencil,
   CookingPot, X, Loader2,
   FlaskConical, TriangleAlert,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Pagination } from "@/components/ui/Pagination";
+import SearchInput from "@/components/ui/SearchInput";
 import {
   fetchFoodItems, fetchRecipes, deleteFoodItem, deleteRecipe,
   searchUsda, importUsdaFood,
@@ -109,18 +110,7 @@ function UsdaImportModal({ onClose, onImported }: {
 
         {/* Search */}
         <div className="px-6 py-4 border-b border-warm-100">
-          <div className="relative">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-warm-400" />
-            {searching && <Loader2 className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-emerald-500 animate-spin" />}
-            <input
-              type="text"
-              value={query}
-              onChange={(e) => handleQueryChange(e.target.value)}
-              placeholder="Type to search — e.g. chicken breast, brown rice, bangus..."
-              className="w-full pl-10 pr-10 py-2.5 text-base bg-white border border-warm-300 rounded-xl text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all placeholder:text-warm-400"
-              autoFocus
-            />
-          </div>
+          <SearchInput label="Search USDA foods" value={query} onChange={handleQueryChange} placeholder="Type to search — e.g. chicken breast, brown rice, bangus…" loading={searching} autoFocus />
           {error && (
             <div className="flex items-center gap-2 mt-2.5 text-xs text-red-600 font-semibold">
               <TriangleAlert className="h-3.5 w-3.5 shrink-0" /> {error}
@@ -483,12 +473,7 @@ export default function FoodLibraryPage() {
         <div className="space-y-4">
           {/* Filters */}
           <div className="flex flex-col sm:flex-row items-center gap-3">
-            <div className="relative w-full sm:flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-warm-400" />
-              <input type="text" placeholder="Search by food name..." value={foodSearch}
-                onChange={(e) => { setFoodSearch(e.target.value); setFoodPage(1); }}
-                className="w-full pl-9 pr-4 py-2 text-base bg-white border border-warm-200 rounded-xl text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all placeholder:text-warm-400 shadow-sm" />
-            </div>
+            <SearchInput className="sm:flex-1" label="Search foods" placeholder="Search by food name…" value={foodSearch} onChange={(value) => { setFoodSearch(value); setFoodPage(1); }} loading={foodLoading} />
             <div className="flex gap-1.5 flex-wrap">
               {FOOD_CATEGORIES.map((c) => (
                 <button key={c} onClick={() => { setFoodCategory(c); setFoodPage(1); }}
@@ -598,12 +583,7 @@ export default function FoodLibraryPage() {
         <div className="space-y-4">
           {/* Filters */}
           <div className="flex flex-col sm:flex-row items-center gap-3">
-            <div className="relative w-full sm:flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-warm-400" />
-              <input type="text" placeholder="Search by recipe name..." value={recipeSearch}
-                onChange={(e) => { setRecipeSearch(e.target.value); setRecipePage(1); }}
-                className="w-full pl-9 pr-4 py-2 text-base bg-white border border-warm-200 rounded-xl text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all placeholder:text-warm-400 shadow-sm" />
-            </div>
+            <SearchInput className="sm:flex-1" label="Search recipes" placeholder="Search by recipe name…" value={recipeSearch} onChange={(value) => { setRecipeSearch(value); setRecipePage(1); }} loading={recipeLoading} />
             <div className="flex gap-1.5 flex-wrap">
               {RECIPE_CATEGORIES.map((c) => (
                 <button key={c} onClick={() => { setRecipeCategory(c); setRecipePage(1); }}

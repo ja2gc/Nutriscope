@@ -16,7 +16,6 @@ import { User } from "@/services/authService";
 import {
   Users,
   Plus,
-  Search,
   Filter,
   KeyRound,
   Edit2,
@@ -28,6 +27,7 @@ import {
   RefreshCw,
   CheckCircle2,
 } from "lucide-react";
+import SearchInput from "@/components/ui/SearchInput";
 import { Button } from "@/components/ui/Button";
 import { Badge, BadgeTone } from "@/components/ui/Badge";
 import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
@@ -311,18 +311,7 @@ export default function UserManagementPage() {
 
       {/* Filters Bar */}
       <div className="bg-white border border-warm-200 rounded-2xl p-4 shadow-sm flex flex-col md:flex-row gap-4 items-center justify-between">
-        <div className="relative w-full md:max-w-sm">
-          <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-warm-400">
-            <Search className="h-4 w-4" />
-          </span>
-          <input
-            type="text"
-            placeholder="Search by name or email…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 text-base border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 bg-white placeholder:text-warm-400 text-warm-800"
-          />
-        </div>
+        <SearchInput className="md:max-w-sm" label="Search users" placeholder="Search by name or email…" value={search} onChange={setSearch} loading={loading} />
 
         <div className="flex items-center gap-3 shrink-0 select-none">
           <span className="text-sm font-bold text-warm-500 uppercase tracking-wider flex items-center gap-1.5">

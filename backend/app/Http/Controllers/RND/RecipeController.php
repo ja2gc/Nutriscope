@@ -13,6 +13,7 @@ use App\Models\RecipeIngredient;
 use App\Services\Audit\AuditLogger;
 use App\Services\Audit\Revisions\AuditRevisionRegistry;
 use App\Services\Audit\Revisions\AuditRevisionWriter;
+use App\Support\Search\RankedSearch;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
@@ -28,13 +29,11 @@ class RecipeController extends Controller
     {
         $query = Recipe::query();
 
-        if ($request->filled('search')) {
-            $query->where('name', 'like', '%'.$request->search.'%');
-        }
-
         if ($request->filled('category')) {
             $query->where('category', $request->category);
         }
+
+        RankedSearch::apply($query, $request->string('search')->toString(), ['name']);
 
         $recipes = $query->orderBy('name')->orderBy('id')->paginate($request->perPage())->withQueryString();
 

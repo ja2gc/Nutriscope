@@ -11,6 +11,7 @@ use App\Http\Resources\FoodItemResource;
 use App\Models\FoodItem;
 use App\Services\Audit\AuditLogger;
 use App\Services\Audit\FoodItemAuditValues;
+use App\Support\Search\RankedSearch;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
@@ -25,10 +26,6 @@ class FoodItemController extends Controller
     {
         $query = FoodItem::query();
 
-        if ($request->filled('search')) {
-            $query->where('name', 'like', '%'.$request->search.'%');
-        }
-
         if ($request->filled('category')) {
             $query->where('category', $request->category);
         }
@@ -36,6 +33,8 @@ class FoodItemController extends Controller
         if ($request->filled('allergen')) {
             $query->withAllergen($request->allergen);
         }
+
+        RankedSearch::apply($query, $request->string('search')->toString(), ['name']);
 
         $items = $query->orderBy('name')->orderBy('id')->paginate($request->perPage())->withQueryString();
 

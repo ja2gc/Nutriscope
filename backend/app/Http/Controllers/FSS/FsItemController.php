@@ -13,6 +13,7 @@ use App\Models\Supplier;
 use App\Services\Audit\AuditLogger;
 use App\Services\Audit\FsItemAuditValues;
 use App\Services\FSS\LatestProcurementVendorService;
+use App\Support\Search\RankedSearch;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -66,9 +67,10 @@ class FsItemController extends Controller
         $query = FsItem::query()
             ->with('defaultSupplier:id,name')
             ->where('is_active', true)
-            ->when($data['kind'] ?? null, fn ($q, $kind) => $q->where('kind', $kind))
-            ->when($data['search'] ?? null, fn ($q, $s) => $q->where('name', 'like', "%{$s}%"))
-            ->orderBy('name');
+            ->when($data['kind'] ?? null, fn ($q, $kind) => $q->where('kind', $kind));
+
+        RankedSearch::apply($query, $data['search'] ?? null, ['name']);
+        $query->orderBy('name')->orderBy('id');
 
         $items = $query->paginate(
             perPage: $data['limit'] ?? 10,
