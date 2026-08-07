@@ -12,13 +12,16 @@ describe("backup service", () => {
   test("returns privacy-safe list and summary data", async () => {
     apiFetchMock.mockResolvedValue(new Response(JSON.stringify({
       data: [{ id: "backup-1", state: "completed", source: "automatic", size_bytes: 100, encrypted: true, retention_tier: "daily", retention_expires_at: null, queued_at: null, started_at: null, verified_at: "2026-08-01T01:30:00+08:00", recoverable_until: null, failure: null, actions: { can_delete: false, can_keep: false, can_request_recovery: true } }],
-      meta: { status: "healthy", last_successful_at: "2026-08-01T01:30:00+08:00", next_automatic_at: "2026-08-02T01:30:00+08:00", scope: "Database records", storage_bytes: 100, last_recovery_test_at: null },
+      meta: { current_page: 2, per_page: 10, total: 12, last_page: 2 },
+      summary: { status: "healthy", last_successful_at: "2026-08-01T01:30:00+08:00", next_automatic_at: "2026-08-02T01:30:00+08:00", scope: "Database records", storage_bytes: 100, last_recovery_test_at: null },
     }), { status: 200, headers: { "Content-Type": "application/json" } }));
 
-    const result = await listBackups();
+    const result = await listBackups(2);
 
     expect(result.data[0].id).toBe("backup-1");
-    expect(result.meta.status).toBe("healthy");
+    expect(result.summary.status).toBe("healthy");
+    expect(result.meta.current_page).toBe(2);
+    expect(apiFetchMock).toHaveBeenCalledWith("/api/admin/backups?page=2", expect.any(Object));
   });
 
   test("uses protected endpoints for create and recovery", async () => {

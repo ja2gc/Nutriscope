@@ -32,4 +32,11 @@ describe("admin backup page contract", () => {
     expect(summary).toContain("Automatic backups are disabled.");
     expect(controls).toContain("next_at");
   });
+
+  test("reuses the shared pagination component for ten backup rows per page", () => {
+    const page = readFileSync(resolve(process.cwd(), "app/admin/backups/page.tsx"), "utf8");
+    expect(page).toContain('from "@/components/ui/Pagination"');
+    expect(page).toContain("<Pagination");
+    expect(page).toContain("listBackups(requestedPage)");
+  });
 });

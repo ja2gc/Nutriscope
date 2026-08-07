@@ -57,6 +57,23 @@ class AdminBackupApiTest extends TestCase
     }
 
     #[Test]
+    public function backup_list_is_paginated_ten_at_a_time_with_summary_kept_separate(): void
+    {
+        $admin = User::factory()->admin()->create();
+        BackupRun::factory()->count(12)->completed()->create();
+
+        $this->actingAs($admin, 'sanctum')
+            ->getJson('/api/admin/backups?page=2')
+            ->assertOk()
+            ->assertJsonCount(2, 'data')
+            ->assertJsonPath('meta.current_page', 2)
+            ->assertJsonPath('meta.per_page', 10)
+            ->assertJsonPath('meta.total', 12)
+            ->assertJsonPath('meta.last_page', 2)
+            ->assertJsonStructure(['summary' => ['status', 'scope', 'storage_bytes']]);
+    }
+
+    #[Test]
     public function newest_verified_backup_cannot_be_deleted_and_duplicate_work_is_rejected(): void
     {
         Queue::fake();

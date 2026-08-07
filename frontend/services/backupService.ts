@@ -19,10 +19,10 @@ async function unwrap<T>(response: Response, fallback: string): Promise<T> {
   return payload.data;
 }
 
-export async function listBackups(): Promise<BackupListResponse> {
-  const response = await apiFetch("/api/admin/backups", { headers: { Accept: "application/json" } });
+export async function listBackups(page = 1): Promise<BackupListResponse> {
+  const response = await apiFetch(`/api/admin/backups?page=${page}`, { headers: { Accept: "application/json" } });
   const payload = await response.json().catch(() => null) as BackupListResponse | { message?: string } | null;
-  if (!response.ok || !payload || !("data" in payload) || !("meta" in payload)) {
+  if (!response.ok || !payload || !("data" in payload) || !("meta" in payload) || !("summary" in payload)) {
     throw new BackupServiceError((payload && "message" in payload && payload.message) || "Backups could not be loaded.", response.ok ? 502 : response.status);
   }
   return payload;

@@ -51,7 +51,8 @@ export interface BackupScheduleInput {
 
 export interface BackupListResponse {
   data: BackupRunDto[];
-  meta: BackupSummaryDto;
+  meta: PaginationMeta;
+  summary: BackupSummaryDto;
 }
 
 export interface RecoveryRequestInput {
@@ -60,3 +61,4 @@ export interface RecoveryRequestInput {
   current_password: string;
   confirmation: string;
 }
+import type { PaginationMeta } from "@/components/ui/Pagination";

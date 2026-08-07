@@ -11,6 +11,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\CreateBackupRequest;
 use App\Http\Requests\Admin\DeleteBackupRequest;
 use App\Http\Requests\Admin\KeepBackupRequest;
+use App\Http\Requests\PaginatedRequest;
 use App\Http\Resources\BackupRunResource;
 use App\Jobs\CreateDatabaseBackup;
 use App\Models\BackupRun;
@@ -24,19 +25,19 @@ class BackupController extends Controller
 {
     public function __construct(private readonly AuditLogger $auditLogger) {}
 
-    public function index(): AnonymousResourceCollection
+    public function index(PaginatedRequest $request): AnonymousResourceCollection
     {
         $latestVerifiedId = BackupRun::verified()->latest('verified_at')->value('id');
         $backups = BackupRun::query()
             ->with(['manifest', 'latestRecoveryRequest'])
             ->withCount(['recoveryRequests as pending_recovery_requests_count' => fn (Builder $query) => $query->whereNotIn('state', ['completed', 'failed', 'rolled_back', 'cancelled'])])
             ->latest('id')
-            ->limit(100)
-            ->get()
-            ->each(fn (BackupRun $backup) => $backup->setAttribute('is_latest_verified', $backup->id === $latestVerifiedId));
+            ->paginate($request->perPage())
+            ->withQueryString()
+            ->through(fn (BackupRun $backup) => $backup->setAttribute('is_latest_verified', $backup->id === $latestVerifiedId));
 
         return BackupRunResource::collection($backups)->additional([
-            'meta' => $this->summary($latestVerifiedId),
+            'summary' => $this->summary($latestVerifiedId),
         ]);
     }
 
