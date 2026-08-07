@@ -13,7 +13,11 @@ use App\Models\ScreeningDocument;
 use App\Policies\AuditPolicy;
 use App\Services\Audit\AuditLogger;
 use App\Services\ClinicalDocumentStorage;
+use App\Services\StoredObjectStorage;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\DB;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ScreeningDocumentController extends Controller
 {
@@ -21,6 +25,7 @@ class ScreeningDocumentController extends Controller
         private readonly AuditPolicy $auditPolicy,
         private readonly AuditLogger $auditLogger,
         private readonly ClinicalDocumentStorage $documentStorage,
+        private readonly StoredObjectStorage $storedObjects,
     ) {}
 
     public function show(ScreeningDocument $screeningDocument): ScreeningDocumentResource
@@ -31,10 +36,25 @@ class ScreeningDocumentController extends Controller
         return new ScreeningDocumentResource($screeningDocument);
     }
 
-    public function file(ScreeningDocument $screeningDocument)
+    public function file(ScreeningDocument $screeningDocument): StreamedResponse|BinaryFileResponse
     {
         $this->authorizeDocument($screeningDocument);
-        $path = $this->documentStorage->resolve($screeningDocument->file_path);
+        if ($screeningDocument->storedObject !== null) {
+            $object = $screeningDocument->storedObject;
+            $stream = $this->storedObjects->readStream($object);
+            $this->recordAccess(AuditAction::Downloaded, $screeningDocument);
+
+            return response()->streamDownload(function () use ($stream): void {
+                fpassthru($stream);
+                fclose($stream);
+            }, $object->original_name ?? 'clinical-document.'.$object->extension, [
+                'Content-Type' => $object->mime_type,
+                'Cache-Control' => 'private, no-store',
+                'X-Content-Type-Options' => 'nosniff',
+            ]);
+        }
+
+        $path = $this->documentStorage->resolve((string) $screeningDocument->file_path);
         $this->recordAccess(AuditAction::Downloaded, $screeningDocument);
 
         return response()->file($path);
@@ -47,16 +67,28 @@ class ScreeningDocumentController extends Controller
     {
         $this->authorizeDocument($screeningDocument);
         $this->auditLogger->assertAvailable();
-        $move = $this->documentStorage->quarantineIfPresent($screeningDocument->file_path);
+        $storedObject = $screeningDocument->storedObject;
+        $move = $storedObject === null
+            ? $this->documentStorage->quarantineIfPresent((string) $screeningDocument->file_path)
+            : null;
 
         try {
-            $this->audited(function () use ($screeningDocument, $move): void {
+            $this->audited(function () use ($screeningDocument, $move, $storedObject): void {
                 $this->auditLogger->withoutModelEvents(function () use ($screeningDocument): void {
                     $screeningDocument->delete();
                 });
                 $this->recordAccess(AuditAction::Deleted, $screeningDocument);
                 if ($move !== null) {
                     DeleteQuarantinedClinicalFile::dispatch($move['quarantine'])->afterCommit();
+                }
+                if ($storedObject !== null) {
+                    DB::afterCommit(function () use ($storedObject): void {
+                        try {
+                            $this->storedObjects->deleteOrQueue($storedObject);
+                        } catch (\Throwable $exception) {
+                            report($exception);
+                        }
+                    });
                 }
             });
         } catch (\Throwable $exception) {

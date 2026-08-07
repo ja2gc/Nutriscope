@@ -17,7 +17,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import {
   ReportItem, ReportTemplate, Branding, ReportAxis, ReportInstance,
   listReports, deleteReport, reportDownloadUrl, reportViewUrl,
-  listInstances, reportRenderUrl, reportExportUrl, archiveReport,
+  listInstances, prepareReport,
   getBranding, saveBranding, listTemplates, saveTemplate,
 } from "@/services/reportService";
 import { ReportPreview } from "@/components/ReportPreview";
@@ -119,7 +119,7 @@ export function ReportsBrowser({ catalog, apiPrefix }: ReportsBrowserProps) {
         crumbs={[["Home", apiPrefix === "admin" ? "/admin/dashboard" : "/dashboard"], ["Reports"]]}
         icon={<FileText className="h-5 w-5 text-emerald-600" />}
         title="Reports"
-        subtitle="Browse any report by period or record and download it on demand. Archive the ones you formally file to freeze an as-submitted copy."
+        subtitle="Open a saved report with current source data, preview it, or download a local copy for printing."
       />
 
       <Tabs<TabKey>
@@ -207,7 +207,7 @@ function InstancesPanel({
   const [instances, setInstances] = useState<ReportInstance[]>([]);
   const [year, setYear] = useState<string>("all");
   const [busy, setBusy] = useState<string | null>(null);
-  const [preview, setPreview] = useState<ReportInstance | null>(null);
+  const [preview, setPreview] = useState<{ report: ReportItem; label: string } | null>(null);
   const [page, setPage] = useState(1);
   const [instancesMeta, setInstancesMeta] = useState<PaginationMeta | null>(null);
   const Icon = entry.icon;
@@ -230,13 +230,13 @@ function InstancesPanel({
 
   const pagedShown = instances;
 
-  async function onArchive(i: ReportInstance) {
+  async function onPreview(i: ReportInstance) {
     setBusy(i.key);
     try {
-      await archiveReport(entry.type, i.params, apiPrefix);
-      onFlash(true, `Archived "${i.label}". Find it in the Archived tab.`);
+      const report = await prepareReport(entry.type, i.params, apiPrefix);
+      setPreview({ report, label: i.label });
     } catch (e) {
-      onFlash(false, e instanceof Error ? e.message : "Archive failed.");
+      onFlash(false, e instanceof Error ? e.message : "Report preparation failed.");
     } finally {
       setBusy(null);
     }
@@ -263,10 +263,10 @@ function InstancesPanel({
         )}
       </div>
 
-      {/* Live vs archived disclosure (spec §8.1) */}
+      {/* Saved-report behavior */}
       <div className="px-5 py-2.5 bg-warm-50/70 border-b border-warm-100 text-xs text-warm-500 flex items-center gap-1.5">
         <Eye className="h-3.5 w-3.5 text-warm-400" />
-        <span><span className="font-semibold text-warm-600">Click a report to view it.</span> The preview renders live from current data — use <span className="font-semibold text-warm-600">Archive</span> to freeze an as-filed copy.</span>
+        <span><span className="font-semibold text-warm-600">Click a report to view it.</span> NutriScope saves its identity automatically and refreshes important source data when needed.</span>
       </div>
 
       {loading ? (
@@ -287,7 +287,7 @@ function InstancesPanel({
           {pagedShown.map((i) => (
             <li key={i.key} className="flex items-center justify-between gap-3 hover:bg-warm-50/60">
               <button
-                onClick={() => setPreview(i)}
+                onClick={() => void onPreview(i)}
                 className="flex-1 min-w-0 text-left px-5 py-3 cursor-pointer flex items-center gap-2.5 group focus:outline-none focus-visible:bg-emerald-50/40"
               >
                 <Eye className="h-4 w-4 text-warm-300 group-hover:text-emerald-500 shrink-0" />
@@ -296,16 +296,7 @@ function InstancesPanel({
                   {i.date && <span className="block text-xs text-warm-400 tabular-nums">{new Date(i.date).toLocaleDateString()}</span>}
                 </span>
               </button>
-              <div className="px-5 shrink-0">
-                <Button
-                  variant="secondary"
-                  onClick={() => onArchive(i)}
-                  loading={busy === i.key}
-                  className="!w-auto !py-1.5 !px-3 text-sm"
-                >
-                  <Archive className="h-3.5 w-3.5" /> Archive
-                </Button>
-              </div>
+              {busy === i.key && <Loader2 className="mr-5 h-4 w-4 animate-spin text-emerald-600" />}
             </li>
           ))}
         </ul>
@@ -316,10 +307,8 @@ function InstancesPanel({
       {preview && (
         <ReportPreview
           title={`${entry.name} — ${preview.label}`}
-          src={reportRenderUrl(entry.type, preview.params, apiPrefix)}
-          downloadUrl={reportExportUrl(entry.type, preview.params, apiPrefix)}
-          onArchive={() => onArchive(preview)}
-          archiving={busy === preview.key}
+          src={reportViewUrl(preview.report.id, apiPrefix)}
+          downloadUrl={reportDownloadUrl(preview.report.id, apiPrefix)}
           onClose={() => setPreview(null)}
         />
       )}
@@ -327,7 +316,7 @@ function InstancesPanel({
   );
 }
 
-// ── Archived tab: the frozen, as-filed copies ───────────────────────────────
+// Archived tab: saved reports hidden from the active list.
 function ArchivedTab({
   catalog,
   apiPrefix,
@@ -348,7 +337,7 @@ function ArchivedTab({
     setLoading(true);
     try {
       const result = await listReports(apiPrefix, page);
-      setReports(result.data.filter((r) => r.status === "archived" || !!r.file_path));
+      setReports(result.data.filter((r) => r.status === "archived"));
       setArchiveMeta(result.meta);
     } catch (e) {
       onFlash(false, e instanceof Error ? e.message : "Failed to load archive.");
@@ -363,7 +352,7 @@ function ArchivedTab({
   async function onDelete(id: string) {
     try {
       await deleteReport(id, apiPrefix);
-      onFlash(true, "Archived copy deleted.");
+      onFlash(true, "Report remains archived.");
       load();
     } catch (e) {
       onFlash(false, e instanceof Error ? e.message : "Delete failed.");
@@ -387,8 +376,8 @@ function ArchivedTab({
         <div className="py-12">
           <EmptyState
             icon={<Archive className="h-6 w-6" />}
-            title="No archived copies"
-            message="Archive a report from the Browse tab to freeze an as-filed copy here. Archived copies keep their original branding and figures even if the live data changes."
+            title="No archived reports"
+            message="Archived reports are hidden from the active saved-report list. Preview and download use the latest prepared content."
           />
         </div>
       ) : (
@@ -422,7 +411,7 @@ function ArchivedTab({
                       <button onClick={() => setPreview(r)} className="p-1.5 rounded-lg hover:bg-warm-100 text-warm-500 cursor-pointer" aria-label={`View ${r.title}`} title="View"><Eye className="h-3.5 w-3.5" /></button>
                     )}
                     {r.file_path && (
-                      <a href={reportDownloadUrl(r.id, apiPrefix)} download className="p-1.5 rounded-lg hover:bg-emerald-50 text-warm-500 hover:text-emerald-600" aria-label={`Download ${r.title}`} title="Download frozen copy">
+                      <a href={reportDownloadUrl(r.id, apiPrefix)} download className="p-1.5 rounded-lg hover:bg-emerald-50 text-warm-500 hover:text-emerald-600" aria-label={`Download ${r.title}`} title="Download current prepared copy">
                         <Download className="h-3.5 w-3.5" />
                       </a>
                     )}

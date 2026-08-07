@@ -118,6 +118,13 @@ export async function listInstances(
   return { data: json.data, meta: json.meta };
 }
 
+export async function prepareReport(type: ReportType | string, params: ReportParams, prefix: ReportApiPrefix = "rnd"): Promise<ReportItem> {
+  return unwrap(await apiFetch(`/api/${prefix}/reports/${type}/prepare${toQuery(params)}`, {
+    method: "POST",
+    headers: { Accept: "application/json" },
+  }), "Failed to prepare report.");
+}
+
 /** URL that streams a freshly rendered (live) PDF — open in a new tab. */
 export const reportRenderUrl = (
   type: ReportType | string,

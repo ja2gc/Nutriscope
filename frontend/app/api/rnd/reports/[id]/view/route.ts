@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 
 const LARAVEL_API = process.env.LARAVEL_API_URL ?? "http://127.0.0.1:8000/api";
 
-/** Streams an archived copy's frozen PDF INLINE (for the in-app preview pane). */
+/** Streams the current prepared PDF inline for the in-app preview pane. */
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const token = (await cookies()).get("nutriscope_token")?.value;
   if (!token) return NextResponse.json({ message: "Unauthenticated." }, { status: 401 });

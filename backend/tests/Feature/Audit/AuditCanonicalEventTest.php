@@ -295,7 +295,7 @@ class AuditCanonicalEventTest extends TestCase
 
         $this->actingAs($actor, 'sanctum')->postJson(
             "/api/rnd/ncp-records/{$ncp->uuid}/attachments",
-            ['file' => UploadedFile::fake()->create('safe.pdf', 10, 'application/pdf')],
+            ['file' => UploadedFile::fake()->createWithContent('safe.pdf', "%PDF-1.4\n%%EOF")],
         )->assertCreated();
 
         $upload = AuditActivity::query()->sole();

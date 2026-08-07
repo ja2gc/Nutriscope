@@ -15,4 +15,9 @@ final readonly class BackupArchiveResult
     {
         return new self($this->objectKey, $bytes, $this->integrityValue, $this->encrypted);
     }
+
+    public function withIntegrity(int $bytes, string $integrityValue): self
+    {
+        return new self($this->objectKey, $bytes, $integrityValue, $this->encrypted);
+    }
 }

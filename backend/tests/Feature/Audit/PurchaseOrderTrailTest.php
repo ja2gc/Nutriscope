@@ -55,7 +55,7 @@ class PurchaseOrderTrailTest extends TestCase
         $this->postJson("/api/fss/purchase-orders/{$po->uuid}/attachments", [
             'type' => 'proof',
             'caption' => 'PRIVATE-CAPTION-SENTINEL',
-            'file' => UploadedFile::fake()->create('proof.jpg', 100, 'image/jpeg'),
+            'file' => UploadedFile::fake()->createWithContent('proof.png', $this->pngBytes()),
         ])->assertCreated();
         $this->patchJson("/api/fss/purchase-order-vendor-groups/{$group->uuid}", [
             'or_number' => 'OR-100',
@@ -104,7 +104,7 @@ class PurchaseOrderTrailTest extends TestCase
         $po = PurchaseOrder::query()->where('shopping_list_id', $list->id)->firstOrFail();
         $group = $po->vendorGroups()->firstOrFail();
         $this->postJson("/api/fss/purchase-order-vendor-groups/{$group->uuid}/attachments", [
-            'type' => 'receipt', 'file' => UploadedFile::fake()->create('receipt.jpg', 100, 'image/jpeg'),
+            'type' => 'receipt', 'file' => UploadedFile::fake()->createWithContent('receipt.png', $this->pngBytes()),
         ])->assertCreated();
 
         $this->assertSame('completed', $po->fresh()->lifecycle_status);
@@ -184,7 +184,7 @@ class PurchaseOrderTrailTest extends TestCase
         $this->app->instance(AuditLogger::class, $this->failingAuditLogger());
         $this->actingAs($rnd)->postJson("/api/fss/purchase-orders/{$po->uuid}/attachments", [
             'type' => 'proof',
-            'file' => UploadedFile::fake()->create('proof.jpg', 100, 'image/jpeg'),
+            'file' => UploadedFile::fake()->createWithContent('proof.png', $this->pngBytes()),
         ])->assertServerError();
         $this->assertDatabaseMissing('purchase_order_attachments', ['purchase_order_id' => $po->id]);
         $this->assertSame([], Storage::disk('public')->allFiles('po-attachments'));
@@ -242,11 +242,11 @@ class PurchaseOrderTrailTest extends TestCase
         $this->app->instance(AuditLogger::class, $this->failingAuditLogger());
         $this->postJson("/api/fss/purchase-orders/{$uploadPo->uuid}/attachments", [
             'type' => 'proof',
-            'file' => UploadedFile::fake()->create('upload.jpg', 100, 'image/jpeg'),
+            'file' => UploadedFile::fake()->createWithContent('upload.png', $this->pngBytes()),
         ])->assertServerError();
         $this->assertDatabaseMissing('purchase_order_attachments', ['purchase_order_id' => $uploadPo->id]);
         $this->assertSame([], Storage::disk('public')->allFiles('po-attachments'));
-        $this->assertCount(2, Storage::disk('public')->allFiles('po-attachments-quarantine'));
+        $this->assertCount(1, Storage::disk('public')->allFiles('po-attachments-quarantine'));
     }
 
     public function test_partial_restore_attempts_every_quarantined_file_without_throwing(): void
@@ -659,5 +659,10 @@ class PurchaseOrderTrailTest extends TestCase
         $auditLogger->method('record')->willThrowException(new AuditLoggingUnavailable('forced audit failure'));
 
         return $auditLogger;
+    }
+
+    private function pngBytes(): string
+    {
+        return base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=');
     }
 }

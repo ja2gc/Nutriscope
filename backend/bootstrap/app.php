@@ -1,17 +1,17 @@
 <?php
 
 use App\Enums\AuditAction;
-use App\Enums\BackupSource;
-use App\Enums\BackupState;
 use App\Http\Middleware\EnsureActiveUser;
 use App\Http\Middleware\RecordSecurityRejections;
 use App\Http\Middleware\RoleMiddleware;
-use App\Jobs\CreateDatabaseBackup;
+use App\Jobs\RunBackupRecoveryTest;
 use App\Models\BackupRun;
 use App\Models\Notification;
+use App\Models\RecoveryTest;
 use App\Services\Audit\AuditHealthMonitor;
 use App\Services\Audit\AuditRetentionState;
 use App\Services\Audit\SecurityAuditDeduplicator;
+use App\Services\Backup\DispatchDueBackups;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Application;
@@ -28,26 +28,12 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withSchedule(function (Schedule $schedule): void {
-        $schedule->call(function (): void {
-            $active = BackupRun::whereIn('state', [
-                BackupState::Queued,
-                BackupState::Running,
-                BackupState::Verifying,
-            ])->exists();
-
-            if (! $active) {
-                $backup = BackupRun::create([
-                    'state' => BackupState::Queued,
-                    'source' => BackupSource::Automatic,
-                    'storage_disk' => config('nutriscope-backups.disk'),
-                    'queued_at' => now(),
-                ]);
-                CreateDatabaseBackup::dispatch($backup->uuid);
-            }
-        })
-            ->dailyAt('01:30')
+        $schedule->call(fn (): mixed => app(DispatchDueBackups::class)->handle(
+            now(config('nutriscope-backups.timezone'))->toImmutable(),
+        ))
+            ->everyTenMinutes()
             ->timezone(config('nutriscope-backups.timezone'))
-            ->name('backups:create-daily')
+            ->name('backups:dispatch-due')
             ->withoutOverlapping()
             ->onOneServer();
         $schedule->command('backup:monitor')
@@ -58,6 +44,20 @@ return Application::configure(basePath: dirname(__DIR__))
         $schedule->command('backups:purge-deleted')
             ->dailyAt('02:30')
             ->timezone(config('nutriscope-backups.timezone'))
+            ->withoutOverlapping()
+            ->onOneServer();
+        $schedule->call(function (): void {
+            if (RecoveryTest::query()->where('state', 'completed')->where('completed_at', '>=', now()->subDays(30))->exists()) {
+                return;
+            }
+            $backup = BackupRun::verified()->whereHas('manifest')->latest('verified_at')->first();
+            if ($backup !== null) {
+                RunBackupRecoveryTest::dispatch($backup->uuid)->onQueue(config('nutriscope-backups.queue'));
+            }
+        })
+            ->dailyAt('03:00')
+            ->timezone(config('nutriscope-backups.timezone'))
+            ->name('backups:recovery-test')
             ->withoutOverlapping()
             ->onOneServer();
         // Trigger B (rnd.md §7) — daily follow-up reminders, one day before.

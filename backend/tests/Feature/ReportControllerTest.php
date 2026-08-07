@@ -129,7 +129,7 @@ class ReportControllerTest extends TestCase
         $this->get("/api/rnd/reports/{$report->uuid}/download")->assertOk();
         $this->deleteJson("/api/rnd/reports/{$report->uuid}")->assertNoContent();
 
-        $this->assertModelMissing($report);
+        $this->assertSame('archived', $report->refresh()->status);
     }
 
     public function test_historical_report_name_snapshots_are_not_rewritten(): void
@@ -152,21 +152,22 @@ class ReportControllerTest extends TestCase
 
     public function test_live_render_uses_current_prepared_by_display_name(): void
     {
+        Storage::fake('report_cache');
         DietListCount::factory()->create(['service_date' => '2026-06-10']);
         $reports = $this->createMock(ReportService::class);
         $reports->method('supports')->willReturn(true);
         $reports->expects($this->once())
-            ->method('streamBytes')
-            ->willReturnCallback(function (string $type, array $params): string {
-                $this->assertSame('accomplishment_report', $type);
-                $this->assertSame('Rosa Maria Dela Peña', $params['prepared_by_name']);
+            ->method('buildPdf')
+            ->willReturnCallback(function (Report $report): array {
+                $this->assertSame('accomplishment_report', $report->type);
+                $this->assertSame('Rosa Maria Dela Peña', $report->parameters['prepared_by_name']);
 
-                return '%PDF-current-name';
+                return ['bytes' => '%PDF-current-name', 'meta' => []];
             });
         $this->app->instance(ReportService::class, $reports);
 
         $this->actingAs($this->rnd, 'sanctum')
-            ->get('/api/rnd/reports/accomplishment_report/render?start=2026-06-10&end=2026-06-10')
+            ->post('/api/rnd/reports/accomplishment_report/prepare?start=2026-06-10&end=2026-06-10')
             ->assertOk();
     }
 }

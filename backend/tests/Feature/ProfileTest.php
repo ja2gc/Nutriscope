@@ -51,21 +51,22 @@ class ProfileTest extends TestCase
                 'last_name' => 'Name',
                 'email' => 'new@example.com',
                 'contact_number' => '+63 917 000 0000',
-                'profile_photo' => 'data:image/png;base64,avatar',
+                'profile_photo' => 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
                 'role' => 'Admin',
             ])
             ->assertOk()
             ->assertJsonPath('name', 'New Name')
             ->assertJsonPath('contact_number', '+63 917 000 0000')
-            ->assertJsonPath('profile_photo', 'data:image/png;base64,avatar')
+            ->assertJsonPath('profile_photo', '/api/auth/profile-photo')
             ->assertJsonPath('role', 'RND');
 
         $this->assertDatabaseHas('users', [
             'id' => $user->id,
             'contact_number' => '+63 917 000 0000',
-            'profile_photo' => 'data:image/png;base64,avatar',
+            'profile_photo' => null,
             'role' => 'RND',
         ]);
+        $this->assertNotNull($user->fresh()->profile_photo_stored_object_id);
     }
 
     public function test_profile_update_rejects_email_taken_by_another_user(): void

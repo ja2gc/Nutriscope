@@ -59,7 +59,7 @@ class FssReportScopeTest extends TestCase
         $this->seedAccomplishment('2026-06-10');
 
         $this->actingAs($this->fss)
-            ->get('/api/fss/reports/accomplishment_report/render?start=2026-06-10&end=2026-06-10')
+            ->postJson('/api/fss/reports/accomplishment_report/prepare', ['start' => '2026-06-10', 'end' => '2026-06-10'])
             ->assertOk();
     }
 

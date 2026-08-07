@@ -1,45 +1,58 @@
 # Backup and recovery guide
 
-This guide is for an administrator who does not use server commands.
+This guide is for an Admin using NutriScope. Raw archives, storage keys, database credentials, and encryption secrets never enter the browser.
 
-## What happens automatically
+## Automatic backup settings
 
-NutriScope asks the worker to create an encrypted database backup each day. It verifies the archive and keeps:
+Open **Administration > Backup & Recovery**. Daily, weekly, and monthly schedules are independent and **disabled by default**, so demo deployments create no automatic backups. Admin may enable any combination after storage, encryption, queue, scheduler, and lock readiness checks pass.
 
-- the newest **3 daily** restore points;
-- **2 weekly** restore points after those;
-- **3 monthly** restore points after those.
+- Daily keeps the latest **3 daily** restore points.
+- Weekly keeps the latest **2 weekly** restore points.
+- Monthly keeps the latest **3 monthly** restore points.
 
-This is at most eight retained restore points, not fourteen daily copies. A backup removed by an administrator stays in **Recently Deleted** for **48 hours**, then the scheduler permanently removes it. Automatic retention uses the same recovery window.
+The target time is 01:30 Asia/Manila. A coordinator runs every ten minutes and catches up the latest missing due period after downtime. When categories coincide, one archive and manifest satisfy all due categories. Disabling a schedule stops future runs only; existing restore points keep assigned retention. Disabling the final active schedule requires confirmation and every setting change is audited. When all are off, the page displays **Automatic backups are disabled.**
 
-## Use the Backups page
+Manual backups use the same encryption, manifest, protected-file, and verification pipeline. They do not satisfy an automatic period and expire after seven days before entering Recently Deleted. Manual creation and recovery remain separate from schedule toggles.
 
-Open **Administration > Backups**.
+## What a restore point contains
 
-- The status card shows whether the latest backup is verified, running, or failed.
-- Select **Create backup** for an important checkpoint. It stays disabled while another backup runs. Wait for feedback; do not repeatedly click it.
-- In Recently Deleted, select **Keep backup** to return that restore point to Available before its 48-hour deadline.
-- Select **Delete** to move a backup to Recently Deleted. This is not immediate permanent deletion.
-- After a live-system failure, select a verified restore point and choose **Request recovery**. Add a short incident note. This protects it and records a request for the technical operator.
+Each restore point combines:
 
-Administrators cannot directly restore or download a raw database through the website. This prevents accidental overwrite and browser exposure of database contents.
+- one AES-encrypted MySQL-only archive;
+- an immutable private manifest with stored-object relationships, sizes, and SHA-256 checksums; and
+- incremental checksum-addressed copies of durable private uploads.
 
-## Technical recovery procedure
+NutriScope verifies archive existence, size, SHA-256, decryption, the expected SQL dump, manifest schema/checksum, and every referenced protected object. It does not copy reproducible report-cache PDFs, `.env`, logs, Redis data, containers, or HTTPS keys.
 
-An authorized technical operator works outside the live website:
+At least every 30 days, NutriScope restores the latest verified point into a disposable MySQL database. Checks are read-only: schema, foreign keys, application/authentication tables, role definitions, supported password hashes, manifest, files, and critical boot integrity. The drill creates no user, password, session, or business fixture and always drops its database. The page shows the latest successful recovery-test date.
 
-1. Protect the selected verified backup from retention.
-2. Download it into a temporary access-controlled environment.
-3. Decrypt it and restore it into a new temporary MySQL database.
-4. Run migration-status and integrity checks without modifying the archive.
-5. Verify sign-in and critical NutriScope workflows against the temporary database.
-6. Schedule a controlled cutover and notify the client.
-7. Keep the old database unchanged until the client accepts recovery.
+## Available and Recently Deleted
 
-Never import a backup directly over the live database as the first test.
+- **Create backup now** creates a manual seven-day restore point.
+- **Move to Recently Deleted** starts a 48-hour recovery window.
+- **Keep backup** rescues the archive and matching manifest/files; it does not restore application data.
+- Expired Recently Deleted items are purged, including protected file copies no remaining restore point references.
 
-## Backup limits
+## Whole-system restoration
 
-The database backup **does not include** the production `.env`, logs, Redis, Docker images, HTTPS certificates, uploaded files, or generated reports. Keep production configuration in the platform secret manager. Protect uploaded files with the storage provider's versioning or backup policy.
+Admin selects a verified restore point, reviews the newer-data loss window, enters the current password, and types the exact confirmation phrase. Newer production data will be discarded after switching and retained only in one access-controlled pre-restore safety snapshot.
 
-If a backup fails, the page records it and the configured alert address receives a notification. Preserve the error for the technical operator. Never place passwords, keys, patient details, or database content in the incident note.
+Laravel queues the workflow:
+
+1. Protect the selected point and create/verify one current-system safety snapshot.
+2. Restore the selected archive into one new temporary MySQL database.
+3. Run non-mutating database checks and verify every matching uploaded object.
+4. Show **Ready** only after preparation passes. Production remains unchanged before this point.
+5. Enter maintenance mode only when a configured environment switcher is ready.
+6. Switch database/files, run basic health checks, and mark **Completed**.
+7. On switching or health-check failure, automatically switch back to the safety snapshot and mark **Rolled Back**.
+
+Statuses are Requested, Preparing, Checking, Ready, Switching, Completed, Failed, Rolled Back, and Cancelled. Admin may cancel before Switching. Phase 1.5 stops safely at Ready when no production switcher is configured; Phase 2 supplies provider-specific switching. Failures or required intervention notify the initiating Admin and all recovery actions are audited.
+
+The safety snapshot remains protected until the workflow reaches a terminal status, then for 48 hours. During that window it can support automatic rollback or another Admin-initiated whole-system restoration. There is no Technical Operator website role, review database, individual-record merge, arbitrary-row recovery, or universal Record Trash.
+
+## Saved reports
+
+Opening a report runs one authorized automatic prepare operation. It creates the saved identity when absent and refreshes important source-derived content when changed. Preview and download then stream the same private prepared bytes without mutation. Downloading or printing only creates a local copy.
+
+`created_at`, report identity, creation-time branding/signatories, template version, and appearance version remain fixed. `updated_at` changes only for later content changes. Archive hides an inactive saved report. Phase 1.5 adds no finalized-report workflow and retains no immutable PDF unless an independently existing signed, submitted, finalized, or official-evidence workflow requires it.

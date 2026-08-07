@@ -14,7 +14,7 @@ class ScreeningDocumentResource extends JsonResource
             'patient_id' => $this->patient_id,
             'assessment_id' => $this->assessment_id,
             'type' => $this->type,
-            'file_path' => $this->file_path,
+            'file_url' => '/api/rnd/screening-documents/'.$this->uuid.'/file',
             'original_name' => $this->original_name,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,

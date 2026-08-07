@@ -3,6 +3,7 @@
 namespace App\Services\Backup;
 
 use App\Enums\BackupRetentionTier;
+use App\Enums\BackupSource;
 use App\Enums\BackupState;
 use App\Models\BackupRun;
 use Illuminate\Support\Collection;
@@ -11,7 +12,57 @@ class BackupRetentionService
 {
     public function apply(): void
     {
+        $this->expireManualBackups();
+        $this->expireSafetySnapshots();
+        $this->applyScheduledRetention();
+        $this->applyLegacyAutomaticRetention();
+    }
+
+    private function expireSafetySnapshots(): void
+    {
+        BackupRun::verified()
+            ->where('source', BackupSource::Safety)
+            ->where('retention_expires_at', '<=', now())
+            ->each(fn (BackupRun $backup) => $this->moveToRecentlyDeleted($backup));
+    }
+
+    private function expireManualBackups(): void
+    {
+        BackupRun::verified()
+            ->where('source', BackupSource::Manual)
+            ->where('retention_expires_at', '<=', now())
+            ->each(fn (BackupRun $backup) => $this->moveToRecentlyDeleted($backup));
+    }
+
+    private function applyScheduledRetention(): void
+    {
+        BackupRun::verified()
+            ->where('source', BackupSource::Automatic)
+            ->whereHas('schedulePeriods')
+            ->with('schedulePeriods')
+            ->each(function (BackupRun $backup): void {
+                $active = $backup->schedulePeriods->filter(
+                    fn ($period): bool => $period->expires_at->isFuture(),
+                );
+
+                if ($active->isEmpty()) {
+                    $this->moveToRecentlyDeleted($backup);
+
+                    return;
+                }
+
+                $backup->update([
+                    'retention_tier' => $active->count() === 1 ? $active->first()->category : null,
+                    'retention_expires_at' => $active->max('expires_at'),
+                ]);
+            });
+    }
+
+    private function applyLegacyAutomaticRetention(): void
+    {
         $verified = BackupRun::verified()
+            ->where('source', BackupSource::Automatic)
+            ->whereDoesntHave('schedulePeriods')
             ->orderByDesc('verified_at')
             ->get();
 
@@ -44,19 +95,7 @@ class BackupRetentionService
         $keptIds = $daily->merge($weekly)->merge($monthly)->modelKeys();
         $verified
             ->whereNotIn('id', $keptIds)
-            ->each(function (BackupRun $backup): void {
-                if ($backup->recoveryRequests()->where('state', 'requested')->exists()) {
-                    return;
-                }
-
-                $backup->update([
-                    'state' => BackupState::RecentlyDeleted,
-                    'retention_tier' => null,
-                    'retention_expires_at' => null,
-                    'deleted_at' => now(),
-                    'recoverable_until' => now()->addHours(config('nutriscope-backups.recoverable_hours')),
-                ]);
-            });
+            ->each(fn (BackupRun $backup) => $this->moveToRecentlyDeleted($backup));
     }
 
     /** @param Collection<int, BackupRun> $backups */
@@ -74,5 +113,20 @@ class BackupRetentionService
                 'retention_expires_at' => $expiresAt,
             ]);
         });
+    }
+
+    private function moveToRecentlyDeleted(BackupRun $backup): void
+    {
+        if ($backup->recoveryRequests()->where('state', 'requested')->exists()) {
+            return;
+        }
+
+        $backup->transitionTo(BackupState::RecentlyDeleted);
+        $backup->update([
+            'retention_tier' => null,
+            'retention_expires_at' => null,
+            'deleted_at' => now(),
+            'recoverable_until' => now()->addHours(config('nutriscope-backups.recoverable_hours')),
+        ]);
     }
 }

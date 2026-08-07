@@ -24,40 +24,46 @@ class PoAttachmentUploadTest extends TestCase
 
     public function test_single_file_upload_returns_object(): void
     {
-        Storage::fake('public');
+        Storage::fake('private_uploads');
         [$fss, $po] = $this->fssPo();
 
         $res = $this->actingAs($fss)->post("/api/fss/purchase-orders/{$po->uuid}/attachments", [
             'type' => 'receipt',
-            'file' => UploadedFile::fake()->create('receipt.jpg', 100, 'image/jpeg'),
+            'file' => UploadedFile::fake()->createWithContent('receipt.png', $this->pngBytes()),
         ]);
 
         $res->assertCreated()
             ->assertJsonPath('data.type', 'receipt')
-            ->assertJsonPath('data.url', Storage::disk('public')->url($res->json('data.path')));
+            ->assertJsonPath('data.url', fn (string $url): bool => str_starts_with($url, '/api/fss/purchase-order-attachments/'))
+            ->assertJsonMissingPath('data.path');
         $this->assertDatabaseCount('purchase_order_attachments', 1);
+        $this->assertDatabaseCount('stored_objects', 1);
     }
 
     public function test_multiple_files_upload_returns_array(): void
     {
-        Storage::fake('public');
+        Storage::fake('private_uploads');
         [$fss, $po] = $this->fssPo();
 
         $res = $this->actingAs($fss)->post("/api/fss/purchase-orders/{$po->uuid}/attachments", [
             'type' => 'proof',
             'files' => [
-                UploadedFile::fake()->create('a.jpg', 100, 'image/jpeg'),
-                UploadedFile::fake()->create('b.jpg', 100, 'image/jpeg'),
-                UploadedFile::fake()->create('c.jpg', 100, 'image/jpeg'),
+                UploadedFile::fake()->createWithContent('a.png', $this->pngBytes()),
+                UploadedFile::fake()->createWithContent('b.png', $this->pngBytes()),
+                UploadedFile::fake()->createWithContent('c.png', $this->pngBytes()),
             ],
         ]);
 
         $res->assertCreated();
         $this->assertCount(3, $res->json('data'));
-        $this->assertSame(
-            Storage::disk('public')->url($res->json('data.0.path')),
-            $res->json('data.0.url'),
-        );
+        $this->assertStringStartsWith('/api/fss/purchase-order-attachments/', $res->json('data.0.url'));
+        $res->assertJsonMissingPath('data.0.path');
         $this->assertDatabaseCount('purchase_order_attachments', 3);
+        $this->assertDatabaseCount('stored_objects', 3);
+    }
+
+    private function pngBytes(): string
+    {
+        return base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=');
     }
 }

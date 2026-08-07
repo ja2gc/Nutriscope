@@ -6,6 +6,7 @@ use App\Models\DietListCount;
 use App\Models\Report;
 use App\Models\ReportBranding;
 use App\Models\User;
+use App\Services\FSS\AccomplishmentReportArchiveService;
 use App\Services\Reports\Generators\AccomplishmentReportGenerator;
 use Carbon\CarbonPeriod;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -34,6 +35,7 @@ class AccomplishmentReportTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        Storage::fake('report_cache');
         $this->fss1 = User::factory()->create([
             'role' => 'FSS',
             'name' => 'LEGACY ALICE',
@@ -204,24 +206,25 @@ class AccomplishmentReportTest extends TestCase
 
     // ─── HTTP / render tests ─────────────────────────────────────────────────────
 
-    public function test_render_streams_pdf_without_persisting(): void
+    public function test_prepare_saves_report_and_preview_streams_current_pdf(): void
     {
         $this->seedCount($this->fss1, '2026-06-10', ['helped_food_prep' => true]);
         $before = Report::count();
 
-        $res = $this->actingAs($this->fss1)
-            ->get('/api/fss/reports/accomplishment_report/render?start=2026-06-10&end=2026-06-10');
+        $prepared = $this->actingAs($this->fss1)
+            ->postJson('/api/fss/reports/accomplishment_report/prepare', ['start' => '2026-06-10', 'end' => '2026-06-10'])
+            ->assertOk();
+        $res = $this->get('/api/fss/reports/'.$prepared->json('data.id').'/view')->assertOk();
 
-        $res->assertOk();
         $this->assertSame('application/pdf', $res->headers->get('Content-Type'));
-        $this->assertStringStartsWith('%PDF', $res->getContent());
-        $this->assertSame($before, Report::count(), 'render must not persist a Report row');
+        $this->assertStringStartsWith('%PDF', $res->streamedContent());
+        $this->assertSame($before + 1, Report::count());
     }
 
     public function test_render_returns_404_when_no_data(): void
     {
         $this->actingAs($this->fss1)
-            ->get('/api/fss/reports/accomplishment_report/render?start=2099-01-01&end=2099-01-31')
+            ->postJson('/api/fss/reports/accomplishment_report/prepare', ['start' => '2099-01-01', 'end' => '2099-01-31'])
             ->assertNotFound();
     }
 
@@ -264,7 +267,7 @@ class AccomplishmentReportTest extends TestCase
         $this->seedCount($this->fss1, '2026-06-10');
 
         $this->actingAs($rnd)
-            ->get('/api/rnd/reports/accomplishment_report/render?start=2026-06-10&end=2026-06-10')
+            ->postJson('/api/rnd/reports/accomplishment_report/prepare', ['start' => '2026-06-10', 'end' => '2026-06-10'])
             ->assertOk();
     }
 
@@ -313,7 +316,7 @@ class AccomplishmentReportTest extends TestCase
         $this->assertNotContains($other->uuid, $ids);
     }
 
-    public function test_weekly_accomplishment_report_auto_archives_after_each_day_has_staff_entry(): void
+    public function test_weekly_accomplishment_report_is_prepared_after_each_day_has_staff_entry(): void
     {
         foreach (CarbonPeriod::create('2026-06-01', '2026-06-06') as $date) {
             $this->actingAs($this->fss1)
@@ -345,15 +348,14 @@ class AccomplishmentReportTest extends TestCase
             ->where('type', 'accomplishment_report')
             ->firstOrFail();
 
-        $this->assertSame('archived', $report->status);
+        $this->assertSame('completed', $report->status);
         $this->assertSame('2026-06-01', $report->parameters['start']);
         $this->assertSame('2026-06-07', $report->parameters['end']);
         $this->assertSame($this->fss1->id, $report->parameters['fss_user_id']);
         $this->assertSame('Alice Reyes', $report->parameters['prepared_by_name']);
-        $this->assertSame('Alice Reyes', $report->snapshot['accomplishment']['staff_sheets'][0]['user']['name']);
-        $this->assertStringContainsString('Alice Reyes', $report->title);
-        $this->assertStringNotContainsString('LEGACY ALICE', $report->title);
-        $this->assertSame('X', $report->snapshot['accomplishment']['staff_sheets'][0]['task_rows']['helped_food_prep']['2026-06-07']);
+        $this->assertSame('Alice Reyes', $report->snapshot['params']['prepared_by_name']);
+        $this->assertNull($report->file_path);
+        $this->assertNotNull($report->cache_path);
     }
 
     public function test_manual_archive_snapshots_current_prepared_by_display_name(): void
@@ -366,7 +368,7 @@ class AccomplishmentReportTest extends TestCase
                 'start' => '2026-06-10',
                 'end' => '2026-06-10',
             ])
-            ->assertCreated();
+            ->assertOk();
 
         $report = Report::query()->where('user_id', $this->fss1->id)->latest('id')->firstOrFail();
         $this->assertSame('Alice Reyes', $report->parameters['prepared_by_name']);
@@ -400,7 +402,7 @@ class AccomplishmentReportTest extends TestCase
         $this->assertSame('Historical Staff Label', $data['staff_sheets'][0]['user']->name);
     }
 
-    public function test_auto_archived_weekly_report_is_frozen_against_later_diet_list_changes(): void
+    public function test_prepared_weekly_report_refreshes_after_later_diet_list_changes(): void
     {
         foreach (CarbonPeriod::create('2026-06-01', '2026-06-07') as $date) {
             $this->seedCount($this->fss1, $date->toDateString(), [
@@ -423,14 +425,18 @@ class AccomplishmentReportTest extends TestCase
             ->where('type', 'accomplishment_report')
             ->firstOrFail();
 
-        $before = $report->snapshot['accomplishment']['staff_sheets'][0]['task_rows']['helped_food_prep']['2026-06-07'];
+        $beforeHash = $report->content_hash;
+        $createdAt = $report->created_at->copy();
 
         DietListCount::where('fss_user_id', $this->fss1->id)
             ->whereDate('service_date', '2026-06-07')
             ->update(['off_duty' => false, 'helped_food_prep' => true, 'population' => 99]);
 
-        $after = (new AccomplishmentReportGenerator)->data($report);
-        $this->assertSame($before, $after['staff_sheets'][0]['task_rows']['helped_food_prep']['2026-06-07']);
-        $this->assertSame('X', $after['staff_sheets'][0]['task_rows']['helped_food_prep']['2026-06-07']);
+        app(AccomplishmentReportArchiveService::class)
+            ->archiveCompletedWeek($this->fss1, '2026-06-07');
+
+        $report->refresh();
+        $this->assertNotSame($beforeHash, $report->content_hash);
+        $this->assertTrue($report->created_at->equalTo($createdAt));
     }
 }

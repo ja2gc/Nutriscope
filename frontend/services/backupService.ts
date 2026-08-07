@@ -1,5 +1,5 @@
 import { apiFetch } from "@/lib/apiFetch";
-import type { BackupListResponse, BackupRunDto, RecoveryRequestInput } from "@/types/backup";
+import type { BackupListResponse, BackupRunDto, BackupScheduleInput, BackupSchedulesDto, RecoveryRequestInput } from "@/types/backup";
 
 export class BackupServiceError extends Error {
   constructor(message: string, public readonly status: number) {
@@ -35,6 +35,20 @@ export async function createBackup(): Promise<BackupRunDto> {
   }), "Backup could not be queued.");
 }
 
+export async function getBackupSchedules(): Promise<BackupSchedulesDto> {
+  return unwrap(await apiFetch("/api/admin/backup-schedules", {
+    headers: { Accept: "application/json" },
+  }), "Automatic backup settings could not be loaded.");
+}
+
+export async function updateBackupSchedules(input: BackupScheduleInput): Promise<BackupSchedulesDto> {
+  return unwrap(await apiFetch("/api/admin/backup-schedules", {
+    method: "PUT",
+    headers: { Accept: "application/json", "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  }), "Automatic backup settings could not be updated.");
+}
+
 export async function deleteBackup(id: string): Promise<BackupRunDto> {
   return unwrap(await apiFetch(`/api/admin/backups/${encodeURIComponent(id)}`, {
     method: "DELETE",
@@ -55,4 +69,11 @@ export async function requestRecovery(id: string, input: RecoveryRequestInput): 
     headers: { Accept: "application/json", "Content-Type": "application/json" },
     body: JSON.stringify(input),
   }), "Recovery request could not be sent.");
+}
+
+export async function cancelRecovery(id: string): Promise<void> {
+  await unwrap(await apiFetch(`/api/admin/recovery-requests/${encodeURIComponent(id)}/cancel`, {
+    method: "POST",
+    headers: { Accept: "application/json", "Content-Type": "application/json" },
+  }), "Recovery could not be cancelled.");
 }

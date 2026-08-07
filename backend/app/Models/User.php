@@ -6,6 +6,7 @@ use App\Models\Concerns\HasDisplayName;
 use App\Models\Concerns\HasPublicId;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -28,6 +29,7 @@ class User extends Authenticatable
         'recovery_email_verification_expires_at',
         'contact_number',
         'profile_photo',
+        'profile_photo_stored_object_id',
         'password',
         'role',
         'is_active',
@@ -94,6 +96,11 @@ class User extends Authenticatable
     public function reports()
     {
         return $this->hasMany(Report::class);
+    }
+
+    public function profilePhotoObject(): BelongsTo
+    {
+        return $this->belongsTo(StoredObject::class, 'profile_photo_stored_object_id');
     }
 
     public function isRnd(): bool

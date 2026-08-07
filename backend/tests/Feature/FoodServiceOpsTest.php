@@ -414,7 +414,7 @@ class FoodServiceOpsTest extends TestCase
         $this->actingAs($this->fss)
             ->post("/api/fss/purchase-order-vendor-groups/{$group->uuid}/attachments", [
                 'type' => 'receipt',
-                'file' => UploadedFile::fake()->create('receipt.jpg', 100, 'image/jpeg'),
+                'file' => UploadedFile::fake()->createWithContent('receipt.png', base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=')),
             ])
             ->assertCreated();
 

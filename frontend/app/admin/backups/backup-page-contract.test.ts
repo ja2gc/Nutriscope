@@ -20,4 +20,16 @@ describe("admin backup page contract", () => {
     expect(dialog).toContain("returnFocusRef");
     expect(page).not.toMatch(/object_key|integrity_value|BACKUP_SECRET/);
   });
+
+  test("provides three independent default-off automatic schedule controls", () => {
+    const page = readFileSync(resolve(process.cwd(), "app/admin/backups/page.tsx"), "utf8");
+    const controls = readFileSync(resolve(process.cwd(), "components/backups/BackupScheduleSettings.tsx"), "utf8");
+    const summary = readFileSync(resolve(process.cwd(), "components/backups/BackupStatusSummary.tsx"), "utf8");
+    expect(controls).toContain("Daily backups");
+    expect(controls).toContain("Weekly backups");
+    expect(controls).toContain("Monthly backups");
+    expect(page).toContain("confirm_disable_all");
+    expect(summary).toContain("Automatic backups are disabled.");
+    expect(controls).toContain("next_at");
+  });
 });

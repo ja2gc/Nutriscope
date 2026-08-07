@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Enums\BackupState;
+use App\Models\BackupManifestObject;
 use App\Models\BackupRun;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Storage;
@@ -31,8 +32,19 @@ class PurgeDeletedBackups extends Command
                         }
                     }
 
+                    $protectedKeys = $backup->manifest?->objects()->pluck('protected_key')->all() ?? [];
+                    if ($backup->manifest !== null) {
+                        Storage::disk($backup->manifest->storage_disk)->delete($backup->manifest->object_key);
+                        $backup->manifest->delete();
+                    }
+                    foreach ($protectedKeys as $key) {
+                        if (! BackupManifestObject::query()->where('protected_key', $key)->exists()) {
+                            Storage::disk(config('nutriscope-backups.disk'))->delete($key);
+                        }
+                    }
+
+                    $backup->transitionTo(BackupState::Purged);
                     $backup->update([
-                        'state' => BackupState::Purged,
                         'purged_at' => now(),
                         'object_key' => null,
                         'integrity_value' => null,

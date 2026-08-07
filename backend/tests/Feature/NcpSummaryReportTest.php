@@ -123,24 +123,26 @@ class NcpSummaryReportTest extends TestCase
             ->assertForbidden();
     }
 
-    public function test_render_streams_pdf(): void
+    public function test_prepare_saves_report_and_preview_streams_pdf(): void
     {
         $ncp = $this->makeRecord();
         $before = Report::count();
 
-        $res = $this->actingAs($this->rnd)
-            ->get("/api/rnd/reports/ncp_summary/render?ncp_record_id={$ncp->id}");
+        $prepared = $this->actingAs($this->rnd)
+            ->postJson('/api/rnd/reports/ncp_summary/prepare', ['ncp_record_id' => $ncp->id])
+            ->assertOk();
+        $res = $this->get('/api/rnd/reports/'.$prepared->json('data.id').'/view');
 
         $res->assertOk();
         $this->assertSame('application/pdf', $res->headers->get('Content-Type'));
-        $this->assertStringStartsWith('%PDF', $res->getContent());
-        $this->assertSame($before, Report::count(), 'render must not persist');
+        $this->assertStringStartsWith('%PDF', $res->streamedContent());
+        $this->assertSame($before + 1, Report::count());
     }
 
     public function test_render_unknown_record_is_404(): void
     {
         $this->actingAs($this->rnd)
-            ->getJson('/api/rnd/reports/ncp_summary/render?ncp_record_id=99999')
+            ->postJson('/api/rnd/reports/ncp_summary/prepare', ['ncp_record_id' => 99999])
             ->assertNotFound();
     }
 

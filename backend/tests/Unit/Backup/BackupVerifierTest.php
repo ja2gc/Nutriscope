@@ -15,13 +15,15 @@ class BackupVerifierTest extends TestCase
     public function it_verifies_a_non_empty_encrypted_object(): void
     {
         Storage::fake('backups');
-        Storage::disk('backups')->put('database.zip', 'encrypted-content');
+        config(['backup.backup.password' => 'test-password']);
+        Storage::disk('backups')->put('database.zip', $this->encryptedDatabaseZip());
 
         $result = app(BackupVerifier::class)->verify(
             new BackupArchiveResult('database.zip', 0, null, true),
         );
 
-        $this->assertSame(17, $result->bytes);
+        $this->assertGreaterThan(0, $result->bytes);
+        $this->assertSame(hash('sha256', Storage::disk('backups')->get('database.zip')), $result->integrityValue);
         $this->assertTrue($result->encrypted);
     }
 
@@ -46,5 +48,20 @@ class BackupVerifierTest extends TestCase
                 $this->addToAssertionCount(1);
             }
         }
+    }
+
+    private function encryptedDatabaseZip(): string
+    {
+        $path = tempnam(sys_get_temp_dir(), 'backup-test-');
+        $zip = new \ZipArchive;
+        $zip->open($path, \ZipArchive::CREATE | \ZipArchive::OVERWRITE);
+        $zip->setPassword('test-password');
+        $zip->addFromString('db-dumps/mysql-database.sql', 'CREATE TABLE users (id bigint);');
+        $zip->setEncryptionName('db-dumps/mysql-database.sql', \ZipArchive::EM_AES_256);
+        $zip->close();
+        $bytes = file_get_contents($path);
+        unlink($path);
+
+        return $bytes;
     }
 }

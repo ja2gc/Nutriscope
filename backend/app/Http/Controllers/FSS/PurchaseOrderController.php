@@ -31,6 +31,7 @@ use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use Throwable;
 
 class PurchaseOrderController extends Controller
@@ -484,12 +485,13 @@ class PurchaseOrderController extends Controller
                 }
                 $before = $this->revisionRegistry->capture($purchaseOrder);
                 $attachments = collect($files)->map(function ($file) use ($purchaseOrder, $request, &$storedPaths) {
-                    $path = $this->attachmentStorage->store($file);
-                    $storedPaths[] = $path;
+                    $storedObject = $this->attachmentStorage->store($file);
+                    $storedPaths[] = $storedObject;
 
                     return $purchaseOrder->attachments()->create([
                         'type' => $request->input('type'),
-                        'path' => $path,
+                        'path' => null,
+                        'stored_object_id' => $storedObject->id,
                         'caption' => $request->input('caption'),
                     ]);
                 });
@@ -510,7 +512,6 @@ class PurchaseOrderController extends Controller
                 return $attachments->map(fn ($attachment): array => [
                     'id' => $attachment->uuid,
                     'type' => $attachment->type,
-                    'path' => $attachment->path,
                     'url' => $attachment->url,
                     'caption' => $attachment->caption,
                 ])->all();
@@ -569,13 +570,14 @@ class PurchaseOrderController extends Controller
                     }
                     $wasReceived = $vendorGroup->status === 'received' || $vendorGroup->received_at !== null;
                     $attachments = collect($files)->map(function ($file) use ($vendorGroup, $request, &$storedPaths) {
-                        $path = $this->attachmentStorage->store($file);
-                        $storedPaths[] = $path;
+                        $storedObject = $this->attachmentStorage->store($file);
+                        $storedPaths[] = $storedObject;
 
                         return $vendorGroup->attachments()->create([
                             'purchase_order_id' => $vendorGroup->purchase_order_id,
                             'type' => $request->input('type'),
-                            'path' => $path,
+                            'path' => null,
+                            'stored_object_id' => $storedObject->id,
                             'caption' => $request->input('caption'),
                         ]);
                     });
@@ -615,7 +617,6 @@ class PurchaseOrderController extends Controller
                     return $attachments->map(fn ($attachment): array => [
                         'id' => $attachment->uuid,
                         'type' => $attachment->type,
-                        'path' => $attachment->path,
                         'url' => $attachment->url,
                         'caption' => $attachment->caption,
                     ])->all();
@@ -652,8 +653,14 @@ class PurchaseOrderController extends Controller
                     abort(422, 'Completed purchase orders are locked.');
                 }
                 $before = $this->revisionRegistry->capture($purchaseOrder);
-                $move = $this->attachmentStorage->quarantine($attachment->path);
+                $storedObject = $attachment->storedObject;
+                $move = $storedObject === null
+                    ? $this->attachmentStorage->quarantine((string) $attachment->path)
+                    : null;
                 $attachment->delete();
+                if ($storedObject !== null) {
+                    $this->attachmentStorage->deleteObjectAfterCommit($storedObject);
+                }
                 $activity = $this->auditLogger->record(
                     AuditAction::Deleted,
                     AuditCategory::Operations,
@@ -677,6 +684,23 @@ class PurchaseOrderController extends Controller
         }
 
         return response()->json(null, 204);
+    }
+
+    public function attachmentFile(PurchaseOrderAttachment $attachment): StreamedResponse
+    {
+        abort_if($attachment->purchaseOrder === null, 404);
+        $stream = $this->attachmentStorage->readStream($attachment);
+        $object = $attachment->storedObject;
+
+        return response()->stream(function () use ($stream): void {
+            fpassthru($stream);
+            fclose($stream);
+        }, 200, [
+            'Content-Type' => $object?->mime_type ?? 'application/octet-stream',
+            'Content-Disposition' => 'inline; filename="'.($object?->original_name ?? 'attachment').'"',
+            'Cache-Control' => 'private, no-store',
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
     }
 
     public function ppa(PurchaseOrder $purchaseOrder): JsonResponse

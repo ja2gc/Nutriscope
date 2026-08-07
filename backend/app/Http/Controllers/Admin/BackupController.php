@@ -14,6 +14,7 @@ use App\Http\Requests\Admin\KeepBackupRequest;
 use App\Http\Resources\BackupRunResource;
 use App\Jobs\CreateDatabaseBackup;
 use App\Models\BackupRun;
+use App\Models\RecoveryTest;
 use App\Services\Audit\AuditLogger;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -27,7 +28,8 @@ class BackupController extends Controller
     {
         $latestVerifiedId = BackupRun::verified()->latest('verified_at')->value('id');
         $backups = BackupRun::query()
-            ->withCount(['recoveryRequests as pending_recovery_requests_count' => fn (Builder $query) => $query->where('state', 'requested')])
+            ->with(['manifest', 'latestRecoveryRequest'])
+            ->withCount(['recoveryRequests as pending_recovery_requests_count' => fn (Builder $query) => $query->whereNotIn('state', ['completed', 'failed', 'rolled_back', 'cancelled'])])
             ->latest('id')
             ->limit(100)
             ->get()
@@ -63,8 +65,8 @@ class BackupController extends Controller
             return response()->json(['message' => 'This backup is protected and cannot be deleted.'], 409);
         }
 
+        $backupRun->transitionTo(BackupState::RecentlyDeleted);
         $backupRun->update([
-            'state' => BackupState::RecentlyDeleted,
             'deleted_at' => now(),
             'recoverable_until' => now()->addHours(config('nutriscope-backups.recoverable_hours')),
             'retention_tier' => null,
@@ -81,10 +83,15 @@ class BackupController extends Controller
             return response()->json(['message' => 'This backup can no longer be recovered.'], 409);
         }
 
+        $backupRun->transitionTo(BackupState::Completed);
         $backupRun->update([
-            'state' => BackupState::Completed,
             'deleted_at' => null,
             'recoverable_until' => null,
+            'retention_expires_at' => match ($backupRun->source) {
+                BackupSource::Manual => now()->addDays(config('nutriscope-backups.manual_retention_days')),
+                BackupSource::Safety => now()->addHours(48),
+                default => $backupRun->retention_expires_at,
+            },
         ]);
         $this->audit($backupRun, AuditAction::Updated, $request->user(), 'kept');
 
@@ -106,9 +113,9 @@ class BackupController extends Controller
             'status' => $healthy ? 'healthy' : ($latestFailure !== null ? 'failed' : 'attention_needed'),
             'last_successful_at' => $latest?->verified_at?->toIso8601String(),
             'next_automatic_at' => $next->toIso8601String(),
-            'scope' => 'Database records',
+            'scope' => 'Database records and protected uploaded files',
             'storage_bytes' => BackupRun::whereIn('state', [BackupState::Completed, BackupState::RecentlyDeleted])->sum('bytes'),
-            'last_recovery_test_at' => null,
+            'last_recovery_test_at' => RecoveryTest::query()->where('state', 'completed')->max('completed_at'),
         ];
     }
 

@@ -3,7 +3,6 @@
 namespace Tests\Unit;
 
 use App\Models\PurchaseOrderAttachment;
-use Illuminate\Support\Facades\Storage;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -35,14 +34,12 @@ class UploadDiskConfigurationTest extends TestCase
     }
 
     #[Test]
-    public function purchase_order_attachments_expose_the_configured_disk_url(): void
+    public function purchase_order_attachments_expose_only_an_authorized_application_url(): void
     {
-        Storage::fake('public');
-        config(['filesystems.uploads' => 'public']);
+        $attachment = (new PurchaseOrderAttachment(['path' => 'po-attachments/receipt.jpg']))->forceFill(['uuid' => 'attachment-public-id']);
 
-        $attachment = new PurchaseOrderAttachment(['path' => 'po-attachments/receipt.jpg']);
-
-        $this->assertSame(Storage::disk('public')->url($attachment->path), $attachment->url);
+        $this->assertSame('/api/fss/purchase-order-attachments/attachment-public-id/file', $attachment->url);
         $this->assertArrayHasKey('url', $attachment->toArray());
+        $this->assertArrayNotHasKey('path', $attachment->toArray());
     }
 }

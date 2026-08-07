@@ -83,12 +83,12 @@ class PurchaseOrderResource extends JsonResource
                 'attachments' => $g->relationLoaded('attachments') ? $g->attachments->map(fn ($a) => [
                     'id' => $a->uuid,
                     'type' => $a->type,
-                    'path' => $a->path,
+                    'url' => $a->url,
                     'caption' => $a->caption,
                 ])->values() : null,
             ])->values()),
             'attachments' => $this->whenLoaded('attachments', fn () => $this->attachments->map(fn ($a) => [
-                'id' => $a->uuid, 'vendor_group_id' => $a->vendor_group_id, 'type' => $a->type, 'path' => $a->path, 'caption' => $a->caption,
+                'id' => $a->uuid, 'vendor_group_id' => $a->vendor_group_id, 'type' => $a->type, 'url' => $a->url, 'caption' => $a->caption,
             ])),
             'ppa' => $this->whenLoaded('programProjectActivity', fn () => $this->programProjectActivity ? [
                 'id' => $this->programProjectActivity->id,

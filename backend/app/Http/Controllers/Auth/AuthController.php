@@ -17,12 +17,14 @@ use App\Http\Resources\UserResource;
 use App\Models\AuditActivity;
 use App\Models\User;
 use App\Services\Audit\AuditLogger;
+use App\Services\StoredObjectStorage;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use Throwable;
 
 class AuthController extends Controller
@@ -30,6 +32,7 @@ class AuthController extends Controller
     public function __construct(
         private readonly AuditLogger $auditLogger,
         private readonly SynchronizePersonName $synchronizePersonName,
+        private readonly StoredObjectStorage $storedObjects,
     ) {}
 
     /**
@@ -180,29 +183,68 @@ class AuthController extends Controller
     {
         $user = $request->user();
         $data = $this->synchronizePersonName->forUpdate($user, $request->validated());
+        $newPhoto = null;
+        $oldPhoto = $user->profilePhotoObject;
+        if ($request->exists('profile_photo')) {
+            if (is_string($data['profile_photo'] ?? null)) {
+                preg_match('/^data:image\/(png|jpeg|webp);base64,(.*)$/sD', $data['profile_photo'], $matches);
+                $bytes = isset($matches[2]) ? base64_decode($matches[2], true) : false;
+                abort_if($bytes === false, 422, 'Profile photo is invalid.');
+                $mime = 'image/'.($matches[1] === 'jpeg' ? 'jpeg' : $matches[1]);
+                $newPhoto = $this->storedObjects->storeBytes($bytes, $mime, $matches[1], 'profile', 'profile.'.$matches[1]);
+            }
+            $data['profile_photo'] = null;
+            $data['profile_photo_stored_object_id'] = $newPhoto?->id;
+        }
         $oldNameValues = $this->accountNameAuditValues($user);
         $this->auditLogger->assertAvailable();
-        DB::transaction(function () use ($user, $data, $oldNameValues): void {
-            $user->update($data);
-            $newNameValues = $this->accountNameAuditValues($user);
-            $changedNameFields = collect(array_keys($oldNameValues))
-                ->filter(fn (string $field): bool => $oldNameValues[$field] !== $newNameValues[$field])
-                ->values()
-                ->all();
-            $this->auditLogger->record(
-                AuditAction::ProfileChanged,
-                AuditCategory::Security,
-                AuditDomain::Accounts,
-                subject: $user,
-                details: ['changed_fields' => array_keys($data)],
-                actor: $user,
-                includeRequestMetadata: false,
-                oldValues: array_intersect_key($oldNameValues, array_flip($changedNameFields)),
-                newValues: array_intersect_key($newNameValues, array_flip($changedNameFields)),
-            );
-        });
+        try {
+            DB::transaction(function () use ($user, $data, $oldNameValues, $oldPhoto, $newPhoto): void {
+                $user->update($data);
+                $newNameValues = $this->accountNameAuditValues($user);
+                $changedNameFields = collect(array_keys($oldNameValues))
+                    ->filter(fn (string $field): bool => $oldNameValues[$field] !== $newNameValues[$field])
+                    ->values()
+                    ->all();
+                $this->auditLogger->record(
+                    AuditAction::ProfileChanged,
+                    AuditCategory::Security,
+                    AuditDomain::Accounts,
+                    subject: $user,
+                    details: ['changed_fields' => array_keys($data)],
+                    actor: $user,
+                    includeRequestMetadata: false,
+                    oldValues: array_intersect_key($oldNameValues, array_flip($changedNameFields)),
+                    newValues: array_intersect_key($newNameValues, array_flip($changedNameFields)),
+                );
+                if ($oldPhoto !== null && ! $oldPhoto->is($newPhoto)) {
+                    DB::afterCommit(fn () => $this->storedObjects->deleteOrQueue($oldPhoto));
+                }
+            });
+        } catch (Throwable $exception) {
+            if ($newPhoto !== null) {
+                $this->storedObjects->deleteOrQueue($newPhoto);
+            }
+            throw $exception;
+        }
 
         return response()->json(new UserResource($user->fresh()));
+    }
+
+    public function profilePhoto(Request $request): StreamedResponse
+    {
+        $object = $request->user()->profilePhotoObject;
+        abort_if($object === null, 404, 'Profile photo not found.');
+        $stream = $this->storedObjects->readStream($object);
+
+        return response()->stream(function () use ($stream): void {
+            fpassthru($stream);
+            fclose($stream);
+        }, 200, [
+            'Content-Type' => $object->mime_type,
+            'Cache-Control' => 'private, no-store',
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
     }
 
     /**

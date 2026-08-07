@@ -2,17 +2,17 @@
 
 namespace App\Http\Controllers;
 
+use App\Actions\Reports\PrepareSavedReport;
 use App\Enums\AuditAction;
 use App\Enums\AuditCategory;
 use App\Enums\AuditDomain;
 use App\Enums\AuditOutcome;
 use App\Http\Requests\PaginatedRequest;
+use App\Http\Requests\PrepareReportRequest;
 use App\Http\Resources\ReportResource;
 use App\Models\MealPlan;
 use App\Models\NcpRecord;
 use App\Models\Report;
-use App\Models\ReportBranding;
-use App\Models\ReportTemplate;
 use App\Policies\AuditPolicy;
 use App\Services\Audit\AuditContextResolver;
 use App\Services\Audit\AuditLogger;
@@ -23,7 +23,6 @@ use App\Services\Reports\ReportService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
-use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -120,27 +119,27 @@ class ReportController extends Controller
      * On-demand render: stream a freshly rendered PDF from current frozen data,
      * WITHOUT persisting a Report row. 404 when the params hold no data (§6, #3).
      */
-    public function render(Request $request, string $type, ReportService $reports, ReportBrowser $browser): Response
+    public function render(Request $request, string $type, ReportService $reports, ReportBrowser $browser): JsonResponse
     {
         abort_unless($reports->supports($type) && $browser->supports($type), 404, 'Unknown report type.');
         $this->guardClinical($type);
         $this->guardAdmin($type);
         $this->guardFss($type);
 
-        $params = $this->renderParams($request, $type);
-        $this->authorizeClinicalReportContext($type, $params);
-        abort_unless($browser->sourceFor($type)->hasData($params), 404, 'No data for this report period.');
-
-        $bytes = $reports->streamBytes($type, $params);
-        $this->recordReportEvent(AuditAction::Viewed, $type, $params, status: 200);
-
-        return response($bytes, 200, [
-            'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'inline; filename="'.$type.'.pdf"',
-        ]);
+        return response()->json(['message' => 'Prepare the saved report before previewing it.', 'code' => 'preparation_required'], 409);
     }
 
-    public function export(Request $request, string $type, ReportService $reports, ReportBrowser $browser): Response
+    public function export(Request $request, string $type, ReportService $reports, ReportBrowser $browser): JsonResponse
+    {
+        abort_unless($reports->supports($type) && $browser->supports($type), 404, 'Unknown report type.');
+        $this->guardClinical($type);
+        $this->guardAdmin($type);
+        $this->guardFss($type);
+
+        return response()->json(['message' => 'Prepare the saved report before downloading it.', 'code' => 'preparation_required'], 409);
+    }
+
+    public function prepare(PrepareReportRequest $request, string $type, ReportService $reports, ReportBrowser $browser, PrepareSavedReport $prepare): JsonResponse
     {
         abort_unless($reports->supports($type) && $browser->supports($type), 404, 'Unknown report type.');
         $this->guardClinical($type);
@@ -149,17 +148,19 @@ class ReportController extends Controller
         $params = $this->renderParams($request, $type);
         $this->authorizeClinicalReportContext($type, $params);
         abort_unless($browser->sourceFor($type)->hasData($params), 404, 'No data for this report period.');
-        $bytes = $reports->streamBytes($type, $params);
-        $this->recordReportEvent(AuditAction::Downloaded, $type, $params, status: 200);
+        $this->auditLogger->assertAvailable();
+        $report = $prepare->execute($request->user(), $type, $params);
+        $this->applyReportContext($report, $type, $params);
+        $this->recordReportEvent(AuditAction::Created, $type, $params, $report, 200);
 
-        return response($bytes, 200, ['Content-Type' => 'application/pdf', 'Content-Disposition' => 'attachment; filename="'.$type.'.pdf"']);
+        return response()->json(['data' => new ReportResource($report)]);
     }
 
     /**
      * Archive: render once, store the PDF, and freeze a snapshot of the branding /
      * signatories / period used — the only path that persists a Report (§4.1).
      */
-    public function archive(Request $request, string $type, ReportService $reports, ReportBrowser $browser): JsonResponse
+    public function archive(Request $request, string $type, ReportService $reports, ReportBrowser $browser, PrepareSavedReport $prepare): JsonResponse
     {
         abort_unless($reports->supports($type) && $browser->supports($type), 404, 'Unknown report type.');
         $this->guardClinical($type);
@@ -170,39 +171,15 @@ class ReportController extends Controller
         $this->authorizeClinicalReportContext($type, $params);
         abort_unless($browser->sourceFor($type)->hasData($params), 404, 'No data for this report period.');
 
-        $template = ReportTemplate::where('type', $type)->first();
-        $path = null;
-        try {
-            $report = $this->audited(function () use ($type, $template, $params, $reports, &$path): Report {
-                $report = $this->createReport($type, $template?->name ?? $type, $params);
-                $path = $reports->generate($report);
-                $report->update([
-                    'status' => 'archived',
-                    'file_path' => $path,
-                    'generated_at' => now(),
-                    'snapshot' => [
-                        'branding' => ReportBranding::singleton()->only([
-                            'hospital_name', 'address', 'accreditation', 'service_name',
-                            'province', 'lgu', 'logo_left_path', 'logo_right_path',
-                        ]),
-                        'signatories' => $reports->signatoriesFor($report),
-                        'params' => $report->parameters,
-                        'archived_at' => now()->toIso8601String(),
-                    ],
-                ]);
-                $this->recordReportEvent(AuditAction::Archived, $type, $params, $report, 201);
+        $this->auditLogger->assertAvailable();
+        $report = $prepare->execute($request->user(), $type, $params);
+        $this->applyReportContext($report, $type, $params);
+        $this->audited(function () use ($report, $type, $params): void {
+            $report->update(['status' => 'archived']);
+            $this->recordReportEvent(AuditAction::Archived, $type, $params, $report, 200);
+        });
 
-                return $report;
-            });
-        } catch (\Throwable $exception) {
-            if ($path !== null) {
-                $this->archiveStorage->cleanupGenerated($path);
-            }
-
-            throw $exception;
-        }
-
-        return response()->json(['data' => new ReportResource($report->fresh()->load('user:id,uuid,name,first_name,last_name'))], 201);
+        return response()->json(['data' => new ReportResource($report->fresh()->load('user:id,uuid,name,first_name,last_name'))]);
     }
 
     /**
@@ -242,14 +219,20 @@ class ReportController extends Controller
         $this->guardAdmin($report->type);
         $this->guardFss($report->type);
 
-        if (! $report->file_path || ! Storage::disk('public')->exists($report->file_path)) {
-            return response()->json(['message' => 'Report file not available.'], 404);
+        $diskName = 'report_cache';
+        $path = $report->cache_path;
+        if ((! $path || $report->cache_expires_at?->isPast() !== false || ! Storage::disk($diskName)->exists($path))
+            && $report->file_path && Storage::disk('public')->exists($report->file_path)) {
+            [$diskName, $path] = ['public', $report->file_path];
+        }
+        if (! $path || ! Storage::disk($diskName)->exists($path)) {
+            return response()->json(['message' => 'Prepare the saved report again.', 'code' => 'preparation_required'], 409);
         }
 
         $name = str($report->title)->slug().'.pdf';
         $this->recordReportEvent(AuditAction::Downloaded, $report->type, $report->parameters ?? [], $report, 200);
 
-        return Storage::disk('public')->download($report->file_path, $name);
+        return Storage::disk($diskName)->download($path, $name, ['Cache-Control' => 'private, no-store']);
     }
 
     /**
@@ -263,15 +246,22 @@ class ReportController extends Controller
         $this->guardAdmin($report->type);
         $this->guardFss($report->type);
 
-        if (! $report->file_path || ! Storage::disk('public')->exists($report->file_path)) {
-            return response()->json(['message' => 'Report file not available.'], 404);
+        $diskName = 'report_cache';
+        $path = $report->cache_path;
+        if ((! $path || $report->cache_expires_at?->isPast() !== false || ! Storage::disk($diskName)->exists($path))
+            && $report->file_path && Storage::disk('public')->exists($report->file_path)) {
+            [$diskName, $path] = ['public', $report->file_path];
+        }
+        if (! $path || ! Storage::disk($diskName)->exists($path)) {
+            return response()->json(['message' => 'Prepare the saved report again.', 'code' => 'preparation_required'], 409);
         }
 
         $this->recordReportEvent(AuditAction::Viewed, $report->type, $report->parameters ?? [], $report, 200);
 
-        return Storage::disk('public')->response($report->file_path, str($report->title)->slug().'.pdf', [
+        return Storage::disk($diskName)->response($path, str($report->title)->slug().'.pdf', [
             'Content-Type' => 'application/pdf',
             'Content-Disposition' => 'inline',
+            'Cache-Control' => 'private, no-store',
         ]);
     }
 
@@ -282,21 +272,10 @@ class ReportController extends Controller
         $this->guardAdmin($report->type);
         $this->guardFss($report->type);
 
-        $move = $this->archiveStorage->quarantine($report->file_path);
-        try {
-            $this->audited(function () use ($report, $move): void {
-                $this->recordReportEvent(AuditAction::Deleted, $report->type, $report->parameters ?? [], $report, 204);
-                $report->delete();
-                if ($move !== null) {
-                    $this->archiveStorage->deleteAfterCommit($move);
-                }
-            });
-        } catch (\Throwable $exception) {
-            if ($move !== null) {
-                $this->archiveStorage->restoreDurably($move);
-            }
-            throw $exception;
-        }
+        $this->audited(function () use ($report): void {
+            $this->recordReportEvent(AuditAction::Archived, $report->type, $report->parameters ?? [], $report, 204);
+            $report->update(['status' => 'archived']);
+        });
 
         return response()->json(null, 204);
     }
@@ -463,5 +442,17 @@ class ReportController extends Controller
         }
 
         abort_unless($report->user_id === Auth::id(), 403, 'This action is unauthorized.');
+    }
+
+    private function applyReportContext(Report $report, string $type, array $parameters): void
+    {
+        $ncpRecord = $this->ncpContextForReport($type, $parameters, $report);
+        if ($ncpRecord !== null && $report->audit_ncp_record_id === null) {
+            $report->update([
+                'audit_patient_id' => $ncpRecord->patient_id,
+                'audit_ncp_record_id' => $ncpRecord->id,
+                'audit_owner_id' => Auth::id(),
+            ]);
+        }
     }
 }

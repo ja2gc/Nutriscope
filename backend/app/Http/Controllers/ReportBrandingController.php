@@ -7,30 +7,26 @@ use App\Enums\AuditCategory;
 use App\Enums\AuditDomain;
 use App\Models\ReportBranding;
 use App\Services\Audit\AuditLogger;
-use App\Services\Reports\BrandingAssetStorage;
+use App\Services\StoredObjectStorage;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
-/**
- * The editable shared report header (Reports → Template Edit tab). Single row.
- */
 class ReportBrandingController extends Controller
 {
     public function __construct(
         private readonly AuditLogger $auditLogger,
-        private readonly BrandingAssetStorage $assetStorage,
+        private readonly StoredObjectStorage $storedObjects,
     ) {}
 
     public function show(): JsonResponse
     {
-        return response()->json(['data' => ReportBranding::singleton()]);
+        return response()->json(['data' => $this->publicData(ReportBranding::singleton())]);
     }
 
     public function update(Request $request): JsonResponse
     {
         $branding = ReportBranding::singleton();
         $this->auditLogger->assertAvailable();
-
         $data = $request->validate([
             'hospital_name' => ['sometimes', 'string', 'max:255'],
             'address' => ['sometimes', 'nullable', 'string', 'max:255'],
@@ -41,63 +37,41 @@ class ReportBrandingController extends Controller
             'logo_left' => ['sometimes', 'nullable', 'image', 'max:2048'],
             'logo_right' => ['sometimes', 'nullable', 'image', 'max:2048'],
         ]);
-
-        $newAssets = [];
-        $oldMoves = [];
+        $newObjects = [];
+        foreach (['logo_left', 'logo_right'] as $field) {
+            if ($request->hasFile($field)) {
+                $object = $this->storedObjects->storeUpload($request->file($field), 'branding');
+                $newObjects[$field] = $object;
+                $data[$field.'_stored_object_id'] = $object->id;
+                $data[$field.'_path'] = null;
+            }
+            unset($data[$field]);
+        }
         try {
-            foreach (['logo_left', 'logo_right'] as $field) {
-                if ($request->hasFile($field)) {
-                    $newAssets[$field] = $this->assetStorage->store($request->file($field));
-                    $data[$field.'_path'] = $newAssets[$field]['path'];
-                }
-                unset($data[$field]);
-            }
-            foreach ($newAssets as $field => $_asset) {
-                $oldMoves[$field] = $this->assetStorage->quarantine($branding->getAttribute($field.'_path'));
-            }
-
-            $changedFields = collect(array_keys($data))
-                ->filter(fn (string $field): bool => $branding->getAttribute($field) !== $data[$field])
-                ->map(fn (string $field): string => match ($field) {
-                    'logo_left_path' => 'logo_left',
-                    'logo_right_path' => 'logo_right',
-                    default => $field,
-                })
-                ->values()
-                ->all();
-
-            $this->audited(function () use ($branding, $data, $changedFields, $newAssets, $oldMoves): void {
+            $this->audited(function () use ($branding, $data): void {
                 $branding->update($data);
-                foreach ($newAssets as $asset) {
-                    $this->assetStorage->releaseNew($asset['intent']);
-                }
-                foreach ($oldMoves as $move) {
-                    if ($move !== null) {
-                        $this->assetStorage->deleteAfterCommit($move);
-                    }
-                }
-                if ($changedFields !== []) {
-                    $this->auditLogger->record(
-                        AuditAction::Updated,
-                        AuditCategory::Operations,
-                        AuditDomain::Reports,
-                        subject: $branding,
-                        details: ['changed_fields' => $changedFields, 'configuration' => 'branding'],
-                    );
-                }
+                $this->auditLogger->record(
+                    AuditAction::Updated,
+                    AuditCategory::Operations,
+                    AuditDomain::Reports,
+                    subject: $branding,
+                    details: ['changed_fields' => array_keys($data), 'configuration' => 'branding'],
+                );
             });
         } catch (\Throwable $exception) {
-            foreach ($oldMoves as $move) {
-                if ($move !== null) {
-                    $this->assetStorage->restoreDurably($move);
-                }
-            }
-            foreach ($newAssets as $asset) {
-                $this->assetStorage->retry($asset['intent']);
-            }
+            collect($newObjects)->each(fn ($object) => $this->storedObjects->deleteOrQueue($object));
             throw $exception;
         }
 
-        return response()->json(['data' => $branding->fresh()]);
+        return response()->json(['data' => $this->publicData($branding->fresh())]);
+    }
+
+    private function publicData(ReportBranding $branding): array
+    {
+        return [
+            ...$branding->only(['id', 'hospital_name', 'address', 'accreditation', 'service_name', 'province', 'lgu']),
+            'logo_left_path' => $branding->logo_left_stored_object_id ? 'private' : $branding->logo_left_path,
+            'logo_right_path' => $branding->logo_right_stored_object_id ? 'private' : $branding->logo_right_path,
+        ];
     }
 }

@@ -29,6 +29,8 @@ class ProductionDeploymentContractTest extends TestCase
         $this->assertIsString($handoff);
         $this->assertStringContainsString('release', $requirements);
         $this->assertStringContainsString('Phase 2', $handoff);
+        $this->assertStringContainsString('private uploads', strtolower($requirements));
+        $this->assertStringContainsString('temporary-database recovery', $handoff);
         $this->assertStringNotContainsString('migrate:fresh', $requirements.$handoff);
     }
 }

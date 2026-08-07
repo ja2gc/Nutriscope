@@ -6,4 +6,5 @@ enum BackupSource: string
 {
     case Automatic = 'automatic';
     case Manual = 'manual';
+    case Safety = 'safety';
 }

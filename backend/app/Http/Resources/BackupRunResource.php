@@ -29,11 +29,20 @@ class BackupRunResource extends JsonResource
                 'code' => $this->failure_code,
                 'message' => $this->failure_message,
             ] : null,
+            'recovery' => $this->whenLoaded('latestRecoveryRequest', fn (): ?array => $this->latestRecoveryRequest === null ? null : [
+                'id' => $this->latestRecoveryRequest->uuid,
+                'state' => $this->latestRecoveryRequest->state->value,
+                'requested_at' => $this->latestRecoveryRequest->requested_at?->toIso8601String(),
+                'resolved_at' => $this->latestRecoveryRequest->resolved_at?->toIso8601String(),
+                'safety_snapshot_expires_at' => $this->latestRecoveryRequest->safety_snapshot_expires_at?->toIso8601String(),
+                'failure_message' => $this->latestRecoveryRequest->failure_message,
+                'can_cancel' => in_array($this->latestRecoveryRequest->state->value, ['requested', 'preparing', 'checking', 'ready'], true),
+            ]),
             'actions' => [
                 'can_delete' => $this->state === BackupState::Completed && ! $isLatest && ! $hasRecoveryRequest,
                 'can_keep' => $this->state === BackupState::RecentlyDeleted
                     && $this->recoverable_until?->isFuture() === true,
-                'can_request_recovery' => $this->state === BackupState::Completed && ! $hasRecoveryRequest,
+                'can_request_recovery' => $this->state === BackupState::Completed && $this->manifest !== null && ! $hasRecoveryRequest,
             ],
         ];
     }

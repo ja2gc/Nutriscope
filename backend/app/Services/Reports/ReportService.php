@@ -5,6 +5,7 @@ namespace App\Services\Reports;
 use App\Models\Report;
 use App\Models\ReportBranding;
 use App\Models\ReportTemplate;
+use App\Models\StoredObject;
 use App\Services\Reports\Contracts\ReportGenerator;
 use App\Services\Reports\Generators\AccomplishmentReportGenerator;
 use App\Services\Reports\Generators\DemographicCensusGenerator;
@@ -55,10 +56,19 @@ class ReportService
     {
         $generator = $this->resolve($report->type);
 
+        $branding = $report->snapshot['branding'] ?? null;
+        $brandingModel = is_array($branding) ? new ReportBranding($branding) : ReportBranding::singleton();
+        foreach (['left', 'right'] as $side) {
+            $id = $brandingModel->getAttribute("logo_{$side}_stored_object_id");
+            $object = $id ? StoredObject::query()->find($id) : null;
+            if ($object !== null && Storage::disk($object->storage_disk)->exists($object->object_key)) {
+                $brandingModel->setAttribute("logo_{$side}_data_uri", 'data:'.$object->mime_type.';base64,'.base64_encode(Storage::disk($object->storage_disk)->get($object->object_key)));
+            }
+        }
         $meta = [
-            'branding' => ReportBranding::singleton(),
-            'signatories' => $this->signatoriesFor($report),
-            'generated_at' => now(),
+            'branding' => $brandingModel,
+            'signatories' => $report->snapshot['signatories'] ?? $this->signatoriesFor($report),
+            'generated_at' => $report->created_at ?? now(),
         ];
 
         $data = array_merge($generator->data($report), $meta, ['report' => $report]);

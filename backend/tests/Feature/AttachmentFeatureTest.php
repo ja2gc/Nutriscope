@@ -11,7 +11,7 @@ use App\Models\ScreeningDocument;
 use App\Models\User;
 use App\Services\Audit\AuditLogger;
 use App\Services\ClinicalDocumentStorage;
-use Illuminate\Contracts\Bus\Dispatcher;
+use App\Services\StoredObjectStorage;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Hash;
@@ -51,20 +51,21 @@ class AttachmentFeatureTest extends TestCase
         ]);
     }
 
-    public function test_upload_attachment_stores_disk_relative_path_and_links_to_cycle(): void
+    public function test_upload_attachment_stores_private_object_and_links_to_cycle(): void
     {
-        Storage::fake('local');
+        Storage::fake('private_uploads');
         $rnd = $this->rnd();
         $ncp = $this->ncp($rnd);
 
         $this->actingAs($rnd, 'sanctum')->postJson(
             "/api/rnd/ncp-records/{$ncp->uuid}/attachments",
-            ['file' => UploadedFile::fake()->create('referral.pdf', 10, 'application/pdf')]
+            ['file' => UploadedFile::fake()->createWithContent('referral.pdf', '%PDF-1.4 referral %%EOF')]
         )->assertStatus(201);
 
         $doc = ScreeningDocument::firstOrFail();
-        $this->assertStringStartsWith('documents/ncp/', $doc->file_path);
-        $this->assertStringNotContainsString(storage_path(), $doc->file_path);
+        $this->assertNull($doc->file_path);
+        $this->assertNotNull($doc->stored_object_id);
+        Storage::disk('private_uploads')->assertExists($doc->storedObject->object_key);
         $this->assertSame('referral.pdf', $doc->original_name);
         // Linked directly to this cycle…
         $this->assertSame($ncp->id, $doc->ncp_record_id);
@@ -80,7 +81,7 @@ class AttachmentFeatureTest extends TestCase
 
         $this->actingAs($rnd, 'sanctum')->postJson(
             "/api/rnd/ncp-records/{$ncp->uuid}/attachments",
-            ['file' => UploadedFile::fake()->create('referral.pdf', 10, 'application/pdf')]
+            ['file' => UploadedFile::fake()->createWithContent('referral.pdf', '%PDF-1.4 referral %%EOF')]
         )->assertStatus(201);
 
         // The Assessment gate must still report "not recorded" after an upload.
@@ -102,12 +103,12 @@ class AttachmentFeatureTest extends TestCase
 
         $this->actingAs($rnd, 'sanctum')->postJson(
             "/api/rnd/ncp-records/{$cycleA->uuid}/attachments",
-            ['file' => UploadedFile::fake()->create('a.pdf', 10, 'application/pdf')]
+            ['file' => UploadedFile::fake()->createWithContent('a.pdf', '%PDF-1.4 a %%EOF')]
         )->assertStatus(201);
 
         $this->actingAs($rnd, 'sanctum')->postJson(
             "/api/rnd/ncp-records/{$cycleB->uuid}/attachments",
-            ['file' => UploadedFile::fake()->create('b.pdf', 10, 'application/pdf')]
+            ['file' => UploadedFile::fake()->createWithContent('b.pdf', '%PDF-1.4 b %%EOF')]
         )->assertStatus(201);
 
         $res = $this->actingAs($rnd, 'sanctum')
@@ -127,7 +128,7 @@ class AttachmentFeatureTest extends TestCase
 
         $this->actingAs($rnd, 'sanctum')->postJson(
             "/api/rnd/ncp-records/{$ncp->uuid}/attachments",
-            ['file' => UploadedFile::fake()->create('labs.pdf', 10, 'application/pdf')]
+            ['file' => UploadedFile::fake()->createWithContent('labs.pdf', '%PDF-1.4 labs %%EOF')]
         )->assertStatus(201);
 
         $doc = ScreeningDocument::firstOrFail();
@@ -145,7 +146,7 @@ class AttachmentFeatureTest extends TestCase
 
         $this->actingAs($rnd, 'sanctum')->postJson(
             "/api/rnd/ncp-records/{$ncp->uuid}/attachments",
-            ['file' => UploadedFile::fake()->create('x.pdf', 10, 'application/pdf')]
+            ['file' => UploadedFile::fake()->createWithContent('x.pdf', '%PDF-1.4 x %%EOF')]
         )->assertStatus(201);
 
         $doc = ScreeningDocument::firstOrFail();
@@ -300,91 +301,45 @@ class AttachmentFeatureTest extends TestCase
 
         $this->actingAs($rnd, 'sanctum')->postJson(
             "/api/rnd/ncp-records/{$ncp->uuid}/attachments",
-            ['file' => UploadedFile::fake()->create('rollback.pdf', 10, 'application/pdf')],
+            ['file' => UploadedFile::fake()->createWithContent('rollback.pdf', '%PDF-1.4 rollback %%EOF')],
         )->assertServerError();
 
         $this->assertDatabaseCount('screening_documents', 0);
         $this->assertSame([], Storage::allFiles('documents/ncp'));
     }
 
-    public function test_upload_audit_failure_quarantines_and_queues_cleanup_when_direct_delete_fails(): void
+    public function test_upload_rollback_cleans_private_object_without_masking_original_error(): void
     {
-        Storage::fake('local');
-        Queue::fake();
+        Storage::fake('private_uploads');
         $rnd = $this->rnd();
         $ncp = $this->ncp($rnd);
-        config(['activitylog.enabled' => false]);
-        $disk = Storage::disk('local');
-        Storage::partialMock()->shouldReceive('disk')->andReturn($disk);
-        Storage::shouldReceive('delete')->once()->andReturnFalse();
-
-        $this->actingAs($rnd, 'sanctum')->postJson(
-            "/api/rnd/ncp-records/{$ncp->uuid}/attachments",
-            ['file' => UploadedFile::fake()->create('durable-rollback.pdf', 10, 'application/pdf')],
-        )->assertServerError();
-
-        $this->assertDatabaseCount('screening_documents', 0);
-        $files = $disk->allFiles('documents/ncp');
-        $this->assertCount(1, $files);
-        Queue::assertPushed(
-            'App\\Jobs\\CleanupFailedClinicalUpload',
-            function ($job) use ($disk): bool {
-                $job->handle(app(ClinicalDocumentStorage::class));
-
-                return $disk->allFiles('documents/ncp') === [];
-            },
+        $storedObject = app(StoredObjectStorage::class)->storeBytes(
+            '%PDF-1.4 rollback %%EOF',
+            'application/pdf',
+            'pdf',
+            'clinical',
+            'rollback.pdf',
         );
-    }
-
-    public function test_upload_rollback_queues_durable_cleanup_when_direct_delete_throws(): void
-    {
-        Storage::fake('local');
-        Queue::fake();
-        $rnd = $this->rnd();
-        $ncp = $this->ncp($rnd);
-        config(['activitylog.enabled' => false]);
-        $disk = Storage::disk('local');
-        Storage::partialMock()->shouldReceive('disk')->andReturn($disk);
-        Storage::shouldReceive('delete')->once()->andThrow(new \RuntimeException('delete failed'));
-
-        $this->actingAs($rnd, 'sanctum')->postJson(
-            "/api/rnd/ncp-records/{$ncp->uuid}/attachments",
-            ['file' => UploadedFile::fake()->create('retry-cleanup.pdf', 10, 'application/pdf')],
-        )->assertServerError();
-
-        $this->assertDatabaseCount('screening_documents', 0);
-        Queue::assertPushed('App\\Jobs\\CleanupFailedClinicalUpload');
-    }
-
-    public function test_upload_rollback_cleanup_failures_do_not_mask_original_mutation_error(): void
-    {
-        Storage::fake('local');
-        $rnd = $this->rnd();
-        $ncp = $this->ncp($rnd);
-        $disk = Storage::disk('local');
-        Storage::partialMock()->shouldReceive('disk')->andReturn($disk);
-        Storage::shouldReceive('delete')->once()->andThrow(new \RuntimeException('delete cleanup failed'));
-        Storage::shouldReceive('exists')->once()->andThrow(new \RuntimeException('exists cleanup failed'));
+        $storage = \Mockery::mock(StoredObjectStorage::class);
+        $storage->shouldReceive('storeUpload')->once()->andReturn($storedObject);
+        $storage->shouldReceive('deleteOrQueue')->once()->with($storedObject)->andThrow(new \RuntimeException('cleanup failed'));
         $logger = \Mockery::mock(AuditLogger::class);
         $logger->shouldReceive('assertAvailable')->once()->andThrow(new \RuntimeException('original mutation failed'));
-        $dispatcher = \Mockery::mock(Dispatcher::class);
-        $dispatcher->shouldReceive('dispatch')->once()->andThrow(new \RuntimeException('dispatch cleanup failed'));
-        $documentStorage = \Mockery::mock(ClinicalDocumentStorage::class);
-        $documentStorage->shouldReceive('deleteIfPresent')->once()->andThrow(new \RuntimeException('fallback cleanup failed'));
+        $this->app->instance(StoredObjectStorage::class, $storage);
         $this->app->instance(AuditLogger::class, $logger);
-        $this->app->instance(Dispatcher::class, $dispatcher);
-        $this->app->instance(ClinicalDocumentStorage::class, $documentStorage);
         $this->withoutExceptionHandling();
 
         try {
             $this->actingAs($rnd, 'sanctum')->postJson(
                 "/api/rnd/ncp-records/{$ncp->uuid}/attachments",
-                ['file' => UploadedFile::fake()->create('masking.pdf', 10, 'application/pdf')],
+                ['file' => UploadedFile::fake()->createWithContent('rollback.pdf', '%PDF-1.4 rollback %%EOF')],
             );
             $this->fail('The mutation failure was not rethrown.');
         } catch (\RuntimeException $exception) {
             $this->assertSame('original mutation failed', $exception->getMessage());
         }
+
+        $this->assertDatabaseCount('screening_documents', 0);
     }
 
     public function test_attachment_download_rejects_link_escape(): void

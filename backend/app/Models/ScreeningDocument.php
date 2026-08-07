@@ -6,6 +6,7 @@ use App\Models\Concerns\AuditsChanges;
 use App\Models\Concerns\HasPublicId;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ScreeningDocument extends Model
 {
@@ -16,7 +17,7 @@ class ScreeningDocument extends Model
     protected bool $auditRedactValues = true;
 
     protected $fillable = [
-        'patient_id', 'ncp_record_id', 'assessment_id', 'type', 'file_path', 'original_name',
+        'patient_id', 'ncp_record_id', 'assessment_id', 'stored_object_id', 'type', 'file_path', 'original_name',
     ];
 
     protected function auditAttributes(): array
@@ -37,5 +38,10 @@ class ScreeningDocument extends Model
     public function assessment()
     {
         return $this->belongsTo(Assessment::class);
+    }
+
+    public function storedObject(): BelongsTo
+    {
+        return $this->belongsTo(StoredObject::class);
     }
 }

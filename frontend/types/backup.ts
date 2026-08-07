@@ -1,5 +1,6 @@
 export type BackupState = "queued" | "running" | "verifying" | "completed" | "failed" | "recently_deleted" | "purged";
-export type BackupSource = "automatic" | "manual";
+export type BackupSource = "automatic" | "manual" | "safety";
+export type RecoveryStatus = "requested" | "preparing" | "checking" | "ready" | "switching" | "completed" | "failed" | "rolled_back" | "cancelled";
 export type BackupRetentionTier = "daily" | "weekly" | "monthly";
 export type RecoveryIncidentType = "website_unavailable" | "damaged_database" | "accidentally_deleted_records" | "missing_upload" | "bad_deployment";
 
@@ -16,16 +17,36 @@ export interface BackupRunDto {
   verified_at: string | null;
   recoverable_until: string | null;
   failure: { code: string | null; message: string | null } | null;
+  recovery?: { id: string; state: RecoveryStatus; requested_at: string | null; resolved_at: string | null; safety_snapshot_expires_at: string | null; failure_message: string | null; can_cancel: boolean } | null;
   actions: { can_delete: boolean; can_keep: boolean; can_request_recovery: boolean };
 }
 
 export interface BackupSummaryDto {
   status: "healthy" | "attention_needed" | "failed";
   last_successful_at: string | null;
-  next_automatic_at: string;
+  next_automatic_at: string | null;
   scope: string;
   storage_bytes: number;
   last_recovery_test_at: string | null;
+}
+
+export interface BackupScheduleOptionDto {
+  enabled: boolean;
+  next_at: string | null;
+}
+
+export interface BackupSchedulesDto {
+  daily: BackupScheduleOptionDto;
+  weekly: BackupScheduleOptionDto;
+  monthly: BackupScheduleOptionDto;
+  message: string | null;
+}
+
+export interface BackupScheduleInput {
+  daily: boolean;
+  weekly: boolean;
+  monthly: boolean;
+  confirm_disable_all?: boolean;
 }
 
 export interface BackupListResponse {
@@ -36,4 +57,6 @@ export interface BackupListResponse {
 export interface RecoveryRequestInput {
   incident_type: RecoveryIncidentType;
   note: string;
+  current_password: string;
+  confirmation: string;
 }

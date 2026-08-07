@@ -62,7 +62,7 @@ class SharedRndClinicalAccessTest extends TestCase
         ]);
         $upload = $this->actingAs($creator, 'sanctum')
             ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/attachments", [
-                'file' => UploadedFile::fake()->create('handover.pdf', 10, 'application/pdf'),
+                'file' => UploadedFile::fake()->createWithContent('handover.pdf', '%PDF-1.4 handover %%EOF'),
             ])->assertCreated();
         $document = ScreeningDocument::query()->where('uuid', $upload->json('data.id'))->firstOrFail();
 

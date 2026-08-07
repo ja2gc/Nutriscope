@@ -154,6 +154,20 @@ return [
             'implementation_state' => 'implemented',
             'reason' => 'Recovery requests record public references and outcome without incident notes or backup contents.',
         ],
+        'POST api/admin/recovery-requests/{recoveryRequest}/cancel' => [
+            'classification' => 'explicit_event',
+            'source' => 'App\\Http\\Controllers\\Admin\\BackupRecoveryController@cancel',
+            'owner_task' => 8,
+            'implementation_state' => 'implemented',
+            'reason' => 'Recovery cancellation records only public references and the cancelled outcome.',
+        ],
+        'PUT api/admin/backup-schedules' => [
+            'classification' => 'explicit_event',
+            'source' => 'App\\Http\\Controllers\\Admin\\BackupScheduleController@update',
+            'owner_task' => 8,
+            'implementation_state' => 'implemented',
+            'reason' => 'Schedule changes record only changed boolean settings and readiness outcome.',
+        ],
         'POST api/admin/announcements' => [
             'classification' => 'explicit_event',
             'source' => 'App\\Http\\Controllers\\Admin\\AnnouncementController@store',
@@ -202,6 +216,13 @@ return [
             'owner_task' => 8,
             'implementation_state' => 'implemented',
             'reason' => 'This report lifecycle command needs an explicit outcome event without report snapshots, filters, or file contents.',
+        ],
+        'POST api/admin/reports/{type}/prepare' => [
+            'classification' => 'explicit_event',
+            'source' => 'App\\Http\\Controllers\\ReportController@prepare',
+            'owner_task' => 8,
+            'implementation_state' => 'implemented',
+            'reason' => 'Report preparation records a safe report reference without source data or PDF bytes.',
         ],
         'POST api/admin/users' => [
             'classification' => 'explicit_event',
@@ -538,6 +559,13 @@ return [
             'owner_task' => 8,
             'implementation_state' => 'implemented',
             'reason' => 'This report lifecycle command needs an explicit outcome event without report snapshots, filters, or file contents.',
+        ],
+        'POST api/fss/reports/{type}/prepare' => [
+            'classification' => 'explicit_event',
+            'source' => 'App\\Http\\Controllers\\ReportController@prepare',
+            'owner_task' => 8,
+            'implementation_state' => 'implemented',
+            'reason' => 'Report preparation records a safe report reference without source data or PDF bytes.',
         ],
         'PATCH api/fss/shopping-list-items/{shopping_list_item}' => [
             'classification' => 'explicit_event',
@@ -951,6 +979,13 @@ return [
             'owner_task' => 8,
             'implementation_state' => 'implemented',
             'reason' => 'This report lifecycle command needs an explicit outcome event without report snapshots, filters, or file contents.',
+        ],
+        'POST api/rnd/reports/{type}/prepare' => [
+            'classification' => 'explicit_event',
+            'source' => 'App\\Http\\Controllers\\ReportController@prepare',
+            'owner_task' => 8,
+            'implementation_state' => 'implemented',
+            'reason' => 'Report preparation records a safe report reference without source data or PDF bytes.',
         ],
         'DELETE api/rnd/screening-documents/{screeningDocument}' => [
             'classification' => 'explicit_event',

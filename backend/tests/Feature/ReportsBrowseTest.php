@@ -34,6 +34,7 @@ class ReportsBrowseTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        Storage::fake('report_cache');
         $this->rnd = User::factory()->create([
             'role' => 'RND',
             'name' => 'LEGACY BROWSE PREPARER',
@@ -166,6 +167,7 @@ class ReportsBrowseTest extends TestCase
         $reports = $this->createMock(ReportService::class);
         $reports->method('supports')->willReturn(true);
         $reports->method('streamBytes')->willReturn('%PDF-shared-context');
+        $reports->method('buildPdf')->willReturn(['bytes' => '%PDF-shared-context', 'meta' => []]);
         $reports->method('signatoriesFor')->willReturn([]);
         $reports->method('generate')->willReturnCallback(function (Report $report): string {
             $path = "reports/{$report->uuid}.pdf";
@@ -175,10 +177,10 @@ class ReportsBrowseTest extends TestCase
         });
         $this->app->instance(ReportService::class, $reports);
 
-        $this->get("/api/rnd/reports/ncp_summary/render?ncp_record_id={$ncp->id}")
+        $this->post("/api/rnd/reports/ncp_summary/prepare?ncp_record_id={$ncp->id}")
             ->assertOk();
         $archived = $this->postJson("/api/rnd/reports/ncp_summary/archive?ncp_record_id={$ncp->id}")
-            ->assertCreated()
+            ->assertOk()
             ->assertJsonPath('data.created_by.id', $this->rnd->uuid)
             ->json('data');
 
@@ -228,42 +230,45 @@ class ReportsBrowseTest extends TestCase
 
     // ── On-demand render ────────────────────────────────────────────────────
 
-    public function test_render_streams_pdf_without_persisting(): void
+    public function test_prepare_persists_once_and_legacy_render_requires_preparation(): void
     {
         $po = $this->receivedPo('2026-05-10', 2500);
         $before = Report::count();
 
-        $res = $this->actingAs($this->rnd)
-            ->get("/api/rnd/reports/procurement_pack/render?purchase_order_id={$po->id}");
+        Storage::fake('report_cache');
+        $prepared = $this->actingAs($this->rnd)
+            ->postJson("/api/rnd/reports/procurement_pack/prepare?purchase_order_id={$po->id}")
+            ->assertOk();
 
-        $res->assertOk();
-        $this->assertSame('application/pdf', $res->headers->get('Content-Type'));
-        $this->assertStringStartsWith('%PDF', $res->getContent());
-        $this->assertSame($before, Report::count(), 'render must not persist a Report');
+        $this->assertSame($before + 1, Report::count());
+        $this->get("/api/rnd/reports/procurement_pack/render?purchase_order_id={$po->id}")
+            ->assertConflict()
+            ->assertJsonPath('code', 'preparation_required');
+        $this->get('/api/rnd/reports/'.$prepared->json('data.id').'/view')->assertOk();
     }
 
     // ── Archive ─────────────────────────────────────────────────────────────
 
     public function test_archive_persists_row_with_file_and_snapshot(): void
     {
-        Storage::fake('public');
+        Storage::fake('report_cache');
         $po = $this->receivedPo('2026-05-10', 4000);
 
         $this->actingAs($this->rnd)
             ->postJson("/api/rnd/reports/procurement_pack/archive?purchase_order_id={$po->id}")
-            ->assertCreated()
+            ->assertOk()
             ->assertJsonPath('data.status', 'archived');
 
         $report = Report::firstOrFail();
         $this->assertSame('archived', $report->status);
-        $this->assertNotNull($report->file_path);
-        Storage::disk('public')->assertExists($report->file_path);
+        $this->assertNull($report->file_path);
+        Storage::disk('report_cache')->assertExists($report->cache_path);
         $this->assertNotNull($report->snapshot['branding']['hospital_name'] ?? null);
     }
 
     public function test_download_serves_frozen_bytes_after_branding_change(): void
     {
-        Storage::fake('public');
+        Storage::fake('report_cache');
         $po = $this->receivedPo('2026-05-10');
 
         $report = Report::where('uuid',
@@ -272,7 +277,7 @@ class ReportsBrowseTest extends TestCase
                 ->json('data.id')
         )->firstOrFail();
 
-        $frozenBytes = Storage::disk('public')->get($report->file_path);
+        $frozenBytes = Storage::disk('report_cache')->get($report->cache_path);
         $snapshotName = $report->snapshot['branding']['hospital_name'];
 
         // Mutate branding AFTER archiving.

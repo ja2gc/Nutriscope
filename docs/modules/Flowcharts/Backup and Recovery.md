@@ -1,91 +1,107 @@
-# Backup and Recovery — Phase 1.5 Planned Flow
+# Backup and Recovery
 
-This flow extends the implemented Phase 1 database-backup foundation. The staged restoration and uploaded-file recovery steps are planned for Phase 1.5 and are not current production behavior.
+This is the maintained administrator reference for the Phase 1.5 backup and whole-system recovery workflow. Automatic schedules are disabled by default in demo deployments.
 
-## Automatic Backup and Retention
-
-```mermaid
-flowchart TD
-    A["Daily schedule at 1:30 AM or Admin selects Create backup"] --> B{"Another backup active?"}
-    B -->|"Yes"| C["Do not start a duplicate backup"]
-    B -->|"No"| D["Create encrypted MySQL archive"]
-    D --> E["Copy new or changed private uploaded files"]
-    E --> F["Create object manifest with sizes and checksums"]
-    F --> G["Store database archive and manifest in private backup storage"]
-    G --> H["Verify checksum, decryptability, SQL contents, and referenced objects"]
-    H --> I{"Verification passed?"}
-    I -->|"No"| J["Mark Failed, retain evidence, and notify configured contact"]
-    I -->|"Yes"| K["Mark Available and apply retention"]
-
-    K --> L["Keep newest 3 daily restore points"]
-    K --> M["Keep 2 weekly restore points"]
-    K --> N["Keep 3 monthly restore points"]
-    L --> O{"Backup outside retained set?"}
-    M --> O
-    N --> O
-    O -->|"No"| P["Remain Available"]
-    O -->|"Yes"| Q{"Protected by active recovery?"}
-    Q -->|"Yes"| P
-    Q -->|"No"| R["Move to Recently Deleted for 48 hours"]
-    R --> S{"Admin selects Keep backup in time?"}
-    S -->|"Yes"| P
-    S -->|"No"| T["Permanently purge expired backup objects"]
-```
-
-## Admin Full-System Restoration
+## Automatic and Manual Restore Points
 
 ```mermaid
 flowchart TD
-    A["Admin opens Backup and Recovery"] --> B["Select an Available restore point"]
-    B --> C["Review backup time, scope, file coverage, and newer-data warning"]
-    C --> D{"Continue?"}
-    D -->|"No"| E["Cancel with no system changes"]
-    D -->|"Yes"| F["Reauthenticate and explicitly confirm"]
-    F --> G["Protect selected restore point"]
-    G --> H["Create safety snapshot of current database and uploaded objects"]
-    H --> I["Create isolated temporary MySQL database and file-recovery area"]
-    I --> J["Download, verify, decrypt, and import selected database archive"]
-    J --> K["Restore and verify uploaded objects listed in the matching manifest"]
-    K --> L["Run schema, integrity, sign-in, role, and critical-workflow checks"]
-    L --> M{"All automated checks passed?"}
-
-    M -->|"No"| N["Mark Failed and keep live system unchanged"]
-    N --> O["Show safe failure details and retain safety snapshot"]
-
-    M -->|"Yes"| P["Show Ready to switch"]
-    P --> Q{"Admin confirms cutover?"}
-    Q -->|"No"| R["Cancel temporary restore and keep live system unchanged"]
-    Q -->|"Yes"| S["Enter maintenance mode and pause writes"]
-    S --> T["Switch NutriScope to restored database and matching files"]
-    T --> U["Run production health and workflow checks"]
-    U --> V{"Cutover healthy?"}
-    V -->|"Yes"| W["Exit maintenance mode and mark Completed"]
-    V -->|"No"| X["Automatically switch back to safety snapshot"]
-    X --> Y["Exit maintenance mode and mark Rolled Back"]
+    A["Admin Backup page"] --> B{"Automatic schedules enabled?"}
+    B -->|"None"| C["Show: Automatic backups are disabled"]
+    B -->|"Any combination"| D["Show each next scheduled backup"]
+    D --> E["Coordinator checks every 10 minutes after the 01:30 Asia/Manila target"]
+    E --> F{"Enabled daily, weekly, or monthly period missing?"}
+    F -->|"No"| G["Do nothing; period already satisfied"]
+    F -->|"Yes"| H["Claim category and period with unique locks"]
+    H --> I["One queued backup satisfies all categories due together"]
+    A --> J["Admin selects Create backup now"]
+    J --> K["Create independent 7-day manual restore point"]
+    I --> L["Run shared backup pipeline"]
+    K --> L
+    L --> M["Create encrypted MySQL archive"]
+    M --> N["Incrementally copy new or changed private uploaded objects"]
+    N --> O["Write immutable manifest with relationships, sizes, and checksums"]
+    O --> P["Verify archive checksum, decryption, SQL entry, manifest, and protected files"]
+    P --> Q{"Verification passed?"}
+    Q -->|"No"| R["Mark Failed, show safe result, notify configured contact, and audit activity"]
+    Q -->|"Yes"| S["Mark Available and audit activity"]
+    S --> T["Apply assigned retention: 3 daily, 2 weekly, 3 monthly, or 7-day manual"]
 ```
 
-## Recovery Scope
+Disabling a schedule stops future periods only. It does not delete or reclassify existing restore points. A manual backup never satisfies an automatic period.
+
+## Retention and Recently Deleted
 
 ```mermaid
 flowchart TD
-    A["Admin identifies a recovery need"] --> B{"What needs recovery?"}
-    B -->|"Deleted backup archive"| C["Use Keep backup within 48 hours"]
-    B -->|"Database damage or broad data loss"| D["Use staged full-system restoration"]
-    B -->|"Missing uploaded file"| E["Recover protected object version when Phase 1.5 file recovery exists"]
-    B -->|"One arbitrary database row"| F["Not supported by generic backup restore"]
-    F --> G["Use a separately designed module-specific recovery process if later required"]
+    A["Available restore point reaches its last assigned expiry"] --> B{"Protected by active recovery?"}
+    B -->|"Yes"| C["Keep Available until recovery finishes"]
+    B -->|"No"| D["Move archive, manifest, and file references to Recently Deleted for 48 hours"]
+    D --> E{"Admin selects Keep backup before deadline?"}
+    E -->|"Yes"| F["Return restore point to Available"]
+    F --> G["Keep backup rescues the restore point only; it does not restore application data"]
+    E -->|"No"| H["Purge expired archive and manifest"]
+    H --> I["Purge protected file copies only when no remaining restore point references them"]
+    I --> J["Record purge result in Audit Logs"]
 ```
 
-Backup restoration operates on a complete restore point. It does not provide a generic tool for copying arbitrary database rows into the live system.
+## Periodic Recovery Validation
 
-## Safety Boundaries
+```mermaid
+flowchart TD
+    A["Daily check after 03:00"] --> B{"Successful recovery test in the last 30 days?"}
+    B -->|"Yes"| C["No drill needed"]
+    B -->|"No"| D["Select latest verified restore point"]
+    D --> E["Restore into a disposable temporary MySQL database"]
+    E --> F["Verify schema, foreign keys, app boot, authentication schema, roles, password hashes, manifest, and files"]
+    F --> G["Do not create users, credentials, sessions, or business fixtures"]
+    G --> H{"Checks passed?"}
+    H -->|"Yes"| I["Record latest successful recovery-test date"]
+    H -->|"No"| J["Record safe failure result and notify"]
+    I --> K["Always drop the drill database"]
+    J --> K
+```
 
-- Only an authenticated Admin may initiate restoration.
-- Raw database archives, object-storage credentials, and encryption secrets never enter the browser.
-- Restoration always prepares and checks an isolated environment before production cutover.
-- The live system remains unchanged when preparation or validation fails.
-- A safety snapshot and automatic rollback protect the current state during cutover.
-- Phase 2 provider selection must support the temporary database, workers, scheduler, maintenance mode, health checks, private object storage, and safe cutover required by this flow.
+## Admin Whole-System Restoration
+
+```mermaid
+flowchart TD
+    A["Admin selects a verified whole-system restore point"] --> B["Review scope and the newer-data loss window"]
+    B --> C["Enter current password and exact confirmation phrase"]
+    C --> D{"Authorized and confirmed?"}
+    D -->|"No"| E["Stop with no system changes"]
+    D -->|"Yes"| F["Create Requested recovery and Audit Log entry"]
+    F --> G["Queued job creates one verified pre-restore safety snapshot"]
+    G --> H{"Safety snapshot verified?"}
+    H -->|"No"| I["Mark Failed; production remains unchanged; notify and audit"]
+    H -->|"Yes"| J["Restore selected archive into one new temporary MySQL database"]
+    J --> K["Verify database integrity and matching uploaded files without mutations"]
+    K --> L{"All preparation checks passed?"}
+    L -->|"No"| I
+    L -->|"Yes"| M["Show Ready"]
+    M --> N{"Admin cancels before Switching?"}
+    N -->|"Yes"| O["Drop temporary database, mark Cancelled, notify page, and audit"]
+    N -->|"No"| P{"Production environment switcher configured?"}
+    P -->|"No"| Q["Remain Ready; production unchanged; notify Admin for Phase 2 configuration"]
+    P -->|"Yes"| R["Enter maintenance mode immediately before switching"]
+    R --> S["Switch to restored database and matching files"]
+    S --> T["Run basic production health and manifest checks"]
+    T --> U{"Cutover healthy?"}
+    U -->|"Yes"| V["Exit maintenance mode, mark Completed, and audit"]
+    U -->|"No"| W["Automatically switch back to safety snapshot"]
+    W --> X["Verify rollback, exit maintenance mode, mark Rolled Back, notify, and audit"]
+```
+
+After Completed, Failed, Rolled Back, or Cancelled, the safety snapshot remains a whole-system restore point for 48 hours. If restoration or rollback is still active at 48 hours, protection continues until the process reaches a terminal status, then the 48-hour window begins. Newer records are not merged or placed in a review database; after a successful older restore they exist only in this access-controlled safety snapshot.
+
+## Recovery Boundaries
+
+- Only Admin can change schedules or initiate/cancel recovery.
+- Raw database archives, object keys, passwords, and provider credentials never enter the browser.
+- Production is never the first restoration target.
+- Recovery is whole-system only. There is no Technical Operator website role, separate review database, individual-record merge, or universal Record Trash.
+- Preview/download of saved reports are read-only and reproducible report-cache PDFs are excluded from backup manifests.
+- Phase 2 implements only the selected provider's environment switcher and additional provider safeguards; the generic staged workflow remains unchanged.
 
 ## Related Documents
 

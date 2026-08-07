@@ -18,13 +18,16 @@ class PlatformOperationsDocumentationTest extends TestCase
             $this->assertStringContainsString($requirement, $requirements);
         }
 
-        foreach (['3 daily', '2 weekly', '3 monthly', '48 hours', 'Recently Deleted', 'does not include'] as $requirement) {
+        foreach (['disabled by default', '3 daily', '2 weekly', '3 monthly', '48 hours', 'Recently Deleted', 'temporary MySQL', 'non-mutating', 'safety snapshot', 'prepared bytes'] as $requirement) {
             $this->assertStringContainsString($requirement, $recovery);
         }
 
-        foreach (['Name.com', 'BACKUP_DISK', 'client-owned', 'MFA', 'git rev-parse HEAD'] as $requirement) {
+        foreach (['Name.com', 'BACKUP_*', 'client-owned', 'MFA', 'phase-1.5-complete', 'old DigitalOcean droplet'] as $requirement) {
             $this->assertStringContainsString($requirement, $handoff);
         }
+
+        $this->assertStringNotContainsString('Technical Operator website role', $handoff);
+        $this->assertStringNotContainsString('Public upload storage', $handoff);
     }
 
     private function readDocument(string $name): string

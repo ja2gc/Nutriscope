@@ -16,11 +16,10 @@ use App\Models\NcpRecord;
 use App\Models\ScreeningDocument;
 use App\Policies\AuditPolicy;
 use App\Services\Audit\AuditLogger;
-use App\Services\ClinicalUploadRollback;
 use App\Services\RiskScoreCalculator;
+use App\Services\StoredObjectStorage;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 use Throwable;
 
 class AssessmentController extends Controller
@@ -28,7 +27,7 @@ class AssessmentController extends Controller
     public function __construct(
         private readonly AuditPolicy $auditPolicy,
         private readonly AuditLogger $auditLogger,
-        private readonly ClinicalUploadRollback $uploadRollback,
+        private readonly StoredObjectStorage $storedObjects,
     ) {}
 
     /**
@@ -157,19 +156,20 @@ class AssessmentController extends Controller
         $file = $request->file('file');
         // Store the disk-relative path (portable) — readers resolve it to an absolute
         // path at access time. Storing an absolute path breaks if the app root moves (A8).
-        $path = $file->store('documents/ncp');
+        $storedObject = $this->storedObjects->storeUpload($file, 'clinical');
 
         // AS-02: link the document to the NCP cycle directly. Do NOT create an
         // assessment row — uploading a file must not satisfy the Assessment gate.
         // If an assessment already exists, keep the legacy link populated too.
         try {
-            return $this->audited(function () use ($ncpRecord, $validated, $path, $file) {
+            return $this->audited(function () use ($ncpRecord, $validated, $storedObject, $file) {
                 $document = $this->auditLogger->withoutModelEvents(fn (): ScreeningDocument => ScreeningDocument::create([
                     'patient_id' => $ncpRecord->patient_id,
                     'ncp_record_id' => $ncpRecord->id,
                     'assessment_id' => $ncpRecord->assessment?->id,
                     'type' => $validated['type'] ?? null,
-                    'file_path' => $path,
+                    'file_path' => null,
+                    'stored_object_id' => $storedObject->id,
                     'original_name' => $file->getClientOriginalName(),
                 ]));
                 $this->auditLogger->record(
@@ -185,7 +185,7 @@ class AssessmentController extends Controller
             });
         } catch (Throwable $exception) {
             try {
-                $this->uploadRollback->cleanup($path);
+                $this->storedObjects->deleteOrQueue($storedObject);
             } catch (Throwable $cleanupException) {
                 report($cleanupException);
             }

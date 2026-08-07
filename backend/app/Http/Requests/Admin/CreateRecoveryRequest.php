@@ -18,6 +18,8 @@ class CreateRecoveryRequest extends FormRequest
         return [
             'incident_type' => ['required', Rule::enum(RecoveryIncidentType::class)],
             'note' => ['required', 'string', 'min:10', 'max:500'],
+            'current_password' => ['required', 'string', 'current_password'],
+            'confirmation' => ['required', 'string', Rule::in(['RESTORE '.$this->route('backupRun')?->uuid])],
         ];
     }
 }

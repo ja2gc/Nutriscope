@@ -21,7 +21,8 @@ class CreateDatabaseBackupTest extends TestCase
     public function job_moves_a_backup_through_verification_to_completed(): void
     {
         Storage::fake('backups');
-        Storage::disk('backups')->put('database.zip', 'encrypted-content');
+        config(['backup.backup.password' => 'test-password']);
+        Storage::disk('backups')->put('database.zip', $this->encryptedDatabaseZip());
         $this->app->instance(BackupArchiveRunner::class, new class implements BackupArchiveRunner
         {
             public function runDatabaseOnly(): BackupArchiveResult
@@ -35,8 +36,9 @@ class CreateDatabaseBackupTest extends TestCase
 
         $backup->refresh();
         $this->assertSame(BackupState::Completed, $backup->state);
-        $this->assertSame(17, $backup->bytes);
+        $this->assertGreaterThan(0, $backup->bytes);
         $this->assertNotNull($backup->verified_at);
+        $this->assertNotNull($backup->manifest);
         $this->assertNull($backup->failure_message);
     }
 
@@ -62,5 +64,20 @@ class CreateDatabaseBackupTest extends TestCase
         $this->assertSame(BackupState::Failed, $backup->state);
         $this->assertStringNotContainsString('sensitive-production-value', (string) $backup->failure_message);
         $this->assertSame('backup_failed', $backup->failure_code);
+    }
+
+    private function encryptedDatabaseZip(): string
+    {
+        $path = tempnam(sys_get_temp_dir(), 'backup-test-');
+        $zip = new \ZipArchive;
+        $zip->open($path, \ZipArchive::CREATE | \ZipArchive::OVERWRITE);
+        $zip->setPassword('test-password');
+        $zip->addFromString('db-dumps/mysql-database.sql', 'CREATE TABLE users (id bigint);');
+        $zip->setEncryptionName('db-dumps/mysql-database.sql', \ZipArchive::EM_AES_256);
+        $zip->close();
+        $bytes = file_get_contents($path);
+        unlink($path);
+
+        return $bytes;
     }
 }

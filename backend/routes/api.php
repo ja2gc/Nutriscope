@@ -11,6 +11,7 @@ use App\Http\Controllers\Admin\AuditLogExportController;
 use App\Http\Controllers\Admin\AuditRetentionController;
 use App\Http\Controllers\Admin\BackupController;
 use App\Http\Controllers\Admin\BackupRecoveryController;
+use App\Http\Controllers\Admin\BackupScheduleController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Auth\AuthController;
@@ -61,6 +62,7 @@ use Illuminate\Support\Facades\Route;
 $reportRoutes = function () {
     Route::get('reports/{type}/instances', [ReportController::class, 'instances'])->where('type', '[a-z_]+');
     Route::middleware('throttle:reports')->group(function () {
+        Route::post('reports/{type}/prepare', [ReportController::class, 'prepare'])->where('type', '[a-z_]+');
         Route::get('reports/{type}/render', [ReportController::class, 'render'])->where('type', '[a-z_]+');
         Route::get('reports/{type}/export', [ReportController::class, 'export'])->where('type', '[a-z_]+');
         Route::post('reports/{type}/archive', [ReportController::class, 'archive'])->where('type', '[a-z_]+');
@@ -89,6 +91,7 @@ Route::prefix('auth')->group(function () {
         Route::post('onboarding/skip', [AuthController::class, 'skipOnboarding'])
             ->middleware('throttle:password-change');
         Route::patch('profile', [AuthController::class, 'updateProfile']);
+        Route::get('profile-photo', [AuthController::class, 'profilePhoto']);
         Route::patch('recovery-email', [RecoveryEmailController::class, 'update'])
             ->middleware('throttle:password-reset');
         Route::post('recovery-email/verify', [RecoveryEmailController::class, 'verify'])
@@ -225,6 +228,7 @@ Route::middleware(['auth:sanctum', 'active', 'role:FSS,RND'])->prefix('fss')->gr
     Route::patch('purchase-order-vendor-groups/{vendorGroup}', [PurchaseOrderController::class, 'updateVendorGroup']);
     Route::post('purchase-order-vendor-groups/{vendorGroup}/attachments', [PurchaseOrderController::class, 'uploadVendorGroupAttachment'])->middleware('throttle:uploads');
     Route::delete('purchase-order-attachments/{attachment}', [PurchaseOrderController::class, 'destroyAttachment']);
+    Route::get('purchase-order-attachments/{attachment}/file', [PurchaseOrderController::class, 'attachmentFile']);
     Route::apiResource('purchase-orders', PurchaseOrderController::class)->only(['index', 'show']);
 
     // Shopping Lists — FSS reads only; writes are RND-only (see below)
@@ -341,10 +345,13 @@ Route::middleware(['auth:sanctum', 'active', 'role:Admin'])->prefix('admin')->gr
     Route::get('audit-retention', [AuditRetentionController::class, 'show']);
     Route::put('audit-retention', [AuditRetentionController::class, 'update']);
     Route::get('backups', [BackupController::class, 'index']);
+    Route::get('backup-schedules', [BackupScheduleController::class, 'show']);
+    Route::put('backup-schedules', [BackupScheduleController::class, 'update'])->middleware('throttle:10,1');
     Route::post('backups', [BackupController::class, 'store'])->middleware('throttle:manual-backups');
     Route::delete('backups/{backupRun}', [BackupController::class, 'destroy']);
     Route::post('backups/{backupRun}/keep', [BackupController::class, 'keep']);
-    Route::post('backups/{backupRun}/recovery-requests', BackupRecoveryController::class);
+    Route::post('backups/{backupRun}/recovery-requests', [BackupRecoveryController::class, 'store'])->middleware('throttle:recovery');
+    Route::post('recovery-requests/{recoveryRequest}/cancel', [BackupRecoveryController::class, 'cancel'])->middleware('throttle:recovery');
     Route::get('dashboard', AdminDashboardController::class);
     Route::get('budgets/summary', [BudgetController::class, 'summary']);
     Route::get('budgets/ledger', [BudgetController::class, 'ledger']);
@@ -366,6 +373,7 @@ Route::middleware(['auth:sanctum', 'active', 'role:Admin'])->prefix('admin')->gr
     // Reports browse: Admin-scoped subset with RND parity except patient-specific reports.
     // ReportController::guardAdmin() enforces the allowlist; 403 for any other type.
     Route::get('reports/{type}/instances', [ReportController::class, 'instances'])->where('type', '[a-z_]+');
+    Route::post('reports/{type}/prepare', [ReportController::class, 'prepare'])->where('type', '[a-z_]+')->middleware('throttle:reports');
     Route::get('reports/{type}/render', [ReportController::class, 'render'])->where('type', '[a-z_]+');
     Route::get('reports/{type}/export', [ReportController::class, 'export'])->where('type', '[a-z_]+');
     Route::post('reports/{type}/archive', [ReportController::class, 'archive'])->where('type', '[a-z_]+');

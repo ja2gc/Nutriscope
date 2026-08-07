@@ -283,7 +283,7 @@ class ClinicalTrailTest extends TestCase
         AuditFixture::delete(AuditActivity::query());
 
         $upload = $this->postJson("/api/rnd/ncp-records/{$ncp->uuid}/attachments", [
-            'file' => UploadedFile::fake()->create('FILE-NAME-PATIENT-SENTINEL.pdf', 10, 'application/pdf'),
+            'file' => UploadedFile::fake()->createWithContent('FILE-NAME-PATIENT-SENTINEL.pdf', "%PDF-1.4\n%%EOF"),
             'type' => 'laboratory',
         ])->assertCreated();
         $document = ScreeningDocument::query()->where('uuid', $upload->json('data.id'))->firstOrFail();

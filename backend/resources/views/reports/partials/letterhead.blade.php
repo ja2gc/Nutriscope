@@ -1,7 +1,7 @@
 {{-- Shared branding header. Pass $title (report name) and optional $subtitle. --}}
 @php
-    $logoL = $branding->logo_left_path ? storage_path('app/public/' . $branding->logo_left_path) : null;
-    $logoR = $branding->logo_right_path ? storage_path('app/public/' . $branding->logo_right_path) : null;
+    $logoL = $branding->logo_left_data_uri ?? ($branding->logo_left_path ? storage_path('app/public/' . $branding->logo_left_path) : null);
+    $logoR = $branding->logo_right_data_uri ?? ($branding->logo_right_path ? storage_path('app/public/' . $branding->logo_right_path) : null);
 @endphp
 <table style="width:100%; border:0;">
     <tr>

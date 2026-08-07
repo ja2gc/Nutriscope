@@ -1,8 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import { X, Download, Archive, Loader2 } from "lucide-react";
-import { Button } from "@/components/ui/Button";
+import { X, Download, Loader2 } from "lucide-react";
 
 /**
  * Full-bleed PDF preview overlay — the *primary* way to look at a report (Spec 4
@@ -13,8 +12,6 @@ export function ReportPreview({
   title,
   src,
   downloadUrl,
-  onArchive,
-  archiving,
   onClose,
 }: {
   title: string;
@@ -22,9 +19,6 @@ export function ReportPreview({
   src: string;
   /** Explicit save URL (forces download). */
   downloadUrl: string;
-  /** Shown only when the copy isn't already archived. */
-  onArchive?: () => void;
-  archiving?: boolean;
   onClose: () => void;
 }) {
   const [loading, setLoading] = useState(true);
@@ -56,11 +50,6 @@ export function ReportPreview({
         <div className="flex items-center justify-between gap-3 px-5 py-3 border-b border-warm-100 shrink-0">
           <h2 className="text-base font-bold text-warm-800 truncate">{title}</h2>
           <div className="flex items-center gap-2 shrink-0">
-            {onArchive && (
-              <Button variant="secondary" onClick={onArchive} loading={archiving} className="!w-auto !py-1.5 !px-3 text-sm">
-                <Archive className="h-3.5 w-3.5" /> Archive
-              </Button>
-            )}
             <a
               href={downloadUrl}
               download

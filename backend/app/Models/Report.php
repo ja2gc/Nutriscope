@@ -6,7 +6,6 @@ use App\Models\Concerns\HasPublicId;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use RuntimeException;
 
 class Report extends Model
 {
@@ -25,6 +24,8 @@ class Report extends Model
         'user_id', 'audit_patient_id', 'audit_ncp_record_id', 'audit_owner_id',
         'title', 'type', 'archive_identity', 'filters', 'parameters', 'snapshot',
         'file_path', 'status', 'generated_at', 'expires_at',
+        'official_file_stored_object_id', 'source_fingerprint', 'content_hash',
+        'template_version', 'appearance_version', 'cache_path', 'cache_expires_at',
     ];
 
     protected $casts = [
@@ -33,16 +34,8 @@ class Report extends Model
         'snapshot' => 'array',
         'generated_at' => 'datetime',
         'expires_at' => 'datetime',
+        'cache_expires_at' => 'datetime',
     ];
-
-    protected static function booted(): void
-    {
-        static::updating(function (self $report): void {
-            if ($report->getOriginal('status') === 'archived') {
-                throw new RuntimeException('Archived reports are immutable.');
-            }
-        });
-    }
 
     public function user(): BelongsTo
     {

@@ -4,8 +4,12 @@ namespace App\Services\FSS;
 
 use App\Jobs\DeleteQuarantinedPurchaseOrderAttachment;
 use App\Jobs\RestoreQuarantinedPurchaseOrderAttachment;
+use App\Models\PurchaseOrderAttachment;
+use App\Models\StoredObject;
+use App\Services\StoredObjectStorage;
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use RuntimeException;
@@ -16,19 +20,24 @@ class PurchaseOrderAttachmentStorage
 
     private const QUARANTINE_ROOT = 'po-attachments-quarantine/';
 
-    public function store(UploadedFile $file): string
-    {
-        $path = $file->store('po-attachments', config('filesystems.uploads'));
-        $this->assertPath($path, self::ROOT);
+    public function __construct(private readonly StoredObjectStorage $storedObjects) {}
 
-        return $path;
+    public function store(UploadedFile $file): StoredObject
+    {
+        return $this->storedObjects->storeUpload($file, 'purchase_order');
     }
 
-    /** @param array<int, string> $paths */
-    public function deleteUploads(array $paths): void
+    /** @param array<int, string|StoredObject> $objects */
+    public function deleteUploads(array $objects): void
     {
-        foreach ($paths as $path) {
+        foreach ($objects as $object) {
             try {
+                if ($object instanceof StoredObject) {
+                    $this->storedObjects->deleteOrQueue($object);
+
+                    continue;
+                }
+                $path = $object;
                 $move = $this->quarantine($path);
                 if ($move !== null) {
                     $this->deleteAfterCommit($move);
@@ -37,6 +46,33 @@ class PurchaseOrderAttachmentStorage
                 report($exception);
             }
         }
+    }
+
+    /** @return resource */
+    public function readStream(PurchaseOrderAttachment $attachment)
+    {
+        if ($attachment->storedObject !== null) {
+            return $this->storedObjects->readStream($attachment->storedObject);
+        }
+
+        $this->assertPath((string) $attachment->path, self::ROOT);
+        $stream = $this->disk()->readStream((string) $attachment->path);
+        if (! is_resource($stream)) {
+            throw new RuntimeException('Purchase-order attachment is unavailable.');
+        }
+
+        return $stream;
+    }
+
+    public function deleteObjectAfterCommit(StoredObject $object): void
+    {
+        DB::afterCommit(function () use ($object): void {
+            try {
+                $this->storedObjects->deleteOrQueue($object);
+            } catch (\Throwable $exception) {
+                report($exception);
+            }
+        });
     }
 
     /** @return array{original: string, quarantine: string}|null */

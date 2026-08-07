@@ -19,7 +19,9 @@ class UserResource extends JsonResource
             'recovery_email' => $this->recovery_email,
             'recovery_email_verified' => $this->recovery_email_verified_at !== null,
             'contact_number' => $this->contact_number,
-            'profile_photo' => $this->profile_photo,
+            'profile_photo' => $this->profile_photo_stored_object_id !== null
+                ? '/api/auth/profile-photo'
+                : $this->profile_photo,
             'role' => $this->role,
             'is_active' => (bool) $this->is_active,
             'onboarding_required' => $this->requiresOnboarding(),

@@ -3,9 +3,11 @@
 namespace App\Jobs;
 
 use App\Contracts\BackupArchiveRunner;
+use App\Enums\BackupSource;
 use App\Enums\BackupState;
 use App\Models\BackupRun;
 use App\Notifications\BackupFailedNotification;
+use App\Services\Backup\BackupManifestService;
 use App\Services\Backup\BackupRetentionService;
 use App\Services\Backup\BackupVerifier;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
@@ -48,11 +50,12 @@ class CreateDatabaseBackup implements ShouldBeUnique, ShouldQueue
     public function handle(
         BackupArchiveRunner $runner,
         BackupVerifier $verifier,
+        BackupManifestService $manifests,
         BackupRetentionService $retention,
     ): void {
         $backup = BackupRun::where('uuid', $this->backupUuid)->firstOrFail();
+        $backup->transitionTo(BackupState::Running);
         $backup->update([
-            'state' => BackupState::Running,
             'started_at' => now(),
             'failure_code' => null,
             'failure_message' => null,
@@ -60,17 +63,23 @@ class CreateDatabaseBackup implements ShouldBeUnique, ShouldQueue
 
         try {
             $result = $runner->runDatabaseOnly();
-            $backup->update(['state' => BackupState::Verifying]);
+            $backup->transitionTo(BackupState::Verifying);
             $result = $verifier->verify($result);
+            $manifest = $manifests->create($backup);
+            $verifier->verifyManifest($manifest);
             $backup->update([
-                'state' => BackupState::Completed,
                 'object_key' => $result->objectKey,
                 'bytes' => $result->bytes,
                 'integrity_value' => $result->integrityValue,
+                'archive_sha256' => $result->integrityValue,
                 'encrypted' => $result->encrypted,
                 'completed_at' => now(),
                 'verified_at' => now(),
+                'retention_expires_at' => $backup->source === BackupSource::Manual
+                    ? now()->addDays(config('nutriscope-backups.manual_retention_days'))
+                    : null,
             ]);
+            $backup->transitionTo(BackupState::Completed);
             $retention->apply();
         } catch (Throwable $exception) {
             $this->markFailed($backup);
@@ -94,8 +103,10 @@ class CreateDatabaseBackup implements ShouldBeUnique, ShouldQueue
 
     private function markFailed(BackupRun $backup): void
     {
+        if ($backup->state !== BackupState::Failed) {
+            $backup->transitionTo(BackupState::Failed);
+        }
         $backup->update([
-            'state' => BackupState::Failed,
             'failure_code' => 'backup_failed',
             'failure_message' => 'Backup could not be completed. Check the storage and database connection.',
         ]);

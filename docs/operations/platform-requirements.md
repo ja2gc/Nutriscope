@@ -1,44 +1,45 @@
 # NutriScope platform requirements
 
-This Phase 1 hosting contract describes what a new platform must provide without choosing a vendor.
+This provider-neutral contract defines the production services required after Phase 1.5. Phase 2 selects and configures client-owned providers.
 
 ## Required services
 
-- **Web:** run Laravel and Next.js continuously. Route `/mobile-api/` to the backend and `/` to the frontend.
+- **Web:** run Laravel and Next.js continuously. Route `/mobile-api/` to Laravel and `/` to Next.js.
 - **Worker:** continuously process the Laravel `backups,default` queues.
 - **Scheduler:** continuously run `php artisan schedule:work`.
 - **Release:** run `/usr/local/bin/docker-release.sh` once per release. Do not run migrations whenever web starts.
-- **Database:** MySQL 8 with persistent storage.
-- **Cache and queue:** Redis with persistent storage. Redis is not a MySQL backup.
-- **Health check:** use the backend endpoint `/up`.
+- **Database:** MySQL 8 with persistent storage and permission to create/drop recovery-test databases.
+- **Cache and queue:** persistent Redis supporting atomic locks. Redis is not a MySQL backup.
+- **Health check:** use Laravel `/up`.
 
-`docker-compose.prod.yml` defines the web, worker, scheduler, and release roles. A managed platform may express the same roles with its own process configuration.
+`docker-compose.prod.yml` expresses the web, worker, scheduler, and release roles. A managed platform may express the same roles differently.
 
 ## Production configuration
 
-Start from `backend/.env.production.example`. Enter values in the platform's encrypted secret manager. Never commit production values or paste them into documentation, tickets, screenshots, or chat.
+Start from `backend/.env.production.example` and store values only in the platform secret manager. Never put `.env`, archive passwords, SMTP credentials, database administration credentials, or object-storage keys in Git, documentation, screenshots, chat, or the Admin page. Preserve `APP_KEY` during relocation.
 
-Important groups are `APP_*`, `DB_*`, `REDIS_*`, `CACHE_*`, `SESSION_*`, `QUEUE_*`, `MAIL_*`, `UPLOADS_DISK`, and `BACKUP_*`. Keep the existing `APP_KEY` during relocation so existing encrypted application data remains readable.
+Important groups are `APP_*`, `DB_*`, `REDIS_*`, `CACHE_*`, `SESSION_*`, `QUEUE_*`, `MAIL_*`, `PRIVATE_UPLOADS_*`, and `BACKUP_*`.
 
 ## Storage boundaries
 
-- Database backups use the private `BACKUP_DISK`, normally a separate S3-compatible bucket.
-- Purchase-order attachments and branding assets use `UPLOADS_DISK`. The default `public` disk requires persistent Laravel storage and a browser-reachable `UPLOADS_PUBLIC_URL`.
-- Clinical documents remain private local files. Managed hosting must provide a persistent private volume. Moving them to object storage needs a separate security-reviewed change.
-- Generated reports remain temporary artifacts and are not part of the database backup.
+- `private_uploads` holds clinical documents, purchase-order evidence, profile photos, private branding, and other durable sensitive files. APIs use authorized streaming; buckets are private by default.
+- `report_cache` holds reproducible prepared PDFs for 24 hours. It is excluded from durable manifests and backup retention.
+- `BACKUP_DISK` holds encrypted MySQL archives, immutable manifests, and checksum-addressed protected uploaded-file copies.
+- Primary upload and backup storage must use separate buckets or separate least-privilege credentials where supported. Upload credentials must not allow backup deletion.
+- Only intentionally public assets use public storage. No binary-file framework stores all uploads in MySQL.
 
-Do not place backups on the application server's disk. Loss of one provider account or disk must not destroy both the live system and recovery copies.
+Keep backup storage separate from primary application infrastructure where practical. Phase 2 should add provider versioning, lifecycle protection, snapshots, or bucket locks where supported, but application credentials must not control retention locks.
 
-## Network and HTTPS
+## Network, workers, and HTTPS
 
-Only the public reverse proxy should accept internet traffic. MySQL and Redis must remain private. Restrict administrative access, use MFA, and apply provider security updates.
+Only the public reverse proxy accepts internet traffic. MySQL and Redis remain private. Enable MFA and provider security updates. The worker must be durable; the scheduler must remain active so the ten-minute backup coordinator can catch up after downtime.
 
-On managed hosting, let the platform issue and renew HTTPS certificates after DNS points to it. Do not copy the old Certbot private key. On a self-managed server, issue a fresh certificate and verify automatic renewal before cutover.
+Let managed hosting issue a new HTTPS certificate after DNS cutover. Do not copy the old certificate private key. A self-managed host must prove renewal before acceptance.
 
-## Release check
+## Release acceptance
 
-1. Run the release process once.
-2. Confirm `/up` is healthy.
-3. Confirm the worker and scheduler are running.
-4. Sign in with a test account and verify one critical workflow.
-5. Create and verify a backup before changing DNS.
+1. Run the release process once and confirm `/up`.
+2. Confirm worker, scheduler heartbeat, Redis locks, MySQL, private uploads, and backup storage readiness.
+3. Sign in with a test account and verify critical RND, FSS, and Admin workflows.
+4. Create one manual restore point and verify its archive, manifest, and protected files.
+5. Run a temporary-database recovery drill before changing DNS.
