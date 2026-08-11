@@ -19,6 +19,7 @@ export function InstallNutriScope({ mode }: { mode: "login" | "landing" }) {
   const [mobileDevice, setMobileDevice] = useState<boolean | null>(null);
   const [installed, setInstalled] = useState(false);
   const [promptEvent, setPromptEvent] = useState<InstallPromptEvent | null>(null);
+  const [showInstructions, setShowInstructions] = useState(false);
 
   useEffect(() => {
     const updateDevice = () => setMobileDevice(isPhoneOrTablet({
@@ -47,7 +48,10 @@ export function InstallNutriScope({ mode }: { mode: "login" | "landing" }) {
   }, []);
 
   async function install() {
-    if (!promptEvent) return;
+    if (!promptEvent) {
+      setShowInstructions(true);
+      return;
+    }
     await promptEvent.prompt();
     await promptEvent.userChoice;
     setPromptEvent(null);
@@ -88,7 +92,7 @@ export function InstallNutriScope({ mode }: { mode: "login" | "landing" }) {
       </div>
 
       <div className="mt-4 grid gap-2 sm:grid-cols-2">
-        {promptEvent && !installed && (
+        {!installed && (
           <button
             type="button"
             onClick={() => void install()}
@@ -107,7 +111,7 @@ export function InstallNutriScope({ mode }: { mode: "login" | "landing" }) {
         </Link>
       </div>
 
-      {!promptEvent && !installed && (
+      {showInstructions && !promptEvent && !installed && (
         <p className="mt-3 text-xs leading-5 text-emerald-800" aria-live="polite">
           {mode === "landing"
             ? "In your browser menu, choose Add to Home screen or Install app."

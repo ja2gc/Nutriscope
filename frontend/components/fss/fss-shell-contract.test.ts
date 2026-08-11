@@ -33,11 +33,18 @@ describe("FSS web shell contract", () => {
     expect(rndLayout).toContain('user.role !== "RND"');
   });
 
-  it("reuses existing menu, purchase, and FSS reports", () => {
+  it("reuses the menu and reports while keeping purchase FSS-scoped", () => {
     expect(read("app/fss/menu/page.tsx")).toContain('@/app/(rnd)/food-service/menu-cycle/page');
-    expect(read("app/fss/purchase/page.tsx")).toContain('@/app/(rnd)/food-service/procurement/page');
+    expect(read("app/fss/purchase/page.tsx")).toContain("FssPurchaseOrders");
+    const purchase = read("components/fss/FssPurchaseOrders.tsx");
+    expect(purchase).toContain("listPurchaseOrders");
+    expect(purchase).toContain("updateVendorGroup");
+    expect(purchase).toContain("uploadVendorGroupAttachments");
+    expect(purchase).not.toContain("deletePurchaseOrder");
+    expect(purchase).not.toContain("approveShoppingList");
     const accomplish = read("app/fss/accomplish/page.tsx");
     expect(accomplish).toContain("FSS_CATALOG");
     expect(accomplish).toContain('apiPrefix="fss"');
+    expect(read("components/reports/ReportsBrowser.tsx")).toContain('{apiPrefix !== "fss" && (');
   });
 });

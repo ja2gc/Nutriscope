@@ -1,1 +1,5 @@
-export { default } from "@/app/(rnd)/food-service/procurement/page";
+import { FssPurchaseOrders } from "@/components/fss/FssPurchaseOrders";
+
+export default function FssPurchasePage() {
+  return <FssPurchaseOrders />;
+}

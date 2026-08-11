@@ -447,9 +447,11 @@ function ArchivedTab({
                         <History className="h-3.5 w-3.5" />
                       </button>
                     )}
-                    <button onClick={() => onDelete(r.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-warm-500 hover:text-red-600 cursor-pointer" aria-label={`Delete ${r.title}`} title="Delete">
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
+                    {apiPrefix !== "fss" && (
+                      <button onClick={() => onDelete(r.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-warm-500 hover:text-red-600 cursor-pointer" aria-label={`Delete ${r.title}`} title="Delete">
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    )}
                   </div>
                 </td>
               </tr>

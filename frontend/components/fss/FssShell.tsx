@@ -89,7 +89,7 @@ export function FssShell({ children }: { children: React.ReactNode }) {
               >
                 <span className={`absolute inset-x-3 top-0 h-0.5 rounded-full ${active ? "bg-emerald-600" : "bg-transparent"}`} />
                 <Icon className="h-5 w-5" aria-hidden="true" />
-                <span className="max-w-full truncate text-[11px] font-bold leading-none sm:text-xs">{label}</span>
+                <span className="max-w-full truncate text-xs font-bold leading-none">{label}</span>
               </Link>
             );
           })}
