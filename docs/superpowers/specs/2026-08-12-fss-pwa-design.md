@@ -2,12 +2,13 @@
 
 ## Goal
 
-Make NutriScope's existing web deployment installable as the primary Food Service Staff (FSS) application. Staff open or install it from the login page without downloading an APK or accepting Android unknown-source warnings.
+Make NutriScope's existing web deployment installable as a phone/tablet-only Food Service Staff (FSS) application. Staff install it from the shared login page without downloading an APK or accepting Android unknown-source warnings. RND and Admin continue using the regular browser website.
 
 ## Decisions
 
 - Build inside the existing Next.js frontend.
 - Reuse the current Laravel APIs, Next.js API proxies, cookie authentication, services, UI primitives, and brand assets.
+- Set the PWA start URL to `/fss`. Do not advertise or present NutriScope as a desktop app.
 - Keep the Expo project and APK build path unchanged as a temporary fallback. Do not add an APK download link until a stable APK URL exists.
 - Add no new backend endpoint unless implementation proves an existing FSS operation has no web proxy.
 - Do not add offline submissions, background sync, push notifications, a second design system, or a separate Expo web deployment.
@@ -16,24 +17,25 @@ Make NutriScope's existing web deployment installable as the primary Food Servic
 
 ### Login page
 
-Add one compact `Food Service Staff app` panel below the login form.
+Add one compact `Food Service Staff mobile app` panel below the login form.
 
-- On a phone, show `Open FSS app` as the primary action. Show `Install app` only when the browser fires `beforeinstallprompt`.
-- On desktop and tablet, show the same open action plus a QR code targeting the stable `/mobile-app` route.
+- On a phone or tablet, show `Install NutriScope` when the browser fires `beforeinstallprompt`; otherwise show concise browser installation instructions and an `Open FSS app` link.
+- On desktop, show only `Scan with your phone` and a QR code targeting the stable `/mobile-app` route. Show no install button, open-app button, desktop-install instructions, or desktop-app language.
 - When running in standalone display mode, hide install guidance and show only `Open FSS app`.
 - If installation cannot be prompted, show short browser instructions instead of a dead button.
 
 ### Public app page
 
-`/mobile-app` is public and stable. It explains that the PWA is for FSS, provides open/install actions, and displays the QR on non-phone layouts. The QR never targets a build artifact.
+`/mobile-app` is public and stable. On a phone or tablet it explains that the PWA is for FSS and provides install/open actions. On desktop it shows only the `Scan with your phone` QR handoff. The QR never targets a build artifact.
 
 ### Authentication and routing
 
 - Existing login remains shared by all roles.
-- Successful FSS login routes to `/fss`.
+- Successful FSS login always routes to `/fss`: phone/tablet receives the workflow; desktop receives the QR handoff.
 - RND routes to `/dashboard`; Admin routes to `/admin/dashboard`.
 - Authenticated non-FSS users cannot enter `/fss`.
 - FSS users are kept out of RND and Admin shells.
+- A desktop visit to `/fss` shows the QR handoff rather than FSS workflows or desktop-app promotion.
 - Authentication remains in secure, HTTP-only, `SameSite=Lax` cookies. No bearer token enters `localStorage`, IndexedDB, manifest data, or service-worker caches.
 
 ## FSS Application Shell
@@ -46,7 +48,7 @@ Create a focused `/fss` route group with a small responsive header and five-item
 4. Accomplish
 5. Purchase
 
-Phone layout uses bottom navigation and safe-area padding. Tablet/desktop keeps the same content in a centered responsive canvas; it does not expose the RND sidebar.
+Phone and tablet layouts use bottom navigation, safe-area padding, and a centered responsive content canvas. Desktop renders only the phone QR handoff; it does not expose FSS workflows or the RND sidebar.
 
 Secondary pages such as notifications, reports, profile, account setup, settings, and help open from the header or a small More menu. Existing shared web components are reused when role behavior matches.
 
@@ -64,7 +66,7 @@ Browser camera capture uses a normal file input with `accept="image/*"` and `cap
 
 ## PWA Files and Caching
 
-Use Next.js native metadata support for `app/manifest.ts`. Register one small service worker from the root layout or a focused client component.
+Use Next.js native metadata support for `app/manifest.ts` with `start_url: "/fss"` and standalone display. Register one small service worker from the root layout or a focused client component.
 
 Service worker caches only versioned static assets and a generic offline page. It must not cache:
 
@@ -82,11 +84,12 @@ One small client hook/component owns install state:
 
 - captures `beforeinstallprompt` where supported;
 - detects standalone mode;
+- treats a device as phone/tablet when it has a coarse pointer or a viewport no wider than 1024 CSS pixels, avoiding a user-agent package;
 - invokes the saved prompt from explicit user action;
 - clears stale prompt state after acceptance or dismissal;
 - falls back to concise Android/iOS browser instructions.
 
-No forced popup, auto-prompt, modal on first visit, user-agent library, analytics package, or QR dependency. Generate the QR as a static project asset for the fixed production URL.
+No forced popup, auto-prompt, modal on first visit, user-agent library, analytics package, or QR dependency. Generate the QR as a static project asset for the fixed production URL. Desktop browsers may expose their own browser-level install command, but NutriScope never advertises or triggers it and `/fss` remains a QR handoff on desktop.
 
 ## Security
 
@@ -117,10 +120,10 @@ Follow red-green-refactor.
 - Contract tests for manifest, service-worker exclusions, and public middleware paths.
 - Component tests for install states: prompt available, unavailable, dismissed, installed.
 - Login tests for role destinations and phone/desktop app controls.
-- Layout tests for FSS-only navigation and route guards.
+- Layout tests for FSS-only navigation, route guards, and desktop QR handoff.
 - Workflow tests around each ported FSS page using existing service contracts.
 - TypeScript, focused ESLint, focused Vitest, full frontend test suite, production build, and `git diff --check`.
-- Manual responsive check at 375px, 768px, and desktop; manual install check in Android Chrome when available.
+- Manual responsive check at 375px, 768px, 1024px, and desktop; manual install check in Android Chrome when available.
 
 ## Delivery Order
 
@@ -138,3 +141,4 @@ Follow red-green-refactor.
 - Full offline mode or queued writes.
 - Rebuilding backend business logic.
 - Redesigning RND or Admin pages.
+- Advertising or supporting a desktop-installed FSS application.
