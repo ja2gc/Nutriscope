@@ -238,6 +238,7 @@ export interface FssDashboardSummary {
   pending_pos: PendingPo[];
   pending_pos_count: number;
   today_service: Array<{ meal_type: string; name: string; prepped: boolean; has_shortfall: boolean }>;
+  active_cycle: { id: number; name: string; activation_date: string | null; service_day_count: number } | null;
 }
 
 export async function getFssDashboard(): Promise<FssDashboardSummary | null> {

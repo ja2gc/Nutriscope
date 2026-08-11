@@ -24,6 +24,8 @@ export default function RndLayout({
   useEffect(() => {
     if (!initializing && !user) {
       router.replace("/login");
+    } else if (!initializing && user && user.role !== "RND") {
+      router.replace(user.role === "Admin" ? "/admin/dashboard" : "/fss");
     }
   }, [user, initializing, router]);
 
@@ -76,7 +78,7 @@ export default function RndLayout({
     );
   }
 
-  if (!user) {
+  if (!user || user.role !== "RND") {
     return null;
   }
 
