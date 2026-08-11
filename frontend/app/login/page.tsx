@@ -7,6 +7,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Logo } from "@/components/ui/Logo";
+import { InstallNutriScope } from "@/components/pwa/InstallNutriScope";
 import { AlertTriangle, HeartPulse, Lock, Salad, ShieldCheck } from "lucide-react";
 
 const featureItems = [
@@ -40,6 +41,8 @@ export default function LoginPage() {
       }
       if (user.role === "Admin") {
         router.replace("/admin/dashboard");
+      } else if (user.role === "FSS") {
+        router.replace("/fss");
       } else {
         router.replace("/dashboard");
       }
@@ -191,6 +194,8 @@ export default function LoginPage() {
               Sign In
             </Button>
           </form>
+
+          <InstallNutriScope mode="login" />
 
           <div className="border-t border-warm-100 pt-5 text-center">
             <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-warm-400">
