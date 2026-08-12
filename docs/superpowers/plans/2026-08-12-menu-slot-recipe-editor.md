@@ -17,7 +17,7 @@
 - Existing `MenuCycleCostService` and PO snapshot remain scaling and freezing authorities.
 - Reuse NutriScope components/tokens; no new UI/dependency framework.
 - One JSON column; no duplicate normalized recipe/ingredient tables, versioning, fixed-quantity mode, or autosave system.
-- Preserve unrelated `.codex/config.toml`; no AI attribution in Git metadata.
+- Preserve unrelated local configuration and keep task commits limited to task files.
 
 ---
 
@@ -230,7 +230,7 @@ Verify 375, 768, 1024, 1440 widths: no horizontal scroll; Back works; RND edits 
 
 - [ ] **Step 4: Database and Git safety checks**
 
-Run migration status/schema inspection, `git diff --check`, task-only staged-file audit, and case-insensitive scan for `codex|claude|openai|co-authored|generated-by`. Confirm only configured user name/email on commits. Leave `.codex/config.toml` uncommitted.
+Run migration status/schema inspection, `git diff --check`, and a task-only staged-file audit. Confirm only the configured user name and email appear on commits. Leave unrelated local configuration uncommitted.
 
 - [ ] **Step 5: Push and prove remote**
 
