@@ -7,10 +7,13 @@ use App\Enums\AuditDomain;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\FSS\StoreMenuCycleRequest;
 use App\Http\Requests\FSS\UpdateMenuCycleRequest;
+use App\Http\Requests\FSS\UpdateMenuSlotRecipeRequest;
 use App\Http\Requests\PaginatedRequest;
 use App\Http\Resources\MenuCycleResource;
 use App\Models\FoodServiceSetting;
+use App\Models\FsItem;
 use App\Models\MenuCycle;
+use App\Models\MenuCycleDay;
 use App\Services\Audit\AuditLogger;
 use App\Services\Audit\Revisions\AuditRevisionRegistry;
 use App\Services\Audit\Revisions\AuditRevisionWriter;
@@ -28,6 +31,8 @@ class MenuCycleController extends Controller
     private const DAY_RELATIONS = ['days.recipe', 'days.fsItem'];
 
     private const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+    private const MEALS = ['breakfast', 'am_snack', 'lunch', 'pm_snack', 'dinner'];
 
     public function __construct(
         private readonly AuditLogger $auditLogger,
@@ -97,6 +102,56 @@ class MenuCycleController extends Controller
     public function show(MenuCycle $menuCycle): JsonResponse
     {
         return response()->json(['data' => new MenuCycleResource($menuCycle->load(self::DAY_RELATIONS))]);
+    }
+
+    public function slot(MenuCycle $menuCycle, string $day, string $meal): JsonResponse
+    {
+        return response()->json(['data' => $this->slotData($this->resolveSlot($menuCycle, $day, $meal))]);
+    }
+
+    public function updateSlot(
+        UpdateMenuSlotRecipeRequest $request,
+        MenuCycle $menuCycle,
+        string $day,
+        string $meal,
+    ): JsonResponse {
+        $slot = $this->resolveSlot($menuCycle, $day, $meal);
+        if ($slot->po_snapshot_locked) {
+            return response()->json(['message' => 'This menu item is locked to a purchase order.'], 409);
+        }
+        if (! $slot->recipe_id) {
+            return response()->json(['message' => 'Only recipe menu items can be customized.'], 422);
+        }
+
+        $data = $request->validated();
+        $items = FsItem::query()->whereIn('id', collect($data['ingredients'])->pluck('fs_item_id'))->get()->keyBy('id');
+        $slot->update([
+            'servings_override' => $data['planned_servings'],
+            'recipe_override' => [
+                'name' => $data['name'],
+                'reference_servings' => $data['reference_servings'],
+                'prep_notes' => $data['prep_notes'] ?? null,
+                'ingredients' => collect($data['ingredients'])->map(fn (array $ingredient) => [
+                    'fs_item_id' => $ingredient['fs_item_id'],
+                    'name' => $items->get($ingredient['fs_item_id'])->name,
+                    'quantity' => (float) $ingredient['quantity'],
+                    'unit' => $ingredient['unit'],
+                ])->values()->all(),
+            ],
+        ]);
+
+        return response()->json(['data' => $this->slotData($slot->fresh())]);
+    }
+
+    public function restoreSlot(MenuCycle $menuCycle, string $day, string $meal): JsonResponse
+    {
+        $slot = $this->resolveSlot($menuCycle, $day, $meal);
+        if ($slot->po_snapshot_locked) {
+            return response()->json(['message' => 'This menu item is locked to a purchase order.'], 409);
+        }
+        $slot->update(['recipe_override' => null]);
+
+        return response()->json(['data' => $this->slotData($slot->fresh())]);
     }
 
     public function update(UpdateMenuCycleRequest $request, MenuCycle $menuCycle): JsonResponse
@@ -331,6 +386,73 @@ class MenuCycleController extends Controller
             ->all();
 
         return array_values(array_diff(self::WEEKDAYS, $planned));
+    }
+
+    private function resolveSlot(MenuCycle $cycle, string $day, string $meal): MenuCycleDay
+    {
+        abort_unless(in_array($day, self::WEEKDAYS, true) && in_array($meal, self::MEALS, true), 404);
+
+        return $cycle->days()
+            ->where('day_of_week', $day)
+            ->where('meal_type', $meal)
+            ->with(['recipe.ingredients.fsItem', 'fsItem'])
+            ->firstOrFail();
+    }
+
+    private function slotData(MenuCycleDay $slot): array
+    {
+        $slot->loadMissing(['recipe.ingredients.fsItem', 'fsItem']);
+        $entry = MenuCycleCostService::entryForDay($slot);
+        abort_if($entry === null, 404);
+
+        $target = max(1, (int) ($slot->servings_override ?? $slot->estimate_population ?? 1));
+        $entry['servings_override'] = $target;
+        $result = MenuCycleCostService::aggregate([$entry]);
+        $usage = collect($result['ingredient_usage'])->keyBy('fs_item_id');
+        $recipe = $entry['recipe'] ?? null;
+
+        if ($recipe) {
+            $items = FsItem::query()->whereIn('id', collect($recipe['ingredients'])->pluck('fs_item_id'))->get()->keyBy('id');
+            $ingredients = collect($recipe['ingredients'])->map(function (array $ingredient) use ($items, $usage): array {
+                $item = $items->get($ingredient['fs_item_id']);
+
+                return [
+                    'fs_item_id' => $item?->uuid,
+                    'name' => $item?->name ?? $ingredient['name'],
+                    'quantity' => (float) $ingredient['quantity'],
+                    'unit' => $ingredient['unit'],
+                    'scaled_quantity' => (float) ($usage->get($ingredient['fs_item_id'])['quantity'] ?? 0),
+                    'scaled_cost' => (float) ($usage->get($ingredient['fs_item_id'])['cost'] ?? 0),
+                ];
+            })->values()->all();
+        } else {
+            $item = $slot->fsItem;
+            $line = $usage->get($item->id);
+            $ingredients = [[
+                'fs_item_id' => $item->uuid,
+                'name' => $item->name,
+                'quantity' => (float) $slot->quantity,
+                'unit' => $item->base_unit,
+                'scaled_quantity' => (float) ($line['quantity'] ?? 0),
+                'scaled_cost' => (float) ($line['cost'] ?? 0),
+            ]];
+        }
+
+        return [
+            'cycle_id' => $slot->menuCycle->uuid,
+            'day' => $slot->day_of_week,
+            'meal' => $slot->meal_type,
+            'source' => $slot->recipe_override ? 'custom' : ($slot->po_snapshot_locked ? 'locked' : 'master'),
+            'locked' => (bool) $slot->po_snapshot_locked,
+            'editable' => Auth::user()?->role === 'RND' && ! $slot->po_snapshot_locked && $slot->recipe_id !== null,
+            'name' => $recipe['name'] ?? $slot->fsItem->name,
+            'reference_servings' => (int) ($recipe['servings'] ?? 1),
+            'planned_servings' => $target,
+            'prep_notes' => $recipe['prep_notes'] ?? null,
+            'ingredients' => $ingredients,
+            'total_cost' => (float) $result['total_cost'],
+            'cost_per_head' => (float) $result['cost_per_head'],
+        ];
     }
 
     private function structuralDaysLocked(MenuCycle $cycle): bool

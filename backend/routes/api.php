@@ -248,6 +248,7 @@ Route::middleware(['auth:sanctum', 'active', 'role:FSS,RND'])->prefix('fss')->gr
     // Menu Cycles — FSS read-only (RND owns writes, see RND-only group below)
     Route::get('menu-cycles/cost-today', [MenuCycleController::class, 'costToday']);
     Route::get('menu-cycles/{menu_cycle}/compute', [MenuCycleController::class, 'compute']);
+    Route::get('menu-cycles/{menu_cycle}/slots/{day}/{meal}', [MenuCycleController::class, 'slot']);
     Route::apiResource('menu-cycles', MenuCycleController::class)->only(['index', 'show']);
 
     // Food Service Recipes — FSS read-only (RND owns writes)
@@ -297,6 +298,8 @@ Route::middleware(['auth:sanctum', 'active', 'role:FSS,RND'])->prefix('fss')->gr
         Route::delete('fs-items/{fsItem}', [FsItemController::class, 'destroy']);
 
         // Menu Cycles
+        Route::patch('menu-cycles/{menu_cycle}/slots/{day}/{meal}', [MenuCycleController::class, 'updateSlot']);
+        Route::delete('menu-cycles/{menu_cycle}/slots/{day}/{meal}', [MenuCycleController::class, 'restoreSlot']);
         Route::patch('menu-cycles/{menu_cycle}/activate', [MenuCycleController::class, 'activate']);
         Route::post('menu-cycles/{menu_cycle}/save-template', [MenuCycleTemplateController::class, 'fromCycle']);
         Route::apiResource('menu-cycles', MenuCycleController::class)->only(['store', 'update', 'destroy']);

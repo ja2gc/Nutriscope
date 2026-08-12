@@ -393,7 +393,7 @@ class PurchaseOrderLifecycleService
                 $pop = $population;
 
                 if ($cell->recipe_id && $cell->recipe) {
-                    $snapshot = MenuCycleCostService::recipeProfile($cell->recipe, $pop);
+                    $snapshot = MenuCycleCostService::recipeProfileForDay($cell, $pop);
                 } elseif ($cell->fs_item_id && $cell->fsItem) {
                     $item = $cell->fsItem;
                     $qty = (float) ($cell->quantity ?? 1);

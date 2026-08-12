@@ -283,6 +283,31 @@ class MenuCycleCostService
         ];
     }
 
+    public static function recipeProfileForDay(MenuCycleDay $day, int $population): array
+    {
+        $day->loadMissing('recipe.ingredients.fsItem', 'fsItem');
+        $entry = self::entryForDay($day);
+        if (! isset($entry['recipe'])) {
+            return [];
+        }
+
+        $entry['servings_override'] = $population;
+        $entry['estimate_population'] = $population;
+        $out = self::aggregate([$entry]);
+        $recipe = $entry['recipe'];
+
+        return [
+            'recipe_id' => $day->recipe_id,
+            'name' => $recipe['name'],
+            'prep_notes' => $recipe['prep_notes'] ?? null,
+            'servings' => (int) $recipe['servings'],
+            'population' => $population,
+            'total_cost' => $out['total_cost'],
+            'cost_per_head' => $out['cost_per_head'],
+            'ingredient_usage' => $out['ingredient_usage'],
+        ];
+    }
+
     /**
      * Required base-unit ingredient usage for a subset of days. Population is read
      * per-day from each MenuCycleDay (estimate_population); $fallback covers days that

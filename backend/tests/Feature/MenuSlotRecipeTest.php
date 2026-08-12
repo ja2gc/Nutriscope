@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\FoodServiceRecipe;
+use App\Models\FoodServiceRecipeIngredient;
 use App\Models\FsItem;
 use App\Models\MenuCycle;
 use App\Models\MenuCycleDay;
@@ -14,6 +15,40 @@ use Tests\TestCase;
 class MenuSlotRecipeTest extends TestCase
 {
     use RefreshDatabase;
+
+    private function recipeSlot(User $rnd, bool $locked = false): array
+    {
+        $item = FsItem::factory()->create([
+            'name' => 'Chicken',
+            'base_unit' => 'kg',
+            'purchase_unit' => 'kg',
+            'purchase_price' => 100,
+            'units_per_purchase' => 1,
+        ]);
+        $recipe = FoodServiceRecipe::create([
+            'rnd_user_id' => $rnd->id,
+            'name' => 'Master Adobo',
+            'prep_notes' => 'Master notes',
+            'servings' => 20,
+        ]);
+        FoodServiceRecipeIngredient::create([
+            'food_service_recipe_id' => $recipe->id,
+            'fs_item_id' => $item->id,
+            'quantity' => 2,
+            'unit' => 'kg',
+        ]);
+        $cycle = MenuCycle::factory()->create(['rnd_user_id' => $rnd->id, 'is_active' => false]);
+        $day = MenuCycleDay::factory()->create([
+            'menu_cycle_id' => $cycle->id,
+            'day_of_week' => 'Monday',
+            'meal_type' => 'lunch',
+            'recipe_id' => $recipe->id,
+            'estimate_population' => 100,
+            'po_snapshot_locked' => $locked,
+        ]);
+
+        return compact('item', 'recipe', 'cycle', 'day');
+    }
 
     public function test_slot_override_is_scaled_instead_of_master_recipe(): void
     {
@@ -85,5 +120,80 @@ class MenuSlotRecipeTest extends TestCase
 
         $this->actingAs($rnd)->patchJson("/api/fss/menu-cycles/{$cycle->uuid}", $payload($second))->assertOk();
         $this->assertNull($cycle->days()->first()->recipe_override);
+    }
+
+    public function test_fss_can_view_master_slot_details_but_cannot_update_them(): void
+    {
+        $rnd = User::factory()->rnd()->create();
+        $fss = User::factory()->fss()->create();
+        ['cycle' => $cycle] = $this->recipeSlot($rnd);
+        $url = "/api/fss/menu-cycles/{$cycle->uuid}/slots/Monday/lunch";
+
+        $this->actingAs($fss)->getJson($url)
+            ->assertOk()
+            ->assertJsonPath('data.name', 'Master Adobo')
+            ->assertJsonPath('data.source', 'master')
+            ->assertJsonPath('data.reference_servings', 20)
+            ->assertJsonPath('data.planned_servings', 100)
+            ->assertJsonPath('data.ingredients.0.quantity', 2);
+
+        $this->actingAs($fss)->patchJson($url, [])->assertForbidden();
+    }
+
+    public function test_rnd_can_customize_and_restore_one_slot_without_changing_master(): void
+    {
+        $rnd = User::factory()->rnd()->create();
+        ['item' => $item, 'recipe' => $recipe, 'cycle' => $cycle, 'day' => $day] = $this->recipeSlot($rnd);
+        $url = "/api/fss/menu-cycles/{$cycle->uuid}/slots/Monday/lunch";
+        $payload = [
+            'name' => 'Ward Adobo',
+            'reference_servings' => 25,
+            'planned_servings' => 100,
+            'prep_notes' => 'Less salty',
+            'ingredients' => [[
+                'fs_item_id' => $item->uuid,
+                'quantity' => 3,
+                'unit' => 'kg',
+            ]],
+        ];
+
+        $this->actingAs($rnd)->patchJson($url, $payload)
+            ->assertOk()
+            ->assertJsonPath('data.source', 'custom')
+            ->assertJsonPath('data.total_cost', 1200);
+
+        $this->assertSame('Master Adobo', $recipe->fresh()->name);
+        $this->assertSame('Ward Adobo', $day->fresh()->recipe_override['name']);
+        $this->assertSame(100, $day->fresh()->servings_override);
+
+        $this->actingAs($rnd)->deleteJson($url)
+            ->assertOk()
+            ->assertJsonPath('data.source', 'master');
+        $this->assertNull($day->fresh()->recipe_override);
+    }
+
+    public function test_slot_update_validates_ingredients_and_rejects_locked_slots(): void
+    {
+        $rnd = User::factory()->rnd()->create();
+        ['item' => $item, 'cycle' => $cycle] = $this->recipeSlot($rnd, locked: true);
+        $url = "/api/fss/menu-cycles/{$cycle->uuid}/slots/Monday/lunch";
+        $payload = [
+            'name' => 'Locked',
+            'reference_servings' => 20,
+            'planned_servings' => 100,
+            'ingredients' => [
+                ['fs_item_id' => $item->uuid, 'quantity' => 2, 'unit' => 'kg'],
+                ['fs_item_id' => $item->uuid, 'quantity' => 3, 'unit' => 'kg'],
+            ],
+        ];
+
+        $this->actingAs($rnd)->patchJson($url, $payload)
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('ingredients.1.fs_item_id');
+
+        $payload['ingredients'] = [$payload['ingredients'][0]];
+        $this->actingAs($rnd)->patchJson($url, $payload)
+            ->assertStatus(409)
+            ->assertJsonPath('message', 'This menu item is locked to a purchase order.');
     }
 }
