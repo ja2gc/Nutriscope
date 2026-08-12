@@ -28,6 +28,7 @@ export interface MenuDay {
   po_snapshot?: MenuSnapshot | null;
   po_snapshot_at?: string | null;
   po_snapshot_locked?: boolean;
+  has_recipe_override?: boolean;
   recipe?: { id: number; name: string; servings: number; cost: string } | null;
   fs_item?: { id: number; name: string } | null;
 }
@@ -113,6 +114,63 @@ export interface FsItemProfile {
 }
 
 export type MenuSlotProfile = RecipeProfile | FsItemProfile;
+
+export interface MenuSlotIngredient {
+  fs_item_id: string;
+  name: string;
+  quantity: number;
+  unit: string;
+  scaled_quantity: number;
+  scaled_cost: number;
+}
+
+export interface MenuSlotRecipe {
+  cycle_id: string;
+  day: Day;
+  meal: Meal;
+  source: "master" | "custom" | "locked";
+  locked: boolean;
+  editable: boolean;
+  name: string;
+  reference_servings: number;
+  planned_servings: number;
+  prep_notes: string | null;
+  ingredients: MenuSlotIngredient[];
+  total_cost: number;
+  cost_per_head: number;
+}
+
+export interface UpdateMenuSlotRecipePayload {
+  name: string;
+  reference_servings: number;
+  planned_servings: number;
+  prep_notes: string | null;
+  ingredients: Array<Pick<MenuSlotIngredient, "fs_item_id" | "quantity" | "unit">>;
+}
+
+export function scaledIngredientQuantity(quantity: number, referenceServings: number, plannedServings: number): number {
+  return quantity * plannedServings / Math.max(1, referenceServings);
+}
+
+function slotPath(cycleId: string | number, day: Day, meal: Meal): string {
+  return `/api/fss/menu-cycles/${cycleId}/slots/${day}/${meal}`;
+}
+
+export async function getMenuSlotRecipe(cycleId: string | number, day: Day, meal: Meal): Promise<MenuSlotRecipe> {
+  return json<MenuSlotRecipe>(await apiFetch(slotPath(cycleId, day, meal)), "Failed to load menu item details.");
+}
+
+export async function updateMenuSlotRecipe(cycleId: string | number, day: Day, meal: Meal, payload: UpdateMenuSlotRecipePayload): Promise<MenuSlotRecipe> {
+  return json<MenuSlotRecipe>(await apiFetch(slotPath(cycleId, day, meal), {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  }), "Failed to save menu item details.");
+}
+
+export async function restoreMenuSlotRecipe(cycleId: string | number, day: Day, meal: Meal): Promise<MenuSlotRecipe> {
+  return json<MenuSlotRecipe>(await apiFetch(slotPath(cycleId, day, meal), { method: "DELETE" }), "Failed to restore the original recipe.");
+}
 
 export function menuSnapshotToProfile(snapshot: MenuSnapshot): RecipeProfile {
   const population = Number(snapshot.population ?? 0);

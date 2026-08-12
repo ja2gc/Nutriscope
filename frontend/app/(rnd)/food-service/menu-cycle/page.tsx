@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   CalendarDays, Plus, Search, X, Trash2, Save, Zap, Copy, BookmarkPlus,
   LayoutTemplate, ChevronLeft, AlertTriangle, RefreshCw, Pencil,
@@ -11,14 +12,12 @@ import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   DAYS, MEALS, MEAL_LABELS, Day, Meal,
-  CycleListItem, MenuCycle, RecipeOption, FsItemOption, TemplateListItem, MenuSnapshot, MenuSlotProfile,
+  CycleListItem, MenuCycle, RecipeOption, FsItemOption, TemplateListItem, MenuSnapshot,
   listCycles, getCycle, saveCycle, deleteCycle, activateCycle,
   saveCycleAsTemplate, listRecipeOptions, listFsItemOptions, listTemplates, instantiateTemplate, deleteTemplate,
-  getRecipeProfile, getFsItemProfile, menuSnapshotToProfile,
 } from "@/services/menuCycleService";
 import { setServedPopulation, listServiceLogs } from "@/services/consumptionService";
 
-const peso = (n: number) => `₱${n.toFixed(2)}`;
 const cellKey = (d: Day, m: Meal) => `${d}|${m}`;
 // Actual calendar date for a weekday column of a Monday-anchored cycle week.
 const isoAddDays = (start: string, n: number) => {
@@ -58,149 +57,12 @@ interface Cell {
   quantity: number;
   estimate_population: number | null;
   po_snapshot: MenuSnapshot | null;
+  hasRecipeOverride: boolean;
 }
 type Grid = Record<string, Cell>;
 // Per-day headcount (drives scaling). Keyed by Day.
 type DayPop = Record<string, string>;
 
-
-// ─── Recipe profile panel (ingredients + cost scaled from the recipe baseline) ──────
-// FSS: read-only — sees ingredients, prep notes, and cost at the day's headcount.
-// RND: can scale servings live (re-scales ingredients + cost) and jump to full edit.
-function RecipeProfilePanel(
-  { recipeId, fsItemId, snapshot, quantity, day, population, name, initialServings, readOnly, onPersist, onClose }:
-  {
-    recipeId: number | null; fsItemId: number | null; snapshot: MenuSnapshot | null; quantity: number;
-    day: Day; population: number; name: string;
-    initialServings: number | null; readOnly: boolean;
-    onPersist?: (servings: number) => void; onClose: () => void;
-  },
-) {
-  const [data, setData] = useState<MenuSlotProfile | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [err, setErr] = useState("");
-  // Actual servings for THIS menu-cycle slot — defaults to a saved override, else the
-  // day's headcount. Changing it (RND) persists to the slot, never the baseline recipe.
-  const frozen = snapshot !== null;
-  const scaleLocked = readOnly || frozen || recipeId === null;
-  const [scaleTo, setScaleTo] = useState(Math.max(1, snapshot?.population || initialServings || population || 1));
-
-  function changeScale(n: number) {
-    const v = Math.max(1, n || 1);
-    setScaleTo(v);
-    onPersist?.(v);
-  }
-
-  useEffect(() => {
-    let live = true;
-    setLoading(true); setErr("");
-    const request = snapshot
-      ? Promise.resolve(menuSnapshotToProfile(snapshot))
-      : recipeId
-        ? getRecipeProfile(recipeId, scaleTo)
-        : fsItemId
-          ? getFsItemProfile(fsItemId, scaleTo, quantity)
-          : Promise.reject(new Error("Food profile is unavailable."));
-    request
-      .then((d) => { if (live) setData(d); })
-      .catch(() => { if (live) setErr("Failed to load food profile."); })
-      .finally(() => { if (live) setLoading(false); });
-    return () => { live = false; };
-  }, [fsItemId, quantity, recipeId, scaleTo, snapshot]);
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-start justify-between gap-3 p-5 border-b border-warm-100">
-          <div>
-            <div className="text-base font-extrabold text-warm-900">{name}</div>
-            <div className="text-xs text-warm-500 mt-0.5">
-              {day} · scaled to {snapshot?.population ?? scaleTo} servings{scaleLocked ? " (view only)" : ""}
-              {frozen && <span className="ml-1 font-semibold text-emerald-700">· frozen at PO conversion</span>}
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            {!readOnly && !frozen && recipeId && (
-              <Link href={`/food-service/foods/${recipeId}`}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-emerald-200 text-xs font-bold uppercase tracking-wider text-emerald-700 hover:bg-emerald-50">
-                <Pencil className="h-3 w-3" /> Edit
-              </Link>
-            )}
-            <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-warm-100 text-warm-500 cursor-pointer"><X className="h-4 w-4" /></button>
-          </div>
-        </div>
-
-        {loading ? (
-          <div className="py-16 text-center text-sm text-warm-400">Loading…</div>
-        ) : err ? (
-          <div className="py-16 text-center text-sm text-red-500">{err}</div>
-        ) : data ? (
-          <div className="p-5 space-y-4">
-            <div className="flex flex-wrap gap-5">
-              <div>
-                <div className="text-xs font-extrabold text-warm-500 uppercase tracking-wider">Total (this day)</div>
-                <div className="text-xl font-extrabold text-emerald-600">{peso(data.total_cost)}</div>
-              </div>
-              <div>
-                <div className="text-xs font-extrabold text-warm-500 uppercase tracking-wider">Cost / head</div>
-                <div className="text-xl font-extrabold text-warm-800">{peso(data.cost_per_head)}</div>
-              </div>
-              <div>
-                <div className="text-xs font-extrabold text-warm-500 uppercase tracking-wider">Baseline</div>
-                <div className="text-xl font-extrabold text-warm-400">serves {data.servings}</div>
-              </div>
-              <div>
-                <div className="text-xs font-extrabold text-warm-500 uppercase tracking-wider">Scale to (servings)</div>
-                {scaleLocked ? (
-                  <div className="text-xl font-extrabold text-warm-800">{scaleTo}</div>
-                ) : (
-                  <input type="number" min={1} value={scaleTo}
-                    onChange={(e) => changeScale(parseInt(e.target.value))}
-                    className="w-24 px-2 py-1 text-lg font-extrabold text-warm-800 border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500" />
-                )}
-              </div>
-            </div>
-
-            <div>
-              <div className="text-xs font-extrabold text-warm-500 uppercase tracking-wider mb-2">Ingredients (scaled)</div>
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-xs text-warm-400 uppercase">
-                    <th className="text-left font-bold py-1">Item</th>
-                    <th className="text-right font-bold py-1">Qty</th>
-                    <th className="text-right font-bold py-1">Cost</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-zinc-50">
-                  {data.ingredient_usage.map((u) => (
-                    <tr key={u.fs_item_id}>
-                      <td className="py-1.5 text-warm-700 font-medium">{u.name}</td>
-                      <td className="py-1.5 text-right text-warm-500 font-mono">{u.quantity.toFixed(2)} {u.unit}</td>
-                      <td className="py-1.5 text-right text-warm-700 font-mono">{peso(u.cost)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              {data.ingredient_usage.length === 0 && (
-                <div className="text-xs text-warm-400 py-4 text-center">No costable ingredients.</div>
-              )}
-            </div>
-
-            {data.prep_notes && (
-              <div>
-                <div className="text-xs font-extrabold text-warm-500 uppercase tracking-wider mb-1">Preparation notes</div>
-                <p className="text-sm text-warm-700 leading-6 whitespace-pre-wrap bg-warm-50 border border-warm-100 rounded-lg p-3">{data.prep_notes}</p>
-              </div>
-            )}
-            <p className="text-xs text-warm-400">
-              Quantities and cost scale live from the recipe baseline (serves {data.servings}){readOnly ? "" : " — change “Scale to” to rescale"}.
-            </p>
-          </div>
-        ) : null}
-      </div>
-    </div>
-  );
-}
 
 // ─── Breadcrumb + header shell ──────────────────────────────────────────────────
 function Shell({ children }: { children: React.ReactNode }) {
@@ -358,6 +220,7 @@ function CycleList({ readOnly, onOpen, onNew }: { readOnly: boolean; onOpen: (id
 
 // ═══ EDITOR VIEW ═══════════════════════════════════════════════════════════════════
 function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: number | "new"; readOnly: boolean; onBack: () => void }) {
+  const router = useRouter();
   const [name, setName] = useState("New Menu Cycle");
   const [weekStart, setWeekStart] = useState("");
   const [isActive, setIsActive] = useState(false);
@@ -374,17 +237,6 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: number | "new"; r
   const [savedId, setSavedId] = useState<number | null>(cycleId === "new" ? null : cycleId);
 
   const [activeCell, setActiveCell] = useState<string | null>(null);
-  const [profileFor, setProfileFor] = useState<{
-    recipeId: number | null;
-    fsItemId: number | null;
-    day: Day;
-    meal: Meal;
-    name: string;
-    servingsOverride: number | null;
-    population: number;
-    quantity: number;
-    snapshot: MenuSnapshot | null;
-  } | null>(null);
   const [pickerSearch, setPickerSearch] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
@@ -406,12 +258,14 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: number | "new"; r
           servings_override: d.servings_override ?? null,
           quantity: d.quantity ?? 1, estimate_population: d.estimate_population ?? null,
           po_snapshot: d.po_snapshot ?? null,
+          hasRecipeOverride: d.has_recipe_override ?? false,
         };
         else if (d.fs_item_id && d.fs_item) g[k] = {
           recipe_id: null, fs_item_id: d.fs_item_id, recipe_name: d.fs_item.name, servings: 0,
           servings_override: d.servings_override ?? null,
           quantity: d.quantity ?? 1, estimate_population: d.estimate_population ?? null,
           po_snapshot: d.po_snapshot ?? null,
+          hasRecipeOverride: false,
         };
       });
       setGrid(g);
@@ -459,6 +313,7 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: number | "new"; r
     setGrid((g) => ({ ...g, [key]: {
       recipe_id: r.id, fs_item_id: null, recipe_name: r.name, servings: r.servings,
       servings_override: null, quantity: 1, estimate_population: null, po_snapshot: null,
+      hasRecipeOverride: false,
     } }));
     setActiveCell(null); setPickerSearch("");
   }
@@ -466,12 +321,9 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: number | "new"; r
     setGrid((g) => ({ ...g, [key]: {
       recipe_id: null, fs_item_id: it.id, recipe_name: it.name, servings: 0,
       servings_override: null, quantity: 1, estimate_population: null, po_snapshot: null,
+      hasRecipeOverride: false,
     } }));
     setActiveCell(null); setPickerSearch("");
-  }
-  // Persist the actual servings for a recipe slot (menu-cycle specific; baseline untouched).
-  function setCellServings(key: string, servings: number | null) {
-    setGrid((g) => (g[key] ? { ...g, [key]: { ...g[key], servings_override: servings } } : g));
   }
   function clearCell(key: string) { setGrid((g) => { const n = { ...g }; delete n[key]; return n; }); }
   function duplicateWeek(from: Day) {
@@ -527,6 +379,13 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: number | "new"; r
     const tName = prompt("Template name?", `${name} template`);
     if (!tName) return;
     await saveCycleAsTemplate(id, tName);
+  }
+
+  async function openSlot(day: Day, meal: Meal, cell: Cell) {
+    const id = readOnly || isActive || cell.po_snapshot ? savedId : await handleSave();
+    if (!id) return;
+    const base = readOnly ? "/fss/menu" : "/food-service/menu-cycle";
+    router.push(`${base}/${id}/slots/${day}/${meal}`);
   }
 
   const filteredRecipes = recipes.filter((r) => !pickerSearch || r.name.toLowerCase().includes(pickerSearch.toLowerCase()));
@@ -663,19 +522,9 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: number | "new"; r
                         <div className="bg-emerald-50/60 border border-emerald-100 rounded-lg p-2 group">
                           <div className="flex items-start justify-between gap-1">
                             <button
-                              onClick={() => setProfileFor({
-                                recipeId: cell.recipe_id,
-                                fsItemId: cell.fs_item_id,
-                                day: d,
-                                meal: m,
-                                name: cell.recipe_name,
-                                servingsOverride: cell.servings_override,
-                                population: cell.estimate_population ?? cell.servings_override ?? 1,
-                                quantity: cell.quantity,
-                                snapshot: cell.po_snapshot,
-                              })}
-                              title="View scaled ingredients and cost for this day"
-                              className="text-xs font-semibold text-emerald-800 leading-tight text-left hover:underline cursor-pointer">
+                              onClick={() => openSlot(d, m, cell)}
+                              title="Open menu item details"
+                              className="min-h-11 flex-1 text-xs font-semibold text-emerald-800 leading-tight text-left hover:underline cursor-pointer">
                               {cell.recipe_name}
                             </button>
                             {!readOnly && (
@@ -683,8 +532,9 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: number | "new"; r
                             )}
                           </div>
                           <div className="text-xs text-emerald-500 mt-1">
-                            {cell.po_snapshot ? "PO-scaled profile" : "click to see food details"}
+                            {cell.po_snapshot ? "Locked to PO · open details" : "Open menu item details"}
                           </div>
+                          {cell.hasRecipeOverride && <span className="mt-1 inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-800">Customized slot</span>}
                         </div>
                       ) : readOnly ? (
                         <div className="w-full text-center py-2 text-xs text-warm-300">—</div>
@@ -739,27 +589,13 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: number | "new"; r
         </table>
       </div>
 
-      {profileFor && (
-        <RecipeProfilePanel
-          recipeId={profileFor.recipeId}
-          fsItemId={profileFor.fsItemId}
-          snapshot={profileFor.snapshot}
-          quantity={profileFor.quantity}
-          day={profileFor.day}
-          name={profileFor.name}
-          population={profileFor.population}
-          initialServings={profileFor.servingsOverride}
-          readOnly={readOnly}
-          onPersist={readOnly || profileFor.snapshot || !profileFor.recipeId ? undefined : (s) => setCellServings(cellKey(profileFor.day, profileFor.meal), s)}
-          onClose={() => setProfileFor(null)}
-        />
-      )}
     </Shell>
   );
 }
 
 // ═══ ROOT ═══════════════════════════════════════════════════════════════════════
 export default function MenuCyclePage() {
+  const searchParams = useSearchParams();
   const [view, setView] = useState<{ mode: "list" } | { mode: "edit"; id: number | "new" } | { mode: "loading" }>({ mode: "loading" });
   const { user } = useAuth();
   // FSS may VIEW menu cycles but never author them (RND owns writes). Backend already
@@ -771,6 +607,11 @@ export default function MenuCyclePage() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      const requestedCycle = searchParams.get("cycle");
+      if (requestedCycle) {
+        setView({ mode: "edit", id: requestedCycle as unknown as number });
+        return;
+      }
       try {
         const cycles = await listCycles(1);
         const active = cycles.data.find((c) => c.is_active);
@@ -780,7 +621,7 @@ export default function MenuCyclePage() {
       }
     })();
     return () => { cancelled = true; };
-  }, []);
+  }, [searchParams]);
 
   if (view.mode === "loading") {
     return <Shell><div className="py-16 text-center text-sm text-warm-400">Loading…</div></Shell>;

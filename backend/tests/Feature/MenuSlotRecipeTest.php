@@ -166,6 +166,12 @@ class MenuSlotRecipeTest extends TestCase
         $this->assertSame('Ward Adobo', $day->fresh()->recipe_override['name']);
         $this->assertSame(100, $day->fresh()->servings_override);
 
+        $this->actingAs($rnd)->getJson("/api/fss/menu-cycles/{$cycle->uuid}")
+            ->assertOk()
+            ->assertJsonPath('data.days.0.recipe.name', 'Ward Adobo')
+            ->assertJsonPath('data.days.0.recipe.servings', 25)
+            ->assertJsonPath('data.days.0.has_recipe_override', true);
+
         $this->actingAs($rnd)->deleteJson($url)
             ->assertOk()
             ->assertJsonPath('data.source', 'master');
@@ -175,7 +181,7 @@ class MenuSlotRecipeTest extends TestCase
     public function test_slot_update_validates_ingredients_and_rejects_locked_slots(): void
     {
         $rnd = User::factory()->rnd()->create();
-        ['item' => $item, 'cycle' => $cycle] = $this->recipeSlot($rnd, locked: true);
+        ['item' => $item, 'cycle' => $cycle, 'day' => $day] = $this->recipeSlot($rnd, locked: true);
         $url = "/api/fss/menu-cycles/{$cycle->uuid}/slots/Monday/lunch";
         $payload = [
             'name' => 'Locked',
@@ -195,5 +201,29 @@ class MenuSlotRecipeTest extends TestCase
         $this->actingAs($rnd)->patchJson($url, $payload)
             ->assertStatus(409)
             ->assertJsonPath('message', 'This menu item is locked to a purchase order.');
+
+        $day->update(['po_snapshot' => [
+            'name' => 'Frozen Adobo',
+            'prep_notes' => 'Frozen notes',
+            'servings' => 20,
+            'population' => 100,
+            'total_cost' => 999,
+            'cost_per_head' => 9.99,
+            'ingredient_usage' => [[
+                'fs_item_id' => $item->id,
+                'name' => 'Chicken',
+                'unit' => 'kg',
+                'quantity' => 10,
+                'cost' => 999,
+            ]],
+        ]]);
+        $item->update(['purchase_price' => 500]);
+
+        $this->actingAs($rnd)->getJson($url)
+            ->assertOk()
+            ->assertJsonPath('data.name', 'Frozen Adobo')
+            ->assertJsonPath('data.total_cost', 999)
+            ->assertJsonPath('data.ingredients.0.quantity', 2)
+            ->assertJsonPath('data.ingredients.0.scaled_quantity', 10);
     }
 }

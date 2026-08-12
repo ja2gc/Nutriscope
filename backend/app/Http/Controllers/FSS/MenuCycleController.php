@@ -402,6 +402,10 @@ class MenuCycleController extends Controller
     private function slotData(MenuCycleDay $slot): array
     {
         $slot->loadMissing(['recipe.ingredients.fsItem', 'fsItem']);
+        if ($slot->po_snapshot_locked && $slot->po_snapshot) {
+            return $this->frozenSlotData($slot);
+        }
+
         $entry = MenuCycleCostService::entryForDay($slot);
         abort_if($entry === null, 404);
 
@@ -452,6 +456,43 @@ class MenuCycleController extends Controller
             'ingredients' => $ingredients,
             'total_cost' => (float) $result['total_cost'],
             'cost_per_head' => (float) $result['cost_per_head'],
+        ];
+    }
+
+    private function frozenSlotData(MenuCycleDay $slot): array
+    {
+        $snapshot = $slot->po_snapshot;
+        $reference = max(1, (int) ($snapshot['servings'] ?? 1));
+        $planned = max(1, (int) ($snapshot['population'] ?? $slot->servings_override ?? 1));
+        $usage = collect($snapshot['ingredient_usage'] ?? []);
+        $items = FsItem::query()->whereIn('id', $usage->pluck('fs_item_id'))->get()->keyBy('id');
+
+        return [
+            'cycle_id' => $slot->menuCycle->uuid,
+            'day' => $slot->day_of_week,
+            'meal' => $slot->meal_type,
+            'source' => 'locked',
+            'locked' => true,
+            'editable' => false,
+            'name' => $snapshot['name'] ?? $slot->recipe?->name ?? $slot->fsItem?->name,
+            'reference_servings' => $reference,
+            'planned_servings' => $planned,
+            'prep_notes' => $snapshot['prep_notes'] ?? null,
+            'ingredients' => $usage->map(function (array $ingredient) use ($items, $reference, $planned): array {
+                $item = $items->get((int) $ingredient['fs_item_id']);
+                $scaled = (float) $ingredient['quantity'];
+
+                return [
+                    'fs_item_id' => $item?->uuid,
+                    'name' => $ingredient['name'],
+                    'quantity' => $scaled * $reference / $planned,
+                    'unit' => $ingredient['unit'],
+                    'scaled_quantity' => $scaled,
+                    'scaled_cost' => (float) $ingredient['cost'],
+                ];
+            })->values()->all(),
+            'total_cost' => (float) ($snapshot['total_cost'] ?? 0),
+            'cost_per_head' => (float) ($snapshot['cost_per_head'] ?? 0),
         ];
     }
 
