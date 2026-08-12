@@ -3,7 +3,9 @@
 namespace App\Services;
 
 use App\Models\FoodServiceRecipe;
+use App\Models\FsItem;
 use App\Models\MenuCycle;
+use App\Models\MenuCycleDay;
 use App\Support\RecipeScaler;
 use App\Support\UnitConverter;
 use Illuminate\Support\Collection;
@@ -169,42 +171,74 @@ class MenuCycleCostService
     {
         return $days
             ->filter(fn ($day) => $day->recipe !== null || $day->fsItem !== null)
-            ->map(function ($day) {
-                $base = [
-                    'day_of_week' => $day->day_of_week,
-                    'meal_type' => $day->meal_type,
-                    'servings_override' => $day->servings_override,
-                    'estimate_population' => $day->estimate_population,
-                ];
+            ->map(fn (MenuCycleDay $day) => self::entryForDay($day))
+            ->filter()
+            ->values()->all();
+    }
 
-                if ($day->recipe !== null) {
-                    return $base + [
-                        'recipe' => [
-                            'servings' => (int) $day->recipe->servings,
-                            'ingredients' => $day->recipe->ingredients
-                                ->filter(fn ($ing) => $ing->fsItem !== null)
-                                ->map(fn ($ing) => [
-                                    'fs_item_id' => $ing->fs_item_id,
-                                    'name' => $ing->fsItem->name,
-                                    'quantity' => (float) $ing->quantity,
-                                    'unit' => $ing->unit,
-                                    'base_unit' => $ing->fsItem->base_unit,
-                                    'unit_cost' => $ing->fsItem->unit_cost,
-                                ])->values()->all(),
-                        ],
-                    ];
-                }
+    public static function entryForDay(MenuCycleDay $day): ?array
+    {
+        $base = [
+            'day_of_week' => $day->day_of_week,
+            'meal_type' => $day->meal_type,
+            'servings_override' => $day->servings_override,
+            'estimate_population' => $day->estimate_population,
+        ];
 
-                return $base + [
-                    'item' => [
-                        'fs_item_id' => $day->fs_item_id,
-                        'name' => $day->fsItem->name,
-                        'unit' => $day->fsItem->base_unit,
-                        'unit_cost' => $day->fsItem->unit_cost,
-                        'quantity' => (float) ($day->quantity ?: 1),
-                    ],
-                ];
-            })->values()->all();
+        if ($override = $day->recipe_override) {
+            $items = FsItem::query()
+                ->whereIn('id', collect($override['ingredients'] ?? [])->pluck('fs_item_id'))
+                ->get()
+                ->keyBy('id');
+
+            return $base + ['recipe' => [
+                'name' => $override['name'],
+                'servings' => (int) $override['reference_servings'],
+                'prep_notes' => $override['prep_notes'] ?? null,
+                'ingredients' => collect($override['ingredients'] ?? [])->map(function (array $ingredient) use ($items) {
+                    $item = $items->get((int) $ingredient['fs_item_id']);
+
+                    return $item ? [
+                        'fs_item_id' => $item->id,
+                        'name' => $item->name,
+                        'quantity' => (float) $ingredient['quantity'],
+                        'unit' => $ingredient['unit'],
+                        'base_unit' => $item->base_unit,
+                        'unit_cost' => $item->unit_cost,
+                    ] : null;
+                })->filter()->values()->all(),
+            ]];
+        }
+
+        if ($day->recipe !== null) {
+            return $base + ['recipe' => [
+                'name' => $day->recipe->name,
+                'servings' => (int) $day->recipe->servings,
+                'prep_notes' => $day->recipe->prep_notes,
+                'ingredients' => $day->recipe->ingredients
+                    ->filter(fn ($ing) => $ing->fsItem !== null)
+                    ->map(fn ($ing) => [
+                        'fs_item_id' => $ing->fs_item_id,
+                        'name' => $ing->fsItem->name,
+                        'quantity' => (float) $ing->quantity,
+                        'unit' => $ing->unit,
+                        'base_unit' => $ing->fsItem->base_unit,
+                        'unit_cost' => $ing->fsItem->unit_cost,
+                    ])->values()->all(),
+            ]];
+        }
+
+        if ($day->fsItem === null) {
+            return null;
+        }
+
+        return $base + ['item' => [
+            'fs_item_id' => $day->fs_item_id,
+            'name' => $day->fsItem->name,
+            'unit' => $day->fsItem->base_unit,
+            'unit_cost' => $day->fsItem->unit_cost,
+            'quantity' => (float) ($day->quantity ?: 1),
+        ]];
     }
 
     /**

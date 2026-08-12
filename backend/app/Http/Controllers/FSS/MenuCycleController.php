@@ -352,6 +352,7 @@ class MenuCycleController extends Controller
     /** Replace the cycle's days with the supplied grid (single batch INSERT). */
     private function syncDays(MenuCycle $cycle, array $days): void
     {
+        $existing = $cycle->days()->get()->keyBy(fn ($day) => $day->day_of_week.'|'.$day->meal_type);
         $cycle->days()->delete();
 
         $now = Carbon::now();
@@ -361,6 +362,10 @@ class MenuCycleController extends Controller
             if (empty($d['recipe_id']) && empty($d['fs_item_id'])) {
                 continue;
             }
+            $previous = $existing->get($d['day_of_week'].'|'.$d['meal_type']);
+            $sameSource = $previous
+                && (int) $previous->recipe_id === (int) ($d['recipe_id'] ?? 0)
+                && (int) $previous->fs_item_id === (int) ($d['fs_item_id'] ?? 0);
             $rows[] = [
                 'menu_cycle_id' => $cycle->id,
                 'day_of_week' => $d['day_of_week'],
@@ -369,6 +374,7 @@ class MenuCycleController extends Controller
                 'fs_item_id' => $d['fs_item_id'] ?? null,
                 'quantity' => $d['quantity'] ?? 1,
                 'servings_override' => $d['servings_override'] ?? null,
+                'recipe_override' => $sameSource ? json_encode($previous->recipe_override) : null,
                 'estimate_population' => $d['estimate_population'] ?? null,
                 'estimate_population_updated_at' => array_key_exists('estimate_population', $d) ? $now : null,
                 'is_event' => $d['is_event'] ?? false,
