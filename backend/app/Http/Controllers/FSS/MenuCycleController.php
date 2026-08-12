@@ -125,20 +125,22 @@ class MenuCycleController extends Controller
 
         $data = $request->validated();
         $items = FsItem::query()->whereIn('id', collect($data['ingredients'])->pluck('fs_item_id'))->get()->keyBy('id');
-        $slot->update([
-            'servings_override' => $data['planned_servings'],
-            'recipe_override' => [
-                'name' => $data['name'],
-                'reference_servings' => $data['reference_servings'],
-                'prep_notes' => $data['prep_notes'] ?? null,
-                'ingredients' => collect($data['ingredients'])->map(fn (array $ingredient) => [
-                    'fs_item_id' => $ingredient['fs_item_id'],
-                    'name' => $items->get($ingredient['fs_item_id'])->name,
-                    'quantity' => (float) $ingredient['quantity'],
-                    'unit' => $ingredient['unit'],
-                ])->values()->all(),
-            ],
-        ]);
+        $this->recordSlotChange($menuCycle, function () use ($slot, $data, $items): void {
+            $slot->update([
+                'servings_override' => $data['planned_servings'],
+                'recipe_override' => [
+                    'name' => $data['name'],
+                    'reference_servings' => $data['reference_servings'],
+                    'prep_notes' => $data['prep_notes'] ?? null,
+                    'ingredients' => collect($data['ingredients'])->map(fn (array $ingredient) => [
+                        'fs_item_id' => $ingredient['fs_item_id'],
+                        'name' => $items->get($ingredient['fs_item_id'])->name,
+                        'quantity' => (float) $ingredient['quantity'],
+                        'unit' => $ingredient['unit'],
+                    ])->values()->all(),
+                ],
+            ]);
+        });
 
         return response()->json(['data' => $this->slotData($slot->fresh())]);
     }
@@ -149,7 +151,7 @@ class MenuCycleController extends Controller
         if ($slot->po_snapshot_locked) {
             return response()->json(['message' => 'This menu item is locked to a purchase order.'], 409);
         }
-        $slot->update(['recipe_override' => null]);
+        $this->recordSlotChange($menuCycle, fn () => $slot->update(['recipe_override' => null]));
 
         return response()->json(['data' => $this->slotData($slot->fresh())]);
     }
@@ -494,6 +496,24 @@ class MenuCycleController extends Controller
             'total_cost' => (float) ($snapshot['total_cost'] ?? 0),
             'cost_per_head' => (float) ($snapshot['cost_per_head'] ?? 0),
         ];
+    }
+
+    private function recordSlotChange(MenuCycle $cycle, callable $change): void
+    {
+        $this->audited(function () use ($cycle, $change): void {
+            $before = $this->revisionRegistry->capture($cycle->load(self::DAY_RELATIONS));
+            $this->auditLogger->withoutModelEvents(fn () => DB::transaction($change));
+            $after = $cycle->fresh(self::DAY_RELATIONS);
+            $activity = $this->auditLogger->recordMutation(
+                AuditAction::Updated,
+                AuditDomain::FoodService,
+                $after,
+                ['days'],
+            );
+            if ($activity !== null) {
+                $this->revisionWriter->write($activity, $before, $this->revisionRegistry->capture($after));
+            }
+        });
     }
 
     private function structuralDaysLocked(MenuCycle $cycle): bool

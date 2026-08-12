@@ -476,6 +476,20 @@ return [
             'implementation_state' => 'implemented',
             'reason' => 'Successful DELETE api/fss/menu-cycles/{menu_cycle} emits one sanitized explicit event; rejected commands emit none.',
         ],
+        'PATCH api/fss/menu-cycles/{menu_cycle}/slots/{day}/{meal}' => [
+            'classification' => 'explicit_event',
+            'source' => 'App\\Http\\Controllers\\FSS\\MenuCycleController@updateSlot',
+            'owner_task' => 4,
+            'implementation_state' => 'implemented',
+            'reason' => 'Slot-only recipe changes emit one sanitized menu-cycle event and revision.',
+        ],
+        'DELETE api/fss/menu-cycles/{menu_cycle}/slots/{day}/{meal}' => [
+            'classification' => 'explicit_event',
+            'source' => 'App\\Http\\Controllers\\FSS\\MenuCycleController@restoreSlot',
+            'owner_task' => 4,
+            'implementation_state' => 'implemented',
+            'reason' => 'Restoring a slot recipe emits one sanitized menu-cycle event and revision.',
+        ],
         'PATCH api/fss/menu-cycles/{menu_cycle}/activate' => [
             'classification' => 'explicit_event',
             'source' => 'App\\Http\\Controllers\\FSS\\MenuCycleController@activate',
