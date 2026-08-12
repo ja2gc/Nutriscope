@@ -31,7 +31,7 @@ Add one nullable JSON `recipe_override` column to `menu_cycle_days` and cast it 
 }
 ```
 
-An untouched slot keeps `recipe_override = null` and reads the current master recipe. First RND save copies the edited values into the override. Customized slots stop following later master-recipe edits. `Reset to master recipe` sets the override back to `null` after confirmation.
+An untouched slot keeps `recipe_override = null` and reads the current master recipe. First RND save copies the edited values into the override. Customized slots stop following later master-recipe edits. `Restore from master recipe` sets the override back to `null` after confirmation.
 
 JSON is intentional: data belongs to one slot, is replaced as one validated document, and mirrors the existing `po_snapshot` approach. A second normalized recipe schema would duplicate current recipe CRUD and add joins without user value.
 
@@ -74,13 +74,14 @@ Current Menu Cycle saves replace day rows. `syncDays` therefore carries the exis
 
 ### UI
 
-One shared `MenuSlotRecipePage` component serves both thin route wrappers.
+One shared `MenuSlotRecipePage` component serves both thin route wrappers. User-facing page title is **Menu Item Details**. Never label this screen or its links `Edit Recipe`, because that implies changes to the master recipe.
 
-- Top: visible Back button, day/meal context, slot name, `Master recipe`, `Customized for this slot`, or `Locked to PO` status.
+- Top: visible Back button, `Menu Item Details` title, day/meal context, item name, and `Master recipe`, `Customized for this slot`, or `Locked to PO` status.
 - Summary: Recipe makes, Planned servings, total cost, and cost per head.
 - Ingredients: mobile cards and desktop rows using existing catalog picker, quantity, unit, and calculated scaled quantity/cost.
 - Notes: existing textarea styling.
-- RND actions: `Save slot changes` as sole primary action; `Reset to master recipe` secondary/destructive and confirmed.
+- RND helper text: `Changes apply only to this menu slot. The master recipe will not be changed.`
+- RND actions: `Save slot changes` as sole primary action; `Restore from master recipe` secondary/destructive and confirmed.
 - FSS/locked state: semantic read-only values, no disabled-looking editable controls.
 
 Back uses client navigation and returns to the exact Menu Cycle URL. The Menu Cycle page restores selected cycle and browser scroll; no full reload. Route-level loading uses a stable skeleton. Saving keeps content visible, disables only actions, and shows inline success/error feedback.
@@ -92,6 +93,7 @@ Mobile uses a single column, 16px inputs, at least 44px touch targets, no horizo
 - Entire populated slot card becomes the view/edit link; no tiny text-only target.
 - Remove profile modal and master-recipe Edit link.
 - Preserve current add/remove slot behavior.
+- Populated slot affordance says `View menu item` for FSS and `Open menu item` for RND; neither says `Edit Recipe`.
 - RND label communicates customization; FSS sees the same indicator.
 - FSS Menu route remains read-only and uses the dedicated page instead of squeezing editing controls into a popup.
 
