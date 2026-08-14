@@ -27,6 +27,36 @@ class FoodShoppingListGenerationTest extends TestCase
         $this->rnd = User::factory()->create(['role' => 'RND']);
     }
 
+    public function test_catalog_and_shopping_rows_persist_generation_review_state(): void
+    {
+        $fsItem = FsItem::factory()->create();
+
+        $this->assertTrue($fsItem->include_in_generated_lists);
+
+        $list = ShoppingList::create([
+            'rnd_user_id' => $this->rnd->id,
+            'name' => 'Review state',
+            'list_date' => '2026-06-15',
+            'list_type' => 'manual',
+            'procurement_track' => 'food',
+            'status' => 'draft',
+        ]);
+        $row = $list->items()->create([
+            'fs_item_id' => $fsItem->id,
+            'ingredient_name' => $fsItem->name,
+            'qty' => 1.125,
+            'unit' => 'kg',
+            'source' => 'manual',
+            'included_in_po' => false,
+            'exclusion_note' => 'Already available',
+        ])->fresh();
+
+        $this->assertSame('manual', $row->source);
+        $this->assertFalse($row->included_in_po);
+        $this->assertSame('Already available', $row->exclusion_note);
+        $this->assertSame('1.125', $row->qty);
+    }
+
     public function test_missing_dates_block_creation_and_report_per_date_reasons(): void
     {
         // 2026-06-15 Monday is planned; 2026-06-16 Tuesday has no menu item.

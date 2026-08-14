@@ -13,6 +13,7 @@ class PurchaseOrderItem extends Model
         'purchase_order_id', 'vendor_group_id', 'fs_item_id', 'description',
         'qty', 'unit', 'unit_price', 'total_value',
         'purchase_qty', 'purchase_unit', 'purchase_price',
+        'actual_qty', 'actual_unit_price',
     ];
 
     protected $casts = [
@@ -21,6 +22,8 @@ class PurchaseOrderItem extends Model
         'total_value' => 'decimal:2',
         'purchase_qty' => 'decimal:2',
         'purchase_price' => 'decimal:2',
+        'actual_qty' => 'decimal:3',
+        'actual_unit_price' => 'decimal:2',
     ];
 
     public function purchaseOrder()

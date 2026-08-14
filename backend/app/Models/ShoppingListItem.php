@@ -12,7 +12,8 @@ class ShoppingListItem extends Model
     use HasPublicId;
 
     protected $fillable = [
-        'shopping_list_id', 'fs_item_id', 'ingredient_name',
+        'shopping_list_id', 'fs_item_id', 'ingredient_name', 'source',
+        'included_in_po', 'exclusion_note',
         'qty', 'unit', 'supplier_id', 'unit_price', 'total',
         'purchase_qty', 'purchase_unit', 'purchase_price',
         'vendor_locked_at', 'vendor_locked_by',
@@ -20,15 +21,16 @@ class ShoppingListItem extends Model
     ];
 
     protected $casts = [
-        'qty' => 'decimal:2',
+        'qty' => 'decimal:3',
         'unit_price' => 'decimal:2',
         'total' => 'decimal:2',
-        'purchase_qty' => 'decimal:2',
+        'purchase_qty' => 'decimal:3',
         'purchase_price' => 'decimal:2',
         'vendor_locked_at' => 'datetime',
         'baseline_servings' => 'integer',
-        'baseline_quantity' => 'decimal:2',
-        'scaled_quantity' => 'decimal:2',
+        'baseline_quantity' => 'decimal:3',
+        'scaled_quantity' => 'decimal:3',
+        'included_in_po' => 'boolean',
     ];
 
     public function vendorLocked(): bool

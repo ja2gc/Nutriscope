@@ -53,6 +53,22 @@ class PurchaseOrderExecutionLockTest extends TestCase
         $this->assertSame('food', $po->procurement_track);
     }
 
+    public function test_receiving_values_are_stored_separately_with_decimal_quantity(): void
+    {
+        [, $group] = $this->convertedPo();
+        $line = $group->items()->firstOrFail();
+
+        $line->update([
+            'actual_qty' => 4.375,
+            'actual_unit_price' => 21.50,
+        ]);
+        $line->refresh();
+
+        $this->assertSame('5.00', $line->qty);
+        $this->assertSame('4.375', $line->actual_qty);
+        $this->assertSame('21.50', $line->actual_unit_price);
+    }
+
     public function test_price_correction_is_allowed_and_audited(): void
     {
         [$po, $group] = $this->convertedPo();

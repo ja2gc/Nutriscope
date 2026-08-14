@@ -26,8 +26,12 @@ class FsItem extends Model
 
     protected $table = 'fs_items';
 
+    protected $attributes = [
+        'include_in_generated_lists' => true,
+    ];
+
     protected $fillable = [
-        'name', 'kind', 'category',
+        'name', 'kind', 'include_in_generated_lists', 'category',
         'base_unit', 'purchase_unit', 'purchase_price', 'units_per_purchase',
         'default_supplier_id', 'default_supplier_locked_at', 'default_supplier_locked_by',
         'is_active', 'notes',
@@ -37,13 +41,14 @@ class FsItem extends Model
         'purchase_price' => 'decimal:2',
         'units_per_purchase' => 'decimal:2',
         'is_active' => 'boolean',
+        'include_in_generated_lists' => 'boolean',
         'default_supplier_locked_at' => 'datetime',
     ];
 
     protected function auditAttributes(): array
     {
         return [
-            'name', 'kind', 'category', 'base_unit', 'purchase_unit', 'purchase_price',
+            'name', 'kind', 'include_in_generated_lists', 'category', 'base_unit', 'purchase_unit', 'purchase_price',
             'units_per_purchase', 'default_supplier_id', 'default_supplier_locked_at',
             'default_supplier_locked_by', 'is_active',
         ];
