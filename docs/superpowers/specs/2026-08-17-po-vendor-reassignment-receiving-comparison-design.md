@@ -42,14 +42,14 @@ This is the selected approach. **Change vendor for all** sits outside the item t
 
 ## API and Transaction Design
 
-Add two explicit mutation routes rather than overloading receiving updates:
+Reuse the existing vendor-group mutation route to minimize code and audit surface:
 
-- `PATCH /api/fss/purchase-order-vendor-groups/{vendorGroup}/supplier` with `supplier_id`
-- `PATCH /api/fss/purchase-order-items/{purchaseOrderItem}/supplier` with `supplier_id`
+- `PATCH /api/fss/purchase-order-vendor-groups/{vendorGroup}` with `supplier_id` changes the vendor for all items.
+- The same request with `supplier_id` and `item_id` changes the vendor only for that item.
 
-Both routes call one focused service. The service locks the purchase order, source group, item when applicable, and matching destination group inside one transaction. It validates lifecycle and evidence rules after acquiring locks, performs the move or merge, recalculates totals, and writes one audited purchase-order revision.
+The existing controller delegates the reassignment branch to the existing purchase-order lifecycle service. The service locks the purchase order, source group, item when applicable, and matching destination group inside one transaction. It validates lifecycle and evidence rules after acquiring locks, performs the move or merge, recalculates totals, and writes one audited purchase-order revision. No migration, new route, or new audit classification is required.
 
-The existing vendor-group receiving endpoint remains responsible only for optional OR, actual values, and the explicit received transition.
+Requests without `supplier_id` retain the current optional OR, actual-value, and explicit received behavior.
 
 ## Receiving Value Hierarchy
 
@@ -67,7 +67,7 @@ The PO resource continues exposing all three. Prefilled actual inputs use the pl
 
 - Place **Change vendor for all** in a labeled card above the group item table.
 - Place **Change vendor** in the action area of each item row.
-- Use a small confirmation dialog that names the source vendor, target vendor, and affected item count or item name.
+- Reuse the browser confirmation control to name the source vendor, target vendor, and affected item count or item name instead of adding a custom modal.
 - Disable both actions when the group is received, the PO is complete, or evidence prevents reassignment. Show the recovery instruction next to the disabled action or returned error.
 
 ### Value comparison
@@ -89,6 +89,10 @@ The PO resource continues exposing all three. Prefilled actual inputs use the pl
 - Use an accessible pressable disclosure with expanded state for calculation details.
 - Maintain at least a 44-point touch target and allow text to wrap under large system font sizes.
 - Keep actual inputs visible by default and secondary calculation detail collapsed.
+
+## Information-Density Rule
+
+The default receiving screen shows only the item name, editable actual quantity and price, one compact planned-value reference, review status, and the row-level vendor action. Original calculated values, formulas, and before/after details stay collapsed under **View calculation details**. Group-wide vendor controls remain outside the table or item cards. No duplicate summary panel or permanent comparison columns are added.
 
 ## Error Handling
 
@@ -118,6 +122,15 @@ Backend feature coverage must prove:
 - resource output preserves calculated, planned, actual, and confirmation state.
 
 Web and mobile checks must cover the exact action labels and scopes, corrected value labels, default actual inputs, planned reference, expandable calculation details, review status, disabled states, and API payloads.
+
+Report regression coverage must also prove that:
+
+- a manually added row on a generated shopping list appears in the PO vendor group and procurement pack;
+- every included row from a fully manual shopping list appears in the procurement pack;
+- vendor reassignment changes the supplier grouping used by the procurement pack without dropping an item;
+- PPA totals continue using every included row, including manual additions, while menu/population sections do not invent data for manual lists without a menu span.
+
+The procurement pack already reads frozen PO items without filtering by shopping-list source, so production report code changes are required only if these regression tests expose a real omission.
 
 ## Documentation
 
