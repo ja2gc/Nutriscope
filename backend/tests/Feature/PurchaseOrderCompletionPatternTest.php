@@ -54,6 +54,7 @@ class PurchaseOrderCompletionPatternTest extends TestCase
             'period_end' => '2026-06-02',
             'days_span' => 2,
             'procurement_track' => 'food',
+            'list_type' => 'suggested',
             'status' => 'converted',
             'estimate_population' => 100,
         ]);
@@ -81,11 +82,18 @@ class PurchaseOrderCompletionPatternTest extends TestCase
             'unit' => 'g',
             'unit_price' => 20,
             'total_value' => 200,
+            'actual_qty' => 10,
+            'actual_unit_price' => 20,
         ]);
         $group->attachments()->create([
             'purchase_order_id' => $po->id,
             'type' => 'receipt',
             'path' => 'po-attachments/receipt.jpg',
+        ]);
+        $group->attachments()->create([
+            'purchase_order_id' => $po->id,
+            'type' => 'proof',
+            'path' => 'po-attachments/proof.jpg',
         ]);
 
         MealPrepLog::factory()->create([

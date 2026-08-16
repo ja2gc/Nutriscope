@@ -53,6 +53,10 @@ interface PurchaseOrderItem {
   purchase_qty: number | string | null;
   purchase_unit: string | null;
   purchase_price: number | string | null;
+  actual_qty: number | string;
+  actual_unit: string;
+  actual_unit_price: number | string;
+  actual_total: number | string;
 }
 
 interface PurchaseOrderAttachment {
@@ -74,6 +78,7 @@ interface VendorGroup {
   stocked_at: string | null;
   items: PurchaseOrderItem[] | null;
   attachments: PurchaseOrderAttachment[] | null;
+  evidence_requirements?: { receipt_uploaded: boolean; proof_uploaded: boolean; actual_values_reviewed: boolean; can_mark_received: boolean };
 }
 
 interface PurchaseOrder {
@@ -477,18 +482,22 @@ function VendorDetail({ po, group, onBack, onUpload }: VendorDetailProps) {
   const locked = isLocked(po);
   const [orNumber, setOrNumber] = useState(group.or_number ?? '');
   const [error, setError] = useState<string | null>(null);
+  const [actuals, setActuals] = useState<Record<number, { qty: string; price: string }>>(
+    Object.fromEntries((group.items ?? []).map((item) => [item.id, { qty: plain(item.actual_qty), price: plain(item.actual_unit_price) }])),
+  );
 
   useEffect(() => {
     setOrNumber(group.or_number ?? '');
+    setActuals(Object.fromEntries((group.items ?? []).map((item) => [item.id, { qty: plain(item.actual_qty), price: plain(item.actual_unit_price) }])));
     setError(null);
   }, [group]);
 
-  // Mobile FSS may only set the OR number and upload photos. Receipt upload is
-  // the workflow event that marks a vendor group received server-side.
   const updateMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (markReceived: boolean) => {
       const payload = {
         or_number: orNumber.trim() || null,
+        items: (group.items ?? []).map((item) => ({ id: item.id, actual_qty: Number(actuals[item.id]?.qty), actual_unit_price: Number(actuals[item.id]?.price) })),
+        ...(markReceived ? { status: 'received' } : {}),
       };
       const res = await api.patch(`/api/fss/purchase-order-vendor-groups/${group.id}`, payload);
       return res.data;
@@ -522,7 +531,7 @@ function VendorDetail({ po, group, onBack, onUpload }: VendorDetailProps) {
 
         <View className="bg-white rounded-xl border border-gray-100 px-4 py-4 mb-4">
           <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">
-            OR number
+            OR number (optional)
           </Text>
           <TextInput
             value={orNumber}
@@ -544,11 +553,11 @@ function VendorDetail({ po, group, onBack, onUpload }: VendorDetailProps) {
             <View className="mt-3">
               <TouchableOpacity
                 className="flex-row items-center justify-center gap-2 border border-gray-200 py-3 rounded-xl"
-                onPress={() => updateMutation.mutate()}
+                onPress={() => updateMutation.mutate(false)}
                 disabled={updateMutation.isPending}
               >
                 {updateMutation.isPending ? <ActivityIndicator size="small" color="#059669" /> : <Save color="#059669" size={16} />}
-                <Text className="text-sm font-semibold text-emerald-700">Save</Text>
+                <Text className="text-sm font-semibold text-emerald-700">Save actuals and optional OR</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -566,12 +575,11 @@ function VendorDetail({ po, group, onBack, onUpload }: VendorDetailProps) {
               <Text className="text-sm font-semibold text-gray-900 mb-1" numberOfLines={2}>
                 {item.description}
               </Text>
-              <Text className="text-xs text-gray-400">
-                {plain(item.qty)} {item.unit ?? ''} at {money(item.unit_price)}
-              </Text>
-              <Text className="text-xs text-emerald-700 font-semibold mt-1">
-                Line total: {money(item.total_value)}
-              </Text>
+              <Text className="text-xs text-gray-400 mb-2">Calculated: {plain(item.purchase_qty ?? item.qty)} {item.actual_unit}</Text>
+              <View className="flex-row gap-2">
+                <View className="flex-1"><Text className="text-xs text-gray-500 mb-1">Actual qty</Text><TextInput keyboardType="decimal-pad" editable={!locked} value={actuals[item.id]?.qty ?? ''} onChangeText={(value) => setActuals((current) => ({ ...current, [item.id]: { qty: value, price: current[item.id]?.price ?? plain(item.actual_unit_price) } }))} className="border border-gray-200 rounded-lg px-3 py-2 text-sm" /></View>
+                <View className="flex-1"><Text className="text-xs text-gray-500 mb-1">Actual unit price</Text><TextInput keyboardType="decimal-pad" editable={!locked} value={actuals[item.id]?.price ?? ''} onChangeText={(value) => setActuals((current) => ({ ...current, [item.id]: { qty: current[item.id]?.qty ?? plain(item.actual_qty), price: value } }))} className="border border-gray-200 rounded-lg px-3 py-2 text-sm" /></View>
+              </View>
             </View>
           ))}
         </View>
@@ -580,6 +588,10 @@ function VendorDetail({ po, group, onBack, onUpload }: VendorDetailProps) {
           <AttachmentList group={group} type="receipt" locked={locked} onUpload={(type) => onUpload(group, type)} />
           <AttachmentList group={group} type="proof" locked={locked} onUpload={(type) => onUpload(group, type)} />
         </View>
+        {!locked && <TouchableOpacity className={`mt-4 rounded-xl py-3 ${group.evidence_requirements?.receipt_uploaded && group.evidence_requirements?.proof_uploaded ? 'bg-emerald-600' : 'bg-gray-300'}`} disabled={updateMutation.isPending || !group.evidence_requirements?.receipt_uploaded || !group.evidence_requirements?.proof_uploaded} onPress={() => updateMutation.mutate(true)}>
+          <Text className="text-center font-semibold text-white">Mark vendor received</Text>
+        </TouchableOpacity>}
+        {!locked && <Text className="mt-2 text-center text-xs text-gray-500">Receipt, proof, and reviewed actual values are required. OR number is optional.</Text>}
       </View>
     </ScrollView>
   );

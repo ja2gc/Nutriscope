@@ -67,6 +67,27 @@ class FsItemCatalogTest extends TestCase
         $this->assertEqualsWithDelta(160, $item->unit_cost, 0.0001);
     }
 
+    public function test_rnd_can_mark_an_ingredient_as_purchase_only_when_needed(): void
+    {
+        $response = $this->actingAs($this->rnd)
+            ->postJson('/api/fss/fs-items', [
+                'name' => 'Cooking oil',
+                'kind' => 'ingredient',
+                'base_unit' => 'L',
+                'purchase_price' => 120,
+                'include_in_generated_lists' => false,
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.include_in_generated_lists', false);
+
+        $id = $response->json('data.id');
+
+        $this->actingAs($this->rnd)
+            ->patchJson("/api/fss/fs-items/{$id}", ['include_in_generated_lists' => true])
+            ->assertOk()
+            ->assertJsonPath('data.include_in_generated_lists', true);
+    }
+
     public function test_supply_has_no_qty_only_cost_per_unit(): void
     {
         $this->actingAs($this->rnd)

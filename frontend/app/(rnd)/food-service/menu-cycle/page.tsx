@@ -45,8 +45,8 @@ const temporal = (start: string | null, days = 7): { label: string; cls: string 
 };
 
 // A cell holds EITHER a recipe or a single fs_item. recipe_name is the
-// display label for whichever one is set. servings_override is the ACTUAL servings
-// for this menu-cycle slot (set via the food panel) — overrides the day's headcount
+// display label for whichever one is set. Purchase estimates are applied uniformly
+// later when a suggested shopping list is generated.
 // for this dish only, and never touches the baseline recipe.
 interface Cell {
   recipe_id: number | null;
@@ -221,7 +221,7 @@ function CycleList({ readOnly, onOpen, onNew }: { readOnly: boolean; onOpen: (id
 // ═══ EDITOR VIEW ═══════════════════════════════════════════════════════════════════
 function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: number | "new"; readOnly: boolean; onBack: () => void }) {
   const router = useRouter();
-  const [name, setName] = useState("New Menu Cycle");
+  const [name, setName] = useState("");
   const [weekStart, setWeekStart] = useState("");
   const [isActive, setIsActive] = useState(false);
 
@@ -352,16 +352,16 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: number | "new"; r
   }
 
   async function handleSave() {
-    if (!name.trim()) { setErr("Name is required."); return null; }
     setBusy(true); setErr("");
     try {
       const saved = await saveCycle(savedId, {
-        name: name.trim(),
+        ...(name.trim() ? { name: name.trim() } : {}),
         cycle_days: 7,
         week_start_date: weekStart || null,
         days: daysPayload(),
       });
       setSavedId(saved.id);
+      setName(saved.name);
       return saved.id;
     } catch (e: unknown) {
       setErr(e instanceof Error ? e.message : "Save failed."); return null;
@@ -400,7 +400,7 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: number | "new"; r
         <div className="flex items-start gap-3">
           <button onClick={onBack} className="p-2 rounded-lg border border-warm-200 hover:bg-warm-50 text-warm-500 cursor-pointer mt-0.5"><ChevronLeft className="h-4 w-4" /></button>
           <div>
-            <input value={name} onChange={(e) => setName(e.target.value)} readOnly={readOnly}
+            <input value={name} onChange={(e) => setName(e.target.value)} readOnly={readOnly} placeholder="Named automatically from the week"
               className="text-xl font-extrabold text-warm-900 tracking-tight bg-transparent border-b border-dashed border-warm-200 focus:border-emerald-500 focus:outline-none read-only:border-transparent" />
             <div className="flex items-center gap-2 mt-1">
               {isActive && <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">Active</span>}

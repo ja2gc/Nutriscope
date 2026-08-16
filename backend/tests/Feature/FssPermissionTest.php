@@ -67,7 +67,7 @@ class FssPermissionTest extends TestCase
     /** RND retains write access (split did not lock them out). */
     public function test_rnd_not_forbidden_from_planning_writes(): void
     {
-        $this->actingAs($this->rnd)->postJson('/api/fss/menu-cycles', [])->assertStatus(422);
+        $this->actingAs($this->rnd)->postJson('/api/fss/menu-cycles', ['cycle_days' => 0])->assertStatus(422);
         $this->actingAs($this->rnd)->postJson('/api/fss/food-service-recipes', [])->assertStatus(422);
     }
 }

@@ -47,6 +47,9 @@ class ShoppingListRevisionSerializer implements AuditRevisionSerializer
                 'catalog_reference' => is_string($catalogReference) && Str::isUuid($catalogReference) ? strtolower($catalogReference) : null,
                 'item' => (string) $item->ingredient_name,
                 'item_type' => (string) ($item->fsItem?->kind ?? 'ingredient'),
+                'source' => (string) $item->source,
+                'included_in_po' => (bool) $item->included_in_po,
+                'exclusion_note' => $item->exclusion_note,
                 'quantity' => (float) $item->qty,
                 'unit' => (string) $item->unit,
                 'supplier_reference' => is_string($supplierReference) && Str::isUuid($supplierReference) ? strtolower($supplierReference) : null,
@@ -63,7 +66,8 @@ class ShoppingListRevisionSerializer implements AuditRevisionSerializer
                 'scaled_unit' => $item->scaled_unit,
             ];
         })->all();
-        $total = (float) $subject->items->sum(fn ($item): float => (float) $item->total);
+        $includedItems = $subject->items->where('included_in_po', true);
+        $total = (float) $includedItems->sum(fn ($item): float => (float) $item->total);
         $days = $subject->period_start !== null && $subject->period_end !== null
             ? $subject->period_start->diffInDays($subject->period_end) + 1
             : (int) ($subject->days_span ?? 0);
@@ -89,7 +93,7 @@ class ShoppingListRevisionSerializer implements AuditRevisionSerializer
                 'estimate_population' => $population,
                 'total_served_population' => $subject->total_served_population,
                 'totals' => [
-                    'item_count' => count($items),
+                    'item_count' => $includedItems->count(),
                     'total' => $total,
                     'estimated_budget_per_head_per_day' => $population !== null && $population > 0 && $days > 0
                         ? round($total / ($population * $days), 2)
@@ -129,7 +133,7 @@ class ShoppingListRevisionSerializer implements AuditRevisionSerializer
                 key: 'items',
                 label: 'Shopping list items',
                 columns: [
-                    'item' => 'Item', 'item_type' => 'Type', 'quantity' => 'Quantity', 'unit' => 'Unit',
+                    'item' => 'Item', 'item_type' => 'Type', 'source' => 'Source', 'included_in_po' => 'Included in PO', 'exclusion_note' => 'Review note', 'quantity' => 'Quantity', 'unit' => 'Unit',
                     'supplier' => 'Supplier', 'unit_price' => 'Unit price', 'total' => 'Total',
                     'purchase_quantity' => 'Purchase quantity', 'purchase_unit' => 'Purchase unit',
                     'purchase_price' => 'Purchase price', 'vendor_locked' => 'Vendor locked',
@@ -139,6 +143,9 @@ class ShoppingListRevisionSerializer implements AuditRevisionSerializer
                     values: [
                         'item' => new AuditValueDto('text', $item['item']),
                         'item_type' => new AuditValueDto('enum', $item['item_type']),
+                        'source' => new AuditValueDto('enum', $item['source']),
+                        'included_in_po' => new AuditValueDto('boolean', $item['included_in_po']),
+                        'exclusion_note' => new AuditValueDto('text', $item['exclusion_note']),
                         'quantity' => new AuditValueDto('number', $item['quantity']),
                         'unit' => new AuditValueDto('text', $item['unit']),
                         'supplier' => new AuditValueDto('text', $item['supplier']),
@@ -179,13 +186,14 @@ class ShoppingListRevisionSerializer implements AuditRevisionSerializer
 
     private function validItem(mixed $item): bool
     {
-        $keys = ['key', 'reference', 'catalog_reference', 'item', 'item_type', 'quantity', 'unit', 'supplier_reference', 'supplier', 'unit_price', 'total', 'purchase_quantity', 'purchase_unit', 'purchase_price', 'vendor_locked', 'baseline_servings', 'baseline_quantity', 'scaled_quantity', 'scaled_unit'];
+        $keys = ['key', 'reference', 'catalog_reference', 'item', 'item_type', 'source', 'included_in_po', 'exclusion_note', 'quantity', 'unit', 'supplier_reference', 'supplier', 'unit_price', 'total', 'purchase_quantity', 'purchase_unit', 'purchase_price', 'vendor_locked', 'baseline_servings', 'baseline_quantity', 'scaled_quantity', 'scaled_unit'];
 
         return is_array($item) && $this->exact($item, $keys)
             && is_string($item['key']) && Str::isUuid($item['key'])
             && is_string($item['reference']) && Str::isUuid($item['reference'])
             && ($item['catalog_reference'] === null || Str::isUuid($item['catalog_reference']))
             && is_string($item['item']) && trim($item['item']) !== '' && $this->token($item['item_type'])
+            && $this->token($item['source']) && is_bool($item['included_in_po']) && ($item['exclusion_note'] === null || is_string($item['exclusion_note']))
             && $this->number($item['quantity']) && is_string($item['unit'])
             && ($item['supplier_reference'] === null || Str::isUuid($item['supplier_reference']))
             && ($item['supplier'] === null || is_string($item['supplier']))

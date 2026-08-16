@@ -120,8 +120,9 @@ export interface MenuSlotIngredient {
   name: string;
   quantity: number;
   unit: string;
-  scaled_quantity: number;
-  scaled_cost: number;
+  scaled_quantity: number | null;
+  scaled_cost: number | null;
+  include_in_generated_lists: boolean;
 }
 
 export interface MenuSlotRecipe {
@@ -133,17 +134,19 @@ export interface MenuSlotRecipe {
   editable: boolean;
   name: string;
   reference_servings: number;
-  planned_servings: number;
+  planned_servings: number | null;
+  purchase_estimate_set: boolean;
   prep_notes: string | null;
   ingredients: MenuSlotIngredient[];
-  total_cost: number;
-  cost_per_head: number;
+  total_cost: number | null;
+  cost_per_head: number | null;
+  baseline_total_cost: number;
 }
 
 export interface UpdateMenuSlotRecipePayload {
   name: string;
   reference_servings: number;
-  planned_servings: number;
+  planned_servings?: number | null;
   prep_notes: string | null;
   ingredients: Array<Pick<MenuSlotIngredient, "fs_item_id" | "quantity" | "unit">>;
 }
@@ -208,7 +211,7 @@ export async function getFsItemProfile(fsItemId: number, population: number, qua
 }
 
 export interface SaveCyclePayload {
-  name: string;
+  name?: string;
   cycle_days?: number;
   week_start_date?: string | null;
   days?: Array<Pick<MenuDay, "day_of_week" | "meal_type" | "recipe_id" | "fs_item_id" | "quantity" | "servings_override" | "estimate_population" | "is_event" | "event_allocation">>;

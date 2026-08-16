@@ -17,7 +17,7 @@ class UpdateMenuSlotRecipeRequest extends FormRequest
         return [
             'name' => ['required', 'string', 'max:255'],
             'reference_servings' => ['required', 'integer', 'min:1'],
-            'planned_servings' => ['required', 'integer', 'min:1'],
+            'planned_servings' => ['nullable', 'integer', 'min:1'],
             'prep_notes' => ['nullable', 'string', 'max:5000'],
             'ingredients' => ['required', 'array', 'min:1'],
             'ingredients.*.fs_item_id' => ['required', 'string', 'distinct', 'exists:fs_items,uuid'],

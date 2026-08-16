@@ -81,7 +81,7 @@ Verified against current navigation and server permissions on **2026-07-20**. Fo
 #### A. Inventory Reference Catalog
 
 1. Open **Food Service → Inventory**.
-2. Maintain ingredients and supplies with category, vendor, base unit, and purchase cost.
+2. Maintain ingredients and supplies with category, vendor, base unit, and purchase cost. Mark bulk pantry ingredients **Purchase when needed** when they should remain in recipes but not auto-generate.
 3. Treat it as a reference catalog, not live stock quantity.
 
 #### B. Foods and Recipes
@@ -95,20 +95,20 @@ Verified against current navigation and server permissions on **2026-07-20**. Fo
 
 1. Open **Food Service → Menu Cycle**.
 2. Create a cycle or instantiate a template.
-3. Set week, add recipes/items to meal slots, and enter estimated daily population/servings.
-4. Review scaled ingredients, cost, cost per head, and preparation notes.
+3. Set the week and add recipes/items to meal slots. Leave the name blank to use the date-span name.
+4. Review baseline ingredients and preparation notes; the purchase estimate is set later for the whole shopping span.
 5. Save; optionally save as template.
 6. Activate the approved cycle so FSS can execute it.
 
 #### D. Procurement
 
 1. Open **Food Service → Procurement**.
-2. For food, choose **Food Shopping Lists → Suggest from Menu**, select the full date span, and generate.
-3. Fix every missing menu date/population shown by validation; regenerate.
-4. Review/edit quantities, unit costs, and vendors.
-5. For supplies, create a separate manual Supplies List and add items.
-6. Convert the reviewed list to one PO with vendor groups.
-7. During execution, monitor OR numbers, receipt/proof uploads, served-day progress, totals, and audit history.
+2. For suggested food, select the date span, enter one estimated serving count, and generate. For an event/manual food list, name it and add ingredients directly.
+3. Fix every missing menu date shown by validation; regenerate.
+4. Keep calculated need visible while reviewing purchase quantity/unit/price, vendor, manual additions, and exclusions.
+5. Create a named manual Supplies List when needed; a related event can use the same purpose name.
+6. Clear the release checklist, then create and release one vendor-grouped PO.
+7. During execution, monitor actual values, receipt/proof, optional OR, explicit vendor received status, served-day progress, totals, and history.
 8. Correct authorized open-execution values when needed; completed/archived POs are historical records.
 
 #### E. Budget

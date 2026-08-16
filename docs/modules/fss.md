@@ -1,13 +1,13 @@
 # FSS Module — Current Role and Workflow
 
-Verified against current Expo navigation, rendered screens, and Laravel role gates on **2026-07-20**.
+Verified against current Expo navigation, rendered screens, and Laravel role gates on **2026-08-15**.
 
 ## Role Purpose
 
 FSS executes daily food-service work prepared by RND:
 
 - view active/saved menu cycles and food profiles;
-- receive PO vendor groups by OR number and receipt/proof upload;
+- confirm actual purchase values and receive PO vendor groups with receipt/proof evidence; OR number is optional;
 - record actual served population and meal-service completion;
 - log daily ward meals and seven accomplishment duties;
 - view own archived accomplishment reports;
@@ -65,7 +65,7 @@ If no active cycle exists, Home tells FSS to contact RND.
 
 FSS can browse cycles and open meal slots. Recipe/item profiles show scaled ingredients, quantities, cost, cost/head, and preparation notes. Planning fields remain read-only.
 
-FSS can set/backfill actual served population for a cycle date. This data contributes to food-PO completion and final actual cost per head/day.
+FSS can set/backfill actual served population for a cycle date. This contributes to suggested-food PO completion and the final food purchase cost per served patient-day.
 
 ## Meal Prep
 
@@ -111,20 +111,20 @@ Off duty stores zero meals and renders as **X** in the weekly report. The tab al
 
 FSS sees existing POs and vendor groups. For an open PO, FSS can:
 
-- review vendor line details read-only;
-- save `or_number`;
+- review the original calculated vendor line values;
+- confirm or correct actual quantity (including decimals) and actual unit price;
+- optionally save `or_number`;
 - upload receipt images;
 - upload proof-of-purchase images;
 - add captions;
-- view or delete attachments while unlocked.
+- view or delete attachments while unlocked;
+- explicitly mark the vendor received once requirements are complete.
 
-Receipt upload is the receiving event that marks a vendor group received server-side. Current mobile UI has no separate manual **Mark received** action.
+Receipt upload alone does not change status. A vendor can be marked received only after supplier assignment, reviewed actual values, at least one receipt, and at least one proof-of-purchase image. OR number is not required.
 
 FSS cannot change:
 
-- vendor items;
-- quantities;
-- prices;
+- planned vendor items and calculated values;
 - supplier;
 - lifecycle status.
 
@@ -132,8 +132,8 @@ Completed/archived POs lock execution edits.
 
 ### PO Completion
 
-- Food PO: every vendor group needs a receipt, and every covered service date needs actual served population.
-- Supplies PO: every vendor group needs a receipt; served population is not required.
+- Suggested food PO: every vendor must be explicitly received with actuals, receipt, and proof; every covered service date also needs actual served population.
+- Manual food and supplies PO: every vendor must meet the same receiving evidence; served population is not required.
 
 ## Announcements and SOP
 
@@ -185,7 +185,7 @@ First-login accounts must replace the temporary password and add a recovery emai
 - Budget tab
 - analytics/Insights tab
 - shopping-list or PO authoring
-- manual vendor status edits
+- editing planned PO structure
 - FSS web console login
 
 ## Related User Documents

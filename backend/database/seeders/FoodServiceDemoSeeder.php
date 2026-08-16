@@ -315,7 +315,7 @@ class FoodServiceDemoSeeder extends Seeder
                 $name = $items[$i];
                 $row = [
                     'menu_cycle_id' => $cycle->id, 'day_of_week' => $day, 'meal_type' => $slot,
-                    'estimate_population' => (int) round($this->dayPop[$day] * $popFactor),
+                    'estimate_population' => null,
                 ];
                 if (isset($this->recipes[$name])) {
                     $row['recipe_id'] = $this->recipes[$name]->id;
@@ -517,6 +517,8 @@ class FoodServiceDemoSeeder extends Seeder
             $list->items()->create($row);
         }
 
+        app(ShoppingListPopulationService::class)->cascadeMenuDays($start, $end, $estimate);
+
         return $list->fresh('items');
     }
 
@@ -539,7 +541,7 @@ class FoodServiceDemoSeeder extends Seeder
             'supplier_id' => null,
             'po_number' => 'PO-'.$weekTag,
             'order_date' => $orderDate->toDateString(),
-            'total_amount' => round((float) $list->items->sum(fn ($i) => (float) $i->total), 2),
+            'total_amount' => round((float) $list->items->where('included_in_po', true)->sum(fn ($i) => (float) $i->total), 2),
             'status' => 'draft',
             'lifecycle_status' => 'open_execution',
             'procurement_track' => 'food',
@@ -547,7 +549,7 @@ class FoodServiceDemoSeeder extends Seeder
             'structural_locked_at' => $orderDate,
         ]);
 
-        foreach ($list->items->groupBy('supplier_id') as $supplierId => $items) {
+        foreach ($list->items->where('included_in_po', true)->groupBy('supplier_id') as $supplierId => $items) {
             $group = $po->vendorGroups()->create([
                 'supplier_id' => $supplierId !== '' ? (int) $supplierId : null,
                 'status' => 'pending',
@@ -584,7 +586,15 @@ class FoodServiceDemoSeeder extends Seeder
                 continue;
             }
 
-            $orNumber = 'OR-'.$weekTag.'-'.sprintf('%02d', $idx + 1);
+            $orNumber = $idx === 0 ? null : 'OR-'.$weekTag.'-'.sprintf('%02d', $idx + 1);
+            $group->items()->each(function ($item) use ($idx): void {
+                $plannedQty = (float) ($item->purchase_qty ?? $item->qty);
+                $actualQty = $item->description === 'Chicken (whole)' ? round($plannedQty + 0.125, 3) : $plannedQty;
+                $item->update([
+                    'actual_qty' => $actualQty,
+                    'actual_unit_price' => (float) ($item->purchase_price ?? $item->unit_price) + ($idx % 2 === 0 ? 0 : 0.50),
+                ]);
+            });
             $group->forceFill([
                 'or_number' => $orNumber,
                 'status' => 'received',

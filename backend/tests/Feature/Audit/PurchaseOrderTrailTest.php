@@ -45,6 +45,7 @@ class PurchaseOrderTrailTest extends TestCase
     {
         Storage::fake('public');
         $rnd = User::factory()->rnd()->create();
+        Budget::factory()->create(['fiscal_year' => 2026, 'created_by' => $rnd->id]);
         [$list] = $this->shoppingList($rnd);
 
         $this->actingAs($rnd)->postJson("/api/fss/shopping-lists/{$list->uuid}/approve")->assertCreated();
@@ -103,9 +104,17 @@ class PurchaseOrderTrailTest extends TestCase
         $this->actingAs($rnd)->postJson("/api/fss/shopping-lists/{$list->uuid}/approve")->assertCreated();
         $po = PurchaseOrder::query()->where('shopping_list_id', $list->id)->firstOrFail();
         $group = $po->vendorGroups()->firstOrFail();
+        $item = $group->items()->firstOrFail();
         $this->postJson("/api/fss/purchase-order-vendor-groups/{$group->uuid}/attachments", [
             'type' => 'receipt', 'file' => UploadedFile::fake()->createWithContent('receipt.png', $this->pngBytes()),
         ])->assertCreated();
+        $this->postJson("/api/fss/purchase-order-vendor-groups/{$group->uuid}/attachments", [
+            'type' => 'proof', 'file' => UploadedFile::fake()->createWithContent('proof.png', $this->pngBytes()),
+        ])->assertCreated();
+        $this->patchJson("/api/fss/purchase-order-vendor-groups/{$group->uuid}", [
+            'items' => [['id' => $item->id, 'actual_qty' => 5, 'actual_unit_price' => 20]],
+            'status' => 'received',
+        ])->assertOk();
 
         $this->assertSame('completed', $po->fresh()->lifecycle_status);
         $this->assertDatabaseHas('budget_ledger', ['purchase_order_id' => $po->id, 'type' => 'po_deduction']);
@@ -276,11 +285,18 @@ class PurchaseOrderTrailTest extends TestCase
             'type' => 'receipt',
             'path' => 'po-attachments/receipt.jpg',
         ]);
+        $group->attachments()->create([
+            'purchase_order_id' => $po->id,
+            'type' => 'proof',
+            'path' => 'po-attachments/proof.jpg',
+        ]);
+        $line = $group->items()->firstOrFail();
         AuditFixture::delete(AuditActivity::query());
 
         $this->patchJson("/api/fss/purchase-order-vendor-groups/{$group->uuid}", [
             'status' => 'received',
             'or_number' => 'OR-MIXED-RECEIPT',
+            'items' => [['id' => $line->id, 'actual_qty' => 5, 'actual_unit_price' => 20]],
         ])->assertOk();
 
         $rootEvents = AuditActivity::query()->where('context_type', $po->getMorphClass())
@@ -308,9 +324,19 @@ class PurchaseOrderTrailTest extends TestCase
             'rnd_user_id' => $rnd->id, 'shopping_list_id' => $list->id,
             'procurement_track' => 'supplies', 'lifecycle_status' => 'open_execution', 'status' => 'ordered',
         ]);
-        $group = $po->vendorGroups()->create(['status' => 'received', 'total_amount' => 250]);
+        $supplier = Supplier::factory()->create();
+        $catalog = FsItem::factory()->create();
+        $group = $po->vendorGroups()->create(['supplier_id' => $supplier->id, 'status' => 'received', 'received_at' => now(), 'total_amount' => 250]);
+        $group->items()->create([
+            'purchase_order_id' => $po->id, 'fs_item_id' => $catalog->id, 'description' => 'Rice',
+            'qty' => 5, 'unit' => 'kg', 'unit_price' => 50, 'total_value' => 250,
+            'actual_qty' => 5, 'actual_unit_price' => 50,
+        ]);
         $group->attachments()->create([
             'purchase_order_id' => $po->id, 'type' => 'receipt', 'path' => 'po-attachments/receipt.jpg',
+        ]);
+        $group->attachments()->create([
+            'purchase_order_id' => $po->id, 'type' => 'proof', 'path' => 'po-attachments/proof.jpg',
         ]);
 
         $auditLogger = $this->createMock(AuditLogger::class);
@@ -642,7 +668,7 @@ class PurchaseOrderTrailTest extends TestCase
         $item = FsItem::factory()->create(['default_supplier_id' => $supplier->id]);
         $list = ShoppingList::factory()->create([
             'rnd_user_id' => $rnd->id, 'period_start' => '2026-06-01', 'period_end' => '2026-06-01',
-            'procurement_track' => $track, 'status' => 'draft',
+            'procurement_track' => $track, 'list_type' => 'manual', 'status' => 'draft',
         ]);
         $list->items()->create([
             'fs_item_id' => $item->id, 'ingredient_name' => $item->name, 'qty' => 5, 'unit' => 'kg',

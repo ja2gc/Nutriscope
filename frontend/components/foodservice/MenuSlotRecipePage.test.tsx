@@ -28,9 +28,11 @@ const slot = {
   name: "Chicken Adobo",
   reference_servings: 25,
   planned_servings: 100,
+  purchase_estimate_set: true,
   prep_notes: "Simmer until tender.",
-  ingredients: [{ fs_item_id: "item-1", name: "Chicken", quantity: 3, unit: "kg", scaled_quantity: 12, scaled_cost: 1200 }],
+  ingredients: [{ fs_item_id: "item-1", name: "Chicken", quantity: 3, unit: "kg", scaled_quantity: 12, scaled_cost: 1200, include_in_generated_lists: true }],
   total_cost: 1200,
+  baseline_total_cost: 300,
   cost_per_head: 12,
 };
 
@@ -57,7 +59,7 @@ describe("MenuSlotRecipePage", () => {
 
     expect(container.textContent).toContain("Menu Item Details");
     expect(container.textContent).toContain("Recipe makes");
-    expect(container.textContent).toContain("12.00 kg");
+    expect(container.textContent).toContain("12.000 kg");
     expect(container.querySelector('button[type="submit"]')).toBeNull();
   });
 

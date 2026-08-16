@@ -47,7 +47,7 @@ export async function reverseServiceDay(logId: number): Promise<MealPrepLog> {
  * Backfill the served (actual) population for one date of a cycle as a headcount
  * record. Editable by FSS + RND any time before the related
  * food PO completes. Summed across the span it drives PO completion, the food PO's
- * actual budget/head/day, and the PPA report's actual output.
+ * food purchase cost per served patient-day, and the PPA report's actual output.
  */
 export async function setServedPopulation(menuCycleId: number, serviceDate: string, servedPopulation: number): Promise<MealPrepLog> {
   return unwrap(await apiFetch(`/api/fss/menu-cycles/${menuCycleId}/served-population`, {

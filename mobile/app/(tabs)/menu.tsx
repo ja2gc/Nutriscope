@@ -294,7 +294,7 @@ function CycleDetail({ cycleId, onBack }: { cycleId: number; onBack: () => void 
         <View className="mt-5 mx-4 bg-white rounded-2xl border border-gray-100 overflow-hidden">
           <View className="px-4 py-2.5 bg-gray-50 border-b border-gray-100">
             <Text className="text-xs font-extrabold uppercase tracking-wider text-gray-600">Actual served population per day</Text>
-            <Text className="text-[10px] text-gray-400 mt-0.5">Record the real headcount for any day. Drives the actual budget per head.</Text>
+            <Text className="text-[10px] text-gray-400 mt-0.5">Record the real headcount for any day. Used for food purchase cost per served patient-day.</Text>
           </View>
           {(() => {
             const servedByDate: Record<string, number | null> = {};

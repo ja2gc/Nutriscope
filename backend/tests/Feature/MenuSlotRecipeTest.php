@@ -164,7 +164,7 @@ class MenuSlotRecipeTest extends TestCase
 
         $this->assertSame('Master Adobo', $recipe->fresh()->name);
         $this->assertSame('Ward Adobo', $day->fresh()->recipe_override['name']);
-        $this->assertSame(100, $day->fresh()->servings_override);
+        $this->assertNull($day->fresh()->servings_override);
 
         $this->actingAs($rnd)->getJson("/api/fss/menu-cycles/{$cycle->uuid}")
             ->assertOk()

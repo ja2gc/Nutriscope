@@ -1,6 +1,6 @@
 # RND Module — Current Role and Workflow
 
-Verified against current frontend navigation, Laravel routes/controllers, and shared services on **2026-07-20**. Code is authoritative; older plans describe history only.
+Verified against current frontend navigation, Laravel routes/controllers, and shared services on **2026-08-15**. Code is authoritative; older plans describe history only.
 
 ## Role Purpose
 
@@ -145,12 +145,12 @@ It is distinct from the food-service Inventory and Foods modules.
 
 Current Inventory is a reference catalog, not stock control. RND maintains:
 
-- ingredients: name, category, vendor, base unit, purchase cost;
+- ingredients: name, category, vendor, base unit, purchase cost, and whether it is included in generated shopping lists;
 - supplies: name, category, vendor, cost per unit;
 - search and pagination;
 - safe create/edit/delete.
 
-There is no quantity-on-hand, restock, or FSS stock-adjustment user flow.
+Ingredients such as bulk pantry or seasoning items may be marked **Purchase when needed**. They remain exact recipe ingredients but are manually added only when a purchase is necessary. There is no quantity-on-hand, leftover, restock, or FSS stock-adjustment flow.
 
 ### Foods
 
@@ -160,7 +160,7 @@ This resolves the old module note claiming the Foods route was not wired.
 
 ### Menu Cycles
 
-RND can create, edit, delete, save, activate, template, and instantiate Monday-anchored weekly cycles. A cell may contain a recipe or a single food-service item. RND sets estimated population/servings and inspects scaled ingredients, costs, cost/head, and preparation notes.
+RND can create, edit, delete, save, activate, template, and instantiate Monday-anchored weekly cycles. A blank cycle name is generated from its date span. Loading a template copies its structure without changing the template. A cell may contain a recipe or a single food-service item. Before procurement generation its profile shows baseline recipe values and no purchase estimate.
 
 FSS sees active/saved cycles read-only but may record actual served population.
 
@@ -173,11 +173,13 @@ Four current tabs:
 3. Purchase Orders
 4. Suppliers
 
-Food-list generation is date-span based and all-or-nothing. Every requested date must be covered by a menu with assigned items and required population; validation returns exact missing dates. RND reviews quantities/costs/vendors and converts one list into one PO grouped by vendor.
+Suggested food generation is date-span based and all-or-nothing. RND enters one estimated serving count for the span; the system scales each recipe from its baseline and returns exact missing dates when menu coverage is incomplete. RND may also create named manual food/event lists or supplies lists and add catalog items directly.
 
-Food and supplies remain separate procurement tracks. Conversion freezes structural execution data and relevant menu snapshots. RND then follows OR numbers, receipt/proof attachments, served-day progress, totals, corrections, and activity.
+The review keeps calculated requirements read-only while purchase quantity, unit, price, and vendor remain editable. Manual rows may be added. Generated rows may be excluded with a note instead of deleted. Release is blocked until included rows are usable, vendors are assigned, applicable estimate/coverage is present, and the fiscal-year budget is sufficient.
 
-Food PO completion requires all vendor receipts plus served population for all covered dates. Supplies PO completion requires all vendor receipts only.
+Food and supplies remain separate procurement tracks, but related event lists can share the same purpose name. Conversion freezes included structural data and relevant menu snapshots. RND then follows optional OR numbers, receipt/proof attachments, actual decimal quantities/prices, served-day progress, totals, corrections, and activity.
+
+Each vendor requires reviewed actual values, receipt, proof, and explicit receiving; OR number is optional. Suggested-food completion additionally requires served population for all covered dates. Manual food and supplies do not require population.
 
 ### Budget and Settings
 

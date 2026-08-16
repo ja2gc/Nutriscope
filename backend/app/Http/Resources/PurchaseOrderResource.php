@@ -20,6 +20,10 @@ class PurchaseOrderResource extends JsonResource
             'id' => $this->uuid,
             'rnd_user_id' => $this->rnd_user_id,
             'shopping_list_id' => $this->whenLoaded('shoppingList', fn () => $this->shoppingList?->uuid, $this->shopping_list_id),
+            'shopping_list' => $this->whenLoaded('shoppingList', fn () => $this->shoppingList ? [
+                'id' => $this->shoppingList->uuid,
+                'name' => $this->shoppingList->name,
+            ] : null),
             'supplier_id' => $this->supplier_id,
             'supplier' => $this->whenLoaded('supplier', fn () => $this->supplier ? [
                 'id' => $this->supplier->uuid, 'name' => $this->supplier->name, 'category' => $this->supplier->category,
@@ -54,6 +58,15 @@ class PurchaseOrderResource extends JsonResource
                 'purchase_qty' => $i->purchase_qty,
                 'purchase_unit' => $i->purchase_unit,
                 'purchase_price' => $i->purchase_price,
+                'actual_qty' => number_format((float) ($i->actual_qty ?? $i->purchase_qty ?? $i->qty), 3, '.', ''),
+                'actual_unit' => $i->purchase_unit ?? $i->unit,
+                'actual_unit_price' => number_format((float) ($i->actual_unit_price ?? $i->purchase_price ?? $i->unit_price), 2, '.', ''),
+                'actual_total' => round(
+                    (float) ($i->actual_qty ?? $i->purchase_qty ?? $i->qty)
+                    * (float) ($i->actual_unit_price ?? $i->purchase_price ?? $i->unit_price),
+                    2,
+                ),
+                'actual_values_confirmed' => $i->actual_qty !== null && $i->actual_unit_price !== null,
             ])),
             'vendor_groups' => $this->whenLoaded('vendorGroups', fn () => $this->vendorGroups->map(fn ($g) => [
                 'id' => $g->uuid,
@@ -64,6 +77,7 @@ class PurchaseOrderResource extends JsonResource
                     'category' => $g->supplier->category,
                 ] : null,
                 'or_number' => $g->or_number,
+                'or_number_display' => $g->or_number ?: 'Not provided',
                 'status' => $g->status,
                 'total_amount' => $g->total_amount,
                 'received_at' => $g->received_at?->toISOString(),
@@ -79,6 +93,15 @@ class PurchaseOrderResource extends JsonResource
                     'purchase_qty' => $i->purchase_qty,
                     'purchase_unit' => $i->purchase_unit,
                     'purchase_price' => $i->purchase_price,
+                    'actual_qty' => number_format((float) ($i->actual_qty ?? $i->purchase_qty ?? $i->qty), 3, '.', ''),
+                    'actual_unit' => $i->purchase_unit ?? $i->unit,
+                    'actual_unit_price' => number_format((float) ($i->actual_unit_price ?? $i->purchase_price ?? $i->unit_price), 2, '.', ''),
+                    'actual_total' => round(
+                        (float) ($i->actual_qty ?? $i->purchase_qty ?? $i->qty)
+                        * (float) ($i->actual_unit_price ?? $i->purchase_price ?? $i->unit_price),
+                        2,
+                    ),
+                    'actual_values_confirmed' => $i->actual_qty !== null && $i->actual_unit_price !== null,
                 ])->values() : null,
                 'attachments' => $g->relationLoaded('attachments') ? $g->attachments->map(fn ($a) => [
                     'id' => $a->uuid,
@@ -86,6 +109,23 @@ class PurchaseOrderResource extends JsonResource
                     'url' => $a->url,
                     'caption' => $a->caption,
                 ])->values() : null,
+                'evidence_requirements' => [
+                    'supplier_assigned' => $g->supplier_id !== null,
+                    'actual_values_reviewed' => $g->relationLoaded('items')
+                        && $g->items->isNotEmpty()
+                        && $g->items->every(fn ($i) => $i->actual_qty !== null && $i->actual_unit_price !== null),
+                    'receipt_uploaded' => $g->relationLoaded('attachments')
+                        && $g->attachments->where('type', 'receipt')->isNotEmpty(),
+                    'proof_uploaded' => $g->relationLoaded('attachments')
+                        && $g->attachments->where('type', 'proof')->isNotEmpty(),
+                    'can_mark_received' => $g->supplier_id !== null
+                        && $g->relationLoaded('items')
+                        && $g->items->isNotEmpty()
+                        && $g->items->every(fn ($i) => $i->actual_qty !== null && $i->actual_unit_price !== null)
+                        && $g->relationLoaded('attachments')
+                        && $g->attachments->where('type', 'receipt')->isNotEmpty()
+                        && $g->attachments->where('type', 'proof')->isNotEmpty(),
+                ],
             ])->values()),
             'attachments' => $this->whenLoaded('attachments', fn () => $this->attachments->map(fn ($a) => [
                 'id' => $a->uuid, 'vendor_group_id' => $a->vendor_group_id, 'type' => $a->type, 'url' => $a->url, 'caption' => $a->caption,

@@ -192,8 +192,9 @@ class PurchaseOrderController extends Controller
     public function approve(ShoppingList $shoppingList, PurchaseOrderLifecycleService $lifecycle): JsonResponse
     {
         $shoppingList->load('items');
-        if ($shoppingList->items->isEmpty()) {
-            return response()->json(['message' => 'Shopping list has no items.'], 422);
+        $readiness = $lifecycle->releaseReadiness($shoppingList);
+        if (! $readiness['ready']) {
+            return response()->json(['message' => 'Shopping list is not ready for release.', 'readiness' => $readiness], 422);
         }
         if ($shoppingList->purchaseOrders()->exists()) {
             return response()->json(['message' => 'This shopping list has already been approved into a purchase.'], 422);
@@ -207,8 +208,9 @@ class PurchaseOrderController extends Controller
                 ->lockForUpdate()
                 ->with('items')
                 ->firstOrFail();
-            if ($shoppingList->items->isEmpty()) {
-                abort(422, 'Shopping list has no items.');
+            $readiness = $lifecycle->releaseReadiness($shoppingList, true);
+            if (! $readiness['ready']) {
+                abort(422, 'Shopping list is not ready for release.');
             }
             if ($shoppingList->purchaseOrders()->exists()) {
                 abort(422, 'This shopping list has already been approved into a purchase.');
@@ -232,7 +234,7 @@ class PurchaseOrderController extends Controller
                     'structural_locked_at' => now(),
                 ]);
 
-                foreach ($shoppingList->items->groupBy('supplier_id') as $supplierId => $items) {
+                foreach ($shoppingList->items->where('included_in_po', true)->groupBy('supplier_id') as $supplierId => $items) {
                     $group = $po->vendorGroups()->create([
                         'supplier_id' => $supplierId !== '' ? (int) $supplierId : null,
                         'status' => 'pending',
@@ -300,9 +302,13 @@ class PurchaseOrderController extends Controller
         ReceivingService $receiving,
         PurchaseOrderLifecycleService $lifecycle
     ): JsonResponse {
-        // FSS may only update or_number; status and item-price corrections are RND-only.
-        if (Auth::user()->isFss() && $request->hasAny(['status', 'items'])) {
-            return response()->json(['message' => 'FSS users may only update the OR number.'], 403);
+        $fssChangedPlannedValues = Auth::user()->isFss()
+            && collect($request->input('items', []))->contains(
+                fn (array $line): bool => array_key_exists('unit_price', $line)
+                    || array_key_exists('purchase_price', $line),
+            );
+        if ($fssChangedPlannedValues) {
+            return response()->json(['message' => 'FSS users cannot change frozen planned values.'], 403);
         }
 
         // During open execution the ONLY structural edit allowed is a unit cost /
@@ -314,12 +320,11 @@ class PurchaseOrderController extends Controller
             'items.*.id' => ['required_with:items', 'integer', 'exists:purchase_order_items,id'],
             'items.*.purchase_price' => ['nullable', 'numeric', 'min:0'],
             'items.*.unit_price' => ['nullable', 'numeric', 'min:0'],
+            'items.*.actual_qty' => ['nullable', 'numeric', 'min:0.001'],
+            'items.*.actual_unit_price' => ['nullable', 'numeric', 'min:0'],
+            'items.*.receipt_total' => ['nullable', 'numeric', 'min:0'],
             'items.*.reason' => ['nullable', 'string', 'max:255'],
         ]);
-
-        if (Auth::user()->isFss()) {
-            $data = collect($data)->only('or_number')->all();
-        }
 
         $po = $vendorGroup->purchaseOrder;
         if (in_array($po->lifecycle_status, ['completed', 'archived'], true)) {
@@ -343,18 +348,40 @@ class PurchaseOrderController extends Controller
                     abort(422, 'Completed purchase orders are locked.');
                 }
                 $wasReceived = $vendorGroup->status === 'received' || $vendorGroup->received_at !== null;
-                $vendorGroup->fill(collect($data)->only(['or_number', 'status'])->all());
-                if (($data['status'] ?? null) === 'received' && ! $vendorGroup->received_at) {
-                    $vendorGroup->received_at = now();
+                if ($wasReceived && (isset($data['items']) || isset($data['status']))) {
+                    abort(422, 'Received vendor groups are locked.');
                 }
+                $vendorGroup->fill(collect($data)->only(['or_number'])->all());
                 $vendorGroup->save();
                 $vendorChangedFields = array_values(array_intersect(array_keys($vendorGroup->getChanges()), ['or_number']));
-                $receivedTransition = ! $wasReceived
-                    && ($vendorGroup->status === 'received' || $vendorGroup->received_at !== null);
+                $receivedTransition = false;
                 $correctionCount = 0;
+                $actualChangeCount = 0;
 
                 foreach ($data['items'] ?? [] as $line) {
                     $item = $vendorGroup->items()->whereKey($line['id'])->firstOrFail();
+
+                    $actualPatch = [];
+                    if (array_key_exists('actual_qty', $line)) {
+                        $actualPatch['actual_qty'] = (float) $line['actual_qty'];
+                    }
+                    if (array_key_exists('actual_unit_price', $line)) {
+                        $actualPatch['actual_unit_price'] = (float) $line['actual_unit_price'];
+                    }
+                    if (array_key_exists('receipt_total', $line) && ! array_key_exists('actual_qty', $line)) {
+                        $price = (float) ($actualPatch['actual_unit_price']
+                            ?? $item->actual_unit_price
+                            ?? $item->purchase_price
+                            ?? $item->unit_price);
+                        if ($price <= 0) {
+                            abort(422, 'Actual unit price must be greater than zero to calculate quantity from receipt total.');
+                        }
+                        $actualPatch['actual_qty'] = round((float) $line['receipt_total'] / $price, 3);
+                    }
+                    if ($actualPatch !== []) {
+                        $item->update($actualPatch);
+                        $actualChangeCount++;
+                    }
 
                     $newUnitPrice = array_key_exists('unit_price', $line) ? (float) $line['unit_price'] : null;
                     $newPurchasePrice = array_key_exists('purchase_price', $line) ? (float) $line['purchase_price'] : null;
@@ -396,14 +423,38 @@ class PurchaseOrderController extends Controller
                     $correctionCount++;
                 }
 
-                $vendorGroup->total_amount = (float) $vendorGroup->items()->sum('total_value');
+                $vendorGroup->load('items', 'attachments');
+                if (($data['status'] ?? null) === 'received') {
+                    if (! $vendorGroup->supplier_id) {
+                        abort(422, 'Assign a supplier before marking this vendor received.');
+                    }
+                    if ($vendorGroup->attachments->where('type', 'receipt')->isEmpty()) {
+                        abort(422, 'Upload at least one receipt before marking this vendor received.');
+                    }
+                    if ($vendorGroup->attachments->where('type', 'proof')->isEmpty()) {
+                        abort(422, 'Upload at least one proof of purchase before marking this vendor received.');
+                    }
+                    if ($vendorGroup->items->contains(fn ($item) => $item->actual_qty === null || $item->actual_unit_price === null)) {
+                        abort(422, 'Review actual quantity and unit price for every item before marking this vendor received.');
+                    }
+
+                    $vendorGroup->forceFill(['status' => 'received', 'received_at' => now()])->save();
+                    $receivedTransition = true;
+                }
+
+                $vendorGroup->total_amount = round((float) $vendorGroup->items->sum(
+                    fn ($item) => $item->actual_qty !== null && $item->actual_unit_price !== null
+                        ? (float) $item->actual_qty * (float) $item->actual_unit_price
+                        : (float) $item->total_value,
+                ), 2);
                 $vendorGroup->save();
-                $this->auditLogger->withoutModelEvents(fn () => $vendorGroup->purchaseOrder->recalcTotal());
+                if ($correctionCount > 0) {
+                    $this->auditLogger->withoutModelEvents(fn () => $vendorGroup->purchaseOrder->recalcTotal());
+                }
 
                 // Only refresh catalog vendor/price from a vendor group that actually has a
                 // receipt — "received" without proof must not push prices into the catalog.
-                $hasReceipt = $vendorGroup->attachments()->where('type', 'receipt')->exists();
-                if (($data['status'] ?? null) === 'received' && ! $vendorGroup->stocked_at && $hasReceipt) {
+                if ($receivedTransition && ! $vendorGroup->stocked_at) {
                     $receiving->receiveVendorGroup($vendorGroup->fresh('items'));
                     $vendorGroup->forceFill(['stocked_at' => now()])->save();
                 }
@@ -429,7 +480,7 @@ class PurchaseOrderController extends Controller
                         AuditAction::Updated,
                         AuditDomain::Procurement,
                         $purchaseOrder,
-                        $vendorChangedFields,
+                        $actualChangeCount > 0 ? [...$vendorChangedFields, 'items'] : $vendorChangedFields,
                         context: $purchaseOrder,
                     );
                     if ($activity !== null) {
@@ -528,7 +579,6 @@ class PurchaseOrderController extends Controller
     public function uploadVendorGroupAttachment(
         Request $request,
         PurchaseOrderVendorGroup $vendorGroup,
-        ReceivingService $receiving,
         PurchaseOrderLifecycleService $lifecycle
     ): JsonResponse {
         $request->validate([
@@ -552,8 +602,8 @@ class PurchaseOrderController extends Controller
 
         $storedPaths = [];
         try {
-            $created = $this->audited(function () use ($files, $vendorGroup, $request, $receiving, $lifecycle, &$storedPaths): array {
-                return DB::transaction(function () use ($files, $vendorGroup, $request, $receiving, $lifecycle, &$storedPaths): array {
+            $created = $this->audited(function () use ($files, $vendorGroup, $request, $lifecycle, &$storedPaths): array {
+                return DB::transaction(function () use ($files, $vendorGroup, $request, $lifecycle, &$storedPaths): array {
                     $lockedPo = PurchaseOrder::query()
                         ->whereKey($vendorGroup->purchase_order_id)
                         ->lockForUpdate()
@@ -568,7 +618,6 @@ class PurchaseOrderController extends Controller
                     if (in_array($lockedPo->lifecycle_status, ['completed', 'archived'], true)) {
                         abort(422, 'Completed purchase orders are locked.');
                     }
-                    $wasReceived = $vendorGroup->status === 'received' || $vendorGroup->received_at !== null;
                     $attachments = collect($files)->map(function ($file) use ($vendorGroup, $request, &$storedPaths) {
                         $storedObject = $this->attachmentStorage->store($file);
                         $storedPaths[] = $storedObject;
@@ -582,24 +631,8 @@ class PurchaseOrderController extends Controller
                         ]);
                     });
 
-                    if ($request->input('type') === 'receipt') {
-                        $vendorGroup->forceFill([
-                            'status' => 'received',
-                            'received_at' => $vendorGroup->received_at ?? now(),
-                        ])->save();
-
-                        if (! $vendorGroup->stocked_at) {
-                            $receiving->receiveVendorGroup($vendorGroup->fresh('items'));
-                            $vendorGroup->forceFill(['stocked_at' => now()])->save();
-                        }
-                    }
-
                     $after = $lockedPo->fresh(self::RELATIONS);
                     $afterRevision = $this->revisionRegistry->capture($after);
-                    if ($request->input('type') === 'receipt' && ! $wasReceived) {
-                        $receivedActivity = $this->recordVendorReceived($vendorGroup->fresh('purchaseOrder'));
-                        $this->revisionWriter->write($receivedActivity, $before, $afterRevision);
-                    }
                     $uploadedActivity = $this->auditLogger->record(
                         AuditAction::Uploaded,
                         AuditCategory::Operations,

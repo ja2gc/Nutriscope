@@ -2,6 +2,9 @@
 
 @section('body')
     @forelse($packs as $i => $pack)
+        @if(! $pack['is_final'])
+            <p class="center bold" style="color:#9a3412; border:1px solid #fdba74; padding:6px;">DRAFT / INCOMPLETE — receiving is not finished</p>
+        @endif
         {{-- ===== Page 1: Acceptance & Inspection Report ===== --}}
         <div class="title">ACCEPTANCE AND INSPECTION REPORT</div>
         <div class="subtitle">{{ $branding->province }}<br>{{ $branding->lgu ?: 'LGU' }}</div>
@@ -112,7 +115,7 @@
                         @foreach($row as $att)
                             <td style="width:50%; height:260px; vertical-align:top;" class="center">
                                 <div class="bold upper" style="font-size:9px; margin-bottom:4px;">{{ $att['type'] }}{{ $att['caption'] ? ' — ' . $att['caption'] : '' }}</div>
-                                @if(file_exists($att['src']))
+                                @if($att['src'] && (str_starts_with($att['src'], 'data:image/') || file_exists($att['src'])))
                                     <img src="{{ $att['src'] }}" style="max-width:100%; max-height:230px;">
                                 @else
                                     <span class="muted">[image unavailable]</span>

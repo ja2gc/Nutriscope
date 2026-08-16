@@ -16,6 +16,7 @@ export interface CatalogItem {
   default_supplier_id: string | null;
   vendor: string | null;
   vendor_locked: boolean;
+  include_in_generated_lists: boolean;
 }
 
 export interface CreateFsItemPayload {
@@ -25,6 +26,7 @@ export interface CreateFsItemPayload {
   base_unit: string;
   purchase_price: number;
   default_supplier_id?: string | null;
+  include_in_generated_lists?: boolean;
 }
 
 async function unwrap<T>(res: Response, fallback: string): Promise<T> {

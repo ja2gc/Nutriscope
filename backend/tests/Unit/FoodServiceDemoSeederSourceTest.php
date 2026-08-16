@@ -38,4 +38,16 @@ class FoodServiceDemoSeederSourceTest extends TestCase
         $this->assertStringContainsString('planRange($start, $end, $estimate)', $content);
         $this->assertMatchesRegularExpression("/'days_span'\s*=>\s*Carbon::parse\\(\\\$start\\)->diffInDays\\(Carbon::parse\\(\\\$end\\)\\) \+ 1/", $content);
     }
+
+    public function test_demo_uses_current_generation_and_receiving_rules(): void
+    {
+        $catalog = file_get_contents(__DIR__.'/../../database/seeders/FsCatalogSeeder.php');
+        $demo = file_get_contents(__DIR__.'/../../database/seeders/FoodServiceDemoSeeder.php');
+
+        $this->assertStringContainsString("'include_in_generated_lists'", $catalog);
+        $this->assertStringContainsString('cascadeMenuDays($start, $end, $estimate)', $demo);
+        $this->assertStringContainsString("'actual_qty'", $demo);
+        $this->assertStringContainsString("['receipt', 'proof']", $demo);
+        $this->assertStringContainsString('$idx === 0 ? null', $demo, 'At least one completed demo vendor must show that OR number is optional.');
+    }
 }

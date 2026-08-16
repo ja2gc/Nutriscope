@@ -48,6 +48,22 @@ class MenuCycle extends Model
         return $this->hasMany(MenuCycleDay::class);
     }
 
+    public static function defaultName(Carbon|string $weekStart): string
+    {
+        $start = ($weekStart instanceof Carbon ? $weekStart->copy() : Carbon::parse($weekStart))->startOfDay();
+        $end = $start->copy()->addDays(6);
+
+        if ($start->year !== $end->year) {
+            $span = $start->format('M j, Y').'–'.$end->format('M j, Y');
+        } elseif ($start->month !== $end->month) {
+            $span = $start->format('M j').'–'.$end->format('M j, Y');
+        } else {
+            $span = $start->format('M j').'–'.$end->format('j, Y');
+        }
+
+        return 'Weekly Menu — '.$span;
+    }
+
     /**
      * The cycle that owns a given calendar date — the single source of truth for
      * date→cycle resolution. A cycle covers [week_start_date, week_start_date +

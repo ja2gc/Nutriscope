@@ -62,17 +62,17 @@ flowchart TD
 flowchart TD
     A["Purchase tab"] --> B["Open PO"]
     B --> C["Open vendor group"]
-    C --> D["Review vendor lines read-only"]
-    D --> E["Enter and save OR number"]
-    E --> F["Upload receipt from camera or library"]
-    F --> G["Server marks vendor group received"]
-    G --> H["Optional proof-of-purchase upload"]
+    C --> D["Review calculated vendor lines"]
+    D --> E["Confirm actual quantity and unit price"]
+    E --> F["Upload receipt and proof"]
+    F --> G["Optionally enter OR number"]
+    G --> H["Explicitly mark vendor received"]
     H --> I{"PO completed or archived?"}
     I -->|"Yes"| J["Edits locked"]
     I -->|"No"| K["Continue remaining vendor/date requirements"]
 ```
 
-FSS cannot edit items, prices, quantities, suppliers, or lifecycle status. Receipt upload—not a manual status button—is the receiving event.
+FSS can correct actual quantities and prices while open, but cannot change planned structure or supplier. Receipt and proof do not change status until **Mark vendor received** is used. OR number is optional.
 
 ## Accomplishment Report Lifecycle
 
@@ -113,7 +113,7 @@ flowchart TD
 - Menu is a first-class bottom tab, not only a Prep link.
 - Purchase label is current bottom-tab label; screen title remains Procurement.
 - Accomplishment entry is rendered on Accomplish, not Meal Prep.
-- Receipt upload marks received; FSS does not manually set vendor status.
+- Actual values, receipt, proof, and an explicit receiving action are required; OR is optional.
 - Help is reached from Settings and does not add a sixth bottom tab.
 
 ## Related Documents

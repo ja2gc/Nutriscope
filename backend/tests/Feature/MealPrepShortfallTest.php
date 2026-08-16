@@ -46,7 +46,19 @@ class MealPrepShortfallTest extends TestCase
             ->postJson("/api/fss/menu-cycles/{$this->cycle->uuid}/complete-day", array_merge([
                 'service_date' => '2026-06-15',
                 'population' => 5,
+                'served_population' => 5,
             ], $payload));
+    }
+
+    public function test_actual_population_is_required_for_completion(): void
+    {
+        $this->actingAs($this->fss)
+            ->postJson("/api/fss/menu-cycles/{$this->cycle->uuid}/complete-day", [
+                'service_date' => '2026-06-15',
+                'population' => 5,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('served_population');
     }
 
     public function test_mark_served_does_not_require_stock_or_create_shortfall(): void

@@ -23,7 +23,6 @@ describe("menu slot recipe service", () => {
     const payload = {
       name: "Ward Adobo",
       reference_servings: 25,
-      planned_servings: 100,
       prep_notes: null,
       ingredients: [{ fs_item_id: "item-1", quantity: 3, unit: "kg" }],
     };

@@ -38,13 +38,14 @@ class FsItemController extends Controller
             ->where('is_active', true)
             ->where('kind', 'ingredient')
             ->orderBy('name')
-            ->get(['id', 'name', 'category', 'base_unit', 'purchase_price', 'purchase_unit', 'units_per_purchase'])
+            ->get(['id', 'name', 'category', 'base_unit', 'purchase_price', 'purchase_unit', 'units_per_purchase', 'include_in_generated_lists'])
             ->map(fn (FsItem $i) => [
                 'id' => $i->uuid,
                 'name' => $i->name,
                 'category' => $i->category,
                 'unit' => $i->base_unit,
                 'unit_cost' => $i->unit_cost,
+                'include_in_generated_lists' => $i->include_in_generated_lists,
             ]);
 
         return response()->json(['data' => $items]);
@@ -106,6 +107,7 @@ class FsItemController extends Controller
             'default_supplier_id' => $i->defaultSupplier?->uuid,
             'vendor' => $i->defaultSupplier?->name,
             'vendor_locked' => $i->vendorLocked(),
+            'include_in_generated_lists' => $i->include_in_generated_lists,
         ];
     }
 
@@ -123,6 +125,7 @@ class FsItemController extends Controller
             'base_unit' => ['required', 'string', 'max:20'],
             'purchase_price' => ['required', 'numeric', 'min:0'],
             'default_supplier_id' => ['nullable', 'string', 'exists:suppliers,uuid'],
+            'include_in_generated_lists' => ['sometimes', 'boolean'],
         ]);
 
         if (! empty($data['default_supplier_id'])) {
@@ -164,6 +167,7 @@ class FsItemController extends Controller
             'purchase_price' => ['sometimes', 'numeric', 'min:0'],
             'base_unit' => ['sometimes', 'string', 'max:20'],
             'default_supplier_id' => ['sometimes', 'nullable', 'string', 'exists:suppliers,uuid'],
+            'include_in_generated_lists' => ['sometimes', 'boolean'],
         ]);
 
         if (! empty($data['default_supplier_id'])) {
@@ -319,6 +323,7 @@ class FsItemController extends Controller
             'total_cost' => $totalCost,
             'cost_per_head' => $population > 0 ? round($totalCost / $population, 2) : 0.0,
             'prep_notes' => $fsItem->notes,
+            'include_in_generated_lists' => $fsItem->include_in_generated_lists,
             'formula' => 'total_cost = quantity_per_head * population * unit_cost',
             'ingredient_usage' => [[
                 'fs_item_id' => $fsItem->uuid,

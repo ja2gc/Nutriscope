@@ -52,6 +52,9 @@ function VendorCard({ group, purchaseOrderId, locked, onChanged }: {
   const [orNumber, setOrNumber] = useState(group.or_number ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [actuals, setActuals] = useState<Record<number, { qty: string; price: string }>>(
+    Object.fromEntries((group.items ?? []).map((item) => [item.id, { qty: item.actual_qty, price: item.actual_unit_price }])),
+  );
 
   async function saveOrNumber() {
     setBusy(true); setError("");
@@ -71,6 +74,17 @@ function VendorCard({ group, purchaseOrderId, locked, onChanged }: {
     } finally { setBusy(false); }
   }
 
+  async function saveActuals(markReceived = false) {
+    setBusy(true); setError("");
+    try {
+      onChanged(await updateVendorGroup(group.id, {
+        items: (group.items ?? []).map((item) => ({ id: item.id, actual_qty: Number(actuals[item.id]?.qty), actual_unit_price: Number(actuals[item.id]?.price) })),
+        ...(markReceived ? { status: "received" as const } : {}),
+      }));
+    } catch (reason) { setError(reason instanceof Error ? reason.message : "Could not save actual purchase values."); }
+    finally { setBusy(false); }
+  }
+
   async function remove(id: string) {
     if (!window.confirm("Remove this image?")) return;
     setBusy(true); setError("");
@@ -86,12 +100,20 @@ function VendorCard({ group, purchaseOrderId, locked, onChanged }: {
         <strong className="text-sm text-emerald-700">{money(group.total_amount)}</strong>
       </div>
       <div>
-        <label className="mb-1 block text-xs font-bold text-warm-600" htmlFor={`or-${group.id}`}>OR number</label>
+        <label className="mb-1 block text-xs font-bold text-warm-600" htmlFor={`or-${group.id}`}>OR number (optional)</label>
         <div className="flex gap-2">
           <input id={`or-${group.id}`} value={orNumber} onChange={(event) => setOrNumber(event.target.value)} disabled={locked || busy}
             className="min-w-0 flex-1 rounded-xl border border-warm-200 bg-white px-3 py-2 text-base" placeholder="Enter official receipt number" />
           <Button size="sm" onClick={saveOrNumber} disabled={locked} loading={busy}>Save</Button>
         </div>
+      </div>
+      <div className="space-y-2">
+        {(group.items ?? []).map((item) => <div key={item.id} className="grid grid-cols-[1fr_90px_100px] items-end gap-2 rounded-xl bg-white p-3">
+          <div><strong className="block text-sm text-warm-800">{item.description}</strong><span className="text-xs text-warm-400">Calculated: {Number(item.purchase_qty ?? item.qty).toFixed(3)} {item.actual_unit}</span></div>
+          <label className="text-xs font-bold text-warm-500">Actual qty<input type="number" step="0.001" min="0" disabled={locked || busy} value={actuals[item.id]?.qty ?? ""} onChange={(event) => setActuals((current) => ({ ...current, [item.id]: { qty: event.target.value, price: current[item.id]?.price ?? item.actual_unit_price } }))} className="mt-1 w-full rounded-lg border border-warm-200 px-2 py-2 text-base" /></label>
+          <label className="text-xs font-bold text-warm-500">Unit price<input type="number" step="0.01" min="0" disabled={locked || busy} value={actuals[item.id]?.price ?? ""} onChange={(event) => setActuals((current) => ({ ...current, [item.id]: { qty: current[item.id]?.qty ?? item.actual_qty, price: event.target.value } }))} className="mt-1 w-full rounded-lg border border-warm-200 px-2 py-2 text-base" /></label>
+        </div>)}
+        {!locked && <Button size="sm" variant="secondary" onClick={() => saveActuals(false)} loading={busy}>Save actual values</Button>}
       </div>
       {!locked && (
         <div className="grid grid-cols-2 gap-2">
@@ -104,6 +126,7 @@ function VendorCard({ group, purchaseOrderId, locked, onChanged }: {
         </div>
       )}
       <AttachmentList attachments={attachments} locked={locked} onDelete={remove} />
+      {!locked && <Button onClick={() => saveActuals(true)} loading={busy} disabled={!group.evidence_requirements?.receipt_uploaded || !group.evidence_requirements?.proof_uploaded}>Mark vendor received</Button>}
       {error && <p role="alert" className="text-sm font-semibold text-red-700">{error}</p>}
     </section>
   );
@@ -149,7 +172,7 @@ export function FssPurchaseOrders() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-3"><div><h1 className="text-xl font-extrabold text-warm-900">Purchase</h1><p className="text-sm text-warm-500">Record OR numbers and receipt images.</p></div><button onClick={() => void load()} aria-label="Refresh purchase orders" className="min-h-11 min-w-11 rounded-xl border border-warm-200 bg-white p-3 text-warm-600"><RefreshCw className="h-4 w-4" /></button></div>
+      <div className="flex items-center justify-between gap-3"><div><h1 className="text-xl font-extrabold text-warm-900">Purchase</h1><p className="text-sm text-warm-500">Confirm actual values, upload receipt and proof, then mark each vendor received. OR number is optional.</p></div><button onClick={() => void load()} aria-label="Refresh purchase orders" className="min-h-11 min-w-11 rounded-xl border border-warm-200 bg-white p-3 text-warm-600"><RefreshCw className="h-4 w-4" /></button></div>
       {error && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm font-semibold text-red-700">{error}</p>}
       {loading ? <p className="py-10 text-center text-sm text-warm-400">Loading purchase orders…</p> : orders.length ? (
         <div className="overflow-hidden rounded-2xl border border-warm-200 bg-white shadow-sm">

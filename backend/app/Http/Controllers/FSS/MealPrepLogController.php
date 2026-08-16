@@ -43,7 +43,7 @@ class MealPrepLogController extends Controller
         $data = $request->validate([
             'service_date' => ['required', 'date'],
             'population' => ['nullable', 'integer', 'min:1'],
-            'served_population' => ['nullable', 'integer', 'min:0'],
+            'served_population' => ['required', 'integer', 'min:1'],
         ]);
 
         $log = $this->audited(function () use ($consumption, $menuCycle, $data, $lifecycle): MealPrepLog {

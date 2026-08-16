@@ -14,6 +14,7 @@ final class FsItemAuditValues
         return [
             'name' => (string) $item->name,
             'kind' => (string) $item->kind,
+            'include_in_generated_lists' => (bool) $item->include_in_generated_lists,
             'category' => $item->category,
             'base_unit' => (string) $item->base_unit,
             'purchase_unit' => (string) $item->purchase_unit,

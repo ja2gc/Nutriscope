@@ -45,6 +45,71 @@ class PurchaseOrderLifecycleService
     ) {}
 
     /**
+     * @return array{ready: bool, blockers: list<array{code: string, message: string}>, planned_total: float, available_budget: float|null, fiscal_year: int}
+     */
+    public function releaseReadiness(ShoppingList $shoppingList, bool $lockBudget = false): array
+    {
+        $shoppingList->loadMissing('items');
+        $included = $shoppingList->items->where('included_in_po', true);
+        $plannedTotal = round((float) $included->sum(fn ($item) => (float) $item->total), 2);
+        $blockers = [];
+
+        if ($included->isEmpty()) {
+            $blockers[] = ['code' => 'items_missing', 'message' => 'Include at least one shopping-list item.'];
+        }
+        if ($included->contains(fn ($item) => $item->supplier_id === null)) {
+            $blockers[] = ['code' => 'supplier_missing', 'message' => 'Assign a supplier to every included item.'];
+        }
+
+        $suggestedFood = ! $shoppingList->isSupplies() && $shoppingList->list_type === 'suggested';
+        if ($suggestedFood && (int) $shoppingList->estimate_population < 1) {
+            $blockers[] = ['code' => 'estimate_missing', 'message' => 'Set one estimated serving count for the selected span.'];
+        }
+        if ($suggestedFood && (
+            $shoppingList->coverage_status !== 'full'
+            || ! $shoppingList->period_start
+            || ! $shoppingList->period_end
+        )) {
+            $blockers[] = ['code' => 'coverage_incomplete', 'message' => 'Every selected service date needs menu items.'];
+        }
+
+        $year = $this->fiscalYear($shoppingList);
+        $budgetQuery = Budget::query()->where('fiscal_year', $year);
+        if ($lockBudget) {
+            $budgetQuery->lockForUpdate();
+        }
+        $budget = $budgetQuery->first();
+        $available = null;
+        if (! $budget) {
+            $blockers[] = ['code' => 'budget_missing', 'message' => "Set up the {$year} fiscal-year budget."];
+        } else {
+            $reserved = PurchaseOrder::query()
+                ->where('lifecycle_status', 'open_execution')
+                ->with('shoppingList')
+                ->get()
+                ->filter(fn (PurchaseOrder $po) => $po->shoppingList && $this->fiscalYear($po->shoppingList) === $year)
+                ->sum(fn (PurchaseOrder $po) => (float) $po->total_amount);
+            $available = round($budget->remainingBalance() - (float) $reserved, 2);
+            if ($plannedTotal > $available) {
+                $blockers[] = ['code' => 'budget_exceeded', 'message' => 'Planned total exceeds the remaining available budget.'];
+            }
+        }
+
+        return [
+            'ready' => $blockers === [],
+            'blockers' => $blockers,
+            'planned_total' => $plannedTotal,
+            'available_budget' => $available,
+            'fiscal_year' => $year,
+        ];
+    }
+
+    private function fiscalYear(ShoppingList $shoppingList): int
+    {
+        return ($shoppingList->period_start ?? $shoppingList->list_date ?? now())->year;
+    }
+
+    /**
      * Re-evaluate every PO whose procurement span includes a service date.
      */
     public function refreshForServiceDate(string $serviceDate): void
@@ -73,10 +138,15 @@ class PurchaseOrderLifecycleService
             }
 
             $groups = $po->vendorGroups;
-            $hasReceipts = $groups->isNotEmpty()
-                && $groups->every(fn (PurchaseOrderVendorGroup $group) => $group->attachments->where('type', 'receipt')->isNotEmpty());
+            $vendorsReceived = $groups->isNotEmpty()
+                && $groups->every(fn (PurchaseOrderVendorGroup $group) => $group->status === 'received'
+                    && $group->received_at !== null
+                    && $group->attachments->where('type', 'receipt')->isNotEmpty()
+                    && $group->attachments->where('type', 'proof')->isNotEmpty()
+                    && $group->items->isNotEmpty()
+                    && $group->items->every(fn ($item) => $item->actual_qty !== null && $item->actual_unit_price !== null));
 
-            if ($hasReceipts) {
+            if ($vendorsReceived) {
                 $this->notificationLifecycle->resolvePurchaseOrder($po);
             }
 
@@ -85,40 +155,24 @@ class PurchaseOrderLifecycleService
 
             // Supplies POs complete on receipts alone — no served population, no per-head.
             if (! $isFood) {
-                if (! $hasReceipts) {
+                if (! $vendorsReceived) {
                     return $po;
                 }
 
-                $year = $po->shoppingList?->period_start?->year ?? now()->year;
-                if (! Budget::query()->where('fiscal_year', $year)->exists()) {
-                    return $po;
-                }
-
-                $this->auditLogger->assertAvailable();
-                $before = $this->revisionRegistry->capture($po);
-
-                $this->auditLogger->withoutModelEvents(function () use ($po, $actualTotal): void {
-                    $po->forceFill([
-                        'lifecycle_status' => 'completed',
-                        'completed_at' => now(),
-                        'final_locked_at' => now(),
-                        'total_amount' => $actualTotal,
-                        'status' => 'received',
-                        'received_date' => now()->toDateString(),
-                    ])->save();
-                });
-
-                event(new PurchaseOrderCompleted($po->fresh(['vendorGroups', 'shoppingList', 'programProjectActivity'])));
-                $activity = $this->recordLifecycle(AuditAction::Completed, $po);
-                $after = $po->fresh(self::REVISION_RELATIONS);
-                $this->revisionWriter->write($activity, $before, $this->revisionRegistry->capture($after));
-
-                return $after;
+                return $this->completeWithoutPopulation($po, $actualTotal);
             }
 
-            // Food PO: receipts on every group AND served population logged for every span date.
+            if ($po->shoppingList?->list_type === 'manual') {
+                if (! $vendorsReceived) {
+                    return $po;
+                }
+
+                return $this->completeWithoutPopulation($po, $actualTotal);
+            }
+
+            // Suggested food PO: complete vendor evidence and served population for every span date.
             $prep = $this->servedPopulationProgress($po->shoppingList);
-            if (! $hasReceipts || $prep['expected'] === 0 || $prep['done'] < $prep['expected'] || $prep['served'] <= 0) {
+            if (! $vendorsReceived || $prep['expected'] === 0 || $prep['done'] < $prep['expected'] || $prep['served'] <= 0) {
                 return $po;
             }
 
@@ -127,7 +181,8 @@ class PurchaseOrderLifecycleService
             // Block completion if no fiscal year allocation exists for the procurement year.
             // BudgetController::store() re-calls refresh() for blocked POs when allocation is set up.
             $procurementYear = optional($po->shoppingList?->period_start)->year ?? now()->year;
-            if (! Budget::query()->where('fiscal_year', $procurementYear)->exists()) {
+            $budget = Budget::query()->where('fiscal_year', $procurementYear)->first();
+            if (! $budget || $actualTotal > $budget->remainingBalance()) {
                 return $po;
             }
 
@@ -171,6 +226,35 @@ class PurchaseOrderLifecycleService
 
             return $after;
         });
+    }
+
+    private function completeWithoutPopulation(PurchaseOrder $po, float $actualTotal): PurchaseOrder
+    {
+        $year = $po->shoppingList ? $this->fiscalYear($po->shoppingList) : now()->year;
+        $budget = Budget::query()->where('fiscal_year', $year)->first();
+        if (! $budget || $actualTotal > $budget->remainingBalance()) {
+            return $po;
+        }
+
+        $this->auditLogger->assertAvailable();
+        $before = $this->revisionRegistry->capture($po);
+        $this->auditLogger->withoutModelEvents(function () use ($po, $actualTotal): void {
+            $po->forceFill([
+                'lifecycle_status' => 'completed',
+                'completed_at' => now(),
+                'final_locked_at' => now(),
+                'total_amount' => $actualTotal,
+                'status' => 'received',
+                'received_date' => now()->toDateString(),
+            ])->save();
+        });
+
+        event(new PurchaseOrderCompleted($po->fresh(['vendorGroups', 'shoppingList', 'programProjectActivity'])));
+        $activity = $this->recordLifecycle(AuditAction::Completed, $po);
+        $after = $po->fresh(self::REVISION_RELATIONS);
+        $this->revisionWriter->write($activity, $before, $this->revisionRegistry->capture($after));
+
+        return $after;
     }
 
     public function archive(PurchaseOrder $purchaseOrder): PurchaseOrder
@@ -223,7 +307,8 @@ class PurchaseOrderLifecycleService
         $shoppingList->loadMissing('items.fsItem');
 
         $menuSnapshot = $this->menuSnapshot($shoppingList);
-        $estimatedTotal = round((float) $shoppingList->items->sum(fn ($item) => (float) $item->total), 2);
+        $includedItems = $shoppingList->items->where('included_in_po', true);
+        $estimatedTotal = round((float) $includedItems->sum(fn ($item) => (float) $item->total), 2);
         $estimatedPatients = $this->estimatedOutputPatients($shoppingList);
         $activity = $shoppingList->isSupplies()
             ? 'Food Service Supplies'
@@ -241,8 +326,8 @@ class PurchaseOrderLifecycleService
             'planning_payload' => [
                 'source' => 'shopping_list_conversion',
                 'shopping_list_id' => $shoppingList->id,
-                'items_count' => $shoppingList->items->count(),
-                'formula' => 'estimated_total_cost = frozen shopping_list_items.total sum',
+                'items_count' => $includedItems->count(),
+                'formula' => 'estimated_total_cost = included frozen shopping_list_items.total sum',
                 'estimated_output_patients_formula' => 'shopping_list.estimate_population * planned service dates in procurement span',
             ],
         ]);

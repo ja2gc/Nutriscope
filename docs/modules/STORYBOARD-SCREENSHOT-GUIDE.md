@@ -315,7 +315,7 @@ Use this version when screenshots are available. Each scene already contains the
 
 #### RND-FS-04 — Menu Cycle Editor
 
-**Description:** RND assigns recipes/items to Monday-Sunday meal slots, sets estimated population/servings, reviews profiles/cost, saves, and activates.
+**Description:** RND assigns recipes/items to a date-named Monday-Sunday cycle, reviews baseline profiles, saves a reusable template if needed, and activates. Purchase estimates are set later per shopping span.
 
 **User should do:** Open one filled slot, review its profile, then show Save and Activate.
 
@@ -339,19 +339,19 @@ Use this version when screenshots are available. Each scene already contains the
 
 #### RND-FS-06 — Shopping List Review and Conversion
 
-**Description:** RND reviews estimated population, budget/head/day, item quantities, unit cost, and vendor, then converts the approved list to a vendor-grouped PO.
+**Description:** RND reviews the one span estimate, calculated need, editable purchase values/vendor, manual additions, exclusions, included total, and release blockers before creating the vendor-grouped PO.
 
-**User should do:** Review the demo list and point to **Convert to PO**.
+**User should do:** Review the demo list, clear its checklist, and point to **Create and release PO**.
 
 **Next scene:** Purchase Order Detail.
 
-> **Screenshot needed:** Shopping-list detail with estimated population, budget/head/day, item table, vendors, and Convert to PO.
+> **Screenshot needed:** Shopping-list detail with span estimate, calculated and purchase columns, inclusion controls, vendors, release checklist, and Create and release PO.
 >
 > **Insert screenshot below this line.**
 
 #### RND-FS-07 — Purchase Order Supervision
 
-**Description:** RND follows one PO's vendor groups, OR numbers, receipts, totals, served-day progress, lifecycle, and structured activity.
+**Description:** RND follows one PO's purpose/name, vendor actual values, receipt/proof, optional OR, received status, served-day progress, lifecycle, and structured activity.
 
 **User should do:** Open one vendor group and explain missing receipt/population requirements.
 
@@ -487,13 +487,13 @@ Use this version when screenshots are available. Each scene already contains the
 
 #### FSS-05 — Vendor Group Receiving
 
-**Description:** FSS reviews read-only vendor lines, saves OR number, and uploads receipt/proof. Receipt upload marks the group received.
+**Description:** FSS reviews calculated values, corrects actual decimal quantity/price, uploads receipt and proof, optionally saves an OR number, then explicitly marks the vendor received.
 
-**User should do:** Save a demo OR number and open the Receipt upload control.
+**User should do:** Review actuals, upload receipt and proof, leave OR blank for a vendor without one, then point to **Mark vendor received**.
 
 **Next scene:** Image Upload.
 
-> **Screenshot needed:** Vendor detail with supplier, status, OR number, read-only lines, Receipt images, Proof of purchase, and Upload controls.
+> **Screenshot needed:** Vendor detail with supplier, status, calculated and actual values, optional OR, Receipt images, Proof of purchase, and Mark vendor received.
 >
 > **Insert screenshot below this line.**
 

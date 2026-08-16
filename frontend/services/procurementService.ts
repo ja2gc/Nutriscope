@@ -15,7 +15,16 @@ export interface ShoppingListItem {
   purchase_unit: string | null;
   purchase_price: string | null;
   vendor_locked?: boolean;
+  source: "generated" | "manual";
+  included_in_po: boolean;
+  exclusion_note: string | null;
+  baseline_servings?: number | null;
+  baseline_quantity?: string | null;
+  scaled_quantity?: string | null;
+  scaled_unit?: string | null;
 }
+export interface ReleaseBlocker { code: string; message: string }
+export interface ReleaseReadiness { ready: boolean; blockers: ReleaseBlocker[] }
 export interface ShoppingList {
   id: string;
   name: string;
@@ -33,23 +42,26 @@ export interface ShoppingList {
   estimate_population_updated_at: string | null;
   estimated_total?: number | null;
   estimated_budget_per_head_per_day?: number | null;
+  release_readiness?: ReleaseReadiness | null;
   items: ShoppingListItem[];
 }
 
 
-export interface POItem { id: number; vendor_group_id?: number | null; fs_item_id: number | null; description: string; qty: string; unit: string; unit_price: string; total_value: string; purchase_qty: string | null; purchase_unit: string | null; purchase_price: string | null }
+export interface POItem { id: number; vendor_group_id?: number | null; fs_item_id: number | null; description: string; qty: string; unit: string; unit_price: string; total_value: string; purchase_qty: string | null; purchase_unit: string | null; purchase_price: string | null; actual_qty: string; actual_unit: string; actual_unit_price: string; actual_total: number; actual_values_confirmed: boolean }
 export interface POAttachment { id: string; vendor_group_id?: number | null; type: "receipt" | "proof"; path: string; url: string; caption: string | null }
 export interface POVendorGroup {
   id: string;
   supplier_id: number | null;
   supplier?: { id: string; name: string; category: string | null } | null;
   or_number: string | null;
+  or_number_display: string;
   status: "pending" | "received";
   total_amount: string | null;
   received_at: string | null;
   stocked_at: string | null;
   items?: POItem[] | null;
   attachments?: POAttachment[] | null;
+  evidence_requirements?: { supplier_assigned: boolean; actual_values_reviewed: boolean; receipt_uploaded: boolean; proof_uploaded: boolean; can_mark_received: boolean };
 }
 export interface ProgramProjectActivity {
   id: number;
@@ -65,6 +77,7 @@ export interface ProgramProjectActivity {
 export interface PurchaseOrder {
   id: string;
   shopping_list_id: string | null;
+  shopping_list?: { id: string; name: string } | null;
   supplier_id: number | null;
   supplier?: { id: string; name: string; category: string | null } | null;
   po_number: string;
@@ -137,10 +150,10 @@ export class MissingMenuDaysError extends Error {
   }
 }
 
-export async function generateByDates(start_date: string, end_date: string, name?: string): Promise<ShoppingList> {
+export async function generateByDates(start_date: string, end_date: string, estimate_population: number, name?: string): Promise<ShoppingList> {
   const res = await apiFetch("/api/fss/shopping-lists/generate", {
     method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ start_date, end_date, name }),
+    body: JSON.stringify({ start_date, end_date, estimate_population, name }),
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
@@ -163,7 +176,7 @@ export async function deleteShoppingList(id: string): Promise<void> {
   if (!res.ok && res.status !== 204) throw new Error("Failed to delete list.");
 }
 
-export async function updateListItem(itemId: string, patch: { supplier_id?: string | null; qty?: number; unit_price?: number }): Promise<{ id: string; supplier_id: number | null; qty: string; unit_price: string; total: string }> {
+export async function updateListItem(itemId: string, patch: { supplier_id?: string | null; qty?: number; unit_price?: number; purchase_qty?: number | null; purchase_unit?: string | null; purchase_price?: number | null; included_in_po?: boolean; exclusion_note?: string | null }): Promise<ShoppingListItem> {
   return unwrap(await apiFetch(`/api/fss/shopping-list-items/${itemId}`, {
     method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch),
   }), "Failed to update item.");
@@ -216,7 +229,7 @@ export async function updatePurchaseOrder(id: string, patch: Partial<Pick<Purcha
 export async function updateVendorGroup(groupId: string, patch: {
   or_number?: string | null;
   status?: "pending" | "received";
-  items?: Array<{ id: number; purchase_qty?: number | null; purchase_unit?: string | null; purchase_price?: number | null; unit_price?: number | null }>;
+  items?: Array<{ id: number; actual_qty?: number | null; actual_unit_price?: number | null; receipt_total?: number | null }>;
 }): Promise<PurchaseOrder> {
   return unwrap(await apiFetch(`/api/fss/purchase-order-vendor-groups/${groupId}`, {
     method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch),

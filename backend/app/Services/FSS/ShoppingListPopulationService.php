@@ -4,6 +4,7 @@ namespace App\Services\FSS;
 
 use App\Models\FsItem;
 use App\Models\MenuCycle;
+use App\Models\MenuCycleDay;
 use App\Models\ShoppingList;
 use App\Services\MenuCycleCostService;
 use Carbon\Carbon;
@@ -89,8 +90,33 @@ class ShoppingListPopulationService
                 'estimate_population_updated_at' => now(),
             ]);
 
+            $this->cascadeMenuDays($list->period_start, $list->period_end, $population);
+
             $this->syncItems($list->fresh());
         });
+    }
+
+    public function cascadeMenuDays(Carbon|string $startDate, Carbon|string $endDate, int $population): void
+    {
+        $cursor = Carbon::parse($startDate)->startOfDay();
+        $end = Carbon::parse($endDate)->startOfDay();
+
+        for ($d = $cursor->copy(); $d->lte($end); $d->addDay()) {
+            $cycle = MenuCycle::coveringDate($d);
+            if (! $cycle) {
+                continue;
+            }
+
+            MenuCycleDay::query()
+                ->where('menu_cycle_id', $cycle->id)
+                ->where('day_of_week', $d->format('l'))
+                ->where(fn ($query) => $query->whereNotNull('recipe_id')->orWhereNotNull('fs_item_id'))
+                ->update([
+                    'estimate_population' => $population,
+                    'estimate_population_updated_at' => now(),
+                    'servings_override' => null,
+                ]);
+        }
     }
 
     public function recalculateDraftListsForCycle(MenuCycle $cycle): void
@@ -122,7 +148,10 @@ class ShoppingListPopulationService
 
         foreach ($plan['items'] as $row) {
             $seen[] = $row['fs_item_id'];
-            $item = $list->items()->where('fs_item_id', $row['fs_item_id'])->first();
+            $item = $list->items()
+                ->where('source', 'generated')
+                ->where('fs_item_id', $row['fs_item_id'])
+                ->first();
             $attrs = [
                 'ingredient_name' => $row['ingredient_name'],
                 'qty' => $row['qty'],
@@ -141,10 +170,11 @@ class ShoppingListPopulationService
 
             $item
                 ? $item->update($attrs)
-                : $list->items()->create(['fs_item_id' => $row['fs_item_id']] + $attrs);
+                : $list->items()->create(['fs_item_id' => $row['fs_item_id'], 'source' => 'generated'] + $attrs);
         }
 
         $list->items()
+            ->where('source', 'generated')
             ->whereNotNull('fs_item_id')
             ->whereNotIn('fs_item_id', $seen)
             ->delete();
@@ -165,6 +195,9 @@ class ShoppingListPopulationService
             }
 
             $fs = $fsItems[$id] ?? null;
+            if ($fs && ! $fs->include_in_generated_lists) {
+                continue;
+            }
             $basePerPurchase = $fs ? $fs->basePerPurchase() : 0.0;
             $baselineQuantity = $targetPopulation > 0 ? round($net / $targetPopulation, 4) : round($net, 4);
 

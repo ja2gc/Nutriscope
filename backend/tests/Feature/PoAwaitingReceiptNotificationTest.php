@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Budget;
 use App\Models\Notification;
 use App\Models\PurchaseOrder;
 use App\Models\ShoppingList;
@@ -43,6 +44,7 @@ class PoAwaitingReceiptNotificationTest extends TestCase
 
     public function test_approving_list_creates_draft_pos_with_no_notifications(): void
     {
+        Budget::factory()->create(['fiscal_year' => 2026, 'allocated_amount' => 100000]);
         // Purchase orders are now born from approving a shopping list, as drafts —
         // FSS is only notified once RND marks a vendor order "ordered" (tested below).
         $supplier = Supplier::factory()->create();

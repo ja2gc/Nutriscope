@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Budget;
 use App\Models\FsItem;
 use App\Models\ShoppingList;
 use App\Models\Supplier;
@@ -84,6 +85,7 @@ class SuppliesProcurementTest extends TestCase
 
     public function test_supplies_list_converts_to_supplies_po(): void
     {
+        Budget::factory()->create(['fiscal_year' => 2026, 'allocated_amount' => 100000]);
         $supplier = Supplier::factory()->create();
         $supply = FsItem::factory()->create(['kind' => 'supply']);
         $list = ShoppingList::create([

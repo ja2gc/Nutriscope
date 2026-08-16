@@ -18,7 +18,7 @@ class StoreMenuCycleRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'name' => ['required', 'string', 'max:255'],
+            'name' => ['nullable', 'string', 'max:255'],
             'cycle_days' => ['nullable', 'integer', 'in:7'],
             'week_start_date' => ['nullable', 'date'],
             'is_active' => ['nullable', 'boolean'],

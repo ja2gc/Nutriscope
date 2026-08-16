@@ -350,7 +350,7 @@ export const HELP_ITEMS: HelpItem[] = [
     role: "RND",
     category: "Food Library & Food Service",
     question: "How do I build a food-service menu cycle?",
-    answer: "Create a cycle, set its dates and planned population, fill meal slots with operational foods or recipes, review costs, save, and activate only when ready for FSS execution.",
+    answer: "Create a dated cycle or load a template, fill meal slots, save, and activate it. Blank names are generated from the date span. The purchase estimate is entered once later when generating a suggested shopping list.",
     keywords: ["week", "meal slots", "activate", "population"],
   },
   {
@@ -358,7 +358,7 @@ export const HELP_ITEMS: HelpItem[] = [
     role: "RND",
     category: "Food Library & Food Service",
     question: "What is a menu-cycle template?",
-    answer: "A template is a reusable menu pattern. Applying one creates editable cycle content; verify dates, population, foods, availability, and costs before activation.",
+    answer: "A template is a reusable menu pattern. Loading it copies the structure into a new dated cycle, so editing the cycle does not change the template.",
     keywords: ["reuse", "copy menu", "week"],
   },
   {
@@ -374,7 +374,7 @@ export const HELP_ITEMS: HelpItem[] = [
     role: "RND",
     category: "Procurement & Budget",
     question: "How is a suggested food shopping list created?",
-    answer: "Choose the menu date range and generate a suggestion from active menu requirements. Review population, quantities, units, vendors, and budget assumptions before converting it.",
+    answer: "Choose the menu date range, enter one estimated serving count for the span, and generate. Review calculated need, editable purchase values, vendors, exclusions, and the release checklist. Purchase-when-needed recipe ingredients are added manually only when required.",
     keywords: ["procurement", "menu", "generate", "purchase"],
   },
   {
@@ -390,7 +390,7 @@ export const HELP_ITEMS: HelpItem[] = [
     role: "RND",
     category: "Procurement & Budget",
     question: "What happens when a shopping list is converted?",
-    answer: "Conversion creates a purchase order and vendor groups for execution. Review the generated PO before relying on it; FSS receives items and uploads proof, while RND supervises the operational record.",
+    answer: "When the release checklist passes, Create and release PO copies included rows into one vendor-grouped order and freezes the plan. Receiving then confirms actual values plus receipt and proof; OR is optional.",
     keywords: ["PO", "vendor group", "receipt"],
   },
   {
@@ -398,7 +398,7 @@ export const HELP_ITEMS: HelpItem[] = [
     role: "RND",
     category: "Procurement & Budget",
     question: "When does a food purchase order complete?",
-    answer: "Completion follows the purchase-order lifecycle after required vendor groups are received and operational conditions are satisfied. If receipts exist but the PO remains open, review every vendor group and served-day requirements.",
+    answer: "Each vendor needs reviewed actual values, receipt, proof, and explicit received status. A suggested food PO also needs served population for each covered date; manual food and supplies do not.",
     keywords: ["received", "status", "receipt", "served days"],
   },
   {

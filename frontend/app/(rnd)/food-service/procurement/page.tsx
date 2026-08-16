@@ -10,7 +10,7 @@ import {
 import { Button } from "@/components/ui/Button";
 import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
 import {
-  ShoppingList, PurchaseOrder, POVendorGroup, POAttachment,
+  ShoppingList, PurchaseOrder, POAttachment,
   listShoppingLists, getShoppingList, generateByDates, deleteShoppingList,
   updateListItem, approveShoppingList, listPurchaseOrders, getPurchaseOrder,
   deletePurchaseOrder, deleteAttachment,
@@ -63,20 +63,14 @@ function ListDetail({ id, suppliers, onBack, onPosGenerated }: {
   const [addSupplier, setAddSupplier] = useState("");
   const [itemError, setItemError] = useState("");
   const [approveErr, setApproveErr] = useState("");
-  const [populationDraft, setPopulationDraft] = useState("");
-  const [populationErr, setPopulationErr] = useState("");
-  const [savingPopulation, setSavingPopulation] = useState(false);
 
   const load = useCallback(() => {
-    getShoppingList(id).then((next) => {
-      setList(next);
-      setPopulationDraft(next.estimate_population ? String(next.estimate_population) : "");
-    });
+    getShoppingList(id).then(setList);
   }, [id]);
   useEffect(() => { load(); }, [load]);
 
   // Reload the full list after any item change so estimated totals recalculate server-side.
-  async function patchItem(itemId: string, patch: { supplier_id?: string | null; qty?: number; unit_price?: number }) {
+  async function patchItem(itemId: string, patch: Parameters<typeof updateListItem>[1]) {
     await updateListItem(itemId, patch);
     load();
   }
@@ -136,27 +130,6 @@ function ListDetail({ id, suppliers, onBack, onPosGenerated }: {
     finally { setBusy(false); }
   }
 
-  async function savePopulation() {
-    if (!list) return;
-    const population = parseInt(populationDraft, 10);
-    if (!Number.isFinite(population) || population <= 0) {
-      setPopulationErr("Enter a positive headcount.");
-      return;
-    }
-    setSavingPopulation(true);
-    setPopulationErr("");
-    try {
-      const updated = await updateShoppingList(list.id, { estimate_population: population });
-      // The returned list has fresh estimated_budget_per_head_per_day and item quantities.
-      setList(updated);
-      setPopulationDraft(updated.estimate_population ? String(updated.estimate_population) : "");
-    } catch (e) {
-      setPopulationErr(e instanceof Error ? e.message : "Failed to update population.");
-    } finally {
-      setSavingPopulation(false);
-    }
-  }
-
   if (!list) return <div className="py-16 text-center text-sm text-warm-400">Loading…</div>;
 
   const isSupplies = list.procurement_track === "supplies";
@@ -190,17 +163,26 @@ function ListDetail({ id, suppliers, onBack, onPosGenerated }: {
             variant="primary"
             onClick={doGeneratePos}
             loading={busy}
-            disabled={list.status === "converted"}
+            disabled={list.status === "converted" || !list.release_readiness?.ready}
             className="px-4 py-2 flex items-center gap-2"
           >
             <Split className="h-4 w-4" />
-            {list.status === "converted" ? "Converted to PO" : "Convert to PO"}
+            {list.status === "converted" ? "PO released" : "Create and release PO"}
           </Button>
           {approveErr && <span className="text-xs text-red-600 font-semibold">{approveErr}</span>}
         </div>
       </div>
 
-      {/* Estimated population + budget per head — food lists only */}
+      {list.status === "draft" && list.release_readiness && !list.release_readiness.ready && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+          <div className="text-xs font-extrabold uppercase tracking-wider text-amber-800">Before PO release</div>
+          <ul className="mt-1 list-disc pl-5 text-sm text-amber-900">
+            {list.release_readiness.blockers.map((blocker) => <li key={blocker.code}>{blocker.message}</li>)}
+          </ul>
+        </div>
+      )}
+
+      {/* One estimate is captured when the suggested list is generated. */}
       {!isSupplies && list.period_start && list.period_end && (
         <div className="bg-white border border-warm-200 rounded-2xl p-5 shadow-sm">
           <div className="flex flex-wrap items-end gap-6">
@@ -208,34 +190,8 @@ function ListDetail({ id, suppliers, onBack, onPosGenerated }: {
               <span className="text-xs font-extrabold text-warm-500 uppercase tracking-wider">
                 Estimated population
               </span>
-              <div className="flex items-center gap-2">
-                <input
-                  type="number"
-                  min={1}
-                  value={populationDraft}
-                  onChange={(e) => setPopulationDraft(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter") void savePopulation(); }}
-                  disabled={list.status !== "draft"}
-                  placeholder="Enter headcount…"
-                  className="w-36 px-3 py-2 text-base border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:bg-warm-50 disabled:text-warm-400"
-                />
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={savePopulation}
-                  loading={savingPopulation}
-                  disabled={list.status !== "draft"}
-                  className="!px-3 !py-2 text-sm"
-                >
-                  Save
-                </Button>
-              </div>
-              {populationErr && (
-                <span className="text-xs text-red-600 font-semibold">{populationErr}</span>
-              )}
-              <span className="text-xs text-warm-400">
-                Press Enter or click Save · applies uniformly across the entire span
-              </span>
+              <div className="text-2xl font-extrabold text-warm-800">{list.estimate_population ?? "—"}</div>
+              <span className="text-xs text-warm-400">Applies uniformly across the selected span</span>
             </div>
 
             <div className="flex flex-col gap-1">
@@ -272,19 +228,19 @@ function ListDetail({ id, suppliers, onBack, onPosGenerated }: {
         </div>
       )}
 
-      {/* Add supplies item form — supplies lists only */}
-      {isSupplies && list.status === "draft" && (
+      {/* Manual additions work for food and supply lists. */}
+      {list.status === "draft" && (
         <div className="bg-white border border-warm-200 rounded-2xl p-4 shadow-sm">
-          <div className="text-xs font-extrabold text-warm-500 uppercase tracking-wider mb-3">Add supply item</div>
+          <div className="text-xs font-extrabold text-warm-500 uppercase tracking-wider mb-3">Add {isSupplies ? "supply" : "food"} item</div>
           <div className="grid grid-cols-1 md:grid-cols-[1.4fr_90px_110px_150px_auto] gap-3 items-end">
             <div className="relative">
-              <label className="block text-xs font-extrabold text-warm-500 uppercase mb-1">Search supplies</label>
+              <label className="block text-xs font-extrabold text-warm-500 uppercase mb-1">Search {isSupplies ? "supplies" : "ingredients"}</label>
               <div className="flex items-center gap-2 px-3 py-2 border border-warm-200 rounded-lg">
                 <Search className="h-3.5 w-3.5 text-warm-400" />
                 <input
                   value={itemSearch}
                   onChange={(e) => searchItems(e.target.value)}
-                  placeholder="Search supply catalog…"
+                  placeholder={`Search ${isSupplies ? "supply" : "ingredient"} catalog…`}
                   className="w-full text-base outline-none"
                 />
               </div>
@@ -335,31 +291,35 @@ function ListDetail({ id, suppliers, onBack, onPosGenerated }: {
         <table className="w-full text-sm">
           <thead className="bg-warm-50 border-b border-warm-100">
             <tr>
-              {["Item", "Quantity", "Unit", "Vendor", "Cost / unit", "Total", ""].map((h) => (
+              {["Buy", "Item", "Calculated need", "Purchase qty", "Purchase unit", "Vendor", "Price / purchase unit", "Total", ""].map((h) => (
                 <th key={h} className="px-3 py-3 text-left text-xs font-bold text-warm-500 uppercase tracking-wider">{h}</th>
               ))}
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100">
             {list.items.length === 0 ? (
-              <tr><td colSpan={7} className="px-3 py-8 text-center text-warm-400">No items yet.</td></tr>
+              <tr><td colSpan={9} className="px-3 py-8 text-center text-warm-400">No items yet.</td></tr>
             ) : list.items.map((it) => (
-              <tr key={it.id} className="hover:bg-warm-50/60">
-                <td className="px-3 py-2 font-semibold text-warm-800">{it.ingredient_name}</td>
+              <tr key={it.id} className={`hover:bg-warm-50/60 ${it.included_in_po ? "" : "opacity-55"}`}>
                 <td className="px-3 py-2">
-                  {isSupplies ? (
-                    <input
-                      type="number"
-                      defaultValue={num(it.qty)}
-                      disabled={list.status === "converted"}
-                      onBlur={(e) => patchItem(it.id, { qty: parseFloat(e.target.value) })}
-                      className="w-20 px-2 py-1 border border-warm-200 rounded focus:outline-none focus:ring-1 focus:ring-emerald-400 disabled:bg-warm-50 disabled:text-warm-400"
-                    />
-                  ) : (
-                    <span className="font-mono text-warm-700">{num(it.qty).toFixed(2)}</span>
-                  )}
+                  <input type="checkbox" checked={it.included_in_po} disabled={list.status === "converted"}
+                    onChange={(e) => patchItem(it.id, { included_in_po: e.target.checked })}
+                    className="h-4 w-4 accent-emerald-600" aria-label={`Include ${it.ingredient_name} in PO`} />
                 </td>
-                <td className="px-3 py-2 text-warm-500">{it.unit}</td>
+                <td className="px-3 py-2 font-semibold text-warm-800">
+                  {it.ingredient_name}
+                  <span className="ml-2 rounded-full bg-warm-100 px-2 py-0.5 text-xs font-bold uppercase text-warm-500">{it.source}</span>
+                  {!it.included_in_po && <input defaultValue={it.exclusion_note ?? ""} placeholder="Optional review note"
+                    disabled={list.status === "converted"} onBlur={(e) => patchItem(it.id, { exclusion_note: e.target.value || null })}
+                    className="mt-1 block w-40 rounded border border-warm-200 px-2 py-1 text-xs font-normal" />}
+                </td>
+                <td className="px-3 py-2 font-mono text-warm-700">{num(it.qty).toFixed(3)} {it.unit}</td>
+                <td className="px-3 py-2"><input type="number" min="0" step="0.001" defaultValue={num(it.purchase_qty ?? it.qty)} disabled={list.status === "converted"}
+                  onBlur={(e) => patchItem(it.id, isSupplies ? { qty: parseFloat(e.target.value) } : { purchase_qty: parseFloat(e.target.value) })}
+                  className="w-24 rounded border border-warm-200 px-2 py-1 disabled:bg-warm-50" /></td>
+                <td className="px-3 py-2"><input defaultValue={it.purchase_unit ?? it.unit} disabled={list.status === "converted" || isSupplies}
+                  onBlur={(e) => patchItem(it.id, { purchase_unit: e.target.value })}
+                  className="w-24 rounded border border-warm-200 px-2 py-1 disabled:bg-warm-50" /></td>
                 <td className="px-3 py-2">
                   <select
                     value={it.supplier_id ?? ""}
@@ -374,16 +334,16 @@ function ListDetail({ id, suppliers, onBack, onPosGenerated }: {
                 <td className="px-3 py-2">
                   <input
                     type="number"
-                    defaultValue={num(it.unit_price)}
+                    defaultValue={num(it.purchase_price ?? it.unit_price)}
                     step="0.01"
                     disabled={list.status === "converted"}
-                    onBlur={(e) => patchItem(it.id, { unit_price: parseFloat(e.target.value) })}
+                    onBlur={(e) => patchItem(it.id, isSupplies ? { unit_price: parseFloat(e.target.value) } : { purchase_price: parseFloat(e.target.value) })}
                     className="w-20 px-2 py-1 border border-warm-200 rounded focus:outline-none focus:ring-1 focus:ring-emerald-400 disabled:bg-warm-50 disabled:text-warm-400"
                   />
                 </td>
                 <td className="px-3 py-2 font-mono text-emerald-700">{peso(num(it.total))}</td>
                 <td className="px-3 py-2">
-                  {isSupplies && (
+                  {it.source === "manual" && (
                     <button
                       onClick={() => removeItem(it.id)}
                       disabled={list.status === "converted"}
@@ -400,7 +360,7 @@ function ListDetail({ id, suppliers, onBack, onPosGenerated }: {
           {list.items.length > 0 && (
             <tfoot className="bg-warm-50 border-t border-warm-200">
               <tr>
-                <td colSpan={5} className="px-3 py-2.5 text-sm font-bold text-warm-500 text-right uppercase tracking-wider">Total</td>
+                <td colSpan={7} className="px-3 py-2.5 text-sm font-bold text-warm-500 text-right uppercase tracking-wider">Included total</td>
                 <td className="px-3 py-2.5 font-mono font-bold text-emerald-700">{peso(estimatedTotal)}</td>
                 <td />
               </tr>
@@ -424,16 +384,32 @@ function PurchaseEventDetailView({ po, onBack, reload }: { po: PurchaseOrder; on
   const [uploadingKey, setUploadingKey] = useState<string | null>(null);
   const [deletingImageId, setDeletingImageId] = useState<string | null>(null);
   const [imageError, setImageError] = useState<string | null>(null);
+  const [actualDraft, setActualDraft] = useState<Record<number, { qty: string; price: string }>>({});
+  const [receiptTotal, setReceiptTotal] = useState("");
   const group = po.vendor_groups?.find((g) => g.id === groupId) ?? null;
   const locked = po.lifecycle_status !== "open_execution";
 
   useEffect(() => { setOrDraft(group?.or_number ?? ""); }, [group?.id, group?.or_number]);
+  useEffect(() => {
+    setActualDraft(Object.fromEntries((group?.items ?? []).map((item) => [item.id, { qty: item.actual_qty, price: item.actual_unit_price }])));
+    setReceiptTotal("");
+  }, [group]);
 
-  async function saveGroup(next: Partial<Pick<POVendorGroup, "or_number" | "status">>) {
+  async function saveGroup(next: Parameters<typeof updateVendorGroup>[1]) {
     if (!group) return;
     setBusy(true);
     try { await updateVendorGroup(group.id, next); reload(); }
     finally { setBusy(false); }
+  }
+  async function saveActuals(markReceived = false) {
+    if (!group) return;
+    const singleReceiptTotal = receiptTotal && (group.items ?? []).length === 1 ? parseFloat(receiptTotal) : undefined;
+    const items = (group.items ?? []).map((item) => ({
+      id: item.id,
+      ...(singleReceiptTotal === undefined ? { actual_qty: parseFloat(actualDraft[item.id]?.qty ?? item.actual_qty) } : { receipt_total: singleReceiptTotal }),
+      actual_unit_price: parseFloat(actualDraft[item.id]?.price ?? item.actual_unit_price),
+    }));
+    await saveGroup({ items, ...(markReceived ? { status: "received" as const } : {}) });
   }
   async function uploadGroupFiles(type: "receipt" | "proof", files: File[]) {
     if (!group || files.length === 0) return;
@@ -483,7 +459,7 @@ function PurchaseEventDetailView({ po, onBack, reload }: { po: PurchaseOrder; on
 
         <div className="bg-white border border-warm-200 rounded-2xl p-5 shadow-sm grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3 items-end">
           <label className="block">
-            <span className="block text-xs font-extrabold text-warm-500 uppercase tracking-wider mb-1">OR number</span>
+            <span className="block text-xs font-extrabold text-warm-500 uppercase tracking-wider mb-1">OR number (optional)</span>
             <input value={orDraft} onChange={(e) => setOrDraft(e.target.value)} disabled={locked}
               className="w-full px-3 py-2 text-base border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:bg-warm-50 disabled:text-warm-400" />
           </label>
@@ -493,7 +469,7 @@ function PurchaseEventDetailView({ po, onBack, reload }: { po: PurchaseOrder; on
         <div className="bg-white border border-warm-200 rounded-2xl shadow-sm overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-warm-50 border-b border-warm-100">
-              <tr>{["Item", "Qty", "Unit", "Cost / unit", "Total"].map((h) => (
+              <tr>{["Item", "Calculated qty", "Actual qty", "Unit", "Actual unit price", "Actual total"].map((h) => (
                 <th key={h} className="px-3 py-3 text-left text-xs font-bold text-warm-500 uppercase tracking-wider">{h}</th>
               ))}</tr>
             </thead>
@@ -501,15 +477,34 @@ function PurchaseEventDetailView({ po, onBack, reload }: { po: PurchaseOrder; on
               {(group.items ?? []).map((item) => (
                 <tr key={item.id}>
                   <td className="px-3 py-2 font-semibold text-warm-800">{item.description}</td>
-                  <td className="px-3 py-2">{num(item.purchase_qty ?? item.qty)}</td>
+                  <td className="px-3 py-2">{num(item.purchase_qty ?? item.qty).toFixed(3)}</td>
+                  <td className="px-3 py-2"><input type="number" min="0" step="0.001" disabled={locked}
+                    value={actualDraft[item.id]?.qty ?? item.actual_qty}
+                    onChange={(e) => setActualDraft((current) => ({ ...current, [item.id]: { qty: e.target.value, price: current[item.id]?.price ?? item.actual_unit_price } }))}
+                    className="w-24 rounded border border-warm-200 px-2 py-1 disabled:bg-warm-50" /></td>
                   <td className="px-3 py-2 text-warm-500">{item.purchase_unit ?? item.unit}</td>
-                  <td className="px-3 py-2 font-mono">{peso(num(item.purchase_price ?? item.unit_price))}</td>
-                  <td className="px-3 py-2 font-mono text-emerald-700">{peso(num(item.total_value))}</td>
+                  <td className="px-3 py-2"><input type="number" min="0" step="0.01" disabled={locked}
+                    value={actualDraft[item.id]?.price ?? item.actual_unit_price}
+                    onChange={(e) => setActualDraft((current) => ({ ...current, [item.id]: { qty: current[item.id]?.qty ?? item.actual_qty, price: e.target.value } }))}
+                    className="w-24 rounded border border-warm-200 px-2 py-1 disabled:bg-warm-50" /></td>
+                  <td className="px-3 py-2 font-mono text-emerald-700">{peso(num(actualDraft[item.id]?.qty ?? item.actual_qty) * num(actualDraft[item.id]?.price ?? item.actual_unit_price))}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+
+        {!locked && <div className="flex flex-wrap items-end gap-3 rounded-2xl border border-warm-200 bg-white p-4">
+          <label><span className="mb-1 block text-xs font-bold uppercase text-warm-500">Receipt total (optional)</span>
+            <input type="number" min="0" step="0.01" value={receiptTotal} onChange={(e) => setReceiptTotal(e.target.value)}
+              placeholder="Derives weight when one item" className="w-52 rounded border border-warm-200 px-3 py-2" /></label>
+          <Button variant="secondary" onClick={() => saveActuals(false)} loading={busy}>Save actual values</Button>
+          <Button variant="primary" onClick={() => saveActuals(true)} loading={busy}
+            disabled={!group.evidence_requirements?.receipt_uploaded || !group.evidence_requirements?.proof_uploaded}>
+            Mark vendor received
+          </Button>
+          <span className="text-xs text-warm-500">Receipt and proof are required. OR number is not.</span>
+        </div>}
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
           <div className="bg-white border border-warm-200 rounded-2xl p-5 shadow-sm">
@@ -552,12 +547,12 @@ function PurchaseEventDetailView({ po, onBack, reload }: { po: PurchaseOrder; on
             <FileText className="h-4 w-4 text-emerald-600" />{po.po_number}
           </h3>
           <div className="text-xs text-warm-400">
-            Lifecycle: {po.lifecycle_status} · Total {peso(num(po.total_amount))}
+            {po.shopping_list?.name ?? "Manual procurement"} · {po.po_number} · Lifecycle: {po.lifecycle_status} · Total {peso(num(po.total_amount))}
           </div>
         </div>
         {po.lifecycle_status !== "open_execution" && po.actual_budget_per_head_per_day != null && (
           <div className="ml-auto flex flex-col items-end">
-            <span className="text-xs font-extrabold text-warm-500 uppercase tracking-wider">Actual budget / head / day</span>
+            <span className="text-xs font-extrabold text-warm-500 uppercase tracking-wider">Food purchase cost per served patient-day</span>
             <span className="text-2xl font-extrabold text-emerald-700">{peso(num(po.actual_budget_per_head_per_day))}</span>
             <span className="text-xs text-warm-400">final total ÷ total served population</span>
           </div>
@@ -579,8 +574,8 @@ function PurchaseEventDetailView({ po, onBack, reload }: { po: PurchaseOrder; on
             <div className="text-xs font-extrabold text-warm-500 uppercase tracking-wider">Completion gate</div>
             <div className="text-sm font-semibold text-warm-600">
               {po.lifecycle_status === "completed"
-                ? "Receipts and served population complete"
-                : "Needs receipts and all span served populations"}
+                ? "Vendor evidence and served population complete"
+                : "Needs each vendor received with receipt, proof, reviewed actuals, and all span served populations"}
             </div>
           </div>
         </div>
@@ -588,7 +583,7 @@ function PurchaseEventDetailView({ po, onBack, reload }: { po: PurchaseOrder; on
       <div className="bg-white border border-warm-200 rounded-2xl shadow-sm overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-warm-50 border-b border-warm-100">
-            <tr>{["Vendor", "Items", "OR #", "Receipt", "Total", "Actions"].map((h) => (
+            <tr>{["Vendor", "Items", "OR #", "Evidence", "Total", "Actions"].map((h) => (
               <th key={h} className="px-4 py-3 text-left text-xs font-bold text-warm-500 uppercase tracking-wider">{h}</th>
             ))}</tr>
           </thead>
@@ -597,9 +592,9 @@ function PurchaseEventDetailView({ po, onBack, reload }: { po: PurchaseOrder; on
               <tr key={g.id} className="hover:bg-warm-50/60">
                 <td className="px-4 py-3 font-semibold text-warm-800">{g.supplier?.name ?? "Unassigned vendor"}</td>
                 <td className="px-4 py-3 text-warm-500">{g.items?.length ?? 0}</td>
-                <td className="px-4 py-3 text-warm-500">{g.or_number ?? "—"}</td>
+                <td className="px-4 py-3 text-warm-500">{g.or_number_display}</td>
                 <td className="px-4 py-3 text-warm-500">
-                  {(g.attachments ?? []).some((a) => a.type === "receipt") ? "uploaded" : "missing"}
+                  {g.status === "received" ? "complete" : "receipt + proof + actuals needed"}
                 </td>
                 <td className="px-4 py-3 font-mono text-warm-700">{peso(num(g.total_amount))}</td>
                 <td className="px-4 py-3">
@@ -640,6 +635,7 @@ export default function ProcurementPage() {
   const [genOpen, setGenOpen] = useState(false);
   const [genStartDate, setGenStartDate] = useState(today());
   const [genEndDate, setGenEndDate] = useState(today());
+  const [genEstimate, setGenEstimate] = useState("");
   const [genError, setGenError] = useState("");
   const [genMissing, setGenMissing] = useState<Record<string, string>>({});
   const [newListName, setNewListName] = useState("");
@@ -672,9 +668,14 @@ export default function ProcurementPage() {
       setGenError("End date must be on or after the start date.");
       return;
     }
+    const estimate = parseInt(genEstimate, 10);
+    if (!Number.isFinite(estimate) || estimate < 1) {
+      setGenError("Enter the estimated servings for the selected span.");
+      return;
+    }
     setGenError(""); setGenMissing({});
     try {
-      const list = await generateByDates(genStartDate, genEndDate);
+      const list = await generateByDates(genStartDate, genEndDate, estimate);
       setGenOpen(false);
       setLists((current) => [list, ...current]);
       setTab("food-lists");
@@ -689,18 +690,18 @@ export default function ProcurementPage() {
     }
   }
 
-  async function createManualList() {
+  async function createManualList(track: "food" | "supplies") {
     if (!newListName.trim()) return;
     const created = await createShoppingList({
       name: newListName.trim(),
       list_type: "manual",
-      procurement_track: "supplies",
+      procurement_track: track,
       status: "draft",
       list_date: new Date().toISOString().slice(0, 10),
     });
     setLists((current) => [created, ...current]);
     setNewListName("");
-    setTab("supplies-lists");
+    setTab(track === "supplies" ? "supplies-lists" : "food-lists");
     setListDetail(created.id);
   }
 
@@ -766,19 +767,25 @@ export default function ProcurementPage() {
               <input
                 value={newListName}
                 onChange={(e) => setNewListName(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") void createManualList(); }}
+                onKeyDown={(e) => { if (e.key === "Enter") void createManualList("supplies"); }}
                 placeholder="Supplies list name…"
                 className="w-44 px-3 py-2 text-sm border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
               />
-              <Button variant="secondary" onClick={createManualList} className="px-3 py-2 flex items-center gap-1.5">
+              <Button variant="secondary" onClick={() => createManualList("supplies")} className="px-3 py-2 flex items-center gap-1.5">
                 <Plus className="h-3.5 w-3.5" /> New supplies list
               </Button>
             </div>
           )}
           {tab === "food-lists" && (
-            <Button variant="primary" onClick={() => setGenOpen(true)} className="px-4 py-2.5 flex items-center gap-2">
-              <Plus className="h-4 w-4" /> Suggest from Menu
-            </Button>
+            <div className="flex items-center gap-2">
+              <input value={newListName} onChange={(e) => setNewListName(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") void createManualList("food"); }}
+                placeholder="Event or manual list name…" className="w-48 rounded-lg border border-warm-200 px-3 py-2 text-sm" />
+              <Button variant="secondary" onClick={() => createManualList("food")} className="px-3 py-2"><Plus className="h-3.5 w-3.5" /> Manual food list</Button>
+              <Button variant="primary" onClick={() => setGenOpen(true)} className="px-4 py-2.5 flex items-center gap-2">
+                <Sparkles className="h-4 w-4" /> Suggest from Menu
+              </Button>
+            </div>
           )}
         </div>
       </div>
@@ -789,7 +796,7 @@ export default function ProcurementPage() {
           <h3 className="text-sm font-extrabold text-emerald-700 uppercase tracking-wider mb-3 flex items-center gap-1.5">
             <Sparkles className="h-3.5 w-3.5" /> Suggested food shopping list
           </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
             <div>
               <DatePicker label="From date" value={genStartDate} onChange={(next) => {
                 setGenStartDate(next);
@@ -799,6 +806,10 @@ export default function ProcurementPage() {
             <div>
               <DatePicker label="To date" value={genEndDate} min={genStartDate} onChange={setGenEndDate} />
             </div>
+            <label className="block"><span className="mb-1 block text-xs font-bold text-warm-600">Estimated servings</span>
+              <input type="number" min="1" value={genEstimate} onChange={(e) => setGenEstimate(e.target.value)} placeholder="For the whole span"
+                className="w-full rounded-lg border border-warm-200 px-3 py-2" />
+            </label>
             <div className="flex items-end gap-2">
               <Button variant="primary" onClick={doGenerate} className="px-4 py-2">Generate</Button>
               <button onClick={() => setGenOpen(false)} className="text-sm text-warm-500 hover:text-warm-700 cursor-pointer">Cancel</button>

@@ -190,11 +190,11 @@ No. Current FSS mobile navigation has no Inventory tab or stock add/deduct workf
 
 ### How do I build a food-service menu cycle?
 
-Prepare Inventory and Foods first. Open **Food Service → Menu Cycle**, create a cycle, set its Monday-anchored week, add recipes or single items to meal slots, set estimated populations/servings, review profiles and cost, save, then activate.
+Prepare Inventory and Foods first. Open **Food Service → Menu Cycle**, create a Monday-anchored week or load a template, add recipes or single items, save, then activate. A blank name is generated from the date span. Baseline profiles remain visible; one purchase estimate is entered later when generating a suggested list.
 
 ### What is a menu-cycle template?
 
-A reusable saved layout. RND can save an existing cycle as a template and create a new cycle from it. Review dates, population, foods, and prices after applying it.
+A reusable saved layout. Loading it copies the menu structure into a new dated cycle; edits to the cycle do not edit the template. Review dates and foods before activation.
 
 ### What does activating a menu cycle do?
 
@@ -202,7 +202,11 @@ It makes that cycle the active operational week shown to FSS. FSS can view it bu
 
 ### How is a suggested food shopping list created?
 
-Open **Procurement → Food Shopping Lists → Suggest from Menu**, select a date range, and generate. Every date must be covered by a menu cycle with assigned menu items and required population data; otherwise the whole generation is blocked and exact missing dates are shown.
+Open **Procurement → Food Shopping Lists → Suggest from Menu**, select a date range, enter one estimated serving count for the span, and generate. Every date must have assigned menu items; otherwise creation is blocked with the exact missing dates. Ingredients marked **Purchase when needed** remain in recipes but are not auto-added.
+
+### Can I make a food or event list without a menu cycle?
+
+Yes. Create a named manual food list and add ingredients directly, just as you would write a shopping list. Related food and supplies lists can use the same event name while remaining separate procurement tracks.
 
 ### How are supplies purchased?
 
@@ -210,23 +214,23 @@ Use **Procurement → Supplies Lists**, create a named manual list, add catalog 
 
 ### What happens when a shopping list is converted?
 
-The list becomes one purchase order grouped into vendor sections. Structural data freezes for execution, and menu-day PO snapshots preserve the planned food/cost context.
+First, review the release checklist. Calculated need stays read-only, but purchase quantity/unit/price/vendor may be changed, manual rows added, and generated rows excluded with a note. When checks pass, **Create and release PO** creates one order grouped by vendor and freezes included rows.
 
 ### Who records OR numbers and receipts?
 
-FSS normally records vendor-group OR numbers and uploads receipt/proof images in the mobile app. RND can follow the PO in the web console and correct allowed execution data while the PO remains open.
+FSS or RND confirms actual quantity and unit price, uploads receipt and proof, then explicitly marks each vendor received. OR number may be recorded when the vendor provides one, but it is optional.
 
 ### When does a food purchase order complete?
 
-When every vendor group has a receipt and every covered service date has actual served population. A supplies PO requires all vendor receipts but not served population.
+When every vendor has reviewed actual values, receipt, proof, and explicit received status, and every covered service date has actual served population. Manual food and supplies POs require vendor completion but not served population.
 
 ### Why is a PO still open after all receipts were uploaded?
 
-For a food PO, one or more service dates may still lack served population. Open the PO to review **Served days** progress, then record the missing day from Menu/Meal Prep.
+A receipt alone is insufficient: check proof, reviewed actual values, and the vendor's explicit received status. For a suggested food PO, also review **Served days** and record any missing population from Menu/Meal Prep.
 
 ### What is budget per head per day?
 
-The planned limit comes from **Settings → Food Service Budget**. Estimated values use planned cost and population. Final actual value uses final PO total divided by actual served population for the covered period.
+The planned limit comes from **Settings → Food Service Budget**. Estimated values use included planned purchases and the span estimate. The final **food purchase cost per served patient-day** uses confirmed purchase cost divided by actual served population for the covered period.
 
 ### Who can change the fiscal-year budget?
 
@@ -290,11 +294,11 @@ It is the explicit daily record for a non-working day and counts toward Monday-S
 
 ### What can I change on a purchase order?
 
-FSS can save the OR number and upload/delete receipt or proof images while the PO is open. Vendor items, quantities, prices, suppliers, and lifecycle state are read-only to FSS.
+FSS can review the calculated values, confirm or correct actual decimal quantity and actual unit price, upload/delete receipt and proof, optionally save an OR number, and explicitly mark a vendor received. Planned structure and supplier remain locked.
 
-### Why did uploading a receipt change the vendor status?
+### Why did uploading a receipt not change the vendor status?
 
-Receipt upload is the server-side receiving event. There is no separate FSS **Mark received** button.
+Uploading evidence does not silently receive a vendor. Upload both receipt and proof, review actual values, then use **Mark vendor received**. OR number is optional.
 
 ### Why can I no longer edit a completed PO?
 

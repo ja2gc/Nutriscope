@@ -1,106 +1,84 @@
-# Food Service — Current Cross-Role Operations
+# Food Service Operations — Current End-to-End Flow
 
-Verified against current RND web, FSS mobile, and Laravel food-service routes on **2026-07-19**.
+Verified against the implemented RND web, FSS web/mobile surfaces, Laravel services, reports, and demo seeders on **2026-08-15**.
 
-## Food Planning and Execution
+## Operational Story
 
 ```mermaid
 flowchart TD
-    subgraph RND["RND Web — planning owner"]
-        A["Inventory reference catalog"] --> B["Foods and recipes"]
-        B --> C["Create or template Menu Cycle"]
-        C --> D["Set week, meal slots, estimated population/servings"]
-        D --> E["Review scaled ingredients, cost, cost/head, prep notes"]
-        E --> F["Save and activate cycle"]
-        F --> G["Generate food shopping list for date span"]
-        G --> H{"Every date covered with items and population?"}
-        H -->|"No"| I["Show exact missing dates; correct cycle"]
-        I --> G
-        H -->|"Yes"| J["Review quantities, unit cost, vendors"]
-        J --> K["Convert to one PO with vendor groups"]
-    end
-
-    subgraph SYSTEM["NutriScope"]
-        K --> L["Freeze PO structure and menu-day snapshots"]
-        L --> M["PO status: open_execution"]
-    end
-
-    subgraph FSS["FSS Mobile — execution owner"]
-        M --> N["View PO and vendor groups"]
-        N --> O["Save OR number"]
-        O --> P["Upload receipt and optional proof"]
-        P --> Q["Receipt marks vendor group received"]
-        F --> R["View active menu read-only"]
-        R --> S["Prepare/serve today's meals"]
-        S --> T["Record actual served population"]
-        T --> U["Save daily accomplishment"]
-    end
-
-    Q --> V{"All receipts present?"}
-    T --> W{"All covered food-service dates have population?"}
-    V -->|"No"| M
-    W -->|"No"| M
-    V -->|"Yes"| X
-    W -->|"Yes"| X["Complete food PO"]
-    X --> Y["Calculate actual cost/head/day and budget event"]
-    Y --> Z["RND operational reports and closeout"]
+    A["RND maintains ingredient and supply reference catalogs"] --> B["RND creates recipes with exact baseline servings and measurements"]
+    B --> C["RND creates a dated weekly menu or loads a reusable template"]
+    C --> D["System names an unnamed cycle from its date span"]
+    D --> E["RND assigns recipes or single foods to meal slots"]
+    E --> F["RND activates the menu; FSS can view it read-only"]
+    F --> G{"Procurement source"}
+    G -->|"Suggested food"| H["Select date span and enter one estimated serving count"]
+    G -->|"Manual food/event"| I["Name list and add ingredients directly"]
+    G -->|"Manual supplies"| J["Name list and add supplies directly"]
+    H --> K["System scales recipe baseline quantities and aggregates included ingredients"]
+    K --> L["Purchase-when-needed ingredients stay in recipes but are not auto-added"]
+    I --> M["Review shopping list"]
+    J --> M
+    L --> M
+    M --> N["Keep calculated need visible; edit purchase qty/unit/price/vendor"]
+    N --> O["Add manual rows or exclude a row with an optional note"]
+    O --> P{"PO release checks pass?"}
+    P -->|"No"| Q["Show blockers: vendor, estimate, coverage, or budget"]
+    Q --> M
+    P -->|"Yes"| R["Create one PO grouped by vendor and freeze included rows"]
+    R --> S["FSS/RND reviews prefilled calculated receiving values"]
+    S --> T["Correct actual decimal quantity and actual unit price if needed"]
+    T --> U["Upload receipt and proof for each vendor; OR number optional"]
+    U --> V["Explicitly mark each vendor received"]
+    V --> W{"Completion checks"}
+    W -->|"Suggested food"| X["All vendors complete plus served population for every covered date"]
+    W -->|"Manual food or supplies"| Y["All vendors complete; no population gate"]
+    X --> Z["Finalize PO, budget ledger, PPA and procurement reports"]
+    Y --> Z
 ```
 
-## Supplies Procurement
+## Core Rules and UX
 
-```mermaid
-flowchart LR
-    A["RND creates manual Supplies List"] --> B["Add catalog supplies, quantity, cost, vendor"]
-    B --> C["Convert to supplies PO with vendor groups"]
-    C --> D["FSS saves OR and uploads receipts/proof"]
-    D --> E{"All vendor receipts present?"}
-    E -->|"No"| D
-    E -->|"Yes"| F["Complete supplies PO"]
-```
+| Area | Current rule | Conflict avoided |
+|---|---|---|
+| Catalog | Inventory is a reference catalog, not stock management | No inferred on-hand balance or extra inventory workflow |
+| Pantry/seasoning items | Ingredient-level **Include in generated shopping lists** switch; off means **Purchase when needed** | Recipes retain exact measurements while bulk items are manually added only when purchase is needed |
+| Recipe scaling | `scaled quantity = recipe quantity × selected-span estimate ÷ recipe baseline servings` | A 50-serving recipe scales uniformly from the one estimate entered at generation |
+| Before an estimate | Slot profile shows baseline recipe and **Purchase estimate: Not set** | It does not invent a scaled requirement |
+| Menu naming | Blank weekly menu names use the date span; custom names remain allowed | Automatic identity without losing useful descriptions |
+| Templates | Loading copies structure into a new dated cycle; editing the copy does not edit the template | Templates stay reusable |
+| Manual lists | Food/event and supplies lists use purpose names and direct catalog additions | Mixed events can use two named lists without forcing menu slotting |
+| Suggested rows | Calculated need is read-only; purchase qty/unit/price/vendor are editable | Planning math stays explainable while market packaging stays practical |
+| Removing cost | Generated rows are excluded, not deleted; manual rows may be deleted | Optional costs can be cut without destroying the calculation trail |
+| Decimal receiving | Actual quantity supports three decimals; unit price supports two | Variable-weight purchases are accurate |
+| Receipt total | For a single-line vendor group, receipt total can derive quantity or price from the other known value | Real receipts work without another inventory system |
+| Catalog price | Confirmed receiving updates the item price reference | Future planning starts from the latest confirmed market value |
+| PO release | Requires included rows, vendors, applicable estimate/coverage, and sufficient FY budget | Prevents a frozen but unusable PO |
+| Vendor completion | Requires reviewed actuals, receipt, proof, assigned vendor, and explicit **Mark vendor received** | Upload alone never silently completes receiving |
+| OR number | Optional; shown as **Not provided** when absent | Vendors without an OR can complete with evidence |
+| Food completion | Suggested food also needs served population per covered date; manual food does not | Menu-derived reports keep their denominator without blocking one-off events |
+| Reporting | Draft procurement packs are visibly incomplete; finals use actuals | Planned and actual values are not misrepresented |
 
-Supplies completion does not require served population.
+## Role Ownership
 
-## Menu and Population Data
+| Operation | RND | FSS |
+|---|---:|---:|
+| Catalogs, recipes, cycles, templates | Create/edit | View approved menu |
+| Estimated servings | Enter once at suggested-list generation | View |
+| Shopping lists and PO release | Create/review/release | No |
+| Actual receiving values | Yes while open | Yes while open |
+| Receipt/proof and optional OR | Yes | Yes |
+| Explicit vendor received action | Yes | Yes |
+| Actual population served | Yes | Yes |
+| Budget and operational reports | Full operational access | Own allowed reports |
 
-```mermaid
-flowchart LR
-    A["RND estimated population"] --> B["Menu scaling and shopping-list estimate"]
-    B --> C["Estimated budget/head/day"]
-    D["FSS actual served population"] --> E["PO completion check"]
-    D --> F["Actual budget/head/day"]
-```
+## Deliberately Out of Scope
 
-## Ownership Matrix
-
-| Operation | RND | FSS | Admin |
-|---|---:|---:|---:|
-| Maintain reference Inventory | Edit | No mobile surface | No |
-| Maintain food-service Foods/recipes | Edit | View through menu profile | No |
-| Create/activate Menu Cycle | Yes | View only | No |
-| Record actual served population | Yes | Yes | No |
-| Generate/edit shopping list | Yes | No | No |
-| Convert to PO | Yes | No | No |
-| Save vendor OR number | Yes | Yes | No |
-| Upload receipt/proof | Yes | Yes | No |
-| Edit PO price/structure | Authorized RND only while open | No | No |
-| Budget setup/manual adjustment | Yes | No | Read-only oversight |
-| Budget-per-head/day setting | Yes | No | Yes |
-| Operational reports | Full RND catalog | Own accomplishment only | Allowed aggregate/operational catalog |
-
-## Current Corrections to Older Diagrams
-
-- Inventory is a reference catalog, not live stock quantity.
-- FSS has no Inventory tab or stock add/deduct workflow.
-- FSS does not edit vendor line items or manually mark vendor received.
-- Receipt upload is the receiving event.
-- Food and supplies use separate lists/PO tracks.
-- Food list generation blocks the whole request when any date is incomplete.
-- `/food-service/foods` is implemented.
+No live stock balance, leftover calculation, warehouse catalog, temperature log, sanitation workflow, batch/expiry tracking, or automatic pantry depletion was added. The flow reuses existing catalogs, recipes, lists, POs, evidence, population logs, budget, and reports.
 
 ## Related Documents
 
 - [RND Module](../rnd.md)
 - [FSS Module](../fss.md)
-- [FAQ](../../FAQ.md)
-- [Role How-To](../../ROLE-HOW-TO.md)
+- [Developer Maintenance Guide](../../developer/food-service-operations-maintenance.md)
 - [Storyboards](../../STORYBOARD.md)

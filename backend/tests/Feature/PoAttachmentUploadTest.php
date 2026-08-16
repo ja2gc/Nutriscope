@@ -3,7 +3,9 @@
 namespace Tests\Feature;
 
 use App\Models\PurchaseOrder;
+use App\Models\Report;
 use App\Models\User;
+use App\Services\Reports\Generators\ProcurementPackGenerator;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -60,6 +62,22 @@ class PoAttachmentUploadTest extends TestCase
         $res->assertJsonMissingPath('data.0.path');
         $this->assertDatabaseCount('purchase_order_attachments', 3);
         $this->assertDatabaseCount('stored_objects', 3);
+    }
+
+    public function test_procurement_pack_embeds_private_evidence(): void
+    {
+        Storage::fake('private_uploads');
+        [$fss, $po] = $this->fssPo();
+
+        $this->actingAs($fss)->post("/api/fss/purchase-orders/{$po->uuid}/attachments", [
+            'type' => 'proof',
+            'file' => UploadedFile::fake()->createWithContent('proof.png', $this->pngBytes()),
+        ])->assertCreated();
+
+        $report = new Report(['type' => 'procurement_pack', 'parameters' => ['purchase_order_id' => $po->id]]);
+        $pack = (new ProcurementPackGenerator)->data($report)['packs'][0];
+
+        $this->assertStringStartsWith('data:image/', $pack['attachments'][0]['src']);
     }
 
     private function pngBytes(): string

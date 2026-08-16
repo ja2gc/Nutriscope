@@ -21,6 +21,7 @@ class InventoryResource extends JsonResource
                 'category' => $this->fsItem->category,
                 'base_unit' => $this->fsItem->base_unit,
                 'unit_cost' => $this->fsItem->unit_cost,
+                'include_in_generated_lists' => $this->fsItem->include_in_generated_lists,
             ]),
             'recipe' => $this->whenLoaded('recipe', fn () => [
                 'id' => $this->recipe->uuid,

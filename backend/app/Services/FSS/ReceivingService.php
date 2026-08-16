@@ -99,15 +99,23 @@ class ReceivingService
             return;
         }
 
-        $lineQty = (float) $item->qty;
-        $lineTotal = (float) $item->total_value;
-        $frozenUnitPrice = $lineQty > 0 && $lineTotal > 0
-            ? $lineTotal / $lineQty
-            : (float) $item->unit_price;
+        if ($item->actual_unit_price !== null) {
+            $lineQty = (float) ($item->actual_qty ?? $item->purchase_qty ?? $item->qty);
+            $receivedUnit = (string) ($item->purchase_unit ?? $item->unit);
+            $receivedUnitPrice = (float) $item->actual_unit_price;
+        } elseif ($item->purchase_price !== null) {
+            $lineQty = (float) ($item->purchase_qty ?? $item->qty);
+            $receivedUnit = (string) ($item->purchase_unit ?? $item->unit);
+            $receivedUnitPrice = (float) $item->purchase_price;
+        } else {
+            $lineQty = (float) $item->qty;
+            $receivedUnit = (string) $item->unit;
+            $receivedUnitPrice = (float) $item->unit_price;
+        }
         [, $perBaseCost] = self::normalizeLine(
             $lineQty,
-            (string) $item->unit,
-            $frozenUnitPrice,
+            $receivedUnit,
+            $receivedUnitPrice,
             (string) $fs->base_unit,
         );
 

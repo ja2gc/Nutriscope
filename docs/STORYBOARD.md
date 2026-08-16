@@ -1,6 +1,6 @@
 # NutriScope System Storyboard
 
-Verified against current role navigation on **2026-07-20**.
+Verified against current role navigation and food-service lifecycle on **2026-08-15**.
 
 This is the submission-ready, no-screenshot storyboard. It explains NutriScope as a scene-by-scene user journey using text, tables, and Mermaid diagrams, so it remains complete even when visual captures are unavailable.
 
@@ -48,13 +48,13 @@ flowchart LR
 
 | Scene | Screen | RND action | System response | Story point |
 |---|---|---|---|---|
-| 1. Reference setup | Inventory | Maintains ingredients/supplies, vendor, unit, and cost | Makes items available to recipes/procurement | Planning starts from controlled reference data |
+| 1. Reference setup | Inventory | Maintains ingredients/supplies, vendor, unit, cost, and whether an ingredient is auto-generated | Makes items available to recipes/procurement; pantry items can be purchase-when-needed | Planning starts from controlled reference data |
 | 2. Food setup | Foods | Creates recipe or single-ingredient food | Calculates/profile scales ingredients and cost | Menu items become reusable |
-| 3. Weekly plan | Menu Cycle | Builds Monday-Sunday meal slots and estimated population | Computes scaled profiles and cost; saves template if requested | Plan becomes a dated operational week |
+| 3. Weekly plan | Menu Cycle | Builds Monday-Sunday meal slots or loads a template | Names the week from its date span; shows baseline profiles until procurement estimate exists | Plan becomes a dated operational week |
 | 4. Release | Menu Cycle | Activates approved cycle | FSS sees active cycle read-only | Ownership transfers from planning to execution |
-| 5. Requirement calculation | Procurement → Food Shopping Lists | Selects date range and generates | Aggregates menu needs or lists exact missing dates | Procurement is derived from approved service plan |
-| 6. Approval | Shopping-list detail | Reviews quantities/costs/vendors and converts | Creates one PO with vendor groups and frozen snapshots | Structure freezes before execution |
-| 7. Supervision | Purchase Order detail | Tracks receipts, OR numbers, served dates, totals, history | Completes only when required execution evidence exists | Closeout is evidence-based |
+| 5. Requirement calculation | Procurement → Food Shopping Lists | Selects date range, enters one estimated serving count, and generates; or creates a manual food/supplies list | Aggregates included menu needs or accepts direct additions | Procurement supports planned service and one-off events |
+| 6. Approval | Shopping-list detail | Keeps calculated need visible, edits purchase values/vendor, adds manual rows, or excludes rows | Shows release blockers; creates one grouped PO from included rows only | Structure freezes only when usable and funded |
+| 7. Supervision | Purchase Order detail | Tracks actual values, receipt, proof, optional OR, served dates, totals, history | Completes only after explicit vendor receiving and applicable population evidence | Closeout is evidence-based |
 
 ```mermaid
 flowchart LR
@@ -75,7 +75,7 @@ flowchart LR
 |---|---|---|---|---|
 | 1. Daily orientation | Home | Reviews meals to log, pending POs, active cycle, today's service, announcements | Shows work queues and missing requirements | FSS knows what needs attention |
 | 2. Menu briefing | Menu | Opens today's foods and recipe/item profiles | Shows scaled ingredients, cost, and prep notes read-only | Kitchen sees RND's approved plan |
-| 3. Receiving | Purchase | Opens PO/vendor, records OR, uploads receipt/proof | Receipt marks vendor received; dashboard refreshes | Evidence closes receiving step |
+| 3. Receiving | Purchase | Reviews prefilled values, corrects decimal actual quantity/price, uploads receipt/proof, optionally records OR, and marks vendor received | Validates required evidence and updates the confirmed purchase | Evidence closes receiving explicitly |
 | 4. Preparation/service | Meal Prep | Reviews rows, enters actual population, marks served | Records service completion and refreshes PO served-day progress | Actual service connects to cost outcome |
 | 5. Daily accomplishment | Accomplish | Enters ward/meals, selects duties, or marks off duty | Stores daily entry and updates weekly report completeness | Staff work becomes reportable |
 | 6. Communication | Header megaphone/bell | Reads SOP, announcements, notifications | Preserves current procedure and alert state | Communication stays accessible from every tab |
@@ -94,7 +94,8 @@ flowchart LR
 
 - No active cycle: Home asks FSS to contact RND.
 - Photo permission denied: upload stops and asks the user to allow camera/library access.
-- Receipt exists but food PO stays open: one or more covered dates still lack served population.
+- Receipt exists but vendor stays pending: proof, reviewed actuals, or explicit receiving is still missing.
+- Suggested food PO stays open after receiving: one or more covered dates still lack served population.
 - Off duty: Accomplish stores zero meals and an X for that day.
 - Completed PO: edit controls are removed/locked.
 
@@ -128,12 +129,12 @@ flowchart LR
 
 | Scene | Actor | Handoff object | Action/result |
 |---|---|---|---|
-| 1 | RND | Active menu cycle | Approves foods, dates, and estimated population |
-| 2 | RND | Shopping list | Generates requirements for a complete date span |
+| 1 | RND | Active menu cycle | Approves foods and dates; reusable template may provide the structure |
+| 2 | RND | Shopping list | Enters one span estimate and generates requirements, or creates a named manual list |
 | 3 | RND | Purchase order | Converts to one PO with vendor groups and frozen plan snapshots |
-| 4 | FSS | Vendor group | Saves OR number and uploads receipt/proof |
+| 4 | FSS | Vendor group | Confirms actual values, uploads receipt/proof, optionally saves OR, and marks received |
 | 5 | FSS | Service date | Records actual population and meal completion |
-| 6 | System | Completed PO/budget event | Checks all required receipts/dates, calculates actual cost per head/day, writes ledger/audit events |
+| 6 | System | Completed PO/budget event | Checks vendor evidence and applicable dates, calculates food purchase cost per served patient-day, writes ledger/audit events |
 | 7 | RND | Operational reports | Reviews menu, procurement, accomplishment, and budget outcomes |
 | 8 | Admin | Oversight views | Reviews aggregate reports, budget history, AI/audit health without clinical-report access |
 
@@ -148,7 +149,7 @@ sequenceDiagram
     S-->>F: Show PO vendor groups and active menu
     F->>S: Save OR and upload receipt/proof
     F->>S: Record served population and accomplishment
-    S->>S: Complete eligible PO and calculate actual cost/head/day
+    S->>S: Complete eligible PO and calculate food purchase cost per served patient-day
     S-->>R: Show closeout and reports
     S-->>A: Show safe aggregate oversight and audit events
 ```

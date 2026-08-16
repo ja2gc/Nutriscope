@@ -28,9 +28,9 @@ function Label({ children }: { children: React.ReactNode }) {
 
 interface FormState {
   name: string; category: string; default_supplier_id: string;
-  base_unit: string; purchase_price: string;
+  base_unit: string; purchase_price: string; include_in_generated_lists: boolean;
 }
-const emptyForm: FormState = { name: "", category: "", default_supplier_id: "", base_unit: "", purchase_price: "" };
+const emptyForm: FormState = { name: "", category: "", default_supplier_id: "", base_unit: "", purchase_price: "", include_in_generated_lists: true };
 
 function ItemFormModal({ kind, editing, suppliers, onClose, onSaved }: {
   kind: FsItemKind; editing: CatalogItem | null; suppliers: Supplier[];
@@ -49,13 +49,14 @@ function ItemFormModal({ kind, editing, suppliers, onClose, onSaved }: {
         default_supplier_id: editing.default_supplier_id ? String(editing.default_supplier_id) : "",
         base_unit: editing.base_unit ?? "",
         purchase_price: editing.purchase_price ?? "",
+        include_in_generated_lists: editing.include_in_generated_lists,
       });
     } else {
       setForm(emptyForm);
     }
   }, [editing]);
 
-  const set = (k: keyof FormState, v: string) => setForm((f) => ({ ...f, [k]: v }));
+  const set = (k: keyof FormState, v: string | boolean) => setForm((f) => ({ ...f, [k]: v }));
 
   async function save() {
     setError(null);
@@ -74,6 +75,7 @@ function ItemFormModal({ kind, editing, suppliers, onClose, onSaved }: {
         base_unit: isSupply ? "unit" : form.base_unit.trim(),
         purchase_price: price,
         default_supplier_id: form.default_supplier_id ? form.default_supplier_id : null,
+        include_in_generated_lists: isSupply ? true : form.include_in_generated_lists,
       };
       if (editing) {
         await updateFsItem(editing.id, payload);
@@ -135,6 +137,7 @@ function ItemFormModal({ kind, editing, suppliers, onClose, onSaved }: {
               </div>
             </>
           )}
+          {!isSupply && <label className="sm:col-span-2 flex items-start gap-3 rounded-xl border border-warm-200 bg-warm-50 p-3"><input type="checkbox" checked={form.include_in_generated_lists} onChange={(e) => set("include_in_generated_lists", e.target.checked)} className="mt-1 h-4 w-4 accent-emerald-600" /><span><span className="block text-sm font-bold text-warm-800">Include in generated shopping lists</span><span className="block text-xs text-warm-500">Turn off for items purchased only when needed. Recipes still keep the exact measurement.</span></span></label>}
         </div>
 
         {error && <p className="text-sm text-red-600 font-semibold">{error}</p>}
@@ -242,6 +245,9 @@ export default function InventoryCatalogPage() {
                 <tr key={it.id} className="hover:bg-warm-50/60">
                   <td className="px-4 py-3 font-semibold text-warm-800">
                     {it.name}
+                    {!isSupply && <span className={`ml-2 inline-flex rounded-full px-2 py-0.5 text-xs font-bold ${it.include_in_generated_lists ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-800"}`}>
+                      {it.include_in_generated_lists ? "Auto grocery" : "Purchase when needed"}
+                    </span>}
                   </td>
                   <td className="px-4 py-3 text-warm-500">{it.category ?? "—"}</td>
                   <td className="px-4 py-3 text-warm-500">{it.vendor ?? "—"}{it.vendor_locked && <span className="ml-1 text-xs text-amber-600 font-bold">🔒</span>}</td>

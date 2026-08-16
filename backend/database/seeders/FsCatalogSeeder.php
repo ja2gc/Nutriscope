@@ -114,6 +114,7 @@ class FsCatalogSeeder extends Seeder
             'purchase_unit' => $r[3],
             'purchase_price' => $r[4],
             'units_per_purchase' => 1,
+            'include_in_generated_lists' => ! in_array($r[0], ['Cooking oil', 'Soy sauce', 'Vinegar', 'Salt', 'Sugar'], true),
             'is_active' => true,
         ], $rows);
     }

@@ -230,11 +230,12 @@ class MenuCycleTemplateController extends Controller
 
         $cycle = $this->audited(function () use ($data, $menuCycleTemplate): MenuCycle {
             $cycle = $this->auditLogger->withoutModelEvents(fn () => DB::transaction(function () use ($data, $menuCycleTemplate) {
+                $weekStart = $data['week_start_date'] ?? now()->startOfWeek()->toDateString();
                 $cycle = MenuCycle::create([
                     'rnd_user_id' => Auth::id(),
-                    'name' => $data['name'] ?? ($menuCycleTemplate->name.' — '.now()->format('M j')),
+                    'name' => $data['name'] ?? MenuCycle::defaultName($weekStart),
                     'cycle_days' => $menuCycleTemplate->cycle_days,
-                    'week_start_date' => $data['week_start_date'] ?? now()->toDateString(),
+                    'week_start_date' => $weekStart,
                     'status' => 'draft',
                 ]);
                 foreach ($menuCycleTemplate->days as $d) {

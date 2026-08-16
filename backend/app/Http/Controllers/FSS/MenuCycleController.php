@@ -65,6 +65,9 @@ class MenuCycleController extends Controller
         $data['week_start_date'] = ! empty($data['week_start_date'])
             ? Carbon::parse($data['week_start_date'])->toDateString()
             : now()->startOfWeek(Carbon::MONDAY)->toDateString();
+        $data['name'] = filled($data['name'] ?? null)
+            ? $data['name']
+            : MenuCycle::defaultName($data['week_start_date']);
         // New cycles start as 'upcoming' (states: completed|active|upcoming).
         $data['status'] = $data['status'] ?? 'upcoming';
 
@@ -127,7 +130,7 @@ class MenuCycleController extends Controller
         $items = FsItem::query()->whereIn('id', collect($data['ingredients'])->pluck('fs_item_id'))->get()->keyBy('id');
         $this->recordSlotChange($menuCycle, function () use ($slot, $data, $items): void {
             $slot->update([
-                'servings_override' => $data['planned_servings'],
+                'servings_override' => null,
                 'recipe_override' => [
                     'name' => $data['name'],
                     'reference_servings' => $data['reference_servings'],
@@ -164,7 +167,13 @@ class MenuCycleController extends Controller
         $data['cycle_days'] = 7;
         if (array_key_exists('week_start_date', $data)) {
             if (! empty($data['week_start_date'])) {
+                $oldAutoName = $menuCycle->week_start_date
+                    ? MenuCycle::defaultName($menuCycle->week_start_date)
+                    : null;
                 $data['week_start_date'] = Carbon::parse($data['week_start_date'])->toDateString();
+                if (! array_key_exists('name', $data) && $menuCycle->name === $oldAutoName) {
+                    $data['name'] = MenuCycle::defaultName($data['week_start_date']);
+                }
             } else {
                 unset($data['week_start_date']);
             }
@@ -411,15 +420,18 @@ class MenuCycleController extends Controller
         $entry = MenuCycleCostService::entryForDay($slot);
         abort_if($entry === null, 404);
 
-        $target = max(1, (int) ($slot->servings_override ?? $slot->estimate_population ?? 1));
-        $entry['servings_override'] = $target;
+        $target = (int) ($slot->estimate_population ?? 0);
+        $estimateSet = $target > 0;
+        $reference = max(1, (int) (($entry['recipe']['servings'] ?? null) ?: 1));
+        $entry['servings_override'] = null;
+        $entry['estimate_population'] = $estimateSet ? $target : $reference;
         $result = MenuCycleCostService::aggregate([$entry]);
         $usage = collect($result['ingredient_usage'])->keyBy('fs_item_id');
         $recipe = $entry['recipe'] ?? null;
 
         if ($recipe) {
             $items = FsItem::query()->whereIn('id', collect($recipe['ingredients'])->pluck('fs_item_id'))->get()->keyBy('id');
-            $ingredients = collect($recipe['ingredients'])->map(function (array $ingredient) use ($items, $usage): array {
+            $ingredients = collect($recipe['ingredients'])->map(function (array $ingredient) use ($estimateSet, $items, $usage): array {
                 $item = $items->get($ingredient['fs_item_id']);
 
                 return [
@@ -427,8 +439,9 @@ class MenuCycleController extends Controller
                     'name' => $item?->name ?? $ingredient['name'],
                     'quantity' => (float) $ingredient['quantity'],
                     'unit' => $ingredient['unit'],
-                    'scaled_quantity' => (float) ($usage->get($ingredient['fs_item_id'])['quantity'] ?? 0),
-                    'scaled_cost' => (float) ($usage->get($ingredient['fs_item_id'])['cost'] ?? 0),
+                    'scaled_quantity' => $estimateSet ? (float) ($usage->get($ingredient['fs_item_id'])['quantity'] ?? 0) : null,
+                    'scaled_cost' => $estimateSet ? (float) ($usage->get($ingredient['fs_item_id'])['cost'] ?? 0) : null,
+                    'include_in_generated_lists' => (bool) ($item?->include_in_generated_lists ?? true),
                 ];
             })->values()->all();
         } else {
@@ -439,8 +452,9 @@ class MenuCycleController extends Controller
                 'name' => $item->name,
                 'quantity' => (float) $slot->quantity,
                 'unit' => $item->base_unit,
-                'scaled_quantity' => (float) ($line['quantity'] ?? 0),
-                'scaled_cost' => (float) ($line['cost'] ?? 0),
+                'scaled_quantity' => $estimateSet ? (float) ($line['quantity'] ?? 0) : null,
+                'scaled_cost' => $estimateSet ? (float) ($line['cost'] ?? 0) : null,
+                'include_in_generated_lists' => (bool) $item->include_in_generated_lists,
             ]];
         }
 
@@ -453,11 +467,13 @@ class MenuCycleController extends Controller
             'editable' => Auth::user()?->role === 'RND' && ! $slot->po_snapshot_locked && $slot->recipe_id !== null,
             'name' => $recipe['name'] ?? $slot->fsItem->name,
             'reference_servings' => (int) ($recipe['servings'] ?? 1),
-            'planned_servings' => $target,
+            'planned_servings' => $estimateSet ? $target : null,
+            'purchase_estimate_set' => $estimateSet,
             'prep_notes' => $recipe['prep_notes'] ?? null,
             'ingredients' => $ingredients,
-            'total_cost' => (float) $result['total_cost'],
-            'cost_per_head' => (float) $result['cost_per_head'],
+            'total_cost' => $estimateSet ? (float) $result['total_cost'] : null,
+            'cost_per_head' => $estimateSet ? (float) $result['cost_per_head'] : null,
+            'baseline_total_cost' => (float) $result['total_cost'],
         ];
     }
 
@@ -479,6 +495,7 @@ class MenuCycleController extends Controller
             'name' => $snapshot['name'] ?? $slot->recipe?->name ?? $slot->fsItem?->name,
             'reference_servings' => $reference,
             'planned_servings' => $planned,
+            'purchase_estimate_set' => true,
             'prep_notes' => $snapshot['prep_notes'] ?? null,
             'ingredients' => $usage->map(function (array $ingredient) use ($items, $reference, $planned): array {
                 $item = $items->get((int) $ingredient['fs_item_id']);
@@ -491,10 +508,12 @@ class MenuCycleController extends Controller
                     'unit' => $ingredient['unit'],
                     'scaled_quantity' => $scaled,
                     'scaled_cost' => (float) $ingredient['cost'],
+                    'include_in_generated_lists' => (bool) ($item?->include_in_generated_lists ?? true),
                 ];
             })->values()->all(),
             'total_cost' => (float) ($snapshot['total_cost'] ?? 0),
             'cost_per_head' => (float) ($snapshot['cost_per_head'] ?? 0),
+            'baseline_total_cost' => (float) ($snapshot['total_cost'] ?? 0),
         ];
     }
 

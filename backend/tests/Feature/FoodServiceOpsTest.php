@@ -55,6 +55,8 @@ class FoodServiceOpsTest extends TestCase
 
     private function makeFsItem(array $attrs = []): FsItem
     {
+        Budget::firstOrCreate(['fiscal_year' => 2026], ['allocated_amount' => 1000000]);
+
         return FsItem::factory()->create($attrs);
     }
 
@@ -292,7 +294,7 @@ class FoodServiceOpsTest extends TestCase
             ->assertStatus(422);
     }
 
-    public function test_vendor_group_or_and_audited_price_correction_only(): void
+    public function test_vendor_group_optional_or_actuals_and_audited_planned_price_correction(): void
     {
         $supplier = Supplier::factory()->create();
         $fsItem = $this->makeFsItem();
@@ -309,7 +311,7 @@ class FoodServiceOpsTest extends TestCase
         $group = PurchaseOrderVendorGroup::firstOrFail();
         $line = $group->items()->firstOrFail();
 
-        // FSS can set OR number only.
+        // FSS can save an optional OR number.
         $this->actingAs($this->fss)
             ->patchJson("/api/fss/purchase-order-vendor-groups/{$group->uuid}", [
                 'or_number' => 'OR-FSS-1',
@@ -317,18 +319,19 @@ class FoodServiceOpsTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.vendor_groups.0.or_number', 'OR-FSS-1');
 
-        // FSS cannot patch items or status — must return 403.
+        // FSS cannot patch frozen planned prices.
         $this->actingAs($this->fss)
             ->patchJson("/api/fss/purchase-order-vendor-groups/{$group->uuid}", [
                 'items' => [['id' => $line->id, 'unit_price' => 22]],
             ])
             ->assertForbidden();
 
+        // Receiving remains blocked until actuals and both evidence types exist.
         $this->actingAs($this->fss)
             ->patchJson("/api/fss/purchase-order-vendor-groups/{$group->uuid}", [
                 'status' => 'received',
             ])
-            ->assertForbidden();
+            ->assertStatus(422);
 
         // RND can do an audited price correction; purchase_qty/purchase_unit are frozen.
         // Qty stays 5, price → 22.
@@ -384,7 +387,8 @@ class FoodServiceOpsTest extends TestCase
             'period_start' => '2026-06-10',
             'period_end' => '2026-06-10',
             'days_span' => 1,
-            'list_type' => 'manual',
+            'list_type' => 'suggested',
+            'coverage_status' => 'full',
             'status' => 'draft',
             'estimate_population' => 10,
         ]);
@@ -392,12 +396,10 @@ class FoodServiceOpsTest extends TestCase
             'fs_item_id' => $fsItem->id, 'ingredient_name' => $fsItem->name, 'qty' => 5, 'unit' => 'kg',
             'supplier_id' => $supplier->id, 'unit_price' => 20, 'total' => 100,
         ]);
-        // Fiscal year 2026 must exist so the lifecycle guard allows completion.
-        Budget::factory()->create(['fiscal_year' => 2026, 'allocated_amount' => 100000]);
-
         $this->actingAs($this->rnd)->postJson("/api/fss/shopping-lists/{$list->uuid}/approve")->assertCreated();
         $po = PurchaseOrder::where('shopping_list_id', $list->id)->firstOrFail();
         $group = $po->vendorGroups()->firstOrFail();
+        $line = $group->items()->firstOrFail();
 
         MealPrepLog::create([
             'menu_cycle_id' => $cycle->id,
@@ -417,6 +419,20 @@ class FoodServiceOpsTest extends TestCase
                 'file' => UploadedFile::fake()->createWithContent('receipt.png', base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=')),
             ])
             ->assertCreated();
+
+        $this->actingAs($this->fss)
+            ->post("/api/fss/purchase-order-vendor-groups/{$group->uuid}/attachments", [
+                'type' => 'proof',
+                'file' => UploadedFile::fake()->createWithContent('proof.png', base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=')),
+            ])
+            ->assertCreated();
+
+        $this->actingAs($this->fss)
+            ->patchJson("/api/fss/purchase-order-vendor-groups/{$group->uuid}", [
+                'items' => [['id' => $line->id, 'actual_qty' => 5, 'actual_unit_price' => 20]],
+                'status' => 'received',
+            ])
+            ->assertOk();
 
         $this->assertDatabaseHas('purchase_orders', [
             'id' => $po->id,
@@ -445,7 +461,7 @@ class FoodServiceOpsTest extends TestCase
         ]);
         $list->items()->create([
             'fs_item_id' => $fsItem->id, 'ingredient_name' => $fsItem->name, 'qty' => 2, 'unit' => 'kg',
-            'unit_price' => 50, 'total' => 100,
+            'supplier_id' => Supplier::factory()->create()->id, 'unit_price' => 50, 'total' => 100,
         ]);
         $this->actingAs($this->rnd)->postJson("/api/fss/shopping-lists/{$list->uuid}/approve")->assertCreated();
         $po = PurchaseOrder::where('shopping_list_id', $list->id)->firstOrFail();
@@ -622,6 +638,7 @@ class FoodServiceOpsTest extends TestCase
             ->postJson('/api/fss/shopping-lists/generate', [
                 'start_date' => '2026-06-15', // Monday
                 'end_date' => '2026-06-15', // the planned Monday → fully covered
+                'estimate_population' => 10,
             ]);
 
         $response->assertCreated()
@@ -657,6 +674,7 @@ class FoodServiceOpsTest extends TestCase
         $response = $this->actingAs($this->rnd)->postJson('/api/fss/shopping-lists/generate', [
             'start_date' => '2026-06-16', // Tuesday
             'end_date' => '2026-06-18', // Thursday
+            'estimate_population' => 10,
         ]);
 
         $response->assertCreated()
@@ -665,11 +683,10 @@ class FoodServiceOpsTest extends TestCase
             ->assertJsonPath('data.days_span', 3)
             ->assertJsonPath('data.coverage_status', 'full');
 
-        // Initial generation uses population=1 (unscaled). User then sets list-level
-        // estimate_population which triggers cascadePopulation → syncItems → scales qty.
+        // Generation immediately applies the one span estimate.
         $listId = $response->json('data.id');
         $item = collect($response->json('data.items'))->firstWhere('fs_item_id', $fsItem->id);
-        $this->assertEqualsWithDelta(3, (float) $item['qty'], 0.01, 'Generation produces 3 days × qty=1 (unscaled)');
+        $this->assertEqualsWithDelta(30, (float) $item['qty'], 0.01, 'Generation produces 3 days × qty=1 × estimate 10');
 
         // Now set list-level estimate_population=10 → quantities scale to 3 days × 10 = 30.
         $scaled = $this->actingAs($this->rnd)->patchJson("/api/fss/shopping-lists/{$listId}", [
@@ -685,6 +702,7 @@ class FoodServiceOpsTest extends TestCase
         $response = $this->actingAs($this->rnd)->postJson('/api/fss/shopping-lists/generate', [
             'start_date' => '2026-06-18',
             'end_date' => '2026-06-16',
+            'estimate_population' => 10,
         ]);
 
         $response->assertStatus(422)->assertJsonValidationErrors(['end_date']);
@@ -705,6 +723,7 @@ class FoodServiceOpsTest extends TestCase
         $response = $this->actingAs($this->rnd)->postJson('/api/fss/shopping-lists/generate', [
             'start_date' => '2026-06-19',
             'end_date' => '2026-06-22',
+            'estimate_population' => 10,
         ]);
 
         $response->assertStatus(422);
@@ -718,6 +737,7 @@ class FoodServiceOpsTest extends TestCase
         $response = $this->actingAs($this->rnd)->postJson('/api/fss/shopping-lists/generate', [
             'start_date' => '2030-01-01',
             'end_date' => '2030-01-03',
+            'estimate_population' => 10,
         ]);
 
         $response->assertStatus(422)
@@ -745,6 +765,7 @@ class FoodServiceOpsTest extends TestCase
         $response = $this->actingAs($this->rnd)->postJson('/api/fss/shopping-lists/generate', [
             'start_date' => '2026-06-15',
             'end_date' => '2026-06-15',
+            'estimate_population' => 10,
         ]);
 
         $response->assertCreated();
@@ -780,6 +801,7 @@ class FoodServiceOpsTest extends TestCase
         $list = $this->actingAs($this->rnd)->postJson('/api/fss/shopping-lists/generate', [
             'start_date' => '2026-06-15',
             'end_date' => '2026-06-15',
+            'estimate_population' => 10,
         ])->assertCreated()->json('data');
 
         Carbon::setTestNow('2026-06-25 09:00:00');
@@ -790,11 +812,11 @@ class FoodServiceOpsTest extends TestCase
         $response->assertOk()
             ->assertJsonPath('data.estimate_population', 25);
 
-        // List-level cascade updates shopping_list_items only — menu_cycle_days are not touched.
+        // The span estimate is also exposed on covered menu days for profile display.
         $this->assertDatabaseHas('menu_cycle_days', [
             'menu_cycle_id' => $cycle->id,
             'day_of_week' => 'Monday',
-            'estimate_population' => 10, // unchanged — per-day population is for meal prep, not procurement
+            'estimate_population' => 25,
         ]);
         $this->assertDatabaseHas('shopping_list_items', [
             'shopping_list_id' => ShoppingList::where('uuid', $list['id'])->value('id'),
@@ -834,6 +856,7 @@ class FoodServiceOpsTest extends TestCase
         $list = $this->actingAs($this->rnd)->postJson('/api/fss/shopping-lists/generate', [
             'start_date' => '2026-06-15', // Monday
             'end_date' => '2026-06-16',   // Tuesday
+            'estimate_population' => 20,
         ])->assertCreated()->json('data');
 
         // Set list-level estimate_population=20 → syncItems scales 2 days × qty=1 × pop=20 = 40.
@@ -923,21 +946,20 @@ class FoodServiceOpsTest extends TestCase
             ->postJson('/api/fss/shopping-lists/generate', [
                 'start_date' => '2026-06-15', // Monday
                 'end_date' => '2026-06-15', // same Monday
+                'estimate_population' => 2,
             ]);
 
         $response->assertCreated();
 
-        // 6. Initial generation uses population=1 (unscaled base amounts).
-        // fsItem1 (recipe): 3 kg × 1 serving × pop=1 = 3 kg.
-        // fsItem2 (direct): 5 kg × pop=1 = 5 kg.
+        // Generation immediately applies the span estimate of 2.
         $listId = $response->json('data.id');
         $this->assertDatabaseHas('shopping_list_items', [
             'fs_item_id' => $fsItem1->id,
-            'qty' => 3.00,
+            'qty' => 6.00,
         ]);
         $this->assertDatabaseHas('shopping_list_items', [
             'fs_item_id' => $fsItem2->id,
-            'qty' => 5.00,
+            'qty' => 10.00,
         ]);
 
         // Set list-level estimate_population=2 → scales to original per-day expectations.
@@ -1077,13 +1099,13 @@ class FoodServiceOpsTest extends TestCase
         $this->assertEquals('active', $cycle->status);
     }
 
-    public function test_menu_cycle_requires_name(): void
+    public function test_menu_cycle_uses_date_span_name_when_name_is_omitted(): void
     {
         $response = $this->actingAs($this->rnd)
-            ->postJson('/api/fss/menu-cycles', ['cycle_days' => 7]);
+            ->postJson('/api/fss/menu-cycles', ['cycle_days' => 7, 'week_start_date' => '2026-06-15']);
 
-        $response->assertUnprocessable()
-            ->assertJsonValidationErrors(['name']);
+        $response->assertCreated()
+            ->assertJsonPath('data.name', 'Weekly Menu — Jun 15–21, 2026');
     }
 
     // ===== BUDGETS =====
@@ -1225,6 +1247,7 @@ class FoodServiceOpsTest extends TestCase
         $this->actingAs($this->fss)->postJson("/api/fss/menu-cycles/{$cycle->uuid}/complete-day", [
             'service_date' => '2026-06-15', // a Monday
             'population' => 8,
+            'served_population' => 8,
         ])->assertCreated();
 
         $this->assertDatabaseHas('meal_prep_logs', [
@@ -1275,6 +1298,7 @@ class FoodServiceOpsTest extends TestCase
 
         $response = $this->actingAs($this->rnd)->postJson('/api/fss/shopping-lists/generate', [
             'start_date' => '2026-06-15', 'end_date' => '2026-06-15', // a Monday
+            'estimate_population' => 1,
         ]);
 
         $response->assertCreated();
@@ -1289,10 +1313,12 @@ class FoodServiceOpsTest extends TestCase
 
     public function test_generate_pos_carries_purchase_units(): void
     {
+        Budget::factory()->create(['fiscal_year' => 2026, 'allocated_amount' => 1000000]);
         $supplier = Supplier::factory()->create();
         $list = ShoppingList::create([
             'rnd_user_id' => $this->rnd->id, 'name' => 'L', 'list_date' => '2026-06-08',
-            'list_type' => 'suggested', 'status' => 'draft',
+            'period_start' => '2026-06-08', 'period_end' => '2026-06-08', 'days_span' => 1,
+            'list_type' => 'suggested', 'coverage_status' => 'full', 'estimate_population' => 1, 'status' => 'draft',
         ]);
         $list->items()->create([
             'ingredient_name' => 'Rice', 'qty' => 2000, 'unit' => 'g', 'supplier_id' => $supplier->id,
@@ -1346,6 +1372,7 @@ class FoodServiceOpsTest extends TestCase
         $this->actingAs($this->fss)->postJson('/api/fss/shopping-lists/generate', [
             'start_date' => '2026-06-15',
             'end_date' => '2026-06-15',
+            'estimate_population' => 10,
         ])->assertForbidden();
     }
 
@@ -1427,6 +1454,7 @@ class FoodServiceOpsTest extends TestCase
 
     public function test_supplies_list_is_manual_supply_only_and_converts_to_supplies_po(): void
     {
+        Budget::factory()->create(['fiscal_year' => 2026, 'allocated_amount' => 1000000]);
         $supplier = Supplier::factory()->create();
         $supply = FsItem::factory()->create([
             'kind' => 'supply',
@@ -1532,6 +1560,7 @@ class FoodServiceOpsTest extends TestCase
             'fs_item_id' => $fs->id, 'description' => 'Rice',
             'qty' => 2000, 'unit' => 'g', 'unit_price' => 0.05, 'total_value' => 100,
             'purchase_qty' => 2, 'purchase_unit' => 'kg', 'purchase_price' => 50,
+            'actual_qty' => 1.875, 'actual_unit_price' => 52,
         ]);
 
         // PO update is RND-only
@@ -1540,7 +1569,7 @@ class FoodServiceOpsTest extends TestCase
 
         // 2 kg × 1000 g/kg = 2000 g added to stock.
         $this->assertDatabaseMissing('inventory', ['fs_item_id' => $fs->id]);
-        $this->assertSame(50.0, (float) $fs->fresh()->purchase_price);
+        $this->assertSame(52.0, (float) $fs->fresh()->purchase_price);
         $this->assertDatabaseHas('purchase_order_items', [
             'purchase_order_id' => $po->id,
             'fs_item_id' => $fs->id,
@@ -1764,15 +1793,17 @@ class FoodServiceOpsTest extends TestCase
             'fs_item_id' => $fs->id, 'description' => 'Rice',
             'qty' => 2000, 'unit' => 'g', 'unit_price' => 0.05, 'total_value' => 100,
             'purchase_qty' => 2, 'purchase_unit' => 'kg', 'purchase_price' => 50,
+            'actual_qty' => 1.875, 'actual_unit_price' => 52,
         ]);
 
         $report = new Report(['type' => 'procurement_pack', 'parameters' => ['purchase_order_id' => $po->id]]);
         $data = (new ProcurementPackGenerator)->data($report);
 
         $pack = $data['packs'][0];
-        $this->assertEqualsWithDelta(2, (float) $pack['air_items'][0]['quantity'], 0.01); // packs, not 2000 g
+        $this->assertEqualsWithDelta(1.875, (float) $pack['air_items'][0]['quantity'], 0.001);
         $this->assertSame('kg', $pack['air_items'][0]['unit']);
-        $this->assertEqualsWithDelta(50, (float) $pack['statement_items'][0]['unit_price'], 0.01); // ₱/pack
+        $this->assertEqualsWithDelta(52, (float) $pack['statement_items'][0]['unit_price'], 0.01);
+        $this->assertEqualsWithDelta(97.50, (float) $pack['grand_total'], 0.01);
     }
 
     // ===== SERVED-POPULATION BACKFILL (any cycle day) =====

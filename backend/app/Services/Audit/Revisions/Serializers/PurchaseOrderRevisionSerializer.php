@@ -71,6 +71,8 @@ class PurchaseOrderRevisionSerializer implements AuditRevisionSerializer
                 'purchase_quantity' => $line->purchase_qty !== null ? (float) $line->purchase_qty : null,
                 'purchase_unit' => $line->purchase_unit,
                 'purchase_price' => $line->purchase_price !== null ? (float) $line->purchase_price : null,
+                'actual_quantity' => $line->actual_qty !== null ? (float) $line->actual_qty : null,
+                'actual_unit_price' => $line->actual_unit_price !== null ? (float) $line->actual_unit_price : null,
             ];
         })->all();
         $attachments = $subject->attachments->sortBy('id')->values()->map(fn ($attachment): array => [
@@ -140,7 +142,7 @@ class PurchaseOrderRevisionSerializer implements AuditRevisionSerializer
             new AuditHistoryFieldDto('lifecycle_status', 'Lifecycle status', new AuditValueDto('enum', $snapshot['lifecycle_status'])),
             new AuditHistoryFieldDto('procurement_track', 'Procurement track', new AuditValueDto('enum', $snapshot['procurement_track'])),
             new AuditHistoryFieldDto('total', 'Total', new AuditValueDto('currency', $snapshot['total'], currency: 'PHP')),
-            new AuditHistoryFieldDto('actual_budget_per_head_per_day', 'Actual cost per head/day', new AuditValueDto('currency', $snapshot['actual_budget_per_head_per_day'], currency: 'PHP')),
+            new AuditHistoryFieldDto('actual_budget_per_head_per_day', 'Food purchase cost per served patient-day', new AuditValueDto('currency', $snapshot['actual_budget_per_head_per_day'], currency: 'PHP')),
             new AuditHistoryFieldDto('converted_at', 'Converted at', new AuditValueDto('datetime', $snapshot['converted_at'])),
             new AuditHistoryFieldDto('completed_at', 'Completed at', new AuditValueDto('datetime', $snapshot['completed_at'])),
             new AuditHistoryFieldDto('archived_at', 'Archived at', new AuditValueDto('datetime', $snapshot['archived_at'])),
@@ -169,6 +171,7 @@ class PurchaseOrderRevisionSerializer implements AuditRevisionSerializer
                     'item' => 'Item', 'quantity' => 'Quantity', 'unit' => 'Unit', 'unit_price' => 'Unit price',
                     'total' => 'Total', 'purchase_quantity' => 'Purchase quantity',
                     'purchase_unit' => 'Purchase unit', 'purchase_price' => 'Purchase price',
+                    'actual_quantity' => 'Actual quantity', 'actual_unit_price' => 'Actual unit price',
                 ], array_map(fn (array $line) => new AuditHistoryTableRowDto($line['key'], [
                     'item' => new AuditValueDto('text', $line['item']),
                     'quantity' => new AuditValueDto('number', $line['quantity']),
@@ -178,6 +181,8 @@ class PurchaseOrderRevisionSerializer implements AuditRevisionSerializer
                     'purchase_quantity' => new AuditValueDto('number', $line['purchase_quantity']),
                     'purchase_unit' => new AuditValueDto('text', $line['purchase_unit']),
                     'purchase_price' => new AuditValueDto('currency', $line['purchase_price'], currency: 'PHP'),
+                    'actual_quantity' => new AuditValueDto('number', $line['actual_quantity']),
+                    'actual_unit_price' => new AuditValueDto('currency', $line['actual_unit_price'], currency: 'PHP'),
                 ]), $snapshot['lines'])),
                 new AuditHistoryTableDto('attachments', 'Attachment metadata', [
                     'type' => 'Type', 'caption' => 'Caption',
@@ -235,7 +240,7 @@ class PurchaseOrderRevisionSerializer implements AuditRevisionSerializer
 
     private function validLine(mixed $v): bool
     {
-        return is_array($v) && $this->exact($v, ['key', 'group_reference', 'catalog_reference', 'item', 'quantity', 'unit', 'unit_price', 'total', 'purchase_quantity', 'purchase_unit', 'purchase_price']) && is_string($v['key']) && trim($v['key']) !== '' && $this->uuidOrNull($v['group_reference']) && $this->uuidOrNull($v['catalog_reference']) && is_string($v['item']) && is_string($v['unit']) && $this->number($v['quantity']) && $this->number($v['unit_price']) && $this->number($v['total']) && ($v['purchase_quantity'] === null || $this->number($v['purchase_quantity'])) && $this->textOrNull($v['purchase_unit']) && ($v['purchase_price'] === null || $this->number($v['purchase_price']));
+        return is_array($v) && $this->exact($v, ['key', 'group_reference', 'catalog_reference', 'item', 'quantity', 'unit', 'unit_price', 'total', 'purchase_quantity', 'purchase_unit', 'purchase_price', 'actual_quantity', 'actual_unit_price']) && is_string($v['key']) && trim($v['key']) !== '' && $this->uuidOrNull($v['group_reference']) && $this->uuidOrNull($v['catalog_reference']) && is_string($v['item']) && is_string($v['unit']) && $this->number($v['quantity']) && $this->number($v['unit_price']) && $this->number($v['total']) && ($v['purchase_quantity'] === null || $this->number($v['purchase_quantity'])) && $this->textOrNull($v['purchase_unit']) && ($v['purchase_price'] === null || $this->number($v['purchase_price'])) && ($v['actual_quantity'] === null || $this->number($v['actual_quantity'])) && ($v['actual_unit_price'] === null || $this->number($v['actual_unit_price']));
     }
 
     private function validAttachment(mixed $v): bool

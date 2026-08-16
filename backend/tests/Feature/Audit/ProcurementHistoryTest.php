@@ -3,6 +3,7 @@
 namespace Tests\Feature\Audit;
 
 use App\Models\AuditActivity;
+use App\Models\Budget;
 use App\Models\FsItem;
 use App\Models\PurchaseOrder;
 use App\Models\ShoppingList;
@@ -103,11 +104,13 @@ class ProcurementHistoryTest extends TestCase
 
     public function test_po_approval_ordering_receiving_and_delete_have_event_time_versions(): void
     {
+        Budget::factory()->create(['fiscal_year' => 2026, 'allocated_amount' => 100000]);
         $supplier = Supplier::factory()->create(['name' => 'Safe Foods Inc']);
         $catalog = FsItem::factory()->create(['name' => 'Rice', 'default_supplier_id' => $supplier->id]);
         $list = ShoppingList::factory()->create([
             'rnd_user_id' => $this->rnd->id,
             'name' => 'July Food List',
+            'list_type' => 'manual',
             'status' => 'draft',
             'procurement_track' => 'food',
         ]);

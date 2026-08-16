@@ -9,6 +9,7 @@ use App\Models\ReportTemplate;
 use App\Services\Reports\Contracts\ReportGenerator;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * Procurement Pack — the three buy-event government docs bundled into one PDF:
@@ -83,11 +84,11 @@ class ProcurementPackGenerator implements ReportGenerator
         $query = PurchaseOrder::with([
             'items.fsItem',
             'supplier',
-            'attachments',
+            'attachments.storedObject',
             'shoppingList',
             'vendorGroups.supplier',
             'vendorGroups.items.fsItem',
-            'vendorGroups.attachments',
+            'vendorGroups.attachments.storedObject',
         ]);
 
         if (! empty($params['purchase_order_id'])) {
@@ -121,18 +122,20 @@ class ProcurementPackGenerator implements ReportGenerator
             'item_no' => $i + 1,
             'unit' => $it->purchase_unit ?? $it->unit,
             'description' => $it->description ?? $it->fsItem?->name,
-            'quantity' => $it->purchase_qty ?? $it->qty,
+            'quantity' => $it->actual_qty ?? $it->purchase_qty ?? $it->qty,
         ])->all();
 
         $statementItems = $items->map(fn ($it) => [
-            'qty' => $it->purchase_qty ?? $it->qty,
+            'qty' => $it->actual_qty ?? $it->purchase_qty ?? $it->qty,
             'unit' => $it->purchase_unit ?? $it->unit,
             'item' => $it->description ?? $it->fsItem?->name,
-            'unit_price' => $it->purchase_price ?? $it->unit_price,
-            'total_value' => $it->total_value,
+            'unit_price' => $it->actual_unit_price ?? $it->purchase_price ?? $it->unit_price,
+            'total_value' => $it->actual_qty !== null && $it->actual_unit_price !== null
+                ? round((float) $it->actual_qty * (float) $it->actual_unit_price, 2)
+                : $it->total_value,
         ])->all();
 
-        $grandTotal = (float) $items->sum('total_value');
+        $grandTotal = (float) collect($statementItems)->sum('total_value');
         $date = optional($po->order_date)->format('F j, Y') ?? '';
         $inclusive = $po->shoppingList?->period_start && $po->shoppingList?->period_end
             ? $po->shoppingList->period_start->format('m/d/y').'-'.$po->shoppingList->period_end->format('m/d/y')
@@ -143,7 +146,8 @@ class ProcurementPackGenerator implements ReportGenerator
             'po' => $po,
             'vendor_group' => $group,
             'supplier' => $group?->supplier ?? $po->supplier,
-            'or_number' => $group?->or_number ?? $po->or_number,
+            'or_number' => $group?->or_number ?? $po->or_number ?? 'Not provided',
+            'is_final' => $po->final_locked_at !== null,
             'air_items' => $airItems,
             'statement_items' => $statementItems,
             'grand_total' => round($grandTotal, 2),
@@ -152,7 +156,7 @@ class ProcurementPackGenerator implements ReportGenerator
             'attachments' => $attachments->map(fn ($a) => [
                 'type' => $a->type,
                 'caption' => $a->caption,
-                'src' => storage_path('app/public/'.$a->path),
+                'src' => $this->attachmentSource($a),
             ])->values()->all(),
             'summary' => [
                 'date_purchased' => $date,
@@ -160,6 +164,29 @@ class ProcurementPackGenerator implements ReportGenerator
                 'amount' => round($grandTotal, 2),
             ],
         ];
+    }
+
+    private function attachmentSource($attachment): ?string
+    {
+        try {
+            if ($attachment->storedObject) {
+                $object = $attachment->storedObject;
+                $bytes = Storage::disk($object->storage_disk)->get($object->object_key);
+
+                return 'data:'.$object->mime_type.';base64,'.base64_encode($bytes);
+            }
+            if ($attachment->path) {
+                $disk = Storage::disk(config('filesystems.uploads'));
+                $bytes = $disk->get($attachment->path);
+                $mime = $disk->mimeType($attachment->path) ?: 'image/jpeg';
+
+                return 'data:'.$mime.';base64,'.base64_encode($bytes);
+            }
+        } catch (\Throwable) {
+            return null;
+        }
+
+        return null;
     }
 
     private function periodLabel(Collection $orders): string

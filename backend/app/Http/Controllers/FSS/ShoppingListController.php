@@ -140,6 +140,7 @@ class ShoppingListController extends Controller
         $data = $request->validate([
             'start_date' => ['required', 'date'],
             'end_date' => ['required', 'date', 'after_or_equal:start_date'],
+            'estimate_population' => ['required', 'integer', 'min:1'],
             'name' => ['nullable', 'string', 'max:255'],
         ]);
 
@@ -147,7 +148,7 @@ class ShoppingListController extends Controller
         $end = Carbon::parse($data['end_date'])->startOfDay();
         $spanDays = $cursor->diffInDays($end) + 1;
 
-        $plan = app(ShoppingListPopulationService::class)->planRange($cursor, $end);
+        $plan = app(ShoppingListPopulationService::class)->planRange($cursor, $end, $data['estimate_population']);
 
         // All-or-nothing: if any date in the span is missing a cycle or menu
         // items, block creation entirely. Estimate population is list-level only.
@@ -174,13 +175,21 @@ class ShoppingListController extends Controller
                     'list_type' => 'suggested',
                     'procurement_track' => 'food',
                     'status' => 'draft',
+                    'estimate_population' => $data['estimate_population'],
+                    'estimate_population_updated_at' => now(),
                     'coverage_status' => 'full',
                     'uncovered_dates' => null,
                 ]);
 
                 foreach ($plan['items'] as $row) {
-                    $list->items()->create($row);
+                    $list->items()->create($row + ['source' => 'generated']);
                 }
+
+                app(ShoppingListPopulationService::class)->cascadeMenuDays(
+                    $data['start_date'],
+                    $data['end_date'],
+                    $data['estimate_population'],
+                );
 
                 return $list;
             }));
@@ -210,6 +219,11 @@ class ShoppingListController extends Controller
             'supplier_id' => ['nullable', 'string', 'exists:suppliers,uuid'],
             'qty' => ['nullable', 'numeric', 'min:0'],
             'unit_price' => ['nullable', 'numeric', 'min:0'],
+            'purchase_qty' => ['nullable', 'numeric', 'min:0'],
+            'purchase_unit' => ['nullable', 'string', 'max:50'],
+            'purchase_price' => ['nullable', 'numeric', 'min:0'],
+            'included_in_po' => ['nullable', 'boolean'],
+            'exclusion_note' => ['nullable', 'string', 'max:255'],
             'vendor_locked' => ['nullable', 'boolean'],
         ]);
 
@@ -217,12 +231,19 @@ class ShoppingListController extends Controller
             $data['supplier_id'] = Supplier::idFromUuid($data['supplier_id']);
         }
 
-        if (array_key_exists('qty', $data) && ! $shoppingListItem->shoppingList->isSupplies()) {
-            return response()->json(['message' => 'Food list quantities are calculated from estimate_population and menu items.'], 422);
+        if (array_key_exists('qty', $data)
+            && ! $shoppingListItem->shoppingList->isSupplies()
+            && $shoppingListItem->source === 'generated') {
+            return response()->json(['message' => 'Calculated requirements are read-only. Edit planned purchase quantity instead.'], 422);
         }
 
-        $shoppingListItem->fill(collect($data)->only(['supplier_id', 'qty', 'unit_price'])->all());
-        $shoppingListItem->total = round((float) $shoppingListItem->qty * (float) $shoppingListItem->unit_price, 2);
+        $shoppingListItem->fill(collect($data)->only([
+            'supplier_id', 'qty', 'unit_price', 'purchase_qty', 'purchase_unit',
+            'purchase_price', 'included_in_po', 'exclusion_note',
+        ])->all());
+        $shoppingListItem->total = $shoppingListItem->purchase_qty !== null && $shoppingListItem->purchase_price !== null
+            ? round((float) $shoppingListItem->purchase_qty * (float) $shoppingListItem->purchase_price, 2)
+            : round((float) $shoppingListItem->qty * (float) $shoppingListItem->unit_price, 2);
 
         // Manual vendor lock on this line — does NOT touch the catalog default.
         // The catalog vendor auto-updates from the LATEST PROCUREMENT (receiving),
@@ -263,6 +284,12 @@ class ShoppingListController extends Controller
             'qty' => $shoppingListItem->qty,
             'unit_price' => $shoppingListItem->unit_price,
             'total' => $shoppingListItem->total,
+            'purchase_qty' => $shoppingListItem->purchase_qty,
+            'purchase_unit' => $shoppingListItem->purchase_unit,
+            'purchase_price' => $shoppingListItem->purchase_price,
+            'source' => $shoppingListItem->source,
+            'included_in_po' => $shoppingListItem->included_in_po,
+            'exclusion_note' => $shoppingListItem->exclusion_note,
             'vendor_locked' => $shoppingListItem->vendorLocked(),
             'item_type' => $shoppingListItem->fsItem?->kind ?? 'ingredient',
         ]]);
@@ -321,6 +348,7 @@ class ShoppingListController extends Controller
                     'purchase_qty' => $qty,
                     'purchase_unit' => $fsItem->base_unit,
                     'purchase_price' => $unitPrice,
+                    'source' => 'manual',
                 ]));
                 $after = $list->fresh(self::ITEM_RELATIONS);
                 $activity = $this->auditLogger->recordMutation(AuditAction::Updated, AuditDomain::Procurement, $after, ['items']);
@@ -346,6 +374,8 @@ class ShoppingListController extends Controller
                 'purchase_unit' => $item->purchase_unit,
                 'purchase_price' => $item->purchase_price,
                 'item_type' => 'supply',
+                'source' => $item->source,
+                'included_in_po' => $item->included_in_po,
             ]], 201);
         }
 
@@ -370,6 +400,7 @@ class ShoppingListController extends Controller
                 'purchase_qty' => $data['purchase_qty'] ?? null,
                 'purchase_unit' => $data['purchase_unit'] ?? null,
                 'purchase_price' => $data['purchase_price'] ?? null,
+                'source' => 'manual',
             ]));
             $after = $list->fresh(self::ITEM_RELATIONS);
             $activity = $this->auditLogger->recordMutation(AuditAction::Updated, AuditDomain::Procurement, $after, ['items']);
@@ -394,6 +425,8 @@ class ShoppingListController extends Controller
             'purchase_unit' => $item->purchase_unit,
             'purchase_price' => $item->purchase_price,
             'item_type' => $item->fsItem?->kind ?? 'ingredient',
+            'source' => $item->source,
+            'included_in_po' => $item->included_in_po,
         ]], 201);
     }
 
@@ -401,6 +434,9 @@ class ShoppingListController extends Controller
     {
         if ($shoppingListItem->shoppingList->status !== 'draft') {
             return response()->json(['message' => 'Converted shopping list items are read-only.'], 422);
+        }
+        if ($shoppingListItem->source === 'generated') {
+            return response()->json(['message' => 'Calculated rows cannot be deleted. Exclude the row from the PO instead.'], 422);
         }
 
         $this->audited(function () use ($shoppingListItem): void {

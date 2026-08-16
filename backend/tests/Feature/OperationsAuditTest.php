@@ -95,7 +95,7 @@ class OperationsAuditTest extends TestCase
         $this->assertSame('operations', $activity->category->value);
         $this->assertSame('food_service', $activity->domain->value);
         $this->assertSame(
-            ['base_unit', 'is_active', 'kind', 'name', 'purchase_price', 'purchase_unit', 'unit_cost', 'units_per_purchase', 'vendor_locked'],
+            ['base_unit', 'include_in_generated_lists', 'is_active', 'kind', 'name', 'purchase_price', 'purchase_unit', 'unit_cost', 'units_per_purchase', 'vendor_locked'],
             $activity->properties['details']['changed_fields'],
         );
     }
@@ -233,6 +233,7 @@ class OperationsAuditTest extends TestCase
         $this->actingAs($user)->postJson('/api/fss/shopping-lists/generate', [
             'start_date' => now()->startOfWeek()->toDateString(),
             'end_date' => now()->endOfWeek()->toDateString(),
+            'estimate_population' => 10,
         ])->assertCreated();
         $this->actingAs($user)->deleteJson("/api/fss/menu-cycles/{$instantiatedId}")->assertNoContent();
         $this->actingAs($user)->deleteJson("/api/fss/menu-cycle-templates/{$templateId}")->assertNoContent();
@@ -456,7 +457,7 @@ class OperationsAuditTest extends TestCase
             'announcement ownership' => [fn () => $this->actingAs($rnd)->patchJson("/api/rnd/announcements/{$announcement->uuid}", ['title' => 'blocked'])->assertForbidden(), 1],
             'fs item validation' => [fn () => $this->actingAs($rnd)->postJson('/api/fss/fs-items', [])->assertUnprocessable(), 0],
             'shopping list validation' => [fn () => $this->actingAs($rnd)->postJson('/api/fss/shopping-lists', [])->assertUnprocessable(), 0],
-            'menu cycle validation' => [fn () => $this->actingAs($rnd)->postJson('/api/fss/menu-cycles', [])->assertUnprocessable(), 0],
+            'menu cycle validation' => [fn () => $this->actingAs($rnd)->postJson('/api/fss/menu-cycles', ['cycle_days' => 0])->assertUnprocessable(), 0],
             'template validation' => [fn () => $this->actingAs($rnd)->postJson('/api/fss/menu-cycle-templates', [])->assertUnprocessable(), 0],
             'AI setting authorization' => [fn () => $this->actingAs($rnd)->putJson('/api/admin/ai-usage-limits', [])->assertForbidden(), 1],
             'SOP authorization' => [fn () => $this->actingAs($fss)->postJson('/api/sop', ['title' => 'x', 'body' => 'y'])->assertForbidden(), 1],

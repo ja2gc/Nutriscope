@@ -193,48 +193,23 @@ Page inventory: Dashboard, Prep & Accomplishment, Inventory, Procurement, Menu c
 
 ```mermaid
 flowchart TD
-    A["RND logs in on web"] --> B["Open Food Service"]
-    B --> C["Maintain suppliers"]
-    B --> D["Create/update FS catalog items"]
-    D --> D1{"Item kind?"}
-    D1 -->|"Ingredient"| E["Use inside recipes"]
-    D1 -->|"Ready-to-serve"| F["Slot directly in a menu cycle"]
-    D1 -->|"Supply"| G["Use in manual shopping-list lines"]
-
-    E --> H["Create food-service recipe"]
-    H --> H1["Add ingredients, qty, unit, servings, prep notes"]
-    H1 --> H2{"Units compatible with item base unit?"}
-    H2 -->|"No"| H3["Reject save with validation error"]
-    H2 -->|"Yes"| H4["Save recipe; recipe cost recalculated"]
-
-    F --> I["Create/update menu cycle"]
-    H4 --> I
-    I --> I1["Set week start, cycle days, meal slots, estimated population per day"]
-    I1 --> I2{"Slot type?"}
-    I2 -->|"Recipe"| I3["Recipe profile: scaled ingredients, cost, cost/head, prep notes"]
-    I2 -->|"Ready-to-serve"| I4["Item profile: scaled qty, cost, cost/head, notes"]
-    I3 --> I5["Save and compute cycle; activate freezes cost snapshot"]
-    I4 --> I5
-    I5 --> I6{"Fiscal-year budget exists?"}
-    I6 -->|"No"| I7["Show computed food cost only"]
-    I6 -->|"Yes"| I8["Compare computed cost/head to per-head/day limit"]
-
-    I8 --> J["Generate suggested shopping list for a date range"]
-    I7 --> J
-    J --> J1["Resolve covering menu cycle for each date"]
-    J1 --> J2{"Every date covered?"}
-    J2 -->|"No"| J3["Save with uncovered dates + coverage warning"]
-    J2 -->|"Yes"| J4["Save as fully covered"]
-    J3 --> J5["Extract planned recipe ingredients + ready-to-serve items"]
-    J4 --> J5
-    J5 --> J6["Aggregate quantities across dates and populations"]
-    J6 --> J7["Attach on-hand, pending PO, default supplier, cost estimates"]
-
-    J7 --> K{"RND approves the list?"}
-    K -->|"No"| K1["Stays draft for review/edit"]
-    K -->|"Yes"| L["System creates one PO with vendor groups by supplier"]
-    L --> M["PPA planning snapshot auto-generates"]
-    M --> N["PO enters open_execution -> handed to FSS for receiving"]
+    A["Maintain ingredient/supply reference catalog"] --> B["Create recipes with baseline servings and exact measurements"]
+    B --> C["Create date-named menu cycle or load template copy"]
+    C --> D["Assign recipes/items and activate"]
+    D --> E{"Shopping-list path"}
+    E -->|"Suggested food"| F["Select span + enter one estimated serving count"]
+    E -->|"Manual food/event"| G["Name list + add ingredients"]
+    E -->|"Manual supplies"| H["Name list + add supplies"]
+    F --> I["Scale baseline recipes; omit Purchase-when-needed ingredients"]
+    I --> J["Review calculated need and editable purchase values"]
+    G --> J
+    H --> J
+    J --> K["Add manual rows or exclude generated rows"]
+    K --> L{"Vendor, estimate/coverage, and budget ready?"}
+    L -->|"No"| M["Show release blockers"]
+    M --> J
+    L -->|"Yes"| N["Create/release one vendor-grouped PO from included rows"]
+    N --> O["Freeze plan and create PPA snapshot"]
 ```
 
 ---
@@ -243,57 +218,22 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    A["FSS opens app -> splash -> login"] --> B["Dashboard"]
-    B --> B1["KPI: Meals to log today"]
-    B --> B2["KPI: POs awaiting receipt"]
-    B --> B3["KPI: Items out of stock"]
-    B --> B4["Today's service list"]
-    B --> B5["Announcements feed"]
-
-    B --> P["Tab: Prep & Accomplishment"]
-    P --> P1["Meal Prep: today's service + Mark served"]
-    P1 --> P1a{"Enough stock to serve?"}
-    P1a -->|"No"| P1b["Shortfall modal -> proceed with allow_shortfall or cancel"]
-    P1a -->|"Yes"| P1c["Day completed; ingredients deducted from inventory"]
-
-    P --> P2["Accomplishment / Diet List form"]
-    P2 --> P2a{"Off duty today?"}
-    P2a -->|"Yes"| P2b["Save off-duty row -> report cell renders X"]
-    P2a -->|"No"| P2c["Enter ward, headcount, task checkboxes -> save"]
-    P2b --> P2d["Day total headcount = sum of ward rows"]
-    P2c --> P2d
-    P2d --> P2e{"All 7 days logged for this staff?"}
-    P2e -->|"No"| P2f["Report stays live/incomplete"]
-    P2e -->|"Yes"| P2g["Auto-archive and freeze weekly accomplishment report"]
-
-    P --> P3["Link -> Menu cycle screen"]
-    P3 --> P3a["Read-only week: foods per meal slot"]
-    P3a --> P3b{"Tap a slot"}
-    P3b -->|"Recipe"| P3c["Recipe profile: scaled, cost/head, prep notes"]
-    P3b -->|"Ready-to-serve"| P3d["FS item profile"]
-    P3a --> P3e["Actual served population editor"]
-
-    P --> P4["Link -> My accomplishment reports"]
-    P4 --> P4a["List own archived reports"]
-    P4a --> P4b["Open native grid: tasks x days, X / check / headcount"]
-
-    B --> Q["Tab: Procurement"]
-    Q --> Q1["Purchase-order list"]
-    Q1 --> Q2["Open PO -> vendor-group rows"]
-    Q2 --> Q3["Open vendor group detail"]
-    Q3 --> Q3a["Enter OR number"]
-    Q3 --> Q3b["Edit vendor line items"]
-    Q3 --> Q3c["Upload receipt image"]
-    Q3 --> Q3d["Upload proof-of-purchase photo"]
-    Q3 --> Q3e["Mark vendor group received"]
-    Q3e --> Q4{"All vendor groups received + served pop set?"}
-    Q4 -->|"No"| Q5["PO stays open_execution"]
-    Q4 -->|"Yes"| Q6["PO completes -> actual budget/head + ledger deduction"]
-
-    B --> R["Tab: Inventory"]
-    R --> R1["Search + filter"]
-    R1 --> R2["Tap item -> Add / Deduct stock modal"]
-    R2 --> R3["No-stock items flagged red; dashboard KPI updates"]
+    A["FSS opens mobile Home"] --> B["Review menu, meals, POs, announcements"]
+    B --> C["Menu: view approved slots and profiles"]
+    B --> D["Purchase: open PO and vendor"]
+    D --> E["Review calculated values; confirm actual qty/price"]
+    E --> F["Upload receipt and proof; optional OR"]
+    F --> G["Explicitly mark vendor received"]
+    B --> H["Meal Prep: record positive actual served population and complete service"]
+    B --> I["Accomplish: record ward meals/duties or off-duty"]
+    I --> J["Own weekly accomplishment report"]
+    G --> K{"All vendor evidence complete?"}
+    H --> L{"Suggested food span populations complete?"}
+    K -->|"No"| D
+    L -->|"No"| H
+    K -->|"Yes"| M["Complete manual/supplies PO"]
+    K -->|"Yes"| N["Suggested food waits for population"]
+    L -->|"Yes"| O["Complete suggested food PO; ledger and reports"]
 ```
 
 ---
@@ -525,4 +465,3 @@ flowchart TD
     X --> AB["Full ADIME report"]
     Z --> AC["Final archived report"]
 ```
-

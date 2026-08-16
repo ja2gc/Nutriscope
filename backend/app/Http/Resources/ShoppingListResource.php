@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Services\FSS\PurchaseOrderLifecycleService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -9,7 +10,9 @@ class ShoppingListResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
-        $total = (float) $this->items->sum(fn ($i) => (float) $i->total);
+        $total = (float) $this->items
+            ->where('included_in_po', true)
+            ->sum(fn ($i) => (float) $i->total);
         $population = (int) ($this->estimate_population ?? 0);
         $days = ($this->period_start && $this->period_end)
             ? (int) $this->period_start->diffInDays($this->period_end) + 1
@@ -39,6 +42,9 @@ class ShoppingListResource extends JsonResource
             'estimate_population_updated_at' => $this->estimate_population_updated_at?->toISOString(),
             'estimated_total' => round($total, 2),
             'estimated_budget_per_head_per_day' => $estimatedBudgetPerHeadPerDay,
+            'release_readiness' => $this->status === 'draft'
+                ? app(PurchaseOrderLifecycleService::class)->releaseReadiness($this->resource)
+                : null,
             'items' => $this->items->map(fn ($item) => [
                 'id' => $item->uuid,
                 // fs_item_id stays the raw FK — it isn't consumed for routing/matching by
@@ -46,6 +52,9 @@ class ShoppingListResource extends JsonResource
                 // in the procurement vendor dropdown, so it must be the public uuid.
                 'fs_item_id' => $item->fs_item_id,
                 'ingredient_name' => $item->ingredient_name,
+                'source' => $item->source,
+                'included_in_po' => $item->included_in_po,
+                'exclusion_note' => $item->exclusion_note,
                 'item_type' => $item->relationLoaded('fsItem') && $item->fsItem ? $item->fsItem->kind : 'ingredient',
                 'qty' => $item->qty,
                 'unit' => $item->unit,
@@ -56,6 +65,10 @@ class ShoppingListResource extends JsonResource
                 'purchase_qty' => $item->purchase_qty,
                 'purchase_unit' => $item->purchase_unit,
                 'purchase_price' => $item->purchase_price,
+                'baseline_servings' => $item->baseline_servings,
+                'baseline_quantity' => $item->baseline_quantity,
+                'scaled_quantity' => $item->scaled_quantity,
+                'scaled_unit' => $item->scaled_unit,
             ]),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
