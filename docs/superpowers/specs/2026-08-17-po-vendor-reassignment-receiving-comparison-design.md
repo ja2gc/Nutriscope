@@ -27,6 +27,7 @@ This is the selected approach. **Change vendor for all** sits outside the item t
 ## Vendor Reassignment Rules
 
 - RND and FSS may reassign vendors while the PO is in open execution.
+- FSS receives read-only access to the existing supplier index for the replacement-vendor picker. Supplier authoring remains RND-only.
 - A received vendor group cannot be changed.
 - The source and destination groups must have no receipt or proof attachments. The user must remove evidence before changing the structure it documents.
 - **Change vendor for all** moves every item from the current group to the selected vendor.
