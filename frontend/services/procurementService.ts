@@ -56,6 +56,8 @@ export interface POVendorGroup {
   or_number: string | null;
   or_number_display: string;
   status: "pending" | "received";
+  can_change_vendor: boolean;
+  vendor_change_blocker: string | null;
   total_amount: string | null;
   received_at: string | null;
   stocked_at: string | null;
@@ -227,6 +229,8 @@ export async function updatePurchaseOrder(id: string, patch: Partial<Pick<Purcha
   }), "Failed to update PO.");
 }
 export async function updateVendorGroup(groupId: string, patch: {
+  supplier_id?: string;
+  item_id?: number;
   or_number?: string | null;
   status?: "pending" | "received";
   items?: Array<{ id: number; actual_qty?: number | null; actual_unit_price?: number | null; receipt_total?: number | null }>;

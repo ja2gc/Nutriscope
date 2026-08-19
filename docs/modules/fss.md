@@ -111,8 +111,9 @@ Off duty stores zero meals and renders as **X** in the weekly report. The tab al
 
 FSS sees existing POs and vendor groups. For an open PO, FSS can:
 
-- review the original calculated vendor line values;
+- review planned values, with calculated/planned/actual details available on request;
 - confirm or correct actual quantity (including decimals) and actual unit price;
+- change the vendor for the whole group or one item before evidence is uploaded;
 - optionally save `or_number`;
 - upload receipt images;
 - upload proof-of-purchase images;
@@ -125,8 +126,9 @@ Receipt upload alone does not change status. A vendor can be marked received onl
 FSS cannot change:
 
 - planned vendor items and calculated values;
-- supplier;
 - lifecycle status.
+
+Vendor correction is unavailable after receipt/proof evidence is attached or the group is received. Remove mistaken evidence first, then correct the vendor. A whole-group change is outside the item list; a single-item change is on that item's row.
 
 Completed/archived POs lock execution edits.
 

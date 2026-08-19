@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Models\PurchaseOrderVendorGroup;
 use App\Services\FSS\PurchaseOrderLifecycleService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -79,6 +80,8 @@ class PurchaseOrderResource extends JsonResource
                 'or_number' => $g->or_number,
                 'or_number_display' => $g->or_number ?: 'Not provided',
                 'status' => $g->status,
+                'can_change_vendor' => $this->vendorChangeBlocker($g) === null,
+                'vendor_change_blocker' => $this->vendorChangeBlocker($g),
                 'total_amount' => $g->total_amount,
                 'received_at' => $g->received_at?->toISOString(),
                 'stocked_at' => $g->stocked_at?->toISOString(),
@@ -152,5 +155,20 @@ class PurchaseOrderResource extends JsonResource
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];
+    }
+
+    private function vendorChangeBlocker(PurchaseOrderVendorGroup $vendorGroup): ?string
+    {
+        if ($this->lifecycle_status !== 'open_execution') {
+            return 'Completed purchase orders are locked.';
+        }
+        if ($vendorGroup->status === 'received' || $vendorGroup->received_at !== null) {
+            return 'Received vendor groups are locked.';
+        }
+        if ($vendorGroup->relationLoaded('attachments') && $vendorGroup->attachments->isNotEmpty()) {
+            return 'Remove this vendor group\'s receipt and proof before changing its vendor.';
+        }
+
+        return null;
     }
 }

@@ -4,6 +4,9 @@ import { useCallback, useEffect, useState } from "react";
 import { ArrowLeft, Camera, FileImage, RefreshCw, ShoppingBag } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
+import { PurchaseValueComparison } from "@/components/foodservice/PurchaseValueComparison";
+import { VendorChangeControls } from "@/components/foodservice/VendorChangeControls";
+import { listSuppliers, type Supplier } from "@/services/supplierService";
 import {
   deleteAttachment,
   getPurchaseOrder,
@@ -43,8 +46,9 @@ function AttachmentList({ attachments, locked, onDelete }: {
   );
 }
 
-function VendorCard({ group, purchaseOrderId, locked, onChanged }: {
+function VendorCard({ group, vendors, purchaseOrderId, locked, onChanged }: {
   group: POVendorGroup;
+  vendors: Supplier[];
   purchaseOrderId: string;
   locked: boolean;
   onChanged: (purchaseOrder: PurchaseOrder) => void;
@@ -99,6 +103,10 @@ function VendorCard({ group, purchaseOrderId, locked, onChanged }: {
         <div><h3 className="font-extrabold text-warm-900">{group.supplier?.name ?? "Unassigned vendor"}</h3><p className="text-xs font-semibold text-warm-500">{group.status}</p></div>
         <strong className="text-sm text-emerald-700">{money(group.total_amount)}</strong>
       </div>
+      <div className="rounded-xl border border-warm-200 bg-white p-3">
+        <p className="mb-2 text-xs font-bold uppercase text-warm-500">Vendor for this group</p>
+        <VendorChangeControls group={group} vendors={vendors} disabled={locked} onChanged={onChanged} />
+      </div>
       <div>
         <label className="mb-1 block text-xs font-bold text-warm-600" htmlFor={`or-${group.id}`}>OR number (optional)</label>
         <div className="flex gap-2">
@@ -108,10 +116,13 @@ function VendorCard({ group, purchaseOrderId, locked, onChanged }: {
         </div>
       </div>
       <div className="space-y-2">
-        {(group.items ?? []).map((item) => <div key={item.id} className="grid grid-cols-[1fr_90px_100px] items-end gap-2 rounded-xl bg-white p-3">
-          <div><strong className="block text-sm text-warm-800">{item.description}</strong><span className="text-xs text-warm-400">Calculated: {Number(item.purchase_qty ?? item.qty).toFixed(3)} {item.actual_unit}</span></div>
+        {(group.items ?? []).map((item) => <div key={item.id} className="space-y-3 rounded-xl bg-white p-3">
+          <div><strong className="mb-1 block text-sm text-warm-800">{item.description}</strong><PurchaseValueComparison item={item} actualQty={actuals[item.id]?.qty ?? item.actual_qty} actualPrice={actuals[item.id]?.price ?? item.actual_unit_price} /></div>
+          <div className="grid grid-cols-2 items-end gap-2">
           <label className="text-xs font-bold text-warm-500">Actual qty<input type="number" step="0.001" min="0" disabled={locked || busy} value={actuals[item.id]?.qty ?? ""} onChange={(event) => setActuals((current) => ({ ...current, [item.id]: { qty: event.target.value, price: current[item.id]?.price ?? item.actual_unit_price } }))} className="mt-1 w-full rounded-lg border border-warm-200 px-2 py-2 text-base" /></label>
           <label className="text-xs font-bold text-warm-500">Unit price<input type="number" step="0.01" min="0" disabled={locked || busy} value={actuals[item.id]?.price ?? ""} onChange={(event) => setActuals((current) => ({ ...current, [item.id]: { qty: current[item.id]?.qty ?? item.actual_qty, price: event.target.value } }))} className="mt-1 w-full rounded-lg border border-warm-200 px-2 py-2 text-base" /></label>
+          </div>
+          <VendorChangeControls group={group} vendors={vendors} itemId={item.id} disabled={locked} onChanged={onChanged} />
         </div>)}
         {!locked && <Button size="sm" variant="secondary" onClick={() => saveActuals(false)} loading={busy}>Save actual values</Button>}
       </div>
@@ -137,6 +148,7 @@ export function FssPurchaseOrders() {
   const [meta, setMeta] = useState<PaginationMeta | null>(null);
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<PurchaseOrder | null>(null);
+  const [vendors, setVendors] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -147,6 +159,7 @@ export function FssPurchaseOrders() {
     finally { setLoading(false); }
   }, [page]);
   useEffect(() => { void load(); }, [load]);
+  useEffect(() => { void listSuppliers().then((result) => setVendors(result.data)); }, []);
 
   async function open(order: PurchaseOrder) {
     setLoading(true); setError("");
@@ -164,7 +177,7 @@ export function FssPurchaseOrders() {
           <div className="flex items-start justify-between gap-3"><div><h1 className="text-xl font-extrabold text-warm-900">{selected.po_number}</h1><p className="text-sm text-warm-500">{selected.lifecycle_status.replaceAll("_", " ")}</p></div><strong className="text-emerald-700">{money(selected.total_amount)}</strong></div>
           {locked && <p className="mt-3 rounded-xl bg-warm-100 p-3 text-sm font-semibold text-warm-600">Completed orders are locked.</p>}
         </div>
-        {(selected.vendor_groups ?? []).map((group) => <VendorCard key={group.id} group={group} purchaseOrderId={selected.id} locked={locked} onChanged={setSelected} />)}
+        {(selected.vendor_groups ?? []).map((group) => <VendorCard key={group.id} group={group} vendors={vendors} purchaseOrderId={selected.id} locked={locked} onChanged={setSelected} />)}
         {!selected.vendor_groups?.length && <p className="rounded-2xl border border-warm-200 bg-white p-5 text-sm text-warm-500">No vendor groups yet.</p>}
       </div>
     );

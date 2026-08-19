@@ -62,7 +62,12 @@ flowchart TD
 flowchart TD
     A["Purchase tab"] --> B["Open PO"]
     B --> C["Open vendor group"]
-    C --> D["Review calculated vendor lines"]
+    C --> C2{"Purchase used another vendor?"}
+    C2 -->|"Whole group"| C3["Change vendor for all"]
+    C2 -->|"One item"| C4["Change vendor on item row"]
+    C2 -->|"No"| D
+    C3 --> D["Review planned values; expand calculation details only if needed"]
+    C4 --> D
     D --> E["Confirm actual quantity and unit price"]
     E --> F["Upload receipt and proof"]
     F --> G["Optionally enter OR number"]
@@ -72,7 +77,7 @@ flowchart TD
     I -->|"No"| K["Continue remaining vendor/date requirements"]
 ```
 
-FSS can correct actual quantities and prices while open, but cannot change planned structure or supplier. Receipt and proof do not change status until **Mark vendor received** is used. OR number is optional.
+FSS can correct actual quantities/prices and the actual vendor while the group is open and has no evidence. **Change vendor for all** applies to the group; row-level **Change vendor** moves only that item. Planned quantities, units, and calculated need stay frozen. Receipt and proof do not change status until **Mark vendor received** is used. OR number is optional.
 
 ## Accomplishment Report Lifecycle
 

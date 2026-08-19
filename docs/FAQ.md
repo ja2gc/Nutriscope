@@ -214,7 +214,7 @@ Use **Procurement → Supplies Lists**, create a named manual list, add catalog 
 
 ### What happens when a shopping list is converted?
 
-First, review the release checklist. Calculated need stays read-only, but purchase quantity/unit/price/vendor may be changed, manual rows added, and generated rows excluded with a note. When checks pass, **Create and release PO** creates one order grouped by vendor and freezes included rows.
+First, review the release checklist. Calculated need stays read-only, but purchase quantity/unit/price/vendor may be changed, manual rows added, and generated rows excluded with a note. When checks pass, **Create and release PO** creates one order grouped by vendor and freezes included rows. If the actual vendor changes before evidence is uploaded, use **Change vendor for all** on the group or row-level **Change vendor** for one item.
 
 ### Who records OR numbers and receipts?
 
@@ -294,7 +294,7 @@ It is the explicit daily record for a non-working day and counts toward Monday-S
 
 ### What can I change on a purchase order?
 
-FSS can review the calculated values, confirm or correct actual decimal quantity and actual unit price, upload/delete receipt and proof, optionally save an OR number, and explicitly mark a vendor received. Planned structure and supplier remain locked.
+FSS can review planned values and expand calculation details, confirm or correct actual decimal quantity and unit price, upload/delete receipt and proof, optionally save an OR number, and explicitly mark a vendor received. Before evidence or receiving, **Change vendor for all** changes the group and row-level **Change vendor** moves one item. Planned quantities, units, and calculated need remain locked.
 
 ### Why did uploading a receipt not change the vendor status?
 

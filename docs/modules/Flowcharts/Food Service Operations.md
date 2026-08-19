@@ -1,6 +1,6 @@
 # Food Service Operations — Current End-to-End Flow
 
-Verified against the implemented RND web, FSS web/mobile surfaces, Laravel services, reports, and demo seeders on **2026-08-15**.
+Verified against the implemented RND web, FSS web/mobile surfaces, Laravel services, reports, and demo seeders on **2026-08-19**.
 
 ## Operational Story
 
@@ -26,7 +26,12 @@ flowchart TD
     P -->|"No"| Q["Show blockers: vendor, estimate, coverage, or budget"]
     Q --> M
     P -->|"Yes"| R["Create one PO grouped by vendor and freeze included rows"]
-    R --> S["FSS/RND reviews prefilled calculated receiving values"]
+    R --> R2{"Actual vendor changed before evidence?"}
+    R2 -->|"Whole group"| R3["Change vendor for all"]
+    R2 -->|"One line"| R4["Change vendor on that item row"]
+    R2 -->|"No"| S
+    R3 --> S["FSS/RND reviews planned values and prefilled actual inputs"]
+    R4 --> S
     S --> T["Correct actual decimal quantity and actual unit price if needed"]
     T --> U["Upload receipt and proof for each vendor; OR number optional"]
     U --> V["Explicitly mark each vendor received"]
@@ -54,10 +59,12 @@ flowchart TD
 | Receipt total | For a single-line vendor group, receipt total can derive quantity or price from the other known value | Real receipts work without another inventory system |
 | Catalog price | Confirmed receiving updates the item price reference | Future planning starts from the latest confirmed market value |
 | PO release | Requires included rows, vendors, applicable estimate/coverage, and sufficient FY budget | Prevents a frozen but unusable PO |
+| Vendor correction | Before evidence or receiving, **Change vendor for all** moves a group and row-level **Change vendor** moves one item; an existing destination group is reused | Actual purchase vendor can be corrected without reopening shopping-list calculations |
+| Receiving comparison | Planned purchase stays visible; editable actuals are prefilled; calculated/planned/actual details expand on request | Correct rows need no retyping and the screen avoids showing three dense value sets at once |
 | Vendor completion | Requires reviewed actuals, receipt, proof, assigned vendor, and explicit **Mark vendor received** | Upload alone never silently completes receiving |
 | OR number | Optional; shown as **Not provided** when absent | Vendors without an OR can complete with evidence |
 | Food completion | Suggested food also needs served population per covered date; manual food does not | Menu-derived reports keep their denominator without blocking one-off events |
-| Reporting | Draft procurement packs are visibly incomplete; finals use actuals | Planned and actual values are not misrepresented |
+| Reporting | Procurement packs include every frozen PO row, including generated-list manual additions and fully manual lists; draft packs are visibly incomplete and finals use actuals | Planned, manual, and actual purchases are not omitted or misrepresented |
 
 ## Role Ownership
 
@@ -66,6 +73,7 @@ flowchart TD
 | Catalogs, recipes, cycles, templates | Create/edit | View approved menu |
 | Estimated servings | Enter once at suggested-list generation | View |
 | Shopping lists and PO release | Create/review/release | No |
+| Correct open vendor assignment before evidence | Yes | Yes |
 | Actual receiving values | Yes while open | Yes while open |
 | Receipt/proof and optional OR | Yes | Yes |
 | Explicit vendor received action | Yes | Yes |

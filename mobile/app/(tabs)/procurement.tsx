@@ -37,7 +37,7 @@ import { MOBILE_PAGE_SIZE, PaginatedResponse, flattenUniquePages, getNextPagePar
 type AttachmentType = 'receipt' | 'proof';
 
 interface Supplier {
-  id: number;
+  id: string;
   name: string;
   category: string | null;
 }
@@ -57,10 +57,11 @@ interface PurchaseOrderItem {
   actual_unit: string;
   actual_unit_price: number | string;
   actual_total: number | string;
+  actual_values_confirmed: boolean;
 }
 
 interface PurchaseOrderAttachment {
-  id: number;
+  id: string;
   vendor_group_id?: number | null;
   type: AttachmentType;
   path: string;
@@ -68,11 +69,13 @@ interface PurchaseOrderAttachment {
 }
 
 interface VendorGroup {
-  id: number;
+  id: string;
   supplier_id: number | null;
   supplier: Supplier | null;
   or_number: string | null;
   status: string;
+  can_change_vendor: boolean;
+  vendor_change_blocker: string | null;
   total_amount: number | string | null;
   received_at: string | null;
   stocked_at: string | null;
@@ -82,7 +85,7 @@ interface VendorGroup {
 }
 
 interface PurchaseOrder {
-  id: number;
+  id: string;
   po_number: string;
   order_date: string | null;
   total_amount: number | string | null;
@@ -103,6 +106,13 @@ async function fetchPOs(page: number): Promise<PaginatedResponse<PurchaseOrder>>
     params: { page, per_page: MOBILE_PAGE_SIZE },
   });
   return res.data;
+}
+
+async function fetchSuppliers(): Promise<Supplier[]> {
+  const res = await api.get<PaginatedResponse<Supplier>>('/api/fss/suppliers', {
+    params: { page: 1, per_page: 10 },
+  });
+  return res.data.data ?? [];
 }
 
 function money(value: number | string | null | undefined): string {
@@ -353,7 +363,7 @@ function AttachmentList({
   const [viewing, setViewing] = useState<PurchaseOrderAttachment | null>(null);
 
   const deleteMutation = useMutation({
-    mutationFn: async (attachmentId: number) => {
+    mutationFn: async (attachmentId: string) => {
       await api.delete(`/api/fss/purchase-order-attachments/${attachmentId}`);
     },
     onSuccess: () => {
@@ -363,7 +373,7 @@ function AttachmentList({
     onError: () => Alert.alert('Error', 'Could not delete attachment.'),
   });
 
-  const confirmDelete = (attachmentId: number) => {
+  const confirmDelete = (attachmentId: string) => {
     Alert.alert('Delete attachment', 'Remove this image from the vendor group?', [
       { text: 'Cancel', style: 'cancel' },
       {
@@ -473,11 +483,13 @@ function AttachmentList({
 interface VendorDetailProps {
   po: PurchaseOrder;
   group: VendorGroup;
+  suppliers: Supplier[];
   onBack: () => void;
   onUpload: (group: VendorGroup, type: AttachmentType) => void;
+  onVendorChanged: () => void;
 }
 
-function VendorDetail({ po, group, onBack, onUpload }: VendorDetailProps) {
+function VendorDetail({ po, group, suppliers, onBack, onUpload, onVendorChanged }: VendorDetailProps) {
   const qc = useQueryClient();
   const locked = isLocked(po);
   const [orNumber, setOrNumber] = useState(group.or_number ?? '');
@@ -485,6 +497,8 @@ function VendorDetail({ po, group, onBack, onUpload }: VendorDetailProps) {
   const [actuals, setActuals] = useState<Record<number, { qty: string; price: string }>>(
     Object.fromEntries((group.items ?? []).map((item) => [item.id, { qty: plain(item.actual_qty), price: plain(item.actual_unit_price) }])),
   );
+  const [vendorScope, setVendorScope] = useState<'all' | number | null>(null);
+  const [expandedItems, setExpandedItems] = useState<Set<number>>(new Set());
 
   useEffect(() => {
     setOrNumber(group.or_number ?? '');
@@ -513,6 +527,51 @@ function VendorDetail({ po, group, onBack, onUpload }: VendorDetailProps) {
     },
   });
 
+  const vendorMutation = useMutation({
+    mutationFn: async ({ supplierId, itemId }: { supplierId: string; itemId?: number }) => {
+      await api.patch(`/api/fss/purchase-order-vendor-groups/${group.id}`, {
+        supplier_id: supplierId,
+        ...(itemId === undefined ? {} : { item_id: itemId }),
+      });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['fss-purchase-orders'] });
+      qc.invalidateQueries({ queryKey: ['fss-dashboard'] });
+      setVendorScope(null);
+      onVendorChanged();
+    },
+    onError: (err: unknown) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      setError((err as any)?.response?.data?.message ?? 'Could not change vendor.');
+    },
+  });
+
+  const selectVendor = (supplier: Supplier, itemId?: number) => {
+    const label = itemId === undefined ? 'Change vendor for all' : 'Change vendor';
+    Alert.alert(label, `Use ${supplier.name}?`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Confirm', onPress: () => vendorMutation.mutate({ supplierId: supplier.id, itemId }) },
+    ]);
+  };
+
+  const vendorChoices = (itemId?: number) => (
+    <View className="mt-2 gap-2">
+      {suppliers.filter((supplier) => supplier.id !== group.supplier?.id).map((supplier) => (
+        <TouchableOpacity
+          key={supplier.id}
+          className="min-h-11 justify-center rounded-lg border border-gray-200 bg-white px-3 py-2"
+          onPress={() => selectVendor(supplier, itemId)}
+          disabled={vendorMutation.isPending}
+        >
+          <Text className="text-sm font-semibold text-gray-700">{supplier.name}</Text>
+        </TouchableOpacity>
+      ))}
+      <TouchableOpacity className="min-h-11 justify-center px-3" onPress={() => setVendorScope(null)} disabled={vendorMutation.isPending}>
+        <Text className="text-center text-sm font-semibold text-gray-500">Cancel</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
   return (
     <ScrollView className="flex-1 bg-gray-50" contentContainerStyle={{ paddingBottom: 24 }}>
       <View className="px-4 pt-4">
@@ -527,6 +586,23 @@ function VendorDetail({ po, group, onBack, onUpload }: VendorDetailProps) {
             <Text className="text-xs text-gray-300">|</Text>
             <Text className="text-xs text-gray-400">{money(group.total_amount)}</Text>
           </View>
+        </View>
+
+        <View className="bg-white rounded-xl border border-gray-100 px-4 py-4 mb-4">
+          <Text className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Vendor for this group</Text>
+          <TouchableOpacity
+            className="min-h-11 justify-center rounded-xl border border-gray-200 px-4"
+            onPress={() => setVendorScope(vendorScope === 'all' ? null : 'all')}
+            disabled={locked || !group.can_change_vendor}
+            accessibilityRole="button"
+            accessibilityState={{ expanded: vendorScope === 'all', disabled: locked || !group.can_change_vendor }}
+          >
+            <Text className={`text-center text-sm font-semibold ${locked || !group.can_change_vendor ? 'text-gray-300' : 'text-emerald-700'}`}>
+              Change vendor for all
+            </Text>
+          </TouchableOpacity>
+          {vendorScope === 'all' && vendorChoices()}
+          {!group.can_change_vendor && group.vendor_change_blocker && <Text className="mt-2 text-xs text-gray-500">{group.vendor_change_blocker}</Text>}
         </View>
 
         <View className="bg-white rounded-xl border border-gray-100 px-4 py-4 mb-4">
@@ -575,11 +651,42 @@ function VendorDetail({ po, group, onBack, onUpload }: VendorDetailProps) {
               <Text className="text-sm font-semibold text-gray-900 mb-1" numberOfLines={2}>
                 {item.description}
               </Text>
-              <Text className="text-xs text-gray-400 mb-2">Calculated: {plain(item.purchase_qty ?? item.qty)} {item.actual_unit}</Text>
+              <Text className="text-xs text-gray-500">Planned purchase: {plain(item.purchase_qty ?? item.qty)} {item.actual_unit} at {money(item.purchase_price ?? item.unit_price)}</Text>
+              <Text className="mt-0.5 text-xs text-gray-500">Actual purchased: {actuals[item.id]?.qty ?? plain(item.actual_qty)} {item.actual_unit} at {money(actuals[item.id]?.price ?? item.actual_unit_price)}</Text>
+              <Text className={`mb-2 mt-1 self-start rounded-full px-2 py-1 text-xs font-semibold ${item.actual_values_confirmed ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
+                {item.actual_values_confirmed ? 'Reviewed' : 'Not reviewed'}
+              </Text>
               <View className="flex-row gap-2">
                 <View className="flex-1"><Text className="text-xs text-gray-500 mb-1">Actual qty</Text><TextInput keyboardType="decimal-pad" editable={!locked} value={actuals[item.id]?.qty ?? ''} onChangeText={(value) => setActuals((current) => ({ ...current, [item.id]: { qty: value, price: current[item.id]?.price ?? plain(item.actual_unit_price) } }))} className="border border-gray-200 rounded-lg px-3 py-2 text-sm" /></View>
                 <View className="flex-1"><Text className="text-xs text-gray-500 mb-1">Actual unit price</Text><TextInput keyboardType="decimal-pad" editable={!locked} value={actuals[item.id]?.price ?? ''} onChangeText={(value) => setActuals((current) => ({ ...current, [item.id]: { qty: current[item.id]?.qty ?? plain(item.actual_qty), price: value } }))} className="border border-gray-200 rounded-lg px-3 py-2 text-sm" /></View>
               </View>
+              <TouchableOpacity
+                className="min-h-11 justify-center"
+                onPress={() => setExpandedItems((current) => {
+                  const next = new Set(current);
+                  if (next.has(item.id)) next.delete(item.id); else next.add(item.id);
+                  return next;
+                })}
+                accessibilityRole="button"
+                accessibilityState={{ expanded: expandedItems.has(item.id) }}
+              >
+                <Text className="text-sm font-semibold text-emerald-700">Calculation details</Text>
+              </TouchableOpacity>
+              {expandedItems.has(item.id) && <View className="rounded-lg bg-gray-50 p-3">
+                <Text className="text-xs text-gray-500">Calculated need: {plain(item.qty)} {item.unit} at {money(item.unit_price)}</Text>
+                <Text className="mt-1 text-xs text-gray-500">Planned purchase: {plain(item.purchase_qty ?? item.qty)} {item.actual_unit} at {money(item.purchase_price ?? item.unit_price)}</Text>
+                <Text className="mt-1 text-xs text-gray-500">Actual purchased: {actuals[item.id]?.qty ?? plain(item.actual_qty)} {item.actual_unit} at {money(actuals[item.id]?.price ?? item.actual_unit_price)}</Text>
+              </View>}
+              <TouchableOpacity
+                className="min-h-11 justify-center self-start"
+                onPress={() => setVendorScope(vendorScope === item.id ? null : item.id)}
+                disabled={locked || !group.can_change_vendor}
+                accessibilityRole="button"
+                accessibilityState={{ expanded: vendorScope === item.id, disabled: locked || !group.can_change_vendor }}
+              >
+                <Text className={`text-sm font-semibold ${locked || !group.can_change_vendor ? 'text-gray-300' : 'text-emerald-700'}`}>Change vendor</Text>
+              </TouchableOpacity>
+              {vendorScope === item.id && vendorChoices(item.id)}
             </View>
           ))}
         </View>
@@ -604,7 +711,7 @@ function PurchaseOrderDetail({
 }: {
   po: PurchaseOrder;
   onBack: () => void;
-  onOpenGroup: (groupId: number) => void;
+  onOpenGroup: (groupId: string) => void;
 }) {
   const groups = po.vendor_groups ?? [];
 
@@ -705,7 +812,7 @@ export default function ProcurementScreen() {
   // PO ids are public uuids (strings) — match as strings, never Number().
   const targetPoId = params.poId || null;
   const [selectedPoId, setSelectedPoId] = useState<string | null>(null);
-  const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [uploadGroup, setUploadGroup] = useState<VendorGroup | null>(null);
   const [uploadType, setUploadType] = useState<AttachmentType>('receipt');
   const [uploadOpen, setUploadOpen] = useState(false);
@@ -716,6 +823,11 @@ export default function ProcurementScreen() {
     initialPageParam: 1,
     getNextPageParam,
     staleTime: 60_000,
+  });
+  const { data: suppliers = [] } = useQuery({
+    queryKey: ['fss-suppliers', 'purchase-change'],
+    queryFn: () => fetchSuppliers(),
+    staleTime: 5 * 60_000,
   });
 
   const orders = useMemo(() => flattenUniquePages(data?.pages), [data]);
@@ -774,8 +886,10 @@ export default function ProcurementScreen() {
         <VendorDetail
           po={selectedPo}
           group={selectedGroup}
+          suppliers={suppliers}
           onBack={() => setSelectedGroupId(null)}
           onUpload={openUpload}
+          onVendorChanged={() => setSelectedGroupId(null)}
         />
         <UploadAttachmentModal
           group={uploadGroup}

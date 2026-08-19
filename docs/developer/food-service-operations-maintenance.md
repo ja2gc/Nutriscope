@@ -1,6 +1,6 @@
 # Food Service Operations — Developer Maintenance Guide
 
-Last verified: **2026-08-15**.
+Last verified: **2026-08-19**.
 
 ## Behavioral Invariants
 
@@ -11,6 +11,8 @@ Last verified: **2026-08-15**.
 5. PO approval copies included rows only and calls centralized readiness under the budget lock.
 6. Evidence upload never changes vendor status. Explicit receiving requires actual values, receipt, proof, and supplier. OR remains optional.
 7. Final reports use actual values; incomplete records remain visibly draft.
+8. Open vendor reassignment reuses the vendor-group PATCH endpoint. It may move a whole group or one line, must merge an existing destination group, and is blocked by source/destination evidence, received status, or PO completion.
+9. Procurement reports consume every PO line. Do not filter by shopping-list row source; manual additions and fully manual lists are valid report inputs.
 
 ## Main Files
 
@@ -20,8 +22,8 @@ Last verified: **2026-08-15**.
 | Menu naming/templates/profile | `MenuCycle.php`, `MenuCycleController.php`, `MenuCycleTemplateController.php` | `menuCycleService.ts`, Menu Cycle page, `MenuSlotRecipePage.tsx` |
 | Scaling/list sync | `ShoppingListPopulationService.php` | Procurement page |
 | Shopping-list API | `ShoppingListController.php`, `ShoppingListResource.php` | `procurementService.ts` |
-| PO lifecycle | `PurchaseOrderLifecycleService.php`, `PurchaseOrderController.php` | Procurement page |
-| Receiving/catalog price | `ReceivingService.php`, `PurchaseOrderResource.php` | `FssPurchaseOrders.tsx`, mobile `procurement.tsx` |
+| PO lifecycle/vendor reassignment | `PurchaseOrderLifecycleService.php`, `PurchaseOrderController.php` | Procurement page, `VendorChangeControls.tsx`, mobile `procurement.tsx` |
+| Receiving/catalog price/comparison | `ReceivingService.php`, `PurchaseOrderResource.php` | `PurchaseValueComparison.tsx`, `FssPurchaseOrders.tsx`, mobile `procurement.tsx` |
 | Reports | `ProcurementPackGenerator.php`, procurement-pack Blade, `ProgramProjectActivityGenerator.php` | Reports browser |
 | Auditing | Shopping-list and PO revision serializers, `config/audit.php` | `AuditTrail.tsx` |
 | Demo | `FsCatalogSeeder.php`, `FoodServiceDemoSeeder.php` | — |
@@ -60,6 +62,8 @@ Use `ShoppingListPopulationService` for scaling/synchronization and `PurchaseOrd
 - Counting excluded rows in list/PPA/budget totals.
 - Recalculation deleting manual additions.
 - Treating upload as receiving completion.
+- Moving items into a received/evidence-bearing vendor group or leaving an empty source group behind.
+- Hiding manual PO lines from the procurement pack because they were not menu-generated.
 - Showing planned values as confirmed actuals.
 - Requiring OR despite receipt/proof.
 - Scaling before the span estimate exists.

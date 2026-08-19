@@ -17,6 +17,7 @@ use App\Models\PurchaseOrderAttachment;
 use App\Models\PurchaseOrderItemCorrection;
 use App\Models\PurchaseOrderVendorGroup;
 use App\Models\ShoppingList;
+use App\Models\Supplier;
 use App\Models\User;
 use App\Services\Audit\AuditLogger;
 use App\Services\Audit\Revisions\AuditRevisionRegistry;
@@ -311,9 +312,11 @@ class PurchaseOrderController extends Controller
             return response()->json(['message' => 'FSS users cannot change frozen planned values.'], 403);
         }
 
-        // During open execution the ONLY structural edit allowed is a unit cost /
-        // purchase price correction. purchase_qty and purchase_unit are frozen.
+        // Planned quantities and units stay frozen. Open vendor groups may be
+        // reassigned before evidence is attached; receiving values remain editable.
         $data = $request->validate([
+            'supplier_id' => ['nullable', 'string', 'exists:suppliers,uuid'],
+            'item_id' => ['nullable', 'integer', 'exists:purchase_order_items,id'],
             'or_number' => ['nullable', 'string', 'max:255'],
             'status' => ['nullable', 'string', 'in:pending,received'],
             'items' => ['nullable', 'array'],
@@ -329,6 +332,20 @@ class PurchaseOrderController extends Controller
         $po = $vendorGroup->purchaseOrder;
         if (in_array($po->lifecycle_status, ['completed', 'archived'], true)) {
             return response()->json(['message' => 'Completed purchase orders are locked.'], 422);
+        }
+
+        if (isset($data['item_id']) && ! isset($data['supplier_id'])) {
+            return response()->json([
+                'message' => 'Select a replacement vendor for the item.',
+                'errors' => ['supplier_id' => ['Select a replacement vendor for the item.']],
+            ], 422);
+        }
+
+        if (isset($data['supplier_id'])) {
+            $supplier = Supplier::query()->where('uuid', $data['supplier_id'])->firstOrFail();
+            $purchaseOrder = $lifecycle->reassignVendor($vendorGroup, $supplier, $data['item_id'] ?? null);
+
+            return response()->json(['data' => new PurchaseOrderResource($purchaseOrder)]);
         }
 
         $this->audited(function () use ($vendorGroup, $data, $receiving, $lifecycle): void {

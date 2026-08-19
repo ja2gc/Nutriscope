@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Budget;
 use App\Models\FsItem;
 use App\Models\PurchaseOrder;
+use App\Models\PurchaseOrderAttachment;
 use App\Models\ShoppingList;
 use App\Models\Supplier;
 use App\Models\User;
@@ -55,6 +56,238 @@ class PurchaseOrderExecutionLockTest extends TestCase
 
         $this->assertNotNull($po->structural_locked_at);
         $this->assertSame('food', $po->procurement_track);
+    }
+
+    public function test_rnd_can_change_vendor_for_all_items_in_a_pending_group(): void
+    {
+        [$po, $group] = $this->convertedPo();
+        $replacement = Supplier::factory()->create(['name' => 'Replacement Vendor']);
+        $line = $group->items()->firstOrFail();
+
+        $this->actingAs($this->rnd)
+            ->patchJson("/api/fss/purchase-order-vendor-groups/{$group->uuid}", [
+                'supplier_id' => $replacement->uuid,
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.vendor_groups.0.supplier.name', 'Replacement Vendor');
+
+        $this->assertDatabaseHas('purchase_order_vendor_groups', [
+            'purchase_order_id' => $po->id,
+            'supplier_id' => $replacement->id,
+        ]);
+        $this->assertSame(
+            $replacement->id,
+            $line->fresh()->vendorGroup->supplier_id,
+        );
+    }
+
+    public function test_fss_can_change_vendor_for_one_item_without_moving_other_items(): void
+    {
+        [$po, $group] = $this->convertedPo();
+        $replacement = Supplier::factory()->create(['name' => 'Item Vendor']);
+        $movingLine = $group->items()->firstOrFail();
+        $stayingLine = $po->items()->create([
+            'vendor_group_id' => $group->id,
+            'fs_item_id' => FsItem::factory()->create()->id,
+            'description' => 'Rice',
+            'qty' => 10,
+            'unit' => 'kg',
+            'unit_price' => 5,
+            'total_value' => 50,
+        ]);
+        $fss = User::factory()->fss()->create();
+
+        $this->actingAs($fss)
+            ->patchJson("/api/fss/purchase-order-vendor-groups/{$group->uuid}", [
+                'supplier_id' => $replacement->uuid,
+                'item_id' => $movingLine->id,
+            ])
+            ->assertOk();
+
+        $this->assertSame($replacement->id, $movingLine->fresh()->vendorGroup->supplier_id);
+        $this->assertSame($group->id, $stayingLine->fresh()->vendor_group_id);
+        $this->assertDatabaseCount('purchase_order_vendor_groups', 2);
+    }
+
+    public function test_fss_can_read_replacement_vendors_but_cannot_create_them(): void
+    {
+        $fss = User::factory()->fss()->create();
+        Supplier::factory()->create(['name' => 'Visible Replacement']);
+
+        $this->actingAs($fss)
+            ->getJson('/api/fss/suppliers')
+            ->assertOk()
+            ->assertJsonFragment(['name' => 'Visible Replacement']);
+
+        $this->actingAs($fss)
+            ->postJson('/api/fss/suppliers', [
+                'name' => 'Forbidden Vendor',
+                'category' => 'Food',
+            ])
+            ->assertForbidden();
+    }
+
+    public function test_resource_exposes_when_a_pending_vendor_group_can_change_vendor(): void
+    {
+        [$po] = $this->convertedPo();
+
+        $this->actingAs($this->rnd)
+            ->getJson("/api/fss/purchase-orders/{$po->uuid}")
+            ->assertOk()
+            ->assertJsonPath('data.vendor_groups.0.can_change_vendor', true);
+    }
+
+    public function test_vendor_change_requires_removing_group_evidence_first(): void
+    {
+        [, $group] = $this->convertedPo();
+        $replacement = Supplier::factory()->create();
+        PurchaseOrderAttachment::create([
+            'purchase_order_id' => $group->purchase_order_id,
+            'vendor_group_id' => $group->id,
+            'type' => 'receipt',
+            'path' => 'receipts/example.png',
+        ]);
+
+        $this->actingAs($this->rnd)
+            ->patchJson("/api/fss/purchase-order-vendor-groups/{$group->uuid}", [
+                'supplier_id' => $replacement->uuid,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath('message', "Remove this vendor group's receipt and proof before changing its vendor.");
+
+        $this->assertNotSame($replacement->id, $group->fresh()->supplier_id);
+    }
+
+    public function test_received_vendor_group_cannot_change_vendor(): void
+    {
+        [, $group] = $this->convertedPo();
+        $replacement = Supplier::factory()->create();
+        $group->update(['status' => 'received', 'received_at' => now()]);
+
+        $this->actingAs($this->rnd)
+            ->patchJson("/api/fss/purchase-order-vendor-groups/{$group->uuid}", [
+                'supplier_id' => $replacement->uuid,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'Received vendor groups are locked.');
+    }
+
+    public function test_item_vendor_change_reuses_an_existing_pending_group_and_preserves_values(): void
+    {
+        [$po, $source] = $this->convertedPo();
+        $line = $source->items()->firstOrFail();
+        $line->update([
+            'purchase_qty' => 5.250,
+            'purchase_unit' => 'kg',
+            'purchase_price' => 21,
+            'actual_qty' => 5.125,
+            'actual_unit_price' => 22,
+        ]);
+        $replacement = Supplier::factory()->create();
+        $destination = $po->vendorGroups()->create([
+            'supplier_id' => $replacement->id,
+            'status' => 'pending',
+            'total_amount' => 0,
+        ]);
+
+        $this->actingAs($this->rnd)
+            ->patchJson("/api/fss/purchase-order-vendor-groups/{$source->uuid}", [
+                'supplier_id' => $replacement->uuid,
+                'item_id' => $line->id,
+            ])
+            ->assertOk();
+
+        $line->refresh();
+        $this->assertSame($destination->id, $line->vendor_group_id);
+        $this->assertSame('5.25', $line->purchase_qty);
+        $this->assertSame('5.125', $line->actual_qty);
+        $this->assertSame('22.00', $line->actual_unit_price);
+        $this->assertDatabaseMissing('purchase_order_vendor_groups', ['id' => $source->id]);
+    }
+
+    public function test_item_vendor_change_requires_a_replacement_vendor(): void
+    {
+        [, $group] = $this->convertedPo();
+        $line = $group->items()->firstOrFail();
+
+        $this->actingAs($this->rnd)
+            ->patchJson("/api/fss/purchase-order-vendor-groups/{$group->uuid}", [
+                'item_id' => $line->id,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('supplier_id');
+    }
+
+    public function test_item_from_another_vendor_group_cannot_be_moved_through_the_source_group(): void
+    {
+        [$po, $source] = $this->convertedPo();
+        $otherSupplier = Supplier::factory()->create();
+        $otherGroup = $po->vendorGroups()->create([
+            'supplier_id' => $otherSupplier->id,
+            'status' => 'pending',
+            'total_amount' => 0,
+        ]);
+        $otherLine = $po->items()->create([
+            'vendor_group_id' => $otherGroup->id,
+            'fs_item_id' => FsItem::factory()->create()->id,
+            'description' => 'Cooking oil',
+            'qty' => 2,
+            'unit' => 'L',
+            'unit_price' => 50,
+            'total_value' => 100,
+        ]);
+
+        $this->actingAs($this->rnd)
+            ->patchJson("/api/fss/purchase-order-vendor-groups/{$source->uuid}", [
+                'supplier_id' => Supplier::factory()->create()->uuid,
+                'item_id' => $otherLine->id,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'The selected item does not belong to this vendor group.');
+
+        $this->assertSame($otherGroup->id, $otherLine->fresh()->vendor_group_id);
+    }
+
+    public function test_item_cannot_move_into_a_vendor_group_that_already_has_evidence(): void
+    {
+        [$po, $source] = $this->convertedPo();
+        $replacement = Supplier::factory()->create();
+        $destination = $po->vendorGroups()->create([
+            'supplier_id' => $replacement->id,
+            'status' => 'pending',
+            'total_amount' => 0,
+        ]);
+        PurchaseOrderAttachment::create([
+            'purchase_order_id' => $po->id,
+            'vendor_group_id' => $destination->id,
+            'type' => 'proof',
+            'path' => 'proofs/example.png',
+        ]);
+        $line = $source->items()->firstOrFail();
+
+        $this->actingAs($this->rnd)
+            ->patchJson("/api/fss/purchase-order-vendor-groups/{$source->uuid}", [
+                'supplier_id' => $replacement->uuid,
+                'item_id' => $line->id,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath('message', "Remove the selected vendor group's receipt and proof before adding items to it.");
+
+        $this->assertSame($source->id, $line->fresh()->vendor_group_id);
+    }
+
+    public function test_selecting_the_current_vendor_is_a_no_op(): void
+    {
+        [$po, $group] = $this->convertedPo();
+
+        $this->actingAs($this->rnd)
+            ->patchJson("/api/fss/purchase-order-vendor-groups/{$group->uuid}", [
+                'supplier_id' => $group->supplier->uuid,
+            ])
+            ->assertOk();
+
+        $this->assertDatabaseCount('purchase_order_vendor_groups', 1);
+        $this->assertSame($group->id, $po->items()->firstOrFail()->vendor_group_id);
     }
 
     public function test_receiving_values_are_stored_separately_with_decimal_quantity(): void

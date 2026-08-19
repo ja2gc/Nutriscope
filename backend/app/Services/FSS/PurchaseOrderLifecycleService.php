@@ -15,6 +15,7 @@ use App\Models\ProgramProjectActivity;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderVendorGroup;
 use App\Models\ShoppingList;
+use App\Models\Supplier;
 use App\Services\Audit\AuditLogger;
 use App\Services\Audit\Revisions\AuditRevisionRegistry;
 use App\Services\Audit\Revisions\AuditRevisionWriter;
@@ -102,6 +103,105 @@ class PurchaseOrderLifecycleService
             'available_budget' => $available,
             'fiscal_year' => $year,
         ];
+    }
+
+    public function reassignVendor(
+        PurchaseOrderVendorGroup $sourceGroup,
+        Supplier $supplier,
+        ?int $itemId = null,
+    ): PurchaseOrder {
+        return DB::transaction(function () use ($sourceGroup, $supplier, $itemId): PurchaseOrder {
+            $purchaseOrder = PurchaseOrder::query()
+                ->whereKey($sourceGroup->purchase_order_id)
+                ->lockForUpdate()
+                ->with(self::REVISION_RELATIONS)
+                ->firstOrFail();
+            $before = $this->revisionRegistry->capture($purchaseOrder);
+            $sourceGroup = PurchaseOrderVendorGroup::query()
+                ->whereKey($sourceGroup->getKey())
+                ->lockForUpdate()
+                ->with(['items', 'attachments'])
+                ->firstOrFail();
+
+            if (in_array($purchaseOrder->lifecycle_status, ['completed', 'archived'], true)) {
+                abort(422, 'Completed purchase orders are locked.');
+            }
+            if ($sourceGroup->status === 'received' || $sourceGroup->received_at !== null) {
+                abort(422, 'Received vendor groups are locked.');
+            }
+            $movingItem = $itemId !== null
+                ? $sourceGroup->items()->whereKey($itemId)->lockForUpdate()->first()
+                : null;
+            if ($itemId !== null && ! $movingItem) {
+                abort(422, 'The selected item does not belong to this vendor group.');
+            }
+            if ((int) $sourceGroup->supplier_id === (int) $supplier->id) {
+                return $purchaseOrder->fresh(self::REVISION_RELATIONS);
+            }
+            if ($sourceGroup->attachments->isNotEmpty()) {
+                abort(422, 'Remove this vendor group\'s receipt and proof before changing its vendor.');
+            }
+
+            $destination = PurchaseOrderVendorGroup::query()
+                ->where('purchase_order_id', $purchaseOrder->id)
+                ->where('supplier_id', $supplier->id)
+                ->lockForUpdate()
+                ->with(['items', 'attachments'])
+                ->first();
+
+            if ($destination) {
+                if ($destination->status === 'received' || $destination->received_at !== null) {
+                    abort(422, 'The selected vendor group is already received.');
+                }
+                if ($destination->attachments->isNotEmpty()) {
+                    abort(422, 'Remove the selected vendor group\'s receipt and proof before adding items to it.');
+                }
+            } else {
+                $destination = $purchaseOrder->vendorGroups()->create([
+                    'supplier_id' => $supplier->id,
+                    'status' => 'pending',
+                    'total_amount' => 0,
+                ]);
+            }
+
+            if ($movingItem) {
+                $movingItem->update(['vendor_group_id' => $destination->id]);
+            } else {
+                $sourceGroup->items()->update(['vendor_group_id' => $destination->id]);
+            }
+
+            $this->recalculateVendorGroupTotal($destination);
+            if ($sourceGroup->items()->exists()) {
+                $this->recalculateVendorGroupTotal($sourceGroup);
+            } else {
+                $sourceGroup->delete();
+            }
+            $this->auditLogger->withoutModelEvents(fn () => $purchaseOrder->recalcTotal());
+
+            $after = $purchaseOrder->fresh(self::REVISION_RELATIONS);
+            $activity = $this->auditLogger->record(
+                AuditAction::Updated,
+                AuditCategory::Operations,
+                AuditDomain::Procurement,
+                subject: $after,
+                context: $after,
+                details: ['changed_fields' => ['vendor_groups', 'items']],
+            );
+            $this->revisionWriter->write($activity, $before, $this->revisionRegistry->capture($after));
+
+            return $after;
+        });
+    }
+
+    private function recalculateVendorGroupTotal(PurchaseOrderVendorGroup $vendorGroup): void
+    {
+        $vendorGroup->load('items');
+        $vendorGroup->total_amount = round((float) $vendorGroup->items->sum(
+            fn ($item) => $item->actual_qty !== null && $item->actual_unit_price !== null
+                ? (float) $item->actual_qty * (float) $item->actual_unit_price
+                : (float) $item->total_value,
+        ), 2);
+        $vendorGroup->save();
     }
 
     private function fiscalYear(ShoppingList $shoppingList): int

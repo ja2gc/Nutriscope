@@ -24,6 +24,8 @@ import { AuditTrail } from "@/components/audit/AuditTrail";
 import { SuppliersPanel } from "@/components/foodservice/SuppliersPanel";
 import { ImageUploadGallery, type UploadImage } from "@/components/ui/ImageUploadGallery";
 import { DatePicker } from "@/components/ui/DatePicker";
+import { VendorChangeControls } from "@/components/foodservice/VendorChangeControls";
+import { PurchaseValueComparison } from "@/components/foodservice/PurchaseValueComparison";
 
 const peso = (n: number) => `₱${n.toFixed(2)}`;
 const num = (s: string | number | null | undefined) => (s != null ? parseFloat(String(s)) : 0);
@@ -377,7 +379,7 @@ function ListDetail({ id, suppliers, onBack, onPosGenerated }: {
 }
 
 // ═══ PO detail ════════════════════════════════════════════════════════════════
-function PurchaseEventDetailView({ po, onBack, reload }: { po: PurchaseOrder; onBack: () => void; reload: () => void }) {
+function PurchaseEventDetailView({ po, suppliers, onBack, reload }: { po: PurchaseOrder; suppliers: Supplier[]; onBack: () => void; reload: () => void }) {
   const [groupId, setGroupId] = useState<string | null>(null);
   const [orDraft, setOrDraft] = useState("");
   const [busy, setBusy] = useState(false);
@@ -457,6 +459,16 @@ function PurchaseEventDetailView({ po, onBack, reload }: { po: PurchaseOrder; on
           </div>
         </div>
 
+        <div className="rounded-2xl border border-warm-200 bg-white p-4 shadow-sm">
+          <div className="mb-2 text-xs font-extrabold uppercase tracking-wider text-warm-500">Vendor for this group</div>
+          <VendorChangeControls
+            group={group}
+            vendors={suppliers}
+            disabled={locked}
+            onChanged={() => { setGroupId(null); reload(); }}
+          />
+        </div>
+
         <div className="bg-white border border-warm-200 rounded-2xl p-5 shadow-sm grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3 items-end">
           <label className="block">
             <span className="block text-xs font-extrabold text-warm-500 uppercase tracking-wider mb-1">OR number (optional)</span>
@@ -469,25 +481,39 @@ function PurchaseEventDetailView({ po, onBack, reload }: { po: PurchaseOrder; on
         <div className="bg-white border border-warm-200 rounded-2xl shadow-sm overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-warm-50 border-b border-warm-100">
-              <tr>{["Item", "Calculated qty", "Actual qty", "Unit", "Actual unit price", "Actual total"].map((h) => (
+              <tr>{["Item and reference", "Actual quantity", "Actual unit price", "Actual total", "Actions"].map((h) => (
                 <th key={h} className="px-3 py-3 text-left text-xs font-bold text-warm-500 uppercase tracking-wider">{h}</th>
               ))}</tr>
             </thead>
             <tbody className="divide-y divide-zinc-100">
               {(group.items ?? []).map((item) => (
                 <tr key={item.id}>
-                  <td className="px-3 py-2 font-semibold text-warm-800">{item.description}</td>
-                  <td className="px-3 py-2">{num(item.purchase_qty ?? item.qty).toFixed(3)}</td>
+                  <td className="px-3 py-3">
+                    <div className="mb-1 font-semibold text-warm-800">{item.description}</div>
+                    <PurchaseValueComparison
+                      item={item}
+                      actualQty={actualDraft[item.id]?.qty ?? item.actual_qty}
+                      actualPrice={actualDraft[item.id]?.price ?? item.actual_unit_price}
+                    />
+                  </td>
                   <td className="px-3 py-2"><input type="number" min="0" step="0.001" disabled={locked}
                     value={actualDraft[item.id]?.qty ?? item.actual_qty}
                     onChange={(e) => setActualDraft((current) => ({ ...current, [item.id]: { qty: e.target.value, price: current[item.id]?.price ?? item.actual_unit_price } }))}
                     className="w-24 rounded border border-warm-200 px-2 py-1 disabled:bg-warm-50" /></td>
-                  <td className="px-3 py-2 text-warm-500">{item.purchase_unit ?? item.unit}</td>
                   <td className="px-3 py-2"><input type="number" min="0" step="0.01" disabled={locked}
                     value={actualDraft[item.id]?.price ?? item.actual_unit_price}
                     onChange={(e) => setActualDraft((current) => ({ ...current, [item.id]: { qty: current[item.id]?.qty ?? item.actual_qty, price: e.target.value } }))}
                     className="w-24 rounded border border-warm-200 px-2 py-1 disabled:bg-warm-50" /></td>
                   <td className="px-3 py-2 font-mono text-emerald-700">{peso(num(actualDraft[item.id]?.qty ?? item.actual_qty) * num(actualDraft[item.id]?.price ?? item.actual_unit_price))}</td>
+                  <td className="px-3 py-2">
+                    <VendorChangeControls
+                      group={group}
+                      vendors={suppliers}
+                      itemId={item.id}
+                      disabled={locked}
+                      onChanged={() => { setGroupId(null); reload(); }}
+                    />
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -612,12 +638,12 @@ function PurchaseEventDetailView({ po, onBack, reload }: { po: PurchaseOrder; on
   );
 }
 
-function PoDetail({ id, onBack }: { id: string; onBack: () => void }) {
+function PoDetail({ id, suppliers, onBack }: { id: string; suppliers: Supplier[]; onBack: () => void }) {
   const [po, setPo] = useState<PurchaseOrder | null>(null);
   const load = useCallback(() => { getPurchaseOrder(id).then(setPo); }, [id]);
   useEffect(() => { load(); }, [load]);
   if (!po) return <div className="py-16 text-center text-sm text-warm-400">Loading…</div>;
-  return <PurchaseEventDetailView po={po} onBack={onBack} reload={load} />;
+  return <PurchaseEventDetailView po={po} suppliers={suppliers} onBack={onBack} reload={load} />;
 }
 
 // ═══ ROOT ═════════════════════════════════════════════════════════════════════
@@ -741,7 +767,7 @@ export default function ProcurementPage() {
   if (poDetail) return (
     <div className="space-y-6 font-sans">
       <Crumbs />
-      <PoDetail id={poDetail} onBack={() => { setPoDetail(null); void load(); }} />
+      <PoDetail id={poDetail} suppliers={suppliers} onBack={() => { setPoDetail(null); void load(); }} />
     </div>
   );
 

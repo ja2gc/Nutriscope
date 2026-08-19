@@ -173,7 +173,7 @@ class FoodServiceOpsTest extends TestCase
             ->assertJsonPath('meta.total', 12);
     }
 
-    // ===== SUPPLIERS (RND-only — FSS has no supplier scope per §6) =====
+    // ===== SUPPLIERS (shared read scope; RND-only authoring) =====
 
     public function test_fss_cannot_create_supplier(): void
     {
@@ -202,14 +202,15 @@ class FoodServiceOpsTest extends TestCase
         $this->assertDatabaseHas('suppliers', ['name' => 'Green Valley Farm']);
     }
 
-    public function test_fss_cannot_list_suppliers(): void
+    public function test_fss_can_list_suppliers_for_purchase_vendor_selection(): void
     {
         Supplier::factory(3)->create();
 
         $response = $this->actingAs($this->fss)
             ->getJson('/api/fss/suppliers');
 
-        $response->assertForbidden();
+        $response->assertOk()
+            ->assertJsonCount(3, 'data');
     }
 
     public function test_rnd_can_list_suppliers(): void
@@ -1804,6 +1805,98 @@ class FoodServiceOpsTest extends TestCase
         $this->assertSame('kg', $pack['air_items'][0]['unit']);
         $this->assertEqualsWithDelta(52, (float) $pack['statement_items'][0]['unit_price'], 0.01);
         $this->assertEqualsWithDelta(97.50, (float) $pack['grand_total'], 0.01);
+    }
+
+    public function test_procurement_pack_includes_every_po_line_regardless_of_shopping_list_source(): void
+    {
+        $generatedList = ShoppingList::factory()->create([
+            'rnd_user_id' => $this->rnd->id,
+            'list_type' => 'suggested',
+            'status' => 'converted',
+        ]);
+        $generatedPo = PurchaseOrder::factory()->create([
+            'rnd_user_id' => $this->rnd->id,
+            'shopping_list_id' => $generatedList->id,
+        ]);
+        $plannedSupplier = Supplier::factory()->create(['name' => 'Planned Vendor']);
+        $plannedGroup = $generatedPo->vendorGroups()->create([
+            'supplier_id' => $plannedSupplier->id,
+            'status' => 'pending',
+            'total_amount' => 20,
+        ]);
+        $generatedLines = [];
+        foreach (['Menu ingredient', 'Manual event addition'] as $description) {
+            $generatedLines[] = $generatedPo->items()->create([
+                'vendor_group_id' => $plannedGroup->id,
+                'description' => $description,
+                'qty' => 1,
+                'unit' => 'piece',
+                'unit_price' => 10,
+                'total_value' => 10,
+            ]);
+        }
+
+        $manualList = ShoppingList::factory()->create([
+            'rnd_user_id' => $this->rnd->id,
+            'list_type' => 'manual',
+            'status' => 'converted',
+        ]);
+        $manualPo = PurchaseOrder::factory()->create([
+            'rnd_user_id' => $this->rnd->id,
+            'shopping_list_id' => $manualList->id,
+        ]);
+        $manualSupplier = Supplier::factory()->create(['name' => 'Manual List Vendor']);
+        $manualGroup = $manualPo->vendorGroups()->create([
+            'supplier_id' => $manualSupplier->id,
+            'status' => 'pending',
+            'total_amount' => 50,
+        ]);
+        $manualPo->items()->create([
+            'vendor_group_id' => $manualGroup->id,
+            'description' => 'Manual supply purchase',
+            'qty' => 2,
+            'unit' => 'box',
+            'unit_price' => 25,
+            'total_value' => 50,
+        ]);
+
+        $generatedPack = (new ProcurementPackGenerator)->data(new Report([
+            'type' => 'procurement_pack',
+            'parameters' => ['purchase_order_id' => $generatedPo->id],
+        ]));
+        $manualPack = (new ProcurementPackGenerator)->data(new Report([
+            'type' => 'procurement_pack',
+            'parameters' => ['purchase_order_id' => $manualPo->id],
+        ]));
+
+        $this->assertSame(
+            ['Menu ingredient', 'Manual event addition'],
+            array_column($generatedPack['packs'][0]['statement_items'], 'item'),
+        );
+        $this->assertSame(
+            ['Manual supply purchase'],
+            array_column($manualPack['packs'][0]['statement_items'], 'item'),
+        );
+
+        $actualSupplier = Supplier::factory()->create(['name' => 'Actual Vendor']);
+        $this->actingAs($this->rnd)->patchJson("/api/fss/purchase-order-vendor-groups/{$plannedGroup->uuid}", [
+            'supplier_id' => $actualSupplier->uuid,
+            'item_id' => $generatedLines[1]->id,
+        ])->assertOk();
+        $movedPack = (new ProcurementPackGenerator)->data(new Report([
+            'type' => 'procurement_pack',
+            'parameters' => ['purchase_order_id' => $generatedPo->id],
+        ]));
+
+        $this->assertCount(2, $movedPack['packs']);
+        $this->assertEqualsCanonicalizing(
+            ['Menu ingredient', 'Manual event addition'],
+            collect($movedPack['packs'])->flatMap(fn (array $pack) => array_column($pack['statement_items'], 'item'))->all(),
+        );
+        $actualVendorPack = collect($movedPack['packs'])
+            ->first(fn (array $pack) => $pack['supplier']?->name === 'Actual Vendor');
+        $this->assertNotNull($actualVendorPack);
+        $this->assertSame(['Manual event addition'], array_column($actualVendorPack['statement_items'], 'item'));
     }
 
     // ===== SERVED-POPULATION BACKFILL (any cycle day) =====

@@ -184,12 +184,13 @@ Verified against current navigation and server permissions on **2026-07-20**. Fo
 
 1. Open **Purchase** and select a PO.
 2. Open the correct vendor group.
-3. Review line details; they are read-only.
-4. Enter and save the official receipt (OR) number.
-5. Upload receipt image from camera/library. This marks the vendor group received server-side.
-6. Upload proof of purchase when required.
-7. Verify images and captions before leaving.
-8. Completed/archived POs lock edits.
+3. If the actual vendor changed before evidence was uploaded, use **Change vendor for all** for the group or **Change vendor** on one item row.
+4. Review the visible planned purchase. Expand **Calculation details** only when you need the calculated/planned/actual comparison.
+5. Confirm or correct the prefilled actual decimal quantity and unit price, then save.
+6. Enter an OR number only when the vendor provided one.
+7. Upload at least one receipt and one proof-of-purchase image for the vendor.
+8. Use **Mark vendor received**; uploads alone do not change the status.
+9. Completed/archived POs lock edits.
 
 ### 6. Announcements, SOP, and Notifications
 

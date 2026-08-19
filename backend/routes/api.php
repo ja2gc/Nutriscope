@@ -244,6 +244,7 @@ Route::middleware(['auth:sanctum', 'active', 'role:FSS,RND'])->prefix('fss')->gr
     Route::get('fs-items/catalog', [FsItemController::class, 'catalog']);
     Route::get('fs-items/{fsItem}/profile', [FsItemController::class, 'profile']);
     Route::get('fs-items/{fsItem}/price-trend', [FsItemController::class, 'priceTrend']);
+    Route::get('suppliers', [SupplierController::class, 'index']);
 
     // Menu Cycles — FSS read-only (RND owns writes, see RND-only group below)
     Route::get('menu-cycles/cost-today', [MenuCycleController::class, 'costToday']);
@@ -275,8 +276,8 @@ Route::middleware(['auth:sanctum', 'active', 'role:FSS,RND'])->prefix('fss')->gr
 
     // ===== RND-only planning/authoring writes (FSS receives 403) =====
     Route::middleware('role:RND')->group(function () {
-        // Suppliers — RND-only (FSS has no read scope either per §6)
-        Route::apiResource('suppliers', SupplierController::class);
+        // Supplier authoring remains RND-only; FSS shares the replacement-vendor index.
+        Route::apiResource('suppliers', SupplierController::class)->except(['index']);
 
         // Purchase Orders — created only by approving a shopping list (no manual create).
         // RND can still edit/receive/delete the per-vendor orders the approval produced.

@@ -34,9 +34,11 @@ test('mobile Help contains only Shared and FSS guidance', () => {
 
 test('mobile Help uses reusable accessible search and disclosures', () => {
   const screen = read('app/help.tsx');
+  const search = read('components/SearchInput.tsx');
   const questions = read('components/help/HelpQuestionList.tsx');
 
-  assert.match(screen, /accessibilityLabel="Search help"/);
+  assert.match(screen, /<SearchInput label="Search help"/);
+  assert.match(search, /accessibilityLabel=\{label\}/);
   assert.match(screen, /HelpQuestionList/);
   assert.match(screen, /Clear search/);
   assert.match(questions, /accessibilityRole="button"/);

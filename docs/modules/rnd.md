@@ -177,9 +177,11 @@ Suggested food generation is date-span based and all-or-nothing. RND enters one 
 
 The review keeps calculated requirements read-only while purchase quantity, unit, price, and vendor remain editable. Manual rows may be added. Generated rows may be excluded with a note instead of deleted. Release is blocked until included rows are usable, vendors are assigned, applicable estimate/coverage is present, and the fiscal-year budget is sufficient.
 
-Food and supplies remain separate procurement tracks, but related event lists can share the same purpose name. Conversion freezes included structural data and relevant menu snapshots. RND then follows optional OR numbers, receipt/proof attachments, actual decimal quantities/prices, served-day progress, totals, corrections, and activity.
+Food and supplies remain separate procurement tracks, but related event lists can share the same purpose name. Conversion freezes included quantities, units, calculations, and relevant menu snapshots. Before a vendor group has evidence or is received, RND/FSS may use **Change vendor for all** outside the item table or row-level **Change vendor** for one item. This corrects the actual vendor without reopening the shopping list. RND then follows optional OR numbers, receipt/proof attachments, actual decimal quantities/prices, served-day progress, totals, corrections, and activity.
 
 Each vendor requires reviewed actual values, receipt, proof, and explicit receiving; OR number is optional. Suggested-food completion additionally requires served population for all covered dates. Manual food and supplies do not require population.
+
+Procurement packs read all frozen PO rows, so manual additions to a suggested list and items from a fully manual list remain included in the vendor documents and totals.
 
 ### Budget and Settings
 

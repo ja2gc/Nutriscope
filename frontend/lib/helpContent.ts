@@ -390,8 +390,8 @@ export const HELP_ITEMS: HelpItem[] = [
     role: "RND",
     category: "Procurement & Budget",
     question: "What happens when a shopping list is converted?",
-    answer: "When the release checklist passes, Create and release PO copies included rows into one vendor-grouped order and freezes the plan. Receiving then confirms actual values plus receipt and proof; OR is optional.",
-    keywords: ["PO", "vendor group", "receipt"],
+    answer: "When the release checklist passes, Create and release PO copies included rows into one vendor-grouped order and freezes quantities, units, and calculations. Before evidence or receiving, Change vendor for all changes a group and row-level Change vendor moves one item. Receiving then confirms actual values plus receipt and proof; OR is optional.",
+    keywords: ["PO", "vendor group", "receipt", "change vendor"],
   },
   {
     id: "rnd-po-completion",

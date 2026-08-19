@@ -41,6 +41,36 @@ class PurchaseOrderTrailTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_vendor_reassignment_emits_one_po_update_with_before_and_after_groups(): void
+    {
+        $rnd = User::factory()->rnd()->create();
+        Budget::factory()->create(['fiscal_year' => 2026, 'created_by' => $rnd->id]);
+        [$list, $originalSupplier] = $this->shoppingList($rnd);
+        $replacement = Supplier::factory()->create(['name' => 'Actual Vendor']);
+
+        $this->actingAs($rnd)->postJson("/api/fss/shopping-lists/{$list->uuid}/approve")->assertCreated();
+        $po = PurchaseOrder::query()->where('shopping_list_id', $list->id)->firstOrFail();
+        $group = $po->vendorGroups()->firstOrFail();
+        AuditFixture::delete(AuditActivity::query());
+
+        $this->patchJson("/api/fss/purchase-order-vendor-groups/{$group->uuid}", [
+            'supplier_id' => $replacement->uuid,
+        ])->assertOk();
+
+        $event = AuditActivity::query()->sole();
+        $this->assertSame(AuditAction::Updated->value, $event->event);
+        $this->assertSame($po->getMorphClass(), $event->subject_type);
+        $this->assertSame($po->id, $event->subject_id);
+        $this->assertSame($po->getMorphClass(), $event->context_type);
+        $this->assertSame($po->id, $event->context_id);
+        $this->assertSame($originalSupplier->uuid, $event->revision->before['groups'][0]['supplier_reference']);
+        $this->assertSame($replacement->uuid, $event->revision->after['groups'][0]['supplier_reference']);
+        $this->assertNotSame(
+            $event->revision->before['lines'][0]['group_reference'],
+            $event->revision->after['lines'][0]['group_reference'],
+        );
+    }
+
     public function test_approval_attachment_and_price_correction_are_semantic_and_rooted_to_the_po(): void
     {
         Storage::fake('public');
