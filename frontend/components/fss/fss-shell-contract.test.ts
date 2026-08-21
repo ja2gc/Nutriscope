@@ -26,6 +26,8 @@ describe("FSS web shell contract", () => {
     expect(shell).toContain('user.role !== "FSS"');
     expect(shell).toContain("FssDesktopHandoff");
     expect(shell).not.toContain("Sidebar");
+    expect(shell).toContain('window.matchMedia("(display-mode: standalone)").matches');
+    expect(shell).toContain("standalone:");
   });
 
   it("keeps FSS out of the RND shell", () => {

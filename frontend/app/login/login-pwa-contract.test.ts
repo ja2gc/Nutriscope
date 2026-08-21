@@ -17,9 +17,10 @@ describe("login PWA entry contract", () => {
     expect(root).toContain('redirect("/fss")');
   });
 
-  it("places shared device-aware install UI on login", () => {
+  it("hands FSS users to the install page without advertising a desktop app", () => {
     const login = read("app/login/page.tsx");
     expect(login).toContain('InstallNutriScope mode="login"');
+    expect(read("components/pwa/InstallNutriScope.tsx")).toContain('href="/mobile-app"');
     expect(login).not.toMatch(/desktop app/i);
   });
 });

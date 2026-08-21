@@ -8,6 +8,7 @@ export function middleware(request: NextRequest) {
   // Define public paths that don't need authentication
   const isPublicPath =
     pathname === "/login" ||
+    pathname === "/fss/login" ||
     pathname === "/forgot-password" ||
     pathname === "/reset-password" ||
     pathname === "/mobile-app" ||
@@ -26,8 +27,11 @@ export function middleware(request: NextRequest) {
   // Do not redirect public auth pages based only on cookies. A stale Sanctum token
   // otherwise traps users away from /login before /api/auth/me can clear it.
 
-  // If user is unauthenticated and trying to access any other page, redirect to /login
+  // Keep the standalone FSS experience inside its manifest scope.
   if (!isPublicPath && !token) {
+    if (pathname.startsWith("/fss")) {
+      return NextResponse.redirect(new URL("/fss/login", request.url));
+    }
     return NextResponse.redirect(new URL("/login", request.url));
   }
 

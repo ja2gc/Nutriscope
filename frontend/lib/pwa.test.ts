@@ -13,4 +13,8 @@ describe("PWA device targeting", () => {
   it("treats a wide fine-pointer device as desktop", () => {
     expect(isPhoneOrTablet({ coarsePointer: false, viewportWidth: 1440 })).toBe(false);
   });
+
+  it("always treats an installed standalone window as the mobile app", () => {
+    expect(isPhoneOrTablet({ coarsePointer: false, viewportWidth: 1600, standalone: true })).toBe(true);
+  });
 });

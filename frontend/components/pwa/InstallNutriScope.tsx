@@ -77,6 +77,26 @@ export function InstallNutriScope({ mode }: { mode: "login" | "landing" }) {
     );
   }
 
+  if (mode === "login") {
+    return (
+      <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4" aria-label="Food Service Staff mobile access">
+        <div className="flex items-center gap-3">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
+            <Smartphone className="h-5 w-5" aria-hidden="true" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-extrabold text-emerald-950">Food Service Staff</p>
+            <p className="mt-1 text-sm leading-5 text-emerald-800">Use the mobile NutriScope app.</p>
+          </div>
+        </div>
+        <Link href="/mobile-app" className="mt-4 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-bold text-white hover:bg-emerald-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2">
+          <ExternalLink className="h-4 w-4" aria-hidden="true" />
+          Open mobile app setup
+        </Link>
+      </section>
+    );
+  }
+
   return (
     <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4" aria-label="Install NutriScope">
       <div className="flex items-start gap-3">
@@ -103,7 +123,7 @@ export function InstallNutriScope({ mode }: { mode: "login" | "landing" }) {
           </button>
         )}
         <Link
-          href="/fss"
+          href="/fss/login"
           className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-emerald-300 bg-white px-4 py-2.5 text-sm font-bold text-emerald-800 transition-colors hover:bg-emerald-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2"
         >
           <ExternalLink className="h-4 w-4" aria-hidden="true" />

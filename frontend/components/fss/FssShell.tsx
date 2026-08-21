@@ -21,12 +21,14 @@ export function FssShell({ children }: { children: React.ReactNode }) {
   const { user, initializing, logout } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
+  const publicAppPage = pathname === "/fss/login" || pathname === "/fss/account-setup";
   const [mobileDevice, setMobileDevice] = useState<boolean | null>(null);
 
   useEffect(() => {
     const update = () => setMobileDevice(isPhoneOrTablet({
       coarsePointer: window.matchMedia("(any-pointer: coarse)").matches,
       viewportWidth: window.innerWidth,
+      standalone: window.matchMedia("(display-mode: standalone)").matches,
     }));
     update();
     window.addEventListener("resize", update);
@@ -34,10 +36,13 @@ export function FssShell({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
+    if (publicAppPage) return;
     if (initializing) return;
-    if (!user) router.replace("/login");
+    if (!user) router.replace("/fss/login");
     else if (user.role !== "FSS") router.replace(user.role === "Admin" ? "/admin/dashboard" : "/dashboard");
-  }, [initializing, router, user]);
+  }, [initializing, publicAppPage, router, user]);
+
+  if (publicAppPage) return children;
 
   if (initializing || mobileDevice === null) {
     return <div className="grid min-h-dvh place-items-center bg-warm-50 text-sm font-bold text-warm-500">Loading NutriScope…</div>;
@@ -47,7 +52,7 @@ export function FssShell({ children }: { children: React.ReactNode }) {
 
   async function signOut() {
     await logout();
-    router.replace("/login");
+    router.replace("/fss/login");
   }
 
   return (

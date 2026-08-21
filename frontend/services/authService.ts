@@ -23,14 +23,14 @@ export interface LoginResponse {
   user: User;
 }
 
-export async function loginUser(email: string, password: string): Promise<LoginResponse> {
+export async function loginUser(email: string, password: string, platform?: "app"): Promise<LoginResponse> {
   const res = await fetch("/api/auth/login", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Accept: "application/json",
     },
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ email, password, ...(platform ? { platform } : {}) }),
   });
 
   if (!res.ok) {

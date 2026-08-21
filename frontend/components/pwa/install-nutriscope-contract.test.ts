@@ -10,4 +10,9 @@ describe("mobile install control", () => {
     expect(source).not.toContain("{promptEvent && !installed && (");
     expect(source).toContain("setShowInstructions(true)");
   });
+
+  it("uses login as a handoff and reserves installation for the scoped landing", () => {
+    expect(source).toContain('mode === "login"');
+    expect(source).toContain('href="/mobile-app"');
+  });
 });
