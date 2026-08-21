@@ -53,7 +53,8 @@ test('final navigation separates daily tabs, header actions, and account menu', 
 });
 
 test('announcement page separates announcements and SOP into internal tabs', () => {
-  const screen = fs.readFileSync(path.join(root, 'app', 'announcements.tsx'), 'utf8');
+  const screen = fs.readFileSync(path.join(root, 'components', 'AnnouncementsScreen.tsx'), 'utf8');
+  const rootLayout = fs.readFileSync(path.join(root, 'app', '_layout.tsx'), 'utf8');
   const notifications = fs.readFileSync(path.join(root, 'app', 'notifications.tsx'), 'utf8');
 
   assert.match(screen, /accessibilityRole="tablist"/);
@@ -61,6 +62,7 @@ test('announcement page separates announcements and SOP into internal tabs', () 
   assert.match(screen, />SOP<\/Text>/);
   assert.match(screen, /section === 'sop'/);
   assert.match(notifications, /pathname: '\/\(tabs\)\/announcements'/);
+  assert.doesNotMatch(rootLayout, /name="announcements"/);
 });
 
 test('report details can prepare and open or save the authenticated PDF', () => {

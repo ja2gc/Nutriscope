@@ -48,8 +48,8 @@ test('mobile direct person name reads stay at explicit compatibility boundaries'
   );
   assert.deepEqual(attributionCounts, {
     'app/(tabs)/index.tsx': 2,
-    'app/announcements.tsx': 4,
     'app/reports.tsx': 1,
+    'components/AnnouncementsScreen.tsx': 4,
   });
 });
 

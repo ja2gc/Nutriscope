@@ -74,10 +74,6 @@ export default function RootLayout() {
           <Stack.Screen name="forgot-password" options={{ headerShown: false }} />
           <Stack.Screen name="account-setup" options={{ headerShown: false }} />
           <Stack.Screen
-            name="announcements"
-            options={{ title: 'Announcements' }}
-          />
-          <Stack.Screen
             name="notifications"
             options={{ title: 'Notifications' }}
           />

@@ -1,1 +1,1 @@
-export { default } from '../announcements';
+export { default } from '../../components/AnnouncementsScreen';
