@@ -1,6 +1,6 @@
 # NutriScope Frequently Asked Questions
 
-Verified against the current web, mobile, and Laravel role gates on **2026-07-20**. This is the user-facing FAQ and source for the role-scoped in-app Help pages. When this file conflicts with an older diagram or plan, current application code wins.
+Verified against the current web, mobile, and Laravel role gates on **2026-08-21**. This is the user-facing FAQ and source for the role-scoped in-app Help pages. When this file conflicts with an older diagram or plan, current application code wins.
 
 ## Start Here
 
@@ -266,7 +266,7 @@ No. It is a frozen snapshot. Correct current source data and create a new archiv
 
 ### What are the current FSS tabs?
 
-Five tabs: **Home**, **Menu**, **Meal Prep**, **Accomplish**, and **Purchase**.
+Six tabs: **Home**, **Announcement**, **Menu**, **Meal Prep**, **Accomplish**, and **Purchase**. Announcement is second and has separate **Announcements** and **SOP** tabs. The header bell opens notifications; the profile icon opens the account side menu.
 
 ### What should I do first each day?
 
@@ -278,19 +278,19 @@ RND has not activated a current cycle. Contact RND; FSS cannot create or activat
 
 ### Can I edit the menu?
 
-No. Menu is read-only for recipes/items and preparation details. FSS may enter or backfill actual served population for service dates.
+No. Menu is a read-only weekly reference. Tap a meal to open its scaled food profile on a separate page. Record actual population in **Meal Prep**.
 
-### How do I mark today's meals served?
+### Where do I record actual population served?
 
-Open **Meal Prep**, enter actual total patient population if requested, review today's service rows, then use the served/completion action. If there is a shortfall, confirm the warning only when service should proceed with the recorded exception.
+Open **Meal Prep**, choose today or an earlier planned date in the active cycle, review its meals, then record or update the actual headcount. There is no separate prep-completion log.
 
 ### Where should I enter my daily accomplishment?
 
-Use **Accomplish**. Enter ward and meals distributed, select completed duties, or mark Off duty/absent. Save one accurate entry for the day; additional ward entries may be recorded when needed.
+Use **Accomplish → Daily Log**. It defaults to today. Choose any past date for a missed log; future dates are blocked, and **Today** returns to the default. Save a separate working row for each ward when needed.
 
 ### Why does Off duty save an X?
 
-It is the explicit daily record for a non-working day and counts toward Monday-Sunday report completeness.
+It is the explicit daily record for a non-working day and counts toward Monday-Sunday report completeness. It cannot coexist with working rows for that date.
 
 ### What can I change on a purchase order?
 
@@ -310,7 +310,11 @@ Allow camera/photo-library permission, confirm network access, and retry with a 
 
 ### Where are my reports?
 
-Open **Accomplish → My reports**. FSS sees only their own archived accomplishment reports.
+Open **Accomplish → My Reports**. The list is paginated and owner-scoped. Tap a report to view frozen details, then use **Open or save PDF**.
+
+### How do I update the Android app?
+
+The app checks periodically and offers the stable download page when a newer version exists. You can also use the profile side menu → **Check for updates**. The website QR always opens the same page, so it does not change between releases.
 
 ## Admin Questions
 

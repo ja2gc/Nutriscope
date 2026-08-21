@@ -160,7 +160,7 @@ flowchart TD
 
 ## 5. FSS Mobile Navigation Map
 
-FSS mobile has exactly four bottom tabs. Everything else is reached from the header or from links inside the Prep tab.
+FSS uses the native Android app. Daily destinations stay in bottom navigation; account utilities stay in the header and profile side menu.
 
 ```mermaid
 flowchart TD
@@ -169,23 +169,23 @@ flowchart TD
     LOG -->|"Yes"| TABS
     LOGIN --> TABS["Authenticated app shell"]
 
-    TABS --> T1["Tab 1: Dashboard"]
-    TABS --> T2["Tab 2: Prep & Accomplishment"]
-    TABS --> T3["Tab 3: Inventory"]
-    TABS --> T4["Tab 4: Procurement"]
+    TABS --> T1["Home"]
+    TABS --> T2["Announcement: Announcements tab + SOP tab"]
+    TABS --> T3["Menu"]
+    TABS --> T4["Meal Prep"]
+    TABS --> T5["Accomplish"]
+    TABS --> T6["Purchase"]
 
     TABS --> HDR["Header on every screen"]
-    HDR --> H1["Megaphone -> Announcements + SOP"]
-    HDR --> H2["Bell -> Notifications + unread badge"]
-    HDR --> H3["Account -> Settings -> Profile"]
+    HDR --> H1["Bell -> Notifications + unread badge"]
+    HDR --> H2["Profile -> Account side menu"]
+    H2 --> SIDE["Profile, Notifications, Help, Settings, Check updates, Sign out"]
 
-    T2 --> L1["Link: Menu cycles & served population"]
-    T2 --> L2["Link: My accomplishment reports"]
-    L1 --> MENU["Menu cycle screen: read-only foods + served-pop editor"]
-    L2 --> REP["Accomplishment reports viewer"]
+    T4 --> L1["Daily Log: today or previous date"]
+    T4 --> L2["My Reports: details + PDF"]
 ```
 
-Page inventory: Dashboard, Prep & Accomplishment, Inventory, Procurement, Menu cycle, Accomplishment reports, Announcements/SOP, Notifications, Settings, Profile.
+Page inventory: Home, Announcement, Menu, Meal Prep, Accomplish, Purchase, food profile, report detail, Notifications, Help, Settings, and Profile. Announcement contains separate Announcements and SOP tabs.
 
 ---
 

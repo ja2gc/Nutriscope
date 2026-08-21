@@ -24,8 +24,10 @@ describe("purchase-order receiving UX contract", () => {
     expect(comparison).not.toContain("Calculated qty");
   });
 
-  it("reuses the controls in both RND and FSS purchase screens", () => {
+  it("keeps vendor correction available in both web and native purchase screens", () => {
     expect(read("app/(rnd)/food-service/procurement/page.tsx")).toContain("VendorChangeControls");
-    expect(read("components/fss/FssPurchaseOrders.tsx")).toContain("VendorChangeControls");
+    const native = fs.readFileSync(path.join(frontend, "..", "mobile", "app", "(tabs)", "procurement.tsx"), "utf8");
+    expect(native).toContain("Change vendor for all");
+    expect(native).toContain("item_id");
   });
 });

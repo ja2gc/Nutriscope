@@ -1,8 +1,9 @@
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
-import { ChevronLeft, ChevronRight, FileText } from 'lucide-react-native';
+import { useInfiniteQuery, useMutation, useQuery } from '@tanstack/react-query';
+import { ChevronLeft, ChevronRight, Download, FileText } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   ScrollView,
   Text,
@@ -10,7 +11,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { AccomplishmentSnapshot, Report, getReport, listReports } from '../lib/reports';
+import { AccomplishmentSnapshot, Report, downloadReportPdf, getReport, listReports } from '../lib/reports';
 import { PaginatedListFooter } from '../components/PaginatedListFooter';
 import { SearchInput } from '../components/SearchInput';
 import { flattenUniquePages, getNextPageParam } from '../lib/pagination';
@@ -84,6 +85,10 @@ function ReportDetail({ id, onBack }: { id: string; onBack: () => void }) {
   });
 
   const snap = data?.snapshot?.accomplishment;
+  const download = useMutation({
+    mutationFn: () => downloadReportPdf(data!),
+    onError: (error: Error) => Alert.alert('Could not open report', error.message),
+  });
 
   return (
     <View className="flex-1 bg-gray-50">
@@ -107,6 +112,10 @@ function ReportDetail({ id, onBack }: { id: string; onBack: () => void }) {
           <View className="mb-4">
             <Text className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Accomplishment Report</Text>
             <Text className="text-base font-bold text-gray-900 mt-0.5">{snap.period_label}</Text>
+            <TouchableOpacity onPress={() => download.mutate()} disabled={download.isPending} className="mt-3 min-h-12 flex-row items-center justify-center gap-2 rounded-xl bg-[#087F5B]">
+              {download.isPending ? <ActivityIndicator color="#fff" /> : <Download color="#fff" size={18} />}
+              <Text className="font-bold text-white">{download.isPending ? 'Preparing PDF…' : 'Open or save PDF'}</Text>
+            </TouchableOpacity>
           </View>
           <ReportGrid snap={snap} />
         </ScrollView>
@@ -115,7 +124,7 @@ function ReportDetail({ id, onBack }: { id: string; onBack: () => void }) {
   );
 }
 
-export default function ReportsScreen() {
+export default function ReportsScreen({ embedded = false }: { embedded?: boolean }) {
   const insets = useSafeAreaInsets();
   const [openId, setOpenId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
@@ -155,7 +164,7 @@ export default function ReportsScreen() {
       className="bg-gray-50"
       data={data}
       keyExtractor={(r: Report) => String(r.id)}
-      contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 16, flexGrow: 1 }}
+      contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + (embedded ? 80 : 16), flexGrow: 1 }}
       ListHeaderComponent={<View className="mb-4"><SearchInput label="Search accomplishment reports" value={search} onChangeText={setSearch} placeholder="Search reports" loading={isFetching && search.trim() !== debouncedSearch} /></View>}
       renderItem={({ item }) => {
         const period = item.snapshot?.accomplishment?.period_label

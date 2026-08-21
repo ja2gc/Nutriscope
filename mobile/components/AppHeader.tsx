@@ -1,12 +1,14 @@
 import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
-import { AlertTriangle, Bell, Megaphone, UserCircle } from 'lucide-react-native';
+import { AlertTriangle, Bell, UserCircle } from 'lucide-react-native';
+import { useState } from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import api from '../lib/api';
 import type { UserProfile } from '../lib/auth';
 import BrandLogo from './BrandLogo';
 import { MOBILE_THEME } from '../lib/theme';
+import AccountMenu from './AccountMenu';
 
 async function fetchUnreadCount(): Promise<number> {
   const res = await api.get<{ count: number }>('/api/notifications/unread-count');
@@ -24,6 +26,7 @@ interface AppHeaderProps {
 
 export default function AppHeader({ title }: AppHeaderProps) {
   const insets = useSafeAreaInsets();
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const { data: unreadData } = useQuery({
     queryKey: ['notifications-unread-count'],
@@ -58,16 +61,6 @@ export default function AppHeader({ title }: AppHeaderProps) {
         </View>
 
         <View className="flex-row items-center gap-2">
-          {/* Announcements + SOP */}
-          <TouchableOpacity
-            onPress={() => router.push('/announcements')}
-            className="w-10 h-10 rounded-xl bg-white border border-[#E5ECE8] items-center justify-center"
-            accessibilityLabel="Announcements and SOP"
-            hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
-          >
-            <Megaphone color={MOBILE_THEME.colors.text} size={19} />
-          </TouchableOpacity>
-
           {/* Bell */}
           <TouchableOpacity
             onPress={() => router.push('/notifications')}
@@ -93,9 +86,9 @@ export default function AppHeader({ title }: AppHeaderProps) {
 
           {/* Account */}
           <TouchableOpacity
-            onPress={() => router.push('/settings')}
+            onPress={() => setMenuOpen(true)}
             className="w-10 h-10 rounded-xl bg-white border border-[#E5ECE8] items-center justify-center"
-            accessibilityLabel="Settings and profile"
+            accessibilityLabel="Open profile menu"
             hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
           >
             <UserCircle color={MOBILE_THEME.colors.text} size={19} />
@@ -116,6 +109,7 @@ export default function AppHeader({ title }: AppHeaderProps) {
           <Text className="text-xs font-bold text-amber-800">Open</Text>
         </TouchableOpacity>
       ) : null}
+      <AccountMenu visible={menuOpen} onClose={() => setMenuOpen(false)} user={user} />
     </View>
   );
 }

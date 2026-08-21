@@ -14,6 +14,8 @@ use App\Services\Audit\AuditLogger;
 use App\Services\FSS\ConsumptionService;
 use App\Services\FSS\PurchaseOrderLifecycleService;
 use Carbon\Carbon;
+use Carbon\CarbonImmutable;
+use Closure;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -26,11 +28,11 @@ class MealPrepLogController extends Controller
         $data = $request->validate([
             'from' => ['nullable', 'date'],
             'to' => ['nullable', 'date', 'after_or_equal:from'],
-            'menu_cycle_id' => ['nullable', 'integer'],
+            'menu_cycle_id' => ['nullable', 'string', 'exists:menu_cycles,uuid'],
         ]);
 
         $logs = MealPrepLog::with('lines', 'menuCycle:id,uuid,name', 'completedBy:id,uuid,name,first_name,last_name')
-            ->when($data['menu_cycle_id'] ?? null, fn ($q, $id) => $q->where('menu_cycle_id', $id))
+            ->when($data['menu_cycle_id'] ?? null, fn ($q, $id) => $q->whereHas('menuCycle', fn ($cycle) => $cycle->where('uuid', $id)))
             ->when($data['from'] ?? null, fn ($q, $d) => $q->where('service_date', '>=', $d))
             ->when($data['to'] ?? null, fn ($q, $d) => $q->where('service_date', '<=', $d))
             ->orderByDesc('service_date')->get();
@@ -41,7 +43,22 @@ class MealPrepLogController extends Controller
     public function complete(Request $request, MenuCycle $menuCycle, ConsumptionService $consumption, PurchaseOrderLifecycleService $lifecycle): JsonResponse
     {
         $data = $request->validate([
-            'service_date' => ['required', 'date'],
+            'service_date' => [
+                'required',
+                'date_format:Y-m-d',
+                function (string $attribute, mixed $value, Closure $fail): void {
+                    $serviceDate = (string) $value;
+                    if (! preg_match('/^\d{4}-\d{2}-\d{2}$/', $serviceDate)) {
+                        return;
+                    }
+                    if ($serviceDate > CarbonImmutable::now('Asia/Manila')->toDateString()) {
+                        $fail('The service date cannot be in the future.');
+
+                        return;
+                    }
+
+                },
+            ],
             'population' => ['nullable', 'integer', 'min:1'],
             'served_population' => ['required', 'integer', 'min:1'],
         ]);
@@ -111,7 +128,27 @@ class MealPrepLogController extends Controller
     public function setServed(Request $request, MenuCycle $menuCycle, PurchaseOrderLifecycleService $lifecycle): JsonResponse
     {
         $data = $request->validate([
-            'service_date' => ['required', 'date'],
+            'service_date' => [
+                'required',
+                'date_format:Y-m-d',
+                function (string $attribute, mixed $value, Closure $fail) use ($menuCycle): void {
+                    $serviceDate = (string) $value;
+                    if (! preg_match('/^\d{4}-\d{2}-\d{2}$/', $serviceDate)) {
+                        return;
+                    }
+                    if ($serviceDate > CarbonImmutable::now('Asia/Manila')->toDateString()) {
+                        $fail('The service date cannot be in the future.');
+
+                        return;
+                    }
+
+                    $owner = MenuCycle::coveringDate($serviceDate);
+                    $weekday = CarbonImmutable::parse($serviceDate, 'Asia/Manila')->format('l');
+                    if ($owner === null || ! $owner->is($menuCycle) || ! $menuCycle->days()->where('day_of_week', $weekday)->exists()) {
+                        $fail('The service date is not a planned day in this menu cycle.');
+                    }
+                },
+            ],
             'served_population' => ['required', 'integer', 'min:0'],
         ]);
 
@@ -158,6 +195,9 @@ class MealPrepLogController extends Controller
                 ]));
             } else {
                 $log->served_population = $data['served_population'];
+                $log->status = 'completed';
+                $log->completed_by = $request->user()?->id;
+                $log->completed_at = now();
             }
 
             if ($log->population !== null) {

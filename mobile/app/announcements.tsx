@@ -1,6 +1,6 @@
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { useLocalSearchParams } from 'expo-router';
-import { ClipboardList, History, Megaphone, X } from 'lucide-react-native';
+import { ClipboardList, History, Newspaper, X } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -166,6 +166,7 @@ export default function AnnouncementsScreen() {
   const params = useLocalSearchParams<{ announcementId?: string }>();
   // Announcement ids are public uuids (strings) — match as strings, never Number().
   const targetAnnouncementId = params.announcementId || null;
+  const [section, setSection] = useState<'announcements' | 'sop'>('announcements');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const { data: pages, isLoading, isError, refetch, fetchNextPage, hasNextPage, isFetchingNextPage, isFetchNextPageError } = useInfiniteQuery({
     queryKey: ['announcements-feed'],
@@ -185,7 +186,7 @@ export default function AnnouncementsScreen() {
     }
   }, [data, fetchNextPage, hasNextPage, isFetchingNextPage, selectedId, targetAnnouncementId]);
 
-  if (isLoading) {
+  if (section === 'announcements' && isLoading) {
     return (
       <View className="flex-1 items-center justify-center bg-gray-50">
         <ActivityIndicator size="large" color="#059669" />
@@ -194,10 +195,10 @@ export default function AnnouncementsScreen() {
     );
   }
 
-  if (isError) {
+  if (section === 'announcements' && isError) {
     return (
       <View className="flex-1 items-center justify-center bg-gray-50 px-6">
-        <Megaphone color="#ef4444" size={40} />
+        <Newspaper color="#ef4444" size={40} />
         <Text className="mt-3 text-gray-700 text-base font-medium">Could not load announcements</Text>
         <TouchableOpacity className="mt-5 bg-emerald-600 px-6 py-3 rounded-lg" onPress={() => refetch()}>
           <Text className="text-white font-semibold">Retry</Text>
@@ -208,11 +209,36 @@ export default function AnnouncementsScreen() {
 
   return (
     <View className="flex-1 bg-gray-50">
-      <FlatList
-        data={data}
-        keyExtractor={(item) => String(item.id)}
-        ListHeaderComponent={<SopBanner />}
-        contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 16, flexGrow: 1 }}
+      <View className="mx-4 mt-4 flex-row rounded-xl bg-gray-200 p-1" accessibilityRole="tablist">
+        <TouchableOpacity
+          className={`min-h-11 flex-1 items-center justify-center rounded-lg ${section === 'announcements' ? 'bg-white' : ''}`}
+          accessibilityRole="tab"
+          accessibilityState={{ selected: section === 'announcements' }}
+          onPress={() => setSection('announcements')}
+        >
+          <Text className={`text-sm font-bold ${section === 'announcements' ? 'text-emerald-700' : 'text-gray-600'}`}>
+            Announcements
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          className={`min-h-11 flex-1 items-center justify-center rounded-lg ${section === 'sop' ? 'bg-white' : ''}`}
+          accessibilityRole="tab"
+          accessibilityState={{ selected: section === 'sop' }}
+          onPress={() => setSection('sop')}
+        >
+          <Text className={`text-sm font-bold ${section === 'sop' ? 'text-emerald-700' : 'text-gray-600'}`}>SOP</Text>
+        </TouchableOpacity>
+      </View>
+
+      {section === 'sop' ? (
+        <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 16 }}>
+          <SopBanner />
+        </ScrollView>
+      ) : (
+        <FlatList
+          data={data}
+          keyExtractor={(item) => String(item.id)}
+          contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 16, flexGrow: 1 }}
         renderItem={({ item }) => {
           const cat = CATEGORY[item.category] ?? CATEGORY.General;
           return (
@@ -246,11 +272,12 @@ export default function AnnouncementsScreen() {
         ListFooterComponent={<PaginatedListFooter loading={isFetchingNextPage} error={isFetchNextPageError} onRetry={() => void fetchNextPage()} />}
         ListEmptyComponent={
           <View className="items-center justify-center py-20">
-            <Megaphone color="#d1d5db" size={40} />
+            <Newspaper color="#d1d5db" size={40} />
             <Text className="mt-4 text-gray-400 text-sm">No announcements</Text>
           </View>
         }
-      />
+        />
+      )}
       <Modal visible={selected !== null} animationType="slide" transparent onRequestClose={() => setSelectedId(null)}>
         <View className="flex-1 bg-black/40 justify-end">
           <View className="bg-white rounded-t-3xl max-h-[82%]">

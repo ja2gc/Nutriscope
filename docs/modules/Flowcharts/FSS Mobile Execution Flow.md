@@ -1,6 +1,6 @@
 # FSS Mobile — Current Execution Flow
 
-Verified against current Expo Router screens on **2026-07-20**.
+Verified against current Expo Router screens on **2026-08-21**.
 
 ## Access and Navigation
 
@@ -15,17 +15,17 @@ flowchart TD
     F --> D
 
     D --> H1["Home"]
-    D --> H2["Menu"]
-    D --> H3["Meal Prep"]
-    D --> H4["Accomplish"]
-    D --> H5["Purchase"]
+    D --> H2["Announcement: Announcements tab + SOP tab"]
+    D --> H3["Menu"]
+    D --> H4["Meal Prep"]
+    D --> H5["Accomplish"]
+    D --> H6["Purchase"]
 
-    D --> X1["Header: Announcements and SOP"]
-    D --> X2["Header: Notifications"]
-    D --> X3["Header: Settings, Help, and Profile"]
+    D --> X1["Header bell: Notifications"]
+    D --> X2["Header profile: Side menu"]
 ```
 
-Bottom navigation is exactly five tabs: Home, Menu, Meal Prep, Accomplish, Purchase.
+Bottom navigation has six tabs: Home, Announcement, Menu, Meal Prep, Accomplish, Purchase.
 
 ## Daily Execution
 
@@ -41,12 +41,8 @@ flowchart TD
     B1 --> B2["Read recipe/item ingredients, cost, prep notes"]
     B2 --> C["Purchase receiving when deliveries arrive"]
     C --> D["Meal Prep"]
-    D --> D1["Review today's service"]
-    D1 --> D2["Enter actual total population"]
-    D2 --> D3{"Shortfall warning?"}
-    D3 -->|"Yes"| D4["Confirm accurate exception or cancel"]
-    D3 -->|"No"| D5["Mark served/complete"]
-    D4 --> D5
+    D --> D1["Review selected planned service date"]
+    D1 --> D2["Record or update actual population served"]
     D5 --> E["Accomplish"]
     E --> E1{"Off duty?"}
     E1 -->|"Yes"| E2["Save X with zero meals"]
@@ -83,10 +79,10 @@ FSS can correct actual quantities/prices and the actual vendor while the group i
 
 ```mermaid
 flowchart LR
-    A["Daily Accomplish entry"] --> B{"One entry for every Monday-Sunday day?"}
+    A["Daily Log: today or a past date"] --> B{"One entry for every Monday-Sunday day?"}
     B -->|"No"| C["Weekly report remains incomplete"]
     B -->|"Yes"| D["Archive frozen accomplishment report"]
-    D --> E["FSS opens own report from My reports"]
+    D --> E["FSS views own report and opens or saves PDF"]
     D --> F["RND/Admin may view within allowed report scope"]
 ```
 
@@ -96,18 +92,18 @@ Off-duty entries count and render as X. FSS report reads are owner-scoped.
 
 ```mermaid
 flowchart TD
-    A["Header megaphone"] --> B["Current SOP"]
-    A --> C["SOP History"]
-    A --> D["FSS/All announcements"]
+    A["Announcement bottom tab"] --> B["Announcements internal tab"]
+    A --> C["SOP internal tab"]
+    C --> D["Current SOP and SOP History"]
     E["Header bell"] --> F["Unread notifications"]
     F --> G["Open target or mark read"]
-    H["Header account"] --> I["Settings"]
-    I --> J["Density and reduced motion"]
-    I --> K["Mark all notifications read"]
-    I --> O["Help and Support: Help"]
+    H["Header profile"] --> I["Side menu"]
+    I --> J["Profile"]
+    I --> K["Notifications"]
+    I --> O["Help"]
     O --> P["Search Shared and FSS-only answers"]
-    I --> L["Profile"]
-    L --> M["Name, sign-in/recovery email, contact, password"]
+    I --> L["Settings"]
+    I --> M["Check for updates"]
     I --> N["Sign out"]
 ```
 
@@ -119,7 +115,7 @@ flowchart TD
 - Purchase label is current bottom-tab label; screen title remains Procurement.
 - Accomplishment entry is rendered on Accomplish, not Meal Prep.
 - Actual values, receipt, proof, and an explicit receiving action are required; OR is optional.
-- Help is reached from Settings and does not add a sixth bottom tab.
+- Announcement is the second bottom tab; Help remains in the profile side menu and Settings.
 
 ## Related Documents
 

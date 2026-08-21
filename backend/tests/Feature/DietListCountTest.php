@@ -8,6 +8,7 @@ use App\Models\MealPrepLog;
 use App\Models\MenuCycle;
 use App\Models\MenuCycleDay;
 use App\Models\User;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
@@ -135,14 +136,78 @@ class DietListCountTest extends TestCase
     {
         $rnd = User::factory()->create(['role' => 'RND']);
 
-        // The /fss group middleware requires FSS or RND — but let's check an Admin user is rejected.
-        $admin = User::factory()->create(['role' => 'Admin']);
-
-        $this->actingAs($admin)->postJson('/api/fss/diet-list-counts', [
+        $this->actingAs($rnd)->postJson('/api/fss/diet-list-counts', [
             'service_date' => '2026-06-20',
             'ward' => 'Ward A',
             'population' => 15,
         ])->assertForbidden();
+    }
+
+    public function test_future_service_date_is_rejected_using_philippine_date(): void
+    {
+        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-06-20 16:30:00', 'UTC'));
+
+        $this->actingAs($this->fss)->postJson('/api/fss/diet-list-counts', [
+            'service_date' => '2026-06-22',
+            'ward' => 'Ward A',
+            'population' => 15,
+        ])->assertUnprocessable()->assertJsonValidationErrors('service_date');
+
+        $this->actingAs($this->fss)->postJson('/api/fss/diet-list-counts', [
+            'service_date' => '2026-06-21',
+            'ward' => 'Ward A',
+            'population' => 15,
+        ])->assertCreated();
+    }
+
+    public function test_off_duty_and_working_rows_cannot_coexist_for_one_date(): void
+    {
+        $date = CarbonImmutable::now('Asia/Manila')->subDay()->toDateString();
+
+        $this->actingAs($this->fss)->postJson('/api/fss/diet-list-counts', [
+            'service_date' => $date,
+            'ward' => 'Ward A',
+            'population' => 15,
+        ])->assertCreated();
+
+        $this->actingAs($this->fss)->postJson('/api/fss/diet-list-counts', [
+            'service_date' => $date,
+            'ward' => 'Off duty',
+            'population' => 0,
+            'off_duty' => true,
+        ])->assertUnprocessable()->assertJsonValidationErrors('off_duty');
+    }
+
+    public function test_working_row_cannot_follow_an_off_duty_row(): void
+    {
+        $date = CarbonImmutable::now('Asia/Manila')->subDays(2)->toDateString();
+
+        $this->actingAs($this->fss)->postJson('/api/fss/diet-list-counts', [
+            'service_date' => $date,
+            'ward' => 'Off duty',
+            'population' => 0,
+            'off_duty' => true,
+        ])->assertCreated();
+
+        $this->actingAs($this->fss)->postJson('/api/fss/diet-list-counts', [
+            'service_date' => $date,
+            'ward' => 'Ward A',
+            'population' => 1,
+        ])->assertUnprocessable()->assertJsonValidationErrors('off_duty');
+    }
+
+    public function test_off_duty_entry_requires_zero_population_and_no_tasks(): void
+    {
+        $date = CarbonImmutable::now('Asia/Manila')->subDays(3)->toDateString();
+
+        $this->actingAs($this->fss)->postJson('/api/fss/diet-list-counts', [
+            'service_date' => $date,
+            'ward' => 'Off duty',
+            'population' => 3,
+            'helped_food_prep' => true,
+            'off_duty' => true,
+        ])->assertUnprocessable()
+            ->assertJsonValidationErrors(['population', 'helped_food_prep']);
     }
 
     // -------------------------------------------------------------------------

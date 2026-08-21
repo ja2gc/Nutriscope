@@ -1,707 +1,97 @@
+import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { router } from 'expo-router';
-import {
-  AlertCircle,
-  CalendarDays,
-  ChevronRight,
-  CheckCircle2,
-  ChefHat,
-  ClipboardCheck,
-  FileText,
-  X,
-} from 'lucide-react-native';
-import { useCallback, useState } from 'react';
-import {
-  ActivityIndicator,
-  Modal,
-  Pressable,
-  RefreshControl,
-  ScrollView,
-  Switch,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { router, type Href } from 'expo-router';
+import { AlertCircle, CalendarDays, ChefHat, ChevronRight, RotateCcw, Save, Users } from 'lucide-react-native';
+import { useMemo, useState } from 'react';
+import { ActivityIndicator, Platform, RefreshControl, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import api from '../../lib/api';
-import {
-  FsItemProfile,
-  MenuSnapshot,
-  RecipeProfile,
-  getFsItemProfile,
-  getRecipeProfile,
-} from '../../lib/foodService';
+import { dateFromKey, localDateKey, readableLocalDate } from '../../lib/localDate';
+import { getMenuCycle, listMealPrep, listMenuCycles, MEAL_LABELS, setServedPopulation } from '../../lib/foodService';
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-interface MenuCycle {
-  id: number;
-  name: string;
-  is_active: boolean;
-  status: string;
+function addDays(value: string, days: number): string {
+  const date = dateFromKey(value);
+  date.setDate(date.getDate() + days);
+  return localDateKey(date);
 }
 
-interface ServiceRow {
-  id: number;
-  meal_type: string;
-  name: string;
-  recipe_id: number | null;
-  fs_item_id: number | null;
-  quantity: number | null;
-  estimate_population: number | null;
-  servings_override: number | null;
-  po_snapshot?: MenuSnapshot | null;
-  prepped: boolean;
-}
-
-interface DashboardData {
-  today_service: ServiceRow[];
-}
-
-interface DietListCount {
-  id: number;
-  ward: string;
-  population: number;
-  service_date: string;
-}
-
-// ---------------------------------------------------------------------------
-// API helpers
-// ---------------------------------------------------------------------------
-
-const today = () => new Date().toISOString().slice(0, 10);
-const peso = (n: number) => `PHP ${n.toFixed(2)}`;
-
-type ProfileTarget =
-  | { type: 'recipe'; id: number; population: number; quantity?: number }
-  | { type: 'item'; id: number; population: number; quantity: number }
-  | { type: 'snapshot'; data: MenuSnapshot };
-
-type DisplayProfile = {
-  name: string;
-  prep_notes: string | null;
-  servings: number;
-  population: number;
-  total_cost: number;
-  cost_per_head: number;
-  ingredient_usage: { fs_item_id: number; name: string; unit: string; quantity: number; cost: number }[];
-};
-
-function snapshotToProfile(snapshot: MenuSnapshot): DisplayProfile {
-  const population = Number(snapshot.population ?? 0);
-  const totalCost = Number(snapshot.total_cost ?? 0);
-  const ingredientUsage = snapshot.ingredient_usage ?? (snapshot.total_quantity != null ? [{
-    fs_item_id: snapshot.fs_item_id ?? 0,
-    name: snapshot.name,
-    unit: snapshot.unit ?? '',
-    quantity: Number(snapshot.total_quantity),
-    cost: totalCost,
-  }] : []);
-
-  return {
-    name: snapshot.name,
-    prep_notes: snapshot.prep_notes ?? null,
-    servings: Number(snapshot.servings ?? population),
-    population,
-    total_cost: totalCost,
-    cost_per_head: Number(snapshot.cost_per_head ?? (population > 0 ? totalCost / population : 0)),
-    ingredient_usage: ingredientUsage,
-  };
-}
-
-function FoodProfileModal({ profile, onClose }: { profile: ProfileTarget; onClose: () => void }) {
-  const { data, isLoading } = useQuery<DisplayProfile | RecipeProfile | FsItemProfile>({
-    queryKey: [
-      'prep-food-profile',
-      profile.type,
-      profile.type === 'snapshot' ? profile.data.name : profile.id,
-      profile.type === 'snapshot' ? profile.data.population : profile.population,
-      profile.type === 'item' ? profile.quantity : 1,
-    ],
-    queryFn: async () => {
-      if (profile.type === 'snapshot') return snapshotToProfile(profile.data);
-      if (profile.type === 'recipe') return getRecipeProfile(profile.id, Math.max(1, profile.population));
-      return getFsItemProfile(profile.id, Math.max(1, profile.population), profile.quantity);
-    },
-  });
-
-  return (
-    <Modal visible animationType="slide" transparent onRequestClose={onClose}>
-      <View className="flex-1 bg-black/40 justify-end">
-        <View className="bg-white rounded-t-3xl max-h-[85%]">
-          <View className="flex-row items-center justify-between px-5 py-4 border-b border-gray-100">
-            <Text className="text-sm font-extrabold text-gray-900 flex-1" numberOfLines={1}>
-              {data?.name ?? 'Food details'}
-            </Text>
-            <TouchableOpacity onPress={onClose} hitSlop={8}>
-              <X color="#374151" size={20} />
-            </TouchableOpacity>
-          </View>
-          {isLoading || !data ? (
-            <View className="py-16 items-center"><ActivityIndicator color="#059669" /></View>
-          ) : (
-            <ScrollView contentContainerStyle={{ padding: 20 }}>
-              <Text className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
-                Scaled to {data.population} servings
-              </Text>
-              <View className="flex-row gap-6 mt-3">
-                <View>
-                  <Text className="text-[10px] font-extrabold uppercase tracking-wider text-gray-500">Total</Text>
-                  <Text className="text-xl font-extrabold text-emerald-600">{peso(data.total_cost)}</Text>
-                </View>
-                <View>
-                  <Text className="text-[10px] font-extrabold uppercase tracking-wider text-gray-500">Cost / head</Text>
-                  <Text className="text-xl font-extrabold text-gray-800">{peso(data.cost_per_head)}</Text>
-                </View>
-              </View>
-
-              <Text className="text-[10px] font-extrabold uppercase tracking-wider text-gray-500 mt-5 mb-1">Ingredients needed</Text>
-              {data.ingredient_usage.map((u) => (
-                <View key={`${u.fs_item_id}-${u.name}`} className="flex-row items-center justify-between py-1.5 border-b border-gray-50">
-                  <Text className="text-sm text-gray-700 flex-1">{u.name}</Text>
-                  <Text className="text-xs text-gray-500 tabular-nums">{u.quantity.toFixed(1)} {u.unit}</Text>
-                </View>
-              ))}
-
-              {data.prep_notes ? (
-                <View className="mt-5">
-                  <Text className="text-[10px] font-extrabold uppercase tracking-wider text-gray-500 mb-1">Prep notes</Text>
-                  <Text className="text-xs text-gray-700 leading-6 bg-gray-50 border border-gray-100 rounded-xl p-3">{data.prep_notes}</Text>
-                </View>
-              ) : null}
-            </ScrollView>
-          )}
-        </View>
-      </View>
-    </Modal>
-  );
-}
-
-async function fetchActiveCycle(): Promise<MenuCycle | null> {
-  const res = await api.get<{ data: MenuCycle[] }>('/api/fss/menu-cycles', { params: { active: 1, per_page: 1 } });
-  const cycles: MenuCycle[] = res.data.data;
-  return cycles.find((c) => c.is_active) ?? null;
-}
-
-async function fetchTodayService(): Promise<ServiceRow[]> {
-  const res = await api.get<{ data: DashboardData }>('/api/fss/dashboard/summary');
-  return res.data.data.today_service ?? [];
-}
-
-async function fetchTodayDietCounts(): Promise<DietListCount[]> {
-  const date = today();
-  const res = await api.get<{ data: DietListCount[] }>('/api/fss/diet-list-counts', {
-    params: { from: date, to: date },
-  });
-  return res.data.data;
-}
-
-// ---------------------------------------------------------------------------
-// Section A — Meal Prep
-// ---------------------------------------------------------------------------
-
-function MealPrepSection() {
-  const qc = useQueryClient();
-  const [servedPopulation, setServedPopulation] = useState('');
-  const [markError, setMarkError] = useState<string | null>(null);
-  const [profile, setProfile] = useState<ProfileTarget | null>(null);
-
-  const { data: activeCycle, isLoading: cycleLoading } = useQuery({
-    queryKey: ['fss-active-cycle'],
-    queryFn: fetchActiveCycle,
-    staleTime: 120_000,
-  });
-
-  const {
-    data: service,
-    isLoading: serviceLoading,
-    isError: serviceError,
-    refetch: refetchService,
-  } = useQuery({
-    queryKey: ['fss-dashboard'],
-    queryFn: fetchTodayService,
-    staleTime: 60_000,
-  });
-
-  const isLoading = cycleLoading || serviceLoading;
-
-  const markServedMutation = useMutation({
-    mutationFn: async ({ cycleId, served }: { cycleId: number; served: string }) => {
-      const body: Record<string, unknown> = { service_date: today() };
-      if (served.trim() !== '') {
-        body.served_population = parseInt(served, 10);
-      }
-      const res = await api.post(`/api/fss/menu-cycles/${cycleId}/complete-day`, body);
-      return res.data;
-    },
-    onSuccess: () => {
-      setMarkError(null);
-      qc.invalidateQueries({ queryKey: ['fss-dashboard'] });
-      qc.invalidateQueries({ queryKey: ['fss-active-cycle'] });
-      if (activeCycle?.id != null) {
-        qc.invalidateQueries({ queryKey: ['fs-mealprep', activeCycle.id] });
-      }
-    },
-    onError: (err: unknown) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const axiosErr = err as any;
-      const message: string = axiosErr?.response?.data?.message ?? 'Unknown error';
-      setMarkError(message);
-    },
-  });
-
-  const handleMarkServed = () => {
-    if (!activeCycle) return;
-    if (servedPopulation.trim() !== '') {
-      const parsed = parseInt(servedPopulation, 10);
-      if (!Number.isFinite(parsed) || parsed < 0) {
-        setMarkError('Actual served population must be 0 or greater.');
-        return;
-      }
-    }
-    markServedMutation.mutate({ cycleId: activeCycle.id, served: servedPopulation });
-  };
-
-  return (
-    <View className="px-4 mt-4">
-      <View className="flex-row items-center gap-2 mb-3">
-        <ChefHat color="#059669" size={20} />
-        <Text className="text-base font-semibold text-gray-800">Meal Prep — Today's Service</Text>
-      </View>
-
-      {isLoading ? (
-        <View className="bg-white rounded-xl border border-gray-100 py-8 items-center">
-          <ActivityIndicator color="#059669" />
-        </View>
-      ) : serviceError ? (
-        <View className="bg-white rounded-xl border border-red-100 px-4 py-5 items-center">
-          <AlertCircle color="#ef4444" size={24} />
-          <Text className="mt-2 text-sm text-gray-600 text-center">Could not load today's service.</Text>
-          <TouchableOpacity
-            className="mt-3 px-4 py-2 bg-emerald-600 rounded-lg"
-            onPress={() => refetchService()}
-          >
-            <Text className="text-white text-sm font-semibold">Retry</Text>
-          </TouchableOpacity>
-        </View>
-      ) : (
-        <>
-          {activeCycle && (
-            <View className="bg-white rounded-xl border border-gray-100 px-4 py-3 mb-3">
-              <Text className="text-xs font-medium text-gray-500 mb-1.5">Actual total patient population today</Text>
-              <TextInput
-                value={servedPopulation}
-                onChangeText={(t) => {
-                  setServedPopulation(t.replace(/[^0-9]/g, ''));
-                  setMarkError(null);
-                }}
-                placeholder="Enter census"
-                placeholderTextColor="#9ca3af"
-                className="border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-900 tabular-nums"
-                keyboardType="numeric"
-                accessibilityLabel="Actual total patient population today"
-              />
-            </View>
-          )}
-
-          {service && service.length > 0 ? (
-            <View className="bg-white rounded-xl border border-gray-100 overflow-hidden mb-3">
-              {service.map((row, idx) => {
-                const scaleTo = row.servings_override ?? row.estimate_population ?? (Number(servedPopulation || 0) || 1);
-                const canOpen = Boolean(row.po_snapshot || row.recipe_id || row.fs_item_id);
-                return (
-                <TouchableOpacity
-                  key={`${row.meal_type}-${idx}`}
-                  disabled={!canOpen}
-                  onPress={() => {
-                    if (row.po_snapshot) {
-                      setProfile({ type: 'snapshot', data: row.po_snapshot });
-                      return;
-                    }
-                    if (row.recipe_id) {
-                      setProfile({ type: 'recipe', id: row.recipe_id, population: scaleTo });
-                      return;
-                    }
-                    if (row.fs_item_id) {
-                      setProfile({ type: 'item', id: row.fs_item_id, population: scaleTo, quantity: Number(row.quantity ?? 1) });
-                    }
-                  }}
-                  className={`flex-row items-center px-4 py-3 ${idx < service.length - 1 ? 'border-b border-gray-100' : ''}`}
-                >
-                  <View className="flex-1">
-                    <Text className="text-xs text-gray-400 uppercase tracking-wide">{row.meal_type}</Text>
-                    <Text className="text-sm font-medium text-gray-800 mt-0.5">{row.name}</Text>
-                  </View>
-                  <View className="flex-row gap-2 items-center">
-                    {row.prepped && (
-                      <View className="bg-green-100 px-2 py-0.5 rounded-full">
-                        <Text className="text-xs font-medium text-green-700">Prepped</Text>
-                      </View>
-                    )}
-                    {canOpen && <ChevronRight color="#9ca3af" size={16} />}
-                  </View>
-                </TouchableOpacity>
-              );})}
-            </View>
-          ) : (
-            <View className="bg-white rounded-xl border border-gray-100 px-4 py-6 items-center mb-3">
-              <Text className="text-gray-400 text-sm">No service entries for today.</Text>
-            </View>
-          )}
-
-          {!activeCycle ? (
-            <View className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-4">
-              <Text className="text-amber-700 text-sm text-center">No active menu cycle — contact RND.</Text>
-            </View>
-          ) : (
-            <View className="gap-3">
-            <TouchableOpacity
-              className={`flex-row items-center justify-center gap-2 py-3.5 rounded-xl ${
-                markServedMutation.isPending ? 'bg-emerald-400' : 'bg-emerald-600'
-              }`}
-              onPress={handleMarkServed}
-              disabled={markServedMutation.isPending}
-              accessibilityLabel="Mark today's meals as served"
-              accessibilityRole="button"
-            >
-              {markServedMutation.isPending ? (
-                <ActivityIndicator color="#fff" size="small" />
-              ) : (
-                <CheckCircle2 color="#fff" size={18} />
-              )}
-              <Text className="text-white font-semibold text-sm">
-                {markServedMutation.isPending ? 'Marking served...' : 'Mark service complete'}
-              </Text>
-            </TouchableOpacity>
-            </View>
-          )}
-
-          {markError && (
-            <View className="mt-3 bg-red-50 border border-red-200 rounded-xl px-4 py-3 flex-row items-center gap-2">
-              <AlertCircle color="#ef4444" size={18} />
-              <Text className="text-red-700 text-sm flex-1">{markError}</Text>
-            </View>
-          )}
-
-          {markServedMutation.isSuccess && (
-            <View className="mt-3 bg-green-50 border border-green-200 rounded-xl px-4 py-3 flex-row items-center gap-2">
-              <CheckCircle2 color="#16a34a" size={18} />
-              <Text className="text-green-700 text-sm font-medium">Service day marked complete.</Text>
-            </View>
-          )}
-          {profile && <FoodProfileModal profile={profile} onClose={() => setProfile(null)} />}
-        </>
-      )}
-
-    </View>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Section B — Diet-list accomplishment
-// ---------------------------------------------------------------------------
-
-const TASK_FLAGS = [
-  { key: 'helped_food_prep', label: 'Helped in food preparation work' },
-  { key: 'stored_supplies', label: 'Served food supplies properly' },
-  { key: 'collected_diet_list', label: 'Collected diet list from different wards' },
-  { key: 'apportioned_food', label: 'Apportioned and distributed food to in-patients in different wards' },
-  { key: 'cleaned_utensils', label: 'Collected, cleaned and returned used utensils and other equipment' },
-  { key: 'assistant_cook', label: 'Assumed duties as assistant cook' },
-  { key: 'maintained_cleanliness', label: 'Monitored cleanliness of kitchen, cabinets, refrigerators and freezers' },
-] as const;
-
-type TaskKey = (typeof TASK_FLAGS)[number]['key'];
-
-type TaskFlags = Record<TaskKey, boolean>;
-
-function AccomplishmentSection({ activeCycleId }: { activeCycleId?: number }) {
-  const qc = useQueryClient();
-
-  const [ward, setWard] = useState('');
-  const [distributedMeals, setDistributedMeals] = useState('');
-  const [offDuty, setOffDuty] = useState(false);
-  const [tasks, setTasks] = useState<TaskFlags>({
-    helped_food_prep: false,
-    stored_supplies: false,
-    collected_diet_list: false,
-    apportioned_food: false,
-    cleaned_utensils: false,
-    assistant_cook: false,
-    maintained_cleanliness: false,
-  });
-  const [validationError, setValidationError] = useState<string | null>(null);
-  const [submitSuccess, setSubmitSuccess] = useState(false);
-
-  const {
-    data: todayCounts,
-    refetch: refetchCounts,
-  } = useQuery({
-    queryKey: ['fss-diet-list-today'],
-    queryFn: fetchTodayDietCounts,
-    staleTime: 30_000,
-  });
-
-  const totalDistributedMeals = todayCounts?.reduce((acc, c) => acc + c.population, 0) ?? 0;
-
-  const submitMutation = useMutation({
-    mutationFn: async () => {
-      const distributed = offDuty ? 0 : parseInt(distributedMeals, 10);
-      const body: Record<string, unknown> = {
-        service_date: today(),
-        ward: offDuty ? (ward.trim() || 'Absent') : ward.trim(),
-        population: distributed,
-        off_duty: offDuty,
-        ...tasks,
-        apportioned_food: offDuty ? false : tasks.apportioned_food || distributed > 0,
-      };
-      if (activeCycleId != null) {
-        body.menu_cycle_id = activeCycleId;
-      }
-      const res = await api.post('/api/fss/diet-list-counts', body);
-      return res.data;
-    },
-    onSuccess: () => {
-      setSubmitSuccess(true);
-      setWard('');
-      setDistributedMeals('');
-      setOffDuty(false);
-      setTasks({
-        helped_food_prep: false,
-        stored_supplies: false,
-        collected_diet_list: false,
-        apportioned_food: false,
-        cleaned_utensils: false,
-        assistant_cook: false,
-        maintained_cleanliness: false,
-      });
-      setValidationError(null);
-      refetchCounts();
-      qc.invalidateQueries({ queryKey: ['fss-dashboard'] });
-      setTimeout(() => setSubmitSuccess(false), 4000);
-    },
-  });
-
-  const handleToggleTask = useCallback((key: TaskKey) => {
-    setTasks((prev) => ({ ...prev, [key]: !prev[key] }));
-  }, []);
-
-  const handleSubmit = () => {
-    setValidationError(null);
-    setSubmitSuccess(false);
-
-    if (!offDuty && !ward.trim()) {
-      setValidationError('Ward is required.');
-      return;
-    }
-    const distributed = offDuty ? 0 : parseInt(distributedMeals, 10);
-    if (!offDuty && (isNaN(distributed) || distributed < 0)) {
-      setValidationError('Distributed meals must be 0 or greater.');
-      return;
-    }
-    submitMutation.mutate();
-  };
-
-  return (
-    <View className="px-4 mt-6 mb-4">
-      <View className="flex-row items-center gap-2 mb-3">
-        <ClipboardCheck color="#7c3aed" size={20} />
-        <Text className="text-base font-semibold text-gray-800">Accomplishment Report</Text>
-      </View>
-
-      {/* Running total */}
-      <View className="bg-emerald-50 border border-emerald-100 rounded-xl px-4 py-3 flex-row items-center justify-between mb-4">
-        <Text className="text-sm text-emerald-700">Today's distributed meals</Text>
-        <Text className="text-2xl font-bold text-emerald-700 tabular-nums">{totalDistributedMeals}</Text>
-      </View>
-
-      {/* Form */}
-      <View className="bg-white rounded-xl border border-gray-100 px-4 py-4 gap-4">
-        {/* Ward */}
-        <View>
-          <Text className="text-xs font-medium text-gray-500 mb-1.5">Ward *</Text>
-          <TextInput
-            value={ward}
-            onChangeText={(t) => {
-              setWard(t);
-              setValidationError(null);
-            }}
-            placeholder="e.g. Ward A"
-            placeholderTextColor="#9ca3af"
-            className="border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-900"
-            autoCapitalize="words"
-            returnKeyType="next"
-            accessibilityLabel="Ward name"
-          />
-        </View>
-
-        {/* Distributed meals */}
-        <View>
-          <Text className="text-xs font-medium text-gray-500 mb-1.5">Distributed meals *</Text>
-          <TextInput
-            value={distributedMeals}
-            onChangeText={(t) => {
-              setDistributedMeals(t.replace(/[^0-9]/g, ''));
-              setValidationError(null);
-            }}
-            placeholder="0"
-            placeholderTextColor="#9ca3af"
-            className="border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-900 tabular-nums"
-            keyboardType="numeric"
-            returnKeyType="done"
-            accessibilityLabel="Distributed meals"
-          />
-        </View>
-
-        {/* Task flags */}
-        <View>
-          <Text className="text-xs font-medium text-gray-500 mb-2">Tasks completed</Text>
-          <View className="gap-1">
-            {TASK_FLAGS.map(({ key, label }) => (
-              <Pressable
-                key={key}
-                onPress={() => handleToggleTask(key)}
-                className="flex-row items-center py-2 gap-3"
-                accessibilityRole="checkbox"
-                accessibilityState={{ checked: tasks[key] }}
-                accessibilityLabel={label}
-              >
-                <View
-                  className={`w-5 h-5 rounded border-2 items-center justify-center ${
-                    tasks[key] ? 'bg-emerald-600 border-emerald-600' : 'border-gray-300 bg-white'
-                  }`}
-                >
-                  {tasks[key] && (
-                    <Text className="text-white text-xs font-bold leading-none">✓</Text>
-                  )}
-                </View>
-                <Text className="text-sm text-gray-700 flex-1">{label}</Text>
-              </Pressable>
-            ))}
-          </View>
-        </View>
-
-        {/* Off duty toggle */}
-        <View className="flex-row items-center justify-between py-2 border-t border-gray-100">
-          <View className="flex-1 pr-4">
-            <Text className="text-sm text-gray-700">Absent / off duty today</Text>
-            <Text className="text-xs text-gray-400 mt-0.5">
-              Saves today as X in the accomplishment report.
-            </Text>
-          </View>
-          <Switch
-            value={offDuty}
-            onValueChange={setOffDuty}
-            trackColor={{ false: '#d1d5db', true: '#bfdbfe' }}
-            thumbColor={offDuty ? '#059669' : '#6b7280'}
-            accessibilityLabel="Off duty toggle"
-            accessibilityRole="switch"
-          />
-        </View>
-
-        {/* Validation error */}
-        {validationError && (
-          <View className="flex-row items-center gap-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2.5">
-            <AlertCircle color="#ef4444" size={16} />
-            <Text className="text-sm text-red-700 flex-1">{validationError}</Text>
-          </View>
-        )}
-
-        {/* Submit error */}
-        {submitMutation.isError && !validationError && (
-          <View className="flex-row items-center gap-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2.5">
-            <AlertCircle color="#ef4444" size={16} />
-            <Text className="text-sm text-red-700 flex-1">
-              {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-              {(submitMutation.error as any)?.response?.data?.message ?? 'Submit failed. Try again.'}
-            </Text>
-          </View>
-        )}
-
-        {/* Success */}
-        {submitSuccess && (
-          <View className="flex-row items-center gap-2 bg-green-50 border border-green-200 rounded-lg px-3 py-2.5">
-            <CheckCircle2 color="#16a34a" size={16} />
-            <Text className="text-sm text-green-700 font-medium">Accomplishment entry saved.</Text>
-          </View>
-        )}
-
-        {/* Submit button */}
-        <TouchableOpacity
-          className={`flex-row items-center justify-center gap-2 py-3.5 rounded-xl ${
-            submitMutation.isPending ? 'bg-emerald-400' : 'bg-emerald-600'
-          }`}
-          onPress={handleSubmit}
-          disabled={submitMutation.isPending}
-          accessibilityLabel="Submit diet list entry"
-          accessibilityRole="button"
-        >
-          {submitMutation.isPending ? (
-            <ActivityIndicator color="#fff" size="small" />
-          ) : (
-            <ClipboardCheck color="#fff" size={18} />
-          )}
-          <Text className="text-white font-semibold text-sm">
-            {submitMutation.isPending ? 'Saving…' : 'Submit entry'}
-          </Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Root screen
-// ---------------------------------------------------------------------------
-
-export default function PrepScreen() {
+export default function MealPrepScreen() {
   const insets = useSafeAreaInsets();
-  const qc = useQueryClient();
-  const [refreshing, setRefreshing] = useState(false);
+  const queryClient = useQueryClient();
+  const today = localDateKey();
+  const [selectedDate, setSelectedDate] = useState(today);
+  const [showPicker, setShowPicker] = useState(false);
+  const [served, setServed] = useState('');
+  const [message, setMessage] = useState<{ error: boolean; text: string } | null>(null);
 
-  const { data: activeCycle } = useQuery({
+  const activeQuery = useQuery({
     queryKey: ['fss-active-cycle'],
-    queryFn: fetchActiveCycle,
+    queryFn: async () => (await listMenuCycles(1, true)).data.find((cycle) => cycle.is_active) ?? null,
     staleTime: 120_000,
   });
+  const cycleQuery = useQuery({
+    queryKey: ['fss-meal-prep-cycle', activeQuery.data?.id],
+    queryFn: () => getMenuCycle(activeQuery.data!.id),
+    enabled: Boolean(activeQuery.data?.id),
+  });
+  const logsQuery = useQuery({
+    queryKey: ['fs-mealprep', activeQuery.data?.id],
+    queryFn: () => listMealPrep(activeQuery.data!.id),
+    enabled: Boolean(activeQuery.data?.id),
+  });
 
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    await Promise.all([
-      qc.invalidateQueries({ queryKey: ['fss-dashboard'] }),
-      qc.invalidateQueries({ queryKey: ['fss-active-cycle'] }),
-      qc.invalidateQueries({ queryKey: ['fss-diet-list-today'] }),
-    ]);
-    setRefreshing(false);
-  }, [qc]);
+  const cycle = cycleQuery.data;
+  const start = cycle?.week_start_date ?? today;
+  const end = cycle?.week_start_date ? addDays(cycle.week_start_date, 6) : today;
+  const maxDate = end < today ? end : today;
+  const dateInCycle = selectedDate >= start && selectedDate <= end;
+  const weekday = dateFromKey(selectedDate).toLocaleDateString('en-US', { weekday: 'long' });
+  const meals = useMemo(() => dateInCycle ? (cycle?.days ?? []).filter((row) => row.day_of_week === weekday) : [], [cycle?.days, dateInCycle, weekday]);
+  const existing = (logsQuery.data ?? []).find((log) => log.service_date === selectedDate);
 
-  return (
-    <ScrollView
-      className="flex-1 bg-gray-50"
-      contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-      }
-    >
-      <View className="px-4 mt-4 gap-2.5">
-        <TouchableOpacity
-          className="flex-row items-center justify-between bg-white border border-gray-100 rounded-xl px-4 py-3"
-          onPress={() => router.push('/(tabs)/menu')}
-          accessibilityLabel="Open menu cycles and served population"
-          accessibilityRole="button"
-        >
-          <View className="flex-row items-center gap-2">
-            <CalendarDays color="#059669" size={18} />
-            <Text className="text-sm font-semibold text-gray-800">Menu cycles and served population</Text>
-          </View>
-          <Text className="text-xs text-gray-400">Open</Text>
-        </TouchableOpacity>
+  const saveMutation = useMutation({
+    mutationFn: () => setServedPopulation(cycle!.id, selectedDate, Number.parseInt(served, 10)),
+    onSuccess: async () => {
+      setMessage({ error: false, text: `Actual served population recorded for ${readableLocalDate(selectedDate)}.` });
+      setServed('');
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['fs-mealprep', cycle?.id] }),
+        queryClient.invalidateQueries({ queryKey: ['fss-dashboard'] }),
+        queryClient.invalidateQueries({ queryKey: ['fss-purchase-orders'] }),
+      ]);
+    },
+    onError: (error: any) => setMessage({ error: true, text: error?.response?.data?.message ?? Object.values(error?.response?.data?.errors ?? {}).flat()[0] ?? 'Could not save actual served population.' }),
+  });
 
-      </View>
-      <MealPrepSection />
-    </ScrollView>
-  );
+  const submit = () => {
+    setMessage(null);
+    const value = Number.parseInt(served, 10);
+    if (!Number.isFinite(value) || value < 0) { setMessage({ error: true, text: 'Enter an actual served population of 0 or greater.' }); return; }
+    if (!cycle || meals.length === 0) { setMessage({ error: true, text: 'This date has no planned meals in the active cycle.' }); return; }
+    saveMutation.mutate();
+  };
+
+  const selectDate = (event: DateTimePickerEvent, value?: Date) => {
+    if (Platform.OS === 'android') setShowPicker(false);
+    if (event.type !== 'dismissed' && value) { setSelectedDate(localDateKey(value)); setServed(''); setMessage(null); }
+  };
+  const goToday = () => { setSelectedDate(localDateKey()); setShowPicker(false); setServed(''); setMessage(null); };
+  const loading = activeQuery.isLoading || cycleQuery.isLoading;
+
+  return <ScrollView className="flex-1 bg-[#F4F7F5]" contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 28 }} refreshControl={<RefreshControl refreshing={activeQuery.isRefetching || cycleQuery.isRefetching} onRefresh={() => { void activeQuery.refetch(); void cycleQuery.refetch(); void logsQuery.refetch(); }} tintColor="#087F5B" />}>
+    <View className="rounded-[24px] bg-[#0B6B4B] p-5"><ChefHat color="#D1FAE5" size={22} /><Text className="mt-3 text-2xl font-extrabold text-white">Meal preparation</Text><Text className="mt-1 text-sm leading-5 text-emerald-100">Review the planned meals, then record the actual patient population served.</Text></View>
+
+    <View className="mt-3 rounded-[22px] border border-[#E2EAE5] bg-white p-4">
+      <Text className="text-xs font-bold uppercase tracking-widest text-[#6B7F77]">Service date</Text>
+      <View className="mt-2 flex-row gap-2"><TouchableOpacity onPress={() => setShowPicker(true)} disabled={!cycle} className="min-h-12 flex-1 flex-row items-center gap-3 rounded-xl border border-[#D9E3DD] bg-[#FAFCFB] px-3"><CalendarDays color="#087F5B" size={20} /><Text className="flex-1 text-sm font-bold text-[#263D35]">{readableLocalDate(selectedDate)}</Text></TouchableOpacity>{selectedDate !== today && <TouchableOpacity onPress={goToday} className="min-h-12 flex-row items-center gap-1.5 rounded-xl bg-[#E7F7F0] px-3"><RotateCcw color="#087F5B" size={17} /><Text className="text-sm font-bold text-[#087F5B]">Today</Text></TouchableOpacity>}</View>
+      {showPicker && cycle && <DateTimePicker value={dateFromKey(dateInCycle ? selectedDate : maxDate)} mode="date" minimumDate={dateFromKey(start)} maximumDate={dateFromKey(maxDate)} onChange={selectDate} />}
+    </View>
+
+    {loading ? <View className="py-16"><ActivityIndicator color="#087F5B" /></View> : !cycle ? <View className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 p-4"><Text className="text-sm text-amber-800">No active menu cycle. Contact RND.</Text></View> : !dateInCycle ? <View className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 p-4"><Text className="text-sm text-amber-800">Today is outside the active menu cycle. Choose a planned date or contact RND.</Text></View> : <>
+      <View className="mt-3 rounded-[22px] border border-[#E2EAE5] bg-white p-4"><Text className="text-base font-extrabold text-[#16352B]">{weekday}'s meals</Text><Text className="mt-1 text-xs text-[#6B7F77]">{cycle.name}</Text>{meals.length === 0 ? <Text className="py-6 text-center text-sm text-[#7A8D85]">No meals planned for this date.</Text> : meals.map((meal) => <TouchableOpacity key={`${meal.day_of_week}-${meal.meal_type}`} onPress={() => router.push({ pathname: '/food-details', params: { cycleId: cycle.id, day: meal.day_of_week, meal: meal.meal_type } } as unknown as Href)} className="min-h-14 flex-row items-center border-b border-[#EDF2EF] py-2"><View className="flex-1"><Text className="text-xs font-bold uppercase tracking-wider text-[#7A8D85]">{MEAL_LABELS[meal.meal_type] ?? meal.meal_type}</Text><Text className="mt-0.5 text-sm font-bold text-[#263D35]">{meal.po_snapshot?.name ?? meal.recipe?.name ?? meal.fs_item?.name ?? 'Meal details'}</Text></View><ChevronRight color="#7A8D85" size={18} /></TouchableOpacity>)}</View>
+
+      <View className="mt-3 rounded-[22px] border border-[#E2EAE5] bg-white p-4"><View className="flex-row items-center gap-2"><Users color="#087F5B" size={19} /><Text className="text-base font-extrabold text-[#16352B]">Actual population served</Text></View>{existing?.served_population != null && <Text className="mt-2 text-xs text-[#087F5B]">Currently recorded: {existing.served_population}</Text>}<TextInput value={served} onChangeText={(value) => { setServed(value.replace(/[^0-9]/g, '')); setMessage(null); }} placeholder={existing?.served_population != null ? String(existing.served_population) : 'Enter actual headcount'} placeholderTextColor="#9AA9A2" keyboardType="number-pad" className="mt-3 min-h-12 rounded-xl border border-[#D9E3DD] bg-[#FAFCFB] px-3.5 text-[#16352B]" /><TouchableOpacity onPress={submit} disabled={saveMutation.isPending || meals.length === 0} className={`mt-3 min-h-12 flex-row items-center justify-center gap-2 rounded-xl ${saveMutation.isPending || meals.length === 0 ? 'bg-[#8FC8B5]' : 'bg-[#087F5B]'}`}>{saveMutation.isPending ? <ActivityIndicator color="#fff" /> : <Save color="#fff" size={18} />}<Text className="font-extrabold text-white">{existing ? 'Update actual served' : 'Record actual served'}</Text></TouchableOpacity></View>
+    </>}
+
+    {message && <View className={`mt-3 flex-row gap-2 rounded-xl border p-3 ${message.error ? 'border-red-200 bg-red-50' : 'border-emerald-200 bg-emerald-50'}`}><AlertCircle color={message.error ? '#DC2626' : '#087F5B'} size={18} /><Text className={`flex-1 text-sm ${message.error ? 'text-red-700' : 'text-emerald-800'}`}>{message.text}</Text></View>}
+  </ScrollView>;
 }

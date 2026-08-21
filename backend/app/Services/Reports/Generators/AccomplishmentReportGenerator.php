@@ -120,25 +120,31 @@ class AccomplishmentReportGenerator implements ReportGenerator
                 /** @var User $user */
                 $user = $staffRows->first()->user;
 
-                // Index rows by date for O(1) lookup.
-                $byDate = $staffRows->keyBy(fn (DietListCount $r) => $r->service_date->toDateString());
+                // Keep every ward row for the date; one staff member may serve several wards.
+                $byDate = $staffRows->groupBy(fn (DietListCount $r) => $r->service_date->toDateString());
 
                 $taskRows = [];
                 foreach (array_keys(self::TASKS) as $task) {
                     $cells = [];
                     foreach ($days as $date) {
-                        /** @var DietListCount|null $row */
-                        $row = $byDate->get($date);
+                        /** @var Collection<int, DietListCount>|null $dateRows */
+                        $dateRows = $byDate->get($date);
 
-                        if ($row === null) {
+                        if ($dateRows === null) {
                             $cells[$date] = '–';
-                        } elseif ($row->off_duty) {
+                        } elseif ($dateRows->every(fn (DietListCount $row): bool => $row->off_duty)) {
                             $cells[$date] = 'X';
                         } elseif ($task === self::NUMERIC_TASK) {
-                            // Row 4: show the numeric count this staff distributed.
-                            $cells[$date] = $row->apportioned_food ? ($row->population ?? '–') : '–';
+                            $distributedRows = $dateRows
+                                ->filter(fn (DietListCount $row): bool => ! $row->off_duty && $row->apportioned_food)
+                                ->values();
+                            $cells[$date] = $distributedRows->isNotEmpty()
+                                ? $distributedRows->sum('population')
+                                : '–';
                         } else {
-                            $cells[$date] = $row->$task ? '✓' : '–';
+                            $cells[$date] = $dateRows->contains(fn (DietListCount $row): bool => ! $row->off_duty && $row->$task)
+                                ? '✓'
+                                : '–';
                         }
                     }
                     $taskRows[$task] = $cells;

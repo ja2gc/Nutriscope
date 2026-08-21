@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next";
 
 export const metadata: Metadata = {
-  manifest: "/fss.webmanifest",
   applicationName: "NutriScope Food Service Staff",
 };
 

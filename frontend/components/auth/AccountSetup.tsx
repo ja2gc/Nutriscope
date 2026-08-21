@@ -8,7 +8,7 @@ import { completeOnboarding, skipOnboarding } from "@/services/authService";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 
-export function AccountSetup({ appMode = false }: { appMode?: boolean }) {
+export function AccountSetup() {
   const router = useRouter();
   const { user, initializing, refreshUser } = useAuth();
   const [password, setPassword] = useState("");
@@ -16,15 +16,14 @@ export function AccountSetup({ appMode = false }: { appMode?: boolean }) {
   const [recoveryEmail, setRecoveryEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const destination = appMode ? "/fss" : user?.role === "Admin" ? "/admin/dashboard" : user?.role === "FSS" ? "/fss" : "/dashboard";
-  const loginPath = appMode ? "/fss/login" : "/login";
+  const destination = user?.role === "Admin" ? "/admin/dashboard" : user?.role === "FSS" ? "/mobile-app" : "/dashboard";
+  const loginPath = "/login";
 
   useEffect(() => {
     if (initializing) return;
     if (!user) router.replace(loginPath);
-    else if (appMode && user.role !== "FSS") router.replace(user.role === "Admin" ? "/admin/dashboard" : "/dashboard");
     else if (!user.onboarding_required) router.replace(destination);
-  }, [appMode, destination, initializing, loginPath, router, user]);
+  }, [destination, initializing, loginPath, router, user]);
 
   async function finish(event: React.FormEvent) {
     event.preventDefault();
@@ -55,7 +54,7 @@ export function AccountSetup({ appMode = false }: { appMode?: boolean }) {
     }
   }
 
-  if (initializing || !user || (appMode && user.role !== "FSS")) return <main className="min-h-dvh animate-pulse bg-warm-50" aria-busy="true" />;
+  if (initializing || !user) return <main className="min-h-dvh animate-pulse bg-warm-50" aria-busy="true" />;
 
   return (
     <main className="flex min-h-dvh items-center justify-center bg-warm-50 p-5 sm:p-8">

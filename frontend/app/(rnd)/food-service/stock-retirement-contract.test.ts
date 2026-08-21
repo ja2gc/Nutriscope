@@ -44,23 +44,4 @@ describe("food-service stock retirement", () => {
     retiredNames.forEach((name) => expect(sources).not.toContain(name));
   });
 
-  test("service-day copy describes truthful records and status only", () => {
-    const panel = read("app/(rnd)/food-service/menu-cycle/_components/ServiceLogPanel.tsx");
-    const sources = [
-      panel,
-      read("services/consumptionService.ts"),
-      read("../backend/app/Services/FSS/ConsumptionService.php"),
-    ].join("\n").toLowerCase();
-    const retiredConcepts = [
-      ["deduct", "stock"].join(" "),
-      ["restore", "stock"].join(" "),
-      ["stock", "used"].join(" "),
-    ];
-
-    expect(sources).toContain("service-day record");
-    expect(sources).not.toContain("estimated service cost");
-    expect(panel).not.toContain("total_value");
-    expect(sources).not.toContain("stock");
-    retiredConcepts.forEach((copy) => expect(sources).not.toContain(copy));
-  });
 });

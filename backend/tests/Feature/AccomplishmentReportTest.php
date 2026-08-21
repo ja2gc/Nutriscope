@@ -141,6 +141,32 @@ class AccomplishmentReportTest extends TestCase
         $this->assertSame(42, $sheet['task_rows']['apportioned_food']['2026-06-03']);
     }
 
+    public function test_multiple_ward_rows_are_combined_for_one_staff_day(): void
+    {
+        $this->seedCount($this->fss1, '2026-06-03', [
+            'ward' => 'Ward A',
+            'apportioned_food' => true,
+            'helped_food_prep' => true,
+            'population' => 18,
+        ]);
+        $this->seedCount($this->fss1, '2026-06-03', [
+            'ward' => 'Ward B',
+            'apportioned_food' => true,
+            'stored_supplies' => true,
+            'population' => 24,
+        ]);
+
+        $data = (new AccomplishmentReportGenerator)->data(
+            $this->makeReport(['from' => '2026-06-03', 'to' => '2026-06-03'])
+        );
+        $sheet = collect($data['staff_sheets'])
+            ->first(fn ($sheet) => $sheet['user']->id === $this->fss1->id);
+
+        $this->assertSame(42, $sheet['task_rows']['apportioned_food']['2026-06-03']);
+        $this->assertSame('✓', $sheet['task_rows']['helped_food_prep']['2026-06-03']);
+        $this->assertSame('✓', $sheet['task_rows']['stored_supplies']['2026-06-03']);
+    }
+
     public function test_off_duty_day_renders_as_x(): void
     {
         $this->seedCount($this->fss1, '2026-06-04', ['off_duty' => true]);
@@ -412,14 +438,8 @@ class AccomplishmentReportTest extends TestCase
             ]);
         }
 
-        $this->actingAs($this->fss1)
-            ->postJson('/api/fss/diet-list-counts', [
-                'service_date' => '2026-06-07',
-                'ward' => 'Off duty duplicate',
-                'population' => 0,
-                'off_duty' => true,
-            ])
-            ->assertCreated();
+        app(AccomplishmentReportArchiveService::class)
+            ->archiveCompletedWeek($this->fss1, '2026-06-07');
 
         $report = Report::where('user_id', $this->fss1->id)
             ->where('type', 'accomplishment_report')

@@ -34,7 +34,7 @@ export interface MenuSnapshot {
 }
 
 export interface MenuCycle {
-  id: number;
+  id: string;
   name: string;
   is_active: boolean;
   status: string;
@@ -73,7 +73,7 @@ export interface FsItemProfile {
 }
 
 export interface MealPrepLog {
-  id: number;
+  id: string;
   service_date: string;
   served_population: number | null;
   population: number | null;
@@ -93,7 +93,7 @@ export async function listMenuCycles(page: number, active = false): Promise<Pagi
   return res.data;
 }
 
-export async function getMenuCycle(id: number): Promise<MenuCycle> {
+export async function getMenuCycle(id: string): Promise<MenuCycle> {
   const res = await api.get<{ data: MenuCycle }>(`/api/fss/menu-cycles/${id}`);
   return res.data.data;
 }
@@ -114,7 +114,7 @@ export async function getFsItemProfile(fsItemId: number, population: number, qua
   return res.data.data;
 }
 
-export async function listMealPrep(menuCycleId: number): Promise<MealPrepLog[]> {
+export async function listMealPrep(menuCycleId: string): Promise<MealPrepLog[]> {
   const res = await api.get<{ data: MealPrepLog[] }>('/api/fss/meal-prep-logs', {
     params: { menu_cycle_id: menuCycleId },
   });
@@ -122,7 +122,7 @@ export async function listMealPrep(menuCycleId: number): Promise<MealPrepLog[]> 
 }
 
 /** Backfill a service day's served population (FSS or RND). */
-export async function setServedPopulation(menuCycleId: number, service_date: string, served_population: number): Promise<MealPrepLog> {
+export async function setServedPopulation(menuCycleId: string, service_date: string, served_population: number): Promise<MealPrepLog> {
   const res = await api.patch<{ data: MealPrepLog }>(
     `/api/fss/menu-cycles/${menuCycleId}/served-population`,
     { service_date, served_population },

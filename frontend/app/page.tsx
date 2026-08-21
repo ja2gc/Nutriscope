@@ -8,7 +8,7 @@ export default async function Home() {
   if (role === "Admin") {
     redirect("/admin/dashboard");
   } else if (role === "FSS") {
-    redirect("/fss");
+    redirect("/mobile-app");
   } else {
     redirect("/dashboard");
   }

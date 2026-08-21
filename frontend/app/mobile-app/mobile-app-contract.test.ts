@@ -5,9 +5,9 @@ import path from "node:path";
 const source = fs.readFileSync(path.join(__dirname, "page.tsx"), "utf8");
 
 describe("public FSS app landing", () => {
-  it("uses shared install handoff and identifies the intended role", () => {
-    expect(source).toContain('InstallNutriScope mode="landing"');
+  it("uses the native APK handoff and identifies the intended role", () => {
+    expect(source).toContain("<FssAppAccess />");
     expect(source).toContain("Food Service Staff");
-    expect(source).not.toMatch(/desktop app/i);
+    expect(source).toContain("QR code does not change");
   });
 });

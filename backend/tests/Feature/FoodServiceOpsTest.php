@@ -1959,4 +1959,48 @@ class FoodServiceOpsTest extends TestCase
             'served_population' => 38,
         ]);
     }
+
+    public function test_meal_prep_log_filter_accepts_public_menu_cycle_id(): void
+    {
+        $cycle = MenuCycle::factory()->create(['rnd_user_id' => $this->rnd->id]);
+        MealPrepLog::factory()->create(['menu_cycle_id' => $cycle->id]);
+
+        $this->actingAs($this->fss)
+            ->getJson("/api/fss/meal-prep-logs?menu_cycle_id={$cycle->uuid}")
+            ->assertOk()
+            ->assertJsonCount(1, 'data');
+    }
+
+    public function test_served_population_rejects_future_or_unplanned_service_dates(): void
+    {
+        $today = now('Asia/Manila')->startOfWeek();
+        $cycle = MenuCycle::factory()->create([
+            'rnd_user_id' => $this->rnd->id,
+            'week_start_date' => $today->toDateString(),
+            'cycle_days' => 7,
+        ]);
+        MenuCycleDay::create([
+            'menu_cycle_id' => $cycle->id,
+            'day_of_week' => $today->format('l'),
+            'meal_type' => 'lunch',
+            'estimate_population' => 40,
+        ]);
+
+        $this->actingAs($this->fss)
+            ->patchJson("/api/fss/menu-cycles/{$cycle->uuid}/served-population", [
+                'service_date' => now('Asia/Manila')->addDay()->toDateString(),
+                'served_population' => 30,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('service_date');
+
+        $unplannedDate = $today->copy()->addDay();
+        $this->actingAs($this->fss)
+            ->patchJson("/api/fss/menu-cycles/{$cycle->uuid}/served-population", [
+                'service_date' => $unplannedDate->toDateString(),
+                'served_population' => 30,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('service_date');
+    }
 }

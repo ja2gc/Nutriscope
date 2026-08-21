@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import { InstallNutriScope } from "@/components/pwa/InstallNutriScope";
+import { FssAppAccess } from "@/components/mobile-app/FssAppAccess";
 import { Logo } from "@/components/ui/Logo";
 
 export default function MobileAppPage() {
@@ -21,14 +21,17 @@ export default function MobileAppPage() {
             Food Service Staff
           </p>
           <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-warm-900">
-            NutriScope on your phone
+            NutriScope Android app
           </h1>
           <p className="mt-3 text-base leading-7 text-warm-600">
-            Install NutriScope for menu execution, meal preparation, accomplishments, and purchase records.
+            Download the Food Service Staff app for menu viewing, meal preparation, accomplishments, and purchase records.
           </p>
 
           <div className="mt-6">
-            <InstallNutriScope mode="landing" />
+            <FssAppAccess />
+          </div>
+          <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">
+            Android may ask you to allow installation from your browser. Download updates from this same page; the QR code does not change.
           </div>
         </section>
       </div>

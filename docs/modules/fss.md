@@ -1,6 +1,6 @@
 # FSS Module — Current Role and Workflow
 
-Verified against current Expo navigation, rendered screens, and Laravel role gates on **2026-08-15**.
+Verified against current Expo navigation, rendered screens, and Laravel role gates on **2026-08-21**.
 
 ## Role Purpose
 
@@ -8,7 +8,7 @@ FSS executes daily food-service work prepared by RND:
 
 - view active/saved menu cycles and food profiles;
 - confirm actual purchase values and receive PO vendor groups with receipt/proof evidence; OR number is optional;
-- record actual served population and meal-service completion;
+- record actual served population for planned service dates;
 - log daily ward meals and seven accomplishment duties;
 - view own archived accomplishment reports;
 - read announcements, notifications, current SOP, and SOP history.
@@ -21,21 +21,16 @@ FSS signs in through the mobile app. Laravel rejects FSS web login. It also reje
 
 ## Current Mobile Navigation
 
-There are **five** bottom tabs, in this order:
+There are **six** bottom tabs, in this order:
 
 1. **Home**
-2. **Menu**
-3. **Meal Prep**
-4. **Accomplish**
-5. **Purchase**
+2. **Announcement** — separate Announcements and SOP views
+3. **Menu**
+4. **Meal Prep**
+5. **Accomplish**
+6. **Purchase**
 
-This replaces older documentation showing four tabs or an Inventory tab. Header actions on every tab open:
-
-- megaphone: Announcements and SOP;
-- bell: Notifications;
-- account: Settings, Help, and Profile.
-
-Help is deliberately not a sixth bottom tab. Open **Settings → Help & Support → Help** to search Shared and FSS-only guidance.
+The header has only the notification bell with unread count and the profile/menu icon. The profile icon opens a side menu containing Profile, Notifications, Help, Settings, Check for updates, and Sign out. Announcements and SOP are not header shortcuts; they live under the **Announcement** bottom tab.
 
 ## Recommended Daily Sequence
 
@@ -65,25 +60,23 @@ If no active cycle exists, Home tells FSS to contact RND.
 
 FSS can browse cycles and open meal slots. Recipe/item profiles show scaled ingredients, quantities, cost, cost/head, and preparation notes. Planning fields remain read-only.
 
-FSS can set/backfill actual served population for a cycle date. This contributes to suggested-food PO completion and the final food purchase cost per served patient-day.
+Menu does not contain operational controls. Food profiles open on a dedicated read-only page with normal back navigation. Actual population is recorded in Meal Prep.
 
 ## Meal Prep
 
-Current rendered page contains today's meal-service workflow:
+Meal Prep defaults to today and allows an earlier planned date within the active cycle:
 
 - planned service rows and food profiles;
-- actual total patient population;
-- served/prepped status;
-- completion action;
-- shortfall confirmation when required.
+- existing actual population, if recorded;
+- one record/update action for actual population served.
 
-The source file still contains an older `AccomplishmentSection` function, but it is **not rendered** by the current Meal Prep screen. Daily accomplishment entry belongs to the separate **Accomplish** tab.
+There is no separate prep-completion or service-log action. The actual served record remains the input used by suggested-food PO completion and cost-per-served-patient calculations.
 
 ## Accomplish
 
 FSS records:
 
-- service date (today);
+- service date (today by default, or any previous date);
 - ward;
 - meals distributed/population;
 - off-duty/absent state;
@@ -96,7 +89,9 @@ FSS records:
   6. worked as assistant cook;
   7. checked kitchen/cold-storage cleanliness.
 
-Off duty stores zero meals and renders as **X** in the weekly report. The tab also shows today's logged-meal total and links to **My reports**.
+The Daily Log view shows existing rows and the total for the selected date. A visible **Today** action returns from backfill to the default current date. Future dates are blocked. Multiple working rows may be saved for separate wards; their meals are summed and completed duties combined. Off duty cannot coexist with working rows and renders as **X**.
+
+**My Reports** is the second view inside Accomplish. It is paginated, owner-scoped, opens frozen details, and can prepare then open/save the authenticated PDF.
 
 ### Weekly Accomplishment Archive
 
@@ -139,7 +134,7 @@ Completed/archived POs lock execution edits.
 
 ## Announcements and SOP
 
-The megaphone page shows:
+The **Announcement** bottom tab separates content into two internal tabs:
 
 - current SOP;
 - paginated SOP version history;
@@ -167,6 +162,8 @@ Settings supports:
 - Profile link;
 - sign out.
 
+The profile side menu provides direct access to these account actions and manual update checking. The app also checks periodically for a newer APK and opens the stable download page when the user accepts an update.
+
 Profile supports first/last name, sign-in email, contact number, recovery email setup/change/verification, and password change. Role and status are read-only.
 
 First-login accounts must replace the temporary password and add a recovery email. Setup can be deferred, but the header reminder remains until complete.
@@ -189,6 +186,9 @@ First-login accounts must replace the temporary password and add a recovery emai
 - shopping-list or PO authoring
 - editing planned PO structure
 - FSS web console login
+- PWA/home-screen web app and offline shell
+- Menu served-population editor
+- prep-completion and reverse-service controls
 
 ## Related User Documents
 

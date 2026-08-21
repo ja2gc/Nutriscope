@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Plus_Jakarta_Sans, Space_Grotesk } from "next/font/google";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { OnboardingReminder } from "@/components/auth/OnboardingReminder";
-import { PwaRegistration } from "@/components/pwa/PwaRegistration";
+import { LegacyAppCleanup } from "@/components/mobile-app/LegacyAppCleanup";
 import "./globals.css";
 
 const plusJakarta = Plus_Jakarta_Sans({
@@ -32,7 +32,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={`h-full antialiased ${plusJakarta.variable} ${spaceGrotesk.variable}`}>
       <body className="min-h-full flex flex-col font-sans bg-warm-25 text-warm-900">
-        <AuthProvider><PwaRegistration /><OnboardingReminder />{children}</AuthProvider>
+        <AuthProvider><LegacyAppCleanup /><OnboardingReminder />{children}</AuthProvider>
       </body>
     </html>
   );

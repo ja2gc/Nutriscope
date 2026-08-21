@@ -84,7 +84,7 @@ function openNotificationTarget(notification: Notification) {
   const sourceId = notification.source_uuid ?? notification.source_id;
 
   if (sourceId && type.includes('announcement')) {
-    router.push({ pathname: '/announcements', params: { announcementId: String(sourceId) } } as never);
+    router.push({ pathname: '/(tabs)/announcements', params: { announcementId: String(sourceId) } } as never);
     return;
   }
 

@@ -78,7 +78,7 @@ flowchart LR
 | 3. Receiving | Purchase | Reviews prefilled values, corrects decimal actual quantity/price, uploads receipt/proof, optionally records OR, and marks vendor received | Validates required evidence and updates the confirmed purchase | Evidence closes receiving explicitly |
 | 4. Preparation/service | Meal Prep | Reviews rows, enters actual population, marks served | Records service completion and refreshes PO served-day progress | Actual service connects to cost outcome |
 | 5. Daily accomplishment | Accomplish | Enters ward/meals, selects duties, or marks off duty | Stores daily entry and updates weekly report completeness | Staff work becomes reportable |
-| 6. Communication | Header megaphone/bell | Reads SOP, announcements, notifications | Preserves current procedure and alert state | Communication stays accessible from every tab |
+| 6. Communication | Announcement tab and header bell | Switches between Announcements and SOP; reads notifications from the bell | Preserves current procedure and alert state | Communication stays visible without crowding the header |
 | 7. Personal record | Accomplish → My reports | Opens archived report | Shows only this FSS user's frozen weekly output | Access stays role- and owner-scoped |
 
 ```mermaid

@@ -8,11 +8,13 @@ use App\Enums\AuditDomain;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\FSS\StoreDietListCountRequest;
 use App\Models\DietListCount;
+use App\Models\User;
 use App\Services\Audit\AuditLogger;
 use App\Services\FSS\AccomplishmentReportArchiveService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\ValidationException;
 
 class DietListCountController extends Controller
 {
@@ -26,6 +28,9 @@ class DietListCountController extends Controller
 
         // Self-scoped write: force fss_user_id to the authenticated user; never accept from request.
         $count = $this->audited(function () use ($validated): DietListCount {
+            User::query()->whereKey(Auth::id())->lockForUpdate()->firstOrFail();
+            $this->ensureCompatibleDayStatus($validated);
+
             $count = DietListCount::create([
                 ...$validated,
                 'fss_user_id' => Auth::id(),
@@ -87,5 +92,26 @@ class DietListCountController extends Controller
             'maintained_cleanliness' => $count->maintained_cleanliness,
             'off_duty' => $count->off_duty,
         ];
+    }
+
+    /** @param array<string, mixed> $validated */
+    private function ensureCompatibleDayStatus(array $validated): void
+    {
+        $sameDay = DietListCount::query()
+            ->where('fss_user_id', Auth::id())
+            ->whereDate('service_date', $validated['service_date']);
+
+        $offDuty = (bool) ($validated['off_duty'] ?? false);
+        $conflict = $offDuty
+            ? (clone $sameDay)->exists()
+            : (clone $sameDay)->where('off_duty', true)->exists();
+
+        if ($conflict) {
+            throw ValidationException::withMessages([
+                'off_duty' => $offDuty
+                    ? 'Off duty cannot be recorded after work was logged for this date.'
+                    : 'Work cannot be recorded after this date was marked off duty.',
+            ]);
+        }
     }
 }

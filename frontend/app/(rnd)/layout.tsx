@@ -25,7 +25,7 @@ export default function RndLayout({
     if (!initializing && !user) {
       router.replace("/login");
     } else if (!initializing && user && user.role !== "RND") {
-      router.replace(user.role === "Admin" ? "/admin/dashboard" : "/fss");
+      router.replace(user.role === "Admin" ? "/admin/dashboard" : "/mobile-app");
     }
   }, [user, initializing, router]);
 

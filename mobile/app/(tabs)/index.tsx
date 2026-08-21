@@ -380,7 +380,7 @@ function ServiceRowItem({ row, isLast }: { row: ServiceRow; isLast: boolean }) {
         <Text className="text-sm font-medium text-gray-800 mt-0.5">{row.name}</Text>
       </View>
       <View className="flex-row gap-2">
-        <StatusBadge label="Prepped" active={row.prepped} activeColor="green" />
+        <StatusBadge label="Served recorded" active={row.prepped} activeColor="green" />
       </View>
     </View>
   );

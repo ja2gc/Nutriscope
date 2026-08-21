@@ -445,7 +445,7 @@ Use this version when screenshots are available. Each scene already contains the
 
 **Next scene:** Menu or Purchase.
 
-> **Screenshot needed:** FSS Home showing five-tab bar, Meals to log today, Pending POs, Active Menu Cycle, and today's service.
+> **Screenshot needed:** FSS Home showing the six-tab bar, Meals to log today, Pending POs, Active Menu Cycle, and today's service.
 >
 > **Insert screenshot below this line.**
 
@@ -547,7 +547,7 @@ Use this version when screenshots are available. Each scene already contains the
 
 #### FSS-10 — Announcements and SOP
 
-**Description:** Header megaphone opens current SOP, SOP History, and FSS-visible announcements. FSS is read-only.
+**Description:** The second bottom tab is Announcement. It separates FSS-visible Announcements from the current SOP and SOP History. FSS is read-only.
 
 **User should do:** Open the current SOP and one announcement.
 

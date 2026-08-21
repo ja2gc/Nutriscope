@@ -5,6 +5,7 @@ import { Stack, router, usePathname } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import AnimatedSplash from '../components/AnimatedSplash';
+import AppUpdatePrompt from '../components/AppUpdatePrompt';
 import { getToken, subscribeAuth } from '../lib/auth';
 import { getAuthRedirect } from '../lib/routeGuard';
 
@@ -96,8 +97,13 @@ export default function RootLayout() {
             name="reports"
             options={{ title: 'Accomplishment Reports' }}
           />
+          <Stack.Screen
+            name="food-details"
+            options={{ title: 'Food Profile' }}
+          />
         </Stack>
         <Redirector isAuthenticated={isAuthenticated} />
+        <AppUpdatePrompt enabled={isAuthenticated} />
       </SafeAreaProvider>
     </QueryClientProvider>
   );

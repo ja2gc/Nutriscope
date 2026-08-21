@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router';
-import { CalendarDays, ChefHat, ClipboardCheck, LayoutDashboard, ShoppingCart } from 'lucide-react-native';
+import { CalendarDays, ChefHat, ClipboardCheck, LayoutDashboard, Newspaper, ShoppingCart } from 'lucide-react-native';
 import AppHeader from '../../components/AppHeader';
 import { MOBILE_THEME } from '../../lib/theme';
 
@@ -11,7 +11,7 @@ export default function TabsLayout() {
         tabBarActiveTintColor: MOBILE_THEME.colors.brand,
         tabBarInactiveTintColor: MOBILE_THEME.colors.muted,
         tabBarStyle: { backgroundColor: MOBILE_THEME.colors.surface, borderTopColor: MOBILE_THEME.colors.border, height: 64, paddingTop: 6, paddingBottom: 6 },
-        tabBarLabelStyle: { fontSize: 10, fontWeight: '600' },
+        tabBarLabelStyle: { fontSize: 9, fontWeight: '600' },
         tabBarHideOnKeyboard: true,
       }}
     >
@@ -23,6 +23,16 @@ export default function TabsLayout() {
             <LayoutDashboard color={color} size={size} />
           ),
           header: () => <AppHeader title="Dashboard" />,
+        }}
+      />
+      <Tabs.Screen
+        name="announcements"
+        options={{
+          title: 'Announcement',
+          tabBarIcon: ({ color, size }) => (
+            <Newspaper color={color} size={size} />
+          ),
+          header: () => <AppHeader title="Announcements & SOP" />,
         }}
       />
       <Tabs.Screen

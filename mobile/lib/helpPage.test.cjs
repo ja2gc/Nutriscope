@@ -9,7 +9,7 @@ const read = (relativePath) => {
   return fs.existsSync(target) ? fs.readFileSync(target, 'utf8') : '';
 };
 
-test('FSS Help is reachable from Settings without adding a bottom tab', () => {
+test('FSS Help stays in the account menu while Announcement is the second bottom tab', () => {
   const settings = read('app/settings.tsx');
   const layout = read('app/_layout.tsx');
   const tabs = read('app/(tabs)/_layout.tsx');
@@ -17,14 +17,16 @@ test('FSS Help is reachable from Settings without adding a bottom tab', () => {
   assert.match(settings, /Help & Support/);
   assert.match(settings, /router\.push\('\/help'(?: as Href)?\)/);
   assert.match(layout, /name="help"/);
-  assert.equal((tabs.match(/<Tabs\.Screen/g) || []).length, 5);
+  assert.match(tabs, /name="announcements"/);
+  assert.match(tabs, /title: 'Announcement'/);
+  assert.equal((tabs.match(/<Tabs\.Screen/g) || []).length, 6);
 });
 
 test('mobile Help contains only Shared and FSS guidance', () => {
   const content = read('lib/helpContent.ts');
 
   assert.match(content, /shared-forgot-password/);
-  assert.match(content, /fss-five-tabs/);
+  assert.match(content, /fss-main-tabs/);
   assert.match(content, /fss-no-active-menu/);
   assert.match(content, /fss-camera-upload/);
   assert.doesNotMatch(content, /fss-inventory-update/);
@@ -50,6 +52,8 @@ test('mobile Help uses reusable accessible search and disclosures', () => {
 test('APK build identity is incremented', () => {
   const appConfig = JSON.parse(read('app.json'));
 
-  assert.equal(appConfig.expo.version, '1.1.1');
-  assert.equal(appConfig.expo.android.versionCode, 3);
+  assert.equal(appConfig.expo.version, '1.2.0');
+  assert.equal(appConfig.expo.android.versionCode, 4);
+  assert.deepEqual(appConfig.expo.platforms, ['android', 'ios']);
+  assert.deepEqual(appConfig.expo.android.blockedPermissions, ['android.permission.RECORD_AUDIO']);
 });
