@@ -583,7 +583,7 @@ Use this version when screenshots are available. Each scene already contains the
 
 #### FSS-12 — Help
 
-**Description:** FSS opens Help from Settings under Help & Support. The page searches Shared and FSS-only answers and remains outside the five main tabs.
+**Description:** FSS opens Help from the profile menu under Help & Support. The page searches Shared and FSS-only answers and remains outside the six main tabs.
 
 **User should do:** Open Settings, select Help, search for `purchase order`, and expand one result.
 

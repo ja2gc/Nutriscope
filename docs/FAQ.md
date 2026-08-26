@@ -282,7 +282,7 @@ No. Menu is a read-only weekly reference. Tap a meal to open its scaled food pro
 
 ### Where do I record actual population served?
 
-Open **Meal Prep**, choose today or an earlier planned date in the active cycle, review its meals, then record or update the actual headcount. There is no separate prep-completion log.
+Open **Meal Prep**, choose today or an earlier planned date in the active cycle, review its meals, then record or update a positive whole-number headcount. There is no separate prep-completion log.
 
 ### Where should I enter my daily accomplishment?
 

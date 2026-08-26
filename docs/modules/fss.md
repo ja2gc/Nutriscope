@@ -210,6 +210,6 @@ First-login accounts must replace the temporary password and add a recovery emai
 - `mobile/app/help.tsx`
 - `mobile/components/help/**`
 - `mobile/lib/helpContent.ts`
-- `mobile/app/announcements.tsx`
-- `mobile/app/reports.tsx`
+- `mobile/app/(tabs)/announcements.tsx`
+- `mobile/components/ReportsScreen.tsx`
 - `backend/routes/api.php`

@@ -71,9 +71,11 @@ $reportRoutes = function () {
     Route::get('reports/{report}/view', [ReportController::class, 'view']);
     Route::apiResource('reports', ReportController::class)->only(['index', 'show', 'destroy']);
     Route::get('report-branding', [ReportBrandingController::class, 'show']);
-    Route::post('report-branding', [ReportBrandingController::class, 'update']);
     Route::get('report-templates', [ReportTemplateController::class, 'index']);
-    Route::patch('report-templates/{reportTemplate}', [ReportTemplateController::class, 'update']);
+    Route::middleware('role:RND,Admin')->group(function () {
+        Route::post('report-branding', [ReportBrandingController::class, 'update']);
+        Route::patch('report-templates/{reportTemplate}', [ReportTemplateController::class, 'update']);
+    });
 };
 
 Route::prefix('auth')->group(function () {

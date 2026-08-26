@@ -12,7 +12,7 @@ export interface PaginatedResponse<T> {
   meta: PaginationMeta;
 }
 
-export const MOBILE_PAGE_SIZE = 5;
+export const MOBILE_PAGE_SIZE = 10;
 
 export function getNextPageParam<T>(page: PaginatedResponse<T>): number | undefined {
   return page.meta.current_page < page.meta.last_page ? page.meta.current_page + 1 : undefined;

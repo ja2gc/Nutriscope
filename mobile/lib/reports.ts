@@ -3,6 +3,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { getToken } from './auth';
 import { MOBILE_PAGE_SIZE, PaginatedResponse } from './pagination';
+import { absoluteApiUrl, reportDownloadPath } from './mobileContracts';
 
 export interface ReportStaffSheet {
   user: { id: number | null; name: string | null; role: string | null };
@@ -35,7 +36,7 @@ export interface Report {
 /** FSS sees only their own accomplishment reports (backend-scoped). */
 export async function listReports(page: number, search = ''): Promise<PaginatedResponse<Report>> {
   const res = await api.get<PaginatedResponse<Report>>('/api/fss/reports', {
-    params: { page, per_page: MOBILE_PAGE_SIZE, status: 'archived', search: search || undefined },
+    params: { page, per_page: MOBILE_PAGE_SIZE, search: search || undefined },
   });
   return res.data;
 }
@@ -50,16 +51,26 @@ export async function downloadReportPdf(report: Report): Promise<void> {
   const end = String(report.parameters?.end ?? report.snapshot?.accomplishment?.to ?? '');
   if (!start || !end) throw new Error('This report has no period information.');
 
-  const prepared = await api.post<{ data: Report }>('/api/fss/reports/accomplishment_report/prepare', { start, end });
   const token = await getToken();
   if (!token || !FileSystem.cacheDirectory) throw new Error('Please sign in again.');
-  const base = String(api.defaults.baseURL ?? '').replace(/\/$/, '');
   const destination = `${FileSystem.cacheDirectory}nutriscope-accomplishment-${start}-${end}.pdf`;
-  const result = await FileSystem.downloadAsync(
-    `${base}/api/fss/reports/${prepared.data.data.id}/download`,
+  const headers = { Authorization: `Bearer ${token}`, Accept: 'application/pdf' };
+  let result = await FileSystem.downloadAsync(
+    absoluteApiUrl(String(api.defaults.baseURL ?? ''), reportDownloadPath(report.id)),
     destination,
-    { headers: { Authorization: `Bearer ${token}`, Accept: 'application/pdf' } },
+    { headers },
   );
+  if (result.status === 409) {
+    const refreshed = await api.post<{ data: Report }>(
+      '/api/fss/reports/accomplishment_report/prepare',
+      report.parameters ?? { start, end },
+    );
+    result = await FileSystem.downloadAsync(
+      absoluteApiUrl(String(api.defaults.baseURL ?? ''), reportDownloadPath(refreshed.data.data.id)),
+      destination,
+      { headers },
+    );
+  }
   if (result.status !== 200) throw new Error('The report file could not be downloaded.');
   if (!await Sharing.isAvailableAsync()) throw new Error('No PDF viewer is available on this device.');
   await Sharing.shareAsync(result.uri, { mimeType: 'application/pdf', dialogTitle: 'Open or save accomplishment report' });

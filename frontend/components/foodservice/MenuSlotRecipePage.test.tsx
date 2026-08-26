@@ -54,17 +54,8 @@ describe("MenuSlotRecipePage", () => {
     vi.clearAllMocks();
   });
 
-  test("shows a read-only FSS details page", async () => {
-    await act(async () => { root.render(<MenuSlotRecipePage readOnly backHref="/fss/menu?cycle=cycle-1" />); });
-
-    expect(container.textContent).toContain("Menu Item Details");
-    expect(container.textContent).toContain("Recipe makes");
-    expect(container.textContent).toContain("12.000 kg");
-    expect(container.querySelector('button[type="submit"]')).toBeNull();
-  });
-
   test("shows slot-only editing controls to RND", async () => {
-    await act(async () => { root.render(<MenuSlotRecipePage readOnly={false} backHref="/food-service/menu-cycle?cycle=cycle-1" />); });
+    await act(async () => { root.render(<MenuSlotRecipePage backHref="/food-service/menu-cycle?cycle=cycle-1" />); });
 
     expect(container.textContent).toContain("Changes apply only to this menu slot");
     expect(container.textContent).toContain("Add ingredient");

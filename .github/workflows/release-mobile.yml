@@ -1,0 +1,64 @@
+name: Publish FSS Android release
+
+on:
+  workflow_dispatch:
+    inputs:
+      artifact_url:
+        description: Signed EAS APK artifact URL
+        required: true
+        type: string
+      version:
+        description: App version (for example 1.2.1)
+        required: true
+        type: string
+      version_code:
+        description: Android version code
+        required: true
+        type: string
+      sha256:
+        description: Lowercase APK SHA-256
+        required: true
+        type: string
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish verified APK and update metadata
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          APK_URL: ${{ inputs.artifact_url }}
+          VERSION: ${{ inputs.version }}
+          VERSION_CODE: ${{ inputs.version_code }}
+          SHA256: ${{ inputs.sha256 }}
+        with:
+          host: ${{ secrets.DROPLET_HOST }}
+          username: ${{ secrets.DROPLET_USER }}
+          key: ${{ secrets.DROPLET_SSH_KEY }}
+          envs: APK_URL,VERSION,VERSION_CODE,SHA256
+          command_timeout: 10m
+          script: |
+            set -eu
+            case "$VERSION" in *[!0-9.]*) exit 2 ;; esac
+            case "$VERSION_CODE" in *[!0-9]*) exit 2 ;; esac
+            case "$SHA256" in *[!0-9a-f]*|'') exit 2 ;; esac
+            [ "${#SHA256}" -eq 64 ] || exit 2
+
+            release_dir=/var/www/nutriscope-downloads
+            apk_tmp=$(mktemp)
+            json_tmp=$(mktemp)
+            trap 'rm -f "$apk_tmp" "$json_tmp"' EXIT
+
+            curl --proto '=https' --tlsv1.2 -fsSL -- "$APK_URL" -o "$apk_tmp"
+            echo "$SHA256  $apk_tmp" | sha256sum -c -
+            install -d -m 0755 "$release_dir"
+            install -m 0644 "$apk_tmp" "$release_dir/.nutriscope-fss.apk.new"
+            mv -f "$release_dir/.nutriscope-fss.apk.new" "$release_dir/nutriscope-fss.apk"
+
+            published_at=$(date --iso-8601=seconds)
+            printf '{"version":"%s","version_code":%s,"download_url":"https://nutriscope.live/downloads/nutriscope-fss.apk","sha256":"%s","published_at":"%s"}\n' \
+              "$VERSION" "$VERSION_CODE" "$SHA256" "$published_at" > "$json_tmp"
+            install -m 0644 "$json_tmp" "$release_dir/.nutriscope-fss.json.new"
+            mv -f "$release_dir/.nutriscope-fss.json.new" "$release_dir/nutriscope-fss.json"
+
+            curl -fsS https://nutriscope.live/downloads/nutriscope-fss.json

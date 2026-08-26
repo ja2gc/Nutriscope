@@ -137,24 +137,24 @@ feat(menu): add slot details API
 
 ---
 
-### Task 3: Build Shared Menu Item Details Page
+### Task 3: Build RND Slot Editor and Native FSS Profile
 
 **Files:**
 - Modify: `frontend/services/menuCycleService.ts`
 - Create: `frontend/components/foodservice/MenuSlotRecipePage.tsx`
 - Create: `frontend/app/(rnd)/food-service/menu-cycle/[cycleId]/slots/[day]/[meal]/page.tsx`
-- Create: `frontend/app/fss/menu/[cycleId]/slots/[day]/[meal]/page.tsx`
-- Create: matching `loading.tsx` wrappers or one shared loading component
+- Create: `mobile/app/food-details.tsx`
+- Modify: `mobile/lib/foodService.ts`
 - Create: `frontend/components/foodservice/menu-slot-recipe-contract.test.ts`
 
 **Interfaces:**
 - Produces `MenuSlotRecipe` and `MenuSlotIngredient` types.
 - Produces `getMenuSlotRecipe`, `updateMenuSlotRecipe`, `restoreMenuSlotRecipe` service calls.
-- Shared component prop: `{ readOnly: boolean; backHref: string }`, with route params read by wrappers.
+- RND web editor uses `backHref`; the native FSS page is independently read-only and consumes the same slot API.
 
 - [ ] **Step 1: Write failing frontend contract and pure scaling tests**
 
-Assert page title/copy, route wrappers, RND/FSS modes, 44px targets, no `Edit Recipe`, and pure local formula for 2 kg/20→10 kg/100.
+Assert page title/copy, RND route wrapper, native FSS route, 44px targets, no `Edit Recipe`, and pure local formula for 2 kg/20→10 kg/100.
 
 - [ ] **Step 2: Run tests and verify RED**
 

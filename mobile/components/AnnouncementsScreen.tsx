@@ -1,7 +1,7 @@
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { useLocalSearchParams } from 'expo-router';
 import { ClipboardList, History, Newspaper, X } from 'lucide-react-native';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -72,8 +72,8 @@ async function fetchAnnouncements(page: number): Promise<PaginatedResponse<Annou
 
 function SopBanner() {
   const [historyOpen, setHistoryOpen] = useState(false);
-  const { data: sop, isLoading } = useQuery({ queryKey: ['sop'], queryFn: fetchSop });
-  const { data: historyPages, isLoading: histLoading, fetchNextPage, hasNextPage, isFetchingNextPage, isFetchNextPageError } = useInfiniteQuery({
+  const { data: sop, isLoading, isError, refetch } = useQuery({ queryKey: ['sop'], queryFn: fetchSop });
+  const { data: historyPages, isLoading: histLoading, isError: histError, refetch: refetchHistory, fetchNextPage, hasNextPage, isFetchingNextPage, isFetchNextPageError } = useInfiniteQuery({
     queryKey: ['sop-history'],
     queryFn: ({ pageParam }) => fetchSopHistory(pageParam),
     initialPageParam: 1,
@@ -84,6 +84,9 @@ function SopBanner() {
 
   if (isLoading) {
     return <View className="h-24 rounded-2xl bg-gray-100 mb-4" />;
+  }
+  if (isError) {
+    return <View className="rounded-2xl border border-red-200 bg-red-50 p-4"><Text className="text-sm text-red-700">Could not load the current SOP.</Text><TouchableOpacity className="mt-2 min-h-11 justify-center" onPress={() => refetch()}><Text className="font-bold text-emerald-700">Retry</Text></TouchableOpacity></View>;
   }
   if (!sop) return null;
 
@@ -129,6 +132,8 @@ function SopBanner() {
             <ScrollView contentContainerStyle={{ padding: 16 }}>
               {histLoading ? (
                 <ActivityIndicator color="#059669" />
+              ) : histError ? (
+                <View className="items-center p-4"><Text className="text-sm text-red-700">Could not load SOP history.</Text><TouchableOpacity className="mt-2 min-h-11 justify-center px-4" onPress={() => refetchHistory()}><Text className="font-bold text-emerald-700">Retry</Text></TouchableOpacity></View>
               ) : (
                 history.map((v, i) => (
                   <View key={v.id} className="rounded-2xl border border-gray-200 p-4 mb-3">
@@ -166,6 +171,7 @@ export default function AnnouncementsScreen() {
   const params = useLocalSearchParams<{ announcementId?: string }>();
   // Announcement ids are public uuids (strings) — match as strings, never Number().
   const targetAnnouncementId = params.announcementId || null;
+  const consumedTargetAnnouncement = useRef<string | null>(null);
   const [section, setSection] = useState<'announcements' | 'sop'>('announcements');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const { data: pages, isLoading, isError, refetch, fetchNextPage, hasNextPage, isFetchingNextPage, isFetchNextPageError } = useInfiniteQuery({
@@ -178,8 +184,9 @@ export default function AnnouncementsScreen() {
   const selected = data.find((item) => String(item.id) === selectedId) ?? null;
 
   useEffect(() => {
-    if (!targetAnnouncementId || selectedId === targetAnnouncementId) return;
+    if (!targetAnnouncementId || consumedTargetAnnouncement.current === targetAnnouncementId) return;
     if (data.some((item) => String(item.id) === targetAnnouncementId)) {
+      consumedTargetAnnouncement.current = targetAnnouncementId;
       setSelectedId(targetAnnouncementId);
     } else if (hasNextPage && !isFetchingNextPage) {
       void fetchNextPage();

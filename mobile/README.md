@@ -1,10 +1,10 @@
 # Nutriscope FSS Mobile
 
-React Native app (Expo) for the Food Service Supervisor role.
+React Native app (Expo) for Food Service Staff. RND and Admin use the browser website.
 
 ## Prerequisites
 
-- Node.js 18+
+- Node.js 20+
 - [Expo Go](https://expo.dev/go) installed on your phone
 - Phone and PC on the **same Wi-Fi network**
 - Windows Firewall allowing inbound TCP on port 8000
@@ -33,7 +33,14 @@ The `--host=0.0.0.0` flag makes it reachable from your phone.
 npx expo start
 ```
 
-4. Scan the QR code in the terminal with the **Expo Go** app on your phone.
+4. Scan the development QR code in the terminal with the **Expo Go** app on your phone.
+
+## Staff APK releases
+
+Staff do not use Expo Go in production. The permanent download and QR destination is
+`https://nutriscope.live/mobile-app`; each release replaces the APK behind that same
+address. Follow [`../docs/mobile-apk-release.md`](../docs/mobile-apk-release.md) for
+versioning, signing, checksum, upload, and update-metadata checks.
 
 ## Firewall (Windows)
 

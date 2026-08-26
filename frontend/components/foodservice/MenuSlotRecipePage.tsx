@@ -34,7 +34,7 @@ function draftFrom(data: MenuSlotRecipe): Draft {
 
 const peso = (value: number) => `₱${value.toFixed(2)}`;
 
-export function MenuSlotRecipePage({ readOnly, backHref }: { readOnly: boolean; backHref: string }) {
+export function MenuSlotRecipePage({ backHref }: { backHref: string }) {
   const { cycleId, day, meal } = useParams<{ cycleId: string; day: Day; meal: Meal }>();
   const [data, setData] = useState<MenuSlotRecipe | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
@@ -61,7 +61,7 @@ export function MenuSlotRecipePage({ readOnly, backHref }: { readOnly: boolean; 
     return () => { active = false; };
   }, [cycleId, day, meal]);
 
-  const canEdit = !readOnly && Boolean(data?.editable) && !data?.locked;
+  const canEdit = Boolean(data?.editable) && !data?.locked;
   const ingredientIds = useMemo(() => new Set(draft?.ingredients.map((item) => item.fs_item_id)), [draft?.ingredients]);
 
   function updateIngredient(index: number, patch: Partial<DraftIngredient>) {
@@ -150,7 +150,7 @@ export function MenuSlotRecipePage({ readOnly, backHref }: { readOnly: boolean; 
         </div>
         <div className="flex flex-wrap gap-2">
           <span className="rounded-full border border-warm-200 bg-warm-50 px-3 py-1 text-xs font-bold text-warm-600">{data.source === "custom" ? "Customized slot" : "Original recipe"}</span>
-          {(readOnly || !data.editable) && <span className="rounded-full border border-warm-200 px-3 py-1 text-xs font-bold text-warm-500">View only</span>}
+          {!data.editable && <span className="rounded-full border border-warm-200 px-3 py-1 text-xs font-bold text-warm-500">View only</span>}
           {data.locked && <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-bold text-amber-800"><LockKeyhole className="h-3 w-3" /> Locked to PO</span>}
         </div>
       </header>

@@ -4,9 +4,11 @@ namespace Tests\Feature;
 
 use App\Models\Budget;
 use App\Models\MenuCycle;
+use App\Models\ReportTemplate;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class FssPermissionTest extends TestCase
@@ -61,6 +63,23 @@ class FssPermissionTest extends TestCase
             ->postJson('/api/fss/budgets/adjust', [
                 'fiscal_year' => 2026, 'type' => 'manual_addition', 'amount' => 1000, 'reason' => 'test',
             ])
+            ->assertForbidden();
+    }
+
+    public function test_fss_forbidden_from_global_report_configuration_writes(): void
+    {
+        $template = ReportTemplate::create([
+            'uuid' => (string) Str::uuid(),
+            'type' => 'procurement_pack',
+            'name' => 'Procurement Pack',
+            'blade_view' => 'reports.procurement-pack',
+            'is_active' => true,
+            'signatories' => [],
+        ]);
+
+        $this->actingAs($this->fss)->postJson('/api/fss/report-branding', [])->assertForbidden();
+        $this->actingAs($this->fss)
+            ->patchJson("/api/fss/report-templates/{$template->uuid}", ['signatories' => []])
             ->assertForbidden();
     }
 

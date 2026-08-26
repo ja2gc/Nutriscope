@@ -5,8 +5,8 @@ export interface MenuDay {
   id: number;
   day_of_week: string;
   meal_type: string;
-  recipe_id: number | null;
-  fs_item_id: number | null;
+  recipe_id: string | null;
+  fs_item_id: string | null;
   estimate_population: number | null;
   servings_override: number | null;
   quantity: number | null;
@@ -14,8 +14,8 @@ export interface MenuDay {
   po_snapshot_at?: string | null;
   po_snapshot_locked?: boolean;
   snapshot_purchase_order_id?: number | null;
-  recipe?: { id: number; name: string; servings: number } | null;
-  fs_item?: { id: number; name: string } | null;
+  recipe?: { id: string; name: string; servings: number } | null;
+  fs_item?: { id: string; name: string } | null;
 }
 
 export interface MenuSnapshot {
@@ -40,36 +40,6 @@ export interface MenuCycle {
   status: string;
   week_start_date: string | null;
   days?: MenuDay[];
-}
-
-export interface RecipeProfile {
-  recipe_id: number;
-  name: string;
-  prep_notes: string | null;
-  servings: number;
-  population: number;
-  total_cost: number;
-  cost_per_head: number;
-  ingredient_usage: { fs_item_id: number; name: string; unit: string; quantity: number; cost: number }[];
-}
-
-export interface FsItemProfile {
-  id: number;
-  fs_item_id: number;
-  name: string;
-  kind: string;
-  category: string | null;
-  unit: string;
-  unit_cost: number;
-  quantity: number;
-  population: number;
-  servings: number;
-  total_quantity: number;
-  total_cost: number;
-  cost_per_head: number;
-  prep_notes: string | null;
-  formula: string;
-  ingredient_usage: { fs_item_id: number; name: string; unit: string; quantity: number; cost: number }[];
 }
 
 export interface MealPrepLog {
@@ -98,18 +68,34 @@ export async function getMenuCycle(id: string): Promise<MenuCycle> {
   return res.data.data;
 }
 
-export async function getRecipeProfile(recipeId: number, population: number): Promise<RecipeProfile> {
-  const res = await api.get<{ data: RecipeProfile }>(
-    `/api/fss/food-service-recipes/${recipeId}/profile`,
-    { params: { population } },
-  );
-  return res.data.data;
+export interface MenuSlotProfile {
+  cycle_id: string;
+  day: string;
+  meal: string;
+  source: 'master' | 'custom' | 'locked';
+  locked: boolean;
+  editable: boolean;
+  name: string;
+  reference_servings: number;
+  planned_servings: number | null;
+  purchase_estimate_set: boolean;
+  prep_notes: string | null;
+  ingredients: {
+    fs_item_id: string | null;
+    name: string;
+    quantity: number;
+    unit: string;
+    scaled_quantity: number | null;
+    scaled_cost: number | null;
+    include_in_generated_lists: boolean;
+  }[];
+  total_cost: number | null;
+  cost_per_head: number | null;
 }
 
-export async function getFsItemProfile(fsItemId: number, population: number, quantity: number): Promise<FsItemProfile> {
-  const res = await api.get<{ data: FsItemProfile }>(
-    `/api/fss/fs-items/${fsItemId}/profile`,
-    { params: { population, quantity } },
+export async function getMenuSlotProfile(menuCycleId: string, day: string, meal: string): Promise<MenuSlotProfile> {
+  const res = await api.get<{ data: MenuSlotProfile }>(
+    `/api/fss/menu-cycles/${encodeURIComponent(menuCycleId)}/slots/${encodeURIComponent(day)}/${encodeURIComponent(meal)}`,
   );
   return res.data.data;
 }

@@ -60,7 +60,7 @@ The bottom navigation has five focused destinations:
 4. Accomplishments
 5. Procurement
 
-The current combined Prep & Accomplishment screen is split. Accomplishments includes a clear link to the user's archived/generated reports. Reports remain a stack screen so the primary navigation does not exceed five items.
+The current combined Prep & Accomplishment screen is split. Accomplish contains Daily Log and My Reports. Announcement is the second of six bottom tabs; report details stay within Accomplish.
 
 ### Mobile menu day picker
 

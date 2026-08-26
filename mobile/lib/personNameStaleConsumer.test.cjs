@@ -32,7 +32,7 @@ function matchingLines(pattern) {
 
 test('mobile direct person name reads stay at explicit compatibility boundaries', () => {
   assert.deepEqual(matchingLines(/\b(?:[A-Za-z_$][\w$]*(?:user|patient)|user|patient)\??\.name\b/gi), [
-    "app/reports.tsx:<Text className=\"text-sm font-bold text-emerald-800\">{sheet.user.name ?? 'Staff'}</Text>",
+    "components/ReportsScreen.tsx:<Text className=\"text-sm font-bold text-emerald-800\">{sheet.user.name ?? 'Staff'}</Text>",
   ]);
   assert.deepEqual(matchingLines(/\bperson\.name\b/gi), [
     'lib/personName.ts:if (person.name?.trim()) return person.name;',
@@ -48,8 +48,8 @@ test('mobile direct person name reads stay at explicit compatibility boundaries'
   );
   assert.deepEqual(attributionCounts, {
     'app/(tabs)/index.tsx': 2,
-    'app/reports.tsx': 1,
     'components/AnnouncementsScreen.tsx': 4,
+    'components/ReportsScreen.tsx': 1,
   });
 });
 

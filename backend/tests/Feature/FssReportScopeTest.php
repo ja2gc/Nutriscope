@@ -63,6 +63,45 @@ class FssReportScopeTest extends TestCase
             ->assertOk();
     }
 
+    public function test_fss_report_list_includes_completed_and_archived_reports_only(): void
+    {
+        $completed = Report::factory()->create([
+            'user_id' => $this->fss->id,
+            'type' => 'accomplishment_report',
+            'status' => 'completed',
+        ]);
+        $archived = Report::factory()->create([
+            'user_id' => $this->fss->id,
+            'type' => 'accomplishment_report',
+            'status' => 'archived',
+        ]);
+        Report::factory()->create([
+            'user_id' => $this->fss->id,
+            'type' => 'accomplishment_report',
+            'status' => 'failed',
+        ]);
+        Report::factory()->create([
+            'user_id' => $this->rnd->id,
+            'type' => 'accomplishment_report',
+            'status' => 'completed',
+        ]);
+
+        $response = $this->actingAs($this->fss, 'sanctum')
+            ->getJson('/api/fss/reports')
+            ->assertOk()
+            ->assertJsonCount(2, 'data');
+
+        $this->assertEqualsCanonicalizing(
+            [$completed->uuid, $archived->uuid],
+            collect($response->json('data'))->pluck('id')->all(),
+        );
+
+        $this->actingAs($this->fss, 'sanctum')
+            ->getJson('/api/fss/reports?status=failed')
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
+    }
+
     public function test_fss_cannot_open_mutate_or_trail_disallowed_report_rows_even_if_attributed(): void
     {
         Storage::fake('public');

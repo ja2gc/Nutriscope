@@ -44,6 +44,7 @@ export default function RootLayout() {
     bootstrap();
 
     return subscribeAuth((token) => {
+      queryClient.clear();
       setIsAuthenticated(!!token);
     });
   }, []);
@@ -88,10 +89,6 @@ export default function RootLayout() {
           <Stack.Screen
             name="help"
             options={{ title: 'Help' }}
-          />
-          <Stack.Screen
-            name="reports"
-            options={{ title: 'Accomplishment Reports' }}
           />
           <Stack.Screen
             name="food-details"

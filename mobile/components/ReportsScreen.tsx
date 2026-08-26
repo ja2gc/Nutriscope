@@ -12,8 +12,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AccomplishmentSnapshot, Report, downloadReportPdf, getReport, listReports } from '../lib/reports';
-import { PaginatedListFooter } from '../components/PaginatedListFooter';
-import { SearchInput } from '../components/SearchInput';
+import { PaginatedListFooter } from './PaginatedListFooter';
+import { SearchInput } from './SearchInput';
 import { flattenUniquePages, getNextPageParam } from '../lib/pagination';
 
 function fmtDate(d: string): string {
@@ -85,6 +85,9 @@ function ReportDetail({ id, onBack }: { id: string; onBack: () => void }) {
   });
 
   const snap = data?.snapshot?.accomplishment;
+  const start = String(data?.parameters?.start ?? data?.parameters?.from ?? '');
+  const end = String(data?.parameters?.end ?? data?.parameters?.to ?? '');
+  const period = snap?.period_label ?? (start && end ? `${fmtDate(start)} – ${fmtDate(end)}` : 'Saved accomplishment report');
   const download = useMutation({
     mutationFn: () => downloadReportPdf(data!),
     onError: (error: Error) => Alert.alert('Could not open report', error.message),
@@ -99,7 +102,7 @@ function ReportDetail({ id, onBack }: { id: string; onBack: () => void }) {
 
       {isLoading ? (
         <View className="flex-1 items-center justify-center"><ActivityIndicator color="#059669" /></View>
-      ) : isError || !snap ? (
+      ) : isError || !data ? (
         <View className="flex-1 items-center justify-center px-6">
           <FileText color="#ef4444" size={40} />
           <Text className="mt-3 text-gray-700 font-medium">Could not load report</Text>
@@ -111,13 +114,13 @@ function ReportDetail({ id, onBack }: { id: string; onBack: () => void }) {
         <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 24 }}>
           <View className="mb-4">
             <Text className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Accomplishment Report</Text>
-            <Text className="text-base font-bold text-gray-900 mt-0.5">{snap.period_label}</Text>
+            <Text className="text-base font-bold text-gray-900 mt-0.5">{period}</Text>
             <TouchableOpacity onPress={() => download.mutate()} disabled={download.isPending} className="mt-3 min-h-12 flex-row items-center justify-center gap-2 rounded-xl bg-[#087F5B]">
               {download.isPending ? <ActivityIndicator color="#fff" /> : <Download color="#fff" size={18} />}
               <Text className="font-bold text-white">{download.isPending ? 'Preparing PDF…' : 'Open or save PDF'}</Text>
             </TouchableOpacity>
           </View>
-          <ReportGrid snap={snap} />
+          {snap ? <ReportGrid snap={snap} /> : <View className="rounded-2xl border border-gray-200 bg-white p-4"><Text className="text-sm leading-5 text-gray-600">Open the prepared PDF to view the complete signed report.</Text></View>}
         </ScrollView>
       )}
     </View>

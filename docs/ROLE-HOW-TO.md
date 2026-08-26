@@ -159,16 +159,14 @@ Verified against current navigation and server permissions on **2026-07-20**. Fo
 1. Open **Menu**.
 2. Open the active/current cycle or browse another cycle.
 3. Select a meal slot to view scaled recipe/item details, ingredients, cost, and preparation notes.
-4. Enter or backfill actual served population for the correct date when needed.
-5. Do not attempt to change planned foods; FSS menu access is read-only.
+4. Do not attempt to change planned foods; FSS menu access is read-only.
 
 ### 3. Meal Prep
 
 1. Open **Meal Prep**.
 2. Review today's planned service and food profiles.
 3. Enter actual total patient population when prompted.
-4. Mark today's meals served/complete.
-5. If a shortfall warning appears, confirm only when the exception is accurate and service should proceed.
+4. Use the date selector to enter or correct a previous service date when needed.
 
 ### 4. Accomplish
 
@@ -194,14 +192,14 @@ Verified against current navigation and server permissions on **2026-07-20**. Fo
 
 ### 6. Announcements, SOP, and Notifications
 
-1. Use the header megaphone for current SOP, SOP History, and role-visible announcements.
+1. Open **Announcement** in the bottom navigation, then switch between Announcements and SOP.
 2. Use the bell for notifications; opening a notification may navigate to its target.
 3. Use Settings to mark all read if needed.
 
 ### 7. Help, Settings, and Profile
 
 1. Use the header account icon to open Settings.
-2. Under **Help & Support**, open **Help** to search Shared and FSS-only answers. Help remains outside the five main tabs.
+2. Under **Help & Support**, open **Help** to search Shared and FSS-only answers. Help remains outside the six main tabs.
 3. Set comfortable/compact density and reduced motion.
 4. Open Profile to edit name, sign-in email, contact number, recovery email, and password.
 5. Sign out from Settings when the device is shared.

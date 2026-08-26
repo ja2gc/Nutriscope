@@ -82,7 +82,8 @@ class ReportController extends Controller
 
         // FSS may only see accomplishment_report rows (fss.md §8).
         if ($role === 'FSS') {
-            $query->whereIn('type', self::FSS_ALLOWED_TYPES);
+            $query->whereIn('type', self::FSS_ALLOWED_TYPES)
+                ->whereIn('status', ['completed', 'archived']);
         }
 
         $query

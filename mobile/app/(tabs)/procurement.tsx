@@ -13,7 +13,7 @@ import {
   Trash2,
   X,
 } from 'lucide-react-native';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -31,6 +31,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import api from '../../lib/api';
+import { getToken } from '../../lib/auth';
+import { authenticatedImageSource, collectAllPages } from '../../lib/mobileContracts';
 import { PaginatedListFooter } from '../../components/PaginatedListFooter';
 import { MOBILE_PAGE_SIZE, PaginatedResponse, flattenUniquePages, getNextPageParam } from '../../lib/pagination';
 
@@ -64,7 +66,7 @@ interface PurchaseOrderAttachment {
   id: string;
   vendor_group_id?: number | null;
   type: AttachmentType;
-  path: string;
+  url: string;
   caption: string | null;
 }
 
@@ -109,10 +111,12 @@ async function fetchPOs(page: number): Promise<PaginatedResponse<PurchaseOrder>>
 }
 
 async function fetchSuppliers(): Promise<Supplier[]> {
-  const res = await api.get<PaginatedResponse<Supplier>>('/api/fss/suppliers', {
-    params: { page: 1, per_page: 10 },
+  return collectAllPages(async (page) => {
+    const res = await api.get<PaginatedResponse<Supplier>>('/api/fss/suppliers', {
+      params: { page, per_page: 10 },
+    });
+    return res.data;
   });
-  return res.data.data ?? [];
 }
 
 function money(value: number | string | null | undefined): string {
@@ -139,12 +143,7 @@ function isLocked(po: PurchaseOrder): boolean {
 
 
 function attachmentName(att: PurchaseOrderAttachment): string {
-  return att.caption || att.path.split('/').pop() || `${att.type} image`;
-}
-
-function attachmentUrl(att: PurchaseOrderAttachment): string {
-  const baseUrl = (process.env.EXPO_PUBLIC_API_URL ?? '').replace(/\/+$/, '').replace(/\/api$/, '');
-  return `${baseUrl}/storage/${att.path}`;
+  return att.caption || `${att.type === 'receipt' ? 'Receipt' : 'Proof'} image`;
 }
 
 interface UploadModalProps {
@@ -201,7 +200,7 @@ function UploadAttachmentModal({ group, visible, type, onChangeType, onClose }: 
           return;
         }
         const result = await ImagePicker.launchImageLibraryAsync({
-          mediaTypes: 'images',
+          mediaTypes: ['images'],
           quality: 0.85,
           allowsEditing: false,
           allowsMultipleSelection: true,
@@ -215,7 +214,7 @@ function UploadAttachmentModal({ group, visible, type, onChangeType, onClose }: 
           return;
         }
         const result = await ImagePicker.launchCameraAsync({
-          mediaTypes: 'images',
+          mediaTypes: ['images'],
           quality: 0.85,
           allowsEditing: false,
         });
@@ -361,6 +360,16 @@ function AttachmentList({
   const qc = useQueryClient();
   const attachments = (group.attachments ?? []).filter((att) => att.type === type);
   const [viewing, setViewing] = useState<PurchaseOrderAttachment | null>(null);
+  const { data: token = null } = useQuery({
+    queryKey: ['auth-token'],
+    queryFn: getToken,
+    staleTime: 0,
+  });
+  const imageSource = (attachment: PurchaseOrderAttachment) => authenticatedImageSource(
+    String(api.defaults.baseURL ?? process.env.EXPO_PUBLIC_API_URL ?? ''),
+    attachment.url,
+    token,
+  );
 
   const deleteMutation = useMutation({
     mutationFn: async (attachmentId: string) => {
@@ -422,7 +431,7 @@ function AttachmentList({
               accessibilityLabel={`View ${attachmentName(att)}`}
             >
               <Image
-                source={{ uri: attachmentUrl(att) }}
+                source={imageSource(att)}
                 className="w-full h-full"
                 resizeMode="cover"
               />
@@ -468,7 +477,7 @@ function AttachmentList({
                 </TouchableOpacity>
               </View>
               <Image
-                source={{ uri: attachmentUrl(viewing) }}
+                source={imageSource(viewing)}
                 className="w-full h-[520px] rounded-xl"
                 resizeMode="contain"
               />
@@ -484,14 +493,17 @@ interface VendorDetailProps {
   po: PurchaseOrder;
   group: VendorGroup;
   suppliers: Supplier[];
+  supplierLoadFailed: boolean;
+  onRetrySuppliers: () => void;
   onBack: () => void;
   onUpload: (group: VendorGroup, type: AttachmentType) => void;
   onVendorChanged: () => void;
 }
 
-function VendorDetail({ po, group, suppliers, onBack, onUpload, onVendorChanged }: VendorDetailProps) {
+function VendorDetail({ po, group, suppliers, supplierLoadFailed, onRetrySuppliers, onBack, onUpload, onVendorChanged }: VendorDetailProps) {
   const qc = useQueryClient();
   const locked = isLocked(po);
+  const actualsLocked = locked || group.status === 'received' || Boolean(group.received_at);
   const [orNumber, setOrNumber] = useState(group.or_number ?? '');
   const [error, setError] = useState<string | null>(null);
   const [actuals, setActuals] = useState<Record<number, { qty: string; price: string }>>(
@@ -510,7 +522,7 @@ function VendorDetail({ po, group, suppliers, onBack, onUpload, onVendorChanged 
     mutationFn: async (markReceived: boolean) => {
       const payload = {
         or_number: orNumber.trim() || null,
-        items: (group.items ?? []).map((item) => ({ id: item.id, actual_qty: Number(actuals[item.id]?.qty), actual_unit_price: Number(actuals[item.id]?.price) })),
+        ...(!actualsLocked ? { items: (group.items ?? []).map((item) => ({ id: item.id, actual_qty: Number(actuals[item.id]?.qty), actual_unit_price: Number(actuals[item.id]?.price) })) } : {}),
         ...(markReceived ? { status: 'received' } : {}),
       };
       const res = await api.patch(`/api/fss/purchase-order-vendor-groups/${group.id}`, payload);
@@ -526,6 +538,20 @@ function VendorDetail({ po, group, suppliers, onBack, onUpload, onVendorChanged 
       setError((err as any)?.response?.data?.message ?? 'Could not save vendor details.');
     },
   });
+
+  const saveActuals = (markReceived: boolean) => {
+    const invalid = !actualsLocked && (group.items ?? []).find((item) => {
+      const qty = Number(actuals[item.id]?.qty);
+      const price = Number(actuals[item.id]?.price);
+      return !Number.isFinite(qty) || qty <= 0 || !Number.isFinite(price) || price < 0;
+    });
+    if (invalid) {
+      setError(`Enter a quantity greater than 0 and a non-negative unit price for ${invalid.description}.`);
+      return;
+    }
+    setError(null);
+    updateMutation.mutate(markReceived);
+  };
 
   const vendorMutation = useMutation({
     mutationFn: async ({ supplierId, itemId }: { supplierId: string; itemId?: number }) => {
@@ -556,6 +582,7 @@ function VendorDetail({ po, group, suppliers, onBack, onUpload, onVendorChanged 
 
   const vendorChoices = (itemId?: number) => (
     <View className="mt-2 gap-2">
+      {supplierLoadFailed && <View className="rounded-lg border border-red-200 bg-red-50 p-3"><Text className="text-sm text-red-700">Could not load vendors.</Text><TouchableOpacity className="mt-2 min-h-11 justify-center" onPress={onRetrySuppliers}><Text className="font-semibold text-emerald-700">Retry</Text></TouchableOpacity></View>}
       {suppliers.filter((supplier) => supplier.id !== group.supplier?.id).map((supplier) => (
         <TouchableOpacity
           key={supplier.id}
@@ -629,11 +656,11 @@ function VendorDetail({ po, group, suppliers, onBack, onUpload, onVendorChanged 
             <View className="mt-3">
               <TouchableOpacity
                 className="flex-row items-center justify-center gap-2 border border-gray-200 py-3 rounded-xl"
-                onPress={() => updateMutation.mutate(false)}
+                onPress={() => saveActuals(false)}
                 disabled={updateMutation.isPending}
               >
                 {updateMutation.isPending ? <ActivityIndicator size="small" color="#059669" /> : <Save color="#059669" size={16} />}
-                <Text className="text-sm font-semibold text-emerald-700">Save actuals and optional OR</Text>
+                <Text className="text-sm font-semibold text-emerald-700">{actualsLocked ? 'Save optional OR' : 'Save actuals and optional OR'}</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -657,8 +684,8 @@ function VendorDetail({ po, group, suppliers, onBack, onUpload, onVendorChanged 
                 {item.actual_values_confirmed ? 'Reviewed' : 'Not reviewed'}
               </Text>
               <View className="flex-row gap-2">
-                <View className="flex-1"><Text className="text-xs text-gray-500 mb-1">Actual qty</Text><TextInput keyboardType="decimal-pad" editable={!locked} value={actuals[item.id]?.qty ?? ''} onChangeText={(value) => setActuals((current) => ({ ...current, [item.id]: { qty: value, price: current[item.id]?.price ?? plain(item.actual_unit_price) } }))} className="border border-gray-200 rounded-lg px-3 py-2 text-sm" /></View>
-                <View className="flex-1"><Text className="text-xs text-gray-500 mb-1">Actual unit price</Text><TextInput keyboardType="decimal-pad" editable={!locked} value={actuals[item.id]?.price ?? ''} onChangeText={(value) => setActuals((current) => ({ ...current, [item.id]: { qty: current[item.id]?.qty ?? plain(item.actual_qty), price: value } }))} className="border border-gray-200 rounded-lg px-3 py-2 text-sm" /></View>
+                <View className="flex-1"><Text className="text-xs text-gray-500 mb-1">Actual qty</Text><TextInput keyboardType="decimal-pad" editable={!actualsLocked} value={actuals[item.id]?.qty ?? ''} onChangeText={(value) => setActuals((current) => ({ ...current, [item.id]: { qty: value, price: current[item.id]?.price ?? plain(item.actual_unit_price) } }))} className="border border-gray-200 rounded-lg px-3 py-2 text-sm" /></View>
+                <View className="flex-1"><Text className="text-xs text-gray-500 mb-1">Actual unit price</Text><TextInput keyboardType="decimal-pad" editable={!actualsLocked} value={actuals[item.id]?.price ?? ''} onChangeText={(value) => setActuals((current) => ({ ...current, [item.id]: { qty: current[item.id]?.qty ?? plain(item.actual_qty), price: value } }))} className="border border-gray-200 rounded-lg px-3 py-2 text-sm" /></View>
               </View>
               <TouchableOpacity
                 className="min-h-11 justify-center"
@@ -695,10 +722,10 @@ function VendorDetail({ po, group, suppliers, onBack, onUpload, onVendorChanged 
           <AttachmentList group={group} type="receipt" locked={locked} onUpload={(type) => onUpload(group, type)} />
           <AttachmentList group={group} type="proof" locked={locked} onUpload={(type) => onUpload(group, type)} />
         </View>
-        {!locked && <TouchableOpacity className={`mt-4 rounded-xl py-3 ${group.evidence_requirements?.receipt_uploaded && group.evidence_requirements?.proof_uploaded ? 'bg-emerald-600' : 'bg-gray-300'}`} disabled={updateMutation.isPending || !group.evidence_requirements?.receipt_uploaded || !group.evidence_requirements?.proof_uploaded} onPress={() => updateMutation.mutate(true)}>
+        {!actualsLocked && <TouchableOpacity className={`mt-4 min-h-12 justify-center rounded-xl py-3 ${group.evidence_requirements?.can_mark_received ? 'bg-emerald-600' : 'bg-gray-300'}`} disabled={updateMutation.isPending || !group.evidence_requirements?.can_mark_received} onPress={() => saveActuals(true)}>
           <Text className="text-center font-semibold text-white">Mark vendor received</Text>
         </TouchableOpacity>}
-        {!locked && <Text className="mt-2 text-center text-xs text-gray-500">Receipt, proof, and reviewed actual values are required. OR number is optional.</Text>}
+        {!actualsLocked && <Text className="mt-2 text-center text-xs text-gray-500">Receipt, proof, and reviewed actual values are required. OR number is optional.</Text>}
       </View>
     </ScrollView>
   );
@@ -811,6 +838,7 @@ export default function ProcurementScreen() {
   const params = useLocalSearchParams<{ poId?: string }>();
   // PO ids are public uuids (strings) — match as strings, never Number().
   const targetPoId = params.poId || null;
+  const consumedTargetPo = useRef<string | null>(null);
   const [selectedPoId, setSelectedPoId] = useState<string | null>(null);
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [uploadGroup, setUploadGroup] = useState<VendorGroup | null>(null);
@@ -824,11 +852,12 @@ export default function ProcurementScreen() {
     getNextPageParam,
     staleTime: 60_000,
   });
-  const { data: suppliers = [] } = useQuery({
+  const supplierQuery = useQuery({
     queryKey: ['fss-suppliers', 'purchase-change'],
     queryFn: () => fetchSuppliers(),
     staleTime: 5 * 60_000,
   });
+  const suppliers = supplierQuery.data ?? [];
 
   const orders = useMemo(() => flattenUniquePages(data?.pages), [data]);
   const selectedPo = useMemo(
@@ -841,8 +870,9 @@ export default function ProcurementScreen() {
   );
 
   useEffect(() => {
-    if (!targetPoId || selectedPoId === targetPoId) return;
+    if (!targetPoId || consumedTargetPo.current === targetPoId) return;
     if (orders.some((po) => String(po.id) === targetPoId)) {
+      consumedTargetPo.current = targetPoId;
       setSelectedPoId(targetPoId);
       setSelectedGroupId(null);
     } else if (hasNextPage && !isFetchingNextPage) {
@@ -887,6 +917,8 @@ export default function ProcurementScreen() {
           po={selectedPo}
           group={selectedGroup}
           suppliers={suppliers}
+          supplierLoadFailed={supplierQuery.isError}
+          onRetrySuppliers={() => { void supplierQuery.refetch(); }}
           onBack={() => setSelectedGroupId(null)}
           onUpload={openUpload}
           onVendorChanged={() => setSelectedGroupId(null)}

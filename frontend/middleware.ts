@@ -29,7 +29,7 @@ export function middleware(request: NextRequest) {
   // Do not redirect public auth pages based only on cookies. A stale Sanctum token
   // otherwise traps users away from /login before /api/auth/me can clear it.
 
-  // Keep the standalone FSS experience inside its manifest scope.
+  // Browser users need a valid session; FSS routes above hand off to the APK page.
   if (!isPublicPath && !token) {
     return NextResponse.redirect(new URL("/login", request.url));
   }

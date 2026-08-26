@@ -94,7 +94,7 @@ function openNotificationTarget(notification: Notification) {
   }
 
   if (type.includes('report') || type.includes('accomplishment')) {
-    router.push('/reports');
+    router.push({ pathname: '/(tabs)/accomplishments', params: { section: 'reports' } } as never);
     return;
   }
 }

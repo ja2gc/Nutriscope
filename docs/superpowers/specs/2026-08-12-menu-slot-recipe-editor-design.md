@@ -61,7 +61,7 @@ When a PO is created, the existing snapshot flow stores the computed slot recipe
 Use stable composite slot identity because Menu Cycle updates currently recreate day rows:
 
 - RND web: `/food-service/menu-cycle/{cycle}/slots/{day}/{meal}`
-- FSS PWA: `/fss/menu/{cycle}/slots/{day}/{meal}`
+- FSS native app: dedicated `food-details` screen using the slot API
 - API GET: `/api/fss/menu-cycles/{cycle}/slots/{day}/{meal}` for FSS and RND
 - API PATCH: same backend resource inside the existing RND-only middleware
 - API DELETE override/reset: same RND-only boundary

@@ -1,12 +1,13 @@
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CalendarDays, Check, CheckCircle2, ClipboardCheck, FileText, RotateCcw, Users } from 'lucide-react-native';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useLocalSearchParams } from 'expo-router';
 import { ActivityIndicator, Platform, Pressable, RefreshControl, ScrollView, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import api from '../../lib/api';
 import { dateFromKey, localDateKey, readableLocalDate } from '../../lib/localDate';
-import ReportsScreen from '../reports';
+import ReportsScreen from '../../components/ReportsScreen';
 
 const TASKS = [
   ['helped_food_prep', 'Helped prepare food'],
@@ -32,6 +33,7 @@ async function getDailyRows(date: string): Promise<DailyRow[]> {
 }
 
 export default function AccomplishmentsScreen() {
+  const params = useLocalSearchParams<{ section?: string }>();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const today = localDateKey();
@@ -44,6 +46,10 @@ export default function AccomplishmentsScreen() {
   const [tasks, setTasks] = useState<TaskFlags>(emptyTasks);
   const [message, setMessage] = useState<{ kind: 'error' | 'success'; text: string } | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+
+  useEffect(() => {
+    if (params.section === 'reports') setSection('reports');
+  }, [params.section]);
 
   const rowsQuery = useQuery({ queryKey: ['fss-diet-list-day', selectedDate], queryFn: () => getDailyRows(selectedDate), staleTime: 30_000 });
   const total = useMemo(() => (rowsQuery.data ?? []).reduce((sum, row) => sum + Number(row.population), 0), [rowsQuery.data]);
@@ -79,6 +85,7 @@ export default function AccomplishmentsScreen() {
 
   const submit = () => {
     setMessage(null);
+    if (rowsQuery.isLoading || rowsQuery.isError) { setMessage({ kind: 'error', text: 'Could not check existing logs. Retry before saving.' }); return; }
     if (!offDuty && !ward.trim()) { setMessage({ kind: 'error', text: 'Enter the ward before saving.' }); return; }
     const population = Number.parseInt(meals, 10);
     if (!offDuty && (!Number.isFinite(population) || population < 0)) { setMessage({ kind: 'error', text: 'Distributed meals must be 0 or greater.' }); return; }
@@ -116,8 +123,9 @@ export default function AccomplishmentsScreen() {
       </View>
 
       <View className="mt-3 rounded-[22px] bg-[#0B6B4B] p-4">
-        <View className="flex-row items-center justify-between"><View><Text className="text-emerald-100 text-xs font-bold uppercase tracking-widest">Meals logged</Text><Text className="mt-1 text-3xl font-extrabold text-white tabular-nums">{total}</Text></View><Users color="#D1FAE5" size={28} /></View>
+        <View className="flex-row items-center justify-between"><View><Text className="text-emerald-100 text-xs font-bold uppercase tracking-widest">Meals logged</Text><Text className="mt-1 text-3xl font-extrabold text-white tabular-nums">{rowsQuery.isLoading || rowsQuery.isError ? '—' : total}</Text></View><Users color="#D1FAE5" size={28} /></View>
         {(rowsQuery.data?.length ?? 0) > 0 && <Text className="mt-2 text-xs text-emerald-100">{rowsQuery.data!.map((row) => row.off_duty ? 'Off duty' : `${row.ward}: ${row.population}`).join(' · ')}</Text>}
+        {rowsQuery.isError && <TouchableOpacity className="mt-2 min-h-11 justify-center" onPress={() => rowsQuery.refetch()}><Text className="font-bold text-white">Could not check existing logs. Retry</Text></TouchableOpacity>}
       </View>
 
       <View className="rounded-[22px] bg-white border border-[#E2EAE5] p-4 mt-3">

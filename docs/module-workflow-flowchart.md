@@ -181,8 +181,8 @@ flowchart TD
     HDR --> H2["Profile -> Account side menu"]
     H2 --> SIDE["Profile, Notifications, Help, Settings, Check updates, Sign out"]
 
-    T4 --> L1["Daily Log: today or previous date"]
-    T4 --> L2["My Reports: details + PDF"]
+    T5 --> L1["Daily Log: today or previous date"]
+    T5 --> L2["My Reports: details + PDF"]
 ```
 
 Page inventory: Home, Announcement, Menu, Meal Prep, Accomplish, Purchase, food profile, report detail, Notifications, Help, Settings, and Profile. Announcement contains separate Announcements and SOP tabs.
@@ -224,7 +224,7 @@ flowchart TD
     D --> E["Review calculated values; confirm actual qty/price"]
     E --> F["Upload receipt and proof; optional OR"]
     F --> G["Explicitly mark vendor received"]
-    B --> H["Meal Prep: record positive actual served population and complete service"]
+    B --> H["Meal Prep: review planned meals and record positive actual served population"]
     B --> I["Accomplish: record ward meals/duties or off-duty"]
     I --> J["Own weekly accomplishment report"]
     G --> K{"All vendor evidence complete?"}
@@ -359,10 +359,10 @@ flowchart TD
 1. Launch mobile app and log in as `fss@nutriscope.local`.
 2. Open Dashboard for today's service list, meals-to-log KPI, POs awaiting receipt, no-stock items, and announcements.
 3. Open Procurement, receive vendor groups, enter OR number, upload receipt/proof, and mark received.
-4. Open Prep & Accomplishment, mark served, and record diet-list/accomplishment rows.
-5. Open Menu cycles & served population to review active menu foods and set actual served population.
-6. Open Inventory to add or deduct stock.
-7. Open My accomplishment reports to review archived weekly reports.
+4. Open Meal Prep to review the selected day's menu and record actual served population.
+5. Open Accomplish to record diet-list/accomplishment rows for today or a missed previous date.
+6. Open Menu to review weekly menu slots and open each read-only food profile.
+7. Open My Reports inside Accomplish to view and download personal weekly reports.
 
 ### Part D - Reports close the loop
 

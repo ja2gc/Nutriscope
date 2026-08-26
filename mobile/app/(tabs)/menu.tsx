@@ -11,7 +11,7 @@ import { flattenUniquePages, getNextPageParam } from '../../lib/pagination';
 
 function CycleDetail({ cycleId, onBack }: { cycleId: string; onBack: () => void }) {
   const [selectedDay, setSelectedDay] = useState('');
-  const { data: cycle, isLoading } = useQuery({ queryKey: ['fs-cycle', cycleId], queryFn: () => getMenuCycle(cycleId) });
+  const { data: cycle, isLoading, isError, refetch } = useQuery({ queryKey: ['fs-cycle', cycleId], queryFn: () => getMenuCycle(cycleId) });
 
   useEffect(() => {
     if (!cycle) return;
@@ -21,7 +21,8 @@ function CycleDetail({ cycleId, onBack }: { cycleId: string; onBack: () => void 
     setSelectedDay(available.includes(todayName) ? todayName : available[0] ?? '');
   }, [cycle, selectedDay]);
 
-  if (isLoading || !cycle) return <View className="flex-1 items-center justify-center bg-[#F4F7F5]"><ActivityIndicator color="#087F5B" /></View>;
+  if (isLoading) return <View className="flex-1 items-center justify-center bg-[#F4F7F5]"><ActivityIndicator color="#087F5B" /></View>;
+  if (isError || !cycle) return <View className="flex-1 items-center justify-center bg-[#F4F7F5] px-6"><Utensils color="#DC2626" size={40} /><Text className="mt-3 text-base font-medium text-[#263D35]">Could not load this menu cycle</Text><View className="mt-5 flex-row gap-3"><TouchableOpacity className="min-h-12 justify-center rounded-xl border border-[#D9E3DD] px-5" onPress={onBack}><Text className="font-semibold text-[#263D35]">Back</Text></TouchableOpacity><TouchableOpacity className="min-h-12 justify-center rounded-xl bg-[#087F5B] px-5" onPress={() => refetch()}><Text className="font-semibold text-white">Retry</Text></TouchableOpacity></View></View>;
   const byDay: Record<string, MenuDay[]> = {};
   (cycle.days ?? []).forEach((entry) => { (byDay[entry.day_of_week] ??= []).push(entry); });
   const availableDays = DAYS.filter((day) => byDay[day]?.length);
