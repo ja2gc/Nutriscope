@@ -1,6 +1,11 @@
 name: Publish FSS Android release
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - mobile/release.json
   workflow_dispatch:
     inputs:
       artifact_url:
@@ -24,13 +29,32 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
+      - name: Check out release request
+        if: github.event_name == 'push'
+        uses: actions/checkout@v4
+
+      - name: Read release request
+        if: github.event_name == 'push'
+        id: release
+        run: |
+          jq -e '.artifact_url | type == "string" and startswith("https://")' mobile/release.json >/dev/null
+          jq -e '.version | type == "string"' mobile/release.json >/dev/null
+          jq -e '.version_code | type == "number"' mobile/release.json >/dev/null
+          jq -e '.sha256 | type == "string"' mobile/release.json >/dev/null
+          {
+            echo "artifact_url=$(jq -r .artifact_url mobile/release.json)"
+            echo "version=$(jq -r .version mobile/release.json)"
+            echo "version_code=$(jq -r .version_code mobile/release.json)"
+            echo "sha256=$(jq -r .sha256 mobile/release.json)"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Publish verified APK and update metadata
         uses: appleboy/ssh-action@v1.0.3
         env:
-          APK_URL: ${{ inputs.artifact_url }}
-          VERSION: ${{ inputs.version }}
-          VERSION_CODE: ${{ inputs.version_code }}
-          SHA256: ${{ inputs.sha256 }}
+          APK_URL: ${{ github.event_name == 'push' && steps.release.outputs.artifact_url || inputs.artifact_url }}
+          VERSION: ${{ github.event_name == 'push' && steps.release.outputs.version || inputs.version }}
+          VERSION_CODE: ${{ github.event_name == 'push' && steps.release.outputs.version_code || inputs.version_code }}
+          SHA256: ${{ github.event_name == 'push' && steps.release.outputs.sha256 || inputs.sha256 }}
         with:
           host: ${{ secrets.DROPLET_HOST }}
           username: ${{ secrets.DROPLET_USER }}
