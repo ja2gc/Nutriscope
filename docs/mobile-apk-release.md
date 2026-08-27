@@ -15,8 +15,8 @@ For each release:
 ```json
 {
   "artifact_url": "REPLACE_WITH_EAS_APK_URL",
-  "version": "1.2.1",
-  "version_code": 5,
+  "version": "1.2.3",
+  "version_code": 7,
   "sha256": "REPLACE_WITH_APK_SHA256"
 }
 ```
@@ -25,8 +25,8 @@ The public metadata is:
 
 ```json
 {
-  "version": "1.2.1",
-  "version_code": 5,
+  "version": "1.2.3",
+  "version_code": 7,
   "download_url": "https://nutriscope.live/downloads/nutriscope-fss.apk",
   "sha256": "REPLACE_WITH_APK_SHA256",
   "published_at": "REPLACE_WITH_RELEASE_TIMESTAMP"

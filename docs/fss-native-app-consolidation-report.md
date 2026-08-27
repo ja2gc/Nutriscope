@@ -125,17 +125,17 @@ Meal-service completion/reversal API endpoints still exist and retain audit cove
 
 The app checks periodically and also exposes **Check for updates** in the profile menu. Because distribution is outside Google Play, Android can still require normal unknown-source approval; a QR or stable URL cannot remove that operating-system warning.
 
-## Android Release 1.2.1
+## Android Release 1.2.3
 
 | Field | Verified value |
 |---|---|
 | Application | NutriScope FSS |
 | Android package | `live.nutriscope.fss` |
-| Version | `1.2.1` |
-| Version code | `5` |
-| EAS build ID | `10410351-ef16-47d7-983d-94271c15dd34` |
-| APK bytes | `82,693,016` |
-| SHA-256 | `a30f995adf57d261b73c7a89f8a8eb6506a3471fb6a1f2559a5cfd012b2f02a0` |
+| Version | `1.2.3` |
+| Version code | `7` |
+| EAS build ID | `7041df88-5fbe-4632-b9f9-9afd4c12c8d8` |
+| APK bytes | `82,709,328` |
+| SHA-256 | `660a759d48b8b27300a25250e0f4ea1ab3d16a706a5a8737bb8030df476820e2` |
 | Landing page | `https://nutriscope.live/mobile-app` |
 | APK | `https://nutriscope.live/downloads/nutriscope-fss.apk` |
 | Metadata | `https://nutriscope.live/downloads/nutriscope-fss.json` |
@@ -154,12 +154,14 @@ The production APK, metadata, MIME type, content length, stable landing page, an
 
 The completed application changes were checked with:
 
-- backend full suite: **1,252 tests, 8,340 assertions**;
+- backend full suite: **1,260 tests, 8,380 assertions**;
 - frontend full suite: **103 test files, 315 tests**;
-- frontend TypeScript, lint, and production build;
-- mobile source contracts: **31 tests**;
+- frontend TypeScript and lint;
+- mobile source contracts: **35 tests**;
 - mobile TypeScript;
-- final focused backend FSS/report/menu-cycle run: **57 tests, 166 assertions**;
+- focused backend FSS/report/seeder run: **55 tests, 175 assertions**;
+- Expo Android export: **3,284 modules**;
+- rendered accomplishment PDF visual check: **one A4 landscape page with no clipping or overlap**;
 - final focused website login/download contracts: **3 tests**;
 - workflow contract checks, YAML parsing, and `git diff --check`;
 - live HTTP, metadata, APK size, and checksum checks;
