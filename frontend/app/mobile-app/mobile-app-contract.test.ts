@@ -8,6 +8,7 @@ describe("public FSS app landing", () => {
   it("uses the native APK handoff and identifies the intended role", () => {
     expect(source).toContain("<FssAppAccess />");
     expect(source).toContain("Food Service Staff");
-    expect(source).toContain("QR code does not change");
+    expect(source).not.toContain("allow installation from your browser");
+    expect(source).not.toContain("QR code does not change");
   });
 });

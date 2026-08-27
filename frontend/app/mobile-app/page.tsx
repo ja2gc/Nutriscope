@@ -30,9 +30,6 @@ export default function MobileAppPage() {
           <div className="mt-6">
             <FssAppAccess />
           </div>
-          <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">
-            Android may ask you to allow installation from your browser. Download updates from this same page; the QR code does not change.
-          </div>
         </section>
       </div>
     </main>
