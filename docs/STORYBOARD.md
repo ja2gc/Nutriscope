@@ -1,6 +1,6 @@
 # NutriScope System Storyboard
 
-Verified against current role navigation and food-service lifecycle on **2026-08-15**.
+Verified against current role navigation and food-service lifecycle on **2026-08-27**.
 
 This is the submission-ready, no-screenshot storyboard. It explains NutriScope as a scene-by-scene user journey using text, tables, and Mermaid diagrams, so it remains complete even when visual captures are unavailable.
 
@@ -76,7 +76,7 @@ flowchart LR
 | 1. Daily orientation | Home | Reviews meals to log, pending POs, active cycle, today's service, announcements | Shows work queues and missing requirements | FSS knows what needs attention |
 | 2. Menu briefing | Menu | Opens today's foods and recipe/item profiles | Shows scaled ingredients, cost, and prep notes read-only | Kitchen sees RND's approved plan |
 | 3. Receiving | Purchase | Reviews prefilled values, corrects decimal actual quantity/price, uploads receipt/proof, optionally records OR, and marks vendor received | Validates required evidence and updates the confirmed purchase | Evidence closes receiving explicitly |
-| 4. Preparation/service | Meal Prep | Reviews rows, enters actual population, marks served | Records service completion and refreshes PO served-day progress | Actual service connects to cost outcome |
+| 4. Preparation/service | Meal Prep | Reviews the selected date's meals and records actual population | Stores the served-population record and refreshes PO served-day progress | Actual service connects to cost outcome without a redundant completion log |
 | 5. Daily accomplishment | Accomplish | Enters ward/meals, selects duties, or marks off duty | Stores daily entry and updates weekly report completeness | Staff work becomes reportable |
 | 6. Communication | Announcement tab and header bell | Switches between Announcements and SOP; reads notifications from the bell | Preserves current procedure and alert state | Communication stays visible without crowding the header |
 | 7. Personal record | Accomplish → My reports | Opens archived report | Shows only this FSS user's frozen weekly output | Access stays role- and owner-scoped |
@@ -133,7 +133,7 @@ flowchart LR
 | 2 | RND | Shopping list | Enters one span estimate and generates requirements, or creates a named manual list |
 | 3 | RND | Purchase order | Converts to one PO with vendor groups and frozen plan snapshots |
 | 4 | FSS | Vendor group | Confirms actual values, uploads receipt/proof, optionally saves OR, and marks received |
-| 5 | FSS | Service date | Records actual population and meal completion |
+| 5 | FSS | Service date | Records actual population in Meal Prep |
 | 6 | System | Completed PO/budget event | Checks vendor evidence and applicable dates, calculates food purchase cost per served patient-day, writes ledger/audit events |
 | 7 | RND | Operational reports | Reviews menu, procurement, accomplishment, and budget outcomes |
 | 8 | Admin | Oversight views | Reviews aggregate reports, budget history, AI/audit health without clinical-report access |
@@ -170,7 +170,7 @@ sequenceDiagram
 | Scene | Actor and entry | User action | System response | Story point |
 |---|---|---|---|---|
 | 1A | RND → sidebar Help | Searches a clinical or food-service term and expands a question | Searches Shared and RND answers only | Clinical guidance remains in the RND workspace |
-| 1B | FSS → Settings → Help & Support → Help | Searches an operational term and expands a question | Searches Shared and FSS answers without adding a sixth main tab | Daily execution navigation stays focused |
+| 1B | FSS → profile menu or Settings → Help | Searches an operational term and expands a question | Searches Shared and FSS answers without adding another main tab | Daily execution navigation stays focused |
 | 1C | Admin → sidebar Help | Searches an account, audit, or settings term and expands a question | Searches Shared and Admin answers only | Administrative guidance does not reveal clinical workflows |
 | 2 | Any role | Clears a search with no results and browses topic groups | Restores all answers allowed for that role | Recovery is obvious and role boundaries remain fixed |
 

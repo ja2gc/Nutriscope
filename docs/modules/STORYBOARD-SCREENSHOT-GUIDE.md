@@ -1,6 +1,6 @@
 # NutriScope Sequential Screenshot Storyboard Guide
 
-Verified against current role navigation on **2026-07-20**.
+Verified against current role navigation on **2026-08-27**.
 
 This is the screenshot-required storyboard. Complete it by inserting the specified app capture immediately below each **Screenshot needed** instruction. Use demo data and follow the privacy rules in this guide.
 
@@ -321,7 +321,7 @@ Use this version when screenshots are available. Each scene already contains the
 
 **Next scene:** Food Shopping List.
 
-> **Screenshot needed:** Filled Menu Cycle grid with week dates, estimated/served population, meal slots, Save, Save as Template, and Activate. Optional second image: open food-profile modal.
+> **Screenshot needed:** Filled Menu Cycle grid with week dates, estimated/served population, meal slots, Save, Save as Template, and Activate. Optional second image: dedicated slot profile/editor page.
 >
 > **Insert screenshot(s) below this line.**
 
@@ -451,25 +451,25 @@ Use this version when screenshots are available. Each scene already contains the
 
 #### FSS-02 — Menu Cycle
 
-**Description:** Menu is read-only planning content from RND. FSS can open a slot profile and record/backfill actual served population.
+**Description:** Menu is read-only planning content from RND. FSS can open a slot profile on a separate read-only page; actual served population belongs in Meal Prep.
 
 **User should do:** Open today's meal slot and review preparation details.
 
 **Next scene:** Menu Item Profile.
 
-> **Screenshot needed:** Menu tab with current cycle, weekdays/meal slots, and served population control.
+> **Screenshot needed:** Menu tab with current cycle, weekday selector, and meal slots. Do not show population or completion controls because Menu has none.
 >
 > **Insert screenshot below this line.**
 
 #### FSS-03 — Menu Item Profile
 
-**Description:** Profile gives kitchen-ready recipe/item information: scaled servings, ingredients, quantities, cost/head, and prep notes.
+**Description:** The separate Food profile page gives kitchen-ready recipe/item information: scaled servings, ingredients, quantities, cost/head, and prep notes.
 
-**User should do:** Read the demo preparation notes and close the profile.
+**User should do:** Read the demo preparation notes and use the normal back action.
 
 **Next scene:** Purchase or Meal Prep.
 
-> **Screenshot needed:** Open recipe/item profile modal with scaled ingredients and preparation notes.
+> **Screenshot needed:** Separate Food profile page with source label, scaled ingredients, preparation notes, and back navigation.
 >
 > **Insert screenshot below this line.**
 
@@ -511,13 +511,13 @@ Use this version when screenshots are available. Each scene already contains the
 
 #### FSS-07 — Meal Prep
 
-**Description:** FSS reviews today's service, enters actual total population, and marks meals served/complete. A shortfall requires explicit confirmation.
+**Description:** FSS reviews the selected planned date's meals and records or updates the positive whole-number actual population served. There is no separate completion action.
 
-**User should do:** Enter demo population and show the completion control.
+**User should do:** Choose today or an earlier planned date, enter a demo headcount, and select **Record actual served** or **Update actual served**.
 
 **Next scene:** Accomplish.
 
-> **Screenshot needed:** Meal Prep tab showing Today's Service, actual total population, meal rows, and served/completion action.
+> **Screenshot needed:** Meal Prep tab showing the date selector, planned meal rows, actual population field, and Record/Update actual served action.
 >
 > **Insert screenshot below this line.**
 
@@ -525,11 +525,11 @@ Use this version when screenshots are available. Each scene already contains the
 
 **Description:** FSS records ward, meals distributed, seven duties, or off-duty/absent. This daily data builds the user's weekly report.
 
-**User should do:** Fill a demo entry and select Save accomplishment.
+**User should do:** Fill a demo entry and select **Save today's log**. Also show a past date with the visible **Today** return action.
 
 **Next scene:** My Reports.
 
-> **Screenshot needed:** Accomplish tab with daily log summary, ward, meals, duty checklist, off-duty switch, and Save accomplishment.
+> **Screenshot needed:** Accomplish Daily Log with date selector, Today return action when backdated, summary, ward, meals, duty checklist, off-duty switch, and Save today's/past log.
 >
 > **Insert screenshot below this line.**
 
@@ -589,7 +589,7 @@ Use this version when screenshots are available. Each scene already contains the
 
 **Next scene:** End of FSS story.
 
-> **Screenshot needed:** FSS Help showing Search Help and an expanded purchase-order answer; optional second image: Settings with Help & Support → Help. Keep all five bottom tabs unchanged.
+> **Screenshot needed:** FSS Help showing Search Help and an expanded purchase-order answer; optional second image: Settings with Help & Support → Help. Keep all six bottom tabs unchanged.
 >
 > **Insert screenshot(s) below this line.**
 

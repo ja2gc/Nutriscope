@@ -1,11 +1,13 @@
-# Module food service operation Workflow Flowchart
+# NutriScope Module Workflow Flowchart
+
+Verified against current RND web, FSS native mobile, and Laravel workflow boundaries on **2026-08-27**.
 
 This is the demo guide and source-of-truth workflow map for the NutriScope modules that feed clinical care, food service planning, execution, monitoring, and report generation.
 
 Primary actors:
 
 - **RND** works in the web app and owns food data setup, recipes, menu cycles, patients, NCP/ADIME care plans, meal plans, monitoring, reports, budget, and insights.
-- **FSS** works in the mobile app and owns food-service execution: receiving deliveries, logging meal prep, recording diet-list headcounts, updating inventory, and filing weekly accomplishment reports.
+- **FSS** works in the native mobile app and owns food-service execution: reviewing approved menus, receiving deliveries with evidence, recording actual served population, filing daily accomplishments, and opening their own weekly reports.
 
 The modules share data through food items, recipes, menu cycles, patient records, NCP records, prescriptions, meal plans, inventory, purchase orders, monitoring entries, and archived reports.
 
@@ -45,9 +47,9 @@ flowchart TD
 
     L4 --> M["Generate suggested shopping list"]
     M --> N["Aggregate recipe ingredients and ready-to-serve items"]
-    N --> O["Attach on-hand stock, pending PO, supplier, estimated cost"]
-    O --> P["Approve list -> purchase order / vendor groups"]
-    P --> Q["FSS receives deliveries and inventory updates"]
+    N --> O["Attach calculated need, purchase values, vendor, and estimated cost"]
+    O --> P["Create and release purchase order / vendor groups"]
+    P --> Q["FSS confirms actuals, uploads evidence, and marks vendors received"]
 ```
 
 ---
@@ -263,12 +265,11 @@ flowchart LR
         F0["Login mobile"]
         F1["Dashboard work queues"]
         F2["View active menu cycle"]
-        F3["Diet-list counts + accomplishment tasks"]
+        F3["Daily accomplishment rows"]
         F4["Receive PO vendor groups"]
-        F5["Complete meal-prep day"]
-        F6["Update inventory"]
+        F5["Meal Prep: record actual served population"]
         F0 --> F1
-        F1 --> F2 & F3 & F4 & F5 & F6
+        F1 --> F2 & F3 & F4 & F5
     end
 
     R3 ==> X1["Shared activated menu cycle"]
@@ -277,9 +278,9 @@ flowchart LR
 
     R3 ==> X2["Shopping list / PO"]
     X2 ==> F4
-    F4 ==> X3["Receipt/proof + stock-in"]
-    F5 ==> X4["Stock-out + meal-prep logs"]
-    F3 ==> X5["Served population + accomplishment report"]
+    F4 ==> X3["Confirmed actuals + receipt/proof + received state"]
+    F5 ==> X4["Actual served population by service date"]
+    F3 ==> X5["Daily duties/meals + accomplishment report"]
 
     R8 ==> X6["Patient meal plan report data"]
     R9 ==> X7["Monitoring/evaluation report data"]
@@ -303,7 +304,7 @@ flowchart TD
     B -->|"Budget summary / burn"| F["Fiscal-year budget + budget ledger"]
     B -->|"Per-head actual vs limit"| G["PO costs + served population + per-head/day limit"]
     B -->|"Menu / PPA / procurement"| H["Menu cycle + shopping list + PO + frozen PPA"]
-    B -->|"FSS accomplishment"| I["Diet-list counts + per-staff task rows"]
+    B -->|"FSS accomplishment"| I["Per-staff Daily Log rows + archived weekly snapshot"]
 
     C --> J["RND reports browser"]
     D --> J
@@ -357,8 +358,8 @@ flowchart TD
 ### Part C - FSS executes food-service work on mobile
 
 1. Launch mobile app and log in as `fss@nutriscope.local`.
-2. Open Dashboard for today's service list, meals-to-log KPI, POs awaiting receipt, no-stock items, and announcements.
-3. Open Procurement, receive vendor groups, enter OR number, upload receipt/proof, and mark received.
+2. Open Home for today's service list, meals-to-log KPI, POs awaiting receipt, active menu, and announcements.
+3. Open Purchase, confirm actual values, optionally enter an OR number, upload receipt/proof, and explicitly mark each vendor received.
 4. Open Meal Prep to review the selected day's menu and record actual served population.
 5. Open Accomplish to record diet-list/accomplishment rows for today or a missed previous date.
 6. Open Menu to review weekly menu slots and open each read-only food profile.
@@ -367,7 +368,7 @@ flowchart TD
 ### Part D - Reports close the loop
 
 1. PO receipt and served-population data update actual budget/head and budget ledger.
-2. Diet-list rows and accomplishment tasks generate FSS weekly reports.
+2. Daily Log ward/meals rows and completed duties generate FSS weekly reports.
 3. Patient assessment, diagnosis, intervention, meal plan, and monitoring data generate clinical reports.
 4. RND reviews live reports and archives final PDFs when the data is ready.
 

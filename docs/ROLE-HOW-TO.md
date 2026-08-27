@@ -1,6 +1,6 @@
 # NutriScope Role How-To Guide
 
-Verified against current navigation and server permissions on **2026-07-20**. Follow each role's sequence in order. See [FAQ](FAQ.md) for exceptions and troubleshooting.
+Verified against current navigation and server permissions on **2026-08-27**. Follow each role's sequence in order. See [FAQ](FAQ.md) for exceptions and troubleshooting.
 
 ## Shared: Sign In and Secure the Account
 
@@ -174,7 +174,7 @@ Verified against current navigation and server permissions on **2026-07-20**. Fo
 2. Enter ward and meals distributed.
 3. Select every duty completed.
 4. If absent/off duty, enable that switch; it records an X and zero meals.
-5. Choose **Save accomplishment**.
+5. Choose **Save today's log** or **Save past log**, depending on the selected date.
 6. Repeat for another ward only when another distinct entry is required.
 7. Open **My reports** to view personal archived weekly reports.
 
@@ -265,7 +265,7 @@ Verified against current navigation and server permissions on **2026-07-20**. Fo
 ## Cross-Role Operational Closeout
 
 1. RND activates a menu cycle and converts shopping lists to food/supplies POs.
-2. FSS reviews the menu, receives vendor groups by receipt upload, records actual served population, marks meal service complete, and logs daily accomplishment.
+2. FSS reviews the menu, receives vendor groups with required evidence and explicit confirmation, records actual served population in Meal Prep, and logs daily accomplishment.
 3. System completes eligible POs, calculates actual food cost per head/day, and updates budget/audit records.
 4. RND reviews outcomes and operational reports.
 5. Admin reviews aggregate health, audit events, budget history, and allowed reports without entering patient clinical workflows.

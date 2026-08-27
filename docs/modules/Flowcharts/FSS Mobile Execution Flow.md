@@ -1,6 +1,6 @@
 # FSS Mobile — Current Execution Flow
 
-Verified against current Expo Router screens on **2026-08-21**.
+Verified against current Expo Router screens on **2026-08-27**.
 
 ## Access and Navigation
 
@@ -43,7 +43,7 @@ flowchart TD
     C --> D["Meal Prep"]
     D --> D1["Review selected planned service date"]
     D1 --> D2["Record or update actual population served"]
-    D5 --> E["Accomplish"]
+    D2 --> E["Accomplish"]
     E --> E1{"Off duty?"}
     E1 -->|"Yes"| E2["Save X with zero meals"]
     E1 -->|"No"| E3["Enter ward and distributed meals"]

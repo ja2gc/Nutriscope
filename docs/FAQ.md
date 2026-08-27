@@ -1,6 +1,6 @@
 # NutriScope Frequently Asked Questions
 
-Verified against the current web, mobile, and Laravel role gates on **2026-08-21**. This is the user-facing FAQ and source for the role-scoped in-app Help pages. When this file conflicts with an older diagram or plan, current application code wins.
+Verified against the current web, mobile, and Laravel role gates on **2026-08-27**. This is the user-facing FAQ and source for the role-scoped in-app Help pages. When this file conflicts with an older diagram or plan, current application code wins.
 
 ## Start Here
 
@@ -226,7 +226,7 @@ When every vendor has reviewed actual values, receipt, proof, and explicit recei
 
 ### Why is a PO still open after all receipts were uploaded?
 
-A receipt alone is insufficient: check proof, reviewed actual values, and the vendor's explicit received status. For a suggested food PO, also review **Served days** and record any missing population from Menu/Meal Prep.
+A receipt alone is insufficient: check proof, reviewed actual values, and the vendor's explicit received status. For a suggested food PO, also review **Served days** and record any missing population in **Meal Prep**.
 
 ### What is budget per head per day?
 

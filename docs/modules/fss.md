@@ -1,6 +1,6 @@
 # FSS Module — Current Role and Workflow
 
-Verified against current Expo navigation, rendered screens, and Laravel role gates on **2026-08-21**.
+Verified against current Expo navigation, rendered screens, and Laravel role gates on **2026-08-27**.
 
 ## Role Purpose
 
@@ -195,6 +195,7 @@ First-login accounts must replace the temporary password and add a recovery emai
 - [FAQ](../FAQ.md)
 - [Role How-To Guide](../ROLE-HOW-TO.md)
 - [Storyboards](../STORYBOARD.md)
+- [Native-app consolidation report](../fss-native-app-consolidation-report.md)
 - [FSS Mobile Flowchart](Flowcharts/FSS%20Mobile%20Execution%20Flow.md)
 - [Food Service Flowchart](Flowcharts/Food%20Service%20Operations.md)
 

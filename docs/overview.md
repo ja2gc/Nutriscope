@@ -1,4 +1,6 @@
-## Overview
+# NutriScope Overview
+
+Verified against current role boundaries and application navigation on **2026-08-27**.
 
 ### 1. System Purpose
 
@@ -8,27 +10,28 @@ It combines deterministic algorithms, including system-calculated nutrition risk
 
 ### 2. Core Users
 - RND — clinical nutrition care and NCP workflow
-- FSS — food service operations and inventory
+- FSS — native-mobile food-service execution, served population, receiving evidence, daily accomplishments, and own reports
 - Admin — role and system management
 
 ### 3. Main Modules
 - RND Clinical System (NCP, patients, interventions, monitoring)
 - Communication System (database-backed announcements with role visibility)
 - Document Extraction Pipeline (screening forms, lab results, procurement docs → auto-populate)
-- Report Generation Engine (ADIME, census, inventory, budget, procurement, menu cycle, patient menu plan)
-- Food Service System (inventory, menu cycles, meal prep)
+- Report Generation Engine (NCP Summary, Patient Menu Plan, Demographic Census, Program Project Activity, Menu Calendar, Procurement Pack, and Accomplishment Report)
+- Food Service System (reference catalogs, recipes, menu cycles, procurement, served population, accomplishments, and budget outcomes)
 - Admin System (users, reports, audit, configuration)
 
 ### 4. Documentation Map
 
 For details, refer to:
 
-- modules/ → role-based system behavior
-- logic/ → deterministic decision systems (meal planning algorithm, recommend/avoid engine)
-- ai-policy/ → AI usage rules
-- database-schema.md → data structure
-- security/ → access control
-- milestones/ → list of milestones and progress
-- integrations/ → api integrations
-- architecture/ → folder structure, role navigation, stack, extraction pipeline, report pipeline
-- ui/ → UI/UX Architecture & Design System, and how roles workflow
+- `modules/` → current role behavior and flowcharts
+- `logic/` → deterministic nutrition and meal-planning rules
+- `architecture/` → stack, search, rate limits, audit logging, and compatibility notes
+- `security/` → access-control and security guidance
+- `operations/` → deployment, backup, recovery, and platform handoff
+- `developer/` → maintenance guidance
+- `database-schema.md` → schema reference; migrations remain authoritative
+- `FAQ.md`, `ROLE-HOW-TO.md`, and `STORYBOARD.md` → user and presentation guidance
+- `fss-native-app-consolidation-report.md` → PWA removal through native APK delivery
+- `mobile-apk-release.md` → repeatable Android release and stable-QR procedure
