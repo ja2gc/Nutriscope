@@ -9,7 +9,7 @@ FSS executes daily food-service work prepared by RND:
 - view active/saved menu cycles and food profiles;
 - confirm actual purchase values and receive PO vendor groups with receipt/proof evidence; OR number is optional;
 - record actual served population for planned service dates;
-- log daily ward meals and seven accomplishment duties;
+- log two daily numeric accomplishment counts and five checkbox duties;
 - view own archived accomplishment reports;
 - read announcements, notifications, current SOP, and SOP history.
 
@@ -77,28 +77,28 @@ There is no separate prep-completion or service-log action. The actual served re
 FSS records:
 
 - service date (today by default, or any previous date);
-- ward;
-- meals distributed/population;
+- number of ward diet lists collected;
+- number of meals apportioned and distributed;
 - off-duty/absent state;
-- seven duty flags:
+- five checkbox duties:
   1. helped prepare food;
   2. stored food supplies properly;
-  3. collected ward diet lists;
-  4. apportioned and distributed meals;
-  5. cleaned and returned utensils/equipment;
-  6. worked as assistant cook;
-  7. checked kitchen/cold-storage cleanliness.
+-  3. cleaned and returned utensils/equipment;
+-  4. worked as assistant cook;
+-  5. checked kitchen/cold-storage cleanliness.
 
-The Daily Log view shows existing rows and the total for the selected date. A visible **Today** action returns from backfill to the default current date. Future dates are blocked. Multiple working rows may be saved for separate wards; their meals are summed and completed duties combined. Off duty cannot coexist with working rows and renders as **X**.
+The Daily Log view shows one self-scoped record for the selected date. It defaults to today; any previous date is allowed, future dates are blocked, and **Today** resets the date. Re-saving updates the same record. Logged zero remains **0** in the report. Off duty cannot coexist with work and renders as **X**.
 
 **My Reports** is the second view inside Accomplish. It is paginated, owner-scoped, opens frozen details, and can prepare then open/save the authenticated PDF.
 
-### Weekly Accomplishment Archive
+### Semi-monthly Accomplishment Reports
 
 - Week is Monday through Sunday.
-- The current FSS user needs an entry for each of the seven days.
-- Off-duty entries count as daily completion.
-- The archived report is frozen against later source edits.
+- Reports cover day 1–15 or day 16–the month’s actual `endOfMonth()` date.
+- The first saved log creates its period report; later saves refresh that same report.
+- Every date column is shown; unlogged dates remain blank.
+- Off-duty entries render as **X** and numeric zero renders as **0**.
+- Historical snapshots and legacy rows remain readable through fallback fields.
 - FSS sees only their own archived accomplishment reports.
 - RND/Admin may view accomplishment reports within their allowed report scope.
 

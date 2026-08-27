@@ -7,7 +7,7 @@ This is the demo guide and source-of-truth workflow map for the NutriScope modul
 Primary actors:
 
 - **RND** works in the web app and owns food data setup, recipes, menu cycles, patients, NCP/ADIME care plans, meal plans, monitoring, reports, budget, and insights.
-- **FSS** works in the native mobile app and owns food-service execution: reviewing approved menus, receiving deliveries with evidence, recording actual served population, filing daily accomplishments, and opening their own weekly reports.
+- **FSS** works in the native mobile app and owns food-service execution: reviewing approved menus, receiving deliveries with evidence, recording actual served population, filing daily accomplishments, and opening their own semi-monthly reports.
 
 The modules share data through food items, recipes, menu cycles, patient records, NCP records, prescriptions, meal plans, inventory, purchase orders, monitoring entries, and archived reports.
 
@@ -227,8 +227,8 @@ flowchart TD
     E --> F["Upload receipt and proof; optional OR"]
     F --> G["Explicitly mark vendor received"]
     B --> H["Meal Prep: review planned meals and record positive actual served population"]
-    B --> I["Accomplish: record ward meals/duties or off-duty"]
-    I --> J["Own weekly accomplishment report"]
+    B --> I["Accomplish: record 2 counts, 5 duties, or off-duty"]
+    I --> J["Own semi-monthly accomplishment report"]
     G --> K{"All vendor evidence complete?"}
     H --> L{"Suggested food span populations complete?"}
     K -->|"No"| D
@@ -280,7 +280,7 @@ flowchart LR
     X2 ==> F4
     F4 ==> X3["Confirmed actuals + receipt/proof + received state"]
     F5 ==> X4["Actual served population by service date"]
-    F3 ==> X5["Daily duties/meals + accomplishment report"]
+    F3 ==> X5["Daily duties/counts + semi-monthly report"]
 
     R8 ==> X6["Patient meal plan report data"]
     R9 ==> X7["Monitoring/evaluation report data"]
@@ -304,7 +304,7 @@ flowchart TD
     B -->|"Budget summary / burn"| F["Fiscal-year budget + budget ledger"]
     B -->|"Per-head actual vs limit"| G["PO costs + served population + per-head/day limit"]
     B -->|"Menu / PPA / procurement"| H["Menu cycle + shopping list + PO + frozen PPA"]
-    B -->|"FSS accomplishment"| I["Per-staff Daily Log rows + archived weekly snapshot"]
+    B -->|"FSS accomplishment"| I["One daily record per staff + refreshed semi-monthly snapshot"]
 
     C --> J["RND reports browser"]
     D --> J
@@ -363,12 +363,12 @@ flowchart TD
 4. Open Meal Prep to review the selected day's menu and record actual served population.
 5. Open Accomplish to record diet-list/accomplishment rows for today or a missed previous date.
 6. Open Menu to review weekly menu slots and open each read-only food profile.
-7. Open My Reports inside Accomplish to view and download personal weekly reports.
+7. Open My Reports inside Accomplish to view and download personal semi-monthly reports.
 
 ### Part D - Reports close the loop
 
 1. PO receipt and served-population data update actual budget/head and budget ledger.
-2. Daily Log ward/meals rows and completed duties generate FSS weekly reports.
+2. One Daily Log per staff/date refreshes the matching semi-monthly FSS report.
 3. Patient assessment, diagnosis, intervention, meal plan, and monitoring data generate clinical reports.
 4. RND reviews live reports and archives final PDFs when the data is ready.
 

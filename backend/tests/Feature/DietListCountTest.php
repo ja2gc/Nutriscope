@@ -2,11 +2,14 @@
 
 namespace Tests\Feature;
 
+use App\Enums\AuditAction;
+use App\Models\AuditActivity;
 use App\Models\DietListCount;
 use App\Models\FsItem;
 use App\Models\MealPrepLog;
 use App\Models\MenuCycle;
 use App\Models\MenuCycleDay;
+use App\Models\Report;
 use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -208,6 +211,77 @@ class DietListCountTest extends TestCase
             'off_duty' => true,
         ])->assertUnprocessable()
             ->assertJsonValidationErrors(['population', 'helped_food_prep']);
+    }
+
+    public function test_new_form_resave_updates_one_user_date_record_and_one_period_report(): void
+    {
+        $date = CarbonImmutable::now('Asia/Manila')->subDay()->toDateString();
+        $payload = [
+            'service_date' => $date,
+            'collected_ward_diet_lists' => 2,
+            'apportioned_distributed_meals' => 10,
+            'helped_food_prep' => true,
+        ];
+
+        $this->actingAs($this->fss)->postJson('/api/fss/diet-list-counts', $payload)->assertCreated();
+        $this->actingAs($this->fss)->postJson('/api/fss/diet-list-counts', [
+            ...$payload,
+            'collected_ward_diet_lists' => 0,
+            'apportioned_distributed_meals' => 12,
+        ])->assertOk();
+
+        $this->assertSame(1, DietListCount::where('fss_user_id', $this->fss->id)->whereDate('service_date', $date)->count());
+        $this->assertDatabaseHas('diet_list_counts', [
+            'fss_user_id' => $this->fss->id,
+            'service_date' => $date,
+            'collected_ward_diet_lists' => 0,
+            'apportioned_distributed_meals' => 12,
+        ]);
+        $this->assertSame(1, Report::where('user_id', $this->fss->id)->where('type', 'accomplishment_report')->count());
+
+        $events = AuditActivity::query()->auditOnly()
+            ->where('subject_type', (new DietListCount)->getMorphClass())
+            ->where('subject_id', DietListCount::query()->value('id'))
+            ->get();
+        $this->assertSame([
+            AuditAction::Created->value,
+            AuditAction::Updated->value,
+        ], $events->pluck('event')->all());
+        $this->assertSame(2, $events->last()->properties['old']['collected_ward_diet_lists']);
+        $this->assertSame(0, $events->last()->properties['attributes']['collected_ward_diet_lists']);
+    }
+
+    public function test_new_numeric_fields_reject_negative_and_fractional_values(): void
+    {
+        $date = CarbonImmutable::now('Asia/Manila')->subDay()->toDateString();
+
+        $this->actingAs($this->fss)->postJson('/api/fss/diet-list-counts', [
+            'service_date' => $date,
+            'collected_ward_diet_lists' => -1,
+            'apportioned_distributed_meals' => 1.5,
+        ])->assertUnprocessable()->assertJsonValidationErrors([
+            'collected_ward_diet_lists',
+            'apportioned_distributed_meals',
+        ]);
+    }
+
+    public function test_new_form_does_not_delete_or_replace_legacy_ward_rows(): void
+    {
+        $date = CarbonImmutable::now('Asia/Manila')->subDay()->toDateString();
+        $legacy = DietListCount::factory()->create([
+            'fss_user_id' => $this->fss->id,
+            'service_date' => $date,
+            'ward' => 'Ward A',
+            'population' => 14,
+        ]);
+
+        $this->actingAs($this->fss)->postJson('/api/fss/diet-list-counts', [
+            'service_date' => $date,
+            'collected_ward_diet_lists' => 1,
+            'apportioned_distributed_meals' => 14,
+        ])->assertUnprocessable()->assertJsonValidationErrors('service_date');
+
+        $this->assertModelExists($legacy);
     }
 
     // -------------------------------------------------------------------------

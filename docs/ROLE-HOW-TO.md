@@ -158,7 +158,7 @@ Verified against current navigation and server permissions on **2026-08-27**. Fo
 
 1. Open **Menu**.
 2. Open the active/current cycle or browse another cycle.
-3. Select a meal slot to view scaled recipe/item details, ingredients, cost, and preparation notes.
+3. Select a meal slot to view servings, ingredients, and preparation notes.
 4. Do not attempt to change planned foods; FSS menu access is read-only.
 
 ### 3. Meal Prep
@@ -171,12 +171,12 @@ Verified against current navigation and server permissions on **2026-08-27**. Fo
 ### 4. Accomplish
 
 1. Open **Accomplish**.
-2. Enter ward and meals distributed.
-3. Select every duty completed.
-4. If absent/off duty, enable that switch; it records an X and zero meals.
+2. Enter the number of ward diet lists collected and meals distributed.
+3. Select the other five duties completed.
+4. If off duty, enable that switch; the report records an X.
 5. Choose **Save today's log** or **Save past log**, depending on the selected date.
-6. Repeat for another ward only when another distinct entry is required.
-7. Open **My reports** to view personal archived weekly reports.
+6. Saving the same date updates the existing entry and its semi-monthly report.
+7. Open **My reports** to view, download, or open your own semi-monthly PDFs.
 
 ### 5. Purchase
 

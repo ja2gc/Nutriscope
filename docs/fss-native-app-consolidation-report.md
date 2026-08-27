@@ -57,7 +57,7 @@ The header retains the notification bell and profile icon. The profile side menu
 - Menu is a read-only weekly reference; it no longer contains operational population or completion controls.
 - Selecting a meal opens a dedicated native food-profile page with normal back navigation.
 - The profile identifies whether values come from the master recipe, a menu-slot version, or a frozen purchase-order snapshot.
-- Ingredient quantities and costs use the slot's applicable servings or frozen snapshot without changing the master recipe.
+- Ingredient quantities use the slot's applicable servings or frozen snapshot without changing the master recipe; cost-per-head is not shown to FSS.
 
 ### Meal Prep
 
@@ -71,10 +71,10 @@ The header retains the notification bell and profile icon. The profile side menu
 - Daily Log opens on the device's local date.
 - FSS may select any past date; future dates are blocked.
 - A visible **Today** action returns from a backdated log to the current date.
-- Working entries record ward, meals distributed, and seven duty flags.
-- Multiple working rows can represent separate wards on the same date.
+- Each date uses one record with two numeric fields: ward diet lists collected and meals apportioned/distributed.
+- Five remaining duties are checkboxes; Ward and Meals Logged UI are removed.
 - Off-duty/absent records zero numeric values plus an `X` in the semi-monthly report.
-- Weekly report aggregation sums ward populations and combines completed duties.
+- Reports cover day 1–15 or day 16–month end, show every date, preserve blank dates, zero values, and off-duty `X`.
 - **My Reports** is inside Accomplish, uses owner-scoped paginated data, opens report details, and provides **View PDF** and **Download PDF** through authenticated handling. Reports update progressively for each semi-monthly period.
 
 ### Purchase
@@ -103,8 +103,9 @@ The header retains the notification bell and profile icon. The profile side menu
 
 - Added date-scoped FSS diet-list/accomplishment reads.
 - Enforced Philippine-local future-date rejection.
-- Allowed separate working rows for different wards while blocking off-duty/working conflicts.
-- Corrected Monday–Sunday accomplishment aggregation and frozen archive generation.
+- Added idempotent date-scoped accomplishment records and progressive semi-monthly report refresh.
+- Added nullable numeric fields with legacy fallback for historical records.
+- Corrected missing/expired prepared-PDF recovery and explicit inline/download PDF responses.
 - Enforced owner scope for FSS report listing, detail, preparation, and download.
 - Restored required FSS read routes while preserving planning-write restrictions.
 - Hardened served-population validation and menu-cycle identifiers.

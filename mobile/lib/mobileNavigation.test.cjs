@@ -80,13 +80,29 @@ test('report details prepare current PDF and expose view/download actions', () =
 
   assert.match(screen, /View PDF/);
   assert.match(screen, /Download PDF/);
+  assert.match(screen, /onError: \(error: Error, action\)/);
+  assert.match(screen, /onPress: \(\) => pdfAction\.mutate\(action\)/);
+  assert.match(screen, /pdfAction\.variables === 'view'/);
+  assert.match(screen, /pdfAction\.variables === 'download'/);
   assert.match(reports, /reportDownloadPath\(current\.id\)/);
   assert.match(reports, /preparedReport/);
   assert.match(reports, /accomplishment_report\/prepare/);
   assert.match(reports, /Authorization: `Bearer \$\{token\}`/);
   assert.match(reports, /StorageAccessFramework/);
+  assert.match(reports, /IntentLauncher\.startActivityAsync/);
+  assert.match(reports, /FileSystem\.getContentUriAsync/);
+  assert.match(reports, /Sharing\.shareAsync/);
   assert.match(notifications, /pathname: '\/\(tabs\)\/accomplishments'/);
   assert.doesNotMatch(rootLayout, /name="reports"/);
+});
+
+test('daily log visibly numbers the exact numeric duty labels', () => {
+  const accomplish = fs.readFileSync(path.join(root, 'app', '(tabs)', 'accomplishments.tsx'), 'utf8');
+
+  assert.match(accomplish, /TASKS\.map\(\(\[key, label\], index\)/);
+  assert.match(accomplish, /\{index \+ 1\}\. \{label\}/);
+  assert.match(accomplish, /key === 'collected_ward_diet_lists' \|\| key === 'apportioned_distributed_meals'/);
+  assert.match(accomplish, /accessibilityLabel=\{label\}/);
 });
 
 test('food profile is a dedicated page backed by menu-slot details', () => {
@@ -109,4 +125,36 @@ test('menu details and daily logs expose failed reads instead of false empty sta
   assert.match(accomplish, /Could not check existing logs/);
   assert.match(accomplish, /rowsQuery\.isError/);
   assert.match(accomplish, /rowsQuery\.isLoading \|\| rowsQuery\.isError/);
+});
+
+test('daily log rehydrates the existing single accomplishment record before resave', () => {
+  const accomplish = fs.readFileSync(path.join(root, 'app', '(tabs)', 'accomplishments.tsx'), 'utf8');
+  assert.match(accomplish, /rowsQuery\.data/);
+  assert.match(accomplish, /setNumbers\(.*collected_ward_diet_lists/);
+  assert.match(accomplish, /setOffDuty\(.*off_duty/);
+  assert.match(accomplish, /useEffect\(\(\) => resetForm\(\), \[selectedDate, resetForm\]\)/);
+});
+
+test('daily log shows exact seven rows with exactly two numeric fields', () => {
+  const accomplish = fs.readFileSync(path.join(root, 'app', '(tabs)', 'accomplishments.tsx'), 'utf8');
+  [
+    'Helped in food preparation work.',
+    'Stored food supplies properly.',
+    'Collected diet list from different wards.',
+    'Apportioned and distributed food to in patient in the different wards.',
+    'Collected, cleaned and returned used utensils and other equipment.',
+    'Assumed duties as assistant cook.',
+    'Monitored cleanliness of kitchen, cabinets, refrigerators and freezers.',
+  ].forEach((label) => assert.match(accomplish, new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))));
+  assert.equal((accomplish.match(/keyboardType="number-pad"/g) ?? []).length, 1, 'One mapped input template must render the two numeric task keys.');
+  assert.match(accomplish, /key === 'collected_ward_diet_lists' \|\| key === 'apportioned_distributed_meals'/);
+  assert.doesNotMatch(accomplish, /Ward, e\.g\.|Meals Logged|Meals logged/);
+});
+
+test('bottom tabs and food details respect safe area and omit cost UI', () => {
+  const layout = fs.readFileSync(path.join(root, 'app', '(tabs)', '_layout.tsx'), 'utf8');
+  const profile = fs.readFileSync(path.join(root, 'app', 'food-details.tsx'), 'utf8');
+  assert.match(layout, /useSafeAreaInsets/);
+  assert.match(layout, /paddingBottom: insets\.bottom \+ 6/);
+  assert.doesNotMatch(profile, /Cost per head|Coins/);
 });

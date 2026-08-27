@@ -453,19 +453,22 @@ class ReportAuditTest extends TestCase
         }
     }
 
-    public function test_http_auto_archive_failure_keeps_diet_audit_and_safe_failure_event(): void
+    public function test_http_auto_prepare_failure_keeps_diet_audit_and_safe_failure_event(): void
     {
         Storage::fake('public');
+        Storage::fake('report_cache');
         $fss = User::factory()->create(['role' => 'FSS']);
         foreach (range(1, 6) as $day) {
             DietListCount::factory()->create(['fss_user_id' => $fss->id, 'service_date' => "2026-06-0{$day}"]);
         }
         $reports = $this->createMock(ReportService::class);
-        $reports->method('generate')->willThrowException(new RuntimeException('GENERATION-SENTINEL'));
+        $reports->method('buildPdf')->willThrowException(new RuntimeException('GENERATION-SENTINEL'));
         $this->app->instance(ReportService::class, $reports);
 
         $this->actingAs($fss, 'sanctum')->postJson('/api/fss/diet-list-counts', [
-            'service_date' => '2026-06-07', 'ward' => 'SAFE', 'population' => 1,
+            'service_date' => '2026-06-07',
+            'collected_ward_diet_lists' => 1,
+            'apportioned_distributed_meals' => 1,
         ])->assertServerError();
 
         $this->assertDatabaseCount('diet_list_counts', 7);
@@ -589,7 +592,7 @@ class ReportAuditTest extends TestCase
         $this->assertDatabaseCount('report_file_operations', 0);
     }
 
-    public function test_http_auto_archive_audit_failure_compensates_file_after_diet_commit(): void
+    public function test_http_auto_prepare_audit_failure_compensates_file_after_diet_commit(): void
     {
         Storage::fake('public');
         $fss = User::factory()->create(['role' => 'FSS']);
@@ -616,7 +619,9 @@ class ReportAuditTest extends TestCase
         $this->app->instance(ReportService::class, $reports);
 
         $this->actingAs($fss, 'sanctum')->postJson('/api/fss/diet-list-counts', [
-            'service_date' => '2026-06-07', 'ward' => 'SAFE', 'population' => 1,
+            'service_date' => '2026-06-07',
+            'collected_ward_diet_lists' => 1,
+            'apportioned_distributed_meals' => 1,
         ])->assertServerError();
 
         $this->assertDatabaseCount('diet_list_counts', 7);

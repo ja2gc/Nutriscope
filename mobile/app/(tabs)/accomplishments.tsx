@@ -18,10 +18,9 @@ const TASKS = [
   ['assistant_cook', 'Assumed duties as assistant cook.'],
   ['maintained_cleanliness', 'Monitored cleanliness of kitchen, cabinets, refrigerators and freezers.'],
 ] as const;
-const CHECKBOX_TASKS = TASKS.filter(([key]) => key !== 'collected_ward_diet_lists' && key !== 'apportioned_distributed_meals') as unknown as ReadonlyArray<readonly [TaskKey, string]>;
 type TaskKey = Exclude<(typeof TASKS)[number][0], 'collected_ward_diet_lists' | 'apportioned_distributed_meals'>;
 type TaskFlags = Record<TaskKey, boolean>;
-type DailyRow = { id: string; ward: string; population: number; off_duty: boolean; collected_ward_diet_lists?: number; apportioned_distributed_meals?: number };
+type DailyRow = { id: string; ward: string; population: number; off_duty: boolean; collected_ward_diet_lists?: number; apportioned_distributed_meals?: number } & Partial<TaskFlags>;
 
 const emptyTasks = (): TaskFlags => ({
   helped_food_prep: false, stored_supplies: false, cleaned_utensils: false, assistant_cook: false, maintained_cleanliness: false,
@@ -50,8 +49,25 @@ export default function AccomplishmentsScreen() {
     if (params.section === 'reports') setSection('reports');
   }, [params.section]);
 
+  const resetForm = useCallback(() => { setNumbers({ collected_ward_diet_lists: '', apportioned_distributed_meals: '' }); setOffDuty(false); setTasks(emptyTasks()); }, []);
+  useEffect(() => resetForm(), [selectedDate, resetForm]);
   const rowsQuery = useQuery({ queryKey: ['fss-diet-list-day', selectedDate], queryFn: () => getDailyRows(selectedDate), staleTime: 30_000 });
-  const resetForm = () => { setNumbers({ collected_ward_diet_lists: '', apportioned_distributed_meals: '' }); setOffDuty(false); setTasks(emptyTasks()); };
+  useEffect(() => {
+    const row = rowsQuery.data?.find((entry) => entry.ward === 'Accomplishment report') ?? rowsQuery.data?.[0];
+    if (!row) return;
+    setNumbers({
+      collected_ward_diet_lists: row.collected_ward_diet_lists == null ? '' : String(row.collected_ward_diet_lists),
+      apportioned_distributed_meals: row.apportioned_distributed_meals == null ? '' : String(row.apportioned_distributed_meals),
+    });
+    setOffDuty(Boolean(row.off_duty));
+    setTasks({
+      helped_food_prep: Boolean(row.helped_food_prep),
+      stored_supplies: Boolean(row.stored_supplies),
+      cleaned_utensils: Boolean(row.cleaned_utensils),
+      assistant_cook: Boolean(row.assistant_cook),
+      maintained_cleanliness: Boolean(row.maintained_cleanliness),
+    });
+  }, [rowsQuery.data]);
   const saveMutation = useMutation({
     mutationFn: async () => {
       return api.post('/api/fss/diet-list-counts', {
@@ -117,13 +133,22 @@ export default function AccomplishmentsScreen() {
       </View>
 
       <View className="rounded-[22px] bg-white border border-[#E2EAE5] p-4 mt-3">
-        <Text className="text-base font-extrabold text-[#16352B]">Service details</Text>
-        <TextInput value={numbers.collected_ward_diet_lists} onChangeText={(value) => { setNumbers((current) => ({ ...current, collected_ward_diet_lists: value.replace(/[^0-9]/g, '') })); setMessage(null); }} editable={!offDuty} placeholder="Diet lists collected" placeholderTextColor="#9AA9A2" keyboardType="number-pad" className="mt-3 min-h-12 border border-[#D9E3DD] bg-[#FAFCFB] rounded-xl px-3.5 text-[#16352B] tabular-nums" accessibilityLabel="Diet lists collected" />
-        <TextInput value={numbers.apportioned_distributed_meals} onChangeText={(value) => { setNumbers((current) => ({ ...current, apportioned_distributed_meals: value.replace(/[^0-9]/g, '') })); setMessage(null); }} editable={!offDuty} placeholder="Food apportioned and distributed" placeholderTextColor="#9AA9A2" keyboardType="number-pad" className="mt-3 min-h-12 border border-[#D9E3DD] bg-[#FAFCFB] rounded-xl px-3.5 text-[#16352B] tabular-nums" accessibilityLabel="Food apportioned and distributed" />
-        <View className="flex-row items-center justify-between mt-4 pt-4 border-t border-[#EDF2EF]"><View className="flex-1 pr-4"><Text className="text-sm font-bold text-[#263D35]">Off duty / absent</Text><Text className="text-xs text-[#7A8D85] mt-0.5">Records X for this date.</Text></View><Switch value={offDuty} onValueChange={(value) => { setOffDuty(value); if (value) { setNumbers({ collected_ward_diet_lists: '', apportioned_distributed_meals: '' }); setTasks(emptyTasks()); } }} trackColor={{ false: '#D8E0DC', true: '#A7E8CE' }} thumbColor={offDuty ? '#087F5B' : '#74857D'} /></View>
+        <View className="flex-row items-center justify-between"><View className="flex-1 pr-4"><Text className="text-sm font-bold text-[#263D35]">Off duty</Text><Text className="text-xs text-[#7A8D85] mt-0.5">Records X for this date.</Text></View><Switch value={offDuty} onValueChange={(value) => { setOffDuty(value); if (value) { setNumbers({ collected_ward_diet_lists: '', apportioned_distributed_meals: '' }); setTasks(emptyTasks()); } }} trackColor={{ false: '#D8E0DC', true: '#A7E8CE' }} thumbColor={offDuty ? '#087F5B' : '#74857D'} /></View>
       </View>
 
-      {!offDuty && <View className="rounded-[22px] bg-white border border-[#E2EAE5] p-4 mt-3"><Text className="text-base font-extrabold text-[#16352B]">Tasks completed</Text>{CHECKBOX_TASKS.map(([key, label]) => <Pressable key={key} onPress={() => setTasks((current) => ({ ...current, [key]: !current[key] }))} className="min-h-12 flex-row items-center gap-3 border-b border-[#F0F3F1]" accessibilityRole="checkbox" accessibilityState={{ checked: tasks[key] }}><View className={`h-6 w-6 rounded-lg items-center justify-center ${tasks[key] ? 'bg-[#087F5B]' : 'bg-[#F4F7F5] border border-[#CEDAD3]'}`}>{tasks[key] && <Check color="#FFFFFF" size={15} strokeWidth={3} />}</View><Text className="flex-1 text-sm text-[#30483F] leading-5">{label}</Text></Pressable>)}</View>}
+      {!offDuty && <View className="rounded-[22px] bg-white border border-[#E2EAE5] p-4 mt-3">
+        <Text className="text-base font-extrabold text-[#16352B]">Accomplishment rows</Text>
+        {TASKS.map(([key, label], index) => {
+          if (key === 'collected_ward_diet_lists' || key === 'apportioned_distributed_meals') {
+            return <View key={key} className="border-b border-[#F0F3F1] py-3">
+              <Text className="text-sm font-semibold leading-5 text-[#30483F]">{index + 1}. {label}</Text>
+              <TextInput value={numbers[key]} onChangeText={(value) => { setNumbers((current) => ({ ...current, [key]: value.replace(/[^0-9]/g, '') })); setMessage(null); }} placeholder="0" placeholderTextColor="#9AA9A2" keyboardType="number-pad" className="mt-2 min-h-12 border border-[#D9E3DD] bg-[#FAFCFB] rounded-xl px-3.5 text-[#16352B] tabular-nums" accessibilityLabel={label} />
+            </View>;
+          }
+          const checkboxKey = key as TaskKey;
+          return <Pressable key={key} onPress={() => setTasks((current) => ({ ...current, [checkboxKey]: !current[checkboxKey] }))} className="min-h-14 flex-row items-center gap-3 border-b border-[#F0F3F1] py-2" accessibilityRole="checkbox" accessibilityState={{ checked: tasks[checkboxKey] }}><View className={`h-6 w-6 rounded-lg items-center justify-center ${tasks[checkboxKey] ? 'bg-[#087F5B]' : 'bg-[#F4F7F5] border border-[#CEDAD3]'}`}>{tasks[checkboxKey] && <Check color="#FFFFFF" size={15} strokeWidth={3} />}</View><Text className="flex-1 text-sm text-[#30483F] leading-5">{index + 1}. {label}</Text></Pressable>;
+        })}
+      </View>}
 
       {message && <View className={`mt-3 flex-row gap-2 rounded-xl border p-3 ${message.kind === 'success' ? 'border-emerald-200 bg-emerald-50' : 'border-red-200 bg-red-50'}`}><CheckCircle2 color={message.kind === 'success' ? '#087F5B' : '#DC2626'} size={18} /><Text className={`flex-1 text-sm ${message.kind === 'success' ? 'text-emerald-800' : 'text-red-700'}`}>{message.text}</Text></View>}
       <TouchableOpacity onPress={submit} disabled={saveMutation.isPending} className={`mt-4 min-h-12 rounded-2xl flex-row items-center justify-center gap-2 ${saveMutation.isPending ? 'bg-[#69B99D]' : 'bg-[#087F5B]'}`} accessibilityRole="button">{saveMutation.isPending ? <ActivityIndicator color="#FFFFFF" /> : <ClipboardCheck color="#FFFFFF" size={19} />}<Text className="text-white font-extrabold">{saveMutation.isPending ? 'Saving…' : `Save ${selectedDate === today ? "today's" : 'past'} log`}</Text></TouchableOpacity>

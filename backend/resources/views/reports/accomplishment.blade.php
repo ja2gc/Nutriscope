@@ -34,7 +34,7 @@
             <tbody>
                 @foreach($tasks as $taskKey => $taskLabel)
                     <tr>
-                        <td>{{ $taskLabel }}</td>
+                        <td>{{ $loop->iteration }}. {{ $taskLabel }}</td>
                         @foreach($days as $date)
                             @php $cell = $sheet['task_rows'][$taskKey][$date] ?? ''; @endphp
                             <td style="text-align:center;">

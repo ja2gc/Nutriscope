@@ -38,7 +38,7 @@ flowchart TD
     A3 -->|"Yes"| B["Menu"]
 
     B --> B1["Open current day and meal slot"]
-    B1 --> B2["Read recipe/item ingredients, cost, prep notes"]
+    B1 --> B2["Read recipe/item ingredients, servings, prep notes"]
     B2 --> C["Purchase receiving when deliveries arrive"]
     C --> D["Meal Prep"]
     D --> D1["Review selected planned service date"]
@@ -46,8 +46,8 @@ flowchart TD
     D2 --> E["Accomplish"]
     E --> E1{"Off duty?"}
     E1 -->|"Yes"| E2["Save X with zero meals"]
-    E1 -->|"No"| E3["Enter ward and distributed meals"]
-    E3 --> E4["Select seven completed-duty flags"]
+    E1 -->|"No"| E3["Enter diet lists collected and meals apportioned/distributed"]
+    E3 --> E4["Select five completed-duty checkboxes"]
     E4 --> E5["Save accomplishment"]
     E2 --> E5
 ```
@@ -75,15 +75,14 @@ flowchart TD
 
 FSS can correct actual quantities/prices and the actual vendor while the group is open and has no evidence. **Change vendor for all** applies to the group; row-level **Change vendor** moves only that item. Planned quantities, units, and calculated need stay frozen. Receipt and proof do not change status until **Mark vendor received** is used. OR number is optional.
 
-## Accomplishment Report Lifecycle
+## Semi-monthly Accomplishment Report Lifecycle
 
 ```mermaid
 flowchart LR
-    A["Daily Log: today or a past date"] --> B{"One entry for every Monday-Sunday day?"}
-    B -->|"No"| C["Weekly report remains incomplete"]
-    B -->|"Yes"| D["Archive frozen accomplishment report"]
-    D --> E["FSS views own report and opens or saves PDF"]
-    D --> F["RND/Admin may view within allowed report scope"]
+    A["Daily Log: today or a past date"] --> B["Create or update day 1–15 or day 16–month-end report"]
+    B --> C["Show every date; leave unlogged dates blank"]
+    C --> D["FSS views own report and opens or downloads PDF"]
+    D --> E["RND/Admin may view within allowed report scope"]
 ```
 
 Off-duty entries count and render as X. FSS report reads are owner-scoped.

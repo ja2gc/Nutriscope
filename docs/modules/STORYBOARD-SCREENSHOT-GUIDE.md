@@ -523,25 +523,25 @@ Use this version when screenshots are available. Each scene already contains the
 
 #### FSS-08 — Daily Accomplishment
 
-**Description:** FSS records ward, meals distributed, seven duties, or off-duty/absent. This daily data builds the user's weekly report.
+**Description:** FSS records two numeric counts and five checkbox duties, or marks Off duty. This daily entry immediately creates or refreshes the user's semi-monthly report.
 
 **User should do:** Fill a demo entry and select **Save today's log**. Also show a past date with the visible **Today** return action.
 
 **Next scene:** My Reports.
 
-> **Screenshot needed:** Accomplish Daily Log with date selector, Today return action when backdated, summary, ward, meals, duty checklist, off-duty switch, and Save today's/past log.
+> **Screenshot needed:** Accomplish Daily Log with date selector, Today return action when backdated, exactly two number fields, five duty checkboxes, Off duty switch, and Save today's/past log.
 >
 > **Insert screenshot below this line.**
 
 #### FSS-09 — My Accomplishment Reports
 
-**Description:** FSS sees only their own frozen weekly accomplishment reports. A week archives after Monday-Sunday entries exist; off-duty days render X.
+**Description:** FSS sees only their own semi-monthly accomplishment reports. The first daily save creates the period report; corrections refresh it, blank dates stay blank, zero stays 0, and Off duty renders X.
 
-**User should do:** Open one demo archived report.
+**User should do:** Open one demo report with **View PDF**, then show **Download PDF**.
 
 **Next scene:** Communication/account or end of FSS story.
 
-> **Screenshot needed:** My reports list and one opened weekly report grid using demo data.
+> **Screenshot needed:** My reports list and one opened semi-monthly report grid with View PDF and Download PDF.
 >
 > **Insert screenshot(s) below this line.**
 

@@ -37,6 +37,7 @@ class ReportController extends Controller
         private readonly AuditContextResolver $auditContextResolver,
         private readonly ReportArchiveStorage $archiveStorage,
         private readonly ReportAuditReference $auditReference,
+        private readonly PrepareSavedReport $prepareSavedReport,
     ) {}
 
     /** Reports that expose patient/clinical data — RND-only, never food-service. */
@@ -238,18 +239,28 @@ class ReportController extends Controller
 
         $diskName = 'report_cache';
         $path = $report->cache_path;
-        if ((! $path || $report->cache_expires_at?->isPast() !== false || ! Storage::disk($diskName)->exists($path))
-            && $report->file_path && Storage::disk('public')->exists($report->file_path)) {
-            [$diskName, $path] = ['public', $report->file_path];
+        $cacheUsable = $path
+            && $report->cache_expires_at?->isFuture()
+            && Storage::disk($diskName)->exists($path);
+        if (! $cacheUsable && $report->file_path && Storage::disk('public')->exists($report->file_path)) {
+            [$diskName, $path, $cacheUsable] = ['public', $report->file_path, true];
         }
-        if (! $path || ! Storage::disk($diskName)->exists($path)) {
-            return response()->json(['message' => 'Prepare the saved report again.', 'code' => 'preparation_required'], 409);
+        if (! $cacheUsable) {
+            $report = $this->rebuildPreparedReport($report);
+            if ($report === null) {
+                return response()->json(['message' => 'Prepare the saved report again.', 'code' => 'preparation_required'], 409);
+            }
+            $diskName = 'report_cache';
+            $path = $report->cache_path;
         }
 
         $name = str($report->title)->slug().'.pdf';
         $this->recordReportEvent(AuditAction::Downloaded, $report->type, $report->parameters ?? [], $report, 200);
 
-        return Storage::disk($diskName)->download($path, $name, ['Cache-Control' => 'private, no-store']);
+        return Storage::disk($diskName)->download($path, $name, [
+            'Content-Type' => 'application/pdf',
+            'Cache-Control' => 'private, no-store',
+        ]);
     }
 
     /**
@@ -265,12 +276,19 @@ class ReportController extends Controller
 
         $diskName = 'report_cache';
         $path = $report->cache_path;
-        if ((! $path || $report->cache_expires_at?->isPast() !== false || ! Storage::disk($diskName)->exists($path))
-            && $report->file_path && Storage::disk('public')->exists($report->file_path)) {
-            [$diskName, $path] = ['public', $report->file_path];
+        $cacheUsable = $path
+            && $report->cache_expires_at?->isFuture()
+            && Storage::disk($diskName)->exists($path);
+        if (! $cacheUsable && $report->file_path && Storage::disk('public')->exists($report->file_path)) {
+            [$diskName, $path, $cacheUsable] = ['public', $report->file_path, true];
         }
-        if (! $path || ! Storage::disk($diskName)->exists($path)) {
-            return response()->json(['message' => 'Prepare the saved report again.', 'code' => 'preparation_required'], 409);
+        if (! $cacheUsable) {
+            $report = $this->rebuildPreparedReport($report);
+            if ($report === null) {
+                return response()->json(['message' => 'Prepare the saved report again.', 'code' => 'preparation_required'], 409);
+            }
+            $diskName = 'report_cache';
+            $path = $report->cache_path;
         }
 
         $this->recordReportEvent(AuditAction::Viewed, $report->type, $report->parameters ?? [], $report, 200);
@@ -470,6 +488,23 @@ class ReportController extends Controller
                 'audit_ncp_record_id' => $ncpRecord->id,
                 'audit_owner_id' => Auth::id(),
             ]);
+        }
+    }
+
+    private function rebuildPreparedReport(Report $report): ?Report
+    {
+        $actor = Auth::user();
+        $parameters = $report->parameters;
+        if ($actor === null || ! is_array($parameters)) {
+            return null;
+        }
+
+        try {
+            return $this->prepareSavedReport->execute($actor, $report->type, $parameters, $report);
+        } catch (\Throwable $exception) {
+            report($exception);
+
+            return null;
         }
     }
 

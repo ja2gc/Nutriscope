@@ -161,11 +161,18 @@ class FoodServiceDemoSeeder extends Seeder
             $cycles[] = $cycle;
             $cycleMeta[] = ['weekStart' => $weekStart->copy(), 'isCurrent' => $isCurrent, 'weekIndex' => $w];
 
-            // Auto-archive the accomplishment report for completed past weeks.
-            if (! $isCurrent && $fssUser) {
-                $weekEnd = $weekStart->copy()->endOfWeek(Carbon::SUNDAY)->toDateString();
-                $archiveService->archiveCompletedWeek($fssUser, $weekEnd);
-            }
+        }
+
+        // Direct seeding bypasses the save endpoint, so prepare each populated
+        // semi-monthly period once after all daily records exist.
+        if ($fssUser) {
+            DietListCount::query()
+                ->where('fss_user_id', $fssUser->id)
+                ->where('ward', 'Accomplishment report')
+                ->pluck('service_date')
+                ->map(fn ($date) => Carbon::parse($date)->startOfDay())
+                ->unique(fn (Carbon $date) => $date->format('Y-m-').($date->day <= 15 ? '01' : '16'))
+                ->each(fn (Carbon $date) => $archiveService->preparePeriod($fssUser, $date));
         }
 
         // Next week's cycle as an UPCOMING plan, plus a DRAFT suggested shopping list with
@@ -378,21 +385,23 @@ class FoodServiceDemoSeeder extends Seeder
                 'has_shortfall' => false,
             ]);
 
-            // Diet-list counts (accomplishment report) — a couple of wards per day.
-            foreach (['Ward A' => 0.45, 'Ward B' => 0.35, 'ICU' => 0.20] as $ward => $share) {
-                DietListCount::create([
-                    'service_date' => $date->toDateString(),
-                    'menu_cycle_id' => $cycle->id,
-                    'ward' => $ward,
-                    'fss_user_id' => $fss,
-                    'population' => (int) round($served * $share),
-                    'helped_food_prep' => true,
-                    'collected_diet_list' => true,
-                    'apportioned_food' => true,
-                    'cleaned_utensils' => $ward !== 'ICU',
-                    'maintained_cleanliness' => true,
-                ]);
-            }
+            // One current accomplishment-form record per staff member and date.
+            DietListCount::create([
+                'service_date' => $date->toDateString(),
+                'menu_cycle_id' => $cycle->id,
+                'ward' => 'Accomplishment report',
+                'fss_user_id' => $fss,
+                'population' => $served,
+                'collected_ward_diet_lists' => 3,
+                'apportioned_distributed_meals' => $served,
+                'helped_food_prep' => true,
+                'stored_supplies' => true,
+                'collected_diet_list' => true,
+                'apportioned_food' => true,
+                'cleaned_utensils' => true,
+                'assistant_cook' => $i % 3 === 0,
+                'maintained_cleanliness' => true,
+            ]);
         }
 
         return $totalServed;

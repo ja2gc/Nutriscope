@@ -11,7 +11,7 @@ use Carbon\CarbonPeriod;
 use Illuminate\Support\Collection;
 
 /**
- * Accomplishment Report — per-staff weekly/pay-period duty sheet (FSS §4).
+ * Accomplishment Report — per-staff semi-monthly duty sheet (FSS §4).
  *
  * Input params (all on report.parameters):
  *   - from         (date string, required) — pay-period start
@@ -26,7 +26,7 @@ use Illuminate\Support\Collection;
  *   - staff_sheets        — one entry per FSS user:
  *       user              — User model
  *       rows              — keyed by task slug, each an assoc of date => cell value
- *                           ('✓' | distributed-meal int | 'off-duty' | '–')
+ *                           ('✓' | numeric count | 'X' | '')
  *       daily_population  — legacy key for date => distributed-meal total
  *
  * Tasks (7 rows, in order):
@@ -47,8 +47,11 @@ class AccomplishmentReportGenerator implements ReportGenerator
         'maintained_cleanliness' => 'Monitored cleanliness of kitchen, cabinets, refrigerators and freezers.',
     ];
 
-    /** Row 4 carries the numeric distributed-meal count; the rest are checkmark rows. */
-    private const NUMERIC_TASK = 'apportioned_food';
+    /** New numeric fields replace legacy boolean task flags for rows 3 and 4. */
+    private const NUMERIC_TASK_FIELDS = [
+        'collected_diet_list' => 'collected_ward_diet_lists',
+        'apportioned_food' => 'apportioned_distributed_meals',
+    ];
 
     public function type(): string
     {
@@ -120,7 +123,7 @@ class AccomplishmentReportGenerator implements ReportGenerator
                 /** @var User $user */
                 $user = $staffRows->first()->user;
 
-                // Keep every ward row for the date; one staff member may serve several wards.
+                // Keep legacy ward rows together while current form dates use one row.
                 $byDate = $staffRows->groupBy(fn (DietListCount $r) => $r->service_date->toDateString());
 
                 $taskRows = [];
@@ -134,15 +137,19 @@ class AccomplishmentReportGenerator implements ReportGenerator
                             $cells[$date] = '';
                         } elseif ($dateRows->every(fn (DietListCount $row): bool => $row->off_duty)) {
                             $cells[$date] = 'X';
-                        } elseif ($task === self::NUMERIC_TASK) {
-                            $distributedRows = $dateRows->filter(fn (DietListCount $row): bool => ! $row->off_duty && ($row->apportioned_distributed_meals !== null || $row->apportioned_food))->values();
-                            $cells[$date] = $distributedRows->isNotEmpty()
-                                ? $distributedRows->sum(fn (DietListCount $row): int => $row->apportioned_distributed_meals !== null ? $row->apportioned_distributed_meals : ($row->apportioned_food ? $row->population : 0))
-                                : '';
+                        } elseif (array_key_exists($task, self::NUMERIC_TASK_FIELDS)) {
+                            $numericField = self::NUMERIC_TASK_FIELDS[$task];
+                            $numericRows = $dateRows->filter(fn (DietListCount $row): bool => ! $row->off_duty && $row->{$numericField} !== null)->values();
+                            if ($numericRows->isNotEmpty()) {
+                                $cells[$date] = $numericRows->sum(fn (DietListCount $row): int => (int) $row->{$numericField});
+                            } else {
+                                $legacyRows = $dateRows->filter(fn (DietListCount $row): bool => ! $row->off_duty && (bool) $row->{$task})->values();
+                                $cells[$date] = $legacyRows->isNotEmpty()
+                                    ? ($task === 'apportioned_food' ? $legacyRows->sum('population') : '✓')
+                                    : '';
+                            }
                         } else {
-                            $cells[$date] = $dateRows->contains(fn (DietListCount $row): bool => ! $row->off_duty && ($task === 'collected_diet_list'
-                                ? (($row->collected_ward_diet_lists !== null && $row->collected_ward_diet_lists > 0) || $row->collected_diet_list)
-                                : $row->$task))
+                            $cells[$date] = $dateRows->contains(fn (DietListCount $row): bool => ! $row->off_duty && $row->$task)
                                 ? '✓'
                                 : '';
                         }
@@ -169,7 +176,8 @@ class AccomplishmentReportGenerator implements ReportGenerator
             'period_label' => $periodLabel,
             'days' => $days,
             'tasks' => self::TASKS,
-            'numeric_task' => self::NUMERIC_TASK,
+            'numeric_task' => 'apportioned_food',
+            'numeric_tasks' => array_keys(self::NUMERIC_TASK_FIELDS),
             'staff_sheets' => $staffSheets,
             'daily_population' => $dailyPopulation,
         ];
@@ -195,7 +203,7 @@ class AccomplishmentReportGenerator implements ReportGenerator
             'period_label' => $snapshot['period_label'],
             'days' => $snapshot['days'],
             'tasks' => $snapshot['tasks'],
-            'numeric_task' => $snapshot['numeric_task'],
+            'numeric_tasks' => $snapshot['numeric_tasks'] ?? [$snapshot['numeric_task'] ?? 'apportioned_food'],
             'staff_sheets' => $staffSheets,
             'daily_population' => $snapshot['daily_population'],
         ];

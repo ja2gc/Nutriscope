@@ -366,6 +366,27 @@ class AccomplishmentReportTest extends TestCase
         $this->assertNotNull($report->cache_path);
     }
 
+    public function test_semi_monthly_periods_use_actual_month_end_for_common_calendar_lengths(): void
+    {
+        $cases = [
+            ['2026-02-16', '2026-02-16', '2026-02-28'],
+            ['2028-02-16', '2028-02-16', '2028-02-29'],
+            ['2026-04-16', '2026-04-16', '2026-04-30'],
+            ['2026-05-16', '2026-05-16', '2026-05-31'],
+        ];
+
+        foreach ($cases as [$date, $expectedStart, $expectedEnd]) {
+            $this->seedCount($this->fss1, $date, [
+                'ward' => 'Accomplishment report',
+                'collected_ward_diet_lists' => 0,
+                'apportioned_distributed_meals' => 0,
+            ]);
+            $report = app(AccomplishmentReportArchiveService::class)->preparePeriod($this->fss1, $date);
+            $this->assertSame($expectedStart, $report?->parameters['start']);
+            $this->assertSame($expectedEnd, $report?->parameters['end']);
+        }
+    }
+
     public function test_manual_archive_snapshots_current_prepared_by_display_name(): void
     {
         Storage::fake('public');
@@ -440,5 +461,61 @@ class AccomplishmentReportTest extends TestCase
         $report->refresh();
         $this->assertNotSame($beforeHash, $report->content_hash);
         $this->assertTrue($report->created_at->equalTo($createdAt));
+    }
+
+    public function test_prepared_period_renders_blank_zero_and_off_duty_cells_for_calendar_period(): void
+    {
+        $this->seedCount($this->fss1, '2026-02-01', [
+            'collected_ward_diet_lists' => 0,
+            'apportioned_distributed_meals' => 0,
+        ]);
+        $this->seedCount($this->fss1, '2026-02-02', ['off_duty' => true]);
+
+        $data = (new AccomplishmentReportGenerator)->data($this->makeReport([
+            'from' => '2026-02-01',
+            'to' => '2026-02-28',
+            'fss_user_id' => $this->fss1->id,
+        ]));
+        $sheet = $data['staff_sheets'][0];
+
+        $this->assertCount(28, $data['days']);
+        $this->assertSame(0, $sheet['task_rows']['collected_diet_list']['2026-02-01']);
+        $this->assertSame(0, $sheet['task_rows']['apportioned_food']['2026-02-01']);
+        $this->assertSame('X', $sheet['task_rows']['helped_food_prep']['2026-02-02']);
+        $this->assertSame('', $sheet['task_rows']['helped_food_prep']['2026-02-03']);
+    }
+
+    public function test_missing_prepared_pdf_is_rebuilt_for_view_and_download(): void
+    {
+        $this->seedCount($this->fss1, '2026-06-10', ['helped_food_prep' => true]);
+        $prepared = $this->actingAs($this->fss1)
+            ->postJson('/api/fss/reports/accomplishment_report/prepare', ['start' => '2026-06-10', 'end' => '2026-06-10'])
+            ->assertOk();
+        $report = Report::where('uuid', $prepared->json('data.id'))->firstOrFail();
+        Storage::disk('report_cache')->delete($report->cache_path);
+
+        $view = $this->get('/api/fss/reports/'.$report->uuid.'/view')->assertOk();
+        $view->assertHeader('Content-Type', 'application/pdf');
+        $this->assertStringStartsWith('%PDF', $view->streamedContent());
+
+        $download = $this->get('/api/fss/reports/'.$report->uuid.'/download')->assertOk();
+        $download->assertHeader('Content-Type', 'application/pdf');
+        $this->assertStringStartsWith('%PDF', $download->streamedContent());
+    }
+
+    public function test_expired_prepared_pdf_is_rebuilt_before_view(): void
+    {
+        $this->seedCount($this->fss1, '2026-06-10', ['helped_food_prep' => true]);
+        $prepared = $this->actingAs($this->fss1)
+            ->postJson('/api/fss/reports/accomplishment_report/prepare', ['start' => '2026-06-10', 'end' => '2026-06-10'])
+            ->assertOk();
+        $report = Report::where('uuid', $prepared->json('data.id'))->firstOrFail();
+        $oldExpiry = now()->subMinute();
+        $report->update(['cache_expires_at' => $oldExpiry]);
+
+        $response = $this->get('/api/fss/reports/'.$report->uuid.'/view')->assertOk();
+
+        $this->assertStringStartsWith('%PDF', $response->streamedContent());
+        $this->assertTrue($report->fresh()->cache_expires_at->isAfter($oldExpiry));
     }
 }

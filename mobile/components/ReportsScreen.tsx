@@ -53,7 +53,7 @@ function ReportGrid({ snap }: { snap: AccomplishmentSnapshot }) {
               {taskKeys.map((tk, ti) => (
                 <View key={tk} className={`flex-row ${ti < taskKeys.length - 1 ? 'border-b border-gray-100' : ''}`}>
                   <View className="w-44 px-3 py-2 border-r border-gray-200 justify-center">
-                    <Text className="text-[11px] text-gray-700 leading-4" numberOfLines={2}>{snap.tasks[tk]}</Text>
+                    <Text className="text-[11px] text-gray-700 leading-4" numberOfLines={2}>{ti + 1}. {snap.tasks[tk]}</Text>
                   </View>
                   {snap.days.map((d) => {
                     const cell = sheet.task_rows[tk]?.[d] ?? '';
@@ -90,7 +90,10 @@ function ReportDetail({ id, onBack }: { id: string; onBack: () => void }) {
   const period = snap?.period_label ?? (start && end ? `${fmtDate(start)} – ${fmtDate(end)}` : 'Saved accomplishment report');
   const pdfAction = useMutation({
     mutationFn: (action: 'view' | 'download') => action === 'view' ? viewReportPdf(data!) : downloadReportPdf(data!),
-    onError: (error: Error) => Alert.alert('Could not process PDF', error.message, [{ text: 'Retry' }]),
+    onError: (error: Error, action) => Alert.alert('Could not process PDF', error.message, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Retry', onPress: () => pdfAction.mutate(action) },
+    ]),
   });
 
   return (
@@ -117,11 +120,11 @@ function ReportDetail({ id, onBack }: { id: string; onBack: () => void }) {
             <Text className="text-base font-bold text-gray-900 mt-0.5">{period}</Text>
             <View className="mt-3 flex-row gap-2">
               <TouchableOpacity onPress={() => pdfAction.mutate('view')} disabled={pdfAction.isPending} className="min-h-12 flex-1 flex-row items-center justify-center gap-2 rounded-xl bg-[#087F5B]" accessibilityLabel="View PDF">
-                {pdfAction.isPending ? <ActivityIndicator color="#fff" /> : <Eye color="#fff" size={18} />}
-                <Text className="font-bold text-white">View PDF</Text>
+                {pdfAction.isPending && pdfAction.variables === 'view' ? <ActivityIndicator color="#fff" /> : <Eye color="#fff" size={18} />}
+                <Text className="font-bold text-white">{pdfAction.isPending && pdfAction.variables === 'view' ? 'Opening…' : 'View PDF'}</Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={() => pdfAction.mutate('download')} disabled={pdfAction.isPending} className="min-h-12 flex-1 flex-row items-center justify-center gap-2 rounded-xl border border-[#087F5B] bg-white" accessibilityLabel="Download PDF">
-                <Download color="#087F5B" size={18} /><Text className="font-bold text-[#087F5B]">Download PDF</Text>
+                {pdfAction.isPending && pdfAction.variables === 'download' ? <ActivityIndicator color="#087F5B" /> : <Download color="#087F5B" size={18} />}<Text className="font-bold text-[#087F5B]">{pdfAction.isPending && pdfAction.variables === 'download' ? 'Saving…' : 'Download PDF'}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -206,7 +209,7 @@ export default function ReportsScreen({ embedded = false }: { embedded?: boolean
           <FileText color="#d1d5db" size={40} />
           <Text className="mt-4 text-gray-400 text-sm text-center">{debouncedSearch ? 'No matching reports.' : 'No accomplishment reports yet.'}</Text>
           <Text className="mt-1 text-gray-400 text-xs text-center px-8">
-            A report is filed automatically once all 7 days of a week are logged.
+            Your semi-monthly report appears after the first saved daily log.
           </Text>
         </View>
       }

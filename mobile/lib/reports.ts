@@ -1,6 +1,8 @@
 import api from './api';
 import * as FileSystem from 'expo-file-system/legacy';
+import * as IntentLauncher from 'expo-intent-launcher';
 import * as Sharing from 'expo-sharing';
+import { Platform } from 'react-native';
 import { getToken } from './auth';
 import { MOBILE_PAGE_SIZE, PaginatedResponse } from './pagination';
 import { absoluteApiUrl, reportDownloadPath } from './mobileContracts';
@@ -17,6 +19,7 @@ export interface AccomplishmentSnapshot {
   days: string[];
   tasks: Record<string, string>;
   numeric_task: string;
+  numeric_tasks?: string[];
   daily_population: Record<string, number>;
   staff_sheets: ReportStaffSheet[];
 }
@@ -77,6 +80,19 @@ async function fetchReportPdf(report: Report): Promise<{ uri: string; filename: 
 
 export async function viewReportPdf(report: Report): Promise<void> {
   const result = await fetchReportPdf(report);
+  if (Platform.OS === 'android') {
+    try {
+      const contentUri = await FileSystem.getContentUriAsync(result.uri);
+      await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
+        data: contentUri,
+        flags: 1,
+        type: 'application/pdf',
+      });
+      return;
+    } catch {
+      // Fall through to the safe platform share sheet.
+    }
+  }
   if (!await Sharing.isAvailableAsync()) throw new Error('No PDF viewer is available on this device.');
   await Sharing.shareAsync(result.uri, { mimeType: 'application/pdf', dialogTitle: 'View PDF' });
 }

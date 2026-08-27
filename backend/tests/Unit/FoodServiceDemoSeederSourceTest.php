@@ -50,4 +50,14 @@ class FoodServiceDemoSeederSourceTest extends TestCase
         $this->assertStringContainsString("['receipt', 'proof']", $demo);
         $this->assertStringContainsString('$idx === 0 ? null', $demo, 'At least one completed demo vendor must show that OR number is optional.');
     }
+
+    public function test_demo_accomplishments_use_one_current_form_record_per_staff_date(): void
+    {
+        $content = file_get_contents(__DIR__.'/../../database/seeders/FoodServiceDemoSeeder.php');
+
+        $this->assertStringContainsString("'ward' => 'Accomplishment report'", $content);
+        $this->assertStringContainsString("'collected_ward_diet_lists'", $content);
+        $this->assertStringContainsString("'apportioned_distributed_meals'", $content);
+        $this->assertStringNotContainsString("foreach (['Ward A'", $content);
+    }
 }

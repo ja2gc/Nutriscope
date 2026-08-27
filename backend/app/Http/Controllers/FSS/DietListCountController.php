@@ -25,16 +25,23 @@ class DietListCountController extends Controller
         AccomplishmentReportArchiveService $archives
     ): JsonResponse {
         $validated = $request->validated();
+        $isExactEntry = array_key_exists('collected_ward_diet_lists', $validated)
+            || array_key_exists('apportioned_distributed_meals', $validated)
+            || ! array_key_exists('ward', $validated);
 
         // Self-scoped write: force fss_user_id to the authenticated user; never accept from request.
-        [$count, $created] = $this->audited(function () use ($validated): array {
+        [$count, $created] = $this->audited(function () use ($validated, $isExactEntry): array {
             User::query()->whereKey(Auth::id())->lockForUpdate()->firstOrFail();
-            $exact = array_key_exists('collected_ward_diet_lists', $validated) || array_key_exists('apportioned_distributed_meals', $validated) || ! array_key_exists('ward', $validated);
-            $count = $exact ? $this->saveExactEntry($validated) : $this->saveLegacyEntry($validated);
+            if ($isExactEntry) {
+                [$count, $oldValues] = $this->saveExactEntry($validated);
+            } else {
+                $count = $this->saveLegacyEntry($validated);
+                $oldValues = null;
+            }
             $values = $this->auditValues($count);
             $fields = array_keys(array_filter($values, fn (mixed $value): bool => $value !== null));
             $this->auditLogger->record(
-                $created ? AuditAction::Created : AuditAction::Updated,
+                $count->wasRecentlyCreated ? AuditAction::Created : AuditAction::Updated,
                 AuditCategory::Operations,
                 AuditDomain::FoodService,
                 subject: $count,
@@ -42,14 +49,16 @@ class DietListCountController extends Controller
                     'changed_fields' => $fields,
                     'status' => 201,
                 ],
-                oldValues: array_fill_keys(array_keys($values), null),
+                oldValues: $oldValues ?? array_fill_keys(array_keys($values), null),
                 newValues: $values,
             );
 
             return [$count, $count->wasRecentlyCreated];
         });
 
-        $archives->preparePeriod($request->user(), $count->service_date->toDateString());
+        if ($isExactEntry) {
+            $archives->preparePeriod($request->user(), $count->service_date->toDateString());
+        }
 
         return response()->json(['data' => $count], $created ? 201 : 200);
     }
@@ -92,8 +101,11 @@ class DietListCountController extends Controller
         ];
     }
 
-    /** @param array<string, mixed> $validated */
-    private function saveExactEntry(array $validated): DietListCount
+    /**
+     * @param  array<string, mixed>  $validated
+     * @return array{DietListCount, array<string, string|int|bool|null>|null}
+     */
+    private function saveExactEntry(array $validated): array
     {
         $legacyExists = DietListCount::query()->where('fss_user_id', Auth::id())->whereDate('service_date', $validated['service_date'])->where('ward', '!=', 'Accomplishment report')->lockForUpdate()->exists();
         if ($legacyExists) {
@@ -102,11 +114,12 @@ class DietListCountController extends Controller
         $entry = DietListCount::query()->where('fss_user_id', Auth::id())->whereDate('service_date', $validated['service_date'])->where('ward', 'Accomplishment report')->lockForUpdate()->first();
         $values = [...$validated, 'ward' => 'Accomplishment report', 'population' => $validated['apportioned_distributed_meals'] ?? 0, 'fss_user_id' => Auth::id(), 'apportioned_food' => false, 'collected_diet_list' => false];
         if ($entry === null) {
-            return DietListCount::create($values);
+            return [DietListCount::create($values), null];
         }
+        $oldValues = $this->auditValues($entry);
         $entry->fill($values)->save();
 
-        return $entry->fresh();
+        return [$entry->fresh(), $oldValues];
     }
 
     /** @param array<string, mixed> $validated */

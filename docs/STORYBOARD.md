@@ -69,17 +69,17 @@ flowchart LR
 
 ## Storyboard 3: FSS Executes a Service Day
 
-**Story goal:** complete today's kitchen/service tasks and produce evidence for procurement and weekly accomplishment reporting.
+**Story goal:** complete today's kitchen/service tasks and produce evidence for procurement and semi-monthly accomplishment reporting.
 
 | Scene | Mobile screen | FSS action | System response | Story point |
 |---|---|---|---|---|
 | 1. Daily orientation | Home | Reviews meals to log, pending POs, active cycle, today's service, announcements | Shows work queues and missing requirements | FSS knows what needs attention |
-| 2. Menu briefing | Menu | Opens today's foods and recipe/item profiles | Shows scaled ingredients, cost, and prep notes read-only | Kitchen sees RND's approved plan |
+| 2. Menu briefing | Menu | Opens today's foods and recipe/item profiles | Shows servings, ingredients, and prep notes read-only | Kitchen sees RND's approved plan |
 | 3. Receiving | Purchase | Reviews prefilled values, corrects decimal actual quantity/price, uploads receipt/proof, optionally records OR, and marks vendor received | Validates required evidence and updates the confirmed purchase | Evidence closes receiving explicitly |
 | 4. Preparation/service | Meal Prep | Reviews the selected date's meals and records actual population | Stores the served-population record and refreshes PO served-day progress | Actual service connects to cost outcome without a redundant completion log |
-| 5. Daily accomplishment | Accomplish | Enters ward/meals, selects duties, or marks off duty | Stores daily entry and updates weekly report completeness | Staff work becomes reportable |
+| 5. Daily accomplishment | Accomplish | Enters two counts, selects five duties, or marks off duty | Stores one daily entry and refreshes its semi-monthly report | Staff work becomes reportable |
 | 6. Communication | Announcement tab and header bell | Switches between Announcements and SOP; reads notifications from the bell | Preserves current procedure and alert state | Communication stays visible without crowding the header |
-| 7. Personal record | Accomplish → My reports | Opens archived report | Shows only this FSS user's frozen weekly output | Access stays role- and owner-scoped |
+| 7. Personal record | Accomplish → My reports | Views or downloads a report | Shows only this FSS user's semi-monthly output | Access stays role- and owner-scoped |
 
 ```mermaid
 flowchart LR
@@ -87,7 +87,7 @@ flowchart LR
     B --> C["Receive purchases"]
     C --> D["Meal Prep and served population"]
     D --> E["Accomplish daily log"]
-    E --> F["Own weekly report"]
+    E --> F["Own semi-monthly report"]
 ```
 
 ### Alternate Scenes
