@@ -1,5 +1,5 @@
 import { useInfiniteQuery, useMutation, useQuery } from '@tanstack/react-query';
-import { ChevronLeft, ChevronRight, Download, FileText } from 'lucide-react-native';
+import { ChevronLeft, ChevronRight, Download, Eye, FileText } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -11,7 +11,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { AccomplishmentSnapshot, Report, downloadReportPdf, getReport, listReports } from '../lib/reports';
+import { AccomplishmentSnapshot, Report, downloadReportPdf, getReport, listReports, viewReportPdf } from '../lib/reports';
 import { PaginatedListFooter } from './PaginatedListFooter';
 import { SearchInput } from './SearchInput';
 import { flattenUniquePages, getNextPageParam } from '../lib/pagination';
@@ -56,7 +56,7 @@ function ReportGrid({ snap }: { snap: AccomplishmentSnapshot }) {
                     <Text className="text-[11px] text-gray-700 leading-4" numberOfLines={2}>{snap.tasks[tk]}</Text>
                   </View>
                   {snap.days.map((d) => {
-                    const cell = sheet.task_rows[tk]?.[d] ?? '–';
+                    const cell = sheet.task_rows[tk]?.[d] ?? '';
                     const isX = cell === 'X';
                     const isTick = cell === '✓';
                     return (
@@ -88,9 +88,9 @@ function ReportDetail({ id, onBack }: { id: string; onBack: () => void }) {
   const start = String(data?.parameters?.start ?? data?.parameters?.from ?? '');
   const end = String(data?.parameters?.end ?? data?.parameters?.to ?? '');
   const period = snap?.period_label ?? (start && end ? `${fmtDate(start)} – ${fmtDate(end)}` : 'Saved accomplishment report');
-  const download = useMutation({
-    mutationFn: () => downloadReportPdf(data!),
-    onError: (error: Error) => Alert.alert('Could not open report', error.message),
+  const pdfAction = useMutation({
+    mutationFn: (action: 'view' | 'download') => action === 'view' ? viewReportPdf(data!) : downloadReportPdf(data!),
+    onError: (error: Error) => Alert.alert('Could not process PDF', error.message, [{ text: 'Retry' }]),
   });
 
   return (
@@ -115,10 +115,15 @@ function ReportDetail({ id, onBack }: { id: string; onBack: () => void }) {
           <View className="mb-4">
             <Text className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Accomplishment Report</Text>
             <Text className="text-base font-bold text-gray-900 mt-0.5">{period}</Text>
-            <TouchableOpacity onPress={() => download.mutate()} disabled={download.isPending} className="mt-3 min-h-12 flex-row items-center justify-center gap-2 rounded-xl bg-[#087F5B]">
-              {download.isPending ? <ActivityIndicator color="#fff" /> : <Download color="#fff" size={18} />}
-              <Text className="font-bold text-white">{download.isPending ? 'Preparing PDF…' : 'Open or save PDF'}</Text>
-            </TouchableOpacity>
+            <View className="mt-3 flex-row gap-2">
+              <TouchableOpacity onPress={() => pdfAction.mutate('view')} disabled={pdfAction.isPending} className="min-h-12 flex-1 flex-row items-center justify-center gap-2 rounded-xl bg-[#087F5B]" accessibilityLabel="View PDF">
+                {pdfAction.isPending ? <ActivityIndicator color="#fff" /> : <Eye color="#fff" size={18} />}
+                <Text className="font-bold text-white">View PDF</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => pdfAction.mutate('download')} disabled={pdfAction.isPending} className="min-h-12 flex-1 flex-row items-center justify-center gap-2 rounded-xl border border-[#087F5B] bg-white" accessibilityLabel="Download PDF">
+                <Download color="#087F5B" size={18} /><Text className="font-bold text-[#087F5B]">Download PDF</Text>
+              </TouchableOpacity>
+            </View>
           </View>
           {snap ? <ReportGrid snap={snap} /> : <View className="rounded-2xl border border-gray-200 bg-white p-4"><Text className="text-sm leading-5 text-gray-600">Open the prepared PDF to view the complete signed report.</Text></View>}
         </ScrollView>

@@ -72,18 +72,19 @@ test('announcement page separates announcements and SOP into internal tabs', () 
   assert.doesNotMatch(rootLayout, /name="announcements"/);
 });
 
-test('report details open the selected authenticated PDF and refresh only an expired copy', () => {
+test('report details prepare current PDF and expose view/download actions', () => {
   const screen = fs.readFileSync(path.join(root, 'components', 'ReportsScreen.tsx'), 'utf8');
   const reports = fs.readFileSync(path.join(root, 'lib', 'reports.ts'), 'utf8');
   const rootLayout = fs.readFileSync(path.join(root, 'app', '_layout.tsx'), 'utf8');
   const notifications = fs.readFileSync(path.join(root, 'app', 'notifications.tsx'), 'utf8');
 
-  assert.match(screen, /Open or save PDF/);
-  assert.match(reports, /reportDownloadPath\(report\.id\)/);
-  assert.match(reports, /result\.status === 409/);
+  assert.match(screen, /View PDF/);
+  assert.match(screen, /Download PDF/);
+  assert.match(reports, /reportDownloadPath\(current\.id\)/);
+  assert.match(reports, /preparedReport/);
   assert.match(reports, /accomplishment_report\/prepare/);
   assert.match(reports, /Authorization: `Bearer \$\{token\}`/);
-  assert.match(reports, /Sharing\.shareAsync/);
+  assert.match(reports, /StorageAccessFramework/);
   assert.match(notifications, /pathname: '\/\(tabs\)\/accomplishments'/);
   assert.doesNotMatch(rootLayout, /name="reports"/);
 });

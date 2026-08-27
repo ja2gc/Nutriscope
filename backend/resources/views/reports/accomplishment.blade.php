@@ -14,6 +14,7 @@
                     <span class="bold">Name of Employee:</span>
                     <span style="border-bottom:1px solid #333; padding:0 60px 0 4px;">{{ $sheet['user']?->display_name ?? '-' }}</span>
                 </td>
+                <td style="border:0; text-align:right;"><span class="bold">Position:</span> Food Service Staff</td>
             </tr>
         </table>
 
@@ -35,7 +36,7 @@
                     <tr>
                         <td>{{ $taskLabel }}</td>
                         @foreach($days as $date)
-                            @php $cell = $sheet['task_rows'][$taskKey][$date] ?? '-'; @endphp
+                            @php $cell = $sheet['task_rows'][$taskKey][$date] ?? ''; @endphp
                             <td style="text-align:center;">
                                 @if($cell === 'X')
                                     <span style="font-size:9px; color:#333;">X</span>

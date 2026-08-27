@@ -16,6 +16,8 @@ class DietListCount extends Model
         'ward',
         'fss_user_id',
         'population',
+        'collected_ward_diet_lists',
+        'apportioned_distributed_meals',
         'helped_food_prep',
         'stored_supplies',
         'collected_diet_list',
@@ -29,6 +31,8 @@ class DietListCount extends Model
     protected $casts = [
         'service_date' => 'date',
         'population' => 'integer',
+        'collected_ward_diet_lists' => 'integer',
+        'apportioned_distributed_meals' => 'integer',
         'helped_food_prep' => 'bool',
         'stored_supplies' => 'bool',
         'collected_diet_list' => 'bool',

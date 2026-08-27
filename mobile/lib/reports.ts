@@ -46,7 +46,17 @@ export async function getReport(id: string): Promise<Report> {
   return res.data.data;
 }
 
-export async function downloadReportPdf(report: Report): Promise<void> {
+async function preparedReport(report: Report): Promise<Report> {
+  const start = String(report.parameters?.start ?? report.snapshot?.accomplishment?.from ?? '');
+  const end = String(report.parameters?.end ?? report.snapshot?.accomplishment?.to ?? '');
+  if (!start || !end) throw new Error('This report has no period information.');
+  const refreshed = await api.post<{ data: Report }>('/api/fss/reports/accomplishment_report/prepare', {
+    ...(report.parameters ?? {}), start, end,
+  });
+  return refreshed.data.data;
+}
+
+async function fetchReportPdf(report: Report): Promise<{ uri: string; filename: string }> {
   const start = String(report.parameters?.start ?? report.snapshot?.accomplishment?.from ?? '');
   const end = String(report.parameters?.end ?? report.snapshot?.accomplishment?.to ?? '');
   if (!start || !end) throw new Error('This report has no period information.');
@@ -55,23 +65,33 @@ export async function downloadReportPdf(report: Report): Promise<void> {
   if (!token || !FileSystem.cacheDirectory) throw new Error('Please sign in again.');
   const destination = `${FileSystem.cacheDirectory}nutriscope-accomplishment-${start}-${end}.pdf`;
   const headers = { Authorization: `Bearer ${token}`, Accept: 'application/pdf' };
-  let result = await FileSystem.downloadAsync(
-    absoluteApiUrl(String(api.defaults.baseURL ?? ''), reportDownloadPath(report.id)),
+  const current = await preparedReport(report);
+  const result = await FileSystem.downloadAsync(
+    absoluteApiUrl(String(api.defaults.baseURL ?? ''), reportDownloadPath(current.id)),
     destination,
     { headers },
   );
-  if (result.status === 409) {
-    const refreshed = await api.post<{ data: Report }>(
-      '/api/fss/reports/accomplishment_report/prepare',
-      report.parameters ?? { start, end },
-    );
-    result = await FileSystem.downloadAsync(
-      absoluteApiUrl(String(api.defaults.baseURL ?? ''), reportDownloadPath(refreshed.data.data.id)),
-      destination,
-      { headers },
-    );
-  }
   if (result.status !== 200) throw new Error('The report file could not be downloaded.');
+  return { uri: result.uri, filename: `nutriscope-accomplishment-${start}-${end}.pdf` };
+}
+
+export async function viewReportPdf(report: Report): Promise<void> {
+  const result = await fetchReportPdf(report);
   if (!await Sharing.isAvailableAsync()) throw new Error('No PDF viewer is available on this device.');
-  await Sharing.shareAsync(result.uri, { mimeType: 'application/pdf', dialogTitle: 'Open or save accomplishment report' });
+  await Sharing.shareAsync(result.uri, { mimeType: 'application/pdf', dialogTitle: 'View PDF' });
+}
+
+export async function downloadReportPdf(report: Report): Promise<void> {
+  const result = await fetchReportPdf(report);
+  if (FileSystem.StorageAccessFramework?.requestDirectoryPermissionsAsync) {
+    const access = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
+    if (access.granted) {
+      const target = await FileSystem.StorageAccessFramework.createFileAsync(access.directoryUri, result.filename, 'application/pdf');
+      const base64 = await FileSystem.readAsStringAsync(result.uri, { encoding: FileSystem.EncodingType.Base64 });
+      await FileSystem.writeAsStringAsync(target, base64, { encoding: FileSystem.EncodingType.Base64 });
+      return;
+    }
+  }
+  if (!await Sharing.isAvailableAsync()) throw new Error('Choose a folder or install a PDF viewer, then retry.');
+  await Sharing.shareAsync(result.uri, { mimeType: 'application/pdf', dialogTitle: 'Save PDF' });
 }

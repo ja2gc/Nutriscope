@@ -121,7 +121,7 @@ class AccomplishmentReportTest extends TestCase
             ->first(fn ($s) => $s['user']->id === $this->fss1->id);
 
         $this->assertSame('✓', $sheet['task_rows']['helped_food_prep']['2026-06-02']);
-        $this->assertSame('–', $sheet['task_rows']['stored_supplies']['2026-06-02']);
+        $this->assertSame('', $sheet['task_rows']['stored_supplies']['2026-06-02']);
     }
 
     public function test_apportioned_food_row_carries_population_number(): void
@@ -210,7 +210,7 @@ class AccomplishmentReportTest extends TestCase
         $sheet = collect($data['staff_sheets'])
             ->first(fn ($s) => $s['user']->id === $this->fss1->id);
 
-        $this->assertSame('–', $sheet['task_rows']['helped_food_prep']['2026-06-02']);
+        $this->assertSame('', $sheet['task_rows']['helped_food_prep']['2026-06-02']);
     }
 
     public function test_fss_user_id_filter_restricts_to_one_staff(): void
@@ -342,31 +342,13 @@ class AccomplishmentReportTest extends TestCase
         $this->assertNotContains($other->uuid, $ids);
     }
 
-    public function test_weekly_accomplishment_report_is_prepared_after_each_day_has_staff_entry(): void
+    public function test_semi_monthly_accomplishment_report_is_prepared_after_first_staff_entry(): void
     {
-        foreach (CarbonPeriod::create('2026-06-01', '2026-06-06') as $date) {
-            $this->actingAs($this->fss1)
-                ->postJson('/api/fss/diet-list-counts', [
-                    'service_date' => $date->toDateString(),
-                    'ward' => 'Ward A',
-                    'population' => 10,
-                    'helped_food_prep' => true,
-                    'apportioned_food' => true,
-                ])
-                ->assertCreated();
-        }
-
-        $this->assertDatabaseMissing('reports', [
-            'user_id' => $this->fss1->id,
-            'type' => 'accomplishment_report',
-        ]);
-
         $this->actingAs($this->fss1)
             ->postJson('/api/fss/diet-list-counts', [
-                'service_date' => '2026-06-07',
-                'ward' => 'Off duty',
-                'population' => 0,
-                'off_duty' => true,
+                'service_date' => '2026-06-01',
+                'collected_ward_diet_lists' => 2,
+                'apportioned_distributed_meals' => 10,
             ])
             ->assertCreated();
 
@@ -376,7 +358,7 @@ class AccomplishmentReportTest extends TestCase
 
         $this->assertSame('completed', $report->status);
         $this->assertSame('2026-06-01', $report->parameters['start']);
-        $this->assertSame('2026-06-07', $report->parameters['end']);
+        $this->assertSame('2026-06-15', $report->parameters['end']);
         $this->assertSame($this->fss1->id, $report->parameters['fss_user_id']);
         $this->assertSame('Alice Reyes', $report->parameters['prepared_by_name']);
         $this->assertSame('Alice Reyes', $report->snapshot['params']['prepared_by_name']);

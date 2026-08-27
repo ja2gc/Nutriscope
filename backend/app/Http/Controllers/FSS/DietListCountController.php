@@ -27,18 +27,14 @@ class DietListCountController extends Controller
         $validated = $request->validated();
 
         // Self-scoped write: force fss_user_id to the authenticated user; never accept from request.
-        $count = $this->audited(function () use ($validated): DietListCount {
+        [$count, $created] = $this->audited(function () use ($validated): array {
             User::query()->whereKey(Auth::id())->lockForUpdate()->firstOrFail();
-            $this->ensureCompatibleDayStatus($validated);
-
-            $count = DietListCount::create([
-                ...$validated,
-                'fss_user_id' => Auth::id(),
-            ]);
+            $exact = array_key_exists('collected_ward_diet_lists', $validated) || array_key_exists('apportioned_distributed_meals', $validated) || ! array_key_exists('ward', $validated);
+            $count = $exact ? $this->saveExactEntry($validated) : $this->saveLegacyEntry($validated);
             $values = $this->auditValues($count);
             $fields = array_keys(array_filter($values, fn (mixed $value): bool => $value !== null));
             $this->auditLogger->record(
-                AuditAction::Created,
+                $created ? AuditAction::Created : AuditAction::Updated,
                 AuditCategory::Operations,
                 AuditDomain::FoodService,
                 subject: $count,
@@ -50,12 +46,12 @@ class DietListCountController extends Controller
                 newValues: $values,
             );
 
-            return $count;
+            return [$count, $count->wasRecentlyCreated];
         });
 
-        $archives->archiveCompletedWeek($request->user(), $count->service_date->toDateString());
+        $archives->preparePeriod($request->user(), $count->service_date->toDateString());
 
-        return response()->json(['data' => $count], 201);
+        return response()->json(['data' => $count], $created ? 201 : 200);
     }
 
     public function index(Request $request): JsonResponse
@@ -83,6 +79,8 @@ class DietListCountController extends Controller
         return [
             'service_date' => $count->service_date->toDateString(),
             'population' => $count->population,
+            'collected_ward_diet_lists' => $count->collected_ward_diet_lists,
+            'apportioned_distributed_meals' => $count->apportioned_distributed_meals,
             'helped_food_prep' => $count->helped_food_prep,
             'stored_supplies' => $count->stored_supplies,
             'collected_diet_list' => $count->collected_diet_list,
@@ -92,6 +90,31 @@ class DietListCountController extends Controller
             'maintained_cleanliness' => $count->maintained_cleanliness,
             'off_duty' => $count->off_duty,
         ];
+    }
+
+    /** @param array<string, mixed> $validated */
+    private function saveExactEntry(array $validated): DietListCount
+    {
+        $legacyExists = DietListCount::query()->where('fss_user_id', Auth::id())->whereDate('service_date', $validated['service_date'])->where('ward', '!=', 'Accomplishment report')->lockForUpdate()->exists();
+        if ($legacyExists) {
+            throw ValidationException::withMessages(['service_date' => 'A legacy entry already exists for this date.']);
+        }
+        $entry = DietListCount::query()->where('fss_user_id', Auth::id())->whereDate('service_date', $validated['service_date'])->where('ward', 'Accomplishment report')->lockForUpdate()->first();
+        $values = [...$validated, 'ward' => 'Accomplishment report', 'population' => $validated['apportioned_distributed_meals'] ?? 0, 'fss_user_id' => Auth::id(), 'apportioned_food' => false, 'collected_diet_list' => false];
+        if ($entry === null) {
+            return DietListCount::create($values);
+        }
+        $entry->fill($values)->save();
+
+        return $entry->fresh();
+    }
+
+    /** @param array<string, mixed> $validated */
+    private function saveLegacyEntry(array $validated): DietListCount
+    {
+        $this->ensureCompatibleDayStatus($validated);
+
+        return DietListCount::create([...$validated, 'fss_user_id' => Auth::id()]);
     }
 
     /** @param array<string, mixed> $validated */

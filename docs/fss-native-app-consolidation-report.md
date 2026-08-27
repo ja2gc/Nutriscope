@@ -73,9 +73,9 @@ The header retains the notification bell and profile icon. The profile side menu
 - A visible **Today** action returns from a backdated log to the current date.
 - Working entries record ward, meals distributed, and seven duty flags.
 - Multiple working rows can represent separate wards on the same date.
-- Off-duty/absent cannot coexist with working rows and records zero meals plus an `X` in the weekly report.
+- Off-duty/absent records zero numeric values plus an `X` in the semi-monthly report.
 - Weekly report aggregation sums ward populations and combines completed duties.
-- **My Reports** is inside Accomplish, uses owner-scoped paginated data, opens frozen report details, and provides **Open or save PDF** through authenticated download/share handling.
+- **My Reports** is inside Accomplish, uses owner-scoped paginated data, opens report details, and provides **View PDF** and **Download PDF** through authenticated handling. Reports update progressively for each semi-monthly period.
 
 ### Purchase
 

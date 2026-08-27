@@ -40,7 +40,7 @@ flowchart LR
     B --> C["Purchase: receive vendor groups"]
     C --> D["Meal Prep: serve and record actual population"]
     D --> E["Accomplish: record duties and meals"]
-    E --> F["Own weekly report"]
+    E --> F["Own semi-monthly report"]
 ```
 
 ## Home
@@ -149,7 +149,7 @@ FSS notifications support pagination, unread badge/count, mark-read/open behavio
 
 ## Reports
 
-FSS report access is limited server-side to `accomplishment_report`. The mobile report viewer lists only the signed-in FSS user's reports and renders frozen weekly accomplishment data.
+FSS report access is limited server-side to `accomplishment_report`. The mobile report viewer lists only the signed-in FSS user's reports and updates semi-monthly periods progressively. Daily logs include two numeric fields, a Today reset, and View PDF or Download PDF actions.
 
 ## Settings and Profile
 

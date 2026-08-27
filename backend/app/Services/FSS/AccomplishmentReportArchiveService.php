@@ -8,13 +8,11 @@ use App\Enums\AuditCategory;
 use App\Enums\AuditDomain;
 use App\Enums\AuditOutcome;
 use App\Enums\AuditSeverity;
-use App\Models\DietListCount;
 use App\Models\Report;
 use App\Models\User;
 use App\Services\Audit\AuditLogger;
 use App\Services\Reports\ReportAuditReference;
 use Carbon\Carbon;
-use Carbon\CarbonPeriod;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -26,17 +24,15 @@ class AccomplishmentReportArchiveService
         private readonly ReportAuditReference $auditReference,
     ) {}
 
-    public function archiveCompletedWeek(User $user, string $serviceDate): ?Report
+    public function preparePeriod(User $user, string $serviceDate): ?Report
     {
         if ($user->role !== 'FSS') {
             return null;
         }
         $this->auditLogger->assertAvailable();
-        $start = Carbon::parse($serviceDate)->startOfWeek(Carbon::MONDAY)->toDateString();
-        $end = Carbon::parse($serviceDate)->endOfWeek(Carbon::SUNDAY)->toDateString();
-        if (! $this->hasEntryForEveryDay($user, $start, $end)) {
-            return null;
-        }
+        $date = Carbon::parse($serviceDate);
+        $start = $date->copy()->startOfMonth()->addDays($date->day > 15 ? 15 : 0)->toDateString();
+        $end = $date->day <= 15 ? $date->copy()->startOfMonth()->day(15)->toDateString() : $date->copy()->endOfMonth()->toDateString();
         $params = [
             'start' => $start,
             'end' => $end,
@@ -98,19 +94,8 @@ class AccomplishmentReportArchiveService
         }
     }
 
-    private function hasEntryForEveryDay(User $user, string $start, string $end): bool
+    public function archiveCompletedWeek(User $user, string $serviceDate): ?Report
     {
-        $dates = DietListCount::query()
-            ->where('fss_user_id', $user->id)
-            ->whereBetween('service_date', [$start, $end])
-            ->pluck('service_date')
-            ->map(fn ($date) => Carbon::parse($date)->toDateString())
-            ->unique()
-            ->values();
-        $expected = collect(CarbonPeriod::create($start, $end))
-            ->map(fn (Carbon $date) => $date->toDateString())
-            ->values();
-
-        return $expected->diff($dates)->isEmpty();
+        return $this->preparePeriod($user, $serviceDate);
     }
 }

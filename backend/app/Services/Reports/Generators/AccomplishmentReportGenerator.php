@@ -38,13 +38,13 @@ class AccomplishmentReportGenerator implements ReportGenerator
 {
     /** The seven task rows in display order. */
     public const TASKS = [
-        'helped_food_prep' => 'Helped in food preparation work',
-        'stored_supplies' => 'Served food supplies properly',
-        'collected_diet_list' => 'Collected diet list from different wards',
-        'apportioned_food' => 'Apportioned and distributed food to in-patients in different wards',
-        'cleaned_utensils' => 'Collected, cleaned and returned used utensils and other equipment',
-        'assistant_cook' => 'Assumed duties as assistant cook',
-        'maintained_cleanliness' => 'Monitored cleanliness of kitchen, cabinets, refrigerators and freezers',
+        'helped_food_prep' => 'Helped in food preparation work.',
+        'stored_supplies' => 'Stored food supplies properly.',
+        'collected_diet_list' => 'Collected diet list from different wards.',
+        'apportioned_food' => 'Apportioned and distributed food to in patient in the different wards.',
+        'cleaned_utensils' => 'Collected, cleaned and returned used utensils and other equipment.',
+        'assistant_cook' => 'Assumed duties as assistant cook.',
+        'maintained_cleanliness' => 'Monitored cleanliness of kitchen, cabinets, refrigerators and freezers.',
     ];
 
     /** Row 4 carries the numeric distributed-meal count; the rest are checkmark rows. */
@@ -131,20 +131,20 @@ class AccomplishmentReportGenerator implements ReportGenerator
                         $dateRows = $byDate->get($date);
 
                         if ($dateRows === null) {
-                            $cells[$date] = '–';
+                            $cells[$date] = '';
                         } elseif ($dateRows->every(fn (DietListCount $row): bool => $row->off_duty)) {
                             $cells[$date] = 'X';
                         } elseif ($task === self::NUMERIC_TASK) {
-                            $distributedRows = $dateRows
-                                ->filter(fn (DietListCount $row): bool => ! $row->off_duty && $row->apportioned_food)
-                                ->values();
+                            $distributedRows = $dateRows->filter(fn (DietListCount $row): bool => ! $row->off_duty && ($row->apportioned_distributed_meals !== null || $row->apportioned_food))->values();
                             $cells[$date] = $distributedRows->isNotEmpty()
-                                ? $distributedRows->sum('population')
-                                : '–';
+                                ? $distributedRows->sum(fn (DietListCount $row): int => $row->apportioned_distributed_meals !== null ? $row->apportioned_distributed_meals : ($row->apportioned_food ? $row->population : 0))
+                                : '';
                         } else {
-                            $cells[$date] = $dateRows->contains(fn (DietListCount $row): bool => ! $row->off_duty && $row->$task)
+                            $cells[$date] = $dateRows->contains(fn (DietListCount $row): bool => ! $row->off_duty && ($task === 'collected_diet_list'
+                                ? (($row->collected_ward_diet_lists !== null && $row->collected_ward_diet_lists > 0) || $row->collected_diet_list)
+                                : $row->$task))
                                 ? '✓'
-                                : '–';
+                                : '';
                         }
                     }
                     $taskRows[$task] = $cells;

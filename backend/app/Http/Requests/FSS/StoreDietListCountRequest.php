@@ -21,8 +21,10 @@ class StoreDietListCountRequest extends FormRequest
     {
         return [
             'service_date' => ['required', 'date_format:Y-m-d'],
-            'ward' => ['required', 'string', 'max:255'],
-            'population' => ['required', 'integer', 'min:0'],
+            'ward' => ['nullable', 'string', 'max:255'],
+            'population' => ['nullable', 'integer', 'min:0'],
+            'collected_ward_diet_lists' => ['nullable', 'integer', 'min:0'],
+            'apportioned_distributed_meals' => ['nullable', 'integer', 'min:0'],
             'menu_cycle_id' => ['nullable', 'string', 'exists:menu_cycles,uuid'],
             'helped_food_prep' => ['sometimes', 'boolean'],
             'stored_supplies' => ['sometimes', 'boolean'],
@@ -43,6 +45,13 @@ class StoreDietListCountRequest extends FormRequest
                 return;
             }
 
+            if ($this->input('ward') === null && ! $this->hasAny(['collected_ward_diet_lists', 'apportioned_distributed_meals'])) {
+                $validator->errors()->add('ward', 'Ward is required for legacy entries.');
+            }
+            if ($this->input('ward') !== null && ! $this->hasAny(['collected_ward_diet_lists', 'apportioned_distributed_meals']) && $this->input('population') === null) {
+                $validator->errors()->add('population', 'Population is required for legacy entries.');
+            }
+
             $serviceDate = (string) $this->input('service_date');
             $today = CarbonImmutable::now('Asia/Manila')->toDateString();
             if ($serviceDate > $today) {
@@ -53,7 +62,7 @@ class StoreDietListCountRequest extends FormRequest
                 return;
             }
 
-            if ((int) $this->input('population', 0) !== 0) {
+            if ((int) $this->input('population', 0) !== 0 || (int) $this->input('collected_ward_diet_lists', 0) !== 0 || (int) $this->input('apportioned_distributed_meals', 0) !== 0) {
                 $validator->errors()->add('population', 'Population must be zero when off duty.');
             }
 

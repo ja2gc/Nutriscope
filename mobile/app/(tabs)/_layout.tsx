@@ -2,15 +2,18 @@ import { Tabs } from 'expo-router';
 import { CalendarDays, ChefHat, ClipboardCheck, LayoutDashboard, Newspaper, ShoppingCart } from 'lucide-react-native';
 import AppHeader from '../../components/AppHeader';
 import { MOBILE_THEME } from '../../lib/theme';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function TabsLayout() {
+  const insets = useSafeAreaInsets();
+  const tabHeight = 58 + insets.bottom;
   return (
     <Tabs
       screenOptions={{
         headerShown: true,
         tabBarActiveTintColor: MOBILE_THEME.colors.brand,
         tabBarInactiveTintColor: MOBILE_THEME.colors.muted,
-        tabBarStyle: { backgroundColor: MOBILE_THEME.colors.surface, borderTopColor: MOBILE_THEME.colors.border, height: 64, paddingTop: 6, paddingBottom: 6 },
+        tabBarStyle: { backgroundColor: MOBILE_THEME.colors.surface, borderTopColor: MOBILE_THEME.colors.border, height: tabHeight, paddingTop: 6, paddingBottom: insets.bottom + 6 },
         tabBarLabelStyle: { fontSize: 9, fontWeight: '600' },
         tabBarHideOnKeyboard: true,
       }}
