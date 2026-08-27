@@ -2,6 +2,8 @@
 
 The permanent staff handoff is `https://nutriscope.live/mobile-app`. Its QR code always points there. Phones download `https://nutriscope.live/downloads/nutriscope-fss.apk`; the app checks `https://nutriscope.live/downloads/nutriscope-fss.json`.
 
+The server must install the `/downloads/` locations from `nginx/mobile-api.locations.conf` once. Confirm them with `sudo nginx -t` before the first release. APK-only release commits do not run the full Docker deployment.
+
 For each release:
 
 1. Increase `mobile/app.json` `expo.version` and `android.versionCode`.
