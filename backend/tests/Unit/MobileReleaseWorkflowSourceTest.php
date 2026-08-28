@@ -16,6 +16,7 @@ class MobileReleaseWorkflowSourceTest extends TestCase
         $this->assertStringContainsString('--max-time 900', $workflow);
         $this->assertStringContainsString('--retry 3', $workflow);
         $this->assertStringContainsString('--retry-all-errors', $workflow);
+        $this->assertStringContainsString('-o release-upload/nutriscope-fss.apk -- "$APK_URL"', $workflow);
         $this->assertStringContainsString('uses: appleboy/scp-action@v1', $workflow);
         $this->assertStringContainsString('strip_components: 1', $workflow);
         $this->assertStringContainsString('echo "$SHA256  $upload_dir/nutriscope-fss.apk" | sha256sum -c -', $workflow);
