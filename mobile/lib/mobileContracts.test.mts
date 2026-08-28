@@ -62,3 +62,18 @@ test('served population must be a positive whole number', () => {
   assert.equal(contracts.isValidServedPopulation(1.5), false);
   assert.equal(contracts.isValidServedPopulation(Number.NaN), false);
 });
+
+test('mobile notifications route every generated FSS notification to its record', () => {
+  assert.deepEqual(
+    contracts.mobileNotificationTarget({ type: 'announcement', source_module: 'announcements', sourceId: 'announcement-uuid' }),
+    { pathname: '/(tabs)/announcements', params: { announcementId: 'announcement-uuid' } },
+  );
+  assert.deepEqual(
+    contracts.mobileNotificationTarget({ type: 'po_awaiting_receipt', source_module: 'food_service', sourceId: 'po-uuid' }),
+    { pathname: '/(tabs)/procurement', params: { poId: 'po-uuid' } },
+  );
+  assert.deepEqual(
+    contracts.mobileNotificationTarget({ type: 'accomplishment_report', source_module: 'reports', sourceId: null }),
+    { pathname: '/(tabs)/accomplishments', params: { section: 'reports' } },
+  );
+});

@@ -54,6 +54,25 @@ class NotificationController extends Controller
                 continue;
             }
 
+            if ($module === 'ncp') {
+                $ncpById = NcpRecord::query()
+                    ->with('patient:id,uuid')
+                    ->where('rnd_user_id', Auth::id())
+                    ->whereIn('id', $ids)
+                    ->get(['id', 'uuid', 'patient_id'])
+                    ->keyBy('id');
+
+                $notifications
+                    ->where('source_module', $module)
+                    ->each(function (Notification $notification) use ($ncpById): void {
+                        $ncp = $ncpById->get($notification->source_id);
+                        $notification->source_uuid = $ncp?->uuid;
+                        $notification->source_parent_uuid = $ncp?->patient?->uuid;
+                    });
+
+                continue;
+            }
+
             $uuidById = $modelClass::whereIn('id', $ids)->pluck('uuid', 'id');
 
             $notifications

@@ -238,13 +238,51 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: number | "new"; r
 
   const [activeCell, setActiveCell] = useState<string | null>(null);
   const [pickerSearch, setPickerSearch] = useState("");
+  const [pickerLoading, setPickerLoading] = useState(false);
+  const [pickerError, setPickerError] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(cycleId !== "new");
 
-  // Load recipes + single catalog items (picker) + existing cycle
-  useEffect(() => { listRecipeOptions().then(setRecipes); }, []);
-  useEffect(() => { listFsItemOptions().then(setItems); }, []);
+  // Search only while picker is open. Empty queries do not download whole catalogs.
+  useEffect(() => {
+    const search = pickerSearch.trim();
+    if (!activeCell || !search) {
+      setRecipes([]);
+      setItems([]);
+      setPickerLoading(false);
+      setPickerError(false);
+      return;
+    }
+
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      setPickerLoading(true);
+      setPickerError(false);
+      Promise.all([listRecipeOptions(search), listFsItemOptions(search)])
+        .then(([recipeOptions, itemOptions]) => {
+          if (!cancelled) {
+            setRecipes(recipeOptions);
+            setItems(itemOptions);
+          }
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setRecipes([]);
+            setItems([]);
+            setPickerError(true);
+          }
+        })
+        .finally(() => { if (!cancelled) setPickerLoading(false); });
+    }, 200);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [activeCell, pickerSearch]);
+
+  // Load existing cycle
   useEffect(() => {
     if (cycleId === "new") return;
     getCycle(cycleId).then((c: MenuCycle) => {
@@ -553,7 +591,13 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: number | "new"; r
                               className="w-full pl-7 pr-2 py-1.5 text-sm border border-warm-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-400" />
                           </div>
                           <div className="max-h-48 overflow-y-auto">
-                            {filteredRecipes.length === 0 && filteredItems.length === 0 ? (
+                            {pickerLoading ? (
+                              <div className="text-xs text-warm-400 px-2 py-3 text-center">Searching…</div>
+                            ) : pickerError ? (
+                              <div className="text-xs text-red-600 px-2 py-3 text-center">Could not search. Try again.</div>
+                            ) : !pickerSearch.trim() ? (
+                              <div className="text-xs text-warm-400 px-2 py-3 text-center">Type to search recipes and items.</div>
+                            ) : filteredRecipes.length === 0 && filteredItems.length === 0 ? (
                               <div className="text-xs text-warm-400 px-2 py-3 text-center">No matches. Build recipes/items under FSS.</div>
                             ) : (
                               <>

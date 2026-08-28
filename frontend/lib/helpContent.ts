@@ -162,7 +162,7 @@ export const HELP_ITEMS: HelpItem[] = [
     role: "Shared",
     category: "Announcements & SOP",
     question: "What do notification states mean?",
-    answer: "Unread means the notification has not been opened. Read means it was reviewed. Opening a notification may navigate to its related record when that destination still exists and you are authorized to view it.",
+    answer: "Unread means the notification has not been opened. Read means it was reviewed. Select a notification to open its related announcement, purchase order, or follow-up record when you are authorized to view it.",
     keywords: ["read", "unread", "open", "destination"],
   },
 

@@ -60,7 +60,7 @@ jobs:
           username: ${{ secrets.DROPLET_USER }}
           key: ${{ secrets.DROPLET_SSH_KEY }}
           envs: APK_URL,VERSION,VERSION_CODE,SHA256
-          command_timeout: 10m
+          command_timeout: 20m
           script: |
             set -eu
             case "$VERSION" in *[!0-9.]*) exit 2 ;; esac
@@ -73,7 +73,8 @@ jobs:
             json_tmp=$(mktemp)
             trap 'rm -f "$apk_tmp" "$json_tmp"' EXIT
 
-            curl --proto '=https' --tlsv1.2 -fsSL -- "$APK_URL" -o "$apk_tmp"
+            curl --proto '=https' --tlsv1.2 --connect-timeout 30 --max-time 900 \
+              --retry 3 --retry-delay 5 --retry-all-errors -fsSL -- "$APK_URL" -o "$apk_tmp"
             echo "$SHA256  $apk_tmp" | sha256sum -c -
             install -d -m 0755 "$release_dir"
             install -m 0644 "$apk_tmp" "$release_dir/.nutriscope-fss.apk.new"

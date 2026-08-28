@@ -49,6 +49,20 @@ describe("notification target routing", () => {
     ).toBe("/food-service/procurement?poId=12");
   });
 
+  test("routes follow-up reminders directly to the related monitoring plan", () => {
+    expect(
+      notificationTargetHref(
+        {
+          type: "follow_up",
+          source_module: "ncp",
+          source_uuid: "ncp-public-uuid",
+          source_parent_uuid: "patient-public-uuid",
+        },
+        "RND",
+      ),
+    ).toBe("/ncp/patient-public-uuid/monitoring/ncp-public-uuid");
+  });
+
   test("falls back to notifications page when source is missing", () => {
     expect(notificationTargetHref({ type: "info" }, "RND")).toBe("/notifications");
   });

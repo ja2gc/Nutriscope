@@ -145,7 +145,7 @@ FSS is read-only. RND/Admin revise SOP and publish announcements.
 
 ## Notifications
 
-FSS notifications support pagination, unread badge/count, mark-read/open behavior, mark-all-read, and navigation to supported targets such as announcements or procurement.
+FSS notifications use 10-item pages, preserve unread state, and open the related announcement, purchase order, or accomplishment report when selected.
 
 ## Reports
 

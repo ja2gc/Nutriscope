@@ -2,7 +2,7 @@
   "expo": {
     "name": "Nutriscope FSS",
     "slug": "nutriscope-fss",
-    "version": "1.2.3",
+    "version": "1.2.4",
     "platforms": ["android", "ios"],
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -14,7 +14,7 @@
     },
     "android": {
       "package": "live.nutriscope.fss",
-      "versionCode": 7,
+      "versionCode": 8,
       "blockedPermissions": ["android.permission.RECORD_AUDIO"],
       "adaptiveIcon": {
         "backgroundColor": "#0B6B4B",

@@ -87,4 +87,41 @@ class UuidRouteRegressionTest extends TestCase
         // source_id keeps the raw FK (backward compat), but source_uuid is the routable id.
         $this->assertNotSame($announcement->uuid, $response->json('data.0.source_id'));
     }
+
+    public function test_follow_up_notification_resolves_ncp_and_patient_uuids(): void
+    {
+        $rnd = User::factory()->rnd()->create();
+        $ncp = NcpRecord::factory()->create(['rnd_user_id' => $rnd->id]);
+        Notification::factory()->create([
+            'user_id' => $rnd->id,
+            'type' => 'follow_up',
+            'source_module' => 'ncp',
+            'source_id' => $ncp->id,
+        ]);
+
+        $this->actingAs($rnd, 'sanctum')
+            ->getJson('/api/notifications')
+            ->assertOk()
+            ->assertJsonPath('data.0.source_uuid', $ncp->uuid)
+            ->assertJsonPath('data.0.source_parent_uuid', $ncp->patient->uuid);
+    }
+
+    public function test_follow_up_notification_does_not_expose_another_rnds_patient_uuid(): void
+    {
+        $rnd = User::factory()->rnd()->create();
+        $otherRnd = User::factory()->rnd()->create();
+        $otherNcp = NcpRecord::factory()->create(['rnd_user_id' => $otherRnd->id]);
+        Notification::factory()->create([
+            'user_id' => $rnd->id,
+            'type' => 'follow_up',
+            'source_module' => 'ncp',
+            'source_id' => $otherNcp->id,
+        ]);
+
+        $this->actingAs($rnd, 'sanctum')
+            ->getJson('/api/notifications')
+            ->assertOk()
+            ->assertJsonPath('data.0.source_uuid', null)
+            ->assertJsonPath('data.0.source_parent_uuid', null);
+    }
 }

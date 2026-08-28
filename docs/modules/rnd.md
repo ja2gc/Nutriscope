@@ -148,6 +148,7 @@ Current Inventory is a reference catalog, not stock control. RND maintains:
 - ingredients: name, category, vendor, base unit, purchase cost, and whether it is included in generated shopping lists;
 - supplies: name, category, vendor, cost per unit;
 - search and pagination;
+- menu pickers search five matching recipes and single items instead of loading whole catalogs;
 - safe create/edit/delete.
 
 Ingredients such as bulk pantry or seasoning items may be marked **Purchase when needed**. They remain exact recipe ingredients but are manually added only when a purchase is necessary. There is no quantity-on-hand, leftover, restock, or FSS stock-adjustment flow.

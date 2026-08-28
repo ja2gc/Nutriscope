@@ -11,7 +11,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import {
   CatalogItem, FsItemKind, listCatalog, createFsItem, updateFsItem, deleteFsItem, CreateFsItemPayload,
 } from "@/services/fsCatalogService";
-import { listSuppliers, Supplier } from "@/services/supplierService";
+import { listAllSuppliers, Supplier } from "@/services/supplierService";
 import { CATALOG_UNIT_OPTIONS } from "@/lib/units";
 
 const peso = (n: number | string | null) => `₱${(n ? parseFloat(String(n)) : 0).toFixed(2)}`;
@@ -168,8 +168,8 @@ export default function InventoryCatalogPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [c, s] = await Promise.all([listCatalog(tab, page, debouncedSearch), listSuppliers()]);
-      setItems(c.data); setMeta(c.meta); setSuppliers(s.data);
+      const [c, s] = await Promise.all([listCatalog(tab, page, debouncedSearch), listAllSuppliers()]);
+      setItems(c.data); setMeta(c.meta); setSuppliers(s);
     } finally { setLoading(false); }
   }, [page, debouncedSearch, tab]);
   useEffect(() => { load(); }, [load]);

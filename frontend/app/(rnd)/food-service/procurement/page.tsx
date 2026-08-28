@@ -18,7 +18,7 @@ import {
   updateVendorGroup, uploadVendorGroupAttachments,
   MissingMenuDaysError,
 } from "@/services/procurementService";
-import { listSuppliers, Supplier } from "@/services/supplierService";
+import { listAllSuppliers, Supplier } from "@/services/supplierService";
 import { searchCatalog, type CatalogItem } from "@/services/fsCatalogService";
 import { AuditTrail } from "@/components/audit/AuditTrail";
 import { SuppliersPanel } from "@/components/foodservice/SuppliersPanel";
@@ -675,8 +675,8 @@ export default function ProcurementPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [l, p, s] = await Promise.all([listShoppingLists(listPage), listPurchaseOrders(poPage), listSuppliers()]);
-      setLists(l.data); setListMeta(l.meta); setPos(p.data); setPoMeta(p.meta); setSuppliers(s.data);
+      const [l, p, s] = await Promise.all([listShoppingLists(listPage), listPurchaseOrders(poPage), listAllSuppliers()]);
+      setLists(l.data); setListMeta(l.meta); setPos(p.data); setPoMeta(p.meta); setSuppliers(s);
     } finally { setLoading(false); }
   }, [listPage, poPage]);
   useEffect(() => { load(); }, [load]);

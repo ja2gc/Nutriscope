@@ -32,6 +32,22 @@ export async function listSuppliers(page = 1, search = ""): Promise<{ data: Supp
   return { data: json.data ?? [], meta: json.meta ?? { current_page: page, per_page: 10, total: 0, last_page: 1 } };
 }
 
+/** Collect every page for vendor-choice controls that must not omit later vendors. */
+export async function listAllSuppliers(): Promise<Supplier[]> {
+  const suppliers: Supplier[] = [];
+  let page = 1;
+  let lastPage = 1;
+
+  do {
+    const result = await listSuppliers(page);
+    suppliers.push(...result.data);
+    lastPage = result.meta.last_page;
+    page += 1;
+  } while (page <= lastPage);
+
+  return suppliers;
+}
+
 export async function saveSupplier(id: number | null, payload: SupplierPayload): Promise<Supplier> {
   const url = id ? `/api/fss/suppliers/${id}` : "/api/fss/suppliers";
   const res = await apiFetch(url, {

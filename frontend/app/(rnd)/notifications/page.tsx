@@ -62,19 +62,14 @@ export default function NotificationsPage() {
 
   useEffect(() => { void load(); }, [load]);
 
-  async function handleRead(n: Notification) {
+  function handleRead(n: Notification) {
     const href = notificationTargetHref(n, "RND");
     if (!n.read) {
       setItems((prev) => prev.map((x) => (x.id === n.id ? { ...x, read: true } : x)));
       setUnreadTotal((count) => Math.max(0, count - 1));
     }
-    try {
-      await markNotificationOpened(n.id);
-    } catch {
-      void load();
-    } finally {
-      router.push(href);
-    }
+    router.push(href);
+    void markNotificationOpened(n.id).catch(() => undefined);
   }
 
   async function handleReadAll() {
@@ -132,6 +127,14 @@ export default function NotificationsPage() {
             <Card
               key={n.id}
               onClick={() => handleRead(n)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  handleRead(n);
+                }
+              }}
+              role="button"
+              tabIndex={0}
               className={`p-4 flex items-start gap-3 cursor-pointer transition-colors ${
                 n.read ? "bg-white" : "bg-emerald-50/40 border-emerald-100"
               }`}

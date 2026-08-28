@@ -20,6 +20,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import api from '../lib/api';
 import { PaginatedListFooter } from '../components/PaginatedListFooter';
 import { MOBILE_PAGE_SIZE, PaginatedResponse, flattenUniquePages, getNextPageParam, mapPageItems } from '../lib/pagination';
+import { mobileNotificationTarget } from '../lib/mobileContracts';
 
 interface Notification {
   id: string;
@@ -76,27 +77,6 @@ function NotifIcon({ type }: { type: string }) {
   if (lower.includes('info'))
     return <Info color="#6b7280" size={size} />;
   return <Bell color="#6b7280" size={size} />;
-}
-
-function openNotificationTarget(notification: Notification) {
-  const type = `${notification.type ?? ''} ${notification.source_module ?? ''}`.toLowerCase();
-  // Deep-links address the target by its public uuid; source_id is the raw internal FK.
-  const sourceId = notification.source_uuid ?? notification.source_id;
-
-  if (sourceId && type.includes('announcement')) {
-    router.push({ pathname: '/(tabs)/announcements', params: { announcementId: String(sourceId) } } as never);
-    return;
-  }
-
-  if (sourceId && (type.includes('po') || type.includes('purchase') || type.includes('food_service'))) {
-    router.push({ pathname: '/(tabs)/procurement', params: { poId: String(sourceId) } } as never);
-    return;
-  }
-
-  if (type.includes('report') || type.includes('accomplishment')) {
-    router.push({ pathname: '/(tabs)/accomplishments', params: { section: 'reports' } } as never);
-    return;
-  }
 }
 
 export default function NotificationsScreen() {
@@ -157,7 +137,13 @@ export default function NotificationsScreen() {
     ({ item }: { item: Notification }) => (
       <TouchableOpacity
         onPress={() => {
-          readMutation.mutate(item.id, { onSettled: () => openNotificationTarget(item) });
+          const target = mobileNotificationTarget({
+            type: item.type,
+            source_module: item.source_module,
+            sourceId: item.source_uuid ?? item.source_id,
+          });
+          if (target) router.push(target as never);
+          readMutation.mutate(item.id);
         }}
         activeOpacity={0.7}
         className={`flex-row items-start px-4 py-4 mb-3 rounded-2xl border ${

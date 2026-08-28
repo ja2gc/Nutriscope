@@ -230,15 +230,17 @@ async function json<T>(res: Response, fallback: string): Promise<T> {
 }
 
 // ─── Recipes (picker source) ──────────────────────────────────────────────────
-export async function listRecipeOptions(): Promise<RecipeOption[]> {
-  const res = await apiFetch("/api/fss/food-service-recipes");
+export async function listRecipeOptions(search: string): Promise<RecipeOption[]> {
+  const params = new URLSearchParams({ search, per_page: "5" });
+  const res = await apiFetch(`/api/fss/food-service-recipes?${params}`);
   if (!res.ok) return [];
   return (await res.json()).data ?? [];
 }
 
 // ─── Single catalog items (picker source) ─────────────────────────────────────
-export async function listFsItemOptions(): Promise<FsItemOption[]> {
-  const res = await apiFetch("/api/fss/fs-items");
+export async function listFsItemOptions(search: string): Promise<FsItemOption[]> {
+  const params = new URLSearchParams({ search, per_page: "5" });
+  const res = await apiFetch(`/api/fss/fs-items?${params}`);
   if (!res.ok) return [];
   return (await res.json()).data ?? [];
 }

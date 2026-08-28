@@ -59,7 +59,7 @@ test('final navigation separates daily tabs, header actions, and account menu', 
 test('announcement page separates announcements and SOP into internal tabs', () => {
   const screen = fs.readFileSync(path.join(root, 'components', 'AnnouncementsScreen.tsx'), 'utf8');
   const rootLayout = fs.readFileSync(path.join(root, 'app', '_layout.tsx'), 'utf8');
-  const notifications = fs.readFileSync(path.join(root, 'app', 'notifications.tsx'), 'utf8');
+  const notificationTargets = fs.readFileSync(path.join(root, 'lib', 'mobileContracts.ts'), 'utf8');
 
   assert.match(screen, /accessibilityRole="tablist"/);
   assert.match(screen, />\s*Announcements\s*<\/Text>/);
@@ -68,7 +68,7 @@ test('announcement page separates announcements and SOP into internal tabs', () 
   assert.match(screen, /Could not load the current SOP/);
   assert.match(screen, /Could not load SOP history/);
   assert.match(screen, /consumedTargetAnnouncement/);
-  assert.match(notifications, /pathname: '\/\(tabs\)\/announcements'/);
+  assert.match(notificationTargets, /pathname: '\/\(tabs\)\/announcements'/);
   assert.doesNotMatch(rootLayout, /name="announcements"/);
 });
 
@@ -76,7 +76,7 @@ test('report details prepare current PDF and expose view/download actions', () =
   const screen = fs.readFileSync(path.join(root, 'components', 'ReportsScreen.tsx'), 'utf8');
   const reports = fs.readFileSync(path.join(root, 'lib', 'reports.ts'), 'utf8');
   const rootLayout = fs.readFileSync(path.join(root, 'app', '_layout.tsx'), 'utf8');
-  const notifications = fs.readFileSync(path.join(root, 'app', 'notifications.tsx'), 'utf8');
+  const notificationTargets = fs.readFileSync(path.join(root, 'lib', 'mobileContracts.ts'), 'utf8');
 
   assert.match(screen, /View PDF/);
   assert.match(screen, /Download PDF/);
@@ -92,7 +92,7 @@ test('report details prepare current PDF and expose view/download actions', () =
   assert.match(reports, /IntentLauncher\.startActivityAsync/);
   assert.match(reports, /FileSystem\.getContentUriAsync/);
   assert.match(reports, /Sharing\.shareAsync/);
-  assert.match(notifications, /pathname: '\/\(tabs\)\/accomplishments'/);
+  assert.match(notificationTargets, /pathname: '\/\(tabs\)\/accomplishments'/);
   assert.doesNotMatch(rootLayout, /name="reports"/);
 });
 

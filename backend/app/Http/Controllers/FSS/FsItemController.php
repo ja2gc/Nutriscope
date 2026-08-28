@@ -5,6 +5,7 @@ namespace App\Http\Controllers\FSS;
 use App\Enums\AuditAction;
 use App\Enums\AuditDomain;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\PaginatedRequest;
 use App\Models\FoodServiceRecipe;
 use App\Models\FoodServiceRecipeIngredient;
 use App\Models\FsItem;
@@ -32,13 +33,21 @@ class FsItemController extends Controller
      * Yakult snack placed directly in any meal slot). Raw ingredients and non-food
      * supplies are excluded — those are only used inside recipes.
      */
-    public function index(Request $request): JsonResponse
+    public function index(PaginatedRequest $request): JsonResponse
     {
-        $items = FsItem::query()
+        $query = FsItem::query()
             ->where('is_active', true)
-            ->where('kind', 'ingredient')
+            ->where('kind', 'ingredient');
+
+        RankedSearch::apply($query, $request->string('search')->toString(), ['name']);
+
+        $paginator = $query
             ->orderBy('name')
-            ->get(['id', 'name', 'category', 'base_unit', 'purchase_price', 'purchase_unit', 'units_per_purchase', 'include_in_generated_lists'])
+            ->orderBy('id')
+            ->paginate($request->perPage(), ['id', 'uuid', 'name', 'category', 'base_unit', 'purchase_price', 'purchase_unit', 'units_per_purchase', 'include_in_generated_lists'])
+            ->withQueryString();
+
+        $items = collect($paginator->items())
             ->map(fn (FsItem $i) => [
                 'id' => $i->uuid,
                 'name' => $i->name,
@@ -48,7 +57,15 @@ class FsItemController extends Controller
                 'include_in_generated_lists' => $i->include_in_generated_lists,
             ]);
 
-        return response()->json(['data' => $items]);
+        return response()->json([
+            'data' => $items,
+            'meta' => [
+                'current_page' => $paginator->currentPage(),
+                'per_page' => $paginator->perPage(),
+                'total' => $paginator->total(),
+                'last_page' => $paginator->lastPage(),
+            ],
+        ]);
     }
 
     /**

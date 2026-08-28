@@ -11,6 +11,7 @@ export interface Notification {
   source_id?: number | null;
   // Public uuid of the source record — deep-links address the target by uuid.
   source_uuid?: string | null;
+  source_parent_uuid?: string | null;
   read: boolean;
   read_at?: string | null;
   opened_at?: string | null;
@@ -42,7 +43,7 @@ export function shouldShowNotification(
 }
 
 export function notificationTargetHref(
-  notification: Pick<Notification, "type" | "source_module" | "source_id" | "source_uuid">,
+  notification: Pick<Notification, "type" | "source_module" | "source_id" | "source_uuid" | "source_parent_uuid">,
   role?: string | null
 ): string {
   const type = (notification.type ?? "").toLowerCase();
@@ -59,6 +60,10 @@ export function notificationTargetHref(
 
   if ((type.includes("po") || type.includes("purchase") || sourceModule.includes("food_service")) && sourceId) {
     return `/food-service/procurement?poId=${sourceId}`;
+  }
+
+  if ((type.includes("follow") || sourceModule.includes("ncp")) && sourceId && notification.source_parent_uuid) {
+    return `/ncp/${notification.source_parent_uuid}/monitoring/${sourceId}`;
   }
 
   if ((type.includes("follow") || sourceModule.includes("ncp")) && sourceId) {

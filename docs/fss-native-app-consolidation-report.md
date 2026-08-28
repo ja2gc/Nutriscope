@@ -50,7 +50,7 @@ The header retains the notification bell and profile icon. The profile side menu
 - Home shows current queues including meals to log, pending POs, active menu-cycle information, today's service, waiting reasons, and announcements.
 - Announcement is a full bottom tab with separate **Announcements** and **SOP** views.
 - SOP includes the current procedure and paginated version history.
-- Notifications preserve unread state, pagination, mark-read behavior, mark-all-read, and supported target routing.
+- Notifications preserve unread state and 10-item pagination, then open the related announcement, purchase order, or accomplishment report.
 
 ### Menu and Food Profile
 
