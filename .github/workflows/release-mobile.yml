@@ -72,18 +72,56 @@ jobs:
           printf '{"version":"%s","version_code":%s,"download_url":"https://nutriscope.live/downloads/nutriscope-fss.apk","sha256":"%s","published_at":"%s"}\n' \
             "$VERSION" "$VERSION_CODE" "$SHA256" "$published_at" \
             > release-upload/nutriscope-fss.json
+          split -b 8M -d -a 3 release-upload/nutriscope-fss.apk \
+            release-upload/nutriscope-fss.apk.part-
 
-      - name: Upload verified release to server
-        uses: appleboy/scp-action@v1
+      - name: Prepare isolated server staging directory
+        uses: appleboy/ssh-action@v1
+        env:
+          UPLOAD_DIR: /tmp/nutriscope-release-${{ github.run_id }}
         with:
           host: ${{ secrets.DROPLET_HOST }}
           username: ${{ secrets.DROPLET_USER }}
           key: ${{ secrets.DROPLET_SSH_KEY }}
-          source: release-upload/nutriscope-fss.apk,release-upload/nutriscope-fss.json
-          target: /tmp/nutriscope-release-${{ github.run_id }}
-          strip_components: 1
-          overwrite: true
-          command_timeout: 15m
+          envs: UPLOAD_DIR
+          command_timeout: 2m
+          script: |
+            set -eu
+            case "$UPLOAD_DIR" in /tmp/nutriscope-release-[0-9]*) ;; *) exit 2 ;; esac
+            install -d -m 0700 "$UPLOAD_DIR"
+            rm -f "$UPLOAD_DIR"/nutriscope-fss.apk.part-* \
+              "$UPLOAD_DIR/nutriscope-fss.apk" "$UPLOAD_DIR/nutriscope-fss.json"
+
+      - name: Upload verified release in retryable chunks
+        env:
+          SSH_HOST: ${{ secrets.DROPLET_HOST }}
+          SSH_USER: ${{ secrets.DROPLET_USER }}
+          SSH_PRIVATE_KEY: ${{ secrets.DROPLET_SSH_KEY }}
+          UPLOAD_DIR: /tmp/nutriscope-release-${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          key_file=$(mktemp)
+          known_hosts=$(mktemp)
+          trap 'rm -f "$key_file" "$known_hosts"' EXIT
+          printf '%s\n' "$SSH_PRIVATE_KEY" > "$key_file"
+          chmod 0600 "$key_file"
+          ssh-keyscan -T 30 -H "$SSH_HOST" > "$known_hosts"
+
+          for file in release-upload/nutriscope-fss.apk.part-* release-upload/nutriscope-fss.json; do
+            uploaded=0
+            for attempt in 1 2 3 4 5; do
+              if scp -q -i "$key_file" \
+                -o BatchMode=yes -o ConnectTimeout=30 \
+                -o ServerAliveInterval=15 -o ServerAliveCountMax=4 \
+                -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$known_hosts" \
+                "$file" "$SSH_USER@$SSH_HOST:$UPLOAD_DIR/"; then
+                uploaded=1
+                break
+              fi
+              sleep $((attempt * 5))
+            done
+            [ "$uploaded" -eq 1 ] || exit 1
+          done
 
       - name: Publish verified APK and update metadata
         uses: appleboy/ssh-action@v1
@@ -103,8 +141,10 @@ jobs:
 
             release_dir=/var/www/nutriscope-downloads
             upload_dir="$UPLOAD_DIR"
-            trap 'rm -f "$upload_dir/nutriscope-fss.apk" "$upload_dir/nutriscope-fss.json"; rmdir "$upload_dir" 2>/dev/null || true' EXIT
+            case "$upload_dir" in /tmp/nutriscope-release-[0-9]*) ;; *) exit 2 ;; esac
+            trap 'rm -f "$upload_dir"/nutriscope-fss.apk.part-* "$upload_dir/nutriscope-fss.apk" "$upload_dir/nutriscope-fss.json"; rmdir "$upload_dir" 2>/dev/null || true' EXIT
 
+            cat "$upload_dir"/nutriscope-fss.apk.part-* > "$upload_dir/nutriscope-fss.apk"
             echo "$SHA256  $upload_dir/nutriscope-fss.apk" | sha256sum -c -
             install -d -m 0755 "$release_dir"
             install -m 0644 "$upload_dir/nutriscope-fss.apk" "$release_dir/.nutriscope-fss.apk.new"
