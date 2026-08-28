@@ -125,22 +125,22 @@ Meal-service completion/reversal API endpoints still exist and retain audit cove
 
 The app checks periodically and also exposes **Check for updates** in the profile menu. Because distribution is outside Google Play, Android can still require normal unknown-source approval; a QR or stable URL cannot remove that operating-system warning.
 
-## Android Release 1.2.3
+## Android Release 1.2.4
 
 | Field | Verified value |
 |---|---|
 | Application | NutriScope FSS |
 | Android package | `live.nutriscope.fss` |
-| Version | `1.2.3` |
-| Version code | `7` |
-| EAS build ID | `7041df88-5fbe-4632-b9f9-9afd4c12c8d8` |
-| APK bytes | `82,709,328` |
-| SHA-256 | `660a759d48b8b27300a25250e0f4ea1ab3d16a706a5a8737bb8030df476820e2` |
+| Version | `1.2.4` |
+| Version code | `8` |
+| EAS build ID | `6c9b5497-7214-4c42-84d8-b58479534084` |
+| APK bytes | `82,709,360` |
+| SHA-256 | `d85c224abc79813727bf1d13ad35cba2afc1fb3585213654af691110b9c71e1c` |
 | Landing page | `https://nutriscope.live/mobile-app` |
 | APK | `https://nutriscope.live/downloads/nutriscope-fss.apk` |
 | Metadata | `https://nutriscope.live/downloads/nutriscope-fss.json` |
 
-The production APK, metadata, MIME type, content length, stable landing page, and checksum were verified after publication.
+The signed APK was verified locally before publication. Production metadata, MIME type, content length, stable landing page, and checksum must also be verified after publication.
 
 ## Release Automation and Deployment Hardening
 
@@ -154,10 +154,10 @@ The production APK, metadata, MIME type, content length, stable landing page, an
 
 The completed application changes were checked with:
 
-- backend full suite: **1,260 tests, 8,380 assertions**;
-- frontend full suite: **103 test files, 315 tests**;
+- backend full suite: **1,263 tests, 8,394 assertions**;
+- frontend full suite: **106 test files, 321 tests**;
 - frontend TypeScript and lint;
-- mobile source contracts: **35 tests**;
+- mobile source contracts: **30 tests**;
 - mobile TypeScript;
 - focused backend FSS/report/seeder run: **55 tests, 175 assertions**;
 - Expo Android export: **3,284 modules**;
