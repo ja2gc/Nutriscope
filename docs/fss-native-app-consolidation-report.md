@@ -157,7 +157,7 @@ The completed application changes were checked with:
 - backend full suite: **1,263 tests, 8,394 assertions**;
 - frontend full suite: **106 test files, 321 tests**;
 - frontend TypeScript and lint;
-- mobile source contracts: **30 tests**;
+- mobile source contracts: **36 tests**;
 - mobile TypeScript;
 - focused backend FSS/report/seeder run: **55 tests, 175 assertions**;
 - Expo Android export: **3,284 modules**;

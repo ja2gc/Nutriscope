@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - mobile/release.json
+      - .github/workflows/release-mobile.yml
   workflow_dispatch:
     inputs:
       artifact_url:
@@ -37,10 +38,10 @@ jobs:
         if: github.event_name == 'push'
         id: release
         run: |
-          jq -e '.artifact_url | type == "string" and startswith("https://")' mobile/release.json >/dev/null
-          jq -e '.version | type == "string"' mobile/release.json >/dev/null
-          jq -e '.version_code | type == "number"' mobile/release.json >/dev/null
-          jq -e '.sha256 | type == "string"' mobile/release.json >/dev/null
+          jq -e '.artifact_url | type == "string" and test("^https://[^\\r\\n]+$")' mobile/release.json >/dev/null
+          jq -e '.version | type == "string" and test("^[0-9]+(\\.[0-9]+)*$")' mobile/release.json >/dev/null
+          jq -e '.version_code | type == "number" and floor == . and . > 0' mobile/release.json >/dev/null
+          jq -e '.sha256 | type == "string" and test("^[0-9a-f]{64}$")' mobile/release.json >/dev/null
           {
             echo "artifact_url=$(jq -r .artifact_url mobile/release.json)"
             echo "version=$(jq -r .version mobile/release.json)"
@@ -48,42 +49,65 @@ jobs:
             echo "sha256=$(jq -r .sha256 mobile/release.json)"
           } >> "$GITHUB_OUTPUT"
 
-      - name: Publish verified APK and update metadata
-        uses: appleboy/ssh-action@v1.0.3
+      - name: Download and verify signed APK
         env:
           APK_URL: ${{ github.event_name == 'push' && steps.release.outputs.artifact_url || inputs.artifact_url }}
           VERSION: ${{ github.event_name == 'push' && steps.release.outputs.version || inputs.version }}
           VERSION_CODE: ${{ github.event_name == 'push' && steps.release.outputs.version_code || inputs.version_code }}
           SHA256: ${{ github.event_name == 'push' && steps.release.outputs.sha256 || inputs.sha256 }}
+        run: |
+          set -euo pipefail
+          case "$VERSION" in ''|*[!0-9.]*) exit 2 ;; esac
+          case "$VERSION_CODE" in ''|*[!0-9]*) exit 2 ;; esac
+          case "$SHA256" in *[!0-9a-f]*|'') exit 2 ;; esac
+          [ "${#SHA256}" -eq 64 ] || exit 2
+
+          mkdir -p release-upload
+          curl --proto '=https' --tlsv1.2 --connect-timeout 30 --max-time 900 \
+            --retry 3 --retry-delay 5 --retry-all-errors -fsSL -- "$APK_URL" \
+            -o release-upload/nutriscope-fss.apk
+          echo "$SHA256  release-upload/nutriscope-fss.apk" | sha256sum -c -
+
+          published_at=$(date --iso-8601=seconds)
+          printf '{"version":"%s","version_code":%s,"download_url":"https://nutriscope.live/downloads/nutriscope-fss.apk","sha256":"%s","published_at":"%s"}\n' \
+            "$VERSION" "$VERSION_CODE" "$SHA256" "$published_at" \
+            > release-upload/nutriscope-fss.json
+
+      - name: Upload verified release to server
+        uses: appleboy/scp-action@v1
         with:
           host: ${{ secrets.DROPLET_HOST }}
           username: ${{ secrets.DROPLET_USER }}
           key: ${{ secrets.DROPLET_SSH_KEY }}
-          envs: APK_URL,VERSION,VERSION_CODE,SHA256
-          command_timeout: 20m
+          source: release-upload/nutriscope-fss.apk,release-upload/nutriscope-fss.json
+          target: /tmp/nutriscope-release-${{ github.run_id }}
+          strip_components: 1
+          overwrite: true
+          command_timeout: 15m
+
+      - name: Publish verified APK and update metadata
+        uses: appleboy/ssh-action@v1
+        env:
+          SHA256: ${{ github.event_name == 'push' && steps.release.outputs.sha256 || inputs.sha256 }}
+          UPLOAD_DIR: /tmp/nutriscope-release-${{ github.run_id }}
+        with:
+          host: ${{ secrets.DROPLET_HOST }}
+          username: ${{ secrets.DROPLET_USER }}
+          key: ${{ secrets.DROPLET_SSH_KEY }}
+          envs: SHA256,UPLOAD_DIR
+          command_timeout: 5m
           script: |
             set -eu
-            case "$VERSION" in *[!0-9.]*) exit 2 ;; esac
-            case "$VERSION_CODE" in *[!0-9]*) exit 2 ;; esac
             case "$SHA256" in *[!0-9a-f]*|'') exit 2 ;; esac
             [ "${#SHA256}" -eq 64 ] || exit 2
 
             release_dir=/var/www/nutriscope-downloads
-            apk_tmp=$(mktemp)
-            json_tmp=$(mktemp)
-            trap 'rm -f "$apk_tmp" "$json_tmp"' EXIT
+            upload_dir="$UPLOAD_DIR"
+            trap 'rm -f "$upload_dir/nutriscope-fss.apk" "$upload_dir/nutriscope-fss.json"; rmdir "$upload_dir" 2>/dev/null || true' EXIT
 
-            curl --proto '=https' --tlsv1.2 --connect-timeout 30 --max-time 900 \
-              --retry 3 --retry-delay 5 --retry-all-errors -fsSL -- "$APK_URL" -o "$apk_tmp"
-            echo "$SHA256  $apk_tmp" | sha256sum -c -
+            echo "$SHA256  $upload_dir/nutriscope-fss.apk" | sha256sum -c -
             install -d -m 0755 "$release_dir"
-            install -m 0644 "$apk_tmp" "$release_dir/.nutriscope-fss.apk.new"
+            install -m 0644 "$upload_dir/nutriscope-fss.apk" "$release_dir/.nutriscope-fss.apk.new"
             mv -f "$release_dir/.nutriscope-fss.apk.new" "$release_dir/nutriscope-fss.apk"
-
-            published_at=$(date --iso-8601=seconds)
-            printf '{"version":"%s","version_code":%s,"download_url":"https://nutriscope.live/downloads/nutriscope-fss.apk","sha256":"%s","published_at":"%s"}\n' \
-              "$VERSION" "$VERSION_CODE" "$SHA256" "$published_at" > "$json_tmp"
-            install -m 0644 "$json_tmp" "$release_dir/.nutriscope-fss.json.new"
+            install -m 0644 "$upload_dir/nutriscope-fss.json" "$release_dir/.nutriscope-fss.json.new"
             mv -f "$release_dir/.nutriscope-fss.json.new" "$release_dir/nutriscope-fss.json"
-
-            curl -fsS https://nutriscope.live/downloads/nutriscope-fss.json
