@@ -9,7 +9,7 @@ For each release:
 1. Increase `mobile/app.json` `expo.version` and `android.versionCode`.
 2. Run `eas build --platform android --profile preview` from `mobile` using the existing package and signing credentials.
 3. Download the APK and calculate its SHA-256.
-4. Add or update `mobile/release.json` with the EAS artifact URL, version, version code, and lowercase SHA-256, then push it to `main`. The **Publish FSS Android release** GitHub Actions workflow verifies the file and atomically replaces `/var/www/nutriscope-downloads/nutriscope-fss.apk` and its JSON metadata through the existing deployment SSH secret. A manual workflow dispatch accepts the same values when GitHub CLI or the Actions UI is available.
+4. Add or update `mobile/release.json` with the EAS artifact URL, version, version code, and lowercase SHA-256, then push it to `main`. The **Publish FSS Android release** GitHub Actions workflow verifies the signed file, transfers it in small retryable chunks, rechecks the complete server file, and atomically replaces `/var/www/nutriscope-downloads/nutriscope-fss.apk` and its JSON metadata through the existing deployment SSH secret. A manual workflow dispatch accepts the same values when GitHub CLI or the Actions UI is available.
 5. The workflow publishes `/var/www/nutriscope-downloads/nutriscope-fss.json` in this shape:
 
 ```json

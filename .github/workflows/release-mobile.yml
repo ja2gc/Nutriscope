@@ -6,7 +6,6 @@ on:
       - main
     paths:
       - mobile/release.json
-      - .github/workflows/release-mobile.yml
   workflow_dispatch:
     inputs:
       artifact_url:

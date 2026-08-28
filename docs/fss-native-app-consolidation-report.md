@@ -140,11 +140,11 @@ The app checks periodically and also exposes **Check for updates** in the profil
 | APK | `https://nutriscope.live/downloads/nutriscope-fss.apk` |
 | Metadata | `https://nutriscope.live/downloads/nutriscope-fss.json` |
 
-The signed APK was verified locally before publication. Production metadata, MIME type, content length, stable landing page, and checksum must also be verified after publication.
+The signed APK and the published stable APK were verified byte-for-byte. Production metadata, Android package MIME type, content length, stable landing page, and checksum were rechecked after publication in workflow run `33186286896`.
 
 ## Release Automation and Deployment Hardening
 
-- Added a GitHub Actions release workflow that reads `mobile/release.json`, validates release fields, downloads the signed EAS artifact, verifies SHA-256, and atomically publishes APK/JSON files.
+- Added a GitHub Actions release workflow that reads `mobile/release.json`, validates release fields, downloads and verifies the signed EAS artifact, transfers it in retryable 8 MB chunks, rechecks SHA-256 on the server, and atomically publishes APK/JSON files.
 - Added a manual dispatch path accepting the same release values.
 - Updated checkout to the Node 24-compatible action version.
 - Excluded `mobile/release.json`-only pushes from the full Docker deployment so mobile publication does not compete with a server rebuild for SSH.
