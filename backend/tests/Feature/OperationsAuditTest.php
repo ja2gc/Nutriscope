@@ -181,16 +181,18 @@ class OperationsAuditTest extends TestCase
         $this->actingAs($user)->putJson('/api/admin/ai-usage-limits', [
             'daily_token_limit' => 1000,
             'monthly_token_limit' => 20000,
-            'cost_per_1m_tokens_usd' => 2.5,
+            'input_cost_per_1m_tokens_usd' => 1.25,
+            'output_cost_per_1m_tokens_usd' => 5.75,
         ])->assertOk();
 
         $activity = AuditActivity::query()->sole();
         $this->assertSame('settings_changed', $activity->event);
         $this->assertSame('system', $activity->domain->value);
         $this->assertSame([
-            'cost_per_1m_tokens_usd',
             'daily_token_limit',
+            'input_cost_per_1m_tokens_usd',
             'monthly_token_limit',
+            'output_cost_per_1m_tokens_usd',
         ], $activity->properties['details']['changed_fields']);
     }
 

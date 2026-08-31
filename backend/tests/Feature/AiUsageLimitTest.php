@@ -60,16 +60,26 @@ class AiUsageLimitTest extends TestCase
                 'data' => [
                     'daily_token_limit',
                     'monthly_token_limit',
-                    'cost_per_1m_tokens_usd',
+                    'input_cost_per_1m_tokens_usd',
+                    'output_cost_per_1m_tokens_usd',
                     'daily_used',
+                    'daily_tokens_input',
+                    'daily_tokens_output',
                     'monthly_used',
+                    'monthly_tokens_input',
+                    'monthly_tokens_output',
                 ],
             ])
             ->assertJsonPath('data.daily_token_limit', null)
             ->assertJsonPath('data.monthly_token_limit', null)
-            ->assertJsonPath('data.cost_per_1m_tokens_usd', 1.92)
+            ->assertJsonPath('data.input_cost_per_1m_tokens_usd', 1)
+            ->assertJsonPath('data.output_cost_per_1m_tokens_usd', 5)
             ->assertJsonPath('data.daily_used', 0)
-            ->assertJsonPath('data.monthly_used', 0);
+            ->assertJsonPath('data.daily_tokens_input', 0)
+            ->assertJsonPath('data.daily_tokens_output', 0)
+            ->assertJsonPath('data.monthly_used', 0)
+            ->assertJsonPath('data.monthly_tokens_input', 0)
+            ->assertJsonPath('data.monthly_tokens_output', 0);
     }
 
     public function test_admin_get_limits_reflects_seeded_usage_logs(): void
@@ -110,7 +120,11 @@ class AiUsageLimitTest extends TestCase
 
         $response->assertOk()
             ->assertJsonPath('data.daily_used', 450)
-            ->assertJsonPath('data.monthly_used', 450);
+            ->assertJsonPath('data.daily_tokens_input', 300)
+            ->assertJsonPath('data.daily_tokens_output', 150)
+            ->assertJsonPath('data.monthly_used', 450)
+            ->assertJsonPath('data.monthly_tokens_input', 300)
+            ->assertJsonPath('data.monthly_tokens_output', 150);
     }
 
     public function test_non_admin_cannot_get_limits(): void
@@ -139,18 +153,21 @@ class AiUsageLimitTest extends TestCase
             ->putJson('/api/admin/ai-usage-limits', [
                 'daily_token_limit' => 10000,
                 'monthly_token_limit' => 200000,
-                'cost_per_1m_tokens_usd' => 2.50,
+                'input_cost_per_1m_tokens_usd' => 1.25,
+                'output_cost_per_1m_tokens_usd' => 5.75,
             ]);
 
         $response->assertOk()
             ->assertJsonPath('data.daily_token_limit', 10000)
             ->assertJsonPath('data.monthly_token_limit', 200000)
-            ->assertJsonPath('data.cost_per_1m_tokens_usd', 2.50);
+            ->assertJsonPath('data.input_cost_per_1m_tokens_usd', 1.25)
+            ->assertJsonPath('data.output_cost_per_1m_tokens_usd', 5.75);
 
         $this->assertDatabaseHas('ai_usage_limits', [
             'daily_token_limit' => 10000,
             'monthly_token_limit' => 200000,
-            'cost_per_1m_tokens_usd' => 2.50,
+            'input_cost_per_1m_tokens_usd' => 1.25,
+            'output_cost_per_1m_tokens_usd' => 5.75,
         ]);
     }
 
@@ -183,15 +200,19 @@ class AiUsageLimitTest extends TestCase
             ->assertJsonValidationErrors(['daily_token_limit']);
     }
 
-    public function test_admin_put_validates_non_negative_cost_rate(): void
+    public function test_admin_put_validates_non_negative_cost_rates(): void
     {
         $response = $this->actingAs($this->admin, 'sanctum')
             ->putJson('/api/admin/ai-usage-limits', [
-                'cost_per_1m_tokens_usd' => -0.01,
+                'input_cost_per_1m_tokens_usd' => -0.01,
+                'output_cost_per_1m_tokens_usd' => -0.01,
             ]);
 
         $response->assertUnprocessable()
-            ->assertJsonValidationErrors(['cost_per_1m_tokens_usd']);
+            ->assertJsonValidationErrors([
+                'input_cost_per_1m_tokens_usd',
+                'output_cost_per_1m_tokens_usd',
+            ]);
     }
 
     public function test_rnd_cannot_set_limits(): void

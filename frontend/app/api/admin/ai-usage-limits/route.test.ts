@@ -26,7 +26,8 @@ describe("/api/admin/ai-usage-limits proxy route", () => {
     const body = {
       daily_token_limit: 1000,
       monthly_token_limit: 100000,
-      cost_per_1m_tokens_usd: 1.92,
+      input_cost_per_1m_tokens_usd: 1,
+      output_cost_per_1m_tokens_usd: 5,
     };
 
     await PUT(new NextRequest("http://localhost/api/admin/ai-usage-limits", {
@@ -40,4 +41,3 @@ describe("/api/admin/ai-usage-limits proxy route", () => {
     });
   });
 });
-

@@ -4,6 +4,8 @@ export type AiUsagePoint = {
   day?: number;
   month?: number;
   tokens: number | null;
+  tokens_input: number | null;
+  tokens_output: number | null;
 };
 
 export type AiUsageAnalytics = {
@@ -12,6 +14,8 @@ export type AiUsageAnalytics = {
   month?: number;
   timezone?: string;
   total_tokens: number;
+  total_tokens_input: number;
+  total_tokens_output: number;
   points: AiUsagePoint[];
 };
 

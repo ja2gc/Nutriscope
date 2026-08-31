@@ -12,7 +12,8 @@ class AiUsageLimitSeeder extends Seeder
         AiUsageLimit::current()->update([
             'daily_token_limit' => 35_000,
             'monthly_token_limit' => 1_000_000,
-            'cost_per_1m_tokens_usd' => 1.92,
+            'input_cost_per_1m_tokens_usd' => 1.0,
+            'output_cost_per_1m_tokens_usd' => 5.0,
         ]);
     }
 }

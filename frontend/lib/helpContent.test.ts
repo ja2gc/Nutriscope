@@ -30,6 +30,16 @@ describe("role-specific Help content", () => {
     expect(items.some((item) => item.role === "RND")).toBe(false);
   });
 
+  test("Admin Help explains token counting and estimated cost without exposing it to RND", () => {
+    const adminQuestions = getVisibleHelpItems("Admin").map((item) => item.question);
+    const rndQuestions = getVisibleHelpItems("RND").map((item) => item.question);
+
+    expect(adminQuestions).toContain("How is AI token usage calculated?");
+    expect(adminQuestions).toContain("How is estimated AI cost calculated?");
+    expect(rndQuestions).not.toContain("How is AI token usage calculated?");
+    expect(rndQuestions).not.toContain("How is estimated AI cost calculated?");
+  });
+
   test("search matches questions, answers, categories, and keywords", () => {
     expect(filterHelpItems("RND", "dry weight").map((item) => item.id)).toContain(
       "rnd-dry-weight",

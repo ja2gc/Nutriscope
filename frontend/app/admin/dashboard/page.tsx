@@ -10,7 +10,11 @@ import {
   AiUsageLimits,
 } from "@/services/aiUsageLimitService";
 import { fetchUsdToPhpRate } from "@/services/currencyService";
-import { DEFAULT_AI_COST_PER_1M_TOKENS_USD, calcTokenCostUsd } from "@/lib/aiTokenCost";
+import {
+  DEFAULT_AI_INPUT_COST_PER_1M_TOKENS_USD,
+  DEFAULT_AI_OUTPUT_COST_PER_1M_TOKENS_USD,
+  calcTokenCostUsd,
+} from "@/lib/aiTokenCost";
 import { KpiCard } from "@/components/ui/KpiCard";
 import { AiUsageExplorer } from "@/components/admin/AiUsageExplorer";
 import { Badge, BadgeTone } from "@/components/ui/Badge";
@@ -79,10 +83,12 @@ export default function AdminDashboardPage() {
   const [aiLimits, setAiLimits] = useState<AiUsageLimits | null>(null);
   const [capDailyInput, setCapDailyInput] = useState("");
   const [capMonthlyInput, setCapMonthlyInput] = useState("");
-  const [costPer1mInput, setCostPer1mInput] = useState(String(DEFAULT_AI_COST_PER_1M_TOKENS_USD));
+  const [inputCostPer1mInput, setInputCostPer1mInput] = useState(String(DEFAULT_AI_INPUT_COST_PER_1M_TOKENS_USD));
+  const [outputCostPer1mInput, setOutputCostPer1mInput] = useState(String(DEFAULT_AI_OUTPUT_COST_PER_1M_TOKENS_USD));
   const [capSaving, setCapSaving] = useState(false);
   const [capSaveMsg, setCapSaveMsg] = useState<{ ok: boolean; text: string } | null>(null);
-  const costPer1mTokensUsd = aiLimits?.cost_per_1m_tokens_usd ?? DEFAULT_AI_COST_PER_1M_TOKENS_USD;
+  const inputCostPer1mTokensUsd = aiLimits?.input_cost_per_1m_tokens_usd ?? DEFAULT_AI_INPUT_COST_PER_1M_TOKENS_USD;
+  const outputCostPer1mTokensUsd = aiLimits?.output_cost_per_1m_tokens_usd ?? DEFAULT_AI_OUTPUT_COST_PER_1M_TOKENS_USD;
 
   async function loadAiLimits() {
     try {
@@ -90,7 +96,8 @@ export default function AdminDashboardPage() {
       setAiLimits(limits);
       setCapDailyInput(limits.daily_token_limit != null ? String(limits.daily_token_limit) : "");
       setCapMonthlyInput(limits.monthly_token_limit != null ? String(limits.monthly_token_limit) : "");
-      setCostPer1mInput(String(limits.cost_per_1m_tokens_usd ?? DEFAULT_AI_COST_PER_1M_TOKENS_USD));
+      setInputCostPer1mInput(String(limits.input_cost_per_1m_tokens_usd ?? DEFAULT_AI_INPUT_COST_PER_1M_TOKENS_USD));
+      setOutputCostPer1mInput(String(limits.output_cost_per_1m_tokens_usd ?? DEFAULT_AI_OUTPUT_COST_PER_1M_TOKENS_USD));
     } catch {
       // non-fatal — card shows blank
     }
@@ -103,18 +110,22 @@ export default function AdminDashboardPage() {
       const payload = {
         daily_token_limit: capDailyInput.trim() === "" ? null : parseInt(capDailyInput, 10),
         monthly_token_limit: capMonthlyInput.trim() === "" ? null : parseInt(capMonthlyInput, 10),
-        cost_per_1m_tokens_usd: costPer1mInput.trim() === ""
-          ? DEFAULT_AI_COST_PER_1M_TOKENS_USD
-          : parseFloat(costPer1mInput),
+        input_cost_per_1m_tokens_usd: inputCostPer1mInput.trim() === ""
+          ? DEFAULT_AI_INPUT_COST_PER_1M_TOKENS_USD
+          : parseFloat(inputCostPer1mInput),
+        output_cost_per_1m_tokens_usd: outputCostPer1mInput.trim() === ""
+          ? DEFAULT_AI_OUTPUT_COST_PER_1M_TOKENS_USD
+          : parseFloat(outputCostPer1mInput),
       };
       const updated = await saveAiUsageLimits(payload);
       setAiLimits(updated);
       setCapDailyInput(updated.daily_token_limit != null ? String(updated.daily_token_limit) : "");
       setCapMonthlyInput(updated.monthly_token_limit != null ? String(updated.monthly_token_limit) : "");
-      setCostPer1mInput(String(updated.cost_per_1m_tokens_usd ?? DEFAULT_AI_COST_PER_1M_TOKENS_USD));
-      setCapSaveMsg({ ok: true, text: "Limits saved." });
+      setInputCostPer1mInput(String(updated.input_cost_per_1m_tokens_usd ?? DEFAULT_AI_INPUT_COST_PER_1M_TOKENS_USD));
+      setOutputCostPer1mInput(String(updated.output_cost_per_1m_tokens_usd ?? DEFAULT_AI_OUTPUT_COST_PER_1M_TOKENS_USD));
+      setCapSaveMsg({ ok: true, text: "AI settings saved." });
     } catch (err: unknown) {
-      setCapSaveMsg({ ok: false, text: err instanceof Error ? err.message : "Failed to save limits." });
+      setCapSaveMsg({ ok: false, text: err instanceof Error ? err.message : "Failed to save AI settings." });
     } finally {
       setCapSaving(false);
     }
@@ -224,7 +235,7 @@ export default function AdminDashboardPage() {
           <KpiCard
             label="AI Usage (Month)"
             value={formatNumber(dashboardData.ai_usage.month_calls)}
-            hint={`${formatTokens(dashboardData.ai_usage.month_tokens)} tokens · ${formatCost(calcTokenCostUsd(dashboardData.ai_usage.month_tokens, costPer1mTokensUsd), phpRate)} est. cost`}
+            hint={`${formatTokens(dashboardData.ai_usage.month_tokens)} tokens · Estimated cost: ${formatCost(calcTokenCostUsd(dashboardData.ai_usage.month_tokens_input, dashboardData.ai_usage.month_tokens_output, inputCostPer1mTokensUsd, outputCostPer1mTokensUsd), phpRate)}`}
             tone="zinc"
           />
           <KpiCard
@@ -269,7 +280,7 @@ export default function AdminDashboardPage() {
                     {over && <span className="ml-1.5 font-bold text-amber-600">· over cap</span>}
                   </div>
                   <div className="text-xs text-warm-400 mt-1">
-                    {formatCost(calcTokenCostUsd(used, costPer1mTokensUsd), phpRate)} est. cost
+                    Estimated cost: {formatCost(calcTokenCostUsd(aiLimits?.daily_tokens_input ?? 0, aiLimits?.daily_tokens_output ?? 0, inputCostPer1mTokensUsd, outputCostPer1mTokensUsd), phpRate)}
                   </div>
                 </div>
               );
@@ -291,7 +302,7 @@ export default function AdminDashboardPage() {
                     {over && <span className="ml-1.5 font-bold text-amber-600">· over cap</span>}
                   </div>
                   <div className="text-xs text-warm-400 mt-1">
-                    {formatCost(calcTokenCostUsd(used, costPer1mTokensUsd), phpRate)} est. cost
+                    Estimated cost: {formatCost(calcTokenCostUsd(aiLimits?.monthly_tokens_input ?? 0, aiLimits?.monthly_tokens_output ?? 0, inputCostPer1mTokensUsd, outputCostPer1mTokensUsd), phpRate)}
                   </div>
                 </div>
               );
@@ -299,7 +310,7 @@ export default function AdminDashboardPage() {
           </div>
 
           {/* Inline edit */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-warm-500 mb-1">
                 Daily limit (tokens)
@@ -328,14 +339,28 @@ export default function AdminDashboardPage() {
             </div>
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-warm-500 mb-1">
-                Cost (USD per 1M tokens)
+                Input rate (USD / 1M)
               </label>
               <input
                 type="number"
                 min={0}
                 step="0.0001"
-                value={costPer1mInput}
-                onChange={(e) => { setCostPer1mInput(e.target.value); setCapSaveMsg(null); }}
+                value={inputCostPer1mInput}
+                onChange={(e) => { setInputCostPer1mInput(e.target.value); setCapSaveMsg(null); }}
+                disabled={capSaving}
+                className="w-full text-sm font-semibold tabular-nums rounded-xl border border-warm-200 bg-warm-50 px-3 py-2 text-warm-800 placeholder:text-warm-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 disabled:opacity-50 transition"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-warm-500 mb-1">
+                Output rate (USD / 1M)
+              </label>
+              <input
+                type="number"
+                min={0}
+                step="0.0001"
+                value={outputCostPer1mInput}
+                onChange={(e) => { setOutputCostPer1mInput(e.target.value); setCapSaveMsg(null); }}
                 disabled={capSaving}
                 className="w-full text-sm font-semibold tabular-nums rounded-xl border border-warm-200 bg-warm-50 px-3 py-2 text-warm-800 placeholder:text-warm-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 disabled:opacity-50 transition"
               />
@@ -354,7 +379,7 @@ export default function AdminDashboardPage() {
                   Saving…
                 </>
               ) : (
-                "Save Limits"
+                "Save AI Settings"
               )}
             </button>
             {capSaveMsg && (
@@ -370,7 +395,11 @@ export default function AdminDashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left: AI usage chart + Quick Actions */}
         <div className="lg:col-span-2 space-y-6">
-          <AiUsageExplorer />
+          <AiUsageExplorer
+            inputCostPer1mTokensUsd={inputCostPer1mTokensUsd}
+            outputCostPer1mTokensUsd={outputCostPer1mTokensUsd}
+            phpRate={phpRate}
+          />
 
           <div className="bg-white border border-warm-200 rounded-3xl p-5 shadow-sm">
             <h3 className="text-sm font-bold text-warm-900 uppercase tracking-[0.18em] mb-4">

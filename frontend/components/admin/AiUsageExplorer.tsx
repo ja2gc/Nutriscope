@@ -3,13 +3,37 @@
 import { useEffect, useMemo, useState } from "react";
 import { BarChart3, ChevronLeft, ChevronRight } from "lucide-react";
 import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import { calcTokenCostUsd } from "@/lib/aiTokenCost";
+import {
   fetchAiUsageAnalytics,
   type AiUsageAnalytics,
+  type AiUsagePoint,
 } from "@/services/aiUsageAnalyticsService";
 
 const MONTHS = Array.from({ length: 12 }, (_, index) =>
   new Intl.DateTimeFormat("en-US", { month: "long" }).format(new Date(2000, index, 1)),
 );
+
+interface AiUsageExplorerProps {
+  inputCostPer1mTokensUsd: number;
+  outputCostPer1mTokensUsd: number;
+  phpRate: number;
+}
+
+interface AiUsageTooltipProps extends AiUsageExplorerProps {
+  active?: boolean;
+  label?: string | number;
+  month: number;
+  point?: AiUsagePoint;
+}
 
 function manilaToday(): { year: number; month: number } {
   const parts = new Intl.DateTimeFormat("en-US", {
@@ -28,7 +52,97 @@ function formatTokens(tokens: number): string {
   return `${tokens.toLocaleString()} tokens`;
 }
 
-export function AiUsageExplorer() {
+function formatAxisTokens(tokens: number): string {
+  if (tokens >= 1_000_000) return `${(tokens / 1_000_000).toFixed(tokens % 1_000_000 === 0 ? 0 : 1)}M`;
+  if (tokens >= 1_000) return `${(tokens / 1_000).toFixed(tokens % 1_000 === 0 ? 0 : 1)}k`;
+  return tokens.toLocaleString();
+}
+
+function formatPhpCost(usd: number, phpRate: number): string {
+  const php = usd * phpRate;
+  const maximumFractionDigits = php > 0 && php < 0.01 ? 4 : 2;
+
+  return new Intl.NumberFormat("en-PH", {
+    style: "currency",
+    currency: "PHP",
+    minimumFractionDigits: 2,
+    maximumFractionDigits,
+  }).format(php);
+}
+
+export function AiUsageTooltip({
+  active,
+  month,
+  point,
+  inputCostPer1mTokensUsd,
+  outputCostPer1mTokensUsd,
+  phpRate,
+}: AiUsageTooltipProps) {
+  if (!active || !point || point.tokens === null) return null;
+
+  const inputTokens = point.tokens_input ?? 0;
+  const outputTokens = point.tokens_output ?? 0;
+  const estimatedCost = calcTokenCostUsd(
+    inputTokens,
+    outputTokens,
+    inputCostPer1mTokensUsd,
+    outputCostPer1mTokensUsd,
+  );
+  const period = point.day ? `${MONTHS[month - 1]} ${point.day}` : MONTHS[(point.month ?? 1) - 1];
+
+  return (
+    <div className="min-w-48 rounded-xl border border-warm-200 bg-white px-3 py-2.5 text-xs shadow-lg">
+      <p className="mb-2 font-bold text-warm-900">{period}</p>
+      <dl className="space-y-1.5 tabular-nums">
+        <div className="flex items-center justify-between gap-5">
+          <dt className="text-warm-500">Total tokens</dt>
+          <dd className="font-semibold text-warm-900">{point.tokens.toLocaleString()}</dd>
+        </div>
+        <div className="flex items-center justify-between gap-5">
+          <dt className="text-warm-500">Input / output</dt>
+          <dd className="font-semibold text-warm-900">
+            {inputTokens.toLocaleString()} / {outputTokens.toLocaleString()}
+          </dd>
+        </div>
+        <div className="flex items-center justify-between gap-5 border-t border-warm-100 pt-1.5">
+          <dt className="text-warm-500">Estimated cost</dt>
+          <dd className="font-semibold text-warm-900">{formatPhpCost(estimatedCost, phpRate)}</dd>
+        </div>
+      </dl>
+    </div>
+  );
+}
+
+function RechartsUsageTooltip({
+  month,
+  inputCostPer1mTokensUsd,
+  outputCostPer1mTokensUsd,
+  phpRate,
+  ...props
+}: AiUsageExplorerProps & {
+  month: number;
+  active?: boolean;
+  label?: string | number;
+  payload?: ReadonlyArray<{ payload?: unknown }>;
+}) {
+  return (
+    <AiUsageTooltip
+      active={props.active}
+      label={props.label}
+      month={month}
+      point={props.payload?.[0]?.payload as AiUsagePoint | undefined}
+      inputCostPer1mTokensUsd={inputCostPer1mTokensUsd}
+      outputCostPer1mTokensUsd={outputCostPer1mTokensUsd}
+      phpRate={phpRate}
+    />
+  );
+}
+
+export function AiUsageExplorer({
+  inputCostPer1mTokensUsd,
+  outputCostPer1mTokensUsd,
+  phpRate,
+}: AiUsageExplorerProps) {
   const today = useMemo(() => manilaToday(), []);
   const [view, setView] = useState<"month" | "year">("month");
   const [year, setYear] = useState(today.year);
@@ -76,10 +190,13 @@ export function AiUsageExplorer() {
     setMonth(next.getMonth() + 1);
   }
 
-  const maxTokens = Math.max(1, ...(data?.points.map((point) => point.tokens ?? 0) ?? []));
   const periodLabel = view === "month" ? `${MONTHS[month - 1]} ${year}` : String(year);
   const atEarliestPeriod = year === 2000 && (view === "year" || month === 1);
   const atLatestPeriod = year === today.year + 1 && (view === "year" || month === 12);
+  const chartData = data?.points.map((point) => ({
+    ...point,
+    label: point.day ?? MONTHS[(point.month ?? 1) - 1].slice(0, 3),
+  })) ?? [];
 
   return (
     <section className="overflow-hidden rounded-3xl border border-warm-200 bg-white shadow-sm">
@@ -92,7 +209,7 @@ export function AiUsageExplorer() {
             <h3 className="text-sm font-bold uppercase tracking-[0.18em] text-warm-900">
               AI Token Consumption
             </h3>
-            <p className="mt-1 text-xs text-warm-500">All users, Asia/Manila boundaries</p>
+            <p className="mt-1 text-xs text-warm-500">All users · Asia/Manila</p>
           </div>
         </div>
 
@@ -141,7 +258,7 @@ export function AiUsageExplorer() {
       </div>
 
       <div className="p-5 sm:p-6">
-        <div className="mb-5 flex items-center justify-between gap-3">
+        <div className="mb-4 flex items-center justify-between gap-3">
           <button
             type="button"
             aria-label={`Previous ${view}`}
@@ -153,7 +270,7 @@ export function AiUsageExplorer() {
           </button>
           <div className="text-center" aria-live="polite">
             <p className="text-sm font-bold text-warm-900">{periodLabel}</p>
-            <p className="mt-0.5 text-xs tabular-nums text-warm-500">
+            <p data-period-total className="mt-0.5 text-xs tabular-nums text-warm-500">
               {data ? formatTokens(data.total_tokens) : "--"}
             </p>
           </div>
@@ -175,40 +292,52 @@ export function AiUsageExplorer() {
           </div>
         )}
         {!loading && data && (
-          <>
-            <div
-              role="img"
-              aria-label={`${periodLabel}: ${formatTokens(data.total_tokens)}`}
-              className="flex h-72 items-end gap-1 overflow-x-auto border-b border-warm-200 pb-px"
-            >
-              {data.points.map((point, index) => {
-                const state = point.tokens === null ? "future" : point.tokens === 0 ? "zero" : "used";
-                const height = point.tokens === null ? 0 : point.tokens === 0 ? 2 : Math.max(4, (point.tokens / maxTokens) * 100);
-                const label = point.day ?? MONTHS[(point.month ?? 1) - 1].slice(0, 3);
-
-                return (
-                  <div key={point.day ?? point.month ?? index} className="flex min-w-[14px] flex-1 flex-col items-center justify-end gap-2 self-stretch">
-                    <div className="flex w-full flex-1 items-end justify-center">
-                      <div
-                        data-usage-state={state}
-                        title={state === "future" ? `${label}: not occurred yet` : `${label}: ${formatTokens(point.tokens ?? 0)}`}
-                        className={state === "used" ? "w-full max-w-8 rounded-t bg-emerald-600" : state === "zero" ? "w-full max-w-8 bg-warm-300" : "w-full max-w-8"}
-                        style={{ height: `${height}%` }}
+          <div data-testid="ai-usage-chart" className="overflow-x-auto pb-1">
+            <ul className="sr-only">
+              {data.points.map((point) => (
+                <li data-day-label={point.day ?? undefined} key={point.day ?? point.month}>
+                  {point.day ? `Day ${point.day}` : MONTHS[(point.month ?? 1) - 1]}: {point.tokens ?? 0} tokens
+                </li>
+              ))}
+            </ul>
+            <div className={view === "month" ? "h-72 min-w-[760px]" : "h-72 min-w-[560px]"}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={chartData} margin={{ top: 12, right: 8, left: 4, bottom: 0 }} accessibilityLayer>
+                  <CartesianGrid vertical={false} stroke="#e7e5df" />
+                  <XAxis
+                    dataKey="label"
+                    interval={0}
+                    tickLine={false}
+                    axisLine={{ stroke: "#d8d5cd" }}
+                    tick={{ fill: "#8a8b83", fontSize: 11 }}
+                    height={30}
+                  />
+                  <YAxis
+                    domain={[0, "auto"]}
+                    allowDecimals={false}
+                    tickLine={false}
+                    axisLine={false}
+                    tick={{ fill: "#8a8b83", fontSize: 11 }}
+                    tickFormatter={formatAxisTokens}
+                    width={48}
+                  />
+                  <Tooltip
+                    cursor={{ fill: "#f5f5f0" }}
+                    content={(tooltipProps) => (
+                      <RechartsUsageTooltip
+                        {...tooltipProps}
+                        month={month}
+                        inputCostPer1mTokensUsd={inputCostPer1mTokensUsd}
+                        outputCostPer1mTokensUsd={outputCostPer1mTokensUsd}
+                        phpRate={phpRate}
                       />
-                    </div>
-                    <span className="text-xs tabular-nums text-warm-400">
-                      {view === "year" || index % 3 === 0 || index === data.points.length - 1 ? label : ""}
-                    </span>
-                  </div>
-                );
-              })}
+                    )}
+                  />
+                  <Bar dataKey="tokens" name="Tokens" fill="#059669" maxBarSize={view === "month" ? 16 : 32} radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
             </div>
-            <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-xs text-warm-500">
-              <span className="inline-flex items-center gap-2"><i className="h-3 w-3 rounded-sm bg-emerald-600" />Usage</span>
-              <span className="inline-flex items-center gap-2"><i className="h-0.5 w-3 bg-warm-300" />Zero usage</span>
-              {view === "month" && <span className="inline-flex items-center gap-2"><i className="h-3 w-3 rounded-sm border border-dashed border-warm-300" />Not occurred yet</span>}
-            </div>
-          </>
+          </div>
         )}
       </div>
     </section>

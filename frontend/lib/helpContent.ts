@@ -478,6 +478,22 @@ export const HELP_ITEMS: HelpItem[] = [
     popular: true,
   },
   {
+    id: "admin-ai-token-calculation",
+    role: "Admin",
+    category: "System Oversight",
+    question: "How is AI token usage calculated?",
+    answer: "NutriScope records the input and output token counts reported by Anthropic for successful requests made through its supported AI features, then totals them across users. Daily and monthly chart periods use Asia/Manila boundaries. Calls made outside NutriScope are not included, so Anthropic's account console remains the source for account-wide usage.",
+    keywords: ["input tokens", "output tokens", "Anthropic", "timezone", "Manila", "usage"],
+  },
+  {
+    id: "admin-ai-cost-calculation",
+    role: "Admin",
+    category: "System Oversight",
+    question: "How is estimated AI cost calculated?",
+    answer: "NutriScope multiplies recorded input and output tokens by their separately configured USD rates per one million tokens, adds those amounts, and converts the result to Philippine pesos using the dashboard exchange rate. It is an estimate because provider pricing changes, exchange-rate timing, discounts, credits, caching, taxes, or billing adjustments can affect the final invoice; the provider bill is authoritative.",
+    keywords: ["estimated cost", "input rate", "output rate", "USD", "PHP", "billing"],
+  },
+  {
     id: "admin-audit-privacy",
     role: "Admin",
     category: "Audit Logs",

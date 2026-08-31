@@ -38,20 +38,31 @@ class AiUsageLimitController extends Controller
 
     private function payload(AiUsageLimit $limits): array
     {
-        $dailyUsed = (int) AiUsageLog::query()
+        $dailyUsage = AiUsageLog::query()
             ->where('created_at', '>=', now()->startOfDay())
-            ->sum('tokens_total');
+            ->selectRaw('COALESCE(SUM(tokens_input), 0) as tokens_input')
+            ->selectRaw('COALESCE(SUM(tokens_output), 0) as tokens_output')
+            ->selectRaw('COALESCE(SUM(tokens_total), 0) as tokens_total')
+            ->first();
 
-        $monthlyUsed = (int) AiUsageLog::query()
+        $monthlyUsage = AiUsageLog::query()
             ->where('created_at', '>=', now()->startOfMonth())
-            ->sum('tokens_total');
+            ->selectRaw('COALESCE(SUM(tokens_input), 0) as tokens_input')
+            ->selectRaw('COALESCE(SUM(tokens_output), 0) as tokens_output')
+            ->selectRaw('COALESCE(SUM(tokens_total), 0) as tokens_total')
+            ->first();
 
         return [
             'daily_token_limit' => $limits->daily_token_limit,
             'monthly_token_limit' => $limits->monthly_token_limit,
-            'cost_per_1m_tokens_usd' => $limits->cost_per_1m_tokens_usd,
-            'daily_used' => $dailyUsed,
-            'monthly_used' => $monthlyUsed,
+            'input_cost_per_1m_tokens_usd' => $limits->input_cost_per_1m_tokens_usd,
+            'output_cost_per_1m_tokens_usd' => $limits->output_cost_per_1m_tokens_usd,
+            'daily_used' => (int) $dailyUsage->tokens_total,
+            'daily_tokens_input' => (int) $dailyUsage->tokens_input,
+            'daily_tokens_output' => (int) $dailyUsage->tokens_output,
+            'monthly_used' => (int) $monthlyUsage->tokens_total,
+            'monthly_tokens_input' => (int) $monthlyUsage->tokens_input,
+            'monthly_tokens_output' => (int) $monthlyUsage->tokens_output,
         ];
     }
 }

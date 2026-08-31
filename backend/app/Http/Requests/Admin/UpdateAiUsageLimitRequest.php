@@ -16,7 +16,8 @@ class UpdateAiUsageLimitRequest extends FormRequest
         return [
             'daily_token_limit' => ['nullable', 'integer', 'min:0'],
             'monthly_token_limit' => ['nullable', 'integer', 'min:0'],
-            'cost_per_1m_tokens_usd' => ['sometimes', 'numeric', 'min:0'],
+            'input_cost_per_1m_tokens_usd' => ['sometimes', 'numeric', 'min:0'],
+            'output_cost_per_1m_tokens_usd' => ['sometimes', 'numeric', 'min:0'],
         ];
     }
 }

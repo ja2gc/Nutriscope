@@ -28,7 +28,11 @@ class AiUsageAnalyticsController extends Controller
         $start = CarbonImmutable::create($year, 1, 1, 0, 0, 0, self::TIMEZONE);
         $usage = $this->usageByBucket($start, $start->endOfYear(), 'MONTH');
         $points = collect(range(1, 12))
-            ->map(fn (int $month): array => ['month' => $month, 'tokens' => (int) ($usage[$month] ?? 0)])
+            ->map(function (int $month) use ($usage): array {
+                $bucket = $usage[$month] ?? ['tokens_input' => 0, 'tokens_output' => 0, 'tokens' => 0];
+
+                return ['month' => $month, ...$bucket];
+            })
             ->all();
 
         return response()->json([
@@ -36,6 +40,8 @@ class AiUsageAnalyticsController extends Controller
             'year' => $year,
             'timezone' => self::TIMEZONE,
             'total_tokens' => array_sum(array_column($points, 'tokens')),
+            'total_tokens_input' => array_sum(array_column($points, 'tokens_input')),
+            'total_tokens_output' => array_sum(array_column($points, 'tokens_output')),
             'points' => $points,
         ]);
     }
@@ -47,10 +53,13 @@ class AiUsageAnalyticsController extends Controller
         $points = collect(range(1, $start->daysInMonth))
             ->map(function (int $day) use ($start, $usage): array {
                 $date = $start->addDays($day - 1);
+                $bucket = $usage[$day] ?? ['tokens_input' => 0, 'tokens_output' => 0, 'tokens' => 0];
 
                 return [
                     'day' => $day,
-                    'tokens' => $date->isFuture() ? null : (int) ($usage[$day] ?? 0),
+                    'tokens_input' => $date->isFuture() ? null : $bucket['tokens_input'],
+                    'tokens_output' => $date->isFuture() ? null : $bucket['tokens_output'],
+                    'tokens' => $date->isFuture() ? null : $bucket['tokens'],
                 ];
             })
             ->all();
@@ -61,6 +70,8 @@ class AiUsageAnalyticsController extends Controller
             'month' => $month,
             'timezone' => self::TIMEZONE,
             'total_tokens' => array_sum(array_filter(array_column($points, 'tokens'), is_int(...))),
+            'total_tokens_input' => array_sum(array_filter(array_column($points, 'tokens_input'), is_int(...))),
+            'total_tokens_output' => array_sum(array_filter(array_column($points, 'tokens_output'), is_int(...))),
             'points' => $points,
         ]);
     }
@@ -70,9 +81,16 @@ class AiUsageAnalyticsController extends Controller
         return AiUsageLog::query()
             ->whereBetween('created_at', [$start->utc(), $end->utc()])
             ->selectRaw("{$datePart}(CONVERT_TZ(created_at, '+00:00', '+08:00')) as bucket")
+            ->selectRaw('COALESCE(SUM(tokens_input), 0) as tokens_input')
+            ->selectRaw('COALESCE(SUM(tokens_output), 0) as tokens_output')
             ->selectRaw('COALESCE(SUM(tokens_total), 0) as tokens')
             ->groupBy('bucket')
-            ->pluck('tokens', 'bucket')
+            ->get()
+            ->mapWithKeys(fn ($row): array => [(int) $row->bucket => [
+                'tokens_input' => (int) $row->tokens_input,
+                'tokens_output' => (int) $row->tokens_output,
+                'tokens' => (int) $row->tokens,
+            ]])
             ->all();
     }
 }

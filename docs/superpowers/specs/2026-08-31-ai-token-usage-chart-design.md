@@ -28,10 +28,22 @@ Replace the hand-built usage bars with a conventional, accessible daily column c
 - Keep the period summary token-only, matching the original display.
 - Show the selected date, total tokens, input/output split, and estimated PHP cost in the hover/tap tooltip.
 - Do not place cost labels above columns or repeat estimated cost around the chart.
+- Do not add explanatory helper notes beneath the chart.
 - Retain the existing loading, error, period navigation, and filtering behavior.
+
+## Dashboard integration
+
+- Review the complete Admin dashboard so the chart header, controls, card radius, borders, typography, spacing, and responsive behavior match the KPI cards, AI Token Caps panel, Quick Actions, and Recent Activity.
+- Present the two input/output price settings as a clear paired group inside the existing token-cap form.
+- Keep unrelated dashboard content and behavior unchanged; make only the consistency adjustments required by the AI usage and pricing changes.
+
+## Help content
+
+- Add concise Admin Help entries explaining how NutriScope records provider-reported input/output tokens, how estimated cost is calculated, why the amount may differ from the provider bill, and how Asia/Manila boundaries affect daily/monthly totals.
+- Keep this explanatory material out of the dashboard chart itself.
 
 ## Verification
 
 - Backend feature tests cover split-token aggregation, Manila boundaries, totals, and future dates.
-- Frontend tests cover all daily labels, the absence of the old legend, token-only period summary, tooltip details, and the separate-rate cost calculation.
+- Frontend tests cover all daily labels, the absence of the old legend and helper copy, token-only period summary, tooltip details, Help content, and the separate-rate cost calculation.
 - Run focused backend and frontend tests, lint the changed frontend files, type-check, and inspect the rendered dashboard at desktop and narrow widths.
