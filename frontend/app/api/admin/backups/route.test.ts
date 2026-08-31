@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { proxy } from "@/lib/laravelProxy";
 import { GET, POST } from "./route";
+import { GET as getSchedules, PUT as updateSchedules } from "../backup-schedules/route";
 import { DELETE } from "./[id]/route";
 import { POST as keep } from "./[id]/keep/route";
 import { POST as recover } from "./[id]/recovery-requests/route";
@@ -18,11 +19,26 @@ describe("/api/admin/backups proxy routes", () => {
   });
 
   test("lists and creates backups", async () => {
-    await GET();
+    const request = new NextRequest("http://localhost/api/admin/backups?page=3");
+    await GET(request);
     await POST();
 
-    expect(proxyMock).toHaveBeenNthCalledWith(1, "/admin/backups");
+    expect(proxyMock).toHaveBeenNthCalledWith(1, "/admin/backups", { search: request.nextUrl.searchParams });
     expect(proxyMock).toHaveBeenNthCalledWith(2, "/admin/backups", { method: "POST" });
+  });
+
+  test("loads and updates automatic backup schedules", async () => {
+    await getSchedules();
+    await updateSchedules(new NextRequest("http://localhost/api/admin/backup-schedules", {
+      method: "PUT",
+      body: JSON.stringify({ daily: true, weekly: false, monthly: true }),
+    }));
+
+    expect(proxyMock).toHaveBeenNthCalledWith(1, "/admin/backup-schedules");
+    expect(proxyMock).toHaveBeenNthCalledWith(2, "/admin/backup-schedules", {
+      method: "PUT",
+      body: { daily: true, weekly: false, monthly: true },
+    });
   });
 
   test("deletes and keeps a selected backup", async () => {

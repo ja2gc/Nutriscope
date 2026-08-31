@@ -1,6 +1,6 @@
 # NutriScope System Storyboard
 
-Verified against current role navigation and food-service lifecycle on **2026-08-27**.
+Verified against current role navigation and food-service lifecycle on **2026-08-29**.
 
 This is the submission-ready, no-screenshot storyboard. It explains NutriScope as a scene-by-scene user journey using text, tables, and Mermaid diagrams, so it remains complete even when visual captures are unavailable.
 
@@ -112,6 +112,7 @@ flowchart LR
 | 5. Communication | Announcements/SOP | Publishes targeted post or revises approved SOP | Notifies matching users and preserves SOP versions | Policy reaches correct roles |
 | 6. Operational review | Reports and Budget | Reviews allowed reports, ledger, and history | Blocks patient-specific reports; Budget remains read-only | Oversight follows least privilege |
 | 7. Configuration | Settings | Updates branding, logos, per-head/day setting, preferences | Future reports/UI use current configuration | Admin maintains shared system presentation |
+| 8. Continuity | Backup & Recovery | Reviews schedules and restore points or initiates staged whole-system recovery | Verifies readiness, protects archives, stages restoration, and rolls back on failure | Recovery remains controlled and auditable |
 
 ```mermaid
 flowchart LR
@@ -121,6 +122,7 @@ flowchart LR
     A --> E["Announcements and SOP"]
     A --> F["Allowed reports and budget"]
     A --> G["Branding and settings"]
+    A --> H["Backup and recovery"]
 ```
 
 ## Storyboard 5: Cross-Role Food-Service Handoff

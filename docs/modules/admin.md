@@ -1,6 +1,6 @@
 # Admin Module — Current Role and Workflow
 
-Verified against current Admin web pages, shared components, and Laravel role/report guards on **2026-07-20**. This replaces older text saying the Admin frontend still needed rebuilding; the current light-theme Admin console is live.
+Verified against current Admin web pages, shared components, and Laravel role/report guards on **2026-08-29**. This replaces older text saying the Admin frontend still needed rebuilding; the current light-theme Admin console is live.
 
 ## Role Purpose
 
@@ -13,6 +13,7 @@ Admin owns system administration and operational oversight:
 - allowed operational/aggregate reports;
 - read-only budget oversight;
 - report/hospital branding and shared food-service budget setting;
+- automatic backup schedules, restore-point retention, and staged whole-system recovery initiation;
 - Admin notifications, profile, and local preferences.
 
 Admin has no standing patient NCP workflow and no patient-specific clinical-report access.
@@ -31,6 +32,7 @@ Admin uses the web console. The Admin layout redirects non-Admin users to the RN
 | Reports | Allowed operational and aggregate reports |
 | Budget | Read-only fiscal-year summary, ledger, activity |
 | Audit Logs | Structured event browser, filters, history, export, retention |
+| Backups | Automatic schedules, manual restore points, Recently Deleted, and staged recovery |
 | Help | Searchable Shared and Admin-only account, oversight, audit, settings, and report guidance |
 | Settings | Branding, logos, budget-per-head/day, local preferences |
 
@@ -138,6 +140,12 @@ Admin can configure:
 
 The budget-per-head/day value is a shared backend setting used by food-service cost comparisons.
 
+## Backup and Recovery
+
+Admin can view restore points, create a manual backup, and independently enable Daily, Weekly, or Monthly automatic schedules after readiness checks pass. All schedules are disabled by default. Existing backups retain their assigned retention when a schedule is disabled, and disabling the final active schedule requires confirmation.
+
+Backup records are paginated. Completed backups may be moved to Recently Deleted for 48 hours and kept during that window. Whole-system recovery requires fresh authentication and explicit confirmation, then runs through protected queued work rather than inside the browser request. It creates a safety snapshot, restores one temporary MySQL database, and verifies matching private uploads. Without the Phase 2 environment switcher, recovery stops safely at Ready; after that provider-specific switcher is configured, it switches only after checks pass and rolls back automatically on failure. Backup archives, credentials, and raw secrets are never exposed to the browser.
+
 ## Help, Notifications, and Profile
 
 - Help shows Shared and Admin guidance only; it has no role switch and does not expose RND clinical answers.
@@ -155,6 +163,7 @@ flowchart TD
     B --> E["Publish announcements or revise SOP"]
     B --> F["Review allowed reports and budget"]
     B --> G["Maintain branding and shared settings"]
+    B --> M["Review backups or initiate staged recovery"]
     C --> H["Role/status/password change revokes sessions and is audited"]
     D --> I["Filter, inspect safe history, export or adjust retention"]
     F --> J{"Patient-specific report?"}
@@ -172,6 +181,7 @@ Admin does not:
 - use FSS mobile execution tools;
 - treat audit events as a substitute for underlying clinical authorization;
 - expose raw audit JSON or clinical value diffs.
+- view raw backup archives, storage credentials, or environment secrets.
 
 ## Removed or Superseded Notes
 
