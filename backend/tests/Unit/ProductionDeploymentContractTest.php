@@ -2,6 +2,7 @@
 
 namespace Tests\Unit;
 
+use Illuminate\Support\Facades\Route;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -36,6 +37,19 @@ class ProductionDeploymentContractTest extends TestCase
         $this->assertStringContainsString('COPY --from=composer:2.10', $dockerfile);
         $this->assertStringContainsString('composer config --global source-fallback true', $dockerfile);
         $this->assertStringContainsString('composer install --no-dev --optimize-autoloader --no-scripts --no-interaction', $dockerfile);
+    }
+
+    #[Test]
+    public function named_routes_are_unique_for_production_route_caching(): void
+    {
+        $duplicates = collect(Route::getRoutes())
+            ->map(fn ($route) => $route->getName())
+            ->filter()
+            ->duplicates()
+            ->values()
+            ->all();
+
+        $this->assertSame([], $duplicates);
     }
 
     #[Test]

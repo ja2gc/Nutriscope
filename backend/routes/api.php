@@ -59,7 +59,7 @@ use Illuminate\Support\Facades\Route;
  * endpoints. Literal/typed segments are declared before the {report} apiResource so
  * they win the match; {type} is constrained to lowercase so it can't shadow numeric ids.
  */
-$reportRoutes = function () {
+$reportRoutes = function (string $routeName) {
     Route::get('reports/{type}/instances', [ReportController::class, 'instances'])->where('type', '[a-z_]+');
     Route::middleware('throttle:reports')->group(function () {
         Route::post('reports/{type}/prepare', [ReportController::class, 'prepare'])->where('type', '[a-z_]+');
@@ -69,7 +69,7 @@ $reportRoutes = function () {
     });
     Route::get('reports/{report}/download', [ReportController::class, 'download']);
     Route::get('reports/{report}/view', [ReportController::class, 'view']);
-    Route::apiResource('reports', ReportController::class)->only(['index', 'show', 'destroy']);
+    Route::apiResource('reports', ReportController::class)->only(['index', 'show', 'destroy'])->names($routeName);
     Route::get('report-branding', [ReportBrandingController::class, 'show']);
     Route::get('report-templates', [ReportTemplateController::class, 'index']);
     Route::middleware('role:RND,Admin')->group(function () {
@@ -203,7 +203,7 @@ Route::middleware(['auth:sanctum', 'active', 'role:RND'])->prefix('rnd')->group(
     Route::get('reports/{report}/activity', [ActivityController::class, 'report']);
 
     // Reports routes (shared with FSS — see $reportRoutes above)
-    $reportRoutes();
+    $reportRoutes('rnd.reports');
 
     // Food Database routes
     Route::apiResource('food-items', FoodItemController::class);
@@ -262,7 +262,7 @@ Route::middleware(['auth:sanctum', 'active', 'role:FSS,RND'])->prefix('fss')->gr
     Route::get('budgets/summary', [BudgetController::class, 'summary']);
     Route::get('budgets/ledger', [BudgetController::class, 'ledger']);
     Route::get('budgets/{budget}/activity', [ActivityController::class, 'budget']);
-    Route::apiResource('budgets', BudgetController::class)->only(['index', 'show']);
+    Route::apiResource('budgets', BudgetController::class)->only(['index', 'show'])->names('fss.budgets');
 
     // Food Service settings — budget per head per day (FSS read, RND writes below)
     Route::get('food-service-settings', [FoodServiceSettingController::class, 'show']);
@@ -313,7 +313,7 @@ Route::middleware(['auth:sanctum', 'active', 'role:FSS,RND'])->prefix('fss')->gr
         Route::apiResource('food-service-recipes', FoodServiceRecipeController::class)->only(['store', 'update', 'destroy']);
 
         Route::post('budgets/adjust', [BudgetController::class, 'manualAdjust']);
-        Route::apiResource('budgets', BudgetController::class)->only(['store']);
+        Route::apiResource('budgets', BudgetController::class)->only(['store'])->names('rnd.budgets');
 
         // Food Service settings — budget per head per day (RND writes)
         Route::put('food-service-settings', [FoodServiceSettingController::class, 'update']);
@@ -323,7 +323,7 @@ Route::middleware(['auth:sanctum', 'active', 'role:FSS,RND'])->prefix('fss')->gr
     Route::get('announcements', [RndAnnouncementController::class, 'index']);
 
     // Reports routes (shared with RND — see $reportRoutes above)
-    $reportRoutes();
+    $reportRoutes('fss.reports');
 });
 
 Route::middleware(['auth:sanctum', 'active', 'role:Admin'])->prefix('admin')->group(function () {
@@ -362,7 +362,7 @@ Route::middleware(['auth:sanctum', 'active', 'role:Admin'])->prefix('admin')->gr
     Route::get('budgets/summary', [BudgetController::class, 'summary']);
     Route::get('budgets/ledger', [BudgetController::class, 'ledger']);
     Route::get('budgets/{budget}/activity', [ActivityController::class, 'budget']);
-    Route::apiResource('budgets', BudgetController::class)->only(['index', 'show']);
+    Route::apiResource('budgets', BudgetController::class)->only(['index', 'show'])->names('admin.budgets');
     Route::get('report-branding', [ReportBrandingController::class, 'show']);
     Route::post('report-branding', [ReportBrandingController::class, 'update']);
     Route::get('ai-usage-limits', [AiUsageLimitController::class, 'show']);
@@ -385,5 +385,5 @@ Route::middleware(['auth:sanctum', 'active', 'role:Admin'])->prefix('admin')->gr
     Route::post('reports/{type}/archive', [ReportController::class, 'archive'])->where('type', '[a-z_]+');
     Route::get('reports/{report}/download', [ReportController::class, 'download']);
     Route::get('reports/{report}/view', [ReportController::class, 'view']);
-    Route::apiResource('reports', ReportController::class)->only(['index', 'show', 'destroy']);
+    Route::apiResource('reports', ReportController::class)->only(['index', 'show', 'destroy'])->names('admin.reports');
 });
