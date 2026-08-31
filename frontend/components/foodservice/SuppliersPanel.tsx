@@ -75,17 +75,17 @@ function SupplierForm({ initial, editingId, onSaved, onCancel }: {
         <div>
           <Label>Description</Label>
           <input value={form.category ?? ""} onChange={(e) => set({ category: e.target.value })}
-            placeholder="e.g. vegetables, meats" className={inputCls} />
+            className={inputCls} />
         </div>
         <div>
           <Label>Contact</Label>
           <input value={form.contact ?? ""} onChange={(e) => set({ contact: e.target.value })}
-            placeholder="phone / person" className={inputCls} />
+            className={inputCls} />
         </div>
         <div>
           <Label>Payment Terms</Label>
           <input value={form.payment_terms ?? ""} onChange={(e) => set({ payment_terms: e.target.value })}
-            placeholder="e.g. COD, 30 days" className={inputCls} />
+            className={inputCls} />
         </div>
         <div className="sm:col-span-2">
           <Label>Address</Label>
@@ -188,7 +188,7 @@ export function SuppliersPanel() {
       )}
 
       {/* Search */}
-      <SearchInput className="max-w-sm" label="Search vendors" value={search} onChange={setSearch} placeholder="Search vendors…" loading={loading} />
+      <SearchInput className="max-w-sm" label="Search vendors" value={search} onChange={setSearch} loading={loading} />
 
       {/* Table */}
       <div className="bg-white border border-warm-200 rounded-2xl shadow-sm overflow-x-auto">

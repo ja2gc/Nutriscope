@@ -110,7 +110,7 @@ function UsdaImportModal({ onClose, onImported }: {
 
         {/* Search */}
         <div className="px-6 py-4 border-b border-warm-100">
-          <SearchInput label="Search USDA foods" value={query} onChange={handleQueryChange} placeholder="Type to search — e.g. chicken breast, brown rice, bangus…" loading={searching} autoFocus />
+          <SearchInput label="Search USDA foods" value={query} onChange={handleQueryChange} loading={searching} autoFocus />
           {error && (
             <div className="flex items-center gap-2 mt-2.5 text-xs text-red-600 font-semibold">
               <TriangleAlert className="h-3.5 w-3.5 shrink-0" /> {error}
@@ -473,7 +473,7 @@ export default function FoodLibraryPage() {
         <div className="space-y-4">
           {/* Filters */}
           <div className="flex flex-col sm:flex-row items-center gap-3">
-            <SearchInput className="sm:flex-1" label="Search foods" placeholder="Search by food name…" value={foodSearch} onChange={(value) => { setFoodSearch(value); setFoodPage(1); }} loading={foodLoading} />
+            <SearchInput className="sm:flex-1" label="Search foods" value={foodSearch} onChange={(value) => { setFoodSearch(value); setFoodPage(1); }} loading={foodLoading} />
             <div className="flex gap-1.5 flex-wrap">
               {FOOD_CATEGORIES.map((c) => (
                 <button key={c} onClick={() => { setFoodCategory(c); setFoodPage(1); }}
@@ -583,7 +583,7 @@ export default function FoodLibraryPage() {
         <div className="space-y-4">
           {/* Filters */}
           <div className="flex flex-col sm:flex-row items-center gap-3">
-            <SearchInput className="sm:flex-1" label="Search recipes" placeholder="Search by recipe name…" value={recipeSearch} onChange={(value) => { setRecipeSearch(value); setRecipePage(1); }} loading={recipeLoading} />
+            <SearchInput className="sm:flex-1" label="Search recipes" value={recipeSearch} onChange={(value) => { setRecipeSearch(value); setRecipePage(1); }} loading={recipeLoading} />
             <div className="flex gap-1.5 flex-wrap">
               {RECIPE_CATEGORIES.map((c) => (
                 <button key={c} onClick={() => { setRecipeCategory(c); setRecipePage(1); }}

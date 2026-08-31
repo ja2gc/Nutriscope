@@ -74,7 +74,6 @@ function UnitInput({
   value,
   onChange,
   type = "number",
-  placeholder = "",
   disabled = false,
   target,
 }: {
@@ -83,7 +82,6 @@ function UnitInput({
   value: string;
   onChange: (v: string) => void;
   type?: string;
-  placeholder?: string;
   disabled?: boolean;
   target?: string | null;
 }) {
@@ -106,7 +104,6 @@ function UnitInput({
           min="0"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          placeholder={placeholder}
           disabled={disabled}
           className="w-full px-3.5 py-2.5 text-base font-mono text-warm-900 bg-transparent focus:outline-none placeholder:text-warm-400 disabled:text-warm-400"
         />
@@ -353,14 +350,12 @@ export default function LogVisitForm({
             unit="kg"
             value={weight}
             onChange={handleWeightChange}
-            placeholder="e.g. 68.5"
           />
           <UnitInput
             label={heightCm ? "BMI (auto-calculated)" : "BMI"}
             unit="kg/m²"
             value={bmi}
             onChange={setBmi}
-            placeholder={heightCm ? "Auto from weight" : "Enter manually"}
             disabled={!!heightCm && !!weight}
           />
         </div>
@@ -408,7 +403,6 @@ export default function LogVisitForm({
                   unit={unit}
                   value={macros[key]}
                   onChange={(v) => setMacros((prev) => ({ ...prev, [key]: v }))}
-                  placeholder="—"
                   target={target}
                 />
               );
@@ -435,7 +429,6 @@ export default function LogVisitForm({
                     type={meta.type}
                     value={labs[key]}
                     onChange={(v) => setLabs((prev) => ({ ...prev, [key]: v }))}
-                    placeholder="—"
                   />
                 );
               })}
@@ -468,7 +461,6 @@ export default function LogVisitForm({
                     unit={meta?.unit ?? ""}
                     value={micros[key] ?? ""}
                     onChange={(v) => setMicros((prev) => ({ ...prev, [key]: v }))}
-                    placeholder="—"
                     target={limitStr}
                   />
                 );
@@ -489,7 +481,6 @@ export default function LogVisitForm({
             value={clinicalSummary}
             onChange={(e) => setClinicalSummary(e.target.value)}
             rows={3}
-            placeholder="Observations, tolerance, patient feedback…"
             className="w-full px-3.5 py-2.5 text-base border border-warm-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 bg-white transition-all placeholder:text-warm-400 resize-none"
           />
         </div>

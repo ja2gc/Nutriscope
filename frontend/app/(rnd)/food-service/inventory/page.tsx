@@ -220,7 +220,7 @@ export default function InventoryCatalogPage() {
             </button>
           ))}
         </div>
-        <SearchInput className="w-64" label="Search inventory" value={search} onChange={setSearch} placeholder="Search inventory…" loading={loading && search !== debouncedSearch} />
+        <SearchInput className="w-64" label="Search inventory" value={search} onChange={setSearch} loading={loading && search !== debouncedSearch} />
       </div>
 
       <div className="bg-white border border-warm-200 rounded-2xl shadow-sm overflow-x-auto">

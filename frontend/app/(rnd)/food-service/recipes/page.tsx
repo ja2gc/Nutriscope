@@ -125,7 +125,6 @@ export default function FSSRecipeListPage() {
         label="Search foods"
         value={search}
         onChange={(value) => { setSearch(value); setPage(1); }}
-        placeholder="Search recipes and single items…"
         loading={loading && search !== debouncedSearch}
       />
       <div className="flex flex-wrap gap-2">

@@ -176,7 +176,7 @@ export default function ReportsScreen({ embedded = false }: { embedded?: boolean
       data={data}
       keyExtractor={(r: Report) => String(r.id)}
       contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + (embedded ? 80 : 16), flexGrow: 1 }}
-      ListHeaderComponent={<View className="mb-4"><SearchInput label="Search accomplishment reports" value={search} onChangeText={setSearch} placeholder="Search reports" loading={isFetching && search.trim() !== debouncedSearch} /></View>}
+      ListHeaderComponent={<View className="mb-4"><SearchInput label="Search accomplishment reports" value={search} onChangeText={setSearch} loading={isFetching && search.trim() !== debouncedSearch} /></View>}
       renderItem={({ item }) => {
         const period = item.snapshot?.accomplishment?.period_label
           ?? (item.parameters?.start && item.parameters?.end

@@ -5,11 +5,10 @@ type SearchInputProps = {
   label: string;
   value: string;
   onChangeText: (value: string) => void;
-  placeholder: string;
   loading?: boolean;
 };
 
-export function SearchInput({ label, value, onChangeText, placeholder, loading = false }: SearchInputProps) {
+export function SearchInput({ label, value, onChangeText, loading = false }: SearchInputProps) {
   return (
     <View className="min-h-12 flex-row items-center rounded-xl border border-gray-300 bg-white px-3">
       <Search color="#9CA3AF" size={19} />
@@ -19,8 +18,6 @@ export function SearchInput({ label, value, onChangeText, placeholder, loading =
         autoCorrect={false}
         className="min-h-12 flex-1 px-3 text-base text-gray-900"
         onChangeText={onChangeText}
-        placeholder={placeholder}
-        placeholderTextColor="#9CA3AF"
         returnKeyType="search"
         value={value}
       />

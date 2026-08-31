@@ -81,7 +81,7 @@ export default function GoalSelectorModal({ onConfirm, onClose, initialGoal, ini
               </p>
               <Select value={stage} onValueChange={setStage}>
                 <SelectTrigger className="w-full text-base border-warm-200 focus:ring-emerald-500/20">
-                  <SelectValue placeholder="Select stage…" />
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   {goal.stages.map((s) => (

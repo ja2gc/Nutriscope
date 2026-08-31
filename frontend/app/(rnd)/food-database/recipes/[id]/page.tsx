@@ -227,7 +227,6 @@ export default function EditRecipePage({
                         updateRow(idx, { foodSearch: val, food: val ? row.food : null });
                         await searchFoods(val, idx);
                       }}
-                      placeholder="Search food..."
                       className="flex-1 text-base text-warm-900 outline-none placeholder:text-warm-400 bg-transparent"
                     />
                     {row.food && <span className="text-xs text-emerald-600 font-bold shrink-0">{row.food.calories} kcal</span>}
@@ -252,7 +251,6 @@ export default function EditRecipePage({
                   type="number"
                   value={row.quantity}
                   onChange={(e) => updateRow(idx, { quantity: e.target.value })}
-                  placeholder="Qty"
                   min="0"
                   step="0.1"
                   className="w-20 px-3 py-2 text-base border border-warm-300 rounded-lg text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"

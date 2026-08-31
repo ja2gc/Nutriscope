@@ -12,7 +12,6 @@ export default function EducationTab({ value, onChange, onSave, saving }: Props)
         value={value}
         onChange={(e) => onChange(e.target.value)}
         rows={10}
-        placeholder="e.g. Discussed importance of low-sodium diet. Provided handout on renal diet food choices. Reviewed portion sizes..."
         className="w-full px-3.5 py-3 text-base border border-warm-200 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
       />
       <div className="flex justify-end">

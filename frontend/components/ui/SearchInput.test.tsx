@@ -10,14 +10,12 @@ describe("SearchInput", () => {
         label="Search reports"
         value="inventory"
         onChange={vi.fn()}
-        placeholder="Search by report name"
         loading
       />,
     );
 
     expect(html).toContain('type="search"');
     expect(html).toContain("Search reports");
-    expect(html).toContain("Search by report name");
     expect(html).toContain('role="status"');
 
     const idleHtml = renderToStaticMarkup(

@@ -142,7 +142,7 @@ export default function AccomplishmentsScreen() {
           if (key === 'collected_ward_diet_lists' || key === 'apportioned_distributed_meals') {
             return <View key={key} className="border-b border-[#F0F3F1] py-3">
               <Text className="text-sm font-semibold leading-5 text-[#30483F]">{index + 1}. {label}</Text>
-              <TextInput value={numbers[key]} onChangeText={(value) => { setNumbers((current) => ({ ...current, [key]: value.replace(/[^0-9]/g, '') })); setMessage(null); }} placeholder="0" placeholderTextColor="#9AA9A2" keyboardType="number-pad" className="mt-2 min-h-12 border border-[#D9E3DD] bg-[#FAFCFB] rounded-xl px-3.5 text-[#16352B] tabular-nums" accessibilityLabel={label} />
+              <TextInput value={numbers[key]} onChangeText={(value) => { setNumbers((current) => ({ ...current, [key]: value.replace(/[^0-9]/g, '') })); setMessage(null); }} keyboardType="number-pad" className="mt-2 min-h-12 border border-[#D9E3DD] bg-[#FAFCFB] rounded-xl px-3.5 text-[#16352B] tabular-nums" accessibilityLabel={label} />
             </View>;
           }
           const checkboxKey = key as TaskKey;

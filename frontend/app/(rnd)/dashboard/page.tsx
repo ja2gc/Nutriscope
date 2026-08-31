@@ -434,7 +434,6 @@ export default function RndDashboardPage() {
                     name="title"
                     value={draft.title}
                     onChange={handleDraftChange}
-                    placeholder="Announcement title"
                     className="w-full px-3 py-2 text-base bg-white border border-warm-300 rounded-xl text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 placeholder:text-warm-400"
                   />
                 </div>
@@ -448,7 +447,6 @@ export default function RndDashboardPage() {
                   name="body"
                   value={draft.body}
                   onChange={handleDraftChange}
-                  placeholder="Write the announcement"
                   className="w-full px-3 py-2 text-base bg-white border border-warm-300 rounded-xl text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 placeholder:text-warm-400 min-h-32"
                 />
               </div>

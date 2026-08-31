@@ -59,7 +59,6 @@ function PerHeadDayLimitCard({ prefix }: { prefix: "fss" | "admin" }) {
           value={value}
           disabled={loading}
           onChange={(e) => setValue(e.target.value)}
-          placeholder="0.00"
           className="w-full px-3 py-2 text-base border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-green-500"
         />
       </div>

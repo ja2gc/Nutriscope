@@ -9,7 +9,6 @@ type SearchInputProps = {
   label: string;
   value: string;
   onChange: (value: string) => void;
-  placeholder?: string;
   loading?: boolean;
   className?: string;
   autoFocus?: boolean;
@@ -20,7 +19,6 @@ export default function SearchInput({
   label,
   value,
   onChange,
-  placeholder = "Search…",
   loading = false,
   className,
   autoFocus = false,
@@ -38,7 +36,6 @@ export default function SearchInput({
         type="search"
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        placeholder={placeholder}
         autoFocus={autoFocus}
         className="min-h-11 w-full rounded-lg border border-warm-200 bg-white py-2 pl-9 pr-11 text-base text-warm-900 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
       />

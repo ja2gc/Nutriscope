@@ -311,7 +311,7 @@ export default function UserManagementPage() {
 
       {/* Filters Bar */}
       <div className="bg-white border border-warm-200 rounded-2xl p-4 shadow-sm flex flex-col md:flex-row gap-4 items-center justify-between">
-        <SearchInput className="md:max-w-sm" label="Search users" placeholder="Search by name or email…" value={search} onChange={setSearch} loading={loading} />
+        <SearchInput className="md:max-w-sm" label="Search users" value={search} onChange={setSearch} loading={loading} />
 
         <div className="flex items-center gap-3 shrink-0 select-none">
           <span className="text-sm font-bold text-warm-500 uppercase tracking-wider flex items-center gap-1.5">
@@ -533,7 +533,6 @@ export default function UserManagementPage() {
                     required={!editingUser}
                     value={firstName}
                     onChange={(e) => setFirstName(e.target.value)}
-                    placeholder="e.g. Maria Luisa"
                     className={inputCls(formFieldErrors, "first_name")}
                   />
                   <FieldError errors={formFieldErrors} field="first_name" />
@@ -548,7 +547,6 @@ export default function UserManagementPage() {
                     required={!editingUser}
                     value={lastName}
                     onChange={(e) => setLastName(e.target.value)}
-                    placeholder="e.g. De la Cruz"
                     className={inputCls(formFieldErrors, "last_name")}
                   />
                   <FieldError errors={formFieldErrors} field="last_name" />
@@ -565,7 +563,6 @@ export default function UserManagementPage() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="name@nutriscope.local"
                   className={inputCls(formFieldErrors, "email")}
                 />
                 <FieldError errors={formFieldErrors} field="email" />
@@ -621,7 +618,6 @@ export default function UserManagementPage() {
                     required={!editingUser}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Min. 8 characters"
                     className={inputCls(formFieldErrors, "password")}
                   />
                   <FieldError errors={formFieldErrors} field="password" />
@@ -636,7 +632,6 @@ export default function UserManagementPage() {
                     required={!editingUser || !!password}
                     value={passwordConfirm}
                     onChange={(e) => setPasswordConfirm(e.target.value)}
-                    placeholder="Repeat password"
                     className={inputCls(formFieldErrors, "password_confirmation")}
                   />
                   <FieldError errors={formFieldErrors} field="password_confirmation" />
@@ -709,7 +704,6 @@ export default function UserManagementPage() {
                       required
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
-                      placeholder="Min. 8 characters"
                       className={inputCls(resetFieldErrors, "password")}
                     />
                     <FieldError errors={resetFieldErrors} field="password" />
@@ -724,7 +718,6 @@ export default function UserManagementPage() {
                       required
                       value={newPasswordConfirm}
                       onChange={(e) => setNewPasswordConfirm(e.target.value)}
-                      placeholder="Repeat new password"
                       className={inputCls(resetFieldErrors, "password_confirmation")}
                     />
                     <FieldError errors={resetFieldErrors} field="password_confirmation" />

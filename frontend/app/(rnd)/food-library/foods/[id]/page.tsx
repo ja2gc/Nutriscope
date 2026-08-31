@@ -233,7 +233,6 @@ export default function EditFoodPage({ params }: { params: Promise<{ id: string 
                         value={micros[key] ?? ''}
                         onChange={(e) => setMicros((prev) => ({ ...prev, [key]: e.target.value }))}
                         className={inputCls}
-                        placeholder="—"
                       />
                     )}
                   </div>
@@ -262,7 +261,7 @@ export default function EditFoodPage({ params }: { params: Promise<{ id: string 
           <div className="flex gap-2">
             <input type="text" value={allergenInput} onChange={(e) => setAllergenInput(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addCustomAllergen(); } }}
-              placeholder="Add custom allergen..." className={`${inputCls} flex-1 max-w-64`} />
+              className={`${inputCls} flex-1 max-w-64`} />
             <button type="button" onClick={addCustomAllergen} className="px-3 py-2 border border-warm-300 rounded-lg text-warm-600 hover:bg-warm-50 cursor-pointer transition-colors">
               <Plus className="h-3.5 w-3.5" />
             </button>

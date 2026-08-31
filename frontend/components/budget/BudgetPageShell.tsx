@@ -109,7 +109,7 @@ function FiscalYearSetupSection({ existingYears, onCreated, apiPrefix }: {
           </div>
           <div>
             <Label>Allocated Amount (PHP)</Label>
-            <input type="number" min="0" step="0.01" value={allocated} onChange={(e) => setAllocated(e.target.value)} placeholder="0.00" className={inp} />
+            <input type="number" min="0" step="0.01" value={allocated} onChange={(e) => setAllocated(e.target.value)} className={inp} />
           </div>
         </div>
         {err && <p className="text-sm text-red-500">{err}</p>}
@@ -203,17 +203,17 @@ function ManualAdjustSection({ fiscalYear, onAdjusted, apiPrefix }: {
           </div>
           <div>
             <Label>Amount (PHP)</Label>
-            <input type="number" min="0.01" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" className={inp} />
+            <input type="number" min="0.01" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} className={inp} />
           </div>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <Label>Reason</Label>
-            <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Reason for adjustment" className={inp} />
+            <input value={reason} onChange={(e) => setReason(e.target.value)} className={inp} />
           </div>
           <div>
             <Label>Reference (optional)</Label>
-            <input value={reference} onChange={(e) => setReference(e.target.value)} placeholder="e.g. BUR-2026-05" className={inp} />
+            <input value={reference} onChange={(e) => setReference(e.target.value)} className={inp} />
           </div>
         </div>
         {err && <p className="text-sm text-red-500">{err}</p>}

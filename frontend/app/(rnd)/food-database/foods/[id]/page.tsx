@@ -189,7 +189,7 @@ export default function EditFoodPage({
           <h3 className="text-sm font-extrabold text-warm-700 uppercase tracking-wider">Pricing & Allergens</h3>
           <div>
             <Label>Unit Price (₱)</Label>
-            <input type="number" value={unitPrice} onChange={(e) => setUnitPrice(e.target.value)} min="0" step="0.01" placeholder="0.00" className={`${inputCls} max-w-48`} />
+            <input type="number" value={unitPrice} onChange={(e) => setUnitPrice(e.target.value)} min="0" step="0.01" className={`${inputCls} max-w-48`} />
           </div>
           <div>
             <Label>Allergens</Label>
@@ -217,7 +217,6 @@ export default function EditFoodPage({
                 value={allergenInput}
                 onChange={(e) => setAllergenInput(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addCustomAllergen(); } }}
-                placeholder="Add custom allergen..."
                 className={`${inputCls} flex-1 max-w-64`}
               />
               <button type="button" onClick={addCustomAllergen} className="px-3 py-2 border border-warm-300 rounded-lg text-warm-600 hover:bg-warm-50 cursor-pointer transition-colors">

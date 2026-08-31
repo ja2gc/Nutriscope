@@ -307,7 +307,6 @@ export default function AdminDashboardPage() {
               <input
                 type="number"
                 min={0}
-                placeholder="Unlimited"
                 value={capDailyInput}
                 onChange={(e) => { setCapDailyInput(e.target.value); setCapSaveMsg(null); }}
                 disabled={capSaving}
@@ -321,7 +320,6 @@ export default function AdminDashboardPage() {
               <input
                 type="number"
                 min={0}
-                placeholder="Unlimited"
                 value={capMonthlyInput}
                 onChange={(e) => { setCapMonthlyInput(e.target.value); setCapSaveMsg(null); }}
                 disabled={capSaving}
@@ -336,7 +334,6 @@ export default function AdminDashboardPage() {
                 type="number"
                 min={0}
                 step="0.0001"
-                placeholder={String(DEFAULT_AI_COST_PER_1M_TOKENS_USD)}
                 value={costPer1mInput}
                 onChange={(e) => { setCostPer1mInput(e.target.value); setCapSaveMsg(null); }}
                 disabled={capSaving}

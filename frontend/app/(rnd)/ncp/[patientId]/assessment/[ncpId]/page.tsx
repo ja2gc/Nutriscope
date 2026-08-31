@@ -264,8 +264,8 @@ function AssessmentSection({ legend, children, className = "" }: {
   );
 }
 
-function TextInput({ value, onChange, placeholder, type, disabled, min, max, id, className }: {
-  value: string; onChange: (v: string) => void; placeholder?: string; type?: string; disabled?: boolean;
+function TextInput({ value, onChange, type, disabled, min, max, id, className }: {
+  value: string; onChange: (v: string) => void; type?: string; disabled?: boolean;
   min?: number; max?: number; id?: string; className?: string;
 }) {
   return (
@@ -274,7 +274,6 @@ function TextInput({ value, onChange, placeholder, type, disabled, min, max, id,
       id={id}
       value={value}
       onChange={e => onChange(e.target.value)}
-      placeholder={placeholder}
       disabled={disabled}
       min={min}
       max={max}
@@ -283,8 +282,8 @@ function TextInput({ value, onChange, placeholder, type, disabled, min, max, id,
   );
 }
 
-function TextArea({ value, onChange, placeholder, rows }: {
-  value: string; onChange: (v: string) => void; placeholder?: string; rows?: number;
+function TextArea({ value, onChange, rows }: {
+  value: string; onChange: (v: string) => void; rows?: number;
 }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -300,15 +299,14 @@ function TextArea({ value, onChange, placeholder, rows }: {
       ref={textareaRef}
       value={value}
       onChange={e => onChange(e.target.value)}
-      placeholder={placeholder}
       rows={rows ?? 3}
       className="w-full resize-none overflow-hidden rounded-lg border border-warm-200 bg-white px-3 py-2 text-sm text-warm-900 transition-colors placeholder:text-warm-400 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
     />
   );
 }
 
-function SelectInput({ value, onChange, options, placeholder }: {
-  value: string; onChange: (v: string) => void; options: { value: string; label: string }[]; placeholder?: string;
+function SelectInput({ value, onChange, options }: {
+  value: string; onChange: (v: string) => void; options: { value: string; label: string }[];
 }) {
   return (
     <select
@@ -316,14 +314,14 @@ function SelectInput({ value, onChange, options, placeholder }: {
       onChange={e => onChange(e.target.value)}
       className="min-h-11 w-full px-3 py-2 text-sm bg-white border border-warm-200 rounded-lg text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all cursor-pointer"
     >
-      <option value="">{placeholder ?? "Select..."}</option>
+      <option value="" />
       {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
     </select>
   );
 }
 
-function TagInput({ tags, onChange, placeholder }: {
-  tags: string[]; onChange: (t: string[]) => void; placeholder?: string;
+function TagInput({ tags, onChange }: {
+  tags: string[]; onChange: (t: string[]) => void;
 }) {
   const [input, setInput] = useState("");
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -356,7 +354,6 @@ function TagInput({ tags, onChange, placeholder }: {
         value={input}
         onChange={e => setInput(e.target.value)}
         onKeyDown={handleKeyDown}
-        placeholder={tags.length === 0 ? (placeholder ?? "Type and press Enter...") : ""}
         className="flex-1 min-w-[80px] text-sm bg-transparent outline-none text-warm-900 placeholder:text-warm-400"
       />
     </div>
@@ -1118,14 +1115,13 @@ export default function NcpAssessmentPage({
       <AssessmentSection legend="Diet and intake">
         <div className="grid grid-cols-1 items-start gap-3 md:grid-cols-2 xl:grid-cols-4">
       <Field label="Present Diet" className="md:col-span-2 xl:col-span-2">
-        <TextArea value={s("present_diet")} onChange={v => updateField("present_diet", v)} placeholder="Current diet description..." rows={2} />
+        <TextArea value={s("present_diet")} onChange={v => updateField("present_diet", v)} rows={2} />
       </Field>
       <Field label="Energy Intake Status">
         <SelectInput
           value={s("energy_intake_status")}
           onChange={v => updateField("energy_intake_status", v || null)}
           options={ENERGY_INTAKE_OPTIONS.map(o => ({ value: o, label: o }))}
-          placeholder="Select energy intake status..."
         />
       </Field>
       <Field label="Dietary Intake Method">
@@ -1133,17 +1129,15 @@ export default function NcpAssessmentPage({
           value={s("dietary_intake_method")}
           onChange={v => updateField("dietary_intake_method", v || null)}
           options={DIETARY_METHOD_OPTIONS}
-          placeholder="Select method..."
         />
       </Field>
       <Field label="Dietary Intake" className="md:col-span-2 xl:col-span-2">
-        <TextArea value={s("dietary_intake")} onChange={v => updateField("dietary_intake", v)} placeholder="24-hour recall narrative or food frequency notes..." rows={2} />
+        <TextArea value={s("dietary_intake")} onChange={v => updateField("dietary_intake", v)} rows={2} />
       </Field>
       <Field label="Appetite Changes">
         <SelectInput
           value={s("appetite_changes") ?? ""}
           onChange={v => updateField("appetite_changes", v || null)}
-          placeholder="Select..."
           options={[
             { value: "normal", label: "Normal appetite" },
             { value: "decreased", label: "Decreased — eating less than usual" },
@@ -1156,7 +1150,7 @@ export default function NcpAssessmentPage({
         />
       </Field>
       <Field label="Dietary Restrictions">
-        <TextArea value={s("dietary_restrictions")} onChange={v => updateField("dietary_restrictions", v)} placeholder="Restrictions and intolerances..." rows={2} />
+        <TextArea value={s("dietary_restrictions")} onChange={v => updateField("dietary_restrictions", v)} rows={2} />
       </Field>
         </div>
       </AssessmentSection>
@@ -1164,13 +1158,13 @@ export default function NcpAssessmentPage({
       <AssessmentSection legend="Dietary modifiers">
         <div className="grid grid-cols-1 items-start gap-3 md:grid-cols-3">
       <Field label="Supplements">
-        <TextInput value={s("supplements")} onChange={v => updateField("supplements", v)} placeholder="Current supplements..." />
+        <TextInput value={s("supplements")} onChange={v => updateField("supplements", v)} />
       </Field>
       <Field label="Knowledge / Beliefs Notes">
-        <TextArea value={s("knowledge_notes")} onChange={v => updateField("knowledge_notes", v)} placeholder="RND observations on patient knowledge and beliefs..." rows={2} />
+        <TextArea value={s("knowledge_notes")} onChange={v => updateField("knowledge_notes", v)} rows={2} />
       </Field>
       <Field label="Nutrient-Drug Interaction">
-        <TextArea value={s("nutrient_drug_interaction")} onChange={v => updateField("nutrient_drug_interaction", v)} placeholder="Known nutrient-drug interactions..." rows={2} />
+        <TextArea value={s("nutrient_drug_interaction")} onChange={v => updateField("nutrient_drug_interaction", v)} rows={2} />
       </Field>
         </div>
       </AssessmentSection>
@@ -1178,13 +1172,13 @@ export default function NcpAssessmentPage({
       <AssessmentSection legend="GI / tolerance">
         <div className="grid grid-cols-1 items-start gap-3 md:grid-cols-3">
           <Field label="Chewing / Swallowing Difficulties">
-            <TextArea value={s("chewing_swallowing_difficulties")} onChange={v => updateField("chewing_swallowing_difficulties", v)} placeholder="Any chewing or swallowing difficulties..." rows={2} />
+            <TextArea value={s("chewing_swallowing_difficulties")} onChange={v => updateField("chewing_swallowing_difficulties", v)} rows={2} />
           </Field>
           <Field label="Constipation">
-            <TextArea value={s("constipation")} onChange={v => updateField("constipation", v)} placeholder="Constipation notes..." rows={2} />
+            <TextArea value={s("constipation")} onChange={v => updateField("constipation", v)} rows={2} />
           </Field>
           <Field label="Diarrhea Notes">
-            <TextArea value={s("diarrhea_notes")} onChange={v => updateField("diarrhea_notes", v)} placeholder="Diarrhea notes..." rows={2} />
+            <TextArea value={s("diarrhea_notes")} onChange={v => updateField("diarrhea_notes", v)} rows={2} />
           </Field>
         </div>
       </AssessmentSection>
@@ -1280,32 +1274,31 @@ export default function NcpAssessmentPage({
         {/* Bounds mirror backend config/clinical.php assessment_input_bounds — reject typo'd
             weight/height that would otherwise blow up the prescription engine. */}
         <Field label="Weight (kg)" required={CALCULATION_INPUT_HELPERS.weight.required}>
-          <TextInput type="number" min={1} max={400} value={String(assessment.weight ?? "")} onChange={v => updateField("weight", v ? Number(v) : null)} placeholder="e.g. 70.5" />
+          <TextInput type="number" min={1} max={400} value={String(assessment.weight ?? "")} onChange={v => updateField("weight", v ? Number(v) : null)} />
         </Field>
         <Field label="Usual Weight (kg)" required={CALCULATION_INPUT_HELPERS.usual_weight.required}>
-          <TextInput type="number" min={1} max={400} value={String(assessment.usual_weight ?? "")} onChange={v => updateField("usual_weight", v ? Number(v) : null)} placeholder="e.g. 72.0" />
+          <TextInput type="number" min={1} max={400} value={String(assessment.usual_weight ?? "")} onChange={v => updateField("usual_weight", v ? Number(v) : null)} />
         </Field>
         <Field label="Height (cm)" required={CALCULATION_INPUT_HELPERS.height.required}>
-          <TextInput type="number" min={30} max={250} value={String(assessment.height ?? "")} onChange={v => updateField("height", v ? Number(v) : null)} placeholder="e.g. 170" />
+          <TextInput type="number" min={30} max={250} value={String(assessment.height ?? "")} onChange={v => updateField("height", v ? Number(v) : null)} />
         </Field>
         <Field label="MUAC (mm)" required={CALCULATION_INPUT_HELPERS.muac_mm.required}>
-          <TextInput type="number" value={String(assessment.muac_mm ?? "")} onChange={v => updateField("muac_mm", v ? Number(v) : null)} placeholder="e.g. 250" />
+          <TextInput type="number" value={String(assessment.muac_mm ?? "")} onChange={v => updateField("muac_mm", v ? Number(v) : null)} />
         </Field>
         <Field label="Waist Circumference (cm)" required={CALCULATION_INPUT_HELPERS.waist_cm.required}>
-          <TextInput type="number" value={String(assessment.waist_cm ?? "")} onChange={v => updateField("waist_cm", v ? Number(v) : null)} placeholder="e.g. 90" />
+          <TextInput type="number" value={String(assessment.waist_cm ?? "")} onChange={v => updateField("waist_cm", v ? Number(v) : null)} />
         </Field>
         <Field label="Hip Circumference (cm)" required={CALCULATION_INPUT_HELPERS.hip_cm.required}>
-          <TextInput type="number" value={String(assessment.hip_cm ?? "")} onChange={v => updateField("hip_cm", v ? Number(v) : null)} placeholder="e.g. 100" />
+          <TextInput type="number" value={String(assessment.hip_cm ?? "")} onChange={v => updateField("hip_cm", v ? Number(v) : null)} />
         </Field>
         <Field label="Weight Loss/Gain Period" required={CALCULATION_INPUT_HELPERS.weight_loss_period.required}>
-          <TextInput value={s("weight_loss_period")} onChange={v => updateField("weight_loss_period", v)} placeholder="e.g. 3 months" />
+          <TextInput value={s("weight_loss_period")} onChange={v => updateField("weight_loss_period", v)} />
         </Field>
         <Field label="Functional Assessment">
           <SelectInput
             value={s("functional_assessment")}
             onChange={v => updateField("functional_assessment", v || null)}
             options={FUNCTIONAL_OPTIONS.map(o => ({ value: o, label: o }))}
-            placeholder="Select functional status..."
           />
         </Field>
       </div>
@@ -1318,16 +1311,15 @@ export default function NcpAssessmentPage({
       <AssessmentSection legend="Clinical and social context">
         <div className="grid grid-cols-1 items-start gap-3 md:grid-cols-3">
       <Field label="Medical History" className="md:col-span-2">
-        <TextArea value={s("medical_history")} onChange={v => updateField("medical_history", v)} placeholder="Medical history..." rows={3} />
+        <TextArea value={s("medical_history")} onChange={v => updateField("medical_history", v)} rows={3} />
       </Field>
       <Field label="Social History">
-        <TextArea value={s("social_history")} onChange={v => updateField("social_history", v)} placeholder="Social history..." rows={3} />
+        <TextArea value={s("social_history")} onChange={v => updateField("social_history", v)} rows={3} />
       </Field>
       <Field label="Religion / Dietary Practices">
         <TextInput
           value={s("religion") ?? ""}
           onChange={v => updateField("religion", v || null)}
-          placeholder="e.g. Roman Catholic, Muslim, Seventh-Day Adventist"
         />
       </Field>
         </div>
@@ -1343,11 +1335,10 @@ export default function NcpAssessmentPage({
             value: key,
             label: `${label} (×${factor})`,
           }))}
-          placeholder="Select activity level..."
         />
       </Field>
       <Field label="Stress Factor" required={CALCULATION_INPUT_HELPERS.stress_factor.required}>
-        <TextInput type="number" value={String(assessment.stress_factor ?? "")} onChange={v => updateField("stress_factor", v ? Number(v) : null)} placeholder="e.g. 1.2" />
+        <TextInput type="number" value={String(assessment.stress_factor ?? "")} onChange={v => updateField("stress_factor", v ? Number(v) : null)} />
       </Field>
       <Field label="Pregnancy / Lactation" required={CALCULATION_INPUT_HELPERS.pregnancy_lactation_status.required}>
         <SelectInput
@@ -1358,7 +1349,6 @@ export default function NcpAssessmentPage({
             { value: "pregnant", label: "Pregnant (2nd/3rd trimester)" },
             { value: "lactating", label: "Lactating" },
           ]}
-          placeholder="None"
         />
       </Field>
       <Field label="Edema Present" required={CALCULATION_INPUT_HELPERS.edema_present.required}>
@@ -1373,7 +1363,6 @@ export default function NcpAssessmentPage({
             { value: "no", label: "No" },
             { value: "yes", label: "Yes" },
           ]}
-          placeholder="No"
         />
       </Field>
       {assessment.edema_present && (
@@ -1384,7 +1373,6 @@ export default function NcpAssessmentPage({
             max={400}
             value={String(assessment.dry_weight_kg ?? "")}
             onChange={v => updateField("dry_weight_kg", v ? Number(v) : null)}
-            placeholder="e.g. 68.0"
           />
         </Field>
       )}
@@ -1415,10 +1403,10 @@ export default function NcpAssessmentPage({
         )}
       </Field>
       <Field label="Food Dislikes (Soft Filter — warnings only)">
-        <TagInput tags={assessment.food_dislikes ?? []} onChange={v => updateField("food_dislikes", v)} placeholder="Type disliked food and press Enter..." />
+        <TagInput tags={assessment.food_dislikes ?? []} onChange={v => updateField("food_dislikes", v)} />
       </Field>
       <Field label="Medications">
-        <TagInput tags={assessment.medications ?? []} onChange={v => updateField("medications", v)} placeholder="Type medication and press Enter..." />
+        <TagInput tags={assessment.medications ?? []} onChange={v => updateField("medications", v)} />
       </Field>
         </div>
       </AssessmentSection>
@@ -1466,7 +1454,6 @@ export default function NcpAssessmentPage({
                       ...assessment.biochemical_data,
                       [field.key]: coerceBiochemicalValue(field.key, e.target.value),
                     })}
-                    placeholder={`e.g. ${low ?? high}`}
                     className={`min-h-11 w-full rounded-lg border bg-white px-3 py-2 text-sm text-warm-900 transition-all placeholder:text-warm-400 focus:outline-none focus:ring-2 ${isAbnormal
                         ? "border-red-300 focus:ring-red-400/20 focus:border-red-400"
                         : "border-warm-200 focus:ring-emerald-500/20 focus:border-emerald-500"
@@ -1565,16 +1552,16 @@ export default function NcpAssessmentPage({
 
             <div className="grid grid-cols-1 items-start gap-3 md:grid-cols-2 xl:grid-cols-4">
               <Field label="First Name" htmlFor="screening-first-name">
-                <TextInput id="screening-first-name" className="min-h-11 focus-visible:ring-2" value={draft?.firstName ?? ""} onChange={v => updateScreeningDraftField("firstName", v)} placeholder="First name" />
+                <TextInput id="screening-first-name" className="min-h-11 focus-visible:ring-2" value={draft?.firstName ?? ""} onChange={v => updateScreeningDraftField("firstName", v)} />
               </Field>
               <Field label="Last Name" htmlFor="screening-last-name">
-                <TextInput id="screening-last-name" className="min-h-11 focus-visible:ring-2" value={draft?.lastName ?? ""} onChange={v => updateScreeningDraftField("lastName", v)} placeholder="Last name" />
+                <TextInput id="screening-last-name" className="min-h-11 focus-visible:ring-2" value={draft?.lastName ?? ""} onChange={v => updateScreeningDraftField("lastName", v)} />
               </Field>
               <Field label="Date of Birth">
                 <DatePicker label="Date of birth" value={draft?.dob ?? ""} onChange={v => updateScreeningDraftField("dob", v)} />
               </Field>
               <Field label="Age">
-                <TextInput value={draft?.age ?? ""} onChange={v => updateScreeningDraftField("age", v)} placeholder="Derived age" disabled />
+                <TextInput value={draft?.age ?? ""} onChange={v => updateScreeningDraftField("age", v)} disabled />
               </Field>
               <Field label="Sex">
                 <SelectInput
@@ -1584,45 +1571,41 @@ export default function NcpAssessmentPage({
                     { value: "Male", label: "Male" },
                     { value: "Female", label: "Female" },
                   ]}
-                  placeholder="Select sex"
                 />
               </Field>
               <Field label="Address">
-                <TextInput value={draft?.address ?? ""} onChange={v => updateScreeningDraftField("address", v)} placeholder="Patient address" />
+                <TextInput value={draft?.address ?? ""} onChange={v => updateScreeningDraftField("address", v)} />
               </Field>
               <Field label="Ward / Bed No">
-                <TextInput value={draft?.ward ?? ""} onChange={v => updateScreeningDraftField("ward", v)} placeholder="Ward / unit" />
+                <TextInput value={draft?.ward ?? ""} onChange={v => updateScreeningDraftField("ward", v)} />
               </Field>
               <Field label="Attending Physician">
-                <TextInput value={draft?.referredBy ?? ""} onChange={v => updateScreeningDraftField("referredBy", v)} placeholder="Attending physician" />
+                <TextInput value={draft?.referredBy ?? ""} onChange={v => updateScreeningDraftField("referredBy", v)} />
               </Field>
               <Field label="Medical Diagnosis" className="md:col-span-2 xl:col-span-2">
                 <TextArea
                   value={draft?.diagnosis ?? ""}
                   onChange={v => updateScreeningDraftField("diagnosis", v)}
-                  placeholder="Medical diagnosis or admitting impression"
                   rows={2}
                 />
               </Field>
               <Field label="Hospital Number">
-                <TextInput value={draft?.hospitalNumber ?? ""} onChange={v => updateScreeningDraftField("hospitalNumber", v)} placeholder="Hospital number" />
+                <TextInput value={draft?.hospitalNumber ?? ""} onChange={v => updateScreeningDraftField("hospitalNumber", v)} />
               </Field>
               <Field label="Age Group Category">
                 <TextInput
                   value={draft?.ageGroupCategory ?? ""}
                   onChange={v => updateScreeningDraftField("ageGroupCategory", v)}
-                  placeholder="Adult / adolescent / pediatric"
                 />
               </Field>
               <Field label="Diet Prescription">
-                <TextInput value={draft?.dietPrescription ?? ""} onChange={v => updateScreeningDraftField("dietPrescription", v)} placeholder="e.g. Low Sodium, Soft Diet" />
+                <TextInput value={draft?.dietPrescription ?? ""} onChange={v => updateScreeningDraftField("dietPrescription", v)} />
               </Field>
               <Field label="Referral Type">
                 <SelectInput
                   value={draft?.referralType ?? ""}
                   onChange={v => updateScreeningDraftField("referralType", v)}
                   options={REFERRAL_TYPE_OPTIONS}
-                  placeholder="Select referral type..."
                 />
               </Field>
               <Field label="Referral Date & Time" className="md:col-span-2 xl:col-span-2">
@@ -1778,12 +1761,11 @@ export default function NcpAssessmentPage({
             type="number"
             value={String(displayWeightChangePct ?? "")}
             onChange={v => updateField("weight_loss_percentage", v ? Number(v) : null)}
-            placeholder="%"
             disabled={computedWeightChangePct !== null}
           />
         </Field>
         <Field label="Over Period">
-          <TextInput value={s("weight_loss_period")} onChange={v => updateField("weight_loss_period", v)} placeholder="e.g. 3 months" />
+          <TextInput value={s("weight_loss_period")} onChange={v => updateField("weight_loss_period", v)} />
         </Field>
       </div>
     </div>
@@ -1839,7 +1821,6 @@ export default function NcpAssessmentPage({
           <TextArea
             value={s("rnd_summary")}
             onChange={handleSummaryChange}
-            placeholder="Summarize clinical observations, reassessment needs, and overall nutritional status..."
             rows={4}
           />
         </Field>

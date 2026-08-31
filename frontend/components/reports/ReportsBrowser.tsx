@@ -279,7 +279,6 @@ function InstancesPanel({
             label={`Search ${entry.name}`}
             value={search}
             onChange={(value) => { setSearch(value); setPage(1); }}
-            placeholder="Search report records…"
             loading={loading && search !== debouncedSearch}
           />
         </div>
@@ -392,7 +391,6 @@ function ArchivedTab({
           label="Search archived reports"
           value={search}
           onChange={(value) => { setSearch(value); setPage(1); }}
-          placeholder="Search by report name or type…"
           loading={loading && search !== debouncedSearch}
         />
       </div>
@@ -576,8 +574,8 @@ function TemplateEditor({ onFlash }: { onFlash: (ok: boolean, msg: string) => vo
                 {(t.signatories ?? []).map((s, i) => (
                   <div key={`${s.role}-${i}`} className="grid grid-cols-[90px_1fr_1fr] gap-2 items-center">
                     <span className="text-xs font-bold text-warm-400 uppercase truncate" title={s.label}>{s.label}</span>
-                    <input value={s.name ?? ""} onChange={(e) => editSig(t.id, i, "name", e.target.value)} placeholder="Name" className={`${inp} !py-1.5`} />
-                    <input value={s.title ?? ""} onChange={(e) => editSig(t.id, i, "title", e.target.value)} placeholder="Title" className={`${inp} !py-1.5`} />
+                    <input value={s.name ?? ""} onChange={(e) => editSig(t.id, i, "name", e.target.value)} className={`${inp} !py-1.5`} />
+                    <input value={s.title ?? ""} onChange={(e) => editSig(t.id, i, "title", e.target.value)} className={`${inp} !py-1.5`} />
                   </div>
                 ))}
               </div>

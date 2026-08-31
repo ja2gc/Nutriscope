@@ -113,8 +113,6 @@ export default function LoginScreen() {
             <Text className="text-xs font-semibold text-zinc-700 mb-1.5">Email Address</Text>
             <TextInput
               className="border border-[#D7E2DC] rounded-xl px-4 h-12 text-base text-[#16352B] mb-4 bg-[#FAFCFB]"
-              placeholder=""
-              placeholderTextColor="#a1a1aa"
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
@@ -129,8 +127,6 @@ export default function LoginScreen() {
             <Text className="text-xs font-semibold text-zinc-700 mb-1.5">Password</Text>
             <TextInput
               className="border border-[#D7E2DC] rounded-xl px-4 h-12 text-base text-[#16352B] mb-6 bg-[#FAFCFB]"
-              placeholder="••••••••"
-              placeholderTextColor="#a1a1aa"
               secureTextEntry
               value={password}
               onChangeText={(val) => {

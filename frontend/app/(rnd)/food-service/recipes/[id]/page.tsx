@@ -280,7 +280,6 @@ export default function EditFSSRecipePage({ params }: { params: Promise<{ id: st
             <div className="flex items-center gap-2">
               <span className="text-xs font-extrabold text-warm-500 uppercase tracking-wider">Preview at</span>
               <input type="number" min="1" value={previewServings} onChange={(e) => setPreviewServings(e.target.value)}
-                placeholder={String(servingsNum)}
                 className="w-20 px-2.5 py-1.5 text-base border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500" />
               <span className="text-sm text-warm-500">servings</span>
             </div>
@@ -339,7 +338,6 @@ export default function EditFSSRecipePage({ params }: { params: Promise<{ id: st
                         updateRow(idx, { search: v, catalogItem: v ? row.catalogItem : null });
                         await doSearch(v, idx);
                       }}
-                      placeholder="Search catalog..."
                       className="flex-1 text-base text-warm-900 outline-none placeholder:text-warm-400 bg-transparent"
                     />
                   </div>
@@ -359,7 +357,7 @@ export default function EditFSSRecipePage({ params }: { params: Promise<{ id: st
                 {/* Quantity */}
                 <input type="number" value={row.quantity}
                   onChange={(e) => updateRow(idx, { quantity: e.target.value })}
-                  placeholder="0" min="0" step="0.1"
+                  min="0" step="0.1"
                   className="w-full px-3 py-2 text-base border border-warm-300 rounded-lg text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600" />
 
                 {/* Unit */}

@@ -117,7 +117,7 @@ export default function NewRecipePage() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="sm:col-span-2">
               <Label>Recipe Name <Required /></Label>
-              <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Low-Sodium Chicken Soup" className={inputCls} required />
+              <input type="text" value={name} onChange={(e) => setName(e.target.value)} className={inputCls} required />
             </div>
             <div>
               <Label>Category</Label>
@@ -132,7 +132,7 @@ export default function NewRecipePage() {
             </div>
             <div className="sm:col-span-2">
               <Label>Prep Notes</Label>
-              <textarea value={prepNotes} onChange={(e) => setPrepNotes(e.target.value)} rows={2} placeholder="Preparation instructions..." className={`${inputCls} resize-none`} />
+              <textarea value={prepNotes} onChange={(e) => setPrepNotes(e.target.value)} rows={2} className={`${inputCls} resize-none`} />
             </div>
           </div>
         </div>
@@ -167,7 +167,6 @@ export default function NewRecipePage() {
                       type="text"
                       value={row.foodSearch}
                       onChange={async (e) => { const v = e.target.value; updateRow(idx, { foodSearch: v, food: v ? row.food : null }); await searchFoods(v, idx); }}
-                      placeholder="Search food from library..."
                       className="flex-1 text-base text-warm-900 outline-none placeholder:text-warm-400 bg-transparent"
                     />
                     {row.food && <span className="text-xs text-emerald-600 font-bold shrink-0">{row.food.calories} kcal</span>}
@@ -184,7 +183,7 @@ export default function NewRecipePage() {
                     </div>
                   )}
                 </div>
-                <input type="number" value={row.quantity} onChange={(e) => updateRow(idx, { quantity: e.target.value })} placeholder="Qty" min="0" step="0.1"
+                <input type="number" value={row.quantity} onChange={(e) => updateRow(idx, { quantity: e.target.value })} min="0" step="0.1"
                   className="w-20 px-3 py-2 text-base border border-warm-300 rounded-lg text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600" />
                 <select value={row.unit} onChange={(e) => updateRow(idx, { unit: e.target.value })}
                   className="w-20 px-2 py-2 text-base border border-warm-300 rounded-lg text-warm-900 focus:outline-none cursor-pointer">

@@ -124,7 +124,6 @@ export default function NutritionPrescriptionForm({
                       value={limits.max ?? ""}
                       onChange={(e) => setMicroLimit(key, "max", e.target.value)}
                       className="w-16 px-2 py-1 text-sm font-mono border border-warm-200 rounded-lg focus:outline-none focus:border-emerald-500"
-                      placeholder="—"
                     />
                     <span className="text-xs text-warm-400">{micro?.unit}</span>
                   </div>

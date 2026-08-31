@@ -47,7 +47,7 @@ export function HelpPage({ role }: { role: WebHelpRole }) {
           <label htmlFor="help-search" className="mt-4 block text-sm font-semibold text-warm-700">
             Search Help
           </label>
-          <SearchInput id="help-search" className="mt-1.5" label="Search Help" value={query} onChange={setQuery} placeholder="Try ‘forgot password’, ‘dry weight’, or ‘reports’" />
+          <SearchInput id="help-search" className="mt-1.5" label="Search Help" value={query} onChange={setQuery} />
           <p aria-live="polite" className="mt-2 text-sm font-medium text-warm-500">
             {normalizedQuery
               ? `${items.length} ${items.length === 1 ? "answer" : "answers"} found`

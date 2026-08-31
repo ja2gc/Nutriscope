@@ -96,7 +96,7 @@ export default function NewFoodPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="sm:col-span-2">
               <Label>Name <Required /></Label>
-              <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Chicken Breast, Cooked" className={inputCls} required />
+              <input type="text" value={name} onChange={(e) => setName(e.target.value)} className={inputCls} required />
             </div>
             <div>
               <Label>Category</Label>
@@ -190,7 +190,6 @@ export default function NewFoodPage() {
               value={allergenInput}
               onChange={(e) => setAllergenInput(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addCustomAllergen(); } }}
-              placeholder="Add custom allergen..."
               className={`${inputCls} flex-1 max-w-64`}
             />
             <button type="button" onClick={addCustomAllergen} className="px-3 py-2 border border-warm-300 rounded-lg text-warm-600 hover:bg-warm-50 cursor-pointer transition-colors">

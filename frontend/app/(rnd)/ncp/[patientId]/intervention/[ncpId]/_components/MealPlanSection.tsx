@@ -768,7 +768,7 @@ export default function MealPlanSection({
               {pickerTab === 'library' && (
                 <>
                   <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-warm-400" />
-                    <input type="text" value={libraryQuery} autoFocus placeholder="Search library…"
+                    <input type="text" value={libraryQuery} autoFocus
                       onChange={async (e) => { setLibraryQuery(e.target.value); if (e.target.value.length >= 2) { setPickerLoading(true); try { setLibraryResults((await fetchFoodItems(e.target.value)).data); } finally { setPickerLoading(false); } } else setLibraryResults([]); }}
                       className="w-full pl-9 pr-3 py-2 text-base border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600" /></div>
                   {pickerLoading && <Loader2 className="h-4 w-4 animate-spin text-warm-400 mx-auto" />}
@@ -783,7 +783,7 @@ export default function MealPlanSection({
               {pickerTab === 'recipes' && (
                 <>
                   <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-warm-400" />
-                    <input type="text" value={recipeQuery} autoFocus placeholder="Search recipes…"
+                    <input type="text" value={recipeQuery} autoFocus
                       onChange={async (e) => { setRecipeQuery(e.target.value); if (e.target.value.length >= 2) { setPickerLoading(true); try { setRecipeResults((await fetchRecipes(e.target.value)).data); } finally { setPickerLoading(false); } } else setRecipeResults([]); }}
                       className="w-full pl-9 pr-3 py-2 text-base border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600" /></div>
                   {pickerLoading && <Loader2 className="h-4 w-4 animate-spin text-warm-400 mx-auto" />}
@@ -798,7 +798,7 @@ export default function MealPlanSection({
               {pickerTab === 'usda' && (
                 <>
                   <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-warm-400" />
-                    <input type="text" value={usdaQuery} autoFocus placeholder="Search USDA…"
+                    <input type="text" value={usdaQuery} autoFocus
                       onChange={async (e) => { setUsdaQuery(e.target.value); if (e.target.value.length >= 2) { setPickerLoading(true); try { setUsdaResults(await searchUsda(e.target.value)); } finally { setPickerLoading(false); } } else setUsdaResults([]); }}
                       className="w-full pl-9 pr-3 py-2 text-base border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600" /></div>
                   <p className="text-xs text-warm-400">USDA foods are not saved to the library unless you bookmark them.</p>
@@ -823,7 +823,7 @@ export default function MealPlanSection({
             <h3 className="text-base font-extrabold text-warm-900">Save as Template</h3>
             <div className="space-y-1.5">
               <label className="block text-xs font-bold text-warm-400 uppercase tracking-widest">Template Name</label>
-              <input type="text" value={templateName} onChange={(e) => setTemplateName(e.target.value)} placeholder='e.g. "CKD Stage 4 — Week A"' autoFocus
+              <input type="text" value={templateName} onChange={(e) => setTemplateName(e.target.value)} autoFocus
                 className="w-full px-3.5 py-2.5 text-base border border-warm-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600" />
             </div>
             <div className="flex gap-2 justify-end">

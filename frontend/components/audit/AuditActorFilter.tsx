@@ -121,7 +121,6 @@ export function AuditActorFilter({
           aria-expanded={open}
           aria-label="Search actors by name"
           className={inputClass}
-          placeholder="All actors"
           value={query}
           onFocus={() => setOpen(true)}
           onChange={(event) => {

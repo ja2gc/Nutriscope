@@ -438,7 +438,7 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: number | "new"; r
         <div className="flex items-start gap-3">
           <button onClick={onBack} className="p-2 rounded-lg border border-warm-200 hover:bg-warm-50 text-warm-500 cursor-pointer mt-0.5"><ChevronLeft className="h-4 w-4" /></button>
           <div>
-            <input value={name} onChange={(e) => setName(e.target.value)} readOnly={readOnly} placeholder="Named automatically from the week"
+            <input value={name} onChange={(e) => setName(e.target.value)} readOnly={readOnly}
               className="text-xl font-extrabold text-warm-900 tracking-tight bg-transparent border-b border-dashed border-warm-200 focus:border-emerald-500 focus:outline-none read-only:border-transparent" />
             <div className="flex items-center gap-2 mt-1">
               {isActive && <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">Active</span>}
@@ -462,11 +462,11 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: number | "new"; r
       {/* Settings */}
       <div className="bg-white border border-warm-200 rounded-2xl p-5 shadow-sm grid grid-cols-1 sm:grid-cols-2 gap-4">
         {[
-          { label: "Week start (Mon)", value: weekStart, set: setWeekStart, type: "date", ph: "" },
+          { label: "Week start (Mon)", value: weekStart, set: setWeekStart, type: "date" },
         ].map((f) => (
           <div key={f.label}>
             <label className="block text-xs font-extrabold text-warm-500 uppercase tracking-wider mb-1">{f.label}</label>
-            <input type={f.type} value={f.value} placeholder={f.ph} onChange={(e) => f.set(e.target.value)}
+            <input type={f.type} value={f.value} onChange={(e) => f.set(e.target.value)}
               className="w-full px-3 py-2 text-base border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500" />
           </div>
         ))}
@@ -499,7 +499,6 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: number | "new"; r
                               type="number"
                               min={0}
                               value={servedDraft[d] ?? ""}
-                              placeholder="served"
                               onChange={(e) => setServedDraft((p) => ({ ...p, [d]: e.target.value }))}
                               onKeyDown={(e) => {
                                 if (e.key === "Enter") saveServed(d, servedDraft[d] ?? "");
@@ -587,7 +586,7 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: number | "new"; r
                         <div className="absolute z-30 top-full left-0 mt-1 w-56 bg-white border border-warm-200 rounded-xl shadow-lg p-2">
                           <div className="relative mb-1">
                             <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-warm-400" />
-                            <input autoFocus value={pickerSearch} onChange={(e) => setPickerSearch(e.target.value)} placeholder="Search recipes & items…"
+                            <input autoFocus value={pickerSearch} onChange={(e) => setPickerSearch(e.target.value)}
                               className="w-full pl-7 pr-2 py-1.5 text-sm border border-warm-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-400" />
                           </div>
                           <div className="max-h-48 overflow-y-auto">

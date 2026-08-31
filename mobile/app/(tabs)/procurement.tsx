@@ -286,8 +286,6 @@ function UploadAttachmentModal({ group, visible, type, onChangeType, onClose }: 
               <TextInput
                 value={caption}
                 onChangeText={setCaption}
-                placeholder="Official receipt, delivery proof, or note"
-                placeholderTextColor="#9ca3af"
                 className="border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 mb-4"
                 returnKeyType="done"
               />
@@ -640,8 +638,6 @@ function VendorDetail({ po, group, suppliers, supplierLoadFailed, onRetrySupplie
             value={orNumber}
             onChangeText={setOrNumber}
             editable={!locked}
-            placeholder="Enter official receipt number"
-            placeholderTextColor="#9ca3af"
             className="border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900"
           />
 

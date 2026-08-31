@@ -766,7 +766,6 @@ export default function NcpDiagnosisPage({
                 type="text"
                 value={builder.niNutrient.includes("specify") ? "" : builder.niNutrient}
                 onChange={e => updateBuilder({ niNutrient: e.target.value, problemOverride: "" })}
-                placeholder="Specify nutrient or mineral..."
                 className="mt-2 w-full px-3 py-2 text-sm bg-white border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-400/20 focus:border-sky-400"
               />
             )}
@@ -821,7 +820,6 @@ export default function NcpDiagnosisPage({
         <textarea
           value={builder.extraNotes}
           onChange={e => updateBuilder({ extraNotes: e.target.value })}
-          placeholder="Additional context or notes for this diagnosis..."
           rows={2}
           className="w-full px-3 py-2 text-sm bg-white border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 placeholder:text-warm-400 resize-none"
         />
@@ -869,7 +867,6 @@ export default function NcpDiagnosisPage({
         <textarea
           value={builder.etiologyNotes}
           onChange={e => updateBuilder({ etiologyNotes: e.target.value })}
-          placeholder="Specify any additional etiology not listed above..."
           rows={3}
           className="w-full px-3 py-2 text-sm bg-white border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 placeholder:text-warm-400 resize-none"
         />
@@ -914,7 +911,6 @@ export default function NcpDiagnosisPage({
         <textarea
           value={builder.signNotes}
           onChange={e => updateBuilder({ signNotes: e.target.value })}
-          placeholder="Specify additional signs and symptoms with values, e.g. albumin 2.8 g/dL..."
           rows={3}
           className="w-full px-3 py-2 text-sm bg-white border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 placeholder:text-warm-400 resize-none"
         />
@@ -965,7 +961,6 @@ export default function NcpDiagnosisPage({
               onChange={e => updateBuilder({ pesOverride: e.target.value })}
               rows={4}
               className="w-full px-3 py-2 text-sm bg-white border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-medium text-warm-900 placeholder:text-warm-400 resize-none"
-              placeholder="PES statement will auto-populate when P, E, and S are complete..."
             />
             <p className="text-xs text-warm-400 mt-1">The statement above is auto-generated from the builder. Edit manually if needed before saving.</p>
           </div>

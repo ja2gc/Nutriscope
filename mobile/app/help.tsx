@@ -21,7 +21,7 @@ export default function HelpScreen() {
       </View>
 
       <Text className="mb-2 text-sm font-semibold text-gray-800">Search Help</Text>
-      <SearchInput label="Search help" value={query} onChangeText={setQuery} placeholder="Search questions or topics" />
+      <SearchInput label="Search help" value={query} onChangeText={setQuery} />
       <Text accessibilityLiveRegion="polite" className="mb-5 mt-2 text-xs text-gray-500">{results.length} {results.length === 1 ? 'answer' : 'answers'} found</Text>
 
       {!query.trim() && popular.length ? (

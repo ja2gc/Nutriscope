@@ -7,7 +7,6 @@ interface Props {
   value: string;
   onChange: (value: string) => void;
   unit: string;
-  placeholder?: string;
   min?: number;
   step?: number;
   disabled?: boolean;
@@ -18,7 +17,6 @@ export default function NumericInput({
   value,
   onChange,
   unit,
-  placeholder,
   min = 0,
   step = 0.1,
   disabled = false,
@@ -35,7 +33,6 @@ export default function NumericInput({
           step={step}
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          placeholder={placeholder}
           disabled={disabled}
           className="w-full px-2.5 py-2 text-base font-numeric text-warm-900 bg-transparent focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
         />

@@ -242,7 +242,6 @@ function ListDetail({ id, suppliers, onBack, onPosGenerated }: {
                 <input
                   value={itemSearch}
                   onChange={(e) => searchItems(e.target.value)}
-                  placeholder={`Search ${isSupplies ? "supply" : "ingredient"} catalog…`}
                   className="w-full text-base outline-none"
                 />
               </div>
@@ -311,7 +310,7 @@ function ListDetail({ id, suppliers, onBack, onPosGenerated }: {
                 <td className="px-3 py-2 font-semibold text-warm-800">
                   {it.ingredient_name}
                   <span className="ml-2 rounded-full bg-warm-100 px-2 py-0.5 text-xs font-bold uppercase text-warm-500">{it.source}</span>
-                  {!it.included_in_po && <input defaultValue={it.exclusion_note ?? ""} placeholder="Optional review note"
+                  {!it.included_in_po && <input defaultValue={it.exclusion_note ?? ""}
                     disabled={list.status === "converted"} onBlur={(e) => patchItem(it.id, { exclusion_note: e.target.value || null })}
                     className="mt-1 block w-40 rounded border border-warm-200 px-2 py-1 text-xs font-normal" />}
                 </td>
@@ -523,7 +522,7 @@ function PurchaseEventDetailView({ po, suppliers, onBack, reload }: { po: Purcha
         {!locked && <div className="flex flex-wrap items-end gap-3 rounded-2xl border border-warm-200 bg-white p-4">
           <label><span className="mb-1 block text-xs font-bold uppercase text-warm-500">Receipt total (optional)</span>
             <input type="number" min="0" step="0.01" value={receiptTotal} onChange={(e) => setReceiptTotal(e.target.value)}
-              placeholder="Derives weight when one item" className="w-52 rounded border border-warm-200 px-3 py-2" /></label>
+              className="w-52 rounded border border-warm-200 px-3 py-2" /></label>
           <Button variant="secondary" onClick={() => saveActuals(false)} loading={busy}>Save actual values</Button>
           <Button variant="primary" onClick={() => saveActuals(true)} loading={busy}
             disabled={!group.evidence_requirements?.receipt_uploaded || !group.evidence_requirements?.proof_uploaded}>
@@ -794,7 +793,6 @@ export default function ProcurementPage() {
                 value={newListName}
                 onChange={(e) => setNewListName(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") void createManualList("supplies"); }}
-                placeholder="Supplies list name…"
                 className="w-44 px-3 py-2 text-sm border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
               />
               <Button variant="secondary" onClick={() => createManualList("supplies")} className="px-3 py-2 flex items-center gap-1.5">
@@ -806,7 +804,7 @@ export default function ProcurementPage() {
             <div className="flex items-center gap-2">
               <input value={newListName} onChange={(e) => setNewListName(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") void createManualList("food"); }}
-                placeholder="Event or manual list name…" className="w-48 rounded-lg border border-warm-200 px-3 py-2 text-sm" />
+                className="w-48 rounded-lg border border-warm-200 px-3 py-2 text-sm" />
               <Button variant="secondary" onClick={() => createManualList("food")} className="px-3 py-2"><Plus className="h-3.5 w-3.5" /> Manual food list</Button>
               <Button variant="primary" onClick={() => setGenOpen(true)} className="px-4 py-2.5 flex items-center gap-2">
                 <Sparkles className="h-4 w-4" /> Suggest from Menu
@@ -833,7 +831,7 @@ export default function ProcurementPage() {
               <DatePicker label="To date" value={genEndDate} min={genStartDate} onChange={setGenEndDate} />
             </div>
             <label className="block"><span className="mb-1 block text-xs font-bold text-warm-600">Estimated servings</span>
-              <input type="number" min="1" value={genEstimate} onChange={(e) => setGenEstimate(e.target.value)} placeholder="For the whole span"
+              <input type="number" min="1" value={genEstimate} onChange={(e) => setGenEstimate(e.target.value)}
                 className="w-full rounded-lg border border-warm-200 px-3 py-2" />
             </label>
             <div className="flex items-end gap-2">

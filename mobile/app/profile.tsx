@@ -69,7 +69,6 @@ function FormField({
   label,
   value,
   onChangeText,
-  placeholder,
   keyboardType,
   autoCapitalize,
   error,
@@ -81,7 +80,6 @@ function FormField({
   label: string;
   value: string;
   onChangeText: (v: string) => void;
-  placeholder?: string;
   keyboardType?: 'default' | 'email-address' | 'phone-pad';
   autoCapitalize?: 'none' | 'words';
   error?: string | null;
@@ -101,7 +99,6 @@ function FormField({
           value={value}
           accessibilityLabel={label}
           onChangeText={onChangeText}
-          placeholder={placeholder}
           keyboardType={keyboardType ?? 'default'}
           autoCapitalize={autoCapitalize ?? 'sentences'}
           autoCorrect={false}
@@ -381,7 +378,6 @@ export default function ProfileScreen() {
             label="First name"
             value={firstName}
             onChangeText={setFirstName}
-            placeholder="Your first name"
             autoCapitalize="words"
             error={firstNameError}
             onBlur={validatePersonName}
@@ -391,7 +387,6 @@ export default function ProfileScreen() {
             label="Last name"
             value={lastName}
             onChangeText={setLastName}
-            placeholder="Your last name"
             autoCapitalize="words"
             error={lastNameError}
             onBlur={validatePersonName}
@@ -401,7 +396,6 @@ export default function ProfileScreen() {
             label="Sign-in email"
             value={email}
             onChangeText={setEmail}
-            placeholder="you@example.com"
             keyboardType="email-address"
             autoCapitalize="none"
             error={emailError}
@@ -419,7 +413,6 @@ export default function ProfileScreen() {
             label="Contact Number"
             value={contactNumber}
             onChangeText={setContactNumber}
-            placeholder="e.g. 09171234567"
             keyboardType="phone-pad"
             editable={!profileMutation.isPending}
           />
@@ -455,7 +448,6 @@ export default function ProfileScreen() {
             label="Recovery email for password resets"
             value={recoveryEmail}
             onChangeText={setRecoveryEmail}
-            placeholder="you@example.com"
             keyboardType="email-address"
             autoCapitalize="none"
             error={recoveryEmailError}
@@ -487,7 +479,6 @@ export default function ProfileScreen() {
             label="Verification code"
             value={recoveryCode}
             onChangeText={setRecoveryCode}
-            placeholder="123456"
             keyboardType="phone-pad"
             error={recoveryCodeError}
             onBlur={validateRecoveryCode}
