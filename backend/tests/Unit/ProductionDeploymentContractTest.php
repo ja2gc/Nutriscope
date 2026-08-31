@@ -28,6 +28,17 @@ class ProductionDeploymentContractTest extends TestCase
     }
 
     #[Test]
+    public function production_image_build_can_use_the_locked_source_when_dist_is_unavailable(): void
+    {
+        $dockerfile = file_get_contents(base_path('Dockerfile'));
+
+        $this->assertIsString($dockerfile);
+        $this->assertStringContainsString('COPY --from=composer:2.10', $dockerfile);
+        $this->assertStringContainsString('composer config --global source-fallback true', $dockerfile);
+        $this->assertStringContainsString('composer install --no-dev --optimize-autoloader --no-scripts --no-interaction', $dockerfile);
+    }
+
+    #[Test]
     public function production_env_template_keeps_audit_features_safe_and_https_sessions_secure(): void
     {
         $env = file_get_contents(base_path('.env.production.example'));

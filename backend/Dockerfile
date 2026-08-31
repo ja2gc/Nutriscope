@@ -29,13 +29,14 @@ RUN { \
         echo 'post_max_size=25M'; \
     } > /usr/local/etc/php/conf.d/zz-app.ini
 
-COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+COPY --from=composer:2.10 /usr/bin/composer /usr/bin/composer
 
 WORKDIR /var/www/html
 
 COPY composer.json composer.lock ./
 RUN --mount=type=cache,target=/root/.composer/cache \
-    composer install --no-dev --optimize-autoloader --no-scripts --no-interaction
+    composer config --global source-fallback true \
+    && composer install --no-dev --optimize-autoloader --no-scripts --no-interaction
 
 COPY . .
 
