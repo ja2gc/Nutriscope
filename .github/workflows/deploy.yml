@@ -20,6 +20,7 @@ jobs:
           key: ${{ secrets.DROPLET_SSH_KEY }}
           command_timeout: 30m
           script: |
+            set -eu
             cd Nutriscope
             git fetch origin main
             git reset --hard origin/main
@@ -28,5 +29,7 @@ jobs:
             export COMPOSE_DOCKER_CLI_BUILD=1
             # Requires backend/.env.production to exist on the server.
             # Base file provides mysql/redis; prod overlay adds backend/frontend.
-            docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml --profile release build
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml --profile release run --rm backend_release
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
             docker image prune -f

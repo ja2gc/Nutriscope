@@ -8,6 +8,26 @@ use Tests\TestCase;
 class ProductionDeploymentContractTest extends TestCase
 {
     #[Test]
+    public function digitalocean_deployment_runs_the_explicit_release_before_starting_services(): void
+    {
+        $workflow = file_get_contents(base_path('../.github/workflows/deploy.yml'));
+
+        $this->assertIsString($workflow);
+
+        $build = 'docker compose -f docker-compose.yml -f docker-compose.prod.yml --profile release build';
+        $release = 'docker compose -f docker-compose.yml -f docker-compose.prod.yml --profile release run --rm backend_release';
+        $start = 'docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d';
+
+        $this->assertStringContainsString($build, $workflow);
+        $this->assertStringContainsString($release, $workflow);
+        $this->assertStringContainsString($start, $workflow);
+        $this->assertStringContainsString('set -eu', $workflow);
+        $this->assertLessThan(strpos($workflow, $release), strpos($workflow, $build));
+        $this->assertLessThan(strpos($workflow, $start), strpos($workflow, $release));
+        $this->assertStringNotContainsString('up -d --build', $workflow);
+    }
+
+    #[Test]
     public function production_env_template_keeps_audit_features_safe_and_https_sessions_secure(): void
     {
         $env = file_get_contents(base_path('.env.production.example'));
