@@ -171,9 +171,6 @@ export default function NcpPatientsPage() {
             <HeartHandshake className="h-5 w-5 text-emerald-600" />
             NCP Patient Profile Portal
           </h2>
-          <p className="text-sm text-warm-500 mt-1 select-none">
-            Create the patient record, then open the assessment page immediately to start OCR-assisted intake.
-          </p>
         </div>
 
         <Button

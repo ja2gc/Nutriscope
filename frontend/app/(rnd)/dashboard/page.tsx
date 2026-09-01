@@ -376,9 +376,6 @@ export default function RndDashboardPage() {
                 <h3 className="text-sm font-bold text-warm-900 uppercase tracking-[0.18em]">
                   {editingPostId ? "Edit Announcement" : "Create Announcement"}
                 </h3>
-                <p className="text-xs text-warm-500 mt-1">
-                  Post content stays hidden until you open the composer.
-                </p>
               </div>
               <button
                 type="button"
@@ -519,9 +516,6 @@ export default function RndDashboardPage() {
                 <h3 className="text-sm font-bold text-warm-900 uppercase tracking-[0.18em]">
                   Announcement
                 </h3>
-                <p className="text-xs text-warm-500 mt-1">
-                  Facebook-style post view with background blur and author controls.
-                </p>
               </div>
 
               <div className="flex items-center gap-2">
@@ -620,9 +614,6 @@ export default function RndDashboardPage() {
           <Compass className="h-5 w-5 text-emerald-600" />
           {user ? `Good morning, ${personDisplayName(user)}` : "RND Dashboard"}
         </h2>
-        <p className="text-sm text-warm-500 mt-1 select-none">
-          Follow-ups, patient oversight, and a social-feed style announcement board built for the clinical workflow.
-        </p>
       </div>
 
       {error && (
@@ -822,9 +813,6 @@ export default function RndDashboardPage() {
               <h3 className="text-sm font-bold text-warm-900 uppercase tracking-[0.18em]">
                 Announcements
               </h3>
-              <p className="text-xs text-warm-500 mt-1">
-                Social-feed layout on the right. Open a post to view it in a blurred modal.
-              </p>
             </div>
             <Link
               href="/announcements"

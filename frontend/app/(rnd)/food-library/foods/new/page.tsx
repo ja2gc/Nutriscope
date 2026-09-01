@@ -163,7 +163,6 @@ export default function NewFoodPage() {
         {/* Allergens */}
         <div className="bg-white border border-warm-200 rounded-2xl p-6 space-y-4 shadow-sm">
           <h3 className="text-sm font-extrabold text-warm-700 uppercase tracking-wider">Allergen Flags</h3>
-          <p className="text-xs text-warm-400">Used for allergen filtering in meal planning.</p>
           <div className="flex flex-wrap gap-2">
             {COMMON_ALLERGENS.map((a) => (
               <button

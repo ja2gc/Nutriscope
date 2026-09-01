@@ -30,7 +30,6 @@ export function HelpPage({ role }: { role: WebHelpRole }) {
         crumbs={[[role, homeHref], ["Help"]]}
         title="Help"
         icon={<CircleHelp className="h-5 w-5 text-brand-green-700" />}
-        subtitle={`Find answers for ${role} work, account access, and shared NutriScope operations.`}
       />
 
       <section
@@ -41,9 +40,6 @@ export function HelpPage({ role }: { role: WebHelpRole }) {
           <h2 id="help-search-heading" className="text-lg font-extrabold text-warm-900">
             What do you need help with?
           </h2>
-          <p className="mt-1 text-sm leading-6 text-warm-500">
-            Search your role&apos;s guidance and the questions shared by every NutriScope user.
-          </p>
           <label htmlFor="help-search" className="mt-4 block text-sm font-semibold text-warm-700">
             Search Help
           </label>
@@ -51,7 +47,7 @@ export function HelpPage({ role }: { role: WebHelpRole }) {
           <p aria-live="polite" className="mt-2 text-sm font-medium text-warm-500">
             {normalizedQuery
               ? `${items.length} ${items.length === 1 ? "answer" : "answers"} found`
-              : `${items.length} answers available for your role`}
+              : `${items.length} answers available`}
           </p>
         </div>
       </section>
@@ -62,7 +58,6 @@ export function HelpPage({ role }: { role: WebHelpRole }) {
             <h2 id="popular-help-heading" className="text-base font-extrabold text-warm-900">
               Popular questions
             </h2>
-            <p className="mt-0.5 text-sm text-warm-500">Quick answers users commonly need.</p>
           </div>
           <HelpQuestionList items={popular} instanceId="popular" />
         </section>
@@ -97,7 +92,7 @@ export function HelpPage({ role }: { role: WebHelpRole }) {
           <CircleHelp aria-hidden="true" className="mx-auto h-9 w-9 text-warm-400" />
           <h2 className="mt-3 text-lg font-extrabold text-warm-900">No matching answers</h2>
           <p className="mx-auto mt-2 max-w-xl text-base leading-7 text-warm-500">
-            Try fewer or broader words. You can also clear the search to browse every topic available to your role.
+            Try fewer or broader words. You can also clear the search to browse every topic.
           </p>
           <button
             type="button"

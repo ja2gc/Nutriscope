@@ -91,7 +91,6 @@ export default function AdminNotificationsPage() {
         crumbs={[["Admin", "/admin/dashboard"], ["Notifications"]]}
         title="Notifications"
         icon={<BellDot className="h-5 w-5 text-emerald-600" />}
-        subtitle="Announcements and system alerts addressed to you."
         actions={
           unreadTotal > 0 ? (
             <Button variant="secondary" onClick={handleReadAll} loading={marking} className="w-auto">

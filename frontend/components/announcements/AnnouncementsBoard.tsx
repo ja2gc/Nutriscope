@@ -81,11 +81,11 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
   const apiUpdate = isAdmin ? updateAdminAnnouncement : updateAnnouncement;
   const apiDelete = isAdmin ? deleteAdminAnnouncement : deleteAnnouncement;
 
-  // Breadcrumb / subtitle differ per variant
+  // Breadcrumb and permission guidance differ per variant.
   const breadcrumbRoot = isAdmin ? "Admin" : "Home";
   const subtitle = isAdmin
-    ? "Broadcast notices to FSS, Admin, or all departments. Admin announcements support pinning."
-    : "Post and view department announcements.";
+    ? "Admin announcements can be pinned and sent to FSS, Admin, or all departments."
+    : null;
 
   const { user } = useAuth();
   const [posts, setPosts] = useState<Announcement[]>([]);
@@ -274,11 +274,11 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
                 <h3 className="text-sm font-bold text-warm-900 uppercase tracking-[0.18em]">
                   {editingPostId ? "Edit Announcement" : "Create Announcement"}
                 </h3>
-                <p className="text-xs text-warm-500 mt-1">
-                  {isAdmin
-                    ? "Admin announcements support pinning and all-department visibility."
-                    : "Post content stays hidden until you open the composer."}
-                </p>
+                {isAdmin && (
+                  <p className="text-xs text-warm-500 mt-1">
+                    Pinned announcements can target a specific department or everyone.
+                  </p>
+                )}
               </div>
               <button
                 type="button"
@@ -533,9 +533,7 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
             <Megaphone className="h-5 w-5 text-emerald-600" />
             Announcements
           </h2>
-          <p className="text-sm text-warm-500 mt-1 select-none">
-            {subtitle}
-          </p>
+          {subtitle && <p className="text-sm text-warm-500 mt-1 select-none">{subtitle}</p>}
         </div>
         <Button
           variant="primary"
@@ -561,7 +559,7 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
             Announcements Feed
           </h3>
           <p className="text-xs text-warm-500 mt-1">
-            Pinned posts float to the top. Click any post to view details or edit.
+            Pinned announcements appear first.
           </p>
         </div>
 

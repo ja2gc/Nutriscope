@@ -71,9 +71,6 @@ export default function LoginScreen() {
               <BrandLogo size={34} showWordmark={false} />
             </View>
             <BrandLogo size={28} />
-            <Text className="text-[10px] font-bold text-[#6B7F77] uppercase tracking-widest text-center mt-2">
-              Food service operations
-            </Text>
           </View>
 
           {/* Login Card */}
@@ -81,9 +78,6 @@ export default function LoginScreen() {
             <View className="mb-6 border-b border-zinc-100 pb-4">
               <Text className="text-2xl font-extrabold text-[#16352B]">
                 Welcome back
-              </Text>
-              <Text className="mt-1 text-xs text-zinc-500">
-                Sign in to today’s kitchen and procurement workspace.
               </Text>
             </View>
 
@@ -160,12 +154,6 @@ export default function LoginScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Footer Audit Notice */}
-          <View className="mt-6">
-            <Text className="text-[10px] text-zinc-400 text-center uppercase tracking-widest">
-              Secure Connection • Activity Logs Active
-            </Text>
-          </View>
         </View>
       </View>
     </KeyboardAvoidingView>

@@ -14,13 +14,14 @@ test('meal prep and accomplishments are separate primary tabs', () => {
   assert.doesNotMatch(prep, /<AccomplishmentSection/);
 });
 
-test('menu cycle is read-only and sends operational counts to meal prep', () => {
+test('menu cycle sends operational counts to meal prep without redundant helper copy', () => {
   const menu = fs.readFileSync(path.join(root, 'app', '(tabs)', 'menu.tsx'), 'utf8');
   const prep = fs.readFileSync(path.join(root, 'app', '(tabs)', 'prep.tsx'), 'utf8');
 
   assert.match(menu, /<DayPicker/);
   assert.match(menu, /Planned population/);
-  assert.match(menu, /Actual served population is recorded in Meal Prep/);
+  assert.doesNotMatch(menu, /Read-only weekly plan/);
+  assert.doesNotMatch(menu, /Actual served population is recorded in Meal Prep/);
   assert.match(prep, /Record actual served/);
   assert.match(prep, /setServedPopulation/);
   assert.match(prep, /Could not load meal preparation data/);

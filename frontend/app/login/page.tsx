@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Logo } from "@/components/ui/Logo";
 import { FssAppAccess } from "@/components/mobile-app/FssAppAccess";
-import { AlertTriangle, HeartPulse, Lock, Salad, ShieldCheck } from "lucide-react";
+import { AlertTriangle, HeartPulse, Salad, ShieldCheck } from "lucide-react";
 
 const featureItems = [
   {
@@ -80,9 +80,6 @@ export default function LoginPage() {
 
         <div className="relative z-10">
           <Logo variant="dark" collapsed={false} />
-          <p className="mt-2 text-xs font-extrabold uppercase tracking-[0.16em] text-brand-green-200">
-            Clinical & Operational Care Console
-          </p>
         </div>
 
         <div className="relative z-10 max-w-lg space-y-6">
@@ -91,9 +88,6 @@ export default function LoginPage() {
             <br />
             Operational clarity.
           </h1>
-          <p className="max-w-md text-base font-medium leading-relaxed text-white/90 drop-shadow-[0_2px_6px_rgba(0,0,0,0.45)]">
-            Run the full Nutrition Care Process and hospital food service operations from a single, unified platform.
-          </p>
 
           <div className="flex flex-col gap-3 pt-2">
             {featureItems.map(({ icon: Icon, text }) => (
@@ -109,28 +103,18 @@ export default function LoginPage() {
           </div>
         </div>
 
-        <div className="relative z-10 flex items-center gap-2 text-sm font-medium text-white/65">
-          <Lock className="h-3.5 w-3.5" />
-          <span></span>
-        </div>
       </div>
 
       <div className="flex flex-1 items-center justify-center bg-white px-6 py-12">
         <div className="w-full max-w-[380px] space-y-7">
           <div className="mb-2 flex flex-col items-center text-center lg:hidden">
             <Logo variant="light" />
-            <p className="mt-2 text-xs font-bold uppercase tracking-widest text-warm-500">
-              Clinical & Operational Care Console
-            </p>
           </div>
 
           <div>
             <h2 className="text-3xl font-extrabold tracking-tight text-warm-900">
               Welcome back
             </h2>
-            <p className="mt-2 text-base font-medium text-warm-500">
-              Enter your credentials below to access your workspace.
-            </p>
           </div>
 
           <form id="login-form" onSubmit={handleSubmit} className="space-y-4">
@@ -197,17 +181,6 @@ export default function LoginPage() {
 
           <FssAppAccess compact />
 
-          <div className="border-t border-warm-100 pt-5 text-center">
-            <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-warm-400">
-              RND and Admin web sign in
-            </p>
-          </div>
-
-          <div className="text-center lg:hidden">
-            <p className="select-none text-xs uppercase tracking-widest text-warm-400">
-              Secure Connection - Activity Logs Active
-            </p>
-          </div>
         </div>
       </div>
     </div>

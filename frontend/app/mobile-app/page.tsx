@@ -17,15 +17,9 @@ export default function MobileAppPage() {
 
         <section className="mt-5 rounded-3xl border border-warm-200 bg-white p-5 shadow-sm sm:p-8">
           <Logo variant="light" />
-          <p className="mt-5 text-xs font-extrabold uppercase tracking-[0.16em] text-emerald-700">
-            Food Service Staff
-          </p>
-          <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-warm-900">
+          <h1 className="mt-5 text-3xl font-extrabold tracking-tight text-warm-900">
             NutriScope Android app
           </h1>
-          <p className="mt-3 text-base leading-7 text-warm-600">
-            Download the Food Service Staff app for menu viewing, meal preparation, accomplishments, and purchase records.
-          </p>
 
           <div className="mt-6">
             <FssAppAccess />

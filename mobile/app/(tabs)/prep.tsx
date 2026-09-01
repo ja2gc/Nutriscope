@@ -80,7 +80,7 @@ export default function MealPrepScreen() {
   const loadFailed = activeQuery.isError || cycleQuery.isError || logsQuery.isError;
 
   return <ScrollView className="flex-1 bg-[#F4F7F5]" contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 28 }} refreshControl={<RefreshControl refreshing={activeQuery.isRefetching || cycleQuery.isRefetching} onRefresh={() => { void activeQuery.refetch(); void cycleQuery.refetch(); void logsQuery.refetch(); }} tintColor="#087F5B" />}>
-    <View className="rounded-[24px] bg-[#0B6B4B] p-5"><ChefHat color="#D1FAE5" size={22} /><Text className="mt-3 text-2xl font-extrabold text-white">Meal preparation</Text><Text className="mt-1 text-sm leading-5 text-emerald-100">Review the planned meals, then record the actual patient population served.</Text></View>
+    <View className="rounded-[24px] bg-[#0B6B4B] p-5"><ChefHat color="#D1FAE5" size={22} /><Text className="mt-3 text-2xl font-extrabold text-white">Meal preparation</Text></View>
 
     <View className="mt-3 rounded-[22px] border border-[#E2EAE5] bg-white p-4">
       <Text className="text-xs font-bold uppercase tracking-widest text-[#6B7F77]">Service date</Text>

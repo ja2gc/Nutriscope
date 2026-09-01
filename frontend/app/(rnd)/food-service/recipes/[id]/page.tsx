@@ -215,9 +215,6 @@ export default function EditFSSRecipePage({ params }: { params: Promise<{ id: st
             <CookingPot className="h-5 w-5 text-emerald-600" />
             Edit Food
           </h2>
-          <p className="text-sm text-warm-500 mt-1 select-none">
-            Ingredients sourced from the catalog. Cost calculates live.
-          </p>
         </div>
       </div>
 

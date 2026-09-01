@@ -5,9 +5,6 @@ interface Props { value: string; onChange: (v: string) => void; onSave: () => vo
 export default function EducationTab({ value, onChange, onSave, saving }: Props) {
   return (
     <div className="space-y-4">
-      <p className="text-xs text-warm-400 leading-relaxed">
-        Record educational topics, handouts given, and key instructions discussed with the patient.
-      </p>
       <textarea
         value={value}
         onChange={(e) => onChange(e.target.value)}

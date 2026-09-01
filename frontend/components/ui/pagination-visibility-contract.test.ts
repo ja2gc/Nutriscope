@@ -36,7 +36,7 @@ describe("pagination visibility contract", () => {
     expect(patientProfile).not.toContain("if (items.length === 0)");
   });
 
-  test("keeps Quick Actions text while removing every decorative icon", () => {
+  test("keeps Quick Actions labels while removing decorative icons and summaries", () => {
     const dashboard = source("app/admin/dashboard/page.tsx");
     const start = dashboard.indexOf("{/* Main Grid */}");
     const end = dashboard.indexOf("{/* Right: Activity feed */}");
@@ -45,9 +45,12 @@ describe("pagination visibility contract", () => {
     expect(quickActions).toContain('href="/admin/users"');
     expect(quickActions).toContain('href="/admin/audit-logs"');
     expect(quickActions).toContain('href="/admin/announcements"');
-    expect(quickActions).toContain("RBAC &amp; credentials setup");
-    expect(quickActions).toContain("Filter &amp; monitor operational actions");
-    expect(quickActions).toContain("Broadcast system updates");
+    expect(quickActions).toContain("Manage Accounts");
+    expect(quickActions).toContain("Audit Log Browser");
+    expect(quickActions).toContain("Publish Feed");
+    expect(quickActions).not.toContain("RBAC &amp; credentials setup");
+    expect(quickActions).not.toContain("Filter &amp; monitor operational actions");
+    expect(quickActions).not.toContain("Broadcast system updates");
     expect(quickActions).not.toMatch(/<(Users|Activity|Megaphone|ArrowRight)\b/);
   });
 });

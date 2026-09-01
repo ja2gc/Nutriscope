@@ -15,9 +15,7 @@ export default function HelpScreen() {
   return (
     <ScrollView className="flex-1 bg-gray-50" keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 32 }}>
       <View className="mb-5 rounded-3xl bg-emerald-800 px-5 py-6">
-        <Text className="text-xs font-semibold uppercase tracking-widest text-emerald-100">FSS guidance</Text>
-        <Text className="mt-2 text-2xl font-bold text-white">How can we help?</Text>
-        <Text className="mt-2 text-base leading-6 text-emerald-50">Find answers for your account and Food Service Staff workflows.</Text>
+        <Text className="text-2xl font-bold text-white">How can we help?</Text>
       </View>
 
       <Text className="mb-2 text-sm font-semibold text-gray-800">Search Help</Text>

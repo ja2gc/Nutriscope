@@ -629,10 +629,9 @@ export default function PatientProfilePage({
 
             <div className="bg-white border border-warm-200 rounded-2xl overflow-hidden">
               <div className="px-5 py-4 border-b border-warm-100 bg-warm-50">
-                <h3 className="text-sm font-bold text-warm-900 uppercase tracking-wider">NCP Entry Notes</h3>
+                <h3 className="text-sm font-bold text-warm-900 uppercase tracking-wider">Referral Details</h3>
               </div>
               <div className="p-5.5 space-y-4 text-sm text-warm-600 leading-relaxed">
-                <p>This profile is the entry portal for the Nutrition Care Process. Review the demographics above, then start or continue a cycle from the header button.</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="p-4 bg-warm-50 border border-warm-200 rounded-xl">
                     <span className="text-xs font-extrabold text-warm-400 uppercase tracking-wider block">Referring Physician</span>
@@ -690,7 +689,7 @@ export default function PatientProfilePage({
               <h3 className="text-sm font-extrabold text-warm-700 uppercase tracking-wider">
                 NCP Cycles <span className="font-mono text-warm-400 normal-case ml-1">({records.length})</span>
               </h3>
-              <p className="text-xs text-warm-400 mt-0.5">Each cycle is an independent ADIME workflow for this patient.</p>
+              <p className="text-xs text-warm-400 mt-0.5">Starting a new cycle does not change prior ADIME records.</p>
               <p className="text-xs text-warm-400 mt-1 leading-relaxed max-w-md">
                 A cycle can be deleted as long as it has not completed all of Assessment, Diagnosis, and Intervention. Once all three are recorded, the cycle is protected.
               </p>

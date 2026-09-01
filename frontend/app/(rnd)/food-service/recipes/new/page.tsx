@@ -186,9 +186,6 @@ export default function NewFSSRecipePage() {
             <CookingPot className="h-5 w-5 text-emerald-600" />
             {singleItemMode ? "New Single Item" : "New Food"}
           </h2>
-          <p className="text-sm text-warm-500 mt-1 select-none">
-            {singleItemMode ? "Use one catalog ingredient with a one-serving baseline." : "Ingredients sourced from the catalog. Cost calculates live."}
-          </p>
         </div>
       </div>
 

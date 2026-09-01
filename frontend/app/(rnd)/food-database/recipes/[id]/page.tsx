@@ -157,7 +157,6 @@ export default function EditRecipePage({
             <CookingPot className="h-5 w-5 text-emerald-600" />
             Edit Recipe
           </h2>
-          <p className="text-sm text-warm-500 mt-1 select-none">Update ingredients and recalculate macro totals.</p>
         </div>
       </div>
 

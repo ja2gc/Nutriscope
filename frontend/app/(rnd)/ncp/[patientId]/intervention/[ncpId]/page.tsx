@@ -544,7 +544,6 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
             {intervention?.goal_type && (
               <div className="bg-white border border-warm-200 rounded-2xl p-5 shadow-sm space-y-3">
                 <h3 className="text-sm font-extrabold text-warm-700 uppercase tracking-wider">Food Recommendations</h3>
-                <p className="text-xs text-warm-400">Goal-specific food guidance. RND to individualise based on patient tolerance.</p>
                 <RecommendAvoidPanel goalType={intervention.goal_type} />
               </div>
             )}

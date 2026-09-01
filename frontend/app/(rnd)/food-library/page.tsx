@@ -423,9 +423,6 @@ export default function FoodLibraryPage() {
             </div>
             Food Library
           </h2>
-          <p className="text-sm text-warm-500 mt-1.5 select-none">
-            Clinical food &amp; recipe reference — macros, micros, and allergens for nutrition care.
-          </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {activeTab === "foods" ? (

@@ -6,11 +6,10 @@ interface Props {
   onSave: () => void; saving: boolean;
 }
 
-function Area({ label, hint, value, onChange }: { label: string; hint: string; value: string; onChange: (v: string) => void }) {
+function Area({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
   return (
     <div className="space-y-1.5">
       <label className="block text-xs font-bold text-warm-400 uppercase tracking-widest">{label}</label>
-      <p className="text-xs text-warm-300">{hint}</p>
       <textarea value={value} onChange={(e) => onChange(e.target.value)} rows={4}
         className="w-full px-3.5 py-3 text-base border border-warm-200 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600" />
     </div>
@@ -20,11 +19,11 @@ function Area({ label, hint, value, onChange }: { label: string; hint: string; v
 export default function CounselingTab({ goals, barriers, strategies, onChange, onSave, saving }: Props) {
   return (
     <div className="space-y-4">
-      <Area label="Behavioral Goals" hint="Specific, measurable nutrition goals agreed with the patient."
+      <Area label="Behavioral Goals"
         value={goals} onChange={(v) => onChange('counseling_goals', v)} />
-      <Area label="Identified Barriers" hint="Financial, cultural, lifestyle, or knowledge barriers to adherence."
+      <Area label="Identified Barriers"
         value={barriers} onChange={(v) => onChange('barriers', v)} />
-      <Area label="Strategies" hint="Motivational approaches and action steps to improve adherence."
+      <Area label="Strategies"
         value={strategies} onChange={(v) => onChange('strategies', v)} />
       <div className="flex justify-end">
         <button onClick={onSave} disabled={saving}

@@ -211,7 +211,6 @@ export default function AdminSettingsPage() {
         crumbs={[["Admin", "/admin/dashboard"], ["Settings"]]}
         title="Settings"
         icon={<Settings className="h-5 w-5 text-emerald-600" />}
-        subtitle="Manage hospital branding and your display preferences."
       />
 
       {/* ── Branding card ────────────────────────────────────────── */}

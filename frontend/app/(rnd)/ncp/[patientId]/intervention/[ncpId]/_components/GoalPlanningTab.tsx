@@ -29,7 +29,6 @@ export default function GoalPlanningTab({
 
   return (
     <div className="space-y-5">
-      <p className="text-xs text-warm-400">Links behavioral counseling goals to measurable nutrient targets.</p>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[['Energy', energy, 'kcal'], ['Protein', protein, 'g'], ['Carbs', carbs, 'g'], ['Fat', fat, 'g']].map(([label, val, unit]) => (
           <div key={label} className="bg-emerald-50 border border-emerald-200 p-3 rounded-xl text-center">

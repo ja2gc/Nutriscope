@@ -16,6 +16,7 @@ import {
   calcTokenCostUsd,
 } from "@/lib/aiTokenCost";
 import { KpiCard } from "@/components/ui/KpiCard";
+import { InfoHint } from "@/components/ui/InfoHint";
 import { AiUsageExplorer } from "@/components/admin/AiUsageExplorer";
 import { Badge, BadgeTone } from "@/components/ui/Badge";
 import {
@@ -188,11 +189,8 @@ export default function AdminDashboardPage() {
           </div>
           <h1 className="text-xl font-extrabold text-warm-900 tracking-tight mt-1 flex items-center gap-2.5">
             <LayoutDashboard className="h-5 w-5 text-emerald-600" />
-            Admin Console
+            Dashboard
           </h1>
-          <p className="text-sm text-warm-500 mt-0.5 select-none">
-            System configuration, active directories, AI consumption metrics, and logs.
-          </p>
         </div>
         <button
           onClick={() => void loadData(true)}
@@ -226,7 +224,6 @@ export default function AdminDashboardPage() {
           <KpiCard
             label="Patients in Care"
             value={formatNumber(dashboardData.patients.total)}
-            hint="Clinical records tracked"
             tone="zinc"
           />
           <KpiCard
@@ -248,13 +245,11 @@ export default function AdminDashboardPage() {
       <div className="bg-white border border-warm-200 rounded-3xl overflow-hidden shadow-sm">
         <div className="px-5 py-4 border-b border-warm-100 flex items-center gap-3">
           <Cpu className="h-4 w-4 text-emerald-600 shrink-0" />
-          <div>
-            <h3 className="text-sm font-bold text-warm-900 uppercase tracking-[0.18em]">
-              AI Token Caps
-            </h3>
-            <p className="text-xs text-warm-500 mt-0.5">
-              Set daily and monthly limits. Leave blank for unlimited.
-            </p>
+          <div className="flex items-center gap-1">
+            <h3 className="text-sm font-bold text-warm-900 uppercase tracking-[0.18em]">AI Token Caps</h3>
+            <InfoHint label="How AI token costs are calculated" title="How AI limits and cost work">
+              Daily and monthly limits stop additional AI requests after total token use reaches the limit. Leave a limit blank for unlimited use. Estimated USD cost = (input tokens ÷ 1,000,000 × configured input rate) + (output tokens ÷ 1,000,000 × configured output rate), then the dashboard converts it using its USD-to-PHP rate.
+            </InfoHint>
           </div>
         </div>
 
@@ -409,7 +404,6 @@ export default function AdminDashboardPage() {
               >
                 <div>
                   <div className="text-sm font-bold text-warm-800 group-hover:text-emerald-700 transition-colors">Manage Accounts</div>
-                  <div className="text-xs text-warm-500 mt-0.5">RBAC &amp; credentials setup</div>
                 </div>
               </Link>
 
@@ -419,7 +413,6 @@ export default function AdminDashboardPage() {
               >
                 <div>
                   <div className="text-sm font-bold text-warm-800 group-hover:text-amber-700 transition-colors">Audit Log Browser</div>
-                  <div className="text-xs text-warm-500 mt-0.5">Filter &amp; monitor operational actions</div>
                 </div>
               </Link>
 
@@ -429,7 +422,6 @@ export default function AdminDashboardPage() {
               >
                 <div>
                   <div className="text-sm font-bold text-warm-800 group-hover:text-sky-700 transition-colors">Publish Feed</div>
-                  <div className="text-xs text-warm-500 mt-0.5">Broadcast system updates</div>
                 </div>
               </Link>
             </div>
@@ -443,9 +435,6 @@ export default function AdminDashboardPage() {
               <h3 className="text-sm font-bold text-warm-900 uppercase tracking-[0.18em]">
                 Recent Activity
               </h3>
-              <p className="text-xs text-warm-500 mt-1">
-                Latest 5 system events logged on the server.
-              </p>
             </div>
             <Link
               href="/admin/audit-logs"
@@ -462,9 +451,6 @@ export default function AdminDashboardPage() {
                   <Activity className="h-5 w-5" />
                 </div>
                 <h4 className="text-sm font-bold text-warm-600 mt-3">No system activity</h4>
-                <p className="text-xs text-warm-400 mt-1">
-                  System operations will populate here live.
-                </p>
               </div>
             ) : (
               recentLogs.map((log) => {

@@ -246,9 +246,6 @@ export default function NcpMonitoringPage({
           <Activity className="h-5 w-5 text-emerald-600 shrink-0" />
           Step 4: Nutrition Monitoring & Evaluation
         </h2>
-        <p className="text-sm text-warm-500 mt-1 select-none">
-          Track clinical indices trends, gauge patient goal achievement, and schedule follow-up dates.
-        </p>
       </div>
 
       {/* ── Error banner ────────────────────────────────────────────────────── */}

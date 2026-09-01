@@ -112,7 +112,6 @@ function CycleList({ readOnly, onOpen, onNew }: { readOnly: boolean; onOpen: (id
           <h2 className="text-xl font-extrabold text-warm-900 tracking-tight flex items-center gap-2.5">
             <CalendarDays className="h-5 w-5 text-emerald-600" /> Menu Cycles
           </h2>
-          <p className="text-sm text-warm-500 mt-1">Plan a fixed Monday-Sunday menu from food-service recipes and single items.</p>
         </div>
         <div className="flex items-center gap-3 shrink-0">
           <button onClick={load} className="flex items-center gap-1.5 text-sm text-warm-500 hover:text-warm-700">

@@ -82,9 +82,6 @@ function AuditLogsContent() {
             <Shield className="h-6 w-6 text-brand-green-600" />
             Audit oversight
           </h1>
-          <p className="mt-1 max-w-2xl text-sm leading-relaxed text-warm-600">
-            Review security, clinical, and operational activity through privacy-safe event summaries.
-          </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="secondary" loading={loading} onClick={() => void reload()}>

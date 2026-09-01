@@ -91,7 +91,6 @@ export default function NotificationsPage() {
         crumbs={[["Home", "/dashboard"], ["Notifications"]]}
         title="Notifications"
         icon={<BellDot className="h-5 w-5 text-emerald-600" />}
-        subtitle="Announcements and upcoming follow-up reminders."
         actions={
           unreadTotal > 0 ? (
             <Button variant="secondary" onClick={handleReadAll} loading={marking} className="w-auto">

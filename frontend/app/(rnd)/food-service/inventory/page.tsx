@@ -197,7 +197,6 @@ export default function InventoryCatalogPage() {
           <h2 className="text-xl font-extrabold text-warm-900 tracking-tight flex items-center gap-2.5">
             <Boxes className="h-5 w-5 text-emerald-600" /> Inventory — Reference Catalog
           </h2>
-          <p className="text-sm text-warm-500 mt-1"> Catalogs of foods and Supplies</p>
         </div>
         <div className="flex items-center gap-3 shrink-0">
           <button onClick={load} className="flex items-center gap-1.5 text-sm text-warm-500 hover:text-warm-700">

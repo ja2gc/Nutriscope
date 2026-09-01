@@ -18,11 +18,8 @@ export default function CalendarPage() {
       <div className="border-b border-warm-200 pb-5">
         <h2 className="text-xl font-extrabold text-warm-900 tracking-tight flex items-center gap-2.5">
           <CalendarDays className="h-5 w-5 text-emerald-600 animate-pulse" />
-          RND Scheduling Calendar
+          Calendar
         </h2>
-        <p className="text-sm text-warm-500 mt-1 select-none">
-          Track upcoming patient follow-ups, recheck cycles, and nutritional rounds.
-        </p>
       </div>
 
       {/* Body */}
@@ -30,10 +27,7 @@ export default function CalendarPage() {
         <div className="p-3.5 bg-warm-50 border border-warm-200 rounded-2xl w-fit mx-auto text-warm-400">
           <CalendarIcon className="h-8 w-8 text-emerald-600" />
         </div>
-        <h3 className="text-base font-bold text-warm-800 mt-4 uppercase tracking-wider">Clinical Calendar Scaffold</h3>
-        <p className="text-sm text-warm-500 mt-2 leading-relaxed">
-          The upcoming calendar dashboard will display chronologically sorted ward visitations and automate task assignments for RND teams.
-        </p>
+        <h3 className="text-base font-bold text-warm-800 mt-4">No scheduled visits</h3>
       </div>
     </div>
   );

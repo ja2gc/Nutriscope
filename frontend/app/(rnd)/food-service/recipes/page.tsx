@@ -100,9 +100,6 @@ export default function FSSRecipeListPage() {
             <CookingPot className="h-5 w-5 text-emerald-600" />
             Foods
           </h2>
-          <p className="text-sm text-warm-500 mt-1 select-none">
-            Manage recipes and single-ingredient food items used by the menu cycle.
-          </p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="secondary" onClick={() => router.push("/food-service/foods/new?single=1")}

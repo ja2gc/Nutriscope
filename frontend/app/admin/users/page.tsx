@@ -295,9 +295,6 @@ export default function UserManagementPage() {
             <Users className="h-5 w-5 text-emerald-600" />
             User & RBAC Manager
           </h1>
-          <p className="text-sm text-warm-500 mt-0.5">
-            Manage accounts, roles, active status, and password resets.
-          </p>
         </div>
 
         <button
@@ -496,11 +493,11 @@ export default function UserManagementPage() {
                 <h3 className="text-base font-bold text-warm-900">
                   {editingUser ? "Edit Account" : "Create Account"}
                 </h3>
-                <p className="text-sm text-warm-400 mt-0.5">
-                  {editingUser
-                    ? "Update details. Leave password blank to keep existing."
-                    : "Fill in all required fields."}
-                </p>
+                {editingUser && (
+                  <p className="text-sm text-warm-400 mt-0.5">
+                    Update details. Leave password blank to keep existing.
+                  </p>
+                )}
               </div>
               <button
                 type="button"

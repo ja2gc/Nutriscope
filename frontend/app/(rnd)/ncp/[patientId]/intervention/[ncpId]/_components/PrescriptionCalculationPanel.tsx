@@ -32,7 +32,6 @@ export default function PrescriptionCalculationPanel({ trace, expanded, onToggle
       <div className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-sm font-extrabold text-warm-800">Calculation details</p>
-          <p className="text-xs leading-relaxed text-warm-500">Formula, substituted values, and current prescription.</p>
         </div>
         <button
           type="button"

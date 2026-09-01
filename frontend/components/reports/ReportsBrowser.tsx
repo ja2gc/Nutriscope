@@ -121,7 +121,6 @@ export function ReportsBrowser({ catalog, apiPrefix }: ReportsBrowserProps) {
         crumbs={[["Home", apiPrefix === "admin" ? "/admin/dashboard" : "/dashboard"], ["Reports"]]}
         icon={<FileText className="h-5 w-5 text-emerald-600" />}
         title="Reports"
-        subtitle="Open a saved report with current source data, preview it, or download a local copy for printing."
       />
 
       <Tabs<TabKey>

@@ -956,9 +956,6 @@ export default function ProcurementScreen() {
         onEndReachedThreshold={0.4}
         ListHeaderComponent={<View className="px-4 mb-4">
           <Text className="text-lg font-bold text-gray-900">Procurement</Text>
-          <Text className="text-sm text-gray-500 mt-1">
-            Open purchase events, save OR numbers, and upload receipt/proof images.
-          </Text>
         </View>}
         renderItem={({ item: po }) => <View className="px-4"><PurchaseOrderRow
           po={po}

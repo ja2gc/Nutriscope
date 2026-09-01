@@ -163,7 +163,7 @@ export function SuppliersPanel() {
     <div className="space-y-5">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <p className="text-sm text-warm-500">
-          Vendors used across procurement. Set a description (vegetables, meats…) and contact for reports.
+          Descriptions and contacts appear on procurement reports.
         </p>
         <div className="flex items-center gap-3 shrink-0">
           <button onClick={load} className="flex items-center gap-1.5 text-sm text-warm-500 hover:text-warm-700 transition-colors">

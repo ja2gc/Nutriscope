@@ -105,7 +105,6 @@ export default function NewRecipePage() {
             <CookingPot className="h-5 w-5 text-emerald-600" />
             Create Recipe
           </h2>
-          <p className="text-sm text-warm-500 mt-1 select-none">Build a clinical recipe from foods in your library.</p>
         </div>
       </div>
 

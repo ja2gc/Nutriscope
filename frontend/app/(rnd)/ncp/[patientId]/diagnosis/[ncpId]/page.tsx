@@ -846,7 +846,6 @@ export default function NcpDiagnosisPage({
     <div className="space-y-5 max-w-2xl">
       <div>
         <SectionLabel>Select Etiology Factors (Related to)</SectionLabel>
-        <p className="text-xs text-warm-400 mb-3">Select all that apply for the <span className="font-bold text-warm-600">{DOMAIN_META[builder.domain].label}</span> domain.</p>
         <div className="space-y-1 bg-warm-50/60 rounded-xl p-4 border border-warm-200">
           {getEtiologies(builder.domain).map(e => (
             <Checkbox
@@ -890,7 +889,6 @@ export default function NcpDiagnosisPage({
     <div className="space-y-5 max-w-2xl">
       <div>
         <SectionLabel>Select Signs & Symptoms (As Evidenced By)</SectionLabel>
-        <p className="text-xs text-warm-400 mb-3">Select all that apply for the <span className="font-bold text-warm-600">{DOMAIN_META[builder.domain].label}</span> domain.</p>
         <div className="space-y-1 bg-warm-50/60 rounded-xl p-4 border border-warm-200">
           {getSigns(builder.domain).map(s => (
             <Checkbox
