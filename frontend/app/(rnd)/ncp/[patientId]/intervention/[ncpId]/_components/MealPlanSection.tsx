@@ -875,9 +875,9 @@ export default function MealPlanSection({
                       </div>
                     </div>
                   ))}
-                  <Pagination meta={templateMeta} page={templatePage} onPageChange={setTemplatePage} />
                 </div>
               ))}
+              {!viewingTemplate && <Pagination meta={templateMeta} page={templatePage} onPageChange={setTemplatePage} />}
               {viewingTemplate && (
                 <div className="space-y-3">
                   {viewingTemplate.goal_type && <p className="text-xs text-warm-400 capitalize">{viewingTemplate.goal_type.replace(/_/g, ' ')}</p>}

@@ -72,8 +72,11 @@ describe("RND dashboard pagination", () => {
     expect(fetchAnnouncements).toHaveBeenCalledWith(1, 2);
     expect(container.textContent).toContain("Page 1 of 2");
 
-    const next = container.querySelector<HTMLButtonElement>('button[aria-label="Next page"]');
-    expect(next).not.toBeNull();
+    const nextButtons = Array.from(container.querySelectorAll<HTMLButtonElement>('button[aria-label="Next page"]'));
+    expect(nextButtons).toHaveLength(2);
+    expect(nextButtons[0]?.disabled).toBe(true);
+    const next = nextButtons.find((button) => !button.disabled);
+    expect(next).toBeDefined();
     await act(async () => next?.click());
     await act(async () => undefined);
 

@@ -957,7 +957,6 @@ export default function ProcurementPage() {
                 </tbody>
               </table>
             )}
-            <Pagination meta={listMeta} page={listPage} onPageChange={setListPage} />
             </>
           ) : (
             pos.length === 0 ? (
@@ -1019,6 +1018,7 @@ export default function ProcurementPage() {
               </table>
             )
           )}
+          {tab !== "pos" && <Pagination meta={listMeta} page={listPage} onPageChange={setListPage} />}
           {tab === "pos" && <Pagination meta={poMeta} page={poPage} onPageChange={setPoPage} />}
         </div>
       )}

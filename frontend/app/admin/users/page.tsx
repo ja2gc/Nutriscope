@@ -476,9 +476,9 @@ export default function UserManagementPage() {
               </tbody>
             </table>
           </div>
-          <Pagination meta={usersMeta} page={page} onPageChange={setPage} />
         </div>
       )}
+      {!loading && !error && <Pagination meta={usersMeta} page={page} onPageChange={setPage} />}
 
       {/* ── Create / Edit Modal ─────────────────────────────────────────────── */}
       {formOpen && (

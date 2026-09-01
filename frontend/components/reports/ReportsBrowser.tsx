@@ -315,8 +315,10 @@ function InstancesPanel({
             </li>
           ))}
         </ul>
-        <Pagination meta={instancesMeta} page={page} onPageChange={setPage} />
         </>
+      )}
+      {!loading && (
+        <Pagination meta={instancesMeta} page={page} onPageChange={setPage} />
       )}
 
       {preview && (
@@ -458,7 +460,7 @@ function ArchivedTab({
         </table>
         </div>
       )}
-      {!loading && reports.length > 0 && (
+      {!loading && (
         <Pagination meta={archiveMeta} page={page} onPageChange={setPage} />
       )}
 

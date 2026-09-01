@@ -42,4 +42,20 @@ describe("Pagination", () => {
     expect(container.querySelector<HTMLButtonElement>('button[aria-label="Previous page"]')?.disabled).toBe(true);
     expect(container.querySelector<HTMLButtonElement>('button[aria-label="Next page"]')?.disabled).toBe(true);
   });
+
+  test("shows page one with disabled controls for an empty result", async () => {
+    const onPageChange = vi.fn();
+
+    await act(async () => root.render(
+      <Pagination
+        meta={{ current_page: 1, per_page: 10, total: 0, last_page: 1 }}
+        page={1}
+        onPageChange={onPageChange}
+      />
+    ));
+
+    expect(container.textContent).toContain("Page 1 of 1 · 0 items");
+    expect(container.querySelector<HTMLButtonElement>('button[aria-label="Previous page"]')?.disabled).toBe(true);
+    expect(container.querySelector<HTMLButtonElement>('button[aria-label="Next page"]')?.disabled).toBe(true);
+  });
 });

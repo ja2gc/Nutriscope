@@ -806,13 +806,13 @@ export default function RndDashboardPage() {
                   </table>
                 </div>
                 </div>
-                <Pagination
-                  meta={followUpMeta}
-                  page={followUpPage}
-                  onPageChange={setFollowUpPage}
-                />
               </div>
             )}
+            {!loading && <Pagination
+              meta={followUpMeta}
+              page={followUpPage}
+              onPageChange={setFollowUpPage}
+            />}
           </div>
         </div>
 
@@ -921,7 +921,7 @@ export default function RndDashboardPage() {
               </div>
             )}
           </div>
-          {!announcementsLoading && orderedPosts.length > 0 && (
+          {!announcementsLoading && (
             <Pagination
               meta={announcementsMeta}
               page={announcementsPage}

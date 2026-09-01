@@ -153,9 +153,9 @@ export default function AdminNotificationsPage() {
             </Card>
           ))}
         </div>
-        <Pagination meta={meta} page={page} onPageChange={setPage} />
         </>
       )}
+      {!loading && <Pagination meta={meta} page={page} onPageChange={setPage} />}
     </div>
   );
 }

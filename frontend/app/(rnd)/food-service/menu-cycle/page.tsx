@@ -186,11 +186,15 @@ function CycleList({ readOnly, onOpen, onNew }: { readOnly: boolean; onOpen: (id
       </div>
 
       {/* Templates */}
-      {templates.length > 0 && (
-        <div>
-          <h3 className="text-sm font-extrabold text-warm-700 uppercase tracking-wider flex items-center gap-2 mb-3">
-            <LayoutTemplate className="h-4 w-4 text-warm-400" /> Templates
-          </h3>
+      <div>
+        <h3 className="text-sm font-extrabold text-warm-700 uppercase tracking-wider flex items-center gap-2 mb-3">
+          <LayoutTemplate className="h-4 w-4 text-warm-400" /> Templates
+        </h3>
+        {templates.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-warm-200 bg-warm-50/40 py-10 text-center text-sm font-medium text-warm-400">
+            No menu cycle templates yet.
+          </div>
+        ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {templates.map((t) => (
               <div key={t.id} className="bg-white border border-warm-200 rounded-xl p-4 shadow-sm">
@@ -211,9 +215,9 @@ function CycleList({ readOnly, onOpen, onNew }: { readOnly: boolean; onOpen: (id
               </div>
             ))}
           </div>
-          <Pagination meta={templateMeta} page={templatePage} onPageChange={setTemplatePage} />
-        </div>
-      )}
+        )}
+        <Pagination meta={templateMeta} page={templatePage} onPageChange={setTemplatePage} />
+      </div>
     </Shell>
   );
 }

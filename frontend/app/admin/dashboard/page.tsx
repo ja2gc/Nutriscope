@@ -19,13 +19,10 @@ import { KpiCard } from "@/components/ui/KpiCard";
 import { AiUsageExplorer } from "@/components/admin/AiUsageExplorer";
 import { Badge, BadgeTone } from "@/components/ui/Badge";
 import {
-  Users,
   Cpu,
   Activity,
-  ArrowRight,
   RefreshCw,
   AlertCircle,
-  Megaphone,
   LayoutDashboard,
 } from "lucide-react";
 
@@ -408,48 +405,30 @@ export default function AdminDashboardPage() {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <Link
                 href="/admin/users"
-                className="group border border-warm-200 hover:border-warm-300 bg-warm-50 p-4 rounded-2xl flex flex-col justify-between h-28 hover:shadow-md transition-all"
+                className="group min-h-24 rounded-2xl border border-warm-200 bg-warm-50 p-4 flex items-center hover:border-warm-300 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 transition-all"
               >
-                <div className="p-1.5 rounded-lg bg-white border border-warm-200 text-warm-500 group-hover:text-emerald-600 group-hover:border-emerald-100 group-hover:bg-emerald-50 w-fit transition-colors">
-                  <Users className="h-4 w-4" />
-                </div>
                 <div>
-                  <div className="text-sm font-bold text-warm-800 flex items-center gap-1 group-hover:text-emerald-700 transition-colors">
-                    Manage Accounts
-                    <ArrowRight className="h-3.5 w-3.5 opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all" />
-                  </div>
+                  <div className="text-sm font-bold text-warm-800 group-hover:text-emerald-700 transition-colors">Manage Accounts</div>
                   <div className="text-xs text-warm-500 mt-0.5">RBAC &amp; credentials setup</div>
                 </div>
               </Link>
 
               <Link
                 href="/admin/audit-logs"
-                className="group border border-warm-200 hover:border-warm-300 bg-warm-50 p-4 rounded-2xl flex flex-col justify-between h-28 hover:shadow-md transition-all"
+                className="group min-h-24 rounded-2xl border border-warm-200 bg-warm-50 p-4 flex items-center hover:border-warm-300 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 transition-all"
               >
-                <div className="p-1.5 rounded-lg bg-white border border-warm-200 text-warm-500 group-hover:text-amber-600 group-hover:border-amber-100 group-hover:bg-amber-50 w-fit transition-colors">
-                  <Activity className="h-4 w-4" />
-                </div>
                 <div>
-                  <div className="text-sm font-bold text-warm-800 flex items-center gap-1 group-hover:text-amber-700 transition-colors">
-                    Audit Log Browser
-                    <ArrowRight className="h-3.5 w-3.5 opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all" />
-                  </div>
+                  <div className="text-sm font-bold text-warm-800 group-hover:text-amber-700 transition-colors">Audit Log Browser</div>
                   <div className="text-xs text-warm-500 mt-0.5">Filter &amp; monitor operational actions</div>
                 </div>
               </Link>
 
               <Link
                 href="/admin/announcements"
-                className="group border border-warm-200 hover:border-warm-300 bg-warm-50 p-4 rounded-2xl flex flex-col justify-between h-28 hover:shadow-md transition-all"
+                className="group min-h-24 rounded-2xl border border-warm-200 bg-warm-50 p-4 flex items-center hover:border-warm-300 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 transition-all"
               >
-                <div className="p-1.5 rounded-lg bg-white border border-warm-200 text-warm-500 group-hover:text-sky-600 group-hover:border-sky-100 group-hover:bg-sky-50 w-fit transition-colors">
-                  <Megaphone className="h-4 w-4" />
-                </div>
                 <div>
-                  <div className="text-sm font-bold text-warm-800 flex items-center gap-1 group-hover:text-sky-700 transition-colors">
-                    Publish Feed
-                    <ArrowRight className="h-3.5 w-3.5 opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all" />
-                  </div>
+                  <div className="text-sm font-bold text-warm-800 group-hover:text-sky-700 transition-colors">Publish Feed</div>
                   <div className="text-xs text-warm-500 mt-0.5">Broadcast system updates</div>
                 </div>
               </Link>

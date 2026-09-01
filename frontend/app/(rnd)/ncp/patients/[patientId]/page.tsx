@@ -262,12 +262,6 @@ function CycleAttachments({ ncpId }: { ncpId: number | string }) {
     return <div className="h-10 bg-warm-100 rounded-lg animate-pulse" />;
   }
 
-  if (items.length === 0) {
-    return (
-      <p className="text-xs text-warm-400 font-semibold px-1 py-2">No documents attached to this cycle.</p>
-    );
-  }
-
   return (
     <>
       {lightbox && (
@@ -278,50 +272,54 @@ function CycleAttachments({ ncpId }: { ncpId: number | string }) {
           onClose={() => setLightbox(null)}
         />
       )}
-      <div className="space-y-2">
-        {error && (
-          <div className="px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700 font-semibold">{error}</div>
-        )}
-        {items.map((doc, index) => {
-          const fileUrl = getAttachmentFileUrl(doc.id);
-          const docName = getAttachmentDisplayName(doc, index, items.length);
-          const isImg = isImagePath(doc.file_path);
-          return (
-            <div key={doc.id} className="flex items-center gap-3 px-3 py-2 bg-warm-50 border border-warm-200 rounded-xl">
-              <FileText className="h-4 w-4 text-warm-400 shrink-0" />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-warm-800 truncate">{docName}</p>
-                {doc.type && <p className="text-xs text-warm-400">{doc.type}</p>}
+      {items.length === 0 ? (
+        <p className="text-xs text-warm-400 font-semibold px-1 py-2">No documents attached to this cycle.</p>
+      ) : (
+        <div className="space-y-2">
+          {error && (
+            <div className="px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700 font-semibold">{error}</div>
+          )}
+          {items.map((doc, index) => {
+            const fileUrl = getAttachmentFileUrl(doc.id);
+            const docName = getAttachmentDisplayName(doc, index, items.length);
+            const isImg = isImagePath(doc.file_path);
+            return (
+              <div key={doc.id} className="flex items-center gap-3 px-3 py-2 bg-warm-50 border border-warm-200 rounded-xl">
+                <FileText className="h-4 w-4 text-warm-400 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-warm-800 truncate">{docName}</p>
+                  {doc.type && <p className="text-xs text-warm-400">{doc.type}</p>}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setLightbox({ url: fileUrl, isImage: isImg, name: docName })}
+                  className="p-1.5 text-warm-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                  title="View"
+                >
+                  <Eye className="h-3.5 w-3.5" />
+                </button>
+                <a
+                  href={fileUrl}
+                  download={docName}
+                  className="p-1.5 text-warm-400 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition-colors"
+                  title="Download"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                </a>
+                <button
+                  type="button"
+                  onClick={() => handleDelete(doc.id)}
+                  disabled={deletingId === doc.id}
+                  className="p-1.5 text-warm-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                  title="Delete"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => setLightbox({ url: fileUrl, isImage: isImg, name: docName })}
-                className="p-1.5 text-warm-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
-                title="View"
-              >
-                <Eye className="h-3.5 w-3.5" />
-              </button>
-              <a
-                href={fileUrl}
-                download={docName}
-                className="p-1.5 text-warm-400 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition-colors"
-                title="Download"
-              >
-                <Download className="h-3.5 w-3.5" />
-              </a>
-              <button
-                type="button"
-                onClick={() => handleDelete(doc.id)}
-                disabled={deletingId === doc.id}
-                className="p-1.5 text-warm-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
-                title="Delete"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
       <Pagination meta={meta} page={page} onPageChange={setPage} />
     </>
   );

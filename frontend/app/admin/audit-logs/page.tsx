@@ -141,9 +141,9 @@ function AuditLogsContent() {
           ) : (
             <Card className="overflow-hidden">
               <AuditEventTable events={events} onSelect={setSelected} />
-              <Pagination meta={meta} page={page} onPageChange={setPage} />
             </Card>
           )}
+          <Pagination meta={meta} page={page} onPageChange={setPage} />
         </>
       )}
 

@@ -192,9 +192,9 @@ export default function FSSRecipeListPage() {
               ))}
             </tbody>
           </table>
-          {meta && <Pagination meta={meta} page={page} onPageChange={(p) => void loadPage(p, filterCat)} />}
         </div>
       )}
+      {!loading && <Pagination meta={meta} page={page} onPageChange={(p) => void loadPage(p, filterCat)} />}
 
       {/* Delete confirm */}
       {deleteId && (
