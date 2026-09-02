@@ -2,6 +2,7 @@
 
 namespace Tests\Unit;
 
+use App\Jobs\RunBackupRecoveryTest;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -38,5 +39,19 @@ class BackupConfigurationTest extends TestCase
             $this->assertMatchesRegularExpression('/^BACKUP_SECRET_ACCESS_KEY=$/m', $contents);
             $this->assertMatchesRegularExpression('/^BACKUP_ARCHIVE_PASSWORD=$/m', $contents);
         }
+    }
+
+    #[Test]
+    public function production_queue_retry_window_exceeds_the_longest_backup_job_timeout(): void
+    {
+        $env = file_get_contents(base_path('.env.production.example'));
+
+        $this->assertIsString($env);
+        $this->assertSame(1, preg_match('/^REDIS_QUEUE_RETRY_AFTER=(\d+)$/m', $env, $matches));
+        $this->assertGreaterThan((new RunBackupRecoveryTest('test'))->timeout, (int) $matches[1]);
+        $this->assertGreaterThan(
+            (new RunBackupRecoveryTest('test'))->timeout,
+            config('queue.connections.redis.retry_after'),
+        );
     }
 }

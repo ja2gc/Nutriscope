@@ -47,6 +47,8 @@ class ManualBackupRetentionTest extends TestCase
     #[Test]
     public function expired_manual_backup_enters_recently_deleted_for_48_hours(): void
     {
+        $this->freezeSecond();
+
         $backup = BackupRun::factory()->completed()->create([
             'source' => BackupSource::Manual,
             'retention_tier' => null,
@@ -63,6 +65,8 @@ class ManualBackupRetentionTest extends TestCase
     #[Test]
     public function keeping_a_manual_backup_grants_a_new_seven_day_window(): void
     {
+        $this->freezeSecond();
+
         $admin = User::factory()->admin()->create();
         $backup = BackupRun::factory()->create([
             'source' => BackupSource::Manual,

@@ -16,7 +16,7 @@ Enable MFA, store recovery codes with the client, name at least two authorized a
 
 Use `backend/.env.production.example` and keep the live file root-owned and unreadable to other system users. Preserve `APP_KEY`. Set `PRIVATE_UPLOADS_DRIVER=local`; the unused private-upload object-storage credential fields remain blank. Store Cloudflare R2 credentials only in `BACKUP_*`. Never expose `.env`, archive passwords, SMTP credentials, database administration credentials, or object-storage keys in Git or the Admin UI.
 
-Configure web, worker, scheduler, release, MySQL, Redis, the persistent private-upload volume, Cloudflare R2 backup storage, email, and public `/up`. Implement the Phase 1.5 `EnvironmentSwitcher` contract for DigitalOcean before production restoration; do not bypass the temporary-database-first workflow or write provider logic into generic storage services.
+Configure web, worker, scheduler, release, MySQL, Redis, the persistent private-upload volume, Cloudflare R2 backup storage, email, and public `/up`. Keep `REDIS_QUEUE_RETRY_AFTER=1260`, which exceeds the 1200-second recovery-test job timeout. Implement the Phase 1.5 `EnvironmentSwitcher` contract for DigitalOcean before production restoration; do not bypass the temporary-database-first workflow or write provider logic into generic storage services.
 
 ## Existing domain facts to re-check
 
