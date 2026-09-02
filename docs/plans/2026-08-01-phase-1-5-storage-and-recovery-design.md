@@ -22,7 +22,7 @@ Laravel owns settings, workflow metadata, authorization, validation, orchestrati
 
 MySQL stores authoritative manifest metadata, checksums, object keys, and relationships. Each immutable manifest document stays beside its encrypted database archive in private backup object storage.
 
-Production uses separate private-upload and backup buckets or separate least-privilege credentials where supported. Upload credentials must not permit backup deletion. Provider snapshots, object versioning, lifecycle rules, and bucket locks remain additional Phase 2 safeguards.
+The selected single-Droplet deployment keeps primary private uploads on a persistent local Docker volume and stores encrypted backups plus protected upload copies in a private Cloudflare R2 bucket. Backup credentials access only that bucket. If primary uploads later move to object storage, their bucket and credentials must remain separate and must not permit backup deletion. Provider snapshots, object versioning, lifecycle rules, and bucket locks remain additional Phase 2 safeguards.
 
 ## Automatic schedules
 

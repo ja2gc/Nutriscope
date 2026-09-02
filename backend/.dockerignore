@@ -15,6 +15,7 @@
 
 # Laravel runtime / caches
 /public/storage
+/storage/app/*
 /storage/*.key
 /storage/logs/*
 /storage/framework/cache/data/*

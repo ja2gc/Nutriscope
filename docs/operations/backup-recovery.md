@@ -24,6 +24,8 @@ Each restore point combines:
 
 NutriScope verifies archive existence, size, SHA-256, decryption, the expected SQL dump, manifest schema/checksum, and every referenced protected object. It does not copy reproducible report-cache PDFs, `.env`, logs, Redis data, containers, or HTTPS keys.
 
+The selected single-Droplet deployment keeps live private uploads on the persistent `nutriscope_private_uploads` Docker volume. Encrypted database archives, manifests, and checksum-addressed protected upload copies are stored outside DigitalOcean in a private Cloudflare R2 bucket. Backup credentials access only that bucket.
+
 At least every 30 days, NutriScope restores the latest verified point into a disposable MySQL database. Checks are read-only: schema, foreign keys, application/authentication tables, role definitions, supported password hashes, manifest, files, and critical boot integrity. The drill creates no user, password, session, or business fixture and always drops its database. The page shows the latest successful recovery-test date.
 
 ## Available and Recently Deleted

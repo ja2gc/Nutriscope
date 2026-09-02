@@ -20,6 +20,8 @@ class NotificationLifecycleTest extends TestCase
 
     public function test_pruning_deletes_opened_announcements_after_three_days_only(): void
     {
+        $this->freezeSecond();
+
         $user = User::factory()->create();
         $eligible = Notification::factory()->for($user)->create([
             'type' => 'announcement',

@@ -5,6 +5,8 @@ x-backend-common: &backend-common
     restart: unless-stopped
     env_file:
       - ./backend/.env.production
+    volumes:
+      - nutriscope_private_uploads:/var/www/html/storage/app/private-uploads
     depends_on:
       mysql:
         condition: service_healthy
@@ -49,3 +51,8 @@ services:
       - backend
     networks:
       - nutriscope_net
+
+volumes:
+  nutriscope_private_uploads:
+    name: nutriscope_private_uploads
+    driver: local

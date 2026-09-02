@@ -65,6 +65,35 @@ class ProductionDeploymentContractTest extends TestCase
     }
 
     #[Test]
+    public function production_keeps_private_uploads_on_persistent_local_storage(): void
+    {
+        $compose = file_get_contents(base_path('../docker-compose.prod.yml'));
+        $dockerignore = file_get_contents(base_path('.dockerignore'));
+        $env = file_get_contents(base_path('.env.production.example'));
+        $entrypoint = file_get_contents(base_path('docker-entrypoint.sh'));
+
+        $this->assertIsString($compose);
+        $this->assertIsString($dockerignore);
+        $this->assertIsString($env);
+        $this->assertIsString($entrypoint);
+        $this->assertStringContainsString('nutriscope_private_uploads:/var/www/html/storage/app/private-uploads', $compose);
+        $this->assertStringContainsString('nutriscope_private_uploads:', $compose);
+        $this->assertStringContainsString('/storage/app/*', $dockerignore);
+        $this->assertStringContainsString('PRIVATE_UPLOADS_DRIVER=local', $env);
+        $this->assertStringContainsString('chown www-data:www-data "$private_uploads_path"', $entrypoint);
+    }
+
+    #[Test]
+    public function public_health_check_is_proxied_directly_to_laravel(): void
+    {
+        $nginx = file_get_contents(base_path('../nginx/mobile-api.locations.conf'));
+
+        $this->assertIsString($nginx);
+        $this->assertStringContainsString('location = /up', $nginx);
+        $this->assertStringContainsString('proxy_pass         http://127.0.0.1:8080/up;', $nginx);
+    }
+
+    #[Test]
     public function current_operations_guides_do_not_depend_on_the_legacy_deployment_runbook(): void
     {
         $requirements = file_get_contents(base_path('../docs/operations/platform-requirements.md'));

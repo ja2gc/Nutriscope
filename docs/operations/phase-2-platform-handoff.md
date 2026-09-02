@@ -8,15 +8,15 @@ Start from the pushed `main` commit referenced by the annotated tag `phase-1.5-c
 
 ## Client-owned decisions and accounts
 
-The client owns hosting/billing, managed MySQL and Redis, private S3-compatible primary-upload storage, separate private backup storage, domain/DNS, mail delivery, and alert mailbox access. Use separate buckets or least-privilege credentials so upload compromise cannot delete backups. Keep backup storage in another failure domain where practical.
+The selected first deployment keeps the existing DigitalOcean Droplet, Docker MySQL and Redis, and primary private uploads on the persistent `nutriscope_private_uploads` volume. Encrypted backup archives and protected upload copies use a private Cloudflare R2 bucket outside DigitalOcean. The client still owns hosting/billing, domain/DNS, mail delivery, and alert mailbox access. If primary uploads later move to object storage, use a separate bucket and credentials that cannot delete backups.
 
 Enable MFA, store recovery codes with the client, name at least two authorized account administrators, and confirm billing/outage contacts. Check current official provider pricing and behavior before purchase. Provider snapshots, object versioning, lifecycle rules, and bucket locks are additional safeguards, not replacements for NutriScope restore points.
 
 ## Secrets and deployment
 
-Use the platform secret manager and `backend/.env.production.example`. Configure `PRIVATE_UPLOADS_*` and `BACKUP_*` separately. Never expose `.env`, `APP_KEY`, archive passwords, SMTP credentials, database administration credentials, or object-storage keys in Git or the Admin UI.
+Use `backend/.env.production.example` and keep the live file root-owned and unreadable to other system users. Preserve `APP_KEY`. Set `PRIVATE_UPLOADS_DRIVER=local`; the unused private-upload object-storage credential fields remain blank. Store Cloudflare R2 credentials only in `BACKUP_*`. Never expose `.env`, archive passwords, SMTP credentials, database administration credentials, or object-storage keys in Git or the Admin UI.
 
-Configure web, worker, scheduler, release, MySQL, Redis, private uploads, backup storage, email, and `/up`. Implement the Phase 1.5 `EnvironmentSwitcher` contract for the selected provider; do not bypass the temporary-database-first workflow or write provider logic into generic storage services.
+Configure web, worker, scheduler, release, MySQL, Redis, the persistent private-upload volume, Cloudflare R2 backup storage, email, and public `/up`. Implement the Phase 1.5 `EnvironmentSwitcher` contract for DigitalOcean before production restoration; do not bypass the temporary-database-first workflow or write provider logic into generic storage services.
 
 ## Existing domain facts to re-check
 
@@ -25,7 +25,7 @@ Prior inspection found Name.com nameservers and `nutriscope.live`/`www` resolvin
 ## Acceptance sequence
 
 1. Verify the Phase 1.5 tag and pushed `main` revision.
-2. Deploy to client-owned services and run the release process once.
+2. Copy any existing container-local private uploads into `nutriscope_private_uploads`, deploy, and run the release process once.
 3. Verify `/up`, workers, scheduler heartbeat, Redis locks, private uploads, mail, and role workflows.
 4. Migrate legacy sensitive files with `php artisan storage:migrate-private-objects` and confirm no required public bytes remain.
 5. Create one manual restore point and confirm archive, manifest, uploaded-file copies, and verification.

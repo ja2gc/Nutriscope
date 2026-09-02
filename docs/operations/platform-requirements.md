@@ -22,10 +22,10 @@ Important groups are `APP_*`, `DB_*`, `REDIS_*`, `CACHE_*`, `SESSION_*`, `QUEUE_
 
 ## Storage boundaries
 
-- `private_uploads` holds clinical documents, purchase-order evidence, profile photos, private branding, and other durable sensitive files. APIs use authorized streaming; buckets are private by default.
+- `private_uploads` holds clinical documents, purchase-order evidence, profile photos, private branding, and other durable sensitive files. APIs use authorized streaming. The selected single-Droplet deployment uses the named `nutriscope_private_uploads` Docker volume outside the public web root; a future object-storage deployment must use a private bucket.
 - `report_cache` holds reproducible prepared PDFs for 24 hours. It is excluded from durable manifests and backup retention.
 - `BACKUP_DISK` holds encrypted MySQL archives, immutable manifests, and checksum-addressed protected uploaded-file copies.
-- Primary upload and backup storage must use separate buckets or separate least-privilege credentials where supported. Upload credentials must not allow backup deletion.
+- Backup storage must remain outside the Droplet that holds primary uploads. Backup credentials access only the private backup bucket. If primary uploads later move to object storage, use a separate bucket and credentials that cannot delete backups.
 - Only intentionally public assets use public storage. No binary-file framework stores all uploads in MySQL.
 
 Keep backup storage separate from primary application infrastructure where practical. Phase 2 should add provider versioning, lifecycle protection, snapshots, or bucket locks where supported, but application credentials must not control retention locks.
