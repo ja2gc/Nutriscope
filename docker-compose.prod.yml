@@ -16,6 +16,11 @@ x-backend-common: &backend-common
       - nutriscope_net
 
 services:
+  mysql:
+    environment:
+      MYSQL_ROOT_PASSWORD: "${DB_ROOT_PASSWORD:?DB_ROOT_PASSWORD is required for production}"
+      MYSQL_ALLOW_EMPTY_PASSWORD: !reset null
+
   backend:
     <<: *backend-common
     ports:

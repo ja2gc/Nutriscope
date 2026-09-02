@@ -18,6 +18,8 @@ Use `backend/.env.production.example` and keep the live file root-owned and unre
 
 Configure web, worker, scheduler, release, MySQL, Redis, the persistent private-upload volume, Cloudflare R2 backup storage, email, and public `/up`. Keep `REDIS_QUEUE_RETRY_AFTER=1260`, which exceeds the 1200-second recovery-test job timeout. Implement the Phase 1.5 `EnvironmentSwitcher` contract for DigitalOcean before production restoration; do not bypass the temporary-database-first workflow or write provider logic into generic storage services.
 
+Production Compose requires `DB_ROOT_PASSWORD` and removes MySQL's empty-password initialization flag. Keep the matching application database password in the protected production environment. Deployment accepts fast-forward Git updates only, retains one prior backend and frontend image as rollback candidates, and must pass the internal Laravel `/up` check before reporting success.
+
 ## Existing domain facts to re-check
 
 Prior inspection found Name.com nameservers and `nutriscope.live`/`www` resolving to `168.144.115.27`, with DMARC `p=none`. These facts can change. Re-query all DNS records immediately before cutover, lower TTL in advance, issue a new certificate at the destination, and do not copy the old certificate private key.

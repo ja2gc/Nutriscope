@@ -39,6 +39,7 @@ Let managed hosting issue a new HTTPS certificate after DNS cutover. Do not copy
 ## Release acceptance
 
 1. Run the release process once and confirm `/up`.
+   The DigitalOcean deployment must fast-forward cleanly, retain the previous backend and frontend images as rollback candidates, and fail when its internal Laravel health check does not pass.
 2. Confirm worker, scheduler heartbeat, Redis locks, MySQL, private uploads, and backup storage readiness.
 3. Sign in with a test account and verify critical RND, FSS, and Admin workflows.
 4. Create one manual restore point and verify its archive, manifest, and protected files.

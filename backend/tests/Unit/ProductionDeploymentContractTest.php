@@ -29,6 +29,31 @@ class ProductionDeploymentContractTest extends TestCase
     }
 
     #[Test]
+    public function production_mysql_requires_a_root_password_and_disables_empty_password_initialization(): void
+    {
+        $compose = file_get_contents(base_path('../docker-compose.prod.yml'));
+
+        $this->assertIsString($compose);
+        $this->assertStringContainsString('MYSQL_ROOT_PASSWORD: "${DB_ROOT_PASSWORD:?', $compose);
+        $this->assertStringContainsString('MYSQL_ALLOW_EMPTY_PASSWORD: !reset null', $compose);
+    }
+
+    #[Test]
+    public function digitalocean_deployment_is_fast_forward_only_and_keeps_a_rollback_image(): void
+    {
+        $workflow = file_get_contents(base_path('../.github/workflows/deploy.yml'));
+
+        $this->assertIsString($workflow);
+        $this->assertStringContainsString('git merge --ff-only origin/main', $workflow);
+        $this->assertStringContainsString('nutriscope-backend:rollback', $workflow);
+        $this->assertStringContainsString('curl --fail --silent --show-error', $workflow);
+        $this->assertStringContainsString('envs: DB_ROOT_PASSWORD', $workflow);
+        $this->assertStringNotContainsString('export DB_ROOT_PASSWORD=${{ secrets.DB_ROOT_PASSWORD }}', $workflow);
+        $this->assertStringNotContainsString('git reset --hard', $workflow);
+        $this->assertStringNotContainsString('docker image prune', $workflow);
+    }
+
+    #[Test]
     public function production_image_build_can_use_the_locked_source_when_dist_is_unavailable(): void
     {
         $dockerfile = file_get_contents(base_path('Dockerfile'));
