@@ -112,7 +112,7 @@ flowchart LR
 | 5. Communication | Announcements/SOP | Publishes targeted post or revises approved SOP | Notifies matching users and preserves SOP versions | Policy reaches correct roles |
 | 6. Operational review | Reports and Budget | Reviews allowed reports, ledger, and history | Blocks patient-specific reports; Budget remains read-only | Oversight follows least privilege |
 | 7. Configuration | Settings | Updates branding, logos, per-head/day setting, preferences | Future reports/UI use current configuration | Admin maintains shared system presentation |
-| 8. Continuity | Backup & Recovery | Reviews schedules and restore points or initiates staged whole-system recovery | Verifies readiness, protects archives, stages restoration, and rolls back on failure | Recovery remains controlled and auditable |
+| 8. Continuity | Backup & Recovery | Filters lifecycle/category tabs, reviews expiry, manages Recently Deleted, or initiates staged whole-system recovery | Verifies readiness, protects archives, stages restoration, and rolls back on failure | Recovery remains controlled and auditable |
 
 ```mermaid
 flowchart LR

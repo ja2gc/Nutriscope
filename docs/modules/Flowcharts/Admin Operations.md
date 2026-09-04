@@ -1,6 +1,6 @@
 # Admin — Current Operations Flow
 
-Verified against current Admin web pages and Laravel Admin/report guards on **2026-07-20**.
+Verified against current Admin web pages and Laravel Admin/report/backup guards on **2026-09-04**.
 
 ## Admin Navigation and Responsibilities
 
@@ -16,6 +16,7 @@ flowchart TD
     B --> I["Settings and Branding"]
     B --> J["Notifications and Profile"]
     B --> K["Help: Shared and Admin-only guidance"]
+    B --> L["Backup and Recovery"]
 ```
 
 ## Account Lifecycle
@@ -85,6 +86,28 @@ flowchart TD
     J["Settings"] --> K["Hospital/report branding and logos"]
     J --> L["Food-service budget per head/day"]
     J --> M["Local display/notification preferences"]
+```
+
+## Backup and Recovery
+
+```mermaid
+flowchart TD
+    A["Backup and Recovery"] --> B["Review health, schedules, and recovery-test date"]
+    A --> C["Filter lifecycle and category tabs"]
+    C --> D["Paginated restore-point list"]
+    D --> E{"Admin action"}
+    E -->|"Create backup now"| F["Independent manual point with no automatic expiry"]
+    E -->|"Delete"| G["Recently Deleted for 48 hours"]
+    G -->|"Keep backup"| D
+    G -->|"Delete permanently"| H["Confirmed purge and Audit Log"]
+    E -->|"Restore"| I["Fresh authentication and exact confirmation"]
+    I --> J["Safety snapshot and temporary MySQL validation"]
+    J --> K{"Restore guard and prerequisites ready?"}
+    K -->|"No"| L["Remain Ready; production unchanged"]
+    K -->|"Yes"| M["Redis maintenance, transactional restore, health checks"]
+    M --> N{"Healthy?"}
+    N -->|"Yes"| O["Completed"]
+    N -->|"No"| P["Automatic safety-snapshot rollback"]
 ```
 
 ## Explicit Safety Boundary

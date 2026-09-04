@@ -6,7 +6,9 @@ This is the maintained administrator reference for the Phase 1.5 backup and whol
 
 ```mermaid
 flowchart TD
-    A["Admin Backup page"] --> B{"Automatic schedules enabled?"}
+    A["Admin Backup page"] --> A1["Use lifecycle tabs: Available, In progress, Failed, Recently Deleted"]
+    A1 --> A2["Use category tabs: Daily, Weekly, Monthly, Manual"]
+    A2 --> B{"Automatic schedules enabled?"}
     B -->|"None"| C["Show: Automatic backups are disabled"]
     B -->|"Any combination"| D["Show each next scheduled backup"]
     D --> E["Coordinator checks every 10 minutes after the 01:30 Asia/Manila target"]
@@ -14,7 +16,7 @@ flowchart TD
     F -->|"No"| G["Do nothing; period already satisfied"]
     F -->|"Yes"| H["Claim category and period with unique locks"]
     H --> I["One queued backup satisfies all categories due together"]
-    A --> J["Admin selects Create backup now"]
+    A2 --> J["Admin selects Create backup now"]
     J --> K["Create independent manual restore point kept until Admin deletion"]
     I --> L["Run shared backup pipeline"]
     K --> L
@@ -81,8 +83,8 @@ flowchart TD
     L -->|"Yes"| M["Show Ready"]
     M --> N{"Admin cancels before Switching?"}
     N -->|"Yes"| O["Drop temporary database, mark Cancelled, notify page, and audit"]
-    N -->|"No"| P{"Production environment switcher configured?"}
-    P -->|"No"| Q["Remain Ready; production unchanged; notify Admin for Phase 2 configuration"]
+    N -->|"No"| P{"Restore enabled and single-Droplet prerequisites ready?"}
+    P -->|"No"| Q["Remain Ready; production unchanged; enable only after acceptance"]
     P -->|"Yes"| R["Enter shared Redis maintenance mode immediately before switching"]
     R --> S["Transactionally restore application data and activate matching private files"]
     S --> T["Run basic production health and manifest checks"]

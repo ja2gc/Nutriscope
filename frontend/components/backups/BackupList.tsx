@@ -37,11 +37,10 @@ export function BackupList({ backups, busyId, onDelete, onKeep, onRecovery, onCa
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <Badge tone={tones[backup.state]}>{labels[backup.state]}</Badge>
-              {backup.categories.map((category) => <Badge key={category} tone="zinc">{category}</Badge>)}
               {backup.recovery && <Badge tone="sky">Recovery: {backup.recovery.state.replaceAll("_", " ")}</Badge>}
             </div>
             <p className="mt-2 flex items-center gap-2 text-sm font-semibold text-warm-900"><Clock3 className="h-4 w-4 text-warm-400" />{date(backup.verified_at || backup.queued_at)}</p>
-            <p className="mt-1 text-xs text-warm-500">Size: {size(backup.size_bytes)}{backup.source === "manual" && backup.state === "completed" ? " · Kept until you delete it." : backup.retention_expires_at ? ` · Retained automatically until ${date(backup.retention_expires_at)}` : ""}{backup.recoverable_until ? ` · Recover before: ${date(backup.recoverable_until)}` : ""}</p>
+            <p className="mt-1 text-xs text-warm-500">Size: {size(backup.size_bytes)}{backup.retention_expires_at ? ` · Expires on ${date(backup.retention_expires_at)}` : ""}{backup.recoverable_until ? ` · Recover before: ${date(backup.recoverable_until)}` : ""}</p>
             {backup.failure?.message && <p role="alert" className="mt-2 text-sm font-semibold text-red-700">{backup.failure.message}</p>}
             {backup.recovery?.failure_message && <p role="alert" className="mt-2 text-sm font-semibold text-red-700">{backup.recovery.failure_message}</p>}
           </div>

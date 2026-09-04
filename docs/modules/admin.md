@@ -1,6 +1,6 @@
 # Admin Module — Current Role and Workflow
 
-Verified against current Admin web pages, shared components, and Laravel role/report guards on **2026-08-29**. This replaces older text saying the Admin frontend still needed rebuilding; the current light-theme Admin console is live.
+Verified against current Admin web pages, shared components, and Laravel role/report/backup guards on **2026-09-04**. This replaces older text saying the Admin frontend still needed rebuilding; the current light-theme Admin console is live.
 
 ## Role Purpose
 
@@ -144,7 +144,11 @@ The budget-per-head/day value is a shared backend setting used by food-service c
 
 Admin can view restore points, create a manual backup, and independently enable Daily, Weekly, or Monthly automatic schedules after readiness checks pass. All schedules are disabled by default. Existing backups retain their assigned retention when a schedule is disabled, and disabling the final active schedule requires confirmation.
 
-Backup records are paginated. Completed backups may be moved to Recently Deleted for 48 hours and kept during that window. Whole-system recovery requires fresh authentication and explicit confirmation, then runs through protected queued work rather than inside the browser request. It creates a safety snapshot, restores one temporary MySQL database, and verifies matching private uploads. Without the Phase 2 environment switcher, recovery stops safely at Ready; after that provider-specific switcher is configured, it switches only after checks pass and rolls back automatically on failure. Backup archives, credentials, and raw secrets are never exposed to the browser.
+Lifecycle tabs separate Available, In progress, Failed, and Recently Deleted records. Category tabs separate Daily, Weekly, Monthly, and Manual restore points; one automatic archive appears in every schedule category it satisfies. Lists use server pagination. Automatic points show their expiry date. Manual points have no automatic expiry.
+
+**Delete** moves an eligible available point to Recently Deleted for 48 hours. **Keep backup** rescues it during that window without restoring application data. Failed records can be removed after confirmation, and Recently Deleted points can be deleted permanently after a separate confirmation. Active recovery and the latest verified point remain protected.
+
+Whole-system recovery requires fresh authentication and exact confirmation, then runs through protected queued work rather than inside the browser request. It creates a safety snapshot, restores one temporary MySQL database, and verifies matching private uploads before changing production. The selected single-Droplet switcher remains gated by Redis-backed maintenance mode and `BACKUP_RESTORE_ENABLED`; when disabled, recovery stops safely at Ready. When enabled after readiness acceptance, it transactionally restores validated application data and matching protected uploads, preserves current recovery/audit control records, and automatically restores the safety snapshot on failure. Backup archives, credentials, and raw secrets are never exposed to the browser.
 
 ## Help, Notifications, and Profile
 

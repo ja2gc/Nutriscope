@@ -35,8 +35,9 @@ describe("admin backup page contract", () => {
     expect(page).toContain('"weekly"');
     expect(page).toContain('"monthly"');
     expect(page).toContain('"manual"');
-    expect(list).toContain("Kept until you delete it.");
-    expect(list).toContain("Retained automatically until");
+    expect(list).not.toContain("backup.categories.map");
+    expect(list).not.toContain("Kept until you delete it.");
+    expect(list).toContain("Expires on");
   });
 
   test("provides three independent default-off automatic schedule controls", () => {

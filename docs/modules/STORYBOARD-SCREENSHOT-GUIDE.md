@@ -1,6 +1,6 @@
 # NutriScope Sequential Screenshot Storyboard Guide
 
-Verified against current role navigation on **2026-08-27**.
+Verified against current role navigation on **2026-09-04**.
 
 This is the screenshot-required storyboard. Complete it by inserting the specified app capture immediately below each **Screenshot needed** instruction. Use demo data and follow the privacy rules in this guide.
 
@@ -697,37 +697,49 @@ Use this version when screenshots are available. Each scene already contains the
 
 **User should do:** Select a demo fiscal year and explain the read-only indicators.
 
-**Next scene:** Settings.
+**Next scene:** Backup and Recovery.
 
 > **Screenshot needed:** Admin Budget with fiscal-year selector, summary and ledger; ensure mutation controls are absent/read-only.
 >
 > **Insert screenshot below this line.**
 
-#### ADMIN-10 — System Settings and Branding
+#### ADMIN-10 — Backup and Recovery
+
+**Description:** Admin reviews backup health and automatic schedules, filters paginated restore points by lifecycle and category, manages Recently Deleted, and opens the guarded whole-system Restore workflow. Automatic points show an expiry date; manual points have no automatic expiry.
+
+**User should do:** Show Available and each category tab, open Failed and Recently Deleted, then open and cancel the Restore dialog. Do not delete or restore production data for a screenshot.
+
+**Next scene:** System Settings and Branding.
+
+> **Screenshot needed:** Backup & Recovery showing health, three schedule switches, lifecycle tabs, category tabs, one restore-point card, and pagination. Optional second image: Restore whole system confirmation with every sensitive field empty.
+>
+> **Insert screenshot(s) below this line.**
+
+#### ADMIN-11 — System Settings and Branding
 
 **Description:** Admin maintains hospital/report branding, logos, food-service budget-per-head/day, and local display/notification preferences.
 
 **User should do:** Show branding fields and the shared budget setting without overwriting current approved values.
 
-**Next scene:** End of Admin story.
+**Next scene:** Notifications and Profile.
 
 > **Screenshot needed:** Admin Settings with Hospital Branding and Food Service Budget sections. Optional second image: display/notification preferences.
 >
 > **Insert screenshot(s) below this line.**
 
-#### ADMIN-11 — Notifications and Profile
+#### ADMIN-12 — Notifications and Profile
 
 **Description:** Admin receives Admin/All announcements and system alerts. Profile controls the Admin's own identity, recovery email, photo, and password; role remains read-only.
 
 **User should do:** Show one safe notification and the Profile identity/recovery sections.
 
-**Next scene:** End of Admin story.
+**Next scene:** Help.
 
 > **Screenshot needed:** Admin Notifications plus Admin Profile Account Information/Recovery Email. Do not show codes, passwords, or personal addresses.
 >
 > **Insert screenshot(s) below this line.**
 
-#### ADMIN-12 — Help
+#### ADMIN-13 — Help
 
 **Description:** Admin Help provides searchable Shared and Admin-only answers for accounts, AI limits, audit logs, announcements/SOP, reports, budget, and settings. It does not expose RND clinical guidance.
 

@@ -1,6 +1,6 @@
 # NutriScope Role How-To Guide
 
-Verified against current navigation and server permissions on **2026-08-27**. Follow each role's sequence in order. See [FAQ](FAQ.md) for exceptions and troubleshooting.
+Verified against current navigation and server permissions on **2026-09-04**. Follow each role's sequence in order. See [FAQ](FAQ.md) for exceptions and troubleshooting.
 
 ## Shared: Sign In and Secure the Account
 
@@ -256,7 +256,18 @@ Verified against current navigation and server permissions on **2026-08-27**. Fo
 4. Set local display/notification preferences.
 5. Return to Dashboard to confirm metrics after operational changes.
 
-### 7. Help, Profile, and Notifications
+### 7. Supervise Backups and Recovery
+
+1. Open **Backups** and confirm backup health, storage use, and the latest recovery-test date.
+2. Use Available, In progress, Failed, and Recently Deleted to choose a lifecycle state.
+3. Use Daily, Weekly, Monthly, or Manual to choose a schedule category. One automatic archive may appear in several category tabs when it satisfies coinciding schedules.
+4. Enable only the automatic schedules needed; readiness must pass, and each enabled schedule shows its next run.
+5. Select **Create backup now** for an independent manual restore point. Manual points have no automatic expiry.
+6. Use **Delete** to move an eligible point to Recently Deleted for 48 hours. Use **Keep backup** to return it to Available, or **Delete permanently** only after confirming permanent loss.
+7. Remove failed records only after reviewing their safe failure message. No usable archive exists for a failed attempt.
+8. Use **Restore** only for an approved whole-system recovery. Review newer-data loss, enter the current password and exact confirmation phrase, then monitor the queued recovery through completion or rollback.
+
+### 8. Help, Profile, and Notifications
 
 1. Open **Help** in the sidebar to search Shared and Admin-only answers; no RND clinical guidance is exposed.
 2. Use Profile for personal identity, sign-in/recovery email, contact, photo, and password.
