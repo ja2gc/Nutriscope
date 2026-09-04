@@ -312,6 +312,8 @@ class FoodItemsSeeder extends Seeder
             foreach ($pending as $name => $query) {
                 $this->command->line("  - {$name}");
             }
+
+            throw new \RuntimeException('USDA food import incomplete. Rerun FoodItemsSeeder to resume pending items.');
         }
 
         // Snack-suitability curation (idempotent — safe on re-runs).

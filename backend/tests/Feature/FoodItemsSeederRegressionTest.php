@@ -3,8 +3,10 @@
 namespace Tests\Feature;
 
 use App\Models\FoodItem;
+use App\Services\UsdaService;
 use Database\Seeders\FoodItemsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Mockery\MockInterface;
 use ReflectionClass;
 use Tests\TestCase;
 
@@ -29,5 +31,28 @@ class FoodItemsSeederRegressionTest extends TestCase
         ])->assertExitCode(0);
 
         $this->assertModelMissing($manual);
+    }
+
+    public function test_incomplete_usda_import_fails_after_retries(): void
+    {
+        $ingredientNames = array_keys((new ReflectionClass(FoodItemsSeeder::class))->getConstant('INGREDIENTS'));
+        foreach (array_slice($ingredientNames, 1) as $index => $name) {
+            FoodItem::factory()->create([
+                'name' => $name,
+                'usda_fdc_id' => 9_100_000 + $index,
+            ]);
+        }
+
+        $this->mock(UsdaService::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('search')
+                ->times(3)
+                ->with('rice white long-grain cooked enriched', 10)
+                ->andReturn([]);
+        });
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('USDA food import incomplete.');
+
+        $this->seed(FoodItemsSeeder::class);
     }
 }

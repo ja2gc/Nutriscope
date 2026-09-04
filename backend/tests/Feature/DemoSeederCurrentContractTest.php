@@ -75,6 +75,22 @@ class DemoSeederCurrentContractTest extends TestCase
         $this->assertSame(1, $seeded->fresh()->ingredients()->count());
     }
 
+    public function test_recipe_seeder_fails_before_writing_partial_recipes(): void
+    {
+        $this->seed(AdminUserSeeder::class);
+        $this->seedClinicalFoodFixtures();
+        FoodItem::query()->where('name', 'Steamed White Rice')->delete();
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Recipe seeding requires every referenced food item.');
+
+        try {
+            $this->seed(RecipeSeeder::class);
+        } finally {
+            $this->assertDatabaseMissing('recipes', ['name' => 'Plain White Rice Meal']);
+        }
+    }
+
     public function test_patient_and_meal_plan_demo_graph_matches_current_contract(): void
     {
         $this->seed(AdminUserSeeder::class);

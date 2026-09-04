@@ -438,6 +438,21 @@ class RecipeSeeder extends Seeder
             ],
         ];
 
+        $requiredFoodNames = collect($recipes)
+            ->flatMap(fn (array $recipe): array => array_column($recipe['ingredients'], 0))
+            ->unique()
+            ->values();
+        $availableFoodNames = FoodItem::query()
+            ->whereIn('name', $requiredFoodNames)
+            ->pluck('name');
+        $missingFoodNames = $requiredFoodNames->diff($availableFoodNames)->values();
+
+        if ($missingFoodNames->isNotEmpty()) {
+            $this->command->error('Recipe seeding stopped. Missing food items: '.$missingFoodNames->implode(', '));
+
+            throw new \RuntimeException('Recipe seeding requires every referenced food item.');
+        }
+
         foreach ($recipes as $recipeData) {
             $ingredientRows = [];
 
