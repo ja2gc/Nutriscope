@@ -18,11 +18,13 @@ export function Tabs<K extends string>({
   value,
   onChange,
   className = "",
+  ariaLabel,
 }: {
   items: TabItem<K>[];
   value: K;
   onChange: (k: K) => void;
   className?: string;
+  ariaLabel?: string;
 }) {
   const refs = useRef<(HTMLButtonElement | null)[]>([]);
 
@@ -35,7 +37,7 @@ export function Tabs<K extends string>({
   }
 
   return (
-    <div role="tablist" className={`flex border-b border-warm-200 ${className}`}>
+    <div role="tablist" aria-label={ariaLabel} className={`flex border-b border-warm-200 ${className}`}>
       {items.map((t, i) => {
         const active = t.key === value;
         return (

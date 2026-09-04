@@ -28,7 +28,7 @@ services:
 
   backend_worker:
     <<: *backend-common
-    command: php artisan queue:work redis --queue=backups,default --sleep=3 --tries=3 --backoff=5 --timeout=900 --max-time=3600
+    command: php artisan queue:work redis --queue=backups,default --sleep=3 --tries=3 --backoff=5 --timeout=1200 --max-time=3600
 
   backend_scheduler:
     <<: *backend-common

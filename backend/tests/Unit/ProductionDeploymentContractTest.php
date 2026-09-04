@@ -121,6 +121,21 @@ class ProductionDeploymentContractTest extends TestCase
     }
 
     #[Test]
+    public function production_recovery_uses_shared_maintenance_and_stays_explicitly_disabled_by_default(): void
+    {
+        $compose = file_get_contents(base_path('../docker-compose.prod.yml'));
+        $env = file_get_contents(base_path('.env.production.example'));
+
+        $this->assertIsString($compose);
+        $this->assertIsString($env);
+        $this->assertStringContainsString('APP_MAINTENANCE_DRIVER=cache', $env);
+        $this->assertStringContainsString('APP_MAINTENANCE_STORE=redis', $env);
+        $this->assertStringContainsString('BACKUP_RESTORE_ENABLED=false', $env);
+        $this->assertStringContainsString('--timeout=1200', $compose);
+        $this->assertStringContainsString('REDIS_QUEUE_RETRY_AFTER=1260', $env);
+    }
+
+    #[Test]
     public function public_health_check_is_proxied_directly_to_laravel(): void
     {
         $nginx = file_get_contents(base_path('../nginx/mobile-api.locations.conf'));

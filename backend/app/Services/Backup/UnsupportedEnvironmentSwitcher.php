@@ -16,6 +16,8 @@ class UnsupportedEnvironmentSwitcher implements EnvironmentSwitcher
         return ['successful' => false, 'message' => 'Production switching is not configured.'];
     }
 
+    public function finalize(array $candidate): void {}
+
     public function rollback(string $safetySnapshotUuid): array
     {
         return ['successful' => false, 'message' => 'Production switching is not configured.'];

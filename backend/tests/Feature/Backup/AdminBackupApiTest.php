@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Backup;
 
+use App\Enums\BackupRetentionTier;
 use App\Enums\BackupSource;
 use App\Enums\BackupState;
 use App\Jobs\CreateDatabaseBackup;
@@ -9,6 +10,7 @@ use App\Models\BackupRun;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Storage;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -61,16 +63,29 @@ class AdminBackupApiTest extends TestCase
     {
         $admin = User::factory()->admin()->create();
         BackupRun::factory()->count(12)->completed()->create();
+        BackupRun::factory()->count(2)->create(['state' => BackupState::Failed]);
 
         $this->actingAs($admin, 'sanctum')
-            ->getJson('/api/admin/backups?page=2')
+            ->getJson('/api/admin/backups?section=available&page=2')
             ->assertOk()
             ->assertJsonCount(2, 'data')
             ->assertJsonPath('meta.current_page', 2)
             ->assertJsonPath('meta.per_page', 10)
             ->assertJsonPath('meta.total', 12)
             ->assertJsonPath('meta.last_page', 2)
-            ->assertJsonStructure(['summary' => ['status', 'scope', 'storage_bytes']]);
+            ->assertJsonPath('summary.counts.available', 12)
+            ->assertJsonPath('summary.counts.failed', 2)
+            ->assertJsonStructure(['summary' => ['status', 'scope', 'storage_bytes', 'counts']]);
+
+        $this->actingAs($admin, 'sanctum')
+            ->getJson('/api/admin/backups?section=failed')
+            ->assertOk()
+            ->assertJsonCount(2, 'data')
+            ->assertJsonPath('meta.total', 2);
+
+        $this->actingAs($admin, 'sanctum')
+            ->getJson('/api/admin/backups?section=unknown')
+            ->assertUnprocessable();
     }
 
     #[Test]
@@ -95,6 +110,80 @@ class AdminBackupApiTest extends TestCase
         $this->actingAs($admin, 'sanctum')
             ->postJson('/api/admin/backups')
             ->assertConflict();
+    }
+
+    #[Test]
+    public function admin_can_remove_a_failed_backup_record_without_affecting_available_backups(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $available = BackupRun::factory()->completed()->create(['verified_at' => now()]);
+        $failed = BackupRun::factory()->create([
+            'state' => BackupState::Failed,
+            'failure_code' => 'archive_failed',
+            'failure_message' => 'Backup could not be completed.',
+        ]);
+
+        $this->actingAs($admin, 'sanctum')
+            ->deleteJson("/api/admin/backups/{$failed->uuid}")
+            ->assertOk()
+            ->assertJsonPath('data.state', 'purged');
+
+        $this->assertSame(BackupState::Purged, $failed->refresh()->state);
+        $this->assertNotNull($failed->purged_at);
+        $this->assertSame(BackupState::Completed, $available->refresh()->state);
+
+        $this->actingAs($admin, 'sanctum')
+            ->getJson('/api/admin/backups')
+            ->assertOk()
+            ->assertJsonMissing(['id' => $failed->uuid])
+            ->assertJsonFragment(['id' => $available->uuid]);
+    }
+
+    #[Test]
+    public function admin_can_permanently_delete_a_recently_deleted_backup(): void
+    {
+        Storage::fake('backups');
+        $admin = User::factory()->admin()->create();
+        $available = BackupRun::factory()->completed()->create(['verified_at' => now()]);
+        Storage::disk('backups')->put('deleted.zip', 'backup');
+        $deleted = BackupRun::factory()->create([
+            'state' => BackupState::RecentlyDeleted,
+            'storage_disk' => 'backups',
+            'object_key' => 'deleted.zip',
+            'recoverable_until' => now()->addHours(48),
+        ]);
+
+        $this->actingAs($admin, 'sanctum')
+            ->deleteJson("/api/admin/backups/{$deleted->uuid}")
+            ->assertOk()
+            ->assertJsonPath('data.state', 'purged');
+
+        Storage::disk('backups')->assertMissing('deleted.zip');
+        $this->assertSame(BackupState::Purged, $deleted->refresh()->state);
+        $this->assertSame(BackupState::Completed, $available->refresh()->state);
+    }
+
+    #[Test]
+    public function backup_list_filters_by_category_and_exposes_all_categories_for_shared_archives(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $shared = BackupRun::factory()->completed()->create(['source' => BackupSource::Automatic]);
+        $shared->schedulePeriods()->createMany([
+            ['category' => BackupRetentionTier::Daily, 'period_key' => '2026-09-04', 'expires_at' => now()->addDays(3)],
+            ['category' => BackupRetentionTier::Weekly, 'period_key' => '2026-W36', 'expires_at' => now()->addWeeks(2)],
+        ]);
+        BackupRun::factory()->completed()->create(['source' => BackupSource::Manual]);
+
+        $this->actingAs($admin, 'sanctum')
+            ->getJson('/api/admin/backups?section=available&category=weekly')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $shared->uuid)
+            ->assertJsonPath('data.0.categories', ['daily', 'weekly'])
+            ->assertJsonPath('summary.category_counts.daily', 1)
+            ->assertJsonPath('summary.category_counts.weekly', 1)
+            ->assertJsonPath('summary.category_counts.monthly', 0)
+            ->assertJsonPath('summary.category_counts.manual', 1);
     }
 
     #[Test]
@@ -149,5 +238,29 @@ class AdminBackupApiTest extends TestCase
             ->assertJsonPath('data.state', 'requested');
 
         $this->assertTrue($newest->isProtectedFromDeletion());
+    }
+
+    #[Test]
+    public function keeping_an_automatic_backup_restores_its_schedule_expiration(): void
+    {
+        $this->freezeSecond();
+        $admin = User::factory()->admin()->create();
+        $backup = BackupRun::factory()->create([
+            'source' => BackupSource::Automatic,
+            'state' => BackupState::RecentlyDeleted,
+            'recoverable_until' => now()->addHour(),
+            'retention_expires_at' => null,
+        ]);
+        $backup->schedulePeriods()->create([
+            'category' => 'weekly',
+            'period_key' => now()->format('o-\WW'),
+            'expires_at' => now()->addWeek(),
+        ]);
+
+        $this->actingAs($admin, 'sanctum')
+            ->postJson("/api/admin/backups/{$backup->uuid}/keep")
+            ->assertOk();
+
+        $this->assertTrue($backup->refresh()->retention_expires_at->equalTo(now()->addWeek()));
     }
 }

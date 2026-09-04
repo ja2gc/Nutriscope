@@ -3,7 +3,6 @@
 namespace App\Jobs;
 
 use App\Contracts\BackupArchiveRunner;
-use App\Enums\BackupSource;
 use App\Enums\BackupState;
 use App\Models\BackupRun;
 use App\Notifications\BackupFailedNotification;
@@ -79,9 +78,7 @@ class CreateDatabaseBackup implements ShouldBeUnique, ShouldQueue
                 'encrypted' => $result->encrypted,
                 'completed_at' => now(),
                 'verified_at' => now(),
-                'retention_expires_at' => $backup->source === BackupSource::Manual
-                    ? now()->addDays(config('nutriscope-backups.manual_retention_days'))
-                    : null,
+                'retention_expires_at' => null,
             ]);
             $backup->transitionTo(BackupState::Completed);
             $retention->apply();

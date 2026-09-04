@@ -24,8 +24,8 @@ use App\Services\Audit\Revisions\Serializers\RndRecipeRevisionSerializer;
 use App\Services\Audit\Revisions\Serializers\ShoppingListRevisionSerializer;
 use App\Services\Audit\SecurityAuditDeduplicator;
 use App\Services\Backup\MysqlDatabaseRestoreManager;
+use App\Services\Backup\MysqlEnvironmentSwitcher;
 use App\Services\Backup\SpatieBackupArchiveRunner;
-use App\Services\Backup\UnsupportedEnvironmentSwitcher;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Events\QueryExecuted;
@@ -48,7 +48,7 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->app->bind(BackupArchiveRunner::class, SpatieBackupArchiveRunner::class);
         $this->app->bind(DatabaseRestoreManager::class, MysqlDatabaseRestoreManager::class);
-        $this->app->bind(EnvironmentSwitcher::class, UnsupportedEnvironmentSwitcher::class);
+        $this->app->bind(EnvironmentSwitcher::class, MysqlEnvironmentSwitcher::class);
         $this->app->scoped(AuditContextResolver::class);
         $this->app->singleton(AuditHealthMonitor::class);
         $this->app->singleton(AuditRetentionService::class);

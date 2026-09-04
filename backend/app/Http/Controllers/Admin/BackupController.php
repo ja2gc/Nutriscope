@@ -5,31 +5,40 @@ namespace App\Http\Controllers\Admin;
 use App\Enums\AuditAction;
 use App\Enums\AuditCategory;
 use App\Enums\AuditDomain;
+use App\Enums\BackupRetentionTier;
 use App\Enums\BackupSource;
 use App\Enums\BackupState;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\CreateBackupRequest;
 use App\Http\Requests\Admin\DeleteBackupRequest;
 use App\Http\Requests\Admin\KeepBackupRequest;
-use App\Http\Requests\PaginatedRequest;
+use App\Http\Requests\Admin\ListBackupsRequest;
 use App\Http\Resources\BackupRunResource;
 use App\Jobs\CreateDatabaseBackup;
 use App\Models\BackupRun;
 use App\Models\RecoveryTest;
 use App\Services\Audit\AuditLogger;
+use App\Services\Backup\BackupRetentionService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class BackupController extends Controller
 {
-    public function __construct(private readonly AuditLogger $auditLogger) {}
+    public function __construct(
+        private readonly AuditLogger $auditLogger,
+        private readonly BackupRetentionService $retention,
+    ) {}
 
-    public function index(PaginatedRequest $request): AnonymousResourceCollection
+    public function index(ListBackupsRequest $request): AnonymousResourceCollection
     {
         $latestVerifiedId = BackupRun::verified()->latest('verified_at')->value('id');
-        $backups = BackupRun::query()
-            ->with(['manifest', 'latestRecoveryRequest'])
+        $states = $this->statesFor($request->section());
+        $backups = $this->filterCategory(
+            BackupRun::query()->whereIn('state', $states),
+            $request->category(),
+        )
+            ->with(['manifest', 'latestRecoveryRequest', 'schedulePeriods'])
             ->withCount(['recoveryRequests as pending_recovery_requests_count' => fn (Builder $query) => $query->whereNotIn('state', ['completed', 'failed', 'rolled_back', 'cancelled'])])
             ->latest('id')
             ->paginate($request->perPage())
@@ -37,7 +46,7 @@ class BackupController extends Controller
             ->through(fn (BackupRun $backup) => $backup->setAttribute('is_latest_verified', $backup->id === $latestVerifiedId));
 
         return BackupRunResource::collection($backups)->additional([
-            'summary' => $this->summary($latestVerifiedId),
+            'summary' => $this->summary($latestVerifiedId, $states),
         ]);
     }
 
@@ -62,6 +71,14 @@ class BackupController extends Controller
 
     public function destroy(DeleteBackupRequest $request, BackupRun $backupRun): JsonResponse
     {
+        if (in_array($backupRun->state, [BackupState::Failed, BackupState::RecentlyDeleted], true)) {
+            $outcome = $backupRun->state === BackupState::Failed ? 'failed_record_removed' : 'purged';
+            $this->retention->purge($backupRun);
+            $this->audit($backupRun, AuditAction::Deleted, $request->user(), $outcome);
+
+            return (new BackupRunResource($backupRun))->response();
+        }
+
         if ($backupRun->state !== BackupState::Completed || $backupRun->isProtectedFromDeletion()) {
             return response()->json(['message' => 'This backup is protected and cannot be deleted.'], 409);
         }
@@ -89,9 +106,9 @@ class BackupController extends Controller
             'deleted_at' => null,
             'recoverable_until' => null,
             'retention_expires_at' => match ($backupRun->source) {
-                BackupSource::Manual => now()->addDays(config('nutriscope-backups.manual_retention_days')),
+                BackupSource::Manual => null,
                 BackupSource::Safety => now()->addHours(48),
-                default => $backupRun->retention_expires_at,
+                BackupSource::Automatic => $backupRun->schedulePeriods()->max('expires_at'),
             },
         ]);
         $this->audit($backupRun, AuditAction::Updated, $request->user(), 'kept');
@@ -99,7 +116,8 @@ class BackupController extends Controller
         return (new BackupRunResource($backupRun))->response();
     }
 
-    private function summary(?int $latestVerifiedId): array
+    /** @param array<int, BackupState> $states */
+    private function summary(?int $latestVerifiedId, array $states): array
     {
         $latest = $latestVerifiedId === null ? null : BackupRun::find($latestVerifiedId);
         $latestFailure = BackupRun::where('state', BackupState::Failed)->latest('id')->first();
@@ -117,7 +135,49 @@ class BackupController extends Controller
             'scope' => 'Database records and protected uploaded files',
             'storage_bytes' => BackupRun::whereIn('state', [BackupState::Completed, BackupState::RecentlyDeleted])->sum('bytes'),
             'last_recovery_test_at' => RecoveryTest::query()->where('state', 'completed')->max('completed_at'),
+            'counts' => [
+                'available' => BackupRun::where('state', BackupState::Completed)->count(),
+                'in_progress' => BackupRun::whereIn('state', [BackupState::Queued, BackupState::Running, BackupState::Verifying])->count(),
+                'failed' => BackupRun::where('state', BackupState::Failed)->count(),
+                'recently_deleted' => BackupRun::where('state', BackupState::RecentlyDeleted)->count(),
+            ],
+            'category_counts' => [
+                'daily' => $this->filterCategory(BackupRun::query()->whereIn('state', $states), 'daily')->count(),
+                'weekly' => $this->filterCategory(BackupRun::query()->whereIn('state', $states), 'weekly')->count(),
+                'monthly' => $this->filterCategory(BackupRun::query()->whereIn('state', $states), 'monthly')->count(),
+                'manual' => $this->filterCategory(BackupRun::query()->whereIn('state', $states), 'manual')->count(),
+                'safety' => $this->filterCategory(BackupRun::query()->whereIn('state', $states), 'safety')->count(),
+            ],
         ];
+    }
+
+    private function filterCategory(Builder $query, string $category): Builder
+    {
+        if ($category === 'all') {
+            return $query;
+        }
+
+        if ($category === 'manual' || $category === 'safety') {
+            return $query->where('source', BackupSource::from($category));
+        }
+
+        $tier = BackupRetentionTier::from($category);
+
+        return $query->where('source', BackupSource::Automatic)->where(function (Builder $query) use ($tier): void {
+            $query->whereHas('schedulePeriods', fn (Builder $periods): Builder => $periods->where('category', $tier))
+                ->orWhere('retention_tier', $tier);
+        });
+    }
+
+    /** @return array<int, BackupState> */
+    private function statesFor(string $section): array
+    {
+        return match ($section) {
+            'in_progress' => [BackupState::Queued, BackupState::Running, BackupState::Verifying],
+            'failed' => [BackupState::Failed],
+            'recently_deleted' => [BackupState::RecentlyDeleted],
+            default => [BackupState::Completed],
+        };
     }
 
     private function audit(BackupRun $backup, AuditAction $action, object $actor, string $outcome): void

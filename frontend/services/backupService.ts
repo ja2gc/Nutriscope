@@ -1,5 +1,5 @@
 import { apiFetch } from "@/lib/apiFetch";
-import type { BackupListResponse, BackupRunDto, BackupScheduleInput, BackupSchedulesDto, RecoveryRequestInput } from "@/types/backup";
+import type { BackupCategory, BackupListResponse, BackupRunDto, BackupScheduleInput, BackupSchedulesDto, BackupSection, RecoveryRequestInput } from "@/types/backup";
 
 export class BackupServiceError extends Error {
   constructor(message: string, public readonly status: number) {
@@ -19,8 +19,8 @@ async function unwrap<T>(response: Response, fallback: string): Promise<T> {
   return payload.data;
 }
 
-export async function listBackups(page = 1): Promise<BackupListResponse> {
-  const response = await apiFetch(`/api/admin/backups?page=${page}`, { headers: { Accept: "application/json" } });
+export async function listBackups(page = 1, section: BackupSection = "available", category: BackupCategory = "daily"): Promise<BackupListResponse> {
+  const response = await apiFetch(`/api/admin/backups?page=${page}&section=${section}&category=${category}`, { headers: { Accept: "application/json" } });
   const payload = await response.json().catch(() => null) as BackupListResponse | { message?: string } | null;
   if (!response.ok || !payload || !("data" in payload) || !("meta" in payload) || !("summary" in payload)) {
     throw new BackupServiceError((payload && "message" in payload && payload.message) || "Backups could not be loaded.", response.ok ? 502 : response.status);
@@ -53,7 +53,7 @@ export async function deleteBackup(id: string): Promise<BackupRunDto> {
   return unwrap(await apiFetch(`/api/admin/backups/${encodeURIComponent(id)}`, {
     method: "DELETE",
     headers: { Accept: "application/json" },
-  }), "Backup could not be moved to Recently Deleted.");
+  }), "Backup could not be deleted.");
 }
 
 export async function keepBackup(id: string): Promise<BackupRunDto> {

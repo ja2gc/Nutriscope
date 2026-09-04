@@ -17,6 +17,7 @@ class BackupRunResource extends JsonResource
             'id' => $this->uuid,
             'state' => $this->state->value,
             'source' => $this->source->value,
+            'categories' => $this->categories(),
             'size_bytes' => $this->bytes,
             'encrypted' => $this->encrypted,
             'retention_tier' => $this->retention_tier?->value,
@@ -39,11 +40,35 @@ class BackupRunResource extends JsonResource
                 'can_cancel' => in_array($this->latestRecoveryRequest->state->value, ['requested', 'preparing', 'checking', 'ready'], true),
             ]),
             'actions' => [
-                'can_delete' => $this->state === BackupState::Completed && ! $isLatest && ! $hasRecoveryRequest,
+                'can_delete' => $this->state === BackupState::Failed
+                    || ($this->state === BackupState::Completed && ! $isLatest && ! $hasRecoveryRequest),
+                'can_purge' => $this->state === BackupState::RecentlyDeleted && ! $hasRecoveryRequest,
                 'can_keep' => $this->state === BackupState::RecentlyDeleted
                     && $this->recoverable_until?->isFuture() === true,
                 'can_request_recovery' => $this->state === BackupState::Completed && $this->manifest !== null && ! $hasRecoveryRequest,
             ],
         ];
+    }
+
+    /** @return array<int, string> */
+    private function categories(): array
+    {
+        if (in_array($this->source->value, ['manual', 'safety'], true)) {
+            return [$this->source->value];
+        }
+
+        if ($this->resource->relationLoaded('schedulePeriods')) {
+            $categories = $this->schedulePeriods
+                ->pluck('category.value')
+                ->unique()
+                ->sort()
+                ->values()
+                ->all();
+            if ($categories !== []) {
+                return $categories;
+            }
+        }
+
+        return $this->retention_tier === null ? [] : [$this->retention_tier->value];
     }
 }

@@ -12,6 +12,8 @@ describe("admin backup page contract", () => {
   test("provides feedback polling confirmations and no provider details", () => {
     const page = readFileSync(resolve(process.cwd(), "app/admin/backups/page.tsx"), "utf8");
     const dialog = readFileSync(resolve(process.cwd(), "components/backups/BackupActionDialog.tsx"), "utf8");
+    const summary = readFileSync(resolve(process.cwd(), "components/backups/BackupStatusSummary.tsx"), "utf8");
+    const list = readFileSync(resolve(process.cwd(), "components/backups/BackupList.tsx"), "utf8");
     expect(page).toContain("Backup & Recovery");
     expect(page).toContain("setInterval");
     expect(page).toContain('role="status"');
@@ -19,6 +21,22 @@ describe("admin backup page contract", () => {
     expect(dialog).toContain('aria-modal="true"');
     expect(dialog).toContain("returnFocusRef");
     expect(page).not.toMatch(/object_key|integrity_value|BACKUP_SECRET/);
+    expect(summary).not.toContain("Protected scope");
+    expect(summary).not.toContain("Production recovery stays operator-controlled.");
+    expect(summary).toContain("Recovery test:");
+    expect(list).toContain("Delete failed backup");
+    expect(page).toContain("Delete failed backup record?");
+    expect(list).toContain("Delete permanently");
+    expect(page).toContain("Permanently delete backup?");
+    expect(list).toContain(">Restore</Button>");
+    expect(page).toContain('from "@/components/ui/Tabs"');
+    expect(page).toContain("Recently Deleted");
+    expect(page).toContain('"daily"');
+    expect(page).toContain('"weekly"');
+    expect(page).toContain('"monthly"');
+    expect(page).toContain('"manual"');
+    expect(list).toContain("Kept until you delete it.");
+    expect(list).toContain("Retained automatically until");
   });
 
   test("provides three independent default-off automatic schedule controls", () => {
@@ -37,6 +55,8 @@ describe("admin backup page contract", () => {
     const page = readFileSync(resolve(process.cwd(), "app/admin/backups/page.tsx"), "utf8");
     expect(page).toContain('from "@/components/ui/Pagination"');
     expect(page).toContain("<Pagination");
-    expect(page).toContain("listBackups(requestedPage)");
+    expect(page).toContain("listBackups(requestedPage, section, category)");
+    expect(page).toContain('ariaLabel="Backup status"');
+    expect(page).toContain('ariaLabel="Backup category"');
   });
 });

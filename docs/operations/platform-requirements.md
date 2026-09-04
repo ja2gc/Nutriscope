@@ -32,6 +32,8 @@ For the single-Droplet Docker deployment, set `DB_DUMP_SKIP_SSL=true` and `DB_DU
 
 Keep backup storage separate from primary application infrastructure where practical. Phase 2 should add provider versioning, lifecycle protection, snapshots, or bucket locks where supported, but application credentials must not control retention locks.
 
+The selected single-Droplet restoration path requires `APP_MAINTENANCE_DRIVER=cache`, `APP_MAINTENANCE_STORE=redis`, and an explicit `BACKUP_RESTORE_ENABLED=true` only after backup, queue, scheduler, MySQL, Redis, and private-upload readiness pass. It restores validated application rows transactionally into the current MySQL schema and swaps protected uploads from the persistent local volume. Operational backup metadata, recovery history, schedule settings, migration history, and Audit Logs remain current for traceability. A schema-incompatible restore point or one that would orphan preserved recovery actors is rejected before production data changes.
+
 ## Network, workers, and HTTPS
 
 Only the public reverse proxy accepts internet traffic. MySQL and Redis remain private. Enable MFA and provider security updates. The worker must be durable; the scheduler must remain active so the ten-minute backup coordinator can catch up after downtime.

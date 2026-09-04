@@ -21,7 +21,7 @@ class ManualBackupRetentionTest extends TestCase
     use RefreshDatabase;
 
     #[Test]
-    public function manual_backup_uses_the_existing_pipeline_and_receives_seven_days(): void
+    public function manual_backup_uses_the_existing_pipeline_without_automatic_expiration(): void
     {
         Carbon::setTestNow('2026-08-03 09:00:00');
         Storage::fake('backups');
@@ -40,12 +40,12 @@ class ManualBackupRetentionTest extends TestCase
 
         $backup->refresh();
         $this->assertSame(BackupState::Completed, $backup->state);
-        $this->assertTrue($backup->retention_expires_at->equalTo(now()->addDays(7)));
+        $this->assertNull($backup->retention_expires_at);
         $this->assertDatabaseMissing('backup_schedule_periods', ['backup_run_id' => $backup->id]);
     }
 
     #[Test]
-    public function expired_manual_backup_enters_recently_deleted_for_48_hours(): void
+    public function manual_backup_is_not_automatically_deleted_even_with_a_legacy_expiration(): void
     {
         $this->freezeSecond();
 
@@ -58,12 +58,12 @@ class ManualBackupRetentionTest extends TestCase
         app(BackupRetentionService::class)->apply();
 
         $backup->refresh();
-        $this->assertSame(BackupState::RecentlyDeleted, $backup->state);
-        $this->assertTrue($backup->recoverable_until->between(now()->addHours(48)->subSecond(), now()->addHours(48)->addSecond()));
+        $this->assertSame(BackupState::Completed, $backup->state);
+        $this->assertNull($backup->recoverable_until);
     }
 
     #[Test]
-    public function keeping_a_manual_backup_grants_a_new_seven_day_window(): void
+    public function keeping_a_manual_backup_does_not_add_automatic_expiration(): void
     {
         $this->freezeSecond();
 
@@ -79,8 +79,7 @@ class ManualBackupRetentionTest extends TestCase
             ->postJson("/api/admin/backups/{$backup->uuid}/keep")
             ->assertOk();
 
-        $expiresAt = $backup->refresh()->retention_expires_at;
-        $this->assertTrue($expiresAt->between(now()->addDays(7)->subSecond(), now()->addDays(7)->addSecond()));
+        $this->assertNull($backup->refresh()->retention_expires_at);
     }
 
     private function encryptedDatabaseZip(): string

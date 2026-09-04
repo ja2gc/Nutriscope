@@ -15,7 +15,7 @@ flowchart TD
     F -->|"Yes"| H["Claim category and period with unique locks"]
     H --> I["One queued backup satisfies all categories due together"]
     A --> J["Admin selects Create backup now"]
-    J --> K["Create independent 7-day manual restore point"]
+    J --> K["Create independent manual restore point kept until Admin deletion"]
     I --> L["Run shared backup pipeline"]
     K --> L
     L --> M["Create encrypted MySQL archive"]
@@ -25,7 +25,7 @@ flowchart TD
     P --> Q{"Verification passed?"}
     Q -->|"No"| R["Mark Failed, show safe result, notify configured contact, and audit activity"]
     Q -->|"Yes"| S["Mark Available and audit activity"]
-    S --> T["Apply assigned retention: 3 daily, 2 weekly, 3 monthly, or 7-day manual"]
+    S --> T["Apply automatic retention: 3 daily, 2 weekly, or 3 monthly; manual points do not auto-expire"]
 ```
 
 Disabling a schedule stops future periods only. It does not delete or reclassify existing restore points. A manual backup never satisfies an automatic period.
@@ -37,10 +37,10 @@ flowchart TD
     A["Available restore point reaches its last assigned expiry"] --> B{"Protected by active recovery?"}
     B -->|"Yes"| C["Keep Available until recovery finishes"]
     B -->|"No"| D["Move archive, manifest, and file references to Recently Deleted for 48 hours"]
-    D --> E{"Admin selects Keep backup before deadline?"}
-    E -->|"Yes"| F["Return restore point to Available"]
+    D --> E{"Admin acts before deadline?"}
+    E -->|"Keep"| F["Return restore point to Available"]
     F --> G["Keep backup rescues the restore point only; it does not restore application data"]
-    E -->|"No"| H["Purge expired archive and manifest"]
+    E -->|"Delete permanently or wait 48 hours"| H["Purge archive and manifest"]
     H --> I["Purge protected file copies only when no remaining restore point references them"]
     I --> J["Record purge result in Audit Logs"]
 ```
@@ -83,8 +83,8 @@ flowchart TD
     N -->|"Yes"| O["Drop temporary database, mark Cancelled, notify page, and audit"]
     N -->|"No"| P{"Production environment switcher configured?"}
     P -->|"No"| Q["Remain Ready; production unchanged; notify Admin for Phase 2 configuration"]
-    P -->|"Yes"| R["Enter maintenance mode immediately before switching"]
-    R --> S["Switch to restored database and matching files"]
+    P -->|"Yes"| R["Enter shared Redis maintenance mode immediately before switching"]
+    R --> S["Transactionally restore application data and activate matching private files"]
     S --> T["Run basic production health and manifest checks"]
     T --> U{"Cutover healthy?"}
     U -->|"Yes"| V["Exit maintenance mode, mark Completed, and audit"]
@@ -101,7 +101,7 @@ After Completed, Failed, Rolled Back, or Cancelled, the safety snapshot remains 
 - Production is never the first restoration target.
 - Recovery is whole-system only. There is no Technical Operator website role, separate review database, individual-record merge, or universal Record Trash.
 - Preview/download of saved reports are read-only and reproducible report-cache PDFs are excluded from backup manifests.
-- Phase 2 implements only the selected provider's environment switcher and additional provider safeguards; the generic staged workflow remains unchanged.
+- The DigitalOcean single-Droplet switcher preserves current backup metadata, recovery history, schedules, migrations, and Audit Logs while restoring application data and matching protected uploads. It stays disabled until production readiness is accepted.
 
 ## Related Documents
 

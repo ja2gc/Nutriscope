@@ -28,7 +28,7 @@ class PrepareSystemRecovery implements ShouldQueue
 {
     use Queueable;
 
-    public int $timeout = 1800;
+    public int $timeout = 1200;
 
     public function __construct(public readonly string $recoveryUuid) {}
 
@@ -40,6 +40,11 @@ class PrepareSystemRecovery implements ShouldQueue
         AuditLogger $audit,
     ): void {
         $recovery = RecoveryRequest::query()->where('uuid', $this->recoveryUuid)->firstOrFail();
+        if ($recovery->state === RecoveryStatus::Switching) {
+            $this->rollbackInterruptedSwitch($recovery, $databases, $switcher, $audit);
+
+            return;
+        }
         if ($recovery->state !== RecoveryStatus::Requested) {
             return;
         }
@@ -93,14 +98,26 @@ class PrepareSystemRecovery implements ShouldQueue
             $maintenance = true;
             $recovery->transitionTo(RecoveryStatus::Switching);
             $this->audit($audit, $recovery);
+            $candidate += [
+                'recovery_uuid' => $recovery->uuid,
+                'backup_uuid' => $recovery->backupRun->uuid,
+            ];
             $switched = $switcher->switch($candidate);
             if (! $switched['successful']) {
                 throw new \RuntimeException('Production switch failed.');
             }
             DB::selectOne('SELECT 1 AS healthy');
             $backups->verifyManifest($recovery->backupRun->manifest->load('objects'));
+            $databases->dropTemporary($candidate['name']);
+            $recovery->update(['temporary_database' => null]);
             $recovery->transitionTo(RecoveryStatus::Completed);
             $this->audit($audit, $recovery);
+            try {
+                $switcher->finalize($candidate);
+            } catch (Throwable $exception) {
+                report($exception);
+            }
+            $candidate = null;
         } catch (Throwable $exception) {
             $recovery->refresh();
             if ($recovery->state === RecoveryStatus::Cancelled) {
@@ -111,8 +128,11 @@ class PrepareSystemRecovery implements ShouldQueue
 
                 return;
             }
-            if ($recovery->state === RecoveryStatus::Switching && $recovery->safetySnapshot !== null) {
-                $rollback = $switcher->rollback($recovery->safetySnapshot->uuid);
+            $safetySnapshot = $recovery->safety_snapshot_backup_run_id === null
+                ? null
+                : BackupRun::query()->find($recovery->safety_snapshot_backup_run_id);
+            if ($recovery->state === RecoveryStatus::Switching && $safetySnapshot !== null) {
+                $rollback = $switcher->rollback($safetySnapshot->uuid);
                 $recovery->transitionTo($rollback['successful'] ? RecoveryStatus::RolledBack : RecoveryStatus::Failed);
             } elseif (! $recovery->state->terminal()) {
                 $recovery->transitionTo(RecoveryStatus::Failed);
@@ -164,5 +184,27 @@ class PrepareSystemRecovery implements ShouldQueue
             ],
             actor: $recovery->requestedBy,
         );
+    }
+
+    private function rollbackInterruptedSwitch(
+        RecoveryRequest $recovery,
+        DatabaseRestoreManager $databases,
+        EnvironmentSwitcher $switcher,
+        AuditLogger $audit,
+    ): void {
+        $safety = $recovery->safety_snapshot_backup_run_id === null
+            ? null
+            : BackupRun::query()->find($recovery->safety_snapshot_backup_run_id);
+        $rolledBack = $safety === null
+            ? ['successful' => false]
+            : $switcher->rollback($safety->uuid);
+        $recovery->transitionTo($rolledBack['successful'] ? RecoveryStatus::RolledBack : RecoveryStatus::Failed);
+        $recovery->update(['failure_message' => 'An interrupted recovery was automatically rolled back.']);
+        if ($recovery->temporary_database !== null) {
+            $databases->dropTemporary($recovery->temporary_database);
+            $recovery->update(['temporary_database' => null]);
+        }
+        $this->audit($audit, $recovery);
+        Artisan::call('up');
     }
 }

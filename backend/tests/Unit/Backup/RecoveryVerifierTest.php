@@ -35,8 +35,22 @@ class RecoveryVerifierTest extends TestCase
         $connection->shouldReceive('select')->with("SHOW COLUMNS FROM users WHERE Field = 'role'")->andReturn([
             (object) ['Field' => 'role', 'Type' => "enum('RND','FSS','Admin')"],
         ]);
+        $connection->shouldReceive('select')
+            ->with(Mockery::on(fn (string $sql): bool => str_contains($sql, 'information_schema.KEY_COLUMN_USAGE')), ['nutriscope_recovery_0123456789ab'])
+            ->andReturn([
+                (object) [
+                    'CONSTRAINT_NAME' => 'backup_runs_requested_by_foreign',
+                    'TABLE_NAME' => 'backup_runs',
+                    'COLUMN_NAME' => 'requested_by',
+                    'REFERENCED_TABLE_NAME' => 'users',
+                    'REFERENCED_COLUMN_NAME' => 'id',
+                    'ORDINAL_POSITION' => 1,
+                ],
+            ]);
+        $connection->shouldReceive('selectOne')
+            ->with(Mockery::on(fn (string $sql): bool => str_contains($sql, 'LEFT JOIN') && str_contains($sql, '`backup_runs`')))
+            ->andReturn((object) ['failures' => 0]);
         $connection->shouldReceive('table')->with('users')->andReturn($passwords);
-        $connection->shouldReceive('selectOne')->andReturn((object) ['failures' => 0]);
 
         DB::shouldReceive('purge')->once()->with('recovery_candidate');
         DB::shouldReceive('connection')->once()->with('recovery_candidate')->andReturn($connection);

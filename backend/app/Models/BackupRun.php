@@ -96,7 +96,8 @@ class BackupRun extends Model
             BackupState::Verifying => [BackupState::Completed, BackupState::Failed],
             BackupState::Completed => [BackupState::RecentlyDeleted],
             BackupState::RecentlyDeleted => [BackupState::Completed, BackupState::Purged],
-            BackupState::Failed, BackupState::Purged => [],
+            BackupState::Failed => [BackupState::Purged],
+            BackupState::Purged => [],
         };
         if (! in_array($state, $allowed, true)) {
             throw new RuntimeException("Invalid backup transition from {$this->state->value} to {$state->value}.");

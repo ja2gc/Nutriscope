@@ -16,12 +16,12 @@ describe("backup service", () => {
       summary: { status: "healthy", last_successful_at: "2026-08-01T01:30:00+08:00", next_automatic_at: "2026-08-02T01:30:00+08:00", scope: "Database records", storage_bytes: 100, last_recovery_test_at: null },
     }), { status: 200, headers: { "Content-Type": "application/json" } }));
 
-    const result = await listBackups(2);
+    const result = await listBackups(2, "available", "manual");
 
     expect(result.data[0].id).toBe("backup-1");
     expect(result.summary.status).toBe("healthy");
     expect(result.meta.current_page).toBe(2);
-    expect(apiFetchMock).toHaveBeenCalledWith("/api/admin/backups?page=2", expect.any(Object));
+    expect(apiFetchMock).toHaveBeenCalledWith("/api/admin/backups?page=2&section=available&category=manual", expect.any(Object));
   });
 
   test("uses protected endpoints for create and recovery", async () => {

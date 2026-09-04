@@ -5,14 +5,45 @@ namespace App\Services\Backup;
 use App\Enums\BackupRetentionTier;
 use App\Enums\BackupSource;
 use App\Enums\BackupState;
+use App\Models\BackupManifestObject;
 use App\Models\BackupRun;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Storage;
+use RuntimeException;
 
 class BackupRetentionService
 {
+    public function purge(BackupRun $backup): void
+    {
+        if (! in_array($backup->state, [BackupState::Failed, BackupState::RecentlyDeleted], true)) {
+            throw new RuntimeException('Only failed or recently deleted backups can be purged.');
+        }
+
+        if (filled($backup->object_key) && ! Storage::disk($backup->storage_disk)->delete($backup->object_key)) {
+            throw new RuntimeException('Backup object could not be removed.');
+        }
+
+        $protectedKeys = $backup->manifest?->objects()->pluck('protected_key')->all() ?? [];
+        if ($backup->manifest !== null) {
+            Storage::disk($backup->manifest->storage_disk)->delete($backup->manifest->object_key);
+            $backup->manifest->delete();
+        }
+        foreach ($protectedKeys as $key) {
+            if (! BackupManifestObject::query()->where('protected_key', $key)->exists()) {
+                Storage::disk(config('nutriscope-backups.disk'))->delete($key);
+            }
+        }
+
+        $backup->transitionTo(BackupState::Purged);
+        $backup->update([
+            'purged_at' => now(),
+            'object_key' => null,
+            'integrity_value' => null,
+        ]);
+    }
+
     public function apply(): void
     {
-        $this->expireManualBackups();
         $this->expireSafetySnapshots();
         $this->applyScheduledRetention();
         $this->applyLegacyAutomaticRetention();
@@ -22,14 +53,6 @@ class BackupRetentionService
     {
         BackupRun::verified()
             ->where('source', BackupSource::Safety)
-            ->where('retention_expires_at', '<=', now())
-            ->each(fn (BackupRun $backup) => $this->moveToRecentlyDeleted($backup));
-    }
-
-    private function expireManualBackups(): void
-    {
-        BackupRun::verified()
-            ->where('source', BackupSource::Manual)
             ->where('retention_expires_at', '<=', now())
             ->each(fn (BackupRun $backup) => $this->moveToRecentlyDeleted($backup));
     }
@@ -117,7 +140,7 @@ class BackupRetentionService
 
     private function moveToRecentlyDeleted(BackupRun $backup): void
     {
-        if ($backup->recoveryRequests()->where('state', 'requested')->exists()) {
+        if ($backup->recoveryRequests()->whereNotIn('state', ['completed', 'failed', 'rolled_back', 'cancelled'])->exists()) {
             return;
         }
 

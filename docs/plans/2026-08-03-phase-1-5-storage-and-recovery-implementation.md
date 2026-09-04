@@ -47,13 +47,13 @@ TDD steps:
 
 **Modify:** `backend/config/nutriscope-backups.php`, `backend/app/Http/Controllers/Admin/BackupController.php`, `backend/app/Jobs/CreateDatabaseBackup.php`, `backend/app/Services/Backup/BackupRetentionService.php`, `backend/app/Models/BackupRun.php`.
 
-Contract: manual backups use existing `retention_expires_at = verified_at + 7 days`; they never claim automatic period keys. Expired manual backups enter existing Recently Deleted for 48 hours. Keep sets a new `retention_expires_at = now() + 7 days`; purge remains unchanged.
+Contract: manual backups use `retention_expires_at = null`; they never claim automatic period keys and remain available until Admin deletion. Delete enters Recently Deleted for 48 hours. Keep returns the point without adding automatic expiry. Permanent deletion remains separately confirmed and audited.
 
-1. Write tests for seven-day retention, no automatic-period satisfaction, Recently Deleted transition, Keep, and purge.
+1. Write tests for no automatic expiry, no automatic-period satisfaction, Recently Deleted transition, Keep, and purge.
 2. Run `php artisan test --compact tests/Feature/Backup/ManualBackupRetentionTest.php`; expect missing-field/behavior failures.
-3. Add the fixed config and minimal metadata/retention branches.
+3. Add the minimal metadata/retention branches and a forward-only compatibility migration that clears existing completed manual expiry dates.
 4. Run `php artisan test --compact tests/Feature/Backup/ManualBackupRetentionTest.php tests/Feature/Backup/BackupRetentionServiceTest.php tests/Feature/Backup/PurgeDeletedBackupsTest.php tests/Feature/Backup/AdminBackupApiTest.php`; expect pass.
-5. Run `vendor/bin/pint --dirty --format agent` and commit: `feat: bound manual backup retention`.
+5. Run `vendor/bin/pint --dirty --format agent` and commit with neutral task-only metadata.
 
 ## Task 3: Private stored objects and authorized access
 

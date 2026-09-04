@@ -4,7 +4,9 @@ namespace Tests\Feature\Backup;
 
 use App\Enums\BackupRetentionTier;
 use App\Enums\BackupState;
+use App\Enums\RecoveryStatus;
 use App\Models\BackupRun;
+use App\Models\RecoveryRequest;
 use App\Services\Backup\BackupRetentionService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
@@ -51,5 +53,21 @@ class BackupRetentionServiceTest extends TestCase
 
         $this->assertSame(BackupState::Completed, $newest->refresh()->state);
         $this->assertSame(BackupRetentionTier::Daily, $newest->retention_tier);
+    }
+
+    #[Test]
+    public function an_expired_backup_stays_available_during_every_active_recovery_stage(): void
+    {
+        $backup = BackupRun::factory()->completed()->create();
+        $backup->schedulePeriods()->create([
+            'category' => BackupRetentionTier::Daily,
+            'period_key' => now()->subDay()->format('Y-m-d'),
+            'expires_at' => now()->subMinute(),
+        ]);
+        RecoveryRequest::factory()->for($backup)->create(['state' => RecoveryStatus::Checking]);
+
+        app(BackupRetentionService::class)->apply();
+
+        $this->assertSame(BackupState::Completed, $backup->refresh()->state);
     }
 }

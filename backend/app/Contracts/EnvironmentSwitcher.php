@@ -11,6 +11,9 @@ interface EnvironmentSwitcher
      */
     public function switch(array $candidate): array;
 
+    /** @param array<string,mixed> $candidate */
+    public function finalize(array $candidate): void;
+
     /** @return array{successful:bool,message:string} */
     public function rollback(string $safetySnapshotUuid): array;
 }

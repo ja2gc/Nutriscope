@@ -16,7 +16,7 @@ Enable MFA, store recovery codes with the client, name at least two authorized a
 
 Use `backend/.env.production.example` and keep the live file root-owned and unreadable to other system users. Preserve `APP_KEY`. Set `PRIVATE_UPLOADS_DRIVER=local`; the unused private-upload object-storage credential fields remain blank. Store Cloudflare R2 credentials only in `BACKUP_*`. Never expose `.env`, archive passwords, SMTP credentials, database administration credentials, or object-storage keys in Git or the Admin UI.
 
-Configure web, worker, scheduler, release, MySQL, Redis, the persistent private-upload volume, Cloudflare R2 backup storage, email, and public `/up`. Keep `REDIS_QUEUE_RETRY_AFTER=1260`, which exceeds the 1200-second recovery-test job timeout. Implement the Phase 1.5 `EnvironmentSwitcher` contract for DigitalOcean before production restoration; do not bypass the temporary-database-first workflow or write provider logic into generic storage services.
+Configure web, worker, scheduler, release, MySQL, Redis, the persistent private-upload volume, Cloudflare R2 backup storage, email, and public `/up`. Keep `REDIS_QUEUE_RETRY_AFTER=1260`, which exceeds the 1200-second backup-worker job timeout. Use Redis-backed maintenance mode across the web and worker containers. The DigitalOcean single-Droplet `EnvironmentSwitcher` remains disabled through `BACKUP_RESTORE_ENABLED=false` until the temporary-database recovery test and all storage checks pass; do not bypass the temporary-database-first workflow.
 
 Production Compose requires `DB_ROOT_PASSWORD` and removes MySQL's empty-password initialization flag. Keep the matching application database password in the protected production environment. Deployment accepts fast-forward Git updates only, retains one prior backend and frontend image as rollback candidates, and must pass the internal Laravel `/up` check before reporting success.
 
@@ -32,7 +32,7 @@ Prior inspection found Name.com nameservers and `nutriscope.live`/`www` resolvin
 4. Migrate legacy sensitive files with `php artisan storage:migrate-private-objects` and confirm no required public bytes remain.
 5. Create one manual restore point and confirm archive, manifest, uploaded-file copies, and verification.
 6. Complete a disposable temporary-MySQL recovery drill with non-mutating checks.
-7. Configure and exercise staged switching and automatic rollback using the chosen provider.
+7. Set `BACKUP_RESTORE_ENABLED=true`, recreate the backend containers so cached configuration changes, then exercise one staged production switch and automatic rollback drill with an approved disposable marker.
 8. Cut DNS/HTTPS only after deployment, backup, uploaded-file recovery, and recovery checks pass.
 9. Obtain client acceptance for application health and temporary-database recovery.
 10. Retire the old DigitalOcean droplet only after all checks and DNS propagation pass.
