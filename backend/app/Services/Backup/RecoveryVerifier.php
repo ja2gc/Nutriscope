@@ -16,7 +16,8 @@ class RecoveryVerifier
         Config::set('database.connections.recovery_candidate', [...$base, 'database' => $database['name']]);
         DB::purge('recovery_candidate');
         $connection = DB::connection('recovery_candidate');
-        $tables = collect($connection->select('SHOW TABLES'))->flatten()->map(fn ($value) => (string) $value);
+        $tables = collect($connection->select('SHOW TABLES'))
+            ->map(fn (object|array $row): string => (string) array_values((array) $row)[0]);
         $columns = collect($connection->select('SHOW COLUMNS FROM users'))->pluck('Field');
         $role = collect($connection->select("SHOW COLUMNS FROM users WHERE Field = 'role'"))->first();
         $passwordsValid = ! $connection->table('users')->whereNotNull('password')->limit(100)->pluck('password')

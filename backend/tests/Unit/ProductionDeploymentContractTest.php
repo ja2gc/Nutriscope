@@ -58,6 +58,7 @@ class ProductionDeploymentContractTest extends TestCase
         $this->assertStringContainsString('git merge --ff-only origin/main', $workflow);
         $this->assertStringContainsString('nutriscope-backend:rollback', $workflow);
         $this->assertStringContainsString('curl --fail --silent --show-error', $workflow);
+        $this->assertStringContainsString('--retry-all-errors', $workflow);
         $this->assertStringContainsString('envs: DB_ROOT_PASSWORD', $workflow);
         $this->assertStringNotContainsString('export DB_ROOT_PASSWORD=${{ secrets.DB_ROOT_PASSWORD }}', $workflow);
         $this->assertStringNotContainsString('git reset --hard', $workflow);
