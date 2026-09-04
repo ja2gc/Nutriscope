@@ -54,12 +54,16 @@ class CreateDatabaseBackup implements ShouldBeUnique, ShouldQueue
         BackupRetentionService $retention,
     ): void {
         $backup = BackupRun::where('uuid', $this->backupUuid)->firstOrFail();
-        $backup->transitionTo(BackupState::Running);
-        $backup->update([
-            'started_at' => now(),
-            'failure_code' => null,
-            'failure_message' => null,
-        ]);
+        if ($backup->state === BackupState::Queued) {
+            $backup->transitionTo(BackupState::Running);
+            $backup->update([
+                'started_at' => now(),
+                'failure_code' => null,
+                'failure_message' => null,
+            ]);
+        } elseif ($backup->state !== BackupState::Running) {
+            throw new \RuntimeException("Backup cannot be resumed from {$backup->state->value}.");
+        }
 
         try {
             $result = $runner->runDatabaseOnly();
@@ -82,7 +86,12 @@ class CreateDatabaseBackup implements ShouldBeUnique, ShouldQueue
             $backup->transitionTo(BackupState::Completed);
             $retention->apply();
         } catch (Throwable $exception) {
-            $this->markFailed($backup);
+            if ($backup->state === BackupState::Verifying) {
+                $this->markFailed($backup);
+                $this->fail($exception);
+
+                return;
+            }
 
             throw $exception;
         }

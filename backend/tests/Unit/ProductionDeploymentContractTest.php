@@ -8,6 +8,17 @@ use Tests\TestCase;
 
 class ProductionDeploymentContractTest extends TestCase
 {
+    public function test_production_environment_exposes_private_database_dump_tls_controls(): void
+    {
+        $database = file_get_contents(config_path('database.php'));
+        $environment = file_get_contents(base_path('.env.production.example'));
+
+        $this->assertStringContainsString("'skip_ssl' => env('DB_DUMP_SKIP_SSL', false)", $database);
+        $this->assertStringContainsString("'ssl_flag' => env('DB_DUMP_SSL_FLAG', 'skip-ssl')", $database);
+        $this->assertStringContainsString('DB_DUMP_SKIP_SSL=false', $environment);
+        $this->assertStringContainsString('DB_DUMP_SSL_FLAG=skip-ssl', $environment);
+    }
+
     #[Test]
     public function digitalocean_deployment_runs_the_explicit_release_before_starting_services(): void
     {

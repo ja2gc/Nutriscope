@@ -20,6 +20,8 @@ Start from `backend/.env.production.example` and store values only in the platfo
 
 Important groups are `APP_*`, `DB_*`, `REDIS_*`, `CACHE_*`, `SESSION_*`, `QUEUE_*`, `MAIL_*`, `PRIVATE_UPLOADS_*`, and `BACKUP_*`.
 
+For the single-Droplet Docker deployment, set `DB_DUMP_SKIP_SSL=true` and `DB_DUMP_SSL_FLAG=skip-ssl`. This disables TLS only for `mysqldump` over the private Docker network because the bundled MariaDB client otherwise rejects the MySQL container's untrusted certificate. It does not weaken HTTPS access to backup storage. Keep the default disabled for a managed or remote database and configure trusted database TLS instead.
+
 ## Storage boundaries
 
 - `private_uploads` holds clinical documents, purchase-order evidence, profile photos, private branding, and other durable sensitive files. APIs use authorized streaming. The selected single-Droplet deployment uses the named `nutriscope_private_uploads` Docker volume outside the public web root; a future object-storage deployment must use a private bucket.

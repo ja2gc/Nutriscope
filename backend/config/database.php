@@ -62,6 +62,10 @@ return [
             'options' => extension_loaded('pdo_mysql') ? array_filter([
                 Mysql::ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
             ]) : [],
+            'dump' => [
+                'skip_ssl' => env('DB_DUMP_SKIP_SSL', false),
+                'ssl_flag' => env('DB_DUMP_SSL_FLAG', 'skip-ssl'),
+            ],
         ],
 
         'mariadb' => [

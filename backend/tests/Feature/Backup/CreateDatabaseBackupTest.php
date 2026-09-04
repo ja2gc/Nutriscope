@@ -54,16 +54,74 @@ class CreateDatabaseBackupTest extends TestCase
         });
         $backup = BackupRun::factory()->create();
 
+        $job = new CreateDatabaseBackup($backup->uuid);
+        $exception = new RuntimeException('secret=sensitive-production-value');
+
         try {
-            app()->call([new CreateDatabaseBackup($backup->uuid), 'handle']);
+            app()->call([$job, 'handle']);
         } catch (RuntimeException) {
-            // The queue may retry; metadata must already be safe.
+            $job->failed($exception);
         }
 
         $backup->refresh();
         $this->assertSame(BackupState::Failed, $backup->state);
         $this->assertStringNotContainsString('sensitive-production-value', (string) $backup->failure_message);
         $this->assertSame('backup_failed', $backup->failure_code);
+    }
+
+    #[Test]
+    public function job_can_retry_after_a_transient_failure(): void
+    {
+        Storage::fake('backups');
+        config(['backup.backup.password' => 'test-password']);
+        Storage::disk('backups')->put('database.zip', $this->encryptedDatabaseZip());
+        $this->app->instance(BackupArchiveRunner::class, new class implements BackupArchiveRunner
+        {
+            private int $attempts = 0;
+
+            public function runDatabaseOnly(): BackupArchiveResult
+            {
+                if (++$this->attempts === 1) {
+                    throw new RuntimeException('Temporary provider failure.');
+                }
+
+                return new BackupArchiveResult('database.zip', 0, 'etag', true);
+            }
+        });
+        $backup = BackupRun::factory()->create();
+        $job = new CreateDatabaseBackup($backup->uuid);
+
+        try {
+            app()->call([$job, 'handle']);
+        } catch (RuntimeException) {
+            // The queue retries the same job and backup record.
+        }
+
+        $this->assertSame(BackupState::Running, $backup->refresh()->state);
+
+        app()->call([$job, 'handle']);
+
+        $this->assertSame(BackupState::Completed, $backup->refresh()->state);
+    }
+
+    #[Test]
+    public function verification_failure_is_terminal_instead_of_being_retried_from_an_invalid_state(): void
+    {
+        Storage::fake('backups');
+        $this->app->instance(BackupArchiveRunner::class, new class implements BackupArchiveRunner
+        {
+            public function runDatabaseOnly(): BackupArchiveResult
+            {
+                return new BackupArchiveResult('missing.zip', 0, 'etag', true);
+            }
+        });
+        $backup = BackupRun::factory()->create();
+        $job = (new CreateDatabaseBackup($backup->uuid))->withFakeQueueInteractions();
+
+        app()->call([$job, 'handle']);
+
+        $job->assertFailed();
+        $this->assertSame(BackupState::Failed, $backup->refresh()->state);
     }
 
     private function encryptedDatabaseZip(): string
