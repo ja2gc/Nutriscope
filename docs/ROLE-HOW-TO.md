@@ -1,6 +1,6 @@
 # NutriScope Role How-To Guide
 
-Verified against current navigation and server permissions on **2026-09-04**. Follow each role's sequence in order. See [FAQ](FAQ.md) for exceptions and troubleshooting.
+Verified against current navigation and server permissions on **2026-09-05**. Follow each role's sequence in order. See [FAQ](FAQ.md) for exceptions and troubleshooting.
 
 ## Shared: Sign In and Secure the Account
 
@@ -260,7 +260,7 @@ Verified against current navigation and server permissions on **2026-09-04**. Fo
 
 1. Open **Backups** and confirm backup health, storage use, and the latest recovery-test date.
 2. Use Available, In progress, Failed, and Recently Deleted to choose a lifecycle state.
-3. Use Daily, Weekly, Monthly, or Manual to choose a schedule category. One automatic archive may appear in several category tabs when it satisfies coinciding schedules.
+3. Use Daily, Weekly, Monthly, Manual, or Safety to choose a restore-point category. One automatic archive may appear in several schedule tabs when it satisfies coinciding schedules; Safety contains pre-restore snapshots.
 4. Enable only the automatic schedules needed; readiness must pass, and each enabled schedule shows its next run.
 5. Select **Create backup now** for an independent manual restore point. Manual points have no automatic expiry.
 6. Use **Delete** to move an eligible point to Recently Deleted for 48 hours. Use **Keep backup** to return it to Available, or **Delete permanently** only after confirming permanent loss.

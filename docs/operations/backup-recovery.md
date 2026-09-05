@@ -10,7 +10,7 @@ Open **Administration > Backup & Recovery**. Daily, weekly, and monthly schedule
 - Weekly keeps the latest **2 weekly** restore points.
 - Monthly keeps the latest **3 monthly** restore points.
 
-The target time is 01:30 Asia/Manila. A coordinator runs every ten minutes and catches up the latest missing due period after downtime. When categories coincide, one archive and manifest satisfy all due categories. Disabling a schedule stops future runs only; existing restore points keep assigned retention. Disabling the final active schedule requires confirmation and every setting change is audited. When all are off, the page displays **Automatic backups are disabled.**
+The target time is 01:30 Asia/Manila. Enabling a schedule does not create an immediate backup; the page shows its next due time. A coordinator runs every ten minutes and catches up the latest missing due period after downtime. When categories coincide, one archive and manifest satisfy all due categories. Repeated checks do nothing after the current period is satisfied. Disabling a schedule stops future runs only; existing restore points keep assigned retention. Disabling the final active schedule requires confirmation and every setting change is audited. When all are off, the page displays **Automatic backups are disabled.**
 
 Manual backups use the same encryption, manifest, protected-file, and verification pipeline. They do not satisfy an automatic period and remain available until an Admin deletes them. Manual creation and recovery remain separate from schedule toggles.
 
@@ -30,7 +30,7 @@ At least every 30 days, NutriScope restores the latest verified point into a dis
 
 ## Available and Recently Deleted
 
-- Lifecycle tabs separate Available, In progress, Failed, and Recently Deleted records. Category tabs separate daily, weekly, monthly, and manual points; one shared automatic archive appears in every category it satisfies.
+- Lifecycle tabs separate Available, In progress, Failed, and Recently Deleted records. Category tabs separate daily, weekly, monthly, manual, and pre-restore safety points; one shared automatic archive appears in every schedule category it satisfies.
 - **Create backup now** creates a manual restore point with no automatic expiry.
 - **Delete** moves an available restore point to Recently Deleted and starts a 48-hour recovery window.
 - Failed entries have no usable restore archive. Admins can remove them from the list after confirmation; the destructive audit event remains.
@@ -48,7 +48,7 @@ Laravel queues the workflow:
 3. Run non-mutating database checks and verify every matching uploaded object.
 4. Show **Ready** only after preparation passes. Production remains unchanged before this point.
 5. Enter shared Redis-backed maintenance mode only when production restoration is explicitly enabled.
-6. Transactionally replace application data from the validated temporary database, activate its matching protected uploads, run health checks, remove temporary recovery data, and mark **Completed**. Backup metadata, recovery history, schedule settings, migrations, and Audit Logs stay current so the recovery itself remains traceable.
+6. Transactionally replace application data from the validated temporary database, activate its matching protected uploads, run health checks, remove temporary recovery data, and mark **Completed**. Backup metadata, recovery history, schedule settings, migrations, Audit Logs, and immutable audit revisions stay current so the recovery itself remains traceable.
 7. On switching or health-check failure, automatically switch back to the safety snapshot and mark **Rolled Back**.
 
 Statuses are Requested, Preparing, Checking, Ready, Switching, Completed, Failed, Rolled Back, and Cancelled. Admin may cancel before Switching. The DigitalOcean single-Droplet switcher works only with MySQL, local private-upload storage, Redis-backed shared maintenance mode, and the explicit `BACKUP_RESTORE_ENABLED` guard. Otherwise recovery stops safely at Ready. Failures or required intervention notify the initiating Admin and all recovery actions are audited.

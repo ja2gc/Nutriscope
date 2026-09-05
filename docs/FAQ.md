@@ -354,6 +354,18 @@ Hospital/report branding and logos, food-service budget-per-head/day setting, lo
 
 Read-only fiscal-year summaries, ledger entries, and activity history. Budget creation and manual adjustment remain RND responsibilities.
 
+### How do automatic backup schedules avoid duplicates?
+
+Daily, weekly, and monthly schedules are independent. Each runs after the displayed 1:30 AM Asia/Manila target and creates at most one automatic restore point for its due period. Enabling a schedule does not create an immediate backup. If several categories are due together, one archive satisfies all of them; repeated scheduler checks do nothing after the period is satisfied. Disabling a schedule does not delete existing restore points.
+
+### How long are restore points kept, and what does Delete do?
+
+Automatic retention keeps the latest 3 daily, 2 weekly, and 3 monthly restore points. Manual restore points have no automatic expiry. **Delete** moves an eligible point to **Recently Deleted** for 48 hours. **Keep backup** returns it to Available; **Delete permanently** or expiry purges it when no active recovery protects it. A pre-restore safety snapshot remains protected for 48 hours after recovery finishes.
+
+### What happens when Admin restores the whole system?
+
+Restore requires the current password and exact confirmation phrase. A queued job creates and verifies a safety snapshot, restores the selected archive into one temporary MySQL database, validates the database and matching private files, and only then enters maintenance mode to switch application data. Newer records are replaced rather than merged. A successful switch signs users out, removes the temporary database, preserves backup and audit history, and keeps the safety snapshot for 48 hours. A failure leaves production unchanged or automatically rolls it back.
+
 ## When to Escalate
 
 Contact Admin/support when:

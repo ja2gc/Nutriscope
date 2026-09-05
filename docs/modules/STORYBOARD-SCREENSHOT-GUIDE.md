@@ -1,6 +1,6 @@
 # NutriScope Sequential Screenshot Storyboard Guide
 
-Verified against current role navigation on **2026-09-04**.
+Verified against current role navigation on **2026-09-05**.
 
 This is the screenshot-required storyboard. Complete it by inserting the specified app capture immediately below each **Screenshot needed** instruction. Use demo data and follow the privacy rules in this guide.
 
@@ -741,13 +741,13 @@ Use this version when screenshots are available. Each scene already contains the
 
 #### ADMIN-13 — Help
 
-**Description:** Admin Help provides searchable Shared and Admin-only answers for accounts, AI limits, audit logs, announcements/SOP, reports, budget, and settings. It does not expose RND clinical guidance.
+**Description:** Admin Help provides searchable Shared and Admin-only answers for accounts, AI limits, audit logs, backup schedules, retention, whole-system recovery, announcements/SOP, reports, budget, and settings. It does not expose RND clinical guidance.
 
-**User should do:** Open Help from the sidebar, search for `token caps`, then expand the matching question.
+**User should do:** Open Help from the sidebar, search for `safety snapshot`, then expand the whole-system restore question.
 
 **Next scene:** End of Admin story.
 
-> **Screenshot needed:** Admin Help showing Search Help, the `token caps` result expanded, and the sidebar Help item selected. Do not show RND guidance.
+> **Screenshot needed:** Admin Help showing Search Help, the `safety snapshot` result expanded, and the sidebar Help item selected. Do not show RND guidance.
 >
 > **Insert screenshot(s) below this line.**
 

@@ -1,13 +1,13 @@
 # Backup and Recovery
 
-This is the maintained administrator reference for the Phase 1.5 backup and whole-system recovery workflow. Automatic schedules are disabled by default in demo deployments.
+This is the maintained administrator reference for the Phase 1.5 backup foundation and the Phase 2 DigitalOcean single-Droplet whole-system recovery workflow. Automatic schedules are disabled by default in demo deployments.
 
 ## Automatic and Manual Restore Points
 
 ```mermaid
 flowchart TD
     A["Admin Backup page"] --> A1["Use lifecycle tabs: Available, In progress, Failed, Recently Deleted"]
-    A1 --> A2["Use category tabs: Daily, Weekly, Monthly, Manual"]
+    A1 --> A2["Use category tabs: Daily, Weekly, Monthly, Manual, Safety"]
     A2 --> B{"Automatic schedules enabled?"}
     B -->|"None"| C["Show: Automatic backups are disabled"]
     B -->|"Any combination"| D["Show each next scheduled backup"]
@@ -103,7 +103,7 @@ After Completed, Failed, Rolled Back, or Cancelled, the safety snapshot remains 
 - Production is never the first restoration target.
 - Recovery is whole-system only. There is no Technical Operator website role, separate review database, individual-record merge, or universal Record Trash.
 - Preview/download of saved reports are read-only and reproducible report-cache PDFs are excluded from backup manifests.
-- The DigitalOcean single-Droplet switcher preserves current backup metadata, recovery history, schedules, migrations, and Audit Logs while restoring application data and matching protected uploads. It stays disabled until production readiness is accepted.
+- The DigitalOcean single-Droplet switcher preserves current backup metadata, recovery history, schedules, migrations, Audit Logs, and audit revisions while restoring application data and matching protected uploads. It is available only when production readiness passes and restoration is explicitly enabled.
 
 ## Related Documents
 

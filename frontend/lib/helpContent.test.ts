@@ -40,6 +40,32 @@ describe("role-specific Help content", () => {
     expect(rndQuestions).not.toContain("How is estimated AI cost calculated?");
   });
 
+  test("Admin Help explains backup scheduling, deletion, and whole-system restoration only to Admin", () => {
+    const adminIds = getVisibleHelpItems("Admin").map((item) => item.id);
+    const rndIds = getVisibleHelpItems("RND").map((item) => item.id);
+
+    expect(adminIds).toEqual(
+      expect.arrayContaining([
+        "admin-backup-schedules",
+        "admin-backup-retention",
+        "admin-backup-restore",
+      ]),
+    );
+    expect(rndIds).not.toEqual(
+      expect.arrayContaining([
+        "admin-backup-schedules",
+        "admin-backup-retention",
+        "admin-backup-restore",
+      ]),
+    );
+    expect(filterHelpItems("Admin", "recently deleted").map((item) => item.id)).toContain(
+      "admin-backup-retention",
+    );
+    expect(filterHelpItems("Admin", "safety snapshot").map((item) => item.id)).toContain(
+      "admin-backup-restore",
+    );
+  });
+
   test("search matches questions, answers, categories, and keywords", () => {
     expect(filterHelpItems("RND", "dry weight").map((item) => item.id)).toContain(
       "rnd-dry-weight",

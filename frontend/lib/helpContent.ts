@@ -542,6 +542,30 @@ export const HELP_ITEMS: HelpItem[] = [
     answer: "Yes. Admin can publish authorized announcements and revise the current SOP. Confirm audience and category before publishing; SOP revisions remain visible in version history.",
     keywords: ["publish", "audience", "procedure", "history"],
   },
+  {
+    id: "admin-backup-schedules",
+    role: "Admin",
+    category: "Backup & Recovery",
+    question: "How do automatic backup schedules avoid duplicates?",
+    answer: "Daily, weekly, and monthly schedules are independent and run after the displayed 1:30 AM Asia/Manila target. Enabling a schedule does not create an immediate backup. NutriScope creates at most one automatic restore point for each due period, and one archive satisfies every category due together. Repeated scheduler checks do nothing after that period is satisfied. Disabling a schedule does not delete existing restore points.",
+    keywords: ["automatic", "daily", "weekly", "monthly", "idempotent", "duplicate", "next backup"],
+  },
+  {
+    id: "admin-backup-retention",
+    role: "Admin",
+    category: "Backup & Recovery",
+    question: "How long are restore points kept, and what does Delete do?",
+    answer: "Automatic retention keeps the latest 3 daily, 2 weekly, and 3 monthly restore points. Manual points have no automatic expiry. Delete first moves an eligible point to Recently Deleted for 48 hours. Keep backup returns it to Available; Delete permanently or expiry removes the archive when no active recovery protects it. Safety snapshots remain protected for 48 hours after recovery finishes.",
+    keywords: ["expires", "recently deleted", "keep backup", "delete permanently", "manual", "safety snapshot"],
+  },
+  {
+    id: "admin-backup-restore",
+    role: "Admin",
+    category: "Backup & Recovery",
+    question: "What happens when Admin restores the whole system?",
+    answer: "Restore requires the current password and exact confirmation phrase. A queued job creates and verifies a safety snapshot, restores the selected archive into one temporary MySQL database, validates the database and matching private files, and only then enters maintenance mode to switch application data. Newer records are replaced rather than merged. A successful switch signs users out, removes the temporary database, preserves backup and audit history, and keeps the safety snapshot for 48 hours. A failure leaves production unchanged or automatically rolls it back.",
+    keywords: ["whole system", "temporary database", "safety snapshot", "signed out", "rollback", "maintenance"],
+  },
 ];
 
 export function getVisibleHelpItems(role: WebHelpRole): HelpItem[] {
