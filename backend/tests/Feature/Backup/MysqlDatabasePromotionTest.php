@@ -29,12 +29,15 @@ class MysqlDatabasePromotionTest extends TestCase
                 $connection->statement("CREATE TABLE `{$database}`.`recovery_requests` (id BIGINT UNSIGNED PRIMARY KEY, requested_by BIGINT UNSIGNED NOT NULL)");
                 $connection->statement("CREATE TABLE `{$database}`.`backup_runs` (id BIGINT UNSIGNED PRIMARY KEY, requested_by BIGINT UNSIGNED NULL)");
                 $connection->statement("CREATE TABLE `{$database}`.`backup_manifest_objects` (id BIGINT UNSIGNED PRIMARY KEY, stored_object_id BIGINT UNSIGNED NULL, stored_object_uuid CHAR(36) NOT NULL)");
+                $connection->statement("CREATE TABLE `{$database}`.`audit_revisions` (id BIGINT UNSIGNED PRIMARY KEY, label VARCHAR(32) NOT NULL)");
                 $connection->statement("CREATE TABLE `{$database}`.`domain_rows` (id BIGINT UNSIGNED PRIMARY KEY, label VARCHAR(32) NOT NULL)");
                 $connection->statement("INSERT INTO `{$database}`.`users` VALUES (1)");
             }
             $uuid = '11111111-1111-1111-1111-111111111111';
             $connection->statement("INSERT INTO `{$live}`.`domain_rows` VALUES (1, 'current')");
             $connection->statement("INSERT INTO `{$candidate}`.`domain_rows` VALUES (1, 'restored')");
+            $connection->statement("INSERT INTO `{$live}`.`audit_revisions` VALUES (1, 'current-audit')");
+            $connection->statement("INSERT INTO `{$candidate}`.`audit_revisions` VALUES (1, 'historic-audit')");
             $connection->statement("INSERT INTO `{$candidate}`.`stored_objects` VALUES (7, '{$uuid}')");
             $connection->statement("INSERT INTO `{$live}`.`backup_runs` VALUES (1, 999)");
             $connection->statement("INSERT INTO `{$live}`.`backup_manifest_objects` VALUES (1, 999, '{$uuid}')");
@@ -48,6 +51,7 @@ class MysqlDatabasePromotionTest extends TestCase
             ]);
 
             $this->assertSame('restored', DB::connection('mysql')->table('domain_rows')->value('label'));
+            $this->assertSame('current-audit', DB::connection('mysql')->table('audit_revisions')->value('label'));
             $this->assertNull(DB::connection('mysql')->table('backup_runs')->value('requested_by'));
             $this->assertSame(7, DB::connection('mysql')->table('backup_manifest_objects')->value('stored_object_id'));
         } finally {

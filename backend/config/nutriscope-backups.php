@@ -13,6 +13,7 @@ return [
     'restore_enabled' => (bool) env('BACKUP_RESTORE_ENABLED', false),
     'recovery_control_tables' => [
         'activity_log',
+        'audit_revisions',
         'backup_manifest_objects',
         'backup_manifests',
         'backup_runs',
