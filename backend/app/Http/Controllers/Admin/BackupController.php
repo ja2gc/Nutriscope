@@ -8,6 +8,7 @@ use App\Enums\AuditDomain;
 use App\Enums\BackupRetentionTier;
 use App\Enums\BackupSource;
 use App\Enums\BackupState;
+use App\Enums\RecoveryStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\CreateBackupRequest;
 use App\Http\Requests\Admin\DeleteBackupRequest;
@@ -16,6 +17,7 @@ use App\Http\Requests\Admin\ListBackupsRequest;
 use App\Http\Resources\BackupRunResource;
 use App\Jobs\CreateDatabaseBackup;
 use App\Models\BackupRun;
+use App\Models\RecoveryRequest;
 use App\Models\RecoveryTest;
 use App\Services\Audit\AuditLogger;
 use App\Services\Backup\BackupRetentionService;
@@ -121,6 +123,17 @@ class BackupController extends Controller
     {
         $latest = $latestVerifiedId === null ? null : BackupRun::find($latestVerifiedId);
         $latestFailure = BackupRun::where('state', BackupState::Failed)->latest('id')->first();
+        $activeRecovery = RecoveryRequest::query()
+            ->whereIn('state', [
+                RecoveryStatus::Requested,
+                RecoveryStatus::Preparing,
+                RecoveryStatus::Checking,
+                RecoveryStatus::Ready,
+                RecoveryStatus::Switching,
+            ])
+            ->with('backupRun')
+            ->latest('id')
+            ->first();
         $healthy = $latest?->verified_at?->greaterThan(now()->subDays(2)) === true
             && ($latestFailure === null || $latestFailure->created_at->lt($latest->verified_at));
         $next = now(config('nutriscope-backups.timezone'))->setTime(1, 30);
@@ -135,6 +148,18 @@ class BackupController extends Controller
             'scope' => 'Database records and protected uploaded files',
             'storage_bytes' => BackupRun::whereIn('state', [BackupState::Completed, BackupState::RecentlyDeleted])->sum('bytes'),
             'last_recovery_test_at' => RecoveryTest::query()->where('state', 'completed')->max('completed_at'),
+            'active_recovery' => $activeRecovery === null ? null : [
+                'id' => $activeRecovery->uuid,
+                'backup_id' => $activeRecovery->backupRun->uuid,
+                'state' => $activeRecovery->state->value,
+                'requested_at' => $activeRecovery->requested_at?->toIso8601String(),
+                'can_cancel' => in_array($activeRecovery->state, [
+                    RecoveryStatus::Requested,
+                    RecoveryStatus::Preparing,
+                    RecoveryStatus::Checking,
+                    RecoveryStatus::Ready,
+                ], true),
+            ],
             'counts' => [
                 'available' => BackupRun::where('state', BackupState::Completed)->count(),
                 'in_progress' => BackupRun::whereIn('state', [BackupState::Queued, BackupState::Running, BackupState::Verifying])->count(),

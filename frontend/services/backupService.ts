@@ -1,5 +1,5 @@
 import { apiFetch } from "@/lib/apiFetch";
-import type { BackupCategory, BackupListResponse, BackupRunDto, BackupScheduleInput, BackupSchedulesDto, BackupSection, RecoveryRequestInput } from "@/types/backup";
+import type { BackupCategoryFilter, BackupListResponse, BackupRunDto, BackupScheduleInput, BackupSchedulesDto, BackupSection, RecoveryRequestInput } from "@/types/backup";
 
 export class BackupServiceError extends Error {
   constructor(message: string, public readonly status: number) {
@@ -19,7 +19,7 @@ async function unwrap<T>(response: Response, fallback: string): Promise<T> {
   return payload.data;
 }
 
-export async function listBackups(page = 1, section: BackupSection = "available", category: BackupCategory = "daily"): Promise<BackupListResponse> {
+export async function listBackups(page = 1, section: BackupSection = "available", category: BackupCategoryFilter = "daily"): Promise<BackupListResponse> {
   const response = await apiFetch(`/api/admin/backups?page=${page}&section=${section}&category=${category}`, { headers: { Accept: "application/json" } });
   const payload = await response.json().catch(() => null) as BackupListResponse | { message?: string } | null;
   if (!response.ok || !payload || !("data" in payload) || !("meta" in payload) || !("summary" in payload)) {

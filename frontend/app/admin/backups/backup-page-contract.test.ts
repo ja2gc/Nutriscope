@@ -14,6 +14,7 @@ describe("admin backup page contract", () => {
     const dialog = readFileSync(resolve(process.cwd(), "components/backups/BackupActionDialog.tsx"), "utf8");
     const summary = readFileSync(resolve(process.cwd(), "components/backups/BackupStatusSummary.tsx"), "utf8");
     const list = readFileSync(resolve(process.cwd(), "components/backups/BackupList.tsx"), "utf8");
+    const tabs = readFileSync(resolve(process.cwd(), "components/ui/Tabs.tsx"), "utf8");
     expect(page).toContain("Backup & Recovery");
     expect(page).toContain("setInterval");
     expect(page).toContain('role="status"');
@@ -31,6 +32,15 @@ describe("admin backup page contract", () => {
     expect(list).toContain(">Restore</Button>");
     expect(page).toContain('from "@/components/ui/Tabs"');
     expect(page).toContain("Recently Deleted");
+    expect(page).toContain('ariaLabel="Backup views"');
+    expect(page).toContain("Restore points");
+    expect(page).toContain("Backup activity");
+    expect(page).toContain("Restoration activity");
+    expect(page).toContain("Filter by backup type");
+    expect(page).toContain("Pre-restore");
+    expect(page).not.toContain('className="overflow-x-auto"');
+    expect(page).not.toContain('ariaLabel="Backup category"');
+    expect(tabs).toContain("fill = false");
     expect(page).toContain('"daily"');
     expect(page).toContain('"weekly"');
     expect(page).toContain('"monthly"');
@@ -38,6 +48,10 @@ describe("admin backup page contract", () => {
     expect(list).not.toContain("backup.categories.map");
     expect(list).not.toContain("Kept until you delete it.");
     expect(list).toContain("Expires on");
+    expect(list).not.toContain('completed: "Completed"');
+    expect(list).toContain("Used for system restore");
+    expect(list).toContain("Restore attempt failed");
+    expect(list).toContain("Pre-restore backup protected until");
   });
 
   test("provides three independent default-off automatic schedule controls", () => {
@@ -57,7 +71,9 @@ describe("admin backup page contract", () => {
     expect(page).toContain('from "@/components/ui/Pagination"');
     expect(page).toContain("<Pagination");
     expect(page).toContain("listBackups(requestedPage, section, category)");
-    expect(page).toContain('ariaLabel="Backup status"');
-    expect(page).toContain('ariaLabel="Backup category"');
+    expect(page).toContain('ariaLabel="Backup views"');
+    expect(page).toContain('listBackups(1, "in_progress", "all")');
+    expect(page).toContain("data?.summary.active_recovery");
+    expect(page).toContain("activeRecovery.can_cancel");
   });
 });

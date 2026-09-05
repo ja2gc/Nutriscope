@@ -12,6 +12,8 @@ class BackupRunResource extends JsonResource
     {
         $isLatest = (bool) ($this->resource->is_latest_verified ?? false);
         $hasRecoveryRequest = (int) ($this->resource->pending_recovery_requests_count ?? 0) > 0;
+        $isProtectedSafetySnapshot = $this->source->value === 'safety'
+            && $this->retention_expires_at?->isFuture() === true;
 
         return [
             'id' => $this->uuid,
@@ -22,6 +24,7 @@ class BackupRunResource extends JsonResource
             'encrypted' => $this->encrypted,
             'retention_tier' => $this->retention_tier?->value,
             'retention_expires_at' => $this->retention_expires_at?->toIso8601String(),
+            'retention_is_active' => $this->retention_expires_at?->isFuture() === true,
             'queued_at' => $this->queued_at?->toIso8601String(),
             'started_at' => $this->started_at?->toIso8601String(),
             'verified_at' => $this->verified_at?->toIso8601String(),
@@ -41,7 +44,10 @@ class BackupRunResource extends JsonResource
             ]),
             'actions' => [
                 'can_delete' => $this->state === BackupState::Failed
-                    || ($this->state === BackupState::Completed && ! $isLatest && ! $hasRecoveryRequest),
+                    || ($this->state === BackupState::Completed
+                        && ! $isLatest
+                        && ! $hasRecoveryRequest
+                        && ! $isProtectedSafetySnapshot),
                 'can_purge' => $this->state === BackupState::RecentlyDeleted && ! $hasRecoveryRequest,
                 'can_keep' => $this->state === BackupState::RecentlyDeleted
                     && $this->recoverable_until?->isFuture() === true,

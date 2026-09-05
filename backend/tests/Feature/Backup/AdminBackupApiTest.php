@@ -7,6 +7,7 @@ use App\Enums\BackupSource;
 use App\Enums\BackupState;
 use App\Jobs\CreateDatabaseBackup;
 use App\Models\BackupRun;
+use App\Models\RecoveryRequest;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
@@ -86,6 +87,26 @@ class AdminBackupApiTest extends TestCase
         $this->actingAs($admin, 'sanctum')
             ->getJson('/api/admin/backups?section=unknown')
             ->assertUnprocessable();
+    }
+
+    #[Test]
+    public function backup_summary_exposes_active_restoration_independent_of_the_selected_filter(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $backup = BackupRun::factory()->completed()->create(['source' => BackupSource::Manual]);
+        $recovery = RecoveryRequest::factory()->create([
+            'backup_run_id' => $backup->id,
+            'requested_by' => $admin->id,
+            'state' => 'checking',
+        ]);
+
+        $this->actingAs($admin, 'sanctum')
+            ->getJson('/api/admin/backups?section=failed&category=weekly')
+            ->assertOk()
+            ->assertJsonPath('summary.active_recovery.id', $recovery->uuid)
+            ->assertJsonPath('summary.active_recovery.backup_id', $backup->uuid)
+            ->assertJsonPath('summary.active_recovery.state', 'checking')
+            ->assertJsonPath('summary.active_recovery.can_cancel', true);
     }
 
     #[Test]
@@ -196,6 +217,13 @@ class AdminBackupApiTest extends TestCase
             'verified_at' => now()->subMinute(),
             'retention_expires_at' => now()->addHours(48),
         ]);
+
+        $this->actingAs($admin, 'sanctum')
+            ->getJson('/api/admin/backups?section=available&category=safety')
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $safety->uuid)
+            ->assertJsonPath('data.0.retention_is_active', true)
+            ->assertJsonPath('data.0.actions.can_delete', false);
 
         $this->actingAs($admin, 'sanctum')
             ->deleteJson("/api/admin/backups/{$safety->uuid}")

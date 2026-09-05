@@ -19,12 +19,14 @@ export function Tabs<K extends string>({
   onChange,
   className = "",
   ariaLabel,
+  fill = false,
 }: {
   items: TabItem<K>[];
   value: K;
   onChange: (k: K) => void;
   className?: string;
   ariaLabel?: string;
+  fill?: boolean;
 }) {
   const refs = useRef<(HTMLButtonElement | null)[]>([]);
 
@@ -49,7 +51,7 @@ export function Tabs<K extends string>({
             tabIndex={active ? 0 : -1}
             onClick={() => onChange(t.key)}
             onKeyDown={(e) => onKeyDown(e, i)}
-            className={`flex items-center gap-2 px-5 py-3 text-base font-semibold border-b-2 -mb-px cursor-pointer transition-colors rounded-t-md ${tabTheme.focus} ${
+            className={`flex items-center gap-2 py-3 text-base font-semibold border-b-2 -mb-px cursor-pointer transition-colors rounded-t-md ${fill ? "min-w-0 flex-1 justify-center px-2 text-center text-sm leading-tight sm:px-3 sm:text-base" : "px-5"} ${tabTheme.focus} ${
               active
                 ? tabTheme.active
                 : tabTheme.inactive

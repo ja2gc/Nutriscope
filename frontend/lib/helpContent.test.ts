@@ -47,6 +47,7 @@ describe("role-specific Help content", () => {
     expect(adminIds).toEqual(
       expect.arrayContaining([
         "admin-backup-schedules",
+        "admin-backup-statuses",
         "admin-backup-retention",
         "admin-backup-restore",
       ]),
@@ -54,6 +55,7 @@ describe("role-specific Help content", () => {
     expect(rndIds).not.toEqual(
       expect.arrayContaining([
         "admin-backup-schedules",
+        "admin-backup-statuses",
         "admin-backup-retention",
         "admin-backup-restore",
       ]),
@@ -64,6 +66,16 @@ describe("role-specific Help content", () => {
     expect(filterHelpItems("Admin", "safety snapshot").map((item) => item.id)).toContain(
       "admin-backup-restore",
     );
+    expect(filterHelpItems("Admin", "pre-restore").map((item) => item.id)).toContain(
+      "admin-backup-statuses",
+    );
+    expect(filterHelpItems("Admin", "verifying").map((item) => item.id)).toContain(
+      "admin-backup-statuses",
+    );
+    expect(filterHelpItems("Admin", "ready to switch").map((item) => item.id)).toContain(
+      "admin-backup-statuses",
+    );
+    expect(filterHelpItems("RND", "pre-restore")).toEqual([]);
   });
 
   test("search matches questions, answers, categories, and keywords", () => {

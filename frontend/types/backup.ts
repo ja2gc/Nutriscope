@@ -4,6 +4,7 @@ export type RecoveryStatus = "requested" | "preparing" | "checking" | "ready" | 
 export type BackupRetentionTier = "daily" | "weekly" | "monthly";
 export type BackupSection = "available" | "in_progress" | "failed" | "recently_deleted";
 export type BackupCategory = "daily" | "weekly" | "monthly" | "manual" | "safety";
+export type BackupCategoryFilter = BackupCategory | "all";
 export type RecoveryIncidentType = "website_unavailable" | "damaged_database" | "accidentally_deleted_records" | "missing_upload" | "bad_deployment";
 
 export interface BackupRunDto {
@@ -15,6 +16,7 @@ export interface BackupRunDto {
   encrypted: boolean;
   retention_tier: BackupRetentionTier | null;
   retention_expires_at: string | null;
+  retention_is_active: boolean;
   queued_at: string | null;
   started_at: string | null;
   verified_at: string | null;
@@ -31,6 +33,13 @@ export interface BackupSummaryDto {
   scope: string;
   storage_bytes: number;
   last_recovery_test_at: string | null;
+  active_recovery: {
+    id: string;
+    backup_id: string;
+    state: RecoveryStatus;
+    requested_at: string | null;
+    can_cancel: boolean;
+  } | null;
   counts: Record<BackupSection, number>;
   category_counts: Record<BackupCategory, number>;
 }
