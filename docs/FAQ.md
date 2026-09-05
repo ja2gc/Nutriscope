@@ -360,11 +360,15 @@ Daily, weekly, and monthly schedules are independent. Each runs after the displa
 
 ### How long are restore points kept, and what does Delete do?
 
-Automatic retention keeps the latest 3 daily, 2 weekly, and 3 monthly restore points. Manual restore points have no automatic expiry. **Delete** moves an eligible point to **Recently Deleted** for 48 hours. **Keep backup** returns it to Available; **Delete permanently** or expiry purges it when no active recovery protects it. A pre-restore safety snapshot remains protected for 48 hours after recovery finishes.
+Automatic retention keeps the latest 3 daily, 2 weekly, and 3 monthly restore points. Manual restore points have no automatic expiry. **Delete** moves an eligible point to **Recently deleted** for 48 hours. **Keep backup** returns it to **Restore points**; **Delete permanently** or expiry purges it when no active restoration protects it. A Pre-restore backup remains protected for 48 hours after restoration finishes, so protected rows do not show Delete.
+
+### What do the backup views, activity stages, and types mean?
+
+**Restore points** contains verified backups, **Failed** contains attempts with no usable archive, and **Recently deleted** contains recoverable deleted backups. **Backup activity** appears only while work is Queued, Creating, or Verifying. The type filters are Daily, Weekly, Monthly, Manual, and Pre-restore. Restoration activity progresses through queued, preparation, validation, ready-to-switch, and switching stages; finished rows state whether the restore completed, failed, was cancelled, or rolled back. One Pre-restore backup is created before every restoration attempt, so multiple protected copies can exist after separate attempts.
 
 ### What happens when Admin restores the whole system?
 
-Restore requires the current password and exact confirmation phrase. A queued job creates and verifies a safety snapshot, restores the selected archive into one temporary MySQL database, validates the database and matching private files, and only then enters maintenance mode to switch application data. Newer records are replaced rather than merged. A successful switch signs users out, removes the temporary database, preserves backup and audit history, and keeps the safety snapshot for 48 hours. A failure leaves production unchanged or automatically rolls it back.
+Restore requires the current password and exact confirmation phrase. A queued job creates and verifies a Pre-restore backup (the recovery safety snapshot), restores the selected archive into one temporary MySQL database, validates the database and matching private files, and only then enters maintenance mode to switch application data. Newer records are replaced rather than merged. A successful switch signs users out, removes the temporary database, preserves backup and audit history, and keeps the Pre-restore backup for 48 hours. A failure leaves production unchanged or automatically rolls it back.
 
 ## When to Escalate
 

@@ -705,13 +705,13 @@ Use this version when screenshots are available. Each scene already contains the
 
 #### ADMIN-10 — Backup and Recovery
 
-**Description:** Admin reviews backup health and automatic schedules, filters paginated restore points by lifecycle and category, manages Recently Deleted, and opens the guarded whole-system Restore workflow. Automatic points show an expiry date; manual points have no automatic expiry.
+**Description:** Admin reviews backup health and automatic schedules, uses Restore points, Failed, and Recently deleted views, filters paginated results by backup type, and opens the guarded whole-system Restore workflow. Conditional Backup activity shows Queued, Creating, and Verifying work. Automatic points show an expiry date; manual points have no automatic expiry.
 
-**User should do:** Show Available and each category tab, open Failed and Recently Deleted, then open and cancel the Restore dialog. Do not delete or restore production data for a screenshot.
+**User should do:** Show the three primary views and all five type filters: Daily, Weekly, Monthly, Manual, and Pre-restore. Show that protected Pre-restore rows have no Delete action, then open and cancel the Restore dialog. Do not delete or restore production data for a screenshot.
 
 **Next scene:** System Settings and Branding.
 
-> **Screenshot needed:** Backup & Recovery showing health, three schedule switches, lifecycle tabs, category tabs, one restore-point card, and pagination. Optional second image: Restore whole system confirmation with every sensitive field empty.
+> **Screenshot needed:** Backup & Recovery showing health, three schedule switches, three primary views, five wrapping type filters, one restore-point card, and pagination. Optional second image: protected Pre-restore rows with no Delete action. Optional third image: Restore confirmation with every sensitive field empty.
 >
 > **Insert screenshot(s) below this line.**
 
@@ -743,11 +743,11 @@ Use this version when screenshots are available. Each scene already contains the
 
 **Description:** Admin Help provides searchable Shared and Admin-only answers for accounts, AI limits, audit logs, backup schedules, retention, whole-system recovery, announcements/SOP, reports, budget, and settings. It does not expose RND clinical guidance.
 
-**User should do:** Open Help from the sidebar, search for `safety snapshot`, then expand the whole-system restore question.
+**User should do:** Open Help from the sidebar, search for `pre-restore`, expand the backup status/type answer, then search `verifying` to confirm the activity-stage guidance.
 
 **Next scene:** End of Admin story.
 
-> **Screenshot needed:** Admin Help showing Search Help, the `safety snapshot` result expanded, and the sidebar Help item selected. Do not show RND guidance.
+> **Screenshot needed:** Admin Help showing Search Help, the `pre-restore` results, the backup status/type answer expanded, and the sidebar Help item selected. Do not show RND guidance.
 >
 > **Insert screenshot(s) below this line.**
 

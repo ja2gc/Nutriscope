@@ -6,9 +6,10 @@ This is the maintained administrator reference for the Phase 1.5 backup foundati
 
 ```mermaid
 flowchart TD
-    A["Admin Backup page"] --> A1["Use lifecycle tabs: Available, In progress, Failed, Recently Deleted"]
-    A1 --> A2["Use category tabs: Daily, Weekly, Monthly, Manual, Safety"]
-    A2 --> B{"Automatic schedules enabled?"}
+    A["Admin Backup page"] --> A1["Use primary views: Restore points, Failed, Recently deleted"]
+    A1 --> A2["Use type filters: Daily, Weekly, Monthly, Manual, Pre-restore"]
+    A2 --> A3["Show Backup activity only while Queued, Creating, or Verifying"]
+    A3 --> B{"Automatic schedules enabled?"}
     B -->|"None"| C["Show: Automatic backups are disabled"]
     B -->|"Any combination"| D["Show each next scheduled backup"]
     D --> E["Coordinator checks every 10 minutes after the 01:30 Asia/Manila target"]
@@ -16,7 +17,7 @@ flowchart TD
     F -->|"No"| G["Do nothing; period already satisfied"]
     F -->|"Yes"| H["Claim category and period with unique locks"]
     H --> I["One queued backup satisfies all categories due together"]
-    A2 --> J["Admin selects Create backup now"]
+    A3 --> J["Admin selects Create backup now"]
     J --> K["Create independent manual restore point kept until Admin deletion"]
     I --> L["Run shared backup pipeline"]
     K --> L
@@ -26,21 +27,21 @@ flowchart TD
     O --> P["Verify archive checksum, decryption, SQL entry, manifest, and protected files"]
     P --> Q{"Verification passed?"}
     Q -->|"No"| R["Mark Failed, show safe result, notify configured contact, and audit activity"]
-    Q -->|"Yes"| S["Mark Available and audit activity"]
+    Q -->|"Yes"| S["Add to Restore points and audit activity"]
     S --> T["Apply automatic retention: 3 daily, 2 weekly, or 3 monthly; manual points do not auto-expire"]
 ```
 
 Disabling a schedule stops future periods only. It does not delete or reclassify existing restore points. A manual backup never satisfies an automatic period.
 
-## Retention and Recently Deleted
+## Retention and Recently deleted
 
 ```mermaid
 flowchart TD
-    A["Available restore point reaches its last assigned expiry"] --> B{"Protected by active recovery?"}
-    B -->|"Yes"| C["Keep Available until recovery finishes"]
-    B -->|"No"| D["Move archive, manifest, and file references to Recently Deleted for 48 hours"]
+    A["Restore point reaches its last assigned expiry"] --> B{"Protected by active restoration?"}
+    B -->|"Yes"| C["Keep in Restore points until restoration finishes"]
+    B -->|"No"| D["Move archive, manifest, and file references to Recently deleted for 48 hours"]
     D --> E{"Admin acts before deadline?"}
-    E -->|"Keep"| F["Return restore point to Available"]
+    E -->|"Keep"| F["Return backup to Restore points"]
     F --> G["Keep backup rescues the restore point only; it does not restore application data"]
     E -->|"Delete permanently or wait 48 hours"| H["Purge archive and manifest"]
     H --> I["Purge protected file copies only when no remaining restore point references them"]
@@ -73,8 +74,8 @@ flowchart TD
     C --> D{"Authorized and confirmed?"}
     D -->|"No"| E["Stop with no system changes"]
     D -->|"Yes"| F["Create Requested recovery and Audit Log entry"]
-    F --> G["Queued job creates one verified pre-restore safety snapshot"]
-    G --> H{"Safety snapshot verified?"}
+    F --> G["Queued job creates one verified Pre-restore backup (safety snapshot)"]
+    G --> H{"Pre-restore backup verified?"}
     H -->|"No"| I["Mark Failed; production remains unchanged; notify and audit"]
     H -->|"Yes"| J["Restore selected archive into one new temporary MySQL database"]
     J --> K["Verify database integrity and matching uploaded files without mutations"]
@@ -90,11 +91,11 @@ flowchart TD
     S --> T["Run basic production health and manifest checks"]
     T --> U{"Cutover healthy?"}
     U -->|"Yes"| V["Exit maintenance mode, mark Completed, and audit"]
-    U -->|"No"| W["Automatically switch back to safety snapshot"]
+    U -->|"No"| W["Automatically switch back to the Pre-restore backup"]
     W --> X["Verify rollback, exit maintenance mode, mark Rolled Back, notify, and audit"]
 ```
 
-After Completed, Failed, Rolled Back, or Cancelled, the safety snapshot remains a whole-system restore point for 48 hours. If restoration or rollback is still active at 48 hours, protection continues until the process reaches a terminal status, then the 48-hour window begins. Newer records are not merged or placed in a review database; after a successful older restore they exist only in this access-controlled safety snapshot.
+Each attempt creates its own Pre-restore backup, even if the later restoration step fails. After Completed, Failed, Rolled Back, or Cancelled, that backup remains protected for 48 hours. If restoration or rollback is still active at 48 hours, protection continues until the process reaches a terminal status, then the 48-hour window begins. Newer records are not merged or placed in a review database; after a successful older restore they exist only in this access-controlled recovery safety snapshot.
 
 ## Recovery Boundaries
 

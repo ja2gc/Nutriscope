@@ -259,13 +259,13 @@ Verified against current navigation and server permissions on **2026-09-05**. Fo
 ### 7. Supervise Backups and Recovery
 
 1. Open **Backups** and confirm backup health, storage use, and the latest recovery-test date.
-2. Use Available, In progress, Failed, and Recently Deleted to choose a lifecycle state.
-3. Use Daily, Weekly, Monthly, Manual, or Safety to choose a restore-point category. One automatic archive may appear in several schedule tabs when it satisfies coinciding schedules; Safety contains pre-restore snapshots.
+2. Use the primary views **Restore points**, **Failed**, and **Recently deleted**. **Backup activity** appears separately only while a backup is Queued, Creating, or Verifying.
+3. Use the wrapping Daily, Weekly, Monthly, Manual, or Pre-restore filters. One automatic archive may appear under several schedule filters when it satisfies coinciding schedules. One protected Pre-restore backup is created before each restoration attempt.
 4. Enable only the automatic schedules needed; readiness must pass, and each enabled schedule shows its next run.
 5. Select **Create backup now** for an independent manual restore point. Manual points have no automatic expiry.
-6. Use **Delete** to move an eligible point to Recently Deleted for 48 hours. Use **Keep backup** to return it to Available, or **Delete permanently** only after confirming permanent loss.
+6. Use **Delete** to move an eligible point to Recently deleted for 48 hours. Use **Keep backup** to return it to Restore points, or **Delete permanently** only after confirming permanent loss. Protected Pre-restore backups do not show Delete until protection expires.
 7. Remove failed records only after reviewing their safe failure message. No usable archive exists for a failed attempt.
-8. Use **Restore** only for an approved whole-system recovery. Review newer-data loss, enter the current password and exact confirmation phrase, then monitor the queued recovery through completion or rollback.
+8. Use **Restore** only for an approved whole-system recovery. Review newer-data loss, enter the current password and exact confirmation phrase, then monitor **Restoration activity** through completion, cancellation, failure, or rollback.
 
 ### 8. Help, Profile, and Notifications
 

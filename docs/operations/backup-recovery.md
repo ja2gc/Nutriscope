@@ -28,32 +28,32 @@ The selected single-Droplet deployment keeps live private uploads on the persist
 
 At least every 30 days, NutriScope restores the latest verified point into a disposable MySQL database. Checks are read-only: schema, foreign keys, application/authentication tables, role definitions, supported password hashes, manifest, files, and critical boot integrity. The drill creates no user, password, session, or business fixture and always drops its database. The page shows the latest successful recovery-test date.
 
-## Available and Recently Deleted
+## Restore points and Recently deleted
 
-- Lifecycle tabs separate Available, In progress, Failed, and Recently Deleted records. Category tabs separate daily, weekly, monthly, manual, and pre-restore safety points; one shared automatic archive appears in every schedule category it satisfies.
+- Primary views separate Restore points, Failed, and Recently deleted. Backup activity appears only while work is Queued, Creating, or Verifying. Type filters separate daily, weekly, monthly, manual, and Pre-restore points; one shared automatic archive appears under every schedule filter it satisfies.
 - **Create backup now** creates a manual restore point with no automatic expiry.
-- **Delete** moves an available restore point to Recently Deleted and starts a 48-hour recovery window.
+- **Delete** moves an eligible restore point to Recently deleted and starts a 48-hour recovery window. The latest verified point, an active restoration reference, and an unexpired Pre-restore backup do not expose Delete.
 - Failed entries have no usable restore archive. Admins can remove them from the list after confirmation; the destructive audit event remains.
 - **Keep backup** rescues the archive and matching manifest/files; it does not restore application data.
-- **Delete permanently** removes a Recently Deleted archive immediately after confirmation. Otherwise, expired Recently Deleted items are purged automatically. Both paths remove protected file copies only when no remaining restore point references them.
+- **Delete permanently** removes a Recently deleted archive immediately after confirmation. Otherwise, expired Recently deleted items are purged automatically. Both paths remove protected file copies only when no remaining restore point references them.
 
 ## Whole-system restoration
 
-Admin selects a verified restore point, reviews the newer-data loss window, enters the current password, and types the exact confirmation phrase. Newer production data will be discarded after switching and retained only in one access-controlled pre-restore safety snapshot.
+Admin selects a verified restore point, reviews the newer-data loss window, enters the current password, and types the exact confirmation phrase. Newer production data will be discarded after switching and retained only in one access-controlled Pre-restore backup (the recovery safety snapshot).
 
 Laravel queues the workflow:
 
-1. Protect the selected point and create/verify one current-system safety snapshot.
+1. Protect the selected point and create/verify one current-system Pre-restore backup (safety snapshot).
 2. Restore the selected archive into one new temporary MySQL database.
 3. Run non-mutating database checks and verify every matching uploaded object.
 4. Show **Ready** only after preparation passes. Production remains unchanged before this point.
 5. Enter shared Redis-backed maintenance mode only when production restoration is explicitly enabled.
 6. Transactionally replace application data from the validated temporary database, activate its matching protected uploads, run health checks, remove temporary recovery data, and mark **Completed**. Backup metadata, recovery history, schedule settings, migrations, Audit Logs, and immutable audit revisions stay current so the recovery itself remains traceable.
-7. On switching or health-check failure, automatically switch back to the safety snapshot and mark **Rolled Back**.
+7. On switching or health-check failure, automatically switch back to the Pre-restore backup and mark **Rolled Back**.
 
 Statuses are Requested, Preparing, Checking, Ready, Switching, Completed, Failed, Rolled Back, and Cancelled. Admin may cancel before Switching. The DigitalOcean single-Droplet switcher works only with MySQL, local private-upload storage, Redis-backed shared maintenance mode, and the explicit `BACKUP_RESTORE_ENABLED` guard. Otherwise recovery stops safely at Ready. Failures or required intervention notify the initiating Admin and all recovery actions are audited.
 
-The safety snapshot remains protected until the workflow reaches a terminal status, then for 48 hours. During that window it can support automatic rollback or another Admin-initiated whole-system restoration. There is no Technical Operator website role, review database, individual-record merge, arbitrary-row recovery, or universal Record Trash.
+Restoration activity shows Queued, Preparing safety checks, Validating restore point, Ready to switch, or Restoring system. Finished restore points show whether they were used successfully or whether the attempt failed, was cancelled, or rolled back. Each attempt creates its own Pre-restore backup, even if a later step fails. It remains protected until the workflow reaches a terminal status, then for 48 hours. During that window it can support automatic rollback or another Admin-initiated whole-system restoration. There is no Technical Operator website role, review database, individual-record merge, arbitrary-row recovery, or universal Record Trash.
 
 ## Saved reports
 
