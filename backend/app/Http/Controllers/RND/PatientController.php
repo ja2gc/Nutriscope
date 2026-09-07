@@ -184,6 +184,7 @@ class PatientController extends Controller
         // files) first, otherwise the patient delete hits an unhandled FK constraint violation.
         $this->auditLogger->assertAvailable();
         $documents = ScreeningDocument::where('patient_id', $patient->id)->get();
+        $mealPlans = $patient->mealPlans()->get();
         $moves = [];
 
         try {
@@ -194,7 +195,7 @@ class PatientController extends Controller
                 }
             }
 
-            $this->audited(function () use ($patient, $documents, $moves): void {
+            $this->audited(function () use ($patient, $documents, $mealPlans, $moves): void {
                 foreach ($documents as $document) {
                     $this->auditLogger->withoutModelEvents(fn () => $document->delete());
                     $this->auditLogger->record(
@@ -205,6 +206,11 @@ class PatientController extends Controller
                         context: $patient,
                         details: ['status' => 204],
                     );
+                }
+                // meal_plans.patient_id does not cascade, so remove plans before
+                // the patient after the clinical-completeness guard has approved deletion.
+                foreach ($mealPlans as $mealPlan) {
+                    $mealPlan->delete();
                 }
                 $patient->delete();
                 foreach ($moves as $move) {

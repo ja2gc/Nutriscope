@@ -4,6 +4,8 @@ namespace Tests\Feature;
 
 use App\Jobs\DeleteQuarantinedClinicalFile;
 use App\Models\AuditActivity;
+use App\Models\Intervention;
+use App\Models\MealPlan;
 use App\Models\NcpRecord;
 use App\Models\Patient;
 use App\Models\ScreeningDocument;
@@ -246,6 +248,29 @@ class PatientFeatureTest extends TestCase
         $response->assertNoContent();
         $this->assertDatabaseMissing('patients', ['id' => $patient->id]);
         $this->assertDatabaseMissing('screening_documents', ['patient_id' => $patient->id]);
+    }
+
+    public function test_rnd_can_delete_patient_with_meal_plan_in_an_incomplete_cycle(): void
+    {
+        $rnd = User::factory()->rnd()->create();
+        $patient = Patient::factory()->create();
+        $ncpRecord = NcpRecord::factory()->create([
+            'patient_id' => $patient->id,
+            'rnd_user_id' => $rnd->id,
+            'status' => 'active',
+        ]);
+        $intervention = Intervention::factory()->create(['ncp_record_id' => $ncpRecord->id]);
+        $mealPlan = MealPlan::factory()->create([
+            'intervention_id' => $intervention->id,
+            'patient_id' => $patient->id,
+        ]);
+
+        $this->actingAs($rnd, 'sanctum')
+            ->deleteJson("/api/rnd/patients/{$patient->uuid}")
+            ->assertNoContent();
+
+        $this->assertModelMissing($patient);
+        $this->assertModelMissing($mealPlan);
     }
 
     public function test_patient_delete_audits_each_attachment_and_queues_file_cleanup_after_commit(): void
