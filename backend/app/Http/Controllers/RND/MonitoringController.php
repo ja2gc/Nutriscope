@@ -11,8 +11,10 @@ use App\Models\Monitoring;
 use App\Models\NcpRecord;
 use App\Policies\AuditPolicy;
 use App\Services\AIService;
+use App\Services\ClinicalCompletenessService;
 use App\Services\MonitoringPlanService;
 use App\Services\MonitoringSummaryService;
+use App\Services\NcpAppointmentWorkflow;
 use App\Services\NotificationLifecycleService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -20,7 +22,11 @@ use Illuminate\Support\Facades\RateLimiter;
 
 class MonitoringController extends Controller
 {
-    public function __construct(private readonly AuditPolicy $auditPolicy) {}
+    public function __construct(
+        private readonly AuditPolicy $auditPolicy,
+        private readonly ClinicalCompletenessService $completeness,
+        private readonly NcpAppointmentWorkflow $appointments,
+    ) {}
 
     /**
      * GET /api/rnd/ncp-records/{ncpRecord}/monitorings/summary
@@ -144,12 +150,15 @@ class MonitoringController extends Controller
         }
 
         $data = $request->validated();
+        $wasComplete = $this->completeness->monitoringComplete($ncpRecord->load('monitorings'));
 
-        return $this->audited(function () use ($data, $ncpRecord, $notificationLifecycle) {
+        return $this->audited(function () use ($data, $ncpRecord, $notificationLifecycle, $request, $wasComplete) {
             $monitoring = new Monitoring($data);
             $monitoring->ncp_record_id = $ncpRecord->id;
             $monitoring->save();
             $notificationLifecycle->resolveFollowUp($ncpRecord, $monitoring->created_at);
+            $freshNcp = $ncpRecord->fresh(['monitorings']);
+            $this->appointments->recordClinicalWork($request->user(), $freshNcp, 'monitoring', ! $wasComplete && $this->completeness->monitoringComplete($freshNcp));
 
             return (new MonitoringResource($monitoring))->response()->setStatusCode(201);
         });
@@ -166,10 +175,13 @@ class MonitoringController extends Controller
         }
 
         $data = $request->validated();
+        $wasComplete = $this->completeness->monitoringComplete($ncpRecord->load('monitorings'));
 
-        return $this->audited(function () use ($monitoring, $data) {
+        return $this->audited(function () use ($monitoring, $data, $ncpRecord, $request, $wasComplete) {
             $monitoring->fill($data);
             $monitoring->save();
+            $freshNcp = $ncpRecord->fresh(['monitorings']);
+            $this->appointments->recordClinicalWork($request->user(), $freshNcp, 'monitoring', ! $wasComplete && $this->completeness->monitoringComplete($freshNcp));
 
             return new MonitoringResource($monitoring);
         });

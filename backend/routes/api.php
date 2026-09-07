@@ -43,6 +43,7 @@ use App\Http\Controllers\RND\InterventionController;
 use App\Http\Controllers\RND\MealPlanController;
 use App\Http\Controllers\RND\MealPlanItemController;
 use App\Http\Controllers\RND\MonitoringController;
+use App\Http\Controllers\RND\NcpAppointmentController;
 use App\Http\Controllers\RND\NcpRecordController;
 use App\Http\Controllers\RND\NotificationController;
 use App\Http\Controllers\RND\PatientController;
@@ -118,12 +119,18 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
 });
 
 Route::middleware(['auth:sanctum', 'active', 'role:RND'])->prefix('rnd')->group(function () use ($reportRoutes) {
+    Route::get('ncp-appointments', [NcpAppointmentController::class, 'upcoming']);
+    Route::get('ncp-appointments/active', [NcpAppointmentController::class, 'active']);
+    Route::get('patients/{patient}/appointments', [NcpAppointmentController::class, 'index']);
+    Route::post('patients/{patient}/appointments', [NcpAppointmentController::class, 'store']);
+    Route::patch('ncp-appointments/{ncpAppointment}', [NcpAppointmentController::class, 'transition']);
     Route::get('patients/{patient}/activity', [ActivityController::class, 'patient']);
     Route::get('patients/{patient}/ncp-records', [PatientController::class, 'ncpRecords']);
     Route::post('patients/{patient}/ncp-records', [PatientController::class, 'startNcpCycle']);
     Route::apiResource('patients', PatientController::class);
     Route::get('ncp-records/{ncpRecord}/activity', [ActivityController::class, 'ncpRecord']);
     Route::delete('ncp-records/{ncpRecord}', [NcpRecordController::class, 'destroy']);
+    Route::patch('ncp-records/{ncpRecord}', [NcpRecordController::class, 'transition']);
     Route::get('announcements', [RndAnnouncementController::class, 'index']);
     Route::middleware('throttle:10,1')->group(function () {
         Route::post('announcements', [RndAnnouncementController::class, 'store']);

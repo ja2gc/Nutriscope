@@ -6,7 +6,8 @@ import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/Button";
 import { ImageCarousel, ImageUploadGallery, imagesFromSrcs, imageSrcs, type UploadImage } from "@/components/ui/ImageUploadGallery";
-import { fetchPatients, Patient } from "@/services/patientService";
+import { fetchPatients } from "@/services/patientService";
+import { fetchUpcomingAppointments, transitionAppointment, type NcpAppointment } from "@/services/ncpAppointmentService";
 import {
   Announcement,
   AnnouncementCategory,
@@ -30,10 +31,12 @@ type AnnouncementDraft = {
 };
 
 type FollowUpRow = {
-  patientId: number;
+  appointmentId: string;
+  patientId: string;
+  ncpId: string | null;
   name: string;
-  systemId: string;
-  goalType: string;
+  purpose: string;
+  source: string;
   nextFollowUpDate: string;
   daysRemaining: number;
 };
@@ -69,16 +72,16 @@ function getInitials(name: string) {
     .join("");
 }
 
-function buildFollowUps(patients: Patient[]): FollowUpRow[] {
+function buildFollowUps(appointments: NcpAppointment[]): FollowUpRow[] {
   const today = new Date();
 
-  return patients
-    .flatMap((patient) => {
-      if (!patient.next_followup_date) {
+  return appointments
+    .flatMap((appointment) => {
+      if (!appointment.scheduled_at || !appointment.patient) {
         return [];
       }
 
-      const followUpDate = new Date(patient.next_followup_date);
+      const followUpDate = new Date(appointment.scheduled_at);
       if (Number.isNaN(followUpDate.getTime())) {
         return [];
       }
@@ -87,11 +90,13 @@ function buildFollowUps(patients: Patient[]): FollowUpRow[] {
 
       return [
         {
-          patientId: patient.id,
-          name: personDisplayName(patient),
-          systemId: `NS-${String(patient.id).padStart(5, "0")}`,
-          goalType: patient.ncp_records?.[0]?.intervention?.goal_type?.trim() || "Not yet completed",
-          nextFollowUpDate: patient.next_followup_date,
+          appointmentId: appointment.id,
+          patientId: appointment.patient.id,
+          ncpId: appointment.ncp_record_id,
+          name: personDisplayName(appointment.patient),
+          purpose: appointment.purpose,
+          source: appointment.source,
+          nextFollowUpDate: appointment.scheduled_at,
           daysRemaining: diffDays,
         },
       ];
@@ -139,7 +144,7 @@ function isAnnouncementEditable(post: Announcement, userId?: number | null) {
 
 export default function RndDashboardPage() {
   const { user } = useAuth();
-  const [patients, setPatients] = useState<Patient[]>([]);
+  const [appointments, setAppointments] = useState<NcpAppointment[]>([]);
   const [activePatientTotal, setActivePatientTotal] = useState(0);
   const [followUpMeta, setFollowUpMeta] = useState<PaginationMeta | null>(null);
   const [fssDashboard, setFssDashboard] = useState<FssDashboardSummary | null>(null);
@@ -166,14 +171,17 @@ export default function RndDashboardPage() {
     body: "",
     images: [],
   });
+  const [appointmentAction, setAppointmentAction] = useState<{ id: string; kind: "cancel" | "reschedule" } | null>(null);
+  const [appointmentReason, setAppointmentReason] = useState("patient_requested");
+  const [rescheduledAt, setRescheduledAt] = useState("");
 
   useEffect(() => {
     async function loadDashboard() {
       try {
         setLoading(true);
         setError(null);
-        const response = await fetchPatients("", "All", followUpPage, FOLLOW_UPS_PER_PAGE, true);
-        setPatients(response.data);
+        const response = await fetchUpcomingAppointments(followUpPage, FOLLOW_UPS_PER_PAGE);
+        setAppointments(response.data);
         setFollowUpMeta(response.meta ?? {
           current_page: followUpPage,
           per_page: FOLLOW_UPS_PER_PAGE,
@@ -245,7 +253,7 @@ export default function RndDashboardPage() {
     };
   }, [composerOpen, viewingPostId]);
 
-  const followUps = useMemo(() => buildFollowUps(patients), [patients]);
+  const followUps = useMemo(() => buildFollowUps(appointments), [appointments]);
   const patientCountLabel = loading ? "--" : activePatientTotal.toString();
   const upcomingFollowUpLabel = loading ? "--" : (followUpMeta?.total ?? 0).toString();
   const pendingKpi = useMemo(() => pendingPoKpi(fssDashboard), [fssDashboard]);
@@ -253,6 +261,22 @@ export default function RndDashboardPage() {
 
   const pagedFollowUps = followUps;
   const pagedPosts = orderedPosts;
+
+  async function updateAppointment(row: FollowUpRow, action: "no_show" | "cancel" | "reschedule") {
+    try {
+      setError(null);
+      await transitionAppointment(row.appointmentId, action === "cancel"
+        ? { action, reason_code: appointmentReason }
+        : action === "reschedule"
+          ? { action, scheduled_at: rescheduledAt, purpose: row.purpose }
+          : { action });
+      setAppointmentAction(null); setRescheduledAt("");
+      const response = await fetchUpcomingAppointments(followUpPage, FOLLOW_UPS_PER_PAGE);
+      setAppointments(response.data); setFollowUpMeta(response.meta);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Failed to update appointment.");
+    }
+  }
   const selectedPost = useMemo(
     () => orderedPosts.find((post) => post.id === viewingPostId) || null,
     [orderedPosts, viewingPostId]
@@ -643,7 +667,7 @@ export default function RndDashboardPage() {
         <div className="bg-white border border-warm-200 rounded-2xl p-4 flex items-center justify-between shadow-sm">
           <div>
             <span className="text-xs font-extrabold text-warm-400 uppercase tracking-wider block">
-              Upcoming Follow-ups
+              Scheduled Visits
             </span>
             <span className="text-lg font-extrabold text-warm-900 mt-1 block">
               {upcomingFollowUpLabel}
@@ -676,10 +700,10 @@ export default function RndDashboardPage() {
             <div className="px-5 py-4 border-b border-warm-100 flex items-center justify-between gap-4">
               <div>
                 <h3 className="text-sm font-bold text-warm-900 uppercase tracking-[0.18em]">
-                  Patient Snapshot
+                  Appointment Queue
                 </h3>
                 <p className="text-xs text-warm-500 mt-1">
-                  Open the patient profile to continue the NCP cycle or review the next follow-up.
+                  Open NCP or resolve scheduled attendance.
                 </p>
               </div>
               <Link
@@ -709,9 +733,9 @@ export default function RndDashboardPage() {
                 <div className="p-3 bg-warm-50 border border-warm-200 rounded-2xl w-fit mx-auto text-warm-400">
                   <HeartHandshake className="h-8 w-8" />
                 </div>
-                <h3 className="text-base font-bold text-warm-800 mt-4">No follow-ups scheduled yet</h3>
+                <h3 className="text-base font-bold text-warm-800 mt-4">No visits scheduled</h3>
                 <p className="text-sm text-warm-500 mt-1 max-w-sm mx-auto leading-relaxed">
-                  Once interventions are recorded, the next review dates will appear here.
+                  Scheduled appointments will appear here.
                 </p>
                 </div>
               </div>
@@ -727,7 +751,7 @@ export default function RndDashboardPage() {
                   </div>
                   <div className="rounded-2xl border border-warm-200 bg-warm-50 p-3">
                     <div className="text-xs font-extrabold text-warm-400 uppercase tracking-wider">
-                      Follow-ups Due
+                      Scheduled Visits
                     </div>
                     <div className="mt-1 text-xl font-extrabold text-warm-900">{upcomingFollowUpLabel}</div>
                   </div>
@@ -747,13 +771,13 @@ export default function RndDashboardPage() {
                           Patient
                         </th>
                         <th className="px-4 py-3 text-xs font-extrabold text-warm-500 uppercase tracking-wider">
-                          Intervention Goal
+                          Purpose
                         </th>
                         <th className="px-4 py-3 text-xs font-extrabold text-warm-500 uppercase tracking-wider">
-                          Next Follow-up
+                          Date and Time
                         </th>
                         <th className="px-4 py-3 text-xs font-extrabold text-warm-500 uppercase tracking-wider">
-                          Days Remaining
+                          Due
                         </th>
                         <th className="px-4 py-3 text-xs font-extrabold text-warm-500 uppercase tracking-wider text-right">
                           Action
@@ -763,19 +787,21 @@ export default function RndDashboardPage() {
                     <tbody className="divide-y divide-zinc-100 bg-white">
                       {pagedFollowUps.map((row, index) => (
                         <tr
-                          key={`${row.patientId}-${row.nextFollowUpDate}`}
+                          key={row.appointmentId}
                           className={`${index % 2 === 0 ? "bg-white" : "bg-warm-50/20"} hover:bg-warm-50/60 transition-colors`}
                         >
                           <td className="px-4 py-2.5">
                             <div className="text-sm font-bold text-warm-900">{row.name}</div>
-                            <div className="text-xs font-mono text-warm-400 mt-1">{row.systemId}</div>
+                            <div className="text-xs font-bold uppercase text-warm-400 mt-1">{row.source === "walk_in" ? "Walk-in" : "Scheduled"}</div>
                           </td>
-                          <td className="px-4 py-2.5 text-sm text-warm-700 font-medium">{row.goalType}</td>
+                          <td className="px-4 py-2.5 text-sm text-warm-700 font-medium">{row.purpose}</td>
                           <td className="px-4 py-2.5 text-sm text-warm-700 font-semibold">
-                            {new Date(row.nextFollowUpDate).toLocaleDateString("en-US", {
+                            {new Date(row.nextFollowUpDate).toLocaleString("en-US", {
                               month: "short",
                               day: "numeric",
                               year: "numeric",
+                              hour: "numeric",
+                              minute: "2-digit",
                             })}
                           </td>
                           <td className="px-4 py-2.5 text-sm font-semibold">
@@ -784,12 +810,9 @@ export default function RndDashboardPage() {
                             </span>
                           </td>
                           <td className="px-4 py-2.5 text-right">
-                            <Link
-                              href={`/ncp/patients/${row.patientId}`}
-                              className="inline-flex px-3 py-1.5 bg-brand-green-600 hover:bg-brand-green-700 text-white text-xs font-bold uppercase tracking-wider rounded-lg transition-colors"
-                            >
-                              Open NCP
-                            </Link>
+                            <div className="flex flex-wrap justify-end gap-1.5"><Link href={`/ncp/patients/${row.patientId}`} className="inline-flex px-3 py-1.5 bg-brand-green-600 hover:bg-brand-green-700 text-white text-xs font-bold uppercase tracking-wider rounded-lg">Open NCP</Link><button onClick={() => setAppointmentAction({ id: row.appointmentId, kind: "reschedule" })} className="rounded-lg border border-warm-200 px-2 py-1.5 text-xs font-bold">Reschedule</button><button onClick={() => void updateAppointment(row, "no_show")} className="rounded-lg border border-warm-200 px-2 py-1.5 text-xs font-bold">No-show</button><button onClick={() => setAppointmentAction({ id: row.appointmentId, kind: "cancel" })} className="rounded-lg border border-red-200 px-2 py-1.5 text-xs font-bold text-red-600">Cancel</button></div>
+                            {appointmentAction?.id === row.appointmentId && appointmentAction.kind === "cancel" && <div className="mt-2 flex flex-wrap justify-end gap-1"><select aria-label="Cancellation reason" value={appointmentReason} onChange={(event) => setAppointmentReason(event.target.value)} className="rounded-lg border border-warm-200 px-2 py-1 text-xs"><option value="patient_requested">Patient requested</option><option value="provider_unavailable">Provider unavailable</option><option value="scheduling_conflict">Scheduling conflict</option><option value="lost_to_follow_up">Lost to follow-up</option><option value="other">Other</option></select><button onClick={() => void updateAppointment(row, "cancel")} className="rounded-lg bg-red-600 px-2 py-1 text-xs font-bold text-white">Confirm</button></div>}
+                            {appointmentAction?.id === row.appointmentId && appointmentAction.kind === "reschedule" && <div className="mt-2 flex flex-wrap justify-end gap-1"><input aria-label="New appointment date and time" type="datetime-local" value={rescheduledAt} onChange={(event) => setRescheduledAt(event.target.value)} className="rounded-lg border border-warm-200 px-2 py-1 text-xs" /><button disabled={!rescheduledAt} onClick={() => void updateAppointment(row, "reschedule")} className="rounded-lg bg-emerald-600 px-2 py-1 text-xs font-bold text-white disabled:opacity-50">Confirm</button></div>}
                           </td>
                         </tr>
                       ))}

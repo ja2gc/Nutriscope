@@ -1855,6 +1855,7 @@ export default function NcpAssessmentPage({
 
       <NcpPatientHeader
         patient={patient}
+        ncpId={ncpId}
         physician={screeningDraft?.referredBy}
         riskScore={riskScore}
         foodDetails={[...allergies, ...(assessment.food_dislikes ?? []), assessment.dietary_restrictions]}

@@ -22,7 +22,8 @@ personal_access_tokens  id, tokenable_type, tokenable_id, name, token, abilities
 
 ```
 ncp_records             id, patient_id, rnd_user_id, type(new/followup/reassessment),
-                        status, risk_score(nullable deterministic score from
+                        status(draft/active/completed/discontinued), discontinuation_reason_code,
+                        risk_score(nullable deterministic score from
                         screening checklist; system-calculated, not AI-generated),
                         timestamps
 assessments             id, ncp_record_id, dietary_intake, appetite_changes,
@@ -47,6 +48,11 @@ interventions           id, ncp_record_id, goal_type, disease_stage,
 monitorings             id, ncp_record_id, weight, bmi, lab_values(json),
                         intake_notes, symptoms, goal_achievement(json),
                         clinical_summary, ai_decision, ai_review(json), next_monitoring_date, timestamps
+ncp_appointments        id, uuid, patient_id, ncp_record_id(nullable), rnd_user_id,
+                        rescheduled_from_id(nullable), source(scheduled/walk_in),
+                        status(scheduled/in_progress/completed/ended_early/no_show/cancelled/rescheduled),
+                        purpose, scheduled_at, started_at, finished_at, reason_code,
+                        worked_on(json), newly_completed(json), timestamps
 ```
 
 ### Document Extraction Pipeline

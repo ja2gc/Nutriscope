@@ -1,7 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
+import { proxy } from "@/lib/laravelProxy";
 
 const LARAVEL_API = process.env.LARAVEL_API_URL ?? "http://127.0.0.1:8000/api";
+
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ ncpRecordId: string }> },
+) {
+  const { ncpRecordId } = await params;
+  return proxy(`/rnd/ncp-records/${ncpRecordId}`, { method: "PATCH", body: await req.json() });
+}
 
 export async function DELETE(
   _req: NextRequest,

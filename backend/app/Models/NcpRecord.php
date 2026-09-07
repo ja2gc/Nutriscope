@@ -20,7 +20,7 @@ class NcpRecord extends Model
     protected bool $auditRedactValues = true;
 
     protected $fillable = [
-        'patient_id', 'rnd_user_id', 'type', 'status', 'risk_score',
+        'patient_id', 'rnd_user_id', 'type', 'status', 'discontinuation_reason_code', 'risk_score',
         'risk_score_manual_override', 'risk_score_manual_factors',
     ];
 
@@ -33,7 +33,7 @@ class NcpRecord extends Model
     protected function auditAttributes(): array
     {
         return [
-            'patient_id', 'rnd_user_id', 'type', 'status', 'risk_score',
+            'patient_id', 'rnd_user_id', 'type', 'status', 'discontinuation_reason_code', 'risk_score',
             'risk_score_manual_override', 'risk_score_manual_factors',
         ];
     }
@@ -66,5 +66,10 @@ class NcpRecord extends Model
     public function monitorings(): HasMany
     {
         return $this->hasMany(Monitoring::class);
+    }
+
+    public function appointments(): HasMany
+    {
+        return $this->hasMany(NcpAppointment::class);
     }
 }

@@ -34,11 +34,10 @@ import RecommendAvoidPanel from "./_components/RecommendAvoidPanel";
 import EducationTab from "./_components/EducationTab";
 import CounselingTab from "./_components/CounselingTab";
 import GoalPlanningTab from "./_components/GoalPlanningTab";
-import EncounterContextTab from "./_components/EncounterContextTab";
 import MealPlanSection from "./_components/MealPlanSection";
 import NcpPatientHeader from "../../../_components/NcpPatientHeader";
 
-type Tab = "nd" | "education" | "counseling" | "goals" | "encounter";
+type Tab = "nd" | "education" | "counseling" | "goals";
 type PageParams = { patientId: string; ncpId: string };
 
 const TABS: { key: Tab; label: string }[] = [
@@ -46,7 +45,6 @@ const TABS: { key: Tab; label: string }[] = [
   { key: "education",  label: "Education" },
   { key: "counseling", label: "Counseling" },
   { key: "goals",      label: "Goal Planning" },
-  { key: "encounter",  label: "Encounter Context" },
 ];
 
 function formatMissingField(field: string) {
@@ -113,8 +111,6 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
   const [counselingGoals, setCounselingGoals] = useState("");
   const [barriers, setBarriers]               = useState("");
   const [strategies, setStrategies]           = useState("");
-  const [sessionType, setSessionType]         = useState("");
-  const [nextFollowup, setNextFollowup]       = useState("");
 
   const loadIntervention = useCallback(async () => {
     setLoading(true);
@@ -127,8 +123,6 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
         setCounselingGoals(iv.counseling_goals ?? "");
         setBarriers(iv.barriers ?? "");
         setStrategies(iv.strategies ?? "");
-        setSessionType(iv.session_type ?? "");
-        setNextFollowup(iv.next_followup_date ?? "");
       }
       setDirty(false); // fresh server state = no unsaved changes
     } finally { setLoading(false); }
@@ -424,6 +418,7 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
         </div>
         <NcpPatientHeader
           patient={patient}
+          ncpId={ncpId}
           physician={patient?.physician}
           riskScore={assessmentContext?.risk_score ?? assessmentContext?.computed_risk_score}
           foodDetails={[...allergens, ...foodDislikes, assessmentContext?.dietary_restrictions]}
@@ -462,6 +457,7 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
         </div>
         <NcpPatientHeader
           patient={patient}
+          ncpId={ncpId}
           physician={patient?.physician}
           riskScore={assessmentContext?.risk_score ?? assessmentContext?.computed_risk_score}
           foodDetails={[...allergens, ...foodDislikes, assessmentContext?.dietary_restrictions]}
@@ -606,21 +602,6 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
           />
         )}
 
-        {/* TAB 5 — Encounter Context */}
-        {tab === "encounter" && (
-          <EncounterContextTab
-            sessionType={sessionType} nextFollowup={nextFollowup}
-            onChange={(field, val) => {
-              setDirty(true);
-              if (field === 'session_type') setSessionType(val);
-              if (field === 'next_followup_date') setNextFollowup(val);
-            }}
-            onSave={() => saveTextField({
-              session_type: sessionType, next_followup_date: nextFollowup || null,
-            } as Partial<Intervention>)}
-            saving={saving}
-          />
-        )}
       </div>
 
       {/* Goal selector modal */}

@@ -11,6 +11,7 @@ use App\Models\NcpRecord;
 use App\Policies\AuditPolicy;
 use App\Services\ClinicalCompletenessService;
 use App\Services\LabFlagService;
+use App\Services\NcpAppointmentWorkflow;
 use App\Services\NutritionPrescriptionService;
 use App\Services\RecommendService;
 use App\Support\InterventionGoalCatalog;
@@ -24,6 +25,7 @@ class InterventionController extends Controller
         private ClinicalCompletenessService $completeness,
         private LabFlagService $labFlags,
         private AuditPolicy $auditPolicy,
+        private NcpAppointmentWorkflow $appointments,
     ) {}
 
     /**
@@ -152,12 +154,14 @@ class InterventionController extends Controller
 
         $data = $request->validated();
 
-        return $this->audited(function () use ($data, $ncpRecord) {
+        return $this->audited(function () use ($data, $ncpRecord, $request) {
             $intervention = new Intervention($data);
             $intervention->ncp_record_id = $ncpRecord->id;
             $intervention->save();
 
             $this->refreshActivation($ncpRecord);
+            $freshNcp = $ncpRecord->fresh(['intervention']);
+            $this->appointments->recordClinicalWork($request->user(), $freshNcp, 'intervention', $this->completeness->interventionComplete($freshNcp));
 
             return (new InterventionResource($intervention))->response()->setStatusCode(201);
         });
@@ -185,14 +189,17 @@ class InterventionController extends Controller
     {
         $this->authorizeNcp($ncpRecord);
         $intervention = $ncpRecord->intervention()->firstOrFail();
+        $wasComplete = $this->completeness->interventionComplete($ncpRecord->load('intervention'));
 
         $data = $request->validated();
 
-        return $this->audited(function () use ($intervention, $data, $ncpRecord) {
+        return $this->audited(function () use ($intervention, $data, $ncpRecord, $request, $wasComplete) {
             $intervention->fill($data);
             $intervention->save();
 
             $this->refreshActivation($ncpRecord);
+            $freshNcp = $ncpRecord->fresh(['intervention']);
+            $this->appointments->recordClinicalWork($request->user(), $freshNcp, 'intervention', ! $wasComplete && $this->completeness->interventionComplete($freshNcp));
 
             return new InterventionResource($intervention);
         });

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import type { Patient } from "@/services/patientService";
 import { personDisplayName } from "@/lib/personName";
+import { NcpVisitBar } from "@/components/ncp/NcpVisitBar";
 
 type Props = {
   patient: Patient | null;
@@ -12,6 +13,7 @@ type Props = {
   interventionGoal?: string | null;
   medicalDiagnosis?: string | null;
   onChangePatientClick?: () => void;
+  ncpId?: string;
 };
 
 function clean(value?: string | null) {
@@ -40,6 +42,7 @@ export default function NcpPatientHeader({
   interventionGoal,
   medicalDiagnosis,
   onChangePatientClick,
+  ncpId,
 }: Props) {
   const context = [
     { label: "Physician", value: clean(physician) ?? clean(patient?.physician) },
@@ -84,6 +87,7 @@ export default function NcpPatientHeader({
           </Link>
         )}
       </div>
+      {patient?.id && ncpId && <NcpVisitBar patientId={String(patient.id)} ncpId={ncpId} />}
     </section>
   );
 }

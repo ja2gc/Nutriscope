@@ -180,6 +180,7 @@ export default function NcpMonitoringPage({
         <Breadcrumb />
         <NcpPatientHeader
           patient={patient}
+          ncpId={ncpId}
           physician={patient?.physician}
           riskScore={assessment?.risk_score ?? assessment?.computed_risk_score}
           foodDetails={[
@@ -229,6 +230,7 @@ export default function NcpMonitoringPage({
       <Breadcrumb />
       <NcpPatientHeader
         patient={patient}
+        ncpId={ncpId}
         physician={patient?.physician}
         riskScore={assessment?.risk_score ?? assessment?.computed_risk_score}
         foodDetails={[

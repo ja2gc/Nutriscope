@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import RndDashboardPage from "./page";
 import { fetchAnnouncements } from "@/services/announcementService";
 import { fetchPatients } from "@/services/patientService";
+import { fetchUpcomingAppointments } from "@/services/ncpAppointmentService";
 
 vi.mock("@/contexts/AuthContext", () => ({
   useAuth: () => ({ user: { id: 1 } }),
@@ -14,6 +15,11 @@ vi.mock("@/contexts/AuthContext", () => ({
 
 vi.mock("@/services/patientService", () => ({
   fetchPatients: vi.fn(),
+}));
+
+vi.mock("@/services/ncpAppointmentService", () => ({
+  fetchUpcomingAppointments: vi.fn(),
+  transitionAppointment: vi.fn(),
 }));
 
 vi.mock("@/services/announcementService", () => ({
@@ -52,6 +58,10 @@ describe("RND dashboard pagination", () => {
     vi.mocked(fetchPatients).mockResolvedValue({
       data: [],
       meta: { current_page: 1, from: 0, last_page: 1, path: "", per_page: 3, to: 0, total: 0 },
+    });
+    vi.mocked(fetchUpcomingAppointments).mockResolvedValue({
+      data: [],
+      meta: { current_page: 1, last_page: 1, per_page: 3, total: 0 },
     });
     vi.mocked(fetchAnnouncements).mockImplementation(async (page, perPage) => ({
       data: page === 1 ? [announcement(1), announcement(2)] : [announcement(3)],

@@ -253,7 +253,6 @@ export default function NcpPatientsPage() {
               </thead>
               <tbody className="divide-y divide-zinc-100">
                 {patients.map((patient, index) => {
-                  const systemId = `NS-${String(patient.id).padStart(5, "0")}`;
                   const currentRisk = riskMeta(patient.risk_score);
                   const age = formatPatientAge(patient.dob);
 
@@ -264,7 +263,6 @@ export default function NcpPatientsPage() {
                     >
                       <td className="px-5 py-4">
                         <div className="text-sm font-bold text-warm-900">{personDisplayName(patient)}</div>
-                        <div className="text-xs font-mono text-warm-400 mt-1">{systemId}</div>
                       </td>
 
                       <td className="px-5 py-4 text-sm font-medium text-warm-700">

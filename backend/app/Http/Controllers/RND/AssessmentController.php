@@ -16,6 +16,8 @@ use App\Models\NcpRecord;
 use App\Models\ScreeningDocument;
 use App\Policies\AuditPolicy;
 use App\Services\Audit\AuditLogger;
+use App\Services\ClinicalCompletenessService;
+use App\Services\NcpAppointmentWorkflow;
 use App\Services\RiskScoreCalculator;
 use App\Services\StoredObjectStorage;
 use Illuminate\Http\JsonResponse;
@@ -28,6 +30,8 @@ class AssessmentController extends Controller
         private readonly AuditPolicy $auditPolicy,
         private readonly AuditLogger $auditLogger,
         private readonly StoredObjectStorage $storedObjects,
+        private readonly ClinicalCompletenessService $completeness,
+        private readonly NcpAppointmentWorkflow $appointments,
     ) {}
 
     /**
@@ -46,7 +50,7 @@ class AssessmentController extends Controller
         $manualFactors = $data['risk_score_manual_factors'] ?? [];
         unset($data['biochemical_data'], $data['risk_score_manual_override'], $data['risk_score_manual_factors']);
 
-        return $this->audited(function () use ($data, $ncpRecord, $biochemicalData, $manualOverride, $manualFactors) {
+        return $this->audited(function () use ($data, $ncpRecord, $biochemicalData, $manualOverride, $manualFactors, $request) {
             $assessment = new Assessment($data);
             $assessment->ncp_record_id = $ncpRecord->id;
             $assessment->bmi = $assessment->calculateBmi();
@@ -58,6 +62,8 @@ class AssessmentController extends Controller
             }
 
             $this->saveRiskScore($ncpRecord, $assessment, $manualOverride, $manualFactors);
+            $freshNcp = $ncpRecord->fresh(['assessment']);
+            $this->appointments->recordClinicalWork($request->user(), $freshNcp, 'assessment', $this->completeness->assessmentComplete($freshNcp));
 
             return (new AssessmentResource($assessment->fresh()->load('biochemicalData')))->response()->setStatusCode(201);
         });
@@ -81,6 +87,7 @@ class AssessmentController extends Controller
     {
         $this->authorizeNcp($request, $ncpRecord);
         $assessment = $ncpRecord->assessment()->firstOrFail();
+        $wasComplete = $this->completeness->assessmentComplete($ncpRecord->load('assessment'));
 
         $data = $request->validated();
         $biochemicalData = $data['biochemical_data'] ?? null;
@@ -92,7 +99,7 @@ class AssessmentController extends Controller
             : ($ncpRecord->risk_score_manual_factors ?? []);
         unset($data['biochemical_data'], $data['risk_score_manual_override'], $data['risk_score_manual_factors']);
 
-        return $this->audited(function () use ($assessment, $data, $biochemicalData, $ncpRecord, $manualOverride, $manualFactors) {
+        return $this->audited(function () use ($assessment, $data, $biochemicalData, $ncpRecord, $manualOverride, $manualFactors, $request, $wasComplete) {
             $assessment->fill($data);
             $assessment->bmi = $assessment->calculateBmi();
             $assessment->save();
@@ -103,6 +110,8 @@ class AssessmentController extends Controller
             }
 
             $this->saveRiskScore($ncpRecord, $assessment, $manualOverride, $manualFactors);
+            $freshNcp = $ncpRecord->fresh(['assessment']);
+            $this->appointments->recordClinicalWork($request->user(), $freshNcp, 'assessment', ! $wasComplete && $this->completeness->assessmentComplete($freshNcp));
 
             return new AssessmentResource($assessment->fresh()->load('biochemicalData'));
         });

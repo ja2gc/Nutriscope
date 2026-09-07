@@ -749,6 +749,20 @@ return [
             'implementation_state' => 'implemented',
             'reason' => 'Assessment persistence for POST api/rnd/ncp-records/{ncpRecord}/assessment is covered by its redacted clinical model event.',
         ],
+        'PATCH api/rnd/ncp-appointments/{ncpAppointment}' => [
+            'classification' => 'model_event',
+            'source' => 'App\\Models\\NcpAppointment::AuditsChanges',
+            'owner_task' => 6,
+            'implementation_state' => 'implemented',
+            'reason' => 'Appointment status transitions are retained as redacted clinical model events; purpose text is excluded.',
+        ],
+        'PATCH api/rnd/ncp-records/{ncpRecord}' => [
+            'classification' => 'model_event',
+            'source' => 'App\\Models\\NcpRecord::AuditsChanges',
+            'owner_task' => 6,
+            'implementation_state' => 'implemented',
+            'reason' => 'Cycle completion or discontinuation is retained as a redacted clinical model event.',
+        ],
         'PATCH api/rnd/ncp-records/{ncpRecord}/assessment' => [
             'classification' => 'model_event',
             'source' => 'App\\Models\\Assessment::AuditsChanges',
@@ -937,6 +951,13 @@ return [
             'owner_task' => 6,
             'implementation_state' => 'implemented',
             'reason' => 'Patient persistence for DELETE api/rnd/patients/{patient} is covered by its redacted clinical model event.',
+        ],
+        'POST api/rnd/patients/{patient}/appointments' => [
+            'classification' => 'model_event',
+            'source' => 'App\\Models\\NcpAppointment::AuditsChanges',
+            'owner_task' => 6,
+            'implementation_state' => 'implemented',
+            'reason' => 'Appointment creation is retained as a redacted clinical model event; purpose text is excluded.',
         ],
         'POST api/rnd/patients/{patient}/ncp-records' => [
             'classification' => 'model_event',

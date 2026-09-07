@@ -266,12 +266,6 @@ function InstancesPanel({
         )}
       </div>
 
-      {/* Saved-report behavior */}
-      <div className="px-5 py-2.5 bg-warm-50/70 border-b border-warm-100 text-xs text-warm-500 flex items-center gap-1.5">
-        <Eye className="h-3.5 w-3.5 text-warm-400" />
-        <span><span className="font-semibold text-warm-600">Click a report to view it.</span> NutriScope saves its identity automatically and refreshes important source data when needed.</span>
-      </div>
-
       {axis === "entity" && (
         <div className="border-b border-warm-100 px-5 py-3">
           <SearchInput

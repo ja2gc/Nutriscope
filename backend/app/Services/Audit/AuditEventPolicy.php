@@ -24,6 +24,7 @@ use App\Models\MealPrepLog;
 use App\Models\MenuCycle;
 use App\Models\MenuCycleTemplate;
 use App\Models\Monitoring;
+use App\Models\NcpAppointment;
 use App\Models\NcpRecord;
 use App\Models\Patient;
 use App\Models\ProgramProjectActivity;
@@ -103,6 +104,7 @@ class AuditEventPolicy
             $subject instanceof User => AuditDomain::Accounts,
             $subject instanceof Patient => AuditDomain::Patients,
             $subject instanceof NcpRecord,
+            $subject instanceof NcpAppointment,
             $subject instanceof Assessment,
             $subject instanceof Diagnosis,
             $subject instanceof Intervention,
@@ -146,6 +148,7 @@ class AuditEventPolicy
             $subject instanceof User => AuditCategory::Security,
             $subject instanceof Patient,
             $subject instanceof NcpRecord,
+            $subject instanceof NcpAppointment,
             $subject instanceof Assessment,
             $subject instanceof Diagnosis,
             $subject instanceof Intervention,
@@ -168,6 +171,7 @@ class AuditEventPolicy
             $domain === AuditDomain::Reports => AuditModule::Reports,
             $subject instanceof Patient,
             $subject instanceof NcpRecord,
+            $subject instanceof NcpAppointment,
             $subject instanceof Assessment,
             $subject instanceof Diagnosis,
             $subject instanceof Intervention,
@@ -191,6 +195,7 @@ class AuditEventPolicy
         return match (true) {
             $subject instanceof Patient,
             $subject instanceof NcpRecord,
+            $subject instanceof NcpAppointment,
             $subject instanceof Assessment,
             $subject instanceof Diagnosis,
             $subject instanceof Intervention,

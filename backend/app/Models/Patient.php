@@ -46,6 +46,11 @@ class Patient extends Model
         return $this->hasMany(MealPlan::class);
     }
 
+    public function appointments(): HasMany
+    {
+        return $this->hasMany(NcpAppointment::class);
+    }
+
     /**
      * Get patient age from DOB.
      */

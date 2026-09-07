@@ -10,6 +10,7 @@ use App\Models\Diagnosis;
 use App\Models\Intervention;
 use App\Models\MealPlan;
 use App\Models\Monitoring;
+use App\Models\NcpAppointment;
 use App\Models\NcpRecord;
 use App\Models\Patient;
 use App\Models\ProgramProjectActivity;
@@ -77,6 +78,8 @@ class AuditContextResolver
             $subject instanceof Budget,
             $subject instanceof Report => $subject,
             $subject instanceof ShoppingList => $subject,
+            $subject instanceof NcpAppointment && $subject->getAttribute('ncp_record_id') !== null => $this->reference(NcpRecord::class, $subject->getAttribute('ncp_record_id')),
+            $subject instanceof NcpAppointment => $this->reference(Patient::class, $subject->getAttribute('patient_id')),
             $subject instanceof ShoppingListItem => $this->shoppingListForItem($subject),
             $subject instanceof Assessment,
             $subject instanceof Diagnosis,
@@ -105,6 +108,7 @@ class AuditContextResolver
     {
         $ncpId = match (true) {
             $subject instanceof NcpRecord => $this->positiveInt($subject->getKey()),
+            $subject instanceof NcpAppointment => $this->positiveInt($subject->getAttribute('ncp_record_id')),
             $subject instanceof Assessment,
             $subject instanceof Diagnosis,
             $subject instanceof Intervention,
@@ -118,6 +122,7 @@ class AuditContextResolver
         $patientId = match (true) {
             $subject instanceof Patient => $this->positiveInt($subject->getKey()),
             $subject instanceof NcpRecord,
+            $subject instanceof NcpAppointment,
             $subject instanceof ScreeningDocument,
             $subject instanceof MealPlan => $this->positiveInt($subject->getAttribute('patient_id')),
             $subject instanceof Report => $this->positiveInt($subject->getAttribute('audit_patient_id')),
@@ -141,7 +146,7 @@ class AuditContextResolver
             return $this->positiveInt($subject->getAttribute('audit_owner_id'));
         }
 
-        if ($subject instanceof NcpRecord) {
+        if ($subject instanceof NcpRecord || $subject instanceof NcpAppointment) {
             return $this->positiveInt($subject->getAttribute('rnd_user_id'));
         }
 

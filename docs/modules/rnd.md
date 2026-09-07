@@ -1,6 +1,6 @@
 # RND Module — Current Role and Workflow
 
-Verified against current frontend navigation, Laravel routes/controllers, and shared services on **2026-08-15**. Code is authoritative; older plans describe history only.
+Verified against current frontend navigation, Laravel routes/controllers, and shared services on **2026-09-07**. Code is authoritative; older plans describe history only.
 
 ## Role Purpose
 
@@ -17,13 +17,13 @@ RND signs in through the web console. The current sidebar is:
 
 | Navigation | Current purpose |
 |---|---|
-| Dashboard | Follow-ups, active-patient snapshot, pending POs, announcements |
+| Dashboard | Scheduled-visit queue, active-patient count, pending POs, announcements |
 | Announcements | RND announcement board plus current/versioned SOP |
 | Food Library | Clinical foods and recipes; USDA import |
 | Nutrition Care → Patients | Patient directory and NCP-cycle entry |
 | Nutrition Care → Assessment | Baseline NCP data for selected cycle |
 | Nutrition Care → Diagnosis | Structured P/E/S and PES workflow |
-| Nutrition Care → Intervention | Prescription, meal plan, education, counseling, goals, encounter context |
+| Nutrition Care → Intervention | Prescription, meal plan, education, counseling, and goals |
 | Nutrition Care → Monitoring | Follow-up visit log and progress trends |
 | Food Service → Inventory | Ingredient/supply reference catalog |
 | Food Service → Menu Cycle | Weekly operational menu planning |
@@ -42,7 +42,7 @@ Profile is reached from the top bar.
 Current dashboard content:
 
 - active patient count;
-- scheduled follow-up directory;
+- scheduled appointment queue with open, reschedule, no-show, and cancel actions;
 - pending open-execution POs and their missing requirements;
 - patient snapshot and links into NCP;
 - announcement feed with RND authoring/editing for authorized posts.
@@ -55,11 +55,24 @@ It does not present the old inventory-stock KPI workflow.
 
 RND can create/search/filter patients and start Assessment immediately. Patient profile contains:
 
-- **Overview:** demographics, diagnosis, risk, latest-cycle snapshot, follow-up;
-- **ADIME Records:** all cycles with Assessment/Diagnosis/Intervention/Monitoring summaries, meal plans, and activity;
+- **Overview:** demographics, diagnosis, risk, and latest-cycle snapshot;
+- **ADIME Records:** the current cycle plus an always-visible, two-per-page Past Records section with ADIME summaries and clickable meal-plan reports;
+- **Appointments:** upcoming and past scheduled/walk-in visits, purpose, status, attendance actions, and pagination;
 - **Attachments:** supporting files grouped by NCP cycle.
 
-A new cycle is started from ADIME Records. A cycle can be deleted only until it contains Assessment, at least one Diagnosis, and Intervention. A patient containing any such protected cycle cannot be deleted through the normal UI.
+A new cycle is started from ADIME Records. Current-cycle Actions contain Complete and Protect, Discontinue with a reason, and Delete when permitted. A cycle can be deleted only until it contains clinically complete Assessment, Diagnosis, and Intervention. A patient containing any such protected cycle cannot be deleted through the normal UI. Prior cycles never change when a new cycle starts.
+
+### Visits and Appointments
+
+- A visit is either **Scheduled** or **Walk-in**; source is separate from status.
+- Statuses are Scheduled, In progress, Completed, Ended early, No-show, Cancelled, and Rescheduled.
+- Every schedule has a written purpose and date/time. Rescheduling preserves the old row and creates a linked replacement.
+- Starting is explicit. The clock does not start a visit automatically.
+- One visit may be active per RND user. Its patient and cycle persist on the server, and the global Resume banner survives navigation or browser close.
+- Shared controls appear with the patient header on Assessment, Diagnosis, Intervention, and Monitoring. A visit can finish on any step.
+- Clinical saves record which ADIME sections were worked on and which became complete during that visit. Finishing a visit does not complete the NCP cycle.
+- Empty mistaken starts may be discarded safely. Saved clinical work prevents discard.
+- Monitoring care decisions remain clinical decisions and do not duplicate appointment attendance status.
 
 ### Implemented Step Gates
 
@@ -114,7 +127,6 @@ Current tabs:
 2. Education
 3. Counseling
 4. Goal Planning
-5. Encounter Context
 
 Food/Nutrient Delivery includes goal/stage selection, backend-authoritative prescription autofill, a visible calculation trace, editable macro/fluid/micronutrient targets, food recommendations, and patient meal planning. Patient plans may be manual, generated, or template-based. Unsaved-change guards warn before leaving.
 
@@ -125,7 +137,7 @@ Current tabs:
 - **Visit Log:** follow-up entries and history.
 - **Progress Trends:** monitoring summary, goal progress, and trends against baseline/prescription.
 
-The screen also shows encounter context, next follow-up, and saved prescription targets.
+The screen uses the shared visit bar for visit state and scheduling, and continues to show saved prescription targets.
 
 ## Food Library
 

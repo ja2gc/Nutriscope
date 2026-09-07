@@ -126,6 +126,7 @@ class AuditInventoryContractTest extends TestCase
         'app/Models/MealPrepLog.php',
         'app/Models/MenuCycle.php',
         'app/Models/Monitoring.php',
+        'app/Models/NcpAppointment.php',
         'app/Models/NcpRecord.php',
         'app/Models/Patient.php',
         'app/Models/PurchaseOrder.php',

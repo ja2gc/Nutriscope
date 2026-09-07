@@ -43,6 +43,7 @@ export interface Patient {
 
 export interface NcpRecord {
   id: number | string;
+  can_delete?: boolean;
   patient_id: number | string;
   rnd_user_id: number;
   type?: string;
@@ -223,9 +224,11 @@ export async function fetchPatientNcpRecords(
   id: number | string,
   page = 1,
   ncpRecordId?: number | string,
+  options?: { scope?: "current" | "past" },
 ): Promise<{ data: NcpRecord[]; meta: Pick<NonNullable<PatientListResponse["meta"]>, "current_page" | "per_page" | "total" | "last_page"> }> {
   const params = new URLSearchParams({ page: String(page), per_page: "10" });
   if (ncpRecordId !== undefined) params.set("ncp_record_id", String(ncpRecordId));
+  if (options?.scope) params.set("scope", options.scope);
   const res = await apiFetch(`/api/patients/${id}/ncp-records?${params}`, {
     method: "GET",
     headers: {
@@ -264,6 +267,20 @@ export async function deleteNcpRecord(ncpRecordId: number | string): Promise<voi
 
   const errorData = await res.json().catch(() => ({}));
   throw new Error(errorData.message || "Failed to delete NCP record.");
+}
+
+export async function transitionNcpRecord(
+  ncpRecordId: number | string,
+  payload: { action: "complete" | "discontinue"; reason_code?: string },
+): Promise<{ id: string; status: string }> {
+  const res = await apiFetch(`/api/rnd/ncp-records/${ncpRecordId}`, {
+    method: "PATCH",
+    headers: { Accept: "application/json", "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.message || "Failed to update NCP cycle.");
+  return body.data ?? body;
 }
 
 export async function createNcpRecord(id: number | string): Promise<NcpRecord> {

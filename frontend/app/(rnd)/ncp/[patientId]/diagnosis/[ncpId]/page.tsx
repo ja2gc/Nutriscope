@@ -1104,6 +1104,7 @@ export default function NcpDiagnosisPage({
 
       <NcpPatientHeader
         patient={patient}
+        ncpId={ncpId}
         physician={patient?.physician}
         riskScore={assessmentContext?.risk_score ?? assessmentContext?.computed_risk_score}
         foodDetails={[

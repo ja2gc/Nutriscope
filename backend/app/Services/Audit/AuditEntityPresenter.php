@@ -39,6 +39,7 @@ class AuditEntityPresenter
         'MenuCycleDay' => ['menu_cycle_day', 'Menu cycle day'],
         'MenuCycleTemplate' => ['menu_cycle_template', 'Menu cycle template'],
         'Monitoring' => ['monitoring', 'Monitoring record'],
+        'NcpAppointment' => ['ncp_appointment', 'NCP appointment'],
         'NcpRecord' => ['ncp_record', 'NCP record'],
         'Notification' => ['notification', 'Notification'],
         'Patient' => ['patient', 'Patient'],

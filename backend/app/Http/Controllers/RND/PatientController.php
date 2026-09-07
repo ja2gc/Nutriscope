@@ -18,6 +18,7 @@ use App\Models\Patient;
 use App\Models\ScreeningDocument;
 use App\Services\Audit\AuditLogger;
 use App\Services\Audit\ClinicalAttributionService;
+use App\Services\ClinicalCompletenessService;
 use App\Services\ClinicalDocumentStorage;
 use App\Support\Search\RankedSearch;
 use Illuminate\Database\Eloquent\Collection;
@@ -32,6 +33,7 @@ class PatientController extends Controller
         private readonly AuditLogger $auditLogger,
         private readonly ClinicalAttributionService $clinicalAttribution,
         private readonly ClinicalDocumentStorage $documentStorage,
+        private readonly ClinicalCompletenessService $completeness,
         private readonly SynchronizePersonName $synchronizePersonName,
     ) {}
 
@@ -82,6 +84,7 @@ class PatientController extends Controller
         $patient->load([
             'ncpRecords' => fn ($q) => $q->latest()->with(['rnd:id,uuid,name,first_name,last_name,role', 'assessment', 'diagnoses', 'intervention']),
         ]);
+        $patient->ncpRecords->each(fn (NcpRecord $record) => $record->setAttribute('can_delete', ! $this->completeness->initialAdiComplete($record)));
         $this->clinicalAttribution->decoratePatients(new Collection([$patient]));
         $key = "patient-chart-view:{$request->user()->id}:{$patient->id}";
         if (Cache::add($key, true, (int) config('audit.deduplication.chart_view_seconds', 900))) {
@@ -123,12 +126,15 @@ class PatientController extends Controller
      */
     public function ncpRecords(PaginatedRequest $request, Patient $patient): JsonResponse
     {
+        $scope = $request->string('scope')->toString();
         $records = $patient->ncpRecords()
             ->when($request->string('ncp_record_id')->toString(), fn ($query, $id) => $query->where('uuid', $id))
+            ->when($scope === 'current', fn ($query) => $query->whereIn('status', ['draft', 'active']))
+            ->when($scope === 'past', fn ($query) => $query->whereIn('status', ['completed', 'discontinued', 'discharged']))
             ->with(['rnd:id,uuid,name,first_name,last_name,role', 'assessment', 'diagnoses', 'intervention.mealPlans:id,uuid,intervention_id,week_start_date,generation_type'])
             ->orderByDesc('created_at')
             ->orderByDesc('id')
-            ->paginate($request->perPage())
+            ->paginate($scope === 'past' ? 2 : $request->perPage())
             ->withQueryString();
         $this->clinicalAttribution->decorateNcpRecords($records->getCollection());
 
@@ -139,7 +145,11 @@ class PatientController extends Controller
         // 404s against the uuid-bound patients route (see NcpPatientHeader stuck loading).
         $records->through(fn (NcpRecord $record) => array_merge(
             $record->toArray(),
-            ['id' => $record->uuid, 'patient_id' => $patient->uuid],
+            [
+                'id' => $record->uuid,
+                'patient_id' => $patient->uuid,
+                'can_delete' => ! $this->completeness->initialAdiComplete($record),
+            ],
         ));
 
         return response()->json([
@@ -160,10 +170,9 @@ class PatientController extends Controller
     public function destroy(Patient $patient): JsonResponse
     {
         $hasOfficialCycle = $patient->ncpRecords()
-            ->whereHas('assessment')
-            ->whereHas('diagnoses')
-            ->whereHas('intervention')
-            ->exists();
+            ->with(['assessment', 'diagnoses', 'intervention'])
+            ->get()
+            ->contains(fn (NcpRecord $record): bool => $this->completeness->initialAdiComplete($record));
 
         if ($hasOfficialCycle) {
             return response()->json([

@@ -10,11 +10,17 @@ use App\Http\Resources\DiagnosisResource;
 use App\Models\Diagnosis;
 use App\Models\NcpRecord;
 use App\Policies\AuditPolicy;
+use App\Services\ClinicalCompletenessService;
+use App\Services\NcpAppointmentWorkflow;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class DiagnosisController extends Controller
 {
-    public function __construct(private readonly AuditPolicy $auditPolicy) {}
+    public function __construct(
+        private readonly AuditPolicy $auditPolicy,
+        private readonly ClinicalCompletenessService $completeness,
+        private readonly NcpAppointmentWorkflow $appointments,
+    ) {}
 
     /**
      * GET /api/rnd/ncp-records/{ncpRecord}/diagnoses
@@ -46,11 +52,15 @@ class DiagnosisController extends Controller
 
         $data = $request->validated();
 
-        return $this->audited(function () use ($data, $ncpRecord) {
+        $wasComplete = $this->completeness->diagnosisComplete($ncpRecord->load('diagnoses'));
+
+        return $this->audited(function () use ($data, $ncpRecord, $request, $wasComplete) {
             $diagnosis = new Diagnosis($data);
             $diagnosis->ncp_record_id = $ncpRecord->id;
             $diagnosis->pes_statement = $this->resolvePes($data, $diagnosis);
             $diagnosis->save();
+            $freshNcp = $ncpRecord->fresh(['diagnoses']);
+            $this->appointments->recordClinicalWork($request->user(), $freshNcp, 'diagnosis', ! $wasComplete && $this->completeness->diagnosisComplete($freshNcp));
 
             return (new DiagnosisResource($diagnosis))->response()->setStatusCode(201);
         });
@@ -69,13 +79,17 @@ class DiagnosisController extends Controller
 
         $data = $request->validated();
 
-        return $this->audited(function () use ($diagnosis, $data) {
+        $wasComplete = $this->completeness->diagnosisComplete($ncpRecord->load('diagnoses'));
+
+        return $this->audited(function () use ($diagnosis, $data, $ncpRecord, $request, $wasComplete) {
             $diagnosis->fill($data);
             if (array_key_exists('problem', $data)) {
                 $diagnosis->label = $data['problem'];
             }
             $diagnosis->pes_statement = $this->resolvePes($data, $diagnosis);
             $diagnosis->save();
+            $freshNcp = $ncpRecord->fresh(['diagnoses']);
+            $this->appointments->recordClinicalWork($request->user(), $freshNcp, 'diagnosis', ! $wasComplete && $this->completeness->diagnosisComplete($freshNcp));
 
             return new DiagnosisResource($diagnosis);
         });

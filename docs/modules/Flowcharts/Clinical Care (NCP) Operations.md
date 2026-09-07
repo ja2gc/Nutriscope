@@ -1,6 +1,6 @@
 # Clinical Care — Current NCP/ADIME Flow
 
-Verified against current RND pages and workflow helpers on **2026-07-19**.
+Verified against current RND pages, appointment workflow, and Laravel controllers on **2026-09-07**.
 
 ## End-to-End Flow
 
@@ -41,14 +41,15 @@ flowchart TD
     Q1 --> Q2["Backend-authoritative prescription autofill and trace"]
     Q2 --> Q3["Review/edit targets and food guidance"]
     Q3 --> Q4["Create, generate, or load patient meal plan"]
-    Q4 --> Q5["Complete education, counseling, goals, encounter context"]
+    Q4 --> Q5["Complete education, counseling, and goals"]
     Q5 --> R["Save care plan"]
 
-    R --> S{"Patient returns for follow-up?"}
+    R --> S{"Schedule next visit?"}
     S -->|"Not yet"| T["Care plan remains usable without Monitoring"]
-    S -->|"Yes"| U["Monitoring Visit Log"]
+    S -->|"Scheduled or walk-in"| U0["Explicitly start visit"]
+    U0 --> U["Continue any required ADIME step or Monitoring"]
     U --> V["Progress Trends vs baseline and targets"]
-    V --> W["Save entry and next monitoring date"]
+    V --> W["Save entry and finish or end visit"]
     W --> X{"Continue, revise, or close care?"}
     X -->|"Continue"| U
     X -->|"Revise"| Q
@@ -71,7 +72,8 @@ flowchart LR
 - Diagnosis block reason: save Assessment first.
 - Intervention block reason: save Assessment and at least one Diagnosis.
 - Monitoring block reason: save Assessment, Diagnosis, and care plan first.
-- Current code calls Monitoring follow-up/second-visit work but does not separately enforce a numeric visit count.
+- Appointment status does not control ADIME step gates. Shared visit controls work on every NCP step and one visit may cover multiple sections.
+- Completing a visit and completing/protecting an NCP cycle are separate actions.
 
 ## Patient Record Structure
 
@@ -79,6 +81,7 @@ flowchart LR
 flowchart TD
     P["Patient Profile"] --> O["Overview"]
     P --> A["ADIME Records"]
+    P --> V0["Appointments"]
     P --> F["Attachments"]
     A --> C1["NCP Cycle 1"]
     A --> C2["NCP Cycle 2+"]
@@ -86,7 +89,8 @@ flowchart TD
     C1 --> S2["Diagnoses"]
     C1 --> S3["Intervention and meal plans"]
     C1 --> S4["Monitoring entries"]
-    C1 --> S5["Structured activity"]
+    V0 --> V1["Upcoming and past visits"]
+    V1 --> V2["Source, purpose, status, and recorded work"]
     F --> F1["Files grouped by NCP cycle"]
 ```
 

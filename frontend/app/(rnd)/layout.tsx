@@ -7,6 +7,7 @@ import { Sidebar } from "@/components/layout/Sidebar";
 import { TopBar } from "@/components/layout/TopBar";
 import { MobileBottomNav } from "@/components/layout/MobileBottomNav";
 import { applyPreferences } from "@/lib/preferences";
+import { ActiveVisitBanner } from "@/components/ncp/ActiveVisitBanner";
 
 export default function RndLayout({
   children,
@@ -91,6 +92,7 @@ export default function RndLayout({
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
         {/* Global Context Header */}
         <TopBar onMenuClick={() => setSidebarOpen(true)} />
+        <ActiveVisitBanner />
 
         {/* Scrollable Content Canvas */}
         <main className="flex-1 overflow-y-auto overflow-x-hidden p-6 pb-24 md:pb-6 lg:p-8">
