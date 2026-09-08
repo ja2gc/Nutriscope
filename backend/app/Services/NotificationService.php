@@ -68,7 +68,7 @@ class NotificationService
         return $this->notify(
             $recipients,
             $announcement->title,
-            $announcement->body,
+            "{$announcement->body} — {$announcement->user?->display_name} · {$announcement->category}",
             'announcement',
             'announcements',
             $announcement->id,

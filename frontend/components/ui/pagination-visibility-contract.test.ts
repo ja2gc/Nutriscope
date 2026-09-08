@@ -9,8 +9,7 @@ function source(path: string): string {
 describe("pagination visibility contract", () => {
   test("does not hide paginated consumers when their current result is empty", () => {
     const adminUsers = source("app/admin/users/page.tsx");
-    const adminNotifications = source("app/admin/notifications/page.tsx");
-    const rndNotifications = source("app/(rnd)/notifications/page.tsx");
+    const notifications = source("components/notifications/NotificationsPageShell.tsx");
     const auditLogs = source("app/admin/audit-logs/page.tsx");
     const rndDashboard = source("app/(rnd)/dashboard/page.tsx");
     const reports = source("components/reports/ReportsBrowser.tsx");
@@ -21,8 +20,7 @@ describe("pagination visibility contract", () => {
     const patientProfile = source("app/(rnd)/ncp/patients/[patientId]/page.tsx");
 
     expect(adminUsers).toContain("!loading && !error && <Pagination");
-    expect(adminNotifications).toContain("!loading && <Pagination");
-    expect(rndNotifications).toContain("!loading && <Pagination");
+    expect(notifications).toContain("!loading && <Pagination");
     expect(auditLogs).toContain("<Pagination meta={meta} page={page} onPageChange={setPage} />");
     expect(rndDashboard).not.toContain("!announcementsLoading && orderedPosts.length > 0");
     expect(rndDashboard).toMatch(/!announcementsLoading && \(\s*<Pagination/);

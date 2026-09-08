@@ -60,6 +60,15 @@ class AuditContractTest extends TestCase
             'audit_log_viewed' => 'Audit log viewed',
             'account_blocked' => 'Account blocked',
             'account_unblocked' => 'Account unblocked',
+            'appointment_scheduled' => 'Appointment scheduled',
+            'visit_started' => 'Visit started',
+            'visit_completed' => 'Visit completed',
+            'visit_ended_early' => 'Visit ended early',
+            'appointment_cancelled' => 'Appointment cancelled',
+            'appointment_no_show' => 'Appointment marked no-show',
+            'appointment_rescheduled' => 'Appointment rescheduled',
+            'cycle_completed' => 'NCP cycle completed and protected',
+            'cycle_discontinued' => 'NCP cycle discontinued',
         ];
 
         $this->assertSame(array_keys($actions), array_column(AuditAction::cases(), 'value'));

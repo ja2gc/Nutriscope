@@ -29,6 +29,7 @@ class NotificationFactory extends Factory
             'read_at' => null,
             'opened_at' => null,
             'resolved_at' => null,
+            'dismissed_at' => null,
         ];
     }
 }

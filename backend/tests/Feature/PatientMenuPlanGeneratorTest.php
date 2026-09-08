@@ -78,6 +78,8 @@ class PatientMenuPlanGeneratorTest extends TestCase
         $this->assertArrayHasKey('meal_plan_id', $instances[0]['params']);
         $this->assertSame($plan->id, $instances[0]['params']['meal_plan_id']);
         $this->assertStringContainsString('Maria Luisa De la Cruz', $instances[0]['label']);
+        $this->assertStringContainsString('Meal Plan 1', $instances[0]['label']);
+        $this->assertStringNotContainsString('week of', strtolower($instances[0]['label']));
         $this->assertStringNotContainsString('LEGACY PATIENT LABEL', $instances[0]['label']);
     }
 
@@ -101,6 +103,21 @@ class PatientMenuPlanGeneratorTest extends TestCase
 
         $this->assertStringContainsString('Maria Luisa De la Cruz', $html);
         $this->assertStringNotContainsString('LEGACY PATIENT LABEL', $html);
+    }
+
+    public function test_prepare_persists_patient_menu_plan_and_view_and_download_stream_pdf(): void
+    {
+        $plan = $this->makePlan();
+        $rnd = $plan->intervention->ncpRecord->rnd;
+
+        $prepared = $this->actingAs($rnd, 'sanctum')
+            ->postJson('/api/rnd/reports/patient_menu_plan/prepare?meal_plan_id='.$plan->uuid)
+            ->assertOk();
+        $id = $prepared->json('data.id');
+
+        $this->assertDatabaseHas('reports', ['uuid' => $id, 'type' => 'patient_menu_plan']);
+        $this->get('/api/rnd/reports/'.$id.'/view')->assertOk()->assertHeader('content-type', 'application/pdf');
+        $this->get('/api/rnd/reports/'.$id.'/download')->assertOk()->assertHeader('content-type', 'application/pdf');
     }
 
     public function test_report_query_count_does_not_grow_with_more_plan_items(): void

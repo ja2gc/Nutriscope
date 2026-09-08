@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\PaginatedRequest;
 use App\Http\Resources\NotificationResource;
 use App\Models\Announcement;
+use App\Models\NcpAppointment;
 use App\Models\NcpRecord;
 use App\Models\Notification;
 use App\Models\PurchaseOrder;
@@ -26,11 +27,13 @@ class NotificationController extends Controller
         'announcements' => Announcement::class,
         'food_service' => PurchaseOrder::class,
         'ncp' => NcpRecord::class,
+        'ncp_appointment' => NcpAppointment::class,
     ];
 
     public function index(PaginatedRequest $request): AnonymousResourceCollection
     {
         $notifications = Notification::where('user_id', Auth::id())
+            ->whereNull('dismissed_at')
             ->orderByDesc('created_at')
             ->orderByDesc('id')
             ->paginate($request->perPage())
@@ -73,6 +76,25 @@ class NotificationController extends Controller
                 continue;
             }
 
+            if ($module === 'ncp_appointment') {
+                $appointments = NcpAppointment::query()
+                    ->with('patient:id,uuid')
+                    ->where('rnd_user_id', Auth::id())
+                    ->whereIn('id', $ids)
+                    ->get(['id', 'uuid', 'patient_id'])
+                    ->keyBy('id');
+
+                $notifications
+                    ->where('source_module', $module)
+                    ->each(function (Notification $notification) use ($appointments): void {
+                        $appointment = $appointments->get($notification->source_id);
+                        $notification->source_uuid = $appointment?->uuid;
+                        $notification->source_parent_uuid = $appointment?->patient?->uuid;
+                    });
+
+                continue;
+            }
+
             $uuidById = $modelClass::whereIn('id', $ids)->pluck('uuid', 'id');
 
             $notifications
@@ -84,6 +106,7 @@ class NotificationController extends Controller
     public function unreadCount(): JsonResponse
     {
         $count = Notification::where('user_id', Auth::id())
+            ->whereNull('dismissed_at')
             ->where('read', false)
             ->count();
 
@@ -129,5 +152,20 @@ class NotificationController extends Controller
         ]);
 
         return response()->json(['message' => 'Notification opened.']);
+    }
+
+    public function dismiss(Notification $notification): JsonResponse
+    {
+        if ($notification->user_id !== Auth::id()) {
+            return response()->json(['message' => 'This action is unauthorized.'], 403);
+        }
+
+        if (in_array($notification->type, Notification::ACTION_TYPES, true) && $notification->resolved_at === null) {
+            return response()->json(['message' => 'Complete the required action before dismissing this notification.'], 422);
+        }
+
+        $notification->update(['dismissed_at' => $notification->dismissed_at ?? now()]);
+
+        return response()->json(['message' => 'Notification dismissed.']);
     }
 }

@@ -1,16 +1,25 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { fetchActiveAppointment, type NcpAppointment } from "@/services/ncpAppointmentService";
 import { personDisplayName } from "@/lib/personName";
 
 export function ActiveVisitBanner() {
   const [visit, setVisit] = useState<NcpAppointment | null>(null);
-
-  useEffect(() => {
+  const load = useCallback(() => {
     void fetchActiveAppointment().then(setVisit).catch(() => setVisit(null));
   }, []);
+
+  useEffect(() => {
+    load();
+    window.addEventListener("ncp-visit-changed", load);
+    window.addEventListener("focus", load);
+    return () => {
+      window.removeEventListener("ncp-visit-changed", load);
+      window.removeEventListener("focus", load);
+    };
+  }, [load]);
 
   if (!visit) return null;
   const href = visit.ncp_record_id

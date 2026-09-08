@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { MoreHorizontal } from "lucide-react";
+import { Popover, PopoverClose, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   createAppointment,
   fetchActiveAppointment,
@@ -28,6 +30,7 @@ export function NcpVisitBar({ patientId, ncpId }: { patientId: string; ncpId: st
   const [showWalkIn, setShowWalkIn] = useState(false);
   const [showSchedule, setShowSchedule] = useState(false);
   const [showEarlyEnd, setShowEarlyEnd] = useState(false);
+  const [confirmFinish, setConfirmFinish] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -36,7 +39,7 @@ export function NcpVisitBar({ patientId, ncpId }: { patientId: string; ncpId: st
       setError(null);
       const [activeVisit, appointments] = await Promise.all([
         fetchActiveAppointment(),
-        fetchPatientAppointments(patientId, 1),
+        fetchPatientAppointments(patientId, 1, { scope: "upcoming" }),
       ]);
       setActive(activeVisit);
       setScheduled(appointments.data.find((item) => item.status === "scheduled") ?? null);
@@ -52,6 +55,7 @@ export function NcpVisitBar({ patientId, ncpId }: { patientId: string; ncpId: st
     try {
       await transitionAppointment(id, payload);
       setShowEarlyEnd(false);
+      setConfirmFinish(false);
       await load();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Failed to update visit.");
@@ -64,7 +68,7 @@ export function NcpVisitBar({ patientId, ncpId }: { patientId: string; ncpId: st
       await createAppointment(patientId, {
         source,
         purpose,
-        ncp_record_id: ncpId,
+        ...(source === "walk_in" ? { ncp_record_id: ncpId } : {}),
         ...(source === "scheduled" ? { scheduled_at: scheduledAt } : {}),
       });
       setPurpose(""); setScheduledAt(""); setShowWalkIn(false); setShowSchedule(false);
@@ -74,7 +78,7 @@ export function NcpVisitBar({ patientId, ncpId }: { patientId: string; ncpId: st
     } finally { setBusy(false); }
   }
 
-  if (active && active.patient_id !== patientId) {
+  if (active && (active.patient_id !== patientId || active.ncp_record_id !== ncpId)) {
     const href = active.ncp_record_id
       ? `/ncp/${active.patient_id}/assessment/${active.ncp_record_id}`
       : `/ncp/patients/${active.patient_id}`;
@@ -88,12 +92,18 @@ export function NcpVisitBar({ patientId, ncpId }: { patientId: string; ncpId: st
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div><p className="text-xs font-extrabold uppercase tracking-wider text-emerald-700">Visit in progress · {active.source === "walk_in" ? "Walk-in" : "Scheduled"}</p><p className="text-sm text-warm-700">{active.purpose}</p>{active.worked_on.length > 0 && <p className="text-xs text-warm-500">Worked on: {active.worked_on.join(", ")}</p>}</div>
           <div className="flex flex-wrap gap-2">
-            <button disabled={busy} onClick={() => void transition(active.id, { action: "finish" })} className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white">Finish Visit</button>
-            <button disabled={busy} onClick={() => { setShowSchedule((value) => !value); setShowWalkIn(false); }} className="rounded-lg border border-warm-200 px-3 py-2 text-xs font-bold text-warm-700">Schedule Next</button>
-            <button disabled={busy} onClick={() => setShowEarlyEnd((value) => !value)} className="rounded-lg border border-amber-200 px-3 py-2 text-xs font-bold text-amber-700">End Early</button>
-            {active.worked_on.length === 0 && <button disabled={busy} onClick={() => void transition(active.id, { action: "discard" })} className="rounded-lg border border-red-200 px-3 py-2 text-xs font-bold text-red-600">Discard Mistaken Start</button>}
+            <button disabled={busy} onClick={() => setConfirmFinish(true)} className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white">Finish Visit</button>
+            <Popover>
+              <PopoverTrigger asChild><button type="button" aria-label="More visit actions" className="rounded-lg border border-warm-200 p-2 text-warm-700"><MoreHorizontal className="h-4 w-4" /></button></PopoverTrigger>
+              <PopoverContent align="end" className="w-52 space-y-1 p-2">
+                <PopoverClose asChild><button type="button" onClick={() => { setShowSchedule(true); setShowWalkIn(false); }} className="w-full rounded-lg px-3 py-2 text-left text-xs font-bold text-warm-700 hover:bg-warm-50">Schedule Next</button></PopoverClose>
+                <PopoverClose asChild><button type="button" onClick={() => setShowEarlyEnd(true)} className="w-full rounded-lg px-3 py-2 text-left text-xs font-bold text-amber-700 hover:bg-amber-50">End Early</button></PopoverClose>
+                {active.worked_on.length === 0 && <PopoverClose asChild><button type="button" disabled={busy} onClick={() => void transition(active.id, { action: "discard" })} className="w-full rounded-lg px-3 py-2 text-left text-xs font-bold text-red-600 hover:bg-red-50">Discard Mistaken Start</button></PopoverClose>}
+              </PopoverContent>
+            </Popover>
           </div>
         </div>
+        {confirmFinish && <div className="flex flex-wrap items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900"><span className="font-semibold">Finish this visit now?</span><button disabled={busy} onClick={() => void transition(active.id, { action: "finish" })} className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white">Confirm Finish</button><button onClick={() => setConfirmFinish(false)} className="rounded-lg border border-warm-200 bg-white px-3 py-2 text-xs font-bold text-warm-700">Keep Visit Open</button></div>}
         {showEarlyEnd && <div className="flex flex-wrap items-center gap-2"><label className="text-xs font-bold" htmlFor="early-end-reason">Reason</label><select id="early-end-reason" value={reason} onChange={(event) => setReason(event.target.value)} className="rounded-lg border border-warm-200 px-3 py-2 text-sm">{reasonOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select><button disabled={busy} onClick={() => void transition(active.id, { action: "end_early", reason_code: reason })} className="rounded-lg bg-amber-600 px-3 py-2 text-xs font-bold text-white">Confirm End Early</button></div>}
       </div>
     ) : (

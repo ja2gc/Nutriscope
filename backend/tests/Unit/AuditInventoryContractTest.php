@@ -101,6 +101,7 @@ class AuditInventoryContractTest extends TestCase
         'app/Http/Controllers/RND/FoodItemController.php',
         'app/Http/Controllers/RND/MealPlanController.php',
         'app/Http/Controllers/RND/MealPlanItemController.php',
+        'app/Http/Controllers/RND/NcpRecordController.php',
         'app/Http/Controllers/RND/PatientController.php',
         'app/Http/Controllers/RND/RecipeController.php',
         'app/Http/Controllers/RND/ScreeningDocumentController.php',
@@ -114,6 +115,7 @@ class AuditInventoryContractTest extends TestCase
         'app/Services/FSS/AccomplishmentReportArchiveService.php',
         'app/Services/FSS/PurchaseOrderLifecycleService.php',
         'app/Services/FSS/ReceivingService.php',
+        'app/Services/NcpAppointmentWorkflow.php',
     ];
 
     private const AUDITED_MODELS = [

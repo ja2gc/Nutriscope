@@ -22,5 +22,22 @@ describe("NCP visit workflow", () => {
     expect(bar).toContain("End Early");
     expect(bar).toContain("Discard Mistaken Start");
     expect(bar).toContain("Schedule Next");
+    expect(bar).toContain("<Popover");
+    expect(bar).toContain("MoreHorizontal");
+    expect(bar).toContain('scope: "upcoming"');
+    expect(bar).toContain('...(source === "walk_in" ? { ncp_record_id: ncpId } : {})');
+  });
+
+  it("keeps attendance actions in patient appointments and dashboard queue", () => {
+    const appointments = source("components/ncp/PatientAppointments.tsx");
+    const dashboard = source("app/(rnd)/dashboard/page.tsx");
+    for (const action of ["Reschedule", "No-show", "Cancel"]) {
+      expect(appointments).toContain(action);
+      expect(dashboard).toContain(action);
+    }
+    expect(appointments).toContain("Upcoming Appointments");
+    expect(appointments).toContain("Past Appointments");
+    expect(appointments).toContain("Administered by:");
+    expect(dashboard).toContain("Open NCP");
   });
 });

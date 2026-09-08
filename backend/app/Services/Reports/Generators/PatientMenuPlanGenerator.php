@@ -50,8 +50,13 @@ class PatientMenuPlanGenerator implements ReportGenerator
             throw new \InvalidArgumentException('Patient menu plan requires an explicit meal_plan_id.');
         }
 
+        $identifier = $params['meal_plan_id'];
         $plan = MealPlan::with(['patient', 'days.items.foodItem', 'days.items.recipe.ingredients.foodItem'])
-            ->whereKey($params['meal_plan_id'])
+            ->when(
+                is_int($identifier) || ctype_digit((string) $identifier),
+                fn ($query) => $query->whereKey((int) $identifier),
+                fn ($query) => $query->where('uuid', (string) $identifier),
+            )
             ->firstOrFail();
 
         $grid = [];

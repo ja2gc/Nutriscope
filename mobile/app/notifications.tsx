@@ -28,10 +28,10 @@ interface Notification {
   message: string;
   type: string;
   source_module: string | null;
-  source_id: number | null;
-  // Public uuid of the source record — deep-links address the target by uuid.
   source_uuid: string | null;
   read: boolean;
+  resolved_at: string | null;
+  dismissible: boolean;
   created_at: string;
 }
 
@@ -48,6 +48,10 @@ async function markOpened(id: string): Promise<void> {
 
 async function markAllRead(): Promise<void> {
   await api.patch('/api/notifications/read-all');
+}
+
+async function dismissNotification(id: string): Promise<void> {
+  await api.delete(`/api/notifications/${id}`);
 }
 
 async function fetchUnreadCount(): Promise<number> {
@@ -133,22 +137,45 @@ export default function NotificationsScreen() {
     },
   });
 
+  const dismissMutation = useMutation({
+    mutationFn: dismissNotification,
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: ['notifications'] });
+      const prev = queryClient.getQueryData<typeof data>(['notifications']);
+      queryClient.setQueryData<typeof data>(['notifications'], (old) => old ? {
+        ...old,
+        pages: old.pages.map((page) => ({ ...page, data: page.data.filter((notification) => notification.id !== id) })),
+      } : old);
+      return { prev };
+    },
+    onError: (_error, _id, context) => {
+      if (context?.prev) queryClient.setQueryData(['notifications'], context.prev);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      queryClient.invalidateQueries({ queryKey: ['notifications-unread-count'] });
+    },
+  });
+
   const renderItem = useCallback(
     ({ item }: { item: Notification }) => (
+      <View
+        className={`flex-row items-start px-4 py-4 mb-3 rounded-2xl border ${
+          item.read ? 'bg-white border-[#E2EAE5]' : 'bg-[#EAF7F1] border-[#BFE3D3]'
+        }`}
+      >
       <TouchableOpacity
         onPress={() => {
           const target = mobileNotificationTarget({
             type: item.type,
             source_module: item.source_module,
-            sourceId: item.source_uuid ?? item.source_id,
+            sourceId: item.source_uuid,
           });
           if (target) router.push(target as never);
           readMutation.mutate(item.id);
         }}
         activeOpacity={0.7}
-        className={`flex-row items-start px-4 py-4 mb-3 rounded-2xl border ${
-          item.read ? 'bg-white border-[#E2EAE5]' : 'bg-[#EAF7F1] border-[#BFE3D3]'
-        }`}
+        className="flex-1 flex-row items-start"
       >
         {/* Unread dot */}
         <View className="mt-1 mr-3 w-2 h-2 rounded-full" style={{ backgroundColor: item.read ? 'transparent' : '#059669' }} />
@@ -169,10 +196,13 @@ export default function NotificationsScreen() {
           <Text className="text-xs text-gray-400 mt-1 tabular-nums">
             {relativeTime(item.created_at)}
           </Text>
+          {!item.dismissible && <Text className="mt-2 text-xs font-semibold uppercase text-amber-700">Action required</Text>}
         </View>
       </TouchableOpacity>
+      {item.dismissible && <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Dismiss ${item.title}`} disabled={dismissMutation.isPending} onPress={() => dismissMutation.mutate(item.id)} className="ml-2 rounded-lg border border-[#DCE7E1] px-2 py-1.5"><Text className="text-xs font-semibold text-gray-600">Dismiss</Text></TouchableOpacity>}
+      </View>
     ),
-    [readMutation],
+    [dismissMutation, readMutation],
   );
 
   if (isLoading) {

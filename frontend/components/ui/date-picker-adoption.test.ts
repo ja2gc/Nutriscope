@@ -6,9 +6,7 @@ const dateSurfaces = [
   "components/audit/AuditFilters.tsx",
   "app/(rnd)/food-service/procurement/page.tsx",
   "app/(rnd)/ncp/patients/page.tsx",
-  "app/(rnd)/ncp/[patientId]/monitoring/[ncpId]/_components/LogVisitForm.tsx",
   "app/(rnd)/ncp/[patientId]/assessment/[ncpId]/page.tsx",
-  "app/(rnd)/ncp/[patientId]/intervention/[ncpId]/_components/EncounterContextTab.tsx",
 ];
 
 describe("universal date picker adoption", () => {

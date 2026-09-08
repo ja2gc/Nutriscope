@@ -56,106 +56,77 @@ flowchart TD
 
 ## 3. Clinical Care / NCP Workflow
 
-Clinical Care follows the NCP/ADIME path: Assessment, Diagnosis, Intervention, Monitoring, Evaluation. The first visit creates the assessment, diagnoses, prescription, intervention, and meal plan. Monitoring starts only on the second visit and later because it requires follow-up data to compare against the baseline intervention.
+Clinical care separates the ADIME record from the appointment that carries a visit. A scheduled appointment is patient-level until the RND explicitly starts it; start binds it to the patient's single current cycle. One visit may cover one or several ADIME steps.
 
 ```mermaid
 flowchart TD
-    A["Open Clinical Care / NCP Patients"] --> B{"Patient exists?"}
-    B -->|"No"| C["Create patient"]
+    A["Open Nutrition Care → Patients"] --> B{"Patient exists?"}
+    B -->|"No"| C["Create patient and current NCP cycle"]
     B -->|"Yes"| D["Open patient profile"]
+    C --> D
+    D --> E{"Visit source"}
+    E -->|"Scheduled"| F["Save date/time and written purpose"]
+    E -->|"Walk-in"| G["Start visit now"]
+    F --> H["Explicit Start Visit"]
+    H --> I["Bind to current NCP cycle"]
+    G --> I
 
-    C --> C1["Enter patient data: name, DOB, sex, admission date"]
-    C1 --> C2["Optional: ward, physician, diagnosis, religion, contact, screening type"]
-    C2 --> E["Start NCP cycle"]
-    D --> E
+    I --> J["Assessment"]
+    J -->|"saved"| K["Diagnosis / PES"]
+    K -->|"one or more saved"| L["Intervention and patient meal plans"]
+    L -->|"saved"| M["Monitoring and Evaluation available"]
+    J --> N["Shared visit controls remain available"]
+    K --> N
+    L --> N
+    M --> N
+    N --> O{"Visit outcome"}
+    O -->|"Normal"| P["Finish Visit"]
+    O -->|"Interrupted"| Q["End Early with reason"]
+    O -->|"No saved work"| R["Discard Mistaken Start"]
 
-    E --> F["Assessment tab"]
-    F --> F1["Fill assessment: diet history, anthropometrics, labs, history, allergies, medications"]
-    F1 --> F2["Upload supporting documents if needed"]
-    F2 --> F3["Save assessment"]
+    D --> S["ADIME Records"]
+    S --> T["Current Cycle"]
+    S --> U["Past Records: 2 per page"]
+    T --> V{"Cycle action"}
+    V -->|"ADI complete"| W["Complete and Protect"]
+    V -->|"Care stops"| X["Discontinue with reason"]
+    V -->|"Open and unprotected"| Y["Delete"]
+    W --> U
+    X --> U
 
-    F3 --> G["Diagnosis tab"]
-    G --> G1{"Diagnosis path"}
-    G1 -->|"Manual PES"| G2["Choose domain NI / NC / NB"]
-    G2 --> G3["Enter Problem, Etiology, Signs/Symptoms"]
-    G1 -->|"AI-assisted"| G4["Request AI diagnosis suggestions from assessment context"]
-    G4 --> G5["Review suggested domain, problem, etiology, signs"]
-    G5 --> G6{"Approve suggestion?"}
-    G6 -->|"No"| G
-    G6 -->|"Yes"| G7["Convert suggestion into diagnosis"]
-    G3 --> G8["Backend builds PES statement"]
-    G7 --> G8
-    G8 --> G9["Save one or more diagnoses"]
-
-    G9 --> H["Intervention tab"]
-    H --> H1["Select intervention goal and disease stage"]
-    H1 --> H2["Autofill nutrition prescription from assessment data"]
-    H2 --> H3{"Enough assessed data?"}
-    H3 -->|"Yes"| H4["System computes energy, macro, fluid, micronutrient targets"]
-    H3 -->|"No"| H5["RND enters targets manually or completes missing assessment data"]
-    H4 --> H6["Add education, counseling, barriers, strategy, next follow-up"]
-    H5 --> H6
-    H6 --> H7["Save intervention"]
-
-    H7 --> I["Meal Plan / Menu Cycle tab"]
-    I --> I1{"Planning path"}
-    I1 -->|"Manual"| I2["Create days and meal slots manually"]
-    I1 -->|"Auto-generate"| I3["Generate menu cycle close to nutrition prescription"]
-    I1 -->|"Template"| I4["Use saved template"]
-    I2 --> I5["Add recipes, food items, or direct USDA items"]
-    I3 --> I6["System scores foods/recipes against targets, allergens, restrictions"]
-    I4 --> I5
-    I6 --> I7["Review generated calories, macros, micronutrients, variance flags"]
-    I5 --> I7
-    I7 --> I8["Adjust portions/items until close to prescription"]
-    I8 --> I9["Save meal plan"]
-
-    I9 --> J{"Visit number"}
-    J -->|"Initial visit"| K["Monitoring tab locked / show reason: follow-up visit required"]
-    J -->|"Second visit and later"| L["Monitoring and Evaluation tab"]
-    L --> L1["Enter follow-up weight, BMI, labs, intake notes, symptoms, goal achievement"]
-    L1 --> L2["Compare progress against assessment baseline and intervention targets"]
-    L2 --> L3["Optional AI review / monitoring summary"]
-    L3 --> L4["Save monitoring entry"]
-
-    H7 --> M["Reports tab"]
-    I9 --> M
-    L4 --> M
-    M --> M1["Generate NCP Summary / Patient Menu Plan / Census"]
-    M1 --> M2["Preview live report"]
-    M2 --> M3["Archive final PDF snapshot when ready"]
+    L --> Z["Meal Plan 1, Meal Plan 2, …"]
+    Z --> AA["Existing Patient Menu Plan PDF preview"]
+    AA --> AB["View or download"]
 ```
 
 ### Clinical Care Tab Traversal
 
-1. **Patients** - create or select a patient, then start or continue an NCP cycle.
-2. **Assessment** - enter baseline patient and clinical data. This is the source used by diagnosis, AI suggestions, prescription autofill, meal planning, monitoring, and reports.
-3. **Diagnosis / PES** - create one or more diagnoses manually or review AI-generated suggestions. AI is assistive only; RND reviews and saves the accepted diagnosis.
-4. **Intervention / Prescription** - select the intervention goal and disease stage. The system can auto-prescribe energy, macros, fluid, and micronutrient targets when assessment data is complete enough.
-5. **Meal Plan / Menu Cycle** - create a manual plan, use a template, or auto-generate a menu cycle that tries to match the nutrition prescription while avoiding known allergens and restrictions.
-6. **Monitoring and Evaluation** - available on the second visit and later. It records follow-up findings and compares progress against the initial assessment and saved intervention.
-7. **Reports** - generate live reports, review values, then archive final PDFs when the clinical record is ready.
+1. **Patients** - create/select a patient and review Overview, ADIME Records, Appointments, or Attachments.
+2. **Appointments** - schedule with date/time and purpose, start a walk-in, or resolve a schedule as rescheduled, no-show, or cancelled.
+3. **Assessment** - enter baseline data and save; the active visit records Assessment work when one exists.
+4. **Diagnosis / PES** - requires Assessment and at least one saved diagnosis before Intervention unlocks.
+5. **Intervention / Prescription** - review calculated targets, care actions, and numbered patient meal plans.
+6. **Monitoring and Evaluation** - requires saved Assessment, Diagnosis, and Intervention; it records clinical follow-up, not appointment attendance.
+7. **Reports** - open live report preview and download/archive through the existing report workflow.
 
 ---
 
 ## 4. Monitoring Gate
 
-Monitoring is not part of the first-visit baseline. It should be opened only after an intervention exists and the patient has a second visit or later follow-up encounter.
+Monitoring is gated by saved clinical prerequisites, not by a predicted appointment purpose or a separate encounter count.
 
 ```mermaid
 flowchart TD
-    A["RND opens Monitoring tab"] --> B{"NCP has saved intervention?"}
-    B -->|"No"| C["Block: complete intervention first"]
-    B -->|"Yes"| D{"Encounter / visit count"}
-    D -->|"Visit 1"| E["Block: monitoring starts on second visit"]
-    D -->|"Visit 2+"| F["Allow monitoring entry"]
-
-    F --> G["Enter progress data"]
-    G --> H["Compare against baseline assessment and prescription"]
-    H --> I{"Progress result"}
-    I -->|"Improving / stable"| J["Continue plan and schedule next monitoring"]
-    I -->|"Not improving / new issue"| K["Revise intervention or reassess"]
-    I -->|"Ready to close"| L["Generate final evaluation / report"]
+    A["RND opens Monitoring"] --> B{"Assessment saved?"}
+    B -->|"No"| C["Return to Assessment"]
+    B -->|"Yes"| D{"Diagnosis saved?"}
+    D -->|"No"| E["Return to Diagnosis"]
+    D -->|"Yes"| F{"Intervention saved?"}
+    F -->|"No"| G["Return to Intervention"]
+    F -->|"Yes"| H["Allow Monitoring entry"]
+    H --> I["Compare follow-up data with baseline and targets"]
+    I --> J["Save clinical entry"]
+    J --> K["Use Appointments/shared visit controls for next schedule"]
 ```
 
 ---
@@ -339,21 +310,16 @@ flowchart TD
 
 1. Open Clinical Care / NCP Patients.
 2. Create a patient or open an existing patient profile.
-3. Start an NCP cycle and fill the Assessment tab with patient data, diet history, anthropometrics, labs, allergies, medications, and clinical summary.
-4. Go to Diagnosis / PES.
-5. Create a diagnosis manually or request AI suggestions from the assessment context.
-6. Review the AI suggestion, approve only the clinically correct one, and save the diagnosis.
-7. Go to Intervention.
-8. Select intervention goal and disease stage.
-9. Use prescription autofill when assessment data is complete; otherwise complete missing data or enter targets manually.
-10. Add education, counseling, barriers, strategy, and next follow-up.
-11. Create a manual meal plan, use a template, or auto-generate a menu cycle close to the nutrition prescription.
-12. Review calorie/macro/micronutrient variance and adjust foods or portions.
-13. Save the intervention and meal plan.
-14. On the initial visit, Monitoring stays unavailable because there is no follow-up comparison yet.
-15. On the second visit or later, open Monitoring and Evaluation, enter follow-up findings, compare progress, optionally request AI review, and save.
-16. Generate NCP Summary, Patient Menu Plan, or other clinical reports.
-17. Preview the live PDF and archive the final report when ready.
+3. In Appointments, schedule a visit with date/time and purpose, or start a walk-in for the current cycle.
+4. Explicitly start the scheduled visit. If navigation changes, use the persistent Resume banner.
+5. Fill and save Assessment, then create/review and save a Diagnosis/PES.
+6. In Intervention, review prescription targets and save education, counseling, goals, and any patient meal plan.
+7. Continue into Monitoring when Assessment, Diagnosis, and Intervention exist; save follow-up clinical data when relevant.
+8. Finish or end the visit from the shared controls on any ADIME step. Use Discard only for an empty mistaken start.
+9. Resolve unattended schedules as No-show, Cancelled, or Rescheduled; confirm history and administering RND in Appointments.
+10. In ADIME Records, complete/protect or discontinue the current cycle when clinically appropriate and review it in Past Records.
+11. Select a numbered meal plan to open the existing Patient Menu Plan PDF preview, then view/download it.
+12. Generate other clinical reports and archive a final report only when an as-filed copy is needed.
 
 ### Part C - FSS executes food-service work on mobile
 
@@ -381,88 +347,61 @@ flowchart TD
 
 ### Patient Selection
 
-RND selects an active patient or creates one. If a patient is discharged/transferred, the system requires reactivation with reason before a new NCP can start. If an open NCP already exists, RND must continue it or close it before starting another.
+RND selects or creates a patient. The profile separates the current NCP cycle, paginated Past Records, appointments, and attachments. A new cycle cannot start while another current cycle is open.
 
 ### NCP Creation
 
-System creates one draft NCP cycle. Status starts at `draft_assessment`. The cycle cannot become active until Assessment, Diagnosis, and Intervention are explicitly finalized.
+The system creates one draft/current NCP cycle. Completing and protecting the cycle requires clinically complete Assessment, Diagnosis, and Intervention. Discontinuing requires a reason. Both terminal outcomes move the cycle to Past Records without changing older cycles.
 
 ### Assessment
 
-RND may save drafts freely. Attachments are linked to the NCP but do not complete assessment. To finalize Assessment, required fields must pass a clinical validator. The validator records `assessment_completed_at` and `assessment_completed_by`.
+RND saves the required Assessment fields. Attachments remain supporting files linked to the NCP and do not auto-fill or complete Assessment.
 
 ### Diagnosis and PES
 
-Diagnosis is unlocked only after assessment completion. RND enters structured P/E/S and may optionally override the rendered PES statement. At least one PES must be finalized. Deleting or changing a finalized diagnosis after intervention requires reopening downstream sections.
+Diagnosis is unlocked after Assessment is saved. RND enters structured P/E/S or reviews an assistive draft, then saves at least one diagnosis to unlock Intervention.
 
 ### Intervention and Prescription
 
-Intervention is unlocked only after finalized PES. Goal/stage, prescription targets, education/counseling plan, and follow-up plan are required. Autofill is preferred when weight/height/DOB/sex exist; otherwise RND must enter targets manually or document why not applicable. Completing intervention promotes the NCP to `active`.
+Intervention is unlocked after Assessment and at least one Diagnosis. It contains goal/stage, backend-calculated prescription targets, food guidance, education, counseling, goals, and patient meal plans. Appointment purpose and next scheduling live in the shared visit workflow, not an Intervention-only encounter form.
 
 ### Meal Planning
 
-Meal plans are optional for non-oral/clinical-only cases but required when the intervention type includes oral diet planning. Manual and generated plans run the same validation: allergens hard-blocked, restrictions flagged, prescription variance calculated, and unresolved critical flags prevent active/final plan status.
+Patient meal plans may be manual, generated, or template-based. In ADIME history they are numbered within the cycle and open the existing Patient Menu Plan PDF preview with view/download actions.
 
 ### Monitoring and Evaluation
 
-Monitoring starts after active intervention and a follow-up encounter. RND logs visit date, tracked indicators, intake/tolerance, symptoms, and goal evaluation. At least one meaningful indicator or exception reason is required. NCP moves to `active_monitoring`. Completion requires a final evaluation/discharge/reassessment decision.
+Monitoring unlocks after Assessment, Diagnosis, and Intervention exist. RND logs follow-up clinical data and compares it with baseline/targets. Appointment status, purpose, and next scheduling remain in Appointments/shared visit controls.
 
 ### Clinical Reports
 
-Reports are separated into:
+The Reports page prepares current report data for preview. The same Patient Menu Plan report can be opened from a numbered meal plan in ADIME Records. View/download uses the existing PDF routes; archive freezes an as-filed copy.
 
-- Draft preview: available anytime, watermarked incomplete.
-- Final NCP Summary: available only when required sections are finalized.
-- Initial Care Plan report: allowed after A/D/I, labeled "No monitoring visit yet."
-- Full ADIME cycle report: requires at least one monitoring/evaluation entry.
-
-## 11. TO-BE Workflow Diagram
+## 11. Current NCP and Visit Workflow Diagram
 
 ```mermaid
 flowchart TD
-    A["Select patient"] --> B{"Patient active?"}
-    B -- "No" --> C["Reactivate or stop"]
-    B -- "Yes" --> D{"Open NCP exists?"}
-    D -- "Yes" --> E["Continue open NCP"]
-    D -- "No" --> F["Create draft NCP"]
-
-    F --> G["Assessment draft"]
-    E --> G
-    G --> H["Upload attachments to NCP only"]
-    G --> I{"Assessment complete validator passes?"}
-    I -- "No" --> G
-    I -- "Yes" --> J["Mark assessment_complete"]
-
-    J --> K["Diagnosis/PES draft"]
-    K --> L{"At least one finalized PES?"}
-    L -- "No" --> K
-    L -- "Yes" --> M["Mark diagnosis_complete"]
-
-    M --> N["Intervention draft"]
-    N --> O{"Prescription + education + follow-up valid?"}
-    O -- "No" --> N
-    O -- "Yes" --> P["Mark intervention_complete; NCP active"]
-
-    P --> Q{"Meal plan required?"}
-    Q -- "No" --> R["Document reason"]
-    Q -- "Yes" --> S["Create/generate meal plan"]
-    S --> T{"Allergen/restriction/variance checks pass?"}
-    T -- "No" --> S
-    T -- "Yes" --> U["Meal plan final/active"]
-
-    P --> V["Follow-up encounter"]
-    R --> V
-    U --> V
-    V --> W{"Monitoring entry complete?"}
-    W -- "No" --> V
-    W -- "Yes" --> X["Evaluation saved"]
-    X --> Y{"Decision"}
-    Y -- "Continue" --> V
-    Y -- "Modify" --> N
-    Y -- "Reassess" --> G
-    Y -- "Discharge/Complete" --> Z["Close NCP"]
-
-    P --> AA["Draft/Initial Care Plan report"]
-    X --> AB["Full ADIME report"]
-    Z --> AC["Final archived report"]
+    A["Select patient"] --> B{"Current cycle exists?"}
+    B -->|"No"| C["Start new cycle"]
+    B -->|"Yes"| D["Continue current cycle"]
+    C --> D
+    D --> E{"Appointment source"}
+    E -->|"Scheduled"| F["Save date/time + purpose"]
+    E -->|"Walk-in"| G["Start immediately"]
+    F --> H["Explicitly start and bind current cycle"]
+    G --> I["One active visit for RND"]
+    H --> I
+    I --> J["Save one or multiple ADIME sections"]
+    J --> K["Record sections worked/completed in visit"]
+    K --> L{"Visit outcome"}
+    L -->|"Normal"| M["Completed"]
+    L -->|"Interrupted"| N["Ended early + reason"]
+    L -->|"Empty mistake"| O["Discard"]
+    D --> P{"Cycle outcome"}
+    P -->|"ADI complete"| Q["Complete and Protect"]
+    P -->|"Care stops"| R["Discontinue + reason"]
+    Q --> S["Past Records"]
+    R --> S
+    J --> T["Live clinical report preview"]
+    T --> U["View/download or archive"]
 ```

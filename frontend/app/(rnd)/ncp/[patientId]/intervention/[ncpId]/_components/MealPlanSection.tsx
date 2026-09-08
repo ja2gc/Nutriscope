@@ -455,11 +455,11 @@ export default function MealPlanSection({
         <div className="space-y-1">
           <p className="text-xs font-bold text-warm-400 uppercase tracking-widest">Meal Plans</p>
           <div className="border border-warm-200 rounded-xl overflow-hidden divide-y divide-zinc-100">
-            {plans.map((p) => (
+            {plans.map((p, index) => (
               <div key={p.id} className={`flex items-center gap-1 pr-1 transition-colors ${activePlan?.id === p.id ? 'bg-warm-50' : 'hover:bg-warm-50/60'}`}>
                 <Button variant="ghost" size="sm" onClick={() => setActivePlan(p)}
                   className={`flex-1 !justify-start rounded-none text-xs ${activePlan?.id === p.id ? '!text-warm-900 !font-bold' : '!text-warm-600'}`}>
-                  Week of {p.week_start_date}
+                  Meal Plan {index + 1}
                 </Button>
                 <Button variant="icon" onClick={() => setConfirmDeleteId(p.id)} title="Delete plan"
                   className="hover:text-red-500 hover:!bg-red-50 shrink-0">

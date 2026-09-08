@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\NcpAppointment;
 use App\Models\NcpRecord;
 use App\Models\Notification;
 use App\Models\PurchaseOrder;
@@ -132,5 +133,26 @@ class NotificationLifecycleTest extends TestCase
         $this->assertNotNull($old->fresh()->resolved_at);
         $this->assertNull($future->fresh()->resolved_at);
         Carbon::setTestNow();
+    }
+
+    public function test_finishing_an_appointment_resolves_only_its_action_notification(): void
+    {
+        $rnd = User::factory()->rnd()->create();
+        $appointment = NcpAppointment::factory()->create(['rnd_user_id' => $rnd->id]);
+        $matching = Notification::factory()->for($rnd)->create([
+            'type' => 'appointment_due',
+            'source_module' => 'ncp_appointment',
+            'source_id' => $appointment->id,
+        ]);
+        $other = Notification::factory()->for($rnd)->create([
+            'type' => 'appointment_due',
+            'source_module' => 'ncp_appointment',
+            'source_id' => NcpAppointment::factory()->create(['rnd_user_id' => $rnd->id])->id,
+        ]);
+
+        app(NotificationLifecycleService::class)->resolveAppointment($appointment);
+
+        $this->assertNotNull($matching->fresh()->resolved_at);
+        $this->assertNull($other->fresh()->resolved_at);
     }
 }

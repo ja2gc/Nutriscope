@@ -36,10 +36,6 @@ const NCP_STEPS: NcpStep[] = ["assessment", "diagnosis", "intervention", "monito
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function formatCycleId(id: number | string) {
-  return `NCP-${String(id).padStart(5, "0")}`;
-}
-
 function formatAbsoluteDate(value?: string | null) {
   if (!value) return "Not yet completed";
   const date = new Date(value);
@@ -77,6 +73,11 @@ function formatStatus(status?: string | null) {
     case "discharged": return { label: "Discharged", className: "bg-orange-50 text-orange-700 border-orange-100" };
     default:           return { label: "Draft",      className: "bg-warm-50 text-warm-500 border-warm-200" };
   }
+}
+
+function formatReason(value?: string | null) {
+  if (!value) return null;
+  return value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 // A record is protected once it has Assessment + at least one Diagnosis + Intervention.
@@ -342,6 +343,7 @@ export default function PatientProfilePage({
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabKey>("overview");
+  const [targetAppointmentId, setTargetAppointmentId] = useState<string | undefined>();
   const [recordsPage, setRecordsPage] = useState(1);
   const [recordsMeta, setRecordsMeta] = useState<PaginationMeta | null>(null);
 
@@ -378,6 +380,12 @@ export default function PatientProfilePage({
   }, [patientId, recordsPage]);
 
   useEffect(() => { void loadData(); }, [loadData]);
+
+  useEffect(() => {
+    const query = new URLSearchParams(window.location.search);
+    if (query.get("tab") === "appointments") setActiveTab("appointments");
+    setTargetAppointmentId(query.get("appointmentId") ?? undefined);
+  }, []);
 
   // ─── Start New Cycle ───────────────────────────────────────────────────────
   async function handleStartNewCycle() {
@@ -443,17 +451,17 @@ export default function PatientProfilePage({
   }
 
   // ─── Derived ──────────────────────────────────────────────────────────────
-  const latestRecord  = records[0] ?? null;
   const currentRecords = records.filter((record) => ["draft", "active"].includes(record.status));
   const pastRecords = records.filter((record) => ["completed", "discontinued", "discharged"].includes(record.status));
+  const currentRecord = currentRecords[0] ?? null;
+  const latestRecord  = currentRecord ?? pastRecords[0] ?? null;
   const allergies     = latestRecord?.assessment?.allergies ?? [];
   const riskMeta      = formatRiskLabel(patient?.risk_score);
   const latestAssessment  = latestRecord?.assessment?.rnd_summary?.trim();
-  const latestMonitoring  = latestRecord?.intervention?.next_followup_date;
+  const latestMonitoring  = patient?.next_appointment_at;
 
-  // Patient can be deleted only if no record has gone through A→D→I
-  const allPatientRecords = patient?.ncp_records ?? records;
-  const canDeletePatient = allPatientRecords.every(isDeletableRecord);
+  // The server checks every cycle, including past pages not loaded in this view.
+  const canDeletePatient = patient?.can_delete === true;
 
   // ─── Loading ──────────────────────────────────────────────────────────────
   if (loading) {
@@ -593,7 +601,7 @@ export default function PatientProfilePage({
             <div className="flex items-center gap-2 px-3 py-2 bg-warm-50 border border-warm-200 rounded-lg w-fit">
               <Lock className="h-3 w-3 text-warm-400 shrink-0" />
               <span className="text-xs font-bold text-warm-500 uppercase tracking-wider">
-                Protected — {allPatientRecords.filter(r => !isDeletableRecord(r)).length} completed NCP cycle{allPatientRecords.filter(r => !isDeletableRecord(r)).length !== 1 ? "s" : ""}
+                Protected — completed NCP records exist
               </span>
             </div>
           )}
@@ -678,21 +686,21 @@ export default function PatientProfilePage({
           <div className="space-y-6">
             <div className="bg-white border border-warm-200 rounded-2xl p-6">
               <h3 className="text-sm font-extrabold text-warm-900 uppercase tracking-wider mb-3">Current Cycle Snapshot</h3>
-              {latestRecord ? (
+              {currentRecord ? (
                 <div className="space-y-3.5 pt-2">
                   <div className="flex items-center justify-between text-sm">
-                    <span className="font-semibold text-warm-500">Latest NCP Cycle</span>
+                    <span className="font-semibold text-warm-500">Current NCP Cycle</span>
                     <span className="px-2 py-0.5 rounded-lg text-xs font-extrabold uppercase tracking-wider border bg-warm-50 text-warm-600 border-warm-200">
-                      {formatStatus(latestRecord.status).label}
+                      {formatStatus(currentRecord.status).label}
                     </span>
                   </div>
                   <div className="text-sm text-warm-600">
-                    <span className="text-xs font-bold text-warm-400 uppercase tracking-wider block mb-1">Next Follow-up</span>
+                    <span className="text-xs font-bold text-warm-400 uppercase tracking-wider block mb-1">Next Appointment</span>
                     <span className="font-semibold text-warm-800">{formatAbsoluteDate(latestMonitoring)}</span>
                   </div>
                 </div>
               ) : (
-                <p className="text-sm text-warm-500 leading-relaxed">No NCP cycles have been started for this patient yet.</p>
+                <p className="text-sm text-warm-500 leading-relaxed">No current NCP cycle. Past records remain available in ADIME Records.</p>
               )}
             </div>
           </div>
@@ -753,16 +761,16 @@ export default function PatientProfilePage({
             </div>
           ) : (
             <div className="space-y-4">
-              {records.map((record) => {
+              {[...currentRecords, ...pastRecords].map((record) => {
                 const cycleStatus = formatStatus(record.status);
                 const cycleId = ["draft", "active"].includes(record.status) ? "Current Cycle" : "Past Record";
                 const assessmentSummary  = record.assessment?.rnd_summary?.trim() || "Not yet completed";
                 const diagnosisSummary   = record.diagnoses?.[0]?.pes_statement?.trim() || "Not yet completed";
                 const interventionSummary = record.intervention?.goal_type?.trim() || "Not yet completed";
-                const monitoringSummary  = record.intervention?.next_followup_date
-                  ? formatAbsoluteDate(record.intervention.next_followup_date)
-                  : "Not yet completed";
-                const canDelete = isDeletableRecord(record);
+                const monitoringSummary = record.monitorings?.[0]?.clinical_summary?.trim()
+                  || ((record.monitorings?.length ?? 0) > 0 ? `${record.monitorings!.length} monitoring record${record.monitorings!.length === 1 ? "" : "s"}` : "Not yet completed");
+                const isCurrent = ["draft", "active"].includes(record.status);
+                const canDelete = isCurrent && isDeletableRecord(record);
                 const isConfirming = confirmDeleteRecord === record.id;
                 const isDeleting = deletingRecordId === record.id;
 
@@ -786,6 +794,9 @@ export default function PatientProfilePage({
                         <p className="text-xs text-warm-500 uppercase tracking-wider font-bold">
                           Created {formatAbsoluteDate(record.created_at)}
                         </p>
+                        {formatReason(record.discontinuation_reason_code) && (
+                          <p className="text-xs font-semibold text-amber-700">Reason: {formatReason(record.discontinuation_reason_code)}</p>
+                        )}
                         <ClinicalAttribution
                           creator={record.created_by}
                           lastAction={record.last_clinical_action}
@@ -799,22 +810,7 @@ export default function PatientProfilePage({
                           <span className="text-xs font-bold text-warm-400 uppercase tracking-wider block">Referring Physician</span>
                           <span className="font-semibold text-warm-700">{patient.physician || "Unassigned"}</span>
                         </div>
-                        {canDelete && !isConfirming ? (
-                          <button
-                            onClick={() => { setConfirmDeleteRecord(record.id); setRecordDeleteError(null); }}
-                            className="p-1.5 text-warm-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                            title="Delete this cycle"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        ) : !isConfirming ? (
-                          <span
-                            title="Protected — Assessment, Diagnosis, and Intervention are all recorded"
-                            className="p-1.5 text-warm-300 cursor-default select-none"
-                          >
-                            <Lock className="h-3.5 w-3.5" />
-                          </span>
-                        ) : null}
+                        {!canDelete && isCurrent && <span title="Protected — Assessment, Diagnosis, and Intervention are all recorded" className="p-1.5 text-warm-300 cursor-default select-none"><Lock className="h-3.5 w-3.5" /></span>}
                       </div>
                     </div>
 
@@ -824,6 +820,7 @@ export default function PatientProfilePage({
                         <div className="flex flex-wrap items-center gap-2">
                           <button type="button" onClick={() => void handleCycleTransition(record.id, "complete")} className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white">Complete and Protect</button>
                           <button type="button" onClick={() => setDiscontinueRecordId(record.id)} className="rounded-lg border border-amber-200 px-3 py-2 text-xs font-bold text-amber-700">Discontinue</button>
+                          {canDelete && <button type="button" onClick={() => { setConfirmDeleteRecord(record.id); setRecordDeleteError(null); }} className="rounded-lg border border-red-200 px-3 py-2 text-xs font-bold text-red-600">Delete</button>}
                         </div>
                         {discontinueRecordId === record.id && (
                           <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -913,6 +910,9 @@ export default function PatientProfilePage({
               )}
             </div>
           )}
+          {records.length === 0 && (
+            <div className="space-y-2 pt-2"><h3 className="text-sm font-extrabold uppercase tracking-wider text-warm-700">Past Records</h3><p className="rounded-xl border border-warm-200 bg-warm-50 p-4 text-sm text-warm-500">No past ADIME records yet.</p></div>
+          )}
         </div>
       )}
 
@@ -947,7 +947,7 @@ export default function PatientProfilePage({
                   <div key={record.id} className="bg-white border border-warm-200 rounded-2xl overflow-hidden">
                     <div className="px-5 py-3.5 border-b border-warm-100 flex items-center justify-between gap-3 bg-warm-50">
                       <div className="flex items-center gap-2">
-                        <span className="text-base font-extrabold text-warm-900 tracking-tight">{formatCycleId(record.id)}</span>
+                        <span className="text-base font-extrabold text-warm-900 tracking-tight">{["draft", "active"].includes(record.status) ? "Current Cycle" : "Past Record"}</span>
                         <span className={`px-2 py-0.5 rounded-full text-xs font-extrabold uppercase tracking-wider border ${cycleStatus.className}`}>
                           {cycleStatus.label}
                         </span>
@@ -971,7 +971,7 @@ export default function PatientProfilePage({
       )}
 
       {activeTab === "appointments" && (
-        <PatientAppointments patientId={patientId} currentNcpId={currentRecords[0] ? String(currentRecords[0].id) : undefined} />
+        <PatientAppointments patientId={patientId} currentNcpId={currentRecords[0] ? String(currentRecords[0].id) : undefined} targetAppointmentId={targetAppointmentId} />
       )}
       {activeTab === "adime-records" && (
         <Pagination meta={recordsMeta} page={recordsPage} onPageChange={setRecordsPage} />

@@ -1,6 +1,6 @@
 # Clinical Care — Current NCP/ADIME Flow
 
-Verified against current RND pages, appointment workflow, and Laravel controllers on **2026-09-07**.
+Verified against current RND pages, appointment workflow, and Laravel controllers on **2026-09-08**.
 
 ## End-to-End Flow
 
@@ -90,7 +90,7 @@ flowchart TD
     C1 --> S3["Intervention and meal plans"]
     C1 --> S4["Monitoring entries"]
     V0 --> V1["Upcoming and past visits"]
-    V1 --> V2["Source, purpose, status, and recorded work"]
+    V1 --> V2["Source, purpose, status, administering RND, and recorded work"]
     F --> F1["Files grouped by NCP cycle"]
 ```
 

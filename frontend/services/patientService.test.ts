@@ -5,7 +5,6 @@ import { ncpRecordMatchesRoute, type NcpRecord } from "./patientService";
 const record = {
   id: "01JZ123NCP",
   patient_id: "01JZ123PATIENT",
-  rnd_user_id: 1,
   status: "active",
   created_at: "2026-07-16T00:00:00Z",
   updated_at: "2026-07-16T00:00:00Z",

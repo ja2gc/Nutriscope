@@ -73,8 +73,18 @@ class EntityInstanceSource implements InstanceSource
 
     public function hasData(array $params): bool
     {
-        $id = $params[$this->paramKey] ?? null;
+        $identifier = $params[$this->paramKey] ?? null;
 
-        return $id !== null && ($this->query)()->whereKey($id)->exists();
+        if ($identifier === null) {
+            return false;
+        }
+
+        return ($this->query)()
+            ->when(
+                is_int($identifier) || ctype_digit((string) $identifier),
+                fn (Builder $query) => $query->whereKey((int) $identifier),
+                fn (Builder $query) => $query->where('uuid', (string) $identifier),
+            )
+            ->exists();
     }
 }

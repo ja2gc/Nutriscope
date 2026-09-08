@@ -285,7 +285,7 @@ export const HELP_ITEMS: HelpItem[] = [
     role: "RND",
     category: "Diagnosis & Intervention",
     question: "What is included in Intervention?",
-    answer: "Intervention includes the goal, food and nutrient delivery prescription, patient meal planning, education or counseling, coordination, recommendations, and encounter context as applicable.",
+    answer: "Intervention includes the goal, food and nutrient delivery prescription, patient meal planning, education or counseling, coordination, and recommendations. Visit context is managed from the shared visit bar so the same visit can cover any NCP step.",
     keywords: ["meal plan", "education", "coordination", "prescription"],
   },
   {
@@ -301,7 +301,7 @@ export const HELP_ITEMS: HelpItem[] = [
     role: "RND",
     category: "Monitoring",
     question: "What can I record in Monitoring?",
-    answer: "Record follow-up visits, progress toward goals, relevant measurements or observations, and plan updates. Use the cycle's existing context and keep entries tied to the correct patient.",
+    answer: "Record progress toward goals, relevant measurements or observations, and plan updates. Schedule, start, finish, or stop visits through the patient Appointments tab and shared visit bar so work stays tied to the correct patient and cycle.",
     keywords: ["visit log", "progress trend", "follow-up"],
   },
   {

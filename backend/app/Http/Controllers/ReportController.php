@@ -392,7 +392,16 @@ class ReportController extends Controller
             return null;
         }
 
-        $mealPlan = MealPlan::query()->find($parameters['meal_plan_id'] ?? null);
+        $mealPlanIdentifier = $parameters['meal_plan_id'] ?? null;
+        $mealPlan = $mealPlanIdentifier === null
+            ? null
+            : MealPlan::query()
+                ->when(
+                    is_int($mealPlanIdentifier) || ctype_digit((string) $mealPlanIdentifier),
+                    fn ($query) => $query->whereKey((int) $mealPlanIdentifier),
+                    fn ($query) => $query->where('uuid', (string) $mealPlanIdentifier),
+                )
+                ->first();
         $context = $mealPlan === null ? null : $this->auditContextResolver->resolve($mealPlan);
 
         abort_unless($mealPlan !== null && $context instanceof NcpRecord, 403);

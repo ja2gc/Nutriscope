@@ -30,8 +30,6 @@ class UpdateInterventionRequest extends FormRequest
             'counseling_goals' => ['nullable', 'string'],
             'barriers' => ['nullable', 'string'],
             'strategies' => ['nullable', 'string'],
-            'session_type' => ['nullable', 'string', 'max:255'],
-            'next_followup_date' => ['nullable', 'date'],
         ];
     }
 

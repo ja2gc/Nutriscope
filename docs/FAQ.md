@@ -1,6 +1,6 @@
 # NutriScope Frequently Asked Questions
 
-Verified against the current web, mobile, and Laravel role gates on **2026-08-27**. This is the user-facing FAQ and source for the role-scoped in-app Help pages. When this file conflicts with an older diagram or plan, current application code wins.
+Verified against the current web, mobile, and Laravel role gates on **2026-09-08**. This is the user-facing FAQ and source for the role-scoped in-app Help pages. When this file conflicts with an older diagram or plan, current application code wins.
 
 ## Start Here
 
@@ -92,7 +92,7 @@ RND can manage their own announcements. Admin can manage announcements through t
 
 ### What do notification states mean?
 
-Unread items contribute to the badge. Opening or marking an item read clears its unread state. **Mark all read** clears the current user's unread items only.
+Unread items contribute to the badge. Opening a notification marks it read and, when it identifies a record, opens that exact announcement, appointment, NCP follow-up, or purchase order. **Mark all read** clears only the current user's unread state. Informational and resolved notifications have **Dismiss**; an unresolved action-required notification cannot be dismissed until its required action is completed.
 
 ## RND: Nutrition Care Process Questions
 
@@ -107,6 +107,18 @@ Open **Nutrition Care → Patients**, choose **Create Patient & Start Assessment
 ### Can a patient have more than one NCP cycle?
 
 Yes. Open the patient profile, choose **ADIME Records**, then **Start New Cycle**. Each cycle keeps its own Assessment, Diagnosis, Intervention, Monitoring, attachments, meal plans, and activity history.
+
+### Where can I see earlier completed ADIME records?
+
+Open the patient profile and choose **ADIME Records**. **Current Cycle** is separate from the always-visible **Past Records** section. Completed and discontinued cycles appear in Past Records, two per page. If it is empty, that patient has no terminal prior cycle recorded; starting a new cycle never changes an earlier one.
+
+### How do scheduled and walk-in visits work?
+
+A Scheduled visit stores date/time and written purpose but does not start automatically. Select **Start Visit** to bind it to the patient's current NCP cycle. A Walk-in starts immediately. One RND can have only one active visit, and the global **Resume** banner keeps the same patient/cycle available after navigating away.
+
+### What appointment outcomes should I use?
+
+Use **Completed** after a normal attended visit, **Ended early** when an active visit stops early, **No-show** when the patient did not attend, **Cancelled** when the planned visit was called off, and **Rescheduled** when a replacement schedule was created. No-show, Cancelled, and Rescheduled do not count as completed clinical care. Past Appointments shows the administering RND for visits that actually started.
 
 ### Why does Diagnosis say Assessment Required?
 
@@ -154,7 +166,7 @@ The application selects a goal/stage, asks the backend calculation service for p
 
 ### What is included in Intervention?
 
-Food/nutrient delivery and prescription, food guidance, patient meal plan, education, counseling, goal planning, and encounter context including follow-up details.
+Food/nutrient delivery and prescription, food guidance, patient meal plan, education, counseling, and goal planning. Visit timing, purpose, attendance, and next scheduling are handled by Appointments/shared visit controls rather than an Intervention-only context.
 
 ### Can I make a patient meal plan manually or from a template?
 
@@ -162,11 +174,11 @@ Yes. Meal plans can be created manually, generated, or loaded from a saved templ
 
 ### What can I record in Monitoring?
 
-Follow-up visit data, goal progress, anthropometrics and selected clinical indicators, intake/tolerance, symptoms, next monitoring date, and progress trends. Visit Log records entries; Progress Trends summarizes changes from baseline and targets.
+Follow-up clinical data, goal progress, anthropometrics and selected clinical indicators, intake/tolerance, symptoms, and progress trends. Visit Log records clinical entries; Progress Trends summarizes changes from baseline and targets. Schedule the next visit through Appointments/shared visit controls so attendance and clinical monitoring are not duplicated.
 
 ### Can I delete a patient or NCP cycle?
 
-Only before an NCP cycle has all three protected records: Assessment, at least one Diagnosis, and Intervention. Once all three exist, that cycle—and therefore a patient containing it—is protected from normal deletion.
+The Delete action is available only on an open current cycle that has not completed all three protected records: Assessment, at least one Diagnosis, and Intervention. Completed or discontinued cycles are preserved in Past Records. Once all three protected records exist, that cycle—and therefore a patient containing it—is protected from normal deletion.
 
 ### Where are patient attachments?
 

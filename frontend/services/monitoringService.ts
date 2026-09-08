@@ -56,7 +56,6 @@ export interface MonitoringPayload {
   goal_achievement?: Record<string, string> | null;
   clinical_summary?: string | null;
   ai_decision?: string | null;
-  next_monitoring_date?: string | null;
 }
 
 // ─── API Functions ─────────────────────────────────────────────────────────────

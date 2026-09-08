@@ -42,7 +42,7 @@ export function mobileNotificationTarget({ type, source_module, sourceId }: Mobi
   if (sourceId && kind.includes('announcement')) {
     return { pathname: '/(tabs)/announcements', params: { announcementId: String(sourceId) } };
   }
-  if (sourceId && (kind.includes('po') || kind.includes('purchase') || kind.includes('food_service'))) {
+  if (sourceId && ((type ?? '').toLowerCase().startsWith('po_') || kind.includes('purchase') || (source_module ?? '').toLowerCase() === 'food_service')) {
     return { pathname: '/(tabs)/procurement', params: { poId: String(sourceId) } };
   }
   if (kind.includes('report') || kind.includes('accomplishment')) {

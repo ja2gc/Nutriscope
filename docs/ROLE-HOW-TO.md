@@ -1,6 +1,6 @@
 # NutriScope Role How-To Guide
 
-Verified against current navigation and server permissions on **2026-09-05**. Follow each role's sequence in order. See [FAQ](FAQ.md) for exceptions and troubleshooting.
+Verified against current navigation and server permissions on **2026-09-08**. Follow each role's sequence in order. See [FAQ](FAQ.md) for exceptions and troubleshooting.
 
 ## Shared: Sign In and Secure the Account
 
@@ -14,7 +14,7 @@ Verified against current navigation and server permissions on **2026-09-05**. Fo
 
 ### 1. Start the Day on Dashboard
 
-1. Review **Patients in Care** and scheduled follow-ups.
+1. Review **Patients in Care** and the scheduled/overdue appointment queue.
 2. Review **Pending POs** and what each PO still needs.
 3. Read announcements.
 4. Open the relevant patient or operational queue.
@@ -27,10 +27,21 @@ Verified against current navigation and server permissions on **2026-09-05**. Fo
 2. Search/filter and open an existing patient, or choose **Create Patient & Start Assessment**.
 3. On a patient profile, use:
    - **Overview** for identity, current status, risk, and current-cycle snapshot.
-   - **ADIME Records** to start/continue cycles and inspect cycle summaries.
+   - **ADIME Records** for the current cycle and the always-visible, two-per-page Past Records history.
+   - **Appointments** for scheduled/walk-in visits, written purpose, attendance status, administering RND, and history.
    - **Attachments** to find supporting documents grouped by NCP cycle.
 
-#### B. Assessment
+#### B. Start and Finish a Visit
+
+1. In **Appointments**, create a Scheduled visit with date/time and purpose, or start a Walk-in for the current cycle.
+2. A scheduled visit starts only when the RND selects **Start Visit**; time alone never starts it.
+3. Use the shared visit controls on Assessment, Diagnosis, Intervention, or Monitoring. One visit may include several ADIME steps.
+4. If you leave NCP, use the global **Resume** banner to return to the same patient and cycle.
+5. Use **Finish Visit** for a normal end, **End Early** with a reason for an interrupted visit, or **Discard Mistaken Start** only before clinical work is saved.
+6. Resolve unattended schedules as **No-show**, **Cancelled** with a reason, or **Rescheduled**. Rescheduling preserves the old record and creates a replacement.
+7. Review Past Appointments for status, purpose, work recorded, and **Administered by**. Attendance outcomes do not count as completed clinical care.
+
+#### C. Assessment
 
 1. Open the cycle's **Assessment** step.
 2. Complete Dietary, Anthropometrics, Client History, Biochemical/Labs, Referral/Screening, and Summary.
@@ -40,7 +51,7 @@ Verified against current navigation and server permissions on **2026-09-05**. Fo
 6. Generate or edit the RND Summary.
 7. Choose **Save Assessment**.
 
-#### C. Diagnosis/PES
+#### D. Diagnosis/PES
 
 1. Open **Diagnosis** after Assessment saves.
 2. Choose **Add New Diagnosis**.
@@ -50,7 +61,7 @@ Verified against current navigation and server permissions on **2026-09-05**. Fo
 6. Save the diagnosis.
 7. Optional: use **AI Review** to generate drafts; accept, edit, or dismiss after clinical review.
 
-#### D. Intervention and Patient Meal Plan
+#### E. Intervention and Patient Meal Plan
 
 1. Open **Intervention** after at least one diagnosis saves.
 2. Set goal and disease stage when applicable.
@@ -59,15 +70,23 @@ Verified against current navigation and server permissions on **2026-09-05**. Fo
 5. Save food/nutrient delivery targets.
 6. Review food recommendations.
 7. Create, generate, or load a patient meal plan template; check allergens, restrictions, portions, nutrients, and variance.
-8. Complete Education, Counseling, Goal Planning, and Encounter Context.
+8. Complete Education, Counseling, and Goal Planning.
 9. Save each section. Do not leave while the page shows unsaved changes.
 
-#### E. Monitoring and Evaluation
+#### F. Monitoring and Evaluation
 
 1. Use Monitoring after Assessment, Diagnosis, and Intervention exist and the patient returns for follow-up.
-2. In **Visit Log**, record date, clinical indicators, intake/tolerance, symptoms, goal status, and next monitoring date.
+2. In **Visit Log**, record date, clinical indicators, intake/tolerance, symptoms, and goal status.
 3. In **Progress Trends**, compare current results with baseline and prescription targets.
-4. Save the monitoring entry; revise the care plan when findings require it.
+4. Save the monitoring entry; revise the care plan when findings require it. Schedule the next visit through the shared visit controls or Appointments tab.
+
+#### G. Close or Preserve an ADIME Cycle
+
+1. Open **Patient → ADIME Records → Current Cycle → Actions**.
+2. Use **Complete and Protect** only after Assessment, Diagnosis, and Intervention are clinically complete.
+3. Use **Discontinue** with a reason when care stops before normal completion.
+4. Use **Delete** only for an open cycle that has not completed all three protected sections.
+5. Completed and discontinued cycles move to Past Records. Starting a new cycle never changes them.
 
 ### 3. Maintain Clinical Food Data
 
@@ -140,7 +159,7 @@ Verified against current navigation and server permissions on **2026-09-05**. Fo
 ### 7. Help, Notifications, Settings, and Profile
 
 1. Open **Help** in the sidebar to search Shared and RND-only answers. Expand a question to read its answer; clear the search to browse by topic.
-2. Open Notifications for announcements and follow-up reminders; mark items/all as read.
+2. Open Notifications for announcements and appointment/follow-up reminders. Selecting an actionable item opens its exact record. Informational or resolved items can be dismissed; unresolved action-required items cannot.
 3. Use Settings for local density/motion, notification preferences, and food-service budget limit.
 4. Use Profile for identity, sign-in email, contact, photo, recovery email, and password.
 

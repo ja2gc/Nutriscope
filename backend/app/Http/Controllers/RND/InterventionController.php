@@ -161,7 +161,7 @@ class InterventionController extends Controller
 
             $this->refreshActivation($ncpRecord);
             $freshNcp = $ncpRecord->fresh(['intervention']);
-            $this->appointments->recordClinicalWork($request->user(), $freshNcp, 'intervention', $this->completeness->interventionComplete($freshNcp));
+            $this->appointments->recordClinicalWork($request->user(), $freshNcp, 'intervention');
 
             return (new InterventionResource($intervention))->response()->setStatusCode(201);
         });
@@ -189,17 +189,15 @@ class InterventionController extends Controller
     {
         $this->authorizeNcp($ncpRecord);
         $intervention = $ncpRecord->intervention()->firstOrFail();
-        $wasComplete = $this->completeness->interventionComplete($ncpRecord->load('intervention'));
-
         $data = $request->validated();
 
-        return $this->audited(function () use ($intervention, $data, $ncpRecord, $request, $wasComplete) {
+        return $this->audited(function () use ($intervention, $data, $ncpRecord, $request) {
             $intervention->fill($data);
             $intervention->save();
 
             $this->refreshActivation($ncpRecord);
             $freshNcp = $ncpRecord->fresh(['intervention']);
-            $this->appointments->recordClinicalWork($request->user(), $freshNcp, 'intervention', ! $wasComplete && $this->completeness->interventionComplete($freshNcp));
+            $this->appointments->recordClinicalWork($request->user(), $freshNcp, 'intervention');
 
             return new InterventionResource($intervention);
         });

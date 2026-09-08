@@ -3,12 +3,15 @@
 namespace Tests\Feature;
 
 use App\Models\Assessment;
+use App\Models\AuditActivity;
 use App\Models\Diagnosis;
 use App\Models\Intervention;
+use App\Models\MealPlan;
 use App\Models\NcpRecord;
 use App\Models\Patient;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\Support\AuditFixture;
 use Tests\TestCase;
 
 class NcpCycleLifecycleTest extends TestCase
@@ -92,6 +95,72 @@ class NcpCycleLifecycleTest extends TestCase
             ->assertJsonPath('meta.per_page', 2)
             ->assertJsonPath('meta.total', 3)
             ->assertJsonPath('meta.last_page', 2);
+    }
+
+    public function test_terminal_cycle_cannot_be_deleted_even_when_incomplete(): void
+    {
+        [$rnd, , $ncp] = $this->context();
+        $ncp->update(['status' => 'discontinued']);
+
+        $this->actingAs($rnd, 'sanctum')
+            ->deleteJson("/api/rnd/ncp-records/{$ncp->uuid}")
+            ->assertUnprocessable();
+
+        $this->assertModelExists($ncp);
+    }
+
+    public function test_history_uses_public_cycle_and_meal_plan_ids_without_nested_internal_keys(): void
+    {
+        [$rnd, $patient, $ncp] = $this->context();
+        $this->completeAdi($ncp);
+        $mealPlan = MealPlan::factory()->create([
+            'intervention_id' => $ncp->intervention()->firstOrFail()->id,
+            'patient_id' => $patient->id,
+        ]);
+
+        $response = $this->actingAs($rnd, 'sanctum')
+            ->getJson("/api/rnd/patients/{$patient->uuid}/ncp-records?scope=current")
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $ncp->uuid)
+            ->assertJsonPath('data.0.patient_id', $patient->uuid)
+            ->assertJsonPath('data.0.intervention.meal_plans.0.id', $mealPlan->uuid);
+
+        $response->assertJsonMissingPath('data.0.rnd_user_id');
+        $response->assertJsonMissingPath('data.0.assessment.id');
+        $response->assertJsonMissingPath('data.0.assessment.ncp_record_id');
+        $response->assertJsonMissingPath('data.0.diagnoses.0.id');
+        $response->assertJsonMissingPath('data.0.intervention.id');
+        $response->assertJsonMissingPath('data.0.intervention.ncp_record_id');
+    }
+
+    public function test_patient_detail_exposes_delete_permission_without_embedding_raw_ncp_records(): void
+    {
+        [$rnd, $patient, $ncp] = $this->context();
+        $this->completeAdi($ncp);
+
+        $response = $this->actingAs($rnd, 'sanctum')
+            ->getJson("/api/rnd/patients/{$patient->uuid}")
+            ->assertOk()
+            ->assertJsonPath('can_delete', false);
+
+        $response->assertJsonMissingPath('ncp_records');
+    }
+
+    public function test_cycle_transition_emits_one_semantic_sanitized_audit_event(): void
+    {
+        [$rnd, , $ncp] = $this->context();
+        AuditFixture::delete(AuditActivity::query());
+
+        $this->actingAs($rnd, 'sanctum')->patchJson("/api/rnd/ncp-records/{$ncp->uuid}", [
+            'action' => 'discontinue',
+            'reason_code' => 'lost_to_follow_up',
+        ])->assertOk();
+
+        $event = AuditActivity::query()->sole();
+        $this->assertSame('cycle_discontinued', $event->event);
+        $this->assertSame($rnd->id, $event->causer_id);
+        $this->assertSame(['discontinuation_reason_code', 'status'], $event->properties['details']['changed_fields']);
+        $this->assertStringNotContainsString('lost_to_follow_up', $event->properties->toJson());
     }
 
     private function context(): array

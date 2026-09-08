@@ -13,6 +13,7 @@ use App\Http\Requests\RND\UpdatePatientRequest;
 use App\Http\Resources\PatientResource;
 use App\Jobs\DeleteQuarantinedClinicalFile;
 use App\Jobs\RestoreQuarantinedClinicalFile;
+use App\Models\NcpAppointment;
 use App\Models\NcpRecord;
 use App\Models\Patient;
 use App\Models\ScreeningDocument;
@@ -43,10 +44,21 @@ class PatientController extends Controller
     public function index(PaginatedRequest $request): AnonymousResourceCollection
     {
         $query = Patient::query()
+            ->addSelect([
+                'next_appointment_at' => NcpAppointment::query()
+                    ->select('scheduled_at')
+                    ->whereColumn('patient_id', 'patients.id')
+                    ->where('rnd_user_id', $request->user()->id)
+                    ->where('status', 'scheduled')
+                    ->orderBy('scheduled_at')
+                    ->limit(1),
+            ])
             ->when($request->status, fn ($q, $s) => $q->where('status', $s))
             ->when($request->boolean('upcoming_followups'), fn ($q) => $q->whereHas(
-                'ncpRecords.intervention',
-                fn ($interventions) => $interventions->whereNotNull('next_followup_date'),
+                'appointments',
+                fn ($appointments) => $appointments
+                    ->where('rnd_user_id', $request->user()->id)
+                    ->where('status', 'scheduled'),
             ));
 
         RankedSearch::apply($query, $request->string('search')->toString(), [
@@ -82,9 +94,16 @@ class PatientController extends Controller
     public function show(Request $request, Patient $patient): JsonResponse
     {
         $patient->load([
-            'ncpRecords' => fn ($q) => $q->latest()->with(['rnd:id,uuid,name,first_name,last_name,role', 'assessment', 'diagnoses', 'intervention']),
+            'ncpRecords' => fn ($q) => $q->latest()->with(['rnd:id,uuid,name,first_name,last_name,role', 'assessment', 'diagnoses', 'intervention', 'monitorings']),
         ]);
-        $patient->ncpRecords->each(fn (NcpRecord $record) => $record->setAttribute('can_delete', ! $this->completeness->initialAdiComplete($record)));
+        $patient->setAttribute('next_appointment_at', $patient->appointments()
+            ->where('rnd_user_id', $request->user()->id)
+            ->where('status', 'scheduled')
+            ->orderBy('scheduled_at')
+            ->value('scheduled_at'));
+        $patient->setAttribute('can_delete', $patient->ncpRecords->every(
+            fn (NcpRecord $record): bool => ! $this->completeness->initialAdiComplete($record),
+        ));
         $this->clinicalAttribution->decoratePatients(new Collection([$patient]));
         $key = "patient-chart-view:{$request->user()->id}:{$patient->id}";
         if (Cache::add($key, true, (int) config('audit.deduplication.chart_view_seconds', 900))) {
@@ -131,26 +150,46 @@ class PatientController extends Controller
             ->when($request->string('ncp_record_id')->toString(), fn ($query, $id) => $query->where('uuid', $id))
             ->when($scope === 'current', fn ($query) => $query->whereIn('status', ['draft', 'active']))
             ->when($scope === 'past', fn ($query) => $query->whereIn('status', ['completed', 'discontinued', 'discharged']))
-            ->with(['rnd:id,uuid,name,first_name,last_name,role', 'assessment', 'diagnoses', 'intervention.mealPlans:id,uuid,intervention_id,week_start_date,generation_type'])
+            ->with(['rnd:id,uuid,name,first_name,last_name,role', 'assessment', 'diagnoses', 'monitorings', 'intervention.mealPlans:id,uuid,intervention_id,week_start_date,generation_type'])
             ->orderByDesc('created_at')
             ->orderByDesc('id')
             ->paginate($scope === 'past' ? 2 : $request->perPage())
             ->withQueryString();
         $this->clinicalAttribution->decorateNcpRecords($records->getCollection());
 
-        // Overlay the public uuid on the record's own identity (used to build
-        // /ncp/{ncpId}/... nav links) without disturbing the rest of the payload shape.
-        // patient_id must be overlaid too — toArray() still emits it as the raw internal
-        // FK, and callers build /ncp/{patientId}/... nav links from it; the raw int then
-        // 404s against the uuid-bound patients route (see NcpPatientHeader stuck loading).
-        $records->through(fn (NcpRecord $record) => array_merge(
-            $record->toArray(),
-            [
-                'id' => $record->uuid,
-                'patient_id' => $patient->uuid,
-                'can_delete' => ! $this->completeness->initialAdiComplete($record),
+        $records->through(fn (NcpRecord $record): array => [
+            'id' => $record->uuid,
+            'patient_id' => $patient->uuid,
+            'type' => $record->type,
+            'status' => $record->status,
+            'discontinuation_reason_code' => $record->discontinuation_reason_code,
+            'created_at' => $record->created_at?->toIso8601String(),
+            'updated_at' => $record->updated_at?->toIso8601String(),
+            'created_by' => $record->getAttribute('created_by'),
+            'last_clinical_action' => $record->getAttribute('last_clinical_action'),
+            'can_delete' => in_array($record->status, ['draft', 'active'], true)
+                && ! $this->completeness->initialAdiComplete($record),
+            'assessment' => $record->assessment === null ? null : [
+                'rnd_summary' => $record->assessment->rnd_summary,
+                'allergies' => $record->assessment->allergies,
             ],
-        ));
+            'diagnoses' => $record->diagnoses->map(fn ($diagnosis): array => [
+                'pes_statement' => $diagnosis->pes_statement,
+            ])->values()->all(),
+            'monitorings' => $record->monitorings->map(fn ($monitoring): array => [
+                'id' => $monitoring->uuid,
+                'clinical_summary' => $monitoring->clinical_summary,
+                'created_at' => $monitoring->created_at?->toIso8601String(),
+            ])->values()->all(),
+            'intervention' => $record->intervention === null ? null : [
+                'goal_type' => $record->intervention->goal_type,
+                'meal_plans' => $record->intervention->mealPlans->map(fn ($mealPlan): array => [
+                    'id' => $mealPlan->uuid,
+                    'week_start_date' => $mealPlan->week_start_date?->toDateString(),
+                    'generation_type' => $mealPlan->generation_type,
+                ])->values()->all(),
+            ],
+        ]);
 
         return response()->json([
             'data' => $records->items(),

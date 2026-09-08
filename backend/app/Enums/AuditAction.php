@@ -36,6 +36,15 @@ enum AuditAction: string
     case AuditLogViewed = 'audit_log_viewed';
     case AccountBlocked = 'account_blocked';
     case AccountUnblocked = 'account_unblocked';
+    case AppointmentScheduled = 'appointment_scheduled';
+    case VisitStarted = 'visit_started';
+    case VisitCompleted = 'visit_completed';
+    case VisitEndedEarly = 'visit_ended_early';
+    case AppointmentCancelled = 'appointment_cancelled';
+    case AppointmentNoShow = 'appointment_no_show';
+    case AppointmentRescheduled = 'appointment_rescheduled';
+    case CycleCompleted = 'cycle_completed';
+    case CycleDiscontinued = 'cycle_discontinued';
 
     public function label(): string
     {
@@ -55,6 +64,15 @@ enum AuditAction: string
             self::AuditLogViewed => 'Audit log viewed',
             self::AccountBlocked => 'Account blocked',
             self::AccountUnblocked => 'Account unblocked',
+            self::AppointmentScheduled => 'Appointment scheduled',
+            self::VisitStarted => 'Visit started',
+            self::VisitCompleted => 'Visit completed',
+            self::VisitEndedEarly => 'Visit ended early',
+            self::AppointmentCancelled => 'Appointment cancelled',
+            self::AppointmentNoShow => 'Appointment marked no-show',
+            self::AppointmentRescheduled => 'Appointment rescheduled',
+            self::CycleCompleted => 'NCP cycle completed and protected',
+            self::CycleDiscontinued => 'NCP cycle discontinued',
             default => ucfirst($this->value),
         };
     }

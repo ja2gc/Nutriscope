@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Models\Intervention;
+use App\Models\NcpAppointment;
 use App\Models\NcpRecord;
 use App\Models\Notification;
 use App\Models\Patient;
@@ -14,7 +14,7 @@ use Tests\TestCase;
 /**
  * Notifications — the two defense triggers (rnd.md §7):
  *  A. announcement posted → fan out by the announcement's visibility setting.
- *  B. upcoming follow-up → 1 day before intervention.next_followup_date, to the owning RND.
+ *  B. upcoming appointment → 1 day before scheduled_at, to the owning RND.
  */
 class NotificationTriggersTest extends TestCase
 {
@@ -37,6 +37,11 @@ class NotificationTriggersTest extends TestCase
         $this->assertDatabaseHas('notifications', ['user_id' => $fss->id, 'type' => 'announcement']);
         $this->assertDatabaseHas('notifications', ['user_id' => $admin->id, 'type' => 'announcement']);
         $this->assertDatabaseMissing('notifications', ['user_id' => $author->id]);
+
+        $notification = Notification::where('user_id', $rnd2->id)->where('type', 'announcement')->sole();
+        $this->assertSame('Town hall', $notification->title);
+        $this->assertStringContainsString($author->display_name, $notification->message);
+        $this->assertStringContainsString('General', $notification->message);
     }
 
     public function test_announcement_with_fss_visibility_only_notifies_fss(): void
@@ -57,43 +62,43 @@ class NotificationTriggersTest extends TestCase
     public function test_follow_up_reminder_notifies_owning_rnd_one_day_before(): void
     {
         $rnd = User::factory()->create(['role' => 'RND']);
-        $ncp = $this->ncpWithFollowup($rnd, now()->addDay()->toDateString());
+        $appointment = $this->appointment($rnd, now()->addDay());
 
         Artisan::call('notifications:follow-up-reminders');
 
         $this->assertDatabaseHas('notifications', [
             'user_id' => $rnd->id,
-            'type' => 'follow_up',
-            'source_id' => $ncp->id,
+            'type' => 'appointment_due',
+            'source_id' => $appointment->id,
         ]);
         $this->assertStringContainsString(
             'Maria Luisa De la Cruz',
-            Notification::where('type', 'follow_up')->sole()->message,
+            Notification::where('type', 'appointment_due')->sole()->message,
         );
     }
 
     public function test_follow_up_reminder_skips_dates_other_than_tomorrow(): void
     {
         $rnd = User::factory()->create(['role' => 'RND']);
-        $this->ncpWithFollowup($rnd, now()->addDays(5)->toDateString());
+        $this->appointment($rnd, now()->addDays(5));
 
         Artisan::call('notifications:follow-up-reminders');
 
-        $this->assertDatabaseMissing('notifications', ['type' => 'follow_up']);
+        $this->assertDatabaseMissing('notifications', ['type' => 'appointment_due']);
     }
 
     public function test_follow_up_reminder_is_idempotent(): void
     {
         $rnd = User::factory()->create(['role' => 'RND']);
-        $this->ncpWithFollowup($rnd, now()->addDay()->toDateString());
+        $this->appointment($rnd, now()->addDay());
 
         Artisan::call('notifications:follow-up-reminders');
         Artisan::call('notifications:follow-up-reminders');
 
-        $this->assertSame(1, Notification::where('type', 'follow_up')->count());
+        $this->assertSame(1, Notification::where('type', 'appointment_due')->count());
     }
 
-    private function ncpWithFollowup(User $rnd, string $date): NcpRecord
+    private function appointment(User $rnd, \DateTimeInterface $date): NcpAppointment
     {
         $patient = Patient::factory()->create([
             'name' => 'Stale Patient Name',
@@ -104,12 +109,15 @@ class NotificationTriggersTest extends TestCase
             'patient_id' => $patient->id,
             'rnd_user_id' => $rnd->id,
         ]);
-        Intervention::create([
-            'ncp_record_id' => $ncp->id,
-            'energy_kcal' => 1800,
-            'next_followup_date' => $date,
-        ]);
 
-        return $ncp;
+        return NcpAppointment::factory()->create([
+            'patient_id' => $patient->id,
+            'ncp_record_id' => $ncp->id,
+            'rnd_user_id' => $rnd->id,
+            'source' => 'scheduled',
+            'status' => 'scheduled',
+            'purpose' => 'Continue nutrition care',
+            'scheduled_at' => $date,
+        ]);
     }
 }

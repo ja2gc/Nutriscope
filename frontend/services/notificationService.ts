@@ -8,7 +8,6 @@ export interface Notification {
   message: string;
   type?: string | null;
   source_module?: string | null;
-  source_id?: number | null;
   // Public uuid of the source record — deep-links address the target by uuid.
   source_uuid?: string | null;
   source_parent_uuid?: string | null;
@@ -16,6 +15,8 @@ export interface Notification {
   read_at?: string | null;
   opened_at?: string | null;
   resolved_at?: string | null;
+  dismissed_at?: string | null;
+  dismissible: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -35,7 +36,7 @@ export function shouldShowNotification(
     return false;
   }
 
-  if (!prefs.followUps && (type.includes("follow") || type.includes("reminder"))) {
+  if (!prefs.followUps && (type.includes("follow") || type.includes("reminder") || type.includes("appointment"))) {
     return false;
   }
 
@@ -43,13 +44,12 @@ export function shouldShowNotification(
 }
 
 export function notificationTargetHref(
-  notification: Pick<Notification, "type" | "source_module" | "source_id" | "source_uuid" | "source_parent_uuid">,
+  notification: Pick<Notification, "type" | "source_module" | "source_uuid" | "source_parent_uuid">,
   role?: string | null
 ): string {
   const type = (notification.type ?? "").toLowerCase();
   const sourceModule = (notification.source_module ?? "").toLowerCase();
-  // Deep-links address the target by its public uuid; source_id is the raw internal FK.
-  const sourceId = notification.source_uuid ?? notification.source_id;
+  const sourceId = notification.source_uuid;
   const isAdmin = (role ?? "").toLowerCase() === "admin";
 
   if ((type.includes("announcement") || sourceModule.includes("announcement")) && sourceId) {
@@ -58,11 +58,15 @@ export function notificationTargetHref(
       : `/announcements?announcementId=${sourceId}`;
   }
 
-  if ((type.includes("po") || type.includes("purchase") || sourceModule.includes("food_service")) && sourceId) {
+  if ((type.startsWith("po_") || type.includes("purchase") || sourceModule === "food_service") && sourceId) {
     return `/food-service/procurement?poId=${sourceId}`;
   }
 
-  if ((type.includes("follow") || sourceModule.includes("ncp")) && sourceId && notification.source_parent_uuid) {
+  if ((type === "appointment_due" || sourceModule === "ncp_appointment") && sourceId && notification.source_parent_uuid) {
+    return `/ncp/patients/${notification.source_parent_uuid}?tab=appointments&appointmentId=${sourceId}`;
+  }
+
+  if ((type.includes("follow") || sourceModule === "ncp") && sourceId && notification.source_parent_uuid) {
     return `/ncp/${notification.source_parent_uuid}/monitoring/${sourceId}`;
   }
 
@@ -130,6 +134,17 @@ export async function markNotificationOpened(id: string): Promise<void> {
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}));
     throw new Error(errorData.message || "Failed to open notification.");
+  }
+}
+
+export async function dismissNotification(id: string): Promise<void> {
+  const res = await apiFetch(`/api/notifications/${id}`, {
+    method: "DELETE",
+    headers: { Accept: "application/json" },
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.message || "Failed to dismiss notification.");
   }
 }
 

@@ -60,10 +60,17 @@ class ReportBrowser
                 // (Previously keyed by patient_id, which the generator can't render —
                 // it requires a specific meal_plan_id.) (MP-08/RP-04)
                 fn () => MealPlan::query()
+                    ->addSelect([
+                        'plan_number' => MealPlan::query()
+                            ->from('meal_plans as numbered_plans')
+                            ->selectRaw('COUNT(*)')
+                            ->whereColumn('numbered_plans.intervention_id', 'meal_plans.intervention_id')
+                            ->whereColumn('numbered_plans.id', '<=', 'meal_plans.id'),
+                    ])
                     ->with('patient'),
                 'meal_plan_id',
                 fn (MealPlan $mp) => trim(($mp->patient?->display_name ?? "Patient #{$mp->patient_id}")
-                    .' — week of '.(optional($mp->week_start_date)->format('M j, Y') ?? '?')
+                    .' — Meal Plan '.((int) $mp->getAttribute('plan_number') ?: 1)
                     .($mp->status ? " ({$mp->status})" : '')),
                 'created_at',
             ),

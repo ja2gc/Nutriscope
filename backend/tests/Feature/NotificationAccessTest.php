@@ -122,4 +122,49 @@ class NotificationAccessTest extends TestCase
             ->patchJson("/api/notifications/{$notification->uuid}/read")
             ->assertForbidden();
     }
+
+    public function test_informational_notification_can_be_dismissed_and_disappears_from_list_and_unread_count(): void
+    {
+        $user = User::factory()->rnd()->create();
+        $notification = Notification::factory()->for($user)->create([
+            'type' => 'announcement',
+            'read' => false,
+        ]);
+
+        $this->actingAs($user, 'sanctum')
+            ->deleteJson("/api/notifications/{$notification->uuid}")
+            ->assertOk();
+
+        $this->assertNotNull($notification->fresh()->dismissed_at);
+        $this->getJson('/api/notifications')->assertOk()->assertJsonCount(0, 'data');
+        $this->getJson('/api/notifications/unread-count')->assertOk()->assertJsonPath('count', 0);
+    }
+
+    public function test_action_notification_is_dismissible_only_after_resolution(): void
+    {
+        $user = User::factory()->fss()->create();
+        $notification = Notification::factory()->for($user)->create([
+            'type' => 'po_awaiting_receipt',
+            'resolved_at' => null,
+        ]);
+
+        $this->actingAs($user, 'sanctum')
+            ->deleteJson("/api/notifications/{$notification->uuid}")
+            ->assertUnprocessable();
+
+        $notification->update(['resolved_at' => now()]);
+        $this->deleteJson("/api/notifications/{$notification->uuid}")->assertOk();
+        $this->assertNotNull($notification->fresh()->dismissed_at);
+    }
+
+    public function test_user_cannot_dismiss_another_users_notification(): void
+    {
+        $owner = User::factory()->rnd()->create();
+        $other = User::factory()->admin()->create();
+        $notification = Notification::factory()->for($owner)->create(['type' => 'announcement']);
+
+        $this->actingAs($other, 'sanctum')
+            ->deleteJson("/api/notifications/{$notification->uuid}")
+            ->assertForbidden();
+    }
 }

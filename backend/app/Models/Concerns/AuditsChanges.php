@@ -7,6 +7,7 @@ use App\Enums\AuditCategory;
 use App\Enums\AuditOutcome;
 use App\Enums\AuditSeverity;
 use App\Models\AuditActivity;
+use App\Models\NcpAppointment;
 use App\Models\NcpRecord;
 use App\Models\Patient;
 use App\Services\Audit\AuditContextResolver;
@@ -102,9 +103,18 @@ trait AuditsChanges
                 $ncpSubject,
                 $identifiers['ncp_record_id'],
             );
+            $visitReference = $identifiers['ncp_record_id'] !== null && $causer instanceof Model
+                ? NcpAppointment::query()
+                    ->where('ncp_record_id', $identifiers['ncp_record_id'])
+                    ->where('rnd_user_id', $causer->getKey())
+                    ->where('status', 'in_progress')
+                    ->first()
+                    ?->auditReference()
+                : null;
             $props['details'] = $sanitizer->details([
                 'changed_fields' => $changedFields,
                 ...($ncpReference !== null ? ['ncp_reference' => $ncpReference] : []),
+                ...($visitReference !== null ? ['visit_reference' => $visitReference] : []),
             ], AuditCategory::Clinical);
             $activity->properties = $props;
             $activity->root_patient_id = $identifiers['root_patient_id'];

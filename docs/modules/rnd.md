@@ -1,6 +1,6 @@
 # RND Module — Current Role and Workflow
 
-Verified against current frontend navigation, Laravel routes/controllers, and shared services on **2026-09-07**. Code is authoritative; older plans describe history only.
+Verified against current frontend navigation, Laravel routes/controllers, and shared services on **2026-09-08**. Code is authoritative; older plans describe history only.
 
 ## Role Purpose
 
@@ -57,7 +57,7 @@ RND can create/search/filter patients and start Assessment immediately. Patient 
 
 - **Overview:** demographics, diagnosis, risk, and latest-cycle snapshot;
 - **ADIME Records:** the current cycle plus an always-visible, two-per-page Past Records section with ADIME summaries and clickable meal-plan reports;
-- **Appointments:** upcoming and past scheduled/walk-in visits, purpose, status, attendance actions, and pagination;
+- **Appointments:** upcoming and past scheduled/walk-in visits, purpose, status, administering RND for started visits, attendance actions, and pagination;
 - **Attachments:** supporting files grouped by NCP cycle.
 
 A new cycle is started from ADIME Records. Current-cycle Actions contain Complete and Protect, Discontinue with a reason, and Delete when permitted. A cycle can be deleted only until it contains clinically complete Assessment, Diagnosis, and Intervention. A patient containing any such protected cycle cannot be deleted through the normal UI. Prior cycles never change when a new cycle starts.
@@ -221,7 +221,7 @@ Browse renders current/live data. Archive freezes an as-filed copy. RND can view
 ## Help, Notifications, Settings, and Profile
 
 - Help: searchable Shared and RND guidance only; the page has no role switch and exposes no Admin-only answers.
-- Notifications: announcements and follow-up reminders; open/mark-read/mark-all-read.
+- Notifications: announcements and appointment/follow-up reminders; exact-record navigation, read state, and dismissal for informational or resolved items. Unresolved action-required items stay until resolved.
 - Settings: density, reduced motion, announcement/follow-up preferences, budget-per-head/day.
 - Profile: first/last name, sign-in email, contact, one validated profile photo, recovery email verification, password change.
 - First login: temporary password replacement and recovery email, with optional deferral reminder.

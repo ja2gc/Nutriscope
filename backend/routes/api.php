@@ -111,6 +111,7 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
     Route::patch('notifications/read-all', [NotificationController::class, 'readAll']);
     Route::patch('notifications/{notification}/open', [NotificationController::class, 'open']);
     Route::patch('notifications/{notification}/read', [NotificationController::class, 'read']);
+    Route::delete('notifications/{notification}', [NotificationController::class, 'dismiss']);
 
     // SOP — all roles read the current procedure + its history; RND/Admin author.
     Route::get('sop', [SopController::class, 'current']);
@@ -119,7 +120,7 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
 });
 
 Route::middleware(['auth:sanctum', 'active', 'role:RND'])->prefix('rnd')->group(function () use ($reportRoutes) {
-    Route::get('ncp-appointments', [NcpAppointmentController::class, 'upcoming']);
+    Route::get('ncp-appointments/dashboard', [NcpAppointmentController::class, 'upcoming']);
     Route::get('ncp-appointments/active', [NcpAppointmentController::class, 'active']);
     Route::get('patients/{patient}/appointments', [NcpAppointmentController::class, 'index']);
     Route::post('patients/{patient}/appointments', [NcpAppointmentController::class, 'store']);

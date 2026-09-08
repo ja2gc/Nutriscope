@@ -14,11 +14,11 @@ class Notification extends Model
     use HasPublicId;
     use MassPrunable;
 
-    public const ACTION_TYPES = ['po_awaiting_receipt', 'follow_up'];
+    public const ACTION_TYPES = ['po_awaiting_receipt', 'follow_up', 'appointment_due'];
 
     protected $fillable = [
         'user_id', 'title', 'message', 'type', 'source_module',
-        'source_id', 'read', 'read_at', 'opened_at', 'resolved_at',
+        'source_id', 'read', 'read_at', 'opened_at', 'resolved_at', 'dismissed_at',
     ];
 
     protected $casts = [
@@ -26,6 +26,7 @@ class Notification extends Model
         'read_at' => 'datetime',
         'opened_at' => 'datetime',
         'resolved_at' => 'datetime',
+        'dismissed_at' => 'datetime',
     ];
 
     public function prunable(): Builder

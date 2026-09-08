@@ -5,6 +5,7 @@ import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/Button";
+import { Popover, PopoverClose, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ImageCarousel, ImageUploadGallery, imagesFromSrcs, imageSrcs, type UploadImage } from "@/components/ui/ImageUploadGallery";
 import { fetchPatients } from "@/services/patientService";
 import { fetchUpcomingAppointments, transitionAppointment, type NcpAppointment } from "@/services/ncpAppointmentService";
@@ -18,7 +19,7 @@ import {
 } from "@/services/announcementService";
 import { categoryStyles } from "@/components/announcements/AnnouncementsBoard";
 import { FssDashboardSummary, getFssDashboard } from "@/services/menuCycleService";
-import { Calendar, Compass, HeartHandshake, PencilLine, TrendingUp, X } from "lucide-react";
+import { Calendar, Compass, HeartHandshake, MoreHorizontal, PencilLine, TrendingUp, X } from "lucide-react";
 import { personDisplayName } from "@/lib/personName";
 
 type AnnouncementDraft = {
@@ -171,7 +172,7 @@ export default function RndDashboardPage() {
     body: "",
     images: [],
   });
-  const [appointmentAction, setAppointmentAction] = useState<{ id: string; kind: "cancel" | "reschedule" } | null>(null);
+  const [appointmentAction, setAppointmentAction] = useState<{ id: string; kind: "cancel" | "reschedule" | "no_show" } | null>(null);
   const [appointmentReason, setAppointmentReason] = useState("patient_requested");
   const [rescheduledAt, setRescheduledAt] = useState("");
 
@@ -810,9 +811,10 @@ export default function RndDashboardPage() {
                             </span>
                           </td>
                           <td className="px-4 py-2.5 text-right">
-                            <div className="flex flex-wrap justify-end gap-1.5"><Link href={`/ncp/patients/${row.patientId}`} className="inline-flex px-3 py-1.5 bg-brand-green-600 hover:bg-brand-green-700 text-white text-xs font-bold uppercase tracking-wider rounded-lg">Open NCP</Link><button onClick={() => setAppointmentAction({ id: row.appointmentId, kind: "reschedule" })} className="rounded-lg border border-warm-200 px-2 py-1.5 text-xs font-bold">Reschedule</button><button onClick={() => void updateAppointment(row, "no_show")} className="rounded-lg border border-warm-200 px-2 py-1.5 text-xs font-bold">No-show</button><button onClick={() => setAppointmentAction({ id: row.appointmentId, kind: "cancel" })} className="rounded-lg border border-red-200 px-2 py-1.5 text-xs font-bold text-red-600">Cancel</button></div>
+                            <div className="flex justify-end gap-1.5"><Link href={`/ncp/patients/${row.patientId}?tab=appointments&appointmentId=${row.appointmentId}`} className="inline-flex px-3 py-1.5 bg-brand-green-600 hover:bg-brand-green-700 text-white text-xs font-bold uppercase tracking-wider rounded-lg">Open NCP</Link><Popover><PopoverTrigger asChild><button type="button" aria-label="More appointment actions" className="rounded-lg border border-warm-200 p-1.5 text-warm-600"><MoreHorizontal className="h-4 w-4" /></button></PopoverTrigger><PopoverContent align="end" className="w-40 space-y-1 p-2"><PopoverClose asChild><button onClick={() => setAppointmentAction({ id: row.appointmentId, kind: "reschedule" })} className="w-full rounded-lg px-2 py-1.5 text-left text-xs font-bold hover:bg-warm-50">Reschedule</button></PopoverClose><PopoverClose asChild><button onClick={() => setAppointmentAction({ id: row.appointmentId, kind: "no_show" })} className="w-full rounded-lg px-2 py-1.5 text-left text-xs font-bold hover:bg-warm-50">No-show</button></PopoverClose><PopoverClose asChild><button onClick={() => setAppointmentAction({ id: row.appointmentId, kind: "cancel" })} className="w-full rounded-lg px-2 py-1.5 text-left text-xs font-bold text-red-600 hover:bg-red-50">Cancel</button></PopoverClose></PopoverContent></Popover></div>
                             {appointmentAction?.id === row.appointmentId && appointmentAction.kind === "cancel" && <div className="mt-2 flex flex-wrap justify-end gap-1"><select aria-label="Cancellation reason" value={appointmentReason} onChange={(event) => setAppointmentReason(event.target.value)} className="rounded-lg border border-warm-200 px-2 py-1 text-xs"><option value="patient_requested">Patient requested</option><option value="provider_unavailable">Provider unavailable</option><option value="scheduling_conflict">Scheduling conflict</option><option value="lost_to_follow_up">Lost to follow-up</option><option value="other">Other</option></select><button onClick={() => void updateAppointment(row, "cancel")} className="rounded-lg bg-red-600 px-2 py-1 text-xs font-bold text-white">Confirm</button></div>}
                             {appointmentAction?.id === row.appointmentId && appointmentAction.kind === "reschedule" && <div className="mt-2 flex flex-wrap justify-end gap-1"><input aria-label="New appointment date and time" type="datetime-local" value={rescheduledAt} onChange={(event) => setRescheduledAt(event.target.value)} className="rounded-lg border border-warm-200 px-2 py-1 text-xs" /><button disabled={!rescheduledAt} onClick={() => void updateAppointment(row, "reschedule")} className="rounded-lg bg-emerald-600 px-2 py-1 text-xs font-bold text-white disabled:opacity-50">Confirm</button></div>}
+                            {appointmentAction?.id === row.appointmentId && appointmentAction.kind === "no_show" && <div className="mt-2 flex flex-wrap justify-end gap-1 text-xs"><span>Mark as no-show?</span><button onClick={() => void updateAppointment(row, "no_show")} className="rounded-lg bg-warm-700 px-2 py-1 font-bold text-white">Confirm</button></div>}
                           </td>
                         </tr>
                       ))}

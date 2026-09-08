@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 
 const patientPage = () => readFileSync(join(process.cwd(), "app/(rnd)/ncp/patients/[patientId]/page.tsx"), "utf8");
+const patientList = () => readFileSync(join(process.cwd(), "app/(rnd)/ncp/patients/page.tsx"), "utf8");
 const reportsBrowser = () => readFileSync(join(process.cwd(), "components/reports/ReportsBrowser.tsx"), "utf8");
 
 describe("patient history cleanup", () => {
@@ -13,6 +14,7 @@ describe("patient history cleanup", () => {
     expect(source).not.toContain("Cycle ID");
     expect(source).not.toContain("System {Number(patient.risk_score)");
     expect(source).not.toContain("formatSystemId");
+    expect(patientList()).not.toContain("Cycle ID");
   });
 
   test("reuses InfoHint for the approved protection rules", () => {
@@ -37,6 +39,7 @@ describe("patient history cleanup", () => {
     expect(source).toContain("Current Cycle");
     expect(source).toContain("Past Records");
     expect(source).toContain("No past ADIME records yet.");
+    expect(source).toContain("record.discontinuation_reason_code");
     expect(source).toContain('scope: "past"');
     expect(source).toContain("<PatientAppointments");
   });

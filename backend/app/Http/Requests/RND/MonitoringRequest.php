@@ -23,7 +23,6 @@ abstract class MonitoringRequest extends FormRequest
             'goal_achievement' => ['nullable', 'array'],
             'clinical_summary' => ['nullable', 'string'],
             'ai_decision' => ['nullable', 'string'],
-            'next_monitoring_date' => ['nullable', 'date'],
         ];
     }
 

@@ -48,7 +48,7 @@ class AuditSanitizer
         'attachment_type', 'format', 'count', 'source', 'generation_type',
         'identifier', 'public_id', 'reason_code', 'record_id', 'ncp_reference',
         'report_type', 'report_public_id', 'period_reference',
-        'instance_reference',
+        'instance_reference', 'visit_reference',
     ];
 
     public function details(array $details, AuditCategory $category): array
@@ -119,8 +119,9 @@ class AuditSanitizer
 
             if (in_array($key, self::CLINICAL_SCALAR_KEYS, true)
                 && (is_string($value) || is_int($value) || is_float($value) || is_bool($value) || $value === null)) {
-                if ($key === 'ncp_reference') {
-                    if (is_string($value) && preg_match('/^NCP-[A-F0-9]{16}$/D', $value) === 1) {
+                if (in_array($key, ['ncp_reference', 'visit_reference'], true)) {
+                    $prefix = $key === 'ncp_reference' ? 'NCP' : 'VISIT';
+                    if (is_string($value) && preg_match('/^'.$prefix.'-[A-F0-9]{16}$/D', $value) === 1) {
                         $sanitized[$key] = $value;
                     }
 

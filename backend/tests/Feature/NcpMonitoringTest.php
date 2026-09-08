@@ -79,6 +79,25 @@ class NcpMonitoringTest extends TestCase
         ]);
     }
 
+    public function test_monitoring_does_not_accept_legacy_next_visit_date(): void
+    {
+        $rnd = $this->rnd();
+        $patient = $this->patient();
+        $ncp = $this->ncpRecord($patient, $rnd);
+
+        $response = $this->actingAs($rnd, 'sanctum')
+            ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/monitorings", [
+                'weight' => 72.0,
+                'next_monitoring_date' => now()->addWeek()->toDateString(),
+            ]);
+
+        $response->assertCreated()->assertJsonPath('data.next_monitoring_date', null);
+        $this->assertDatabaseHas('monitorings', [
+            'ncp_record_id' => $ncp->id,
+            'next_monitoring_date' => null,
+        ]);
+    }
+
     public function test_monitoring_blocked_on_first_encounter_without_care_plan(): void
     {
         $rnd = $this->rnd();

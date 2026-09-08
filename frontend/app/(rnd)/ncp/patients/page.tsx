@@ -245,7 +245,7 @@ export default function NcpPatientsPage() {
                   <th className="px-5 py-4 text-xs font-extrabold text-warm-500 uppercase tracking-wider">Age / Sex</th>
                   <th className="px-5 py-4 text-xs font-extrabold text-warm-500 uppercase tracking-wider">Physician</th>
                   <th className="px-5 py-4 text-xs font-extrabold text-warm-500 uppercase tracking-wider">Last Assessment</th>
-                  <th className="px-5 py-4 text-xs font-extrabold text-warm-500 uppercase tracking-wider">Next Follow-up</th>
+                  <th className="px-5 py-4 text-xs font-extrabold text-warm-500 uppercase tracking-wider">Next Appointment</th>
                   <th className="px-5 py-4 text-xs font-extrabold text-warm-500 uppercase tracking-wider">Risk Status</th>
                   <th className="px-5 py-4 text-xs font-extrabold text-warm-500 uppercase tracking-wider">Clinical Attribution</th>
                   <th className="px-5 py-4 text-xs font-extrabold text-warm-500 uppercase tracking-wider text-right">Actions</th>
@@ -284,9 +284,9 @@ export default function NcpPatientsPage() {
                       </td>
 
                       <td className="px-5 py-4 text-sm text-warm-600">
-                        {patient.next_followup_date ? (
+                        {patient.next_appointment_at ? (
                           <span className="font-semibold text-warm-700">
-                            {formatRelativeDate(patient.next_followup_date)}
+                            {formatRelativeDate(patient.next_appointment_at)}
                           </span>
                         ) : (
                           <span className="text-warm-400">Not scheduled</span>

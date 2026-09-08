@@ -195,7 +195,7 @@ Use this version when screenshots are available. Each scene already contains the
 
 **User should do:** Open the demo plan, add/adjust an item, review target variance, and save.
 
-**Next scene:** Education/Counseling/Goal Planning/Encounter Context.
+**Next scene:** Education/Counseling/Goal Planning and shared visit controls.
 
 > **Screenshot needed:** Meal Plan area with one demo day/meal, foods, nutrition totals or variance, and save/generate/template controls.
 >
@@ -203,19 +203,19 @@ Use this version when screenshots are available. Each scene already contains the
 
 #### RND-NCP-12 — Intervention Supporting Tabs
 
-**Description:** Education, Counseling, Goal Planning, and Encounter Context turn prescription targets into patient-facing actions and a planned follow-up.
+**Description:** Education, Counseling, and Goal Planning turn prescription targets into patient-facing actions. The shared visit bar records one visit across whichever NCP steps are handled during that session.
 
-**User should do:** Show completed demo content and the save action for one tab; identify the next follow-up field in Encounter Context.
+**User should do:** Show completed demo content and one save action, then finish the active visit from the shared visit bar and review its work summary in Patient Appointments.
 
 **Next scene:** Monitoring on follow-up.
 
-> **Screenshot needed:** One representative supporting tab plus Encounter Context showing follow-up planning. Use demo text only.
+> **Screenshot needed:** One representative supporting tab plus shared visit bar. Optional second image: completed appointment showing purpose, administering RND, and work summary. Use demo text only.
 >
 > **Insert screenshot(s) below this line.**
 
 #### RND-NCP-13 — Monitoring Visit Log
 
-**Description:** Once Assessment, Diagnosis, and Intervention exist, RND records follow-up indicators, tolerance/intake, symptoms, goal result, and next date.
+**Description:** During a scheduled or walk-in visit, RND records follow-up indicators, tolerance/intake, symptoms, and goal result. Future visits are created in Patient Appointments instead of inside Monitoring.
 
 **User should do:** Add a demo follow-up visit and save.
 

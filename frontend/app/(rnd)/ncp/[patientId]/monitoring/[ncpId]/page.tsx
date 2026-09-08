@@ -2,7 +2,7 @@
 
 import React, { use, useEffect, useState, useCallback } from "react";
 import Link from "next/link";
-import { Activity, User, Calendar, Lock } from "lucide-react";
+import { Activity, User, Lock } from "lucide-react";
 import EncounterLog from "./_components/EncounterLog";
 import GoalProgressTracker from "./_components/GoalProgressTracker";
 import LogVisitForm from "./_components/LogVisitForm";
@@ -212,11 +212,6 @@ export default function NcpMonitoringPage({
     );
   }
 
-  // Latest next follow-up date (from most recent visit)
-  const latestNextDate = [...entries]
-    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0]
-    ?.next_monitoring_date ?? null;
-
   // Tab button class helper
   const tabCls = (tab: Tab) =>
     `px-4 py-2.5 text-xs font-bold uppercase tracking-wider border-b-2 whitespace-nowrap transition-colors cursor-pointer ${
@@ -378,25 +373,6 @@ export default function NcpMonitoringPage({
                 )}
               </div>
             </div>
-
-            {/* Next follow-up card — only shown when a next date has been set */}
-            {latestNextDate && (
-              <div className="bg-white border border-warm-200 rounded-2xl p-5 shadow-sm">
-                <h3 className="text-sm font-extrabold text-warm-700 uppercase tracking-wider mb-3 flex items-center gap-2">
-                  <Calendar className="h-3.5 w-3.5 text-emerald-600" />
-                  Next Follow-up
-                </h3>
-                <p className="text-base font-mono font-bold text-warm-900">
-                  {new Date(latestNextDate).toLocaleDateString("en-PH", {
-                    weekday: "short",
-                    month: "short",
-                    day: "numeric",
-                    year: "numeric",
-                  })}
-                </p>
-                <p className="text-xs text-warm-400 mt-1">Scheduled from last visit log.</p>
-              </div>
-            )}
 
             {/* Prescription summary card — only shown if intervention exists */}
             {intervention && (intervention.energy_kcal || intervention.protein_g) && (

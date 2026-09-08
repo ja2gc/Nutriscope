@@ -32,9 +32,9 @@ export interface Patient {
   age_group_category?: string;
   created_at: string;
   updated_at: string;
-  ncp_records?: NcpRecord[];
+  can_delete?: boolean | null;
   last_assessment_date?: string | null;
-  next_followup_date?: string | null;
+  next_appointment_at?: string | null;
   risk_score?: number | string | null;
   latest_ncp_id?: number | null;
   latest_ncp_created_by?: ClinicalActor | null;
@@ -45,9 +45,9 @@ export interface NcpRecord {
   id: number | string;
   can_delete?: boolean;
   patient_id: number | string;
-  rnd_user_id: number;
   type?: string;
   status: string;
+  discontinuation_reason_code?: string | null;
   created_at: string;
   updated_at: string;
   created_by?: ClinicalActor | null;
@@ -63,11 +63,16 @@ export interface NcpRecord {
   diagnoses?: Array<{
     pes_statement?: string | null;
   }> | null;
+  monitorings?: Array<{
+    id: string;
+    clinical_summary?: string | null;
+    created_at: string;
+  }> | null;
   intervention?: {
     goal_type?: string | null;
     next_followup_date?: string | null;
     meal_plans?: Array<{
-      id: number;
+      id: string;
       week_start_date: string;
       generation_type?: string | null;
     }> | null;

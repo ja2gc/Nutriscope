@@ -219,11 +219,14 @@ class NcpInterventionTest extends TestCase
         $response->assertStatus(201)
             ->assertJsonPath('data.ncp_record_id', $ncp->id)
             ->assertJsonPath('data.energy_kcal', '1800.00')
-            ->assertJsonPath('data.session_type', 'individual');
+            ->assertJsonPath('data.session_type', null)
+            ->assertJsonPath('data.next_followup_date', null);
 
         $this->assertDatabaseHas('interventions', [
             'ncp_record_id' => $ncp->id,
             'energy_kcal' => 1800.0,
+            'session_type' => null,
+            'next_followup_date' => null,
         ]);
     }
 

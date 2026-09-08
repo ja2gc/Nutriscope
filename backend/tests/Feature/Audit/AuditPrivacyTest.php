@@ -17,6 +17,7 @@ use App\Models\FsItem;
 use App\Models\Intervention;
 use App\Models\Inventory;
 use App\Models\MealPlan;
+use App\Models\NcpAppointment;
 use App\Models\NcpRecord;
 use App\Models\Patient;
 use App\Models\PurchaseOrder;
@@ -705,5 +706,26 @@ class AuditPrivacyTest extends TestCase
         $this->assertSame(AuditDomain::Ncp, $activity->domain);
         $this->assertSame($ncp->getMorphClass(), $activity->context_type);
         $this->assertSame($ncp->id, $activity->context_id);
+    }
+
+    public function test_clinical_change_during_active_visit_keeps_existing_audit_event_and_adds_visit_reference(): void
+    {
+        $actor = User::factory()->rnd()->create();
+        $ncp = NcpRecord::factory()->create(['rnd_user_id' => $actor->id]);
+        $assessment = Assessment::factory()->create(['ncp_record_id' => $ncp->id]);
+        $visit = NcpAppointment::factory()->create([
+            'patient_id' => $ncp->patient_id,
+            'ncp_record_id' => $ncp->id,
+            'rnd_user_id' => $actor->id,
+            'status' => 'in_progress',
+        ]);
+        $this->actingAs($actor);
+        AuditFixture::delete($assessment->activities());
+
+        $assessment->update(['weight' => 72.5]);
+
+        $activity = $assessment->activities()->where('event', 'updated')->sole();
+        $this->assertSame($visit->auditReference(), $activity->properties['details']['visit_reference']);
+        $this->assertContains('weight', $activity->properties['details']['changed_fields']);
     }
 }

@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Models\Intervention;
+use App\Models\NcpAppointment;
 use App\Models\NcpRecord;
 use App\Models\Patient;
 use App\Models\User;
@@ -16,8 +16,8 @@ class PatientFollowUpPaginationTest extends TestCase
     public function test_follow_up_filter_includes_overdue_and_future_dates(): void
     {
         $rnd = User::factory()->rnd()->create();
-        $overdue = $this->patientWithFollowUp($rnd, now()->subDays(3)->toDateString());
-        $future = $this->patientWithFollowUp($rnd, now()->addDays(3)->toDateString());
+        $overdue = $this->patientWithFollowUp($rnd, now()->subDays(3)->toDateTimeString());
+        $future = $this->patientWithFollowUp($rnd, now()->addDays(3)->toDateTimeString());
         $this->patientWithFollowUp($rnd, null);
 
         $response = $this->actingAs($rnd, 'sanctum')
@@ -29,19 +29,25 @@ class PatientFollowUpPaginationTest extends TestCase
 
         $this->assertTrue($ids->contains($overdue->uuid));
         $this->assertTrue($ids->contains($future->uuid));
+        $this->assertNotNull(collect($response->json('data'))->firstWhere('id', $future->uuid)['next_appointment_at']);
     }
 
     private function patientWithFollowUp(User $rnd, ?string $date): Patient
     {
         $patient = Patient::factory()->create();
-        $record = NcpRecord::factory()->create([
+        NcpRecord::factory()->create([
             'patient_id' => $patient->id,
             'rnd_user_id' => $rnd->id,
         ]);
-        Intervention::factory()->create([
-            'ncp_record_id' => $record->id,
-            'next_followup_date' => $date,
-        ]);
+        if ($date !== null) {
+            NcpAppointment::factory()->create([
+                'patient_id' => $patient->id,
+                'ncp_record_id' => null,
+                'rnd_user_id' => $rnd->id,
+                'status' => 'scheduled',
+                'scheduled_at' => $date,
+            ]);
+        }
 
         return $patient;
     }

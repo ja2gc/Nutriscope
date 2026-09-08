@@ -34,10 +34,10 @@ class PatientResource extends JsonResource
             'age_group_category' => $this->age_group_category,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
-            'ncp_records' => $this->whenLoaded('ncpRecords'),
+            'can_delete' => $this->resource->getAttribute('can_delete'),
             // This reflects when the assessment was created, not when the NCP record was last changed.
             'last_assessment_date' => $latestNcpRecord?->assessment?->created_at,
-            'next_followup_date' => $latestNcpRecord?->intervention?->next_followup_date,
+            'next_appointment_at' => $this->resource->getAttribute('next_appointment_at'),
             'risk_score' => $latestNcpRecord?->risk_score,
             'latest_ncp_id' => $latestNcpRecord?->uuid,
             'latest_ncp_created_by' => $this->resource->getAttribute('latest_ncp_created_by'),

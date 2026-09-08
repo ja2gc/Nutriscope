@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { ChevronDown, ChevronUp, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { DatePicker } from "@/components/ui/DatePicker";
 import {
   Collapsible,
   CollapsibleTrigger,
@@ -205,7 +204,6 @@ export default function LogVisitForm({
   onSubmit,
   onCancel,
 }: LogVisitFormProps) {
-  const todayStr = new Date().toISOString().split("T")[0];
 
   // Lab fields: the patient's plan-tracked labs (intersected with fields the form
   // can render); fall back to goal_type defaults when no plan is available.
@@ -234,7 +232,6 @@ export default function LogVisitForm({
   const [giTolerance, setGiTolerance] = useState<GiToleranceStatus | null>(null);
   const [decision, setDecision]     = useState<ContinuationDecision>(null);
   const [clinicalSummary, setClinicalSummary] = useState("");
-  const [nextDate, setNextDate]     = useState("");
 
   const [macrosOpen, setMacrosOpen] = useState(true);
   const [labsOpen, setLabsOpen]     = useState(false);
@@ -308,7 +305,6 @@ export default function LogVisitForm({
                               : null,
       clinical_summary:     clinicalSummary.trim() || null,
       goal_achievement:     Object.keys(goalAchievement).length > 0 ? goalAchievement : null,
-      next_monitoring_date: nextDate || null,
     };
   }
 
@@ -486,7 +482,6 @@ export default function LogVisitForm({
         </div>
 
         {/* ── Next Follow-up Date ──────────────────────────────────────────── */}
-        <DatePicker label="Next Follow-up Date" value={nextDate} min={todayStr} onChange={setNextDate} />
 
         {/* ── Error ────────────────────────────────────────────────────────── */}
         {error && (

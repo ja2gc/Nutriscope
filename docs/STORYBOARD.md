@@ -20,8 +20,8 @@ For the sequential visual version, use the [Screenshot Storyboard Guide](modules
 | 2. Patient entry | Nutrition Care → Patients | Creates or selects a patient | Creates/opens patient profile and NCP history | Patient becomes root context |
 | 3. Assessment | Dietary → Anthropometrics → Client → Biochemical → Referral → Summary | Enters/validates baseline data and saves | Calculates clinical helpers/risk; stores cycle documents | Assessment establishes source data |
 | 4. Diagnosis | Diagnosis Table and P/E/S builder | Creates PES manually or reviews AI drafts | Saves accepted diagnosis; rejects unsupervised AI automation | Clinical judgment remains with RND |
-| 5. Intervention | Food/Nutrient Delivery, Education, Counseling, Goal Planning, Encounter Context | Sets goal/stage, reviews calculated prescription, builds meal plan, saves education/follow-up | Backend returns authoritative prescription; meal plan compares with targets | Plan turns findings into action |
-| 6. Follow-up | Monitoring Visit Log and Progress Trends | Records outcome indicators and next visit | Compares with baseline/targets and preserves visit history | Care becomes iterative |
+| 5. Intervention | Food/Nutrient Delivery, Education, Counseling, Goal Planning, shared Visit Bar | Sets goal/stage, reviews calculated prescription, builds meal plan, saves supporting intervention work | Backend returns authoritative prescription; active visit records which NCP steps changed | Plan turns findings into action |
+| 6. Follow-up | Patient Appointments, Monitoring Visit Log, and Progress Trends | Schedules or starts a walk-in, records outcomes, then finishes or stops the visit | Preserves attendance, purpose, administering RND, cycle link, and work summary | Care becomes iterative without binding visits to one step |
 | 7. Filing | Reports | Opens NCP Summary/Patient Menu Plan, validates, archives | Freezes as-filed copy | Clinical work produces reproducible output |
 
 ```mermaid

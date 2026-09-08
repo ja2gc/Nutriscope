@@ -679,6 +679,13 @@ return [
             'implementation_state' => 'implemented',
             'reason' => 'Notification open state is routine UI housekeeping used for lifecycle cleanup.',
         ],
+        'DELETE api/notifications/{notification}' => [
+            'classification' => 'intentionally_not_audited',
+            'source' => 'App\\Http\\Controllers\\RND\\NotificationController@dismiss',
+            'owner_task' => 4,
+            'implementation_state' => 'implemented',
+            'reason' => 'Notification dismissal is routine user-owned UI housekeeping.',
+        ],
         'POST api/rnd/announcements' => [
             'classification' => 'explicit_event',
             'source' => 'App\\Http\\Controllers\\RND\\AnnouncementController@store',
@@ -750,18 +757,18 @@ return [
             'reason' => 'Assessment persistence for POST api/rnd/ncp-records/{ncpRecord}/assessment is covered by its redacted clinical model event.',
         ],
         'PATCH api/rnd/ncp-appointments/{ncpAppointment}' => [
-            'classification' => 'model_event',
-            'source' => 'App\\Models\\NcpAppointment::AuditsChanges',
+            'classification' => 'explicit_event',
+            'source' => 'App\\Http\\Controllers\\RND\\NcpAppointmentController@transition',
             'owner_task' => 6,
             'implementation_state' => 'implemented',
-            'reason' => 'Appointment status transitions are retained as redacted clinical model events; purpose text is excluded.',
+            'reason' => 'Appointment transitions emit one semantic, sanitized event through the existing audit pipeline.',
         ],
         'PATCH api/rnd/ncp-records/{ncpRecord}' => [
-            'classification' => 'model_event',
-            'source' => 'App\\Models\\NcpRecord::AuditsChanges',
+            'classification' => 'explicit_event',
+            'source' => 'App\\Http\\Controllers\\RND\\NcpRecordController@transition',
             'owner_task' => 6,
             'implementation_state' => 'implemented',
-            'reason' => 'Cycle completion or discontinuation is retained as a redacted clinical model event.',
+            'reason' => 'Cycle completion or discontinuation emits one semantic, sanitized event through the existing audit pipeline.',
         ],
         'PATCH api/rnd/ncp-records/{ncpRecord}/assessment' => [
             'classification' => 'model_event',
@@ -953,11 +960,11 @@ return [
             'reason' => 'Patient persistence for DELETE api/rnd/patients/{patient} is covered by its redacted clinical model event.',
         ],
         'POST api/rnd/patients/{patient}/appointments' => [
-            'classification' => 'model_event',
-            'source' => 'App\\Models\\NcpAppointment::AuditsChanges',
+            'classification' => 'explicit_event',
+            'source' => 'App\\Http\\Controllers\\RND\\NcpAppointmentController@store',
             'owner_task' => 6,
             'implementation_state' => 'implemented',
-            'reason' => 'Appointment creation is retained as a redacted clinical model event; purpose text is excluded.',
+            'reason' => 'Appointment creation emits one semantic, sanitized event through the existing audit pipeline.',
         ],
         'POST api/rnd/patients/{patient}/ncp-records' => [
             'classification' => 'model_event',
