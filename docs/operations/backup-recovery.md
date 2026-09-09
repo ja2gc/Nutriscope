@@ -28,7 +28,7 @@ The selected single-Droplet deployment keeps live private uploads on the persist
 
 At least every 30 days, NutriScope restores the latest verified point into a disposable MySQL database. Checks are read-only: schema, foreign keys, application/authentication tables, role definitions, supported password hashes, manifest, files, and critical boot integrity. The drill creates no user, password, session, or business fixture and always drops its database. The page shows the latest successful recovery-test date.
 
-## Restore points and Recently deleted
+## Restore points and Recently Deleted
 
 - Primary views separate Restore points, Failed, and Recently deleted. Backup activity appears only while work is Queued, Creating, or Verifying. Type filters separate daily, weekly, monthly, manual, and Pre-restore points; one shared automatic archive appears under every schedule filter it satisfies.
 - **Create backup now** creates a manual restore point with no automatic expiry.

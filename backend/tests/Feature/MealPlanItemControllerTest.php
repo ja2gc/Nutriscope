@@ -123,13 +123,15 @@ class MealPlanItemControllerTest extends TestCase
             'total_carbs' => 38.0,
             'total_fat' => 16.0,
             'servings' => 4,
+            'prepared_portion_amount' => 125,
+            'prepared_portion_unit' => 'g',
         ]);
 
         $response = $this->actingAs($ctx['rnd'])
             ->postJson($this->url($ctx), [
                 'recipe_id' => $recipe->uuid,
-                'quantity' => 1,
-                'unit' => 'serving',
+                'quantity' => 125,
+                'unit' => 'g',
             ]);
 
         $response->assertCreated();
@@ -137,8 +139,9 @@ class MealPlanItemControllerTest extends TestCase
         $this->assertEquals($recipe->id, $item->recipe_id);
         $this->assertNull($item->food_item_id);
         $this->assertNull($item->fdc_id);
-        $this->assertEquals(420, $item->nutrient_snapshot['calories']);
-        $this->assertEquals(4, $item->nutrient_snapshot['serving_size']);
+        $this->assertEquals(105, $item->nutrient_snapshot['calories']);
+        $this->assertEquals(125, $item->nutrient_snapshot['serving_size']);
+        $this->assertEquals('g', $item->nutrient_snapshot['serving_unit']);
     }
 
     public function test_store_rejects_multiple_sources(): void
@@ -321,21 +324,25 @@ class MealPlanItemControllerTest extends TestCase
         $this->assertEquals(65.5, MealPlanItem::first()->nutrient_snapshot['water_g']);
     }
 
-    public function test_snapshot_sets_water_g_null_for_recipe(): void
+    public function test_recipe_snapshot_uses_per_portion_water_and_prepared_measure(): void
     {
         $ctx = $this->setupPlan();
         $recipe = Recipe::factory()->create([
             'total_calories' => 400.0, 'total_protein' => 20.0,
             'total_carbs' => 40.0, 'total_fat' => 15.0, 'servings' => 2,
+            'total_water_g' => 100,
+            'prepared_portion_amount' => 1.5,
+            'prepared_portion_unit' => 'cup',
         ]);
 
         $this->actingAs($ctx['rnd'])
-            ->postJson($this->url($ctx), ['recipe_id' => $recipe->uuid, 'quantity' => 1, 'unit' => 'serving'])
+            ->postJson($this->url($ctx), ['recipe_id' => $recipe->uuid, 'quantity' => 1.5, 'unit' => 'cup'])
             ->assertCreated();
 
         $snap = MealPlanItem::first()->nutrient_snapshot;
-        $this->assertArrayHasKey('water_g', $snap);
-        $this->assertNull($snap['water_g']);
+        $this->assertEquals(50, $snap['water_g']);
+        $this->assertEquals(1.5, $snap['serving_size']);
+        $this->assertEquals('cup', $snap['serving_unit']);
     }
 
     public function test_backfill_command_patches_snapshot_water_g(): void

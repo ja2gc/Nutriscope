@@ -82,13 +82,17 @@ extraction_logs         id, screening_document_id, ocr_document_id,
 
 ```
 meal_plans              id, intervention_id, patient_id, week_start_date,
-                        generation_type(manual/auto), status, timestamps
+                        generation_type(manual/auto), needs_rescaling, scaled_at,
+                        status, timestamps
 meal_plan_days          id, meal_plan_id, day_of_week, variance(json),
                         meal_type(breakfast/am_snack/lunch/pm_snack/dinner)
 meal_plan_items         id, meal_plan_day_id, food_item_id, recipe_id, fdc_id,
                         quantity, unit, nutrient_snapshot(json)
-meal_plan_templates     id, name, description, rnd_user_id, timestamps
+meal_plan_templates     id, name, description, goal_type, disease_stage,
+                        rnd_user_id, timestamps
 meal_plan_template_days id, meal_plan_template_id, day_of_week, meal_type, recipe_id, food_item_id, quantity
+meal_plan_template_items id, template_day_id, food_item_id, recipe_id, fdc_id,
+                        quantity, unit, nutrient_snapshot(json), line_order, timestamps
 ```
 
 ### Food & Recipes (Clinical)
@@ -99,7 +103,8 @@ food_items              id, name, category, usda_fdc_id, calories, protein,
                         serving_unit, serving_size, ready_to_eat(bool), timestamps
 recipes                 id, rnd_user_id, name, category, prep_notes,
                         total_calories, total_protein, total_carbs, total_fat, total_water_g,
-                        micronutrients(json), servings, meal_types(json), timestamps
+                        micronutrients(json), servings, prepared_portion_amount,
+                        prepared_portion_unit, meal_types(json), component_type, timestamps
 recipe_ingredients      id, recipe_id, food_item_id, quantity, unit
 clinical_rules          id, condition, stage, nutrient_or_food_tag,
                         rule_type(avoid/limit/recommend), threshold, unit,
@@ -110,7 +115,8 @@ clinical_rules          id, condition, stage, nutrient_or_food_tag,
 
 ```
 fs_items                id, name, category, unit_price, purchase_unit, inventory_unit, conversion_factor, timestamps
-food_service_recipes    id, rnd_user_id, name, category, prep_notes, cost, servings, timestamps
+food_service_recipes    id, rnd_user_id, name, category, prep_notes, cost,
+                        servings, portion_label, timestamps
 food_service_recipe_ingredients id, food_service_recipe_id, fs_item_id, quantity, unit
 ```
 
@@ -121,10 +127,11 @@ inventory               id, fs_item_id, quantity_in_stock, unit, received_date,
                         usage_rate, notes, unit_price(decimal), timestamps
 menu_cycles             id, rnd_user_id, week_start_date, status,
                         activation_date, cost_snapshot(json), timestamps
-menu_cycle_days         id, menu_cycle_id, day_of_week, meal_type,
-                        food_service_recipe_id, fs_item_id, quantity
+menu_cycle_days         id, uuid, menu_cycle_id, day_of_week, meal_type,
+                        line_order, food_service_recipe_id, fs_item_id, quantity
 menu_cycle_templates    id, name, description, timestamps
-menu_cycle_template_days id, menu_cycle_template_id, day_of_week, meal_type, food_service_recipe_id, fs_item_id, quantity
+menu_cycle_template_days id, menu_cycle_template_id, day_of_week, meal_type,
+                        line_order, food_service_recipe_id, fs_item_id, quantity
 meal_prep_logs          id, menu_cycle_id, service_date, population(prepared-for),
                         served_population, population_variance(prepared−served),
                         status, completed_by, completed_at, total_value(decimal),

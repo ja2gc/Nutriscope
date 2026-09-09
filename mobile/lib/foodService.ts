@@ -2,9 +2,10 @@ import api from './api';
 import { MOBILE_PAGE_SIZE, PaginatedResponse } from './pagination';
 
 export interface MenuDay {
-  id: number;
+  id: string;
   day_of_week: string;
   meal_type: string;
+  line_order: number;
   recipe_id: string | null;
   fs_item_id: string | null;
   estimate_population: number | null;
@@ -14,7 +15,7 @@ export interface MenuDay {
   po_snapshot_at?: string | null;
   po_snapshot_locked?: boolean;
   snapshot_purchase_order_id?: number | null;
-  recipe?: { id: string; name: string; servings: number } | null;
+  recipe?: { id: string; name: string; servings: number; portion_label?: string | null } | null;
   fs_item?: { id: string; name: string } | null;
 }
 
@@ -69,9 +70,11 @@ export async function getMenuCycle(id: string): Promise<MenuCycle> {
 }
 
 export interface MenuSlotProfile {
+  id: string;
   cycle_id: string;
   day: string;
   meal: string;
+  line_order: number;
   source: 'master' | 'custom' | 'locked';
   locked: boolean;
   editable: boolean;
@@ -80,6 +83,7 @@ export interface MenuSlotProfile {
   planned_servings: number | null;
   purchase_estimate_set: boolean;
   prep_notes: string | null;
+  portion_label?: string | null;
   ingredients: {
     fs_item_id: string | null;
     name: string;
@@ -96,6 +100,13 @@ export interface MenuSlotProfile {
 export async function getMenuSlotProfile(menuCycleId: string, day: string, meal: string): Promise<MenuSlotProfile> {
   const res = await api.get<{ data: MenuSlotProfile }>(
     `/api/fss/menu-cycles/${encodeURIComponent(menuCycleId)}/slots/${encodeURIComponent(day)}/${encodeURIComponent(meal)}`,
+  );
+  return res.data.data;
+}
+
+export async function getMenuLineProfile(menuCycleId: string, lineId: string): Promise<MenuSlotProfile> {
+  const res = await api.get<{ data: MenuSlotProfile }>(
+    `/api/fss/menu-cycles/${encodeURIComponent(menuCycleId)}/lines/${encodeURIComponent(lineId)}`,
   );
   return res.data.data;
 }

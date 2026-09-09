@@ -341,6 +341,12 @@ class AuditCanonicalEventTest extends TestCase
             'fluid_ml' => 2000,
         ]);
         Recipe::factory(15)->create(['rnd_user_id' => $actor->id]);
+        FoodItem::factory(5)->create([
+            'category' => 'fruit',
+            'ready_to_eat' => true,
+            'serving_size' => 100,
+            'serving_unit' => 'g',
+        ]);
         AuditFixture::delete(AuditActivity::query());
 
         $this->actingAs($actor, 'sanctum')->postJson(

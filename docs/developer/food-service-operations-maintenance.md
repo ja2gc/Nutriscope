@@ -1,6 +1,6 @@
 # Food Service Operations — Developer Maintenance Guide
 
-Last verified: **2026-08-19**.
+Last verified: **2026-09-09**.
 
 ## Behavioral Invariants
 
@@ -13,6 +13,8 @@ Last verified: **2026-08-19**.
 7. Final reports use actual values; incomplete records remain visibly draft.
 8. Open vendor reassignment reuses the vendor-group PATCH endpoint. It may move a whole group or one line, must merge an existing destination group, and is blocked by source/destination evidence, received status, or PO completion.
 9. Procurement reports consume every PO line. Do not filter by shopping-list row source; manual additions and fully manual lists are valid report inputs.
+10. A menu slot may contain multiple ordered lines. Preserve line UUID/order across templates, APIs, web/mobile views, costing, and PO snapshots.
+11. Food-service menus/templates contain meal lines only. Keep catalog `Rice` in kilograms for the existing generated-list add-item path; do not reintroduce rice into seeded cycles/templates or create a second shopping-list feature.
 
 ## Main Files
 
@@ -26,7 +28,7 @@ Last verified: **2026-08-19**.
 | Receiving/catalog price/comparison | `ReceivingService.php`, `PurchaseOrderResource.php` | `PurchaseValueComparison.tsx`, `FssPurchaseOrders.tsx`, mobile `procurement.tsx` |
 | Reports | `ProcurementPackGenerator.php`, procurement-pack Blade, `ProgramProjectActivityGenerator.php` | Reports browser |
 | Auditing | Shopping-list and PO revision serializers, `config/audit.php` | `AuditTrail.tsx` |
-| Demo | `FsCatalogSeeder.php`, `FoodServiceDemoSeeder.php` | — |
+| Demo | `FsCatalogSeeder.php`, `FoodServiceDemoSeeder.php`, `FoodServiceMenuTemplateSeeder.php` | — |
 
 ## Data Flow
 

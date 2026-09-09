@@ -2,7 +2,7 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test } from "vitest";
 
-import { ImageUploadGallery, type UploadImage } from "./ImageUploadGallery";
+import { ImageCarousel, ImageUploadGallery, type UploadImage } from "./ImageUploadGallery";
 
 const images: UploadImage[] = [
   { id: "one", name: "one.png", src: "data:image/png;base64,one" },
@@ -10,6 +10,18 @@ const images: UploadImage[] = [
 ];
 
 describe("ImageUploadGallery", () => {
+  test("fits post images inside a bounded responsive frame without cropping", () => {
+    const markup = renderToStaticMarkup(
+      <ImageCarousel images={[images[0]]} title="Case conference" />
+    );
+
+    expect(markup.match(/<img/g)).toHaveLength(2);
+    expect(markup).toContain("aria-hidden=\"true\"");
+    expect(markup).toContain("object-cover blur-2xl");
+    expect(markup).toContain("object-contain");
+    expect(markup).toContain("h-[clamp(180px,52vw,420px)]");
+  });
+
   test("renders multiple upload input, removable preview, and pagination controls", () => {
     const markup = renderToStaticMarkup(
       <ImageUploadGallery images={images} onImagesChange={() => undefined} label="Images" />
@@ -66,5 +78,6 @@ describe("ImageUploadGallery", () => {
     expect(markup).toContain("rounded-full");
     expect(markup).toContain("Change profile picture");
     expect(markup).toContain("aria-label=\"Delete profile picture\"");
+    expect(markup).not.toContain("blur-2xl");
   });
 });

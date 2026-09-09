@@ -6,7 +6,7 @@ export type AnnouncementCategory = "General" | "Event" | "Operational" | "Urgent
 export type AnnouncementVisibility = "FSS" | "Admin" | "All";
 
 export interface Announcement {
-  id: number;
+  id: string | number;
   title: string;
   body: string;
   category: AnnouncementCategory;
@@ -17,9 +17,10 @@ export interface Announcement {
   created_at: string;
   updated_at: string;
   author: {
-    id: number;
+    id: string | number;
     name: string;
     role: "RND" | "FSS" | "Admin";
+    profile_photo?: string | null;
   };
 }
 

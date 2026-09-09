@@ -49,9 +49,12 @@ const temporal = (start: string | null, days = 7): { label: string; cls: string 
 // later when a suggested shopping list is generated.
 // for this dish only, and never touches the baseline recipe.
 interface Cell {
-  recipe_id: number | null;
-  fs_item_id: number | null;
+  id?: string;
+  line_order: number;
+  recipe_id: string | null;
+  fs_item_id: string | null;
   recipe_name: string;
+  portion_label?: string | null;
   servings: number;
   servings_override: number | null;
   quantity: number;
@@ -59,7 +62,7 @@ interface Cell {
   po_snapshot: MenuSnapshot | null;
   hasRecipeOverride: boolean;
 }
-type Grid = Record<string, Cell>;
+type Grid = Record<string, Cell[]>;
 // Per-day headcount (drives scaling). Keyed by Day.
 type DayPop = Record<string, string>;
 
@@ -79,7 +82,7 @@ function Shell({ children }: { children: React.ReactNode }) {
 }
 
 // ═══ LIST VIEW ═══════════════════════════════════════════════════════════════════
-function CycleList({ readOnly, onOpen, onNew }: { readOnly: boolean; onOpen: (id: number) => void; onNew: () => void }) {
+function CycleList({ readOnly, onOpen, onNew }: { readOnly: boolean; onOpen: (id: string) => void; onNew: () => void }) {
   const [cycles, setCycles] = useState<CycleListItem[]>([]);
   const [templates, setTemplates] = useState<TemplateListItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -98,12 +101,12 @@ function CycleList({ readOnly, onOpen, onNew }: { readOnly: boolean; onOpen: (id
   }, [cyclePage, templatePage]);
   useEffect(() => { load(); }, [load]);
 
-  async function remove(id: number) { await deleteCycle(id); load(); }
+  async function remove(id: string) { await deleteCycle(id); load(); }
   async function applyTemplate(t: TemplateListItem) {
     const res = await instantiateTemplate(t.id, {});
     onOpen(res.id);
   }
-  async function removeTemplate(id: number) { await deleteTemplate(id); load(); }
+  async function removeTemplate(id: string) { await deleteTemplate(id); load(); }
 
   return (
     <Shell>
@@ -222,7 +225,7 @@ function CycleList({ readOnly, onOpen, onNew }: { readOnly: boolean; onOpen: (id
 }
 
 // ═══ EDITOR VIEW ═══════════════════════════════════════════════════════════════════
-function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: number | "new"; readOnly: boolean; onBack: () => void }) {
+function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: string | "new"; readOnly: boolean; onBack: () => void }) {
   const router = useRouter();
   const [name, setName] = useState("");
   const [weekStart, setWeekStart] = useState("");
@@ -237,7 +240,7 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: number | "new"; r
   const [savingServed, setSavingServed] = useState<string | null>(null);
   const [recipes, setRecipes] = useState<RecipeOption[]>([]);
   const [items, setItems] = useState<FsItemOption[]>([]);
-  const [savedId, setSavedId] = useState<number | null>(cycleId === "new" ? null : cycleId);
+  const [savedId, setSavedId] = useState<string | null>(cycleId === "new" ? null : cycleId);
 
   const [activeCell, setActiveCell] = useState<string | null>(null);
   const [pickerSearch, setPickerSearch] = useState("");
@@ -294,20 +297,22 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: number | "new"; r
       const g: Grid = {};
       (c.days ?? []).forEach((d) => {
         const k = cellKey(d.day_of_week, d.meal_type);
-        if (d.recipe_id && d.recipe) g[k] = {
-          recipe_id: d.recipe_id, fs_item_id: null, recipe_name: d.recipe.name, servings: d.recipe.servings,
+        const existing = g[k] ?? [];
+        if (d.recipe_id && d.recipe) existing.push({
+          id: d.id, line_order: d.line_order, recipe_id: d.recipe_id, fs_item_id: null, recipe_name: d.recipe.name, portion_label: d.recipe.portion_label, servings: d.recipe.servings,
           servings_override: d.servings_override ?? null,
           quantity: d.quantity ?? 1, estimate_population: d.estimate_population ?? null,
           po_snapshot: d.po_snapshot ?? null,
           hasRecipeOverride: d.has_recipe_override ?? false,
-        };
-        else if (d.fs_item_id && d.fs_item) g[k] = {
-          recipe_id: null, fs_item_id: d.fs_item_id, recipe_name: d.fs_item.name, servings: 0,
+        });
+        else if (d.fs_item_id && d.fs_item) existing.push({
+          id: d.id, line_order: d.line_order, recipe_id: null, fs_item_id: d.fs_item_id, recipe_name: d.fs_item.name, servings: 0,
           servings_override: d.servings_override ?? null,
           quantity: d.quantity ?? 1, estimate_population: d.estimate_population ?? null,
           po_snapshot: d.po_snapshot ?? null,
           hasRecipeOverride: false,
-        };
+        });
+        g[k] = existing.sort((a, b) => a.line_order - b.line_order);
       });
       setGrid(g);
     }).catch(() => setErr("Failed to load cycle.")).finally(() => setLoading(false));
@@ -351,29 +356,38 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: number | "new"; r
   }
 
   function assign(key: string, r: RecipeOption) {
-    setGrid((g) => ({ ...g, [key]: {
-      recipe_id: r.id, fs_item_id: null, recipe_name: r.name, servings: r.servings,
+    setGrid((g) => ({ ...g, [key]: [...(g[key] ?? []), {
+      line_order: (g[key]?.length ?? 0) + 1, recipe_id: r.id, fs_item_id: null, recipe_name: r.name, portion_label: r.portion_label, servings: r.servings,
       servings_override: null, quantity: 1, estimate_population: null, po_snapshot: null,
       hasRecipeOverride: false,
-    } }));
+    }] }));
     setActiveCell(null); setPickerSearch("");
   }
   function assignItem(key: string, it: FsItemOption) {
-    setGrid((g) => ({ ...g, [key]: {
-      recipe_id: null, fs_item_id: it.id, recipe_name: it.name, servings: 0,
+    setGrid((g) => ({ ...g, [key]: [...(g[key] ?? []), {
+      line_order: (g[key]?.length ?? 0) + 1, recipe_id: null, fs_item_id: it.id, recipe_name: it.name, servings: 0,
       servings_override: null, quantity: 1, estimate_population: null, po_snapshot: null,
       hasRecipeOverride: false,
-    } }));
+    }] }));
     setActiveCell(null); setPickerSearch("");
   }
-  function clearCell(key: string) { setGrid((g) => { const n = { ...g }; delete n[key]; return n; }); }
+  function clearLine(key: string, index: number) {
+    setGrid((g) => {
+      const n = { ...g };
+      const remaining = (n[key] ?? []).filter((_, lineIndex) => lineIndex !== index)
+        .map((line, lineIndex) => ({ ...line, line_order: lineIndex + 1 }));
+      if (remaining.length > 0) n[key] = remaining;
+      else delete n[key];
+      return n;
+    });
+  }
   function duplicateWeek(from: Day) {
     setGrid((g) => {
       const n = { ...g };
       DAYS.filter((d) => d !== from).forEach((d) => {
         MEALS.forEach((m) => {
           const src = g[cellKey(from, m)];
-          if (src) n[cellKey(d, m)] = { ...src };
+          if (src) n[cellKey(d, m)] = src.map((line) => ({ ...line, id: undefined }));
         });
       });
       return n;
@@ -381,14 +395,15 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: number | "new"; r
   }
 
   function daysPayload() {
-    return Object.entries(grid).map(([key, c]) => {
+    return Object.entries(grid).flatMap(([key, cells]) => {
       const [day_of_week, meal_type] = key.split("|") as [Day, Meal];
-      return {
-        day_of_week, meal_type, recipe_id: c.recipe_id, fs_item_id: c.fs_item_id, quantity: c.quantity,
+      return cells.map((c, index) => ({
+        ...(c.id ? { id: c.id } : {}),
+        day_of_week, meal_type, line_order: index + 1, recipe_id: c.recipe_id, fs_item_id: c.fs_item_id, quantity: c.quantity,
         servings_override: c.servings_override,
         estimate_population: c.estimate_population,
         is_event: false, event_allocation: null,
-      };
+      }));
     });
   }
 
@@ -403,30 +418,50 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: number | "new"; r
       });
       setSavedId(saved.id);
       setName(saved.name);
-      return saved.id;
+      const refreshed: Grid = {};
+      (saved.days ?? []).forEach((day) => {
+        const key = cellKey(day.day_of_week, day.meal_type);
+        const line: Cell | null = day.recipe_id && day.recipe ? {
+          id: day.id, line_order: day.line_order, recipe_id: day.recipe_id, fs_item_id: null,
+          recipe_name: day.recipe.name, portion_label: day.recipe.portion_label, servings: day.recipe.servings, servings_override: day.servings_override,
+          quantity: day.quantity, estimate_population: day.estimate_population, po_snapshot: day.po_snapshot ?? null,
+          hasRecipeOverride: day.has_recipe_override ?? false,
+        } : day.fs_item_id && day.fs_item ? {
+          id: day.id, line_order: day.line_order, recipe_id: null, fs_item_id: day.fs_item_id,
+          recipe_name: day.fs_item.name, servings: 0, servings_override: day.servings_override,
+          quantity: day.quantity, estimate_population: day.estimate_population, po_snapshot: day.po_snapshot ?? null,
+          hasRecipeOverride: false,
+        } : null;
+        if (line) (refreshed[key] ??= []).push(line);
+      });
+      setGrid(refreshed);
+      return saved;
     } catch (e: unknown) {
       setErr(e instanceof Error ? e.message : "Save failed."); return null;
     } finally { setBusy(false); }
   }
 
   async function handleActivate() {
-    const id = savedId ?? (await handleSave());
+    const id = savedId ?? (await handleSave())?.id;
     if (!id) return;
     await activateCycle(id); setIsActive(true);
   }
   async function handleSaveTemplate() {
-    const id = savedId ?? (await handleSave());
+    const id = savedId ?? (await handleSave())?.id;
     if (!id) return;
     const tName = prompt("Template name?", `${name} template`);
     if (!tName) return;
     await saveCycleAsTemplate(id, tName);
   }
 
-  async function openSlot(day: Day, meal: Meal, cell: Cell) {
-    const id = readOnly || isActive || cell.po_snapshot ? savedId : await handleSave();
-    if (!id) return;
+  async function openSlot(day: Day, meal: Meal, cell: Cell, lineIndex: number) {
+    const saved = readOnly || isActive || cell.po_snapshot ? null : await handleSave();
+    const id = savedId ?? saved?.id;
+    const lineId = cell.id ?? saved?.days?.filter((line) => line.day_of_week === day && line.meal_type === meal)
+      .sort((a, b) => a.line_order - b.line_order)[lineIndex]?.id;
+    if (!id || !lineId) return;
     const base = readOnly ? "/fss/menu" : "/food-service/menu-cycle";
-    router.push(`${base}/${id}/slots/${day}/${meal}`);
+    router.push(`${base}/${id}/lines/${lineId}`);
   }
 
   const filteredRecipes = recipes.filter((r) => !pickerSearch || r.name.toLowerCase().includes(pickerSearch.toLowerCase()));
@@ -554,36 +589,40 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: number | "new"; r
                 <td className="px-3 py-3 font-bold text-warm-600 sticky left-0 bg-white whitespace-nowrap">{MEAL_LABELS[m]}</td>
                 {DAYS.map((d) => {
                   const key = cellKey(d, m);
-                  const cell = grid[key];
+                  const lines = grid[key] ?? [];
                   const isPicking = activeCell === key;
                   return (
                     <td key={key} className="px-2 py-2 align-top relative">
-                      {cell ? (
-                        <div className="bg-emerald-50/60 border border-emerald-100 rounded-lg p-2 group">
-                          <div className="flex items-start justify-between gap-1">
-                            <button
-                              onClick={() => openSlot(d, m, cell)}
-                              title="Open menu item details"
-                              className="min-h-11 flex-1 text-xs font-semibold text-emerald-800 leading-tight text-left hover:underline cursor-pointer">
-                              {cell.recipe_name}
-                            </button>
-                            {!readOnly && (
-                              <button onClick={() => clearCell(key)} className="text-emerald-400 hover:text-red-500 cursor-pointer shrink-0"><X className="h-3 w-3" /></button>
-                            )}
+                      <div className="space-y-2">
+                        {lines.map((cell, lineIndex) => (
+                          <div key={cell.id ?? `${key}-${lineIndex}`} className="bg-emerald-50/60 border border-emerald-100 rounded-lg p-2 group">
+                            <div className="flex items-start justify-between gap-1">
+                              <button
+                                onClick={() => openSlot(d, m, cell, lineIndex)}
+                                title="Open menu item details"
+                                className="min-h-11 flex-1 text-xs font-semibold text-emerald-800 leading-tight text-left hover:underline cursor-pointer">
+                                {cell.recipe_name}
+                              </button>
+                              {!readOnly && (
+                                <button onClick={() => clearLine(key, lineIndex)} aria-label={`Remove ${cell.recipe_name}`} className="min-h-11 min-w-11 text-emerald-400 hover:text-red-500 cursor-pointer shrink-0 flex items-center justify-center"><X className="h-3 w-3" /></button>
+                              )}
+                            </div>
+                            {cell.portion_label && <div className="text-xs font-medium text-emerald-700">{cell.portion_label}</div>}
+                            <div className="text-xs text-emerald-500 mt-1">
+                              {cell.po_snapshot ? "Locked to PO · open details" : `Line ${lineIndex + 1} · open details`}
+                            </div>
+                            {cell.hasRecipeOverride && <span className="mt-1 inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-800">Customized item</span>}
                           </div>
-                          <div className="text-xs text-emerald-500 mt-1">
-                            {cell.po_snapshot ? "Locked to PO · open details" : "Open menu item details"}
-                          </div>
-                          {cell.hasRecipeOverride && <span className="mt-1 inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-800">Customized slot</span>}
-                        </div>
-                      ) : readOnly ? (
-                        <div className="w-full text-center py-2 text-xs text-warm-300">—</div>
-                      ) : (
-                        <button onClick={() => { setActiveCell(isPicking ? null : key); setPickerSearch(""); }}
-                          className="w-full border border-dashed border-warm-200 rounded-lg py-2 text-xs text-warm-400 hover:border-emerald-300 hover:text-emerald-600 cursor-pointer flex items-center justify-center gap-1">
-                          <Plus className="h-3 w-3" /> add
-                        </button>
-                      )}
+                        ))}
+                        {readOnly ? (
+                          lines.length === 0 && <div className="w-full text-center py-2 text-xs text-warm-300">—</div>
+                        ) : (
+                          <button onClick={() => { setActiveCell(isPicking ? null : key); setPickerSearch(""); }}
+                            className="min-h-11 w-full border border-dashed border-warm-200 rounded-lg py-2 text-xs text-warm-400 hover:border-emerald-300 hover:text-emerald-600 cursor-pointer flex items-center justify-center gap-1">
+                            <Plus className="h-3 w-3" /> add item
+                          </button>
+                        )}
+                      </div>
 
                       {isPicking && !readOnly && (
                         <div className="absolute z-30 top-full left-0 mt-1 w-56 bg-white border border-warm-200 rounded-xl shadow-lg p-2">
@@ -642,7 +681,7 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: number | "new"; r
 // ═══ ROOT ═══════════════════════════════════════════════════════════════════════
 export default function MenuCyclePage() {
   const searchParams = useSearchParams();
-  const [view, setView] = useState<{ mode: "list" } | { mode: "edit"; id: number | "new" } | { mode: "loading" }>({ mode: "loading" });
+  const [view, setView] = useState<{ mode: "list" } | { mode: "edit"; id: string | "new" } | { mode: "loading" }>({ mode: "loading" });
   const { user } = useAuth();
   // FSS may VIEW menu cycles but never author them (RND owns writes). Backend already
   // enforces this; here we render a read-only editor so FSS sees no edit affordances.
@@ -655,7 +694,7 @@ export default function MenuCyclePage() {
     (async () => {
       const requestedCycle = searchParams.get("cycle");
       if (requestedCycle) {
-        setView({ mode: "edit", id: requestedCycle as unknown as number });
+        setView({ mode: "edit", id: requestedCycle });
         return;
       }
       try {

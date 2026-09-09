@@ -24,39 +24,48 @@ class MenuCycleResource extends JsonResource
                     ->where('day_of_week', $day)
                     ->contains(fn ($slot) => $slot->recipe_id || $slot->fs_item_id)])
                 ->all()),
-            'days' => $this->whenLoaded('days', fn () => $this->days->map(fn ($d) => [
-                'id' => $d->id,
-                'day_of_week' => $d->day_of_week,
-                'meal_type' => $d->meal_type,
-                // Expose the public uuids (matching the nested recipe/fs_item embeds
-                // below) — the flat FK columns are the raw internal ints, and clients
-                // feed these values back into uuid-bound routes (recipe profile fetch,
-                // menu-cycle save). Null when the relation isn't loaded, mirroring the
-                // nested embeds' own availability.
-                'recipe_id' => $d->relationLoaded('recipe') && $d->recipe ? $d->recipe->uuid : null,
-                'fs_item_id' => $d->relationLoaded('fsItem') && $d->fsItem ? $d->fsItem->uuid : null,
-                'quantity' => $d->quantity,
-                'servings_override' => $d->servings_override,
-                'estimate_population' => $d->estimate_population,
-                'estimate_population_updated_at' => $d->estimate_population_updated_at?->toISOString(),
-                'is_event' => (bool) $d->is_event,
-                'event_allocation' => $d->event_allocation,
-                // Frozen scaled snapshot from the food PO conversion (null until converted).
-                'po_snapshot' => $d->po_snapshot,
-                'po_snapshot_at' => $d->po_snapshot_at?->toISOString(),
-                'po_snapshot_locked' => (bool) $d->po_snapshot_locked,
-                'snapshot_purchase_order_id' => $d->snapshot_purchase_order_id,
-                'has_recipe_override' => $d->recipe_override !== null,
-                'recipe' => $d->relationLoaded('recipe') && $d->recipe ? [
-                    'id' => $d->recipe->uuid,
-                    'name' => $d->recipe_override['name'] ?? $d->recipe->name,
-                    'servings' => $d->recipe_override['reference_servings'] ?? $d->recipe->servings,
-                    'cost' => $d->recipe->cost,
-                ] : null,
-                'fs_item' => $d->relationLoaded('fsItem') && $d->fsItem ? [
-                    'id' => $d->fsItem->uuid, 'name' => $d->fsItem->name,
-                ] : null,
-            ])->values()),
+            'days' => $this->whenLoaded('days', fn () => $this->days
+                ->sortBy(fn ($d) => sprintf(
+                    '%02d-%02d-%04d',
+                    array_search($d->day_of_week, ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'], true),
+                    array_search($d->meal_type, ['breakfast', 'am_snack', 'lunch', 'pm_snack', 'dinner'], true),
+                    $d->line_order,
+                ))
+                ->map(fn ($d) => [
+                    'id' => $d->uuid,
+                    'day_of_week' => $d->day_of_week,
+                    'meal_type' => $d->meal_type,
+                    'line_order' => $d->line_order,
+                    // Expose the public uuids (matching the nested recipe/fs_item embeds
+                    // below) — the flat FK columns are the raw internal ints, and clients
+                    // feed these values back into uuid-bound routes (recipe profile fetch,
+                    // menu-cycle save). Null when the relation isn't loaded, mirroring the
+                    // nested embeds' own availability.
+                    'recipe_id' => $d->relationLoaded('recipe') && $d->recipe ? $d->recipe->uuid : null,
+                    'fs_item_id' => $d->relationLoaded('fsItem') && $d->fsItem ? $d->fsItem->uuid : null,
+                    'quantity' => $d->quantity,
+                    'servings_override' => $d->servings_override,
+                    'estimate_population' => $d->estimate_population,
+                    'estimate_population_updated_at' => $d->estimate_population_updated_at?->toISOString(),
+                    'is_event' => (bool) $d->is_event,
+                    'event_allocation' => $d->event_allocation,
+                    // Frozen scaled snapshot from the food PO conversion (null until converted).
+                    'po_snapshot' => $d->po_snapshot,
+                    'po_snapshot_at' => $d->po_snapshot_at?->toISOString(),
+                    'po_snapshot_locked' => (bool) $d->po_snapshot_locked,
+                    'snapshot_purchase_order_id' => $d->snapshot_purchase_order_id,
+                    'has_recipe_override' => $d->recipe_override !== null,
+                    'recipe' => $d->relationLoaded('recipe') && $d->recipe ? [
+                        'id' => $d->recipe->uuid,
+                        'name' => $d->recipe_override['name'] ?? $d->recipe->name,
+                        'servings' => $d->recipe_override['reference_servings'] ?? $d->recipe->servings,
+                        'portion_label' => $d->recipe->portion_label,
+                        'cost' => $d->recipe->cost,
+                    ] : null,
+                    'fs_item' => $d->relationLoaded('fsItem') && $d->fsItem ? [
+                        'id' => $d->fsItem->uuid, 'name' => $d->fsItem->name,
+                    ] : null,
+                ])->values()),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];

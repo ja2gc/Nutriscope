@@ -4,13 +4,43 @@ namespace Tests\Feature;
 
 use App\Models\Announcement;
 use App\Models\User;
+use App\Services\StoredObjectStorage;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class AnnouncementFeatureTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_visible_announcement_exposes_and_streams_its_actual_author_photo(): void
+    {
+        Storage::fake((string) config('filesystems.private_uploads'));
+        $owner = $this->user('RND', 'rnd-photo@example.com');
+        $viewer = $this->user('FSS', 'fss-photo@example.com');
+        $object = app(StoredObjectStorage::class)->storeBytes(
+            file_get_contents(database_path('seeders/assets/profile/rnd.jpg')),
+            'image/jpeg', 'jpg', 'profile', 'announcement-author.jpg',
+        );
+        $owner->forceFill(['profile_photo_stored_object_id' => $object->id])->save();
+        $announcement = Announcement::forceCreate([
+            'user_id' => $owner->id, 'title' => 'Photo contract', 'body' => 'Visible.',
+            'category' => 'General', 'visibility' => 'All',
+        ]);
+
+        $url = "/api/announcements/{$announcement->uuid}/author-photo";
+        $this->getJson($url)->assertUnauthorized();
+        $this->actingAs($viewer, 'sanctum')->getJson('/api/fss/announcements')
+            ->assertOk()->assertJsonPath('data.0.author.profile_photo', $url);
+        $this->get($url)->assertOk()->assertHeader('content-type', 'image/jpeg');
+
+        $hidden = Announcement::forceCreate([
+            'user_id' => $owner->id, 'title' => 'Admin only', 'body' => 'Hidden.',
+            'category' => 'General', 'visibility' => 'Admin',
+        ]);
+        $this->get("/api/announcements/{$hidden->uuid}/author-photo")->assertNotFound();
+    }
 
     public function test_rnd_can_create_pinned_announcement(): void
     {

@@ -7,6 +7,7 @@ use App\Models\MenuCycle;
 use App\Models\MenuCycleDay;
 use App\Models\ShoppingList;
 use App\Models\User;
+use App\Services\FSS\ShoppingListPopulationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -152,6 +153,56 @@ class FoodShoppingListGenerationTest extends TestCase
             ->json('data.items');
 
         $this->assertSame(['Chicken'], collect($items)->pluck('ingredient_name')->all());
+    }
+
+    public function test_uncooked_rice_is_a_manual_kg_shopping_item_and_not_a_weekly_menu_line(): void
+    {
+        $dish = FsItem::factory()->create(['name' => 'Paksiw na Bangus', 'include_in_generated_lists' => true]);
+        $rice = FsItem::factory()->create([
+            'name' => 'Rice',
+            'base_unit' => 'kg',
+            'purchase_unit' => 'kg',
+            'include_in_generated_lists' => false,
+        ]);
+        $cycle = MenuCycle::factory()->create([
+            'rnd_user_id' => $this->rnd->id,
+            'week_start_date' => '2026-06-15',
+            'cycle_days' => 7,
+        ]);
+
+        MenuCycleDay::factory()->create([
+            'menu_cycle_id' => $cycle->id,
+            'day_of_week' => 'Monday',
+            'meal_type' => 'lunch',
+            'line_order' => 1,
+            'fs_item_id' => $dish->id,
+            'quantity' => 1,
+        ]);
+
+        $response = $this->actingAs($this->rnd)->postJson('/api/fss/shopping-lists/generate', [
+            'start_date' => '2026-06-15',
+            'end_date' => '2026-06-15',
+            'estimate_population' => 10,
+        ])->assertCreated();
+        $list = ShoppingList::query()->where('uuid', $response->json('data.id'))->firstOrFail();
+
+        $this->assertSame(['Paksiw na Bangus'], $list->items()->pluck('ingredient_name')->all());
+        $this->assertSame(1, $cycle->days()->where('meal_type', 'lunch')->count());
+
+        $this->actingAs($this->rnd)->postJson("/api/fss/shopping-lists/{$list->uuid}/items", [
+            'fs_item_id' => $rice->uuid,
+            'qty' => 25,
+            'unit' => 'kg',
+        ])->assertCreated()
+            ->assertJsonPath('data.ingredient_name', 'Rice')
+            ->assertJsonPath('data.unit', 'kg')
+            ->assertJsonPath('data.source', 'manual');
+
+        app(ShoppingListPopulationService::class)->syncItems($list->fresh());
+        $manualRice = $list->fresh()->items()->where('ingredient_name', 'Rice')->sole();
+        $this->assertSame('manual', $manualRice->source);
+        $this->assertSame('kg', $manualRice->unit);
+        $this->assertSame(25.0, (float) $manualRice->qty);
     }
 
     public function test_generation_requires_one_estimate_for_the_span(): void

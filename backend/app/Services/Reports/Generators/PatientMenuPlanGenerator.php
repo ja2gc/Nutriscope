@@ -51,7 +51,7 @@ class PatientMenuPlanGenerator implements ReportGenerator
         }
 
         $identifier = $params['meal_plan_id'];
-        $plan = MealPlan::with(['patient', 'days.items.foodItem', 'days.items.recipe.ingredients.foodItem'])
+        $plan = MealPlan::with(['patient', 'intervention', 'days.items.foodItem', 'days.items.recipe.ingredients.foodItem'])
             ->when(
                 is_int($identifier) || ctype_digit((string) $identifier),
                 fn ($query) => $query->whereKey((int) $identifier),
@@ -117,6 +117,14 @@ class PatientMenuPlanGenerator implements ReportGenerator
             'days' => self::WEEK,
             'grid' => $grid,
             'recipe_details' => array_values($recipeDetails),
+            'prescription' => [
+                'energy_kcal' => (float) $plan->intervention->energy_kcal,
+                'protein_g' => (float) $plan->intervention->protein_g,
+                'carbs_g' => (float) $plan->intervention->carbs_g,
+                'fat_g' => (float) $plan->intervention->fat_g,
+                'fluid_ml' => (float) $plan->intervention->fluid_ml,
+                'micronutrient_limits' => $plan->intervention->micronutrient_limits ?? [],
+            ],
         ];
     }
 }

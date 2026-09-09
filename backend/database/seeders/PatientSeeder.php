@@ -8,6 +8,7 @@ use App\Models\Diagnosis;
 use App\Models\Intervention;
 use App\Models\MealPlan;
 use App\Models\Monitoring;
+use App\Models\NcpAppointment;
 use App\Models\NcpRecord;
 use App\Models\Patient;
 use App\Models\ScreeningDocument;
@@ -51,8 +52,9 @@ class PatientSeeder extends Seeder
         $this->cleanupPatient('HN-2026-0042');
         $this->cleanupPatient('HN-2026-0078');
 
-        $this->seedMariaSantos($rnd->id);
-        $this->seedRobertoReyes($rnd->id);
+        $anchor = Carbon::today();
+        $this->seedMariaSantos($rnd->id, $anchor);
+        $this->seedRobertoReyes($rnd->id, $anchor);
     }
 
     /**
@@ -83,6 +85,8 @@ class PatientSeeder extends Seeder
             return;
         }
 
+        $patient->appointments()->delete();
+
         // Delete screening documents (has nullable assessment_id FK)
         ScreeningDocument::where('patient_id', $patient->id)->delete();
 
@@ -106,7 +110,7 @@ class PatientSeeder extends Seeder
 
     // ── Patient 1: Maria Santos — T2DM + Hypertension, 2 follow-ups ──────────
 
-    private function seedMariaSantos(int $rndId): void
+    private function seedMariaSantos(int $rndId, Carbon $anchor): void
     {
         // Patient demographics
         $patient = Patient::updateOrCreate(
@@ -121,7 +125,7 @@ class PatientSeeder extends Seeder
                 'address' => 'Brgy. San Nicolas, San Fernando, Pampanga',
                 'contact' => '09171234567',
                 'physician' => 'Dr. Juan dela Cruz',
-                'admission_date' => '2026-05-20',
+                'admission_date' => $anchor->copy()->subDays(95)->toDateString(),
                 'medical_diagnosis' => 'Type 2 Diabetes Mellitus with Hypertension',
                 'ward' => 'Ward 3 — Internal Medicine',
                 'status' => 'Active',
@@ -139,9 +143,8 @@ class PatientSeeder extends Seeder
         ]);
 
         // Assessment
-        // Anthro: wt 68 kg, ht 155 cm → BMI 28.3 (Overweight)
-        // IBW (Hamwi female): 45.5 + 2.2×(155-152.4)/2.54 ≈ 47.7 kg → %IBW ≈ 142.6%
-        // BMR (Mifflin): 10×68 + 6.25×155 − 5×51 − 161 = 1221 kcal → TEE(sedentary) ≈ 1465 kcal
+        // Anthro: wt 62 kg, ht 155 cm → BMI 25.8 (mildly overweight)
+        // IBW (Hamwi female): ≈47.7 kg → %IBW ≈130%
         $assessment = Assessment::create([
             'ncp_record_id' => $record->id,
             'religion' => 'Roman Catholic',
@@ -156,21 +159,21 @@ class PatientSeeder extends Seeder
             'dietary_restrictions' => 'Patient is aware of diabetic diet but not consistently following. Reports difficulty avoiding sweet foods and white rice.',
             'supplements' => 'Metformin 500 mg BID (prescribed). No nutritional supplements currently.',
             'knowledge_notes' => 'Patient has basic awareness of carbohydrate counting but lacks understanding of glycemic index. Motivated to change diet after recent HbA1c result of 8.4%.',
-            'nutrient_drug_interaction' => 'Metformin: may reduce Vitamin B12 absorption with long-term use. Monitor B12 levels annually.',
+            'nutrient_drug_interaction' => null,
             // Anthropometric
-            'weight' => 68.00,
+            'weight' => 62.00,
             'height' => 155.00,
-            'bmi' => 28.30,
-            'usual_weight' => 71.00,
-            'weight_loss_percentage' => 4.23,
-            'weight_loss_period' => '3 months',
+            'bmi' => 25.81,
+            'usual_weight' => 62.00,
+            'weight_loss_percentage' => 0,
+            'weight_loss_period' => null,
             'functional_assessment' => 'Ambulatory',
             'energy_intake_status' => 'Sub-optimal',
-            'ibw_percentage' => 142.60,
+            'ibw_percentage' => 130.00,
             'physical_activity_level' => 'sedentary',
             'muac_mm' => 285.0,
-            'waist_cm' => 92.0,
-            'hip_cm' => 100.0,
+            'waist_cm' => 88.0,
+            'hip_cm' => 98.0,
             'stress_factor' => null,
             'edema_present' => false,
             'pregnancy_lactation_status' => 'none',
@@ -181,16 +184,15 @@ class PatientSeeder extends Seeder
                                                .'No prior hospitalizations. Family history: mother with T2DM.',
             'social_history' => 'Married, 3 children. Housewife. Non-smoker, non-drinker. '
                                                .'Lives with family in San Fernando. Moderate activity at home.',
-            'lifestyle' => 'Sedentary — primarily home-based. Limited structured exercise. '
-                                               .'Walks ~10 minutes daily to market.',
+            'lifestyle' => null,
             'allergies' => ['shellfish'],
             'food_dislikes' => ['bitter melon', 'sardines'],
             'medications' => ['Metformin 500 mg BID', 'Amlodipine 5 mg OD'],
             'chewing_swallowing_difficulties' => null,
-            'constipation' => 'Occasional — 1–2×/week hard stools. Likely low fiber intake.',
+            'constipation' => null,
             'diarrhea_notes' => null,
             'present_diet' => 'Regular Filipino diet. High refined carbohydrate intake. Frequent sweet beverages. Limited vegetable and fiber intake.',
-            'rnd_summary' => 'Maria is a 51-year-old female with T2DM and hypertension, currently overweight with poor glycemic control (HbA1c 8.4%). '
+            'rnd_summary' => 'Maria is a 51-year-old female with T2DM and hypertension, mildly overweight with poor glycemic control (HbA1c 8.4%). '
                                                .'Diet assessment reveals excessive refined carbohydrate intake, high glycemic load, and inadequate fiber. '
                                                .'She is motivated for change. Priority: carbohydrate distribution, fiber increase, and sodium reduction.',
         ]);
@@ -199,7 +201,7 @@ class PatientSeeder extends Seeder
         // Flagged by LabFlagService: glucose HIGH (>99), hba1c HIGH (>5.6), cholesterol HIGH (>200), ldl HIGH (>100)
         BiochemicalData::create([
             'assessment_id' => $assessment->id,
-            'glucose' => 145.00,   // HIGH (normal 70–99 mg/dL)
+            'glucose' => 124.00,   // HIGH (normal 70–99 mg/dL)
             'hba1c' => 8.40,     // HIGH (normal ≤5.6%)
             'cholesterol' => 218.00,   // HIGH (normal ≤200 mg/dL)
             'ldl' => 125.00,   // HIGH (normal ≤100 mg/dL)
@@ -252,7 +254,7 @@ class PatientSeeder extends Seeder
             ],
             'displayed_nutrients' => ['fiber', 'sodium', 'free_sugars'],
             'session_type' => 'initial',
-            'next_followup_date' => '2026-06-17',
+            'next_followup_date' => $anchor->copy()->addDays(30)->toDateString(),
             'education_notes' => "NUTRITION EDUCATION — DIABETIC MEAL PLANNING\n\n"
                                 ."1. How Food Affects Blood Sugar\n"
                                 ."   Carbohydrates raise blood sugar most. The goal is consistent, controlled carb intake — not elimination.\n\n"
@@ -284,16 +286,16 @@ class PatientSeeder extends Seeder
         ]);
 
         // Meal plan — diabetic menu for the week after admission.
-        $this->seedMealPlan($record, '2026-05-25');
+        $this->seedMealPlan($record, $anchor->copy()->subDays(91)->startOfWeek()->toDateString());
 
         // ── Monitoring — Follow-up 1 (4 weeks after admission, 2026-06-17) ─────
-        // Labs trending down: glucose 145→128, HbA1c 8.4→8.0, cholesterol 218→205, LDL 125→112
+        // Labs trending down: glucose 124→112, HbA1c 8.4→8.0, cholesterol 218→205, LDL 125→112
         $m1 = Monitoring::create([
             'ncp_record_id' => $record->id,
-            'weight' => 67.20,   // -0.8 kg from baseline
-            'bmi' => 27.97,
+            'weight' => 61.40,   // -0.6 kg from baseline
+            'bmi' => 25.56,
             'lab_values' => [
-                'glucose' => 128.0,    // improving but still HIGH
+                'glucose' => 112.0,    // improving but still HIGH
                 'hba1c' => 8.0,      // improving but still HIGH
                 'cholesterol' => 205.0,    // still slightly HIGH
                 'ldl' => 112.0,    // still HIGH
@@ -311,20 +313,20 @@ class PatientSeeder extends Seeder
                 'fiber_goal' => 'not_achieved',
                 'sodium_reduction' => 'partial',
             ],
-            'clinical_summary' => 'Glycemic control improving. Fasting glucose dropped 145→128 mg/dL. HbA1c reduced 8.4→8.0%. Weight loss 0.8 kg over 4 weeks (on track). Cholesterol and LDL still elevated but trending down. Continue current plan. Reinforce plate method and daily fiber targets (vegetables at every meal).',
-            'next_monitoring_date' => '2026-07-15',
+            'clinical_summary' => 'Glycemic control improving. Fasting glucose dropped 124→112 mg/dL. HbA1c reduced 8.4→8.0%. Weight decreased 0.6 kg over 4 weeks. Cholesterol and LDL remain elevated but are trending down. Continue the current plan and reinforce the plate method and daily fiber targets.',
+            'next_monitoring_date' => $anchor->copy()->subDays(45)->toDateString(),
         ]);
         DB::table('monitorings')->where('id', $m1->id)->update([
-            'created_at' => '2026-06-17 09:00:00',
-            'updated_at' => '2026-06-17 09:00:00',
+            'created_at' => $anchor->copy()->subDays(73)->setTime(9, 0),
+            'updated_at' => $anchor->copy()->subDays(73)->setTime(9, 0),
         ]);
 
         // ── Monitoring — Follow-up 2 (8 weeks after admission, 2026-07-15) ─────
-        // Labs trending toward normal: glucose 128→106, HbA1c 8.0→7.4, cholesterol 205→193, LDL 112→94
+        // Labs trending toward normal: glucose 112→106, HbA1c 8.0→7.4, cholesterol 205→193, LDL 112→94
         $m2 = Monitoring::create([
             'ncp_record_id' => $record->id,
-            'weight' => 66.10,   // -1.9 kg total from baseline
-            'bmi' => 27.52,
+            'weight' => 60.80,   // -1.2 kg total from baseline
+            'bmi' => 25.31,
             'lab_values' => [
                 'glucose' => 106.0,    // still slightly HIGH (>99) but approaching normal
                 'hba1c' => 7.4,      // HIGH but significantly improved
@@ -345,20 +347,22 @@ class PatientSeeder extends Seeder
                 'sodium_reduction' => 'partially_achieved',
                 'weight_loss_target' => 'on_track',
             ],
-            'clinical_summary' => 'Significant glycemic improvement. Glucose 106 mg/dL (near-normal range). HbA1c 7.4% — good progress toward target <7%. Total cholesterol and LDL normalized. HDL improved. Weight reduced 1.9 kg over 8 weeks. Patient highly adherent and motivated. Plan: continue current diet, add 5-min post-meal walks. Next HbA1c lab in 6 weeks.',
-            'next_monitoring_date' => '2026-08-12',
+            'clinical_summary' => 'Significant glycemic improvement. Glucose is 106 mg/dL and HbA1c is 7.4%, with total cholesterol and LDL normalized. Weight decreased 1.2 kg over 8 weeks. Continue the current diet and add five-minute post-meal walks; repeat HbA1c in 6 weeks.',
+            'next_monitoring_date' => $anchor->copy()->addDays(30)->toDateString(),
         ]);
         DB::table('monitorings')->where('id', $m2->id)->update([
-            'created_at' => '2026-07-15 09:00:00',
-            'updated_at' => '2026-07-15 09:00:00',
+            'created_at' => $anchor->copy()->subDays(45)->setTime(10, 0),
+            'updated_at' => $anchor->copy()->subDays(45)->setTime(10, 0),
         ]);
 
-        $this->command->info('  PatientSeeder: Maria Santos seeded (active, 2 monitoring follow-ups).');
+        $this->seedMariaAppointments($patient, $record, $rndId, $anchor);
+
+        $this->command->info('  PatientSeeder: Maria Santos seeded (active cycle, coherent visit history, and upcoming follow-ups).');
     }
 
     // ── Patient 2: Roberto Reyes — Moderate Malnutrition, Active, first session ─
 
-    private function seedRobertoReyes(int $rndId): void
+    private function seedRobertoReyes(int $rndId, Carbon $anchor): void
     {
         $patient = Patient::updateOrCreate(
             ['hospital_number' => 'HN-2026-0078'],
@@ -372,7 +376,7 @@ class PatientSeeder extends Seeder
                 'address' => 'Brgy. Sto. Rosario, Angeles City, Pampanga',
                 'contact' => '09281234567',
                 'physician' => 'Dr. Ana Gonzales',
-                'admission_date' => '2026-06-01',
+                'admission_date' => $anchor->copy()->subDays(35)->toDateString(),
                 'medical_diagnosis' => 'Moderate Protein-Energy Malnutrition secondary to poor oral intake',
                 'ward' => 'Ward 1 — General Medicine',
                 'status' => 'Active',
@@ -501,7 +505,7 @@ class PatientSeeder extends Seeder
             'micronutrient_limits' => null,
             'displayed_nutrients' => [],
             'session_type' => 'initial',
-            'next_followup_date' => Carbon::parse('2026-06-23')->addDays(14)->toDateString(),
+            'next_followup_date' => $anchor->copy()->addDays(50)->toDateString(),
             'education_notes' => "NUTRITION EDUCATION — NUTRITIONAL REHABILITATION\n\n"
                                 ."1. Your Current Status\n"
                                 .'   You have moderate protein-energy malnutrition. '
@@ -536,10 +540,171 @@ class PatientSeeder extends Seeder
         ]);
 
         // Meal plan — nutritional-rehabilitation menu.
-        $this->seedMealPlan($record, '2026-06-08');
+        $this->seedMealPlan($record, $anchor->copy()->subDays(28)->startOfWeek()->toDateString());
+
+        $pastRecord = $this->seedRobertoPastCycle($patient, $record, $rndId, $anchor);
+        $this->seedRobertoAppointments($patient, $pastRecord, $record, $rndId, $anchor);
 
         // No monitoring entries — first session complete, follow-up pending in 2 weeks.
 
-        $this->command->info('  PatientSeeder: Roberto Reyes seeded (active, first session, no monitoring yet).');
+        $this->command->info('  PatientSeeder: Roberto Reyes seeded (completed past cycle, active current cycle, and upcoming follow-up).');
+    }
+
+    private function seedMariaAppointments(Patient $patient, NcpRecord $record, int $rndId, Carbon $anchor): void
+    {
+        $this->seedAppointment($patient, $record, $rndId, [
+            'source' => 'scheduled', 'status' => 'completed',
+            'purpose' => 'Initial nutrition assessment',
+            'scheduled_at' => $anchor->copy()->subDays(90)->setTime(8, 30),
+            'started_at' => $anchor->copy()->subDays(90)->setTime(9, 0),
+            'finished_at' => $anchor->copy()->subDays(90)->setTime(10, 0),
+            'completeness_at_start' => [], 'worked_on' => ['assessment'], 'newly_completed' => ['assessment'],
+        ]);
+        $this->seedAppointment($patient, $record, $rndId, [
+            'source' => 'scheduled', 'status' => 'completed',
+            'purpose' => 'Nutrition diagnosis and intervention planning',
+            'scheduled_at' => $anchor->copy()->subDays(83)->setTime(9, 0),
+            'started_at' => $anchor->copy()->subDays(83)->setTime(9, 10),
+            'finished_at' => $anchor->copy()->subDays(83)->setTime(10, 5),
+            'completeness_at_start' => ['assessment'],
+            'worked_on' => ['diagnosis', 'intervention'],
+            'newly_completed' => ['diagnosis', 'intervention'],
+        ]);
+        $this->seedAppointment($patient, null, $rndId, [
+            'source' => 'scheduled', 'status' => 'cancelled',
+            'purpose' => 'Monitoring follow-up',
+            'scheduled_at' => $anchor->copy()->subDays(60)->setTime(9, 0),
+            'finished_at' => $anchor->copy()->subDays(61)->setTime(14, 0),
+            'reason_code' => 'patient_requested',
+        ]);
+        $this->seedAppointment($patient, $record, $rndId, [
+            'source' => 'walk_in', 'status' => 'completed',
+            'purpose' => 'Monitoring follow-up after cancelled visit',
+            'started_at' => $anchor->copy()->subDays(45)->setTime(10, 0),
+            'finished_at' => $anchor->copy()->subDays(45)->setTime(10, 40),
+            'completeness_at_start' => ['assessment', 'diagnosis', 'intervention'],
+            'worked_on' => ['monitoring'], 'newly_completed' => ['monitoring'],
+        ]);
+        $this->seedAppointment($patient, null, $rndId, [
+            'source' => 'scheduled', 'status' => 'scheduled',
+            'purpose' => 'Nutrition prescription check',
+            'scheduled_at' => $anchor->copy()->addDay()->setTime(9, 0),
+        ]);
+        $this->seedAppointment($patient, null, $rndId, [
+            'source' => 'scheduled', 'status' => 'scheduled',
+            'purpose' => 'Monitoring follow-up',
+            'scheduled_at' => $anchor->copy()->addDays(30)->setTime(9, 0),
+        ]);
+    }
+
+    private function seedRobertoPastCycle(Patient $patient, NcpRecord $current, int $rndId, Carbon $anchor): NcpRecord
+    {
+        $current->load(['assessment.biochemicalData', 'diagnoses', 'intervention']);
+        $past = NcpRecord::create([
+            'patient_id' => $patient->id,
+            'rnd_user_id' => $rndId,
+            'type' => 'new',
+            'status' => 'completed',
+            'risk_score' => $current->risk_score,
+        ]);
+
+        $assessment = $current->assessment->replicate();
+        $assessment->ncp_record_id = $past->id;
+        $assessment->weight = 50.5;
+        $assessment->usual_weight = 61;
+        $assessment->rnd_summary = 'Prior nutritional rehabilitation cycle completed after reduced intake and diarrheal illness. Weight, food tolerance, and electrolyte trends improved with staged refeeding and follow-up.';
+        $assessment->save();
+        if ($current->assessment->biochemicalData) {
+            $biochemical = $current->assessment->biochemicalData->replicate();
+            $biochemical->assessment_id = $assessment->id;
+            $biochemical->save();
+        }
+
+        foreach ($current->diagnoses as $diagnosis) {
+            $copy = $diagnosis->replicate(['uuid']);
+            $copy->ncp_record_id = $past->id;
+            $copy->save();
+        }
+
+        $intervention = $current->intervention->replicate();
+        $intervention->ncp_record_id = $past->id;
+        $intervention->next_followup_date = $anchor->copy()->subDays(125)->toDateString();
+        $intervention->save();
+
+        Monitoring::create([
+            'ncp_record_id' => $past->id,
+            'weight' => 54.2,
+            'bmi' => 18.75,
+            'lab_values' => ['albumin' => 3.6, 'hemoglobin' => 12.8, 'potassium' => 3.9, 'phosphate' => 3.2],
+            'intake_notes' => 'Tolerating three meals and two snacks. Protein food included at each main meal; no nausea or recurrent diarrhea.',
+            'symptoms' => 'Energy and appetite improved; no edema or refeeding warning signs.',
+            'goal_achievement' => ['weight_gain' => 'achieved', 'meal_tolerance' => 'achieved'],
+            'clinical_summary' => 'Gained 3.7 kg with normalized potassium and phosphate. Full ADIME course completed; discharged from this cycle with maintenance advice.',
+            'next_monitoring_date' => $anchor->copy()->subDays(90)->toDateString(),
+        ]);
+
+        $this->seedMealPlan($past, $anchor->copy()->subDays(147)->startOfWeek()->toDateString());
+        DB::table('ncp_records')->where('id', $past->id)->update([
+            'created_at' => $anchor->copy()->subDays(155)->setTime(8, 0),
+            'updated_at' => $anchor->copy()->subDays(120)->setTime(11, 0),
+        ]);
+
+        return $past;
+    }
+
+    private function seedRobertoAppointments(Patient $patient, NcpRecord $past, NcpRecord $current, int $rndId, Carbon $anchor): void
+    {
+        $this->seedAppointment($patient, $past, $rndId, [
+            'source' => 'scheduled', 'status' => 'completed',
+            'purpose' => 'Initial assessment, diagnosis, and rehabilitation plan',
+            'scheduled_at' => $anchor->copy()->subDays(150)->setTime(8, 30),
+            'started_at' => $anchor->copy()->subDays(150)->setTime(8, 45),
+            'finished_at' => $anchor->copy()->subDays(150)->setTime(10, 0),
+            'completeness_at_start' => [],
+            'worked_on' => ['assessment', 'diagnosis', 'intervention'],
+            'newly_completed' => ['assessment', 'diagnosis', 'intervention'],
+        ]);
+        $this->seedAppointment($patient, $past, $rndId, [
+            'source' => 'scheduled', 'status' => 'completed',
+            'purpose' => 'Nutrition rehabilitation monitoring and discharge review',
+            'scheduled_at' => $anchor->copy()->subDays(125)->setTime(9, 0),
+            'started_at' => $anchor->copy()->subDays(125)->setTime(9, 5),
+            'finished_at' => $anchor->copy()->subDays(125)->setTime(9, 50),
+            'completeness_at_start' => ['assessment', 'diagnosis', 'intervention'],
+            'worked_on' => ['monitoring'], 'newly_completed' => ['monitoring'],
+        ]);
+        $this->seedAppointment($patient, $current, $rndId, [
+            'source' => 'scheduled', 'status' => 'completed',
+            'purpose' => 'Assessment, diagnosis, and renewed intervention planning',
+            'scheduled_at' => $anchor->copy()->subDays(30)->setTime(8, 30),
+            'started_at' => $anchor->copy()->subDays(30)->setTime(8, 40),
+            'finished_at' => $anchor->copy()->subDays(30)->setTime(10, 0),
+            'completeness_at_start' => [],
+            'worked_on' => ['assessment', 'diagnosis', 'intervention'],
+            'newly_completed' => ['assessment', 'diagnosis', 'intervention'],
+        ]);
+        $this->seedAppointment($patient, null, $rndId, [
+            'source' => 'scheduled', 'status' => 'scheduled',
+            'purpose' => 'Monitoring follow-up',
+            'scheduled_at' => $anchor->copy()->addDays(50)->setTime(9, 30),
+        ]);
+    }
+
+    /** @param array<string,mixed> $attributes */
+    private function seedAppointment(Patient $patient, ?NcpRecord $record, int $rndId, array $attributes): NcpAppointment
+    {
+        $appointment = NcpAppointment::create([
+            'patient_id' => $patient->id,
+            'ncp_record_id' => $record?->id,
+            'rnd_user_id' => $rndId,
+            ...$attributes,
+        ]);
+        $timestamp = $attributes['started_at'] ?? $attributes['finished_at'] ?? $attributes['scheduled_at'] ?? now();
+        DB::table('ncp_appointments')->where('id', $appointment->id)->update([
+            'created_at' => $timestamp,
+            'updated_at' => $attributes['finished_at'] ?? $timestamp,
+        ]);
+
+        return $appointment;
     }
 }

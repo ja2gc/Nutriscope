@@ -106,6 +106,7 @@ Route::prefix('auth')->group(function () {
 // Shared notification routes — accessible to any authenticated role (RND, FSS, Admin).
 // The controller already scopes strictly by Auth::id(), so each user sees only their own rows.
 Route::middleware(['auth:sanctum', 'active'])->group(function () {
+    Route::get('announcements/{announcement}/author-photo', [RndAnnouncementController::class, 'authorPhoto']);
     Route::get('notifications', [NotificationController::class, 'index']);
     Route::get('notifications/unread-count', [NotificationController::class, 'unreadCount']);
     Route::patch('notifications/read-all', [NotificationController::class, 'readAll']);
@@ -177,6 +178,7 @@ Route::middleware(['auth:sanctum', 'active', 'role:RND'])->prefix('rnd')->group(
     Route::post('ncp-records/{ncpRecord}/meal-plans', [MealPlanController::class, 'store']);
     Route::get('ncp-records/{ncpRecord}/meal-plans/{mealPlan}', [MealPlanController::class, 'show']);
     Route::patch('ncp-records/{ncpRecord}/meal-plans/{mealPlan}', [MealPlanController::class, 'update']);
+    Route::post('ncp-records/{ncpRecord}/meal-plans/{mealPlan}/scale-to-prescription', [MealPlanController::class, 'scaleToPrescription']);
     Route::delete('ncp-records/{ncpRecord}/meal-plans/{mealPlan}', [MealPlanController::class, 'destroy']);
     Route::post('ncp-records/{ncpRecord}/meal-plans/generate', [MealPlanController::class, 'generate'])->middleware('throttle:ai');
     Route::post('ncp-records/{ncpRecord}/meal-plans/from-template', [MealPlanController::class, 'fromTemplate']);
@@ -259,6 +261,7 @@ Route::middleware(['auth:sanctum', 'active', 'role:FSS,RND'])->prefix('fss')->gr
     // Menu Cycles — FSS read-only (RND owns writes, see RND-only group below)
     Route::get('menu-cycles/cost-today', [MenuCycleController::class, 'costToday']);
     Route::get('menu-cycles/{menu_cycle}/compute', [MenuCycleController::class, 'compute']);
+    Route::get('menu-cycles/{menu_cycle}/lines/{menuCycleDay}', [MenuCycleController::class, 'line']);
     Route::get('menu-cycles/{menu_cycle}/slots/{day}/{meal}', [MenuCycleController::class, 'slot']);
     Route::apiResource('menu-cycles', MenuCycleController::class)->only(['index', 'show']);
 
@@ -311,6 +314,8 @@ Route::middleware(['auth:sanctum', 'active', 'role:FSS,RND'])->prefix('fss')->gr
         // Menu Cycles
         Route::patch('menu-cycles/{menu_cycle}/slots/{day}/{meal}', [MenuCycleController::class, 'updateSlot']);
         Route::delete('menu-cycles/{menu_cycle}/slots/{day}/{meal}', [MenuCycleController::class, 'restoreSlot']);
+        Route::patch('menu-cycles/{menu_cycle}/lines/{menuCycleDay}', [MenuCycleController::class, 'updateLine']);
+        Route::delete('menu-cycles/{menu_cycle}/lines/{menuCycleDay}', [MenuCycleController::class, 'restoreLine']);
         Route::patch('menu-cycles/{menu_cycle}/activate', [MenuCycleController::class, 'activate']);
         Route::post('menu-cycles/{menu_cycle}/save-template', [MenuCycleTemplateController::class, 'fromCycle']);
         Route::apiResource('menu-cycles', MenuCycleController::class)->only(['store', 'update', 'destroy']);

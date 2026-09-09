@@ -82,7 +82,7 @@ class MenuCyclePoSnapshotTest extends TestCase
         $response = $this->actingAs(User::factory()->create(['role' => 'FSS']))
             ->getJson("/api/fss/menu-cycles/{$cycle->uuid}")
             ->assertOk();
-        $snapshot = collect($response->json('data.days'))->firstWhere('id', $day->id)['po_snapshot'];
+        $snapshot = collect($response->json('data.days'))->firstWhere('id', $day->uuid)['po_snapshot'];
         $this->assertSame(10, $snapshot['population']);
         $this->assertEqualsWithDelta(10, (float) $snapshot['total_quantity'], 0.01);
     }

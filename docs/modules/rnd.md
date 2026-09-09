@@ -128,7 +128,7 @@ Current tabs:
 3. Counseling
 4. Goal Planning
 
-Food/Nutrient Delivery includes goal/stage selection, backend-authoritative prescription autofill, a visible calculation trace, editable macro/fluid/micronutrient targets, food recommendations, and patient meal planning. Patient plans may be manual, generated, or template-based. Unsaved-change guards warn before leaving.
+Food/Nutrient Delivery includes goal/stage selection, backend-authoritative prescription autofill, a visible calculation trace, editable macro/fluid/micronutrient targets, food recommendations, and patient meal planning. Patient plans may be manual, generated, or template-based. Goal templates retain exact items and quantities; the common editor can scale quantities to the saved prescription without substituting foods. Generation can exclude snacks and redistribute targets across main meals, except for liver-disease plans where frequent intake remains required. Unsaved-change guards warn before leaving.
 
 ### Monitoring and Evaluation
 
@@ -173,7 +173,7 @@ This resolves the old module note claiming the Foods route was not wired.
 
 ### Menu Cycles
 
-RND can create, edit, delete, save, activate, template, and instantiate Monday-anchored weekly cycles. A blank cycle name is generated from its date span. Loading a template copies its structure without changing the template. A cell may contain a recipe or a single food-service item. Before procurement generation its profile shows baseline recipe values and no purchase estimate.
+RND can create, edit, delete, save, activate, template, and instantiate Monday-anchored weekly cycles. A blank cycle name is generated from its date span. Loading a template copies its structure without changing the template. A cell may contain multiple ordered meal lines, each backed by a recipe or single food-service item. Weekly menus and seeded templates contain meals only; the catalog keeps bulk **Rice** in kilograms for manual addition to a generated draft shopping list. Before procurement generation a line profile shows baseline recipe values and no purchase estimate.
 
 FSS sees active/saved cycles read-only but may record actual served population.
 
@@ -186,7 +186,7 @@ Four current tabs:
 3. Purchase Orders
 4. Suppliers
 
-Suggested food generation is date-span based and all-or-nothing. RND enters one estimated serving count for the span; the system scales each recipe from its baseline and returns exact missing dates when menu coverage is incomplete. RND may also create named manual food/event lists or supplies lists and add catalog items directly.
+Suggested food generation is date-span based and all-or-nothing. RND enters one estimated serving count for the span; the system scales each recipe from its baseline and returns exact missing dates when menu coverage is incomplete. The generated draft already supports manual rows; when its item search is initially empty, **Rice** is recommended first. RND may also create named manual food/event lists or supplies lists and add catalog items directly.
 
 The review keeps calculated requirements read-only while purchase quantity, unit, price, and vendor remain editable. Manual rows may be added. Generated rows may be excluded with a note instead of deleted. Release is blocked until included rows are usable, vendors are assigned, applicable estimate/coverage is present, and the fiscal-year budget is sufficient.
 
@@ -202,7 +202,7 @@ RND Budget is editable: fiscal-year setup, summary, ledger, manual adjustments, 
 
 ## Announcements and SOP
 
-RND can create announcements with category, visibility, pinning, body, and images, and can edit/delete authorized posts. The current SOP is pinned above the feed. RND/Admin can revise it; every save creates a new preserved version. FSS reads both current SOP and history.
+RND can create announcements with category, visibility, pinning, body, and images, and can edit/delete authorized posts. Announcement images retain their original ratio inside a bounded responsive frame with a blurred backdrop; authors show their real profile photo when available. The current SOP is pinned above the feed. RND/Admin can revise it; every save creates a new preserved version. FSS reads both current SOP and history.
 
 ## Reports
 
@@ -223,7 +223,7 @@ Browse renders current/live data. Archive freezes an as-filed copy. RND can view
 - Help: searchable Shared and RND guidance only; the page has no role switch and exposes no Admin-only answers.
 - Notifications: announcements and appointment/follow-up reminders; exact-record navigation, read state, and dismissal for informational or resolved items. Unresolved action-required items stay until resolved.
 - Settings: density, reduced motion, announcement/follow-up preferences, budget-per-head/day.
-- Profile: first/last name, sign-in email, contact, one validated profile photo, recovery email verification, password change.
+- Profile: first/last name, sign-in email, contact, one validated profile photo with circular drag/zoom crop, recovery email verification, password change.
 - First login: temporary password replacement and recovery email, with optional deferral reminder.
 
 ## Explicit Boundaries

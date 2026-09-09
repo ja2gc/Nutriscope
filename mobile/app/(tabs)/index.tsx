@@ -20,9 +20,12 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import api from '../../lib/api';
+import { AnnouncementAuthorAvatar, AnnouncementMedia } from '../../components/AnnouncementMedia';
 
 interface ServiceRow {
+  id: string;
   meal_type: string;
+  line_order: number;
   name: string;
   prepped: boolean;
 }
@@ -35,7 +38,7 @@ interface PendingPo {
 }
 
 interface ActiveCycle {
-  id: number;
+  id: string;
   name: string;
   activation_date: string | null;
   service_day_count: number;
@@ -53,10 +56,11 @@ interface AnnouncementAuthor {
   id: number | null;
   name: string | null;
   role: string | null;
+  profile_photo?: string | null;
 }
 
 interface Announcement {
-  id: number;
+  id: number | string;
   title: string;
   body: string;
   category: string | null;
@@ -64,6 +68,8 @@ interface Announcement {
   visibility: string;
   created_at: string;
   author: AnnouncementAuthor;
+  attachment?: string | null;
+  attachments?: string[];
 }
 
 interface AnnouncementsMeta {
@@ -275,7 +281,7 @@ export default function DashboardScreen() {
           <View className="bg-white rounded-xl overflow-hidden border border-gray-100">
             {data.today_service.map((row, idx) => (
               <ServiceRowItem
-                key={`${row.meal_type}-${idx}`}
+                key={row.id}
                 row={row}
                 isLast={idx === data.today_service.length - 1}
               />
@@ -419,7 +425,8 @@ function AnnouncementCard({
         announcement.pinned ? 'bg-emerald-50' : 'bg-white'
       }`}
     >
-      <View className="flex-row items-start justify-between gap-2">
+      <View className="flex-row items-start gap-2.5">
+        <AnnouncementAuthorAvatar author={announcement.author} size={36} />
         <View className="flex-1">
           <View className="flex-row items-center gap-1.5 flex-wrap mb-0.5">
             {announcement.pinned && (
@@ -446,6 +453,10 @@ function AnnouncementCard({
           {announcement.author.role ? ` · ${announcement.author.role}` : ''}
         </Text>
       )}
+      <AnnouncementMedia
+        attachments={announcement.attachments?.length ? announcement.attachments : (announcement.attachment ? [announcement.attachment] : [])}
+        title={announcement.title}
+      />
     </View>
   );
 }

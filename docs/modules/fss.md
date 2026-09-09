@@ -58,7 +58,7 @@ If no active cycle exists, Home tells FSS to contact RND.
 
 ## Menu
 
-FSS can browse cycles and open meal slots. Recipe/item profiles show scaled ingredients, quantities, cost, cost/head, and preparation notes. Planning fields remain read-only.
+FSS can browse cycles and open every ordered meal line in a slot. Recipe/item profiles show scaled ingredients, quantities, cost, cost/head, and preparation notes. Weekly menus show meals only; bulk rice procurement is not represented as a menu line. Planning fields remain read-only.
 
 Menu does not contain operational controls. Food profiles open on a dedicated read-only page with normal back navigation. Actual population is recorded in Meal Prep.
 
@@ -139,7 +139,8 @@ The **Announcement** bottom tab separates content into two internal tabs:
 - current SOP;
 - paginated SOP version history;
 - FSS/All announcements;
-- announcement details and images.
+- announcement details and fixed responsive images that preserve their original proportions;
+- each announcement author's available profile photo.
 
 FSS is read-only. RND/Admin revise SOP and publish announcements.
 

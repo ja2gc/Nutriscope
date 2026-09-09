@@ -7,6 +7,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/Button";
 import { Popover, PopoverClose, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ImageCarousel, ImageUploadGallery, imagesFromSrcs, imageSrcs, type UploadImage } from "@/components/ui/ImageUploadGallery";
+import { AnnouncementAuthorAvatar } from "@/components/announcements/AnnouncementAuthorAvatar";
 import { fetchPatients } from "@/services/patientService";
 import { fetchUpcomingAppointments, transitionAppointment, type NcpAppointment } from "@/services/ncpAppointmentService";
 import {
@@ -62,15 +63,6 @@ function formatTimeStamp(value: string) {
     hour: "numeric",
     minute: "2-digit",
   });
-}
-
-function getInitials(name: string) {
-  return name
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
-    .join("");
 }
 
 function buildFollowUps(appointments: NcpAppointment[]): FollowUpRow[] {
@@ -139,8 +131,8 @@ function sortAnnouncements(posts: Announcement[]) {
   });
 }
 
-function isAnnouncementEditable(post: Announcement, userId?: number | null) {
-  return Boolean(userId) && post.author?.id === userId;
+function isAnnouncementEditable(post: Announcement, userId?: number | string | null) {
+  return Boolean(userId) && String(post.author?.id) === String(userId);
 }
 
 export default function RndDashboardPage() {
@@ -158,8 +150,8 @@ export default function RndDashboardPage() {
   const [announcementsMeta, setAnnouncementsMeta] = useState<PaginationMeta | null>(null);
   const [announcementsRefresh, setAnnouncementsRefresh] = useState(0);
   const [composerOpen, setComposerOpen] = useState(false);
-  const [editingPostId, setEditingPostId] = useState<number | null>(null);
-  const [viewingPostId, setViewingPostId] = useState<number | null>(null);
+  const [editingPostId, setEditingPostId] = useState<string | number | null>(null);
+  const [viewingPostId, setViewingPostId] = useState<string | number | null>(null);
   const [followUpPage, setFollowUpPage] = useState(1);
   const [announcementsPage, setAnnouncementsPage] = useState(1);
   const FOLLOW_UPS_PER_PAGE = 3;
@@ -568,9 +560,7 @@ export default function RndDashboardPage() {
             <div className="p-5 bg-warm-50/50">
               <article className="bg-white border border-warm-200 rounded-3xl p-5 shadow-sm">
                 <div className="flex items-start gap-3">
-                  <div className="h-11 w-11 rounded-full bg-brand-green-700 text-white flex items-center justify-center text-sm font-bold uppercase">
-                    {getInitials(selectedPost.author?.name || "")}
-                  </div>
+                  <AnnouncementAuthorAvatar author={selectedPost.author} />
 
                   <div className="flex-1 min-w-0">
                     <div className="flex flex-wrap items-start justify-between gap-3">
@@ -878,9 +868,7 @@ export default function RndDashboardPage() {
                     className="cursor-pointer rounded-2xl border border-warm-200 bg-white p-3 shadow-sm transition-all duration-150 hover:-translate-y-0.5 hover:border-warm-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
                   >
                     <div className="flex items-start gap-2.5">
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-green-700 text-xs font-bold uppercase text-white">
-                        {getInitials(post.author?.name || "")}
-                      </div>
+                      <AnnouncementAuthorAvatar author={post.author} size="sm" />
 
                       <div className="flex-1 min-w-0">
                         <div className="flex flex-wrap items-start justify-between gap-2">

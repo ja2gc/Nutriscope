@@ -26,6 +26,8 @@ class StoreMenuCycleRequest extends FormRequest
             'days' => ['nullable', 'array'],
             'days.*.day_of_week' => ['required_with:days', 'in:Monday,Tuesday,Wednesday,Thursday,Friday,Saturday,Sunday'],
             'days.*.meal_type' => ['required_with:days', 'in:breakfast,am_snack,lunch,pm_snack,dinner'],
+            'days.*.id' => ['nullable', 'uuid'],
+            'days.*.line_order' => ['nullable', 'integer', 'min:1'],
             'days.*.recipe_id' => ['nullable', 'string', 'exists:food_service_recipes,uuid'],
             'days.*.fs_item_id' => ['nullable', 'string', 'exists:fs_items,uuid'],
             'days.*.quantity' => ['nullable', 'numeric', 'min:0'],

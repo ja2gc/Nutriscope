@@ -19,6 +19,7 @@ import {
   changedPersonNameFields,
   personNameFormValues,
 } from "@/lib/personName";
+import { ProfilePhotoCropDialog } from "@/components/profile/ProfilePhotoCropDialog";
 
 type ProfilePageShellProps = {
   crumbs: [string, string?][];
@@ -37,6 +38,7 @@ export function ProfilePageShell({ crumbs, subtitle, fallbackRole }: ProfilePage
   const [savingProfile, setSavingProfile] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
   const [profilePhotoError, setProfilePhotoError] = useState<string | null>(null);
+  const [pendingProfilePhoto, setPendingProfilePhoto] = useState<UploadImage | null>(null);
   const [profileDone, setProfileDone] = useState(false);
 
   const [currentPassword, setCurrentPassword] = useState("");
@@ -99,12 +101,12 @@ export function ProfilePageShell({ crumbs, subtitle, fallbackRole }: ProfilePage
       setProfilePhotoError("Use PNG, JPEG, or WebP only.");
       return;
     }
-    if (file.size > 220000) {
-      setProfilePhotoError("Use an image under 220 KB.");
+    if (file.size > 10000000) {
+      setProfilePhotoError("Use an image under 10 MB.");
       return;
     }
     const [image] = await readImages([file]);
-    setProfileImages(image ? [image] : []);
+    setPendingProfilePhoto(image ?? null);
   }
 
   async function handlePasswordSubmit(e: React.FormEvent) {
@@ -283,6 +285,17 @@ export function ProfilePageShell({ crumbs, subtitle, fallbackRole }: ProfilePage
           </form>
         </Card>
       </div>
+
+      {pendingProfilePhoto && (
+        <ProfilePhotoCropDialog
+          image={pendingProfilePhoto.src}
+          onCancel={() => setPendingProfilePhoto(null)}
+          onApply={(croppedImage) => {
+            setProfileImages([{ ...pendingProfilePhoto, src: croppedImage }]);
+            setPendingProfilePhoto(null);
+          }}
+        />
+      )}
     </div>
   );
 }

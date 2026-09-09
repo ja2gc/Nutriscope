@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/Button";
 import { Pagination, PaginationMeta } from "@/components/ui/Pagination";
 import { ImageCarousel, ImageUploadGallery, imagesFromSrcs, imageSrcs, type UploadImage } from "@/components/ui/ImageUploadGallery";
+import { AnnouncementAuthorAvatar } from "@/components/announcements/AnnouncementAuthorAvatar";
 import {
   Announcement,
   AnnouncementCategory,
@@ -50,15 +51,6 @@ const EMPTY_DRAFT: AnnouncementDraft = {
   images: [],
 };
 
-function getInitials(name: string) {
-  return name
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
-    .join("");
-}
-
 function formatTimeStamp(value: string) {
   return new Date(value).toLocaleString("en-US", {
     month: "short",
@@ -95,8 +87,8 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
   const [error, setError] = useState<string | null>(null);
 
   const [composerOpen, setComposerOpen] = useState(false);
-  const [editingPostId, setEditingPostId] = useState<number | null>(null);
-  const [viewingPostId, setViewingPostId] = useState<number | null>(null);
+  const [editingPostId, setEditingPostId] = useState<string | number | null>(null);
+  const [viewingPostId, setViewingPostId] = useState<string | number | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [draft, setDraft] = useState<AnnouncementDraft>(EMPTY_DRAFT);
@@ -454,9 +446,7 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
             <div className="p-5 bg-warm-50/50">
               <article className="bg-white border border-warm-200 rounded-3xl p-5 shadow-sm">
                 <div className="flex items-start gap-3">
-                  <div className="h-11 w-11 rounded-full bg-forest-900 text-white flex items-center justify-center text-sm font-bold uppercase shrink-0">
-                    {getInitials(selectedPost.author?.name || "")}
-                  </div>
+                  <AnnouncementAuthorAvatar author={selectedPost.author} />
                   <div className="flex-1 min-w-0">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div>
@@ -590,9 +580,7 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
                 className="cursor-pointer rounded-3xl border border-warm-200 bg-white p-5 shadow-sm transition-all duration-150 hover:-translate-y-0.5 hover:border-warm-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
               >
                 <div className="flex items-start gap-3">
-                  <div className="h-11 w-11 rounded-full bg-forest-900 text-white flex items-center justify-center text-sm font-bold uppercase shrink-0">
-                    {getInitials(post.author?.name || "")}
-                  </div>
+                  <AnnouncementAuthorAvatar author={post.author} />
 
                   <div className="flex-1 min-w-0">
                     <div className="flex flex-wrap items-start justify-between gap-3">

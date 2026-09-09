@@ -8,10 +8,13 @@ import { Button } from "@/components/ui/Button";
 import { searchCatalog, type CatalogItem } from "@/services/fsCatalogService";
 import {
   getMenuSlotRecipe,
+  getMenuLineRecipe,
   MEAL_LABELS,
   restoreMenuSlotRecipe,
+  restoreMenuLineRecipe,
   scaledIngredientQuantity,
   updateMenuSlotRecipe,
+  updateMenuLineRecipe,
   type Day,
   type Meal,
   type MenuSlotIngredient,
@@ -34,7 +37,7 @@ function draftFrom(data: MenuSlotRecipe): Draft {
 
 const peso = (value: number) => `₱${value.toFixed(2)}`;
 
-export function MenuSlotRecipePage({ backHref }: { backHref: string }) {
+export function MenuSlotRecipePage({ backHref, lineId }: { backHref: string; lineId?: string }) {
   const { cycleId, day, meal } = useParams<{ cycleId: string; day: Day; meal: Meal }>();
   const [data, setData] = useState<MenuSlotRecipe | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
@@ -50,7 +53,7 @@ export function MenuSlotRecipePage({ backHref }: { backHref: string }) {
   useEffect(() => {
     let active = true;
     setLoading(true);
-    getMenuSlotRecipe(cycleId, day, meal)
+    (lineId ? getMenuLineRecipe(cycleId, lineId) : getMenuSlotRecipe(cycleId, day, meal))
       .then((slot) => {
         if (!active) return;
         setData(slot);
@@ -59,7 +62,7 @@ export function MenuSlotRecipePage({ backHref }: { backHref: string }) {
       .catch((cause) => { if (active) setError(cause instanceof Error ? cause.message : "Failed to load menu item details."); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [cycleId, day, meal]);
+  }, [cycleId, day, meal, lineId]);
 
   const canEdit = Boolean(data?.editable) && !data?.locked;
   const ingredientIds = useMemo(() => new Set(draft?.ingredients.map((item) => item.fs_item_id)), [draft?.ingredients]);
@@ -102,11 +105,14 @@ export function MenuSlotRecipePage({ backHref }: { backHref: string }) {
     setError("");
     setNotice("");
     try {
-      const saved = await updateMenuSlotRecipe(cycleId, day, meal, {
+      const payload = {
         ...draft,
         prep_notes: draft.prep_notes || null,
         ingredients: draft.ingredients.map(({ fs_item_id, quantity, unit }) => ({ fs_item_id, quantity, unit })),
-      });
+      };
+      const saved = lineId
+        ? await updateMenuLineRecipe(cycleId, lineId, payload)
+        : await updateMenuSlotRecipe(cycleId, day, meal, payload);
       setData(saved);
       setDraft(draftFrom(saved));
       setNotice("Menu slot changes saved. The original recipe was not changed.");
@@ -121,7 +127,9 @@ export function MenuSlotRecipePage({ backHref }: { backHref: string }) {
     setSaving(true);
     setError("");
     try {
-      const restored = await restoreMenuSlotRecipe(cycleId, day, meal);
+      const restored = lineId
+        ? await restoreMenuLineRecipe(cycleId, lineId)
+        : await restoreMenuSlotRecipe(cycleId, day, meal);
       setData(restored);
       setDraft(draftFrom(restored));
       setConfirmRestore(false);
@@ -144,7 +152,7 @@ export function MenuSlotRecipePage({ backHref }: { backHref: string }) {
 
       <header className="flex flex-col gap-3 border-b border-warm-200 pb-5 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p className="text-xs font-extrabold uppercase tracking-wider text-warm-500">{day} · {MEAL_LABELS[meal]}</p>
+          <p className="text-xs font-extrabold uppercase tracking-wider text-warm-500">{data.day} · {MEAL_LABELS[data.meal]} · Line {data.line_order}</p>
           <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-warm-900">Menu Item Details</h1>
           <p className="mt-1 text-sm text-warm-600">{canEdit ? "Changes apply only to this menu slot. The original recipe stays unchanged." : "View baseline recipe values and the current purchase estimate."}</p>
         </div>

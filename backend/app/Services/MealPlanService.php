@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\FoodItem;
+use App\Models\Intervention;
 use App\Models\MealPlan;
 use App\Models\MealPlanDay;
 use App\Models\MealPlanItem;
@@ -10,6 +11,7 @@ use App\Models\NcpRecord;
 use App\Models\Recipe;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class MealPlanService
@@ -71,9 +73,118 @@ class MealPlanService
         $this->rngSeed = $seed;
     }
 
-    public function generate(NcpRecord $ncpRecord, string $weekStartDate, array $conditions = [], array $allergens = []): array|MealPlan
+    /**
+     * Scale only the quantities already present in a plan. Foods are never inserted
+     * or substituted; practical-unit rounding is followed by a bounded local search.
+     * Fluid is deliberately excluded because a food plan is not a beverage schedule.
+     *
+     * @return array{changed_items:int,inserted_items:int,substituted_items:int,problem_days:list<string>,variance:array<string,array<string,mixed>>}
+     */
+    public function scaleToPrescription(MealPlan $mealPlan, Intervention $intervention): array
     {
+        $targets = array_filter([
+            'energy' => (float) $intervention->energy_kcal,
+            'protein' => (float) $intervention->protein_g,
+            'carbs' => (float) $intervention->carbs_g,
+            'fat' => (float) $intervention->fat_g,
+        ], fn (float $value): bool => $value > 0);
+        $microLimits = is_array($intervention->micronutrient_limits) ? $intervention->micronutrient_limits : [];
+
+        return DB::transaction(function () use ($mealPlan, $targets, $microLimits): array {
+            $mealPlan->load('days.items');
+            $changed = 0;
+            $problemDays = [];
+            $varianceByDay = [];
+
+            foreach ($mealPlan->days->groupBy('day_of_week') as $dayName => $slots) {
+                $items = $slots->flatMap->items->values();
+                $overrides = $items->mapWithKeys(fn (MealPlanItem $item): array => [
+                    $item->id => (float) $item->quantity,
+                ])->all();
+
+                if ($items->isNotEmpty()) {
+                    $totals = $this->nutrientTotals($items, $overrides);
+                    $ratios = collect($targets)->map(
+                        fn (float $target, string $key): float => ($totals[$key] ?? 0) / $target
+                    )->filter(fn (float $ratio): bool => $ratio > 0)->values();
+                    $denominator = $ratios->sum(fn (float $ratio): float => $ratio ** 2);
+                    $scale = $denominator > 0
+                        ? min(3.0, max(0.5, $ratios->sum() / $denominator))
+                        : 1.0;
+
+                    foreach ($items as $item) {
+                        $overrides[$item->id] = $this->snapQuantity($item, (float) $item->quantity * $scale);
+                    }
+
+                    // Search neighboring permitted increments without changing plan composition.
+                    for ($pass = 0; $pass < 3; $pass++) {
+                        foreach ($items as $item) {
+                            $step = $this->quantityStep($item);
+                            $current = $overrides[$item->id];
+                            $best = $current;
+                            $bestScore = $this->scalingScore($items, $overrides, $targets, $microLimits);
+                            $minimum = $this->minimumQuantity($item);
+                            foreach (array_unique([max($minimum, $current - $step), $current, $current + $step]) as $candidate) {
+                                $trial = $overrides;
+                                $trial[$item->id] = $candidate;
+                                $score = $this->scalingScore($items, $trial, $targets, $microLimits);
+                                if ($score + 0.000001 < $bestScore) {
+                                    $best = $candidate;
+                                    $bestScore = $score;
+                                }
+                            }
+                            $overrides[$item->id] = $best;
+                        }
+                    }
+
+                    foreach ($items as $item) {
+                        $next = $overrides[$item->id];
+                        if (abs((float) $item->quantity - $next) > 0.0001) {
+                            $item->updateQuietly(['quantity' => $next]);
+                            $changed++;
+                        }
+                    }
+                }
+
+                $slots->each->load('items');
+                $variance = $this->computeDayVariance($slots, $targets, $microLimits);
+                $flagged = $this->isFlagged($variance);
+                foreach ($slots as $slot) {
+                    $slot->updateQuietly(['flagged' => $flagged, 'variance' => $variance]);
+                }
+                $varianceByDay[$dayName] = $variance;
+                if ($flagged) {
+                    $problemDays[] = $dayName;
+                }
+            }
+
+            $mealPlan->updateQuietly(['needs_rescaling' => false, 'scaled_at' => now()]);
+
+            return [
+                'changed_items' => $changed,
+                'inserted_items' => 0,
+                'substituted_items' => 0,
+                'problem_days' => array_values($problemDays),
+                'variance' => $varianceByDay,
+            ];
+        });
+    }
+
+    public function generate(
+        NcpRecord $ncpRecord,
+        string $weekStartDate,
+        array $conditions = [],
+        array $allergens = [],
+        bool $excludeSnacks = false,
+    ): array|MealPlan {
         $intervention = $ncpRecord->intervention()->firstOrFail();
+
+        if ($excludeSnacks && $intervention->goal_type === 'liver_disease') {
+            return [
+                'snacks_required' => true,
+                'message' => 'Snack exclusion is not available for liver disease because frequent intake and a clinician-planned late-evening snack are part of the current guidance.',
+            ];
+        }
 
         // Auto-pull allergens from the assessment if not explicitly passed
         if (empty($allergens)) {
@@ -135,12 +246,31 @@ class MealPlanService
             ->concat($foodModels->map(fn ($f) => $this->foodToCandidate($f)))
             ->values();
 
+        $activeMealTypes = $excludeSnacks
+            ? ['breakfast', 'lunch', 'dinner']
+            : array_keys(self::SLOT_DISTRIBUTION);
+        $missingMealTypes = collect($activeMealTypes)->filter(function (string $mealType) use ($recipes): bool {
+            $eligible = $this->filterByMealType($recipes, $mealType);
+            if (! $this->isSnackSlot($mealType)) {
+                $eligible = $eligible->filter(fn ($candidate): bool => $candidate->source === 'recipe'
+                    && $candidate->component_type !== 'staple');
+            }
+
+            return $eligible->isEmpty();
+        })->values()->all();
+        if ($missingMealTypes !== []) {
+            return [
+                'insufficient_suitable_foods' => true,
+                'missing_meal_types' => $missingMealTypes,
+                'message' => 'No suitable foods are available for: '.implode(', ', $missingMealTypes).'. Add goal-appropriate recipes or ready-to-eat snacks, then regenerate.',
+            ];
+        }
+
         // Daily targets
         $dailyKcal = max((float) ($intervention->energy_kcal ?? 2000), 1);
         $dailyProtein = (float) ($intervention->protein_g ?? 70);
         $dailyCarbs = (float) ($intervention->carbs_g ?? 250);
         $dailyFat = (float) ($intervention->fat_g ?? 60);
-        $dailyFluid = (float) ($intervention->fluid_ml ?? 0);
 
         // Micronutrient limits (e.g. ['sodium_mg' => ['max' => 1500, 'unit' => 'mg']])
         $microLimits = $intervention->micronutrient_limits ?? [];
@@ -155,6 +285,7 @@ class MealPlanService
             'patient_id' => $ncpRecord->patient_id,
             'week_start_date' => $weekStartDate,
             'generation_type' => 'auto',
+            'needs_rescaling' => true,
             'status' => 'draft',
         ]);
 
@@ -204,7 +335,13 @@ class MealPlanService
 
             foreach ($daySlots as $slotIndex => $dayRecord) {
                 $mealType = $dayRecord->meal_type;
-                $slotPct = self::SLOT_DISTRIBUTION[$mealType] ?? 0.20;
+                if ($excludeSnacks && $this->isSnackSlot($mealType)) {
+                    continue;
+                }
+                $distribution = $excludeSnacks
+                    ? ['breakfast' => 0.3125, 'lunch' => 0.375, 'dinner' => 0.3125]
+                    : self::SLOT_DISTRIBUTION;
+                $slotPct = $distribution[$mealType] ?? 0.20;
                 $targetKcal = $dailyKcal * $slotPct;
 
                 // Filter by meal_types eligibility (4.2)
@@ -219,11 +356,13 @@ class MealPlanService
                     if ($foodOnly->isNotEmpty()) {
                         $eligible = $foodOnly;
                     }
+                } else {
+                    $eligible = $eligible->filter(fn ($candidate): bool => $candidate->source === 'recipe'
+                        && $candidate->component_type !== 'staple')->values();
                 }
 
                 if ($eligible->isEmpty()) {
-                    // Fallback: use all recipes if no eligible ones for this slot
-                    $eligible = $dayPool;
+                    throw new \RuntimeException("Suitable-food preflight drifted for {$mealType}.");
                 }
 
                 $best = $this->pickBest(
@@ -235,17 +374,35 @@ class MealPlanService
                     $microLimits,
                     $slotIndex,
                     $crossDayUsed,
-                    $dayIndex
+                    $dayIndex,
+                    $intervention->goal_type ?? '',
                 );
                 $usedThisDay[] = $best->uid;
                 $crossDayUsed[$best->uid] = $dayIndex;
                 $dayRecipeMap[$dayName][$mealType] = $best->uid;
 
-                // Scale quantity to hit slot calorie target (clamped to ±50% of 1 serving)
-                $recipeKcal = max((float) $best->total_calories, 1);
-                $quantity = round(min(max($targetKcal / $recipeKcal, 1.0), 2.0), 2);
+                $quantity = $this->practicalCandidateQuantity($best, $targetKcal);
 
                 $itemRows[] = $this->buildItemRow($dayRecord->id, $best, $quantity, $now);
+
+                if (in_array($mealType, ['lunch', 'dinner'], true) && $best->component_type === 'main_dish') {
+                    $staples = $this->filterByMealType($dayPool, $mealType)
+                        ->filter(fn ($candidate): bool => $candidate->source === 'recipe'
+                            && $candidate->component_type === 'staple')
+                        ->values();
+                    $staple = $this->pickStapleAddition($best, $quantity, $staples, [
+                        'energy' => $dailyKcal * $slotPct,
+                        'protein' => $dailyProtein * $slotPct,
+                        'carbs' => $dailyCarbs * $slotPct,
+                        'fat' => $dailyFat * $slotPct,
+                    ], $microLimits, $slotPct);
+                    if ($staple !== null) {
+                        [$stapleCandidate, $stapleQuantity] = $staple;
+                        $usedThisDay[] = $stapleCandidate->uid;
+                        $crossDayUsed[$stapleCandidate->uid] = $dayIndex;
+                        $itemRows[] = $this->buildItemRow($dayRecord->id, $stapleCandidate, $stapleQuantity, $now);
+                    }
+                }
             }
         }
         MealPlanItem::insert($itemRows);
@@ -253,20 +410,9 @@ class MealPlanService
         // Reload days with items for validation
         $mealPlan->load('days.items');
 
-        // ── Phase 4.3/4.4: Post-generation ±10% validation + reconciliation ──
-        $this->validateAndReconcile(
-            $mealPlan,
-            $recipes,
-            $dailyKcal,
-            $dailyProtein,
-            $dailyCarbs,
-            $dailyFat,
-            $dailyFluid,
-            $microLimits,
-            $targetProteinRatio,
-            $targetCarbsRatio,
-            $targetFatRatio
-        );
+        // Reconcile by changing practical quantities only. Composition is frozen:
+        // no filler foods, substitutions, or fluid-driven adjustments are permitted.
+        $this->scaleToPrescription($mealPlan, $intervention);
 
         return $mealPlan->load('days');
     }
@@ -320,7 +466,8 @@ class MealPlanService
         array $microLimits,
         int $fallbackIndex,
         array $crossDayUsed = [],
-        int $currentDayIndex = 0
+        int $currentDayIndex = 0,
+        string $goalType = '',
     ): object {
         $scored = [];
         foreach ($pool as $r) {
@@ -341,6 +488,7 @@ class MealPlanService
                 $recipeMicros = is_array($r->micronutrients) ? $r->micronutrients : [];
                 $score += $this->calcMicroPenalty($recipeMicros, $microLimits);
             }
+            $score += $this->goalPenalty($r, $goalType);
 
             // Cross-day recency penalty: push recently-used recipes down the ranking
             // without hard-excluding them (important for small pools).
@@ -369,6 +517,124 @@ class MealPlanService
         $topN = array_slice($scored, 0, min($window, count($scored)));
 
         return $topN[array_rand($topN)]['recipe'];
+    }
+
+    private function practicalCandidateQuantity(object $candidate, float $targetKcal): float
+    {
+        $reference = max((float) ($candidate->reference_amount ?? 1), 0.0001);
+        $minimum = $candidate->component_type === 'main_dish' ? 1.0 : 0.5;
+        $maximum = $candidate->component_type === 'main_dish' ? 1.5 : 2.5;
+        $factor = min($maximum, max($minimum, $targetKcal / max((float) $candidate->total_calories, 1)));
+        $step = $this->candidateStep((string) ($candidate->serving_unit ?? 'serving'));
+
+        return max($step, round(($reference * $factor) / $step) * $step);
+    }
+
+    /** @return array{0:object,1:float}|null */
+    private function pickStapleAddition(
+        object $main,
+        float $mainQuantity,
+        Collection $staples,
+        array $targets,
+        array $microLimits,
+        float $slotPct,
+    ): ?array {
+        if ($staples->isEmpty()) {
+            return null;
+        }
+
+        $baseScore = $this->candidateMealScore([[$main, $mainQuantity]], $targets, $microLimits, $slotPct);
+        $best = null;
+        $bestScore = $baseScore;
+        $mainFactor = $mainQuantity / max((float) $main->reference_amount, 0.0001);
+        $remainingKcal = max(0, $targets['energy'] - ((float) $main->total_calories * $mainFactor));
+        $remainingCarbs = max(0, $targets['carbs'] - ((float) $main->total_carbs * $mainFactor));
+
+        if ($remainingKcal <= 25 || $remainingCarbs <= 5) {
+            return null;
+        }
+
+        foreach ($staples as $staple) {
+            $energyFactor = $remainingKcal / max((float) $staple->total_calories, 1);
+            $carbFactor = $remainingCarbs / max((float) $staple->total_carbs, 1);
+            $factor = min(2.0, max(0.5, ($energyFactor + $carbFactor) / 2));
+            $step = $this->candidateStep((string) $staple->serving_unit);
+            $quantity = max($step, round(((float) $staple->reference_amount * $factor) / $step) * $step);
+            $score = $this->candidateMealScore(
+                [[$main, $mainQuantity], [$staple, $quantity]],
+                $targets,
+                $microLimits,
+                $slotPct,
+            );
+            if ($score + 0.000001 < $bestScore) {
+                $best = [$staple, $quantity];
+                $bestScore = $score;
+            }
+        }
+
+        return $best;
+    }
+
+    private function candidateMealScore(array $portions, array $targets, array $microLimits, float $slotPct): float
+    {
+        $totals = ['energy' => 0.0, 'protein' => 0.0, 'carbs' => 0.0, 'fat' => 0.0];
+        $micros = [];
+        foreach ($portions as [$candidate, $quantity]) {
+            $factor = $quantity / max((float) $candidate->reference_amount, 0.0001);
+            foreach (['energy' => 'total_calories', 'protein' => 'total_protein', 'carbs' => 'total_carbs', 'fat' => 'total_fat'] as $key => $field) {
+                $totals[$key] += (float) $candidate->{$field} * $factor;
+            }
+            foreach (($candidate->micronutrients ?? []) as $key => $value) {
+                $micros[$key] = ($micros[$key] ?? 0) + ((float) $value * $factor);
+            }
+        }
+
+        $score = 0.0;
+        foreach ($targets as $key => $target) {
+            if ($target > 0) {
+                $score += (($totals[$key] - $target) / $target) ** 2;
+            }
+        }
+        foreach ($microLimits as $key => $limit) {
+            $allowed = isset($limit['max']) ? (float) $limit['max'] * $slotPct : null;
+            if ($allowed !== null && isset($micros[$key]) && $micros[$key] > $allowed) {
+                $score += (($micros[$key] - $allowed) / max($allowed, 0.001)) ** 2 * 4;
+            }
+        }
+
+        return $score;
+    }
+
+    private function candidateStep(string $unit): float
+    {
+        return match (strtolower(trim($unit))) {
+            'g', 'gram', 'grams' => 25.0,
+            'cup', 'cups' => 0.5,
+            'piece', 'pieces', 'pc', 'pcs' => 1.0,
+            'ml' => 50.0,
+            default => 1.0,
+        };
+    }
+
+    private function goalPenalty(object $candidate, string $goalType): float
+    {
+        $kcal = max((float) $candidate->total_calories, 1);
+        $proteinDensity = ((float) $candidate->total_protein * 4) / $kcal;
+        $fatDensity = ((float) $candidate->total_fat * 9) / $kcal;
+        $micros = is_array($candidate->micronutrients) ? $candidate->micronutrients : [];
+        $fiber = (float) ($micros['fiber'] ?? $micros['fiber_g'] ?? 0);
+        $sodium = (float) ($micros['sodium'] ?? $micros['sodium_mg'] ?? 0);
+        $cholesterol = (float) ($micros['cholesterol'] ?? $micros['cholesterol_mg'] ?? 0);
+        $freeSugars = (float) ($micros['free_sugars'] ?? $micros['sugar'] ?? 0);
+
+        return match ($goalType) {
+            'diabetic_control' => min(0.4, $freeSugars / 50) - min(0.15, $fiber / 50),
+            'cardiac_diet' => min(0.5, $sodium / 3000 + $cholesterol / 1000) - min(0.1, $fiber / 80),
+            'weight_loss' => $fatDensity * 0.25 - min(0.15, $fiber / 50),
+            'weight_gain' => 0.15 / max($kcal / 300, 0.25),
+            'high_protein', 'liver_disease', 'malnutrition' => -min(0.2, $proteinDensity * 0.35),
+            default => 0.0,
+        };
     }
 
     /**
@@ -517,7 +783,7 @@ class MealPlanService
         foreach ($slots as $slot) {
             foreach ($slot->items as $item) {
                 $snap = $item->nutrient_snapshot ?? [];
-                $qty = (float) ($item->quantity ?? 1);
+                $qty = $this->itemFactor($item);
 
                 $totals['energy'] += (float) ($snap['calories'] ?? 0) * $qty;
                 $totals['protein'] += (float) ($snap['protein'] ?? 0) * $qty;
@@ -553,12 +819,95 @@ class MealPlanService
             if (! array_key_exists($nutrientKey, $microTotals)) {
                 // Prescribed nutrient not reported by any recipe → data gap
                 $variance[$nutrientKey] = 'cannot_validate';
-            } else {
-                $variance[$nutrientKey] = round(($microTotals[$nutrientKey] - (float) $targetVal) / max((float) $targetVal, 0.001), 4);
+            } elseif (isset($limit['max'])) {
+                $variance[$nutrientKey] = round(max(0, $microTotals[$nutrientKey] - (float) $limit['max']) / max((float) $limit['max'], 0.001), 4);
+            } elseif (isset($limit['min'])) {
+                $variance[$nutrientKey] = round(min(0, $microTotals[$nutrientKey] - (float) $limit['min']) / max((float) $limit['min'], 0.001), 4);
             }
         }
 
         return $variance;
+    }
+
+    private function itemFactor(object $item, ?float $quantity = null): float
+    {
+        $snapshot = $item->nutrient_snapshot ?? [];
+        $reference = max((float) ($snapshot['serving_size'] ?? 1), 0.0001);
+
+        return ($quantity ?? (float) $item->quantity) / $reference;
+    }
+
+    /** @param array<int,float> $quantities */
+    private function nutrientTotals(Collection $items, array $quantities): array
+    {
+        $totals = ['energy' => 0.0, 'protein' => 0.0, 'carbs' => 0.0, 'fat' => 0.0];
+        foreach ($items as $item) {
+            $snapshot = $item->nutrient_snapshot ?? [];
+            $factor = $this->itemFactor($item, $quantities[$item->id] ?? null);
+            $totals['energy'] += (float) ($snapshot['calories'] ?? 0) * $factor;
+            $totals['protein'] += (float) ($snapshot['protein'] ?? 0) * $factor;
+            $totals['carbs'] += (float) ($snapshot['carbs'] ?? 0) * $factor;
+            $totals['fat'] += (float) ($snapshot['fat'] ?? 0) * $factor;
+        }
+
+        return $totals;
+    }
+
+    /** @param array<int,float> $quantities */
+    private function scalingScore(Collection $items, array $quantities, array $targets, array $microLimits): float
+    {
+        $totals = $this->nutrientTotals($items, $quantities);
+        $score = 0.0;
+        foreach ($targets as $key => $target) {
+            $score += (($totals[$key] - $target) / $target) ** 2;
+        }
+
+        foreach ($microLimits as $nutrient => $limit) {
+            if (! isset($limit['max'])) {
+                continue;
+            }
+            $actual = 0.0;
+            $reported = false;
+            foreach ($items as $item) {
+                $snapshot = $item->nutrient_snapshot ?? [];
+                if (array_key_exists($nutrient, $snapshot['micronutrients'] ?? [])) {
+                    $reported = true;
+                    $actual += (float) $snapshot['micronutrients'][$nutrient]
+                        * $this->itemFactor($item, $quantities[$item->id] ?? null);
+                }
+            }
+            if ($reported && $actual > (float) $limit['max']) {
+                $score += (($actual - (float) $limit['max']) / max((float) $limit['max'], 0.001)) ** 2 * 4;
+            }
+        }
+
+        return $score;
+    }
+
+    private function quantityStep(MealPlanItem $item): float
+    {
+        return match (strtolower(trim($item->unit))) {
+            'g', 'gram', 'grams' => 25.0,
+            'cup', 'cups' => 0.5,
+            'piece', 'pieces', 'pc', 'pcs' => 1.0,
+            'ml' => 50.0,
+            default => 0.25,
+        };
+    }
+
+    private function snapQuantity(MealPlanItem $item, float $quantity): float
+    {
+        $step = $this->quantityStep($item);
+
+        return max($this->minimumQuantity($item), round($quantity / $step) * $step);
+    }
+
+    private function minimumQuantity(MealPlanItem $item): float
+    {
+        return match (strtolower(trim($item->unit))) {
+            'serving', 'servings', 'portion', 'portions' => 1.0,
+            default => $this->quantityStep($item),
+        };
     }
 
     /**
@@ -605,7 +954,7 @@ class MealPlanService
                 $score = 0.0;
                 foreach ($slot->items as $item) {
                     $snap = $item->nutrient_snapshot ?? [];
-                    $qty = (float) ($item->quantity ?? 1);
+                    $qty = $this->itemFactor($item);
                     foreach ($targets as $key => $target) {
                         $val = match ($key) {
                             'energy' => (float) ($snap['calories'] ?? 0) * $qty,
@@ -700,7 +1049,7 @@ class MealPlanService
             'recipe_id' => $isFood ? null : $candidate->source_id,
             'food_item_id' => $isFood ? $candidate->source_id : null,
             'quantity' => $quantity,
-            'unit' => 'serving',
+            'unit' => $candidate->serving_unit,
             'nutrient_snapshot' => json_encode([
                 'name' => $candidate->name,
                 'calories' => (float) $candidate->total_calories,
@@ -709,8 +1058,8 @@ class MealPlanService
                 'fat' => (float) $candidate->total_fat,
                 'water_g' => (float) ($candidate->total_water ?? 0),
                 'micronutrients' => $candidate->micronutrients ?? [],
-                'serving_size' => (float) ($candidate->servings ?? 1),
-                'serving_unit' => $candidate->serving_unit ?? 'serving',
+                'serving_size' => (float) $candidate->reference_amount,
+                'serving_unit' => $candidate->serving_unit,
                 'source' => $candidate->source,
             ]),
             'ai_suggested' => false,
@@ -724,20 +1073,24 @@ class MealPlanService
      */
     private function recipeToCandidate(Recipe $recipe): object
     {
+        $servings = max((float) ($recipe->servings ?? 1), 1);
+
         return (object) [
             'uid' => 'recipe:'.$recipe->id,
             'source' => 'recipe',
             'source_id' => $recipe->id,
             'name' => $recipe->name,
-            'total_calories' => (float) $recipe->total_calories,
-            'total_protein' => (float) $recipe->total_protein,
-            'total_carbs' => (float) $recipe->total_carbs,
-            'total_fat' => (float) $recipe->total_fat,
-            'total_water' => (float) ($recipe->total_water ?? 0),
-            'micronutrients' => is_array($recipe->micronutrients) ? $recipe->micronutrients : [],
-            'servings' => (float) ($recipe->servings ?? 1),
-            'serving_unit' => 'serving',
+            'total_calories' => (float) $recipe->total_calories / $servings,
+            'total_protein' => (float) $recipe->total_protein / $servings,
+            'total_carbs' => (float) $recipe->total_carbs / $servings,
+            'total_fat' => (float) $recipe->total_fat / $servings,
+            'total_water' => (float) ($recipe->total_water ?? 0) / $servings,
+            'micronutrients' => collect(is_array($recipe->micronutrients) ? $recipe->micronutrients : [])
+                ->map(fn ($value): float => (float) $value / $servings)->all(),
+            'reference_amount' => (float) ($recipe->prepared_portion_amount ?: 1),
+            'serving_unit' => $recipe->prepared_portion_unit ?: 'serving',
             'meal_types' => $recipe->meal_types,
+            'component_type' => $recipe->component_type,
         ];
     }
 
@@ -758,9 +1111,10 @@ class MealPlanService
             'total_fat' => (float) $food->fat,
             'total_water' => $food->water_g !== null ? (float) $food->water_g : 0.0,
             'micronutrients' => is_array($food->micronutrients) ? $food->micronutrients : [],
-            'servings' => (float) ($food->serving_size ?? 100),
+            'reference_amount' => (float) ($food->serving_size ?? 100),
             'serving_unit' => $food->serving_unit ?? 'serving',
             'meal_types' => ['snack'],
+            'component_type' => 'other',
         ];
     }
 

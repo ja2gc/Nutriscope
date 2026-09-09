@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\ClinicalRule;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
 
 class ClinicalRulesSeeder extends Seeder
 {
@@ -11,20 +12,20 @@ class ClinicalRulesSeeder extends Seeder
     {
         $rules = [
             // ── Diabetes Mellitus ──────────────────────────────────────────
-            ['condition' => 'DM', 'stage' => 'all', 'nutrient_or_food_tag' => 'carbs', 'rule_type' => 'limit', 'threshold' => 180, 'unit' => 'g', 'reason' => 'Carbohydrate restriction for glycemic control in diabetes mellitus'],
-            ['condition' => 'DM', 'stage' => 'all', 'nutrient_or_food_tag' => 'simple_sugar', 'rule_type' => 'avoid', 'threshold' => null, 'unit' => null, 'reason' => 'Simple sugars cause rapid blood glucose spikes'],
-            ['condition' => 'DM', 'stage' => 'all', 'nutrient_or_food_tag' => 'refined_carbs', 'rule_type' => 'limit', 'threshold' => null, 'unit' => null, 'reason' => 'Refined carbohydrates have high glycemic index'],
-            ['condition' => 'DM', 'stage' => 'all', 'nutrient_or_food_tag' => 'fiber', 'rule_type' => 'recommend', 'threshold' => 25, 'unit' => 'g', 'reason' => 'Dietary fiber slows glucose absorption'],
-            ['condition' => 'DM', 'stage' => 'all', 'nutrient_or_food_tag' => 'saturated_fat', 'rule_type' => 'limit', 'threshold' => 7, 'unit' => '%kcal', 'reason' => 'Saturated fat increases cardiovascular risk in diabetics'],
+            ['condition' => 'DM', 'stage' => 'all', 'nutrient_or_food_tag' => 'simple_sugar', 'rule_type' => 'avoid', 'threshold' => null, 'unit' => null, 'reason' => 'Minimize free sugars and individualize carbohydrate distribution for the patient’s treatment regimen.'],
+            ['condition' => 'DM', 'stage' => 'all', 'nutrient_or_food_tag' => 'refined_carbs', 'rule_type' => 'limit', 'threshold' => null, 'unit' => null, 'reason' => 'Prefer higher-fiber carbohydrate sources and individualize portions within the prescription.'],
+            ['condition' => 'DM', 'stage' => 'all', 'nutrient_or_food_tag' => 'fiber', 'rule_type' => 'recommend', 'threshold' => 25, 'unit' => 'g', 'reason' => 'Dietary fiber supports glycemic control and should be individualized within the prescription.'],
+            ['condition' => 'DM', 'stage' => 'all', 'nutrient_or_food_tag' => 'saturated_fat', 'rule_type' => 'limit', 'threshold' => 7, 'unit' => '%kcal', 'reason' => 'Limit saturated fat to reduce cardiovascular risk.'],
 
             // ── Chronic Kidney Disease ─────────────────────────────────────
-            ['condition' => 'CKD', 'stage' => 'stage1-2', 'nutrient_or_food_tag' => 'protein', 'rule_type' => 'limit', 'threshold' => 0.8, 'unit' => 'g/kg', 'reason' => 'Moderate protein restriction to reduce kidney workload'],
-            ['condition' => 'CKD', 'stage' => 'stage3-4', 'nutrient_or_food_tag' => 'protein', 'rule_type' => 'limit', 'threshold' => 0.6, 'unit' => 'g/kg', 'reason' => 'Stricter protein restriction in advanced CKD'],
-            ['condition' => 'CKD', 'stage' => 'all', 'nutrient_or_food_tag' => 'potassium', 'rule_type' => 'limit', 'threshold' => 2000, 'unit' => 'mg', 'reason' => 'Hyperkalemia risk in CKD — restrict dietary potassium'],
-            ['condition' => 'CKD', 'stage' => 'all', 'nutrient_or_food_tag' => 'phosphate', 'rule_type' => 'limit', 'threshold' => 800, 'unit' => 'mg', 'reason' => 'Phosphate restriction to prevent renal osteodystrophy'],
             ['condition' => 'CKD', 'stage' => 'all', 'nutrient_or_food_tag' => 'sodium', 'rule_type' => 'limit', 'threshold' => 2000, 'unit' => 'mg', 'reason' => 'Sodium restriction to control blood pressure and fluid retention'],
-            ['condition' => 'CKD', 'stage' => 'all', 'nutrient_or_food_tag' => 'fluid', 'rule_type' => 'limit', 'threshold' => 1500, 'unit' => 'ml', 'reason' => 'Fluid restriction to prevent edema and fluid overload'],
-            ['condition' => 'CKD', 'stage' => 'dialysis', 'nutrient_or_food_tag' => 'protein', 'rule_type' => 'recommend', 'threshold' => 1.2, 'unit' => 'g/kg', 'reason' => 'Dialysis patients need higher protein to compensate for dialysis losses'],
+            ['condition' => 'CKD', 'stage' => 'stage_1', 'nutrient_or_food_tag' => 'protein', 'rule_type' => 'recommend', 'threshold' => 0.8, 'unit' => 'g/kg IBW', 'reason' => 'Use the stage-specific protein target calculated in the patient prescription.'],
+            ['condition' => 'CKD', 'stage' => 'stage_2', 'nutrient_or_food_tag' => 'protein', 'rule_type' => 'recommend', 'threshold' => 0.8, 'unit' => 'g/kg IBW', 'reason' => 'Use the stage-specific protein target calculated in the patient prescription.'],
+            ['condition' => 'CKD', 'stage' => 'stage_3', 'nutrient_or_food_tag' => 'protein', 'rule_type' => 'recommend', 'threshold' => 0.7, 'unit' => 'g/kg IBW', 'reason' => 'Use the stage-specific protein target calculated in the patient prescription.'],
+            ['condition' => 'CKD', 'stage' => 'stage_4', 'nutrient_or_food_tag' => 'protein', 'rule_type' => 'recommend', 'threshold' => 0.6, 'unit' => 'g/kg IBW', 'reason' => 'Use the stage-specific protein target calculated in the patient prescription.'],
+            ['condition' => 'CKD', 'stage' => 'stage_5_predialysis', 'nutrient_or_food_tag' => 'protein', 'rule_type' => 'recommend', 'threshold' => 0.6, 'unit' => 'g/kg IBW', 'reason' => 'Use the stage-specific protein target calculated in the patient prescription.'],
+            ['condition' => 'CKD', 'stage' => 'hemodialysis', 'nutrient_or_food_tag' => 'protein', 'rule_type' => 'recommend', 'threshold' => 1.2, 'unit' => 'g/kg IBW', 'reason' => 'Hemodialysis increases protein needs; use the calculated patient prescription.'],
+            ['condition' => 'CKD', 'stage' => 'peritoneal', 'nutrient_or_food_tag' => 'protein', 'rule_type' => 'recommend', 'threshold' => 1.35, 'unit' => 'g/kg IBW', 'reason' => 'Peritoneal dialysis increases protein needs; use the calculated patient prescription.'],
 
             // ── Hypertension ───────────────────────────────────────────────
             ['condition' => 'hypertension', 'stage' => 'all', 'nutrient_or_food_tag' => 'sodium', 'rule_type' => 'limit', 'threshold' => 1500, 'unit' => 'mg', 'reason' => 'Sodium restriction is first-line dietary intervention for hypertension'],
@@ -42,7 +43,8 @@ class ClinicalRulesSeeder extends Seeder
             ['condition' => 'malnutrition', 'stage' => 'all', 'nutrient_or_food_tag' => 'energy', 'rule_type' => 'recommend', 'threshold' => 35, 'unit' => 'kcal/kg', 'reason' => 'Hypercaloric diet to replenish energy stores'],
 
             // ── Liver Disease ──────────────────────────────────────────────
-            ['condition' => 'liver_disease', 'stage' => 'cirrhosis', 'nutrient_or_food_tag' => 'protein', 'rule_type' => 'limit', 'threshold' => 1.0, 'unit' => 'g/kg', 'reason' => 'Protein restriction to prevent hepatic encephalopathy in cirrhosis'],
+            ['condition' => 'liver_disease', 'stage' => 'all', 'nutrient_or_food_tag' => 'protein', 'rule_type' => 'recommend', 'threshold' => 1.2, 'unit' => 'g/kg IBW', 'reason' => 'Protein should not be restricted routinely in liver disease; target 1.2–1.5 g/kg IBW within the patient prescription.'],
+            ['condition' => 'liver_disease', 'stage' => 'all', 'nutrient_or_food_tag' => 'late_evening_snack', 'rule_type' => 'recommend', 'threshold' => null, 'unit' => null, 'reason' => 'A late-evening snack reduces prolonged overnight fasting and supports muscle preservation.'],
             ['condition' => 'liver_disease', 'stage' => 'all', 'nutrient_or_food_tag' => 'sodium', 'rule_type' => 'limit', 'threshold' => 2000, 'unit' => 'mg', 'reason' => 'Sodium restriction to manage ascites in liver disease'],
 
             // ── Gout / Hyperuricemia ───────────────────────────────────────
@@ -51,16 +53,33 @@ class ClinicalRulesSeeder extends Seeder
             ['condition' => 'gout', 'stage' => 'all', 'nutrient_or_food_tag' => 'organ_meats', 'rule_type' => 'avoid', 'threshold' => null, 'unit' => null, 'reason' => 'Organ meats are very high in purines'],
         ];
 
-        foreach ($rules as $rule) {
-            ClinicalRule::updateOrCreate(
-                [
-                    'condition' => $rule['condition'],
-                    'stage' => $rule['stage'],
-                    'nutrient_or_food_tag' => $rule['nutrient_or_food_tag'],
-                    'rule_type' => $rule['rule_type'],
-                ],
-                $rule
-            );
-        }
+        $obsoleteRules = [
+            ['condition' => 'DM', 'stage' => 'all', 'nutrient_or_food_tag' => 'carbs', 'rule_type' => 'limit'],
+            ['condition' => 'CKD', 'stage' => 'stage1-2', 'nutrient_or_food_tag' => 'protein', 'rule_type' => 'limit'],
+            ['condition' => 'CKD', 'stage' => 'stage3-4', 'nutrient_or_food_tag' => 'protein', 'rule_type' => 'limit'],
+            ['condition' => 'CKD', 'stage' => 'all', 'nutrient_or_food_tag' => 'potassium', 'rule_type' => 'limit'],
+            ['condition' => 'CKD', 'stage' => 'all', 'nutrient_or_food_tag' => 'phosphate', 'rule_type' => 'limit'],
+            ['condition' => 'CKD', 'stage' => 'all', 'nutrient_or_food_tag' => 'fluid', 'rule_type' => 'limit'],
+            ['condition' => 'CKD', 'stage' => 'dialysis', 'nutrient_or_food_tag' => 'protein', 'rule_type' => 'recommend'],
+            ['condition' => 'liver_disease', 'stage' => 'cirrhosis', 'nutrient_or_food_tag' => 'protein', 'rule_type' => 'limit'],
+        ];
+
+        DB::transaction(function () use ($obsoleteRules, $rules): void {
+            foreach ($obsoleteRules as $identity) {
+                ClinicalRule::query()->where($identity)->delete();
+            }
+
+            foreach ($rules as $rule) {
+                ClinicalRule::updateOrCreate(
+                    [
+                        'condition' => $rule['condition'],
+                        'stage' => $rule['stage'],
+                        'nutrient_or_food_tag' => $rule['nutrient_or_food_tag'],
+                        'rule_type' => $rule['rule_type'],
+                    ],
+                    $rule
+                );
+            }
+        });
     }
 }

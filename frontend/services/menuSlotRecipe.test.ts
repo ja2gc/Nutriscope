@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { apiFetch } from "@/lib/apiFetch";
 import {
-  getMenuSlotRecipe,
-  restoreMenuSlotRecipe,
+  getMenuLineRecipe,
+  restoreMenuLineRecipe,
   scaledIngredientQuantity,
-  updateMenuSlotRecipe,
+  updateMenuLineRecipe,
 } from "./menuCycleService";
 
 vi.mock("@/lib/apiFetch", () => ({ apiFetch: vi.fn() }));
@@ -18,7 +18,7 @@ describe("menu slot recipe service", () => {
     expect(scaledIngredientQuantity(0.333, 3, 7)).toBeCloseTo(0.777);
   });
 
-  test("uses the dedicated slot endpoint for load, save, and restore", async () => {
+  test("uses the public line endpoint for load, save, and restore", async () => {
     apiFetchMock.mockResolvedValue(new Response(JSON.stringify({ data: { name: "Adobo" } }), { status: 200 }));
     const payload = {
       name: "Ward Adobo",
@@ -27,11 +27,11 @@ describe("menu slot recipe service", () => {
       ingredients: [{ fs_item_id: "item-1", quantity: 3, unit: "kg" }],
     };
 
-    await getMenuSlotRecipe("cycle-1", "Monday", "lunch");
-    await updateMenuSlotRecipe("cycle-1", "Monday", "lunch", payload);
-    await restoreMenuSlotRecipe("cycle-1", "Monday", "lunch");
+    await getMenuLineRecipe("cycle-1", "line-1");
+    await updateMenuLineRecipe("cycle-1", "line-1", payload);
+    await restoreMenuLineRecipe("cycle-1", "line-1");
 
-    const path = "/api/fss/menu-cycles/cycle-1/slots/Monday/lunch";
+    const path = "/api/fss/menu-cycles/cycle-1/lines/line-1";
     expect(apiFetchMock).toHaveBeenNthCalledWith(1, path);
     expect(apiFetchMock).toHaveBeenNthCalledWith(2, path, expect.objectContaining({ method: "PATCH" }));
     expect(apiFetchMock).toHaveBeenNthCalledWith(3, path, { method: "DELETE" });

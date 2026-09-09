@@ -19,9 +19,11 @@ vi.mock("@/services/fsCatalogService", () => ({ searchCatalog: vi.fn() }));
 
 const loadMock = vi.mocked(getMenuSlotRecipe);
 const slot = {
+  id: "line-1",
   cycle_id: "cycle-1",
   day: "Monday" as const,
   meal: "lunch" as const,
+  line_order: 1,
   source: "master" as const,
   locked: false,
   editable: true,

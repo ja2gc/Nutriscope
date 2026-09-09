@@ -15,9 +15,9 @@ class Recipe extends Model
     use HasPublicId;
 
     protected $fillable = [
-        'rnd_user_id', 'name', 'category', 'meal_types', 'prep_notes', 'cost',
+        'rnd_user_id', 'name', 'category', 'meal_types', 'component_type', 'prep_notes', 'cost',
         'total_calories', 'total_protein', 'total_carbs', 'total_fat', 'total_water_g',
-        'micronutrients', 'servings',
+        'micronutrients', 'servings', 'prepared_portion_amount', 'prepared_portion_unit',
     ];
 
     protected $casts = [
@@ -29,6 +29,7 @@ class Recipe extends Model
         'total_carbs' => 'decimal:2',
         'total_fat' => 'decimal:2',
         'total_water_g' => 'decimal:2',
+        'prepared_portion_amount' => 'decimal:2',
     ];
 
     public function rnd(): BelongsTo
@@ -102,7 +103,7 @@ class Recipe extends Model
      */
     public function recalculateTotals(): void
     {
-        $totals = ['calories' => 0, 'protein' => 0, 'carbs' => 0, 'fat' => 0, 'water' => 0];
+        $totals = ['calories' => 0, 'protein' => 0, 'carbs' => 0, 'fat' => 0, 'water' => 0, 'cost' => 0];
         $micros = [];
 
         foreach ($this->ingredients()->with('foodItem')->get() as $ing) {
@@ -117,6 +118,7 @@ class Recipe extends Model
             $totals['carbs'] += (float) $food->carbs * $factor;
             $totals['fat'] += (float) $food->fat * $factor;
             $totals['water'] += (float) ($food->water_g ?? 0) * $factor;
+            $totals['cost'] += (float) $food->unit_price * $factor;
 
             // Aggregate micronutrients weighted by ingredient proportion
             foreach ($food->micronutrients ?? [] as $key => $value) {
@@ -130,6 +132,7 @@ class Recipe extends Model
             'total_carbs' => round($totals['carbs'], 2),
             'total_fat' => round($totals['fat'], 2),
             'total_water_g' => round($totals['water'], 2),
+            'cost' => round($totals['cost'], 2),
             'micronutrients' => array_map(fn ($v) => round($v, 3), $micros),
         ]);
     }

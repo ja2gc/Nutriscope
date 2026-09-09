@@ -58,8 +58,17 @@ class MenuCycleWorkflowGuardTest extends TestCase
         $template->days()->create([
             'day_of_week' => 'Monday',
             'meal_type' => 'lunch',
+            'line_order' => 1,
             'fs_item_id' => $item->id,
             'quantity' => 1,
+        ]);
+        $secondItem = FsItem::factory()->create();
+        $template->days()->create([
+            'day_of_week' => 'Monday',
+            'meal_type' => 'lunch',
+            'line_order' => 2,
+            'fs_item_id' => $secondItem->id,
+            'quantity' => 0.5,
         ]);
 
         $response = $this->actingAs($this->rnd)
@@ -76,6 +85,8 @@ class MenuCycleWorkflowGuardTest extends TestCase
             'estimate_population' => null,
             'servings_override' => null,
         ]);
+        $this->assertSame([1, 2], $cycle->days()->orderBy('line_order')->pluck('line_order')->all());
+        $this->assertSame(2, $cycle->days()->where('day_of_week', 'Monday')->where('meal_type', 'lunch')->count());
         $this->assertSame('Standard ward menu', $template->fresh()->name);
     }
 

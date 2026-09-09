@@ -38,13 +38,13 @@ class FoodServiceRecipeController extends Controller
         RankedSearch::apply($query, is_string($search) ? $search : null, ['name']);
 
         $paginator = $query->orderBy('name')->orderBy('id')
-            ->paginate($request->perPage(), ['id', 'uuid', 'name', 'category', 'servings', 'created_at'])
+            ->paginate($request->perPage(), ['id', 'uuid', 'name', 'category', 'servings', 'portion_label', 'created_at'])
             ->withQueryString();
 
         return response()->json([
             'data' => collect($paginator->items())->map(fn ($r) => [
                 'id' => $r->uuid, 'name' => $r->name, 'category' => $r->category,
-                'servings' => $r->servings, 'created_at' => $r->created_at,
+                'servings' => $r->servings, 'portion_label' => $r->portion_label, 'created_at' => $r->created_at,
             ]),
             'meta' => [
                 'current_page' => $paginator->currentPage(),
@@ -173,6 +173,7 @@ class FoodServiceRecipeController extends Controller
             'category' => ['nullable', 'string', 'max:100'],
             'prep_notes' => ['nullable', 'string'],
             'servings' => ['nullable', 'integer', 'min:1'],
+            'portion_label' => ['nullable', 'string', 'max:100'],
             'ingredients' => ['required', 'array', 'min:1'],
             'ingredients.*.fs_item_id' => ['required', 'string', 'exists:fs_items,uuid'],
             'ingredients.*.quantity' => ['required', 'numeric', 'min:0.01'],
@@ -190,6 +191,7 @@ class FoodServiceRecipeController extends Controller
                     'category' => $data['category'] ?? null,
                     'prep_notes' => $data['prep_notes'] ?? null,
                     'servings' => $data['servings'] ?? 1,
+                    'portion_label' => $data['portion_label'] ?? null,
                 ]);
                 $this->syncIngredients($recipe, $data['ingredients']);
                 $recipe->recalculateCost();
@@ -240,6 +242,7 @@ class FoodServiceRecipeController extends Controller
             'category' => ['nullable', 'string', 'max:100'],
             'prep_notes' => ['nullable', 'string'],
             'servings' => ['nullable', 'integer', 'min:1'],
+            'portion_label' => ['nullable', 'string', 'max:100'],
             'ingredients' => ['sometimes', 'array', 'min:1'],
             'ingredients.*.fs_item_id' => ['required_with:ingredients', 'string', 'exists:fs_items,uuid'],
             'ingredients.*.quantity' => ['required_with:ingredients', 'numeric', 'min:0.01'],
@@ -265,6 +268,7 @@ class FoodServiceRecipeController extends Controller
                     'category' => $data['category'] ?? null,
                     'prep_notes' => $data['prep_notes'] ?? null,
                     'servings' => $data['servings'] ?? null,
+                    'portion_label' => $data['portion_label'] ?? null,
                 ], fn ($value) => $value !== null));
 
                 if ($structural) {
@@ -344,6 +348,7 @@ class FoodServiceRecipeController extends Controller
             'category' => $recipe->category,
             'prep_notes' => $recipe->prep_notes,
             'servings' => (int) $recipe->servings,
+            'portion_label' => $recipe->portion_label,
             'cost' => (float) $recipe->cost,
         ];
     }
@@ -382,6 +387,7 @@ class FoodServiceRecipeController extends Controller
             'category' => $recipe->category,
             'prep_notes' => $recipe->prep_notes,
             'servings' => $recipe->servings,
+            'portion_label' => $recipe->portion_label,
             'cost' => round((float) $recipe->cost, 2),
             'ingredients' => $recipe->ingredients->map(function ($ing) {
                 $conv = self::conversionInfo($ing->fsItem, (float) $ing->quantity, $ing->unit);

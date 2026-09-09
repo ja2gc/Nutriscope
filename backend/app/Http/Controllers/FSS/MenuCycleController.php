@@ -25,6 +25,7 @@ use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class MenuCycleController extends Controller
 {
@@ -112,6 +113,13 @@ class MenuCycleController extends Controller
         return response()->json(['data' => $this->slotData($this->resolveSlot($menuCycle, $day, $meal))]);
     }
 
+    public function line(MenuCycle $menuCycle, MenuCycleDay $menuCycleDay): JsonResponse
+    {
+        $this->ensureLineBelongsToCycle($menuCycle, $menuCycleDay);
+
+        return response()->json(['data' => $this->slotData($menuCycleDay)]);
+    }
+
     public function updateSlot(
         UpdateMenuSlotRecipeRequest $request,
         MenuCycle $menuCycle,
@@ -119,6 +127,15 @@ class MenuCycleController extends Controller
         string $meal,
     ): JsonResponse {
         $slot = $this->resolveSlot($menuCycle, $day, $meal);
+
+        return $this->updateResolvedSlot($request, $menuCycle, $slot);
+    }
+
+    private function updateResolvedSlot(
+        UpdateMenuSlotRecipeRequest $request,
+        MenuCycle $menuCycle,
+        MenuCycleDay $slot,
+    ): JsonResponse {
         if ($slot->po_snapshot_locked) {
             return response()->json(['message' => 'This menu item is locked to a purchase order.'], 409);
         }
@@ -148,15 +165,38 @@ class MenuCycleController extends Controller
         return response()->json(['data' => $this->slotData($slot->fresh())]);
     }
 
+    public function updateLine(
+        UpdateMenuSlotRecipeRequest $request,
+        MenuCycle $menuCycle,
+        MenuCycleDay $menuCycleDay,
+    ): JsonResponse {
+        $this->ensureLineBelongsToCycle($menuCycle, $menuCycleDay);
+
+        return $this->updateResolvedSlot($request, $menuCycle, $menuCycleDay);
+    }
+
     public function restoreSlot(MenuCycle $menuCycle, string $day, string $meal): JsonResponse
     {
         $slot = $this->resolveSlot($menuCycle, $day, $meal);
+
+        return $this->restoreResolvedSlot($menuCycle, $slot);
+    }
+
+    private function restoreResolvedSlot(MenuCycle $menuCycle, MenuCycleDay $slot): JsonResponse
+    {
         if ($slot->po_snapshot_locked) {
             return response()->json(['message' => 'This menu item is locked to a purchase order.'], 409);
         }
         $this->recordSlotChange($menuCycle, fn () => $slot->update(['recipe_override' => null]));
 
         return response()->json(['data' => $this->slotData($slot->fresh())]);
+    }
+
+    public function restoreLine(MenuCycle $menuCycle, MenuCycleDay $menuCycleDay): JsonResponse
+    {
+        $this->ensureLineBelongsToCycle($menuCycle, $menuCycleDay);
+
+        return $this->restoreResolvedSlot($menuCycle, $menuCycleDay);
     }
 
     public function update(UpdateMenuCycleRequest $request, MenuCycle $menuCycle): JsonResponse
@@ -406,8 +446,14 @@ class MenuCycleController extends Controller
         return $cycle->days()
             ->where('day_of_week', $day)
             ->where('meal_type', $meal)
+            ->orderBy('line_order')
             ->with(['recipe.ingredients.fsItem', 'fsItem'])
             ->firstOrFail();
+    }
+
+    private function ensureLineBelongsToCycle(MenuCycle $cycle, MenuCycleDay $line): void
+    {
+        abort_unless($line->menu_cycle_id === $cycle->id, 404);
     }
 
     private function slotData(MenuCycleDay $slot): array
@@ -459,9 +505,11 @@ class MenuCycleController extends Controller
         }
 
         return [
+            'id' => $slot->uuid,
             'cycle_id' => $slot->menuCycle->uuid,
             'day' => $slot->day_of_week,
             'meal' => $slot->meal_type,
+            'line_order' => $slot->line_order,
             'source' => $slot->recipe_override ? 'custom' : ($slot->po_snapshot_locked ? 'locked' : 'master'),
             'locked' => (bool) $slot->po_snapshot_locked,
             'editable' => Auth::user()?->role === 'RND' && ! $slot->po_snapshot_locked && $slot->recipe_id !== null,
@@ -470,6 +518,7 @@ class MenuCycleController extends Controller
             'planned_servings' => $estimateSet ? $target : null,
             'purchase_estimate_set' => $estimateSet,
             'prep_notes' => $recipe['prep_notes'] ?? null,
+            'portion_label' => $recipe['portion_label'] ?? null,
             'ingredients' => $ingredients,
             'total_cost' => $estimateSet ? (float) $result['total_cost'] : null,
             'cost_per_head' => $estimateSet ? (float) $result['cost_per_head'] : null,
@@ -486,9 +535,11 @@ class MenuCycleController extends Controller
         $items = FsItem::query()->whereIn('id', $usage->pluck('fs_item_id'))->get()->keyBy('id');
 
         return [
+            'id' => $slot->uuid,
             'cycle_id' => $slot->menuCycle->uuid,
             'day' => $slot->day_of_week,
             'meal' => $slot->meal_type,
+            'line_order' => $slot->line_order,
             'source' => 'locked',
             'locked' => true,
             'editable' => false,
@@ -497,6 +548,7 @@ class MenuCycleController extends Controller
             'planned_servings' => $planned,
             'purchase_estimate_set' => true,
             'prep_notes' => $snapshot['prep_notes'] ?? null,
+            'portion_label' => $snapshot['portion_label'] ?? null,
             'ingredients' => $usage->map(function (array $ingredient) use ($items, $reference, $planned): array {
                 $item = $items->get((int) $ingredient['fs_item_id']);
                 $scaled = (float) $ingredient['quantity'];
@@ -554,24 +606,47 @@ class MenuCycleController extends Controller
     /** Replace the cycle's days with the supplied grid (single batch INSERT). */
     private function syncDays(MenuCycle $cycle, array $days): void
     {
-        $existing = $cycle->days()->get()->keyBy(fn ($day) => $day->day_of_week.'|'.$day->meal_type);
+        $existing = $cycle->days()->get();
+        $existingByUuid = $existing->keyBy('uuid');
+        $usedExistingIds = [];
         $cycle->days()->delete();
 
         $now = Carbon::now();
         $rows = [];
+        $lineCounters = [];
 
         foreach ($days as $d) {
             if (empty($d['recipe_id']) && empty($d['fs_item_id'])) {
                 continue;
             }
-            $previous = $existing->get($d['day_of_week'].'|'.$d['meal_type']);
+            $slotKey = $d['day_of_week'].'|'.$d['meal_type'];
+            $lineOrder = ($lineCounters[$slotKey] ?? 0) + 1;
+            $lineCounters[$slotKey] = $lineOrder;
+            $previous = ! empty($d['id']) ? $existingByUuid->get($d['id']) : null;
+            if ($previous && ($previous->day_of_week !== $d['day_of_week'] || $previous->meal_type !== $d['meal_type'])) {
+                $previous = null;
+            }
+            if (! $previous) {
+                $previous = $existing->first(function (MenuCycleDay $candidate) use ($d, $usedExistingIds): bool {
+                    return ! isset($usedExistingIds[$candidate->id])
+                        && $candidate->day_of_week === $d['day_of_week']
+                        && $candidate->meal_type === $d['meal_type']
+                        && (int) $candidate->recipe_id === (int) ($d['recipe_id'] ?? 0)
+                        && (int) $candidate->fs_item_id === (int) ($d['fs_item_id'] ?? 0);
+                });
+            }
+            if ($previous) {
+                $usedExistingIds[$previous->id] = true;
+            }
             $sameSource = $previous
                 && (int) $previous->recipe_id === (int) ($d['recipe_id'] ?? 0)
                 && (int) $previous->fs_item_id === (int) ($d['fs_item_id'] ?? 0);
             $rows[] = [
+                'uuid' => $previous?->uuid ?? (string) Str::uuid(),
                 'menu_cycle_id' => $cycle->id,
                 'day_of_week' => $d['day_of_week'],
                 'meal_type' => $d['meal_type'],
+                'line_order' => $lineOrder,
                 'recipe_id' => $d['recipe_id'] ?? null,
                 'fs_item_id' => $d['fs_item_id'] ?? null,
                 'quantity' => $d['quantity'] ?? 1,
@@ -616,8 +691,8 @@ class MenuCycleController extends Controller
 
     private function daySignature(MenuCycle $cycle): array
     {
-        return $cycle->days()->orderBy('day_of_week')->orderBy('meal_type')
-            ->get(['day_of_week', 'meal_type', 'recipe_id', 'fs_item_id', 'quantity', 'estimate_population'])
+        return $cycle->days()->orderBy('day_of_week')->orderBy('meal_type')->orderBy('line_order')
+            ->get(['uuid', 'day_of_week', 'meal_type', 'line_order', 'recipe_id', 'fs_item_id', 'quantity', 'estimate_population'])
             ->map->toArray()->values()->all();
     }
 }

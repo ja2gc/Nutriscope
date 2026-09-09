@@ -69,7 +69,7 @@ Verified against current navigation and server permissions on **2026-09-08**. Fo
 4. Resolve missing Assessment inputs or enter justified values manually.
 5. Save food/nutrient delivery targets.
 6. Review food recommendations.
-7. Create, generate, or load a patient meal plan template; check allergens, restrictions, portions, nutrients, and variance.
+7. Create, generate, or load a patient meal plan template. Loaded templates preserve exact items; use **Scale to prescription** to adjust quantities without substitutions. Auto-generation can **Exclude snacks** when the selected goal permits it. Check allergens, restrictions, portions, nutrients, and variance.
 8. Complete Education, Counseling, and Goal Planning.
 9. Save each section. Do not leave while the page shows unsaved changes.
 
@@ -114,9 +114,9 @@ Verified against current navigation and server permissions on **2026-09-08**. Fo
 
 1. Open **Food Service → Menu Cycle**.
 2. Create a cycle or instantiate a template.
-3. Set the week and add recipes/items to meal slots. Leave the name blank to use the date-span name.
+3. Set the week and add one or more ordered meal recipes/items to each slot. Leave the name blank to use the date-span name. Keep bulk rice out of the menu itself.
 4. Review baseline ingredients and preparation notes; the purchase estimate is set later for the whole shopping span.
-5. Save; optionally save as template.
+5. Save; optionally save as template. Add bulk **Rice** in kilograms later through the generated shopping-list draft's existing add-item control; an empty search recommends it first.
 6. Activate the approved cycle so FSS can execute it.
 
 #### D. Procurement
@@ -142,7 +142,7 @@ Verified against current navigation and server permissions on **2026-09-08**. Fo
 
 1. Open **Announcements**.
 2. Review the current SOP and History before publishing procedure-sensitive work.
-3. Add an announcement with category, audience, title/body, pin state, and optional images.
+3. Add an announcement with category, audience, title/body, pin state, and optional images. Verify the post uses the author's profile photo and keeps the post image inside the bounded responsive frame.
 4. Edit/delete only authorized posts.
 5. Use **Revise SOP** for a true procedure revision; saving creates a new history version.
 
@@ -161,7 +161,7 @@ Verified against current navigation and server permissions on **2026-09-08**. Fo
 1. Open **Help** in the sidebar to search Shared and RND-only answers. Expand a question to read its answer; clear the search to browse by topic.
 2. Open Notifications for announcements and appointment/follow-up reminders. Selecting an actionable item opens its exact record. Informational or resolved items can be dismissed; unresolved action-required items cannot.
 3. Use Settings for local density/motion, notification preferences, and food-service budget limit.
-4. Use Profile for identity, sign-in email, contact, photo, recovery email, and password.
+4. Use Profile for identity, sign-in email, contact, circular drag/zoom photo crop, recovery email, and password.
 
 ## FSS Mobile Workflow
 

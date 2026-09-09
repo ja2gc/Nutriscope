@@ -1,6 +1,6 @@
 # NutriScope Frequently Asked Questions
 
-Verified against the current web, mobile, and Laravel role gates on **2026-09-08**. This is the user-facing FAQ and source for the role-scoped in-app Help pages. When this file conflicts with an older diagram or plan, current application code wins.
+Verified against the current web, mobile, and Laravel role gates on **2026-09-09**. This is the user-facing FAQ and source for the role-scoped in-app Help pages. When this file conflicts with an older diagram or plan, current application code wins.
 
 ## Start Here
 
@@ -38,7 +38,7 @@ Admin suspended the account. Contact an Admin. Reactivating the account is an Ad
 
 ### Can I change my name, sign-in email, contact number, or profile photo?
 
-Yes. Open **Profile**. Web users can update first name, last name, sign-in email, contact number, and one PNG/JPEG/WebP profile image under 220 KB. FSS mobile supports name, sign-in email, and contact number; role and status remain read-only.
+Yes. Open **Profile**. Web users can update first name, last name, sign-in email, contact number, and one PNG/JPEG/WebP profile image. A selected image may be up to 10 MB; reposition and zoom it in the circular crop before applying it. FSS mobile supports name, sign-in email, and contact number; role and status remain read-only.
 
 ### What is the difference between sign-in email and recovery email?
 
@@ -79,7 +79,7 @@ Read the field-level or page error, keep the page open, correct missing values, 
 
 ### What is the difference between an announcement and an SOP?
 
-- **Announcement:** time-based post with category, audience visibility, pinning, text, and optional images.
+- **Announcement:** time-based post with category, audience visibility, pinning, text, and optional images. Post images retain their original proportions inside a fixed responsive frame, and the author uses their current profile photo when one is available.
 - **SOP:** one current standard procedure pinned above announcements. Each revision creates a preserved version in **History**.
 
 ### Who can revise the SOP?
@@ -170,7 +170,7 @@ Food/nutrient delivery and prescription, food guidance, patient meal plan, educa
 
 ### Can I make a patient meal plan manually or from a template?
 
-Yes. Meal plans can be created manually, generated, or loaded from a saved template. Review allergens, restrictions, portions, nutrition totals, and variance against the saved prescription before use.
+Yes. Meal plans can be created manually, generated, or loaded from a saved template. Templates retain their exact foods, recipes, and quantities. Use **Scale to prescription** in the common editor to adjust quantities without substituting items. Auto-generation already uses the saved prescription; **Exclude snacks** leaves snack slots empty and redistributes their targets across main meals, except for liver-disease plans where the application keeps clinically required frequent intake. Review allergens, restrictions, portions, nutrition totals, and variance before use.
 
 ### What can I record in Monitoring?
 
@@ -202,7 +202,7 @@ No. Current FSS mobile navigation has no Inventory tab or stock add/deduct workf
 
 ### How do I build a food-service menu cycle?
 
-Prepare Inventory and Foods first. Open **Food Service → Menu Cycle**, create a Monday-anchored week or load a template, add recipes or single items, save, then activate. A blank name is generated from the date span. Baseline profiles remain visible; one purchase estimate is entered later when generating a suggested list.
+Prepare Inventory and Foods first. Open **Food Service → Menu Cycle**, create a Monday-anchored week or load a template, add one or more meal recipes or single items to each slot, save, then activate. A blank name is generated from the date span. Weekly menus and templates contain the meals only; bulk rice is not a menu line. Baseline profiles remain visible; one purchase estimate is entered later when generating a suggested list.
 
 ### What is a menu-cycle template?
 
@@ -214,7 +214,7 @@ It makes that cycle the active operational week shown to FSS. FSS can view it bu
 
 ### How is a suggested food shopping list created?
 
-Open **Procurement → Food Shopping Lists → Suggest from Menu**, select a date range, enter one estimated serving count for the span, and generate. Every date must have assigned menu items; otherwise creation is blocked with the exact missing dates. Ingredients marked **Purchase when needed** remain in recipes but are not auto-added.
+Open **Procurement → Food Shopping Lists → Suggest from Menu**, select a date range, enter one estimated serving count for the span, and generate. Every date must have assigned menu items; otherwise creation is blocked with the exact missing dates. Ingredients marked **Purchase when needed** remain in recipes but are not auto-added. Review the generated draft and use its existing add-item control for bulk rice when needed; an empty item search recommends **Rice** first, in kilograms.
 
 ### Can I make a food or event list without a menu cycle?
 

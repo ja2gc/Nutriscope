@@ -100,6 +100,7 @@ class MealPlanItemController extends Controller
                 'unit' => $request->unit,
                 'nutrient_snapshot' => $snapshot,
             ]);
+            $this->markPlanForRescaling($mealPlan);
             $this->recordMutation(AuditAction::Created, $mealPlan, $ncpRecord, ['meal_plan_item'], 201);
 
             return $item;
@@ -213,6 +214,7 @@ class MealPlanItemController extends Controller
         $this->audited(function () use ($item, $validated, $mealPlan, $ncpRecord): void {
             $item->fill(array_intersect_key($validated, array_flip(['quantity', 'unit'])));
             $item->save();
+            $this->markPlanForRescaling($mealPlan);
             $this->recordMutation(AuditAction::Updated, $mealPlan, $ncpRecord, array_keys($validated));
         });
 
@@ -271,8 +273,8 @@ class MealPlanItemController extends Controller
             'carbs' => $r1($carb),
             'fat' => $r1($fat),
             'water_g' => $item->nutrient_snapshot['water_g'] ?? null,
-            'serving_size' => 1,
-            'serving_unit' => 'serving',
+            'serving_size' => (float) ($item->nutrient_snapshot['serving_size'] ?? ($recipe->prepared_portion_amount ?: 1)),
+            'serving_unit' => $item->nutrient_snapshot['serving_unit'] ?? ($recipe->prepared_portion_unit ?: 'serving'),
             'micronutrients' => array_map(fn ($v) => round($v / $servings, 1), $micros),
         ];
     }
@@ -282,6 +284,7 @@ class MealPlanItemController extends Controller
         $this->assertScope($ncpRecord, $mealPlan, $day, $item);
         $this->audited(function () use ($item, $mealPlan, $ncpRecord): void {
             $item->delete();
+            $this->markPlanForRescaling($mealPlan);
             $this->recordMutation(AuditAction::Deleted, $mealPlan, $ncpRecord, ['meal_plan_item'], 204);
         });
 
@@ -301,6 +304,11 @@ class MealPlanItemController extends Controller
         );
     }
 
+    private function markPlanForRescaling(MealPlan $mealPlan): void
+    {
+        $mealPlan->updateQuietly(['needs_rescaling' => true, 'scaled_at' => null]);
+    }
+
     private function buildSnapshot(StoreMealPlanItemRequest $request): array
     {
         if ($request->filled('fdc_id')) {
@@ -311,17 +319,20 @@ class MealPlanItemController extends Controller
 
         if ($request->filled('recipe_id')) {
             $recipe = Recipe::findOrFail($request->input('recipe_id'));
+            $servings = max((float) ($recipe->servings ?? 1), 1);
 
             return [
                 'name' => $recipe->name,
-                'calories' => (float) $recipe->total_calories,
-                'protein' => (float) $recipe->total_protein,
-                'carbs' => (float) $recipe->total_carbs,
-                'fat' => (float) $recipe->total_fat,
-                'water_g' => null,
-                'micronutrients' => $recipe->micronutrients ?? [],
-                'serving_size' => (float) ($recipe->servings ?? 1),
-                'serving_unit' => 'serving',
+                'calories' => round((float) $recipe->total_calories / $servings, 2),
+                'protein' => round((float) $recipe->total_protein / $servings, 2),
+                'carbs' => round((float) $recipe->total_carbs / $servings, 2),
+                'fat' => round((float) $recipe->total_fat / $servings, 2),
+                'water_g' => round((float) ($recipe->total_water ?? 0) / $servings, 2),
+                'micronutrients' => collect($recipe->micronutrients ?? [])->map(
+                    fn ($value): float => round((float) $value / $servings, 3)
+                )->all(),
+                'serving_size' => (float) ($recipe->prepared_portion_amount ?: 1),
+                'serving_unit' => $recipe->prepared_portion_unit ?: 'serving',
             ];
         }
 

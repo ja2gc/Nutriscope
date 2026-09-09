@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
@@ -65,6 +65,7 @@ function ListDetail({ id, suppliers, onBack, onPosGenerated }: {
   const [addSupplier, setAddSupplier] = useState("");
   const [itemError, setItemError] = useState("");
   const [approveErr, setApproveErr] = useState("");
+  const itemSearchRequest = useRef(0);
 
   const load = useCallback(() => {
     getShoppingList(id).then(setList);
@@ -78,6 +79,7 @@ function ListDetail({ id, suppliers, onBack, onPosGenerated }: {
   }
 
   async function searchItems(q: string) {
+    const requestId = ++itemSearchRequest.current;
     setItemSearch(q);
     setSelectedItem(null);
     if (q.trim().length < 2) { setItemResults([]); return; }
@@ -85,7 +87,19 @@ function ListDetail({ id, suppliers, onBack, onPosGenerated }: {
       q,
       list?.procurement_track === "supplies" ? "supply" : "ingredient",
     );
-    setItemResults(result.slice(0, 5));
+    if (requestId === itemSearchRequest.current) setItemResults(result.slice(0, 5));
+  }
+
+  async function showInitialItemSuggestions() {
+    if (list?.procurement_track === "supplies" || itemSearch.trim() || selectedItem) return;
+
+    const requestId = ++itemSearchRequest.current;
+    const result = await searchCatalog("Rice", "ingredient");
+    const riceRank = (item: CatalogItem) =>
+      item.name.localeCompare("Rice", undefined, { sensitivity: "base" }) === 0 ? 0 : 1;
+    if (requestId === itemSearchRequest.current) {
+      setItemResults([...result].sort((a, b) => riceRank(a) - riceRank(b)).slice(0, 5));
+    }
   }
 
   function selectManualItem(item: CatalogItem) {
@@ -242,6 +256,7 @@ function ListDetail({ id, suppliers, onBack, onPosGenerated }: {
                 <input
                   value={itemSearch}
                   onChange={(e) => searchItems(e.target.value)}
+                  onFocus={showInitialItemSuggestions}
                   className="w-full text-base outline-none"
                 />
               </div>

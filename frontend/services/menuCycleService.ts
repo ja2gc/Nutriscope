@@ -15,11 +15,12 @@ export const MEAL_LABELS: Record<Meal, string> = {
 };
 
 export interface MenuDay {
-  id?: number;
+  id: string;
   day_of_week: Day;
   meal_type: Meal;
-  recipe_id: number | null;
-  fs_item_id: number | null;
+  line_order: number;
+  recipe_id: string | null;
+  fs_item_id: string | null;
   quantity: number;
   servings_override: number | null;
   estimate_population: number | null; // headcount for this day (drives scaling)
@@ -29,8 +30,8 @@ export interface MenuDay {
   po_snapshot_at?: string | null;
   po_snapshot_locked?: boolean;
   has_recipe_override?: boolean;
-  recipe?: { id: number; name: string; servings: number; cost: string } | null;
-  fs_item?: { id: number; name: string } | null;
+  recipe?: { id: string; name: string; servings: number; portion_label?: string | null; cost: string } | null;
+  fs_item?: { id: string; name: string } | null;
 }
 
 export interface MenuSnapshot {
@@ -48,7 +49,7 @@ export interface MenuSnapshot {
 }
 
 export interface MenuCycle {
-  id: number;
+  id: string;
   name: string;
   cycle_days: number;
   status: string;
@@ -58,7 +59,7 @@ export interface MenuCycle {
 }
 
 export interface CycleListItem {
-  id: number;
+  id: string;
   name: string;
   status: string;
   is_active: boolean;
@@ -79,14 +80,15 @@ export interface ComputeResult {
   ingredient_usage: { fs_item_id: number; name: string; unit: string; quantity: number; cost: number }[];
 }
 
-export interface RecipeOption { id: number; name: string; category: string | null; servings: number; cost?: string }
+export interface RecipeOption { id: string; name: string; category: string | null; servings: number; portion_label?: string | null; cost?: string }
 
-export interface FsItemOption { id: number; name: string; category: string | null; unit: string; unit_cost: number }
+export interface FsItemOption { id: string; name: string; category: string | null; unit: string; unit_cost: number }
 
 export interface RecipeProfile {
   recipe_id: number;
   name: string;
   prep_notes: string | null;
+  portion_label?: string | null;
   servings: number;
   population: number;
   total_cost: number;
@@ -126,9 +128,11 @@ export interface MenuSlotIngredient {
 }
 
 export interface MenuSlotRecipe {
+  id: string;
   cycle_id: string;
   day: Day;
   meal: Meal;
+  line_order: number;
   source: "master" | "custom" | "locked";
   locked: boolean;
   editable: boolean;
@@ -137,6 +141,7 @@ export interface MenuSlotRecipe {
   planned_servings: number | null;
   purchase_estimate_set: boolean;
   prep_notes: string | null;
+  portion_label?: string | null;
   ingredients: MenuSlotIngredient[];
   total_cost: number | null;
   cost_per_head: number | null;
@@ -157,6 +162,26 @@ export function scaledIngredientQuantity(quantity: number, referenceServings: nu
 
 function slotPath(cycleId: string | number, day: Day, meal: Meal): string {
   return `/api/fss/menu-cycles/${cycleId}/slots/${day}/${meal}`;
+}
+
+function linePath(cycleId: string | number, lineId: string): string {
+  return `/api/fss/menu-cycles/${cycleId}/lines/${lineId}`;
+}
+
+export async function getMenuLineRecipe(cycleId: string | number, lineId: string): Promise<MenuSlotRecipe> {
+  return json<MenuSlotRecipe>(await apiFetch(linePath(cycleId, lineId)), "Failed to load menu item details.");
+}
+
+export async function updateMenuLineRecipe(cycleId: string | number, lineId: string, payload: UpdateMenuSlotRecipePayload): Promise<MenuSlotRecipe> {
+  return json<MenuSlotRecipe>(await apiFetch(linePath(cycleId, lineId), {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  }), "Failed to save menu item details.");
+}
+
+export async function restoreMenuLineRecipe(cycleId: string | number, lineId: string): Promise<MenuSlotRecipe> {
+  return json<MenuSlotRecipe>(await apiFetch(linePath(cycleId, lineId), { method: "DELETE" }), "Failed to restore the original recipe.");
 }
 
 export async function getMenuSlotRecipe(cycleId: string | number, day: Day, meal: Meal): Promise<MenuSlotRecipe> {
@@ -199,12 +224,12 @@ export function menuSnapshotToProfile(snapshot: MenuSnapshot): RecipeProfile {
 }
 
 /** Per-ingredient cost breakdown for a recipe scaled to a day's headcount. */
-export async function getRecipeProfile(recipeId: number, population: number): Promise<RecipeProfile> {
+export async function getRecipeProfile(recipeId: string, population: number): Promise<RecipeProfile> {
   const res = await apiFetch(`/api/fss/food-service-recipes/${recipeId}/profile?population=${population}`);
   return json<RecipeProfile>(res, "Failed to load recipe profile.");
 }
 
-export async function getFsItemProfile(fsItemId: number, population: number, quantity = 1): Promise<FsItemProfile> {
+export async function getFsItemProfile(fsItemId: string, population: number, quantity = 1): Promise<FsItemProfile> {
   const qs = new URLSearchParams({ population: String(population), quantity: String(quantity) });
   const res = await apiFetch(`/api/fss/fs-items/${fsItemId}/profile?${qs}`);
   return json<FsItemProfile>(res, "Failed to load item profile.");
@@ -214,13 +239,13 @@ export interface SaveCyclePayload {
   name?: string;
   cycle_days?: number;
   week_start_date?: string | null;
-  days?: Array<Pick<MenuDay, "day_of_week" | "meal_type" | "recipe_id" | "fs_item_id" | "quantity" | "servings_override" | "estimate_population" | "is_event" | "event_allocation">>;
+  days?: Array<Pick<MenuDay, "day_of_week" | "meal_type" | "line_order" | "recipe_id" | "fs_item_id" | "quantity" | "servings_override" | "estimate_population" | "is_event" | "event_allocation"> & { id?: string }>;
 }
 
-export interface TemplateListItem { id: number; name: string; description: string | null; cycle_days: number; days_count: number; updated_at: string }
+export interface TemplateListItem { id: string; name: string; description: string | null; cycle_days: number; days_count: number; updated_at: string }
 export interface TemplateDetail {
-  id: number; name: string; description: string | null; cycle_days: number;
-  days: Array<{ day_of_week: Day; meal_type: Meal; recipe_id: number | null; fs_item_id: number | null; quantity: number; recipe?: { id: number; name: string } | null }>;
+  id: string; name: string; description: string | null; cycle_days: number;
+  days: Array<{ day_of_week: Day; meal_type: Meal; line_order: number; recipe_id: string | null; fs_item_id: string | null; quantity: number; recipe?: { id: string; name: string } | null }>;
 }
 
 async function json<T>(res: Response, fallback: string): Promise<T> {
@@ -253,12 +278,12 @@ export async function listCycles(page = 1): Promise<{ data: CycleListItem[]; met
   return { data: body.data ?? [], meta: body.meta ?? { current_page: page, per_page: 10, total: 0, last_page: 1 } };
 }
 
-export async function getCycle(id: number): Promise<MenuCycle> {
+export async function getCycle(id: string): Promise<MenuCycle> {
   const res = await apiFetch(`/api/fss/menu-cycles/${id}`);
   return json<MenuCycle>(res, "Failed to load menu cycle.");
 }
 
-export async function saveCycle(id: number | null, payload: SaveCyclePayload): Promise<MenuCycle> {
+export async function saveCycle(id: string | null, payload: SaveCyclePayload): Promise<MenuCycle> {
   const res = await apiFetch(id ? `/api/fss/menu-cycles/${id}` : "/api/fss/menu-cycles", {
     method: id ? "PATCH" : "POST",
     headers: { "Content-Type": "application/json" },
@@ -267,7 +292,7 @@ export async function saveCycle(id: number | null, payload: SaveCyclePayload): P
   return json<MenuCycle>(res, "Failed to save menu cycle.");
 }
 
-export async function deleteCycle(id: number): Promise<void> {
+export async function deleteCycle(id: string): Promise<void> {
   const res = await apiFetch(`/api/fss/menu-cycles/${id}`, { method: "DELETE" });
   if (!res.ok && res.status !== 204) throw new Error("Failed to delete menu cycle.");
 }
@@ -300,8 +325,8 @@ export interface FssDashboardSummary {
   meals_to_log_today: number;
   pending_pos: PendingPo[];
   pending_pos_count: number;
-  today_service: Array<{ meal_type: string; name: string; prepped: boolean; has_shortfall: boolean }>;
-  active_cycle: { id: number; name: string; activation_date: string | null; service_day_count: number } | null;
+  today_service: Array<{ id: string; meal_type: string; line_order: number; name: string; prepped: boolean; has_shortfall: boolean }>;
+  active_cycle: { id: string; name: string; activation_date: string | null; service_day_count: number } | null;
 }
 
 export async function getFssDashboard(): Promise<FssDashboardSummary | null> {
@@ -310,23 +335,23 @@ export async function getFssDashboard(): Promise<FssDashboardSummary | null> {
   return (await res.json()).data ?? null;
 }
 
-export async function computeCycle(id: number): Promise<ComputeResult> {
+export async function computeCycle(id: string): Promise<ComputeResult> {
   const res = await apiFetch(`/api/fss/menu-cycles/${id}/compute`);
   return json<ComputeResult>(res, "Failed to compute cycle.");
 }
 
-export async function activateCycle(id: number): Promise<MenuCycle> {
+export async function activateCycle(id: string): Promise<MenuCycle> {
   const res = await apiFetch(`/api/fss/menu-cycles/${id}/activate`, { method: "PATCH" });
   return json<MenuCycle>(res, "Failed to activate.");
 }
 
-export async function saveCycleAsTemplate(id: number, name: string, description?: string): Promise<{ id: number }> {
+export async function saveCycleAsTemplate(id: string, name: string, description?: string): Promise<{ id: string }> {
   const res = await apiFetch(`/api/fss/menu-cycles/${id}/save-template`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ name, description }),
   });
-  return json<{ id: number }>(res, "Failed to save template.");
+  return json<{ id: string }>(res, "Failed to save template.");
 }
 
 // ─── Templates ──────────────────────────────────────────────────────────────────
@@ -337,21 +362,21 @@ export async function listTemplates(page = 1): Promise<{ data: TemplateListItem[
   return { data: body.data ?? [], meta: body.meta ?? { current_page: page, per_page: 10, total: 0, last_page: 1 } };
 }
 
-export async function getTemplate(id: number): Promise<TemplateDetail> {
+export async function getTemplate(id: string): Promise<TemplateDetail> {
   const res = await apiFetch(`/api/fss/menu-cycle-templates/${id}`);
   return json<TemplateDetail>(res, "Failed to load template.");
 }
 
-export async function instantiateTemplate(id: number, payload: { name?: string; week_start_date?: string | null }): Promise<{ id: number; name: string }> {
+export async function instantiateTemplate(id: string, payload: { name?: string; week_start_date?: string | null }): Promise<{ id: string; name: string }> {
   const res = await apiFetch(`/api/fss/menu-cycle-templates/${id}/instantiate`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
-  return json<{ id: number; name: string }>(res, "Failed to create cycle from template.");
+  return json<{ id: string; name: string }>(res, "Failed to create cycle from template.");
 }
 
-export async function deleteTemplate(id: number): Promise<void> {
+export async function deleteTemplate(id: string): Promise<void> {
   const res = await apiFetch(`/api/fss/menu-cycle-templates/${id}`, { method: "DELETE" });
   if (!res.ok && res.status !== 204) throw new Error("Failed to delete template.");
 }

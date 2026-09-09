@@ -34,9 +34,11 @@ function CycleDetail({ cycleId, onBack }: { cycleId: string; onBack: () => void 
     <View className="mx-4 mt-4 rounded-[22px] border border-[#E2EAE5] bg-white p-4"><Text className="text-xs font-bold uppercase tracking-widest text-[#6B7F77]">Planned population</Text><Text className="mt-1 text-3xl font-extrabold text-[#087F5B] tabular-nums">{planned}</Text></View>
     <View className="mx-4 mt-3 overflow-hidden rounded-[22px] border border-[#E2EAE5] bg-white">
       {(byDay[selectedDay] ?? []).length === 0 ? <Text className="p-6 text-center text-sm text-[#7A8D85]">No meals planned for this day.</Text> : MEALS.filter((meal) => byDay[selectedDay].some((entry) => entry.meal_type === meal)).map((meal) => {
-        const entry = byDay[selectedDay].find((row) => row.meal_type === meal)!;
-        const name = entry.po_snapshot?.name ?? entry.recipe?.name ?? entry.fs_item?.name ?? 'Meal details';
-        return <TouchableOpacity key={meal} onPress={() => router.push({ pathname: '/food-details', params: { cycleId: cycle.id, day: selectedDay, meal } } as unknown as Href)} className="min-h-16 flex-row items-center border-b border-[#EDF2EF] px-4 py-2"><View className="flex-1"><Text className="text-[10px] font-bold uppercase tracking-wider text-[#7A8D85]">{MEAL_LABELS[meal]}</Text><Text className="mt-1 text-sm font-bold text-[#263D35]">{name}</Text></View><ChevronRight color="#7A8D85" size={18} /></TouchableOpacity>;
+        const lines = byDay[selectedDay].filter((row) => row.meal_type === meal).sort((a, b) => a.line_order - b.line_order);
+        return <View key={meal} className="border-b border-[#EDF2EF] px-4 py-3"><Text className="text-[10px] font-bold uppercase tracking-wider text-[#7A8D85]">{MEAL_LABELS[meal]}</Text>{lines.map((entry) => {
+          const name = entry.po_snapshot?.name ?? entry.recipe?.name ?? entry.fs_item?.name ?? 'Meal details';
+          return <TouchableOpacity key={entry.id} onPress={() => router.push({ pathname: '/food-details', params: { cycleId: cycle.id, lineId: entry.id } } as unknown as Href)} className="min-h-12 flex-row items-center py-1"><View className="flex-1"><Text className="text-sm font-bold text-[#263D35]">{name}</Text>{entry.recipe?.portion_label ? <Text className="mt-0.5 text-xs text-[#4D7464]">{entry.recipe.portion_label}</Text> : null}</View><ChevronRight color="#7A8D85" size={18} /></TouchableOpacity>;
+        })}</View>;
       })}
     </View>
   </ScrollView>;

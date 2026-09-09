@@ -2,10 +2,14 @@
 
 namespace Tests\Feature;
 
+use App\Models\FoodItem;
 use App\Models\Intervention;
 use App\Models\MealPlan;
+use App\Models\MealPlanDay;
+use App\Models\MealPlanItem;
 use App\Models\MealPlanTemplate;
 use App\Models\MealPlanTemplateDay;
+use App\Models\MealPlanTemplateItem;
 use App\Models\NcpRecord;
 use App\Models\Patient;
 use App\Models\Recipe;
@@ -51,6 +55,12 @@ class MealPlanControllerTest extends TestCase
     private function seedRecipes(int $count = 10): void
     {
         Recipe::factory($count)->create(['rnd_user_id' => $this->rnd->id]);
+        FoodItem::factory(5)->create([
+            'category' => 'fruit',
+            'ready_to_eat' => true,
+            'serving_size' => 100,
+            'serving_unit' => 'g',
+        ]);
     }
 
     // --- MealPlan CRUD ---
@@ -257,6 +267,58 @@ class MealPlanControllerTest extends TestCase
         $this->assertDatabaseHas('meal_plan_templates', ['name' => 'CKD Stage 4 — Week A']);
     }
 
+    public function test_saving_template_preserves_every_item_and_its_snapshot(): void
+    {
+        [$ncpRecord, $intervention, $patient] = $this->makeInterventionWithNcpRecord();
+        $plan = MealPlan::factory()->create([
+            'intervention_id' => $intervention->id,
+            'patient_id' => $patient->id,
+        ]);
+        $day = MealPlanDay::factory()->create([
+            'meal_plan_id' => $plan->id,
+            'day_of_week' => 'Monday',
+            'meal_type' => 'lunch',
+        ]);
+        $rice = FoodItem::factory()->create();
+        $fish = FoodItem::factory()->create();
+        $riceSnapshot = ['name' => 'Cooked rice', 'calories' => 205.5, 'protein' => 4.3];
+        $fishSnapshot = ['name' => 'Paksiw na bangus', 'calories' => 220.5, 'protein' => 27.5];
+
+        MealPlanItem::factory()->create([
+            'meal_plan_day_id' => $day->id,
+            'food_item_id' => $rice->id,
+            'quantity' => 1.25,
+            'unit' => 'cup',
+            'nutrient_snapshot' => $riceSnapshot,
+        ]);
+        MealPlanItem::factory()->create([
+            'meal_plan_day_id' => $day->id,
+            'food_item_id' => $fish->id,
+            'quantity' => 1,
+            'unit' => 'serving',
+            'nutrient_snapshot' => $fishSnapshot,
+        ]);
+
+        $response = $this->actingAs($this->rnd)
+            ->postJson("/api/rnd/ncp-records/{$ncpRecord->uuid}/meal-plans/{$plan->uuid}/save-template", [
+                'name' => 'Two-item lunch',
+                'goal_type' => 'renal_diet',
+                'disease_stage' => 'stage_4',
+            ])
+            ->assertCreated();
+
+        $template = MealPlanTemplate::where('uuid', $response->json('data.id'))->sole();
+        $templateDay = $template->days()->where('day_of_week', 'Monday')->where('meal_type', 'lunch')->sole();
+        $items = MealPlanTemplateItem::where('template_day_id', $templateDay->id)->orderBy('line_order')->get();
+
+        $this->assertCount(2, $items);
+        $this->assertSame(['1.25', '1.00'], $items->pluck('quantity')->all());
+        $this->assertSame(['cup', 'serving'], $items->pluck('unit')->all());
+        $this->assertEquals($riceSnapshot, $items[0]->nutrient_snapshot);
+        $this->assertEquals($fishSnapshot, $items[1]->nutrient_snapshot);
+        $this->assertSame('stage_4', $template->disease_stage);
+    }
+
     public function test_rnd_can_list_templates(): void
     {
         MealPlanTemplate::forceCreate([
@@ -285,6 +347,143 @@ class MealPlanControllerTest extends TestCase
             ])
             ->assertCreated()
             ->assertJsonPath('data.generation_type', 'manual');
+    }
+
+    public function test_template_detail_delete_and_load_are_owner_scoped(): void
+    {
+        [$ncpRecord] = $this->makeInterventionWithNcpRecord();
+        $otherRnd = User::factory()->create(['role' => 'RND']);
+        $template = MealPlanTemplate::forceCreate([
+            'rnd_user_id' => $otherRnd->id,
+            'name' => 'Private template',
+        ]);
+
+        $this->actingAs($this->rnd)->getJson("/api/rnd/meal-plan-templates/{$template->uuid}")->assertNotFound();
+        $this->actingAs($this->rnd)->deleteJson("/api/rnd/meal-plan-templates/{$template->uuid}")->assertNotFound();
+        $this->actingAs($this->rnd)->postJson("/api/rnd/ncp-records/{$ncpRecord->uuid}/meal-plans/from-template", [
+            'template_id' => $template->uuid,
+            'week_start_date' => now()->addWeek()->startOfWeek()->toDateString(),
+        ])->assertNotFound();
+
+        $this->assertDatabaseHas('meal_plan_templates', ['id' => $template->id]);
+        $this->assertDatabaseCount('meal_plans', 0);
+    }
+
+    public function test_loading_template_copies_all_items_and_warns_when_goal_or_stage_differs(): void
+    {
+        [$ncpRecord, $intervention] = $this->makeInterventionWithNcpRecord();
+        $intervention->update(['goal_type' => 'diabetes_management', 'disease_stage' => null]);
+        $template = MealPlanTemplate::forceCreate([
+            'rnd_user_id' => $this->rnd->id,
+            'name' => 'CKD template',
+            'goal_type' => 'renal_diet',
+            'disease_stage' => 'stage_4',
+        ]);
+        $templateDay = MealPlanTemplateDay::forceCreate([
+            'template_id' => $template->id,
+            'day_of_week' => 'Monday',
+            'meal_type' => 'lunch',
+        ]);
+        MealPlanTemplateItem::forceCreate([
+            'template_day_id' => $templateDay->id,
+            'quantity' => 1.5,
+            'unit' => 'cup',
+            'nutrient_snapshot' => ['name' => 'Cooked rice', 'calories' => 205.0],
+            'line_order' => 1,
+        ]);
+        MealPlanTemplateItem::forceCreate([
+            'template_day_id' => $templateDay->id,
+            'quantity' => 1,
+            'unit' => 'serving',
+            'nutrient_snapshot' => ['name' => 'Fish', 'calories' => 220.0],
+            'line_order' => 2,
+        ]);
+
+        $response = $this->actingAs($this->rnd)
+            ->postJson("/api/rnd/ncp-records/{$ncpRecord->uuid}/meal-plans/from-template", [
+                'template_id' => $template->uuid,
+                'week_start_date' => now()->addWeek()->startOfWeek()->toDateString(),
+            ])
+            ->assertCreated()
+            ->assertJsonPath('meta.template_compatibility.goal_matches', false)
+            ->assertJsonPath('meta.template_compatibility.disease_stage_matches', false);
+
+        $plan = MealPlan::where('uuid', $response->json('data.id'))->sole();
+        $items = MealPlanItem::whereHas('mealPlanDay', fn ($query) => $query->where('meal_plan_id', $plan->id))
+            ->orderBy('id')
+            ->get();
+
+        $this->assertCount(2, $items);
+        $this->assertSame(['1.50', '1.00'], $items->pluck('quantity')->all());
+        $this->assertSame('Cooked rice', $items[0]->nutrient_snapshot['name']);
+        $this->assertSame('Fish', $items[1]->nutrient_snapshot['name']);
+    }
+
+    public function test_scale_to_prescription_changes_only_existing_quantities_using_practical_increments(): void
+    {
+        [$ncpRecord, $intervention, $patient] = $this->makeInterventionWithNcpRecord();
+        $intervention->update([
+            'energy_kcal' => 1000,
+            'protein_g' => 40,
+            'carbs_g' => 120,
+            'fat_g' => 40,
+        ]);
+        $plan = MealPlan::factory()->create([
+            'intervention_id' => $intervention->id,
+            'patient_id' => $patient->id,
+            'generation_type' => 'manual',
+            'needs_rescaling' => true,
+        ]);
+        $day = MealPlanDay::factory()->create([
+            'meal_plan_id' => $plan->id,
+            'day_of_week' => 'Monday',
+            'meal_type' => 'lunch',
+        ]);
+        $snapshot = [
+            'name' => 'Test dish',
+            'calories' => 250,
+            'protein' => 10,
+            'carbs' => 30,
+            'fat' => 10,
+            'serving_size' => 100,
+            'serving_unit' => 'g',
+            'micronutrients' => [],
+        ];
+        MealPlanItem::factory()->count(2)->create([
+            'meal_plan_day_id' => $day->id,
+            'quantity' => 100,
+            'unit' => 'g',
+            'nutrient_snapshot' => $snapshot,
+        ]);
+        $originalIds = $day->items()->orderBy('id')->pluck('id')->all();
+
+        $response = $this->actingAs($this->rnd)
+            ->postJson("/api/rnd/ncp-records/{$ncpRecord->uuid}/meal-plans/{$plan->uuid}/scale-to-prescription")
+            ->assertOk()
+            ->assertJsonPath('data.scale_status', 'already_scaled')
+            ->assertJsonPath('meta.scaling.inserted_items', 0)
+            ->assertJsonPath('meta.scaling.substituted_items', 0);
+
+        $this->assertSame($originalIds, $day->items()->orderBy('id')->pluck('id')->all());
+        $this->assertSame(['200.00', '200.00'], $day->items()->orderBy('id')->pluck('quantity')->all());
+        $this->assertFalse($plan->fresh()->needs_rescaling);
+        $this->assertNotNull($plan->fresh()->scaled_at);
+    }
+
+    public function test_unchanged_auto_generated_plan_rejects_meaningless_scaling(): void
+    {
+        [$ncpRecord, $intervention, $patient] = $this->makeInterventionWithNcpRecord();
+        $plan = MealPlan::factory()->create([
+            'intervention_id' => $intervention->id,
+            'patient_id' => $patient->id,
+            'generation_type' => 'auto',
+            'needs_rescaling' => false,
+        ]);
+
+        $this->actingAs($this->rnd)
+            ->postJson("/api/rnd/ncp-records/{$ncpRecord->uuid}/meal-plans/{$plan->uuid}/scale-to-prescription")
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'This automatically generated plan is already scaled to the current prescription.');
     }
 
     public function test_plan_from_template_fails_closed_without_partial_graph_when_audit_unavailable(): void

@@ -30,6 +30,7 @@ import { InfoHint } from "@/components/ui/InfoHint";
 import { ReportPreview } from "@/components/ReportPreview";
 import { prepareReport, reportDownloadUrl, reportViewUrl } from "@/services/reportService";
 import { PatientAppointments } from "@/components/ncp/PatientAppointments";
+import { FittedImageFrame } from "@/components/ui/ImageUploadGallery";
 
 type TabKey = "overview" | "adime-records" | "appointments" | "attachments";
 const NCP_STEPS: NcpStep[] = ["assessment", "diagnosis", "intervention", "monitoring"];
@@ -211,8 +212,7 @@ function AttachmentLightbox({
         </div>
         <div className="flex-1 overflow-auto bg-warm-50 flex items-center justify-center min-h-0">
           {isImage ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={url} alt={name} className="max-w-full max-h-[75vh] object-contain p-2" />
+            <FittedImageFrame src={url} alt={name} variant="viewer" />
           ) : (
             <iframe src={url} title={name} className="w-full h-[75vh] border-0" />
           )}

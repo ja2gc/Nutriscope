@@ -195,6 +195,7 @@ class MenuCycleCostService
                 'name' => $override['name'],
                 'servings' => (int) $override['reference_servings'],
                 'prep_notes' => $override['prep_notes'] ?? null,
+                'portion_label' => $day->recipe?->portion_label,
                 'ingredients' => collect($override['ingredients'] ?? [])->map(function (array $ingredient) use ($items) {
                     $item = $items->get((int) $ingredient['fs_item_id']);
 
@@ -215,6 +216,7 @@ class MenuCycleCostService
                 'name' => $day->recipe->name,
                 'servings' => (int) $day->recipe->servings,
                 'prep_notes' => $day->recipe->prep_notes,
+                'portion_label' => $day->recipe->portion_label,
                 'ingredients' => $day->recipe->ingredients
                     ->filter(fn ($ing) => $ing->fsItem !== null)
                     ->map(fn ($ing) => [
@@ -275,6 +277,7 @@ class MenuCycleCostService
             'recipe_id' => $recipe->id,
             'name' => $recipe->name,
             'prep_notes' => $recipe->prep_notes,
+            'portion_label' => $recipe->portion_label,
             'servings' => (int) $recipe->servings,
             'population' => $population,
             'total_cost' => $out['total_cost'],
@@ -300,6 +303,7 @@ class MenuCycleCostService
             'recipe_id' => $day->recipe_id,
             'name' => $recipe['name'],
             'prep_notes' => $recipe['prep_notes'] ?? null,
+            'portion_label' => $recipe['portion_label'] ?? null,
             'servings' => (int) $recipe['servings'],
             'population' => $population,
             'total_cost' => $out['total_cost'],

@@ -27,7 +27,12 @@ class RecipeProfileTest extends TestCase
         $fs = FsItem::factory()->create([
             'name' => 'Rice', 'base_unit' => 'g', 'purchase_unit' => 'kg', 'purchase_price' => 52,
         ]);
-        $recipe = FoodServiceRecipe::create(['rnd_user_id' => $rnd->id, 'name' => 'Steamed Rice', 'servings' => 50]);
+        $recipe = FoodServiceRecipe::create([
+            'rnd_user_id' => $rnd->id,
+            'name' => 'Paksiw na Bangus',
+            'servings' => 50,
+            'portion_label' => '1 cup per person',
+        ]);
         FoodServiceRecipeIngredient::create([
             'food_service_recipe_id' => $recipe->id, 'fs_item_id' => $fs->id, 'quantity' => 5000, 'unit' => 'g',
         ]);
@@ -38,6 +43,7 @@ class RecipeProfileTest extends TestCase
 
         // factor 100/50 = 2 → 10000 g rice → ₱520 total → ₱5.20/head
         $res->assertJsonPath('data.population', 100);
+        $res->assertJsonPath('data.portion_label', '1 cup per person');
         $this->assertEqualsWithDelta(520.0, (float) $res->json('data.total_cost'), 1e-6);
         $this->assertEqualsWithDelta(5.2, (float) $res->json('data.cost_per_head'), 1e-6);
 

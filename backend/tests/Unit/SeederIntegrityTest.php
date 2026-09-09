@@ -4,7 +4,6 @@ namespace Tests\Unit;
 
 use Database\Seeders\FoodItemsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use ReflectionClass;
 use Tests\TestCase;
 
 /**
@@ -14,17 +13,18 @@ use Tests\TestCase;
  * - FssFoodItemsSeeder is gone from DatabaseSeeder
  * - RecipeSeeder ingredient names match USDA food names
  * - RecipeSeeder is idempotent (running twice produces same count)
- * - FoodItemsSeeder manual items now covered by FALLBACK_FDC_IDS
+ * - FoodItemsSeeder uses a committed USDA snapshot and preserves manual foods
  */
 class SeederIntegrityTest extends TestCase
 {
-    public function test_required_demo_foods_have_direct_usda_fallbacks(): void
+    public function test_food_items_seeder_uses_a_pinned_local_dataset_without_runtime_usda_access(): void
     {
-        $fallbacks = (new ReflectionClass(FoodItemsSeeder::class))->getConstant('FALLBACK_FDC_IDS');
+        $content = file_get_contents(database_path('seeders/FoodItemsSeeder.php'));
 
-        $this->assertSame(171995, $fallbacks['Milkfish / Bangus (Cooked)'] ?? null);
-        $this->assertSame(173424, $fallbacks['Egg (Hard Boiled)'] ?? null);
-        $this->assertSame(173944, $fallbacks['Banana (Raw)'] ?? null);
+        $this->assertStringContainsString('clinical-foods.json', $content);
+        $this->assertStringNotContainsString('UsdaService', $content);
+        $this->assertStringNotContainsString('usleep(', $content);
+        $this->assertStringNotContainsString('Http::', $content);
     }
 
     public function test_base_seed_suppresses_model_noise_without_disabling_explicit_system_audits(): void
@@ -59,42 +59,27 @@ class SeederIntegrityTest extends TestCase
         );
     }
 
-    /** 1c — All 12 manual fallback items must now be in FALLBACK_FDC_IDS */
-    public function test_food_items_seeder_manual_items_are_in_fallback_fdc_ids(): void
+    public function test_food_items_seeder_does_not_delete_manual_foods_or_their_recipe_ingredients(): void
     {
-        // These 12 items were previously created manually without micronutrients.
-        // They must now be in FALLBACK_FDC_IDS so they use USDA import.
-        $mustBeInFallback = [
-            'Onion (Raw)',
-            'Ginger Root (Raw)',
-            'Tomato (Cooked)',
-            'Coconut Milk (Canned)',
-            'Peanut Butter (Unsalted)',
-            'Cocoa Powder (Unsweetened)',
-            'Pineapple (Raw)',
-            'Guava (Raw)',
-            'Jackfruit (Raw)',
-            'Calamansi / Lime Juice',
-            'Glutinous Rice (Cooked)',
-            'Corn Grits (Cooked)',
-        ];
-
         $content = file_get_contents(database_path('seeders/FoodItemsSeeder.php'));
 
-        foreach ($mustBeInFallback as $name) {
-            $this->assertStringContainsString(
-                $name,
-                $content,
-                "FoodItemsSeeder must still reference: {$name}"
-            );
-        }
+        $this->assertStringNotContainsString("whereNull('usda_fdc_id')->delete", $content);
+        $this->assertStringNotContainsString("whereIn('food_item_id', \$manualIds)->delete", $content);
+    }
 
-        // The old manual $manualItems array must be gone
-        $this->assertStringNotContainsString(
-            '$manualItems = [',
-            $content,
-            'The $manualItems hardcoded array must be removed — all 12 items must go through USDA import'
-        );
+    public function test_database_seeder_runs_prices_after_foods_and_recipes(): void
+    {
+        $content = file_get_contents(database_path('seeders/DatabaseSeeder.php'));
+
+        $foods = strpos($content, 'FoodItemsSeeder::class');
+        $recipes = strpos($content, 'RecipeSeeder::class');
+        $prices = strpos($content, 'FoodItemPricesSeeder::class');
+
+        $this->assertNotFalse($foods);
+        $this->assertNotFalse($recipes);
+        $this->assertNotFalse($prices);
+        $this->assertLessThan($recipes, $foods);
+        $this->assertLessThan($prices, $recipes);
     }
 
     /** 1d — RecipeSeeder ingredient names must use USDA food names, not FSS names */

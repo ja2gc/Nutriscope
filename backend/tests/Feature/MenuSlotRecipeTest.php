@@ -122,6 +122,59 @@ class MenuSlotRecipeTest extends TestCase
         $this->assertNull($cycle->days()->first()->recipe_override);
     }
 
+    public function test_cycle_can_store_ordered_multiple_lines_in_one_meal_and_exposes_public_line_ids(): void
+    {
+        $rnd = User::factory()->rnd()->create();
+        $recipe = FoodServiceRecipe::create(['rnd_user_id' => $rnd->id, 'name' => 'Paksiw na Bangus', 'servings' => 20]);
+        $rice = FsItem::factory()->create(['name' => 'Sautéed Vegetables']);
+
+        $response = $this->actingAs($rnd)->postJson('/api/fss/menu-cycles', [
+            'week_start_date' => '2026-09-07',
+            'days' => [
+                [
+                    'day_of_week' => 'Monday',
+                    'meal_type' => 'lunch',
+                    'line_order' => 1,
+                    'recipe_id' => $recipe->uuid,
+                    'quantity' => 1,
+                ],
+                [
+                    'day_of_week' => 'Monday',
+                    'meal_type' => 'lunch',
+                    'line_order' => 2,
+                    'fs_item_id' => $rice->uuid,
+                    'quantity' => 1,
+                ],
+            ],
+        ])->assertCreated();
+
+        $cycle = MenuCycle::query()->where('uuid', $response->json('data.id'))->firstOrFail();
+        $lines = $cycle->days()->orderBy('line_order')->get();
+
+        $this->assertCount(2, $lines);
+        $this->assertSame([1, 2], $lines->pluck('line_order')->all());
+        $this->assertSame($lines->pluck('uuid')->all(), collect($response->json('data.days'))->pluck('id')->all());
+        $this->assertSame([1, 2], collect($response->json('data.days'))->pluck('line_order')->all());
+        $this->assertNotSame($lines[0]->uuid, $lines[1]->uuid);
+    }
+
+    public function test_line_specific_slot_route_uses_public_uuid_and_rejects_cross_cycle_access(): void
+    {
+        $rnd = User::factory()->rnd()->create();
+        ['cycle' => $cycle, 'day' => $line] = $this->recipeSlot($rnd);
+        $otherCycle = MenuCycle::factory()->create(['rnd_user_id' => $rnd->id]);
+
+        $this->actingAs($rnd)
+            ->getJson("/api/fss/menu-cycles/{$cycle->uuid}/lines/{$line->uuid}")
+            ->assertOk()
+            ->assertJsonPath('data.id', $line->uuid)
+            ->assertJsonPath('data.line_order', 1);
+
+        $this->actingAs($rnd)
+            ->getJson("/api/fss/menu-cycles/{$otherCycle->uuid}/lines/{$line->uuid}")
+            ->assertNotFound();
+    }
+
     public function test_fss_can_view_master_slot_details_but_cannot_update_them(): void
     {
         $rnd = User::factory()->rnd()->create();

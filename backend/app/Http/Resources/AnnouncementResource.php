@@ -26,6 +26,9 @@ class AnnouncementResource extends JsonResource
                 'id' => $this->user?->uuid,
                 'name' => $this->user?->display_name,
                 'role' => $this->user?->role,
+                'profile_photo' => $this->user?->profile_photo_stored_object_id !== null
+                    ? "/api/announcements/{$this->uuid}/author-photo"
+                    : null,
             ],
         ];
     }

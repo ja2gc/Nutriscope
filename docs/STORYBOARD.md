@@ -20,7 +20,7 @@ For the sequential visual version, use the [Screenshot Storyboard Guide](modules
 | 2. Patient entry | Nutrition Care → Patients | Creates or selects a patient | Creates/opens patient profile and NCP history | Patient becomes root context |
 | 3. Assessment | Dietary → Anthropometrics → Client → Biochemical → Referral → Summary | Enters/validates baseline data and saves | Calculates clinical helpers/risk; stores cycle documents | Assessment establishes source data |
 | 4. Diagnosis | Diagnosis Table and P/E/S builder | Creates PES manually or reviews AI drafts | Saves accepted diagnosis; rejects unsupervised AI automation | Clinical judgment remains with RND |
-| 5. Intervention | Food/Nutrient Delivery, Education, Counseling, Goal Planning, shared Visit Bar | Sets goal/stage, reviews calculated prescription, builds meal plan, saves supporting intervention work | Backend returns authoritative prescription; active visit records which NCP steps changed | Plan turns findings into action |
+| 5. Intervention | Food/Nutrient Delivery, Education, Counseling, Goal Planning, shared Visit Bar | Sets goal/stage, reviews calculated prescription, loads/scales a template or generates with optional snack exclusion, saves supporting intervention work | Backend returns authoritative prescription and preserves template composition while scaling quantities; active visit records which NCP steps changed | Plan turns findings into action |
 | 6. Follow-up | Patient Appointments, Monitoring Visit Log, and Progress Trends | Schedules or starts a walk-in, records outcomes, then finishes or stops the visit | Preserves attendance, purpose, administering RND, cycle link, and work summary | Care becomes iterative without binding visits to one step |
 | 7. Filing | Reports | Opens NCP Summary/Patient Menu Plan, validates, archives | Freezes as-filed copy | Clinical work produces reproducible output |
 
@@ -50,9 +50,9 @@ flowchart LR
 |---|---|---|---|---|
 | 1. Reference setup | Inventory | Maintains ingredients/supplies, vendor, unit, cost, and whether an ingredient is auto-generated | Makes items available to recipes/procurement; pantry items can be purchase-when-needed | Planning starts from controlled reference data |
 | 2. Food setup | Foods | Creates recipe or single-ingredient food | Calculates/profile scales ingredients and cost | Menu items become reusable |
-| 3. Weekly plan | Menu Cycle | Builds Monday-Sunday meal slots or loads a template | Names the week from its date span; shows baseline profiles until procurement estimate exists | Plan becomes a dated operational week |
+| 3. Weekly plan | Menu Cycle | Builds Monday-Sunday slots with one or more ordered meal lines, or loads a template | Names the week from its date span; keeps bulk rice out of menu lines; shows baseline profiles until procurement estimate exists | Plan becomes a dated operational week |
 | 4. Release | Menu Cycle | Activates approved cycle | FSS sees active cycle read-only | Ownership transfers from planning to execution |
-| 5. Requirement calculation | Procurement → Food Shopping Lists | Selects date range, enters one estimated serving count, and generates; or creates a manual food/supplies list | Aggregates included menu needs or accepts direct additions | Procurement supports planned service and one-off events |
+| 5. Requirement calculation | Procurement → Food Shopping Lists | Selects date range, enters one estimated serving count, generates, then adds bulk Rice in kg when required; or creates a manual food/supplies list | Aggregates included menu needs, recommends Rice first in an empty draft-item search, and accepts direct additions | Procurement supports planned service and one-off events |
 | 6. Approval | Shopping-list detail | Keeps calculated need visible, edits purchase values/vendor, adds manual rows, or excludes rows | Shows release blockers; creates one grouped PO from included rows only | Structure freezes only when usable and funded |
 | 7. Supervision | Purchase Order detail | Tracks actual values, receipt, proof, optional OR, served dates, totals, history | Completes only after explicit vendor receiving and applicable population evidence | Closeout is evidence-based |
 
@@ -78,7 +78,7 @@ flowchart LR
 | 3. Receiving | Purchase | Reviews prefilled values, corrects decimal actual quantity/price, uploads receipt/proof, optionally records OR, and marks vendor received | Validates required evidence and updates the confirmed purchase | Evidence closes receiving explicitly |
 | 4. Preparation/service | Meal Prep | Reviews the selected date's meals and records actual population | Stores the served-population record and refreshes PO served-day progress | Actual service connects to cost outcome without a redundant completion log |
 | 5. Daily accomplishment | Accomplish | Enters two counts, selects five duties, or marks off duty | Stores one daily entry and refreshes its semi-monthly report | Staff work becomes reportable |
-| 6. Communication | Announcement tab and header bell | Switches between Announcements and SOP; reads notifications from the bell | Preserves current procedure and alert state | Communication stays visible without crowding the header |
+| 6. Communication | Announcement tab and header bell | Opens a photo announcement with its author's profile image, switches between Announcements and SOP, and reads notifications from the bell | Preserves image proportions in a bounded responsive frame, current procedure, and alert state | Communication stays visible without crowding the header |
 | 7. Personal record | Accomplish → My reports | Views or downloads a report | Shows only this FSS user's semi-monthly output | Access stays role- and owner-scoped |
 
 ```mermaid

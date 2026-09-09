@@ -15,6 +15,8 @@ class MealPlanResource extends JsonResource
             'patient_id' => $this->patient_id,
             'week_start_date' => $this->week_start_date?->toDateString(),
             'generation_type' => $this->generation_type,
+            'scale_status' => $this->needs_rescaling ? 'available' : 'already_scaled',
+            'scaled_at' => $this->scaled_at,
             'status' => $this->status,
             'days' => $this->whenLoaded('days', fn () => $this->days->map(fn ($d) => [
                 'id' => $d->uuid,

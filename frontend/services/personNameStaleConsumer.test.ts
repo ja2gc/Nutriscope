@@ -51,9 +51,10 @@ describe("person-name stale-consumer guard", () => {
     );
 
     expect(counts).toEqual({
-      "app/(rnd)/dashboard/page.tsx": 4,
+      "app/(rnd)/dashboard/page.tsx": 2,
       "app/admin/dashboard/page.tsx": 3,
-      "components/announcements/AnnouncementsBoard.tsx": 4,
+      "components/announcements/AnnouncementAuthorAvatar.tsx": 1,
+      "components/announcements/AnnouncementsBoard.tsx": 2,
       "components/announcements/SopBanner.tsx": 2,
       "components/audit/AuditActorFilter.tsx": 3,
       "components/audit/AuditEventDrawer.tsx": 1,

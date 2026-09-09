@@ -8,10 +8,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class MenuCycleTemplateDay extends Model
 {
     protected $fillable = [
-        'template_id', 'day_of_week', 'meal_type', 'recipe_id', 'fs_item_id', 'quantity',
+        'template_id', 'day_of_week', 'meal_type', 'line_order', 'recipe_id', 'fs_item_id', 'quantity',
     ];
 
-    protected $casts = ['quantity' => 'decimal:2'];
+    protected $casts = ['quantity' => 'decimal:2', 'line_order' => 'integer'];
 
     public function template(): BelongsTo
     {

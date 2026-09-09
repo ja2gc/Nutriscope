@@ -19,7 +19,7 @@ class FoodServiceRecipe extends Model
     protected $table = 'food_service_recipes';
 
     protected $fillable = [
-        'rnd_user_id', 'name', 'category', 'prep_notes', 'servings', 'cost',
+        'rnd_user_id', 'name', 'category', 'prep_notes', 'servings', 'portion_label', 'cost',
     ];
 
     protected $casts = [
@@ -28,7 +28,7 @@ class FoodServiceRecipe extends Model
 
     protected function auditAttributes(): array
     {
-        return ['rnd_user_id', 'name', 'category', 'servings', 'cost'];
+        return ['rnd_user_id', 'name', 'category', 'servings', 'portion_label', 'cost'];
     }
 
     public function rnd(): BelongsTo

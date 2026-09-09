@@ -10,6 +10,23 @@ use Illuminate\Support\Facades\DB;
 
 class RecipeSeeder extends Seeder
 {
+    private const LEGACY_RECIPE_NAMES = [
+        'Boiled Chicken Breast with White Rice' => 'Boiled Chicken Breast',
+        'Chicken Breast with Brown Rice' => 'Chicken Breast with Pechay',
+        'Steamed Tilapia with Rice' => 'Steamed Tilapia',
+        'Milkfish (Bangus) with Rice' => 'Steamed Milkfish (Bangus)',
+        'Sardines with Rice' => 'Drained Sardines',
+        'Egg and Rice Breakfast' => 'Hard-Boiled Egg',
+        'Tokwa with Kangkong and Rice' => 'Tokwa with Kangkong',
+        'Monggo with Brown Rice' => 'Plain Ginisang Monggo',
+        'Ampalaya with Tokwa and Brown Rice' => 'Ampalaya with Tokwa',
+        'Pork Loin with Rice' => 'Roasted Pork Loin',
+        'Chopsuey with Rice' => 'Chopsuey',
+        'Mongo Guisado with Rice (Mung Bean Stew)' => 'Mongo Guisado (Mung Bean Stew)',
+        'Paksiw na Bangus with Rice' => 'Paksiw na Bangus',
+        'Mackerel Adobo Flakes with Rice' => 'Mackerel Adobo Flakes',
+    ];
+
     public function run(): void
     {
         $rnd = User::where('role', 'RND')->first();
@@ -52,71 +69,71 @@ class RecipeSeeder extends Seeder
 
             // ── High Protein ──────────────────────────────────────────────────
             [
-                'name' => 'Boiled Chicken Breast with White Rice',
+                'name' => 'Boiled Chicken Breast',
                 'category' => 'High Protein',
                 'prep_notes' => 'Unseasoned boiled chicken breast. Low sodium, high protein. Suitable for most therapeutic diets.',
                 'servings' => 1,
-                'ingredients' => [['Steamed White Rice', 180, 'g'], ['Chicken Breast (Cooked)', 120, 'g']],
+                'ingredients' => [['Chicken Breast (Cooked)', 120, 'g']],
             ],
             [
-                'name' => 'Chicken Breast with Brown Rice',
+                'name' => 'Chicken Breast with Pechay',
                 'category' => 'High Protein',
-                'prep_notes' => 'Boiled chicken with high-fiber brown rice. Good for DM and cardiac patients.',
+                'prep_notes' => 'Boiled chicken breast with cooked pechay. Pair with a separately selected staple only when prescribed.',
                 'servings' => 1,
-                'ingredients' => [['Steamed Brown Rice', 180, 'g'], ['Chicken Breast (Cooked)', 120, 'g']],
+                'ingredients' => [['Chicken Breast (Cooked)', 120, 'g'], ['Bok Choy / Pechay (Cooked)', 80, 'g']],
             ],
             [
-                'name' => 'Steamed Tilapia with Rice',
+                'name' => 'Steamed Tilapia',
                 'category' => 'High Protein',
                 'prep_notes' => 'Lean white fish. Low sodium, good phosphate source. Suitable for most diets except CKD (monitor phosphate).',
                 'servings' => 1,
-                'ingredients' => [['Steamed White Rice', 180, 'g'], ['Tilapia (Cooked)', 100, 'g']],
+                'ingredients' => [['Tilapia (Cooked)', 100, 'g']],
             ],
             [
-                'name' => 'Milkfish (Bangus) with Rice',
+                'name' => 'Steamed Milkfish (Bangus)',
                 'category' => 'High Protein',
                 'prep_notes' => 'Steamed milkfish. Rich in omega-3. Avoid in fish allergy patients.',
                 'servings' => 1,
-                'ingredients' => [['Steamed White Rice', 180, 'g'], ['Milkfish / Bangus (Cooked)', 100, 'g']],
+                'ingredients' => [['Milkfish / Bangus (Cooked)', 100, 'g']],
             ],
             [
-                'name' => 'Sardines with Rice',
+                'name' => 'Drained Sardines',
                 'category' => 'High Protein',
                 'prep_notes' => 'Canned sardines in water (drained). Cost-effective protein. Note: moderate sodium.',
                 'servings' => 1,
-                'ingredients' => [['Steamed White Rice', 180, 'g'], ['Sardines (Canned in Water)', 90, 'g']],
+                'ingredients' => [['Sardines (Canned in Water)', 90, 'g']],
             ],
             [
-                'name' => 'Egg and Rice Breakfast',
+                'name' => 'Hard-Boiled Egg',
                 'category' => 'Breakfast',
-                'prep_notes' => 'Hard-boiled egg with steamed white rice. Standard ward breakfast.',
+                'prep_notes' => 'One plain hard-boiled egg. Add a separately measured staple only when prescribed.',
                 'servings' => 1,
-                'ingredients' => [['Steamed White Rice', 180, 'g'], ['Egg (Hard Boiled)', 50, 'g']],
+                'ingredients' => [['Egg (Hard Boiled)', 50, 'g']],
             ],
 
             // ── Vegetarian / Plant-based ──────────────────────────────────────
             [
-                'name' => 'Tokwa with Kangkong and Rice',
+                'name' => 'Tokwa with Kangkong',
                 'category' => 'Vegetarian',
-                'prep_notes' => 'Firm tofu with water spinach and white rice. Plant-based protein. Contains soy — avoid for soybean allergy.',
+                'prep_notes' => 'Firm tofu with water spinach. Plant-based protein. Contains soy — avoid for soybean allergy.',
                 'servings' => 1,
-                'ingredients' => [['Steamed White Rice', 180, 'g'], ['Firm Tofu (Tokwa)', 100, 'g'], ['Water Spinach (Kangkong)', 80, 'g']],
+                'ingredients' => [['Firm Tofu (Tokwa)', 100, 'g'], ['Water Spinach (Kangkong)', 80, 'g']],
             ],
             [
-                'name' => 'Monggo with Brown Rice',
+                'name' => 'Plain Ginisang Monggo',
                 'category' => 'High Fiber',
-                'prep_notes' => 'Mung beans with brown rice. High fiber, suitable for DM and constipation patients.',
+                'prep_notes' => 'Plain cooked mung beans. High fiber; add a separately measured staple only when prescribed.',
                 'servings' => 1,
-                'ingredients' => [['Steamed Brown Rice', 180, 'g'], ['Mung Beans (Cooked)', 150, 'g']],
+                'ingredients' => [['Mung Beans (Cooked)', 150, 'g']],
             ],
 
             // ── Diabetic-Friendly ─────────────────────────────────────────────
             [
-                'name' => 'Ampalaya with Tokwa and Brown Rice',
+                'name' => 'Ampalaya with Tokwa',
                 'category' => 'Diabetic-Friendly',
-                'prep_notes' => 'Bitter melon with firm tofu and brown rice. Low GI, high fiber. Traditional diabetic meal in Filipino diet.',
+                'prep_notes' => 'Bitter melon with firm tofu. High-fiber Filipino dish; add a separately measured staple only when prescribed.',
                 'servings' => 1,
-                'ingredients' => [['Steamed Brown Rice', 150, 'g'], ['Bitter Melon (Ampalaya)', 100, 'g'], ['Firm Tofu (Tokwa)', 80, 'g']],
+                'ingredients' => [['Bitter Melon (Ampalaya)', 100, 'g'], ['Firm Tofu (Tokwa)', 80, 'g']],
             ],
             [
                 'name' => 'Oatmeal with Banana',
@@ -167,11 +184,11 @@ class RecipeSeeder extends Seeder
 
             // ── Pork Dishes ───────────────────────────────────────────────────
             [
-                'name' => 'Pork Loin with Rice',
+                'name' => 'Roasted Pork Loin',
                 'category' => 'Regular Diet',
-                'prep_notes' => 'Boiled pork loin with white rice. Moderate fat. Not recommended for low-fat or low-sodium diets without modification.',
+                'prep_notes' => 'Plain roasted pork loin. Moderate fat. Add a separately measured staple only when prescribed.',
                 'servings' => 1,
-                'ingredients' => [['Steamed White Rice', 180, 'g'], ['Pork Loin (Cooked)', 100, 'g']],
+                'ingredients' => [['Pork Loin (Cooked)', 100, 'g']],
             ],
 
             // ── Carb-Dominant Breakfasts ──────────────────────────────────────
@@ -278,18 +295,17 @@ class RecipeSeeder extends Seeder
                 'ingredients' => [
                     ['Squash / Kalabasa (Cooked)', 100, 'g'], ['String Beans / Sitaw', 80, 'g'],
                     ['Eggplant / Talong (Cooked)', 80, 'g'], ['Bitter Melon (Ampalaya)', 60, 'g'],
-                    ['Tomato (Raw)', 30, 'g'], ['Steamed White Rice', 150, 'g'],
+                    ['Tomato (Raw)', 30, 'g'],
                 ],
             ],
             [
-                'name' => 'Chopsuey with Rice',
+                'name' => 'Chopsuey',
                 'category' => 'Vegetable',
-                'prep_notes' => 'Chinese-Filipino mixed vegetable stir-fry with white rice. Lightly seasoned. Good for all therapeutic diets.',
+                'prep_notes' => 'Chinese-Filipino mixed vegetable stir-fry, lightly seasoned. Serve any prescribed staple separately.',
                 'servings' => 1,
                 'ingredients' => [
                     ['Carrots (Cooked)', 80, 'g'], ['Cabbage / Repolyo (Cooked)', 80, 'g'],
                     ['String Beans / Sitaw', 60, 'g'], ['Chayote / Sayote (Cooked)', 60, 'g'],
-                    ['Steamed White Rice', 160, 'g'],
                 ],
             ],
             [
@@ -299,7 +315,7 @@ class RecipeSeeder extends Seeder
                 'servings' => 1,
                 'ingredients' => [
                     ['Squash / Kalabasa (Cooked)', 100, 'g'], ['String Beans / Sitaw', 80, 'g'],
-                    ['Water Spinach (Kangkong)', 60, 'g'], ['Steamed White Rice', 150, 'g'],
+                    ['Water Spinach (Kangkong)', 60, 'g'],
                 ],
             ],
             [
@@ -309,7 +325,7 @@ class RecipeSeeder extends Seeder
                 'servings' => 1,
                 'ingredients' => [
                     ['Chayote / Sayote (Cooked)', 200, 'g'], ['Garlic (Raw)', 5, 'g'],
-                    ['Onion (Raw)', 20, 'g'], ['Steamed White Rice', 150, 'g'],
+                    ['Onion (Raw)', 20, 'g'],
                 ],
             ],
             [
@@ -335,24 +351,23 @@ class RecipeSeeder extends Seeder
 
             // ── Balanced Filipino Mains ───────────────────────────────────────
             [
-                'name' => 'Mongo Guisado with Rice (Mung Bean Stew)',
+                'name' => 'Mongo Guisado (Mung Bean Stew)',
                 'category' => 'High Fiber',
                 'prep_notes' => 'Sautéed mung bean stew with kangkong and garlic. High fiber, moderate protein, very Filipino. Good for diabetic and cardiac diets.',
                 'servings' => 1,
                 'ingredients' => [
                     ['Mung Beans (Cooked)', 150, 'g'], ['Water Spinach (Kangkong)', 60, 'g'],
                     ['Garlic (Raw)', 5, 'g'], ['Onion (Raw)', 20, 'g'],
-                    ['Steamed White Rice', 150, 'g'],
                 ],
             ],
             [
-                'name' => 'Paksiw na Bangus with Rice',
+                'name' => 'Paksiw na Bangus',
                 'category' => 'Regular Diet',
                 'prep_notes' => 'Milkfish braised in vinegar and spices. Filipino fish dish. Moderate sodium from vinegar braising. Monitor in strict low-sodium diets.',
                 'servings' => 1,
                 'ingredients' => [
                     ['Milkfish / Bangus (Cooked)', 100, 'g'], ['Bitter Melon (Ampalaya)', 40, 'g'],
-                    ['Ginger Root (Raw)', 5, 'g'], ['Steamed White Rice', 180, 'g'],
+                    ['Ginger Root (Raw)', 5, 'g'],
                 ],
             ],
             [
@@ -362,7 +377,7 @@ class RecipeSeeder extends Seeder
                 'servings' => 1,
                 'ingredients' => [
                     ['Milkfish / Bangus (Cooked)', 100, 'g'], ['Water Spinach (Kangkong)', 80, 'g'],
-                    ['Tomato (Raw)', 40, 'g'], ['Steamed White Rice', 160, 'g'],
+                    ['Tomato (Raw)', 40, 'g'],
                 ],
             ],
             [
@@ -373,7 +388,6 @@ class RecipeSeeder extends Seeder
                 'ingredients' => [
                     ['Chicken Thigh (Cooked)', 80, 'g'], ['Chayote / Sayote (Cooked)', 100, 'g'],
                     ['Ginger Root (Raw)', 8, 'g'], ['Bok Choy / Pechay (Cooked)', 60, 'g'],
-                    ['Steamed White Rice', 160, 'g'],
                 ],
             ],
             [
@@ -384,7 +398,6 @@ class RecipeSeeder extends Seeder
                 'ingredients' => [
                     ['Mung Beans (Cooked)', 120, 'g'], ['Sardines (Canned in Water)', 50, 'g'],
                     ['Water Spinach (Kangkong)', 60, 'g'], ['Garlic (Raw)', 5, 'g'],
-                    ['Steamed White Rice', 150, 'g'],
                 ],
             ],
             [
@@ -395,19 +408,17 @@ class RecipeSeeder extends Seeder
                 'ingredients' => [
                     ['Tilapia (Cooked)', 120, 'g'], ['String Beans / Sitaw', 60, 'g'],
                     ['Eggplant / Talong (Cooked)', 60, 'g'], ['Tomato (Raw)', 40, 'g'],
-                    ['Steamed White Rice', 160, 'g'],
                 ],
             ],
 
             // ── Regular Diet Mains ────────────────────────────────────────────
             [
-                'name' => 'Mackerel Adobo Flakes with Rice',
+                'name' => 'Mackerel Adobo Flakes',
                 'category' => 'Regular Diet',
                 'prep_notes' => 'Mackerel flaked in light adobo sauce with garlic. Good omega-3, moderate protein. Suitable for most diets.',
                 'servings' => 1,
                 'ingredients' => [
                     ['Mackerel (Cooked)', 80, 'g'], ['Garlic (Raw)', 5, 'g'],
-                    ['Steamed White Rice', 180, 'g'],
                 ],
             ],
 
@@ -444,6 +455,7 @@ class RecipeSeeder extends Seeder
             ->values();
         $availableFoodNames = FoodItem::query()
             ->whereIn('name', $requiredFoodNames)
+            ->whereNotNull('usda_fdc_id')
             ->pluck('name');
         $missingFoodNames = $requiredFoodNames->diff($availableFoodNames)->values();
 
@@ -453,11 +465,20 @@ class RecipeSeeder extends Seeder
             throw new \RuntimeException('Recipe seeding requires every referenced food item.');
         }
 
+        foreach (self::LEGACY_RECIPE_NAMES as $legacyName => $currentName) {
+            if (! Recipe::query()->where('name', $currentName)->exists()) {
+                Recipe::query()->where('name', $legacyName)->update(['name' => $currentName]);
+            }
+        }
+
         foreach ($recipes as $recipeData) {
             $ingredientRows = [];
 
             foreach ($recipeData['ingredients'] as [$foodName, $qty, $unit]) {
-                $food = FoodItem::where('name', $foodName)->first();
+                $food = FoodItem::query()
+                    ->where('name', $foodName)
+                    ->whereNotNull('usda_fdc_id')
+                    ->first();
                 if (! $food) {
                     $this->command->warn("  Recipe '{$recipeData['name']}': ingredient '{$foodName}' not found — skipping.");
 
@@ -478,8 +499,12 @@ class RecipeSeeder extends Seeder
                     [
                         'rnd_user_id' => $rnd->id,
                         'category' => $recipeData['category'],
+                        'meal_types' => $this->mealTypes($recipeData),
+                        'component_type' => $this->componentType($recipeData),
                         'prep_notes' => $recipeData['prep_notes'],
                         'servings' => $recipeData['servings'] ?? 1,
+                        'prepared_portion_amount' => $this->preparedPortion($recipeData)['amount'],
+                        'prepared_portion_unit' => $this->preparedPortion($recipeData)['unit'],
                     ],
                 );
 
@@ -504,5 +529,99 @@ class RecipeSeeder extends Seeder
                 $this->command->line("  – Synchronized: {$recipeData['name']}");
             }
         }
+    }
+
+    /**
+     * @param  array<string, mixed>  $recipe
+     * @return list<string>
+     */
+    private function mealTypes(array $recipe): array
+    {
+        return match ($recipe['category']) {
+            'Snack' => ['am_snack', 'pm_snack'],
+            'Breakfast' => ['breakfast'],
+            default => ['breakfast', 'lunch', 'dinner'],
+        };
+    }
+
+    /**
+     * @param  array<string, mixed>  $recipe
+     */
+    private function componentType(array $recipe): string
+    {
+        if ($recipe['category'] === 'Staple') {
+            return 'staple';
+        }
+
+        if ($recipe['category'] === 'Snack') {
+            return 'other';
+        }
+
+        $completeMeals = [
+            'Lugaw with Egg (Soft Diet)',
+            'Lugaw with Chicken (Soft Diet)',
+            'Oatmeal with Banana',
+            'Sweet Potato with Chicken',
+            'Champorado (Chocolate Rice Porridge)',
+            'Sinangag (Garlic Fried Rice)',
+            'Arroz Caldo (Chicken Rice Soup)',
+            'Plain Oatmeal with Brown Sugar',
+            'Pandesal with Egg',
+            'Lugaw (Plain Rice Porridge)',
+        ];
+
+        return in_array($recipe['name'], $completeMeals, true) ? 'complete_meal' : 'main_dish';
+    }
+
+    /**
+     * @param  array<string, mixed>  $recipe
+     * @return array{amount: float, unit: string}
+     */
+    private function preparedPortion(array $recipe): array
+    {
+        if ($recipe['category'] === 'Staple') {
+            return ['amount' => 1.0, 'unit' => 'cup'];
+        }
+
+        if ($recipe['name'] === 'Hard-Boiled Egg') {
+            return ['amount' => 1.0, 'unit' => 'piece'];
+        }
+
+        if (str_contains($recipe['name'], 'Lugaw')
+            || str_contains($recipe['name'], 'Soup')
+            || str_contains($recipe['name'], 'Sinigang')
+            || str_contains($recipe['name'], 'Arroz Caldo')
+        ) {
+            return ['amount' => 1.5, 'unit' => 'cup'];
+        }
+
+        if ($recipe['category'] === 'Snack') {
+            return match ($recipe['name']) {
+                'Banana Snack', 'Guava Snack', 'Boiled Corn (Mais)' => ['amount' => 1.0, 'unit' => 'piece'],
+                'Boiled Kamote (Sweet Potato)', 'Boiled Cassava (Kamoteng Kahoy)', 'Ginataan (Coconut Fruit Dessert)' => ['amount' => 0.5, 'unit' => 'cup'],
+                default => ['amount' => 1.0, 'unit' => 'cup'],
+            };
+        }
+
+        if ($recipe['category'] === 'Breakfast') {
+            return match ($recipe['name']) {
+                'Pandesal with Egg' => ['amount' => 125.0, 'unit' => 'g'],
+                default => ['amount' => 1.0, 'unit' => 'cup'],
+            };
+        }
+
+        if ($recipe['category'] === 'Vegetable') {
+            return ['amount' => 1.0, 'unit' => 'cup'];
+        }
+
+        return match ($recipe['name']) {
+            'Boiled Chicken Breast', 'Chicken Breast with Pechay', 'Steamed Tilapia',
+            'Steamed Milkfish (Bangus)', 'Drained Sardines', 'Roasted Pork Loin',
+            'Mackerel Adobo Flakes' => ['amount' => 100.0, 'unit' => 'g'],
+            'Tokwa with Kangkong', 'Ampalaya with Tokwa', 'Mixed Vegetable Plate',
+            'Plain Ginisang Monggo', 'Mongo Guisado (Mung Bean Stew)',
+            'Paksiw na Bangus', 'Ginisang Monggo with Sardines' => ['amount' => 1.0, 'unit' => 'cup'],
+            default => ['amount' => 1.5, 'unit' => 'cup'],
+        };
     }
 }

@@ -490,6 +490,20 @@ return [
             'implementation_state' => 'implemented',
             'reason' => 'Restoring a slot recipe emits one sanitized menu-cycle event and revision.',
         ],
+        'PATCH api/fss/menu-cycles/{menu_cycle}/lines/{menuCycleDay}' => [
+            'classification' => 'explicit_event',
+            'source' => 'App\\Http\\Controllers\\FSS\\MenuCycleController@updateLine',
+            'owner_task' => 4,
+            'implementation_state' => 'implemented',
+            'reason' => 'Line-specific recipe changes use the existing sanitized menu-cycle event and revision flow.',
+        ],
+        'DELETE api/fss/menu-cycles/{menu_cycle}/lines/{menuCycleDay}' => [
+            'classification' => 'explicit_event',
+            'source' => 'App\\Http\\Controllers\\FSS\\MenuCycleController@restoreLine',
+            'owner_task' => 4,
+            'implementation_state' => 'implemented',
+            'reason' => 'Restoring a specific menu line uses the existing sanitized menu-cycle event and revision flow.',
+        ],
         'PATCH api/fss/menu-cycles/{menu_cycle}/activate' => [
             'classification' => 'explicit_event',
             'source' => 'App\\Http\\Controllers\\FSS\\MenuCycleController@activate',
@@ -867,6 +881,13 @@ return [
             'owner_task' => 6,
             'implementation_state' => 'implemented',
             'reason' => 'Meal-plan persistence for POST api/rnd/ncp-records/{ncpRecord}/meal-plans/generate is covered by its redacted clinical model event.',
+        ],
+        'POST api/rnd/ncp-records/{ncpRecord}/meal-plans/{mealPlan}/scale-to-prescription' => [
+            'classification' => 'explicit_event',
+            'source' => 'App\\Http\\Controllers\\RND\\MealPlanController@scaleToPrescription',
+            'owner_task' => 6,
+            'implementation_state' => 'implemented',
+            'reason' => 'Prescription scaling emits one sanitized meal-plan update event without logging clinical nutrient values.',
         ],
         'PATCH api/rnd/ncp-records/{ncpRecord}/meal-plans/{mealPlan}' => [
             'classification' => 'model_event',

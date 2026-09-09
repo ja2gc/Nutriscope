@@ -11,7 +11,7 @@ import {
   fetchMealPlans, createMealPlan, fetchAllMealPlanItems, addMealPlanItem,
   removeMealPlanItem, updateMealPlanItem, deleteMealPlan, generateMealPlan,
   fetchMealPlanTemplates, fetchMealPlanTemplate, deleteMealPlanTemplate,
-  saveMealPlanAsTemplate, createPlanFromTemplate,
+  saveMealPlanAsTemplate, createPlanFromTemplate, scaleMealPlanToPrescription,
   MealPlan, MealPlanItem, MealPlanTemplate, MealPlanTemplateDetail, NutrientSnapshot,
 } from "@/services/mealPlanService";
 import {
@@ -34,17 +34,18 @@ interface Props {
   allergens?: string[];
   displayedMicros?: string[];
   micronutrientLimits?: Record<string, { max?: number; min?: number; unit: string }>;
+  interventionGoal?: string | null;
 }
 
 interface EditTarget {
   item: MealPlanItem;
-  dayId: number;
+  dayId: string;
   slotKey: string;
 }
 
 export default function MealPlanSection({
   ncpId, prescriptionTargets, foodDislikes = [], allergens = [],
-  displayedMicros = [], micronutrientLimits = {},
+  displayedMicros = [], micronutrientLimits = {}, interventionGoal = null,
 }: Props) {
   const [plans, setPlans]               = useState<MealPlan[]>([]);
   const [activePlan, setActivePlan]     = useState<MealPlan | null>(null);
@@ -54,13 +55,14 @@ export default function MealPlanSection({
   const [creatingPlan, setCreatingPlan] = useState(false);
 
   // Delete plan
-  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting]               = useState(false);
   const [deleteError, setDeleteError]         = useState<string | null>(null);
 
   // Auto-generate
   const [generating, setGenerating]       = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
+  const [excludeSnacks, setExcludeSnacks] = useState(false);
 
   // Micro display
   const [showMicros, setShowMicros] = useState(false);
@@ -72,11 +74,14 @@ export default function MealPlanSection({
   const [savingTemplate, setSavingTemplate]                     = useState(false);
   const [fromTemplateOpen, setFromTemplateOpen]                 = useState(false);
   const [viewingTemplate, setViewingTemplate]                   = useState<MealPlanTemplateDetail | null>(null);
-  const [loadingTemplate, setLoadingTemplate]                   = useState<number | null>(null);
+  const [loadingTemplate, setLoadingTemplate]                   = useState<string | null>(null);
   const [templatePage, setTemplatePage]                         = useState(1);
   const [templateMeta, setTemplateMeta]                         = useState<PaginationMeta | null>(null);
-  const [confirmDeleteTemplateId, setConfirmDeleteTemplateId]   = useState<number | null>(null);
+  const [confirmDeleteTemplateId, setConfirmDeleteTemplateId]   = useState<string | null>(null);
   const [deletingTemplate, setDeletingTemplate]                 = useState(false);
+  const [templateWarning, setTemplateWarning]                   = useState<string | null>(null);
+  const [scalingPlan, setScalingPlan]                           = useState(false);
+  const [scaleNotice, setScaleNotice]                           = useState<string | null>(null);
 
   // Edit meal item
   const [editTarget, setEditTarget]           = useState<EditTarget | null>(null);
@@ -89,7 +94,7 @@ export default function MealPlanSection({
 
   // Food picker
   const [pickerOpen, setPickerOpen]           = useState(false);
-  const [pickerTarget, setPickerTarget]       = useState<{ dayId: number; mealType: string } | null>(null);
+  const [pickerTarget, setPickerTarget]       = useState<{ dayId: string; mealType: string } | null>(null);
   const [pickerTab, setPickerTab]             = useState<'library'|'recipes'|'usda'>('library');
   const [libraryQuery, setLibraryQuery]       = useState('');
   const [libraryResults, setLibraryResults]   = useState<FoodItem[]>([]);
@@ -103,6 +108,14 @@ export default function MealPlanSection({
   const [savingToLibrary, setSavingToLibrary] = useState<string | null>(null);
 
   const slotKey = (day: string, mt: string) => `${day}-${mt}`;
+  const markPlanNeedsScaling = (planId: string) => {
+    setPlans((current) => current.map((plan) => plan.id === planId
+      ? { ...plan, scale_status: 'available', scaled_at: null }
+      : plan));
+    setActivePlan((current) => current?.id === planId
+      ? { ...current, scale_status: 'available', scaled_at: null }
+      : current);
+  };
 
   const loadPlans = useCallback(async () => {
     setLoadingPlans(true);
@@ -171,12 +184,10 @@ export default function MealPlanSection({
       const result = await generateMealPlan(ncpId, {
         week_start_date: d.toISOString().split('T')[0],
         allergens: allergens.length > 0 ? allergens : undefined,
+        exclude_snacks: excludeSnacks,
       });
-      if ('insufficient_recipes' in result) {
-        setGenerateError(
-          `Only ${result.count} recipe${result.count !== 1 ? 's' : ''} match this patient's restrictions. ` +
-          `Add more goal-appropriate recipes to the food library, or build the meal plan manually.`
-        );
+      if ('insufficient_recipes' in result || 'insufficient_suitable_foods' in result || 'snacks_required' in result) {
+        setGenerateError(result.message);
         return;
       }
       setPlans((prev) => [...prev, result]);
@@ -196,16 +207,17 @@ export default function MealPlanSection({
     } finally { setSavingTemplate(false); }
   };
 
-  const handleFromTemplate = async (templateId: number) => {
+  const handleFromTemplate = async (templateId: string) => {
     setFromTemplateOpen(false); setViewingTemplate(null); setCreatingPlan(true);
     try {
       const d = new Date(); d.setDate(d.getDate() + (d.getDay() === 0 ? -6 : 1 - d.getDay()));
-      const plan = await createPlanFromTemplate(ncpId, { template_id: templateId, week_start_date: d.toISOString().split('T')[0] });
+      const { plan, compatibility } = await createPlanFromTemplate(ncpId, { template_id: templateId, week_start_date: d.toISOString().split('T')[0] });
       setPlans((p) => [...p, plan]); setActivePlan(plan);
+      setTemplateWarning(compatibility.warning);
     } finally { setCreatingPlan(false); }
   };
 
-  const handleViewTemplate = async (templateId: number) => {
+  const handleViewTemplate = async (templateId: string) => {
     setLoadingTemplate(templateId);
     try { setViewingTemplate(await fetchMealPlanTemplate(templateId)); }
     finally { setLoadingTemplate(null); }
@@ -235,9 +247,24 @@ export default function MealPlanSection({
     } finally { setDeleting(false); }
   };
 
+  const handleScaleToPrescription = async () => {
+    if (!activePlan || activePlan.scale_status === 'already_scaled') return;
+    setScalingPlan(true); setScaleNotice(null);
+    try {
+      const { plan, scaling } = await scaleMealPlanToPrescription(ncpId, activePlan.id);
+      setPlans((current) => current.map((item) => item.id === plan.id ? plan : item));
+      setActivePlan(plan);
+      setScaleNotice(scaling.problem_days.length > 0
+        ? `Quantities were scaled. Review unresolved tolerances for: ${scaling.problem_days.join(', ')}.`
+        : `Scaled ${scaling.changed_items} item quantities to the current prescription.`);
+    } catch (err) {
+      setScaleNotice(err instanceof Error ? err.message : 'Failed to scale meal plan.');
+    } finally { setScalingPlan(false); }
+  };
+
   // ── Edit modal ─────────────────────────────────────────────────────────────
 
-  const openEdit = async (item: MealPlanItem, dayId: number, key: string) => {
+  const openEdit = async (item: MealPlanItem, dayId: string, key: string) => {
     setEditTarget({ item, dayId, slotKey: key });
     setEditServings(item.quantity ?? '1');
     setEditTab('scale');
@@ -301,29 +328,35 @@ export default function MealPlanSection({
         ...prev,
         [editTarget.slotKey]: (prev[editTarget.slotKey] ?? []).map((i) => i.id === updated.id ? updated : i),
       }));
+      markPlanNeedsScaling(activePlan.id);
       setEditTarget(null);
     } finally { setEditSaving(false); }
   };
 
   // ── Picker helpers ──────────────────────────────────────────────────────────
 
-  const openPicker = (dayId: number, mealType: string) => {
+  const openPicker = (dayId: string, mealType: string) => {
     setPickerTarget({ dayId, mealType }); setPickerOpen(true); setPickerTab('library');
     setLibraryQuery(''); setLibraryResults([]); setRecipeQuery(''); setRecipeResults([]);
     setUsdaQuery(''); setUsdaResults([]); setPickerError(null);
   };
 
-  const appendItem = (item: MealPlanItem, plan: MealPlan, dayId: number) => {
+  const appendItem = (item: MealPlanItem, plan: MealPlan, dayId: string) => {
     const day = plan.days.find((d) => d.id === dayId); if (!day) return;
     const key = slotKey(day.day_of_week, day.meal_type);
     setItemsByKey((prev) => ({ ...prev, [key]: [...(prev[key] ?? []), item] }));
+    markPlanNeedsScaling(plan.id);
   };
 
   const addFromLibrary = async (food: FoodItem) => {
     if (!pickerTarget || !activePlan) return;
     setAdding(food.id); setPickerError(null);
     try {
-      appendItem(await addMealPlanItem(ncpId, activePlan.id, pickerTarget.dayId, { food_item_id: food.id, quantity: 1, unit: 'serving' }), activePlan, pickerTarget.dayId);
+      appendItem(await addMealPlanItem(ncpId, activePlan.id, pickerTarget.dayId, {
+        food_item_id: food.id,
+        quantity: Number(food.serving_size ?? 100),
+        unit: food.serving_unit ?? 'g',
+      }), activePlan, pickerTarget.dayId);
     } catch (err) {
       setPickerError(err instanceof Error ? err.message : 'Failed to add food. Please try again.');
     } finally { setAdding(null); }
@@ -332,7 +365,11 @@ export default function MealPlanSection({
     if (!pickerTarget || !activePlan) return;
     setAdding(`recipe-${recipe.id}`); setPickerError(null);
     try {
-      appendItem(await addMealPlanItem(ncpId, activePlan.id, pickerTarget.dayId, { recipe_id: recipe.id, quantity: 1, unit: 'serving' }), activePlan, pickerTarget.dayId);
+      appendItem(await addMealPlanItem(ncpId, activePlan.id, pickerTarget.dayId, {
+        recipe_id: recipe.id,
+        quantity: Number(recipe.prepared_portion_amount ?? 1),
+        unit: recipe.prepared_portion_unit ?? 'serving',
+      }), activePlan, pickerTarget.dayId);
     } catch (err) {
       setPickerError(err instanceof Error ? err.message : 'Failed to add recipe. Please try again.');
     } finally { setAdding(null); }
@@ -346,10 +383,11 @@ export default function MealPlanSection({
       setPickerError(err instanceof Error ? err.message : 'Failed to add USDA food. Please try again.');
     } finally { setAdding(null); }
   };
-  const removeItem = async (key: string, dayId: number, itemId: number) => {
+  const removeItem = async (key: string, dayId: string, itemId: string) => {
     if (!activePlan) return;
     await removeMealPlanItem(ncpId, activePlan.id, dayId, itemId);
     setItemsByKey((prev) => ({ ...prev, [key]: (prev[key] ?? []).filter((i) => i.id !== itemId) }));
+    markPlanNeedsScaling(activePlan.id);
   };
 
   // ── Totals ──────────────────────────────────────────────────────────────────
@@ -419,9 +457,23 @@ export default function MealPlanSection({
               <BookmarkPlus className="h-3 w-3" /> Save Template
             </button>
           )}
+          {activePlan && (
+            <button onClick={handleScaleToPrescription} disabled={scalingPlan || activePlan.scale_status === 'already_scaled'}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-warm-600 border border-warm-200 rounded-lg hover:bg-warm-50 transition-colors cursor-pointer whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed">
+              {scalingPlan ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wand2 className="h-3 w-3" />}
+              {activePlan.scale_status === 'already_scaled' ? 'Already scaled' : 'Scale to prescription'}
+            </button>
+          )}
           <button onClick={handleGenerate} disabled={generating} className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-warm-600 border border-warm-200 rounded-lg hover:bg-warm-50 transition-colors cursor-pointer whitespace-nowrap disabled:opacity-50">
             {generating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wand2 className="h-3 w-3" />} Auto-Generate
           </button>
+          <label className="flex min-h-9 items-center gap-2 rounded-lg border border-warm-200 px-2.5 text-xs font-semibold text-warm-600">
+            <input type="checkbox" checked={excludeSnacks}
+              disabled={interventionGoal === 'liver_disease'}
+              onChange={(event) => setExcludeSnacks(event.target.checked)}
+              className="h-4 w-4 accent-emerald-600" />
+            Exclude snacks
+          </label>
           <button onClick={handleCreatePlan} disabled={creatingPlan} className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-warm-600 border border-warm-200 rounded-lg hover:bg-warm-50 transition-colors cursor-pointer whitespace-nowrap disabled:opacity-50">
             {creatingPlan ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />} New Week
           </button>
@@ -447,6 +499,20 @@ export default function MealPlanSection({
         <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-xl">
           <AlertTriangle className="h-3.5 w-3.5 text-amber-600 flex-shrink-0 mt-0.5" />
           <p className="text-xs text-amber-800">{generateError}</p>
+        </div>
+      )}
+
+      {templateWarning && (
+        <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-xl">
+          <AlertTriangle className="h-3.5 w-3.5 text-amber-600 flex-shrink-0 mt-0.5" />
+          <p className="text-xs text-amber-800">{templateWarning}</p>
+        </div>
+      )}
+
+      {scaleNotice && (
+        <div className="flex items-start gap-2 p-3 bg-sky-50 border border-sky-200 rounded-xl">
+          <AlertTriangle className="h-3.5 w-3.5 text-sky-600 flex-shrink-0 mt-0.5" />
+          <p className="text-xs text-sky-800">{scaleNotice}</p>
         </div>
       )}
 
@@ -861,7 +927,7 @@ export default function MealPlanSection({
                     <div key={tmpl.id} className="flex items-center gap-2 p-3 border border-warm-200 rounded-xl hover:border-warm-300 transition-colors">
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold text-warm-800 truncate">{tmpl.name}</p>
-                        {tmpl.goal_type && <p className="text-xs text-warm-400 capitalize">{tmpl.goal_type.replace(/_/g, ' ')}</p>}
+                        {tmpl.goal_type && <p className="text-xs text-warm-400 capitalize">{tmpl.goal_type.replace(/_/g, ' ')}{tmpl.disease_stage ? ` · ${tmpl.disease_stage.replace(/_/g, ' ')}` : ''}</p>}
                       </div>
                       <div className="flex items-center gap-1 flex-shrink-0">
                         <button onClick={() => handleViewTemplate(tmpl.id)} disabled={loadingTemplate === tmpl.id}
@@ -880,7 +946,7 @@ export default function MealPlanSection({
               {!viewingTemplate && <Pagination meta={templateMeta} page={templatePage} onPageChange={setTemplatePage} />}
               {viewingTemplate && (
                 <div className="space-y-3">
-                  {viewingTemplate.goal_type && <p className="text-xs text-warm-400 capitalize">{viewingTemplate.goal_type.replace(/_/g, ' ')}</p>}
+                  {viewingTemplate.goal_type && <p className="text-xs text-warm-400 capitalize">{viewingTemplate.goal_type.replace(/_/g, ' ')}{viewingTemplate.disease_stage ? ` · ${viewingTemplate.disease_stage.replace(/_/g, ' ')}` : ''}</p>}
                   {(['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'] as const).map((day) => {
                     const daySlots = viewingTemplate.days.filter((d) => d.day_of_week === day);
                     if (daySlots.length === 0) return null;
@@ -892,7 +958,9 @@ export default function MealPlanSection({
                             <div key={slot.id} className="flex items-center justify-between px-3 py-2">
                               <div>
                                 <p className="text-xs font-semibold text-warm-500 capitalize">{slot.meal_type.replace('_', ' ')}</p>
-                                <p className="text-sm text-warm-800">{slot.food_name ?? '—'}</p>
+                                {(slot.items?.length ? slot.items : [{ id: `legacy-${slot.id}`, food_name: slot.food_name }]).map((item) => (
+                                  <p key={item.id} className="text-sm text-warm-800">{item.food_name ?? '—'}</p>
+                                ))}
                               </div>
                               {slot.calories != null && <p className="text-xs text-warm-400">{Math.round(slot.calories)} kcal</p>}
                             </div>

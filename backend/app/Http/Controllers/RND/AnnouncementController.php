@@ -12,9 +12,11 @@ use App\Http\Resources\AnnouncementResource;
 use App\Models\Announcement;
 use App\Services\Audit\AuditLogger;
 use App\Services\NotificationService;
+use App\Services\StoredObjectStorage;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class AnnouncementController extends Controller
 {
@@ -25,7 +27,7 @@ class AnnouncementController extends Controller
         $user = $request->user();
 
         $announcements = Announcement::query()
-            ->with('user:id,uuid,name,first_name,last_name,role')
+            ->with('user:id,uuid,name,first_name,last_name,role,profile_photo_stored_object_id')
             ->when($request->string('announcement_id')->toString(), fn ($query, $id) => $query->where('uuid', $id))
             ->when($user->role === 'RND', function ($query) use ($user) {
                 $query->where(function ($nested) use ($user) {
@@ -78,7 +80,7 @@ class AnnouncementController extends Controller
         $notifications->fanOutAnnouncement($announcement);
 
         return response()->json([
-            'data' => new AnnouncementResource($announcement->load('user:id,uuid,name,first_name,last_name,role')),
+            'data' => new AnnouncementResource($announcement->load('user:id,uuid,name,first_name,last_name,role,profile_photo_stored_object_id')),
         ], 201);
     }
 
@@ -112,7 +114,7 @@ class AnnouncementController extends Controller
                 ),
             );
         });
-        $announcement->load('user:id,uuid,name,first_name,last_name,role');
+        $announcement->load('user:id,uuid,name,first_name,last_name,role,profile_photo_stored_object_id');
 
         return response()->json([
             'data' => new AnnouncementResource($announcement),
@@ -133,6 +135,31 @@ class AnnouncementController extends Controller
         });
 
         return response()->json(null, 204);
+    }
+
+    public function authorPhoto(Request $request, Announcement $announcement, StoredObjectStorage $objects): StreamedResponse
+    {
+        $user = $request->user();
+        $visible = match ($user->role) {
+            'Admin' => true,
+            'FSS' => in_array($announcement->visibility, ['FSS', 'All'], true),
+            'RND' => $announcement->visibility === 'All' || $announcement->user_id === $user->id,
+            default => false,
+        };
+        abort_unless($visible, 404);
+
+        $object = $announcement->user()->with('profilePhotoObject')->first()?->profilePhotoObject;
+        abort_if($object === null, 404, 'Profile photo not found.');
+        $stream = $objects->readStream($object);
+
+        return response()->stream(function () use ($stream): void {
+            fpassthru($stream);
+            fclose($stream);
+        }, 200, [
+            'Content-Type' => $object->mime_type,
+            'Cache-Control' => 'private, no-store',
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
     }
 
     /**

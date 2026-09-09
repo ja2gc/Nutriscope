@@ -27,6 +27,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -358,6 +359,8 @@ function AttachmentList({
   const qc = useQueryClient();
   const attachments = (group.attachments ?? []).filter((att) => att.type === type);
   const [viewing, setViewing] = useState<PurchaseOrderAttachment | null>(null);
+  const { height: windowHeight, width: windowWidth } = useWindowDimensions();
+  const previewHeight = Math.min(720, Math.max(280, Math.min(windowHeight * 0.72, windowWidth * 1.25)));
   const { data: token = null } = useQuery({
     queryKey: ['auth-token'],
     queryFn: getToken,
@@ -474,11 +477,24 @@ function AttachmentList({
                   <X color="#fff" size={18} />
                 </TouchableOpacity>
               </View>
-              <Image
-                source={imageSource(viewing)}
-                className="w-full h-[520px] rounded-xl"
-                resizeMode="contain"
-              />
+              <View className="relative w-full overflow-hidden rounded-xl bg-black" style={{ height: previewHeight }}>
+                <Image
+                  source={imageSource(viewing)}
+                  accessibilityElementsHidden
+                  importantForAccessibility="no-hide-descendants"
+                  blurRadius={24}
+                  resizeMode="cover"
+                  className="absolute inset-0 h-full w-full opacity-60"
+                  style={{ transform: [{ scale: 1.08 }] }}
+                />
+                <View className="absolute inset-0 bg-black/20" />
+                <Image
+                  source={imageSource(viewing)}
+                  accessibilityLabel={attachmentName(viewing)}
+                  className="h-full w-full"
+                  resizeMode="contain"
+                />
+              </View>
             </Pressable>
           )}
         </Pressable>

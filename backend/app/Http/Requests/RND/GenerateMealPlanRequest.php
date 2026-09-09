@@ -19,6 +19,7 @@ class GenerateMealPlanRequest extends FormRequest
             'conditions.*' => ['nullable', 'string'],
             'allergens' => ['nullable', 'array'],
             'allergens.*' => ['nullable', 'string'],
+            'exclude_snacks' => ['sometimes', 'boolean'],
         ];
     }
 }

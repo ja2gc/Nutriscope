@@ -12,6 +12,12 @@ class AnnouncementSeeder extends Seeder
     {
         $admin = User::where('email', 'admin@nutriscope.local')->firstOrFail();
         $rnd = User::where('email', 'rnd@nutriscope.local')->firstOrFail();
+        $photoPath = database_path('seeders/assets/announcements/case-conference.jpg');
+        $photoBytes = file_get_contents($photoPath);
+        if (! is_string($photoBytes) || $photoBytes === '') {
+            throw new \RuntimeException("Announcement seed image is missing or unreadable: {$photoPath}");
+        }
+        $caseConferencePhoto = 'data:image/jpeg;base64,'.base64_encode($photoBytes);
 
         $posts = [
             [
@@ -21,6 +27,7 @@ class AnnouncementSeeder extends Seeder
                 'category' => 'Urgent',
                 'visibility' => 'All',
                 'pinned' => true,
+                'attachment' => null,
             ],
             [
                 'user_id' => $rnd->id,
@@ -29,6 +36,7 @@ class AnnouncementSeeder extends Seeder
                 'category' => 'Operational',
                 'visibility' => 'All',
                 'pinned' => false,
+                'attachment' => null,
             ],
             [
                 'user_id' => $admin->id,
@@ -37,6 +45,7 @@ class AnnouncementSeeder extends Seeder
                 'category' => 'Operational',
                 'visibility' => 'FSS',
                 'pinned' => false,
+                'attachment' => null,
             ],
             [
                 'user_id' => $rnd->id,
@@ -45,6 +54,7 @@ class AnnouncementSeeder extends Seeder
                 'category' => 'Event',
                 'visibility' => 'All',
                 'pinned' => false,
+                'attachment' => $caseConferencePhoto,
             ],
             [
                 'user_id' => $admin->id,
@@ -53,6 +63,7 @@ class AnnouncementSeeder extends Seeder
                 'category' => 'General',
                 'visibility' => 'Admin',
                 'pinned' => false,
+                'attachment' => null,
             ],
         ];
 

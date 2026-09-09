@@ -41,13 +41,14 @@ flowchart TD
     I --> L["Create menu cycle"]
     K4 --> L
     L --> L1["Set dates, days, meal slots, estimated population"]
-    L1 --> L2["Slot recipes or ready-to-serve foods"]
+    L1 --> L2["Slot one or more ordered meal lines<br/>No bulk-rice menu line"]
     L2 --> L3["Compute quantity, cost/head, prep notes"]
     L3 --> L4["Activate cycle or keep draft"]
 
     L4 --> M["Generate suggested shopping list"]
     M --> N["Aggregate recipe ingredients and ready-to-serve items"]
-    N --> O["Attach calculated need, purchase values, vendor, and estimated cost"]
+    N --> N1["Review draft; add bulk Rice in kg when needed"]
+    N1 --> O["Attach calculated need, purchase values, vendor, and estimated cost"]
     O --> P["Create and release purchase order / vendor groups"]
     P --> Q["FSS confirms actuals, uploads evidence, and marks vendors received"]
 ```
@@ -73,7 +74,7 @@ flowchart TD
 
     I --> J["Assessment"]
     J -->|"saved"| K["Diagnosis / PES"]
-    K -->|"one or more saved"| L["Intervention and patient meal plans"]
+    K -->|"one or more saved"| L["Intervention and patient meal plans<br/>manual / exact template / prescription-generated"]
     L -->|"saved"| M["Monitoring and Evaluation available"]
     J --> N["Shared visit controls remain available"]
     K --> N
@@ -367,7 +368,7 @@ Intervention is unlocked after Assessment and at least one Diagnosis. It contain
 
 ### Meal Planning
 
-Patient meal plans may be manual, generated, or template-based. In ADIME history they are numbered within the cycle and open the existing Patient Menu Plan PDF preview with view/download actions.
+Patient meal plans may be manual, generated, or template-based. Exact loaded templates can be quantity-scaled in the common editor without item substitution. Auto-generation already follows the saved prescription and can exclude snacks by redistributing targets across main meals, except when the selected liver-disease goal requires frequent intake. In ADIME history plans are numbered within the cycle and open the existing Patient Menu Plan PDF preview with prescription context and view/download actions.
 
 ### Monitoring and Evaluation
 

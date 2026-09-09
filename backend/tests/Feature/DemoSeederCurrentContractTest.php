@@ -9,7 +9,11 @@ use App\Models\BudgetLedger;
 use App\Models\ClinicalRule;
 use App\Models\FoodItem;
 use App\Models\FoodServiceRecipe;
+use App\Models\FoodServiceSetting;
 use App\Models\MenuCycle;
+use App\Models\MenuCycleTemplate;
+use App\Models\NcpAppointment;
+use App\Models\NcpRecord;
 use App\Models\Notification;
 use App\Models\Patient;
 use App\Models\PurchaseOrder;
@@ -19,13 +23,14 @@ use App\Models\ShoppingList;
 use App\Models\Sop;
 use App\Models\Supplier;
 use App\Models\User;
+use App\Services\FSS\PurchaseOrderLifecycleService;
 use Carbon\CarbonImmutable;
 use Database\Seeders\AdminUserSeeder;
 use Database\Seeders\AiUsageLimitSeeder;
 use Database\Seeders\AnnouncementSeeder;
 use Database\Seeders\ClinicalRulesSeeder;
-use Database\Seeders\FoodItemsSeeder;
 use Database\Seeders\FoodServiceDemoSeeder;
+use Database\Seeders\FoodServiceMenuTemplateSeeder;
 use Database\Seeders\FsCatalogSeeder;
 use Database\Seeders\NotificationSeeder;
 use Database\Seeders\PatientSeeder;
@@ -33,7 +38,7 @@ use Database\Seeders\RecipeSeeder;
 use Database\Seeders\ReportTemplateSeeder;
 use Database\Seeders\SopSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use ReflectionClass;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class DemoSeederCurrentContractTest extends TestCase
@@ -93,6 +98,7 @@ class DemoSeederCurrentContractTest extends TestCase
 
     public function test_patient_and_meal_plan_demo_graph_matches_current_contract(): void
     {
+        CarbonImmutable::setTestNow('2026-09-09 12:00:00');
         $this->seed(AdminUserSeeder::class);
         $this->seedClinicalFoodFixtures();
         $this->seed(RecipeSeeder::class);
@@ -111,21 +117,62 @@ class DemoSeederCurrentContractTest extends TestCase
             $this->assertContains($patient->sex, ['Male', 'Female']);
             $this->assertSame('Active', $patient->status);
             $this->assertSame('adult', $patient->screening_type);
-            $this->assertCount(1, $patient->ncpRecords);
+            foreach ($patient->ncpRecords as $record) {
+                $this->assertContains($record->type, ['new', 'continuing']);
+                $this->assertContains($record->status, ['draft', 'active', 'completed', 'discontinued', 'discharged']);
+                $this->assertNotNull($record->assessment);
+                $this->assertNotNull($record->intervention);
+                $this->assertNotEmpty($record->diagnoses);
+                $this->assertNotEmpty($record->intervention->mealPlans);
 
-            $record = $patient->ncpRecords->sole();
-            $this->assertContains($record->type, ['new', 'continuing']);
-            $this->assertContains($record->status, ['draft', 'active', 'completed', 'discharged']);
-            $this->assertNotNull($record->assessment);
-            $this->assertNotNull($record->intervention);
-            $this->assertNotEmpty($record->diagnoses);
-            $this->assertNotEmpty($record->intervention->mealPlans);
-
-            foreach ($record->intervention->mealPlans as $mealPlan) {
-                $this->assertContains($mealPlan->status, ['draft', 'active']);
-                $this->assertCount(35, $mealPlan->days);
+                foreach ($record->intervention->mealPlans as $mealPlan) {
+                    $this->assertContains($mealPlan->status, ['draft', 'active']);
+                    $this->assertCount(35, $mealPlan->days);
+                }
             }
         }
+
+        $maria = $patients->firstWhere('hospital_number', 'HN-2026-0042');
+        $this->assertCount(1, $maria->ncpRecords);
+        $this->assertSame('Normal', $maria->ncpRecords->sole()->assessment->nutritional_status);
+        $this->assertSame(1.0, (float) $maria->ncpRecords->sole()->risk_score);
+        $this->assertGreaterThan(25, (float) $maria->ncpRecords->sole()->assessment->bmi);
+        $this->assertLessThan(27, (float) $maria->ncpRecords->sole()->assessment->bmi);
+
+        $roberto = $patients->firstWhere('hospital_number', 'HN-2026-0078');
+        $this->assertCount(2, $roberto->ncpRecords);
+        $this->assertCount(1, $roberto->ncpRecords->where('status', 'completed'));
+        $this->assertCount(1, $roberto->ncpRecords->where('status', 'active'));
+        $this->assertNotEmpty($roberto->ncpRecords->firstWhere('status', 'completed')->monitorings);
+
+        $mariaAppointments = NcpAppointment::query()->whereBelongsTo($maria)->get();
+        $this->assertTrue($mariaAppointments->contains(fn ($visit) => $visit->status === 'completed'
+            && $visit->source === 'scheduled' && $visit->worked_on === ['assessment'] && $visit->newly_completed === ['assessment']));
+        $this->assertTrue($mariaAppointments->contains(fn ($visit) => $visit->status === 'completed'
+            && $visit->worked_on === ['diagnosis', 'intervention'] && $visit->newly_completed === ['diagnosis', 'intervention']));
+        $this->assertTrue($mariaAppointments->contains(fn ($visit) => $visit->status === 'cancelled'
+            && $visit->reason_code !== null));
+        $this->assertTrue($mariaAppointments->contains(fn ($visit) => $visit->status === 'completed'
+            && $visit->source === 'walk_in' && $visit->worked_on === ['monitoring']));
+        $this->assertTrue($mariaAppointments->contains(fn ($visit) => $visit->status === 'scheduled'
+            && $visit->purpose === 'Monitoring follow-up' && $visit->ncp_record_id === null
+            && $visit->scheduled_at->isSameDay(now()->addDays(30))));
+        $this->assertTrue($mariaAppointments->contains(fn ($visit) => $visit->status === 'scheduled'
+            && $visit->scheduled_at->isSameDay(now()->addDay())));
+
+        $robertoAppointments = NcpAppointment::query()->whereBelongsTo($roberto)->get();
+        $this->assertTrue($robertoAppointments->where('status', 'completed')->contains(
+            fn ($visit) => $visit->ncp_record_id === $roberto->ncpRecords->firstWhere('status', 'completed')->id
+        ));
+        $this->assertTrue($robertoAppointments->where('status', 'completed')->contains(
+            fn ($visit) => $visit->ncp_record_id === $roberto->ncpRecords->firstWhere('status', 'active')->id
+        ));
+        $this->assertTrue($robertoAppointments->contains(fn ($visit) => $visit->status === 'scheduled'
+            && $visit->purpose === 'Monitoring follow-up' && $visit->ncp_record_id === null
+            && $visit->scheduled_at->isSameDay(now()->addDays(50))));
+
+        $currentCycles = NcpRecord::query()->whereIn('status', ['draft', 'active'])->get()->groupBy('patient_id');
+        $this->assertTrue($currentCycles->every(fn ($cycles) => $cycles->count() === 1));
     }
 
     public function test_food_service_demo_is_repeatable_and_uses_current_status_values(): void
@@ -135,17 +182,26 @@ class DemoSeederCurrentContractTest extends TestCase
         $this->seed(FsCatalogSeeder::class);
 
         $this->seed(FoodServiceDemoSeeder::class);
+        $this->seed(FoodServiceMenuTemplateSeeder::class);
         $first = $this->foodServiceCounts();
         $this->seed(FoodServiceDemoSeeder::class);
+        $this->seed(FoodServiceMenuTemplateSeeder::class);
         $second = $this->foodServiceCounts();
 
         $this->assertSame($first, $second);
-        $this->assertSame(5, $second['menu_cycles']);
+        $this->assertSame(3, $second['menu_cycles']);
+        $this->assertSame(3, $second['menu_cycle_templates']);
         $this->assertGreaterThan(0, $second['recipes']);
         $this->assertGreaterThan(0, $second['suppliers']);
         $this->assertGreaterThan(0, $second['shopping_lists']);
         $this->assertGreaterThan(0, $second['purchase_orders']);
         $this->assertSame(1, $second['budgets']);
+
+        $this->assertFalse(FoodServiceRecipe::query()->where('name', 'Cooked Rice')->exists());
+        foreach (MenuCycleTemplate::query()->with('days.recipe')->get() as $template) {
+            $this->assertSame(35, $template->days->count());
+            $this->assertSame(0, $template->days->where('line_order', '>', 1)->count());
+        }
 
         $this->assertEmpty(MenuCycle::query()->whereNotIn('status', ['completed', 'active', 'upcoming'])->pluck('status'));
         $this->assertEmpty(ShoppingList::query()->whereNotIn('status', ['draft', 'converted'])->pluck('status'));
@@ -153,6 +209,61 @@ class DemoSeederCurrentContractTest extends TestCase
         $this->assertEmpty(PurchaseOrder::query()->whereNotIn('lifecycle_status', ['open_execution', 'completed', 'archived'])->pluck('lifecycle_status'));
         $this->assertEmpty(BudgetLedger::query()->whereNotIn('type', ['po_deduction', 'manual_addition', 'manual_deduction'])->pluck('type'));
         $this->assertEmpty(BudgetLedger::query()->whereNotIn('source', ['system', 'manual'])->pluck('source'));
+
+        $past = MenuCycle::query()->where('status', 'completed')->sole();
+        $this->assertGreaterThan(0, (int) data_get($past->cost_snapshot, 'population'));
+        $this->assertGreaterThan(0, (float) data_get($past->cost_snapshot, 'total_cost'));
+        $limit = (float) FoodServiceSetting::singleton()->per_head_day_limit;
+        $this->assertSame(150.0, $limit);
+        $this->assertLessThanOrEqual($limit, (float) data_get($past->cost_snapshot, 'cost_per_head'));
+        foreach ($past->days()->pluck('estimate_population')->unique() as $population) {
+            $this->assertGreaterThanOrEqual(140, (int) $population);
+            $this->assertLessThanOrEqual(200, (int) $population);
+        }
+        $this->assertStringContainsString(
+            "number_format(\$cost['population'])",
+            file_get_contents(resource_path('views/reports/menu-calendar.blade.php')),
+        );
+        $weekStart = CarbonImmutable::parse($past->week_start_date);
+        $lists = ShoppingList::query()
+            ->whereIn('period_start', [
+                $weekStart->addDay()->toDateString(),
+                $weekStart->addDays(4)->toDateString(),
+            ])
+            ->whereIn('period_end', [
+                $weekStart->addDays(3)->toDateString(),
+                $weekStart->addDays(7)->toDateString(),
+            ])
+            ->get();
+        $this->assertCount(2, $lists);
+
+        $historicalOrders = PurchaseOrder::query()
+            ->whereIn('shopping_list_id', $lists->pluck('id'))
+            ->with(['items', 'vendorGroups.attachments.storedObject', 'programProjectActivity'])
+            ->get();
+        $this->assertCount(2, $historicalOrders);
+        foreach ($historicalOrders as $order) {
+            $progress = app(PurchaseOrderLifecycleService::class)->servedPopulationProgress($order->shoppingList);
+            $state = "{$order->po_number}; lifecycle={$order->lifecycle_status}; total={$order->total_amount}; budget=".Budget::query()->firstOrFail()->remainingBalance().'; population='.json_encode($progress).'; groups='.$order->vendorGroups->map(
+                fn ($group) => $group->status.':'.$group->attachments->pluck('type')->implode(',')
+            )->implode('|');
+            $this->assertSame('received', $order->status, $state);
+            $this->assertSame('completed', $order->lifecycle_status, $state);
+            $this->assertNotNull($order->completed_at);
+            $this->assertLessThanOrEqual($limit, (float) $order->actual_budget_per_head_per_day);
+            $this->assertNotNull($order->programProjectActivity);
+            $this->assertTrue($order->items->every(fn ($item) => $item->actual_qty !== null && $item->actual_unit_price !== null));
+            foreach ($order->vendorGroups as $group) {
+                $this->assertSame('received', $group->status);
+                $this->assertNotNull($group->or_number);
+                $receipt = $group->attachments->firstWhere('type', 'receipt');
+                $proof = $group->attachments->firstWhere('type', 'proof');
+                $this->assertNotNull($receipt?->storedObject);
+                $this->assertSame($receipt?->stored_object_id, $proof?->stored_object_id);
+                $this->assertTrue(Storage::disk($receipt->storedObject->storage_disk)->exists($receipt->storedObject->object_key));
+            }
+        }
+        $this->assertCount(2, BudgetLedger::query()->whereIn('purchase_order_id', $historicalOrders->pluck('id'))->get());
     }
 
     public function test_remaining_base_seeders_are_repeatable_and_use_current_contract_values(): void
@@ -175,8 +286,8 @@ class DemoSeederCurrentContractTest extends TestCase
         ClinicalRule::query()
             ->where('condition', 'DM')
             ->where('stage', 'all')
-            ->where('nutrient_or_food_tag', 'carbs')
-            ->where('rule_type', 'limit')
+            ->where('nutrient_or_food_tag', 'fiber')
+            ->where('rule_type', 'recommend')
             ->update(['threshold' => -1, 'reason' => 'STALE RULE']);
         foreach ($seeders as $seeder) {
             $this->seed($seeder);
@@ -186,15 +297,23 @@ class DemoSeederCurrentContractTest extends TestCase
         $this->assertSame(3, Sop::query()->count());
         $this->assertEmpty(Announcement::query()->whereNotIn('category', ['General', 'Event', 'Operational', 'Urgent', 'Memo'])->pluck('category'));
         $this->assertEmpty(Announcement::query()->whereNotIn('visibility', ['All', 'RND', 'FSS', 'Admin'])->pluck('visibility'));
+        $photo = Announcement::query()->whereNotNull('attachment')->firstOrFail()->attachment;
+        $this->assertStringStartsWith('data:image/jpeg;base64,', $photo);
+        $this->assertNotFalse(base64_decode(substr($photo, strpos($photo, ',') + 1), true));
         $this->assertEmpty(ClinicalRule::query()->whereNotIn('rule_type', ['limit', 'avoid', 'recommend'])->pluck('rule_type'));
-        $dmCarbs = ClinicalRule::query()
+        $dmFiber = ClinicalRule::query()
             ->where('condition', 'DM')
             ->where('stage', 'all')
+            ->where('nutrient_or_food_tag', 'fiber')
+            ->where('rule_type', 'recommend')
+            ->sole();
+        $this->assertSame(25.0, (float) $dmFiber->threshold);
+        $this->assertSame('Dietary fiber supports glycemic control and should be individualized within the prescription.', $dmFiber->reason);
+        $this->assertFalse(ClinicalRule::query()
+            ->where('condition', 'DM')
             ->where('nutrient_or_food_tag', 'carbs')
             ->where('rule_type', 'limit')
-            ->sole();
-        $this->assertSame(180.0, (float) $dmCarbs->threshold);
-        $this->assertSame('Carbohydrate restriction for glycemic control in diabetes mellitus', $dmCarbs->reason);
+            ->exists());
         $this->assertSame([
             'demographic_census',
             'inspection_report',
@@ -212,7 +331,8 @@ class DemoSeederCurrentContractTest extends TestCase
 
     private function seedClinicalFoodFixtures(): void
     {
-        $names = array_keys((new ReflectionClass(FoodItemsSeeder::class))->getConstant('INGREDIENTS'));
+        $dataset = json_decode(file_get_contents(database_path('seeders/data/clinical-foods.json')), true, 512, JSON_THROW_ON_ERROR);
+        $names = collect($dataset['foods'])->pluck('name')->all();
         foreach ($names as $index => $name) {
             FoodItem::factory()->create([
                 'name' => $name,
@@ -235,6 +355,7 @@ class DemoSeederCurrentContractTest extends TestCase
             'recipes' => FoodServiceRecipe::query()->count(),
             'suppliers' => Supplier::query()->count(),
             'menu_cycles' => MenuCycle::query()->count(),
+            'menu_cycle_templates' => MenuCycleTemplate::query()->count(),
             'shopping_lists' => ShoppingList::query()->count(),
             'purchase_orders' => PurchaseOrder::query()->count(),
             'budgets' => Budget::query()->count(),

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasPublicId;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -9,9 +10,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class MenuCycleDay extends Model
 {
     use HasFactory;
+    use HasPublicId;
 
     protected $fillable = [
-        'menu_cycle_id', 'day_of_week', 'meal_type',
+        'menu_cycle_id', 'day_of_week', 'meal_type', 'line_order',
         'recipe_id', 'fs_item_id', 'quantity', 'servings_override', 'recipe_override',
         'estimate_population', 'estimate_population_updated_at',
         'is_event', 'event_allocation',
@@ -20,6 +22,7 @@ class MenuCycleDay extends Model
 
     protected $casts = [
         'quantity' => 'decimal:2',
+        'line_order' => 'integer',
         'servings_override' => 'integer',
         'recipe_override' => 'array',
         'estimate_population' => 'integer',

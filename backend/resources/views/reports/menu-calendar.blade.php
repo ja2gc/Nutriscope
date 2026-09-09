@@ -35,7 +35,7 @@
 
     <table style="margin-top:10px; border:0;" class="meta">
         <tr>
-            <td style="border:0;">Population: <span class="bold">{{ number_format($cycle->population) }}</span></td>
+            <td style="border:0;">Population: <span class="bold">{{ number_format($cost['population']) }}</span></td>
             <td style="border:0;">Weekly cost: <span class="bold">₱ {{ number_format($cost['total_cost'], 2) }}</span></td>
             <td style="border:0;">Cost / head / day: <span class="bold">₱ {{ number_format($cost['cost_per_head'], 2) }}</span></td>
         </tr>

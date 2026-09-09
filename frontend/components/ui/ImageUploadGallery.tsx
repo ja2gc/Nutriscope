@@ -40,6 +40,35 @@ export function imagesFromSrcs(srcs: string[] | undefined | null, fallbackName =
   }));
 }
 
+export function FittedImageFrame({
+  src,
+  alt,
+  className = "",
+  variant = "feed",
+}: {
+  src: string;
+  alt: string;
+  className?: string;
+  variant?: "feed" | "viewer";
+}) {
+  return (
+    <div className={`relative w-full overflow-hidden bg-black ${
+      variant === "viewer" ? "h-[min(75vh,720px)] min-h-60" : "h-[clamp(180px,52vw,420px)]"
+    } ${className}`}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={src}
+        alt=""
+        aria-hidden="true"
+        className="absolute inset-0 h-full w-full scale-110 object-cover blur-2xl brightness-50"
+      />
+      <div aria-hidden="true" className="absolute inset-0 bg-black/20" />
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={src} alt={alt} className="relative z-10 block h-full w-full object-contain" />
+    </div>
+  );
+}
+
 export function ImageCarousel({
   images,
   title,
@@ -62,8 +91,7 @@ export function ImageCarousel({
 
   return (
     <div className={`relative overflow-hidden rounded-lg border border-warm-200 bg-warm-50 ${className}`}>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={activeImage.src} alt={title} className="block w-full max-h-[520px] object-cover" />
+      <FittedImageFrame src={activeImage.src} alt={title} />
       {hasMany && (
         <>
           <button
@@ -187,10 +215,12 @@ export function ImageUploadGallery({
         <div className={`relative overflow-hidden border border-warm-200 bg-white ${
           isAvatar ? "mx-auto h-36 w-36 rounded-full" : "rounded-lg"
         }`}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={activeImage.src} alt={activeImage.name} className={`block object-cover ${
-            isAvatar ? "h-full w-full" : "h-56 w-full"
-          }`} />
+          {isAvatar ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={activeImage.src} alt={activeImage.name} className="block h-full w-full object-cover" />
+          ) : (
+            <FittedImageFrame src={activeImage.src} alt={activeImage.name} />
+          )}
           <button
             type="button"
             aria-label={removeLabel ?? `Remove ${activeImage.name}`}

@@ -185,6 +185,7 @@ class MenuCycleTemplateController extends Controller
                     $template->days()->create([
                         'day_of_week' => $d->day_of_week,
                         'meal_type' => $d->meal_type,
+                        'line_order' => $d->line_order,
                         'recipe_id' => $d->recipe_id,
                         'fs_item_id' => $d->fs_item_id,
                         'quantity' => $d->quantity,
@@ -242,6 +243,7 @@ class MenuCycleTemplateController extends Controller
                     $cycle->days()->create([
                         'day_of_week' => $d->day_of_week,
                         'meal_type' => $d->meal_type,
+                        'line_order' => $d->line_order,
                         'recipe_id' => $d->recipe_id,
                         'fs_item_id' => $d->fs_item_id,
                         'quantity' => $d->quantity,
@@ -280,6 +282,7 @@ class MenuCycleTemplateController extends Controller
             'days' => ['nullable', 'array'],
             'days.*.day_of_week' => ['required_with:days', 'in:Monday,Tuesday,Wednesday,Thursday,Friday,Saturday,Sunday'],
             'days.*.meal_type' => ['required_with:days', 'in:breakfast,am_snack,lunch,pm_snack,dinner'],
+            'days.*.line_order' => ['nullable', 'integer', 'min:1'],
             'days.*.recipe_id' => ['nullable', 'string', 'exists:food_service_recipes,uuid'],
             'days.*.fs_item_id' => ['nullable', 'string', 'exists:fs_items,uuid'],
             'days.*.quantity' => ['nullable', 'numeric', 'min:0'],
@@ -304,13 +307,18 @@ class MenuCycleTemplateController extends Controller
     private function syncDays(MenuCycleTemplate $template, array $days): void
     {
         $template->days()->delete();
+        $lineCounters = [];
         foreach ($days as $d) {
             if (empty($d['recipe_id']) && empty($d['fs_item_id'])) {
                 continue;
             }
+            $slotKey = $d['day_of_week'].'|'.$d['meal_type'];
+            $lineOrder = ($lineCounters[$slotKey] ?? 0) + 1;
+            $lineCounters[$slotKey] = $lineOrder;
             $template->days()->create([
                 'day_of_week' => $d['day_of_week'],
                 'meal_type' => $d['meal_type'],
+                'line_order' => $lineOrder,
                 'recipe_id' => $d['recipe_id'] ?? null,
                 'fs_item_id' => $d['fs_item_id'] ?? null,
                 'quantity' => $d['quantity'] ?? 1,
@@ -327,24 +335,27 @@ class MenuCycleTemplateController extends Controller
             'name' => $template->name,
             'description' => $template->description,
             'cycle_days' => $template->cycle_days,
-            'days' => $template->days->map(fn ($d) => [
-                'id' => $d->id,
-                'day_of_week' => $d->day_of_week,
-                'meal_type' => $d->meal_type,
-                'recipe_id' => $d->recipe_id,
-                'fs_item_id' => $d->fs_item_id,
-                'quantity' => $d->quantity,
-                'recipe' => $d->recipe ? ['id' => $d->recipe->uuid, 'name' => $d->recipe->name] : null,
-                'fs_item' => $d->fsItem ? ['id' => $d->fsItem->uuid, 'name' => $d->fsItem->name] : null,
-            ])->values(),
+            'days' => $template->days
+                ->sortBy(fn ($d) => $d->day_of_week.'|'.$d->meal_type.'|'.str_pad((string) $d->line_order, 4, '0', STR_PAD_LEFT))
+                ->map(fn ($d) => [
+                    'id' => $d->id,
+                    'day_of_week' => $d->day_of_week,
+                    'meal_type' => $d->meal_type,
+                    'line_order' => $d->line_order,
+                    'recipe_id' => $d->recipe_id,
+                    'fs_item_id' => $d->fs_item_id,
+                    'quantity' => $d->quantity,
+                    'recipe' => $d->recipe ? ['id' => $d->recipe->uuid, 'name' => $d->recipe->name] : null,
+                    'fs_item' => $d->fsItem ? ['id' => $d->fsItem->uuid, 'name' => $d->fsItem->name] : null,
+                ])->values(),
             'updated_at' => $template->updated_at,
         ];
     }
 
     private function daySignature(MenuCycleTemplate $template): array
     {
-        return $template->days()->orderBy('day_of_week')->orderBy('meal_type')
-            ->get(['day_of_week', 'meal_type', 'recipe_id', 'fs_item_id', 'quantity'])
+        return $template->days()->orderBy('day_of_week')->orderBy('meal_type')->orderBy('line_order')
+            ->get(['day_of_week', 'meal_type', 'line_order', 'recipe_id', 'fs_item_id', 'quantity'])
             ->map->toArray()->values()->all();
     }
 

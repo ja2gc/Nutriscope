@@ -16,12 +16,15 @@ use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderAttachment;
 use App\Models\ReportBranding;
 use App\Models\ShoppingList;
+use App\Models\StoredObject;
 use App\Models\Supplier;
 use App\Models\User;
 use App\Services\FSS\AccomplishmentReportArchiveService;
 use App\Services\FSS\PurchaseOrderLifecycleService;
+use App\Services\FSS\ReceivingService;
 use App\Services\FSS\ShoppingListPopulationService;
 use App\Services\MenuCycleCostService;
+use App\Services\StoredObjectStorage;
 use Carbon\Carbon;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Schema;
@@ -30,12 +33,9 @@ use Illuminate\Support\Facades\Schema;
  * Decouple-correct demo data for the whole food-service loop, themed to the real
  * RPDH PPA menu so every report tab + the calculated budget-per-head has data.
  *
- * Produces a FULL MONTH of operations: three COMPLETED past weekly cycles plus the
- * current active cycle. Each week carries its own menu cycle, suggested shopping list
- * (with the manual total_served_population census), received vendor POs, completed
- * meal-prep (served) logs, and diet-list counts — so estimated AND actual
- * budget-per-head, the budget graph, accomplishment, dietary cash book, PPA and menu
- * calendar reports all render real figures.
+ * Produces one completed historical cycle, one current active cycle, and one future
+ * draft cycle. Connected shopping lists, received vendor POs, meal-prep logs, and
+ * diet-list counts let the operational and reporting workflows render real figures.
  *
  * Past weeks are fully closed (actual per-head computes); the current week is still
  * running (served population not yet entered) so the "pending" state is demonstrable.
@@ -45,14 +45,18 @@ use Illuminate\Support\Facades\Schema;
  */
 class FoodServiceDemoSeeder extends Seeder
 {
+    private const DEMO_RECEIPT_NAME = 'nutriscope-seeded-pexels-receipt-14647295.jpg';
+
     private array $fs = [];      // fs_item name => id
 
     private array $recipes = []; // recipe name => FoodServiceRecipe
 
     private array $suppliers = [];
 
+    private ?StoredObject $demoReceipt = null;
+
     /**
-     * Five genuinely different weekly menus keyed by week index.
+     * Three genuinely different weekly menus keyed by week index.
      * Each day is [breakfast, am_snack, lunch, pm_snack, dinner].
      * Proteins are weighted per week (beef/pork-heavy vs chicken/fish-light) so
      * system-computed weekly cost and actual ₱/head differ meaningfully across cycles.
@@ -131,6 +135,8 @@ class FoodServiceDemoSeeder extends Seeder
         }
 
         $this->reset();
+        $this->resetDemoStoredObject();
+        $this->demoReceipt = $this->storeDemoReceipt();
         $this->fs = FsItem::pluck('id', 'name')->all();
 
         $this->seedSuppliers();
@@ -142,14 +148,14 @@ class FoodServiceDemoSeeder extends Seeder
         // Ensure a report branding row exists so PDF generation doesn't abort.
         ReportBranding::singleton();
 
-        // Four Monday→Sunday weeks: 3 completed past cycles + the current active one.
-        // Week index 0 = current; 3/2/1 = oldest→newest past.
+        // Keep the demo graph focused: one completed historical week plus the
+        // current week. Each gets both normal procurement coverage periods.
         $currentWeekStart = Carbon::now()->startOfWeek(Carbon::MONDAY);
         $fssUser = User::find($fss);
         $archiveService = app(AccomplishmentReportArchiveService::class);
         $cycles = [];
         $cycleMeta = [];
-        for ($w = 3; $w >= 0; $w--) {
+        for ($w = 1; $w >= 0; $w--) {
             $weekStart = $currentWeekStart->copy()->subWeeks($w);
             $isCurrent = ($w === 0);
             $cycle = $this->seedCycleForWeek($rnd, $weekStart, $isCurrent, null, $w);
@@ -187,7 +193,7 @@ class FoodServiceDemoSeeder extends Seeder
 
         $this->seedBudget($fss, end($cycles));
 
-        $this->command->info('FoodServiceDemoSeeder: '.count($cycles).' weekly cycles (3 completed + 1 active) + 1 upcoming draft seeded.');
+        $this->command->info('FoodServiceDemoSeeder: one completed week, one active week, and one upcoming draft seeded.');
     }
 
     private function reset(): void
@@ -208,6 +214,32 @@ class FoodServiceDemoSeeder extends Seeder
             }
         }
         Schema::enableForeignKeyConstraints();
+    }
+
+    private function resetDemoStoredObject(): void
+    {
+        StoredObject::query()
+            ->where('purpose', 'purchase_order')
+            ->where('original_name', self::DEMO_RECEIPT_NAME)
+            ->get()
+            ->each(fn (StoredObject $object) => app(StoredObjectStorage::class)->deleteOrQueue($object));
+    }
+
+    private function storeDemoReceipt(): StoredObject
+    {
+        $path = database_path('seeders/assets/demo-receipt.jpg');
+        $bytes = file_get_contents($path);
+        if (! is_string($bytes) || $bytes === '') {
+            throw new \RuntimeException("Seed receipt asset is missing or unreadable: {$path}");
+        }
+
+        return app(StoredObjectStorage::class)->storeBytes(
+            $bytes,
+            'image/jpeg',
+            'jpg',
+            'purchase_order',
+            self::DEMO_RECEIPT_NAME,
+        );
     }
 
     private function id(string $name): ?int
@@ -261,11 +293,15 @@ class FoodServiceDemoSeeder extends Seeder
             'Chicken Sisig' => [50, [['Chicken fillet', 4000], ['Onion', 600], ['Soy sauce', 400], ['Cooking oil', 500]]],
             'Chicken with Lemongrass' => [50, [['Chicken (whole)', 5000], ['Ginger', 300], ['Garlic', 250], ['Salt', 150]]],
             'Paksiw na Bangus' => [50, [['Bangus (milkfish)', 5000], ['Vinegar', 800], ['Garlic', 250], ['Ginger', 300]]],
+            'Ginisang Munggo' => [50, [['Munggo (mung bean)', 2500], ['Assorted vegetables', 2500], ['Tomato', 600], ['Onion', 300], ['Garlic', 150]]],
+            'Ginisang Gulay' => [50, [['Assorted vegetables', 6000], ['Tomato', 800], ['Onion', 300], ['Garlic', 150]]],
         ];
 
         foreach ($defs as $name => [$servings, $lines]) {
             $recipe = FoodServiceRecipe::create([
-                'rnd_user_id' => $rnd, 'name' => $name, 'servings' => $servings,
+                'rnd_user_id' => $rnd,
+                'name' => $name,
+                'servings' => $servings,
             ]);
             foreach ($lines as [$itemName, $qty]) {
                 $fsId = $this->id($itemName);
@@ -322,16 +358,21 @@ class FoodServiceDemoSeeder extends Seeder
                 $name = $items[$i];
                 $row = [
                     'menu_cycle_id' => $cycle->id, 'day_of_week' => $day, 'meal_type' => $slot,
-                    'estimate_population' => null,
+                    'line_order' => 1,
+                    'estimate_population' => $status === 'upcoming'
+                        ? null
+                        : (int) round($this->dayPop[$day] * $popFactor),
                 ];
                 if (isset($this->recipes[$name])) {
                     $row['recipe_id'] = $this->recipes[$name]->id;
                 } elseif ($this->id($name)) {
                     $row['fs_item_id'] = $this->id($name);
+                    $row['quantity'] = $this->menuItemQuantity($name);
                 } else {
                     continue;
                 }
                 MenuCycleDay::create($row);
+
             }
         }
 
@@ -345,6 +386,17 @@ class FoodServiceDemoSeeder extends Seeder
         ]);
 
         return $cycle->fresh();
+    }
+
+    /** Per-patient amount in the catalog item's purchase unit. */
+    private function menuItemQuantity(string $name): float
+    {
+        return match ($name) {
+            'Coffee' => 0.02,
+            'Milo' => 0.025,
+            'Fresh milk' => 0.20,
+            default => 1.0,
+        };
     }
 
     /**
@@ -595,7 +647,7 @@ class FoodServiceDemoSeeder extends Seeder
                 continue;
             }
 
-            $orNumber = $idx === 0 ? null : 'OR-'.$weekTag.'-'.sprintf('%02d', $idx + 1);
+            $orNumber = 'OR-'.$weekTag.'-'.sprintf('%02d', $idx + 1);
             $group->items()->each(function ($item) use ($idx): void {
                 $plannedQty = (float) ($item->purchase_qty ?? $item->qty);
                 $actualQty = $item->description === 'Chicken (whole)' ? round($plannedQty + 0.125, 3) : $plannedQty;
@@ -604,9 +656,13 @@ class FoodServiceDemoSeeder extends Seeder
                     'actual_unit_price' => (float) ($item->purchase_price ?? $item->unit_price) + ($idx % 2 === 0 ? 0 : 0.50),
                 ]);
             });
+            $actualTotal = round((float) $group->items()->get()->sum(
+                fn ($item) => (float) $item->actual_qty * (float) $item->actual_unit_price
+            ), 2);
             $group->forceFill([
                 'or_number' => $orNumber,
                 'status' => 'received',
+                'total_amount' => $actualTotal,
                 'received_at' => $orderDate->copy()->addDay(),
             ])->save();
 
@@ -614,11 +670,15 @@ class FoodServiceDemoSeeder extends Seeder
                 PurchaseOrderAttachment::create([
                     'purchase_order_id' => $po->id,
                     'vendor_group_id' => $group->id,
+                    'stored_object_id' => $this->demoReceipt?->id,
                     'type' => $type,
-                    'path' => "demo/{$type}s/{$po->po_number}-{$group->id}.jpg",
+                    'path' => null,
                     'caption' => ucfirst($type).' — '.($group->supplier?->name ?? 'vendor'),
                 ]);
             }
+
+            app(ReceivingService::class)->receiveVendorGroup($group->fresh('items'));
+            $group->forceFill(['stocked_at' => $orderDate->copy()->addDay()])->save();
         }
     }
 
@@ -640,6 +700,8 @@ class FoodServiceDemoSeeder extends Seeder
         $cost = MenuCycleCostService::forCycle($currentCycle);
         $dayCosts = array_values(array_map(fn ($d) => $d['cost'], $cost['days']));
         $avgDay = $dayCosts ? array_sum($dayCosts) / count($dayCosts) : 18000;
+        $plannedProcurement = (float) PurchaseOrder::query()->sum('total_amount');
+        $allocation = round(max($avgDay * 30, $plannedProcurement * 1.25), -2);
 
         $fiscalYear = (int) Carbon::now()->year;
 
@@ -647,7 +709,7 @@ class FoodServiceDemoSeeder extends Seeder
         // configured separately in Food Service settings now, not on the budget row.
         Budget::updateOrCreate(
             ['fiscal_year' => $fiscalYear],
-            ['allocated_amount' => round($avgDay * 30, -2)],
+            ['allocated_amount' => $allocation],
         );
 
         // Budget per head per day lives in the shared Food Service settings.
@@ -676,6 +738,22 @@ class FoodServiceDemoSeeder extends Seeder
         PurchaseOrder::with(['vendorGroups.attachments', 'shoppingList', 'programProjectActivity'])
             ->where('lifecycle_status', 'open_execution')
             ->get()
-            ->each(fn (PurchaseOrder $po) => $lifecycle->refresh($po));
+            ->each(function (PurchaseOrder $po) use ($lifecycle): void {
+                $refreshed = $lifecycle->refresh($po);
+                if ($refreshed->lifecycle_status !== 'completed') {
+                    return;
+                }
+
+                $completedAt = Carbon::parse($refreshed->shoppingList->period_end)->addDay()->setTime(15, 0);
+                $refreshed->forceFill([
+                    'received_date' => $completedAt->toDateString(),
+                    'completed_at' => $completedAt,
+                    'final_locked_at' => $completedAt,
+                ])->saveQuietly();
+                BudgetLedger::query()->where('purchase_order_id', $refreshed->id)->update([
+                    'created_at' => $completedAt,
+                    'updated_at' => $completedAt,
+                ]);
+            });
     }
 }

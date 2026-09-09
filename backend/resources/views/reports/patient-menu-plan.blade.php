@@ -11,6 +11,23 @@
         </tr>
     </table>
 
+    <div style="margin-top:5px; padding:5px 7px; border:1px solid #d1d5db; background:#f8fafc; font-size:7.5pt;">
+        <span class="bold">Daily nutrition prescription:</span>
+        Energy: {{ number_format($prescription['energy_kcal']) }} kcal ·
+        Protein: {{ number_format($prescription['protein_g']) }} g ·
+        Carbohydrate: {{ number_format($prescription['carbs_g']) }} g ·
+        Fat: {{ number_format($prescription['fat_g']) }} g ·
+        Fluid guidance: {{ number_format($prescription['fluid_ml']) }} mL
+        @foreach($prescription['micronutrient_limits'] as $nutrient => $limit)
+            · {{ Illuminate\Support\Str::headline($nutrient) }}:
+            @if(isset($limit['min']))min {{ number_format($limit['min']) }}@endif
+            @if(isset($limit['min'], $limit['max']))–@endif
+            @if(isset($limit['max']))max {{ number_format($limit['max']) }}@endif
+            {{ $limit['unit'] ?? '' }}
+        @endforeach
+        <div class="muted" style="margin-top:2px;">Fluid guidance is informational and is not counted as satisfied by foods in this menu.</div>
+    </div>
+
     <table class="grid" style="margin-top:6px;">
         <thead>
             <tr>

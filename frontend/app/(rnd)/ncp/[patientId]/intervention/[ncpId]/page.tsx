@@ -558,6 +558,7 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
               allergens={allergens}
               displayedMicros={microKeys(prescription.displayed_nutrients)}
               micronutrientLimits={prescription.micronutrient_limits}
+              interventionGoal={intervention?.goal_type}
             />
           </div>
         )}

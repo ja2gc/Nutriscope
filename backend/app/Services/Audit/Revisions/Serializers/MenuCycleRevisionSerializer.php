@@ -51,10 +51,12 @@ class MenuCycleRevisionSerializer implements AuditRevisionSerializer
             return [
                 $dayRanks[$left->day_of_week] ?? PHP_INT_MAX,
                 $mealRanks[$left->meal_type] ?? PHP_INT_MAX,
+                $left->line_order,
                 $left->id,
             ] <=> [
                 $dayRanks[$right->day_of_week] ?? PHP_INT_MAX,
                 $mealRanks[$right->meal_type] ?? PHP_INT_MAX,
+                $right->line_order,
                 $right->id,
             ];
         })->values();

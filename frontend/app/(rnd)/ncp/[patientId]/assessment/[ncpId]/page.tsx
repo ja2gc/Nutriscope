@@ -29,6 +29,7 @@ import { fetchIntervention } from "@/services/interventionService";
 import NcpPatientHeader from "../../../_components/NcpPatientHeader";
 import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
 import { DatePicker, DateTimePicker } from "@/components/ui/DatePicker";
+import { FittedImageFrame } from "@/components/ui/ImageUploadGallery";
 
 // ─── Constants ───────────────────────────────────────────────────────────
 const COMMON_ALLERGENS = ["milk", "eggs", "fish", "shellfish", "tree nuts", "peanuts", "wheat", "soybeans"];
@@ -481,12 +482,7 @@ function AttachmentLightbox({
         {/* Content */}
         <div className="flex-1 overflow-auto bg-warm-50 flex items-center justify-center min-h-0">
           {isImage ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={url}
-              alt={name}
-              className="max-w-full max-h-[75vh] object-contain p-2"
-            />
+            <FittedImageFrame src={url} alt={name} variant="viewer" />
           ) : (
             <iframe
               src={url}

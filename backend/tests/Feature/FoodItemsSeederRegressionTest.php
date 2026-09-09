@@ -3,26 +3,23 @@
 namespace Tests\Feature;
 
 use App\Models\FoodItem;
-use App\Services\UsdaService;
 use Database\Seeders\FoodItemsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Mockery\MockInterface;
-use ReflectionClass;
 use Tests\TestCase;
 
 class FoodItemsSeederRegressionTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_rerun_removes_manual_foods_after_inventory_decoupling(): void
+    public function test_rerun_refreshes_canonical_foods_and_preserves_manual_foods(): void
     {
-        $ingredientNames = array_keys((new ReflectionClass(FoodItemsSeeder::class))->getConstant('INGREDIENTS'));
-        foreach ($ingredientNames as $index => $name) {
-            FoodItem::factory()->create([
-                'name' => $name,
-                'usda_fdc_id' => 9_000_000 + $index,
-            ]);
-        }
+        $dataset = json_decode(file_get_contents(database_path('seeders/data/clinical-foods.json')), true, flags: JSON_THROW_ON_ERROR);
+        $first = $dataset['foods'][0];
+        $canonical = FoodItem::factory()->create([
+            'name' => $first['name'],
+            'usda_fdc_id' => $first['usda_fdc_id'],
+            'calories' => 1,
+        ]);
         $manual = FoodItem::factory()->create(['usda_fdc_id' => null]);
 
         $this->artisan('db:seed', [
@@ -30,29 +27,17 @@ class FoodItemsSeederRegressionTest extends TestCase
             '--no-interaction' => true,
         ])->assertExitCode(0);
 
-        $this->assertModelMissing($manual);
+        $this->assertModelExists($manual);
+        $this->assertSame((float) $first['calories'], (float) $canonical->fresh()->calories);
     }
 
-    public function test_incomplete_usda_import_fails_after_retries(): void
+    public function test_local_dataset_seeds_every_pinned_usda_food_offline(): void
     {
-        $ingredientNames = array_keys((new ReflectionClass(FoodItemsSeeder::class))->getConstant('INGREDIENTS'));
-        foreach (array_slice($ingredientNames, 1) as $index => $name) {
-            FoodItem::factory()->create([
-                'name' => $name,
-                'usda_fdc_id' => 9_100_000 + $index,
-            ]);
-        }
-
-        $this->mock(UsdaService::class, function (MockInterface $mock): void {
-            $mock->shouldReceive('search')
-                ->times(3)
-                ->with('rice white long-grain cooked enriched', 10)
-                ->andReturn([]);
-        });
-
-        $this->expectException(\RuntimeException::class);
-        $this->expectExceptionMessage('USDA food import incomplete.');
+        $dataset = json_decode(file_get_contents(database_path('seeders/data/clinical-foods.json')), true, flags: JSON_THROW_ON_ERROR);
 
         $this->seed(FoodItemsSeeder::class);
+
+        $ids = collect($dataset['foods'])->pluck('usda_fdc_id')->map(fn ($id) => (string) $id)->all();
+        $this->assertCount(count($ids), FoodItem::query()->whereIn('usda_fdc_id', $ids)->get());
     }
 }

@@ -49,6 +49,20 @@ class MealPlanServiceTest extends TestCase
                 'quantity' => 200, 'unit' => 'g',
             ]);
         }
+
+        for ($i = 1; $i <= 5; $i++) {
+            FoodItem::forceCreate([
+                'name' => "Test Fruit {$i}",
+                'category' => 'fruit',
+                'ready_to_eat' => true,
+                'calories' => 80 + $i,
+                'protein' => 1,
+                'carbs' => 20,
+                'fat' => 0.3,
+                'serving_size' => 100,
+                'serving_unit' => 'g',
+            ]);
+        }
     }
 
     private function makeNcpWithIntervention(): NcpRecord
@@ -199,5 +213,123 @@ class MealPlanServiceTest extends TestCase
             $this->assertSameSize($recipeIds, array_unique($recipeIds),
                 "Day {$dayName} has a duplicated recipe across its slots.");
         }
+    }
+
+    public function test_exclude_snacks_preserves_empty_slots_and_redistributes_generation_to_main_meals(): void
+    {
+        $this->seedRecipes(15);
+        $ncp = $this->makeNcpWithIntervention();
+
+        $plan = (new MealPlanService)->generate(
+            $ncp,
+            now()->startOfWeek()->toDateString(),
+            excludeSnacks: true,
+        );
+
+        $snackIds = MealPlanDay::query()->where('meal_plan_id', $plan->id)
+            ->whereIn('meal_type', ['am_snack', 'pm_snack'])
+            ->pluck('id');
+        $mainIds = MealPlanDay::query()->where('meal_plan_id', $plan->id)
+            ->whereIn('meal_type', ['breakfast', 'lunch', 'dinner'])
+            ->pluck('id');
+
+        $this->assertCount(14, $snackIds);
+        $this->assertSame(0, MealPlanItem::query()->whereIn('meal_plan_day_id', $snackIds)->count());
+        $this->assertSame(21, MealPlanItem::query()->whereIn('meal_plan_day_id', $mainIds)->count());
+    }
+
+    public function test_liver_generation_does_not_offer_unsafe_snack_exclusion(): void
+    {
+        $this->seedRecipes(15);
+        $ncp = $this->makeNcpWithIntervention();
+        $ncp->intervention->update(['goal_type' => 'liver_disease', 'disease_stage' => 'decompensated']);
+
+        $result = (new MealPlanService)->generate(
+            $ncp,
+            now()->startOfWeek()->toDateString(),
+            excludeSnacks: true,
+        );
+
+        $this->assertIsArray($result);
+        $this->assertTrue($result['snacks_required']);
+        $this->assertDatabaseCount('meal_plans', 0);
+    }
+
+    public function test_generator_does_not_fall_back_to_recipes_ineligible_for_a_meal_slot(): void
+    {
+        $this->seedRecipes(5);
+        Recipe::query()->update(['meal_types' => ['breakfast']]);
+        $ncp = $this->makeNcpWithIntervention();
+
+        $result = (new MealPlanService)->generate($ncp, now()->startOfWeek()->toDateString());
+
+        $this->assertIsArray($result);
+        $this->assertTrue($result['insufficient_suitable_foods']);
+        $this->assertContains('lunch', $result['missing_meal_types']);
+        $this->assertContains('dinner', $result['missing_meal_types']);
+        $this->assertDatabaseCount('meal_plans', 0);
+    }
+
+    public function test_main_dishes_can_receive_one_separate_staple_but_complete_meals_do_not(): void
+    {
+        $rnd = User::forceCreate([
+            'name' => 'RND', 'email' => 'rnd@test.com',
+            'password' => Hash::make('pw'), 'role' => 'RND', 'is_active' => true,
+        ]);
+        foreach (range(1, 5) as $index) {
+            Recipe::forceCreate([
+                'rnd_user_id' => $rnd->id,
+                'name' => "Lean dish {$index}",
+                'category' => 'Main',
+                'component_type' => 'main_dish',
+                'meal_types' => ['any'],
+                'servings' => 1,
+                'prepared_portion_amount' => 100,
+                'prepared_portion_unit' => 'g',
+                'total_calories' => 300,
+                'total_protein' => 35,
+                'total_carbs' => 5,
+                'total_fat' => 15,
+            ]);
+        }
+        $staple = Recipe::forceCreate([
+            'rnd_user_id' => $rnd->id,
+            'name' => 'Brown rice staple',
+            'category' => 'Staple',
+            'component_type' => 'staple',
+            'meal_types' => ['any'],
+            'servings' => 1,
+            'prepared_portion_amount' => 1,
+            'prepared_portion_unit' => 'cup',
+            'total_calories' => 200,
+            'total_protein' => 4,
+            'total_carbs' => 45,
+            'total_fat' => 1,
+        ]);
+        foreach (range(1, 5) as $index) {
+            FoodItem::forceCreate([
+                'name' => "Fruit {$index}", 'category' => 'fruit', 'ready_to_eat' => true,
+                'calories' => 80, 'protein' => 1, 'carbs' => 20, 'fat' => 0,
+                'serving_size' => 100, 'serving_unit' => 'g',
+            ]);
+        }
+        $ncp = $this->makeNcpWithIntervention();
+
+        $plan = (new MealPlanService)->generate($ncp, now()->startOfWeek()->toDateString());
+        $mainSlots = MealPlanDay::query()->where('meal_plan_id', $plan->id)
+            ->whereIn('meal_type', ['lunch', 'dinner'])->with('items')->get();
+
+        $this->assertTrue($mainSlots->every(fn ($slot): bool => $slot->items->count() === 2));
+        $this->assertTrue($mainSlots->every(fn ($slot): bool => $slot->items->contains('recipe_id', $staple->id)));
+        $this->assertTrue($mainSlots->flatMap->items->every(
+            fn ($item): bool => in_array($item->unit, ['g', 'cup'], true)
+        ));
+
+        Recipe::query()->where('component_type', 'main_dish')->update(['component_type' => 'complete_meal']);
+        $secondPlan = (new MealPlanService)->generate($ncp, now()->addWeek()->startOfWeek()->toDateString());
+        $completeSlots = MealPlanDay::query()->where('meal_plan_id', $secondPlan->id)
+            ->whereIn('meal_type', ['lunch', 'dinner'])->with('items')->get();
+        $this->assertTrue($completeSlots->every(fn ($slot): bool => $slot->items->count() === 1));
+        $this->assertFalse($completeSlots->flatMap->items->contains('recipe_id', $staple->id));
     }
 }

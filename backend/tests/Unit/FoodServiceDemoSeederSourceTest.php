@@ -48,7 +48,8 @@ class FoodServiceDemoSeederSourceTest extends TestCase
         $this->assertStringContainsString('cascadeMenuDays($start, $end, $estimate)', $demo);
         $this->assertStringContainsString("'actual_qty'", $demo);
         $this->assertStringContainsString("['receipt', 'proof']", $demo);
-        $this->assertStringContainsString('$idx === 0 ? null', $demo, 'At least one completed demo vendor must show that OR number is optional.');
+        $this->assertStringContainsString("\$orNumber = 'OR-'", $demo, 'Every received demo vendor must include a realistic OR number.');
+        $this->assertStringNotContainsString("'or_number' => null", $demo);
     }
 
     public function test_demo_accomplishments_use_one_current_form_record_per_staff_date(): void

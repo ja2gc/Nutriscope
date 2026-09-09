@@ -30,7 +30,18 @@ class PatientMenuPlanGeneratorTest extends TestCase
             'last_name' => 'De la Cruz',
         ]);
         $ncp = NcpRecord::factory()->create(['patient_id' => $patient->id, 'rnd_user_id' => $rnd->id]);
-        $intervention = Intervention::factory()->create(['ncp_record_id' => $ncp->id]);
+        $intervention = Intervention::factory()->create([
+            'ncp_record_id' => $ncp->id,
+            'energy_kcal' => 1800,
+            'protein_g' => 75,
+            'carbs_g' => 225,
+            'fat_g' => 60,
+            'fluid_ml' => 2000,
+            'micronutrient_limits' => [
+                'sodium' => ['max' => 2000, 'unit' => 'mg'],
+                'fiber' => ['min' => 25, 'unit' => 'g'],
+            ],
+        ]);
 
         return MealPlan::create([
             'intervention_id' => $intervention->id,
@@ -103,6 +114,33 @@ class PatientMenuPlanGeneratorTest extends TestCase
 
         $this->assertStringContainsString('Maria Luisa De la Cruz', $html);
         $this->assertStringNotContainsString('LEGACY PATIENT LABEL', $html);
+    }
+
+    public function test_report_displays_the_authoritative_prescription_and_fluid_scope(): void
+    {
+        $plan = $this->makePlan();
+        $report = new Report([
+            'title' => 'Patient menu plan',
+            'type' => 'patient_menu_plan',
+            'parameters' => ['meal_plan_id' => $plan->id],
+        ]);
+        $generator = app(PatientMenuPlanGenerator::class);
+        $data = $generator->data($report);
+        $html = view($generator->view(), [
+            ...$data,
+            'branding' => ReportBranding::singleton(),
+            'signatories' => [],
+            'generated_at' => now(),
+            'report' => $report,
+        ])->render();
+
+        $this->assertSame(1800.0, $data['prescription']['energy_kcal']);
+        $plainText = preg_replace('/\s+/', ' ', strip_tags($html));
+        $this->assertStringContainsString('Energy: 1,800 kcal', $plainText);
+        $this->assertStringContainsString('Sodium: max 2,000 mg', $plainText);
+        $this->assertStringContainsString('Fiber: min 25 g', $plainText);
+        $this->assertStringContainsString('Fluid guidance: 2,000 mL', $plainText);
+        $this->assertStringContainsString('Fluid guidance is informational', $plainText);
     }
 
     public function test_prepare_persists_patient_menu_plan_and_view_and_download_stream_pdf(): void

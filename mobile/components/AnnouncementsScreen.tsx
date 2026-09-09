@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import api from '../lib/api';
 import { PaginatedListFooter } from './PaginatedListFooter';
 import { MOBILE_PAGE_SIZE, PaginatedResponse, flattenUniquePages, getNextPageParam } from '../lib/pagination';
+import { AnnouncementAuthorAvatar, AnnouncementMedia } from './AnnouncementMedia';
 
 interface Sop {
   id: number;
@@ -25,13 +26,15 @@ interface Sop {
 }
 
 interface Announcement {
-  id: number;
+  id: number | string;
   title: string;
   body: string;
   category: string;
   visibility: string;
   pinned: boolean;
-  author?: { name: string; role: string } | null;
+  attachment?: string | null;
+  attachments?: string[];
+  author?: { name: string; role: string; profile_photo?: string | null } | null;
   created_at: string;
 }
 
@@ -254,11 +257,13 @@ export default function AnnouncementsScreen() {
               activeOpacity={0.8}
               onPress={() => setSelectedId(String(item.id))}
             >
-              <View className="flex-row items-center justify-between gap-2">
-                <Text className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 flex-1">
-                  {item.author?.name ?? 'Staff'} · {fmt(item.created_at)}
-                </Text>
-                <View className="flex-row items-center gap-1.5">
+              <View className="flex-row items-start gap-2.5">
+                <AnnouncementAuthorAvatar author={item.author} size={36} />
+                <View className="flex-1 flex-row items-center justify-between gap-2">
+                  <Text className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 flex-1">
+                    {item.author?.name ?? 'Staff'} · {fmt(item.created_at)}
+                  </Text>
+                  <View className="flex-row items-center gap-1.5">
                   {item.pinned && (
                     <View className="px-2 py-0.5 rounded-full bg-orange-50 border border-orange-200">
                       <Text className="text-[9px] font-extrabold uppercase tracking-wider text-orange-700">Pinned</Text>
@@ -267,10 +272,15 @@ export default function AnnouncementsScreen() {
                   <View className={`px-2 py-0.5 rounded-full ${cat.bg}`}>
                     <Text className={`text-[9px] font-extrabold uppercase tracking-wider ${cat.text}`}>{item.category}</Text>
                   </View>
+                  </View>
                 </View>
               </View>
               <Text className="text-sm font-bold text-gray-900 mt-2">{item.title}</Text>
               <Text className="text-xs text-gray-600 leading-6 mt-1">{item.body}</Text>
+              <AnnouncementMedia
+                attachments={item.attachments?.length ? item.attachments : (item.attachment ? [item.attachment] : [])}
+                title={item.title}
+              />
             </TouchableOpacity>
           );
         }}
@@ -296,9 +306,12 @@ export default function AnnouncementsScreen() {
             </View>
             {selected && (
               <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: insets.bottom + 24 }}>
-                <Text className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
-                  {selected.author?.name ?? 'Staff'} - {fmt(selected.created_at)}
-                </Text>
+                <View className="flex-row items-center gap-3">
+                  <AnnouncementAuthorAvatar author={selected.author} />
+                  <Text className="flex-1 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                    {selected.author?.name ?? 'Staff'} - {fmt(selected.created_at)}
+                  </Text>
+                </View>
                 <View className="flex-row flex-wrap gap-2 mt-3">
                   {selected.pinned && (
                     <View className="px-2 py-0.5 rounded-full bg-orange-50 border border-orange-200">
@@ -313,6 +326,10 @@ export default function AnnouncementsScreen() {
                 </View>
                 <Text className="text-lg font-extrabold text-gray-900 mt-4">{selected.title}</Text>
                 <Text className="text-sm text-gray-700 leading-7 mt-3">{selected.body}</Text>
+                <AnnouncementMedia
+                  attachments={selected.attachments?.length ? selected.attachments : (selected.attachment ? [selected.attachment] : [])}
+                  title={selected.title}
+                />
               </ScrollView>
             )}
           </View>
