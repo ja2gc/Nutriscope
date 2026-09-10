@@ -183,9 +183,10 @@ class AuthController extends Controller
     {
         $user = $request->user();
         $data = $this->synchronizePersonName->forUpdate($user, $request->validated());
+        $photoChanged = $request->exists('profile_photo');
         $newPhoto = null;
         $oldPhoto = $user->profilePhotoObject;
-        if ($request->exists('profile_photo')) {
+        if ($photoChanged) {
             if (is_string($data['profile_photo'] ?? null)) {
                 preg_match('/^data:image\/(png|jpeg|webp);base64,(.*)$/sD', $data['profile_photo'], $matches);
                 $bytes = isset($matches[2]) ? base64_decode($matches[2], true) : false;
@@ -199,7 +200,7 @@ class AuthController extends Controller
         $oldNameValues = $this->accountNameAuditValues($user);
         $this->auditLogger->assertAvailable();
         try {
-            DB::transaction(function () use ($user, $data, $oldNameValues, $oldPhoto, $newPhoto): void {
+            DB::transaction(function () use ($user, $data, $oldNameValues, $oldPhoto, $newPhoto, $photoChanged): void {
                 $user->update($data);
                 $newNameValues = $this->accountNameAuditValues($user);
                 $changedNameFields = collect(array_keys($oldNameValues))
@@ -217,7 +218,7 @@ class AuthController extends Controller
                     oldValues: array_intersect_key($oldNameValues, array_flip($changedNameFields)),
                     newValues: array_intersect_key($newNameValues, array_flip($changedNameFields)),
                 );
-                if ($oldPhoto !== null && ! $oldPhoto->is($newPhoto)) {
+                if ($photoChanged && $oldPhoto !== null && ! $oldPhoto->is($newPhoto)) {
                     DB::afterCommit(fn () => $this->storedObjects->deleteOrQueue($oldPhoto));
                 }
             });

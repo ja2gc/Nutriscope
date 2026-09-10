@@ -10,6 +10,7 @@ use App\Models\ClinicalRule;
 use App\Models\FoodItem;
 use App\Models\FoodServiceRecipe;
 use App\Models\FoodServiceSetting;
+use App\Models\MealPrepLog;
 use App\Models\MenuCycle;
 use App\Models\MenuCycleTemplate;
 use App\Models\NcpAppointment;
@@ -109,7 +110,7 @@ class DemoSeederCurrentContractTest extends TestCase
 
         $patients = Patient::query()
             ->whereIn('hospital_number', ['HN-2026-0042', 'HN-2026-0078'])
-            ->with(['ncpRecords.assessment', 'ncpRecords.diagnoses', 'ncpRecords.intervention.mealPlans.days'])
+            ->with(['ncpRecords.assessment', 'ncpRecords.diagnoses', 'ncpRecords.intervention.mealPlans.days.items'])
             ->get();
 
         $this->assertCount(2, $patients);
@@ -131,12 +132,24 @@ class DemoSeederCurrentContractTest extends TestCase
                 foreach ($record->intervention->mealPlans as $mealPlan) {
                     $this->assertContains($mealPlan->status, ['draft', 'active']);
                     $this->assertCount(35, $mealPlan->days);
+                    $this->assertTrue(
+                        $mealPlan->days->flatMap->items->every(
+                            fn ($item) => $item->created_at->isSameDay($mealPlan->created_at),
+                        ),
+                        'Generated meal-plan item timestamps must match their historical plan.',
+                    );
                 }
             }
         }
 
         $maria = $patients->firstWhere('hospital_number', 'HN-2026-0042');
         $this->assertCount(1, $maria->ncpRecords);
+        $this->assertTrue($maria->ncpRecords->sole()->created_at->isSameDay(now()->subDays(90)));
+        $this->assertTrue(
+            $maria->ncpRecords->sole()->intervention->mealPlans->sole()->week_start_date->isSameDay(
+                now()->subDays(83)->addWeek()->startOfWeek(),
+            ),
+        );
         $this->assertSame('Normal', $maria->ncpRecords->sole()->assessment->nutritional_status);
         $this->assertSame(1.0, (float) $maria->ncpRecords->sole()->risk_score);
         $this->assertGreaterThan(25, (float) $maria->ncpRecords->sole()->assessment->bmi);
@@ -147,6 +160,13 @@ class DemoSeederCurrentContractTest extends TestCase
         $this->assertCount(1, $roberto->ncpRecords->where('status', 'completed'));
         $this->assertCount(1, $roberto->ncpRecords->where('status', 'active'));
         $this->assertNotEmpty($roberto->ncpRecords->firstWhere('status', 'completed')->monitorings);
+        $robertoCurrent = $roberto->ncpRecords->firstWhere('status', 'active');
+        $robertoPast = $roberto->ncpRecords->firstWhere('status', 'completed');
+        $this->assertTrue($robertoCurrent->created_at->isSameDay(now()->subDays(30)));
+        $this->assertTrue($robertoCurrent->intervention->mealPlans->sole()->created_at->isSameDay(now()->subDays(30)));
+        $this->assertTrue($robertoPast->intervention->mealPlans->sole()->created_at->lt(
+            $robertoCurrent->intervention->mealPlans->sole()->created_at,
+        ));
 
         $mariaAppointments = NcpAppointment::query()->whereBelongsTo($maria)->get();
         $this->assertTrue($mariaAppointments->contains(fn ($visit) => $visit->status === 'completed'
@@ -220,8 +240,14 @@ class DemoSeederCurrentContractTest extends TestCase
         $this->assertSame(150.0, $limit);
         $this->assertLessThanOrEqual($limit, (float) data_get($past->cost_snapshot, 'cost_per_head'));
         foreach ($past->days()->pluck('estimate_population')->unique() as $population) {
-            $this->assertGreaterThanOrEqual(140, (int) $population);
+            $this->assertGreaterThanOrEqual(150, (int) $population);
             $this->assertLessThanOrEqual(200, (int) $population);
+        }
+        foreach (MealPrepLog::query()->where('menu_cycle_id', $past->id)->get() as $log) {
+            $this->assertGreaterThanOrEqual(150, (int) $log->population);
+            $this->assertLessThanOrEqual(200, (int) $log->population);
+            $this->assertGreaterThanOrEqual(150, (int) $log->served_population);
+            $this->assertLessThanOrEqual(200, (int) $log->served_population);
         }
         $this->assertStringContainsString(
             "number_format(\$cost['population'])",

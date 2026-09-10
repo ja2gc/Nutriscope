@@ -288,7 +288,7 @@ class FoodServiceDemoSeeder extends Seeder
 
     private function popFactor(int $weekIndex): float
     {
-        return [0 => 1.00, 1 => 0.90, 2 => 1.12, 3 => 0.82][$weekIndex] ?? 1.0;
+        return [0 => 1.00, 1 => 1.00, 2 => 1.12, 3 => 0.82][$weekIndex] ?? 1.0;
     }
 
     // ── Suppliers (payees from the real Dietary Cash Book) ──────────────────
@@ -457,7 +457,9 @@ class FoodServiceDemoSeeder extends Seeder
 
             $planned = (int) round($this->dayPop[$weekday] * $popFactor);
             $variance = (($weekIndex + 2) * ($i + 3)) % 13;
-            $served = max(0, $planned - $variance);
+            $served = $isCurrent
+                ? max(0, $planned - $variance)
+                : max(150, $planned - $variance);
             $dayCost = (float) ($cost['days'][$weekday]['cost'] ?? 0);
             $totalServed += $served;
 

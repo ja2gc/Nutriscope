@@ -61,7 +61,7 @@ class PatientSeeder extends Seeder
      * Generate a demo meal plan for a record's intervention so every seeded patient
      * has a printable Patient Menu Plan. Deterministic via a fixed RNG seed.
      */
-    private function seedMealPlan(NcpRecord $record, string $weekStart): void
+    private function seedMealPlan(NcpRecord $record, string $weekStart, ?Carbon $createdAt = null): void
     {
         $svc = resolve(MealPlanService::class);
         $svc->setRngSeed(42);
@@ -74,6 +74,55 @@ class PatientSeeder extends Seeder
             return;
         }
         $result->update(['status' => 'active']);
+        if ($createdAt !== null) {
+            DB::table('meal_plans')->where('id', $result->id)->update([
+                'created_at' => $createdAt,
+                'updated_at' => $createdAt,
+            ]);
+        }
+    }
+
+    private function backdateClinicalGraph(
+        NcpRecord $record,
+        Carbon $recordCreatedAt,
+        Carbon $assessmentAt,
+        Carbon $interventionAt,
+        Carbon $recordUpdatedAt,
+    ): void {
+        DB::table('ncp_records')->where('id', $record->id)->update([
+            'created_at' => $recordCreatedAt,
+            'updated_at' => $recordUpdatedAt,
+        ]);
+
+        $assessmentIds = Assessment::query()->where('ncp_record_id', $record->id)->pluck('id');
+        DB::table('assessments')->whereIn('id', $assessmentIds)->update([
+            'created_at' => $assessmentAt,
+            'updated_at' => $assessmentAt,
+        ]);
+        DB::table('biochemical_data')->whereIn('assessment_id', $assessmentIds)->update([
+            'created_at' => $assessmentAt,
+            'updated_at' => $assessmentAt,
+        ]);
+
+        DB::table('diagnoses')->where('ncp_record_id', $record->id)->update([
+            'created_at' => $interventionAt,
+            'updated_at' => $interventionAt,
+        ]);
+        $interventionIds = Intervention::query()->where('ncp_record_id', $record->id)->pluck('id');
+        DB::table('interventions')->whereIn('id', $interventionIds)->update([
+            'created_at' => $interventionAt,
+            'updated_at' => $interventionAt,
+        ]);
+        $mealPlanIds = MealPlan::query()->whereIn('intervention_id', $interventionIds)->pluck('id');
+        DB::table('meal_plans')->whereIn('id', $mealPlanIds)->update([
+            'created_at' => $interventionAt,
+            'updated_at' => $interventionAt,
+        ]);
+        $mealPlanDayIds = DB::table('meal_plan_days')->whereIn('meal_plan_id', $mealPlanIds)->pluck('id');
+        DB::table('meal_plan_items')->whereIn('meal_plan_day_id', $mealPlanDayIds)->update([
+            'created_at' => $interventionAt,
+            'updated_at' => $interventionAt,
+        ]);
     }
 
     // ── Cleanup helper ────────────────────────────────────────────────────────
@@ -286,7 +335,12 @@ class PatientSeeder extends Seeder
         ]);
 
         // Meal plan — diabetic menu for the week after admission.
-        $this->seedMealPlan($record, $anchor->copy()->subDays(91)->startOfWeek()->toDateString());
+        $mariaInterventionAt = $anchor->copy()->subDays(83)->setTime(10, 5);
+        $this->seedMealPlan(
+            $record,
+            $mariaInterventionAt->copy()->addWeek()->startOfWeek()->toDateString(),
+            $mariaInterventionAt,
+        );
 
         // ── Monitoring — Follow-up 1 (about 4 weeks after admission) ────────────
         // Labs trending down: glucose 124→112, HbA1c 8.4→8.0, cholesterol 218→205, LDL 125→112
@@ -354,6 +408,14 @@ class PatientSeeder extends Seeder
             'created_at' => $anchor->copy()->subDays(45)->setTime(10, 0),
             'updated_at' => $anchor->copy()->subDays(45)->setTime(10, 0),
         ]);
+
+        $this->backdateClinicalGraph(
+            $record,
+            $anchor->copy()->subDays(90)->setTime(9, 0),
+            $anchor->copy()->subDays(90)->setTime(10, 0),
+            $mariaInterventionAt,
+            $anchor->copy()->subDays(45)->setTime(10, 40),
+        );
 
         $this->seedMariaAppointments($patient, $record, $rndId, $anchor);
 
@@ -540,7 +602,15 @@ class PatientSeeder extends Seeder
         ]);
 
         // Meal plan — nutritional-rehabilitation menu.
-        $this->seedMealPlan($record, $anchor->copy()->subDays(28)->startOfWeek()->toDateString());
+        $robertoCurrentAt = $anchor->copy()->subDays(30)->setTime(10, 0);
+        $this->seedMealPlan($record, $anchor->copy()->subDays(28)->startOfWeek()->toDateString(), $robertoCurrentAt);
+        $this->backdateClinicalGraph(
+            $record,
+            $anchor->copy()->subDays(30)->setTime(8, 40),
+            $robertoCurrentAt,
+            $robertoCurrentAt,
+            $robertoCurrentAt,
+        );
 
         $pastRecord = $this->seedRobertoPastCycle($patient, $record, $rndId, $anchor);
         $this->seedRobertoAppointments($patient, $pastRecord, $record, $rndId, $anchor);
@@ -631,7 +701,7 @@ class PatientSeeder extends Seeder
         $intervention->next_followup_date = $anchor->copy()->subDays(125)->toDateString();
         $intervention->save();
 
-        Monitoring::create([
+        $monitoring = Monitoring::create([
             'ncp_record_id' => $past->id,
             'weight' => 54.2,
             'bmi' => 18.75,
@@ -643,11 +713,24 @@ class PatientSeeder extends Seeder
             'next_monitoring_date' => $anchor->copy()->subDays(90)->toDateString(),
         ]);
 
-        $this->seedMealPlan($past, $anchor->copy()->subDays(147)->startOfWeek()->toDateString());
-        DB::table('ncp_records')->where('id', $past->id)->update([
-            'created_at' => $anchor->copy()->subDays(155)->setTime(8, 0),
-            'updated_at' => $anchor->copy()->subDays(120)->setTime(11, 0),
+        DB::table('monitorings')->where('id', $monitoring->id)->update([
+            'created_at' => $anchor->copy()->subDays(125)->setTime(9, 50),
+            'updated_at' => $anchor->copy()->subDays(125)->setTime(9, 50),
         ]);
+
+        $robertoPastInterventionAt = $anchor->copy()->subDays(150)->setTime(10, 0);
+        $this->seedMealPlan(
+            $past,
+            $anchor->copy()->subDays(147)->startOfWeek()->toDateString(),
+            $robertoPastInterventionAt,
+        );
+        $this->backdateClinicalGraph(
+            $past,
+            $anchor->copy()->subDays(155)->setTime(8, 0),
+            $robertoPastInterventionAt,
+            $robertoPastInterventionAt,
+            $anchor->copy()->subDays(120)->setTime(11, 0),
+        );
 
         return $past;
     }

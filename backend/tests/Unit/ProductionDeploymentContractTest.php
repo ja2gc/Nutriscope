@@ -108,16 +108,24 @@ class ProductionDeploymentContractTest extends TestCase
         $dockerignore = file_get_contents(base_path('.dockerignore'));
         $env = file_get_contents(base_path('.env.production.example'));
         $entrypoint = file_get_contents(base_path('docker-entrypoint.sh'));
+        $requirements = file_get_contents(base_path('../docs/operations/platform-requirements.md'));
 
         $this->assertIsString($compose);
         $this->assertIsString($dockerignore);
         $this->assertIsString($env);
         $this->assertIsString($entrypoint);
+        $this->assertIsString($requirements);
         $this->assertStringContainsString('nutriscope_private_uploads:/var/www/html/storage/app/private-uploads', $compose);
         $this->assertStringContainsString('nutriscope_private_uploads:', $compose);
         $this->assertStringContainsString('/storage/app/*', $dockerignore);
         $this->assertStringContainsString('PRIVATE_UPLOADS_DRIVER=local', $env);
-        $this->assertStringContainsString('chown www-data:www-data "$private_uploads_path"', $entrypoint);
+        $this->assertStringContainsString('chown -R www-data:www-data "$private_uploads_path"', $entrypoint);
+        $this->assertStringContainsString('report_cache_path=/var/www/html/storage/app/report-cache', $entrypoint);
+        $this->assertStringContainsString('mkdir -p "$report_cache_path"', $entrypoint);
+        $this->assertStringContainsString('chown -R www-data:www-data "$report_cache_path"', $entrypoint);
+        $this->assertStringContainsString('exec gosu www-data "$@"', $entrypoint);
+        $this->assertStringContainsString('default-mysql-client git curl zip unzip gosu', file_get_contents(base_path('Dockerfile')));
+        $this->assertStringContainsString('docker exec --user www-data', $requirements);
     }
 
     #[Test]

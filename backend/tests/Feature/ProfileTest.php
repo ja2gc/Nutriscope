@@ -5,13 +5,14 @@ namespace Tests\Feature;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use Spatie\Activitylog\Models\Activity;
 use Tests\TestCase;
 
 /**
  * Self-service profile (rnd.md §9): authenticated users update their own
  * name/email and change their password. `name` is the same field used as the
- * report "prepared by". No avatar (backend has no such column).
+ * report "prepared by". Profile photos are private stored objects.
  */
 class ProfileTest extends TestCase
 {
@@ -91,6 +92,28 @@ class ProfileTest extends TestCase
                 'email' => 'mine@example.com',
             ])
             ->assertOk();
+    }
+
+    public function test_updating_other_profile_fields_preserves_an_existing_photo(): void
+    {
+        Storage::fake('private_uploads');
+        $user = User::factory()->create(['name' => 'Me', 'email' => 'mine@example.com']);
+        $photo = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
+
+        $this->actingAs($user, 'sanctum')
+            ->patchJson('/api/auth/profile', ['profile_photo' => $photo])
+            ->assertOk();
+
+        $storedObjectId = $user->fresh()->profile_photo_stored_object_id;
+        $this->assertNotNull($storedObjectId);
+
+        $this->actingAs($user, 'sanctum')
+            ->patchJson('/api/auth/profile', ['contact_number' => '+63 917 111 2222'])
+            ->assertOk()
+            ->assertJsonPath('profile_photo', '/api/auth/profile-photo');
+
+        $this->assertSame($storedObjectId, $user->fresh()->profile_photo_stored_object_id);
+        $this->assertDatabaseHas('stored_objects', ['id' => $storedObjectId]);
     }
 
     public function test_profile_photo_must_be_supported_data_image_and_size_limited(): void

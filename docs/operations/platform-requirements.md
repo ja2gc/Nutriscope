@@ -14,6 +14,8 @@ This provider-neutral contract defines the production services required after Ph
 
 `docker-compose.prod.yml` expresses the web, worker, scheduler, and release roles. A managed platform may express the same roles differently.
 
+The container repairs ownership of durable private uploads and the reproducible report cache at startup. Apache performs its normal privilege drop; Laravel release, worker, and scheduler commands run as `www-data`. Run any mutating Artisan command entered manually against a live container as that same user so it cannot create root-owned files that the web process cannot read or replace. For example: `docker exec --user www-data <backend-container> php artisan db:seed --force`. Use the same prefix for reminder commands and other manual Laravel writes.
+
 ## Production configuration
 
 Start from `backend/.env.production.example` and store values only in the platform secret manager. Never put `.env`, archive passwords, SMTP credentials, database administration credentials, or object-storage keys in Git, documentation, screenshots, chat, or the Admin page. Preserve `APP_KEY` during relocation.

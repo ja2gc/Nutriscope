@@ -67,11 +67,11 @@ class ReportBrowser
                             ->whereColumn('numbered_plans.intervention_id', 'meal_plans.intervention_id')
                             ->whereColumn('numbered_plans.id', '<=', 'meal_plans.id'),
                     ])
-                    ->with('patient'),
+                    ->with(['patient', 'intervention.ncpRecord']),
                 'meal_plan_id',
                 fn (MealPlan $mp) => trim(($mp->patient?->display_name ?? "Patient #{$mp->patient_id}")
                     .' — Meal Plan '.((int) $mp->getAttribute('plan_number') ?: 1)
-                    .($mp->status ? " ({$mp->status})" : '')),
+                    .(($status = $mp->intervention?->ncpRecord?->status ?? $mp->status) ? " ({$status})" : '')),
                 'created_at',
             ),
             'ncp_summary' => fn () => new EntityInstanceSource(

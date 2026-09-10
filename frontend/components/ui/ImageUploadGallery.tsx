@@ -212,12 +212,17 @@ export function ImageUploadGallery({
       )}
 
       {activeImage ? (
-        <div className={`relative overflow-hidden border border-warm-200 bg-white ${
-          isAvatar ? "mx-auto h-36 w-36 rounded-full" : "rounded-lg"
-        }`}>
+        <div
+          data-avatar-wrapper={isAvatar ? "true" : undefined}
+          className={`relative bg-white ${
+            isAvatar ? "mx-auto h-36 w-36" : "overflow-hidden rounded-lg border border-warm-200"
+          }`}
+        >
           {isAvatar ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={activeImage.src} alt={activeImage.name} className="block h-full w-full object-cover" />
+            <div data-avatar-crop="true" className="h-full w-full overflow-hidden rounded-full border border-warm-200">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={activeImage.src} alt={activeImage.name} className="block h-full w-full object-cover" />
+            </div>
           ) : (
             <FittedImageFrame src={activeImage.src} alt={activeImage.name} />
           )}
@@ -226,7 +231,9 @@ export function ImageUploadGallery({
             aria-label={removeLabel ?? `Remove ${activeImage.name}`}
             onClick={() => removeImage(activeIndex)}
             disabled={disabled || deletingImageId === activeImage.id}
-            className="absolute right-2 top-2 inline-flex h-7 min-w-7 items-center justify-center rounded-full bg-forest-900/90 px-2 text-white hover:bg-forest-800 disabled:cursor-wait disabled:opacity-70"
+            className={`absolute z-20 inline-flex h-8 min-w-8 items-center justify-center rounded-full bg-forest-900/90 px-2 text-white shadow-sm hover:bg-forest-800 disabled:cursor-wait disabled:opacity-70 ${
+              isAvatar ? "-right-1 -top-1" : "right-2 top-2"
+            }`}
           >
             {deletingImageId === activeImage.id ? <span className="text-xs font-bold">Removing...</span> : <X className="h-4 w-4" />}
           </button>

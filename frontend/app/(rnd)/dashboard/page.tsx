@@ -601,9 +601,6 @@ export default function RndDashboardPage() {
                       className="mt-4"
                     />
 
-                    <div className="mt-4 border-t border-warm-100 pt-3 text-xs font-bold uppercase tracking-wider text-warm-400">
-                      Posted to department announcements
-                    </div>
                   </div>
                 </div>
               </article>

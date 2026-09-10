@@ -94,6 +94,20 @@ class PatientMenuPlanGeneratorTest extends TestCase
         $this->assertStringNotContainsString('LEGACY PATIENT LABEL', $instances[0]['label']);
     }
 
+    public function test_browse_label_uses_the_ncp_cycle_status_for_historical_plans(): void
+    {
+        $plan = $this->makePlan();
+        $plan->update(['status' => 'active']);
+        $plan->intervention->ncpRecord->update(['status' => 'completed']);
+
+        $instance = app(ReportBrowser::class)
+            ->sourceFor('patient_menu_plan')
+            ->instances([])[0];
+
+        $this->assertStringContainsString('(completed)', $instance['label']);
+        $this->assertStringNotContainsString('(active)', $instance['label']);
+    }
+
     public function test_report_view_uses_current_patient_display_name(): void
     {
         $plan = $this->makePlan();

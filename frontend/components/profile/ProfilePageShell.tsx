@@ -20,6 +20,7 @@ import {
   personNameFormValues,
 } from "@/lib/personName";
 import { ProfilePhotoCropDialog } from "@/components/profile/ProfilePhotoCropDialog";
+import { profilePhotoUpdate, type ProfilePhotoIntent } from "@/components/profile/profilePhotoUpdate";
 
 type ProfilePageShellProps = {
   crumbs: [string, string?][];
@@ -35,6 +36,7 @@ export function ProfilePageShell({ crumbs, subtitle, fallbackRole }: ProfilePage
   const [email, setEmail] = useState("");
   const [contactNumber, setContactNumber] = useState("");
   const [profileImages, setProfileImages] = useState<UploadImage[]>([]);
+  const [profilePhotoIntent, setProfilePhotoIntent] = useState<ProfilePhotoIntent>("unchanged");
   const [savingProfile, setSavingProfile] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
   const [profilePhotoError, setProfilePhotoError] = useState<string | null>(null);
@@ -64,6 +66,7 @@ export function ProfilePageShell({ crumbs, subtitle, fallbackRole }: ProfilePage
       setContactNumber(user.contact_number ?? "");
       setRecoveryEmail(user.recovery_email ?? "");
       setProfileImages(imagesFromSrcs(user.profile_photo ? [user.profile_photo] : [], "Profile photo"));
+      setProfilePhotoIntent("unchanged");
     }
   }, [user]);
 
@@ -80,7 +83,7 @@ export function ProfilePageShell({ crumbs, subtitle, fallbackRole }: ProfilePage
       await updateProfile({
         email,
         contact_number: contactNumber.trim() || null,
-        profile_photo: imageSrcs(profileImages)[0] ?? null,
+        ...profilePhotoUpdate(profilePhotoIntent, imageSrcs(profileImages)[0] ?? null),
         ...(nameFields ?? {}),
       });
       await refreshUser();
@@ -184,7 +187,10 @@ export function ProfilePageShell({ crumbs, subtitle, fallbackRole }: ProfilePage
           <form onSubmit={handleProfileSubmit} className="space-y-4">
             <ImageUploadGallery
               images={profileImages}
-              onImagesChange={(images) => setProfileImages(images.slice(-1))}
+              onImagesChange={(images) => {
+                setProfileImages(images.slice(-1));
+                setProfilePhotoIntent(images.length > 0 ? "replace" : "remove");
+              }}
               onFilesSelected={handleProfilePhotoFiles}
               label="Profile Photo"
               emptyText="Profile photo preview appears here after upload."
@@ -292,6 +298,7 @@ export function ProfilePageShell({ crumbs, subtitle, fallbackRole }: ProfilePage
           onCancel={() => setPendingProfilePhoto(null)}
           onApply={(croppedImage) => {
             setProfileImages([{ ...pendingProfilePhoto, src: croppedImage }]);
+            setProfilePhotoIntent("replace");
             setPendingProfilePhoto(null);
           }}
         />

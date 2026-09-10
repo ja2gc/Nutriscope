@@ -8,7 +8,7 @@ RUN chmod +x /usr/local/bin/install-php-extensions
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     apt-get update && apt-get install -y --no-install-recommends \
-        default-mysql-client git curl zip unzip \
+        default-mysql-client git curl zip unzip gosu \
         libpng-dev libonig-dev libxml2-dev libzip-dev \
     && install-php-extensions pdo_mysql mbstring exif pcntl bcmath gd zip opcache \
     && a2enmod rewrite
