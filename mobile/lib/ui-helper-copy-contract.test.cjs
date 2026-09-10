@@ -45,13 +45,13 @@ test('mobile screens retain actionable safety and state guidance', () => {
   );
 });
 
-test('Android release metadata advances for the mobile copy update', () => {
+test('Android release metadata matches the current signed build', () => {
   const appConfig = JSON.parse(read('app.json'));
   const release = JSON.parse(read('release.json'));
   assert.equal(appConfig.expo.version, '1.2.7');
   assert.equal(appConfig.expo.android.versionCode, 11);
-  assert.equal(release.version, '1.2.6');
-  assert.equal(release.version_code, 10);
-  assert.equal(release.artifact_url, 'https://expo.dev/artifacts/eas/cfU02kFfg9_zcLVBBETnlQ3O81OkksfDzCfNArH1zPg.apk');
-  assert.equal(release.sha256, 'faabbd706896cf6422018da10e8646955516bf1e14791e42843be7f50d159d5f');
+  assert.equal(release.version, appConfig.expo.version);
+  assert.equal(release.version_code, appConfig.expo.android.versionCode);
+  assert.equal(release.artifact_url, 'https://expo.dev/artifacts/eas/u5LGZd9yt0W_4hnMdLEzePB2ElR8VDX7xCVykJuRtZY.apk');
+  assert.equal(release.sha256, 'fc6858580ddb92712c281c3206dc0836ad1daca0b3593c7fd513f1a5921017be');
 });
