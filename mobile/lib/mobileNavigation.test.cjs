@@ -73,6 +73,14 @@ test('announcement page separates announcements and SOP into internal tabs', () 
   assert.doesNotMatch(rootLayout, /name="announcements"/);
 });
 
+test('unresolved action notifications keep a visible disabled dismiss control', () => {
+  const notifications = fs.readFileSync(path.join(root, 'app', 'notifications.tsx'), 'utf8');
+
+  assert.match(notifications, /accessibilityLabel=\{`Dismiss \$\{item\.title\}`\}/);
+  assert.match(notifications, /disabled=\{dismissMutation\.isPending \|\| !item\.dismissible\}/);
+  assert.doesNotMatch(notifications, /\{item\.dismissible && <TouchableOpacity/);
+});
+
 test('report details prepare current PDF and expose view/download actions', () => {
   const screen = fs.readFileSync(path.join(root, 'components', 'ReportsScreen.tsx'), 'utf8');
   const reports = fs.readFileSync(path.join(root, 'lib', 'reports.ts'), 'utf8');

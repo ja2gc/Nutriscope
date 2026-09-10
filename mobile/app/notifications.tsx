@@ -199,7 +199,17 @@ export default function NotificationsScreen() {
           {!item.dismissible && <Text className="mt-2 text-xs font-semibold uppercase text-amber-700">Action required</Text>}
         </View>
       </TouchableOpacity>
-      {item.dismissible && <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Dismiss ${item.title}`} disabled={dismissMutation.isPending} onPress={() => dismissMutation.mutate(item.id)} className="ml-2 rounded-lg border border-[#DCE7E1] px-2 py-1.5"><Text className="text-xs font-semibold text-gray-600">Dismiss</Text></TouchableOpacity>}
+      <TouchableOpacity
+        accessibilityRole="button"
+        accessibilityLabel={`Dismiss ${item.title}`}
+        accessibilityHint={item.dismissible ? undefined : 'Complete the required action before dismissing'}
+        accessibilityState={{ disabled: dismissMutation.isPending || !item.dismissible }}
+        disabled={dismissMutation.isPending || !item.dismissible}
+        onPress={() => dismissMutation.mutate(item.id)}
+        className={`ml-2 rounded-lg border border-[#DCE7E1] px-2 py-1.5 ${item.dismissible ? '' : 'opacity-40'}`}
+      >
+        <Text className="text-xs font-semibold text-gray-600">Dismiss</Text>
+      </TouchableOpacity>
       </View>
     ),
     [dismissMutation, readMutation],

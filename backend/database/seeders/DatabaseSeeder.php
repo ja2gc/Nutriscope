@@ -29,8 +29,8 @@ class DatabaseSeeder extends Seeder
                 FoodServiceMenuTemplateSeeder::class, // 11. reusable seven-day FS templates
                 PatientSeeder::class,                // 12. demo NCP patients
                 AnnouncementSeeder::class,           // 13. announcements
-                NotificationSeeder::class,           // 14. role demo notifications
-                SopSeeder::class,                    // 15. standard operating procedure + history
+                NotificationSeeder::class,           // 14. notifications generated through announcement fan-out
+                SopSeeder::class,                    // 15. synchronized SOP demo history
                 ReportTemplateSeeder::class,         // 16. report templates
             ]);
         } finally {

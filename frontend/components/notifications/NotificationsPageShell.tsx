@@ -98,7 +98,15 @@ export function NotificationsPageShell({ role }: { role: "RND" | "Admin" }) {
             <span className="min-w-0 flex-1"><span className="flex items-center gap-2"><span className={`truncate text-base ${notification.read ? "font-semibold text-warm-700" : "font-extrabold text-warm-900"}`}>{notification.title}</span>{!notification.read && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />}</span><span className="mt-0.5 block text-sm leading-relaxed text-warm-500">{notification.message}</span>{!notification.dismissible && <span className="mt-2 inline-flex rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-bold uppercase tracking-wider text-amber-700">Action required</span>}</span>
             <span className="mt-0.5 shrink-0 text-xs font-semibold text-warm-400">{formatWhen(notification.created_at)}</span>
           </button>
-          {notification.dismissible && <button type="button" disabled={dismissing === notification.id} onClick={() => void dismiss(notification)} className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-warm-200 px-2 py-1.5 text-xs font-bold text-warm-600 hover:bg-warm-50 disabled:opacity-50"><X className="h-3.5 w-3.5" /> Dismiss</button>}
+          <button
+            type="button"
+            disabled={dismissing === notification.id || !notification.dismissible}
+            title={notification.dismissible ? "Dismiss notification" : "Complete the required action before dismissing"}
+            onClick={() => void dismiss(notification)}
+            className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-warm-200 px-2 py-1.5 text-xs font-bold text-warm-600 hover:bg-warm-50 disabled:cursor-not-allowed disabled:opacity-40 disabled:grayscale"
+          >
+            <X className="h-3.5 w-3.5" /> Dismiss
+          </button>
         </article>)}</div>}
     {!loading && <Pagination meta={meta} page={page} onPageChange={setPage} />}
   </div>;

@@ -230,7 +230,7 @@ class NcpAppointmentWorkflowTest extends TestCase
         )->assertUnprocessable();
     }
 
-    public function test_start_resolves_due_notification_and_discarding_empty_start_restores_it(): void
+    public function test_due_notification_remains_actionable_until_the_started_visit_is_finished(): void
     {
         [$rnd, $patient, $ncp] = $this->clinicalContext();
         $scheduled = $this->schedule($rnd, $patient, $ncp, 'Due visit');
@@ -244,12 +244,20 @@ class NcpAppointmentWorkflowTest extends TestCase
         $this->actingAs($rnd, 'sanctum')->patchJson(
             "/api/rnd/ncp-appointments/{$scheduled}", ['action' => 'start'],
         )->assertOk();
-        $this->assertNotNull($notification->fresh()->resolved_at);
+        $this->assertNull($notification->fresh()->resolved_at);
+
+        $this->actingAs($rnd, 'sanctum')->deleteJson(
+            "/api/notifications/{$notification->uuid}",
+        )->assertUnprocessable();
 
         $this->actingAs($rnd, 'sanctum')->patchJson(
-            "/api/rnd/ncp-appointments/{$scheduled}", ['action' => 'discard'],
+            "/api/rnd/ncp-appointments/{$scheduled}", ['action' => 'finish'],
         )->assertOk();
-        $this->assertNull($notification->fresh()->resolved_at);
+        $this->assertNotNull($notification->fresh()->resolved_at);
+
+        $this->actingAs($rnd, 'sanctum')->deleteJson(
+            "/api/notifications/{$notification->uuid}",
+        )->assertOk();
     }
 
     public function test_finish_recomputes_newly_completed_against_start_snapshot(): void

@@ -12,6 +12,7 @@ use App\Models\FsItem;
 use App\Models\MealPrepLog;
 use App\Models\MenuCycle;
 use App\Models\MenuCycleDay;
+use App\Models\Notification;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderAttachment;
 use App\Models\ReportBranding;
@@ -20,14 +21,17 @@ use App\Models\StoredObject;
 use App\Models\Supplier;
 use App\Models\User;
 use App\Services\FSS\AccomplishmentReportArchiveService;
+use App\Services\FSS\PurchaseOrderAttachmentStorage;
 use App\Services\FSS\PurchaseOrderLifecycleService;
 use App\Services\FSS\ReceivingService;
 use App\Services\FSS\ShoppingListPopulationService;
 use App\Services\MenuCycleCostService;
-use App\Services\StoredObjectStorage;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\Schema;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
+use Throwable;
 
 /**
  * Decouple-correct demo data for the whole food-service loop, themed to the real
@@ -40,8 +44,8 @@ use Illuminate\Support\Facades\Schema;
  * Past weeks are fully closed (actual per-head computes); the current week is still
  * running (served population not yet entered) so the "pending" state is demonstrable.
  *
- * Idempotent: truncates only the operational FS tables (never fs_items / food_items
- * / recipes / patients).
+ * Idempotent: replaces only this seeder's named fictional graph and preserves
+ * unrelated operational records.
  */
 class FoodServiceDemoSeeder extends Seeder
 {
@@ -54,6 +58,8 @@ class FoodServiceDemoSeeder extends Seeder
     private array $suppliers = [];
 
     private ?StoredObject $demoReceipt = null;
+
+    private array $demoPurchaseOrderIds = [];
 
     /**
      * Three genuinely different weekly menus keyed by week index.
@@ -134,112 +140,140 @@ class FoodServiceDemoSeeder extends Seeder
             return;
         }
 
-        $this->reset();
-        $this->resetDemoStoredObject();
+        $previousReceipts = $this->demoStoredObjects();
         $this->demoReceipt = $this->storeDemoReceipt();
-        $this->fs = FsItem::pluck('id', 'name')->all();
+        try {
+            DB::transaction(function () use ($rnd, $fss): void {
+                $this->reset((int) $rnd, (int) $fss);
+                $this->fs = FsItem::pluck('id', 'name')->all();
 
-        $this->seedSuppliers();
-        $this->seedRecipes($rnd);
-        // Pin each catalog item's default vendor so the suggested list resolves a vendor
-        // per ingredient and the PO conversion can group lines by supplier.
-        $this->seedItemVendors();
+                $this->seedSuppliers();
+                $this->seedRecipes($rnd);
+                // Pin each catalog item's default vendor so the suggested list resolves a vendor
+                // per ingredient and the PO conversion can group lines by supplier.
+                $this->seedItemVendors();
 
-        // Ensure a report branding row exists so PDF generation doesn't abort.
-        ReportBranding::singleton();
+                // Ensure a report branding row exists so PDF generation doesn't abort.
+                ReportBranding::singleton();
 
-        // Keep the demo graph focused: one completed historical week plus the
-        // current week. Each gets both normal procurement coverage periods.
-        $currentWeekStart = Carbon::now()->startOfWeek(Carbon::MONDAY);
-        $fssUser = User::find($fss);
-        $archiveService = app(AccomplishmentReportArchiveService::class);
-        $cycles = [];
-        $cycleMeta = [];
-        for ($w = 1; $w >= 0; $w--) {
-            $weekStart = $currentWeekStart->copy()->subWeeks($w);
-            $isCurrent = ($w === 0);
-            $cycle = $this->seedCycleForWeek($rnd, $weekStart, $isCurrent, null, $w);
-            $this->seedConsumptionForWeek($cycle, $fss, $weekStart, $isCurrent, $w);
-            // The whole procurement record is produced by the real flow: suggested list
-            // (system-extracted) → ONE PO with a vendor group per supplier → receipts.
-            // Past weeks complete; the current week is left in open execution (pending).
-            $this->seedProcurementForWeek($cycle, $fss, $weekStart, $isCurrent, $w);
-            $cycles[] = $cycle;
-            $cycleMeta[] = ['weekStart' => $weekStart->copy(), 'isCurrent' => $isCurrent, 'weekIndex' => $w];
+                // Keep the demo graph focused: one completed historical week plus the
+                // current week. Each gets both normal procurement coverage periods.
+                $currentWeekStart = Carbon::now()->startOfWeek(Carbon::MONDAY);
+                $fssUser = User::find($fss);
+                $archiveService = app(AccomplishmentReportArchiveService::class);
+                $cycles = [];
+                $cycleMeta = [];
+                for ($w = 1; $w >= 0; $w--) {
+                    $weekStart = $currentWeekStart->copy()->subWeeks($w);
+                    $isCurrent = ($w === 0);
+                    $cycle = $this->seedCycleForWeek($rnd, $weekStart, $isCurrent, null, $w);
+                    $this->seedConsumptionForWeek($cycle, $fss, $weekStart, $isCurrent, $w);
+                    // The whole procurement record is produced by the real flow: suggested list
+                    // (system-extracted) → ONE PO with a vendor group per supplier → receipts.
+                    // Past weeks complete; the current week is left in open execution (pending).
+                    $this->seedProcurementForWeek($cycle, $fss, $weekStart, $isCurrent, $w);
+                    $cycles[] = $cycle;
+                    $cycleMeta[] = ['weekStart' => $weekStart->copy(), 'isCurrent' => $isCurrent, 'weekIndex' => $w];
 
+                }
+
+                // Direct seeding bypasses the save endpoint, so prepare each populated
+                // semi-monthly period once after all daily records exist.
+                if ($fssUser) {
+                    DietListCount::query()
+                        ->where('fss_user_id', $fssUser->id)
+                        ->where('ward', 'Accomplishment report')
+                        ->pluck('service_date')
+                        ->map(fn ($date) => Carbon::parse($date)->startOfDay())
+                        ->unique(fn (Carbon $date) => $date->format('Y-m-').($date->day <= 15 ? '01' : '16'))
+                        ->each(fn (Carbon $date) => $archiveService->preparePeriod($fssUser, $date));
+                }
+
+                // Next week's cycle as an UPCOMING plan, plus a DRAFT suggested shopping list with
+                // its estimated population set — so the planner sees the live estimated budget per
+                // head per day and editable, system-extracted ingredients before any conversion.
+                $upcomingStart = $currentWeekStart->copy()->addWeek();
+                $upcoming = $this->seedCycleForWeek($rnd, $upcomingStart, false, 'upcoming', 4);
+                foreach ($cycleMeta as $meta) {
+                    $this->seedFridayToMondayProcurement($fss, $meta['weekStart'], $meta['isCurrent'], $meta['weekIndex']);
+                }
+                $this->seedDraftSuggestedList($upcoming, $fss, $upcomingStart, 4);
+
+                $this->seedBudget($fss, end($cycles));
+            });
+        } catch (Throwable $exception) {
+            app(PurchaseOrderAttachmentStorage::class)->deleteUploads([$this->demoReceipt]);
+
+            throw $exception;
         }
 
-        // Direct seeding bypasses the save endpoint, so prepare each populated
-        // semi-monthly period once after all daily records exist.
-        if ($fssUser) {
-            DietListCount::query()
-                ->where('fss_user_id', $fssUser->id)
-                ->where('ward', 'Accomplishment report')
-                ->pluck('service_date')
-                ->map(fn ($date) => Carbon::parse($date)->startOfDay())
-                ->unique(fn (Carbon $date) => $date->format('Y-m-').($date->day <= 15 ? '01' : '16'))
-                ->each(fn (Carbon $date) => $archiveService->preparePeriod($fssUser, $date));
-        }
-
-        // Next week's cycle as an UPCOMING plan, plus a DRAFT suggested shopping list with
-        // its estimated population set — so the planner sees the live estimated budget per
-        // head per day and editable, system-extracted ingredients before any conversion.
-        $upcomingStart = $currentWeekStart->copy()->addWeek();
-        $upcoming = $this->seedCycleForWeek($rnd, $upcomingStart, false, 'upcoming', 4);
-        foreach ($cycleMeta as $meta) {
-            $this->seedFridayToMondayProcurement($fss, $meta['weekStart'], $meta['isCurrent'], $meta['weekIndex']);
-        }
-        $this->seedDraftSuggestedList($upcoming, $fss, $upcomingStart, 4);
-
-        $this->seedBudget($fss, end($cycles));
+        app(PurchaseOrderAttachmentStorage::class)->deleteUploads($previousReceipts->all());
 
         $this->command->info('FoodServiceDemoSeeder: one completed week, one active week, and one upcoming draft seeded.');
     }
 
-    private function reset(): void
+    private function reset(int $rnd, int $fss): void
     {
-        Schema::disableForeignKeyConstraints();
-        foreach ([
-            'purchase_order_item_corrections', 'program_project_activities',
-            'purchase_order_attachments', 'purchase_order_items', 'purchase_order_vendor_groups', 'purchase_orders',
-            'shopping_list_items', 'shopping_lists',
-            'budget_ledger', 'budget_daily_logs', 'budgets',
-            'meal_prep_log_lines', 'meal_prep_logs', 'diet_list_counts',
-            'menu_cycle_days', 'menu_cycles',
-            'food_service_recipe_ingredients', 'food_service_recipes',
-            'inventory', 'suppliers',
-        ] as $t) {
-            if (Schema::hasTable($t)) {
-                \DB::table($t)->truncate();
-            }
-        }
-        Schema::enableForeignKeyConstraints();
+        $cycleIds = MenuCycle::query()
+            ->where('rnd_user_id', $rnd)
+            ->where('name', 'like', 'Subsistence Cycle — Week of %')
+            ->pluck('id');
+        $listIds = ShoppingList::query()
+            ->where('rnd_user_id', $fss)
+            ->where(function ($query): void {
+                $query->where('name', 'like', 'Marketing - Tue-Thu %')
+                    ->orWhere('name', 'like', 'Marketing - Fri-Mon %')
+                    ->orWhere('name', 'like', 'Draft marketing — week of %');
+            })
+            ->pluck('id');
+        $purchaseOrderIds = PurchaseOrder::query()
+            ->whereIn('shopping_list_id', $listIds)
+            ->pluck('id');
+
+        Notification::query()
+            ->where('source_module', 'food_service')
+            ->whereIn('source_id', $purchaseOrderIds)
+            ->delete();
+        BudgetLedger::query()->whereIn('purchase_order_id', $purchaseOrderIds)->delete();
+        BudgetLedger::query()
+            ->where('created_by', $fss)
+            ->where('source', 'manual')
+            ->whereIn('reason', ['Request for additional subsistence funds', 'Budget correction'])
+            ->delete();
+        PurchaseOrder::query()->whereIn('id', $purchaseOrderIds)->delete();
+        ShoppingList::query()->whereIn('id', $listIds)->delete();
+        DietListCount::query()->whereIn('menu_cycle_id', $cycleIds)->delete();
+        MealPrepLog::query()->whereIn('menu_cycle_id', $cycleIds)->delete();
+        MenuCycle::query()->whereIn('id', $cycleIds)->delete();
+
+        $this->demoPurchaseOrderIds = [];
     }
 
-    private function resetDemoStoredObject(): void
+    /** @return Collection<int, StoredObject> */
+    private function demoStoredObjects(): Collection
     {
-        StoredObject::query()
+        return StoredObject::query()
             ->where('purpose', 'purchase_order')
             ->where('original_name', self::DEMO_RECEIPT_NAME)
-            ->get()
-            ->each(fn (StoredObject $object) => app(StoredObjectStorage::class)->deleteOrQueue($object));
+            ->get();
     }
 
     private function storeDemoReceipt(): StoredObject
     {
         $path = database_path('seeders/assets/demo-receipt.jpg');
-        $bytes = file_get_contents($path);
-        if (! is_string($bytes) || $bytes === '') {
+        if (! is_file($path) || ! is_readable($path)) {
             throw new \RuntimeException("Seed receipt asset is missing or unreadable: {$path}");
         }
 
-        return app(StoredObjectStorage::class)->storeBytes(
-            $bytes,
-            'image/jpeg',
-            'jpg',
-            'purchase_order',
+        $file = new UploadedFile(
+            $path,
             self::DEMO_RECEIPT_NAME,
+            'image/jpeg',
+            null,
+            true,
         );
+
+        return app(PurchaseOrderAttachmentStorage::class)->store($file);
     }
 
     private function id(string $name): ?int
@@ -269,10 +303,13 @@ class FoodServiceDemoSeeder extends Seeder
             ['Pampanga Gas & Supplies Trading', 'LPG, disposables, cleaning', 'Floridablanca'],
         ];
         foreach ($rows as [$name, $category, $address]) {
-            $this->suppliers[$name] = Supplier::create([
-                'name' => $name, 'category' => $category, 'address' => $address,
-                'payment_terms' => 'Cash on delivery',
-            ]);
+            $this->suppliers[$name] = Supplier::query()->updateOrCreate(
+                ['name' => $name],
+                [
+                    'category' => $category, 'address' => $address,
+                    'payment_terms' => 'Cash on delivery',
+                ],
+            );
         }
     }
 
@@ -298,11 +335,11 @@ class FoodServiceDemoSeeder extends Seeder
         ];
 
         foreach ($defs as $name => [$servings, $lines]) {
-            $recipe = FoodServiceRecipe::create([
-                'rnd_user_id' => $rnd,
-                'name' => $name,
-                'servings' => $servings,
-            ]);
+            $recipe = FoodServiceRecipe::query()->updateOrCreate(
+                ['name' => $name],
+                ['rnd_user_id' => $rnd, 'servings' => $servings],
+            );
+            $recipe->ingredients()->delete();
             foreach ($lines as [$itemName, $qty]) {
                 $fsId = $this->id($itemName);
                 if (! $fsId) {
@@ -609,6 +646,7 @@ class FoodServiceDemoSeeder extends Seeder
             'converted_at' => $orderDate,
             'structural_locked_at' => $orderDate,
         ]);
+        $this->demoPurchaseOrderIds[] = $po->id;
 
         foreach ($list->items->where('included_in_po', true)->groupBy('supplier_id') as $supplierId => $items) {
             $group = $po->vendorGroups()->create([
@@ -700,7 +738,9 @@ class FoodServiceDemoSeeder extends Seeder
         $cost = MenuCycleCostService::forCycle($currentCycle);
         $dayCosts = array_values(array_map(fn ($d) => $d['cost'], $cost['days']));
         $avgDay = $dayCosts ? array_sum($dayCosts) / count($dayCosts) : 18000;
-        $plannedProcurement = (float) PurchaseOrder::query()->sum('total_amount');
+        $plannedProcurement = (float) PurchaseOrder::query()
+            ->whereIn('id', $this->demoPurchaseOrderIds)
+            ->sum('total_amount');
         $allocation = round(max($avgDay * 30, $plannedProcurement * 1.25), -2);
 
         $fiscalYear = (int) Carbon::now()->year;
@@ -720,8 +760,6 @@ class FoodServiceDemoSeeder extends Seeder
 
         // Manual entries make the add/deduct audit trail visible. PO deductions are
         // produced by the normal lifecycle + PurchaseOrderCompleted listener below.
-        BudgetLedger::where('fiscal_year', $fiscalYear)->delete();
-
         BudgetLedger::create([
             'fiscal_year' => $fiscalYear, 'type' => 'manual_addition', 'source' => 'manual', 'amount' => 25000,
             'reason' => 'Request for additional subsistence funds', 'created_by' => $fss,
@@ -736,6 +774,7 @@ class FoodServiceDemoSeeder extends Seeder
         // current week's PO stays open (a vendor group still awaiting a receipt).
         $lifecycle = app(PurchaseOrderLifecycleService::class);
         PurchaseOrder::with(['vendorGroups.attachments', 'shoppingList', 'programProjectActivity'])
+            ->whereIn('id', $this->demoPurchaseOrderIds)
             ->where('lifecycle_status', 'open_execution')
             ->get()
             ->each(function (PurchaseOrder $po) use ($lifecycle): void {

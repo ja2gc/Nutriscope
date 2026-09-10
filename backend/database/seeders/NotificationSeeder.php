@@ -2,47 +2,40 @@
 
 namespace Database\Seeders;
 
+use App\Models\Announcement;
 use App\Models\Notification;
-use App\Models\User;
+use App\Services\NotificationService;
 use Illuminate\Database\Seeder;
 
 class NotificationSeeder extends Seeder
 {
+    private const RETIRED_TITLES = [
+        'Pending PO needs review',
+        'Assessment follow-up due',
+        'Open PO execution',
+        'Served population reminder',
+        'System report templates ready',
+        'User access active',
+    ];
+
     public function run(): void
     {
-        $items = [
-            'RND' => [
-                ['Pending PO needs review', 'A food procurement order is waiting for final served population and receipts.', 'procurement', 'purchase_orders', false],
-                ['Assessment follow-up due', 'Complete required calculation fields before intervention planning.', 'clinical', 'ncp_records', false],
-            ],
-            'FSS' => [
-                ['Open PO execution', 'Upload vendor receipts/proof and OR number for the active procurement pack.', 'procurement', 'purchase_orders', false],
-                ['Served population reminder', 'Backfill served headcount for menu-cycle days before PO completion.', 'food_service', 'menu_cycles', true],
-            ],
-            'Admin' => [
-                ['System report templates ready', 'Food-service report templates are available for review.', 'report', 'reports', true],
-                ['User access active', 'Demo Admin, RND, and FSS accounts are seeded and active.', 'system', 'users', false],
-            ],
-        ];
+        Notification::query()
+            ->whereNull('source_id')
+            ->whereIn('title', self::RETIRED_TITLES)
+            ->delete();
 
-        foreach ($items as $role => $rows) {
-            $user = User::where('role', $role)->first();
-            if (! $user) {
-                continue;
-            }
+        $notifications = app(NotificationService::class);
+        Announcement::query()->with('user')->orderBy('id')->each(function (Announcement $announcement) use ($notifications): void {
+            $alreadyGenerated = Notification::query()
+                ->where('type', 'announcement')
+                ->where('source_module', 'announcements')
+                ->where('source_id', $announcement->id)
+                ->exists();
 
-            foreach ($rows as [$title, $message, $type, $module, $read]) {
-                Notification::updateOrCreate(
-                    ['user_id' => $user->id, 'title' => $title],
-                    [
-                        'message' => $message,
-                        'type' => $type,
-                        'source_module' => $module,
-                        'source_id' => null,
-                        'read' => $read,
-                    ],
-                );
+            if (! $alreadyGenerated) {
+                $notifications->fanOutAnnouncement($announcement);
             }
-        }
+        });
     }
 }

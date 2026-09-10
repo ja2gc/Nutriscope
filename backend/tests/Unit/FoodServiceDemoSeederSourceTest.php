@@ -52,6 +52,15 @@ class FoodServiceDemoSeederSourceTest extends TestCase
         $this->assertStringNotContainsString("'or_number' => null", $demo);
     }
 
+    public function test_demo_receipt_uses_the_existing_purchase_order_attachment_storage_pipeline(): void
+    {
+        $demo = file_get_contents(__DIR__.'/../../database/seeders/FoodServiceDemoSeeder.php');
+
+        $this->assertStringContainsString('PurchaseOrderAttachmentStorage', $demo);
+        $this->assertStringContainsString('UploadedFile', $demo);
+        $this->assertStringContainsString('->store($file)', $demo);
+    }
+
     public function test_demo_accomplishments_use_one_current_form_record_per_staff_date(): void
     {
         $content = file_get_contents(__DIR__.'/../../database/seeders/FoodServiceDemoSeeder.php');

@@ -21,9 +21,11 @@ use App\Models\Recipe;
 use App\Models\ReportTemplate;
 use App\Models\ShoppingList;
 use App\Models\Sop;
+use App\Models\StoredObject;
 use App\Models\Supplier;
 use App\Models\User;
 use App\Services\FSS\PurchaseOrderLifecycleService;
+use App\Services\FSS\ShoppingListPopulationService;
 use Carbon\CarbonImmutable;
 use Database\Seeders\AdminUserSeeder;
 use Database\Seeders\AiUsageLimitSeeder;
@@ -39,6 +41,7 @@ use Database\Seeders\ReportTemplateSeeder;
 use Database\Seeders\SopSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
+use RuntimeException;
 use Tests\TestCase;
 
 class DemoSeederCurrentContractTest extends TestCase
@@ -86,7 +89,7 @@ class DemoSeederCurrentContractTest extends TestCase
         $this->seedClinicalFoodFixtures();
         FoodItem::query()->where('name', 'Steamed White Rice')->delete();
 
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('Recipe seeding requires every referenced food item.');
 
         try {
@@ -264,6 +267,66 @@ class DemoSeederCurrentContractTest extends TestCase
             }
         }
         $this->assertCount(2, BudgetLedger::query()->whereIn('purchase_order_id', $historicalOrders->pluck('id'))->get());
+    }
+
+    public function test_food_service_demo_preserves_unrelated_operational_records(): void
+    {
+        CarbonImmutable::setTestNow('2026-07-16 12:00:00');
+        $this->seed(AdminUserSeeder::class);
+        $this->seed(FsCatalogSeeder::class);
+        $rnd = User::query()->where('role', 'RND')->firstOrFail();
+
+        $supplier = Supplier::factory()->create(['name' => 'Independent Community Supplier']);
+        $recipe = FoodServiceRecipe::query()->create([
+            'rnd_user_id' => $rnd->id,
+            'name' => 'Independent Staff Recipe',
+            'servings' => 10,
+            'cost' => 0,
+        ]);
+        $cycle = MenuCycle::factory()->create([
+            'rnd_user_id' => $rnd->id,
+            'name' => 'Independent Staff Menu',
+            'week_start_date' => now()->addWeeks(8)->startOfWeek(),
+        ]);
+
+        $this->seed(FoodServiceDemoSeeder::class);
+
+        $this->assertDatabaseHas('suppliers', ['id' => $supplier->id, 'name' => 'Independent Community Supplier']);
+        $this->assertDatabaseHas('food_service_recipes', ['id' => $recipe->id, 'name' => 'Independent Staff Recipe']);
+        $this->assertDatabaseHas('menu_cycles', ['id' => $cycle->id, 'name' => 'Independent Staff Menu']);
+    }
+
+    public function test_food_service_demo_removes_the_new_private_receipt_if_seeding_fails(): void
+    {
+        CarbonImmutable::setTestNow('2026-07-16 12:00:00');
+        Storage::fake((string) config('filesystems.private_uploads'));
+        $this->seed(AdminUserSeeder::class);
+        $this->seed(FsCatalogSeeder::class);
+        $this->seed(FoodServiceDemoSeeder::class);
+
+        $cycleIds = MenuCycle::query()->orderBy('id')->pluck('id')->all();
+        $purchaseOrderIds = PurchaseOrder::query()->orderBy('id')->pluck('id')->all();
+        $receipt = StoredObject::query()
+            ->where('purpose', 'purchase_order')
+            ->where('original_name', 'nutriscope-seeded-pexels-receipt-14647295.jpg')
+            ->sole();
+        $receiptFiles = Storage::disk((string) config('filesystems.private_uploads'))->allFiles('purchase_order');
+
+        $planner = \Mockery::mock(ShoppingListPopulationService::class);
+        $planner->shouldReceive('planRange')->once()->andThrow(new RuntimeException('Seed planner failure'));
+        $this->app->instance(ShoppingListPopulationService::class, $planner);
+
+        try {
+            $this->seed(FoodServiceDemoSeeder::class);
+            $this->fail('Expected the injected planner failure.');
+        } catch (RuntimeException $exception) {
+            $this->assertSame('Seed planner failure', $exception->getMessage());
+        }
+
+        $this->assertSame($cycleIds, MenuCycle::query()->orderBy('id')->pluck('id')->all());
+        $this->assertSame($purchaseOrderIds, PurchaseOrder::query()->orderBy('id')->pluck('id')->all());
+        $this->assertDatabaseHas('stored_objects', ['id' => $receipt->id]);
+        $this->assertSame($receiptFiles, Storage::disk((string) config('filesystems.private_uploads'))->allFiles('purchase_order'));
     }
 
     public function test_remaining_base_seeders_are_repeatable_and_use_current_contract_values(): void

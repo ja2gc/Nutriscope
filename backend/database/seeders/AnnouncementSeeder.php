@@ -41,7 +41,7 @@ class AnnouncementSeeder extends Seeder
             [
                 'user_id' => $admin->id,
                 'title' => 'FSS tray labeling update',
-                'body' => 'FSS team should apply the updated tray labeling format starting with tomorrow breakfast service.',
+                'body' => 'FSS team should use the current tray-labeling format for every meal service.',
                 'category' => 'Operational',
                 'visibility' => 'FSS',
                 'pinned' => false,
@@ -50,7 +50,7 @@ class AnnouncementSeeder extends Seeder
             [
                 'user_id' => $rnd->id,
                 'title' => 'Dietetic case conference',
-                'body' => 'The weekly case conference is scheduled for Friday at 2:00 PM in the nutrition office.',
+                'body' => 'Weekly dietetic case conferences are held Fridays at 2:00 PM in the nutrition office.',
                 'category' => 'Event',
                 'visibility' => 'All',
                 'pinned' => false,

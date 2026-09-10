@@ -35,8 +35,10 @@ describe("NotificationsPageShell", () => {
     const user = userEvent.setup();
     await act(async () => root.render(<NotificationsPageShell role="RND" />));
     expect(container.textContent).toContain("Action required");
-    const dismiss = Array.from(container.querySelectorAll("button")).find((button) => button.textContent?.includes("Dismiss"));
-    expect(dismiss).toBeDefined();
+    const dismissButtons = Array.from(container.querySelectorAll("button")).filter((button) => button.textContent?.includes("Dismiss"));
+    expect(dismissButtons).toHaveLength(2);
+    expect(dismissButtons[1].disabled).toBe(true);
+    const dismiss = dismissButtons[0];
     dismissMock.mockResolvedValue();
     await act(async () => user.click(dismiss!));
     expect(dismissMock).toHaveBeenCalledWith("info-1");

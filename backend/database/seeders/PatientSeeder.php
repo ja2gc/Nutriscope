@@ -288,7 +288,7 @@ class PatientSeeder extends Seeder
         // Meal plan — diabetic menu for the week after admission.
         $this->seedMealPlan($record, $anchor->copy()->subDays(91)->startOfWeek()->toDateString());
 
-        // ── Monitoring — Follow-up 1 (4 weeks after admission, 2026-06-17) ─────
+        // ── Monitoring — Follow-up 1 (about 4 weeks after admission) ────────────
         // Labs trending down: glucose 124→112, HbA1c 8.4→8.0, cholesterol 218→205, LDL 125→112
         $m1 = Monitoring::create([
             'ncp_record_id' => $record->id,
@@ -321,7 +321,7 @@ class PatientSeeder extends Seeder
             'updated_at' => $anchor->copy()->subDays(73)->setTime(9, 0),
         ]);
 
-        // ── Monitoring — Follow-up 2 (8 weeks after admission, 2026-07-15) ─────
+        // ── Monitoring — Follow-up 2 (about 8 weeks after admission) ────────────
         // Labs trending toward normal: glucose 112→106, HbA1c 8.0→7.4, cholesterol 205→193, LDL 112→94
         $m2 = Monitoring::create([
             'ncp_record_id' => $record->id,

@@ -115,7 +115,6 @@ class NcpAppointmentWorkflow
         $this->auditLogger->recordMutation(AuditAction::VisitStarted, AuditDomain::Ncp, $appointment, [
             'status', 'ncp_record_id', 'started_at',
         ]);
-        $this->notifications->resolveAppointment($appointment);
 
         return $appointment->refresh();
     }

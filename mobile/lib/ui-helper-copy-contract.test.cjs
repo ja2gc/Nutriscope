@@ -48,8 +48,8 @@ test('mobile screens retain actionable safety and state guidance', () => {
 test('Android release metadata advances for the mobile copy update', () => {
   const appConfig = JSON.parse(read('app.json'));
   const release = JSON.parse(read('release.json'));
-  assert.equal(appConfig.expo.version, '1.2.6');
-  assert.equal(appConfig.expo.android.versionCode, 10);
+  assert.equal(appConfig.expo.version, '1.2.7');
+  assert.equal(appConfig.expo.android.versionCode, 11);
   assert.equal(release.version, '1.2.6');
   assert.equal(release.version_code, 10);
   assert.equal(release.artifact_url, 'https://expo.dev/artifacts/eas/cfU02kFfg9_zcLVBBETnlQ3O81OkksfDzCfNArH1zPg.apk');

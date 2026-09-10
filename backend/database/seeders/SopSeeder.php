@@ -21,8 +21,6 @@ class SopSeeder extends Seeder
             return;
         }
 
-        \DB::table('sops')->truncate();
-
         $versions = [
             [$admin, 'Food Service SOP', "1. Wash hands and sanitize before every prep shift.\n2. Collect ward diet lists by 6:00 AM.\n3. Apportion trays per the active menu cycle.", 21],
             [$rnd,   'Food Service SOP', "1. Wash hands and sanitize before every prep shift.\n2. Collect ward diet lists by 6:00 AM.\n3. Apportion trays per the active menu cycle.\n4. Record served population per service day.", 10],
@@ -30,13 +28,15 @@ class SopSeeder extends Seeder
         ];
 
         foreach ($versions as [$by, $title, $body, $daysAgo]) {
-            Sop::create([
-                'title' => $title,
-                'body' => $body,
-                'created_by' => $by,
-                'created_at' => Carbon::now()->subDays($daysAgo),
-                'updated_at' => Carbon::now()->subDays($daysAgo),
-            ]);
+            $createdAt = Carbon::now()->subDays($daysAgo);
+            Sop::query()->firstOrCreate(
+                ['title' => $title, 'body' => $body],
+                [
+                    'created_by' => $by,
+                    'created_at' => $createdAt,
+                    'updated_at' => $createdAt,
+                ],
+            );
         }
     }
 }
