@@ -60,6 +60,8 @@ class ProductionDeploymentContractTest extends TestCase
         $this->assertStringContainsString('curl --fail --silent --show-error', $workflow);
         $this->assertStringContainsString('--retry-all-errors', $workflow);
         $this->assertStringContainsString('envs: DB_ROOT_PASSWORD', $workflow);
+        $this->assertStringContainsString('command_timeout: 60m', $workflow);
+        $this->assertStringContainsString('export COMPOSE_PARALLEL_LIMIT=1', $workflow);
         $this->assertStringNotContainsString('export DB_ROOT_PASSWORD=${{ secrets.DB_ROOT_PASSWORD }}', $workflow);
         $this->assertStringNotContainsString('git reset --hard', $workflow);
         $this->assertStringNotContainsString('docker image prune', $workflow);

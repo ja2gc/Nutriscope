@@ -21,7 +21,7 @@ jobs:
           username: ${{ secrets.DROPLET_USER }}
           key: ${{ secrets.DROPLET_SSH_KEY }}
           envs: DB_ROOT_PASSWORD
-          command_timeout: 30m
+          command_timeout: 60m
           script: |
             set -eu
             cd Nutriscope
@@ -29,6 +29,7 @@ jobs:
             git merge --ff-only origin/main
             export DOCKER_BUILDKIT=1
             export COMPOSE_DOCKER_CLI_BUILD=1
+            export COMPOSE_PARALLEL_LIMIT=1
             # Requires backend/.env.production to exist on the server.
             # Base file provides mysql/redis; prod overlay adds backend/frontend.
             docker image inspect nutriscope-backend >/dev/null 2>&1 && docker tag nutriscope-backend nutriscope-backend:rollback || true
