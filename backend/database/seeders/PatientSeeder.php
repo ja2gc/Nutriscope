@@ -10,6 +10,7 @@ use App\Models\MealPlan;
 use App\Models\Monitoring;
 use App\Models\NcpAppointment;
 use App\Models\NcpRecord;
+use App\Models\Notification;
 use App\Models\Patient;
 use App\Models\ScreeningDocument;
 use App\Models\User;
@@ -51,6 +52,15 @@ class PatientSeeder extends Seeder
 
         $this->cleanupPatient('HN-2026-0042');
         $this->cleanupPatient('HN-2026-0078');
+        Notification::query()
+            ->where('user_id', $rnd->id)
+            ->where('source_module', 'ncp_appointment')
+            ->whereNotNull('source_id')
+            ->whereNotExists(fn ($query) => $query
+                ->selectRaw('1')
+                ->from('ncp_appointments')
+                ->whereColumn('ncp_appointments.id', 'notifications.source_id'))
+            ->delete();
 
         $anchor = Carbon::today();
         $this->seedMariaSantos($rnd->id, $anchor);
@@ -134,6 +144,11 @@ class PatientSeeder extends Seeder
             return;
         }
 
+        $appointmentIds = $patient->appointments()->pluck('id');
+        Notification::query()
+            ->where('source_module', 'ncp_appointment')
+            ->whereIn('source_id', $appointmentIds)
+            ->delete();
         $patient->appointments()->delete();
 
         // Delete screening documents (has nullable assessment_id FK)

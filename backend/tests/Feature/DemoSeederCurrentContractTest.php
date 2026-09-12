@@ -198,6 +198,46 @@ class DemoSeederCurrentContractTest extends TestCase
         $this->assertTrue($currentCycles->every(fn ($cycles) => $cycles->count() === 1));
     }
 
+    public function test_patient_seeder_removes_only_stale_notifications_for_replaced_demo_appointments(): void
+    {
+        CarbonImmutable::setTestNow('2026-09-09 12:00:00');
+        $this->seed(AdminUserSeeder::class);
+        $this->seedClinicalFoodFixtures();
+        $this->seed(RecipeSeeder::class);
+        $this->seed(PatientSeeder::class);
+
+        $demoAppointment = NcpAppointment::query()
+            ->whereHas('patient', fn ($query) => $query->where('hospital_number', 'HN-2026-0042'))
+            ->where('status', 'scheduled')
+            ->firstOrFail();
+        $stale = Notification::factory()->create([
+            'user_id' => $demoAppointment->rnd_user_id,
+            'type' => 'appointment_due',
+            'source_module' => 'ncp_appointment',
+            'source_id' => $demoAppointment->id,
+        ]);
+        $alreadyOrphaned = Notification::factory()->create([
+            'user_id' => $demoAppointment->rnd_user_id,
+            'type' => 'appointment_due',
+            'source_module' => 'ncp_appointment',
+            'source_id' => 999_999_999,
+        ]);
+
+        $unrelatedAppointment = NcpAppointment::factory()->create();
+        $unrelated = Notification::factory()->create([
+            'user_id' => $unrelatedAppointment->rnd_user_id,
+            'type' => 'appointment_due',
+            'source_module' => 'ncp_appointment',
+            'source_id' => $unrelatedAppointment->id,
+        ]);
+
+        $this->seed(PatientSeeder::class);
+
+        $this->assertDatabaseMissing('notifications', ['id' => $stale->id]);
+        $this->assertDatabaseMissing('notifications', ['id' => $alreadyOrphaned->id]);
+        $this->assertDatabaseHas('notifications', ['id' => $unrelated->id]);
+    }
+
     public function test_food_service_demo_is_repeatable_and_uses_current_status_values(): void
     {
         CarbonImmutable::setTestNow('2026-07-16 12:00:00');
