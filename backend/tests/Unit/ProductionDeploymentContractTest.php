@@ -23,19 +23,26 @@ class ProductionDeploymentContractTest extends TestCase
     public function digitalocean_deployment_runs_the_explicit_release_before_starting_services(): void
     {
         $workflow = file_get_contents(base_path('../.github/workflows/deploy.yml'));
+        $compose = file_get_contents(base_path('../docker-compose.prod.yml'));
 
         $this->assertIsString($workflow);
+        $this->assertIsString($compose);
 
-        $build = 'docker compose -f docker-compose.yml -f docker-compose.prod.yml --profile release build';
+        $backendBuild = 'docker compose -f docker-compose.yml -f docker-compose.prod.yml --profile release build backend';
+        $frontendBuild = 'docker compose -f docker-compose.yml -f docker-compose.prod.yml build frontend';
         $release = 'docker compose -f docker-compose.yml -f docker-compose.prod.yml --profile release run --rm backend_release';
         $start = 'docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d';
 
-        $this->assertStringContainsString($build, $workflow);
+        $this->assertStringContainsString('image: nutriscope-backend', $compose);
+        $this->assertStringContainsString($backendBuild, $workflow);
+        $this->assertStringContainsString($frontendBuild, $workflow);
         $this->assertStringContainsString($release, $workflow);
         $this->assertStringContainsString($start, $workflow);
         $this->assertStringContainsString('set -eu', $workflow);
-        $this->assertLessThan(strpos($workflow, $release), strpos($workflow, $build));
+        $this->assertLessThan(strpos($workflow, $frontendBuild), strpos($workflow, $backendBuild));
+        $this->assertLessThan(strpos($workflow, $release), strpos($workflow, $frontendBuild));
         $this->assertLessThan(strpos($workflow, $start), strpos($workflow, $release));
+        $this->assertDoesNotMatchRegularExpression('/--profile release build\s*$/m', $workflow);
         $this->assertStringNotContainsString('up -d --build', $workflow);
     }
 

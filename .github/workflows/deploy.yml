@@ -34,7 +34,8 @@ jobs:
             # Base file provides mysql/redis; prod overlay adds backend/frontend.
             docker image inspect nutriscope-backend >/dev/null 2>&1 && docker tag nutriscope-backend nutriscope-backend:rollback || true
             docker image inspect nutriscope-frontend >/dev/null 2>&1 && docker tag nutriscope-frontend nutriscope-frontend:rollback || true
-            docker compose -f docker-compose.yml -f docker-compose.prod.yml --profile release build
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml --profile release build backend
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml build frontend
             docker compose -f docker-compose.yml -f docker-compose.prod.yml --profile release run --rm backend_release
             docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
             curl --fail --silent --show-error --retry 12 --retry-all-errors --retry-delay 5 http://127.0.0.1:8080/up >/dev/null
