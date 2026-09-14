@@ -7,8 +7,9 @@ Thumbs.db
 artifacts/tsbuild/
 
 # Local agent / skill tooling (per-machine installs, not project code)
-/.agents/
-/AGENTS.md
+/.agents/*
+!/.agents/rules/
+!/.agents/rules/**
 /.claude/
 /.superpowers/
 /.agent/skills/
