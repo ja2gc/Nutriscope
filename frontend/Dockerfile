@@ -3,7 +3,16 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 
 COPY package.json package-lock.json* ./
-RUN npm ci
+RUN attempt=1; \
+    while [ "$attempt" -le 2 ]; do \
+        rm -rf node_modules; \
+        if npm ci --no-audit --no-fund && test -x node_modules/.bin/next; then \
+            exit 0; \
+        fi; \
+        echo "npm ci attempt $attempt failed or was incomplete" >&2; \
+        attempt=$((attempt + 1)); \
+    done; \
+    exit 1
 
 COPY . .
 

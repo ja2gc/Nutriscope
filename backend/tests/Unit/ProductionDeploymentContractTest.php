@@ -31,7 +31,7 @@ class ProductionDeploymentContractTest extends TestCase
         $backendBuild = 'docker compose -f docker-compose.yml -f docker-compose.prod.yml --profile release build backend';
         $frontendBuild = 'docker compose -f docker-compose.yml -f docker-compose.prod.yml build frontend';
         $release = 'docker compose -f docker-compose.yml -f docker-compose.prod.yml --profile release run --rm backend_release';
-        $start = 'docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d';
+        $start = 'docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --remove-orphans';
 
         $this->assertStringContainsString('image: nutriscope-backend', $compose);
         $this->assertStringContainsString($backendBuild, $workflow);
@@ -44,6 +44,17 @@ class ProductionDeploymentContractTest extends TestCase
         $this->assertLessThan(strpos($workflow, $start), strpos($workflow, $release));
         $this->assertDoesNotMatchRegularExpression('/--profile release build\s*$/m', $workflow);
         $this->assertStringNotContainsString('up -d --build', $workflow);
+    }
+
+    #[Test]
+    public function frontend_image_build_retries_an_incomplete_npm_install(): void
+    {
+        $dockerfile = file_get_contents(base_path('../frontend/Dockerfile'));
+
+        $this->assertIsString($dockerfile);
+        $this->assertStringContainsString('while [ "$attempt" -le 2 ]', $dockerfile);
+        $this->assertStringContainsString('npm ci --no-audit --no-fund', $dockerfile);
+        $this->assertStringContainsString('test -x node_modules/.bin/next', $dockerfile);
     }
 
     #[Test]
