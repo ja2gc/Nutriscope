@@ -2,7 +2,9 @@
 
 namespace App\Services\Audit;
 
+use App\Enums\AuditAction;
 use App\Enums\AuditCategory;
+use App\Enums\AuditModule;
 use App\Models\AuditActivity;
 use App\Models\NcpRecord;
 use App\Models\Patient;
@@ -69,6 +71,13 @@ class ClinicalAttributionService
         $latestIds = AuditActivity::query()
             ->auditOnly()
             ->forCategory(AuditCategory::Clinical)
+            ->where('module', AuditModule::NutritionCare->value)
+            ->whereNotIn('event', [
+                AuditAction::Viewed->value,
+                AuditAction::Downloaded->value,
+                AuditAction::Exported->value,
+                AuditAction::AuditLogViewed->value,
+            ])
             ->whereIn($groupColumn, $keys)
             ->selectRaw("MAX(id) AS id, {$groupColumn}")
             ->groupBy($groupColumn)

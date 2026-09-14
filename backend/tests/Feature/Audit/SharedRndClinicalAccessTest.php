@@ -2,6 +2,9 @@
 
 namespace Tests\Feature\Audit;
 
+use App\Enums\AuditAction;
+use App\Enums\AuditCategory;
+use App\Enums\AuditDomain;
 use App\Models\Assessment;
 use App\Models\Intervention;
 use App\Models\MealPlan;
@@ -10,8 +13,10 @@ use App\Models\MealPlanItem;
 use App\Models\Monitoring;
 use App\Models\NcpRecord;
 use App\Models\Patient;
+use App\Models\Report;
 use App\Models\ScreeningDocument;
 use App\Models\User;
+use App\Services\Audit\AuditLogger;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -203,5 +208,74 @@ class SharedRndClinicalAccessTest extends TestCase
         $this->assertStringNotContainsString('actor-private@example.test', $patients->getContent());
         $this->assertStringNotContainsString('creator-private@example.test', $records->getContent());
         $this->assertStringNotContainsString('actor-private@example.test', $records->getContent());
+    }
+
+    public function test_passive_access_does_not_replace_the_latest_clinical_actor(): void
+    {
+        $creator = User::factory()->rnd()->create();
+        $clinician = User::factory()->rnd()->create([
+            'first_name' => 'Treating',
+            'last_name' => 'Clinician',
+            'name' => 'Treating Clinician',
+        ]);
+        $viewer = User::factory()->rnd()->create([
+            'first_name' => 'Report',
+            'last_name' => 'Viewer',
+            'name' => 'Report Viewer',
+        ]);
+        $patient = Patient::factory()->create();
+        $ncp = NcpRecord::factory()->create([
+            'patient_id' => $patient->id,
+            'rnd_user_id' => $creator->id,
+        ]);
+        Assessment::factory()->create([
+            'ncp_record_id' => $ncp->id,
+            'physical_activity_level' => 'sedentary',
+        ]);
+
+        $this->actingAs($clinician, 'sanctum')
+            ->patchJson("/api/rnd/ncp-records/{$ncp->uuid}/assessment", [
+                'physical_activity_level' => 'light',
+            ])->assertOk();
+
+        $this->actingAs($viewer, 'sanctum');
+        app(AuditLogger::class)->record(
+            AuditAction::Viewed,
+            AuditCategory::Clinical,
+            AuditDomain::Ncp,
+            subject: $ncp,
+            details: ['status' => 200],
+        );
+        app(AuditLogger::class)->record(
+            AuditAction::Downloaded,
+            AuditCategory::Clinical,
+            AuditDomain::Ncp,
+            subject: $ncp,
+            details: ['status' => 200],
+        );
+        $report = Report::factory()->create([
+            'user_id' => $viewer->id,
+            'audit_patient_id' => $patient->id,
+            'audit_ncp_record_id' => $ncp->id,
+            'audit_owner_id' => $creator->id,
+            'type' => 'ncp_summary',
+        ]);
+        app(AuditLogger::class)->record(
+            AuditAction::Created,
+            AuditCategory::Clinical,
+            AuditDomain::Reports,
+            subject: $report,
+            details: ['status' => 200],
+        );
+
+        $this->getJson('/api/rnd/patients?per_page=10')
+            ->assertOk()
+            ->assertJsonPath('data.0.last_clinical_action.actor.id', $clinician->uuid)
+            ->assertJsonPath('data.0.last_clinical_action.actor.name', 'Treating Clinician');
+
+        $this->getJson("/api/rnd/patients/{$patient->uuid}/ncp-records")
+            ->assertOk()
+            ->assertJsonPath('data.0.last_clinical_action.actor.id', $clinician->uuid)
+            ->assertJsonPath('data.0.last_clinical_action.actor.name', 'Treating Clinician');
     }
 }
