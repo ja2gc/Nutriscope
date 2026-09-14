@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use Carbon\Carbon;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -21,6 +22,12 @@ class DatabaseSeederRepeatabilityTest extends TestCase
         $first = $this->tableCounts();
         $lastActivityId = (int) DB::table('activity_log')->max('id');
         $firstRevisionCount = DB::table('audit_revisions')->count();
+        $accomplishmentPeriods = DB::table('diet_list_counts')
+            ->where('ward', 'Accomplishment report')
+            ->pluck('service_date')
+            ->map(fn (string $date): string => Carbon::parse($date)->format('Y-m-').(Carbon::parse($date)->day <= 15 ? '01' : '16'))
+            ->unique()
+            ->count();
 
         $this->seed(DatabaseSeeder::class);
 
@@ -30,7 +37,7 @@ class DatabaseSeederRepeatabilityTest extends TestCase
 
         $this->assertSame($first, $this->tableCounts());
         $this->assertSame([
-            'accomplishment_report_preparation' => 2,
+            'accomplishment_report_preparation' => $accomplishmentPeriods,
             'budget-ledger-listener' => 2,
             'purchase-order-lifecycle' => 2,
         ], $newActivities

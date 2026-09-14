@@ -88,6 +88,7 @@ class ReportBrowser
                 fn () => DietListCount::query()
                     ->when(Auth::user()?->role === 'FSS', fn ($q) => $q->where('fss_user_id', Auth::id())),
                 'service_date',
+                semiMonthly: true,
             ),
         ];
     }

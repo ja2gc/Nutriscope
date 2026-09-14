@@ -44,6 +44,26 @@ describe("PatientAppointments", () => {
     expect(container.textContent).toContain("Page 1 of 1");
   });
 
+  it("targets a notification appointment without hiding the patient's history", async () => {
+    fetchMock.mockResolvedValue({ data: [], meta: { ...meta, total: 0 } });
+
+    await act(async () => root.render(
+      <PatientAppointments
+        patientId="patient-1"
+        currentNcpId="cycle-current"
+        targetAppointmentId="visit-current"
+      />,
+    ));
+
+    expect(fetchMock).toHaveBeenNthCalledWith(1, "patient-1", 1, {
+      appointmentId: "visit-current",
+      scope: "upcoming",
+    });
+    expect(fetchMock).toHaveBeenNthCalledWith(2, "patient-1", 1, {
+      scope: "past",
+    });
+  });
+
   it("starts a scheduled appointment against the selected current cycle", async () => {
     const visit = { id: "visit-1", patient_id: "patient-1", ncp_record_id: null, source: "scheduled" as const, status: "scheduled" as const, purpose: "Complete diagnosis", scheduled_at: "2026-09-08T10:00:00Z", started_at: null, finished_at: null, reason_code: null, worked_on: [], newly_completed: [], administered_by: null };
     fetchMock

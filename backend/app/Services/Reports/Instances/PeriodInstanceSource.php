@@ -19,6 +19,7 @@ class PeriodInstanceSource implements InstanceSource
     public function __construct(
         private Closure $query,
         private string $dateColumn,
+        private bool $semiMonthly = false,
     ) {}
 
     public function axis(): string
@@ -40,19 +41,22 @@ class PeriodInstanceSource implements InstanceSource
             if ($month !== null && $date->month !== $month) {
                 continue;
             }
-            $buckets[sprintf('%04d-%02d', $date->year, $date->month)] = [$date->year, $date->month];
+            [$start, $end] = $this->bounds($date);
+            $buckets[$start->toDateString().'_'.$end->toDateString()] = [$start, $end];
         }
 
         krsort($buckets); // newest first
 
-        return array_values(array_map(function (array $ym) {
-            [$y, $m] = $ym;
-            $start = Carbon::create($y, $m, 1)->startOfDay();
-            $end = $start->copy()->endOfMonth();
+        return array_values(array_map(function (array $period) {
+            [$start, $end] = $period;
 
             return [
-                'key' => $start->format('Y-m'),
-                'label' => $start->format('F Y'),
+                'key' => $this->semiMonthly
+                    ? $start->toDateString().'_'.$end->toDateString()
+                    : $start->format('Y-m'),
+                'label' => $this->semiMonthly
+                    ? $start->format('F j').'–'.$end->format('j, Y')
+                    : $start->format('F Y'),
                 'params' => ['start' => $start->toDateString(), 'end' => $end->toDateString()],
                 'date' => $start->toDateString(),
             ];
@@ -80,5 +84,18 @@ class PeriodInstanceSource implements InstanceSource
             ->whereNotNull($this->dateColumn)
             ->orderBy($this->dateColumn)
             ->pluck($this->dateColumn);
+    }
+
+    /** @return array{Carbon, Carbon} */
+    private function bounds(Carbon $date): array
+    {
+        $start = $date->copy()->startOfMonth();
+        if (! $this->semiMonthly) {
+            return [$start, $start->copy()->endOfMonth()];
+        }
+
+        return $date->day <= 15
+            ? [$start, $start->copy()->day(15)]
+            : [$start->copy()->day(16), $start->copy()->endOfMonth()];
     }
 }

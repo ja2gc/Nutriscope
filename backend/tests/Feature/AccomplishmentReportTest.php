@@ -254,21 +254,33 @@ class AccomplishmentReportTest extends TestCase
             ->assertNotFound();
     }
 
-    public function test_instances_lists_months_with_data(): void
+    public function test_instances_list_only_populated_semi_monthly_periods(): void
     {
         $this->seedCount($this->fss1, '2026-06-01');
+        $this->seedCount($this->fss1, '2026-06-20');
         $this->seedCount($this->fss2, '2026-05-15');
 
-        // FSS sees only their own months (fss.md §8 — FSS can only view their own).
+        // FSS sees only their own half-months (fss.md §8 — FSS can only view their own).
         $data = $this->actingAs($this->fss1)
             ->getJson('/api/fss/reports/accomplishment_report/instances')
             ->assertOk()
             ->assertJsonPath('data.axis', 'period')
             ->json('data');
 
-        $keys = collect($data['instances'])->pluck('key')->all();
-        $this->assertContains('2026-06', $keys);
-        $this->assertNotContains('2026-05', $keys, 'FSS must not see another staff member\'s months');
+        $instances = collect($data['instances']);
+        $this->assertSame(
+            ['June 16–30, 2026', 'June 1–15, 2026'],
+            $instances->pluck('label')->all(),
+        );
+        $this->assertSame(
+            [
+                ['start' => '2026-06-16', 'end' => '2026-06-30'],
+                ['start' => '2026-06-01', 'end' => '2026-06-15'],
+            ],
+            $instances->pluck('params')->all(),
+        );
+        $this->assertFalse($instances->contains(fn (array $instance) => str_contains($instance['key'], '2026-05')),
+            'FSS must not see another staff member\'s periods');
     }
 
     public function test_rnd_instances_lists_all_fss_months(): void
@@ -282,9 +294,27 @@ class AccomplishmentReportTest extends TestCase
             ->assertOk()
             ->json('data');
 
-        $keys = collect($data['instances'])->pluck('key')->all();
-        $this->assertContains('2026-06', $keys);
-        $this->assertContains('2026-05', $keys, 'RND must see all FSS staff months');
+        $labels = collect($data['instances'])->pluck('label')->all();
+        $this->assertContains('June 1–15, 2026', $labels);
+        $this->assertContains('May 1–15, 2026', $labels, 'RND must see all FSS staff periods');
+    }
+
+    public function test_prepare_normalizes_accomplishment_range_to_one_half_month(): void
+    {
+        $rnd = User::factory()->create(['role' => 'RND']);
+        $this->seedCount($this->fss1, '2026-06-20');
+
+        $response = $this->actingAs($rnd)
+            ->postJson('/api/rnd/reports/accomplishment_report/prepare', [
+                'start' => '2026-06-16',
+                'end' => '2026-06-30',
+            ])
+            ->assertOk();
+
+        $report = Report::query()->where('uuid', $response->json('data.id'))->firstOrFail();
+        $this->assertSame('2026-06-16', $report->parameters['start']);
+        $this->assertSame('2026-06-30', $report->parameters['end']);
+        $this->assertCount(15, (new AccomplishmentReportGenerator)->data($report)['days']);
     }
 
     public function test_rnd_can_also_render_accomplishment_report(): void
@@ -463,7 +493,7 @@ class AccomplishmentReportTest extends TestCase
         $this->assertTrue($report->created_at->equalTo($createdAt));
     }
 
-    public function test_prepared_period_renders_blank_zero_and_off_duty_cells_for_calendar_period(): void
+    public function test_prepared_period_renders_blank_zero_and_off_duty_cells_for_half_month(): void
     {
         $this->seedCount($this->fss1, '2026-02-01', [
             'collected_ward_diet_lists' => 0,
@@ -473,12 +503,12 @@ class AccomplishmentReportTest extends TestCase
 
         $data = (new AccomplishmentReportGenerator)->data($this->makeReport([
             'from' => '2026-02-01',
-            'to' => '2026-02-28',
+            'to' => '2026-02-15',
             'fss_user_id' => $this->fss1->id,
         ]));
         $sheet = $data['staff_sheets'][0];
 
-        $this->assertCount(28, $data['days']);
+        $this->assertCount(15, $data['days']);
         $this->assertSame(0, $sheet['task_rows']['collected_diet_list']['2026-02-01']);
         $this->assertSame(0, $sheet['task_rows']['apportioned_food']['2026-02-01']);
         $this->assertSame('X', $sheet['task_rows']['helped_food_prep']['2026-02-02']);

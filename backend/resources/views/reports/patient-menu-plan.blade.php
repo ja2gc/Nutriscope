@@ -68,7 +68,7 @@
                         <p style="font-style:italic; margin:0 0 4px 10px; color:#555; font-size:7.5pt;">{{ $recipe['prep_notes'] }}</p>
                     @endif
                     @if(!empty($recipe['ingredients']))
-                        <table class="grid" style="margin-left:10px; font-size:7.5pt;">
+                        <table class="grid recipe-ingredients" style="margin-left:10px; font-size:7.5pt;">
                             <thead>
                                 <tr>
                                     <th style="text-align:left;">Ingredient</th>

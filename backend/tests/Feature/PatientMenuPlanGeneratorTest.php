@@ -157,6 +157,16 @@ class PatientMenuPlanGeneratorTest extends TestCase
         $this->assertStringContainsString('Fluid guidance is informational', $plainText);
     }
 
+    public function test_recipe_ingredient_tables_are_kept_together_during_pdf_pagination(): void
+    {
+        $source = file_get_contents(resource_path('views/reports/patient-menu-plan.blade.php'));
+        $layout = file_get_contents(resource_path('views/reports/layout.blade.php'));
+
+        $this->assertStringContainsString('class="grid recipe-ingredients"', $source);
+        $this->assertStringContainsString('.recipe-ingredients', $layout);
+        $this->assertStringContainsString('page-break-inside: avoid', $layout);
+    }
+
     public function test_prepare_persists_patient_menu_plan_and_view_and_download_stream_pdf(): void
     {
         $plan = $this->makePlan();

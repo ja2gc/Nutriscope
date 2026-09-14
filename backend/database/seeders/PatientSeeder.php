@@ -447,13 +447,13 @@ class PatientSeeder extends Seeder
                 'first_name' => 'Roberto',
                 'last_name' => 'Reyes',
                 'name' => 'Roberto Reyes',
-                'dob' => '1988-06-22',        // 37 yrs old
+                'dob' => '1988-06-22',
                 'sex' => 'Male',
                 'religion' => 'Roman Catholic',
                 'address' => 'Brgy. Sto. Rosario, Angeles City, Pampanga',
                 'contact' => '09281234567',
                 'physician' => 'Dr. Ana Gonzales',
-                'admission_date' => $anchor->copy()->subDays(35)->toDateString(),
+                'admission_date' => $anchor->copy()->subDays(160)->toDateString(),
                 'medical_diagnosis' => 'Moderate Protein-Energy Malnutrition secondary to poor oral intake',
                 'ward' => 'Ward 1 — General Medicine',
                 'status' => 'Active',
@@ -472,7 +472,8 @@ class PatientSeeder extends Seeder
         // Assessment
         // Anthro: wt 52 kg, ht 170 cm → BMI 18.0 (Underweight)
         // IBW (Hamwi male): 48 + 2.7×(170-152.4)/2.54 ≈ 66.7 kg → %IBW ≈ 78.0%
-        // BMR (Mifflin): 10×52 + 6.25×170 − 5×37 + 5 = 1402.5 kcal → TEE(light) ≈ 1928 kcal
+        // BMR (Mifflin): 10×52 + 6.25×170 − 5×38 + 5 = 1397.5 kcal → TEE(light) ≈ 1921 kcal
+        $age = (int) floor(Carbon::parse($patient->dob)->diffInYears($anchor));
         $assessment = Assessment::create([
             'ncp_record_id' => $record->id,
             'religion' => 'Roman Catholic',
@@ -520,7 +521,7 @@ class PatientSeeder extends Seeder
             'diarrhea_notes' => 'Loose stools 3–4×/day for 2 weeks prior to admission. Now resolving on Day 3. Monitor for electrolyte losses (K+, Mg2+, phosphate).',
             'present_diet' => 'Soft diet — progressing from lugaw to regular texture as tolerated. '
                                                .'Start with 3–4 small frequent meals at 400–500 kcal each.',
-            'rnd_summary' => 'Roberto is a 37-year-old male with moderate protein-energy malnutrition (BMI 18.0, %IBW 78%, 17.5% weight loss over 3 weeks). '
+            'rnd_summary' => "Roberto is a {$age}-year-old male with moderate protein-energy malnutrition (BMI 18.0, %IBW 78%, 17.5% weight loss over 3 weeks). "
                                                .'Contributing factors: inadequate intake secondary to financial stress, food insecurity, and recent diarrheal illness. '
                                                .'Thiamine supplementation initiated pre-refeeding. Progressive caloric build-up plan required. '
                                                .'High nutritional risk — priority admission. Follow-up in 2 weeks to assess weight gain and tolerance.',

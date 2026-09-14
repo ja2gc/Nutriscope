@@ -51,10 +51,13 @@ export function PatientAppointments({
       setError(null);
       const options = {
         ...(cycleScope === "all" ? {} : { cycleScope }),
-        ...(targetAppointmentId ? { appointmentId: targetAppointmentId } : {}),
       };
       const [next, history] = await Promise.all([
-        fetchPatientAppointments(patientId, upcomingPage, { ...options, scope: "upcoming" }),
+        fetchPatientAppointments(patientId, upcomingPage, {
+          ...options,
+          ...(targetAppointmentId ? { appointmentId: targetAppointmentId } : {}),
+          scope: "upcoming",
+        }),
         fetchPatientAppointments(patientId, pastPage, { ...options, scope: "past" }),
       ]);
       setUpcoming(next.data); setUpcomingMeta(next.meta);

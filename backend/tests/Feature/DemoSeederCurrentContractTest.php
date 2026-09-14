@@ -162,6 +162,8 @@ class DemoSeederCurrentContractTest extends TestCase
         $this->assertNotEmpty($roberto->ncpRecords->firstWhere('status', 'completed')->monitorings);
         $robertoCurrent = $roberto->ncpRecords->firstWhere('status', 'active');
         $robertoPast = $roberto->ncpRecords->firstWhere('status', 'completed');
+        $this->assertTrue($roberto->admission_date->lt($robertoPast->created_at));
+        $this->assertStringContainsString('38-year-old', $robertoCurrent->assessment->rnd_summary);
         $this->assertTrue($robertoCurrent->created_at->isSameDay(now()->subDays(30)));
         $this->assertTrue($robertoCurrent->intervention->mealPlans->sole()->created_at->isSameDay(now()->subDays(30)));
         $this->assertTrue($robertoPast->intervention->mealPlans->sole()->created_at->lt(

@@ -37,7 +37,7 @@ class MealPrepLogController extends Controller
             ->when($data['to'] ?? null, fn ($q, $d) => $q->where('service_date', '<=', $d))
             ->orderByDesc('service_date')->get();
 
-        return response()->json(['data' => $logs->map(fn (MealPrepLog $l) => array_merge($l->toArray(), ['id' => $l->uuid]))]);
+        return response()->json(['data' => $logs->map(fn (MealPrepLog $log) => $this->responseData($log))]);
     }
 
     public function complete(Request $request, MenuCycle $menuCycle, ConsumptionService $consumption, PurchaseOrderLifecycleService $lifecycle): JsonResponse
@@ -92,7 +92,7 @@ class MealPrepLogController extends Controller
             return $log;
         });
 
-        return response()->json(['data' => array_merge($log->toArray(), ['id' => $log->uuid])], 201);
+        return response()->json(['data' => $this->responseData($log)], 201);
     }
 
     public function reverse(MealPrepLog $mealPrepLog, ConsumptionService $consumption): JsonResponse
@@ -117,7 +117,7 @@ class MealPrepLogController extends Controller
             return $log;
         });
 
-        return response()->json(['data' => array_merge($log->toArray(), ['id' => $log->uuid])]);
+        return response()->json(['data' => $this->responseData($log)]);
     }
 
     /**
@@ -221,7 +221,7 @@ class MealPrepLogController extends Controller
             return $log;
         });
 
-        return response()->json(['data' => array_merge($log->toArray(), ['id' => $log->uuid])]);
+        return response()->json(['data' => $this->responseData($log)]);
     }
 
     /**
@@ -276,6 +276,15 @@ class MealPrepLogController extends Controller
             'total_value' => $log->total_value === null ? null : (float) $log->total_value,
             'has_shortfall' => (bool) $log->has_shortfall,
         ];
+    }
+
+    /** @return array<string, mixed> */
+    private function responseData(MealPrepLog $log): array
+    {
+        return array_merge($log->toArray(), [
+            'id' => $log->uuid,
+            'service_date' => $log->service_date->toDateString(),
+        ]);
     }
 
     /** @param array<string, mixed> $before @param array<string, mixed> $after @return list<string> */

@@ -1963,12 +1963,16 @@ class FoodServiceOpsTest extends TestCase
     public function test_meal_prep_log_filter_accepts_public_menu_cycle_id(): void
     {
         $cycle = MenuCycle::factory()->create(['rnd_user_id' => $this->rnd->id]);
-        MealPrepLog::factory()->create(['menu_cycle_id' => $cycle->id]);
+        MealPrepLog::factory()->create([
+            'menu_cycle_id' => $cycle->id,
+            'service_date' => '2026-06-17',
+        ]);
 
         $this->actingAs($this->fss)
             ->getJson("/api/fss/meal-prep-logs?menu_cycle_id={$cycle->uuid}")
             ->assertOk()
-            ->assertJsonCount(1, 'data');
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.service_date', '2026-06-17');
     }
 
     public function test_served_population_rejects_future_or_unplanned_service_dates(): void

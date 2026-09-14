@@ -51,7 +51,7 @@ export const FULL_CATALOG: CatalogEntry[] = [
   { type: "program_project_activity", name: "Program Project Activity", desc: "Weekly menu, cost, headcount & inclusive dates.", icon: CalendarRange, group: "Food Service" },
   { type: "menu_calendar", name: "Menu Calendar", desc: "Printable Mon→Sun grid for the kitchen.", icon: CalendarDays, group: "Food Service" },
   { type: "procurement_pack", name: "Procurement Pack", desc: "AIR + Statement + Summary of Marketing.", icon: PackageCheck, group: "Food Service" },
-  { type: "accomplishment_report", name: "Accomplishment Report", desc: "Per-staff weekly duty sheet + diet-list headcount logged by FSS.", icon: ClipboardList, group: "Food Service" },
+  { type: "accomplishment_report", name: "Accomplishment Report", desc: "Per-staff semi-monthly duty sheet + diet-list headcount logged by FSS.", icon: ClipboardList, group: "Food Service" },
   { type: "demographic_census", name: "Demographic Census", desc: "Patient counts by age, sex, ward, diagnosis.", icon: ClipboardList, group: "Clinical" },
   { type: "patient_menu_plan", name: "Patient Menu Plan", desc: "A patient's ADIME meal plan as a calendar.", icon: Users, group: "Clinical" },
   { type: "ncp_summary", name: "NCP Summary", desc: "Patient Nutrition Care Plan (ADIME) — assessment, diagnosis, intervention, monitoring.", icon: Stethoscope, group: "Clinical" },
@@ -62,12 +62,12 @@ export const ADMIN_CATALOG: CatalogEntry[] = [
   { type: "program_project_activity", name: "Program Project Activity", desc: "Weekly menu, cost, headcount & inclusive dates.", icon: CalendarRange, group: "Food Service" },
   { type: "menu_calendar", name: "Menu Calendar", desc: "Printable Mon-Sun grid for the kitchen.", icon: CalendarDays, group: "Food Service" },
   { type: "procurement_pack", name: "Procurement Pack", desc: "AIR + Statement + Summary of Marketing.", icon: PackageCheck, group: "Food Service" },
-  { type: "accomplishment_report", name: "Accomplishment Report", desc: "Per-staff weekly duty sheet + diet-list headcount logged by FSS.", icon: ClipboardList, group: "Food Service" },
+  { type: "accomplishment_report", name: "Accomplishment Report", desc: "Per-staff semi-monthly duty sheet + diet-list headcount logged by FSS.", icon: ClipboardList, group: "Food Service" },
   { type: "demographic_census", name: "Demographic Census", desc: "Aggregate patient counts by age, sex, ward, diagnosis.", icon: ClipboardList, group: "Clinical" },
 ];
 
 export const FSS_CATALOG: CatalogEntry[] = [
-  { type: "accomplishment_report", name: "My Accomplishment Reports", desc: "Your own weekly duty sheets and diet-list headcount logs.", icon: ClipboardList, group: "Food Service" },
+  { type: "accomplishment_report", name: "My Accomplishment Reports", desc: "Your own semi-monthly duty sheets and diet-list headcount logs.", icon: ClipboardList, group: "Food Service" },
 ];
 
 export type ApiPrefix = "rnd" | "admin" | "fss";

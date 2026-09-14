@@ -16,6 +16,8 @@
         table { width: 100%; border-collapse: collapse; }
         table.grid th, table.grid td { border: 1px solid #333; padding: 4px 6px; vertical-align: top; }
         table.grid th { background: #f1f1f1; font-size: 10px; text-transform: uppercase; letter-spacing: .3px; }
+        table.recipe-ingredients, table.recipe-ingredients thead,
+        table.recipe-ingredients tbody, table.recipe-ingredients tr { page-break-inside: avoid; }
         .title { font-size: 14px; font-weight: bold; text-align: center; margin: 10px 0 2px; text-transform: uppercase; }
         .subtitle { font-size: 11px; text-align: center; margin-bottom: 8px; }
         .sigs { width: 100%; margin-top: 28px; }
