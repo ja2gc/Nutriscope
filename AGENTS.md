@@ -1,9 +1,10 @@
 # NutriScope Agent Instructions
 
-Repo-wide. Read `.agents/rules/workflow.md` first; it contains all universal
-guardrails, do-nots, working style, and completion rules. Then read every
-matching topic file below. Nested `AGENTS.md` adds directory rules; specific
-rule wins unless it weakens `workflow.md`.
+This file is only the router. Read `.agents/rules/workflow.md` first; it holds
+all universal guardrails, do-nots, working style, phases, skill use, and
+completion rules. Then read every matching topic file below. Nested
+`AGENTS.md` adds directory rules; specific rule wins unless it weakens
+`workflow.md`.
 
 ## Topic routing
 
@@ -23,8 +24,3 @@ Read full matching files. Multi-topic task → read every match.
 - Backend: `backend/AGENTS.md` + `backend/.agents/skills/laravel-best-practices` + relevant Laravel skills. Prefer Laravel Boost.
 - Frontend: `frontend/AGENTS.md` + installed Next.js docs. Do not trust remembered APIs.
 - Mobile: `mobile/AGENTS.md` + exact installed Expo docs.
-
-## Final communication
-
-Outcome first. Terse, concrete, honest. Separate implemented, tested, built,
-pushed, deployed, and live-accepted. State risks and manual steps.

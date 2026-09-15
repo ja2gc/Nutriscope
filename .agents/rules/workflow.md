@@ -13,6 +13,12 @@
 - Ask only when an unresolved choice materially changes scope, risk, data, security, or external state.
 - Later additions extend unfinished scope unless clearly replace it. “Do not reply” = silence.
 
+## Standard multi-step phase pattern
+
+- Phase 1 — investigate/discuss: audit current code and runtime, answer decision gates, and make no implementation/data/config/asset/doc/DB changes. Stop for approval.
+- Phase 2 — implement: after approval, make the smallest compatible changes; verify affected behavior, full required checks, and delivery.
+- Phase 3 — document: update existing project docs and the canonical external storyboard when workflow, semantics, wording, or demo sequence changed; then do final verification. Never create duplicates.
+
 ## Truth and diagnosis
 
 - Current code, migrations, routes, tests, config templates, and verified runtime = truth.
@@ -39,6 +45,16 @@
 - Do not add AI/assistant/Codex/Claude/co-author/contributor/generated-by attribution.
 - Do not modify GitHub Actions unless a proven task-scoped cause requires it.
 - Never read stale root `deployment.md`.
+
+## Required skills and locations
+
+- Always use the applicable installed skills before action. Caveman is default: current machine skill root is `C:/Users/jared/.agents/skills/caveman/`; new machines may expose a different skill root.
+- Superpowers root: `C:/Users/jared/.agents/skills/superpowers/skills/`. Use `using-superpowers` at session start; then use `brainstorming` for creative/feature work, `systematic-debugging` for bugs, `test-driven-development` for behavior changes, `writing-plans` for multi-step plans, `executing-plans` for approved written plans, and `verification-before-completion` before completion claims.
+- Use `requesting-code-review`/`receiving-code-review` when review is requested or received, and `finishing-a-development-branch` when integration choices are needed. Do not use worktree or subagent skills unless explicitly authorized.
+- Backend skill: `backend/.agents/skills/laravel-best-practices/SKILL.md`; read it plus only matching `rules/*.md`. Laravel Boost MCP is a tool integration; use it when available for Laravel inspection/work.
+- Backend/frontend/mobile nested instructions are `backend/AGENTS.md`, `frontend/AGENTS.md`, and `mobile/AGENTS.md`; read the matching one. Use exact installed framework/Expo docs, not remembered APIs.
+- For PDFs, documents, spreadsheets, UI, image generation, or other special artifacts, use the matching installed skill and its `SKILL.md`; do not load unrelated skills.
+- Use official current web sources only when external facts matter. Do not treat search results, memory, or pasted advice as implementation proof.
 
 ## Architecture and data
 
@@ -77,7 +93,7 @@
 ## Documentation and communication
 
 - Update existing docs/storyboards only when workflow, data semantics, demo sequence, or visible wording becomes false. Do not duplicate them.
-- Use the user-designated canonical external storyboard location; never edit an untracked/local duplicate by guess.
+- Use the user-designated canonical external storyboard location (currently `C:/Users/jared/Documents/Storyboarding` when available); never edit an untracked/local duplicate by guess.
 - Keep role boundaries, visible actions, persistence, generation, and report paths accurate.
 - Use applicable Superpowers and skills; Caveman mode is default. Backend work uses Laravel Boost MCP and the installed Laravel best-practices skill when available.
 - No subagents/worktrees unless explicitly authorized; only an authorized fresh same-model read-only final review is allowed.
