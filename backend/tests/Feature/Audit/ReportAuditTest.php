@@ -24,6 +24,7 @@ use App\Services\Reports\ReportArchiveStorage;
 use App\Services\Reports\ReportAuditReference;
 use App\Services\Reports\ReportBrowser;
 use App\Services\Reports\ReportService;
+use App\Services\StoredObjectStorage;
 use Illuminate\Contracts\Bus\Dispatcher;
 use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -322,7 +323,7 @@ class ReportAuditTest extends TestCase
         $unusedReports = $this->createMock(ReportService::class);
         $unusedReports->expects($this->never())->method('buildPdf');
         try {
-            (new AccomplishmentReportArchiveService(new PrepareSavedReport($unusedReports), $unavailable, app(ReportAuditReference::class)))
+            (new AccomplishmentReportArchiveService(new PrepareSavedReport($unusedReports, app(StoredObjectStorage::class)), $unavailable, app(ReportAuditReference::class)))
                 ->archiveCompletedWeek($fss, '2026-06-07');
         } catch (AuditLoggingUnavailable) {
             $this->assertDatabaseCount('reports', 0);
@@ -336,7 +337,7 @@ class ReportAuditTest extends TestCase
             $transientUuid = $report->uuid;
             throw new RuntimeException('generation failed');
         });
-        $service = new AccomplishmentReportArchiveService(new PrepareSavedReport($reports), $audit, app(ReportAuditReference::class));
+        $service = new AccomplishmentReportArchiveService(new PrepareSavedReport($reports, app(StoredObjectStorage::class)), $audit, app(ReportAuditReference::class));
 
         try {
             $service->archiveCompletedWeek($fss, '2026-06-07');
@@ -400,7 +401,7 @@ class ReportAuditTest extends TestCase
         $reports = $this->createMock(ReportService::class);
         $reports->method('supports')->willReturn(true);
         $reports->method('signatoriesFor')->willReturn([]);
-        $reports->method('buildPdf')->willReturn(['bytes' => '%PDF-safe', 'meta' => []]);
+        $reports->method('buildPdf')->willReturn(['bytes' => "%PDF-1.4\n%%EOF", 'meta' => []]);
         $this->app->instance(ReportBrowser::class, $browser);
         $this->app->instance(ReportService::class, $reports);
 
@@ -891,8 +892,8 @@ class ReportAuditTest extends TestCase
         $reports = $this->createMock(ReportService::class);
         Storage::fake('report_cache');
         $reports->method('signatoriesFor')->willReturn([]);
-        $reports->expects($this->exactly(2))->method('buildPdf')->willReturn(['bytes' => '%PDF-safe', 'meta' => []]);
-        $service = new AccomplishmentReportArchiveService(new PrepareSavedReport($reports), app(AuditLogger::class), app(ReportAuditReference::class));
+        $reports->expects($this->exactly(2))->method('buildPdf')->willReturn(['bytes' => "%PDF-1.4\n%%EOF", 'meta' => []]);
+        $service = new AccomplishmentReportArchiveService(new PrepareSavedReport($reports, app(StoredObjectStorage::class)), app(AuditLogger::class), app(ReportAuditReference::class));
 
         $first = $service->archiveCompletedWeek($fss, '2026-06-07');
         $second = $service->archiveCompletedWeek($fss, '2026-06-07');

@@ -446,6 +446,7 @@ class DemoSeederCurrentContractTest extends TestCase
             ->where('rule_type', 'limit')
             ->exists());
         $this->assertSame([
+            'accomplishment_report',
             'demographic_census',
             'inspection_report',
             'marketing_statement',

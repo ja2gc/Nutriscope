@@ -1655,6 +1655,7 @@ class FoodServiceOpsTest extends TestCase
             ->assertOk();
 
         $this->assertSame(80.0, (float) $fs->fresh()->purchase_price);
+        $this->assertSame('kg', $fs->fresh()->purchase_unit);
         $this->assertSame(8.0, (float) $recipe->fresh()->cost);
         $this->assertDatabaseHas('purchase_order_items', [
             'purchase_order_id' => $po->id,

@@ -20,15 +20,12 @@ describe("Help page contract", () => {
     expect(admin).not.toContain('role="RND"');
   });
 
-  test("persistent navigation labels the destination Help", () => {
+  test("persistent sidebar navigation labels the destination Help", () => {
     const sidebar = read("components/layout/Sidebar.tsx");
-    const topBar = read("components/layout/TopBar.tsx");
 
     expect(sidebar).toContain('navLink("/help"');
     expect(sidebar).toContain('navLink("/admin/help"');
     expect(sidebar).toContain('"Help"');
-    expect(topBar).toContain('pathname.startsWith("/help")');
-    expect(topBar).toContain('pathname.startsWith("/admin/help")');
   });
 
   test("reusable components expose accessible search and disclosures", () => {

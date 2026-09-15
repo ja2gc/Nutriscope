@@ -107,6 +107,10 @@ class ReceivingService
             $lineQty = (float) ($item->purchase_qty ?? $item->qty);
             $receivedUnit = (string) ($item->purchase_unit ?? $item->unit);
             $receivedUnitPrice = (float) $item->purchase_price;
+        } elseif ($item->purchase_unit !== null && (float) $item->purchase_qty > 0) {
+            $lineQty = (float) $item->purchase_qty;
+            $receivedUnit = (string) $item->purchase_unit;
+            $receivedUnitPrice = (float) $item->total_value / $lineQty;
         } else {
             $lineQty = (float) $item->qty;
             $receivedUnit = (string) $item->unit;
