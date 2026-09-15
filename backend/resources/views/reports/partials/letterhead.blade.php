@@ -6,7 +6,7 @@
 <table style="width:100%; border:0;">
     <tr>
         <td style="width:70px; border:0;">
-            @if($logoL && file_exists($logoL))<img src="{{ $logoL }}" style="width:56px; height:56px; object-fit:contain;">@endif
+            @if($logoL && (str_starts_with($logoL, 'data:') || file_exists($logoL)))<img src="{{ $logoL }}" style="width:56px; height:56px; object-fit:contain;">@endif
         </td>
         <td style="border:0;" class="center">
             <div class="bold" style="font-size:13px;">{{ $branding->hospital_name }}</div>
@@ -15,7 +15,7 @@
             <div class="bold" style="margin-top:2px;">{{ $branding->service_name }}</div>
         </td>
         <td style="width:70px; border:0;" class="right">
-            @if($logoR && file_exists($logoR))<img src="{{ $logoR }}" style="width:56px; height:56px; object-fit:contain;">@endif
+            @if($logoR && (str_starts_with($logoR, 'data:') || file_exists($logoR)))<img src="{{ $logoR }}" style="width:56px; height:56px; object-fit:contain;">@endif
         </td>
     </tr>
 </table>

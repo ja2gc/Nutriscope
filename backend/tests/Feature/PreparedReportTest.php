@@ -19,6 +19,22 @@ class PreparedReportTest extends TestCase
     use RefreshDatabase;
 
     #[Test]
+    public function letterhead_renders_private_data_uri_logos(): void
+    {
+        $branding = new ReportBranding(['hospital_name' => 'Romana Pangan District Hospital']);
+        $branding->setAttribute('logo_left_data_uri', 'data:image/png;base64,bGVmdA==');
+        $branding->setAttribute('logo_right_data_uri', 'data:image/png;base64,cmlnaHQ=');
+
+        $html = view('reports.partials.letterhead', [
+            'branding' => $branding,
+            'title' => 'Test Report',
+        ])->render();
+
+        $this->assertStringContainsString('src="data:image/png;base64,bGVmdA=="', $html);
+        $this->assertStringContainsString('src="data:image/png;base64,cmlnaHQ="', $html);
+    }
+
+    #[Test]
     public function preparation_preserves_identity_creation_snapshot_and_original_bytes(): void
     {
         Storage::fake('report_cache');
