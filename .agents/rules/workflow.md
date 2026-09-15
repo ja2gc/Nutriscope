@@ -17,7 +17,6 @@
 
 - Phase 1 — investigate/discuss: audit current code and runtime, answer decision gates, and make no implementation/data/config/asset/doc/DB changes. Stop for approval.
 - Phase 2 — implement: after approval, make the smallest compatible changes; verify affected behavior, full required checks, and delivery.
-- Phase 3 — document: update existing project docs and the canonical external storyboard when workflow, semantics, wording, or demo sequence changed; then do final verification. Never create duplicates.
 
 ## Truth and diagnosis
 
@@ -92,6 +91,7 @@
 
 ## Documentation and communication
 
+- Phase 3 — documentation: update existing project docs and the canonical external storyboard when workflow, semantics, wording, or demo sequence changed; then do final verification. Never create duplicates.
 - Update existing docs/storyboards only when workflow, data semantics, demo sequence, or visible wording becomes false. Do not duplicate them.
 - Use the user-designated canonical external storyboard location (currently `C:/Users/jared/Documents/Storyboarding` when available); never edit an untracked/local duplicate by guess.
 - Keep role boundaries, visible actions, persistence, generation, and report paths accurate.
@@ -99,6 +99,10 @@
 - No subagents/worktrees unless explicitly authorized; only an authorized fresh same-model read-only final review is allowed.
 - Backend: focused Laravel tests, broader/full suite when required, Pint after PHP, and route/cache checks when routing changes.
 - Frontend: affected tests, TypeScript, ESLint, and production build when applicable. Mobile/shared contracts: affected tests, TypeScript, and Android build/export when release behavior changes.
-- Tool work gets short progress updates. Final answer: outcome first; distinguish changed, verified, pushed, deployed, and live-accepted.
+- Tool work: short opening update; update during long work. No tool diary.
+- Outcome first. State assumptions, blast radius, blockers, and command mutation.
+- Explain visible pages/actions, not routes only.
+- Final answer distinguishes changed, verified, pushed, deployed, and live-accepted.
 - Never report unfinished work as finished.
+- Self-review scope and reasoning before completion.
 - When approved delivery includes integration, commit only task files, push the requested target (this repo’s release target is `main`), and verify local/remote revision parity.
