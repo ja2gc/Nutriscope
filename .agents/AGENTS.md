@@ -12,7 +12,7 @@ guardrails. Read `.agents/rules/workflow.md` for all universal rules first.
 | `rules/clinical-and-notifications.md` | Patients, NCP/ADIME, appointments, interventions, meal plans, or notifications |
 | `rules/food-service-and-reports.md` | Menus, recipes, shopping lists, procurement, budgets, FSS, PDFs, or reports |
 | `rules/media-and-storage.md` | Uploads, profile photos, announcements, private files, R2/S3, or image display |
-| `rules/documentation.md` | `/docs`, Help, flowcharts, workflow prose, or external Storyboarding |
+| `rules/documentation.md` | `/docs`, Help, flowcharts, workflow prose, or repository-root `Storyboarding/` |
 | `rules/deployment-and-release.md` | Docker, production, DigitalOcean, backups, CI, EAS/APK, or deployment |
 
 Multi-topic task → read every matching topic file. Do not load unrelated topic

@@ -91,9 +91,9 @@
 
 ## Documentation and communication
 
-- Phase 3 — documentation: update existing project docs and the canonical external storyboard when workflow, semantics, wording, or demo sequence changed; then do final verification. Never create duplicates.
+- Phase 3 — documentation: update existing project docs and the canonical project storyboard when workflow, semantics, wording, or demo sequence changed; then do final verification. Never create duplicates.
 - Update existing docs/storyboards only when workflow, data semantics, demo sequence, or visible wording becomes false. Do not duplicate them.
-- Use the user-designated canonical external storyboard location (currently `C:/Users/jared/Documents/Storyboarding` when available); never edit an untracked/local duplicate by guess.
+- The canonical storyboard location is the repository-root `Storyboarding/` directory. Update the existing matching storyboard there when demo flow changes; never create or use an external duplicate.
 - Keep role boundaries, visible actions, persistence, generation, and report paths accurate.
 - Use applicable Superpowers and skills; Caveman mode is default. Backend work uses Laravel Boost MCP and the installed Laravel best-practices skill when available.
 - No subagents/worktrees unless explicitly authorized; only an authorized fresh same-model read-only final review is allowed.

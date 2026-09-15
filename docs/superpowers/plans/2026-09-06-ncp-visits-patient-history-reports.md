@@ -215,10 +215,10 @@ Route::patch('ncp-appointments/{ncpAppointment}', [NcpAppointmentController::cla
 - Modify: `docs/modules/rnd.md`
 - Modify: `docs/ROLE-HOW-TO.md`
 - Modify: `docs/FAQ.md` only where existing answers cover NCP/follow-up workflow
-- Create: `C:/Users/jared/Documents/Storyboarding/RND NCP Video Storyboard.md`
+- Create: `Storyboarding/RND NCP Video Storyboard.md`
 
 - [ ] Update existing RND role/workflow documentation for Appointments, explicit visit start/finish, Past Records, cycle completion/discontinuation, and appointment-vs-monitoring semantics. Do not create duplicate workflow documents or read `deployment.md`.
-- [ ] Create one NCP recording checklist and narration script in the existing external Storyboarding format. Cover patient selection, current/past ADIME, scheduled and walk-in visits, persistent Resume, multi-step work, appointment outcomes, monitoring, meal-plan PDF preview/download, and cycle completion/discontinuation. Use demo data and privacy-safe recording guidance.
+- [ ] Create one NCP recording checklist and narration script in the existing repository-root `Storyboarding/` format. Cover patient selection, current/past ADIME, scheduled and walk-in visits, persistent Resume, multi-step work, appointment outcomes, monitoring, meal-plan PDF preview/download, and cycle completion/discontinuation. Use demo data and privacy-safe recording guidance.
 - [ ] Do not modify `PatientSeeder` or any seeder test; seeded historical-cycle realism is reserved for the user's next session.
 
 ### Task 10: Integration verification, review, commit, and push
