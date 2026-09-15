@@ -47,6 +47,9 @@ export default function ForgotPasswordPage() {
             <p className="mt-1 text-sm text-warm-500">
               Enter your verified recovery email to receive a reset link.
             </p>
+            <p className="mt-2 text-xs leading-relaxed text-warm-400">
+              This is the recovery email saved in your profile, not your sign-in email or the system sender address.
+            </p>
           </div>
 
           <form onSubmit={submit} className="space-y-4">
@@ -61,7 +64,7 @@ export default function ForgotPasswordPage() {
               </div>
             )}
             <Input
-              label="Email Address"
+              label="Verified Recovery Email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}

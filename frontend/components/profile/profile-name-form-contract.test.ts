@@ -16,6 +16,16 @@ describe("profile split-name form", () => {
     expect(profile).not.toContain('label="Full Name"');
   });
 
+  test("shows saved account details before editing and never edits sign-in email", () => {
+    expect(profile).toContain("const [editingProfile, setEditingProfile] = useState(false)");
+    expect(profile).toContain("Edit Profile");
+    expect(profile).toContain("Cancel");
+    expect(profile).toContain("user?.email");
+    expect(profile).not.toContain('label="Sign-in Email"');
+    expect(profile).not.toContain("email,");
+    expect(profile).not.toContain("setEmail");
+  });
+
   test("top bar text and image alternative use the display-name contract", () => {
     expect(topBar).toContain("personDisplayName(user)");
     expect(topBar).toContain("alt={personDisplayName(user)}");

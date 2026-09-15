@@ -62,6 +62,9 @@ export default function ForgotPasswordScreen() {
               <Text className="mt-1 text-xs text-zinc-500">
                 Enter your verified recovery email to receive a reset link.
               </Text>
+              <Text className="mt-2 text-xs leading-4 text-zinc-400">
+                This is the recovery email saved in your profile, not your sign-in email or the system sender address.
+              </Text>
             </View>
 
             {message ? (

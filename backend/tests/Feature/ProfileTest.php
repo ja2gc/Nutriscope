@@ -18,7 +18,19 @@ class ProfileTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_user_can_update_name_and_email(): void
+    public function test_sign_in_email_cannot_be_changed_through_profile_update(): void
+    {
+        $user = User::factory()->create(['email' => 'account@example.com']);
+
+        $this->actingAs($user, 'sanctum')
+            ->patchJson('/api/auth/profile', ['email' => 'changed@example.com'])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['email']);
+
+        $this->assertSame('account@example.com', $user->fresh()->email);
+    }
+
+    public function test_user_can_update_name_while_preserving_sign_in_email(): void
     {
         $user = User::factory()->create(['name' => 'Old', 'email' => 'old@example.com']);
 
@@ -26,14 +38,13 @@ class ProfileTest extends TestCase
             ->patchJson('/api/auth/profile', [
                 'first_name' => 'New',
                 'last_name' => 'Name',
-                'email' => 'new@example.com',
             ])
             ->assertOk()
             ->assertJsonPath('name', 'New Name')
-            ->assertJsonPath('email', 'new@example.com');
+            ->assertJsonPath('email', 'old@example.com');
 
         $this->assertDatabaseHas('users', [
-            'id' => $user->id, 'name' => 'New Name', 'email' => 'new@example.com',
+            'id' => $user->id, 'name' => 'New Name', 'email' => 'old@example.com',
         ]);
         $this->assertSame(1, Activity::where('event', 'profile_changed')->count());
     }
@@ -50,7 +61,6 @@ class ProfileTest extends TestCase
             ->patchJson('/api/auth/profile', [
                 'first_name' => 'New',
                 'last_name' => 'Name',
-                'email' => 'new@example.com',
                 'contact_number' => '+63 917 000 0000',
                 'profile_photo' => 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
                 'role' => 'Admin',
@@ -70,28 +80,14 @@ class ProfileTest extends TestCase
         $this->assertNotNull($user->fresh()->profile_photo_stored_object_id);
     }
 
-    public function test_profile_update_rejects_email_taken_by_another_user(): void
-    {
-        $other = User::factory()->create(['email' => 'taken@example.com']);
-        $user = User::factory()->create(['email' => 'mine@example.com']);
-
-        $this->actingAs($user, 'sanctum')
-            ->patchJson('/api/auth/profile', ['email' => 'taken@example.com'])
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors(['email']);
-    }
-
-    public function test_profile_update_allows_keeping_own_email(): void
+    public function test_profile_update_rejects_even_the_current_sign_in_email(): void
     {
         $user = User::factory()->create(['name' => 'Me', 'email' => 'mine@example.com']);
 
         $this->actingAs($user, 'sanctum')
-            ->patchJson('/api/auth/profile', [
-                'first_name' => 'Me',
-                'last_name' => 'Renamed',
-                'email' => 'mine@example.com',
-            ])
-            ->assertOk();
+            ->patchJson('/api/auth/profile', ['email' => 'mine@example.com'])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['email']);
     }
 
     public function test_updating_other_profile_fields_preserves_an_existing_photo(): void
@@ -123,7 +119,6 @@ class ProfileTest extends TestCase
         $this->actingAs($user, 'sanctum')
             ->patchJson('/api/auth/profile', [
                 'name' => 'Me',
-                'email' => 'mine@example.com',
                 'profile_photo' => 'not-an-image',
             ])
             ->assertUnprocessable()
@@ -132,7 +127,6 @@ class ProfileTest extends TestCase
         $this->actingAs($user, 'sanctum')
             ->patchJson('/api/auth/profile', [
                 'name' => 'Me',
-                'email' => 'mine@example.com',
                 'profile_photo' => 'data:image/png;base64,'.str_repeat('a', 300001),
             ])
             ->assertUnprocessable()

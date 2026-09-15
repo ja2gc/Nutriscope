@@ -176,8 +176,8 @@ class AuthController extends Controller
     }
 
     /**
-     * PATCH /api/auth/profile — self-service name/email update (rnd.md §9).
-     * `name` is the same field used as the report "prepared by".
+     * PATCH /api/auth/profile — self-service profile update.
+     * Sign-in email and role are intentionally immutable here.
      */
     public function updateProfile(UpdateProfileRequest $request): JsonResponse
     {

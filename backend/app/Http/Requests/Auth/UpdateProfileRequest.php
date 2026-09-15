@@ -4,7 +4,6 @@ namespace App\Http\Requests\Auth;
 
 use App\Http\Requests\Concerns\ValidatesPersonNameChanges;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
 
 class UpdateProfileRequest extends FormRequest
 {
@@ -23,7 +22,7 @@ class UpdateProfileRequest extends FormRequest
         return [
             ...$this->splitNameUpdateRules($this->user()),
             'name' => ['sometimes', 'required', 'string', 'max:255'],
-            'email' => ['sometimes', 'required', 'email', 'max:255', Rule::unique('users')->ignore($this->user()->id)],
+            'email' => ['prohibited'],
             'contact_number' => ['nullable', 'string', 'max:50'],
             'profile_photo' => [
                 'nullable',

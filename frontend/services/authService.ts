@@ -59,7 +59,6 @@ export async function updateProfile(data: {
   first_name?: string;
   last_name?: string;
   name?: string;
-  email: string;
   contact_number?: string | null;
   profile_photo?: string | null;
 }): Promise<User> {
