@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Boxes, Plus, Pencil, Trash2, RefreshCw, X } from "lucide-react";
+import { Boxes, Plus, Pencil, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
 import SearchInput from "@/components/ui/SearchInput";
@@ -199,9 +199,6 @@ export default function InventoryCatalogPage() {
           </h2>
         </div>
         <div className="flex items-center gap-3 shrink-0">
-          <button onClick={load} className="flex items-center gap-1.5 text-sm text-warm-500 hover:text-warm-700">
-            <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} /> Refresh
-          </button>
           {isRnd && (
             <Button variant="primary" onClick={() => { setEditing(null); setModalOpen(true); }} className="px-4 py-2.5 flex items-center gap-2">
               <Plus className="h-4 w-4" /> New {TABS.find((t) => t.key === tab)?.label.replace(/s$/, "")}

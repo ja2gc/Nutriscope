@@ -139,4 +139,16 @@ describe("UI helper copy contract", () => {
     const mobileAppPage = read("app/mobile-app/page.tsx");
     expect(/<p[^>]*>\s*Food Service Staff\s*<\/p>/.test(mobileAppPage)).toBe(false);
   });
+
+  test("removes visible refresh controls while preserving retry states", () => {
+    const refreshSurfaces = [
+      "app/(rnd)/food-service/inventory/page.tsx",
+      "app/(rnd)/food-service/menu-cycle/page.tsx",
+      "app/admin/audit-logs/page.tsx",
+      "components/foodservice/SuppliersPanel.tsx",
+      "components/reports/ReportsBrowser.tsx",
+    ].map(read).join("\n");
+
+    expect(refreshSurfaces).not.toMatch(/>\s*Refresh\s*</);
+  });
 });

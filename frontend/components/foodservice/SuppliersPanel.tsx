@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useCallback } from "react";
-import { Truck, Plus, Pencil, Trash2, X, RefreshCw, AlertTriangle } from "lucide-react";
+import { Truck, Plus, Pencil, Trash2, X, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
 import SearchInput from "@/components/ui/SearchInput";
@@ -166,10 +166,6 @@ export function SuppliersPanel() {
           Descriptions and contacts appear on procurement reports.
         </p>
         <div className="flex items-center gap-3 shrink-0">
-          <button onClick={load} className="flex items-center gap-1.5 text-sm text-warm-500 hover:text-warm-700 transition-colors">
-            <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
-            Refresh
-          </button>
           <Button variant="primary" onClick={openNew} className="px-4 py-2.5 flex items-center gap-2">
             <Plus className="h-4 w-4" /> New Vendor
           </Button>

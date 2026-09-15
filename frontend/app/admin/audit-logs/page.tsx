@@ -83,12 +83,6 @@ function AuditLogsContent() {
             Audit oversight
           </h1>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Button variant="secondary" loading={loading} onClick={() => void reload()}>
-            <RefreshCw className="h-4 w-4" />
-            Refresh
-          </Button>
-        </div>
       </header>
 
       {!loaded && loading ? (

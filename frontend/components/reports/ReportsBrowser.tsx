@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  FileText, RefreshCw, CalendarRange, CalendarDays, PackageCheck,
+  FileText, CalendarRange, CalendarDays, PackageCheck,
   Download, Trash2, ClipboardList, Building2, Save,
   Archive, Loader2, CheckCircle2, AlertTriangle, FolderArchive, Eye,
   History,
@@ -385,9 +385,6 @@ function ArchivedTab({
     <Card className="overflow-hidden">
       <div className="px-5 py-3 border-b border-warm-100 flex items-center justify-between">
         <h2 className="text-sm font-extrabold text-warm-700 uppercase tracking-wider">Archived Reports</h2>
-        <button onClick={load} className="flex items-center gap-1.5 text-sm text-warm-500 hover:text-warm-700 cursor-pointer">
-          <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} /> Refresh
-        </button>
       </div>
       <div className="border-b border-warm-100 px-5 py-3">
         <SearchInput

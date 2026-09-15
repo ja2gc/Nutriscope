@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   CalendarDays, Plus, Search, X, Trash2, Save, Zap, Copy, BookmarkPlus,
-  LayoutTemplate, ChevronLeft, AlertTriangle, RefreshCw, Pencil,
+  LayoutTemplate, ChevronLeft, AlertTriangle, Pencil,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
@@ -123,9 +123,6 @@ function CycleList({ readOnly, onOpen, onNew, onOpenTemplate, onNewTemplate }: {
           </h2>
         </div>
         <div className="flex items-center gap-3 shrink-0">
-          <button onClick={load} className="flex items-center gap-1.5 text-sm text-warm-500 hover:text-warm-700">
-            <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} /> Refresh
-          </button>
           {!readOnly && (
             <Button variant="primary" onClick={onNew} className="px-4 py-2.5 flex items-center gap-2">
               <Plus className="h-4 w-4" /> New Cycle
