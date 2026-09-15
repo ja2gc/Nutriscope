@@ -2,26 +2,17 @@
 
 ## Storage and privacy
 
-- Profile/receipt/proof/clinical/report bytes use existing authenticated private storage.
-- Never store provider/public URL, private object key, long-lived base64 in domain rows.
-- Private uploads ≠ backups; separate least-privilege storage scope.
-- Verify metadata + bytes. Failed upload/seed leaves no orphan; failed replace preserves old file.
-- DB cleanup ≠ R2/S3 cleanup. Verify both.
+- User, receipt, proof, clinical, and report bytes use existing authenticated private storage.
+- Domain rows store references, not public URLs, long-lived base64, or provider secrets.
+- Private uploads and backups are separate concerns with least-privilege access.
+- Verify metadata, bytes, MIME, dimensions, limits, and authorization.
+- Failed upload/replace preserves the prior valid state and leaves no orphan object.
+- DB cleanup and object-store cleanup are separate operations; verify both.
 
-## Profile photos
+## Image presentation
 
-- Seeded author uses real private profile photo when present; rerun preserves manual photo.
-- Web select → circular crop, drag/pan, zoom, no stretch, square export, circular avatar.
-- Cancel/validation/storage failure preserves current photo.
-- Remove control accessible + above circle frame.
-
-## Uploaded-image presentation
-
-- Uploaded photo: full image, true ratio, centered, bounded responsive frame.
-- Announcement/post: card-relative fixed responsive frame, blurred backdrop, `contain`; never consume page.
-- Full viewer: black letter/pillarbox as needed; no distortion.
-- Thumbnail/avatar may crop; full viewer contains all.
-- Meaningful alt/accessibility labels.
-- Exclude logos/QR/icons/decorative/layout graphics from user-photo rules.
-- Announcement: real author photo; no “Announcement author” or redundant “Posted to department.”
-- Reuse shared gallery/carousel/viewer; no module duplicates.
+- Full images preserve true aspect ratio, center inside a bounded responsive frame, and never stretch.
+- Contain/letterbox or pillarbox when the frame differs from the image ratio; crop only where the UI explicitly needs a thumbnail/avatar.
+- Profile editing supports the established circular crop interaction (drag/pan/zoom) and preserves the current photo on cancel or failure.
+- Close/remove controls stay accessible and above masking/crop layers.
+- Use meaningful alt/accessibility labels and shared gallery/viewer primitives; no module-specific duplicates.

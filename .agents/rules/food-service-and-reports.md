@@ -1,28 +1,22 @@
 # Food Service, Procurement, and Reports
 
-## Domain boundaries and menu behavior
+## Domain boundaries
 
-- Clinical food/recipe ≠ food-service catalog/recipe. Separate schema/calculation; never merge.
-- Weekly menu = meals only. No rice line in seeded cycle/template.
-- Bulk `Rice`: catalog item; manually add kg to existing generated draft; first empty-search suggestion. No second manual-list feature.
-- Preserve ordered multi-line meal slots + public UUID line mutation.
-- Ingredient include/exclude changes procurement, not visible meal.
-- FSS has no live stock add/deduct workflow. Never restore stale inventory claims.
+- Clinical food/recipe and food-service catalog/recipe are separate calculation domains unless current code proves otherwise.
+- Preserve ordered menu lines, public UUID mutation contracts, ingredient inclusion/exclusion, and visible-vs-procurement semantics.
+- Reuse the real lifecycle services/listeners for shopping lists, purchase orders, receiving, budgets, notifications, and reports.
 
 ## Procurement and history
 
-- Real lifecycle services/listeners create menu/list/PO/snapshot/receiving/budget/notification/report outputs.
-- Preserve generated/manual lines, planned-vs-actual qty/price, supplier, optional OR, private receipt/proof, completion, PPA, served population, accomplishment.
-- After PO conversion, use frozen PO-scaled menu snapshot; never reread mutable recipe.
-- Completed history connected + within configured per-head/day cap.
-- Supplier reassignment obeys lock/evidence/auth rules.
+- Keep planned-vs-actual quantities/prices distinct.
+- Preserve supplier, receiving, proof/receipt, completion, program/activity, population, accomplishment, and source relationships required by current workflow.
+- Historical procurement uses the frozen snapshot/version captured by the workflow; never reread mutable source data.
+- Supplier changes, receiving, and inventory effects obey current authorization and lock/evidence rules.
 
 ## Reports
 
-- Preserve historical report identity/`created_at`/branding/signatories/source/template+appearance versions.
-- Preview/download read-only: no duplicate, identity mutation, or silent newer record.
-- Explicit ID (`meal_plan_id`, etc.); never replace selected history with “latest.”
-- FSS accomplishment = progressive semi-monthly: 1–15, 16–month-end.
-- Accomplishment PDF = 1 readable A4 landscape page; expected rows/dates; no clip/overlap.
-- Server-enforce FSS owner/type scope; RND/Admin only authorized visibility.
-- Expired private report bytes → existing prepare/reprepare flow; no public-file fallback.
+- Preserve historical identity, creation time, source, branding/signatories, and template/appearance versions.
+- Preview/download is read-only: no duplicate, identity mutation, or silent replacement with “latest.”
+- Pass explicit record identity through generation; do not infer the wrong historical record.
+- Server-enforce owner/type/role scope. Private expired bytes use the existing prepare/reprepare path.
+- Inspect real generated PDFs for page count, readable layout, expected rows/dates, clipping, and overlap.

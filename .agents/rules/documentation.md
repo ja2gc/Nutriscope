@@ -1,12 +1,10 @@
 # Documentation and Storyboards
 
-- Update existing `/docs` only for workflow/semantic change, or visual fix making text false.
-- Current routes/nav/role gates/UI/code/rendered artifact beat old prose.
-- Demo-sequence change → update relevant existing external storyboard. No duplicate guide/storyboard/flowchart/plan/handoff.
-- Locate canonical `Storyboarding`; old absolute path may differ. External + untracked local copies → follow user-stated canonical path or ask; never edit both by guess.
-- Keep RND web/Admin web/FSS mobile boundaries explicit.
-- Document visible pages/actions/persistence/generation/report path, not routes only.
-- Source exists ≠ rendered/live component.
-- Preserve user-specified exact labels/punctuation.
-- Verify links/fences/scene numbers/cross-references/stale wording.
-- No AI/generated-by attribution.
+- Update existing docs only when workflow, data semantics, demo sequence, or visible wording changes.
+- Current code, routes/nav, role gates, UI, and rendered artifacts outrank old prose.
+- Describe visible pages/actions, persistence, generation, and report paths; routes alone are insufficient.
+- Keep role boundaries and authorization accurate.
+- Update the user-designated canonical external storyboard when demo flow changes. Never edit duplicate local copies by guess.
+- Do not create duplicate guides, storyboards, flowcharts, plans, or handoffs.
+- Preserve exact user-approved labels where they are part of the contract.
+- Check links, fences, scene numbers, cross-references, and stale wording.
