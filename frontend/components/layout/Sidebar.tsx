@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { Logo } from "@/components/ui/Logo";
 import { getCycleStepHref, getPlaceholderStepHref, type NcpStep } from "@/lib/ncpWorkflow";
@@ -22,11 +22,13 @@ import {
   WalletCards,
   CircleHelp,
   DatabaseBackup,
+  LogOut,
 } from "lucide-react";
 
 export function Sidebar({ open = false, onClose }: { open?: boolean; onClose?: () => void }) {
   const pathname = usePathname();
-  const { user } = useAuth();
+  const router = useRouter();
+  const { user, logout } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
 
   const [ncpExpanded, setNcpExpanded] = useState(false);
@@ -98,6 +100,14 @@ export function Sidebar({ open = false, onClose }: { open?: boolean; onClose?: (
         {!collapsed && <span>{label}</span>}
       </Link>
     );
+  };
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } finally {
+      router.replace("/login");
+    }
   };
 
   return (
@@ -281,6 +291,18 @@ export function Sidebar({ open = false, onClose }: { open?: boolean; onClose?: (
             </>
           )}
         </nav>
+
+        <div className="mt-auto border-t border-forest-line p-3">
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="flex min-h-11 w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-semibold uppercase tracking-wider text-warm-400 transition-colors hover:bg-white/5 hover:text-white"
+            title={collapsed ? "Log Out" : undefined}
+          >
+            <LogOut className="h-4.5 w-4.5 shrink-0 text-warm-500" />
+            {!collapsed && <span>Log Out</span>}
+          </button>
+        </div>
       </aside>
     </>
   );

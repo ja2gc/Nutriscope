@@ -20,11 +20,8 @@ import { InfoHint } from "@/components/ui/InfoHint";
 import { AiUsageExplorer } from "@/components/admin/AiUsageExplorer";
 import { Badge, BadgeTone } from "@/components/ui/Badge";
 import {
-  Cpu,
-  Activity,
   RefreshCw,
   AlertCircle,
-  LayoutDashboard,
 } from "lucide-react";
 
 function formatNumber(num: number) {
@@ -73,7 +70,6 @@ export default function AdminDashboardPage() {
   const [recentLogs, setRecentLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
 
   const [phpRate, setPhpRate] = useState<number>(56);
 
@@ -129,13 +125,9 @@ export default function AdminDashboardPage() {
     }
   }
 
-  async function loadData(isRefresh = false) {
+  async function loadData() {
     try {
-      if (isRefresh) {
-        setRefreshing(true);
-      } else {
-        setLoading(true);
-      }
+      setLoading(true);
       setError(null);
 
       const [data, logsResponse] = await Promise.all([
@@ -149,7 +141,6 @@ export default function AdminDashboardPage() {
       setError(err instanceof Error ? err.message : "Failed to load admin dashboard data.");
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
   }
 
@@ -164,7 +155,7 @@ export default function AdminDashboardPage() {
       <div className="space-y-6 animate-pulse">
         <div className="h-8 w-48 bg-warm-100 rounded-lg" />
         <div className="h-4 w-96 bg-warm-100 rounded-lg" />
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mt-6">
           {[1, 2, 3, 4].map((i) => (
             <div key={i} className="h-24 bg-warm-100 border border-warm-200 rounded-2xl" />
           ))}
@@ -180,26 +171,17 @@ export default function AdminDashboardPage() {
   return (
     <div className="space-y-6 font-sans">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-warm-200 pb-5">
+      <div className="border-b border-warm-200 pb-5">
         <div>
           <div className="flex items-center gap-2 text-sm font-semibold text-warm-400 select-none">
             <span>Admin</span>
             <span className="text-warm-300">/</span>
             <span className="text-warm-600 font-bold">Dashboard</span>
           </div>
-          <h1 className="text-xl font-extrabold text-warm-900 tracking-tight mt-1 flex items-center gap-2.5">
-            <LayoutDashboard className="h-5 w-5 text-emerald-600" />
+          <h1 className="text-xl font-extrabold text-warm-900 tracking-tight mt-1">
             Dashboard
           </h1>
         </div>
-        <button
-          onClick={() => void loadData(true)}
-          disabled={refreshing}
-          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-warm-200 bg-white text-sm font-bold uppercase tracking-wider text-warm-600 hover:text-warm-900 hover:bg-warm-50 active:bg-warm-100 transition-colors disabled:opacity-50 shadow-sm"
-        >
-          <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
-          {refreshing ? "Refreshing..." : "Refresh"}
-        </button>
       </div>
 
       {error && (
@@ -214,7 +196,7 @@ export default function AdminDashboardPage() {
 
       {/* KPI Cards Grid */}
       {dashboardData && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           <KpiCard
             label="Total Users"
             value={formatNumber(dashboardData.users.total)}
@@ -244,7 +226,6 @@ export default function AdminDashboardPage() {
       {/* AI Token Cap Card */}
       <div className="bg-white border border-warm-200 rounded-3xl overflow-hidden shadow-sm">
         <div className="px-5 py-4 border-b border-warm-100 flex items-center gap-3">
-          <Cpu className="h-4 w-4 text-emerald-600 shrink-0" />
           <div className="flex items-center gap-1">
             <h3 className="text-sm font-bold text-warm-900 uppercase tracking-[0.18em]">AI Token Caps</h3>
             <InfoHint label="How AI token costs are calculated" title="How AI limits and cost work">
@@ -447,10 +428,7 @@ export default function AdminDashboardPage() {
           <div className="p-5 flex-1 divide-y divide-zinc-100">
             {recentLogs.length === 0 ? (
               <div className="py-12 text-center">
-                <div className="p-2.5 bg-warm-50 border border-warm-200 rounded-xl w-fit mx-auto text-warm-400">
-                  <Activity className="h-5 w-5" />
-                </div>
-                <h4 className="text-sm font-bold text-warm-600 mt-3">No system activity</h4>
+                <h4 className="text-sm font-bold text-warm-600">No system activity</h4>
               </div>
             ) : (
               recentLogs.map((log) => {

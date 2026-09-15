@@ -20,7 +20,7 @@ import {
 } from "@/services/announcementService";
 import { categoryStyles } from "@/components/announcements/AnnouncementsBoard";
 import { FssDashboardSummary, getFssDashboard } from "@/services/menuCycleService";
-import { Calendar, Compass, HeartHandshake, MoreHorizontal, PencilLine, TrendingUp, X } from "lucide-react";
+import { MoreHorizontal, PencilLine, X } from "lucide-react";
 import { personDisplayName } from "@/lib/personName";
 
 type AnnouncementDraft = {
@@ -102,23 +102,8 @@ function pesoAmount(n: number) {
   return `₱${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-// Pending PO headline: open-execution POs and what they're waiting on.
-const WAITING_LABELS: Record<string, string> = {
-  receipts: "receipts",
-  served_population: "served population",
-};
-
-function pendingPoKpi(d: FssDashboardSummary | null): { value: string; sub: string } {
-  if (!d || d.pending_pos_count === 0) {
-    return { value: "0", sub: "No POs in open execution" };
-  }
-  const reasons = Array.from(
-    new Set(d.pending_pos.flatMap((p) => p.waiting_on.map((w) => WAITING_LABELS[w] ?? w))),
-  );
-  return {
-    value: String(d.pending_pos_count),
-    sub: reasons.length ? `Waiting on ${reasons.join(", ")}` : "In open execution",
-  };
+function pendingPoKpi(d: FssDashboardSummary | null): string {
+  return String(d?.pending_pos_count ?? 0);
 }
 
 function sortAnnouncements(posts: Announcement[]) {
@@ -623,8 +608,7 @@ export default function RndDashboardPage() {
 
       <div className="border-b border-warm-200 pb-5">
         <h2 className="text-xl font-extrabold text-warm-900 tracking-tight flex items-center gap-2.5">
-          <Compass className="h-5 w-5 text-emerald-600" />
-          {user ? `Good morning, ${personDisplayName(user)}` : "RND Dashboard"}
+          Dashboard
         </h2>
       </div>
 
@@ -647,9 +631,6 @@ export default function RndDashboardPage() {
               {patientCountLabel}
             </span>
           </div>
-          <div className="p-2.5 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-100">
-            <HeartHandshake className="h-5 w-5" />
-          </div>
         </div>
 
         <div className="bg-white border border-warm-200 rounded-2xl p-4 flex items-center justify-between shadow-sm">
@@ -661,9 +642,6 @@ export default function RndDashboardPage() {
               {upcomingFollowUpLabel}
             </span>
           </div>
-          <div className="p-2.5 rounded-xl bg-sky-50 text-sky-700 border border-sky-100">
-            <Calendar className="h-5 w-5" />
-          </div>
         </div>
 
         <div className="bg-white border border-warm-200 rounded-2xl p-4 flex items-center justify-between shadow-sm">
@@ -671,13 +649,7 @@ export default function RndDashboardPage() {
             <Link href="/food-service/procurement" className="text-xs font-extrabold text-[#EA580C] uppercase tracking-wider block hover:underline">
               Pending POs
             </Link>
-            <span className="text-lg font-extrabold text-warm-900 mt-1 block">{pendingKpi.value}</span>
-            <span className="text-xs font-bold text-warm-500 uppercase tracking-wider block mt-1">
-              {pendingKpi.sub}
-            </span>
-          </div>
-          <div className="p-2.5 rounded-xl bg-orange-50 text-[#EA580C] border border-orange-100">
-            <TrendingUp className="h-5 w-5" />
+            <span className="text-lg font-extrabold text-warm-900 mt-1 block">{pendingKpi}</span>
           </div>
         </div>
       </div>
@@ -690,9 +662,6 @@ export default function RndDashboardPage() {
                 <h3 className="text-sm font-bold text-warm-900 uppercase tracking-[0.18em]">
                   Appointment Queue
                 </h3>
-                <p className="text-xs text-warm-500 mt-1">
-                  Open NCP or resolve scheduled attendance.
-                </p>
               </div>
               <Link
                 href="/ncp/patients"
@@ -718,10 +687,7 @@ export default function RndDashboardPage() {
             ) : followUps.length === 0 ? (
               <div className="flex flex-1 items-center justify-center p-8 text-center">
                 <div>
-                <div className="p-3 bg-warm-50 border border-warm-200 rounded-2xl w-fit mx-auto text-warm-400">
-                  <HeartHandshake className="h-8 w-8" />
-                </div>
-                <h3 className="text-base font-bold text-warm-800 mt-4">No visits scheduled</h3>
+                <h3 className="text-base font-bold text-warm-800">No visits scheduled</h3>
                 <p className="text-sm text-warm-500 mt-1 max-w-sm mx-auto leading-relaxed">
                   Scheduled appointments will appear here.
                 </p>
@@ -830,7 +796,7 @@ export default function RndDashboardPage() {
               href="/announcements"
               className="inline-flex px-3 py-1.5 bg-brand-green-600 hover:bg-brand-green-700 text-white text-xs font-bold uppercase tracking-wider rounded-lg transition-colors"
             >
-              Manage announcements →
+              Go to announcement
             </Link>
           </div>
 
