@@ -7,11 +7,15 @@ use App\Models\ReportBranding;
 use App\Models\ReportTemplate;
 use App\Models\User;
 use App\Services\Reports\ReportService;
+use App\Services\StoredObjectStorage;
 use Illuminate\Support\Facades\Storage;
 
 class PrepareSavedReport
 {
-    public function __construct(private readonly ReportService $reports) {}
+    public function __construct(
+        private readonly ReportService $reports,
+        private readonly StoredObjectStorage $storedObjects,
+    ) {}
 
     public function execute(User $actor, string $type, array $parameters, ?Report $existing = null): Report
     {
@@ -20,6 +24,9 @@ class PrepareSavedReport
         $template = ReportTemplate::query()->where('type', $type)->first();
         $report = $existing ?? Report::query()->where('archive_identity', $identity)->first();
         $created = $report === null;
+        if ($report?->official_file_stored_object_id !== null) {
+            return $report->fresh(['user:id,uuid,name,first_name,last_name', 'officialFile']);
+        }
         if ($report === null) {
             $report = Report::query()->create([
                 'user_id' => $actor->id,
@@ -41,8 +48,16 @@ class PrepareSavedReport
             ]);
         }
 
+        $officialFile = null;
         try {
             $bytes = $this->reports->buildPdf($report)['bytes'];
+            $officialFile = $this->storedObjects->storeBytes(
+                $bytes,
+                'application/pdf',
+                'pdf',
+                'report',
+                str($report->title)->slug().'.pdf',
+            );
         } catch (\Throwable $exception) {
             if ($created) {
                 $report->delete();
@@ -52,30 +67,51 @@ class PrepareSavedReport
         $hash = hash('sha256', $bytes);
         $path = "reports/{$report->uuid}/{$hash}.pdf";
         $disk = Storage::disk('report_cache');
-        if (! $disk->exists($path) && ! $disk->put($path, $bytes, ['visibility' => 'private'])) {
-            throw new \RuntimeException('Prepared report storage failed.');
+        try {
+            if (! $disk->exists($path) && ! $disk->put($path, $bytes, ['visibility' => 'private'])) {
+                throw new \RuntimeException('Prepared report storage failed.');
+            }
+        } catch (\Throwable $exception) {
+            if ($officialFile !== null) {
+                $this->storedObjects->deleteOrQueue($officialFile);
+            }
+            if ($created) {
+                $report->delete();
+            }
+            throw $exception;
         }
 
         $changed = $report->content_hash !== $hash;
         $oldPath = $report->cache_path;
-        $report->forceFill([
-            'source_fingerprint' => $hash,
-            'content_hash' => $hash,
-            'cache_path' => $path,
-            'cache_expires_at' => now()->addDay(),
-            'generated_at' => now(),
-            'expires_at' => now()->addDay(),
-            'file_path' => null,
-        ]);
-        if (! $changed) {
-            $report->timestamps = false;
+        try {
+            $report->forceFill([
+                'source_fingerprint' => $hash,
+                'content_hash' => $hash,
+                'official_file_stored_object_id' => $officialFile->id,
+                'cache_path' => $path,
+                'cache_expires_at' => now()->addDay(),
+                'generated_at' => now(),
+                'expires_at' => now()->addDay(),
+                'file_path' => null,
+            ]);
+            if (! $changed) {
+                $report->timestamps = false;
+            }
+            $report->save();
+            $report->timestamps = true;
+        } catch (\Throwable $exception) {
+            $report->timestamps = true;
+            $disk->delete($path);
+            $this->storedObjects->deleteOrQueue($officialFile);
+            if ($created) {
+                $report->delete();
+            }
+            throw $exception;
         }
-        $report->save();
-        $report->timestamps = true;
         if ($oldPath && $oldPath !== $path) {
             $disk->delete($oldPath);
         }
 
-        return $report->fresh('user:id,uuid,name,first_name,last_name');
+        return $report->fresh(['user:id,uuid,name,first_name,last_name', 'officialFile']);
     }
 }

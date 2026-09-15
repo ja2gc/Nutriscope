@@ -2,6 +2,8 @@
 
 namespace App\Services\Reports;
 
+use App\Models\MealPlan;
+use App\Models\NcpRecord;
 use App\Models\Report;
 use App\Models\ReportBranding;
 use App\Models\ReportTemplate;
@@ -20,8 +22,8 @@ use Illuminate\Support\Facades\Storage;
 
 /**
  * Orchestrates report generation: resolves the right generator, injects the shared
- * branding + signatory blocks (with the "prepared by" name from the requesting user),
- * renders the Blade view through DomPDF, and stores the PDF on the public disk.
+ * branding + signatory blocks, resolves trusted actor attribution, renders the
+ * Blade view through DomPDF, and stores legacy archives on the public disk.
  *
  * Generators only build data; this class owns all the I/O.
  */
@@ -128,8 +130,8 @@ class ReportService
     }
 
     /**
-     * Merge the template's signatory defaults with the "prepared by" name captured
-     * from the requesting user at dispatch time (report.parameters.prepared_by_name).
+     * Merge template defaults with server-resolved report attribution. Clinical
+     * reports use their care-cycle RND and patient attending physician.
      *
      * @return array<int,array{role:string,label:string,name:string,title:string}>
      */
@@ -138,10 +140,32 @@ class ReportService
         $template = ReportTemplate::where('type', $report->type)->first();
         $defaults = $template?->signatories ?? [];
         $preparedBy = $report->parameters['prepared_by_name'] ?? null;
+        $physician = null;
 
-        return array_map(function (array $sig) use ($preparedBy) {
+        if ($report->type === 'ncp_summary') {
+            $ncp = NcpRecord::query()->with(['rnd', 'patient'])->find($report->parameters['ncp_record_id'] ?? null);
+            $preparedBy = $ncp?->rnd?->display_name;
+            $physician = $ncp?->patient?->physician;
+        } elseif ($report->type === 'patient_menu_plan') {
+            $identifier = $report->parameters['meal_plan_id'] ?? null;
+            $plan = $identifier === null ? null : MealPlan::query()
+                ->with(['patient', 'intervention.ncpRecord.rnd'])
+                ->when(
+                    is_int($identifier) || ctype_digit((string) $identifier),
+                    fn ($query) => $query->whereKey((int) $identifier),
+                    fn ($query) => $query->where('uuid', (string) $identifier),
+                )
+                ->first();
+            $preparedBy = $plan?->intervention?->ncpRecord?->rnd?->display_name;
+            $physician = $plan?->patient?->physician;
+        }
+
+        return array_map(function (array $sig) use ($physician, $preparedBy) {
             if (($sig['role'] ?? null) === 'prepared_by' && $preparedBy) {
                 $sig['name'] = $preparedBy;
+            }
+            if ($physician && str_contains(strtolower((string) ($sig['title'] ?? '')), 'attending physician')) {
+                $sig['name'] = $physician;
             }
 
             return $sig;

@@ -21,8 +21,9 @@ class ReportResource extends JsonResource
             'filters' => $this->filters,
             'parameters' => $this->parameters,
             'snapshot' => $this->snapshot,
-            'file_path' => $this->cache_path ? 'prepared' : null,
-            'prepared' => filled($this->cache_path) && $this->cache_expires_at?->isFuture() === true,
+            'file_path' => $this->official_file_stored_object_id || $this->cache_path ? 'prepared' : null,
+            'prepared' => $this->official_file_stored_object_id !== null
+                || (filled($this->cache_path) && $this->cache_expires_at?->isFuture() === true),
             'template_version' => $this->template_version,
             'appearance_version' => $this->appearance_version,
             'status' => $this->status,

@@ -14,6 +14,7 @@ use App\Models\ScreeningDocument;
 use App\Models\User;
 use App\Services\Reports\Generators\NcpSummaryGenerator;
 use Carbon\Carbon;
+use Database\Seeders\ReportTemplateSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -137,6 +138,41 @@ class NcpSummaryReportTest extends TestCase
         $this->assertSame('application/pdf', $res->headers->get('Content-Type'));
         $this->assertStringStartsWith('%PDF', $res->streamedContent());
         $this->assertSame($before + 1, Report::count());
+    }
+
+    public function test_clinical_report_signatories_use_cycle_rnd_and_patient_physician_not_filer(): void
+    {
+        $this->seed(ReportTemplateSeeder::class);
+        $this->rnd->update(['first_name' => 'Responsible', 'last_name' => 'Dietitian']);
+        $ncp = $this->makeRecord();
+        $ncp->patient->update(['physician' => 'Dr. Patient Physician']);
+        $filer = User::factory()->rnd()->create(['first_name' => 'Different', 'last_name' => 'Filer']);
+
+        $ncpReportId = $this->actingAs($filer, 'sanctum')
+            ->postJson('/api/rnd/reports/ncp_summary/prepare', ['ncp_record_id' => $ncp->id])
+            ->assertOk()
+            ->json('data.id');
+
+        $ncpSignatories = Report::query()->where('uuid', $ncpReportId)->firstOrFail()->snapshot['signatories'];
+        $this->assertSame('Responsible Dietitian', collect($ncpSignatories)->firstWhere('role', 'prepared_by')['name']);
+        $this->assertSame('Dr. Patient Physician', collect($ncpSignatories)->firstWhere('role', 'conforme')['name']);
+
+        $plan = MealPlan::create([
+            'intervention_id' => $ncp->intervention->id,
+            'patient_id' => $ncp->patient_id,
+            'week_start_date' => '2026-06-15',
+            'generation_type' => 'auto',
+            'status' => 'draft',
+        ]);
+        $menuReportId = $this->actingAs($filer, 'sanctum')
+            ->postJson('/api/rnd/reports/patient_menu_plan/prepare', ['meal_plan_id' => $plan->id])
+            ->assertOk()
+            ->json('data.id');
+
+        $menuSignatories = Report::query()->where('uuid', $menuReportId)->firstOrFail()->snapshot['signatories'];
+        $this->assertSame('Responsible Dietitian', collect($menuSignatories)->firstWhere('role', 'prepared_by')['name']);
+        $this->assertSame('Dr. Patient Physician', collect($menuSignatories)->firstWhere('role', 'noted_by')['name']);
+        $this->assertNotSame('Different Filer', collect($menuSignatories)->firstWhere('role', 'prepared_by')['name']);
     }
 
     public function test_render_unknown_record_is_404(): void

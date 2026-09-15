@@ -214,6 +214,7 @@ class ReportControllerTest extends TestCase
     public function test_live_render_uses_current_prepared_by_display_name(): void
     {
         Storage::fake('report_cache');
+        Storage::fake('private_uploads');
         DietListCount::factory()->create(['service_date' => '2026-06-10']);
         $reports = $this->createMock(ReportService::class);
         $reports->method('supports')->willReturn(true);
@@ -223,7 +224,7 @@ class ReportControllerTest extends TestCase
                 $this->assertSame('accomplishment_report', $report->type);
                 $this->assertSame('Rosa Maria Dela Peña', $report->parameters['prepared_by_name']);
 
-                return ['bytes' => '%PDF-current-name', 'meta' => []];
+                return ['bytes' => "%PDF-1.4\ncurrent name\n%%EOF", 'meta' => []];
             });
         $this->app->instance(ReportService::class, $reports);
 

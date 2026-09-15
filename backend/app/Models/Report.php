@@ -41,4 +41,9 @@ class Report extends Model
     {
         return $this->belongsTo(User::class)->withTrashed();
     }
+
+    public function officialFile(): BelongsTo
+    {
+        return $this->belongsTo(StoredObject::class, 'official_file_stored_object_id');
+    }
 }

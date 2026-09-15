@@ -201,9 +201,8 @@ class ReportController extends Controller
     }
 
     /**
-     * On-demand render/archive params: everything except framework noise, with the
-     * "prepared by" forced to the authenticated user so the signatory is always the
-     * real filer (never the template default, never a client-supplied value).
+     * Build trusted report parameters. Operational reports use the authenticated
+     * filer; clinical care-plan reports resolve their responsible RND server-side.
      */
     private function renderParams(Request $request, string $type): array
     {
@@ -211,7 +210,8 @@ class ReportController extends Controller
         if (Auth::user()?->role === 'FSS' && $type === 'accomplishment_report') {
             $params['fss_user_id'] = Auth::id();
         }
-        if ($name = Auth::user()?->display_name) {
+        if (! in_array($type, ['ncp_summary', 'patient_menu_plan'], true)
+            && ($name = Auth::user()?->display_name)) {
             $params['prepared_by_name'] = $name;
         }
 
@@ -236,6 +236,19 @@ class ReportController extends Controller
         $this->guardClinical($report->type);
         $this->guardAdmin($report->type);
         $this->guardFss($report->type);
+
+        if ($officialFile = $report->officialFile) {
+            if (! Storage::disk($officialFile->storage_disk)->exists($officialFile->object_key)) {
+                return response()->json(['message' => 'The filed report is unavailable.', 'code' => 'official_file_unavailable'], 409);
+            }
+            $this->recordReportEvent(AuditAction::Downloaded, $report->type, $report->parameters ?? [], $report, 200);
+
+            return Storage::disk($officialFile->storage_disk)->download(
+                $officialFile->object_key,
+                str($report->title)->slug().'.pdf',
+                ['Content-Type' => 'application/pdf', 'Cache-Control' => 'private, no-store'],
+            );
+        }
 
         $diskName = 'report_cache';
         $path = $report->cache_path;
@@ -273,6 +286,23 @@ class ReportController extends Controller
         $this->guardClinical($report->type);
         $this->guardAdmin($report->type);
         $this->guardFss($report->type);
+
+        if ($officialFile = $report->officialFile) {
+            if (! Storage::disk($officialFile->storage_disk)->exists($officialFile->object_key)) {
+                return response()->json(['message' => 'The filed report is unavailable.', 'code' => 'official_file_unavailable'], 409);
+            }
+            $this->recordReportEvent(AuditAction::Viewed, $report->type, $report->parameters ?? [], $report, 200);
+
+            return Storage::disk($officialFile->storage_disk)->response(
+                $officialFile->object_key,
+                str($report->title)->slug().'.pdf',
+                [
+                    'Content-Type' => 'application/pdf',
+                    'Content-Disposition' => 'inline',
+                    'Cache-Control' => 'private, no-store',
+                ],
+            );
+        }
 
         $diskName = 'report_cache';
         $path = $report->cache_path;
