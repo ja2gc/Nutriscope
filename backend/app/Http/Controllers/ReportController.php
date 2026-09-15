@@ -12,6 +12,7 @@ use App\Http\Requests\PrepareReportRequest;
 use App\Http\Resources\ReportResource;
 use App\Models\MealPlan;
 use App\Models\NcpRecord;
+use App\Models\Patient;
 use App\Models\Report;
 use App\Policies\AuditPolicy;
 use App\Services\Audit\AuditContextResolver;
@@ -129,6 +130,52 @@ class ReportController extends Controller
                 'per_page' => $perPage,
                 'total' => $total,
                 'last_page' => max(1, (int) ceil($total / $perPage)),
+            ],
+        ]);
+    }
+
+    public function patientInstances(PaginatedRequest $request, Patient $patient): JsonResponse
+    {
+        $ncpReports = $patient->ncpRecords()
+            ->get(['id', 'uuid', 'status', 'created_at'])
+            ->map(fn (NcpRecord $record): array => [
+                'key' => 'ncp-'.$record->uuid,
+                'type' => 'ncp_summary',
+                'label' => 'NCP Summary — '.optional($record->created_at)->format('M j, Y'),
+                'status' => $record->status,
+                'date' => $record->created_at?->toIso8601String(),
+                'params' => ['ncp_record_id' => $record->uuid],
+            ]);
+        $menuReports = $patient->mealPlans()
+            ->get(['id', 'uuid', 'status', 'week_start_date', 'created_at'])
+            ->map(fn (MealPlan $plan): array => [
+                'key' => 'menu-'.$plan->uuid,
+                'type' => 'patient_menu_plan',
+                'label' => 'Patient Menu Plan — '.$plan->week_start_date?->format('M j, Y'),
+                'status' => $plan->status,
+                'date' => $plan->created_at?->toIso8601String(),
+                'params' => ['meal_plan_id' => $plan->uuid],
+            ]);
+        $reports = $ncpReports
+            ->concat($menuReports)
+            ->sortByDesc('date')
+            ->values();
+        $page = max(1, $request->integer('page', 1));
+        $perPage = $request->perPage();
+
+        return response()->json([
+            'patient' => [
+                'id' => $patient->uuid,
+                'display_name' => $patient->display_name,
+                'hospital_number' => $patient->hospital_number,
+                'status' => $patient->status,
+            ],
+            'data' => $reports->forPage($page, $perPage)->values(),
+            'meta' => [
+                'current_page' => $page,
+                'per_page' => $perPage,
+                'total' => $reports->count(),
+                'last_page' => max(1, (int) ceil($reports->count() / $perPage)),
             ],
         ]);
     }
@@ -412,7 +459,14 @@ class ReportController extends Controller
         }
 
         if (in_array($type, self::NCP_CONTEXT_TYPES, true)) {
-            $ncpRecord = NcpRecord::query()->find($parameters['ncp_record_id'] ?? null);
+            $identifier = $parameters['ncp_record_id'] ?? null;
+            $ncpRecord = $identifier === null ? null : NcpRecord::query()
+                ->when(
+                    is_int($identifier) || ctype_digit((string) $identifier),
+                    fn ($query) => $query->whereKey((int) $identifier),
+                    fn ($query) => $query->where('uuid', (string) $identifier),
+                )
+                ->first();
             abort_unless($ncpRecord !== null, 404);
 
             return $ncpRecord;

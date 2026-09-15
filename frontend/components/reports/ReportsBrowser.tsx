@@ -3,8 +3,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   FileText, RefreshCw, CalendarRange, CalendarDays, PackageCheck,
-  Download, Trash2, Users, ClipboardList, Building2, Save,
-  Archive, Loader2, CheckCircle2, AlertTriangle, FolderArchive, Eye, Stethoscope,
+  Download, Trash2, ClipboardList, Building2, Save,
+  Archive, Loader2, CheckCircle2, AlertTriangle, FolderArchive, Eye,
   History,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
@@ -24,6 +24,7 @@ import {
 } from "@/services/reportService";
 import { ReportPreview } from "@/components/ReportPreview";
 import { AuditTrail } from "@/components/audit/AuditTrail";
+import { PatientsNcpTab } from "@/components/reports/PatientsNcpTab";
 
 const inp = "w-full px-3 py-2 text-base border border-warm-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500";
 const lbl = "block text-xs font-extrabold text-warm-500 uppercase tracking-wider mb-1";
@@ -40,7 +41,7 @@ function reportDate(value: string): string {
   });
 }
 
-type TabKey = "browse" | "archived" | "templates";
+type TabKey = "browse" | "patients" | "archived" | "templates";
 
 // ── Report catalog ──────────────────────────────────────────────────────────
 export type ReportGroup = "Food Service" | "Clinical";
@@ -53,8 +54,6 @@ export const FULL_CATALOG: CatalogEntry[] = [
   { type: "procurement_pack", name: "Procurement Pack", desc: "AIR + Statement + Summary of Marketing.", icon: PackageCheck, group: "Food Service" },
   { type: "accomplishment_report", name: "Accomplishment Report", desc: "Per-staff semi-monthly duty sheet + diet-list headcount logged by FSS.", icon: ClipboardList, group: "Food Service" },
   { type: "demographic_census", name: "Demographic Census", desc: "Patient counts by age, sex, ward, diagnosis.", icon: ClipboardList, group: "Clinical" },
-  { type: "patient_menu_plan", name: "Patient Menu Plan", desc: "A patient's ADIME meal plan as a calendar.", icon: Users, group: "Clinical" },
-  { type: "ncp_summary", name: "NCP Summary", desc: "Patient Nutrition Care Plan (ADIME) — assessment, diagnosis, intervention, monitoring.", icon: Stethoscope, group: "Clinical" },
 ];
 
 // Admin-allowed catalog: RND parity minus patient-specific reports.
@@ -103,6 +102,12 @@ export function ReportsBrowser({ catalog, apiPrefix }: ReportsBrowserProps) {
     setTimeout(() => setFlash(null), 4000);
   }, []);
 
+  useEffect(() => {
+    if (apiPrefix === "rnd" && new URLSearchParams(window.location.search).get("tab") === "patients") {
+      setTab("patients");
+    }
+  }, [apiPrefix]);
+
   // Admin browser suppresses the Template Edit tab (branding owned by Settings page)
   const tabs = apiPrefix !== "rnd"
     ? [
@@ -111,6 +116,7 @@ export function ReportsBrowser({ catalog, apiPrefix }: ReportsBrowserProps) {
       ]
     : [
         { key: "browse" as TabKey, label: "Browse", icon: <FileText className="h-4 w-4" /> },
+        { key: "patients" as TabKey, label: "Patients NCP", icon: <ClipboardList className="h-4 w-4" /> },
         { key: "archived" as TabKey, label: "Archived", icon: <FolderArchive className="h-4 w-4" /> },
         { key: "templates" as TabKey, label: "Template Edit", icon: <Building2 className="h-4 w-4" /> },
       ];
@@ -132,6 +138,7 @@ export function ReportsBrowser({ catalog, apiPrefix }: ReportsBrowserProps) {
       <FlashBar flash={flash} />
 
       {tab === "browse" && <BrowseTab catalog={catalog} apiPrefix={apiPrefix} onFlash={flashFor} />}
+      {tab === "patients" && apiPrefix === "rnd" && <PatientsNcpTab />}
       {tab === "archived" && <ArchivedTab catalog={catalog} apiPrefix={apiPrefix} onFlash={flashFor} />}
       {tab === "templates" && apiPrefix === "rnd" && <TemplateEditor onFlash={flashFor} />}
     </div>

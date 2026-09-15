@@ -41,10 +41,15 @@ class NcpSummaryGenerator implements ReportGenerator
     {
         $params = $report->parameters ?? [];
 
+        $identifier = $params['ncp_record_id'] ?? null;
         $ncp = NcpRecord::with([
             'patient', 'assessment.biochemicalData',
             'diagnoses', 'intervention.mealPlans', 'monitorings',
-        ])->findOrFail($params['ncp_record_id']);
+        ])->when(
+            is_int($identifier) || ctype_digit((string) $identifier),
+            fn ($query) => $query->whereKey((int) $identifier),
+            fn ($query) => $query->where('uuid', (string) $identifier),
+        )->firstOrFail();
 
         $patient = $ncp->patient;
         $assessment = $ncp->assessment;

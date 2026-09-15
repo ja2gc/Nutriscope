@@ -143,7 +143,15 @@ class ReportService
         $physician = null;
 
         if ($report->type === 'ncp_summary') {
-            $ncp = NcpRecord::query()->with(['rnd', 'patient'])->find($report->parameters['ncp_record_id'] ?? null);
+            $identifier = $report->parameters['ncp_record_id'] ?? null;
+            $ncp = $identifier === null ? null : NcpRecord::query()
+                ->with(['rnd', 'patient'])
+                ->when(
+                    is_int($identifier) || ctype_digit((string) $identifier),
+                    fn ($query) => $query->whereKey((int) $identifier),
+                    fn ($query) => $query->where('uuid', (string) $identifier),
+                )
+                ->first();
             $preparedBy = $ncp?->rnd?->display_name;
             $physician = $ncp?->patient?->physician;
         } elseif ($report->type === 'patient_menu_plan') {

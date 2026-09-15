@@ -211,6 +211,7 @@ Route::middleware(['auth:sanctum', 'active', 'role:RND'])->prefix('rnd')->group(
 
     // Specific route precedes the report binding routes below.
     Route::get('reports/{report}/activity', [ActivityController::class, 'report']);
+    Route::get('reports/patients/{patient}/instances', [ReportController::class, 'patientInstances']);
 
     // Reports routes (shared with FSS — see $reportRoutes above)
     $reportRoutes('rnd.reports');

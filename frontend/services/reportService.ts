@@ -42,6 +42,22 @@ export interface ReportInstance {
   date: string | null;
 }
 
+export interface PatientNcpReportInstance extends ReportInstance {
+  type: "ncp_summary" | "patient_menu_plan";
+  status: string;
+}
+
+export interface PatientNcpReportFeed {
+  patient: {
+    id: string;
+    display_name: string;
+    hospital_number: string | null;
+    status: string;
+  };
+  data: PatientNcpReportInstance[];
+  meta: PaginationMeta;
+}
+
 export interface Signatory {
   role: string;
   label: string;
@@ -120,6 +136,14 @@ export async function listInstances(
   const json = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(json.message ?? "Failed to load report instances.");
   return { data: json.data, meta: json.meta };
+}
+
+export async function listPatientNcpReports(patientId: string, page = 1): Promise<PatientNcpReportFeed> {
+  const res = await apiFetch(`/api/rnd/reports/patients/${encodeURIComponent(patientId)}/instances?page=${page}&per_page=10`);
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(json.message ?? "Failed to load patient reports.");
+
+  return json;
 }
 
 export async function prepareReport(type: ReportType | string, params: ReportParams, prefix: ReportApiPrefix = "rnd"): Promise<ReportItem> {
