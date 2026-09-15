@@ -4,8 +4,8 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
-  ShoppingBag, Plus, Trash2, RefreshCw, ChevronLeft, Sparkles, Split,
-  FileText, Pencil, Check, Search, Eye,
+  ShoppingBag, Plus, Trash2, ChevronLeft, Sparkles, Split,
+  FileText, Pencil, Check, Search, Eye, X,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
@@ -26,6 +26,7 @@ import { ImageUploadGallery, type UploadImage } from "@/components/ui/ImageUploa
 import { DatePicker } from "@/components/ui/DatePicker";
 import { VendorChangeControls } from "@/components/foodservice/VendorChangeControls";
 import { PurchaseValueComparison } from "@/components/foodservice/PurchaseValueComparison";
+import { CATALOG_UNIT_OPTIONS } from "@/lib/units";
 
 const peso = (n: number) => `₱${n.toFixed(2)}`;
 const num = (s: string | number | null | undefined) => (s != null ? parseFloat(String(s)) : 0);
@@ -65,6 +66,8 @@ function ListDetail({ id, suppliers, onBack, onPosGenerated }: {
   const [addSupplier, setAddSupplier] = useState("");
   const [itemError, setItemError] = useState("");
   const [approveErr, setApproveErr] = useState("");
+  const [editingName, setEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState("");
   const itemSearchRequest = useRef(0);
 
   const load = useCallback(() => {
@@ -146,6 +149,13 @@ function ListDetail({ id, suppliers, onBack, onPosGenerated }: {
     finally { setBusy(false); }
   }
 
+  async function saveName() {
+    if (!list || !nameDraft.trim()) return;
+    const updated = await updateShoppingList(list.id, { name: nameDraft.trim() });
+    setList(updated);
+    setEditingName(false);
+  }
+
   if (!list) return <div className="py-16 text-center text-sm text-warm-400">Loading…</div>;
 
   const isSupplies = list.procurement_track === "supplies";
@@ -161,7 +171,18 @@ function ListDetail({ id, suppliers, onBack, onPosGenerated }: {
             <ChevronLeft className="h-4 w-4" />
           </button>
           <div>
-            <h3 className="text-lg font-extrabold text-warm-900">{list.name}</h3>
+            {editingName ? (
+              <div className="flex items-center gap-2">
+                <input value={nameDraft} onChange={(e) => setNameDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") void saveName(); }} className="rounded-lg border border-warm-200 px-2 py-1 text-lg font-extrabold text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+                <button onClick={() => void saveName()} aria-label="Save name" className="rounded-lg p-2 text-emerald-600 hover:bg-emerald-50"><Check className="h-4 w-4" /></button>
+                <button onClick={() => { setNameDraft(list.name); setEditingName(false); }} aria-label="Cancel rename" className="rounded-lg p-2 text-warm-500 hover:bg-warm-100"><X className="h-4 w-4" /></button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <h3 className="text-lg font-extrabold text-warm-900">{list.name}</h3>
+                <button onClick={() => { setNameDraft(list.name); setEditingName(true); }} aria-label={`Rename ${list.name}`} className="rounded-lg p-1.5 text-warm-400 hover:bg-warm-100 hover:text-warm-700"><Pencil className="h-3.5 w-3.5" /></button>
+              </div>
+            )}
             <div className="text-xs text-warm-400 flex items-center gap-2">
               {!isSupplies && list.list_type === "suggested" && (
                 <span className="inline-flex items-center gap-0.5 text-emerald-600">
@@ -333,9 +354,15 @@ function ListDetail({ id, suppliers, onBack, onPosGenerated }: {
                 <td className="px-3 py-2"><input type="number" min="0" step="0.001" defaultValue={num(it.purchase_qty ?? it.qty)} disabled={list.status === "converted"}
                   onBlur={(e) => patchItem(it.id, isSupplies ? { qty: parseFloat(e.target.value) } : { purchase_qty: parseFloat(e.target.value) })}
                   className="w-24 rounded border border-warm-200 px-2 py-1 disabled:bg-warm-50" /></td>
-                <td className="px-3 py-2"><input defaultValue={it.purchase_unit ?? it.unit} disabled={list.status === "converted" || isSupplies}
-                  onBlur={(e) => patchItem(it.id, { purchase_unit: e.target.value })}
-                  className="w-24 rounded border border-warm-200 px-2 py-1 disabled:bg-warm-50" /></td>
+                <td className="px-3 py-2">
+                  <select value={it.purchase_unit ?? it.unit} disabled={list.status === "converted" || isSupplies}
+                    onChange={(e) => patchItem(it.id, { purchase_unit: e.target.value })}
+                    className="w-24 rounded border border-warm-200 bg-white px-2 py-1 disabled:bg-warm-50">
+                    {[it.purchase_unit ?? it.unit, ...CATALOG_UNIT_OPTIONS]
+                      .filter((unit, index, units) => units.indexOf(unit) === index)
+                      .map((unit) => <option key={unit} value={unit}>{unit}</option>)}
+                  </select>
+                </td>
                 <td className="px-3 py-2">
                   <select
                     value={it.supplier_id ?? ""}
@@ -417,6 +444,7 @@ function PurchaseEventDetailView({ po, suppliers, onBack, reload }: { po: Purcha
     try { await updateVendorGroup(group.id, next); reload(); }
     finally { setBusy(false); }
   }
+
   async function saveActuals(markReceived = false) {
     if (!group) return;
     const singleReceiptTotal = receiptTotal && (group.items ?? []).length === 1 ? parseFloat(receiptTotal) : undefined;
@@ -679,8 +707,6 @@ export default function ProcurementPage() {
   const [genError, setGenError] = useState("");
   const [genMissing, setGenMissing] = useState<Record<string, string>>({});
   const [newListName, setNewListName] = useState("");
-  const [editingListId, setEditingListId] = useState<string | null>(null);
-  const [editingListName, setEditingListName] = useState("");
   const [listPage, setListPage] = useState(1);
   const [poPage, setPoPage] = useState(1);
   const [listMeta, setListMeta] = useState<PaginationMeta | null>(null);
@@ -745,13 +771,6 @@ export default function ProcurementPage() {
     setListDetail(created.id);
   }
 
-  async function saveListName(list: ShoppingList) {
-    if (!editingListName.trim()) { setEditingListId(null); return; }
-    const updated = await updateShoppingList(list.id, { name: editingListName.trim() });
-    setLists((current) => current.map((item) => item.id === list.id ? updated : item));
-    setEditingListId(null);
-  }
-
   async function removeList(id: string) {
     await deleteShoppingList(id);
     setLists((current) => current.filter((list) => list.id !== id));
@@ -794,14 +813,8 @@ export default function ProcurementPage() {
           <h2 className="text-xl font-extrabold text-warm-900 tracking-tight flex items-center gap-2.5">
             <ShoppingBag className="h-5 w-5 text-emerald-600" /> Procurement
           </h2>
-          <p className="text-sm text-warm-500 mt-1">
-            Food and supplies procurement are separate tracks. Each converts to its own PO with its own vendor grouping.
-          </p>
-        </div>
-        <div className="flex items-center gap-3 shrink-0">
-          <button onClick={load} className="flex items-center gap-1.5 text-sm text-warm-500 hover:text-warm-700">
-            <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} /> Refresh
-          </button>
+         </div>
+         <div className="flex items-center gap-3 shrink-0">
           {tab === "supplies-lists" && (
             <div className="flex items-center gap-2">
               <input
@@ -919,21 +932,7 @@ export default function ProcurementPage() {
                   {visibleLists.map((l) => (
                     <tr key={l.id} className="hover:bg-warm-50/60">
                       <td className="px-4 py-3">
-                        {editingListId === l.id ? (
-                          <div className="flex items-center gap-2">
-                            <input
-                              value={editingListName}
-                              onChange={(e) => setEditingListName(e.target.value)}
-                              onKeyDown={(e) => { if (e.key === "Enter") void saveListName(l); }}
-                              className="w-48 px-2 py-1 border border-warm-200 rounded text-warm-900 focus:outline-none focus:ring-1 focus:ring-emerald-400"
-                            />
-                            <button onClick={() => saveListName(l)} className="p-1.5 rounded-lg text-emerald-600 hover:bg-emerald-50 cursor-pointer" aria-label="Save">
-                              <Check className="h-3.5 w-3.5" />
-                            </button>
-                          </div>
-                        ) : (
-                          <span className="font-semibold text-warm-800">{l.name}</span>
-                        )}
+                        <button onClick={() => setListDetail(l.id)} className="font-semibold text-warm-800 hover:text-emerald-700 hover:underline">{l.name}</button>
                       </td>
                       <td className="px-4 py-3 text-warm-500">
                         {tab === "food-lists"
@@ -952,16 +951,6 @@ export default function ProcurementPage() {
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1">
-                          <button onClick={() => setListDetail(l.id)} className="p-1.5 rounded-lg hover:bg-warm-100 text-warm-500 cursor-pointer" aria-label={`Open ${l.name}`} title="Open">
-                            <Eye className="h-3.5 w-3.5" />
-                          </button>
-                          <button
-                            onClick={() => { setEditingListId(l.id); setEditingListName(l.name); }}
-                            className="p-1.5 rounded-lg text-warm-500 hover:text-warm-700 hover:bg-warm-100 cursor-pointer"
-                            aria-label={`Edit ${l.name}`} title="Edit"
-                          >
-                            <Pencil className="h-3.5 w-3.5" />
-                          </button>
                           <button onClick={() => removeList(l.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-warm-500 hover:text-red-600 cursor-pointer" aria-label={`Delete ${l.name}`} title="Delete">
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>

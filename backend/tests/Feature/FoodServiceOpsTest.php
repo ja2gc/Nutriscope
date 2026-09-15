@@ -1580,6 +1580,44 @@ class FoodServiceOpsTest extends TestCase
         ]);
     }
 
+    public function test_receiving_updates_catalog_purchase_unit_from_frozen_po_line(): void
+    {
+        $fs = FsItem::factory()->create([
+            'name' => 'Rice',
+            'base_unit' => 'g',
+            'purchase_unit' => 'sack',
+            'purchase_price' => 999,
+            'units_per_purchase' => 5_000,
+        ]);
+        $po = PurchaseOrder::factory()->create(['rnd_user_id' => $this->rnd->id, 'status' => 'draft']);
+        $po->items()->create([
+            'fs_item_id' => $fs->id,
+            'description' => 'Rice',
+            'qty' => 2_000,
+            'unit' => 'g',
+            'unit_price' => 0.05,
+            'total_value' => 100,
+            'purchase_qty' => 2,
+            'purchase_unit' => 'kg',
+            'purchase_price' => 50,
+        ]);
+
+        $this->actingAs($this->rnd)
+            ->patchJson("/api/fss/purchase-orders/{$po->uuid}", ['status' => 'received'])
+            ->assertOk();
+
+        $fs->refresh();
+        $this->assertSame('kg', $fs->purchase_unit);
+        $this->assertSame(1_000.0, (float) $fs->units_per_purchase);
+        $this->assertSame(50.0, (float) $fs->purchase_price);
+        $this->assertSame(0.05, $fs->unit_cost);
+        $this->assertDatabaseHas('purchase_order_items', [
+            'purchase_order_id' => $po->id,
+            'purchase_unit' => 'kg',
+            'purchase_price' => 50,
+        ]);
+    }
+
     public function test_receiving_with_null_purchase_price_uses_frozen_base_price_for_recipe_costing(): void
     {
         $fs = FsItem::factory()->create([
@@ -1667,13 +1705,14 @@ class FoodServiceOpsTest extends TestCase
             ->patchJson("/api/fss/purchase-orders/{$po->uuid}", ['status' => 'received'])
             ->assertOk();
 
-        $this->assertSame(250.0, (float) $fs->fresh()->purchase_price);
+        $this->assertSame('kg', $fs->fresh()->purchase_unit);
+        $this->assertSame(50.0, (float) $fs->fresh()->purchase_price);
         $this->assertSame(0.05, $fs->fresh()->unit_cost);
         $this->assertSame(5.0, (float) $recipe->fresh()->cost);
         $this->actingAs($this->rnd)
             ->patchJson("/api/fss/purchase-orders/{$po->uuid}", ['status' => 'received'])
             ->assertOk();
-        $this->assertSame(250.0, (float) $fs->fresh()->purchase_price);
+        $this->assertSame(50.0, (float) $fs->fresh()->purchase_price);
     }
 
     public function test_receiving_locks_catalog_row_before_price_update(): void

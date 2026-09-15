@@ -119,9 +119,11 @@ class ReceivingService
             (string) $fs->base_unit,
         );
 
-        $basePerPurchase = $fs->basePerPurchase();
-        if ($basePerPurchase > 0 && $perBaseCost > 0) {
-            $fs->purchase_price = round($perBaseCost * $basePerPurchase, 2);
+        $basePerReceived = $this->baseUnitsPerReceivedUnit($item, $receivedUnit, (string) $fs->base_unit);
+        if ($basePerReceived > 0 && $perBaseCost > 0) {
+            $fs->purchase_unit = $receivedUnit;
+            $fs->units_per_purchase = $basePerReceived;
+            $fs->purchase_price = round($perBaseCost * $basePerReceived, 2);
             $fs->save();
         }
 
@@ -129,6 +131,23 @@ class ReceivingService
         $this->vendorSync->syncFromReceipt($fs, $supplierId);
 
         $touched[$fs->id] = true;
+    }
+
+    private function baseUnitsPerReceivedUnit(PurchaseOrderItem $item, string $receivedUnit, string $baseUnit): float
+    {
+        $from = UnitConverter::normalize($receivedUnit);
+        $to = UnitConverter::normalize($baseUnit);
+        if ($from === $to) {
+            return 1.0;
+        }
+        if (UnitConverter::isKnown($from) && UnitConverter::isKnown($to)) {
+            return UnitConverter::convert(1, $from, $to);
+        }
+
+        $purchaseQty = (float) ($item->purchase_qty ?? 0);
+        $baseQty = (float) $item->qty;
+
+        return $purchaseQty > 0 && $baseQty > 0 ? $baseQty / $purchaseQty : 0.0;
     }
 
     private function recalculateTouchedRecipes(array $touched): void
