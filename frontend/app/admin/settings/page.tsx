@@ -12,6 +12,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { ImageFilePicker } from "@/components/ui/ImageFilePicker";
 import { getFoodServiceSetting, setFoodServiceSetting } from "@/services/budgetService";
 
 // Budget per head per day — shared Food Service setting (backend-backed).
@@ -115,6 +116,7 @@ export default function AdminSettingsPage() {
   // ── Notifications ────────────────────────────────────────────────
   // ── Branding ─────────────────────────────────────────────────────
   const [branding, setBranding] = useState<Branding | null>(null);
+  const [editingBranding, setEditingBranding] = useState(false);
   const [brandingLoading, setBrandingLoading] = useState(true);
   const [brandingError, setBrandingError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -178,6 +180,7 @@ export default function AdminSettingsPage() {
     try {
       const updated = await saveAdminBranding(form);
       setBranding(updated);
+      setEditingBranding(false);
       setSavedOk(true);
       // Clear file inputs after a successful save
       if (logoLeftRef.current) logoLeftRef.current.value = "";
@@ -215,10 +218,14 @@ export default function AdminSettingsPage() {
 
       {/* ── Branding card ────────────────────────────────────────── */}
       <Card className="p-6">
-        <h3 className="text-sm font-bold text-warm-900 uppercase tracking-wider flex items-center gap-2 mb-5">
-          <Building2 className="h-4 w-4 text-emerald-600" />
-          Hospital Branding
-        </h3>
+        <div className="mb-5 flex items-center justify-between gap-3">
+          <h3 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-warm-900">
+            <Building2 className="h-4 w-4 text-emerald-600" /> Hospital Branding
+          </h3>
+          {!editingBranding && branding && (
+            <Button variant="secondary" onClick={() => setEditingBranding(true)} className="w-auto">Edit</Button>
+          )}
+        </div>
 
         {brandingLoading && (
           <p className="text-sm text-warm-400">Loading branding…</p>
@@ -228,7 +235,24 @@ export default function AdminSettingsPage() {
           <p className="text-sm font-semibold text-red-600">{brandingError}</p>
         )}
 
-        {!brandingLoading && !brandingError && branding && (
+        {!brandingLoading && !brandingError && branding && !editingBranding && (
+          <dl className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            {[
+              ["Hospital Name", branding.hospital_name], ["Service Name", branding.service_name],
+              ["Address", branding.address], ["Accreditation", branding.accreditation],
+              ["Province", branding.province], ["LGU", branding.lgu],
+              ["Logo Left", branding.logo_left_path ? "Saved" : "Not set"],
+              ["Logo Right", branding.logo_right_path ? "Saved" : "Not set"],
+            ].map(([label, value]) => (
+              <div key={label}>
+                <dt className="text-xs font-bold uppercase tracking-wider text-warm-500">{label}</dt>
+                <dd className="mt-1 text-sm text-warm-800">{value || "—"}</dd>
+              </div>
+            ))}
+          </dl>
+        )}
+
+        {!brandingLoading && !brandingError && branding && editingBranding && (
           <form onSubmit={handleBrandingSubmit} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Input
@@ -271,42 +295,16 @@ export default function AdminSettingsPage() {
 
             {/* Logo uploads */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
-              <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-semibold text-warm-600 tracking-wide">
-                  Logo Left
-                </label>
-                {branding.logo_left_path && (
-                  <p className="text-xs text-warm-400 truncate">
-                    Current: {branding.logo_left_path}
-                  </p>
-                )}
-                <input
-                  ref={logoLeftRef}
-                  type="file"
-                  accept="image/*"
-                  className="text-sm text-warm-600 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-warm-100 file:text-warm-700 hover:file:bg-warm-200"
-                />
+              <div>
+                <ImageFilePicker ref={logoLeftRef} id="admin-logo-left" name="logo_left" label="Logo Left" current={branding.logo_left_path} />
                 {validationErrors.logo_left && (
                   <span className="text-sm font-semibold text-red-600">
                     {validationErrors.logo_left}
                   </span>
                 )}
               </div>
-              <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-semibold text-warm-600 tracking-wide">
-                  Logo Right
-                </label>
-                {branding.logo_right_path && (
-                  <p className="text-xs text-warm-400 truncate">
-                    Current: {branding.logo_right_path}
-                  </p>
-                )}
-                <input
-                  ref={logoRightRef}
-                  type="file"
-                  accept="image/*"
-                  className="text-sm text-warm-600 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-warm-100 file:text-warm-700 hover:file:bg-warm-200"
-                />
+              <div>
+                <ImageFilePicker ref={logoRightRef} id="admin-logo-right" name="logo_right" label="Logo Right" current={branding.logo_right_path} />
                 {validationErrors.logo_right && (
                   <span className="text-sm font-semibold text-red-600">
                     {validationErrors.logo_right}
@@ -317,7 +315,23 @@ export default function AdminSettingsPage() {
 
             <div className="flex items-center gap-3 pt-2">
               <Button type="submit" loading={saving} className="w-auto">
-                Save Branding
+                Save
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => {
+                  setHospitalName(branding.hospital_name ?? "");
+                  setAddress(branding.address ?? "");
+                  setAccreditation(branding.accreditation ?? "");
+                  setServiceName(branding.service_name ?? "");
+                  setProvince(branding.province ?? "");
+                  setLgu(branding.lgu ?? "");
+                  setEditingBranding(false);
+                }}
+                className="w-auto"
+              >
+                Cancel
               </Button>
               {savedOk && (
                 <span className="text-sm font-semibold text-emerald-600">

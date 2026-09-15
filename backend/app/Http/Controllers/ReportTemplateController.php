@@ -9,6 +9,7 @@ use App\Models\ReportTemplate;
 use App\Services\Audit\AuditLogger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Per-report-type config (Reports → Template Edit tab): editable signatory blocks.
@@ -41,6 +42,16 @@ class ReportTemplateController extends Controller
             'signatories.*.name' => ['nullable', 'string', 'max:255'],
             'signatories.*.title' => ['nullable', 'string', 'max:255'],
         ]);
+
+        if (
+            in_array($reportTemplate->type, ['patient_menu_plan', 'ncp_summary'], true)
+            && array_key_exists('signatories', $data)
+            && $data['signatories'] !== ($reportTemplate->signatories ?? [])
+        ) {
+            throw ValidationException::withMessages([
+                'signatories' => 'Patient report signatories are filled from the responsible care-cycle RND and attending physician.',
+            ]);
+        }
 
         $changedFields = [];
         if (array_key_exists('name', $data) && $data['name'] !== $reportTemplate->name) {

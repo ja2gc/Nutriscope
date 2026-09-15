@@ -25,6 +25,7 @@ import {
 import { ReportPreview } from "@/components/ReportPreview";
 import { AuditTrail } from "@/components/audit/AuditTrail";
 import { PatientsNcpTab } from "@/components/reports/PatientsNcpTab";
+import { ImageFilePicker } from "@/components/ui/ImageFilePicker";
 
 const inp = "w-full px-3 py-2 text-base border border-warm-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500";
 const lbl = "block text-xs font-extrabold text-warm-500 uppercase tracking-wider mb-1";
@@ -488,26 +489,32 @@ function ArchivedTab({
 // ── Template Edit tab (RND only) ────────────────────────────────────────────
 function TemplateEditor({ onFlash }: { onFlash: (ok: boolean, msg: string) => void }) {
   const [branding, setBranding] = useState<Branding | null>(null);
+  const [brandingDraft, setBrandingDraft] = useState<Branding | null>(null);
   const [templates, setTemplates] = useState<ReportTemplate[]>([]);
+  const [templateDraft, setTemplateDraft] = useState<ReportTemplate | null>(null);
+  const [editingBranding, setEditingBranding] = useState(false);
+  const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
   const [savingB, setSavingB] = useState(false);
   const [savingT, setSavingT] = useState<string | null>(null);
 
   const load = useCallback(() => {
-    getBranding().then(setBranding).catch(() => {});
+    getBranding().then((value) => { setBranding(value); setBrandingDraft(value); }).catch(() => {});
     listTemplates().then(setTemplates).catch(() => {});
   }, []);
   useEffect(() => { load(); }, [load]);
 
-  const setB = (p: Partial<Branding>) => setBranding((b) => (b ? { ...b, ...p } : b));
+  const setB = (p: Partial<Branding>) => setBrandingDraft((b) => (b ? { ...b, ...p } : b));
 
   async function saveB(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (!branding) return;
+    if (!brandingDraft) return;
     setSavingB(true);
     try {
       const fd = new FormData(e.currentTarget);
       const updated = await saveBranding(fd);
       setBranding(updated);
+      setBrandingDraft(updated);
+      setEditingBranding(false);
       onFlash(true, "Branding saved.");
     } catch (err) {
       onFlash(false, err instanceof Error ? err.message : "Save failed.");
@@ -517,7 +524,10 @@ function TemplateEditor({ onFlash }: { onFlash: (ok: boolean, msg: string) => vo
   async function saveT(t: ReportTemplate) {
     setSavingT(t.id);
     try {
-      await saveTemplate(t.id, { signatories: t.signatories ?? [] });
+      const updated = await saveTemplate(t.id, { signatories: t.signatories ?? [] });
+      setTemplates((items) => items.map((item) => item.id === updated.id ? updated : item));
+      setTemplateDraft(null);
+      setEditingTemplateId(null);
       onFlash(true, `${t.name} signatories saved.`);
     } catch (err) {
       onFlash(false, err instanceof Error ? err.message : "Save failed.");
@@ -525,11 +535,14 @@ function TemplateEditor({ onFlash }: { onFlash: (ok: boolean, msg: string) => vo
   }
 
   function editSig(tid: string, idx: number, field: "name" | "title", val: string) {
-    setTemplates((ts) => ts.map((t) => t.id !== tid ? t : {
+    setTemplateDraft((t) => !t || t.id !== tid ? t : {
       ...t,
       signatories: (t.signatories ?? []).map((s, i) => i === idx ? { ...s, [field]: val } : s),
-    }));
+    });
   }
+
+  const isClinicalAutoFilledSignatory = (template: ReportTemplate) =>
+    ["patient_menu_plan", "ncp_summary"].includes(template.type);
 
   if (!branding) return <EmptyState message="Loading branding…" />;
 
@@ -537,54 +550,63 @@ function TemplateEditor({ onFlash }: { onFlash: (ok: boolean, msg: string) => vo
     <div className="space-y-5">
       {/* Branding */}
       <Card padded>
-        <h2 className="text-sm font-extrabold text-warm-700 uppercase tracking-wider mb-1">Header Branding</h2>
-        <p className="text-xs text-warm-500 mb-4">Shared across every report header. The &quot;prepared by&quot; name auto-fills from the logged-in user; these are the fallbacks.</p>
-        <form onSubmit={saveB} className="space-y-4">
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <div><h2 className="text-sm font-extrabold text-warm-700 uppercase tracking-wider">Header Branding</h2><p className="mt-1 text-xs text-warm-500">Shared across every report header.</p></div>
+          {!editingBranding && <Button variant="secondary" onClick={() => { setBrandingDraft(branding); setEditingBranding(true); }} className="!w-auto !py-1.5 !px-3.5 text-sm">Edit</Button>}
+        </div>
+        {!editingBranding ? (
+          <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {[["Hospital name", branding.hospital_name], ["Address", branding.address], ["Accreditation", branding.accreditation], ["Service name", branding.service_name], ["Province", branding.province], ["LGU", branding.lgu], ["Left logo", branding.logo_left_path ? "Saved" : "Not set"], ["Right logo", branding.logo_right_path ? "Saved" : "Not set"]].map(([label, value]) => <div key={label}><dt className={lbl}>{label}</dt><dd className="text-sm text-warm-800">{value || "—"}</dd></div>)}
+          </dl>
+        ) : <form onSubmit={saveB} className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {([
-              ["hospital_name", "Hospital name", branding.hospital_name],
-              ["address", "Address", branding.address],
-              ["accreditation", "Accreditation", branding.accreditation],
-              ["service_name", "Service name", branding.service_name],
-              ["province", "Province", branding.province],
-              ["lgu", "LGU", branding.lgu],
+              ["hospital_name", "Hospital name", brandingDraft?.hospital_name],
+              ["address", "Address", brandingDraft?.address],
+              ["accreditation", "Accreditation", brandingDraft?.accreditation],
+              ["service_name", "Service name", brandingDraft?.service_name],
+              ["province", "Province", brandingDraft?.province],
+              ["lgu", "LGU", brandingDraft?.lgu],
             ] as const).map(([name, label, value]) => (
               <div key={name}>
                 <label className={lbl}>{label}</label>
                 <input name={name} value={value ?? ""} onChange={(e) => setB({ [name]: e.target.value } as Partial<Branding>)} className={inp} />
               </div>
             ))}
-            <div><label className={lbl}>Left logo</label><input type="file" name="logo_left" accept="image/*" className="text-sm text-warm-500" /></div>
-            <div><label className={lbl}>Right logo</label><input type="file" name="logo_right" accept="image/*" className="text-sm text-warm-500" /></div>
+            <ImageFilePicker id="report-logo-left" name="logo_left" label="Left logo" current={branding.logo_left_path} />
+            <ImageFilePicker id="report-logo-right" name="logo_right" label="Right logo" current={branding.logo_right_path} />
           </div>
-          <Button variant="primary" type="submit" loading={savingB} className="!w-auto !py-2 !px-4 flex items-center gap-2"><Save className="h-4 w-4" /> Save Branding</Button>
-        </form>
+          <div className="flex gap-2"><Button variant="primary" type="submit" loading={savingB} className="!w-auto !py-2 !px-4 flex items-center gap-2"><Save className="h-4 w-4" /> Save</Button><Button variant="secondary" type="button" onClick={() => { setBrandingDraft(branding); setEditingBranding(false); }} className="!w-auto !py-2 !px-4">Cancel</Button></div>
+        </form>}
       </Card>
 
       {/* Signatories per report */}
       <div className="grid lg:grid-cols-2 gap-4">
-        {templates.map((t) => (
-          <Card key={t.id} padded className="space-y-3">
+        {templates.map((saved) => {
+          const t = editingTemplateId === saved.id && templateDraft ? templateDraft : saved;
+          const protectedClinical = isClinicalAutoFilledSignatory(t);
+          return <Card key={t.id} padded className="space-y-3">
             <div>
               <h3 className="text-base font-bold text-warm-800">{t.name}</h3>
               {t.description && <p className="text-xs text-warm-500">{t.description}</p>}
             </div>
-            {(t.signatories ?? []).length === 0 ? (
+            {protectedClinical ? (
+              <p className="text-xs text-warm-500">Prepared by and attending physician come from patient care records.</p>
+            ) : (t.signatories ?? []).length === 0 ? (
               <p className="text-xs text-warm-400">No signatory block.</p>
             ) : (
               <div className="space-y-2">
                 {(t.signatories ?? []).map((s, i) => (
                   <div key={`${s.role}-${i}`} className="grid grid-cols-[90px_1fr_1fr] gap-2 items-center">
                     <span className="text-xs font-bold text-warm-400 uppercase truncate" title={s.label}>{s.label}</span>
-                    <input value={s.name ?? ""} onChange={(e) => editSig(t.id, i, "name", e.target.value)} className={`${inp} !py-1.5`} />
-                    <input value={s.title ?? ""} onChange={(e) => editSig(t.id, i, "title", e.target.value)} className={`${inp} !py-1.5`} />
+                    {editingTemplateId === t.id ? <><input value={s.name ?? ""} onChange={(e) => editSig(t.id, i, "name", e.target.value)} className={`${inp} !py-1.5`} /><input value={s.title ?? ""} onChange={(e) => editSig(t.id, i, "title", e.target.value)} className={`${inp} !py-1.5`} /></> : <><span className="text-sm text-warm-800">{s.name || "—"}</span><span className="text-sm text-warm-600">{s.title || "—"}</span></>}
                   </div>
                 ))}
               </div>
             )}
-            <Button variant="secondary" onClick={() => saveT(t)} loading={savingT === t.id} className="!w-auto !py-1.5 !px-3.5 text-sm flex items-center gap-1.5"><Save className="h-3.5 w-3.5" /> Save</Button>
-          </Card>
-        ))}
+            {!protectedClinical && (editingTemplateId === t.id ? <div className="flex gap-2"><Button variant="primary" onClick={() => saveT(t)} loading={savingT === t.id} className="!w-auto !py-1.5 !px-3.5 text-sm"><Save className="h-3.5 w-3.5" /> Save</Button><Button variant="secondary" onClick={() => { setTemplateDraft(null); setEditingTemplateId(null); }} className="!w-auto !py-1.5 !px-3.5 text-sm">Cancel</Button></div> : <Button variant="secondary" onClick={() => { setTemplateDraft({ ...saved, signatories: (saved.signatories ?? []).map((s) => ({ ...s })) }); setEditingTemplateId(saved.id); }} className="!w-auto !py-1.5 !px-3.5 text-sm">Edit</Button>)}
+          </Card>;
+        })}
       </div>
     </div>
   );

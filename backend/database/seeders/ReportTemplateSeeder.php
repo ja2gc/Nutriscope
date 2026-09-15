@@ -9,22 +9,18 @@ use Illuminate\Database\Seeder;
  * Seeds the report catalog: blade view + per-type signatory-block defaults, taken
  * field-for-field from the real government forms (docs/Nutriscope Forms).
  *
- * Signatories are EDITABLE config (Template Edit tab) — the "prepared by"/buyer
- * role is overridden by the logged-in user at generate time. Org values are seeded
- * defaults, not hardcoded into the generators (§2.9).
+ * Operational signatories are editable config. Patient-report signatories come
+ * from the care cycle and patient record at render time.
  */
 class ReportTemplateSeeder extends Seeder
 {
     public function run(): void
     {
-        // Names are intentionally BLANK — they are filled per-hospital in the
-        // Template Edit tab (and "prepared by"/buyer auto-fills the logged-in user).
-        // Only the position/title is seeded so the signature block keeps its shape.
-        $rnd = ['', 'Nutritionist-Dietitian II'];
-        $chief = ['', 'Chief of Hospital II'];
-        $oicChief = ['', 'OIC-Chief of Hospital II'];
-        $admin = ['', 'Administrative Officer V'];
-        $pgso = ['', 'OIC-PGSO'];
+        $rnd = ['ELAINE JUSTINA L. ABRIOL', 'Nutritionist-Dietitian II'];
+        $chief = ['ETHEL REYES, MD, CFP', 'Chief of Hospital II'];
+        $oicChief = ['ETHEL REYES, MD, CFP', 'OIC-Chief of Hospital II'];
+        $admin = ['MA. CONCEPCION D. LUGTU, MPA', 'Administrative Officer V'];
+        $pgso = ['FRANCIS V. MASLOG', 'OIC-PGSO'];
 
         $templates = [
             [
@@ -87,6 +83,16 @@ class ReportTemplateSeeder extends Seeder
                 'signatories' => [
                     ['role' => 'prepared_by', 'label' => 'Prepared by:', 'name' => $rnd[0], 'title' => $rnd[1]],
                     ['role' => 'approved_by', 'label' => 'Approved by:', 'name' => $chief[0], 'title' => $chief[1]],
+                ],
+            ],
+            [
+                'type' => 'accomplishment_report', 'name' => 'Accomplishment Report',
+                'blade_view' => 'reports.accomplishment-report',
+                'description' => 'Semi-monthly food service staff accomplishment report.',
+                'signatories' => [
+                    ['role' => 'prepared_by', 'label' => 'Prepared by:', 'name' => '', 'title' => 'Food Service Staff'],
+                    ['role' => 'noted_by', 'label' => 'Noted by:', 'name' => $rnd[0], 'title' => 'RND / Section Head'],
+                    ['role' => 'approved_by', 'label' => 'Approved by:', 'name' => $admin[0], 'title' => $admin[1]],
                 ],
             ],
             [

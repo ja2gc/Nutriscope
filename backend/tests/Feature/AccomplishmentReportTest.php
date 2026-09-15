@@ -533,7 +533,7 @@ class AccomplishmentReportTest extends TestCase
         $this->assertStringStartsWith('%PDF', $download->streamedContent());
     }
 
-    public function test_expired_prepared_pdf_is_rebuilt_before_view(): void
+    public function test_expired_prepared_pdf_still_streams_immutable_official_bytes(): void
     {
         $this->seedCount($this->fss1, '2026-06-10', ['helped_food_prep' => true]);
         $prepared = $this->actingAs($this->fss1)
@@ -542,10 +542,11 @@ class AccomplishmentReportTest extends TestCase
         $report = Report::where('uuid', $prepared->json('data.id'))->firstOrFail();
         $oldExpiry = now()->subMinute();
         $report->update(['cache_expires_at' => $oldExpiry]);
+        $persistedExpiry = $report->fresh()->cache_expires_at;
 
         $response = $this->get('/api/fss/reports/'.$report->uuid.'/view')->assertOk();
 
         $this->assertStringStartsWith('%PDF', $response->streamedContent());
-        $this->assertTrue($report->fresh()->cache_expires_at->isAfter($oldExpiry));
+        $this->assertTrue($report->fresh()->cache_expires_at->equalTo($persistedExpiry));
     }
 }

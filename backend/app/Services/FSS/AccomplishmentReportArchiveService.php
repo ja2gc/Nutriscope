@@ -51,7 +51,9 @@ class AccomplishmentReportArchiveService
             ->where('parameters->end', $end)
             ->first();
         try {
-            $report = $this->prepare->execute($user, 'accomplishment_report', $params);
+            // Current-period auto copies stay refreshable as each daily entry is saved.
+            // Explicitly prepared/filed reports use the action's immutable default.
+            $report = $this->prepare->execute($user, 'accomplishment_report', $params, freeze: false);
             $this->auditLogger->record(
                 AuditAction::Generated,
                 AuditCategory::Operations,

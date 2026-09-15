@@ -17,7 +17,7 @@ class PrepareSavedReport
         private readonly StoredObjectStorage $storedObjects,
     ) {}
 
-    public function execute(User $actor, string $type, array $parameters, ?Report $existing = null): Report
+    public function execute(User $actor, string $type, array $parameters, ?Report $existing = null, bool $freeze = true): Report
     {
         ksort($parameters);
         $identity = hash('sha256', $actor->role.'|'.$type.'|'.json_encode($parameters, JSON_THROW_ON_ERROR));
@@ -51,13 +51,15 @@ class PrepareSavedReport
         $officialFile = null;
         try {
             $bytes = $this->reports->buildPdf($report)['bytes'];
-            $officialFile = $this->storedObjects->storeBytes(
-                $bytes,
-                'application/pdf',
-                'pdf',
-                'report',
-                str($report->title)->slug().'.pdf',
-            );
+            if ($freeze) {
+                $officialFile = $this->storedObjects->storeBytes(
+                    $bytes,
+                    'application/pdf',
+                    'pdf',
+                    'report',
+                    str($report->title)->slug().'.pdf',
+                );
+            }
         } catch (\Throwable $exception) {
             if ($created) {
                 $report->delete();
@@ -87,7 +89,7 @@ class PrepareSavedReport
             $report->forceFill([
                 'source_fingerprint' => $hash,
                 'content_hash' => $hash,
-                'official_file_stored_object_id' => $officialFile->id,
+                'official_file_stored_object_id' => $officialFile?->id,
                 'cache_path' => $path,
                 'cache_expires_at' => now()->addDay(),
                 'generated_at' => now(),
@@ -102,7 +104,9 @@ class PrepareSavedReport
         } catch (\Throwable $exception) {
             $report->timestamps = true;
             $disk->delete($path);
-            $this->storedObjects->deleteOrQueue($officialFile);
+            if ($officialFile !== null) {
+                $this->storedObjects->deleteOrQueue($officialFile);
+            }
             if ($created) {
                 $report->delete();
             }
