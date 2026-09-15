@@ -239,13 +239,13 @@ Use this version when screenshots are available. Each scene already contains the
 
 #### RND-NCP-15 — Clinical Report Preview and Archive
 
-**Description:** Live NCP Summary/Patient Menu Plan reflects current data. Archive freezes the formally filed version.
+**Description:** Patients NCP lists recent patients first. Opening one patient keeps that patient's NCP Summary and Patient Menu Plan together; preparing/archiving freezes the exact formally filed PDF and its template/signatory/source snapshot.
 
-**User should do:** Open a demo live preview, validate it, then show Archive or an existing archived copy.
+**User should do:** Open **Patients NCP**, choose a demo patient, preview both report types, then show an existing archived copy.
 
 **Next scene:** End of clinical story.
 
-> **Screenshot needed:** Reports Browse with NCP Summary or Patient Menu Plan selected and live preview open. Optional second image: Archived tab with a frozen demo report.
+> **Screenshot needed:** Patients NCP patient list, then the selected patient's report page with NCP Summary and Patient Menu Plan. Optional second image: a frozen archived report.
 >
 > **Insert screenshot(s) below this line.**
 
@@ -303,7 +303,7 @@ Use this version when screenshots are available. Each scene already contains the
 
 #### RND-FS-03 — Menu Cycle List and Templates
 
-**Description:** RND reviews current/upcoming/past cycles and may create a new cycle or instantiate a reusable template.
+**Description:** RND reviews current/upcoming/past cycles and may create, open, edit, rename, delete, or load a reusable template into a new cycle.
 
 **User should do:** Open the active demo cycle.
 
@@ -339,7 +339,7 @@ Use this version when screenshots are available. Each scene already contains the
 
 #### RND-FS-06 — Shopping List Review and Conversion
 
-**Description:** RND reviews the one span estimate, calculated need, editable purchase values/vendor, manual additions, exclusions, included total, and release blockers before creating the vendor-grouped PO.
+**Description:** RND opens a list by its name, optionally renames it beside the detail title, and reviews the one span estimate, calculated need, selected purchase unit, price/vendor, manual additions, exclusions, included total, and release blockers before creating the vendor-grouped PO.
 
 **User should do:** Review the demo list, clear its checklist, and point to **Create and release PO**.
 
@@ -351,7 +351,7 @@ Use this version when screenshots are available. Each scene already contains the
 
 #### RND-FS-07 — Purchase Order Supervision
 
-**Description:** RND follows one PO's purpose/name, vendor actual values, receipt/proof, optional OR, received status, served-day progress, lifecycle, and structured activity.
+**Description:** RND follows one PO's purpose/name, vendor actual values, receipt/proof, optional OR, received status, served-day progress, lifecycle, and structured activity. Confirmed receipt updates the inventory item's current purchase unit/conversion and price without changing the frozen PO row.
 
 **User should do:** Open one vendor group and explain missing receipt/population requirements.
 

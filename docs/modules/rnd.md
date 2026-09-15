@@ -173,7 +173,7 @@ This resolves the old module note claiming the Foods route was not wired.
 
 ### Menu Cycles
 
-RND can create, edit, delete, save, activate, template, and instantiate Monday-anchored weekly cycles. A blank cycle name is generated from its date span. Loading a template copies its structure without changing the template. A cell may contain multiple ordered meal lines, each backed by a recipe or single food-service item. Weekly menus and seeded templates contain meals only; the catalog keeps bulk **Rice** in kilograms for manual addition to a generated draft shopping list. Before procurement generation a line profile shows baseline recipe values and no purchase estimate.
+RND can create, edit, delete, save, activate, template, and instantiate Monday-anchored weekly cycles. Menu templates are full records: RND may open, edit, rename, delete, or load one into a new cycle. Loading copies its structure without changing the template. A blank cycle name is generated from its date span. A cell may contain multiple ordered meal lines, each backed by a recipe or single food-service item. Weekly menus and seeded templates contain meals only; the catalog keeps bulk **Rice** in kilograms for manual addition to a generated draft shopping list. Before procurement generation a line profile shows baseline recipe values and no purchase estimate.
 
 FSS sees active/saved cycles read-only but may record actual served population.
 
@@ -188,7 +188,7 @@ Four current tabs:
 
 Suggested food generation is date-span based and all-or-nothing. RND enters one estimated serving count for the span; the system scales each recipe from its baseline and returns exact missing dates when menu coverage is incomplete. The generated draft already supports manual rows; when its item search is initially empty, **Rice** is recommended first. RND may also create named manual food/event lists or supplies lists and add catalog items directly.
 
-The review keeps calculated requirements read-only while purchase quantity, unit, price, and vendor remain editable. Manual rows may be added. Generated rows may be excluded with a note instead of deleted. Release is blocked until included rows are usable, vendors are assigned, applicable estimate/coverage is present, and the fiscal-year budget is sufficient.
+The review keeps calculated requirements read-only while purchase quantity, selected purchase unit, price, and vendor remain editable. Manual rows may be added. Generated rows may be excluded with a note instead of deleted. Release is blocked until included rows are usable, vendors are assigned, applicable estimate/coverage is present, and the fiscal-year budget is sufficient. Confirmed receiving keeps the PO row frozen but updates the inventory reference item to the received purchase unit, unit conversion, and latest confirmed price for future planning and recipe costing.
 
 Food and supplies remain separate procurement tracks, but related event lists can share the same purpose name. Conversion freezes included quantities, units, calculations, and relevant menu snapshots. Before a vendor group has evidence or is received, RND/FSS may use **Change vendor for all** outside the item table or row-level **Change vendor** for one item. This corrects the actual vendor without reopening the shopping list. RND then follows optional OR numbers, receipt/proof attachments, actual decimal quantities/prices, served-day progress, totals, corrections, and activity.
 
@@ -213,17 +213,16 @@ RND report catalog:
 - Procurement Pack
 - Accomplishment Report
 - Demographic Census
-- Patient Menu Plan
-- NCP Summary
+- Patients NCP
 
-Browse renders current/live data. Archive freezes an as-filed copy. RND can view/download archived copies, inspect lifecycle activity, and edit shared report branding/signatory templates.
+**Patients NCP** first lists patients from newest to oldest with pagination. Opening a patient shows that patient's Patient Menu Plan and NCP Summary reports together. Monthly Demographic Census records begin in May 2026, include zero-patient months, and freeze after each completed month. Preparing/archiving freezes the exact PDF bytes plus the template, branding, signatories, and source values used at that time. Clinical Prepared by is taken from the responsible appointment/NCP-cycle RND, while Attending physician comes from patient/assessment data rather than Template Edit. RND can view/download archived copies and inspect lifecycle activity. Template Edit uses display-first Edit/Save/Cancel controls for shared branding and non-clinical signatories.
 
 ## Help, Notifications, Settings, and Profile
 
 - Help: searchable Shared and RND guidance only; the page has no role switch and exposes no Admin-only answers.
 - Notifications: announcements and appointment/follow-up reminders; exact-record navigation, read state, and dismissal for informational or resolved items. Unresolved action-required items stay until resolved.
 - Settings: density, reduced motion, announcement/follow-up preferences, budget-per-head/day.
-- Profile: first/last name, sign-in email, contact, one validated profile photo with circular drag/zoom crop, recovery email verification, password change.
+- Profile: display-first first/last name and contact editing, immutable display-only sign-in email, one validated profile photo with circular drag/zoom crop, recovery email verification, password change.
 - First login: temporary password replacement and recovery email, with optional deferral reminder.
 
 ## Explicit Boundaries
