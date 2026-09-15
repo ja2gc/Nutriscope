@@ -14,7 +14,7 @@ import {
   DAYS, MEALS, MEAL_LABELS, Day, Meal,
   CycleListItem, MenuCycle, RecipeOption, FsItemOption, TemplateListItem, MenuSnapshot,
   listCycles, getCycle, saveCycle, deleteCycle, activateCycle,
-  saveCycleAsTemplate, listRecipeOptions, listFsItemOptions, listTemplates, instantiateTemplate, deleteTemplate,
+  saveCycleAsTemplate, listRecipeOptions, listFsItemOptions, listTemplates, getTemplate, saveTemplate, instantiateTemplate, deleteTemplate,
 } from "@/services/menuCycleService";
 import { setServedPopulation, listServiceLogs } from "@/services/consumptionService";
 
@@ -82,7 +82,13 @@ function Shell({ children }: { children: React.ReactNode }) {
 }
 
 // ═══ LIST VIEW ═══════════════════════════════════════════════════════════════════
-function CycleList({ readOnly, onOpen, onNew }: { readOnly: boolean; onOpen: (id: string) => void; onNew: () => void }) {
+function CycleList({ readOnly, onOpen, onNew, onOpenTemplate, onNewTemplate }: {
+  readOnly: boolean;
+  onOpen: (id: string) => void;
+  onNew: () => void;
+  onOpenTemplate: (id: string) => void;
+  onNewTemplate: () => void;
+}) {
   const [cycles, setCycles] = useState<CycleListItem[]>([]);
   const [templates, setTemplates] = useState<TemplateListItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -189,9 +195,10 @@ function CycleList({ readOnly, onOpen, onNew }: { readOnly: boolean; onOpen: (id
 
       {/* Templates */}
       <div>
-        <h3 className="text-sm font-extrabold text-warm-700 uppercase tracking-wider flex items-center gap-2 mb-3">
-          <LayoutTemplate className="h-4 w-4 text-warm-400" /> Templates
-        </h3>
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <h3 className="flex items-center gap-2 text-sm font-extrabold uppercase tracking-wider text-warm-700"><LayoutTemplate className="h-4 w-4 text-warm-400" /> Templates</h3>
+          {!readOnly && <Button variant="secondary" onClick={onNewTemplate} className="!w-auto !px-3 !py-2 text-sm"><Plus className="h-4 w-4" /> New Template</Button>}
+        </div>
         {templates.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-warm-200 bg-warm-50/40 py-10 text-center text-sm font-medium text-warm-400">
             No menu cycle templates yet.
@@ -202,11 +209,11 @@ function CycleList({ readOnly, onOpen, onNew }: { readOnly: boolean; onOpen: (id
               <div key={t.id} className="bg-white border border-warm-200 rounded-xl p-4 shadow-sm">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <div className="text-base font-bold text-warm-800 truncate">{t.name}</div>
+                    <button onClick={() => onOpenTemplate(t.id)} className="block max-w-full truncate text-left text-base font-bold text-warm-800 hover:text-emerald-700 hover:underline">{t.name}</button>
                     <div className="text-xs text-warm-400">{t.days_count} slots · {t.cycle_days} days</div>
                   </div>
                   {!readOnly && (
-                    <button onClick={() => removeTemplate(t.id)} className="p-1 rounded text-warm-400 hover:text-red-500 cursor-pointer"><Trash2 className="h-3.5 w-3.5" /></button>
+                    <div className="flex items-center gap-1"><button onClick={() => onOpenTemplate(t.id)} aria-label={`Edit ${t.name}`} className="p-1 rounded text-warm-400 hover:text-emerald-600 cursor-pointer"><Pencil className="h-3.5 w-3.5" /></button><button onClick={() => removeTemplate(t.id)} aria-label={`Delete ${t.name}`} className="p-1 rounded text-warm-400 hover:text-red-500 cursor-pointer"><Trash2 className="h-3.5 w-3.5" /></button></div>
                   )}
                 </div>
                 {!readOnly && (
@@ -225,9 +232,11 @@ function CycleList({ readOnly, onOpen, onNew }: { readOnly: boolean; onOpen: (id
 }
 
 // ═══ EDITOR VIEW ═══════════════════════════════════════════════════════════════════
-function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: string | "new"; readOnly: boolean; onBack: () => void }) {
+function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: string | "new"; readOnly: boolean; onBack: () => void; kind?: "cycle" | "template" }) {
   const router = useRouter();
+  const isTemplate = kind === "template";
   const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
   const [weekStart, setWeekStart] = useState("");
   const [isActive, setIsActive] = useState(false);
 
@@ -288,9 +297,31 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: string | "new"; r
     };
   }, [activeCell, pickerSearch]);
 
-  // Load existing cycle
+  // Load existing cycle or template.
   useEffect(() => {
     if (cycleId === "new") return;
+    if (isTemplate) {
+      getTemplate(cycleId).then((template) => {
+        setName(template.name);
+        setDescription(template.description ?? "");
+        const g: Grid = {};
+        template.days.forEach((day) => {
+          const key = cellKey(day.day_of_week, day.meal_type);
+          const line: Cell | null = day.recipe_id && day.recipe ? {
+            line_order: day.line_order, recipe_id: day.recipe_id, fs_item_id: null,
+            recipe_name: day.recipe.name, servings: 0, servings_override: null,
+            quantity: day.quantity ?? 1, estimate_population: null, po_snapshot: null, hasRecipeOverride: false,
+          } : day.fs_item_id && day.fs_item ? {
+            line_order: day.line_order, recipe_id: null, fs_item_id: day.fs_item_id,
+            recipe_name: day.fs_item.name, servings: 0, servings_override: null,
+            quantity: day.quantity ?? 1, estimate_population: null, po_snapshot: null, hasRecipeOverride: false,
+          } : null;
+          if (line) (g[key] ??= []).push(line);
+        });
+        setGrid(g);
+      }).catch(() => setErr("Failed to load template.")).finally(() => setLoading(false));
+      return;
+    }
     getCycle(cycleId).then((c: MenuCycle) => {
       setName(c.name);
       setWeekStart(c.week_start_date ?? ""); setIsActive(c.is_active);
@@ -316,11 +347,11 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: string | "new"; r
       });
       setGrid(g);
     }).catch(() => setErr("Failed to load cycle.")).finally(() => setLoading(false));
-  }, [cycleId]);
+  }, [cycleId, isTemplate]);
 
   // Load served population for the active week's dates (keyed back to weekday).
   const loadServed = useCallback(() => {
-    if (!savedId || !weekStart) { setServed({}); return; }
+    if (isTemplate || !savedId || !weekStart) { setServed({}); return; }
     listServiceLogs({ menu_cycle_id: savedId }).then((logs) => {
       const map: DayPop = {};
       DAYS.forEach((d, i) => {
@@ -330,7 +361,7 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: string | "new"; r
       });
       setServed(map);
     }).catch(() => { /* keep prior */ });
-  }, [savedId, weekStart]);
+  }, [isTemplate, savedId, weekStart]);
   useEffect(() => { loadServed(); }, [loadServed]);
 
   // Backfill served population for a weekday (FSS + RND, before the food PO completes).
@@ -410,6 +441,19 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: string | "new"; r
   async function handleSave() {
     setBusy(true); setErr("");
     try {
+      if (isTemplate) {
+        if (!name.trim()) throw new Error("Template name is required.");
+        const savedTemplate = await saveTemplate(savedId, {
+          name: name.trim(), description: description.trim() || null, cycle_days: 7,
+          days: daysPayload().map(({ day_of_week, meal_type, line_order, recipe_id, fs_item_id, quantity }) => ({
+            day_of_week, meal_type, line_order, recipe_id, fs_item_id, quantity,
+          })),
+        });
+        setSavedId(savedTemplate.id);
+        setName(savedTemplate.name);
+        setDescription(savedTemplate.description ?? "");
+        return null;
+      }
       const saved = await saveCycle(savedId, {
         ...(name.trim() ? { name: name.trim() } : {}),
         cycle_days: 7,
@@ -442,11 +486,13 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: string | "new"; r
   }
 
   async function handleActivate() {
+    if (isTemplate) return;
     const id = savedId ?? (await handleSave())?.id;
     if (!id) return;
     await activateCycle(id); setIsActive(true);
   }
   async function handleSaveTemplate() {
+    if (isTemplate) return;
     const id = savedId ?? (await handleSave())?.id;
     if (!id) return;
     const tName = prompt("Template name?", `${name} template`);
@@ -455,6 +501,7 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: string | "new"; r
   }
 
   async function openSlot(day: Day, meal: Meal, cell: Cell, lineIndex: number) {
+    if (isTemplate) return;
     const saved = readOnly || isActive || cell.po_snapshot ? null : await handleSave();
     const id = savedId ?? saved?.id;
     const lineId = cell.id ?? saved?.days?.filter((line) => line.day_of_week === day && line.meal_type === meal)
@@ -479,8 +526,8 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: string | "new"; r
             <input value={name} onChange={(e) => setName(e.target.value)} readOnly={readOnly}
               className="text-xl font-extrabold text-warm-900 tracking-tight bg-transparent border-b border-dashed border-warm-200 focus:border-emerald-500 focus:outline-none read-only:border-transparent" />
             <div className="flex items-center gap-2 mt-1">
-              {isActive && <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">Active</span>}
-              <span className="text-xs text-warm-400">{savedId ? `Cycle #${savedId}` : "Unsaved draft"}</span>
+              {!isTemplate && isActive && <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">Active</span>}
+              <span className="text-xs text-warm-400">{savedId ? `${isTemplate ? "Template" : "Cycle"} #${savedId}` : `Unsaved ${isTemplate ? "template" : "draft"}`}</span>
             </div>
           </div>
         </div>
@@ -488,8 +535,8 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: string | "new"; r
           <span className="text-xs font-bold uppercase tracking-wider text-warm-400 border border-warm-200 rounded-lg px-3 py-2 shrink-0">View only</span>
         ) : (
           <div className="flex flex-wrap items-center gap-2 shrink-0">
-            <button onClick={handleSaveTemplate} className="flex items-center gap-1.5 text-sm font-semibold text-warm-600 border border-warm-200 rounded-lg px-3 py-2 hover:bg-warm-50 cursor-pointer"><BookmarkPlus className="h-3.5 w-3.5" /> Save as Template</button>
-            <button onClick={handleActivate} className="flex items-center gap-1.5 text-sm font-semibold text-emerald-700 border border-emerald-200 rounded-lg px-3 py-2 hover:bg-emerald-50 cursor-pointer"><Zap className="h-3.5 w-3.5" /> Activate</button>
+            {!isTemplate && <button onClick={handleSaveTemplate} className="flex items-center gap-1.5 text-sm font-semibold text-warm-600 border border-warm-200 rounded-lg px-3 py-2 hover:bg-warm-50 cursor-pointer"><BookmarkPlus className="h-3.5 w-3.5" /> Save as Template</button>}
+            {!isTemplate && <button onClick={handleActivate} className="flex items-center gap-1.5 text-sm font-semibold text-emerald-700 border border-emerald-200 rounded-lg px-3 py-2 hover:bg-emerald-50 cursor-pointer"><Zap className="h-3.5 w-3.5" /> Activate</button>}
             <Button variant="primary" onClick={() => handleSave()} loading={busy} className="px-4 py-2 flex items-center gap-2"><Save className="h-4 w-4" /> Save</Button>
           </div>
         )}
@@ -499,7 +546,12 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: string | "new"; r
 
       {/* Settings */}
       <div className="bg-white border border-warm-200 rounded-2xl p-5 shadow-sm grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {[
+        {isTemplate ? (
+          <div className="sm:col-span-2">
+            <label className="block text-xs font-extrabold text-warm-500 uppercase tracking-wider mb-1">Description</label>
+            <textarea value={description} onChange={(e) => setDescription(e.target.value)} readOnly={readOnly} rows={2} className="w-full rounded-lg border border-warm-200 px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-emerald-500 read-only:bg-warm-50" />
+          </div>
+        ) : [
           { label: "Week start (Mon)", value: weekStart, set: setWeekStart, type: "date" },
         ].map((f) => (
           <div key={f.label}>
@@ -528,7 +580,7 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: string | "new"; r
                     {/* Served (actual) population for this day — the real headcount FSS/RND
                         log on/after the day. Summed across the span it completes the food PO
                         and yields its actual budget/head. Editable by both roles. */}
-                    {savedId && weekStart && (
+                    {!isTemplate && savedId && weekStart && (
                       <div className="mt-1 normal-case">
                         {editingServed === d ? (
                           <div className="flex items-center gap-1">
@@ -599,8 +651,9 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: string | "new"; r
                             <div className="flex items-start justify-between gap-1">
                               <button
                                 onClick={() => openSlot(d, m, cell, lineIndex)}
-                                title="Open menu item details"
-                                className="min-h-11 flex-1 text-xs font-semibold text-emerald-800 leading-tight text-left hover:underline cursor-pointer">
+                                disabled={isTemplate}
+                                title={isTemplate ? "Template menu item" : "Open menu item details"}
+                                className="min-h-11 flex-1 text-xs font-semibold text-emerald-800 leading-tight text-left enabled:hover:underline enabled:cursor-pointer">
                                 {cell.recipe_name}
                               </button>
                               {!readOnly && (
@@ -609,7 +662,7 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: string | "new"; r
                             </div>
                             {cell.portion_label && <div className="text-xs font-medium text-emerald-700">{cell.portion_label}</div>}
                             <div className="text-xs text-emerald-500 mt-1">
-                              {cell.po_snapshot ? "Locked to PO · open details" : `Line ${lineIndex + 1} · open details`}
+                              {isTemplate ? `Line ${lineIndex + 1}` : cell.po_snapshot ? "Locked to PO · open details" : `Line ${lineIndex + 1} · open details`}
                             </div>
                             {cell.hasRecipeOverride && <span className="mt-1 inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-800">Customized item</span>}
                           </div>
@@ -681,7 +734,7 @@ function CycleEditor({ cycleId, readOnly, onBack }: { cycleId: string | "new"; r
 // ═══ ROOT ═══════════════════════════════════════════════════════════════════════
 export default function MenuCyclePage() {
   const searchParams = useSearchParams();
-  const [view, setView] = useState<{ mode: "list" } | { mode: "edit"; id: string | "new" } | { mode: "loading" }>({ mode: "loading" });
+  const [view, setView] = useState<{ mode: "list" } | { mode: "edit" | "template"; id: string | "new" } | { mode: "loading" }>({ mode: "loading" });
   const { user } = useAuth();
   // FSS may VIEW menu cycles but never author them (RND owns writes). Backend already
   // enforces this; here we render a read-only editor so FSS sees no edit affordances.
@@ -714,5 +767,14 @@ export default function MenuCyclePage() {
   if (view.mode === "edit") {
     return <CycleEditor cycleId={view.id} readOnly={readOnly} onBack={() => setView({ mode: "list" })} />;
   }
-  return <CycleList readOnly={readOnly} onOpen={(id) => setView({ mode: "edit", id })} onNew={() => setView({ mode: "edit", id: "new" })} />;
+  if (view.mode === "template") {
+    return <CycleEditor kind="template" cycleId={view.id} readOnly={readOnly} onBack={() => setView({ mode: "list" })} />;
+  }
+  return <CycleList
+    readOnly={readOnly}
+    onOpen={(id) => setView({ mode: "edit", id })}
+    onNew={() => setView({ mode: "edit", id: "new" })}
+    onOpenTemplate={(id) => setView({ mode: "template", id })}
+    onNewTemplate={() => setView({ mode: "template", id: "new" })}
+  />;
 }

@@ -245,7 +245,14 @@ export interface SaveCyclePayload {
 export interface TemplateListItem { id: string; name: string; description: string | null; cycle_days: number; days_count: number; updated_at: string }
 export interface TemplateDetail {
   id: string; name: string; description: string | null; cycle_days: number;
-  days: Array<{ day_of_week: Day; meal_type: Meal; line_order: number; recipe_id: string | null; fs_item_id: string | null; quantity: number; recipe?: { id: string; name: string } | null }>;
+  days: Array<{ day_of_week: Day; meal_type: Meal; line_order: number; recipe_id: string | null; fs_item_id: string | null; quantity: number; recipe?: { id: string; name: string } | null; fs_item?: { id: string; name: string } | null }>;
+}
+
+export interface SaveTemplatePayload {
+  name: string;
+  description?: string | null;
+  cycle_days?: number;
+  days?: Array<Pick<MenuDay, "day_of_week" | "meal_type" | "line_order" | "recipe_id" | "fs_item_id" | "quantity">>;
 }
 
 async function json<T>(res: Response, fallback: string): Promise<T> {
@@ -365,6 +372,15 @@ export async function listTemplates(page = 1): Promise<{ data: TemplateListItem[
 export async function getTemplate(id: string): Promise<TemplateDetail> {
   const res = await apiFetch(`/api/fss/menu-cycle-templates/${id}`);
   return json<TemplateDetail>(res, "Failed to load template.");
+}
+
+export async function saveTemplate(id: string | null, payload: SaveTemplatePayload): Promise<TemplateDetail> {
+  const res = await apiFetch(id ? `/api/fss/menu-cycle-templates/${id}` : "/api/fss/menu-cycle-templates", {
+    method: id ? "PATCH" : "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  return json<TemplateDetail>(res, "Failed to save template.");
 }
 
 export async function instantiateTemplate(id: string, payload: { name?: string; week_start_date?: string | null }): Promise<{ id: string; name: string }> {

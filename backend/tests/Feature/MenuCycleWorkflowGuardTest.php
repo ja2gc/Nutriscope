@@ -90,6 +90,30 @@ class MenuCycleWorkflowGuardTest extends TestCase
         $this->assertSame('Standard ward menu', $template->fresh()->name);
     }
 
+    public function test_template_detail_uses_public_item_ids_that_round_trip_through_update(): void
+    {
+        $item = FsItem::factory()->create();
+        $templateId = $this->actingAs($this->rnd)->postJson('/api/fss/menu-cycle-templates', [
+            'name' => 'Editable template',
+            'days' => [[
+                'day_of_week' => 'Monday',
+                'meal_type' => 'lunch',
+                'fs_item_id' => $item->uuid,
+                'quantity' => 2,
+            ]],
+        ])->assertCreated()->json('data.id');
+
+        $day = $this->getJson("/api/fss/menu-cycle-templates/{$templateId}")
+            ->assertOk()
+            ->assertJsonPath('data.days.0.fs_item_id', $item->uuid)
+            ->json('data.days.0');
+
+        $this->patchJson("/api/fss/menu-cycle-templates/{$templateId}", [
+            'name' => 'Edited template',
+            'days' => [$day],
+        ])->assertOk()->assertJsonPath('data.name', 'Edited template');
+    }
+
     public function test_incomplete_cycle_cannot_be_activated(): void
     {
         $item = FsItem::factory()->create();
