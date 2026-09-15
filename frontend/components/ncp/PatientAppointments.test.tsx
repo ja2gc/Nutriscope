@@ -40,7 +40,8 @@ describe("PatientAppointments", () => {
     expect(container.textContent).toContain("Outcome reason: Patient Left");
     expect(container.textContent).toContain("Rescheduled replacement");
     expect(container.textContent).toContain("Administered by: Dr. Ana Reyes");
-    expect(container.querySelector('a[href="/ncp/patient-1/assessment/cycle-1"]')).not.toBeNull();
+    expect(container.querySelector('a[href="/ncp/patient-1/assessment/cycle-1"]')).toBeNull();
+    expect(container.textContent).toContain("Linked ADIME cycle: Past record");
     expect(container.textContent).toContain("Page 1 of 1");
   });
 

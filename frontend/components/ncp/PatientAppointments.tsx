@@ -97,7 +97,7 @@ export function PatientAppointments({
     } finally { setBusy(null); }
   }
 
-  function list(rows: NcpAppointment[]) {
+  function list(rows: NcpAppointment[], pastSection = false) {
     if (rows.length === 0) return <p className="rounded-xl border border-warm-200 bg-warm-50 p-4 text-sm text-warm-500">No appointments in this section.</p>;
     return <div className="space-y-2">{rows.map((item) => (
       <div key={item.id} className={`rounded-xl border bg-white p-4 ${targetAppointmentId === item.id ? "border-emerald-400 ring-2 ring-emerald-100" : "border-warm-200"}`}>
@@ -109,7 +109,9 @@ export function PatientAppointments({
             {item.rescheduled_from_id && <p className="mt-1 text-xs text-warm-500">Rescheduled replacement</p>}
             {reasonLabel(item.reason_code) && <p className="mt-1 text-xs text-warm-500">Outcome reason: {reasonLabel(item.reason_code)}</p>}
             <p className="mt-1 text-xs text-warm-500">Administered by: {item.administered_by?.display_name ?? "Not started"}</p>
-            {item.ncp_record_id && <Link href={`/ncp/${patientId}/assessment/${item.ncp_record_id}`} className="mt-2 inline-block text-xs font-bold text-emerald-700 underline">Open linked ADIME cycle</Link>}
+            {item.ncp_record_id && (pastSection
+              ? <p className="mt-2 text-xs font-bold text-warm-500">Linked ADIME cycle: Past record</p>
+              : <Link href={`/ncp/${patientId}/assessment/${item.ncp_record_id}`} className="mt-2 inline-block text-xs font-bold text-emerald-700 underline">Open linked ADIME cycle</Link>)}
             {item.worked_on.length > 0 && <p className="mt-1 text-xs text-warm-500">Work recorded: {item.worked_on.join(", ")}</p>}
           </div>
           {item.status === "scheduled" && <div className="flex items-center gap-2">
@@ -144,6 +146,6 @@ export function PatientAppointments({
     </div>}
     {error && <p className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p>}
     <section className="space-y-2"><h4 className="flex items-center gap-2 text-sm font-bold text-warm-800"><CalendarDays className="h-4 w-4" /> Upcoming Appointments</h4>{list(upcoming)}<Pagination meta={upcomingMeta} page={upcomingPage} onPageChange={setUpcomingPage} /></section>
-    <section className="space-y-2"><h4 className="text-sm font-bold text-warm-800">Past Appointments</h4>{list(past)}<Pagination meta={pastMeta} page={pastPage} onPageChange={setPastPage} /></section>
+    <section className="space-y-2"><h4 className="text-sm font-bold text-warm-800">Past Appointments</h4>{list(past, true)}<Pagination meta={pastMeta} page={pastPage} onPageChange={setPastPage} /></section>
   </div>;
 }
