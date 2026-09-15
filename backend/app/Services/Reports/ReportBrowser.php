@@ -6,9 +6,9 @@ use App\Models\DietListCount;
 use App\Models\MealPlan;
 use App\Models\MenuCycle;
 use App\Models\NcpRecord;
-use App\Models\Patient;
 use App\Models\PurchaseOrder;
 use App\Services\Reports\Contracts\InstanceSource;
+use App\Services\Reports\Instances\DemographicCensusInstanceSource;
 use App\Services\Reports\Instances\EntityInstanceSource;
 use App\Services\Reports\Instances\PeriodInstanceSource;
 use Illuminate\Support\Facades\Auth;
@@ -28,10 +28,7 @@ class ReportBrowser
     {
         $this->sources = [
             // ── period axis (year → month) ───────────────────────────────────
-            'demographic_census' => fn () => new PeriodInstanceSource(
-                fn () => Patient::query(),
-                'admission_date',
-            ),
+            'demographic_census' => fn () => new DemographicCensusInstanceSource,
 
             // ── entity axis ──────────────────────────────────────────────────
             'procurement_pack' => fn () => new EntityInstanceSource(

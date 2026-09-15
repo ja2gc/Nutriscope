@@ -3,6 +3,7 @@
 namespace App\Services\Reports\Generators;
 
 use App\Models\Assessment;
+use App\Models\DemographicCensusPeriod;
 use App\Models\NcpRecord;
 use App\Models\Patient;
 use App\Models\Report;
@@ -47,6 +48,26 @@ class DemographicCensusGenerator implements ReportGenerator
         $start = Carbon::parse($params['start']);
         $end = Carbon::parse($params['end']);
 
+        $stored = DemographicCensusPeriod::query()
+            ->whereDate('period_start', $start->toDateString())
+            ->whereDate('period_end', $end->toDateString())
+            ->first();
+
+        $census = $stored?->census ?? $this->currentCensus($start, $end);
+
+        return [
+            'census' => $census,
+            'inclusive_start' => $start->toDateString(),
+            'inclusive_end' => $end->toDateString(),
+            'inclusive_label' => $start->format('m/d/y').' - '.$end->format('m/d/y'),
+            'age_groups' => self::AGE_GROUPS,
+        ];
+    }
+
+    /** @return array<string,mixed> */
+    public function currentCensus(Carbon $start, Carbon $end): array
+    {
+
         $patients = Patient::query()
             ->whereBetween('admission_date', [$start->toDateString(), $end->toDateString()])
             ->get()
@@ -62,13 +83,7 @@ class DemographicCensusGenerator implements ReportGenerator
                 'risk_level' => $this->latestRiskLevel($p->id),
             ])->all();
 
-        return [
-            'census' => self::aggregate($patients),
-            'inclusive_start' => $start->toDateString(),
-            'inclusive_end' => $end->toDateString(),
-            'inclusive_label' => $start->format('m/d/y').' - '.$end->format('m/d/y'),
-            'age_groups' => self::AGE_GROUPS,
-        ];
+        return self::aggregate($patients);
     }
 
     /** Most-recent assessment nutritional_status for a patient, or null. */

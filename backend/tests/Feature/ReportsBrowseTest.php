@@ -14,7 +14,9 @@ use App\Models\ReportBranding;
 use App\Models\Supplier;
 use App\Models\User;
 use App\Services\Reports\ReportService;
+use App\Services\Reports\StoreMonthlyDemographicCensuses;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -141,6 +143,7 @@ class ReportsBrowseTest extends TestCase
     public function test_rnd_can_browse_render_and_archive_another_rnds_clinical_context(): void
     {
         Storage::fake('public');
+        Storage::fake('private_uploads');
         $creator = User::factory()->rnd()->create();
         $patient = Patient::factory()->create(['admission_date' => '2026-05-10']);
         $ncp = NcpRecord::factory()->create([
@@ -152,6 +155,7 @@ class ReportsBrowseTest extends TestCase
             'intervention_id' => $intervention->id,
             'patient_id' => $patient->id,
         ]);
+        app(StoreMonthlyDemographicCensuses::class)->handle(Carbon::parse('2026-06-01', 'Asia/Manila'));
 
         $this->actingAs($this->rnd, 'sanctum');
         $this->getJson('/api/rnd/reports/ncp_summary/instances')
@@ -166,8 +170,8 @@ class ReportsBrowseTest extends TestCase
 
         $reports = $this->createMock(ReportService::class);
         $reports->method('supports')->willReturn(true);
-        $reports->method('streamBytes')->willReturn('%PDF-shared-context');
-        $reports->method('buildPdf')->willReturn(['bytes' => '%PDF-shared-context', 'meta' => []]);
+        $reports->method('streamBytes')->willReturn("%PDF-1.4\nshared context\n%%EOF");
+        $reports->method('buildPdf')->willReturn(['bytes' => "%PDF-1.4\nshared context\n%%EOF", 'meta' => []]);
         $reports->method('signatoriesFor')->willReturn([]);
         $reports->method('generate')->willReturnCallback(function (Report $report): string {
             $path = "reports/{$report->uuid}.pdf";
