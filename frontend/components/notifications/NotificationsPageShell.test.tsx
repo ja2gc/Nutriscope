@@ -44,4 +44,13 @@ describe("NotificationsPageShell", () => {
     expect(dismissMock).toHaveBeenCalledWith("info-1");
     expect(container.textContent).not.toContain("Policy update");
   });
+
+  it("keeps read and unread notification cards white", async () => {
+    await act(async () => root.render(<NotificationsPageShell role="RND" />));
+
+    const cards = Array.from(container.querySelectorAll("article"));
+    expect(cards).toHaveLength(2);
+    expect(cards.every((card) => card.className.includes("bg-white"))).toBe(true);
+    expect(cards.every((card) => !card.className.includes("bg-emerald"))).toBe(true);
+  });
 });

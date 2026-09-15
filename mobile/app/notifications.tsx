@@ -159,11 +159,7 @@ export default function NotificationsScreen() {
 
   const renderItem = useCallback(
     ({ item }: { item: Notification }) => (
-      <View
-        className={`flex-row items-start px-4 py-4 mb-3 rounded-2xl border ${
-          item.read ? 'bg-white border-[#E2EAE5]' : 'bg-[#EAF7F1] border-[#BFE3D3]'
-        }`}
-      >
+      <View className="flex-row items-start px-4 py-4 mb-3 rounded-2xl border bg-white border-[#E2EAE5]">
       <TouchableOpacity
         onPress={() => {
           const target = mobileNotificationTarget({

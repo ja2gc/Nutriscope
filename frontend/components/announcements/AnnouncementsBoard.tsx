@@ -20,7 +20,7 @@ import {
   updateAnnouncement,
   deleteAnnouncement,
 } from "@/services/announcementService";
-import { Megaphone, PencilLine, Trash2, X } from "lucide-react";
+import { PencilLine, Trash2, X } from "lucide-react";
 import { SopBanner } from "./SopBanner";
 
 // Shared category pill styles — exported so other files (e.g. the RND dashboard)
@@ -423,7 +423,7 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
               <h3 className="text-sm font-bold text-warm-900 uppercase tracking-[0.18em]">
                 Announcement
               </h3>
-              <div className="flex items-center gap-2">
+              <div className="flex max-w-full flex-wrap items-center justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => openEdit(selectedPost)}
@@ -516,8 +516,7 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
 
       <div className="border-b border-warm-200 pb-5 flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-xl font-extrabold text-warm-900 tracking-tight flex items-center gap-2.5">
-            <Megaphone className="h-5 w-5 text-emerald-600" />
+          <h2 className="text-xl font-extrabold text-warm-900 tracking-tight">
             Announcements
           </h2>
           {subtitle && <p className="text-sm text-warm-500 mt-1 select-none">{subtitle}</p>}
@@ -589,7 +588,7 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2">
+                      <div className="flex max-w-full flex-wrap items-center justify-end gap-2">
                         {post.pinned && (
                           <span className="inline-flex px-2.5 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider border bg-orange-50 text-[#EA580C] border-orange-200">
                             Pinned

@@ -843,7 +843,7 @@ export default function RndDashboardPage() {
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex max-w-full flex-wrap items-center justify-end gap-1.5">
                             {post.pinned && (
                               <span className="inline-flex rounded-full border border-orange-200 bg-orange-50 px-2 py-0.5 text-xs font-extrabold uppercase tracking-wider text-[#EA580C]">
                                 Pinned
