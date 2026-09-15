@@ -8,6 +8,7 @@ artifacts/tsbuild/
 
 # Local agent / skill tooling (per-machine installs, not project code)
 /.agents/*
+!/.agents/AGENTS.md
 !/.agents/rules/
 !/.agents/rules/**
 /.claude/
