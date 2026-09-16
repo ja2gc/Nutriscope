@@ -283,7 +283,7 @@ export default function AdminDashboardPage() {
           </div>
 
           {/* Inline edit */}
-          <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,16rem),1fr))] gap-3">
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,15rem),1fr))] gap-3">
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-warm-500 mb-1">
                 Daily limit (tokens)

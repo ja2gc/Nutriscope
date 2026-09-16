@@ -24,6 +24,7 @@ describe("dashboard presentation contract", () => {
 
     expect(dashboard).toContain("grid-cols-[repeat(auto-fit,minmax(min(100%,13rem),1fr))]");
     expect(dashboard).toContain("grid-cols-[repeat(auto-fit,minmax(min(100%,16rem),1fr))]");
+    expect(dashboard).toMatch(/\{\/\* Inline edit \*\/\}[\s\S]{0,160}grid-cols-\[repeat\(auto-fit,minmax\(min\(100%,15rem\),1fr\)\)\]/);
     expect(dashboard).not.toMatch(/<(LayoutDashboard|Cpu|Activity)\b/);
     expect(dashboard).not.toContain("Refreshing...");
   });
