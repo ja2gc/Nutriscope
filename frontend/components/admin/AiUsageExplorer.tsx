@@ -301,7 +301,12 @@ export function AiUsageExplorer({
               ))}
             </ul>
             <div className={view === "month" ? "h-72 min-w-[760px]" : "h-72 min-w-[560px]"}>
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer
+                width="100%"
+                height="100%"
+                minWidth={0}
+                initialDimension={{ width: view === "month" ? 760 : 560, height: 288 }}
+              >
                 <BarChart data={chartData} margin={{ top: 12, right: 8, left: 4, bottom: 0 }} accessibilityLayer>
                   <CartesianGrid vertical={false} stroke="#e7e5df" />
                   <XAxis

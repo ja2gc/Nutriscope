@@ -15,12 +15,15 @@ describe("dashboard presentation contract", () => {
     expect(dashboard).toContain("Go to announcement");
     expect(dashboard).not.toContain("pendingKpi.sub");
     expect(dashboard).not.toMatch(/<(Compass|HeartHandshake|Calendar|TrendingUp)\b/);
+    expect(dashboard).toContain("grid-cols-[repeat(auto-fit,minmax(min(100%,13rem),1fr))]");
+    expect(dashboard).not.toContain("xl:h-[480px]");
   });
 
-  test("Admin dashboard has no decorative title or card icons and uses two mobile columns", () => {
+  test("Admin dashboard has no decorative title or card icons and packs cards by minimum width", () => {
     const dashboard = source("app/admin/dashboard/page.tsx");
 
-    expect(dashboard).toContain("grid grid-cols-2 lg:grid-cols-4");
+    expect(dashboard).toContain("grid-cols-[repeat(auto-fit,minmax(min(100%,13rem),1fr))]");
+    expect(dashboard).toContain("grid-cols-[repeat(auto-fit,minmax(min(100%,16rem),1fr))]");
     expect(dashboard).not.toMatch(/<(LayoutDashboard|Cpu|Activity)\b/);
     expect(dashboard).not.toContain("Refreshing...");
   });

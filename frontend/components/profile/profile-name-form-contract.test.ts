@@ -6,6 +6,10 @@ const profile = readFileSync(join(process.cwd(), "components/profile/ProfilePage
 const topBar = readFileSync(join(process.cwd(), "components/layout/TopBar.tsx"), "utf8");
 
 describe("profile split-name form", () => {
+  test("packs settings cards responsively on desktop", () => {
+    expect(profile).toContain("grid-cols-[repeat(auto-fit,minmax(min(100%,20rem),1fr))]");
+  });
+
   test("shows separate optional edit fields and omits an untouched legacy name", () => {
     expect(profile).toContain('const [firstName, setFirstName] = useState("")');
     expect(profile).toContain('const [lastName, setLastName] = useState("")');

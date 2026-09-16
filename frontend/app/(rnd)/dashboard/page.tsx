@@ -621,7 +621,7 @@ export default function RndDashboardPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,13rem),1fr))] gap-4">
         <div className="bg-white border border-warm-200 rounded-2xl p-4 flex items-center justify-between shadow-sm">
           <div>
             <span className="text-xs font-extrabold text-warm-400 uppercase tracking-wider block">
@@ -654,9 +654,9 @@ export default function RndDashboardPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.12fr)_minmax(380px,0.88fr)] gap-6 items-start">
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,24rem),1fr))] gap-6 items-start">
         <div className="space-y-4">
-          <div className="bg-white border border-warm-200 rounded-3xl overflow-hidden shadow-sm xl:h-[480px] flex flex-col">
+          <div className="bg-white border border-warm-200 rounded-3xl overflow-hidden shadow-sm flex flex-col">
             <div className="px-5 py-4 border-b border-warm-100 flex items-center justify-between gap-4">
               <div>
                 <h3 className="text-sm font-bold text-warm-900 uppercase tracking-[0.18em]">
@@ -673,7 +673,7 @@ export default function RndDashboardPage() {
 
             {loading ? (
               <div className="p-5 space-y-4 flex-1 overflow-hidden">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,11rem),1fr))] gap-3">
                   {[1, 2, 3].map((index) => (
                     <div key={index} className="h-20 rounded-2xl bg-warm-100 animate-pulse" />
                   ))}
@@ -696,7 +696,7 @@ export default function RndDashboardPage() {
             ) : (
               <div className="flex min-h-0 flex-1 flex-col">
                 <div className="min-h-0 flex-1 space-y-3 p-4">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,11rem),1fr))] gap-3">
                   <div className="rounded-2xl border border-warm-200 bg-warm-50 p-3">
                     <div className="text-xs font-extrabold text-warm-400 uppercase tracking-wider">
                       Active Patients
@@ -785,7 +785,7 @@ export default function RndDashboardPage() {
           </div>
         </div>
 
-        <div className="bg-white border border-warm-200 rounded-3xl overflow-hidden shadow-sm xl:h-[480px] flex flex-col">
+        <div className="bg-white border border-warm-200 rounded-3xl overflow-hidden shadow-sm flex flex-col">
           <div className="px-5 py-4 border-b border-warm-100 flex items-center justify-between gap-4">
             <div>
               <h3 className="text-sm font-bold text-warm-900 uppercase tracking-[0.18em]">

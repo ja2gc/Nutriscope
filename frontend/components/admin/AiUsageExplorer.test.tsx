@@ -2,6 +2,8 @@
 
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { fetchAiUsageAnalytics } from "@/services/aiUsageAnalyticsService";
 import { AiUsageExplorer, AiUsageTooltip } from "./AiUsageExplorer";
@@ -60,6 +62,12 @@ describe("AiUsageExplorer", () => {
     expect(container.textContent).not.toContain("Not occurred yet");
     expect(container.textContent).not.toContain("Token totals are exact");
     expect(container.textContent).not.toContain("Estimated cost");
+  });
+
+  test("keeps the responsive chart width nonnegative while its container measures", () => {
+    const source = readFileSync(join(process.cwd(), "components/admin/AiUsageExplorer.tsx"), "utf8");
+
+    expect(source).toContain('initialDimension={{ width: view === "month" ? 760 : 560, height: 288 }}');
   });
 
   test("tooltip shows the token split and a clearly labeled estimated cost", async () => {

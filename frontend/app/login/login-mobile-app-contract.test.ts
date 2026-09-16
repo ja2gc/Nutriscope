@@ -6,6 +6,13 @@ const frontend = path.resolve(__dirname, "../..");
 const read = (relative: string) => fs.readFileSync(path.join(frontend, relative), "utf8");
 
 describe("login native-app entry contract", () => {
+  it("landing page uses icon-free feature copy and centers the sign-in heading", () => {
+    const login = read("app/login/page.tsx");
+
+    expect(login).not.toMatch(/HeartPulse|Salad|ShieldCheck/);
+    expect(login).toContain('className="text-center"');
+  });
+
   it("routes each authenticated role to its own surface", () => {
     const login = read("app/login/page.tsx");
     const root = read("app/page.tsx");

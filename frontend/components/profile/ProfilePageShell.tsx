@@ -192,7 +192,7 @@ export function ProfilePageShell({ crumbs, subtitle, fallbackRole }: ProfilePage
         subtitle={subtitle}
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,20rem),1fr))] gap-6 items-start">
         <Card className="p-6">
           <div className="mb-5 flex items-center justify-between gap-3">
             <h3 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-warm-900">

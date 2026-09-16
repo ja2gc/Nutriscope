@@ -8,21 +8,12 @@ import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Logo } from "@/components/ui/Logo";
 import { FssAppAccess } from "@/components/mobile-app/FssAppAccess";
-import { AlertTriangle, HeartPulse, Salad, ShieldCheck } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 
 const featureItems = [
-  {
-    icon: HeartPulse,
-    text: "Run the full Nutrition Care Process",
-  },
-  {
-    icon: Salad,
-    text: "Plan menus and track budget down to the last PHP",
-  },
-  {
-    icon: ShieldCheck,
-    text: "Food service & kitchen operations",
-  },
+  "Run the full Nutrition Care Process",
+  "Plan menus and track budget down to the last PHP",
+  "Food service & kitchen operations",
 ];
 
 export default function LoginPage() {
@@ -90,14 +81,9 @@ export default function LoginPage() {
           </h1>
 
           <div className="flex flex-col gap-3 pt-2">
-            {featureItems.map(({ icon: Icon, text }) => (
-              <div key={text} className="flex max-w-md items-start gap-3">
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-lime-300/18 text-lime-200 ring-1 ring-white/10">
-                  <Icon className="h-4 w-4" />
-                </span>
-                <span className="pt-1.5 text-base font-semibold leading-snug text-white drop-shadow-[0_2px_5px_rgba(0,0,0,0.45)]">
-                  {text}
-                </span>
+            {featureItems.map((text) => (
+              <div key={text} className="max-w-md border-l-2 border-lime-200/70 pl-4 text-base font-semibold leading-snug text-white drop-shadow-[0_2px_5px_rgba(0,0,0,0.45)]">
+                {text}
               </div>
             ))}
           </div>
@@ -111,7 +97,7 @@ export default function LoginPage() {
             <Logo variant="light" />
           </div>
 
-          <div>
+          <div className="text-center">
             <h2 className="text-3xl font-extrabold tracking-tight text-warm-900">
               Welcome back
             </h2>

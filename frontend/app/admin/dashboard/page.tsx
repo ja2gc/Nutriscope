@@ -155,12 +155,12 @@ export default function AdminDashboardPage() {
       <div className="space-y-6 animate-pulse">
         <div className="h-8 w-48 bg-warm-100 rounded-lg" />
         <div className="h-4 w-96 bg-warm-100 rounded-lg" />
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mt-6">
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,13rem),1fr))] gap-3 sm:gap-4 mt-6">
           {[1, 2, 3, 4].map((i) => (
             <div key={i} className="h-24 bg-warm-100 border border-warm-200 rounded-2xl" />
           ))}
         </div>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6 items-start">
           <div className="lg:col-span-2 h-96 bg-warm-100 border border-warm-200 rounded-3xl" />
           <div className="h-96 bg-warm-100 border border-warm-200 rounded-3xl" />
         </div>
@@ -196,7 +196,7 @@ export default function AdminDashboardPage() {
 
       {/* KPI Cards Grid */}
       {dashboardData && (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,13rem),1fr))] gap-3 sm:gap-4">
           <KpiCard
             label="Total Users"
             value={formatNumber(dashboardData.users.total)}
@@ -236,7 +236,7 @@ export default function AdminDashboardPage() {
 
         <div className="p-5 space-y-4">
           {/* Usage rows */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,16rem),1fr))] gap-3">
             {/* Daily */}
             {(() => {
               const used = aiLimits?.daily_used ?? 0;
@@ -283,7 +283,7 @@ export default function AdminDashboardPage() {
           </div>
 
           {/* Inline edit */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,16rem),1fr))] gap-3">
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-warm-500 mb-1">
                 Daily limit (tokens)
@@ -365,9 +365,9 @@ export default function AdminDashboardPage() {
       </div>
 
       {/* Main Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
         {/* Left: AI usage chart + Quick Actions */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="lg:col-span-2 space-y-6 min-w-0">
           <AiUsageExplorer
             inputCostPer1mTokensUsd={inputCostPer1mTokensUsd}
             outputCostPer1mTokensUsd={outputCostPer1mTokensUsd}
@@ -378,10 +378,10 @@ export default function AdminDashboardPage() {
             <h3 className="text-sm font-bold text-warm-900 uppercase tracking-[0.18em] mb-4">
               Quick Actions
             </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,12rem),1fr))] gap-3">
               <Link
                 href="/admin/users"
-                className="group min-h-24 rounded-2xl border border-warm-200 bg-warm-50 p-4 flex items-center hover:border-warm-300 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 transition-all"
+                className="group rounded-2xl border border-warm-200 bg-warm-50 p-4 flex items-center hover:border-warm-300 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 transition-all"
               >
                 <div>
                   <div className="text-sm font-bold text-warm-800 group-hover:text-emerald-700 transition-colors">Manage Accounts</div>
@@ -390,7 +390,7 @@ export default function AdminDashboardPage() {
 
               <Link
                 href="/admin/audit-logs"
-                className="group min-h-24 rounded-2xl border border-warm-200 bg-warm-50 p-4 flex items-center hover:border-warm-300 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 transition-all"
+                className="group rounded-2xl border border-warm-200 bg-warm-50 p-4 flex items-center hover:border-warm-300 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 transition-all"
               >
                 <div>
                   <div className="text-sm font-bold text-warm-800 group-hover:text-amber-700 transition-colors">Audit Log Browser</div>
@@ -399,7 +399,7 @@ export default function AdminDashboardPage() {
 
               <Link
                 href="/admin/announcements"
-                className="group min-h-24 rounded-2xl border border-warm-200 bg-warm-50 p-4 flex items-center hover:border-warm-300 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 transition-all"
+                className="group rounded-2xl border border-warm-200 bg-warm-50 p-4 flex items-center hover:border-warm-300 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 transition-all"
               >
                 <div>
                   <div className="text-sm font-bold text-warm-800 group-hover:text-sky-700 transition-colors">Publish Feed</div>
