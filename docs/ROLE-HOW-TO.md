@@ -150,11 +150,12 @@ Verified against current navigation and server permissions on **2026-09-08**. Fo
 
 1. Open **Reports → Browse**.
 2. Choose Food Service or Clinical report type.
-3. Select the record/period and open live preview.
-4. Validate data and branding.
-5. Download live output when appropriate, or **Archive** to freeze the formally filed copy.
-6. Use **Archived** to view/download frozen copies and activity history.
-7. Use **Template Edit** to maintain report branding/signatories when authorized.
+3. For **Patients NCP** under Clinical, choose the patient, choose one ADIME cycle, then open only the reports filed under that cycle.
+4. For other report types, select the record/period and open live preview.
+5. Validate data and branding.
+6. Download live output when appropriate, or **Archive** to freeze the formally filed copy.
+7. Use **Archived** to view/download frozen copies and activity history.
+8. Use **Template Edit** to maintain report branding/signatories when authorized.
 
 ### 7. Help, Notifications, Settings, and Profile
 

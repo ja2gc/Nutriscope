@@ -3,6 +3,7 @@
 namespace App\Services\Reports;
 
 use App\Models\DemographicCensusPeriod;
+use App\Models\Patient;
 use App\Services\Reports\Generators\DemographicCensusGenerator;
 use Illuminate\Support\Carbon;
 
@@ -13,10 +14,17 @@ class StoreMonthlyDemographicCensuses
     /** @return array{stored:int,skipped:int} */
     public function handle(Carbon $now): array
     {
-        $cursor = Carbon::parse(
+        $configuredStart = Carbon::parse(
             config('nutriscope-reports.demographic_census_start'),
             $now->getTimezone(),
         )->startOfMonth();
+        $firstAdmission = Patient::query()->whereNotNull('admission_date')->min('admission_date');
+        if ($firstAdmission === null) {
+            return ['stored' => 0, 'skipped' => 0];
+        }
+
+        $firstPatientMonth = Carbon::parse($firstAdmission, $now->getTimezone())->startOfMonth();
+        $cursor = $firstPatientMonth->greaterThan($configuredStart) ? $firstPatientMonth : $configuredStart;
         $lastCompletedMonth = $now->copy()->startOfMonth()->subMonth();
         $stored = 0;
         $skipped = 0;

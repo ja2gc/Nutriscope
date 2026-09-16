@@ -4,6 +4,8 @@ namespace Tests\Feature;
 
 use App\Models\AuditActivity;
 use App\Models\DietListCount;
+use App\Models\Intervention;
+use App\Models\MealPlan;
 use App\Models\NcpRecord;
 use App\Models\Patient;
 use App\Models\Report;
@@ -231,5 +233,39 @@ class ReportControllerTest extends TestCase
         $this->actingAs($this->rnd, 'sanctum')
             ->post('/api/rnd/reports/accomplishment_report/prepare?start=2026-06-10&end=2026-06-10')
             ->assertOk();
+    }
+
+    public function test_patient_report_browser_groups_reports_by_adime_cycle(): void
+    {
+        $patient = Patient::factory()->create();
+        $completed = NcpRecord::factory()->for($patient)->create([
+            'rnd_user_id' => $this->rnd->id,
+            'status' => 'completed',
+            'created_at' => '2026-08-01 08:00:00',
+        ]);
+        $current = NcpRecord::factory()->for($patient)->create([
+            'rnd_user_id' => $this->rnd->id,
+            'status' => 'active',
+            'created_at' => '2026-09-01 08:00:00',
+        ]);
+        $currentIntervention = Intervention::factory()->for($current)->create();
+        $completedIntervention = Intervention::factory()->for($completed)->create();
+        $currentPlan = MealPlan::factory()->for($patient)->for($currentIntervention)->create(['week_start_date' => '2026-09-07']);
+        $completedPlan = MealPlan::factory()->for($patient)->for($completedIntervention)->create(['week_start_date' => '2026-08-03']);
+
+        $response = $this->actingAs($this->rnd, 'sanctum')
+            ->getJson("/api/rnd/reports/patients/{$patient->uuid}/instances")
+            ->assertOk()
+            ->assertJsonCount(2, 'data')
+            ->assertJsonPath('data.0.id', $current->uuid)
+            ->assertJsonPath('data.0.status', 'active')
+            ->assertJsonPath('data.0.reports.0.params.ncp_record_id', $current->uuid)
+            ->assertJsonPath('data.0.reports.1.params.meal_plan_id', $currentPlan->uuid)
+            ->assertJsonPath('data.1.id', $completed->uuid)
+            ->assertJsonPath('data.1.status', 'completed')
+            ->assertJsonPath('data.1.reports.1.params.meal_plan_id', $completedPlan->uuid);
+
+        $this->assertCount(2, $response->json('data.0.reports'));
+        $this->assertCount(2, $response->json('data.1.reports'));
     }
 }

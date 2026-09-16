@@ -136,29 +136,36 @@ class ReportController extends Controller
 
     public function patientInstances(PaginatedRequest $request, Patient $patient): JsonResponse
     {
-        $ncpReports = $patient->ncpRecords()
+        $cycles = $patient->ncpRecords()
+            ->with(['intervention.mealPlans' => fn ($query) => $query->latest('week_start_date')])
+            ->latest('created_at')
             ->get(['id', 'uuid', 'status', 'created_at'])
-            ->map(fn (NcpRecord $record): array => [
-                'key' => 'ncp-'.$record->uuid,
-                'type' => 'ncp_summary',
-                'label' => 'NCP Summary — '.optional($record->created_at)->format('M j, Y'),
-                'status' => $record->status,
-                'date' => $record->created_at?->toIso8601String(),
-                'params' => ['ncp_record_id' => $record->uuid],
-            ]);
-        $menuReports = $patient->mealPlans()
-            ->get(['id', 'uuid', 'status', 'week_start_date', 'created_at'])
-            ->map(fn (MealPlan $plan): array => [
-                'key' => 'menu-'.$plan->uuid,
-                'type' => 'patient_menu_plan',
-                'label' => 'Patient Menu Plan — '.$plan->week_start_date?->format('M j, Y'),
-                'status' => $plan->status,
-                'date' => $plan->created_at?->toIso8601String(),
-                'params' => ['meal_plan_id' => $plan->uuid],
-            ]);
-        $reports = $ncpReports
-            ->concat($menuReports)
-            ->sortByDesc('date')
+            ->map(function (NcpRecord $record): array {
+                $summary = [[
+                    'key' => 'ncp-'.$record->uuid,
+                    'type' => 'ncp_summary',
+                    'label' => 'NCP Summary',
+                    'status' => $record->status,
+                    'date' => $record->created_at?->toIso8601String(),
+                    'params' => ['ncp_record_id' => $record->uuid],
+                ]];
+                $menuPlans = $record->intervention?->mealPlans->map(fn (MealPlan $plan): array => [
+                    'key' => 'menu-'.$plan->uuid,
+                    'type' => 'patient_menu_plan',
+                    'label' => 'Patient Menu Plan — '.$plan->week_start_date?->format('M j, Y'),
+                    'status' => $plan->status,
+                    'date' => $plan->created_at?->toIso8601String(),
+                    'params' => ['meal_plan_id' => $plan->uuid],
+                ])->all() ?? [];
+
+                return [
+                    'id' => $record->uuid,
+                    'label' => 'ADIME Cycle — '.optional($record->created_at)->format('M j, Y'),
+                    'status' => $record->status,
+                    'date' => $record->created_at?->toIso8601String(),
+                    'reports' => array_merge($summary, $menuPlans),
+                ];
+            })
             ->values();
         $page = max(1, $request->integer('page', 1));
         $perPage = $request->perPage();
@@ -170,12 +177,12 @@ class ReportController extends Controller
                 'hospital_number' => $patient->hospital_number,
                 'status' => $patient->status,
             ],
-            'data' => $reports->forPage($page, $perPage)->values(),
+            'data' => $cycles->forPage($page, $perPage)->values(),
             'meta' => [
                 'current_page' => $page,
                 'per_page' => $perPage,
-                'total' => $reports->count(),
-                'last_page' => max(1, (int) ceil($reports->count() / $perPage)),
+                'total' => $cycles->count(),
+                'last_page' => max(1, (int) ceil($cycles->count() / $perPage)),
             ],
         ]);
     }

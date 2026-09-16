@@ -15,13 +15,15 @@ import {
   prepareReport,
   reportDownloadUrl,
   reportViewUrl,
+  type PatientNcpCycle,
   type PatientNcpReportInstance,
 } from "@/services/reportService";
 
 export default function PatientNcpReportsPage() {
   const { patientId } = useParams<{ patientId: string }>();
   const [patient, setPatient] = useState<{ display_name: string; hospital_number: string | null; status: string } | null>(null);
-  const [instances, setInstances] = useState<PatientNcpReportInstance[]>([]);
+  const [cycles, setCycles] = useState<PatientNcpCycle[]>([]);
+  const [selectedCycle, setSelectedCycle] = useState<PatientNcpCycle | null>(null);
   const [meta, setMeta] = useState<PaginationMeta | null>(null);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
@@ -35,7 +37,8 @@ export default function PatientNcpReportsPage() {
     try {
       const result = await listPatientNcpReports(patientId, page);
       setPatient(result.patient);
-      setInstances(result.data);
+      setCycles(result.data);
+      setSelectedCycle((current) => result.data.find((cycle) => cycle.id === current?.id) ?? null);
       setMeta(result.meta);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Failed to load patient reports.");
@@ -62,27 +65,53 @@ export default function PatientNcpReportsPage() {
   return (
     <div className="space-y-6 font-sans">
       <PageHeader
-        crumbs={[["Home", "/dashboard"], ["Reports", "/reports?tab=patients"], [patient?.display_name ?? "Patient NCP"]]}
+        crumbs={[["Home", "/dashboard"], ["Reports", "/reports?type=patients_ncp"], [patient?.display_name ?? "Patient NCP"]]}
         title={patient?.display_name ?? "Patient NCP Reports"}
         subtitle={patient ? [patient.hospital_number, patient.status].filter(Boolean).join(" · ") : undefined}
       />
 
-      <div><Link href="/reports?tab=patients" className="text-sm font-semibold text-emerald-700 hover:text-emerald-800">Back to Patients NCP</Link></div>
+      <div>
+        {selectedCycle ? (
+          <button type="button" onClick={() => setSelectedCycle(null)} className="text-sm font-semibold text-emerald-700 hover:text-emerald-800 cursor-pointer">
+            Back to ADIME cycles
+          </button>
+        ) : (
+          <Link href="/reports?type=patients_ncp" className="text-sm font-semibold text-emerald-700 hover:text-emerald-800">Back to Patients NCP</Link>
+        )}
+      </div>
 
       {error && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">{error}</div>}
 
       <Card className="overflow-hidden">
         <div className="px-5 py-4 border-b border-warm-100">
-          <h2 className="text-base font-bold text-warm-800">NCP Reports</h2>
-          <p className="text-xs text-warm-500 mt-0.5">NCP Summaries and Patient Menu Plans, newest first.</p>
+          <h2 className="text-base font-bold text-warm-800">{selectedCycle ? selectedCycle.label : "Choose an ADIME cycle"}</h2>
+          <p className="text-xs text-warm-500 mt-0.5">
+            {selectedCycle ? "Only reports belonging to this ADIME cycle are shown." : "Current and completed cycles stay separate."}
+          </p>
         </div>
         {loading ? (
           <div className="py-14 flex items-center justify-center gap-2 text-sm text-warm-500"><Loader2 className="h-4 w-4 animate-spin" /> Loading reports…</div>
-        ) : instances.length === 0 ? (
-          <div className="py-12"><EmptyState title="No NCP reports" message="This patient has no NCP Summary or Patient Menu Plan yet." /></div>
+        ) : cycles.length === 0 ? (
+          <div className="py-12"><EmptyState title="No ADIME cycles" message="This patient has no ADIME cycle yet." /></div>
+        ) : selectedCycle === null ? (
+          <ul className="divide-y divide-zinc-100">
+            {cycles.map((cycle) => (
+              <li key={cycle.id} className="flex items-center justify-between gap-3 px-5 py-3.5">
+                <button
+                  type="button"
+                  onClick={() => setSelectedCycle(cycle)}
+                  className="min-w-0 flex-1 text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 rounded-lg"
+                >
+                  <span className="block text-base font-semibold text-warm-900 truncate">{cycle.label}</span>
+                  <span className="block text-xs text-warm-500 mt-0.5">{cycle.reports.length} {cycle.reports.length === 1 ? "report" : "reports"}</span>
+                </button>
+                <Badge tone="zinc">{cycle.status}</Badge>
+              </li>
+            ))}
+          </ul>
         ) : (
           <ul className="divide-y divide-zinc-100">
-            {instances.map((instance) => (
+            {selectedCycle.reports.map((instance: PatientNcpReportInstance) => (
               <li key={instance.key} className="flex items-center justify-between gap-3 px-5 py-3.5">
                 <button
                   type="button"
@@ -100,7 +129,7 @@ export default function PatientNcpReportsPage() {
             ))}
           </ul>
         )}
-        {!loading && <Pagination meta={meta} page={page} onPageChange={setPage} />}
+        {!loading && selectedCycle === null && <Pagination meta={meta} page={page} onPageChange={setPage} />}
       </Card>
 
       {preview && (

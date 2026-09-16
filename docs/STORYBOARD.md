@@ -22,7 +22,7 @@ For the sequential visual version, use the [Screenshot Storyboard Guide](modules
 | 4. Diagnosis | Diagnosis Table and P/E/S builder | Creates PES manually or reviews AI drafts | Saves accepted diagnosis; rejects unsupervised AI automation | Clinical judgment remains with RND |
 | 5. Intervention | Food/Nutrient Delivery, Education, Counseling, Goal Planning, shared Visit Bar | Sets goal/stage, reviews calculated prescription, loads/scales a template or generates with optional snack exclusion, saves supporting intervention work | Backend returns authoritative prescription and preserves template composition while scaling quantities; active visit records which NCP steps changed | Plan turns findings into action |
 | 6. Follow-up | Patient Appointments, Monitoring Visit Log, and Progress Trends | Schedules or starts a walk-in, records outcomes, then finishes or stops the visit | Preserves attendance, purpose, administering RND, cycle link, and work summary | Care becomes iterative without binding visits to one step |
-| 7. Filing | Reports | Opens NCP Summary/Patient Menu Plan, validates, archives | Freezes as-filed copy | Clinical work produces reproducible output |
+| 7. Filing | Reports → Browse → Clinical → Patients NCP | Selects patient and ADIME cycle, opens its NCP Summary/Patient Menu Plan, validates, archives | Keeps cycles separate and freezes as-filed copy | Clinical work produces reproducible output |
 
 ```mermaid
 flowchart LR

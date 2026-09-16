@@ -47,6 +47,14 @@ export interface PatientNcpReportInstance extends ReportInstance {
   status: string;
 }
 
+export interface PatientNcpCycle {
+  id: string;
+  label: string;
+  status: string;
+  date: string | null;
+  reports: PatientNcpReportInstance[];
+}
+
 export interface PatientNcpReportFeed {
   patient: {
     id: string;
@@ -54,7 +62,7 @@ export interface PatientNcpReportFeed {
     hospital_number: string | null;
     status: string;
   };
-  data: PatientNcpReportInstance[];
+  data: PatientNcpCycle[];
   meta: PaginationMeta;
 }
 

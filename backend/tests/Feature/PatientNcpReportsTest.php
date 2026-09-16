@@ -14,7 +14,7 @@ class PatientNcpReportsTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_rnd_lists_one_patients_combined_ncp_reports_newest_first_with_public_ids(): void
+    public function test_rnd_lists_one_patients_adime_cycles_newest_first_with_cycle_scoped_reports(): void
     {
         $rnd = User::factory()->rnd()->create();
         $patient = Patient::factory()->create();
@@ -44,12 +44,14 @@ class PatientNcpReportsTest extends TestCase
             ->getJson("/api/rnd/reports/patients/{$patient->uuid}/instances?per_page=2")
             ->assertOk()
             ->assertJsonPath('patient.id', $patient->uuid)
-            ->assertJsonPath('meta.total', 3)
-            ->assertJsonPath('meta.last_page', 2)
-            ->assertJsonPath('data.0.type', 'ncp_summary')
-            ->assertJsonPath('data.0.params.ncp_record_id', $newerNcp->uuid)
-            ->assertJsonPath('data.1.type', 'patient_menu_plan')
-            ->assertJsonPath('data.1.params.meal_plan_id', $plan->uuid);
+            ->assertJsonPath('meta.total', 2)
+            ->assertJsonPath('meta.last_page', 1)
+            ->assertJsonPath('data.0.id', $newerNcp->uuid)
+            ->assertJsonPath('data.0.reports.0.type', 'ncp_summary')
+            ->assertJsonPath('data.0.reports.0.params.ncp_record_id', $newerNcp->uuid)
+            ->assertJsonPath('data.1.id', $olderNcp->uuid)
+            ->assertJsonPath('data.1.reports.1.type', 'patient_menu_plan')
+            ->assertJsonPath('data.1.reports.1.params.meal_plan_id', $plan->uuid);
 
         $this->assertStringNotContainsString($otherNcp->uuid, $response->getContent());
     }

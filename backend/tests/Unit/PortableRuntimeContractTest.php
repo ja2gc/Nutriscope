@@ -22,6 +22,11 @@ class PortableRuntimeContractTest extends TestCase
 
         $this->assertStringNotContainsString('migrate --force', $entrypoint);
         $this->assertStringContainsString('migrate --force', $release);
+        $this->assertStringContainsString('reports:demographic-census-catch-up', $release);
+        $this->assertLessThan(
+            strpos($release, 'reports:demographic-census-catch-up'),
+            strpos($release, 'migrate --force'),
+        );
         $this->assertStringContainsString('backend_worker:', $compose);
         $this->assertStringContainsString('queue:work redis --queue=backups,default', $compose);
         $this->assertStringContainsString('backend_scheduler:', $compose);

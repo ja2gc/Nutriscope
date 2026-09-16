@@ -21,7 +21,7 @@ class MonthlyDemographicCensusTest extends TestCase
         parent::tearDown();
     }
 
-    public function test_catch_up_stores_every_completed_month_from_site_launch_including_zero_counts(): void
+    public function test_catch_up_stores_every_completed_month_from_first_patient_including_later_zero_counts(): void
     {
         Carbon::setTestNow('2026-09-15 12:00:00');
         Patient::factory()->create(['admission_date' => '2026-06-12']);
@@ -30,13 +30,22 @@ class MonthlyDemographicCensusTest extends TestCase
             ->assertSuccessful();
 
         $this->assertSame(
-            ['2026-05-01', '2026-06-01', '2026-07-01', '2026-08-01'],
+            ['2026-06-01', '2026-07-01', '2026-08-01'],
             DemographicCensusPeriod::query()->orderBy('period_start')->pluck('period_start')->map->toDateString()->all(),
         );
-        $this->assertSame(0, DemographicCensusPeriod::query()->whereDate('period_start', '2026-05-01')->firstOrFail()->census['total']);
         $this->assertSame(1, DemographicCensusPeriod::query()->whereDate('period_start', '2026-06-01')->firstOrFail()->census['total']);
+        $this->assertSame(0, DemographicCensusPeriod::query()->whereDate('period_start', '2026-07-01')->firstOrFail()->census['total']);
         $this->assertFalse(DemographicCensusPeriod::query()->whereDate('period_start', '2026-09-01')->exists());
-        $this->assertFalse(DemographicCensusPeriod::query()->where('period_start', '<', '2026-05-01')->exists());
+        $this->assertFalse(DemographicCensusPeriod::query()->where('period_start', '<', '2026-06-01')->exists());
+    }
+
+    public function test_catch_up_stores_nothing_before_the_first_patient_exists(): void
+    {
+        Carbon::setTestNow('2026-09-15 12:00:00');
+
+        $this->artisan('reports:demographic-census-catch-up')->assertSuccessful();
+
+        $this->assertDatabaseCount('demographic_census_periods', 0);
     }
 
     public function test_catch_up_is_idempotent_and_never_rewrites_a_frozen_month(): void
@@ -52,7 +61,7 @@ class MonthlyDemographicCensusTest extends TestCase
         $this->artisan('reports:demographic-census-catch-up')
             ->assertSuccessful();
 
-        $this->assertDatabaseCount('demographic_census_periods', 5);
+        $this->assertDatabaseCount('demographic_census_periods', 4);
         $this->assertSame(1, $june->fresh()->census['total']);
         $this->assertTrue($june->fresh()->frozen_at->equalTo($frozenAt));
     }
@@ -60,6 +69,7 @@ class MonthlyDemographicCensusTest extends TestCase
     public function test_browser_and_generator_use_stored_zero_month_snapshot(): void
     {
         Carbon::setTestNow('2026-09-15 12:00:00');
+        Patient::factory()->create(['admission_date' => '2026-05-12']);
         $this->artisan('reports:demographic-census-catch-up')->assertSuccessful();
         $admin = User::factory()->create(['role' => 'Admin']);
 
@@ -71,7 +81,7 @@ class MonthlyDemographicCensusTest extends TestCase
 
         $report = new Report([
             'type' => 'demographic_census',
-            'parameters' => ['start' => '2026-05-01', 'end' => '2026-05-31'],
+            'parameters' => ['start' => '2026-06-01', 'end' => '2026-06-30'],
         ]);
         $data = app(DemographicCensusGenerator::class)->data($report);
 
@@ -81,6 +91,7 @@ class MonthlyDemographicCensusTest extends TestCase
     public function test_completed_month_cannot_be_edited_after_it_is_frozen(): void
     {
         Carbon::setTestNow('2026-06-02 12:00:00');
+        Patient::factory()->create(['admission_date' => '2026-05-12']);
         $this->artisan('reports:demographic-census-catch-up')->assertSuccessful();
         $period = DemographicCensusPeriod::query()->firstOrFail();
 

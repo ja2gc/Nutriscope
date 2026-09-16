@@ -3,8 +3,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   FileText, CalendarRange, CalendarDays, PackageCheck,
-  Download, Trash2, ClipboardList, Building2, Save,
-  Archive, Loader2, CheckCircle2, AlertTriangle, FolderArchive, Eye,
+  Download, Trash2, ClipboardList, Save,
+  Archive, Loader2, CheckCircle2, AlertTriangle, Eye,
   History,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
@@ -42,7 +42,7 @@ function reportDate(value: string): string {
   });
 }
 
-type TabKey = "browse" | "patients" | "archived" | "templates";
+type TabKey = "browse" | "archived" | "templates";
 
 // ── Report catalog ──────────────────────────────────────────────────────────
 export type ReportGroup = "Food Service" | "Clinical";
@@ -54,6 +54,7 @@ export const FULL_CATALOG: CatalogEntry[] = [
   { type: "menu_calendar", name: "Menu Calendar", desc: "Printable Mon→Sun grid for the kitchen.", icon: CalendarDays, group: "Food Service" },
   { type: "procurement_pack", name: "Procurement Pack", desc: "AIR + Statement + Summary of Marketing.", icon: PackageCheck, group: "Food Service" },
   { type: "accomplishment_report", name: "Accomplishment Report", desc: "Per-staff semi-monthly duty sheet + diet-list headcount logged by FSS.", icon: ClipboardList, group: "Food Service" },
+  { type: "patients_ncp", name: "Patients NCP", desc: "Choose a patient, then an ADIME cycle, to view its reports.", icon: ClipboardList, group: "Clinical" },
   { type: "demographic_census", name: "Demographic Census", desc: "Patient counts by age, sex, ward, diagnosis.", icon: ClipboardList, group: "Clinical" },
 ];
 
@@ -103,23 +104,16 @@ export function ReportsBrowser({ catalog, apiPrefix }: ReportsBrowserProps) {
     setTimeout(() => setFlash(null), 4000);
   }, []);
 
-  useEffect(() => {
-    if (apiPrefix === "rnd" && new URLSearchParams(window.location.search).get("tab") === "patients") {
-      setTab("patients");
-    }
-  }, [apiPrefix]);
-
   // Admin browser suppresses the Template Edit tab (branding owned by Settings page)
   const tabs = apiPrefix !== "rnd"
     ? [
-        { key: "browse" as TabKey, label: "Browse", icon: <FileText className="h-4 w-4" /> },
-        { key: "archived" as TabKey, label: "Archived", icon: <FolderArchive className="h-4 w-4" /> },
+        { key: "browse" as TabKey, label: "Browse" },
+        { key: "archived" as TabKey, label: "Archived" },
       ]
     : [
-        { key: "browse" as TabKey, label: "Browse", icon: <FileText className="h-4 w-4" /> },
-        { key: "patients" as TabKey, label: "Patients NCP", icon: <ClipboardList className="h-4 w-4" /> },
-        { key: "archived" as TabKey, label: "Archived", icon: <FolderArchive className="h-4 w-4" /> },
-        { key: "templates" as TabKey, label: "Template Edit", icon: <Building2 className="h-4 w-4" /> },
+        { key: "browse" as TabKey, label: "Browse" },
+        { key: "archived" as TabKey, label: "Archived" },
+        { key: "templates" as TabKey, label: "Template Edit" },
       ];
 
   return (
@@ -139,7 +133,6 @@ export function ReportsBrowser({ catalog, apiPrefix }: ReportsBrowserProps) {
       <FlashBar flash={flash} />
 
       {tab === "browse" && <BrowseTab catalog={catalog} apiPrefix={apiPrefix} onFlash={flashFor} />}
-      {tab === "patients" && apiPrefix === "rnd" && <PatientsNcpTab />}
       {tab === "archived" && <ArchivedTab catalog={catalog} apiPrefix={apiPrefix} onFlash={flashFor} />}
       {tab === "templates" && apiPrefix === "rnd" && <TemplateEditor onFlash={flashFor} />}
     </div>
@@ -161,7 +154,9 @@ function BrowseTab({
 
   // Reset selected when catalog changes (e.g. navigating between pages)
   useEffect(() => {
-    setSelected(catalog[0]);
+    const params = new URLSearchParams(window.location.search);
+    const requestedType = params.get("type") ?? (params.get("tab") === "patients" ? "patients_ncp" : null);
+    setSelected(catalog.find((entry) => entry.type === requestedType) ?? catalog[0]);
   }, [catalog]);
 
   return (
@@ -197,7 +192,9 @@ function BrowseTab({
       </Card>
 
       {/* Instances panel — remounts per type so its state resets cleanly */}
-      <InstancesPanel key={selected.type} entry={selected} apiPrefix={apiPrefix} onFlash={onFlash} />
+      {selected.type === "patients_ncp" && apiPrefix === "rnd"
+        ? <PatientsNcpTab />
+        : <InstancesPanel key={selected.type} entry={selected} apiPrefix={apiPrefix} onFlash={onFlash} />}
     </div>
   );
 }
