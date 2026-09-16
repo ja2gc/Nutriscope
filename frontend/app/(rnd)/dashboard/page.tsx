@@ -673,7 +673,7 @@ export default function RndDashboardPage() {
 
             {loading ? (
               <div className="p-5 space-y-4 flex-1 overflow-hidden">
-                <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,11rem),1fr))] gap-3">
+                <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,9.5rem),1fr))] gap-3">
                   {[1, 2, 3].map((index) => (
                     <div key={index} className="h-20 rounded-2xl bg-warm-100 animate-pulse" />
                   ))}
@@ -696,7 +696,7 @@ export default function RndDashboardPage() {
             ) : (
               <div className="flex min-h-0 flex-1 flex-col">
                 <div className="min-h-0 flex-1 space-y-3 p-4">
-                <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,11rem),1fr))] gap-3">
+                <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,9.5rem),1fr))] gap-3">
                   <div className="rounded-2xl border border-warm-200 bg-warm-50 p-3">
                     <div className="text-xs font-extrabold text-warm-400 uppercase tracking-wider">
                       Active Patients

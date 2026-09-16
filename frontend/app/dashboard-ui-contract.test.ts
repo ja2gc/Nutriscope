@@ -16,6 +16,8 @@ describe("dashboard presentation contract", () => {
     expect(dashboard).not.toContain("pendingKpi.sub");
     expect(dashboard).not.toMatch(/<(Compass|HeartHandshake|Calendar|TrendingUp)\b/);
     expect(dashboard).toContain("grid-cols-[repeat(auto-fit,minmax(min(100%,13rem),1fr))]");
+    expect(dashboard).toContain("grid-cols-[repeat(auto-fit,minmax(min(100%,9.5rem),1fr))]");
+    expect(dashboard).not.toContain("grid-cols-[repeat(auto-fit,minmax(min(100%,11rem),1fr))]");
     expect(dashboard).not.toContain("xl:h-[480px]");
   });
 
