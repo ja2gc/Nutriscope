@@ -1,6 +1,6 @@
 # NutriScope Sequential Screenshot Storyboard Guide
 
-Verified against current role navigation on **2026-09-05**.
+Verified against current role navigation and deployed report flows on **2026-09-20**.
 
 This is the screenshot-required storyboard. Complete it by inserting the specified app capture immediately below each **Screenshot needed** instruction. Use demo data and follow the privacy rules in this guide.
 
@@ -21,13 +21,13 @@ Use this version when screenshots are available. Each scene already contains the
 
 #### SHARED-01 — Sign In
 
-**Description:** Entry page separates role workspaces by platform. RND/Admin sign in on web; FSS signs in through the mobile app. User enters sign-in email and password, then the server validates account status, role, and platform.
+**Description:** Entry page separates role workspaces by platform. On desktop, the web page uses a split layout: the emphasized image panel contains only the larger centered NutriScope logo/name, while the form panel contains sign-in controls. The logo mark keeps its hover rotation. RND/Admin sign in on web; FSS signs in through the mobile app. User enters sign-in email and password, then the server validates account status, role, and platform.
 
 **User should do:** Enter demo credentials and select **Sign In**.
 
 **Next scene:** First-login Account Setup or the role dashboard.
 
-> **Screenshot needed:** Web Login page with NutriScope branding, Email Address, Password, Forgot password, and Sign In visible. Do not show a real password.
+> **Screenshot needed:** Desktop Web Login page with the centered NutriScope logo/name on the darkened image panel and Email Address, Password, Forgot password, and Sign In on the form panel. Do not show a real password.
 >
 > **Insert screenshot below this line.**
 
@@ -83,25 +83,25 @@ Use this version when screenshots are available. Each scene already contains the
 
 #### RND-NCP-02 — Patient Directory
 
-**Description:** Directory is the entry point for searching, filtering, creating, and opening patient records. Creating a patient can immediately start Assessment.
+**Description:** Directory is the entry point for searching, filtering, creating, and opening patient records. The existing search field accepts patient name, physician, hospital number, or random `NS-XXXX-XXXX` patient ID; there is no separate patient-ID mode. Creating a patient can immediately start Assessment.
 
-**User should do:** Search for a demo patient and open the row, or select **Create Patient & Start Assessment**.
+**User should do:** Search for a fictional demo patient using the patient ID from that patient's profile header, confirm one matching row, then open it. Alternatively, select **Create Patient & Start Assessment**.
 
 **Next scene:** Patient Profile or Assessment.
 
-> **Screenshot needed:** Nutrition Care Patients page with search/filter, patient table, and Create Patient & Start Assessment action. Use demo patient names.
+> **Screenshot needed:** Nutrition Care Patients page with a fictional `NS-XXXX-XXXX` value in the normal search field, one matching patient row, status filter, and Create Patient & Start Assessment action. The patient ID should not be added as a table column.
 >
 > **Insert screenshot below this line.**
 
 #### RND-NCP-03 — Patient Profile
 
-**Description:** Patient Profile is the root context for demographics, current NCP snapshot, cycles, attachments, and structured activity.
+**Description:** Patient Profile is the root context for demographics, current NCP snapshot, cycles, attachments, and structured activity. The random patient ID appears once as smaller muted text directly beneath the patient's name; it is not repeated throughout the page.
 
 **User should do:** Review Overview, then select **ADIME Records** to continue/start a cycle.
 
 **Next scene:** ADIME Records.
 
-> **Screenshot needed:** Demo Patient Profile Overview with patient header, status/risk, current-cycle snapshot, and Overview/ADIME Records/Attachments tabs.
+> **Screenshot needed:** Demo Patient Profile Overview with the fictional patient ID directly beneath the name, status/risk, current-cycle snapshot, and Overview/ADIME Records/Appointments/Attachments tabs.
 >
 > **Insert screenshot below this line.**
 
@@ -239,13 +239,13 @@ Use this version when screenshots are available. Each scene already contains the
 
 #### RND-NCP-15 — Clinical Report Preview and Archive
 
-**Description:** Patients NCP lists recent patients first. Opening one patient keeps that patient's NCP Summary and Patient Menu Plan together; preparing/archiving freezes the exact formally filed PDF and its template/signatory/source snapshot.
+**Description:** Patients NCP lists recent patients first. Opening one patient first shows that patient's non-deleted ADIME cycles. Selecting one cycle keeps only that cycle's NCP Summary and Patient Menu Plan together; current and completed cycles never mix. Preparing/archiving freezes the exact formally filed PDF and its template/signatory/source snapshot.
 
-**User should do:** Open **Patients NCP**, choose a demo patient, preview both report types, then show an existing archived copy.
+**User should do:** Open **Patients NCP**, choose a demo patient, select one ADIME cycle, preview both cycle-specific report types, then show an existing archived copy.
 
 **Next scene:** End of clinical story.
 
-> **Screenshot needed:** Patients NCP patient list, then the selected patient's report page with NCP Summary and Patient Menu Plan. Optional second image: a frozen archived report.
+> **Screenshot needed:** Patients NCP patient list, then the patient's ADIME-cycle selector, then one selected cycle showing only its NCP Summary and Patient Menu Plan. Optional final image: a frozen archived report.
 >
 > **Insert screenshot(s) below this line.**
 
@@ -375,13 +375,13 @@ Use this version when screenshots are available. Each scene already contains the
 
 #### RND-FS-09 — Operational Reports
 
-**Description:** RND previews and archives Program Project Activity, Menu Calendar, Procurement Pack, Accomplishment, and Demographic Census outputs.
+**Description:** RND previews and archives Program Project Activity, Menu Calendar, Procurement Pack, Accomplishment, and Demographic Census outputs. Demographic Census starts at the earliest non-deleted ADIME cycle, counts each cycle once in its start month even when one person has multiple cycles, freezes completed months, and keeps the current month live.
 
-**User should do:** Open one demo report and explain live versus archived state.
+**User should do:** Open Demographic Census, show the earliest month and live current month, preview one completed month, and explain cycle counts plus live versus frozen state.
 
 **Next scene:** End of food-service planning story.
 
-> **Screenshot needed:** Reports Browse with a Food Service report selected and preview/action controls visible.
+> **Screenshot needed:** Reports Browse with Demographic Census selected, the month list spanning the earliest cycle through the current month, and one one-page census preview showing Total ADIME Cycles. Optional second image: another Food Service report with preview/action controls.
 >
 > **Insert screenshot below this line.**
 
@@ -681,9 +681,9 @@ Use this version when screenshots are available. Each scene already contains the
 
 #### ADMIN-08 — Allowed Reports
 
-**Description:** Admin can use Program Project Activity, Menu Calendar, Procurement Pack, Accomplishment Report, and aggregate Demographic Census. Patient Menu Plan and NCP Summary are absent/blocked.
+**Description:** Admin can use Program Project Activity, Menu Calendar, Procurement Pack, Accomplishment Report, and aggregate Demographic Census. Census totals count non-deleted ADIME cycles by cycle start month, not unique people; completed months are frozen and the current month remains live. Patient Menu Plan and NCP Summary are absent/blocked.
 
-**User should do:** Open one allowed live preview and explain the privacy boundary.
+**User should do:** Open the aggregate Demographic Census, explain cycle-based totals without exposing patient identity, then show another allowed live preview and the privacy boundary.
 
 **Next scene:** Budget.
 
