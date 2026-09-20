@@ -13,7 +13,9 @@ describe("login native-app entry contract", () => {
     expect(login).not.toContain("Precision nutrition.");
     expect(login).toContain('<Logo variant="dark" />');
     expect(login).toContain('aria-label="NutriScope"');
-    expect(login).toContain("scale-[3]");
+    expect(login).not.toContain("min-h-[11rem] w-full max-w-[27rem]");
+    expect(login).not.toContain("rounded-3xl bg-forest-950/45");
+    expect(login).toContain('className="relative z-10 origin-center scale-[3.25]"');
     expect(login).toContain("lg:items-center lg:justify-center");
     expect(login).toContain('className="text-center"');
   });

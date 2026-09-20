@@ -55,9 +55,11 @@
 
     @if(!empty($recipe_details))
         <div style="margin-top:14px;">
-            <p class="bold" style="border-bottom:1px solid #e5e7eb; padding-bottom:2px; margin-bottom:8px; font-size:8pt;">Recipe Details</p>
             @foreach($recipe_details as $recipe)
                 <div style="margin-bottom:10px; page-break-inside:avoid;">
+                    @if($loop->first)
+                        <p class="bold" style="border-bottom:1px solid #e5e7eb; padding-bottom:2px; margin-bottom:8px; font-size:8pt;">Recipe Details</p>
+                    @endif
                     <p class="bold" style="font-size:8pt; margin-bottom:2px;">
                         {{ $recipe['name'] }}
                         @if($recipe['servings'])

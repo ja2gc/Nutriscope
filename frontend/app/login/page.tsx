@@ -63,10 +63,8 @@ export default function LoginPage() {
         <div className="absolute inset-0 bg-[linear-gradient(145deg,rgba(3,24,15,0.96)_0%,rgba(7,55,35,0.91)_55%,rgba(4,90,57,0.86)_100%)]" />
         <div className="absolute inset-0 bg-black/10" />
 
-        <div className="relative z-10 rounded-3xl bg-forest-950/35 px-10 py-8 shadow-[0_24px_80px_rgba(0,0,0,0.28)] ring-1 ring-white/10 backdrop-blur-[2px]">
-          <div aria-label="NutriScope" className="scale-[3]">
-            <Logo variant="dark" />
-          </div>
+        <div aria-label="NutriScope" className="relative z-10 origin-center scale-[3.25]">
+          <Logo variant="dark" />
         </div>
       </div>
 
