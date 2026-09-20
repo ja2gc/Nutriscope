@@ -3,6 +3,7 @@ x-backend-common: &backend-common
     build:
       context: ./backend
       dockerfile: Dockerfile
+      network: host
     restart: unless-stopped
     env_file:
       - ./backend/.env.production
@@ -46,6 +47,7 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      network: host
       args:
         LARAVEL_API_URL: http://backend/api
     restart: unless-stopped

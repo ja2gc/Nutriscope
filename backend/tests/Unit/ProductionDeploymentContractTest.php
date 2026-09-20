@@ -58,6 +58,15 @@ class ProductionDeploymentContractTest extends TestCase
     }
 
     #[Test]
+    public function production_image_builds_use_the_host_network_for_dns_resolution(): void
+    {
+        $compose = file_get_contents(base_path('../docker-compose.prod.yml'));
+
+        $this->assertIsString($compose);
+        $this->assertSame(2, substr_count($compose, 'network: host'));
+    }
+
+    #[Test]
     public function production_mysql_requires_a_root_password_and_disables_empty_password_initialization(): void
     {
         $compose = file_get_contents(base_path('../docker-compose.prod.yml'));
