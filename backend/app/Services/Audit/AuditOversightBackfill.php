@@ -44,7 +44,6 @@ use App\Models\User;
 use Illuminate\Database\Connection;
 use Illuminate\Database\Schema\Builder;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Crypt;
 
 class AuditOversightBackfill
 {
@@ -101,7 +100,7 @@ class AuditOversightBackfill
         $connection->table(config('activitylog.table_name'))
             ->where('log_name', config('audit.log_name'))
             ->select([
-                'id', 'module', 'patient_display_name_snapshot', 'category', 'domain',
+                'id', 'module', 'patient_code_snapshot', 'category', 'domain',
                 'subject_type', 'subject_id', 'context_type', 'context_id',
                 'root_patient_id', 'ncp_record_id',
             ])
@@ -109,7 +108,7 @@ class AuditOversightBackfill
             ->chunkById(max(1, min($chunkSize, 5000)), function (Collection $rows) use ($connection, $schema, &$stats): void {
                 $stats['scanned'] += $rows->count();
                 $patientIds = $this->patientIdsByActivity($connection, $schema, $rows);
-                $displayNames = $this->patientDisplayNames($connection, $schema, array_values(array_unique($patientIds)));
+                $patientCodes = $this->patientCodes($connection, $schema, array_values(array_unique($patientIds)));
                 $updates = [];
 
                 foreach ($rows as $row) {
@@ -127,11 +126,11 @@ class AuditOversightBackfill
                         $stats['domains']++;
                     }
                     $patientId = $patientIds[(int) $row->id] ?? null;
-                    if ($row->patient_display_name_snapshot === null
+                    if ($row->patient_code_snapshot === null
                         && $patientId !== null
                         && $this->isPatientLinked($row)
-                        && isset($displayNames[$patientId])) {
-                        $update['patient_display_name_snapshot'] = Crypt::encryptString($displayNames[$patientId]);
+                        && isset($patientCodes[$patientId])) {
+                        $update['patient_code_snapshot'] = $patientCodes[$patientId];
                         $stats['patient_snapshots']++;
                     }
                     if ($update !== []) {
@@ -384,28 +383,21 @@ class AuditOversightBackfill
     /** @param list<int> $ids
      * @return array<int, string>
      */
-    private function patientDisplayNames(Connection $connection, Builder $schema, array $ids): array
+    private function patientCodes(Connection $connection, Builder $schema, array $ids): array
     {
-        if ($ids === [] || ! $schema->hasTable('patients')) {
+        if ($ids === [] || ! $schema->hasTable('patients') || ! $schema->hasColumn('patients', 'patient_code')) {
             return [];
         }
 
         return $connection->table('patients')
             ->whereIn('id', $ids)
-            ->get(['id', 'name', 'first_name', 'last_name'])
-            ->mapWithKeys(function (object $patient): array {
-                $parts = array_values(array_filter([
-                    trim((string) $patient->first_name),
-                    trim((string) $patient->last_name),
-                ], fn (string $part): bool => $part !== ''));
-                $displayName = $parts !== [] ? implode(' ', $parts) : trim((string) $patient->name);
-
-                return $displayName === '' ? [] : [(int) $patient->id => $displayName];
-            })
+            ->whereNotNull('patient_code')
+            ->pluck('patient_code', 'id')
+            ->mapWithKeys(fn (string $code, int|string $id): array => [(int) $id => $code])
             ->all();
     }
 
-    /** @param list<array{id: int, module?: string, domain?: string, patient_display_name_snapshot?: string}> $updates */
+    /** @param list<array{id: int, module?: string, domain?: string, patient_code_snapshot?: string}> $updates */
     private function bulkUpdate(Connection $connection, array $updates): void
     {
         if ($updates === []) {
@@ -416,14 +408,14 @@ class AuditOversightBackfill
         $assignments = [];
         $bindings = [];
 
-        foreach (['module', 'domain', 'patient_display_name_snapshot'] as $column) {
+        foreach (['module', 'domain', 'patient_code_snapshot'] as $column) {
             $cases = [];
             $wrapped = $grammar->wrap($column);
             foreach ($updates as $update) {
                 if (! array_key_exists($column, $update)) {
                     continue;
                 }
-                $value = $column === 'patient_display_name_snapshot' ? "COALESCE({$wrapped}, ?)" : '?';
+                $value = $column === 'patient_code_snapshot' ? "COALESCE({$wrapped}, ?)" : '?';
                 $cases[] = "WHEN ? THEN {$value}";
                 $bindings[] = $update['id'];
                 $bindings[] = $update[$column];

@@ -64,7 +64,7 @@ export interface AuditEventDto {
   actor: AuditActorDto | null;
   subject: AuditEntityDto | null;
   context: AuditEntityDto | null;
-  patient: { display_name: string } | null;
+  patient: { code: string } | null;
   ncp_reference: string | null;
   detail_mode: "field_names" | "changes" | "history";
   reason: string | null;

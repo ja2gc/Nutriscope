@@ -21,7 +21,7 @@ class AuditQuery
             ->select([
                 'id', 'public_id', 'log_name', 'event', 'category', 'domain', 'module', 'severity', 'outcome',
                 'subject_type', 'subject_id', 'subject_public_id', 'causer_type', 'causer_id',
-                'context_type', 'context_id', 'context_public_id', 'patient_display_name_snapshot',
+                'context_type', 'context_id', 'context_public_id', 'patient_code_snapshot',
                 'properties', 'created_at',
             ])
             ->auditOnly()

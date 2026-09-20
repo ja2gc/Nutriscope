@@ -54,9 +54,27 @@ class PatientFeatureTest extends TestCase
         ]);
 
         $response->assertStatus(201)
-            ->assertJsonPath('name', 'Jane Doe');
+            ->assertJsonPath('name', 'Jane Doe')
+            ->assertJsonPath('patient_code', fn (string $code): bool => preg_match('/^NS-[2-9A-HJ-NP-Z]{4}-[2-9A-HJ-NP-Z]{4}$/D', $code) === 1);
 
-        $this->assertDatabaseHas('patients', ['name' => 'Jane Doe']);
+        $patient = Patient::query()->where('name', 'Jane Doe')->sole();
+        $this->assertMatchesRegularExpression('/^NS-[2-9A-HJ-NP-Z]{4}-[2-9A-HJ-NP-Z]{4}$/D', $patient->patient_code);
+        $this->assertDatabaseHas('patients', ['name' => 'Jane Doe', 'patient_code' => $patient->patient_code]);
+    }
+
+    public function test_patient_codes_are_random_unique_and_immutable_display_identifiers(): void
+    {
+        $first = Patient::factory()->create();
+        $second = Patient::factory()->create();
+
+        $this->assertMatchesRegularExpression('/^NS-[2-9A-HJ-NP-Z]{4}-[2-9A-HJ-NP-Z]{4}$/D', $first->patient_code);
+        $this->assertMatchesRegularExpression('/^NS-[2-9A-HJ-NP-Z]{4}-[2-9A-HJ-NP-Z]{4}$/D', $second->patient_code);
+        $this->assertNotSame($first->patient_code, $second->patient_code);
+
+        $originalCode = $first->patient_code;
+        $first->update(['ward' => 'ICU']);
+
+        $this->assertSame($originalCode, $first->fresh()->patient_code);
     }
 
     public function test_rnd_can_update_patient()

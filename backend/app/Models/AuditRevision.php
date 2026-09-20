@@ -99,7 +99,8 @@ class AuditRevision extends Model
         if ($activity->category === AuditCategory::Clinical
             || $activity->root_patient_id !== null
             || $activity->ncp_record_id !== null
-            || $activity->patient_display_name_snapshot !== null) {
+            || $activity->patient_display_name_snapshot !== null
+            || $activity->patient_code_snapshot !== null) {
             throw new InvalidArgumentException('Patient-linked audit events cannot have revisions.');
         }
         if ($activity->module !== $this->module

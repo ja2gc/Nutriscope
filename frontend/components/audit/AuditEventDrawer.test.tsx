@@ -23,7 +23,7 @@ const event: AuditEventDto = {
   actor: { id: "user-public-id", kind: "user", name: longActor, role: "Admin" },
   subject: { type: "patient", id: null, label: longSubject },
   context: { type: "ncp", id: null, label: "Nutrition care plan" },
-  patient: { display_name: "Patient Example" },
+  patient: { code: "NS-7K4M-92QX" },
   ncp_reference: "NCP-EXAMPLE",
   detail_mode: "field_names",
   reason: null,
@@ -102,6 +102,16 @@ describe("structured audit event components", () => {
     expect(html).toContain("break-words");
   });
 
+  test("shows a patient code without exposing a patient name", () => {
+    const tableHtml = renderToStaticMarkup(<AuditEventTable events={[event]} onSelect={vi.fn()} />);
+    const drawerHtml = renderToStaticMarkup(<AuditEventDrawer event={event} onClose={vi.fn()} />);
+
+    expect(tableHtml).toContain("NS-7K4M-92QX");
+    expect(drawerHtml).toContain("NS-7K4M-92QX");
+    expect(tableHtml).not.toContain("Patient Example");
+    expect(drawerHtml).not.toContain("Patient Example");
+  });
+
   test("renders stable semantic timestamps in Asia/Manila", () => {
     const tableHtml = renderToStaticMarkup(<AuditEventTable events={[event]} onSelect={vi.fn()} />);
     const drawerHtml = renderToStaticMarkup(<AuditEventDrawer event={event} onClose={vi.fn()} />);
@@ -118,7 +128,7 @@ describe("structured audit event components", () => {
     for (const section of ["Event summary", "Actor", "Record context", "Result", "Recorded values", "Field changes"]) {
       expect(html).toContain(section);
     }
-    expect(html).toContain("Patient Example");
+    expect(html).toContain("NS-7K4M-92QX");
     expect(html).toContain("NCP-EXAMPLE");
     expect(html).toContain("Patient");
     expect(html).toContain("Value hidden; field changed");

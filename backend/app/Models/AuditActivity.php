@@ -35,6 +35,7 @@ class AuditActivity extends Activity
         'ncp_record_id',
         'audit_owner_id',
         'patient_display_name_snapshot',
+        'patient_code_snapshot',
     ];
 
     protected $casts = [

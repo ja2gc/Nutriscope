@@ -37,7 +37,7 @@ Patient-linked rows use category Clinical and the field-name-only boundary. RND 
 
 | Event family | Actions | Cat. | Actor and subject/context | Safe Admin detail | RND context trail | Reason | History | Primary writer/source |
 |---|---|---:|---|---|---|---|---|---|
-| Patient lifecycle | `created`, `updated`, `deleted` | C | Actual RND actor; patient root | patient display name snapshot, actor, action/time, record type, pseudonymous NCP reference when available, changed field names only | All active RNDs see the same privacy-safe event on authorized patient/NCP trails | New delete-reason enforcement deferred | Field names | `Patient` + `AuditsChanges`; explicit delete handling in `PatientController` |
+| Patient lifecycle | `created`, `updated`, `deleted` | C | Actual RND actor; patient root | pseudonymous patient-code snapshot, actor, action/time, record type, pseudonymous NCP reference when available, changed field names only | All active RNDs see the same privacy-safe event on authorized patient/NCP trails | New delete-reason enforcement deferred | Field names | `Patient` + `AuditsChanges`; explicit delete handling in `PatientController` |
 | NCP lifecycle | `created`, `updated`, `deleted` | C | Actual RND actor; patient/NCP root | approved patient identity and metadata only; no NCP values | All active RNDs; creator is attribution only | New delete-reason enforcement deferred | Field names | `NcpRecord` + `AuditsChanges` |
 | Assessment | `created`, `updated`, `deleted`, `uploaded` | C | Actual RND actor; assessment subject under patient/NCP | approved patient identity; changed/uploaded field names/type only; no assessment/file/OCR contents | All active RNDs may view/edit another RND's assessment | New delete-reason enforcement deferred | Field names | `Assessment` + `AuditsChanges`; `AssessmentController` upload event |
 | Diagnosis | `created`, `updated`, `deleted` | C | Actual RND actor; diagnosis under patient/NCP | approved patient identity and changed field names only | All active RNDs | New delete-reason enforcement deferred | Field names | `Diagnosis` + `AuditsChanges` |
@@ -75,7 +75,7 @@ There is no budget approve/reject/flag event and no ledger reversal workflow. `r
 
 ## Reports
 
-Report events expose safe report type/status/format/count/period metadata only. Patient-linked report events use category Clinical and may expose only the dedicated patient display-name snapshot plus the standard clinical metadata boundary. Report parameters, snapshots, generated contents, files, data URLs, and patient filters never enter audit output or revisions.
+Report events expose safe report type/status/format/count/period metadata only. Patient-linked report events use category Clinical and may expose only the dedicated pseudonymous patient-code snapshot plus the standard clinical metadata boundary. Report parameters, snapshots, generated contents, files, data URLs, patient names, and patient filters never enter audit output or revisions.
 
 | Event family | Actions | Category | Actor and subject/context | Safe Admin detail | RND/FSS/Admin trail | Reason | History | Primary writer/source |
 |---|---|---:|---|---|---|---|---|---|

@@ -12,6 +12,7 @@ class DemographicCensusPeriod extends Model
         'period_end',
         'census',
         'source_count',
+        'basis_version',
         'frozen_at',
     ];
 
@@ -22,6 +23,7 @@ class DemographicCensusPeriod extends Model
             'period_end' => 'date',
             'census' => 'array',
             'source_count' => 'integer',
+            'basis_version' => 'integer',
             'frozen_at' => 'datetime',
         ];
     }

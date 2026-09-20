@@ -149,6 +149,8 @@ class ReportsBrowseTest extends TestCase
         $ncp = NcpRecord::factory()->create([
             'patient_id' => $patient->id,
             'rnd_user_id' => $creator->id,
+            'created_at' => '2026-05-10 08:00:00',
+            'updated_at' => '2026-05-10 08:00:00',
         ]);
         $intervention = Intervention::factory()->create(['ncp_record_id' => $ncp->id]);
         $mealPlan = MealPlan::factory()->create([
@@ -166,7 +168,7 @@ class ReportsBrowseTest extends TestCase
             ->assertJsonPath('data.instances.0.params.meal_plan_id', $mealPlan->id);
         $this->getJson('/api/rnd/reports/demographic_census/instances')
             ->assertOk()
-            ->assertJsonPath('data.instances.0.key', '2026-05');
+            ->assertJsonFragment(['key' => '2026-05']);
 
         $reports = $this->createMock(ReportService::class);
         $reports->method('supports')->willReturn(true);

@@ -145,7 +145,8 @@ class ReportAuditTest extends TestCase
         $this->assertSame('clinical', $event->category->value);
         $this->assertSame('reports', $event->domain->value);
         $this->assertSame('reports', $event->module->value);
-        $this->assertSame($patient->display_name, $event->patient_display_name_snapshot);
+        $this->assertSame($patient->patient_code, $event->patient_code_snapshot);
+        $this->assertNull($event->patient_display_name_snapshot);
         $this->assertSame($actor->uuid, $event->properties['actor']['public_id']);
         $this->assertSame($actor->id, $event->causer_id);
         $this->assertMatchesRegularExpression('/^NCP-[A-F0-9]{16}$/D', $event->properties['details']['ncp_reference']);
@@ -153,7 +154,7 @@ class ReportAuditTest extends TestCase
         $adminResponse = $this->actingAs($admin, 'sanctum')
             ->getJson('/api/admin/audit-logs?module=reports')
             ->assertOk()
-            ->assertJsonPath('data.0.patient.display_name', 'Clinical Patient')
+            ->assertJsonPath('data.0.patient.code', $patient->patient_code)
             ->assertJsonPath('data.0.actor.id', $actor->uuid);
         $reportType = collect($adminResponse->json('data.0.details'))->firstWhere('key', 'report_type');
         $this->assertSame('ncp_summary', $reportType['value']);
@@ -163,9 +164,8 @@ class ReportAuditTest extends TestCase
             $this->assertStringNotContainsString($sentinel, $event->properties->toJson());
             $this->assertStringNotContainsString($sentinel, $adminPayload);
         }
-        $rawSnapshot = DB::table('activity_log')->where('id', $event->id)->value('patient_display_name_snapshot');
-        $this->assertNotSame($patient->display_name, $rawSnapshot);
-        $this->assertStringNotContainsString($patient->display_name, (string) $rawSnapshot);
+        $rawSnapshot = DB::table('activity_log')->where('id', $event->id)->value('patient_code_snapshot');
+        $this->assertSame($patient->patient_code, $rawSnapshot);
 
         $this->actingAs($admin, 'sanctum')
             ->getJson("/api/admin/reports/{$report->uuid}")

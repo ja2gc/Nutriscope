@@ -13,6 +13,7 @@ export interface ClinicalActionAttribution {
 
 export interface Patient {
   id: number;
+  patient_code: string;
   first_name: string | null;
   last_name: string | null;
   display_name: string;

@@ -167,16 +167,16 @@ class AuditEventPresenter
         return null;
     }
 
-    /** @return array{display_name: string}|null */
+    /** @return array{code: string}|null */
     private function patient(AuditActivity $activity, bool $clinical): ?array
     {
         if (! $clinical) {
             return null;
         }
 
-        $name = $this->safeText($activity->patient_display_name_snapshot);
+        $code = $this->safeText($activity->patient_code_snapshot);
 
-        return $name === null ? null : ['display_name' => $name];
+        return $code === null ? null : ['code' => $code];
     }
 
     private function ncpReference(array $details, bool $clinical): ?string

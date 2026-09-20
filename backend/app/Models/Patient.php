@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Models\Concerns\AuditsChanges;
 use App\Models\Concerns\HasDisplayName;
 use App\Models\Concerns\HasPublicId;
+use App\Support\PatientCode;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -26,6 +27,13 @@ class Patient extends Model
         'dob' => 'date',
         'admission_date' => 'date',
     ];
+
+    protected static function booted(): void
+    {
+        static::creating(function (Patient $patient): void {
+            $patient->patient_code ??= PatientCode::generate();
+        });
+    }
 
     protected function auditAttributes(): array
     {

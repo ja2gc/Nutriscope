@@ -511,11 +511,14 @@ export default function PatientProfilePage({
       <div className="bg-white border border-warm-200 rounded-2xl p-5.5 shadow-sm space-y-4">
         <div className="flex flex-col xl:flex-row xl:items-start xl:justify-between gap-5">
           <div className="space-y-3">
-            <div className="flex flex-wrap items-center gap-2.5">
-              <h2 className="text-xl font-extrabold text-warm-900 tracking-tight">{patientName}</h2>
-              <span className={`px-2 py-0.5 rounded-full text-xs font-extrabold uppercase tracking-wider border ${formatStatus(patient.status).className}`}>
-                {formatStatus(patient.status).label}
-              </span>
+            <div>
+              <div className="flex flex-wrap items-center gap-2.5">
+                <h2 className="text-xl font-extrabold text-warm-900 tracking-tight">{patientName}</h2>
+                <span className={`px-2 py-0.5 rounded-full text-xs font-extrabold uppercase tracking-wider border ${formatStatus(patient.status).className}`}>
+                  {formatStatus(patient.status).label}
+                </span>
+              </div>
+              <p className="mt-1 text-xs font-semibold tabular-nums tracking-wide text-warm-400">{patient.patient_code}</p>
             </div>
 
             <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-warm-500 font-semibold">

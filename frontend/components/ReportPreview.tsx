@@ -1,26 +1,47 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import type { PDFDocumentProxy, PDFPageProxy, RenderTask } from "pdfjs-dist";
+import type { PDFDocumentProxy, RenderTask } from "pdfjs-dist";
 import { AlertTriangle, Download, Loader2, X } from "lucide-react";
 
-function PdfPage({ page }: { page: PDFPageProxy }) {
+function PdfPage({ documentProxy, pageNumber }: { documentProxy: PDFDocumentProxy; pageNumber: number }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const renderTaskRef = useRef<RenderTask | null>(null);
+  const [shouldRender, setShouldRender] = useState(false);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container || shouldRender) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry.isIntersecting) return;
+        setShouldRender(true);
+        observer.disconnect();
+      },
+      { rootMargin: "800px 0px" },
+    );
+    observer.observe(container);
+
+    return () => observer.disconnect();
+  }, [shouldRender]);
 
   useEffect(() => {
     const container = containerRef.current;
     const canvas = canvasRef.current;
-    if (!container || !canvas) return;
+    if (!container || !canvas || !shouldRender) return;
 
     let disposed = false;
     let resizeTimer: ReturnType<typeof setTimeout> | null = null;
+    let resizeObserver: ResizeObserver | null = null;
 
     const render = async () => {
       const context = canvas.getContext("2d");
       if (!context || disposed) return;
 
+      const page = await documentProxy.getPage(pageNumber);
+      if (disposed) return;
       renderTaskRef.current?.cancel();
       const baseViewport = page.getViewport({ scale: 1 });
       const cssWidth = Math.max(1, Math.min(container.clientWidth, baseViewport.width * 1.5));
@@ -45,24 +66,24 @@ function PdfPage({ page }: { page: PDFPageProxy }) {
       if (resizeTimer) clearTimeout(resizeTimer);
       resizeTimer = setTimeout(() => { void render(); }, 80);
     };
-    const observer = new ResizeObserver(scheduleRender);
-    observer.observe(container);
+    resizeObserver = new ResizeObserver(scheduleRender);
+    resizeObserver.observe(container);
     void render();
 
     return () => {
       disposed = true;
       if (resizeTimer) clearTimeout(resizeTimer);
-      observer.disconnect();
+      resizeObserver?.disconnect();
       renderTaskRef.current?.cancel();
     };
-  }, [page]);
+  }, [documentProxy, pageNumber, shouldRender]);
 
   return (
-    <div ref={containerRef} className="w-full" data-pdf-page={page.pageNumber}>
+    <div ref={containerRef} className="w-full min-h-64" data-pdf-page={pageNumber}>
       <canvas
         ref={canvasRef}
         role="img"
-        aria-label={`PDF page ${page.pageNumber}`}
+        aria-label={`PDF page ${pageNumber}`}
         className="mx-auto block max-w-full bg-white shadow-md"
       />
     </div>
@@ -81,7 +102,7 @@ export function ReportPreview({
   downloadUrl: string;
   onClose: () => void;
 }) {
-  const [pages, setPages] = useState<PDFPageProxy[]>([]);
+  const [documentProxy, setDocumentProxy] = useState<PDFDocumentProxy | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -104,17 +125,14 @@ export function ReportPreview({
 
     setLoading(true);
     setError(null);
-    setPages([]);
+    setDocumentProxy(null);
 
     void import("pdfjs-dist/webpack.mjs")
       .then(async (pdfjs) => {
         const loadingTask = pdfjs.getDocument({ url: src, withCredentials: true });
         const loadedDocument = await loadingTask.promise;
         documentProxy = loadedDocument;
-        const loadedPages = await Promise.all(
-          Array.from({ length: loadedDocument.numPages }, (_, index) => loadedDocument.getPage(index + 1)),
-        );
-        if (!disposed) setPages(loadedPages);
+        if (!disposed) setDocumentProxy(loadedDocument);
       })
       .catch((cause: unknown) => {
         if (!disposed) setError(cause instanceof Error ? cause.message : "The report preview could not be rendered.");
@@ -142,7 +160,7 @@ export function ReportPreview({
         <div className="flex shrink-0 items-center justify-between gap-2 border-b border-warm-100 px-3 py-2 sm:px-5 sm:py-3">
           <div className="min-w-0">
             <h2 className="truncate text-sm font-bold text-warm-800 sm:text-base">{title}</h2>
-            {pages.length > 0 && <p className="text-xs text-warm-400">{pages.length} page{pages.length === 1 ? "" : "s"}</p>}
+            {documentProxy && <p className="text-xs text-warm-400">{documentProxy.numPages} page{documentProxy.numPages === 1 ? "" : "s"}</p>}
           </div>
           <div className="flex shrink-0 items-center gap-1 sm:gap-2">
             <a
@@ -180,7 +198,9 @@ export function ReportPreview({
           )}
           {!loading && !error && (
             <div className="mx-auto flex w-full max-w-[1200px] flex-col gap-4">
-              {pages.map((page) => <PdfPage key={page.pageNumber} page={page} />)}
+              {documentProxy && Array.from({ length: documentProxy.numPages }, (_, index) => (
+                <PdfPage key={index + 1} documentProxy={documentProxy} pageNumber={index + 1} />
+              ))}
             </div>
           )}
         </div>

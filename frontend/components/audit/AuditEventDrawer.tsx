@@ -138,7 +138,7 @@ export function AuditEventDrawer({ event, onClose }: { event: AuditEventDto; onC
               {event.patient && (
                 <div className="rounded-xl border border-warm-200 p-3">
                   <p className="mb-2 text-xs font-bold uppercase tracking-wider text-warm-500">Patient</p>
-                  <p className="text-sm font-semibold text-warm-800 break-words">{event.patient.display_name}</p>
+                  <p className="text-sm font-semibold tabular-nums text-warm-800 break-words">{event.patient.code}</p>
                   {event.ncp_reference && <p className="mt-1 text-xs text-warm-500 break-all">{event.ncp_reference}</p>}
                 </div>
               )}

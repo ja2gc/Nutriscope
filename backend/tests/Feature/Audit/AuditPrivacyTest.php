@@ -72,7 +72,8 @@ class AuditPrivacyTest extends TestCase
         ], $activity->properties['actor']);
         $this->assertSame(['route' => 'patients.show'], $activity->properties['details']);
         $this->assertSame($patient->id, $activity->root_patient_id);
-        $this->assertSame($patient->display_name, $activity->patient_display_name_snapshot);
+        $this->assertSame($patient->patient_code, $activity->patient_code_snapshot);
+        $this->assertNull($activity->patient_display_name_snapshot);
     }
 
     public function test_clinical_caller_cannot_override_authoritative_root_identifiers(): void

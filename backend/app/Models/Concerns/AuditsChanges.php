@@ -123,7 +123,7 @@ trait AuditsChanges
             $patientSubject = $this instanceof Patient
                 ? $this
                 : ($context instanceof Patient ? $context : null);
-            $activity->patient_display_name_snapshot = app(AuditPatientSnapshot::class)->resolve(
+            $activity->patient_code_snapshot = app(AuditPatientSnapshot::class)->resolve(
                 $patientSubject,
                 $identifiers['root_patient_id'],
             );

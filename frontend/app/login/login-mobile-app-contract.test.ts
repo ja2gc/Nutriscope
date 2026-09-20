@@ -6,10 +6,15 @@ const frontend = path.resolve(__dirname, "../..");
 const read = (relative: string) => fs.readFileSync(path.join(frontend, relative), "utf8");
 
 describe("login native-app entry contract", () => {
-  it("landing page uses icon-free feature copy and centers the sign-in heading", () => {
+  it("landing page centers only an enlarged brand lockup on the image panel", () => {
     const login = read("app/login/page.tsx");
 
-    expect(login).not.toMatch(/HeartPulse|Salad|ShieldCheck/);
+    expect(login).not.toContain("featureItems");
+    expect(login).not.toContain("Precision nutrition.");
+    expect(login).toContain('<Logo variant="dark" />');
+    expect(login).toContain('aria-label="NutriScope"');
+    expect(login).toContain("scale-[3]");
+    expect(login).toContain("lg:items-center lg:justify-center");
     expect(login).toContain('className="text-center"');
   });
 

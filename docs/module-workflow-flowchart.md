@@ -272,7 +272,7 @@ flowchart TD
     A["Operational source tables"] --> B{"Report / graph type?"}
     B -->|"NCP Summary"| C["Patient + assessment + diagnoses + intervention + monitoring"]
     B -->|"Patient Menu Plan"| D["Patient + intervention prescription + meal plan days/items"]
-    B -->|"Demographic Census"| E["Patient admission period + latest NCP/assessment status"]
+    B -->|"Demographic Census"| E["Each ADIME cycle's start date + its own assessment/risk"]
     B -->|"Budget summary / burn"| F["Fiscal-year budget + budget ledger"]
     B -->|"Per-head actual vs limit"| G["PO costs + served population + per-head/day limit"]
     B -->|"Menu / PPA / procurement"| H["Menu cycle + shopping list + PO + frozen PPA"]
@@ -280,7 +280,7 @@ flowchart TD
 
     C --> J["RND reports browser"]
     D --> J
-    E --> O["Stored monthly census from May 2026, including zero-patient months"]
+    E --> O["Monthly census from earliest cycle; completed months frozen, current month live"]
     O --> J
     F --> J
     G --> J

@@ -8,7 +8,7 @@ final readonly class AuditEventDto
      * @param  array{id: ?string, kind: string, name: string, role: ?string}|null  $actor
      * @param  array{type: string, id: ?string, label: string}|null  $subject
      * @param  array{type: string, id: ?string, label: string}|null  $context
-     * @param  array{display_name: string}|null  $patient
+     * @param  array{code: string}|null  $patient
      * @param  list<array{key: string, label: string, value: AuditValueDto}>  $details
      * @param  list<array{field: string, label: string, before: AuditValueDto, after: AuditValueDto, redacted: bool}>  $changes
      */

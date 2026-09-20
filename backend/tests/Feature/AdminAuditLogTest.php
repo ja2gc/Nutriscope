@@ -439,7 +439,7 @@ class AdminAuditLogTest extends TestCase
             'module' => AuditModule::NutritionCare,
             'causer_type' => $first->getMorphClass(),
             'causer_id' => $first->id,
-            'patient_display_name_snapshot' => $patient->display_name,
+            'patient_code_snapshot' => $patient->patient_code,
         ]);
         $second->delete();
 

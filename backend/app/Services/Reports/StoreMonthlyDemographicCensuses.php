@@ -3,30 +3,27 @@
 namespace App\Services\Reports;
 
 use App\Models\DemographicCensusPeriod;
-use App\Models\Patient;
+use App\Models\NcpRecord;
 use App\Services\Reports\Generators\DemographicCensusGenerator;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class StoreMonthlyDemographicCensuses
 {
     public function __construct(private readonly DemographicCensusGenerator $generator) {}
 
-    /** @return array{stored:int,skipped:int} */
+    /** @return array{stored:int,rebuilt:int,skipped:int} */
     public function handle(Carbon $now): array
     {
-        $configuredStart = Carbon::parse(
-            config('nutriscope-reports.demographic_census_start'),
-            $now->getTimezone(),
-        )->startOfMonth();
-        $firstAdmission = Patient::query()->whereNotNull('admission_date')->min('admission_date');
-        if ($firstAdmission === null) {
-            return ['stored' => 0, 'skipped' => 0];
+        $firstCycle = NcpRecord::query()->min('created_at');
+        if ($firstCycle === null) {
+            return ['stored' => 0, 'rebuilt' => 0, 'skipped' => 0];
         }
 
-        $firstPatientMonth = Carbon::parse($firstAdmission, $now->getTimezone())->startOfMonth();
-        $cursor = $firstPatientMonth->greaterThan($configuredStart) ? $firstPatientMonth : $configuredStart;
+        $cursor = Carbon::parse($firstCycle, $now->getTimezone())->startOfMonth();
         $lastCompletedMonth = $now->copy()->startOfMonth()->subMonth();
         $stored = 0;
+        $rebuilt = $this->rebuildLegacyPeriods($lastCompletedMonth, $now);
         $skipped = 0;
 
         while ($cursor->lessThanOrEqualTo($lastCompletedMonth)) {
@@ -46,6 +43,7 @@ class StoreMonthlyDemographicCensuses
                     'period_end' => $end->toDateString(),
                     'census' => $census,
                     'source_count' => $census['total'],
+                    'basis_version' => DemographicCensusGenerator::BASIS_VERSION,
                     'frozen_at' => $now,
                 ],
             );
@@ -53,6 +51,29 @@ class StoreMonthlyDemographicCensuses
             $cursor->addMonth();
         }
 
-        return compact('stored', 'skipped');
+        return compact('stored', 'rebuilt', 'skipped');
+    }
+
+    private function rebuildLegacyPeriods(Carbon $lastCompletedMonth, Carbon $now): int
+    {
+        $periods = DemographicCensusPeriod::query()
+            ->where('basis_version', '<', DemographicCensusGenerator::BASIS_VERSION)
+            ->whereDate('period_start', '<=', $lastCompletedMonth->toDateString())
+            ->get();
+
+        foreach ($periods as $period) {
+            $census = $this->generator->currentCensus($period->period_start, $period->period_end);
+            DB::table('demographic_census_periods')
+                ->where('id', $period->id)
+                ->update([
+                    'census' => json_encode($census, JSON_THROW_ON_ERROR),
+                    'source_count' => $census['total'],
+                    'basis_version' => DemographicCensusGenerator::BASIS_VERSION,
+                    'frozen_at' => $now,
+                    'updated_at' => $now,
+                ]);
+        }
+
+        return $periods->count();
     }
 }

@@ -241,7 +241,7 @@ export default function NcpPatientsPage() {
             <table className="w-full text-left border-collapse min-w-[1080px]">
               <thead>
                 <tr className="bg-warm-50 border-b border-warm-200 select-none">
-                  <th className="px-5 py-4 text-xs font-extrabold text-warm-500 uppercase tracking-wider">Name / ID</th>
+                  <th className="px-5 py-4 text-xs font-extrabold text-warm-500 uppercase tracking-wider">Name</th>
                   <th className="px-5 py-4 text-xs font-extrabold text-warm-500 uppercase tracking-wider">Age / Sex</th>
                   <th className="px-5 py-4 text-xs font-extrabold text-warm-500 uppercase tracking-wider">Physician</th>
                   <th className="px-5 py-4 text-xs font-extrabold text-warm-500 uppercase tracking-wider">Last Assessment</th>

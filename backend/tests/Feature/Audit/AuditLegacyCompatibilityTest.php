@@ -196,24 +196,23 @@ class AuditLegacyCompatibilityTest extends TestCase
         $firstState = DB::table('activity_log')
             ->whereIn('id', [$patientEvent->id, $unresolved->id, $food->id, $recipe->id, $ambiguous->id, $existingSnapshot->id])
             ->orderBy('id')
-            ->get(['id', 'module', 'domain', 'patient_display_name_snapshot', 'properties'])
+            ->get(['id', 'module', 'domain', 'patient_code_snapshot', 'patient_display_name_snapshot', 'properties'])
             ->map(fn (object $row): array => (array) $row)
             ->all();
         $this->artisan('audit:backfill-oversight', ['--chunk' => 2])->assertSuccessful();
         $secondState = DB::table('activity_log')
             ->whereIn('id', [$patientEvent->id, $unresolved->id, $food->id, $recipe->id, $ambiguous->id, $existingSnapshot->id])
             ->orderBy('id')
-            ->get(['id', 'module', 'domain', 'patient_display_name_snapshot', 'properties'])
+            ->get(['id', 'module', 'domain', 'patient_code_snapshot', 'patient_display_name_snapshot', 'properties'])
             ->map(fn (object $row): array => (array) $row)
             ->all();
 
         $this->assertSame($firstState, $secondState);
         $this->assertSame(AuditModule::NutritionCare, $patientEvent->refresh()->module);
-        $this->assertSame($patient->display_name, $patientEvent->patient_display_name_snapshot);
-        $ciphertext = DB::table('activity_log')->where('id', $patientEvent->id)->value('patient_display_name_snapshot');
-        $this->assertIsString($ciphertext);
-        $this->assertNotSame($patient->display_name, $ciphertext);
-        $this->assertNull($unresolved->refresh()->patient_display_name_snapshot);
+        $this->assertSame($patient->patient_code, $patientEvent->patient_code_snapshot);
+        $this->assertNull($patientEvent->patient_display_name_snapshot);
+        $this->assertSame($patient->patient_code, DB::table('activity_log')->where('id', $patientEvent->id)->value('patient_code_snapshot'));
+        $this->assertNull($unresolved->refresh()->patient_code_snapshot);
         $this->assertSame('NCP-A1B2C3D4E5F60708', $unresolved->properties['details']['ncp_reference']);
         $this->assertSame(
             'NCP-A1B2C3D4E5F60708',
@@ -226,6 +225,7 @@ class AuditLegacyCompatibilityTest extends TestCase
         $this->assertNull($ambiguous->refresh()->module);
         $this->assertSame('legacy_unclassified', app(AuditEventPresenter::class)->present($ambiguous)->module);
         $this->assertSame('Historical Patient', $existingSnapshot->refresh()->patient_display_name_snapshot);
+        $this->assertSame($patient->patient_code, $existingSnapshot->patient_code_snapshot);
         $this->assertDatabaseCount('audit_revisions', 0);
         $this->assertStringNotContainsString($patient->display_name, json_encode($secondState, JSON_THROW_ON_ERROR));
     }

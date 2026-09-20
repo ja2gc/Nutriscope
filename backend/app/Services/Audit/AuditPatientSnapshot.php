@@ -15,9 +15,9 @@ class AuditPatientSnapshot
 
         $patient = $subject instanceof Patient && (int) $subject->getKey() === $patientId
             ? $subject
-            : Patient::query()->whereKey($patientId)->first(['id', 'name', 'first_name', 'last_name']);
-        $displayName = trim((string) $patient?->display_name);
+            : Patient::query()->whereKey($patientId)->first(['id', 'patient_code']);
+        $code = trim((string) $patient?->patient_code);
 
-        return $displayName === '' ? null : $displayName;
+        return $code === '' ? null : $code;
     }
 }

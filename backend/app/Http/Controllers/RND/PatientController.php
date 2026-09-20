@@ -62,7 +62,7 @@ class PatientController extends Controller
             ));
 
         RankedSearch::apply($query, $request->string('search')->toString(), [
-            'name', 'first_name', 'last_name', 'physician', 'ward', 'hospital_number',
+            'patient_code', 'name', 'first_name', 'last_name', 'physician', 'ward', 'hospital_number',
         ]);
 
         $patients = $query

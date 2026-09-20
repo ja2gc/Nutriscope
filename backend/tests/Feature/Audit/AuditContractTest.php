@@ -140,7 +140,7 @@ class AuditContractTest extends TestCase
     {
         $this->assertTrue(Schema::hasColumns('activity_log', [
             'public_id', 'subject_public_id', 'context_public_id', 'category', 'domain',
-            'module', 'patient_display_name_snapshot', 'severity', 'outcome',
+            'module', 'patient_display_name_snapshot', 'patient_code_snapshot', 'severity', 'outcome',
             'context_type', 'context_id', 'batch_uuid',
         ]));
         $this->assertFalse(Schema::hasColumn('activity_log', 'correlation_uuid'));

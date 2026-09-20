@@ -55,7 +55,7 @@ export const FULL_CATALOG: CatalogEntry[] = [
   { type: "procurement_pack", name: "Procurement Pack", desc: "AIR + Statement + Summary of Marketing.", icon: PackageCheck, group: "Food Service" },
   { type: "accomplishment_report", name: "Accomplishment Report", desc: "Per-staff semi-monthly duty sheet + diet-list headcount logged by FSS.", icon: ClipboardList, group: "Food Service" },
   { type: "patients_ncp", name: "Patients NCP", desc: "Choose a patient, then an ADIME cycle, to view its reports.", icon: ClipboardList, group: "Clinical" },
-  { type: "demographic_census", name: "Demographic Census", desc: "Patient counts by age, sex, ward, diagnosis.", icon: ClipboardList, group: "Clinical" },
+  { type: "demographic_census", name: "Demographic Census", desc: "ADIME cycle counts by age, sex, ward, diagnosis.", icon: ClipboardList, group: "Clinical" },
 ];
 
 // Admin-allowed catalog: RND parity minus patient-specific reports.
@@ -64,7 +64,7 @@ export const ADMIN_CATALOG: CatalogEntry[] = [
   { type: "menu_calendar", name: "Menu Calendar", desc: "Printable Mon-Sun grid for the kitchen.", icon: CalendarDays, group: "Food Service" },
   { type: "procurement_pack", name: "Procurement Pack", desc: "AIR + Statement + Summary of Marketing.", icon: PackageCheck, group: "Food Service" },
   { type: "accomplishment_report", name: "Accomplishment Report", desc: "Per-staff semi-monthly duty sheet + diet-list headcount logged by FSS.", icon: ClipboardList, group: "Food Service" },
-  { type: "demographic_census", name: "Demographic Census", desc: "Aggregate patient counts by age, sex, ward, diagnosis.", icon: ClipboardList, group: "Clinical" },
+  { type: "demographic_census", name: "Demographic Census", desc: "Aggregate ADIME cycle counts by age, sex, ward, diagnosis.", icon: ClipboardList, group: "Clinical" },
 ];
 
 export const FSS_CATALOG: CatalogEntry[] = [
@@ -580,9 +580,12 @@ function TemplateEditor({ onFlash }: { onFlash: (ok: boolean, msg: string) => vo
           const t = editingTemplateId === saved.id && templateDraft ? templateDraft : saved;
           const protectedClinical = isClinicalAutoFilledSignatory(t);
           return <Card key={t.id} padded className="space-y-3">
-            <div>
-              <h3 className="text-base font-bold text-warm-800">{t.name}</h3>
-              {t.description && <p className="text-xs text-warm-500">{t.description}</p>}
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h3 className="text-base font-bold text-warm-800">{t.name}</h3>
+                {t.description && <p className="text-xs text-warm-500">{t.description}</p>}
+              </div>
+              {!protectedClinical && editingTemplateId !== t.id && <Button variant="secondary" onClick={() => { setTemplateDraft({ ...saved, signatories: (saved.signatories ?? []).map((s) => ({ ...s })) }); setEditingTemplateId(saved.id); }} className="!w-auto shrink-0 !py-1.5 !px-3.5 text-sm">Edit</Button>}
             </div>
             {protectedClinical ? (
               <p className="text-xs text-warm-500">Prepared by and attending physician come from patient care records.</p>
@@ -598,7 +601,7 @@ function TemplateEditor({ onFlash }: { onFlash: (ok: boolean, msg: string) => vo
                 ))}
               </div>
             )}
-            {!protectedClinical && (editingTemplateId === t.id ? <div className="flex gap-2"><Button variant="primary" onClick={() => saveT(t)} loading={savingT === t.id} className="!w-auto !py-1.5 !px-3.5 text-sm"><Save className="h-3.5 w-3.5" /> Save</Button><Button variant="secondary" onClick={() => { setTemplateDraft(null); setEditingTemplateId(null); }} className="!w-auto !py-1.5 !px-3.5 text-sm">Cancel</Button></div> : <Button variant="secondary" onClick={() => { setTemplateDraft({ ...saved, signatories: (saved.signatories ?? []).map((s) => ({ ...s })) }); setEditingTemplateId(saved.id); }} className="!w-auto !py-1.5 !px-3.5 text-sm">Edit</Button>)}
+            {!protectedClinical && editingTemplateId === t.id && <div className="flex gap-2"><Button variant="primary" onClick={() => saveT(t)} loading={savingT === t.id} className="!w-auto !py-1.5 !px-3.5 text-sm"><Save className="h-3.5 w-3.5" /> Save</Button><Button variant="secondary" onClick={() => { setTemplateDraft(null); setEditingTemplateId(null); }} className="!w-auto !py-1.5 !px-3.5 text-sm">Cancel</Button></div>}
           </Card>;
         })}
       </div>

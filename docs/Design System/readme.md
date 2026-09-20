@@ -63,7 +63,8 @@ Calm authority, never playful or salesy.
   Intervention, Monitoring, NCP cycle, cost-per-head, restock, shortfall,
   census, procurement, PO (purchase order). Never dumb it down.
 - **Numbers:** always tabular; currency is **₱** with 2 decimals
-  (`₱1,240.00`); patient IDs are `NS-00042`; relative time on mobile
+  (`₱1,240.00`); patient IDs are random `NS-XXXX-XXXX` codes (for example,
+  `NS-7K4M-92QX`) and appear only beneath the patient name in the profile header; relative time on mobile
   ("2h ago", "just now").
 - **Status language** pairs a word with a color, never color alone
   ("In stock" / "No stock", "Prepped", "Shortfall", "3 days overdue").

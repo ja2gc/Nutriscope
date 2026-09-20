@@ -18,7 +18,6 @@ class PersonNameStaleConsumerTest extends TestCase
         $expected = [
             "app/Http/Controllers/Admin/UserController.php:'name' => \$user->name,",
             "app/Http/Controllers/Auth/AuthController.php:'name' => \$user->name,",
-            "app/Services/Audit/AuditOversightBackfill.php:\$displayName = \$parts !== [] ? implode(' ', \$parts) : trim((string) \$patient->name);",
         ];
 
         sort($expected);

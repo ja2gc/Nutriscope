@@ -140,6 +140,18 @@ describe("UI helper copy contract", () => {
     expect(/<p[^>]*>\s*Food Service Staff\s*<\/p>/.test(mobileAppPage)).toBe(false);
   });
 
+  test("centers only the NutriScope brand on the desktop login artwork", () => {
+    const loginPage = read("app/login/page.tsx");
+
+    expect(loginPage).not.toContain("const featureItems");
+    expect(loginPage).not.toContain("Precision nutrition.");
+    expect(loginPage).not.toContain("Operational clarity.");
+    expect(loginPage).not.toContain("Plan menus and track budget down to the last PHP");
+    expect(loginPage).toContain("lg:items-center lg:justify-center");
+    expect(loginPage).toContain('aria-label="NutriScope"');
+    expect(loginPage).toContain("scale-[3]");
+  });
+
   test("removes visible refresh controls while preserving retry states", () => {
     const refreshSurfaces = [
       "app/(rnd)/food-service/inventory/page.tsx",

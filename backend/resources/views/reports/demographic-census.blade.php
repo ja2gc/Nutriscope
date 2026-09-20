@@ -3,10 +3,10 @@
 @section('body')
     @include('reports.partials.letterhead', [
         'title'    => 'DEMOGRAPHIC / RESEARCH CENSUS',
-        'subtitle' => 'Inclusive Dates: ' . $inclusive_label . ' — Total Patients: ' . $census['total'],
+        'subtitle' => 'Inclusive Dates: ' . $inclusive_label . ' — Total ADIME Cycles: ' . $census['total'],
     ])
 
-    <div class="bold" style="margin-top:8px;">Patients by Age Group &amp; Sex</div>
+    <div class="bold" style="margin-top:8px;">ADIME Cycles by Patient Age Group &amp; Sex</div>
     <table class="grid" style="margin-top:4px;">
         <thead>
             <tr>
@@ -45,7 +45,7 @@
                 @include('reports.partials._breakdown', ['heading' => 'By Nutritional Status', 'data' => $census['by_status']])
             </td>
             <td style="border:0; width:25%;">
-                @include('reports.partials._breakdown', ['heading' => 'By Screening Type', 'data' => $census['by_risk']])
+                @include('reports.partials._breakdown', ['heading' => 'By Risk Level', 'data' => $census['by_risk']])
             </td>
         </tr>
     </table>

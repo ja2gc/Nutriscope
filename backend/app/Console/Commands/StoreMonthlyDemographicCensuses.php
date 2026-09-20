@@ -15,7 +15,7 @@ class StoreMonthlyDemographicCensuses extends Command
     public function handle(CensusStore $store): int
     {
         $result = $store->handle(Carbon::now(config('nutriscope-reports.timezone')));
-        $this->info("Monthly demographic censuses stored: {$result['stored']}; already frozen: {$result['skipped']}.");
+        $this->info("Monthly demographic censuses stored: {$result['stored']}; rebuilt: {$result['rebuilt']}; already frozen: {$result['skipped']}.");
 
         return self::SUCCESS;
     }

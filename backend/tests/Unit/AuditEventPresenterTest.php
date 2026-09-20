@@ -107,7 +107,7 @@ class AuditEventPresenterTest extends TestCase
             'category' => AuditCategory::Clinical,
             'domain' => AuditDomain::Ncp,
             'module' => AuditModule::NutritionCare,
-            'patient_display_name_snapshot' => 'Patient Display',
+            'patient_code_snapshot' => 'NS-7K4M-92QX',
             'subject_type' => 'App\\Models\\NcpRecord',
             'subject_public_id' => (string) Str::uuid(),
             'properties' => [
@@ -126,7 +126,7 @@ class AuditEventPresenterTest extends TestCase
 
         $event = app(AuditEventPresenter::class)->present($activity)->toArray();
 
-        $this->assertSame(['display_name' => 'Patient Display'], $event['patient']);
+        $this->assertSame(['code' => 'NS-7K4M-92QX'], $event['patient']);
         $this->assertSame('Actual Actor', $event['actor']['name']);
         $this->assertSame('NCP-ABCDEF0123456789', $event['ncp_reference']);
         $this->assertSame('field_names', $event['detail_mode']);
@@ -289,7 +289,7 @@ class AuditEventPresenterTest extends TestCase
             'subject_type' => Patient::class,
             'subject_id' => $patient->id,
             'subject_public_id' => $patient->uuid,
-            'patient_display_name_snapshot' => $patient->display_name,
+            'patient_code_snapshot' => $patient->patient_code,
         ]);
 
         $presenter = app(AuditEventPresenter::class);

@@ -112,7 +112,7 @@ flowchart TD
 
 ## Explicit Safety Boundary
 
-Admin performs system oversight, not clinical care. No Admin patient/NCP navigation exists. Aggregate patient counts and aggregate Demographic Census do not grant access to patient-specific Assessment, Diagnosis, Intervention, Monitoring, Patient Menu Plan, or NCP Summary.
+Admin performs system oversight, not clinical care. No Admin patient/NCP navigation exists. Aggregate patient counts and aggregate ADIME-cycle Demographic Census totals do not grant access to patient-specific Assessment, Diagnosis, Intervention, Monitoring, Patient Menu Plan, or NCP Summary.
 
 ## Related Documents
 

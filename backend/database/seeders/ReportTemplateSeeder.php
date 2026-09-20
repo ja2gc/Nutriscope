@@ -79,7 +79,7 @@ class ReportTemplateSeeder extends Seeder
             [
                 'type' => 'demographic_census', 'name' => 'Demographic / Research Census',
                 'blade_view' => 'reports.demographic-census',
-                'description' => 'Patient counts by age/sex/ward/diagnosis/status/risk, any date range.',
+                'description' => 'ADIME cycle counts by age/sex/ward/diagnosis/status/risk, any date range.',
                 'signatories' => [
                     ['role' => 'prepared_by', 'label' => 'Prepared by:', 'name' => $rnd[0], 'title' => $rnd[1]],
                     ['role' => 'approved_by', 'label' => 'Approved by:', 'name' => $chief[0], 'title' => $chief[1]],

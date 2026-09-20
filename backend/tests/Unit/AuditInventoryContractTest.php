@@ -281,6 +281,7 @@ class AuditInventoryContractTest extends TestCase
         $this->assertTrue(class_exists('App\\Enums\\AuditModule'));
         $this->assertTrue(Schema::hasColumn('activity_log', 'module'));
         $this->assertTrue(Schema::hasColumn('activity_log', 'patient_display_name_snapshot'));
+        $this->assertTrue(Schema::hasColumn('activity_log', 'patient_code_snapshot'));
         $this->assertTrue(Schema::hasTable('audit_revisions'));
     }
 

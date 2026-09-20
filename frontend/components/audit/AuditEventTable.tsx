@@ -18,7 +18,7 @@ function severityTone(severity: AuditEventDto["severity"]): BadgeTone {
 
 function subjectContext(event: AuditEventDto) {
   const typedContext = Array.from(new Set([
-    event.patient?.display_name,
+    event.patient?.code,
     event.ncp_reference,
     event.subject?.label,
     event.context?.label,

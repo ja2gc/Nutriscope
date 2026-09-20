@@ -55,7 +55,7 @@ class StructuredAuditApiTest extends TestCase
             'causer_id' => $actor->id,
             'subject_type' => $patient->getMorphClass(),
             'subject_id' => $patient->id,
-            'patient_display_name_snapshot' => $patient->display_name,
+            'patient_code_snapshot' => $patient->patient_code,
             'properties' => [
                 'actor' => ['kind' => 'user', 'public_id' => $actor->uuid, 'name' => $actor->name, 'role' => 'RND'],
                 'details' => [
@@ -87,7 +87,7 @@ class StructuredAuditApiTest extends TestCase
             ->assertJsonPath('data.0.category', 'clinical')
             ->assertJsonPath('data.0.id', $activity->public_id)
             ->assertJsonPath('data.0.actor.id', $actor->uuid)
-            ->assertJsonPath('data.0.patient', ['display_name' => $patient->display_name])
+            ->assertJsonPath('data.0.patient', ['code' => $patient->patient_code])
             ->assertJsonPath('data.0.subject.id', null)
             ->assertJsonPath('data.0.changes.0.old_value', null)
             ->assertJsonPath('data.0.changes.0.new_value', null)

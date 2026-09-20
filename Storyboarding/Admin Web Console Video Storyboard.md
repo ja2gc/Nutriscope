@@ -125,7 +125,7 @@ Use this as both the recording checklist and narration script. Record with demo 
 **On-screen actions**
 
 1. Open **Reports** and review the report catalog.
-2. Open an allowed Program Project Activity, Menu Calendar, Procurement Pack, Accomplishment, or aggregate Demographic Census report.
+2. Open an allowed Program Project Activity, Menu Calendar, Procurement Pack, Accomplishment, or aggregate Demographic Census report. For the census, show that each non-deleted ADIME cycle is counted once in its start month without exposing patient identity.
 3. Use Preview and Download and explain that they read the latest saved report data.
 4. Archive an inactive demo report and open the **Archived** tab.
 5. Restore or delete only the disposable archived report when permitted.
@@ -133,7 +133,7 @@ Use this as both the recording checklist and narration script. Record with demo 
 
 **Narration**
 
-> Admin can review approved operational and aggregate reports. Preview and Download do not create a second report or alter its identity. Archiving hides an inactive saved report. Patient-specific clinical reports remain blocked by the server, not merely hidden from the page.
+> Admin can review approved operational and aggregate reports. Demographic Census aggregates ADIME cycles from the earliest cycle month and keeps the current month live without exposing patient identity. Preview and Download do not create a second report or alter its identity. Archiving hides an inactive saved report. Patient-specific clinical reports remain blocked by the server, not merely hidden from the page.
 
 **Expected result:** Allowed reports can be browsed and managed, while patient-specific report types remain inaccessible.
 

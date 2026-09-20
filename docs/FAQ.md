@@ -356,7 +356,7 @@ Filter structured events by module/action/actor and other available filters, ins
 
 ### Can Admin open patient NCP details?
 
-No standing Admin clinical workflow exists. Admin can see aggregate patient counts and aggregate Demographic Census, but Patient Menu Plan and NCP Summary are blocked server-side.
+No standing Admin clinical workflow exists. Admin can see aggregate patient counts and aggregate ADIME-cycle Demographic Census totals, but Patient Menu Plan and NCP Summary are blocked server-side.
 
 ### What can Admin change in Settings?
 

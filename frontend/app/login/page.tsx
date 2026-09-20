@@ -10,12 +10,6 @@ import { Logo } from "@/components/ui/Logo";
 import { FssAppAccess } from "@/components/mobile-app/FssAppAccess";
 import { AlertTriangle } from "lucide-react";
 
-const featureItems = [
-  "Run the full Nutrition Care Process",
-  "Plan menus and track budget down to the last PHP",
-  "Food service & kitchen operations",
-];
-
 export default function LoginPage() {
   const router = useRouter();
   const { user, login, loading, error } = useAuth();
@@ -58,7 +52,7 @@ export default function LoginPage() {
 
   return (
     <div className="flex min-h-screen w-full overflow-hidden bg-white font-sans">
-      <div className="relative hidden min-h-screen overflow-hidden p-12 text-white lg:flex lg:w-[55%] lg:flex-col lg:justify-between">
+      <div className="relative hidden min-h-screen overflow-hidden p-12 text-white lg:flex lg:w-[55%] lg:flex-col lg:items-center lg:justify-center">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src="https://images.pexels.com/photos/1640777/pexels-photo-1640777.jpeg?auto=compress&cs=tinysrgb&w=1200"
@@ -66,29 +60,14 @@ export default function LoginPage() {
           aria-hidden="true"
           className="absolute inset-0 h-full w-full object-cover"
         />
-        <div className="absolute inset-0 bg-[linear-gradient(155deg,rgba(4,28,16,0.92)_0%,rgba(8,51,34,0.82)_48%,rgba(5,150,105,0.66)_100%)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_78%_52%,rgba(255,255,255,0.18),transparent_24%),linear-gradient(90deg,rgba(0,0,0,0.26),transparent_58%)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(145deg,rgba(3,24,15,0.96)_0%,rgba(7,55,35,0.91)_55%,rgba(4,90,57,0.86)_100%)]" />
+        <div className="absolute inset-0 bg-black/10" />
 
-        <div className="relative z-10">
-          <Logo variant="dark" collapsed={false} />
-        </div>
-
-        <div className="relative z-10 max-w-lg space-y-6">
-          <h1 className="text-5xl font-extrabold leading-[1.03] tracking-tight text-white drop-shadow-[0_3px_10px_rgba(0,0,0,0.55)]">
-            Precision nutrition.
-            <br />
-            Operational clarity.
-          </h1>
-
-          <div className="flex flex-col gap-3 pt-2">
-            {featureItems.map((text) => (
-              <div key={text} className="max-w-md border-l-2 border-lime-200/70 pl-4 text-base font-semibold leading-snug text-white drop-shadow-[0_2px_5px_rgba(0,0,0,0.45)]">
-                {text}
-              </div>
-            ))}
+        <div className="relative z-10 rounded-3xl bg-forest-950/35 px-10 py-8 shadow-[0_24px_80px_rgba(0,0,0,0.28)] ring-1 ring-white/10 backdrop-blur-[2px]">
+          <div aria-label="NutriScope" className="scale-[3]">
+            <Logo variant="dark" />
           </div>
         </div>
-
       </div>
 
       <div className="flex flex-1 items-center justify-center bg-white px-6 py-12">

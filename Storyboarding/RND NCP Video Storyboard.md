@@ -155,13 +155,15 @@ Use this as the recording checklist and narration script for a future **Help →
 4. Select **Meal Plan 1** on a record.
 5. Show the PDF preview, then the view/download controls used by Reports.
 6. Open **Reports → Browse → Clinical → Patients NCP**, choose the same patient, select one ADIME cycle, and show only that cycle's Patient Menu Plan and NCP Summary.
-7. Return to the patient record and confirm that merely viewing or downloading the report did not change **Last clinical action by**; when no qualifying save exists it reads **No action recorded**.
+7. Return to **Patients**, search the same person using the `NS-XXXX-XXXX` patient ID, and show that the ID appears only beneath the name in the patient profile header.
+8. Open **Reports → Browse → Clinical → Demographic Census**. Show that the month list begins with the earliest ADIME cycle, includes the live current month, and counts separate cycles for the same patient separately.
+9. Return to the patient record and confirm that merely viewing or downloading the report did not change **Last clinical action by**; when no qualifying save exists it reads **No action recorded**.
 
 **Narration**
 
-> Past Records preserves finished and discontinued ADIME cycles separately from the current cycle. A past appointment's linked ADIME cycle is history text, not a clickable shortcut. Meal plans use simple numbered labels and open the same report preview available from Patients NCP. Patients NCP is under Browse and Clinical: select a patient, then select one ADIME cycle so current and completed reports never mix. Prepared by comes from the RND responsible for the care cycle, and Attending physician comes from patient assessment data. Preparing an archived copy freezes its exact PDF, branding, signatories, and source values. Passive page views and downloads do not change clinical attribution.
+> Past Records preserves finished and discontinued ADIME cycles separately from the current cycle. A past appointment's linked ADIME cycle is history text, not a clickable shortcut. Meal plans use simple numbered labels and open the same report preview available from Patients NCP. Patients NCP is under Browse and Clinical: select a patient, then select one ADIME cycle so current and completed reports never mix. The same patient search accepts name, physician, hospital number, or the random patient ID shown beneath the profile name. Demographic Census counts each non-deleted ADIME cycle once in its start month, freezes completed months, and keeps the current month live. Prepared by comes from the RND responsible for the care cycle, and Attending physician comes from patient assessment data. Preparing an archived copy freezes its exact PDF, branding, signatories, and source values. Passive page views and downloads do not change clinical attribution.
 
-**Expected result:** Past records remain visible even when empty, pagination is present, a numbered meal plan opens its PDF, and Patients NCP shows both report types only after the selected patient and ADIME cycle.
+**Expected result:** Past records remain visible even when empty, pagination is present, patient-ID search finds the correct profile, a numbered meal plan opens its PDF, Patients NCP keeps report cycles separate, and Demographic Census counts all existing ADIME cycles from the earliest cycle month.
 
 ## Closing Shot
 

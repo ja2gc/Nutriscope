@@ -26,5 +26,7 @@ describe("Patients NCP report navigation", () => {
     expect(page).toContain("Back to ADIME cycles");
     expect(page).toContain("prepareReport(instance.type, instance.params, \"rnd\")");
     expect(page).toContain("<Pagination");
+    expect(page).not.toContain("Only reports belonging to this ADIME cycle are shown.");
+    expect(page).not.toContain("Current and completed cycles stay separate.");
   });
 });

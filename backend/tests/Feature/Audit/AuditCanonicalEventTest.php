@@ -194,7 +194,8 @@ class AuditCanonicalEventTest extends TestCase
         $this->assertSame(AuditModule::NutritionCare, $event->module);
         $this->assertSame(AuditCategory::Clinical, $event->category);
         $this->assertSame(AuditDomain::Ncp, $event->domain);
-        $this->assertSame('Privacy Sentinel', $event->patient_display_name_snapshot);
+        $this->assertSame($patient->patient_code, $event->patient_code_snapshot);
+        $this->assertNull($event->patient_display_name_snapshot);
         $this->assertSame($actor->id, $event->causer_id);
         $this->assertContains('status', $event->properties['details']['changed_fields']);
         $this->assertArrayNotHasKey('old', $event->properties);
@@ -204,11 +205,10 @@ class AuditCanonicalEventTest extends TestCase
         $this->assertMatchesRegularExpression('/^NCP-[A-F0-9]{16}$/D', $reference);
         $this->assertSame($reference, app(AuditPseudonymousReference::class)->resolve($ncp, $ncp->id));
         $this->assertNotSame($ncp->uuid, $reference);
-        $this->assertSame('Privacy Sentinel', app(AuditPatientSnapshot::class)->resolve($ncp, $patient->id));
+        $this->assertSame($patient->patient_code, app(AuditPatientSnapshot::class)->resolve($ncp, $patient->id));
 
-        $rawSnapshot = DB::table('activity_log')->where('id', $event->id)
-            ->value('patient_display_name_snapshot');
-        $this->assertNotSame('Privacy Sentinel', $rawSnapshot);
+        $rawSnapshot = DB::table('activity_log')->where('id', $event->id)->value('patient_code_snapshot');
+        $this->assertSame($patient->patient_code, $rawSnapshot);
 
         $serializedModel = $event->toJson();
         $serializedProperties = $event->properties->toJson();
@@ -236,7 +236,8 @@ class AuditCanonicalEventTest extends TestCase
         $patient->update(['first_name' => 'NewFirstSentinel']);
 
         $event = AuditActivity::query()->sole();
-        $this->assertSame('NewFirstSentinel FamilySentinel', $event->patient_display_name_snapshot);
+        $this->assertSame($patient->patient_code, $event->patient_code_snapshot);
+        $this->assertNull($event->patient_display_name_snapshot);
         $this->assertSame(['first_name'], $event->properties['details']['changed_fields']);
         $this->assertStringNotContainsString('OldFirstSentinel', $event->properties->toJson());
         $this->assertStringNotContainsString('NewFirstSentinel', $event->properties->toJson());

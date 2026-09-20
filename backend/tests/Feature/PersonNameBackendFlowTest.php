@@ -243,6 +243,20 @@ class PersonNameBackendFlowTest extends TestCase
         $this->assertSame([$active->uuid], collect($response->json('data'))->pluck('id')->all());
     }
 
+    public function test_patient_search_uses_the_same_query_for_patient_code(): void
+    {
+        $rnd = User::factory()->rnd()->create();
+        $target = Patient::factory()->create(['status' => 'Active']);
+        Patient::factory()->create(['status' => 'Active']);
+
+        $response = $this->actingAs($rnd, 'sanctum')
+            ->getJson('/api/rnd/patients?status=Active&search='.urlencode(strtolower($target->patient_code)))
+            ->assertOk();
+
+        $this->assertSame([$target->uuid], collect($response->json('data'))->pluck('id')->all());
+        $response->assertJsonPath('data.0.patient_code', $target->patient_code);
+    }
+
     public function test_admin_user_order_is_last_then_first_then_stable_id_with_legacy_fallback(): void
     {
         $admin = User::factory()->admin()->create([

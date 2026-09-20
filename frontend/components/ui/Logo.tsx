@@ -28,10 +28,10 @@ const COLORS = {
 export function Logo({ variant = "light", collapsed = false }: LogoProps) {
   const c = COLORS[variant];
   return (
-    <div className="flex items-center gap-2.5 select-none shrink-0" data-variant={variant}>
-      <div className="relative flex items-center justify-center h-8 w-8 shrink-0">
+    <div className="group flex shrink-0 select-none items-center gap-2.5" data-variant={variant}>
+      <div className="relative flex h-8 w-8 shrink-0 items-center justify-center">
         <svg
-          className="h-7 w-7 transition-transform duration-300 hover:rotate-12"
+          className="h-7 w-7 transition-transform duration-300 ease-out group-hover:rotate-12 motion-reduce:transform-none"
           viewBox="0 0 32 32"
           fill="none"
           xmlns="http://www.w3.org/2000/svg"

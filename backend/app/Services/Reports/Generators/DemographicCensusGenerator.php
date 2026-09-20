@@ -2,16 +2,14 @@
 
 namespace App\Services\Reports\Generators;
 
-use App\Models\Assessment;
 use App\Models\DemographicCensusPeriod;
 use App\Models\NcpRecord;
-use App\Models\Patient;
 use App\Models\Report;
 use App\Services\Reports\Contracts\ReportGenerator;
 use Carbon\Carbon;
 
 /**
- * Demographic / Research Census — patient counts broken down by age group, sex,
+ * Demographic / Research Census — NCP-cycle counts broken down by age group, sex,
  * ward, admission diagnosis, nutritional status, and risk level over any date range.
  *
  * Refocus of the old "NCP bi-annual" sheet (now a layout reference only): the form's
@@ -20,6 +18,8 @@ use Carbon\Carbon;
  */
 class DemographicCensusGenerator implements ReportGenerator
 {
+    public const BASIS_VERSION = 2;
+
     /** Age buckets mirror the bi-annual census columns. */
     public const AGE_GROUPS = ['0-4', '5-9', '10-14', '15-18', '19-29', '30-39', '40-59', '60+'];
 
@@ -51,6 +51,7 @@ class DemographicCensusGenerator implements ReportGenerator
         $stored = DemographicCensusPeriod::query()
             ->whereDate('period_start', $start->toDateString())
             ->whereDate('period_end', $end->toDateString())
+            ->where('basis_version', self::BASIS_VERSION)
             ->first();
 
         $census = $stored?->census ?? $this->currentCensus($start, $end);
@@ -68,41 +69,25 @@ class DemographicCensusGenerator implements ReportGenerator
     public function currentCensus(Carbon $start, Carbon $end): array
     {
 
-        $patients = Patient::query()
-            ->whereBetween('admission_date', [$start->toDateString(), $end->toDateString()])
+        $cycles = NcpRecord::query()
+            ->with(['patient', 'assessment'])
+            ->whereBetween('created_at', [
+                $start->copy()->startOfDay(),
+                $end->copy()->endOfDay(),
+            ])
             ->get()
-            ->map(fn (Patient $p) => [
-                'age' => $p->dob ? $p->dob->diffInYears($p->admission_date ?? now()) : null,
-                'sex' => $p->sex,
-                'ward' => $p->ward,
-                'diagnosis' => $p->medical_diagnosis,
-                // nutritional_status from the patient's most-recent assessment.
-                'nutritional_status' => $this->latestNutritionalStatus($p->id),
-                // RP-05: risk level is the patient's latest computed NCP risk score,
-                // NOT the screening type (adult/pediatric), which is not a risk level.
-                'risk_level' => $this->latestRiskLevel($p->id),
+            ->map(fn (NcpRecord $cycle) => [
+                'age' => $cycle->patient?->dob?->diffInYears($cycle->created_at),
+                'sex' => $cycle->patient?->sex,
+                'ward' => $cycle->patient?->ward,
+                'diagnosis' => $cycle->patient?->medical_diagnosis,
+                'nutritional_status' => $cycle->assessment?->nutritional_status,
+                'risk_level' => self::riskLevel(
+                    $cycle->risk_score === null ? null : (float) $cycle->risk_score,
+                ),
             ])->all();
 
-        return self::aggregate($patients);
-    }
-
-    /** Most-recent assessment nutritional_status for a patient, or null. */
-    private function latestNutritionalStatus(int $patientId): ?string
-    {
-        return Assessment::whereHas('ncpRecord', fn ($q) => $q->where('patient_id', $patientId))
-            ->latest('id')
-            ->value('nutritional_status');
-    }
-
-    /** Risk category from the patient's most-recent NCP risk score, or null. */
-    private function latestRiskLevel(int $patientId): ?string
-    {
-        $score = NcpRecord::where('patient_id', $patientId)
-            ->whereNotNull('risk_score')
-            ->latest('id')
-            ->value('risk_score');
-
-        return $score === null ? null : self::riskLevel((float) $score);
+        return self::aggregate($cycles);
     }
 
     /**
@@ -141,9 +126,9 @@ class DemographicCensusGenerator implements ReportGenerator
     }
 
     /**
-     * @param  array<int,array{age:?int,sex:?string,ward:?string,diagnosis:?string,nutritional_status:?string,risk_level:?string}>  $patients
+     * @param  array<int,array{age:?int,sex:?string,ward:?string,diagnosis:?string,nutritional_status:?string,risk_level:?string}>  $cycles
      */
-    public static function aggregate(array $patients): array
+    public static function aggregate(array $cycles): array
     {
         $ageSex = [];
         foreach (self::AGE_GROUPS as $g) {
@@ -153,7 +138,7 @@ class DemographicCensusGenerator implements ReportGenerator
         $bySex = ['M' => 0, 'F' => 0, 'Unknown' => 0];
         $byWard = $byDiagnosis = $byStatus = $byRisk = [];
 
-        foreach ($patients as $p) {
+        foreach ($cycles as $p) {
             $sex = self::normalizeSex($p['sex'] ?? null);
             $bySex[$sex] = ($bySex[$sex] ?? 0) + 1;
 
@@ -175,7 +160,7 @@ class DemographicCensusGenerator implements ReportGenerator
         arsort($byRisk);
 
         return [
-            'total' => count($patients),
+            'total' => count($cycles),
             'age_sex' => $ageSex,
             'by_sex' => $bySex,
             'by_ward' => $byWard,

@@ -85,9 +85,6 @@ export default function PatientNcpReportsPage() {
       <Card className="overflow-hidden">
         <div className="px-5 py-4 border-b border-warm-100">
           <h2 className="text-base font-bold text-warm-800">{selectedCycle ? selectedCycle.label : "Choose an ADIME cycle"}</h2>
-          <p className="text-xs text-warm-500 mt-0.5">
-            {selectedCycle ? "Only reports belonging to this ADIME cycle are shown." : "Current and completed cycles stay separate."}
-          </p>
         </div>
         {loading ? (
           <div className="py-14 flex items-center justify-center gap-2 text-sm text-warm-500"><Loader2 className="h-4 w-4 animate-spin" /> Loading reports…</div>

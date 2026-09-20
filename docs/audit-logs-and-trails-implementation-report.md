@@ -100,7 +100,7 @@ flowchart TD
     D --> F["Context resolver and actual actor attribution"]
     E --> F
     F --> G{"Clinical privacy class?"}
-    G -->|"Yes"| H["Keep field names; make NCP ref; resolve patient display name"]
+    G -->|"Yes"| H["Keep field names; make NCP ref; resolve patient code"]
     H --> I["Encrypt dedicated non-indexed patient snapshot"]
     G -->|"No"| J["Allow-list typed safe details and changes"]
     J --> K{"Registered complex serializer?"}
@@ -134,7 +134,7 @@ Security contexts are Authentication, Accounts, Audit Oversight, and Settings. N
 
 ## Clinical privacy boundary
 
-For patient-linked events Admin sees only patient display name, actual actor, action, timestamp, record type, stable pseudonymous NCP reference, and changed field names. Admin does not see old/new clinical values or patient-name values; hospital number; date of birth; sex; address/contact; ward; physician; diagnosis/admission; screening/risk values; meal-plan, assessment, intervention, or monitoring content; files/OCR; AI prompts/outputs; or patient-specific report parameters/content.
+For patient-linked events Admin sees only the pseudonymous patient code, actual actor, action, timestamp, record type, stable pseudonymous NCP reference, and changed field names. Admin does not see patient names; old/new clinical values; hospital number; date of birth; sex; address/contact; ward; physician; diagnosis/admission; screening/risk values; meal-plan, assessment, intervention, or monitoring content; files/OCR; AI prompts/outputs; or patient-specific report parameters/content.
 
 The patient name is stored only in the encrypted, non-indexed snapshot column. It is absent from `properties`, revision payloads, logs, metrics, URLs, exports, filters, sorting, and search. Export remains disabled; its future-compatible serialization omits the name. All historical serializers reject clinical/patient-linked types and unsafe content.
 
@@ -206,8 +206,8 @@ Deploy application code and additive migrations together. Migration rollback req
 
 | Decision normally requiring approval | Exact binding owner decision used |
 |---|---|
-| Admin patient identity in clinical audit | Admin may see only patient `display_name` through the dedicated encrypted snapshot; all other identity/demographic/clinical content remains prohibited. |
-| Patient identity versus actor | Patient name identifies the patient concerned; actor identifies who performed the action. Both must be independently labeled. |
+| Admin patient identity in clinical audit | Admin may see only the random immutable `NS-XXXX-XXXX` patient code through the dedicated snapshot; patient name and all other identity/demographic/clinical content remain prohibited. |
+| Patient identity versus actor | Patient code identifies the patient concerned; actor identifies who performed the action. Both must be independently labeled. |
 | Information architecture | The normal Admin UI has exactly the five named tabs; module tabs replace Domain as the primary organization. |
 | Shared clinical access | Every active RND can view/edit every patient/NCP; creator/owner fields are attribution, not authorization. |
 | Historical operational detail | Safe simple records show typed values; complex records use immutable event-time read-only versions, including deleted records. |
@@ -281,7 +281,7 @@ Every task used a concise Conventional Commit without AI attribution. Integratio
 - Name the hospital privacy/legal-hold approver and release procedure during production handover.
 - Decide any future cross-domain destructive/corrective reason project as one coordinated backend/web/mobile change.
 - Decide any future immutable ledger reversal-entry design; do not modify current entries meanwhile.
-- Decide audit export privacy/handling, including whether patient display name can ever be included, before enabling the guarded endpoint.
+- Decide audit export privacy/handling, including whether patient codes can be included, before enabling the guarded endpoint. Patient names remain excluded.
 - Consider an external append-only sink/hash chain only as a separately approved hardening project.
 - Populate demo audit history by exercising real workflows or approve a future bounded demo strategy; the current owner decision prohibits synthetic audit-event seeding.
 - Monitor revision-table growth and query plans as real production volume increases.

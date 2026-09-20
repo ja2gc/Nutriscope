@@ -175,7 +175,7 @@ class AuditLogger
         $contextPublicId = $this->publicIdResolver->forModel($resolvedContext);
         $clinicalIdentifiers = ['root_patient_id' => null, 'ncp_record_id' => null];
         $clinicalOwnerId = null;
-        $patientDisplayName = null;
+        $patientCode = null;
         if ($category === AuditCategory::Clinical) {
             $subjectIdentifiers = $subject !== null
                 ? $this->contextResolver->clinicalIdentifiers($subject)
@@ -199,7 +199,7 @@ class AuditLogger
             $patientSubject = $subject instanceof Patient
                 ? $subject
                 : ($resolvedContext instanceof Patient ? $resolvedContext : null);
-            $patientDisplayName = $this->patientSnapshot->resolve(
+            $patientCode = $this->patientSnapshot->resolve(
                 $patientSubject,
                 $clinicalIdentifiers['root_patient_id'],
             );
@@ -240,7 +240,7 @@ class AuditLogger
         $logger = activity(config('audit.log_name'))
             ->event($event)
             ->withProperties($properties)
-            ->tap(function (AuditActivity $activity) use ($category, $domain, $module, $outcome, $severity, $resolvedContext, $clinicalIdentifiers, $clinicalOwnerId, $patientDisplayName, $subjectPublicId, $contextPublicId): void {
+            ->tap(function (AuditActivity $activity) use ($category, $domain, $module, $outcome, $severity, $resolvedContext, $clinicalIdentifiers, $clinicalOwnerId, $patientCode, $subjectPublicId, $contextPublicId): void {
                 $activity->category = $category;
                 $activity->domain = $domain;
                 $activity->module = $module;
@@ -249,7 +249,7 @@ class AuditLogger
                 $activity->root_patient_id = $clinicalIdentifiers['root_patient_id'];
                 $activity->ncp_record_id = $clinicalIdentifiers['ncp_record_id'];
                 $activity->audit_owner_id = $clinicalOwnerId;
-                $activity->patient_display_name_snapshot = $patientDisplayName;
+                $activity->patient_code_snapshot = $patientCode;
                 $activity->subject_public_id = $subjectPublicId;
                 $activity->context_public_id = $contextPublicId;
 
