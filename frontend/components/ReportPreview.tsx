@@ -4,6 +4,38 @@ import React, { useEffect, useRef, useState } from "react";
 import type { PDFDocumentProxy, RenderTask } from "pdfjs-dist";
 import { AlertTriangle, Download, Loader2, X } from "lucide-react";
 
+const MAX_CACHED_PDF_DOCUMENTS = 3;
+const pdfDocumentCache = new Map<string, Promise<PDFDocumentProxy>>();
+
+function loadPdfDocument(src: string): Promise<PDFDocumentProxy> {
+  const cached = pdfDocumentCache.get(src);
+  if (cached) {
+    pdfDocumentCache.delete(src);
+    pdfDocumentCache.set(src, cached);
+    return cached;
+  }
+
+  const pending = import("pdfjs-dist/webpack.mjs").then((pdfjs) => (
+    pdfjs.getDocument({ url: src, withCredentials: true }).promise
+  ));
+  pdfDocumentCache.set(src, pending);
+
+  if (pdfDocumentCache.size > MAX_CACHED_PDF_DOCUMENTS) {
+    const oldest = pdfDocumentCache.entries().next().value;
+    if (oldest) {
+      const [oldestSrc, oldestDocument] = oldest;
+      pdfDocumentCache.delete(oldestSrc);
+      void oldestDocument.then((documentProxy) => documentProxy.destroy()).catch(() => undefined);
+    }
+  }
+
+  void pending.catch(() => {
+    if (pdfDocumentCache.get(src) === pending) pdfDocumentCache.delete(src);
+  });
+
+  return pending;
+}
+
 function PdfPage({ documentProxy, pageNumber }: { documentProxy: PDFDocumentProxy; pageNumber: number }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -121,17 +153,13 @@ export function ReportPreview({
 
   useEffect(() => {
     let disposed = false;
-    let documentProxy: PDFDocumentProxy | null = null;
 
     setLoading(true);
     setError(null);
     setDocumentProxy(null);
 
-    void import("pdfjs-dist/webpack.mjs")
-      .then(async (pdfjs) => {
-        const loadingTask = pdfjs.getDocument({ url: src, withCredentials: true });
-        const loadedDocument = await loadingTask.promise;
-        documentProxy = loadedDocument;
+    void loadPdfDocument(src)
+      .then((loadedDocument) => {
         if (!disposed) setDocumentProxy(loadedDocument);
       })
       .catch((cause: unknown) => {
@@ -139,10 +167,7 @@ export function ReportPreview({
       })
       .finally(() => { if (!disposed) setLoading(false); });
 
-    return () => {
-      disposed = true;
-      void documentProxy?.destroy();
-    };
+    return () => { disposed = true; };
   }, [src]);
 
   return (
