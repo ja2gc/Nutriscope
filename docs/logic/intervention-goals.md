@@ -14,9 +14,49 @@
 > **Authority hierarchy:** This document → `prescription-targets.json` (machine-readable contract) →
 > PHP backend (authoritative runtime) → TypeScript mirror.
 
-**Last updated:** 2026-06-28
+**Last updated:** 2026-09-20
 **References:** PDRI 2015 (FNRI-DOST, rev. Sept 2018) · WHO Asia-Pacific Perspective (2000) ·
 KDOQI 2020 · ADA 2024/2026 · ESPEN 2019 · NICE CG32 · GLIM 2019/2025
+
+---
+
+## Clinical, reporting, and privacy boundary
+
+The Academy of Nutrition and Dietetics defines Assessment, Nutrition Diagnosis,
+Intervention, and Monitoring/Evaluation as distinct but related Nutrition Care Process steps.
+Accordingly, a physician diagnosis, a broad demographic-census diagnosis category, a nutrition
+diagnosis, and an intervention `goal_type` are **not interchangeable fields**.
+
+- A demographic-census diagnosis category is selected and confirmed for the individual ADIME
+  cycle. It may summarize a detailed physician diagnosis, but it must not replace or rewrite that
+  diagnosis in the clinical record.
+- An intervention goal must be selected from the assessed nutrition problem and care plan. The
+  system must not silently infer a diagnosis category from that goal or infer a goal from a
+  diagnosis category.
+- Pregnancy/lactation is a PDRI calculation modifier, not an intervention goal.
+- Cancer/oncology is a diagnosis category, not one universal prescription formula. Academy
+  oncology guidance calls for nutrition assessment and individualized intervention. Depending on
+  the findings, the RND may select an existing goal such as `malnutrition`, `high_protein`,
+  `weight_gain`, or `custom`.
+- A suggested category or goal may be shown to the RND, but the RND must confirm it before save.
+
+This repository document, its tests, and its examples must contain no real patient names, patient
+IDs, dates, free-text diagnoses, or other protected/sensitive health information. Aggregate census
+outputs must use broad categories and role-restricted access. Any suppression of small cell counts
+must follow a documented hospital/privacy-officer policy; HHS does not prescribe one universal
+suppression threshold.
+
+These controls support data minimization and de-identification risk reduction; they do **not** by
+themselves certify HIPAA or Philippine Data Privacy Act compliance.
+
+**Sources:**
+
+- Academy of Nutrition and Dietetics, [Nutrition Care Process Overview](https://www.eatrightpro.org/practice/nutrition-care-process/ncp-overview)
+- Academy Evidence Analysis Library, [Oncology Evidence-Based Nutrition Practice Guideline](https://www.andeal.org/vault/pq113.pdf)
+- FNRI-DOST, [Philippine Dietary Reference Intakes 2015, revised 2018](https://www.fnri.dost.gov.ph/images/images/news/PDRI-2018.pdf)
+- U.S. HHS, [Minimum Necessary Requirement](https://www.hhs.gov/hipaa/for-professionals/privacy/guidance/minimum-necessary-requirement/index.html)
+- U.S. HHS, [De-identification Guidance](https://www.hhs.gov/hipaa/for-professionals/special-topics/de-identification/index.html)
+- Philippine National Privacy Commission, [Data Privacy Act of 2012](https://privacy.gov.ph/data-privacy-act/)
 
 ---
 
@@ -48,18 +88,22 @@ These are the **only fields the calculation engine reads**. Assessment fields no
 Calf circumference has been removed from the assessment entirely (it was an AWGS muscle-mass
 proxy and fed nothing).
 
-| Input | Source | Notes |
-|---|---|---|
-| `weight_kg` | Measured | Use dry weight if edema present — RND must enter dry weight manually |
-| `height_cm` | Measured | — |
-| `age_years` | Computed from `dob` at assessment date | — |
-| `sex` | `patients.sex` | `male` \| `female` |
-| `physical_activity_level` | Assessment | Maps to PAL factor (§2) |
-| `stress_condition` | Assessment | Maps to stress factor (§2); `none` if absent |
-| `goal_type` | RND selection | Determines which section applies |
-| `disease_stage` | RND selection | Determines targets within goal |
-| `edema_present` | Assessment boolean | If true: engine halts and requires RND to confirm dry weight before proceeding |
-| `pregnancy_lactation_status` | Assessment | `none` \| `pregnant_t2` \| `pregnant_t3` \| `lactating` — triggers energy/protein add-ons |
+| Input | Source | Requirement | Notes |
+|---|---|---|---|
+| `weight_kg` | Measured | Required | Use confirmed dry weight instead when edema is present |
+| `height_cm` | Measured | Required for adult auto-fill | Used for IBW, AjBW, BMI, and BMR |
+| `age_years` | Computed from `dob` at assessment date | Required | Never entered as a second independent age value |
+| `sex` | `patients.sex` | Required | `Male` \| `Female` in the current runtime |
+| `physical_activity_level` | Assessment | Required by the workflow | Maps to PAL factor (§2); legacy fallback is sedentary (`1.2`) |
+| `goal_type` | RND selection | Required | Determines which section applies; `custom` uses manual targets |
+| `disease_stage` | RND selection | Required when the selected goal defines stages | Must be valid for the selected `goal_type` |
+| `edema_present` | Assessment boolean | Required, default `false` | If true, auto-fill is blocked until the RND enters confirmed dry weight |
+| `pregnancy_lactation_status` | Assessment | Required, default `none` | `none` \| `pregnant` \| `lactating`; applies PDRI add-ons |
+
+The current prescription runtime does not apply a separate assessment `stress_factor` multiplier.
+Stress is represented by the selected `high_protein` stage where clinically appropriate; applying
+both would double-count stress. Every non-custom goal must produce energy, protein, carbohydrate,
+fat, and fluid targets. `custom` requires the RND to enter and confirm those targets manually.
 
 **Derived within the engine (not stored as inputs):**
 
@@ -72,7 +116,7 @@ protein_weight → IBW (always, for all adult protein targets)
 BMI          → weight_kg / (height_m)²
 bmi_class_ap → Asia-Pacific table (§2)
 BMR          → Mifflin-St Jeor using working_weight (§2)
-TEE          → BMR × PAL × stress_factor (§2)
+TEE          → BMR × PAL (§2)
 ```
 
 > **Edema rule:** If `edema_present = true` and the RND has not entered a dry weight, the engine must
@@ -194,39 +238,21 @@ Result in **kcal/day**.
 TEE = BMR × PAL
 ```
 
-If an acute stress condition is present:
-```
-TEE = BMR × PAL × stress_factor
-```
-
-> Do not apply a stress factor unless the patient has an active acute condition. For goals that use
-> a flat kcal/kg rate (CKD, High Protein, Liver Disease, Malnutrition `severe`), TEE is not used —
-> the flat rate replaces it. The energy method is stated at the top of each goal section.
+The current runtime applies no separate stress multiplier. Acute stress needs are represented by
+the RND-confirmed `high_protein` stage or another individualized goal. This prevents a severity
+factor from being applied twice when a goal already uses a disease-specific flat kcal/kg rate.
 
 **PAL factors:**
 
 | `physical_activity_level` | PAL | Typical clinical context |
 |---|---|---|
-| `bedbound` | 1.2 | ICU, immediate post-op, non-ambulatory |
+| `sedentary` | 1.2 | ICU, immediate post-op, non-ambulatory |
 | `light` | 1.375 | Ambulatory inpatient, limited mobility |
 | `moderate` | 1.55 | Outpatient, light daily activity |
 | `very_active` | 1.725 | Regular vigorous exercise |
 | `extra_active` | 1.9 | Heavy physical labor |
 
-> For most hospitalized patients: `bedbound` (1.2) or `light` (1.375).
-
-**Stress factors:**
-
-| `stress_condition` | Factor |
-|---|---|
-| `none` | 1.0 (omit from formula) |
-| `minor_surgery` | 1.0 – 1.1 |
-| `moderate_trauma_sepsis` | 1.2 – 1.4 |
-| `major_burns` | 1.5 – 2.0 |
-
-> **Double-count guard:** For `high_protein` and `malnutrition` goals that already use flat kcal/kg
-> disease-specific rates, the stress factor is **not** applied on top. Those flat rates already
-> embed severity. See §10.
+> For most hospitalized patients: `sedentary` (1.2) or `light` (1.375).
 
 **Source:** Roza AM, Shizgal HM (1984), as referenced in ASPEN Clinical Guidelines.
 
@@ -254,8 +280,7 @@ Applied after goal-specific targets are computed:
 
 | Status | Energy add-on | Protein add-on |
 |---|---|---|
-| `pregnant_t2` (2nd trimester) | +300 kcal/day | +27 g/day |
-| `pregnant_t3` (3rd trimester) | +300 kcal/day | +27 g/day |
+| `pregnant` (2nd/3rd trimester) | +300 kcal/day | +27 g/day |
 | `lactating` | +500 kcal/day | +27 g/day |
 
 > **Source:** PDRI 2015 (FNRI-DOST). These add-ons apply over the goal-calculated baseline.
@@ -322,14 +347,10 @@ W = weight in kg. Result in kcal/day.
 TEE = BMR × PAL + Energy for Growth
 ```
 
-**PAL (pediatric):**
-
-| Level | PAL | Context |
-|---|---|---|
-| `bedbound` | 1.2 | ICU, post-op |
-| `sedentary` | 1.4–1.5 | Inpatient, ambulatory |
-| `light` | 1.6–1.7 | Outpatient |
-| `active` | 1.8–1.9 | Normal daily activity |
+The current pediatric runtime uses the same PAL keys and factors as the adult workflow:
+`sedentary` 1.2, `light` 1.375, `moderate` 1.55, `very_active` 1.725, and
+`extra_active` 1.9. Pediatric goal-specific branching remains a documented limitation and requires
+pediatric-dietitian review before the factors or formulas are changed.
 
 **Energy for Growth (add to BMR × PAL):**
 
@@ -989,6 +1010,7 @@ Both goal types may involve underweight patients and caloric surpluses. They are
 
 | Date | Change |
 |---|---|
+| 2026-09-20 | **Clinical/reporting/privacy boundary documented.** Diagnosis categories remain separate from nutrition diagnoses and intervention goals; pregnancy/lactation remains a PDRI modifier; oncology requires individualized goal selection. Required calculation inputs and privacy limitations are explicit. Runtime pregnancy values and TEE inputs were reconciled with current code. |
 | 2026-07-17 | **Severe prescriptions changed to flat full targets.** Removed staged low-calorie output and phase metadata. Severe `malnutrition` and `weight_gain` use 32.5 kcal/kg by default; micronutrients appear only with numeric targets. |
 | 2026-06-28 | **Calf circumference removed from assessment entirely** (column dropped, UI/request/resource fields removed). Was an AWGS muscle-mass proxy that fed no calculation. |
 | 2026-06-28 | **Verification pass (51 values confirmed, 4 corrected).** CKD sodium, diabetic fiber, BMI risk labeling, and GLIM weight-loss criteria were corrected. |
