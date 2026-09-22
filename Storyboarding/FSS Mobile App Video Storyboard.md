@@ -63,12 +63,13 @@ Use this as both the recording checklist and narration script. The main recordin
 
 1. Enter the demo FSS sign-in email and password, then select **Sign In**.
 2. If this is a new account, show **Secure your account**.
-3. Enter a new password, confirm it, add a demo recovery email, and select **Save account setup**.
-4. Mention **Do later** without using it in the main success path.
+3. Enter a new password, confirm it, add a demo recovery email, and select **Save and send code**.
+4. Enter the captured six-digit code and select **Verify recovery email**.
+5. Mention **Do later** without using it in the main success path; explain that deferral shows a persistent Profile reminder in the mobile header.
 
 **Narration**
 
-> Only active Food Service Staff accounts can sign in to this app. RND and Admin accounts continue to use the website. First-login setup replaces the temporary password and adds a recovery email. Staff may choose Do later, but the reminder remains until setup is finished.
+> Only active Food Service Staff accounts can sign in to this app. RND and Admin accounts continue to use the website. First-login setup replaces the temporary password, then verifies the recovery email with a six-digit code. Staff may choose Do later, but the persistent header reminder remains until both requirements are finished.
 
 **Expected result:** The signed-in FSS Home screen and main navigation open.
 

@@ -45,10 +45,10 @@ export default function ForgotPasswordPage() {
               Reset Password
             </h1>
             <p className="mt-1 text-sm text-warm-500">
-              Enter your verified recovery email to receive a reset link.
+              Enter your sign-in email to request a password reset.
             </p>
             <p className="mt-2 text-xs leading-relaxed text-warm-400">
-              This is the recovery email saved in your profile, not your sign-in email or the system sender address.
+              We will send the reset link to the verified recovery email saved for that account.
             </p>
           </div>
 
@@ -64,7 +64,7 @@ export default function ForgotPasswordPage() {
               </div>
             )}
             <Input
-              label="Verified Recovery Email"
+              label="Sign-in Email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}

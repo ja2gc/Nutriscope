@@ -67,9 +67,9 @@ Admin can search/filter users and:
 New Admin-created accounts set both onboarding requirements:
 
 - change temporary password;
-- add recovery email.
+- add and verify a recovery email with the six-digit, ten-minute code sent to that address.
 
-Users complete setup on first login or defer it and finish in Profile. Role/status/password changes revoke existing tokens. Admin password reset also revokes tokens and creates an audit event.
+Users complete setup on first login or defer it and finish in Profile. Deferral opens the role workspace with a persistent amber Profile reminder until both requirements are complete. Role/status/password changes revoke existing tokens. Admin password reset also revokes tokens and creates an audit event.
 
 The current UI blocks Admin self-deactivation and self-deletion.
 

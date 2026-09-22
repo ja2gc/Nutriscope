@@ -272,9 +272,7 @@ export function ProfilePageShell({ crumbs, subtitle, fallbackRole }: ProfilePage
             Recovery Email
           </h3>
           <p className="-mt-3 mb-5 text-sm leading-relaxed text-warm-500">
-            {user?.must_set_recovery_email
-              ? "Add the recovery email required for first-login setup. No verification code is needed."
-              : "Changing an existing recovery email requires a code before the old address is replaced."}
+            A six-digit verification code is required before a new recovery email becomes active. An existing verified address stays active until its replacement is verified.
           </p>
           <form onSubmit={handleRecoveryEmailSubmit} className="space-y-4">
             <Input
@@ -286,13 +284,11 @@ export function ProfilePageShell({ crumbs, subtitle, fallbackRole }: ProfilePage
               autoComplete="email"
             />
             <p className="-mt-2 text-xs text-warm-400">
-              {user?.must_set_recovery_email
-                ? "Enter an address you control for future password recovery."
-                : "A verification code will be sent to the new address to confirm ownership."}
+              A verification code will be sent to the new address to confirm ownership.
             </p>
             <div className="flex items-center gap-3">
               <Button type="submit" loading={savingRecoveryEmail} className="w-auto">
-                {user?.must_set_recovery_email ? "Save Recovery Email" : "Send Verification Code"}
+                Send Verification Code
               </Button>
               {user?.recovery_email_verified && user.recovery_email === recoveryEmail && (
                 <span className="text-sm font-semibold text-emerald-600">Verified.</span>
@@ -300,8 +296,9 @@ export function ProfilePageShell({ crumbs, subtitle, fallbackRole }: ProfilePage
             </div>
           </form>
 
-          {!user?.must_set_recovery_email
-            && (Boolean(user?.pending_recovery_email) || !user?.recovery_email_verified) && (
+          {(user?.must_set_recovery_email
+            || Boolean(user?.pending_recovery_email)
+            || !user?.recovery_email_verified) && (
             <form onSubmit={handleRecoveryEmailVerify} className="mt-5 space-y-4 border-t border-warm-100 pt-5">
               <Input
                 label="Verification Code"

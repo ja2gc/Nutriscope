@@ -167,7 +167,7 @@ The profile side menu provides direct access to these account actions and manual
 
 Profile supports first/last name, sign-in email, contact number, recovery email setup/change/verification, and password change. Role and status are read-only.
 
-First-login accounts must replace the temporary password and add a recovery email. Setup can be deferred, but the header reminder remains until complete.
+First-login accounts must replace the temporary password, then verify the recovery email with the six-digit code sent to that address. Setup can be deferred before or during verification, but the persistent mobile-header reminder remains until both requirements are complete.
 
 ## Data Scope and Safety
 

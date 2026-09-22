@@ -54,15 +54,13 @@ class User extends Authenticatable
 
     public function getEmailForPasswordReset(): string
     {
-        return $this->recovery_email_verified_at && $this->recovery_email
-            ? $this->recovery_email
-            : $this->email;
+        return $this->email;
     }
 
     public function routeNotificationForMail(mixed $notification = null): ?string
     {
         if ($notification instanceof ResetPassword) {
-            return $this->getEmailForPasswordReset();
+            return $this->recovery_email_verified_at ? $this->recovery_email : null;
         }
 
         return $this->email;

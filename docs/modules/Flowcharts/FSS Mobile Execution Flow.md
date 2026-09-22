@@ -10,9 +10,10 @@ flowchart TD
     B -->|"No"| C["FSS sign-in"]
     B -->|"Yes"| D["Authenticated app"]
     C --> E{"First-login setup required?"}
-    E -->|"Yes"| F["Set new password and recovery email, or defer"]
+    E -->|"Yes"| F["Set new password, send and verify recovery code, or defer"]
     E -->|"No"| D
     F --> D
+    D --> R["Persistent Profile reminder while deferred setup remains incomplete"]
 
     D --> H1["Home"]
     D --> H2["Announcement: Announcements tab + SOP tab"]

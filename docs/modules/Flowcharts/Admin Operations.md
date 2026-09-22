@@ -28,9 +28,11 @@ flowchart TD
     C --> D["Account requires password change and recovery email"]
     D --> E["User signs in on role-correct platform"]
     E --> F{"Complete now?"}
-    F -->|"Yes"| G["Save password and recovery email"]
+    F -->|"Yes"| G["Save password and send recovery code"]
+    G --> V["Verify six-digit recovery code"]
     F -->|"Defer"| H["Workspace opens with persistent reminder"]
     H --> G
+    V --> W["Both requirements complete; reminder clears"]
 
     B -->|"Role/status/password change"| I["Save authorized change"]
     I --> J["Revoke user sessions"]

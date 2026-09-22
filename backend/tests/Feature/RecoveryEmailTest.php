@@ -93,6 +93,37 @@ class RecoveryEmailTest extends TestCase
         $this->assertSame(1, Activity::where('event', 'recovery_email_verified')->count());
         $this->assertSame($user->uuid, Activity::where('event', 'recovery_email_verified')->sole()->properties['details']['subject_public_id']);
         $this->assertStringNotContainsString((string) $code, Activity::query()->get()->toJson());
+        $this->assertStringNotContainsString('jaredabriol2@gmail.com', Activity::query()->get()->toJson());
+    }
+
+    public function test_expired_recovery_email_code_fails_without_verifying_address(): void
+    {
+        Notification::fake();
+        $user = User::factory()->create([
+            'email' => 'rnd@nutriscope.local',
+            'recovery_email' => null,
+            'recovery_email_verified_at' => null,
+        ]);
+
+        $this->actingAs($user, 'sanctum')->patchJson('/api/auth/recovery-email', [
+            'recovery_email' => 'expired@example.com',
+        ])->assertOk();
+
+        $code = null;
+        Notification::assertSentOnDemand(RecoveryEmailVerification::class, function (RecoveryEmailVerification $notification) use (&$code): bool {
+            $code = $notification->code;
+
+            return true;
+        });
+
+        $user->forceFill(['recovery_email_verification_expires_at' => now()->subSecond()])->save();
+
+        $this->actingAs($user->fresh(), 'sanctum')
+            ->postJson('/api/auth/recovery-email/verify', ['code' => $code])
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'Invalid or expired verification code.');
+
+        $this->assertNull($user->fresh()->recovery_email_verified_at);
     }
 
     public function test_recovery_email_cannot_match_another_users_login_email(): void

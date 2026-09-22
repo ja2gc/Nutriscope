@@ -6,7 +6,7 @@ Verified against current navigation and server permissions on **2026-09-08**. Fo
 
 1. Use the correct platform: RND/Admin on web; FSS in the mobile app.
 2. Enter sign-in email and password.
-3. On first login, replace the temporary password and add a recovery email.
+3. On first login, replace the temporary password, add a recovery email, and verify it with the six-digit code sent to that address. If setup is deferred, use the persistent Profile reminder to finish both requirements.
 4. If setup was deferred, open **Profile** and finish both items when the reminder appears.
 5. In Profile, confirm first/last name because reports and audit attribution use the account name.
 

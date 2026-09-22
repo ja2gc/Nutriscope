@@ -636,7 +636,7 @@ class AuditPrivacyTest extends TestCase
         ]);
         $token = Password::broker()->createToken($resetUser);
         $this->postJson('/api/auth/reset-password', [
-            'email' => 'reset@example.com',
+            'email' => $resetUser->email,
             'token' => $token,
             'password' => 'RESET-PASSWORD-SENTINEL',
             'password_confirmation' => 'RESET-PASSWORD-SENTINEL',

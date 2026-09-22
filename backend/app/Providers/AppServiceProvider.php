@@ -240,8 +240,7 @@ class AppServiceProvider extends ServiceProvider
         return match ($limiter) {
             'login', 'login-ip' => User::query()->where('email', $email)->value('uuid'),
             'password-reset' => User::query()
-                ->where('recovery_email', $email)
-                ->whereNotNull('recovery_email_verified_at')
+                ->where('email', $email)
                 ->value('uuid'),
             default => null,
         };

@@ -8,6 +8,16 @@ import {
 } from "./helpContent";
 
 describe("role-specific Help content", () => {
+  test("password help explains sign-in lookup, recovery delivery, and onboarding verification", () => {
+    const forgot = HELP_ITEMS.find((item) => item.id === "shared-forgot-password");
+    const createUser = HELP_ITEMS.find((item) => item.id === "admin-create-user");
+
+    expect(forgot?.answer).toContain("sign-in email");
+    expect(forgot?.answer).toContain("verified recovery email");
+    expect(createUser?.answer).toContain("six-digit verification code");
+    expect(createUser?.answer).toContain("persistent reminder");
+  });
+
   test("RND receives Shared and RND questions only", () => {
     const items = getVisibleHelpItems("RND");
 

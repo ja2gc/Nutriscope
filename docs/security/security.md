@@ -44,7 +44,8 @@ The database audit trail is not independently tamper-proof. A hash chain, period
 
 Staging must use the production schema on MySQL 8.0-compatible infrastructure with at least 100,000 representative audit events. After statistics are refreshed and caches warmed, collect at least 30 default, date-range, and context query samples. `EXPLAIN` must select the intended composite indexes and must not use a full table scan; combined query p95 must be at or below 250 ms. `AuditRetentionTest` generates 100,000 events and enforces the same index-plan and p95 acceptance gate. Record staging hardware, MySQL version, row distribution, sample count, and measured p95 with the release evidence.
 Rate limiting: login (5/min), password reset (5/hour per email+IP), password change (5/hour per user), AI endpoints, uploads, USDA, compute, and reports
-Password reset: generic forgot-password response, signed broker token, frontend reset URL, all existing Sanctum tokens revoked after reset
+Password reset: sign-in-email lookup, generic forgot-password response, delivery only to the verified recovery email, signed 60-minute broker token keyed to the sign-in email, single-use frontend reset URL, and all existing Sanctum tokens revoked after reset
+First-login recovery setup: password changes before recovery completion; a six-digit, ten-minute recovery-email code must verify ownership before onboarding clears; deferred users receive a persistent server-state reminder
 Password change: current password required, all existing Sanctum tokens revoked after change
 Logout: current Sanctum token revoked and frontend clears `nutriscope_token` + `nutriscope_role`
 Profile photos: PNG/JPEG/WebP data URLs only, capped by frontend preflight and Laravel validation; raw data is not written to audit payloads

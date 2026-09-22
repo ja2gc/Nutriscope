@@ -32,6 +32,8 @@ test('mobile Help contains only Shared and FSS guidance', () => {
   assert.doesNotMatch(content, /fss-inventory-update/);
   assert.doesNotMatch(content, /role:\s*['"](?:RND|Admin)['"]/);
   assert.doesNotMatch(content, /View all roles|All roles|role switch/i);
+  assert.match(content, /sign-in email/);
+  assert.match(content, /verified recovery email/);
 });
 
 test('mobile Help uses reusable accessible search and disclosures', () => {

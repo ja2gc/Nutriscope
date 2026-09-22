@@ -42,13 +42,13 @@ Use this as both the recording checklist and narration script. Record with demo 
 **On-screen actions**
 
 1. Open NutriScope and sign in with the demo Admin account.
-2. If prompted, replace the temporary password and add a recovery email.
+2. If prompted, replace the temporary password, add a recovery email, then enter the six-digit verification code sent to that address.
 3. Open the Admin Dashboard and point out the Admin-only navigation.
 4. Briefly show that Admin uses the website, while FSS uses the mobile app.
 
 **Narration**
 
-> Admin access is limited to active Admin accounts. New accounts may be required to replace a temporary password and add a recovery email. Admin manages system operations but does not receive the RND patient-care workspace or FSS mobile workflow.
+> Admin access is limited to active Admin accounts. New accounts replace the temporary password and verify the recovery email with a six-digit code. Choosing Do later opens the dashboard with a persistent Profile reminder until both requirements are complete. Admin manages system operations but does not receive the RND patient-care workspace or FSS mobile workflow.
 
 **Expected result:** The Admin Dashboard opens and the account no longer has unfinished onboarding requirements.
 

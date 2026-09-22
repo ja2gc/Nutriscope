@@ -131,7 +131,7 @@ describe("UI helper copy contract", () => {
     expect(protectedSource).toContain("Receipt and proof are required. OR number is not.");
     expect(protectedSource).toContain("Generated text is a draft. Review and edit it before saving the assessment.");
     expect(protectedSource).toContain("Do not enter provider credentials or patient information.");
-    expect(protectedSource).toContain("Changing an existing recovery email requires a code");
+    expect(protectedSource).toContain("A six-digit verification code is required before a new recovery email becomes active");
     expect(protectedSource).toContain("Changes apply only to this menu slot. The original recipe stays unchanged.");
   });
 

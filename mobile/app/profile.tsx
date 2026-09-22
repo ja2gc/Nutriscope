@@ -190,7 +190,8 @@ export default function ProfileScreen() {
 
   const passwordMutation = useMutation({
     mutationFn: changePassword,
-    onSuccess: () => {
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['me'] });
       setCurrentPw('');
       setNewPw('');
       setConfirmPw('');
@@ -439,9 +440,7 @@ export default function ProfileScreen() {
         <View className="mx-4 bg-white rounded-xl border border-gray-100 p-4 mb-4">
           <Text className="text-base font-semibold text-gray-800 mb-4">Recovery email</Text>
           <Text className="text-sm text-gray-500 mb-4 leading-5">
-            {user?.must_set_recovery_email
-              ? 'Add the recovery email required for first-login setup. No verification code is needed.'
-              : 'Changing an existing recovery email requires a code before the old address is replaced.'}
+            A six-digit verification code is required before a new recovery email becomes active. An existing verified address stays active until its replacement is verified.
           </Text>
 
           <FormField
@@ -464,14 +463,13 @@ export default function ProfileScreen() {
             <Text className="text-white font-semibold">
               {recoveryEmailMutation.isPending
                 ? 'Saving...'
-                : user?.must_set_recovery_email
-                  ? 'Save recovery email'
-                  : 'Send verification code'}
+                : 'Send verification code'}
             </Text>
           </TouchableOpacity>
 
-          {!user?.must_set_recovery_email
-            && (Boolean(user?.pending_recovery_email) || !user?.recovery_email_verified) ? (
+          {(user?.must_set_recovery_email
+            || Boolean(user?.pending_recovery_email)
+            || !user?.recovery_email_verified) ? (
             <>
               <View className="h-px bg-gray-100 my-4" />
 

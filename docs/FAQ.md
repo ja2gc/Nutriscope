@@ -1,6 +1,6 @@
 # NutriScope Frequently Asked Questions
 
-Verified against the current web, mobile, and Laravel role gates on **2026-09-09**. This is the user-facing FAQ and source for the role-scoped in-app Help pages. When this file conflicts with an older diagram or plan, current application code wins.
+Verified against the current web, mobile, and Laravel role gates on **2026-09-22**. This is the user-facing FAQ and source for the role-scoped in-app Help pages. When this file conflicts with an older diagram or plan, current application code wins.
 
 ## Start Here
 
@@ -14,11 +14,11 @@ Verified against the current web, mobile, and Laravel role gates on **2026-09-09
 
 ### I forgot my password. What should I do?
 
-Select **Forgot password?** on the sign-in screen, then enter your **verified recovery email**. The reset link is sent to that recovery address, not necessarily to your sign-in email.
+Select **Forgot password?** on the sign-in screen, then enter your **sign-in email**. NutriScope finds the account by that sign-in email and sends the reset link to its verified recovery email. The recovery address is never displayed.
 
 ### Why did the recovery page say a link was sent even when I received nothing?
 
-The response is intentionally generic. Check spam, confirm you entered the verified recovery email, and wait briefly. If the account has no verified recovery email or the link never arrives, ask an Admin to reset the password.
+The response is intentionally generic. Check spam, confirm you entered the sign-in email, and wait briefly. Unknown accounts and accounts without a verified recovery email receive the same response but no message is sent. If the link never arrives, ask an Admin to reset the password.
 
 ### My reset link or token does not work. What now?
 
@@ -26,7 +26,7 @@ It may be invalid, expired, or already used. Request a new link. A successful re
 
 ### What happens on first login?
 
-Accounts created by Admin start with a temporary password and require account setup. Set a new password of at least eight characters and add a recovery email. First-time recovery email setup is accepted as verified. You may choose **Do later**, but a reminder remains until both requirements are completed in Profile.
+Accounts created by Admin start with a temporary password and require account setup. First submit a new password of at least eight characters and a recovery email. NutriScope changes the password and sends a six-digit code that expires after ten minutes; only the correct code verifies the recovery address and completes setup. You may choose **Do later** before or during verification. A persistent amber banner remains on authenticated web pages and in the mobile header until both requirements are complete.
 
 ### Why can FSS not sign in on the website?
 
@@ -45,7 +45,7 @@ Yes. Open **Profile**. Web users can update first name, last name, sign-in email
 - **Sign-in email:** used with the password to log in.
 - **Recovery email:** receives password-reset links.
 
-Changing an existing recovery email requires a six-digit verification code. The code expires after ten minutes. The old verified address remains active until the new one is verified.
+Forgot Password accepts the sign-in email, while the reset message is delivered to the verified recovery email. Adding or changing a recovery email requires a six-digit verification code. The code expires after ten minutes. The old verified address remains active until the new one is verified.
 
 ### How do I change my password while signed in?
 

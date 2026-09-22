@@ -26,26 +26,6 @@ class RecoveryEmailController extends Controller
         $user = $request->user();
         $email = $request->validated('recovery_email');
 
-        if ($user->must_set_recovery_email) {
-            $this->auditLogger->assertAvailable();
-            DB::transaction(function () use ($email, $user): void {
-                $user->forceFill([
-                    'recovery_email' => $email,
-                    'recovery_email_verified_at' => now(),
-                    'recovery_email_verification_code' => null,
-                    'recovery_email_verification_expires_at' => null,
-                    'pending_recovery_email' => null,
-                ]);
-                $user->completeOnboardingRequirement('must_set_recovery_email');
-                $this->recordRecoveryEmailChange($user);
-            });
-
-            return response()->json([
-                'message' => 'Recovery email saved.',
-                'user' => new UserResource($user->fresh()),
-            ]);
-        }
-
         $code = (string) random_int(100000, 999999);
         $hasVerifiedEmail = $user->recovery_email && $user->recovery_email_verified_at !== null;
 
@@ -91,6 +71,10 @@ class RecoveryEmailController extends Controller
                 'recovery_email_verification_code' => null,
                 'recovery_email_verification_expires_at' => null,
             ])->save();
+
+            if ($user->must_set_recovery_email) {
+                $user->completeOnboardingRequirement('must_set_recovery_email');
+            }
 
             $this->auditLogger->record(
                 AuditAction::RecoveryEmailVerified,

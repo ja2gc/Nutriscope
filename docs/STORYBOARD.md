@@ -106,7 +106,7 @@ flowchart LR
 | Scene | Screen | Admin action | System response | Story point |
 |---|---|---|---|---|
 | 1. System health | Admin Dashboard | Reviews user totals, aggregate patient count, AI usage/cost, audit volume | Shows live overview, token caps, trends, recent events | Admin starts with system-level signals |
-| 2. Account provisioning | Manage Users | Creates RND/FSS/Admin account with temporary password | Requires first-login password/recovery setup | Access begins with controlled onboarding |
+| 2. Account provisioning | Manage Users | Creates RND/FSS/Admin account with temporary password | Requires password change, then six-digit recovery-email verification; deferral keeps a persistent banner | Access begins with controlled onboarding |
 | 3. Access correction | Manage Users | Changes role/status or resets password after verification | Revokes sessions and logs the action | Sensitive account changes are immediate and auditable |
 | 4. Oversight | Audit Logs | Filters events, opens structured details/history, exports when required | Shows safe event data and retention controls | Admin investigates actions without raw clinical payloads |
 | 5. Communication | Announcements/SOP | Publishes targeted post or revises approved SOP | Notifies matching users and preserves SOP versions | Policy reaches correct roles |
@@ -160,10 +160,10 @@ sequenceDiagram
 
 | Scene | User action | System response | Next step |
 |---|---|---|---|
-| 1 | Selects Forgot password | Requests verified recovery email | User enters recovery address |
-| 2 | Submits address | Returns generic confirmation | Prevents account discovery |
-| 3A | Valid verified recovery address | Sends reset link/token | User opens link and sets 8+ character password |
-| 3B | No verified recovery address | Sends no reset link | User contacts Admin |
+| 1 | Selects Forgot password | Requests sign-in email | User enters account sign-in email |
+| 2 | Submits sign-in email | Returns generic confirmation | Prevents account and recovery-address discovery |
+| 3A | Sign-in email has a verified recovery address | Sends reset link/token to that recovery address | Link carries sign-in email; user sets 8+ character password |
+| 3B | Unknown account or no verified recovery address | Sends no reset link but returns the same confirmation | User contacts Admin if recovery remains unavailable |
 | 4A | Reset succeeds | Revokes sessions | User signs in with new password |
 | 4B | Admin resets after identity check | Revokes sessions and audits reset | Admin shares new password securely |
 

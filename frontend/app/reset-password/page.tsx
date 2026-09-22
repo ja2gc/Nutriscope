@@ -72,7 +72,7 @@ function ResetPasswordForm() {
                 {error}
               </div>
             )}
-            <Input label="Recovery Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" />
+            <Input label="Sign-in Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" />
             <Input label="Reset Token" value={token} onChange={(e) => setToken(e.target.value)} required />
             <Input label="New Password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} autoComplete="new-password" />
             <Input label="Confirm New Password" type="password" value={passwordConfirmation} onChange={(e) => setPasswordConfirmation(e.target.value)} required minLength={8} autoComplete="new-password" />

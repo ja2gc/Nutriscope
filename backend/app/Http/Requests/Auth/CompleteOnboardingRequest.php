@@ -9,7 +9,7 @@ class CompleteOnboardingRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()?->requiresOnboarding() === true;
+        return $this->user()?->must_change_password === true;
     }
 
     public function rules(): array

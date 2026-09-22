@@ -33,31 +33,31 @@ Use this version when screenshots are available. Each scene already contains the
 
 #### SHARED-02 — First-Login Account Setup
 
-**Description:** Admin-created accounts must replace the temporary password and add a recovery email. The user may finish now or defer, but the reminder remains until both requirements are complete.
+**Description:** Admin-created accounts first replace the temporary password and submit a recovery email. Account Setup then requires the six-digit verification code sent to that address. The user may defer before or during verification; an amber banner persists until both requirements are complete.
 
-**User should do:** Enter a new password, confirm it, enter a demo recovery email, then select **Save account setup**.
+**User should do:** Enter a new password, confirm it, enter a demo recovery email, select **Save and send code**, then enter the captured six-digit code and select **Verify recovery email**.
 
 **Next scene:** Role dashboard.
 
-> **Screenshot needed:** Account Setup page showing First login, New password, Confirm new password, Recovery email, Save account setup, and Do later. Leave sensitive fields empty.
+> **Screenshots needed:** Account Setup password/recovery stage with **Do later**, then the OTP stage with **Verification code**, **Verify recovery email**, **Send another code**, and **Do later**. Do not show password or code values. If deferral is demonstrated, also capture the persistent amber Profile-settings banner.
 >
 > **Insert screenshot below this line.**
 
 #### SHARED-03 — Forgot Password
 
-**Description:** User requests recovery through the verified recovery email. The system returns a generic confirmation to avoid exposing whether an account exists.
+**Description:** User enters the account's sign-in email. NutriScope returns a generic confirmation and sends the reset link only to the account's verified recovery email without displaying that address.
 
-**User should do:** Enter the demo verified recovery email and select **Send Reset Link**.
+**User should do:** Enter the demo account's sign-in email and select **Send Reset Link**.
 
 **Next scene:** Reset Password page opened from the email link, or Admin-assisted reset if no verified recovery address exists.
 
-> **Screenshot needed:** Forgot Password page with verified recovery-email field, Send Reset Link, and Back to sign in.
+> **Screenshot needed:** Forgot Password page with **Sign-in Email**, recovery-delivery help text, **Send Reset Link**, and **Back to sign in**.
 >
 > **Insert screenshot below this line.**
 
 #### SHARED-04 — Profile and Recovery
 
-**Description:** Profile controls personal identity, sign-in email, contact, profile image on web, recovery email, and password. Role/designation is read-only.
+**Description:** Profile controls personal identity, sign-in email, contact, profile image on web, recovery email, and password. New or replacement recovery addresses require the six-digit code; an old verified address stays active until replacement verification. Role/designation is read-only.
 
 **User should do:** Confirm name and contact, then demonstrate the Recovery Email and Change Password sections without submitting secrets.
 
@@ -621,7 +621,7 @@ Use this version when screenshots are available. Each scene already contains the
 
 #### ADMIN-03 — Create Account and Onboarding Handoff
 
-**Description:** Admin assigns identity, sign-in email, role, status, and temporary password. The user finishes password/recovery setup on first login.
+**Description:** Admin assigns identity, sign-in email, role, status, and temporary password. On first login, the user changes that password and verifies the recovery email with a six-digit code.
 
 **User should do:** Demonstrate fields with fake data; do not submit a documentation-only account unless approved.
 

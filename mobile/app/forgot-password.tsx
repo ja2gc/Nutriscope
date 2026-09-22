@@ -19,7 +19,7 @@ export default function ForgotPasswordScreen() {
 
   async function handleSubmit() {
     if (!email.trim()) {
-      setError('Enter your verified recovery email.');
+      setError('Enter your sign-in email.');
       return;
     }
     setError(null);
@@ -60,10 +60,10 @@ export default function ForgotPasswordScreen() {
                 Reset Password
               </Text>
               <Text className="mt-1 text-xs text-zinc-500">
-                Enter your verified recovery email to receive a reset link.
+                Enter your sign-in email to request a password reset.
               </Text>
               <Text className="mt-2 text-xs leading-4 text-zinc-400">
-                This is the recovery email saved in your profile, not your sign-in email or the system sender address.
+                We will send the reset link to the verified recovery email saved for that account.
               </Text>
             </View>
 
@@ -83,7 +83,7 @@ export default function ForgotPasswordScreen() {
               </View>
             ) : null}
 
-            <Text className="text-xs font-semibold text-zinc-700 mb-1.5">Verified Recovery Email</Text>
+            <Text className="text-xs font-semibold text-zinc-700 mb-1.5">Sign-in Email</Text>
             <TextInput
               className="border border-zinc-300 rounded-lg px-4 h-12 text-base text-zinc-900 mb-5 bg-white"
               keyboardType="email-address"

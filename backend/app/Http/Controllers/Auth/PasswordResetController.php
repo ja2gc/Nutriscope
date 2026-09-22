@@ -24,13 +24,16 @@ class PasswordResetController extends Controller
 
     public function sendResetLink(Request $request): JsonResponse
     {
+        $request->merge([
+            'email' => $request->string('email')->trim()->lower()->toString(),
+        ]);
         $data = $request->validate([
             'email' => ['required', 'email'],
         ]);
 
-        $email = Str::lower($data['email']);
-        $user = User::where('recovery_email', $email)
+        $user = User::where('email', $data['email'])
             ->whereNotNull('recovery_email_verified_at')
+            ->whereNotNull('recovery_email')
             ->first();
 
         if ($user) {
@@ -43,6 +46,9 @@ class PasswordResetController extends Controller
 
     public function reset(Request $request): JsonResponse
     {
+        $request->merge([
+            'email' => $request->string('email')->trim()->lower()->toString(),
+        ]);
         $data = $request->validate([
             'email' => ['required', 'email'],
             'token' => ['required', 'string'],
@@ -51,8 +57,7 @@ class PasswordResetController extends Controller
 
         $this->auditLogger->assertAvailable();
         $user = DB::transaction(function () use ($data) {
-            $user = User::query()->where('recovery_email', Str::lower($data['email']))
-                ->whereNotNull('recovery_email_verified_at')->lockForUpdate()->first();
+            $user = User::query()->where('email', $data['email'])->lockForUpdate()->first();
             if (! $user) {
                 return null;
             }
