@@ -9,16 +9,19 @@ use Tests\TestCase;
 class ProductionDeploymentContractTest extends TestCase
 {
     #[Test]
-    public function production_email_uses_resends_digitalocean_compatible_smtp_port(): void
+    public function production_email_uses_resends_digitalocean_compatible_starttls_port(): void
     {
         $compose = file_get_contents(base_path('../docker-compose.prod.yml'));
         $environment = file_get_contents(base_path('.env.production.example'));
 
         $this->assertIsString($compose);
         $this->assertIsString($environment);
-        $this->assertStringContainsString('MAIL_PORT: "2465"', $compose);
-        $this->assertStringContainsString('MAIL_PORT=2465', $environment);
+        $this->assertStringContainsString('MAIL_SCHEME: "smtp"', $compose);
+        $this->assertStringContainsString('MAIL_PORT: "2587"', $compose);
+        $this->assertStringContainsString('MAIL_SCHEME=smtp', $environment);
+        $this->assertStringContainsString('MAIL_PORT=2587', $environment);
         $this->assertStringNotContainsString('MAIL_PORT=465', $environment);
+        $this->assertStringNotContainsString('MAIL_PORT=2465', $environment);
     }
 
     public function test_production_environment_exposes_private_database_dump_tls_controls(): void
