@@ -11,7 +11,7 @@ describe("onboarding proxy routes", () => {
   beforeEach(() => proxyMock.mockReset());
 
   test("forwards account setup fields", async () => {
-    const body = { password: "private-password", password_confirmation: "private-password", recovery_email: "recovery@example.com" };
+    const body = { password: "private-password", password_confirmation: "private-password" };
     await complete(new NextRequest("http://localhost/api/auth/onboarding", {
       method: "POST",
       body: JSON.stringify(body),

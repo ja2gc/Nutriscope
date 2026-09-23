@@ -2,12 +2,14 @@
 
 import Link from "next/link";
 import { AlertTriangle } from "lucide-react";
+import { usePathname } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 
 export function OnboardingReminder() {
   const { user } = useAuth();
+  const pathname = usePathname();
 
-  if (!user?.onboarding_required || !user.onboarding_skipped) return null;
+  if (pathname === "/account-setup" || !user?.onboarding_required || !user.onboarding_skipped) return null;
 
   const href = user.role === "Admin" ? "/admin/profile" : "/profile";
 

@@ -33,13 +33,13 @@ Use this version when screenshots are available. Each scene already contains the
 
 #### SHARED-02 — First-Login Account Setup
 
-**Description:** Admin-created accounts first replace the temporary password and submit a recovery email. Account Setup then requires the six-digit verification code sent to that address. The user may defer before or during verification; an amber banner persists until both requirements are complete.
+**Description:** Admin-created accounts first replace the temporary password. A separate next step collects the recovery email and sends a six-digit verification code. The user may defer before or during recovery verification; after deferral, an amber banner persists until both requirements are complete.
 
-**User should do:** Enter a new password, confirm it, enter a demo recovery email, select **Save and send code**, then enter the captured six-digit code and select **Verify recovery email**.
+**User should do:** Enter and confirm a new password, select **Next**, enter a demo recovery email, select **Send verification code**, then enter the captured six-digit code and select **Verify recovery email**.
 
 **Next scene:** Role dashboard.
 
-> **Screenshots needed:** Account Setup password/recovery stage with **Do later**, then the OTP stage with **Verification code**, **Verify recovery email**, **Send another code**, and **Do later**. Do not show password or code values. If deferral is demonstrated, also capture the persistent amber Profile-settings banner.
+> **Screenshots needed:** Account Setup password stage with **Next**, recovery-email stage with **Send verification code** and **Do later**, then the OTP stage with **Verification code**, **Verify recovery email**, **Send another code**, and **Do later**. Do not show password or code values. If deferral is demonstrated, also capture the persistent amber Profile-settings banner outside Account Setup.
 >
 > **Insert screenshot below this line.**
 

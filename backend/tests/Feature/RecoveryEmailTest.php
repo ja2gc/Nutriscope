@@ -4,9 +4,11 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use App\Notifications\Auth\RecoveryEmailVerification;
+use Illuminate\Contracts\Notifications\Dispatcher;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
+use RuntimeException;
 use Spatie\Activitylog\Models\Activity;
 use Tests\TestCase;
 
@@ -193,5 +195,30 @@ class RecoveryEmailTest extends TestCase
         $this->actingAs($second, 'sanctum')->patchJson('/api/auth/recovery-email', [
             'recovery_email' => 'reserved@example.com',
         ])->assertUnprocessable()->assertJsonValidationErrors(['recovery_email']);
+    }
+
+    public function test_failed_delivery_returns_a_clear_error_without_staging_the_address(): void
+    {
+        $user = User::factory()->create([
+            'recovery_email' => null,
+            'recovery_email_verified_at' => null,
+        ]);
+
+        $notificationDispatcher = \Mockery::mock(Dispatcher::class);
+        $notificationDispatcher->shouldReceive('send')
+            ->once()
+            ->andThrow(new RuntimeException('SMTP delivery failed'));
+        $this->app->instance(Dispatcher::class, $notificationDispatcher);
+
+        $this->actingAs($user, 'sanctum')->patchJson('/api/auth/recovery-email', [
+            'recovery_email' => 'unreachable@example.com',
+        ])->assertStatus(503)
+            ->assertJsonPath('message', 'Verification code could not be sent. Check the address and try again.');
+
+        $user->refresh();
+        $this->assertNull($user->recovery_email);
+        $this->assertNull($user->recovery_email_verification_code);
+        $this->assertNull($user->recovery_email_verification_expires_at);
+        $this->assertSame(0, Activity::where('event', 'recovery_email_changed')->count());
     }
 }

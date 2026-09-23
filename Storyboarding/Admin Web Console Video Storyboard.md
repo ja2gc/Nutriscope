@@ -42,7 +42,7 @@ Use this as both the recording checklist and narration script. Record with demo 
 **On-screen actions**
 
 1. Open NutriScope and sign in with the demo Admin account.
-2. If prompted, replace the temporary password, add a recovery email, then enter the six-digit verification code sent to that address.
+2. If prompted, replace the temporary password and select **Next**. Then add a recovery email, select **Send verification code**, and enter the six-digit code sent to that address.
 3. Open the Admin Dashboard and point out the Admin-only navigation.
 4. Briefly show that Admin uses the website, while FSS uses the mobile app.
 

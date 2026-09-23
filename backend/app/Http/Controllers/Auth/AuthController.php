@@ -16,7 +16,6 @@ use App\Http\Requests\Auth\UpdateProfileRequest;
 use App\Http\Resources\UserResource;
 use App\Models\AuditActivity;
 use App\Models\User;
-use App\Notifications\Auth\RecoveryEmailVerification;
 use App\Services\Audit\AuditLogger;
 use App\Services\StoredObjectStorage;
 use Illuminate\Http\JsonResponse;
@@ -25,7 +24,6 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Notification;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Throwable;
 
@@ -95,44 +93,24 @@ class AuthController extends Controller
     public function completeOnboarding(CompleteOnboardingRequest $request): JsonResponse
     {
         $data = $request->validated();
-        $code = (string) random_int(100000, 999999);
 
         $this->auditLogger->assertAvailable();
-        $user = DB::transaction(function () use ($code, $data, $request): User {
+        $user = DB::transaction(function () use ($data, $request): User {
             $user = $request->user()->newQuery()->lockForUpdate()->findOrFail($request->user()->getKey());
             abort_unless($user->must_change_password, 403);
 
-            $hasVerifiedRecoveryEmail = $user->recovery_email && $user->recovery_email_verified_at !== null;
             $user->forceFill([
                 'password' => Hash::make($data['password']),
-                'recovery_email' => $hasVerifiedRecoveryEmail ? $user->recovery_email : $data['recovery_email'],
-                'recovery_email_verified_at' => $hasVerifiedRecoveryEmail ? $user->recovery_email_verified_at : null,
-                'recovery_email_verification_code' => Hash::make($code),
-                'recovery_email_verification_expires_at' => now()->addMinutes(10),
-                'pending_recovery_email' => $hasVerifiedRecoveryEmail ? $data['recovery_email'] : null,
                 'must_change_password' => false,
-                'must_set_recovery_email' => true,
             ])->save();
 
             $this->auditAuth($request, AuditAction::PasswordChanged, $user);
-            $this->auditLogger->record(
-                AuditAction::RecoveryEmailChanged,
-                AuditCategory::Security,
-                AuditDomain::Accounts,
-                subject: $user,
-                details: ['changed_fields' => ['recovery_email']],
-                actor: $user,
-                includeRequestMetadata: false,
-            );
 
             return $user;
         });
 
-        Notification::route('mail', $data['recovery_email'])
-            ->notify(new RecoveryEmailVerification($code));
-
         return response()->json([
-            'message' => 'Password updated. Verification code sent.',
+            'message' => 'Password updated.',
             'user' => new UserResource($user->fresh()),
         ]);
     }

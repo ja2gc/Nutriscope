@@ -106,7 +106,7 @@ flowchart LR
 | Scene | Screen | Admin action | System response | Story point |
 |---|---|---|---|---|
 | 1. System health | Admin Dashboard | Reviews user totals, aggregate patient count, AI usage/cost, audit volume | Shows live overview, token caps, trends, recent events | Admin starts with system-level signals |
-| 2. Account provisioning | Manage Users | Creates RND/FSS/Admin account with temporary password | Requires password change, then six-digit recovery-email verification; deferral keeps a persistent banner | Access begins with controlled onboarding |
+| 2. Account provisioning | Manage Users | Creates RND/FSS/Admin account with temporary password | Password-only **Next**, recovery-email **Send verification code**, then six-digit verification; explicit deferral keeps a persistent banner | Access begins with controlled onboarding |
 | 3. Access correction | Manage Users | Changes role/status or resets password after verification | Revokes sessions and logs the action | Sensitive account changes are immediate and auditable |
 | 4. Oversight | Audit Logs | Filters events, opens structured details/history, exports when required | Shows safe event data and retention controls | Admin investigates actions without raw clinical payloads |
 | 5. Communication | Announcements/SOP | Publishes targeted post or revises approved SOP | Notifies matching users and preserves SOP versions | Policy reaches correct roles |

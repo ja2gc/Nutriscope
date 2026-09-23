@@ -63,9 +63,10 @@ Use this as both the recording checklist and narration script. The main recordin
 
 1. Enter the demo FSS sign-in email and password, then select **Sign In**.
 2. If this is a new account, show **Secure your account**.
-3. Enter a new password, confirm it, add a demo recovery email, and select **Save and send code**.
-4. Enter the captured six-digit code and select **Verify recovery email**.
-5. Mention **Do later** without using it in the main success path; explain that deferral shows a persistent Profile reminder in the mobile header.
+3. Enter and confirm a new password, then select **Next**.
+4. Enter a demo recovery email and select **Send verification code**.
+5. Enter the captured six-digit code and select **Verify recovery email**.
+6. Mention **Do later** without using it in the main success path; explain that deferral shows a persistent Profile reminder in the mobile header.
 
 **Narration**
 

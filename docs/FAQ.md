@@ -26,7 +26,7 @@ It may be invalid, expired, or already used. Request a new link. A successful re
 
 ### What happens on first login?
 
-Accounts created by Admin start with a temporary password and require account setup. First submit a new password of at least eight characters and a recovery email. NutriScope changes the password and sends a six-digit code that expires after ten minutes; only the correct code verifies the recovery address and completes setup. You may choose **Do later** before or during verification. A persistent amber banner remains on authenticated web pages and in the mobile header until both requirements are complete.
+Accounts created by Admin start with a temporary password and require account setup. First enter and confirm a new password of at least eight characters, then select **Next**. On the next step, enter a recovery email and select **Send verification code**. The six-digit code expires after ten minutes; only the correct code verifies the recovery address and completes setup. You may choose **Do later** before or during recovery verification. After deferral, a persistent amber banner appears on authenticated web pages and in the mobile header until both requirements are complete.
 
 ### Why can FSS not sign in on the website?
 

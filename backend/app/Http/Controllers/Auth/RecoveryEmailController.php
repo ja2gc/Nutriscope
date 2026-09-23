@@ -16,6 +16,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
+use Throwable;
 
 class RecoveryEmailController extends Controller
 {
@@ -30,18 +31,34 @@ class RecoveryEmailController extends Controller
         $hasVerifiedEmail = $user->recovery_email && $user->recovery_email_verified_at !== null;
 
         $this->auditLogger->assertAvailable();
-        DB::transaction(function () use ($code, $email, $user, $hasVerifiedEmail): void {
-            $user->forceFill([
-                'recovery_email' => $hasVerifiedEmail ? $user->recovery_email : $email,
-                'pending_recovery_email' => $hasVerifiedEmail ? $email : null,
-                'recovery_email_verified_at' => $hasVerifiedEmail ? $user->recovery_email_verified_at : null,
-                'recovery_email_verification_code' => Hash::make($code),
-                'recovery_email_verification_expires_at' => now()->addMinutes(10),
-            ])->save();
-            $this->recordRecoveryEmailChange($user);
-        });
+        $deliveryFailed = false;
+        try {
+            DB::transaction(function () use ($code, $email, $user, $hasVerifiedEmail, &$deliveryFailed): void {
+                $user->forceFill([
+                    'recovery_email' => $hasVerifiedEmail ? $user->recovery_email : $email,
+                    'pending_recovery_email' => $hasVerifiedEmail ? $email : null,
+                    'recovery_email_verified_at' => $hasVerifiedEmail ? $user->recovery_email_verified_at : null,
+                    'recovery_email_verification_code' => Hash::make($code),
+                    'recovery_email_verification_expires_at' => now()->addMinutes(10),
+                ])->save();
+                $this->recordRecoveryEmailChange($user);
 
-        Notification::route('mail', $email)->notify(new RecoveryEmailVerification($code));
+                try {
+                    Notification::route('mail', $email)->notify(new RecoveryEmailVerification($code));
+                } catch (Throwable $exception) {
+                    $deliveryFailed = true;
+                    throw $exception;
+                }
+            });
+        } catch (Throwable $exception) {
+            if (! $deliveryFailed) {
+                throw $exception;
+            }
+
+            return response()->json([
+                'message' => 'Verification code could not be sent. Check the address and try again.',
+            ], 503);
+        }
 
         return response()->json([
             'message' => 'Verification code sent.',

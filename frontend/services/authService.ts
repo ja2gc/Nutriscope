@@ -183,7 +183,7 @@ export async function fetchCurrentUser(): Promise<User> {
   return data.data || data;
 }
 
-export async function completeOnboarding(data: { password: string; password_confirmation: string; recovery_email: string }): Promise<User> {
+export async function completeOnboarding(data: { password: string; password_confirmation: string }): Promise<User> {
   const res = await fetch('/api/auth/onboarding', { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify(data) });
   const result = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(result.message || 'Failed to complete account setup.');

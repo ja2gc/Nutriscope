@@ -225,7 +225,7 @@ The patient search bar accepts patient name, physician, hospital number, or the 
 - Notifications: announcements and appointment/follow-up reminders; exact-record navigation, read state, and dismissal for informational or resolved items. Unresolved action-required items stay until resolved.
 - Settings: density, reduced motion, announcement/follow-up preferences, budget-per-head/day.
 - Profile: display-first first/last name and contact editing, immutable display-only sign-in email, one validated profile photo with circular drag/zoom crop, recovery email verification, password change.
-- First login: temporary password replacement followed by six-digit recovery-email verification. Deferral leaves a persistent amber Profile reminder until both requirements are complete.
+- First login: password-only **Next**, then recovery-email submission and six-digit verification. Explicit deferral leaves a persistent amber Profile reminder outside Account Setup until both requirements are complete.
 
 ## Explicit Boundaries
 

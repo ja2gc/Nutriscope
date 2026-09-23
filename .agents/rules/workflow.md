@@ -93,6 +93,8 @@
 
 ## Documentation and communication
 
+- Keep visible UI copy purposeful: do not add notes that merely restate an obvious field, button, or already-visible consequence.
+- Avoid decorative icons in focused forms unless the icon communicates a distinct status, warning, or action.
 - Phase 3 — documentation: update existing project docs and the canonical project storyboard when workflow, semantics, wording, or demo sequence changed; then do final verification. Never create duplicates.
 - Update existing docs/storyboards only when workflow, data semantics, demo sequence, or visible wording becomes false. Do not duplicate them.
 - The canonical storyboard location is the repository-root `Storyboarding/` directory. Update the existing matching storyboard there when demo flow changes; never create or use an external duplicate.

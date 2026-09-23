@@ -47,7 +47,7 @@ export const HELP_ITEMS: HelpItem[] = [
     role: "Shared",
     category: "Account & Access",
     question: "What happens on first login?",
-    answer: "A new account is asked to replace its temporary password and add a recovery email. You may defer setup, but NutriScope will continue showing a reminder until both security steps are finished.",
+    answer: "A new account first replaces its temporary password, then adds a recovery email and verifies it with the six-digit code sent to that address. If you choose Do later, NutriScope shows a persistent reminder until both security steps are finished.",
     keywords: ["temporary password", "onboarding", "account setup"],
     popular: true,
   },

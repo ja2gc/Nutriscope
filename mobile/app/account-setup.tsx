@@ -1,6 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
-import { ShieldCheck } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -37,7 +36,10 @@ export default function AccountSetupScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const verificationStage = Boolean(user && !user.must_change_password && user.must_set_recovery_email);
+  const verificationEmail = user?.pending_recovery_email ?? user?.recovery_email;
+  const passwordStage = Boolean(user?.must_change_password);
+  const verificationStage = Boolean(user && !user.must_change_password && user.must_set_recovery_email && verificationEmail);
+  const recoveryEmailStage = Boolean(user && !user.must_change_password && user.must_set_recovery_email && !verificationEmail);
 
   useEffect(() => {
     if (user && !user.onboarding_required) router.replace('/(tabs)');
@@ -48,7 +50,7 @@ export default function AccountSetupScreen() {
     if (stagedEmail) setRecoveryEmail((current) => current || stagedEmail);
   }, [user?.pending_recovery_email, user?.recovery_email]);
 
-  async function finishSetup() {
+  async function updatePassword() {
     if (password.length < 8) {
       setError('Password must be at least 8 characters.');
       return;
@@ -57,11 +59,6 @@ export default function AccountSetupScreen() {
       setError('Passwords do not match.');
       return;
     }
-    if (!/^\S+@\S+\.\S+$/.test(recoveryEmail.trim())) {
-      setError('Enter a valid recovery email.');
-      return;
-    }
-
     setSubmitting(true);
     setError(null);
     setNotice(null);
@@ -71,17 +68,15 @@ export default function AccountSetupScreen() {
         {
           password,
           password_confirmation: confirmation,
-          recovery_email: recoveryEmail.trim(),
         },
       );
       queryClient.setQueryData(['me'], responseUser(response.data.user));
       setPassword('');
       setConfirmation('');
-      setNotice('Verification code sent. Enter it below to finish account setup.');
     } catch (caught: unknown) {
       setError(
         (caught as { response?: { data?: { message?: string } } }).response?.data?.message
-          ?? 'Account setup failed. Try again.',
+          ?? 'Password could not be updated. Try again.',
       );
     } finally {
       setSubmitting(false);
@@ -115,7 +110,12 @@ export default function AccountSetupScreen() {
     }
   }
 
-  async function resendCode() {
+  async function sendCode() {
+    if (!/^\S+@\S+\.\S+$/.test(recoveryEmail.trim())) {
+      setError('Enter a valid recovery email.');
+      return;
+    }
+
     setSubmitting(true);
     setError(null);
     setNotice(null);
@@ -129,7 +129,7 @@ export default function AccountSetupScreen() {
     } catch (caught: unknown) {
       setError(
         (caught as { response?: { data?: { message?: string } } }).response?.data?.message
-          ?? 'Verification code could not be sent.',
+          ?? 'Verification code could not be sent. Check the address and try again.',
       );
     } finally {
       setSubmitting(false);
@@ -183,38 +183,23 @@ export default function AccountSetupScreen() {
             <BrandLogo size={32} />
           </View>
           <View className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-            <View className="mb-5 flex-row items-start gap-3 border-b border-gray-100 pb-5">
-              <View className="rounded-xl bg-emerald-50 p-2.5">
-                <ShieldCheck color="#047857" size={22} />
-              </View>
-              <View className="flex-1">
+            <View className="mb-5 border-b border-gray-100 pb-5">
+              <View>
                 <Text className="text-xs font-bold uppercase tracking-widest text-emerald-700">
                   First login
                 </Text>
                 <Text className="mt-1 text-xl font-bold text-gray-900">Secure your account</Text>
                 <Text className="mt-2 text-sm leading-5 text-gray-500">
-                  {verificationStage
-                    ? 'Resume your pending recovery verification with the six-digit code sent to your recovery email.'
-                    : 'Replace the temporary password and add a recovery email. We will send a six-digit verification code.'}
+                  {passwordStage
+                    ? 'Replace your temporary password.'
+                    : recoveryEmailStage
+                      ? 'Add a recovery email for password reset and account recovery.'
+                      : 'Enter the six-digit code sent to your recovery email.'}
                 </Text>
               </View>
             </View>
 
-            {verificationStage ? (
-              <>
-                <Text className="mb-1.5 text-sm font-semibold text-gray-700">Verification code</Text>
-                <TextInput
-                  accessibilityLabel="Verification code"
-                  className="h-12 rounded-lg border border-gray-300 px-4 text-base text-gray-900"
-                  keyboardType="number-pad"
-                  autoComplete="one-time-code"
-                  maxLength={6}
-                  value={verificationCode}
-                  onChangeText={setVerificationCode}
-                  editable={!submitting}
-                />
-              </>
-            ) : (
+            {passwordStage ? (
               <>
                 <Text className="mb-1.5 text-sm font-semibold text-gray-700">New password</Text>
                 <TextInput
@@ -229,13 +214,16 @@ export default function AccountSetupScreen() {
                 <Text className="mb-1.5 text-sm font-semibold text-gray-700">Confirm new password</Text>
                 <TextInput
                   accessibilityLabel="Confirm new password"
-                  className="mb-4 h-12 rounded-lg border border-gray-300 px-4 text-base text-gray-900"
+                  className="h-12 rounded-lg border border-gray-300 px-4 text-base text-gray-900"
                   secureTextEntry
                   autoComplete="new-password"
                   value={confirmation}
                   onChangeText={setConfirmation}
                   editable={!submitting}
                 />
+              </>
+            ) : recoveryEmailStage ? (
+              <>
                 <Text className="mb-1.5 text-sm font-semibold text-gray-700">Recovery email</Text>
                 <TextInput
                   accessibilityLabel="Recovery email"
@@ -249,7 +237,21 @@ export default function AccountSetupScreen() {
                   editable={!submitting}
                 />
               </>
-            )}
+            ) : verificationStage ? (
+              <>
+                <Text className="mb-1.5 text-sm font-semibold text-gray-700">Verification code</Text>
+                <TextInput
+                  accessibilityLabel="Verification code"
+                  className="h-12 rounded-lg border border-gray-300 px-4 text-base text-gray-900"
+                  keyboardType="number-pad"
+                  autoComplete="one-time-code"
+                  maxLength={6}
+                  value={verificationCode}
+                  onChangeText={setVerificationCode}
+                  editable={!submitting}
+                />
+              </>
+            ) : null}
 
             {notice ? (
               <View className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3">
@@ -264,20 +266,20 @@ export default function AccountSetupScreen() {
 
             <TouchableOpacity
               className="mt-5 h-12 items-center justify-center rounded-lg bg-emerald-600"
-              onPress={verificationStage ? verifyCode : finishSetup}
+              onPress={passwordStage ? updatePassword : recoveryEmailStage ? sendCode : verifyCode}
               disabled={submitting}
               accessibilityRole="button"
             >
               {submitting ? <ActivityIndicator color="#ffffff" /> : (
                 <Text className="font-semibold text-white">
-                  {verificationStage ? 'Verify recovery email' : 'Save and send code'}
+                  {passwordStage ? 'Next' : recoveryEmailStage ? 'Send verification code' : 'Verify recovery email'}
                 </Text>
               )}
             </TouchableOpacity>
             {verificationStage ? (
               <TouchableOpacity
                 className="mt-2 h-12 items-center justify-center rounded-lg"
-                onPress={resendCode}
+                onPress={sendCode}
                 disabled={submitting}
                 accessibilityRole="button"
               >

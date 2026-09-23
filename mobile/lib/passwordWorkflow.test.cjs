@@ -14,14 +14,18 @@ test('mobile forgot password requests sign-in email and explains recovery delive
   assert.doesNotMatch(forgot, /Enter your verified recovery email/);
 });
 
-test('mobile account setup resumes at OTP after password stage', () => {
+test('mobile account setup separates password, recovery email, and OTP stages', () => {
   const setup = source('app/account-setup.tsx');
 
   assert.match(setup, /must_change_password/);
+  assert.match(setup, /passwordStage \? 'Next'/);
+  assert.match(setup, /Send verification code/);
   assert.match(setup, /recovery-email\/verify/);
   assert.match(setup, /Verification code/);
   assert.match(setup, /Send another code/);
   assert.match(setup, /Do later/);
+  assert.doesNotMatch(setup, /Save and send code/);
+  assert.doesNotMatch(setup, /ShieldCheck/);
   assert.doesNotMatch(setup, /No email code is needed/);
 });
 

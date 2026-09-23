@@ -3,13 +3,18 @@ import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 
 describe("first-login onboarding contract", () => {
-  test("account setup uses password and recovery submission followed by OTP verification", () => {
+  test("account setup uses separate password, recovery email, and OTP stages", () => {
     const setup = readFileSync(join(process.cwd(), "components/auth/AccountSetup.tsx"), "utf8");
 
     expect(setup).toContain("user.must_change_password");
+    expect(setup).toContain(">Next</Button>");
+    expect(setup).toContain("Send verification code");
     expect(setup).toContain("verifyRecoveryEmail");
     expect(setup).toContain("Verification code");
     expect(setup).toContain("Send another code");
+    expect(setup).not.toContain("Save and send code");
+    expect(setup).not.toContain("ShieldCheck");
+    expect(setup).not.toContain("If deferred, this reminder stays visible");
     expect(setup).not.toContain("No email verification code is needed");
   });
 
@@ -17,7 +22,8 @@ describe("first-login onboarding contract", () => {
     const setup = readFileSync(join(process.cwd(), "components/auth/AccountSetup.tsx"), "utf8");
 
     expect(setup).toContain("!user.must_change_password && user.must_set_recovery_email");
-    expect(setup).toContain("pending recovery verification");
+    expect(setup).toContain("verificationEmail");
+    expect(setup).toContain("verificationStage");
   });
 
   test("does not reopen mandatory setup after user chose do later", () => {
@@ -44,6 +50,7 @@ describe("first-login onboarding contract", () => {
 
     expect(reminder).toContain("user?.onboarding_required");
     expect(reminder).toContain("user.onboarding_skipped");
+    expect(reminder).toContain('pathname === "/account-setup"');
     expect(reminder).toContain("Profile settings");
   });
 });
