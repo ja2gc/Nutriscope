@@ -72,7 +72,7 @@ export const HELP_ITEMS: HelpItem[] = [
     role: "Shared",
     category: "Account & Access",
     question: "What is the difference between sign-in and recovery email?",
-    answer: "The sign-in email identifies the account during login. The verified recovery email receives password-reset messages and can be different. Changing one does not automatically change the other.",
+    answer: "The sign-in email identifies the account during login. The verified recovery email receives password-reset messages and can be different. Changing one does not automatically change the other. In Profile, you can add, replace, or remove the recovery email; removing it disables password reset until a new address is verified.",
     keywords: ["login email", "forgot password", "verification"],
   },
   {
@@ -439,7 +439,7 @@ export const HELP_ITEMS: HelpItem[] = [
     role: "Admin",
     category: "Users & Access",
     question: "How do I create a user?",
-    answer: "Open Manage Users, create the account with the correct role and active status, and provide the temporary credentials securely. On first login, the user changes the password and confirms the recovery email with a six-digit verification code. Choosing Do later leaves a persistent reminder until both requirements are complete.",
+    answer: "Open Manage Users, create the active account with the correct role, and provide the temporary credentials securely. On first login, the user changes the password and confirms the recovery email with a six-digit verification code. Choosing Do later leaves a persistent reminder until both requirements are complete.",
     keywords: ["new account", "temporary password", "role"],
     popular: true,
   },

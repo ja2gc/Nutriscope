@@ -130,6 +130,17 @@ export async function verifyRecoveryEmail(code: string): Promise<{ message: stri
   return { message: result.message || "Recovery email verified.", user: result.user?.data || result.user };
 }
 
+export async function removeRecoveryEmail(): Promise<{ message: string; user: User }> {
+  const res = await fetch("/api/auth/recovery-email", {
+    method: "DELETE",
+    headers: { Accept: "application/json" },
+  });
+
+  const result = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(result.message || "Failed to remove recovery email.");
+  return { message: result.message || "Recovery email removed.", user: result.user?.data || result.user };
+}
+
 export async function requestPasswordReset(email: string): Promise<string> {
   const res = await fetch("/api/auth/forgot-password", {
     method: "POST",

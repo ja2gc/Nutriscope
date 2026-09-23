@@ -235,7 +235,6 @@ export default function UserManagementPage() {
           role,
           password,
           password_confirmation: passwordConfirm,
-          is_active: isActive,
         };
         const created = await createUser(payload);
         setUsers((prev) => [created, ...prev]);
@@ -565,8 +564,8 @@ export default function UserManagementPage() {
                 <FieldError errors={formFieldErrors} field="email" />
               </div>
 
-              {/* Role + Active grid */}
-              <div className="grid grid-cols-2 gap-4">
+              {/* Role + Status grid */}
+              <div className={`grid gap-4 ${editingUser ? "grid-cols-2" : "grid-cols-1"}`}>
                 <div>
                   <label className="block text-xs font-bold text-warm-500 uppercase tracking-wider mb-1">
                     Role <span className="text-red-500">*</span>
@@ -583,20 +582,22 @@ export default function UserManagementPage() {
                   <FieldError errors={formFieldErrors} field="role" />
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-warm-500 uppercase tracking-wider mb-1">
-                    Status
-                  </label>
-                  <select
-                    value={isActive ? "true" : "false"}
-                    onChange={(e) => setIsActive(e.target.value === "true")}
-                    disabled={editingUser?.id === currentUser?.id}
-                    className={`${inputCls(formFieldErrors, "is_active")} disabled:opacity-50 disabled:cursor-not-allowed`}
-                  >
-                    <option value="true">Active</option>
-                    <option value="false">Suspended</option>
-                  </select>
-                </div>
+                {editingUser && (
+                  <div>
+                    <label className="block text-xs font-bold text-warm-500 uppercase tracking-wider mb-1">
+                      Status
+                    </label>
+                    <select
+                      value={isActive ? "true" : "false"}
+                      onChange={(e) => setIsActive(e.target.value === "true")}
+                      disabled={editingUser?.id === currentUser?.id}
+                      className={`${inputCls(formFieldErrors, "is_active")} disabled:opacity-50 disabled:cursor-not-allowed`}
+                    >
+                      <option value="true">Active</option>
+                      <option value="false">Suspended</option>
+                    </select>
+                  </div>
+                )}
               </div>
 
               {/* Password section */}

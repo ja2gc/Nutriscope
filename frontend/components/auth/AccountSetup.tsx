@@ -154,7 +154,6 @@ export function AccountSetup() {
           </form>
         ) : verificationStage ? (
           <form onSubmit={verifyCode} className="space-y-5">
-            <p className="text-sm text-warm-600">Recovery email: <span className="font-semibold">{recoveryEmail}</span></p>
             <Input label="Verification code" required inputMode="numeric" maxLength={6} value={verificationCode} onChange={(event) => setVerificationCode(event.target.value)} autoComplete="one-time-code" />
             {notice && <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">{notice}</p>}
             {error && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">{error}</p>}

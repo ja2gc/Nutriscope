@@ -3,6 +3,7 @@ import { Eye, EyeOff } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -58,6 +59,15 @@ async function updateRecoveryEmail(body: { recovery_email: string }): Promise<Us
 
 async function verifyRecoveryEmail(body: { code: string }): Promise<UserProfile> {
   const res = await api.post<{ user: UserProfile | { data: UserProfile } }>('/api/auth/recovery-email/verify', body);
+  const user = res.data.user;
+  if (user && typeof (user as { data: UserProfile }).data === 'object') {
+    return (user as { data: UserProfile }).data;
+  }
+  return user as UserProfile;
+}
+
+async function removeRecoveryEmail(): Promise<UserProfile> {
+  const res = await api.delete<{ user: UserProfile | { data: UserProfile } }>('/api/auth/recovery-email');
   const user = res.data.user;
   if (user && typeof (user as { data: UserProfile }).data === 'object') {
     return (user as { data: UserProfile }).data;
@@ -240,6 +250,22 @@ export default function ProfileScreen() {
     },
   });
 
+  const recoveryRemoveMutation = useMutation({
+    mutationFn: removeRecoveryEmail,
+    onSuccess: (updated) => {
+      queryClient.setQueryData(['me'], updated);
+      setRecoveryEmail('');
+      setRecoveryCode('');
+      setRecoveryMsg({ ok: true, text: 'Recovery email removed.' });
+    },
+    onError: (err: unknown) => {
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+        'Recovery email removal failed.';
+      setRecoveryMsg({ ok: false, text: msg });
+    },
+  });
+
   function validatePersonName() {
     if (!user) return false;
 
@@ -331,6 +357,17 @@ export default function ProfileScreen() {
     setRecoveryMsg(null);
     if (!validateRecoveryCode()) return;
     recoveryVerifyMutation.mutate({ code: recoveryCode.trim() });
+  }
+
+  function confirmRecoveryEmailRemoval() {
+    Alert.alert(
+      'Remove recovery email?',
+      'Password reset will be unavailable until a new address is verified.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Remove', style: 'destructive', onPress: () => recoveryRemoveMutation.mutate() },
+      ],
+    );
   }
 
   if (isLoading) {
@@ -466,6 +503,19 @@ export default function ProfileScreen() {
                 : 'Send verification code'}
             </Text>
           </TouchableOpacity>
+
+          {(user?.recovery_email || user?.pending_recovery_email) ? (
+            <TouchableOpacity
+              className="rounded-lg h-12 items-center justify-center border border-red-200 mt-3"
+              onPress={confirmRecoveryEmailRemoval}
+              disabled={recoveryRemoveMutation.isPending}
+              activeOpacity={0.8}
+            >
+              <Text className="text-red-700 font-semibold">
+                {recoveryRemoveMutation.isPending ? 'Removing…' : 'Remove recovery email'}
+              </Text>
+            </TouchableOpacity>
+          ) : null}
 
           {(user?.must_set_recovery_email
             || Boolean(user?.pending_recovery_email)

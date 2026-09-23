@@ -16,6 +16,39 @@ class RecoveryEmailTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_user_can_remove_a_verified_recovery_email(): void
+    {
+        $user = User::factory()->create([
+            'recovery_email' => 'verified@example.com',
+            'pending_recovery_email' => 'replacement@example.com',
+            'recovery_email_verified_at' => now(),
+            'recovery_email_verification_code' => Hash::make('123456'),
+            'recovery_email_verification_expires_at' => now()->addMinutes(10),
+            'must_set_recovery_email' => false,
+            'onboarding_skipped_at' => null,
+        ]);
+
+        $this->actingAs($user, 'sanctum')
+            ->deleteJson('/api/auth/recovery-email')
+            ->assertOk()
+            ->assertJsonPath('message', 'Recovery email removed.')
+            ->assertJsonPath('user.recovery_email', null)
+            ->assertJsonPath('user.pending_recovery_email', null)
+            ->assertJsonPath('user.recovery_email_verified', false)
+            ->assertJsonPath('user.must_set_recovery_email', true)
+            ->assertJsonPath('user.onboarding_skipped', true);
+
+        $user->refresh();
+        $this->assertNull($user->recovery_email);
+        $this->assertNull($user->pending_recovery_email);
+        $this->assertNull($user->recovery_email_verified_at);
+        $this->assertNull($user->recovery_email_verification_code);
+        $this->assertNull($user->recovery_email_verification_expires_at);
+        $this->assertTrue($user->must_set_recovery_email);
+        $this->assertNotNull($user->onboarding_skipped_at);
+        $this->assertStringNotContainsString('verified@example.com', Activity::query()->get()->toJson());
+    }
+
     public function test_user_can_request_recovery_email_verification_code(): void
     {
         Notification::fake();

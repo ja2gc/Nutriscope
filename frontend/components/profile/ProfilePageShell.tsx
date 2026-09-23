@@ -13,6 +13,7 @@ import {
   changePassword,
   updateRecoveryEmail,
   verifyRecoveryEmail,
+  removeRecoveryEmail,
   type User,
 } from "@/services/authService";
 import {
@@ -55,6 +56,7 @@ export function ProfilePageShell({ crumbs, subtitle, fallbackRole }: ProfilePage
   const [recoveryCode, setRecoveryCode] = useState("");
   const [savingRecoveryEmail, setSavingRecoveryEmail] = useState(false);
   const [verifyingRecoveryEmail, setVerifyingRecoveryEmail] = useState(false);
+  const [removingRecoveryEmail, setRemovingRecoveryEmail] = useState(false);
   const [recoveryMessage, setRecoveryMessage] = useState<string | null>(null);
   const [recoveryError, setRecoveryError] = useState<string | null>(null);
 
@@ -184,6 +186,24 @@ export function ProfilePageShell({ crumbs, subtitle, fallbackRole }: ProfilePage
     }
   }
 
+  async function handleRecoveryEmailRemove() {
+    if (!window.confirm("Remove your recovery email? Password reset will be unavailable until a new address is verified.")) return;
+    setRecoveryMessage(null);
+    setRecoveryError(null);
+    setRemovingRecoveryEmail(true);
+    try {
+      const result = await removeRecoveryEmail();
+      setRecoveryEmail("");
+      setRecoveryCode("");
+      await refreshUser();
+      setRecoveryMessage(result.message);
+    } catch (err) {
+      setRecoveryError(err instanceof Error ? err.message : "Failed to remove recovery email.");
+    } finally {
+      setRemovingRecoveryEmail(false);
+    }
+  }
+
   return (
     <div className="space-y-6 font-sans">
       <PageHeader
@@ -294,6 +314,11 @@ export function ProfilePageShell({ crumbs, subtitle, fallbackRole }: ProfilePage
                 <span className="text-sm font-semibold text-emerald-600">Verified.</span>
               )}
             </div>
+            {(user?.recovery_email || user?.pending_recovery_email) && (
+              <Button type="button" variant="secondary" loading={removingRecoveryEmail} onClick={() => void handleRecoveryEmailRemove()} className="w-auto">
+                Remove Recovery Email
+              </Button>
+            )}
           </form>
 
           {(user?.must_set_recovery_email

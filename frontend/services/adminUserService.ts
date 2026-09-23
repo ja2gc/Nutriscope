@@ -19,7 +19,6 @@ interface UserWriteFields {
   role: "RND" | "FSS" | "Admin";
   password?: string;
   password_confirmation?: string;
-  is_active?: boolean;
 }
 
 export type CreateUserPayload = (ModernPersonNameInput | LegacyPersonNameInput) & UserWriteFields;

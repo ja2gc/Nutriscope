@@ -45,7 +45,7 @@ Yes. Open **Profile**. Web users can update first name, last name, sign-in email
 - **Sign-in email:** used with the password to log in.
 - **Recovery email:** receives password-reset links.
 
-Forgot Password accepts the sign-in email, while the reset message is delivered to the verified recovery email. Adding or changing a recovery email requires a six-digit verification code. The code expires after ten minutes. The old verified address remains active until the new one is verified.
+Forgot Password accepts the sign-in email, while the reset message is delivered to the verified recovery email. Adding or changing a recovery email requires a six-digit verification code. The code expires after ten minutes. The old verified address remains active until the new one is verified. You may also remove a recovery email in **Profile**; password reset remains unavailable and the setup reminder returns until a new address is verified.
 
 ### How do I change my password while signed in?
 

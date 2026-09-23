@@ -116,6 +116,31 @@ class RecoveryEmailController extends Controller
         ]);
     }
 
+    public function destroy(): JsonResponse
+    {
+        $user = request()->user();
+
+        $this->auditLogger->assertAvailable();
+        DB::transaction(function () use ($user): void {
+            $user->forceFill([
+                'recovery_email' => null,
+                'pending_recovery_email' => null,
+                'recovery_email_verified_at' => null,
+                'recovery_email_verification_code' => null,
+                'recovery_email_verification_expires_at' => null,
+                'must_set_recovery_email' => true,
+                'onboarding_skipped_at' => now(),
+            ])->save();
+
+            $this->recordRecoveryEmailChange($user);
+        });
+
+        return response()->json([
+            'message' => 'Recovery email removed.',
+            'user' => new UserResource($user->fresh()),
+        ]);
+    }
+
     private function recordRecoveryEmailChange(User $user): void
     {
         $this->auditLogger->record(

@@ -35,6 +35,9 @@ test('mobile profile keeps OTP available until recovery setup is verified', () =
   assert.doesNotMatch(profile, /No verification code is needed/);
   assert.doesNotMatch(profile, /!user\?\.must_set_recovery_email\s*&&/);
   assert.match(profile, /Verify recovery email/);
+  assert.match(profile, /api\.delete/);
+  assert.match(profile, /\/api\/auth\/recovery-email/);
+  assert.match(profile, /Remove recovery email/);
 });
 
 test('mobile header reminder uses persistent onboarding state', () => {

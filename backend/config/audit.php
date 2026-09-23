@@ -315,6 +315,13 @@ return [
             'implementation_state' => 'implemented',
             'reason' => 'This authentication or account-security command needs an explicit outcome event; credentials, tokens, and codes stay excluded.',
         ],
+        'DELETE api/auth/recovery-email' => [
+            'classification' => 'explicit_event',
+            'source' => 'App\\Http\\Controllers\\Auth\\RecoveryEmailController@destroy',
+            'owner_task' => 5,
+            'implementation_state' => 'implemented',
+            'reason' => 'Removing a recovery email changes password-recovery security state and emits a sanitized event without address or verification material.',
+        ],
         'POST api/auth/recovery-email/verify' => [
             'classification' => 'explicit_event',
             'source' => 'App\\Http\\Controllers\\Auth\\RecoveryEmailController@verify',

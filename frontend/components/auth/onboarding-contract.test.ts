@@ -16,6 +16,8 @@ describe("first-login onboarding contract", () => {
     expect(setup).not.toContain("ShieldCheck");
     expect(setup).not.toContain("If deferred, this reminder stays visible");
     expect(setup).not.toContain("No email verification code is needed");
+    expect(setup).not.toContain("Recovery email:");
+    expect(setup).not.toContain(">{recoveryEmail}</span>");
   });
 
   test("reload keeps password-complete users on recovery verification stage", () => {

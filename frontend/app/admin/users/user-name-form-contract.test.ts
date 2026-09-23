@@ -29,4 +29,13 @@ describe("admin user split-name form", () => {
     expect(page).toContain("personDisplayName(u)");
     expect(page).toContain("personDisplayName(resettingUser)");
   });
+
+  test("creates active accounts and reserves status controls for existing users", () => {
+    expect(page).not.toMatch(
+      /const payload: CreateUserPayload = \{[\s\S]*?is_active:/,
+    );
+    expect(page).toMatch(
+      /\{editingUser && \([\s\S]*?Status[\s\S]*?<option value="false">Suspended<\/option>/,
+    );
+  });
 });

@@ -46,6 +46,7 @@ Staging must use the production schema on MySQL 8.0-compatible infrastructure wi
 Rate limiting: login (5/min), password reset (5/hour per email+IP), password change (5/hour per user), AI endpoints, uploads, USDA, compute, and reports
 Password reset: sign-in-email lookup, generic forgot-password response, delivery only to the verified recovery email, signed 60-minute broker token keyed to the sign-in email, single-use frontend reset URL, and all existing Sanctum tokens revoked after reset
 First-login recovery setup: a password-only first step clears the temporary-password requirement, followed by a separate recovery-email send step and six-digit, ten-minute ownership verification; onboarding clears only after verification, and the persistent server-state reminder appears after explicit deferral
+Recovery-email removal: clears the verified and pending addresses plus unused verification material, disables password-reset delivery, and restores the persistent recovery-setup reminder without recording the address in audit details
 Password change: current password required, all existing Sanctum tokens revoked after change
 Logout: current Sanctum token revoked and frontend clears `nutriscope_token` + `nutriscope_role`
 Profile photos: PNG/JPEG/WebP data URLs only, capped by frontend preflight and Laravel validation; raw data is not written to audit payloads

@@ -88,6 +88,25 @@ class AdminSystemTest extends TestCase
         $this->assertSame(1, Activity::where('event', 'created')->where('subject_type', User::class)->count());
     }
 
+    public function test_new_accounts_are_always_active_even_when_suspension_is_requested(): void
+    {
+        $response = $this->actingAs($this->admin)
+            ->postJson('/api/admin/users', [
+                'first_name' => 'Active',
+                'last_name' => 'Account',
+                'email' => 'active-account@nutriscope.com',
+                'password' => 'Password123!',
+                'password_confirmation' => 'Password123!',
+                'role' => 'RND',
+                'is_active' => false,
+            ]);
+
+        $response->assertCreated()
+            ->assertJsonPath('data.is_active', true);
+
+        $this->assertTrue(User::where('email', 'active-account@nutriscope.com')->sole()->is_active);
+    }
+
     public function test_admin_can_update_user(): void
     {
         $user = User::factory()->create(['role' => 'RND']);

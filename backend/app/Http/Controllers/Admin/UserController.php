@@ -49,6 +49,7 @@ class UserController extends Controller
     {
         $data = $this->synchronizePersonName->forCreate($request->validated());
         $data['password'] = Hash::make($data['password']);
+        $data['is_active'] = true;
         $data['must_change_password'] = true;
         $data['must_set_recovery_email'] = true;
 
