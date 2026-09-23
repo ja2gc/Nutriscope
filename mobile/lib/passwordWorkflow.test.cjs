@@ -11,6 +11,7 @@ test('mobile forgot password requests sign-in email and explains recovery delive
 
   assert.match(forgot, /Sign-in Email/);
   assert.match(forgot, /verified recovery email saved for that account/);
+  assert.match(forgot, /Enter a valid sign-in email\./);
   assert.doesNotMatch(forgot, /Enter your verified recovery email/);
 });
 
@@ -35,6 +36,14 @@ test('mobile profile keeps OTP available until recovery setup is verified', () =
   assert.doesNotMatch(profile, /No verification code is needed/);
   assert.doesNotMatch(profile, /!user\?\.must_set_recovery_email\s*&&/);
   assert.match(profile, /Verify recovery email/);
+  assert.match(profile, /Current recovery email/);
+  assert.match(profile, /No verified recovery email/);
+  assert.match(profile, /Pending verification/);
+  assert.match(profile, /user\.pending_recovery_email \?\? \(user\.recovery_email_verified \? '' : user\.recovery_email \?\? ''\)/);
+  assert.match(profile, /const \[editingRecoveryEmail, setEditingRecoveryEmail\] = useState\(false\)/);
+  assert.match(profile, /Change recovery email/);
+  assert.match(profile, /Add recovery email/);
+  assert.match(profile, /const \[editingPassword, setEditingPassword\] = useState\(false\)/);
   assert.match(profile, /api\.delete/);
   assert.match(profile, /\/api\/auth\/recovery-email/);
   assert.match(profile, /Remove recovery email/);

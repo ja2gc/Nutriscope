@@ -57,7 +57,7 @@ Use this version when screenshots are available. Each scene already contains the
 
 #### SHARED-04 — Profile and Recovery
 
-**Description:** Profile controls personal identity, sign-in email, contact, profile image on web, recovery email, and password. New or replacement recovery addresses require the six-digit code; an old verified address stays active until replacement verification. Role/designation is read-only.
+**Description:** Profile displays recovery-email status and password controls in read-only mode by default. Add/change recovery and change-password fields open only after their action button is selected, and each can be cancelled. New or replacement recovery addresses require the six-digit code; an old verified address stays active until replacement verification. Role/designation is read-only.
 
 **User should do:** Confirm name and contact, then demonstrate the Recovery Email and Change Password sections without submitting secrets.
 

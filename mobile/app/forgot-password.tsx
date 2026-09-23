@@ -22,6 +22,10 @@ export default function ForgotPasswordScreen() {
       setError('Enter your sign-in email.');
       return;
     }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      setError('Enter a valid sign-in email.');
+      return;
+    }
     setError(null);
     setMessage(null);
     setSubmitting(true);
@@ -29,7 +33,7 @@ export default function ForgotPasswordScreen() {
       const res = await api.post('/api/auth/forgot-password', {
         email: email.trim(),
       });
-      setMessage(res.data?.message ?? 'If that email exists, a password reset link has been sent.');
+      setMessage(res.data?.message ?? 'Password reset request submitted.');
     } catch (err: unknown) {
       const msg =
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??

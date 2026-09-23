@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Notifications\Auth\RecoveryEmailVerification;
 use Illuminate\Contracts\Notifications\Dispatcher;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Notifications\AnonymousNotifiable;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
 use RuntimeException;
@@ -161,7 +162,7 @@ class RecoveryEmailTest extends TestCase
         $this->assertNull($user->fresh()->recovery_email_verified_at);
     }
 
-    public function test_recovery_email_cannot_match_another_users_login_email(): void
+    public function test_recovery_email_can_match_another_users_login_email_but_still_requires_otp(): void
     {
         Notification::fake();
         $user = User::factory()->create(['email' => 'rnd@nutriscope.local']);
@@ -171,10 +172,14 @@ class RecoveryEmailTest extends TestCase
             ->patchJson('/api/auth/recovery-email', [
                 'recovery_email' => 'owner@example.com',
             ])
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors(['recovery_email']);
+            ->assertOk()
+            ->assertJsonPath('user.recovery_email', 'owner@example.com')
+            ->assertJsonPath('user.recovery_email_verified', false);
 
-        Notification::assertNothingSent();
+        Notification::assertSentOnDemand(
+            RecoveryEmailVerification::class,
+            fn (RecoveryEmailVerification $notification, array $channels, object $notifiable): bool => $notifiable->routes['mail'] === 'owner@example.com',
+        );
     }
 
     public function test_verified_recovery_email_stays_linked_until_replacement_is_verified(): void
@@ -209,7 +214,7 @@ class RecoveryEmailTest extends TestCase
             ->assertJsonPath('user.pending_recovery_email', null);
     }
 
-    public function test_pending_recovery_email_is_reserved_for_only_one_user(): void
+    public function test_multiple_users_can_verify_the_same_recovery_email_independently(): void
     {
         Notification::fake();
         $first = User::factory()->create([
@@ -227,7 +232,26 @@ class RecoveryEmailTest extends TestCase
 
         $this->actingAs($second, 'sanctum')->patchJson('/api/auth/recovery-email', [
             'recovery_email' => 'reserved@example.com',
-        ])->assertUnprocessable()->assertJsonValidationErrors(['recovery_email']);
+        ])->assertOk()
+            ->assertJsonPath('user.pending_recovery_email', 'reserved@example.com');
+
+        Notification::assertSentOnDemandTimes(RecoveryEmailVerification::class, 2);
+
+        $codes = Notification::sent(new AnonymousNotifiable, RecoveryEmailVerification::class)
+            ->map(fn (RecoveryEmailVerification $notification): string => $notification->code)
+            ->values();
+
+        $this->actingAs($first->fresh(), 'sanctum')
+            ->postJson('/api/auth/recovery-email/verify', ['code' => $codes[0]])
+            ->assertOk()
+            ->assertJsonPath('user.recovery_email', 'reserved@example.com')
+            ->assertJsonPath('user.recovery_email_verified', true);
+
+        $this->actingAs($second->fresh(), 'sanctum')
+            ->postJson('/api/auth/recovery-email/verify', ['code' => $codes[1]])
+            ->assertOk()
+            ->assertJsonPath('user.recovery_email', 'reserved@example.com')
+            ->assertJsonPath('user.recovery_email_verified', true);
     }
 
     public function test_failed_delivery_returns_a_clear_error_without_staging_the_address(): void

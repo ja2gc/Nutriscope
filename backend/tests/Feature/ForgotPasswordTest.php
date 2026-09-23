@@ -4,10 +4,12 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use Illuminate\Auth\Notifications\ResetPassword;
+use Illuminate\Contracts\Notifications\Dispatcher;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Password;
+use RuntimeException;
 use Spatie\Activitylog\Models\Activity;
 use Tests\TestCase;
 
@@ -15,7 +17,7 @@ class ForgotPasswordTest extends TestCase
 {
     use RefreshDatabase;
 
-    private const GENERIC_MESSAGE = 'If that email exists, a password reset link has been sent.';
+    private const GENERIC_MESSAGE = 'Password reset request submitted.';
 
     public function test_sign_in_email_sends_reset_link_to_verified_recovery_email(): void
     {
@@ -75,6 +77,13 @@ class ForgotPasswordTest extends TestCase
         $this->assertDatabaseCount('password_reset_tokens', 0);
     }
 
+    public function test_invalid_sign_in_email_returns_a_clear_validation_error(): void
+    {
+        $this->postJson('/api/auth/forgot-password', ['email' => 'not-an-email'])
+            ->assertUnprocessable()
+            ->assertJsonPath('errors.email.0', 'Enter a valid sign-in email.');
+    }
+
     public function test_missing_or_unverified_recovery_email_returns_same_response_without_sending(): void
     {
         Notification::fake();
@@ -98,6 +107,26 @@ class ForgotPasswordTest extends TestCase
 
         Notification::assertNothingSent();
         $this->assertDatabaseCount('password_reset_tokens', 0);
+    }
+
+    public function test_delivery_failure_returns_a_clear_error_and_deletes_the_unused_token(): void
+    {
+        $user = User::factory()->create([
+            'email' => 'rnd@nutriscope.local',
+            'recovery_email' => 'rnd@example.com',
+            'recovery_email_verified_at' => now(),
+        ]);
+        $notificationDispatcher = \Mockery::mock(Dispatcher::class);
+        $notificationDispatcher->shouldReceive('send')
+            ->once()
+            ->andThrow(new RuntimeException('Provider unavailable'));
+        $this->app->instance(Dispatcher::class, $notificationDispatcher);
+
+        $this->postJson('/api/auth/forgot-password', ['email' => $user->email])
+            ->assertStatus(503)
+            ->assertJsonPath('message', 'Password reset link could not be sent. Try again later.');
+
+        $this->assertDatabaseMissing('password_reset_tokens', ['email' => $user->email]);
     }
 
     public function test_reset_submission_uses_sign_in_email_and_consumes_token_once(): void

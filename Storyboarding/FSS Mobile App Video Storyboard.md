@@ -239,7 +239,7 @@ Use this as both the recording checklist and narration script. The main recordin
 3. Open the header profile icon to show the side menu.
 4. Open **Help**, search `purchase order`, and expand one FSS answer.
 5. Open **Settings** and show **Display density**, **Reduce motion**, and **Mark all notifications read**.
-6. Open **Profile** and show display-first Account Info, the read-only sign-in email, Edit/Save/Cancel for identity/contact fields, Recovery email, and Change password without entering secrets.
+6. Open **Profile** and show display-first Account Info, the read-only sign-in email, Edit/Save/Cancel for identity/contact fields, the recovery-email status with Add/Change/Remove actions, and the collapsed Change password control without entering secrets.
 7. Return to the side menu and select **Check for updates**.
 
 **Narration**

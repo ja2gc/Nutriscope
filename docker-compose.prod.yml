@@ -8,8 +8,7 @@ x-backend-common: &backend-common
     env_file:
       - ./backend/.env.production
     environment:
-      MAIL_SCHEME: "smtp"
-      MAIL_PORT: "2587"
+      MAIL_MAILER: "resend-api"
     volumes:
       - nutriscope_private_uploads:/var/www/html/storage/app/private-uploads
     depends_on:

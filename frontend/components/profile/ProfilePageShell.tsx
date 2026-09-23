@@ -48,12 +48,14 @@ export function ProfilePageShell({ crumbs, subtitle, fallbackRole }: ProfilePage
   const [currentPassword, setCurrentPassword] = useState("");
   const [password, setPassword] = useState("");
   const [passwordConfirmation, setPasswordConfirmation] = useState("");
+  const [editingPassword, setEditingPassword] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [passwordDone, setPasswordDone] = useState(false);
 
   const [recoveryEmail, setRecoveryEmail] = useState("");
   const [recoveryCode, setRecoveryCode] = useState("");
+  const [editingRecoveryEmail, setEditingRecoveryEmail] = useState(false);
   const [savingRecoveryEmail, setSavingRecoveryEmail] = useState(false);
   const [verifyingRecoveryEmail, setVerifyingRecoveryEmail] = useState(false);
   const [removingRecoveryEmail, setRemovingRecoveryEmail] = useState(false);
@@ -66,7 +68,9 @@ export function ProfilePageShell({ crumbs, subtitle, fallbackRole }: ProfilePage
       setFirstName(nameValues.firstName);
       setLastName(nameValues.lastName);
       setContactNumber(user.contact_number ?? "");
-      setRecoveryEmail(user.recovery_email ?? "");
+      setRecoveryEmail(
+        user.pending_recovery_email ?? (user.recovery_email_verified ? "" : user.recovery_email ?? ""),
+      );
       setProfileImages(imagesFromSrcs(user.profile_photo ? [user.profile_photo] : [], "Profile photo"));
       setProfilePhotoIntent("unchanged");
     }
@@ -145,6 +149,7 @@ export function ProfilePageShell({ crumbs, subtitle, fallbackRole }: ProfilePage
       setPassword("");
       setPasswordConfirmation("");
       setPasswordDone(true);
+      setEditingPassword(false);
     } catch (err) {
       setPasswordError(err instanceof Error ? err.message : "Failed to change password.");
     } finally {
@@ -162,6 +167,7 @@ export function ProfilePageShell({ crumbs, subtitle, fallbackRole }: ProfilePage
       await refreshUser();
       setRecoveryCode("");
       setRecoveryMessage(result.message);
+      setEditingRecoveryEmail(false);
     } catch (err) {
       setRecoveryError(err instanceof Error ? err.message : "Failed to update recovery email.");
     } finally {
@@ -197,11 +203,30 @@ export function ProfilePageShell({ crumbs, subtitle, fallbackRole }: ProfilePage
       setRecoveryCode("");
       await refreshUser();
       setRecoveryMessage(result.message);
+      setEditingRecoveryEmail(false);
     } catch (err) {
       setRecoveryError(err instanceof Error ? err.message : "Failed to remove recovery email.");
     } finally {
       setRemovingRecoveryEmail(false);
     }
+  }
+
+  function cancelRecoveryEmailEdit() {
+    if (user) {
+      setRecoveryEmail(
+        user.pending_recovery_email ?? (user.recovery_email_verified ? "" : user.recovery_email ?? ""),
+      );
+    }
+    setRecoveryError(null);
+    setEditingRecoveryEmail(false);
+  }
+
+  function cancelPasswordEdit() {
+    setCurrentPassword("");
+    setPassword("");
+    setPasswordConfirmation("");
+    setPasswordError(null);
+    setEditingPassword(false);
   }
 
   return (
@@ -294,9 +319,26 @@ export function ProfilePageShell({ crumbs, subtitle, fallbackRole }: ProfilePage
           <p className="-mt-3 mb-5 text-sm leading-relaxed text-warm-500">
             A six-digit verification code is required before a new recovery email becomes active. An existing verified address stays active until its replacement is verified.
           </p>
-          <form onSubmit={handleRecoveryEmailSubmit} className="space-y-4">
+          <div className="mb-5 rounded-xl border border-warm-100 bg-warm-50 p-4">
+            <p className="text-xs font-bold uppercase tracking-wider text-warm-400">Current Recovery Email</p>
+            {user?.recovery_email_verified && user.recovery_email ? (
+              <div className="mt-1 flex flex-wrap items-center gap-2">
+                <span className="break-all text-sm font-semibold text-warm-800">{user.recovery_email}</span>
+                <span className="text-xs font-bold text-emerald-600">Verified</span>
+              </div>
+            ) : (
+              <p className="mt-1 text-sm font-semibold text-warm-600">No verified recovery email</p>
+            )}
+            {(user?.pending_recovery_email || (!user?.recovery_email_verified && user?.recovery_email)) && (
+              <p className="mt-2 break-all text-sm text-amber-700">
+                <span className="font-semibold">Pending verification:</span>{" "}
+                {user.pending_recovery_email ?? user.recovery_email}
+              </p>
+            )}
+          </div>
+          {editingRecoveryEmail ? <form onSubmit={handleRecoveryEmailSubmit} className="space-y-4">
             <Input
-              label="Recovery Email for Password Resets"
+              label={user?.recovery_email_verified ? "New Recovery Email" : "Recovery Email"}
               type="email"
               value={recoveryEmail}
               onChange={(e) => setRecoveryEmail(e.target.value)}
@@ -310,20 +352,25 @@ export function ProfilePageShell({ crumbs, subtitle, fallbackRole }: ProfilePage
               <Button type="submit" loading={savingRecoveryEmail} className="w-auto">
                 Send Verification Code
               </Button>
-              {user?.recovery_email_verified && user.recovery_email === recoveryEmail && (
-                <span className="text-sm font-semibold text-emerald-600">Verified.</span>
-              )}
+              <Button type="button" variant="secondary" onClick={cancelRecoveryEmailEdit} className="w-auto">
+                Cancel
+              </Button>
             </div>
-            {(user?.recovery_email || user?.pending_recovery_email) && (
+          </form> : (
+            <div className="flex flex-wrap items-center gap-3">
+              <Button type="button" variant="secondary" onClick={() => setEditingRecoveryEmail(true)} className="w-auto">
+                {user?.recovery_email || user?.pending_recovery_email ? "Change Recovery Email" : "Add Recovery Email"}
+              </Button>
+              {(user?.recovery_email || user?.pending_recovery_email) && (
               <Button type="button" variant="secondary" loading={removingRecoveryEmail} onClick={() => void handleRecoveryEmailRemove()} className="w-auto">
                 Remove Recovery Email
               </Button>
-            )}
-          </form>
+              )}
+            </div>
+          )}
 
-          {(user?.must_set_recovery_email
-            || Boolean(user?.pending_recovery_email)
-            || !user?.recovery_email_verified) && (
+          {(Boolean(user?.pending_recovery_email)
+            || Boolean(!user?.recovery_email_verified && user?.recovery_email)) && (
             <form onSubmit={handleRecoveryEmailVerify} className="mt-5 space-y-4 border-t border-warm-100 pt-5">
               <Input
                 label="Verification Code"
@@ -345,16 +392,23 @@ export function ProfilePageShell({ crumbs, subtitle, fallbackRole }: ProfilePage
             <KeyRound className="h-4 w-4 text-emerald-600" />
             Change Password
           </h3>
-          <form onSubmit={handlePasswordSubmit} className="space-y-4">
+          {editingPassword ? <form onSubmit={handlePasswordSubmit} className="space-y-4">
             <Input label="Current Password" type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} required autoComplete="current-password" />
             <Input label="New Password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} autoComplete="new-password" />
             <Input label="Confirm New Password" type="password" value={passwordConfirmation} onChange={(e) => setPasswordConfirmation(e.target.value)} required minLength={8} autoComplete="new-password" />
             <div className="flex items-center gap-3 pt-1">
               <Button type="submit" loading={savingPassword} className="w-auto">Update Password</Button>
-              {passwordDone && <span className="text-sm font-semibold text-emerald-600">Password updated.</span>}
+              <Button type="button" variant="secondary" onClick={cancelPasswordEdit} className="w-auto">Cancel</Button>
             </div>
             {passwordError && <p className="text-sm font-semibold text-red-600">{passwordError}</p>}
-          </form>
+          </form> : (
+            <div className="space-y-3">
+              <Button type="button" variant="secondary" onClick={() => { setPasswordDone(false); setEditingPassword(true); }} className="w-auto">
+                Change Password
+              </Button>
+              {passwordDone && <p className="text-sm font-semibold text-emerald-600">Password updated.</p>}
+            </div>
+          )}
         </Card>
       </div>
 

@@ -72,7 +72,7 @@ export const HELP_ITEMS: HelpItem[] = [
     role: "Shared",
     category: "Account & Access",
     question: "What is the difference between sign-in and recovery email?",
-    answer: "The sign-in email identifies the account during login. The verified recovery email receives password-reset messages and can be different. Changing one does not automatically change the other. In Profile, you can add, replace, or remove the recovery email; removing it disables password reset until a new address is verified.",
+    answer: "The sign-in email identifies the account during login. The verified recovery email receives password-reset messages and can be different. Multiple accounts may use the same recovery address, but each must verify it with its own code. Profile shows the current status and provides Add, Change, and Remove actions; removing the address disables password reset until a new one is verified.",
     keywords: ["login email", "forgot password", "verification"],
   },
   {

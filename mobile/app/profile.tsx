@@ -153,6 +153,7 @@ export default function ProfileScreen() {
 
   const [recoveryEmail, setRecoveryEmail] = useState('');
   const [recoveryCode, setRecoveryCode] = useState('');
+  const [editingRecoveryEmail, setEditingRecoveryEmail] = useState(false);
   const [recoveryEmailError, setRecoveryEmailError] = useState<string | null>(null);
   const [recoveryCodeError, setRecoveryCodeError] = useState<string | null>(null);
   const [recoveryMsg, setRecoveryMsg] = useState<{ ok: boolean; text: string } | null>(null);
@@ -160,6 +161,7 @@ export default function ProfileScreen() {
   const [currentPw, setCurrentPw] = useState('');
   const [newPw, setNewPw] = useState('');
   const [confirmPw, setConfirmPw] = useState('');
+  const [editingPassword, setEditingPassword] = useState(false);
   const [showCurrent, setShowCurrent] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
@@ -179,7 +181,9 @@ export default function ProfileScreen() {
       setFirstName(values.firstName);
       setLastName(values.lastName);
       setEmail(user.email);
-      setRecoveryEmail(user.recovery_email ?? '');
+      setRecoveryEmail(
+        user.pending_recovery_email ?? (user.recovery_email_verified ? '' : user.recovery_email ?? ''),
+      );
       setContactNumber(user.contact_number ?? '');
     }
   }, [user]);
@@ -206,6 +210,7 @@ export default function ProfileScreen() {
       setNewPw('');
       setConfirmPw('');
       setPwMsg({ ok: true, text: 'Password changed.' });
+      setEditingPassword(false);
     },
     onError: (err: unknown) => {
       const msg =
@@ -222,10 +227,9 @@ export default function ProfileScreen() {
       setRecoveryCode('');
       setRecoveryMsg({
         ok: true,
-        text: updated.recovery_email_verified
-          ? 'Recovery email saved.'
-          : 'Verification code sent.',
+        text: 'Verification code sent.',
       });
+      setEditingRecoveryEmail(false);
     },
     onError: (err: unknown) => {
       const msg =
@@ -241,6 +245,7 @@ export default function ProfileScreen() {
       queryClient.setQueryData(['me'], updated);
       setRecoveryCode('');
       setRecoveryMsg({ ok: true, text: 'Recovery email verified.' });
+      setEditingRecoveryEmail(false);
     },
     onError: (err: unknown) => {
       const msg =
@@ -257,6 +262,7 @@ export default function ProfileScreen() {
       setRecoveryEmail('');
       setRecoveryCode('');
       setRecoveryMsg({ ok: true, text: 'Recovery email removed.' });
+      setEditingRecoveryEmail(false);
     },
     onError: (err: unknown) => {
       const msg =
@@ -370,6 +376,26 @@ export default function ProfileScreen() {
     );
   }
 
+  function cancelRecoveryEmailEdit() {
+    if (user) {
+      setRecoveryEmail(
+        user.pending_recovery_email ?? (user.recovery_email_verified ? '' : user.recovery_email ?? ''),
+      );
+    }
+    setRecoveryEmailError(null);
+    setEditingRecoveryEmail(false);
+  }
+
+  function cancelPasswordEdit() {
+    setCurrentPw('');
+    setNewPw('');
+    setConfirmPw('');
+    setCurrentPwError(null);
+    setNewPwError(null);
+    setConfirmPwError(null);
+    setEditingPassword(false);
+  }
+
   if (isLoading) {
     return (
       <View className="flex-1 items-center justify-center bg-gray-50">
@@ -480,46 +506,88 @@ export default function ProfileScreen() {
             A six-digit verification code is required before a new recovery email becomes active. An existing verified address stays active until its replacement is verified.
           </Text>
 
-          <FormField
-            label="Recovery email for password resets"
-            value={recoveryEmail}
-            onChangeText={setRecoveryEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            error={recoveryEmailError}
-            onBlur={validateRecoveryEmail}
-            editable={!recoveryEmailMutation.isPending}
-          />
-
-          <TouchableOpacity
-            className={`rounded-lg h-12 items-center justify-center ${recoveryEmailMutation.isPending ? 'bg-emerald-300' : 'bg-emerald-600'}`}
-            onPress={submitRecoveryEmail}
-            disabled={recoveryEmailMutation.isPending}
-            activeOpacity={0.8}
-          >
-            <Text className="text-white font-semibold">
-              {recoveryEmailMutation.isPending
-                ? 'Saving...'
-                : 'Send verification code'}
+          <View className="rounded-lg border border-gray-100 bg-gray-50 p-3 mb-4">
+            <Text className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+              Current recovery email
             </Text>
-          </TouchableOpacity>
-
-          {(user?.recovery_email || user?.pending_recovery_email) ? (
-            <TouchableOpacity
-              className="rounded-lg h-12 items-center justify-center border border-red-200 mt-3"
-              onPress={confirmRecoveryEmailRemoval}
-              disabled={recoveryRemoveMutation.isPending}
-              activeOpacity={0.8}
-            >
-              <Text className="text-red-700 font-semibold">
-                {recoveryRemoveMutation.isPending ? 'Removing…' : 'Remove recovery email'}
+            {user?.recovery_email_verified && user.recovery_email ? (
+              <View className="mt-1">
+                <Text className="text-sm font-semibold text-gray-800">{user.recovery_email}</Text>
+                <Text className="text-xs font-semibold text-emerald-700 mt-1">Verified</Text>
+              </View>
+            ) : (
+              <Text className="text-sm font-semibold text-gray-700 mt-1">No verified recovery email</Text>
+            )}
+            {(user?.pending_recovery_email || (!user?.recovery_email_verified && user?.recovery_email)) ? (
+              <Text className="text-sm text-amber-700 mt-2">
+                <Text className="font-semibold">Pending verification: </Text>
+                {user.pending_recovery_email ?? user.recovery_email}
               </Text>
-            </TouchableOpacity>
-          ) : null}
+            ) : null}
+          </View>
 
-          {(user?.must_set_recovery_email
-            || Boolean(user?.pending_recovery_email)
-            || !user?.recovery_email_verified) ? (
+          {editingRecoveryEmail ? (
+            <>
+              <FormField
+                label={user?.recovery_email_verified ? 'New recovery email' : 'Recovery email'}
+                value={recoveryEmail}
+                onChangeText={setRecoveryEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                error={recoveryEmailError}
+                onBlur={validateRecoveryEmail}
+                editable={!recoveryEmailMutation.isPending}
+              />
+
+              <View className="flex-row gap-3">
+                <TouchableOpacity
+                  className={`rounded-lg h-12 flex-1 items-center justify-center ${recoveryEmailMutation.isPending ? 'bg-emerald-300' : 'bg-emerald-600'}`}
+                  onPress={submitRecoveryEmail}
+                  disabled={recoveryEmailMutation.isPending}
+                  activeOpacity={0.8}
+                >
+                  <Text className="text-white font-semibold">
+                    {recoveryEmailMutation.isPending ? 'Saving...' : 'Send verification code'}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  className="rounded-lg h-12 px-5 items-center justify-center border border-gray-300"
+                  onPress={cancelRecoveryEmailEdit}
+                  disabled={recoveryEmailMutation.isPending}
+                  activeOpacity={0.8}
+                >
+                  <Text className="text-gray-700 font-semibold">Cancel</Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          ) : (
+            <View className="gap-3">
+              <TouchableOpacity
+                className="rounded-lg h-12 items-center justify-center border border-emerald-300"
+                onPress={() => setEditingRecoveryEmail(true)}
+                activeOpacity={0.8}
+              >
+                <Text className="text-emerald-700 font-semibold">
+                  {user?.recovery_email || user?.pending_recovery_email ? 'Change recovery email' : 'Add recovery email'}
+                </Text>
+              </TouchableOpacity>
+              {(user?.recovery_email || user?.pending_recovery_email) ? (
+                <TouchableOpacity
+                  className="rounded-lg h-12 items-center justify-center border border-red-200"
+                  onPress={confirmRecoveryEmailRemoval}
+                  disabled={recoveryRemoveMutation.isPending}
+                  activeOpacity={0.8}
+                >
+                  <Text className="text-red-700 font-semibold">
+                    {recoveryRemoveMutation.isPending ? 'Removing…' : 'Remove recovery email'}
+                  </Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
+          )}
+
+          {(Boolean(user?.pending_recovery_email)
+            || Boolean(!user?.recovery_email_verified && user?.recovery_email)) ? (
             <>
               <View className="h-px bg-gray-100 my-4" />
 
@@ -547,10 +615,6 @@ export default function ProfileScreen() {
             </>
           ) : null}
 
-          {user?.recovery_email_verified && user.recovery_email === recoveryEmail ? (
-            <Text className="text-emerald-700 text-sm mt-3">Recovery email verified.</Text>
-          ) : null}
-
           {recoveryMsg && (
             <View className={`rounded-lg px-4 py-3 mt-3 ${recoveryMsg.ok ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
               <Text className={`text-sm ${recoveryMsg.ok ? 'text-green-700' : 'text-red-700'}`}>{recoveryMsg.text}</Text>
@@ -562,65 +626,87 @@ export default function ProfileScreen() {
         <View className="mx-4 bg-white rounded-xl border border-gray-100 p-4">
           <Text className="text-base font-semibold text-gray-800 mb-4">Change password</Text>
 
-          <FormField
-            label="Current password"
-            value={currentPw}
-            onChangeText={setCurrentPw}
-            secure={!showCurrent}
-            error={currentPwError}
-            onBlur={() => { if (!currentPw) setCurrentPwError('Required.'); else setCurrentPwError(null); }}
-            editable={!passwordMutation.isPending}
-            rightIcon={
-              <TouchableOpacity onPress={() => setShowCurrent((v) => !v)} className="w-8 h-8 items-center justify-center">
-                {showCurrent ? <EyeOff color="#9ca3af" size={18} /> : <Eye color="#9ca3af" size={18} />}
-              </TouchableOpacity>
-            }
-          />
-          <FormField
-            label="New password"
-            value={newPw}
-            onChangeText={setNewPw}
-            secure={!showNew}
-            error={newPwError}
-            onBlur={() => { if (!newPw || newPw.length < 8) setNewPwError('At least 8 characters.'); else setNewPwError(null); }}
-            editable={!passwordMutation.isPending}
-            rightIcon={
-              <TouchableOpacity onPress={() => setShowNew((v) => !v)} className="w-8 h-8 items-center justify-center">
-                {showNew ? <EyeOff color="#9ca3af" size={18} /> : <Eye color="#9ca3af" size={18} />}
-              </TouchableOpacity>
-            }
-          />
-          <FormField
-            label="Confirm new password"
-            value={confirmPw}
-            onChangeText={setConfirmPw}
-            secure={!showConfirm}
-            error={confirmPwError}
-            onBlur={() => { if (newPw !== confirmPw) setConfirmPwError('Passwords do not match.'); else setConfirmPwError(null); }}
-            editable={!passwordMutation.isPending}
-            rightIcon={
-              <TouchableOpacity onPress={() => setShowConfirm((v) => !v)} className="w-8 h-8 items-center justify-center">
-                {showConfirm ? <EyeOff color="#9ca3af" size={18} /> : <Eye color="#9ca3af" size={18} />}
-              </TouchableOpacity>
-            }
-          />
-
           {pwMsg && (
             <View className={`rounded-lg px-4 py-3 mb-3 ${pwMsg.ok ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
               <Text className={`text-sm ${pwMsg.ok ? 'text-green-700' : 'text-red-700'}`}>{pwMsg.text}</Text>
             </View>
           )}
 
-          <TouchableOpacity
-            className={`rounded-lg h-12 items-center justify-center ${passwordMutation.isPending ? 'bg-emerald-300' : 'bg-emerald-600'}`}
-            onPress={submitPassword}
-            disabled={passwordMutation.isPending}
-            activeOpacity={0.8}
-          >
-            <Text className="text-white font-semibold">
-              {passwordMutation.isPending ? 'Changing…' : 'Change password'}
-            </Text>
-          </TouchableOpacity>
+          {editingPassword ? (
+            <>
+              <FormField
+                label="Current password"
+                value={currentPw}
+                onChangeText={setCurrentPw}
+                secure={!showCurrent}
+                error={currentPwError}
+                onBlur={() => { if (!currentPw) setCurrentPwError('Required.'); else setCurrentPwError(null); }}
+                editable={!passwordMutation.isPending}
+                rightIcon={
+                  <TouchableOpacity onPress={() => setShowCurrent((v) => !v)} className="w-8 h-8 items-center justify-center">
+                    {showCurrent ? <EyeOff color="#9ca3af" size={18} /> : <Eye color="#9ca3af" size={18} />}
+                  </TouchableOpacity>
+                }
+              />
+              <FormField
+                label="New password"
+                value={newPw}
+                onChangeText={setNewPw}
+                secure={!showNew}
+                error={newPwError}
+                onBlur={() => { if (!newPw || newPw.length < 8) setNewPwError('At least 8 characters.'); else setNewPwError(null); }}
+                editable={!passwordMutation.isPending}
+                rightIcon={
+                  <TouchableOpacity onPress={() => setShowNew((v) => !v)} className="w-8 h-8 items-center justify-center">
+                    {showNew ? <EyeOff color="#9ca3af" size={18} /> : <Eye color="#9ca3af" size={18} />}
+                  </TouchableOpacity>
+                }
+              />
+              <FormField
+                label="Confirm new password"
+                value={confirmPw}
+                onChangeText={setConfirmPw}
+                secure={!showConfirm}
+                error={confirmPwError}
+                onBlur={() => { if (newPw !== confirmPw) setConfirmPwError('Passwords do not match.'); else setConfirmPwError(null); }}
+                editable={!passwordMutation.isPending}
+                rightIcon={
+                  <TouchableOpacity onPress={() => setShowConfirm((v) => !v)} className="w-8 h-8 items-center justify-center">
+                    {showConfirm ? <EyeOff color="#9ca3af" size={18} /> : <Eye color="#9ca3af" size={18} />}
+                  </TouchableOpacity>
+                }
+              />
+
+              <View className="flex-row gap-3">
+                <TouchableOpacity
+                  className={`rounded-lg h-12 flex-1 items-center justify-center ${passwordMutation.isPending ? 'bg-emerald-300' : 'bg-emerald-600'}`}
+                  onPress={submitPassword}
+                  disabled={passwordMutation.isPending}
+                  activeOpacity={0.8}
+                >
+                  <Text className="text-white font-semibold">
+                    {passwordMutation.isPending ? 'Changing…' : 'Update password'}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  className="rounded-lg h-12 px-5 items-center justify-center border border-gray-300"
+                  onPress={cancelPasswordEdit}
+                  disabled={passwordMutation.isPending}
+                  activeOpacity={0.8}
+                >
+                  <Text className="text-gray-700 font-semibold">Cancel</Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          ) : (
+            <TouchableOpacity
+              className="rounded-lg h-12 items-center justify-center border border-emerald-300"
+              onPress={() => { setPwMsg(null); setEditingPassword(true); }}
+              activeOpacity={0.8}
+            >
+              <Text className="text-emerald-700 font-semibold">Change password</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </ScrollView>
     </KeyboardAvoidingView>

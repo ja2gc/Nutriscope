@@ -153,7 +153,7 @@ export async function requestPasswordReset(email: string): Promise<string> {
 
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.message || "Failed to request password reset.");
-  return data.message || "If that email exists, a password reset link has been sent.";
+  return data.message || "Password reset request submitted.";
 }
 
 export async function resetPassword(data: {

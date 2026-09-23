@@ -3,7 +3,6 @@
 namespace App\Http\Requests\Auth;
 
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
 
 class UpdateRecoveryEmailRequest extends FormRequest
 {
@@ -22,9 +21,6 @@ class UpdateRecoveryEmailRequest extends FormRequest
                 'required',
                 'email',
                 'max:255',
-                Rule::unique('users', 'email')->ignore($this->user()->id),
-                Rule::unique('users', 'recovery_email')->ignore($this->user()->id),
-                Rule::unique('users', 'pending_recovery_email')->ignore($this->user()->id),
             ],
         ];
     }

@@ -8,6 +8,7 @@ use App\Contracts\EnvironmentSwitcher;
 use App\Enums\AuditAction;
 use App\Events\PurchaseOrderCompleted;
 use App\Listeners\BudgetLedgerListener;
+use App\Mail\Transport\ResendApiTransport;
 use App\Models\AuditActivity;
 use App\Models\User;
 use App\Policies\AuditPolicy;
@@ -29,11 +30,13 @@ use App\Services\Backup\SpatieBackupArchiveRunner;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Events\QueryExecuted;
+use Illuminate\Http\Client\Factory;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
@@ -68,6 +71,13 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        Mail::extend('resend-api', fn (array $config): ResendApiTransport => new ResendApiTransport(
+            app(Factory::class),
+            (string) ($config['key'] ?? ''),
+            (string) ($config['endpoint'] ?? 'https://api.resend.com/emails'),
+            (int) ($config['timeout'] ?? 10),
+        ));
+
         if (self::shouldRegisterAuditMutationBoundary($this->app->runningInConsole(), $_SERVER['argv'] ?? [])) {
             $retention = app(AuditRetentionService::class);
             collect([config('database.default'), config('activitylog.database_connection')])

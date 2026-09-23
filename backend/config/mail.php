@@ -65,6 +65,13 @@ return [
             'transport' => 'resend',
         ],
 
+        'resend-api' => [
+            'transport' => 'resend-api',
+            'key' => env('RESEND_API_KEY'),
+            'endpoint' => env('RESEND_API_ENDPOINT', 'https://api.resend.com/emails'),
+            'timeout' => (int) env('MAIL_TIMEOUT', 10),
+        ],
+
         'sendmail' => [
             'transport' => 'sendmail',
             'path' => env('MAIL_SENDMAIL_PATH', '/usr/sbin/sendmail -bs -i'),

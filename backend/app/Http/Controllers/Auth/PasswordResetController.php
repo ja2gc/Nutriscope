@@ -15,10 +15,11 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
+use Throwable;
 
 class PasswordResetController extends Controller
 {
-    private const MESSAGE = 'If that email exists, a password reset link has been sent.';
+    private const MESSAGE = 'Password reset request submitted.';
 
     public function __construct(private readonly AuditLogger $auditLogger) {}
 
@@ -27,9 +28,10 @@ class PasswordResetController extends Controller
         $request->merge([
             'email' => $request->string('email')->trim()->lower()->toString(),
         ]);
-        $data = $request->validate([
-            'email' => ['required', 'email'],
-        ]);
+        $data = $request->validate(
+            ['email' => ['required', 'email']],
+            ['email.email' => 'Enter a valid sign-in email.'],
+        );
 
         $user = User::where('email', $data['email'])
             ->whereNotNull('recovery_email_verified_at')
@@ -38,7 +40,15 @@ class PasswordResetController extends Controller
 
         if ($user) {
             $token = Password::broker()->createToken($user);
-            $user->sendPasswordResetNotification($token);
+            try {
+                $user->sendPasswordResetNotification($token);
+            } catch (Throwable) {
+                Password::broker()->deleteToken($user);
+
+                return response()->json([
+                    'message' => 'Password reset link could not be sent. Try again later.',
+                ], 503);
+            }
         }
 
         return response()->json(['message' => self::MESSAGE]);
