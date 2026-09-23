@@ -176,4 +176,18 @@ class ForgotPasswordTest extends TestCase
         $this->assertStringNotContainsString('rnd@nutriscope.local', $activity->toJson());
         $this->assertStringNotContainsString('rnd@example.com', $activity->toJson());
     }
+
+    public function test_reset_token_expires_after_fifteen_minutes(): void
+    {
+        $user = User::factory()->create([
+            'email' => 'rnd@nutriscope.local',
+        ]);
+        $token = Password::broker()->createToken($user);
+
+        $this->travel(14)->minutes();
+        $this->assertTrue(Password::broker()->tokenExists($user, $token));
+
+        $this->travel(61)->seconds();
+        $this->assertFalse(Password::broker()->tokenExists($user, $token));
+    }
 }

@@ -45,7 +45,7 @@ Use this version when screenshots are available. Each scene already contains the
 
 #### SHARED-03 — Forgot Password
 
-**Description:** User enters the account's sign-in email. NutriScope returns a generic confirmation and sends the reset link only to the account's verified recovery email without displaying that address.
+**Description:** User enters the account's sign-in email. NutriScope returns a generic confirmation and sends a 15-minute reset link only to the account's verified recovery email without displaying that address.
 
 **User should do:** Enter the demo account's sign-in email and select **Send Reset Link**.
 

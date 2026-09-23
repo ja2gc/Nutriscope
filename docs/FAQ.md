@@ -22,7 +22,7 @@ The response is intentionally generic. Check spam, confirm you entered the sign-
 
 ### My reset link or token does not work. What now?
 
-It may be invalid, expired, or already used. Request a new link. A successful reset revokes existing signed-in sessions.
+It may be invalid, more than 15 minutes old, or already used. Request a new link. A successful reset revokes existing signed-in sessions.
 
 ### What happens on first login?
 

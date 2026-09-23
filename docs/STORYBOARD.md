@@ -162,7 +162,7 @@ sequenceDiagram
 |---|---|---|---|
 | 1 | Selects Forgot password | Requests sign-in email | User enters account sign-in email |
 | 2 | Submits sign-in email | Returns generic confirmation | Prevents account and recovery-address discovery |
-| 3A | Sign-in email has a verified recovery address | Sends reset link/token to that recovery address | Link carries sign-in email; user sets 8+ character password |
+| 3A | Sign-in email has a verified recovery address | Sends a 15-minute reset link/token to that recovery address | Link carries sign-in email; user sets 8+ character password |
 | 3B | Unknown account or no verified recovery address | Sends no reset link but returns the same confirmation | User contacts Admin if recovery remains unavailable |
 | 4A | Reset succeeds | Revokes sessions | User signs in with new password |
 | 4B | Admin resets after identity check | Revokes sessions and audits reset | Admin shares new password securely |
