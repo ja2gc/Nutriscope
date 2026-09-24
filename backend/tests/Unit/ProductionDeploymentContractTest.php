@@ -61,6 +61,23 @@ class ProductionDeploymentContractTest extends TestCase
     }
 
     #[Test]
+    public function frontend_is_type_checked_on_github_before_the_resource_limited_server_build(): void
+    {
+        $workflow = file_get_contents(base_path('../.github/workflows/deploy.yml'));
+        $nextConfig = file_get_contents(base_path('../frontend/next.config.ts'));
+
+        $this->assertIsString($workflow);
+        $this->assertIsString($nextConfig);
+        $this->assertStringContainsString('frontend_typecheck:', $workflow);
+        $this->assertStringContainsString('needs: frontend_typecheck', $workflow);
+        $this->assertStringContainsString('node-version: 20', $workflow);
+        $this->assertStringContainsString('working-directory: frontend', $workflow);
+        $this->assertStringContainsString('npm ci --no-audit --no-fund', $workflow);
+        $this->assertStringContainsString('npx tsc --noEmit', $workflow);
+        $this->assertStringContainsString('ignoreBuildErrors: true', $nextConfig);
+    }
+
+    #[Test]
     public function frontend_image_build_retries_an_incomplete_npm_install(): void
     {
         $dockerfile = file_get_contents(base_path('../frontend/Dockerfile'));
