@@ -165,7 +165,7 @@ Settings supports:
 
 The profile side menu provides direct access to these account actions and manual update checking. The app also checks periodically for a newer APK and opens the stable download page when the user accepts an update.
 
-Profile supports first/last name, sign-in email, contact number, recovery email setup/change/verification, and password change. Role and status are read-only.
+Profile supports first/last name and contact-number editing, a read-only sign-in email, recovery email setup/change/verification, and password change. Role and status are read-only.
 
 First-login accounts replace the temporary password first, then submit a recovery email and verify it with the six-digit code sent to that address. Setup can be deferred before or during recovery verification; after deferral, the persistent mobile-header reminder remains until both requirements are complete.
 

@@ -92,7 +92,7 @@ The header retains the notification bell and profile icon. The profile side menu
 ### Account and Reliability
 
 - First-login setup supports password replacement and recovery email, with a deferral reminder.
-- Profile supports first/last name, sign-in email, contact, recovery email verification, and password change; role/status remain read-only.
+- Profile supports first/last name and contact editing, a read-only sign-in email, recovery email verification, and password change; role/status remain read-only.
 - Authentication stores the mobile token securely and guards public/private routes.
 - Authenticated API images and report PDFs send the bearer token.
 - Network failures show retry/error states instead of false empty screens.

@@ -36,9 +36,9 @@ FSS accounts are mobile-app only. The server rejects FSS web login. RND and Admi
 
 Admin suspended the account. Contact an Admin. Reactivating the account is an Admin action.
 
-### Can I change my name, sign-in email, contact number, or profile photo?
+### Can I change my name, contact number, or profile photo?
 
-Yes. Open **Profile**. Web users can update first name, last name, sign-in email, contact number, and one PNG/JPEG/WebP profile image. A selected image may be up to 10 MB; reposition and zoom it in the circular crop before applying it. FSS mobile supports name, sign-in email, and contact number; role and status remain read-only.
+Yes. Open **Profile**. Web users can update first name, last name, contact number, and one PNG/JPEG/WebP profile image. A selected image may be up to 10 MB; reposition and zoom it in the circular crop before applying it. FSS mobile supports name and contact number. The sign-in email, role, and status remain read-only.
 
 ### What is the difference between sign-in email and recovery email?
 

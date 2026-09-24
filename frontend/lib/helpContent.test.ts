@@ -11,11 +11,14 @@ describe("role-specific Help content", () => {
   test("password help explains sign-in lookup, recovery delivery, and onboarding verification", () => {
     const forgot = HELP_ITEMS.find((item) => item.id === "shared-forgot-password");
     const createUser = HELP_ITEMS.find((item) => item.id === "admin-create-user");
+    const profile = HELP_ITEMS.find((item) => item.id === "shared-profile");
 
     expect(forgot?.answer).toContain("sign-in email");
     expect(forgot?.answer).toContain("verified recovery email");
     expect(createUser?.answer).toContain("six-digit verification code");
     expect(createUser?.answer).toContain("persistent reminder");
+    expect(profile?.answer).toContain("sign-in email remains display-only");
+    expect(profile?.answer).not.toContain("editable name, sign-in email");
   });
 
   test("RND receives Shared and RND questions only", () => {

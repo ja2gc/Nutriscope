@@ -49,6 +49,15 @@ test('mobile profile keeps OTP available until recovery setup is verified', () =
   assert.match(profile, /Remove recovery email/);
 });
 
+test('mobile profile keeps sign-in email display-only and excludes it from profile updates', () => {
+  const profile = source('app/profile.tsx');
+
+  assert.match(profile, /<ReadOnlyField label="Sign-in email" value=\{user\?\.email \?\? ''\} \/>/);
+  assert.doesNotMatch(profile, /const \[email, setEmail\]/);
+  assert.doesNotMatch(profile, /email: email\.trim\(\)/);
+  assert.doesNotMatch(profile, /<FormField\s+label="Sign-in email"/);
+});
+
 test('mobile header reminder uses persistent onboarding state', () => {
   const header = source('components/AppHeader.tsx');
 

@@ -30,7 +30,6 @@ async function updateProfile(body: {
   last_name?: string;
   /** @deprecated Kept for API compatibility. */
   name?: string;
-  email: string;
   contact_number: string | null;
 }): Promise<UserProfile> {
   const res = await api.patch<{ data: UserProfile } | UserProfile>('/api/auth/profile', body);
@@ -144,11 +143,9 @@ export default function ProfileScreen() {
 
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
-  const [email, setEmail] = useState('');
   const [contactNumber, setContactNumber] = useState('');
   const [firstNameError, setFirstNameError] = useState<string | null>(null);
   const [lastNameError, setLastNameError] = useState<string | null>(null);
-  const [emailError, setEmailError] = useState<string | null>(null);
   const [profileMsg, setProfileMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   const [recoveryEmail, setRecoveryEmail] = useState('');
@@ -180,7 +177,6 @@ export default function ProfileScreen() {
       const values = personNameFormValues(user);
       setFirstName(values.firstName);
       setLastName(values.lastName);
-      setEmail(user.email);
       setRecoveryEmail(
         user.pending_recovery_email ?? (user.recovery_email_verified ? '' : user.recovery_email ?? ''),
       );
@@ -293,12 +289,7 @@ export default function ProfileScreen() {
   }
 
   function validateProfile() {
-    let valid = validatePersonName();
-    if (!email.trim()) { setEmailError('Email is required.'); valid = false; }
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
-      setEmailError('Enter a valid email.'); valid = false;
-    } else setEmailError(null);
-    return valid;
+    return validatePersonName();
   }
 
   function validatePassword() {
@@ -338,7 +329,6 @@ export default function ProfileScreen() {
     const nameFields = changedPersonNameFields(user, firstName, lastName);
     profileMutation.mutate({
       ...(nameFields ?? {}),
-      email: email.trim(),
       contact_number: contactNumber.trim() || null,
     });
   }
@@ -456,20 +446,7 @@ export default function ProfileScreen() {
             onBlur={validatePersonName}
             editable={!profileMutation.isPending}
           />
-          <FormField
-            label="Sign-in email"
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            error={emailError}
-            onBlur={() => {
-              if (!email.trim()) setEmailError('Email is required.');
-              else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) setEmailError('Enter a valid email.');
-              else setEmailError(null);
-            }}
-            editable={!profileMutation.isPending}
-          />
+          <ReadOnlyField label="Sign-in email" value={user?.email ?? ''} />
           <Text className="text-xs text-gray-500 -mt-2 mb-4">
             Use this email when signing in. Password reset links are sent to your verified recovery email below.
           </Text>

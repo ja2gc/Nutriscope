@@ -221,7 +221,7 @@ Verified against current navigation and server permissions on **2026-09-08**. Fo
 1. Use the header account icon to open Settings.
 2. Under **Help & Support**, open **Help** to search Shared and FSS-only answers. Help remains outside the six main tabs.
 3. Set comfortable/compact density and reduced motion.
-4. Open Profile to edit name, sign-in email, contact number, recovery email, and password.
+4. Open Profile to edit name and contact number, view the read-only sign-in email, and manage recovery email and password.
 5. Sign out from Settings when the device is shared.
 
 ## Admin Web Workflow

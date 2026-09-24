@@ -154,7 +154,7 @@ Whole-system recovery requires fresh authentication and exact confirmation, then
 
 - Help shows Shared and Admin guidance only; it has no role switch and does not expose RND clinical answers.
 - Notifications show Admin/All announcements and system alerts, with open/read/all-read behavior.
-- Profile supports name, sign-in email, contact, validated profile photo, recovery email, and password.
+- Profile supports name and contact editing, a read-only sign-in email, validated profile photo, recovery email, and password.
 - Role/designation is read-only in self-service Profile.
 
 ## Admin Workflow

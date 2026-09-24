@@ -64,7 +64,7 @@ export const HELP_ITEMS: HelpItem[] = [
     role: "Shared",
     category: "Account & Access",
     question: "Can I update my profile information?",
-    answer: "Open Profile to update the editable name, sign-in email, contact number, and available photo fields. Your role and active status are controlled by Admin and remain read-only.",
+    answer: "Open Profile to update the editable name, contact number, and available photo fields. The sign-in email remains display-only. Your role and active status are controlled by Admin and remain read-only.",
     keywords: ["name", "email", "phone", "photo"],
   },
   {
