@@ -12,9 +12,9 @@ use Illuminate\Support\Facades\Log;
 class AIService
 {
     /**
-     * Call Anthropic Claude API to suggest diagnoses based on patient conditions and details.
+     * Draft wording only for deterministic, source-gated PES candidates.
      */
-    public function suggestDiagnoses(array $data): array
+    public function draftPes(array $payload): array
     {
         $this->assertWithinTokenLimits();
 
@@ -22,26 +22,19 @@ class AIService
         $model = config('services.anthropic.model', 'claude-haiku-4-5-20251001');
 
         try {
-            $userPrompt = "Patient clinical data for G-NCP PES nutrition diagnosis:\n"
-                .json_encode($data, JSON_PRETTY_PRINT)."\n\n"
-                ."Generate 1-3 new G-NCP standardized PES nutrition diagnoses.\n\n"
-                ."Rules:\n"
-                ."- If existing_diagnoses are present, do NOT suggest anything that duplicates or overlaps with them\n"
-                ."- If the clinical data does not support any new diagnoses beyond what is already documented, return an empty suggestions array\n"
-                ."- abnormal_labs contains only lab values outside normal range with their flag (LOW/HIGH) and actual value — use these as objective Signs & Symptoms evidence, citing the value and flag (e.g. 'albumin 2.8 g/dL [LOW]', 'HbA1c 9.1% [HIGH]')\n"
-                ."- If no abnormal_labs are present, rely on anthropometric and clinical data for Signs & Symptoms\n"
-                ."- Etiology must reference actual data points: medications, intake status, activity level, medical history\n"
-                ."- label is only the nutrition problem, maximum 255 characters; do not include 'related to' or 'as evidenced by' in label\n"
-                ."- etiology is only the cause text; do not prefix with 'related to'\n"
-                ."- signs is only the evidence text; do not prefix with 'as evidenced by'\n"
-                ."- domain must be exactly one of: NI (Intake), NC (Clinical), NB (Behavioral-Environmental)\n"
-                ."- confidence is a float 0.0-1.0\n"
-                ."- priority starts at 1 for highest priority\n"
-                ."- Cover multiple domains where the data supports it\n\n"
-                ."Respond with ONLY this JSON, no prose, no markdown:\n"
-                .'{"suggestions":[{"domain":"NI","label":"Problem statement","etiology":"etiology text",'
-                .'"signs":"signs and symptoms citing abnormal lab values with flags","confidence":0.85,'
-                .'"reasoning":"clinical reasoning citing data","priority":1}]}';
+            $encoded = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            if (! is_string($encoded) || strlen($encoded) > 6500) {
+                throw new \RuntimeException('The bounded PES evidence payload is too large.');
+            }
+
+            $userPrompt = "Eligible PES candidates (JSON):\n{$encoded}\n\n"
+                .'Draft zero to three PES wordings. Use only supplied candidates, evidence keys/values, and source IDs. '
+                .'Do not add diagnoses, evidence, thresholds, sources, or patient details. '
+                .'Keep etiology and signs concise. Return raw JSON only: '
+                .'{"suggestions":[{"candidate_id":"supplied id","domain":"NC",'
+                .'"problem_key":"supplied problem","etiology":"cause text",'
+                .'"signs":"measurable evidence text","evidence_used":["supplied evidence key"],'
+                .'"source_id":"supplied source id"}]}';
 
             $response = Http::timeout(20)->connectTimeout(5)->withHeaders([
                 'x-api-key' => $apiKey,
@@ -49,8 +42,8 @@ class AIService
                 'content-type' => 'application/json',
             ])->post('https://api.anthropic.com/v1/messages', [
                 'model' => $model,
-                'max_tokens' => 1500,
-                'system' => 'You are a clinical nutrition AI specializing in G-NCP (Nutrition Care Process). Always respond with valid JSON only. No prose, no markdown fences, only a raw JSON object.',
+                'max_tokens' => 650,
+                'system' => 'You only word deterministic PES candidates already selected by the server. Never diagnose, broaden eligibility, or invent evidence or sources. Return valid JSON only.',
                 'messages' => [
                     [
                         'role' => 'user',
@@ -84,19 +77,21 @@ class AIService
                 $decoded = json_decode($text, true);
 
                 if (json_last_error() !== JSON_ERROR_NONE) {
-                    Log::warning('AIService suggestDiagnoses: malformed JSON from model', [
+                    Log::warning('AIService draftPes: malformed JSON from model', [
                         'error' => json_last_error_msg(),
-                        'text' => substr($text, 0, 500),
                     ]);
-                    throw new \RuntimeException('The AI returned an unexpected response. Please try again.');
+                    throw new \RuntimeException('The AI returned an unexpected PES response.');
                 }
 
-                return $decoded['suggestions'] ?? [];
+                if (! isset($decoded['suggestions']) || ! is_array($decoded['suggestions'])) {
+                    throw new \RuntimeException('The AI returned an unexpected PES response.');
+                }
+
+                return $decoded['suggestions'];
             }
 
             Log::error('AIService API request failed', [
                 'status' => $response->status(),
-                'body' => $response->body(),
             ]);
             throw new \RuntimeException(
                 'AI service request failed (HTTP '.$response->status().'). Check the API key and try again.'

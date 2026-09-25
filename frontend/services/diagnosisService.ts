@@ -27,19 +27,33 @@ export interface StoreDiagnosisPayload {
   ai_generated?: boolean;
 }
 
-export interface AiSuggestPayload {
-  conditions: string[];
-  ibw_percentage?: number | null;
-}
-
 export interface AiSuggestion {
+  candidate_id: string;
   domain: "NI" | "NC" | "NB";
   label: string;
   etiology: string;
   signs: string;
-  priority?: number;
-  confidence?: number;
-  reasoning?: string;
+  evidence_used: string[];
+  source: {
+    id: string;
+    issuer: string;
+    title: string;
+    version: string;
+    location: string;
+    url: string;
+  };
+}
+
+export interface PesDraftMeta {
+  cached: boolean;
+  fingerprint: string;
+  catalog_version: string;
+  message: string | null;
+}
+
+export interface PesDraftResult {
+  data: AiSuggestion[];
+  meta: PesDraftMeta;
 }
 
 export interface AiApprovePayload {
@@ -116,18 +130,34 @@ export async function deleteDiagnosis(ncpRecordId: number | string, diagnosisId:
   }
 }
 
-export async function aiSuggestDiagnoses(ncpRecordId: number | string, payload: AiSuggestPayload): Promise<AiSuggestion[]> {
+export async function aiSuggestDiagnoses(ncpRecordId: number | string): Promise<PesDraftResult> {
   const res = await apiFetch(`/api/rnd/ncp-records/${ncpRecordId}/diagnoses/ai-suggest`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "application/json" },
-    body: JSON.stringify(payload),
+    body: undefined,
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.message || "AI suggestion failed.");
   }
   const data = await res.json();
-  return data.data ?? data;
+  return data;
+}
+
+export async function dismissPesSuggestion(
+  ncpRecordId: number | string,
+  candidateId: string,
+): Promise<PesDraftResult> {
+  const res = await apiFetch(`/api/rnd/ncp-records/${ncpRecordId}/diagnoses/ai-suggest`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify({ dismissed_candidate_id: candidateId }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || "Failed to dismiss PES draft.");
+  }
+  return res.json();
 }
 
 export async function aiApproveDiagnosis(ncpRecordId: number | string, payload: AiApprovePayload): Promise<Diagnosis> {

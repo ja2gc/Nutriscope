@@ -3,7 +3,6 @@
 namespace Tests\Feature;
 
 use App\Models\Assessment;
-use App\Models\AuditActivity;
 use App\Models\NcpRecord;
 use App\Models\Patient;
 use App\Models\User;
@@ -11,7 +10,6 @@ use App\Services\AIService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
@@ -24,14 +22,113 @@ class AiServiceTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->rnd = User::factory()->create([
-            'role' => 'RND',
-            'password' => Hash::make('password'),
+        $this->rnd = User::factory()->rnd()->create();
+        $this->actingAs($this->rnd, 'sanctum');
+        config()->set('services.anthropic.key', 'test-key');
+    }
+
+    public function test_pes_draft_service_throws_on_api_failure_or_connection_timeout(): void
+    {
+        Http::fake(['api.anthropic.com/*' => Http::response('upstream error', 500)]);
+
+        try {
+            app(AIService::class)->draftPes($this->boundedPayload());
+            $this->fail('Expected provider failure.');
+        } catch (\RuntimeException $exception) {
+            $this->assertStringContainsString('AI service request failed', $exception->getMessage());
+        }
+
+        Http::fake([
+            'api.anthropic.com/*' => fn () => throw new ConnectionException('Connection timed out'),
         ]);
 
-        // AI routes always run behind auth:sanctum in production, so the service
-        // can rely on auth()->id() for the usage-log owner. Mirror that here.
-        $this->actingAs($this->rnd, 'sanctum');
+        $this->expectException(\RuntimeException::class);
+        app(AIService::class)->draftPes($this->boundedPayload());
+    }
+
+    public function test_pes_draft_service_decodes_json_fences_and_logs_usage(): void
+    {
+        Cache::put('admin_dashboard', ['stale' => true], 300);
+        Http::fake(['api.anthropic.com/*' => Http::response([
+            'content' => [[
+                'type' => 'text',
+                'text' => "```json\n".json_encode($this->providerSuggestions())."\n```",
+            ]],
+            'usage' => ['input_tokens' => 120, 'output_tokens' => 50],
+        ])]);
+
+        $result = app(AIService::class)->draftPes($this->boundedPayload());
+
+        $this->assertSame('unintended_weight_loss_v1', $result[0]['candidate_id']);
+        $this->assertDatabaseHas('ai_usage_logs', [
+            'user_id' => $this->rnd->id,
+            'endpoint' => 'diagnosis_suggestion',
+            'tokens_total' => 170,
+        ]);
+        $this->assertFalse(Cache::has('admin_dashboard'));
+    }
+
+    public function test_pes_draft_service_rejects_malformed_provider_content(): void
+    {
+        Http::fake(['api.anthropic.com/*' => Http::response([
+            'content' => [['type' => 'text', 'text' => '{not-json']],
+        ])]);
+
+        $this->expectException(\RuntimeException::class);
+        app(AIService::class)->draftPes($this->boundedPayload());
+    }
+
+    public function test_ai_approve_uses_existing_authorized_audited_save_path(): void
+    {
+        $ncpRecord = $this->makeNcpRecord();
+        Assessment::forceCreate([
+            'ncp_record_id' => $ncpRecord->id,
+            'weight' => 70.0,
+            'height' => 170.0,
+        ]);
+
+        $this->postJson("/api/rnd/ncp-records/{$ncpRecord->uuid}/diagnoses/ai-approve", [
+            'domain' => 'NC',
+            'label' => 'Unintended Weight Loss',
+            'etiology' => 'related to decreased appetite',
+            'signs' => 'as evidenced by 6.5% weight loss over 2 months',
+        ])->assertCreated()
+            ->assertJsonPath('data.problem', 'Unintended Weight Loss')
+            ->assertJsonPath('data.etiology', 'decreased appetite')
+            ->assertJsonPath('data.signs_symptoms', '6.5% weight loss over 2 months')
+            ->assertJsonPath('data.ai_generated', true);
+
+        $this->assertDatabaseHas('diagnoses', [
+            'ncp_record_id' => $ncpRecord->id,
+            'label' => 'Unintended Weight Loss',
+            'ai_generated' => true,
+        ]);
+        $this->assertDatabaseHas('activity_log', ['event' => 'approved']);
+    }
+
+    public function test_ai_approve_requires_assessment_and_valid_problem_shape(): void
+    {
+        $ncpRecord = $this->makeNcpRecord();
+
+        $this->postJson("/api/rnd/ncp-records/{$ncpRecord->uuid}/diagnoses/ai-approve", [
+            'domain' => 'NC',
+            'label' => 'Unintended Weight Loss',
+            'etiology' => 'decreased appetite',
+            'signs' => '6.5% weight loss over 2 months',
+        ])->assertUnprocessable();
+
+        Assessment::forceCreate([
+            'ncp_record_id' => $ncpRecord->id,
+            'weight' => 70.0,
+            'height' => 170.0,
+        ]);
+        $this->postJson("/api/rnd/ncp-records/{$ncpRecord->uuid}/diagnoses/ai-approve", [
+            'domain' => 'INVALID',
+            'label' => str_repeat('A', 256),
+            'etiology' => 'cause',
+            'signs' => 'evidence',
+        ])->assertUnprocessable()
+            ->assertJsonValidationErrors(['domain', 'label']);
     }
 
     private function makeNcpRecord(): NcpRecord
@@ -44,333 +141,34 @@ class AiServiceTest extends TestCase
         ]);
     }
 
-    // --- AIService unit tests ---
-
-    public function test_ai_service_throws_on_api_failure(): void
+    private function boundedPayload(): array
     {
-        // Previously the service swallowed failures and returned [], which made a
-        // broken API key look like "no suggestions". It now surfaces the failure.
-        Http::fake(['api.anthropic.com/*' => Http::response('upstream error', 500)]);
-
-        $this->expectException(\RuntimeException::class);
-
-        app(AIService::class)->suggestDiagnoses(['conditions' => ['CKD']]);
+        return [
+            'catalog_version' => '2026-09-21-v1',
+            'candidates' => [[
+                'candidate_id' => 'unintended_weight_loss_v1',
+                'problem_key' => 'Unintended Weight Loss',
+                'domain' => 'NC',
+                'evidence' => [
+                    'weight_loss_percentage' => 6.5,
+                    'weight_change_period' => ['value' => 2, 'unit' => 'months'],
+                    'appetite' => 'decreased',
+                ],
+                'source_id' => 'academy_ncp_diagnosis_2026',
+            ]],
+        ];
     }
 
-    public function test_ai_service_throws_on_connection_timeout(): void
+    private function providerSuggestions(): array
     {
-        Http::fake([
-            'api.anthropic.com/*' => fn () => throw new ConnectionException('Connection timed out'),
-        ]);
-
-        $this->expectException(\RuntimeException::class);
-
-        app(AIService::class)->suggestDiagnoses(['conditions' => ['CKD']]);
-    }
-
-    public function test_ai_service_returns_array_of_suggestions(): void
-    {
-        Http::fake([
-            'api.anthropic.com/*' => Http::response([
-                'content' => [[
-                    'type' => 'text',
-                    'text' => json_encode([
-                        'suggestions' => [
-                            [
-                                'domain' => 'NI',
-                                'label' => 'Inadequate energy intake',
-                                'etiology' => 'related to poor appetite',
-                                'signs' => 'evidenced by weight loss',
-                            ],
-                        ],
-                    ]),
-                ]],
-            ], 200),
-        ]);
-
-        $service = app(AIService::class);
-        $suggestions = $service->suggestDiagnoses([
-            'conditions' => ['CKD'],
-            'ibw_percentage' => 75,
-        ]);
-
-        $this->assertIsArray($suggestions);
-        $this->assertNotEmpty($suggestions);
-        $this->assertArrayHasKey('domain', $suggestions[0]);
-    }
-
-    public function test_ai_service_throws_on_service_unavailable(): void
-    {
-        Http::fake([
-            'api.anthropic.com/*' => Http::response([], 503),
-        ]);
-
-        $this->expectException(\RuntimeException::class);
-
-        app(AIService::class)->suggestDiagnoses(['conditions' => ['CKD']]);
-    }
-
-    public function test_ai_service_strips_markdown_fences_before_decoding(): void
-    {
-        Http::fake([
-            'api.anthropic.com/*' => Http::response([
-                'content' => [[
-                    'type' => 'text',
-                    'text' => "```json\n".json_encode([
-                        'suggestions' => [[
-                            'domain' => 'NI', 'label' => 'Inadequate energy intake',
-                            'etiology' => 'poor appetite', 'signs' => 'weight loss',
-                        ]],
-                    ])."\n```",
-                ]],
-            ], 200),
-        ]);
-
-        $suggestions = app(AIService::class)->suggestDiagnoses(['conditions' => ['CKD']]);
-
-        $this->assertNotEmpty($suggestions);
-        $this->assertSame('NI', $suggestions[0]['domain']);
-    }
-
-    public function test_ai_suggest_endpoint_returns_502_on_upstream_failure(): void
-    {
-        Http::fake(['api.anthropic.com/*' => Http::response('upstream error', 500)]);
-
-        $ncpRecord = $this->makeNcpRecord();
-
-        $this->actingAs($this->rnd)
-            ->postJson("/api/rnd/ncp-records/{$ncpRecord->uuid}/diagnoses/ai-suggest", [
-                'conditions' => ['CKD'],
-            ])
-            ->assertStatus(502)
-            ->assertJsonStructure(['message']);
-
-        $this->assertDatabaseMissing('activity_log', ['event' => 'generated']);
-    }
-
-    public function test_ai_service_logs_usage_on_success(): void
-    {
-        Cache::put('admin_dashboard', ['stale' => true], 300);
-
-        Http::fake([
-            'api.anthropic.com/*' => Http::response([
-                'content' => [[
-                    'type' => 'text',
-                    'text' => json_encode(['suggestions' => []]),
-                ]],
-                'usage' => ['input_tokens' => 120, 'output_tokens' => 50],
-            ], 200),
-        ]);
-
-        $service = app(AIService::class);
-        $service->suggestDiagnoses(['conditions' => ['DM']]);
-
-        $this->assertDatabaseHas('ai_usage_logs', [
-            'model' => config('services.anthropic.model', 'claude-haiku-20240307'),
-            'endpoint' => 'diagnosis_suggestion',
-        ]);
-        $this->assertFalse(Cache::has('admin_dashboard'));
-    }
-
-    // --- HTTP endpoint tests ---
-
-    public function test_ai_suggest_diagnoses_returns_suggestions(): void
-    {
-        Http::fake([
-            'api.anthropic.com/*' => Http::response([
-                'content' => [[
-                    'type' => 'text',
-                    'text' => json_encode([
-                        'suggestions' => [
-                            [
-                                'domain' => 'NI',
-                                'label' => 'Inadequate energy intake',
-                                'etiology' => 'related to poor appetite',
-                                'signs' => 'evidenced by weight loss',
-                            ],
-                        ],
-                    ]),
-                ]],
-            ], 200),
-        ]);
-
-        $ncpRecord = $this->makeNcpRecord();
-
-        $response = $this->actingAs($this->rnd)
-            ->postJson("/api/rnd/ncp-records/{$ncpRecord->uuid}/diagnoses/ai-suggest", [
-                'conditions' => ['CKD'],
-                'ibw_percentage' => 75,
-            ]);
-
-        $response->assertOk()
-            ->assertJsonStructure(['data' => [['domain', 'label', 'etiology', 'signs']]]);
-
-        $activity = AuditActivity::query()->where('event', 'generated')->latest('id')->firstOrFail();
-        $this->assertSame(200, $activity->properties['details']['status']);
-        foreach (['Inadequate energy intake', 'related to poor appetite', 'evidenced by weight loss'] as $value) {
-            $this->assertStringNotContainsString($value, $activity->toJson());
-        }
-    }
-
-    public function test_ai_suggest_output_can_be_approved_and_tracks_token_usage(): void
-    {
-        Http::fake([
-            'api.anthropic.com/*' => Http::response([
-                'content' => [[
-                    'type' => 'text',
-                    'text' => json_encode([
-                        'suggestions' => [
-                            [
-                                'domain' => 'NI',
-                                'label' => 'Inadequate energy intake',
-                                'etiology' => 'poor appetite',
-                                'signs' => '5% weight loss over 1 month',
-                                'confidence' => 0.86,
-                                'reasoning' => 'Supported by recent weight loss and intake history.',
-                                'priority' => 1,
-                            ],
-                        ],
-                    ]),
-                ]],
-                'usage' => ['input_tokens' => 240, 'output_tokens' => 80],
-            ], 200),
-        ]);
-
-        $ncpRecord = $this->makeNcpRecord();
-        Assessment::forceCreate([
-            'ncp_record_id' => $ncpRecord->id,
-            'weight' => 70.0,
-            'height' => 170.0,
-        ]);
-
-        $suggestResponse = $this->actingAs($this->rnd, 'sanctum')
-            ->postJson("/api/rnd/ncp-records/{$ncpRecord->uuid}/diagnoses/ai-suggest", [
-                'conditions' => ['Poor appetite'],
-                'ibw_percentage' => 75,
-            ])
-            ->assertOk()
-            ->assertJsonPath('data.0.label', 'Inadequate energy intake');
-
-        $suggestion = $suggestResponse->json('data.0');
-
-        $this->actingAs($this->rnd, 'sanctum')
-            ->postJson("/api/rnd/ncp-records/{$ncpRecord->uuid}/diagnoses/ai-approve", $suggestion)
-            ->assertCreated()
-            ->assertJsonPath('data.ai_generated', true)
-            ->assertJsonPath(
-                'data.pes_statement',
-                'Inadequate energy intake related to poor appetite as evidenced by 5% weight loss over 1 month',
-            );
-
-        $this->assertDatabaseHas('diagnoses', [
-            'ncp_record_id' => $ncpRecord->id,
-            'label' => 'Inadequate energy intake',
-            'ai_generated' => true,
-        ]);
-
-        $this->assertDatabaseHas('ai_usage_logs', [
-            'user_id' => $this->rnd->id,
-            'endpoint' => 'diagnosis_suggestion',
-            'tokens_input' => 240,
-            'tokens_output' => 80,
-            'tokens_total' => 320,
-        ]);
-    }
-
-    public function test_ai_suggest_diagnoses_requires_conditions(): void
-    {
-        $ncpRecord = $this->makeNcpRecord();
-
-        $response = $this->actingAs($this->rnd)
-            ->postJson("/api/rnd/ncp-records/{$ncpRecord->uuid}/diagnoses/ai-suggest", []);
-
-        $response->assertUnprocessable()
-            ->assertJsonValidationErrors(['conditions']);
-    }
-
-    public function test_ai_approve_diagnosis_stores_to_database(): void
-    {
-        $ncpRecord = $this->makeNcpRecord();
-        Assessment::forceCreate([
-            'ncp_record_id' => $ncpRecord->id, 'weight' => 70.0, 'height' => 170.0,
-        ]);
-
-        $response = $this->actingAs($this->rnd)
-            ->postJson("/api/rnd/ncp-records/{$ncpRecord->uuid}/diagnoses/ai-approve", [
-                'domain' => 'NI',
-                'label' => 'Inadequate energy intake',
-                'etiology' => 'related to poor appetite evidenced by food recall',
-                'signs' => 'weight loss 5% over 1 month',
-                'priority' => 1,
-            ]);
-
-        $response->assertCreated()
-            ->assertJsonPath('data.domain', 'NI')
-            ->assertJsonPath('data.label', 'Inadequate energy intake');
-
-        $this->assertDatabaseHas('diagnoses', [
-            'ncp_record_id' => $ncpRecord->id,
-            'domain' => 'NI',
-            'label' => 'Inadequate energy intake',
-        ]);
-    }
-
-    public function test_ai_approve_diagnosis_normalizes_pes_components_before_saving(): void
-    {
-        $ncpRecord = $this->makeNcpRecord();
-        Assessment::forceCreate([
-            'ncp_record_id' => $ncpRecord->id, 'weight' => 70.0, 'height' => 170.0,
-        ]);
-
-        $response = $this->actingAs($this->rnd)
-            ->postJson("/api/rnd/ncp-records/{$ncpRecord->uuid}/diagnoses/ai-approve", [
-                'domain' => 'NI',
-                'label' => 'Inadequate energy intake',
-                'etiology' => 'related to poor appetite',
-                'signs' => 'as evidenced by 5% weight loss',
-            ]);
-
-        $response->assertCreated()
-            ->assertJsonPath('data.problem', 'Inadequate energy intake')
-            ->assertJsonPath('data.label', 'Inadequate energy intake')
-            ->assertJsonPath('data.etiology', 'poor appetite')
-            ->assertJsonPath('data.signs_symptoms', '5% weight loss')
-            ->assertJsonPath('data.pes_statement', 'Inadequate energy intake related to poor appetite as evidenced by 5% weight loss')
-            ->assertJsonPath('data.ai_generated', true);
-    }
-
-    public function test_ai_approve_diagnosis_requires_valid_domain(): void
-    {
-        $ncpRecord = $this->makeNcpRecord();
-
-        $response = $this->actingAs($this->rnd)
-            ->postJson("/api/rnd/ncp-records/{$ncpRecord->uuid}/diagnoses/ai-approve", [
-                'domain' => 'INVALID',
-                'label' => 'Test',
-                'etiology' => 'related to X',
-                'signs' => 'evidenced by Y',
-            ]);
-
-        $response->assertUnprocessable()
-            ->assertJsonValidationErrors(['domain']);
-    }
-
-    public function test_ai_approve_diagnosis_rejects_problem_labels_longer_than_manual_builder_allows(): void
-    {
-        $ncpRecord = $this->makeNcpRecord();
-        Assessment::forceCreate([
-            'ncp_record_id' => $ncpRecord->id, 'weight' => 70.0, 'height' => 170.0,
-        ]);
-
-        $response = $this->actingAs($this->rnd)
-            ->postJson("/api/rnd/ncp-records/{$ncpRecord->uuid}/diagnoses/ai-approve", [
-                'domain' => 'NI',
-                'label' => str_repeat('A', 256),
-                'etiology' => 'related to poor appetite',
-                'signs' => 'evidenced by low intake',
-            ]);
-
-        $response->assertUnprocessable()
-            ->assertJsonValidationErrors(['label']);
+        return ['suggestions' => [[
+            'candidate_id' => 'unintended_weight_loss_v1',
+            'domain' => 'NC',
+            'problem_key' => 'Unintended Weight Loss',
+            'etiology' => 'decreased appetite',
+            'signs' => '6.5% unintended weight loss over 2 months',
+            'evidence_used' => ['weight_loss_percentage', 'weight_change_period', 'appetite'],
+            'source_id' => 'academy_ncp_diagnosis_2026',
+        ]]];
     }
 }

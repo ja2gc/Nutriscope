@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Exceptions\TokenLimitExceededException;
 use App\Models\AiUsageLimit;
 use App\Models\AiUsageLog;
+use App\Models\Assessment;
 use App\Models\NcpRecord;
 use App\Models\Patient;
 use App\Models\User;
@@ -251,7 +252,7 @@ class AiUsageLimitTest extends TestCase
             ], 200),
         ]);
 
-        $result = app(AIService::class)->suggestDiagnoses(['conditions' => ['DM']]);
+        $result = app(AIService::class)->draftPes($this->pesPayload());
 
         // Should not throw — returns array (possibly empty)
         $this->assertIsArray($result);
@@ -282,7 +283,7 @@ class AiUsageLimitTest extends TestCase
 
         $this->expectException(TokenLimitExceededException::class);
 
-        app(AIService::class)->suggestDiagnoses(['conditions' => ['DM']]);
+        app(AIService::class)->draftPes($this->pesPayload());
     }
 
     public function test_daily_cap_blocked_call_does_not_log_usage(): void
@@ -304,7 +305,7 @@ class AiUsageLimitTest extends TestCase
         Http::fake();
 
         try {
-            app(AIService::class)->suggestDiagnoses(['conditions' => ['DM']]);
+            app(AIService::class)->draftPes($this->pesPayload());
         } catch (TokenLimitExceededException $e) {
             // expected
         }
@@ -334,11 +335,16 @@ class AiUsageLimitTest extends TestCase
             'patient_id' => $patient->id,
             'rnd_user_id' => $this->rnd->id,
         ]);
+        Assessment::factory()->create([
+            'ncp_record_id' => $ncpRecord->id,
+            'weight_loss_percentage' => 6.5,
+            'weight_change_period_value' => 2,
+            'weight_change_period_unit' => 'months',
+            'appetite_changes' => 'decreased',
+        ]);
 
         $response = $this->actingAs($this->rnd, 'sanctum')
-            ->postJson("/api/rnd/ncp-records/{$ncpRecord->uuid}/diagnoses/ai-suggest", [
-                'conditions' => ['CKD'],
-            ]);
+            ->postJson("/api/rnd/ncp-records/{$ncpRecord->uuid}/diagnoses/ai-suggest");
 
         $response->assertStatus(429)
             ->assertJsonStructure(['message'])
@@ -369,7 +375,7 @@ class AiUsageLimitTest extends TestCase
 
         $this->expectException(TokenLimitExceededException::class);
 
-        app(AIService::class)->suggestDiagnoses(['conditions' => ['DM']]);
+        app(AIService::class)->draftPes($this->pesPayload());
     }
 
     public function test_monthly_cap_exception_message_names_monthly(): void
@@ -390,7 +396,7 @@ class AiUsageLimitTest extends TestCase
         Http::fake();
 
         try {
-            app(AIService::class)->suggestDiagnoses(['conditions' => ['DM']]);
+            app(AIService::class)->draftPes($this->pesPayload());
             $this->fail('Expected TokenLimitExceededException');
         } catch (TokenLimitExceededException $e) {
             $this->assertStringContainsStringIgnoringCase('monthly', $e->getMessage());
@@ -423,7 +429,7 @@ class AiUsageLimitTest extends TestCase
             ], 200),
         ]);
 
-        $result = app(AIService::class)->suggestDiagnoses(['conditions' => ['DM']]);
+        $result = app(AIService::class)->draftPes($this->pesPayload());
 
         $this->assertIsArray($result);
         // A new usage row was written
@@ -453,9 +459,26 @@ class AiUsageLimitTest extends TestCase
             ], 200),
         ]);
 
-        $result = app(AIService::class)->suggestDiagnoses(['conditions' => ['CKD']]);
+        $result = app(AIService::class)->draftPes($this->pesPayload());
 
         $this->assertIsArray($result);
         $this->assertSame(2, AiUsageLog::count());
+    }
+
+    private function pesPayload(): array
+    {
+        return [
+            'catalog_version' => '2026-09-21-v1',
+            'candidates' => [[
+                'candidate_id' => 'unintended_weight_loss_v1',
+                'domain' => 'NC',
+                'problem_key' => 'Unintended Weight Loss',
+                'evidence' => [
+                    'weight_loss_percentage' => 6.5,
+                    'weight_change_period' => ['value' => 2, 'unit' => 'months'],
+                ],
+                'source_id' => 'academy_ncp_diagnosis_2026',
+            ]],
+        ];
     }
 }

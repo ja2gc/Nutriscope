@@ -5,7 +5,6 @@ namespace App\Http\Controllers\RND;
 use App\Enums\AuditAction;
 use App\Enums\AuditCategory;
 use App\Enums\AuditDomain;
-use App\Exceptions\TokenLimitExceededException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\RND\AiApproveDiagnosisRequest;
 use App\Http\Requests\RND\AiSuggestDiagnosisRequest;
@@ -13,16 +12,14 @@ use App\Http\Resources\DiagnosisResource;
 use App\Models\Diagnosis;
 use App\Models\NcpRecord;
 use App\Policies\AuditPolicy;
-use App\Services\AIService;
 use App\Services\Audit\AuditLogger;
-use App\Services\LabFlagService;
+use App\Services\Diagnosis\PesSuggestionService;
 use Illuminate\Http\JsonResponse;
 
 class AiDiagnosisController extends Controller
 {
     public function __construct(
-        private AIService $aiService,
-        private LabFlagService $labFlags,
+        private PesSuggestionService $pesSuggestions,
         private AuditPolicy $auditPolicy,
         private AuditLogger $auditLogger,
     ) {}
@@ -35,62 +32,13 @@ class AiDiagnosisController extends Controller
         abort_unless($this->auditPolicy->viewNcpTrail($request->user(), $ncpRecord), 403);
         $data = $request->validated();
 
-        // Enrich from DB — client only sends conditions[] + ibw_percentage.
-        // All clinical data needed for valid G-NCP PES comes from the server side.
-        $patient = $ncpRecord->patient;
-        $assessment = $ncpRecord->assessment()->with('biochemicalData')->first();
-
-        if ($patient) {
-            $data['patient_age'] = $patient->age;
-            $data['patient_sex'] = $patient->sex;
-        }
-
-        if ($assessment) {
-            $clinical = array_filter([
-                'nutritional_status' => $assessment->nutritional_status,
-                'weight_kg' => $assessment->weight !== null ? (float) $assessment->weight : null,
-                'height_cm' => $assessment->height !== null ? (float) $assessment->height : null,
-                'bmi' => $assessment->bmi !== null ? (float) $assessment->bmi : null,
-                'weight_loss_percentage' => $assessment->weight_loss_percentage,
-                'weight_loss_period' => $assessment->weight_loss_period,
-                'edema_present' => $assessment->edema_present,
-                'stress_factor' => $assessment->stress_factor,
-                'physical_activity_level' => $assessment->normalizedActivityLevel(),
-                'energy_intake_status' => $assessment->energy_intake_status,
-                'present_diet' => $assessment->present_diet,
-                'appetite_changes' => $assessment->appetite_changes,
-                'dietary_restrictions' => $assessment->dietary_restrictions,
-                'medications' => $assessment->medications,
-                'allergies' => $assessment->allergies,
-                'food_intolerance' => $assessment->food_intolerance,
-                'chewing_swallowing' => $assessment->chewing_swallowing_difficulties,
-                'functional_assessment' => $assessment->functional_assessment,
-            ], fn ($v) => $v !== null && $v !== '' && $v !== []);
-
-            $data += $clinical;
-
-            $flagged = [];
-            if ($assessment?->biochemicalData) {
-                $flagged = $this->labFlags->flag(
-                    $assessment->biochemicalData->toArray(),
-                    $patient?->sex ?? 'Male'
-                );
-            }
-
-            if (! empty($flagged)) {
-                $data['abnormal_labs'] = $flagged;
-            }
-        }
-
-        $existing = $ncpRecord->diagnoses()->pluck('pes_statement')->all();
-        if (! empty($existing)) {
-            $data['existing_diagnoses'] = $existing;
-        }
-
         try {
-            $suggestions = $this->aiService->suggestDiagnoses($data);
-        } catch (TokenLimitExceededException $e) {
-            throw $e; // renders as 429
+            $result = $this->pesSuggestions->suggest(
+                $ncpRecord,
+                $data['dismissed_candidate_id'] ?? null,
+            );
+        } catch (\InvalidArgumentException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
         } catch (\RuntimeException $e) {
             return response()->json(['message' => $e->getMessage()], 502);
         }
@@ -100,10 +48,14 @@ class AiDiagnosisController extends Controller
             AuditCategory::Clinical,
             AuditDomain::Ncp,
             subject: $ncpRecord,
-            details: ['status' => 200],
+            details: [
+                'status' => 200,
+                'cached' => $result['meta']['cached'],
+                'draft_count' => count($result['data']),
+            ],
         );
 
-        return response()->json(['data' => $suggestions]);
+        return response()->json($result);
     }
 
     /**

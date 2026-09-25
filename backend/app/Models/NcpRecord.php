@@ -58,6 +58,11 @@ class NcpRecord extends Model
         return $this->hasMany(Diagnosis::class);
     }
 
+    public function pesSuggestionStates(): HasMany
+    {
+        return $this->hasMany(PesSuggestionState::class);
+    }
+
     public function intervention(): HasOne
     {
         return $this->hasOne(Intervention::class);

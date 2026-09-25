@@ -11,8 +11,8 @@ import ButtonFilterGroup from "@/components/ui/ButtonFilterGroup";
 import { fetchPatientById, Patient } from "@/services/patientService";
 import {
   fetchDiagnosesPage, storeDiagnosis, updateDiagnosis, deleteDiagnosis,
-  aiSuggestDiagnoses, aiApproveDiagnosis,
-  Diagnosis, StoreDiagnosisPayload, AiSuggestion,
+  aiSuggestDiagnoses, aiApproveDiagnosis, dismissPesSuggestion,
+  Diagnosis, StoreDiagnosisPayload, AiSuggestion, PesDraftMeta,
 } from "@/services/diagnosisService";
 import { fetchAssessment, type Assessment } from "@/services/assessmentService";
 import { fetchIntervention } from "@/services/interventionService";
@@ -316,8 +316,8 @@ export default function NcpDiagnosisPage({
   const [builder, setBuilder] = useState<BuilderState>(defaultBuilder());
   const [aiSuggestions, setAiSuggestions] = useState<AiSuggestion[]>([]);
   const [aiLoading, setAiLoading] = useState(false);
-  const [aiDismissed, setAiDismissed] = useState<Set<number>>(new Set());
-  const [assessmentIbw, setAssessmentIbw] = useState<number | null>(null);
+  const [aiMeta, setAiMeta] = useState<PesDraftMeta | null>(null);
+  const [aiUnavailable, setAiUnavailable] = useState<string | null>(null);
   const [hasAssessment, setHasAssessment] = useState(false);
   const [assessmentContext, setAssessmentContext] = useState<Assessment | null>(null);
   const [interventionGoal, setInterventionGoal] = useState<string | null>(null);
@@ -340,8 +340,6 @@ export default function NcpDiagnosisPage({
       if (a.status === "fulfilled") {
         setHasAssessment(true);
         setAssessmentContext(a.value);
-        const ibw = a.value.ibw_percentage;
-        setAssessmentIbw(typeof ibw === "number" ? ibw : ibw ? Number(ibw) : null);
       } else {
         setHasAssessment(false);
         setAssessmentContext(null);
@@ -448,46 +446,57 @@ export default function NcpDiagnosisPage({
   };
 
   const handleAiSuggest = async () => {
-    const conditions: string[] = [];
-    if (patient?.medical_diagnosis) conditions.push(patient.medical_diagnosis);
-    diagnoses.forEach(d => conditions.push(d.problem));
-    if (conditions.length === 0) conditions.push("General nutritional assessment");
-
     try {
       setAiLoading(true);
       setError(null);
-      const suggestions = await aiSuggestDiagnoses(ncpId, {
-        conditions,
-        ibw_percentage: assessmentIbw,
-      });
-      setAiSuggestions(suggestions);
-      setAiDismissed(new Set());
+      setAiUnavailable(null);
+      const result = await aiSuggestDiagnoses(ncpId);
+      setAiSuggestions(result.data);
+      setAiMeta(result.meta);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "AI suggestion failed.");
+      const message = err instanceof Error ? err.message : "External AI drafts are unavailable.";
+      if (message.includes("External AI drafts are unavailable")) {
+        setAiUnavailable(message);
+      } else {
+        setError(message);
+      }
     } finally {
       setAiLoading(false);
     }
   };
 
-  const handleAiAccept = async (s: AiSuggestion, idx: number) => {
+  const handleAiAccept = async (s: AiSuggestion) => {
     try {
       await aiApproveDiagnosis(ncpId, {
         domain: s.domain,
         label: s.label,
         etiology: s.etiology,
         signs: s.signs,
-        priority: s.priority,
       });
       if (diagnosesPage === 1) {
         await loadData();
       } else {
         setDiagnosesPage(1);
       }
-      setAiDismissed(prev => new Set([...prev, idx]));
-      setSuccess("AI diagnosis accepted and saved.");
+      setAiSuggestions(prev => prev.filter(draft => draft.candidate_id !== s.candidate_id));
+      setSuccess("PES draft accepted and saved.");
       setTimeout(() => setSuccess(null), 3000);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to accept diagnosis.");
+    }
+  };
+
+  const handleAiDismiss = async (s: AiSuggestion) => {
+    try {
+      setAiLoading(true);
+      setError(null);
+      const result = await dismissPesSuggestion(ncpId, s.candidate_id);
+      setAiSuggestions(result.data);
+      setAiMeta(result.meta);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to dismiss PES draft.");
+    } finally {
+      setAiLoading(false);
     }
   };
 
@@ -994,46 +1003,51 @@ export default function NcpDiagnosisPage({
       <div className="bg-white border border-warm-200 rounded-2xl p-5">
         <div className="flex items-center gap-2 text-emerald-600 font-bold text-sm uppercase tracking-wider mb-2">
           <Sparkles className="h-4 w-4" />
-          AI Suggestions
+          Assessment-based PES drafts
         </div>
         <p className="text-xs text-warm-600 leading-relaxed mb-4">
-          Analyzes patient medical diagnosis and existing assessments to generate draft G-NCP PES statements for review. Using patient: <span className="font-semibold text-warm-700">{patient?.medical_diagnosis ?? "No diagnosis on file"}</span>
+          Source-gated drafts use only eligible, de-identified Assessment evidence. Review and edit before accepting. Manual PES entry remains available.
         </p>
-        <button
-          type="button"
-          onClick={handleAiSuggest}
-          disabled={aiLoading}
-          className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-warm-300 text-white text-xs font-extrabold uppercase tracking-wider rounded-lg transition-colors cursor-pointer disabled:cursor-not-allowed"
-        >
-          {aiLoading ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-          {aiLoading ? "Generating suggestions..." : "Generate AI Suggestions"}
-        </button>
+        {!aiMeta && !aiUnavailable && (
+          <button
+            type="button"
+            onClick={handleAiSuggest}
+            disabled={aiLoading || !hasAssessment}
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-warm-300 text-white text-xs font-extrabold uppercase tracking-wider rounded-lg transition-colors cursor-pointer disabled:cursor-not-allowed"
+          >
+            {aiLoading ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+            {aiLoading ? "Checking Assessment..." : "Load PES drafts"}
+          </button>
+        )}
+        {aiMeta?.cached && (
+          <p className="text-xs font-semibold text-warm-500">Cached for this unchanged Assessment.</p>
+        )}
+        {aiUnavailable && (
+          <p className="text-xs font-semibold text-amber-700">{aiUnavailable}</p>
+        )}
+        {!hasAssessment && (
+          <p className="text-xs font-semibold text-amber-700">Save the Assessment before requesting PES drafts.</p>
+        )}
       </div>
+
+      {aiMeta?.message && aiSuggestions.length === 0 && (
+        <div className="rounded-xl border border-warm-200 bg-warm-50 px-4 py-3 text-sm text-warm-700">
+          {aiMeta.message || "No sufficiently supported PES draft was found."}
+        </div>
+      )}
 
       {aiSuggestions.length > 0 && (
         <div className="space-y-3">
           <h4 className="text-xs font-extrabold text-warm-700 uppercase tracking-wider">
-            AI Suggestions ({aiSuggestions.filter((_, i) => !aiDismissed.has(i)).length} pending)
+            PES drafts ({aiSuggestions.length} pending)
           </h4>
-          {aiSuggestions.map((s, i) => {
-            if (aiDismissed.has(i)) return null;
+          {aiSuggestions.slice(0, 3).map(s => {
             const pes = `${s.label} related to ${s.etiology} as evidenced by ${s.signs}`;
             return (
-              <div key={i} className="bg-white border border-warm-200 rounded-2xl p-5 shadow-sm space-y-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="space-y-1">
-                    <DomainBadge domain={s.domain} />
-                    <span className="block text-xs font-bold text-orange-500 uppercase tracking-wider">AI Generated</span>
-                  </div>
-                  {s.confidence !== undefined && (
-                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${
-                      s.confidence > 0.8 ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
-                      s.confidence >= 0.5 ? "bg-amber-50 text-amber-700 border-amber-200" :
-                      "bg-red-50 text-red-700 border-red-200"
-                    }`}>
-                      {Math.round(s.confidence * 100)}% confidence
-                    </span>
-                  )}
+              <div key={s.candidate_id} className="bg-white border border-warm-200 rounded-2xl p-5 shadow-sm space-y-3">
+                <div className="space-y-1">
+                  <DomainBadge domain={s.domain} />
+                  <span className="block text-xs font-bold text-orange-500 uppercase tracking-wider">Draft for RND review</span>
                 </div>
                 <div className="space-y-2 text-sm">
                   <div><span className="font-bold text-sky-600">P:</span> <span className="text-warm-700">{s.label}</span></div>
@@ -1044,13 +1058,25 @@ export default function NcpDiagnosisPage({
                   <span className="text-xs font-bold text-warm-400 uppercase tracking-wider block mb-1">PES Statement</span>
                   <p className="text-xs font-medium text-warm-800 italic leading-relaxed">{pes}</p>
                 </div>
-                {s.reasoning && (
-                  <p className="text-xs text-warm-500 leading-relaxed">{s.reasoning}</p>
-                )}
-                <div className="flex items-center gap-2 pt-1 border-t border-warm-100">
+                <div className="grid gap-3 rounded-lg border border-warm-100 bg-warm-50 p-3 text-xs text-warm-600 sm:grid-cols-2">
+                  <div>
+                    <span className="mb-1 block font-bold uppercase tracking-wider text-warm-500">Evidence used</span>
+                    <ul className="list-disc space-y-1 pl-4">
+                      {s.evidence_used.map(item => <li key={item}>{item}</li>)}
+                    </ul>
+                  </div>
+                  <div>
+                    <span className="mb-1 block font-bold uppercase tracking-wider text-warm-500">Source</span>
+                    <a href={s.source.url} target="_blank" rel="noreferrer" className="font-semibold text-emerald-700 hover:underline">
+                      {s.source.issuer} · {s.source.title}
+                    </a>
+                    <p>{s.source.version} · {s.source.location}</p>
+                  </div>
+                </div>
+                <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-warm-100">
                   <button
                     type="button"
-                    onClick={() => handleAiAccept(s, i)}
+                    onClick={() => handleAiAccept(s)}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold uppercase tracking-wider rounded-lg transition-colors cursor-pointer"
                   >
                     <CheckCheck className="h-3 w-3" /> Accept
@@ -1064,10 +1090,11 @@ export default function NcpDiagnosisPage({
                   </button>
                   <button
                     type="button"
-                    onClick={() => setAiDismissed(prev => new Set([...prev, i]))}
+                    onClick={() => handleAiDismiss(s)}
+                    disabled={aiLoading}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-warm-100 hover:bg-warm-200 text-warm-600 text-xs font-bold uppercase tracking-wider rounded-lg transition-colors cursor-pointer"
                   >
-                    <X className="h-3 w-3" /> Reject
+                    <X className="h-3 w-3" /> Dismiss
                   </button>
                 </div>
               </div>
