@@ -64,6 +64,25 @@ export default function PrescriptionCalculationPanel({ trace, expanded, onToggle
             </dl>
           </section>
 
+          {trace.maternalModifier && (
+            <section aria-labelledby={`${panelId}-maternal`} className="rounded-lg border border-brand-orange-200 bg-brand-orange-50 p-3">
+              <h4 id={`${panelId}-maternal`} className="text-xs font-extrabold uppercase tracking-wider text-brand-orange-700">
+                Maternal modifier
+              </h4>
+              <p className="mt-2 text-sm text-brand-orange-900">
+                <span className="font-bold">Goal-calculated baseline:</span> {trace.maternalModifier.baseline}
+                <span className="mx-1">+</span>
+                <span className="font-bold">Modifier:</span> {trace.maternalModifier.modifier}
+                <span className="mx-1">=</span>
+                <span className="font-bold">Final:</span> {trace.maternalModifier.final}
+              </p>
+              <p className="mt-1 text-xs text-brand-orange-800">
+                {trace.maternalModifier.status} · {trace.maternalModifier.sourceLabel}
+              </p>
+              <p className="mt-1 text-xs text-brand-orange-800">Water guidance: {trace.maternalModifier.waterGuidance}.</p>
+            </section>
+          )}
+
           <section aria-labelledby={`${panelId}-prescription`}>
             <h4 id={`${panelId}-prescription`} className="text-xs font-extrabold uppercase tracking-wider text-warm-500">
               Nutrition Prescription

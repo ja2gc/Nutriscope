@@ -136,7 +136,7 @@ describe("buildPrescriptionCalculationTrace", () => {
       sex: "Female",
       isAdult: true,
       activityFactor: 1.3,
-      pregnancyLactationStatus: "pregnant",
+      pregnancyLactationStatus: "pregnant_t2",
     };
     const calculated = buildPrescriptionCalculationTrace({
       goalType: "diabetic_control",
@@ -153,7 +153,11 @@ describe("buildPrescriptionCalculationTrace", () => {
       },
     });
 
-    expect(calculated.context).toContainEqual({ label: "Pregnancy / Lactation", value: "Pregnant" });
+    expect(calculated.context).toContainEqual({ label: "Pregnancy / Lactation", value: "Pregnant — second trimester" });
+    expect(calculated.maternalModifier).toMatchObject({
+      status: "Pregnant — second trimester",
+      sourceLabel: "FNRI-DOST PDRI 2015 Summary Tables 1–2 (revised September 2018)",
+    });
     expect(calculated.targets.find((row) => row.key === "energy_kcal")?.formula).toContain("energy add-on");
     expect(calculated.targets.find((row) => row.key === "energy_kcal")?.calculation).toContain("+ 300");
     expect(calculated.targets.find((row) => row.key === "protein_g")?.calculation).toContain("+ 27");

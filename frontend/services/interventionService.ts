@@ -77,7 +77,14 @@ export interface AutofillResult {
   fiber_g?: number;
   sodium_max_mg?: number;
   free_sugar_max_pct?: number;
-  calculation_status?: "ok" | "warning" | "incomplete" | "invalid_goal_stage";
+  maternal_modifier?: {
+    status: string;
+    baseline: { energy_kcal: number; protein_g: number; fluid_ml: number };
+    modifier: { energy_kcal: number; protein_g: number; water_guidance_ml: number };
+    final: { energy_kcal: number; protein_g: number; fluid_ml: number };
+    source_key: string;
+  };
+  calculation_status?: "ok" | "warning" | "incomplete" | "invalid_goal_stage" | "maternal_status_confirmation_required";
   safety_warnings?: { key: string; severity: "warning" | "critical"; message: string }[];
   note?: string;
 }

@@ -102,3 +102,7 @@ export const GOALS: GoalOption[] = [
     description: "Manual nutrient targets set by RND",
   },
 ];
+
+export function visibleStagesForGoal(goalValue: string): GoalOption["stages"] | null {
+  return GOALS.find((goal) => goal.value === goalValue)?.stages ?? null;
+}

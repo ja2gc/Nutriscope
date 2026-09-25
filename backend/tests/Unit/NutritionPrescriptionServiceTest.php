@@ -123,4 +123,26 @@ class NutritionPrescriptionServiceTest extends TestCase
         $this->assertArrayNotHasKey('target_energy_kcal_range', $rx);
         $this->assertStringNotContainsStringIgnoringCase('refeeding', $rx['note'] ?? '');
     }
+
+    public function test_first_trimester_adds_protein_without_changing_energy(): void
+    {
+        $service = new NutritionPrescriptionService;
+        $metrics = [
+            'weightKg' => 60.0,
+            'heightCm' => 160.0,
+            'ageYears' => 30,
+            'sex' => 'Female',
+            'isAdult' => true,
+            'activityFactor' => 1.2,
+        ];
+        $baseline = $service->autofill('diabetic_control', 'stage_1', $metrics);
+        $maternal = $service->autofill('diabetic_control', 'stage_1', [
+            ...$metrics,
+            'pregnancyLactationStatus' => 'pregnant_t1',
+        ]);
+
+        $this->assertSame($baseline['energy_kcal'], $maternal['energy_kcal']);
+        $this->assertSame($baseline['protein_g'] + 27, $maternal['protein_g']);
+        $this->assertSame(['energy_kcal' => 0, 'protein_g' => 27, 'water_guidance_ml' => 300], $maternal['maternal_modifier']['modifier']);
+    }
 }

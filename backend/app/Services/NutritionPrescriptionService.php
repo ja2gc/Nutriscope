@@ -15,6 +15,8 @@ namespace App\Services;
  */
 class NutritionPrescriptionService
 {
+    public const MATERNAL_SOURCE_KEY = 'FNRI_PDRI_2015_REV_2018_SUMMARY_TABLES';
+
     private const FLUID_FACTOR_ML_PER_KG = 32.5;
 
     private const CALORIC_FLOOR = ['Female' => 1200, 'Male' => 1500];
@@ -154,8 +156,9 @@ class NutritionPrescriptionService
      *   pregnancyLactationStatus?: string,
      * }  $m
      *
-     * pregnancyLactationStatus (optional, Phase 5.3):
-     *   'pregnant'  — 2nd/3rd trimester: +300 kcal/day, +27 g protein (PDRI)
+     * pregnancyLactationStatus (optional):
+     *   'pregnant_t1' — +0 kcal/day, +27 g protein (PDRI)
+     *   'pregnant_t2' / 'pregnant_t3' — +300 kcal/day, +27 g protein (PDRI)
      *   'lactating' — +500 kcal/day, +27 g protein (PDRI)
      *   null / 'none' / missing — no adjustment (default; all 90 golden cases use this path)
      *
@@ -179,32 +182,49 @@ class NutritionPrescriptionService
 
         $result = $this->computeGoal($goalType, $stage, $m, $pal, $ibw, $working, $bmrWt, $tee, $stdFluid, $floor);
 
-        // ── Phase 5.3: Pregnancy / lactation PDRI adjustment ──────────────────
-        // GATED: only applied when the key is explicitly present and non-null/non-'none'.
-        // Golden cases do NOT set this key → they are unaffected.
         $pregnancyStatus = $m['pregnancyLactationStatus'] ?? null;
-        if ($pregnancyStatus && $pregnancyStatus !== 'none') {
-            [$energyAdj, $proteinAdj] = match ($pregnancyStatus) {
-                'pregnant' => [300, 27],
-                'lactating' => [500, 27],
-                default => [0, 0],
+        // FNRI_PDRI_2015_REV_2018_SUMMARY_TABLES: Summary Tables 1–2, PDF pages 1–2.
+        $modifier = match ($pregnancyStatus) {
+            'pregnant_t1' => ['energy_kcal' => 0, 'protein_g' => 27, 'water_guidance_ml' => 300],
+            'pregnant_t2', 'pregnant_t3' => ['energy_kcal' => 300, 'protein_g' => 27, 'water_guidance_ml' => 300],
+            'lactating' => ['energy_kcal' => 500, 'protein_g' => 27, 'water_guidance_ml' => 700],
+            default => null,
+        };
+        if ($modifier !== null) {
+            $baseline = [
+                'energy_kcal' => $result['energy_kcal'],
+                'protein_g' => $result['protein_g'],
+                'fluid_ml' => $result['fluid_ml'],
+            ];
+            $fatPct = $result['fat_g'] > 0
+                ? ($result['fat_g'] * 9) / max($result['energy_kcal'], 1)
+                : 0.25;
+            $result['energy_kcal'] += $modifier['energy_kcal'];
+            $result['protein_g'] += $modifier['protein_g'];
+            $recalculatedMacros = $this->macros($result['energy_kcal'], $result['protein_g'], $fatPct);
+            $result['carbs_g'] = $recalculatedMacros['carbs_g'];
+            $result['fat_g'] = $recalculatedMacros['fat_g'];
+
+            $label = match ($pregnancyStatus) {
+                'pregnant_t1' => 'Pregnant — first trimester',
+                'pregnant_t2' => 'Pregnant — second trimester',
+                'pregnant_t3' => 'Pregnant — third trimester',
+                default => 'Lactating',
             };
-            if ($energyAdj > 0 || $proteinAdj > 0) {
-                $newEnergy = $result['energy_kcal'] + $energyAdj;
-                $newProtein = $result['protein_g'] + $proteinAdj;
-                $result['energy_kcal'] = $newEnergy;
-                $result['protein_g'] = $newProtein;
-                // Recompute macros to keep fat/carb consistent with the new energy
-                $currentFatPct = $result['fat_g'] > 0
-                    ? ($result['fat_g'] * 9) / max($result['energy_kcal'] - $energyAdj, 1)
-                    : 0.25;
-                $recalc = $this->macros($newEnergy, $newProtein, $currentFatPct);
-                $result['carbs_g'] = $recalc['carbs_g'];
-                $result['fat_g'] = $recalc['fat_g'];
-                $existingNote = $result['note'] ?? '';
-                $adjNote = ucfirst($pregnancyStatus)." adjustment applied: +{$energyAdj} kcal, +{$proteinAdj} g protein (PDRI).";
-                $result['note'] = $existingNote ? $existingNote.' '.$adjNote : $adjNote;
-            }
+            $existingNote = $result['note'] ?? '';
+            $maternalNote = "{$label}: +{$modifier['energy_kcal']} kcal and +{$modifier['protein_g']} g protein applied (PDRI).";
+            $result['note'] = $existingNote ? $existingNote.' '.$maternalNote : $maternalNote;
+            $result['maternal_modifier'] = [
+                'status' => $pregnancyStatus,
+                'baseline' => $baseline,
+                'modifier' => $modifier,
+                'final' => [
+                    'energy_kcal' => $result['energy_kcal'],
+                    'protein_g' => $result['protein_g'],
+                    'fluid_ml' => $result['fluid_ml'],
+                ],
+                'source_key' => self::MATERNAL_SOURCE_KEY,
+            ];
         }
 
         return $result;

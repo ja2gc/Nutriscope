@@ -14,7 +14,7 @@ use PHPUnit\Framework\TestCase as BaseTestCase;
  *   5.2  PAL normalisation map (Activity::normalizedActivityLevel)
  *   5.3  Pregnancy / lactation PDRI adjustment in NutritionPrescriptionService
  *        — Golden gate: none/missing pregnancyLactationStatus → no change
- *        — Pregnant adjustment: +300 kcal, +27 g protein
+ *        — Trimester-specific pregnancy adjustments
  *        — Lactating adjustment: +500 kcal, +27 g protein
  */
 class AssessmentPhase5Test extends BaseTestCase
@@ -115,36 +115,29 @@ class AssessmentPhase5Test extends BaseTestCase
         $this->assertSame($base['protein_g'], $withNone['protein_g']);
     }
 
-    public function test_pregnant_adds_300_kcal_and_27g_protein(): void
+    public function test_confirmed_maternal_statuses_apply_sourced_modifiers_and_trace(): void
     {
         $svc = new NutritionPrescriptionService;
         $base = $svc->autofill('default', null, $this->baseMetrics());
 
-        $pregnant = $svc->autofill('default', null, array_merge(
-            $this->baseMetrics(),
-            ['pregnancyLactationStatus' => 'pregnant']
-        ));
+        foreach ([
+            'pregnant_t1' => [0, 27],
+            'pregnant_t2' => [300, 27],
+            'pregnant_t3' => [300, 27],
+            'lactating' => [500, 27],
+        ] as $status => [$energyModifier, $proteinModifier]) {
+            $result = $svc->autofill('default', null, array_merge(
+                $this->baseMetrics(),
+                ['pregnancyLactationStatus' => $status]
+            ));
 
-        $this->assertSame($base['energy_kcal'] + 300, $pregnant['energy_kcal'],
-            'Pregnant should add +300 kcal');
-        $this->assertSame($base['protein_g'] + 27, $pregnant['protein_g'],
-            'Pregnant should add +27 g protein');
-    }
-
-    public function test_lactating_adds_500_kcal_and_27g_protein(): void
-    {
-        $svc = new NutritionPrescriptionService;
-        $base = $svc->autofill('default', null, $this->baseMetrics());
-
-        $lactating = $svc->autofill('default', null, array_merge(
-            $this->baseMetrics(),
-            ['pregnancyLactationStatus' => 'lactating']
-        ));
-
-        $this->assertSame($base['energy_kcal'] + 500, $lactating['energy_kcal'],
-            'Lactating should add +500 kcal');
-        $this->assertSame($base['protein_g'] + 27, $lactating['protein_g'],
-            'Lactating should add +27 g protein');
+            $this->assertSame($base['energy_kcal'] + $energyModifier, $result['energy_kcal'], $status);
+            $this->assertSame($base['protein_g'] + $proteinModifier, $result['protein_g'], $status);
+            $this->assertSame($base['energy_kcal'], $result['maternal_modifier']['baseline']['energy_kcal']);
+            $this->assertSame($energyModifier, $result['maternal_modifier']['modifier']['energy_kcal']);
+            $this->assertSame($result['energy_kcal'], $result['maternal_modifier']['final']['energy_kcal']);
+            $this->assertSame('FNRI_PDRI_2015_REV_2018_SUMMARY_TABLES', $result['maternal_modifier']['source_key']);
+        }
     }
 
     public function test_pregnancy_note_appended_to_result(): void
@@ -152,11 +145,11 @@ class AssessmentPhase5Test extends BaseTestCase
         $svc = new NutritionPrescriptionService;
         $result = $svc->autofill('default', null, array_merge(
             $this->baseMetrics(),
-            ['pregnancyLactationStatus' => 'pregnant']
+            ['pregnancyLactationStatus' => 'pregnant_t2']
         ));
 
         $this->assertArrayHasKey('note', $result);
-        $this->assertStringContainsString('Pregnant adjustment applied', $result['note']);
+        $this->assertStringContainsString('Pregnant — second trimester', $result['note']);
         $this->assertStringContainsString('+300 kcal', $result['note']);
         $this->assertStringContainsString('+27 g protein', $result['note']);
     }
@@ -170,7 +163,7 @@ class AssessmentPhase5Test extends BaseTestCase
         ));
 
         $this->assertArrayHasKey('note', $result);
-        $this->assertStringContainsString('Lactating adjustment applied', $result['note']);
+        $this->assertStringContainsString('Lactating:', $result['note']);
         $this->assertStringContainsString('+500 kcal', $result['note']);
     }
 
@@ -180,11 +173,11 @@ class AssessmentPhase5Test extends BaseTestCase
         $svc = new NutritionPrescriptionService;
         $result = $svc->autofill('liver_disease', null, array_merge(
             $this->baseMetrics(),
-            ['pregnancyLactationStatus' => 'pregnant']
+            ['pregnancyLactationStatus' => 'pregnant_t2']
         ));
 
         $this->assertStringContainsString('late-evening snack', strtolower($result['note']));
-        $this->assertStringContainsString('Pregnant adjustment applied', $result['note']);
+        $this->assertStringContainsString('Pregnant — second trimester', $result['note']);
     }
 
     public function test_pregnancy_macros_remain_self_consistent(): void
@@ -192,7 +185,7 @@ class AssessmentPhase5Test extends BaseTestCase
         $svc = new NutritionPrescriptionService;
         $result = $svc->autofill('default', null, array_merge(
             $this->baseMetrics(),
-            ['pregnancyLactationStatus' => 'pregnant']
+            ['pregnancyLactationStatus' => 'pregnant_t2']
         ));
 
         // carbs_g*4 + fat_g*9 + protein_g*4 should approximately equal energy_kcal (±5%)
@@ -200,6 +193,30 @@ class AssessmentPhase5Test extends BaseTestCase
         $this->assertEqualsWithDelta($result['energy_kcal'], $reconstructed,
             $result['energy_kcal'] * 0.05,
             'Macro totals should reconstruct energy within 5%');
+    }
+
+    public function test_maternal_modifier_preserves_goal_restricted_fluid_and_recalculates_macros(): void
+    {
+        $svc = new NutritionPrescriptionService;
+        $result = $svc->autofill('cardiac_diet', 'severe', array_merge(
+            $this->baseMetrics(),
+            ['pregnancyLactationStatus' => 'pregnant_t2']
+        ));
+
+        $this->assertSame(1500, $result['fluid_ml']);
+        $this->assertSame(1500, $result['maternal_modifier']['baseline']['fluid_ml']);
+        $this->assertSame(1500, $result['maternal_modifier']['final']['fluid_ml']);
+        $reconstructed = $result['carbs_g'] * 4 + $result['fat_g'] * 9 + $result['protein_g'] * 4;
+        $this->assertEqualsWithDelta($result['energy_kcal'], $reconstructed, $result['energy_kcal'] * 0.05);
+    }
+
+    public function test_stress_factor_input_does_not_change_tee(): void
+    {
+        $svc = new NutritionPrescriptionService;
+        $baseline = $svc->autofill('default', null, $this->baseMetrics());
+        $withLegacyStress = $svc->autofill('default', null, array_merge($this->baseMetrics(), ['stressFactor' => 2.0]));
+
+        $this->assertSame($baseline, $withLegacyStress);
     }
 
     public function test_golden_cases_unaffected_no_pregnancy_key(): void

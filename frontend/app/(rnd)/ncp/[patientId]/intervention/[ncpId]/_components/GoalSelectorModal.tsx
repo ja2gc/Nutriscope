@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/Button";
 // imports (`import GoalSelectorModal, { GOALS } from ".../GoalSelectorModal"`) keep working.
 export { GOALS } from "./goals";
 export type { GoalOption } from "./goals";
-import { GOALS } from "./goals";
+import { GOALS, visibleStagesForGoal } from "./goals";
 
 interface Props {
   onConfirm: (goalType: string, stage: string | null) => void;
@@ -29,6 +29,7 @@ export default function GoalSelectorModal({ onConfirm, onClose, initialGoal, ini
   const [stage, setStage]       = useState<string>(initialStage ?? "");
 
   const goal = GOALS.find((g) => g.value === selected);
+  const visibleStages = visibleStagesForGoal(selected);
 
   const handleConfirm = () => {
     if (!selected) return;
@@ -74,7 +75,7 @@ export default function GoalSelectorModal({ onConfirm, onClose, initialGoal, ini
           </div>
 
           {/* Stage selector — progressive disclosure */}
-          {goal?.stages && (
+          {visibleStages && (
             <div className="pt-2 transition-all duration-150">
               <p className="text-xs font-bold text-warm-400 uppercase tracking-widest mb-2">
                 Disease Stage / Severity
@@ -84,7 +85,7 @@ export default function GoalSelectorModal({ onConfirm, onClose, initialGoal, ini
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {goal.stages.map((s) => (
+                  {visibleStages.map((s) => (
                     <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
                   ))}
                 </SelectContent>
@@ -102,7 +103,7 @@ export default function GoalSelectorModal({ onConfirm, onClose, initialGoal, ini
           <Button
             variant="primary"
             onClick={handleConfirm}
-            disabled={!selected || (!!goal?.stages && !stage)}
+            disabled={!selected || (!!visibleStages && !stage)}
             className="w-auto px-5 py-2 text-sm"
           >
             Save Goal

@@ -197,8 +197,7 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
           // PDRI pregnancy/lactation add-on — keeps the live preview in step with
           // the backend engine (which reads the same assessment field).
           pregnancyLactationStatus:
-            (a.pregnancy_lactation_status as "none" | "pregnant" | "lactating") ?? "none",
-          stressFactor: a.stress_factor != null ? parseFloat(String(a.stress_factor)) : undefined,
+            a.pregnancy_lactation_status ?? "none",
         });
       }
       if (a?.food_dislikes && Array.isArray(a.food_dislikes)) {
@@ -261,7 +260,7 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
       // [1] Instant TS preview (frontend mirror — for responsiveness only).
       let preview: Prescription | null = null;
       let finalForm = buildGoalPrescriptionForm(goalType, null);
-      if (patientMetrics) {
+      if (patientMetrics && patientMetrics.pregnancyLactationStatus !== "pregnant_unspecified") {
         preview = autofillPrescription(goalType, stage, patientMetrics);
         setPrescNote(prescriptionNote(preview));
         finalForm = buildGoalPrescriptionForm(goalType, preview);
@@ -383,12 +382,14 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
     .find((g) => g.value === intervention?.goal_type)
     ?.stages?.find((s) => s.value === intervention?.disease_stage)?.label;
   const recommendedPrescription = intervention?.goal_type && intervention.goal_type !== "custom" && patientMetrics
+    && patientMetrics.pregnancyLactationStatus !== "pregnant_unspecified"
     ? autofillPrescription(intervention.goal_type, intervention.disease_stage, patientMetrics)
     : null;
   const requiredMicros = recommendedPrescription
     ? buildGoalPrescriptionForm(intervention?.goal_type ?? "", recommendedPrescription).displayed_nutrients
     : [];
   const calculationTrace = intervention?.goal_type && patientMetrics
+    && patientMetrics.pregnancyLactationStatus !== "pregnant_unspecified"
     ? buildPrescriptionCalculationTrace({
         goalType: intervention.goal_type,
         stage: intervention.disease_stage,

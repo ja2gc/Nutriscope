@@ -166,6 +166,57 @@ class NcpInterventionTest extends TestCase
             ->assertJsonPath('missing_fields', ['physical_activity_level']);
     }
 
+    public function test_autofill_requires_trimester_confirmation_for_legacy_pregnancy(): void
+    {
+        $rnd = $this->rnd();
+        $patient = $this->patient();
+        $ncp = $this->ncpRecord($patient, $rnd);
+        Assessment::forceCreate([
+            'ncp_record_id' => $ncp->id,
+            'weight' => 60.0,
+            'height' => 160.0,
+            'physical_activity_level' => 'sedentary',
+            'pregnancy_lactation_status' => 'pregnant_unspecified',
+        ]);
+
+        $this->actingAs($rnd, 'sanctum')
+            ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/intervention/autofill", [
+                'goal_type' => 'diabetic_control',
+                'disease_stage' => 'stage_1',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath('calculation_status', 'maternal_status_confirmation_required')
+            ->assertJsonPath('missing_fields', ['pregnancy_lactation_status'])
+            ->assertJsonPath('message', 'Confirm the pregnancy trimester before automatic maternal targets are available.');
+    }
+
+    public function test_autofill_returns_authoritative_maternal_trace(): void
+    {
+        $rnd = $this->rnd();
+        $patient = $this->patient();
+        $patient->update(['sex' => 'Female']);
+        $ncp = $this->ncpRecord($patient, $rnd);
+        Assessment::forceCreate([
+            'ncp_record_id' => $ncp->id,
+            'weight' => 60.0,
+            'height' => 160.0,
+            'physical_activity_level' => 'sedentary',
+            'pregnancy_lactation_status' => 'pregnant_t2',
+            'stress_factor' => 2.0,
+        ]);
+
+        $this->actingAs($rnd, 'sanctum')
+            ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/intervention/autofill", [
+                'goal_type' => 'cardiac_diet',
+                'disease_stage' => 'severe',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.maternal_modifier.modifier.energy_kcal', 300)
+            ->assertJsonPath('data.maternal_modifier.modifier.protein_g', 27)
+            ->assertJsonPath('data.maternal_modifier.final.fluid_ml', 1500)
+            ->assertJsonPath('data.maternal_modifier.source_key', 'FNRI_PDRI_2015_REV_2018_SUMMARY_TABLES');
+    }
+
     public function test_autofill_returns_severe_nutrition_lab_warnings_for_low_electrolytes(): void
     {
         $rnd = $this->rnd();

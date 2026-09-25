@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { GOALS } from "./goals";
+import { GOALS, visibleStagesForGoal } from "./goals";
 
 describe("GOALS data", () => {
   test("diabetic_control exposes stage_1/stage_2/stage_3 (engine + doc require them)", () => {
@@ -24,6 +24,16 @@ describe("GOALS data", () => {
       { value: "class_1", label: "Obese Class I (BMI 25-29.9)" },
       { value: "class_2", label: "Obese Class II (BMI 30-34.9)" },
       { value: "class_3", label: "Obese Class II, severe (BMI >=35)" },
+    ]);
+  });
+
+  test("reveals stages only for the selected goal", () => {
+    expect(visibleStagesForGoal("")).toBeNull();
+    expect(visibleStagesForGoal("custom")).toBeNull();
+    expect(visibleStagesForGoal("diabetic_control")?.map((stage) => stage.value)).toEqual([
+      "stage_1",
+      "stage_2",
+      "stage_3",
     ]);
   });
 });

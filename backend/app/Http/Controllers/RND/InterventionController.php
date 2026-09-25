@@ -84,6 +84,14 @@ class InterventionController extends Controller
             ], 422);
         }
 
+        if ($assessment->pregnancy_lactation_status === 'pregnant_unspecified') {
+            return response()->json([
+                'message' => 'Confirm the pregnancy trimester before automatic maternal targets are available.',
+                'missing_fields' => ['pregnancy_lactation_status'],
+                'calculation_status' => 'maternal_status_confirmation_required',
+            ], 422);
+        }
+
         $missingPatientFields = [];
         if (! $patient || ! $patient->dob) {
             $missingPatientFields[] = 'dob';
@@ -105,7 +113,6 @@ class InterventionController extends Controller
         $activityKey = $assessment->normalizedActivityLevel();
         $activityFactor = NutritionPrescriptionService::ACTIVITY_FACTORS[$activityKey] ?? 1.2;
 
-        // Phase 5.3: pass pregnancy/lactation status when present (gate inside service)
         $calculationWeight = $assessment->edema_present
             ? (float) $assessment->dry_weight_kg
             : (float) $assessment->weight;

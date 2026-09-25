@@ -139,7 +139,16 @@ export interface Prescription {
   sodium_max_mg?: number;
   free_sugar_max_pct?: number;
   cholesterol_max_mg?: number;
+  maternal_modifier?: MaternalModifierTrace;
   note?: string;
+}
+
+export interface MaternalModifierTrace {
+  status: Exclude<PatientMetrics["pregnancyLactationStatus"], undefined | "none" | "pregnant_unspecified">;
+  baseline: { energy_kcal: number; protein_g: number; fluid_ml: number };
+  modifier: { energy_kcal: number; protein_g: number; water_guidance_ml: number };
+  final: { energy_kcal: number; protein_g: number; fluid_ml: number };
+  source_key: "FNRI_PDRI_2015_REV_2018_SUMMARY_TABLES";
 }
 
 export interface PatientMetrics {
@@ -150,10 +159,8 @@ export interface PatientMetrics {
   isAdult: boolean;
   /** Activity factor from assessment PAL dropdown. Default 1.2 (sedentary). */
   activityFactor?: number;
-  /** Stress/injury factor (reserved; high_protein flat rate already embeds stress). */
-  stressFactor?: number;
   /** PDRI pregnancy/lactation add-on (mirrors backend NutritionPrescriptionService). */
-  pregnancyLactationStatus?: 'none' | 'pregnant' | 'lactating';
+  pregnancyLactationStatus?: 'none' | 'pregnant_t1' | 'pregnant_t2' | 'pregnant_t3' | 'pregnant_unspecified' | 'lactating';
 }
 
 /**
@@ -175,23 +182,29 @@ export function autofillPrescription(
 
 /**
  * PDRI pregnancy / lactation add-on (mirrors backend exactly):
- *   pregnant  → +300 kcal, +27 g protein
+ *   pregnant_t1 → +0 kcal, +27 g protein
+ *   pregnant_t2 / pregnant_t3 → +300 kcal, +27 g protein
  *   lactating → +500 kcal, +27 g protein
  * Macros are recomputed at the original fat fraction to keep carb/fat consistent.
  */
 function applyPregnancyLactation(rx: Prescription, metrics: PatientMetrics): Prescription {
   const status = metrics.pregnancyLactationStatus;
-  if (!status || status === 'none') return rx;
+  if (!status || status === 'none' || status === 'pregnant_unspecified') return rx;
 
-  const [energyAdj, proteinAdj] = status === 'pregnant' ? [300, 27]
-    : status === 'lactating' ? [500, 27] : [0, 0];
-  if (energyAdj === 0 && proteinAdj === 0) return rx;
+  // FNRI_PDRI_2015_REV_2018_SUMMARY_TABLES: Summary Tables 1–2, PDF pages 1–2.
+  const [energyAdj, proteinAdj, waterGuidanceMl] = status === 'pregnant_t1' ? [0, 27, 300]
+    : status === 'pregnant_t2' || status === 'pregnant_t3' ? [300, 27, 300]
+      : [500, 27, 700];
 
   const newEnergy  = rx.energy_kcal + energyAdj;
   const newProtein = rx.protein_g + proteinAdj;
   const fatPct     = rx.fat_g > 0 ? (rx.fat_g * 9) / Math.max(rx.energy_kcal, 1) : 0.25;
   const recalc     = macrosFromEnergyProtein(newEnergy, newProtein, fatPct);
-  const adjNote    = `${status.charAt(0).toUpperCase()}${status.slice(1)} adjustment applied: +${energyAdj} kcal, +${proteinAdj} g protein (PDRI).`;
+  const statusLabel = status === 'pregnant_t1' ? 'Pregnant — first trimester'
+    : status === 'pregnant_t2' ? 'Pregnant — second trimester'
+      : status === 'pregnant_t3' ? 'Pregnant — third trimester'
+        : 'Lactating';
+  const adjNote = `${statusLabel}: +${energyAdj} kcal and +${proteinAdj} g protein applied (PDRI).`;
 
   return {
     ...rx,
@@ -199,6 +212,13 @@ function applyPregnancyLactation(rx: Prescription, metrics: PatientMetrics): Pre
     protein_g:   newProtein,
     carbs_g:     recalc.carbs_g,
     fat_g:       recalc.fat_g,
+    maternal_modifier: {
+      status,
+      baseline: { energy_kcal: rx.energy_kcal, protein_g: rx.protein_g, fluid_ml: rx.fluid_ml },
+      modifier: { energy_kcal: energyAdj, protein_g: proteinAdj, water_guidance_ml: waterGuidanceMl },
+      final: { energy_kcal: newEnergy, protein_g: newProtein, fluid_ml: rx.fluid_ml },
+      source_key: 'FNRI_PDRI_2015_REV_2018_SUMMARY_TABLES',
+    },
     note: rx.note ? `${rx.note} ${adjNote}` : adjNote,
   };
 }

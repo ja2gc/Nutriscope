@@ -44,6 +44,14 @@ export interface CalculationTargetRow {
 export interface CalculationTrace {
   context: CalculationContextItem[];
   targets: CalculationTargetRow[];
+  maternalModifier?: {
+    status: string;
+    baseline: string;
+    modifier: string;
+    final: string;
+    waterGuidance: string;
+    sourceLabel: string;
+  };
   notes: string[];
 }
 
@@ -83,6 +91,16 @@ export function buildPrescriptionCalculationTrace({
       ...buildMacroRows(goalType, stage, metrics, prescription, calculated),
       ...buildMicroRows(prescription, calculated),
     ],
+    maternalModifier: calculated?.maternal_modifier
+      ? {
+          status: maternalStatusLabel(calculated.maternal_modifier.status),
+          baseline: `${calculated.maternal_modifier.baseline.energy_kcal} kcal + ${calculated.maternal_modifier.baseline.protein_g} g protein`,
+          modifier: `+${calculated.maternal_modifier.modifier.energy_kcal} kcal + ${calculated.maternal_modifier.modifier.protein_g} g protein`,
+          final: `${calculated.maternal_modifier.final.energy_kcal} kcal + ${calculated.maternal_modifier.final.protein_g} g protein`,
+          waterGuidance: `+${calculated.maternal_modifier.modifier.water_guidance_ml} mL/day reference only; fluid target unchanged`,
+          sourceLabel: "FNRI-DOST PDRI 2015 Summary Tables 1–2 (revised September 2018)",
+        }
+      : undefined,
     notes: calculated?.note ? [calculated.note] : [],
   };
 }
@@ -101,7 +119,7 @@ function buildContext(goalLabel: string, stageLabel: string | undefined, metrics
   if (metrics.pregnancyLactationStatus && metrics.pregnancyLactationStatus !== "none") {
     context.push({
       label: "Pregnancy / Lactation",
-      value: metrics.pregnancyLactationStatus === "pregnant" ? "Pregnant" : "Lactating",
+      value: maternalStatusLabel(metrics.pregnancyLactationStatus),
     });
   }
 
@@ -165,9 +183,10 @@ function withPatientAddOn(
   expected: number | undefined,
 ) {
   const status = metrics.pregnancyLactationStatus;
-  if (!status || status === "none" || expected == null) return formula;
+  if (!status || status === "none" || status === "pregnant_unspecified" || expected == null) return formula;
 
-  const addOn = key === "energy_kcal" ? (status === "pregnant" ? 300 : 500) : key === "protein_g" ? 27 : 0;
+  const energyAddOn = status === "pregnant_t1" ? 0 : status === "lactating" ? 500 : 300;
+  const addOn = key === "energy_kcal" ? energyAddOn : key === "protein_g" ? 27 : 0;
   if (addOn === 0) return formula;
 
   const unit = key === "energy_kcal" ? "kcal" : "g";
@@ -179,6 +198,17 @@ function withPatientAddOn(
     variables: `${formula.variables} + pregnancy/lactation ${addOnLabel} add-on`,
     values: `${calculationWithoutResult} + ${addOn} = ${expected} ${unit}`,
   };
+}
+
+function maternalStatusLabel(status: NonNullable<PatientMetrics["pregnancyLactationStatus"]>): string {
+  return {
+    none: "None",
+    pregnant_t1: "Pregnant — first trimester",
+    pregnant_t2: "Pregnant — second trimester",
+    pregnant_t3: "Pregnant — third trimester",
+    pregnant_unspecified: "Pregnant — trimester not confirmed",
+    lactating: "Lactating",
+  }[status];
 }
 
 function buildMicroRows(

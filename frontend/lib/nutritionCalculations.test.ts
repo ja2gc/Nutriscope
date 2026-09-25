@@ -112,19 +112,28 @@ describe('pregnancy / lactation modifier', () => {
     weightKg: 60, heightCm: 160, ageYears: 30, sex: 'Female', isAdult: true, activityFactor: 1.3,
   };
 
-  test('pregnant adds +300 kcal and +27 g protein over baseline', () => {
+  test('applies trimester-specific energy and protein modifiers', () => {
     const none = autofillPrescription('diabetic_control', null, base);
-    const preg = autofillPrescription('diabetic_control', null, { ...base, pregnancyLactationStatus: 'pregnant' });
-    assert.equal(preg.energy_kcal - none.energy_kcal, 300);
-    assert.equal(preg.protein_g - none.protein_g, 27);
-    assert.match(preg.note ?? '', /Pregnant adjustment applied/);
+    for (const [status, energy, protein] of [
+      ['pregnant_t1', 0, 27],
+      ['pregnant_t2', 300, 27],
+      ['pregnant_t3', 300, 27],
+      ['lactating', 500, 27],
+    ] as const) {
+      const result = autofillPrescription('diabetic_control', null, { ...base, pregnancyLactationStatus: status });
+      assert.equal(result.energy_kcal - none.energy_kcal, energy);
+      assert.equal(result.protein_g - none.protein_g, protein);
+      assert.equal(result.maternal_modifier?.source_key, 'FNRI_PDRI_2015_REV_2018_SUMMARY_TABLES');
+      assert.equal(result.maternal_modifier?.modifier.energy_kcal, energy);
+    }
   });
 
-  test('lactating adds +500 kcal and +27 g protein', () => {
-    const none = autofillPrescription('diabetic_control', null, base);
-    const lact = autofillPrescription('diabetic_control', null, { ...base, pregnancyLactationStatus: 'lactating' });
-    assert.equal(lact.energy_kcal - none.energy_kcal, 500);
-    assert.equal(lact.protein_g - none.protein_g, 27);
+  test('preserves restricted fluid and recalculates macros from final targets', () => {
+    const result = autofillPrescription('cardiac_diet', 'severe', { ...base, pregnancyLactationStatus: 'pregnant_t2' });
+    assert.equal(result.fluid_ml, 1500);
+    assert.equal(result.maternal_modifier?.final.fluid_ml, 1500);
+    const reconstructed = result.carbs_g * 4 + result.fat_g * 9 + result.protein_g * 4;
+    assert.ok(Math.abs(reconstructed - result.energy_kcal) <= result.energy_kcal * 0.05);
   });
 
   test("status 'none' leaves the prescription unchanged", () => {
